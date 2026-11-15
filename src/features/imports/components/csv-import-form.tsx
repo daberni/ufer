@@ -7,6 +7,7 @@ import styles from "./csv-import-form.module.css";
 import { ArrowDownToLine } from "lucide-react";
 import { api } from "@/client/api";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
+import { Select } from "@/components/ui/select";
 
 type Props = Pick<DashboardController, "busy" | "importMode" | "setImportMode" | "setNotice" | "state" | "submit">;
 
@@ -45,21 +46,21 @@ export function CsvImportForm({
       <p className={ui["form-description"]}>Import balances or booked transactions into a manual account. Files must use the format below; map bank exports to these columns first.</p>
       <label>
         Import
-        <select value={importMode} onChange={event => setImportMode(event.target.value)}>
+        <Select value={importMode} onChange={event => setImportMode(event.target.value)}>
           <option value="balances">Investment / account balances</option>
           <option value="transactions">Booked transactions</option>
-        </select>
+        </Select>
       </label>
       <label>
         Target account
-        <select name="account_id" required>
+        <Select name="account_id" required>
           <option value="">Select account</option>
           {state?.accounts.filter(account => account.provider === "manual").map(account => (
             <option key={account.id} value={account.id}>
               {account.name} ({account.currency})
             </option>
           ))}
-        </select>
+        </Select>
       </label>
       <label>
         CSV file

@@ -7,6 +7,7 @@ import { Plus } from "lucide-react";
 import { kinds } from "@/features/dashboard/presentation";
 import { api } from "@/client/api";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
+import { Select } from "@/components/ui/select";
 
 type Props = Pick<DashboardController, "busy" | "submit">;
 
@@ -43,13 +44,13 @@ export function CreateAccountForm({
         </label>
         <label>
           Type
-          <select name="kind">
+          <Select name="kind">
             {Object.entries(kinds).map(([key, label]) => (
               <option key={key} value={key}>
                 {label}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
       </div>
       <div className={ui["form-grid"]}>
@@ -65,12 +66,12 @@ export function CreateAccountForm({
         </label>
         <label>
           Currency
-          <select name="currency">
+          <Select name="currency">
             <option>EUR</option>
             <option>USD</option>
             <option>CHF</option>
             <option>GBP</option>
-          </select>
+          </Select>
         </label>
       </div>
       <p className={ui["form-hint"]}>Use a decimal point. Enter outstanding debt as a negative balance.</p>

@@ -6,6 +6,7 @@ import { clsx } from "clsx";
 import { Sparkles } from "lucide-react";
 import { api } from "@/client/api";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
+import { Select } from "@/components/ui/select";
 
 type Props = Pick<DashboardController, "busy" | "state" | "submit">;
 
@@ -49,10 +50,10 @@ export function CreateRuleForm({
       <div className={ui["form-grid"]}>
         <label>
           Match type
-          <select name="mode">
+          <Select name="mode">
             <option value="keyword">Contains keyword</option>
             <option value="regex">Regular expression (RE2)</option>
-          </select>
+          </Select>
         </label>
         <label>
           Priority
@@ -68,13 +69,13 @@ export function CreateRuleForm({
       </div>
       <label>
         Category
-        <select name="category_id" required>
+        <Select name="category_id" required>
           {state?.categories.map(category => (
             <option key={category.id} value={category.id}>
               {category.name}
             </option>
           ))}
-        </select>
+        </Select>
       </label>
       <p className={ui["form-hint"]}>Matches the payee and description without case sensitivity. The first matching rule wins.</p>
       <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={busy}>

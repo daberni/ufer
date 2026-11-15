@@ -1,16 +1,5 @@
 .category-select {
-  font-size: 9px;
-  min-height: 29px;
   max-width: 145px;
-  --select-indicator-inset: 8px;
-  --select-indicator-size: 10px;
-  --select-indicator-gap: 6px;
-  padding-block: 5px;
-  padding-left: 8px;
-  background-color: #f8faf4;
-  border: 1px solid #edf0e5;
-  color: #8b987d;
-  border-radius: 5px;
 }
 @media (max-width: 900px) {
   .category-select {
