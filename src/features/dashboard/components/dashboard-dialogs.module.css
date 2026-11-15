@@ -5,6 +5,7 @@
   border: 1px solid var(--border);
   border-radius: 14px;
   padding: 0;
+  margin: auto;
   width: min(510px, calc(100vw - 30px));
   max-height: 90vh;
   color: var(--ink);
