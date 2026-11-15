@@ -4,43 +4,58 @@
 .sync {
   position: relative;
 }
+.announcer {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
 .popover {
+  --row-height: 28px;
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
   z-index: 20;
-  width: min(320px, calc(100vw - 32px));
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: max-content;
+  max-width: min(360px, calc(100vw - 32px));
+  box-sizing: border-box;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 8px;
   box-shadow: 0 8px 24px #233e3126;
-  padding: 11px 12px;
+  padding: 6px 6px 6px 12px;
   font-size: var(--text-sm);
-  line-height: 1.6;
-}
-.popover.hidden {
-  display: none;
+  line-height: 20px;
 }
 .popover.problem {
   border-color: #efd9d2;
   color: #944a40;
 }
-.message {
+.icon {
   display: flex;
-  align-items: flex-start;
-  gap: 9px;
-}
-.message > svg {
   flex: none;
-  margin-top: 3px;
+  align-items: center;
+  height: var(--row-height);
 }
-.message > div {
+.text {
   flex: 1;
   min-width: 0;
+  padding-block: calc((var(--row-height) - 20px) / 2);
   overflow-wrap: anywhere;
 }
-.message .icon-button {
-  margin: -3px -4px 0 0;
+.text p {
+  margin: 0;
+}
+.popover .dismiss {
+  flex: none;
+  min-width: var(--row-height);
+  min-height: var(--row-height);
+  padding: 0;
 }
 @media (max-width: 900px) {
   .sync > .button {
@@ -66,8 +81,7 @@
     height: 18px;
   }
   .popover {
-    left: 0;
-    width: auto;
+    --row-height: 44px;
     font-size: var(--text-md);
   }
 }
