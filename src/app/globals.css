@@ -110,12 +110,26 @@ input {
   min-height: 41px;
 }
 select {
+  --select-indicator-inset: 12px;
+  --select-indicator-size: 12px;
+  --select-indicator-gap: 8px;
+  appearance: none;
   border: 1px solid var(--border);
-  background: #fff;
+  background-color: #fff;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none' stroke='%237c8781' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right var(--select-indicator-inset) center;
+  background-size: var(--select-indicator-size) var(--select-indicator-size);
   color: var(--ink);
   border-radius: 7px;
-  padding: 10px 12px;
+  padding: 10px
+    calc(
+      var(--select-indicator-inset) + var(--select-indicator-size) +
+        var(--select-indicator-gap)
+    )
+    10px 12px;
   min-height: 41px;
+  text-overflow: ellipsis;
 }
 input::placeholder {
   color: #a0a8a2;
