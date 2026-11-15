@@ -9,6 +9,7 @@ import { Empty } from "@/components/ui/empty-state";
 import { TransactionList } from "@/features/transactions/components/transaction-list";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
 import { Select } from "@/components/ui/select";
+import { useSearchDraft } from "@/features/transactions/use-search-draft";
 
 type Props = Pick<DashboardController, "accountFilter" | "busy" | "categoryFilter" | "changeView" | "page" | "perform" | "search" | "selectedCurrencyAccounts" | "setAccountFilter" | "setCategoryFilter" | "setImportMode" | "setModal" | "setPage" | "setSearch" | "state" | "view" | "visibleTransactions">;
 
@@ -31,6 +32,8 @@ export function TransactionsPanel({
   view,
   visibleTransactions
 }: Props) {
+  const [searchDraft, setSearchDraft] = useSearchDraft(search, setSearch);
+
   if (!state) {
     return null;
   }
@@ -63,20 +66,14 @@ export function TransactionsPanel({
             <input
               aria-label="Search transactions"
               placeholder="Payee or description …"
-              value={search}
-              onChange={event => {
-                setSearch(event.target.value);
-                setPage(1);
-              }}
+              value={searchDraft}
+              onChange={event => setSearchDraft(event.target.value)}
             />
           </label>
           <Select
             aria-label="Account filter"
             value={accountFilter}
-            onChange={event => {
-              setAccountFilter(event.target.value);
-              setPage(1);
-            }}
+            onChange={event => setAccountFilter(event.target.value)}
           >
             <option value="">All accounts</option>
             {selectedCurrencyAccounts.map(account => (
@@ -88,10 +85,7 @@ export function TransactionsPanel({
           <Select
             aria-label="Category filter"
             value={categoryFilter}
-            onChange={event => {
-              setCategoryFilter(event.target.value);
-              setPage(1);
-            }}
+            onChange={event => setCategoryFilter(event.target.value)}
           >
             <option value="">All categories</option>
             <option value="uncategorized">Uncategorized</option>

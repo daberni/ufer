@@ -31,7 +31,7 @@ export async function GET(request: Request) {
     result = error instanceof HttpError ? error.message : "Bank connection failed.";
   }
 
-  const destination = new URL("/", base);
+  const destination = new URL("/connections", base);
 
   destination.searchParams.set("banking", result);
   const response = NextResponse.redirect(destination, 303);

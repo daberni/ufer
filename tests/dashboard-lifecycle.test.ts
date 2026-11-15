@@ -3,6 +3,8 @@ import { test, type TestContext } from "node:test";
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { JSDOM } from "jsdom";
 import { useDashboardData } from "../src/features/dashboard/use-dashboard-data";
+import { currentMonthPeriod } from "../src/features/dashboard/period";
+import type { DashboardQuery } from "../src/features/dashboard/dashboard-location";
 
 function browser(context: TestContext) {
   const dom = new JSDOM("<!doctype html><html><body></body></html>", {
@@ -57,6 +59,25 @@ function browser(context: TestContext) {
 
 const onError = () => {};
 
+function dashboardQuery(currency: string): DashboardQuery {
+  return {
+    period: currentMonthPeriod(),
+    currency,
+    search: "",
+    account: "",
+    category: "",
+    page: 1
+  };
+}
+
+function renderDashboardData() {
+  return renderHook(({ query }) => useDashboardData(query, onError), {
+    initialProps: {
+      query: dashboardQuery("EUR")
+    }
+  });
+}
+
 async function waitForDebounce() {
   await act(async () => {
     await new Promise(resolve => setTimeout(resolve, 200));
@@ -65,7 +86,7 @@ async function waitForDebounce() {
 
 test("a delayed pre-logout response cannot reopen the dashboard or restore financial state", async context => {
   const pending = browser(context);
-  const { result } = renderHook(() => useDashboardData(onError));
+  const { result } = renderDashboardData();
 
   await waitForDebounce();
   assert.equal(pending.length, 1);
@@ -80,7 +101,10 @@ test("a delayed pre-logout response cannot reopen the dashboard or restore finan
 
 test("an older mutation refresh cannot replace the response for newer filters", async context => {
   const pending = browser(context);
-  const { result } = renderHook(() => useDashboardData(onError));
+  const {
+    result,
+    rerender
+  } = renderDashboardData();
 
   await waitForDebounce();
   await act(async () => pending[0].resolve(Response.json({
@@ -91,7 +115,9 @@ test("an older mutation refresh cannot replace the response for newer filters", 
   act(() => {
     refresh = result.current.load();
   });
-  act(() => result.current.setCurrency("USD"));
+  rerender({
+    query: dashboardQuery("USD")
+  });
   await waitForDebounce();
   assert.equal(pending.length, 3);
   await act(async () => pending[2].resolve(Response.json({
@@ -104,13 +130,15 @@ test("an older mutation refresh cannot replace the response for newer filters", 
     await refresh;
   });
 
-  assert.equal(result.current.currency, "USD");
   assert.equal(result.current.state?.currency, "USD");
 });
 
 test("a mutation completed after a filter change refreshes the current filters and current data", async context => {
   const pending = browser(context);
-  const { result } = renderHook(() => useDashboardData(onError));
+  const {
+    result,
+    rerender
+  } = renderDashboardData();
 
   await waitForDebounce();
   await act(async () => pending[0].resolve(Response.json({
@@ -118,7 +146,9 @@ test("a mutation completed after a filter change refreshes the current filters a
   })));
   const refreshFromEarlierAction = result.current.load;
 
-  act(() => result.current.setCurrency("USD"));
+  rerender({
+    query: dashboardQuery("USD")
+  });
   await waitForDebounce();
   await act(async () => pending[1].resolve(Response.json({
     currency: "USD",

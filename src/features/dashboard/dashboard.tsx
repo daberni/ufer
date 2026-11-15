@@ -6,21 +6,18 @@ import { clsx } from "clsx";
 import styles from "./dashboard.module.css";
 import { ArrowRight, Check, CircleHelp, Link2, RefreshCw, X } from "lucide-react";
 import { BrandIcon } from "@/components/branding/brand-icon";
-import { OverviewView } from "@/features/dashboard/components/overview-view";
-import { TransactionsPanel } from "@/features/transactions/components/transactions-panel";
-import { AccountsView } from "@/features/accounts/components/accounts-view";
-import { RulesView } from "@/features/categorization/components/rules-view";
-import { ConnectionsView } from "@/features/banking/components/connections-view";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { AppHeader } from "@/components/layout/app-header";
 import { PageHeading } from "@/features/dashboard/components/page-heading";
-import { PeriodControls } from "@/features/dashboard/components/period-controls";
 import { DashboardDialogs } from "@/features/dashboard/components/dashboard-dialogs";
 import { LoginForm } from "@/features/auth/components/login-form";
-import { useDashboard } from "./use-dashboard";
+import { useDashboardController } from "./dashboard-context";
 
-export default function Dashboard() {
-  const dashboard = useDashboard();
+/** The persistent dashboard shell; the current view route renders inside it. */
+export default function Dashboard({ children }: {
+  children: React.ReactNode
+}) {
+  const dashboard = useDashboardController();
 
   if (dashboard.locked) {
     return (
@@ -36,10 +33,10 @@ export default function Dashboard() {
   return (
     <div className={styles["app-shell"]}>
       <AppSidebar
-        changeView={dashboard.changeView}
         expiring={dashboard.expiring}
         state={dashboard.state}
         view={dashboard.view}
+        viewHref={dashboard.viewHref}
       />
       <div className={styles["main-shell"]}>
         <AppHeader
@@ -97,81 +94,7 @@ export default function Dashboard() {
               Loading dashboard …
             </div>
           ) : (
-            <>
-              {(dashboard.view === "overview" || dashboard.view === "transactions") && (
-                <PeriodControls
-                  currencies={dashboard.currencies}
-                  currency={dashboard.currency}
-                  moveMonth={dashboard.moveMonth}
-                  period={dashboard.period}
-                  selectPeriod={dashboard.selectPeriod}
-                  setCurrency={dashboard.setCurrency}
-                  setPage={dashboard.setPage}
-                  state={dashboard.state}
-                  view={dashboard.view}
-                />
-              )}
-              {dashboard.view === "overview" && (
-                <OverviewView
-                  changeView={dashboard.changeView}
-                  currency={dashboard.currency}
-                  openBank={dashboard.openBank}
-                  selectedCurrencyAccounts={dashboard.selectedCurrencyAccounts}
-                  setModal={dashboard.setModal}
-                  setSelectedAccount={dashboard.setSelectedAccount}
-                  state={dashboard.state}
-                  totalExpenses={dashboard.totalExpenses}
-                  trend={dashboard.trend}
-                  trendMax={dashboard.trendMax}
-                />
-              )}
-              {(dashboard.view === "overview" || dashboard.view === "transactions") && (
-                <TransactionsPanel
-                  accountFilter={dashboard.accountFilter}
-                  busy={dashboard.busy}
-                  categoryFilter={dashboard.categoryFilter}
-                  changeView={dashboard.changeView}
-                  page={dashboard.page}
-                  perform={dashboard.perform}
-                  search={dashboard.search}
-                  selectedCurrencyAccounts={dashboard.selectedCurrencyAccounts}
-                  setAccountFilter={dashboard.setAccountFilter}
-                  setCategoryFilter={dashboard.setCategoryFilter}
-                  setImportMode={dashboard.setImportMode}
-                  setModal={dashboard.setModal}
-                  setPage={dashboard.setPage}
-                  setSearch={dashboard.setSearch}
-                  state={dashboard.state}
-                  view={dashboard.view}
-                  visibleTransactions={dashboard.visibleTransactions}
-                />
-              )}
-              {dashboard.view === "accounts" && (
-                <AccountsView
-                  openBank={dashboard.openBank}
-                  setModal={dashboard.setModal}
-                  setSelectedAccount={dashboard.setSelectedAccount}
-                  state={dashboard.state}
-                />
-              )}
-              {dashboard.view === "rules" && (
-                <RulesView
-                  busy={dashboard.busy}
-                  perform={dashboard.perform}
-                  setModal={dashboard.setModal}
-                  setSelectedCategory={dashboard.setSelectedCategory}
-                  state={dashboard.state}
-                />
-              )}
-              {dashboard.view === "connections" && (
-                <ConnectionsView
-                  busy={dashboard.busy}
-                  openBank={dashboard.openBank}
-                  openConnectionRemoval={dashboard.openConnectionRemoval}
-                  state={dashboard.state}
-                />
-              )}
-            </>
+            children
           )}
           <footer className={styles["page-footer"]}>
             <span>

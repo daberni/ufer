@@ -1,17 +1,56 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useDashboardData } from "./use-dashboard-data";
 import { useBankDirectory } from "@/features/banking/use-bank-directory";
 import { api } from "@/client/api";
 import { navigation } from "./presentation";
-import { monthPeriod } from "./period";
+import { monthPeriod, type Period } from "./period";
+import { dashboardQuery, isPeriodAware, periodScope, viewFromPathname, viewHref as hrefForView, withQueryChanges, type DashboardQueryChanges } from "./dashboard-location";
 import type { Account, Category, View, Modal, Connection, ConnectionRemoval } from "./types";
 
 export function useDashboard() {
-  const [view, setView] = useState<View>("overview");
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const view = viewFromPathname(pathname);
+  const urlScope = periodScope(searchParams);
 
-  const [modal, setModal] = useState<Modal>(null);
+  const [rememberedScope, setRememberedScope] = useState(urlScope);
+
+  // Overview and transactions share the period; other views keep the last one for their links back and their data request.
+  if (isPeriodAware(view) && urlScope !== rememberedScope) {
+    setRememberedScope(urlScope);
+  }
+
+  const scope = isPeriodAware(view) ? urlScope : rememberedScope;
+  const query = dashboardQuery(view, scope, searchParams);
+
+  const [openModal, setOpenModal] = useState<{
+    modal: Modal;
+    pathname: string;
+  }>({
+    modal: null,
+    pathname
+  });
+
+  // A dialog belongs to the view it was opened on; navigating away, including with Back, closes it.
+  if (openModal.modal && openModal.pathname !== pathname) {
+    setOpenModal({
+      modal: null,
+      pathname
+    });
+  }
+
+  const modal = openModal.modal;
+
+  const setModal = useCallback((next: Modal) => {
+    setOpenModal({
+      modal: next,
+      pathname
+    });
+  }, [pathname]);
 
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
 
@@ -26,22 +65,10 @@ export function useDashboard() {
   const {
     state,
     setState,
-    period,
-    selectPeriod,
-    currency,
-    setCurrency,
-    search,
-    setSearch,
-    accountFilter,
-    setAccountFilter,
-    categoryFilter,
-    setCategoryFilter,
-    page,
-    setPage,
     locked,
     setLocked,
     load
-  } = useDashboardData(setError);
+  } = useDashboardData(query, setError);
   const {
     banks,
     setBanks,
@@ -59,21 +86,89 @@ export function useDashboard() {
 
   const [importMode, setImportMode] = useState("balances");
 
+  // The bank callback returns to the connections view with its result, which is shown once and removed from the URL.
   useEffect(() => {
-    const result = new URLSearchParams(window.location.search).get("banking");
+    const params = new URLSearchParams(window.location.search);
+    const result = params.get("banking");
 
-    if (result) {
-      setView("connections");
+    if (!result) {
+      return;
+    }
 
-      if (result === "connected") {
-        setNotice("Bank connected. Select “Sync” to retrieve balances and transactions for the first time.");
-      } else {
-        setError(result);
-      }
+    if (result === "connected") {
+      setNotice("Bank connected. Select “Sync” to retrieve balances and transactions for the first time.");
+    } else {
+      setError(result);
+    }
 
-      window.history.replaceState(null, "", "/");
+    params.delete("banking");
+    const rest = params.toString();
+
+    router.replace(rest ? `${window.location.pathname}?${rest}` : window.location.pathname, {
+      scroll: false
+    });
+  }, [router]);
+
+  // Filter and page changes stay on the current view; typing a search replaces its history entry instead of adding one per keystroke.
+  const updateQuery = useCallback((changes: DashboardQueryChanges, entry: "push" | "replace") => {
+    const current = `${window.location.pathname}${window.location.search}`;
+    const next = withQueryChanges(window.location.pathname, window.location.search, changes);
+
+    if (next === current) {
+      return;
+    }
+
+    if (entry === "push") {
+      window.history.pushState(null, "", next);
+    } else {
+      window.history.replaceState(null, "", next);
     }
   }, []);
+
+  const selectPeriod = useCallback((next: Period) => {
+    updateQuery({
+      period: next,
+      page: 1
+    }, "push");
+  }, [updateQuery]);
+
+  const setCurrency = useCallback((next: string) => {
+    updateQuery({
+      currency: next,
+      page: 1
+    }, "push");
+  }, [updateQuery]);
+
+  const setSearch = useCallback((next: string) => {
+    updateQuery({
+      search: next,
+      page: 1
+    }, "replace");
+  }, [updateQuery]);
+
+  const setAccountFilter = useCallback((next: string) => {
+    updateQuery({
+      account: next,
+      page: 1
+    }, "push");
+  }, [updateQuery]);
+
+  const setCategoryFilter = useCallback((next: string) => {
+    updateQuery({
+      category: next,
+      page: 1
+    }, "push");
+  }, [updateQuery]);
+
+  const setPage = useCallback((next: number) => {
+    updateQuery({
+      page: next
+    }, "push");
+  }, [updateQuery]);
+
+  function viewHref(next: View) {
+    return hrefForView(next, scope);
+  }
 
   async function perform(action: () => Promise<unknown>, success?: string) {
     setBusy(true);
@@ -95,15 +190,12 @@ export function useDashboard() {
   }
 
   function changeView(next: View) {
-    setView(next);
-    setPage(1);
-    window.scrollTo({
-      top: 0,
-      behavior: "instant"
-    });
+    router.push(viewHref(next));
   }
 
   function moveMonth(delta: number) {
+    const period = query.period;
+
     if (period.kind !== "month") {
       return;
     }
@@ -152,6 +244,15 @@ export function useDashboard() {
     }, message);
   }
 
+  const {
+    period,
+    currency,
+    search,
+    account: accountFilter,
+    category: categoryFilter,
+    page
+  } = query;
+
   const currencies = [...new Set(["EUR", ...(state?.accounts.map(account => account.currency) || [])])];
 
   const selectedCurrencyAccounts = state?.accounts.filter(account => account.currency === currency) || [];
@@ -172,7 +273,7 @@ export function useDashboard() {
 
   return {
     view,
-    setView,
+    viewHref,
     state,
     setState,
     period,

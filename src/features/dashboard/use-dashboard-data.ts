@@ -2,47 +2,31 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiError } from "@/client/api";
-import { currentMonthPeriod, serializePeriod, type Period } from "./period";
+import { serializePeriod } from "./period";
+import type { DashboardQuery } from "./dashboard-location";
 import type { State } from "./types";
 
-export function useDashboardData(onError: (message: string) => void) {
+/** Loads the dashboard state for the query that the current URL describes. */
+export function useDashboardData(filters: DashboardQuery, onError: (message: string) => void) {
   const [state, setState] = useState<State | null>(null);
-
-  const [period, setPeriod] = useState<Period>(() => currentMonthPeriod());
-
-  const [currency, setCurrency] = useState("EUR");
-
-  const [search, setSearch] = useState("");
-
-  const [accountFilter, setAccountFilter] = useState("");
-
-  const [categoryFilter, setCategoryFilter] = useState("");
-
-  const [page, setPage] = useState(1);
 
   const [locked, updateLocked] = useState(false);
   const lockedRef = useRef(false);
   const requestVersion = useRef(0);
   const activeRequest = useRef<AbortController | null>(null);
   const query = new URLSearchParams({
-    period: serializePeriod(period),
-    currency,
-    page: String(page),
-    search,
-    account: accountFilter,
-    category: categoryFilter
+    period: serializePeriod(filters.period),
+    currency: filters.currency,
+    page: String(filters.page),
+    search: filters.search,
+    account: filters.account,
+    category: filters.category
   }).toString();
   const latestQuery = useRef(query);
 
   useEffect(() => {
     latestQuery.current = query;
   }, [query]);
-
-  // A different period selects a different result set, so pagination restarts.
-  const selectPeriod = useCallback((next: Period) => {
-    setPeriod(next);
-    setPage(1);
-  }, []);
 
   const invalidateRequests = useCallback(() => {
     requestVersion.current += 1;
@@ -136,18 +120,6 @@ export function useDashboardData(onError: (message: string) => void) {
   return {
     state,
     setState,
-    period,
-    selectPeriod,
-    currency,
-    setCurrency,
-    search,
-    setSearch,
-    accountFilter,
-    setAccountFilter,
-    categoryFilter,
-    setCategoryFilter,
-    page,
-    setPage,
     locked,
     setLocked,
     load
