@@ -7,6 +7,7 @@ import { monthLabel } from "@/features/dashboard/presentation";
 import { money } from "@/lib/money";
 import { Empty } from "@/components/ui/empty-state";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
+import { CategoryMarker } from "@/features/categorization/components/category-marker";
 
 type Props = Pick<DashboardController, "currency" | "month" | "state" | "totalExpenses">;
 
@@ -31,12 +32,7 @@ export function SpendingBreakdown({
           {state.breakdown.slice(0, 5).map(item => (
             <div className={styles["breakdown-row"]} key={item.name}>
               <span>
-                <i
-                  className={ui["legend-dot"]}
-                  style={{
-                    background: item.color
-                  }}
-                />
+                <CategoryMarker icon={item.icon} color={item.color} size="small" />
                 {item.name}
               </span>
               <strong>{money(item.amount, currency)}</strong>

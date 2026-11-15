@@ -55,3 +55,7 @@ Tests cover first creation, foreign-key enforcement, unchanged legacy startup, p
 ## Username/password changeset
 
 Changeset 0001 introduces individual authentication and the constrained installation workspace. Review its exact data effects and activation sequence in [user management](user-management.md#migration-and-rollout). Existing pending bank flows are invalidated and the obsolete installation login counter is dropped. Existing financial records and linked encrypted bank sessions are retained. No existing installation has been migrated by the implementation checks.
+
+## Category icon changeset
+
+Changeset 0002 adds the nullable `categories.icon` column. It stores a stable key from the curated set in [category icons](../src/features/categorization/category-icons.ts), never SVG markup; the application validates keys on create and edit instead of a database constraint, so the set can grow without rebuilding the table. Existing categories, including the seeded defaults, keep `NULL` and render without an icon. No other table or row is changed. The upgraded database requires this application version: an earlier version refuses to start because the recorded history contains an unknown changeset. Roll back by restoring the pre-upgrade backup together with the previous application, which discards changes made after the upgrade, or fix forward with a new changeset. No existing installation has been migrated by the implementation checks.

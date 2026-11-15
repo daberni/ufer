@@ -2,7 +2,8 @@ import { HttpError, ValidationError } from "@/lib/errors";
 import { z } from "zod";
 import { categorize, validatePattern } from "@/lib/rules";
 import { normalizeCategoryName } from "@/lib/category-name";
-import { categoryExists, insertCategory, updateCategory, type CategoryWriteResult } from "./category-repository";
+import { isCategoryIcon } from "@/features/categorization/category-icons";
+import { categoryExists, insertCategory, updateCategory, type CategoryDetails, type CategoryWriteResult } from "./category-repository";
 import { findUncorrectedTransactions, insertRule, listRules, saveRuleAssignments, setRuleEnabled } from "./rule-repository";
 
 const ruleInput = z.object({
@@ -52,10 +53,28 @@ const defaultCategoryColor = "#638777";
 
 const categoryColor = z.string().regex(/^#[0-9a-fA-F]{6}$/, "Color must be a hex value such as #638777.").transform(value => value.toLowerCase());
 
+// An empty form value or null means no icon.
+const categoryIcon = z.string().nullable();
+
 const categoryInput = z.object({
   name: z.string().trim().min(1).max(100).transform(normalizeCategoryName),
-  color: categoryColor
+  color: categoryColor,
+  icon: categoryIcon
 });
+
+function categoryDetails(input: z.infer<typeof categoryInput>): CategoryDetails {
+  const icon = input.icon || null;
+
+  if (icon !== null && !isCategoryIcon(icon)) {
+    throw new ValidationError("Choose one of the available category icons.");
+  }
+
+  return {
+    name: input.name,
+    color: input.color,
+    icon
+  };
+}
 
 function requireSaved(result: CategoryWriteResult) {
   if (result === "name_taken") {
@@ -69,10 +88,11 @@ function requireSaved(result: CategoryWriteResult) {
 
 export async function createCategory(payload: unknown) {
   const input = categoryInput.extend({
-    color: categoryColor.default(defaultCategoryColor)
+    color: categoryColor.default(defaultCategoryColor),
+    icon: categoryIcon.default(null)
   }).parse(payload);
 
-  requireSaved(await insertCategory(input));
+  requireSaved(await insertCategory(categoryDetails(input)));
 
   return {
     ok: true
@@ -82,7 +102,7 @@ export async function createCategory(payload: unknown) {
 export async function updateCategoryDetails(id: string, payload: unknown) {
   const input = categoryInput.parse(payload);
 
-  requireSaved(await updateCategory(id, input));
+  requireSaved(await updateCategory(id, categoryDetails(input)));
 
   return {
     ok: true

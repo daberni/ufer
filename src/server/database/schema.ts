@@ -6,7 +6,8 @@ export const categories = sqliteTable("categories", {
   id: text("id").primaryKey(),
   name: text("name").notNull().unique(),
   color: text("color").notNull(),
-  is_transfer: integer("is_transfer").notNull().default(0)
+  is_transfer: integer("is_transfer").notNull().default(0),
+  icon: text("icon")
 }, table => [check("categories_is_transfer", sql`${table.is_transfer} IN (0,1)`)]);
 
 export const requisitions = sqliteTable("requisitions", {
