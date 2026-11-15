@@ -14,6 +14,8 @@ const successDismissDelay = 8000;
 export function useSyncFeedback(perform: DashboardController["perform"]) {
   const [open, setOpen] = useState(false);
 
+  const [syncing, setSyncing] = useState(false);
+
   const [outcome, setOutcome] = useState<SyncOutcome | null>(null);
 
   const [requestError, setRequestError] = useState("");
@@ -37,28 +39,33 @@ export function useSyncFeedback(perform: DashboardController["perform"]) {
   }, [open]);
 
   useEffect(() => {
-    if (!outcome || hasProblem) {
+    if (!open || syncing || !outcome || hasProblem) {
       return;
     }
 
     const timer = window.setTimeout(() => setOpen(false), successDismissDelay);
 
     return () => window.clearTimeout(timer);
-  }, [outcome, hasProblem]);
+  }, [open, syncing, outcome, hasProblem]);
 
   async function sync() {
     setOpen(true);
+    setSyncing(true);
     setOutcome(null);
     setRequestError("");
 
     // Failures are reported in the popover, so they are not rethrown into the page-level error banner.
-    await perform(async () => {
-      try {
-        setOutcome(await api<SyncOutcome>("sync", {}));
-      } catch (error) {
-        setRequestError(error instanceof Error ? error.message : "Request failed.");
-      }
-    });
+    try {
+      await perform(async () => {
+        try {
+          setOutcome(await api<SyncOutcome>("sync", {}));
+        } catch (error) {
+          setRequestError(error instanceof Error ? error.message : "Request failed.");
+        }
+      });
+    } finally {
+      setSyncing(false);
+    }
   }
 
   function dismiss() {
@@ -67,6 +74,7 @@ export function useSyncFeedback(perform: DashboardController["perform"]) {
 
   return {
     open,
+    syncing,
     outcome,
     requestError,
     hasProblem,

@@ -17,6 +17,7 @@ export function SyncButton({
 }: Props) {
   const {
     open,
+    syncing,
     outcome,
     requestError,
     hasProblem,
@@ -24,9 +25,9 @@ export function SyncButton({
     dismiss
   } = useSyncFeedback(perform);
 
-  const showResult = open && !busy && Boolean(outcome || requestError);
+  const showResult = open && !syncing && Boolean(outcome || requestError);
 
-  const showProgress = open && busy;
+  const showProgress = open && syncing;
 
   const transactionLabel = outcome?.inserted === 1 ? "transaction" : "transactions";
 
