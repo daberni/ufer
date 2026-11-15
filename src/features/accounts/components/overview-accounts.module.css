@@ -34,7 +34,7 @@
   min-width: 19px;
   padding: 3px 5px;
   border-radius: 5px;
-  font-size: 9px;
+  font-size: var(--text-xs);
 }
 .account-strip {
   display: grid;
@@ -58,7 +58,7 @@
   box-shadow: 0 3px 12px #3a4c2a08;
 }
 .account-tile-name {
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 600;
   flex: 1;
   min-width: 0;
@@ -68,7 +68,7 @@
 }
 .account-tile-name small {
   display: block;
-  font-size: 8px;
+  font-size: var(--text-xs);
   color: #9ba28f;
   font-weight: 400;
   margin-top: 5px;
@@ -79,7 +79,7 @@
   display: block;
   width: 100%;
   font-weight: 500;
-  font-size: 21px;
+  font-size: var(--text-xl);
   letter-spacing: -0.7px;
   margin-top: 9px;
 }
@@ -89,7 +89,7 @@
   display: flex;
   align-items: center;
   gap: 5px;
-  font-size: 8px;
+  font-size: var(--text-xs);
   color: #99a18f;
   padding-top: 11px;
   margin-top: 4px;
@@ -118,7 +118,7 @@
 }
 .onboarding p {
   color: #8f9b82;
-  font-size: 11px;
+  font-size: var(--text-xs);
   margin-top: 7px;
   line-height: 1.5;
 }
@@ -154,21 +154,21 @@
     gap: 12px;
   }
   .account-tile-name {
-    font-size: 14px;
+    font-size: var(--text-md);
     white-space: normal;
     overflow-wrap: anywhere;
   }
   .account-tile-name small {
-    font-size: 12px;
+    font-size: var(--text-sm);
     line-height: 1.6;
     white-space: normal;
   }
   .account-tile > strong {
-    font-size: 25px;
+    font-size: var(--text-2xl);
     overflow-wrap: anywhere;
   }
   .account-tile-foot {
-    font-size: 12px;
+    font-size: var(--text-sm);
     flex-wrap: wrap;
   }
   .onboarding {
@@ -176,10 +176,10 @@
     gap: 14px;
   }
   .onboarding h3 {
-    font-size: 16px;
+    font-size: var(--text-md);
   }
   .onboarding p {
-    font-size: 13px;
+    font-size: var(--text-sm);
   }
   .onboarding .button {
     flex: 1 1 100%;

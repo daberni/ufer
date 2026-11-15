@@ -92,3 +92,7 @@ The linter is not proof of architecture or authorization. Review responsibilitie
 ## Next.js generated instructions
 
 Next.js writes the managed “This is NOT the Next.js you know” block in `AGENTS.md`. It instructs coding agents to consult documentation bundled with the installed framework version instead of relying on stale model knowledge. It is not a requirement to use a catch-all API, a particular data model or unusual application architecture. Preserve the managed block; keep Ufer's own rules below it.
+
+## Typography
+
+Font sizes use the rem-based scale in `src/app/globals.css` (`--text-xs` 12px, `--text-sm` 14px, `--text-md` 16px, `--text-lg` 18px, `--text-xl` 20px, `--text-2xl` 24px, `--text-3xl` 32px, `--text-4xl` 44px at the default browser size). Components use these tokens instead of pixel values so browser text-size settings and zoom apply everywhere. Use `--text-md` for primary content and controls, `--text-sm` for secondary text and table headers, and `--text-xs` only for badges, eyebrows and chart ticks. Do not set text below `--text-xs`.

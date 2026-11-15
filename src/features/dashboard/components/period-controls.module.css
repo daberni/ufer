@@ -27,7 +27,7 @@
 .month-label {
   position: relative;
   display: block !important;
-  font-size: 10px !important;
+  font-size: var(--text-xs) !important;
   margin: 0 !important;
   min-width: 115px;
   text-align: center;
@@ -55,7 +55,7 @@
     margin-bottom: 18px;
   }
   .period-bar > div:first-child > .subtle {
-    font-size: 12px;
+    font-size: var(--text-sm);
   }
   .period-controls {
     display: grid;
@@ -68,7 +68,7 @@
   }
   .period-controls > select {
     min-height: 44px;
-    font-size: 16px;
+    font-size: var(--text-md);
     max-width: 90px;
   }
   .month-label {
@@ -77,9 +77,9 @@
     display: flex !important;
     align-items: center;
     justify-content: center;
-    font-size: 14px !important;
+    font-size: var(--text-md) !important;
   }
   .month-label input {
-    font-size: 16px;
+    font-size: var(--text-md);
   }
 }

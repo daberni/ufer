@@ -12,11 +12,11 @@
 }
 .empty h3 {
   font-weight: 500;
-  font-size: 14px;
+  font-size: var(--text-md);
   color: #76866a;
 }
 .empty p {
-  font-size: 11px;
+  font-size: var(--text-xs);
   color: #9aa58c;
   max-width: 370px;
   line-height: 1.8;

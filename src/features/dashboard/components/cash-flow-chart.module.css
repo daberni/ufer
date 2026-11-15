@@ -8,7 +8,7 @@
   display: flex;
   gap: 16px;
   margin-top: 18px;
-  font-size: 9px;
+  font-size: var(--text-xs);
   color: #9ba391;
 }
 .chart-legend > span {
@@ -68,14 +68,14 @@
   background: #bfcbab;
 }
 .bar-group > span {
-  font-size: 8px;
+  font-size: var(--text-xs);
   color: #9aa28f;
   height: 23px;
   padding-top: 13px;
 }
 .chart-empty-note {
   text-align: center;
-  font-size: 10px;
+  font-size: var(--text-xs);
   color: #a0aa96;
   margin-top: 17px;
 }
@@ -91,13 +91,13 @@
 }
 @media (max-width: 760px), (max-width: 900px) and (pointer: coarse) {
   .chart-legend {
-    font-size: 12px;
+    font-size: var(--text-sm);
   }
   .chart-empty-note {
-    font-size: 12px;
+    font-size: var(--text-sm);
   }
   .bar-group > span {
-    font-size: 12px;
+    font-size: var(--text-sm);
   }
   .bar-chart {
     height: 180px;
