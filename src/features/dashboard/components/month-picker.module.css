@@ -1,0 +1,72 @@
+.root {
+  position: relative;
+}
+.trigger {
+  min-width: 115px;
+  min-height: 28px;
+  padding: 0 8px;
+  border-radius: 5px;
+  font-size: var(--text-xs);
+  text-align: center;
+}
+.trigger:hover,
+.trigger[aria-expanded="true"] {
+  background: #e9eee5;
+}
+.popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  width: min(280px, calc(100vw - 32px));
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface);
+  box-shadow: 0 8px 24px #233e3126;
+}
+.year-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.year {
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+}
+.month {
+  min-height: 40px;
+  border-radius: 6px;
+  font-size: var(--text-sm);
+}
+.month:hover {
+  background: #e9eee5;
+}
+.month.current {
+  border: 1px solid var(--green);
+}
+.month.selected {
+  background: var(--green);
+  color: #fff;
+}
+.month.selected:hover {
+  background: var(--dark);
+}
+@media (max-width: 760px), (max-width: 900px) and (pointer: coarse) {
+  .trigger {
+    width: 100%;
+    min-height: 44px;
+    font-size: var(--text-md);
+  }
+  .month {
+    min-height: 44px;
+    font-size: var(--text-md);
+  }
+}
