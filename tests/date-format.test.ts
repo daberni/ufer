@@ -11,10 +11,17 @@ test("date-only values keep their calendar day and show no time or zone", () => 
   assert.match(display.title, /1 March 2026/);
 });
 
-test("timestamps expose the time and timezone in the title", () => {
-  const display = describeDate("2026-03-01T23:30:00.000Z");
+test("timestamp titles name the timezone for a named zone", () => {
+  const display = describeDate("2026-03-01T23:30:00.000Z", "en-GB", "Europe/Vienna");
 
   assert.equal(display.dateTime, "2026-03-01T23:30:00.000Z");
-  assert.match(display.title, /\d{2}:\d{2}:\d{2}/);
-  assert.match(display.title, /(GMT|UTC|[A-Z]{3,5})$/);
+  assert.equal(display.label, "2 Mar");
+  assert.match(display.title, /00:30:00 CET$/);
+});
+
+test("timestamp titles keep the offset for zones without an abbreviation", () => {
+  const display = describeDate("2026-03-01T23:30:00.000Z", "en-GB", "Asia/Kolkata");
+
+  assert.equal(display.label, "2 Mar");
+  assert.match(display.title, /05:00:00 GMT\+5:30$/);
 });

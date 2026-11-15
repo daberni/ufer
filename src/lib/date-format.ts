@@ -14,9 +14,9 @@ export function isDateOnly(value: string) {
 
 // Date-only values (booking and balance dates) are calendar days: they are rendered in UTC so the
 // day never shifts with the viewer's timezone, and the title deliberately carries no time or zone.
-// Timestamps (sync runs, authorization expiry) are rendered in the viewer's timezone, and the title
+// Timestamps (sync runs, authorization expiry) are rendered in the viewer's timezone (or the given one), and the title
 // names that zone because the same instant reads differently elsewhere.
-export function describeDate(value: string, locale = displayLocale): DateDisplay {
+export function describeDate(value: string, locale = displayLocale, timeZone?: string): DateDisplay {
   if (isDateOnly(value)) {
     const day = new Date(`${value}T12:00:00Z`);
 
@@ -40,11 +40,13 @@ export function describeDate(value: string, locale = displayLocale): DateDisplay
     dateTime: instant.toISOString(),
     label: new Intl.DateTimeFormat(locale, {
       day: "numeric",
-      month: "short"
+      month: "short",
+      timeZone
     }).format(instant),
     title: new Intl.DateTimeFormat(locale, {
       dateStyle: "long",
-      timeStyle: "long"
+      timeStyle: "long",
+      timeZone
     }).format(instant)
   };
 }
