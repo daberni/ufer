@@ -119,6 +119,7 @@ export default function Dashboard() {
                 <TransactionsPanel
                   accountFilter={dashboard.accountFilter}
                   categoryFilter={dashboard.categoryFilter}
+                  categorySaves={dashboard.categorySaves}
                   changeView={dashboard.changeView}
                   load={dashboard.load}
                   page={dashboard.page}

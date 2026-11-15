@@ -11,11 +11,12 @@ import type { DashboardController } from "@/features/dashboard/use-dashboard";
 import { Select } from "@/components/ui/select";
 import { useTransactionCategorization } from "@/features/transactions/use-transaction-categorization";
 
-type Props = Pick<DashboardController, "accountFilter" | "categoryFilter" | "changeView" | "load" | "page" | "search" | "selectedCurrencyAccounts" | "setAccountFilter" | "setCategoryFilter" | "setImportMode" | "setModal" | "setPage" | "setSearch" | "setState" | "state" | "view" | "visibleTransactions">;
+type Props = Pick<DashboardController, "accountFilter" | "categoryFilter" | "categorySaves" | "changeView" | "load" | "page" | "search" | "selectedCurrencyAccounts" | "setAccountFilter" | "setCategoryFilter" | "setImportMode" | "setModal" | "setPage" | "setSearch" | "setState" | "state" | "view" | "visibleTransactions">;
 
 export function TransactionsPanel({
   accountFilter,
   categoryFilter,
+  categorySaves,
   changeView,
   load,
   page,
@@ -32,7 +33,7 @@ export function TransactionsPanel({
   view,
   visibleTransactions
 }: Props) {
-  const categorization = useTransactionCategorization({
+  const categorization = useTransactionCategorization(categorySaves, {
     load,
     setState
   });

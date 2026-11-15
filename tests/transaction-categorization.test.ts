@@ -3,6 +3,7 @@ import { test, type TestContext } from "node:test";
 import { useState } from "react";
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { JSDOM } from "jsdom";
+import { createCategorySaves, type CategorySaves } from "../src/features/transactions/category-saves";
 import { useTransactionCategorization } from "../src/features/transactions/use-transaction-categorization";
 import type { State, Transaction } from "../src/features/dashboard/types";
 
@@ -73,7 +74,7 @@ const transaction: Transaction = {
   category_source: "rule"
 };
 
-function renderCategorization() {
+function renderCategorization(saves: CategorySaves = createCategorySaves()) {
   const refreshes: number[] = [];
   const load = async () => {
     refreshes.push(refreshes.length + 1);
@@ -82,7 +83,7 @@ function renderCategorization() {
     const [state, setState] = useState<State | null>({
       transactions: [transaction]
     } as State);
-    const categorization = useTransactionCategorization({
+    const categorization = useTransactionCategorization(saves, {
       load,
       setState
     });
@@ -233,4 +234,42 @@ test("a failed later change keeps the category stored by an earlier change", asy
   assert.equal(result.current.categorization.categoryFor(stored), "leisure");
   assert.equal(result.current.categorization.statusFor(transaction)?.kind, "failed");
   assert.equal(refreshes.length, 1);
+});
+
+test("a row changed again after its view was left and reopened still waits for the earlier save", async context => {
+  const pending = browser(context);
+  const saves = createCategorySaves();
+  const first = renderCategorization(saves);
+
+  act(() => {
+    first.result.current.categorization.changeCategory(transaction, "leisure");
+  });
+  first.unmount();
+
+  const second = renderCategorization(saves);
+
+  assert.equal(second.result.current.categorization.categoryFor(transaction), "leisure");
+  assert.equal(second.result.current.categorization.statusFor(transaction)?.kind, "saving");
+
+  act(() => {
+    second.result.current.categorization.changeCategory(transaction, "transport");
+  });
+
+  assert.equal(pending.length, 1);
+
+  await act(async () => pending[0].resolve(assignment("leisure")));
+
+  assert.equal(pending.length, 2);
+  assert.deepEqual(pending[1].body, {
+    category_id: "transport"
+  });
+  assert.equal(second.result.current.categorization.categoryFor(storedTransaction(second.result.current.state)!), "transport");
+
+  await act(async () => pending[1].resolve(assignment("transport")));
+
+  const stored = storedTransaction(second.result.current.state)!;
+
+  assert.equal(stored.category_id, "transport");
+  assert.equal(second.result.current.categorization.categoryFor(stored), "transport");
+  assert.equal(second.refreshes.length, 1);
 });

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useDashboardData } from "./use-dashboard-data";
 import { useBankDirectory } from "@/features/banking/use-bank-directory";
+import { createCategorySaves } from "@/features/transactions/category-saves";
 import { failureMessage } from "@/client/api";
 import { useActionFeedback, type Feedback } from "@/components/ui/use-action-feedback";
 import { navigation } from "./presentation";
@@ -29,6 +30,9 @@ export function useDashboard() {
   const [selectedConnection, setSelectedConnection] = useState<Connection | null>(null);
 
   const [busy, setBusy] = useState(false);
+
+  // Category saves outlive the transaction views, so a row changed again after navigating still waits for its earlier request.
+  const [categorySaves] = useState(createCategorySaves);
 
   // Page-level overlay for feedback without a surviving trigger, such as a bank callback result.
   const {
@@ -188,6 +192,7 @@ export function useDashboard() {
     selectedConnection,
     busy,
     setBusy,
+    categorySaves,
     loadError,
     feedback,
     reportFeedback,
