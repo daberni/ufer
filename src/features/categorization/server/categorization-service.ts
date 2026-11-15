@@ -1,7 +1,7 @@
 import { HttpError, ValidationError } from "@/lib/errors";
 import { z } from "zod";
 import { categorize, validatePattern } from "@/lib/rules";
-import { categoryExists, categoryNameTaken, insertCategory, updateCategory } from "./category-repository";
+import { categoryExists, insertCategory, listCategoryNames, updateCategory } from "./category-repository";
 import { findUncorrectedTransactions, insertRule, listRules, saveRuleAssignments, setRuleEnabled } from "./rule-repository";
 
 const ruleInput = z.object({
@@ -52,12 +52,20 @@ const defaultCategoryColor = "#638777";
 const categoryColor = z.string().regex(/^#[0-9a-fA-F]{6}$/, "Color must be a hex value such as #638777.").transform(value => value.toLowerCase());
 
 const categoryInput = z.object({
-  name: z.string().trim().min(1).max(100),
+  name: z.string().trim().min(1).max(100).transform(value => value.normalize("NFC")),
   color: categoryColor
 });
 
+// SQLite lower() only folds ASCII, so names are compared in application code.
+function comparableName(name: string) {
+  return name.normalize("NFC").toLocaleLowerCase("und");
+}
+
 async function requireAvailableName(name: string, excludedId?: string) {
-  if (await categoryNameTaken(name, excludedId)) {
+  const existing = await listCategoryNames(excludedId);
+  const comparable = comparableName(name);
+
+  if (existing.some(other => comparableName(other) === comparable)) {
     throw new ValidationError("A category with this name already exists.");
   }
 }

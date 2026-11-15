@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, eq, ne, sql } from "drizzle-orm";
+import { eq, ne } from "drizzle-orm";
 import { database } from "@/server/database/connection";
 import { categories } from "@/server/database/schema";
 
@@ -17,15 +17,13 @@ export async function categoryExists(id: string) {
   return Boolean(result);
 }
 
-export async function categoryNameTaken(name: string, excludedId?: string) {
+export async function listCategoryNames(excludedId?: string) {
   const db = await database();
-  const sameName = sql`lower(${categories.name}) = lower(${name})`;
-  const scope = excludedId ? and(sameName, ne(categories.id, excludedId)) : sameName;
-  const result = await db.select({
-    id: categories.id
-  }).from(categories).where(scope).get();
+  const rows = await db.select({
+    name: categories.name
+  }).from(categories).where(excludedId ? ne(categories.id, excludedId) : undefined);
 
-  return Boolean(result);
+  return rows.map(row => row.name);
 }
 
 export async function insertCategory(details: CategoryDetails) {

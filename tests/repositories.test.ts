@@ -432,6 +432,15 @@ test("category edits keep transaction assignments and rules attached and reject 
   await assert.rejects(createCategory({
     name: "TRANSPORT"
   }), ValidationError);
+  await createCategory({
+    name: "Épargne"
+  });
+  await assert.rejects(createCategory({
+    name: "épargne"
+  }), ValidationError);
+  await assert.rejects(createCategory({
+    name: "ÉPARGNE"
+  }), ValidationError);
   await assert.rejects(updateCategoryDetails("missing", {
     name: "Anything",
     color: "#abcdef"
