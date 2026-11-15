@@ -5,6 +5,7 @@ import type { Database } from "@/server/database/connection";
 import { accountIdentifiers, accounts, requisitions } from "@/server/database/schema";
 import type { BankAccount } from "./enable-banking-client";
 
+// Maps the authorized accounts and links the connection in one transaction; a connection removed meanwhile is never linked.
 export async function saveSessionAccounts(db: Database, environment: string, requisitionId: string, institution: string, bankAccounts: BankAccount[]) {
   await db.transaction(async tx => {
     for (const account of bankAccounts) {
@@ -61,6 +62,16 @@ export async function saveSessionAccounts(db: Database, environment: string, req
         identification_hash: identification,
         account_id: id
       }))).onConflictDoNothing();
+    }
+
+    const linked = await tx.update(requisitions).set({
+      status: "LINKED"
+    }).where(and(eq(requisitions.id, requisitionId), eq(requisitions.environment, environment), eq(requisitions.status, "EXCHANGING"))).returning({
+      id: requisitions.id
+    });
+
+    if (!linked.length) {
+      throw new HttpError(409, "The bank connection was removed during authorization.");
     }
 
     const linkedAccounts = tx.select({

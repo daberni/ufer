@@ -4,17 +4,18 @@ import ui from "../../../components/ui/primitives.module.css";
 
 import { clsx } from "clsx";
 import styles from "./connections-view.module.css";
-import { Landmark, Link2, Plus, ShieldCheck } from "lucide-react";
+import { Landmark, Link2, Plus, ShieldCheck, Trash2 } from "lucide-react";
 import { TimestampValue } from "@/components/ui/date-value";
 import { Empty } from "@/components/ui/empty-state";
 import { BridgeIllustration } from "@/components/branding/illustrations";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
 
-type Props = Pick<DashboardController, "busy" | "openBank" | "state">;
+type Props = Pick<DashboardController, "busy" | "openBank" | "openConnectionRemoval" | "state">;
 
 export function ConnectionsView({
   busy,
   openBank,
+  openConnectionRemoval,
   state
 }: Props) {
   if (!state) {
@@ -61,9 +62,20 @@ export function ConnectionsView({
                   ERROR: "Review",
                   SUPERSEDED: "Superseded"
                 } as Record<string, string>)[connection.status] || connection.status}</span>
-                <button className={clsx(styles["button"], ui["small"])} disabled={busy} onClick={() => openBank(connection)}>
-                  Reconnect
-                </button>
+                <div className={styles["connection-actions"]}>
+                  <button className={clsx(styles["button"], ui["small"])} disabled={busy} onClick={() => openBank(connection)}>
+                    Reconnect
+                  </button>
+                  <button
+                    className={clsx(styles["button"], ui["small"])}
+                    disabled={busy}
+                    onClick={() => openConnectionRemoval(connection)}
+                    aria-label={`Remove ${connection.bank_name} connection`}
+                  >
+                    <Trash2 size={13} />
+                    Remove
+                  </button>
+                </div>
               </div>
             ))}
           </div>
