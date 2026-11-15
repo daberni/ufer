@@ -4,6 +4,9 @@ import ui from "../../../components/ui/primitives.module.css";
 
 import styles from "./period-controls.module.css";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Temporal } from "temporal-polyfill";
+import { describeDate } from "@/lib/date-format";
+import { useDisplayTimeZone } from "@/components/ui/use-display-time-zone";
 import { lastSyncLabel, periodLabel } from "@/features/dashboard/presentation";
 import { allMonthsPeriod, currentMonthPeriod, parsePeriod } from "@/features/dashboard/period";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
@@ -22,17 +25,20 @@ export function PeriodControls({
   state,
   view
 }: Props) {
+  const timeZone = useDisplayTimeZone();
+
   if (!state) {
     return null;
   }
 
   const allMonths = period.kind === "all";
+  const latestSync = state.runs[0];
 
   return (
     <div className={styles["period-bar"]}>
       <div>
         <span className={ui["section-kicker"]}>{view === "overview" ? "NET WORTH & CASH FLOW" : `${state.transactionCount} ${state.transactionCount === 1 ? "TRANSACTION" : "TRANSACTIONS"}`}</span>
-        {view === "overview" && <span className={styles["subtle"]}>{lastSyncLabel(state.runs[0])}</span>}
+        {view === "overview" && <span className={styles["subtle"]} title={latestSync ? describeDate(Temporal.Instant.from(latestSync.started_at).toZonedDateTimeISO(timeZone)).title : undefined}>{lastSyncLabel(latestSync, timeZone)}</span>}
       </div>
       <div className={styles["period-controls"]}>
         <Select
