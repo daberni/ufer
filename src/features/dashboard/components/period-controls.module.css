@@ -57,6 +57,7 @@
     font-size: var(--text-sm);
   }
   .period-controls {
+    position: relative;
     display: grid;
     grid-template-columns: auto 44px minmax(0, 1fr) 44px;
     gap: 3px;

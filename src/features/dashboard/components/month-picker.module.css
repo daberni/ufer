@@ -60,6 +60,16 @@
   background: var(--dark);
 }
 @media (max-width: 760px), (max-width: 900px) and (pointer: coarse) {
+  /* The trigger is an off-center grid cell, so the popover anchors to the positioned period controls instead. */
+  .root {
+    position: static;
+  }
+  .popover {
+    left: 0;
+    right: 0;
+    width: auto;
+    transform: none;
+  }
   .trigger {
     width: 100%;
     min-height: 44px;
