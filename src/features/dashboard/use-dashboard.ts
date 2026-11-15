@@ -5,7 +5,7 @@ import { useDashboardData } from "./use-dashboard-data";
 import { useBankDirectory } from "@/features/banking/use-bank-directory";
 import { api } from "@/client/api";
 import { navigation } from "./presentation";
-import type { Account, View, Modal, Connection, ConnectionRemoval } from "./types";
+import type { Account, Category, View, Modal, Connection, ConnectionRemoval } from "./types";
 
 export function useDashboard() {
   const [view, setView] = useState<View>("overview");
@@ -13,6 +13,8 @@ export function useDashboard() {
   const [modal, setModal] = useState<Modal>(null);
 
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
+
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
 
   const [selectedConnection, setSelectedConnection] = useState<Connection | null>(null);
 
@@ -205,6 +207,8 @@ export function useDashboard() {
     setModal,
     selectedAccount,
     setSelectedAccount,
+    selectedCategory,
+    setSelectedCategory,
     selectedConnection,
     busy,
     setBusy,
