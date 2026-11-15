@@ -1,8 +1,30 @@
+.category {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 100%;
+  vertical-align: middle;
+}
+.icon {
+  display: inline-flex;
+  width: 20px;
+  flex-shrink: 0;
+}
 .category-select {
   max-width: 145px;
 }
 @media (max-width: 900px) {
   .category-select {
     max-width: 130px;
+  }
+}
+@media (max-width: 760px), (max-width: 900px) and (pointer: coarse) {
+  .category {
+    display: flex;
+    width: 100%;
+    gap: 10px;
+  }
+  .icon:empty {
+    display: none;
   }
 }

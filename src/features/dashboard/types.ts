@@ -17,6 +17,7 @@ export type Category = {
   name: string;
   color: string;
   is_transfer: number;
+  icon: string | null;
 };
 
 export type Transaction = {
@@ -40,6 +41,7 @@ export type Rule = {
   priority: number;
   enabled: number;
   category_color: string;
+  category_icon: string | null;
 };
 
 export type Connection = {
@@ -83,6 +85,7 @@ export type State = {
   breakdown: {
     name: string;
     color: string;
+    icon: string | null;
     amount: number;
   }[];
   trend: {
