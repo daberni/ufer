@@ -15,7 +15,7 @@ import { parseBalancesCsv, parseTransactionsCsv } from "../src/lib/import";
 import { encrypt, decrypt } from "../src/server/security/secret-box";
 import { hash } from "../src/server/security/tokens";
 import { requireOrigin } from "../src/server/http/origin";
-import { checkPassword } from "../src/features/auth/server/password-auth-service";
+import { seedActor } from "./fixtures/auth";
 import { completeAuthorization } from "../src/features/banking/server/authorization-service";
 import { syncAccounts } from "../src/features/banking/server/sync-service";
 import { applicationToken, fetchTransactions, type BankTransaction } from "../src/features/banking/server/enable-banking-client";
@@ -265,7 +265,6 @@ test("a second sync cannot acquire an active lease and a previous owner cannot r
   }
 });
 test("cross-site writes are rejected and stored bank secrets authenticate their contents", () => {
-  process.env.SESSION_SECRET = "test-only-secret-with-at-least-32-characters";
   process.env.DATA_ENCRYPTION_KEY = "ab".repeat(32);
   process.env.APP_URL = "http://localhost:3000";
   assert.throws(() => requireOrigin(new Request("http://localhost:3000/api/accounts", {
@@ -383,13 +382,19 @@ test("bank callbacks are browser-bound, single-use and persist encrypted session
   };
 
   try {
+    const actor = await seedActor(await globals.budgetDb);
+
     await client.execute({
-      sql: "INSERT INTO requisitions(id,environment,bank_name,bank_country,state_hash,browser_hash,state_expires_at) VALUES('flow','SANDBOX','Mock','AT',?,?,?)",
+      sql: "INSERT INTO requisitions(id,environment,bank_name,bank_country,state_hash,browser_hash,state_expires_at,workspace_id,initiated_by_user_id,auth_session_id) VALUES('flow','SANDBOX','Mock','AT',?,?,?,'personal','bank-user','bank-session')",
       args: [hash("state"), hash("browser"), "2099-01-01T00:00:00Z"]
     });
-    await assert.rejects(completeAuthorization("state", "wrong-browser", "code"), /another browser/);
+    await assert.rejects(completeAuthorization("state", "wrong-browser", "code", actor), /another browser/);
+    await assert.rejects(completeAuthorization("state", "browser", "code", {
+      ...actor,
+      sessionId: "another-session"
+    }), /another browser/);
     assert.equal(requests, 0);
-    assert.deepEqual(await completeAuthorization("state", "browser", "code"), {
+    assert.deepEqual(await completeAuthorization("state", "browser", "code", actor), {
       accounts: 1
     });
     const row = (await client.execute("SELECT session_cipher,status FROM requisitions WHERE id='flow'")).rows[0];
@@ -397,57 +402,13 @@ test("bank callbacks are browser-bound, single-use and persist encrypted session
     assert.equal(row.status, "LINKED");
     assert.notEqual(row.session_cipher, "test-session");
     assert.equal(decrypt(String(row.session_cipher)), "test-session");
-    await assert.rejects(completeAuthorization("state", "browser", "code"), /already been used/);
+    await assert.rejects(completeAuthorization("state", "browser", "code", actor), /already been used/);
     assert.equal(requests, 1);
     assert.equal((await client.execute("SELECT COUNT(*) AS n FROM accounts")).rows[0].n, 1);
   } finally {
     globals.budgetDb = previousDb;
     globalThis.fetch = previousFetch;
     delete process.env.ENABLE_BANKING_PRIVATE_KEY;
-    client.close();
-  }
-});
-test("login throttling is shared across requests and resets after successful authentication", async () => {
-  const client = await initializeDatabase(createClient({
-    url: ":memory:"
-  }));
-  const globals = globalThis as unknown as {
-    budgetDb?: Promise<Database>;
-  };
-  const previousDb = globals.budgetDb;
-  const previousPassword = process.env.APP_PASSWORD;
-
-  globals.budgetDb = Promise.resolve(drizzle(client, {
-    schema
-  }));
-  process.env.APP_PASSWORD = "test-password";
-  process.env.SESSION_SECRET = "test-only-secret-with-at-least-32-characters";
-
-  try {
-    await assert.rejects(checkPassword("incorrect"), error => (error as {
-      status: number;
-    }).status === 401);
-    await checkPassword("test-password");
-    assert.equal((await client.execute("SELECT COUNT(*) AS n FROM login_attempts")).rows[0].n, 0);
-
-    for (let index = 0; index < 10; index++) {
-      await assert.rejects(checkPassword("incorrect"), error => (error as {
-        status: number;
-      }).status === 401);
-    }
-
-    await assert.rejects(checkPassword("test-password"), error => (error as {
-      status: number;
-    }).status === 429);
-  } finally {
-    globals.budgetDb = previousDb;
-
-    if (previousPassword === undefined) {
-      delete process.env.APP_PASSWORD;
-    } else {
-      process.env.APP_PASSWORD = previousPassword;
-    }
-
     client.close();
   }
 });
