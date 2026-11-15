@@ -27,8 +27,11 @@ export function useSyncFeedback(perform: DashboardController["perform"]) {
       return;
     }
 
+    // An open modal dialog owns Escape; leave the sync result for after it closes.
     function dismissOnEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") {
+      const modalOpen = document.querySelector("dialog[open]") !== null;
+
+      if (event.key === "Escape" && !event.defaultPrevented && !modalOpen) {
         setOpen(false);
       }
     }
