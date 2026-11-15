@@ -10,10 +10,11 @@ import { money } from "@/lib/money";
 import { TransactionCategory } from "@/features/transactions/components/transaction-category";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
 
-type Props = Pick<DashboardController, "busy" | "perform" | "state" | "visibleTransactions">;
+type Props = Pick<DashboardController, "busy" | "loading" | "perform" | "state" | "visibleTransactions">;
 
 export function TransactionList({
   busy,
+  loading,
   perform,
   state,
   visibleTransactions
@@ -21,6 +22,8 @@ export function TransactionList({
   if (!state) {
     return null;
   }
+
+  const skeleton = clsx(loading.transactions && ui["skeleton"]);
 
   return (
     <>
@@ -38,7 +41,7 @@ export function TransactionList({
           <tbody>
             {visibleTransactions?.map(transaction => (
               <tr key={transaction.id}>
-                <td>
+                <td className={skeleton}>
                   <div className={styles["transaction-name"]}>
                     <span className={clsx(styles["transaction-icon"], transaction.amount_minor > 0 ? styles["incoming"] : "")}>{transaction.amount_minor > 0 ? <ArrowDownLeft size={17} /> : <ArrowUpRight size={17} />}</span>
                     <div>
@@ -47,7 +50,7 @@ export function TransactionList({
                     </div>
                   </div>
                 </td>
-                <td>
+                <td className={skeleton}>
                   <TransactionCategory
                     busy={busy}
                     perform={perform}
@@ -56,9 +59,9 @@ export function TransactionList({
                   />
                   {transaction.category_source === "manual" && <span className={styles["manual-dot"]} title="Manually assigned; preserved when syncing and applying rules" />}
                 </td>
-                <td className={ui["muted"]}>{transaction.account_name}</td>
-                <td className={clsx(ui["muted"], styles["nowrap"])}><DateValue value={transaction.booking_date} /></td>
-                <td className={clsx(styles["amount"], styles["align-right"], transaction.amount_minor > 0 ? ui["positive"] : "")}>
+                <td className={clsx(ui["muted"], skeleton)}>{transaction.account_name}</td>
+                <td className={clsx(ui["muted"], styles["nowrap"], skeleton)}><DateValue value={transaction.booking_date} /></td>
+                <td className={clsx(styles["amount"], styles["align-right"], transaction.amount_minor > 0 ? ui["positive"] : "", skeleton)}>
                   {transaction.amount_minor > 0 ? "+" : ""}
                   {money(transaction.amount_minor, transaction.currency)}
                 </td>
@@ -70,7 +73,7 @@ export function TransactionList({
       <ul className={styles["transaction-cards"]} aria-label="Transactions">
         {visibleTransactions?.map(transaction => (
           <li key={transaction.id}>
-            <article className={styles["transaction-card"]}>
+            <article className={clsx(styles["transaction-card"], skeleton)}>
               <div className={styles["transaction-card-meta"]}>
                 <span>{transaction.account_name}</span>
                 <DateValue value={transaction.booking_date} />

@@ -10,13 +10,14 @@ import { TransactionList } from "@/features/transactions/components/transaction-
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
 import { Select } from "@/components/ui/select";
 
-type Props = Pick<DashboardController, "accountFilter" | "busy" | "categoryFilter" | "changeView" | "page" | "perform" | "search" | "selectedCurrencyAccounts" | "setAccountFilter" | "setCategoryFilter" | "setImportMode" | "setModal" | "setPage" | "setSearch" | "state" | "view" | "visibleTransactions">;
+type Props = Pick<DashboardController, "accountFilter" | "busy" | "categoryFilter" | "changeView" | "loading" | "page" | "perform" | "search" | "selectedCurrencyAccounts" | "setAccountFilter" | "setCategoryFilter" | "setImportMode" | "setModal" | "setPage" | "setSearch" | "state" | "view" | "visibleTransactions">;
 
 export function TransactionsPanel({
   accountFilter,
   busy,
   categoryFilter,
   changeView,
+  loading,
   page,
   perform,
   search,
@@ -35,8 +36,10 @@ export function TransactionsPanel({
     return null;
   }
 
+  const skeleton = clsx(loading.transactions && ui["skeleton"]);
+
   return (
-    <section className={clsx(ui["panel"], styles["transaction-panel"])}>
+    <section className={clsx(ui["panel"], styles["transaction-panel"])} aria-busy={loading.transactions}>
       <div className={styles["card-heading"]}>
         <h2>{view === "overview" ? "Recent transactions" : "All transactions"}</h2>
         {view === "overview" ? (
@@ -106,14 +109,19 @@ export function TransactionsPanel({
       {visibleTransactions?.length ? (
         <TransactionList
           busy={busy}
+          loading={loading}
           perform={perform}
           state={state}
           visibleTransactions={visibleTransactions}
         />
-      ) : <Empty title="Your financial history starts here.">Connect a bank account and sync, or import your existing transactions from CSV.</Empty>}
+      ) : (
+        <div className={skeleton}>
+          <Empty title="Your financial history starts here.">Connect a bank account and sync, or import your existing transactions from CSV.</Empty>
+        </div>
+      )}
       {view === "transactions" && state.transactionCount > 50 && (
         <div className={styles["pagination"]}>
-          <span>
+          <span className={skeleton}>
             {(page - 1) * 50 + 1}–{Math.min(page * 50, state.transactionCount)} of {state.transactionCount}
           </span>
           <button className={clsx(styles["button"], ui["small"])} disabled={page === 1} onClick={() => setPage(page - 1)}>

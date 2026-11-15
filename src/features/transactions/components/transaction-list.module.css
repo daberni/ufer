@@ -22,6 +22,7 @@
   border-bottom: 1px solid #eff1e9;
 }
 .table-scroll td {
+  --skeleton-inset: calc(50% - 7px) 17px;
   padding: 15px 17px;
   border-bottom: 1px solid #f0f2eb;
   font-size: var(--text-xs);

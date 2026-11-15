@@ -25,7 +25,7 @@ export function useDashboard() {
 
   const {
     state,
-    setState,
+    loading,
     period,
     selectPeriod,
     currency,
@@ -174,7 +174,7 @@ export function useDashboard() {
     view,
     setView,
     state,
-    setState,
+    loading,
     period,
     selectPeriod,
     currency,

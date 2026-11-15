@@ -7,11 +7,12 @@ import { CashFlowChart } from "@/features/dashboard/components/cash-flow-chart";
 import { SpendingBreakdown } from "@/features/dashboard/components/spending-breakdown";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
 
-type Props = Pick<DashboardController, "changeView" | "currency" | "openBank" | "selectedCurrencyAccounts" | "setModal" | "setSelectedAccount" | "state" | "totalExpenses" | "trend" | "trendMax">;
+type Props = Pick<DashboardController, "changeView" | "currency" | "loading" | "openBank" | "selectedCurrencyAccounts" | "setModal" | "setSelectedAccount" | "state" | "totalExpenses" | "trend" | "trendMax">;
 
 export function OverviewView({
   changeView,
   currency,
+  loading,
   openBank,
   selectedCurrencyAccounts,
   setModal,
@@ -29,6 +30,7 @@ export function OverviewView({
     <>
       <WealthSummary
         currency={currency}
+        loading={loading}
         selectedCurrencyAccounts={selectedCurrencyAccounts}
         state={state}
       />
@@ -42,12 +44,14 @@ export function OverviewView({
       <div className={styles["analytics-grid"]}>
         <CashFlowChart
           currency={currency}
+          loading={loading}
           state={state}
           trend={trend}
           trendMax={trendMax}
         />
         <SpendingBreakdown
           currency={currency}
+          loading={loading}
           state={state}
           totalExpenses={totalExpenses}
         />

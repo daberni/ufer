@@ -5,8 +5,33 @@ import { apiError } from "@/client/api";
 import { currentMonthPeriod, serializePeriod, type Period } from "./period";
 import type { State } from "./types";
 
+/** The request parameters that select a dashboard response, in their query form. */
+type DashboardQuery = {
+  period: string;
+  currency: string;
+  page: string;
+  search: string;
+  account: string;
+  category: string;
+};
+
+/**
+ * Result areas whose loaded values no longer match the selected filters. Each area depends only on the filters that change its server result.
+ */
+export type DashboardLoading = {
+  netWorth: boolean;
+  cashFlow: boolean;
+  transactions: boolean;
+};
+
+// Responses faster than this replace the previous values without showing a skeleton first.
+const skeletonDelay = 250;
+
 export function useDashboardData(onError: (message: string) => void) {
-  const [state, setState] = useState<State | null>(null);
+  const [loaded, setLoaded] = useState<{
+    state: State;
+    query: DashboardQuery;
+  } | null>(null);
 
   const [period, setPeriod] = useState<Period>(() => currentMonthPeriod());
 
@@ -24,19 +49,30 @@ export function useDashboardData(onError: (message: string) => void) {
   const lockedRef = useRef(false);
   const requestVersion = useRef(0);
   const activeRequest = useRef<AbortController | null>(null);
-  const query = new URLSearchParams({
+  const selected: DashboardQuery = {
     period: serializePeriod(period),
     currency,
     page: String(page),
     search,
     account: accountFilter,
     category: categoryFilter
-  }).toString();
-  const latestQuery = useRef(query);
+  };
+  const query = new URLSearchParams(selected).toString();
+  const latestSelection = useRef(selected);
 
   useEffect(() => {
-    latestQuery.current = query;
-  }, [query]);
+    latestSelection.current = selected;
+  });
+
+  const state = loaded?.state ?? null;
+  const stale = staleAreas(loaded?.query, selected);
+  // The transaction list depends on every filter, so it is stale whenever any area is.
+  const slow = useDelayedActivity(stale.transactions, skeletonDelay);
+  const loading: DashboardLoading = {
+    netWorth: slow && stale.netWorth,
+    cashFlow: slow && stale.cashFlow,
+    transactions: slow && stale.transactions
+  };
 
   // A different period selects a different result set, so pagination restarts.
   const selectPeriod = useCallback((next: Period) => {
@@ -56,7 +92,7 @@ export function useDashboardData(onError: (message: string) => void) {
     updateLocked(next);
 
     if (next) {
-      setState(null);
+      setLoaded(null);
     }
   }, [invalidateRequests]);
 
@@ -68,7 +104,7 @@ export function useDashboardData(onError: (message: string) => void) {
     invalidateRequests();
     const version = requestVersion.current;
     // An action may finish after filters change; refresh the current view, not its earlier snapshot.
-    const currentQuery = latestQuery.current;
+    const requested = latestSelection.current;
     const controller = new AbortController();
     const abort = () => controller.abort();
 
@@ -78,7 +114,7 @@ export function useDashboardData(onError: (message: string) => void) {
     });
 
     try {
-      const response = await fetch(`/api/state?${currentQuery}`, {
+      const response = await fetch(`/api/state?${new URLSearchParams(requested)}`, {
         cache: "no-store",
         signal: controller.signal
       });
@@ -98,7 +134,10 @@ export function useDashboardData(onError: (message: string) => void) {
         throw apiError(data, response.status);
       }
 
-      setState(data);
+      setLoaded({
+        state: data,
+        query: requested
+      });
     } catch (error) {
       if (!controller.signal.aborted && version === requestVersion.current && !lockedRef.current) {
         throw error;
@@ -135,7 +174,7 @@ export function useDashboardData(onError: (message: string) => void) {
 
   return {
     state,
-    setState,
+    loading,
     period,
     selectPeriod,
     currency,
@@ -152,4 +191,36 @@ export function useDashboardData(onError: (message: string) => void) {
     setLocked,
     load
   };
+}
+
+function differs(loaded: DashboardQuery | undefined, selected: DashboardQuery, keys: (keyof DashboardQuery)[]) {
+  return !loaded || keys.some(key => loaded[key] !== selected[key]);
+}
+
+function staleAreas(loaded: DashboardQuery | undefined, selected: DashboardQuery) {
+  return {
+    netWorth: differs(loaded, selected, ["currency"]),
+    cashFlow: differs(loaded, selected, ["currency", "period"]),
+    transactions: differs(loaded, selected, ["currency", "period", "page", "search", "account", "category"])
+  };
+}
+
+/** True once `active` has stayed true for `delay` milliseconds, until it becomes false again. */
+function useDelayedActivity(active: boolean, delay: number) {
+  const [elapsed, setElapsed] = useState(false);
+
+  useEffect(() => {
+    if (!active) {
+      return;
+    }
+
+    const timer = setTimeout(() => setElapsed(true), delay);
+
+    return () => {
+      clearTimeout(timer);
+      setElapsed(false);
+    };
+  }, [active, delay]);
+
+  return active && elapsed;
 }

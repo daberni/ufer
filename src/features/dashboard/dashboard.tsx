@@ -115,6 +115,7 @@ export default function Dashboard() {
                 <OverviewView
                   changeView={dashboard.changeView}
                   currency={dashboard.currency}
+                  loading={dashboard.loading}
                   openBank={dashboard.openBank}
                   selectedCurrencyAccounts={dashboard.selectedCurrencyAccounts}
                   setModal={dashboard.setModal}
@@ -131,6 +132,7 @@ export default function Dashboard() {
                   busy={dashboard.busy}
                   categoryFilter={dashboard.categoryFilter}
                   changeView={dashboard.changeView}
+                  loading={dashboard.loading}
                   page={dashboard.page}
                   perform={dashboard.perform}
                   search={dashboard.search}

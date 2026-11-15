@@ -10,10 +10,11 @@ import { periodFromJson } from "@/features/dashboard/period";
 import { money } from "@/lib/money";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
 
-type Props = Pick<DashboardController, "currency" | "selectedCurrencyAccounts" | "state">;
+type Props = Pick<DashboardController, "currency" | "loading" | "selectedCurrencyAccounts" | "state">;
 
 export function WealthSummary({
   currency,
+  loading,
   selectedCurrencyAccounts,
   state
 }: Props) {
@@ -24,10 +25,12 @@ export function WealthSummary({
   const summary = state.summary;
   const period = periodFromJson(state.period);
   const singleMonth = period.kind === "month";
+  const netWorthValue = clsx(loading.netWorth && ui["skeleton"]);
+  const cashFlowValue = clsx(loading.cashFlow && ui["skeleton"]);
 
   return (
     <div className={styles["wealth-grid"]}>
-      <section className={styles["wealth-card"]}>
+      <section className={styles["wealth-card"]} aria-busy={loading.netWorth}>
         <div className={styles["wealth-card-top"]}>
           <span>
             <span className={styles["wealth-mark"]}>
@@ -37,9 +40,9 @@ export function WealthSummary({
           </span>
           <span className={styles["small-tag"]}>{currency}</span>
         </div>
-        <div className={styles["wealth-number"]}>{selectedCurrencyAccounts.length ? money(summary.netWorth, currency) : "—"}</div>
+        <div className={clsx(styles["wealth-number"], netWorthValue)}>{selectedCurrencyAccounts.length ? money(summary.netWorth, currency) : "—"}</div>
         <p>Latest known balances · independent of the selected period{summary.unvalued > 0 ? ` · ${summary.unvalued} without a balance` : ""}</p>
-        <div className={styles["allocation-bar"]} aria-hidden="true">
+        <div className={clsx(styles["allocation-bar"], netWorthValue)} aria-hidden="true">
           <span
             style={{
               flex: Math.max(0, summary.liquidity)
@@ -59,27 +62,27 @@ export function WealthSummary({
         <div className={styles["wealth-allocation"]}>
           <span>
             <i className={clsx(styles["legend-dot"], ui["liquid"])} />
-            Cash<strong>{money(summary.liquidity, currency)}</strong>
+            Cash<strong className={netWorthValue}>{money(summary.liquidity, currency)}</strong>
           </span>
           <span>
             <i className={clsx(styles["legend-dot"], styles["invested"])} />
-            Investments<strong>{money(summary.investments, currency)}</strong>
+            Investments<strong className={netWorthValue}>{money(summary.investments, currency)}</strong>
           </span>
           <span>
             <i className={clsx(styles["legend-dot"], ui["property"])} />
-            Property<strong>{money(summary.property, currency)}</strong>
+            Property<strong className={netWorthValue}>{money(summary.property, currency)}</strong>
           </span>
         </div>
         {summary.liabilities !== 0 && (
           <div className={styles["liabilities"]}>
-            Loans <span>{money(summary.liabilities, currency)}</span>
+            Loans <span className={netWorthValue}>{money(summary.liabilities, currency)}</span>
           </div>
         )}
       </section>
-      <section className={styles["month-card"]}>
+      <section className={styles["month-card"]} aria-busy={loading.cashFlow}>
         <div className={ui["card-heading"]}>
           <h2>{singleMonth ? "Your month" : "Your cash flow"}</h2>
-          <span className={styles["subtle"]}>{periodLabel(period)}</span>
+          <span className={clsx(styles["subtle"], cashFlowValue)}>{periodLabel(period)}</span>
         </div>
         <div className={styles["flow-row"]}>
           <span className={clsx(styles["flow-icon"], styles["incoming"])}>
@@ -87,9 +90,9 @@ export function WealthSummary({
           </span>
           <div>
             <span>Income</span>
-            <strong className={ui["positive"]}>{money(summary.income, currency)}</strong>
+            <strong className={clsx(ui["positive"], cashFlowValue)}>{money(summary.income, currency)}</strong>
           </div>
-          <span className={styles["flow-track"]}>
+          <span className={clsx(styles["flow-track"], cashFlowValue)}>
             <i
               style={{
                 width: `${summary.income ? 100 : 0}%`
@@ -103,9 +106,9 @@ export function WealthSummary({
           </span>
           <div>
             <span>Expenses</span>
-            <strong>{money(summary.expenses, currency)}</strong>
+            <strong className={cashFlowValue}>{money(summary.expenses, currency)}</strong>
           </div>
-          <span className={clsx(styles["flow-track"], styles["expense"])}>
+          <span className={clsx(styles["flow-track"], styles["expense"], cashFlowValue)}>
             <i
               style={{
                 width: `${Math.min(100, summary.expenses / Math.max(summary.income, summary.expenses, 1) * 100)}%`
@@ -118,7 +121,7 @@ export function WealthSummary({
             <span>{singleMonth ? "Monthly cash flow" : "Net cash flow"}</span>
             <small>Excluding categorized transfers</small>
           </div>
-          <strong className={summary.income - summary.expenses >= 0 ? ui["positive"] : ""}>{money(summary.income - summary.expenses, currency)}</strong>
+          <strong className={clsx(summary.income - summary.expenses >= 0 && ui["positive"], cashFlowValue)}>{money(summary.income - summary.expenses, currency)}</strong>
         </div>
       </section>
     </div>
