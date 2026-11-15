@@ -7,6 +7,7 @@ import styles from "./connections-view.module.css";
 import { Landmark, Link2, Plus, ShieldCheck } from "lucide-react";
 import { date } from "@/features/dashboard/presentation";
 import { Empty } from "@/components/ui/empty-state";
+import { BridgeIllustration } from "@/components/branding/illustrations";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
 
 type Props = Pick<DashboardController, "busy" | "openBank" | "state">;
@@ -67,7 +68,7 @@ export function ConnectionsView({
             ))}
           </div>
         ) : (
-          <Empty title="Your first bank connection">
+          <Empty title="Your first bank connection" illustration={BridgeIllustration}>
             Choose an available sandbox bank to test the complete flow with synthetic data.
             <button className={clsx(styles["button"], ui["primary"])} onClick={() => openBank()}>
               <Link2 size={15} />

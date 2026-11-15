@@ -50,7 +50,7 @@ export function SpendingBreakdown({
             </div>
           ))}
         </div>
-      ) : <Empty title="No expenses yet">Your spending breakdown appears here once transactions are available.</Empty>}
+      ) : <Empty title="No expenses yet" illustration={null}>Your spending breakdown appears here once transactions are available.</Empty>}
     </section>
   );
 }

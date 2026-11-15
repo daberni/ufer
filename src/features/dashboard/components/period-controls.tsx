@@ -7,6 +7,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { lastSyncLabel, periodLabel } from "@/features/dashboard/presentation";
 import { allMonthsPeriod, currentMonthPeriod, monthPeriod } from "@/features/dashboard/period";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
+import { Select } from "@/components/ui/select";
 
 type Props = Pick<DashboardController, "currencies" | "currency" | "moveMonth" | "period" | "selectPeriod" | "setCurrency" | "setPage" | "state" | "view">;
 
@@ -34,7 +35,8 @@ export function PeriodControls({
         {view === "overview" && <span className={styles["subtle"]}>{lastSyncLabel(state.runs[0])}</span>}
       </div>
       <div className={styles["period-controls"]}>
-        <select
+        <Select
+          variant="bare"
           aria-label="Display currency"
           value={currency}
           onChange={event => {
@@ -43,7 +45,7 @@ export function PeriodControls({
           }}
         >
           {currencies.map(value => <option key={value}>{value}</option>)}
-        </select>
+        </Select>
         <button
           className={ui["icon-button"]}
           aria-label="Previous month"

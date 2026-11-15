@@ -54,8 +54,6 @@ export default function Dashboard() {
             busy={dashboard.busy}
             nav={dashboard.nav}
             perform={dashboard.perform}
-            setError={dashboard.setError}
-            setNotice={dashboard.setNotice}
             view={dashboard.view}
           />
           <div aria-live="polite">
@@ -161,6 +159,7 @@ export default function Dashboard() {
                   busy={dashboard.busy}
                   perform={dashboard.perform}
                   setModal={dashboard.setModal}
+                  setSelectedCategory={dashboard.setSelectedCategory}
                   state={dashboard.state}
                 />
               )}
@@ -187,6 +186,7 @@ export default function Dashboard() {
           importMode={dashboard.importMode}
           modal={dashboard.modal}
           selectedAccount={dashboard.selectedAccount}
+          selectedCategory={dashboard.selectedCategory}
           setBankCountry={dashboard.setBankCountry}
           setBankName={dashboard.setBankName}
           setBankSearch={dashboard.setBankSearch}

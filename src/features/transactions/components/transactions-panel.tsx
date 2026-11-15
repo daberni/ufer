@@ -8,6 +8,7 @@ import { ArrowDownToLine, ArrowRight, Search } from "lucide-react";
 import { Empty } from "@/components/ui/empty-state";
 import { TransactionList } from "@/features/transactions/components/transaction-list";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
+import { Select } from "@/components/ui/select";
 
 type Props = Pick<DashboardController, "accountFilter" | "busy" | "categoryFilter" | "changeView" | "page" | "perform" | "search" | "selectedCurrencyAccounts" | "setAccountFilter" | "setCategoryFilter" | "setImportMode" | "setModal" | "setPage" | "setSearch" | "state" | "view" | "visibleTransactions">;
 
@@ -69,7 +70,7 @@ export function TransactionsPanel({
               }}
             />
           </label>
-          <select
+          <Select
             aria-label="Account filter"
             value={accountFilter}
             onChange={event => {
@@ -83,8 +84,8 @@ export function TransactionsPanel({
                 {account.name}
               </option>
             ))}
-          </select>
-          <select
+          </Select>
+          <Select
             aria-label="Category filter"
             value={categoryFilter}
             onChange={event => {
@@ -99,7 +100,7 @@ export function TransactionsPanel({
                 {category.name}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
       )}
       {visibleTransactions?.length ? (

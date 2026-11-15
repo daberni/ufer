@@ -4,6 +4,7 @@ import styles from "./transaction-category.module.css";
 import { api } from "@/client/api";
 import type { Transaction } from "@/features/dashboard/types";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
+import { Select } from "@/components/ui/select";
 
 type Props = Pick<DashboardController, "busy" | "perform" | "state"> & {
   transaction: Transaction;
@@ -20,7 +21,8 @@ export function TransactionCategory({
   }
 
   return (
-    <select
+    <Select
+      variant="compact"
       className={styles["category-select"]}
       aria-label={`Category for ${transaction.counterparty || transaction.description}`}
       value={transaction.category_id || ""}
@@ -35,6 +37,6 @@ export function TransactionCategory({
           {category.name}
         </option>
       ))}
-    </select>
+    </Select>
   );
 }
