@@ -6,46 +6,44 @@ import { clsx } from "clsx";
 import { Plus } from "lucide-react";
 import { useState } from "react";
 import { kinds } from "@/features/dashboard/presentation";
-import { api } from "@/client/api";
 import { Select } from "@/components/ui/select";
 import { AccountTypeChoice } from "./account-type-choice";
 import { accountTypeCopy } from "./account-type-options";
 import type { AccountKind } from "../account-kinds";
-import type { DashboardController } from "@/features/dashboard/use-dashboard";
-import type { DialogFormProps } from "@/features/dashboard/use-dialog-submit";
+import { useDialogSubmit, type DialogFormProps } from "@/features/dashboard/use-dialog-submit";
+import { useCreateAccount } from "@/features/accounts/mutations";
 import { FormError } from "@/components/ui/form-error";
 
-type Props = Pick<DashboardController, "busy"> & DialogFormProps;
-
-export function CreateAccountForm({
-  busy,
-  error,
-  submit
-}: Props) {
+export function CreateAccountForm({ close }: DialogFormProps) {
   const [kind, setKind] = useState<AccountKind | null>(null);
+  const {
+    error,
+    pending,
+    submit
+  } = useDialogSubmit(useCreateAccount(), close);
 
   return (
     <form
-      onSubmit={event => submit(event, async data => {
-        await api("accounts", Object.fromEntries(data));
-      })}
+      onSubmit={event => submit(event, data => Object.fromEntries(data))}
       className={ui["form"]}
     >
       <p className={ui["form-description"]}>Track an account, investment, property or debt by entering its balance yourself. Bank accounts with online access can also be added through Connect bank.</p>
       <AccountTypeChoice selected={kind} onSelect={setKind} />
-      {kind && <AccountDetailsFields busy={busy} error={error} kind={kind} />}
+      {kind && <AccountDetailsFields pending={pending} error={error} kind={kind} />}
     </form>
   );
 }
 
-type DetailsProps = Pick<Props, "busy" | "error"> & {
+type DetailsProps = {
+  error: string;
   kind: AccountKind;
+  pending: boolean;
 };
 
 function AccountDetailsFields({
-  busy,
   error,
-  kind
+  kind,
+  pending
 }: DetailsProps) {
   const copy = accountTypeCopy[kind];
 
@@ -92,7 +90,7 @@ function AccountDetailsFields({
       </div>
       <p className={ui["form-hint"]}>{copy.hint}</p>
       <FormError message={error} />
-      <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={busy}>
+      <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={pending}>
         Add {kinds[kind].toLowerCase()} <Plus size={16} />
       </button>
     </>

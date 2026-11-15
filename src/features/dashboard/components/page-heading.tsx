@@ -5,15 +5,16 @@ import ui from "../../../components/ui/primitives.module.css";
 import styles from "./page-heading.module.css";
 import { SyncButton } from "@/features/banking/components/sync-button";
 import { viewDescriptions } from "@/features/dashboard/presentation";
+import type { Account } from "@/features/dashboard/types";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
 
-type Props = Pick<DashboardController, "bankAccounts" | "busy" | "nav" | "perform" | "view">;
+type Props = Pick<DashboardController, "nav" | "view"> & {
+  bankAccounts: Account[];
+};
 
 export function PageHeading({
   bankAccounts,
-  busy,
   nav,
-  perform,
   view
 }: Props) {
   return (
@@ -23,12 +24,7 @@ export function PageHeading({
         <h1>{nav.label === "Overview" ? "Your money. In perspective." : nav.label}</h1>
         <p>{viewDescriptions[view]}</p>
       </div>
-      <SyncButton
-        bankAccounts={bankAccounts}
-        busy={busy}
-        perform={perform}
-        view={view}
-      />
+      <SyncButton bankAccounts={bankAccounts} view={view} />
     </div>
   );
 }

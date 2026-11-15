@@ -8,21 +8,17 @@ import { ArrowDownLeft, ArrowUpRight } from "lucide-react";
 import { DateValue } from "@/components/ui/date-value";
 import { money } from "@/lib/money";
 import { TransactionCategory } from "@/features/transactions/components/transaction-category";
-import type { DashboardController } from "@/features/dashboard/use-dashboard";
+import type { Category, Transaction } from "@/features/dashboard/types";
 
-type Props = Pick<DashboardController, "busy" | "perform" | "reportFeedback" | "state" | "visibleTransactions">;
+type Props = {
+  categories: Category[];
+  transactions: Transaction[];
+};
 
 export function TransactionList({
-  busy,
-  perform,
-  reportFeedback,
-  state,
-  visibleTransactions
+  categories,
+  transactions
 }: Props) {
-  if (!state) {
-    return null;
-  }
-
   return (
     <>
       <div className={clsx(styles["table-scroll"], styles["desktop-transactions"])}>
@@ -37,7 +33,7 @@ export function TransactionList({
             </tr>
           </thead>
           <tbody>
-            {visibleTransactions?.map(transaction => (
+            {transactions.map(transaction => (
               <tr key={transaction.id}>
                 <td>
                   <div className={styles["transaction-name"]}>
@@ -49,13 +45,7 @@ export function TransactionList({
                   </div>
                 </td>
                 <td>
-                  <TransactionCategory
-                    busy={busy}
-                    perform={perform}
-                    reportFeedback={reportFeedback}
-                    state={state}
-                    transaction={transaction}
-                  />
+                  <TransactionCategory categories={categories} transaction={transaction} />
                   {transaction.category_source === "manual" && <span className={styles["manual-dot"]} title="Manually assigned; preserved when syncing and applying rules" />}
                 </td>
                 <td className={ui["muted"]}>{transaction.account_name}</td>
@@ -70,7 +60,7 @@ export function TransactionList({
         </table>
       </div>
       <ul className={styles["transaction-cards"]} aria-label="Transactions">
-        {visibleTransactions?.map(transaction => (
+        {transactions.map(transaction => (
           <li key={transaction.id}>
             <article className={styles["transaction-card"]}>
               <div className={styles["transaction-card-meta"]}>
@@ -92,13 +82,7 @@ export function TransactionList({
               )}
               <div className={styles["transaction-card-category"]}>
                 <span>Category{transaction.category_source === "manual" && <small>Manually assigned</small>}</span>
-                <TransactionCategory
-                  busy={busy}
-                  perform={perform}
-                  reportFeedback={reportFeedback}
-                  state={state}
-                  transaction={transaction}
-                />
+                <TransactionCategory categories={categories} transaction={transaction} />
               </div>
             </article>
           </li>

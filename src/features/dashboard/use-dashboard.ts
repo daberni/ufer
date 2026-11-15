@@ -2,13 +2,13 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useDashboardData } from "./use-dashboard-data";
+import { useDashboardLock } from "./use-dashboard-lock";
 import { useBankDirectory } from "@/features/banking/use-bank-directory";
 import { failureMessage } from "@/client/api";
+import type { ImportMode } from "@/features/imports/mutations";
 import { useActionFeedback, type Feedback } from "@/components/ui/use-action-feedback";
 import { navigation } from "./presentation";
 import { monthPeriod, type Period } from "./period";
-import { lastPage } from "./pagination";
 import { dashboardQuery, isPeriodAware, periodScope, viewFromPathname, viewHref as hrefForView, withQueryChanges, type DashboardQueryChanges } from "./dashboard-location";
 import type { Account, Category, View, Modal, Connection } from "./types";
 
@@ -19,6 +19,21 @@ export type ActionResult<T> = {
   ok: false;
   message: string;
 };
+
+/** Waits for an action, such as a mutation, and turns its failure into a message for the place where the action was started. */
+export async function settle<T>(action: Promise<T>): Promise<ActionResult<T>> {
+  try {
+    return {
+      ok: true,
+      value: await action
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      message: failureMessage(error)
+    };
+  }
+}
 
 export function useDashboard() {
   const router = useRouter();
@@ -68,8 +83,6 @@ export function useDashboard() {
 
   const [selectedConnection, setSelectedConnection] = useState<Connection | null>(null);
 
-  const [busy, setBusy] = useState(false);
-
   // Page-level overlay for feedback without a surviving trigger, such as a bank callback result. Navigating to another view, including with Back or Forward, drops it.
   const {
     feedback,
@@ -78,17 +91,12 @@ export function useDashboard() {
   } = useActionFeedback(pathname);
 
   const {
-    state,
-    setState,
-    stateIsCurrent,
-    loadError,
     locked,
-    setLocked,
-    load
-  } = useDashboardData(query);
+    lock,
+    unlock
+  } = useDashboardLock();
   const {
     banks,
-    setBanks,
     bankCountry,
     setBankCountry,
     bankSearch,
@@ -96,11 +104,10 @@ export function useDashboard() {
     bankName,
     setBankName,
     banksLoading,
-    setBanksLoading,
     banksError
   } = useBankDirectory(modal === "bank");
 
-  const [importMode, setImportMode] = useState("balances");
+  const [importMode, setImportMode] = useState<ImportMode>("balances");
 
   // The bank callback returns to the connections view with its result, which is shown once and removed from the URL.
   useEffect(() => {
@@ -177,47 +184,15 @@ export function useDashboard() {
     }, "push");
   }, [updateQuery]);
 
-  // A bookmarked page, or one left behind when the matching count shrinks, can lie past the last page; the URL is corrected in place.
-  const availablePage = stateIsCurrent && state ? Math.min(query.page, lastPage(state.transactionCount)) : query.page;
-
-  useEffect(() => {
-    if (view === "transactions" && availablePage < query.page) {
-      updateQuery({
-        page: availablePage
-      }, "replace");
-    }
-  }, [view, availablePage, query.page, updateQuery]);
+  // A page past the last one, from a bookmark or after the matching count shrank, is corrected in place.
+  const replacePage = useCallback((next: number) => {
+    updateQuery({
+      page: next
+    }, "replace");
+  }, [updateQuery]);
 
   function viewHref(next: View) {
     return hrefForView(next, scope);
-  }
-
-  // Runs an action and refreshes the dashboard; the caller presents the result where the action happened.
-  async function perform<T>(action: () => Promise<T>): Promise<ActionResult<T>> {
-    let result: ActionResult<T>;
-
-    setBusy(true);
-
-    try {
-      result = {
-        ok: true,
-        value: await action()
-      };
-    } catch (error) {
-      result = {
-        ok: false,
-        message: failureMessage(error)
-      };
-    }
-
-    // A failed action may still have changed server state, so the dashboard is refreshed either way.
-    try {
-      await load();
-    } finally {
-      setBusy(false);
-    }
-
-    return result;
   }
 
   function changeView(next: View) {
@@ -254,33 +229,16 @@ export function useDashboard() {
     currency,
     search,
     account: accountFilter,
-    category: categoryFilter
+    category: categoryFilter,
+    page
   } = query;
-  const page = availablePage;
-
-  const currencies = [...new Set(["EUR", ...(state?.accounts.map(account => account.currency) || [])])];
-
-  const selectedCurrencyAccounts = state?.accounts.filter(account => account.currency === currency) || [];
-
-  const bankAccounts = state?.accounts.filter(account => account.provider === "enable_banking") || [];
-
-  const expiring = bankAccounts.filter(account => account.valid_until && Date.parse(account.valid_until) - Date.now() < 7 * 86400_000);
-
-  const visibleTransactions = view === "overview" ? state?.transactions.slice(0, 5) : state?.transactions;
 
   const nav = navigation.find(item => item.id === view)!;
-
-  const trend = state?.trend || [];
-
-  const trendMax = Math.max(1, ...trend.flatMap(item => [item.income, item.expenses]));
-
-  const totalExpenses = state?.breakdown.reduce((sum, item) => sum + item.amount, 0) || 0;
 
   return {
     view,
     viewHref,
-    state,
-    setState,
+    query,
     period,
     selectPeriod,
     currency,
@@ -293,6 +251,7 @@ export function useDashboard() {
     setCategoryFilter,
     page,
     setPage,
+    replacePage,
     modal,
     setModal,
     selectedAccount,
@@ -300,16 +259,13 @@ export function useDashboard() {
     selectedCategory,
     setSelectedCategory,
     selectedConnection,
-    busy,
-    setBusy,
-    loadError,
     feedback,
     reportFeedback,
     dismissFeedback,
     locked,
-    setLocked,
+    lock,
+    unlock,
     banks,
-    setBanks,
     bankCountry,
     setBankCountry,
     bankSearch,
@@ -317,25 +273,14 @@ export function useDashboard() {
     bankName,
     setBankName,
     banksLoading,
-    setBanksLoading,
     banksError,
     importMode,
     setImportMode,
-    load,
-    perform,
     changeView,
     moveMonth,
     openBank,
     openConnectionRemoval,
-    currencies,
-    selectedCurrencyAccounts,
-    bankAccounts,
-    expiring,
-    visibleTransactions,
-    nav,
-    trend,
-    trendMax,
-    totalExpenses
+    nav
   };
 }
 

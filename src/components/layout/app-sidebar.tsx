@@ -8,20 +8,21 @@ import styles from "./app-sidebar.module.css";
 import { ShieldCheck } from "lucide-react";
 import { BrandIcon } from "@/components/branding/brand-icon";
 import { navigation } from "@/features/dashboard/presentation";
+import type { Account } from "@/features/dashboard/types";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
 
-type Props = Pick<DashboardController, "expiring" | "state" | "view" | "viewHref">;
+type Props = Pick<DashboardController, "view" | "viewHref"> & {
+  environment: string;
+  /** Bank accounts whose authorization expires soon or has expired. */
+  expiring: Account[];
+};
 
 export function AppSidebar({
+  environment,
   expiring,
-  state,
   view,
   viewHref
 }: Props) {
-  if (!state) {
-    return null;
-  }
-
   return (
     <aside className={styles["sidebar"]}>
       <Link className={styles["brand"]} href={viewHref("overview")}>
@@ -71,7 +72,7 @@ export function AppSidebar({
         </div>
         <span className={styles["sidebar-foot"]}>
           <span className={ui["status-dot"]} />
-          {state?.environment === "PRODUCTION" ? "Production data" : "Sandbox · test data"}
+          {environment === "PRODUCTION" ? "Production data" : "Sandbox · test data"}
         </span>
       </div>
     </aside>

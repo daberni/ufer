@@ -11,37 +11,47 @@ import type { DashboardController } from "@/features/dashboard/use-dashboard";
 import { Select } from "@/components/ui/select";
 import { useSearchDraft } from "@/features/transactions/use-search-draft";
 import { transactionPageSize } from "@/features/dashboard/pagination";
+import { areaProps, valueMask } from "@/features/dashboard/components/result-presentation";
+import type { AreaResult } from "@/features/dashboard/use-area-result";
+import type { Account, Category, TransactionPage } from "@/features/dashboard/types";
 
-type Props = Pick<DashboardController, "accountFilter" | "busy" | "categoryFilter" | "changeView" | "page" | "perform" | "reportFeedback" | "search" | "selectedCurrencyAccounts" | "setAccountFilter" | "setCategoryFilter" | "setImportMode" | "setModal" | "setPage" | "setSearch" | "state" | "view" | "visibleTransactions">;
+type Props = Pick<DashboardController, "accountFilter" | "categoryFilter" | "changeView" | "search" | "setAccountFilter" | "setCategoryFilter" | "setImportMode" | "setModal" | "setPage" | "setSearch" | "view"> & {
+  categories: Category[];
+  /** Accounts in the display currency, offered as a filter. */
+  currencyAccounts: Account[];
+  list: AreaResult<TransactionPage>;
+  /** The page shown, after correcting a page past the last one. */
+  page: number;
+};
+
+const recentTransactions = 5;
 
 export function TransactionsPanel({
   accountFilter,
-  busy,
+  categories,
   categoryFilter,
   changeView,
+  currencyAccounts,
+  list,
   page,
-  perform,
-  reportFeedback,
   search,
-  selectedCurrencyAccounts,
   setAccountFilter,
   setCategoryFilter,
   setImportMode,
   setModal,
   setPage,
   setSearch,
-  state,
-  view,
-  visibleTransactions
+  view
 }: Props) {
   const [searchDraft, setSearchDraft] = useSearchDraft(search, setSearch);
+  const {
+    transactionCount,
+    transactions
+  } = list.data;
+  const visibleTransactions = view === "overview" ? transactions.slice(0, recentTransactions) : transactions;
 
-  if (!state) {
-    return null;
-  }
-
-  // An empty page with matches elsewhere is a page past the end, which the dashboard corrects; it is not an empty history.
-  const noMatches = state.transactionCount === 0;
+  // An empty page with matches elsewhere is a page past the end, which the list view corrects; it is not an empty history.
+  const noMatches = transactionCount === 0;
 
   return (
     <section className={clsx(ui["panel"], styles["transaction-panel"])}>
@@ -81,7 +91,7 @@ export function TransactionsPanel({
             onChange={event => setAccountFilter(event.target.value)}
           >
             <option value="">All accounts</option>
-            {selectedCurrencyAccounts.map(account => (
+            {currencyAccounts.map(account => (
               <option key={account.id} value={account.id}>
                 {account.name}
               </option>
@@ -94,7 +104,7 @@ export function TransactionsPanel({
           >
             <option value="">All categories</option>
             <option value="uncategorized">Uncategorized</option>
-            {state.categories.map(category => (
+            {categories.map(category => (
               <option key={category.id} value={category.id}>
                 {category.name}
               </option>
@@ -102,24 +112,18 @@ export function TransactionsPanel({
           </Select>
         </div>
       )}
-      {visibleTransactions?.length ? (
-        <TransactionList
-          busy={busy}
-          perform={perform}
-          reportFeedback={reportFeedback}
-          state={state}
-          visibleTransactions={visibleTransactions}
-        />
-      ) : noMatches && <Empty title="Your financial history starts here.">Connect a bank account and sync, or import your existing transactions from CSV.</Empty>}
-      {view === "transactions" && state.transactionCount > transactionPageSize && (
+      <div {...areaProps(list.status)}>
+        {visibleTransactions.length ? <TransactionList categories={categories} transactions={visibleTransactions} /> : noMatches && <Empty title="Your financial history starts here.">Connect a bank account and sync, or import your existing transactions from CSV.</Empty>}
+      </div>
+      {view === "transactions" && transactionCount > transactionPageSize && (
         <div className={styles["pagination"]}>
-          <span>
-            {(page - 1) * transactionPageSize + 1}–{Math.min(page * transactionPageSize, state.transactionCount)} of {state.transactionCount}
+          <span className={valueMask(list.status)}>
+            {(page - 1) * transactionPageSize + 1}–{Math.min(page * transactionPageSize, transactionCount)} of {transactionCount}
           </span>
           <button className={clsx(styles["button"], ui["small"])} disabled={page === 1} onClick={() => setPage(page - 1)}>
             Previous
           </button>
-          <button className={clsx(styles["button"], ui["small"])} disabled={page * transactionPageSize >= state.transactionCount} onClick={() => setPage(page + 1)}>
+          <button className={clsx(styles["button"], ui["small"])} disabled={page * transactionPageSize >= transactionCount} onClick={() => setPage(page + 1)}>
             Next
           </button>
         </div>

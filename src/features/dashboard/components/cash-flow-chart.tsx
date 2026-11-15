@@ -6,25 +6,26 @@ import { clsx } from "clsx";
 import styles from "./cash-flow-chart.module.css";
 import { monthLabel, monthRangeLabel } from "@/features/dashboard/presentation";
 import { money } from "@/lib/money";
-import type { DashboardController } from "@/features/dashboard/use-dashboard";
+import { areaProps, valueMask } from "@/features/dashboard/components/result-presentation";
+import type { AreaResult } from "@/features/dashboard/use-area-result";
+import type { CashFlow } from "@/features/dashboard/types";
 
-type Props = Pick<DashboardController, "currency" | "state" | "trend" | "trendMax">;
+type Props = {
+  cashFlow: AreaResult<CashFlow>;
+};
 
-export function CashFlowChart({
-  currency,
-  state,
-  trend,
-  trendMax
-}: Props) {
-  if (!state) {
-    return null;
-  }
+export function CashFlowChart({ cashFlow }: Props) {
+  const {
+    currency,
+    trend
+  } = cashFlow.data;
+  const trendMax = Math.max(1, ...trend.flatMap(item => [item.income, item.expenses]));
 
   return (
     <section className={ui["panel"]}>
       <div className={ui["card-heading"]}>
         <h2>Income & expenses</h2>
-        <span className={ui["subtle"]}>{monthRangeLabel(trend.map(item => item.month))}</span>
+        <span className={clsx(ui["subtle"], valueMask(cashFlow.status))}>{monthRangeLabel(trend.map(item => item.month))}</span>
       </div>
       <div className={styles["chart-legend"]}>
         <span>
@@ -36,7 +37,7 @@ export function CashFlowChart({
           Expenses
         </span>
       </div>
-      <div className={styles["bar-chart"]} role="img" aria-label={`Monthly income and expenses for ${trend.map(item => `${monthLabel(item.month)}: Income ${money(item.income, currency)}, Expenses ${money(item.expenses, currency)}`).join("; ")}`}>
+      <div {...areaProps(cashFlow.status, styles["bar-chart"])} role="img" aria-label={`Monthly income and expenses for ${trend.map(item => `${monthLabel(item.month)}: Income ${money(item.income, currency)}, Expenses ${money(item.expenses, currency)}`).join("; ")}`}>
         <div className={styles["chart-grid"]}>
           <span />
           <span />
@@ -67,7 +68,7 @@ export function CashFlowChart({
           </div>
         ))}
       </div>
-      {trend.every(item => item.income === 0 && item.expenses === 0) && <p className={styles["chart-empty-note"]}>Your history appears here after the first import.</p>}
+      {trend.every(item => item.income === 0 && item.expenses === 0) && <p className={clsx(styles["chart-empty-note"], valueMask(cashFlow.status))}>Your history appears here after the first import.</p>}
     </section>
   );
 }

@@ -13,22 +13,25 @@ import { CreateRuleForm } from "@/features/categorization/components/create-rule
 import { CategoryForm } from "@/features/categorization/components/category-form";
 import { CsvImportForm } from "@/features/imports/components/csv-import-form";
 import { modalTitles } from "@/features/dashboard/presentation";
-import { useDialogSubmit } from "@/features/dashboard/use-dialog-submit";
+import type { Account } from "@/features/dashboard/types";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
 
-type Props = Pick<DashboardController, "bankCountry" | "bankName" | "bankSearch" | "banks" | "banksError" | "banksLoading" | "busy" | "importMode" | "modal" | "perform" | "reportFeedback" | "selectedAccount" | "selectedCategory" | "selectedConnection" | "setBankCountry" | "setBankName" | "setBankSearch" | "setImportMode" | "setModal" | "state">;
+type Props = Pick<DashboardController, "bankCountry" | "bankName" | "bankSearch" | "banks" | "banksError" | "banksLoading" | "importMode" | "modal" | "reportFeedback" | "selectedAccount" | "selectedCategory" | "selectedConnection" | "setBankCountry" | "setBankName" | "setBankSearch" | "setImportMode" | "setModal"> & {
+  accounts: Account[];
+  environment: string;
+};
 
 export function DashboardDialogs({
+  accounts,
   bankCountry,
   bankName,
   bankSearch,
   banks,
   banksError,
   banksLoading,
-  busy,
+  environment,
   importMode,
   modal,
-  perform,
   reportFeedback,
   selectedAccount,
   selectedCategory,
@@ -37,15 +40,10 @@ export function DashboardDialogs({
   setBankName,
   setBankSearch,
   setImportMode,
-  setModal,
-  state
+  setModal
 }: Props) {
+  const close = () => setModal(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
-
-  const {
-    error,
-    submit
-  } = useDialogSubmit(perform, () => setModal(null));
 
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
@@ -64,10 +62,10 @@ export function DashboardDialogs({
       ref={dialogRef}
       aria-labelledby="modal-title"
       className={styles["modal"]}
-      onCancel={() => setModal(null)}
+      onCancel={close}
       onClick={event => {
         if (event.target === event.currentTarget) {
-          setModal(null);
+          close();
         }
       }}
     >
@@ -77,7 +75,7 @@ export function DashboardDialogs({
             <span className={styles["eyebrow"]}>YOUR FINANCES</span>
             <h2 id="modal-title">{modal ? modalTitles[modal] : "Your finances"}</h2>
           </div>
-          <button className={ui["icon-button"]} aria-label="Close dialog" onClick={() => setModal(null)}>
+          <button className={ui["icon-button"]} aria-label="Close dialog" onClick={close}>
             <X size={20} />
           </button>
         </div>
@@ -89,60 +87,32 @@ export function DashboardDialogs({
             banks={banks}
             banksError={banksError}
             banksLoading={banksLoading}
-            busy={busy}
-            error={error}
+            close={close}
+            environment={environment}
             setBankCountry={setBankCountry}
             setBankName={setBankName}
             setBankSearch={setBankSearch}
-            state={state}
-            submit={submit}
           />
         )}
-        {modal === "removeConnection" && (
+        {modal === "removeConnection" && selectedConnection && (
           <RemoveConnectionForm
-            busy={busy}
-            error={error}
+            accounts={accounts}
+            close={close}
             reportFeedback={reportFeedback}
             selectedConnection={selectedConnection}
-            setModal={setModal}
-            state={state}
-            submit={submit}
           />
         )}
-        {modal === "account" && <CreateAccountForm busy={busy} error={error} submit={submit} />}
-        {modal === "balance" && selectedAccount && (
-          <ValuationForm
-            busy={busy}
-            error={error}
-            selectedAccount={selectedAccount}
-            submit={submit}
-          />
-        )}
-        {modal === "rule" && (
-          <CreateRuleForm
-            busy={busy}
-            error={error}
-            state={state}
-            submit={submit}
-          />
-        )}
-        {modal === "category" && <CategoryForm busy={busy} error={error} submit={submit} />}
-        {modal === "editCategory" && selectedCategory && (
-          <CategoryForm
-            busy={busy}
-            category={selectedCategory}
-            error={error}
-            submit={submit}
-          />
-        )}
+        {modal === "account" && <CreateAccountForm close={close} />}
+        {modal === "balance" && selectedAccount && <ValuationForm close={close} selectedAccount={selectedAccount} />}
+        {modal === "rule" && <CreateRuleForm close={close} />}
+        {modal === "category" && <CategoryForm close={close} />}
+        {modal === "editCategory" && selectedCategory && <CategoryForm category={selectedCategory} close={close} />}
         {modal === "import" && (
           <CsvImportForm
-            busy={busy}
-            error={error}
+            accounts={accounts}
+            close={close}
             importMode={importMode}
             setImportMode={setImportMode}
-            state={state}
-            submit={submit}
           />
         )}
       </div>

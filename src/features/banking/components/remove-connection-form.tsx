@@ -4,33 +4,34 @@ import ui from "../../../components/ui/primitives.module.css";
 
 import { Trash2 } from "lucide-react";
 import styles from "./remove-connection-form.module.css";
-import { api } from "@/client/api";
 import { FormError } from "@/components/ui/form-error";
 import type { Feedback } from "@/components/ui/use-action-feedback";
-import type { Connection, ConnectionRemoval } from "@/features/dashboard/types";
+import type { Account, Connection, ConnectionRemoval } from "@/features/dashboard/types";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
-import type { DialogFormProps } from "@/features/dashboard/use-dialog-submit";
+import { useDialogSubmit, type DialogFormProps } from "@/features/dashboard/use-dialog-submit";
+import { useRemoveConnection } from "@/features/banking/mutations";
 
-type Props = Pick<DashboardController, "busy" | "reportFeedback" | "selectedConnection" | "setModal" | "state"> & DialogFormProps;
+type Props = Pick<DashboardController, "reportFeedback"> & DialogFormProps & {
+  accounts: Account[];
+  selectedConnection: Connection;
+};
 
 export function RemoveConnectionForm({
-  busy,
-  error,
+  accounts,
+  close,
   reportFeedback,
-  selectedConnection,
-  setModal,
-  state,
-  submit
+  selectedConnection
 }: Props) {
-  if (!selectedConnection || !state) {
-    return null;
-  }
-
-  const linkedAccounts = state.accounts.filter(account => account.requisition_id === selectedConnection.id);
+  const {
+    error,
+    pending,
+    submit
+  } = useDialogSubmit(useRemoveConnection(), close);
+  const linkedAccounts = accounts.filter(account => account.requisition_id === selectedConnection.id);
 
   return (
     <form
-      onSubmit={event => submit(event, () => api<ConnectionRemoval>(`banking/connections/${encodeURIComponent(selectedConnection.id)}`, undefined, "DELETE"), removal => {
+      onSubmit={event => submit(event, () => selectedConnection.id, removal => {
         const warning = revocationWarning(selectedConnection, removal);
 
         if (warning) {
@@ -55,12 +56,12 @@ export function RemoveConnectionForm({
         <button
           type="button"
           className={ui["button"]}
-          disabled={busy}
-          onClick={() => setModal(null)}
+          disabled={pending}
+          onClick={close}
         >
           Cancel
         </button>
-        <button className={styles["danger"]} disabled={busy}>
+        <button className={styles["danger"]} disabled={pending}>
           <Trash2 size={15} />
           Remove connection
         </button>

@@ -1,209 +1,446 @@
 import assert from "node:assert/strict";
-import { test, type TestContext } from "node:test";
-import { act, cleanup, renderHook } from "@testing-library/react";
-import { JSDOM } from "jsdom";
+import { test } from "node:test";
+import { act, renderHook } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
 import { AppRouterContext, type AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import { PathnameContext, SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime";
+import type { QueryClient } from "@tanstack/react-query";
+import { invalidate } from "../src/client/invalidate";
+import { queryKeys } from "../src/client/query-keys";
 import { useActionFeedback } from "../src/components/ui/use-action-feedback";
 import { useDashboard } from "../src/features/dashboard/use-dashboard";
-import { useDashboardData } from "../src/features/dashboard/use-dashboard-data";
-import { currentMonthPeriod } from "../src/features/dashboard/period";
+import { useDashboardLock } from "../src/features/dashboard/use-dashboard-lock";
+import { useLoadError } from "../src/features/dashboard/use-load-error";
+import { useAreaResult } from "../src/features/dashboard/use-area-result";
+import { useCashFlow } from "../src/features/dashboard/queries";
+import { useAccounts, useNetWorth } from "../src/features/accounts/queries";
+import { useTransactionListView } from "../src/features/transactions/use-transaction-list-view";
+import { currentMonthPeriod, monthPeriod, serializePeriod, type Period } from "../src/features/dashboard/period";
 import type { DashboardQuery } from "../src/features/dashboard/dashboard-location";
+import { browser, wait, withQueryClient, type PendingRequest } from "./fixtures/browser";
 
-function browser(context: TestContext) {
-  const dom = new JSDOM("<!doctype html><html><body></body></html>", {
-    url: "http://localhost/"
-  });
-  const originalFetch = globalThis.fetch;
-  const globals = {
-    window: dom.window,
-    document: dom.window.document,
-    navigator: dom.window.navigator,
-    IS_REACT_ACT_ENVIRONMENT: true
-  };
-  const originalProperties = new Map(Object.keys(globals).map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
-  const pending: (ReturnType<typeof Promise.withResolvers<Response>> & {
-    url: string
-  })[] = [];
-
-  for (const [key, value] of Object.entries(globals)) {
-    Object.defineProperty(globalThis, key, {
-      configurable: true,
-      writable: true,
-      value
-    });
-  }
-
-  globalThis.fetch = async input => {
-    const request = Object.assign(Promise.withResolvers<Response>(), {
-      url: String(input)
-    });
-
-    pending.push(request);
-
-    return request.promise;
-  };
-
-  context.after(() => {
-    cleanup();
-    dom.window.close();
-    globalThis.fetch = originalFetch;
-
-    for (const [key, descriptor] of originalProperties) {
-      if (descriptor) {
-        Object.defineProperty(globalThis, key, descriptor);
-      } else {
-        Reflect.deleteProperty(globalThis, key);
-      }
-    }
-  });
-
-  return pending;
-}
-
-function dashboardQuery(currency: string): DashboardQuery {
+function dashboardQuery(changes: Partial<DashboardQuery> = {}): DashboardQuery {
   return {
     period: currentMonthPeriod(),
-    currency,
+    currency: "EUR",
     search: "",
     account: "",
     category: "",
-    page: 1
+    page: 1,
+    ...changes
   };
 }
 
-function renderDashboardData() {
-  return renderHook(({ query }) => useDashboardData(query), {
-    initialProps: {
-      query: dashboardQuery("EUR")
-    }
+function queryWrapper(queryClient: QueryClient) {
+  return function wrapper({ children }: {
+    children: ReactNode
+  }) {
+    return withQueryClient(queryClient, children);
+  };
+}
+
+function previousMonth(period: Period) {
+  assert.equal(period.kind, "month");
+
+  return monthPeriod(period.month.subtract({
+    months: 1
+  }));
+}
+
+function transactionPage(transactionCount: number, page = 1) {
+  return Response.json({
+    period: {
+      kind: "all"
+    },
+    page,
+    transactionCount,
+    transactions: []
   });
 }
 
-async function waitForDebounce() {
-  await act(async () => {
-    await new Promise(resolve => setTimeout(resolve, 200));
+function cashFlow(currency: string) {
+  return Response.json({
+    period: {
+      kind: "all"
+    },
+    currency,
+    income: 0,
+    expenses: 0,
+    breakdown: [],
+    trend: []
   });
+}
+
+function netWorth(currency: string) {
+  return Response.json({
+    currency,
+    netWorth: 0,
+    liquidity: 0,
+    investments: 0,
+    property: 0,
+    liabilities: 0,
+    unvalued: 0
+  });
+}
+
+// The areas a filter change can affect: net worth follows the currency, cash flow the currency and period, the list every filter.
+function useDashboardResults(query: DashboardQuery) {
+  return {
+    netWorth: useAreaResult(useNetWorth(query.currency)),
+    cashFlow: useAreaResult(useCashFlow(query.period, query.currency)),
+    list: useTransactionListView(query, () => {}),
+    loadError: useLoadError()
+  };
+}
+
+function statuses(results: ReturnType<typeof useDashboardResults>) {
+  return {
+    netWorth: results.netWorth.status,
+    cashFlow: results.cashFlow.status,
+    transactions: results.list.status
+  };
+}
+
+async function respond(request: PendingRequest | undefined, response: Response) {
+  assert.ok(request, "expected a request");
+  await act(async () => {
+    request.resolve(response);
+    // Reading the response body takes a few event-loop turns.
+    await new Promise(resolve => setTimeout(resolve, 5));
+  });
+}
+
+async function renderResults(context: Parameters<typeof browser>[0]) {
+  const environment = browser(context);
+  const rendered = renderHook(({ query }) => useDashboardResults(query), {
+    initialProps: {
+      query: dashboardQuery()
+    },
+    wrapper: queryWrapper(environment.queryClient)
+  });
+
+  await wait(0);
+  await respond(environment.requests("reports/net-worth")[0], netWorth("EUR"));
+  await respond(environment.requests("reports/cash-flow")[0], cashFlow("EUR"));
+  await respond(environment.requests("transactions")[0], transactionPage(1));
+
+  return {
+    ...environment,
+    ...rendered
+  };
 }
 
 test("a delayed pre-logout response cannot reopen the dashboard or restore financial state", async context => {
-  const pending = browser(context);
-  const { result } = renderDashboardData();
+  const {
+    queryClient,
+    requests
+  } = browser(context);
+  const { result } = renderHook(() => ({
+    lock: useDashboardLock(),
+    accounts: useAccounts()
+  }), {
+    wrapper: queryWrapper(queryClient)
+  });
 
-  await waitForDebounce();
-  assert.equal(pending.length, 1);
-  act(() => result.current.setLocked(true));
-  await act(async () => pending[0].resolve(Response.json({
-    currency: "EUR"
-  })));
+  await wait(0);
+  assert.equal(requests("accounts").length, 1);
+  act(() => result.current.lock.lock());
+  await respond(requests("accounts")[0], Response.json([{
+    id: "synthetic-account"
+  }]));
 
-  assert.equal(result.current.locked, true);
-  assert.equal(result.current.state, null);
+  assert.equal(result.current.lock.locked, true);
+  assert.equal(queryClient.getQueryData(queryKeys.accounts()), undefined);
 });
 
-test("an older mutation refresh cannot replace the response for newer filters", async context => {
-  const pending = browser(context);
+test("a read rejected with 401 locks the dashboard and drops cached financial data", async context => {
   const {
-    result,
-    rerender
-  } = renderDashboardData();
+    queryClient,
+    requests
+  } = browser(context);
 
-  await waitForDebounce();
-  await act(async () => pending[0].resolve(Response.json({
-    currency: "EUR"
-  })));
-  let refresh: Promise<void> | undefined;
-
-  act(() => {
-    refresh = result.current.load();
-  });
-  rerender({
-    query: dashboardQuery("USD")
-  });
-  await waitForDebounce();
-  assert.equal(pending.length, 3);
-  await act(async () => pending[2].resolve(Response.json({
-    currency: "USD"
-  })));
-  await act(async () => {
-    pending[1].resolve(Response.json({
-      currency: "EUR"
-    }));
-    await refresh;
+  queryClient.setQueryData(queryKeys.categories(), []);
+  const { result } = renderHook(() => ({
+    lock: useDashboardLock(),
+    accounts: useAccounts()
+  }), {
+    wrapper: queryWrapper(queryClient)
   });
 
-  assert.equal(result.current.state?.currency, "USD");
+  await wait(0);
+  await respond(requests("accounts")[0], Response.json({
+    title: "Unauthorized",
+    detail: "Sign in to continue."
+  }, {
+    status: 401
+  }));
+
+  assert.equal(result.current.lock.locked, true);
+  assert.equal(queryClient.getQueryData(queryKeys.categories()), undefined);
 });
 
-test("a mutation completed after a filter change refreshes the current filters and current data", async context => {
-  const pending = browser(context);
+test("an older response cannot replace the results for newer filters", async context => {
   const {
-    result,
-    rerender
-  } = renderDashboardData();
-
-  await waitForDebounce();
-  await act(async () => pending[0].resolve(Response.json({
-    currency: "EUR"
-  })));
-  const refreshFromEarlierAction = result.current.load;
+    rerender,
+    requests,
+    result
+  } = await renderResults(context);
 
   rerender({
-    query: dashboardQuery("USD")
+    query: dashboardQuery({
+      currency: "USD"
+    })
   });
-  await waitForDebounce();
-  await act(async () => pending[1].resolve(Response.json({
-    currency: "USD",
-    transactionCount: 0
-  })));
-  let refresh: Promise<void> | undefined;
+  await wait(0);
+  rerender({
+    query: dashboardQuery({
+      currency: "CHF"
+    })
+  });
+  await wait(0);
+  await respond(requests("reports/net-worth")[2], netWorth("CHF"));
+  await respond(requests("reports/net-worth")[1], netWorth("USD"));
 
-  act(() => {
-    refresh = refreshFromEarlierAction();
-  });
-  await act(async () => {
-    pending[2]?.resolve(Response.json({
-      currency: "USD",
-      transactionCount: 2
-    }));
-    await refresh;
-  });
+  assert.equal(result.current.netWorth.data?.currency, "CHF");
+  assert.equal(result.current.netWorth.status, "ready");
+});
 
-  assert.equal(result.current.state?.currency, "USD");
-  assert.equal(pending.length, 3);
-  assert.equal(new URL(pending[2].url, "http://localhost").searchParams.get("currency"), "USD");
-  assert.equal(result.current.state?.transactionCount, 2);
+test("a write completed after a filter change refreshes the results for the current filters", async context => {
+  const {
+    queryClient,
+    rerender,
+    requests,
+    result
+  } = await renderResults(context);
+
+  rerender({
+    query: dashboardQuery({
+      currency: "USD"
+    })
+  });
+  await wait(0);
+  await respond(requests("transactions")[1], transactionPage(0));
+
+  // A mutation that started before the change invalidates the list when it settles.
+  const refresh = invalidate(queryClient, [queryKeys.transactions.all()]);
+
+  await wait(0);
+  assert.equal(requests("transactions").length, 3);
+  assert.equal(requests("transactions")[2].url.searchParams.get("currency"), "USD");
+  await respond(requests("transactions")[2], transactionPage(2));
+  await act(() => refresh);
+
+  assert.equal(result.current.list.data?.transactionCount, 2);
+  assert.equal(result.current.list.status, "ready");
+});
+
+test("a period change marks the period results as loading until the response for that period arrives", async context => {
+  const {
+    rerender,
+    requests,
+    result
+  } = await renderResults(context);
+  const period = previousMonth(currentMonthPeriod());
+
+  rerender({
+    query: dashboardQuery({
+      period
+    })
+  });
+  await wait(300);
+
+  assert.deepEqual(statuses(result.current), {
+    netWorth: "ready",
+    cashFlow: "loading",
+    transactions: "loading"
+  });
+  assert.equal(requests("reports/net-worth").length, 1);
+
+  await respond(requests("reports/cash-flow")[1], cashFlow("EUR"));
+  await respond(requests("transactions")[1], transactionPage(2));
+
+  assert.deepEqual(statuses(result.current), {
+    netWorth: "ready",
+    cashFlow: "ready",
+    transactions: "ready"
+  });
+  assert.equal(result.current.list.data?.transactionCount, 2);
+  assert.equal(requests("transactions")[1].url.searchParams.get("period"), serializePeriod(period));
+});
+
+test("a transaction filter change marks only the transaction list as loading", async context => {
+  const {
+    rerender,
+    requests,
+    result
+  } = await renderResults(context);
+
+  for (const changes of [{
+    search: "rent"
+  }, {
+    account: "synthetic-account"
+  }, {
+    category: "uncategorized"
+  }]) {
+    rerender({
+      query: dashboardQuery(changes)
+    });
+    await wait(300);
+
+    assert.deepEqual(statuses(result.current), {
+      netWorth: "ready",
+      cashFlow: "ready",
+      transactions: "loading"
+    }, JSON.stringify(changes));
+  }
+
+  assert.equal(requests("reports/cash-flow").length, 1);
+});
+
+test("a fast response replaces the results without showing loading first", async context => {
+  const {
+    rerender,
+    requests,
+    result
+  } = await renderResults(context);
+  const seen: string[] = [];
+
+  rerender({
+    query: dashboardQuery({
+      currency: "USD"
+    })
+  });
+  await wait(100);
+  seen.push(result.current.netWorth.status);
+  await respond(requests("reports/net-worth")[1], netWorth("USD"));
+  await wait(200);
+  seen.push(result.current.netWorth.status);
+
+  assert.deepEqual(seen, ["ready", "ready"]);
+  assert.equal(result.current.netWorth.data?.currency, "USD");
+});
+
+test("a background refresh with unchanged filters keeps the current results visible", async context => {
+  const {
+    queryClient,
+    requests,
+    result
+  } = await renderResults(context);
+
+  void invalidate(queryClient, [queryKeys.transactions.all()]);
+  await wait(300);
+
+  assert.equal(requests("transactions").length, 2);
+  assert.equal(result.current.list.status, "ready");
+  assert.equal(result.current.list.data?.transactionCount, 1);
+});
+
+test("after rapid period changes only the response for the latest period ends loading", async context => {
+  const {
+    rerender,
+    requests,
+    result
+  } = await renderResults(context);
+  const first = previousMonth(currentMonthPeriod());
+  const second = previousMonth(first);
+
+  rerender({
+    query: dashboardQuery({
+      period: first
+    })
+  });
+  await wait(50);
+  rerender({
+    query: dashboardQuery({
+      period: second
+    })
+  });
+  await wait(300);
+  await respond(requests("transactions")[1], transactionPage(5));
+
+  assert.equal(result.current.list.status, "loading");
+  assert.equal(result.current.list.data?.transactionCount, 1);
+
+  await respond(requests("transactions")[2], transactionPage(7));
+
+  assert.equal(result.current.list.status, "ready");
+  assert.equal(result.current.list.data?.transactionCount, 7);
+  assert.equal(requests("transactions")[2].url.searchParams.get("period"), serializePeriod(second));
+});
+
+test("a failed request for changed filters ends loading and masks the outdated results until a retry succeeds", async context => {
+  const {
+    rerender,
+    requests,
+    result
+  } = await renderResults(context);
+
+  rerender({
+    query: dashboardQuery({
+      period: previousMonth(currentMonthPeriod())
+    })
+  });
+  await wait(300);
+  assert.equal(result.current.cashFlow.status, "loading");
+  await respond(requests("reports/cash-flow")[1], Response.json({
+    detail: "The database is not reachable."
+  }, {
+    status: 500
+  }));
+  await respond(requests("transactions")[1], Response.json({
+    detail: "The database is not reachable."
+  }, {
+    status: 500
+  }));
+
+  assert.equal(result.current.loadError.message, "The database is not reachable.");
+  assert.deepEqual(statuses(result.current), {
+    netWorth: "ready",
+    cashFlow: "unavailable",
+    transactions: "unavailable"
+  });
+  // The outdated results keep the layout while they are masked.
+  assert.equal(result.current.list.data?.transactionCount, 1);
+
+  act(() => result.current.loadError.retry());
+  await wait(0);
+  assert.equal(result.current.cashFlow.status, "loading");
+  await respond(requests("reports/cash-flow")[2], cashFlow("EUR"));
+  await respond(requests("transactions")[2], transactionPage(3));
+
+  assert.equal(result.current.loadError.message, "");
+  assert.equal(result.current.cashFlow.status, "ready");
+  assert.equal(result.current.list.data?.transactionCount, 3);
 });
 
 test("a failed load stays reported until a later load succeeds", async context => {
-  const pending = browser(context);
-  const { result } = renderDashboardData();
+  const {
+    queryClient,
+    requests
+  } = browser(context);
+  const { result } = renderHook(() => ({
+    accounts: useAccounts(),
+    loadError: useLoadError()
+  }), {
+    wrapper: queryWrapper(queryClient)
+  });
 
-  await waitForDebounce();
-  await act(async () => pending[0].resolve(Response.json({
-    title: "Service unavailable",
+  await wait(0);
+  await respond(requests("accounts")[0], Response.json({
+    title: "Internal Server Error",
     detail: "The database is not reachable."
   }, {
-    status: 503
-  })));
+    status: 500
+  }));
 
-  assert.equal(result.current.loadError, "The database is not reachable.");
+  assert.equal(result.current.loadError.message, "The database is not reachable.");
 
-  let refresh: Promise<void> | undefined;
+  act(() => result.current.loadError.retry());
+  await wait(0);
+  await respond(requests("accounts")[1], Response.json([]));
 
-  act(() => {
-    refresh = result.current.load();
-  });
-  await act(async () => {
-    pending[1].resolve(Response.json({
-      currency: "EUR"
-    }));
-    await refresh;
-  });
-
-  assert.equal(result.current.loadError, "");
-  assert.equal(result.current.state?.currency, "EUR");
+  assert.equal(result.current.loadError.message, "");
+  assert.deepEqual(result.current.accounts.data, []);
 });
 
 test("action feedback is dropped when its context changes", async context => {
@@ -255,7 +492,9 @@ test("success feedback dismisses itself while problems stay until dismissed", as
 });
 
 // Stands in for the App Router, which provides the current route to the dashboard layout; tests navigate with history.replaceState and rerender.
-function renderDashboard(url: string) {
+function renderDashboard(context: Parameters<typeof browser>[0], url: string) {
+  const environment = browser(context);
+
   window.history.replaceState(null, "", url);
   const replaced: string[] = [];
   const router = {
@@ -278,97 +517,82 @@ function renderDashboard(url: string) {
       value: new URLSearchParams(window.location.search)
     }, children));
 
-    return createElement(AppRouterContext, {
+    return withQueryClient(environment.queryClient, createElement(AppRouterContext, {
       value: router
-    }, route);
+    }, route));
   }
 
   return {
-    ...renderHook(() => useDashboard(), {
+    ...environment,
+    ...renderHook(() => {
+      const dashboard = useDashboard();
+
+      return {
+        dashboard,
+        list: useTransactionListView(dashboard.query, dashboard.replacePage)
+      };
+    }, {
       wrapper
     }),
     replaced
   };
 }
 
-function transactionListState(transactionCount: number, page: number) {
-  return {
-    currency: "EUR",
-    page,
-    transactionCount,
-    accounts: [],
-    transactions: [],
-    categories: [],
-    rules: [],
-    connections: [],
-    runs: [],
-    breakdown: [],
-    trend: []
-  };
-}
-
-function requestedPage(request: {
-  url: string
-}) {
-  return new URL(request.url, "http://localhost").searchParams.get("page");
-}
-
 test("a bank callback result is shown on the connections view and cleared when the view changes", async context => {
-  browser(context);
   const {
     result,
     rerender,
     replaced
-  } = renderDashboard("/connections?banking=connected");
+  } = renderDashboard(context, "/connections?banking=connected");
 
-  assert.equal(result.current.view, "connections");
-  assert.equal(result.current.feedback?.tone, "success");
+  assert.equal(result.current.dashboard.view, "connections");
+  assert.equal(result.current.dashboard.feedback?.tone, "success");
   assert.deepEqual(replaced, ["/connections"]);
 
   window.history.replaceState(null, "", "/");
   rerender();
 
-  assert.equal(result.current.view, "overview");
-  assert.equal(result.current.feedback, null);
+  assert.equal(result.current.dashboard.view, "overview");
+  assert.equal(result.current.dashboard.feedback, null);
 });
 
 test("a page past the last one is replaced by the last available page", async context => {
-  const pending = browser(context);
   const {
+    requests,
     result,
     rerender
-  } = renderDashboard("/transactions?page=10");
+  } = renderDashboard(context, "/transactions?page=10");
 
-  await waitForDebounce();
-  assert.equal(requestedPage(pending[0]), "10");
-  await act(async () => pending[0].resolve(Response.json(transactionListState(60, 10))));
+  await wait(0);
+  assert.equal(requests("transactions")[0].url.searchParams.get("page"), "10");
+  await respond(requests("transactions")[0], transactionPage(60, 10));
 
-  assert.equal(result.current.page, 2);
+  assert.equal(result.current.list.page, 2);
   assert.equal(window.location.search, "?page=2");
 
   rerender();
-  await waitForDebounce();
-  assert.equal(pending.length, 2);
-  assert.equal(requestedPage(pending[1]), "2");
+  await wait(0);
+  assert.equal(requests("transactions").length, 2);
+  assert.equal(requests("transactions")[1].url.searchParams.get("page"), "2");
 });
 
 test("an empty transaction history falls back to the first page", async context => {
-  const pending = browser(context);
   const {
+    requests,
     result,
     rerender
-  } = renderDashboard("/transactions?page=3");
+  } = renderDashboard(context, "/transactions?page=3");
 
-  await waitForDebounce();
-  await act(async () => pending[0].resolve(Response.json(transactionListState(0, 3))));
+  await wait(0);
+  await respond(requests("transactions")[0], transactionPage(0, 3));
 
-  assert.equal(result.current.page, 1);
+  assert.equal(result.current.list.page, 1);
   assert.equal(window.location.search, "");
 
   rerender();
-  await waitForDebounce();
-  assert.equal(requestedPage(pending[1]), "1");
-  await act(async () => pending[1].resolve(Response.json(transactionListState(0, 1))));
-  assert.equal(result.current.page, 1);
-  assert.equal(pending.length, 2);
+  await wait(0);
+  assert.equal(requests("transactions")[1].url.searchParams.get("page"), "1");
+  await respond(requests("transactions")[1], transactionPage(0, 1));
+  assert.equal(result.current.list.page, 1);
+  assert.equal(requests("transactions").length, 2);
 });
