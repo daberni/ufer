@@ -1,14 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { apiError } from "@/client/api";
+import { apiError, failureMessage } from "@/client/api";
 import { serializePeriod } from "./period";
 import type { DashboardQuery } from "./dashboard-location";
 import type { State } from "./types";
 
 /** Loads the dashboard state for the query that the current URL describes. */
-export function useDashboardData(filters: DashboardQuery, onError: (message: string) => void) {
+export function useDashboardData(filters: DashboardQuery) {
   const [state, setState] = useState<State | null>(null);
+
+  const [loadError, setLoadError] = useState("");
 
   const [locked, updateLocked] = useState(false);
   const lockedRef = useRef(false);
@@ -83,9 +85,11 @@ export function useDashboardData(filters: DashboardQuery, onError: (message: str
       }
 
       setState(data);
+      setLoadError("");
     } catch (error) {
+      // Failures stay visible until a later load succeeds; callers do not handle them separately.
       if (!controller.signal.aborted && version === requestVersion.current && !lockedRef.current) {
-        throw error;
+        setLoadError(failureMessage(error));
       }
     } finally {
       signal?.removeEventListener("abort", abort);
@@ -103,11 +107,7 @@ export function useDashboardData(filters: DashboardQuery, onError: (message: str
 
     const controller = new AbortController();
     const timer = setTimeout(() => {
-      load(controller.signal).catch(error => {
-        if (error.name !== "AbortError") {
-          onError(error.message);
-        }
-      });
+      void load(controller.signal);
     }, 180);
 
     return () => {
@@ -115,11 +115,12 @@ export function useDashboardData(filters: DashboardQuery, onError: (message: str
       controller.abort();
       invalidateRequests();
     };
-  }, [query, load, onError, locked, invalidateRequests]);
+  }, [query, load, locked, invalidateRequests]);
 
   return {
     state,
     setState,
+    loadError,
     locked,
     setLocked,
     load

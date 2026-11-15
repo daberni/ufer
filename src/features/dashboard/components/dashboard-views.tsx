@@ -36,6 +36,7 @@ function DashboardTransactionsPanel() {
       changeView={dashboard.changeView}
       page={dashboard.page}
       perform={dashboard.perform}
+      reportFeedback={dashboard.reportFeedback}
       search={dashboard.search}
       selectedCurrencyAccounts={dashboard.selectedCurrencyAccounts}
       setAccountFilter={dashboard.setAccountFilter}
@@ -103,6 +104,7 @@ export function RulesPage() {
     <RulesView
       busy={dashboard.busy}
       perform={dashboard.perform}
+      reportFeedback={dashboard.reportFeedback}
       setModal={dashboard.setModal}
       setSelectedCategory={dashboard.setSelectedCategory}
       state={dashboard.state}

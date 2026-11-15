@@ -2,6 +2,11 @@ import assert from "node:assert/strict";
 import { test, type TestContext } from "node:test";
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { JSDOM } from "jsdom";
+import { createElement, type ReactNode } from "react";
+import { AppRouterContext, type AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
+import { PathnameContext, SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime";
+import { useActionFeedback } from "../src/components/ui/use-action-feedback";
+import { useDashboard } from "../src/features/dashboard/use-dashboard";
 import { useDashboardData } from "../src/features/dashboard/use-dashboard-data";
 import { currentMonthPeriod } from "../src/features/dashboard/period";
 import type { DashboardQuery } from "../src/features/dashboard/dashboard-location";
@@ -57,8 +62,6 @@ function browser(context: TestContext) {
   return pending;
 }
 
-const onError = () => {};
-
 function dashboardQuery(currency: string): DashboardQuery {
   return {
     period: currentMonthPeriod(),
@@ -71,7 +74,7 @@ function dashboardQuery(currency: string): DashboardQuery {
 }
 
 function renderDashboardData() {
-  return renderHook(({ query }) => useDashboardData(query, onError), {
+  return renderHook(({ query }) => useDashboardData(query), {
     initialProps: {
       query: dashboardQuery("EUR")
     }
@@ -171,4 +174,131 @@ test("a mutation completed after a filter change refreshes the current filters a
   assert.equal(pending.length, 3);
   assert.equal(new URL(pending[2].url, "http://localhost").searchParams.get("currency"), "USD");
   assert.equal(result.current.state?.transactionCount, 2);
+});
+
+test("a failed load stays reported until a later load succeeds", async context => {
+  const pending = browser(context);
+  const { result } = renderDashboardData();
+
+  await waitForDebounce();
+  await act(async () => pending[0].resolve(Response.json({
+    title: "Service unavailable",
+    detail: "The database is not reachable."
+  }, {
+    status: 503
+  })));
+
+  assert.equal(result.current.loadError, "The database is not reachable.");
+
+  let refresh: Promise<void> | undefined;
+
+  act(() => {
+    refresh = result.current.load();
+  });
+  await act(async () => {
+    pending[1].resolve(Response.json({
+      currency: "EUR"
+    }));
+    await refresh;
+  });
+
+  assert.equal(result.current.loadError, "");
+  assert.equal(result.current.state?.currency, "EUR");
+});
+
+test("action feedback is dropped when its context changes", async context => {
+  browser(context);
+  const {
+    result,
+    rerender
+  } = renderHook(({ view }) => useActionFeedback(view), {
+    initialProps: {
+      view: "rules"
+    }
+  });
+
+  act(() => result.current.report({
+    tone: "problem",
+    messages: ["Rules could not be applied."]
+  }));
+  rerender({
+    view: "rules"
+  });
+  assert.deepEqual(result.current.feedback?.messages, ["Rules could not be applied."]);
+
+  rerender({
+    view: "overview"
+  });
+  assert.equal(result.current.feedback, null);
+});
+
+test("success feedback dismisses itself while problems stay until dismissed", async context => {
+  browser(context);
+  context.mock.timers.enable({
+    apis: ["setTimeout"]
+  });
+  const { result } = renderHook(() => useActionFeedback());
+
+  act(() => result.current.report({
+    tone: "problem",
+    messages: ["Sync failed."]
+  }));
+  act(() => context.mock.timers.tick(60_000));
+  assert.deepEqual(result.current.feedback?.messages, ["Sync failed."]);
+
+  act(() => result.current.report({
+    tone: "success",
+    messages: ["Rules applied."]
+  }));
+  act(() => context.mock.timers.tick(8_000));
+  assert.equal(result.current.feedback, null);
+});
+
+test("a bank callback result is shown on the connections view and cleared when the view changes", async context => {
+  browser(context);
+  window.history.replaceState(null, "", "/connections?banking=connected");
+  const replaced: string[] = [];
+  const router = {
+    push: () => {},
+    replace: (href: string) => {
+      replaced.push(href);
+    },
+    refresh: () => {},
+    back: () => {},
+    forward: () => {},
+    prefetch: () => {}
+  } as unknown as AppRouterInstance;
+  let pathname = "/connections";
+
+  // Stands in for the App Router, which provides the current route to the dashboard layout.
+  function wrapper({ children }: {
+    children: ReactNode
+  }) {
+    const route = createElement(PathnameContext, {
+      value: pathname
+    }, createElement(SearchParamsContext, {
+      value: new URLSearchParams(window.location.search)
+    }, children));
+
+    return createElement(AppRouterContext, {
+      value: router
+    }, route);
+  }
+
+  const {
+    result,
+    rerender
+  } = renderHook(() => useDashboard(), {
+    wrapper
+  });
+
+  assert.equal(result.current.view, "connections");
+  assert.equal(result.current.feedback?.tone, "success");
+  assert.deepEqual(replaced, ["/connections"]);
+
+  pathname = "/";
+  rerender();
+
+  assert.equal(result.current.view, "overview");
+  assert.equal(result.current.feedback, null);
 });

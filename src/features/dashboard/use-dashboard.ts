@@ -1,14 +1,23 @@
 "use client";
 
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useDashboardData } from "./use-dashboard-data";
 import { useBankDirectory } from "@/features/banking/use-bank-directory";
-import { api } from "@/client/api";
+import { failureMessage } from "@/client/api";
+import { useActionFeedback, type Feedback } from "@/components/ui/use-action-feedback";
 import { navigation } from "./presentation";
 import { monthPeriod, type Period } from "./period";
 import { dashboardQuery, isPeriodAware, periodScope, viewFromPathname, viewHref as hrefForView, withQueryChanges, type DashboardQueryChanges } from "./dashboard-location";
-import type { Account, Category, View, Modal, Connection, ConnectionRemoval } from "./types";
+import type { Account, Category, View, Modal, Connection } from "./types";
+
+export type ActionResult<T> = {
+  ok: true;
+  value: T;
+} | {
+  ok: false;
+  message: string;
+};
 
 export function useDashboard() {
   const router = useRouter();
@@ -60,15 +69,21 @@ export function useDashboard() {
 
   const [busy, setBusy] = useState(false);
 
-  const [error, setError] = useState("");
+  // Page-level overlay for feedback without a surviving trigger, such as a bank callback result. Navigating to another view, including with Back or Forward, drops it.
+  const {
+    feedback,
+    report: reportFeedback,
+    dismiss: dismissFeedback
+  } = useActionFeedback(pathname);
 
   const {
     state,
     setState,
+    loadError,
     locked,
     setLocked,
     load
-  } = useDashboardData(query, setError);
+  } = useDashboardData(query);
   const {
     banks,
     setBanks,
@@ -79,10 +94,9 @@ export function useDashboard() {
     bankName,
     setBankName,
     banksLoading,
-    setBanksLoading
-  } = useBankDirectory(modal === "bank", setError);
-
-  const [notice, setNotice] = useState("");
+    setBanksLoading,
+    banksError
+  } = useBankDirectory(modal === "bank");
 
   const [importMode, setImportMode] = useState("balances");
 
@@ -95,19 +109,14 @@ export function useDashboard() {
       return;
     }
 
-    if (result === "connected") {
-      setNotice("Bank connected. Select “Sync” to retrieve balances and transactions for the first time.");
-    } else {
-      setError(result);
-    }
-
+    reportFeedback(bankingCallbackFeedback(result));
     params.delete("banking");
     const rest = params.toString();
 
     router.replace(rest ? `${window.location.pathname}?${rest}` : window.location.pathname, {
       scroll: false
     });
-  }, [router]);
+  }, [reportFeedback, router]);
 
   // Filter and page changes stay on the current view; typing a search replaces its history entry instead of adding one per keystroke.
   const updateQuery = useCallback((changes: DashboardQueryChanges, entry: "push" | "replace") => {
@@ -170,23 +179,32 @@ export function useDashboard() {
     return hrefForView(next, scope);
   }
 
-  async function perform(action: () => Promise<unknown>, success?: string) {
+  // Runs an action and refreshes the dashboard; the caller presents the result where the action happened.
+  async function perform<T>(action: () => Promise<T>): Promise<ActionResult<T>> {
+    let result: ActionResult<T>;
+
     setBusy(true);
-    setError("");
-    setNotice("");
 
     try {
-      await action();
-      await load();
-
-      if (success) {
-        setNotice(success);
-      }
+      result = {
+        ok: true,
+        value: await action()
+      };
     } catch (error) {
-      setError(error instanceof Error ? error.message : "Request failed.");
+      result = {
+        ok: false,
+        message: failureMessage(error)
+      };
+    }
+
+    // A failed action may still have changed server state, so the dashboard is refreshed either way.
+    try {
+      await load();
     } finally {
       setBusy(false);
     }
+
+    return result;
   }
 
   function changeView(next: View) {
@@ -206,7 +224,6 @@ export function useDashboard() {
   }
 
   function openBank(connection?: Connection) {
-    setError("");
     setBankName(connection?.bank_name || "");
     setBankSearch("");
     setBankCountry(connection?.bank_country || "AT");
@@ -214,35 +231,10 @@ export function useDashboard() {
   }
 
   function openConnectionRemoval(connection: Connection) {
-    setError("");
     setSelectedConnection(connection);
     setModal("removeConnection");
   }
 
-  async function removeConnection(connection: Connection) {
-    let message = "";
-
-    await perform(async () => {
-      const result = await api<ConnectionRemoval>(`banking/connections/${encodeURIComponent(connection.id)}`, undefined, "DELETE");
-
-      message = connectionRemovalNotice(connection, result);
-      setModal(null);
-    });
-
-    if (message) {
-      setNotice(message);
-    }
-  }
-
-  async function submit(event: FormEvent<HTMLFormElement>, action: (data: FormData) => Promise<void>, message: string) {
-    event.preventDefault();
-    const data = new FormData(event.currentTarget);
-
-    await perform(async () => {
-      await action(data);
-      setModal(null);
-    }, message);
-  }
 
   const {
     period,
@@ -297,10 +289,10 @@ export function useDashboard() {
     selectedConnection,
     busy,
     setBusy,
-    error,
-    setError,
-    notice,
-    setNotice,
+    loadError,
+    feedback,
+    reportFeedback,
+    dismissFeedback,
     locked,
     setLocked,
     banks,
@@ -313,6 +305,7 @@ export function useDashboard() {
     setBankName,
     banksLoading,
     setBanksLoading,
+    banksError,
     importMode,
     setImportMode,
     load,
@@ -321,8 +314,6 @@ export function useDashboard() {
     moveMonth,
     openBank,
     openConnectionRemoval,
-    removeConnection,
-    submit,
     currencies,
     selectedCurrencyAccounts,
     bankAccounts,
@@ -335,14 +326,18 @@ export function useDashboard() {
   };
 }
 
-function connectionRemovalNotice(connection: Connection, result: ConnectionRemoval) {
-  const removed = `${connection.bank_name} removed. ${result.retainedAccounts} account(s) and their history were kept and are no longer synced.`;
-
-  if (result.providerRevocation === "not_revoked") {
-    return `${removed} Enable Banking did not confirm revoking the authorization; it ends when it expires or when you withdraw it at your bank.`;
+function bankingCallbackFeedback(result: string): Feedback {
+  if (result === "connected") {
+    return {
+      tone: "success",
+      messages: ["Bank connected. Select “Sync” to retrieve balances and transactions for the first time."]
+    };
   }
 
-  return removed;
+  return {
+    tone: "problem",
+    messages: [result]
+  };
 }
 
 export type DashboardController = ReturnType<typeof useDashboard>;
