@@ -1,16 +1,20 @@
 import styles from "./category-icon-picker.module.css";
-import { CircleOff } from "lucide-react";
-import { categoryIconKeys, categoryIconLabels, isCategoryIcon } from "@/features/categorization/category-icons";
-import { categoryIconComponents } from "./category-marker";
+import { categoryIconKeys, categoryIconLabels, type CategoryIconKey } from "@/features/categorization/category-icons";
+import { categoryTileColors } from "@/features/categorization/category-colors";
+import { CategoryMarker, categoryIconComponents } from "./category-marker";
 
 type Props = {
-  defaultIcon: string | null;
+  color: string;
+  icon: CategoryIconKey | "";
+  onChange: (icon: CategoryIconKey | "") => void;
 };
 
 export function CategoryIconPicker({
-  defaultIcon
+  color,
+  icon,
+  onChange
 }: Props) {
-  const selected = isCategoryIcon(defaultIcon) ? defaultIcon : "";
+  const iconColor = categoryTileColors(color).icon;
 
   return (
     <fieldset className={styles["icon-picker"]}>
@@ -22,9 +26,10 @@ export function CategoryIconPicker({
             type="radio"
             name="icon"
             value=""
-            defaultChecked={selected === ""}
+            checked={icon === ""}
+            onChange={() => onChange("")}
           />
-          <CircleOff aria-hidden="true" size={18} />
+          <CategoryMarker icon={null} color={color} size="small" />
           <span className={styles["icon-label"]}>No icon</span>
         </label>
         {categoryIconKeys.map(key => {
@@ -37,9 +42,16 @@ export function CategoryIconPicker({
                 type="radio"
                 name="icon"
                 value={key}
-                defaultChecked={selected === key}
+                checked={icon === key}
+                onChange={() => onChange(key)}
               />
-              <Icon aria-hidden="true" size={18} />
+              <Icon
+                aria-hidden="true"
+                size={18}
+                style={{
+                  color: iconColor
+                }}
+              />
               <span className={styles["icon-label"]}>{categoryIconLabels[key]}</span>
             </label>
           );

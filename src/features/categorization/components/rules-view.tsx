@@ -8,7 +8,7 @@ import { Pencil, Plus, Sparkles } from "lucide-react";
 import { api } from "@/client/api";
 import { Empty } from "@/components/ui/empty-state";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
-import { CategoryIcon, CategoryMarker } from "./category-marker";
+import { CategoryMarker } from "./category-marker";
 
 type Props = Pick<DashboardController, "busy" | "perform" | "setModal" | "setSelectedCategory" | "state">;
 
@@ -60,7 +60,7 @@ export function RulesView({
                     color: rule.category_color
                   }}
                 >
-                  <CategoryIcon icon={rule.category_icon} color={rule.category_color} size={12} />
+                  <CategoryMarker icon={rule.category_icon} color={rule.category_color} size="small" />
                   {rule.category_name}
                 </span>
                 <button
@@ -101,7 +101,7 @@ export function RulesView({
             <CategoryMarker icon={category.icon} color={category.color} />
             {category.name}
             {category.is_transfer ? " · excluded from cash flow" : ""}
-            <Pencil size={13} />
+            <Pencil className={styles["edit-hint"]} aria-hidden="true" size={11} />
           </button>
         ))}
       </div>

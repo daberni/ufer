@@ -5,7 +5,7 @@ import { api } from "@/client/api";
 import type { Transaction } from "@/features/dashboard/types";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
 import { Select } from "@/components/ui/select";
-import { CategoryIcon } from "@/features/categorization/components/category-marker";
+import { CategoryMarker } from "@/features/categorization/components/category-marker";
 
 type Props = Pick<DashboardController, "busy" | "perform" | "state"> & {
   transaction: Transaction;
@@ -26,7 +26,7 @@ export function TransactionCategory({
   return (
     <div className={styles["category"]}>
       <span className={styles["icon"]}>
-        {selectedCategory && <CategoryIcon icon={selectedCategory.icon} color={selectedCategory.color} />}
+        {selectedCategory && <CategoryMarker icon={selectedCategory.icon} color={selectedCategory.color} />}
       </span>
       <Select
         variant="compact"

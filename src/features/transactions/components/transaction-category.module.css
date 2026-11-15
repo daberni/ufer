@@ -7,7 +7,7 @@
 }
 .icon {
   display: inline-flex;
-  width: 14px;
+  width: 20px;
   flex-shrink: 0;
 }
 .category-select {

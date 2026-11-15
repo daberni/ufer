@@ -32,7 +32,7 @@ export function SpendingBreakdown({
           {state.breakdown.slice(0, 5).map(item => (
             <div className={styles["breakdown-row"]} key={item.name}>
               <span>
-                <CategoryMarker icon={item.icon} color={item.color} size={13} />
+                <CategoryMarker icon={item.icon} color={item.color} size="small" />
                 {item.name}
               </span>
               <strong>{money(item.amount, currency)}</strong>

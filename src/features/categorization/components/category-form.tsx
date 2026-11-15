@@ -3,10 +3,14 @@
 import ui from "../../../components/ui/primitives.module.css";
 
 import { clsx } from "clsx";
+import { useState } from "react";
+import styles from "./category-form.module.css";
 import { api } from "@/client/api";
+import { isCategoryIcon, type CategoryIconKey } from "@/features/categorization/category-icons";
 import type { Category } from "@/features/dashboard/types";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
 import { CategoryIconPicker } from "./category-icon-picker";
+import { CategoryMarker } from "./category-marker";
 
 type Props = Pick<DashboardController, "busy" | "submit"> & {
   category?: Category | null;
@@ -19,6 +23,11 @@ export function CategoryForm({
   category,
   submit
 }: Props) {
+  const [name, setName] = useState(category?.name ?? "");
+  const [color, setColor] = useState(category?.color ?? defaultColor);
+  const savedIcon = category?.icon;
+  const [icon, setIcon] = useState<CategoryIconKey | "">(isCategoryIcon(savedIcon) ? savedIcon : "");
+
   return (
     <form
       onSubmit={event => submit(event, async data => {
@@ -32,13 +41,18 @@ export function CategoryForm({
       }, category ? "Category saved." : "Category created.")}
       className={ui["form"]}
     >
+      <div className={styles["preview"]} aria-hidden="true">
+        <CategoryMarker icon={icon || null} color={color} size="large" />
+        <span>{name.trim() || "New category"}</span>
+      </div>
       <label>
         Name
         <input
           name="name"
           required
           maxLength={100}
-          defaultValue={category?.name}
+          value={name}
+          onChange={event => setName(event.target.value)}
         />
       </label>
       <label>
@@ -47,10 +61,11 @@ export function CategoryForm({
           name="color"
           type="color"
           required
-          defaultValue={category?.color ?? defaultColor}
+          value={color}
+          onChange={event => setColor(event.target.value)}
         />
       </label>
-      <CategoryIconPicker defaultIcon={category?.icon ?? null} />
+      <CategoryIconPicker color={color} icon={icon} onChange={setIcon} />
       <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={busy}>
         Save category
       </button>
