@@ -19,8 +19,7 @@ Use the existing Vercel Hobby account and Turso Starter plan. Do not select paid
 
 | Secret | Purpose |
 | --- | --- |
-| APP_PASSWORD | Temporary installation access until individual-user authentication ships |
-| SESSION_SECRET | Installation cookie sealing; use a dedicated random value |
+| BETTER_AUTH_SECRET | Required library authentication secret, at least 32 characters; independent from bank-secret encryption |
 | DATA_ENCRYPTION_KEY | 64 hexadecimal characters; preserve it with the database backup |
 | CRON_SECRET | Authentication for the daily scheduled sync |
 | DATABASE_AUTH_TOKEN | Authentication for the remote libSQL database |
@@ -36,7 +35,7 @@ Turso's integration supplies TURSO_DATABASE_URL and TURSO_AUTH_TOKEN. Map their 
 4. Verify the HTTPS origin, session-cookie attributes, login/logout, protected API responses, persisted data across deployments and server-only error handling. Check bank authorization and callback registration separately before claiming bank synchronization acceptance.
 5. Inspect the scheduled trigger and exercise its authenticated endpoint. The configured cron runs daily at 05:00 UTC; that is 06:00 Vienna in winter and 07:00 in summer. An endpoint check does not prove a future unattended scheduled run.
 
-The current installation is one shared workspace protected by an installation password. It is not a multi-customer service. Username/password identities, enrollment and workspace authorization require a reviewed authentication-library integration and explicit schema migrations; see [architecture](architecture.md).
+The current source uses Better Auth username/password identities and active membership of one installation workspace. Before deploying it to an existing installation, separately approve and follow the [authentication migration and enrollment workflow](user-management.md#migration-and-rollout). The hosted installation remains on its previous shared-password login until that rollout. This version is not a multi-customer service.
 
 ## Verification status
 
@@ -44,4 +43,6 @@ Verified on 2026-11-15: Vercel production is Ready on Node 26 with functions in 
 
 Vercel records an enabled daily 05:00 UTC cron definition, and its bearer-protected endpoint completed an authenticated sync. The first future unattended scheduled invocation has not been observed. No local financial data was imported. Real-bank coverage, physical-device flows, NAS operation, backup restoration and multi-customer isolation remain separate acceptance work.
 
-The production project is connected to the private repository's main branch. Approved pushes to that branch trigger deployment of the matching runtime and deployment configuration. Individual identities remain a separate [architecture change](architecture.md#sso-ready-identity-boundary) and are not enabled by this deployment.
+The production project is connected to the private repository's main branch. Approved pushes to that branch trigger deployment of the matching runtime and deployment configuration. The verification above predates the authentication changeset: individual identities are implemented in source but have not been migrated or accepted on the hosted deployment. See [user management](user-management.md) before deploying that source.
+
+Authentication configuration prepared on 2026-11-15: BETTER_AUTH_SECRET is stored as a sensitive Production environment variable and secured in the operator password manager. APP_PASSWORD and SESSION_SECRET remain available for the existing deployment until migration, owner enrollment and the new application rollout are explicitly accepted. Adding the new secret did not deploy or migrate the application.
