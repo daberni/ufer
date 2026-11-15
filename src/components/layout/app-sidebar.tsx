@@ -3,19 +3,20 @@
 import ui from "../ui/primitives.module.css";
 
 import { clsx } from "clsx";
+import Link from "next/link";
 import styles from "./app-sidebar.module.css";
 import { ShieldCheck } from "lucide-react";
 import { BrandIcon } from "@/components/branding/brand-icon";
 import { navigation } from "@/features/dashboard/presentation";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
 
-type Props = Pick<DashboardController, "changeView" | "expiring" | "state" | "view">;
+type Props = Pick<DashboardController, "expiring" | "state" | "view" | "viewHref">;
 
 export function AppSidebar({
-  changeView,
   expiring,
   state,
-  view
+  view,
+  viewHref
 }: Props) {
   if (!state) {
     return null;
@@ -23,7 +24,7 @@ export function AppSidebar({
 
   return (
     <aside className={styles["sidebar"]}>
-      <a className={styles["brand"]} href="/">
+      <Link className={styles["brand"]} href={viewHref("overview")}>
         <span className={styles["brand-symbol"]}>
           <BrandIcon />
         </span>
@@ -31,7 +32,7 @@ export function AppSidebar({
           ufer
           <small>ALL IN ONE PLACE.</small>
         </span>
-      </a>
+      </Link>
       <div className={styles["workspace"]}>
         <span className={styles["workspace-avatar"]}>P</span>
         <div>
@@ -42,12 +43,12 @@ export function AppSidebar({
       <span className={styles["nav-label"]}>MY OVERVIEW</span>
       <nav>
         {navigation.map(item => (
-          <button
+          <Link
             key={item.id}
             aria-label={item.label}
             aria-current={view === item.id ? "page" : undefined}
             className={clsx(styles["nav-item"], view === item.id ? styles["active"] : "")}
-            onClick={() => changeView(item.id)}
+            href={viewHref(item.id)}
           >
             <item.icon size={18} />
             <span className={styles["nav-full-label"]}>{item.label}</span>
@@ -55,7 +56,7 @@ export function AppSidebar({
               {item.mobileLabel}
             </span>
             {item.id === "connections" && expiring.length > 0 && <span className={styles["nav-count"]}>{expiring.length}</span>}
-          </button>
+          </Link>
         ))}
       </nav>
       <div className={styles["sidebar-bottom"]}>

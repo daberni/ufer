@@ -2,49 +2,36 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiError, failureMessage } from "@/client/api";
-import { currentMonthPeriod, serializePeriod, type Period } from "./period";
+import { serializePeriod } from "./period";
+import type { DashboardQuery } from "./dashboard-location";
 import type { State } from "./types";
 
-export function useDashboardData() {
+/** Loads the dashboard state for the query that the current URL describes. */
+export function useDashboardData(filters: DashboardQuery) {
   const [state, setState] = useState<State | null>(null);
 
   const [loadError, setLoadError] = useState("");
 
-  const [period, setPeriod] = useState<Period>(() => currentMonthPeriod());
-
-  const [currency, setCurrency] = useState("EUR");
-
-  const [search, setSearch] = useState("");
-
-  const [accountFilter, setAccountFilter] = useState("");
-
-  const [categoryFilter, setCategoryFilter] = useState("");
-
-  const [page, setPage] = useState(1);
+  // The query the displayed state was loaded for; it lags the URL while a request is pending.
+  const [stateQuery, setStateQuery] = useState("");
 
   const [locked, updateLocked] = useState(false);
   const lockedRef = useRef(false);
   const requestVersion = useRef(0);
   const activeRequest = useRef<AbortController | null>(null);
   const query = new URLSearchParams({
-    period: serializePeriod(period),
-    currency,
-    page: String(page),
-    search,
-    account: accountFilter,
-    category: categoryFilter
+    period: serializePeriod(filters.period),
+    currency: filters.currency,
+    page: String(filters.page),
+    search: filters.search,
+    account: filters.account,
+    category: filters.category
   }).toString();
   const latestQuery = useRef(query);
 
   useEffect(() => {
     latestQuery.current = query;
   }, [query]);
-
-  // A different period selects a different result set, so pagination restarts.
-  const selectPeriod = useCallback((next: Period) => {
-    setPeriod(next);
-    setPage(1);
-  }, []);
 
   const invalidateRequests = useCallback(() => {
     requestVersion.current += 1;
@@ -101,6 +88,7 @@ export function useDashboardData() {
       }
 
       setState(data);
+      setStateQuery(currentQuery);
       setLoadError("");
     } catch (error) {
       // Failures stay visible until a later load succeeds; callers do not handle them separately.
@@ -136,19 +124,8 @@ export function useDashboardData() {
   return {
     state,
     setState,
+    stateIsCurrent: stateQuery === query,
     loadError,
-    period,
-    selectPeriod,
-    currency,
-    setCurrency,
-    search,
-    setSearch,
-    accountFilter,
-    setAccountFilter,
-    categoryFilter,
-    setCategoryFilter,
-    page,
-    setPage,
     locked,
     setLocked,
     load

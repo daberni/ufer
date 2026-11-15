@@ -2,9 +2,14 @@ import assert from "node:assert/strict";
 import { test, type TestContext } from "node:test";
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { JSDOM } from "jsdom";
+import { createElement, type ReactNode } from "react";
+import { AppRouterContext, type AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
+import { PathnameContext, SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime";
 import { useActionFeedback } from "../src/components/ui/use-action-feedback";
 import { useDashboard } from "../src/features/dashboard/use-dashboard";
 import { useDashboardData } from "../src/features/dashboard/use-dashboard-data";
+import { currentMonthPeriod } from "../src/features/dashboard/period";
+import type { DashboardQuery } from "../src/features/dashboard/dashboard-location";
 
 function browser(context: TestContext) {
   const dom = new JSDOM("<!doctype html><html><body></body></html>", {
@@ -57,6 +62,25 @@ function browser(context: TestContext) {
   return pending;
 }
 
+function dashboardQuery(currency: string): DashboardQuery {
+  return {
+    period: currentMonthPeriod(),
+    currency,
+    search: "",
+    account: "",
+    category: "",
+    page: 1
+  };
+}
+
+function renderDashboardData() {
+  return renderHook(({ query }) => useDashboardData(query), {
+    initialProps: {
+      query: dashboardQuery("EUR")
+    }
+  });
+}
+
 async function waitForDebounce() {
   await act(async () => {
     await new Promise(resolve => setTimeout(resolve, 200));
@@ -65,7 +89,7 @@ async function waitForDebounce() {
 
 test("a delayed pre-logout response cannot reopen the dashboard or restore financial state", async context => {
   const pending = browser(context);
-  const { result } = renderHook(() => useDashboardData());
+  const { result } = renderDashboardData();
 
   await waitForDebounce();
   assert.equal(pending.length, 1);
@@ -80,7 +104,10 @@ test("a delayed pre-logout response cannot reopen the dashboard or restore finan
 
 test("an older mutation refresh cannot replace the response for newer filters", async context => {
   const pending = browser(context);
-  const { result } = renderHook(() => useDashboardData());
+  const {
+    result,
+    rerender
+  } = renderDashboardData();
 
   await waitForDebounce();
   await act(async () => pending[0].resolve(Response.json({
@@ -91,7 +118,9 @@ test("an older mutation refresh cannot replace the response for newer filters", 
   act(() => {
     refresh = result.current.load();
   });
-  act(() => result.current.setCurrency("USD"));
+  rerender({
+    query: dashboardQuery("USD")
+  });
   await waitForDebounce();
   assert.equal(pending.length, 3);
   await act(async () => pending[2].resolve(Response.json({
@@ -104,13 +133,15 @@ test("an older mutation refresh cannot replace the response for newer filters", 
     await refresh;
   });
 
-  assert.equal(result.current.currency, "USD");
   assert.equal(result.current.state?.currency, "USD");
 });
 
 test("a mutation completed after a filter change refreshes the current filters and current data", async context => {
   const pending = browser(context);
-  const { result } = renderHook(() => useDashboardData());
+  const {
+    result,
+    rerender
+  } = renderDashboardData();
 
   await waitForDebounce();
   await act(async () => pending[0].resolve(Response.json({
@@ -118,7 +149,9 @@ test("a mutation completed after a filter change refreshes the current filters a
   })));
   const refreshFromEarlierAction = result.current.load;
 
-  act(() => result.current.setCurrency("USD"));
+  rerender({
+    query: dashboardQuery("USD")
+  });
   await waitForDebounce();
   await act(async () => pending[1].resolve(Response.json({
     currency: "USD",
@@ -145,7 +178,7 @@ test("a mutation completed after a filter change refreshes the current filters a
 
 test("a failed load stays reported until a later load succeeds", async context => {
   const pending = browser(context);
-  const { result } = renderHook(() => useDashboardData());
+  const { result } = renderDashboardData();
 
   await waitForDebounce();
   await act(async () => pending[0].resolve(Response.json({
@@ -221,18 +254,121 @@ test("success feedback dismisses itself while problems stay until dismissed", as
   assert.equal(result.current.feedback, null);
 });
 
+// Stands in for the App Router, which provides the current route to the dashboard layout; tests navigate with history.replaceState and rerender.
+function renderDashboard(url: string) {
+  window.history.replaceState(null, "", url);
+  const replaced: string[] = [];
+  const router = {
+    push: () => {},
+    replace: (href: string) => {
+      replaced.push(href);
+    },
+    refresh: () => {},
+    back: () => {},
+    forward: () => {},
+    prefetch: () => {}
+  } as unknown as AppRouterInstance;
+
+  function wrapper({ children }: {
+    children: ReactNode
+  }) {
+    const route = createElement(PathnameContext, {
+      value: window.location.pathname
+    }, createElement(SearchParamsContext, {
+      value: new URLSearchParams(window.location.search)
+    }, children));
+
+    return createElement(AppRouterContext, {
+      value: router
+    }, route);
+  }
+
+  return {
+    ...renderHook(() => useDashboard(), {
+      wrapper
+    }),
+    replaced
+  };
+}
+
+function transactionListState(transactionCount: number, page: number) {
+  return {
+    currency: "EUR",
+    page,
+    transactionCount,
+    accounts: [],
+    transactions: [],
+    categories: [],
+    rules: [],
+    connections: [],
+    runs: [],
+    breakdown: [],
+    trend: []
+  };
+}
+
+function requestedPage(request: {
+  url: string
+}) {
+  return new URL(request.url, "http://localhost").searchParams.get("page");
+}
+
 test("a bank callback result is shown on the connections view and cleared when the view changes", async context => {
   browser(context);
-  window.scrollTo = () => {};
-
-  window.history.replaceState(null, "", "/?banking=connected");
-  const { result } = renderHook(() => useDashboard());
+  const {
+    result,
+    rerender,
+    replaced
+  } = renderDashboard("/connections?banking=connected");
 
   assert.equal(result.current.view, "connections");
   assert.equal(result.current.feedback?.tone, "success");
+  assert.deepEqual(replaced, ["/connections"]);
+
+  window.history.replaceState(null, "", "/");
+  rerender();
+
+  assert.equal(result.current.view, "overview");
+  assert.equal(result.current.feedback, null);
+});
+
+test("a page past the last one is replaced by the last available page", async context => {
+  const pending = browser(context);
+  const {
+    result,
+    rerender
+  } = renderDashboard("/transactions?page=10");
+
+  await waitForDebounce();
+  assert.equal(requestedPage(pending[0]), "10");
+  await act(async () => pending[0].resolve(Response.json(transactionListState(60, 10))));
+
+  assert.equal(result.current.page, 2);
+  assert.equal(window.location.search, "?page=2");
+
+  rerender();
+  await waitForDebounce();
+  assert.equal(pending.length, 2);
+  assert.equal(requestedPage(pending[1]), "2");
+});
+
+test("an empty transaction history falls back to the first page", async context => {
+  const pending = browser(context);
+  const {
+    result,
+    rerender
+  } = renderDashboard("/transactions?page=3");
+
+  await waitForDebounce();
+  await act(async () => pending[0].resolve(Response.json(transactionListState(0, 3))));
+
+  assert.equal(result.current.page, 1);
   assert.equal(window.location.search, "");
 
-  act(() => result.current.changeView("overview"));
-
-  assert.equal(result.current.feedback, null);
+  rerender();
+  await waitForDebounce();
+  assert.equal(requestedPage(pending[1]), "1");
+  await act(async () => pending[1].resolve(Response.json(transactionListState(0, 1))));
+  assert.equal(result.current.page, 1);
+  assert.equal(pending.length, 2);
 });

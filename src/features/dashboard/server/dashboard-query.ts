@@ -2,6 +2,7 @@ import { database } from "@/server/database/connection";
 import { environment } from "@/features/banking/server/environment";
 import { bankingConfigured } from "@/features/banking/server/enable-banking-client";
 import { currentMonth, periodToJson, trendMonths, type Period } from "@/features/dashboard/period";
+import { transactionPageSize } from "@/features/dashboard/pagination";
 import type { DashboardFilters } from "./dashboard-filters";
 
 // Transaction lists, counts, cash flow and spending all use this condition so their results describe the same range.
@@ -78,10 +79,10 @@ export async function readDashboardState(filters: DashboardFilters) {
       LEFT JOIN categories c ON c.id=t.category_id
       WHERE ${transactionWhere}
       ORDER BY t.booking_date DESC,t.created_at DESC,t.id
-      LIMIT 50
+      LIMIT ?
       OFFSET ?
     `,
-    args: [...args, (page - 1) * 50]
+    args: [...args, transactionPageSize, (page - 1) * transactionPageSize]
   });
   const countQuery = client.execute({
     sql: `

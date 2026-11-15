@@ -2,7 +2,10 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Ufer · Your finances, in perspective",
+  title: {
+    default: "Ufer · Your finances, in perspective",
+    template: "%s · Ufer"
+  },
   description: "Your personal dashboard for accounts, transactions, and net worth."
 };
 
