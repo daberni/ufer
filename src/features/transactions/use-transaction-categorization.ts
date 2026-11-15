@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api } from "@/client/api";
+import { api, failureMessage } from "@/client/api";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
 import type { Transaction } from "@/features/dashboard/types";
 
@@ -21,7 +21,7 @@ type Save = {
   desired: string | null;
 };
 
-type Dependencies = Pick<DashboardController, "load" | "setError" | "setState">;
+type Dependencies = Pick<DashboardController, "load" | "setState">;
 
 const savedIndicatorDuration = 2000;
 
@@ -31,7 +31,6 @@ const savedIndicatorDuration = 2000;
  */
 export function useTransactionCategorization({
   load,
-  setError,
   setState
 }: Dependencies) {
   const [statuses, setStatuses] = useState<ReadonlyMap<string, CategorizationStatus>>(() => new Map());
@@ -94,14 +93,10 @@ export function useTransactionCategorization({
     });
   }, [setState]);
 
-  // Totals and spending depend on categories. The refresh keeps the current figures visible until it completes.
+  // Totals and spending depend on categories. The refresh keeps the current figures visible and reports its own failures.
   const refreshInBackground = useCallback(() => {
-    load().catch(error => {
-      if (error.name !== "AbortError") {
-        setError(error.message);
-      }
-    });
-  }, [load, setError]);
+    void load();
+  }, [load]);
 
   const changeCategory = useCallback(async (transaction: Transaction, categoryId: string | null) => {
     const running = saves.current.get(transaction.id);
@@ -150,7 +145,7 @@ export function useTransactionCategorization({
     if (failure) {
       setStatus(transaction.id, {
         kind: "failed",
-        message: failure instanceof Error ? failure.message : "Request failed."
+        message: failureMessage(failure)
       });
 
       return;

@@ -75,7 +75,6 @@ const transaction: Transaction = {
 
 function renderCategorization() {
   const refreshes: number[] = [];
-  const errors: string[] = [];
   const load = async () => {
     refreshes.push(refreshes.length + 1);
   };
@@ -85,7 +84,6 @@ function renderCategorization() {
     } as State);
     const categorization = useTransactionCategorization({
       load,
-      setError: message => errors.push(String(message)),
       setState
     });
 
@@ -97,8 +95,7 @@ function renderCategorization() {
 
   return {
     ...hook,
-    refreshes,
-    errors
+    refreshes
   };
 }
 
@@ -147,8 +144,7 @@ test("a failed change restores the stored category and reports the failure at th
   const pending = browser(context);
   const {
     result,
-    refreshes,
-    errors
+    refreshes
   } = renderCategorization();
 
   act(() => {
@@ -171,7 +167,6 @@ test("a failed change restores the stored category and reports the failure at th
     message: "Category does not exist."
   });
   assert.equal(refreshes.length, 0);
-  assert.deepEqual(errors, []);
 });
 
 test("quick changes to one row are saved in order and end at the latest selection", async context => {

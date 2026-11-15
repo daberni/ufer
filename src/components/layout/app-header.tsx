@@ -5,11 +5,12 @@ import { ChevronRight } from "lucide-react";
 import { UserAccess } from "@/features/auth/components/user-access";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
 
-type Props = Pick<DashboardController, "nav" | "perform" | "setLocked" | "state">;
+type Props = Pick<DashboardController, "nav" | "perform" | "reportFeedback" | "setLocked" | "state">;
 
 export function AppHeader({
   nav,
   perform,
+  reportFeedback,
   setLocked,
   state
 }: Props) {
@@ -25,7 +26,7 @@ export function AppHeader({
       </span>
       <div>
         <span className={styles["environment-pill"]}>{state?.environment === "PRODUCTION" ? "PRODUCTION" : "SANDBOX"}</span>
-        <UserAccess perform={perform} setLocked={setLocked} />
+        <UserAccess perform={perform} reportFeedback={reportFeedback} setLocked={setLocked} />
       </div>
     </header>
   );

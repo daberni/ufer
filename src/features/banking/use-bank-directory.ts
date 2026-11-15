@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { api } from "@/client/api";
+import { api, failureMessage } from "@/client/api";
 import type { Bank } from "@/features/dashboard/types";
 
-export function useBankDirectory(active: boolean, onError: (message: string) => void) {
+export function useBankDirectory(active: boolean) {
   const [banks, setBanks] = useState<Bank[]>([]);
 
   const [bankCountry, setBankCountry] = useState("AT");
@@ -15,6 +15,8 @@ export function useBankDirectory(active: boolean, onError: (message: string) => 
 
   const [banksLoading, setBanksLoading] = useState(false);
 
+  const [banksError, setBanksError] = useState("");
+
   useEffect(() => {
     if (!active) {
       return;
@@ -23,6 +25,7 @@ export function useBankDirectory(active: boolean, onError: (message: string) => 
     let current = true;
 
     setBanksLoading(true);
+    setBanksError("");
     setBanks([]);
     api<{
       banks: Bank[];
@@ -33,7 +36,7 @@ export function useBankDirectory(active: boolean, onError: (message: string) => 
       }
     }).catch(error => {
       if (current) {
-        onError(error.message);
+        setBanksError(failureMessage(error));
       }
     }).finally(() => {
       if (current) {
@@ -44,7 +47,7 @@ export function useBankDirectory(active: boolean, onError: (message: string) => 
     return () => {
       current = false;
     };
-  }, [active, bankCountry, onError]);
+  }, [active, bankCountry]);
 
   return {
     banks,
@@ -56,6 +59,7 @@ export function useBankDirectory(active: boolean, onError: (message: string) => 
     bankName,
     setBankName,
     banksLoading,
-    setBanksLoading
+    setBanksLoading,
+    banksError
   };
 }

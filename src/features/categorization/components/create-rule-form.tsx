@@ -6,12 +6,15 @@ import { clsx } from "clsx";
 import { Sparkles } from "lucide-react";
 import { api } from "@/client/api";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
+import type { DialogFormProps } from "@/features/dashboard/use-dialog-submit";
+import { FormError } from "@/components/ui/form-error";
 import { Select } from "@/components/ui/select";
 
-type Props = Pick<DashboardController, "busy" | "state" | "submit">;
+type Props = Pick<DashboardController, "busy" | "state"> & DialogFormProps;
 
 export function CreateRuleForm({
   busy,
+  error,
   state,
   submit
 }: Props) {
@@ -26,7 +29,7 @@ export function CreateRuleForm({
           ...Object.fromEntries(data),
           priority: Number(data.get("priority"))
         });
-      }, "Rule created. New transactions will be categorized automatically.")}
+      })}
       className={ui["form"]}
     >
       <label>
@@ -78,6 +81,7 @@ export function CreateRuleForm({
         </Select>
       </label>
       <p className={ui["form-hint"]}>Matches the payee and description without case sensitivity. The first matching rule wins.</p>
+      <FormError message={error} />
       <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={busy}>
         Create rule <Sparkles size={16} />
       </button>
