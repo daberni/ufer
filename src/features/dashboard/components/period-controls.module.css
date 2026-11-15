@@ -41,16 +41,18 @@
   cursor: pointer;
 }
 .all-months {
-  display: flex !important;
+  display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 10px !important;
+  margin-left: 8px;
+  font-size: 10px;
   white-space: nowrap;
-  margin: 0 0 0 8px !important;
+  cursor: pointer;
 }
+/* The global input base sets a 41px text-field height that does not apply to a checkbox. */
 .all-months input {
-  width: 13px;
-  min-height: 13px;
+  min-height: 0;
+  margin: 0;
   accent-color: var(--green);
 }
 @media (max-width: 1250px) {
@@ -98,14 +100,8 @@
   .all-months {
     grid-column: 1 / -1;
     min-height: 44px;
-    font-size: 14px !important;
-    margin: 0 !important;
+    margin-left: 0;
     padding: 0 6px;
-    gap: 11px;
-  }
-  .all-months input {
-    width: 22px;
-    height: 22px;
-    min-height: 22px;
+    font-size: 14px;
   }
 }
