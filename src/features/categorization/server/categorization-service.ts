@@ -1,7 +1,8 @@
 import { HttpError, ValidationError } from "@/lib/errors";
 import { z } from "zod";
 import { categorize, validatePattern } from "@/lib/rules";
-import { categoryExists, insertCategory, listCategoryNames, updateCategory } from "./category-repository";
+import { normalizeCategoryName } from "@/lib/category-name";
+import { categoryExists, insertCategory, updateCategory, type CategoryWriteResult } from "./category-repository";
 import { findUncorrectedTransactions, insertRule, listRules, saveRuleAssignments, setRuleEnabled } from "./rule-repository";
 
 const ruleInput = z.object({
@@ -52,21 +53,17 @@ const defaultCategoryColor = "#638777";
 const categoryColor = z.string().regex(/^#[0-9a-fA-F]{6}$/, "Color must be a hex value such as #638777.").transform(value => value.toLowerCase());
 
 const categoryInput = z.object({
-  name: z.string().trim().min(1).max(100).transform(value => value.normalize("NFC")),
+  name: z.string().trim().min(1).max(100).transform(normalizeCategoryName),
   color: categoryColor
 });
 
-// SQLite lower() only folds ASCII, so names are compared in application code.
-function comparableName(name: string) {
-  return name.normalize("NFC").toLocaleLowerCase("und");
-}
-
-async function requireAvailableName(name: string, excludedId?: string) {
-  const existing = await listCategoryNames(excludedId);
-  const comparable = comparableName(name);
-
-  if (existing.some(other => comparableName(other) === comparable)) {
+function requireSaved(result: CategoryWriteResult) {
+  if (result === "name_taken") {
     throw new ValidationError("A category with this name already exists.");
+  }
+
+  if (result === "not_found") {
+    throw new HttpError(404, "Category not found.");
   }
 }
 
@@ -75,8 +72,7 @@ export async function createCategory(payload: unknown) {
     color: categoryColor.default(defaultCategoryColor)
   }).parse(payload);
 
-  await requireAvailableName(input.name);
-  await insertCategory(input);
+  requireSaved(await insertCategory(input));
 
   return {
     ok: true
@@ -86,12 +82,7 @@ export async function createCategory(payload: unknown) {
 export async function updateCategoryDetails(id: string, payload: unknown) {
   const input = categoryInput.parse(payload);
 
-  if (!(await categoryExists(id))) {
-    throw new HttpError(404, "Category not found.");
-  }
-
-  await requireAvailableName(input.name, id);
-  await updateCategory(id, input);
+  requireSaved(await updateCategory(id, input));
 
   return {
     ok: true

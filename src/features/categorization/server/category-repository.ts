@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { eq, ne } from "drizzle-orm";
+import { eq } from "drizzle-orm";
+import type { InStatement } from "@libsql/client";
+import { sameCategoryName } from "@/lib/category-name";
 import { database } from "@/server/database/connection";
 import { categories } from "@/server/database/schema";
 
@@ -7,6 +9,8 @@ export type CategoryDetails = {
   name: string;
   color: string;
 };
+
+export type CategoryWriteResult = "saved" | "name_taken" | "not_found";
 
 export async function categoryExists(id: string) {
   const db = await database();
@@ -17,27 +21,47 @@ export async function categoryExists(id: string) {
   return Boolean(result);
 }
 
-export async function listCategoryNames(excludedId?: string) {
+// The name check and the write share one write-mode transaction, which serializes concurrent writers.
+// The database constraint is case-sensitive and cannot catch case variants of the same name.
+async function writeUniquelyNamed(existingId: string | null, name: string, statement: InStatement): Promise<CategoryWriteResult> {
   const db = await database();
-  const rows = await db.select({
-    name: categories.name
-  }).from(categories).where(excludedId ? ne(categories.id, excludedId) : undefined);
+  const transaction = await db.$client.transaction("write");
 
-  return rows.map(row => row.name);
+  try {
+    const rows = (await transaction.execute("SELECT id, name FROM categories")).rows;
+    const targetMissing = existingId !== null && !rows.some(row => row.id === existingId);
+    const nameTaken = rows.some(row => row.id !== existingId && sameCategoryName(String(row.name), name));
+
+    if (targetMissing || nameTaken) {
+      await transaction.rollback();
+
+      return targetMissing ? "not_found" : "name_taken";
+    }
+
+    await transaction.execute(statement);
+    await transaction.commit();
+
+    return "saved";
+  } catch (error) {
+    await transaction.rollback();
+
+    throw error;
+  } finally {
+    transaction.close();
+  }
 }
 
 export async function insertCategory(details: CategoryDetails) {
-  const db = await database();
-
-  await db.insert(categories).values({
-    id: randomUUID(),
-    ...details
+  return writeUniquelyNamed(null, details.name, {
+    sql: "INSERT INTO categories(id,name,color) VALUES (?,?,?)",
+    args: [randomUUID(), details.name, details.color]
   });
 }
 
 // Transactions and rules reference categories by id, so changing the details never touches assignments.
 export async function updateCategory(id: string, details: CategoryDetails) {
-  const db = await database();
-
-  await db.update(categories).set(details).where(eq(categories.id, id));
+  return writeUniquelyNamed(id, details.name, {
+    sql: "UPDATE categories SET name=?, color=? WHERE id=?",
+    args: [details.name, details.color, id]
+  });
 }

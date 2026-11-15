@@ -441,6 +441,14 @@ test("category edits keep transaction assignments and rules attached and reject 
   await assert.rejects(createCategory({
     name: "ÉPARGNE"
   }), ValidationError);
+  const overlapping = await Promise.allSettled([createCategory({
+    name: "Savings"
+  }), createCategory({
+    name: "SAVINGS"
+  })]);
+
+  assert.deepEqual(overlapping.map(result => result.status).sort(), ["fulfilled", "rejected"]);
+  assert.equal((await db.select().from(schema.categories)).filter(row => row.name.toLowerCase() === "savings").length, 1);
   await assert.rejects(updateCategoryDetails("missing", {
     name: "Anything",
     color: "#abcdef"
