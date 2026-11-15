@@ -1,4 +1,4 @@
-import { ArrowDownLeft, Building2, CreditCard, Landmark, LayoutDashboard, Link2, SlidersHorizontal, ChartNoAxesCombined, Wallet } from "lucide-react";
+import { ArrowDownLeft, Building2, CreditCard, HandCoins, Landmark, LayoutDashboard, Link2, PiggyBank, SlidersHorizontal, ChartNoAxesCombined, Wallet } from "lucide-react";
 import type { View } from "./types";
 import type { Period } from "./period";
 
@@ -87,6 +87,10 @@ export function accountIcon(kind: string) {
       return ChartNoAxesCombined;
     case "credit_card":
       return CreditCard;
+    case "savings":
+      return PiggyBank;
+    case "loan":
+      return HandCoins;
     default:
       return Landmark;
   }
@@ -102,7 +106,7 @@ export const viewDescriptions: Record<View, string> = {
 
 export const modalTitles = {
   bank: "Connect bank",
-  account: "Add asset",
+  account: "Add account",
   rule: "Create rule",
   balance: "Update balance",
   category: "Add category",

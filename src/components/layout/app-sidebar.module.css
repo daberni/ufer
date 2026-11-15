@@ -91,6 +91,9 @@
 .nav-count {
   margin-left: auto;
   font-size: 10px;
+  font-weight: 600;
+  /* The badge sits on the light amber fill, not on the dark sidebar, so it must not inherit the light nav text color. */
+  color: var(--ink);
   background: #edd4a9;
   padding: 2px 6px;
   border-radius: 4px;
