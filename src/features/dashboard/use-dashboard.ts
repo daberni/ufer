@@ -4,7 +4,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useDashboardData } from "./use-dashboard-data";
 import { useBankDirectory } from "@/features/banking/use-bank-directory";
 import { navigation } from "./presentation";
-import type { Account, View, Modal, Connection } from "./types";
+import type { Account, Category, View, Modal, Connection } from "./types";
 
 export function useDashboard() {
   const [view, setView] = useState<View>("overview");
@@ -12,6 +12,8 @@ export function useDashboard() {
   const [modal, setModal] = useState<Modal>(null);
 
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
+
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
 
   const [busy, setBusy] = useState(false);
 
@@ -181,6 +183,8 @@ export function useDashboard() {
     setModal,
     selectedAccount,
     setSelectedAccount,
+    selectedCategory,
+    setSelectedCategory,
     busy,
     setBusy,
     error,

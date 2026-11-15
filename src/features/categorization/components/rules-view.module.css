@@ -71,6 +71,12 @@
   border-radius: 8px;
   font-size: 11px;
   background: #fff;
+  color: inherit;
+  font-family: inherit;
+  cursor: pointer;
+}
+.category-chip:hover {
+  border-color: var(--ink);
 }
 @media (max-width: 760px), (max-width: 900px) and (pointer: coarse) {
   .rule-row {

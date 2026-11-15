@@ -1,5 +1,5 @@
-import { ArrowDownLeft, Building2, CreditCard, Landmark, LayoutDashboard, Link2, SlidersHorizontal, ChartNoAxesCombined, Wallet } from "lucide-react";
-import { describeDate } from "@/lib/date-format";
+import { ArrowDownLeft, Building2, CreditCard, HandCoins, Landmark, LayoutDashboard, Link2, PiggyBank, SlidersHorizontal, ChartNoAxesCombined, Wallet } from "lucide-react";
+import { describeDate, parseDisplayDate } from "@/lib/date-format";
 import type { View } from "./types";
 
 export const kinds: Record<string, string> = {
@@ -54,6 +54,10 @@ export function accountIcon(kind: string) {
       return ChartNoAxesCombined;
     case "credit_card":
       return CreditCard;
+    case "savings":
+      return PiggyBank;
+    case "loan":
+      return HandCoins;
     default:
       return Landmark;
   }
@@ -69,10 +73,11 @@ export const viewDescriptions: Record<View, string> = {
 
 export const modalTitles = {
   bank: "Connect bank",
-  account: "Add asset",
+  account: "Add account",
   rule: "Create rule",
   balance: "Update balance",
   category: "Add category",
+  editCategory: "Edit category",
   import: "Import CSV",
 };
 
@@ -92,7 +97,7 @@ export function lastSyncLabel(run: {
 
   const status = syncStatusLabels[run.status] || "failed";
 
-  return `Last sync: ${describeDate(run.started_at, undefined, timeZone).label} · ${status}`;
+  return `Last sync: ${describeDate(parseDisplayDate(run.started_at, timeZone)).label} · ${status}`;
 }
 
 export function accountSyncLabel(account: {

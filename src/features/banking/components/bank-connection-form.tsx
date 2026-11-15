@@ -6,6 +6,7 @@ import { clsx } from "clsx";
 import { ArrowRight } from "lucide-react";
 import { api } from "@/client/api";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
+import { Select } from "@/components/ui/select";
 
 type Props = Pick<DashboardController, "bankCountry" | "bankName" | "bankSearch" | "banks" | "banksLoading" | "busy" | "setBankCountry" | "setBankName" | "setBankSearch" | "state" | "submit">;
 
@@ -43,13 +44,13 @@ export function BankConnectionForm({
       <p className={ui["form-description"]}>{state?.environment === "SANDBOX" ? "You are connecting a test bank. Use only its sandbox credentials." : "After selecting a bank, authorize read-only access with your bank."}</p>
       <label>
         Country
-        <select value={bankCountry} onChange={event => setBankCountry(event.target.value)}>
+        <Select value={bankCountry} onChange={event => setBankCountry(event.target.value)}>
           <option value="AT">Austria</option>
           <option value="DE">Germany</option>
           <option value="FI">Finland</option>
           <option value="GB">United Kingdom</option>
           <option value="SE">Sweden</option>
-        </select>
+        </Select>
       </label>
       <label>
         Search banks
@@ -57,7 +58,7 @@ export function BankConnectionForm({
       </label>
       <label>
         Available banks
-        <select
+        <Select
           required
           value={bankName}
           onChange={event => setBankName(event.target.value)}
@@ -70,7 +71,7 @@ export function BankConnectionForm({
               {bank.beta ? " (Beta)" : ""}
             </option>
           ))}
-        </select>
+        </Select>
       </label>
       {!banksLoading && !banks.length && <p className={ui["form-description"]}>No personal bank is available for this country. Sandbox institutions can differ from production institutions.</p>}
       <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={busy || !bankName || banksLoading}>

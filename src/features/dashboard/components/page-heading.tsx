@@ -2,22 +2,18 @@
 
 import ui from "../../../components/ui/primitives.module.css";
 
-import { clsx } from "clsx";
 import styles from "./page-heading.module.css";
-import { RefreshCw } from "lucide-react";
-import { api } from "@/client/api";
+import { SyncButton } from "@/features/banking/components/sync-button";
 import { viewDescriptions } from "@/features/dashboard/presentation";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
 
-type Props = Pick<DashboardController, "bankAccounts" | "busy" | "nav" | "perform" | "setError" | "setNotice" | "view">;
+type Props = Pick<DashboardController, "bankAccounts" | "busy" | "nav" | "perform" | "view">;
 
 export function PageHeading({
   bankAccounts,
   busy,
   nav,
   perform,
-  setError,
-  setNotice,
   view
 }: Props) {
   return (
@@ -27,25 +23,7 @@ export function PageHeading({
         <h1>{nav.label === "Overview" ? "Your money. In perspective." : nav.label}</h1>
         <p>{viewDescriptions[view]}</p>
       </div>
-      <button
-        className={clsx(styles["button"], ui["primary"])}
-        disabled={busy || !bankAccounts.length}
-        onClick={() => perform(async () => {
-          const result = await api<{
-            inserted: number;
-            failures: string[];
-          }>("sync", {});
-
-          if (result.failures.length) {
-            setError(result.failures.join(" · "));
-          }
-
-          setNotice(`${result.inserted} new transactions synced.`);
-        })}
-      >
-        <RefreshCw size={15} className={busy ? ui["spinning"] : ""} />
-        {busy ? "Processing …" : "Sync"}
-      </button>
+      <SyncButton bankAccounts={bankAccounts} busy={busy} perform={perform} />
     </div>
   );
 }

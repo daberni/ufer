@@ -4,10 +4,11 @@ import ui from "../../../components/ui/primitives.module.css";
 
 import styles from "./period-controls.module.css";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { describeDate } from "@/lib/date-format";
+import { describeDate, parseDisplayDate } from "@/lib/date-format";
 import { useDisplayTimeZone } from "@/components/ui/use-display-time-zone";
 import { lastSyncLabel, monthLabel } from "@/features/dashboard/presentation";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
+import { Select } from "@/components/ui/select";
 
 type Props = Pick<DashboardController, "currencies" | "currency" | "month" | "moveMonth" | "setCurrency" | "setMonth" | "setPage" | "state" | "view">;
 
@@ -34,10 +35,11 @@ export function PeriodControls({
     <div className={styles["period-bar"]}>
       <div>
         <span className={ui["section-kicker"]}>{view === "overview" ? "NET WORTH & MONTHLY CASH FLOW" : `${state.transactionCount} ${state.transactionCount === 1 ? "TRANSACTION" : "TRANSACTIONS"}`}</span>
-        {view === "overview" && <span className={styles["subtle"]} title={latestSync ? describeDate(latestSync.started_at, undefined, timeZone).title : undefined}>{lastSyncLabel(latestSync, timeZone)}</span>}
+        {view === "overview" && <span className={styles["subtle"]} title={latestSync ? describeDate(parseDisplayDate(latestSync.started_at, timeZone)).title : undefined}>{lastSyncLabel(latestSync, timeZone)}</span>}
       </div>
       <div className={styles["period-controls"]}>
-        <select
+        <Select
+          variant="bare"
           aria-label="Display currency"
           value={currency}
           onChange={event => {
@@ -46,7 +48,7 @@ export function PeriodControls({
           }}
         >
           {currencies.map(value => <option key={value}>{value}</option>)}
-        </select>
+        </Select>
         <button className={ui["icon-button"]} aria-label="Previous month" onClick={() => moveMonth(-1)}>
           <ChevronLeft size={17} />
         </button>

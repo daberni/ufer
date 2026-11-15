@@ -14,40 +14,40 @@ export type DateDisplay = {
   title: string;
 };
 
-export function isDateOnly(value: string) {
-  return dateOnlyPattern.test(value);
+// Parses an API value once at the boundary: date-only strings (booking and balance dates) become
+// plain calendar days that never shift with a timezone; timestamps (sync runs, authorization expiry)
+// become instants placed in the given zone.
+export function parseDisplayDate(value: string, timeZone: string): Temporal.PlainDate | Temporal.ZonedDateTime {
+  if (dateOnlyPattern.test(value)) {
+    return Temporal.PlainDate.from(value);
+  }
+
+  return Temporal.Instant.from(value).toZonedDateTimeISO(timeZone);
 }
 
-// Date-only values (booking and balance dates) are plain calendar days: the day never shifts with
-// the viewer's timezone, and the title carries no time or zone.
-// Timestamps (sync runs, authorization expiry) render in the given timezone (default: the product zone),
-// and the title names that zone because the same instant reads differently elsewhere.
-export function describeDate(value: string, locale = displayLocale, timeZone = defaultTimeZone): DateDisplay {
-  if (isDateOnly(value)) {
-    const day = Temporal.PlainDate.from(value);
-
+// A plain date has no time or zone to show; a zoned timestamp names its zone in the title
+// because the same instant reads differently elsewhere.
+export function describeDate(value: Temporal.PlainDate | Temporal.ZonedDateTime): DateDisplay {
+  if (value instanceof Temporal.PlainDate) {
     return {
-      dateTime: day.toString(),
-      label: day.toLocaleString(locale, {
+      dateTime: value.toString(),
+      label: value.toLocaleString(displayLocale, {
         day: "numeric",
         month: "short"
       }),
-      title: day.toLocaleString(locale, {
+      title: value.toLocaleString(displayLocale, {
         dateStyle: "full"
       })
     };
   }
 
-  const instant = Temporal.Instant.from(value);
-  const moment = instant.toZonedDateTimeISO(timeZone);
-
   return {
-    dateTime: instant.toString(),
-    label: moment.toLocaleString(locale, {
+    dateTime: value.toInstant().toString(),
+    label: value.toLocaleString(displayLocale, {
       day: "numeric",
       month: "short"
     }),
-    title: moment.toLocaleString(locale, {
+    title: value.toLocaleString(displayLocale, {
       dateStyle: "long",
       timeStyle: "long"
     })

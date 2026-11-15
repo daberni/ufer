@@ -1,6 +1,6 @@
 "use client";
 
-import { describeDate } from "@/lib/date-format";
+import { describeDate, parseDisplayDate } from "@/lib/date-format";
 import { useDisplayTimeZone } from "./use-display-time-zone";
 
 export function DateValue({
@@ -16,7 +16,7 @@ export function DateValue({
     return <>{fallback}</>;
   }
 
-  const display = describeDate(value, undefined, timeZone);
+  const display = describeDate(parseDisplayDate(value, timeZone));
 
   return <time dateTime={display.dateTime} title={display.title}>{display.label}</time>;
 }
