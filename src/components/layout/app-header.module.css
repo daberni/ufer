@@ -6,7 +6,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 0 43px;
-  font-size: 11px;
+  font-size: var(--text-xs);
   color: #919a94;
 }
 .topbar > span {
@@ -33,11 +33,11 @@
   border: 2px solid #fff;
   box-shadow: 0 0 0 1px #e3e8df;
   border-radius: 50%;
-  font-size: 11px;
+  font-size: var(--text-xs);
   color: #57704c;
 }
 .environment-pill {
-  font-size: 8px;
+  font-size: var(--text-xs);
   letter-spacing: 1px;
   background: #f1ecde;
   color: #90783e;
@@ -65,7 +65,7 @@
       max(16px, env(safe-area-inset-left));
     min-height: 60px;
     height: auto;
-    font-size: 12px;
+    font-size: var(--text-sm);
     gap: 10px;
   }
   .topbar > span {
@@ -78,7 +78,7 @@
     gap: 9px;
   }
   .environment-pill {
-    font-size: 9px;
+    font-size: var(--text-xs);
   }
   .topbar .avatar {
     display: none;

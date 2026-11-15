@@ -33,11 +33,11 @@
 }
 .connection-info strong {
   font-weight: 500;
-  font-size: 12px;
+  font-size: var(--text-sm);
   color: #647e53;
 }
 .connection-info p {
-  font-size: 11px;
+  font-size: var(--text-xs);
   color: #8d9e7b;
   line-height: 1.7;
   margin-top: 5px;
@@ -56,11 +56,11 @@
   flex: 1;
 }
 .connection-row h3 {
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 500;
 }
 .connection-row p {
-  font-size: 10px;
+  font-size: var(--text-xs);
   color: #97a18a;
   margin-top: 6px;
   line-height: 1.7;
@@ -73,7 +73,7 @@
   gap: 20px;
   align-items: center;
   flex-wrap: wrap;
-  font-size: 10px;
+  font-size: var(--text-xs);
   padding: 16px 0;
   border-bottom: 1px solid var(--border);
   color: #96a18b;
@@ -103,15 +103,15 @@
     flex: 1 1 calc(100% - 55px);
   }
   .connection-row h3 {
-    font-size: 16px;
+    font-size: var(--text-md);
     overflow-wrap: anywhere;
   }
   .connection-row p {
-    font-size: 13px;
+    font-size: var(--text-sm);
     overflow-wrap: anywhere;
   }
   .connection-info p {
-    font-size: 13px;
+    font-size: var(--text-sm);
     overflow-wrap: anywhere;
   }
   .connection-row > .pill {
@@ -125,10 +125,10 @@
     align-items: flex-start;
   }
   .connection-info strong {
-    font-size: 15px;
+    font-size: var(--text-md);
   }
   .sync-row {
     gap: 12px;
-    font-size: 13px;
+    font-size: var(--text-sm);
   }
 }

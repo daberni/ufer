@@ -31,7 +31,7 @@
   --select-indicator-inset: 8px;
   --select-indicator-size: 10px;
   --select-indicator-gap: 6px;
-  font-size: 9px;
+  font-size: var(--text-xs);
   min-height: 29px;
   padding-block: 5px;
   padding-left: 8px;
@@ -47,5 +47,5 @@
   padding-left: 8px;
   background-color: transparent;
   border: 0;
-  font-size: 10px;
+  font-size: var(--text-xs);
 }

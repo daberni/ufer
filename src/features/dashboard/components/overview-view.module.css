@@ -14,7 +14,7 @@
     grid-template-columns: 1fr 1fr;
   }
   .analytics-grid h2 {
-    font-size: 14px;
+    font-size: var(--text-md);
   }
 }
 @media (max-width: 760px), (max-width: 900px) and (pointer: coarse) {
@@ -23,7 +23,7 @@
     gap: 17px;
   }
   .analytics-grid h2 {
-    font-size: 17px;
+    font-size: var(--text-lg);
   }
   .analytics-grid {
     margin-top: 25px;
