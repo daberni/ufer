@@ -85,7 +85,8 @@ export function useSyncStatus(perform: DashboardController["perform"]) {
   function dismissProblem() {
     setStatus(current => ({
       ...current,
-      problem: null
+      problem: null,
+      assertiveAnnouncement: ""
     }));
   }
 

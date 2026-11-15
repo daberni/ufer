@@ -186,3 +186,26 @@ test("a sync problem stays reported until a later sync succeeds", async context 
   assert.equal(result.current.problem, null);
   assert.equal(result.current.assertiveAnnouncement, "");
 });
+
+test("a dismissed sync problem is no longer exposed as an alert", async context => {
+  browser(context);
+  const {
+    perform,
+    pending
+  } = controllablePerform();
+  const { result } = renderHook(() => useSyncStatus(perform));
+
+  act(() => {
+    result.current.sync();
+  });
+  await act(async () => pending[0].resolve({
+    ok: false,
+    message: "Request failed."
+  }));
+  assert.equal(result.current.assertiveAnnouncement, "Sync failed: Request failed.");
+
+  act(() => result.current.dismissProblem());
+
+  assert.equal(result.current.problem, null);
+  assert.equal(result.current.assertiveAnnouncement, "");
+});
