@@ -1,0 +1,352 @@
+.legend-dot {
+  composes: legend-dot from "../../../components/ui/primitives.module.css";
+}
+.subtle {
+  composes: subtle from "../../../components/ui/primitives.module.css";
+}
+.wealth-grid {
+  display: grid;
+  grid-template-columns: 1.35fr 1fr;
+  gap: 22px;
+}
+.wealth-card {
+  border: 1px solid #dce4ce;
+  background: linear-gradient(115deg, #edf2e2, #f0f4e9 70%, #eaf0dd);
+  border-radius: 12px;
+  padding: 25px 27px 23px;
+  position: relative;
+  overflow: hidden;
+}
+.wealth-card:after {
+  content: "";
+  position: absolute;
+  width: 270px;
+  height: 270px;
+  border: 1px solid #aebf8d25;
+  border-radius: 50%;
+  top: -110px;
+  right: -60px;
+  pointer-events: none;
+  box-shadow:
+    0 0 0 28px #aebf8d09,
+    0 0 0 56px #aebf8d07;
+}
+.wealth-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: #53684b;
+  font-size: 11px;
+  position: relative;
+  z-index: 1;
+}
+.wealth-card-top > span:first-child {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.wealth-mark {
+  width: 27px;
+  height: 27px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 7px;
+  background: #dce6ca;
+}
+.small-tag {
+  font-size: 9px;
+  border: 1px solid #d6dfc5;
+  border-radius: 5px;
+  padding: 4px 6px;
+}
+.wealth-number {
+  font-size: 43px;
+  font-weight: 500;
+  letter-spacing: -2px;
+  margin-top: 23px;
+  line-height: 1.1;
+  position: relative;
+  z-index: 1;
+  font-variant-numeric: tabular-nums;
+}
+.wealth-card > p {
+  font-size: 9px;
+  color: #8d9a7e;
+  margin-top: 12px;
+  line-height: 1.5;
+}
+.allocation-bar {
+  height: 6px;
+  display: flex;
+  gap: 3px;
+  margin-top: 27px;
+  overflow: hidden;
+  border-radius: 5px;
+  background: #dbe5ce;
+}
+.allocation-bar > span:first-child {
+  background: #567d53;
+}
+.allocation-bar > span:nth-child(2) {
+  background: #b0be8e;
+}
+.allocation-bar > span:nth-child(3) {
+  background: #cfbd8d;
+}
+.wealth-allocation {
+  display: flex;
+  gap: 25px;
+  flex-wrap: wrap;
+  margin-top: 15px;
+}
+.wealth-allocation > span {
+  font-size: 9px;
+  color: #829071;
+  position: relative;
+  padding-left: 12px;
+}
+.wealth-allocation .legend-dot {
+  position: absolute;
+  top: 2px;
+  left: 0;
+}
+.wealth-allocation strong {
+  display: block;
+  font-size: 12px;
+  color: #485d3f;
+  font-weight: 500;
+  margin-top: 6px;
+}
+.legend-dot.invested {
+  background: #b0be8e;
+}
+.liabilities {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 17px;
+  font-size: 10px;
+  border-top: 1px solid #dce4ce;
+  padding-top: 12px;
+  color: #7a846b;
+}
+.month-card {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 23px 24px;
+  box-shadow: 0 2px 3px #344b3202;
+}
+.flow-row {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  margin-top: 24px;
+}
+.flow-icon {
+  width: 35px;
+  height: 35px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
+  flex-shrink: 0;
+}
+.flow-icon.incoming {
+  background: #edf4e9;
+  color: #68845a;
+}
+.flow-icon.outgoing {
+  background: #f2f0e9;
+  color: #a59a75;
+}
+.flow-row > div {
+  min-width: 112px;
+}
+.flow-row > div > span {
+  font-size: 10px;
+  color: #90988b;
+  display: block;
+  margin-bottom: 6px;
+}
+.flow-row strong {
+  font-size: 18px;
+  letter-spacing: -0.5px;
+  font-weight: 500;
+}
+.flow-track {
+  height: 4px;
+  border-radius: 3px;
+  background: #f1f4ed;
+  max-width: 100px;
+  width: 100%;
+  margin-left: auto;
+  overflow: hidden;
+}
+.flow-track i {
+  height: 100%;
+  display: block;
+  background: #8fae7c;
+  border-radius: 3px;
+}
+.flow-track.expense i {
+  background: #c1c9ab;
+}
+.monthly-result {
+  border-top: 1px solid #ebeee7;
+  margin-top: 23px;
+  padding-top: 17px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.monthly-result > div > span {
+  font-size: 10px;
+}
+.monthly-result small {
+  display: block;
+  color: #a3aa9b;
+  font-size: 8px;
+  margin-top: 5px;
+}
+.monthly-result > strong {
+  font-size: 19px;
+  font-weight: 500;
+  letter-spacing: -0.5px;
+}
+@media (min-width: 1600px) {
+  .wealth-card {
+    padding: 31px 32px;
+  }
+  .wealth-number {
+    font-size: 51px;
+  }
+}
+@media (max-width: 1250px) {
+  .wealth-card {
+    padding: 24px 21px;
+  }
+  .wealth-number {
+    font-size: 36px;
+  }
+  .wealth-allocation {
+    gap: 14px;
+  }
+  .month-card {
+    padding: 22px 20px;
+  }
+  .wealth-grid {
+    gap: 17px;
+  }
+}
+@media (max-width: 900px) {
+  .wealth-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .wealth-number {
+    font-size: 32px;
+  }
+  .wealth-allocation {
+    gap: 10px;
+  }
+  .wealth-allocation strong {
+    font-size: 10px;
+  }
+  .wealth-allocation > span {
+    font-size: 8px;
+  }
+  .month-card .subtle {
+    display: none;
+  }
+  .flow-row > div {
+    min-width: 90px;
+  }
+  .flow-track {
+    display: none;
+  }
+  .monthly-result > strong {
+    font-size: 16px;
+  }
+  .monthly-result small {
+    font-size: 7px;
+  }
+}
+@media (max-width: 760px), (max-width: 900px) and (pointer: coarse) {
+  .wealth-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 17px;
+  }
+  .wealth-card {
+    padding: 22px 19px;
+    min-width: 0;
+  }
+  .month-card {
+    padding: 22px 19px;
+    min-width: 0;
+  }
+  .wealth-card-top {
+    font-size: 14px;
+  }
+  .small-tag {
+    font-size: 11px;
+  }
+  .wealth-number {
+    font-size: clamp(29px, 8vw, 40px);
+    letter-spacing: -1.2px;
+    overflow-wrap: anywhere;
+  }
+  .wealth-card > p {
+    font-size: 12px;
+    line-height: 1.7;
+  }
+  .wealth-allocation {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+    gap: 17px;
+  }
+  .wealth-allocation > span {
+    font-size: 13px;
+  }
+  .wealth-allocation strong {
+    font-size: 13px;
+  }
+  .liabilities {
+    font-size: 13px;
+  }
+  .wealth-allocation strong {
+    overflow-wrap: anywhere;
+  }
+  .month-card .subtle {
+    display: block;
+  }
+  .flow-row {
+    margin-top: 23px;
+    gap: 11px;
+  }
+  .flow-row > div > span {
+    font-size: 13px;
+  }
+  .flow-row strong {
+    font-size: 22px;
+  }
+  .monthly-result > strong {
+    font-size: 22px;
+  }
+  .flow-track {
+    display: block;
+    max-width: 110px;
+  }
+  .monthly-result {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .monthly-result > div > span {
+    font-size: 14px;
+  }
+  .monthly-result small {
+    font-size: 11px;
+    line-height: 1.6;
+    max-width: 170px;
+  }
+}

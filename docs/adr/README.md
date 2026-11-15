@@ -1,0 +1,25 @@
+# Architecture decisions
+
+This is Ufer's own decision registry. Records use YAML frontmatter for future documentation rendering and remain readable directly on GitHub. No organization-specific workflow is required.
+
+## Conventions
+
+| Concern | Convention |
+| --- | --- |
+| Records | `docs/adr/decisions/`; retired records remain in `decisions/inactive/` |
+| Header | YAML `title` and `adr` metadata; IDs are strings |
+| Lifecycle | Unnumbered `XXX-` proposals; accepted/rejected decisions receive the next unused three-digit number |
+| Template | `decisions/template.md`; use Context, Decision, Consequences, Compliance and Notes |
+| Validation | `git diff --check`, local-link/frontmatter review, and the code checks relevant to an implemented decision |
+
+Accepted describes an approved direction; each record separately states its implementation boundary. Proposed designs do not authorize schema migrations or publication. Preserve rejected/superseded decisions and fix links when moving them. Do not reuse numbers.
+
+## Registry
+
+| Record | Status | Scope |
+| --- | --- | --- |
+| [001 — Continue Ufer](decisions/001-continue-ufer.md) | Accepted | Independent Node/React product; no Sure fork |
+| [002 — Modular application](decisions/002-modular-monolith.md) | Accepted | HTTP, server use cases, components and styles |
+| [003 — Versioned SQL changesets](decisions/003-sql-changesets.md) | Accepted | Migration tooling and explicit existing-database upgrades |
+| [004 — Maintained security libraries](decisions/004-security-libraries.md) | Accepted | iron-session browser sessions; jose provider JWTs; stored-secret format preserved |
+| [Workspaces, identity and banking](decisions/XXX-workspaces-identity-and-banking.md) | Proposed | Customer boundaries, self-hosting/hosting and future SSO |

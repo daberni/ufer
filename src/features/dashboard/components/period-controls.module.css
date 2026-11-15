@@ -1,0 +1,93 @@
+.subtle {
+  composes: subtle from "../../../components/ui/primitives.module.css";
+}
+.period-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+}
+.period-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+}
+.period-bar {
+  margin-bottom: 17px;
+}
+.period-bar > div:first-child {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+}
+.period-controls {
+  gap: 3px;
+}
+.period-controls > select {
+  min-height: 30px;
+  padding: 5px 8px;
+  background: transparent;
+  border: 0;
+  font-size: 10px;
+}
+.month-label {
+  position: relative;
+  display: block !important;
+  font-size: 10px !important;
+  margin: 0 !important;
+  min-width: 115px;
+  text-align: center;
+  cursor: pointer;
+}
+.month-label input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  width: 100%;
+  cursor: pointer;
+}
+@media (max-width: 1250px) {
+  .period-bar > div:first-child {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+}
+@media (max-width: 760px), (max-width: 900px) and (pointer: coarse) {
+  .period-bar {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 13px;
+    margin-bottom: 18px;
+  }
+  .period-bar > div:first-child > .subtle {
+    font-size: 12px;
+  }
+  .period-controls {
+    display: grid;
+    grid-template-columns: auto 44px minmax(0, 1fr) 44px;
+    gap: 3px;
+    padding: 5px;
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    background: #fff;
+  }
+  .period-controls > select {
+    min-height: 44px;
+    padding: 8px 6px;
+    font-size: 16px;
+    max-width: 90px;
+  }
+  .month-label {
+    min-width: 0;
+    min-height: 44px;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px !important;
+  }
+  .month-label input {
+    font-size: 16px;
+  }
+}

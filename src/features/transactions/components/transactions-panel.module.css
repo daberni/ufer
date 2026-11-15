@@ -1,0 +1,139 @@
+.button {
+  composes: button from "../../../components/ui/primitives.module.css";
+}
+.card-heading {
+  composes: card-heading from "../../../components/ui/primitives.module.css";
+}
+.transaction-panel {
+  margin-top: 25px;
+  padding: 23px 0 0;
+  overflow: hidden;
+}
+.transaction-panel > .card-heading {
+  padding: 0 24px 20px;
+}
+.filters {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 0 24px 20px;
+}
+.filters input {
+  font-size: 10px;
+  min-height: 36px;
+}
+.filters select {
+  font-size: 10px;
+  min-height: 36px;
+}
+.search-field {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 190px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0 9px;
+  margin: 0 !important;
+  color: #97a18b;
+}
+.search-field input {
+  border: 0;
+  min-width: 0;
+  padding: 9px 0;
+  flex: 1;
+  width: 100%;
+  background: transparent;
+}
+.check-label {
+  display: flex !important;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px !important;
+  white-space: nowrap;
+  margin: 0 !important;
+}
+.check-label input {
+  width: 13px;
+  min-height: 13px;
+  accent-color: var(--green);
+}
+.pagination {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 17px 24px;
+}
+.pagination > span {
+  font-size: 10px;
+  color: #96a18b;
+  margin-right: auto;
+}
+@media (max-width: 1250px) {
+  .transaction-panel {
+    padding: 22px 0 0;
+  }
+}
+@media (max-width: 760px), (max-width: 900px) and (pointer: coarse) {
+  .transaction-panel h2 {
+    font-size: 17px;
+  }
+  .transaction-panel {
+    padding: 22px 0 0;
+  }
+  .transaction-panel > .card-heading {
+    padding: 0 18px 18px;
+    align-items: center;
+  }
+  .filters {
+    padding: 0 18px 18px;
+    gap: 10px;
+  }
+  .filters .search-field {
+    flex-basis: 100%;
+  }
+  .filters input {
+    font-size: 16px;
+    min-height: 46px;
+  }
+  .filters select {
+    font-size: 16px;
+    min-height: 46px;
+  }
+  .search-field input {
+    font-size: 16px;
+    min-height: 46px;
+  }
+  .filters select {
+    flex: 1 1 100%;
+    min-width: 0;
+    max-width: 100%;
+    width: 100%;
+  }
+  .filters .check-label {
+    flex-basis: 100%;
+    min-height: 44px;
+    font-size: 14px !important;
+    margin-top: 2px !important;
+    gap: 11px;
+  }
+  .filters .check-label input {
+    width: 22px;
+    height: 22px;
+    min-height: 22px;
+  }
+  .pagination {
+    flex-wrap: wrap;
+    padding: 16px 18px;
+  }
+  .pagination > span {
+    font-size: 13px;
+    flex-basis: 100%;
+    margin-bottom: 6px;
+  }
+  .pagination .button {
+    flex: 1;
+  }
+}

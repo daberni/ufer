@@ -1,0 +1,187 @@
+.button {
+  composes: button from "../../../components/ui/primitives.module.css";
+}
+.credit_card {
+  composes: credit_card from "./account-presentation.module.css";
+}
+.investment {
+  composes: investment from "./account-presentation.module.css";
+}
+.loan {
+  composes: loan from "./account-presentation.module.css";
+}
+.property {
+  composes: property from "./account-presentation.module.css";
+}
+.section-heading {
+  composes: section-heading from "../../../components/ui/primitives.module.css";
+}
+.status-dot {
+  composes: status-dot from "../../../components/ui/primitives.module.css";
+}
+.status-dot.warn {
+  background: #c5a365;
+}
+.accounts-section {
+  margin-top: 29px;
+}
+.accounts-section > .section-heading {
+  margin-top: 0;
+}
+.count-badge {
+  background: #e9eee3;
+  color: #7d8c6d;
+  min-width: 19px;
+  padding: 3px 5px;
+  border-radius: 5px;
+  font-size: 9px;
+}
+.account-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+.account-tile {
+  text-align: left;
+  background: #fff;
+  border: 1px solid var(--border);
+  padding: 18px 17px 13px;
+  border-radius: 10px;
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.account-tile:hover {
+  border-color: #b9c9ad;
+  box-shadow: 0 3px 12px #3a4c2a08;
+}
+.account-tile-name {
+  font-size: 11px;
+  font-weight: 600;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.account-tile-name small {
+  display: block;
+  font-size: 8px;
+  color: #9ba28f;
+  font-weight: 400;
+  margin-top: 5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.account-tile > strong {
+  display: block;
+  width: 100%;
+  font-weight: 500;
+  font-size: 21px;
+  letter-spacing: -0.7px;
+  margin-top: 9px;
+}
+.account-tile-foot {
+  width: 100%;
+  border-top: 1px solid #f0f2ed;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 8px;
+  color: #99a18f;
+  padding-top: 11px;
+  margin-top: 4px;
+}
+.account-tile-foot .status-dot {
+  width: 4px;
+  height: 4px;
+}
+.account-tile-foot > span:last-child {
+  margin-left: auto;
+}
+.onboarding {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  border: 1px dashed #cfdac5;
+  border-radius: 10px;
+  padding: 23px;
+  background: #f0f4e9;
+}
+.onboarding-icon {
+  color: #7e9768;
+}
+.onboarding > div {
+  flex: 1;
+}
+.onboarding p {
+  color: #8f9b82;
+  font-size: 11px;
+  margin-top: 7px;
+  line-height: 1.5;
+}
+.onboarding h3 {
+  font-weight: 500;
+}
+@media (min-width: 1600px) {
+  .account-strip {
+    gap: 18px;
+  }
+}
+@media (max-width: 1250px) {
+  .account-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .onboarding {
+    flex-wrap: wrap;
+  }
+  .onboarding > div {
+    min-width: calc(100% - 60px);
+  }
+}
+@media (max-width: 760px), (max-width: 900px) and (pointer: coarse) {
+  .accounts-section {
+    margin-top: 25px;
+  }
+  .account-strip {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+  .account-tile {
+    padding: 18px;
+    gap: 12px;
+  }
+  .account-tile-name {
+    font-size: 14px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .account-tile-name small {
+    font-size: 12px;
+    line-height: 1.6;
+    white-space: normal;
+  }
+  .account-tile > strong {
+    font-size: 25px;
+    overflow-wrap: anywhere;
+  }
+  .account-tile-foot {
+    font-size: 12px;
+    flex-wrap: wrap;
+  }
+  .onboarding {
+    padding: 20px;
+    gap: 14px;
+  }
+  .onboarding h3 {
+    font-size: 16px;
+  }
+  .onboarding p {
+    font-size: 13px;
+  }
+  .onboarding .button {
+    flex: 1 1 100%;
+  }
+}

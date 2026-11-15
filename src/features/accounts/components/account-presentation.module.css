@@ -1,0 +1,33 @@
+.account-logo {
+  width: 37px;
+  height: 37px;
+  border-radius: 9px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #eef2e7;
+  color: #788d67;
+  flex-shrink: 0;
+}
+.account-logo.investment {
+  background: #e9edf3;
+  color: #7186a2;
+}
+.account-logo.property {
+  background: #f3eee4;
+  color: #a28b58;
+}
+.account-logo.loan {
+  background: #f0eaea;
+  color: #a07d76;
+}
+.account-logo.credit_card {
+  background: #f0eaea;
+  color: #a07d76;
+}
+@media (max-width: 760px), (max-width: 900px) and (pointer: coarse) {
+  .account-logo {
+    width: 38px;
+    height: 38px;
+  }
+}
