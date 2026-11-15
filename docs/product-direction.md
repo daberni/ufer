@@ -4,9 +4,53 @@ Updated: 2026-11-15. Ufer is the current working product name. This document rec
 
 ## Why build when alternatives already synchronize banks?
 
-Bank sync is not a differentiator by itself. [Actual Budget already supports multiple bank providers](https://actualbudget.org/docs/advanced/bank-sync/), and [Firefly III supports Enable Banking through its Data Importer](https://github.com/firefly-iii/docs/blob/main/docs/docs/tutorials/data-importer/eb.md). Both should be evaluated before assuming a new application is necessary.
+The [functional review](functional-review.md) and [feature matrix](feature-comparison.md) show that Ufer currently has substantially less functionality than the established alternatives. [Actual](https://actualbudget.org/docs/advanced/bank-sync/) and [Firefly III](https://github.com/firefly-iii/docs/blob/main/docs/docs/tutorials/data-importer/eb.md) already cover bank imports. [Sure](https://docs.sure.am/guides/key-concepts/investment-accounts) combines banking, transaction management, investments, and budgets. Manual correction protection, configurable imports, and wealth history are not unique proposed Ufer features.
 
-The proposed reason to continue Ufer is a focused combination of a responsive wealth overview, transaction management with clear provenance, flexible imports, security-level investment tracking, and a simple self-hosted or managed deployment. These are product goals, not claims of unique features or superiority. Their value must be demonstrated against existing products. A good-looking dashboard and a working sandbox flow alone do not establish that value.
+The proposed Ufer workflow starts with automatic bank synchronization and a focused mobile overview across institutions, with explicit provenance, supporting imports, and securities identified by compatible instrument and venue identifiers. This is a preference and a set of requirements, not an established unmet need. Sure's ticker-and-MIC identification fits the accepted direction; a dedicated ISIN field is not an adoption prerequisite. Actual's off-budget balances and retirement simulations do not establish a holdings-and-trades engine.
+
+**Decision: continue Ufer independently in Node.js/TypeScript and React.** Rails unfamiliarity, long-term fork maintenance and a materially different hosted credential model outweigh the benefit of adopting Sure for this project. Sure and Actual remain functional references; competitor feature parity is not the launch scope. See the [accepted decision](adr/decisions/001-continue-ufer.md) and [architecture](architecture.md).
+
+Ufer still owns financial correctness, integration upkeep, upgrades and operations. Good UI and stack familiarity do not remove that work. [Code style](code-style.md) and explicit feature boundaries govern implementation; the [workspace/identity/banking design](adr/decisions/XXX-workspaces-identity-and-banking.md) is proposed and does not claim implemented tenant isolation or SSO.
+
+## Audience, onboarding, and reports
+
+Ufer targets ordinary people who want a clear view of their money, rather than users who want to configure a finance system. Broad functionality should be available through sensible defaults and plain-language workflows. Visual quality, smartphone usability, and low setup effort are product requirements; this review does not claim that an alternative is unusable solely because its appearance is not preferred.
+
+In the future hosted service, guide a new user through signing in, choosing a supported bank, authorizing access, and reaching a useful overview populated by automatic synchronization. File import is a secondary path for historical data or unsupported sources, not the default onboarding journey. Infrastructure, database, scheduling and provider application configuration belong to the service operator. Users should not need to bring API keys for the normal supported bank-connect flow. This is a target experience, conditional on commercial provider access, not a capability of the current MVP. Keep self-hosted operation available with explicit setup documentation.
+
+Reports should answer common questions without building a report first: money available, income versus spending, category trends, changes in wealth, and investment value when sufficient data exists. Default widgets must distinguish transfers from expenses and contributions from investment returns, and show period, currency, freshness and missing observations. Advanced filters and custom reports are optional detail.
+
+Use an optional widget edit mode inspired by mobile operating systems: add/remove widgets, move them and choose supported sizes. Start with a useful layout; users do not need to customize it to understand their finances. On phones, reflow into a readable order and use constrained sizes rather than shrinking a desktop dashboard. Provide move/resize controls as alternatives to dragging, preserve layouts, and allow resetting the layout without affecting data. These interactions remain planned; today's fixed dashboard is not a widget editor.
+
+Actual's [report dashboards](https://actualbudget.org/docs/reports/) demonstrate the value of customizable report collections. Adopt the principle of adaptable presentation while keeping Ufer's default experience approachable. Matching Actual's analytical breadth is not a launch requirement, and listing many report types is not proof of everyday usability.
+
+## Bank connection experience and credential ownership
+
+The primary hosted journey is: Connect bank → choose country/bank → authorize with the bank/provider → return to Ufer → review connected accounts and the initial sync result. Reconnect repeats the consent journey, preserving the intended account identity and history. Users must not register provider applications, enter application IDs, upload client certificates, copy tokens/secrets, or configure callback URLs. Ask for consent and account choices when required by the provider; do not promise to remove bank authentication or required provider disclosures.
+
+Separate application authentication from user consent. The service operator configures the provider application, callback registrations and server-side credentials. The backend starts authorization and completes the callback; the user only approves account access. Enable Banking documents [redirect authorization and session creation](https://enablebanking.com/docs/api/reference/), authenticated separately with the application's signed JWT. A redirect-based bank-consent experience does not mean every upstream API uses the same OAuth protocol.
+
+Choose the appropriate adapter internally for the selected institution where feasible. The ordinary user journey should not begin with a list of provider SDKs or credential forms. Each supported integration must have a usable delegated authorization flow or an equivalent provider-managed linking journey. An API that only supports user-generated personal tokens cannot gain delegated OAuth simply by wrapping its form; such integrations remain explicit advanced options or outside the main supported journey until a suitable connector exists.
+
+| Responsibility | Owner / requirement |
+| --- | --- |
+| Provider application registration, commercial access and credentials | Hosted service operator; managed server-side, never distributed in the frontend or a public image |
+| Account authorization and renewed consent | End user, through the bank/provider flow, with clear access scope and connection status |
+| Callback handling and account association | Backend; bind one-time state to the initiating signed-in user and connection, handle cancellation/retry, and preserve reconnect identity |
+| Secret/session lifecycle and daily synchronization | Backend/operations; protect credentials, scope financial access correctly, and expose understandable failures rather than asking users to handle tokens |
+| Smartphone return path | Product acceptance; bank-app handoff and browser return must resume the correct connection or explain recovery without exposing credentials |
+
+Current Ufer already keeps Enable Banking application configuration in server environment settings and provides a consent/callback flow verified in sandbox. It does not yet provide the intended multi-user hosted service. Sure's reviewed self-hosted setup has provider credential configuration before bank consent; that is a setup/usability difference, not evidence that it lacks authorization flows or that a managed installation could never simplify them.
+
+For self-hosting, distinguish the instance operator from an ordinary finance user. Direct provider operation may require administrator credentials and registration. If a future self-hosted edition must also avoid that setup, evaluate an optional managed connection service with explicit costs, trust/data boundaries and provider eligibility. That architecture is undecided; do not bundle shared production secrets into downloadable software or promise credential-free independent hosting merely by adding an OAuth button.
+
+## Sync-first value proposition
+
+Reliable automatic account synchronization is essential to the intended mainstream experience, not an optional convenience. Everyday use should continue without recurring statement downloads, CSV preparation, or an open browser. The current sandbox flow does not establish production bank compatibility. Consent expiry, reconnects, stale data and sync failures need understandable status and recovery paths.
+
+Basic category tagging and budgets alone are an insufficient proposed reason to pay when a user's banking app already provides them. The value hypothesis is a coherent view across institutions and investments: consolidated balances and spending, correct treatment of transfers between own accounts, wealth history, useful default reports, and less manual maintenance. Compare against the aggregation and analytics a user's existing bank apps actually offer; cross-bank aggregation is not assumed to be unique to Ufer.
+
+The positioning is therefore a simple, continuously maintained overview of money across institutions, rather than another category editor or a CSV-centered budgeting tool. This remains a hypothesis about customer value and willingness to pay, not validated demand. Configurable imports and exports remain important for history, unsupported sources and portability, but manual files must not become the primary everyday workflow.
 
 ## Database providers
 
@@ -22,11 +66,15 @@ The proposed reason to continue Ufer is a focused combination of a responsive we
 | Financial correctness | Exact amounts and quantities, idempotent imports, atomic splits, and manual override preservation must behave the same on both engines |
 | Validation | Run consequential repository behavior tests against both providers before marking PostgreSQL supported |
 
-PostgreSQL is a reasonable target for managed hosting, but a database switch alone does not create a SaaS product. Tenant isolation and authorization must exist at every data access boundary. Current sandbox/production isolation separates provider environments; it is not tenant isolation. No new database engine or schema migration is introduced by this documentation change.
+PostgreSQL is a reasonable target for managed hosting, but a database switch alone does not create a SaaS product. Tenant isolation and authorization must exist at every data access boundary. Current sandbox/production isolation separates provider environments; it is not tenant isolation. Versioned SQLite/libSQL SQL changesets are implemented; no existing user database was upgraded by the refactor. PostgreSQL remains unimplemented. See the [migration workflow](database-migrations.md).
 
 ## Free self-hosting and paid managed hosting
 
-The intended business model is a freely self-hostable application plus a paid managed service. Payment would cover hosting, scheduled jobs, updates, backups, monitoring, and support. No prices or paid feature restrictions are decided.
+The intended business model is a freely self-hostable application plus a paid managed service. Payment would cover hosting, scheduled jobs, updates, backups, monitoring, and support. No prices or paid feature restrictions are decided. A free hosted tier with one synchronized account and paid access to additional accounts is a candidate to evaluate, not an accepted price plan or an implemented limit.
+
+For that candidate, define the billing unit before promising “one account”: one bank authorization can expose several accounts, and one institution can require more than one login. A one-bank-connection allowance may be easier to explain than an arbitrary account cutoff, but this is an alternative hypothesis, not a decided replacement. The distinction between source accounts, provider connections and billable units must be explicit.
+
+A free hosted allowance should demonstrate real automatic synchronization and useful reports. The multi-account overview may be the strongest reason to subscribe, so a one-account allowance can hide that value; compare it with a time-limited full-product trial before deciding. Establish provider contract terms and costs for free as well as paid users, expected sync/hosting costs and observed usage first. Free self-hosted software does not imply free third-party banking service or managed operation.
 
 Open-source software and charging for services are compatible; the [GNU guidance on selling free software](https://www.gnu.org/philosophy/selling.en.html) explicitly permits commercial distribution and support. The actual project license remains undecided. An open-source license must not be described as automatically preventing other providers from offering paid hosting.
 
@@ -58,6 +106,8 @@ Split transactions are required: allocate an original booking across categories 
 
 ## Import configuration
 
+Imports support historical backfill, unsupported sources and migration; exports support portability. Manual CSV import/export is not the intended primary workflow or a replacement for reliable automatic bank synchronization.
+
 Build a general CSV import workflow with a preview, selectable delimiter/encoding/date/amount conventions, account and field mapping, stable ID selection, reusable profiles, validation, and a visible import result. Detect collisions within a file and define how overlapping bank/CSV imports reconcile.
 
 A dedicated Buxfer parser or migration assistant is not a priority. Historical exports should use the general configurable CSV workflow. PDF support remains a separate future decision, not a prerequisite.
@@ -68,7 +118,7 @@ Security-level tracking is required beyond recording a single investment account
 
 | Area | Requirement |
 | --- | --- |
-| Identification | Store ISIN and instrument name; preserve trading venue/MIC, local symbol, and quote currency where applicable. ISIN alone does not uniquely identify the venue or quotation. |
+| Identification | Accept compatible combinations of identifiers, such as ticker + venue/MIC, or ISIN plus listing/venue details. Preserve name, quote currency and provider-specific aliases when available. ISIN is optional and alone does not identify the venue or quotation; a ticker also needs context. Resolve identifiers to a canonical instrument and explicit listing without merging different currencies or venues silently. |
 | Holdings | Exact quantities and trade events, fees and currencies; separate settlement cash from securities to avoid double counting |
 | Prices | Manual price entry initially; later quote-provider adapters with timestamps, venue/currency, source, freshness and licensing information |
 | Valuation | Market value derived from holdings and an explicit price observation; optional FX conversion must be visible and reproducible |
@@ -84,4 +134,4 @@ Repository content must describe a generic product. Do not include personal inst
 
 ## Decisions still open
 
-Project license, commercial banking agreement, market-data provider, SaaS pricing, and detailed PostgreSQL adapter implementation are not settled. The accepted functional priorities are tracked in the [feature comparison](feature-comparison.md#tracked-work).
+Project license, commercial banking agreement, market-data provider, SaaS pricing/free-tier eligibility and billing unit, and detailed PostgreSQL adapter implementation are not settled. The accepted functional priorities are tracked in the [feature comparison](feature-comparison.md#tracked-work).

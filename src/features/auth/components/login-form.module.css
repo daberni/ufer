@@ -1,0 +1,50 @@
+.button {
+  composes: button from "../../../components/ui/primitives.module.css";
+}
+.login-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 20px;
+  max-width: none;
+  background: radial-gradient(ellipse at top, #e5edda, #f6f7f4 60%);
+}
+.login-card {
+  width: 390px;
+  background: #fff;
+  border: 1px solid var(--border);
+  padding: 40px;
+  border-radius: 15px;
+  box-shadow: 0 10px 50px #31533309;
+}
+.login-card .brand-symbol {
+  width: 56px;
+  height: 56px;
+  margin-bottom: 25px;
+}
+.login-card h1 {
+  font-size: 26px;
+}
+.login-card > p {
+  font-size: 12px;
+  color: #99a38e;
+  margin: 12px 0 26px;
+}
+.login-card .button {
+  width: 100%;
+  margin-top: 10px;
+}
+@media (max-width: 760px), (max-width: 900px) and (pointer: coarse) {
+  .login-page {
+    min-height: 100dvh;
+  }
+  .login-card {
+    width: 100%;
+    max-width: 420px;
+    padding: 28px 22px;
+  }
+  .login-card > p {
+    font-size: 14px;
+  }
+}

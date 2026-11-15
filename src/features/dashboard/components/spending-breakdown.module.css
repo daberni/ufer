@@ -1,0 +1,45 @@
+.category-breakdown {
+  margin-top: 25px;
+  display: grid;
+  gap: 17px;
+}
+.breakdown-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 9px;
+  font-size: 10px;
+}
+.breakdown-row > span {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #8c9680;
+}
+.breakdown-row strong {
+  font-weight: 500;
+  color: #6c775f;
+  font-size: 10px;
+}
+.breakdown-row > div {
+  grid-column: 1/-1;
+  height: 4px;
+  background: #f2f4ed;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.breakdown-row > div > i {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+}
+@media (max-width: 760px), (max-width: 900px) and (pointer: coarse) {
+  .breakdown-row {
+    font-size: 12px;
+  }
+  .breakdown-row strong {
+    font-size: 12px;
+  }
+  .category-breakdown {
+    gap: 20px;
+  }
+}

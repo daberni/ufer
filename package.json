@@ -7,14 +7,27 @@
     "build": "next build",
     "start": "next start --hostname 0.0.0.0",
     "check": "tsc --noEmit",
-    "test": "tsx --test tests/*.test.ts"
+    "test": "tsx --test tests/*.test.ts",
+    "lint": "eslint . --max-warnings=0",
+    "lint:fix": "eslint . --fix",
+    "db:generate": "drizzle-kit generate --custom",
+    "db:migrate": "tsx scripts/migrate.ts",
+    "db:status": "tsx scripts/migrate.ts --status",
+    "format:styles": "prettier --write \"src/**/*.css\"",
+    "check:styles": "prettier --check \"src/**/*.css\""
   },
   "engines": {
-    "node": ">=22"
+    "node": "^22.22.2 || ^24.15.0 || >=26.0.0"
   },
   "dependencies": {
     "@libsql/client": "^0.18.0",
+    "@next/env": "^16.4.6",
+    "@opentelemetry/api": "^1.10.0",
+    "clsx": "^2.1.1",
     "csv-parse": "^7.0.3",
+    "drizzle-orm": "^0.45.4",
+    "iron-session": "^9.1.0",
+    "jose": "^6.2.17",
     "lucide-react": "^1.73.0",
     "next": "^16.4.6",
     "re2js": "^2.10.0",
@@ -23,10 +36,18 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@babel/eslint-parser": "^8.1.2",
+    "@stylistic/eslint-plugin": "^6.0.0",
     "@tailwindcss/postcss": "^4.3.5",
+    "@testing-library/react": "^16.3.3",
+    "@types/jsdom": "^30.0.0",
     "@types/node": "^26.6.6",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
+    "drizzle-kit": "^0.31.11",
+    "eslint": "^9.39.5",
+    "jsdom": "^31.0.1",
+    "prettier": "^3.10.1",
     "tailwindcss": "^4.3.5",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2"

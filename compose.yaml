@@ -21,6 +21,24 @@ services:
     cap_drop:
       - ALL
 
+  migrate:
+    profiles: [maintenance]
+    build:
+      context: .
+      target: migrations
+    env_file: ${APP_ENV_FILE:-.env}
+    environment:
+      DATABASE_URL: file:/app/data/budget.db
+    volumes:
+      - budget-data:/app/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
   scheduler:
     image: node:22-bookworm-slim
     restart: unless-stopped

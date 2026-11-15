@@ -1,0 +1,33 @@
+.empty-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  background: #f0f4e9;
+  border-radius: 12px;
+  color: #94a57f;
+  margin-bottom: 15px;
+}
+.empty {
+  padding: 33px 20px;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+}
+.empty h3 {
+  font-weight: 500;
+  font-size: 14px;
+  color: #76866a;
+}
+.empty p {
+  font-size: 11px;
+  color: #9aa58c;
+  max-width: 370px;
+  line-height: 1.8;
+  margin-top: 8px;
+}
+.empty button {
+  margin-top: 19px;
+}

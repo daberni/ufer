@@ -1,0 +1,107 @@
+.legend-dot {
+  composes: legend-dot from "../../../components/ui/primitives.module.css";
+}
+.legend-dot.expense-dot {
+  background: #b9c49e;
+}
+.chart-legend {
+  display: flex;
+  gap: 16px;
+  margin-top: 18px;
+  font-size: 9px;
+  color: #9ba391;
+}
+.chart-legend > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.bar-chart {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-around;
+  gap: 15px;
+  height: 160px;
+  margin: 22px 0 0;
+  padding: 0 7px;
+  position: relative;
+}
+.chart-grid {
+  position: absolute;
+  inset: 0 0 23px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  pointer-events: none;
+}
+.chart-grid span {
+  display: block;
+  border-top: 1px dashed #e8ece3;
+}
+.bar-group {
+  height: 100%;
+  flex: 1;
+  max-width: 70px;
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+.bars {
+  height: calc(100% - 23px);
+  display: flex;
+  align-items: flex-end;
+  gap: 5px;
+  justify-content: center;
+}
+.bars > span {
+  width: 15px;
+  border-radius: 3px 3px 0 0;
+  min-height: 1px;
+}
+.income-bar {
+  background: #719064;
+}
+.expense-bar {
+  background: #bfcbab;
+}
+.bar-group > span {
+  font-size: 8px;
+  color: #9aa28f;
+  height: 23px;
+  padding-top: 13px;
+}
+.chart-empty-note {
+  text-align: center;
+  font-size: 10px;
+  color: #a0aa96;
+  margin-top: 17px;
+}
+@media (min-width: 1600px) {
+  .bar-chart {
+    height: 190px;
+  }
+}
+@media (max-width: 900px) {
+  .bar-chart {
+    gap: 9px;
+  }
+}
+@media (max-width: 760px), (max-width: 900px) and (pointer: coarse) {
+  .chart-legend {
+    font-size: 12px;
+  }
+  .chart-empty-note {
+    font-size: 12px;
+  }
+  .bar-group > span {
+    font-size: 12px;
+  }
+  .bar-chart {
+    height: 180px;
+    gap: 8px;
+    padding: 0;
+  }
+}

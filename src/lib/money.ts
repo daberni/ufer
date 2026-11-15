@@ -1,3 +1,5 @@
+import { ValidationError } from "./errors";
+
 const exponents: Record<string, number> = {
   EUR: 2,
   USD: 2,
@@ -14,27 +16,45 @@ const exponents: Record<string, number> = {
   JPY: 0,
   ISK: 0,
   KWD: 3,
-  BHD: 3,
+  BHD: 3
 };
-
-export class MoneyError extends Error {}
 
 export function minorUnits(value: string, currency = "EUR"): number {
   const exponent = exponents[currency];
-  if (exponent === undefined) throw new MoneyError(`Unsupported currency: ${currency}`);
+
+  if (exponent === undefined) {
+    throw new ValidationError(`Unsupported currency: ${currency}`);
+  }
+
   const match = /^([+-]?)(\d+)(?:\.(\d+))?$/.exec(value.trim());
-  if (!match) throw new MoneyError("Invalid amount; use a decimal point.");
+
+  if (!match) {
+    throw new ValidationError("Invalid amount; use a decimal point.");
+  }
+
   const fraction = match[3] || "";
-  if (fraction.length > exponent && /[1-9]/.test(fraction.slice(exponent))) throw new MoneyError("The amount has too many decimal places.");
+
+  if (fraction.length > exponent && /[1-9]/.test(fraction.slice(exponent))) {
+    throw new ValidationError("The amount has too many decimal places.");
+  }
+
   const factor = 10n ** BigInt(exponent);
   const absolute = BigInt(match[2]) * factor + BigInt(fraction.slice(0, exponent).padEnd(exponent, "0") || "0");
   const result = Number(match[1] === "-" ? -absolute : absolute);
-  if (!Number.isSafeInteger(result)) throw new MoneyError("The amount exceeds the supported range.");
+
+  if (!Number.isSafeInteger(result)) {
+    throw new ValidationError("The amount exceeds the supported range.");
+  }
+
   return result;
 }
 
 export function money(value: number, currency = "EUR") {
-  return new Intl.NumberFormat("en-GB", { style: "currency", currency, maximumFractionDigits: exponents[currency] ?? 2 }).format(value / 10 ** (exponents[currency] ?? 2));
+  return new Intl.NumberFormat("en-GB", {
+    style: "currency",
+    currency,
+    maximumFractionDigits: exponents[currency] ?? 2
+  }).format(value / 10 ** (exponents[currency] ?? 2));
 }
 
 export function validDate(value: string) {
@@ -42,6 +62,11 @@ export function validDate(value: string) {
 }
 
 export function viennaMonth(now = new Date()) {
-  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Vienna", year: "numeric", month: "2-digit" }).formatToParts(now);
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Vienna",
+    year: "numeric",
+    month: "2-digit"
+  }).formatToParts(now);
+
   return `${parts.find(p => p.type === "year")!.value}-${parts.find(p => p.type === "month")!.value}`;
 }

@@ -1,0 +1,31 @@
+.analytics-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 22px;
+  margin-top: 25px;
+}
+@media (max-width: 1250px) {
+  .analytics-grid {
+    gap: 17px;
+  }
+}
+@media (max-width: 900px) {
+  .analytics-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .analytics-grid h2 {
+    font-size: 14px;
+  }
+}
+@media (max-width: 760px), (max-width: 900px) and (pointer: coarse) {
+  .analytics-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 17px;
+  }
+  .analytics-grid h2 {
+    font-size: 17px;
+  }
+  .analytics-grid {
+    margin-top: 25px;
+  }
+}

@@ -4,6 +4,8 @@ A personal finance dashboard for accounts, transactions, and net worth. Built wi
 
 **Early development:** bank authorization and synchronization have been exercised with sandbox data. Live bank coverage, production hosting, and backup restoration still require validation. This project is currently private; an open-source license has not been selected.
 
+The project continues as an independent Node/React application; see the [architecture](docs/architecture.md), [decision records](docs/adr/README.md), [code style](docs/code-style.md) and [migration workflow](docs/database-migrations.md).
+
 See the [feature comparison and roadmap](docs/feature-comparison.md) for current capabilities and the [product and architecture direction](docs/product-direction.md) for accepted requirements and proposed hosting choices. Documentation, source code, UI copy, and contributor communication in the repository use English.
 
 ## Run locally
@@ -32,11 +34,13 @@ Application keys stay on the server. Bank session IDs are encrypted with AES-256
 
 Amounts use integer minor units. Different currencies are never silently converted or summed. The dashboard separates latest known asset balances from month-filtered cash flow. Categorized transfers are excluded from income and expenses; transfers to known owned IBANs are identified automatically.
 
-The schema includes accounts, transactions, categories, categorization rules, bank connections (`requisitions`), account identifiers, balance snapshots, sync history, leases, and login throttling. Initialization uses `CREATE TABLE IF NOT EXISTS`; versioned schema upgrades are not implemented. Existing records and customized category names are not rewritten by initialization.
+The schema includes accounts, transactions, categories, categorization rules, bank connections (`requisitions`), account identifiers, balance snapshots, sync history, leases, and login throttling. Drizzle provides typed table models, a shared database connection and versioned SQL changesets. Empty databases receive the initial schema; a recognized existing database opens without automatic schema/history changes. Existing-database adoption and future upgrades require explicit maintenance; see the [migration workflow](docs/database-migrations.md). Current customer/workspace isolation and SSO are proposed, not implemented.
 
 Manual valuations and CSV imports are available. Current imports require a fixed UTF-8 format with comma or semicolon delimiters and an optional BOM. Configurable field mapping, previews, and reusable import profiles are planned. There is no PDF importer or dedicated migration wizard for another product.
 
-Balance snapshots:
+Balance snapshots record an account's balance or asset valuation on a given date, together with its source (bank sync, manual entry or CSV). They preserve history when the latest balance changes. This is necessary for investments whose market value cannot be reconstructed from cash transactions alone. Historical net-worth charts are planned; snapshots are already persisted, but no history chart is available yet.
+
+Balance-history CSV:
 
 ```csv
 date;balance;currency
@@ -85,9 +89,11 @@ Set `APP_PASSWORD`, `SESSION_SECRET`, `DATA_ENCRYPTION_KEY`, `CRON_SECRET`, the 
 ## Checks
 
 ```sh
+npm run lint
+npm run check:styles
 npm run check
 npm test
 npm run build
 ```
 
-The behavior tests cover exact amounts, accounting month boundaries, rule precedence, booked versus pending transactions, provider identifiers, CSV validation, repeat imports, manual categories, reconnects, environment isolation, leases, authentication throttling, encrypted sessions, pagination, and browser-bound single-use callbacks. CI runs type checking, behavior tests, and a production build without real banking credentials.
+The behavior tests cover exact amounts, accounting month boundaries, rule precedence, booked versus pending transactions, provider identifiers, CSV validation, repeat imports, manual categories, reconnects, environment isolation, leases, authentication throttling, iron-session cookie policy/tampering/expiry, jose provider signatures, persisted bank-secret integrity, pagination, and browser-bound single-use callbacks. CI runs lint, stylesheet checks, type checking, behavior tests, and a production build without real banking credentials. See [security boundaries](docs/security.md) for the current single-installation scope and future identity requirements.
