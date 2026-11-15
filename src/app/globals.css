@@ -12,6 +12,14 @@
   --gold: #c2aa6b;
   --danger: #aa5146;
   --font-sans: Arial, Helvetica, sans-serif;
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-md: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+  --text-3xl: 2rem;
+  --text-4xl: 2.75rem;
 }
 * {
   box-sizing: border-box;
@@ -21,7 +29,8 @@ body {
   background: var(--bg);
   color: var(--ink);
   font-family: Arial, Helvetica, sans-serif;
-  font-size: 14px;
+  font-size: var(--text-md);
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
 button {
@@ -78,12 +87,12 @@ p {
   margin: 0;
 }
 h2 {
-  font-size: 16px;
+  font-size: var(--text-lg);
   font-weight: 600;
   letter-spacing: -0.3px;
 }
 h3 {
-  font-size: 15px;
+  font-size: var(--text-md);
   font-weight: 600;
 }
 button {
@@ -106,14 +115,14 @@ svg {
   flex-shrink: 0;
 }
 h1 {
-  font-size: 30px;
+  font-size: var(--text-3xl);
   letter-spacing: -1.2px;
   font-weight: 500;
   line-height: 1.2;
 }
 @media (max-width: 900px) {
   h1 {
-    font-size: 27px;
+    font-size: var(--text-3xl);
   }
 }
 @media (max-width: 760px), (max-width: 900px) and (pointer: coarse) {
@@ -121,12 +130,12 @@ h1 {
     scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom));
   }
   h1 {
-    font-size: clamp(26px, 6vw, 32px);
+    font-size: clamp(1.75rem, 6vw, var(--text-3xl));
     letter-spacing: -1px;
     overflow-wrap: anywhere;
   }
   h2 {
-    font-size: 17px;
+    font-size: var(--text-lg);
   }
 }
 @media (prefers-reduced-motion: reduce) {

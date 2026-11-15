@@ -48,7 +48,7 @@ test("a fresh database receives a recorded baseline and enforces account referen
 
     assert.deepEqual(await migrationStatus(client), {
       mode: "managed",
-      applied: 2,
+      applied: 3,
       pending: 0
     });
     assert.equal((await client.execute("SELECT COUNT(*) AS count FROM categories")).rows[0].count, 7);
@@ -70,7 +70,7 @@ test("startup refuses a legacy database requiring authentication migration witho
     assert.deepEqual(await migrationStatus(client), {
       mode: "legacy",
       applied: 0,
-      pending: 2
+      pending: 3
     });
     assert.equal((await client.execute("SELECT COUNT(*) AS count FROM categories")).rows[0].count, 1);
     await assertFinancialData(client);
@@ -88,10 +88,10 @@ test("explicit legacy adoption preserves financial data and records each changes
 
     assert.deepEqual(await migrationStatus(client), {
       mode: "managed",
-      applied: 2,
+      applied: 3,
       pending: 0
     });
-    assert.equal((await client.execute("SELECT COUNT(*) AS count FROM __drizzle_migrations")).rows[0].count, 2);
+    assert.equal((await client.execute("SELECT COUNT(*) AS count FROM __drizzle_migrations")).rows[0].count, 3);
     await assertFinancialData(client);
   } finally {
     client.close();
@@ -181,7 +181,7 @@ test("a managed database with pending changes refuses startup until explicit mai
 
     assert.deepEqual(await migrationStatus(client), {
       mode: "managed",
-      applied: 2,
+      applied: 3,
       pending: 0
     });
     await assertFinancialData(client);
@@ -219,7 +219,7 @@ test("a recognized legacy database cannot start against application changes beyo
 
     assert.deepEqual(await migrationStatus(client, directory), {
       mode: "managed",
-      applied: 3,
+      applied: 4,
       pending: 0
     });
     assert.equal((await client.execute("SELECT synthetic_extension FROM accounts WHERE id='asset'")).rows[0].synthetic_extension, 0);
@@ -276,6 +276,62 @@ test("the auth upgrade preserves financial history and linked credentials while 
     assert.equal((await client.execute("PRAGMA foreign_key_check")).rows.length, 0);
     assert.equal((await client.execute("SELECT COUNT(*) AS count FROM auth_users")).rows[0].count, 0);
     assert.equal((await client.execute("SELECT COUNT(*) AS count FROM sqlite_master WHERE name='login_attempts'")).rows[0].count, 0);
+  } finally {
+    client.close();
+    rmSync(directory, {
+      recursive: true,
+      force: true
+    });
+  }
+});
+
+test("the category icon upgrade adds an empty icon to existing categories without changing their data", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "ufer-before-category-icons-"));
+  const client = createClient({
+    url: ":memory:"
+  });
+  const journal = JSON.parse(readFileSync("drizzle/sqlite/meta/_journal.json", "utf8"));
+  const previousEntries = journal.entries.filter((entry: {
+    tag: string
+  }) => entry.tag !== "0002_category_icons");
+
+  mkdirSync(join(directory, "meta"));
+
+  for (const entry of previousEntries) {
+    cpSync(`drizzle/sqlite/${entry.tag}.sql`, join(directory, `${entry.tag}.sql`));
+  }
+
+  writeFileSync(join(directory, "meta/_journal.json"), JSON.stringify({
+    ...journal,
+    entries: previousEntries
+  }));
+
+  try {
+    await migrateDatabase(client, directory);
+    await client.batch([
+      "INSERT INTO categories(id,name,color) VALUES('custom','Custom category','#123456')",
+      "INSERT INTO accounts(id,environment,name,institution,kind,balance_minor) VALUES('asset','SANDBOX','Synthetic asset','Example institution','checking',12345)",
+      "INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,category_id,category_source) VALUES('entry','asset','source-1','2026-11-15',-2500,'EUR','custom','manual')",
+      "INSERT INTO categorization_rules(id,name,pattern,mode,category_id) VALUES('rule','Synthetic rule','MARKET','keyword','custom')"
+    ], "write");
+    const categoriesBefore = await client.execute("SELECT id,name,color,is_transfer FROM categories ORDER BY id");
+    const transactionsBefore = await client.execute("SELECT * FROM transactions");
+    const rulesBefore = await client.execute("SELECT * FROM categorization_rules");
+
+    await assert.rejects(initializeDatabase(client), /migrations are pending/);
+    assert.equal((await client.execute("SELECT COUNT(*) AS count FROM pragma_table_info('categories') WHERE name='icon'")).rows[0].count, 0);
+    await migrateDatabase(client);
+
+    assert.deepEqual(await migrationStatus(client), {
+      mode: "managed",
+      applied: 3,
+      pending: 0
+    });
+    assert.deepEqual((await client.execute("SELECT id,name,color,is_transfer FROM categories ORDER BY id")).rows, categoriesBefore.rows);
+    assert.equal((await client.execute("SELECT COUNT(*) AS count FROM categories WHERE icon IS NOT NULL")).rows[0].count, 0);
+    assert.deepEqual((await client.execute("SELECT * FROM transactions")).rows, transactionsBefore.rows);
+    assert.deepEqual((await client.execute("SELECT * FROM categorization_rules")).rows, rulesBefore.rows);
+    assert.equal((await client.execute("PRAGMA foreign_key_check")).rows.length, 0);
   } finally {
     client.close();
     rmSync(directory, {

@@ -29,5 +29,5 @@
   overflow-wrap: anywhere;
 }
 .dialog input {
-  font-size: 16px;
+  font-size: var(--text-md);
 }

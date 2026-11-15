@@ -1,4 +1,6 @@
 import { ArrowDownLeft, Building2, CreditCard, HandCoins, Landmark, LayoutDashboard, Link2, PiggyBank, SlidersHorizontal, ChartNoAxesCombined, Wallet } from "lucide-react";
+import { Temporal } from "temporal-polyfill";
+import { describeDate } from "@/lib/date-format";
 import type { View } from "./types";
 
 export const kinds: Record<string, string> = {
@@ -36,13 +38,6 @@ export const navigation = [{
   mobileLabel: "Banks",
   icon: Link2
 }];
-
-export function date(value: string | null) {
-  return value ? new Intl.DateTimeFormat("en-GB", {
-    day: "numeric",
-    month: "short"
-  }).format(new Date(value)) : "No balance yet";
-}
 
 export function monthLabel(value: string) {
   return new Intl.DateTimeFormat("en-GB", {
@@ -97,14 +92,14 @@ const syncStatusLabels: Record<string, string> = {
 export function lastSyncLabel(run: {
   started_at: string;
   status: string
-} | undefined) {
+} | undefined, timeZone: string) {
   if (!run) {
     return "No sync yet";
   }
 
   const status = syncStatusLabels[run.status] || "failed";
 
-  return `Last sync: ${date(run.started_at)} · ${status}`;
+  return `Last sync: ${describeDate(Temporal.Instant.from(run.started_at).toZonedDateTimeISO(timeZone)).label} · ${status}`;
 }
 
 export function accountSyncLabel(account: {

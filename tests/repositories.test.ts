@@ -17,6 +17,7 @@ import { insertAuthorization } from "../src/features/banking/server/connection-r
 import { saveAccountSync } from "../src/features/banking/server/account-sync-service";
 import { saveSessionAccounts } from "../src/features/banking/server/bank-account-repository";
 import type { Entry } from "../src/features/transactions/server/transaction-entry";
+import { respond } from "../src/server/http/respond";
 
 async function isolatedDatabase(context: TestContext) {
   const client = createClient({
@@ -411,7 +412,8 @@ test("category edits keep transaction assignments and rules attached and reject 
 
   await updateCategoryDetails("groceries", {
     name: "  Food  ",
-    color: "#ABCDEF"
+    color: "#ABCDEF",
+    icon: null
   });
 
   const category = await db.select().from(schema.categories).where(eq(schema.categories.id, "groceries")).get();
@@ -425,11 +427,13 @@ test("category edits keep transaction assignments and rules attached and reject 
 
   await updateCategoryDetails("groceries", {
     name: "FOOD",
-    color: "#abcdef"
+    color: "#abcdef",
+    icon: null
   });
   await assert.rejects(updateCategoryDetails("groceries", {
     name: "housing",
-    color: "#abcdef"
+    color: "#abcdef",
+    icon: null
   }), new ValidationError("A category with this name already exists."));
   await assert.rejects(createCategory({
     name: "TRANSPORT"
@@ -453,10 +457,77 @@ test("category edits keep transaction assignments and rules attached and reject 
   assert.equal((await db.select().from(schema.categories)).filter(row => row.name.toLowerCase() === "savings").length, 1);
   await assert.rejects(updateCategoryDetails("missing", {
     name: "Anything",
-    color: "#abcdef"
+    color: "#abcdef",
+    icon: null
   }), error => error instanceof HttpError && error.status === 404);
   await assert.rejects(updateCategoryDetails("groceries", {
     name: "Food",
-    color: "green"
+    color: "green",
+    icon: null
   }));
+});
+
+test("category icons persist through create and edit and only accept the curated keys", async context => {
+  const db = await isolatedDatabase(context);
+  const categoryIcon = async (name: string) => (await db.select().from(schema.categories).where(eq(schema.categories.name, name)).get())?.icon;
+
+  await createCategory({
+    name: "Dining out",
+    color: "#123456",
+    icon: "dining"
+  });
+  await createCategory({
+    name: "Without icon",
+    icon: ""
+  });
+  await createCategory({
+    name: "Icon omitted"
+  });
+
+  assert.equal(await categoryIcon("Dining out"), "dining");
+  assert.equal(await categoryIcon("Without icon"), null);
+  assert.equal(await categoryIcon("Icon omitted"), null);
+  assert.equal(await categoryIcon("Groceries"), null);
+
+  const dining = await db.select().from(schema.categories).where(eq(schema.categories.name, "Dining out")).get();
+
+  await updateCategoryDetails(String(dining?.id), {
+    name: "Dining out",
+    color: "#123456",
+    icon: "travel"
+  });
+  assert.equal(await categoryIcon("Dining out"), "travel");
+
+  await updateCategoryDetails(String(dining?.id), {
+    name: "Dining out",
+    color: "#123456",
+    icon: ""
+  });
+  assert.equal(await categoryIcon("Dining out"), null);
+
+  for (const icon of ["unknown", "Dining", "toString", "__proto__", "<svg></svg>"]) {
+    await assert.rejects(createCategory({
+      name: "Rejected",
+      icon
+    }), new ValidationError("Choose one of the available category icons."));
+    await assert.rejects(updateCategoryDetails("groceries", {
+      name: "Groceries",
+      color: "#488a75",
+      icon
+    }), ValidationError);
+  }
+
+  assert.equal(await categoryIcon("Rejected"), undefined);
+  assert.equal(await categoryIcon("Groceries"), null);
+
+  context.mock.method(console, "warn", () => {});
+  const response = await respond(new Request("http://localhost/api/categories"), async () => createCategory({
+    name: "Rejected",
+    icon: "unknown"
+  }), {
+    access: "public"
+  });
+
+  assert.equal(response.status, 422);
+  assert.equal((await response.json()).detail, "Choose one of the available category icons.");
 });

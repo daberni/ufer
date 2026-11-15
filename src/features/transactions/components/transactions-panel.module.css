@@ -20,11 +20,11 @@
   padding: 0 24px 20px;
 }
 .filters input {
-  font-size: 10px;
+  font-size: var(--text-xs);
   min-height: 36px;
 }
 .filters select {
-  font-size: 10px;
+  font-size: var(--text-xs);
   min-height: 36px;
 }
 .search-field {
@@ -51,7 +51,7 @@
   display: flex !important;
   align-items: center;
   gap: 6px;
-  font-size: 10px !important;
+  font-size: var(--text-xs) !important;
   white-space: nowrap;
   margin: 0 !important;
 }
@@ -67,7 +67,7 @@
   padding: 17px 24px;
 }
 .pagination > span {
-  font-size: 10px;
+  font-size: var(--text-xs);
   color: #96a18b;
   margin-right: auto;
 }
@@ -78,7 +78,7 @@
 }
 @media (max-width: 760px), (max-width: 900px) and (pointer: coarse) {
   .transaction-panel h2 {
-    font-size: 17px;
+    font-size: var(--text-lg);
   }
   .transaction-panel {
     padding: 22px 0 0;
@@ -95,15 +95,15 @@
     flex-basis: 100%;
   }
   .filters input {
-    font-size: 16px;
+    font-size: var(--text-md);
     min-height: 46px;
   }
   .filters select {
-    font-size: 16px;
+    font-size: var(--text-md);
     min-height: 46px;
   }
   .search-field input {
-    font-size: 16px;
+    font-size: var(--text-md);
     min-height: 46px;
   }
   .filters select {
@@ -115,7 +115,7 @@
   .filters .check-label {
     flex-basis: 100%;
     min-height: 44px;
-    font-size: 14px !important;
+    font-size: var(--text-md) !important;
     margin-top: 2px !important;
     gap: 11px;
   }
@@ -129,7 +129,7 @@
     padding: 16px 18px;
   }
   .pagination > span {
-    font-size: 13px;
+    font-size: var(--text-sm);
     flex-basis: 100%;
     margin-bottom: 6px;
   }

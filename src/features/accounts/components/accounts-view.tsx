@@ -6,7 +6,8 @@ import accountStyles from "./account-presentation.module.css";
 import { clsx } from "clsx";
 import styles from "./accounts-view.module.css";
 import { ArrowRight, Link2, Plus } from "lucide-react";
-import { date, accountIcon, accountSourceLabel, kinds } from "@/features/dashboard/presentation";
+import { accountIcon, accountSourceLabel, kinds } from "@/features/dashboard/presentation";
+import { DateValue } from "@/components/ui/date-value";
 import { money } from "@/lib/money";
 import { Empty } from "@/components/ui/empty-state";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
@@ -55,7 +56,7 @@ export function AccountsView({
                 <p className={ui["muted"]}>{account.institution}</p>
                 <strong className={styles["account-detail-balance"]}>{account.balance_minor === null ? "—" : money(account.balance_minor, account.currency)}</strong>
                 <div className={styles["account-detail-meta"]}>
-                  <span>Balance {date(account.balance_date)}</span>
+                  <span>Balance <DateValue value={account.balance_date} fallback="not recorded yet" /></span>
                   <span>{accountSourceLabel(account)}</span>
                 </div>
                 {account.sync_error && <p className={ui["error-text"]}>{account.sync_error}</p>}
@@ -76,12 +77,16 @@ export function AccountsView({
         </div>
       ) : (
         <section className={ui["panel"]}>
-          <Empty title="Everything in one place">
+          <Empty
+            title="Everything in one place"
+            action={(
+              <button className={clsx(ui["button"], ui["primary"])} onClick={() => setModal("account")}>
+                <Plus size={15} />
+                Add your first account
+              </button>
+            )}
+          >
             Add bank accounts, investments, property and debts to build your overview.
-            <button className={clsx(ui["button"], ui["primary"])} onClick={() => setModal("account")}>
-              <Plus size={15} />
-              Add your first account
-            </button>
           </Empty>
         </section>
       )}

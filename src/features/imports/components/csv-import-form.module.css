@@ -7,10 +7,10 @@
   color: #82936f;
 }
 .csv-example > span {
-  font-size: 9px;
+  font-size: var(--text-xs);
 }
 .csv-example pre {
-  font-size: 9px;
+  font-size: var(--text-xs);
   overflow: auto;
   line-height: 1.7;
   margin: 10px 0 0;
@@ -18,10 +18,10 @@
 }
 @media (max-width: 760px), (max-width: 900px) and (pointer: coarse) {
   .csv-example > span {
-    font-size: 12px;
+    font-size: var(--text-sm);
   }
   .csv-example pre {
-    font-size: 12px;
+    font-size: var(--text-sm);
   }
   .csv-example pre {
     white-space: pre-wrap;

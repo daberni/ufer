@@ -5,7 +5,7 @@ import ui from "../../../components/ui/primitives.module.css";
 import { clsx } from "clsx";
 import styles from "./transaction-list.module.css";
 import { ArrowDownLeft, ArrowUpRight } from "lucide-react";
-import { date } from "@/features/dashboard/presentation";
+import { DateValue } from "@/components/ui/date-value";
 import { money } from "@/lib/money";
 import { TransactionCategory } from "@/features/transactions/components/transaction-category";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
@@ -57,7 +57,7 @@ export function TransactionList({
                   {transaction.category_source === "manual" && <span className={styles["manual-dot"]} title="Manually assigned; preserved when syncing and applying rules" />}
                 </td>
                 <td className={ui["muted"]}>{transaction.account_name}</td>
-                <td className={clsx(ui["muted"], styles["nowrap"])}>{date(transaction.booking_date)}</td>
+                <td className={clsx(ui["muted"], styles["nowrap"])}><DateValue value={transaction.booking_date} /></td>
                 <td className={clsx(styles["amount"], styles["align-right"], transaction.amount_minor > 0 ? ui["positive"] : "")}>
                   {transaction.amount_minor > 0 ? "+" : ""}
                   {money(transaction.amount_minor, transaction.currency)}
@@ -73,7 +73,7 @@ export function TransactionList({
             <article className={styles["transaction-card"]}>
               <div className={styles["transaction-card-meta"]}>
                 <span>{transaction.account_name}</span>
-                <time dateTime={transaction.booking_date}>{date(transaction.booking_date)}</time>
+                <DateValue value={transaction.booking_date} />
               </div>
               <div className={styles["transaction-card-heading"]}>
                 <h3>{transaction.counterparty || transaction.description || "Transaction"}</h3>

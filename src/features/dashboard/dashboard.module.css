@@ -16,7 +16,7 @@
   margin: 0 auto;
 }
 .sandbox-note {
-  font-size: 10px;
+  font-size: var(--text-xs);
   color: #939478;
   display: flex;
   gap: 7px;
@@ -33,7 +33,7 @@
   gap: 15px;
   padding: 24px 0;
   margin-top: 15px;
-  font-size: 9px;
+  font-size: var(--text-xs);
   color: #a3ab97;
 }
 .page-footer > span:first-child {
@@ -48,7 +48,7 @@
   justify-content: center;
   align-items: center;
   color: #8d9b7e;
-  font-size: 12px;
+  font-size: var(--text-sm);
 }
 @media (min-width: 1600px) {
   .content {
@@ -71,7 +71,7 @@
     padding: 28px 24px 0;
   }
   .page-footer {
-    font-size: 8px;
+    font-size: var(--text-xs);
   }
 }
 @media (max-width: 760px), (max-width: 900px) and (pointer: coarse) {
@@ -84,7 +84,7 @@
       max(16px, env(safe-area-inset-left));
   }
   .sandbox-note {
-    font-size: 12px;
+    font-size: var(--text-sm);
     line-height: 1.65;
     padding-bottom: 21px;
     align-items: flex-start;
@@ -93,7 +93,7 @@
     margin-top: 7px;
   }
   .page-footer {
-    font-size: 11px;
+    font-size: var(--text-xs);
     align-items: flex-start;
     flex-wrap: wrap;
     line-height: 1.7;
