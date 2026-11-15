@@ -18,13 +18,13 @@ The CLI loads environment configuration using Next's environment loader. Existin
 
 `drizzle.config.ts` points at the shared runtime schema. The configured generator still uses `--custom`; fill in each SQL changeset and update the TypeScript schema in the same change. The original custom-migration snapshot does not represent the table model, so do not drop `--custom` and assume generated diffs are based on the existing database. Switching to schema-generated diffs requires a separately verified snapshot baseline, without rewriting any applied SQL or migration history. Do not use `drizzle-kit push` or automatic destructive schema synchronization.
 
-Typed account/category/rule/connection operations, bank/CSV writes, leases and login-attempt persistence share one application connection. Repositories own these queries and transaction boundaries; services and general utilities do not execute SQL. The dashboard read projection retains raw SQL through the shared `$client`. The maintenance command creates its own short-lived client through the same factory. ORM types do not replace request validation, financial rules, tenant authorization or migration review. Integer minor-unit amounts and existing SQL defaults/constraints remain in place. The inherited SQLite DDL does not explicitly mark text primary keys `NOT NULL`; Drizzle's primary-key types assume non-null IDs, and application writes must always supply valid IDs. This refactor does not silently tighten that stored constraint.
+Typed account/category/rule/connection operations, bank/CSV writes, leases and library-managed authentication persistence share one application connection. Repositories own these queries and transaction boundaries; services and general utilities do not execute SQL. The dashboard read projection retains raw SQL through the shared `$client`. The maintenance command creates its own short-lived client through the same factory. ORM types do not replace request validation, financial rules, tenant authorization or migration review. Integer minor-unit amounts and existing SQL defaults/constraints remain in place. The inherited SQLite DDL does not explicitly mark text primary keys `NOT NULL`; Drizzle's primary-key types assume non-null IDs, and application writes must always supply valid IDs. This refactor does not silently tighten that stored constraint.
 
 ## Initialization policy
 
 | Database state | Application start | Explicit maintenance command |
 | --- | --- | --- |
-| Empty database | Creates the initial baseline and seed categories, preserving first-install behavior | Can initialize before deployment |
+| Empty database | Applies the current checked-in changesets and seed data, preserving first-install behavior | Can initialize before deployment |
 | Recognized pre-migration schema | Opens without schema/history/seed writes only while the initial baseline is current; additional changesets require maintenance | Validates the exact legacy baseline, records migration history and applies reviewed changesets |
 | Managed, current | Verifies applied changeset hashes and opens | No-op when already current |
 | Managed, pending | Refuses automatic upgrade and explains the required maintenance command | Applies pending SQL after operator review/authorization |
@@ -51,3 +51,7 @@ docker compose --profile maintenance run --rm migrate
 That command writes to the configured persistent database and requires the same review/authorization as the local command. Migration tooling is included in the dedicated Docker build stage; normal web startup does not invoke it for an existing database.
 
 Tests cover first creation, foreign-key enforcement, unchanged legacy startup, preservation of financial records/manual corrections, idempotent adoption, refusal of unknown schema changes (including literal differences, triggers and views), refusal of altered history, and refusal to apply pending managed changes at startup. These checks do not replace a restore trial of a real deployment.
+
+## Username/password changeset
+
+Changeset 0001 introduces individual authentication and the constrained installation workspace. Review its exact data effects and activation sequence in [user management](user-management.md#migration-and-rollout). Existing pending bank flows are invalidated and the obsolete installation login counter is dropped. Existing financial records and linked encrypted bank sessions are retained. No existing installation has been migrated by the implementation checks.

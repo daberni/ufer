@@ -16,7 +16,7 @@ Ufer needs the same understandable ownership model for self-hosting and hosting,
 
 ## Decision
 
-Propose User and Identity for people/login, Workspace and Membership as the financial authorization boundary, optional workspace BillingCustomer for hosted subscriptions, operator ProviderApplication for credentials, and workspace BankConnection/AuthorizationAttempt for consent. Require verified workspace context at every financial access boundary and preserve financial account identity on reconnect. Use OIDC through a maintained identity library; that library is not selected yet. The current iron-session installation session is separately scoped by [ADR 004](004-security-libraries.md) and does not implement this user/SSO model.
+Propose User and Identity for people/login, Workspace and Membership as the financial authorization boundary, optional workspace BillingCustomer for hosted subscriptions, operator ProviderApplication for credentials, and workspace BankConnection/AuthorizationAttempt for consent. Require verified workspace context at every financial access boundary and preserve financial account identity on reconnect. Use OIDC through a maintained identity library; Better Auth is now selected for the singleton installation under [ADR 005](005-username-password-authentication.md). Full multi-customer scoping and SSO remain proposed.
 
 ## Consequences
 
