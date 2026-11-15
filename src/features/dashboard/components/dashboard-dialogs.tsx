@@ -7,6 +7,7 @@ import styles from "./dashboard-dialogs.module.css";
 import { useEffect, useRef } from "react";
 import { X } from "lucide-react";
 import { BankConnectionForm } from "@/features/banking/components/bank-connection-form";
+import { RemoveConnectionForm } from "@/features/banking/components/remove-connection-form";
 import { CreateAccountForm } from "@/features/accounts/components/create-account-form";
 import { ValuationForm } from "@/features/accounts/components/valuation-form";
 import { CreateRuleForm } from "@/features/categorization/components/create-rule-form";
@@ -15,7 +16,7 @@ import { CsvImportForm } from "@/features/imports/components/csv-import-form";
 import { modalTitles } from "@/features/dashboard/presentation";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
 
-type Props = Pick<DashboardController, "bankCountry" | "bankName" | "bankSearch" | "banks" | "banksLoading" | "busy" | "error" | "importMode" | "modal" | "selectedAccount" | "selectedCategory" | "setBankCountry" | "setBankName" | "setBankSearch" | "setImportMode" | "setModal" | "setNotice" | "state" | "submit">;
+type Props = Pick<DashboardController, "bankCountry" | "bankName" | "bankSearch" | "banks" | "banksLoading" | "busy" | "error" | "importMode" | "modal" | "removeConnection" | "selectedAccount" | "selectedCategory" | "selectedConnection" | "setBankCountry" | "setBankName" | "setBankSearch" | "setImportMode" | "setModal" | "setNotice" | "state" | "submit">;
 
 export function DashboardDialogs({
   bankCountry,
@@ -27,8 +28,10 @@ export function DashboardDialogs({
   error,
   importMode,
   modal,
+  removeConnection,
   selectedAccount,
   selectedCategory,
+  selectedConnection,
   setBankCountry,
   setBankName,
   setBankSearch,
@@ -92,6 +95,15 @@ export function DashboardDialogs({
             setBankSearch={setBankSearch}
             state={state}
             submit={submit}
+          />
+        )}
+        {modal === "removeConnection" && (
+          <RemoveConnectionForm
+            busy={busy}
+            removeConnection={removeConnection}
+            selectedConnection={selectedConnection}
+            setModal={setModal}
+            state={state}
           />
         )}
         {modal === "account" && <CreateAccountForm busy={busy} submit={submit} />}

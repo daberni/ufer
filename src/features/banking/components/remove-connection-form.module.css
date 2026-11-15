@@ -1,0 +1,27 @@
+.effects {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 4px;
+  padding-left: 18px;
+  font-size: var(--text-sm);
+  line-height: 1.7;
+  color: var(--ink);
+  list-style: disc;
+}
+.effects strong {
+  font-weight: 500;
+}
+.danger {
+  composes: button from "../../../components/ui/primitives.module.css";
+  background: var(--danger);
+  border-color: var(--danger);
+  color: white;
+}
+.danger:not(:disabled):hover {
+  background: #8f4339;
+}
+@media (max-width: 760px), (max-width: 900px) and (pointer: coarse) {
+  .effects {
+    font-size: var(--text-md);
+  }
+}

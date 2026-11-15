@@ -163,7 +163,14 @@ export default function Dashboard() {
                   state={dashboard.state}
                 />
               )}
-              {dashboard.view === "connections" && <ConnectionsView busy={dashboard.busy} openBank={dashboard.openBank} state={dashboard.state} />}
+              {dashboard.view === "connections" && (
+                <ConnectionsView
+                  busy={dashboard.busy}
+                  openBank={dashboard.openBank}
+                  openConnectionRemoval={dashboard.openConnectionRemoval}
+                  state={dashboard.state}
+                />
+              )}
             </>
           )}
           <footer className={styles["page-footer"]}>
@@ -185,8 +192,10 @@ export default function Dashboard() {
           error={dashboard.error}
           importMode={dashboard.importMode}
           modal={dashboard.modal}
+          removeConnection={dashboard.removeConnection}
           selectedAccount={dashboard.selectedAccount}
           selectedCategory={dashboard.selectedCategory}
+          selectedConnection={dashboard.selectedConnection}
           setBankCountry={dashboard.setBankCountry}
           setBankName={dashboard.setBankName}
           setBankSearch={dashboard.setBankSearch}

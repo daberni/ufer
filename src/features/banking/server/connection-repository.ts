@@ -1,8 +1,18 @@
-import { and, eq, gt, isNull } from "drizzle-orm";
+import { and, eq, gt, isNull, ne } from "drizzle-orm";
 import { database, type Database } from "@/server/database/connection";
 import { environment } from "@/features/banking/server/environment";
 import type { AuthContext } from "@/features/auth/server/session";
-import { requisitions } from "@/server/database/schema";
+import { accounts, requisitions } from "@/server/database/schema";
+
+export type ConnectionRemoval = {
+  outcome: "missing";
+} | {
+  outcome: "authorizing";
+} | {
+  outcome: "removed";
+  sessionCipher: string | null;
+  retainedAccounts: number;
+};
 
 export type AuthorizationRecord = {
   id: string;
@@ -42,13 +52,17 @@ export async function consumeAuthorization(db: Database, environment: string, st
   }).where(scope).returning().get();
 }
 
+// The connection stays EXCHANGING until its accounts are mapped, so removal cannot interleave between the two steps.
 export async function saveBankSession(db: Database, id: string, ciphertext: string, validUntil: string) {
-  await db.update(requisitions).set({
+  const saved = await db.update(requisitions).set({
     session_cipher: ciphertext,
     valid_until: validUntil,
-    status: "LINKED",
     error: null
-  }).where(eq(requisitions.id, id));
+  }).where(and(eq(requisitions.id, id), eq(requisitions.status, "EXCHANGING"))).returning({
+    id: requisitions.id
+  });
+
+  return saved.length === 1;
 }
 
 export async function expireConnection(db: Database, id: string) {
@@ -60,12 +74,58 @@ export async function expireConnection(db: Database, id: string) {
 export async function recordEmptyConnection(db: Database, id: string) {
   await db.update(requisitions).set({
     error: "No accounts were authorized. Restricted production applications require accounts to be linked in the provider control panel first."
-  }).where(eq(requisitions.id, id));
+  }).where(and(eq(requisitions.id, id), ne(requisitions.status, "REMOVED")));
 }
 
 export async function recordConnectionFailure(db: Database, id: string, error: string) {
   await db.update(requisitions).set({
     status: "ERROR",
     error
-  }).where(eq(requisitions.id, id));
+  }).where(and(eq(requisitions.id, id), ne(requisitions.status, "REMOVED")));
+}
+
+// Accounts are detached rather than deleted, so their history stays and a later reconnect can remap them by identification hash.
+export async function removeConnection(db: Database, environment: string, id: string, exchangeCutoff: string): Promise<ConnectionRemoval> {
+  return db.transaction(async tx => {
+    const scope = and(eq(requisitions.id, id), eq(requisitions.environment, environment), ne(requisitions.status, "REMOVED"));
+    const connection = await tx.select({
+      status: requisitions.status,
+      used_at: requisitions.used_at,
+      session_cipher: requisitions.session_cipher
+    }).from(requisitions).where(scope).get();
+
+    if (!connection) {
+      return {
+        outcome: "missing"
+      };
+    }
+
+    const exchanging = connection.status === "EXCHANGING" && connection.used_at !== null && connection.used_at > exchangeCutoff;
+
+    if (exchanging) {
+      return {
+        outcome: "authorizing"
+      };
+    }
+
+    const detached = await tx.update(accounts).set({
+      requisition_id: null,
+      sync_error: null
+    }).where(and(eq(accounts.requisition_id, id), eq(accounts.environment, environment))).returning({
+      id: accounts.id
+    });
+
+    await tx.update(requisitions).set({
+      status: "REMOVED",
+      session_cipher: null,
+      valid_until: null,
+      error: null
+    }).where(scope);
+
+    return {
+      outcome: "removed",
+      sessionCipher: connection.session_cipher,
+      retainedAccounts: detached.length
+    };
+  });
 }
