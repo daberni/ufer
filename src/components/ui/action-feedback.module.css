@@ -1,0 +1,76 @@
+.announcer {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.card {
+  --row-height: 28px;
+  z-index: 20;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: max-content;
+  max-width: min(360px, calc(100vw - 32px));
+  box-sizing: border-box;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px #233e3126;
+  padding: 6px 6px 6px 12px;
+  color: var(--ink);
+  font-size: var(--text-sm);
+  line-height: 20px;
+}
+.anchored {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+}
+.overlay {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 40;
+}
+.card.problem {
+  border-color: #efd9d2;
+  color: #944a40;
+}
+.icon {
+  display: flex;
+  flex: none;
+  align-items: center;
+  height: var(--row-height);
+}
+.text {
+  flex: 1;
+  min-width: 0;
+  padding-block: calc((var(--row-height) - 20px) / 2);
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+.text p {
+  margin: 0;
+}
+.card .dismiss {
+  flex: none;
+  min-width: var(--row-height);
+  min-height: var(--row-height);
+  padding: 0;
+}
+@media (max-width: 760px), (max-width: 900px) and (pointer: coarse) {
+  .card {
+    --row-height: 44px;
+    font-size: var(--text-md);
+  }
+  .overlay {
+    left: max(16px, env(safe-area-inset-left));
+    right: max(16px, env(safe-area-inset-right));
+    bottom: calc(84px + env(safe-area-inset-bottom));
+    width: auto;
+    max-width: none;
+  }
+}

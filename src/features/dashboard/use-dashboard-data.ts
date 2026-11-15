@@ -1,12 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { apiError } from "@/client/api";
+import { apiError, failureMessage } from "@/client/api";
 import { currentMonthPeriod, serializePeriod, type Period } from "./period";
 import type { State } from "./types";
 
-export function useDashboardData(onError: (message: string) => void) {
+export function useDashboardData() {
   const [state, setState] = useState<State | null>(null);
+
+  const [loadError, setLoadError] = useState("");
 
   const [period, setPeriod] = useState<Period>(() => currentMonthPeriod());
 
@@ -99,9 +101,11 @@ export function useDashboardData(onError: (message: string) => void) {
       }
 
       setState(data);
+      setLoadError("");
     } catch (error) {
+      // Failures stay visible until a later load succeeds; callers do not handle them separately.
       if (!controller.signal.aborted && version === requestVersion.current && !lockedRef.current) {
-        throw error;
+        setLoadError(failureMessage(error));
       }
     } finally {
       signal?.removeEventListener("abort", abort);
@@ -119,11 +123,7 @@ export function useDashboardData(onError: (message: string) => void) {
 
     const controller = new AbortController();
     const timer = setTimeout(() => {
-      load(controller.signal).catch(error => {
-        if (error.name !== "AbortError") {
-          onError(error.message);
-        }
-      });
+      void load(controller.signal);
     }, 180);
 
     return () => {
@@ -131,11 +131,12 @@ export function useDashboardData(onError: (message: string) => void) {
       controller.abort();
       invalidateRequests();
     };
-  }, [query, load, onError, locked, invalidateRequests]);
+  }, [query, load, locked, invalidateRequests]);
 
   return {
     state,
     setState,
+    loadError,
     period,
     selectPeriod,
     currency,

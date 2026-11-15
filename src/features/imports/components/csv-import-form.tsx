@@ -7,15 +7,17 @@ import styles from "./csv-import-form.module.css";
 import { ArrowDownToLine } from "lucide-react";
 import { api } from "@/client/api";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
+import type { DialogFormProps } from "@/features/dashboard/use-dialog-submit";
+import { FormError } from "@/components/ui/form-error";
 import { Select } from "@/components/ui/select";
 
-type Props = Pick<DashboardController, "busy" | "importMode" | "setImportMode" | "setNotice" | "state" | "submit">;
+type Props = Pick<DashboardController, "busy" | "importMode" | "setImportMode" | "state"> & DialogFormProps;
 
 export function CsvImportForm({
   busy,
+  error,
   importMode,
   setImportMode,
-  setNotice,
   state,
   submit
 }: Props) {
@@ -32,15 +34,11 @@ export function CsvImportForm({
           throw new Error("The file cannot exceed 1 MB.");
         }
 
-        const result = await api<{
-          message: string;
-        }>(`imports/${importMode}`, {
+        await api(`imports/${importMode}`, {
           account_id: data.get("account_id"),
           csv: await file.text()
         });
-
-        setNotice(result.message);
-      }, "CSV imported.")}
+      })}
       className={ui["form"]}
     >
       <p className={ui["form-description"]}>Import balances or booked transactions into a manual account. Files must use the format below; map bank exports to these columns first.</p>
@@ -76,6 +74,7 @@ export function CsvImportForm({
         <pre>{importMode === "balances" ? "date;balance;currency\n2026-11-15;12500.00;EUR" : "id;date;amount;currency;counterparty;description\nentry-001;2026-11-15;-12.50;EUR;Supermarket;Purchase"}</pre>
       </div>
       <p className={ui["form-hint"]}>{importMode === "balances" ? "Multiple valuation dates are supported. The latest balance is used." : "IDs must be stable and unique within an account. Reimporting updates existing transactions. Update the account balance separately."}</p>
+      <FormError message={error} />
       <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={busy || !state?.accounts.some(account => account.provider === "manual")}>
         Import CSV <ArrowDownToLine size={16} />
       </button>
