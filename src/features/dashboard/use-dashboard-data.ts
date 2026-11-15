@@ -1,14 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { viennaMonth } from "@/lib/money";
 import { apiError } from "@/client/api";
+import { currentMonthPeriod, serializePeriod, type Period } from "./period";
 import type { State } from "./types";
 
 export function useDashboardData(onError: (message: string) => void) {
   const [state, setState] = useState<State | null>(null);
 
-  const [month, setMonth] = useState(viennaMonth());
+  const [period, setPeriod] = useState<Period>(() => currentMonthPeriod());
 
   const [currency, setCurrency] = useState("EUR");
 
@@ -18,8 +18,6 @@ export function useDashboardData(onError: (message: string) => void) {
 
   const [categoryFilter, setCategoryFilter] = useState("");
 
-  const [allMonths, setAllMonths] = useState(false);
-
   const [page, setPage] = useState(1);
 
   const [locked, updateLocked] = useState(false);
@@ -27,19 +25,24 @@ export function useDashboardData(onError: (message: string) => void) {
   const requestVersion = useRef(0);
   const activeRequest = useRef<AbortController | null>(null);
   const query = new URLSearchParams({
-    month,
+    period: serializePeriod(period),
     currency,
     page: String(page),
     search,
     account: accountFilter,
-    category: categoryFilter,
-    allMonths: allMonths ? "1" : "0"
+    category: categoryFilter
   }).toString();
   const latestQuery = useRef(query);
 
   useEffect(() => {
     latestQuery.current = query;
   }, [query]);
+
+  // A different period selects a different result set, so pagination restarts.
+  const selectPeriod = useCallback((next: Period) => {
+    setPeriod(next);
+    setPage(1);
+  }, []);
 
   const invalidateRequests = useCallback(() => {
     requestVersion.current += 1;
@@ -133,8 +136,8 @@ export function useDashboardData(onError: (message: string) => void) {
   return {
     state,
     setState,
-    month,
-    setMonth,
+    period,
+    selectPeriod,
     currency,
     setCurrency,
     search,
@@ -143,8 +146,6 @@ export function useDashboardData(onError: (message: string) => void) {
     setAccountFilter,
     categoryFilter,
     setCategoryFilter,
-    allMonths,
-    setAllMonths,
     page,
     setPage,
     locked,

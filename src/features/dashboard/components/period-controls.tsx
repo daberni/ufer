@@ -7,19 +7,20 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Temporal } from "temporal-polyfill";
 import { describeDate } from "@/lib/date-format";
 import { useDisplayTimeZone } from "@/components/ui/use-display-time-zone";
-import { lastSyncLabel, monthLabel } from "@/features/dashboard/presentation";
+import { lastSyncLabel, periodLabel } from "@/features/dashboard/presentation";
+import { allMonthsPeriod, currentMonthPeriod, parsePeriod } from "@/features/dashboard/period";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
 import { Select } from "@/components/ui/select";
 
-type Props = Pick<DashboardController, "currencies" | "currency" | "month" | "moveMonth" | "setCurrency" | "setMonth" | "setPage" | "state" | "view">;
+type Props = Pick<DashboardController, "currencies" | "currency" | "moveMonth" | "period" | "selectPeriod" | "setCurrency" | "setPage" | "state" | "view">;
 
 export function PeriodControls({
   currencies,
   currency,
-  month,
   moveMonth,
+  period,
+  selectPeriod,
   setCurrency,
-  setMonth,
   setPage,
   state,
   view
@@ -30,12 +31,13 @@ export function PeriodControls({
     return null;
   }
 
+  const allMonths = period.kind === "all";
   const latestSync = state.runs[0];
 
   return (
     <div className={styles["period-bar"]}>
       <div>
-        <span className={ui["section-kicker"]}>{view === "overview" ? "NET WORTH & MONTHLY CASH FLOW" : `${state.transactionCount} ${state.transactionCount === 1 ? "TRANSACTION" : "TRANSACTIONS"}`}</span>
+        <span className={ui["section-kicker"]}>{view === "overview" ? "NET WORTH & CASH FLOW" : `${state.transactionCount} ${state.transactionCount === 1 ? "TRANSACTION" : "TRANSACTIONS"}`}</span>
         {view === "overview" && <span className={styles["subtle"]} title={latestSync ? describeDate(Temporal.Instant.from(latestSync.started_at).toZonedDateTimeISO(timeZone)).title : undefined}>{lastSyncLabel(latestSync, timeZone)}</span>}
       </div>
       <div className={styles["period-controls"]}>
@@ -50,26 +52,45 @@ export function PeriodControls({
         >
           {currencies.map(value => <option key={value}>{value}</option>)}
         </Select>
-        <button className={ui["icon-button"]} aria-label="Previous month" onClick={() => moveMonth(-1)}>
+        <button
+          className={ui["icon-button"]}
+          aria-label="Previous month"
+          disabled={allMonths}
+          onClick={() => moveMonth(-1)}
+        >
           <ChevronLeft size={17} />
         </button>
         <label className={styles["month-label"]}>
-          <span>{monthLabel(month)}</span>
+          <span>{periodLabel(period)}</span>
           <input
             aria-label="Select month"
             type="month"
-            value={month}
+            value={period.kind === "month" ? period.month.toString() : ""}
             onChange={event => {
-              if (event.target.value) {
-                setMonth(event.target.value);
-                setPage(1);
+              const picked = parsePeriod(event.target.value);
+
+              if (picked) {
+                selectPeriod(picked);
               }
             }}
           />
         </label>
-        <button className={ui["icon-button"]} aria-label="Next month" onClick={() => moveMonth(1)}>
+        <button
+          className={ui["icon-button"]}
+          aria-label="Next month"
+          disabled={allMonths}
+          onClick={() => moveMonth(1)}
+        >
           <ChevronRight size={17} />
         </button>
+        <label className={styles["all-months"]}>
+          <input
+            type="checkbox"
+            checked={allMonths}
+            onChange={event => selectPeriod(event.target.checked ? allMonthsPeriod : currentMonthPeriod())}
+          />
+          All months
+        </label>
       </div>
     </div>
   );
