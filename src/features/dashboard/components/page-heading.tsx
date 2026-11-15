@@ -7,11 +7,11 @@ import { SyncButton } from "@/features/banking/components/sync-button";
 import { viewDescriptions } from "@/features/dashboard/presentation";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
 
-type Props = Pick<DashboardController, "bankAccounts" | "busy" | "nav" | "perform" | "view">;
+type Props = Pick<DashboardController, "bankAccounts" | "changeView" | "nav" | "perform" | "view">;
 
 export function PageHeading({
   bankAccounts,
-  busy,
+  changeView,
   nav,
   perform,
   view
@@ -21,13 +21,12 @@ export function PageHeading({
       <div>
         <span className={ui["eyebrow"]}>CLARITY FOR YOUR FINANCES</span>
         <h1>{nav.label === "Overview" ? "Your money. In perspective." : nav.label}</h1>
-        <p>{viewDescriptions[view]}</p>
+        <p className={styles["description"]}>{viewDescriptions[view]}</p>
       </div>
       <SyncButton
         bankAccounts={bankAccounts}
-        busy={busy}
+        changeView={changeView}
         perform={perform}
-        view={view}
       />
     </div>
   );

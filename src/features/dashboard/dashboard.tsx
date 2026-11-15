@@ -52,7 +52,7 @@ export default function Dashboard() {
         <main className={styles["content"]}>
           <PageHeading
             bankAccounts={dashboard.bankAccounts}
-            busy={dashboard.busy}
+            changeView={dashboard.changeView}
             nav={dashboard.nav}
             perform={dashboard.perform}
             view={dashboard.view}

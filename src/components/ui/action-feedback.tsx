@@ -5,6 +5,7 @@ import ui from "./primitives.module.css";
 import { clsx } from "clsx";
 import styles from "./action-feedback.module.css";
 import { Check, CircleHelp, X } from "lucide-react";
+import { LiveAnnouncements } from "./live-announcements";
 import type { Feedback } from "./use-action-feedback";
 
 type Props = {
@@ -13,34 +14,21 @@ type Props = {
   onDismiss: () => void;
   // Anchored cards sit below a control inside a positioned wrapper; overlays float above the page.
   placement: "anchored" | "overlay";
-  // Announced to screen readers without a visible card, such as progress while an action runs.
-  pendingAnnouncement?: string;
 };
 
 export function ActionFeedback({
   feedback,
   dismissLabel,
   onDismiss,
-  placement,
-  pendingAnnouncement = ""
+  placement
 }: Props) {
   const problem = feedback?.tone === "problem";
 
   const text = feedback?.messages.join(" ") ?? "";
 
-  const politeText = feedback && !problem ? text : pendingAnnouncement;
-
-  const assertiveText = problem ? text : "";
-
-  // Both live regions stay mounted so that changes to their text are announced.
   return (
     <>
-      <div className={styles["announcer"]} role="status">
-        {politeText}
-      </div>
-      <div className={styles["announcer"]} role="alert">
-        {assertiveText}
-      </div>
+      <LiveAnnouncements polite={problem ? "" : text} assertive={problem ? text : ""} />
       {feedback && (
         <div className={clsx(styles["card"], styles[placement], problem && styles["problem"])}>
           <span className={styles["icon"]}>
@@ -48,7 +36,9 @@ export function ActionFeedback({
           </span>
           <div className={styles["text"]}>
             {feedback.messages.map(message => (
-              <p key={message}>{message}</p>
+              <p key={message} className={styles["message"]}>
+                {message}
+              </p>
             ))}
           </div>
           <button

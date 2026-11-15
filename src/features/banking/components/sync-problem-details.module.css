@@ -1,0 +1,92 @@
+.details {
+  --row-height: 28px;
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 20;
+  width: max-content;
+  min-width: 260px;
+  max-width: min(360px, calc(100vw - 32px));
+  background: var(--surface);
+  border: 1px solid #efd9d2;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px #233e3126;
+  padding: 6px 6px 12px 12px;
+  color: var(--ink);
+  font-size: var(--text-sm);
+  line-height: 1.45;
+  text-align: left;
+}
+/* Icon, title and dismiss button share one row height, so they stay centered on the title's first line. */
+.heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: #944a40;
+}
+.icon {
+  display: flex;
+  flex: none;
+  align-items: center;
+  height: var(--row-height);
+}
+.title {
+  flex: 1;
+  min-width: 0;
+  padding-block: max(0px, calc((var(--row-height) - 1lh) / 2));
+  font-weight: 600;
+}
+.details .dismiss {
+  flex: none;
+  min-width: var(--row-height);
+  min-height: var(--row-height);
+  padding: 0;
+}
+/* The body lines up with the title: icon width plus the heading gap. */
+.body {
+  display: grid;
+  gap: 8px;
+  padding: 2px 6px 0 24px;
+}
+.failures {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.failure {
+  display: grid;
+  overflow-wrap: anywhere;
+}
+.account {
+  font-weight: 600;
+}
+.message {
+  color: var(--muted);
+}
+.details .note {
+  margin: 0;
+  color: var(--muted);
+}
+.details .connections {
+  justify-self: start;
+  font-size: var(--text-sm);
+}
+@media (max-width: 760px), (max-width: 900px) and (pointer: coarse) {
+  .details {
+    --row-height: 44px;
+    left: 0;
+    width: auto;
+    min-width: 0;
+    max-width: none;
+    font-size: var(--text-md);
+  }
+  .body {
+    padding-left: 24px;
+  }
+  .details .connections {
+    min-height: 44px;
+    font-size: var(--text-md);
+  }
+}

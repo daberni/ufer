@@ -25,7 +25,10 @@ export async function syncAccounts() {
   }
 
   let inserted = 0;
-  const failures: string[] = [];
+  const failures: {
+    account: string;
+    message: string;
+  }[] = [];
 
   try {
     await startSyncRun(db, env, owner, new Date().toISOString());
@@ -75,13 +78,18 @@ export async function syncAccounts() {
           await expireConnection(db, account.connection_id);
         }
 
-        failures.push(`${account.name}: ${message}`);
+        failures.push({
+          account: account.name,
+          message
+        });
       }
     }
 
     const status = failures.length ? "PARTIAL" : "SUCCESS";
 
-    await finishSyncRun(db, owner, status, inserted, failures.join("\n") || null);
+    const failureLog = failures.map(failure => `${failure.account}: ${failure.message}`).join("\n");
+
+    await finishSyncRun(db, owner, status, inserted, failureLog || null);
 
     return {
       inserted,

@@ -3,51 +3,166 @@
 import ui from "../../../components/ui/primitives.module.css";
 
 import { clsx } from "clsx";
+import { useId, useRef, useState } from "react";
 import styles from "./sync-button.module.css";
-import { RefreshCw } from "lucide-react";
-import { ActionFeedback } from "@/components/ui/action-feedback";
-import { useSyncFeedback } from "@/features/banking/use-sync-feedback";
+import { Check, RefreshCw } from "lucide-react";
+import { LiveAnnouncements } from "@/components/ui/live-announcements";
+import { SyncProblemDetails } from "@/features/banking/components/sync-problem-details";
+import { useSyncStatus, type SyncPhase, type SyncProblem } from "@/features/banking/use-sync-status";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
 
-type Props = Pick<DashboardController, "bankAccounts" | "busy" | "perform" | "view">;
+type Props = Pick<DashboardController, "bankAccounts" | "changeView" | "perform">;
+
+const fixedLabels = ["Sync", "Syncing …", "Up to date"];
 
 export function SyncButton({
   bankAccounts,
-  busy,
-  perform,
-  view
+  changeView,
+  perform
 }: Props) {
   const {
-    syncing,
-    feedback,
+    phase,
+    resultLabel,
+    problem,
+    politeAnnouncement,
+    assertiveAnnouncement,
     sync,
-    dismiss
-  } = useSyncFeedback(perform, view);
+    dismissProblem
+  } = useSyncStatus(perform);
 
-  const working = syncing || busy;
+  const [detailsOpen, setDetailsOpen] = useState(false);
 
-  const idleLabel = busy ? "Processing …" : "Sync";
+  const container = useRef<HTMLDivElement>(null);
 
-  const buttonLabel = syncing ? "Syncing …" : idleLabel;
+  const syncButton = useRef<HTMLButtonElement>(null);
+
+  const badge = useRef<HTMLButtonElement>(null);
+
+  const detailsId = useId();
+
+  const syncing = phase === "syncing";
+
+  const visibleLabel = buttonText(phase, resultLabel);
+
+  // Every state's icon and label share one grid cell, so the button keeps the width of the longest one.
+  const layers = [...new Set([...fixedLabels, resultLabel])].filter(Boolean);
+
+  function startSync() {
+    // aria-disabled instead of disabled keeps keyboard focus on the button while it syncs.
+    if (syncing) {
+      return;
+    }
+
+    sync();
+  }
+
+  function closeDetails(restoreFocus: boolean) {
+    setDetailsOpen(false);
+
+    if (restoreFocus) {
+      badge.current?.focus();
+    }
+  }
+
+  function dismiss() {
+    setDetailsOpen(false);
+    dismissProblem();
+    // The badge and its details disappear, so focus returns to the button they belong to.
+    syncButton.current?.focus();
+  }
+
+  function openConnections() {
+    closeDetails(true);
+    changeView("connections");
+  }
 
   return (
-    <div className={styles["sync"]}>
+    <div ref={container} className={styles["sync"]}>
       <button
+        ref={syncButton}
+        type="button"
         className={clsx(styles["button"], ui["primary"])}
-        disabled={working || !bankAccounts.length}
-        aria-busy={working}
-        onClick={sync}
+        disabled={!bankAccounts.length}
+        aria-disabled={syncing || undefined}
+        aria-busy={syncing}
+        aria-label={accessibleName(phase, visibleLabel, problem)}
+        onClick={startSync}
       >
-        <RefreshCw size={15} className={working ? ui["spinning"] : ""} />
-        {buttonLabel}
+        <span className={styles["layers"]}>
+          {layers.map(label => (
+            <span key={label} className={clsx(styles["layer"], label === visibleLabel && styles["visible"])}>
+              <LayerIcon label={label} syncing={syncing} />
+              <span className={styles["text"]}>{label}</span>
+            </span>
+          ))}
+        </span>
       </button>
-      <ActionFeedback
-        feedback={feedback}
-        dismissLabel="Dismiss sync status"
-        onDismiss={dismiss}
-        placement="anchored"
-        pendingAnnouncement={syncing ? "Syncing transactions …" : ""}
-      />
+      {problem && (
+        <button
+          ref={badge}
+          type="button"
+          className={styles["badge"]}
+          aria-label={`Show sync problems: ${problem.buttonLabel}`}
+          aria-expanded={detailsOpen}
+          aria-controls={detailsId}
+          onClick={() => setDetailsOpen(open => !open)}
+        >
+          {problem.failures.length || "!"}
+        </button>
+      )}
+      {problem && detailsOpen && (
+        <SyncProblemDetails
+          id={detailsId}
+          boundary={container}
+          problem={problem}
+          onClose={closeDetails}
+          onDismiss={dismiss}
+          onOpenConnections={openConnections}
+        />
+      )}
+      <LiveAnnouncements polite={politeAnnouncement} assertive={assertiveAnnouncement} />
     </div>
   );
+}
+
+function LayerIcon({
+  label,
+  syncing
+}: {
+  label: string;
+  syncing: boolean
+}) {
+  if (label === "Syncing …") {
+    return <RefreshCw size={15} className={clsx(syncing && ui["spinning"])} />;
+  }
+
+  if (label === "Sync") {
+    return <RefreshCw size={15} />;
+  }
+
+  return <Check size={15} />;
+}
+
+function buttonText(phase: SyncPhase, resultLabel: string) {
+  if (phase === "syncing") {
+    return "Syncing …";
+  }
+
+  if (phase === "synced") {
+    return resultLabel;
+  }
+
+  return "Sync";
+}
+
+function accessibleName(phase: SyncPhase, visibleLabel: string, problem: SyncProblem | null) {
+  if (phase === "synced") {
+    return `Synced: ${visibleLabel}`;
+  }
+
+  if (phase === "idle" && problem) {
+    return `Sync — ${problem.buttonLabel}`;
+  }
+
+  return visibleLabel;
 }
