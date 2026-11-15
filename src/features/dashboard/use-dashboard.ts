@@ -4,6 +4,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useDashboardData } from "./use-dashboard-data";
 import { useBankDirectory } from "@/features/banking/use-bank-directory";
 import { navigation } from "./presentation";
+import { monthPeriod, shiftMonth } from "./period";
 import type { Account, View, Modal, Connection } from "./types";
 
 export function useDashboard() {
@@ -20,8 +21,8 @@ export function useDashboard() {
   const {
     state,
     setState,
-    month,
-    setMonth,
+    period,
+    selectPeriod,
     currency,
     setCurrency,
     search,
@@ -30,8 +31,6 @@ export function useDashboard() {
     setAccountFilter,
     categoryFilter,
     setCategoryFilter,
-    allMonths,
-    setAllMonths,
     page,
     setPage,
     locked,
@@ -100,11 +99,11 @@ export function useDashboard() {
   }
 
   function moveMonth(delta: number) {
-    const next = new Date(`${month}-01T12:00:00Z`);
+    if (period.kind !== "month") {
+      return;
+    }
 
-    next.setUTCMonth(next.getUTCMonth() + delta);
-    setMonth(next.toISOString().slice(0, 7));
-    setPage(1);
+    selectPeriod(monthPeriod(shiftMonth(period.month, delta)));
   }
 
   function openBank(connection?: Connection) {
@@ -125,8 +124,6 @@ export function useDashboard() {
     }, message);
   }
 
-  const summary = state?.summary;
-
   const currencies = [...new Set(["EUR", ...(state?.accounts.map(account => account.currency) || [])])];
 
   const selectedCurrencyAccounts = state?.accounts.filter(account => account.currency === currency) || [];
@@ -139,20 +136,7 @@ export function useDashboard() {
 
   const nav = navigation.find(item => item.id === view)!;
 
-  const trend = Array.from({
-    length: 6
-  }, (_, index) => {
-    const d = new Date(`${month}-01T12:00:00Z`);
-
-    d.setUTCMonth(d.getUTCMonth() - 5 + index);
-    const key = d.toISOString().slice(0, 7);
-
-    return state?.trend.find(item => item.month === key) || {
-      month: key,
-      income: 0,
-      expenses: 0
-    };
-  });
+  const trend = state?.trend || [];
 
   const trendMax = Math.max(1, ...trend.flatMap(item => [item.income, item.expenses]));
 
@@ -163,8 +147,8 @@ export function useDashboard() {
     setView,
     state,
     setState,
-    month,
-    setMonth,
+    period,
+    selectPeriod,
     currency,
     setCurrency,
     search,
@@ -173,8 +157,6 @@ export function useDashboard() {
     setAccountFilter,
     categoryFilter,
     setCategoryFilter,
-    allMonths,
-    setAllMonths,
     page,
     setPage,
     modal,
@@ -207,7 +189,6 @@ export function useDashboard() {
     moveMonth,
     openBank,
     submit,
-    summary,
     currencies,
     selectedCurrencyAccounts,
     bankAccounts,

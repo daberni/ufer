@@ -1,3 +1,5 @@
+import type { Period } from "./period";
+
 export type Account = {
   id: string;
   name: string;
@@ -56,7 +58,8 @@ export type State = {
   bankingConfigured: boolean;
   passwordConfigured: boolean;
   currency: string;
-  month: string;
+  /** The period the financial results in this response were computed for. */
+  period: Period;
   page: number;
   accounts: Account[];
   transactions: Transaction[];

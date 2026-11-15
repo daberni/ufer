@@ -47,6 +47,19 @@
   width: 100%;
   cursor: pointer;
 }
+.all-months {
+  display: flex !important;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px !important;
+  white-space: nowrap;
+  margin: 0 0 0 8px !important;
+}
+.all-months input {
+  width: 13px;
+  min-height: 13px;
+  accent-color: var(--green);
+}
 @media (max-width: 1250px) {
   .period-bar > div:first-child {
     flex-direction: column;
@@ -89,5 +102,18 @@
   }
   .month-label input {
     font-size: 16px;
+  }
+  .all-months {
+    grid-column: 1 / -1;
+    min-height: 44px;
+    font-size: 14px !important;
+    margin: 0 !important;
+    padding: 0 6px;
+    gap: 11px;
+  }
+  .all-months input {
+    width: 22px;
+    height: 22px;
+    min-height: 22px;
   }
 }
