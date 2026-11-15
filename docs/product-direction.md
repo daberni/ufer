@@ -36,7 +36,7 @@ Before SaaS operation, add tenant isolation, user accounts and authorization, op
 
 ## Required unattended synchronization
 
-Sync must run while all browsers are closed on every supported hosting platform. Docker has a scheduler profile and Vercel has a protected cron route today. A deployment must include and verify its scheduler; it cannot be advertised as supported with only a manual refresh button.
+Sync must run while all browsers are closed on every supported hosting platform. Docker includes its scheduler in the default stack and Vercel has a protected cron route today. A deployment must include and verify its scheduler; it cannot be advertised as supported with only a manual refresh button.
 
 Keep scheduling separate from the banking provider. Use concurrency control, idempotent imports, persisted outcomes, visible failures and consent expiry, and recovery after restarts. Serverless installations may need durable workers when provider calls exceed request limits. Do not assume identical consent durations across institutions.
 

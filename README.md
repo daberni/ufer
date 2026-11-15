@@ -67,7 +67,7 @@ All five views were checked in Chrome emulation at widths from 320 to 844 pixels
 1. Copy `.env.example` to `.env`, configure all secrets including `APP_PASSWORD`, and set `ENABLE_BANKING_PRIVATE_KEY_HOST_PATH` to an external PEM file. Compose mounts it read-only as a secret.
 2. Set `APP_URL` and the registered callback to the actual LAN or reverse-proxy address. `BIND_ADDRESS` defaults to `127.0.0.1`; explicitly configure the NAS LAN address for direct LAN access.
 3. Run `docker compose up -d --build`. The application runs as a non-root user with a read-only root filesystem and a persistent `budget-data` volume. The existing volume and database names are intentionally retained for compatibility.
-4. Enable unattended daily synchronization with `docker compose --profile sync up -d`. It runs once in the configured hour, default 06:00 Europe/Vienna; set `SYNC_HOUR` to change the hour. There is no immediate retry loop on failure.
+4. Unattended daily synchronization is included in the default Compose stack. It runs once in the configured hour, default 06:00 Europe/Vienna; set `SYNC_HOUR` to change the hour. There is no immediate retry loop on failure.
 5. For a consistent backup, stop the app and scheduler, back up the data volume and configuration/encryption secrets separately, then restart. Copying an actively written SQLite file is not a verified backup procedure.
 
 The image build excludes environment files, private keys, and financial databases. Outbound HTTPS to Enable Banking is required. No incoming webhook is required; the registered callback must be reachable from the user's browser. Production redirect compatibility depends on the institution.

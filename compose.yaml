@@ -23,7 +23,6 @@ services:
 
   scheduler:
     image: node:22-bookworm-slim
-    profiles: [sync]
     restart: unless-stopped
     depends_on:
       app:
