@@ -1,53 +1,40 @@
-import { getIronSession, type SessionOptions } from "iron-session";
-import { cookies } from "next/headers";
 import { HttpError } from "@/lib/errors";
+import { authentication } from "./auth";
+import { activeMembership } from "./membership-repository";
 
-type InstallationSession = {
-  authenticated: boolean;
+export type AuthContext = {
+  userId: string;
+  sessionId: string;
+  workspaceId: string;
+  role: "owner" | "member";
+  name: string;
+  username: string;
+  email: string;
 };
 
-export function sessionOptions(): SessionOptions {
-  const secret = process.env.SESSION_SECRET;
+export async function requireAuth(request: Request): Promise<AuthContext> {
+  const auth = await authentication();
+  const identity = await auth.api.getSession({
+    headers: request.headers
+  });
 
-  if (!secret || secret.length < 32) {
-    throw new HttpError(503, "Configure SESSION_SECRET with at least 32 characters.");
-  }
-
-  const secure = new URL(process.env.APP_URL || "http://localhost:3000").protocol === "https:";
-
-  return {
-    password: secret,
-    cookieName: secure ? "__Host-session" : "session",
-    ttl: 7 * 86_400,
-    cookieOptions: {
-      httpOnly: true,
-      secure,
-      sameSite: "lax",
-      path: "/"
-    }
-  };
-}
-
-export async function installationSession() {
-  return getIronSession<InstallationSession>(await cookies(), sessionOptions());
-}
-
-export async function authenticated() {
-  if (!process.env.APP_PASSWORD) {
-    if (process.env.NODE_ENV === "production") {
-      throw new HttpError(503, "APP_PASSWORD is required in production.");
-    }
-
-    return true;
-  }
-
-  const session = await installationSession();
-
-  return session.authenticated === true;
-}
-
-export async function requireAuth() {
-  if (!(await authenticated())) {
+  if (!identity) {
     throw new HttpError(401, "Sign in to continue.");
   }
+
+  const membership = await activeMembership(identity.user.id);
+
+  if (!membership) {
+    throw new HttpError(403, "Your user does not have access to this workspace. Contact the operator.");
+  }
+
+  return {
+    userId: identity.user.id,
+    sessionId: identity.session.id,
+    workspaceId: membership.workspaceId,
+    role: membership.role,
+    name: identity.user.name,
+    username: identity.user.username || "",
+    email: identity.user.email
+  };
 }

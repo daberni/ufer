@@ -56,7 +56,6 @@ export type Connection = {
 export type State = {
   environment: string;
   bankingConfigured: boolean;
-  passwordConfigured: boolean;
   currency: string;
   /** The period the financial results in this response were computed for. */
   period: Period;

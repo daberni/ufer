@@ -1,3 +1,4 @@
+import type { AuthContext } from "@/features/auth/server/session";
 import { HttpError } from "@/lib/errors";
 import { randomBytes, randomUUID } from "node:crypto";
 import { z } from "zod";
@@ -5,7 +6,7 @@ import { availableBanks, bankingRequest, verifyApplication } from "@/features/ba
 import { hash } from "@/server/security/tokens";
 import { insertAuthorization } from "./connection-repository";
 
-export async function connectBank(payload: unknown) {
+export async function connectBank(payload: unknown, actor: AuthContext) {
   const {
     bank,
     country
@@ -59,7 +60,8 @@ export async function connectBank(payload: unknown) {
     country,
     stateHash: hash(state),
     browserHash: hash(browser),
-    authorizationId: authorization.authorization_id
+    authorizationId: authorization.authorization_id,
+    actor
   });
 
   return {

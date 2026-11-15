@@ -1,4 +1,5 @@
 import { desc, sql } from "drizzle-orm";
+import { authSessions, authUsers, workspaces } from "@/features/auth/server/auth-schema";
 import { check, index, integer, primaryKey, sqliteTable, text, unique } from "drizzle-orm/sqlite-core";
 
 export const categories = sqliteTable("categories", {
@@ -11,6 +12,13 @@ export const categories = sqliteTable("categories", {
 export const requisitions = sqliteTable("requisitions", {
   id: text("id").primaryKey(),
   environment: text("environment").notNull(),
+  workspace_id: text("workspace_id").references(() => workspaces.id),
+  initiated_by_user_id: text("initiated_by_user_id").references(() => authUsers.id, {
+    onDelete: "set null"
+  }),
+  auth_session_id: text("auth_session_id").references(() => authSessions.id, {
+    onDelete: "set null"
+  }),
   bank_name: text("bank_name").notNull(),
   bank_country: text("bank_country").notNull(),
   state_hash: text("state_hash").unique(),
@@ -120,8 +128,4 @@ export const leases = sqliteTable("leases", {
   expires_at: text("expires_at").notNull()
 });
 
-export const loginAttempts = sqliteTable("login_attempts", {
-  fingerprint: text("fingerprint").primaryKey(),
-  attempts: integer("attempts").notNull(),
-  expires_at: integer("expires_at").notNull()
-});
+export { authUsers, authSessions, authAccounts, authVerifications, authRateLimits, workspaces, memberships } from "@/features/auth/server/auth-schema";
