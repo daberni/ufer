@@ -1,13 +1,7 @@
-.empty-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 42px;
-  height: 42px;
-  background: #f0f4e9;
-  border-radius: 12px;
-  color: #94a57f;
-  margin-bottom: 15px;
+.illustration {
+  width: 128px;
+  height: auto;
+  margin-bottom: 12px;
 }
 .empty {
   padding: 33px 20px;
@@ -30,4 +24,9 @@
 }
 .empty button {
   margin-top: 19px;
+}
+@media (max-width: 760px), (max-width: 900px) and (pointer: coarse) {
+  .illustration {
+    width: 112px;
+  }
 }

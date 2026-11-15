@@ -6,6 +6,7 @@ import { clsx } from "clsx";
 import styles from "./login-form.module.css";
 import { ArrowRight } from "lucide-react";
 import { BrandIcon } from "@/components/branding/brand-icon";
+import { ShorelineBackdrop } from "@/components/branding/illustrations";
 import { api } from "@/client/api";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
 
@@ -19,6 +20,7 @@ export function LoginForm({
 }: Props) {
   return (
     <main className={styles["login-page"]}>
+      <ShorelineBackdrop className={styles["shoreline"]} />
       <form
         className={clsx(styles["login-card"], ui["form"])}
         onSubmit={event => {
