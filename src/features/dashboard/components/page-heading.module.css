@@ -1,0 +1,57 @@
+.button {
+  composes: button from "../../../components/ui/primitives.module.css";
+}
+.page-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: center;
+  margin-bottom: 28px;
+}
+.page-heading p {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+  margin-top: 10px;
+}
+@media (max-width: 900px) {
+  .page-heading {
+    gap: 15px;
+  }
+  .page-heading > .button {
+    font-size: 0;
+    width: 40px;
+    min-width: 40px;
+    padding: 10px;
+  }
+  .page-heading > .button svg {
+    width: 17px;
+    height: 17px;
+  }
+}
+@media (max-width: 760px), (max-width: 900px) and (pointer: coarse) {
+  .page-heading {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 17px;
+    margin-bottom: 22px;
+  }
+  .page-heading p {
+    font-size: 14px;
+    max-width: none;
+    margin-top: 10px;
+    line-height: 1.65;
+  }
+  .page-heading > .button {
+    min-height: 46px;
+    font-size: 14px;
+    padding: 12px 15px;
+  }
+  .page-heading > .button {
+    width: 100%;
+  }
+  .page-heading > .button svg {
+    width: 18px;
+    height: 18px;
+  }
+}

@@ -1,0 +1,69 @@
+.credit_card {
+  composes: credit_card from "./account-presentation.module.css";
+}
+.investment {
+  composes: investment from "./account-presentation.module.css";
+}
+.loan {
+  composes: loan from "./account-presentation.module.css";
+}
+.property {
+  composes: property from "./account-presentation.module.css";
+}
+.accounts-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+.account-detail h2 {
+  margin-top: 19px;
+  font-size: 16px;
+}
+.account-detail > p {
+  font-size: 11px;
+  margin-top: 6px;
+}
+.account-detail-balance {
+  font-size: 28px;
+  font-weight: 500;
+  letter-spacing: -0.8px;
+  display: block;
+  margin-top: 25px;
+}
+.account-detail-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 9px;
+  color: #9aa38e;
+  border-top: 1px solid var(--border);
+  padding-top: 17px;
+  margin: 20px 0;
+}
+@media (max-width: 1250px) {
+  .accounts-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 760px), (max-width: 900px) and (pointer: coarse) {
+  .accounts-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 17px;
+  }
+  .account-detail h2 {
+    font-size: 18px;
+    overflow-wrap: anywhere;
+  }
+  .account-detail > p {
+    font-size: 13px;
+    overflow-wrap: anywhere;
+  }
+  .account-detail-meta {
+    font-size: 13px;
+    overflow-wrap: anywhere;
+  }
+  .account-detail-balance {
+    font-size: 30px;
+    overflow-wrap: anywhere;
+  }
+}

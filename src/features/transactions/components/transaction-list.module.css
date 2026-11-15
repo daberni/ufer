@@ -1,0 +1,197 @@
+.transaction-icon.incoming {
+  background: #edf4e9;
+  color: #68845a;
+}
+.table-scroll {
+  overflow-x: auto;
+}
+.table-scroll table {
+  border-collapse: collapse;
+  width: 100%;
+  text-align: left;
+  white-space: nowrap;
+}
+.table-scroll th {
+  font-size: 8px;
+  font-weight: 500;
+  color: #a1a896;
+  letter-spacing: 0.4px;
+  background: #fafbf8;
+  padding: 13px 17px;
+  border-top: 1px solid #eff1e9;
+  border-bottom: 1px solid #eff1e9;
+}
+.table-scroll td {
+  padding: 15px 17px;
+  border-bottom: 1px solid #f0f2eb;
+  font-size: 10px;
+}
+.table-scroll th:first-child {
+  padding-left: 24px;
+}
+.table-scroll td:first-child {
+  padding-left: 24px;
+}
+.table-scroll th:last-child {
+  padding-right: 24px;
+}
+.table-scroll td:last-child {
+  padding-right: 24px;
+}
+.transaction-name {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+.transaction-icon {
+  width: 32px;
+  height: 32px;
+  border: 1px solid #edf0e7;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #98a08a;
+  background: #fafbf7;
+  flex-shrink: 0;
+}
+.transaction-name strong {
+  font-size: 10px;
+  font-weight: 500;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 270px;
+}
+.transaction-name div > span {
+  display: block;
+  font-size: 8px;
+  color: #a4ab99;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 260px;
+  margin-top: 5px;
+}
+.manual-dot {
+  display: inline-block;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #8caa7c;
+  margin-left: 5px;
+  vertical-align: middle;
+}
+.amount {
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  font-size: 11px;
+}
+.align-right {
+  text-align: right;
+}
+.nowrap {
+  white-space: nowrap;
+}
+.transaction-cards {
+  display: none;
+}
+@media (max-width: 760px), (max-width: 900px) and (pointer: coarse) {
+  .desktop-transactions {
+    display: none;
+  }
+  .transaction-cards {
+    display: block;
+    list-style: none;
+    margin: 0;
+    padding: 0 16px 16px;
+  }
+  .transaction-cards > li + li {
+    margin-top: 13px;
+  }
+  .transaction-card {
+    padding: 16px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: #fbfcf9;
+    min-width: 0;
+  }
+  .transaction-card-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 12px;
+    line-height: 1.6;
+    color: #6e7c68;
+  }
+  .transaction-card-meta > span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .transaction-card-meta time {
+    white-space: nowrap;
+  }
+  .transaction-card-heading {
+    display: flex;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 8px 14px;
+    margin-top: 12px;
+  }
+  .transaction-card-heading h3 {
+    flex: 1 1 115px;
+    min-width: 0;
+    font-size: 16px;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+  }
+  .transaction-card-heading .amount {
+    font-size: 17px;
+    line-height: 1.5;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+  .transaction-details {
+    margin-top: 5px;
+    font-size: 13px;
+  }
+  .transaction-details summary {
+    min-height: 44px;
+    padding: 13px 0;
+    cursor: pointer;
+    color: #577650;
+  }
+  .transaction-details p {
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+    line-height: 1.75;
+    color: #64725e;
+    padding-bottom: 13px;
+  }
+  .transaction-card-category {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 9px;
+    padding-top: 13px;
+    border-top: 1px solid var(--border);
+  }
+  .transaction-card-category > span {
+    font-size: 12px;
+    color: #6e7c68;
+  }
+  .transaction-card-category small {
+    display: block;
+    font-size: 11px;
+    margin-top: 4px;
+  }
+  .transaction-card-category select {
+    min-height: 46px;
+    max-width: 100%;
+    width: 100%;
+    font-size: 16px;
+  }
+}

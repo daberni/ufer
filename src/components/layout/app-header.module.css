@@ -1,0 +1,86 @@
+.topbar {
+  height: 75px;
+  border-bottom: 1px solid var(--border);
+  background: #ffffff88;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 43px;
+  font-size: 11px;
+  color: #919a94;
+}
+.topbar > span {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+}
+.topbar > div {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+}
+.topbar strong {
+  font-weight: 500;
+  color: #4c5b51;
+}
+.avatar {
+  width: 31px;
+  height: 31px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #e7ecdf;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px #e3e8df;
+  border-radius: 50%;
+  font-size: 11px;
+  color: #57704c;
+}
+.environment-pill {
+  font-size: 8px;
+  letter-spacing: 1px;
+  background: #f1ecde;
+  color: #90783e;
+  padding: 5px 7px;
+  border-radius: 4px;
+}
+@media (min-width: 1600px) {
+  .topbar {
+    padding: 0 54px;
+  }
+}
+@media (max-width: 1250px) {
+  .topbar {
+    padding: 0 27px;
+  }
+}
+@media (max-width: 900px) {
+  .topbar {
+    height: 62px;
+  }
+}
+@media (max-width: 760px), (max-width: 900px) and (pointer: coarse) {
+  .topbar {
+    padding: 0 max(16px, env(safe-area-inset-right)) 0
+      max(16px, env(safe-area-inset-left));
+    min-height: 60px;
+    height: auto;
+    font-size: 12px;
+    gap: 10px;
+  }
+  .topbar > span {
+    gap: 6px;
+    min-width: 0;
+    flex-wrap: wrap;
+    padding: 12px 0;
+  }
+  .topbar > div {
+    gap: 9px;
+  }
+  .environment-pill {
+    font-size: 9px;
+  }
+  .topbar .avatar {
+    display: none;
+  }
+}

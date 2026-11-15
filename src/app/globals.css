@@ -1,0 +1,166 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #f6f7f4;
+  --surface: #fff;
+  --ink: #243a30;
+  --muted: #7c8781;
+  --border: #e6eae4;
+  --green: #386b51;
+  --dark: #233e31;
+  --soft: #edf2e9;
+  --gold: #c2aa6b;
+  --danger: #aa5146;
+  --font-sans: Arial, Helvetica, sans-serif;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+button {
+  font: inherit;
+}
+input {
+  font: inherit;
+}
+select {
+  font: inherit;
+}
+textarea {
+  font: inherit;
+}
+button {
+  -webkit-tap-highlight-color: transparent;
+}
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+input {
+  -webkit-tap-highlight-color: transparent;
+}
+select {
+  -webkit-tap-highlight-color: transparent;
+}
+button {
+  cursor: pointer;
+}
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+a {
+  color: inherit;
+  text-decoration: none;
+}
+button:focus-visible {
+  outline: 3px solid #93b69f;
+  outline-offset: 3px;
+}
+a:focus-visible {
+  outline: 3px solid #93b69f;
+  outline-offset: 3px;
+}
+input:focus-visible {
+  outline: 3px solid #93b69f;
+  outline-offset: 3px;
+}
+select:focus-visible {
+  outline: 3px solid #93b69f;
+  outline-offset: 3px;
+}
+h1 {
+  margin: 0;
+}
+h2 {
+  margin: 0;
+}
+h3 {
+  margin: 0;
+}
+p {
+  margin: 0;
+}
+h2 {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.3px;
+}
+h3 {
+  font-size: 15px;
+  font-weight: 600;
+}
+button {
+  border: 0;
+  background: none;
+  color: inherit;
+}
+input {
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--ink);
+  border-radius: 7px;
+  padding: 10px 12px;
+  min-height: 41px;
+}
+select {
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--ink);
+  border-radius: 7px;
+  padding: 10px 12px;
+  min-height: 41px;
+}
+input::placeholder {
+  color: #a0a8a2;
+}
+select {
+  cursor: pointer;
+}
+svg {
+  flex-shrink: 0;
+}
+h1 {
+  font-size: 30px;
+  letter-spacing: -1.2px;
+  font-weight: 500;
+  line-height: 1.2;
+}
+@media (max-width: 900px) {
+  h1 {
+    font-size: 27px;
+  }
+}
+@media (max-width: 760px), (max-width: 900px) and (pointer: coarse) {
+  html {
+    scroll-padding-bottom: calc(96px + env(safe-area-inset-bottom));
+  }
+  h1 {
+    font-size: clamp(26px, 6vw, 32px);
+    letter-spacing: -1px;
+    overflow-wrap: anywhere;
+  }
+  h2 {
+    font-size: 17px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+  *::before {
+    animation: none !important;
+    transition: none !important;
+  }
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

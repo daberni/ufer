@@ -1,0 +1,30 @@
+.csv-example {
+  background: #f4f7ef;
+  border: 1px solid #e6ecd7;
+  border-radius: 7px;
+  padding: 13px;
+  margin-top: 20px;
+  color: #82936f;
+}
+.csv-example > span {
+  font-size: 9px;
+}
+.csv-example pre {
+  font-size: 9px;
+  overflow: auto;
+  line-height: 1.7;
+  margin: 10px 0 0;
+  color: #6f815c;
+}
+@media (max-width: 760px), (max-width: 900px) and (pointer: coarse) {
+  .csv-example > span {
+    font-size: 12px;
+  }
+  .csv-example pre {
+    font-size: 12px;
+  }
+  .csv-example pre {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+}

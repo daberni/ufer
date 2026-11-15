@@ -1,0 +1,134 @@
+.button {
+  composes: button from "../../../components/ui/primitives.module.css";
+}
+.credit_card {
+  composes: credit_card from "../../../components/ui/primitives.module.css";
+}
+.investment {
+  composes: investment from "../../../components/ui/primitives.module.css";
+}
+.loan {
+  composes: loan from "../../../components/ui/primitives.module.css";
+}
+.pill {
+  composes: pill from "../../../components/ui/primitives.module.css";
+}
+.property {
+  composes: property from "../../../components/ui/primitives.module.css";
+}
+.pill.success {
+  background: #e9f2e4;
+  color: #628350;
+}
+.connection-info {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  padding: 20px;
+  border: 1px solid #dfe7d5;
+  background: #f0f4e9;
+  border-radius: 10px;
+  margin-bottom: 20px;
+  color: #779363;
+}
+.connection-info strong {
+  font-weight: 500;
+  font-size: 12px;
+  color: #647e53;
+}
+.connection-info p {
+  font-size: 11px;
+  color: #8d9e7b;
+  line-height: 1.7;
+  margin-top: 5px;
+}
+.connection-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 0;
+  border-bottom: 1px solid var(--border);
+}
+.connection-row:last-child {
+  border-bottom: 0;
+}
+.connection-row > div {
+  flex: 1;
+}
+.connection-row h3 {
+  font-size: 13px;
+  font-weight: 500;
+}
+.connection-row p {
+  font-size: 10px;
+  color: #97a18a;
+  margin-top: 6px;
+  line-height: 1.7;
+}
+.sync-history {
+  margin-top: 22px;
+}
+.sync-row {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  flex-wrap: wrap;
+  font-size: 10px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+  color: #96a18b;
+}
+.sync-row:last-child {
+  border: 0;
+}
+.sync-row p {
+  width: 100%;
+  white-space: pre-line;
+  line-height: 1.7;
+}
+@media (max-width: 1250px) {
+  .connection-row {
+    flex-wrap: wrap;
+  }
+  .connection-row > div {
+    min-width: 160px;
+  }
+}
+@media (max-width: 760px), (max-width: 900px) and (pointer: coarse) {
+  .connection-row {
+    gap: 13px;
+  }
+  .connection-row > div {
+    min-width: 0;
+    flex: 1 1 calc(100% - 55px);
+  }
+  .connection-row h3 {
+    font-size: 16px;
+    overflow-wrap: anywhere;
+  }
+  .connection-row p {
+    font-size: 13px;
+    overflow-wrap: anywhere;
+  }
+  .connection-info p {
+    font-size: 13px;
+    overflow-wrap: anywhere;
+  }
+  .connection-row > .pill {
+    margin-left: 0;
+  }
+  .connection-row > .button {
+    margin-left: auto;
+  }
+  .connection-info {
+    padding: 18px;
+    align-items: flex-start;
+  }
+  .connection-info strong {
+    font-size: 15px;
+  }
+  .sync-row {
+    gap: 12px;
+    font-size: 13px;
+  }
+}
