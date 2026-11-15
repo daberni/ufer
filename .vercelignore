@@ -1,0 +1,13 @@
+node_modules/
+.next/
+.git/
+.env*
+data/
+*.pem
+*.key
+*.db*
+*.log
+*.tsbuildinfo
+.DS_Store
+artifacts/
+.vercel/

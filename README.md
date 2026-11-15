@@ -2,7 +2,7 @@
 
 A personal finance dashboard for accounts, transactions, and net worth. Built with Next.js, React, TypeScript, and SQLite/libSQL, with Docker/NAS and Vercel deployment paths.
 
-**Early development:** bank authorization and synchronization have been exercised with sandbox data. Live bank coverage, production hosting, and backup restoration still require validation. This project is currently private; an open-source license has not been selected.
+**Early development:** bank authorization and synchronization have been exercised with sandbox data. Live bank coverage and backup restoration still require validation. Vercel runtime, authentication and sandbox sync have been verified; see the [deployment guide](docs/vercel-deployment.md). This project is currently private; an open-source license has not been selected.
 
 The project continues as an independent Node/React application; see the [architecture](docs/architecture.md), [decision records](docs/adr/README.md), [code style](docs/code-style.md) and [migration workflow](docs/database-migrations.md).
 
@@ -10,7 +10,7 @@ See the [feature comparison and roadmap](docs/feature-comparison.md) for current
 
 ## Run locally
 
-1. Install Node.js 22 or newer and run `npm ci`.
+1. Install Node.js 26, run `nvm use` when using nvm, and then run `npm ci`.
 2. Copy `.env.example` to `.env.local`. Configure an Enable Banking application ID, a private key outside the repository, and the exact registered callback URL. The default is `http://localhost:3000/api/banking/callback`.
 3. Generate independent `SESSION_SECRET`, `DATA_ENCRYPTION_KEY`, and `CRON_SECRET` values using `openssl rand -hex 32`. Never commit real credentials.
 4. Run `npm run dev` and open [localhost:3000](http://localhost:3000). Keep the same hostname and browser throughout bank authorization.
@@ -84,7 +84,7 @@ Use persistent external libSQL through `DATABASE_URL=libsql://…` and `DATABASE
 
 Set `APP_PASSWORD`, `SESSION_SECRET`, `DATA_ENCRYPTION_KEY`, `CRON_SECRET`, the banking application ID, and `ENABLE_BANKING_PRIVATE_KEY` as hosting secrets. Use a PEM value rather than a local key path. Set the application and callback URLs to the deployment origin. The current login is for a single shared workspace, not SaaS tenant isolation.
 
-`vercel.json` configures a daily 05:00 UTC cron call authenticated with `CRON_SECRET`. The route has `maxDuration=300`; provider latency and many accounts can exceed platform runtime limits. Actual Vercel deployment and scheduler behavior have not been verified. Unattended synchronization is a required capability on every supported hosting platform.
+`vercel.json` configures a daily 05:00 UTC cron call authenticated with `CRON_SECRET`. The route has `maxDuration=300`; provider latency and many accounts can exceed platform runtime limits. Vercel runtime, HTTPS authentication, the sandbox callback/sync and the authenticated cron endpoint have been verified. The enabled schedule runs at 05:00 UTC; its first future unattended invocation and actual NAS operation remain unverified. See the [deployment guide](docs/vercel-deployment.md) for configuration, cost boundaries and acceptance evidence. Unattended synchronization is a required capability on every supported hosting platform.
 
 ## Checks
 

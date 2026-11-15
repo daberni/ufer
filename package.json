@@ -17,7 +17,7 @@
     "check:styles": "prettier --check \"src/**/*.css\""
   },
   "engines": {
-    "node": "^22.22.2 || ^24.15.0 || >=26.0.0"
+    "node": "26.x"
   },
   "dependencies": {
     "@libsql/client": "^0.18.0",
