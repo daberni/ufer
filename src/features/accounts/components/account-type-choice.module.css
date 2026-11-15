@@ -1,0 +1,97 @@
+.type-choice {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-inline-size: 0;
+}
+.choice-legend {
+  padding: 0;
+  margin-bottom: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.type-group {
+  border: 0;
+  margin: 14px 0 0;
+  padding: 0;
+  min-inline-size: 0;
+}
+.group-legend {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 0;
+  margin-bottom: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #5f7360;
+}
+.group-legend small {
+  font-size: 10px;
+  font-weight: 400;
+  color: #96a08e;
+}
+.options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.type-choice .option {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 12px;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+.type-choice .option:hover {
+  background: #f6f8f3;
+}
+.type-choice .option:has(input:checked) {
+  border-color: var(--green);
+  background: var(--soft);
+}
+.type-choice .option:has(input:focus-visible) {
+  outline: 2px solid var(--green);
+  outline-offset: 2px;
+}
+.type-choice .option input {
+  width: 16px;
+  height: 16px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--green);
+  cursor: pointer;
+}
+.option-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-weight: 500;
+}
+.option-text small {
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 1.4;
+  color: #8a9785;
+}
+@media (max-width: 480px) {
+  .options {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .type-choice .option {
+    min-height: 56px;
+  }
+}
