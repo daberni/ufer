@@ -52,7 +52,8 @@ export function useSyncFeedback(perform: DashboardController["perform"]) {
   }, [open, syncing, outcome, hasProblem]);
 
   async function sync() {
-    setOpen(true);
+    // Progress is shown on the button only; the popover opens once there is a result.
+    setOpen(false);
     setSyncing(true);
     setOutcome(null);
     setRequestError("");
@@ -68,6 +69,7 @@ export function useSyncFeedback(perform: DashboardController["perform"]) {
       });
     } finally {
       setSyncing(false);
+      setOpen(true);
     }
   }
 

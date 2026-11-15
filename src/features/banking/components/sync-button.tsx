@@ -27,47 +27,58 @@ export function SyncButton({
 
   const showResult = open && !syncing && Boolean(outcome || requestError);
 
-  const showProgress = open && syncing;
-
   const transactionLabel = outcome?.inserted === 1 ? "transaction" : "transactions";
+
+  const messages = [
+    outcome ? `${outcome.inserted} new ${transactionLabel} synced.` : "",
+    requestError ? `Sync failed: ${requestError}` : "",
+    ...(outcome?.failures ?? [])
+  ].filter(Boolean);
+
+  // Start and finish are announced here without a visible card while syncing.
+  const resultAnnouncement = showResult ? messages.join(" ") : "";
+
+  const announcement = syncing ? "Syncing transactions …" : resultAnnouncement;
+
+  const working = syncing || busy;
+
+  const idleLabel = busy ? "Processing …" : "Sync";
+
+  const buttonLabel = syncing ? "Syncing …" : idleLabel;
 
   return (
     <div className={styles["sync"]}>
       <button
         className={clsx(styles["button"], ui["primary"])}
-        disabled={busy || !bankAccounts.length}
+        disabled={working || !bankAccounts.length}
+        aria-busy={working}
         onClick={sync}
       >
-        <RefreshCw size={15} className={busy ? ui["spinning"] : ""} />
-        {busy ? "Processing …" : "Sync"}
+        <RefreshCw size={15} className={working ? ui["spinning"] : ""} />
+        {buttonLabel}
       </button>
       <div
-        className={clsx(styles["popover"], showResult && hasProblem && styles["problem"], !(showProgress || showResult) && styles["hidden"])}
+        className={styles["announcer"]}
         role="status"
         aria-live={hasProblem ? "assertive" : "polite"}
       >
-        {showProgress && (
-          <p className={styles["message"]}>
-            <RefreshCw size={16} className={ui["spinning"]} />
-            Syncing transactions …
-          </p>
-        )}
-        {showResult && (
-          <div className={styles["message"]}>
-            {hasProblem ? <CircleHelp size={16} /> : <Check size={16} />}
-            <div>
-              {outcome && <p>{`${outcome.inserted} new ${transactionLabel} synced.`}</p>}
-              {requestError && <p>{`Sync failed: ${requestError}`}</p>}
-              {outcome?.failures.map(failure => (
-                <p key={failure}>{failure}</p>
-              ))}
-            </div>
-            <button className={ui["icon-button"]} aria-label="Dismiss sync status" onClick={dismiss}>
-              <X size={14} />
-            </button>
-          </div>
-        )}
+        {announcement}
       </div>
+      {showResult && (
+        <div className={clsx(styles["popover"], hasProblem && styles["problem"])}>
+          <span className={styles["icon"]}>
+            {hasProblem ? <CircleHelp size={16} /> : <Check size={16} />}
+          </span>
+          <div className={styles["text"]}>
+            {messages.map(message => (
+              <p key={message}>{message}</p>
+            ))}
+          </div>
+          <button className={clsx(ui["icon-button"], styles["dismiss"])} aria-label="Dismiss sync status" onClick={dismiss}>
+            <X size={14} />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
