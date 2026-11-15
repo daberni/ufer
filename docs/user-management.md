@@ -1,0 +1,73 @@
+# Username/password user management
+
+Implemented in source for [issue #25](https://github.com/daberni/ufer/issues/25); deployment and migration of existing installations require separate approval. The hosted installation has not been changed by this implementation.
+
+## Authentication and access
+
+[Better Auth](https://better-auth.com/docs/integrations/next) 1.7.25 owns password hashing, username sign-in, signed session cookies, expiration and server-side revocation. Its [username plugin](https://better-auth.com/docs/plugins/username) and [Drizzle adapter](https://better-auth.com/docs/adapters/drizzle) use the existing SQLite/libSQL connection. Provider JWTs remain with jose; bank-secret encryption and DATA_ENCRYPTION_KEY remain unchanged.
+
+Login requires a username and password in development and production. Usernames are normalized by the library. Passwords have 12–128 characters. Session lifetime is seven days; cookie caching is disabled so revocation is checked against the database. Cookie names use the library defaults: better-auth.session_token on HTTP and __Secure-better-auth.session_token on HTTPS, with HttpOnly, SameSite=Lax, Path=/ and no Domain attribute. BETTER_AUTH_SECRET is required and must have at least 32 characters. APP_PASSWORD and SESSION_SECRET are no longer read.
+
+A valid identity alone grants no financial access. Each financial HTTP request requires an active membership in the installation workspace. Revoking that membership blocks the next financial request even if the authentication session remains valid. Both initial roles can manage this shared workspace's finances; owner identifies installation ownership. Invitations and membership administration in the UI are not implemented.
+
+## Current single-workspace boundary
+
+| Model | Purpose |
+| --- | --- |
+| auth_users | Personal identity, normalized username, display name and email |
+| auth_accounts | Library-managed credentials and future provider identities; distinct from financial accounts |
+| auth_sessions | Revocable, expiring sessions belonging to users |
+| auth_verifications | Library-managed verification records; public email recovery is not enabled |
+| auth_rate_limits | Persistent library-managed authentication rate limits |
+| workspaces | The existing installation's financial workspace |
+| memberships | Explicit user/workspace access, owner/member role and active flag |
+
+The workspace ID is constrained to personal in the database. Financial repositories still serve this one installation; this change does not establish row-level isolation for several independent customers. The constraint deliberately prevents provisioning a second customer into globally queried financial data. Additional users are members of the same shared finances. Multi-customer SaaS needs the full [workspace architecture](architecture.md#data-access-invariants) and two-customer access tests before removing this restriction.
+
+## Operator enrollment
+
+Public registration is closed. The operator runs `npm run user:create`, which accepts an enrollment JSON object on standard input. Supply it from secure operator tooling; do not put passwords in command-line arguments, project files or shell history. Interactive terminal input is refused to prevent accidental plaintext entry.
+
+| Input | Requirement |
+| --- | --- |
+| username | 3–30 characters; letters, numbers, underscores or periods |
+| name | Explicit display name, 1–100 characters |
+| email | Explicit valid email address; never inferred from bank data |
+| password | 12–128 characters |
+| role | owner for the initial owner; member for another person sharing these finances |
+
+The command creates the identity, library-managed credential and membership in one transaction. A second owner bootstrap is refused; member enrollment requires an existing active owner. Concurrent enrollment cannot create a second owner or leave an orphan identity. Duplicate usernames/emails are rejected without granting access or changing existing credentials. The HTTP application never enables enrollment. No first visitor, bank consent or email domain can claim ownership.
+
+A fresh installation initializes the current schema through the normal empty-database lifecycle. An existing installation must complete the reviewed migration before enrollment. Operator access to the database/configuration is required; the public URL and installation's former password are insufficient.
+
+## Account settings and sessions
+
+The account button in the header shows the current identity and allows a password change using the current password. Password changes revoke other sessions and rotate the current session. Users can also sign out other devices without changing their password, or sign out the current session. The library performs these operations; Ufer does not write password hashes or session-token formats itself.
+
+The authentication handler exposes only username sign-in, session inspection/revocation and password change. Email sign-in, signup, account linking and email recovery endpoints are not exposed. Password-reset email delivery, invitations, user administration and SSO remain future work. Email addresses are stored as supplied and are not claimed to be verified.
+
+## Operator password recovery
+
+If a user forgets their password, the operator can run `npm run user:reset-password` with email and a new 12–128-character password supplied as secure JSON on stdin. The command invokes the library's request/reset APIs and captures the library's one-time token only in process memory; no reset token is printed or sent by email. Successful recovery invalidates every session for that user. Public recovery endpoints stay closed. This command writes credentials and revokes access, so use it only for an explicitly authorized user recovery.
+
+## HTTP and abuse boundaries
+
+The maintained React client talks to the library handler at /api/auth/[...all]. Origin validation applies to writes. Authentication errors use Ufer Problem Details with a trace ID while preserving the library's message/code as extensions; the real client protocol is tested. Library logs are disabled to avoid emitting database parameters or credentials; the HTTP boundary emits sanitized diagnostics.
+
+[Rate limiting](https://better-auth.com/docs/concepts/rate-limit) uses database storage across instances. Sign-in and password changes allow ten requests in a fifteen-minute window. Forwarded IP headers are deliberately not trusted: all clients share a counter per authentication endpoint. This avoids spoofing bypasses on both deployment modes at the cost of a shared lockout window. Per-client limits require a separately verified trusted-proxy policy. Operator enrollment uses the server API and is protected by operator access rather than the HTTP limiter.
+
+Bank authorization attempts are bound to the initiating user, exact authentication session, workspace and browser secret. The callback verifies a live session and active membership before consuming state. Another session, even for the same user, cannot complete that attempt. Logging out, password rotation or membership removal therefore prevents the old flow from completing. Scheduled sync remains operator-authenticated and serves the one installation workspace.
+
+## Migration and rollout
+
+[0001_username_password_authentication.sql](../drizzle/sqlite/0001_username_password_authentication.sql) creates seven identity/access tables and three lookup indexes, inserts the existing installation workspace, adds user/session/workspace bindings to bank authorization records, and backfills their workspace. Existing pending/exchanging bank flows are invalidated and must be restarted. The obsolete login_attempts table is removed; the library owns the new rate-limit table. Existing financial IDs, categories, corrections, balances and linked encrypted bank sessions are preserved.
+
+The added bank workspace column remains nullable at the physical SQLite level to allow a forward migration without rebuilding the referenced connection table. Migration backfills existing rows and new authorization writes always supply the workspace. Callback matching requires an exact non-null workspace/user/session match.
+
+1. Review the changeset and obtain approval for the target database. Back up the database and DATA_ENCRYPTION_KEY using the [migration workflow](database-migrations.md).
+2. Stop application writes and scheduled work, then apply the approved migration once. Startup refuses to upgrade an existing database automatically.
+3. Configure a new BETTER_AUTH_SECRET and provision the owner explicitly through secure operator tooling. Keep the banking credentials and DATA_ENCRYPTION_KEY unchanged.
+4. Deploy the matching application and verify username login, workspace access, password/session lifecycle and a fresh bank flow. Old installation cookies are not accepted. Re-enable scheduled work after acceptance.
+5. Remove obsolete APP_PASSWORD and SESSION_SECRET from deployment configuration only after the cutover is accepted. Restore from the reviewed backup if rollback is needed; never edit applied migration history.
+
+Tests use only disposable synthetic databases. Live migration, production authentication, email recovery, physical-device acceptance and independent-customer isolation are not established by these checks.

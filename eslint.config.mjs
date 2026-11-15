@@ -2,7 +2,7 @@ import babelParser from "@babel/eslint-parser";
 import stylistic from "@stylistic/eslint-plugin";
 
 export default [{
-  ignores: ["node_modules/**", ".next/**", "data/**", "drizzle/meta/**", "next-env.d.ts"]
+  ignores: [".claude/**", "node_modules/**", ".next/**", "data/**", "drizzle/meta/**", "next-env.d.ts"]
 }, {
   files: ["**/*.{ts,tsx,mjs}"],
   languageOptions: {
