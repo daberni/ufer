@@ -85,14 +85,14 @@ const syncStatusLabels: Record<string, string> = {
 export function lastSyncLabel(run: {
   started_at: string;
   status: string
-} | undefined) {
+} | undefined, timeZone: string) {
   if (!run) {
     return "No sync yet";
   }
 
   const status = syncStatusLabels[run.status] || "failed";
 
-  return `Last sync: ${describeDate(run.started_at).label} · ${status}`;
+  return `Last sync: ${describeDate(run.started_at, undefined, timeZone).label} · ${status}`;
 }
 
 export function accountSyncLabel(account: {

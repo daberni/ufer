@@ -19,6 +19,13 @@ test("timestamp titles name the timezone for a named zone", () => {
   assert.match(display.title, /00:30:00 CET$/);
 });
 
+test("timestamps default to the product zone regardless of the machine timezone", () => {
+  const display = describeDate("2026-03-01T23:30:00.000Z");
+
+  assert.equal(display.label, "2 Mar");
+  assert.match(display.title, /00:30:00 CET$/);
+});
+
 test("timestamp titles keep the offset for zones without an abbreviation", () => {
   const display = describeDate("2026-03-01T23:30:00.000Z", "en-GB", "Asia/Kolkata");
 
