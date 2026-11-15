@@ -1,5 +1,6 @@
 import { ArrowDownLeft, Building2, CreditCard, HandCoins, Landmark, LayoutDashboard, Link2, PiggyBank, SlidersHorizontal, ChartNoAxesCombined, Wallet } from "lucide-react";
-import { describeDate, parseDisplayDate } from "@/lib/date-format";
+import { Temporal } from "temporal-polyfill";
+import { describeDate } from "@/lib/date-format";
 import type { View } from "./types";
 
 export const kinds: Record<string, string> = {
@@ -97,7 +98,7 @@ export function lastSyncLabel(run: {
 
   const status = syncStatusLabels[run.status] || "failed";
 
-  return `Last sync: ${describeDate(parseDisplayDate(run.started_at, timeZone)).label} · ${status}`;
+  return `Last sync: ${describeDate(Temporal.Instant.from(run.started_at).toZonedDateTimeISO(timeZone)).label} · ${status}`;
 }
 
 export function accountSyncLabel(account: {
