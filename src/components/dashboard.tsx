@@ -533,7 +533,7 @@ export default function Dashboard() {
               {(view === "overview" || view === "transactions") && (
                 <div className="period-bar">
                   <div>
-                    <span className="section-kicker">{view === "overview" ? "NET WORTH & MONTHLY CASH FLOW" : `${state.transactionCount} TRANSACTIONS`}</span>
+                    <span className="section-kicker">{view === "overview" ? "NET WORTH & MONTHLY CASH FLOW" : `${state.transactionCount} ${state.transactionCount === 1 ? "TRANSACTION" : "TRANSACTIONS"}`}</span>
                     {view === "overview" && <span className="subtle">{state.runs[0] ? `Last sync: ${date(state.runs[0].started_at)} · ${state.runs[0].status === "SUCCESS" ? "successful" : state.runs[0].status === "PARTIAL" ? "partial" : state.runs[0].status === "RUNNING" ? "running" : "failed"}` : "No sync yet"}</span>}
                   </div>
                   <div className="period-controls">
