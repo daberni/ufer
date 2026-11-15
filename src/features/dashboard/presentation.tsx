@@ -2,6 +2,7 @@ import { ArrowDownLeft, Building2, CreditCard, HandCoins, Landmark, LayoutDashbo
 import { Temporal } from "temporal-polyfill";
 import { describeDate } from "@/lib/date-format";
 import type { View } from "./types";
+import type { Period } from "./period";
 
 export const kinds: Record<string, string> = {
   checking: "Current account",
@@ -45,6 +46,32 @@ export function monthLabel(value: string) {
     year: "numeric",
     timeZone: "UTC"
   }).format(new Date(`${value}-01T12:00:00Z`));
+}
+
+export function periodLabel(period: Period) {
+  return period.kind === "all" ? "All months" : monthLabel(period.month.toString());
+}
+
+function shortMonthLabel(value: string) {
+  return new Intl.DateTimeFormat("en-GB", {
+    month: "short",
+    timeZone: "UTC"
+  }).format(new Date(`${value}-01T12:00:00Z`));
+}
+
+/** Labels a month range such as the cash-flow trend window, e.g. "Jun – Nov 2026" or "Dec 2025 – May 2026". */
+export function monthRangeLabel(months: string[]) {
+  if (!months.length) {
+    return "";
+  }
+
+  const first = months[0];
+  const last = months[months.length - 1];
+  const firstYear = first.slice(0, 4);
+  const lastYear = last.slice(0, 4);
+  const start = firstYear === lastYear ? shortMonthLabel(first) : `${shortMonthLabel(first)} ${firstYear}`;
+
+  return `${start} – ${shortMonthLabel(last)} ${lastYear}`;
 }
 
 export function accountIcon(kind: string) {

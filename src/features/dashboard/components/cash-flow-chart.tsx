@@ -4,7 +4,7 @@ import ui from "../../../components/ui/primitives.module.css";
 
 import { clsx } from "clsx";
 import styles from "./cash-flow-chart.module.css";
-import { monthLabel } from "@/features/dashboard/presentation";
+import { monthLabel, monthRangeLabel } from "@/features/dashboard/presentation";
 import { money } from "@/lib/money";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
 
@@ -24,7 +24,7 @@ export function CashFlowChart({
     <section className={ui["panel"]}>
       <div className={ui["card-heading"]}>
         <h2>Income & expenses</h2>
-        <span className={ui["subtle"]}>Last 6 months</span>
+        <span className={ui["subtle"]}>{monthRangeLabel(trend.map(item => item.month))}</span>
       </div>
       <div className={styles["chart-legend"]}>
         <span>
@@ -67,7 +67,7 @@ export function CashFlowChart({
           </div>
         ))}
       </div>
-      {!state.trend.length && <p className={styles["chart-empty-note"]}>Your history appears here after the first import.</p>}
+      {trend.every(item => item.income === 0 && item.expenses === 0) && <p className={styles["chart-empty-note"]}>Your history appears here after the first import.</p>}
     </section>
   );
 }

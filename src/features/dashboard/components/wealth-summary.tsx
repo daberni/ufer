@@ -5,21 +5,25 @@ import ui from "../../../components/ui/primitives.module.css";
 import { clsx } from "clsx";
 import styles from "./wealth-summary.module.css";
 import { ArrowDownLeft, ArrowUpRight, Wallet } from "lucide-react";
-import { monthLabel } from "@/features/dashboard/presentation";
+import { periodLabel } from "@/features/dashboard/presentation";
+import { periodFromJson } from "@/features/dashboard/period";
 import { money } from "@/lib/money";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
 
-type Props = Pick<DashboardController, "currency" | "month" | "selectedCurrencyAccounts" | "summary">;
+type Props = Pick<DashboardController, "currency" | "selectedCurrencyAccounts" | "state">;
 
 export function WealthSummary({
   currency,
-  month,
   selectedCurrencyAccounts,
-  summary
+  state
 }: Props) {
-  if (!summary) {
+  if (!state) {
     return null;
   }
+
+  const summary = state.summary;
+  const period = periodFromJson(state.period);
+  const singleMonth = period.kind === "month";
 
   return (
     <div className={styles["wealth-grid"]}>
@@ -34,7 +38,7 @@ export function WealthSummary({
           <span className={styles["small-tag"]}>{currency}</span>
         </div>
         <div className={styles["wealth-number"]}>{selectedCurrencyAccounts.length ? money(summary.netWorth, currency) : "—"}</div>
-        <p>Latest known balances · independent of the month filter{summary.unvalued > 0 ? ` · ${summary.unvalued} without a balance` : ""}</p>
+        <p>Latest known balances · independent of the selected period{summary.unvalued > 0 ? ` · ${summary.unvalued} without a balance` : ""}</p>
         <div className={styles["allocation-bar"]} aria-hidden="true">
           <span
             style={{
@@ -74,8 +78,8 @@ export function WealthSummary({
       </section>
       <section className={styles["month-card"]}>
         <div className={ui["card-heading"]}>
-          <h2>Your month</h2>
-          <span className={styles["subtle"]}>{monthLabel(month)}</span>
+          <h2>{singleMonth ? "Your month" : "Your cash flow"}</h2>
+          <span className={styles["subtle"]}>{periodLabel(period)}</span>
         </div>
         <div className={styles["flow-row"]}>
           <span className={clsx(styles["flow-icon"], styles["incoming"])}>
@@ -111,7 +115,7 @@ export function WealthSummary({
         </div>
         <div className={styles["monthly-result"]}>
           <div>
-            <span>Monthly cash flow</span>
+            <span>{singleMonth ? "Monthly cash flow" : "Net cash flow"}</span>
             <small>Excluding categorized transfers</small>
           </div>
           <strong className={summary.income - summary.expenses >= 0 ? ui["positive"] : ""}>{money(summary.income - summary.expenses, currency)}</strong>

@@ -1,23 +1,44 @@
 import { database } from "@/server/database/connection";
 import { environment } from "@/features/banking/server/environment";
 import { bankingConfigured } from "@/features/banking/server/enable-banking-client";
+import { currentMonth, periodToJson, trendMonths, type Period } from "@/features/dashboard/period";
 import type { DashboardFilters } from "./dashboard-filters";
+
+// Transaction lists, counts, cash flow and spending all use this condition so their results describe the same range.
+function periodCondition(period: Period) {
+  if (period.kind === "all") {
+    return {
+      sql: "TRUE",
+      args: []
+    };
+  }
+
+  return {
+    sql: "substr(t.booking_date,1,7)=?",
+    args: [period.month.toString()]
+  };
+}
 
 export async function readDashboardState(filters: DashboardFilters) {
   const client = (await database()).$client;
   const env = environment();
   const {
-    month,
+    period,
     currency,
     page
   } = filters;
-  const where = ["a.environment=?", "t.currency=?"];
-  const args: (string | number)[] = [env, currency];
-
-  if (!filters.allMonths) {
-    where.push("substr(t.booking_date,1,7)=?");
-    args.push(month);
-  }
+  const inPeriod = periodCondition(period);
+  const trendRange = trendMonths(period, currentMonth());
+  const trendWindow = trendRange.map(month => month.toString());
+  const firstDay = {
+    day: 1
+  };
+  const trendStart = trendRange[0].toPlainDate(firstDay).toString();
+  const trendEnd = trendRange[trendRange.length - 1].add({
+    months: 1
+  }).toPlainDate(firstDay).toString();
+  const where = ["a.environment=?", "t.currency=?", inPeriod.sql];
+  const args: (string | number)[] = [env, currency, ...inPeriod.args];
 
   if (filters.search) {
     where.push("instr(lower(t.counterparty || ' ' || t.description),lower(?)) > 0");
@@ -104,10 +125,10 @@ export async function readDashboardState(filters: DashboardFilters) {
       LEFT JOIN categories c ON c.id=t.category_id
       WHERE a.environment=?
       AND t.currency=?
-      AND substr(t.booking_date,1,7)=?
+      AND ${inPeriod.sql}
       AND COALESCE(c.is_transfer,0)=0
     `,
-    args: [env, currency, month]
+    args: [env, currency, ...inPeriod.args]
   });
   const breakdownQuery = client.execute({
     sql: `
@@ -117,13 +138,13 @@ export async function readDashboardState(filters: DashboardFilters) {
       LEFT JOIN categories c ON c.id=t.category_id
       WHERE a.environment=?
       AND t.currency=?
-      AND substr(t.booking_date,1,7)=?
+      AND ${inPeriod.sql}
       AND t.amount_minor<0
       AND COALESCE(c.is_transfer,0)=0
       GROUP BY t.category_id
       ORDER BY amount DESC
     `,
-    args: [env, currency, month]
+    args: [env, currency, ...inPeriod.args]
   });
   const trendQuery = client.execute({
     sql: `
@@ -133,12 +154,12 @@ export async function readDashboardState(filters: DashboardFilters) {
       LEFT JOIN categories c ON c.id=t.category_id
       WHERE a.environment=?
       AND t.currency=?
-      AND t.booking_date>=date(? || '-01','-5 months')
-      AND t.booking_date<date(? || '-01','+1 month')
+      AND t.booking_date>=?
+      AND t.booking_date<?
       AND COALESCE(c.is_transfer,0)=0
       GROUP BY substr(t.booking_date,1,7)
     `,
-    args: [env, currency, month, month]
+    args: [env, currency, trendStart, trendEnd]
   });
   const [accounts, transactions, count, categories, rules, connections, runs, flows, breakdown, trend] = await Promise.all([accountsQuery, transactionsQuery, countQuery, categoriesQuery, rulesQuery, connectionsQuery, runsQuery, flowsQuery, breakdownQuery, trendQuery]);
   const relevant = accounts.rows.filter(account => account.currency === currency);
@@ -147,7 +168,7 @@ export async function readDashboardState(filters: DashboardFilters) {
   return {
     environment: env,
     bankingConfigured: bankingConfigured(),
-    month,
+    period: periodToJson(period),
     currency,
     page,
     accounts: accounts.rows,
@@ -168,6 +189,14 @@ export async function readDashboardState(filters: DashboardFilters) {
       expenses: Number(flows.rows[0].expenses)
     },
     breakdown: breakdown.rows,
-    trend: trend.rows
+    trend: trendWindow.map(month => {
+      const row = trend.rows.find(item => item.month === month);
+
+      return {
+        month,
+        income: Number(row?.income || 0),
+        expenses: Number(row?.expenses || 0)
+      };
+    })
   };
 }
