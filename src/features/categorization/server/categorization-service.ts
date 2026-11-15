@@ -1,7 +1,7 @@
-import { ValidationError } from "@/lib/errors";
+import { HttpError, ValidationError } from "@/lib/errors";
 import { z } from "zod";
 import { categorize, validatePattern } from "@/lib/rules";
-import { categoryExists, insertCategory } from "./category-repository";
+import { categoryExists, categoryNameTaken, insertCategory, updateCategory } from "./category-repository";
 import { findUncorrectedTransactions, insertRule, listRules, saveRuleAssignments, setRuleEnabled } from "./rule-repository";
 
 const ruleInput = z.object({
@@ -47,14 +47,43 @@ export async function updateRuleEnabled(id: string, payload: unknown) {
   };
 }
 
+const defaultCategoryColor = "#638777";
+
+const categoryColor = z.string().regex(/^#[0-9a-fA-F]{6}$/, "Color must be a hex value such as #638777.").transform(value => value.toLowerCase());
+
+const categoryInput = z.object({
+  name: z.string().trim().min(1).max(100),
+  color: categoryColor
+});
+
+async function requireAvailableName(name: string, excludedId?: string) {
+  if (await categoryNameTaken(name, excludedId)) {
+    throw new ValidationError("A category with this name already exists.");
+  }
+}
+
 export async function createCategory(payload: unknown) {
-  const {
-    name
-  } = z.object({
-    name: z.string().trim().min(1).max(100)
+  const input = categoryInput.extend({
+    color: categoryColor.default(defaultCategoryColor)
   }).parse(payload);
 
-  await insertCategory(name);
+  await requireAvailableName(input.name);
+  await insertCategory(input);
+
+  return {
+    ok: true
+  };
+}
+
+export async function updateCategoryDetails(id: string, payload: unknown) {
+  const input = categoryInput.parse(payload);
+
+  if (!(await categoryExists(id))) {
+    throw new HttpError(404, "Category not found.");
+  }
+
+  await requireAvailableName(input.name, id);
+  await updateCategory(id, input);
 
   return {
     ok: true

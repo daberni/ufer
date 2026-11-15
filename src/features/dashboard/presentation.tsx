@@ -79,6 +79,7 @@ export const modalTitles = {
   rule: "Create rule",
   balance: "Update balance",
   category: "Add category",
+  editCategory: "Edit category",
   import: "Import CSV",
 };
 

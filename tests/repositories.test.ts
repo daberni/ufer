@@ -10,7 +10,8 @@ import { createManualAccount, updateManualValuation } from "../src/features/acco
 import { findManualAccount } from "../src/features/accounts/server/account-repository";
 import { setTransactionCategory } from "../src/features/transactions/server/transaction-repository";
 import { insertRule } from "../src/features/categorization/server/rule-repository";
-import { applyRulesToUncorrectedTransactions } from "../src/features/categorization/server/categorization-service";
+import { HttpError, ValidationError } from "../src/lib/errors";
+import { applyRulesToUncorrectedTransactions, createCategory, updateCategoryDetails } from "../src/features/categorization/server/categorization-service";
 import { insertAuthorization } from "../src/features/banking/server/connection-repository";
 import { saveAccountSync } from "../src/features/banking/server/account-sync-service";
 import { saveSessionAccounts } from "../src/features/banking/server/bank-account-repository";
@@ -374,4 +375,69 @@ test("ambiguous reauthorization rolls back earlier account mappings and added al
   assert.equal(first?.requisition_id, "old");
   assert.equal((await db.select().from(schema.accountIdentifiers)).length, 3);
   assert.equal((await db.select().from(schema.requisitions).where(eq(schema.requisitions.id, "old")).get())?.status, "LINKED");
+});
+
+test("category edits keep transaction assignments and rules attached and reject conflicting names", async context => {
+  const db = await isolatedDatabase(context);
+
+  await db.insert(schema.accounts).values({
+    id: "local",
+    environment: "SANDBOX",
+    name: "Synthetic local account",
+    institution: "Example institution",
+    kind: "checking"
+  });
+  await insertRule({
+    name: "Groceries",
+    pattern: "Supermarket",
+    mode: "keyword",
+    category_id: "groceries",
+    priority: 10,
+    enabled: true
+  });
+  await db.insert(schema.transactions).values({
+    id: "assigned-entry",
+    account_id: "local",
+    provider_reference: "synthetic-1",
+    booking_date: "2000-01-10",
+    amount_minor: -100,
+    currency: "EUR",
+    counterparty: "Supermarket",
+    category_id: "groceries",
+    category_source: "manual"
+  });
+
+  await updateCategoryDetails("groceries", {
+    name: "  Food  ",
+    color: "#ABCDEF"
+  });
+
+  const category = await db.select().from(schema.categories).where(eq(schema.categories.id, "groceries")).get();
+  const transaction = await db.select().from(schema.transactions).where(eq(schema.transactions.id, "assigned-entry")).get();
+  const rule = await db.select().from(schema.categorizationRules).get();
+
+  assert.equal(category?.name, "Food");
+  assert.equal(category?.color, "#abcdef");
+  assert.equal(transaction?.category_id, "groceries");
+  assert.equal(rule?.category_id, "groceries");
+
+  await updateCategoryDetails("groceries", {
+    name: "FOOD",
+    color: "#abcdef"
+  });
+  await assert.rejects(updateCategoryDetails("groceries", {
+    name: "housing",
+    color: "#abcdef"
+  }), new ValidationError("A category with this name already exists."));
+  await assert.rejects(createCategory({
+    name: "TRANSPORT"
+  }), ValidationError);
+  await assert.rejects(updateCategoryDetails("missing", {
+    name: "Anything",
+    color: "#abcdef"
+  }), error => error instanceof HttpError && error.status === 404);
+  await assert.rejects(updateCategoryDetails("groceries", {
+    name: "Food",
+    color: "green"
+  }));
 });
