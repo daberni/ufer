@@ -9,10 +9,12 @@ import { api } from "@/client/api";
 import { isCategoryIcon, type CategoryIconKey } from "@/features/categorization/category-icons";
 import type { Category } from "@/features/dashboard/types";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
+import type { DialogFormProps } from "@/features/dashboard/use-dialog-submit";
+import { FormError } from "@/components/ui/form-error";
 import { CategoryIconPicker } from "./category-icon-picker";
 import { CategoryMarker } from "./category-marker";
 
-type Props = Pick<DashboardController, "busy" | "submit"> & {
+type Props = Pick<DashboardController, "busy"> & DialogFormProps & {
   category?: Category | null;
 };
 
@@ -21,6 +23,7 @@ const defaultColor = "#638777";
 export function CategoryForm({
   busy,
   category,
+  error,
   submit
 }: Props) {
   const [name, setName] = useState(category?.name ?? "");
@@ -38,7 +41,7 @@ export function CategoryForm({
         } else {
           await api("categories", body);
         }
-      }, category ? "Category saved." : "Category created.")}
+      })}
       className={ui["form"]}
     >
       <div className={styles["preview"]} aria-hidden="true">
@@ -66,6 +69,7 @@ export function CategoryForm({
         />
       </label>
       <CategoryIconPicker color={color} icon={icon} onChange={setIcon} />
+      <FormError message={error} />
       <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={busy}>
         Save category
       </button>

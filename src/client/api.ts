@@ -8,6 +8,11 @@ export function apiError(problem: Partial<ProblemDetails>, status: number) {
   });
 }
 
+// User-facing text for a failed request; API failures carry the Problem Details detail or title.
+export function failureMessage(error: unknown) {
+  return error instanceof Error ? error.message : "Request failed.";
+}
+
 export async function api<T>(path: string, body?: unknown, method = "POST"): Promise<T> {
   const response = await fetch(`/api/${path}`, {
     method: body === undefined && method === "POST" ? "GET" : method,

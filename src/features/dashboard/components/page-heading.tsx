@@ -23,7 +23,12 @@ export function PageHeading({
         <h1>{nav.label === "Overview" ? "Your money. In perspective." : nav.label}</h1>
         <p>{viewDescriptions[view]}</p>
       </div>
-      <SyncButton bankAccounts={bankAccounts} busy={busy} perform={perform} />
+      <SyncButton
+        bankAccounts={bankAccounts}
+        busy={busy}
+        perform={perform}
+        view={view}
+      />
     </div>
   );
 }
