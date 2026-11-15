@@ -1,3 +1,4 @@
+import { requireAuth } from "@/features/auth/server/session";
 import { NextResponse } from "next/server";
 import { respond } from "@/server/http/respond";
 import { connectBank } from "@/features/banking/server/connect-bank";
@@ -10,7 +11,7 @@ export const maxDuration = 300;
 
 export async function POST(request: Request) {
   return respond(request, async () => {
-    const result = await connectBank(await request.json());
+    const result = await connectBank(await request.json(), await requireAuth(request));
     const response = NextResponse.json({
       url: result.url
     });

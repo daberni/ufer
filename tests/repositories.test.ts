@@ -1,3 +1,4 @@
+import { seedActor } from "./fixtures/auth";
 import assert from "node:assert/strict";
 import { test, type TestContext } from "node:test";
 import { createClient } from "@libsql/client";
@@ -250,7 +251,8 @@ test("bank authorization uses real SQL defaults and preserves unique callback st
     country: "AT",
     stateHash: "synthetic-state-hash",
     browserHash: "synthetic-browser-hash",
-    authorizationId: "synthetic-authorization"
+    authorizationId: "synthetic-authorization",
+    actor: await seedActor(db)
   };
 
   await insertAuthorization(authorization);
