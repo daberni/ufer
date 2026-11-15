@@ -1,17 +1,47 @@
 .preview {
   display: flex;
+  min-width: 0;
+  margin-bottom: 4px;
+}
+.color-field {
+  display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px;
+  gap: 10px;
+}
+
+/* One rounded swatch in the input frame instead of the browser's nested swatch borders. */
+.color-field .color-input {
+  appearance: none;
+  width: 64px;
+  height: 41px;
+  min-height: 0;
+  padding: 4px;
   border: 1px solid var(--border);
-  border-radius: 9px;
-  background: #fafbf8;
-  font-size: 13px;
-  font-weight: 500;
-  overflow-wrap: anywhere;
+  border-radius: 7px;
+  background: #fff;
+  cursor: pointer;
+}
+.color-input::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+.color-input::-webkit-color-swatch {
+  border: 0;
+  border-radius: 4px;
+}
+.color-input::-moz-color-swatch {
+  border: 0;
+  border-radius: 4px;
+}
+.color-field code {
+  font-size: var(--text-sm);
+  color: var(--ink);
 }
 @media (max-width: 760px), (max-width: 900px) and (pointer: coarse) {
-  .preview {
-    font-size: 15px;
+  .color-field .color-input {
+    width: 72px;
+    height: 48px;
+  }
+  .color-field code {
+    font-size: var(--text-md);
   }
 }

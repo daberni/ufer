@@ -56,7 +56,6 @@ export function TransactionList({
                     state={state}
                     transaction={transaction}
                   />
-                  {transaction.category_source === "manual" && <span className={styles["manual-dot"]} title="Manually assigned; preserved when syncing and applying rules" />}
                 </td>
                 <td className={ui["muted"]}>{transaction.account_name}</td>
                 <td className={clsx(ui["muted"], styles["nowrap"])}><DateValue value={transaction.booking_date} /></td>
@@ -91,7 +90,7 @@ export function TransactionList({
                 </details>
               )}
               <div className={styles["transaction-card-category"]}>
-                <span>Category{transaction.category_source === "manual" && <small>Manually assigned</small>}</span>
+                <span>Category</span>
                 <TransactionCategory
                   busy={busy}
                   perform={perform}

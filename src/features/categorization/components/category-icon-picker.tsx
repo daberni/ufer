@@ -1,7 +1,7 @@
 import styles from "./category-icon-picker.module.css";
 import { categoryIconKeys, categoryIconLabels, type CategoryIconKey } from "@/features/categorization/category-icons";
-import { categoryTileColors } from "@/features/categorization/category-colors";
-import { CategoryMarker, categoryIconComponents } from "./category-marker";
+import { categoryChipColors } from "@/features/categorization/category-colors";
+import { categoryIconComponents } from "./category-icon-components";
 
 type Props = {
   color: string;
@@ -14,7 +14,7 @@ export function CategoryIconPicker({
   icon,
   onChange
 }: Props) {
-  const iconColor = categoryTileColors(color).icon;
+  const iconColor = categoryChipColors(color).foreground;
 
   return (
     <fieldset className={styles["icon-picker"]}>
@@ -29,7 +29,13 @@ export function CategoryIconPicker({
             checked={icon === ""}
             onChange={() => onChange("")}
           />
-          <CategoryMarker icon={null} color={color} size="small" />
+          <span
+            className={styles["no-icon"]}
+            aria-hidden="true"
+            style={{
+              background: iconColor
+            }}
+          />
           <span className={styles["icon-label"]}>No icon</span>
         </label>
         {categoryIconKeys.map(key => {

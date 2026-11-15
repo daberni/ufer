@@ -72,15 +72,6 @@
   max-width: 260px;
   margin-top: 5px;
 }
-.manual-dot {
-  display: inline-block;
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: #8caa7c;
-  margin-left: 5px;
-  vertical-align: middle;
-}
 .amount {
   font-variant-numeric: tabular-nums;
   font-weight: 500;
@@ -182,16 +173,5 @@
   .transaction-card-category > span {
     font-size: var(--text-sm);
     color: #6e7c68;
-  }
-  .transaction-card-category small {
-    display: block;
-    font-size: var(--text-xs);
-    margin-top: 4px;
-  }
-  .transaction-card-category select {
-    min-height: 46px;
-    max-width: 100%;
-    width: 100%;
-    font-size: var(--text-md);
   }
 }

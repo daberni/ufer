@@ -3,12 +3,14 @@
 import ui from "../../../components/ui/primitives.module.css";
 
 import { clsx } from "clsx";
+import { useId, useState } from "react";
 import { Sparkles } from "lucide-react";
 import { api } from "@/client/api";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
 import type { DialogFormProps } from "@/features/dashboard/use-dialog-submit";
 import { FormError } from "@/components/ui/form-error";
 import { Select } from "@/components/ui/select";
+import { CategoryPicker } from "./category-picker";
 
 type Props = Pick<DashboardController, "busy" | "state"> & DialogFormProps;
 
@@ -18,6 +20,9 @@ export function CreateRuleForm({
   state,
   submit
 }: Props) {
+  const categoryFieldId = useId();
+  const [categoryId, setCategoryId] = useState(state?.categories[0]?.id ?? null);
+
   if (!state) {
     return null;
   }
@@ -70,16 +75,17 @@ export function CreateRuleForm({
           />
         </label>
       </div>
-      <label>
-        Category
-        <Select name="category_id" required>
-          {state?.categories.map(category => (
-            <option key={category.id} value={category.id}>
-              {category.name}
-            </option>
-          ))}
-        </Select>
-      </label>
+      <div className={ui["field"]}>
+        <label htmlFor={categoryFieldId}>Category</label>
+        <CategoryPicker
+          id={categoryFieldId}
+          name="category_id"
+          categories={state.categories}
+          value={categoryId}
+          size="medium"
+          onChange={setCategoryId}
+        />
+      </div>
       <p className={ui["form-hint"]}>Matches the payee and description without case sensitivity. The first matching rule wins.</p>
       <FormError message={error} />
       <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={busy}>
