@@ -1,3 +1,4 @@
+import type { AuthContext } from "@/features/auth/server/session";
 import { HttpError } from "@/lib/errors";
 import { encrypt } from "@/server/security/secret-box";
 import { hash } from "@/server/security/tokens";
@@ -7,10 +8,10 @@ import { saveSessionAccounts } from "./bank-account-repository";
 import { bankingRequest, type BankSession } from "./enable-banking-client";
 import { environment } from "./environment";
 
-export async function completeAuthorization(state: string, browserSecret: string, code: string) {
+export async function completeAuthorization(state: string, browserSecret: string, code: string, actor: AuthContext) {
   const db = await database();
   const env = environment();
-  const connection = await consumeAuthorization(db, env, hash(state), hash(browserSecret));
+  const connection = await consumeAuthorization(db, env, hash(state), hash(browserSecret), actor);
 
   if (!connection) {
     throw new HttpError(400, "The bank callback has expired, has already been used, or belongs to another browser.");

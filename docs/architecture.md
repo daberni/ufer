@@ -7,12 +7,12 @@ Updated: 2026-11-15. Ufer remains an independent Node.js/TypeScript and React ap
 | Area | Implemented now | Target / not implemented |
 | --- | --- | --- |
 | Application | Next.js modular monolith; explicit routes, feature components/CSS Modules and server use cases/repositories | Tenant-aware request context across every data boundary |
-| Identity | iron-session sealed cookies for the current installation password; browser-bound bank callbacks | Individual users, revocable server-side sessions, memberships and OIDC identities |
+| Identity | Better Auth username/password, revocable sessions, singleton workspace memberships and actor-bound callbacks | Multi-customer scoping, invitations/recovery and OIDC identities |
 | Data | SQLite/libSQL; versioned SQL changesets and explicit existing-database maintenance | Tenant schema; PostgreSQL adapter and policies |
-| Banking | Operator-configured Enable Banking credentials; sandbox consent and sync | Commercial hosted access, per-workspace connections and per-user authorization attempts |
+| Banking | Operator-configured Enable Banking credentials; sandbox consent and sync | Commercial hosted access and connections across independent customer workspaces |
 | Deployment | Docker application plus scheduler; Vercel configuration | Accepted production hosting, multi-user operation and managed-service operations |
 
-The current database has no workspace membership model. Environment isolation (`SANDBOX` / `PRODUCTION`) does not isolate customers. None of the target tables, SSO flows, PostgreSQL policies or billing relationships below are implemented by the refactor. Do not expose this version as a shared multi-customer service.
+The working-tree schema now has individual identities and explicit memberships in one installation workspace. A database constraint prevents creating another workspace while financial repositories remain installation-wide. Environment isolation (`SANDBOX` / `PRODUCTION`) does not isolate customers. The full target ownership schema, SSO flows, PostgreSQL policies and billing relationships below remain unimplemented. Do not expose this version as a shared multi-customer service. The hosted database/login are unchanged until the reviewed authentication migration is approved and applied.
 
 ## Application boundaries
 
@@ -27,11 +27,11 @@ flowchart TD
   Scheduler[Scheduler and scoped jobs] --> UseCases
 ```
 
-The diagram describes the target access boundary; today's HTTP guard verifies the current installation session. Keep one deployable application and an independent scheduler/worker process as needed. Domain logic must not depend on Next.js cookies or React. Database dialects stay behind repositories, and banking protocol details stay behind provider adapters. Introduce abstractions where a real boundary requires them, rather than copying a framework-heavy layered architecture.
+The diagram describes the target access boundary; today's HTTP guard verifies a library-managed session and active membership in the singleton installation workspace. Keep one deployable application and an independent scheduler/worker process as needed. Domain logic must not depend on Next.js cookies or React. Database dialects stay behind repositories, and banking protocol details stay behind provider adapters. Introduce abstractions where a real boundary requires them, rather than copying a framework-heavy layered architecture.
 
 Code ownership follows vertical feature slices. UI and server modules for a business feature live under `src/features/<feature>/`, with server-only code in `server/`. The root `src/server/` contains shared database, HTTP, job and security infrastructure only. For example, `features/banking/server/sync-service.ts` coordinates banking repositories and `server/jobs/lease-repository.ts`; it does not live alongside the database driver. Browser imports into either kind of server module are restricted by ESLint.
 
-The current session implementation uses iron-session, and provider application JWTs use jose. There is no custom browser-session signature or JWT encoder. See [security boundaries](security.md) and the [accepted library decision](adr/decisions/004-security-libraries.md). This focused change does not implement the proposed multi-user identity model or require a schema upgrade.
+The current source uses Better Auth for individual username/password login, persisted sessions and revocation; provider application JWTs use jose. Operator enrollment creates a user, credential and membership atomically. Bank authorization attempts bind the initiating user and authentication session as well as browser/workspace state. See [user management](user-management.md), [security boundaries](security.md) and the [identity decision](adr/decisions/005-username-password-authentication.md). Existing databases require the separately approved authentication migration; multiple independent customers remain disabled.
 
 The `/api/[...path]/route.ts` fallback returns JSON 404s only. Current endpoints follow Next.js filesystem routing; each resource's route file may export multiple HTTP methods. This is a framework choice, not a requirement for one file per operation. HTTP guards and error mapping are centralized, while account, categorization, import and bank-connection operations have separate server feature modules. The dashboard query is a read projection; it must not become a second write-service collection.
 
@@ -78,7 +78,7 @@ erDiagram
   WORKSPACE ||--o{ IMPORT_RUN : traces
 ```
 
-Local password authentication additionally needs a user-bound credential record managed by the chosen authentication library. Invitations and recovery tokens are short-lived, one-time records stored as hashes; they never substitute for an active membership. OIDC provider configuration has an explicit trusted issuer/client configuration and optional workspace policy. These authentication details remain proposed.
+Local password authentication additionally needs a user-bound credential record managed by the chosen authentication library. Invitations and recovery tokens are short-lived, one-time records stored as hashes; they never substitute for an active membership. OIDC provider configuration has an explicit trusted issuer/client configuration and optional workspace policy. Invitations, recovery and OIDC details remain proposed; local password identities are implemented under the constrained installation model.
 
 The ER diagram shows logical ownership, not executable migration DDL. A workspace's first owner must be created atomically with the workspace. Do not remove or disable the last owner without an explicit ownership transfer/recovery process.
 
@@ -104,7 +104,7 @@ Exact membership-invitation and member-editing capabilities require product acce
 | Bank credentials | Operator configures an authorized provider application, or optionally uses a future managed connector | Ufer operator manages commercial provider applications; users never configure application keys |
 | Storage | SQLite/libSQL initially; existing database/volume paths remain intact | PostgreSQL is a planned option; not yet implemented or selected as a launch requirement |
 
-Both modes use the same domain and authorization model. A single-workspace installation may simplify navigation, not bypass ownership checks. The current `APP_PASSWORD` session uses iron-session for the standalone installation, not an individual-user identity system. Implement future user enrollment, password authentication/recovery and OIDC using a maintained identity library; do not extend the installation session into a custom identity platform.
+Both modes use the same domain and authorization model. A single-workspace installation may simplify navigation, not bypass ownership checks. The current source implements individual username/password users through Better Auth for the singleton installation workspace. The hosted deployment still needs the approved cutover. Extend the maintained identity library for future recovery, invitations and OIDC rather than introducing custom credential protocols.
 
 ## Operator applications, consent and financial accounts
 

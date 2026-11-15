@@ -147,7 +147,6 @@ export async function readDashboardState(filters: DashboardFilters) {
   return {
     environment: env,
     bankingConfigured: bankingConfigured(),
-    passwordConfigured: Boolean(process.env.APP_PASSWORD),
     month,
     currency,
     page,

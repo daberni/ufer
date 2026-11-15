@@ -14,19 +14,22 @@
     "db:migrate": "tsx scripts/migrate.ts",
     "db:status": "tsx scripts/migrate.ts --status",
     "format:styles": "prettier --write \"src/**/*.css\"",
-    "check:styles": "prettier --check \"src/**/*.css\""
+    "check:styles": "prettier --check \"src/**/*.css\"",
+    "user:create": "tsx scripts/manage-users.ts create",
+    "user:reset-password": "tsx scripts/manage-users.ts reset-password"
   },
   "engines": {
     "node": "26.x"
   },
   "dependencies": {
+    "@better-auth/drizzle-adapter": "1.7.25",
     "@libsql/client": "^0.18.0",
     "@next/env": "^16.4.6",
     "@opentelemetry/api": "^1.10.0",
+    "better-auth": "1.7.25",
     "clsx": "^2.1.1",
     "csv-parse": "^7.0.3",
     "drizzle-orm": "^0.45.4",
-    "iron-session": "^9.1.0",
     "jose": "^6.2.17",
     "lucide-react": "^1.73.0",
     "next": "^16.4.6",

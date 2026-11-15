@@ -1,3 +1,4 @@
+import { requireAuth } from "@/features/auth/server/session";
 import { HttpError } from "@/lib/errors";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
@@ -23,7 +24,9 @@ export async function GET(request: Request) {
       throw new HttpError(400, "The bank callback is incomplete. Reconnect using the same browser.");
     }
 
-    await completeAuthorization(query.get("state")!, browser, query.get("code")!);
+    const actor = await requireAuth(request);
+
+    await completeAuthorization(query.get("state")!, browser, query.get("code")!, actor);
   } catch (error) {
     result = error instanceof HttpError ? error.message : "Bank connection failed.";
   }

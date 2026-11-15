@@ -1,6 +1,7 @@
 import { and, eq, gt, isNull, ne } from "drizzle-orm";
 import { database, type Database } from "@/server/database/connection";
 import { environment } from "@/features/banking/server/environment";
+import type { AuthContext } from "@/features/auth/server/session";
 import { accounts, requisitions } from "@/server/database/schema";
 
 export type ConnectionRemoval = {
@@ -20,6 +21,7 @@ export type AuthorizationRecord = {
   stateHash: string;
   browserHash: string;
   authorizationId: string;
+  actor: AuthContext;
 };
 
 export async function insertAuthorization(record: AuthorizationRecord) {
@@ -28,6 +30,9 @@ export async function insertAuthorization(record: AuthorizationRecord) {
   await db.insert(requisitions).values({
     id: record.id,
     environment: environment(),
+    workspace_id: record.actor.workspaceId,
+    initiated_by_user_id: record.actor.userId,
+    auth_session_id: record.actor.sessionId,
     bank_name: record.bank,
     bank_country: record.country,
     state_hash: record.stateHash,
@@ -37,9 +42,9 @@ export async function insertAuthorization(record: AuthorizationRecord) {
   });
 }
 
-export async function consumeAuthorization(db: Database, environment: string, stateHash: string, browserHash: string) {
+export async function consumeAuthorization(db: Database, environment: string, stateHash: string, browserHash: string, actor: AuthContext) {
   const now = new Date().toISOString();
-  const scope = and(eq(requisitions.environment, environment), eq(requisitions.state_hash, stateHash), eq(requisitions.browser_hash, browserHash), isNull(requisitions.used_at), gt(requisitions.state_expires_at, now), eq(requisitions.status, "PENDING"));
+  const scope = and(eq(requisitions.workspace_id, actor.workspaceId), eq(requisitions.initiated_by_user_id, actor.userId), eq(requisitions.auth_session_id, actor.sessionId), eq(requisitions.environment, environment), eq(requisitions.state_hash, stateHash), eq(requisitions.browser_hash, browserHash), isNull(requisitions.used_at), gt(requisitions.state_expires_at, now), eq(requisitions.status, "PENDING"));
 
   return db.update(requisitions).set({
     used_at: now,

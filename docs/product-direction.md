@@ -80,7 +80,7 @@ Open-source software and charging for services are compatible; the [GNU guidance
 
 Enable Banking's [restricted production mode](https://enablebanking.com/docs/api/linked-accounts/) covers evaluation and individual non-commercial access to linked own accounts. Managed multi-customer access requires checking commercial terms and obtaining the appropriate agreement. Provider costs and eligibility must be established before promising a hosted bank-sync plan.
 
-Before SaaS operation, add tenant isolation, user accounts and authorization, operational secret management, durable jobs, restore-tested backups, monitoring, billing, and a data retention/deletion policy. The current single-password workspace is not suitable for multiple independent customers.
+Before SaaS operation, extend the current singleton-workspace user management with full customer isolation, operational secret management, durable jobs, restore-tested backups, monitoring, billing, and a data retention/deletion policy. The current constrained single-workspace user model is not suitable for multiple independent customers.
 
 ## Required unattended synchronization
 
