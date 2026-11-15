@@ -30,7 +30,7 @@ export function AccountsView({
         <div className={ui["button-group"]}>
           <button className={ui["button"]} onClick={() => setModal("account")}>
             <Plus size={15} />
-            Add manually
+            Add account
           </button>
           <button className={clsx(ui["button"], ui["primary"])} onClick={() => openBank()}>
             <Link2 size={15} />
@@ -77,10 +77,10 @@ export function AccountsView({
       ) : (
         <section className={ui["panel"]}>
           <Empty title="Everything in one place">
-            Add accounts and manually valued assets to build your overview.
+            Add bank accounts, investments, property and debts to build your overview.
             <button className={clsx(ui["button"], ui["primary"])} onClick={() => setModal("account")}>
               <Plus size={15} />
-              Add your first asset
+              Add your first account
             </button>
           </Empty>
         </section>

@@ -74,7 +74,7 @@ export function OverviewAccounts({
           </span>
           <div>
             <h3>Your overview starts with your first account.</h3>
-            <p>Connect a sandbox bank or add a manually valued asset.</p>
+            <p>Connect a sandbox bank, or manually add accounts, investments, property and debts.</p>
           </div>
           <button className={clsx(styles["button"], ui["primary"])} onClick={() => openBank()}>
             <Plus size={15} />
