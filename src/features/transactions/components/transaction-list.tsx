@@ -10,11 +10,12 @@ import { money } from "@/lib/money";
 import { TransactionCategory } from "@/features/transactions/components/transaction-category";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
 
-type Props = Pick<DashboardController, "busy" | "perform" | "state" | "visibleTransactions">;
+type Props = Pick<DashboardController, "busy" | "perform" | "reportFeedback" | "state" | "visibleTransactions">;
 
 export function TransactionList({
   busy,
   perform,
+  reportFeedback,
   state,
   visibleTransactions
 }: Props) {
@@ -51,6 +52,7 @@ export function TransactionList({
                   <TransactionCategory
                     busy={busy}
                     perform={perform}
+                    reportFeedback={reportFeedback}
                     state={state}
                     transaction={transaction}
                   />
@@ -93,6 +95,7 @@ export function TransactionList({
                 <TransactionCategory
                   busy={busy}
                   perform={perform}
+                  reportFeedback={reportFeedback}
                   state={state}
                   transaction={transaction}
                 />

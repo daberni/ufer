@@ -2,7 +2,6 @@
 
 import ui from "../../../components/ui/primitives.module.css";
 
-import { clsx } from "clsx";
 import styles from "./dashboard-dialogs.module.css";
 import { useEffect, useRef } from "react";
 import { X } from "lucide-react";
@@ -14,21 +13,23 @@ import { CreateRuleForm } from "@/features/categorization/components/create-rule
 import { CategoryForm } from "@/features/categorization/components/category-form";
 import { CsvImportForm } from "@/features/imports/components/csv-import-form";
 import { modalTitles } from "@/features/dashboard/presentation";
+import { useDialogSubmit } from "@/features/dashboard/use-dialog-submit";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
 
-type Props = Pick<DashboardController, "bankCountry" | "bankName" | "bankSearch" | "banks" | "banksLoading" | "busy" | "error" | "importMode" | "modal" | "removeConnection" | "selectedAccount" | "selectedCategory" | "selectedConnection" | "setBankCountry" | "setBankName" | "setBankSearch" | "setImportMode" | "setModal" | "setNotice" | "state" | "submit">;
+type Props = Pick<DashboardController, "bankCountry" | "bankName" | "bankSearch" | "banks" | "banksError" | "banksLoading" | "busy" | "importMode" | "modal" | "perform" | "reportFeedback" | "selectedAccount" | "selectedCategory" | "selectedConnection" | "setBankCountry" | "setBankName" | "setBankSearch" | "setImportMode" | "setModal" | "state">;
 
 export function DashboardDialogs({
   bankCountry,
   bankName,
   bankSearch,
   banks,
+  banksError,
   banksLoading,
   busy,
-  error,
   importMode,
   modal,
-  removeConnection,
+  perform,
+  reportFeedback,
   selectedAccount,
   selectedCategory,
   selectedConnection,
@@ -37,11 +38,14 @@ export function DashboardDialogs({
   setBankSearch,
   setImportMode,
   setModal,
-  setNotice,
-  state,
-  submit
+  state
 }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null);
+
+  const {
+    error,
+    submit
+  } = useDialogSubmit(perform, () => setModal(null));
 
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
@@ -77,19 +81,16 @@ export function DashboardDialogs({
             <X size={20} />
           </button>
         </div>
-        {error && (
-          <p className={clsx(ui["notice"], ui["error"])} role="alert">
-            {error}
-          </p>
-        )}
         {modal === "bank" && (
           <BankConnectionForm
             bankCountry={bankCountry}
             bankName={bankName}
             bankSearch={bankSearch}
             banks={banks}
+            banksError={banksError}
             banksLoading={banksLoading}
             busy={busy}
+            error={error}
             setBankCountry={setBankCountry}
             setBankName={setBankName}
             setBankSearch={setBankSearch}
@@ -100,23 +101,46 @@ export function DashboardDialogs({
         {modal === "removeConnection" && (
           <RemoveConnectionForm
             busy={busy}
-            removeConnection={removeConnection}
+            error={error}
+            reportFeedback={reportFeedback}
             selectedConnection={selectedConnection}
             setModal={setModal}
             state={state}
+            submit={submit}
           />
         )}
-        {modal === "account" && <CreateAccountForm busy={busy} submit={submit} />}
-        {modal === "balance" && selectedAccount && <ValuationForm busy={busy} selectedAccount={selectedAccount} submit={submit} />}
-        {modal === "rule" && <CreateRuleForm busy={busy} state={state} submit={submit} />}
-        {modal === "category" && <CategoryForm busy={busy} submit={submit} />}
-        {modal === "editCategory" && selectedCategory && <CategoryForm busy={busy} category={selectedCategory} submit={submit} />}
+        {modal === "account" && <CreateAccountForm busy={busy} error={error} submit={submit} />}
+        {modal === "balance" && selectedAccount && (
+          <ValuationForm
+            busy={busy}
+            error={error}
+            selectedAccount={selectedAccount}
+            submit={submit}
+          />
+        )}
+        {modal === "rule" && (
+          <CreateRuleForm
+            busy={busy}
+            error={error}
+            state={state}
+            submit={submit}
+          />
+        )}
+        {modal === "category" && <CategoryForm busy={busy} error={error} submit={submit} />}
+        {modal === "editCategory" && selectedCategory && (
+          <CategoryForm
+            busy={busy}
+            category={selectedCategory}
+            error={error}
+            submit={submit}
+          />
+        )}
         {modal === "import" && (
           <CsvImportForm
             busy={busy}
+            error={error}
             importMode={importMode}
             setImportMode={setImportMode}
-            setNotice={setNotice}
             state={state}
             submit={submit}
           />

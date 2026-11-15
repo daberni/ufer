@@ -146,3 +146,6 @@
     padding: 13px;
   }
 }
+.rule-actions {
+  position: relative;
+}

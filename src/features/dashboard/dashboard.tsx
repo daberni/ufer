@@ -4,8 +4,9 @@ import ui from "../../components/ui/primitives.module.css";
 
 import { clsx } from "clsx";
 import styles from "./dashboard.module.css";
-import { ArrowRight, Check, CircleHelp, Link2, RefreshCw, X } from "lucide-react";
+import { ArrowRight, CircleHelp, Link2, RefreshCw } from "lucide-react";
 import { BrandIcon } from "@/components/branding/brand-icon";
+import { ActionFeedback } from "@/components/ui/action-feedback";
 import { OverviewView } from "@/features/dashboard/components/overview-view";
 import { TransactionsPanel } from "@/features/transactions/components/transactions-panel";
 import { AccountsView } from "@/features/accounts/components/accounts-view";
@@ -26,7 +27,6 @@ export default function Dashboard() {
     return (
       <LoginForm
         busy={dashboard.busy}
-        error={dashboard.error}
         perform={dashboard.perform}
         setLocked={dashboard.setLocked}
       />
@@ -45,6 +45,7 @@ export default function Dashboard() {
         <AppHeader
           nav={dashboard.nav}
           perform={dashboard.perform}
+          reportFeedback={dashboard.reportFeedback}
           setLocked={dashboard.setLocked}
           state={dashboard.state}
         />
@@ -56,26 +57,15 @@ export default function Dashboard() {
             perform={dashboard.perform}
             view={dashboard.view}
           />
-          <div aria-live="polite">
-            {dashboard.notice && (
-              <div className={ui["notice"]}>
-                <Check size={17} />
-                {dashboard.notice}
-                <button className={ui["icon-button"]} aria-label="Dismiss notice" onClick={() => dashboard.setNotice("")}>
-                  <X size={15} />
-                </button>
-              </div>
-            )}
-            {dashboard.error && (
-              <div className={clsx(ui["notice"], ui["error"])} role="alert">
-                <CircleHelp size={18} />
-                {dashboard.error}
-                <button className={ui["icon-button"]} aria-label="Dismiss error" onClick={() => dashboard.setError("")}>
-                  <X size={15} />
-                </button>
-              </div>
-            )}
-          </div>
+          {dashboard.loadError && (
+            <div className={clsx(ui["notice"], ui["error"])} role="alert">
+              <CircleHelp size={18} />
+              Your data could not be loaded: {dashboard.loadError}
+              <button className={ui["text-button"]} onClick={() => void dashboard.load()}>
+                Retry
+              </button>
+            </div>
+          )}
           {dashboard.state?.environment === "SANDBOX" && (
             <div className={styles["sandbox-note"]}>
               <span className={styles["status-dot"]} />
@@ -136,6 +126,7 @@ export default function Dashboard() {
                   changeView={dashboard.changeView}
                   page={dashboard.page}
                   perform={dashboard.perform}
+                  reportFeedback={dashboard.reportFeedback}
                   search={dashboard.search}
                   selectedCurrencyAccounts={dashboard.selectedCurrencyAccounts}
                   setAccountFilter={dashboard.setAccountFilter}
@@ -162,6 +153,7 @@ export default function Dashboard() {
                 <RulesView
                   busy={dashboard.busy}
                   perform={dashboard.perform}
+                  reportFeedback={dashboard.reportFeedback}
                   setModal={dashboard.setModal}
                   setSelectedCategory={dashboard.setSelectedCategory}
                   state={dashboard.state}
@@ -187,16 +179,18 @@ export default function Dashboard() {
       </div>
       {dashboard.modal && (
         <DashboardDialogs
+          key={dashboard.modal}
           bankCountry={dashboard.bankCountry}
           bankName={dashboard.bankName}
           bankSearch={dashboard.bankSearch}
           banks={dashboard.banks}
+          banksError={dashboard.banksError}
           banksLoading={dashboard.banksLoading}
           busy={dashboard.busy}
-          error={dashboard.error}
           importMode={dashboard.importMode}
           modal={dashboard.modal}
-          removeConnection={dashboard.removeConnection}
+          perform={dashboard.perform}
+          reportFeedback={dashboard.reportFeedback}
           selectedAccount={dashboard.selectedAccount}
           selectedCategory={dashboard.selectedCategory}
           selectedConnection={dashboard.selectedConnection}
@@ -205,11 +199,15 @@ export default function Dashboard() {
           setBankSearch={dashboard.setBankSearch}
           setImportMode={dashboard.setImportMode}
           setModal={dashboard.setModal}
-          setNotice={dashboard.setNotice}
           state={dashboard.state}
-          submit={dashboard.submit}
         />
       )}
+      <ActionFeedback
+        feedback={dashboard.feedback}
+        dismissLabel="Dismiss message"
+        onDismiss={dashboard.dismissFeedback}
+        placement="overlay"
+      />
     </div>
   );
 }

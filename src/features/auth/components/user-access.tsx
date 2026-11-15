@@ -7,13 +7,28 @@ import { AccountSettings } from "./account-settings";
 import ui from "@/components/ui/primitives.module.css";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
 
-type Props = Pick<DashboardController, "perform" | "setLocked">;
+type Props = Pick<DashboardController, "perform" | "reportFeedback" | "setLocked">;
 
 export function UserAccess({
   perform,
+  reportFeedback,
   setLocked
 }: Props) {
   const [settingsOpen, setSettingsOpen] = useState(false);
+
+  async function signOut() {
+    const result = await perform(async () => {
+      requireAuthResult(await authClient.signOut());
+      setLocked(true);
+    });
+
+    if (!result.ok) {
+      reportFeedback({
+        tone: "problem",
+        messages: [`Sign-out failed: ${result.message}`]
+      });
+    }
+  }
 
   return (
     <>
@@ -29,10 +44,7 @@ export function UserAccess({
         className={ui["icon-button"]}
         type="button"
         aria-label="Sign out"
-        onClick={() => perform(async () => {
-          requireAuthResult(await authClient.signOut());
-          setLocked(true);
-        })}
+        onClick={signOut}
       >
         <LogOut size={18} />
       </button>

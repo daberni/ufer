@@ -10,7 +10,7 @@ import { TransactionList } from "@/features/transactions/components/transaction-
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
 import { Select } from "@/components/ui/select";
 
-type Props = Pick<DashboardController, "accountFilter" | "allMonths" | "busy" | "categoryFilter" | "changeView" | "page" | "perform" | "search" | "selectedCurrencyAccounts" | "setAccountFilter" | "setAllMonths" | "setCategoryFilter" | "setImportMode" | "setModal" | "setPage" | "setSearch" | "state" | "view" | "visibleTransactions">;
+type Props = Pick<DashboardController, "accountFilter" | "allMonths" | "busy" | "categoryFilter" | "changeView" | "page" | "perform" | "reportFeedback" | "search" | "selectedCurrencyAccounts" | "setAccountFilter" | "setAllMonths" | "setCategoryFilter" | "setImportMode" | "setModal" | "setPage" | "setSearch" | "state" | "view" | "visibleTransactions">;
 
 export function TransactionsPanel({
   accountFilter,
@@ -20,6 +20,7 @@ export function TransactionsPanel({
   changeView,
   page,
   perform,
+  reportFeedback,
   search,
   selectedCurrencyAccounts,
   setAccountFilter,
@@ -120,6 +121,7 @@ export function TransactionsPanel({
         <TransactionList
           busy={busy}
           perform={perform}
+          reportFeedback={reportFeedback}
           state={state}
           visibleTransactions={visibleTransactions}
         />
