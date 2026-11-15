@@ -6,17 +6,21 @@ import { clsx } from "clsx";
 import { ArrowRight } from "lucide-react";
 import { api } from "@/client/api";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
+import type { DialogFormProps } from "@/features/dashboard/use-dialog-submit";
+import { FormError } from "@/components/ui/form-error";
 import { Select } from "@/components/ui/select";
 
-type Props = Pick<DashboardController, "bankCountry" | "bankName" | "bankSearch" | "banks" | "banksLoading" | "busy" | "setBankCountry" | "setBankName" | "setBankSearch" | "state" | "submit">;
+type Props = Pick<DashboardController, "bankCountry" | "bankName" | "bankSearch" | "banks" | "banksError" | "banksLoading" | "busy" | "setBankCountry" | "setBankName" | "setBankSearch" | "state"> & DialogFormProps;
 
 export function BankConnectionForm({
   bankCountry,
   bankName,
   bankSearch,
   banks,
+  banksError,
   banksLoading,
   busy,
+  error,
   setBankCountry,
   setBankName,
   setBankSearch,
@@ -38,7 +42,7 @@ export function BankConnectionForm({
         });
 
         window.location.assign(result.url);
-      }, "")}
+      })}
       className={ui["form"]}
     >
       <p className={ui["form-description"]}>{state?.environment === "SANDBOX" ? "You are connecting a test bank. Use only its sandbox credentials." : "After selecting a bank, authorize read-only access with your bank."}</p>
@@ -73,7 +77,8 @@ export function BankConnectionForm({
           ))}
         </Select>
       </label>
-      {!banksLoading && !banks.length && <p className={ui["form-description"]}>No personal bank is available for this country. Sandbox institutions can differ from production institutions.</p>}
+      {!banksLoading && !banksError && !banks.length && <p className={ui["form-description"]}>No personal bank is available for this country. Sandbox institutions can differ from production institutions.</p>}
+      <FormError message={banksError || error} />
       <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={busy || !bankName || banksLoading}>
         Authorize with bank <ArrowRight size={16} />
       </button>

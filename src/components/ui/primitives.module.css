@@ -257,6 +257,11 @@
   background: rgb(36 58 48 / 9%);
   animation: skeleton-pulse 1.4s ease-in-out infinite;
 }
+/* Results for the selected filters could not be loaded; the load error banner explains why. */
+.skeleton-unavailable::after {
+  animation: none;
+  opacity: 0.6;
+}
 @keyframes skeleton-pulse {
   50% {
     opacity: 0.45;

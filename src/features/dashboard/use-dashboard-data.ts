@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { apiError } from "@/client/api";
+import { apiError, failureMessage } from "@/client/api";
 import { currentMonthPeriod, serializePeriod, type Period } from "./period";
 import type { State } from "./types";
 
@@ -16,22 +16,31 @@ type DashboardQuery = {
 };
 
 /**
- * Result areas whose loaded values no longer match the selected filters. Each area depends only on the filters that change its server result.
+ * Whether a result area shows values for the selected filters, is loading them, or could not load them. Each area depends only on the filters that change its server result.
  */
-export type DashboardLoading = {
-  netWorth: boolean;
-  cashFlow: boolean;
-  transactions: boolean;
+export type ResultStatus = "ready" | "loading" | "unavailable";
+
+export type DashboardResults = {
+  netWorth: ResultStatus;
+  cashFlow: ResultStatus;
+  transactions: ResultStatus;
 };
+
+const queryKeys: (keyof DashboardQuery)[] = ["period", "currency", "page", "search", "account", "category"];
 
 // Responses faster than this replace the previous values without showing a skeleton first.
 const skeletonDelay = 250;
 
-export function useDashboardData(onError: (message: string) => void) {
+export function useDashboardData() {
   const [loaded, setLoaded] = useState<{
     state: State;
     query: DashboardQuery;
   } | null>(null);
+
+  const [loadError, setLoadError] = useState("");
+
+  // The selection whose latest request failed; its outdated areas are unavailable rather than loading.
+  const [failedQuery, setFailedQuery] = useState<DashboardQuery | null>(null);
 
   const [period, setPeriod] = useState<Period>(() => currentMonthPeriod());
 
@@ -68,10 +77,11 @@ export function useDashboardData(onError: (message: string) => void) {
   const stale = staleAreas(loaded?.query, selected);
   // The transaction list depends on every filter, so it is stale whenever any area is.
   const slow = useDelayedActivity(stale.transactions, skeletonDelay);
-  const loading: DashboardLoading = {
-    netWorth: slow && stale.netWorth,
-    cashFlow: slow && stale.cashFlow,
-    transactions: slow && stale.transactions
+  const failed = failedQuery !== null && !differs(failedQuery, selected, queryKeys);
+  const results: DashboardResults = {
+    netWorth: resultStatus(stale.netWorth, slow, failed),
+    cashFlow: resultStatus(stale.cashFlow, slow, failed),
+    transactions: resultStatus(stale.transactions, slow, failed)
   };
 
   // A different period selects a different result set, so pagination restarts.
@@ -106,6 +116,8 @@ export function useDashboardData(onError: (message: string) => void) {
     // An action may finish after filters change; refresh the current view, not its earlier snapshot.
     const requested = latestSelection.current;
     const controller = new AbortController();
+
+    setFailedQuery(null);
     const abort = () => controller.abort();
 
     activeRequest.current = controller;
@@ -138,9 +150,12 @@ export function useDashboardData(onError: (message: string) => void) {
         state: data,
         query: requested
       });
+      setLoadError("");
     } catch (error) {
+      // Failures stay visible until a later load succeeds; callers do not handle them separately.
       if (!controller.signal.aborted && version === requestVersion.current && !lockedRef.current) {
-        throw error;
+        setLoadError(failureMessage(error));
+        setFailedQuery(requested);
       }
     } finally {
       signal?.removeEventListener("abort", abort);
@@ -158,11 +173,7 @@ export function useDashboardData(onError: (message: string) => void) {
 
     const controller = new AbortController();
     const timer = setTimeout(() => {
-      load(controller.signal).catch(error => {
-        if (error.name !== "AbortError") {
-          onError(error.message);
-        }
-      });
+      void load(controller.signal);
     }, 180);
 
     return () => {
@@ -170,11 +181,12 @@ export function useDashboardData(onError: (message: string) => void) {
       controller.abort();
       invalidateRequests();
     };
-  }, [query, load, onError, locked, invalidateRequests]);
+  }, [query, load, locked, invalidateRequests]);
 
   return {
     state,
-    loading,
+    results,
+    loadError,
     period,
     selectPeriod,
     currency,
@@ -201,8 +213,21 @@ function staleAreas(loaded: DashboardQuery | undefined, selected: DashboardQuery
   return {
     netWorth: differs(loaded, selected, ["currency"]),
     cashFlow: differs(loaded, selected, ["currency", "period"]),
-    transactions: differs(loaded, selected, ["currency", "period", "page", "search", "account", "category"])
+    transactions: differs(loaded, selected, queryKeys)
   };
+}
+
+function resultStatus(stale: boolean, slow: boolean, failed: boolean): ResultStatus {
+  if (!stale) {
+    return "ready";
+  }
+
+  // Outdated values are masked at once after a failure; the load error banner offers a retry.
+  if (failed) {
+    return "unavailable";
+  }
+
+  return slow ? "loading" : "ready";
 }
 
 /** True once `active` has stayed true for `delay` milliseconds, until it becomes false again. */

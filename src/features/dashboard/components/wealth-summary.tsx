@@ -6,15 +6,16 @@ import { clsx } from "clsx";
 import styles from "./wealth-summary.module.css";
 import { ArrowDownLeft, ArrowUpRight, Wallet } from "lucide-react";
 import { periodLabel } from "@/features/dashboard/presentation";
+import { resultMask } from "@/features/dashboard/components/result-mask";
 import { periodFromJson } from "@/features/dashboard/period";
 import { money } from "@/lib/money";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
 
-type Props = Pick<DashboardController, "currency" | "loading" | "selectedCurrencyAccounts" | "state">;
+type Props = Pick<DashboardController, "currency" | "results" | "selectedCurrencyAccounts" | "state">;
 
 export function WealthSummary({
   currency,
-  loading,
+  results,
   selectedCurrencyAccounts,
   state
 }: Props) {
@@ -25,12 +26,12 @@ export function WealthSummary({
   const summary = state.summary;
   const period = periodFromJson(state.period);
   const singleMonth = period.kind === "month";
-  const netWorthValue = clsx(loading.netWorth && ui["skeleton"]);
-  const cashFlowValue = clsx(loading.cashFlow && ui["skeleton"]);
+  const netWorthValue = resultMask(results.netWorth);
+  const cashFlowValue = resultMask(results.cashFlow);
 
   return (
     <div className={styles["wealth-grid"]}>
-      <section className={styles["wealth-card"]} aria-busy={loading.netWorth}>
+      <section className={styles["wealth-card"]} aria-busy={results.netWorth === "loading"}>
         <div className={styles["wealth-card-top"]}>
           <span>
             <span className={styles["wealth-mark"]}>
@@ -79,7 +80,7 @@ export function WealthSummary({
           </div>
         )}
       </section>
-      <section className={styles["month-card"]} aria-busy={loading.cashFlow}>
+      <section className={styles["month-card"]} aria-busy={results.cashFlow === "loading"}>
         <div className={ui["card-heading"]}>
           <h2>{singleMonth ? "Your month" : "Your cash flow"}</h2>
           <span className={clsx(styles["subtle"], cashFlowValue)}>{periodLabel(period)}</span>

@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { test, type TestContext } from "node:test";
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { JSDOM } from "jsdom";
+import { useActionFeedback } from "../src/components/ui/use-action-feedback";
+import { useDashboard } from "../src/features/dashboard/use-dashboard";
 import { useDashboardData } from "../src/features/dashboard/use-dashboard-data";
 import { monthPeriod, serializePeriod, type Period } from "../src/features/dashboard/period";
 
@@ -56,8 +58,6 @@ function browser(context: TestContext) {
   return pending;
 }
 
-const onError = () => {};
-
 async function waitForDebounce() {
   await act(async () => {
     await new Promise(resolve => setTimeout(resolve, 200));
@@ -66,7 +66,7 @@ async function waitForDebounce() {
 
 test("a delayed pre-logout response cannot reopen the dashboard or restore financial state", async context => {
   const pending = browser(context);
-  const { result } = renderHook(() => useDashboardData(onError));
+  const { result } = renderHook(() => useDashboardData());
 
   await waitForDebounce();
   assert.equal(pending.length, 1);
@@ -81,7 +81,7 @@ test("a delayed pre-logout response cannot reopen the dashboard or restore finan
 
 test("an older mutation refresh cannot replace the response for newer filters", async context => {
   const pending = browser(context);
-  const { result } = renderHook(() => useDashboardData(onError));
+  const { result } = renderHook(() => useDashboardData());
 
   await waitForDebounce();
   await act(async () => pending[0].resolve(Response.json({
@@ -111,7 +111,7 @@ test("an older mutation refresh cannot replace the response for newer filters", 
 
 test("a mutation completed after a filter change refreshes the current filters and current data", async context => {
   const pending = browser(context);
-  const { result } = renderHook(() => useDashboardData(onError));
+  const { result } = renderHook(() => useDashboardData());
 
   await waitForDebounce();
   await act(async () => pending[0].resolve(Response.json({
@@ -152,7 +152,7 @@ async function wait(milliseconds: number) {
 
 async function loadInitialState(context: TestContext) {
   const pending = browser(context);
-  const rendered = renderHook(() => useDashboardData(onError));
+  const rendered = renderHook(() => useDashboardData());
 
   await waitForDebounce();
   await act(async () => pending[0].resolve(Response.json({
@@ -183,10 +183,10 @@ test("a period change marks the period results as loading until the response for
   act(() => result.current.selectPeriod(previousMonth(result.current.period)));
   await wait(300);
 
-  assert.deepEqual(result.current.loading, {
-    netWorth: false,
-    cashFlow: true,
-    transactions: true
+  assert.deepEqual(result.current.results, {
+    netWorth: "ready",
+    cashFlow: "loading",
+    transactions: "loading"
   });
 
   await act(async () => pending[1].resolve(Response.json({
@@ -194,10 +194,10 @@ test("a period change marks the period results as loading until the response for
     transactionCount: 2
   })));
 
-  assert.deepEqual(result.current.loading, {
-    netWorth: false,
-    cashFlow: false,
-    transactions: false
+  assert.deepEqual(result.current.results, {
+    netWorth: "ready",
+    cashFlow: "ready",
+    transactions: "ready"
   });
   assert.equal(result.current.state?.transactionCount, 2);
 });
@@ -208,10 +208,10 @@ test("a transaction filter change marks only the transaction list as loading", a
   act(() => result.current.setSearch("rent"));
   await wait(300);
 
-  assert.deepEqual(result.current.loading, {
-    netWorth: false,
-    cashFlow: false,
-    transactions: true
+  assert.deepEqual(result.current.results, {
+    netWorth: "ready",
+    cashFlow: "ready",
+    transactions: "loading"
   });
 });
 
@@ -224,7 +224,7 @@ test("a fast response replaces the results without showing loading first", async
   act(() => result.current.setCurrency("USD"));
   await waitForDebounce();
 
-  assert.equal(result.current.loading.netWorth, false);
+  assert.equal(result.current.results.netWorth, "ready");
 
   await act(async () => pending[1].resolve(Response.json({
     currency: "USD",
@@ -232,7 +232,7 @@ test("a fast response replaces the results without showing loading first", async
   })));
   await wait(100);
 
-  assert.equal(result.current.loading.netWorth, false);
+  assert.equal(result.current.results.netWorth, "ready");
   assert.equal(result.current.state?.currency, "USD");
 });
 
@@ -248,7 +248,7 @@ test("a background refresh with unchanged filters keeps the current results visi
   await wait(300);
 
   assert.equal(pending.length, 2);
-  assert.equal(result.current.loading.transactions, false);
+  assert.equal(result.current.results.transactions, "ready");
   assert.equal(result.current.state?.transactionCount, 1);
 });
 
@@ -270,7 +270,7 @@ test("after rapid period changes only the response for the latest period ends lo
     transactionCount: 5
   })));
 
-  assert.equal(result.current.loading.cashFlow, true);
+  assert.equal(result.current.results.cashFlow, "loading");
   assert.equal(result.current.state?.transactionCount, 1);
 
   await act(async () => pending[2].resolve(Response.json({
@@ -278,7 +278,142 @@ test("after rapid period changes only the response for the latest period ends lo
     transactionCount: 7
   })));
 
-  assert.equal(result.current.loading.cashFlow, false);
+  assert.equal(result.current.results.cashFlow, "ready");
   assert.equal(result.current.state?.transactionCount, 7);
   assert.equal(new URL(pending[2].url, "http://localhost").searchParams.get("period"), serializePeriod(second));
+});
+
+test("a failed request for changed filters ends loading and masks the outdated results until a retry succeeds", async context => {
+  const {
+    pending,
+    result
+  } = await loadInitialState(context);
+
+  act(() => result.current.selectPeriod(previousMonth(result.current.period)));
+  await wait(300);
+  assert.equal(result.current.results.cashFlow, "loading");
+  await act(async () => pending[1].resolve(Response.json({
+    detail: "The database is not reachable."
+  }, {
+    status: 503
+  })));
+
+  assert.equal(result.current.loadError, "The database is not reachable.");
+  assert.deepEqual(result.current.results, {
+    netWorth: "ready",
+    cashFlow: "unavailable",
+    transactions: "unavailable"
+  });
+
+  let retry: Promise<void> | undefined;
+
+  act(() => {
+    retry = result.current.load();
+  });
+  assert.equal(result.current.results.cashFlow, "loading");
+  await act(async () => {
+    pending[2].resolve(Response.json({
+      currency: "EUR",
+      transactionCount: 3
+    }));
+    await retry;
+  });
+
+  assert.equal(result.current.loadError, "");
+  assert.equal(result.current.results.cashFlow, "ready");
+  assert.equal(result.current.state?.transactionCount, 3);
+});
+
+test("a failed load stays reported until a later load succeeds", async context => {
+  const pending = browser(context);
+  const { result } = renderHook(() => useDashboardData());
+
+  await waitForDebounce();
+  await act(async () => pending[0].resolve(Response.json({
+    title: "Service unavailable",
+    detail: "The database is not reachable."
+  }, {
+    status: 503
+  })));
+
+  assert.equal(result.current.loadError, "The database is not reachable.");
+
+  let refresh: Promise<void> | undefined;
+
+  act(() => {
+    refresh = result.current.load();
+  });
+  await act(async () => {
+    pending[1].resolve(Response.json({
+      currency: "EUR"
+    }));
+    await refresh;
+  });
+
+  assert.equal(result.current.loadError, "");
+  assert.equal(result.current.state?.currency, "EUR");
+});
+
+test("action feedback is dropped when its context changes", async context => {
+  browser(context);
+  const {
+    result,
+    rerender
+  } = renderHook(({ view }) => useActionFeedback(view), {
+    initialProps: {
+      view: "rules"
+    }
+  });
+
+  act(() => result.current.report({
+    tone: "problem",
+    messages: ["Rules could not be applied."]
+  }));
+  rerender({
+    view: "rules"
+  });
+  assert.deepEqual(result.current.feedback?.messages, ["Rules could not be applied."]);
+
+  rerender({
+    view: "overview"
+  });
+  assert.equal(result.current.feedback, null);
+});
+
+test("success feedback dismisses itself while problems stay until dismissed", async context => {
+  browser(context);
+  context.mock.timers.enable({
+    apis: ["setTimeout"]
+  });
+  const { result } = renderHook(() => useActionFeedback());
+
+  act(() => result.current.report({
+    tone: "problem",
+    messages: ["Sync failed."]
+  }));
+  act(() => context.mock.timers.tick(60_000));
+  assert.deepEqual(result.current.feedback?.messages, ["Sync failed."]);
+
+  act(() => result.current.report({
+    tone: "success",
+    messages: ["Rules applied."]
+  }));
+  act(() => context.mock.timers.tick(8_000));
+  assert.equal(result.current.feedback, null);
+});
+
+test("a bank callback result is shown on the connections view and cleared when the view changes", async context => {
+  browser(context);
+  window.scrollTo = () => {};
+
+  window.history.replaceState(null, "", "/?banking=connected");
+  const { result } = renderHook(() => useDashboard());
+
+  assert.equal(result.current.view, "connections");
+  assert.equal(result.current.feedback?.tone, "success");
+  assert.equal(window.location.search, "");
+
+  act(() => result.current.changeView("overview"));
+
+  assert.equal(result.current.feedback, null);
 });

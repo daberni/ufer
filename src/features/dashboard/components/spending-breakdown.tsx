@@ -5,17 +5,18 @@ import ui from "../../../components/ui/primitives.module.css";
 import { clsx } from "clsx";
 import styles from "./spending-breakdown.module.css";
 import { periodLabel } from "@/features/dashboard/presentation";
+import { resultMask } from "@/features/dashboard/components/result-mask";
 import { periodFromJson } from "@/features/dashboard/period";
 import { money } from "@/lib/money";
 import { Empty } from "@/components/ui/empty-state";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
 import { CategoryMarker } from "@/features/categorization/components/category-marker";
 
-type Props = Pick<DashboardController, "currency" | "loading" | "state" | "totalExpenses">;
+type Props = Pick<DashboardController, "currency" | "results" | "state" | "totalExpenses">;
 
 export function SpendingBreakdown({
   currency,
-  loading,
+  results,
   state,
   totalExpenses
 }: Props) {
@@ -23,10 +24,10 @@ export function SpendingBreakdown({
     return null;
   }
 
-  const skeleton = clsx(loading.cashFlow && ui["skeleton"]);
+  const skeleton = resultMask(results.cashFlow);
 
   return (
-    <section className={ui["panel"]} aria-busy={loading.cashFlow}>
+    <section className={ui["panel"]} aria-busy={results.cashFlow === "loading"}>
       <div className={ui["card-heading"]}>
         <h2>Where your money goes</h2>
         <span className={clsx(ui["subtle"], skeleton)}>{periodLabel(periodFromJson(state.period))}</span>

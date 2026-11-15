@@ -8,14 +8,16 @@ import { ArrowDownLeft, ArrowUpRight } from "lucide-react";
 import { DateValue } from "@/components/ui/date-value";
 import { money } from "@/lib/money";
 import { TransactionCategory } from "@/features/transactions/components/transaction-category";
+import { resultMask } from "@/features/dashboard/components/result-mask";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
 
-type Props = Pick<DashboardController, "busy" | "loading" | "perform" | "state" | "visibleTransactions">;
+type Props = Pick<DashboardController, "busy" | "results" | "perform" | "reportFeedback" | "state" | "visibleTransactions">;
 
 export function TransactionList({
   busy,
-  loading,
+  results,
   perform,
+  reportFeedback,
   state,
   visibleTransactions
 }: Props) {
@@ -23,7 +25,7 @@ export function TransactionList({
     return null;
   }
 
-  const skeleton = clsx(loading.transactions && ui["skeleton"]);
+  const skeleton = resultMask(results.transactions);
 
   return (
     <>
@@ -54,6 +56,7 @@ export function TransactionList({
                   <TransactionCategory
                     busy={busy}
                     perform={perform}
+                    reportFeedback={reportFeedback}
                     state={state}
                     transaction={transaction}
                   />
@@ -96,6 +99,7 @@ export function TransactionList({
                 <TransactionCategory
                   busy={busy}
                   perform={perform}
+                  reportFeedback={reportFeedback}
                   state={state}
                   transaction={transaction}
                 />

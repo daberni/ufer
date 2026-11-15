@@ -7,19 +7,21 @@ import styles from "./transactions-panel.module.css";
 import { ArrowDownToLine, ArrowRight, Search } from "lucide-react";
 import { Empty } from "@/components/ui/empty-state";
 import { TransactionList } from "@/features/transactions/components/transaction-list";
+import { resultMask } from "@/features/dashboard/components/result-mask";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
 import { Select } from "@/components/ui/select";
 
-type Props = Pick<DashboardController, "accountFilter" | "busy" | "categoryFilter" | "changeView" | "loading" | "page" | "perform" | "search" | "selectedCurrencyAccounts" | "setAccountFilter" | "setCategoryFilter" | "setImportMode" | "setModal" | "setPage" | "setSearch" | "state" | "view" | "visibleTransactions">;
+type Props = Pick<DashboardController, "accountFilter" | "busy" | "categoryFilter" | "changeView" | "results" | "page" | "perform" | "reportFeedback" | "search" | "selectedCurrencyAccounts" | "setAccountFilter" | "setCategoryFilter" | "setImportMode" | "setModal" | "setPage" | "setSearch" | "state" | "view" | "visibleTransactions">;
 
 export function TransactionsPanel({
   accountFilter,
   busy,
   categoryFilter,
   changeView,
-  loading,
+  results,
   page,
   perform,
+  reportFeedback,
   search,
   selectedCurrencyAccounts,
   setAccountFilter,
@@ -36,10 +38,10 @@ export function TransactionsPanel({
     return null;
   }
 
-  const skeleton = clsx(loading.transactions && ui["skeleton"]);
+  const skeleton = resultMask(results.transactions);
 
   return (
-    <section className={clsx(ui["panel"], styles["transaction-panel"])} aria-busy={loading.transactions}>
+    <section className={clsx(ui["panel"], styles["transaction-panel"])} aria-busy={results.transactions === "loading"}>
       <div className={styles["card-heading"]}>
         <h2>{view === "overview" ? "Recent transactions" : "All transactions"}</h2>
         {view === "overview" ? (
@@ -109,8 +111,9 @@ export function TransactionsPanel({
       {visibleTransactions?.length ? (
         <TransactionList
           busy={busy}
-          loading={loading}
+          results={results}
           perform={perform}
+          reportFeedback={reportFeedback}
           state={state}
           visibleTransactions={visibleTransactions}
         />

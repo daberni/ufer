@@ -2,23 +2,27 @@
 
 import ui from "../../../components/ui/primitives.module.css";
 
+import { clsx } from "clsx";
 import styles from "./period-controls.module.css";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Temporal } from "temporal-polyfill";
 import { describeDate } from "@/lib/date-format";
 import { useDisplayTimeZone } from "@/components/ui/use-display-time-zone";
 import { lastSyncLabel, periodLabel } from "@/features/dashboard/presentation";
-import { allMonthsPeriod, currentMonthPeriod, parsePeriod } from "@/features/dashboard/period";
+import { allMonthsPeriod, currentMonthPeriod, monthPeriod } from "@/features/dashboard/period";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
 import { Select } from "@/components/ui/select";
+import { MonthPicker } from "@/features/dashboard/components/month-picker";
+import { resultMask } from "@/features/dashboard/components/result-mask";
 
-type Props = Pick<DashboardController, "currencies" | "currency" | "moveMonth" | "period" | "selectPeriod" | "setCurrency" | "setPage" | "state" | "view">;
+type Props = Pick<DashboardController, "currencies" | "currency" | "moveMonth" | "period" | "results" | "selectPeriod" | "setCurrency" | "setPage" | "state" | "view">;
 
 export function PeriodControls({
   currencies,
   currency,
   moveMonth,
   period,
+  results,
   selectPeriod,
   setCurrency,
   setPage,
@@ -37,7 +41,7 @@ export function PeriodControls({
   return (
     <div className={styles["period-bar"]}>
       <div>
-        <span className={ui["section-kicker"]}>{view === "overview" ? "NET WORTH & CASH FLOW" : `${state.transactionCount} ${state.transactionCount === 1 ? "TRANSACTION" : "TRANSACTIONS"}`}</span>
+        <span className={clsx(ui["section-kicker"], view === "transactions" && resultMask(results.transactions))}>{view === "overview" ? "NET WORTH & CASH FLOW" : `${state.transactionCount} ${state.transactionCount === 1 ? "TRANSACTION" : "TRANSACTIONS"}`}</span>
         {view === "overview" && <span className={styles["subtle"]} title={latestSync ? describeDate(Temporal.Instant.from(latestSync.started_at).toZonedDateTimeISO(timeZone)).title : undefined}>{lastSyncLabel(latestSync, timeZone)}</span>}
       </div>
       <div className={styles["period-controls"]}>
@@ -60,21 +64,11 @@ export function PeriodControls({
         >
           <ChevronLeft size={17} />
         </button>
-        <label className={styles["month-label"]}>
-          <span>{periodLabel(period)}</span>
-          <input
-            aria-label="Select month"
-            type="month"
-            value={period.kind === "month" ? period.month.toString() : ""}
-            onChange={event => {
-              const picked = parsePeriod(event.target.value);
-
-              if (picked) {
-                selectPeriod(picked);
-              }
-            }}
-          />
-        </label>
+        <MonthPicker
+          label={periodLabel(period)}
+          selected={period.kind === "month" ? period.month : null}
+          onSelect={month => selectPeriod(monthPeriod(month))}
+        />
         <button
           className={ui["icon-button"]}
           aria-label="Next month"
