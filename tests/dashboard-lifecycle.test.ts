@@ -236,3 +236,42 @@ test("a bank callback result is shown on the connections view and cleared when t
 
   assert.equal(result.current.feedback, null);
 });
+
+test("overlapping actions keep the dashboard busy until the last one finishes", async context => {
+  const pending = browser(context);
+  const emptyState = {
+    currency: "EUR",
+    accounts: [],
+    transactions: [],
+    trend: [],
+    breakdown: []
+  };
+  const { result } = renderHook(() => useDashboard());
+
+  await waitForDebounce();
+  await act(async () => pending[0].resolve(Response.json(emptyState)));
+  const first = Promise.withResolvers<string>();
+  const second = Promise.withResolvers<string>();
+  let firstAction: Promise<unknown> | undefined;
+  let secondAction: Promise<unknown> | undefined;
+
+  act(() => {
+    firstAction = result.current.perform(() => first.promise);
+    secondAction = result.current.perform(() => second.promise);
+  });
+  assert.equal(result.current.busy, true);
+
+  await act(async () => first.resolve("synced"));
+  await act(async () => {
+    pending.at(-1)?.resolve(Response.json(emptyState));
+    await firstAction;
+  });
+  assert.equal(result.current.busy, true, "the second action is still running");
+
+  await act(async () => second.resolve("saved"));
+  await act(async () => {
+    pending.at(-1)?.resolve(Response.json(emptyState));
+    await secondAction;
+  });
+  assert.equal(result.current.busy, false);
+});

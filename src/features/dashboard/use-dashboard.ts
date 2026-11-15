@@ -28,7 +28,8 @@ export function useDashboard() {
 
   const [selectedConnection, setSelectedConnection] = useState<Connection | null>(null);
 
-  const [busy, setBusy] = useState(false);
+  // Counts running actions, so one that finishes first cannot clear the busy state of another still running.
+  const [runningActions, setRunningActions] = useState(0);
 
   // Page-level overlay for feedback without a surviving trigger, such as a bank callback result.
   const {
@@ -87,7 +88,7 @@ export function useDashboard() {
   async function perform<T>(action: () => Promise<T>): Promise<ActionResult<T>> {
     let result: ActionResult<T>;
 
-    setBusy(true);
+    setRunningActions(count => count + 1);
 
     try {
       result = {
@@ -105,7 +106,7 @@ export function useDashboard() {
     try {
       await load();
     } finally {
-      setBusy(false);
+      setRunningActions(count => count - 1);
     }
 
     return result;
@@ -160,6 +161,8 @@ export function useDashboard() {
 
   const trendMax = Math.max(1, ...trend.flatMap(item => [item.income, item.expenses]));
 
+  const busy = runningActions > 0;
+
   const totalExpenses = state?.breakdown.reduce((sum, item) => sum + item.amount, 0) || 0;
 
   return {
@@ -187,7 +190,6 @@ export function useDashboard() {
     setSelectedCategory,
     selectedConnection,
     busy,
-    setBusy,
     loadError,
     feedback,
     reportFeedback,
