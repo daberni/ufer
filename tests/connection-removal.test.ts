@@ -9,6 +9,7 @@ import { initializeDatabase } from "../src/server/database/migrations";
 import * as schema from "../src/server/database/schema";
 import { acquireLease } from "../src/server/jobs/lease-repository";
 import { encrypt } from "../src/server/security/secret-box";
+import { recordConnectionFailure, saveBankSession } from "../src/features/banking/server/connection-repository";
 import { removeBankConnection } from "../src/features/banking/server/connection-service";
 import { saveSessionAccounts } from "../src/features/banking/server/bank-account-repository";
 import { listSyncAccounts } from "../src/features/banking/server/sync-repository";
@@ -176,7 +177,7 @@ test("removing a bank connection keeps accounts and history, deletes its credent
     environment: "SANDBOX",
     bank_name: "Example institution",
     bank_country: "AT",
-    status: "LINKED",
+    status: "EXCHANGING",
     valid_until: "2099-01-01T00:00:00Z"
   });
   await saveSessionAccounts(db, "SANDBOX", "renewed", "Example institution", [{
@@ -257,4 +258,54 @@ test("removal does not interfere with a running sync or an authorization callbac
   assert.equal((await db.select().from(schema.requisitions).where(eq(schema.requisitions.id, "exchanging")).get())?.status, "EXCHANGING");
   assert.equal((await db.select().from(schema.leases)).length, 0);
   assert.equal(requests.length, 0);
+});
+
+test("a connection removed while its callback is mapping accounts is never linked or revived", async context => {
+  const {
+    db,
+    requests
+  } = await bankingDatabase(context, () => Response.json({
+    message: "OK"
+  }));
+  const consumedLongAgo = new Date(Date.now() - 10 * 60_000).toISOString();
+
+  await db.insert(schema.requisitions).values({
+    id: "overlap",
+    environment: "SANDBOX",
+    bank_name: "Example institution",
+    bank_country: "AT",
+    status: "EXCHANGING",
+    used_at: consumedLongAgo
+  });
+
+  // Callback step 1: the session is stored, but the connection is not linked before its accounts are mapped.
+  assert.equal(await saveBankSession(db, "overlap", encrypt("session-overlap"), "2099-01-01T00:00:00Z"), true);
+  assert.equal((await db.select().from(schema.requisitions).get())?.status, "EXCHANGING");
+
+  assert.deepEqual(await removeBankConnection("overlap"), {
+    retainedAccounts: 0,
+    providerRevocation: "revoked"
+  });
+  assert.deepEqual(requests, [{
+    method: "DELETE",
+    path: "/sessions/session-overlap"
+  }]);
+
+  // Callback step 2 and its failure handling run after the removal.
+  await assert.rejects(saveSessionAccounts(db, "SANDBOX", "overlap", "Example institution", [{
+    uid: "overlap-uid",
+    identification_hash: "overlap-hash",
+    currency: "EUR"
+  }]), {
+    status: 409
+  });
+  await recordConnectionFailure(db, "overlap", "The bank connection was removed during authorization.");
+  assert.equal(await saveBankSession(db, "overlap", encrypt("session-late"), "2099-01-01T00:00:00Z"), false);
+
+  const connection = await db.select().from(schema.requisitions).get();
+
+  assert.equal(connection?.status, "REMOVED");
+  assert.equal(connection?.session_cipher, null);
+  assert.equal((await db.select().from(schema.accounts)).length, 0);
+  assert.equal((await db.select().from(schema.accountIdentifiers)).length, 0);
 });

@@ -47,13 +47,17 @@ export async function consumeAuthorization(db: Database, environment: string, st
   }).where(scope).returning().get();
 }
 
+// The connection stays EXCHANGING until its accounts are mapped, so removal cannot interleave between the two steps.
 export async function saveBankSession(db: Database, id: string, ciphertext: string, validUntil: string) {
-  await db.update(requisitions).set({
+  const saved = await db.update(requisitions).set({
     session_cipher: ciphertext,
     valid_until: validUntil,
-    status: "LINKED",
     error: null
-  }).where(eq(requisitions.id, id));
+  }).where(and(eq(requisitions.id, id), eq(requisitions.status, "EXCHANGING"))).returning({
+    id: requisitions.id
+  });
+
+  return saved.length === 1;
 }
 
 export async function expireConnection(db: Database, id: string) {
@@ -65,14 +69,14 @@ export async function expireConnection(db: Database, id: string) {
 export async function recordEmptyConnection(db: Database, id: string) {
   await db.update(requisitions).set({
     error: "No accounts were authorized. Restricted production applications require accounts to be linked in the provider control panel first."
-  }).where(eq(requisitions.id, id));
+  }).where(and(eq(requisitions.id, id), ne(requisitions.status, "REMOVED")));
 }
 
 export async function recordConnectionFailure(db: Database, id: string, error: string) {
   await db.update(requisitions).set({
     status: "ERROR",
     error
-  }).where(eq(requisitions.id, id));
+  }).where(and(eq(requisitions.id, id), ne(requisitions.status, "REMOVED")));
 }
 
 // Accounts are detached rather than deleted, so their history stays and a later reconnect can remap them by identification hash.

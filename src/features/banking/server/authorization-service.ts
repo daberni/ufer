@@ -26,7 +26,12 @@ export async function completeAuthorization(state: string, browserSecret: string
     }
 
     // Persist the once-only provider response before mapping accounts, so mapping failures do not lose consent credentials.
-    await saveBankSession(db, connection.id, encrypt(session.session_id), session.access.valid_until);
+    const sessionSaved = await saveBankSession(db, connection.id, encrypt(session.session_id), session.access.valid_until);
+
+    if (!sessionSaved) {
+      throw new HttpError(409, "The bank connection was removed during authorization.");
+    }
+
     await saveSessionAccounts(db, env, connection.id, connection.bank_name, session.accounts);
 
     if (!session.accounts.length) {
