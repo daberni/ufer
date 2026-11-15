@@ -54,8 +54,6 @@ export default function Dashboard() {
             busy={dashboard.busy}
             nav={dashboard.nav}
             perform={dashboard.perform}
-            setError={dashboard.setError}
-            setNotice={dashboard.setNotice}
             view={dashboard.view}
           />
           <div aria-live="polite">
