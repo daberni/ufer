@@ -13,7 +13,7 @@ import type { DashboardController } from "@/features/dashboard/use-dashboard";
 import { Select } from "@/components/ui/select";
 import { MonthPicker } from "@/features/dashboard/components/month-picker";
 
-type Props = Pick<DashboardController, "currencies" | "currency" | "moveMonth" | "period" | "selectPeriod" | "setCurrency" | "setPage" | "state" | "view">;
+type Props = Pick<DashboardController, "currencies" | "currency" | "moveMonth" | "period" | "selectPeriod" | "setCurrency" | "state" | "view">;
 
 export function PeriodControls({
   currencies,
@@ -22,7 +22,6 @@ export function PeriodControls({
   period,
   selectPeriod,
   setCurrency,
-  setPage,
   state,
   view
 }: Props) {
@@ -46,10 +45,7 @@ export function PeriodControls({
           variant="bare"
           aria-label="Display currency"
           value={currency}
-          onChange={event => {
-            setCurrency(event.target.value);
-            setPage(1);
-          }}
+          onChange={event => setCurrency(event.target.value)}
         >
           {currencies.map(value => <option key={value}>{value}</option>)}
         </Select>
