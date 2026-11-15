@@ -3,6 +3,7 @@ import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { username } from "better-auth/plugins";
 import { HttpError } from "@/lib/errors";
 import { database, type Database, type DatabaseTransaction } from "@/server/database/connection";
+import { allowedOrigins, applicationOrigin } from "@/server/http/origin";
 import { authAccounts, authRateLimits, authSessions, authUsers, authVerifications } from "./auth-schema";
 
 type AuthOptions = {
@@ -17,7 +18,7 @@ export function createAuth(db: Database | DatabaseTransaction, options: AuthOpti
     throw new HttpError(503, "Configure BETTER_AUTH_SECRET with at least 32 characters.");
   }
 
-  const baseURL = new URL(process.env.APP_URL || "http://localhost:3000").origin;
+  const baseURL = applicationOrigin();
 
   return betterAuth({
     appName: "Ufer",
@@ -26,7 +27,7 @@ export function createAuth(db: Database | DatabaseTransaction, options: AuthOpti
     },
     baseURL,
     secret,
-    trustedOrigins: [baseURL],
+    trustedOrigins: allowedOrigins(),
     database: drizzleAdapter(db, {
       provider: "sqlite",
       transaction: !options.enrollment,

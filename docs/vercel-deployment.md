@@ -27,6 +27,8 @@ Use the existing Vercel Hobby account and Turso Starter plan. Do not select paid
 
 Turso's integration supplies TURSO_DATABASE_URL and TURSO_AUTH_TOKEN. Map their values to the generic DATABASE_URL and DATABASE_AUTH_TOKEN expected by Ufer. Keep production credentials in the operator's password manager and Vercel's environment secret store. Never commit them, print them, upload local environment files or embed them in the browser bundle. Provision separate production, preview and local data/secrets; do not attach production financial data to unrestricted previews.
 
+Preview deployments use their own Turso database and secrets in Vercel's Preview environment. Leave APP_URL unset there: sign-in and write requests accept the preview's branch alias and deployment URL, which Vercel provides as VERCEL_BRANCH_URL and VERCEL_URL. Production still accepts only APP_URL. Bank connections are not available in previews because their changing URLs cannot be registered as provider callbacks.
+
 ## Initialization and deployment
 
 1. Link the local checkout to the intended Vercel project. The generated `.vercel/` metadata stays ignored. If the CLI offers to download environment values into the checkout, decline; remove only tool-generated local tokens that were not part of the app configuration.
