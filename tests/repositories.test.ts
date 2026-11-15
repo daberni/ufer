@@ -228,8 +228,12 @@ test("category corrections retain environment isolation and manual exclusions su
     balance: "1.00",
     date: "2000-01-10"
   }));
-  assert.equal(await setTransactionCategory("other-entry", "groceries"), false);
-  assert.equal(await setTransactionCategory("local-entry", null), true);
+  assert.equal(await setTransactionCategory("other-entry", "groceries"), undefined);
+  assert.deepEqual(await setTransactionCategory("local-entry", null), {
+    id: "local-entry",
+    category_id: null,
+    category_source: "manual"
+  });
 
   await applyRulesToUncorrectedTransactions();
   const corrected = await db.select().from(schema.transactions).where(eq(schema.transactions.id, "local-entry")).get();
