@@ -54,7 +54,6 @@ export type Connection = {
 export type State = {
   environment: string;
   bankingConfigured: boolean;
-  passwordConfigured: boolean;
   currency: string;
   month: string;
   page: number;
