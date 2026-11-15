@@ -7,7 +7,7 @@
 }
 .page-heading p {
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--text-sm);
   line-height: 1.6;
   margin-top: 10px;
 }
@@ -24,7 +24,7 @@
     margin-bottom: 22px;
   }
   .page-heading p {
-    font-size: 14px;
+    font-size: var(--text-md);
     max-width: none;
     margin-top: 10px;
     line-height: 1.65;

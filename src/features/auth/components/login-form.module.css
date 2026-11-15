@@ -38,10 +38,10 @@
   margin-bottom: 25px;
 }
 .login-card h1 {
-  font-size: 26px;
+  font-size: var(--text-2xl);
 }
 .login-card > p {
-  font-size: 12px;
+  font-size: var(--text-sm);
   color: #99a38e;
   margin: 12px 0 26px;
 }
@@ -62,6 +62,6 @@
     padding: 28px 22px;
   }
   .login-card > p {
-    font-size: 14px;
+    font-size: var(--text-md);
   }
 }

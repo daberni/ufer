@@ -15,7 +15,7 @@
   border-radius: 8px;
   box-shadow: 0 8px 24px #233e3126;
   padding: 11px 12px;
-  font-size: 12px;
+  font-size: var(--text-sm);
   line-height: 1.6;
 }
 .popover.hidden {
@@ -58,7 +58,7 @@
   .sync > .button {
     width: 100%;
     min-height: 46px;
-    font-size: 14px;
+    font-size: var(--text-md);
     padding: 12px 15px;
   }
   .sync > .button svg {
@@ -68,6 +68,6 @@
   .popover {
     left: 0;
     width: auto;
-    font-size: 14px;
+    font-size: var(--text-md);
   }
 }
