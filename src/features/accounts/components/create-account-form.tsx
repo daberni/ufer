@@ -7,6 +7,7 @@ import { Plus } from "lucide-react";
 import { useState } from "react";
 import { kinds } from "@/features/dashboard/presentation";
 import { api } from "@/client/api";
+import { Select } from "@/components/ui/select";
 import { AccountTypeChoice } from "./account-type-choice";
 import { accountTypeCopy } from "./account-type-options";
 import type { AccountKind } from "../account-kinds";
@@ -77,12 +78,12 @@ function AccountDetailsFields({
         </label>
         <label>
           Currency
-          <select name="currency">
+          <Select name="currency">
             <option>EUR</option>
             <option>USD</option>
             <option>CHF</option>
             <option>GBP</option>
-          </select>
+          </Select>
         </label>
       </div>
       <p className={ui["form-hint"]}>{copy.hint}</p>

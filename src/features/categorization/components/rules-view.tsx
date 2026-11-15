@@ -4,17 +4,18 @@ import ui from "../../../components/ui/primitives.module.css";
 
 import { clsx } from "clsx";
 import styles from "./rules-view.module.css";
-import { Plus, Sparkles } from "lucide-react";
+import { Pencil, Plus, Sparkles } from "lucide-react";
 import { api } from "@/client/api";
 import { Empty } from "@/components/ui/empty-state";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
 
-type Props = Pick<DashboardController, "busy" | "perform" | "setModal" | "state">;
+type Props = Pick<DashboardController, "busy" | "perform" | "setModal" | "setSelectedCategory" | "state">;
 
 export function RulesView({
   busy,
   perform,
   setModal,
+  setSelectedCategory,
   state
 }: Props) {
   if (!state) {
@@ -86,7 +87,15 @@ export function RulesView({
       </div>
       <div className={styles["category-chips"]}>
         {state.categories.map(category => (
-          <span className={styles["category-chip"]} key={category.id}>
+          <button
+            className={styles["category-chip"]}
+            key={category.id}
+            aria-label={`Edit category ${category.name}`}
+            onClick={() => {
+              setSelectedCategory(category);
+              setModal("editCategory");
+            }}
+          >
             <i
               className={ui["legend-dot"]}
               style={{
@@ -95,7 +104,8 @@ export function RulesView({
             />
             {category.name}
             {category.is_transfer ? " · excluded from cash flow" : ""}
-          </span>
+            <Pencil size={13} />
+          </button>
         ))}
       </div>
     </>

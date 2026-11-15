@@ -1,0 +1,73 @@
+.button {
+  composes: button from "../../../components/ui/primitives.module.css";
+}
+.sync {
+  position: relative;
+}
+.popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 20;
+  width: min(320px, calc(100vw - 32px));
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px #233e3126;
+  padding: 11px 12px;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.popover.hidden {
+  display: none;
+}
+.popover.problem {
+  border-color: #efd9d2;
+  color: #944a40;
+}
+.message {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+}
+.message > svg {
+  flex: none;
+  margin-top: 3px;
+}
+.message > div {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.message .icon-button {
+  margin: -3px -4px 0 0;
+}
+@media (max-width: 900px) {
+  .sync > .button {
+    font-size: 0;
+    width: 40px;
+    min-width: 40px;
+    padding: 10px;
+  }
+  .sync > .button svg {
+    width: 17px;
+    height: 17px;
+  }
+}
+@media (max-width: 760px), (max-width: 900px) and (pointer: coarse) {
+  .sync > .button {
+    width: 100%;
+    min-height: 46px;
+    font-size: 14px;
+    padding: 12px 15px;
+  }
+  .sync > .button svg {
+    width: 18px;
+    height: 18px;
+  }
+  .popover {
+    left: 0;
+    width: auto;
+    font-size: 14px;
+  }
+}
