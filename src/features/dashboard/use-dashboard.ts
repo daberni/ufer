@@ -3,8 +3,9 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useDashboardData } from "./use-dashboard-data";
 import { useBankDirectory } from "@/features/banking/use-bank-directory";
+import { api } from "@/client/api";
 import { navigation } from "./presentation";
-import type { Account, Category, View, Modal, Connection } from "./types";
+import type { Account, Category, View, Modal, Connection, ConnectionRemoval } from "./types";
 
 export function useDashboard() {
   const [view, setView] = useState<View>("overview");
@@ -14,6 +15,8 @@ export function useDashboard() {
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
 
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
+
+  const [selectedConnection, setSelectedConnection] = useState<Connection | null>(null);
 
   const [busy, setBusy] = useState(false);
 
@@ -117,6 +120,27 @@ export function useDashboard() {
     setModal("bank");
   }
 
+  function openConnectionRemoval(connection: Connection) {
+    setError("");
+    setSelectedConnection(connection);
+    setModal("removeConnection");
+  }
+
+  async function removeConnection(connection: Connection) {
+    let message = "";
+
+    await perform(async () => {
+      const result = await api<ConnectionRemoval>(`banking/connections/${encodeURIComponent(connection.id)}`, undefined, "DELETE");
+
+      message = connectionRemovalNotice(connection, result);
+      setModal(null);
+    });
+
+    if (message) {
+      setNotice(message);
+    }
+  }
+
   async function submit(event: FormEvent<HTMLFormElement>, action: (data: FormData) => Promise<void>, message: string) {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
@@ -185,6 +209,7 @@ export function useDashboard() {
     setSelectedAccount,
     selectedCategory,
     setSelectedCategory,
+    selectedConnection,
     busy,
     setBusy,
     error,
@@ -210,6 +235,8 @@ export function useDashboard() {
     changeView,
     moveMonth,
     openBank,
+    openConnectionRemoval,
+    removeConnection,
     submit,
     summary,
     currencies,
@@ -222,6 +249,16 @@ export function useDashboard() {
     trendMax,
     totalExpenses
   };
+}
+
+function connectionRemovalNotice(connection: Connection, result: ConnectionRemoval) {
+  const removed = `${connection.bank_name} removed. ${result.retainedAccounts} account(s) and their history were kept and are no longer synced.`;
+
+  if (result.providerRevocation === "not_revoked") {
+    return `${removed} Enable Banking did not confirm revoking the authorization; it ends when it expires or when you withdraw it at your bank.`;
+  }
+
+  return removed;
 }
 
 export type DashboardController = ReturnType<typeof useDashboard>;

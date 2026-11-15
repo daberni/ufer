@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, count, eq, getTableColumns } from "drizzle-orm";
+import { and, count, eq, getTableColumns, ne } from "drizzle-orm";
 import type { Database } from "@/server/database/connection";
 import { accounts, balanceSnapshots, requisitions, syncRuns, transactions } from "@/server/database/schema";
 import { upsertTransactions } from "@/features/transactions/server/transaction-repository";
@@ -11,7 +11,7 @@ export async function listSyncAccounts(db: Database, environment: string) {
     connection_id: requisitions.id,
     valid_until: requisitions.valid_until,
     connection_status: requisitions.status
-  }).from(accounts).innerJoin(requisitions, eq(requisitions.id, accounts.requisition_id)).where(and(eq(accounts.environment, environment), eq(accounts.provider, "enable_banking")));
+  }).from(accounts).innerJoin(requisitions, eq(requisitions.id, accounts.requisition_id)).where(and(eq(accounts.environment, environment), eq(accounts.provider, "enable_banking"), ne(requisitions.status, "REMOVED")));
 }
 
 export async function startSyncRun(db: Database, environment: string, id: string, started: string) {

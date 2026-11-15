@@ -217,7 +217,7 @@ test("reauthorization matches alternative identification hashes while sandbox an
   });
 
   try {
-    await client.batch(["INSERT INTO requisitions(id,environment,bank_name,bank_country,status) VALUES('old','SANDBOX','Test','AT','LINKED')", "INSERT INTO requisitions(id,environment,bank_name,bank_country,status) VALUES('new','SANDBOX','Test','AT','LINKED')", "INSERT INTO requisitions(id,environment,bank_name,bank_country,status) VALUES('prod','PRODUCTION','Test','AT','LINKED')"], "write");
+    await client.batch(["INSERT INTO requisitions(id,environment,bank_name,bank_country,status) VALUES('old','SANDBOX','Test','AT','EXCHANGING')", "INSERT INTO requisitions(id,environment,bank_name,bank_country,status) VALUES('new','SANDBOX','Test','AT','EXCHANGING')", "INSERT INTO requisitions(id,environment,bank_name,bank_country,status) VALUES('prod','PRODUCTION','Test','AT','EXCHANGING')"], "write");
     await saveSessionAccounts(db, "SANDBOX", "old", "Test", [{
       uid: "uid-old",
       identification_hash: "iban-hash",

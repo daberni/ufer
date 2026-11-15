@@ -55,6 +55,11 @@
 .connection-row > div {
   flex: 1;
 }
+.connection-row > .connection-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 8px;
+}
 .connection-row h3 {
   font-size: var(--text-sm);
   font-weight: 500;
@@ -93,6 +98,9 @@
   .connection-row > div {
     min-width: 160px;
   }
+  .connection-row > .connection-actions {
+    min-width: 0;
+  }
 }
 @media (max-width: 760px), (max-width: 900px) and (pointer: coarse) {
   .connection-row {
@@ -117,7 +125,8 @@
   .connection-row > .pill {
     margin-left: 0;
   }
-  .connection-row > .button {
+  .connection-row > .connection-actions {
+    flex: 0 0 auto;
     margin-left: auto;
   }
   .connection-info {

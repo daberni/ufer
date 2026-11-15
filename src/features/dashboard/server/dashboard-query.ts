@@ -80,6 +80,7 @@ export async function readDashboardState(filters: DashboardFilters) {
       AND valid_until < ? THEN 'EXPIRED' ELSE status END AS status,valid_until,error,created_at
       FROM requisitions
       WHERE environment=?
+      AND status<>'REMOVED'
       ORDER BY created_at DESC
       LIMIT 20
     `,

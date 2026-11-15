@@ -10,11 +10,15 @@ import { saveAccountSync } from "./account-sync-service";
 import { finishSyncRun, listSyncAccounts, recordAccountSyncError, startSyncRun } from "./sync-repository";
 import { expireConnection } from "./connection-repository";
 
+export function syncLeaseName(environment: string) {
+  return `sync:${environment}`;
+}
+
 export async function syncAccounts() {
   const db = await database();
   const env = environment();
   const owner = randomUUID();
-  const leaseName = `sync:${env}`;
+  const leaseName = syncLeaseName(env);
 
   if (!(await acquireLease(db, leaseName, owner))) {
     throw new HttpError(409, "A sync is already running.");

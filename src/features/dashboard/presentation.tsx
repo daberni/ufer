@@ -74,6 +74,7 @@ export const viewDescriptions: Record<View, string> = {
 
 export const modalTitles = {
   bank: "Connect bank",
+  removeConnection: "Remove connection",
   account: "Add account",
   rule: "Create rule",
   balance: "Update balance",
@@ -103,11 +104,31 @@ export function lastSyncLabel(run: {
 
 export function accountSyncLabel(account: {
   provider: string;
+  requisition_id: string | null;
   sync_error: string | null
 }) {
   if (account.provider === "manual") {
     return "Manual";
   }
 
+  if (!account.requisition_id) {
+    return "Not synced";
+  }
+
   return account.sync_error ? "Check sync" : "Bank-Sync";
+}
+
+export function accountSourceLabel(account: {
+  provider: string;
+  requisition_id: string | null
+}) {
+  if (account.provider === "manual") {
+    return "Manual / import";
+  }
+
+  if (!account.requisition_id) {
+    return "Enable Banking · not synced";
+  }
+
+  return "Enable Banking";
 }
