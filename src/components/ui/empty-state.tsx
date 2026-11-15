@@ -14,7 +14,8 @@ export function Empty({
   illustration: Illustration = ShoreIllustration
 }: {
   title: string;
-  children: ReactNode;
+  // Plain text only: controls belong in `action`, which renders below the paragraph.
+  children: string;
   action?: ReactNode;
   illustration?: IllustrationComponent | null;
 }) {
