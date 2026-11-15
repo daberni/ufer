@@ -9,28 +9,36 @@ import { Empty } from "@/components/ui/empty-state";
 import { TransactionList } from "@/features/transactions/components/transaction-list";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
 import { Select } from "@/components/ui/select";
+import { useTransactionCategorization } from "@/features/transactions/use-transaction-categorization";
 
-type Props = Pick<DashboardController, "accountFilter" | "busy" | "categoryFilter" | "changeView" | "page" | "perform" | "search" | "selectedCurrencyAccounts" | "setAccountFilter" | "setCategoryFilter" | "setImportMode" | "setModal" | "setPage" | "setSearch" | "state" | "view" | "visibleTransactions">;
+type Props = Pick<DashboardController, "accountFilter" | "categoryFilter" | "changeView" | "load" | "page" | "search" | "selectedCurrencyAccounts" | "setAccountFilter" | "setCategoryFilter" | "setError" | "setImportMode" | "setModal" | "setPage" | "setSearch" | "setState" | "state" | "view" | "visibleTransactions">;
 
 export function TransactionsPanel({
   accountFilter,
-  busy,
   categoryFilter,
   changeView,
+  load,
   page,
-  perform,
   search,
   selectedCurrencyAccounts,
   setAccountFilter,
   setCategoryFilter,
+  setError,
   setImportMode,
   setModal,
   setPage,
   setSearch,
+  setState,
   state,
   view,
   visibleTransactions
 }: Props) {
+  const categorization = useTransactionCategorization({
+    load,
+    setError,
+    setState
+  });
+
   if (!state) {
     return null;
   }
@@ -105,8 +113,7 @@ export function TransactionsPanel({
       )}
       {visibleTransactions?.length ? (
         <TransactionList
-          busy={busy}
-          perform={perform}
+          categorization={categorization}
           state={state}
           visibleTransactions={visibleTransactions}
         />

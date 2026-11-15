@@ -9,12 +9,14 @@ import { DateValue } from "@/components/ui/date-value";
 import { money } from "@/lib/money";
 import { TransactionCategory } from "@/features/transactions/components/transaction-category";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
+import type { TransactionCategorization } from "@/features/transactions/use-transaction-categorization";
 
-type Props = Pick<DashboardController, "busy" | "perform" | "state" | "visibleTransactions">;
+type Props = Pick<DashboardController, "state" | "visibleTransactions"> & {
+  categorization: TransactionCategorization;
+};
 
 export function TransactionList({
-  busy,
-  perform,
+  categorization,
   state,
   visibleTransactions
 }: Props) {
@@ -49,9 +51,8 @@ export function TransactionList({
                 </td>
                 <td>
                   <TransactionCategory
-                    busy={busy}
-                    perform={perform}
-                    state={state}
+                    categories={state.categories}
+                    categorization={categorization}
                     transaction={transaction}
                   />
                   {transaction.category_source === "manual" && <span className={styles["manual-dot"]} title="Manually assigned; preserved when syncing and applying rules" />}
@@ -91,9 +92,8 @@ export function TransactionList({
               <div className={styles["transaction-card-category"]}>
                 <span>Category{transaction.category_source === "manual" && <small>Manually assigned</small>}</span>
                 <TransactionCategory
-                  busy={busy}
-                  perform={perform}
-                  state={state}
+                  categories={state.categories}
+                  categorization={categorization}
                   transaction={transaction}
                 />
               </div>

@@ -128,19 +128,20 @@ export default function Dashboard() {
               {(dashboard.view === "overview" || dashboard.view === "transactions") && (
                 <TransactionsPanel
                   accountFilter={dashboard.accountFilter}
-                  busy={dashboard.busy}
                   categoryFilter={dashboard.categoryFilter}
                   changeView={dashboard.changeView}
+                  load={dashboard.load}
                   page={dashboard.page}
-                  perform={dashboard.perform}
                   search={dashboard.search}
                   selectedCurrencyAccounts={dashboard.selectedCurrencyAccounts}
                   setAccountFilter={dashboard.setAccountFilter}
                   setCategoryFilter={dashboard.setCategoryFilter}
+                  setError={dashboard.setError}
                   setImportMode={dashboard.setImportMode}
                   setModal={dashboard.setModal}
                   setPage={dashboard.setPage}
                   setSearch={dashboard.setSearch}
+                  setState={dashboard.setState}
                   state={dashboard.state}
                   view={dashboard.view}
                   visibleTransactions={dashboard.visibleTransactions}
