@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -48,7 +48,7 @@ test("a fresh database receives a recorded baseline and enforces account referen
 
     assert.deepEqual(await migrationStatus(client), {
       mode: "managed",
-      applied: 1,
+      applied: 2,
       pending: 0
     });
     assert.equal((await client.execute("SELECT COUNT(*) AS count FROM categories")).rows[0].count, 7);
@@ -58,19 +58,19 @@ test("a fresh database receives a recorded baseline and enforces account referen
   }
 });
 
-test("startup leaves a recognized legacy database and user corrections unchanged", async () => {
+test("startup refuses a legacy database requiring authentication migration without changing user corrections", async () => {
   const client = await legacyDatabase();
 
   try {
     const schemaBefore = await client.execute("SELECT name,sql FROM sqlite_master ORDER BY name");
 
-    await initializeDatabase(client);
+    await assert.rejects(initializeDatabase(client), /migrations are pending/);
 
     assert.deepEqual((await client.execute("SELECT name,sql FROM sqlite_master ORDER BY name")).rows, schemaBefore.rows);
     assert.deepEqual(await migrationStatus(client), {
       mode: "legacy",
       applied: 0,
-      pending: 1
+      pending: 2
     });
     assert.equal((await client.execute("SELECT COUNT(*) AS count FROM categories")).rows[0].count, 1);
     await assertFinancialData(client);
@@ -79,7 +79,7 @@ test("startup leaves a recognized legacy database and user corrections unchanged
   }
 });
 
-test("explicit legacy adoption preserves financial data and records the baseline only once", async () => {
+test("explicit legacy adoption preserves financial data and records each changeset only once", async () => {
   const client = await legacyDatabase();
 
   try {
@@ -88,10 +88,10 @@ test("explicit legacy adoption preserves financial data and records the baseline
 
     assert.deepEqual(await migrationStatus(client), {
       mode: "managed",
-      applied: 1,
+      applied: 2,
       pending: 0
     });
-    assert.equal((await client.execute("SELECT COUNT(*) AS count FROM __drizzle_migrations")).rows[0].count, 1);
+    assert.equal((await client.execute("SELECT COUNT(*) AS count FROM __drizzle_migrations")).rows[0].count, 2);
     await assertFinancialData(client);
   } finally {
     client.close();
@@ -181,7 +181,7 @@ test("a managed database with pending changes refuses startup until explicit mai
 
     assert.deepEqual(await migrationStatus(client), {
       mode: "managed",
-      applied: 1,
+      applied: 2,
       pending: 0
     });
     await assertFinancialData(client);
@@ -196,11 +196,13 @@ test("a recognized legacy database cannot start against application changes beyo
   const journal = JSON.parse(readFileSync("drizzle/sqlite/meta/_journal.json", "utf8"));
 
   mkdirSync(join(directory, "meta"));
-  copyFileSync("drizzle/sqlite/0000_initial_schema.sql", join(directory, "0000_initial_schema.sql"));
+  cpSync("drizzle/sqlite", directory, {
+    recursive: true
+  });
   journal.entries.push({
-    idx: 1,
+    idx: journal.entries.length,
     version: "6",
-    when: journal.entries[0].when + 1,
+    when: journal.entries.at(-1).when + 1,
     tag: "0001_synthetic_extension",
     breakpoints: true
   });
@@ -217,11 +219,63 @@ test("a recognized legacy database cannot start against application changes beyo
 
     assert.deepEqual(await migrationStatus(client, directory), {
       mode: "managed",
-      applied: 2,
+      applied: 3,
       pending: 0
     });
     assert.equal((await client.execute("SELECT synthetic_extension FROM accounts WHERE id='asset'")).rows[0].synthetic_extension, 0);
     await assertFinancialData(client);
+  } finally {
+    client.close();
+    rmSync(directory, {
+      recursive: true,
+      force: true
+    });
+  }
+});
+
+test("the auth upgrade preserves financial history and linked credentials while invalidating only unfinished bank flows", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "ufer-before-auth-"));
+  const client = createClient({
+    url: ":memory:"
+  });
+  const journal = JSON.parse(readFileSync("drizzle/sqlite/meta/_journal.json", "utf8"));
+
+  mkdirSync(join(directory, "meta"));
+  cpSync("drizzle/sqlite/0000_initial_schema.sql", join(directory, "0000_initial_schema.sql"));
+  writeFileSync(join(directory, "meta/_journal.json"), JSON.stringify({
+    ...journal,
+    entries: journal.entries.slice(0, 1)
+  }));
+
+  try {
+    await migrateDatabase(client, directory);
+    await client.batch([
+      "INSERT INTO requisitions(id,environment,bank_name,bank_country,status,session_cipher,valid_until) VALUES('linked','SANDBOX','Example institution','AT','LINKED','unchanged-synthetic-ciphertext','2099-01-01')",
+      "INSERT INTO requisitions(id,environment,bank_name,bank_country,status,state_hash) VALUES('pending','SANDBOX','Example institution','AT','PENDING','synthetic-pending-state')",
+      "INSERT INTO accounts(id,environment,name,institution,kind,balance_minor,requisition_id) VALUES('asset','SANDBOX','Synthetic asset','Example institution','checking',12345,'linked')",
+      "INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,category_id,category_source) VALUES('entry','asset','original-reference','2026-11-15',-2500,'EUR','groceries','manual')",
+      "INSERT INTO balance_snapshots(id,account_id,observed_at,amount_minor,source) VALUES('snapshot','asset','2026-11-15',12345,'sync')"
+    ], "write");
+    const financialBefore = await client.execute("SELECT * FROM accounts");
+    const transactionsBefore = await client.execute("SELECT * FROM transactions");
+    const historyBefore = await client.execute("SELECT * FROM balance_snapshots");
+
+    await assert.rejects(initializeDatabase(client), /migrations are pending/);
+    await migrateDatabase(client);
+
+    assert.deepEqual((await client.execute("SELECT * FROM accounts")).rows, financialBefore.rows);
+    assert.deepEqual((await client.execute("SELECT * FROM transactions")).rows, transactionsBefore.rows);
+    assert.deepEqual((await client.execute("SELECT * FROM balance_snapshots")).rows, historyBefore.rows);
+    const linked = (await client.execute("SELECT status,session_cipher,valid_until,workspace_id FROM requisitions WHERE id='linked'")).rows[0];
+
+    assert.equal(linked.status, "LINKED");
+    assert.equal(linked.session_cipher, "unchanged-synthetic-ciphertext");
+    assert.equal(linked.valid_until, "2099-01-01");
+    assert.equal(linked.workspace_id, "personal");
+    assert.equal((await client.execute("SELECT status FROM requisitions WHERE id='pending'")).rows[0].status, "ERROR");
+    assert.equal((await client.execute("PRAGMA foreign_key_check")).rows.length, 0);
+    assert.equal((await client.execute("SELECT COUNT(*) AS count FROM auth_users")).rows[0].count, 0);
+    assert.equal((await client.execute("SELECT COUNT(*) AS count FROM sqlite_master WHERE name='login_attempts'")).rows[0].count, 0);
   } finally {
     client.close();
     rmSync(directory, {

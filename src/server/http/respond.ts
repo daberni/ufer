@@ -20,7 +20,7 @@ export async function respond(request: Request, action: () => Promise<unknown>, 
     const access = options.access ?? "session";
 
     if (access === "session") {
-      await requireAuth();
+      await requireAuth(request);
     }
 
     if (access === "scheduler" && !cronAuthorized(request)) {

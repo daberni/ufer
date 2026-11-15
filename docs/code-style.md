@@ -26,7 +26,7 @@ The shared Drizzle [schema](../src/server/database/schema.ts) defines typed pers
 
 Repositories own database reads/writes, atomic batches, conflict handling and transaction boundaries. Services coordinate repositories and provider calls without executing queries or constructing SQL statement arrays. Pure normalization and categorization produce data for persistence, not SQL. A shared transaction may be passed through a repository operation so related writes commit or roll back together. Raw SQL is permitted inside focused repositories/read projections and migration infrastructure where it serves a concrete purpose; it is not a parallel persistence architecture in `lib`.
 
-Delegate security protocols to maintained libraries: iron-session handles browser-session seals, expiry and cookie lifecycle; jose handles bank application JWT serialization/signing. Small application guards still enforce origin, authorization and rate-limit policies. Node's standard cryptographic primitives remain appropriate for constant-time secret comparison and the existing persisted bank-secret format. See [security boundaries](security.md).
+Delegate security protocols to maintained libraries: Better Auth handles credentials, persisted sessions, revocation and rate limiting; jose handles bank application JWT serialization/signing. Small application guards still enforce origin, authorization and rate-limit policies. Node's standard cryptographic primitives remain appropriate for constant-time secret comparison and the existing persisted bank-secret format. See [security boundaries](security.md).
 
 ## Compatibility policy
 
