@@ -6,7 +6,7 @@ import accountStyles from "./account-presentation.module.css";
 import { clsx } from "clsx";
 import styles from "./accounts-view.module.css";
 import { ArrowRight, Link2, Plus } from "lucide-react";
-import { date, accountIcon, kinds } from "@/features/dashboard/presentation";
+import { date, accountIcon, accountSourceLabel, kinds } from "@/features/dashboard/presentation";
 import { money } from "@/lib/money";
 import { Empty } from "@/components/ui/empty-state";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
@@ -56,7 +56,7 @@ export function AccountsView({
                 <strong className={styles["account-detail-balance"]}>{account.balance_minor === null ? "—" : money(account.balance_minor, account.currency)}</strong>
                 <div className={styles["account-detail-meta"]}>
                   <span>Balance {date(account.balance_date)}</span>
-                  <span>{account.provider === "manual" ? "Manual / import" : "Enable Banking"}</span>
+                  <span>{accountSourceLabel(account)}</span>
                 </div>
                 {account.sync_error && <p className={ui["error-text"]}>{account.sync_error}</p>}
                 {account.provider === "manual" && (

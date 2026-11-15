@@ -7,6 +7,7 @@ export type Account = {
   balance_minor: number | null;
   balance_date: string | null;
   provider: string;
+  requisition_id: string | null;
   last_synced_at: string | null;
   valid_until: string | null;
   sync_error: string | null;
@@ -49,6 +50,11 @@ export type Connection = {
   status: string;
   valid_until: string | null;
   error: string | null;
+};
+
+export type ConnectionRemoval = {
+  retainedAccounts: number;
+  providerRevocation: "revoked" | "not_revoked" | "no_session";
 };
 
 export type State = {
@@ -101,4 +107,4 @@ export type Bank = {
 
 export type View = "overview" | "transactions" | "accounts" | "rules" | "connections";
 
-export type Modal = "account" | "bank" | "rule" | "import" | "balance" | "category" | null;
+export type Modal = "account" | "bank" | "removeConnection" | "rule" | "import" | "balance" | "category" | null;

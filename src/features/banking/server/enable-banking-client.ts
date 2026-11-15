@@ -107,12 +107,12 @@ export async function applicationToken() {
   }).setIssuer("enablebanking.com").setAudience("api.enablebanking.com").setIssuedAt().setExpirationTime("5m").sign(key);
 }
 
-export async function bankingRequest<T>(path: string, body?: unknown): Promise<T> {
+export async function bankingRequest<T>(path: string, body?: unknown, method = body ? "POST" : "GET"): Promise<T> {
   let response: Response;
 
   try {
     response = await fetch(`https://api.enablebanking.com${path}`, {
-      method: body ? "POST" : "GET",
+      method,
       headers: {
         Authorization: `Bearer ${await applicationToken()}`,
         Accept: "application/json",
@@ -153,6 +153,10 @@ export async function verifyApplication() {
   }
 
   return application;
+}
+
+export async function deleteSession(sessionId: string) {
+  await bankingRequest<unknown>(`/sessions/${encodeURIComponent(sessionId)}`, undefined, "DELETE");
 }
 
 export async function availableBanks(country: string) {
