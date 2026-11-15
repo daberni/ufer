@@ -68,12 +68,17 @@ export function ConnectionsView({
             ))}
           </div>
         ) : (
-          <Empty title="Your first bank connection" illustration={BridgeIllustration}>
+          <Empty
+            title="Your first bank connection"
+            illustration={BridgeIllustration}
+            action={(
+              <button className={clsx(styles["button"], ui["primary"])} onClick={() => openBank()}>
+                <Link2 size={15} />
+                Select sandbox bank
+              </button>
+            )}
+          >
             Choose an available sandbox bank to test the complete flow with synthetic data.
-            <button className={clsx(styles["button"], ui["primary"])} onClick={() => openBank()}>
-              <Link2 size={15} />
-              Select sandbox bank
-            </button>
           </Empty>
         )}
       </section>
