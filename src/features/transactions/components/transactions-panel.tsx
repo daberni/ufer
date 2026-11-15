@@ -10,6 +10,7 @@ import { TransactionList } from "@/features/transactions/components/transaction-
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
 import { Select } from "@/components/ui/select";
 import { useSearchDraft } from "@/features/transactions/use-search-draft";
+import { transactionPageSize } from "@/features/dashboard/pagination";
 
 type Props = Pick<DashboardController, "accountFilter" | "busy" | "categoryFilter" | "changeView" | "page" | "perform" | "reportFeedback" | "search" | "selectedCurrencyAccounts" | "setAccountFilter" | "setCategoryFilter" | "setImportMode" | "setModal" | "setPage" | "setSearch" | "state" | "view" | "visibleTransactions">;
 
@@ -38,6 +39,9 @@ export function TransactionsPanel({
   if (!state) {
     return null;
   }
+
+  // An empty page with matches elsewhere is a page past the end, which the dashboard corrects; it is not an empty history.
+  const noMatches = state.transactionCount === 0;
 
   return (
     <section className={clsx(ui["panel"], styles["transaction-panel"])}>
@@ -106,16 +110,16 @@ export function TransactionsPanel({
           state={state}
           visibleTransactions={visibleTransactions}
         />
-      ) : <Empty title="Your financial history starts here.">Connect a bank account and sync, or import your existing transactions from CSV.</Empty>}
-      {view === "transactions" && state.transactionCount > 50 && (
+      ) : noMatches && <Empty title="Your financial history starts here.">Connect a bank account and sync, or import your existing transactions from CSV.</Empty>}
+      {view === "transactions" && state.transactionCount > transactionPageSize && (
         <div className={styles["pagination"]}>
           <span>
-            {(page - 1) * 50 + 1}–{Math.min(page * 50, state.transactionCount)} of {state.transactionCount}
+            {(page - 1) * transactionPageSize + 1}–{Math.min(page * transactionPageSize, state.transactionCount)} of {state.transactionCount}
           </span>
           <button className={clsx(styles["button"], ui["small"])} disabled={page === 1} onClick={() => setPage(page - 1)}>
             Previous
           </button>
-          <button className={clsx(styles["button"], ui["small"])} disabled={page * 50 >= state.transactionCount} onClick={() => setPage(page + 1)}>
+          <button className={clsx(styles["button"], ui["small"])} disabled={page * transactionPageSize >= state.transactionCount} onClick={() => setPage(page + 1)}>
             Next
           </button>
         </div>

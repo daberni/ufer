@@ -12,6 +12,9 @@ export function useDashboardData(filters: DashboardQuery) {
 
   const [loadError, setLoadError] = useState("");
 
+  // The query the displayed state was loaded for; it lags the URL while a request is pending.
+  const [stateQuery, setStateQuery] = useState("");
+
   const [locked, updateLocked] = useState(false);
   const lockedRef = useRef(false);
   const requestVersion = useRef(0);
@@ -85,6 +88,7 @@ export function useDashboardData(filters: DashboardQuery) {
       }
 
       setState(data);
+      setStateQuery(currentQuery);
       setLoadError("");
     } catch (error) {
       // Failures stay visible until a later load succeeds; callers do not handle them separately.
@@ -120,6 +124,7 @@ export function useDashboardData(filters: DashboardQuery) {
   return {
     state,
     setState,
+    stateIsCurrent: stateQuery === query,
     loadError,
     locked,
     setLocked,

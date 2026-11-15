@@ -8,6 +8,7 @@ import { failureMessage } from "@/client/api";
 import { useActionFeedback, type Feedback } from "@/components/ui/use-action-feedback";
 import { navigation } from "./presentation";
 import { monthPeriod, type Period } from "./period";
+import { lastPage } from "./pagination";
 import { dashboardQuery, isPeriodAware, periodScope, viewFromPathname, viewHref as hrefForView, withQueryChanges, type DashboardQueryChanges } from "./dashboard-location";
 import type { Account, Category, View, Modal, Connection } from "./types";
 
@@ -79,6 +80,7 @@ export function useDashboard() {
   const {
     state,
     setState,
+    stateIsCurrent,
     loadError,
     locked,
     setLocked,
@@ -175,6 +177,17 @@ export function useDashboard() {
     }, "push");
   }, [updateQuery]);
 
+  // A bookmarked page, or one left behind when the matching count shrinks, can lie past the last page; the URL is corrected in place.
+  const availablePage = stateIsCurrent && state ? Math.min(query.page, lastPage(state.transactionCount)) : query.page;
+
+  useEffect(() => {
+    if (view === "transactions" && availablePage < query.page) {
+      updateQuery({
+        page: availablePage
+      }, "replace");
+    }
+  }, [view, availablePage, query.page, updateQuery]);
+
   function viewHref(next: View) {
     return hrefForView(next, scope);
   }
@@ -241,9 +254,9 @@ export function useDashboard() {
     currency,
     search,
     account: accountFilter,
-    category: categoryFilter,
-    page
+    category: categoryFilter
   } = query;
+  const page = availablePage;
 
   const currencies = [...new Set(["EUR", ...(state?.accounts.map(account => account.currency) || [])])];
 

@@ -254,9 +254,9 @@ test("success feedback dismisses itself while problems stay until dismissed", as
   assert.equal(result.current.feedback, null);
 });
 
-test("a bank callback result is shown on the connections view and cleared when the view changes", async context => {
-  browser(context);
-  window.history.replaceState(null, "", "/connections?banking=connected");
+// Stands in for the App Router, which provides the current route to the dashboard layout; tests navigate with history.replaceState and rerender.
+function renderDashboard(url: string) {
+  window.history.replaceState(null, "", url);
   const replaced: string[] = [];
   const router = {
     push: () => {},
@@ -268,14 +268,12 @@ test("a bank callback result is shown on the connections view and cleared when t
     forward: () => {},
     prefetch: () => {}
   } as unknown as AppRouterInstance;
-  let pathname = "/connections";
 
-  // Stands in for the App Router, which provides the current route to the dashboard layout.
   function wrapper({ children }: {
     children: ReactNode
   }) {
     const route = createElement(PathnameContext, {
-      value: pathname
+      value: window.location.pathname
     }, createElement(SearchParamsContext, {
       value: new URLSearchParams(window.location.search)
     }, children));
@@ -285,20 +283,92 @@ test("a bank callback result is shown on the connections view and cleared when t
     }, route);
   }
 
+  return {
+    ...renderHook(() => useDashboard(), {
+      wrapper
+    }),
+    replaced
+  };
+}
+
+function transactionListState(transactionCount: number, page: number) {
+  return {
+    currency: "EUR",
+    page,
+    transactionCount,
+    accounts: [],
+    transactions: [],
+    categories: [],
+    rules: [],
+    connections: [],
+    runs: [],
+    breakdown: [],
+    trend: []
+  };
+}
+
+function requestedPage(request: {
+  url: string
+}) {
+  return new URL(request.url, "http://localhost").searchParams.get("page");
+}
+
+test("a bank callback result is shown on the connections view and cleared when the view changes", async context => {
+  browser(context);
   const {
     result,
-    rerender
-  } = renderHook(() => useDashboard(), {
-    wrapper
-  });
+    rerender,
+    replaced
+  } = renderDashboard("/connections?banking=connected");
 
   assert.equal(result.current.view, "connections");
   assert.equal(result.current.feedback?.tone, "success");
   assert.deepEqual(replaced, ["/connections"]);
 
-  pathname = "/";
+  window.history.replaceState(null, "", "/");
   rerender();
 
   assert.equal(result.current.view, "overview");
   assert.equal(result.current.feedback, null);
+});
+
+test("a page past the last one is replaced by the last available page", async context => {
+  const pending = browser(context);
+  const {
+    result,
+    rerender
+  } = renderDashboard("/transactions?page=10");
+
+  await waitForDebounce();
+  assert.equal(requestedPage(pending[0]), "10");
+  await act(async () => pending[0].resolve(Response.json(transactionListState(60, 10))));
+
+  assert.equal(result.current.page, 2);
+  assert.equal(window.location.search, "?page=2");
+
+  rerender();
+  await waitForDebounce();
+  assert.equal(pending.length, 2);
+  assert.equal(requestedPage(pending[1]), "2");
+});
+
+test("an empty transaction history falls back to the first page", async context => {
+  const pending = browser(context);
+  const {
+    result,
+    rerender
+  } = renderDashboard("/transactions?page=3");
+
+  await waitForDebounce();
+  await act(async () => pending[0].resolve(Response.json(transactionListState(0, 3))));
+
+  assert.equal(result.current.page, 1);
+  assert.equal(window.location.search, "");
+
+  rerender();
+  await waitForDebounce();
+  assert.equal(requestedPage(pending[1]), "1");
+  await act(async () => pending[1].resolve(Response.json(transactionListState(0, 1))));
+  assert.equal(result.current.page, 1);
+  assert.equal(pending.length, 2);
 });
