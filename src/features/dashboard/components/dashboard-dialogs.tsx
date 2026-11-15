@@ -10,12 +10,12 @@ import { BankConnectionForm } from "@/features/banking/components/bank-connectio
 import { CreateAccountForm } from "@/features/accounts/components/create-account-form";
 import { ValuationForm } from "@/features/accounts/components/valuation-form";
 import { CreateRuleForm } from "@/features/categorization/components/create-rule-form";
-import { CreateCategoryForm } from "@/features/categorization/components/create-category-form";
+import { CategoryForm } from "@/features/categorization/components/category-form";
 import { CsvImportForm } from "@/features/imports/components/csv-import-form";
 import { modalTitles } from "@/features/dashboard/presentation";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
 
-type Props = Pick<DashboardController, "bankCountry" | "bankName" | "bankSearch" | "banks" | "banksLoading" | "busy" | "error" | "importMode" | "modal" | "selectedAccount" | "setBankCountry" | "setBankName" | "setBankSearch" | "setImportMode" | "setModal" | "setNotice" | "state" | "submit">;
+type Props = Pick<DashboardController, "bankCountry" | "bankName" | "bankSearch" | "banks" | "banksLoading" | "busy" | "error" | "importMode" | "modal" | "selectedAccount" | "selectedCategory" | "setBankCountry" | "setBankName" | "setBankSearch" | "setImportMode" | "setModal" | "setNotice" | "state" | "submit">;
 
 export function DashboardDialogs({
   bankCountry,
@@ -28,6 +28,7 @@ export function DashboardDialogs({
   importMode,
   modal,
   selectedAccount,
+  selectedCategory,
   setBankCountry,
   setBankName,
   setBankSearch,
@@ -96,7 +97,8 @@ export function DashboardDialogs({
         {modal === "account" && <CreateAccountForm busy={busy} submit={submit} />}
         {modal === "balance" && selectedAccount && <ValuationForm busy={busy} selectedAccount={selectedAccount} submit={submit} />}
         {modal === "rule" && <CreateRuleForm busy={busy} state={state} submit={submit} />}
-        {modal === "category" && <CreateCategoryForm busy={busy} submit={submit} />}
+        {modal === "category" && <CategoryForm busy={busy} submit={submit} />}
+        {modal === "editCategory" && selectedCategory && <CategoryForm busy={busy} category={selectedCategory} submit={submit} />}
         {modal === "import" && (
           <CsvImportForm
             busy={busy}

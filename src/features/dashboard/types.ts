@@ -100,4 +100,4 @@ export type Bank = {
 
 export type View = "overview" | "transactions" | "accounts" | "rules" | "connections";
 
-export type Modal = "account" | "bank" | "rule" | "import" | "balance" | "category" | null;
+export type Modal = "account" | "bank" | "rule" | "import" | "balance" | "category" | "editCategory" | null;
