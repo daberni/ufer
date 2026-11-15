@@ -6,6 +6,7 @@ import { clsx } from "clsx";
 import { api } from "@/client/api";
 import type { Category } from "@/features/dashboard/types";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
+import { CategoryIconPicker } from "./category-icon-picker";
 
 type Props = Pick<DashboardController, "busy" | "submit"> & {
   category?: Category | null;
@@ -49,6 +50,7 @@ export function CategoryForm({
           defaultValue={category?.color ?? defaultColor}
         />
       </label>
+      <CategoryIconPicker defaultIcon={category?.icon ?? null} />
       <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={busy}>
         Save category
       </button>

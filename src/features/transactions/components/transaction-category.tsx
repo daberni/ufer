@@ -5,6 +5,7 @@ import { api } from "@/client/api";
 import type { Transaction } from "@/features/dashboard/types";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
 import { Select } from "@/components/ui/select";
+import { CategoryIcon } from "@/features/categorization/components/category-marker";
 
 type Props = Pick<DashboardController, "busy" | "perform" | "state"> & {
   transaction: Transaction;
@@ -20,23 +21,30 @@ export function TransactionCategory({
     return null;
   }
 
+  const selectedCategory = state.categories.find(item => item.id === transaction.category_id);
+
   return (
-    <Select
-      variant="compact"
-      className={styles["category-select"]}
-      aria-label={`Category for ${transaction.counterparty || transaction.description}`}
-      value={transaction.category_id || ""}
-      disabled={busy}
-      onChange={event => perform(() => api(`transactions/${transaction.id}`, {
-        category_id: event.target.value || null
-      }, "PATCH"))}
-    >
-      <option value="">Uncategorized</option>
-      {state?.categories.map(category => (
-        <option key={category.id} value={category.id}>
-          {category.name}
-        </option>
-      ))}
-    </Select>
+    <div className={styles["category"]}>
+      <span className={styles["icon"]}>
+        {selectedCategory && <CategoryIcon icon={selectedCategory.icon} color={selectedCategory.color} />}
+      </span>
+      <Select
+        variant="compact"
+        className={styles["category-select"]}
+        aria-label={`Category for ${transaction.counterparty || transaction.description}`}
+        value={transaction.category_id || ""}
+        disabled={busy}
+        onChange={event => perform(() => api(`transactions/${transaction.id}`, {
+          category_id: event.target.value || null
+        }, "PATCH"))}
+      >
+        <option value="">Uncategorized</option>
+        {state?.categories.map(category => (
+          <option key={category.id} value={category.id}>
+            {category.name}
+          </option>
+        ))}
+      </Select>
+    </div>
   );
 }

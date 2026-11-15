@@ -2,12 +2,14 @@ import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import type { InStatement } from "@libsql/client";
 import { sameCategoryName } from "@/lib/category-name";
+import type { CategoryIconKey } from "@/features/categorization/category-icons";
 import { database } from "@/server/database/connection";
 import { categories } from "@/server/database/schema";
 
 export type CategoryDetails = {
   name: string;
   color: string;
+  icon: CategoryIconKey | null;
 };
 
 export type CategoryWriteResult = "saved" | "name_taken" | "not_found";
@@ -53,15 +55,15 @@ async function writeUniquelyNamed(existingId: string | null, name: string, state
 
 export async function insertCategory(details: CategoryDetails) {
   return writeUniquelyNamed(null, details.name, {
-    sql: "INSERT INTO categories(id,name,color) VALUES (?,?,?)",
-    args: [randomUUID(), details.name, details.color]
+    sql: "INSERT INTO categories(id,name,color,icon) VALUES (?,?,?,?)",
+    args: [randomUUID(), details.name, details.color, details.icon]
   });
 }
 
 // Transactions and rules reference categories by id, so changing the details never touches assignments.
 export async function updateCategory(id: string, details: CategoryDetails) {
   return writeUniquelyNamed(id, details.name, {
-    sql: "UPDATE categories SET name=?, color=? WHERE id=?",
-    args: [details.name, details.color, id]
+    sql: "UPDATE categories SET name=?, color=?, icon=? WHERE id=?",
+    args: [details.name, details.color, details.icon, id]
   });
 }

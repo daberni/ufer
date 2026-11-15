@@ -1,5 +1,8 @@
 .pill {
   composes: pill from "../../../components/ui/primitives.module.css";
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
 }
 .rule-row {
   display: flex;
