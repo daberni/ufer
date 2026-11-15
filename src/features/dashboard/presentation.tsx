@@ -54,7 +54,7 @@ export function monthLabel(value: string) {
 }
 
 export function periodLabel(period: Period) {
-  return period.kind === "all" ? "All months" : monthLabel(period.month);
+  return period.kind === "all" ? "All months" : monthLabel(period.month.toString());
 }
 
 function shortMonthLabel(value: string) {

@@ -4,6 +4,7 @@ import ui from "../../../components/ui/primitives.module.css";
 
 import styles from "./spending-breakdown.module.css";
 import { periodLabel } from "@/features/dashboard/presentation";
+import { periodFromJson } from "@/features/dashboard/period";
 import { money } from "@/lib/money";
 import { Empty } from "@/components/ui/empty-state";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
@@ -23,7 +24,7 @@ export function SpendingBreakdown({
     <section className={ui["panel"]}>
       <div className={ui["card-heading"]}>
         <h2>Where your money goes</h2>
-        <span className={ui["subtle"]}>{periodLabel(state.period)}</span>
+        <span className={ui["subtle"]}>{periodLabel(periodFromJson(state.period))}</span>
       </div>
       {state.breakdown.length ? (
         <div className={styles["category-breakdown"]}>

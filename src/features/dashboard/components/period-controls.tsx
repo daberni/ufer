@@ -5,7 +5,7 @@ import ui from "../../../components/ui/primitives.module.css";
 import styles from "./period-controls.module.css";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { lastSyncLabel, periodLabel } from "@/features/dashboard/presentation";
-import { allMonthsPeriod, currentMonthPeriod, monthPeriod } from "@/features/dashboard/period";
+import { allMonthsPeriod, currentMonthPeriod, parsePeriod } from "@/features/dashboard/period";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
 import { Select } from "@/components/ui/select";
 
@@ -59,10 +59,12 @@ export function PeriodControls({
           <input
             aria-label="Select month"
             type="month"
-            value={period.kind === "month" ? period.month : ""}
+            value={period.kind === "month" ? period.month.toString() : ""}
             onChange={event => {
-              if (event.target.value) {
-                selectPeriod(monthPeriod(event.target.value));
+              const picked = parsePeriod(event.target.value);
+
+              if (picked) {
+                selectPeriod(picked);
               }
             }}
           />

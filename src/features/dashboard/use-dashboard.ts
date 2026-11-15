@@ -4,7 +4,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useDashboardData } from "./use-dashboard-data";
 import { useBankDirectory } from "@/features/banking/use-bank-directory";
 import { navigation } from "./presentation";
-import { monthPeriod, shiftMonth } from "./period";
+import { monthPeriod } from "./period";
 import type { Account, Category, View, Modal, Connection } from "./types";
 
 export function useDashboard() {
@@ -105,7 +105,9 @@ export function useDashboard() {
       return;
     }
 
-    selectPeriod(monthPeriod(shiftMonth(period.month, delta)));
+    selectPeriod(monthPeriod(period.month.add({
+      months: delta
+    })));
   }
 
   function openBank(connection?: Connection) {

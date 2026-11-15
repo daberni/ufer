@@ -1,8 +1,7 @@
 import { database } from "@/server/database/connection";
 import { environment } from "@/features/banking/server/environment";
 import { bankingConfigured } from "@/features/banking/server/enable-banking-client";
-import { viennaMonth } from "@/lib/money";
-import { shiftMonth, trendMonths, type Period } from "@/features/dashboard/period";
+import { currentMonth, periodToJson, trendMonths, type Period } from "@/features/dashboard/period";
 import type { DashboardFilters } from "./dashboard-filters";
 
 // Transaction lists, counts, cash flow and spending all use this condition so their results describe the same range.
@@ -16,7 +15,7 @@ function periodCondition(period: Period) {
 
   return {
     sql: "substr(t.booking_date,1,7)=?",
-    args: [period.month]
+    args: [period.month.toString()]
   };
 }
 
@@ -29,9 +28,15 @@ export async function readDashboardState(filters: DashboardFilters) {
     page
   } = filters;
   const inPeriod = periodCondition(period);
-  const trendWindow = trendMonths(period, viennaMonth());
-  const trendStart = `${trendWindow[0]}-01`;
-  const trendEnd = `${shiftMonth(trendWindow[trendWindow.length - 1], 1)}-01`;
+  const trendRange = trendMonths(period, currentMonth());
+  const trendWindow = trendRange.map(month => month.toString());
+  const firstDay = {
+    day: 1
+  };
+  const trendStart = trendRange[0].toPlainDate(firstDay).toString();
+  const trendEnd = trendRange[trendRange.length - 1].add({
+    months: 1
+  }).toPlainDate(firstDay).toString();
   const where = ["a.environment=?", "t.currency=?", inPeriod.sql];
   const args: (string | number)[] = [env, currency, ...inPeriod.args];
 
@@ -162,7 +167,7 @@ export async function readDashboardState(filters: DashboardFilters) {
   return {
     environment: env,
     bankingConfigured: bankingConfigured(),
-    period,
+    period: periodToJson(period),
     currency,
     page,
     accounts: accounts.rows,

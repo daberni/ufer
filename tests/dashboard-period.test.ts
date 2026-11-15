@@ -5,34 +5,47 @@ import { drizzle } from "drizzle-orm/libsql";
 import { initializeDatabase } from "../src/server/database/migrations";
 import * as schema from "../src/server/database/schema";
 import type { Database } from "../src/server/database/connection";
-import { allMonthsPeriod, monthPeriod, parsePeriod, serializePeriod, shiftMonth, trendMonths } from "../src/features/dashboard/period";
+import { Temporal } from "temporal-polyfill";
+import { allMonthsPeriod, currentMonth, monthPeriod, parsePeriod, periodFromJson, periodToJson, serializePeriod, trendMonths, type Period } from "../src/features/dashboard/period";
 import { dashboardFilters } from "../src/features/dashboard/server/dashboard-filters";
 import { readDashboardState } from "../src/features/dashboard/server/dashboard-query";
-import { viennaMonth } from "../src/lib/money";
+
+// Temporal values have no enumerable fields, so compare periods through their serialized form.
+function serialized(period: Period | null) {
+  return period ? serializePeriod(period) : null;
+}
 
 test("a period has one query representation that round-trips", () => {
-  assert.deepEqual(parsePeriod("all"), allMonthsPeriod);
-  assert.deepEqual(parsePeriod("2026-01"), monthPeriod("2026-01"));
-  assert.equal(serializePeriod(parsePeriod("2026-12")!), "2026-12");
-  assert.equal(serializePeriod(allMonthsPeriod), "all");
+  assert.equal(serialized(parsePeriod("all")), "all");
+  assert.equal(serialized(parsePeriod("2026-01")), "2026-01");
+  assert.equal(serialized(parsePeriod("2026-12")), "2026-12");
+  assert.deepEqual(periodToJson(parsePeriod("2026-12")!), {
+    kind: "month",
+    month: "2026-12"
+  });
+  assert.equal(serialized(periodFromJson(periodToJson(allMonthsPeriod))), "all");
 
   for (const invalid of ["", "ALL", "2026-13", "2026-00", "2026-1", "2026-01-01"]) {
     assert.equal(parsePeriod(invalid), null, invalid);
   }
 });
 
-test("month navigation and the trend window cross year boundaries", () => {
-  assert.equal(shiftMonth("2026-01", -1), "2025-12");
-  assert.equal(shiftMonth("2025-12", 1), "2026-01");
-  assert.equal(shiftMonth("2026-03", -15), "2024-12");
-  assert.deepEqual(trendMonths(monthPeriod("2026-02"), "2026-11"), ["2025-09", "2025-10", "2025-11", "2025-12", "2026-01", "2026-02"]);
-  assert.deepEqual(trendMonths(allMonthsPeriod, "2026-03").at(-1), "2026-03");
+test("the current month follows Vienna time at the UTC month boundary", () => {
+  assert.equal(currentMonth(Temporal.Instant.from("2026-10-31T23:30:00Z")).toString(), "2026-11");
+  assert.equal(currentMonth(Temporal.Instant.from("2026-10-31T22:30:00Z")).toString(), "2026-10");
+});
+
+test("the trend window crosses year boundaries", () => {
+  const march = Temporal.PlainYearMonth.from("2026-03");
+
+  assert.deepEqual(trendMonths(monthPeriod(Temporal.PlainYearMonth.from("2026-02")), march).map(String), ["2025-09", "2025-10", "2025-11", "2025-12", "2026-01", "2026-02"]);
+  assert.deepEqual(trendMonths(allMonthsPeriod, march).map(String), ["2025-10", "2025-11", "2025-12", "2026-01", "2026-02", "2026-03"]);
 });
 
 test("dashboard filters accept one period parameter and reject invalid periods", () => {
-  assert.deepEqual(dashboardFilters(new URLSearchParams()).period, monthPeriod(viennaMonth()));
-  assert.deepEqual(dashboardFilters(new URLSearchParams("period=all")).period, allMonthsPeriod);
-  assert.deepEqual(dashboardFilters(new URLSearchParams("period=2026-02")).period, monthPeriod("2026-02"));
+  assert.equal(serialized(dashboardFilters(new URLSearchParams()).period), currentMonth().toString());
+  assert.equal(serialized(dashboardFilters(new URLSearchParams("period=all")).period), "all");
+  assert.equal(serialized(dashboardFilters(new URLSearchParams("period=2026-02")).period), "2026-02");
   assert.throws(() => dashboardFilters(new URLSearchParams("period=2026-13")), {
     status: 400
   });
@@ -117,7 +130,10 @@ test("a month period limits transactions, cash flow and spending to the same cal
   await seededDatabase(context);
   const state = await readDashboardState(dashboardFilters(new URLSearchParams("period=2026-01")));
 
-  assert.deepEqual(state.period, monthPeriod("2026-01"));
+  assert.deepEqual(state.period, {
+    kind: "month",
+    month: "2026-01"
+  });
   assert.equal(state.transactionCount, 2);
   assert.deepEqual(state.transactions.map(item => item.id), ["january-end", "january-start"]);
   assert.equal(state.summary.income, 0);
@@ -139,11 +155,13 @@ test("the all-months period applies to cash flow and spending as well as the tra
   await seededDatabase(context);
   const state = await readDashboardState(dashboardFilters(new URLSearchParams("period=all")));
 
-  assert.deepEqual(state.period, allMonthsPeriod);
+  assert.deepEqual(state.period, {
+    kind: "all"
+  });
   assert.equal(state.transactionCount, 4);
   assert.equal(state.summary.income, 100000);
   assert.equal(state.summary.expenses, 55000);
   assert.equal(spending(state), 55000);
   assert.equal(state.trend.length, 6);
-  assert.equal(state.trend.at(-1)?.month, viennaMonth());
+  assert.equal(state.trend.at(-1)?.month, currentMonth().toString());
 });

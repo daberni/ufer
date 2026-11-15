@@ -5,7 +5,7 @@ import { initializeDatabase } from "../src/server/database/migrations";
 import { drizzle } from "drizzle-orm/libsql";
 import * as schema from "../src/server/database/schema";
 import type { Database } from "../src/server/database/connection";
-import { minorUnits, validDate, viennaMonth } from "../src/lib/money";
+import { minorUnits, validDate } from "../src/lib/money";
 import { categorize, validatePattern, type Rule } from "../src/lib/rules";
 import { acquireLease, releaseLease } from "../src/server/jobs/lease-repository";
 import { normalizeTransactions } from "../src/features/banking/server/bank-data";
@@ -112,8 +112,7 @@ test("amounts keep exact decimal cents, direction and currency precision", () =>
   assert.throws(() => minorUnits("900719925474099.91"));
   assert.throws(() => minorUnits("1.00", "XXX"));
 });
-test("monthly accounting uses Vienna time at UTC month boundary", () => {
-  assert.equal(viennaMonth(new Date("2026-10-31T23:30:00Z")), "2026-11");
+test("booking dates must be real calendar dates", () => {
   assert.equal(validDate("2026-02-30"), false);
   assert.equal(validDate("2024-02-29"), true);
 });

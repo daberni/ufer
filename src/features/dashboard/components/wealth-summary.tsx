@@ -6,6 +6,7 @@ import { clsx } from "clsx";
 import styles from "./wealth-summary.module.css";
 import { ArrowDownLeft, ArrowUpRight, Wallet } from "lucide-react";
 import { periodLabel } from "@/features/dashboard/presentation";
+import { periodFromJson } from "@/features/dashboard/period";
 import { money } from "@/lib/money";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
 
@@ -20,10 +21,8 @@ export function WealthSummary({
     return null;
   }
 
-  const {
-    period,
-    summary
-  } = state;
+  const summary = state.summary;
+  const period = periodFromJson(state.period);
   const singleMonth = period.kind === "month";
 
   return (
