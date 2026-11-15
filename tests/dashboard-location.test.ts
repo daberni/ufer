@@ -4,6 +4,7 @@ import { act, cleanup, renderHook } from "@testing-library/react";
 import { JSDOM } from "jsdom";
 import { dashboardQuery, periodScope, viewHref, withQueryChanges } from "../src/features/dashboard/dashboard-location";
 import { allMonthsPeriod, currentMonth, monthPeriod, serializePeriod } from "../src/features/dashboard/period";
+import { dashboardFilters } from "../src/features/dashboard/server/dashboard-filters";
 import { useSearchDraft } from "../src/features/transactions/use-search-draft";
 
 test("a filter change resets pagination and leaves default values out of the URL", () => {
@@ -42,6 +43,26 @@ test("views without a period link back to the period the user selected", () => {
   assert.equal(viewHref("overview", "period=2026-10"), "/?period=2026-10");
   assert.equal(viewHref("transactions", "period=all"), "/transactions?period=all");
   assert.equal(viewHref("accounts", "period=2026-10"), "/accounts");
+});
+
+test("a page in a link is a positive integer within the range the API serves", () => {
+  const pageFor = (value: string) => {
+    const params = new URLSearchParams({
+      page: value
+    });
+
+    return dashboardQuery("transactions", "", params).page;
+  };
+
+  for (const invalid of ["Infinity", "-Infinity", "NaN", "abc", "2.5", "0", "-3", ""]) {
+    assert.equal(pageFor(invalid), 1, invalid);
+  }
+
+  assert.equal(pageFor("7"), 7);
+  assert.equal(pageFor("10001"), 10_000);
+  assert.equal(pageFor("1e9"), 10_000);
+  assert.equal(dashboardFilters(new URLSearchParams("page=10001")).page, 10_000);
+  assert.equal(dashboardFilters(new URLSearchParams("page=Infinity")).page, 1);
 });
 
 test("an invalid period in a link falls back to the current month", () => {

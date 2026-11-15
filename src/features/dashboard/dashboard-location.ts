@@ -1,4 +1,5 @@
 import { currentMonth, currentMonthPeriod, parsePeriod, serializePeriod, type Period } from "./period";
+import { parsePage } from "./pagination";
 import type { View } from "./types";
 
 /**
@@ -74,7 +75,7 @@ export function dashboardQuery(view: View, scope: string, params: SearchParams):
     search: listParams.get("search") || "",
     account: listParams.get("account") || "",
     category: listParams.get("category") || "",
-    page: Math.max(1, Math.floor(Number(listParams.get("page"))) || 1)
+    page: parsePage(listParams.get("page"))
   };
 }
 
