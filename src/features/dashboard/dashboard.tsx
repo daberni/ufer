@@ -92,10 +92,10 @@ export default function Dashboard() {
                 <PeriodControls
                   currencies={dashboard.currencies}
                   currency={dashboard.currency}
-                  month={dashboard.month}
                   moveMonth={dashboard.moveMonth}
+                  period={dashboard.period}
+                  selectPeriod={dashboard.selectPeriod}
                   setCurrency={dashboard.setCurrency}
-                  setMonth={dashboard.setMonth}
                   setPage={dashboard.setPage}
                   state={dashboard.state}
                   view={dashboard.view}
@@ -105,13 +105,11 @@ export default function Dashboard() {
                 <OverviewView
                   changeView={dashboard.changeView}
                   currency={dashboard.currency}
-                  month={dashboard.month}
                   openBank={dashboard.openBank}
                   selectedCurrencyAccounts={dashboard.selectedCurrencyAccounts}
                   setModal={dashboard.setModal}
                   setSelectedAccount={dashboard.setSelectedAccount}
                   state={dashboard.state}
-                  summary={dashboard.summary}
                   totalExpenses={dashboard.totalExpenses}
                   trend={dashboard.trend}
                   trendMax={dashboard.trendMax}
@@ -120,7 +118,6 @@ export default function Dashboard() {
               {(dashboard.view === "overview" || dashboard.view === "transactions") && (
                 <TransactionsPanel
                   accountFilter={dashboard.accountFilter}
-                  allMonths={dashboard.allMonths}
                   busy={dashboard.busy}
                   categoryFilter={dashboard.categoryFilter}
                   changeView={dashboard.changeView}
@@ -130,7 +127,6 @@ export default function Dashboard() {
                   search={dashboard.search}
                   selectedCurrencyAccounts={dashboard.selectedCurrencyAccounts}
                   setAccountFilter={dashboard.setAccountFilter}
-                  setAllMonths={dashboard.setAllMonths}
                   setCategoryFilter={dashboard.setCategoryFilter}
                   setImportMode={dashboard.setImportMode}
                   setModal={dashboard.setModal}

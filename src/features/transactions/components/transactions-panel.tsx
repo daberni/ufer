@@ -10,11 +10,10 @@ import { TransactionList } from "@/features/transactions/components/transaction-
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
 import { Select } from "@/components/ui/select";
 
-type Props = Pick<DashboardController, "accountFilter" | "allMonths" | "busy" | "categoryFilter" | "changeView" | "page" | "perform" | "reportFeedback" | "search" | "selectedCurrencyAccounts" | "setAccountFilter" | "setAllMonths" | "setCategoryFilter" | "setImportMode" | "setModal" | "setPage" | "setSearch" | "state" | "view" | "visibleTransactions">;
+type Props = Pick<DashboardController, "accountFilter" | "busy" | "categoryFilter" | "changeView" | "page" | "perform" | "reportFeedback" | "search" | "selectedCurrencyAccounts" | "setAccountFilter" | "setCategoryFilter" | "setImportMode" | "setModal" | "setPage" | "setSearch" | "state" | "view" | "visibleTransactions">;
 
 export function TransactionsPanel({
   accountFilter,
-  allMonths,
   busy,
   categoryFilter,
   changeView,
@@ -24,7 +23,6 @@ export function TransactionsPanel({
   search,
   selectedCurrencyAccounts,
   setAccountFilter,
-  setAllMonths,
   setCategoryFilter,
   setImportMode,
   setModal,
@@ -104,17 +102,6 @@ export function TransactionsPanel({
               </option>
             ))}
           </Select>
-          <label className={styles["check-label"]}>
-            <input
-              type="checkbox"
-              checked={allMonths}
-              onChange={event => {
-                setAllMonths(event.target.checked);
-                setPage(1);
-              }}
-            />
-            All months
-          </label>
         </div>
       )}
       {visibleTransactions?.length ? (

@@ -6,6 +6,7 @@ import { useBankDirectory } from "@/features/banking/use-bank-directory";
 import { failureMessage } from "@/client/api";
 import { useActionFeedback, type Feedback } from "@/components/ui/use-action-feedback";
 import { navigation } from "./presentation";
+import { monthPeriod } from "./period";
 import type { Account, Category, View, Modal, Connection } from "./types";
 
 export type ActionResult<T> = {
@@ -40,8 +41,8 @@ export function useDashboard() {
     state,
     setState,
     loadError,
-    month,
-    setMonth,
+    period,
+    selectPeriod,
     currency,
     setCurrency,
     search,
@@ -50,8 +51,6 @@ export function useDashboard() {
     setAccountFilter,
     categoryFilter,
     setCategoryFilter,
-    allMonths,
-    setAllMonths,
     page,
     setPage,
     locked,
@@ -123,11 +122,13 @@ export function useDashboard() {
   }
 
   function moveMonth(delta: number) {
-    const next = new Date(`${month}-01T12:00:00Z`);
+    if (period.kind !== "month") {
+      return;
+    }
 
-    next.setUTCMonth(next.getUTCMonth() + delta);
-    setMonth(next.toISOString().slice(0, 7));
-    setPage(1);
+    selectPeriod(monthPeriod(period.month.add({
+      months: delta
+    })));
   }
 
   function openBank(connection?: Connection) {
@@ -142,7 +143,6 @@ export function useDashboard() {
     setModal("removeConnection");
   }
 
-  const summary = state?.summary;
 
   const currencies = [...new Set(["EUR", ...(state?.accounts.map(account => account.currency) || [])])];
 
@@ -156,20 +156,7 @@ export function useDashboard() {
 
   const nav = navigation.find(item => item.id === view)!;
 
-  const trend = Array.from({
-    length: 6
-  }, (_, index) => {
-    const d = new Date(`${month}-01T12:00:00Z`);
-
-    d.setUTCMonth(d.getUTCMonth() - 5 + index);
-    const key = d.toISOString().slice(0, 7);
-
-    return state?.trend.find(item => item.month === key) || {
-      month: key,
-      income: 0,
-      expenses: 0
-    };
-  });
+  const trend = state?.trend || [];
 
   const trendMax = Math.max(1, ...trend.flatMap(item => [item.income, item.expenses]));
 
@@ -180,8 +167,8 @@ export function useDashboard() {
     setView,
     state,
     setState,
-    month,
-    setMonth,
+    period,
+    selectPeriod,
     currency,
     setCurrency,
     search,
@@ -190,8 +177,6 @@ export function useDashboard() {
     setAccountFilter,
     categoryFilter,
     setCategoryFilter,
-    allMonths,
-    setAllMonths,
     page,
     setPage,
     modal,
@@ -228,7 +213,6 @@ export function useDashboard() {
     moveMonth,
     openBank,
     openConnectionRemoval,
-    summary,
     currencies,
     selectedCurrencyAccounts,
     bankAccounts,
