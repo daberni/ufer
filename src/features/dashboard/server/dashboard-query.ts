@@ -93,7 +93,7 @@ export async function readDashboardState(filters: DashboardFilters) {
     args
   });
   const categoriesQuery = client.execute("SELECT * FROM categories ORDER BY name");
-  const rulesQuery = client.execute("SELECT r.*,c.name AS category_name,c.color AS category_color FROM categorization_rules r JOIN categories c ON c.id=r.category_id ORDER BY priority,r.id");
+  const rulesQuery = client.execute("SELECT r.*,c.name AS category_name,c.color AS category_color,c.icon AS category_icon FROM categorization_rules r JOIN categories c ON c.id=r.category_id ORDER BY priority,r.id");
   const connectionsQuery = client.execute({
     sql: `
       SELECT id,bank_name,bank_country,CASE WHEN status='PENDING'
@@ -131,7 +131,7 @@ export async function readDashboardState(filters: DashboardFilters) {
   });
   const breakdownQuery = client.execute({
     sql: `
-      SELECT COALESCE(c.name,'Uncategorized') AS name,COALESCE(c.color,'#a2aaa5') AS color,SUM(-t.amount_minor) AS amount
+      SELECT COALESCE(c.name,'Uncategorized') AS name,COALESCE(c.color,'#a2aaa5') AS color,c.icon AS icon,SUM(-t.amount_minor) AS amount
       FROM transactions t
       JOIN accounts a ON a.id=t.account_id
       LEFT JOIN categories c ON c.id=t.category_id

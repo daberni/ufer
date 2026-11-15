@@ -1,0 +1,62 @@
+import styles from "./category-icon-picker.module.css";
+import { categoryIconKeys, categoryIconLabels, type CategoryIconKey } from "@/features/categorization/category-icons";
+import { categoryTileColors } from "@/features/categorization/category-colors";
+import { CategoryMarker, categoryIconComponents } from "./category-marker";
+
+type Props = {
+  color: string;
+  icon: CategoryIconKey | "";
+  onChange: (icon: CategoryIconKey | "") => void;
+};
+
+export function CategoryIconPicker({
+  color,
+  icon,
+  onChange
+}: Props) {
+  const iconColor = categoryTileColors(color).icon;
+
+  return (
+    <fieldset className={styles["icon-picker"]}>
+      <legend>Icon</legend>
+      <div className={styles["icon-options"]}>
+        <label className={styles["icon-option"]} title="No icon">
+          <input
+            className={styles["icon-input"]}
+            type="radio"
+            name="icon"
+            value=""
+            checked={icon === ""}
+            onChange={() => onChange("")}
+          />
+          <CategoryMarker icon={null} color={color} size="small" />
+          <span className={styles["icon-label"]}>No icon</span>
+        </label>
+        {categoryIconKeys.map(key => {
+          const Icon = categoryIconComponents[key];
+
+          return (
+            <label className={styles["icon-option"]} key={key} title={categoryIconLabels[key]}>
+              <input
+                className={styles["icon-input"]}
+                type="radio"
+                name="icon"
+                value={key}
+                checked={icon === key}
+                onChange={() => onChange(key)}
+              />
+              <Icon
+                aria-hidden="true"
+                size={18}
+                style={{
+                  color: iconColor
+                }}
+              />
+              <span className={styles["icon-label"]}>{categoryIconLabels[key]}</span>
+            </label>
+          );
+        })}
+      </div>
+    </fieldset>
+  );
+}
