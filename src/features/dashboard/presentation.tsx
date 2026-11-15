@@ -1,4 +1,5 @@
 import { ArrowDownLeft, Building2, CreditCard, Landmark, LayoutDashboard, Link2, SlidersHorizontal, ChartNoAxesCombined, Wallet } from "lucide-react";
+import { describeDate } from "@/lib/date-format";
 import type { View } from "./types";
 
 export const kinds: Record<string, string> = {
@@ -36,13 +37,6 @@ export const navigation = [{
   mobileLabel: "Banks",
   icon: Link2
 }];
-
-export function date(value: string | null) {
-  return value ? new Intl.DateTimeFormat("en-GB", {
-    day: "numeric",
-    month: "short"
-  }).format(new Date(value)) : "No balance yet";
-}
 
 export function monthLabel(value: string) {
   return new Intl.DateTimeFormat("en-GB", {
@@ -98,7 +92,7 @@ export function lastSyncLabel(run: {
 
   const status = syncStatusLabels[run.status] || "failed";
 
-  return `Last sync: ${date(run.started_at)} · ${status}`;
+  return `Last sync: ${describeDate(run.started_at).label} · ${status}`;
 }
 
 export function accountSyncLabel(account: {

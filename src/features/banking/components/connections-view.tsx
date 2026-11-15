@@ -5,7 +5,7 @@ import ui from "../../../components/ui/primitives.module.css";
 import { clsx } from "clsx";
 import styles from "./connections-view.module.css";
 import { Landmark, Link2, Plus, ShieldCheck } from "lucide-react";
-import { date } from "@/features/dashboard/presentation";
+import { DateValue } from "@/components/ui/date-value";
 import { Empty } from "@/components/ui/empty-state";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
 
@@ -48,7 +48,7 @@ export function ConnectionsView({
                 <div>
                   <h3>{connection.bank_name}</h3>
                   <p>
-                    {connection.bank_country} · {connection.valid_until ? `Authorized until ${date(connection.valid_until)}` : "Authorization not completed yet"}
+                    {connection.bank_country} · {connection.valid_until ? <>Authorized until <DateValue value={connection.valid_until} /></> : "Authorization not completed yet"}
                   </p>
                   {connection.error && <p className={ui["error-text"]}>{connection.error}</p>}
                 </div>
@@ -83,7 +83,7 @@ export function ConnectionsView({
           </div>
           {state.runs.map(run => (
             <div className={styles["sync-row"]} key={run.id}>
-              <span>{date(run.started_at)}</span>
+              <span><DateValue value={run.started_at} /></span>
               <span className={styles["pill"]}>{run.status}</span>
               <span>{run.inserted_count} new transactions</span>
               {run.error && <p className={ui["error-text"]}>{run.error}</p>}

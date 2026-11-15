@@ -6,7 +6,8 @@ import accountStyles from "./account-presentation.module.css";
 import { clsx } from "clsx";
 import styles from "./overview-accounts.module.css";
 import { ArrowRight, Landmark, Plus } from "lucide-react";
-import { date, accountIcon, kinds, accountSyncLabel } from "@/features/dashboard/presentation";
+import { accountIcon, kinds, accountSyncLabel } from "@/features/dashboard/presentation";
+import { DateValue } from "@/components/ui/date-value";
 import { money } from "@/lib/money";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
 
@@ -61,7 +62,7 @@ export function OverviewAccounts({
                 <span className={styles["account-tile-foot"]}>
                   <span className={clsx(styles["status-dot"], account.sync_error ? styles["warn"] : "")} />
                   {accountSyncLabel(account)}
-                  <span>{date(account.balance_date)}</span>
+                  <span><DateValue value={account.balance_date} fallback="No balance yet" /></span>
                 </span>
               </button>
             );

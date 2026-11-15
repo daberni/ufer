@@ -4,6 +4,7 @@ import ui from "../../../components/ui/primitives.module.css";
 
 import styles from "./period-controls.module.css";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { describeDate } from "@/lib/date-format";
 import { lastSyncLabel, monthLabel } from "@/features/dashboard/presentation";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
 
@@ -24,11 +25,13 @@ export function PeriodControls({
     return null;
   }
 
+  const latestSync = state.runs[0];
+
   return (
     <div className={styles["period-bar"]}>
       <div>
         <span className={ui["section-kicker"]}>{view === "overview" ? "NET WORTH & MONTHLY CASH FLOW" : `${state.transactionCount} ${state.transactionCount === 1 ? "TRANSACTION" : "TRANSACTIONS"}`}</span>
-        {view === "overview" && <span className={styles["subtle"]}>{lastSyncLabel(state.runs[0])}</span>}
+        {view === "overview" && <span className={styles["subtle"]} title={latestSync ? describeDate(latestSync.started_at).title : undefined}>{lastSyncLabel(latestSync)}</span>}
       </div>
       <div className={styles["period-controls"]}>
         <select
