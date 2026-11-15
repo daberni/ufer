@@ -1,10 +1,11 @@
 import { z } from "zod";
 import { validDate } from "@/lib/money";
+import { accountKinds } from "../account-kinds";
 
 export const accountInput = z.object({
   name: z.string().trim().min(1).max(100),
   institution: z.string().trim().min(1).max(100),
-  kind: z.enum(["checking", "savings", "investment", "loan", "property", "credit_card"]),
+  kind: z.enum(accountKinds),
   currency: z.string().regex(/^[A-Z]{3}$/).default("EUR"),
   balance: z.string().max(30)
 });
