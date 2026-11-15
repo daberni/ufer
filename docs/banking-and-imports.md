@@ -1,0 +1,45 @@
+# Banking and imports
+
+This guide describes the current bank integration, financial data behavior and supported import formats. For installation and deployment, see [setup and operation](setup.md). For planned capabilities, see the [feature comparison](feature-comparison.md).
+
+## Bank synchronization
+
+The current provider is [Enable Banking](https://enablebanking.com/docs/api/reference/). Ufer uses account information endpoints only: application JWTs, institution discovery, authorization, sessions, balances, and paginated transactions. It does not initiate payments.
+
+Sandbox and production data are isolated. Sandbox institutions do not establish production bank coverage. Live access requires a production application and the provider's account-linking or commercial onboarding process. [Restricted own-account access](https://enablebanking.com/docs/api/linked-accounts/) is intended for evaluation and individual non-commercial use; it is not a contract for a hosted SaaS product.
+
+Authorizations expire according to the institution's consent duration. The UI warns seven days before expiry and supports reconnecting. Stable identification hashes match reconnects to existing accounts; a changed account currency prevents automatic remapping.
+
+Sync retrieves a rolling 89-day window, processes accounts sequentially, follows all continuation pages, and persists only booked (`BOOK`) transactions. Deduplication uses `entry_reference` per account; `transaction_id` is not reliably unique. Missing or conflicting references stop that account's import. Manual category corrections, including deliberately uncategorized transactions, survive repeat imports. Provider references and account links exist today; a complete per-import provenance trail and editable transaction overrides are planned.
+
+Application keys stay on the server. Bank session IDs are encrypted with AES-256-GCM. Authorization callbacks bind the initiating user, exact live authentication session, active installation-workspace membership and browser secret, expire after 15 minutes, and are single-use. Back up the database and encryption key together. Financial database contents are not end-to-end encrypted.
+
+## Data and imports
+
+Amounts use integer minor units. Different currencies are never silently converted or summed. The dashboard separates latest known asset balances from month-filtered cash flow. Categorized transfers are excluded from income and expenses; transfers to known owned IBANs are identified automatically.
+
+The schema includes accounts, transactions, categories, categorization rules, bank connections (`requisitions`), account identifiers, balance snapshots, sync history, leases, and login throttling. Drizzle provides typed table models, a shared database connection and versioned SQL changesets. Empty databases receive the initial schema; a recognized existing database opens without automatic schema/history changes. Existing-database adoption and future upgrades require explicit maintenance; see the [migration workflow](database-migrations.md). Individual users and active membership of one constrained installation workspace are implemented in source; independent-customer isolation and SSO remain unimplemented. See [user management](user-management.md) for the required rollout.
+
+Manual valuations and CSV imports are available. Current imports require a fixed UTF-8 format with comma or semicolon delimiters and an optional BOM. Configurable field mapping, previews, and reusable import profiles are planned. There is no PDF importer or dedicated migration wizard for another product.
+
+Balance snapshots record an account's balance or asset valuation on a given date, together with its source (bank sync, manual entry or CSV). They preserve history when the latest balance changes. This is necessary for investments whose market value cannot be reconstructed from cash transactions alone. Historical net-worth charts are planned; snapshots are already persisted, but no history chart is available yet.
+
+Balance-history CSV:
+
+```csv
+date;balance;currency
+2026-01-15;1000.00;EUR
+```
+
+The latest dated snapshot updates the current balance; older imports cannot overwrite a newer current balance. A repeated date updates that snapshot.
+
+Booked transactions:
+
+```csv
+id;date;amount;currency;counterparty;description
+example-001;2026-01-15;-12.50;EUR;Example merchant;Example purchase
+```
+
+IDs must be stable and unique per account. Reimporting updates rather than duplicates. Transaction imports do not recalculate the account balance. Limits: 1 MB, 10,000 rows, ISO dates, and the account's currency. Use a decimal point, or a decimal comma with semicolon delimiters, without thousands separators.
+
+Rules match payee and description case-insensitively. Lower priority numbers win; rule ID breaks ties. Applying rules preserves manual assignments. Regular expressions use RE2 syntax without backreferences or lookbehind.
