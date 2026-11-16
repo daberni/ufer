@@ -2,6 +2,7 @@ import { connection } from "next/server";
 import Dashboard from "@/features/dashboard/dashboard";
 import { DashboardProvider } from "@/features/dashboard/dashboard-context";
 import { QueryProvider } from "@/client/query-provider";
+import { sourceCodeUrl } from "@/features/legal/server/source-code";
 
 export default async function DashboardLayout({ children }: Readonly<{
   children: React.ReactNode;
@@ -12,7 +13,7 @@ export default async function DashboardLayout({ children }: Readonly<{
   return (
     <QueryProvider>
       <DashboardProvider>
-        <Dashboard>{children}</Dashboard>
+        <Dashboard sourceCodeUrl={sourceCodeUrl()}>{children}</Dashboard>
       </DashboardProvider>
     </QueryProvider>
   );

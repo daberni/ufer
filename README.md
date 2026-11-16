@@ -35,5 +35,14 @@ See [setup and self-hosting](docs/setup.md) for installation instructions, or th
 - [Backlog](https://github.com/daberni/ufer/issues) — reported problems and requested improvements.
 - [Banking and imports](docs/banking-and-imports.md) — connection behavior, data handling and import formats.
 - [Architecture](docs/architecture.md) — technical structure and decisions for contributors.
+- [Contributing](CONTRIBUTING.md) — how to propose changes and the checks to run.
 
-This project is currently private. An open-source license has not been selected. Repository documentation and code are maintained in English.
+Repository documentation and code are maintained in English.
+
+## License
+
+Ufer is free software under the [GNU Affero General Public License, version 3 or later](LICENSE) (`AGPL-3.0-or-later`). Anyone may run, modify and host it; if you run a modified version for other users over a network, you must offer those users its source code. Set `SOURCE_CODE_URL` so the application links to it (see [setup](docs/setup.md#source-code-offer)).
+
+Contributions are accepted only from contributors who have signed the [contributor license agreement](CLA.md); see [contributing](CONTRIBUTING.md).
+
+The license grants no rights to the name "Ufer" or the Ufer icon as trademarks.

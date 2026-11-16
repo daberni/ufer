@@ -76,7 +76,7 @@ For that candidate, define the billing unit before promising “one account”: 
 
 A free hosted allowance should demonstrate real automatic synchronization and useful reports. The multi-account overview may be the strongest reason to subscribe, so a one-account allowance can hide that value; compare it with a time-limited full-product trial before deciding. Establish provider contract terms and costs for free as well as paid users, expected sync/hosting costs and observed usage first. Free self-hosted software does not imply free third-party banking service or managed operation.
 
-Open-source software and charging for services are compatible; the [GNU guidance on selling free software](https://www.gnu.org/philosophy/selling.en.html) explicitly permits commercial distribution and support. The actual project license remains undecided. An open-source license must not be described as automatically preventing other providers from offering paid hosting.
+Open-source software and charging for services are compatible; the [GNU guidance on selling free software](https://www.gnu.org/philosophy/selling.en.html) explicitly permits commercial distribution and support. Ufer is licensed under [AGPL-3.0-or-later](../LICENSE). The license does not prevent other providers from offering paid hosting; anyone who runs a modified version for other users must offer those users its source code. Contributions are accepted under a [contributor license agreement](../CLA.md) that also allows the maintainer to use them in a hosted offering and to relicense them. The license grants no rights to the Ufer name or icon.
 
 Enable Banking's [restricted production mode](https://enablebanking.com/docs/api/linked-accounts/) covers evaluation and individual non-commercial access to linked own accounts. Managed multi-customer access requires checking commercial terms and obtaining the appropriate agreement. Provider costs and eligibility must be established before promising a hosted bank-sync plan.
 
@@ -134,4 +134,4 @@ Repository content must describe a generic product. Do not include personal inst
 
 ## Decisions still open
 
-Project license, commercial banking agreement, market-data provider, SaaS pricing/free-tier eligibility and billing unit, and detailed PostgreSQL adapter implementation are not settled. The accepted functional priorities are tracked in the [feature comparison](feature-comparison.md#tracked-work).
+Commercial banking agreement, market-data provider, SaaS pricing/free-tier eligibility and billing unit, and detailed PostgreSQL adapter implementation are not settled. The accepted functional priorities are tracked in the [feature comparison](feature-comparison.md#tracked-work).

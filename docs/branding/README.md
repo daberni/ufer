@@ -4,6 +4,10 @@
 
 The U-shaped riverbanks, winding channel and two ripples connect Ufer's shoreline meaning with banking. The forest-green background and pale-sage mark keep the identity consistent with the application.
 
+## Origin
+
+An AI agent generated the icon artwork for this project; no third-party source image, template or icon set is known to have been used. The Apple touch icon is rendered from the canonical SVG, and the [illustrations](#illustrations) are inline SVG written for this project. The assets are covered by the project's [AGPL-3.0-or-later license](../../LICENSE), which grants no trademark rights to the Ufer name or icon. Record the origin of any replacement or additional artwork here.
+
 ## Production assets
 
 | Asset | Purpose |

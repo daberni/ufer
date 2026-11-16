@@ -13,14 +13,19 @@ import { PageHeading } from "@/features/dashboard/components/page-heading";
 import { DashboardDialogs } from "@/features/dashboard/components/dashboard-dialogs";
 import { ViewLoading } from "@/features/dashboard/components/view-loading";
 import { LoginForm } from "@/features/auth/components/login-form";
+import { SourceCodeNotice } from "@/features/legal/components/source-code-notice";
 import { accountGroups, useAccounts } from "@/features/accounts/queries";
 import { useBankingStatus } from "@/features/banking/queries";
 import { useDashboardController } from "./dashboard-context";
 import { useLoadError } from "./use-load-error";
 
 /** The persistent dashboard shell; the current view route renders inside it. */
-export default function Dashboard({ children }: {
-  children: React.ReactNode
+export default function Dashboard({
+  children,
+  sourceCodeUrl
+}: {
+  children: React.ReactNode;
+  sourceCodeUrl: string | null;
 }) {
   const dashboard = useDashboardController();
 
@@ -28,12 +33,16 @@ export default function Dashboard({ children }: {
     return <LoginForm unlock={dashboard.unlock} />;
   }
 
-  return <DashboardShell>{children}</DashboardShell>;
+  return <DashboardShell sourceCodeUrl={sourceCodeUrl}>{children}</DashboardShell>;
 }
 
 // Rendered only while signed in, so no dashboard query runs behind the sign-in form.
-function DashboardShell({ children }: {
-  children: React.ReactNode
+function DashboardShell({
+  children,
+  sourceCodeUrl
+}: {
+  children: React.ReactNode;
+  sourceCodeUrl: string | null;
 }) {
   const dashboard = useDashboardController();
   const banking = useBankingStatus();
@@ -99,6 +108,7 @@ function DashboardShell({ children }: {
               <BrandIcon size={16} /> Ufer
             </span>
             <span>A clearer view of your money.</span>
+            <SourceCodeNotice url={sourceCodeUrl} />
           </footer>
         </main>
       </div>
