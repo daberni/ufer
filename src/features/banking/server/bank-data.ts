@@ -1,5 +1,6 @@
 import { HttpError, ValidationError } from "@/lib/errors";
-import { minorUnits, validDate } from "@/lib/money";
+import { minorUnits } from "@/lib/money";
+import { today, validDate } from "@/lib/time";
 import type { Entry } from "@/features/transactions/server/transaction-entry";
 import type { BankTransaction, Balance } from "./enable-banking-client";
 
@@ -56,7 +57,7 @@ export function selectedBalance(balances: Balance[], currency: string) {
     if (balance) {
       return {
         amount: bankAmount(balance.balance_amount.amount, currency),
-        date: balance.reference_date || new Date().toISOString().slice(0, 10)
+        date: balance.reference_date || today().toString()
       };
     }
   }

@@ -3,6 +3,7 @@ import { database } from "@/server/database/connection";
 import { requisitions, syncRuns } from "@/server/database/schema";
 import { environment } from "./environment";
 import { bankingConfigured } from "./enable-banking-client";
+import { timestamp } from "@/lib/time";
 
 export function bankingStatus() {
   return {
@@ -14,7 +15,7 @@ export function bankingStatus() {
 /** The latest bank connections; pending and linked authorizations past their expiry are reported as expired. */
 export async function listConnections() {
   const db = await database();
-  const now = new Date().toISOString();
+  const now = timestamp();
   const status = sql<string>`CASE WHEN ${requisitions.status}='PENDING' AND ${requisitions.state_expires_at} < ${now} THEN 'EXPIRED' WHEN ${requisitions.status}='LINKED' AND ${requisitions.valid_until} < ${now} THEN 'EXPIRED' ELSE ${requisitions.status} END`;
 
   return db.select({

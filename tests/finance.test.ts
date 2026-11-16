@@ -5,7 +5,9 @@ import { initializeDatabase } from "../src/server/database/migrations";
 import { drizzle } from "drizzle-orm/libsql";
 import * as schema from "../src/server/database/schema";
 import type { Database } from "../src/server/database/connection";
-import { minorUnits, validDate } from "../src/lib/money";
+import { Temporal } from "temporal-polyfill";
+import { minorUnits } from "../src/lib/money";
+import { validDate } from "../src/lib/time";
 import { categorize, validatePattern, type Rule } from "../src/lib/rules";
 import { acquireLease, releaseLease } from "../src/server/jobs/lease-repository";
 import { normalizeTransactions } from "../src/features/banking/server/bank-data";
@@ -112,9 +114,14 @@ test("amounts keep exact decimal cents, direction and currency precision", () =>
   assert.throws(() => minorUnits("900719925474099.91"));
   assert.throws(() => minorUnits("1.00", "XXX"));
 });
-test("booking dates must be real calendar dates", () => {
+test("booking dates must be real calendar dates in exactly YYYY-MM-DD form", () => {
   assert.equal(validDate("2026-02-30"), false);
   assert.equal(validDate("2024-02-29"), true);
+  assert.equal(validDate("2025-02-29"), false);
+
+  for (const otherForm of ["", "20260301", "2026-3-1", "2026-03-01T10:00", "2026-03-01Z", "2026-03-01[u-ca=iso8601]", "+002026-03-01", " 2026-03-01"]) {
+    assert.equal(validDate(otherForm), false, otherForm);
+  }
 });
 test("rule priority and disabled rules follow explicit precedence", () => {
   assert.equal(categorize("MARKET", "Rent", rules), "home");
@@ -169,6 +176,12 @@ test("CSV rejects unstable IDs, duplicate valuations and mismatching currencies 
   assert.throws(() => parseBalancesCsv("date,balance,currency\n2026-11-12,1,USD", "EUR"));
   assert.throws(() => parseBalancesCsv("date,balance,currency\n2026-11-12,1,EUR\n2026-11-12,2,EUR", "EUR"), /multiple balances/);
   assert.deepEqual(parseBalancesCsv("date,balance,currency\n2026-11-12,2,EUR\n2026-11-11,1,EUR", "EUR").map(row => row.amount), [100, 200]);
+});
+test("CSV balances dated today in Vienna are accepted before UTC reaches that day", () => {
+  const viennaAfterMidnight = Temporal.Instant.from("2026-03-01T23:30:00Z");
+
+  assert.deepEqual(parseBalancesCsv("date,balance,currency\n2026-03-02,1,EUR", "EUR", viennaAfterMidnight).map(row => row.date), ["2026-03-02"]);
+  assert.throws(() => parseBalancesCsv("date,balance,currency\n2026-03-03,1,EUR", "EUR", viennaAfterMidnight), /invalid date/);
 });
 test("repeated sync preserves manual category corrections including deliberately uncategorized", async () => {
   const client = await initializeDatabase(createClient({
@@ -252,11 +265,12 @@ test("a second sync cannot acquire an active lease and a previous owner cannot r
   });
 
   try {
-    const now = new Date("2026-11-12T00:00:00Z");
+    const now = Temporal.Instant.from("2026-11-12T00:00:00Z");
 
     assert.equal(await acquireLease(db, "sync", "first", now), true);
-    assert.equal(await acquireLease(db, "sync", "second", now), false);
-    assert.equal(await acquireLease(db, "sync", "second", new Date("2026-11-12T00:13:00Z")), true);
+    assert.equal((await client.execute("SELECT expires_at FROM leases")).rows[0].expires_at, "2026-11-12T00:12:00.000Z");
+    assert.equal(await acquireLease(db, "sync", "second", Temporal.Instant.from("2026-11-12T00:11:59.999Z")), false);
+    assert.equal(await acquireLease(db, "sync", "second", Temporal.Instant.from("2026-11-12T00:13:00Z")), true);
     await releaseLease(db, "sync", "first");
     assert.equal((await client.execute("SELECT owner FROM leases")).rows[0].owner, "second");
   } finally {

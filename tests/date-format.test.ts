@@ -1,7 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Temporal } from "temporal-polyfill";
-import { defaultTimeZone, describeDate } from "../src/lib/date-format";
+import { describeDate, describeMonth } from "../src/lib/date-format";
+import { monthRangeLabel } from "../src/features/dashboard/presentation";
+import { productTimeZone } from "../src/lib/time";
 
 test("date-only values keep their calendar day and show no time or zone", () => {
   const display = describeDate(Temporal.PlainDate.from("2026-03-01"));
@@ -28,8 +30,17 @@ test("timestamp titles keep the offset for zones without an abbreviation", () =>
 });
 
 test("the product default zone yields a machine-independent timestamp", () => {
-  const display = describeDate(Temporal.Instant.from("2026-03-01T23:30:00.000Z").toZonedDateTimeISO(defaultTimeZone));
+  const display = describeDate(Temporal.Instant.from("2026-03-01T23:30:00.000Z").toZonedDateTimeISO(productTimeZone));
 
   assert.equal(display.label, "2 Mar");
   assert.match(display.title, /00:30:00 CET$/);
+});
+
+test("month names do not depend on the machine time zone", () => {
+  assert.deepEqual(describeMonth(Temporal.PlainYearMonth.from("2026-03")), {
+    label: "Mar",
+    title: "March 2026"
+  });
+  assert.equal(monthRangeLabel(["2026-06", "2026-11"].map(month => Temporal.PlainYearMonth.from(month))), "Jun – Nov 2026");
+  assert.equal(monthRangeLabel(["2025-12", "2026-05"].map(month => Temporal.PlainYearMonth.from(month))), "Dec 2025 – May 2026");
 });

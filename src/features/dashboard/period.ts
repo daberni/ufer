@@ -1,7 +1,8 @@
 import { Temporal } from "temporal-polyfill";
+import { today } from "@/lib/time";
 
 /**
- * The reporting period shared by every period-aware view. A month is a calendar month in Europe/Vienna.
+ * The reporting period shared by every period-aware view. A month is a calendar month in the product time zone.
  */
 export type Period = {
   kind: "month";
@@ -34,7 +35,7 @@ export const allMonthsPeriod: Period = {
 };
 
 export function currentMonth(now = Temporal.Now.instant()) {
-  return now.toZonedDateTimeISO("Europe/Vienna").toPlainDate().toPlainYearMonth();
+  return today(now).toPlainYearMonth();
 }
 
 export function currentMonthPeriod(): Period {
