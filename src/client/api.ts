@@ -42,9 +42,15 @@ async function send<T>(path: string, init: RequestInit): Promise<T> {
   const data = await readJson(response);
 
   if (!response.ok) {
-    throw apiError(isRecord(data) ? data : {
-      detail: `The server could not complete the request (HTTP ${response.status}).`,
-      traceId: response.headers.get("x-trace-id") ?? undefined
+    const headerTraceId = response.headers.get("x-trace-id") ?? undefined;
+    // A JSON body without a detail or title is not Problem Details, for example an intermediary's own error object.
+    const problem = isRecord(data) && (typeof data.detail === "string" || typeof data.title === "string") ? data : {
+      detail: `The server could not complete the request (HTTP ${response.status}).`
+    };
+
+    throw apiError({
+      ...problem,
+      traceId: typeof problem.traceId === "string" ? problem.traceId : headerTraceId
     }, response.status);
   }
 

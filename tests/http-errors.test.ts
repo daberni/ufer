@@ -317,6 +317,19 @@ test("server failures show their trace ID to the user, validation failures do no
   assert.match(failureMessage(await api("accounts", {}).catch(error => error)), new RegExp(`Trace ID: ${traceId}$`));
 
   answer = Response.json({
+    error: "Bad Gateway"
+  }, {
+    status: 502,
+    headers: {
+      "X-Trace-Id": traceId
+    }
+  });
+  const gatewayFailure = failureMessage(await api("accounts", {}).catch(error => error));
+
+  assert.match(gatewayFailure, /HTTP 502/);
+  assert.match(gatewayFailure, new RegExp(`Trace ID: ${traceId}$`));
+
+  answer = Response.json({
     status: 422,
     detail: "The amount has too many decimal places.",
     traceId
