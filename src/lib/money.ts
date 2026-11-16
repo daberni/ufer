@@ -19,9 +19,13 @@ const exponents: Record<string, number> = {
   BHD: 3
 };
 
-/** A well-formed ISO 4217 code; `Intl.NumberFormat` throws a RangeError for anything else. */
-export function isCurrencyCode(value: string) {
-  return /^[A-Z]{3}$/.test(value);
+const supportedCurrencies = new Set(Intl.supportedValuesOf("currency"));
+
+/** The uppercase code when the runtime supports the currency, otherwise null. */
+export function parseCurrencyCode(value: string) {
+  const code = value.toUpperCase();
+
+  return supportedCurrencies.has(code) ? code : null;
 }
 
 export function minorUnits(value: string, currency = "EUR"): number {
