@@ -56,13 +56,3 @@ test("authorizations expiring within seven days are flagged by instant, whatever
 
   assert.deepEqual(accountGroups(accounts, "EUR", now).expiring.map(account => account.id), ["expired", "within-week"]);
 });
-
-test("stored date-only authorization expiries count from UTC midnight instead of failing", () => {
-  const now = Temporal.Instant.from("2026-11-12T12:00:00Z");
-  const accounts = [
-    bankAccount("date-only-soon", "2026-11-15"),
-    bankAccount("date-only-later", "2099-01-01")
-  ];
-
-  assert.deepEqual(accountGroups(accounts, "EUR", now).expiring.map(account => account.id), ["date-only-soon"]);
-});

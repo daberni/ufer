@@ -15,15 +15,6 @@ export function timestamp(instant = Temporal.Now.instant()) {
   });
 }
 
-/** A stored instant such as an authorization expiry; existing rows may hold a bare `YYYY-MM-DD`, which counts from UTC midnight like `Date.parse`. */
-export function storedInstant(value: string) {
-  if (validDate(value)) {
-    return Temporal.PlainDate.from(value).toZonedDateTime("UTC").toInstant();
-  }
-
-  return Temporal.Instant.from(value);
-}
-
 /** A calendar date in exactly `YYYY-MM-DD` form that exists in the ISO calendar. */
 export function validDate(value: string) {
   try {

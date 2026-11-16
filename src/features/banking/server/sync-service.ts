@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { Temporal } from "temporal-polyfill";
 import { HttpError } from "@/lib/errors";
-import { storedInstant, timestamp, today } from "@/lib/time";
+import { timestamp, today } from "@/lib/time";
 import { database } from "@/server/database/connection";
 import { acquireLease, releaseLease, renewLease } from "@/server/jobs/lease-repository";
 import { listRules } from "@/features/categorization/server/rule-repository";
@@ -24,7 +24,7 @@ export function syncWindowStart(now = Temporal.Now.instant()) {
 }
 
 function authorizationExpired(validUntil: string, now: Temporal.Instant) {
-  return Temporal.Instant.compare(storedInstant(validUntil), now) <= 0;
+  return Temporal.Instant.compare(Temporal.Instant.from(validUntil), now) <= 0;
 }
 
 export async function syncAccounts() {
