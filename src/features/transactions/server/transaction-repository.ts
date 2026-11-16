@@ -5,7 +5,10 @@ import { environment } from "@/features/banking/server/environment";
 import { accounts, transactions } from "@/server/database/schema";
 import type { CategorizedEntry } from "./transaction-entry";
 
-export async function upsertTransactions(tx: DatabaseTransaction, accountId: string, entries: CategorizedEntry[]) {
+/**
+ * Inserts new entries and updates existing ones. `createdAt` replaces the database clock only for inserted rows; updates keep the original `created_at`.
+ */
+export async function upsertTransactions(tx: DatabaseTransaction, accountId: string, entries: CategorizedEntry[], createdAt?: string) {
   // Bound statement parameters for both local SQLite and remote libSQL deployments.
   for (let offset = 0; offset < entries.length; offset += 50) {
     const values = entries.slice(offset, offset + 50).map(entry => ({
@@ -17,7 +20,8 @@ export async function upsertTransactions(tx: DatabaseTransaction, accountId: str
       currency: entry.currency,
       counterparty: entry.counterparty,
       description: entry.description,
-      category_id: entry.categoryId
+      category_id: entry.categoryId,
+      created_at: createdAt
     }));
 
     await tx.insert(transactions).values(values).onConflictDoUpdate({

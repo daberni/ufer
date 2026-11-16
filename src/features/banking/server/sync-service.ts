@@ -39,10 +39,11 @@ function authorizationExpired(validUntil: string, now: Temporal.Instant) {
 export async function syncAccounts() {
   const db = await database();
   const env = environment();
-  const owner = randomUUID();
+  // The run id also owns the sync lease.
+  const runId = randomUUID();
   const leaseName = syncLeaseName(env);
 
-  if (!(await acquireLease(db, leaseName, owner))) {
+  if (!(await acquireLease(db, leaseName, runId))) {
     throw new HttpError(409, "A sync is already running.");
   }
 
@@ -54,7 +55,12 @@ export async function syncAccounts() {
   }[] = [];
 
   try {
-    await startSyncRun(db, env, owner, timestamp());
+    const run = {
+      environment: env,
+      startedAt: timestamp()
+    };
+
+    await startSyncRun(db, env, runId, run.startedAt);
     const accounts = await listSyncAccounts(db, env);
 
     if (accounts.length) {
@@ -65,7 +71,7 @@ export async function syncAccounts() {
     const ownIbans = new Set(accounts.map(account => (account.iban || "").replace(/\s/g, "")).filter(Boolean));
     const dateFrom = syncWindowStart().toString();
     const heartbeat = async () => {
-      if (!(await renewLease(db, leaseName, owner))) {
+      if (!(await renewLease(db, leaseName, runId))) {
         throw new HttpError(409, "Sync lease lost; run sync again.");
       }
     };
@@ -91,7 +97,7 @@ export async function syncAccounts() {
         const entries = normalizeTransactions(transactions, ownIbans);
 
         await heartbeat();
-        inserted += await saveAccountSync(db, account.id, account.currency, balanceResult.balances, entries, rules);
+        inserted += await saveAccountSync(db, run, account.id, account.currency, balanceResult.balances, entries, rules);
       } catch (error) {
         const message = error instanceof HttpError ? error.message : "Sync could not be completed.";
         const sessionExpired = error instanceof BankingError && expiredSessionCodes.includes(error.code);
@@ -114,7 +120,7 @@ export async function syncAccounts() {
 
     const failureLog = failures.map(failure => `${failure.account}: ${failure.message}`).join("\n");
 
-    await finishSyncRun(db, owner, status, inserted, failureLog || null);
+    await finishSyncRun(db, runId, status, failureLog || null);
 
     return {
       inserted,
@@ -123,10 +129,10 @@ export async function syncAccounts() {
       accounts: accounts.length
     };
   } catch (error) {
-    await finishSyncRun(db, owner, "FAILED", 0, "Sync interrupted.");
+    await finishSyncRun(db, runId, "FAILED", "Sync interrupted.");
 
     throw error;
   } finally {
-    await releaseLease(db, leaseName, owner);
+    await releaseLease(db, leaseName, runId);
   }
 }
