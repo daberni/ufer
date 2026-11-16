@@ -7,9 +7,16 @@
   vertical-align: middle;
 }
 
-/* Long category names end in an ellipsis instead of widening the nowrap transaction table; the open list shows them in full. */
+/* A fixed width keeps the nowrap transaction table from widening with long category names; the open list shows them in full. */
 .picker {
-  max-width: 12rem;
+  width: 12rem;
+  max-width: 100%;
+}
+.picker input {
+  min-height: 32px;
+  padding-block: var(--space-1);
+  font-size: var(--text-xs);
+  text-overflow: ellipsis;
 }
 
 /* The status slot keeps its width when empty, so progress and results never move neighboring content. */
@@ -59,8 +66,12 @@
     gap: var(--space-3);
   }
   .picker {
-    max-width: 100%;
+    width: 100%;
     min-width: 0;
+  }
+  .picker input {
+    min-height: 44px;
+    font-size: var(--text-md);
   }
   .status {
     width: 18px;

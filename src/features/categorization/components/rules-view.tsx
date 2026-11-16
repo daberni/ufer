@@ -15,11 +15,22 @@ import { useApplyRules, useToggleRule, useTogglingRules } from "@/features/categ
 import { AreaPlaceholder } from "@/features/dashboard/components/area-placeholder";
 import type { Area } from "@/features/dashboard/use-area-result";
 import { neutralChipColor } from "@/features/categorization/category-colors";
+import { useState } from "react";
 import { CategoryChip } from "./category-chip";
+import { CategoryDialog } from "./category-form";
+import { CreateRuleDialog } from "./create-rule-form";
 
 type Props = {
   categories: Area<Category[]>;
   rules: Area<Rule[]>;
+};
+
+type OpenDialog = {
+  kind: "rule";
+} | {
+  kind: "category";
+  /** The category to edit; null adds one. */
+  category: Category | null;
 };
 
 // Names of different lengths give the skeleton rules and categories a natural outline.
@@ -29,7 +40,8 @@ export function RulesView({
   categories,
   rules
 }: Props) {
-  const openDialog = useDashboardStore(state => state.openDialog);
+  const [dialog, setDialog] = useState<OpenDialog | null>(null);
+  const closeDialog = () => setDialog(null);
   const reportFeedback = useDashboardStore(state => state.reportFeedback);
   const applyFeedback = useActionFeedback();
   const apply = useApplyRules();
@@ -80,7 +92,7 @@ export function RulesView({
           </button>
           <button
             className={clsx(ui["button"], ui["primary"])}
-            onClick={() => openDialog({
+            onClick={() => setDialog({
               kind: "rule"
             })}
           >
@@ -106,8 +118,9 @@ export function RulesView({
         <h2>Your categories</h2>
         <button
           className={clsx(ui["button"], ui["small"])}
-          onClick={() => openDialog({
-            kind: "category"
+          onClick={() => setDialog({
+            kind: "category",
+            category: null
           })}
         >
           <Plus size={14} />
@@ -138,8 +151,8 @@ export function RulesView({
               className={styles["category-chip"]}
               key={category.id}
               aria-label={`Edit category ${category.name}`}
-              onClick={() => openDialog({
-                kind: "editCategory",
+              onClick={() => setDialog({
+                kind: "category",
                 category
               })}
             >
@@ -151,6 +164,8 @@ export function RulesView({
           ))}
         </div>
       )}
+      {dialog?.kind === "rule" && <CreateRuleDialog close={closeDialog} />}
+      {dialog?.kind === "category" && <CategoryDialog category={dialog.category} close={closeDialog} />}
     </>
   );
 }

@@ -82,17 +82,6 @@ export const viewDescriptions: Record<View, string> = {
   connections: "Connect your banks and keep track of their authorizations.",
 };
 
-export const modalTitles = {
-  bank: "Connect bank",
-  removeConnection: "Remove connection",
-  account: "Add account",
-  rule: "Create rule",
-  balance: "Update balance",
-  category: "Add category",
-  editCategory: "Edit category",
-  import: "Import CSV",
-};
-
 const syncStatusLabels: Record<string, string> = {
   SUCCESS: "successful",
   PARTIAL: "partial",

@@ -26,7 +26,8 @@ State has three kinds and each kind has one owner. There is no controller object
 | --- | --- |
 | Server data: accounts, transactions, reports, categories, rules, connections, sync runs, bank directories | TanStack Query, unchanged ([ADR 006](006-client-server-state.md)) |
 | View, period, currency, search, account, category, sync run, page | The URL, through typed hooks per parameter and plain setter functions |
-| Open dialog with its payload, page-level feedback, session lock, the period remembered for views without one | A Zustand store per dashboard layout, read through selectors |
+| Page-level feedback, session lock, the period remembered for views without one | A Zustand store per dashboard layout, read through selectors |
+| Whether a dialog is open, and the data it shows | The component that opens it |
 | Field drafts: bank country and search, chosen bank, CSV import mode, transaction search draft | The form or field component that edits them |
 
 **URL state uses a small in-house module, not nuqs.** `use-dashboard-url.ts` provides `useView`, `usePeriod`, `useCurrency`, `useSearchFilter`, `useAccountFilter`, `useCategoryFilter`, `useSyncRunFilter`, `usePage`, the combined `useDashboardQuery` for the transaction list, and link helpers. Each hook parses only through the tested pure functions in `dashboard-location.ts`, so a component reads exactly the parameters it uses. Writes are plain functions (`selectPeriod`, `setCurrency`, `setSearch`, `setPage`, …) that read `window.location` when called and write with `pushState` or `replaceState`; components that only change the URL therefore do not subscribe to it. The existing rules stay: default values are left out of the URL, a filter change resets the page, typing a search replaces its history entry, the list filters apply only on the transactions view, and views without a period link back to the last period selected on a view with one.
@@ -44,33 +45,34 @@ Every component that reads a URL hook re-renders when any query parameter change
 
 **Client UI state uses a Zustand vanilla store.** `DashboardStoreProvider` creates one store per mounted dashboard layout and supplies it through context; components read it with `useDashboardStore(selector)` and re-render only when the selected value changes. Actions are part of the store and stable, so selecting an action never re-renders. The store holds:
 
-- `dialog`: a discriminated union with its payload, for example `{ kind: "balance", account }` or `{ kind: "removeConnection", connection }`, together with the pathname it was opened on;
 - `feedback`: the page-level message for results without a surviving trigger (a bank callback, a failed rule toggle, an unconfirmed revocation), also bound to its pathname;
-- `locked`: whether the sign-in form replaces the dashboard; locking still clears the query and mutation caches as ADR 006 requires and also drops the open dialog, whose payload is financial data, and page feedback;
+- `locked`: whether the sign-in form replaces the dashboard; locking still clears the query and mutation caches as ADR 006 requires and also drops page feedback;
 - `periodScope`: the period and currency last selected on a period-aware view.
 
-Dialogs open in one call, `openDialog({ kind: "balance", account })`. The payload is part of the state, so a dialog can never open without its data, and adding a dialog means adding a union member and its render branch. A dialog and page feedback belong to the view they were opened on: they are hidden as soon as the pathname differs and cleared after the navigation, including Back and Forward.
+Page feedback belongs to the view it was reported on: it is hidden as soon as the pathname differs and cleared after the navigation, including Back and Forward.
+
+**Dialogs belong to their openers, not the store** (amended 2026-11-16, issue #107). Each feature owns its dialog components, built on the shared `Dialog` primitive in `src/components/ui/dialog.tsx`. The component that opens a dialog keeps whether it is open in local state, as a discriminated union when it opens several, and renders the dialog with its data as props, for example `{dialog?.kind === "balance" && <ValuationDialog selectedAccount={dialog.account} close={closeDialog} />}`. A dialog therefore cannot open without its data, and adding one touches only its feature and its opener. A dialog closes when its opener unmounts: navigating to another view, including Back and Forward, unmounts the view, and locking replaces the dashboard with the sign-in form. An opener that outlives navigation, such as the account button in the persistent header, closes its dialog itself when the pathname changes. The first version of this record kept the open dialog and its payload in the store behind a central `DashboardDialogs` switch; that put every feature's dialog into the dashboard and coupled the store to each payload type.
 
 Zustand was chosen over a hand-written store on React's `useSyncExternalStore`. Both use the same primitive; Zustand provides the selector subscription with a server snapshot, `useShallow`, optional devtools middleware and a documented pattern for a store per request in Next.js, at about 1 kB with no runtime dependencies or install scripts. A hand-written store would be about 40 lines, but the application would own those edge cases and their tests. The store is created per provider rather than as a module singleton because the layout renders on the server per request and tests need isolated stores.
 
-This record amends ADR 006 where it said the dashboard context carries dialog selection and transient feedback. ADR 006's rule that no client store holds server data still applies: the store never contains query results beyond the payload of an open dialog.
+This record amends ADR 006 where it said the dashboard context carries dialog selection and transient feedback. ADR 006's rule that no client store holds server data still applies: the store never contains query results.
 
-**Implementation boundary.** Implemented for the `(dashboard)` layout and its views. `useDashboard`, `DashboardController` and the dashboard context are removed. Moving shared types, presentation and helpers out of the dashboard feature, and a shared dialog primitive, are separate changes.
+**Implementation boundary.** Implemented for the `(dashboard)` layout and its views. `useDashboard`, `DashboardController`, the dashboard context, the central `DashboardDialogs` switch and `modalTitles` are removed. Moving shared types, presentation and helpers out of the dashboard feature is a separate change.
 
 ## Consequences
 
 - Typing in a dialog or the search field re-renders only that form or field; the shell and the view below a dialog stay unchanged until a URL write or a mutation result.
 - Components declare what they use: URL hooks, store selectors and queries instead of controller props. Tests render a component with a store provider instead of building a controller.
-- Opening a dialog without its data is a type error; a stale selection cannot leak into the next dialog.
+- Opening a dialog without its data is a type error; a stale selection cannot leak into the next dialog, because closing unmounts the dialog with its data.
 - `zustand` is a new runtime dependency without install scripts.
 - A reload still resets dialogs, feedback and the remembered period of views without one; the URL keeps everything else.
 
 ## Compliance
 
-- Behavior tests cover URL parsing and writing (defaults left out, page reset, history entries), the remembered period, store transitions (opening with a payload, closing, leaving a view, feedback, lock and unlock) and the existing lifecycle tests (401 lock, bank callback feedback, page correction).
-- Review rejects server data in the store, controller objects forwarded as props, and dialogs opened without their payload.
+- Behavior tests cover URL parsing and writing (defaults left out, page reset, history entries), the remembered period, store transitions (feedback, leaving a view, lock and unlock), the dialog primitive's dismissal and the existing lifecycle tests (401 lock, bank callback feedback, page correction).
+- Review rejects server data in the store, controller objects forwarded as props, dialog state in the store and dialogs opened without their data.
 - A render check with the React profiler or render counting confirms that typing in a dialog field or the search field renders only that form or field.
 
 ## Notes
 
-[ADR 006](006-client-server-state.md), [architecture](../../architecture.md#client-request-lifecycle), [Next.js native History API](https://nextjs.org/docs/app/getting-started/linking-and-navigating#native-history-api), [`useSearchParams`](https://nextjs.org/docs/app/api-reference/functions/use-search-params), [Zustand with Next.js](https://zustand.docs.pmnd.rs/guides/nextjs), [nuqs](https://nuqs.dev). Issue #105; related #106 and #107.
+[ADR 006](006-client-server-state.md), [architecture](../../architecture.md#client-request-lifecycle), [Next.js native History API](https://nextjs.org/docs/app/getting-started/linking-and-navigating#native-history-api), [`useSearchParams`](https://nextjs.org/docs/app/api-reference/functions/use-search-params), [Zustand with Next.js](https://zustand.docs.pmnd.rs/guides/nextjs), [nuqs](https://nuqs.dev). Issue #105; dialogs amended by #107; related #106.

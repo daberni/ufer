@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useDismiss } from "./use-dismiss";
 
 export type Feedback = {
   tone: "success" | "problem";
@@ -30,24 +31,10 @@ export function useActionFeedback() {
 
 /** Escape dismisses shown feedback and success dismisses itself after a while; problems stay until dismissed. `dismiss` must be stable. */
 export function useFeedbackDismissal(feedback: Feedback | null, dismiss: () => void) {
-  useEffect(() => {
-    if (!feedback) {
-      return;
-    }
-
-    // An open modal dialog owns Escape; leave the feedback for after it closes.
-    function dismissOnEscape(event: KeyboardEvent) {
-      const modalOpen = document.querySelector("dialog[open]") !== null;
-
-      if (event.key === "Escape" && !event.defaultPrevented && !modalOpen) {
-        dismiss();
-      }
-    }
-
-    document.addEventListener("keydown", dismissOnEscape);
-
-    return () => document.removeEventListener("keydown", dismissOnEscape);
-  }, [feedback, dismiss]);
+  useDismiss({
+    active: feedback !== null,
+    onDismiss: dismiss
+  });
 
   useEffect(() => {
     if (feedback?.tone !== "success") {

@@ -6,24 +6,39 @@ import { clsx } from "clsx";
 import { useState } from "react";
 import styles from "./csv-import-form.module.css";
 import { ArrowDownToLine } from "lucide-react";
-import type { Account } from "@/features/dashboard/types";
 import { useDialogSubmit, type DialogFormProps } from "@/features/dashboard/use-dialog-submit";
 import { useCsvImport, type ImportMode } from "@/features/imports/mutations";
 import { FormError } from "@/components/ui/form-error";
 import { Select } from "@/components/ui/select";
+import { Dialog } from "@/components/ui/dialog";
+import { useAccounts } from "@/features/accounts/queries";
+import { InlineFailure } from "@/features/dashboard/components/area-placeholder";
+import { useAreaResult } from "@/features/dashboard/use-area-result";
 
 type Props = DialogFormProps & {
-  accounts: Account[];
   initialMode: ImportMode;
 };
 
-export function CsvImportForm({
-  accounts,
+export function CsvImportDialog({
+  close,
+  initialMode
+}: Props) {
+  return (
+    <Dialog eyebrow="YOUR FINANCES" title="Import CSV" onClose={close}>
+      <CsvImportForm close={close} initialMode={initialMode} />
+    </Dialog>
+  );
+}
+
+function CsvImportForm({
   close,
   initialMode
 }: Props) {
   const [importMode, setImportMode] = useState(initialMode);
-  const manualAccounts = accounts.filter(account => account.provider === "manual");
+  const accounts = useAreaResult(useAccounts());
+  const accountsPending = accounts.status === "pending";
+  const accountsFailure = accountsPending ? accounts.failure : null;
+  const manualAccounts = accounts.data?.filter(account => account.provider === "manual") ?? [];
   const {
     error,
     pending,
@@ -49,8 +64,8 @@ export function CsvImportForm({
       </label>
       <label>
         Target account
-        <Select name="account_id" required>
-          <option value="">Select account</option>
+        <Select name="account_id" required disabled={accountsPending}>
+          <option value="">{targetPlaceholder(accounts.status, accountsFailure !== null)}</option>
           {manualAccounts.map(account => (
             <option key={account.id} value={account.id}>
               {account.name} ({account.currency})
@@ -58,6 +73,7 @@ export function CsvImportForm({
           ))}
         </Select>
       </label>
+      {accountsFailure && <InlineFailure failure={accountsFailure} subject="Your accounts" />}
       <label>
         CSV file
         <input
@@ -78,4 +94,12 @@ export function CsvImportForm({
       </button>
     </form>
   );
+}
+
+function targetPlaceholder(status: string, failed: boolean) {
+  if (failed) {
+    return "Accounts unavailable";
+  }
+
+  return status === "pending" ? "Loading accounts …" : "Select account";
 }

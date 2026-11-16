@@ -1,14 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { X } from "lucide-react";
 import { clsx } from "clsx";
 import { authClient, requireAuthResult } from "@/features/auth/client";
 import { ThemeChoice } from "@/features/appearance/components/theme-choice";
 import ui from "@/components/ui/primitives.module.css";
 import { FormError } from "@/components/ui/form-error";
 import { toFailure, type Failure } from "@/client/api";
+import { Dialog } from "@/components/ui/dialog";
 import styles from "./account-settings.module.css";
 
 type Props = {
@@ -16,21 +16,8 @@ type Props = {
 };
 
 export function AccountSettings({ onClose }: Props) {
-  const ref = useRef<HTMLDialogElement>(null);
   const [mismatch, setMismatch] = useState(false);
   const { data } = authClient.useSession();
-
-  useEffect(() => {
-    const previous = document.activeElement as HTMLElement | null;
-    const dialog = ref.current;
-
-    dialog?.showModal();
-
-    return () => {
-      dialog?.close();
-      previous?.focus();
-    };
-  }, []);
 
   // Each action reports its own outcome next to its button.
   const passwordChange = useMutation({
@@ -73,23 +60,7 @@ export function AccountSettings({ onClose }: Props) {
   const sessionsError = failureOf(otherSessionsSignOut.error, "The sessions could not be signed out.");
 
   return (
-    <dialog
-      ref={ref}
-      className={styles.dialog}
-      aria-labelledby="account-settings-title"
-      onCancel={onClose}
-    >
-      <div className={styles.heading}>
-        <h2 id="account-settings-title">Your account</h2>
-        <button
-          className={ui["icon-button"]}
-          type="button"
-          onClick={onClose}
-          aria-label="Close account settings"
-        >
-          <X size={20} />
-        </button>
-      </div>
+    <Dialog title="Your account" closeLabel="Close account settings" onClose={onClose}>
       {/* The session loads when the dialog first opens; both lines keep their height so the dialog does not shift. */}
       <p className={styles.identity}>{data ? `${data.user.name} · ${data.user.username}` : ""}</p>
       <p className={styles.email}>{data?.user.email}</p>
@@ -145,7 +116,7 @@ export function AccountSettings({ onClose }: Props) {
           disabled={otherSessionsSignOut.isPending}
         >Sign out other devices</button>
       </section>
-    </dialog>
+    </Dialog>
   );
 }
 

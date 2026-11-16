@@ -11,7 +11,10 @@ import { DateValue } from "@/components/ui/date-value";
 import { useBankingConfiguration } from "@/features/banking/banking-configuration";
 import { money } from "@/lib/money";
 import type { Account } from "@/features/dashboard/types";
-import { useDashboardStore } from "@/features/dashboard/dashboard-store";
+import { useState } from "react";
+import { BankConnectionDialog } from "@/features/banking/components/bank-connection-form";
+import { CreateAccountDialog } from "./create-account-form";
+import { ValuationDialog } from "./valuation-form";
 import { useChangeView } from "@/features/dashboard/use-dashboard-url";
 import { AreaPlaceholder } from "@/features/dashboard/components/area-placeholder";
 import { shownStatus, valueMask } from "@/features/dashboard/components/result-presentation";
@@ -20,6 +23,15 @@ import type { Area, PendingArea } from "@/features/dashboard/use-area-result";
 type Props = {
   /** Accounts in the display currency. */
   currencyAccounts: Area<Account[]>;
+};
+
+type OpenDialog = {
+  kind: "account";
+} | {
+  kind: "bank";
+} | {
+  kind: "balance";
+  account: Account;
 };
 
 const shownTiles = 4;
@@ -75,11 +87,12 @@ function AccountStripSkeleton({ area }: {
 function AccountStrip({ currencyAccounts }: {
   currencyAccounts: Account[]
 }) {
-  const openDialog = useDashboardStore(state => state.openDialog);
+  const [dialog, setDialog] = useState<OpenDialog | null>(null);
+  const closeDialog = () => setDialog(null);
   const changeView = useChangeView();
   const sandbox = useBankingConfiguration().environment === "SANDBOX";
 
-  return currencyAccounts.length ? (
+  const content = currencyAccounts.length ? (
     <div className={styles["account-strip"]}>
       {currencyAccounts.slice(0, shownTiles).map(account => {
         const Icon = accountIcon(account.kind);
@@ -90,7 +103,7 @@ function AccountStrip({ currencyAccounts }: {
             key={account.id}
             onClick={() => {
               if (account.provider === "manual") {
-                openDialog({
+                setDialog({
                   kind: "balance",
                   account
                 });
@@ -129,9 +142,8 @@ function AccountStrip({ currencyAccounts }: {
       </div>
       <button
         className={clsx(styles["button"], ui["primary"])}
-        onClick={() => openDialog({
-          kind: "bank",
-          connection: null
+        onClick={() => setDialog({
+          kind: "bank"
         })}
       >
         <Plus size={15} />
@@ -139,12 +151,21 @@ function AccountStrip({ currencyAccounts }: {
       </button>
       <button
         className={styles["button"]}
-        onClick={() => openDialog({
+        onClick={() => setDialog({
           kind: "account"
         })}
       >
         Add manually
       </button>
     </div>
+  );
+
+  return (
+    <>
+      {content}
+      {dialog?.kind === "account" && <CreateAccountDialog close={closeDialog} />}
+      {dialog?.kind === "bank" && <BankConnectionDialog connection={null} close={closeDialog} />}
+      {dialog?.kind === "balance" && <ValuationDialog selectedAccount={dialog.account} close={closeDialog} />}
+    </>
   );
 }

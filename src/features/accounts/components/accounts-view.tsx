@@ -11,7 +11,10 @@ import { DateValue } from "@/components/ui/date-value";
 import { money } from "@/lib/money";
 import { Empty } from "@/components/ui/empty-state";
 import type { Account } from "@/features/dashboard/types";
-import { useDashboardStore } from "@/features/dashboard/dashboard-store";
+import { useState } from "react";
+import { BankConnectionDialog } from "@/features/banking/components/bank-connection-form";
+import { CreateAccountDialog } from "./create-account-form";
+import { ValuationDialog } from "./valuation-form";
 import { AreaPlaceholder } from "@/features/dashboard/components/area-placeholder";
 import { shownStatus, valueMask } from "@/features/dashboard/components/result-presentation";
 import type { Area } from "@/features/dashboard/use-area-result";
@@ -20,14 +23,28 @@ type Props = {
   accounts: Area<Account[]>;
 };
 
+type OpenDialog = {
+  kind: "account";
+} | {
+  kind: "bank";
+} | {
+  kind: "balance";
+  account: Account;
+};
+
 const skeletonAccounts = 3;
 
 export function AccountsView({
   accounts
 }: Props) {
-  const openDialog = useDashboardStore(state => state.openDialog);
-  const addAccount = () => openDialog({
+  const [dialog, setDialog] = useState<OpenDialog | null>(null);
+  const closeDialog = () => setDialog(null);
+  const addAccount = () => setDialog({
     kind: "account"
+  });
+  const updateBalance = (account: Account) => setDialog({
+    kind: "balance",
+    account
   });
 
   return (
@@ -41,9 +58,8 @@ export function AccountsView({
           </button>
           <button
             className={clsx(ui["button"], ui["primary"])}
-            onClick={() => openDialog({
-              kind: "bank",
-              connection: null
+            onClick={() => setDialog({
+              kind: "bank"
             })}
           >
             <Link2 size={15} />
@@ -55,7 +71,10 @@ export function AccountsView({
         <AreaPlaceholder area={accounts} subject="Your accounts">
           <AccountCardsSkeleton />
         </AreaPlaceholder>
-      ) : <AccountCards accounts={accounts.data} addAccount={addAccount} />}
+      ) : <AccountCards accounts={accounts.data} addAccount={addAccount} updateBalance={updateBalance} />}
+      {dialog?.kind === "account" && <CreateAccountDialog close={closeDialog} />}
+      {dialog?.kind === "bank" && <BankConnectionDialog connection={null} close={closeDialog} />}
+      {dialog?.kind === "balance" && <ValuationDialog selectedAccount={dialog.account} close={closeDialog} />}
     </>
   );
 }
@@ -93,13 +112,13 @@ function AccountCardsSkeleton() {
 
 function AccountCards({
   accounts,
-  addAccount
+  addAccount,
+  updateBalance
 }: {
   accounts: Account[];
   addAccount: () => void;
+  updateBalance: (account: Account) => void;
 }) {
-  const openDialog = useDashboardStore(state => state.openDialog);
-
   return accounts.length ? (
     <div className={styles["accounts-grid"]}>
       {accounts.map(account => {
@@ -124,10 +143,7 @@ function AccountCards({
             {account.provider === "manual" && (
               <button
                 className={clsx(ui["button"], ui["full-width"])}
-                onClick={() => openDialog({
-                  kind: "balance",
-                  account
-                })}
+                onClick={() => updateBalance(account)}
               >
                 Update balance <ArrowRight size={15} />
               </button>

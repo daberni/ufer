@@ -19,7 +19,7 @@ function signsIn(mutation: Mutation<unknown, unknown, unknown, unknown>) {
   return mutation.meta?.signIn === true;
 }
 
-/** Shows the sign-in form. Locking drops all cached financial data, pending changes and the open dialog and cancels running requests, so a late response cannot restore them. */
+/** Shows the sign-in form, which unmounts the dashboard and any open dialog. Locking drops all cached financial data and pending changes and cancels running requests, so a late response cannot restore them. */
 export function useLockSession() {
   const queryClient = useQueryClient();
   const store = useDashboardStoreApi();

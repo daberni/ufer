@@ -3,7 +3,7 @@
 import ui from "../../../components/ui/primitives.module.css";
 
 import { clsx } from "clsx";
-import { useEffect, useId, type RefObject } from "react";
+import { useId } from "react";
 import styles from "./sync-problem-details.module.css";
 import { ArrowRight, TriangleAlert, X } from "lucide-react";
 import { TraceId } from "@/components/ui/trace-id";
@@ -11,52 +11,18 @@ import type { SyncProblem } from "@/features/banking/use-sync-status";
 
 type Props = {
   id: string;
-  // The details close on outside interaction; the boundary also contains the badge that toggles them.
-  boundary: RefObject<HTMLElement | null>;
   problem: SyncProblem;
-  onClose: (restoreFocus: boolean) => void;
   onDismiss: () => void;
   onOpenConnections: () => void;
 };
 
 export function SyncProblemDetails({
   id,
-  boundary,
   problem,
-  onClose,
   onDismiss,
   onOpenConnections
 }: Props) {
   const titleId = useId();
-
-  useEffect(() => {
-    function closeOnOutsidePointer(event: PointerEvent) {
-      if (!boundary.current?.contains(event.target as Node)) {
-        onClose(false);
-      }
-    }
-
-    // An open modal dialog owns Escape.
-    function closeOnEscape(event: KeyboardEvent) {
-      const modalOpen = document.querySelector("dialog[open]") !== null;
-
-      if (event.key !== "Escape" || event.defaultPrevented || modalOpen) {
-        return;
-      }
-
-      const focusInside = boundary.current?.contains(document.activeElement) ?? false;
-
-      onClose(focusInside);
-    }
-
-    document.addEventListener("pointerdown", closeOnOutsidePointer);
-    document.addEventListener("keydown", closeOnEscape);
-
-    return () => {
-      document.removeEventListener("pointerdown", closeOnOutsidePointer);
-      document.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [boundary, onClose]);
 
   return (
     <div
