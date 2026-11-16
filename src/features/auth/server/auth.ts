@@ -11,6 +11,8 @@ type AuthOptions = {
   onPasswordReset?: (token: string) => void;
 };
 
+const httpHeaderName = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/;
+
 export function createAuth(db: Database | DatabaseTransaction, options: AuthOptions = {}) {
   const secret = process.env.BETTER_AUTH_SECRET;
 
@@ -19,6 +21,12 @@ export function createAuth(db: Database | DatabaseTransaction, options: AuthOpti
   }
 
   const baseURL = applicationOrigin();
+  const trustedClientAddressHeader = process.env.TRUSTED_CLIENT_IP_HEADER?.trim();
+
+  // Better Auth reads this name through the Headers API, which throws on every request for an invalid name.
+  if (trustedClientAddressHeader && !httpHeaderName.test(trustedClientAddressHeader)) {
+    throw new HttpError(503, "Configure TRUSTED_CLIENT_IP_HEADER as a single HTTP header name.");
+  }
 
   return betterAuth({
     appName: "Ufer",
@@ -61,9 +69,9 @@ export function createAuth(db: Database | DatabaseTransaction, options: AuthOpti
     },
     advanced: {
       useSecureCookies: baseURL.startsWith("https:"),
-      // No untrusted forwarded header may create a fresh login-attempt counter.
+      // Rate limits count per client only through the header the operator's proxy overwrites; any other forwarded header is ignored so it cannot create a fresh counter.
       ipAddress: {
-        ipAddressHeaders: []
+        ipAddressHeaders: trustedClientAddressHeader ? [trustedClientAddressHeader] : []
       }
     },
     rateLimit: {
