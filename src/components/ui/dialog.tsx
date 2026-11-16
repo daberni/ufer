@@ -5,6 +5,7 @@ import ui from "./primitives.module.css";
 import styles from "./dialog.module.css";
 import { X } from "lucide-react";
 import { useEffect, useId, useRef, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 type Props = {
   title: string;
@@ -18,7 +19,8 @@ type Props = {
 
 /**
  * A modal dialog that is open while it is mounted. It opens with showModal, restores focus to the element focused before it when it unmounts and closes
- * on its close button, Escape and a press that starts and ends on the backdrop.
+ * on its close button, Escape and a press that starts and ends on the backdrop. It renders into the document body, so a dialog opened from inside a
+ * form or another dialog does not nest its form in theirs.
  */
 export function Dialog({
   title,
@@ -40,9 +42,12 @@ export function Dialog({
     const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const dialog = dialogRef.current;
 
-    // Escape closes the native dialog first; the opener learns about it through the close event.
+    // Escape closes the native dialog first; the opener learns about it through the close event. The event is queued, so one left over from a
+    // remount, as in development's strict mode, arrives while the dialog is open again and is ignored.
     function closedByBrowser() {
-      onCloseRef.current();
+      if (!dialog?.open) {
+        onCloseRef.current();
+      }
     }
 
     dialog?.showModal();
@@ -59,11 +64,13 @@ export function Dialog({
     };
   }, []);
 
-  return (
+  return createPortal((
     <dialog
       ref={dialogRef}
       aria-labelledby={titleId}
       className={styles["modal"]}
+      // React events bubble through portals; a submit inside must not reach a form around the opener.
+      onSubmit={event => event.stopPropagation()}
       onPointerDown={event => {
         pressStartedOnBackdrop.current = event.target === event.currentTarget;
       }}
@@ -94,5 +101,5 @@ export function Dialog({
         {children}
       </div>
     </dialog>
-  );
+  ), document.body);
 }

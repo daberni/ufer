@@ -1,14 +1,14 @@
 import assert from "node:assert/strict";
 import { test, type TestContext } from "node:test";
 import { act, fireEvent, render, renderHook } from "@testing-library/react";
-import { createElement, useRef } from "react";
+import { createElement, StrictMode, useRef } from "react";
 import { useDismiss, type Dismissal } from "../src/components/ui/use-dismiss";
-import { browser } from "./fixtures/browser";
+import { browser, wait } from "./fixtures/browser";
 import { stubCssModules } from "./fixtures/css-modules";
 
 stubCssModules();
 
-// jsdom has no modal dialogs; these stand in for showModal and close, including the close event that follows Escape.
+// jsdom has no modal dialogs; these stand in for showModal and close. Browsers queue the close event, so the stand-in does too.
 function modalDialogs(context: TestContext) {
   browser(context);
 
@@ -20,11 +20,11 @@ function modalDialogs(context: TestContext) {
 
   prototype.close = function (this: HTMLDialogElement) {
     this.removeAttribute("open");
-    this.dispatchEvent(new window.Event("close"));
+    window.setTimeout(() => this.dispatchEvent(new window.Event("close")));
   };
 }
 
-async function renderDialog(context: TestContext) {
+async function renderDialog(context: TestContext, strict = false) {
   modalDialogs(context);
 
   const { Dialog } = await import("../src/components/ui/dialog");
@@ -35,7 +35,7 @@ async function renderDialog(context: TestContext) {
   document.body.append(trigger);
   trigger.focus();
 
-  const screen = render(createElement(Dialog, {
+  const element = createElement(Dialog, {
     title: "Update balance",
     onClose: () => {
       closes.push("closed");
@@ -43,7 +43,8 @@ async function renderDialog(context: TestContext) {
     children: createElement("input", {
       "aria-label": "New balance"
     })
-  }));
+  });
+  const screen = render(strict ? createElement(StrictMode, null, element) : element);
   const dialog = screen.container.ownerDocument.querySelector("dialog")!;
 
   return {
@@ -97,6 +98,7 @@ test("Escape closes through the browser's close event, and unmounting restores f
 
   // Escape makes the browser close the dialog, which then fires close.
   act(() => dialog.close());
+  await wait(1);
   assert.deepEqual(closes, ["closed"]);
 
   unmount();
@@ -111,8 +113,21 @@ test("unmounting an open dialog, as on navigation or locking, closes it without 
   } = await renderDialog(context);
 
   unmount();
+  await wait(1);
 
   assert.equal(dialog.open, false);
+  assert.deepEqual(closes, []);
+});
+
+test("a remount, as in development's strict mode, keeps the dialog open despite the queued close event of the first mount", async context => {
+  const {
+    closes,
+    dialog
+  } = await renderDialog(context, true);
+
+  await wait(1);
+
+  assert.equal(dialog.open, true);
   assert.deepEqual(closes, []);
 });
 

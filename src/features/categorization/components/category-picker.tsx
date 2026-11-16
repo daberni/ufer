@@ -9,6 +9,7 @@ import { useId, useState } from "react";
 import { SearchableSelect, type SearchableSelectOption } from "@/components/ui/searchable-select";
 import { neutralChipColor } from "@/features/categorization/category-colors";
 import { manualAssignmentHint, type ChipCategory } from "./category-chip";
+import { CategoryDialog } from "./category-form";
 import { CategoryMarker } from "./category-marker";
 
 export type PickerCategory = ChipCategory & {
@@ -84,7 +85,10 @@ function pickerOptions(categories: readonly PickerCategory[], includeAll: boolea
   return options;
 }
 
-/** A searchable select of categories; typing narrows the list and only a picked option changes the category. */
+/**
+ * A searchable select of categories; typing narrows the list and only a picked option changes the category. Where it assigns a category, a search
+ * without an exact match offers to create that category, which is selected once saved.
+ */
 export function CategoryPicker({
   categories,
   value,
@@ -104,6 +108,8 @@ export function CategoryPicker({
   const manualHintId = useId();
   // A typed search; null while the field shows the selected category.
   const [search, setSearch] = useState<string | null>(null);
+  // The name of a category being created from a search; its dialog is open while set.
+  const [newCategoryName, setNewCategoryName] = useState<string | null>(null);
   const options = pickerOptions(categories, includeAll, includeUncategorized);
   const selected = options.find(option => Object.is(option.value, value));
   const describedBy = clsx(ariaDescribedBy, manual && manualHintId) || undefined;
@@ -140,6 +146,8 @@ export function CategoryPicker({
         aria-label={ariaLabel}
         aria-invalid={ariaInvalid}
         aria-describedby={describedBy}
+        // A filter offers existing categories only.
+        onCreate={includeAll ? undefined : setNewCategoryName}
         footer={manual && (
           <p className={styles["note"]}>
             <Pin className={styles["note-icon"]} aria-hidden="true" strokeWidth={2.2} />
@@ -154,6 +162,13 @@ export function CategoryPicker({
         </span>
       )}
       {name && <input type="hidden" name={name} value={typeof value === "string" ? value : ""} />}
+      {newCategoryName !== null && (
+        <CategoryDialog
+          initialName={newCategoryName}
+          close={() => setNewCategoryName(null)}
+          onSaved={choose}
+        />
+      )}
     </div>
   );
 }

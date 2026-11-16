@@ -2,11 +2,11 @@
 
 import ui from "./primitives.module.css";
 import styles from "./searchable-select.module.css";
-import { Check, ChevronDown } from "lucide-react";
+import { Check, ChevronDown, Plus } from "lucide-react";
 import { clsx } from "clsx";
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
-import { matchOptions, searchableSelectKeyAction, shownOptionLimit } from "./searchable-select-behavior";
+import { creatableName, matchOptions, searchableSelectKeyAction, shownOptionLimit } from "./searchable-select-behavior";
 import { popoverMaxWidth, popoverPlacement, visibleArea } from "./popover-placement";
 import { useDismiss } from "./use-dismiss";
 
@@ -41,6 +41,8 @@ type Props<Value> = {
   busy?: boolean;
   /** Shown below the options while the list is open, such as a note about the choice. */
   footer?: ReactNode;
+  /** Offers a last option that creates an option named after the typed text when no option has exactly that label. */
+  onCreate?: (name: string) => void;
   "aria-label"?: string;
   "aria-invalid"?: boolean;
   "aria-describedby"?: string;
@@ -60,6 +62,7 @@ export function SearchableSelect<Value>({
   notice = "",
   busy = false,
   footer,
+  onCreate,
   "aria-label": ariaLabel,
   "aria-invalid": ariaInvalid,
   "aria-describedby": ariaDescribedBy
@@ -76,23 +79,35 @@ export function SearchableSelect<Value>({
   const matches = notice ? [] : match(options, query === selected?.label ? "" : query);
   const shown = matches.slice(0, shownOptionLimit);
   const selectedIndex = shown.findIndex(option => option === selected);
-  const active = Math.min(activeIndex, shown.length - 1);
+  const createName = onCreate && !notice ? creatableName(options, query) : "";
+  const createIndex = createName ? shown.length : -1;
+  const optionCount = shown.length + (createName ? 1 : 0);
+  const active = Math.min(activeIndex, optionCount - 1);
+  const createLabel = `Create ${noun.one} “${createName}”`;
   const optionId = (index: number) => `${listboxId}-option-${index}`;
   const countText = (count: number) => (count === 1 ? `1 ${noun.one}` : `${count.toLocaleString("en")} ${noun.other}`);
   const truncated = matches.length > shown.length;
   const listLabel = `${noun.other.charAt(0).toLocaleUpperCase()}${noun.other.slice(1)}`;
   const selectedIcon = selected && query === selected.label ? selected.icon : undefined;
 
+  const noMatchText = `No ${noun.one} matches “${query.trim()}”.`;
   let message = notice;
 
-  if (!message && !matches.length) {
-    message = `No ${noun.one} matches “${query.trim()}”.`;
+  // The create option says enough on its own when nothing matches.
+  if (!message && !matches.length && !createName) {
+    message = noMatchText;
   }
 
   let announcement = "";
 
-  if (open) {
+  if (open && !matches.length) {
+    announcement = message || noMatchText;
+  } else if (open) {
     announcement = message || (truncated ? `${countText(matches.length)}, showing the first ${shown.length}` : countText(matches.length));
+  }
+
+  if (open && createName) {
+    announcement = `${announcement} ${createLabel} is available.`;
   }
 
   const place = useCallback(() => {
@@ -143,7 +158,7 @@ export function SearchableSelect<Value>({
     }
 
     place();
-  }, [open, place, shown.length, message]);
+  }, [open, place, shown.length, message, createName]);
 
   // It follows the field while a dialog or the page scrolls and while an on-screen keyboard changes the visible area.
   useEffect(() => {
@@ -197,6 +212,12 @@ export function SearchableSelect<Value>({
 
     setOpen(false);
 
+    if (index === createIndex) {
+      onCreate?.(createName);
+
+      return;
+    }
+
     if (option) {
       onChange(option.value);
     }
@@ -223,7 +244,7 @@ export function SearchableSelect<Value>({
       open,
       activeIndex: active,
       selectedIndex,
-      optionCount: shown.length
+      optionCount
     });
 
     if (action.type === "none") {
@@ -278,6 +299,12 @@ export function SearchableSelect<Value>({
           aria-invalid={ariaInvalid}
           aria-describedby={ariaDescribedBy}
           onChange={event => search(event.target.value)}
+          onFocus={event => {
+            // Typing then replaces the selected option's label instead of extending it.
+            if (selected && query === selected.label) {
+              event.currentTarget.select();
+            }
+          }}
           onClick={() => {
             if (!open) {
               openAt(Math.max(selectedIndex, 0));
@@ -325,6 +352,20 @@ export function SearchableSelect<Value>({
               {index === selectedIndex && <Check className={styles["check"]} aria-hidden="true" strokeWidth={2.4} />}
             </li>
           ))}
+          {open && createName && (
+            <li
+              id={optionId(createIndex)}
+              className={styles["option"]}
+              role="option"
+              aria-selected={false}
+              data-active={createIndex === active ? "" : undefined}
+              onPointerMove={() => setActiveIndex(createIndex)}
+              onClick={() => choose(createIndex)}
+            >
+              <Plus className={styles["create-icon"]} aria-hidden="true" strokeWidth={2.2} />
+              <span className={styles["label"]}>{createLabel}</span>
+            </li>
+          )}
         </ul>
         {message && <p className={styles["message"]}>{message}</p>}
         {!message && truncated && <p className={styles["message"]}>Showing the first {shown.length} of {countText(matches.length)}. Type to narrow the list.</p>}
