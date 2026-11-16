@@ -4,29 +4,73 @@ import ui from "../../../components/ui/primitives.module.css";
 
 import { clsx } from "clsx";
 import { ArrowRight } from "lucide-react";
-import type { DashboardController } from "@/features/dashboard/use-dashboard";
+import { useId } from "react";
 import { useDialogSubmit, type DialogFormProps } from "@/features/dashboard/use-dialog-submit";
 import { useConnectBank } from "@/features/banking/mutations";
+import { bankCountries } from "@/features/banking/bank-selection";
+import { useBankDirectory } from "@/features/banking/use-bank-directory";
+import type { Bank, Connection } from "@/features/dashboard/types";
 import { FormError } from "@/components/ui/form-error";
+import { SearchableSelect, type SearchableSelectOption } from "@/components/ui/searchable-select";
 import { Select } from "@/components/ui/select";
 
-type Props = Pick<DashboardController, "bankCountry" | "bankName" | "bankSearch" | "banks" | "banksError" | "banksLoading" | "setBankCountry" | "setBankName" | "setBankSearch"> & DialogFormProps & {
+type Props = DialogFormProps & {
   environment: string;
+  /** The connection to reauthorize; null connects a new bank. */
+  connection: Connection | null;
 };
 
+const bankNoun = {
+  one: "bank",
+  other: "banks"
+};
+
+function bankOption(bank: Bank): SearchableSelectOption<string> {
+  return {
+    key: bank.name,
+    value: bank.name,
+    label: bank.name,
+    description: bank.beta ? <span className={ui["pill"]}>Beta</span> : undefined
+  };
+}
+
+function directoryStatus(directory: Pick<ReturnType<typeof useBankDirectory>, "banks" | "error" | "loading">) {
+  if (directory.loading) {
+    return {
+      notice: "Loading banks …",
+      placeholder: "Loading banks …"
+    };
+  }
+
+  if (directory.error) {
+    return {
+      notice: "The bank list could not be loaded.",
+      placeholder: "Bank list unavailable"
+    };
+  }
+
+  if (!directory.banks.length) {
+    return {
+      notice: "No personal bank is available for this country.",
+      placeholder: "No bank available"
+    };
+  }
+
+  return {
+    notice: "",
+    placeholder: "Type to search banks"
+  };
+}
+
 export function BankConnectionForm({
-  bankCountry,
-  bankName,
-  bankSearch,
-  banks,
-  banksError,
-  banksLoading,
   close,
-  environment,
-  setBankCountry,
-  setBankName,
-  setBankSearch
+  connection,
+  environment
 }: Props) {
+  const directory = useBankDirectory(connection);
+  const status = directoryStatus(directory);
+  const bankFieldId = useId();
+  const directoryErrorId = useId();
   const {
     error,
     pending,
@@ -36,46 +80,37 @@ export function BankConnectionForm({
   return (
     <form
       onSubmit={event => submit(event, () => ({
-        bank: bankName,
-        country: bankCountry
+        bank: directory.bankName,
+        country: directory.country
       }))}
       className={ui["form"]}
     >
       <p className={ui["form-description"]}>{environment === "SANDBOX" ? "You are connecting a test bank. Use only its test credentials." : "After selecting a bank, authorize read-only access with your bank."}</p>
       <label>
         Country
-        <Select value={bankCountry} onChange={event => setBankCountry(event.target.value)}>
-          <option value="AT">Austria</option>
-          <option value="DE">Germany</option>
-          <option value="FI">Finland</option>
-          <option value="GB">United Kingdom</option>
-          <option value="SE">Sweden</option>
+        <Select value={directory.country} onChange={event => directory.setCountry(event.target.value)}>
+          {bankCountries.map(country => <option key={country.code} value={country.code}>{country.name}</option>)}
         </Select>
       </label>
-      <label>
-        Search banks
-        <input value={bankSearch} onChange={event => setBankSearch(event.target.value)} placeholder="Bank name …" />
-      </label>
-      <label>
-        Available banks
-        <Select
-          required
-          value={bankName}
-          onChange={event => setBankName(event.target.value)}
-          disabled={banksLoading}
-        >
-          <option value="">{banksLoading ? "Loading banks …" : "Select a bank"}</option>
-          {banks.filter(bank => bank.name.toLowerCase().includes(bankSearch.toLowerCase())).map(bank => (
-            <option key={`${bank.country}:${bank.name}`} value={bank.name}>
-              {bank.name}
-              {bank.beta ? " (Beta)" : ""}
-            </option>
-          ))}
-        </Select>
-      </label>
-      {!banksLoading && !banksError && !banks.length && <p className={ui["form-description"]}>No personal bank is available for this country.</p>}
-      <FormError message={banksError || error} />
-      <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={pending || !bankName || banksLoading}>
+      <div className={ui["field"]}>
+        <label htmlFor={bankFieldId}>Bank</label>
+        <SearchableSelect
+          id={bankFieldId}
+          options={directory.banks.map(bankOption)}
+          value={directory.bankName || undefined}
+          onChange={directory.choose}
+          query={directory.query}
+          onQueryChange={directory.search}
+          noun={bankNoun}
+          placeholder={status.placeholder}
+          notice={status.notice}
+          busy={directory.loading}
+          aria-describedby={directory.error ? directoryErrorId : undefined}
+        />
+        {directory.error && <p id={directoryErrorId} className={ui["error-text"]}>{directory.error}</p>}
+      </div>
+      <FormError message={error} />
+      <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={pending || !directory.bankName}>
         Authorize with bank <ArrowRight size={16} />
       </button>
     </form>
