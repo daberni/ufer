@@ -20,29 +20,21 @@ import { useDashboardController } from "./dashboard-context";
 import { useLoadError } from "./use-load-error";
 
 /** The persistent dashboard shell; the current view route renders inside it. */
-export default function Dashboard({
-  children,
-  sourceCodeUrl
-}: {
-  children: React.ReactNode;
-  sourceCodeUrl: string | null;
+export default function Dashboard({ children }: {
+  children: React.ReactNode
 }) {
   const dashboard = useDashboardController();
 
   if (dashboard.locked) {
-    return <LoginForm sourceCodeUrl={sourceCodeUrl} unlock={dashboard.unlock} />;
+    return <LoginForm unlock={dashboard.unlock} />;
   }
 
-  return <DashboardShell sourceCodeUrl={sourceCodeUrl}>{children}</DashboardShell>;
+  return <DashboardShell>{children}</DashboardShell>;
 }
 
 // Rendered only while signed in, so no dashboard query runs behind the sign-in form.
-function DashboardShell({
-  children,
-  sourceCodeUrl
-}: {
-  children: React.ReactNode;
-  sourceCodeUrl: string | null;
+function DashboardShell({ children }: {
+  children: React.ReactNode
 }) {
   const dashboard = useDashboardController();
   const banking = useBankingStatus();
@@ -54,7 +46,7 @@ function DashboardShell({
       <main className={styles["content"]}>
         <LoadErrorNotice message={loadError.message} retry={loadError.retry} />
         <ViewLoading failed={banking.isError || accounts.isError} />
-        <DashboardFooter sourceCodeUrl={sourceCodeUrl} />
+        <DashboardFooter />
       </main>
     );
   }
@@ -104,7 +96,7 @@ function DashboardShell({
             </div>
           )}
           {children}
-          <DashboardFooter sourceCodeUrl={sourceCodeUrl} />
+          <DashboardFooter />
         </main>
       </div>
       {dashboard.modal && (
@@ -142,16 +134,14 @@ function DashboardShell({
 }
 
 // Also rendered while the dashboard data loads or fails, so the source offer never depends on a successful query.
-function DashboardFooter({ sourceCodeUrl }: {
-  sourceCodeUrl: string | null
-}) {
+function DashboardFooter() {
   return (
     <footer className={styles["page-footer"]}>
       <span>
         <BrandIcon size={16} /> Ufer
       </span>
       <span>A clearer view of your money.</span>
-      <SourceCodeNotice url={sourceCodeUrl} />
+      <SourceCodeNotice />
     </footer>
   );
 }

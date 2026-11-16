@@ -15,19 +15,14 @@ import { authClient, requireAuthResult } from "@/features/auth/client";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
 import { signInMeta } from "@/features/dashboard/use-dashboard-lock";
 
-type Props = Pick<DashboardController, "unlock"> & {
-  sourceCodeUrl: string | null;
-};
+type Props = Pick<DashboardController, "unlock">;
 
 type Credentials = {
   username: string;
   password: string;
 };
 
-export function LoginForm({
-  sourceCodeUrl,
-  unlock
-}: Props) {
+export function LoginForm({ unlock }: Props) {
   const signIn = useMutation({
     meta: signInMeta,
     mutationFn: async (credentials: Credentials) => {
@@ -83,7 +78,7 @@ export function LoginForm({
         <button className={clsx(styles["button"], ui["primary"])} disabled={signIn.isPending}>
           Open dashboard <ArrowRight size={16} />
         </button>
-        <SourceCodeNotice className={styles["source-code"]} url={sourceCodeUrl} />
+        <SourceCodeNotice className={styles["source-code"]} />
       </form>
     </main>
   );

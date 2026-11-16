@@ -34,16 +34,6 @@ Set `BETTER_AUTH_SECRET`, `DATA_ENCRYPTION_KEY`, `CRON_SECRET`, the banking appl
 
 `vercel.json` configures a daily 05:00 UTC cron call authenticated with `CRON_SECRET`. The route has `maxDuration=300`; provider latency and many accounts can exceed platform runtime limits. Vercel runtime, HTTPS authentication, the sandbox callback/sync and the authenticated cron endpoint have been verified. The enabled schedule runs at 05:00 UTC; its first future unattended invocation and actual NAS operation remain unverified. See the [deployment guide](vercel-deployment.md) for configuration, cost boundaries and acceptance evidence. Unattended synchronization is a required capability on every supported hosting platform.
 
-## Source code offer
-
-Ufer is licensed under AGPL-3.0-or-later. Section 13 of the license requires an installation that runs a modified version for other users to offer those users the corresponding source code. Set `SOURCE_CODE_URL` to a public URL of exactly the source the installation runs, such as a tag or commit of a public repository or a source archive.
-
-| Variable | Meaning |
-| --- | --- |
-| SOURCE_CODE_URL | Optional absolute `http` or `https` URL. When set, the sign-in screen and the dashboard footer link to it as "Source code" next to the license name, also while dashboard data is loading or failed to load; when unset or empty, they show only the license name |
-
-The server reads the value at request time, not at build time. Any other value, such as a relative path or a non-HTTP scheme, is a configuration error: the dashboard fails to render until it is corrected rather than silently hiding the offer. Section 13 does not apply to an unmodified installation, which may leave the variable unset. The link does not cover the license's separate conditions for distributing copies, such as a prebuilt container image.
-
 ## Smartphone support
 
 Small screens use labeled bottom navigation, transaction cards with expandable descriptions, and scrollable bottom-sheet forms. Larger touch targets, 16-pixel form text, and safe-area spacing support smartphone use. Desktop retains tables and a sidebar.

@@ -3,21 +3,18 @@ import styles from "./source-code-notice.module.css";
 /** SPDX identifier of the license in the repository's LICENSE file. */
 const projectLicense = "AGPL-3.0-or-later";
 
-/** Offered on every screen of the application, including sign-in and failed loads, so all remote users can obtain the source. */
-export function SourceCodeNotice({
-  className,
-  url
-}: {
-  className?: string;
-  url: string | null;
-}) {
-  if (!url) {
-    return <span className={className}>{projectLicense}</span>;
-  }
+/**
+ * Where users obtain the Corresponding Source, as AGPL-3.0 section 13 requires for network use. A modified deployment must change this to its own source.
+ */
+export const sourceCodeUrl = "https://github.com/daberni/ufer";
 
+/** Offered on every screen of the application, including sign-in and failed loads, so all remote users can obtain the source. */
+export function SourceCodeNotice({ className }: {
+  className?: string
+}) {
   return (
     <span className={className}>
-      <a className={styles["link"]} href={url} rel="noreferrer">
+      <a className={styles["link"]} href={sourceCodeUrl} rel="noreferrer">
         Source code
       </a>{" "}
       · {projectLicense}

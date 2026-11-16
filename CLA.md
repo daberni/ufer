@@ -64,6 +64,10 @@ You agree to notify the Maintainer, through the Ufer repository, of any facts or
 
 The Maintainer may transfer this Agreement, together with the rights granted under it, to a successor maintainer of the Work or to a legal entity that the Maintainer controls or that takes over maintenance of the Work. The transferee then acts as the Maintainer under this Agreement.
 
+## 11. Governing Law
+
+This Agreement is governed by Austrian law, excluding its conflict-of-law rules and the United Nations Convention on Contracts for the International Sale of Goods. If You are a consumer, this choice of law does not deprive You of the protection of mandatory provisions of the law of the country where You habitually reside.
+
 ---
 
-This Agreement is adapted from the [Apache Software Foundation Individual Contributor License Agreement V2.2](https://www.apache.org/licenses/icla.pdf). The adaptation names the Ufer maintainer instead of the Foundation, replaces the Foundation's nonprofit commitment and corporate agreement reference, adds acceptance through a pull-request comment and adds sections 4 and 10 and the second paragraph of section 6. It is not endorsed by the Apache Software Foundation.
+This Agreement is adapted from the [Apache Software Foundation Individual Contributor License Agreement V2.2](https://www.apache.org/licenses/icla.pdf). The adaptation names the Ufer maintainer instead of the Foundation, replaces the Foundation's nonprofit commitment and corporate agreement reference, adds acceptance through a pull-request comment and adds sections 4, 10 and 11 and the second paragraph of section 6. It is not endorsed by the Apache Software Foundation.

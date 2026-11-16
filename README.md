@@ -41,7 +41,7 @@ Repository documentation and code are maintained in English.
 
 ## License
 
-Ufer is free software under the [GNU Affero General Public License, version 3 or later](LICENSE) (`AGPL-3.0-or-later`). Anyone may run, modify and host it; if you run a modified version for other users over a network, you must offer those users its source code. Set `SOURCE_CODE_URL` so the application links to it (see [setup](docs/setup.md#source-code-offer)).
+Ufer is free software under the [GNU Affero General Public License, version 3 or later](LICENSE) (`AGPL-3.0-or-later`). Anyone may run, modify and host it; if you run a modified version for other users over a network, you must offer those users its source code. The sign-in screen and dashboard footer link to the source through `sourceCodeUrl` in [`source-code-notice.tsx`](src/features/legal/components/source-code-notice.tsx); a modified deployment must change that constant to point at its own source (AGPL-3.0 section 13).
 
 Contributions are accepted only from contributors who have signed the [contributor license agreement](CLA.md); see [contributing](CONTRIBUTING.md).
 
