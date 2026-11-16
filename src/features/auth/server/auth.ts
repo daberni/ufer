@@ -1,5 +1,7 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
+import { createAuthMiddleware } from "better-auth/api";
+import { nextCookies } from "better-auth/next-js";
 import { username } from "better-auth/plugins";
 import { HttpError } from "@/lib/errors";
 import { database, type Database, type DatabaseTransaction } from "@/server/database/connection";
@@ -56,8 +58,10 @@ export function createAuth(db: Database | DatabaseTransaction, options: AuthOpti
       revokeSessionsOnPasswordReset: true,
       sendResetPassword: options.onPasswordReset ? async ({ token }) => options.onPasswordReset?.(token) : undefined
     },
+    // A session ends after 24 hours without use; see docs/security.md.
     session: {
-      expiresIn: 7 * 86_400,
+      expiresIn: 24 * 3_600,
+      updateAge: 3_600,
       cookieCache: {
         enabled: false
       }
@@ -90,7 +94,26 @@ export function createAuth(db: Database | DatabaseTransaction, options: AuthOpti
         }
       }
     },
-    plugins: [username()]
+    hooks: {
+      before: createAuthMiddleware(async context => {
+        if (context.path !== "/change-password") {
+          return;
+        }
+
+        // A password change signs out every other session (OWASP ASVS 3.3.3), because it is often the response to a leaked password.
+        // Better Auth leaves this to an optional `revokeOtherSessions` flag in the request body; setting it here enforces it for every caller, so a client cannot opt out.
+        return {
+          context: {
+            body: {
+              ...context.body,
+              revokeOtherSessions: true
+            }
+          }
+        };
+      })
+    },
+    // Forwards a renewed session cookie from server-side session checks to the response; it must stay the last plugin.
+    plugins: [username(), nextCookies()]
   });
 }
 
