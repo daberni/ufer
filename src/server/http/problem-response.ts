@@ -19,7 +19,7 @@ export function problemResponse(error: unknown, originalHeaders?: HeadersInit) {
     status = 422;
     detail = error.message;
     errorType = "ValidationError";
-  } else if (error instanceof z.ZodError || error instanceof SyntaxError) {
+  } else if (error instanceof z.ZodError) {
     status = 400;
     detail = "Input is incomplete or invalid.";
   }

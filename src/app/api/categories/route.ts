@@ -1,4 +1,5 @@
 import { respond } from "@/server/http/respond";
+import { readJson } from "@/server/http/request-body";
 import { createCategory } from "@/features/categorization/server/categorization-service";
 import { listCategories } from "@/features/categorization/server/categorization-queries";
 
@@ -13,7 +14,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  return respond(request, async () => createCategory(await request.json()), {
+  return respond(request, async () => createCategory(await readJson(request)), {
     status: 201
   });
 }
