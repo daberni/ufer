@@ -8,6 +8,7 @@ import { usernameClient } from "better-auth/client/plugins";
 import { initializeDatabase } from "../src/server/database/migrations";
 import type { Database } from "../src/server/database/connection";
 import * as schema from "../src/server/database/schema";
+import { HttpError } from "../src/lib/errors";
 import { createAuth } from "../src/features/auth/server/auth";
 import { resetUserPassword } from "../src/features/auth/server/password-recovery";
 import { provisionUser } from "../src/features/auth/server/provision-user";
@@ -425,6 +426,17 @@ test("with a trusted client address header, one client exceeding the sign-in lim
   });
 
   assert.equal(sameIpv6Network.status, 429);
+});
+
+test("an invalid trusted client address header name is a configuration error, not a failure on every request", async context => {
+  const db = await isolatedAuth(context);
+
+  trustClientAddressHeader(context, undefined);
+
+  for (const header of ["X-Real-IP:", "x-forwarded-for, x-real-ip"]) {
+    process.env.TRUSTED_CLIENT_IP_HEADER = header;
+    assert.throws(() => createAuth(db), (error: unknown) => error instanceof HttpError && error.status === 503);
+  }
 });
 
 test("operator password recovery uses library reset tokens and revokes all sessions without opening public recovery", async context => {
