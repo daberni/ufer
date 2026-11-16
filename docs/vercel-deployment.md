@@ -16,6 +16,9 @@ Use the existing Vercel Hobby account and Turso Starter plan. Do not select paid
 | DATABASE_URL | Persistent `libsql://` URL, not a local file or temporary directory |
 | ENABLE_BANKING_ENVIRONMENT | SANDBOX until production banking access is separately accepted |
 | ENABLE_BANKING_REDIRECT_URL | APP_URL followed by `/api/banking/callback`; register it with the provider |
+| OPERATOR_NAME / OPERATOR_RESIDENCE | Operator name and place of residence (municipality and country) shown on `/privacy` and `/terms`; required before supplying those URLs for provider registration |
+| OPERATOR_EMAIL | Optional contact email for the same pages |
+| DATA_PROCESSORS | JSON list of the hosting and database providers of this deployment; see [setup](setup.md#privacy-notice-and-terms) |
 
 | Secret | Purpose |
 | --- | --- |
@@ -26,6 +29,17 @@ Use the existing Vercel Hobby account and Turso Starter plan. Do not select paid
 | ENABLE_BANKING_APP_ID / ENABLE_BANKING_PRIVATE_KEY | Operator's matching provider application and PEM key; no local key-file path on Vercel |
 
 Turso's integration supplies TURSO_DATABASE_URL and TURSO_AUTH_TOKEN. Map their values to the generic DATABASE_URL and DATABASE_AUTH_TOKEN expected by Ufer. Keep production credentials in the operator's password manager and Vercel's environment secret store. Never commit them, print them, upload local environment files or embed them in the browser bundle. Provision separate production, preview and local data/secrets; do not attach production financial data to unrestricted previews.
+
+For this deployment, DATA_PROCESSORS lists Vercel and Turso with the regions above, for example:
+
+```json
+[
+  {"name": "Vercel", "purpose": "Hosts and runs the application; keeps runtime logs for one hour on the Hobby plan.", "location": "Frankfurt, Germany (fra1) for application functions; requests pass through Vercel's global network"},
+  {"name": "Turso", "purpose": "Stores the database.", "location": "Dublin, Ireland"}
+]
+```
+
+Update it when a provider, region, plan or retention period changes. The one-hour log retention is Vercel's documented [runtime-log limit](https://vercel.com/docs/logs/runtime) for Hobby (checked 2026-11-16); add the Turso backup retention of the plan in use once confirmed. Operator details are entered in Vercel's environment settings only, never in the repository.
 
 Preview deployments use their own Turso database and secrets in Vercel's Preview environment. Leave APP_URL unset there: sign-in and write requests accept the preview's branch alias and deployment URL, which Vercel provides as VERCEL_BRANCH_URL and VERCEL_URL. Production still accepts only APP_URL. Bank connections are not available in previews because their changing URLs cannot be registered as provider callbacks.
 
