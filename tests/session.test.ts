@@ -9,12 +9,13 @@ import { initializeDatabase } from "../src/server/database/migrations";
 import type { Database } from "../src/server/database/connection";
 import * as schema from "../src/server/database/schema";
 import { HttpError } from "../src/lib/errors";
-import { createAuth } from "../src/features/auth/server/auth";
+import { authentication, createAuth } from "../src/features/auth/server/auth";
 import { resetUserPassword } from "../src/features/auth/server/password-recovery";
 import { provisionUser } from "../src/features/auth/server/provision-user";
 import { requireAuth } from "../src/features/auth/server/session";
 import { handleAuthentication } from "../src/features/auth/server/auth-handler";
 import { respond } from "../src/server/http/respond";
+import { GET as readCurrentUser } from "../src/app/api/me/route";
 
 const origin = "https://finance.example";
 const password = "synthetic-test-password-123";
@@ -257,6 +258,37 @@ test("valid identities without active membership cannot access financial data", 
   await assert.rejects(requireAuth(authorized), {
     status: 403
   });
+});
+
+test("requests share one auth instance per database connection and a new connection gets its own", async context => {
+  const db = await isolatedAuth(context);
+  const shared = await authentication();
+  const globalDb = globalThis as unknown as {
+    budgetDb?: Promise<Database>
+  };
+
+  assert.equal(await authentication(), shared);
+  globalDb.budgetDb = Promise.resolve(drizzle(db.$client, {
+    schema
+  }));
+  assert.notEqual(await authentication(), shared);
+});
+
+test("a signed-in route looks up the session once and reports its timing", async context => {
+  await isolatedAuth(context);
+  await provisionUser(owner);
+  const signed = await signIn();
+  const lookups = context.mock.method((await authentication()).api, "getSession");
+  const response = await readCurrentUser(new Request(`${origin}/api/me`, {
+    headers: {
+      cookie: signed.cookie
+    }
+  }));
+
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).username, "exampleowner");
+  assert.equal(lookups.mock.callCount(), 1);
+  assert.match(response.headers.get("server-timing") || "", /^auth;dur=[\d.]+;desc="[^"]+", action;dur=[\d.]+;desc="[^"]+", db;dur=[\d.]+;desc="\d+ database calls, summed", total;dur=[\d.]+;desc="Total"$/);
 });
 
 for (const [description, clientFlag] of [

@@ -69,6 +69,10 @@ The guard refuses databases with non-sandbox banking data or transactions on man
 
 The current source uses Better Auth username/password identities and active membership of one installation workspace. Before deploying it to an existing installation, separately approve and follow the [authentication migration and enrollment workflow](user-management.md#migration-and-rollout). The hosted installation completed that rollout. This version is not a multi-customer service.
 
+## Request timing
+
+API routes answer with a `Server-Timing` header: `auth` (session and membership lookup), `action` (the route's own work), `db` (database calls in the request with their summed duration; concurrent calls overlap) and `total`. Browser developer tools show it per request, so a slow view can be traced to session lookup, query count or provider calls. With functions in `fra1` and the database in another region, each database call adds a network round trip; an authenticated request usually needs three for the session, user and membership before its own queries. Warm and cold timings from the hosted deployment have not been recorded yet.
+
 ## Verification status
 
 Verified on 2026-11-15: Vercel production is Ready on Node 26 with functions in Frankfurt and the approved Turso Starter database initialized from the existing baseline. Login/logout, Secure/HttpOnly/SameSite session attributes, origin rejection, protected Problem Details responses and remote persistence passed. Both hosted and local bank callbacks are registered. A Mock ASPSP sandbox connection contains one account and two test transactions; a repeat sync inserted zero additional transactions.
