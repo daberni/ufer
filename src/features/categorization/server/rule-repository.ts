@@ -27,9 +27,11 @@ export async function insertRule(input: Omit<Rule, "id" | "enabled"> & {
 export async function setRuleEnabled(id: string, enabled: boolean) {
   const db = await database();
 
-  await db.update(categorizationRules).set({
+  const result = await db.update(categorizationRules).set({
     enabled: enabled ? 1 : 0
   }).where(eq(categorizationRules.id, id));
+
+  return result.rowsAffected > 0;
 }
 
 export async function findUncorrectedTransactions() {
@@ -38,6 +40,7 @@ export async function findUncorrectedTransactions() {
 
   return db.select({
     id: transactions.id,
+    category_id: transactions.category_id,
     counterparty: transactions.counterparty,
     description: transactions.description
   }).from(transactions).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(scope);
