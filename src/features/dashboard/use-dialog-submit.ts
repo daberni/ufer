@@ -1,38 +1,30 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
-import type { DashboardController } from "./use-dashboard";
+import type { FormEvent } from "react";
+import type { UseMutationResult } from "@tanstack/react-query";
+import { failureMessage } from "@/client/api";
 
-// A dialog closes on success, leaving the refreshed data as confirmation, and keeps failures inside the open dialog.
-export function useDialogSubmit(perform: DashboardController["perform"], close: () => void) {
-  const [error, setError] = useState("");
-
-  async function submit<T>(event: FormEvent<HTMLFormElement>, action: (data: FormData) => Promise<T>, onClosed?: (value: T) => void) {
+/**
+ * Submits a dialog form through its mutation. The dialog closes once the write and the refresh of the affected data have finished, leaving the refreshed data as confirmation; failures stay inside the open dialog.
+ */
+export function useDialogSubmit<TData, TVariables>(mutation: UseMutationResult<TData, Error, TVariables>, close: () => void) {
+  function submit(event: FormEvent<HTMLFormElement>, variables: (data: FormData) => TVariables, onClosed?: (value: TData) => void) {
     event.preventDefault();
-    const data = new FormData(event.currentTarget);
-
-    setError("");
-    const result = await perform(() => action(data));
-
-    if (!result.ok) {
-      setError(result.message);
-
-      return;
-    }
-
-    close();
-    onClosed?.(result.value);
+    mutation.mutate(variables(new FormData(event.currentTarget)), {
+      onSuccess: value => {
+        close();
+        onClosed?.(value);
+      }
+    });
   }
 
   return {
-    error,
+    error: mutation.error ? failureMessage(mutation.error) : "",
+    pending: mutation.isPending,
     submit
   };
 }
 
-export type DialogSubmit = ReturnType<typeof useDialogSubmit>["submit"];
-
 export type DialogFormProps = {
-  error: string;
-  submit: DialogSubmit;
+  close: () => void;
 };

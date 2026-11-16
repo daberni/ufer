@@ -14,11 +14,11 @@ export async function updateTransactionCategory(id: string, payload: unknown) {
     throw new ValidationError("Category does not exist.");
   }
 
-  if (!(await setTransactionCategory(id, categoryId))) {
+  const assignment = await setTransactionCategory(id, categoryId);
+
+  if (!assignment) {
     throw new HttpError(404, "Transaction not found.");
   }
 
-  return {
-    ok: true
-  };
+  return assignment;
 }

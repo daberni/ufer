@@ -164,7 +164,7 @@ test("financial access rejects anonymous, tampered, expired and revoked sessions
   const db = await isolatedAuth(context);
 
   await provisionUser(owner);
-  await assert.rejects(requireAuth(new Request(`${origin}/api/state`)), {
+  await assert.rejects(requireAuth(new Request(`${origin}/api/accounts`)), {
     status: 401
   });
   const {
@@ -178,7 +178,7 @@ test("financial access rejects anonymous, tampered, expired and revoked sessions
   assert.match(header || "", /; SameSite=Lax/i);
   assert.match(header || "", /; Path=\//i);
   assert.doesNotMatch(header || "", /; Domain=/i);
-  const signed = new Request(`${origin}/api/state`, {
+  const signed = new Request(`${origin}/api/accounts`, {
     headers: {
       cookie
     }
@@ -186,7 +186,7 @@ test("financial access rejects anonymous, tampered, expired and revoked sessions
   const actor = await requireAuth(signed);
 
   assert.equal(actor.username, "exampleowner");
-  await assert.rejects(requireAuth(new Request(`${origin}/api/state`, {
+  await assert.rejects(requireAuth(new Request(`${origin}/api/accounts`, {
     headers: {
       cookie: cookie + "tampered"
     }
@@ -200,7 +200,7 @@ test("financial access rejects anonymous, tampered, expired and revoked sessions
     status: 401
   });
   const second = await signIn();
-  const secondRequest = new Request(`${origin}/api/state`, {
+  const secondRequest = new Request(`${origin}/api/accounts`, {
     headers: {
       cookie: second.cookie
     }
@@ -227,7 +227,7 @@ test("valid identities without active membership cannot access financial data", 
   });
   const outsider = await signIn("outsider");
   let reached = false;
-  const blocked = await respond(new Request(`${origin}/api/state`, {
+  const blocked = await respond(new Request(`${origin}/api/accounts`, {
     headers: {
       cookie: outsider.cookie
     }
@@ -243,7 +243,7 @@ test("valid identities without active membership cannot access financial data", 
   assert.equal(reached, false);
   assert.equal((await blocked.json()).status, 403);
   const signed = await signIn();
-  const authorized = new Request(`${origin}/api/state`, {
+  const authorized = new Request(`${origin}/api/accounts`, {
     headers: {
       cookie: signed.cookie
     }
@@ -270,7 +270,7 @@ test("password changes revoke other sessions and the old password stops working"
   }, second.cookie));
 
   assert.equal(changed.status, 200, JSON.stringify(await changed.clone().json()));
-  await assert.rejects(requireAuth(new Request(`${origin}/api/state`, {
+  await assert.rejects(requireAuth(new Request(`${origin}/api/accounts`, {
     headers: {
       cookie: first.cookie
     }
@@ -371,7 +371,7 @@ test("operator password recovery uses library reset tokens and revokes all sessi
     email: "missing@example.test",
     password: "replacement-test-password-123"
   }));
-  assert.equal((await requireAuth(new Request(`${origin}/api/state`, {
+  assert.equal((await requireAuth(new Request(`${origin}/api/accounts`, {
     headers: {
       cookie: signed.cookie
     }
@@ -380,7 +380,7 @@ test("operator password recovery uses library reset tokens and revokes all sessi
     email: owner.email,
     password: "replacement-test-password-123"
   });
-  await assert.rejects(requireAuth(new Request(`${origin}/api/state`, {
+  await assert.rejects(requireAuth(new Request(`${origin}/api/accounts`, {
     headers: {
       cookie: signed.cookie
     }

@@ -8,24 +8,26 @@ import { Landmark, Link2, Plus, ShieldCheck, Trash2 } from "lucide-react";
 import { TimestampValue } from "@/components/ui/date-value";
 import { Empty } from "@/components/ui/empty-state";
 import { BridgeIllustration } from "@/components/branding/illustrations";
+import type { BankingStatus, Connection, SyncRun } from "@/features/dashboard/types";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
 
-type Props = Pick<DashboardController, "busy" | "openBank" | "openConnectionRemoval" | "state">;
+type Props = Pick<DashboardController, "openBank" | "openConnectionRemoval"> & {
+  banking: BankingStatus;
+  connections: Connection[];
+  syncRuns: SyncRun[];
+};
 
 export function ConnectionsView({
-  busy,
+  banking,
+  connections,
   openBank,
   openConnectionRemoval,
-  state
+  syncRuns
 }: Props) {
-  if (!state) {
-    return null;
-  }
-
   return (
     <>
       <div className={ui["section-heading"]}>
-        <span className={ui["section-kicker"]}>ENABLE BANKING · {state.environment}</span>
+        <span className={ui["section-kicker"]}>ENABLE BANKING · {banking.environment}</span>
         <button className={clsx(styles["button"], ui["primary"])} onClick={() => openBank()}>
           <Plus size={15} />
           Connect bank
@@ -38,11 +40,11 @@ export function ConnectionsView({
           <p>Your private application key stays on your server. Bank authorizations need periodic renewal; their duration depends on the bank.</p>
         </div>
       </div>
-      {!state.bankingConfigured && <div className={clsx(ui["notice"], ui["warning"])}>Configure the application ID and private key on the server to enable bank access.</div>}
+      {!banking.configured && <div className={clsx(ui["notice"], ui["warning"])}>Configure the application ID and private key on the server to enable bank access.</div>}
       <section className={ui["panel"]}>
-        {state.connections.length ? (
+        {connections.length ? (
           <div className={styles["connections-list"]}>
-            {state.connections.map(connection => (
+            {connections.map(connection => (
               <div className={styles["connection-row"]} key={connection.id}>
                 <span className={clsx(ui["account-logo"], styles["checking"])}>
                   <Landmark size={23} />
@@ -63,12 +65,11 @@ export function ConnectionsView({
                   SUPERSEDED: "Superseded"
                 } as Record<string, string>)[connection.status] || connection.status}</span>
                 <div className={styles["connection-actions"]}>
-                  <button className={clsx(styles["button"], ui["small"])} disabled={busy} onClick={() => openBank(connection)}>
+                  <button className={clsx(styles["button"], ui["small"])} onClick={() => openBank(connection)}>
                     Reconnect
                   </button>
                   <button
                     className={clsx(styles["button"], ui["small"])}
-                    disabled={busy}
                     onClick={() => openConnectionRemoval(connection)}
                     aria-label={`Remove ${connection.bank_name} connection`}
                   >
@@ -94,12 +95,12 @@ export function ConnectionsView({
           </Empty>
         )}
       </section>
-      {state.runs.length > 0 && (
+      {syncRuns.length > 0 && (
         <section className={clsx(ui["panel"], styles["sync-history"])}>
           <div className={ui["card-heading"]}>
             <h2>Recent syncs</h2>
           </div>
-          {state.runs.map(run => (
+          {syncRuns.map(run => (
             <div className={styles["sync-row"]} key={run.id}>
               <span><TimestampValue value={run.started_at} /></span>
               <span className={styles["pill"]}>{run.status}</span>

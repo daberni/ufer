@@ -1,17 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import { api } from "@/client/api";
 import { useActionFeedback, type Feedback } from "@/components/ui/use-action-feedback";
-import type { ActionResult, DashboardController } from "@/features/dashboard/use-dashboard";
+import { settle, type ActionResult, type DashboardController } from "@/features/dashboard/use-dashboard";
+import { useSync, type SyncOutcome } from "./mutations";
 
-type SyncOutcome = {
-  inserted: number;
-  failures: string[];
-};
-
-export function useSyncFeedback(perform: DashboardController["perform"], view: DashboardController["view"]) {
-  const [syncing, setSyncing] = useState(false);
+export function useSyncFeedback(view: DashboardController["view"]) {
+  const syncMutation = useSync();
 
   const {
     feedback,
@@ -22,15 +16,13 @@ export function useSyncFeedback(perform: DashboardController["perform"], view: D
   async function sync() {
     // Progress is shown on the button only; the popover opens once there is a result.
     dismiss();
-    setSyncing(true);
-    const result = await perform(() => api<SyncOutcome>("sync", {}));
+    const result = await settle(syncMutation.mutateAsync());
 
-    setSyncing(false);
     report(syncFeedback(result));
   }
 
   return {
-    syncing,
+    syncing: syncMutation.isPending,
     feedback,
     sync,
     dismiss

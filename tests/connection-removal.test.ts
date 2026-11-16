@@ -13,8 +13,8 @@ import { recordConnectionFailure, saveBankSession } from "../src/features/bankin
 import { removeBankConnection } from "../src/features/banking/server/connection-service";
 import { saveSessionAccounts } from "../src/features/banking/server/bank-account-repository";
 import { listSyncAccounts } from "../src/features/banking/server/sync-repository";
-import { readDashboardState } from "../src/features/dashboard/server/dashboard-query";
-import { dashboardFilters } from "../src/features/dashboard/server/dashboard-filters";
+import { listConnections } from "../src/features/banking/server/banking-queries";
+import { listAccounts } from "../src/features/accounts/server/account-queries";
 
 const providerKey = generateKeyPairSync("rsa", {
   modulusLength: 2048
@@ -158,10 +158,8 @@ test("removing a bank connection keeps accounts and history, deletes its credent
   assert.equal((await db.select().from(schema.balanceSnapshots)).length, 1);
   assert.deepEqual((await listSyncAccounts(db, "SANDBOX")).map(item => item.id), ["kept-account"]);
 
-  const state = await readDashboardState(dashboardFilters(new URLSearchParams()));
-
-  assert.deepEqual(state.connections.map(item => item.id), ["kept"]);
-  assert.equal(state.accounts.length, 2);
+  assert.deepEqual((await listConnections()).map(item => item.id), ["kept"]);
+  assert.equal((await listAccounts()).length, 2);
 
   await assert.rejects(removeBankConnection("removed"), {
     status: 404

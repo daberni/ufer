@@ -10,24 +10,23 @@ import { accountIcon, accountSourceLabel, kinds } from "@/features/dashboard/pre
 import { DateValue } from "@/components/ui/date-value";
 import { money } from "@/lib/money";
 import { Empty } from "@/components/ui/empty-state";
+import type { Account } from "@/features/dashboard/types";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
 
-type Props = Pick<DashboardController, "openBank" | "setModal" | "setSelectedAccount" | "state">;
+type Props = Pick<DashboardController, "openBank" | "setModal" | "setSelectedAccount"> & {
+  accounts: Account[];
+};
 
 export function AccountsView({
+  accounts,
   openBank,
   setModal,
-  setSelectedAccount,
-  state
+  setSelectedAccount
 }: Props) {
-  if (!state) {
-    return null;
-  }
-
   return (
     <>
       <div className={ui["section-heading"]}>
-        <span className={ui["section-kicker"]}>{state.accounts.length} ACCOUNTS & ASSETS</span>
+        <span className={ui["section-kicker"]}>{accounts.length} ACCOUNTS & ASSETS</span>
         <div className={ui["button-group"]}>
           <button className={ui["button"]} onClick={() => setModal("account")}>
             <Plus size={15} />
@@ -39,9 +38,9 @@ export function AccountsView({
           </button>
         </div>
       </div>
-      {state.accounts.length ? (
+      {accounts.length ? (
         <div className={styles["accounts-grid"]}>
-          {state.accounts.map(account => {
+          {accounts.map(account => {
             const Icon = accountIcon(account.kind);
 
             return (

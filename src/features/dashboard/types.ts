@@ -61,36 +61,36 @@ export type ConnectionRemoval = {
   providerRevocation: "revoked" | "not_revoked" | "no_session";
 };
 
-export type State = {
+export type SyncRun = {
+  id: string;
+  started_at: string;
+  status: string;
+  inserted_count: number;
+  error: string | null;
+};
+
+export type BankingStatus = {
   environment: string;
-  bankingConfigured: boolean;
+  configured: boolean;
+};
+
+/** Latest known balances in one currency; independent of the selected period. */
+export type NetWorth = {
   currency: string;
-  /** The period the financial results in this response were computed for. */
+  netWorth: number;
+  liquidity: number;
+  investments: number;
+  property: number;
+  liabilities: number;
+  unvalued: number;
+};
+
+export type CashFlow = {
+  /** The period the figures were computed for. */
   period: PeriodJson;
-  page: number;
-  accounts: Account[];
-  transactions: Transaction[];
-  transactionCount: number;
-  categories: Category[];
-  rules: Rule[];
-  connections: Connection[];
-  runs: {
-    id: string;
-    started_at: string;
-    status: string;
-    inserted_count: number;
-    error: string | null;
-  }[];
-  summary: {
-    netWorth: number;
-    liquidity: number;
-    investments: number;
-    property: number;
-    liabilities: number;
-    unvalued: number;
-    income: number;
-    expenses: number;
-  };
+  currency: string;
+  income: number;
+  expenses: number;
   breakdown: {
     name: string;
     color: string;
@@ -102,6 +102,14 @@ export type State = {
     income: number;
     expenses: number;
   }[];
+};
+
+export type TransactionPage = {
+  period: PeriodJson;
+  page: number;
+  /** Matches across all pages. */
+  transactionCount: number;
+  transactions: Transaction[];
 };
 
 export type Bank = {

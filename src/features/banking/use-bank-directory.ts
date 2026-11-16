@@ -1,65 +1,30 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { api, failureMessage } from "@/client/api";
-import type { Bank } from "@/features/dashboard/types";
+import { useState } from "react";
+import { failureMessage } from "@/client/api";
+import { useBanks } from "./queries";
 
+/** The bank chosen in the connection dialog; the directory for the selected country loads while the dialog is open. */
 export function useBankDirectory(active: boolean) {
-  const [banks, setBanks] = useState<Bank[]>([]);
-
   const [bankCountry, setBankCountry] = useState("AT");
 
   const [bankSearch, setBankSearch] = useState("");
 
   const [bankName, setBankName] = useState("");
 
-  const [banksLoading, setBanksLoading] = useState(false);
-
-  const [banksError, setBanksError] = useState("");
-
-  useEffect(() => {
-    if (!active) {
-      return;
-    }
-
-    let current = true;
-
-    setBanksLoading(true);
-    setBanksError("");
-    setBanks([]);
-    api<{
-      banks: Bank[];
-    }>(`banks?country=${bankCountry}`).then(data => {
-      if (current) {
-        setBanks(data.banks);
-        setBankName(current => data.banks.some(bank => bank.name === current) ? current : "");
-      }
-    }).catch(error => {
-      if (current) {
-        setBanksError(failureMessage(error));
-      }
-    }).finally(() => {
-      if (current) {
-        setBanksLoading(false);
-      }
-    });
-
-    return () => {
-      current = false;
-    };
-  }, [active, bankCountry]);
+  const directory = useBanks(bankCountry, active);
+  const banks = directory.data?.banks ?? [];
 
   return {
     banks,
-    setBanks,
     bankCountry,
     setBankCountry,
     bankSearch,
     setBankSearch,
-    bankName,
+    // A bank from another country's directory is not a valid choice.
+    bankName: banks.some(bank => bank.name === bankName) ? bankName : "",
     setBankName,
-    banksLoading,
-    setBanksLoading,
-    banksError
+    banksLoading: directory.isPending && active,
+    banksError: directory.isError ? failureMessage(directory.error) : ""
   };
 }

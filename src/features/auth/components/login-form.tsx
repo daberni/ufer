@@ -5,47 +5,46 @@ import ui from "../../../components/ui/primitives.module.css";
 import { clsx } from "clsx";
 import styles from "./login-form.module.css";
 import { ArrowRight } from "lucide-react";
-import { useState } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { BrandIcon } from "@/components/branding/brand-icon";
 import { ShorelineBackdrop } from "@/components/branding/illustrations";
-import { api } from "@/client/api";
+import { apiGet, failureMessage } from "@/client/api";
 import { FormError } from "@/components/ui/form-error";
 import { authClient, requireAuthResult } from "@/features/auth/client";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
+import { signInMeta } from "@/features/dashboard/use-dashboard-lock";
 
-type Props = Pick<DashboardController, "busy" | "perform" | "setLocked">;
+type Props = Pick<DashboardController, "unlock">;
 
-export function LoginForm({
-  busy,
-  perform,
-  setLocked
-}: Props) {
-  const [error, setError] = useState("");
+type Credentials = {
+  username: string;
+  password: string;
+};
+
+export function LoginForm({ unlock }: Props) {
+  const signIn = useMutation({
+    meta: signInMeta,
+    mutationFn: async (credentials: Credentials) => {
+      requireAuthResult(await authClient.signIn.username(credentials));
+      // Confirms that the new session has access to this workspace before the dashboard loads.
+      await apiGet("me");
+    },
+    onSuccess: unlock
+  });
 
   return (
     <main className={styles["login-page"]}>
       <ShorelineBackdrop className={styles["shoreline"]} />
       <form
         className={clsx(styles["login-card"], ui["form"])}
-        onSubmit={async event => {
+        onSubmit={event => {
           event.preventDefault();
           const fields = new FormData(event.currentTarget);
-          const username = String(fields.get("username"));
-          const password = String(fields.get("password"));
 
-          setError("");
-          const result = await perform(async () => {
-            requireAuthResult(await authClient.signIn.username({
-              username,
-              password
-            }));
-            await api("me");
-            setLocked(false);
+          signIn.mutate({
+            username: String(fields.get("username")),
+            password: String(fields.get("password"))
           });
-
-          if (!result.ok) {
-            setError(result.message);
-          }
         }}
       >
         <div className={styles["brand-symbol"]}>
@@ -74,8 +73,8 @@ export function LoginForm({
             required
           />
         </label>
-        <FormError message={error} />
-        <button className={clsx(styles["button"], ui["primary"])} disabled={busy}>
+        <FormError message={signIn.error ? failureMessage(signIn.error) : ""} />
+        <button className={clsx(styles["button"], ui["primary"])} disabled={signIn.isPending}>
           Open dashboard <ArrowRight size={16} />
         </button>
       </form>

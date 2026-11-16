@@ -7,14 +7,16 @@ import styles from "./sync-button.module.css";
 import { RefreshCw } from "lucide-react";
 import { ActionFeedback } from "@/components/ui/action-feedback";
 import { useSyncFeedback } from "@/features/banking/use-sync-feedback";
+import type { Account } from "@/features/dashboard/types";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
 
-type Props = Pick<DashboardController, "bankAccounts" | "busy" | "perform" | "view">;
+type Props = Pick<DashboardController, "view"> & {
+  bankAccounts: Account[];
+};
 
+// The button reflects only its own sync; other dashboard actions never change it.
 export function SyncButton({
   bankAccounts,
-  busy,
-  perform,
   view
 }: Props) {
   const {
@@ -22,13 +24,11 @@ export function SyncButton({
     feedback,
     sync,
     dismiss
-  } = useSyncFeedback(perform, view);
+  } = useSyncFeedback(view);
 
-  const working = syncing || busy;
+  const working = syncing;
 
-  const idleLabel = busy ? "Processing …" : "Sync";
-
-  const buttonLabel = syncing ? "Syncing …" : idleLabel;
+  const buttonLabel = syncing ? "Syncing …" : "Sync";
 
   return (
     <div className={styles["sync"]}>

@@ -1,4 +1,5 @@
 .category {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 7px;
@@ -13,6 +14,48 @@
 .category-select {
   max-width: 145px;
 }
+.category-select[aria-invalid="true"] {
+  border-color: var(--danger);
+}
+/* The status slot keeps its width when empty, so progress and results never move neighboring content. */
+.status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+.saving {
+  color: #8b987d;
+}
+.saved {
+  color: #68845a;
+}
+.failed {
+  color: var(--danger);
+}
+.announcer {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+/* Overlays the spacing below the control instead of adding a line to the row. */
+.message {
+  position: absolute;
+  top: calc(100% + 1px);
+  left: 27px;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-xs);
+  line-height: 1.2;
+  color: var(--danger);
+}
 @media (max-width: 900px) {
   .category-select {
     max-width: 130px;
@@ -26,5 +69,14 @@
   }
   .icon:empty {
     display: none;
+  }
+  .status {
+    width: 18px;
+    height: 18px;
+  }
+  .message {
+    left: 0;
+    right: 0;
+    max-width: none;
   }
 }
