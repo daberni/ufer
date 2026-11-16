@@ -1,5 +1,5 @@
 import { HttpError } from "@/lib/errors";
-import { isCurrencyCode } from "@/lib/money";
+import { parseCurrencyCode } from "@/lib/money";
 import { currentMonthPeriod, parsePeriod } from "@/features/dashboard/period";
 import { parsePage } from "@/features/dashboard/pagination";
 
@@ -18,15 +18,7 @@ function periodFilter(value: string | null) {
 }
 
 function currencyFilter(value: string | null) {
-  if (!value) {
-    return "EUR";
-  }
-
-  if (!isCurrencyCode(value)) {
-    throw new HttpError(400, "Invalid currency.");
-  }
-
-  return value;
+  return value && parseCurrencyCode(value) || "EUR";
 }
 
 export function dashboardFilters(query: URLSearchParams) {
