@@ -5,13 +5,15 @@ import { today } from "@/lib/time";
 import { accountInput, valuationInput } from "./account-schema";
 import { findManualAccount, insertManualAccount, saveManualValuation } from "./account-repository";
 
-export async function createManualAccount(payload: unknown) {
+export async function createManualAccount(payload: unknown, now = Temporal.Now.instant()) {
   const input = accountInput.parse(payload);
   const amount = minorUnits(input.balance, input.currency);
+  const date = input.date ?? today(now).toString();
 
   validateLiability(input.kind, amount);
+  validateBalanceDate(date, now);
 
-  return insertManualAccount(input, amount);
+  return insertManualAccount(input, amount, date);
 }
 
 export async function updateManualValuation(accountId: string, payload: unknown, now = Temporal.Now.instant()) {
@@ -25,16 +27,19 @@ export async function updateManualValuation(accountId: string, payload: unknown,
   const amount = minorUnits(input.balance, account.currency);
 
   validateLiability(account.kind, amount);
-
-  if (Temporal.PlainDate.compare(Temporal.PlainDate.from(input.date), today(now)) > 0) {
-    throw new ValidationError("The valuation date cannot be in the future.");
-  }
+  validateBalanceDate(input.date, now);
 
   await saveManualValuation(accountId, amount, input.date);
 
   return {
     ok: true
   };
+}
+
+function validateBalanceDate(date: string, now: Temporal.Instant) {
+  if (Temporal.PlainDate.compare(Temporal.PlainDate.from(date), today(now)) > 0) {
+    throw new ValidationError("The balance date cannot be in the future.");
+  }
 }
 
 export function validateLiability(kind: string, amount: number) {
