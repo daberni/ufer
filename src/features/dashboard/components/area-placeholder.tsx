@@ -73,10 +73,11 @@ export function InlineFailure({
   return (
     <span className={clsx(styles["inline-failure"], className)}>
       {`${subject} could not be loaded.`}
+      <TraceId id={failure.traceId} />
       <button
         className={ui["text-button"]}
         type="button"
-        title={failure.traceId ? `${failure.message} Trace ID: ${failure.traceId}` : failure.message}
+        title={failure.message}
         onClick={failure.retry}
       >
         Retry

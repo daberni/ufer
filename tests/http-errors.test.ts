@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { trace } from "@opentelemetry/api";
 import { z } from "zod";
-import { api, failureMessage, failureTraceId, toFailure } from "../src/client/api";
+import { api, errorStatus, failureMessage, failureTraceId, toFailure } from "../src/client/api";
+import { requireAuthResult } from "../src/features/auth/client";
 import { HttpError } from "../src/lib/errors";
 import { minorUnits } from "../src/lib/money";
 import { parseBalancesCsv } from "../src/lib/import";
@@ -343,4 +344,24 @@ test("server failures expose their trace ID apart from the message, validation f
 
   assert.equal(failureMessage(validationFailure), "The amount has too many decimal places.");
   assert.equal(failureTraceId(validationFailure), undefined);
+});
+
+test("authentication client failures keep their status and trace ID", () => {
+  const traceId = "e".repeat(32);
+
+  assert.throws(() => requireAuthResult({
+    error: {
+      message: "Internal Server Error",
+      status: 500,
+      traceId
+    }
+  }), error => failureTraceId(error) === traceId && errorStatus(error) === 500);
+
+  assert.throws(() => requireAuthResult({
+    error: {
+      message: "Invalid password.",
+      status: 401,
+      traceId
+    }
+  }), error => failureTraceId(error) === undefined && errorStatus(error) === 401);
 });
