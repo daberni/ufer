@@ -12,12 +12,18 @@ import type { Category, Rule } from "@/features/dashboard/types";
 import { settle } from "@/client/settle";
 import { useDashboardStore } from "@/features/dashboard/dashboard-store";
 import { useApplyRules, useToggleRule, useTogglingRules } from "@/features/categorization/mutations";
+import { AreaPlaceholder } from "@/features/dashboard/components/area-placeholder";
+import type { Area } from "@/features/dashboard/use-area-result";
+import { neutralChipColor } from "@/features/categorization/category-colors";
 import { CategoryChip } from "./category-chip";
 
 type Props = {
-  categories: Category[];
-  rules: Rule[];
+  categories: Area<Category[]>;
+  rules: Area<Rule[]>;
 };
+
+// Names of different lengths give the skeleton rules and categories a natural outline.
+const skeletonNames = ["Groceries", "Rent", "Public transport", "Salary", "Restaurants", "Insurance"];
 
 export function RulesView({
   categories,
@@ -88,40 +94,11 @@ export function RulesView({
         </div>
       </div>
       <section className={ui["panel"]}>
-        {rules.length ? (
-          <div>
-            {rules.map(rule => (
-              <div className={styles["rule-row"]} key={rule.id}>
-                <span className={styles["rule-priority"]}>{rule.priority}</span>
-                <div>
-                  <strong>{rule.name}</strong>
-                  <p>
-                    <code>{rule.pattern}</code> · {rule.mode === "keyword" ? "Keyword" : "Regex"}
-                  </p>
-                </div>
-                <CategoryChip
-                  className={styles["rule-category"]}
-                  category={{
-                    name: rule.category_name,
-                    color: rule.category_color,
-                    icon: rule.category_icon
-                  }}
-                  size="small"
-                />
-                <button
-                  className={clsx(styles["toggle"], rule.enabled ? styles["enabled"] : "")}
-                  role="switch"
-                  aria-checked={Boolean(rule.enabled)}
-                  aria-label={`Enable rule ${rule.name}`}
-                  disabled={togglingRules.includes(rule.id)}
-                  onClick={() => toggleRule(rule)}
-                >
-                  <span />
-                </button>
-              </div>
-            ))}
-          </div>
-        ) : <Empty title="Let your transactions sort themselves.">For example: “MARKET” in the payee or description → Groceries. Manual corrections always take precedence.</Empty>}
+        {rules.status === "pending" ? (
+          <AreaPlaceholder area={rules} subject="Your rules">
+            <RuleRowsSkeleton />
+          </AreaPlaceholder>
+        ) : <RuleRows rules={rules.data} togglingRules={togglingRules} toggleRule={toggleRule} />}
       </section>
       <div className={ui["section-heading"]}>
         <h2>Your categories</h2>
@@ -135,24 +112,122 @@ export function RulesView({
           Category
         </button>
       </div>
-      <div className={styles["category-chips"]}>
-        {categories.map(category => (
-          <button
-            className={styles["category-chip"]}
-            key={category.id}
-            aria-label={`Edit category ${category.name}`}
-            onClick={() => openDialog({
-              kind: "editCategory",
-              category
-            })}
-          >
-            <CategoryChip category={category}>
-              {category.is_transfer ? <span className={styles["chip-detail"]}>· excluded from cash flow</span> : null}
-              <Pencil className={styles["edit-hint"]} aria-hidden="true" strokeWidth={2.2} />
-            </CategoryChip>
-          </button>
-        ))}
-      </div>
+      {categories.status === "pending" ? (
+        <AreaPlaceholder area={categories} subject="Your categories">
+          <div className={styles["category-chips"]}>
+            {skeletonNames.map(name => (
+              <span className={styles["category-chip"]} key={name}>
+                <CategoryChip
+                  className={ui["skeleton"]}
+                  category={{
+                    name,
+                    color: neutralChipColor,
+                    icon: null
+                  }}
+                />
+              </span>
+            ))}
+          </div>
+        </AreaPlaceholder>
+      ) : (
+        <div className={styles["category-chips"]}>
+          {categories.data.map(category => (
+            <button
+              className={styles["category-chip"]}
+              key={category.id}
+              aria-label={`Edit category ${category.name}`}
+              onClick={() => openDialog({
+                kind: "editCategory",
+                category
+              })}
+            >
+              <CategoryChip category={category}>
+                {category.is_transfer ? <span className={styles["chip-detail"]}>· excluded from cash flow</span> : null}
+                <Pencil className={styles["edit-hint"]} aria-hidden="true" strokeWidth={2.2} />
+              </CategoryChip>
+            </button>
+          ))}
+        </div>
+      )}
     </>
+  );
+}
+
+function RuleRows({
+  rules,
+  togglingRules,
+  toggleRule
+}: {
+  rules: Rule[];
+  togglingRules: string[];
+  toggleRule: (rule: Rule) => void;
+}) {
+  if (!rules.length) {
+    return <Empty title="Let your transactions sort themselves.">For example: “MARKET” in the payee or description → Groceries. Manual corrections always take precedence.</Empty>;
+  }
+
+  return (
+    <div>
+      {rules.map(rule => (
+        <div className={styles["rule-row"]} key={rule.id}>
+          <span className={styles["rule-priority"]}>{rule.priority}</span>
+          <div>
+            <strong>{rule.name}</strong>
+            <p>
+              <code>{rule.pattern}</code> · {rule.mode === "keyword" ? "Keyword" : "Regex"}
+            </p>
+          </div>
+          <CategoryChip
+            className={styles["rule-category"]}
+            category={{
+              name: rule.category_name,
+              color: rule.category_color,
+              icon: rule.category_icon
+            }}
+            size="small"
+          />
+          <button
+            className={clsx(styles["toggle"], rule.enabled ? styles["enabled"] : "")}
+            role="switch"
+            aria-checked={Boolean(rule.enabled)}
+            aria-label={`Enable rule ${rule.name}`}
+            disabled={togglingRules.includes(rule.id)}
+            onClick={() => toggleRule(rule)}
+          >
+            <span />
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function RuleRowsSkeleton() {
+  return (
+    <div>
+      {skeletonNames.slice(0, 4).map((name, index) => (
+        <div className={styles["rule-row"]} key={name}>
+          <span className={styles["rule-priority"]}>
+            <span className={ui["skeleton"]}>{(index + 1) * 10}</span>
+          </span>
+          <div>
+            <strong className={ui["skeleton"]}>{name}</strong>
+            <p>
+              <span className={ui["skeleton"]}>MARKET · Keyword</span>
+            </p>
+          </div>
+          <CategoryChip
+            className={clsx(styles["rule-category"], ui["skeleton"])}
+            category={{
+              name,
+              color: neutralChipColor,
+              icon: null
+            }}
+            size="small"
+          />
+          <span className={clsx(styles["toggle"], ui["skeleton"])} />
+        </div>
+      ))}
+    </div>
   );
 }

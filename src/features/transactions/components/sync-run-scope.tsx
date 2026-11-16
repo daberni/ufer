@@ -7,8 +7,8 @@ import styles from "./sync-run-scope.module.css";
 import { X } from "lucide-react";
 import { TimestampValue } from "@/components/ui/date-value";
 import { Empty } from "@/components/ui/empty-state";
-import { valueMask } from "@/features/dashboard/components/result-presentation";
-import type { AreaResult } from "@/features/dashboard/use-area-result";
+import { shownStatus, valueMask } from "@/features/dashboard/components/result-presentation";
+import type { Area } from "@/features/dashboard/use-area-result";
 import type { TransactionPage } from "@/features/dashboard/types";
 
 type SelectedRun = TransactionPage["syncRun"];
@@ -27,12 +27,14 @@ export function SyncRunScope({
   found: boolean;
   /** The selected run; null while its response is still loading or when it was not found. */
   run: SelectedRun;
-  transactionCount: AreaResult<number>;
+  transactionCount: Area<number>;
 }) {
+  const count = transactionCount.data ?? 0;
+
   return (
     <div className={styles["scope-bar"]}>
       <div className={styles["scope"]}>
-        <span className={clsx(ui["section-kicker"], valueMask(transactionCount.status))}>{`${transactionCount.data} ${transactionCount.data === 1 ? "TRANSACTION" : "TRANSACTIONS"}`}</span>
+        <span className={clsx(ui["section-kicker"], valueMask(shownStatus(transactionCount)))}>{`${count} ${count === 1 ? "TRANSACTION" : "TRANSACTIONS"}`}</span>
         <RunDescription found={found} run={run} />
       </div>
       <button className={clsx(ui["button"], ui["small"])} onClick={clear}>

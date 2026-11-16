@@ -2,14 +2,22 @@
 
 import { useEffect } from "react";
 import { lastPage } from "@/features/dashboard/pagination";
-import { useAreaResult } from "@/features/dashboard/use-area-result";
+import { useAreaResult, type Area } from "@/features/dashboard/use-area-result";
 import type { DashboardQuery } from "@/features/dashboard/dashboard-location";
+import type { TransactionPage } from "@/features/dashboard/types";
 import { useTransactionList } from "./queries";
 
 /**
  * The transaction list for the URL's filters. A page past the last one, from a bookmark or after the matching count shrank, is replaced by the last available page once the list for these filters has loaded.
  */
-export function useTransactionListView(query: DashboardQuery, replacePage: (page: number) => void) {
+type TransactionListView = Area<TransactionPage> & {
+  /** Whether the data is the response for the URL's filters rather than a placeholder from earlier ones. */
+  current: boolean;
+  /** The page shown, after correcting a page past the last one. */
+  page: number;
+};
+
+export function useTransactionListView(query: DashboardQuery, replacePage: (page: number) => void): TransactionListView {
   const list = useTransactionList(query);
   const area = useAreaResult(list);
   const current = list.isPlaceholderData ? undefined : list.data;
@@ -23,7 +31,6 @@ export function useTransactionListView(query: DashboardQuery, replacePage: (page
 
   return {
     ...area,
-    /** Whether the data is the response for the URL's filters rather than a placeholder from earlier ones. */
     current: current !== undefined,
     page
   };
