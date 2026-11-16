@@ -92,7 +92,7 @@ export function SyncProblemDetails({
           </ul>
         )}
         <p className={styles["note"]}>{problem.note}</p>
-        {problem.failures.length > 0 && (
+        {problem.failures.some(failure => failure.reconnect) && (
           <button type="button" className={clsx(ui["text-button"], styles["connections"])} onClick={onOpenConnections}>
             Reconnect in Bank connections
             <ArrowRight size={14} />

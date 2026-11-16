@@ -10,6 +10,7 @@ import type { ConnectionRemoval } from "@/features/dashboard/types";
 export type SyncFailure = {
   account: string;
   message: string;
+  reconnect: boolean;
 };
 
 export type SyncOutcome = {

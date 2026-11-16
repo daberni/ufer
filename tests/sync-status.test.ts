@@ -111,7 +111,8 @@ test("a sync problem stays reported until a later sync succeeds", async context 
     inserted: 2,
     failures: [{
       account: "Synthetic Savings",
-      message: "Bank authorization has expired. Reconnect the bank."
+      message: "Bank authorization has expired. Reconnect the bank.",
+      reconnect: true
     }]
   }));
 
