@@ -13,17 +13,16 @@ import { FormError } from "@/components/ui/form-error";
 import { LegalLinks } from "@/features/legal/components/legal-links";
 import { SourceCodeNotice } from "@/features/legal/components/source-code-notice";
 import { authClient, requireAuthResult } from "@/features/auth/client";
-import type { DashboardController } from "@/features/dashboard/use-dashboard";
+import { useDashboardStore } from "@/features/dashboard/dashboard-store";
 import { signInMeta } from "@/features/dashboard/use-dashboard-lock";
-
-type Props = Pick<DashboardController, "unlock">;
 
 type Credentials = {
   username: string;
   password: string;
 };
 
-export function LoginForm({ unlock }: Props) {
+export function LoginForm() {
+  const unlock = useDashboardStore(state => state.unlock);
   const signIn = useMutation({
     meta: signInMeta,
     mutationFn: async (credentials: Credentials) => {

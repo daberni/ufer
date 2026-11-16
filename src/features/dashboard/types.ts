@@ -133,5 +133,3 @@ export type Bank = {
 };
 
 export type View = "overview" | "transactions" | "accounts" | "rules" | "connections";
-
-export type Modal = "account" | "bank" | "removeConnection" | "rule" | "import" | "balance" | "category" | "editCategory" | null;

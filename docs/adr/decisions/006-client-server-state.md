@@ -66,4 +66,6 @@ Since #48, routes hold the view and search parameters hold the period, currency 
 
 ## Notes
 
+[ADR 007](007-client-ui-and-url-state.md) amends this record: the dialog with its payload, page feedback and the session lock live in a small UI store instead of the dashboard context, and the URL is read through typed hooks per parameter.
+
 [Architecture](../../architecture.md#client-request-lifecycle), [HTTP errors](../../http-errors.md), [TanStack Query v5](https://tanstack.com/query/v5/docs/framework/react/overview), [mutation scopes](https://tanstack.com/query/v5/docs/framework/react/guides/mutations#mutation-scopes), [optimistic updates via the UI](https://tanstack.com/query/v5/docs/framework/react/guides/optimistic-updates), [Next.js client-side data fetching with TanStack Query](https://nextjs.org/docs/app/guides/client-side-data-fetching/tanstack-query). Issues #49, #7 and #23; replaces the paused pull requests #46 and #47.

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 export type Feedback = {
   tone: "success" | "problem";
@@ -9,17 +9,25 @@ export type Feedback = {
 
 const successDismissDelay = 8000;
 
-// Transient feedback belongs to its context: a changed resetKey (such as the current view) drops it.
-export function useActionFeedback(resetKey?: string) {
+/** Feedback for an action, kept by the component that started it. */
+export function useActionFeedback() {
   const [feedback, setFeedback] = useState<Feedback | null>(null);
 
-  const [scope, setScope] = useState(resetKey);
-
-  if (scope !== resetKey) {
-    setScope(resetKey);
+  const dismiss = useCallback(() => {
     setFeedback(null);
-  }
+  }, []);
 
+  useFeedbackDismissal(feedback, dismiss);
+
+  return {
+    feedback,
+    report: setFeedback,
+    dismiss
+  };
+}
+
+/** Escape dismisses shown feedback and success dismisses itself after a while; problems stay until dismissed. `dismiss` must be stable. */
+export function useFeedbackDismissal(feedback: Feedback | null, dismiss: () => void) {
   useEffect(() => {
     if (!feedback) {
       return;
@@ -30,32 +38,22 @@ export function useActionFeedback(resetKey?: string) {
       const modalOpen = document.querySelector("dialog[open]") !== null;
 
       if (event.key === "Escape" && !event.defaultPrevented && !modalOpen) {
-        setFeedback(null);
+        dismiss();
       }
     }
 
     document.addEventListener("keydown", dismissOnEscape);
 
     return () => document.removeEventListener("keydown", dismissOnEscape);
-  }, [feedback]);
+  }, [feedback, dismiss]);
 
   useEffect(() => {
     if (feedback?.tone !== "success") {
       return;
     }
 
-    const timer = setTimeout(() => setFeedback(null), successDismissDelay);
+    const timer = setTimeout(dismiss, successDismissDelay);
 
     return () => clearTimeout(timer);
-  }, [feedback]);
-
-  function dismiss() {
-    setFeedback(null);
-  }
-
-  return {
-    feedback,
-    report: setFeedback,
-    dismiss
-  };
+  }, [feedback, dismiss]);
 }

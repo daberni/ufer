@@ -4,9 +4,11 @@ import ui from "../../components/ui/primitives.module.css";
 
 import { clsx } from "clsx";
 import styles from "./dashboard.module.css";
+import { usePathname } from "next/navigation";
 import { ArrowRight, CircleHelp, Link2 } from "lucide-react";
 import { BrandIcon } from "@/components/branding/brand-icon";
 import { ActionFeedback } from "@/components/ui/action-feedback";
+import { useFeedbackDismissal } from "@/components/ui/use-action-feedback";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { AppHeader } from "@/components/layout/app-header";
 import { PageHeading } from "@/features/dashboard/components/page-heading";
@@ -17,28 +19,43 @@ import { LegalLinks } from "@/features/legal/components/legal-links";
 import { SourceCodeNotice } from "@/features/legal/components/source-code-notice";
 import { accountGroups, useAccounts } from "@/features/accounts/queries";
 import { useBankingConfiguration } from "@/features/banking/banking-configuration";
-import { useDashboardController } from "./dashboard-context";
+import { navigation } from "./presentation";
+import { onView, useDashboardStore } from "./dashboard-store";
+import { useDashboardLock } from "./use-dashboard-lock";
+import { useDashboardNavigation } from "./use-dashboard-navigation";
+import { useChangeView, useCurrency, useView, useViewHref } from "./use-dashboard-url";
 import { useLoadError } from "./use-load-error";
 
 /** The persistent dashboard shell; the current view route renders inside it. */
 export default function Dashboard({ children }: {
   children: React.ReactNode
 }) {
-  const dashboard = useDashboardController();
+  const { locked } = useDashboardLock();
 
-  if (dashboard.locked) {
-    return <LoginForm unlock={dashboard.unlock} />;
-  }
+  return (
+    <>
+      <DashboardNavigation />
+      {locked ? <LoginForm /> : <DashboardShell>{children}</DashboardShell>}
+    </>
+  );
+}
 
-  return <DashboardShell>{children}</DashboardShell>;
+// A separate component, so following the URL does not re-render the shell.
+function DashboardNavigation() {
+  useDashboardNavigation();
+
+  return null;
 }
 
 // Rendered only while signed in, so no dashboard query runs behind the sign-in form.
 function DashboardShell({ children }: {
   children: React.ReactNode
 }) {
-  const dashboard = useDashboardController();
   const { environment } = useBankingConfiguration();
+  const view = useView();
+  const viewHref = useViewHref();
+  const changeView = useChangeView();
+  const currency = useCurrency();
   const accounts = useAccounts();
   const loadError = useLoadError();
 
@@ -55,30 +72,21 @@ function DashboardShell({ children }: {
   const {
     bankAccounts,
     expiring
-  } = accountGroups(accounts.data, dashboard.currency);
+  } = accountGroups(accounts.data, currency);
+  const nav = navigation.find(item => item.id === view)!;
 
   return (
     <div className={styles["app-shell"]}>
       <AppSidebar
         environment={environment}
         expiring={expiring}
-        view={dashboard.view}
-        viewHref={dashboard.viewHref}
+        view={view}
+        viewHref={viewHref}
       />
       <div className={styles["main-shell"]}>
-        <AppHeader
-          environment={environment}
-          lock={dashboard.lock}
-          nav={dashboard.nav}
-          reportFeedback={dashboard.reportFeedback}
-        />
+        <AppHeader environment={environment} title={nav.label} />
         <main className={styles["content"]}>
-          <PageHeading
-            bankAccounts={bankAccounts}
-            changeView={dashboard.changeView}
-            nav={dashboard.nav}
-            view={dashboard.view}
-          />
+          <PageHeading bankAccounts={bankAccounts} view={view} />
           <LoadErrorNotice message={loadError.message} retry={loadError.retry} />
           {environment === "SANDBOX" && (
             <div className={styles["sandbox-note"]}>
@@ -90,7 +98,7 @@ function DashboardShell({ children }: {
             <div className={clsx(ui["notice"], ui["warning"])}>
               <Link2 size={17} />
               {expiring.length} bank authorization(s) are expiring or have expired.
-              <button className={ui["text-button"]} onClick={() => dashboard.changeView("connections")}>
+              <button className={ui["text-button"]} onClick={() => changeView("connections")}>
                 Review authorizations <ArrowRight size={14} />
               </button>
             </div>
@@ -99,28 +107,28 @@ function DashboardShell({ children }: {
           <DashboardFooter />
         </main>
       </div>
-      {dashboard.modal && (
-        <DashboardDialogs
-          key={dashboard.modal}
-          accounts={accounts.data}
-          environment={environment}
-          importMode={dashboard.importMode}
-          modal={dashboard.modal}
-          reportFeedback={dashboard.reportFeedback}
-          selectedAccount={dashboard.selectedAccount}
-          selectedCategory={dashboard.selectedCategory}
-          selectedConnection={dashboard.selectedConnection}
-          setImportMode={dashboard.setImportMode}
-          setModal={dashboard.setModal}
-        />
-      )}
-      <ActionFeedback
-        feedback={dashboard.feedback}
-        dismissLabel="Dismiss message"
-        onDismiss={dashboard.dismissFeedback}
-        placement="overlay"
-      />
+      <DashboardDialogs accounts={accounts.data} environment={environment} />
+      <PageFeedback />
     </div>
+  );
+}
+
+// Page-level messages without a surviving trigger, such as a bank callback result; they belong to the view they were reported on.
+function PageFeedback() {
+  const pathname = usePathname();
+  const bound = useDashboardStore(state => state.feedback);
+  const dismiss = useDashboardStore(state => state.dismissFeedback);
+  const feedback = onView(bound, pathname);
+
+  useFeedbackDismissal(feedback, dismiss);
+
+  return (
+    <ActionFeedback
+      feedback={feedback}
+      dismissLabel="Dismiss message"
+      onDismiss={dismiss}
+      placement="overlay"
+    />
   );
 }
 

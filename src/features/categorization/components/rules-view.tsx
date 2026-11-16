@@ -9,22 +9,22 @@ import { ActionFeedback } from "@/components/ui/action-feedback";
 import { Empty } from "@/components/ui/empty-state";
 import { useActionFeedback } from "@/components/ui/use-action-feedback";
 import type { Category, Rule } from "@/features/dashboard/types";
-import { settle, type DashboardController } from "@/features/dashboard/use-dashboard";
+import { settle } from "@/client/settle";
+import { useDashboardStore } from "@/features/dashboard/dashboard-store";
 import { useApplyRules, useToggleRule, useTogglingRules } from "@/features/categorization/mutations";
 import { CategoryChip } from "./category-chip";
 
-type Props = Pick<DashboardController, "reportFeedback" | "setModal" | "setSelectedCategory"> & {
+type Props = {
   categories: Category[];
   rules: Rule[];
 };
 
 export function RulesView({
   categories,
-  reportFeedback,
-  rules,
-  setModal,
-  setSelectedCategory
+  rules
 }: Props) {
+  const openDialog = useDashboardStore(state => state.openDialog);
+  const reportFeedback = useDashboardStore(state => state.reportFeedback);
   const applyFeedback = useActionFeedback();
   const apply = useApplyRules();
   const toggle = useToggleRule();
@@ -70,7 +70,12 @@ export function RulesView({
             <Sparkles size={15} />
             Apply rules
           </button>
-          <button className={clsx(ui["button"], ui["primary"])} onClick={() => setModal("rule")}>
+          <button
+            className={clsx(ui["button"], ui["primary"])}
+            onClick={() => openDialog({
+              kind: "rule"
+            })}
+          >
             <Plus size={15} />
             Create rule
           </button>
@@ -120,7 +125,12 @@ export function RulesView({
       </section>
       <div className={ui["section-heading"]}>
         <h2>Your categories</h2>
-        <button className={clsx(ui["button"], ui["small"])} onClick={() => setModal("category")}>
+        <button
+          className={clsx(ui["button"], ui["small"])}
+          onClick={() => openDialog({
+            kind: "category"
+          })}
+        >
           <Plus size={14} />
           Category
         </button>
@@ -131,10 +141,10 @@ export function RulesView({
             className={styles["category-chip"]}
             key={category.id}
             aria-label={`Edit category ${category.name}`}
-            onClick={() => {
-              setSelectedCategory(category);
-              setModal("editCategory");
-            }}
+            onClick={() => openDialog({
+              kind: "editCategory",
+              category
+            })}
           >
             <CategoryChip category={category}>
               {category.is_transfer ? <span className={styles["chip-detail"]}>· excluded from cash flow</span> : null}

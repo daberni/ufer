@@ -4,12 +4,15 @@ import { act, renderHook } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
 import { AppRouterContext, type AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import { PathnameContext, SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime";
+import { usePathname } from "next/navigation";
 import { useMutation, type QueryClient } from "@tanstack/react-query";
 import { api } from "../src/client/api";
 import { invalidate } from "../src/client/invalidate";
 import { queryKeys } from "../src/client/query-keys";
 import { useActionFeedback } from "../src/components/ui/use-action-feedback";
-import { useDashboard } from "../src/features/dashboard/use-dashboard";
+import { DashboardStoreProvider, onView, useDashboardStore } from "../src/features/dashboard/dashboard-store";
+import { useDashboardNavigation } from "../src/features/dashboard/use-dashboard-navigation";
+import { replacePage, useDashboardQuery, useView } from "../src/features/dashboard/use-dashboard-url";
 import { signInMeta, useDashboardLock } from "../src/features/dashboard/use-dashboard-lock";
 import { useLoadError } from "../src/features/dashboard/use-load-error";
 import { useAreaResult } from "../src/features/dashboard/use-area-result";
@@ -40,7 +43,7 @@ function queryWrapper(queryClient: QueryClient) {
   return function wrapper({ children }: {
     children: ReactNode
   }) {
-    return withQueryClient(queryClient, children);
+    return withQueryClient(queryClient, createElement(DashboardStoreProvider, null, children));
   };
 }
 
@@ -545,32 +548,6 @@ test("a failed load stays reported until a later load succeeds", async context =
   assert.deepEqual(result.current.accounts.data, []);
 });
 
-test("action feedback is dropped when its context changes", async context => {
-  browser(context);
-  const {
-    result,
-    rerender
-  } = renderHook(({ view }) => useActionFeedback(view), {
-    initialProps: {
-      view: "rules"
-    }
-  });
-
-  act(() => result.current.report({
-    tone: "problem",
-    messages: ["Rules could not be applied."]
-  }));
-  rerender({
-    view: "rules"
-  });
-  assert.deepEqual(result.current.feedback?.messages, ["Rules could not be applied."]);
-
-  rerender({
-    view: "overview"
-  });
-  assert.equal(result.current.feedback, null);
-});
-
 test("success feedback dismisses itself while problems stay until dismissed", async context => {
   browser(context);
   context.mock.timers.enable({
@@ -619,19 +596,21 @@ function renderDashboard(context: Parameters<typeof browser>[0], url: string) {
       value: new URLSearchParams(window.location.search)
     }, children));
 
-    return withQueryClient(environment.queryClient, createElement(AppRouterContext, {
+    return withQueryClient(environment.queryClient, createElement(DashboardStoreProvider, null, createElement(AppRouterContext, {
       value: router
-    }, route));
+    }, route)));
   }
 
   return {
     ...environment,
     ...renderHook(() => {
-      const dashboard = useDashboard();
+      useDashboardNavigation();
+      const feedback = useDashboardStore(state => state.feedback);
 
       return {
-        dashboard,
-        list: useTransactionListView(dashboard.query, dashboard.replacePage)
+        view: useView(),
+        feedback: onView(feedback, usePathname()),
+        list: useTransactionListView(useDashboardQuery(), replacePage)
       };
     }, {
       wrapper
@@ -647,15 +626,15 @@ test("a bank callback result is shown on the connections view and cleared when t
     replaced
   } = renderDashboard(context, "/connections?banking=connected");
 
-  assert.equal(result.current.dashboard.view, "connections");
-  assert.equal(result.current.dashboard.feedback?.tone, "success");
+  assert.equal(result.current.view, "connections");
+  assert.equal(result.current.feedback?.tone, "success");
   assert.deepEqual(replaced, ["/connections"]);
 
   window.history.replaceState(null, "", "/");
   rerender();
 
-  assert.equal(result.current.dashboard.view, "overview");
-  assert.equal(result.current.dashboard.feedback, null);
+  assert.equal(result.current.view, "overview");
+  assert.equal(result.current.feedback, null);
 });
 
 test("a page past the last one is replaced by the last available page", async context => {

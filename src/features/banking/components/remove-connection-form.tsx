@@ -7,11 +7,11 @@ import styles from "./remove-connection-form.module.css";
 import { FormError } from "@/components/ui/form-error";
 import type { Feedback } from "@/components/ui/use-action-feedback";
 import type { Account, Connection, ConnectionRemoval } from "@/features/dashboard/types";
-import type { DashboardController } from "@/features/dashboard/use-dashboard";
+import { useDashboardStore } from "@/features/dashboard/dashboard-store";
 import { useDialogSubmit, type DialogFormProps } from "@/features/dashboard/use-dialog-submit";
 import { useRemoveConnection } from "@/features/banking/mutations";
 
-type Props = Pick<DashboardController, "reportFeedback"> & DialogFormProps & {
+type Props = DialogFormProps & {
   accounts: Account[];
   selectedConnection: Connection;
 };
@@ -19,9 +19,9 @@ type Props = Pick<DashboardController, "reportFeedback"> & DialogFormProps & {
 export function RemoveConnectionForm({
   accounts,
   close,
-  reportFeedback,
   selectedConnection
 }: Props) {
+  const reportFeedback = useDashboardStore(state => state.reportFeedback);
   const {
     error,
     pending,
