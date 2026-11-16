@@ -14,6 +14,7 @@
     "db:generate": "drizzle-kit generate --custom",
     "db:migrate": "tsx scripts/migrate.ts",
     "db:status": "tsx scripts/migrate.ts --status",
+    "demo:seed": "tsx scripts/seed-demo.ts",
     "format:styles": "prettier --write \"src/**/*.css\"",
     "check:styles": "prettier --check \"src/**/*.css\"",
     "user:create": "tsx scripts/manage-users.ts create",

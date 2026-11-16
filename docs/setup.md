@@ -14,6 +14,17 @@ This guide covers development, deployment and verification. See [banking and imp
 
 The development server binds to loopback. Username/password sign-in and `BETTER_AUTH_SECRET` are required in every environment. Existing installations need the reviewed [authentication migration](user-management.md#migration-and-rollout) before starting this version. `APP_URL` must match the browser origin because write requests validate their origin.
 
+## Demo data
+
+`npm run demo:seed -- --confirm` writes a synthetic English dataset into the database configured by `DATABASE_URL`, so the dashboard, charts, filters and rules can be reviewed without a bank connection. It needs no Enable Banking credentials and never runs at build or startup.
+
+- **Content:** about 18 months ending on the run date (Europe/Vienna) for six accounts: everyday checking, savings, a credit card, an ETF portfolio, a rental flat and its mortgage. It includes salary with holiday and Christmas bonuses, rent, rental income, utilities, insurance, subscriptions, groceries, transport, dining, leisure, health, a summer holiday and short trips, December gifts, larger one-off purchases, refunds, transfers between the accounts, interest and dividends, monthly balance snapshots, quarterly property valuations and amortizing loan interest. Seventeen enabled rules and eight added categories categorize all but about ten rows; one paused rule shows a disabled state. Amounts are EUR and all names are fictional.
+- **Reproducible:** the same run date produces the same rows. Re-run the command when the history should end today again. `--date=YYYY-MM-DD` (today or earlier) reproduces the dataset of another day.
+- **Scope:** demo rows have `demo-` IDs and `demo:` transaction references. A run replaces, in one transaction, the demo accounts with every transaction and snapshot on them and the demo rules. Demo categories are updated in place because synced transactions may reference them; when a category with the same name already exists, the demo rules use it instead. Users, sessions, bank connections, bank-connected accounts and their transactions, sync history and all other rows stay untouched.
+- **Guard:** the command refuses to run without `--confirm`, when `ENABLE_BANKING_ENVIRONMENT` is not `SANDBOX`, when any account or bank connection belongs to another banking environment, or when a manual or CSV account the seed did not create holds transactions. Sandbox bank-connected data does not block it. Manual accounts without transactions, such as a test valuation, are allowed.
+
+To seed a local throwaway database, point `DATABASE_URL` at a new file, for example `DATABASE_URL=file:data/demo.db npm run demo:seed -- --confirm`, then provision a user with the operator [user enrollment](user-management.md#operator-enrollment) and start the app with the same `DATABASE_URL`. An empty database is initialized with the checked-in changesets first; an existing database with pending migrations is refused as at application startup. Seeding the shared preview database is described in the [deployment guide](vercel-deployment.md#preview-demo-data).
+
 ## Docker / NAS
 
 1. Copy `.env.example` to `.env`, configure all secrets including `BETTER_AUTH_SECRET`, and set `ENABLE_BANKING_PRIVATE_KEY_HOST_PATH` to an external PEM file. Compose mounts it read-only as a secret.
@@ -72,7 +83,7 @@ npm test
 npm run build
 ```
 
-The behavior tests cover exact amounts, accounting month boundaries, rule precedence, booked versus pending transactions, provider identifiers, CSV validation, repeat imports, manual categories, reconnects, environment isolation, leases, authentication throttling, library-managed enrollment, membership access, cookie integrity/expiry and session revocation, jose provider signatures, persisted bank-secret integrity, pagination, and browser-bound single-use callbacks. CI runs lint, stylesheet checks, type checking, behavior tests, and a production build without real banking credentials. See [security boundaries](security.md) for the current single-installation scope and future identity requirements.
+The behavior tests cover exact amounts, accounting month boundaries, rule precedence, demo-seed scope and guard, booked versus pending transactions, provider identifiers, CSV validation, repeat imports, manual categories, reconnects, environment isolation, leases, authentication throttling, library-managed enrollment, membership access, cookie integrity/expiry and session revocation, jose provider signatures, persisted bank-secret integrity, pagination, and browser-bound single-use callbacks. CI runs lint, stylesheet checks, type checking, behavior tests, and a production build without real banking credentials. See [security boundaries](security.md) for the current single-installation scope and future identity requirements.
 
 ## Parallel checkouts
 

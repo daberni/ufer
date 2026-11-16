@@ -45,6 +45,17 @@ Preview deployments use their own Turso database and secrets in Vercel's Preview
 
 Only `main` (production) and pull-request branches are built: `ignoreCommand` in `vercel.json` always builds production deployments and the `main` branch and skips the build for other branches without an open pull request. Vercel still creates and cancels a deployment for a skipped push, so this saves build time but not the daily deployment allowance. A branch's first push before its pull request exists is skipped; the next push after opening the pull request deploys it.
 
+## Preview demo data
+
+Preview deployments share one persistent Turso preview database. Fill it with the synthetic [demo dataset](setup.md#demo-data) from an operator machine; nothing seeds it automatically at build or startup. Re-run the same command when the history should end today again; it replaces only the demo rows and keeps users, sandbox bank connections and their transactions.
+
+1. Obtain the Preview environment's `DATABASE_URL`, `DATABASE_AUTH_TOKEN` and `ENABLE_BANKING_ENVIRONMENT=SANDBOX` without writing them into the checkout, for example with `vercel env pull --environment=preview <file outside the repository>` or from the password manager. Vercel does not return the values of variables marked sensitive.
+2. Export these values in the shell; exported variables take precedence over local `.env*` files. Confirm that `DATABASE_URL` names the preview database, not production.
+3. Run `npm run demo:seed -- --confirm` from a checkout of the reviewed source. The command prints the date range and the number of demo accounts, transactions, uncategorized rows and rules.
+4. Delete the pulled environment file and unset the variables.
+
+The guard refuses databases with non-sandbox banking data or transactions on manual or CSV accounts the seed did not create. Reviewer-created manual accounts with imported transactions therefore block a later run until those rows are removed. Never run the seed against the production database.
+
 ## Initialization and deployment
 
 1. Link the local checkout to the intended Vercel project. The generated `.vercel/` metadata stays ignored. If the CLI offers to download environment values into the checkout, decline; remove only tool-generated local tokens that were not part of the app configuration.
