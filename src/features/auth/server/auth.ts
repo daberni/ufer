@@ -3,7 +3,6 @@ import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { username } from "better-auth/plugins";
 import { HttpError } from "@/lib/errors";
 import { database, type Database, type DatabaseTransaction } from "@/server/database/connection";
-import { trustedClientAddressHeaders } from "@/server/http/client-address";
 import { allowedOrigins, applicationOrigin } from "@/server/http/origin";
 import { authAccounts, authRateLimits, authSessions, authUsers, authVerifications } from "./auth-schema";
 
@@ -20,6 +19,7 @@ export function createAuth(db: Database | DatabaseTransaction, options: AuthOpti
   }
 
   const baseURL = applicationOrigin();
+  const trustedClientAddressHeader = process.env.TRUSTED_CLIENT_IP_HEADER?.trim();
 
   return betterAuth({
     appName: "Ufer",
@@ -62,9 +62,9 @@ export function createAuth(db: Database | DatabaseTransaction, options: AuthOpti
     },
     advanced: {
       useSecureCookies: baseURL.startsWith("https:"),
-      // Rate limits count per client only for an address set by trusted infrastructure; any other forwarded header is ignored so it cannot create a fresh counter.
+      // Rate limits count per client only through the header the operator's proxy overwrites; any other forwarded header is ignored so it cannot create a fresh counter.
       ipAddress: {
-        ipAddressHeaders: trustedClientAddressHeaders()
+        ipAddressHeaders: trustedClientAddressHeader ? [trustedClientAddressHeader] : []
       }
     },
     rateLimit: {

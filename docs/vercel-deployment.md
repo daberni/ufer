@@ -19,6 +19,7 @@ Use the existing Vercel Hobby account and Turso Starter plan. Do not select paid
 | OPERATOR_NAME / OPERATOR_RESIDENCE | Operator name and place of residence (municipality and country) shown on `/privacy` and `/terms`; required before supplying those URLs for provider registration |
 | OPERATOR_EMAIL | Optional contact email for the same pages |
 | DATA_PROCESSORS | JSON list of the hosting and database providers of this deployment; see [setup](setup.md#privacy-notice-and-terms) |
+| TRUSTED_CLIENT_IP_HEADER | `x-forwarded-for`, which Vercel overwrites with the client address; enables per-client authentication rate limits, see [security](security.md#authentication-rate-limits) |
 
 | Secret | Purpose |
 | --- | --- |
