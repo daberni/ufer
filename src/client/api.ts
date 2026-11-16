@@ -18,8 +18,20 @@ export function errorStatus(error: unknown) {
 }
 
 // User-facing text for a failed request; API failures carry the Problem Details detail or title.
+// Server failures ask the user to quote the trace ID, so it is part of the text.
 export function failureMessage(error: unknown) {
-  return error instanceof Error ? error.message : "Request failed.";
+  if (!(error instanceof Error)) {
+    return "Request failed.";
+  }
+
+  const status = errorStatus(error);
+  const traceId = "traceId" in error && typeof error.traceId === "string" ? error.traceId : undefined;
+
+  if (traceId && status !== undefined && status >= 500) {
+    return `${error.message} Trace ID: ${traceId}`;
+  }
+
+  return error.message;
 }
 
 async function send<T>(path: string, init: RequestInit): Promise<T> {
@@ -31,7 +43,8 @@ async function send<T>(path: string, init: RequestInit): Promise<T> {
 
   if (!response.ok) {
     throw apiError(isRecord(data) ? data : {
-      detail: `The server could not complete the request (HTTP ${response.status}).`
+      detail: `The server could not complete the request (HTTP ${response.status}).`,
+      traceId: response.headers.get("x-trace-id") ?? undefined
     }, response.status);
   }
 

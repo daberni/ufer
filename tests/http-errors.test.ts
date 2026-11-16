@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { trace } from "@opentelemetry/api";
 import { z } from "zod";
-import { api } from "../src/client/api";
+import { api, failureMessage } from "../src/client/api";
 import { HttpError } from "../src/lib/errors";
 import { minorUnits } from "../src/lib/money";
 import { parseBalancesCsv } from "../src/lib/import";
@@ -289,4 +289,39 @@ test("a successful browser response without JSON is reported with its status", a
   await assert.rejects(api("accounts", {}), {
     status: 200
   });
+});
+
+test("server failures show their trace ID to the user, validation failures do not", async context => {
+  const traceId = "d".repeat(32);
+  let answer = Response.json({
+    title: "Internal Server Error",
+    status: 500,
+    detail: "The request could not be processed. Try again or use the trace ID when requesting support.",
+    traceId
+  }, {
+    status: 500
+  });
+
+  context.mock.method(globalThis, "fetch", async () => answer);
+
+  const serverFailure = await api("accounts", {}).catch(error => error);
+
+  assert.equal(failureMessage(serverFailure), `The request could not be processed. Try again or use the trace ID when requesting support. Trace ID: ${traceId}`);
+
+  answer = new Response("<html>Bad Gateway</html>", {
+    status: 502,
+    headers: {
+      "X-Trace-Id": traceId
+    }
+  });
+  assert.match(failureMessage(await api("accounts", {}).catch(error => error)), new RegExp(`Trace ID: ${traceId}$`));
+
+  answer = Response.json({
+    status: 422,
+    detail: "The amount has too many decimal places.",
+    traceId
+  }, {
+    status: 422
+  });
+  assert.equal(failureMessage(await api("accounts", {}).catch(error => error)), "The amount has too many decimal places.");
 });
