@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Monitor, Moon, Sun } from "lucide-react";
 import ui from "@/components/ui/primitives.module.css";
-import { parseThemePreference, themeAttribute, themeCookie, type ThemePreference } from "@/features/appearance/theme-preference";
+import { browserColor, parseThemePreference, themeAttribute, themeCookie, themeViewport, type ThemePreference } from "@/features/appearance/theme-preference";
 import styles from "./theme-choice.module.css";
 
 const options = [{
@@ -36,6 +36,22 @@ function applyThemePreference(preference: ThemePreference) {
   }
 
   document.cookie = themeCookie(preference, location.protocol === "https:");
+  applyBrowserMetadata(preference, attribute);
+}
+
+// The viewport metadata was rendered for the previous choice; browsers color their interface from it, so it follows without a reload.
+function applyBrowserMetadata(preference: ThemePreference, attribute: "light" | "dark" | undefined) {
+  const shownTheme = attribute ?? (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  const colorScheme = document.querySelector<HTMLMetaElement>("meta[name='color-scheme']");
+
+  for (const meta of document.querySelectorAll<HTMLMetaElement>("meta[name='theme-color']")) {
+    meta.content = browserColor(shownTheme);
+    meta.removeAttribute("media");
+  }
+
+  if (colorScheme) {
+    colorScheme.content = String(themeViewport(preference).colorScheme);
+  }
 }
 
 /** System, Light or Dark for this browser; takes effect immediately without a reload. */

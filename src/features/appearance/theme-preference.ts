@@ -17,6 +17,11 @@ const browserColors = {
   dark: "#172a20"
 };
 
+/** The color browsers use for their own interface while a theme is shown. */
+export function browserColor(theme: "light" | "dark") {
+  return browserColors[theme];
+}
+
 /** Reads a stored preference; a missing or unknown value follows the operating system. */
 export function parseThemePreference(value: string | undefined): ThemePreference {
   if (value === "light" || value === "dark") {
