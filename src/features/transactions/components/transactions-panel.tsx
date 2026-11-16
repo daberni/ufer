@@ -9,10 +9,28 @@ import { Empty } from "@/components/ui/empty-state";
 import { TransactionList } from "@/features/transactions/components/transaction-list";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
 import { Select } from "@/components/ui/select";
+import { anyCategory, CategoryPicker, type CategoryPickerValue } from "@/features/categorization/components/category-picker";
 import { useSearchDraft } from "@/features/transactions/use-search-draft";
 import { transactionPageSize } from "@/features/dashboard/pagination";
 
 type Props = Pick<DashboardController, "accountFilter" | "busy" | "categoryFilter" | "changeView" | "page" | "perform" | "reportFeedback" | "search" | "selectedCurrencyAccounts" | "setAccountFilter" | "setCategoryFilter" | "setImportMode" | "setModal" | "setPage" | "setSearch" | "state" | "view" | "visibleTransactions">;
+
+// The URL filter uses "" for all categories and "uncategorized" for transactions without one.
+function categoryPickerValue(filter: string): CategoryPickerValue {
+  if (filter === "") {
+    return anyCategory;
+  }
+
+  return filter === "uncategorized" ? null : filter;
+}
+
+function categoryFilterValue(value: CategoryPickerValue) {
+  if (value === anyCategory) {
+    return "";
+  }
+
+  return value ?? "uncategorized";
+}
 
 export function TransactionsPanel({
   accountFilter,
@@ -87,19 +105,15 @@ export function TransactionsPanel({
               </option>
             ))}
           </Select>
-          <Select
+          <CategoryPicker
+            className={styles["category-filter"]}
             aria-label="Category filter"
-            value={categoryFilter}
-            onChange={event => setCategoryFilter(event.target.value)}
-          >
-            <option value="">All categories</option>
-            <option value="uncategorized">Uncategorized</option>
-            {state.categories.map(category => (
-              <option key={category.id} value={category.id}>
-                {category.name}
-              </option>
-            ))}
-          </Select>
+            categories={state.categories}
+            value={categoryPickerValue(categoryFilter)}
+            includeAll
+            includeUncategorized
+            onChange={value => setCategoryFilter(categoryFilterValue(value))}
+          />
         </div>
       )}
       {visibleTransactions?.length ? (

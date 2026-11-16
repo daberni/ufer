@@ -7,17 +7,31 @@ import { Check, ChevronDown, Pin } from "lucide-react";
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import { pickerKeyAction, popoverPlacement, typeaheadIndex } from "@/features/categorization/category-picker-behavior";
-import { CategoryChip, manualAssignmentHint, type CategoryChipSize, type ChipCategory } from "./category-chip";
+import { CategoryChip, manualAssignmentHint, type CategoryChipSize, type ChipCategory, type NeutralChip } from "./category-chip";
 
 export type PickerCategory = ChipCategory & {
   id: string;
 };
 
-type Props = {
-  categories: readonly PickerCategory[];
+/** Chooses "All categories" in a filter, as opposed to null for "Uncategorized". */
+export const anyCategory: unique symbol = Symbol("any category");
+
+export type CategoryPickerValue = string | null | typeof anyCategory;
+
+type ValueProps = {
+  includeAll?: false;
   value: string | null;
   onChange: (categoryId: string | null) => void;
-  /** Offers "Uncategorized" as the first option, chosen by null. */
+} | {
+  /** Offers "All categories" first, chosen by anyCategory; for filters. */
+  includeAll: true;
+  value: CategoryPickerValue;
+  onChange: (value: CategoryPickerValue) => void;
+};
+
+type Props = ValueProps & {
+  categories: readonly PickerCategory[];
+  /** Offers "Uncategorized", chosen by null. */
   includeUncategorized?: boolean;
   manual?: boolean;
   disabled?: boolean;
@@ -30,9 +44,44 @@ type Props = {
 };
 
 type Option = {
-  id: string | null;
-  category: PickerCategory | null;
+  key: string;
+  value: CategoryPickerValue;
+  chip: ChipCategory | NeutralChip;
+  label: string;
 };
+
+function pickerOptions(categories: readonly PickerCategory[], includeAll: boolean, includeUncategorized: boolean) {
+  const options: Option[] = [];
+
+  if (includeAll) {
+    options.push({
+      key: "all-categories",
+      value: anyCategory,
+      chip: "all-categories",
+      label: "All categories"
+    });
+  }
+
+  if (includeUncategorized) {
+    options.push({
+      key: "uncategorized",
+      value: null,
+      chip: "uncategorized",
+      label: "Uncategorized"
+    });
+  }
+
+  for (const category of categories) {
+    options.push({
+      key: category.id,
+      value: category.id,
+      chip: category,
+      label: category.name
+    });
+  }
+
+  return options;
+}
 
 const typeaheadResetMs = 500;
 
@@ -44,6 +93,7 @@ export function CategoryPicker({
   categories,
   value,
   onChange,
+  includeAll = false,
   includeUncategorized = false,
   manual = false,
   disabled = false,
@@ -64,19 +114,9 @@ export function CategoryPicker({
   });
   const listboxId = useId();
   const noteId = useId();
-  const options: Option[] = [
-    ...(includeUncategorized ? [{
-      id: null,
-      category: null
-    }] : []),
-    ...categories.map(category => ({
-      id: category.id,
-      category
-    }))
-  ];
-  const labels = options.map(option => option.category?.name ?? "Uncategorized");
-  const selectedIndex = options.findIndex(option => option.id === value);
-  const selectedCategory = options[selectedIndex]?.category ?? null;
+  const options = pickerOptions(categories, includeAll, includeUncategorized);
+  const labels = options.map(option => option.label);
+  const selectedIndex = options.findIndex(option => option.value === value);
 
   const place = useCallback(() => {
     const trigger = triggerRef.current;
@@ -178,8 +218,9 @@ export function CategoryPicker({
     setOpen(false);
     triggerRef.current?.focus();
 
-    if (option && option.id !== value) {
-      onChange(option.id);
+    if (option && option.value !== value) {
+      // The offered values always match the onChange variant that includeAll selects.
+      (onChange as (next: CategoryPickerValue) => void)(option.value);
     }
   }
 
@@ -268,11 +309,11 @@ export function CategoryPicker({
         onClick={toggle}
         onKeyDown={handleKeyDown}
       >
-        <CategoryChip category={selectedCategory} size={size} manual={manual}>
+        <CategoryChip category={options[selectedIndex]?.chip ?? "uncategorized"} size={size} manual={manual}>
           <ChevronDown className={styles["chevron"]} aria-hidden="true" strokeWidth={2.2} />
         </CategoryChip>
       </button>
-      {name && <input type="hidden" name={name} value={value ?? ""} />}
+      {name && <input type="hidden" name={name} value={typeof value === "string" ? value : ""} />}
       {open && (
         <div ref={popoverRef} className={styles["popover"]} popover="manual">
           <ul
@@ -286,7 +327,7 @@ export function CategoryPicker({
           >
             {options.map((option, index) => (
               <li
-                key={option.id ?? "uncategorized"}
+                key={option.key}
                 id={optionId(index)}
                 className={styles["option"]}
                 role="option"
@@ -295,7 +336,7 @@ export function CategoryPicker({
                 onPointerMove={() => setActiveIndex(index)}
                 onClick={() => choose(index)}
               >
-                <CategoryChip category={option.category} size={size} />
+                <CategoryChip category={option.chip} size={size} />
                 {index === selectedIndex && <Check className={styles["check"]} aria-hidden="true" strokeWidth={2.4} />}
               </li>
             ))}

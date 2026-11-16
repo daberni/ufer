@@ -17,8 +17,8 @@ const minimumIconContrast = 3;
 // WCAG 1.4.3 asks for 4.5:1 contrast for the chip's category name; its icon shares that color.
 const minimumTextContrast = 4.5;
 
-// Uncategorized has no color of its own; its chip uses this neutral gray-green.
-export const uncategorizedColor = "#7c8781";
+// Neutral chips such as Uncategorized have no category color and use this gray-green.
+export const neutralChipColor = "#7c8781";
 
 function parseHex(color: string): Rgb {
   const match = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(color);

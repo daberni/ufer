@@ -2,10 +2,10 @@ import ui from "../../../components/ui/primitives.module.css";
 
 import styles from "./category-chip.module.css";
 import { clsx } from "clsx";
-import { CircleDashed, Pin } from "lucide-react";
+import { CircleDashed, Pin, Shapes } from "lucide-react";
 import type { CSSProperties, ReactNode } from "react";
 import { isCategoryIcon } from "@/features/categorization/category-icons";
-import { categoryChipColors, uncategorizedColor } from "@/features/categorization/category-colors";
+import { categoryChipColors, neutralChipColor } from "@/features/categorization/category-colors";
 import { categoryIconComponents } from "./category-icon-components";
 
 export type ChipCategory = {
@@ -14,11 +14,24 @@ export type ChipCategory = {
   icon: string | null;
 };
 
+/** Neutral chips for the absence of a category and, in filters, for no category restriction. */
+export type NeutralChip = "uncategorized" | "all-categories";
+
+const neutralChips = {
+  "uncategorized": {
+    label: "Uncategorized",
+    Icon: CircleDashed
+  },
+  "all-categories": {
+    label: "All categories",
+    Icon: Shapes
+  }
+};
+
 export type CategoryChipSize = "small" | "medium" | "large";
 
 type Props = {
-  /** The category to show; null shows the neutral "Uncategorized" chip. */
-  category: ChipCategory | null;
+  category: ChipCategory | NeutralChip;
   size?: CategoryChipSize;
   /** Marks a manual assignment, which syncing and rule application preserve. */
   manual?: boolean;
@@ -32,10 +45,12 @@ export const manualAssignmentHint = "Set manually; kept when syncing and applyin
 function CategoryGlyph({
   category
 }: {
-  category: ChipCategory | null;
+  category: ChipCategory | NeutralChip;
 }) {
-  if (!category) {
-    return <CircleDashed className={styles["icon"]} aria-hidden="true" strokeWidth={2.2} />;
+  if (typeof category === "string") {
+    const NeutralIcon = neutralChips[category].Icon;
+
+    return <NeutralIcon className={styles["icon"]} aria-hidden="true" strokeWidth={2.2} />;
   }
 
   if (!isCategoryIcon(category.icon)) {
@@ -55,7 +70,9 @@ export function CategoryChip({
   className,
   children
 }: Props) {
-  const colors = categoryChipColors(category?.color ?? uncategorizedColor);
+  const isNeutral = typeof category === "string";
+  const colors = categoryChipColors(isNeutral ? neutralChipColor : category.color);
+  const label = isNeutral ? neutralChips[category].label : category.name;
   const colorVariables = {
     "--chip-background": colors.background,
     "--chip-border": colors.border,
@@ -65,7 +82,7 @@ export function CategoryChip({
   return (
     <span className={clsx(styles["chip"], styles[size], className)} style={colorVariables}>
       <CategoryGlyph category={category} />
-      <span className={styles["name"]}>{category?.name ?? "Uncategorized"}</span>
+      <span className={styles["name"]}>{label}</span>
       {manual && (
         <span className={styles["manual"]} title={manualAssignmentHint}>
           <Pin className={styles["manual-icon"]} aria-hidden="true" strokeWidth={2.2} />
