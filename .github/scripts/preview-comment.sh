@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# Creates or updates the pull request's preview comment in the layout of Vercel's own deployment comments.
-# Usage: preview-comment.sh <building|ready|error|canceled> [preview URL] [inspector URL]
+# Usage: preview-comment.sh <building|ready|error> [preview URL] [inspector URL]
 set -euo pipefail
 
 status="$1"
@@ -15,11 +14,9 @@ case "$status" in
   building) label="Building" ;;
   ready) label="Ready" ;;
   error) label="Error" ;;
-  canceled) label="Canceled" ;;
   *) echo "Unknown status: $status" >&2; exit 1 ;;
 esac
 
-# The inspector link appears once the CLI has created the deployment; until then the workflow run shows progress.
 details_url="${inspector_url:-$run_url}"
 project="ufer"
 

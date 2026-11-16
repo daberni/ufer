@@ -1,6 +1,5 @@
 name: Preview deployment
 
-# Vercel builds only main from Git (vercel.json); a pull request gets a preview while it carries the "preview" label.
 on:
   pull_request:
     types: [labeled, synchronize, reopened]
@@ -15,22 +14,21 @@ concurrency:
 
 jobs:
   deploy:
-    # Labels can only be set by maintainers; fork pull requests never receive the token.
+    # Only maintainers can set labels, and fork pull requests never receive the token.
     if: >-
       contains(github.event.pull_request.labels.*.name, 'preview')
       && github.event.pull_request.head.repo.full_name == github.repository
       && (github.event.action != 'labeled' || github.event.label.name == 'preview')
     runs-on: ubuntu-latest
-    # Account identifiers stay out of the repository; they are repository variables.
     env:
       VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@v7
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           persist-credentials: false
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
       - name: Report the build
@@ -44,13 +42,10 @@ jobs:
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           PULL_REQUEST: ${{ github.event.pull_request.number }}
-          HEAD_REF: ${{ github.event.pull_request.head.ref }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           output="$RUNNER_TEMP/vercel-deploy.log"
           status=0
-          # The Git metadata ties the deployment to the pull request's branch, as a Git-triggered preview would be.
-          npx --yes vercel@65.16.0 deploy --yes --token "$VERCEL_TOKEN" --meta githubDeployment=1 --meta "githubCommitRef=$HEAD_REF" --meta "githubCommitSha=$HEAD_SHA" --meta "githubPullRequest=$PULL_REQUEST" > "$RUNNER_TEMP/vercel-url.txt" 2> "$output" || status=$?
+          npx --yes vercel@65.16.0 deploy --yes --token "$VERCEL_TOKEN" --meta "githubPullRequest=$PULL_REQUEST" > "$RUNNER_TEMP/vercel-url.txt" 2> "$output" || status=$?
           cat "$output" >&2
           echo "url=$(cat "$RUNNER_TEMP/vercel-url.txt")" >> "$GITHUB_OUTPUT"
           echo "inspector=$(grep -o 'https://vercel.com/[^ ]*' "$output" | head -n 1 || true)" >> "$GITHUB_OUTPUT"
