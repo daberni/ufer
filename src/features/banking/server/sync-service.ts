@@ -9,7 +9,7 @@ import { environment } from "./environment";
 import { BankingError, bankingRequest, fetchTransactions, verifyApplication, type Balance } from "./enable-banking-client";
 import { normalizeTransactions } from "./bank-data";
 import { saveAccountSync } from "./account-sync-service";
-import { finishSyncRun, listSyncAccounts, recordAccountSyncError, startSyncRun } from "./sync-repository";
+import { finishSyncRun, interruptSyncRun, listSyncAccounts, recordAccountSyncError, startSyncRun } from "./sync-repository";
 import { expireConnection } from "./connection-repository";
 
 const expiredSessionCodes = ["EXPIREDSESSION", "EXPIRED_SESSION", "INVALID_SESSION"];
@@ -142,7 +142,9 @@ export async function syncAccounts() {
       accounts: accounts.length
     };
   } catch (error) {
-    if (!(error instanceof SyncLeaseLost)) {
+    if (error instanceof SyncLeaseLost) {
+      await interruptSyncRun(db, runId, "The sync lost its lease and stopped.");
+    } else {
       await finishSyncRun(db, runId, "FAILED", "Sync interrupted.");
     }
 

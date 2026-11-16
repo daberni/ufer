@@ -147,3 +147,35 @@ test("a sync in which every account failed is recorded as failed", async context
   assert.equal(run?.status, "FAILED");
   assert.match(run?.error ?? "", /Synthetic first/);
 });
+
+test("a sync whose lease was taken by another operation records itself as interrupted", async context => {
+  context.mock.method(console, "warn", () => {});
+  const db = await syncDatabase(context, async (database, path) => {
+    if (path === "/application") {
+      return Response.json({
+        environment: "SANDBOX",
+        redirect_urls: []
+      });
+    }
+
+    // Connection removal takes the expired lease without starting a sync run.
+    await database.update(schema.leases).set({
+      owner: "connection-removal"
+    }).where(eq(schema.leases.name, syncLeaseName("SANDBOX")));
+
+    return Response.json({
+      balances: [],
+      transactions: []
+    });
+  });
+
+  await assert.rejects(syncAccounts(), {
+    status: 409
+  });
+
+  const accounts = await db.select().from(schema.accounts);
+  const runs = await db.select().from(schema.syncRuns);
+
+  assert.deepEqual(accounts.map(account => account.sync_error), [null, null]);
+  assert.deepEqual(runs.map(run => [run.status, run.error]), [["INTERRUPTED", "The sync lost its lease and stopped."]]);
+});
