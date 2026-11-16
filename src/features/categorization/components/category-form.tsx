@@ -12,30 +12,56 @@ import { useSaveCategory } from "@/features/categorization/mutations";
 import { FormError } from "@/components/ui/form-error";
 import { CategoryChip } from "./category-chip";
 import { CategoryIconPicker } from "./category-icon-picker";
+import { Dialog } from "@/components/ui/dialog";
 
 type Props = DialogFormProps & {
   category?: Category | null;
+  /** Prefills the name of a new category. */
+  initialName?: string;
+  /** Receives the saved category's id after the dialog has closed. */
+  onSaved?: (categoryId: string) => void;
 };
 
 const defaultColor = "#638777";
 
-export function CategoryForm({
+/** Adds a category, or edits the given one. */
+export function CategoryDialog({
   category,
-  close
+  close,
+  initialName,
+  onSaved
+}: Props) {
+  return (
+    <Dialog eyebrow="YOUR FINANCES" title={category ? "Edit category" : "Add category"} onClose={close}>
+      <CategoryForm
+        category={category}
+        close={close}
+        initialName={initialName}
+        onSaved={onSaved}
+      />
+    </Dialog>
+  );
+}
+
+function CategoryForm({
+  category,
+  close,
+  initialName = "",
+  onSaved
 }: Props) {
   const {
     error,
     pending,
     submit
   } = useDialogSubmit(useSaveCategory(category), close);
-  const [name, setName] = useState(category?.name ?? "");
+  const [name, setName] = useState(category?.name ?? initialName);
   const [color, setColor] = useState(category?.color ?? defaultColor);
   const savedIcon = category?.icon;
   const [icon, setIcon] = useState<CategoryIconKey | "">(isCategoryIcon(savedIcon) ? savedIcon : "");
 
   return (
     <form
-      onSubmit={event => submit(event, data => Object.fromEntries(data))}
+      onSubmit={event => submit(event, data => Object.fromEntries(data), onSaved)}
       className={ui["form"]}
     >
       <div className={styles["preview"]} aria-hidden="true">

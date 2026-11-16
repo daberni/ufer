@@ -9,7 +9,7 @@ import { usePeriodScope, useView } from "./use-dashboard-url";
 import { isPeriodAware } from "./dashboard-location";
 
 /**
- * Keeps the UI store in step with navigation: a dialog or page message belongs to the view it was opened on, views without a period remember the last one selected, and a bank callback result is shown once.
+ * Keeps the UI store in step with navigation: a page message belongs to the view it was reported on, views without a period remember the last one selected, and a bank callback result is shown once.
  */
 export function useDashboardNavigation() {
   const router = useRouter();

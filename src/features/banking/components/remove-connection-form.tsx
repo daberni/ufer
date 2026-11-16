@@ -10,24 +10,37 @@ import type { Account, Connection, ConnectionRemoval } from "@/features/dashboar
 import { useDashboardStore } from "@/features/dashboard/dashboard-store";
 import { useDialogSubmit, type DialogFormProps } from "@/features/dashboard/use-dialog-submit";
 import { useRemoveConnection } from "@/features/banking/mutations";
+import { useAccounts } from "@/features/accounts/queries";
+import { InlineFailure } from "@/features/dashboard/components/area-placeholder";
+import { useAreaResult, type Area } from "@/features/dashboard/use-area-result";
+import { Dialog } from "@/components/ui/dialog";
 
 type Props = DialogFormProps & {
-  accounts: Account[];
   selectedConnection: Connection;
 };
 
-export function RemoveConnectionForm({
-  accounts,
+export function RemoveConnectionDialog({
   close,
   selectedConnection
 }: Props) {
+  return (
+    <Dialog eyebrow="YOUR FINANCES" title="Remove connection" onClose={close}>
+      <RemoveConnectionForm close={close} selectedConnection={selectedConnection} />
+    </Dialog>
+  );
+}
+
+function RemoveConnectionForm({
+  close,
+  selectedConnection
+}: Props) {
+  const accounts = useAreaResult(useAccounts());
   const reportFeedback = useDashboardStore(state => state.reportFeedback);
   const {
     error,
     pending,
     submit
   } = useDialogSubmit(useRemoveConnection(), close);
-  const linkedAccounts = accounts.filter(account => account.requisition_id === selectedConnection.id);
 
   return (
     <form
@@ -45,7 +58,7 @@ export function RemoveConnectionForm({
       </p>
       <ul className={styles["effects"]}>
         <li>
-          <strong>{linkedAccounts.length} linked account(s) stay in Ufer</strong> with their balances, transaction history and categories.
+          <RetainedAccounts accounts={accounts} connection={selectedConnection} />
         </li>
         <li>These accounts are no longer synced, including scheduled syncs. Their balances stay at the last synced value.</li>
         <li>The stored bank authorization is deleted and Ufer asks Enable Banking to revoke it.</li>
@@ -61,12 +74,42 @@ export function RemoveConnectionForm({
         >
           Cancel
         </button>
-        <button className={styles["danger"]} disabled={pending}>
+        {/* Removal waits until the dialog can say how many accounts it keeps. */}
+        <button className={styles["danger"]} disabled={pending || accounts.status === "pending"}>
           <Trash2 size={15} />
           Remove connection
         </button>
       </div>
     </form>
+  );
+}
+
+function RetainedAccounts({
+  accounts,
+  connection
+}: {
+  accounts: Area<Account[]>;
+  connection: Connection;
+}) {
+  if (accounts.status === "pending" && accounts.failure) {
+    return <InlineFailure failure={accounts.failure} subject="The linked accounts" />;
+  }
+
+  if (accounts.status === "pending") {
+    return (
+      <>
+        <strong className={ui["skeleton"]} aria-hidden="true">0 linked account(s) stay in Ufer</strong>
+        <span className={ui["visually-hidden"]}>Loading the linked accounts …</span> with their balances, transaction history and categories.
+      </>
+    );
+  }
+
+  const linkedAccounts = accounts.data.filter(account => account.requisition_id === connection.id);
+
+  return (
+    <>
+      <strong>{linkedAccounts.length} linked account(s) stay in Ufer</strong> with their balances, transaction history and categories.
+    </>
   );
 }
 

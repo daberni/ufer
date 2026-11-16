@@ -8,7 +8,7 @@ type Props = {
   color: string;
 };
 
-// A small tile for the spending breakdown, whose rows sit on a panel and pair it with a colored bar; everywhere else a category is shown as a CategoryChip.
+// A small tile for the spending breakdown, whose rows pair it with a colored bar, and for the options of the category select; elsewhere a category is shown as a CategoryChip.
 // Decorative only: the marker always accompanies the category name, which remains the accessible label.
 export function CategoryMarker({
   icon,

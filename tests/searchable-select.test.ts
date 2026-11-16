@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { matchOptions, searchableSelectKeyAction, type SearchableSelectState } from "../src/components/ui/searchable-select-behavior";
+import { creatableName, matchOptions, searchableSelectKeyAction, type SearchableSelectState } from "../src/components/ui/searchable-select-behavior";
 
 function labelled(...labels: string[]) {
   return labels.map(label => ({
@@ -121,4 +121,14 @@ test("Enter without a highlighted option closes the list instead of submitting t
   }), {
     type: "close"
   });
+});
+
+test("a create option is named after the trimmed search unless it is empty or an option already has that label in any case", () => {
+  const options = labelled("Groceries", "Café");
+
+  assert.equal(creatableName(options, "  Pets "), "Pets");
+  assert.equal(creatableName(options, "Groc"), "Groc");
+  assert.equal(creatableName(options, " GROCERIES "), "");
+  assert.equal(creatableName(options, "CAFÉ"), "");
+  assert.equal(creatableName(options, "   "), "");
 });

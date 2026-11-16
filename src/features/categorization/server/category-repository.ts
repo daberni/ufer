@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import type { InStatement } from "@libsql/client";
 import { sameCategoryName } from "@/lib/category-name";
@@ -53,10 +52,10 @@ async function writeUniquelyNamed(existingId: string | null, name: string, state
   }
 }
 
-export async function insertCategory(details: CategoryDetails) {
+export async function insertCategory(id: string, details: CategoryDetails) {
   return writeUniquelyNamed(null, details.name, {
     sql: "INSERT INTO categories(id,name,color,icon) VALUES (?,?,?,?)",
-    args: [randomUUID(), details.name, details.color, details.icon]
+    args: [id, details.name, details.color, details.icon]
   });
 }
 

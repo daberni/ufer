@@ -42,6 +42,23 @@ export function matchOptions<Option extends {
     .map(match => match.option);
 }
 
+function sameLabel(left: string, right: string) {
+  return left.trim().normalize("NFC").toLocaleLowerCase() === right.trim().normalize("NFC").toLocaleLowerCase();
+}
+
+/** The name a create option would use: the typed text, unless it is empty or an option already has that label, ignoring case. */
+export function creatableName(options: readonly {
+  label: string;
+}[], query: string) {
+  const name = query.trim();
+
+  if (!name || options.some(option => sameLabel(option.label, name))) {
+    return "";
+  }
+
+  return name;
+}
+
 export type SearchableSelectKey = {
   key: string;
   altKey: boolean;

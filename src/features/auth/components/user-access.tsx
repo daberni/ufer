@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { usePathname } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { LogOut, UserRound } from "lucide-react";
 import { authClient, requireAuthResult } from "@/features/auth/client";
@@ -13,7 +14,13 @@ import { useLockSession } from "@/features/dashboard/use-dashboard-lock";
 export function UserAccess() {
   const lock = useLockSession();
   const reportFeedback = useDashboardStore(state => state.reportFeedback);
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const pathname = usePathname();
+  // The header outlives navigation, so the settings dialog remembers the view it was opened on and closes when another view is shown, including on Back and Forward.
+  const [settingsView, setSettingsView] = useState<string | null>(null);
+
+  if (settingsView !== null && settingsView !== pathname) {
+    setSettingsView(null);
+  }
 
   const signOut = useMutation({
     mutationFn: async () => requireAuthResult(await authClient.signOut()),
@@ -30,7 +37,7 @@ export function UserAccess() {
         className={ui["icon-button"]}
         type="button"
         aria-label="Your account"
-        onClick={() => setSettingsOpen(true)}
+        onClick={() => setSettingsView(pathname)}
       >
         <UserRound size={18} />
       </button>
@@ -43,7 +50,7 @@ export function UserAccess() {
       >
         <LogOut size={18} />
       </button>
-      {settingsOpen && <AccountSettings onClose={() => setSettingsOpen(false)} />}
+      {settingsView !== null && <AccountSettings onClose={() => setSettingsView(null)} />}
     </>
   );
 }

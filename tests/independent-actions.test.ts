@@ -82,7 +82,7 @@ function chooseCategory(screen: RenderResult, name: string) {
   act(() => {
     fireEvent.click(controlsIn(screen).category);
   });
-  // jsdom has no Popover API, so the opened list counts as hidden there.
+  // jsdom has no Popover API, so the opened list may count as hidden there.
   act(() => {
     fireEvent.click(screen.getByRole("option", {
       name,
@@ -133,7 +133,7 @@ test("an action in flight leaves the controls of every other action unchanged", 
   chooseCategory(screen, "Leisure");
   await wait(0);
   assert.equal(requests("transactions/synthetic-entry").length, 1);
-  assert.match(controls().category.textContent ?? "", /^Leisure/);
+  assert.match((controls().category as HTMLInputElement).value, /^Leisure/);
   assert.equal(controls().category.getAttribute("aria-busy"), "true");
   assert.equal(controls().sync.getAttribute("aria-label"), "Sync");
   assert.equal(controls().sync.getAttribute("aria-busy"), "false");
@@ -177,7 +177,7 @@ test("an action in flight leaves the controls of every other action unchanged", 
   assert.equal(controls().sync.getAttribute("aria-busy"), "false");
   assert.equal(controls().sync.hasAttribute("aria-disabled"), false);
   assert.equal(controls().category.getAttribute("aria-busy"), "true");
-  assert.match(controls().category.textContent ?? "", /^Leisure/);
+  assert.match((controls().category as HTMLInputElement).value, /^Leisure/);
 
   await respond(requests("transactions/synthetic-entry")[0], Response.json({
     id: transaction.id,

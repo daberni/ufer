@@ -1,5 +1,5 @@
 .eyebrow {
-  composes: eyebrow from "../../../components/ui/primitives.module.css";
+  composes: eyebrow from "./primitives.module.css";
 }
 .modal {
   border: 1px solid var(--border);

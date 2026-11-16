@@ -7,7 +7,22 @@
 }
 /* Room for the toggle button, which sits inside the field's right edge. */
 .input {
+  width: 100%;
   padding-right: calc(var(--toggle-width) + var(--space-1));
+}
+/* The selected option's icon sits inside the field's left edge while the field shows that option. */
+.selected-icon {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--space-3);
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+}
+/* The icon (16px) with the field's inline padding on both sides. */
+.input.with-icon {
+  padding-left: calc(16px + 2 * var(--space-3));
 }
 .toggle {
   position: absolute;
@@ -27,20 +42,27 @@
 .toggle[aria-expanded="true"] svg {
   transform: rotate(180deg);
 }
-/* The list opens in the surrounding flow, so neither a dialog nor a phone's on-screen keyboard can cover it. */
+/* The list is a top-layer popover; its position, width limits and maximum height follow the field and the visible viewport. */
 .popup {
-  margin-top: var(--space-2);
+  position: fixed;
+  inset: auto;
+  width: max-content;
+  margin: 0;
   padding: var(--space-1);
+  overflow: hidden;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--surface-raised);
   color: var(--ink);
   box-shadow: var(--shadow-lg);
 }
-.popup[hidden] {
-  display: none;
+.popup:popover-open {
+  display: flex;
+  flex-direction: column;
 }
 .listbox {
+  flex: 0 1 auto;
+  min-height: 0;
   max-height: 18rem;
   margin: 0;
   padding: 0;
@@ -66,6 +88,12 @@
   flex: 1;
   min-width: 0;
   overflow-wrap: anywhere;
+}
+.create-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: var(--green-text);
 }
 .check {
   width: 16px;
