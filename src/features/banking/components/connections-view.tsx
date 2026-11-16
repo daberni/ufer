@@ -42,7 +42,7 @@ export function ConnectionsView({
     <>
       <div className={ui["section-heading"]}>
         <span className={ui["section-kicker"]}>ENABLE BANKING{sandbox && " · SANDBOX"}</span>
-        <button className={clsx(styles["button"], ui["primary"])} onClick={() => openBank()}>
+        <button className={clsx(ui["button"], ui["primary"])} onClick={() => openBank()}>
           <Plus size={15} />
           Connect bank
         </button>
@@ -114,7 +114,7 @@ function ConnectionRows({
         title="Your first bank connection"
         illustration={BridgeIllustration}
         action={(
-          <button className={clsx(styles["button"], ui["primary"])} onClick={() => openBank()}>
+          <button className={clsx(ui["button"], ui["primary"])} onClick={() => openBank()}>
             <Link2 size={15} />
             {sandbox ? "Select sandbox bank" : "Connect your bank"}
           </button>
@@ -134,7 +134,7 @@ function ConnectionRows({
           </span>
           <div>
             <h3>{connection.bank_name}</h3>
-            <p>
+            <p className={styles["connection-detail"]}>
               {connection.bank_country} · {connection.valid_until ? <>Authorized until <TimestampValue value={connection.valid_until} /></> : "Authorization not completed yet"}
             </p>
             {connection.error && <p className={ui["error-text"]}>{connection.error}</p>}
@@ -148,11 +148,11 @@ function ConnectionRows({
             SUPERSEDED: "Superseded"
           } as Record<string, string>)[connection.status] || connection.status}</span>
           <div className={styles["connection-actions"]}>
-            <button className={clsx(styles["button"], ui["small"])} onClick={() => openBank(connection)}>
+            <button className={clsx(ui["button"], ui["small"])} onClick={() => openBank(connection)}>
               Reconnect
             </button>
             <button
-              className={clsx(styles["button"], ui["small"])}
+              className={clsx(ui["button"], ui["small"])}
               onClick={() => openDialog({
                 kind: "removeConnection",
                 connection
@@ -181,14 +181,14 @@ function ConnectionRowsSkeleton() {
             <h3>
               <span className={ui["skeleton"]}>Example bank</span>
             </h3>
-            <p>
+            <p className={styles["connection-detail"]}>
               <span className={ui["skeleton"]}>AT · Authorized until 12 Jan 2025, 10:00</span>
             </p>
           </div>
           <span className={clsx(styles["pill"], ui["skeleton"])}>Connected</span>
           <div className={styles["connection-actions"]}>
-            <span className={clsx(styles["button"], ui["small"], ui["skeleton"])}>Reconnect</span>
-            <span className={clsx(styles["button"], ui["small"], ui["skeleton"])}>Remove</span>
+            <span className={clsx(ui["button"], ui["small"], ui["skeleton"])}>Reconnect</span>
+            <span className={clsx(ui["button"], ui["small"], ui["skeleton"])}>Remove</span>
           </div>
         </div>
       ))}

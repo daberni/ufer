@@ -7,7 +7,7 @@
 .wealth-grid {
   display: grid;
   grid-template-columns: 1.35fr 1fr;
-  gap: 22px;
+  gap: var(--space-6);
 }
 .wealth-card {
   border: 1px solid var(--border-strong);
@@ -17,8 +17,8 @@
     var(--wealth-highlight) 70%,
     var(--wealth-surface)
   );
-  border-radius: 12px;
-  padding: 25px 27px 23px;
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
   position: relative;
   overflow: hidden;
 }
@@ -41,14 +41,14 @@
   justify-content: space-between;
   align-items: center;
   color: var(--ink-soft);
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   position: relative;
-  z-index: 1;
+  z-index: var(--layer-raised);
 }
 .wealth-card-top > span:first-child {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
 }
 .wealth-mark {
   width: 27px;
@@ -56,38 +56,38 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 7px;
+  border-radius: var(--radius-md);
   background: var(--soft-strong);
 }
 .small-tag {
   font-size: var(--text-xs);
   border: 1px solid var(--border-strong);
-  border-radius: 5px;
-  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+  padding: var(--space-1) var(--space-2);
 }
 .wealth-number {
   font-size: var(--text-4xl);
   font-weight: 500;
   letter-spacing: -2px;
-  margin-top: 23px;
+  margin-top: var(--space-6);
   line-height: 1.1;
   position: relative;
-  z-index: 1;
+  z-index: var(--layer-raised);
   font-variant-numeric: tabular-nums;
 }
 .wealth-card > p {
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   color: var(--muted);
-  margin-top: 12px;
+  margin-top: var(--space-3);
   line-height: 1.5;
 }
 .allocation-bar {
   height: 6px;
   display: flex;
   gap: 3px;
-  margin-top: 27px;
+  margin-top: var(--space-6);
   overflow: hidden;
-  border-radius: 5px;
+  border-radius: var(--radius-sm);
   background: var(--soft-strong);
 }
 .allocation-bar > span:first-child {
@@ -101,15 +101,15 @@
 }
 .wealth-allocation {
   display: flex;
-  gap: 25px;
+  gap: var(--space-6);
   flex-wrap: wrap;
-  margin-top: 15px;
+  margin-top: var(--space-4);
 }
 .wealth-allocation > span {
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   color: var(--muted);
   position: relative;
-  padding-left: 12px;
+  padding-left: var(--space-3);
 }
 .wealth-allocation .legend-dot {
   position: absolute;
@@ -121,7 +121,7 @@
   font-size: var(--text-sm);
   color: var(--ink-soft);
   font-weight: 500;
-  margin-top: 6px;
+  margin-top: var(--space-1);
 }
 .legend-dot.invested {
   background: var(--chart-invested);
@@ -129,25 +129,21 @@
 .liabilities {
   display: flex;
   justify-content: space-between;
-  margin-top: 17px;
-  font-size: var(--text-xs);
+  margin-top: var(--space-4);
+  font-size: var(--text-sm);
   border-top: 1px solid var(--border-strong);
-  padding-top: 12px;
+  padding-top: var(--space-3);
   color: var(--muted);
 }
+/* Positions the failure overlay of its loading area; the shared panel provides the card. */
 .month-card {
   position: relative;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  border-radius: 12px;
-  padding: 23px 24px;
-  box-shadow: 0 2px 3px var(--shadow-faint);
 }
 .flow-row {
   display: flex;
   align-items: center;
-  gap: 13px;
-  margin-top: 24px;
+  gap: var(--space-3);
+  margin-top: var(--space-6);
 }
 .flow-icon {
   width: 35px;
@@ -155,7 +151,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 9px;
+  border-radius: var(--radius-md);
   flex-shrink: 0;
 }
 .flow-icon.incoming {
@@ -170,10 +166,10 @@
   min-width: 112px;
 }
 .flow-row > div > span {
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   color: var(--muted);
   display: block;
-  margin-bottom: 6px;
+  margin-bottom: var(--space-1);
 }
 .flow-row strong {
   font-size: var(--text-lg);
@@ -182,7 +178,7 @@
 }
 .flow-track {
   height: 4px;
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   background: var(--chart-track);
   max-width: 100px;
   width: 100%;
@@ -193,28 +189,28 @@
   height: 100%;
   display: block;
   background: var(--chart-income);
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
 }
 .flow-track.expense i {
   background: var(--chart-expense);
 }
 .monthly-result {
   border-top: 1px solid var(--border-subtle);
-  margin-top: 23px;
-  padding-top: 17px;
+  margin-top: var(--space-6);
+  padding-top: var(--space-4);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: var(--space-3);
 }
 .monthly-result > div > span {
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
 }
 .monthly-result small {
   display: block;
   color: var(--muted);
-  font-size: var(--text-xs);
-  margin-top: 5px;
+  font-size: var(--text-sm);
+  margin-top: var(--space-1);
 }
 .monthly-result > strong {
   font-size: var(--text-xl);
@@ -223,41 +219,26 @@
 }
 @media (--wide) {
   .wealth-card {
-    padding: 31px 32px;
+    padding: var(--space-8);
   }
 }
 @media (--laptop) {
-  .wealth-card {
-    padding: 24px 21px;
-  }
   .wealth-number {
     font-size: var(--text-3xl);
   }
   .wealth-allocation {
-    gap: 14px;
-  }
-  .month-card {
-    padding: 22px 20px;
+    gap: var(--space-4);
   }
   .wealth-grid {
-    gap: 17px;
+    gap: var(--space-4);
   }
 }
 @media (--tablet) {
   .wealth-grid {
     grid-template-columns: 1fr 1fr;
   }
-  .wealth-number {
-    font-size: var(--text-3xl);
-  }
   .wealth-allocation {
-    gap: 10px;
-  }
-  .wealth-allocation strong {
-    font-size: var(--text-xs);
-  }
-  .wealth-allocation > span {
-    font-size: var(--text-xs);
+    gap: var(--space-3);
   }
   .month-card .subtle {
     display: none;
@@ -271,28 +252,17 @@
   .monthly-result > strong {
     font-size: var(--text-md);
   }
-  .monthly-result small {
-    font-size: var(--text-xs);
-  }
 }
 @media (--mobile) {
   .wealth-grid {
     grid-template-columns: minmax(0, 1fr);
-    gap: 17px;
   }
   .wealth-card {
-    padding: 22px 19px;
-    min-width: 0;
-  }
-  .month-card {
-    padding: 22px 19px;
+    padding: var(--space-6) var(--space-4);
     min-width: 0;
   }
   .wealth-card-top {
     font-size: var(--text-md);
-  }
-  .small-tag {
-    font-size: var(--text-xs);
   }
   .wealth-number {
     font-size: clamp(1.75rem, 8vw, var(--text-3xl));
@@ -300,22 +270,12 @@
     overflow-wrap: anywhere;
   }
   .wealth-card > p {
-    font-size: var(--text-sm);
     line-height: 1.7;
   }
   .wealth-allocation {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
-    gap: 17px;
-  }
-  .wealth-allocation > span {
-    font-size: var(--text-sm);
-  }
-  .wealth-allocation strong {
-    font-size: var(--text-sm);
-  }
-  .liabilities {
-    font-size: var(--text-sm);
+    gap: var(--space-4);
   }
   .wealth-allocation strong {
     overflow-wrap: anywhere;
@@ -324,11 +284,7 @@
     display: block;
   }
   .flow-row {
-    margin-top: 23px;
-    gap: 11px;
-  }
-  .flow-row > div > span {
-    font-size: var(--text-sm);
+    gap: var(--space-3);
   }
   .flow-row strong {
     font-size: var(--text-2xl);
@@ -348,7 +304,6 @@
     font-size: var(--text-md);
   }
   .monthly-result small {
-    font-size: var(--text-xs);
     line-height: 1.6;
     max-width: 170px;
   }
