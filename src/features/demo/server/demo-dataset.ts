@@ -1,5 +1,5 @@
 import { Temporal } from "temporal-polyfill";
-import type { Entry } from "@/features/transactions/server/transaction-entry";
+import type { Entry, ProviderDetails } from "@/features/transactions/server/transaction-entry";
 import { demoAccounts, demoReferencePrefix, type DemoAccountDefinition, type DemoAccountKey } from "./demo-catalog";
 import { DemoRandom } from "./demo-random";
 
@@ -194,7 +194,7 @@ class Ledger {
     return isBetween(date, this.firstDate, this.runDate);
   }
 
-  book(account: DemoAccountKey, date: PlainDate, amount: number, counterparty: string, description: string, transfer = false) {
+  book(account: DemoAccountKey, date: PlainDate, amount: number, counterparty: string, description: string, transfer = false, provider?: ProviderDetails) {
     if (!this.covers(date) || amount === 0) {
       return;
     }
@@ -207,7 +207,8 @@ class Ledger {
       currency: "EUR",
       counterparty,
       description,
-      transfer
+      transfer,
+      provider
     });
   }
 
@@ -412,6 +413,14 @@ function bookSummerTrip(ledger: Ledger, random: DemoRandom, year: number): Trip 
   };
 }
 
+// The city break is paid in pounds, so its card payments show the original amount next to the booked euros.
+function paidInPounds(euroAmount: number): ProviderDetails {
+  return {
+    instructedAmount: Math.round(euroAmount * 0.85),
+    instructedCurrency: "GBP"
+  };
+}
+
 function bookShortTrips(ledger: Ledger, random: DemoRandom, year: number) {
   const skiFriday = saturdayOnOrAfter(Temporal.PlainDate.from({
     year,
@@ -441,9 +450,11 @@ function bookShortTrips(ledger: Ledger, random: DemoRandom, year: number) {
   ledger.book("creditCard", cityThursday, -11840, "National Rail", "Return ticket, city break");
 
   for (let index = 0; index < 4; index++) {
+    const amount = random.amount(14, 58);
+
     ledger.book("creditCard", cityThursday.add({
       days: index
-    }), -random.amount(14, 58), random.pick(placesAbroad), "Card payment abroad");
+    }), -amount, random.pick(placesAbroad), "Card payment abroad", false, paidInPounds(-amount));
   }
 }
 

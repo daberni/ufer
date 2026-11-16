@@ -44,6 +44,8 @@ const transaction: Transaction = {
   booking_date: "2000-01-10",
   amount_minor: -1250,
   currency: "EUR",
+  instructed_amount_minor: null,
+  instructed_currency: null,
   counterparty: "Example Market",
   description: "Synthetic purchase",
   account_name: "Synthetic account",
