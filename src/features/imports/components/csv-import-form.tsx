@@ -12,6 +12,8 @@ import { FormError } from "@/components/ui/form-error";
 import { Select } from "@/components/ui/select";
 import { Dialog } from "@/components/ui/dialog";
 import { useAccounts } from "@/features/accounts/queries";
+import { InlineFailure } from "@/features/dashboard/components/area-placeholder";
+import { useAreaResult } from "@/features/dashboard/use-area-result";
 
 type Props = DialogFormProps & {
   initialMode: ImportMode;
@@ -33,8 +35,10 @@ function CsvImportForm({
   initialMode
 }: Props) {
   const [importMode, setImportMode] = useState(initialMode);
-  const accounts = useAccounts().data ?? [];
-  const manualAccounts = accounts.filter(account => account.provider === "manual");
+  const accounts = useAreaResult(useAccounts());
+  const accountsPending = accounts.status === "pending";
+  const accountsFailure = accountsPending ? accounts.failure : null;
+  const manualAccounts = accounts.data?.filter(account => account.provider === "manual") ?? [];
   const {
     error,
     pending,
@@ -60,8 +64,8 @@ function CsvImportForm({
       </label>
       <label>
         Target account
-        <Select name="account_id" required>
-          <option value="">Select account</option>
+        <Select name="account_id" required disabled={accountsPending}>
+          <option value="">{targetPlaceholder(accounts.status, accountsFailure !== null)}</option>
           {manualAccounts.map(account => (
             <option key={account.id} value={account.id}>
               {account.name} ({account.currency})
@@ -69,6 +73,7 @@ function CsvImportForm({
           ))}
         </Select>
       </label>
+      {accountsFailure && <InlineFailure failure={accountsFailure} subject="Your accounts" />}
       <label>
         CSV file
         <input
@@ -89,4 +94,12 @@ function CsvImportForm({
       </button>
     </form>
   );
+}
+
+function targetPlaceholder(status: string, failed: boolean) {
+  if (failed) {
+    return "Accounts unavailable";
+  }
+
+  return status === "pending" ? "Loading accounts …" : "Select account";
 }
