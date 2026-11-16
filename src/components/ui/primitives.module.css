@@ -243,6 +243,59 @@
     transform: rotate(360deg);
   }
 }
+/* A single value or label that does not match the selected filters yet: its box stays, the outdated text is hidden from view and assistive technology. */
+.skeleton {
+  position: relative;
+  visibility: hidden;
+}
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: var(--skeleton-inset, 0);
+  visibility: visible;
+  border-radius: 6px;
+  background: rgb(36 58 48 / 9%);
+  animation: skeleton-pulse 1.4s ease-in-out infinite;
+}
+/* The value could not be loaded for the selected filters; the load error banner explains why and offers a retry. */
+.skeleton-unavailable::after {
+  animation: none;
+  opacity: 0.6;
+}
+@keyframes skeleton-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+/* A larger area such as a list or chart keeps its outdated content in place, faded and not interactive, while results for new filters load. */
+.area-loading {
+  opacity: 0.4;
+  transition: opacity 160ms ease-out;
+}
+/* The area's results could not be loaded; the outdated content keeps the layout but is not shown. */
+.area-unavailable {
+  position: relative;
+}
+.area-unavailable > * {
+  visibility: hidden;
+}
+.area-unavailable::after {
+  content: "Not available for the selected filters";
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  border-radius: 8px;
+  background: repeating-linear-gradient(
+    -45deg,
+    rgb(36 58 48 / 3%) 0 10px,
+    rgb(36 58 48 / 6%) 10px 20px
+  );
+  color: var(--muted);
+  font-size: var(--text-sm);
+  text-align: center;
+}
 @media (max-width: 1250px) {
   .panel {
     padding: 22px 20px;

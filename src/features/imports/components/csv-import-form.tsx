@@ -5,46 +5,43 @@ import ui from "../../../components/ui/primitives.module.css";
 import { clsx } from "clsx";
 import styles from "./csv-import-form.module.css";
 import { ArrowDownToLine } from "lucide-react";
-import { api } from "@/client/api";
+import type { Account } from "@/features/dashboard/types";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
-import type { DialogFormProps } from "@/features/dashboard/use-dialog-submit";
+import { useDialogSubmit, type DialogFormProps } from "@/features/dashboard/use-dialog-submit";
+import { useCsvImport, type ImportMode } from "@/features/imports/mutations";
 import { FormError } from "@/components/ui/form-error";
 import { Select } from "@/components/ui/select";
 
-type Props = Pick<DashboardController, "busy" | "importMode" | "setImportMode" | "state"> & DialogFormProps;
+type Props = Pick<DashboardController, "importMode" | "setImportMode"> & DialogFormProps & {
+  accounts: Account[];
+};
 
 export function CsvImportForm({
-  busy,
-  error,
+  accounts,
+  close,
   importMode,
-  setImportMode,
-  state,
-  submit
+  setImportMode
 }: Props) {
-  if (!state) {
-    return null;
-  }
+  const manualAccounts = accounts.filter(account => account.provider === "manual");
+  const {
+    error,
+    pending,
+    submit
+  } = useDialogSubmit(useCsvImport(), close);
 
   return (
     <form
-      onSubmit={event => submit(event, async data => {
-        const file = data.get("file") as File;
-
-        if (file.size > 1_000_000) {
-          throw new Error("The file cannot exceed 1 MB.");
-        }
-
-        await api(`imports/${importMode}`, {
-          account_id: data.get("account_id"),
-          csv: await file.text()
-        });
-      })}
+      onSubmit={event => submit(event, data => ({
+        mode: importMode,
+        accountId: String(data.get("account_id")),
+        file: data.get("file") as File
+      }))}
       className={ui["form"]}
     >
       <p className={ui["form-description"]}>Import balances or booked transactions into a manual account. Files must use the format below; map bank exports to these columns first.</p>
       <label>
         Import
-        <Select value={importMode} onChange={event => setImportMode(event.target.value)}>
+        <Select value={importMode} onChange={event => setImportMode(event.target.value as ImportMode)}>
           <option value="balances">Investment / account balances</option>
           <option value="transactions">Booked transactions</option>
         </Select>
@@ -53,7 +50,7 @@ export function CsvImportForm({
         Target account
         <Select name="account_id" required>
           <option value="">Select account</option>
-          {state?.accounts.filter(account => account.provider === "manual").map(account => (
+          {manualAccounts.map(account => (
             <option key={account.id} value={account.id}>
               {account.name} ({account.currency})
             </option>
@@ -75,7 +72,7 @@ export function CsvImportForm({
       </div>
       <p className={ui["form-hint"]}>{importMode === "balances" ? "Multiple valuation dates are supported. The latest balance is used." : "IDs must be stable and unique within an account. Reimporting updates existing transactions. Update the account balance separately."}</p>
       <FormError message={error} />
-      <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={busy || !state?.accounts.some(account => account.provider === "manual")}>
+      <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={pending || !manualAccounts.length}>
         Import CSV <ArrowDownToLine size={16} />
       </button>
     </form>

@@ -4,32 +4,26 @@ import ui from "../../../components/ui/primitives.module.css";
 
 import { clsx } from "clsx";
 import { Sparkles } from "lucide-react";
-import { api } from "@/client/api";
-import type { DashboardController } from "@/features/dashboard/use-dashboard";
-import type { DialogFormProps } from "@/features/dashboard/use-dialog-submit";
+import { useDialogSubmit, type DialogFormProps } from "@/features/dashboard/use-dialog-submit";
+import { useCreateRule } from "@/features/categorization/mutations";
+import { useCategories } from "@/features/categorization/queries";
 import { FormError } from "@/components/ui/form-error";
 import { Select } from "@/components/ui/select";
 
-type Props = Pick<DashboardController, "busy" | "state"> & DialogFormProps;
-
-export function CreateRuleForm({
-  busy,
-  error,
-  state,
-  submit
-}: Props) {
-  if (!state) {
-    return null;
-  }
+export function CreateRuleForm({ close }: DialogFormProps) {
+  const categories = useCategories();
+  const {
+    error,
+    pending,
+    submit
+  } = useDialogSubmit(useCreateRule(), close);
 
   return (
     <form
-      onSubmit={event => submit(event, async data => {
-        await api("rules", {
-          ...Object.fromEntries(data),
-          priority: Number(data.get("priority"))
-        });
-      })}
+      onSubmit={event => submit(event, data => ({
+        ...Object.fromEntries(data),
+        priority: Number(data.get("priority"))
+      }))}
       className={ui["form"]}
     >
       <label>
@@ -73,7 +67,7 @@ export function CreateRuleForm({
       <label>
         Category
         <Select name="category_id" required>
-          {state?.categories.map(category => (
+          {categories.data?.map(category => (
             <option key={category.id} value={category.id}>
               {category.name}
             </option>
@@ -82,7 +76,7 @@ export function CreateRuleForm({
       </label>
       <p className={ui["form-hint"]}>Matches the payee and description without case sensitivity. The first matching rule wins.</p>
       <FormError message={error} />
-      <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={busy}>
+      <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={pending || !categories.data}>
         Create rule <Sparkles size={16} />
       </button>
     </form>

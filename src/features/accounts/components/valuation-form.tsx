@@ -4,28 +4,28 @@ import ui from "../../../components/ui/primitives.module.css";
 
 import { clsx } from "clsx";
 import { Check } from "lucide-react";
-import { api } from "@/client/api";
-import type { DashboardController } from "@/features/dashboard/use-dashboard";
-import type { DialogFormProps } from "@/features/dashboard/use-dialog-submit";
+import type { Account } from "@/features/dashboard/types";
+import { useDialogSubmit, type DialogFormProps } from "@/features/dashboard/use-dialog-submit";
+import { useSaveValuation } from "@/features/accounts/mutations";
 import { FormError } from "@/components/ui/form-error";
 
-type Props = Pick<DashboardController, "busy" | "selectedAccount"> & DialogFormProps;
+type Props = DialogFormProps & {
+  selectedAccount: Account;
+};
 
 export function ValuationForm({
-  busy,
-  error,
-  selectedAccount,
-  submit
+  close,
+  selectedAccount
 }: Props) {
-  if (!selectedAccount) {
-    return null;
-  }
+  const {
+    error,
+    pending,
+    submit
+  } = useDialogSubmit(useSaveValuation(selectedAccount.id), close);
 
   return (
     <form
-      onSubmit={event => submit(event, async data => {
-        await api(`accounts/${selectedAccount.id}/balance`, Object.fromEntries(data));
-      })}
+      onSubmit={event => submit(event, data => Object.fromEntries(data))}
       className={ui["form"]}
     >
       <p className={ui["form-description"]}>
@@ -51,7 +51,7 @@ export function ValuationForm({
         />
       </label>
       <FormError message={error} />
-      <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={busy}>
+      <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={pending}>
         Save balance <Check size={16} />
       </button>
     </form>

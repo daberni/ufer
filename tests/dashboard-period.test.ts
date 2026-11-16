@@ -8,7 +8,8 @@ import type { Database } from "../src/server/database/connection";
 import { Temporal } from "temporal-polyfill";
 import { allMonthsPeriod, currentMonth, monthPeriod, parsePeriod, periodFromJson, periodToJson, serializePeriod, trendMonths, type Period } from "../src/features/dashboard/period";
 import { dashboardFilters } from "../src/features/dashboard/server/dashboard-filters";
-import { readDashboardState } from "../src/features/dashboard/server/dashboard-query";
+import { readCashFlow } from "../src/features/dashboard/server/cash-flow-query";
+import { readTransactionPage } from "../src/features/transactions/server/transaction-list-query";
 
 // Temporal values have no enumerable fields, so compare periods through their serialized form.
 function serialized(period: Period | null) {
@@ -122,25 +123,40 @@ async function seededDatabase(context: TestContext) {
   }]);
 }
 
-function spending(state: Awaited<ReturnType<typeof readDashboardState>>) {
-  return state.breakdown.reduce((total, item) => total + Number(item.amount), 0);
+function spending(cashFlow: Awaited<ReturnType<typeof readCashFlow>>) {
+  return cashFlow.breakdown.reduce((total, item) => total + item.amount, 0);
+}
+
+// The transaction list and the cash-flow report are separate requests for the same filters.
+async function readPeriod(query: string) {
+  const filters = dashboardFilters(new URLSearchParams(query));
+  const [list, cashFlow] = await Promise.all([readTransactionPage(filters), readCashFlow(filters.period, filters.currency)]);
+
+  return {
+    list,
+    cashFlow
+  };
 }
 
 test("a month period limits transactions, cash flow and spending to the same calendar month", async context => {
   await seededDatabase(context);
-  const state = await readDashboardState(dashboardFilters(new URLSearchParams("period=2026-01")));
+  const {
+    list,
+    cashFlow
+  } = await readPeriod("period=2026-01");
 
-  assert.deepEqual(state.period, {
+  assert.deepEqual(list.period, {
     kind: "month",
     month: "2026-01"
   });
-  assert.equal(state.transactionCount, 2);
-  assert.deepEqual(state.transactions.map(item => item.id), ["january-end", "january-start"]);
-  assert.equal(state.summary.income, 0);
-  assert.equal(state.summary.expenses, 50000);
-  assert.equal(spending(state), 50000);
-  assert.deepEqual(state.trend.map(item => item.month), ["2025-08", "2025-09", "2025-10", "2025-11", "2025-12", "2026-01"]);
-  assert.deepEqual(state.trend.slice(-2), [{
+  assert.deepEqual(cashFlow.period, list.period);
+  assert.equal(list.transactionCount, 2);
+  assert.deepEqual(list.transactions.map(item => item.id), ["january-end", "january-start"]);
+  assert.equal(cashFlow.income, 0);
+  assert.equal(cashFlow.expenses, 50000);
+  assert.equal(spending(cashFlow), 50000);
+  assert.deepEqual(cashFlow.trend.map(item => item.month), ["2025-08", "2025-09", "2025-10", "2025-11", "2025-12", "2026-01"]);
+  assert.deepEqual(cashFlow.trend.slice(-2), [{
     month: "2025-12",
     income: 100000,
     expenses: 0
@@ -153,15 +169,19 @@ test("a month period limits transactions, cash flow and spending to the same cal
 
 test("the all-months period applies to cash flow and spending as well as the transaction list", async context => {
   await seededDatabase(context);
-  const state = await readDashboardState(dashboardFilters(new URLSearchParams("period=all")));
+  const {
+    list,
+    cashFlow
+  } = await readPeriod("period=all");
 
-  assert.deepEqual(state.period, {
+  assert.deepEqual(list.period, {
     kind: "all"
   });
-  assert.equal(state.transactionCount, 4);
-  assert.equal(state.summary.income, 100000);
-  assert.equal(state.summary.expenses, 55000);
-  assert.equal(spending(state), 55000);
-  assert.equal(state.trend.length, 6);
-  assert.equal(state.trend.at(-1)?.month, currentMonth().toString());
+  assert.deepEqual(cashFlow.period, list.period);
+  assert.equal(list.transactionCount, 4);
+  assert.equal(cashFlow.income, 100000);
+  assert.equal(cashFlow.expenses, 55000);
+  assert.equal(spending(cashFlow), 55000);
+  assert.equal(cashFlow.trend.length, 6);
+  assert.equal(cashFlow.trend.at(-1)?.month, currentMonth().toString());
 });

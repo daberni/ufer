@@ -24,3 +24,4 @@ Accepted describes an approved direction; each record separately states its impl
 | [004 — Maintained security libraries](decisions/004-security-libraries.md) | Accepted | iron-session browser sessions; jose provider JWTs; stored-secret format preserved |
 | [Workspaces, identity and banking](decisions/XXX-workspaces-identity-and-banking.md) | Proposed | Customer boundaries, self-hosting/hosting and future SSO |
 | [005 — Username/password authentication](decisions/005-username-password-authentication.md) | Accepted | Better Auth, explicit enrollment and singleton-workspace access; existing-database rollout requires approval |
+| [006 — Client server state](decisions/006-client-server-state.md) | Accepted | TanStack Query for server state, URL for view/filter state, no global client store; per-area queries and independent mutation states |
