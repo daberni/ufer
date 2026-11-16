@@ -50,8 +50,6 @@ type ChartMonth = {
   month: string;
   label: string;
   title: string;
-  /** In the later half of the window; its details then cover the chart's start side. */
-  late: boolean;
   bars: ChartBar[];
 };
 
@@ -75,7 +73,6 @@ export function CashFlowChart({ cashFlow }: Props) {
       month: item.month,
       label: display.label,
       title: display.title,
-      late: index >= trend.length / 2,
       bars: [{
         key: `${item.month}-income`,
         flow: "income",
@@ -110,7 +107,7 @@ export function CashFlowChart({ cashFlow }: Props) {
           Expenses
         </span>
       </div>
-      <div className={styles["plot"]} {...chartProps}>
+      <div {...chartProps}>
         <div
           {...areaProps(cashFlow.status, styles["bar-chart"])}
           role="group"
@@ -167,10 +164,11 @@ export function CashFlowChart({ cashFlow }: Props) {
             </div>
           ))}
         </div>
-        <div className={styles["details-slot"]}>
-          {activeMonth && activeBar && <BarDetails month={activeMonth} bar={activeBar} currency={currency} />}
-          {!activeBar && hasHistory && <p className={styles["details-hint"]}>Select a bar to see its categories.</p>}
-        </div>
+        {hasHistory && (
+          <div className={styles["details-slot"]}>
+            {activeMonth && activeBar ? <BarDetails month={activeMonth} bar={activeBar} currency={currency} /> : <p className={styles["details-hint"]}>Select a bar to see its categories.</p>}
+          </div>
+        )}
       </div>
       {!hasHistory && <p className={clsx(styles["chart-empty-note"], valueMask(cashFlow.status))}>Your history appears here after the first import.</p>}
     </section>
@@ -183,7 +181,7 @@ type BarDetailsProps = {
   currency: string;
 };
 
-// Visual only: each bar button already describes the same breakdown to assistive technology. Wide charts show it as an overlay; narrow ones in space reserved below the bars.
+// Visual only: each bar button already describes the same breakdown to assistive technology.
 function BarDetails({
   month,
   bar,
@@ -192,7 +190,7 @@ function BarDetails({
   const presentation = flowPresentation[bar.flow];
 
   return (
-    <div className={styles["bar-details"]} data-side={month.late ? "start" : "end"} aria-hidden="true">
+    <div aria-hidden="true">
       <div className={styles["details-heading"]}>
         <strong>{month.title}</strong>
         <span>{`${presentation.label} ${money(bar.total, currency)}`}</span>

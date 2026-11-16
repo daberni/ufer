@@ -16,10 +16,6 @@
   align-items: center;
   gap: 6px;
 }
-.plot {
-  container: cash-flow-chart / inline-size;
-  position: relative;
-}
 .bar-chart {
   display: flex;
   align-items: flex-end;
@@ -114,29 +110,19 @@
 .bar-group[data-active] .month-label {
   color: var(--ink);
 }
-/* On wide charts the details overlay the half away from the active bar, so showing them never moves the layout; pointer events reach the bars underneath. */
-.bar-details {
-  position: absolute;
-  z-index: 2;
-  bottom: 0;
-  width: calc(50% - 12px);
-  padding: 11px 14px 13px;
-  border: 1px solid var(--border);
-  border-radius: 9px;
-  background: var(--surface);
-  box-shadow: 0 8px 24px #233e3126;
-  pointer-events: none;
-}
-.bar-details[data-side="start"] {
-  left: 0;
-}
-.bar-details[data-side="end"] {
-  right: 0;
+/* The details always take this fixed area below the bars: they never cover a bar, and the panel keeps one height at every width. It fits a heading and five rows; --details-lines counts their text lines in rem. */
+.details-slot {
+  --details-lines: calc(1.3125rem + 6 * 1.125rem);
+  height: calc(var(--details-lines) + 5 * 13px + 4 * 6px + 10px + 15px);
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  overflow: hidden;
 }
 .details-heading {
   display: grid;
   gap: 2px;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 .details-heading strong {
   font-size: var(--text-sm);
@@ -147,8 +133,8 @@
   font-size: var(--text-xs);
   color: var(--muted);
 }
-.bar-details .details-rows {
-  gap: 8px;
+.details-slot .details-rows {
+  gap: 6px;
 }
 .details-empty {
   margin: 0;
@@ -156,44 +142,15 @@
   color: var(--muted);
 }
 .details-hint {
-  display: none;
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--muted);
 }
 .chart-empty-note {
   text-align: center;
   font-size: var(--text-xs);
   color: #a0aa96;
   margin-top: 17px;
-}
-@container cash-flow-chart (max-width: 30rem) {
-  /* Narrow charts have no free half, so the details take a fixed area below the bars instead of covering them; it fits a heading and five rows at the narrow-screen text size. */
-  .details-slot {
-    height: calc(7 * 1.3125rem + 5 * 13px + 24px + 10px + 15px);
-    margin-top: 16px;
-    padding-top: 14px;
-    border-top: 1px solid var(--border);
-    overflow: hidden;
-  }
-  .bar-details {
-    position: static;
-    width: auto;
-    padding: 0;
-    border: 0;
-    border-radius: 0;
-    background: none;
-    box-shadow: none;
-  }
-  .details-heading {
-    margin-bottom: 8px;
-  }
-  .bar-details .details-rows {
-    gap: 6px;
-  }
-  .details-hint {
-    display: block;
-    margin: 0;
-    font-size: var(--text-sm);
-    color: var(--muted);
-  }
 }
 @media (min-width: 1600px) {
   .bar-chart {
@@ -216,6 +173,15 @@
     font-size: var(--text-sm);
   }
   .details-heading span {
+    font-size: var(--text-sm);
+  }
+  .details-slot {
+    --details-lines: calc(7 * 1.3125rem);
+  }
+  .details-empty {
+    font-size: var(--text-sm);
+  }
+  .details-hint {
     font-size: var(--text-sm);
   }
   .bar-chart {
