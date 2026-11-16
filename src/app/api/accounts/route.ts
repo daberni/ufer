@@ -1,4 +1,5 @@
 import { respond } from "@/server/http/respond";
+import { readJson } from "@/server/http/request-body";
 import { createManualAccount } from "@/features/accounts/server/account-service";
 import { listAccounts } from "@/features/accounts/server/account-queries";
 
@@ -13,7 +14,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  return respond(request, async () => createManualAccount(await request.json()), {
+  return respond(request, async () => createManualAccount(await readJson(request)), {
     status: 201
   });
 }

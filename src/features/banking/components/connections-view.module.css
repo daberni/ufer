@@ -1,20 +1,8 @@
 .button {
   composes: button from "../../../components/ui/primitives.module.css";
 }
-.credit_card {
-  composes: credit_card from "../../../components/ui/primitives.module.css";
-}
-.investment {
-  composes: investment from "../../../components/ui/primitives.module.css";
-}
-.loan {
-  composes: loan from "../../../components/ui/primitives.module.css";
-}
 .pill {
   composes: pill from "../../../components/ui/primitives.module.css";
-}
-.property {
-  composes: property from "../../../components/ui/primitives.module.css";
 }
 .pill.success {
   background: var(--soft);

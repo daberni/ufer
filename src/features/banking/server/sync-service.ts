@@ -9,7 +9,7 @@ import { environment } from "./environment";
 import { BankingError, bankingRequest, fetchTransactions, verifyApplication, type Balance } from "./enable-banking-client";
 import { normalizeTransactions } from "./bank-data";
 import { saveAccountSync } from "./account-sync-service";
-import { finishSyncRun, listSyncAccounts, recordAccountSyncError, startSyncRun } from "./sync-repository";
+import { finishSyncRun, interruptSyncRun, listSyncAccounts, recordAccountSyncError, startSyncRun } from "./sync-repository";
 import { expireConnection } from "./connection-repository";
 
 const expiredSessionCodes = ["EXPIREDSESSION", "EXPIRED_SESSION", "INVALID_SESSION"];
@@ -18,6 +18,13 @@ const expiredSessionCodes = ["EXPIREDSESSION", "EXPIRED_SESSION", "INVALID_SESSI
 class ReconnectRequired extends HttpError {
   constructor(message: string) {
     super(409, message);
+  }
+}
+
+// The competing run owns the run row and the accounts from the moment the lease is lost.
+class SyncLeaseLost extends HttpError {
+  constructor() {
+    super(409, "Sync lease lost; run sync again.");
   }
 }
 
@@ -72,7 +79,7 @@ export async function syncAccounts() {
     const dateFrom = syncWindowStart().toString();
     const heartbeat = async () => {
       if (!(await renewLease(db, leaseName, runId))) {
-        throw new HttpError(409, "Sync lease lost; run sync again.");
+        throw new SyncLeaseLost();
       }
     };
 
@@ -99,6 +106,10 @@ export async function syncAccounts() {
         await heartbeat();
         inserted += await saveAccountSync(db, run, account.id, account.currency, balanceResult.balances, entries, rules);
       } catch (error) {
+        if (error instanceof SyncLeaseLost) {
+          throw error;
+        }
+
         const message = error instanceof HttpError ? error.message : "Sync could not be completed.";
         const sessionExpired = error instanceof BankingError && expiredSessionCodes.includes(error.code);
 
@@ -116,7 +127,9 @@ export async function syncAccounts() {
       }
     }
 
-    const status = failures.length ? "PARTIAL" : "SUCCESS";
+    const allFailed = accounts.length > 0 && failures.length === accounts.length;
+    const partialStatus = failures.length ? "PARTIAL" : "SUCCESS";
+    const status = allFailed ? "FAILED" : partialStatus;
 
     const failureLog = failures.map(failure => `${failure.account}: ${failure.message}`).join("\n");
 
@@ -129,7 +142,11 @@ export async function syncAccounts() {
       accounts: accounts.length
     };
   } catch (error) {
-    await finishSyncRun(db, runId, "FAILED", "Sync interrupted.");
+    if (error instanceof SyncLeaseLost) {
+      await interruptSyncRun(db, runId, "The sync lost its lease and stopped.");
+    } else {
+      await finishSyncRun(db, runId, "FAILED", "Sync interrupted.");
+    }
 
     throw error;
   } finally {

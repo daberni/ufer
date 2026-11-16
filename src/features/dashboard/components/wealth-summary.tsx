@@ -99,7 +99,7 @@ export function WealthSummary({
           <span className={clsx(styles["flow-track"], cashFlowValue)}>
             <i
               style={{
-                width: `${flows.income ? 100 : 0}%`
+                width: `${Math.min(100, flows.income / Math.max(flows.income, flows.expenses, 1) * 100)}%`
               }}
             />
           </span>

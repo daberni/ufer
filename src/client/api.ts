@@ -27,13 +27,34 @@ async function send<T>(path: string, init: RequestInit): Promise<T> {
     ...init,
     cache: "no-store"
   });
-  const data = await response.json();
+  const data = await readJson(response);
 
   if (!response.ok) {
-    throw apiError(data, response.status);
+    throw apiError(isRecord(data) ? data : {
+      detail: `The server could not complete the request (HTTP ${response.status}).`
+    }, response.status);
+  }
+
+  if (data === undefined) {
+    throw apiError({
+      detail: `The server returned an unreadable response (HTTP ${response.status}).`
+    }, response.status);
   }
 
   return data as T;
+}
+
+// Intermediaries answer with HTML or plain text, so a body that is not JSON is data to ignore, not an exception.
+async function readJson(response: Response): Promise<unknown> {
+  try {
+    return await response.json();
+  } catch {
+    return undefined;
+  }
+}
+
+function isRecord(value: unknown): value is Partial<ProblemDetails> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 /** Reads a resource; the signal lets the query cache cancel requests whose results are no longer needed. */

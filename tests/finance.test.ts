@@ -8,7 +8,8 @@ import type { Database } from "../src/server/database/connection";
 import { Temporal } from "temporal-polyfill";
 import { minorUnits } from "../src/lib/money";
 import { validDate } from "../src/lib/time";
-import { categorize, validatePattern, type Rule } from "../src/lib/rules";
+import { ValidationError } from "../src/lib/errors";
+import { categorize, prepareRules, validatePattern, type Rule } from "../src/lib/rules";
 import { acquireLease, releaseLease } from "../src/server/jobs/lease-repository";
 import { normalizeTransactions } from "../src/features/banking/server/bank-data";
 import { saveAccountSync } from "../src/features/banking/server/account-sync-service";
@@ -132,13 +133,14 @@ test("booking dates must be real calendar dates in exactly YYYY-MM-DD form", () 
   }
 });
 test("rule priority and disabled rules follow explicit precedence", () => {
-  assert.equal(categorize("MARKET", "Rent", rules), "home");
-  assert.equal(categorize("market", "Groceries", rules), "groceries");
-  assert.equal(categorize("MARKET", "Rent", rules.map(rule => ({
+  assert.equal(categorize("MARKET", "Rent", prepareRules(rules)), "home");
+  assert.equal(categorize("market", "Groceries", prepareRules(rules)), "groceries");
+  assert.equal(categorize("MARKET", "Rent", prepareRules(rules.map(rule => ({
     ...rule,
     enabled: 0
-  }))), null);
-  assert.throws(() => validatePattern("(?<=secret)test", "regex"));
+  })))), null);
+  assert.throws(() => validatePattern("(?<=secret)test", "regex"), ValidationError);
+  assert.throws(() => validatePattern("   ", "keyword"), ValidationError);
 });
 test("only booked transactions enter cashflow; non-unique transaction_id does not collapse payments", () => {
   const entries = normalizeTransactions([bankTransaction, {
@@ -190,6 +192,16 @@ test("CSV balances dated today in Vienna are accepted before UTC reaches that da
 
   assert.deepEqual(parseBalancesCsv("date,balance,currency\n2026-03-02,1,EUR", "EUR", viennaAfterMidnight).map(row => row.date), ["2026-03-02"]);
   assert.throws(() => parseBalancesCsv("date,balance,currency\n2026-03-03,1,EUR", "EUR", viennaAfterMidnight), /invalid date/);
+});
+test("CSV amount errors name the row in both imports", () => {
+  assert.throws(() => parseBalancesCsv("date,balance,currency\n2026-11-11,1,EUR\n2026-11-12,1.234,EUR", "EUR"), /CSV row 3: .*decimal/);
+  assert.throws(() => parseTransactionsCsv("id,date,amount,currency\na,2026-11-12,1,EUR\nb,2026-11-12,abc,EUR", "EUR"), /CSV row 3: Invalid amount/);
+});
+test("CSV transactions dated after today in Vienna are rejected with their row", () => {
+  const viennaAfterMidnight = Temporal.Instant.from("2026-03-01T23:30:00Z");
+
+  assert.deepEqual(parseTransactionsCsv("id,date,amount,currency\na,2026-03-02,1,EUR", "EUR", viennaAfterMidnight).map(row => row.date), ["2026-03-02"]);
+  assert.throws(() => parseTransactionsCsv("id,date,amount,currency\na,2026-03-02,1,EUR\nb,2026-03-03,1,EUR", "EUR", viennaAfterMidnight), /CSV row 3: .*future/);
 });
 test("repeated sync preserves manual category corrections including deliberately uncategorized", async () => {
   const client = await initializeDatabase(createClient({

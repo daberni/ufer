@@ -10,6 +10,7 @@ import * as schema from "../src/server/database/schema";
 import { acquireLease } from "../src/server/jobs/lease-repository";
 import { encrypt } from "../src/server/security/secret-box";
 import { recordConnectionFailure, saveBankSession } from "../src/features/banking/server/connection-repository";
+import { bankingRequest } from "../src/features/banking/server/enable-banking-client";
 import { removeBankConnection } from "../src/features/banking/server/connection-service";
 import { saveSessionAccounts } from "../src/features/banking/server/bank-account-repository";
 import { listSyncAccounts } from "../src/features/banking/server/sync-repository";
@@ -306,4 +307,30 @@ test("a connection removed while its callback is mapping accounts is never linke
   assert.equal(connection?.session_cipher, null);
   assert.equal((await db.select().from(schema.accounts)).length, 0);
   assert.equal((await db.select().from(schema.accountIdentifiers)).length, 0);
+});
+
+test("a provider session revocation answered without a body counts as revoked", async context => {
+  const {
+    db
+  } = await bankingDatabase(context, () => new Response(null, {
+    status: 204
+  }));
+
+  await insertLinkedConnection(db, "no-body", "no-body-account");
+
+  assert.deepEqual(await removeBankConnection("no-body"), {
+    retainedAccounts: 1,
+    providerRevocation: "revoked"
+  });
+});
+
+test("an unreadable provider success body is a 502 provider failure, not a 400 about user input", async context => {
+  await bankingDatabase(context, () => new Response("<html>maintenance</html>", {
+    status: 200
+  }));
+
+  await assert.rejects(bankingRequest("/application"), {
+    status: 502
+  });
+  await assert.rejects(bankingRequest("/application"), (error: Error) => !/input/i.test(error.message));
 });
