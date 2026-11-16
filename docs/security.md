@@ -34,6 +34,23 @@ The [secret-box module](../src/server/security/secret-box.ts) is a small adapter
 
 Scheduler bearer checks and one-time-token digests live in shared job/security infrastructure. They use Node's standard hash/constant-time primitives, not a home-grown authentication protocol. Provider credentials, session secrets and encryption keys stay in operator-managed configuration.
 
+## Browser security headers
+
+`next.config.ts` sends the same headers with every response. The Content-Security-Policy is fixed rather than per request: Next.js puts the App Router page data into inline scripts, so the policy allows inline scripts and styles, and limits everything else to the application's own origin.
+
+| Directive | Value | Reason |
+| --- | --- | --- |
+| `script-src` | `'self' 'unsafe-inline'` | Inline scripts carry the page data. Development adds `'unsafe-eval'`, which React uses to rebuild server error stacks. |
+| `style-src` | `'self' 'unsafe-inline'` | Next.js and the development overlay inject style elements and attributes. |
+| `img-src` | `'self' data:` | The select indicator is a data-URL SVG in the global stylesheet. |
+| `default-src`, `connect-src`, `font-src` | `'self'` | Bank and provider calls run on the server; development HMR uses a same-origin WebSocket. |
+| `object-src`, `base-uri`, `frame-ancestors` | `'none'` | No plugins, no `<base>` element, no framing. |
+| `form-action` | `'self'` | The bank consent redirect is a top-level navigation, which CSP does not restrict. |
+
+Trade-off: an injected inline script would run. A per-request nonce policy would block it, but needs a proxy on every page request, development exceptions and replacements for Next.js pages that inline unnonced styles. Ufer renders no untrusted HTML (React escapes all output and there is no `dangerouslySetInnerHTML`), so the fixed policy keeps the origin, framing, plugin and form restrictions at a fraction of the complexity. Revisit this if untrusted HTML is ever rendered.
+
+The other headers are a Permissions-Policy that disables browser features Ufer does not use, `Strict-Transport-Security: max-age=31536000` (browsers ignore it over plain HTTP; no `includeSubDomains`, because self-hosted installations do not own their parent domain; no preload) and `poweredByHeader: false`, alongside `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer` and `Cache-Control: no-store`.
+
 ## Ownership and verification
 
 | Area | Owner |
