@@ -100,7 +100,8 @@ export function createAuth(db: Database | DatabaseTransaction, options: AuthOpti
           return;
         }
 
-        // The server, not the client request, decides that a password change signs out every other session.
+        // A password change signs out every other session (OWASP ASVS 3.3.3), because it is often the response to a leaked password.
+        // Better Auth leaves this to an optional `revokeOtherSessions` flag in the request body; setting it here enforces it for every caller, so a client cannot opt out.
         return {
           context: {
             body: {
