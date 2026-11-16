@@ -1,6 +1,7 @@
 "use client";
 
 import ui from "../../../components/ui/primitives.module.css";
+import styles from "./create-account-form.module.css";
 
 import { clsx } from "clsx";
 import { Plus } from "lucide-react";
@@ -14,6 +15,7 @@ import { useDialogSubmit, type DialogFormProps } from "@/features/dashboard/use-
 import { useCreateAccount } from "@/features/accounts/mutations";
 import { FormError } from "@/components/ui/form-error";
 import { Dialog } from "@/components/ui/dialog";
+import { today } from "@/lib/time";
 
 export function CreateAccountDialog({ close }: DialogFormProps) {
   return (
@@ -33,7 +35,7 @@ function CreateAccountForm({ close }: DialogFormProps) {
 
   return (
     <form
-      onSubmit={event => submit(event, data => Object.fromEntries(data))}
+      onSubmit={event => submit(event, accountBody)}
       className={ui["form"]}
     >
       <p className={ui["form-description"]}>Track an account, investment, property or debt by entering its balance yourself. Bank accounts with online access can also be added through Connect bank.</p>
@@ -41,6 +43,17 @@ function CreateAccountForm({ close }: DialogFormProps) {
       {kind && <AccountDetailsFields pending={pending} error={error} kind={kind} />}
     </form>
   );
+}
+
+// An empty balance date is omitted so the server records the balance as of today.
+function accountBody(data: FormData) {
+  const body = Object.fromEntries(data);
+
+  if (body.date === "") {
+    delete body.date;
+  }
+
+  return body;
 }
 
 type DetailsProps = {
@@ -55,6 +68,7 @@ function AccountDetailsFields({
   pending
 }: DetailsProps) {
   const copy = accountTypeCopy[kind];
+  const latestDate = today().toString();
 
   return (
     <>
@@ -76,7 +90,7 @@ function AccountDetailsFields({
           placeholder={copy.institutionPlaceholder}
         />
       </label>
-      <div className={ui["form-grid"]}>
+      <div className={styles["balance-grid"]}>
         <label>
           {copy.balanceLabel}
           <input
@@ -96,8 +110,16 @@ function AccountDetailsFields({
             <option>GBP</option>
           </Select>
         </label>
+        <label>
+          Balance date (optional)
+          <input
+            name="date"
+            type="date"
+            max={latestDate}
+          />
+        </label>
       </div>
-      <p className={ui["form-hint"]}>{copy.hint}</p>
+      <p className={ui["form-hint"]}>{copy.hint} Leave the balance date empty to record the balance as of today.</p>
       <FormError message={error} />
       <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={pending}>
         Add {kinds[kind].toLowerCase()} <Plus size={16} />
