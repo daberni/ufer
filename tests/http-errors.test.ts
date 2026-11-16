@@ -29,7 +29,7 @@ test("an invalid amount is user validation in CSV but a provider failure in bank
   const bankProblem = await bank.json();
 
   assert.equal(csv.status, 422);
-  assert.equal(csvProblem.detail, "The amount has too many decimal places.");
+  assert.equal(csvProblem.detail, "CSV row 2: The amount has too many decimal places.");
   assert.equal(bank.status, 502);
   assert.equal(bankProblem.status, 502);
   assert.match(bankProblem.detail, /bank/i);
