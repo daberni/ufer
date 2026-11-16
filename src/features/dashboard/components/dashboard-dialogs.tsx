@@ -16,19 +16,13 @@ import { modalTitles } from "@/features/dashboard/presentation";
 import type { Account } from "@/features/dashboard/types";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
 
-type Props = Pick<DashboardController, "bankCountry" | "bankName" | "bankSearch" | "banks" | "banksError" | "banksLoading" | "importMode" | "modal" | "reportFeedback" | "selectedAccount" | "selectedCategory" | "selectedConnection" | "setBankCountry" | "setBankName" | "setBankSearch" | "setImportMode" | "setModal"> & {
+type Props = Pick<DashboardController, "importMode" | "modal" | "reportFeedback" | "selectedAccount" | "selectedCategory" | "selectedConnection" | "setImportMode" | "setModal"> & {
   accounts: Account[];
   environment: string;
 };
 
 export function DashboardDialogs({
   accounts,
-  bankCountry,
-  bankName,
-  bankSearch,
-  banks,
-  banksError,
-  banksLoading,
   environment,
   importMode,
   modal,
@@ -36,9 +30,6 @@ export function DashboardDialogs({
   selectedAccount,
   selectedCategory,
   selectedConnection,
-  setBankCountry,
-  setBankName,
-  setBankSearch,
   setImportMode,
   setModal
 }: Props) {
@@ -81,17 +72,9 @@ export function DashboardDialogs({
         </div>
         {modal === "bank" && (
           <BankConnectionForm
-            bankCountry={bankCountry}
-            bankName={bankName}
-            bankSearch={bankSearch}
-            banks={banks}
-            banksError={banksError}
-            banksLoading={banksLoading}
             close={close}
+            connection={selectedConnection}
             environment={environment}
-            setBankCountry={setBankCountry}
-            setBankName={setBankName}
-            setBankSearch={setBankSearch}
           />
         )}
         {modal === "removeConnection" && selectedConnection && (
