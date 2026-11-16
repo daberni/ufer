@@ -353,6 +353,17 @@ test("the maintained client receives Problem Details errors without losing its e
   assert.equal((await handleAuthentication(wrongOrigin)).status, 403);
 });
 
+test("authentication requests with an oversized body are rejected before the library reads them", async context => {
+  await isolatedAuth(context);
+
+  const oversized = await handleAuthentication(request("/sign-in/username", {
+    username: owner.username,
+    password: "x".repeat(32 * 1024)
+  }));
+
+  assert.equal(oversized.status, 413);
+});
+
 function trustClientAddressHeader(context: TestContext, header: string | undefined) {
   const previous = process.env.TRUSTED_CLIENT_IP_HEADER;
 

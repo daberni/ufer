@@ -311,3 +311,31 @@ test("readJson rejects a declared oversized body before parsing and accepts a 1 
     status: 413
   });
 });
+
+test("readJson counts the bytes it receives when a streamed body declares no length", async () => {
+  const chunk = new TextEncoder().encode("a".repeat(64 * 1024));
+  let sent = 0;
+  const stream = new ReadableStream<Uint8Array>({
+    pull(controller) {
+      controller.enqueue(chunk);
+      sent += chunk.byteLength;
+
+      if (sent > maxRequestBodyBytes * 2) {
+        controller.close();
+      }
+    }
+  });
+  const request = new Request("http://localhost/api/imports/transactions", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json"
+    },
+    body: stream,
+    duplex: "half"
+  } as RequestInit);
+
+  await assert.rejects(readJson(request), {
+    status: 413
+  });
+  assert.ok(sent <= maxRequestBodyBytes + chunk.byteLength * 2, "reading stopped soon after the limit");
+});

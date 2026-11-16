@@ -1,7 +1,11 @@
 import { HttpError } from "@/lib/errors";
 import { problemResponse } from "@/server/http/problem-response";
 import { requireOrigin } from "@/server/http/origin";
+import { readBodyText } from "@/server/http/request-body";
 import { authentication } from "./auth";
+
+// Sign-in and password bodies are a few hundred bytes; the cap keeps unauthenticated requests from buffering large bodies.
+const maxAuthenticationBodyBytes = 16 * 1024;
 
 const endpoints = new Map([
   ["/sign-in/username", "POST"],
@@ -41,6 +45,24 @@ async function withoutTokens(response: Response) {
   });
 }
 
+// The library reads the body itself, so the capped body is read here and handed over as a new request.
+async function withLimitedBody(request: Request) {
+  if (request.method === "GET") {
+    return request;
+  }
+
+  const body = await readBodyText(request, maxAuthenticationBodyBytes);
+  const headers = new Headers(request.headers);
+
+  headers.delete("content-length");
+
+  return new Request(request.url, {
+    method: request.method,
+    headers,
+    body
+  });
+}
+
 export async function handleAuthentication(request: Request) {
   try {
     const path = new URL(request.url).pathname.slice("/api/auth".length);
@@ -54,7 +76,7 @@ export async function handleAuthentication(request: Request) {
     }
 
     const auth = await authentication();
-    const response = await auth.handler(request);
+    const response = await auth.handler(await withLimitedBody(request));
 
     if (response.status < 400) {
       const sanitized = await withoutTokens(response);
