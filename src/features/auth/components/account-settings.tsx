@@ -35,10 +35,7 @@ export function AccountSettings({ onClose }: Props) {
     mutationFn: async (passwords: {
       currentPassword: string;
       newPassword: string;
-    }) => requireAuthResult(await authClient.changePassword({
-      ...passwords,
-      revokeOtherSessions: true
-    }))
+    }) => requireAuthResult(await authClient.changePassword(passwords))
   });
 
   const otherSessionsSignOut = useMutation({

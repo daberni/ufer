@@ -1,5 +1,6 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "@better-auth/drizzle-adapter";
+import { createAuthMiddleware } from "better-auth/api";
 import { username } from "better-auth/plugins";
 import { HttpError } from "@/lib/errors";
 import { database, type Database, type DatabaseTransaction } from "@/server/database/connection";
@@ -56,8 +57,10 @@ export function createAuth(db: Database | DatabaseTransaction, options: AuthOpti
       revokeSessionsOnPasswordReset: true,
       sendResetPassword: options.onPasswordReset ? async ({ token }) => options.onPasswordReset?.(token) : undefined
     },
+    // A session ends twelve hours after sign-in regardless of activity; see docs/security.md.
     session: {
-      expiresIn: 7 * 86_400,
+      expiresIn: 12 * 3_600,
+      disableSessionRefresh: true,
       cookieCache: {
         enabled: false
       }
@@ -89,6 +92,23 @@ export function createAuth(db: Database | DatabaseTransaction, options: AuthOpti
           max: 10
         }
       }
+    },
+    hooks: {
+      before: createAuthMiddleware(async context => {
+        if (context.path !== "/change-password") {
+          return;
+        }
+
+        // The server, not the client request, decides that a password change signs out every other session.
+        return {
+          context: {
+            body: {
+              ...context.body,
+              revokeOtherSessions: true
+            }
+          }
+        };
+      })
     },
     plugins: [username()]
   });

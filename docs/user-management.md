@@ -6,7 +6,7 @@ Implemented in source for [issue #25](https://github.com/daberni/ufer/issues/25)
 
 [Better Auth](https://better-auth.com/docs/integrations/next) 1.7.25 owns password hashing, username sign-in, signed session cookies, expiration and server-side revocation. Its [username plugin](https://better-auth.com/docs/plugins/username) and [Drizzle adapter](https://better-auth.com/docs/adapters/drizzle) use the existing SQLite/libSQL connection. Provider JWTs remain with jose; bank-secret encryption and DATA_ENCRYPTION_KEY remain unchanged.
 
-Login requires a username and password in development and production. Usernames are normalized by the library. Passwords have 12–128 characters. Session lifetime is seven days; cookie caching is disabled so revocation is checked against the database. Cookie names use the library defaults: better-auth.session_token on HTTP and __Secure-better-auth.session_token on HTTPS, with HttpOnly, SameSite=Lax, Path=/ and no Domain attribute. BETTER_AUTH_SECRET is required and must have at least 32 characters. APP_PASSWORD and SESSION_SECRET are no longer read.
+Login requires a username and password in development and production. Usernames are normalized by the library. Passwords have 12–128 characters. A session ends twelve hours after sign-in and is not renewed by activity (see [session lifetime](security.md#session-lifetime-and-revocation)); cookie caching is disabled so revocation is checked against the database. Cookie names use the library defaults: better-auth.session_token on HTTP and __Secure-better-auth.session_token on HTTPS, with HttpOnly, SameSite=Lax, Path=/ and no Domain attribute. BETTER_AUTH_SECRET is required and must have at least 32 characters. APP_PASSWORD and SESSION_SECRET are no longer read.
 
 A valid identity alone grants no financial access. Each financial HTTP request requires an active membership in the installation workspace. Revoking that membership blocks the next financial request even if the authentication session remains valid. Both initial roles can manage this shared workspace's finances; owner identifies installation ownership. Invitations and membership administration in the UI are not implemented.
 
@@ -42,7 +42,7 @@ A fresh installation initializes the current schema through the normal empty-dat
 
 ## Account settings and sessions
 
-The account button in the header shows the current identity and allows a password change using the current password. Password changes revoke other sessions and rotate the current session. Users can also sign out other devices without changing their password, or sign out the current session. The library performs these operations; Ufer does not write password hashes or session-token formats itself.
+The account button in the header shows the current identity and allows a password change using the current password. Password changes revoke other sessions and rotate the current session; the server enforces this whatever the client request says. Users can also sign out other devices without changing their password, or sign out the current session. The library performs these operations; Ufer does not write password hashes or session-token formats itself.
 
 The authentication handler exposes only username sign-in, session inspection/revocation and password change. Email sign-in, signup, account linking and email recovery endpoints are not exposed. Password-reset email delivery, invitations, user administration and SSO remain future work. Email addresses are stored as supplied and are not claimed to be verified.
 
