@@ -36,21 +36,20 @@ Scheduler bearer checks and one-time-token digests live in shared job/security i
 
 ## Browser security headers
 
-Every page response carries a per-request nonce Content-Security-Policy set by the [proxy](../src/proxy.ts) from the [policy builder](../src/server/http/content-security-policy.ts). Next.js reads the nonce from the request's policy while rendering and attaches it to its own scripts and style elements; with `'strict-dynamic'`, chunks those scripts load are trusted too, so no inline script or `'unsafe-inline'` script source is allowed. A static policy in `next.config.ts` would need `'unsafe-inline'` for the inline scripts that carry the App Router payload, and experimental SRI only covers external files. Nonces require dynamic rendering, which every page already uses because the root layout reads the theme cookie; responses are `no-store`, so no cache replays a nonce.
+`next.config.ts` sends the same headers with every response. The Content-Security-Policy is fixed rather than per request: Next.js puts the App Router page data into inline scripts, so the policy allows inline scripts and styles, and limits everything else to the application's own origin.
 
 | Directive | Value | Reason |
 | --- | --- | --- |
-| `script-src` | `'self' 'nonce-…' 'strict-dynamic'` | Development adds `'unsafe-eval'`, which React uses to rebuild server error stacks. |
-| `style-src` | `'self' 'nonce-…'` | Development uses `'self' 'unsafe-inline'` because the dev overlay injects style elements without a nonce. |
-| `style-src-attr` | `'unsafe-hashes'` and the hash of `color:transparent` | next/image renders this style attribute on every image and nonces cannot cover attributes. Styles React applies in the browser use the CSSOM and are not restricted. |
+| `script-src` | `'self' 'unsafe-inline'` | Inline scripts carry the page data. Development adds `'unsafe-eval'`, which React uses to rebuild server error stacks. |
+| `style-src` | `'self' 'unsafe-inline'` | Next.js and the development overlay inject style elements and attributes. |
 | `img-src` | `'self' data:` | The select indicator is a data-URL SVG in the global stylesheet. |
 | `default-src`, `connect-src`, `font-src` | `'self'` | Bank and provider calls run on the server; development HMR uses a same-origin WebSocket. |
 | `object-src`, `base-uri`, `frame-ancestors` | `'none'` | No plugins, no `<base>` element, no framing. |
 | `form-action` | `'self'` | The bank consent redirect is a top-level navigation, which CSP does not restrict. |
 
-`upgrade-insecure-requests` is omitted: every source is same-origin, and the directive would break installations served over plain HTTP. API routes, static assets and router prefetches skip the proxy because they return no HTML.
+Trade-off: an injected inline script would run. A per-request nonce policy would block it, but needs a proxy on every page request, development exceptions and replacements for Next.js pages that inline unnonced styles. Ufer renders no untrusted HTML (React escapes all output and there is no `dangerouslySetInnerHTML`), so the fixed policy keeps the origin, framing, plugin and form restrictions at a fraction of the complexity. Revisit this if untrusted HTML is ever rendered.
 
-`next.config.ts` adds static headers to every response: a Permissions-Policy that disables browser features Ufer does not use, `Strict-Transport-Security: max-age=63072000; includeSubDomains` (browsers ignore it over plain HTTP; no preload) and `poweredByHeader: false`, alongside the existing `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer` and `Cache-Control: no-store`. The application's own 404 page replaces the built-in one, whose inline styles carry no nonce.
+The other headers are a Permissions-Policy that disables browser features Ufer does not use, `Strict-Transport-Security: max-age=31536000` (browsers ignore it over plain HTTP; no `includeSubDomains`, because self-hosted installations do not own their parent domain; no preload) and `poweredByHeader: false`, alongside `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer` and `Cache-Control: no-store`.
 
 ## Ownership and verification
 
