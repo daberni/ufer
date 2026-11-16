@@ -33,22 +33,22 @@ Since #48, routes hold the view and search parameters hold the period, currency 
 
 **The URL is the source of truth for view and filter state.** Query keys are derived from the URL query; there is no additional global client store (no Redux, Zustand or context store for server data). The dashboard context only carries URL-derived values, dialog selection and transient feedback.
 
-**Defaults.** Reads are fresh for 30 seconds, are not refetched on window focus, and retry once only after a network failure or a 502/503/504 response; 4xx and other 5xx failures are final and shown at once. Writes do not retry. Focus refetching is off because writes invalidate what they change and an unexpected background refetch during an edit adds requests without a user benefit; a stale view after a background sync is corrected on the next view visit after 30 seconds or by any write.
+**Defaults.** Reads are fresh for 30 seconds. Data older than that is refetched in the background when a view mounts or the window regains focus, so results changed by the scheduler appear when the user returns, while quick tab switches reuse fresh data. Reads retry once only after a network failure or a 502/503/504 response; 4xx and other 5xx failures are final and shown at once. Writes do not retry. A background refetch never blanks an area, and a row's pending categorization keeps showing over a refetched list.
 
-**Filter changes.** Filter-keyed queries use `placeholderData: keepPreviousData`. While `isPlaceholderData` is true the previous results stay in place; after 250 ms affected values and labels show a pulsing skeleton and larger areas (lists, charts) fade and become inert, so fast responses never flash and unaffected areas never change. A failed request ends loading: the outdated area keeps its layout behind a static "not available" placeholder and a dashboard-level banner, fed from the query cache, offers Retry. A refetch for unchanged filters keeps the current data visible.
+**Filter changes.** Filter-keyed queries use `placeholderData: keepPreviousData`. While `isPlaceholderData` is true the previous results stay in place; after 250 ms affected values and labels show a pulsing skeleton and larger areas (lists, charts) fade and become inert, so fast responses never flash and unaffected areas never change. A failed request ends loading: the outdated area keeps its layout behind a static "not available" placeholder and a dashboard-level banner, fed from the query cache, offers Retry. The banner stays while a retry runs and disappears only after a successful load; it keeps the last failure itself, because the query cache resets the error of a query without data when it is fetched again. A refetch for unchanged filters keeps the current data visible.
 
 **Every write is a mutation with its own state.** Each control reflects only its own mutation's `isPending` and `error`: the Sync button only its sync, Apply rules only that mutation, each rule switch only its toggle, each dialog only its submit, each transaction row only its categorization. There is no shared `busy` flag, counter or `perform` helper. If operations must not overlap, that is expressed explicitly, with a mutation `scope` on the client or a server lease/409, not through a UI flag. A mutation invalidates the query prefixes it affects in `onSettled` (also after a failure, since a failed write may still have changed server state). Dialog mutations return that invalidation, so a dialog closes once the refreshed data is visible.
 
 **Categorization.** A row's mutation uses `scope: { id: "transaction-category:<id>" }`, so changes to one transaction run in order, also across view changes and remounts, because the mutation cache outlives components. The row shows the variables of its latest pending mutation (optimistic via the UI rather than a cache patch) and otherwise the cached, stored category; a failed change therefore falls back to the last stored category with an inline error. On success the stored assignment returned by `PATCH /api/transactions/{id}` is written into every cached list page, and the list and cash-flow queries are invalidated once the row's last change has settled. This avoids the rollback hazard of overlapping `onMutate` snapshots, where reverting an earlier change would erase a later pending one.
 
-**Authentication.** A query rejected with 401 locks the dashboard: the query and mutation caches are cleared, so a late response cannot restore financial data, and only a successful sign-in unlocks it. Queries run only inside the signed-in shell.
+**Authentication.** Any query or mutation rejected with 401 locks the dashboard, except the sign-in mutation, whose 401 means wrong credentials and stays a form error. Locking clears the query and mutation caches, so a late response cannot restore financial data and a pending row change is not shown again; only a successful sign-in unlocks it. Queries run only inside the signed-in shell.
 
 ## Consequences
 
 - Areas load, refresh and fail independently; a filter change requests only the areas whose keys changed, and navigating between views reuses cached results.
 - Out-of-order responses, request cancellation and deduplication are handled by the library instead of request version counters and abort controllers in application code.
 - The first visit to a view issues several small requests instead of one large one. Each request repeats the session lookup; this is acceptable for the single-workspace SQLite deployment and should be revisited with multi-workspace authorization.
-- Data changed by the scheduler appears after the stale time on the next view visit or after any write, not immediately.
+- Data changed by the scheduler appears once it is older than the stale time and the window regains focus, a view mounts or a write invalidates it, not immediately.
 - `@tanstack/react-query` and `@tanstack/query-core` are new runtime dependencies without install scripts.
 
 ### Alternatives considered
@@ -60,7 +60,7 @@ Since #48, routes hold the view and search parameters hold the period, currency 
 
 ## Compliance
 
-- Behavior tests drive the hooks with controlled responses: per-area loading by filter, the 250 ms no-flash threshold, rapid changes, background refreshes, failures with Retry, the 401 lock race, page correction, serialized per-row categorization across remounts, and an acceptance test that an action in flight leaves the controls of every other action unchanged.
+- Behavior tests drive the hooks with controlled responses: per-area loading by filter, the 250 ms no-flash threshold, rapid changes, background refreshes, failures with Retry, the 401 lock race for reads and writes, the retry banner, page correction, serialized per-row categorization across remounts, and an acceptance test that an action in flight leaves the controls of every other action unchanged.
 - Review rejects shared busy flags, blanket refetches, server data in a client store, and route handlers without `respond()`.
 - Lint, style checks, type checks, tests and the production build run in CI.
 

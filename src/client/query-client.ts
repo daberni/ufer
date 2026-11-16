@@ -12,14 +12,14 @@ export function retryRead(failureCount: number, error: unknown) {
 }
 
 /**
- * Server state for the dashboard. Writes invalidate the queries they affect, so data stays fresh without refetching on every focus or remount.
+ * Server state for the dashboard. Writes invalidate the queries they affect. Data older than the stale time is refetched when a view mounts or the window regains focus, which also picks up scheduled syncs; quick tab switches reuse fresh data.
  */
 export function createQueryClient() {
   return new QueryClient({
     defaultOptions: {
       queries: {
         staleTime: 30_000,
-        refetchOnWindowFocus: false,
+        refetchOnWindowFocus: true,
         retry: retryRead
       },
       mutations: {

@@ -467,6 +467,7 @@ test("a failed request for changed filters ends loading and masks the outdated r
   act(() => result.current.loadError.retry());
   await wait(0);
   assert.equal(result.current.cashFlow.status, "loading");
+  assert.equal(result.current.loadError.message, "The database is not reachable.");
   await respond(requests("reports/cash-flow")[2], cashFlow("EUR"));
   await respond(requests("transactions")[2], transactionPage(3));
 
@@ -499,6 +500,9 @@ test("a failed load stays reported until a later load succeeds", async context =
 
   act(() => result.current.loadError.retry());
   await wait(0);
+  // The banner stays while the retry runs instead of disappearing and possibly coming back.
+  assert.equal(requests("accounts").length, 2);
+  assert.equal(result.current.loadError.message, "The database is not reachable.");
   await respond(requests("accounts")[1], Response.json([]));
 
   assert.equal(result.current.loadError.message, "");
