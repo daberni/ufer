@@ -89,7 +89,7 @@ test("an action in flight leaves the controls of every other action unchanged", 
     createElement(SyncButton, {
       key: "sync",
       bankAccounts: [account],
-      view: "overview"
+      changeView: () => {}
     }),
     createElement(RulesView, {
       key: "rules",
@@ -120,7 +120,9 @@ test("an action in flight leaves the controls of every other action unchanged", 
   assert.equal(requests("transactions/synthetic-entry").length, 1);
   assert.equal(controls().category.value, "leisure");
   assert.equal(controls().category.getAttribute("aria-busy"), "true");
-  assert.equal(controls().sync.textContent, "Sync");
+  assert.equal(controls().sync.getAttribute("aria-label"), "Sync");
+  assert.equal(controls().sync.getAttribute("aria-busy"), "false");
+  assert.equal(controls().sync.hasAttribute("aria-disabled"), false);
   assert.equal(controls().sync.hasAttribute("disabled"), false);
   assert.equal(controls().applyRules.hasAttribute("disabled"), false);
   assert.equal(controls().ruleSwitch.hasAttribute("disabled"), false);
@@ -131,8 +133,10 @@ test("an action in flight leaves the controls of every other action unchanged", 
   });
   await wait(0);
   assert.equal(requests("sync").length, 1);
-  assert.equal(controls().sync.textContent, "Syncing …");
-  assert.equal(controls().sync.hasAttribute("disabled"), true);
+  // A syncing button keeps its focus, so it is marked unavailable instead of being disabled.
+  assert.equal(controls().sync.getAttribute("aria-label"), "Syncing …");
+  assert.equal(controls().sync.getAttribute("aria-busy"), "true");
+  assert.equal(controls().sync.getAttribute("aria-disabled"), "true");
   assert.equal(controls().applyRules.hasAttribute("disabled"), false);
   assert.equal(controls().category.hasAttribute("disabled"), false);
 
@@ -147,15 +151,16 @@ test("an action in flight leaves the controls of every other action unchanged", 
     updated: 0
   }));
   assert.equal(controls().applyRules.hasAttribute("disabled"), false);
-  assert.equal(controls().sync.textContent, "Syncing …");
+  assert.equal(controls().sync.getAttribute("aria-label"), "Syncing …");
   assert.equal(controls().category.getAttribute("aria-busy"), "true");
 
   await respond(requests("sync")[0], Response.json({
     inserted: 0,
     failures: []
   }));
-  assert.equal(controls().sync.textContent, "Sync");
-  assert.equal(controls().sync.hasAttribute("disabled"), false);
+  assert.equal(controls().sync.getAttribute("aria-label"), "Synced: Up to date");
+  assert.equal(controls().sync.getAttribute("aria-busy"), "false");
+  assert.equal(controls().sync.hasAttribute("aria-disabled"), false);
   assert.equal(controls().category.getAttribute("aria-busy"), "true");
   assert.equal(controls().category.value, "leisure");
 
