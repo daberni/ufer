@@ -1,0 +1,15 @@
+.balance-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 6rem) minmax(0, 1fr);
+  gap: var(--space-4);
+}
+.balance-grid label {
+  margin-bottom: 0;
+}
+
+/* Stacked fields flow as blocks so their label margins collapse like the fields above them. */
+@media (--mobile) {
+  .balance-grid {
+    display: block;
+  }
+}
