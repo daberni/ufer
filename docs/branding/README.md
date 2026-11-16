@@ -4,6 +4,10 @@
 
 The U-shaped riverbanks, winding channel and two ripples connect Ufer's shoreline meaning with banking. The forest-green background and pale-sage mark keep the identity consistent with the application.
 
+## Third-party artwork
+
+List any artwork from third parties here with its source and license.
+
 ## Production assets
 
 | Asset | Purpose |
