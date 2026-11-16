@@ -22,10 +22,10 @@
   flex-shrink: 0;
 }
 .saving {
-  color: #8b987d;
+  color: var(--muted);
 }
 .saved {
-  color: #68845a;
+  color: var(--green-text);
 }
 .failed {
   color: var(--danger);

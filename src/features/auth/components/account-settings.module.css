@@ -6,11 +6,11 @@
   padding: 28px;
   border: 1px solid var(--border);
   border-radius: 16px;
-  background: var(--surface);
+  background: var(--surface-raised);
   color: var(--ink);
 }
 .dialog::backdrop {
-  background: rgb(22 42 31 / 35%);
+  background: var(--backdrop);
 }
 .heading {
   display: flex;

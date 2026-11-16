@@ -5,6 +5,7 @@ import { useMutation } from "@tanstack/react-query";
 import { X } from "lucide-react";
 import { clsx } from "clsx";
 import { authClient, requireAuthResult } from "@/features/auth/client";
+import { ThemeChoice } from "@/features/appearance/components/theme-choice";
 import ui from "@/components/ui/primitives.module.css";
 import styles from "./account-settings.module.css";
 
@@ -98,6 +99,7 @@ export function AccountSettings({ onClose }: Props) {
       </div>
       <p className={styles.identity}>{data?.user.name} · {data?.user.username}</p>
       <p className={styles.email}>{data?.user.email}</p>
+      <ThemeChoice />
       <form className={ui.form} onSubmit={changePassword}>
         <h3>Change password</h3>
         <label>

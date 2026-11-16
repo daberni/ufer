@@ -9,11 +9,11 @@
   width: min(510px, calc(100vw - 30px));
   max-height: 90vh;
   color: var(--ink);
-  box-shadow: 0 25px 100px #16342130;
-  background: #fff;
+  box-shadow: 0 25px 100px var(--shadow-color);
+  background: var(--surface-raised);
 }
 .modal::backdrop {
-  background: #203b3260;
+  background: var(--backdrop);
   backdrop-filter: blur(4px);
 }
 .modal-content {

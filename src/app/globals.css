@@ -1,16 +1,84 @@
 @import "tailwindcss";
 
 :root {
-  --bg: #f6f7f4;
-  --surface: #fff;
-  --ink: #243a30;
-  --muted: #7c8781;
-  --border: #e6eae4;
-  --green: #386b51;
-  --dark: #233e31;
-  --soft: #edf2e9;
-  --gold: #c2aa6b;
-  --danger: #aa5146;
+  /* The theme follows the operating system unless the document carries a manual choice in data-theme. Each color token gives its light value first and its dark value second; light-dark() resolves it from the color-scheme below, which also themes native controls. */
+  color-scheme: light dark;
+
+  /* Surfaces */
+  --bg: light-dark(#f6f7f4, #111814);
+  --surface: light-dark(#ffffff, #19221d);
+  --surface-raised: light-dark(#ffffff, #1f2a24);
+  --surface-muted: light-dark(#f8faf5, #1d2722);
+  --soft: light-dark(#edf2e9, #22322a);
+  --soft-strong: light-dark(#e2e9da, #2b3d33);
+  --border: light-dark(#e6eae4, #2c3831);
+  --border-subtle: light-dark(#eff1ea, #232e28);
+  --border-strong: light-dark(#d6dfcd, #3a4a40);
+  --knob: light-dark(#ffffff, #e3ebe5);
+  --backdrop: light-dark(rgb(22 42 31 / 35%), rgb(4 8 6 / 65%));
+  --shadow-color: light-dark(rgb(35 62 49 / 15%), rgb(0 0 0 / 45%));
+  --shadow-faint: light-dark(rgb(35 62 49 / 4%), rgb(0 0 0 / 25%));
+
+  /* Text: ink, ink-soft and muted keep 4.5:1 on every surface above. */
+  --ink: light-dark(#243a30, #e3ebe5);
+  --ink-soft: light-dark(#4c5b51, #c0ccc4);
+  --muted: light-dark(#5f6c64, #9aa79f);
+  --placeholder: light-dark(#67726b, #8b978f);
+
+  /* Brand, actions and status */
+  --green: light-dark(#386b51, #74ad8a);
+  --green-strong: light-dark(#2c553e, #8cc0a0);
+  --green-text: light-dark(#46704f, #8fc29f);
+  --on-green: light-dark(#ffffff, #0f1a14);
+  --gold: light-dark(#c2aa6b, #d4bd7f);
+  --gold-soft: light-dark(#f6f0e1, #2e2a1d);
+  --gold-border: light-dark(#e9dfc4, #4a4128);
+  --gold-text: light-dark(#7a6532, #dcc58a);
+  --sage: light-dark(#d9e8a9, #66804f);
+  --danger: light-dark(#aa5146, #e8968a);
+  --danger-strong: light-dark(#8f4339, #f0ada3);
+  --danger-soft: light-dark(#fbefeb, #3a2320);
+  --danger-border: light-dark(#efd9d2, #5a3530);
+  --danger-text: light-dark(#944a40, #f0a69b);
+  --on-danger: light-dark(#ffffff, #1a0f0d);
+  --status-positive: light-dark(#8da776, #8fb67a);
+  --status-warning: light-dark(#c5a365, #d1b170);
+  --focus-ring: light-dark(#5f9473, #93b69f);
+
+  /* The navigation stays dark green in both themes, so its text colors do not change. */
+  --sidebar-bg: light-dark(#233e31, #172a20);
+  --sidebar-raised: light-dark(#3d5744, #2c4535);
+  --sidebar-ink: #d4dfd5;
+  --sidebar-ink-strong: #f3f6ed;
+  --sidebar-ink-soft: #b6c8b8;
+  --sidebar-muted: #a3b8a6;
+  --sidebar-line: rgb(255 255 255 / 8%);
+  --sidebar-hover: rgb(255 255 255 / 4%);
+  --sidebar-accent: #dbe7b9;
+  --sidebar-accent-ink: #233e31;
+  --sidebar-badge: #edd4a9;
+
+  /* Charts and account kinds: marks keep 3:1 against their background where they carry meaning. */
+  --chart-income: light-dark(#719064, #7fae7b);
+  --chart-expense: light-dark(#bfcbab, #66785c);
+  --chart-liquid: light-dark(#567d53, #86b383);
+  --chart-invested: light-dark(#b0be8e, #a3b47f);
+  --chart-property: light-dark(#cfbd8d, #cdb47d);
+  --chart-track: light-dark(#eef1e9, #26332c);
+  --wealth-surface: light-dark(#edf2e2, #1b2a21);
+  --wealth-highlight: light-dark(#f2f5ec, #21322a);
+  --kind-bank-bg: light-dark(#eef2e7, #22322a);
+  --kind-bank: light-dark(#788d67, #9dbb88);
+  --kind-investment-bg: light-dark(#e9edf3, #1f2733);
+  --kind-investment: light-dark(#7186a2, #8fa8c8);
+  --kind-property-bg: light-dark(#f3eee4, #2e2a1d);
+  --kind-property: light-dark(#957f4f, #cfb27a);
+  --kind-debt-bg: light-dark(#f0eaea, #322524);
+  --kind-debt: light-dark(#a07d76, #c99a92);
+
+  /* A data URL cannot read custom properties, so the select indicator uses a gray with 3:1 on both themes' surfaces. */
+  --select-indicator: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none' stroke='%23838d87' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5'/%3E%3C/svg%3E");
+
   --font-sans: Arial, Helvetica, sans-serif;
   --text-xs: 0.75rem;
   --text-sm: 0.875rem;
@@ -20,6 +88,12 @@
   --text-2xl: 1.5rem;
   --text-3xl: 2rem;
   --text-4xl: 2.75rem;
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
 }
 * {
   box-sizing: border-box;
@@ -63,15 +137,15 @@ a {
   text-decoration: none;
 }
 button:focus-visible {
-  outline: 3px solid #93b69f;
+  outline: 3px solid var(--focus-ring);
   outline-offset: 3px;
 }
 a:focus-visible {
-  outline: 3px solid #93b69f;
+  outline: 3px solid var(--focus-ring);
   outline-offset: 3px;
 }
 input:focus-visible {
-  outline: 3px solid #93b69f;
+  outline: 3px solid var(--focus-ring);
   outline-offset: 3px;
 }
 h1 {
@@ -102,14 +176,14 @@ button {
 }
 input {
   border: 1px solid var(--border);
-  background: #fff;
+  background: var(--surface);
   color: var(--ink);
   border-radius: 7px;
   padding: 10px 12px;
   min-height: 41px;
 }
 input::placeholder {
-  color: #a0a8a2;
+  color: var(--placeholder);
 }
 svg {
   flex-shrink: 0;

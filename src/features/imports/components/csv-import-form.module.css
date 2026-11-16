@@ -1,10 +1,10 @@
 .csv-example {
-  background: #f4f7ef;
-  border: 1px solid #e6ecd7;
+  background: var(--surface-muted);
+  border: 1px solid var(--border);
   border-radius: 7px;
   padding: 13px;
   margin-top: 20px;
-  color: #82936f;
+  color: var(--muted);
 }
 .csv-example > span {
   font-size: var(--text-xs);
@@ -14,7 +14,7 @@
   overflow: auto;
   line-height: 1.7;
   margin: 10px 0 0;
-  color: #6f815c;
+  color: var(--ink-soft);
 }
 @media (max-width: 760px), (max-width: 900px) and (pointer: coarse) {
   .csv-example > span {

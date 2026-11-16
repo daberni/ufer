@@ -64,7 +64,7 @@
     padding: 5px;
     border: 1px solid var(--border);
     border-radius: 9px;
-    background: #fff;
+    background: var(--surface);
   }
   .period-controls > select {
     min-height: 44px;

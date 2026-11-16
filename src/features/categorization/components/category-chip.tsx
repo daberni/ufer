@@ -5,7 +5,7 @@ import { clsx } from "clsx";
 import { CircleDashed, Pin, Shapes } from "lucide-react";
 import type { CSSProperties, ReactNode } from "react";
 import { isCategoryIcon } from "@/features/categorization/category-icons";
-import { categoryChipColors, neutralChipColor } from "@/features/categorization/category-colors";
+import { categoryChipColors, neutralChipColor, themedColors } from "@/features/categorization/category-colors";
 import { categoryIconComponents } from "./category-icon-components";
 
 export type ChipCategory = {
@@ -71,7 +71,8 @@ export function CategoryChip({
   children
 }: Props) {
   const isNeutral = typeof category === "string";
-  const colors = categoryChipColors(isNeutral ? neutralChipColor : category.color);
+  const baseColor = isNeutral ? neutralChipColor : category.color;
+  const colors = themedColors(scheme => categoryChipColors(baseColor, scheme));
   const label = isNeutral ? neutralChips[category].label : category.name;
   const colorVariables = {
     "--chip-background": colors.background,

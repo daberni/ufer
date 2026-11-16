@@ -2,6 +2,7 @@ import styles from "./category-rows.module.css";
 import { clsx } from "clsx";
 import { money } from "@/lib/money";
 import { CategoryMarker } from "@/features/categorization/components/category-marker";
+import { categoryBarColor, themedColor } from "@/features/categorization/category-colors";
 import type { CategoryGroup } from "@/features/dashboard/category-groups";
 
 const shareFormat = new Intl.NumberFormat("en-GB", {
@@ -46,7 +47,7 @@ export function CategoryRows({
             <i
               style={{
                 width: `${group.share * 100}%`,
-                background: group.color
+                background: themedColor(scheme => categoryBarColor(group.color, scheme))
               }}
             />
           </div>

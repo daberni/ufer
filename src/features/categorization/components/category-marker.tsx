@@ -1,6 +1,6 @@
 import styles from "./category-marker.module.css";
 import { isCategoryIcon } from "@/features/categorization/category-icons";
-import { categoryTileColors } from "@/features/categorization/category-colors";
+import { categoryTileColors, themedColors } from "@/features/categorization/category-colors";
 import { categoryIconComponents } from "./category-icon-components";
 
 type Props = {
@@ -8,13 +8,13 @@ type Props = {
   color: string;
 };
 
-// A small tile for the spending breakdown, whose rows sit on a white panel and pair it with a colored bar; everywhere else a category is shown as a CategoryChip.
+// A small tile for the spending breakdown, whose rows sit on a panel and pair it with a colored bar; everywhere else a category is shown as a CategoryChip.
 // Decorative only: the marker always accompanies the category name, which remains the accessible label.
 export function CategoryMarker({
   icon,
   color
 }: Props) {
-  const colors = categoryTileColors(color);
+  const colors = themedColors(scheme => categoryTileColors(color, scheme));
 
   if (!isCategoryIcon(icon)) {
     return (

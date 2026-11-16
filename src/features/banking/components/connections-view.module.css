@@ -17,28 +17,28 @@
   composes: property from "../../../components/ui/primitives.module.css";
 }
 .pill.success {
-  background: #e9f2e4;
-  color: #628350;
+  background: var(--soft);
+  color: var(--green-text);
 }
 .connection-info {
   display: flex;
   gap: 15px;
   align-items: center;
   padding: 20px;
-  border: 1px solid #dfe7d5;
-  background: #f0f4e9;
+  border: 1px solid var(--border-strong);
+  background: var(--soft);
   border-radius: 10px;
   margin-bottom: 20px;
-  color: #779363;
+  color: var(--green-text);
 }
 .connection-info strong {
   font-weight: 500;
   font-size: var(--text-sm);
-  color: #647e53;
+  color: var(--green-text);
 }
 .connection-info p {
   font-size: var(--text-xs);
-  color: #8d9e7b;
+  color: var(--muted);
   line-height: 1.7;
   margin-top: 5px;
 }
@@ -66,7 +66,7 @@
 }
 .connection-row p {
   font-size: var(--text-xs);
-  color: #97a18a;
+  color: var(--muted);
   margin-top: 6px;
   line-height: 1.7;
 }
@@ -81,13 +81,13 @@
   font-size: var(--text-xs);
   padding: 16px 0;
   border-bottom: 1px solid var(--border);
-  color: #96a18b;
+  color: var(--muted);
 }
 .sync-row:last-child {
   border: 0;
 }
 .transactions-link {
-  color: var(--green);
+  color: var(--green-text);
   text-decoration: underline;
   text-underline-offset: 3px;
 }
