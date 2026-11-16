@@ -15,6 +15,20 @@ type Props = {
   transactions: Transaction[];
 };
 
+function TableHeader() {
+  return (
+    <thead>
+      <tr>
+        <th>Payee / description</th>
+        <th>Category</th>
+        <th>Account</th>
+        <th>Date</th>
+        <th className={styles["align-right"]}>Amount</th>
+      </tr>
+    </thead>
+  );
+}
+
 export function TransactionList({
   categories,
   transactions
@@ -23,15 +37,7 @@ export function TransactionList({
     <>
       <div className={clsx(styles["table-scroll"], styles["desktop-transactions"])}>
         <table>
-          <thead>
-            <tr>
-              <th>Payee / description</th>
-              <th>Category</th>
-              <th>Account</th>
-              <th>Date</th>
-              <th className={styles["align-right"]}>Amount</th>
-            </tr>
-          </thead>
+          <TableHeader />
           <tbody>
             {transactions.map(transaction => (
               <tr key={transaction.id}>
@@ -84,6 +90,92 @@ export function TransactionList({
                 <TransactionCategory categories={categories} transaction={transaction} />
               </div>
             </article>
+          </li>
+        ))}
+      </ul>
+    </>
+  );
+}
+
+// Payees and descriptions of different lengths give the skeleton rows a natural outline; the long ones reach the column's maximum width, as typical descriptions do.
+const skeletonPayees = ["Grocery market", "Monthly rent payment", "Coffee shop", "Salary", "Public transport pass"];
+const skeletonDescriptions = ["Debit card purchase", "Standing order, reference 2025-01 rent", "Card payment", "Monthly salary payment from employer", "Direct debit"];
+
+/** The list's table and cards with placeholder rows, for a list whose first results are loading. */
+export function TransactionListSkeleton({ rows }: {
+  rows: number
+}) {
+  const placeholders = Array.from({
+    length: rows
+  }, (_, index) => ({
+    payee: skeletonPayees[index % skeletonPayees.length],
+    description: skeletonDescriptions[index % skeletonDescriptions.length]
+  }));
+
+  return (
+    <>
+      <div className={clsx(styles["table-scroll"], styles["desktop-transactions"])}>
+        <table>
+          <TableHeader />
+          <tbody>
+            {placeholders.map((placeholder, index) => (
+              <tr key={index}>
+                <td>
+                  <div className={styles["transaction-name"]}>
+                    <span className={clsx(styles["transaction-icon"], ui["skeleton"])} />
+                    <div>
+                      <strong>
+                        <span className={ui["skeleton"]}>{placeholder.payee}</span>
+                      </strong>
+                      <span>
+                        <span className={ui["skeleton"]}>{placeholder.description}</span>
+                      </span>
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <span className={ui["skeleton"]}>Category name with menu</span>
+                </td>
+                <td>
+                  <span className={ui["skeleton"]}>Everyday account</span>
+                </td>
+                <td>
+                  <span className={ui["skeleton"]}>16 Nov</span>
+                </td>
+                <td className={clsx(styles["amount"], styles["align-right"])}>
+                  <span className={ui["skeleton"]}>€000.00</span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <ul className={styles["transaction-cards"]}>
+        {placeholders.map((placeholder, index) => (
+          <li key={index}>
+            <div className={styles["transaction-card"]}>
+              <div className={styles["transaction-card-meta"]}>
+                <span className={ui["skeleton"]}>Everyday account</span>
+                <span className={ui["skeleton"]}>16 Nov</span>
+              </div>
+              <div className={styles["transaction-card-heading"]}>
+                <h3>
+                  <span className={ui["skeleton"]}>{placeholder.payee}</span>
+                </h3>
+                <strong className={styles["amount"]}>
+                  <span className={ui["skeleton"]}>€000.00</span>
+                </strong>
+              </div>
+              <details className={styles["transaction-details"]}>
+                <summary>
+                  <span className={ui["skeleton"]}>Description</span>
+                </summary>
+              </details>
+              <div className={styles["transaction-card-category"]}>
+                <span>Category</span>
+                <span className={ui["skeleton"]}>Category name</span>
+              </div>
+            </div>
           </li>
         ))}
       </ul>

@@ -14,7 +14,7 @@ function storeAt(pathname: string) {
   const location = {
     pathname
   };
-  const store = createDashboardStore(() => location.pathname);
+  const store = createDashboardStore(false, () => location.pathname);
 
   return {
     store,

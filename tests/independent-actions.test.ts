@@ -99,7 +99,9 @@ test("an action in flight leaves the controls of every other action unchanged", 
   const { TransactionCategory } = await import("../src/features/transactions/components/transaction-category");
   const { DashboardStoreProvider } = await import("../src/features/dashboard/dashboard-store");
 
-  const screen = render(withQueryClient(queryClient, createElement(DashboardStoreProvider, null, [
+  const screen = render(withQueryClient(queryClient, createElement(DashboardStoreProvider, {
+    locked: false
+  }, [
     createElement(SyncButton, {
       key: "sync",
       bankAccounts: [account],
@@ -107,8 +109,14 @@ test("an action in flight leaves the controls of every other action unchanged", 
     }),
     createElement(RulesView, {
       key: "rules",
-      categories,
-      rules: [rule]
+      categories: {
+        data: categories,
+        status: "ready"
+      },
+      rules: {
+        data: [rule],
+        status: "ready"
+      }
     }),
     createElement(TransactionCategory, {
       key: "category",

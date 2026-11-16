@@ -1,3 +1,5 @@
+import ui from "../../../components/ui/primitives.module.css";
+
 import styles from "./category-rows.module.css";
 import { clsx } from "clsx";
 import { money } from "@/lib/money";
@@ -51,6 +53,35 @@ export function CategoryRows({
               }}
             />
           </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Names of different lengths give the skeleton rows a natural outline.
+const skeletonNames = ["Groceries", "Housing and utilities", "Transport", "Restaurants", "Leisure"];
+
+/** Rows in the shape of category rows for a breakdown whose first results are loading. */
+export function CategoryRowsSkeleton({
+  rows,
+  className
+}: {
+  rows: number;
+  className?: string;
+}) {
+  return (
+    <div className={clsx(styles["rows"], className)}>
+      {Array.from({
+        length: rows
+      }, (_, index) => (
+        <div className={styles["row"]} key={index}>
+          <span>
+            <span className={clsx(styles["marker"], ui["skeleton"])} />
+            <span className={ui["skeleton"]}>{skeletonNames[index % skeletonNames.length]}</span>
+          </span>
+          <strong className={ui["skeleton"]}>€000.00</strong>
+          <div />
         </div>
       ))}
     </div>
