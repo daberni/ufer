@@ -16,13 +16,16 @@
   align-items: center;
   gap: 6px;
 }
+.plot {
+  position: relative;
+  margin-top: 22px;
+}
 .bar-chart {
   display: flex;
   align-items: flex-end;
   justify-content: space-around;
   gap: 15px;
   height: 160px;
-  margin: 22px 0 0;
   padding: 0 7px;
   position: relative;
 }
@@ -44,22 +47,46 @@
   max-width: 70px;
   position: relative;
   z-index: 1;
-  text-align: center;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
+  text-align: center;
 }
 .bars {
   height: calc(100% - 23px);
   display: flex;
-  align-items: flex-end;
   gap: 5px;
   justify-content: center;
 }
-.bars > span {
+/* Each bar's target spans its half of the month column, so the narrow bars are easy to hover and tap. */
+.bar-target {
+  flex: 1 1 0;
+  max-width: 30px;
+  display: flex;
+  align-items: flex-end;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: inherit;
+  cursor: default;
+}
+.bar-target[data-flow="income"] {
+  justify-content: flex-end;
+}
+.bar-target[data-flow="expenses"] {
+  justify-content: flex-start;
+}
+.bar {
+  display: flex;
+  flex-direction: column-reverse;
+  flex-shrink: 0;
   width: 15px;
-  border-radius: 3px 3px 0 0;
   min-height: 1px;
+  overflow: hidden;
+  border-radius: 3px 3px 0 0;
+  transition: opacity 120ms ease;
 }
 .income-bar {
   background: #719064;
@@ -67,17 +94,104 @@
 .expense-bar {
   background: #bfcbab;
 }
-.bar-group > span {
+.bar > span {
+  flex: none;
+}
+/* A hairline in the panel color separates stacked category segments. */
+.bar > span + span {
+  box-shadow: inset 0 -1px 0 var(--surface);
+}
+.month-label {
   font-size: var(--text-xs);
   color: #9aa28f;
   height: 23px;
   padding-top: 13px;
+}
+.bar-chart[data-active] .bar-target:not([data-active]) .bar {
+  opacity: 0.4;
+}
+.bar-group[data-active] .month-label {
+  color: var(--ink);
+}
+/* Below the wide-layout breakpoint the details take this fixed area below the bars, so they never cover a bar and the panel keeps its height. It fits a heading and five compact rows; the line variables follow the text sizes. */
+.details-slot {
+  --title-line: calc(var(--text-sm) * 1.25);
+  --text-line: calc(var(--text-xs) * 1.25);
+  height: calc(
+    var(--title-line) + var(--text-line) + 5px + 5 *
+      (max(var(--text-line), 16px) + 3px) + 4px + 15px
+  );
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  overflow: hidden;
+}
+.details-heading {
+  display: grid;
+  margin-bottom: 5px;
+  line-height: 1.25;
+}
+.details-heading strong {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--ink);
+}
+.details-heading span {
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+.details-empty {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+.details-hint {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--muted);
 }
 .chart-empty-note {
   text-align: center;
   font-size: var(--text-xs);
   color: #a0aa96;
   margin-top: 17px;
+}
+/* Wide layouts (the dashboard's widest breakpoint) leave a chart of at least ~440 px, so the details overlay the half of the chart away from the active bar instead. The card stays inside the chart box, and pointer events reach the bars underneath. */
+@media (min-width: 1251px) {
+  .details-slot {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    width: calc(50% - 8px);
+    height: auto;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    overflow: visible;
+    pointer-events: none;
+  }
+  .details-slot[data-side="start"] {
+    left: 0;
+  }
+  .details-slot[data-side="end"] {
+    right: 0;
+  }
+  .details-hint {
+    display: none;
+  }
+  .bar-details {
+    max-height: 100%;
+    overflow: hidden;
+    padding: 7px 10px;
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    background: var(--surface);
+    box-shadow: 0 8px 24px #233e3126;
+  }
 }
 @media (min-width: 1600px) {
   .bar-chart {
@@ -96,7 +210,19 @@
   .chart-empty-note {
     font-size: var(--text-sm);
   }
-  .bar-group > span {
+  .month-label {
+    font-size: var(--text-sm);
+  }
+  .details-heading span {
+    font-size: var(--text-sm);
+  }
+  .details-slot {
+    --text-line: calc(var(--text-sm) * 1.25);
+  }
+  .details-empty {
+    font-size: var(--text-sm);
+  }
+  .details-hint {
     font-size: var(--text-sm);
   }
   .bar-chart {

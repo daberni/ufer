@@ -1,0 +1,74 @@
+.rows {
+  display: grid;
+  gap: 17px;
+}
+.row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 9px;
+  font-size: var(--text-xs);
+}
+.row > span {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  color: #8c9680;
+}
+.row strong {
+  font-weight: 500;
+  color: #6c775f;
+  font-size: var(--text-xs);
+}
+.row > div {
+  grid-column: 1/-1;
+  height: 4px;
+  background: #f2f4ed;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.row > div > i {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+}
+.name {
+  min-width: 0;
+}
+/* Compact rows keep each row to one line: the name is truncated and the share bar sits in the row's bottom padding. */
+.rows.compact {
+  gap: 1px;
+}
+.compact .row {
+  position: relative;
+  align-items: center;
+  padding-bottom: 3px;
+  line-height: 1.25;
+}
+.compact .row > span {
+  min-height: 16px;
+}
+.compact .name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* The share bar starts after the 16px marker and its 7px gap, underlining name and amount. */
+.compact .row > div {
+  position: absolute;
+  left: 23px;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+}
+@media (max-width: 760px), (max-width: 900px) and (pointer: coarse) {
+  .row {
+    font-size: var(--text-sm);
+  }
+  .row strong {
+    font-size: var(--text-sm);
+  }
+  .rows {
+    gap: 20px;
+  }
+}
