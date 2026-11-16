@@ -49,10 +49,13 @@
   width: 100%;
   margin-top: 10px;
 }
-.source-code {
-  display: block;
+.legal {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 4px 16px;
   margin-top: 22px;
-  text-align: center;
   font-size: var(--text-sm);
   color: var(--muted);
 }

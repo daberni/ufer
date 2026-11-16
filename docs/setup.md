@@ -34,6 +34,28 @@ Set `BETTER_AUTH_SECRET`, `DATA_ENCRYPTION_KEY`, `CRON_SECRET`, the banking appl
 
 `vercel.json` configures a daily 05:00 UTC cron call authenticated with `CRON_SECRET`. The route has `maxDuration=300`; provider latency and many accounts can exceed platform runtime limits. Vercel runtime, HTTPS authentication, the sandbox callback/sync and the authenticated cron endpoint have been verified. The enabled schedule runs at 05:00 UTC; its first future unattended invocation and actual NAS operation remain unverified. See the [deployment guide](vercel-deployment.md) for configuration, cost boundaries and acceptance evidence. Unattended synchronization is a required capability on every supported hosting platform.
 
+## Privacy notice and terms
+
+`/privacy` and `/terms` are public pages, reachable without signing in and linked from the sign-in screen and the dashboard footer. They render the operator details and service providers from server-side environment variables at request time. Until all required values are valid, both pages state that the operator details are not configured and name the variables to set, so an unconfigured installation cannot be mistaken for a registrable one.
+
+| Variable | Meaning |
+| --- | --- |
+| OPERATOR_NAME | Required. Name of the person or organization operating the installation (the GDPR controller) |
+| OPERATOR_RESIDENCE | Required. Place of residence or seat as municipality and country; no street address |
+| OPERATOR_EMAIL | Optional. Contact email for privacy requests and questions about the terms. Without it, the pages tell users to contact the operator the way they were given access |
+| DATA_PROCESSORS | Required. JSON array of providers that process data for this installation, each with `name`, `purpose` and `location`; `[]` when the installation uses no external hosting or database provider. The privacy notice points to these entries for log and backup retention, so state retention periods in `purpose` where they are known |
+
+Enable Banking is named in the text because the bank integration always uses it. The terms name Austrian law as the governing law. Hosting and database providers depend on the deployment, so they belong in DATA_PROCESSORS. A Docker/NAS installation on the operator's own hardware sets `[]`. Never commit real values; examples use synthetic data such as:
+
+```sh
+OPERATOR_NAME="Example Operator"
+OPERATOR_RESIDENCE="Example City, Example Country"
+OPERATOR_EMAIL=operator@example.test
+DATA_PROCESSORS='[{"name":"Example Hosting","purpose":"Runs the application.","location":"Example Region"}]'
+```
+
+The texts carry a last-updated date maintained in their components; change it together with the text.
+
 ## Smartphone support
 
 Small screens use labeled bottom navigation, transaction cards with expandable descriptions, and scrollable bottom-sheet forms. Larger touch targets, 16-pixel form text, and safe-area spacing support smartphone use. Desktop retains tables and a sidebar.

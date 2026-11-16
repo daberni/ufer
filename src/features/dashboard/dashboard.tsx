@@ -13,6 +13,7 @@ import { PageHeading } from "@/features/dashboard/components/page-heading";
 import { DashboardDialogs } from "@/features/dashboard/components/dashboard-dialogs";
 import { ViewLoading } from "@/features/dashboard/components/view-loading";
 import { LoginForm } from "@/features/auth/components/login-form";
+import { LegalLinks } from "@/features/legal/components/legal-links";
 import { SourceCodeNotice } from "@/features/legal/components/source-code-notice";
 import { accountGroups, useAccounts } from "@/features/accounts/queries";
 import { useBankingStatus } from "@/features/banking/queries";
@@ -141,6 +142,7 @@ function DashboardFooter() {
         <BrandIcon size={16} /> Ufer
       </span>
       <span>A clearer view of your money.</span>
+      <LegalLinks />
       <SourceCodeNotice />
     </footer>
   );
