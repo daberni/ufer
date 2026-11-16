@@ -1,12 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useDashboardData } from "./use-dashboard-data";
+import { useCallback, useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useDashboardLock } from "./use-dashboard-lock";
 import { useBankDirectory } from "@/features/banking/use-bank-directory";
 import { failureMessage } from "@/client/api";
+import type { ImportMode } from "@/features/imports/mutations";
 import { useActionFeedback, type Feedback } from "@/components/ui/use-action-feedback";
 import { navigation } from "./presentation";
-import { monthPeriod } from "./period";
+import { monthPeriod, type Period } from "./period";
+import { dashboardQuery, isPeriodAware, periodScope, viewFromPathname, viewHref as hrefForView, withQueryChanges, type DashboardQueryChanges } from "./dashboard-location";
 import type { Account, Category, View, Modal, Connection } from "./types";
 
 export type ActionResult<T> = {
@@ -17,10 +20,62 @@ export type ActionResult<T> = {
   message: string;
 };
 
-export function useDashboard() {
-  const [view, setView] = useState<View>("overview");
+/** Waits for an action, such as a mutation, and turns its failure into a message for the place where the action was started. */
+export async function settle<T>(action: Promise<T>): Promise<ActionResult<T>> {
+  try {
+    return {
+      ok: true,
+      value: await action
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      message: failureMessage(error)
+    };
+  }
+}
 
-  const [modal, setModal] = useState<Modal>(null);
+export function useDashboard() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const view = viewFromPathname(pathname);
+  const urlScope = periodScope(searchParams);
+
+  const [rememberedScope, setRememberedScope] = useState(urlScope);
+
+  // Overview and transactions share the period; other views keep the last one for their links back and their data request.
+  if (isPeriodAware(view) && urlScope !== rememberedScope) {
+    setRememberedScope(urlScope);
+  }
+
+  const scope = isPeriodAware(view) ? urlScope : rememberedScope;
+  const query = dashboardQuery(view, scope, searchParams);
+
+  const [openModal, setOpenModal] = useState<{
+    modal: Modal;
+    pathname: string;
+  }>({
+    modal: null,
+    pathname
+  });
+
+  // A dialog belongs to the view it was opened on; navigating away, including with Back, closes it.
+  if (openModal.modal && openModal.pathname !== pathname) {
+    setOpenModal({
+      modal: null,
+      pathname
+    });
+  }
+
+  const modal = openModal.modal;
+
+  const setModal = useCallback((next: Modal) => {
+    setOpenModal({
+      modal: next,
+      pathname
+    });
+  }, [pathname]);
 
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
 
@@ -28,39 +83,20 @@ export function useDashboard() {
 
   const [selectedConnection, setSelectedConnection] = useState<Connection | null>(null);
 
-  // Counts running actions, so one that finishes first cannot clear the busy state of another still running.
-  const [runningActions, setRunningActions] = useState(0);
-
-  // Page-level overlay for feedback without a surviving trigger, such as a bank callback result.
+  // Page-level overlay for feedback without a surviving trigger, such as a bank callback result. Navigating to another view, including with Back or Forward, drops it.
   const {
     feedback,
     report: reportFeedback,
     dismiss: dismissFeedback
-  } = useActionFeedback();
+  } = useActionFeedback(pathname);
 
   const {
-    state,
-    setState,
-    loadError,
-    period,
-    selectPeriod,
-    currency,
-    setCurrency,
-    search,
-    setSearch,
-    accountFilter,
-    setAccountFilter,
-    categoryFilter,
-    setCategoryFilter,
-    page,
-    setPage,
     locked,
-    setLocked,
-    load
-  } = useDashboardData();
+    lock,
+    unlock
+  } = useDashboardLock();
   const {
     banks,
-    setBanks,
     bankCountry,
     setBankCountry,
     bankSearch,
@@ -68,61 +104,104 @@ export function useDashboard() {
     bankName,
     setBankName,
     banksLoading,
-    setBanksLoading,
     banksError
   } = useBankDirectory(modal === "bank");
 
-  const [importMode, setImportMode] = useState("balances");
+  const [importMode, setImportMode] = useState<ImportMode>("balances");
 
+  // The bank callback returns to the connections view with its result, which is shown once and removed from the URL.
   useEffect(() => {
-    const result = new URLSearchParams(window.location.search).get("banking");
+    const params = new URLSearchParams(window.location.search);
+    const result = params.get("banking");
 
-    if (result) {
-      setView("connections");
-      reportFeedback(bankingCallbackFeedback(result));
-      window.history.replaceState(null, "", "/");
-    }
-  }, [reportFeedback]);
-
-  // Runs an action and refreshes the dashboard; the caller presents the result where the action happened.
-  async function perform<T>(action: () => Promise<T>): Promise<ActionResult<T>> {
-    let result: ActionResult<T>;
-
-    setRunningActions(count => count + 1);
-
-    try {
-      result = {
-        ok: true,
-        value: await action()
-      };
-    } catch (error) {
-      result = {
-        ok: false,
-        message: failureMessage(error)
-      };
+    if (!result) {
+      return;
     }
 
-    // A failed action may still have changed server state, so the dashboard is refreshed either way.
-    try {
-      await load();
-    } finally {
-      setRunningActions(count => count - 1);
+    reportFeedback(bankingCallbackFeedback(result));
+    params.delete("banking");
+    const rest = params.toString();
+
+    router.replace(rest ? `${window.location.pathname}?${rest}` : window.location.pathname, {
+      scroll: false
+    });
+  }, [reportFeedback, router]);
+
+  // Filter and page changes stay on the current view; typing a search replaces its history entry instead of adding one per keystroke.
+  const updateQuery = useCallback((changes: DashboardQueryChanges, entry: "push" | "replace") => {
+    const current = `${window.location.pathname}${window.location.search}`;
+    const next = withQueryChanges(window.location.pathname, window.location.search, changes);
+
+    if (next === current) {
+      return;
     }
 
-    return result;
+    if (entry === "push") {
+      window.history.pushState(null, "", next);
+    } else {
+      window.history.replaceState(null, "", next);
+    }
+  }, []);
+
+  const selectPeriod = useCallback((next: Period) => {
+    updateQuery({
+      period: next,
+      page: 1
+    }, "push");
+  }, [updateQuery]);
+
+  const setCurrency = useCallback((next: string) => {
+    updateQuery({
+      currency: next,
+      page: 1
+    }, "push");
+  }, [updateQuery]);
+
+  const setSearch = useCallback((next: string) => {
+    updateQuery({
+      search: next,
+      page: 1
+    }, "replace");
+  }, [updateQuery]);
+
+  const setAccountFilter = useCallback((next: string) => {
+    updateQuery({
+      account: next,
+      page: 1
+    }, "push");
+  }, [updateQuery]);
+
+  const setCategoryFilter = useCallback((next: string) => {
+    updateQuery({
+      category: next,
+      page: 1
+    }, "push");
+  }, [updateQuery]);
+
+  const setPage = useCallback((next: number) => {
+    updateQuery({
+      page: next
+    }, "push");
+  }, [updateQuery]);
+
+  // A page past the last one, from a bookmark or after the matching count shrank, is corrected in place.
+  const replacePage = useCallback((next: number) => {
+    updateQuery({
+      page: next
+    }, "replace");
+  }, [updateQuery]);
+
+  function viewHref(next: View) {
+    return hrefForView(next, scope);
   }
 
   function changeView(next: View) {
-    dismissFeedback();
-    setView(next);
-    setPage(1);
-    window.scrollTo({
-      top: 0,
-      behavior: "instant"
-    });
+    router.push(viewHref(next));
   }
 
   function moveMonth(delta: number) {
+    const period = query.period;
+
     if (period.kind !== "month") {
       return;
     }
@@ -145,31 +224,21 @@ export function useDashboard() {
   }
 
 
-  const currencies = [...new Set(["EUR", ...(state?.accounts.map(account => account.currency) || [])])];
-
-  const selectedCurrencyAccounts = state?.accounts.filter(account => account.currency === currency) || [];
-
-  const bankAccounts = state?.accounts.filter(account => account.provider === "enable_banking") || [];
-
-  const expiring = bankAccounts.filter(account => account.valid_until && Date.parse(account.valid_until) - Date.now() < 7 * 86400_000);
-
-  const visibleTransactions = view === "overview" ? state?.transactions.slice(0, 5) : state?.transactions;
+  const {
+    period,
+    currency,
+    search,
+    account: accountFilter,
+    category: categoryFilter,
+    page
+  } = query;
 
   const nav = navigation.find(item => item.id === view)!;
 
-  const trend = state?.trend || [];
-
-  const trendMax = Math.max(1, ...trend.flatMap(item => [item.income, item.expenses]));
-
-  const busy = runningActions > 0;
-
-  const totalExpenses = state?.breakdown.reduce((sum, item) => sum + item.amount, 0) || 0;
-
   return {
     view,
-    setView,
-    state,
-    setState,
+    viewHref,
+    query,
     period,
     selectPeriod,
     currency,
@@ -182,6 +251,7 @@ export function useDashboard() {
     setCategoryFilter,
     page,
     setPage,
+    replacePage,
     modal,
     setModal,
     selectedAccount,
@@ -189,15 +259,13 @@ export function useDashboard() {
     selectedCategory,
     setSelectedCategory,
     selectedConnection,
-    busy,
-    loadError,
     feedback,
     reportFeedback,
     dismissFeedback,
     locked,
-    setLocked,
+    lock,
+    unlock,
     banks,
-    setBanks,
     bankCountry,
     setBankCountry,
     bankSearch,
@@ -205,25 +273,14 @@ export function useDashboard() {
     bankName,
     setBankName,
     banksLoading,
-    setBanksLoading,
     banksError,
     importMode,
     setImportMode,
-    load,
-    perform,
     changeView,
     moveMonth,
     openBank,
     openConnectionRemoval,
-    currencies,
-    selectedCurrencyAccounts,
-    bankAccounts,
-    expiring,
-    visibleTransactions,
-    nav,
-    trend,
-    trendMax,
-    totalExpenses
+    nav
   };
 }
 

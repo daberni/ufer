@@ -1,101 +1,78 @@
 import assert from "node:assert/strict";
 import { test, type TestContext } from "node:test";
-import { act, cleanup, renderHook } from "@testing-library/react";
-import { JSDOM } from "jsdom";
+import { act, renderHook } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { syncResultLabelDuration, useSyncStatus } from "../src/features/banking/use-sync-status";
-import type { ActionResult, DashboardController } from "../src/features/dashboard/use-dashboard";
+import { browser, withQueryClient, type PendingRequest } from "./fixtures/browser";
 
-type Outcome = ActionResult<{
-  inserted: number;
-  failures: {
-    account: string;
-    message: string;
-  }[];
-}>;
-
-function browser(context: TestContext) {
-  const dom = new JSDOM("<!doctype html><html><body></body></html>", {
-    url: "http://localhost/"
-  });
-  const globals = {
-    window: dom.window,
-    document: dom.window.document,
-    navigator: dom.window.navigator,
-    IS_REACT_ACT_ENVIRONMENT: true
-  };
-  const originalProperties = new Map(Object.keys(globals).map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
-
-  for (const [key, value] of Object.entries(globals)) {
-    Object.defineProperty(globalThis, key, {
-      configurable: true,
-      writable: true,
-      value
-    });
-  }
+function renderSyncStatus(context: TestContext) {
+  const {
+    queryClient,
+    requests
+  } = browser(context);
 
   context.mock.timers.enable({
     apis: ["setTimeout"]
   });
 
-  context.after(() => {
-    cleanup();
-    dom.window.close();
-
-    for (const [key, descriptor] of originalProperties) {
-      if (descriptor) {
-        Object.defineProperty(globalThis, key, descriptor);
-      } else {
-        Reflect.deleteProperty(globalThis, key);
-      }
-    }
+  const { result } = renderHook(() => useSyncStatus(), {
+    wrapper: ({ children }: {
+      children: ReactNode
+    }) => withQueryClient(queryClient, children)
   });
-}
-
-// Each sync waits for the test to settle it, standing in for the request and dashboard refresh.
-function controllablePerform() {
-  const pending: ReturnType<typeof Promise.withResolvers<Outcome>>[] = [];
-
-  const perform = (() => {
-    const request = Promise.withResolvers<Outcome>();
-
-    pending.push(request);
-
-    return request.promise;
-  }) as unknown as DashboardController["perform"];
 
   return {
-    perform,
-    pending
+    result,
+    requests: () => requests("sync")
   };
 }
 
+// setImmediate is not mocked, so the response and the mutation settle while the success timer stays controlled.
+async function respond(request: PendingRequest | undefined, response: Response) {
+  assert.ok(request, "expected a sync request");
+  await act(async () => {
+    request.resolve(response);
+
+    for (let turn = 0; turn < 5; turn++) {
+      await new Promise(resolve => setImmediate(resolve));
+    }
+  });
+}
+
+async function startSync(result: ReturnType<typeof renderSyncStatus>["result"]) {
+  await act(async () => {
+    result.current.sync();
+    await new Promise(resolve => setImmediate(resolve));
+  });
+}
+
+function failed(detail: string, status = 409) {
+  return Response.json({
+    title: "Conflict",
+    detail
+  }, {
+    status
+  });
+}
+
 test("the sync button shows progress, then the outcome, then returns to its idle label", async context => {
-  browser(context);
   const {
-    perform,
-    pending
-  } = controllablePerform();
-  const { result } = renderHook(() => useSyncStatus(perform));
+    result,
+    requests
+  } = renderSyncStatus(context);
 
   assert.equal(result.current.phase, "idle");
 
-  act(() => {
-    result.current.sync();
-  });
+  await startSync(result);
   assert.equal(result.current.phase, "syncing");
   assert.equal(result.current.politeAnnouncement, "Syncing transactions …");
 
-  act(() => {
-    result.current.sync();
-  });
-  assert.equal(pending.length, 1, "a second activation while syncing must not start another sync");
+  await startSync(result);
+  assert.equal(requests().length, 1, "a second activation while syncing must not start another sync");
 
-  await act(async () => pending[0].resolve({
-    ok: true,
-    value: {
-      inserted: 3,
-      failures: []
-    }
+  await respond(requests()[0], Response.json({
+    inserted: 3,
+    failures: []
   }));
   assert.equal(result.current.phase, "synced");
   assert.equal(result.current.resultLabel, "3 new");
@@ -109,47 +86,33 @@ test("the sync button shows progress, then the outcome, then returns to its idle
 });
 
 test("a sync without new transactions reports that everything is up to date", async context => {
-  browser(context);
   const {
-    perform,
-    pending
-  } = controllablePerform();
-  const { result } = renderHook(() => useSyncStatus(perform));
+    result,
+    requests
+  } = renderSyncStatus(context);
 
-  act(() => {
-    result.current.sync();
-  });
-  await act(async () => pending[0].resolve({
-    ok: true,
-    value: {
-      inserted: 0,
-      failures: []
-    }
+  await startSync(result);
+  await respond(requests()[0], Response.json({
+    inserted: 0,
+    failures: []
   }));
 
   assert.equal(result.current.resultLabel, "Up to date");
 });
 
 test("a sync problem stays reported until a later sync succeeds", async context => {
-  browser(context);
   const {
-    perform,
-    pending
-  } = controllablePerform();
-  const { result } = renderHook(() => useSyncStatus(perform));
+    result,
+    requests
+  } = renderSyncStatus(context);
 
-  act(() => {
-    result.current.sync();
-  });
-  await act(async () => pending[0].resolve({
-    ok: true,
-    value: {
-      inserted: 2,
-      failures: [{
-        account: "Synthetic Savings",
-        message: "Bank authorization has expired. Reconnect the bank."
-      }]
-    }
+  await startSync(result);
+  await respond(requests()[0], Response.json({
+    inserted: 2,
+    failures: [{
+      account: "Synthetic Savings",
+      message: "Bank authorization has expired. Reconnect the bank."
+    }]
   }));
 
   assert.equal(result.current.phase, "idle");
@@ -160,48 +123,31 @@ test("a sync problem stays reported until a later sync succeeds", async context 
   act(() => context.mock.timers.tick(60_000));
   assert.equal(result.current.problem?.buttonLabel, "1 account failed");
 
-  act(() => {
-    result.current.sync();
-  });
+  await startSync(result);
   assert.equal(result.current.phase, "syncing");
   assert.equal(result.current.problem?.buttonLabel, "1 account failed", "the warning stays while the next sync runs");
 
-  await act(async () => pending[1].resolve({
-    ok: false,
-    message: "A sync is already running."
-  }));
+  await respond(requests()[1], failed("A sync is already running."));
   assert.equal(result.current.problem?.title, "Sync failed");
   assert.equal(result.current.problem?.note, "A sync is already running.");
 
-  act(() => {
-    result.current.sync();
-  });
-  await act(async () => pending[2].resolve({
-    ok: true,
-    value: {
-      inserted: 0,
-      failures: []
-    }
+  await startSync(result);
+  await respond(requests()[2], Response.json({
+    inserted: 0,
+    failures: []
   }));
   assert.equal(result.current.problem, null);
   assert.equal(result.current.assertiveAnnouncement, "");
 });
 
 test("a dismissed sync problem is no longer exposed as an alert", async context => {
-  browser(context);
   const {
-    perform,
-    pending
-  } = controllablePerform();
-  const { result } = renderHook(() => useSyncStatus(perform));
+    result,
+    requests
+  } = renderSyncStatus(context);
 
-  act(() => {
-    result.current.sync();
-  });
-  await act(async () => pending[0].resolve({
-    ok: false,
-    message: "Request failed."
-  }));
+  await startSync(result);
+  await respond(requests()[0], failed("Request failed.", 500));
   assert.equal(result.current.assertiveAnnouncement, "Sync failed: Request failed.");
 
   act(() => result.current.dismissProblem());

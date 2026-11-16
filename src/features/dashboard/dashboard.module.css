@@ -41,15 +41,6 @@
   align-items: center;
   gap: 5px;
 }
-.loading-state {
-  min-height: 350px;
-  display: flex;
-  gap: 15px;
-  justify-content: center;
-  align-items: center;
-  color: #8d9b7e;
-  font-size: var(--text-sm);
-}
 @media (min-width: 1600px) {
   .content {
     padding-top: 43px;

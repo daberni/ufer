@@ -1,18 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { api } from "@/client/api";
-import type { ActionResult, DashboardController } from "@/features/dashboard/use-dashboard";
-
-export type SyncFailure = {
-  account: string;
-  message: string;
-};
-
-type SyncOutcome = {
-  inserted: number;
-  failures: SyncFailure[];
-};
+import { settle, type ActionResult } from "@/features/dashboard/use-dashboard";
+import { useSync, type SyncFailure, type SyncOutcome } from "./mutations";
 
 // A sync that did not fully succeed stays reported until it is dismissed or a later sync succeeds.
 export type SyncProblem = {
@@ -43,7 +33,9 @@ const idleStatus: SyncStatus = {
 };
 
 // The sync button presents its own state; other dashboard actions never change it.
-export function useSyncStatus(perform: DashboardController["perform"]) {
+export function useSyncStatus() {
+  const syncMutation = useSync();
+
   const [status, setStatus] = useState<SyncStatus>(idleStatus);
 
   const running = useRef(false);
@@ -76,7 +68,8 @@ export function useSyncStatus(perform: DashboardController["perform"]) {
       assertiveAnnouncement: ""
     }));
 
-    const result = await perform(() => api<SyncOutcome>("sync", {}));
+    // The mutation refreshes the synced data, including the last sync run, before it settles.
+    const result = await settle(syncMutation.mutateAsync());
 
     running.current = false;
     setStatus(completedStatus(result));

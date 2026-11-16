@@ -40,10 +40,14 @@ export async function setTransactionCategory(id: string, categoryId: string | nu
     id: accounts.id
   }).from(accounts).where(eq(accounts.environment, environment()));
   const scope = and(eq(transactions.id, id), inArray(transactions.account_id, scopedAccounts));
-  const result = await db.update(transactions).set({
+  const [assignment] = await db.update(transactions).set({
     category_id: categoryId,
     category_source: "manual"
-  }).where(scope).run();
+  }).where(scope).returning({
+    id: transactions.id,
+    category_id: transactions.category_id,
+    category_source: transactions.category_source
+  });
 
-  return result.rowsAffected > 0;
+  return assignment;
 }

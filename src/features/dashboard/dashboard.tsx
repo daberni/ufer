@@ -4,167 +4,96 @@ import ui from "../../components/ui/primitives.module.css";
 
 import { clsx } from "clsx";
 import styles from "./dashboard.module.css";
-import { ArrowRight, CircleHelp, Link2, RefreshCw } from "lucide-react";
+import { ArrowRight, CircleHelp, Link2 } from "lucide-react";
 import { BrandIcon } from "@/components/branding/brand-icon";
 import { ActionFeedback } from "@/components/ui/action-feedback";
-import { OverviewView } from "@/features/dashboard/components/overview-view";
-import { TransactionsPanel } from "@/features/transactions/components/transactions-panel";
-import { AccountsView } from "@/features/accounts/components/accounts-view";
-import { RulesView } from "@/features/categorization/components/rules-view";
-import { ConnectionsView } from "@/features/banking/components/connections-view";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { AppHeader } from "@/components/layout/app-header";
 import { PageHeading } from "@/features/dashboard/components/page-heading";
-import { PeriodControls } from "@/features/dashboard/components/period-controls";
 import { DashboardDialogs } from "@/features/dashboard/components/dashboard-dialogs";
+import { ViewLoading } from "@/features/dashboard/components/view-loading";
 import { LoginForm } from "@/features/auth/components/login-form";
-import { useDashboard } from "./use-dashboard";
+import { accountGroups, useAccounts } from "@/features/accounts/queries";
+import { useBankingStatus } from "@/features/banking/queries";
+import { useDashboardController } from "./dashboard-context";
+import { useLoadError } from "./use-load-error";
 
-export default function Dashboard() {
-  const dashboard = useDashboard();
+/** The persistent dashboard shell; the current view route renders inside it. */
+export default function Dashboard({ children }: {
+  children: React.ReactNode
+}) {
+  const dashboard = useDashboardController();
 
   if (dashboard.locked) {
+    return <LoginForm unlock={dashboard.unlock} />;
+  }
+
+  return <DashboardShell>{children}</DashboardShell>;
+}
+
+// Rendered only while signed in, so no dashboard query runs behind the sign-in form.
+function DashboardShell({ children }: {
+  children: React.ReactNode
+}) {
+  const dashboard = useDashboardController();
+  const banking = useBankingStatus();
+  const accounts = useAccounts();
+  const loadError = useLoadError();
+
+  if (!banking.data || !accounts.data) {
     return (
-      <LoginForm
-        busy={dashboard.busy}
-        perform={dashboard.perform}
-        setLocked={dashboard.setLocked}
-      />
+      <main className={styles["content"]}>
+        <LoadErrorNotice message={loadError.message} retry={loadError.retry} />
+        <ViewLoading failed={banking.isError || accounts.isError} />
+      </main>
     );
   }
+
+  const environment = banking.data.environment;
+  const {
+    bankAccounts,
+    expiring
+  } = accountGroups(accounts.data, dashboard.currency);
 
   return (
     <div className={styles["app-shell"]}>
       <AppSidebar
-        changeView={dashboard.changeView}
-        expiring={dashboard.expiring}
-        state={dashboard.state}
+        environment={environment}
+        expiring={expiring}
         view={dashboard.view}
+        viewHref={dashboard.viewHref}
       />
       <div className={styles["main-shell"]}>
         <AppHeader
+          environment={environment}
+          lock={dashboard.lock}
           nav={dashboard.nav}
-          perform={dashboard.perform}
           reportFeedback={dashboard.reportFeedback}
-          setLocked={dashboard.setLocked}
-          state={dashboard.state}
         />
         <main className={styles["content"]}>
           <PageHeading
-            bankAccounts={dashboard.bankAccounts}
+            bankAccounts={bankAccounts}
             changeView={dashboard.changeView}
             nav={dashboard.nav}
-            perform={dashboard.perform}
             view={dashboard.view}
           />
-          {dashboard.loadError && (
-            <div className={clsx(ui["notice"], ui["error"])} role="alert">
-              <CircleHelp size={18} />
-              Your data could not be loaded: {dashboard.loadError}
-              <button className={ui["text-button"]} onClick={() => void dashboard.load()}>
-                Retry
-              </button>
-            </div>
-          )}
-          {dashboard.state?.environment === "SANDBOX" && (
+          <LoadErrorNotice message={loadError.message} retry={loadError.retry} />
+          {environment === "SANDBOX" && (
             <div className={styles["sandbox-note"]}>
               <span className={styles["status-dot"]} />
               Sandbox mode: linked banks provide test data. Real accounts require a separate production application.
             </div>
           )}
-          {dashboard.expiring.length > 0 && (
+          {expiring.length > 0 && (
             <div className={clsx(ui["notice"], ui["warning"])}>
               <Link2 size={17} />
-              {dashboard.expiring.length} bank authorization(s) are expiring or have expired.
+              {expiring.length} bank authorization(s) are expiring or have expired.
               <button className={ui["text-button"]} onClick={() => dashboard.changeView("connections")}>
                 Review authorizations <ArrowRight size={14} />
               </button>
             </div>
           )}
-          {!dashboard.state ? (
-            <div className={styles["loading-state"]}>
-              <RefreshCw size={22} className={ui["spinning"]} />{" "}
-              Loading dashboard …
-            </div>
-          ) : (
-            <>
-              {(dashboard.view === "overview" || dashboard.view === "transactions") && (
-                <PeriodControls
-                  currencies={dashboard.currencies}
-                  currency={dashboard.currency}
-                  moveMonth={dashboard.moveMonth}
-                  period={dashboard.period}
-                  selectPeriod={dashboard.selectPeriod}
-                  setCurrency={dashboard.setCurrency}
-                  setPage={dashboard.setPage}
-                  state={dashboard.state}
-                  view={dashboard.view}
-                />
-              )}
-              {dashboard.view === "overview" && (
-                <OverviewView
-                  changeView={dashboard.changeView}
-                  currency={dashboard.currency}
-                  openBank={dashboard.openBank}
-                  selectedCurrencyAccounts={dashboard.selectedCurrencyAccounts}
-                  setModal={dashboard.setModal}
-                  setSelectedAccount={dashboard.setSelectedAccount}
-                  state={dashboard.state}
-                  totalExpenses={dashboard.totalExpenses}
-                  trend={dashboard.trend}
-                  trendMax={dashboard.trendMax}
-                />
-              )}
-              {(dashboard.view === "overview" || dashboard.view === "transactions") && (
-                <TransactionsPanel
-                  accountFilter={dashboard.accountFilter}
-                  busy={dashboard.busy}
-                  categoryFilter={dashboard.categoryFilter}
-                  changeView={dashboard.changeView}
-                  page={dashboard.page}
-                  perform={dashboard.perform}
-                  reportFeedback={dashboard.reportFeedback}
-                  search={dashboard.search}
-                  selectedCurrencyAccounts={dashboard.selectedCurrencyAccounts}
-                  setAccountFilter={dashboard.setAccountFilter}
-                  setCategoryFilter={dashboard.setCategoryFilter}
-                  setImportMode={dashboard.setImportMode}
-                  setModal={dashboard.setModal}
-                  setPage={dashboard.setPage}
-                  setSearch={dashboard.setSearch}
-                  state={dashboard.state}
-                  view={dashboard.view}
-                  visibleTransactions={dashboard.visibleTransactions}
-                />
-              )}
-              {dashboard.view === "accounts" && (
-                <AccountsView
-                  openBank={dashboard.openBank}
-                  setModal={dashboard.setModal}
-                  setSelectedAccount={dashboard.setSelectedAccount}
-                  state={dashboard.state}
-                />
-              )}
-              {dashboard.view === "rules" && (
-                <RulesView
-                  busy={dashboard.busy}
-                  perform={dashboard.perform}
-                  reportFeedback={dashboard.reportFeedback}
-                  setModal={dashboard.setModal}
-                  setSelectedCategory={dashboard.setSelectedCategory}
-                  state={dashboard.state}
-                />
-              )}
-              {dashboard.view === "connections" && (
-                <ConnectionsView
-                  busy={dashboard.busy}
-                  openBank={dashboard.openBank}
-                  openConnectionRemoval={dashboard.openConnectionRemoval}
-                  state={dashboard.state}
-                />
-              )}
-            </>
-          )}
+          {children}
           <footer className={styles["page-footer"]}>
             <span>
               <BrandIcon size={16} /> Ufer
@@ -176,16 +105,16 @@ export default function Dashboard() {
       {dashboard.modal && (
         <DashboardDialogs
           key={dashboard.modal}
+          accounts={accounts.data}
           bankCountry={dashboard.bankCountry}
           bankName={dashboard.bankName}
           bankSearch={dashboard.bankSearch}
           banks={dashboard.banks}
           banksError={dashboard.banksError}
           banksLoading={dashboard.banksLoading}
-          busy={dashboard.busy}
+          environment={environment}
           importMode={dashboard.importMode}
           modal={dashboard.modal}
-          perform={dashboard.perform}
           reportFeedback={dashboard.reportFeedback}
           selectedAccount={dashboard.selectedAccount}
           selectedCategory={dashboard.selectedCategory}
@@ -195,7 +124,6 @@ export default function Dashboard() {
           setBankSearch={dashboard.setBankSearch}
           setImportMode={dashboard.setImportMode}
           setModal={dashboard.setModal}
-          state={dashboard.state}
         />
       )}
       <ActionFeedback
@@ -204,6 +132,28 @@ export default function Dashboard() {
         onDismiss={dashboard.dismissFeedback}
         placement="overlay"
       />
+    </div>
+  );
+}
+
+function LoadErrorNotice({
+  message,
+  retry
+}: {
+  message: string;
+  retry: () => void;
+}) {
+  if (!message) {
+    return null;
+  }
+
+  return (
+    <div className={clsx(ui["notice"], ui["error"])} role="alert">
+      <CircleHelp size={18} />
+      Your data could not be loaded: {message}
+      <button className={ui["text-button"]} onClick={retry}>
+        Retry
+      </button>
     </div>
   );
 }

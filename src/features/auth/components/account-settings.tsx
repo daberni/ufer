@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { X } from "lucide-react";
 import { clsx } from "clsx";
 import { authClient, requireAuthResult } from "@/features/auth/client";
@@ -13,7 +14,6 @@ type Props = {
 
 export function AccountSettings({ onClose }: Props) {
   const ref = useRef<HTMLDialogElement>(null);
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const { data } = authClient.useSession();
@@ -30,7 +30,26 @@ export function AccountSettings({ onClose }: Props) {
     };
   }, []);
 
-  async function changePassword(event: FormEvent<HTMLFormElement>) {
+  // Each action has its own pending state; the message area shows the outcome of the latest one.
+  const passwordChange = useMutation({
+    mutationFn: async (passwords: {
+      currentPassword: string;
+      newPassword: string;
+    }) => requireAuthResult(await authClient.changePassword({
+      ...passwords,
+      revokeOtherSessions: true
+    })),
+    onSuccess: () => setNotice("Password changed. Your other sessions have been signed out."),
+    onError: failure => setError(failure.message || "The password could not be changed.")
+  });
+
+  const otherSessionsSignOut = useMutation({
+    mutationFn: async () => requireAuthResult(await authClient.revokeOtherSessions()),
+    onSuccess: () => setNotice("Your other sessions have been signed out."),
+    onError: failure => setError(failure.message || "The sessions could not be signed out.")
+  });
+
+  function changePassword(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = event.currentTarget;
     const fields = new FormData(form);
@@ -45,38 +64,18 @@ export function AccountSettings({ onClose }: Props) {
       return;
     }
 
-    setBusy(true);
-
-    try {
-      const result = await authClient.changePassword({
-        currentPassword: String(fields.get("currentPassword")),
-        newPassword,
-        revokeOtherSessions: true
-      });
-
-      requireAuthResult(result);
-      form.reset();
-      setNotice("Password changed. Your other sessions have been signed out.");
-    } catch (failure) {
-      setError(failure instanceof Error ? failure.message : "The password could not be changed.");
-    } finally {
-      setBusy(false);
-    }
+    passwordChange.mutate({
+      currentPassword: String(fields.get("currentPassword")),
+      newPassword
+    }, {
+      onSuccess: () => form.reset()
+    });
   }
 
-  async function signOutOthers() {
-    setBusy(true);
+  function signOutOthers() {
     setError("");
     setNotice("");
-
-    try {
-      requireAuthResult(await authClient.revokeOtherSessions());
-      setNotice("Your other sessions have been signed out.");
-    } catch (failure) {
-      setError(failure instanceof Error ? failure.message : "The sessions could not be signed out.");
-    } finally {
-      setBusy(false);
-    }
+    otherSessionsSignOut.mutate();
   }
 
   return (
@@ -136,12 +135,12 @@ export function AccountSettings({ onClose }: Props) {
         <p className={ui["form-hint"]}>Use at least 12 characters. Changing your password signs out your other sessions.</p>
         {error && <p className={ui["error-text"]} role="alert">{error}</p>}
         {notice && <p className={ui.notice} role="status">{notice}</p>}
-        <button className={clsx(ui.button, ui.primary)} disabled={busy}>Change password</button>
+        <button className={clsx(ui.button, ui.primary)} disabled={passwordChange.isPending}>Change password</button>
         <button
           className={clsx(ui.button, ui.secondary)}
           type="button"
           onClick={signOutOthers}
-          disabled={busy}
+          disabled={otherSessionsSignOut.isPending}
         >Sign out other devices</button>
       </form>
     </dialog>

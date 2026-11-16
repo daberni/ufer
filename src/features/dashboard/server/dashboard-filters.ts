@@ -1,5 +1,6 @@
 import { HttpError } from "@/lib/errors";
 import { currentMonthPeriod, parsePeriod } from "@/features/dashboard/period";
+import { parsePage } from "@/features/dashboard/pagination";
 
 function periodFilter(value: string | null) {
   if (!value) {
@@ -19,7 +20,7 @@ export function dashboardFilters(query: URLSearchParams) {
   return {
     period: periodFilter(query.get("period")),
     currency: query.get("currency") || "EUR",
-    page: Math.max(1, Math.min(10000, Math.floor(Number(query.get("page")) || 1))),
+    page: parsePage(query.get("page")),
     search: query.get("search")?.slice(0, 200) || "",
     accountId: query.get("account") || "",
     categoryId: query.get("category") || ""
