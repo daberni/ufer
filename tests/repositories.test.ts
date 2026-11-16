@@ -84,6 +84,36 @@ test("account creation stores exact money and its initial snapshot on the shared
   assert.equal(snapshot?.source, "manual");
 });
 
+test("a new account's balance date starts its history, defaults to today in Vienna and cannot be in the future", async context => {
+  const db = await isolatedDatabase(context);
+  const viennaAfterMidnight = Temporal.Instant.from("2026-03-01T23:30:00Z");
+  const property = {
+    name: "Synthetic property",
+    institution: "Example institution",
+    kind: "property",
+    currency: "EUR",
+    balance: "250000.00"
+  };
+  const dated = await createManualAccount({
+    ...property,
+    date: "2025-06-30"
+  }, viennaAfterMidnight);
+  const undated = await createManualAccount(property, viennaAfterMidnight);
+  const snapshotDate = async (accountId: string) => (await db.select().from(schema.balanceSnapshots).where(eq(schema.balanceSnapshots.account_id, accountId)).get())?.observed_at;
+
+  assert.equal((await findManualAccount(dated.id))?.balance_date, "2025-06-30");
+  assert.equal(await snapshotDate(dated.id), "2025-06-30");
+  assert.equal((await findManualAccount(undated.id))?.balance_date, "2026-03-02");
+  assert.equal(await snapshotDate(undated.id), "2026-03-02");
+
+  await assert.rejects(createManualAccount({
+    ...property,
+    date: "2026-03-03"
+  }, viennaAfterMidnight), ValidationError);
+  assert.equal((await db.select().from(schema.accounts)).length, 2);
+  assert.equal((await db.select().from(schema.balanceSnapshots)).length, 2);
+});
+
 test("invalid provider currencies and identities return provider failures without partial writes", async context => {
   const db = await isolatedDatabase(context);
 

@@ -3,7 +3,6 @@ import { and, eq, isNull, lte, or } from "drizzle-orm";
 import { database } from "@/server/database/connection";
 import { accounts, balanceSnapshots } from "@/server/database/schema";
 import { environment } from "@/features/banking/server/environment";
-import { today } from "@/lib/time";
 import type { ManualAccountInput } from "./account-schema";
 
 export async function findManualAccount(id: string) {
@@ -13,10 +12,9 @@ export async function findManualAccount(id: string) {
   return db.select().from(accounts).where(scope).get();
 }
 
-export async function insertManualAccount(input: ManualAccountInput, amount: number) {
+export async function insertManualAccount(input: ManualAccountInput, amount: number, date: string) {
   const db = await database();
   const id = randomUUID();
-  const date = today().toString();
 
   await db.transaction(async tx => {
     await tx.insert(accounts).values({

@@ -8,7 +8,7 @@ import { ArrowRight } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { BrandIcon } from "@/components/branding/brand-icon";
 import { ShorelineBackdrop } from "@/components/branding/illustrations";
-import { apiGet, failureMessage } from "@/client/api";
+import { apiGet, toFailure } from "@/client/api";
 import { FormError } from "@/components/ui/form-error";
 import { LegalLinks } from "@/features/legal/components/legal-links";
 import { SourceCodeNotice } from "@/features/legal/components/source-code-notice";
@@ -74,7 +74,7 @@ export function LoginForm() {
             required
           />
         </label>
-        <FormError message={signIn.error ? failureMessage(signIn.error) : ""} />
+        <FormError failure={signIn.error ? toFailure(signIn.error) : null} />
         <button className={clsx(styles["button"], ui["primary"])} disabled={signIn.isPending}>
           Open dashboard <ArrowRight size={16} />
         </button>

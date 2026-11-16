@@ -8,6 +8,7 @@ import styles from "./transaction-category.module.css";
 import { Check, CircleAlert, LoaderCircle } from "lucide-react";
 import type { Category } from "@/features/categorization/types";
 import type { Transaction } from "@/features/transactions/types";
+import { TraceId } from "@/components/ui/trace-id";
 import { CategoryPicker } from "@/features/categorization/components/category-picker";
 import { useTransactionCategory } from "@/features/transactions/use-transaction-category";
 
@@ -26,7 +27,7 @@ export function TransactionCategory({
     status,
     change
   } = useTransactionCategory(transaction);
-  const failure = status?.kind === "failed" ? `Category not saved: ${status.message}` : "";
+  const failure = status?.kind === "failed" ? `Category not saved: ${status.failure.message}` : "";
   const announcements = {
     saving: "Saving category …",
     saved: "Category saved.",
@@ -59,7 +60,8 @@ export function TransactionCategory({
       </span>
       {failure && (
         <span id={messageId} className={styles["message"]} title={failure}>
-          {failure}
+          <span className={styles["message-text"]}>{failure}</span>
+          <TraceId id={status?.kind === "failed" ? status.failure.traceId : undefined} />
         </span>
       )}
     </div>

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { UseQueryResult } from "@tanstack/react-query";
-import { failureMessage } from "@/client/api";
+import { toFailure, type Failure } from "@/client/api";
 
 /**
  * Whether an area shows results for the selected filters, is loading them, or could not load them.
@@ -13,8 +13,7 @@ export type ResultStatus = "ready" | "loading" | "unavailable";
 export const loadingDelay = 250;
 
 /** A failed first load as its area reports it. */
-export type LoadFailure = {
-  message: string;
+export type LoadFailure = Failure & {
   retry: () => void;
 };
 
@@ -54,7 +53,7 @@ export function useAreaResult<T>(query: AreaQuery<T>): Area<T> {
     return {
       status: "pending",
       failure: failed ? {
-        message: failureMessage(query.error),
+        ...toFailure(query.error),
         retry: () => void query.refetch()
       } : null
     };
@@ -125,6 +124,7 @@ export function pendingTogether(...areas: Area<unknown>[]): PendingArea {
     status: "pending",
     failure: {
       message: failures[0].message,
+      traceId: failures[0].traceId,
       retry: () => {
         for (const failure of failures) {
           failure.retry();

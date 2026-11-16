@@ -4,6 +4,7 @@ import ui from "./primitives.module.css";
 
 import { clsx } from "clsx";
 import { CircleAlert } from "lucide-react";
+import { TraceId } from "@/components/ui/trace-id";
 import styles from "./area-placeholder.module.css";
 import type { LoadFailure, PendingArea } from "@/components/ui/use-area-result";
 
@@ -51,6 +52,7 @@ export function FailureCover({
         <CircleAlert size={16} aria-hidden="true" />
         {`${subject} could not be loaded: ${failure.message}`}
       </p>
+      <TraceId id={failure.traceId} />
       <button className={ui["text-button"]} type="button" onClick={failure.retry}>
         Retry
       </button>
@@ -71,6 +73,7 @@ export function InlineFailure({
   return (
     <span className={clsx(styles["inline-failure"], className)}>
       {`${subject} could not be loaded.`}
+      <TraceId id={failure.traceId} />
       <button
         className={ui["text-button"]}
         type="button"

@@ -25,6 +25,8 @@ import { useDashboardLock } from "@/client/use-dashboard-lock";
 import { useDashboardNavigation } from "./use-dashboard-navigation";
 import { useChangeView, useCurrency, useView, useViewHref } from "@/client/use-dashboard-url";
 import { useLoadError } from "./use-load-error";
+import { TraceId } from "@/components/ui/trace-id";
+import type { Failure } from "@/client/api";
 
 /** The persistent dashboard shell; the current view route renders inside it. */
 export default function Dashboard({ children }: {
@@ -88,7 +90,7 @@ function DashboardShell({ children }: {
           <PageHeading heading={nav.heading} description={nav.description}>
             <SyncButton bankAccounts={bankAccounts} showConnections={() => changeView("connections")} />
           </PageHeading>
-          <LoadErrorNotice message={loadError.message} retry={loadError.retry} />
+          <LoadErrorNotice failure={loadError.failure} retry={loadError.retry} />
           {environment === "SANDBOX" && (
             <div className={styles["sandbox-note"]}>
               <span className={styles["status-dot"]} />
@@ -148,20 +150,23 @@ function DashboardFooter() {
 }
 
 function LoadErrorNotice({
-  message,
+  failure,
   retry
 }: {
-  message: string;
+  failure: Failure | null;
   retry: () => void;
 }) {
-  if (!message) {
+  if (!failure) {
     return null;
   }
 
   return (
     <div className={clsx(ui["notice"], ui["error"])} role="alert">
       <CircleHelp size={18} />
-      Your data could not be loaded: {message}
+      <span>
+        Your data could not be loaded: {failure.message}
+        <TraceId id={failure.traceId} />
+      </span>
       <button className={ui["text-button"]} onClick={retry}>
         Retry
       </button>

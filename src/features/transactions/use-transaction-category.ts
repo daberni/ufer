@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useMutation, useMutationState, useQueryClient, type QueryClient } from "@tanstack/react-query";
-import { api, failureMessage } from "@/client/api";
+import { api, toFailure, type Failure } from "@/client/api";
 import { invalidate } from "@/client/invalidate";
 import { queryKeys } from "@/client/query-keys";
 import type { Transaction, TransactionPage } from "@/features/transactions/types";
@@ -15,7 +15,7 @@ export type CategorizationStatus = {
   kind: "saved";
 } | {
   kind: "failed";
-  message: string;
+  failure: Failure;
 };
 
 const savedIndicatorDuration = 2000;
@@ -120,7 +120,7 @@ function categorizationStatus(saving: boolean, latest: {
   if (latest?.status === "error") {
     return {
       kind: "failed",
-      message: failureMessage(latest.error)
+      failure: toFailure(latest.error)
     };
   }
 

@@ -144,7 +144,10 @@ test("a failed change restores the stored category and reports the failure at th
   assert.equal(result.current.row.categoryId, "groceries");
   assert.deepEqual(result.current.row.status, {
     kind: "failed",
-    message: "Category does not exist."
+    failure: {
+      message: "Category does not exist.",
+      traceId: undefined
+    }
   });
 });
 
