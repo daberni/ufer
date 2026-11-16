@@ -10,6 +10,7 @@ import { navigation } from "./presentation";
 import { monthPeriod, type Period } from "./period";
 import { dashboardQuery, isPeriodAware, periodScope, viewFromPathname, viewHref as hrefForView, viewPaths, withQueryChanges, type DashboardQueryChanges } from "./dashboard-location";
 import type { Account, Category, View, Modal, Connection } from "./types";
+import { callbackFailureMessage, parseCallbackResult, type CallbackResult } from "@/features/banking/callback-result";
 
 export type ActionResult<T> = {
   ok: true;
@@ -99,13 +100,16 @@ export function useDashboard() {
   // The bank callback returns to the connections view with its result, which is shown once and removed from the URL.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const result = params.get("banking");
+    const result = parseCallbackResult(params.get("banking"));
 
-    if (!result) {
+    if (!params.has("banking")) {
       return;
     }
 
-    reportFeedback(bankingCallbackFeedback(result));
+    if (result) {
+      reportFeedback(bankingCallbackFeedback(result));
+    }
+
     params.delete("banking");
     const rest = params.toString();
 
@@ -278,7 +282,7 @@ export function useDashboard() {
   };
 }
 
-function bankingCallbackFeedback(result: string): Feedback {
+function bankingCallbackFeedback(result: CallbackResult): Feedback {
   if (result === "connected") {
     return {
       tone: "success",
@@ -288,7 +292,7 @@ function bankingCallbackFeedback(result: string): Feedback {
 
   return {
     tone: "problem",
-    messages: [result]
+    messages: [callbackFailureMessage(result)]
   };
 }
 

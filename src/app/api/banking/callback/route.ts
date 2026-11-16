@@ -1,5 +1,6 @@
 import { requireAuth } from "@/features/auth/server/session";
-import { HttpError } from "@/lib/errors";
+import { applicationOrigin } from "@/server/http/origin";
+import { callbackResultForError, type CallbackResult } from "@/features/banking/callback-result";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { completeAuthorization } from "@/features/banking/server/authorization-service";
@@ -10,25 +11,25 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   const query = new URL(request.url).searchParams;
-  const base = process.env.APP_URL || "http://localhost:3000";
-  let result = "connected";
+  const base = applicationOrigin();
+  let result: CallbackResult = "connected";
 
   try {
-    if (query.get("error")) {
-      throw new HttpError(400, "The bank connection was cancelled. Start again.");
-    }
-
+    const state = query.get("state");
+    const code = query.get("code");
     const browser = (await cookies()).get("budget_bank_flow")?.value;
 
-    if (!query.get("state") || !query.get("code") || !browser) {
-      throw new HttpError(400, "The bank callback is incomplete. Reconnect using the same browser.");
+    if (query.get("error")) {
+      result = "cancelled";
+    } else if (!state || !code || !browser) {
+      result = "incomplete";
+    } else {
+      const actor = await requireAuth(request);
+
+      await completeAuthorization(state, browser, code, actor);
     }
-
-    const actor = await requireAuth(request);
-
-    await completeAuthorization(query.get("state")!, browser, query.get("code")!, actor);
   } catch (error) {
-    result = error instanceof HttpError ? error.message : "Bank connection failed.";
+    result = callbackResultForError(error);
   }
 
   const destination = new URL("/connections", base);

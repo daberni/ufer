@@ -13,7 +13,7 @@ import { findManualAccount } from "../src/features/accounts/server/account-repos
 import { setTransactionCategory } from "../src/features/transactions/server/transaction-repository";
 import { insertRule } from "../src/features/categorization/server/rule-repository";
 import { HttpError, ValidationError } from "../src/lib/errors";
-import { applyRulesToUncorrectedTransactions, createCategory, updateCategoryDetails } from "../src/features/categorization/server/categorization-service";
+import { applyRulesToUncorrectedTransactions, createCategory, createRule, updateRuleEnabled, updateCategoryDetails } from "../src/features/categorization/server/categorization-service";
 import { insertAuthorization } from "../src/features/banking/server/connection-repository";
 import { saveAccountSync } from "../src/features/banking/server/account-sync-service";
 import { saveSessionAccounts } from "../src/features/banking/server/bank-account-repository";
@@ -279,6 +279,58 @@ test("category corrections retain environment isolation and manual exclusions su
   assert.equal((await db.select().from(schema.transactions).where(eq(schema.transactions.id, "automatic-entry")).get())?.category_id, "groceries");
   assert.equal((await db.select().from(schema.transactions).where(eq(schema.transactions.id, "transfer-entry")).get())?.category_id, "transfer");
   assert.equal((await db.select().from(schema.balanceSnapshots)).length, 0);
+});
+
+test("applying rules reports only transactions whose category changed", async context => {
+  const db = await isolatedDatabase(context);
+
+  await db.insert(schema.accounts).values({
+    id: "local",
+    environment: "SANDBOX",
+    name: "Synthetic local account",
+    institution: "Example institution",
+    kind: "checking"
+  });
+  await db.insert(schema.transactions).values(["one", "two", "three"].map((id, index) => ({
+    id,
+    account_id: "local",
+    provider_reference: `synthetic-${id}`,
+    booking_date: "2000-01-10",
+    amount_minor: -100,
+    currency: "EUR",
+    counterparty: index === 2 ? "Unmatched" : "Supermarket",
+    category_id: index === 0 ? "groceries" : null
+  })));
+  await insertRule({
+    name: "Groceries",
+    pattern: "Supermarket",
+    mode: "keyword",
+    category_id: "groceries",
+    priority: 10,
+    enabled: true
+  });
+
+  assert.deepEqual(await applyRulesToUncorrectedTransactions(), {
+    updated: 1
+  });
+  assert.deepEqual(await applyRulesToUncorrectedTransactions(), {
+    updated: 0
+  });
+});
+
+test("rule toggling answers 404 for unknown ids and invalid patterns are validation errors", async context => {
+  await isolatedDatabase(context);
+
+  await assert.rejects(updateRuleEnabled("missing", {
+    enabled: false
+  }), error => error instanceof HttpError && error.status === 404);
+  await assert.rejects(createRule({
+    name: "Broken",
+    pattern: "(?<=secret)test",
+    mode: "regex",
+    category_id: "groceries",
+    priority: 1
+  }), ValidationError);
 });
 
 test("bank authorization uses real SQL defaults and preserves unique callback state", async context => {
