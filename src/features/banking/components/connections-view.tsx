@@ -3,6 +3,7 @@
 import ui from "../../../components/ui/primitives.module.css";
 
 import { clsx } from "clsx";
+import Link from "next/link";
 import styles from "./connections-view.module.css";
 import { Landmark, Link2, Plus, ShieldCheck, Trash2 } from "lucide-react";
 import { TimestampValue } from "@/components/ui/date-value";
@@ -11,7 +12,7 @@ import { BridgeIllustration } from "@/components/branding/illustrations";
 import type { BankingStatus, Connection, SyncRun } from "@/features/dashboard/types";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
 
-type Props = Pick<DashboardController, "openBank" | "openConnectionRemoval"> & {
+type Props = Pick<DashboardController, "openBank" | "openConnectionRemoval" | "syncRunHref"> & {
   banking: BankingStatus;
   connections: Connection[];
   syncRuns: SyncRun[];
@@ -22,6 +23,7 @@ export function ConnectionsView({
   connections,
   openBank,
   openConnectionRemoval,
+  syncRunHref,
   syncRuns
 }: Props) {
   return (
@@ -104,7 +106,7 @@ export function ConnectionsView({
             <div className={styles["sync-row"]} key={run.id}>
               <span><TimestampValue value={run.started_at} /></span>
               <span className={styles["pill"]}>{run.status}</span>
-              <span>{run.inserted_count} new transactions</span>
+              <SyncRunTransactions href={syncRunHref} run={run} />
               {run.error && <p className={ui["error-text"]}>{run.error}</p>}
             </div>
           ))}
@@ -112,4 +114,25 @@ export function ConnectionsView({
       )}
     </>
   );
+}
+
+/** Links a run to the transactions it imported; runs recorded before syncs stamped their transactions cannot be traced. */
+function SyncRunTransactions({
+  href,
+  run
+}: {
+  href: (id: string) => string;
+  run: SyncRun;
+}) {
+  const label = (count: number) => `${count} new ${count === 1 ? "transaction" : "transactions"}`;
+
+  if (run.linked_count > 0) {
+    return <Link className={styles["transactions-link"]} href={href(run.id)}>{label(run.linked_count)}</Link>;
+  }
+
+  if (run.inserted_count > 0) {
+    return <span>{label(run.inserted_count)} · not traceable to this sync</span>;
+  }
+
+  return <span>No new transactions</span>;
 }

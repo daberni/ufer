@@ -66,6 +66,8 @@ export type SyncRun = {
   started_at: string;
   status: string;
   inserted_count: number;
+  /** Transactions traceable to the run; zero for runs recorded before syncs stamped their rows. */
+  linked_count: number;
   error: string | null;
 };
 
@@ -107,6 +109,8 @@ export type CashFlow = {
 export type TransactionPage = {
   period: PeriodJson;
   page: number;
+  /** The run selected by the sync run filter; null without that filter and for unknown runs. */
+  syncRun: Pick<SyncRun, "id" | "started_at" | "status" | "inserted_count"> | null;
   /** Matches across all pages. */
   transactionCount: number;
   transactions: Transaction[];

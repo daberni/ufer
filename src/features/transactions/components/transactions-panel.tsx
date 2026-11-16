@@ -3,6 +3,7 @@
 import ui from "../../../components/ui/primitives.module.css";
 
 import { clsx } from "clsx";
+import type { ReactNode } from "react";
 import styles from "./transactions-panel.module.css";
 import { ArrowDownToLine, ArrowRight, Search } from "lucide-react";
 import { Empty } from "@/components/ui/empty-state";
@@ -17,9 +18,11 @@ import type { Account, Category, TransactionPage } from "@/features/dashboard/ty
 
 type Props = Pick<DashboardController, "accountFilter" | "categoryFilter" | "changeView" | "search" | "setAccountFilter" | "setCategoryFilter" | "setImportMode" | "setModal" | "setPage" | "setSearch" | "view"> & {
   categories: Category[];
-  /** Accounts in the display currency, offered as a filter. */
-  currencyAccounts: Account[];
+  /** Accounts offered as a filter. */
+  filterAccounts: Account[];
   list: AreaResult<TransactionPage>;
+  /** Replaces the first-use empty state, such as for a selected sync run without listed transactions. */
+  emptyState?: ReactNode;
   /** The page shown, after correcting a page past the last one. */
   page: number;
 };
@@ -31,7 +34,8 @@ export function TransactionsPanel({
   categories,
   categoryFilter,
   changeView,
-  currencyAccounts,
+  emptyState,
+  filterAccounts,
   list,
   page,
   search,
@@ -91,7 +95,7 @@ export function TransactionsPanel({
             onChange={event => setAccountFilter(event.target.value)}
           >
             <option value="">All accounts</option>
-            {currencyAccounts.map(account => (
+            {filterAccounts.map(account => (
               <option key={account.id} value={account.id}>
                 {account.name}
               </option>
@@ -113,7 +117,7 @@ export function TransactionsPanel({
         </div>
       )}
       <div {...areaProps(list.status)}>
-        {visibleTransactions.length ? <TransactionList categories={categories} transactions={visibleTransactions} /> : noMatches && <Empty title="Your financial history starts here.">Connect a bank account and sync, or import your existing transactions from CSV.</Empty>}
+        {visibleTransactions.length ? <TransactionList categories={categories} transactions={visibleTransactions} /> : noMatches && (emptyState ?? <Empty title="Your financial history starts here.">Connect a bank account and sync, or import your existing transactions from CSV.</Empty>)}
       </div>
       {view === "transactions" && transactionCount > transactionPageSize && (
         <div className={styles["pagination"]}>

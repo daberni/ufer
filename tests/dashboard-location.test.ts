@@ -27,7 +27,7 @@ test("a filter change resets pagination and leaves default values out of the URL
 });
 
 test("the transaction list filters apply only to the transactions view", () => {
-  const params = new URLSearchParams("period=2026-10&currency=USD&search=rent&account=acc-1&category=home&page=2");
+  const params = new URLSearchParams("period=2026-10&currency=USD&search=rent&account=acc-1&category=home&syncRun=run-1&page=2");
   const scope = periodScope(params);
   const overview = dashboardQuery("overview", scope, params);
   const transactions = dashboardQuery("transactions", scope, params);
@@ -35,8 +35,12 @@ test("the transaction list filters apply only to the transactions view", () => {
   assert.equal(scope, "period=2026-10&currency=USD");
   assert.equal(serializePeriod(overview.period), "2026-10");
   assert.equal(overview.currency, "USD");
-  assert.deepEqual([overview.search, overview.account, overview.category, overview.page], ["", "", "", 1]);
-  assert.deepEqual([transactions.search, transactions.account, transactions.category, transactions.page], ["rent", "acc-1", "home", 2]);
+  assert.deepEqual([overview.search, overview.account, overview.category, overview.syncRun, overview.page], ["", "", "", "", 1]);
+  assert.deepEqual([transactions.search, transactions.account, transactions.category, transactions.syncRun, transactions.page], ["rent", "acc-1", "home", "run-1", 2]);
+  assert.equal(withQueryChanges("/transactions", "?period=2026-10&syncRun=run-1&page=2", {
+    syncRun: "",
+    page: 1
+  }), "/transactions?period=2026-10");
 });
 
 test("views without a period link back to the period the user selected", () => {
