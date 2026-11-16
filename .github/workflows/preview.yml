@@ -14,10 +14,11 @@ concurrency:
 
 jobs:
   deploy:
-    # Only maintainers can set labels, and fork pull requests never receive the token.
+    # Only maintainers can set labels. Fork pull requests and Dependabot pushes never receive the token; relabel to deploy a Dependabot update.
     if: >-
       contains(github.event.pull_request.labels.*.name, 'preview')
       && github.event.pull_request.head.repo.full_name == github.repository
+      && github.actor != 'dependabot[bot]'
       && (github.event.action != 'labeled' || github.event.label.name == 'preview')
     runs-on: ubuntu-latest
     env:
