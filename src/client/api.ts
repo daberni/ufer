@@ -17,9 +17,33 @@ export function errorStatus(error: unknown) {
   return undefined;
 }
 
+/** A failed request as shown to the user: the message, plus the server's trace ID for failures support can look up. */
+export type Failure = {
+  message: string;
+  traceId?: string;
+};
+
 // User-facing text for a failed request; API failures carry the Problem Details detail or title.
 export function failureMessage(error: unknown) {
   return error instanceof Error ? error.message : "Request failed.";
+}
+
+/** The trace ID of a server failure (status 500 and above); validation and other client failures have none to show. */
+export function failureTraceId(error: unknown) {
+  const status = errorStatus(error);
+
+  if (error instanceof Error && "traceId" in error && typeof error.traceId === "string" && status !== undefined && status >= 500) {
+    return error.traceId;
+  }
+
+  return undefined;
+}
+
+export function toFailure(error: unknown): Failure {
+  return {
+    message: failureMessage(error),
+    traceId: failureTraceId(error)
+  };
 }
 
 async function send<T>(path: string, init: RequestInit): Promise<T> {
@@ -30,8 +54,15 @@ async function send<T>(path: string, init: RequestInit): Promise<T> {
   const data = await readJson(response);
 
   if (!response.ok) {
-    throw apiError(isRecord(data) ? data : {
+    const headerTraceId = response.headers.get("x-trace-id") ?? undefined;
+    // A JSON body without a detail or title is not Problem Details, for example an intermediary's own error object.
+    const problem = isRecord(data) && (typeof data.detail === "string" || typeof data.title === "string") ? data : {
       detail: `The server could not complete the request (HTTP ${response.status}).`
+    };
+
+    throw apiError({
+      ...problem,
+      traceId: typeof problem.traceId === "string" ? problem.traceId : headerTraceId
     }, response.status);
   }
 

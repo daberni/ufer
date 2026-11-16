@@ -9,6 +9,7 @@ export type SyncProblem = {
   title: string;
   buttonLabel: string;
   note: string;
+  traceId?: string;
   failures: SyncFailure[];
 };
 
@@ -97,10 +98,11 @@ function completedStatus(result: ActionResult<SyncOutcome>): SyncStatus {
       problem: {
         title: "Sync failed",
         buttonLabel: "last sync failed",
-        note: result.message,
+        note: result.failure.message,
+        traceId: result.failure.traceId,
         failures: []
       },
-      assertiveAnnouncement: `Sync failed: ${result.message}`
+      assertiveAnnouncement: `Sync failed: ${result.failure.message}`
     };
   }
 

@@ -2,7 +2,7 @@
 
 import type { FormEvent } from "react";
 import type { UseMutationResult } from "@tanstack/react-query";
-import { failureMessage } from "@/client/api";
+import { toFailure } from "@/client/api";
 
 /**
  * Submits a dialog form through its mutation. The dialog closes once the write and the refresh of the affected data have finished, leaving the refreshed data as confirmation; failures stay inside the open dialog.
@@ -19,7 +19,7 @@ export function useDialogSubmit<TData, TVariables>(mutation: UseMutationResult<T
   }
 
   return {
-    error: mutation.error ? failureMessage(mutation.error) : "",
+    error: mutation.error ? toFailure(mutation.error) : null,
     pending: mutation.isPending,
     submit
   };

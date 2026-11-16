@@ -1,11 +1,11 @@
-import { failureMessage } from "./api";
+import { toFailure, type Failure } from "./api";
 
 export type ActionResult<T> = {
   ok: true;
   value: T;
 } | {
   ok: false;
-  message: string;
+  failure: Failure;
 };
 
 /** Waits for an action, such as a mutation, and turns its failure into a message for the place where the action was started. */
@@ -18,7 +18,7 @@ export async function settle<T>(action: Promise<T>): Promise<ActionResult<T>> {
   } catch (error) {
     return {
       ok: false,
-      message: failureMessage(error)
+      failure: toFailure(error)
     };
   }
 }

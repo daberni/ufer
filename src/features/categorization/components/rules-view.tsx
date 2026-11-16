@@ -56,7 +56,8 @@ export function RulesView({
       messages: ["Rules applied. Manual assignments have been preserved."]
     } : {
       tone: "problem",
-      messages: [`Rules could not be applied: ${result.message}`]
+      messages: [`Rules could not be applied: ${result.failure.message}`],
+      traceId: result.failure.traceId
     });
   }
 
@@ -67,7 +68,8 @@ export function RulesView({
     if (!result.ok) {
       reportFeedback({
         tone: "problem",
-        messages: [`Rule “${rule.name}” could not be ${rule.enabled ? "disabled" : "enabled"}: ${result.message}`]
+        messages: [`Rule “${rule.name}” could not be ${rule.enabled ? "disabled" : "enabled"}: ${result.failure.message}`],
+        traceId: result.failure.traceId
       });
     }
   }

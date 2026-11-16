@@ -1,7 +1,7 @@
 "use client";
 
 import { useReducer } from "react";
-import { failureMessage } from "@/client/api";
+import { toFailure } from "@/client/api";
 import type { Connection } from "@/features/dashboard/types";
 import { changeBankSelection, chosenBankName, defaultBankCountry, type BankSelection } from "./bank-selection";
 import { useBanks, useConnections } from "./queries";
@@ -35,7 +35,7 @@ export function useBankDirectory(reauthorized: Connection | null) {
     banks,
     bankName: chosenBankName(selection, banks),
     loading: directory.isPending,
-    error: directory.isError ? failureMessage(directory.error) : "",
+    error: directory.isError ? toFailure(directory.error) : null,
     setCountry: (country: string) => dispatch({
       type: "country",
       country
