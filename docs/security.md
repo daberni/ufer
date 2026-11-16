@@ -10,6 +10,12 @@ Ufer separately requires active membership of the existing installation workspac
 
 Origin checks apply to writes, including sign-in and sign-out. Authentication failures retain Problem Details and trace IDs alongside the fields required by the maintained library client. Provider/library secrets and raw failures are not logged. Authentication rate limits are described [below](#authentication-rate-limits).
 
+## Session lifetime and revocation
+
+A session ends after 24 hours without use: `expiresIn` is one day and activity renews it at most once an hour (`updateAge`). This rolling window replaces the previous seven-day window. Better Auth 1.7.25 offers either an absolute lifetime or an inactivity window that renews without an upper bound, not both; the operator chose the inactivity window for daily use, so a stolen session cookie stays usable as long as it is used at least once a day, until sign-out, a password change or revocation from the account dialog. An absolute lifetime (for example OWASP ASVS 4.0.3 requirement 3.3.2 at level 2: 12 hours) would cap that exposure at the cost of signing in again every day.
+
+Every password change revokes all of the user's sessions and issues a fresh one to the browser that made the change. A `before` hook in the [library configuration](../src/features/auth/server/auth.ts) sets the library's `revokeOtherSessions` option on every change-password call, so a client that omits or declines it cannot keep other sessions alive. Operator password recovery revokes every session through `revokeSessionsOnPasswordReset`. Users can additionally sign out other devices or a single session from the account dialog.
+
 ## Authentication rate limits
 
 Better Auth stores rate-limit counters in the database, keyed by client address and endpoint, so they persist across instances. Sign-in and password changes allow ten requests per client in a fifteen-minute window; other authentication endpoints use the library defaults.
@@ -61,4 +67,4 @@ The other headers are a Permissions-Policy that disables browser features Ufer d
 | Persisted secret format and token primitives | `src/server/security/` |
 | Scheduler access and coordination | `src/server/jobs/` |
 
-Tests exercise real library-managed signup/sign-in, duplicate and concurrent enrollment, membership denial/revocation, cookie integrity/expiry, logout, password/session revocation, persistent rate limiting across instances, per-client counting through the configured trusted header, ignored forged forwarded headers and the maintained client's Problem Details handling. Provider JWTs, stored-secret integrity and actor-bound single-use bank callbacks have separate regression coverage. These checks do not establish live deployment acceptance, multi-customer isolation, SSO support or independent security certification.
+Tests exercise real library-managed signup/sign-in, duplicate and concurrent enrollment, membership denial/revocation, cookie integrity/expiry, logout, password/session revocation enforced regardless of the client's revocation flag, persistent rate limiting across instances, per-client counting through the configured trusted header, ignored forged forwarded headers and the maintained client's Problem Details handling. Provider JWTs, stored-secret integrity and actor-bound single-use bank callbacks have separate regression coverage. These checks do not establish live deployment acceptance, multi-customer isolation, SSO support or independent security certification.
