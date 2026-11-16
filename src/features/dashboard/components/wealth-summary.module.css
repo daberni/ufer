@@ -136,6 +136,7 @@
   color: var(--muted);
 }
 .month-card {
+  position: relative;
   border: 1px solid var(--border);
   background: var(--surface);
   border-radius: 12px;
