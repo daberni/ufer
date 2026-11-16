@@ -77,7 +77,7 @@ export async function expireConnection(db: Database, id: string) {
 
 export async function recordEmptyConnection(db: Database, id: string) {
   await db.update(requisitions).set({
-    error: "No accounts were authorized. Restricted production applications require accounts to be linked in the provider control panel first."
+    error: "No accounts were authorized. Link the accounts in the provider control panel first, then reconnect."
   }).where(and(eq(requisitions.id, id), ne(requisitions.status, "REMOVED")));
 }
 

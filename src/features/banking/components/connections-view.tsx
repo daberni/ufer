@@ -26,10 +26,12 @@ export function ConnectionsView({
   syncRunHref,
   syncRuns
 }: Props) {
+  const sandbox = banking.environment === "SANDBOX";
+
   return (
     <>
       <div className={ui["section-heading"]}>
-        <span className={ui["section-kicker"]}>ENABLE BANKING · {banking.environment}</span>
+        <span className={ui["section-kicker"]}>ENABLE BANKING{sandbox && " · SANDBOX"}</span>
         <button className={clsx(styles["button"], ui["primary"])} onClick={() => openBank()}>
           <Plus size={15} />
           Connect bank
@@ -89,11 +91,11 @@ export function ConnectionsView({
             action={(
               <button className={clsx(styles["button"], ui["primary"])} onClick={() => openBank()}>
                 <Link2 size={15} />
-                Select sandbox bank
+                {sandbox ? "Select sandbox bank" : "Connect your bank"}
               </button>
             )}
           >
-            Choose an available sandbox bank to test the complete flow with synthetic data.
+            {sandbox ? "Choose an available sandbox bank to test the complete flow with synthetic data." : "Authorize read-only access with your bank to import accounts and transactions."}
           </Empty>
         )}
       </section>

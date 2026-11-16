@@ -84,7 +84,7 @@ function DashboardShell({ children }: {
           {environment === "SANDBOX" && (
             <div className={styles["sandbox-note"]}>
               <span className={styles["status-dot"]} />
-              Sandbox mode: linked banks provide test data. Real accounts require a separate production application.
+              Sandbox mode: linked banks provide synthetic test data.
             </div>
           )}
           {expiring.length > 0 && (

@@ -41,7 +41,7 @@ export function BankConnectionForm({
       }))}
       className={ui["form"]}
     >
-      <p className={ui["form-description"]}>{environment === "SANDBOX" ? "You are connecting a test bank. Use only its sandbox credentials." : "After selecting a bank, authorize read-only access with your bank."}</p>
+      <p className={ui["form-description"]}>{environment === "SANDBOX" ? "You are connecting a test bank. Use only its test credentials." : "After selecting a bank, authorize read-only access with your bank."}</p>
       <label>
         Country
         <Select value={bankCountry} onChange={event => setBankCountry(event.target.value)}>
@@ -73,7 +73,7 @@ export function BankConnectionForm({
           ))}
         </Select>
       </label>
-      {!banksLoading && !banksError && !banks.length && <p className={ui["form-description"]}>No personal bank is available for this country. Sandbox institutions can differ from production institutions.</p>}
+      {!banksLoading && !banksError && !banks.length && <p className={ui["form-description"]}>No personal bank is available for this country.</p>}
       <FormError message={banksError || error} />
       <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={pending || !bankName || banksLoading}>
         Authorize with bank <ArrowRight size={16} />
