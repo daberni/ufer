@@ -11,17 +11,30 @@ import { DateValue } from "@/components/ui/date-value";
 import { money } from "@/lib/money";
 import { Empty } from "@/components/ui/empty-state";
 import type { Account } from "@/features/dashboard/types";
-import { useDashboardStore } from "@/features/dashboard/dashboard-store";
+import { useState } from "react";
+import { BankConnectionDialog } from "@/features/banking/components/bank-connection-form";
+import { CreateAccountDialog } from "./create-account-form";
+import { ValuationDialog } from "./valuation-form";
 
 type Props = {
   accounts: Account[];
 };
 
+type OpenDialog = {
+  kind: "account";
+} | {
+  kind: "bank";
+} | {
+  kind: "balance";
+  account: Account;
+};
+
 export function AccountsView({
   accounts
 }: Props) {
-  const openDialog = useDashboardStore(state => state.openDialog);
-  const addAccount = () => openDialog({
+  const [dialog, setDialog] = useState<OpenDialog | null>(null);
+  const closeDialog = () => setDialog(null);
+  const addAccount = () => setDialog({
     kind: "account"
   });
 
@@ -36,9 +49,8 @@ export function AccountsView({
           </button>
           <button
             className={clsx(ui["button"], ui["primary"])}
-            onClick={() => openDialog({
-              kind: "bank",
-              connection: null
+            onClick={() => setDialog({
+              kind: "bank"
             })}
           >
             <Link2 size={15} />
@@ -70,7 +82,7 @@ export function AccountsView({
                 {account.provider === "manual" && (
                   <button
                     className={clsx(ui["button"], ui["full-width"])}
-                    onClick={() => openDialog({
+                    onClick={() => setDialog({
                       kind: "balance",
                       account
                     })}
@@ -97,6 +109,9 @@ export function AccountsView({
           </Empty>
         </section>
       )}
+      {dialog?.kind === "account" && <CreateAccountDialog close={closeDialog} />}
+      {dialog?.kind === "bank" && <BankConnectionDialog connection={null} close={closeDialog} />}
+      {dialog?.kind === "balance" && <ValuationDialog selectedAccount={dialog.account} close={closeDialog} />}
     </>
   );
 }

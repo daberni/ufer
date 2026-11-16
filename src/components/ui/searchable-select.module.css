@@ -6,7 +6,21 @@
 }
 /* Room for the toggle button, which sits inside the field's right edge. */
 .input {
+  width: 100%;
   padding-right: 44px;
+}
+/* The selected option's icon sits inside the field's left edge while the field shows that option. */
+.selected-icon {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 12px;
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+}
+.input.with-icon {
+  padding-left: 40px;
 }
 .toggle {
   position: absolute;
@@ -26,20 +40,27 @@
 .toggle[aria-expanded="true"] svg {
   transform: rotate(180deg);
 }
-/* The list opens in the surrounding flow, so neither a dialog nor a phone's on-screen keyboard can cover it. */
+/* The list is a top-layer popover; its position, width limits and maximum height follow the field and the visible viewport. */
 .popup {
-  margin-top: 6px;
+  position: fixed;
+  inset: auto;
+  width: max-content;
+  margin: 0;
   padding: 4px;
+  overflow: hidden;
   border: 1px solid var(--border);
   border-radius: 9px;
   background: var(--surface-raised);
   color: var(--ink);
   box-shadow: 0 8px 24px var(--shadow-color);
 }
-.popup[hidden] {
-  display: none;
+.popup:popover-open {
+  display: flex;
+  flex-direction: column;
 }
 .listbox {
+  flex: 0 1 auto;
+  min-height: 0;
   max-height: 18rem;
   margin: 0;
   padding: 0;

@@ -11,7 +11,9 @@ import { TimestampValue } from "@/components/ui/date-value";
 import { Empty } from "@/components/ui/empty-state";
 import { BridgeIllustration } from "@/components/branding/illustrations";
 import type { BankingConfiguration, Connection, SyncRun } from "@/features/dashboard/types";
-import { useDashboardStore } from "@/features/dashboard/dashboard-store";
+import { useState } from "react";
+import { BankConnectionDialog } from "./bank-connection-form";
+import { RemoveConnectionDialog } from "./remove-connection-form";
 import { useSyncRunHref } from "@/features/dashboard/use-dashboard-url";
 
 type Props = {
@@ -20,14 +22,24 @@ type Props = {
   syncRuns: SyncRun[];
 };
 
+type OpenDialog = {
+  kind: "bank";
+  /** The connection to reauthorize; null connects a new bank. */
+  connection: Connection | null;
+} | {
+  kind: "removeConnection";
+  connection: Connection;
+};
+
 export function ConnectionsView({
   banking,
   connections,
   syncRuns
 }: Props) {
-  const openDialog = useDashboardStore(state => state.openDialog);
+  const [dialog, setDialog] = useState<OpenDialog | null>(null);
+  const closeDialog = () => setDialog(null);
   const syncRunHref = useSyncRunHref();
-  const openBank = (connection: Connection | null = null) => openDialog({
+  const openBank = (connection: Connection | null = null) => setDialog({
     kind: "bank",
     connection
   });
@@ -79,7 +91,7 @@ export function ConnectionsView({
                   </button>
                   <button
                     className={clsx(styles["button"], ui["small"])}
-                    onClick={() => openDialog({
+                    onClick={() => setDialog({
                       kind: "removeConnection",
                       connection
                     })}
@@ -122,6 +134,8 @@ export function ConnectionsView({
           ))}
         </section>
       )}
+      {dialog?.kind === "bank" && <BankConnectionDialog connection={dialog.connection} close={closeDialog} />}
+      {dialog?.kind === "removeConnection" && <RemoveConnectionDialog selectedConnection={dialog.connection} close={closeDialog} />}
     </>
   );
 }

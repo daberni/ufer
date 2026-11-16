@@ -7,6 +7,7 @@ import { useId, useRef, useState } from "react";
 import styles from "./sync-button.module.css";
 import { Check, RefreshCw } from "lucide-react";
 import { LiveAnnouncements } from "@/components/ui/live-announcements";
+import { useDismiss } from "@/components/ui/use-dismiss";
 import { SyncProblemDetails } from "@/features/banking/components/sync-problem-details";
 import { useSyncStatus, type SyncPhase, type SyncProblem } from "@/features/banking/use-sync-status";
 import type { Account } from "@/features/dashboard/types";
@@ -59,6 +60,13 @@ export function SyncButton({
 
     sync();
   }
+
+  // The container also holds the badge, so pressing it toggles the details instead of dismissing and reopening them.
+  useDismiss({
+    active: Boolean(problem) && detailsOpen,
+    inside: [container],
+    onDismiss: dismissal => closeDetails(dismissal.focusInside)
+  });
 
   function closeDetails(restoreFocus: boolean) {
     setDetailsOpen(false);
@@ -117,9 +125,7 @@ export function SyncButton({
       {problem && detailsOpen && (
         <SyncProblemDetails
           id={detailsId}
-          boundary={container}
           problem={problem}
-          onClose={closeDetails}
           onDismiss={dismiss}
           onOpenConnections={openConnections}
         />

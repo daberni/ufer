@@ -12,7 +12,6 @@ import { useFeedbackDismissal } from "@/components/ui/use-action-feedback";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { AppHeader } from "@/components/layout/app-header";
 import { PageHeading } from "@/features/dashboard/components/page-heading";
-import { DashboardDialogs } from "@/features/dashboard/components/dashboard-dialogs";
 import { ViewLoading } from "@/features/dashboard/components/view-loading";
 import { LoginForm } from "@/features/auth/components/login-form";
 import { LegalLinks } from "@/features/legal/components/legal-links";
@@ -107,7 +106,6 @@ function DashboardShell({ children }: {
           <DashboardFooter />
         </main>
       </div>
-      <DashboardDialogs accounts={accounts.data} environment={environment} />
       <PageFeedback />
     </div>
   );

@@ -6,23 +6,34 @@ import { clsx } from "clsx";
 import { useState } from "react";
 import styles from "./csv-import-form.module.css";
 import { ArrowDownToLine } from "lucide-react";
-import type { Account } from "@/features/dashboard/types";
 import { useDialogSubmit, type DialogFormProps } from "@/features/dashboard/use-dialog-submit";
 import { useCsvImport, type ImportMode } from "@/features/imports/mutations";
 import { FormError } from "@/components/ui/form-error";
 import { Select } from "@/components/ui/select";
+import { Dialog } from "@/components/ui/dialog";
+import { useAccounts } from "@/features/accounts/queries";
 
 type Props = DialogFormProps & {
-  accounts: Account[];
   initialMode: ImportMode;
 };
 
-export function CsvImportForm({
-  accounts,
+export function CsvImportDialog({
+  close,
+  initialMode
+}: Props) {
+  return (
+    <Dialog eyebrow="YOUR FINANCES" title="Import CSV" onClose={close}>
+      <CsvImportForm close={close} initialMode={initialMode} />
+    </Dialog>
+  );
+}
+
+function CsvImportForm({
   close,
   initialMode
 }: Props) {
   const [importMode, setImportMode] = useState(initialMode);
+  const accounts = useAccounts().data ?? [];
   const manualAccounts = accounts.filter(account => account.provider === "manual");
   const {
     error,

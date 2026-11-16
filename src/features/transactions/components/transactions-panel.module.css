@@ -28,16 +28,9 @@
   min-height: 36px;
 }
 
-/* The category filter chip stretches to the filter row's height and uses the account filter's corners. */
 .category-filter {
-  align-self: stretch;
+  width: 14rem;
   max-width: 16rem;
-  border-radius: 7px;
-}
-.category-filter > * {
-  min-height: 36px;
-  padding-inline: 11px;
-  border-radius: 7px;
 }
 .search-field {
   display: flex !important;
@@ -113,12 +106,8 @@
   }
   .filters .category-filter {
     flex: 1 1 100%;
+    width: 100%;
     max-width: 100%;
-  }
-  .filters .category-filter > * {
-    flex: 1;
-    min-height: 46px;
-    font-size: var(--text-md);
   }
   .pagination {
     flex-wrap: wrap;

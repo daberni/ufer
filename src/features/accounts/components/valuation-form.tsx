@@ -9,12 +9,24 @@ import { useDialogSubmit, type DialogFormProps } from "@/features/dashboard/use-
 import { useSaveValuation } from "@/features/accounts/mutations";
 import { FormError } from "@/components/ui/form-error";
 import { today } from "@/lib/time";
+import { Dialog } from "@/components/ui/dialog";
 
 type Props = DialogFormProps & {
   selectedAccount: Account;
 };
 
-export function ValuationForm({
+export function ValuationDialog({
+  close,
+  selectedAccount
+}: Props) {
+  return (
+    <Dialog eyebrow="YOUR FINANCES" title="Update balance" onClose={close}>
+      <ValuationForm close={close} selectedAccount={selectedAccount} />
+    </Dialog>
+  );
+}
+
+function ValuationForm({
   close,
   selectedAccount
 }: Props) {

@@ -6,21 +6,33 @@ import { Trash2 } from "lucide-react";
 import styles from "./remove-connection-form.module.css";
 import { FormError } from "@/components/ui/form-error";
 import type { Feedback } from "@/components/ui/use-action-feedback";
-import type { Account, Connection, ConnectionRemoval } from "@/features/dashboard/types";
+import type { Connection, ConnectionRemoval } from "@/features/dashboard/types";
 import { useDashboardStore } from "@/features/dashboard/dashboard-store";
 import { useDialogSubmit, type DialogFormProps } from "@/features/dashboard/use-dialog-submit";
 import { useRemoveConnection } from "@/features/banking/mutations";
+import { useAccounts } from "@/features/accounts/queries";
+import { Dialog } from "@/components/ui/dialog";
 
 type Props = DialogFormProps & {
-  accounts: Account[];
   selectedConnection: Connection;
 };
 
-export function RemoveConnectionForm({
-  accounts,
+export function RemoveConnectionDialog({
   close,
   selectedConnection
 }: Props) {
+  return (
+    <Dialog eyebrow="YOUR FINANCES" title="Remove connection" onClose={close}>
+      <RemoveConnectionForm close={close} selectedConnection={selectedConnection} />
+    </Dialog>
+  );
+}
+
+function RemoveConnectionForm({
+  close,
+  selectedConnection
+}: Props) {
+  const accounts = useAccounts().data ?? [];
   const reportFeedback = useDashboardStore(state => state.reportFeedback);
   const {
     error,

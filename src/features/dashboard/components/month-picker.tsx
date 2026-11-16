@@ -6,6 +6,7 @@ import styles from "./month-picker.module.css";
 import clsx from "clsx";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
+import { useDismiss } from "@/components/ui/use-dismiss";
 import type { KeyboardEvent } from "react";
 import { Temporal } from "temporal-polyfill";
 import { currentMonth } from "@/features/dashboard/period";
@@ -35,21 +36,17 @@ export function MonthPicker({
   const dialogId = useId();
   const now = currentMonth();
 
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
+  useDismiss({
+    active: open,
+    inside: [rootRef],
+    onDismiss: dismissal => {
+      setOpen(false);
 
-    function closeOnOutsidePointer(event: PointerEvent) {
-      if (rootRef.current && !rootRef.current.contains(event.target as Node)) {
-        setOpen(false);
+      if (dismissal.focusInside) {
+        triggerRef.current?.focus();
       }
     }
-
-    document.addEventListener("pointerdown", closeOnOutsidePointer);
-
-    return () => document.removeEventListener("pointerdown", closeOnOutsidePointer);
-  }, [open]);
+  });
 
   useEffect(() => {
     if (open) {
@@ -83,13 +80,6 @@ export function MonthPicker({
     gridRef.current?.querySelector<HTMLButtonElement>(`button[data-month='${month}']`)?.focus();
   }
 
-  function handleDialogKeyDown(event: KeyboardEvent) {
-    if (event.key === "Escape") {
-      event.stopPropagation();
-      close();
-    }
-  }
-
   function handleGridKeyDown(event: KeyboardEvent) {
     const offsets: Record<string, number> = {
       ArrowLeft: -1,
@@ -120,7 +110,7 @@ export function MonthPicker({
   }
 
   return (
-    <div className={styles["root"]} ref={rootRef} onKeyDown={handleDialogKeyDown}>
+    <div className={styles["root"]} ref={rootRef}>
       <button
         ref={triggerRef}
         type="button"

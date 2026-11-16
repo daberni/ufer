@@ -11,7 +11,10 @@ import { DateValue } from "@/components/ui/date-value";
 import { useBankingConfiguration } from "@/features/banking/banking-configuration";
 import { money } from "@/lib/money";
 import type { Account } from "@/features/dashboard/types";
-import { useDashboardStore } from "@/features/dashboard/dashboard-store";
+import { useState } from "react";
+import { BankConnectionDialog } from "@/features/banking/components/bank-connection-form";
+import { CreateAccountDialog } from "./create-account-form";
+import { ValuationDialog } from "./valuation-form";
 import { useChangeView } from "@/features/dashboard/use-dashboard-url";
 
 type Props = {
@@ -19,10 +22,20 @@ type Props = {
   currencyAccounts: Account[];
 };
 
+type OpenDialog = {
+  kind: "account";
+} | {
+  kind: "bank";
+} | {
+  kind: "balance";
+  account: Account;
+};
+
 export function OverviewAccounts({
   currencyAccounts
 }: Props) {
-  const openDialog = useDashboardStore(state => state.openDialog);
+  const [dialog, setDialog] = useState<OpenDialog | null>(null);
+  const closeDialog = () => setDialog(null);
   const changeView = useChangeView();
   const sandbox = useBankingConfiguration().environment === "SANDBOX";
 
@@ -47,7 +60,7 @@ export function OverviewAccounts({
                 key={account.id}
                 onClick={() => {
                   if (account.provider === "manual") {
-                    openDialog({
+                    setDialog({
                       kind: "balance",
                       account
                     });
@@ -86,9 +99,8 @@ export function OverviewAccounts({
           </div>
           <button
             className={clsx(styles["button"], ui["primary"])}
-            onClick={() => openDialog({
-              kind: "bank",
-              connection: null
+            onClick={() => setDialog({
+              kind: "bank"
             })}
           >
             <Plus size={15} />
@@ -96,7 +108,7 @@ export function OverviewAccounts({
           </button>
           <button
             className={styles["button"]}
-            onClick={() => openDialog({
+            onClick={() => setDialog({
               kind: "account"
             })}
           >
@@ -104,6 +116,9 @@ export function OverviewAccounts({
           </button>
         </div>
       )}
+      {dialog?.kind === "account" && <CreateAccountDialog close={closeDialog} />}
+      {dialog?.kind === "bank" && <BankConnectionDialog connection={null} close={closeDialog} />}
+      {dialog?.kind === "balance" && <ValuationDialog selectedAccount={dialog.account} close={closeDialog} />}
     </section>
   );
 }

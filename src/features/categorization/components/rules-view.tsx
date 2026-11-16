@@ -12,18 +12,30 @@ import type { Category, Rule } from "@/features/dashboard/types";
 import { settle } from "@/client/settle";
 import { useDashboardStore } from "@/features/dashboard/dashboard-store";
 import { useApplyRules, useToggleRule, useTogglingRules } from "@/features/categorization/mutations";
+import { useState } from "react";
 import { CategoryChip } from "./category-chip";
+import { CategoryDialog } from "./category-form";
+import { CreateRuleDialog } from "./create-rule-form";
 
 type Props = {
   categories: Category[];
   rules: Rule[];
 };
 
+type OpenDialog = {
+  kind: "rule";
+} | {
+  kind: "category";
+  /** The category to edit; null adds one. */
+  category: Category | null;
+};
+
 export function RulesView({
   categories,
   rules
 }: Props) {
-  const openDialog = useDashboardStore(state => state.openDialog);
+  const [dialog, setDialog] = useState<OpenDialog | null>(null);
+  const closeDialog = () => setDialog(null);
   const reportFeedback = useDashboardStore(state => state.reportFeedback);
   const applyFeedback = useActionFeedback();
   const apply = useApplyRules();
@@ -72,7 +84,7 @@ export function RulesView({
           </button>
           <button
             className={clsx(ui["button"], ui["primary"])}
-            onClick={() => openDialog({
+            onClick={() => setDialog({
               kind: "rule"
             })}
           >
@@ -127,8 +139,9 @@ export function RulesView({
         <h2>Your categories</h2>
         <button
           className={clsx(ui["button"], ui["small"])}
-          onClick={() => openDialog({
-            kind: "category"
+          onClick={() => setDialog({
+            kind: "category",
+            category: null
           })}
         >
           <Plus size={14} />
@@ -141,8 +154,8 @@ export function RulesView({
             className={styles["category-chip"]}
             key={category.id}
             aria-label={`Edit category ${category.name}`}
-            onClick={() => openDialog({
-              kind: "editCategory",
+            onClick={() => setDialog({
+              kind: "category",
               category
             })}
           >
@@ -153,6 +166,8 @@ export function RulesView({
           </button>
         ))}
       </div>
+      {dialog?.kind === "rule" && <CreateRuleDialog close={closeDialog} />}
+      {dialog?.kind === "category" && <CategoryDialog category={dialog.category} close={closeDialog} />}
     </>
   );
 }

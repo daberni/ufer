@@ -4,35 +4,6 @@ import { createContext, useContext, useState } from "react";
 import { useStore } from "zustand";
 import { createStore, type StoreApi } from "zustand/vanilla";
 import type { Feedback } from "@/components/ui/use-action-feedback";
-import type { ImportMode } from "@/features/imports/mutations";
-import type { Account, Category, Connection } from "./types";
-
-/** A dialog with the data it needs; it cannot be opened without that data. */
-export type DashboardDialog = {
-  kind: "account";
-} | {
-  kind: "bank";
-  /** The connection to reauthorize; null connects a new bank. */
-  connection: Connection | null;
-} | {
-  kind: "removeConnection";
-  connection: Connection;
-} | {
-  kind: "rule";
-} | {
-  kind: "import";
-  mode: ImportMode;
-} | {
-  kind: "balance";
-  account: Account;
-} | {
-  kind: "category";
-} | {
-  kind: "editCategory";
-  category: Category;
-};
-
-export type DialogKind = DashboardDialog["kind"];
 
 /** A value that belongs to the view it was created on. */
 type ViewBound<T> = {
@@ -41,7 +12,6 @@ type ViewBound<T> = {
 };
 
 export type DashboardState = {
-  dialog: ViewBound<DashboardDialog> | null;
   /** Page-level feedback for results without a surviving trigger, such as a bank callback. */
   feedback: ViewBound<Feedback> | null;
   /** Whether the sign-in form replaces the dashboard. */
@@ -51,11 +21,9 @@ export type DashboardState = {
 };
 
 export type DashboardActions = {
-  openDialog: (dialog: DashboardDialog) => void;
-  closeDialog: () => void;
   reportFeedback: (feedback: Feedback) => void;
   dismissFeedback: () => void;
-  /** Drops the dialog and feedback of other views after a navigation, including Back and Forward. */
+  /** Drops the feedback of other views after a navigation, including Back and Forward. */
   enterView: (pathname: string) => void;
   rememberPeriodScope: (scope: string) => void;
   lock: () => void;
@@ -65,25 +33,15 @@ export type DashboardActions = {
 export type DashboardStore = DashboardState & DashboardActions;
 
 const initialState: DashboardState = {
-  dialog: null,
   feedback: null,
   locked: false,
   periodScope: ""
 };
 
-/** `currentPathname` tells actions which view they were triggered on; dialogs and feedback are opened from that view's event handlers. */
+/** `currentPathname` tells actions which view they were triggered on; feedback is reported from that view's event handlers. */
 export function createDashboardStore(currentPathname = () => window.location.pathname) {
   return createStore<DashboardStore>()(set => ({
     ...initialState,
-    openDialog: dialog => set({
-      dialog: {
-        value: dialog,
-        pathname: currentPathname()
-      }
-    }),
-    closeDialog: () => set({
-      dialog: null
-    }),
     reportFeedback: feedback => set({
       feedback: {
         value: feedback,
@@ -94,7 +52,6 @@ export function createDashboardStore(currentPathname = () => window.location.pat
       feedback: null
     }),
     enterView: pathname => set(state => ({
-      dialog: state.dialog?.pathname === pathname ? state.dialog : null,
       feedback: state.feedback?.pathname === pathname ? state.feedback : null
     })),
     rememberPeriodScope: scope => set({
@@ -102,7 +59,6 @@ export function createDashboardStore(currentPathname = () => window.location.pat
     }),
     lock: () => set({
       locked: true,
-      dialog: null,
       feedback: null
     }),
     unlock: () => set({

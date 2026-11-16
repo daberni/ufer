@@ -12,6 +12,7 @@ import { useSaveCategory } from "@/features/categorization/mutations";
 import { FormError } from "@/components/ui/form-error";
 import { CategoryChip } from "./category-chip";
 import { CategoryIconPicker } from "./category-icon-picker";
+import { Dialog } from "@/components/ui/dialog";
 
 type Props = DialogFormProps & {
   category?: Category | null;
@@ -19,7 +20,19 @@ type Props = DialogFormProps & {
 
 const defaultColor = "#638777";
 
-export function CategoryForm({
+/** Adds a category, or edits the given one. */
+export function CategoryDialog({
+  category,
+  close
+}: Props) {
+  return (
+    <Dialog eyebrow="YOUR FINANCES" title={category ? "Edit category" : "Add category"} onClose={close}>
+      <CategoryForm category={category} close={close} />
+    </Dialog>
+  );
+}
+
+function CategoryForm({
   category,
   close
 }: Props) {

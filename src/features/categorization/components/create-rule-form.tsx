@@ -11,8 +11,17 @@ import { useCategories } from "@/features/categorization/queries";
 import { FormError } from "@/components/ui/form-error";
 import { Select } from "@/components/ui/select";
 import { CategoryPicker } from "./category-picker";
+import { Dialog } from "@/components/ui/dialog";
 
-export function CreateRuleForm({ close }: DialogFormProps) {
+export function CreateRuleDialog({ close }: DialogFormProps) {
+  return (
+    <Dialog eyebrow="YOUR FINANCES" title="Create rule" onClose={close}>
+      <CreateRuleForm close={close} />
+    </Dialog>
+  );
+}
+
+function CreateRuleForm({ close }: DialogFormProps) {
   const categories = useCategories();
   const {
     error,
@@ -76,7 +85,6 @@ export function CreateRuleForm({ close }: DialogFormProps) {
           name="category_id"
           categories={categories.data ?? []}
           value={categoryId}
-          size="medium"
           onChange={setChosenCategoryId}
         />
       </div>

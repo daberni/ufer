@@ -3,12 +3,12 @@
 import ui from "../../../components/ui/primitives.module.css";
 
 import { clsx } from "clsx";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import styles from "./transactions-panel.module.css";
 import { ArrowDownToLine, ArrowRight, Search } from "lucide-react";
 import { Empty } from "@/components/ui/empty-state";
 import { TransactionList } from "@/features/transactions/components/transaction-list";
-import { useDashboardStore } from "@/features/dashboard/dashboard-store";
+import { CsvImportDialog } from "@/features/imports/components/csv-import-form";
 import { setAccountFilter, setCategoryFilter, setPage, setSearch, useAccountFilter, useCategoryFilter, useChangeView, useSearchFilter } from "@/features/dashboard/use-dashboard-url";
 import { Select } from "@/components/ui/select";
 import { anyCategory, CategoryPicker, type CategoryPickerValue } from "@/features/categorization/components/category-picker";
@@ -57,7 +57,7 @@ export function TransactionsPanel({
   page,
   view
 }: Props) {
-  const openDialog = useDashboardStore(state => state.openDialog);
+  const [importOpen, setImportOpen] = useState(false);
   const changeView = useChangeView();
   const {
     transactionCount,
@@ -79,10 +79,7 @@ export function TransactionsPanel({
         ) : (
           <button
             className={clsx(styles["button"], ui["small"])}
-            onClick={() => openDialog({
-              kind: "import",
-              mode: "transactions"
-            })}
+            onClick={() => setImportOpen(true)}
           >
             <ArrowDownToLine size={14} />
             Import CSV
@@ -106,6 +103,7 @@ export function TransactionsPanel({
           </button>
         </div>
       )}
+      {importOpen && <CsvImportDialog initialMode="transactions" close={() => setImportOpen(false)} />}
     </section>
   );
 }

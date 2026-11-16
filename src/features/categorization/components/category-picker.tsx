@@ -1,13 +1,15 @@
 "use client";
 
-import chipStyles from "./category-chip.module.css";
+import ui from "../../../components/ui/primitives.module.css";
+
 import styles from "./category-picker.module.css";
 import { clsx } from "clsx";
-import { Check, ChevronDown, Pin } from "lucide-react";
-import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
-import type { KeyboardEvent } from "react";
-import { pickerKeyAction, popoverPlacement, typeaheadIndex } from "@/features/categorization/category-picker-behavior";
-import { CategoryChip, manualAssignmentHint, type CategoryChipSize, type ChipCategory, type NeutralChip } from "./category-chip";
+import { Pin } from "lucide-react";
+import { useId, useState } from "react";
+import { SearchableSelect, type SearchableSelectOption } from "@/components/ui/searchable-select";
+import { neutralChipColor } from "@/features/categorization/category-colors";
+import { manualAssignmentHint, type ChipCategory } from "./category-chip";
+import { CategoryMarker } from "./category-marker";
 
 export type PickerCategory = ChipCategory & {
   id: string;
@@ -34,7 +36,6 @@ type Props = ValueProps & {
   /** Offers "Uncategorized", chosen by null. */
   includeUncategorized?: boolean;
   manual?: boolean;
-  size?: CategoryChipSize;
   /** Submits the chosen category ID with a surrounding form. */
   name?: string;
   id?: string;
@@ -46,49 +47,44 @@ type Props = ValueProps & {
   className?: string;
 };
 
-type Option = {
-  key: string;
-  value: CategoryPickerValue;
-  chip: ChipCategory | NeutralChip;
-  label: string;
+const categoryNoun = {
+  one: "category",
+  other: "categories"
 };
 
+function neutralOption(key: string, value: CategoryPickerValue, label: string): SearchableSelectOption<CategoryPickerValue> {
+  return {
+    key,
+    value,
+    label,
+    icon: <CategoryMarker icon={null} color={neutralChipColor} />
+  };
+}
+
 function pickerOptions(categories: readonly PickerCategory[], includeAll: boolean, includeUncategorized: boolean) {
-  const options: Option[] = [];
+  const options: SearchableSelectOption<CategoryPickerValue>[] = [];
 
   if (includeAll) {
-    options.push({
-      key: "all-categories",
-      value: anyCategory,
-      chip: "all-categories",
-      label: "All categories"
-    });
+    options.push(neutralOption("all-categories", anyCategory, "All categories"));
   }
 
   if (includeUncategorized) {
-    options.push({
-      key: "uncategorized",
-      value: null,
-      chip: "uncategorized",
-      label: "Uncategorized"
-    });
+    options.push(neutralOption("uncategorized", null, "Uncategorized"));
   }
 
   for (const category of categories) {
     options.push({
       key: category.id,
       value: category.id,
-      chip: category,
-      label: category.name
+      label: category.name,
+      icon: <CategoryMarker icon={category.icon} color={category.color} />
     });
   }
 
   return options;
 }
 
-const typeaheadResetMs = 500;
-
-/** A select-only combobox whose closed control and options are category chips. */
+/** A searchable select of categories; typing narrows the list and only a picked option changes the category. */
 export function CategoryPicker({
   categories,
   value,
@@ -96,7 +92,6 @@ export function CategoryPicker({
   includeAll = false,
   includeUncategorized = false,
   manual = false,
-  size = "small",
   name,
   id,
   "aria-label": ariaLabel,
@@ -105,247 +100,60 @@ export function CategoryPicker({
   "aria-describedby": ariaDescribedBy,
   className
 }: Props) {
-  const [open, setOpen] = useState(false);
-  const [activeIndex, setActiveIndex] = useState(0);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const popoverRef = useRef<HTMLDivElement>(null);
-  const listboxRef = useRef<HTMLUListElement>(null);
-  const typeaheadRef = useRef({
-    query: "",
-    timeout: 0
-  });
-  const listboxId = useId();
-  const noteId = useId();
+  const generatedId = useId();
+  const manualHintId = useId();
+  // A typed search; null while the field shows the selected category.
+  const [search, setSearch] = useState<string | null>(null);
   const options = pickerOptions(categories, includeAll, includeUncategorized);
-  const labels = options.map(option => option.label);
-  const selectedIndex = options.findIndex(option => option.value === value);
+  const selected = options.find(option => Object.is(option.value, value));
+  const describedBy = clsx(ariaDescribedBy, manual && manualHintId) || undefined;
 
-  const place = useCallback(() => {
-    const trigger = triggerRef.current;
-    const popover = popoverRef.current;
+  function choose(next: CategoryPickerValue) {
+    setSearch(null);
 
-    if (!trigger || !popover) {
-      return;
-    }
-
-    const anchor = trigger.getBoundingClientRect();
-
-    popover.style.minWidth = `${anchor.width}px`;
-    popover.style.maxHeight = "";
-
-    const placement = popoverPlacement(anchor, {
-      width: popover.offsetWidth,
-      height: popover.offsetHeight
-    }, {
-      width: document.documentElement.clientWidth,
-      height: window.innerHeight
-    });
-
-    popover.style.top = `${placement.top}px`;
-    popover.style.left = `${placement.left}px`;
-    popover.style.maxHeight = `${placement.maxHeight}px`;
-  }, []);
-
-  // The popover joins the top layer, so table overflow and modal dialogs neither clip nor cover it.
-  useLayoutEffect(() => {
-    if (!open) {
-      return;
-    }
-
-    popoverRef.current?.showPopover?.();
-    place();
-  }, [open, place]);
-
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-
-    function closeOnOutsidePointer(event: PointerEvent) {
-      const target = event.target as Node;
-      const insideTrigger = triggerRef.current?.contains(target);
-      const insidePopover = popoverRef.current?.contains(target);
-
-      if (!insideTrigger && !insidePopover) {
-        setOpen(false);
-      }
-    }
-
-    function placeUnlessListScrolled(event: Event) {
-      if (event.target !== listboxRef.current) {
-        place();
-      }
-    }
-
-    document.addEventListener("pointerdown", closeOnOutsidePointer);
-    document.addEventListener("scroll", placeUnlessListScrolled, true);
-    window.addEventListener("resize", place);
-
-    return () => {
-      document.removeEventListener("pointerdown", closeOnOutsidePointer);
-      document.removeEventListener("scroll", placeUnlessListScrolled, true);
-      window.removeEventListener("resize", place);
-    };
-  }, [open, place]);
-
-  useEffect(() => {
-    if (open) {
-      listboxRef.current?.querySelector("[data-active]")?.scrollIntoView({
-        block: "nearest"
-      });
-    }
-  }, [open, activeIndex]);
-
-  function openAt(index: number) {
-    setActiveIndex(index);
-    setOpen(true);
-    triggerRef.current?.focus();
-  }
-
-  function toggle() {
-    if (open) {
-      setOpen(false);
-    } else {
-      openAt(Math.max(selectedIndex, 0));
-    }
-  }
-
-  function choose(index: number) {
-    const option = options[index];
-
-    setOpen(false);
-    triggerRef.current?.focus();
-
-    if (option && option.value !== value) {
+    if (!Object.is(next, value)) {
       // The offered values always match the onChange variant that includeAll selects.
-      (onChange as (next: CategoryPickerValue) => void)(option.value);
+      (onChange as (next: CategoryPickerValue) => void)(next);
     }
   }
-
-  function typeahead(character: string) {
-    const typing = typeaheadRef.current;
-    const startIndex = open ? activeIndex : Math.max(selectedIndex, 0);
-
-    window.clearTimeout(typing.timeout);
-    typing.query += character;
-    typing.timeout = window.setTimeout(() => {
-      typing.query = "";
-    }, typeaheadResetMs);
-
-    const match = typeaheadIndex(labels, typing.query, startIndex);
-
-    if (!open) {
-      openAt(match >= 0 ? match : startIndex);
-
-      return;
-    }
-
-    if (match >= 0) {
-      setActiveIndex(match);
-    }
-  }
-
-  function handleKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
-    const action = pickerKeyAction(event, {
-      open,
-      activeIndex,
-      selectedIndex,
-      optionCount: options.length,
-      typing: typeaheadRef.current.query !== ""
-    });
-
-    if (action.type === "none") {
-      return;
-    }
-
-    // Tab still moves focus; every other handled key must not scroll the page, click the button or close a surrounding dialog.
-    if (event.key !== "Tab") {
-      event.preventDefault();
-    }
-
-    event.stopPropagation();
-
-    switch (action.type) {
-      case "open":
-        openAt(action.activeIndex);
-        break;
-      case "move":
-        setActiveIndex(action.activeIndex);
-        break;
-      case "select":
-        choose(activeIndex);
-        break;
-      case "close":
-        setOpen(false);
-        break;
-      case "typeahead":
-        typeahead(action.character);
-        break;
-    }
-  }
-
-  const optionId = (index: number) => `${listboxId}-option-${index}`;
 
   return (
-    <>
-      <button
-        ref={triggerRef}
-        id={id}
-        type="button"
-        role="combobox"
-        className={clsx(chipStyles["chip-button"], styles["trigger"], className)}
+    <div
+      className={clsx(styles["picker"], className)}
+      onBlur={event => {
+        // An unfinished search is dropped when focus leaves, so the field shows the category that is actually set.
+        if (!event.currentTarget.contains(event.relatedTarget)) {
+          setSearch(null);
+        }
+      }}
+    >
+      <SearchableSelect
+        id={id ?? generatedId}
+        options={options}
+        value={value}
+        onChange={choose}
+        query={search ?? selected?.label ?? ""}
+        onQueryChange={setSearch}
+        noun={categoryNoun}
+        placeholder="Search categories"
+        busy={ariaBusy}
         aria-label={ariaLabel}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        aria-controls={open ? listboxId : undefined}
-        aria-activedescendant={open ? optionId(activeIndex) : undefined}
-        aria-busy={ariaBusy}
         aria-invalid={ariaInvalid}
-        aria-describedby={ariaDescribedBy}
-        title={options[selectedIndex]?.label}
-        onClick={toggle}
-        onKeyDown={handleKeyDown}
-      >
-        <CategoryChip category={options[selectedIndex]?.chip ?? "uncategorized"} size={size} manual={manual}>
-          <ChevronDown className={styles["chevron"]} aria-hidden="true" strokeWidth={2.2} />
-        </CategoryChip>
-      </button>
-      {name && <input type="hidden" name={name} value={typeof value === "string" ? value : ""} />}
-      {open && (
-        <div ref={popoverRef} className={styles["popover"]} popover="manual">
-          <ul
-            ref={listboxRef}
-            id={listboxId}
-            className={styles["listbox"]}
-            role="listbox"
-            aria-label="Categories"
-            aria-describedby={manual ? noteId : undefined}
-            onMouseDown={event => event.preventDefault()}
-          >
-            {options.map((option, index) => (
-              <li
-                key={option.key}
-                id={optionId(index)}
-                className={styles["option"]}
-                role="option"
-                aria-selected={index === selectedIndex}
-                data-active={index === activeIndex ? "" : undefined}
-                onPointerMove={() => setActiveIndex(index)}
-                onClick={() => choose(index)}
-              >
-                <CategoryChip className={styles["option-chip"]} category={option.chip} size={size} />
-                {index === selectedIndex && <Check className={styles["check"]} aria-hidden="true" strokeWidth={2.4} />}
-              </li>
-            ))}
-          </ul>
-          {manual && (
-            <p id={noteId} className={styles["note"]}>
-              <Pin className={styles["note-icon"]} aria-hidden="true" strokeWidth={2.2} />
-              {manualAssignmentHint}.
-            </p>
-          )}
-        </div>
+        aria-describedby={describedBy}
+        footer={manual && (
+          <p className={styles["note"]}>
+            <Pin className={styles["note-icon"]} aria-hidden="true" strokeWidth={2.2} />
+            {manualAssignmentHint}.
+          </p>
+        )}
+      />
+      {manual && (
+        <span className={styles["manual"]} title={manualAssignmentHint}>
+          <Pin className={styles["note-icon"]} aria-hidden="true" strokeWidth={2.2} />
+          <span id={manualHintId} className={ui["visually-hidden"]}>{manualAssignmentHint}</span>
+        </span>
       )}
-    </>
+      {name && <input type="hidden" name={name} value={typeof value === "string" ? value : ""} />}
+    </div>
   );
 }
