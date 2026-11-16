@@ -13,7 +13,8 @@ import { useAreaResult } from "@/features/dashboard/use-area-result";
 import { useCashFlow } from "@/features/dashboard/queries";
 import { accountGroups, useAccounts, useNetWorth } from "@/features/accounts/queries";
 import { useCategories, useRules } from "@/features/categorization/queries";
-import { useBankingStatus, useConnections, useSyncRuns } from "@/features/banking/queries";
+import { useBankingConfiguration } from "@/features/banking/banking-configuration";
+import { useConnections, useSyncRuns } from "@/features/banking/queries";
 import { useTransactionListView } from "@/features/transactions/use-transaction-list-view";
 
 /*
@@ -204,17 +205,17 @@ export function RulesPage() {
 
 export function ConnectionsPage() {
   const dashboard = useDashboardController();
-  const banking = useBankingStatus();
+  const banking = useBankingConfiguration();
   const connections = useConnections();
   const syncRuns = useSyncRuns();
 
-  if (!banking.data || !connections.data || !syncRuns.data) {
-    return <ViewLoading failed={firstLoadFailed(banking, connections, syncRuns)} />;
+  if (!connections.data || !syncRuns.data) {
+    return <ViewLoading failed={firstLoadFailed(connections, syncRuns)} />;
   }
 
   return (
     <ConnectionsView
-      banking={banking.data}
+      banking={banking}
       connections={connections.data}
       openBank={dashboard.openBank}
       openConnectionRemoval={dashboard.openConnectionRemoval}

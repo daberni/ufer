@@ -22,7 +22,7 @@ export function AppHeader({
         <strong>{nav.label}</strong>
       </span>
       <div>
-        <span className={styles["environment-pill"]}>{environment === "PRODUCTION" ? "PRODUCTION" : "SANDBOX"}</span>
+        {environment === "SANDBOX" && <span className={styles["environment-pill"]}>SANDBOX</span>}
         <UserAccess lock={lock} reportFeedback={reportFeedback} />
       </div>
     </header>
