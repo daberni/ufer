@@ -21,9 +21,10 @@ jobs:
       && github.event.pull_request.head.repo.full_name == github.repository
       && (github.event.action != 'labeled' || github.event.label.name == 'preview')
     runs-on: ubuntu-latest
+    # Account identifiers stay out of the repository; they are repository variables.
     env:
-      VERCEL_ORG_ID: team_z36VQ6TLnxe3DL8xDBU71UMS
-      VERCEL_PROJECT_ID: prj_rI7MsAu8GRAApzBehGmbTO3hHNcu
+      VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
