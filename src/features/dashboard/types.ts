@@ -71,8 +71,9 @@ export type SyncRun = {
   error: string | null;
 };
 
-export type BankingStatus = {
-  environment: string;
+/** Banking settings of this deployment; constant for the lifetime of a server process. */
+export type BankingConfiguration = {
+  environment: "SANDBOX" | "PRODUCTION";
   configured: boolean;
 };
 

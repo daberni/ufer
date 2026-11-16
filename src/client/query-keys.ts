@@ -33,7 +33,6 @@ export const queryKeys = {
     cashFlowFor: (filters: CashFlowFilters) => ["reports", "cash-flow", filters] as const
   },
   banking: {
-    status: () => ["banking", "status"] as const,
     banks: (country: string) => ["banking", "banks", country] as const,
     connections: () => ["banking", "connections"] as const,
     syncRuns: () => ["banking", "sync-runs"] as const

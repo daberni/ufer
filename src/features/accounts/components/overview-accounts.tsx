@@ -8,6 +8,7 @@ import styles from "./overview-accounts.module.css";
 import { ArrowRight, Landmark, Plus } from "lucide-react";
 import { accountIcon, kinds, accountSyncLabel } from "@/features/dashboard/presentation";
 import { DateValue } from "@/components/ui/date-value";
+import { useBankingConfiguration } from "@/features/banking/banking-configuration";
 import { money } from "@/lib/money";
 import type { Account } from "@/features/dashboard/types";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
@@ -24,6 +25,8 @@ export function OverviewAccounts({
   setModal,
   setSelectedAccount
 }: Props) {
+  const sandbox = useBankingConfiguration().environment === "SANDBOX";
+
   return (
     <section className={styles["accounts-section"]}>
       <div className={styles["section-heading"]}>
@@ -79,7 +82,7 @@ export function OverviewAccounts({
           </span>
           <div>
             <h3>Your overview starts with your first account.</h3>
-            <p>Connect a sandbox bank, or manually add accounts, investments, property and debts.</p>
+            <p>{sandbox ? "Connect a sandbox bank" : "Connect your bank"}, or manually add accounts, investments, property and debts.</p>
           </div>
           <button className={clsx(styles["button"], ui["primary"])} onClick={() => openBank()}>
             <Plus size={15} />

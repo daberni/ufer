@@ -70,10 +70,12 @@ export function AppSidebar({
             Bank access through Enable Banking.
           </p>
         </div>
-        <span className={styles["sidebar-foot"]}>
-          <span className={ui["status-dot"]} />
-          {environment === "PRODUCTION" ? "Production data" : "Sandbox · test data"}
-        </span>
+        {environment === "SANDBOX" && (
+          <span className={styles["sidebar-foot"]}>
+            <span className={ui["status-dot"]} />
+            Sandbox · test data
+          </span>
+        )}
       </div>
     </aside>
   );

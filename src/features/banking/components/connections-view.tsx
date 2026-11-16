@@ -9,11 +9,11 @@ import { Landmark, Link2, Plus, ShieldCheck, Trash2 } from "lucide-react";
 import { TimestampValue } from "@/components/ui/date-value";
 import { Empty } from "@/components/ui/empty-state";
 import { BridgeIllustration } from "@/components/branding/illustrations";
-import type { BankingStatus, Connection, SyncRun } from "@/features/dashboard/types";
+import type { BankingConfiguration, Connection, SyncRun } from "@/features/dashboard/types";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
 
 type Props = Pick<DashboardController, "openBank" | "openConnectionRemoval" | "syncRunHref"> & {
-  banking: BankingStatus;
+  banking: BankingConfiguration;
   connections: Connection[];
   syncRuns: SyncRun[];
 };
@@ -26,10 +26,12 @@ export function ConnectionsView({
   syncRunHref,
   syncRuns
 }: Props) {
+  const sandbox = banking.environment === "SANDBOX";
+
   return (
     <>
       <div className={ui["section-heading"]}>
-        <span className={ui["section-kicker"]}>ENABLE BANKING · {banking.environment}</span>
+        <span className={ui["section-kicker"]}>ENABLE BANKING{sandbox && " · SANDBOX"}</span>
         <button className={clsx(styles["button"], ui["primary"])} onClick={() => openBank()}>
           <Plus size={15} />
           Connect bank
@@ -89,11 +91,11 @@ export function ConnectionsView({
             action={(
               <button className={clsx(styles["button"], ui["primary"])} onClick={() => openBank()}>
                 <Link2 size={15} />
-                Select sandbox bank
+                {sandbox ? "Select sandbox bank" : "Connect your bank"}
               </button>
             )}
           >
-            Choose an available sandbox bank to test the complete flow with synthetic data.
+            {sandbox ? "Choose an available sandbox bank to test the complete flow with synthetic data." : "Authorize read-only access with your bank to import accounts and transactions."}
           </Empty>
         )}
       </section>
