@@ -11,7 +11,7 @@ import { useActionFeedback } from "@/components/ui/use-action-feedback";
 import type { Category, Rule } from "@/features/dashboard/types";
 import { settle, type DashboardController } from "@/features/dashboard/use-dashboard";
 import { useApplyRules, useToggleRule, useTogglingRules } from "@/features/categorization/mutations";
-import { CategoryMarker } from "./category-marker";
+import { CategoryChip } from "./category-chip";
 
 type Props = Pick<DashboardController, "reportFeedback" | "setModal" | "setSelectedCategory"> & {
   categories: Category[];
@@ -94,15 +94,15 @@ export function RulesView({
                     <code>{rule.pattern}</code> · {rule.mode === "keyword" ? "Keyword" : "Regex"}
                   </p>
                 </div>
-                <span
-                  className={styles["pill"]}
-                  style={{
-                    color: rule.category_color
+                <CategoryChip
+                  className={styles["rule-category"]}
+                  category={{
+                    name: rule.category_name,
+                    color: rule.category_color,
+                    icon: rule.category_icon
                   }}
-                >
-                  <CategoryMarker icon={rule.category_icon} color={rule.category_color} size="small" />
-                  {rule.category_name}
-                </span>
+                  size="small"
+                />
                 <button
                   className={clsx(styles["toggle"], rule.enabled ? styles["enabled"] : "")}
                   role="switch"
@@ -136,10 +136,10 @@ export function RulesView({
               setModal("editCategory");
             }}
           >
-            <CategoryMarker icon={category.icon} color={category.color} />
-            {category.name}
-            {category.is_transfer ? " · excluded from cash flow" : ""}
-            <Pencil className={styles["edit-hint"]} aria-hidden="true" size={11} />
+            <CategoryChip category={category}>
+              {category.is_transfer ? <span className={styles["chip-detail"]}>· excluded from cash flow</span> : null}
+              <Pencil className={styles["edit-hint"]} aria-hidden="true" strokeWidth={2.2} />
+            </CategoryChip>
           </button>
         ))}
       </div>

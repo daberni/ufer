@@ -33,6 +33,9 @@ export function browser(context: TestContext, url = "http://localhost/") {
   const pending: PendingRequest[] = [];
   const queryClient = createQueryClient();
 
+  // jsdom has no layout; scrolling an element into view is a no-op there.
+  dom.window.HTMLElement.prototype.scrollIntoView = () => {};
+
   for (const [key, value] of Object.entries(globals)) {
     Object.defineProperty(globalThis, key, {
       configurable: true,

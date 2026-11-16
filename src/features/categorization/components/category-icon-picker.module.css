@@ -5,7 +5,7 @@
   min-width: 0;
 }
 .icon-picker legend {
-  font-size: 11px;
+  font-size: var(--text-xs);
   color: #77876b;
   padding: 0;
   margin-bottom: 8px;
@@ -53,6 +53,12 @@
   opacity: 0;
   cursor: pointer;
 }
+/* The same dot a category chip shows when its category has no icon. */
+.no-icon {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
 .icon-label {
   position: absolute;
   width: 1px;
@@ -66,7 +72,7 @@
     margin: 20px 0;
   }
   .icon-picker legend {
-    font-size: 14px;
+    font-size: var(--text-md);
   }
   .icon-options {
     grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));

@@ -1,45 +1,18 @@
 import styles from "./category-marker.module.css";
-import { clsx } from "clsx";
-import { ArrowLeftRight, Banknote, Car, GraduationCap, Gift, HeartPulse, House, PiggyBank, Plane, Receipt, ShoppingBag, ShoppingBasket, Tag, Ticket, UtensilsCrossed, Zap, type LucideIcon } from "lucide-react";
-import { isCategoryIcon, type CategoryIconKey } from "@/features/categorization/category-icons";
+import { isCategoryIcon } from "@/features/categorization/category-icons";
 import { categoryTileColors } from "@/features/categorization/category-colors";
-
-export const categoryIconComponents: Record<CategoryIconKey, LucideIcon> = {
-  groceries: ShoppingBasket,
-  dining: UtensilsCrossed,
-  transport: Car,
-  housing: House,
-  utilities: Zap,
-  health: HeartPulse,
-  shopping: ShoppingBag,
-  entertainment: Ticket,
-  travel: Plane,
-  education: GraduationCap,
-  gifts: Gift,
-  fees: Receipt,
-  income: Banknote,
-  savings: PiggyBank,
-  transfer: ArrowLeftRight,
-  other: Tag
-};
+import { categoryIconComponents } from "./category-icon-components";
 
 type Props = {
   icon: string | null;
   color: string;
-  size?: "small" | "medium" | "large";
 };
 
-const iconSizes = {
-  small: 11,
-  medium: 13,
-  large: 22
-};
-
+// A small tile for the spending breakdown, whose rows sit on a white panel and pair it with a colored bar; everywhere else a category is shown as a CategoryChip.
 // Decorative only: the marker always accompanies the category name, which remains the accessible label.
 export function CategoryMarker({
   icon,
-  color,
-  size = "medium"
+  color
 }: Props) {
   const colors = categoryTileColors(color);
 
@@ -47,7 +20,7 @@ export function CategoryMarker({
     return (
       <span
         aria-hidden="true"
-        className={clsx(styles["tile"], styles[size])}
+        className={styles["tile"]}
         style={{
           background: colors.swatch
         }}
@@ -60,13 +33,13 @@ export function CategoryMarker({
   return (
     <span
       aria-hidden="true"
-      className={clsx(styles["tile"], styles[size])}
+      className={styles["tile"]}
       style={{
         background: colors.tile,
         color: colors.icon
       }}
     >
-      <Icon size={iconSizes[size]} strokeWidth={2.2} />
+      <Icon size={11} strokeWidth={2.2} />
     </span>
   );
 }
