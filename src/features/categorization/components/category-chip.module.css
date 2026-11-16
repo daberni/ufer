@@ -67,7 +67,7 @@
   color: inherit;
   text-align: left;
 }
-.chip-button:not(:disabled, [aria-disabled="true"]):hover > .chip {
+.chip-button:not(:disabled):hover > .chip {
   border-color: var(--chip-foreground);
 }
 .chip-button[aria-expanded="true"] > .chip {

@@ -7,6 +7,7 @@ export const authClient = createAuthClient({
   plugins: [usernameClient()]
 });
 
+// Keeps the HTTP status, so an ended session (401) locks the dashboard like any other API failure.
 export function requireAuthResult(result: {
   error: {
     message?: string;
@@ -14,6 +15,8 @@ export function requireAuthResult(result: {
   } | null
 }) {
   if (result.error) {
-    throw new Error(result.error.message || "Authentication failed.");
+    throw Object.assign(new Error(result.error.message || "Authentication failed."), {
+      status: result.error.status
+    });
   }
 }

@@ -1,0 +1,175 @@
+import assert from "node:assert/strict";
+import { test } from "node:test";
+import { act, fireEvent, render, type RenderResult } from "@testing-library/react";
+import { createElement } from "react";
+import type { Account, Category, Rule, Transaction } from "../src/features/dashboard/types";
+import { browser, wait, withQueryClient, type PendingRequest } from "./fixtures/browser";
+import { stubCssModules } from "./fixtures/css-modules";
+
+stubCssModules();
+
+const account = {
+  id: "synthetic-bank-account",
+  provider: "enable_banking"
+} as Account;
+
+const categories: Category[] = [{
+  id: "groceries",
+  name: "Groceries",
+  color: "#638777",
+  is_transfer: 0,
+  icon: null
+}, {
+  id: "leisure",
+  name: "Leisure",
+  color: "#c2aa6b",
+  is_transfer: 0,
+  icon: null
+}];
+
+const rule = {
+  id: "synthetic-rule",
+  name: "Market",
+  pattern: "MARKET",
+  mode: "keyword",
+  category_name: "Groceries",
+  priority: 100,
+  enabled: 1,
+  category_color: "#638777",
+  category_icon: null
+} satisfies Rule;
+
+const transaction: Transaction = {
+  id: "synthetic-entry",
+  booking_date: "2000-01-10",
+  amount_minor: -1250,
+  currency: "EUR",
+  counterparty: "Example Market",
+  description: "Synthetic purchase",
+  account_name: "Synthetic account",
+  category_id: "groceries",
+  category_source: "rule"
+};
+
+async function respond(request: PendingRequest | undefined, response: Response) {
+  assert.ok(request, "expected a request");
+  await act(async () => {
+    request.resolve(response);
+    await new Promise(resolve => setTimeout(resolve, 5));
+  });
+}
+
+function controlsIn(screen: RenderResult) {
+  return {
+    sync: screen.getByRole("button", {
+      name: /Sync|Syncing/
+    }),
+    applyRules: screen.getByRole("button", {
+      name: "Apply rules"
+    }),
+    ruleSwitch: screen.getByRole("switch", {
+      name: "Enable rule Market"
+    }),
+    category: screen.getByRole("combobox", {
+      name: "Category for Example Market"
+    })
+  };
+}
+
+function chooseCategory(screen: RenderResult, name: string) {
+  act(() => {
+    fireEvent.click(controlsIn(screen).category);
+  });
+  // jsdom has no Popover API, so the opened list counts as hidden there.
+  act(() => {
+    fireEvent.click(screen.getByRole("option", {
+      name,
+      hidden: true
+    }));
+  });
+}
+
+test("an action in flight leaves the controls of every other action unchanged", async context => {
+  const {
+    queryClient,
+    requests
+  } = browser(context);
+  const { SyncButton } = await import("../src/features/banking/components/sync-button");
+  const { RulesView } = await import("../src/features/categorization/components/rules-view");
+  const { TransactionCategory } = await import("../src/features/transactions/components/transaction-category");
+
+  const screen = render(withQueryClient(queryClient, [
+    createElement(SyncButton, {
+      key: "sync",
+      bankAccounts: [account],
+      view: "overview"
+    }),
+    createElement(RulesView, {
+      key: "rules",
+      categories,
+      rules: [rule],
+      reportFeedback: () => {},
+      setModal: () => {},
+      setSelectedCategory: () => {}
+    }),
+    createElement(TransactionCategory, {
+      key: "category",
+      categories,
+      transaction
+    })
+  ]));
+
+  const controls = () => controlsIn(screen);
+
+  // A category save in flight.
+  chooseCategory(screen, "Leisure");
+  await wait(0);
+  assert.equal(requests("transactions/synthetic-entry").length, 1);
+  assert.match(controls().category.textContent ?? "", /^Leisure/);
+  assert.equal(controls().category.getAttribute("aria-busy"), "true");
+  assert.equal(controls().sync.textContent, "Sync");
+  assert.equal(controls().sync.hasAttribute("disabled"), false);
+  assert.equal(controls().applyRules.hasAttribute("disabled"), false);
+  assert.equal(controls().ruleSwitch.hasAttribute("disabled"), false);
+
+  // A sync in flight next to it.
+  act(() => {
+    fireEvent.click(controls().sync);
+  });
+  await wait(0);
+  assert.equal(requests("sync").length, 1);
+  assert.equal(controls().sync.textContent, "Syncing …");
+  assert.equal(controls().sync.hasAttribute("disabled"), true);
+  assert.equal(controls().applyRules.hasAttribute("disabled"), false);
+  assert.equal(controls().category.hasAttribute("disabled"), false);
+
+  // Applying rules waits only for itself.
+  act(() => {
+    fireEvent.click(controls().applyRules);
+  });
+  await wait(0);
+  assert.equal(controls().applyRules.hasAttribute("disabled"), true);
+  assert.equal(controls().ruleSwitch.hasAttribute("disabled"), false);
+  await respond(requests("rules/apply")[0], Response.json({
+    updated: 0
+  }));
+  assert.equal(controls().applyRules.hasAttribute("disabled"), false);
+  assert.equal(controls().sync.textContent, "Syncing …");
+  assert.equal(controls().category.getAttribute("aria-busy"), "true");
+
+  await respond(requests("sync")[0], Response.json({
+    inserted: 0,
+    failures: []
+  }));
+  assert.equal(controls().sync.textContent, "Sync");
+  assert.equal(controls().sync.hasAttribute("disabled"), false);
+  assert.equal(controls().category.getAttribute("aria-busy"), "true");
+  assert.match(controls().category.textContent ?? "", /^Leisure/);
+
+  await respond(requests("transactions/synthetic-entry")[0], Response.json({
+    id: transaction.id,
+    category_id: "leisure",
+    category_source: "manual"
+  }));
+  assert.equal(controls().category.getAttribute("aria-busy"), "false");
+});

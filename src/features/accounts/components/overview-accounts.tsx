@@ -9,14 +9,18 @@ import { ArrowRight, Landmark, Plus } from "lucide-react";
 import { accountIcon, kinds, accountSyncLabel } from "@/features/dashboard/presentation";
 import { DateValue } from "@/components/ui/date-value";
 import { money } from "@/lib/money";
+import type { Account } from "@/features/dashboard/types";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
 
-type Props = Pick<DashboardController, "changeView" | "openBank" | "selectedCurrencyAccounts" | "setModal" | "setSelectedAccount">;
+type Props = Pick<DashboardController, "changeView" | "openBank" | "setModal" | "setSelectedAccount"> & {
+  /** Accounts in the display currency. */
+  currencyAccounts: Account[];
+};
 
 export function OverviewAccounts({
   changeView,
   openBank,
-  selectedCurrencyAccounts,
+  currencyAccounts,
   setModal,
   setSelectedAccount
 }: Props) {
@@ -24,15 +28,15 @@ export function OverviewAccounts({
     <section className={styles["accounts-section"]}>
       <div className={styles["section-heading"]}>
         <h2>
-          Your accounts <span className={styles["count-badge"]}>{selectedCurrencyAccounts.length}</span>
+          Your accounts <span className={styles["count-badge"]}>{currencyAccounts.length}</span>
         </h2>
         <button className={ui["text-button"]} onClick={() => changeView("accounts")}>
           Manage all <ArrowRight size={15} />
         </button>
       </div>
-      {selectedCurrencyAccounts.length ? (
+      {currencyAccounts.length ? (
         <div className={styles["account-strip"]}>
-          {selectedCurrencyAccounts.slice(0, 4).map(account => {
+          {currencyAccounts.slice(0, 4).map(account => {
             const Icon = accountIcon(account.kind);
 
             return (

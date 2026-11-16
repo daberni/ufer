@@ -1,9 +1,8 @@
 .trigger {
   cursor: pointer;
 }
-.trigger[aria-disabled="true"] {
-  cursor: not-allowed;
-  opacity: 0.5;
+.trigger[aria-invalid="true"] > * {
+  border-color: var(--danger);
 }
 .chevron {
   width: 1em;

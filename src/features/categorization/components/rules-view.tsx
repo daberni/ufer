@@ -5,33 +5,33 @@ import ui from "../../../components/ui/primitives.module.css";
 import { clsx } from "clsx";
 import styles from "./rules-view.module.css";
 import { Pencil, Plus, Sparkles } from "lucide-react";
-import { api } from "@/client/api";
 import { ActionFeedback } from "@/components/ui/action-feedback";
 import { Empty } from "@/components/ui/empty-state";
 import { useActionFeedback } from "@/components/ui/use-action-feedback";
-import type { Rule } from "@/features/dashboard/types";
-import type { DashboardController } from "@/features/dashboard/use-dashboard";
+import type { Category, Rule } from "@/features/dashboard/types";
+import { settle, type DashboardController } from "@/features/dashboard/use-dashboard";
+import { useApplyRules, useToggleRule, useTogglingRules } from "@/features/categorization/mutations";
 import { CategoryChip } from "./category-chip";
 
-type Props = Pick<DashboardController, "busy" | "perform" | "reportFeedback" | "setModal" | "setSelectedCategory" | "state">;
+type Props = Pick<DashboardController, "reportFeedback" | "setModal" | "setSelectedCategory"> & {
+  categories: Category[];
+  rules: Rule[];
+};
 
 export function RulesView({
-  busy,
-  perform,
+  categories,
   reportFeedback,
+  rules,
   setModal,
-  setSelectedCategory,
-  state
+  setSelectedCategory
 }: Props) {
   const applyFeedback = useActionFeedback();
-
-  if (!state) {
-    return null;
-  }
+  const apply = useApplyRules();
+  const toggle = useToggleRule();
 
   async function applyRules() {
     applyFeedback.dismiss();
-    const result = await perform(() => api("rules/apply", {}));
+    const result = await settle(apply.mutateAsync());
 
     applyFeedback.report(result.ok ? {
       tone: "success",
@@ -44,9 +44,7 @@ export function RulesView({
 
   // A rule row has no room for an anchored message, so a failed toggle uses the page overlay.
   async function toggleRule(rule: Rule) {
-    const result = await perform(() => api(`rules/${rule.id}`, {
-      enabled: !rule.enabled
-    }, "PATCH"));
+    const result = await settle(toggle.mutateAsync(rule));
 
     if (!result.ok) {
       reportFeedback({
@@ -56,6 +54,8 @@ export function RulesView({
     }
   }
 
+  const togglingRules = useTogglingRules();
+
   return (
     <>
       <div className={ui["section-heading"]}>
@@ -63,7 +63,8 @@ export function RulesView({
         <div className={clsx(ui["button-group"], styles["rule-actions"])}>
           <button
             className={ui["button"]}
-            disabled={busy}
+            disabled={apply.isPending}
+            aria-busy={apply.isPending}
             onClick={applyRules}
           >
             <Sparkles size={15} />
@@ -82,9 +83,9 @@ export function RulesView({
         </div>
       </div>
       <section className={ui["panel"]}>
-        {state.rules.length ? (
+        {rules.length ? (
           <div className={styles["rules-list"]}>
-            {state.rules.map(rule => (
+            {rules.map(rule => (
               <div className={styles["rule-row"]} key={rule.id}>
                 <span className={styles["rule-priority"]}>{rule.priority}</span>
                 <div>
@@ -107,7 +108,7 @@ export function RulesView({
                   role="switch"
                   aria-checked={Boolean(rule.enabled)}
                   aria-label={`Enable rule ${rule.name}`}
-                  disabled={busy}
+                  disabled={togglingRules.includes(rule.id)}
                   onClick={() => toggleRule(rule)}
                 >
                   <span />
@@ -125,7 +126,7 @@ export function RulesView({
         </button>
       </div>
       <div className={styles["category-chips"]}>
-        {state.categories.map(category => (
+        {categories.map(category => (
           <button
             className={styles["category-chip"]}
             key={category.id}

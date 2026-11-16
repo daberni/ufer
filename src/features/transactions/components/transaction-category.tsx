@@ -1,50 +1,66 @@
 "use client";
 
-import styles from "./transaction-category.module.css";
-import { api } from "@/client/api";
-import type { Transaction } from "@/features/dashboard/types";
-import type { DashboardController } from "@/features/dashboard/use-dashboard";
-import { CategoryPicker } from "@/features/categorization/components/category-picker";
+import ui from "../../../components/ui/primitives.module.css";
 
-type Props = Pick<DashboardController, "busy" | "perform" | "reportFeedback" | "state"> & {
+import { useId } from "react";
+import { clsx } from "clsx";
+import styles from "./transaction-category.module.css";
+import { Check, CircleAlert, LoaderCircle } from "lucide-react";
+import type { Category, Transaction } from "@/features/dashboard/types";
+import { CategoryPicker } from "@/features/categorization/components/category-picker";
+import { useTransactionCategory } from "@/features/transactions/use-transaction-category";
+
+type Props = {
+  categories: Category[];
   transaction: Transaction;
 };
 
 export function TransactionCategory({
-  busy,
-  perform,
-  reportFeedback,
-  state,
+  categories,
   transaction
 }: Props) {
-  if (!state) {
-    return null;
-  }
-
-  // The picker keeps showing the saved category; a failure goes to the page overlay because table rows clip anchored content.
-  async function changeCategory(categoryId: string | null) {
-    const result = await perform(() => api(`transactions/${transaction.id}`, {
-      category_id: categoryId
-    }, "PATCH"));
-
-    if (!result.ok) {
-      reportFeedback({
-        tone: "problem",
-        messages: [`Category could not be changed: ${result.message}`]
-      });
-    }
-  }
+  const messageId = useId();
+  const {
+    categoryId,
+    status,
+    change
+  } = useTransactionCategory(transaction);
+  const failure = status?.kind === "failed" ? `Category not saved: ${status.message}` : "";
+  const announcements = {
+    saving: "Saving category …",
+    saved: "Category saved.",
+    failed: failure
+  };
+  // A pending choice is a manual assignment before the server confirms it.
+  const manual = status?.kind === "saving" || transaction.category_source === "manual";
 
   return (
-    <CategoryPicker
-      className={styles["picker"]}
-      categories={state.categories}
-      value={transaction.category_id}
-      includeUncategorized
-      manual={transaction.category_source === "manual"}
-      disabled={busy}
-      aria-label={`Category for ${transaction.counterparty || transaction.description}`}
-      onChange={changeCategory}
-    />
+    <div className={styles["category"]}>
+      <CategoryPicker
+        className={styles["picker"]}
+        categories={categories}
+        value={categoryId}
+        includeUncategorized
+        manual={manual}
+        aria-label={`Category for ${transaction.counterparty || transaction.description}`}
+        aria-busy={status?.kind === "saving"}
+        aria-invalid={status?.kind === "failed"}
+        aria-describedby={failure ? messageId : undefined}
+        onChange={change}
+      />
+      <span className={clsx(styles["status"], status && styles[status.kind])} aria-hidden="true">
+        {status?.kind === "saving" && <LoaderCircle size={14} className={ui["spinning"]} />}
+        {status?.kind === "saved" && <Check size={14} />}
+        {status?.kind === "failed" && <CircleAlert size={14} />}
+      </span>
+      <span className={ui["visually-hidden"]} role="status" aria-live={failure ? "assertive" : "polite"}>
+        {status ? announcements[status.kind] : ""}
+      </span>
+      {failure && (
+        <span id={messageId} className={styles["message"]} title={failure}>
+          {failure}
+        </span>
+      )}
+    </div>
   );
 }

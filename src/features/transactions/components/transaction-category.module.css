@@ -1,9 +1,64 @@
+.category {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 100%;
+  vertical-align: middle;
+}
+
 /* Long category names end in an ellipsis instead of widening the nowrap transaction table; the open list shows them in full. */
 .picker {
   max-width: 12rem;
 }
+
+/* The status slot keeps its width when empty, so progress and results never move neighboring content. */
+.status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+.saving {
+  color: #8b987d;
+}
+.saved {
+  color: #68845a;
+}
+.failed {
+  color: var(--danger);
+}
+
+/* Overlays the spacing below the control instead of adding a line to the row. */
+.message {
+  position: absolute;
+  top: calc(100% + 1px);
+  left: 0;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-xs);
+  line-height: 1.2;
+  color: var(--danger);
+}
 @media (max-width: 760px), (max-width: 900px) and (pointer: coarse) {
+  .category {
+    gap: 10px;
+  }
   .picker {
     max-width: 100%;
+    min-width: 0;
+  }
+  .status {
+    width: 18px;
+    height: 18px;
+  }
+  .message {
+    left: auto;
+    right: 0;
+    max-width: calc(100vw - 64px);
   }
 }

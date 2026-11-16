@@ -34,12 +34,15 @@ type Props = ValueProps & {
   /** Offers "Uncategorized", chosen by null. */
   includeUncategorized?: boolean;
   manual?: boolean;
-  disabled?: boolean;
   size?: CategoryChipSize;
   /** Submits the chosen category ID with a surrounding form. */
   name?: string;
   id?: string;
   "aria-label"?: string;
+  /** A change is being saved; the picker stays usable, since changes are saved in order. */
+  "aria-busy"?: boolean;
+  "aria-invalid"?: boolean;
+  "aria-describedby"?: string;
   className?: string;
 };
 
@@ -85,10 +88,7 @@ function pickerOptions(categories: readonly PickerCategory[], includeAll: boolea
 
 const typeaheadResetMs = 500;
 
-/**
- * A select-only combobox whose closed control and options are category chips.
- * Disabled uses aria-disabled so the control keeps keyboard focus while the change it just made is being saved.
- */
+/** A select-only combobox whose closed control and options are category chips. */
 export function CategoryPicker({
   categories,
   value,
@@ -96,11 +96,13 @@ export function CategoryPicker({
   includeAll = false,
   includeUncategorized = false,
   manual = false,
-  disabled = false,
   size = "small",
   name,
   id,
   "aria-label": ariaLabel,
+  "aria-busy": ariaBusy,
+  "aria-invalid": ariaInvalid,
+  "aria-describedby": ariaDescribedBy,
   className
 }: Props) {
   const [open, setOpen] = useState(false);
@@ -194,10 +196,6 @@ export function CategoryPicker({
     }
   }, [open, activeIndex]);
 
-  if (open && disabled) {
-    setOpen(false);
-  }
-
   function openAt(index: number) {
     setActiveIndex(index);
     setOpen(true);
@@ -207,7 +205,7 @@ export function CategoryPicker({
   function toggle() {
     if (open) {
       setOpen(false);
-    } else if (!disabled) {
+    } else {
       openAt(Math.max(selectedIndex, 0));
     }
   }
@@ -248,10 +246,6 @@ export function CategoryPicker({
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
-    if (disabled) {
-      return;
-    }
-
     const action = pickerKeyAction(event, {
       open,
       activeIndex,
@@ -305,7 +299,9 @@ export function CategoryPicker({
         aria-expanded={open}
         aria-controls={open ? listboxId : undefined}
         aria-activedescendant={open ? optionId(activeIndex) : undefined}
-        aria-disabled={disabled || undefined}
+        aria-busy={ariaBusy}
+        aria-invalid={ariaInvalid}
+        aria-describedby={ariaDescribedBy}
         title={options[selectedIndex]?.label}
         onClick={toggle}
         onKeyDown={handleKeyDown}

@@ -128,7 +128,7 @@ export default [{
     }]
   }
 }, {
-  files: ["src/features/**/*.{ts,tsx}", "src/components/**/*.{ts,tsx}", "src/client/**/*.ts"],
+  files: ["src/features/**/*.{ts,tsx}", "src/components/**/*.{ts,tsx}", "src/client/**/*.{ts,tsx}"],
   ignores: ["src/features/**/server/**"],
   rules: {
     "no-restricted-imports": ["error", {

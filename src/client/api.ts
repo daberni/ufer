@@ -8,20 +8,23 @@ export function apiError(problem: Partial<ProblemDetails>, status: number) {
   });
 }
 
+/** The HTTP status of a failed API request; undefined for network and client-side failures. */
+export function errorStatus(error: unknown) {
+  if (error instanceof Error && "status" in error && typeof error.status === "number") {
+    return error.status;
+  }
+
+  return undefined;
+}
+
 // User-facing text for a failed request; API failures carry the Problem Details detail or title.
 export function failureMessage(error: unknown) {
   return error instanceof Error ? error.message : "Request failed.";
 }
 
-export async function api<T>(path: string, body?: unknown, method = "POST"): Promise<T> {
+async function send<T>(path: string, init: RequestInit): Promise<T> {
   const response = await fetch(`/api/${path}`, {
-    method: body === undefined && method === "POST" ? "GET" : method,
-    headers: {
-      "Content-Type": "application/json"
-    },
-    ...(body === undefined ? {} : {
-      body: JSON.stringify(body)
-    }),
+    ...init,
     cache: "no-store"
   });
   const data = await response.json();
@@ -31,4 +34,26 @@ export async function api<T>(path: string, body?: unknown, method = "POST"): Pro
   }
 
   return data as T;
+}
+
+/** Reads a resource; the signal lets the query cache cancel requests whose results are no longer needed. */
+export function apiGet<T>(path: string, params?: Record<string, string>, signal?: AbortSignal): Promise<T> {
+  const query = params ? new URLSearchParams(params).toString() : "";
+
+  return send<T>(query ? `${path}?${query}` : path, {
+    signal
+  });
+}
+
+/** Sends a write with a JSON body; a write without a body, such as DELETE, leaves it out. */
+export function api<T>(path: string, body?: unknown, method = "POST"): Promise<T> {
+  return send<T>(path, {
+    method,
+    headers: {
+      "Content-Type": "application/json"
+    },
+    ...(body === undefined ? {} : {
+      body: JSON.stringify(body)
+    })
+  });
 }

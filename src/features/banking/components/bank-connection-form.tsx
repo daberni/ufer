@@ -4,13 +4,15 @@ import ui from "../../../components/ui/primitives.module.css";
 
 import { clsx } from "clsx";
 import { ArrowRight } from "lucide-react";
-import { api } from "@/client/api";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
-import type { DialogFormProps } from "@/features/dashboard/use-dialog-submit";
+import { useDialogSubmit, type DialogFormProps } from "@/features/dashboard/use-dialog-submit";
+import { useConnectBank } from "@/features/banking/mutations";
 import { FormError } from "@/components/ui/form-error";
 import { Select } from "@/components/ui/select";
 
-type Props = Pick<DashboardController, "bankCountry" | "bankName" | "bankSearch" | "banks" | "banksError" | "banksLoading" | "busy" | "setBankCountry" | "setBankName" | "setBankSearch" | "state"> & DialogFormProps;
+type Props = Pick<DashboardController, "bankCountry" | "bankName" | "bankSearch" | "banks" | "banksError" | "banksLoading" | "setBankCountry" | "setBankName" | "setBankSearch"> & DialogFormProps & {
+  environment: string;
+};
 
 export function BankConnectionForm({
   bankCountry,
@@ -19,33 +21,27 @@ export function BankConnectionForm({
   banks,
   banksError,
   banksLoading,
-  busy,
-  error,
+  close,
+  environment,
   setBankCountry,
   setBankName,
-  setBankSearch,
-  state,
-  submit
+  setBankSearch
 }: Props) {
-  if (!state) {
-    return null;
-  }
+  const {
+    error,
+    pending,
+    submit
+  } = useDialogSubmit(useConnectBank(), close);
 
   return (
     <form
-      onSubmit={event => submit(event, async () => {
-        const result = await api<{
-          url: string;
-        }>("banking/connect", {
-          bank: bankName,
-          country: bankCountry
-        });
-
-        window.location.assign(result.url);
-      })}
+      onSubmit={event => submit(event, () => ({
+        bank: bankName,
+        country: bankCountry
+      }))}
       className={ui["form"]}
     >
-      <p className={ui["form-description"]}>{state?.environment === "SANDBOX" ? "You are connecting a test bank. Use only its sandbox credentials." : "After selecting a bank, authorize read-only access with your bank."}</p>
+      <p className={ui["form-description"]}>{environment === "SANDBOX" ? "You are connecting a test bank. Use only its sandbox credentials." : "After selecting a bank, authorize read-only access with your bank."}</p>
       <label>
         Country
         <Select value={bankCountry} onChange={event => setBankCountry(event.target.value)}>
@@ -79,7 +75,7 @@ export function BankConnectionForm({
       </label>
       {!banksLoading && !banksError && !banks.length && <p className={ui["form-description"]}>No personal bank is available for this country. Sandbox institutions can differ from production institutions.</p>}
       <FormError message={banksError || error} />
-      <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={busy || !bankName || banksLoading}>
+      <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={pending || !bankName || banksLoading}>
         Authorize with bank <ArrowRight size={16} />
       </button>
     </form>
