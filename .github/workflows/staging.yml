@@ -1,6 +1,7 @@
 name: Staging
 
 # Every push to main deploys a preview build (preview environment and database) and points the staging alias at it.
+# APP_URL makes the alias a trusted origin for sign-in and writes; the deployment URL stays trusted as a preview origin.
 on:
   push:
     branches: [main]
@@ -26,7 +27,7 @@ jobs:
       - name: Deploy preview build
         id: deploy
         run: |
-          url="$(npx --yes vercel@65.16.0 deploy --yes --token "$VERCEL_TOKEN" --build-env UFER_DEPLOYMENT=staging)"
+          url="$(npx --yes vercel@65.16.0 deploy --yes --token "$VERCEL_TOKEN" --build-env UFER_DEPLOYMENT=staging --env "APP_URL=https://$STAGING_ALIAS")"
           echo "url=$url" >> "$GITHUB_OUTPUT"
       - name: Point the staging alias at it
         env:

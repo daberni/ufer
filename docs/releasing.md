@@ -12,7 +12,7 @@ Ufer uses [Semantic Versioning](https://semver.org/). The version in `package.js
 
 Vercel's Git integration does not deploy `main` (`git.deploymentEnabled` in `vercel.json`), and the ignore command skips pushes to other branches without a pull request. Production and staging deployments therefore come only from the workflows. They authenticate with the repository secret `VERCEL_TOKEN` and the repository variables `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID`.
 
-Staging and pull-request previews share the preview database with its synthetic demo data and sandbox bank connection.
+Staging and pull-request previews share the preview database with its synthetic demo data and sandbox bank connection. The staging deployment sets `APP_URL` to its alias, so sign-in and writes work through `ufer-staging.vercel.app`.
 
 ## Publishing a release
 
