@@ -57,7 +57,7 @@ Zustand was chosen over a hand-written store on React's `useSyncExternalStore`. 
 
 This record amends ADR 006 where it said the dashboard context carries dialog selection and transient feedback. ADR 006's rule that no client store holds server data still applies: the store never contains query results.
 
-**Implementation boundary.** Implemented for the `(dashboard)` layout and its views. `useDashboard`, `DashboardController`, the dashboard context, the central `DashboardDialogs` switch and `modalTitles` are removed. Moving shared types, presentation and helpers out of the dashboard feature is a separate change.
+**Implementation boundary.** Implemented for the `(dashboard)` layout and its views. `useDashboard`, `DashboardController`, the dashboard context, the central `DashboardDialogs` switch and `modalTitles` are removed. Issue #106 moved the URL module (`dashboard-location.ts`, `use-dashboard-url.ts`), the store and the session lock to `src/client`, because feature components read them directly, and moved shared types, presentation and helpers out of the dashboard feature.
 
 ## Consequences
 
