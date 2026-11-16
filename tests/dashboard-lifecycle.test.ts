@@ -241,6 +241,41 @@ test("a write rejected with 401 locks the dashboard and drops pending changes, w
   assert.equal(result.current.row.categoryId, "groceries");
 });
 
+test("a bank authorization that completes after the dashboard locked does not leave the sign-in form", async context => {
+  const {
+    queryClient,
+    requests
+  } = browser(context);
+  const { result } = renderHook(() => ({
+    lock: useDashboardLock(),
+    connect: useConnectBank()
+  }), {
+    wrapper: queryWrapper(queryClient)
+  });
+  // A same-document URL stands in for the bank's consent page, which the test environment cannot load.
+  const consentPage = () => Response.json({
+    url: "#bank-consent"
+  });
+  const bank = {
+    bank: "Example bank",
+    country: "AT"
+  };
+
+  act(() => result.current.connect.mutate(bank));
+  await wait(0);
+  act(() => result.current.lock.lock());
+  await respond(requests("banking/connect")[0], consentPage());
+
+  assert.equal(window.location.hash, "");
+
+  act(() => result.current.lock.unlock());
+  act(() => result.current.connect.mutate(bank));
+  await wait(0);
+  await respond(requests("banking/connect")[1], consentPage());
+
+  assert.equal(window.location.hash, "#bank-consent");
+});
+
 test("an older response cannot replace the results for newer filters", async context => {
   const {
     rerender,

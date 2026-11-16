@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useQueryClient, type Mutation } from "@tanstack/react-query";
 import { errorStatus } from "@/client/api";
+import { endSessionEpoch } from "@/client/session-epoch";
 
 /** Marks a mutation that signs in: its 401 means wrong credentials, shown in its form, not an ended session. */
 export const signInMeta = {
@@ -26,6 +27,7 @@ export function useDashboardLock() {
   const [locked, setLocked] = useState(false);
 
   const lock = useCallback(() => {
+    endSessionEpoch();
     queryClient.clear();
     setLocked(true);
   }, [queryClient]);

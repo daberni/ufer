@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/client/api";
 import { invalidate } from "@/client/invalidate";
 import { queryKeys } from "@/client/query-keys";
+import { sessionEpoch } from "@/client/session-epoch";
 import type { ConnectionRemoval } from "@/features/dashboard/types";
 
 export type SyncOutcome = {
@@ -34,8 +35,16 @@ export function useConnectBank() {
     }) => api<{
       url: string;
     }>("banking/connect", bank),
-    // The bank's consent page replaces the dashboard. The mutation stays pending until then, so the form cannot start a second authorization.
-    onSuccess: result => {
+    onMutate: () => ({
+      epoch: sessionEpoch()
+    }),
+    onSuccess: (result, _bank, context) => {
+      // A response that arrives after sign-out or a lock must not take the user from the sign-in form to the bank.
+      if (context?.epoch !== sessionEpoch()) {
+        return;
+      }
+
+      // The bank's consent page replaces the dashboard. The mutation stays pending until then, so the form cannot start a second authorization.
       window.location.assign(result.url);
 
       return new Promise<void>(() => {});
