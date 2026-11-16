@@ -111,7 +111,7 @@ export function PrivacyNotice({ configuration }: {
       <ul>
         <li>Your user account data is kept while you have access to this installation. The operator deletes it when your access ends or when you ask for deletion.</li>
         <li>
-          A session record, including its user-agent string, is deleted when you sign out, change your password or sign out other devices. A session that expires without a sign-out keeps its record in the database until the operator removes it.
+          A session record, including its user-agent string, is deleted when you sign out. Changing your password or choosing to sign out other devices deletes the records of your other sessions and keeps the current one. A session that expires without a sign-out keeps its record in the database until the operator removes it.
         </li>
         <li>
           Removing a bank connection under Bank connections deletes the encrypted Enable Banking session ID and asks Enable Banking to end the session. If that request fails, the authorization ends when it expires or when you withdraw it at your bank. The connection record stays without the session ID. Accounts, balances and transactions retrieved before the removal remain in the shared workspace until the operator deletes them on request or deletes the installation&apos;s database when the installation is discontinued.
