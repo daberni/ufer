@@ -97,7 +97,7 @@ function OverviewKicker({
   return (
     <>
       <span className={ui["section-kicker"]}>NET WORTH & CASH FLOW</span>
-      <span className={styles["subtle"]} title={latestSync ? describeDate(Temporal.Instant.from(latestSync.started_at).toZonedDateTimeISO(timeZone)).title : undefined}>{lastSyncLabel(latestSync, timeZone)}</span>
+      <span className={ui["subtle"]} title={latestSync ? describeDate(Temporal.Instant.from(latestSync.started_at).toZonedDateTimeISO(timeZone)).title : undefined}>{lastSyncLabel(latestSync, timeZone)}</span>
     </>
   );
 }

@@ -1,10 +1,10 @@
 .legal-links {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px 16px;
+  gap: var(--space-1) var(--space-4);
 }
 .legal-links a {
-  padding: 6px 0;
+  padding: var(--space-2) 0;
   text-decoration: underline;
   text-decoration-color: transparent;
   text-underline-offset: 3px;

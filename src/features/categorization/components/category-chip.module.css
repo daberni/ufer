@@ -5,7 +5,7 @@
   max-width: 100%;
   min-width: 0;
   border: 1px solid var(--chip-border);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: var(--chip-background);
   color: var(--chip-foreground);
   font-weight: 500;
@@ -15,17 +15,17 @@
 }
 .small {
   min-height: 24px;
-  padding: 2px 7px;
+  padding: 2px var(--space-2);
   font-size: var(--text-xs);
 }
 .medium {
   min-height: 32px;
-  padding: 5px 10px;
+  padding: var(--space-1) var(--space-3);
   font-size: var(--text-xs);
 }
 .large {
   min-height: 42px;
-  padding: 8px 13px;
+  padding: var(--space-2) var(--space-3);
   font-size: var(--text-md);
 }
 .icon {
@@ -62,7 +62,7 @@
   max-width: 100%;
   padding: 0;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: none;
   color: inherit;
   text-align: left;

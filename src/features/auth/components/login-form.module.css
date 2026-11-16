@@ -7,7 +7,7 @@
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  padding: 20px;
+  padding: var(--space-5);
   max-width: none;
   overflow: hidden;
   isolation: isolate;
@@ -20,7 +20,7 @@
 /* Positioned out of flow so the backdrop never moves the form; the opaque card stays above it. */
 .shoreline {
   position: absolute;
-  z-index: -1;
+  z-index: var(--layer-base);
   right: 0;
   bottom: 0;
   left: 0;
@@ -29,17 +29,19 @@
   pointer-events: none;
 }
 .login-card {
+  position: relative;
+  z-index: var(--layer-raised);
   width: 390px;
   background: var(--surface);
   border: 1px solid var(--border);
-  padding: 40px;
-  border-radius: 15px;
-  box-shadow: 0 10px 50px var(--shadow-faint);
+  padding: var(--space-10);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-md);
 }
 .login-card .brand-symbol {
   width: 56px;
   height: 56px;
-  margin-bottom: 25px;
+  margin-bottom: var(--space-6);
 }
 .login-card h1 {
   font-size: var(--text-2xl);
@@ -47,19 +49,19 @@
 .login-card > p {
   font-size: var(--text-sm);
   color: var(--muted);
-  margin: 12px 0 26px;
+  margin: var(--space-3) 0 var(--space-6);
 }
 .login-card .button {
   width: 100%;
-  margin-top: 10px;
+  margin-top: var(--space-3);
 }
 .legal {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: 4px 16px;
-  margin-top: 22px;
+  gap: var(--space-1) var(--space-4);
+  margin-top: var(--space-6);
   font-size: var(--text-sm);
   color: var(--muted);
 }
@@ -73,7 +75,7 @@
   .login-card {
     width: 100%;
     max-width: 420px;
-    padding: 28px 22px;
+    padding: var(--space-8) var(--space-6);
   }
   .login-card > p {
     font-size: var(--text-md);

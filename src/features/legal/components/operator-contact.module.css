@@ -1,6 +1,6 @@
 .configuration-notice {
   align-items: flex-start;
-  margin: 16px 0;
+  margin: var(--space-4) 0;
 }
 .configuration-notice svg {
   flex-shrink: 0;
@@ -12,11 +12,11 @@
 .operator {
   display: flex;
   flex-direction: column;
-  margin: 12px 0;
-  padding: 14px 16px;
+  margin: var(--space-3) 0;
+  padding: var(--space-4) var(--space-4);
   font-style: normal;
   background: var(--soft);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
 }
 .missing {
   font-style: italic;

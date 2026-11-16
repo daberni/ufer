@@ -83,7 +83,7 @@ export function WealthSummary({
           </div>
         )}
       </section>
-      <section className={styles["month-card"]} aria-busy={cashFlow.status === "loading"}>
+      <section className={clsx(ui["panel"], styles["month-card"])} aria-busy={cashFlow.status === "loading"}>
         <div className={ui["card-heading"]}>
           <h2>{singleMonth ? "Your month" : "Your cash flow"}</h2>
           <span className={clsx(styles["subtle"], cashFlowValue)}>{periodLabel(period)}</span>

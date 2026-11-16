@@ -1,5 +1,5 @@
 .link {
-  padding: 6px 0;
+  padding: var(--space-2) 0;
   text-decoration: underline;
   text-decoration-color: transparent;
   text-underline-offset: 3px;
