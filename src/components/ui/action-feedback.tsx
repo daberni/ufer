@@ -6,6 +6,7 @@ import { clsx } from "clsx";
 import styles from "./action-feedback.module.css";
 import { Check, CircleHelp, X } from "lucide-react";
 import { LiveAnnouncements } from "./live-announcements";
+import { TraceId } from "./trace-id";
 import type { Feedback } from "./use-action-feedback";
 
 type Props = {
@@ -40,6 +41,7 @@ export function ActionFeedback({
                 {message}
               </p>
             ))}
+            <TraceId id={feedback.traceId} />
           </div>
           <button
             type="button"

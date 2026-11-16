@@ -496,7 +496,7 @@ test("a failed request for changed filters ends loading and masks the outdated r
     status: 500
   }));
 
-  assert.equal(result.current.loadError.message, "The database is not reachable.");
+  assert.equal(result.current.loadError.failure?.message ?? "", "The database is not reachable.");
   assert.deepEqual(statuses(result.current), {
     netWorth: "ready",
     cashFlow: "unavailable",
@@ -508,11 +508,11 @@ test("a failed request for changed filters ends loading and masks the outdated r
   act(() => result.current.loadError.retry());
   await wait(0);
   assert.equal(result.current.cashFlow.status, "loading");
-  assert.equal(result.current.loadError.message, "The database is not reachable.");
+  assert.equal(result.current.loadError.failure?.message ?? "", "The database is not reachable.");
   await respond(requests("reports/cash-flow")[2], cashFlow("EUR"));
   await respond(requests("transactions")[2], transactionPage(3));
 
-  assert.equal(result.current.loadError.message, "");
+  assert.equal(result.current.loadError.failure?.message ?? "", "");
   assert.equal(result.current.cashFlow.status, "ready");
   assert.equal(result.current.list.data?.transactionCount, 3);
 });
@@ -548,7 +548,7 @@ test("an area without results reports its failed first load in place and retries
   assert.equal(pending.status, "pending");
   assert.equal(pending.failure?.message, "The database is not reachable.");
   // The skeleton's place shows the failure, so the banner does not repeat it.
-  assert.equal(result.current.loadError.message, "");
+  assert.equal(result.current.loadError.failure?.message ?? "", "");
   assert.equal(result.current.loadError.announcement, "Some of your data could not be loaded.");
 
   act(() => pending.failure?.retry());
@@ -588,7 +588,7 @@ test("a failed reload of shown results stays reported until a later load succeed
   await wait(0);
   await respond(requests("accounts")[1], databaseFailure());
 
-  assert.equal(result.current.loadError.message, "The database is not reachable.");
+  assert.equal(result.current.loadError.failure?.message ?? "", "The database is not reachable.");
   assert.equal(result.current.loadError.announcement, "");
   assert.equal(result.current.accounts.status, "ready");
 
@@ -596,10 +596,10 @@ test("a failed reload of shown results stays reported until a later load succeed
   await wait(0);
   // The banner stays while the retry runs instead of disappearing and possibly coming back.
   assert.equal(requests("accounts").length, 3);
-  assert.equal(result.current.loadError.message, "The database is not reachable.");
+  assert.equal(result.current.loadError.failure?.message ?? "", "The database is not reachable.");
   await respond(requests("accounts")[2], Response.json([]));
 
-  assert.equal(result.current.loadError.message, "");
+  assert.equal(result.current.loadError.failure?.message ?? "", "");
 });
 
 test("success feedback dismisses itself while problems stay until dismissed", async context => {
