@@ -72,7 +72,7 @@ jobs:
           fi
       # A failing JavaScript action reports only its own message, not the generic exit-code annotation of a failed shell step.
       - name: Fail with the Vercel error
-        if: steps.deploy.outputs.error != ''
+        if: ${{ !cancelled() && steps.deploy.outputs.error != '' }}
         uses: actions/github-script@v9
         env:
           ERROR: ${{ steps.deploy.outputs.error }}
