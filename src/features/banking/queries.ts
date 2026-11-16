@@ -19,8 +19,8 @@ export function useSyncRuns() {
   });
 }
 
-/** The provider's bank directory for a country; only requested while the connection dialog is open. */
-export function useBanks(country: string, enabled: boolean) {
+/** The provider's bank directory for a country; requested by the connection dialog while it is open. */
+export function useBanks(country: string) {
   return useQuery({
     queryKey: queryKeys.banking.banks(country),
     queryFn: ({ signal }) => apiGet<{
@@ -28,7 +28,6 @@ export function useBanks(country: string, enabled: boolean) {
     }>("banks", {
       country
     }, signal),
-    enabled,
     staleTime: 5 * 60_000
   });
 }

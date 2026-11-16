@@ -1,30 +1,51 @@
 "use client";
 
-import { useState } from "react";
+import { useReducer } from "react";
 import { failureMessage } from "@/client/api";
-import { useBanks } from "./queries";
+import type { Connection } from "@/features/dashboard/types";
+import { changeBankSelection, chosenBankName, defaultBankCountry, type BankSelection } from "./bank-selection";
+import { useBanks, useConnections } from "./queries";
 
-/** The bank chosen in the connection dialog; the directory for the selected country loads while the dialog is open. */
-export function useBankDirectory(active: boolean) {
-  const [bankCountry, setBankCountry] = useState("AT");
+/** The country and bank chosen in the connection dialog; reauthorizing starts with the connection's bank. */
+export function useBankDirectory(reauthorized: Connection | null) {
+  const connections = useConnections();
+  const [selection, dispatch] = useReducer(changeBankSelection, null, (): BankSelection => {
+    if (reauthorized) {
+      return {
+        country: reauthorized.bank_country,
+        query: reauthorized.bank_name,
+        bankName: reauthorized.bank_name
+      };
+    }
 
-  const [bankSearch, setBankSearch] = useState("");
+    return {
+      country: defaultBankCountry(connections.data ?? [], navigator.languages),
+      query: "",
+      bankName: ""
+    };
+  });
 
-  const [bankName, setBankName] = useState("");
-
-  const directory = useBanks(bankCountry, active);
+  const directory = useBanks(selection.country);
   const banks = directory.data?.banks ?? [];
 
   return {
+    country: selection.country,
+    query: selection.query,
     banks,
-    bankCountry,
-    setBankCountry,
-    bankSearch,
-    setBankSearch,
-    // A bank from another country's directory is not a valid choice.
-    bankName: banks.some(bank => bank.name === bankName) ? bankName : "",
-    setBankName,
-    banksLoading: directory.isPending && active,
-    banksError: directory.isError ? failureMessage(directory.error) : ""
+    bankName: chosenBankName(selection, banks),
+    loading: directory.isPending,
+    error: directory.isError ? failureMessage(directory.error) : "",
+    setCountry: (country: string) => dispatch({
+      type: "country",
+      country
+    }),
+    search: (query: string) => dispatch({
+      type: "search",
+      query
+    }),
+    choose: (bankName: string) => dispatch({
+      type: "choose",
+      bankName
+    })
   };
 }

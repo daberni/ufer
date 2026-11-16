@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useDashboardLock } from "./use-dashboard-lock";
-import { useBankDirectory } from "@/features/banking/use-bank-directory";
 import { failureMessage } from "@/client/api";
 import type { ImportMode } from "@/features/imports/mutations";
 import { useActionFeedback, type Feedback } from "@/components/ui/use-action-feedback";
@@ -95,18 +94,6 @@ export function useDashboard() {
     lock,
     unlock
   } = useDashboardLock();
-  const {
-    banks,
-    bankCountry,
-    setBankCountry,
-    bankSearch,
-    setBankSearch,
-    bankName,
-    setBankName,
-    banksLoading,
-    banksError
-  } = useBankDirectory(modal === "bank");
-
   const [importMode, setImportMode] = useState<ImportMode>("balances");
 
   // The bank callback returns to the connections view with its result, which is shown once and removed from the URL.
@@ -226,9 +213,7 @@ export function useDashboard() {
   }
 
   function openBank(connection?: Connection) {
-    setBankName(connection?.bank_name || "");
-    setBankSearch("");
-    setBankCountry(connection?.bank_country || "AT");
+    setSelectedConnection(connection ?? null);
     setModal("bank");
   }
 
@@ -283,15 +268,6 @@ export function useDashboard() {
     locked,
     lock,
     unlock,
-    banks,
-    bankCountry,
-    setBankCountry,
-    bankSearch,
-    setBankSearch,
-    bankName,
-    setBankName,
-    banksLoading,
-    banksError,
     importMode,
     setImportMode,
     changeView,
