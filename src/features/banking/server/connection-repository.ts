@@ -1,8 +1,10 @@
 import { and, eq, gt, isNull, ne } from "drizzle-orm";
+import { Temporal } from "temporal-polyfill";
 import { database, type Database } from "@/server/database/connection";
 import { environment } from "@/features/banking/server/environment";
 import type { AuthContext } from "@/features/auth/server/session";
 import { accounts, requisitions } from "@/server/database/schema";
+import { timestamp } from "@/lib/time";
 
 export type ConnectionRemoval = {
   outcome: "missing";
@@ -37,13 +39,15 @@ export async function insertAuthorization(record: AuthorizationRecord) {
     bank_country: record.country,
     state_hash: record.stateHash,
     browser_hash: record.browserHash,
-    state_expires_at: new Date(Date.now() + 15 * 60_000).toISOString(),
+    state_expires_at: timestamp(Temporal.Now.instant().add({
+      minutes: 15
+    })),
     authorization_id: record.authorizationId
   });
 }
 
 export async function consumeAuthorization(db: Database, environment: string, stateHash: string, browserHash: string, actor: AuthContext) {
-  const now = new Date().toISOString();
+  const now = timestamp();
   const scope = and(eq(requisitions.workspace_id, actor.workspaceId), eq(requisitions.initiated_by_user_id, actor.userId), eq(requisitions.auth_session_id, actor.sessionId), eq(requisitions.environment, environment), eq(requisitions.state_hash, stateHash), eq(requisitions.browser_hash, browserHash), isNull(requisitions.used_at), gt(requisitions.state_expires_at, now), eq(requisitions.status, "PENDING"));
 
   return db.update(requisitions).set({
@@ -85,7 +89,7 @@ export async function recordConnectionFailure(db: Database, id: string, error: s
 }
 
 // Accounts are detached rather than deleted, so their history stays and a later reconnect can remap them by identification hash.
-export async function removeConnection(db: Database, environment: string, id: string, exchangeCutoff: string): Promise<ConnectionRemoval> {
+export async function removeConnection(db: Database, environment: string, id: string, exchangeCutoff: Temporal.Instant): Promise<ConnectionRemoval> {
   return db.transaction(async tx => {
     const scope = and(eq(requisitions.id, id), eq(requisitions.environment, environment), ne(requisitions.status, "REMOVED"));
     const connection = await tx.select({
@@ -100,7 +104,7 @@ export async function removeConnection(db: Database, environment: string, id: st
       };
     }
 
-    const exchanging = connection.status === "EXCHANGING" && connection.used_at !== null && connection.used_at > exchangeCutoff;
+    const exchanging = connection.status === "EXCHANGING" && connection.used_at !== null && Temporal.Instant.compare(Temporal.Instant.from(connection.used_at), exchangeCutoff) > 0;
 
     if (exchanging) {
       return {

@@ -9,6 +9,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import { Temporal } from "temporal-polyfill";
 import { currentMonth } from "@/features/dashboard/period";
+import { describeMonth } from "@/lib/date-format";
 
 type Props = {
   label: string;
@@ -18,13 +19,6 @@ type Props = {
 
 const monthsPerRow = 3;
 const monthCount = 12;
-
-function shortMonthName(month: number) {
-  return new Intl.DateTimeFormat("en-GB", {
-    month: "short",
-    timeZone: "UTC"
-  }).format(new Date(Date.UTC(2000, month - 1, 1, 12)));
-}
 
 /** A button showing the selected period that opens a popover with a year header and a grid of months. */
 export function MonthPicker({
@@ -178,6 +172,10 @@ export function MonthPicker({
               const month = index + 1;
               const isSelected = selected?.year === year && selected.month === month;
               const isCurrent = now.year === year && now.month === month;
+              const display = describeMonth(Temporal.PlainYearMonth.from({
+                year,
+                month
+              }));
 
               return (
                 <button
@@ -190,7 +188,7 @@ export function MonthPicker({
                   aria-current={isCurrent ? "date" : undefined}
                   onClick={() => choose(month)}
                 >
-                  {shortMonthName(month)}
+                  {display.label}
                 </button>
               );
             })}

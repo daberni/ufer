@@ -1,9 +1,11 @@
 import { HttpError, ValidationError } from "./errors";
 import { parse } from "csv-parse/sync";
-import { minorUnits, validDate } from "./money";
+import { Temporal } from "temporal-polyfill";
+import { minorUnits } from "./money";
+import { today, validDate } from "./time";
 import type { Entry } from "@/features/transactions/server/transaction-entry";
 
-export function parseBalancesCsv(text: string, currency: string) {
+export function parseBalancesCsv(text: string, currency: string, now = Temporal.Now.instant()) {
   if (Buffer.byteLength(text, "utf8") > 1_000_000) {
     throw new HttpError(413, "CSV files cannot exceed 1 MB.");
   }
@@ -28,9 +30,11 @@ export function parseBalancesCsv(text: string, currency: string) {
   }
 
   const dates = new Set<string>();
+  const latestDate = today(now);
+  const futureDate = (value: string) => Temporal.PlainDate.compare(Temporal.PlainDate.from(value), latestDate) > 0;
 
   return rows.map((row, index) => {
-    if (!validDate(row.date || "") || row.date > new Date().toISOString().slice(0, 10) || !row.balance || row.currency !== currency) {
+    if (!validDate(row.date || "") || futureDate(row.date) || !row.balance || row.currency !== currency) {
       throw new ValidationError(`CSV row ${index + 2}: invalid date, balance, or account currency.`);
     }
 

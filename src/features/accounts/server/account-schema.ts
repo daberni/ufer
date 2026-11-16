@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { validDate } from "@/lib/money";
+import { validDate } from "@/lib/time";
 import { accountKinds } from "../account-kinds";
 
 export const accountInput = z.object({

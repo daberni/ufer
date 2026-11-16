@@ -1,6 +1,7 @@
 import { seedActor } from "./fixtures/auth";
 import assert from "node:assert/strict";
 import { test, type TestContext } from "node:test";
+import { Temporal } from "temporal-polyfill";
 import { createClient } from "@libsql/client";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/libsql";
@@ -161,6 +162,31 @@ test("dated valuation upserts preserve snapshot identity and never replace a new
     date: "2000-02-10"
   });
   assert.equal((await findManualAccount("asset"))?.balance_minor, 25000);
+});
+
+test("a valuation dated today in Vienna is accepted before UTC reaches that day, and tomorrow is rejected", async context => {
+  const db = await isolatedDatabase(context);
+  const viennaAfterMidnight = Temporal.Instant.from("2026-03-01T23:30:00Z");
+
+  await db.insert(schema.accounts).values({
+    id: "asset",
+    environment: "SANDBOX",
+    name: "Synthetic asset",
+    institution: "Example institution",
+    kind: "investment",
+    balance_minor: 20000,
+    balance_date: "2026-02-01"
+  });
+  await updateManualValuation("asset", {
+    balance: "250.00",
+    date: "2026-03-02"
+  }, viennaAfterMidnight);
+  assert.equal((await findManualAccount("asset"))?.balance_date, "2026-03-02");
+
+  await assert.rejects(updateManualValuation("asset", {
+    balance: "260.00",
+    date: "2026-03-03"
+  }, viennaAfterMidnight), ValidationError);
 });
 
 test("category corrections retain environment isolation and manual exclusions survive rule application", async context => {
