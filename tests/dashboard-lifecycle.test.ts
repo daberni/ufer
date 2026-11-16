@@ -10,20 +10,20 @@ import { api } from "../src/client/api";
 import { invalidate } from "../src/client/invalidate";
 import { queryKeys } from "../src/client/query-keys";
 import { useActionFeedback } from "../src/components/ui/use-action-feedback";
-import { DashboardStoreProvider, onView, useDashboardStore } from "../src/features/dashboard/dashboard-store";
+import { DashboardStoreProvider, onView, useDashboardStore } from "../src/client/dashboard-store";
 import { useDashboardNavigation } from "../src/features/dashboard/use-dashboard-navigation";
-import { replacePage, useDashboardQuery, useView } from "../src/features/dashboard/use-dashboard-url";
-import { signInMeta, useDashboardLock } from "../src/features/dashboard/use-dashboard-lock";
+import { replacePage, useDashboardQuery, useView } from "../src/client/use-dashboard-url";
+import { signInMeta, useDashboardLock } from "../src/client/use-dashboard-lock";
 import { useLoadError } from "../src/features/dashboard/use-load-error";
-import { useAreaResult } from "../src/features/dashboard/use-area-result";
-import { useCashFlow } from "../src/features/dashboard/queries";
+import { useAreaResult } from "../src/components/ui/use-area-result";
+import { useCashFlow } from "../src/features/reports/queries";
 import { useAccounts, useNetWorth } from "../src/features/accounts/queries";
 import { useTransactionListView } from "../src/features/transactions/use-transaction-list-view";
 import { useTransactionCategory } from "../src/features/transactions/use-transaction-category";
 import { useConnectBank } from "../src/features/banking/mutations";
-import type { Transaction } from "../src/features/dashboard/types";
-import { currentMonthPeriod, monthPeriod, serializePeriod, type Period } from "../src/features/dashboard/period";
-import type { DashboardQuery } from "../src/features/dashboard/dashboard-location";
+import type { Transaction } from "../src/features/transactions/types";
+import { currentMonthPeriod, monthPeriod, serializePeriod, type Period } from "../src/lib/period";
+import type { DashboardQuery } from "../src/client/dashboard-location";
 import { browser, wait, withQueryClient, type PendingRequest } from "./fixtures/browser";
 
 function dashboardQuery(changes: Partial<DashboardQuery> = {}): DashboardQuery {

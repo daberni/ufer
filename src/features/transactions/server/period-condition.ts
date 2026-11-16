@@ -1,4 +1,4 @@
-import type { Period } from "@/features/dashboard/period";
+import type { Period } from "@/lib/period";
 
 /**
  * SQL condition on `t.booking_date` for a period. Transaction lists, counts, cash flow and spending all use it so their results describe the same range.

@@ -9,15 +9,17 @@ import { ArrowDownToLine, ArrowRight, Search } from "lucide-react";
 import { Empty } from "@/components/ui/empty-state";
 import { TransactionList, TransactionListSkeleton } from "@/features/transactions/components/transaction-list";
 import { CsvImportDialog } from "@/features/imports/components/csv-import-form";
-import { setAccountFilter, setCategoryFilter, setPage, setSearch, useAccountFilter, useCategoryFilter, useChangeView, useSearchFilter } from "@/features/dashboard/use-dashboard-url";
+import { setAccountFilter, setCategoryFilter, setPage, setSearch, useAccountFilter, useCategoryFilter, useChangeView, useSearchFilter } from "@/client/use-dashboard-url";
 import { Select } from "@/components/ui/select";
 import { anyCategory, CategoryPicker, type CategoryPickerValue } from "@/features/categorization/components/category-picker";
 import { useSearchDraft } from "@/features/transactions/use-search-draft";
-import { transactionPageSize } from "@/features/dashboard/pagination";
-import { areaProps, valueMask } from "@/features/dashboard/components/result-presentation";
-import { AreaPlaceholder } from "@/features/dashboard/components/area-placeholder";
-import { pendingTogether, type Area, type AreaResult } from "@/features/dashboard/use-area-result";
-import type { Account, Category, TransactionPage } from "@/features/dashboard/types";
+import { transactionPageSize } from "@/lib/pagination";
+import { areaProps, valueMask } from "@/components/ui/result-presentation";
+import { AreaPlaceholder } from "@/components/ui/area-placeholder";
+import { pendingTogether, type Area, type AreaResult } from "@/components/ui/use-area-result";
+import type { Account } from "@/features/accounts/types";
+import type { Category } from "@/features/categorization/types";
+import type { TransactionPage } from "@/features/transactions/types";
 
 type Props = {
   view: "overview" | "transactions";

@@ -4,8 +4,8 @@ import ui from "../../../components/ui/primitives.module.css";
 
 import { clsx } from "clsx";
 import { Check } from "lucide-react";
-import type { Account } from "@/features/dashboard/types";
-import { useDialogSubmit, type DialogFormProps } from "@/features/dashboard/use-dialog-submit";
+import type { Account } from "@/features/accounts/types";
+import { useDialogSubmit, type DialogFormProps } from "@/components/ui/use-dialog-submit";
 import { useSaveValuation } from "@/features/accounts/mutations";
 import { FormError } from "@/components/ui/form-error";
 import { today } from "@/lib/time";

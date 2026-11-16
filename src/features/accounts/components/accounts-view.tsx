@@ -6,18 +6,18 @@ import accountStyles from "./account-presentation.module.css";
 import { clsx } from "clsx";
 import styles from "./accounts-view.module.css";
 import { ArrowRight, Link2, Plus } from "lucide-react";
-import { accountIcon, accountSourceLabel, kinds } from "@/features/dashboard/presentation";
+import { accountIcon, accountSourceLabel, kinds } from "@/features/accounts/account-presentation";
 import { DateValue } from "@/components/ui/date-value";
 import { money } from "@/lib/money";
 import { Empty } from "@/components/ui/empty-state";
-import type { Account } from "@/features/dashboard/types";
+import type { Account } from "@/features/accounts/types";
 import { useState } from "react";
 import { BankConnectionDialog } from "@/features/banking/components/bank-connection-form";
 import { CreateAccountDialog } from "./create-account-form";
 import { ValuationDialog } from "./valuation-form";
-import { AreaPlaceholder } from "@/features/dashboard/components/area-placeholder";
-import { shownStatus, valueMask } from "@/features/dashboard/components/result-presentation";
-import type { Area } from "@/features/dashboard/use-area-result";
+import { AreaPlaceholder } from "@/components/ui/area-placeholder";
+import { shownStatus, valueMask } from "@/components/ui/result-presentation";
+import type { Area } from "@/components/ui/use-area-result";
 
 type Props = {
   accounts: Area<Account[]>;

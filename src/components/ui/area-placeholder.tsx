@@ -1,11 +1,11 @@
 "use client";
 
-import ui from "../../../components/ui/primitives.module.css";
+import ui from "./primitives.module.css";
 
 import { clsx } from "clsx";
 import { CircleAlert } from "lucide-react";
 import styles from "./area-placeholder.module.css";
-import type { LoadFailure, PendingArea } from "@/features/dashboard/use-area-result";
+import type { LoadFailure, PendingArea } from "@/components/ui/use-area-result";
 
 type Props = {
   area: PendingArea;

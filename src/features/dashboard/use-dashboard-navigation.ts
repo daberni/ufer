@@ -4,9 +4,9 @@ import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import type { Feedback } from "@/components/ui/use-action-feedback";
 import { callbackFailureMessage, parseCallbackResult, type CallbackResult } from "@/features/banking/callback-result";
-import { useDashboardStoreApi } from "./dashboard-store";
-import { usePeriodScope, useView } from "./use-dashboard-url";
-import { isPeriodAware } from "./dashboard-location";
+import { useDashboardStoreApi } from "@/client/dashboard-store";
+import { usePeriodScope, useView } from "@/client/use-dashboard-url";
+import { isPeriodAware } from "@/client/dashboard-location";
 
 /**
  * Keeps the UI store in step with navigation: a page message belongs to the view it was reported on, views without a period remember the last one selected, and a bank callback result is shown once.

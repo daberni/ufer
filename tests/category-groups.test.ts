@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { groupByCategory, categoryRowLimit } from "../src/features/dashboard/category-groups";
-import type { CategoryAmount } from "../src/features/dashboard/types";
+import { groupByCategory, categoryRowLimit } from "../src/features/reports/category-groups";
+import type { CategoryAmount } from "../src/features/reports/types";
 
 function category(id: string, amount: number): CategoryAmount {
   return {

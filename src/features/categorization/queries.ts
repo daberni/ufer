@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { apiGet } from "@/client/api";
 import { queryKeys } from "@/client/query-keys";
-import type { Category, Rule } from "@/features/dashboard/types";
+import type { Category, Rule } from "@/features/categorization/types";
 
 export function useCategories() {
   return useQuery({

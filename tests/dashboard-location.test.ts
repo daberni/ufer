@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import { test, type TestContext } from "node:test";
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { JSDOM } from "jsdom";
-import { dashboardQuery, periodScope, viewHref, withQueryChanges } from "../src/features/dashboard/dashboard-location";
-import { allMonthsPeriod, currentMonth, monthPeriod, serializePeriod } from "../src/features/dashboard/period";
-import { dashboardFilters } from "../src/features/dashboard/server/dashboard-filters";
+import { dashboardQuery, periodScope, viewHref, withQueryChanges } from "../src/client/dashboard-location";
+import { allMonthsPeriod, currentMonth, monthPeriod, serializePeriod } from "../src/lib/period";
+import { dashboardFilters } from "../src/server/http/dashboard-filters";
 import { useSearchDraft } from "../src/features/transactions/use-search-draft";
 
 test("a filter change resets pagination and leaves default values out of the URL", () => {

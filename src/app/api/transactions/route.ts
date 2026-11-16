@@ -1,5 +1,5 @@
 import { respond } from "@/server/http/respond";
-import { dashboardFilters } from "@/features/dashboard/server/dashboard-filters";
+import { dashboardFilters } from "@/server/http/dashboard-filters";
 import { readTransactionPage } from "@/features/transactions/server/transaction-list-query";
 
 export const runtime = "nodejs";

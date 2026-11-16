@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect } from "react";
-import { lastPage } from "@/features/dashboard/pagination";
-import { useAreaResult, type Area } from "@/features/dashboard/use-area-result";
-import type { DashboardQuery } from "@/features/dashboard/dashboard-location";
-import type { TransactionPage } from "@/features/dashboard/types";
+import { lastPage } from "@/lib/pagination";
+import { useAreaResult, type Area } from "@/components/ui/use-area-result";
+import type { DashboardQuery } from "@/client/dashboard-location";
+import type { TransactionPage } from "@/features/transactions/types";
 import { useTransactionList } from "./queries";
 
 /**

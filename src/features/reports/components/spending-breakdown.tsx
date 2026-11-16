@@ -4,16 +4,16 @@ import ui from "../../../components/ui/primitives.module.css";
 
 import { clsx } from "clsx";
 import styles from "./spending-breakdown.module.css";
-import { periodLabel } from "@/features/dashboard/presentation";
-import { periodFromJson } from "@/features/dashboard/period";
-import { groupByCategory } from "@/features/dashboard/category-groups";
+import { periodLabel } from "@/lib/date-format";
+import { periodFromJson } from "@/lib/period";
+import { groupByCategory } from "@/features/reports/category-groups";
 import { Empty } from "@/components/ui/empty-state";
-import { CategoryRows, CategoryRowsSkeleton } from "@/features/dashboard/components/category-rows";
-import { AreaPlaceholder } from "@/features/dashboard/components/area-placeholder";
-import { areaProps, valueMask } from "@/features/dashboard/components/result-presentation";
-import { usePeriod } from "@/features/dashboard/use-dashboard-url";
-import type { Area, AreaResult } from "@/features/dashboard/use-area-result";
-import type { CashFlow } from "@/features/dashboard/types";
+import { CategoryRows, CategoryRowsSkeleton } from "@/features/reports/components/category-rows";
+import { AreaPlaceholder } from "@/components/ui/area-placeholder";
+import { areaProps, valueMask } from "@/components/ui/result-presentation";
+import { usePeriod } from "@/client/use-dashboard-url";
+import type { Area, AreaResult } from "@/components/ui/use-area-result";
+import type { CashFlow } from "@/features/reports/types";
 
 type Props = {
   cashFlow: Area<CashFlow>;

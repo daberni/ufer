@@ -4,10 +4,10 @@ import { accounts, transactions } from "@/server/database/schema";
 import { environment } from "@/features/banking/server/environment";
 import { findSyncRun } from "@/features/banking/server/banking-queries";
 import { syncRunTransactions } from "@/features/banking/server/sync-repository";
-import { periodToJson } from "@/features/dashboard/period";
-import { transactionPageSize } from "@/features/dashboard/pagination";
-import { periodCondition } from "@/features/dashboard/server/period-condition";
-import type { DashboardFilters } from "@/features/dashboard/server/dashboard-filters";
+import { periodToJson } from "@/lib/period";
+import { transactionPageSize } from "@/lib/pagination";
+import { periodCondition } from "@/features/transactions/server/period-condition";
+import type { DashboardFilters } from "@/server/http/dashboard-filters";
 
 type FoundSyncRun = NonNullable<Awaited<ReturnType<typeof findSyncRun>>>;
 

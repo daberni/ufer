@@ -10,13 +10,13 @@ import { Landmark, Link2, Plus, ShieldCheck, Trash2 } from "lucide-react";
 import { TimestampValue } from "@/components/ui/date-value";
 import { Empty } from "@/components/ui/empty-state";
 import { BridgeIllustration } from "@/components/branding/illustrations";
-import type { BankingConfiguration, Connection, SyncRun } from "@/features/dashboard/types";
+import type { BankingConfiguration, Connection, SyncRun } from "@/features/banking/types";
 import { useState } from "react";
 import { BankConnectionDialog } from "./bank-connection-form";
 import { RemoveConnectionDialog } from "./remove-connection-form";
-import { useSyncRunHref } from "@/features/dashboard/use-dashboard-url";
-import { AreaPlaceholder } from "@/features/dashboard/components/area-placeholder";
-import type { Area } from "@/features/dashboard/use-area-result";
+import { useSyncRunHref } from "@/client/use-dashboard-url";
+import { AreaPlaceholder } from "@/components/ui/area-placeholder";
+import type { Area } from "@/components/ui/use-area-result";
 
 type Props = {
   banking: BankingConfiguration;

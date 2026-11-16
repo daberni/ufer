@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { apiGet } from "@/client/api";
 import { queryKeys } from "@/client/query-keys";
-import type { Bank, Connection, SyncRun } from "@/features/dashboard/types";
+import type { Bank, Connection, SyncRun } from "@/features/banking/types";
 import { directoryBanks } from "./bank-selection";
 
 export function useConnections() {

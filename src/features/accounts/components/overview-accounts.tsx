@@ -6,19 +6,19 @@ import accountStyles from "./account-presentation.module.css";
 import { clsx } from "clsx";
 import styles from "./overview-accounts.module.css";
 import { ArrowRight, Landmark, Plus } from "lucide-react";
-import { accountIcon, kinds, accountSyncLabel } from "@/features/dashboard/presentation";
+import { accountIcon, kinds, accountSyncLabel } from "@/features/accounts/account-presentation";
 import { DateValue } from "@/components/ui/date-value";
 import { useBankingConfiguration } from "@/features/banking/banking-configuration";
 import { money } from "@/lib/money";
-import type { Account } from "@/features/dashboard/types";
+import type { Account } from "@/features/accounts/types";
 import { useState } from "react";
 import { BankConnectionDialog } from "@/features/banking/components/bank-connection-form";
 import { CreateAccountDialog } from "./create-account-form";
 import { ValuationDialog } from "./valuation-form";
-import { useChangeView } from "@/features/dashboard/use-dashboard-url";
-import { AreaPlaceholder } from "@/features/dashboard/components/area-placeholder";
-import { shownStatus, valueMask } from "@/features/dashboard/components/result-presentation";
-import type { Area, PendingArea } from "@/features/dashboard/use-area-result";
+import { useChangeView } from "@/client/use-dashboard-url";
+import { AreaPlaceholder } from "@/components/ui/area-placeholder";
+import { shownStatus, valueMask } from "@/components/ui/result-presentation";
+import type { Area, PendingArea } from "@/components/ui/use-area-result";
 
 type Props = {
   /** Accounts in the display currency. */

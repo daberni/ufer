@@ -5,10 +5,10 @@ import { createElement, type ReactNode } from "react";
 import { Temporal } from "temporal-polyfill";
 import { AppRouterContext, type AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import { PathnameContext, SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime";
-import { DashboardStoreProvider } from "../src/features/dashboard/dashboard-store";
+import { DashboardStoreProvider } from "../src/client/dashboard-store";
 import { useDashboardNavigation } from "../src/features/dashboard/use-dashboard-navigation";
-import { selectPeriod, setAccountFilter, setSearch, useChangeView, useDashboardQuery, useViewHref } from "../src/features/dashboard/use-dashboard-url";
-import { monthPeriod, serializePeriod } from "../src/features/dashboard/period";
+import { selectPeriod, setAccountFilter, setSearch, useChangeView, useDashboardQuery, useViewHref } from "../src/client/use-dashboard-url";
+import { monthPeriod, serializePeriod } from "../src/lib/period";
 import { browser } from "./fixtures/browser";
 
 // Stands in for the App Router: tests change the URL through history and rerender, as Next.js does after pushState, replaceState or a link.

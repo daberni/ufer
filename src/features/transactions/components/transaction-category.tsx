@@ -6,7 +6,8 @@ import { useId } from "react";
 import { clsx } from "clsx";
 import styles from "./transaction-category.module.css";
 import { Check, CircleAlert, LoaderCircle } from "lucide-react";
-import type { Category, Transaction } from "@/features/dashboard/types";
+import type { Category } from "@/features/categorization/types";
+import type { Transaction } from "@/features/transactions/types";
 import { CategoryPicker } from "@/features/categorization/components/category-picker";
 import { useTransactionCategory } from "@/features/transactions/use-transaction-category";
 

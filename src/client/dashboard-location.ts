@@ -1,7 +1,8 @@
-import { currentMonth, currentMonthPeriod, parsePeriod, serializePeriod, type Period } from "./period";
-import { parsePage } from "./pagination";
+import { currentMonth, currentMonthPeriod, parsePeriod, serializePeriod, type Period } from "@/lib/period";
+import { parsePage } from "@/lib/pagination";
 import { parseCurrencyCode } from "@/lib/money";
-import type { View } from "./types";
+
+export type View = "overview" | "transactions" | "accounts" | "rules" | "connections";
 
 /**
  * Each dashboard view is a route. The period and currency are shared by the period-aware views; search, filters and page belong to the transaction list. A selected sync run replaces the period and currency for the list: it shows everything the run imported.

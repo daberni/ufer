@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext } from "react";
-import type { BankingConfiguration } from "@/features/dashboard/types";
+import type { BankingConfiguration } from "@/features/banking/types";
 
 /** Deployment configuration rendered by the server layout, so no request is needed to know the banking environment. */
 const BankingConfigurationContext = createContext<BankingConfiguration | null>(null);

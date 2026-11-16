@@ -5,14 +5,15 @@ import ui from "../../../components/ui/primitives.module.css";
 import { clsx } from "clsx";
 import styles from "./wealth-summary.module.css";
 import { ArrowDownLeft, ArrowUpRight, Wallet } from "lucide-react";
-import { periodLabel } from "@/features/dashboard/presentation";
-import { periodFromJson, periodToJson } from "@/features/dashboard/period";
+import { periodLabel } from "@/lib/date-format";
+import { periodFromJson, periodToJson } from "@/lib/period";
 import { money } from "@/lib/money";
-import { valueMask, withPlaceholder } from "@/features/dashboard/components/result-presentation";
-import { FailureCover } from "@/features/dashboard/components/area-placeholder";
-import { useCurrency, usePeriod } from "@/features/dashboard/use-dashboard-url";
-import type { Area } from "@/features/dashboard/use-area-result";
-import type { CashFlow, NetWorth } from "@/features/dashboard/types";
+import { valueMask, withPlaceholder } from "@/components/ui/result-presentation";
+import { FailureCover } from "@/components/ui/area-placeholder";
+import { useCurrency, usePeriod } from "@/client/use-dashboard-url";
+import type { Area } from "@/components/ui/use-area-result";
+import type { CashFlow } from "@/features/reports/types";
+import type { NetWorth } from "@/features/accounts/types";
 
 type Props = {
   /** Whether any account uses the display currency; assumed while the accounts load, so the masked figure keeps its place. */

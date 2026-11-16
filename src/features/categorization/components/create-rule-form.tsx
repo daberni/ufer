@@ -5,7 +5,7 @@ import ui from "../../../components/ui/primitives.module.css";
 import { clsx } from "clsx";
 import { useId, useState } from "react";
 import { Sparkles } from "lucide-react";
-import { useDialogSubmit, type DialogFormProps } from "@/features/dashboard/use-dialog-submit";
+import { useDialogSubmit, type DialogFormProps } from "@/components/ui/use-dialog-submit";
 import { useCreateRule } from "@/features/categorization/mutations";
 import { useCategories } from "@/features/categorization/queries";
 import { FormError } from "@/components/ui/form-error";

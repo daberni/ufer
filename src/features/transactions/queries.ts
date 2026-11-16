@@ -3,9 +3,9 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { apiGet } from "@/client/api";
 import { queryKeys, type TransactionListFilters } from "@/client/query-keys";
-import { serializePeriod } from "@/features/dashboard/period";
-import type { DashboardQuery } from "@/features/dashboard/dashboard-location";
-import type { TransactionPage } from "@/features/dashboard/types";
+import { serializePeriod } from "@/lib/period";
+import type { DashboardQuery } from "@/client/dashboard-location";
+import type { TransactionPage } from "@/features/transactions/types";
 
 export function transactionListFilters(query: DashboardQuery): TransactionListFilters {
   return {

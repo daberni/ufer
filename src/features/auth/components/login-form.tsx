@@ -13,8 +13,8 @@ import { FormError } from "@/components/ui/form-error";
 import { LegalLinks } from "@/features/legal/components/legal-links";
 import { SourceCodeNotice } from "@/features/legal/components/source-code-notice";
 import { authClient, requireAuthResult } from "@/features/auth/client";
-import { useDashboardStore } from "@/features/dashboard/dashboard-store";
-import { signInMeta } from "@/features/dashboard/use-dashboard-lock";
+import { useDashboardStore } from "@/client/dashboard-store";
+import { signInMeta } from "@/client/use-dashboard-lock";
 
 type Credentials = {
   username: string;

@@ -3,9 +3,8 @@
 import { useCallback, useMemo } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useDashboardStore, useDashboardStoreApi } from "./dashboard-store";
-import { dashboardQuery, isPeriodAware, periodScope, viewFromPathname, viewHref, viewPaths, withQueryChanges, type DashboardQuery, type DashboardQueryChanges } from "./dashboard-location";
-import type { Period } from "./period";
-import type { View } from "./types";
+import { dashboardQuery, isPeriodAware, periodScope, viewFromPathname, viewHref, viewPaths, withQueryChanges, type DashboardQuery, type DashboardQueryChanges, type View } from "./dashboard-location";
+import type { Period } from "@/lib/period";
 
 /*
  * Typed access to the dashboard URL. Hooks read single parameters for rendering; setters are plain functions that read window.location when called, so components that only change the URL do not subscribe to it. Next.js integrates pushState and replaceState into its router, so the hooks follow these writes as well as links and Back/Forward.

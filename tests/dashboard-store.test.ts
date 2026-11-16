@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { createDashboardStore, onView } from "../src/features/dashboard/dashboard-store";
+import { createDashboardStore, onView } from "../src/client/dashboard-store";
 
 function storeAt(pathname: string) {
   const location = {
