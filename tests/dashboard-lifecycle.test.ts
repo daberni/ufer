@@ -4,17 +4,21 @@ import { act, renderHook } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
 import { AppRouterContext, type AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import { PathnameContext, SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime";
-import type { QueryClient } from "@tanstack/react-query";
+import { useMutation, type QueryClient } from "@tanstack/react-query";
+import { api } from "../src/client/api";
 import { invalidate } from "../src/client/invalidate";
 import { queryKeys } from "../src/client/query-keys";
 import { useActionFeedback } from "../src/components/ui/use-action-feedback";
 import { useDashboard } from "../src/features/dashboard/use-dashboard";
-import { useDashboardLock } from "../src/features/dashboard/use-dashboard-lock";
+import { signInMeta, useDashboardLock } from "../src/features/dashboard/use-dashboard-lock";
 import { useLoadError } from "../src/features/dashboard/use-load-error";
 import { useAreaResult } from "../src/features/dashboard/use-area-result";
 import { useCashFlow } from "../src/features/dashboard/queries";
 import { useAccounts, useNetWorth } from "../src/features/accounts/queries";
 import { useTransactionListView } from "../src/features/transactions/use-transaction-list-view";
+import { useTransactionCategory } from "../src/features/transactions/use-transaction-category";
+import { useConnectBank } from "../src/features/banking/mutations";
+import type { Transaction } from "../src/features/dashboard/types";
 import { currentMonthPeriod, monthPeriod, serializePeriod, type Period } from "../src/features/dashboard/period";
 import type { DashboardQuery } from "../src/features/dashboard/dashboard-location";
 import { browser, wait, withQueryClient, type PendingRequest } from "./fixtures/browser";
@@ -177,6 +181,64 @@ test("a read rejected with 401 locks the dashboard and drops cached financial da
 
   assert.equal(result.current.lock.locked, true);
   assert.equal(queryClient.getQueryData(queryKeys.categories()), undefined);
+});
+
+test("a write rejected with 401 locks the dashboard and drops pending changes, while a rejected sign-in stays a form error", async context => {
+  const {
+    queryClient,
+    requests
+  } = browser(context);
+  const transaction = {
+    id: "synthetic-entry",
+    category_id: "groceries",
+    category_source: "rule"
+  } as Transaction;
+
+  queryClient.setQueryData(queryKeys.categories(), []);
+  const { result } = renderHook(() => ({
+    lock: useDashboardLock(),
+    row: useTransactionCategory(transaction),
+    connect: useConnectBank(),
+    signIn: useMutation({
+      meta: signInMeta,
+      mutationFn: () => api("auth/sign-in/username", {})
+    })
+  }), {
+    wrapper: queryWrapper(queryClient)
+  });
+  const unauthorized = () => Response.json({
+    title: "Unauthorized",
+    detail: "Sign in to continue."
+  }, {
+    status: 401
+  });
+
+  act(() => result.current.signIn.mutate());
+  await wait(0);
+  await respond(requests("auth/sign-in/username")[0], unauthorized());
+
+  assert.equal(result.current.lock.locked, false);
+  assert.equal(result.current.signIn.error?.message, "Sign in to continue.");
+
+  act(() => result.current.row.change("leisure"));
+  await wait(0);
+  assert.equal(result.current.row.categoryId, "leisure");
+
+  act(() => result.current.connect.mutate({
+    bank: "Example bank",
+    country: "AT"
+  }));
+  await wait(0);
+  await respond(requests("banking/connect")[0], unauthorized());
+
+  assert.equal(result.current.lock.locked, true);
+  assert.equal(queryClient.getQueryData(queryKeys.categories()), undefined);
+  // The pending change left with the cleared caches, so the row cannot show it again after signing in.
+  assert.equal(result.current.row.categoryId, "groceries");
+  assert.equal(result.current.row.status, undefined);
+
+  await respond(requests("transactions/synthetic-entry")[0], unauthorized());
+  assert.equal(result.current.row.categoryId, "groceries");
 });
 
 test("an older response cannot replace the results for newer filters", async context => {

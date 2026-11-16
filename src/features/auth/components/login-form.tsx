@@ -12,6 +12,7 @@ import { apiGet, failureMessage } from "@/client/api";
 import { FormError } from "@/components/ui/form-error";
 import { authClient, requireAuthResult } from "@/features/auth/client";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
+import { signInMeta } from "@/features/dashboard/use-dashboard-lock";
 
 type Props = Pick<DashboardController, "unlock">;
 
@@ -22,6 +23,7 @@ type Credentials = {
 
 export function LoginForm({ unlock }: Props) {
   const signIn = useMutation({
+    meta: signInMeta,
     mutationFn: async (credentials: Credentials) => {
       requireAuthResult(await authClient.signIn.username(credentials));
       // Confirms that the new session has access to this workspace before the dashboard loads.
