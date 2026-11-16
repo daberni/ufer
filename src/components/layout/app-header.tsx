@@ -3,27 +3,26 @@
 import styles from "./app-header.module.css";
 import { ChevronRight } from "lucide-react";
 import { UserAccess } from "@/features/auth/components/user-access";
-import type { DashboardController } from "@/features/dashboard/use-dashboard";
 
-type Props = Pick<DashboardController, "lock" | "nav" | "reportFeedback"> & {
+type Props = {
   environment: string;
+  /** The current view's name. */
+  title: string;
 };
 
 export function AppHeader({
   environment,
-  lock,
-  nav,
-  reportFeedback
+  title
 }: Props) {
   return (
     <header className={styles["topbar"]}>
       <span>
         My finances <ChevronRight size={13} />
-        <strong>{nav.label}</strong>
+        <strong>{title}</strong>
       </span>
       <div>
         {environment === "SANDBOX" && <span className={styles["environment-pill"]}>SANDBOX</span>}
-        <UserAccess lock={lock} reportFeedback={reportFeedback} />
+        <UserAccess />
       </div>
     </header>
   );

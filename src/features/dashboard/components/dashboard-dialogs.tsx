@@ -4,6 +4,8 @@ import ui from "../../../components/ui/primitives.module.css";
 
 import styles from "./dashboard-dialogs.module.css";
 import { useEffect, useRef } from "react";
+import { useBankDirectory } from "@/features/banking/use-bank-directory";
+import { usePathname } from "next/navigation";
 import { X } from "lucide-react";
 import { BankConnectionForm } from "@/features/banking/components/bank-connection-form";
 import { RemoveConnectionForm } from "@/features/banking/components/remove-connection-form";
@@ -13,36 +15,35 @@ import { CreateRuleForm } from "@/features/categorization/components/create-rule
 import { CategoryForm } from "@/features/categorization/components/category-form";
 import { CsvImportForm } from "@/features/imports/components/csv-import-form";
 import { modalTitles } from "@/features/dashboard/presentation";
-import type { Account } from "@/features/dashboard/types";
-import type { DashboardController } from "@/features/dashboard/use-dashboard";
+import { onView, useDashboardStore, type DashboardDialog } from "@/features/dashboard/dashboard-store";
+import type { Account, Connection } from "@/features/dashboard/types";
 
-type Props = Pick<DashboardController, "bankCountry" | "bankName" | "bankSearch" | "banks" | "banksError" | "banksLoading" | "importMode" | "modal" | "reportFeedback" | "selectedAccount" | "selectedCategory" | "selectedConnection" | "setBankCountry" | "setBankName" | "setBankSearch" | "setImportMode" | "setModal"> & {
+type Props = {
   accounts: Account[];
   environment: string;
 };
 
-export function DashboardDialogs({
+/** The dialog opened on the current view, if any; each opening mounts a fresh dialog and form. */
+export function DashboardDialogs(props: Props) {
+  const pathname = usePathname();
+  const bound = useDashboardStore(state => state.dialog);
+  const dialog = onView(bound, pathname);
+
+  if (!dialog) {
+    return null;
+  }
+
+  return <OpenDialog key={dialog.kind} dialog={dialog} {...props} />;
+}
+
+function OpenDialog({
   accounts,
-  bankCountry,
-  bankName,
-  bankSearch,
-  banks,
-  banksError,
-  banksLoading,
-  environment,
-  importMode,
-  modal,
-  reportFeedback,
-  selectedAccount,
-  selectedCategory,
-  selectedConnection,
-  setBankCountry,
-  setBankName,
-  setBankSearch,
-  setImportMode,
-  setModal
-}: Props) {
-  const close = () => setModal(null);
+  dialog,
+  environment
+}: Props & {
+  dialog: DashboardDialog;
+}) {
+  const close = useDashboardStore(state => state.closeDialog);
   const dialogRef = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
@@ -73,49 +74,74 @@ export function DashboardDialogs({
         <div className={styles["modal-heading"]}>
           <div>
             <span className={styles["eyebrow"]}>YOUR FINANCES</span>
-            <h2 id="modal-title">{modal ? modalTitles[modal] : "Your finances"}</h2>
+            <h2 id="modal-title">{modalTitles[dialog.kind]}</h2>
           </div>
           <button className={ui["icon-button"]} aria-label="Close dialog" onClick={close}>
             <X size={20} />
           </button>
         </div>
-        {modal === "bank" && (
-          <BankConnectionForm
-            bankCountry={bankCountry}
-            bankName={bankName}
-            bankSearch={bankSearch}
-            banks={banks}
-            banksError={banksError}
-            banksLoading={banksLoading}
-            close={close}
-            environment={environment}
-            setBankCountry={setBankCountry}
-            setBankName={setBankName}
-            setBankSearch={setBankSearch}
-          />
-        )}
-        {modal === "removeConnection" && selectedConnection && (
-          <RemoveConnectionForm
-            accounts={accounts}
-            close={close}
-            reportFeedback={reportFeedback}
-            selectedConnection={selectedConnection}
-          />
-        )}
-        {modal === "account" && <CreateAccountForm close={close} />}
-        {modal === "balance" && selectedAccount && <ValuationForm close={close} selectedAccount={selectedAccount} />}
-        {modal === "rule" && <CreateRuleForm close={close} />}
-        {modal === "category" && <CategoryForm close={close} />}
-        {modal === "editCategory" && selectedCategory && <CategoryForm category={selectedCategory} close={close} />}
-        {modal === "import" && (
-          <CsvImportForm
-            accounts={accounts}
-            close={close}
-            importMode={importMode}
-            setImportMode={setImportMode}
-          />
-        )}
+        <DialogForm
+          accounts={accounts}
+          close={close}
+          dialog={dialog}
+          environment={environment}
+        />
       </div>
     </dialog>
   );
+}
+
+function DialogForm({
+  accounts,
+  close,
+  dialog,
+  environment
+}: Props & {
+  close: () => void;
+  dialog: DashboardDialog;
+}) {
+  switch (dialog.kind) {
+    case "bank":
+      return <BankDialogForm close={close} connection={dialog.connection} environment={environment} />;
+    case "removeConnection":
+      return <RemoveConnectionForm accounts={accounts} close={close} selectedConnection={dialog.connection} />;
+    case "account":
+      return <CreateAccountForm close={close} />;
+    case "balance":
+      return <ValuationForm close={close} selectedAccount={dialog.account} />;
+    case "rule":
+      return <CreateRuleForm close={close} />;
+    case "category":
+      return <CategoryForm close={close} />;
+    case "editCategory":
+      return <CategoryForm category={dialog.category} close={close} />;
+    case "import":
+      return <CsvImportForm accounts={accounts} close={close} initialMode={dialog.mode} />;
+  }
+}
+
+// TEMPORARY until #122 moves the bank directory into the bank form.
+function BankDialogForm({
+  close,
+  connection,
+  environment
+}: {
+  close: () => void;
+  connection: Connection | null;
+  environment: string;
+}) {
+  const directory = useBankDirectory(true);
+  const {
+    setBankCountry,
+    setBankName
+  } = directory;
+
+  useEffect(() => {
+    if (connection) {
+      setBankCountry(connection.bank_country);
+      setBankName(connection.bank_name);
+    }
+  }, [connection, setBankCountry, setBankName]);
+
+  return <BankConnectionForm close={close} environment={environment} {...directory} />;
 }

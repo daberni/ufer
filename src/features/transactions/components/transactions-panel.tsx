@@ -8,7 +8,8 @@ import styles from "./transactions-panel.module.css";
 import { ArrowDownToLine, ArrowRight, Search } from "lucide-react";
 import { Empty } from "@/components/ui/empty-state";
 import { TransactionList } from "@/features/transactions/components/transaction-list";
-import type { DashboardController } from "@/features/dashboard/use-dashboard";
+import { useDashboardStore } from "@/features/dashboard/dashboard-store";
+import { setAccountFilter, setCategoryFilter, setPage, setSearch, useAccountFilter, useCategoryFilter, useChangeView, useSearchFilter } from "@/features/dashboard/use-dashboard-url";
 import { Select } from "@/components/ui/select";
 import { anyCategory, CategoryPicker, type CategoryPickerValue } from "@/features/categorization/components/category-picker";
 import { useSearchDraft } from "@/features/transactions/use-search-draft";
@@ -17,7 +18,8 @@ import { areaProps, valueMask } from "@/features/dashboard/components/result-pre
 import type { AreaResult } from "@/features/dashboard/use-area-result";
 import type { Account, Category, TransactionPage } from "@/features/dashboard/types";
 
-type Props = Pick<DashboardController, "accountFilter" | "categoryFilter" | "changeView" | "search" | "setAccountFilter" | "setCategoryFilter" | "setImportMode" | "setModal" | "setPage" | "setSearch" | "view"> & {
+type Props = {
+  view: "overview" | "transactions";
   categories: Category[];
   /** Accounts offered as a filter. */
   filterAccounts: Account[];
@@ -48,24 +50,15 @@ function categoryFilterValue(value: CategoryPickerValue) {
 }
 
 export function TransactionsPanel({
-  accountFilter,
   categories,
-  categoryFilter,
-  changeView,
   emptyState,
   filterAccounts,
   list,
   page,
-  search,
-  setAccountFilter,
-  setCategoryFilter,
-  setImportMode,
-  setModal,
-  setPage,
-  setSearch,
   view
 }: Props) {
-  const [searchDraft, setSearchDraft] = useSearchDraft(search, setSearch);
+  const openDialog = useDashboardStore(state => state.openDialog);
+  const changeView = useChangeView();
   const {
     transactionCount,
     transactions
@@ -86,50 +79,17 @@ export function TransactionsPanel({
         ) : (
           <button
             className={clsx(styles["button"], ui["small"])}
-            onClick={() => {
-              setImportMode("transactions");
-              setModal("import");
-            }}
+            onClick={() => openDialog({
+              kind: "import",
+              mode: "transactions"
+            })}
           >
             <ArrowDownToLine size={14} />
             Import CSV
           </button>
         )}
       </div>
-      {view === "transactions" && (
-        <div className={styles["filters"]}>
-          <label className={styles["search-field"]}>
-            <Search size={16} />
-            <input
-              aria-label="Search transactions"
-              placeholder="Payee or description …"
-              value={searchDraft}
-              onChange={event => setSearchDraft(event.target.value)}
-            />
-          </label>
-          <Select
-            aria-label="Account filter"
-            value={accountFilter}
-            onChange={event => setAccountFilter(event.target.value)}
-          >
-            <option value="">All accounts</option>
-            {filterAccounts.map(account => (
-              <option key={account.id} value={account.id}>
-                {account.name}
-              </option>
-            ))}
-          </Select>
-          <CategoryPicker
-            className={styles["category-filter"]}
-            aria-label="Category filter"
-            categories={categories}
-            value={categoryPickerValue(categoryFilter)}
-            includeAll
-            includeUncategorized
-            onChange={value => setCategoryFilter(categoryFilterValue(value))}
-          />
-        </div>
-      )}
+      {view === "transactions" && <TransactionFilters categories={categories} filterAccounts={filterAccounts} />}
       <div {...areaProps(list.status)}>
         {visibleTransactions.length ? <TransactionList categories={categories} transactions={visibleTransactions} /> : noMatches && (emptyState ?? <Empty title="Your financial history starts here.">Connect a bank account and sync, or import your existing transactions from CSV.</Empty>)}
       </div>
@@ -147,5 +107,57 @@ export function TransactionsPanel({
         </div>
       )}
     </section>
+  );
+}
+
+function TransactionFilters({
+  categories,
+  filterAccounts
+}: Pick<Props, "categories" | "filterAccounts">) {
+  const accountFilter = useAccountFilter();
+  const categoryFilter = useCategoryFilter();
+
+  return (
+    <div className={styles["filters"]}>
+      <TransactionSearch />
+      <Select
+        aria-label="Account filter"
+        value={accountFilter}
+        onChange={event => setAccountFilter(event.target.value)}
+      >
+        <option value="">All accounts</option>
+        {filterAccounts.map(account => (
+          <option key={account.id} value={account.id}>
+            {account.name}
+          </option>
+        ))}
+      </Select>
+      <CategoryPicker
+        className={styles["category-filter"]}
+        aria-label="Category filter"
+        categories={categories}
+        value={categoryPickerValue(categoryFilter)}
+        includeAll
+        includeUncategorized
+        onChange={value => setCategoryFilter(categoryFilterValue(value))}
+      />
+    </div>
+  );
+}
+
+// Keystrokes change only this field's draft; the list follows once the committed search reaches the URL.
+function TransactionSearch() {
+  const [searchDraft, setSearchDraft] = useSearchDraft(useSearchFilter(), setSearch);
+
+  return (
+    <label className={styles["search-field"]}>
+      <Search size={16} />
+      <input
+        aria-label="Search transactions"
+        placeholder="Payee or description …"
+        value={searchDraft}
+        onChange={event => setSearchDraft(event.target.value)}
+      />
+    </label>
   );
 }

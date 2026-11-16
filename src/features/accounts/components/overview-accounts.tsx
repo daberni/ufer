@@ -11,20 +11,19 @@ import { DateValue } from "@/components/ui/date-value";
 import { useBankingConfiguration } from "@/features/banking/banking-configuration";
 import { money } from "@/lib/money";
 import type { Account } from "@/features/dashboard/types";
-import type { DashboardController } from "@/features/dashboard/use-dashboard";
+import { useDashboardStore } from "@/features/dashboard/dashboard-store";
+import { useChangeView } from "@/features/dashboard/use-dashboard-url";
 
-type Props = Pick<DashboardController, "changeView" | "openBank" | "setModal" | "setSelectedAccount"> & {
+type Props = {
   /** Accounts in the display currency. */
   currencyAccounts: Account[];
 };
 
 export function OverviewAccounts({
-  changeView,
-  openBank,
-  currencyAccounts,
-  setModal,
-  setSelectedAccount
+  currencyAccounts
 }: Props) {
+  const openDialog = useDashboardStore(state => state.openDialog);
+  const changeView = useChangeView();
   const sandbox = useBankingConfiguration().environment === "SANDBOX";
 
   return (
@@ -47,10 +46,11 @@ export function OverviewAccounts({
                 className={styles["account-tile"]}
                 key={account.id}
                 onClick={() => {
-                  setSelectedAccount(account);
-
                   if (account.provider === "manual") {
-                    setModal("balance");
+                    openDialog({
+                      kind: "balance",
+                      account
+                    });
                   } else {
                     changeView("accounts");
                   }
@@ -84,11 +84,22 @@ export function OverviewAccounts({
             <h3>Your overview starts with your first account.</h3>
             <p>{sandbox ? "Connect a sandbox bank" : "Connect your bank"}, or manually add accounts, investments, property and debts.</p>
           </div>
-          <button className={clsx(styles["button"], ui["primary"])} onClick={() => openBank()}>
+          <button
+            className={clsx(styles["button"], ui["primary"])}
+            onClick={() => openDialog({
+              kind: "bank",
+              connection: null
+            })}
+          >
             <Plus size={15} />
             Connect bank
           </button>
-          <button className={styles["button"]} onClick={() => setModal("account")}>
+          <button
+            className={styles["button"]}
+            onClick={() => openDialog({
+              kind: "account"
+            })}
+          >
             Add manually
           </button>
         </div>

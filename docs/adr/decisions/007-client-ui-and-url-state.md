@@ -46,7 +46,7 @@ Every component that reads a URL hook re-renders when any query parameter change
 
 - `dialog`: a discriminated union with its payload, for example `{ kind: "balance", account }` or `{ kind: "removeConnection", connection }`, together with the pathname it was opened on;
 - `feedback`: the page-level message for results without a surviving trigger (a bank callback, a failed rule toggle, an unconfirmed revocation), also bound to its pathname;
-- `locked`: whether the sign-in form replaces the dashboard; locking still clears the query and mutation caches as ADR 006 requires;
+- `locked`: whether the sign-in form replaces the dashboard; locking still clears the query and mutation caches as ADR 006 requires and also drops the open dialog, whose payload is financial data, and page feedback;
 - `periodScope`: the period and currency last selected on a period-aware view.
 
 Dialogs open in one call, `openDialog({ kind: "balance", account })`. The payload is part of the state, so a dialog can never open without its data, and adding a dialog means adding a union member and its render branch. A dialog and page feedback belong to the view they were opened on: they are hidden as soon as the pathname differs and cleared after the navigation, including Back and Forward.
