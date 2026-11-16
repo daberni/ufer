@@ -1,0 +1,45 @@
+.rows {
+  display: grid;
+  gap: 17px;
+}
+.row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 9px;
+  font-size: var(--text-xs);
+}
+.row > span {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  color: #8c9680;
+}
+.row strong {
+  font-weight: 500;
+  color: #6c775f;
+  font-size: var(--text-xs);
+}
+.row > div {
+  grid-column: 1/-1;
+  height: 4px;
+  background: #f2f4ed;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.row > div > i {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+}
+@media (max-width: 760px), (max-width: 900px) and (pointer: coarse) {
+  .row {
+    font-size: var(--text-sm);
+  }
+  .row strong {
+    font-size: var(--text-sm);
+  }
+  .rows {
+    gap: 20px;
+  }
+}
