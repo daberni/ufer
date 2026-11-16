@@ -29,6 +29,30 @@ function TableHeader() {
   );
 }
 
+/** The original amount of a foreign-currency booking; the direction is already shown by the booked amount. */
+function originalAmount(transaction: Transaction) {
+  const instructed = transaction.instructed_amount_minor;
+  const currency = transaction.instructed_currency;
+
+  if (instructed === null || !currency || currency === transaction.currency) {
+    return null;
+  }
+
+  return `${money(Math.abs(instructed), currency)} original`;
+}
+
+function OriginalAmount({ transaction }: {
+  transaction: Transaction
+}) {
+  const original = originalAmount(transaction);
+
+  if (!original) {
+    return null;
+  }
+
+  return <span className={styles["original-amount"]}>{original}</span>;
+}
+
 export function TransactionList({
   categories,
   transactions
@@ -58,6 +82,7 @@ export function TransactionList({
                 <td className={clsx(styles["amount"], styles["align-right"], transaction.amount_minor > 0 ? ui["positive"] : "")}>
                   {transaction.amount_minor > 0 ? "+" : ""}
                   {money(transaction.amount_minor, transaction.currency)}
+                  <OriginalAmount transaction={transaction} />
                 </td>
               </tr>
             ))}
@@ -77,6 +102,7 @@ export function TransactionList({
                 <strong className={clsx(styles["amount"], transaction.amount_minor > 0 ? ui["positive"] : "")}>
                   {transaction.amount_minor > 0 ? "+" : ""}
                   {money(transaction.amount_minor, transaction.currency)}
+                  <OriginalAmount transaction={transaction} />
                 </strong>
               </div>
               {transaction.description && (

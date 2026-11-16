@@ -1,4 +1,3 @@
-import { requireAuth } from "@/features/auth/server/session";
 import { NextResponse } from "next/server";
 import { respond } from "@/server/http/respond";
 import { readJson } from "@/server/http/request-body";
@@ -11,8 +10,8 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 export async function POST(request: Request) {
-  return respond(request, async () => {
-    const result = await connectBank(await readJson(request), await requireAuth(request));
+  return respond(request, async actor => {
+    const result = await connectBank(await readJson(request), actor);
     const response = NextResponse.json({
       url: result.url
     });

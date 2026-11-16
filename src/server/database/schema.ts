@@ -92,11 +92,16 @@ export const transactions = sqliteTable("transactions", {
   category_source: text("category_source", {
     enum: ["rule", "manual"]
   }).notNull().default("rule"),
-  created_at: text("created_at").notNull().default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ','now'))`)
+  created_at: text("created_at").notNull().default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ','now'))`),
+  // Signed like amount_minor, in minor units of instructed_currency.
+  instructed_amount_minor: integer("instructed_amount_minor"),
+  instructed_currency: text("instructed_currency"),
+  provider_payload: text("provider_payload")
 }, table => [
   unique("transactions_account_id_provider_reference_unique").on(table.account_id, table.provider_reference),
   index("transactions_date").on(desc(table.booking_date)),
   index("transactions_account").on(table.account_id, table.booking_date),
+  index("transactions_created_at").on(table.created_at),
   check("transactions_category_source", sql`${table.category_source} IN ('rule','manual')`)
 ]);
 

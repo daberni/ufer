@@ -86,7 +86,7 @@ export async function readTransactionPage(filters: DashboardFilters) {
   const condition = where.join(" AND ");
   const transactionsQuery = client.execute({
     sql: `
-      SELECT t.id,t.booking_date,t.amount_minor,t.currency,t.counterparty,t.description,a.name AS account_name,t.category_id,t.category_source
+      SELECT t.id,t.booking_date,t.amount_minor,t.currency,t.instructed_amount_minor,t.instructed_currency,t.counterparty,t.description,a.name AS account_name,t.category_id,t.category_source
       FROM transactions t
       JOIN accounts a ON a.id=t.account_id
       WHERE ${condition}
@@ -117,6 +117,8 @@ export async function readTransactionPage(filters: DashboardFilters) {
       booking_date: String(row.booking_date),
       amount_minor: Number(row.amount_minor),
       currency: String(row.currency),
+      instructed_amount_minor: row.instructed_amount_minor === null ? null : Number(row.instructed_amount_minor),
+      instructed_currency: row.instructed_currency === null ? null : String(row.instructed_currency),
       counterparty: String(row.counterparty),
       description: String(row.description),
       account_name: String(row.account_name),
