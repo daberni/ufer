@@ -1,7 +1,8 @@
 import { HttpError } from "@/lib/errors";
-import { createPrivateKey } from "node:crypto";
+import { createPrivateKey, type KeyObject } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { SignJWT } from "jose";
+import { Temporal } from "temporal-polyfill";
 import { environment } from "./environment";
 
 export type Bank = {
@@ -92,19 +93,72 @@ export function bankingConfigured() {
   return Boolean(process.env.ENABLE_BANKING_APP_ID && (process.env.ENABLE_BANKING_PRIVATE_KEY_PATH || process.env.ENABLE_BANKING_PRIVATE_KEY));
 }
 
+type SigningKey = {
+  source: string;
+  key: KeyObject;
+};
+
+type ProviderToken = {
+  applicationId: string;
+  key: KeyObject;
+  token: string;
+  renewAt: Temporal.Instant;
+};
+
+const tokenLifetimeSeconds = 300;
+// A reused token keeps at least this much validity for the request that carries it.
+const tokenRenewalMarginSeconds = 60;
+let signingKey: SigningKey | undefined;
+let providerToken: ProviderToken | undefined;
+
+function privateKey() {
+  const inlineKey = process.env.ENABLE_BANKING_PRIVATE_KEY;
+  const source = inlineKey ? `inline:${inlineKey}` : `file:${process.env.ENABLE_BANKING_PRIVATE_KEY_PATH}`;
+
+  if (signingKey?.source !== source) {
+    const pem = inlineKey?.replace(/\\n/g, "\n") || readFileSync(process.env.ENABLE_BANKING_PRIVATE_KEY_PATH!, "utf8");
+
+    signingKey = {
+      source,
+      key: createPrivateKey(pem)
+    };
+  }
+
+  return signingKey.key;
+}
+
+/** The provider JWT for API requests; one token is reused until shortly before its five-minute lifetime ends. */
 export async function applicationToken() {
   if (!bankingConfigured()) {
     throw new HttpError(503, "Enable Banking application ID and private key are missing.");
   }
 
-  const pem = process.env.ENABLE_BANKING_PRIVATE_KEY?.replace(/\\n/g, "\n") || readFileSync(process.env.ENABLE_BANKING_PRIVATE_KEY_PATH!, "utf8");
-  const key = createPrivateKey(pem);
+  const applicationId = process.env.ENABLE_BANKING_APP_ID!;
+  const key = privateKey();
+  const now = Temporal.Now.instant();
+  const cached = providerToken;
 
-  return new SignJWT({}).setProtectedHeader({
+  if (cached && cached.applicationId === applicationId && cached.key === key && Temporal.Instant.compare(now, cached.renewAt) < 0) {
+    return cached.token;
+  }
+
+  const issuedAt = Math.floor(now.epochMilliseconds / 1000);
+  const token = await new SignJWT({}).setProtectedHeader({
     typ: "JWT",
     alg: "RS256",
-    kid: process.env.ENABLE_BANKING_APP_ID
-  }).setIssuer("enablebanking.com").setAudience("api.enablebanking.com").setIssuedAt().setExpirationTime("5m").sign(key);
+    kid: applicationId
+  }).setIssuer("enablebanking.com").setAudience("api.enablebanking.com").setIssuedAt(issuedAt).setExpirationTime(issuedAt + tokenLifetimeSeconds).sign(key);
+
+  providerToken = {
+    applicationId,
+    key,
+    token,
+    renewAt: now.add({
+      seconds: tokenLifetimeSeconds - tokenRenewalMarginSeconds
+    })
+  };
+
+  return token;
 }
 
 export async function bankingRequest<T>(path: string, body?: unknown, method = body ? "POST" : "GET"): Promise<T> {
@@ -181,12 +235,18 @@ export async function deleteSession(sessionId: string) {
 }
 
 export async function availableBanks(country: string) {
-  await verifyApplication();
   const result = await bankingRequest<{
     aspsps: Bank[];
   }>(`/aspsps?country=${encodeURIComponent(country)}`);
 
   return result.aspsps.filter(bank => !bank.psu_types || bank.psu_types.includes("personal"));
+}
+
+/** The bank directory for the connect dialog; it also confirms that the provider application belongs to the configured environment. */
+export async function listBanks(country: string) {
+  const [banks] = await Promise.all([availableBanks(country), verifyApplication()]);
+
+  return banks;
 }
 
 export async function fetchTransactions(uid: string, dateFrom: string, heartbeat?: () => Promise<void>): Promise<BankTransaction[]> {
