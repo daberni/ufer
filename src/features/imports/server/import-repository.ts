@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, eq, isNull, lte, or } from "drizzle-orm";
+import { and, eq, isNull, lte, or, sql } from "drizzle-orm";
 import { database } from "@/server/database/connection";
 import { accounts, balanceSnapshots } from "@/server/database/schema";
 import { environment } from "@/features/banking/server/environment";
@@ -21,18 +21,21 @@ export async function saveImportedValuations(accountId: string, entries: {
   const scope = and(eq(accounts.id, accountId), eq(accounts.environment, environment()), or(isNull(accounts.balance_date), lte(accounts.balance_date, newest.date)));
 
   await db.transaction(async tx => {
-    for (const entry of entries) {
-      await tx.insert(balanceSnapshots).values({
+    // Bound statement parameters for both local SQLite and remote libSQL deployments.
+    for (let offset = 0; offset < entries.length; offset += 50) {
+      const values = entries.slice(offset, offset + 50).map(entry => ({
         id: randomUUID(),
         account_id: accountId,
         observed_at: entry.date,
         amount_minor: entry.amount,
-        source: "csv"
-      }).onConflictDoUpdate({
+        source: "csv" as const
+      }));
+
+      await tx.insert(balanceSnapshots).values(values).onConflictDoUpdate({
         target: [balanceSnapshots.account_id, balanceSnapshots.observed_at],
         set: {
-          amount_minor: entry.amount,
-          source: "csv"
+          amount_minor: sql`excluded.amount_minor`,
+          source: sql`excluded.source`
         }
       });
     }

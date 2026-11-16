@@ -1,4 +1,5 @@
 import { respond } from "@/server/http/respond";
+import { readJson } from "@/server/http/request-body";
 import { updateCategoryDetails } from "@/features/categorization/server/categorization-service";
 
 export const runtime = "nodejs";
@@ -17,6 +18,6 @@ export async function PATCH(request: Request, context: Context) {
   return respond(request, async () => {
     const { id } = await context.params;
 
-    return updateCategoryDetails(id, await request.json());
+    return updateCategoryDetails(id, await readJson(request));
   });
 }
