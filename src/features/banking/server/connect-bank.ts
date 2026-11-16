@@ -17,15 +17,13 @@ export async function connectBank(payload: unknown, actor: AuthContext) {
     bank: z.string().min(1).max(200),
     country: z.string().regex(/^[A-Z]{2}$/)
   }).parse(payload);
-  const banks = await availableBanks(country);
+  const callback = bankCallbackUrl();
+  const [banks, application] = await Promise.all([availableBanks(country), verifyApplication()]);
   const selected = banks.find(item => item.name === bank && item.country === country);
 
   if (!selected) {
     throw new HttpError(400, "This bank is unavailable in the selected environment.");
   }
-
-  const callback = bankCallbackUrl();
-  const application = await verifyApplication();
 
   if (!application.redirect_urls?.includes(callback)) {
     throw new HttpError(409, "Register this exact callback URL in the Enable Banking application.");

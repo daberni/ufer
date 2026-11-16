@@ -97,6 +97,7 @@ export const transactions = sqliteTable("transactions", {
   unique("transactions_account_id_provider_reference_unique").on(table.account_id, table.provider_reference),
   index("transactions_date").on(desc(table.booking_date)),
   index("transactions_account").on(table.account_id, table.booking_date),
+  index("transactions_created_at").on(table.created_at),
   check("transactions_category_source", sql`${table.category_source} IN ('rule','manual')`)
 ]);
 
