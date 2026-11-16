@@ -99,27 +99,25 @@ test("an action in flight leaves the controls of every other action unchanged", 
   const { SyncButton } = await import("../src/features/banking/components/sync-button");
   const { RulesView } = await import("../src/features/categorization/components/rules-view");
   const { TransactionCategory } = await import("../src/features/transactions/components/transaction-category");
+  const { DashboardStoreProvider } = await import("../src/features/dashboard/dashboard-store");
 
-  const screen = render(withQueryClient(queryClient, [
+  const screen = render(withQueryClient(queryClient, createElement(DashboardStoreProvider, null, [
     createElement(SyncButton, {
       key: "sync",
       bankAccounts: [account],
-      changeView: () => {}
+      showConnections: () => {}
     }),
     createElement(RulesView, {
       key: "rules",
       categories,
-      rules: [rule],
-      reportFeedback: () => {},
-      setModal: () => {},
-      setSelectedCategory: () => {}
+      rules: [rule]
     }),
     createElement(TransactionCategory, {
       key: "category",
       categories,
       transaction
     })
-  ]));
+  ])));
 
   const controls = () => controlsIn(screen);
 

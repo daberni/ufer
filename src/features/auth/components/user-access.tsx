@@ -7,14 +7,12 @@ import { authClient, requireAuthResult } from "@/features/auth/client";
 import { AccountSettings } from "./account-settings";
 import ui from "@/components/ui/primitives.module.css";
 import { failureMessage } from "@/client/api";
-import type { DashboardController } from "@/features/dashboard/use-dashboard";
+import { useDashboardStore } from "@/features/dashboard/dashboard-store";
+import { useLockSession } from "@/features/dashboard/use-dashboard-lock";
 
-type Props = Pick<DashboardController, "lock" | "reportFeedback">;
-
-export function UserAccess({
-  lock,
-  reportFeedback
-}: Props) {
+export function UserAccess() {
+  const lock = useLockSession();
+  const reportFeedback = useDashboardStore(state => state.reportFeedback);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   const signOut = useMutation({

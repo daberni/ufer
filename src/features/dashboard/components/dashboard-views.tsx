@@ -8,7 +8,7 @@ import { SyncRunEmpty, SyncRunScope } from "@/features/transactions/components/s
 import { AccountsView } from "@/features/accounts/components/accounts-view";
 import { RulesView } from "@/features/categorization/components/rules-view";
 import { ConnectionsView } from "@/features/banking/components/connections-view";
-import { useDashboardController } from "@/features/dashboard/dashboard-context";
+import { replacePage, setSyncRun, useDashboardQuery } from "@/features/dashboard/use-dashboard-url";
 import { useAreaResult } from "@/features/dashboard/use-area-result";
 import { useCashFlow } from "@/features/dashboard/queries";
 import { accountGroups, useAccounts, useNetWorth } from "@/features/accounts/queries";
@@ -33,65 +33,42 @@ function firstLoadFailed(...results: Loadable[]) {
 }
 
 export function OverviewPage() {
-  const dashboard = useDashboardController();
+  const query = useDashboardQuery();
   const accounts = useAccounts();
   const categories = useCategories();
   const syncRuns = useSyncRuns();
-  const netWorth = useAreaResult(useNetWorth(dashboard.currency));
-  const cashFlow = useAreaResult(useCashFlow(dashboard.period, dashboard.currency));
-  const list = useTransactionListView(dashboard.query, dashboard.replacePage);
+  const netWorth = useAreaResult(useNetWorth(query.currency));
+  const cashFlow = useAreaResult(useCashFlow(query.period, query.currency));
+  const list = useTransactionListView(query, replacePage);
 
   if (!accounts.data || !categories.data || !syncRuns.data || !netWorth.data || !cashFlow.data || !list.data) {
     return <ViewLoading failed={firstLoadFailed(accounts, categories, syncRuns, netWorth, cashFlow, list)} />;
   }
 
-  const groups = accountGroups(accounts.data, dashboard.currency);
+  const groups = accountGroups(accounts.data, query.currency);
 
   return (
     <>
-      <PeriodControls
-        currencies={groups.currencies}
-        currency={dashboard.currency}
-        latestSync={syncRuns.data[0]}
-        moveMonth={dashboard.moveMonth}
-        period={dashboard.period}
-        selectPeriod={dashboard.selectPeriod}
-        setCurrency={dashboard.setCurrency}
-        view="overview"
-      />
+      <PeriodControls currencies={groups.currencies} latestSync={syncRuns.data[0]} view="overview" />
       <OverviewView
         cashFlow={{
           data: cashFlow.data,
           status: cashFlow.status
         }}
-        changeView={dashboard.changeView}
         currencyAccounts={groups.currencyAccounts}
         netWorth={{
           data: netWorth.data,
           status: netWorth.status
         }}
-        openBank={dashboard.openBank}
-        setModal={dashboard.setModal}
-        setSelectedAccount={dashboard.setSelectedAccount}
       />
       <TransactionsPanel
-        accountFilter={dashboard.accountFilter}
         categories={categories.data}
-        categoryFilter={dashboard.categoryFilter}
-        changeView={dashboard.changeView}
         filterAccounts={groups.currencyAccounts}
         list={{
           data: list.data,
           status: list.status
         }}
         page={list.page}
-        search={dashboard.search}
-        setAccountFilter={dashboard.setAccountFilter}
-        setCategoryFilter={dashboard.setCategoryFilter}
-        setImportMode={dashboard.setImportMode}
-        setModal={dashboard.setModal}
-        setPage={dashboard.setPage}
-        setSearch={dashboard.setSearch}
         view="overview"
       />
     </>
@@ -99,66 +76,47 @@ export function OverviewPage() {
 }
 
 export function TransactionsPage() {
-  const dashboard = useDashboardController();
+  const query = useDashboardQuery();
   const accounts = useAccounts();
   const categories = useCategories();
-  const list = useTransactionListView(dashboard.query, dashboard.replacePage);
+  const list = useTransactionListView(query, replacePage);
 
   if (!accounts.data || !categories.data || !list.data) {
     return <ViewLoading failed={firstLoadFailed(accounts, categories, list)} />;
   }
 
-  const groups = accountGroups(accounts.data, dashboard.currency);
+  const groups = accountGroups(accounts.data, query.currency);
   const transactionCount = {
     data: list.data.transactionCount,
     status: list.status
   };
 
   // A placeholder from earlier filters says nothing about the selected run; only the run's own response can report it missing.
-  const selectedRun = list.data.syncRun?.id === dashboard.syncRun ? list.data.syncRun : null;
+  const selectedRun = list.data.syncRun?.id === query.syncRun ? list.data.syncRun : null;
   const runFound = selectedRun !== null || !list.current;
-  const runEmptyState = <SyncRunEmpty filtered={Boolean(dashboard.search || dashboard.accountFilter || dashboard.categoryFilter)} found={runFound} run={selectedRun} />;
+  const runEmptyState = <SyncRunEmpty filtered={Boolean(query.search || query.account || query.category)} found={runFound} run={selectedRun} />;
 
   return (
     <>
-      {dashboard.syncRun ? (
+      {query.syncRun ? (
         <SyncRunScope
-          clear={() => dashboard.setSyncRun("")}
+          clear={() => setSyncRun("")}
           found={runFound}
           run={selectedRun}
           transactionCount={transactionCount}
         />
       ) : (
-        <PeriodControls
-          currencies={groups.currencies}
-          currency={dashboard.currency}
-          moveMonth={dashboard.moveMonth}
-          period={dashboard.period}
-          selectPeriod={dashboard.selectPeriod}
-          setCurrency={dashboard.setCurrency}
-          transactionCount={transactionCount}
-          view="transactions"
-        />
+        <PeriodControls currencies={groups.currencies} transactionCount={transactionCount} view="transactions" />
       )}
       <TransactionsPanel
-        accountFilter={dashboard.accountFilter}
         categories={categories.data}
-        categoryFilter={dashboard.categoryFilter}
-        changeView={dashboard.changeView}
-        emptyState={dashboard.syncRun ? runEmptyState : undefined}
-        filterAccounts={dashboard.syncRun ? accounts.data : groups.currencyAccounts}
+        emptyState={query.syncRun ? runEmptyState : undefined}
+        filterAccounts={query.syncRun ? accounts.data : groups.currencyAccounts}
         list={{
           data: list.data,
           status: list.status
         }}
         page={list.page}
-        search={dashboard.search}
-        setAccountFilter={dashboard.setAccountFilter}
-        setCategoryFilter={dashboard.setCategoryFilter}
-        setImportMode={dashboard.setImportMode}
-        setModal={dashboard.setModal}
-        setPage={dashboard.setPage}
-        setSearch={dashboard.setSearch}
         view="transactions"
       />
     </>
@@ -166,7 +124,6 @@ export function TransactionsPage() {
 }
 
 export function AccountsPage() {
-  const dashboard = useDashboardController();
   const accounts = useAccounts();
 
   if (!accounts.data) {
@@ -174,17 +131,11 @@ export function AccountsPage() {
   }
 
   return (
-    <AccountsView
-      accounts={accounts.data}
-      openBank={dashboard.openBank}
-      setModal={dashboard.setModal}
-      setSelectedAccount={dashboard.setSelectedAccount}
-    />
+    <AccountsView accounts={accounts.data} />
   );
 }
 
 export function RulesPage() {
-  const dashboard = useDashboardController();
   const rules = useRules();
   const categories = useCategories();
 
@@ -193,18 +144,11 @@ export function RulesPage() {
   }
 
   return (
-    <RulesView
-      categories={categories.data}
-      reportFeedback={dashboard.reportFeedback}
-      rules={rules.data}
-      setModal={dashboard.setModal}
-      setSelectedCategory={dashboard.setSelectedCategory}
-    />
+    <RulesView categories={categories.data} rules={rules.data} />
   );
 }
 
 export function ConnectionsPage() {
-  const dashboard = useDashboardController();
   const banking = useBankingConfiguration();
   const connections = useConnections();
   const syncRuns = useSyncRuns();
@@ -217,9 +161,6 @@ export function ConnectionsPage() {
     <ConnectionsView
       banking={banking}
       connections={connections.data}
-      openBank={dashboard.openBank}
-      openConnectionRemoval={dashboard.openConnectionRemoval}
-      syncRunHref={dashboard.syncRunHref}
       syncRuns={syncRuns.data}
     />
   );

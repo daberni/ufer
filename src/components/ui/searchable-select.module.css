@@ -1,0 +1,99 @@
+.searchable-select {
+  width: 100%;
+}
+.control {
+  position: relative;
+}
+/* Room for the toggle button, which sits inside the field's right edge. */
+.input {
+  padding-right: 44px;
+}
+.toggle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  color: var(--muted);
+}
+.toggle svg {
+  width: 16px;
+  height: 16px;
+}
+.toggle[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+/* The list opens in the surrounding flow, so neither a dialog nor a phone's on-screen keyboard can cover it. */
+.popup {
+  margin-top: 6px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface-raised);
+  color: var(--ink);
+  box-shadow: 0 8px 24px var(--shadow-color);
+}
+.popup[hidden] {
+  display: none;
+}
+.listbox {
+  max-height: 18rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+.option[data-active] {
+  background: var(--soft);
+  box-shadow: inset 0 0 0 1px var(--border-strong);
+}
+.label {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.check {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: var(--green);
+}
+.message {
+  padding: 8px;
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  color: var(--muted);
+}
+.listbox:not(:empty) + .message {
+  margin-top: 4px;
+  border-top: 1px solid var(--border);
+}
+@media (--mobile) {
+  .toggle {
+    width: 48px;
+  }
+  .input {
+    padding-right: 52px;
+  }
+  .option {
+    min-height: 44px;
+    font-size: var(--text-md);
+  }
+  .message {
+    font-size: var(--text-md);
+  }
+}

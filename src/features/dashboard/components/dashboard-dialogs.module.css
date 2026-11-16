@@ -35,7 +35,7 @@
   font-size: var(--text-xs);
   margin-bottom: 7px;
 }
-@media (max-width: 760px), (max-width: 900px) and (pointer: coarse) {
+@media (--mobile) {
   .modal {
     width: 100%;
     max-width: 100%;

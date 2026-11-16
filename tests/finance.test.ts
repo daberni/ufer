@@ -1,4 +1,4 @@
-import { test } from "node:test";
+import { test, type TestContext } from "node:test";
 import assert from "node:assert/strict";
 import { createClient } from "@libsql/client";
 import { initializeDatabase } from "../src/server/database/migrations";
@@ -21,8 +21,9 @@ import { requireOrigin } from "../src/server/http/origin";
 import { seedActor } from "./fixtures/auth";
 import { completeAuthorization } from "../src/features/banking/server/authorization-service";
 import { syncAccounts } from "../src/features/banking/server/sync-service";
-import { applicationToken, fetchTransactions, type BankTransaction } from "../src/features/banking/server/enable-banking-client";
-import { jwtVerify } from "jose";
+import { applicationToken, availableBanks, listBanks, fetchTransactions, type BankTransaction } from "../src/features/banking/server/enable-banking-client";
+import { connectBank } from "../src/features/banking/server/connect-bank";
+import { decodeJwt, decodeProtectedHeader, jwtVerify } from "jose";
 import { generateKeyPairSync } from "node:crypto";
 
 const rules: Rule[] = [{
@@ -111,6 +112,130 @@ test("provider JWTs carry the required claims and support standard RSA PEM encod
     assert.equal(protectedHeader.typ, "JWT");
     assert.equal(Number(payload.exp) - Number(payload.iat), 300);
   }
+});
+
+function syntheticProviderEnvironment(context: TestContext, variables: Record<string, string>) {
+  const names = ["ENABLE_BANKING_APP_ID", "ENABLE_BANKING_PRIVATE_KEY", "ENABLE_BANKING_ENVIRONMENT", "ENABLE_BANKING_REDIRECT_URL"];
+  const previous = new Map(names.map(name => [name, process.env[name]]));
+
+  context.after(() => {
+    for (const [name, value] of previous) {
+      if (value === undefined) {
+        delete process.env[name];
+      } else {
+        process.env[name] = value;
+      }
+    }
+  });
+
+  process.env.ENABLE_BANKING_PRIVATE_KEY = generateKeyPairSync("rsa", {
+    modulusLength: 2048
+  }).privateKey.export({
+    type: "pkcs8",
+    format: "pem"
+  }).toString();
+  Object.assign(process.env, variables);
+}
+
+test("provider requests reuse one JWT until a minute before it expires and sign a new one for another application", async context => {
+  syntheticProviderEnvironment(context, {
+    ENABLE_BANKING_APP_ID: "synthetic-application"
+  });
+  let now = Temporal.Instant.from("2026-11-16T10:00:00Z");
+
+  context.mock.method(Temporal.Now, "instant", () => now);
+  const first = await applicationToken();
+
+  now = now.add({
+    minutes: 3,
+    seconds: 59
+  });
+  assert.equal(await applicationToken(), first);
+  now = now.add({
+    seconds: 1
+  });
+  const renewed = await applicationToken();
+
+  assert.notEqual(renewed, first);
+  assert.equal(decodeJwt(renewed).iat, now.epochMilliseconds / 1000);
+  assert.equal(decodeJwt(renewed).exp, now.epochMilliseconds / 1000 + 300);
+  process.env.ENABLE_BANKING_APP_ID = "another-application";
+  const switched = await applicationToken();
+
+  assert.notEqual(switched, renewed);
+  assert.equal(decodeProtectedHeader(switched).kid, "another-application");
+});
+
+test("listing banks and starting a bank connection check the provider application once", async context => {
+  const client = await initializeDatabase(createClient({
+    url: ":memory:"
+  }));
+  const globals = globalThis as unknown as {
+    budgetDb?: Promise<Database>;
+  };
+  const previousDb = globals.budgetDb;
+  const callback = "https://ufer.example/api/banking/callback";
+  const requests: string[] = [];
+
+  const db = drizzle(client, {
+    schema
+  });
+
+  context.after(() => {
+    globals.budgetDb = previousDb;
+    client.close();
+  });
+  globals.budgetDb = Promise.resolve(db);
+  syntheticProviderEnvironment(context, {
+    ENABLE_BANKING_APP_ID: "synthetic-application",
+    ENABLE_BANKING_ENVIRONMENT: "SANDBOX",
+    ENABLE_BANKING_REDIRECT_URL: callback
+  });
+  const providerResponses: Record<string, unknown> = {
+    "/application": {
+      environment: "SANDBOX",
+      redirect_urls: [callback]
+    },
+    "/aspsps": {
+      aspsps: [{
+        name: "Example Bank",
+        country: "AT",
+        maximum_consent_validity: 86_400
+      }]
+    },
+    "/auth": {
+      url: "https://bank.example/authorize",
+      authorization_id: "synthetic-authorization"
+    }
+  };
+
+  context.mock.method(globalThis, "fetch", async (input: string | URL) => {
+    const path = new URL(String(input)).pathname;
+
+    requests.push(path);
+
+    return Response.json(providerResponses[path]);
+  });
+  const actor = await seedActor(db);
+
+  assert.deepEqual((await availableBanks("AT")).map(bank => bank.name), ["Example Bank"]);
+  assert.deepEqual(requests, ["/aspsps"]);
+  requests.length = 0;
+  assert.equal((await connectBank({
+    bank: "Example Bank",
+    country: "AT"
+  }, actor)).url, "https://bank.example/authorize");
+  assert.deepEqual(requests.toSorted(), ["/application", "/aspsps", "/auth"]);
+  requests.length = 0;
+  assert.deepEqual((await listBanks("AT")).map(bank => bank.name), ["Example Bank"]);
+  assert.deepEqual(requests.toSorted(), ["/application", "/aspsps"]);
+  providerResponses["/application"] = {
+    environment: "PRODUCTION",
+    redirect_urls: [callback]
+  };
+  await assert.rejects(listBanks("AT"), {
+    status: 409
+  });
 });
 
 test("amounts keep exact decimal cents, direction and currency precision", () => {

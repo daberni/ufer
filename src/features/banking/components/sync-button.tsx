@@ -10,10 +10,11 @@ import { LiveAnnouncements } from "@/components/ui/live-announcements";
 import { SyncProblemDetails } from "@/features/banking/components/sync-problem-details";
 import { useSyncStatus, type SyncPhase, type SyncProblem } from "@/features/banking/use-sync-status";
 import type { Account } from "@/features/dashboard/types";
-import type { DashboardController } from "@/features/dashboard/use-dashboard";
 
-type Props = Pick<DashboardController, "changeView"> & {
+type Props = {
   bankAccounts: Account[];
+  /** Shows the bank connections, where failed accounts are reauthorized. */
+  showConnections: () => void;
 };
 
 const fixedLabels = ["Sync", "Syncing …", "Up to date"];
@@ -21,7 +22,7 @@ const fixedLabels = ["Sync", "Syncing …", "Up to date"];
 // The button reflects only its own sync; other dashboard actions never change it.
 export function SyncButton({
   bankAccounts,
-  changeView
+  showConnections
 }: Props) {
   const {
     phase,
@@ -76,7 +77,7 @@ export function SyncButton({
 
   function openConnections() {
     closeDetails(true);
-    changeView("connections");
+    showConnections();
   }
 
   return (

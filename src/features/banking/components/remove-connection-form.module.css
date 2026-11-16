@@ -20,7 +20,7 @@
 .danger:not(:disabled):hover {
   background: var(--danger-strong);
 }
-@media (max-width: 760px), (max-width: 900px) and (pointer: coarse) {
+@media (--mobile) {
   .effects {
     font-size: var(--text-md);
   }

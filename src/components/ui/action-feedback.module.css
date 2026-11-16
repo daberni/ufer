@@ -60,7 +60,7 @@
   min-height: var(--row-height);
   padding: 0;
 }
-@media (max-width: 760px), (max-width: 900px) and (pointer: coarse) {
+@media (--mobile) {
   .card {
     --row-height: 44px;
     font-size: var(--text-md);

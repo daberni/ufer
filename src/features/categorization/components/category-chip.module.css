@@ -73,7 +73,7 @@
 .chip-button[aria-expanded="true"] > .chip {
   border-color: var(--chip-foreground);
 }
-@media (max-width: 760px), (max-width: 900px) and (pointer: coarse) {
+@media (--mobile) {
   .small {
     font-size: var(--text-sm);
   }

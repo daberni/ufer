@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { availableBanks } from "@/features/banking/server/enable-banking-client";
+import { listBanks } from "@/features/banking/server/enable-banking-client";
 import { respond } from "@/server/http/respond";
 
 export const runtime = "nodejs";
@@ -13,7 +13,7 @@ export async function GET(request: Request) {
     const country = z.string().regex(/^[A-Z]{2}$/).parse(new URL(request.url).searchParams.get("country") || "AT");
 
     return {
-      banks: await availableBanks(country)
+      banks: await listBanks(country)
     };
   });
 }

@@ -6,6 +6,8 @@ import { test } from "node:test";
 import { createClient, type Client } from "@libsql/client";
 import { initializeDatabase, migrateDatabase, migrationStatus } from "../src/server/database/migrations";
 
+const changesetCount = JSON.parse(readFileSync("drizzle/sqlite/meta/_journal.json", "utf8")).entries.length;
+
 async function legacyDatabase(transform: (sql: string) => string = sql => sql) {
   const client = createClient({
     url: ":memory:"
@@ -58,7 +60,7 @@ test("a fresh database receives a recorded baseline and enforces account referen
 
     assert.deepEqual(await migrationStatus(client), {
       mode: "managed",
-      applied: 4,
+      applied: changesetCount,
       pending: 0
     });
     assert.equal((await client.execute("SELECT COUNT(*) AS count FROM categories")).rows[0].count, 7);
@@ -80,7 +82,7 @@ test("startup refuses a legacy database requiring authentication migration witho
     assert.deepEqual(await migrationStatus(client), {
       mode: "legacy",
       applied: 0,
-      pending: 4
+      pending: changesetCount
     });
     assert.equal((await client.execute("SELECT COUNT(*) AS count FROM categories")).rows[0].count, 1);
     await assertFinancialData(client);
@@ -98,10 +100,10 @@ test("explicit legacy adoption preserves financial data and records each changes
 
     assert.deepEqual(await migrationStatus(client), {
       mode: "managed",
-      applied: 4,
+      applied: changesetCount,
       pending: 0
     });
-    assert.equal((await client.execute("SELECT COUNT(*) AS count FROM __drizzle_migrations")).rows[0].count, 4);
+    assert.equal((await client.execute("SELECT COUNT(*) AS count FROM __drizzle_migrations")).rows[0].count, changesetCount);
     await assertFinancialData(client);
   } finally {
     client.close();
@@ -191,7 +193,7 @@ test("a managed database with pending changes refuses startup until explicit mai
 
     assert.deepEqual(await migrationStatus(client), {
       mode: "managed",
-      applied: 4,
+      applied: changesetCount,
       pending: 0
     });
     await assertFinancialData(client);
@@ -229,7 +231,7 @@ test("a recognized legacy database cannot start against application changes beyo
 
     assert.deepEqual(await migrationStatus(client, directory), {
       mode: "managed",
-      applied: 5,
+      applied: changesetCount + 1,
       pending: 0
     });
     assert.equal((await client.execute("SELECT synthetic_extension FROM accounts WHERE id='asset'")).rows[0].synthetic_extension, 0);
@@ -302,9 +304,10 @@ test("the category icon upgrade adds an empty icon to existing categories withou
     url: ":memory:"
   });
   const journal = JSON.parse(readFileSync("drizzle/sqlite/meta/_journal.json", "utf8"));
-  const previousEntries = journal.entries.slice(0, journal.entries.findIndex((entry: {
+  const iconChangeset = journal.entries.findIndex((entry: {
     tag: string
-  }) => entry.tag === "0002_category_icons"));
+  }) => entry.tag === "0002_category_icons");
+  const previousEntries = journal.entries.slice(0, iconChangeset);
 
   mkdirSync(join(directory, "meta"));
 
@@ -336,7 +339,7 @@ test("the category icon upgrade adds an empty icon to existing categories withou
 
     assert.deepEqual(await migrationStatus(client), {
       mode: "managed",
-      applied: 4,
+      applied: changesetCount,
       pending: 0
     });
     assert.deepEqual((await client.execute("SELECT id,name,color,is_transfer FROM categories ORDER BY id")).rows, categoriesBefore.rows);
@@ -361,7 +364,7 @@ test("the provider data upgrade keeps existing transactions unchanged and leaves
   const journal = JSON.parse(readFileSync("drizzle/sqlite/meta/_journal.json", "utf8"));
   const previousEntries = journal.entries.slice(0, journal.entries.findIndex((entry: {
     tag: string
-  }) => entry.tag === "0003_transaction_provider_details"));
+  }) => entry.tag === "0004_transaction_provider_details"));
   const providerColumns = ["instructed_amount_minor", "instructed_currency", "provider_payload"];
 
   mkdirSync(join(directory, "meta"));
@@ -394,7 +397,7 @@ test("the provider data upgrade keeps existing transactions unchanged and leaves
 
     assert.deepEqual(await migrationStatus(client), {
       mode: "managed",
-      applied: 4,
+      applied: changesetCount,
       pending: 0
     });
     assert.equal(await columnList(client, "transactions"), `${transactionColumns},${providerColumns.join(",")}`);
