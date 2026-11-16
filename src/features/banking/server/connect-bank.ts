@@ -7,6 +7,7 @@ import { availableBanks, bankingRequest, verifyApplication } from "@/features/ba
 import { hash } from "@/server/security/tokens";
 import { timestamp } from "@/lib/time";
 import { insertAuthorization } from "./connection-repository";
+import { bankCallbackUrl } from "./callback-url";
 
 export async function connectBank(payload: unknown, actor: AuthContext) {
   const {
@@ -23,7 +24,7 @@ export async function connectBank(payload: unknown, actor: AuthContext) {
     throw new HttpError(400, "This bank is unavailable in the selected environment.");
   }
 
-  const callback = process.env.ENABLE_BANKING_REDIRECT_URL || `${process.env.APP_URL || "http://localhost:3000"}/api/banking/callback`;
+  const callback = bankCallbackUrl();
   const application = await verifyApplication();
 
   if (!application.redirect_urls?.includes(callback)) {
