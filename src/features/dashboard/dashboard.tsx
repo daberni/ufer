@@ -14,6 +14,7 @@ import { DashboardDialogs } from "@/features/dashboard/components/dashboard-dial
 import { ViewLoading } from "@/features/dashboard/components/view-loading";
 import { LoginForm } from "@/features/auth/components/login-form";
 import { LegalLinks } from "@/features/legal/components/legal-links";
+import { SourceCodeNotice } from "@/features/legal/components/source-code-notice";
 import { accountGroups, useAccounts } from "@/features/accounts/queries";
 import { useBankingStatus } from "@/features/banking/queries";
 import { useDashboardController } from "./dashboard-context";
@@ -46,6 +47,7 @@ function DashboardShell({ children }: {
       <main className={styles["content"]}>
         <LoadErrorNotice message={loadError.message} retry={loadError.retry} />
         <ViewLoading failed={banking.isError || accounts.isError} />
+        <DashboardFooter />
       </main>
     );
   }
@@ -95,13 +97,7 @@ function DashboardShell({ children }: {
             </div>
           )}
           {children}
-          <footer className={styles["page-footer"]}>
-            <span>
-              <BrandIcon size={16} /> Ufer
-            </span>
-            <span>A clearer view of your money.</span>
-            <LegalLinks />
-          </footer>
+          <DashboardFooter />
         </main>
       </div>
       {dashboard.modal && (
@@ -135,6 +131,20 @@ function DashboardShell({ children }: {
         placement="overlay"
       />
     </div>
+  );
+}
+
+// Also rendered while the dashboard data loads or fails, so the source offer never depends on a successful query.
+function DashboardFooter() {
+  return (
+    <footer className={styles["page-footer"]}>
+      <span>
+        <BrandIcon size={16} /> Ufer
+      </span>
+      <span>A clearer view of your money.</span>
+      <LegalLinks />
+      <SourceCodeNotice />
+    </footer>
   );
 }
 

@@ -49,8 +49,12 @@
   width: 100%;
   margin-top: 10px;
 }
-.legal-links {
+.legal {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   justify-content: center;
+  gap: 4px 16px;
   margin-top: 22px;
   font-size: var(--text-sm);
   color: var(--muted);

@@ -12,7 +12,7 @@ Actual is a strong candidate for budgeting and everyday bookkeeping; Sure is the
 
 | Product / reviewed release | Focus | Deployment / license |
 | --- | --- | --- |
-| Ufer `0.1.0` | Aggregation, cash flow, rules, manual valuations; early MVP | Docker/NAS configuration; verified Vercel sandbox deployment on Node 26; SQLite/libSQL; no project license selected |
+| Ufer `0.1.0` | Aggregation, cash flow, rules, manual valuations; early MVP | Docker/NAS configuration; verified Vercel sandbox deployment on Node 26; SQLite/libSQL; AGPL-3.0-or-later |
 | [Buxfer](https://www.buxfer.com/features/) · hosted, no public release pin | Broad personal finance, budgets, forecasts, investments | Hosted subscription; capabilities depend on plan |
 | [Actual Budget 26.11.0](https://github.com/actualbudget/actual/releases/tag/v26.11.0) | Budgeting, transaction management, reports, local-first use | Self-hosted Node server; [MIT](https://github.com/actualbudget/actual/blob/master/LICENSE.txt) |
 | [Firefly III 6.7.9](https://github.com/firefly-iii/firefly-iii/releases/tag/v6.7.9) + [Importer 2.3.5](https://github.com/firefly-iii/data-importer/releases/tag/v2.3.5) | Double-entry bookkeeping, rules, budgets, recurring entries | PHP application, database, optional companion importer and cron; AGPLv3 |
@@ -150,10 +150,12 @@ Check an item only when its acceptance criterion is met and evidence is recorded
 
 ### Before an open-source or managed release
 
-- [ ] **OSS-01 · License and commercial eligibility:** choose the project license, review dependency/assets notices, and establish commercial banking/market-data rights. Free self-hosting plus paid managed hosting is the intended model, not an implemented offering; one synced account free with more paid is an unvalidated hosted-tier candidate, including its billing unit and provider costs.
+- [x] **OSS-01a · License and notices:** the project is licensed under AGPL-3.0-or-later ([LICENSE](../LICENSE), README, `package.json`); contributions require the [contributor license agreement](../CLA.md), accepted through CLA Assistant (to be connected before the first outside contribution is merged); the sign-in screen and dashboard footer name the license and link the source code; third-party artwork is listed in the [branding notes](branding/README.md#third-party-artwork). The license grants no trademark rights to the Ufer name or icon.
+  - [ ] **Third-party notices:** generate notices for the production dependency tree (including the LGPL libvips binaries bundled with sharp) from the lockfile. Required before publishing a prebuilt image or running the managed service; not needed for users who build from source.
+- [ ] **OSS-01b · Commercial provider eligibility:** an Enable Banking commercial agreement (KYB, AISP or partner setup, pricing and minimum invoice) is required before any hosted offering, including a free hosted tier; market-data redistribution and commercial-use rights must be checked once a provider is selected. Free self-hosting plus paid managed hosting is the intended model, not an implemented offering; one synced account free with more paid is an unvalidated hosted-tier candidate, including its billing unit and provider costs.
 - [ ] **OSS-02 · Publication privacy:** scan the exact Git tree and history for secrets and real financial data; exclude local environment files, keys, databases, exports, host paths and personal account inventories. Initial content is prepared with generic English examples.
 - [ ] **OSS-03 · Fresh setup and demo:** verify instructions from a fresh checkout, supply synthetic demo data without bank credentials, and document supported Node/container configurations.
-- [ ] **OSS-04 · Contribution and security process:** add contribution/security policies and a reporting channel; maintain automated checks and dependency review. Existing safeguards are not a completed security audit.
+- [ ] **OSS-04 · Contribution and security process:** [contribution guidelines](../CONTRIBUTING.md) and the CLA exist; connect CLA Assistant before the first outside contribution is merged; add a security policy and a private reporting channel, and maintain automated checks and dependency review. Existing safeguards are not a completed security audit.
 - [ ] **OSS-05 · Managed-hosting readiness:** tenant isolation, identity/authorization, durable scheduled jobs, operational secrets, backups/monitoring, billing and data lifecycle; verify upgrades and obtain explicit approval for a public release.
 
 ## Sources and maintenance
