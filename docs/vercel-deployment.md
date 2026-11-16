@@ -72,6 +72,8 @@ The current source uses Better Auth username/password identities and active memb
 
 Verified on 2026-11-15: Vercel production is Ready on Node 26 with functions in Frankfurt and the approved Turso Starter database initialized from the existing baseline. Login/logout, Secure/HttpOnly/SameSite session attributes, origin rejection, protected Problem Details responses and remote persistence passed. Both hosted and local bank callbacks are registered. A Mock ASPSP sandbox connection contains one account and two test transactions; a repeat sync inserted zero additional transactions.
 
+Verified on 2026-11-16: the shared preview database holds the demo dataset and a Mock ASPSP sandbox connection authorized from a local instance; a manual sync from a preview deployment succeeded.
+
 Vercel records an enabled daily 05:00 UTC cron definition, and its bearer-protected endpoint completed an authenticated sync. The first future unattended scheduled invocation has not been observed. No local financial data was imported. Real-bank coverage, physical-device flows, NAS operation, backup restoration and multi-customer isolation remain separate acceptance work.
 
 The production project is connected to the private repository's main branch. Approved pushes to that branch trigger deployment of the matching runtime and deployment configuration. The verification above predates the authentication changeset: individual identities are implemented in source but have not been migrated or accepted on the hosted deployment. See [user management](user-management.md) before deploying that source.
