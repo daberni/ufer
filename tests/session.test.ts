@@ -8,6 +8,7 @@ import { usernameClient } from "better-auth/client/plugins";
 import { initializeDatabase } from "../src/server/database/migrations";
 import type { Database } from "../src/server/database/connection";
 import * as schema from "../src/server/database/schema";
+import { HttpError } from "../src/lib/errors";
 import { createAuth } from "../src/features/auth/server/auth";
 import { resetUserPassword } from "../src/features/auth/server/password-recovery";
 import { provisionUser } from "../src/features/auth/server/provision-user";
@@ -331,9 +332,35 @@ test("the maintained client receives Problem Details errors without losing its e
   assert.equal((await handleAuthentication(wrongOrigin)).status, 403);
 });
 
-test("login throttling persists across auth instances and cannot be bypassed with forwarded IP headers", async context => {
+function trustClientAddressHeader(context: TestContext, header: string | undefined) {
+  const previous = process.env.TRUSTED_CLIENT_IP_HEADER;
+
+  if (header === undefined) {
+    delete process.env.TRUSTED_CLIENT_IP_HEADER;
+  } else {
+    process.env.TRUSTED_CLIENT_IP_HEADER = header;
+  }
+
+  context.after(() => {
+    if (previous === undefined) {
+      delete process.env.TRUSTED_CLIENT_IP_HEADER;
+    } else {
+      process.env.TRUSTED_CLIENT_IP_HEADER = previous;
+    }
+  });
+}
+
+function signInFrom(headers: HeadersInit, attemptPassword = password) {
+  return handleAuthentication(request("/sign-in/username", {
+    username: owner.username,
+    password: attemptPassword
+  }, "", headers));
+}
+
+test("without a trusted client address, throttling persists across auth instances and forwarded headers cannot bypass it", async context => {
   const db = await isolatedAuth(context);
 
+  trustClientAddressHeader(context, undefined);
   await provisionUser(owner);
 
   for (let index = 0; index < 10; index++) {
@@ -349,16 +376,67 @@ test("login throttling persists across auth instances and cannot be bypassed wit
     assert.equal(response.status, 401);
   }
 
-  const limited = await handleAuthentication(request("/sign-in/username", {
-    username: owner.username,
-    password
-  }, "", {
+  const limited = await signInFrom({
     "x-forwarded-for": "203.0.113.1"
-  }));
+  });
 
   assert.equal(limited.status, 429);
   assert.ok(limited.headers.get("x-retry-after"));
   assert.ok((await db.select().from(schema.authRateLimits)).length > 0);
+});
+
+test("with a trusted client address header, one client exceeding the sign-in limit does not block another and other headers do not reset its counter", async context => {
+  await isolatedAuth(context);
+
+  trustClientAddressHeader(context, "X-Forwarded-For");
+  await provisionUser(owner);
+
+  for (let index = 0; index < 10; index++) {
+    const response = await signInFrom({
+      "x-forwarded-for": "198.51.100.7",
+      "x-real-ip": `192.0.2.${index}`
+    }, "wrong-password");
+
+    assert.equal(response.status, 401);
+  }
+
+  const limited = await signInFrom({
+    "x-forwarded-for": "198.51.100.7",
+    "x-real-ip": "192.0.2.200"
+  });
+
+  assert.equal(limited.status, 429);
+
+  const otherClient = await signInFrom({
+    "x-forwarded-for": "203.0.113.9"
+  });
+
+  assert.equal(otherClient.status, 200);
+
+  for (let index = 1; index <= 10; index++) {
+    const response = await signInFrom({
+      "x-forwarded-for": `2001:db8:1:2::${index}`
+    }, "wrong-password");
+
+    assert.equal(response.status, 401);
+  }
+
+  const sameIpv6Network = await signInFrom({
+    "x-forwarded-for": "2001:db8:1:2:ffff::1"
+  });
+
+  assert.equal(sameIpv6Network.status, 429);
+});
+
+test("an invalid trusted client address header name is a configuration error, not a failure on every request", async context => {
+  const db = await isolatedAuth(context);
+
+  trustClientAddressHeader(context, undefined);
+
+  for (const header of ["X-Real-IP:", "x-forwarded-for, x-real-ip"]) {
+    process.env.TRUSTED_CLIENT_IP_HEADER = header;
+    assert.throws(() => createAuth(db), (error: unknown) => error instanceof HttpError && error.status === 503);
+  }
 });
 
 test("operator password recovery uses library reset tokens and revokes all sessions without opening public recovery", async context => {
