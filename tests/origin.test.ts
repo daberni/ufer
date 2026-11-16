@@ -60,3 +60,51 @@ test("production ignores deployment hosts and only accepts the configured origin
     assert.throws(() => requireOrigin(writeFrom("https://ufer-def456-team.vercel.app")));
   });
 });
+
+test("production fails without an HTTPS APP_URL instead of falling back to localhost", () => {
+  for (const environment of [{
+    VERCEL_ENV: "production"
+  }, {
+    VERCEL_ENV: "production",
+    APP_URL: "http://ufer.example"
+  }, {
+    VERCEL_ENV: "production",
+    APP_URL: "not a url"
+  }] as const) {
+    withEnvironment(environment, () => {
+      assert.throws(() => applicationOrigin(), {
+        status: 503
+      });
+    });
+  }
+
+  const environment = process.env as Record<string, string | undefined>;
+  const previous = environment.NODE_ENV;
+
+  environment.NODE_ENV = "production";
+
+  try {
+    withEnvironment({}, () => {
+      assert.throws(() => applicationOrigin(), {
+        status: 503
+      });
+    });
+    withEnvironment({
+      APP_URL: "https://ufer.example"
+    }, () => {
+      assert.equal(applicationOrigin(), "https://ufer.example");
+    });
+    withEnvironment({
+      VERCEL_ENV: "preview",
+      VERCEL_BRANCH_URL: "ufer-git-feature-team.vercel.app"
+    }, () => {
+      assert.equal(applicationOrigin(), "https://ufer-git-feature-team.vercel.app");
+    });
+  } finally {
+    if (previous === undefined) {
+      delete environment.NODE_ENV;
+    } else {
+      environment.NODE_ENV = previous;
+    }
+  }
+});
