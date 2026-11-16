@@ -4,12 +4,7 @@
   "regions": [
     "fra1"
   ],
-  "git": {
-    "deploymentEnabled": {
-      "main": false
-    }
-  },
-  "ignoreCommand": "if [ \"$VERCEL_ENV\" = production ] || [ -n \"$UFER_DEPLOYMENT\" ] || [ -n \"$VERCEL_GIT_PULL_REQUEST_ID\" ]; then exit 1; fi; exit 0",
+  "ignoreCommand": "if [ \"$VERCEL_ENV\" = production ] || [ \"$VERCEL_GIT_COMMIT_REF\" = main ] || [ -n \"$VERCEL_GIT_PULL_REQUEST_ID\" ]; then exit 1; fi; exit 0",
   "crons": [
     {
       "path": "/api/cron",
