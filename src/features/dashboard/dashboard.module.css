@@ -12,7 +12,7 @@
 }
 .content {
   max-width: 1450px;
-  padding: var(--space-10) var(--space-10) 0;
+  padding: var(--space-8) var(--space-8) 0;
   margin: 0 auto;
 }
 .sandbox-note {
@@ -21,7 +21,7 @@
   display: flex;
   gap: var(--space-2);
   align-items: center;
-  padding: 0 0 var(--space-5);
+  padding: 0 0 var(--space-6);
   line-height: 1.6;
 }
 .sandbox-note .status-dot {
@@ -61,7 +61,9 @@
   }
   .content {
     padding: var(--space-6) max(var(--space-4), env(safe-area-inset-right))
-      calc(var(--bottom-nav-offset) + var(--space-5))
+      calc(
+        var(--bottom-nav-height) + env(safe-area-inset-bottom) + var(--space-6)
+      )
       max(var(--space-4), env(safe-area-inset-left));
   }
   .sandbox-note {

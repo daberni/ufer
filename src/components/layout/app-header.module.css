@@ -5,7 +5,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 var(--space-10);
+  padding: 0 var(--space-8);
   font-size: var(--text-sm);
   color: var(--muted);
 }
@@ -42,12 +42,7 @@
   background: var(--gold-soft);
   color: var(--gold-text);
   padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-xs);
-}
-@media (--wide) {
-  .topbar {
-    padding: 0 var(--space-12);
-  }
+  border-radius: var(--radius-sm);
 }
 @media (--laptop) {
   .topbar {

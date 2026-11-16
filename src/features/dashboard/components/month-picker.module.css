@@ -5,7 +5,7 @@
   min-width: 115px;
   min-height: 28px;
   padding: 0 var(--space-2);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   font-size: var(--text-sm);
   text-align: center;
 }
@@ -43,7 +43,7 @@
 }
 .month {
   min-height: 40px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   font-size: var(--text-sm);
 }
 .month:hover {

@@ -3,7 +3,7 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   padding: var(--space-3);
-  margin-top: var(--space-5);
+  margin-top: var(--space-4);
   color: var(--muted);
 }
 .csv-example > span {

@@ -25,11 +25,11 @@
 }
 .color-input::-webkit-color-swatch {
   border: 0;
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-sm);
 }
 .color-input::-moz-color-swatch {
   border: 0;
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-sm);
 }
 .color-field code {
   font-size: var(--text-sm);

@@ -178,7 +178,7 @@
 }
 .flow-track {
   height: 4px;
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-sm);
   background: var(--chart-track);
   max-width: 100px;
   width: 100%;
@@ -189,7 +189,7 @@
   height: 100%;
   display: block;
   background: var(--chart-income);
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-sm);
 }
 .flow-track.expense i {
   background: var(--chart-expense);
@@ -223,9 +223,6 @@
   }
 }
 @media (--laptop) {
-  .wealth-card {
-    padding: var(--space-6) var(--space-5);
-  }
   .wealth-number {
     font-size: var(--text-3xl);
   }
@@ -261,6 +258,7 @@
     grid-template-columns: minmax(0, 1fr);
   }
   .wealth-card {
+    padding: var(--space-6) var(--space-4);
     min-width: 0;
   }
   .wealth-card-top {

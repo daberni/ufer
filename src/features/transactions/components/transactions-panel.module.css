@@ -10,14 +10,14 @@
   overflow: hidden;
 }
 .transaction-panel > .card-heading {
-  padding: 0 var(--space-6) var(--space-5);
+  padding: 0 var(--space-6) var(--space-4);
 }
 .filters {
   display: flex;
   gap: var(--space-3);
   align-items: center;
   flex-wrap: wrap;
-  padding: 0 var(--space-6) var(--space-5);
+  padding: 0 var(--space-6) var(--space-4);
 }
 .filters input,
 .filters select {
@@ -69,11 +69,11 @@
 }
 @media (--mobile) {
   .transaction-panel > .card-heading {
-    padding: 0 var(--space-5) var(--space-5);
+    padding: 0 var(--space-4) var(--space-4);
     align-items: center;
   }
   .filters {
-    padding: 0 var(--space-5) var(--space-5);
+    padding: 0 var(--space-4) var(--space-4);
   }
   .filters .search-field {
     flex-basis: 100%;
@@ -100,7 +100,7 @@
   }
   .pagination {
     flex-wrap: wrap;
-    padding: var(--space-4) var(--space-5);
+    padding: var(--space-4);
   }
   .pagination > span {
     flex-basis: 100%;

@@ -23,13 +23,13 @@
   grid-column: 1/-1;
   height: 4px;
   background: var(--chart-track);
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-sm);
   overflow: hidden;
 }
 .row > div > i {
   display: block;
   height: 100%;
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-sm);
 }
 .name {
   min-width: 0;
@@ -68,6 +68,6 @@
 }
 @media (--mobile) {
   .rows {
-    gap: var(--space-5);
+    gap: var(--space-6);
   }
 }

@@ -53,8 +53,8 @@
   font-size: var(--text-sm);
   cursor: pointer;
   transition:
-    background var(--duration-fast),
-    border-color var(--duration-fast);
+    background var(--duration),
+    border-color var(--duration);
 }
 .type-choice .option:hover {
   background: var(--surface-muted);
@@ -64,8 +64,8 @@
   background: var(--soft);
 }
 .type-choice .option:has(input:focus-visible) {
-  outline: var(--focus-ring-width) solid var(--focus-ring);
-  outline-offset: var(--focus-ring-offset);
+  outline: var(--focus-ring);
+  outline-offset: 2px;
 }
 .type-choice .option input {
   width: 16px;

@@ -7,7 +7,7 @@
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  padding: var(--space-5);
+  padding: var(--space-4);
   max-width: none;
   overflow: hidden;
   isolation: isolate;
@@ -34,9 +34,9 @@
   width: 390px;
   background: var(--surface);
   border: 1px solid var(--border);
-  padding: var(--space-10);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-md);
+  padding: var(--space-8);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
 }
 .login-card .brand-symbol {
   width: 56px;

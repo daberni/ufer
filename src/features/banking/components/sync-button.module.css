@@ -39,14 +39,14 @@
   justify-content: center;
   gap: var(--space-2);
   opacity: 0;
-  transition: opacity var(--duration-medium);
+  transition: opacity var(--duration);
 }
 .layer.visible {
   opacity: 1;
 }
 .layer > svg {
   scale: 0.5;
-  transition: scale var(--duration-medium);
+  transition: scale var(--duration);
 }
 .layer.visible > svg {
   scale: 1;

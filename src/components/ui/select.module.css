@@ -34,7 +34,7 @@
   background-color: var(--surface-muted);
   border-color: var(--border-subtle);
   color: var(--muted);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
 }
 .bare {
   --select-indicator-inset: 8px;

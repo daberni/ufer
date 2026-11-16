@@ -123,19 +123,19 @@ Font sizes use the rem-based scale in `src/app/globals.css` (`--text-xs` 12px, `
 
 | Scale | Tokens | Use |
 | --- | --- | --- |
-| Spacing | `--space-1` 4px, `-2` 8px, `-3` 12px, `-4` 16px, `-5` 20px, `-6` 24px, `-8` 32px, `-10` 40px, `-12` 48px, `-16` 64px | Every padding, margin and gap |
-| Radius | `--radius-xs` 4px, `-sm` 6px, `-md` 8px, `-lg` 12px, `-xl` 16px, `-full` | Bars and markers, pills and options, controls and popovers, panels and cards, dialogs, round tracks and badges |
-| Shadow | `--shadow-sm`, `-md`, `-lg`, `-xl`, `--shadow-navigation` | Resting panels and primary buttons, hovered or active items, popovers and toasts, dialogs, the bottom navigation |
+| Spacing | `--space-1` 4px, `-2` 8px, `-3` 12px, `-4` 16px, `-6` 24px, `-8` 32px | Every padding, margin and gap |
+| Radius | `--radius-sm` 4px, `-md` 8px, `-lg` 12px, `-full` | Chips, badges, markers, bars and options inside a list; buttons, inputs, selects and popovers; panels, cards and dialogs; pill-shaped tracks and counters |
+| Shadow | `--shadow-sm`, `--shadow-lg` | Resting and hovered surfaces such as panels, cards and primary buttons; floating layers such as popovers, toasts and dialogs |
 | Layer | `--layer-base` 0, `-raised` 1, `-sticky` 10, `-navigation` 20, `-popover` 30, `-dialog` 40, `-toast` 50 | `z-index` |
-| Motion | `--duration-fast` 150ms, `--duration-medium` 200ms | Hover and toggle transitions, state changes |
-| Focus | `--focus-ring` color, `--focus-ring-width` 3px, `--focus-ring-offset` 2px | Every visible focus outline |
-| Layout | `--bottom-nav-height` 72px, `--bottom-nav-offset` | The phone bottom navigation and everything that must clear it |
+| Motion | `--duration` 150ms | Every transition |
+| Focus | `--focus-ring` (3px solid outline in the focus color) | Every visible focus outline, applied with `outline-offset: 2px` |
+| Layout | `--bottom-nav-height` 72px | The phone bottom navigation and everything that must clear it |
 
-- **Spacing** values map to the nearest step; a value between two steps rounds up. Controls keep their height through `min-height` instead of uneven padding. Values below `--space-1` (1–3px) stay literal only as optical adjustments inside small components, such as badge padding, hairline gaps between segments and the toggle track. Element sizes, layout widths and positioning offsets are not spacing.
-- **Shadows** describe elevation. A `box-shadow` that draws a ring or hairline, such as an inset selection border or a badge outline, keeps its literal value.
+- **Spacing** uses only these six steps. A value between two steps takes the one that keeps the layout closest; page gutters and other spacing above 32px use `--space-8`. Controls keep their height through `min-height` instead of uneven padding. Values below `--space-1` (1–3px) stay literal only as optical adjustments inside small components, such as badge padding, hairline gaps between segments and the toggle track. Element sizes, layout widths and positioning offsets are not spacing.
+- **Shadows** describe elevation. A `box-shadow` that draws a ring or hairline, such as an inset selection border or a badge outline, keeps its literal value, as does the bottom navigation's upward shadow.
 - **Layers** apply within the stacking context that contains them. Modal `<dialog>` elements and `popover` elements use the browser's top layer and need no `z-index`; `--layer-dialog` is for non-modal overlays that must cover popovers. A decoration behind its component's content uses `--layer-base` and lifts the content with `--layer-raised` instead of a negative `z-index`.
-- **Motion** tokens cover transitions. Looping animation periods such as the spinner belong to their keyframes. `prefers-reduced-motion` disables both globally.
+- **Motion:** `--duration` covers transitions. Looping animation periods such as the spinner belong to their keyframes. `prefers-reduced-motion` disables both globally.
 - **Focus** uses the global `:focus-visible` outline for buttons, links and form controls; a component that hides its native control draws the same outline on its visible container with `:has(:focus-visible)`.
-- **Bottom navigation** offsets derive from `--bottom-nav-offset`, which includes the safe-area inset, plus a spacing step, for example `calc(var(--bottom-nav-offset) + var(--space-5))`.
+- **Bottom navigation** offsets are calculated where they are used from the height, the bottom safe-area inset and a spacing step, for example `calc(var(--bottom-nav-height) + env(safe-area-inset-bottom) + var(--space-6))`.
 - The global `input` rule styles text-like fields only; checkboxes, radios, color and file inputs keep their native box without local resets.
 - Fix specificity instead of using `!important`; the reduced-motion rule is the only exception.

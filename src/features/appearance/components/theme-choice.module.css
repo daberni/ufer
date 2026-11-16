@@ -42,8 +42,8 @@
   box-shadow: inset 0 0 0 1px var(--green);
 }
 .option:has(:focus-visible) {
-  outline: var(--focus-ring-width) solid var(--focus-ring);
-  outline-offset: var(--focus-ring-offset);
+  outline: var(--focus-ring);
+  outline-offset: 2px;
 }
 /* The radio covers its option invisibly so the whole option is the target. */
 .input {

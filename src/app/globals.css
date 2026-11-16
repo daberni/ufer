@@ -41,7 +41,7 @@
   --on-danger: light-dark(#ffffff, #1a0f0d);
   --status-positive: light-dark(#8da776, #8fb67a);
   --status-warning: light-dark(#c5a365, #d1b170);
-  --focus-ring: light-dark(#5f9473, #93b69f);
+  --focus-ring: 3px solid light-dark(#5f9473, #93b69f);
 
   /* The navigation stays dark green in both themes, so its text colors do not change. */
   --sidebar-bg: light-dark(#233e31, #172a20);
@@ -92,26 +92,17 @@
   --space-2: 8px;
   --space-3: 12px;
   --space-4: 16px;
-  --space-5: 20px;
   --space-6: 24px;
   --space-8: 32px;
-  --space-10: 40px;
-  --space-12: 48px;
-  --space-16: 64px;
 
-  --radius-xs: 4px;
-  --radius-sm: 6px;
+  --radius-sm: 4px;
   --radius-md: 8px;
   --radius-lg: 12px;
-  --radius-xl: 16px;
   --radius-full: 9999px;
 
   /* Elevation; inset rings that draw borders keep their own box-shadow. */
   --shadow-sm: 0 2px 4px var(--shadow-faint);
-  --shadow-md: 0 4px 12px var(--shadow-faint);
   --shadow-lg: 0 8px 24px var(--shadow-color);
-  --shadow-xl: 0 24px 96px var(--shadow-color);
-  --shadow-navigation: 0 -4px 16px var(--shadow-faint);
 
   /* Stacking order; modal dialogs use the browser's top layer instead. */
   --layer-base: 0;
@@ -122,17 +113,10 @@
   --layer-dialog: 40;
   --layer-toast: 50;
 
-  --duration-fast: 150ms;
-  --duration-medium: 200ms;
+  --duration: 150ms;
 
-  --focus-ring-width: 3px;
-  --focus-ring-offset: 2px;
-
-  /* The phone layout's bottom navigation; fixed content above it offsets by --bottom-nav-offset. */
+  /* The phone layout's bottom navigation; content that must clear it adds the bottom safe-area inset. */
   --bottom-nav-height: 72px;
-  --bottom-nav-offset: calc(
-    var(--bottom-nav-height) + env(safe-area-inset-bottom)
-  );
 }
 :root[data-theme="light"] {
   color-scheme: light;
@@ -275,8 +259,8 @@ a {
   text-decoration: none;
 }
 :is(button, a, input, select, textarea):focus-visible {
-  outline: var(--focus-ring-width) solid var(--focus-ring);
-  outline-offset: var(--focus-ring-offset);
+  outline: var(--focus-ring);
+  outline-offset: 2px;
 }
 h1 {
   font-size: var(--text-3xl);
@@ -323,7 +307,9 @@ svg {
 }
 @media (--mobile) {
   html {
-    scroll-padding-bottom: calc(var(--bottom-nav-offset) + var(--space-6));
+    scroll-padding-bottom: calc(
+      var(--bottom-nav-height) + env(safe-area-inset-bottom) + var(--space-6)
+    );
   }
   h1 {
     font-size: clamp(1.75rem, 6vw, var(--text-3xl));

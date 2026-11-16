@@ -25,7 +25,7 @@
     align-items: stretch;
     flex-direction: column;
     gap: var(--space-3);
-    margin-bottom: var(--space-5);
+    margin-bottom: var(--space-4);
   }
   .scope {
     flex-direction: column;

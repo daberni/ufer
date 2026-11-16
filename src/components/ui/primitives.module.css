@@ -28,8 +28,8 @@
   white-space: nowrap;
   min-height: 42px;
   transition:
-    background var(--duration-fast),
-    transform var(--duration-fast);
+    background var(--duration),
+    transform var(--duration);
 }
 .button:not(:disabled):hover {
   background: var(--soft);
@@ -58,7 +58,7 @@
   align-items: center;
   justify-content: center;
   padding: var(--space-1);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   color: var(--muted);
   min-width: 28px;
   min-height: 28px;
@@ -214,14 +214,14 @@
   margin: 0;
 }
 .form .button.full-width {
-  margin-top: var(--space-5);
+  margin-top: var(--space-6);
 }
 .form-actions {
   display: grid;
   grid-auto-columns: minmax(0, 1fr);
   grid-auto-flow: column;
   gap: var(--space-2);
-  margin-top: var(--space-5);
+  margin-top: var(--space-6);
 }
 .form-description {
   font-size: var(--text-sm);
@@ -278,7 +278,7 @@
 /* A larger area such as a list or chart keeps its outdated content in place, faded and not interactive, while results for new filters load. */
 .area-loading {
   opacity: 0.4;
-  transition: opacity var(--duration-fast) ease-out;
+  transition: opacity var(--duration) ease-out;
 }
 /* The area's results could not be loaded; the outdated content keeps the layout but is not shown. */
 .area-unavailable {
@@ -303,11 +303,6 @@
   color: var(--muted);
   font-size: var(--text-sm);
   text-align: center;
-}
-@media (--laptop) {
-  .panel {
-    padding: var(--space-6) var(--space-5);
-  }
 }
 @media (--tablet) {
   .section-heading {
@@ -339,6 +334,7 @@
     line-height: 1.6;
   }
   .panel {
+    padding: var(--space-6) var(--space-4);
     min-width: 0;
   }
   .card-heading {
@@ -369,7 +365,7 @@
   .form label,
   .form .field {
     font-size: var(--text-md);
-    margin: var(--space-5) 0;
+    margin: var(--space-6) 0;
   }
   .form input,
   .form select,

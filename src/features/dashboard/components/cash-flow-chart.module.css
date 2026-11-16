@@ -7,7 +7,7 @@
 .chart-legend {
   display: flex;
   gap: var(--space-4);
-  margin-top: var(--space-5);
+  margin-top: var(--space-4);
   font-size: var(--text-sm);
   color: var(--muted);
 }
@@ -67,7 +67,7 @@
   margin: 0;
   padding: 0;
   border: 0;
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-sm);
   background: none;
   color: inherit;
   cursor: default;
@@ -85,8 +85,8 @@
   width: 15px;
   min-height: 1px;
   overflow: hidden;
-  border-radius: var(--radius-xs) var(--radius-xs) 0 0;
-  transition: opacity var(--duration-fast) ease;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  transition: opacity var(--duration) ease;
 }
 .income-bar {
   background: var(--chart-income);

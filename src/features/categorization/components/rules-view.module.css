@@ -32,7 +32,7 @@
 .rule-row code {
   background: var(--surface-muted);
   padding: 3px var(--space-1);
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-sm);
 }
 .toggle {
   width: 32px;
@@ -41,7 +41,7 @@
   background: var(--soft-strong);
   padding: 2px;
   flex-shrink: 0;
-  transition: background var(--duration-fast);
+  transition: background var(--duration);
 }
 .toggle > span {
   display: block;
@@ -50,7 +50,7 @@
   background: var(--knob);
   box-shadow: var(--shadow-sm);
   border-radius: 50%;
-  transition: transform var(--duration-fast);
+  transition: transform var(--duration);
 }
 .toggle.enabled {
   background: var(--green);
@@ -74,7 +74,7 @@
   height: 1em;
   flex-shrink: 0;
   opacity: 0;
-  transition: opacity var(--duration-fast);
+  transition: opacity var(--duration);
 }
 .category-chip:hover .edit-hint,
 .category-chip:focus-visible .edit-hint {
