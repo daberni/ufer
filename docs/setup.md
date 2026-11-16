@@ -12,7 +12,9 @@ This guide covers development, deployment and verification. See [banking and imp
 4. Provision the installation owner using the operator-only [user enrollment](user-management.md#operator-enrollment), then run `npm run dev` and open [localhost:3000](http://localhost:3000). Keep the same hostname and browser throughout bank authorization.
 5. Open Bank connections, authorize a sandbox institution, then select Sync to retrieve balances and booked transactions.
 
-The development server binds to loopback. Username/password sign-in and `BETTER_AUTH_SECRET` are required in every environment. Existing installations need the reviewed [authentication migration](user-management.md#migration-and-rollout) before starting this version. `APP_URL` must match the browser origin because write requests validate their origin.
+The development server binds to loopback. Username/password sign-in and `BETTER_AUTH_SECRET` are required in every environment. Existing installations need the reviewed [authentication migration](user-management.md#migration-and-rollout) before starting this version. `APP_URL` must match the browser origin because write requests validate their origin. A production server (Docker, or `NODE_ENV=production`) refuses to start unless `APP_URL` is an HTTPS origin, so serve Docker installations through an HTTPS reverse proxy.
+
+JSON API request bodies above 2 MiB are rejected with 413 while they are read; CSV imports allow 1 MB of CSV text. Other request size limits come from the hosting layer: Vercel caps bodies at 4.5 MB, and a reverse proxy sets its own limit (nginx defaults to 1 MB; raise `client_max_body_size` to `2m` for full-size CSV imports).
 
 ## Demo data
 
@@ -28,7 +30,7 @@ To seed a local throwaway database, point `DATABASE_URL` at a new file, for exam
 ## Docker / NAS
 
 1. Copy `.env.example` to `.env`, configure all secrets including `BETTER_AUTH_SECRET`, and set `ENABLE_BANKING_PRIVATE_KEY_HOST_PATH` to an external PEM file. Compose mounts it read-only as a secret.
-2. Set `APP_URL` and the registered callback to the actual LAN or reverse-proxy address. `BIND_ADDRESS` defaults to `127.0.0.1`; explicitly configure the NAS LAN address for direct LAN access.
+2. Set `APP_URL` and the registered callback to the HTTPS address of the reverse proxy that serves Ufer, for example on the NAS. `BIND_ADDRESS` defaults to `127.0.0.1`, so only a proxy on the same host reaches the application; bind the LAN address only when the proxy runs on another host.
    Behind a reverse proxy that replaces a client-address header with the connecting address (for example nginx `proxy_set_header X-Real-IP $remote_addr;`), set `TRUSTED_CLIENT_IP_HEADER=X-Real-IP` so authentication rate limits count per client. Only set it when the application port is reachable exclusively through that proxy. Without it, all clients share one counter per authentication endpoint; see [authentication rate limits](security.md#authentication-rate-limits).
 3. Run `docker compose up -d --build`. The application runs as a non-root user with a read-only root filesystem and a persistent `budget-data` volume. The existing volume and database names are intentionally retained for compatibility.
 4. Unattended daily synchronization is included in the default Compose stack. It runs once in the configured hour, default 06:00 Europe/Vienna; set `SYNC_HOUR` to change the hour. There is no immediate retry loop on failure.

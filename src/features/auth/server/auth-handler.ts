@@ -9,7 +9,6 @@ const endpoints = new Map([
   ["/get-session", "GET"],
   ["/change-password", "POST"],
   ["/list-sessions", "GET"],
-  ["/revoke-session", "POST"],
   ["/revoke-other-sessions", "POST"]
 ]);
 

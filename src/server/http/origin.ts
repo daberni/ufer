@@ -13,8 +13,21 @@ function previewOrigins() {
   return hosts.filter((host): host is string => Boolean(host)).map((host) => `https://${host}`);
 }
 
+function isProduction() {
+  const vercelEnvironment = process.env.VERCEL_ENV;
+
+  return vercelEnvironment ? vercelEnvironment === "production" : process.env.NODE_ENV === "production";
+}
+
 export function applicationOrigin() {
   const configured = process.env.APP_URL;
+
+  if (isProduction()) {
+    // Production never derives its origin; a wrong one would break cookies, origin checks and callbacks silently.
+    if (!configured || !URL.canParse(configured) || new URL(configured).protocol !== "https:") {
+      throw new HttpError(503, "Configure APP_URL as the HTTPS application origin.");
+    }
+  }
 
   if (configured) {
     return new URL(configured).origin;
