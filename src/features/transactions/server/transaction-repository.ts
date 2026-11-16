@@ -3,10 +3,19 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 import { environment } from "@/features/banking/server/environment";
 import { accounts, transactions } from "@/server/database/schema";
-import type { CategorizedEntry } from "./transaction-entry";
+import type { CategorizedEntry, ProviderDetails } from "./transaction-entry";
+
+function providerColumns(provider: ProviderDetails = {}) {
+  return {
+    instructed_amount_minor: provider.instructedAmount ?? null,
+    instructed_currency: provider.instructedCurrency ?? null,
+    provider_payload: provider.payload ?? null
+  };
+}
 
 /**
  * Inserts new entries and updates existing ones. `createdAt` replaces the database clock only for inserted rows; updates keep the original `created_at`.
+ * Updates replace the provider data with the latest delivery for every row; only rule-sourced categories are recalculated.
  */
 export async function upsertTransactions(tx: DatabaseTransaction, accountId: string, entries: CategorizedEntry[], createdAt?: string) {
   // Bound statement parameters for both local SQLite and remote libSQL deployments.
@@ -21,7 +30,8 @@ export async function upsertTransactions(tx: DatabaseTransaction, accountId: str
       counterparty: entry.counterparty,
       description: entry.description,
       category_id: entry.categoryId,
-      created_at: createdAt
+      created_at: createdAt,
+      ...providerColumns(entry.provider)
     }));
 
     await tx.insert(transactions).values(values).onConflictDoUpdate({
@@ -32,6 +42,9 @@ export async function upsertTransactions(tx: DatabaseTransaction, accountId: str
         currency: sql`excluded.currency`,
         counterparty: sql`excluded.counterparty`,
         description: sql`excluded.description`,
+        instructed_amount_minor: sql`excluded.instructed_amount_minor`,
+        instructed_currency: sql`excluded.instructed_currency`,
+        provider_payload: sql`excluded.provider_payload`,
         category_id: sql`CASE WHEN ${transactions.category_source}='manual' THEN ${transactions.category_id} ELSE excluded.category_id END`
       }
     });
