@@ -174,3 +174,22 @@ test("Back or Forward to another search replaces the field and its unsent draft"
   await waitForCommit();
   assert.deepEqual(commits, ["coffee"]);
 });
+
+test("a malformed currency is a 400 on the server and falls back to the default in the browser", () => {
+  assert.equal(dashboardFilters(new URLSearchParams("currency=USD")).currency, "USD");
+  assert.equal(dashboardFilters(new URLSearchParams()).currency, "EUR");
+
+  for (const currency of ["E", "EURO", "eur", "E1R"]) {
+    assert.throws(() => dashboardFilters(new URLSearchParams({
+      currency
+    })), {
+      status: 400
+    }, currency);
+
+    const params = new URLSearchParams({
+      currency
+    });
+
+    assert.equal(dashboardQuery("overview", periodScope(params), params).currency, "EUR", currency);
+  }
+});

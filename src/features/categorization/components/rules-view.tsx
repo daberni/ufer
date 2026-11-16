@@ -84,7 +84,7 @@ export function RulesView({
       </div>
       <section className={ui["panel"]}>
         {rules.length ? (
-          <div className={styles["rules-list"]}>
+          <div>
             {rules.map(rule => (
               <div className={styles["rule-row"]} key={rule.id}>
                 <span className={styles["rule-priority"]}>{rule.priority}</span>

@@ -1,6 +1,6 @@
 import { HttpError, ValidationError } from "@/lib/errors";
 import { z } from "zod";
-import { categorize, validatePattern } from "@/lib/rules";
+import { categorize, prepareRules, validatePattern } from "@/lib/rules";
 import { normalizeCategoryName } from "@/lib/category-name";
 import { isCategoryIcon } from "@/features/categorization/category-icons";
 import { categoryExists, insertCategory, updateCategory, type CategoryDetails, type CategoryWriteResult } from "./category-repository";
@@ -18,11 +18,7 @@ const ruleInput = z.object({
 export async function createRule(payload: unknown) {
   const input = ruleInput.parse(payload);
 
-  try {
-    validatePattern(input.pattern, input.mode);
-  } catch {
-    throw new ValidationError("Invalid matching pattern. Regular expressions use safe RE2 syntax.");
-  }
+  validatePattern(input.pattern, input.mode);
 
   if (!(await categoryExists(input.category_id))) {
     throw new ValidationError("Category does not exist.");
@@ -42,7 +38,9 @@ export async function updateRuleEnabled(id: string, payload: unknown) {
     enabled: z.boolean()
   }).parse(payload);
 
-  await setRuleEnabled(id, enabled);
+  if (!(await setRuleEnabled(id, enabled))) {
+    throw new HttpError(404, "Rule not found.");
+  }
 
   return {
     ok: true
@@ -110,16 +108,20 @@ export async function updateCategoryDetails(id: string, payload: unknown) {
 }
 
 export async function applyRulesToUncorrectedTransactions() {
-  const rules = await listRules();
+  const rules = prepareRules(await listRules());
   const entries = await findUncorrectedTransactions();
-  const assignments = entries.map(entry => ({
-    id: entry.id,
-    category_id: categorize(entry.counterparty, entry.description, rules)
-  }));
+  const changes = entries.flatMap(entry => {
+    const categoryId = categorize(entry.counterparty, entry.description, rules);
 
-  await saveRuleAssignments(assignments);
+    return categoryId === entry.category_id ? [] : [{
+      id: entry.id,
+      category_id: categoryId
+    }];
+  });
+
+  await saveRuleAssignments(changes);
 
   return {
-    updated: entries.length
+    updated: changes.length
   };
 }
