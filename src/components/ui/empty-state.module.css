@@ -25,7 +25,7 @@
 .empty button {
   margin-top: 19px;
 }
-@media (max-width: 760px), (max-width: 900px) and (pointer: coarse) {
+@media (--mobile) {
   .illustration {
     width: 112px;
   }

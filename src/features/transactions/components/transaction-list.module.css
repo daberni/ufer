@@ -86,7 +86,7 @@
 .transaction-cards {
   display: none;
 }
-@media (max-width: 760px), (max-width: 900px) and (pointer: coarse) {
+@media (--mobile) {
   .desktop-transactions {
     display: none;
   }

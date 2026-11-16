@@ -20,7 +20,7 @@
   font-size: var(--text-sm);
   color: var(--ink-soft);
 }
-@media (max-width: 760px), (max-width: 900px) and (pointer: coarse) {
+@media (--mobile) {
   .scope-bar {
     align-items: stretch;
     flex-direction: column;

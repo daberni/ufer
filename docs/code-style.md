@@ -77,6 +77,22 @@ Dialog actions sit at the bottom of the dialog form. A form with one action ends
 
 Keep responsive rules with their component. Test meaningful breakpoints and touch-sized forms after moving styles. A visually unchanged refactor must preserve navigation, focus, dialogs and narrow-screen readability.
 
+### CSS toolchain and breakpoints
+
+Stylesheets are plain CSS: CSS Modules plus `src/app/globals.css` for tokens, the reset and global typography. There is no CSS framework. Next.js first runs every stylesheet through the PostCSS plugins in `postcss.config.mjs` and then through Lightning CSS, which handles nesting, `light-dark()`, vendor prefixes and minification. The reset in `globals.css` lives in `@layer reset`, so any unlayered rule overrides it.
+
+Viewport breakpoints are defined once as standard `@custom-media` rules in `src/styles/media.css`. Lightning CSS does not expand `@custom-media` and browsers do not support it yet, so `@csstools/postcss-global-data` makes that file available to every stylesheet and `postcss-custom-media` replaces each name with its query; the build fails on an unknown name. `media.css` is never imported. Write `@media (--mobile)` instead of a literal width, and add a name to `media.css` rather than a one-off value:
+
+| Name | Query | Layout |
+| --- | --- | --- |
+| `--mobile` | `(width <= 760px), (width <= 900px) and (pointer: coarse)` | Phone layout with bottom navigation, full-width dialogs and touch-sized controls |
+| `--tablet` | `width <= 900px` | Icon-only sidebar |
+| `--laptop` | `width <= 1250px` | Narrower sidebar and stacked overview columns |
+| `--desktop` | `width > 1250px` | Everything wider than `--laptop` |
+| `--wide` | `width >= 1600px` | Larger header, charts and dashboard columns |
+
+Max-width names include every narrower viewport, so `--tablet` also matches phones; declare broader rules first and `--mobile` last. Capability queries such as `prefers-reduced-motion` or `hover: none` stay literal. Use a container query (`container-type: inline-size` with `@container`) when a component's layout depends on the space its parent gives it rather than on the viewport, as the account type options in the create-account dialog do.
+
 ## Commit and merge workflow
 
 Squash-merge pull requests by default; use another merge method only when explicitly requested. Direct commits, including commits on main, are allowed for small, cohesive packages with explicit approval. Present the concrete scope before committing and keep unrelated work separate. Implementation approval is not commit approval; approval of one commit does not authorize later commits. Remote publication needs its own authorization unless it was explicitly included in the same package approval.

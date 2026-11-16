@@ -16,7 +16,7 @@
   margin: 10px 0 0;
   color: var(--ink-soft);
 }
-@media (max-width: 760px), (max-width: 900px) and (pointer: coarse) {
+@media (--mobile) {
   .csv-example > span {
     font-size: var(--text-sm);
   }
