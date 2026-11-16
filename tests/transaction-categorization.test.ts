@@ -25,6 +25,7 @@ const listKey = queryKeys.transactions.list({
   search: "",
   account: "",
   category: "",
+  syncRun: "",
   page: 1
 });
 
@@ -40,6 +41,7 @@ function seed(queryClient: QueryClient) {
       month: "2000-01"
     },
     page: 1,
+    syncRun: null,
     transactionCount: 1,
     transactions: [transaction]
   });

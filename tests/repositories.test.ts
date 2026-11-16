@@ -53,6 +53,13 @@ async function isolatedDatabase(context: TestContext) {
   return db;
 }
 
+function syncRun(startedAt: string) {
+  return {
+    environment: "SANDBOX",
+    startedAt
+  };
+}
+
 test("account creation stores exact money and its initial snapshot on the shared connection", async context => {
   const db = await isolatedDatabase(context);
   const created = await createManualAccount({
@@ -88,7 +95,7 @@ test("invalid provider currencies and identities return provider failures withou
     kind: "checking",
     balance_minor: 10000
   });
-  await assert.rejects(saveAccountSync(db, "synthetic-bank-account", "EUR", [], [{
+  await assert.rejects(saveAccountSync(db, syncRun("2020-01-01T08:00:00.000Z"), "synthetic-bank-account", "EUR", [], [{
     reference: "bank:synthetic-reference",
     date: "2020-01-01",
     amount: 100,
@@ -327,12 +334,12 @@ test("multi-chunk sync remains idempotent and rolls back every chunk when a late
     reference_date: "2000-01-10"
   }];
 
-  assert.equal(await saveAccountSync(db, "bulk-account", "EUR", balances, entries, []), 125);
+  assert.equal(await saveAccountSync(db, syncRun("2000-01-10T08:00:00.000Z"), "bulk-account", "EUR", balances, entries, []), 125);
   const corrected = await db.select().from(schema.transactions).where(eq(schema.transactions.provider_reference, "bank:synthetic-120")).get();
 
   assert.ok(corrected);
   await setTransactionCategory(corrected.id, null);
-  assert.equal(await saveAccountSync(db, "bulk-account", "EUR", balances, entries, []), 0);
+  assert.equal(await saveAccountSync(db, syncRun("2000-01-10T09:00:00.000Z"), "bulk-account", "EUR", balances, entries, []), 0);
   const preserved = await db.select().from(schema.transactions).where(eq(schema.transactions.id, corrected.id)).get();
 
   assert.equal(preserved?.category_source, "manual");
@@ -347,7 +354,7 @@ test("multi-chunk sync remains idempotent and rolls back every chunk when a late
     ...entries[0],
     reference: "bank:broken"
   });
-  await assert.rejects(saveAccountSync(db, "bulk-account", "EUR", balances, changed, []));
+  await assert.rejects(saveAccountSync(db, syncRun("2000-01-10T10:00:00.000Z"), "bulk-account", "EUR", balances, changed, []));
   const stored = await db.select().from(schema.transactions);
 
   assert.equal(stored.length, 125);

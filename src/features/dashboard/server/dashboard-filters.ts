@@ -23,7 +23,8 @@ export function dashboardFilters(query: URLSearchParams) {
     page: parsePage(query.get("page")),
     search: query.get("search")?.slice(0, 200) || "",
     accountId: query.get("account") || "",
-    categoryId: query.get("category") || ""
+    categoryId: query.get("category") || "",
+    syncRunId: query.get("syncRun") || ""
   };
 }
 

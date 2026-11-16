@@ -1,10 +1,37 @@
 import { randomUUID } from "node:crypto";
-import { and, count, eq, getTableColumns, ne } from "drizzle-orm";
+import { and, count, eq, getTableColumns, like, ne, sql, type SQLWrapper } from "drizzle-orm";
 import type { Database } from "@/server/database/connection";
 import { timestamp } from "@/lib/time";
 import { accounts, balanceSnapshots, requisitions, syncRuns, transactions } from "@/server/database/schema";
 import { upsertTransactions } from "@/features/transactions/server/transaction-repository";
 import type { CategorizedEntry } from "@/features/transactions/server/transaction-entry";
+
+/** What identifies a sync run's transactions: values for one run, or `sync_runs` columns for a correlated query. */
+export type SyncRunIdentity = {
+  environment: string | SQLWrapper;
+  startedAt: string | SQLWrapper;
+};
+
+/** The run a sync writes for: its banking environment and start timestamp. */
+export type SyncRunStart = {
+  environment: string;
+  startedAt: string;
+};
+
+/**
+ * Condition on `transactions` joined with `accounts` that selects the rows a sync run inserted.
+ * A sync stores its run's `started_at` as `created_at` on the bank rows it inserts, and updates keep the original value, so for bank rows `created_at` is the start of the importing sync run. The sync lease serializes runs per environment, so no two runs share a start.
+ * Rows stored before runs stamped them carry the database clock and match no run; they are deliberately not attributed by time window.
+ */
+export function syncRunTransactions(run: SyncRunIdentity) {
+  return and(eq(accounts.environment, run.environment), eq(transactions.created_at, run.startedAt), like(transactions.provider_reference, "bank:%"));
+}
+
+/** Number of transactions a `sync_runs` row inserted. Run counts are derived from it, so the history never reports rows the run cannot show. */
+export const linkedTransactionCount = sql<number>`(SELECT COUNT(*) FROM ${transactions} INNER JOIN ${accounts} ON ${eq(accounts.id, transactions.account_id)} WHERE ${syncRunTransactions({
+  environment: syncRuns.environment,
+  startedAt: syncRuns.started_at
+})})`;
 
 export async function listSyncAccounts(db: Database, environment: string) {
   return db.select({
@@ -20,6 +47,7 @@ export async function startSyncRun(db: Database, environment: string, id: string
     await tx.update(syncRuns).set({
       status: "INTERRUPTED",
       finished_at: started,
+      inserted_count: linkedTransactionCount,
       error: "The previous sync was interrupted."
     }).where(and(eq(syncRuns.environment, environment), eq(syncRuns.status, "RUNNING")));
     await tx.insert(syncRuns).values({
@@ -31,11 +59,11 @@ export async function startSyncRun(db: Database, environment: string, id: string
   });
 }
 
-export async function finishSyncRun(db: Database, id: string, status: "PARTIAL" | "SUCCESS" | "FAILED", inserted: number, error: string | null) {
+export async function finishSyncRun(db: Database, id: string, status: "PARTIAL" | "SUCCESS" | "FAILED", error: string | null) {
   await db.update(syncRuns).set({
     status,
     finished_at: timestamp(),
-    inserted_count: inserted,
+    inserted_count: linkedTransactionCount,
     error
   }).where(eq(syncRuns.id, id));
 }
@@ -46,16 +74,13 @@ export async function recordAccountSyncError(db: Database, id: string, environme
   }).where(and(eq(accounts.id, id), eq(accounts.environment, environment)));
 }
 
-export async function saveSyncedAccount(db: Database, accountId: string, balance: {
+/** Stores one account's sync result and returns how many of its transactions this run inserted. */
+export async function saveSyncedAccount(db: Database, run: SyncRunStart, accountId: string, balance: {
   amount: number;
   date: string
 }, entries: CategorizedEntry[]) {
   return db.transaction(async tx => {
-    const before = await tx.select({
-      count: count()
-    }).from(transactions).where(eq(transactions.account_id, accountId)).get();
-
-    await upsertTransactions(tx, accountId, entries);
+    await upsertTransactions(tx, accountId, entries, run.startedAt);
     await tx.update(accounts).set({
       balance_minor: balance.amount,
       balance_date: balance.date,
@@ -74,10 +99,10 @@ export async function saveSyncedAccount(db: Database, accountId: string, balance
         amount_minor: balance.amount
       }
     });
-    const after = await tx.select({
+    const inserted = await tx.select({
       count: count()
-    }).from(transactions).where(eq(transactions.account_id, accountId)).get();
+    }).from(transactions).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(and(eq(transactions.account_id, accountId), syncRunTransactions(run))).get();
 
-    return (after?.count ?? 0) - (before?.count ?? 0);
+    return inserted?.count ?? 0;
   });
 }
