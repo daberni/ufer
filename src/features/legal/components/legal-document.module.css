@@ -62,6 +62,10 @@
   color: var(--muted);
 }
 .footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 16px;
   max-width: 720px;
   margin: 24px auto 0;
   font-size: var(--text-sm);

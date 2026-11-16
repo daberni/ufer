@@ -4,6 +4,7 @@ import { Temporal } from "temporal-polyfill";
 import { BrandIcon } from "@/components/branding/brand-icon";
 import { describeDate } from "@/lib/date-format";
 import { LegalLinks } from "./legal-links";
+import { SourceCodeNotice } from "./source-code-notice";
 import styles from "./legal-document.module.css";
 
 type Props = {
@@ -39,6 +40,7 @@ export function LegalDocument({
       </main>
       <footer className={styles["footer"]}>
         <LegalLinks />
+        <SourceCodeNotice />
       </footer>
     </div>
   );
