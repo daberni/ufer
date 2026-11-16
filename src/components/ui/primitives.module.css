@@ -185,6 +185,14 @@
   clip-path: inset(50%);
   white-space: nowrap;
 }
+.trace-id {
+  display: block;
+  color: var(--muted);
+  font-size: var(--text-xs);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
 .error-text {
   color: var(--danger) !important;
   font-size: var(--text-xs);

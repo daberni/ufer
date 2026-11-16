@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 import { useQueryClient, type Query } from "@tanstack/react-query";
-import { failureMessage } from "@/client/api";
+import { toFailure } from "@/client/api";
 
 // The query cache clears the error of a query without data when it is fetched again; the banner keeps the last failure until a load succeeds.
 const lastErrors = new WeakMap<Query, unknown>();
@@ -27,13 +27,14 @@ export function useLoadError() {
 
   const subscribe = useCallback((listener: () => void) => cache.subscribe(listener), [cache]);
 
-  const message = useSyncExternalStore(subscribe, () => {
+  // The error object itself is the snapshot: it keeps its identity between reads, unlike a derived failure.
+  const error = useSyncExternalStore(subscribe, () => {
     const failed = cache.findAll({
       predicate: failedOnScreen
     })[0];
 
-    return failed ? failureMessage(failed.state.error ?? lastErrors.get(failed)) : "";
-  }, () => "");
+    return failed ? failed.state.error ?? lastErrors.get(failed) ?? null : null;
+  }, () => null);
 
   const retry = useCallback(() => {
     void queryClient.refetchQueries({
@@ -42,7 +43,7 @@ export function useLoadError() {
   }, [queryClient]);
 
   return {
-    message,
+    failure: error ? toFailure(error) : null,
     retry
   };
 }

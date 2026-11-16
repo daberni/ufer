@@ -51,7 +51,7 @@ export function RemoveConnectionForm({
         <li>The stored bank authorization is deleted and Ufer asks Enable Banking to revoke it.</li>
         <li>Connecting the same bank again later continues the kept accounts instead of creating duplicates.</li>
       </ul>
-      <FormError message={error} />
+      <FormError failure={error} />
       <div className={ui["form-actions"]}>
         <button
           type="button"

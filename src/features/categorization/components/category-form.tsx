@@ -73,7 +73,7 @@ export function CategoryForm({
         </span>
       </label>
       <CategoryIconPicker color={color} icon={icon} onChange={setIcon} />
-      <FormError message={error} />
+      <FormError failure={error} />
       <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={pending}>
         Save category
       </button>

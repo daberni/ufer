@@ -11,6 +11,7 @@ import { bankCountries } from "@/features/banking/bank-selection";
 import { useBankDirectory } from "@/features/banking/use-bank-directory";
 import type { Bank, Connection } from "@/features/dashboard/types";
 import { FormError } from "@/components/ui/form-error";
+import { TraceId } from "@/components/ui/trace-id";
 import { SearchableSelect, type SearchableSelectOption } from "@/components/ui/searchable-select";
 import { Select } from "@/components/ui/select";
 
@@ -107,9 +108,14 @@ export function BankConnectionForm({
           busy={directory.loading}
           aria-describedby={directory.error ? directoryErrorId : undefined}
         />
-        {directory.error && <p id={directoryErrorId} className={ui["error-text"]}>{directory.error}</p>}
+        {directory.error && (
+          <>
+            <p id={directoryErrorId} className={ui["error-text"]}>{directory.error.message}</p>
+            <TraceId id={directory.error.traceId} />
+          </>
+        )}
       </div>
-      <FormError message={error} />
+      <FormError failure={error} />
       <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={pending || !directory.bankName}>
         Authorize with bank <ArrowRight size={16} />
       </button>

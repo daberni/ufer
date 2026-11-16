@@ -37,12 +37,15 @@
   top: calc(100% + 1px);
   left: 0;
   max-width: 260px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   font-size: var(--text-xs);
   line-height: 1.2;
   color: var(--danger);
+}
+.message-text {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 @media (--mobile) {
   .category {

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { trace } from "@opentelemetry/api";
 import { z } from "zod";
-import { api, failureMessage } from "../src/client/api";
+import { api, failureMessage, failureTraceId, toFailure } from "../src/client/api";
 import { HttpError } from "../src/lib/errors";
 import { minorUnits } from "../src/lib/money";
 import { parseBalancesCsv } from "../src/lib/import";
@@ -291,12 +291,12 @@ test("a successful browser response without JSON is reported with its status", a
   });
 });
 
-test("server failures show their trace ID to the user, validation failures do not", async context => {
+test("server failures expose their trace ID apart from the message, validation failures do not", async context => {
   const traceId = "d".repeat(32);
   let answer = Response.json({
     title: "Internal Server Error",
     status: 500,
-    detail: "The request could not be processed. Try again or use the trace ID when requesting support.",
+    detail: "The request could not be processed. Try again.",
     traceId
   }, {
     status: 500
@@ -306,7 +306,10 @@ test("server failures show their trace ID to the user, validation failures do no
 
   const serverFailure = await api("accounts", {}).catch(error => error);
 
-  assert.equal(failureMessage(serverFailure), `The request could not be processed. Try again or use the trace ID when requesting support. Trace ID: ${traceId}`);
+  assert.deepEqual(toFailure(serverFailure), {
+    message: "The request could not be processed. Try again.",
+    traceId
+  });
 
   answer = new Response("<html>Bad Gateway</html>", {
     status: 502,
@@ -314,7 +317,7 @@ test("server failures show their trace ID to the user, validation failures do no
       "X-Trace-Id": traceId
     }
   });
-  assert.match(failureMessage(await api("accounts", {}).catch(error => error)), new RegExp(`Trace ID: ${traceId}$`));
+  assert.equal(failureTraceId(await api("accounts", {}).catch(error => error)), traceId);
 
   answer = Response.json({
     error: "Bad Gateway"
@@ -324,10 +327,10 @@ test("server failures show their trace ID to the user, validation failures do no
       "X-Trace-Id": traceId
     }
   });
-  const gatewayFailure = failureMessage(await api("accounts", {}).catch(error => error));
+  const gatewayFailure = toFailure(await api("accounts", {}).catch(error => error));
 
-  assert.match(gatewayFailure, /HTTP 502/);
-  assert.match(gatewayFailure, new RegExp(`Trace ID: ${traceId}$`));
+  assert.match(gatewayFailure.message, /HTTP 502/);
+  assert.equal(gatewayFailure.traceId, traceId);
 
   answer = Response.json({
     status: 422,
@@ -336,5 +339,8 @@ test("server failures show their trace ID to the user, validation failures do no
   }, {
     status: 422
   });
-  assert.equal(failureMessage(await api("accounts", {}).catch(error => error)), "The amount has too many decimal places.");
+  const validationFailure = await api("accounts", {}).catch(error => error);
+
+  assert.equal(failureMessage(validationFailure), "The amount has too many decimal places.");
+  assert.equal(failureTraceId(validationFailure), undefined);
 });

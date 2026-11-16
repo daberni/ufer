@@ -52,7 +52,7 @@ export function ValuationForm({
           max={latestDate}
         />
       </label>
-      <FormError message={error} />
+      <FormError failure={error} />
       <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={pending}>
         Save balance <Check size={16} />
       </button>

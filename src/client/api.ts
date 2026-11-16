@@ -17,21 +17,33 @@ export function errorStatus(error: unknown) {
   return undefined;
 }
 
+/** A failed request as shown to the user: the message, plus the server's trace ID for failures support can look up. */
+export type Failure = {
+  message: string;
+  traceId?: string;
+};
+
 // User-facing text for a failed request; API failures carry the Problem Details detail or title.
-// Server failures ask the user to quote the trace ID, so it is part of the text.
 export function failureMessage(error: unknown) {
-  if (!(error instanceof Error)) {
-    return "Request failed.";
-  }
+  return error instanceof Error ? error.message : "Request failed.";
+}
 
+/** The trace ID of a server failure (status 500 and above); validation and other client failures have none to show. */
+export function failureTraceId(error: unknown) {
   const status = errorStatus(error);
-  const traceId = "traceId" in error && typeof error.traceId === "string" ? error.traceId : undefined;
 
-  if (traceId && status !== undefined && status >= 500) {
-    return `${error.message} Trace ID: ${traceId}`;
+  if (error instanceof Error && "traceId" in error && typeof error.traceId === "string" && status !== undefined && status >= 500) {
+    return error.traceId;
   }
 
-  return error.message;
+  return undefined;
+}
+
+export function toFailure(error: unknown): Failure {
+  return {
+    message: failureMessage(error),
+    traceId: failureTraceId(error)
+  };
 }
 
 async function send<T>(path: string, init: RequestInit): Promise<T> {

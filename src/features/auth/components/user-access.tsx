@@ -6,7 +6,7 @@ import { LogOut, UserRound } from "lucide-react";
 import { authClient, requireAuthResult } from "@/features/auth/client";
 import { AccountSettings } from "./account-settings";
 import ui from "@/components/ui/primitives.module.css";
-import { failureMessage } from "@/client/api";
+import { toFailure } from "@/client/api";
 import { useDashboardStore } from "@/features/dashboard/dashboard-store";
 import { useLockSession } from "@/features/dashboard/use-dashboard-lock";
 
@@ -18,10 +18,15 @@ export function UserAccess() {
   const signOut = useMutation({
     mutationFn: async () => requireAuthResult(await authClient.signOut()),
     onSuccess: lock,
-    onError: error => reportFeedback({
-      tone: "problem",
-      messages: [`Sign-out failed: ${failureMessage(error)}`]
-    })
+    onError: error => {
+      const failure = toFailure(error);
+
+      reportFeedback({
+        tone: "problem",
+        messages: [`Sign-out failed: ${failure.message}`],
+        traceId: failure.traceId
+      });
+    }
   });
 
   return (

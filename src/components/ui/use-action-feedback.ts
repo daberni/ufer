@@ -5,6 +5,8 @@ import { useCallback, useEffect, useState } from "react";
 export type Feedback = {
   tone: "success" | "problem";
   messages: string[];
+  /** The trace ID of the server failure behind a problem, shown apart from the messages. */
+  traceId?: string;
 };
 
 const successDismissDelay = 8000;

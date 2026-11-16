@@ -81,7 +81,7 @@ export function CreateRuleForm({ close }: DialogFormProps) {
         />
       </div>
       <p className={ui["form-hint"]}>Matches the payee and description without case sensitivity. The first matching rule wins.</p>
-      <FormError message={error} />
+      <FormError failure={error} />
       <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={pending || !categories.data}>
         Create rule <Sparkles size={16} />
       </button>
