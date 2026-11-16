@@ -29,7 +29,7 @@ Turso's integration supplies TURSO_DATABASE_URL and TURSO_AUTH_TOKEN. Map their 
 
 Preview deployments use their own Turso database and secrets in Vercel's Preview environment. Leave APP_URL unset there: sign-in and write requests accept the preview's branch alias and deployment URL, which Vercel provides as VERCEL_BRANCH_URL and VERCEL_URL. Production still accepts only APP_URL. Bank connections are not available in previews because their changing URLs cannot be registered as provider callbacks.
 
-Only `main` (production) and pull-request branches are built: `ignoreCommand` in `vercel.json` always builds production deployments and the `main` branch and skips preview builds for other branches without an open pull request, so work-in-progress pushes do not use up the daily deployment allowance. A branch's first push before its pull request exists is skipped; the next push after opening the pull request deploys it.
+Only `main` (production) and pull-request branches are built: `ignoreCommand` in `vercel.json` always builds production deployments and the `main` branch and skips the build for other branches without an open pull request. Vercel still creates and cancels a deployment for a skipped push, so this saves build time but not the daily deployment allowance. A branch's first push before its pull request exists is skipped; the next push after opening the pull request deploys it.
 
 ## Initialization and deployment
 
