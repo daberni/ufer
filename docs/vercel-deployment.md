@@ -41,9 +41,22 @@ For this deployment, DATA_PROCESSORS lists Vercel and Turso with the regions abo
 
 Update it when a provider, region, plan or retention period changes. The one-hour log retention is Vercel's documented [runtime-log limit](https://vercel.com/docs/logs/runtime) for Hobby (checked 2026-11-16); add the Turso backup retention of the plan in use once confirmed. Operator details are entered in Vercel's environment settings only, never in the repository.
 
-Preview deployments use their own Turso database and secrets in Vercel's Preview environment. Leave APP_URL unset there: sign-in and write requests accept the preview's branch alias and deployment URL, which Vercel provides as VERCEL_BRANCH_URL and VERCEL_URL. Production still accepts only APP_URL. Bank connections are not available in previews because their changing URLs cannot be registered as provider callbacks.
+Preview deployments use their own Turso database and secrets in Vercel's Preview environment. Leave APP_URL unset there: sign-in and write requests accept the preview's branch alias and deployment URL, which Vercel provides as VERCEL_BRANCH_URL and VERCEL_URL. Production still accepts only APP_URL.
+
+Preview URLs change and cannot be registered as provider callbacks, so a preview cannot start a bank authorization itself. Instead, the shared preview database holds one Enable Banking sandbox (Mock ASPSP) connection, authorized from a local instance that uses the preview database, the Preview DATA_ENCRYPTION_KEY, the sandbox application and its registered `localhost` callback. Every preview shows that connection and can sync it, because syncing needs no callback. Renew it the same way before the authorization expires (Mock ASPSP grants 180 days). Vercel does not return sensitive values, so the Preview DATA_ENCRYPTION_KEY and the sandbox application key are kept in the operator's password manager.
 
 Only `main` (production) and pull-request branches are built: `ignoreCommand` in `vercel.json` always builds production deployments and the `main` branch and skips the build for other branches without an open pull request. Vercel still creates and cancels a deployment for a skipped push, so this saves build time but not the daily deployment allowance. A branch's first push before its pull request exists is skipped; the next push after opening the pull request deploys it.
+
+## Preview demo data
+
+Preview deployments share one persistent Turso preview database. Fill it with the synthetic [demo dataset](setup.md#demo-data) from an operator machine; nothing seeds it automatically at build or startup. Re-run the same command when the history should end today again; it replaces only the demo rows and keeps users, sandbox bank connections and their transactions.
+
+1. Obtain the preview database URL and token without writing them into the checkout, for example with `vercel env pull --environment=preview <file outside the repository>`: the Turso integration's TURSO_DATABASE_URL and TURSO_AUTH_TOKEN are readable there, while the sensitive DATABASE_URL and DATABASE_AUTH_TOKEN are not. Use them as `DATABASE_URL` and `DATABASE_AUTH_TOKEN` together with `ENABLE_BANKING_ENVIRONMENT=SANDBOX`.
+2. Export these values in the shell; exported variables take precedence over local `.env*` files. Confirm that `DATABASE_URL` names the preview database, not production.
+3. Run `npm run demo:seed -- --confirm` from a checkout of the reviewed source. The command prints the date range and the number of demo accounts, transactions, uncategorized rows and rules.
+4. Delete the pulled environment file and unset the variables.
+
+The guard refuses databases with non-sandbox banking data or transactions on manual or CSV accounts the seed did not create. Reviewer-created manual accounts with imported transactions therefore block a later run until those rows are removed. Never run the seed against the production database.
 
 ## Initialization and deployment
 
@@ -58,6 +71,8 @@ The current source uses Better Auth username/password identities and active memb
 ## Verification status
 
 Verified on 2026-11-15: Vercel production is Ready on Node 26 with functions in Frankfurt and the approved Turso Starter database initialized from the existing baseline. Login/logout, Secure/HttpOnly/SameSite session attributes, origin rejection, protected Problem Details responses and remote persistence passed. Both hosted and local bank callbacks are registered. A Mock ASPSP sandbox connection contains one account and two test transactions; a repeat sync inserted zero additional transactions.
+
+Verified on 2026-11-16: the shared preview database holds the demo dataset and a Mock ASPSP sandbox connection authorized from a local instance; a manual sync from a preview deployment succeeded.
 
 Vercel records an enabled daily 05:00 UTC cron definition, and its bearer-protected endpoint completed an authenticated sync. The first future unattended scheduled invocation has not been observed. No local financial data was imported. Real-bank coverage, physical-device flows, NAS operation, backup restoration and multi-customer isolation remain separate acceptance work.
 
