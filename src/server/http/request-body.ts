@@ -7,9 +7,9 @@ function tooLarge() {
   return new HttpError(413, "Request body is too large.");
 }
 
-/** Reads a request body as text and stops once it exceeds `limit` bytes, whether or not the request declares its length. */
-export async function readBodyText(request: Request, limit = maxRequestBodyBytes) {
-  if (Number(request.headers.get("content-length")) > limit) {
+/** Reads a request body as text and stops once it exceeds the limit, whether or not the request declares its length. */
+async function readBodyText(request: Request) {
+  if (Number(request.headers.get("content-length")) > maxRequestBodyBytes) {
     throw tooLarge();
   }
 
@@ -33,7 +33,7 @@ export async function readBodyText(request: Request, limit = maxRequestBodyBytes
 
     size += value.byteLength;
 
-    if (size > limit) {
+    if (size > maxRequestBodyBytes) {
       await reader.cancel();
 
       throw tooLarge();

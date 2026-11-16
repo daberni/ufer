@@ -14,7 +14,7 @@ This guide covers development, deployment and verification. See [banking and imp
 
 The development server binds to loopback. Username/password sign-in and `BETTER_AUTH_SECRET` are required in every environment. Existing installations need the reviewed [authentication migration](user-management.md#migration-and-rollout) before starting this version. `APP_URL` must match the browser origin because write requests validate their origin. A production server (Docker, or `NODE_ENV=production`) refuses to start unless `APP_URL` is an HTTPS origin, so serve Docker installations through an HTTPS reverse proxy.
 
-JSON request bodies above 2 MiB are rejected with 413 by their declared `Content-Length` before parsing; CSV imports allow 1 MB of CSV text. Vercel additionally caps bodies at 4.5 MB.
+JSON API request bodies above 2 MiB are rejected with 413 while they are read; CSV imports allow 1 MB of CSV text. Other request size limits come from the hosting layer: Vercel caps bodies at 4.5 MB, and a reverse proxy sets its own limit (nginx defaults to 1 MB; raise `client_max_body_size` to `2m` for full-size CSV imports).
 
 ## Demo data
 

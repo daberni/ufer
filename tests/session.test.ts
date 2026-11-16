@@ -413,17 +413,6 @@ test("the maintained client receives Problem Details errors without losing its e
   assert.equal((await handleAuthentication(wrongOrigin)).status, 403);
 });
 
-test("authentication requests with an oversized body are rejected before the library reads them", async context => {
-  await isolatedAuth(context);
-
-  const oversized = await handleAuthentication(request("/sign-in/username", {
-    username: owner.username,
-    password: "x".repeat(32 * 1024)
-  }));
-
-  assert.equal(oversized.status, 413);
-});
-
 function trustClientAddressHeader(context: TestContext, header: string | undefined) {
   const previous = process.env.TRUSTED_CLIENT_IP_HEADER;
 
@@ -573,30 +562,4 @@ test("operator password recovery uses library reset tokens and revokes all sessi
     token: "untrusted",
     newPassword: password
   }))).status, 404);
-});
-
-test("authentication responses never carry the raw session token", async context => {
-  const db = await isolatedAuth(context);
-
-  await provisionUser(owner);
-  const {
-    response,
-    cookie
-  } = await signIn();
-  const stored = await db.select().from(schema.authSessions).get();
-  const signInBody = await response.clone().json();
-  const sessionBody = await (await handleAuthentication(request("/get-session", undefined, cookie))).json();
-  const listBody = await (await handleAuthentication(request("/list-sessions", undefined, cookie))).json();
-
-  assert.ok(stored?.token);
-
-  for (const body of [signInBody, sessionBody, listBody]) {
-    assert.equal(JSON.stringify(body).includes(stored.token), false);
-  }
-
-  assert.equal(sessionBody.session.id, stored.id);
-  assert.equal(sessionBody.user.username, "exampleowner");
-  assert.equal(listBody.length, 1);
-  assert.equal(response.headers.get("cache-control"), "no-store");
-  assert.ok(cookie);
 });

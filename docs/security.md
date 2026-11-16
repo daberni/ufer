@@ -8,11 +8,11 @@ The [auth feature](../src/features/auth/server/auth.ts) delegates credentials, s
 
 Ufer separately requires active membership of the existing installation workspace for every financial API request. The schema prevents adding a second independent customer while financial repositories remain installation-wide. Both owner and member roles can access these shared finances. Multi-customer SaaS, SSO, email verification/recovery and member-administration UI remain unimplemented.
 
-Origin checks apply to writes, including sign-in and sign-out. Authentication failures retain Problem Details and trace IDs alongside the fields required by the maintained library client. Provider/library secrets and raw failures are not logged. Authentication rate limits are described [below](#authentication-rate-limits).
+Origin checks apply to writes, including sign-in and sign-out. Authentication failures retain Problem Details and trace IDs alongside the fields required by the maintained library client. Provider/library secrets and raw failures are not logged. JSON API bodies are capped at 2 MiB while they are read; other request size limits, including for authentication, come from the hosting layer. Authentication rate limits are described [below](#authentication-rate-limits).
 
 ## Session lifetime and revocation
 
-The session cookie is the only carrier of the session token: the authentication route handler removes `token` fields from every successful JSON response, so a script-readable body never repeats the HttpOnly credential. The token-based `/api/auth/revoke-session` endpoint is therefore not exposed; the account dialog signs out other devices through `revoke-other-sessions`.
+The account dialog signs out other devices through `revoke-other-sessions`; the token-based `/api/auth/revoke-session` endpoint is not exposed.
 
 A session ends after 24 hours without use: `expiresIn` is one day and activity renews it at most once an hour (`updateAge`). This rolling window replaces the previous seven-day window. Better Auth 1.7.25 offers either an absolute lifetime or an inactivity window that renews without an upper bound, not both; the operator chose the inactivity window for daily use, so a stolen session cookie stays usable as long as it is used at least once a day, until sign-out, a password change or revocation from the account dialog. An absolute lifetime (for example OWASP ASVS 4.0.3 requirement 3.3.2 at level 2: 12 hours) would cap that exposure at the cost of signing in again every day.
 
