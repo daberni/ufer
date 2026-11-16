@@ -21,6 +21,8 @@ export function describeCategoryGroups(groups: CategoryGroup[], currency: string
 type Props = {
   groups: CategoryGroup[];
   currency: string;
+  /** One line per row with the name truncated and a thin share bar, for details that must fit a fixed height. */
+  compact?: boolean;
   className?: string;
 };
 
@@ -28,15 +30,16 @@ type Props = {
 export function CategoryRows({
   groups,
   currency,
+  compact = false,
   className
 }: Props) {
   return (
-    <div className={clsx(styles["rows"], className)}>
+    <div className={clsx(styles["rows"], compact && styles["compact"], className)}>
       {groups.map(group => (
         <div className={styles["row"]} key={group.key}>
           <span>
             <CategoryMarker icon={group.icon} color={group.color} />
-            {group.name}
+            <span className={styles["name"]} title={compact ? group.name : undefined}>{group.name}</span>
           </span>
           <strong>{money(group.amount, currency)}</strong>
           <div>

@@ -50,6 +50,8 @@ type ChartMonth = {
   month: string;
   label: string;
   title: string;
+  /** In the later half of the window; an overlay for it then covers the chart's start side. */
+  late: boolean;
   bars: ChartBar[];
 };
 
@@ -73,6 +75,7 @@ export function CashFlowChart({ cashFlow }: Props) {
       month: item.month,
       label: display.label,
       title: display.title,
+      late: index >= trend.length / 2,
       bars: [{
         key: `${item.month}-income`,
         flow: "income",
@@ -107,7 +110,7 @@ export function CashFlowChart({ cashFlow }: Props) {
           Expenses
         </span>
       </div>
-      <div {...chartProps}>
+      <div className={styles["plot"]} {...chartProps}>
         <div
           {...areaProps(cashFlow.status, styles["bar-chart"])}
           role="group"
@@ -165,7 +168,7 @@ export function CashFlowChart({ cashFlow }: Props) {
           ))}
         </div>
         {hasHistory && (
-          <div className={styles["details-slot"]}>
+          <div className={styles["details-slot"]} data-side={activeMonth?.late ? "start" : "end"}>
             {activeMonth && activeBar ? <BarDetails month={activeMonth} bar={activeBar} currency={currency} /> : <p className={styles["details-hint"]}>Select a bar to see its categories.</p>}
           </div>
         )}
@@ -181,7 +184,7 @@ type BarDetailsProps = {
   currency: string;
 };
 
-// Visual only: each bar button already describes the same breakdown to assistive technology.
+// Visual only: each bar button already describes the same breakdown to assistive technology. Wide layouts show it as an overlay on the chart, narrower ones in a fixed area below the bars.
 function BarDetails({
   month,
   bar,
@@ -190,12 +193,12 @@ function BarDetails({
   const presentation = flowPresentation[bar.flow];
 
   return (
-    <div aria-hidden="true">
+    <div className={styles["bar-details"]} aria-hidden="true">
       <div className={styles["details-heading"]}>
         <strong>{month.title}</strong>
         <span>{`${presentation.label} ${money(bar.total, currency)}`}</span>
       </div>
-      {bar.groups.length ? <CategoryRows className={styles["details-rows"]} groups={bar.groups} currency={currency} /> : <p className={styles["details-empty"]}>{presentation.empty}</p>}
+      {bar.groups.length ? <CategoryRows groups={bar.groups} currency={currency} compact /> : <p className={styles["details-empty"]}>{presentation.empty}</p>}
     </div>
   );
 }
