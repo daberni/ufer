@@ -14,7 +14,20 @@ export function useSaveCategory(category?: Category | null) {
   const affected = category ? [queryKeys.categories(), queryKeys.rules(), queryKeys.reports.cashFlow()] : [queryKeys.categories()];
 
   return useMutation({
-    mutationFn: (details: CategoryDetails) => category ? api(`categories/${encodeURIComponent(category.id)}`, details, "PATCH") : api("categories", details),
+    // Resolves to the saved category's id.
+    mutationFn: async (details: CategoryDetails) => {
+      if (category) {
+        await api(`categories/${encodeURIComponent(category.id)}`, details, "PATCH");
+
+        return category.id;
+      }
+
+      const created = await api<{
+        id: string;
+      }>("categories", details);
+
+      return created.id;
+    },
     onSettled: () => invalidate(queryClient, affected)
   });
 }

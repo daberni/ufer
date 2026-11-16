@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { HttpError, ValidationError } from "@/lib/errors";
 import { z } from "zod";
 import { categorize, prepareRules, validatePattern } from "@/lib/rules";
@@ -90,10 +91,14 @@ export async function createCategory(payload: unknown) {
     icon: categoryIcon.default(null)
   }).parse(payload);
 
-  requireSaved(await insertCategory(categoryDetails(input)));
+  const id = randomUUID();
 
+  requireSaved(await insertCategory(id, categoryDetails(input)));
+
+  // The id lets the client select a category it has just created.
   return {
-    ok: true
+    ok: true,
+    id
   };
 }
 

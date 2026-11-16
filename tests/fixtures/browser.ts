@@ -27,6 +27,7 @@ export function browser(context: TestContext, url = "http://localhost/") {
     document: dom.window.document,
     navigator: dom.window.navigator,
     HTMLElement: dom.window.HTMLElement,
+    FormData: dom.window.FormData,
     IS_REACT_ACT_ENVIRONMENT: true
   };
   const originalProperties = new Map(Object.keys(globals).map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));

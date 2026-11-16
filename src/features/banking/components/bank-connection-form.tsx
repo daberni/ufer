@@ -13,9 +13,10 @@ import type { Bank, Connection } from "@/features/dashboard/types";
 import { FormError } from "@/components/ui/form-error";
 import { SearchableSelect, type SearchableSelectOption } from "@/components/ui/searchable-select";
 import { Select } from "@/components/ui/select";
+import { Dialog } from "@/components/ui/dialog";
+import { useBankingConfiguration } from "@/features/banking/banking-configuration";
 
 type Props = DialogFormProps & {
-  environment: string;
   /** The connection to reauthorize; null connects a new bank. */
   connection: Connection | null;
 };
@@ -62,11 +63,22 @@ function directoryStatus(directory: Pick<ReturnType<typeof useBankDirectory>, "b
   };
 }
 
-export function BankConnectionForm({
+export function BankConnectionDialog({
   close,
-  connection,
-  environment
+  connection
 }: Props) {
+  return (
+    <Dialog eyebrow="YOUR FINANCES" title="Connect bank" onClose={close}>
+      <BankConnectionForm close={close} connection={connection} />
+    </Dialog>
+  );
+}
+
+function BankConnectionForm({
+  close,
+  connection
+}: Props) {
+  const { environment } = useBankingConfiguration();
   const directory = useBankDirectory(connection);
   const status = directoryStatus(directory);
   const bankFieldId = useId();

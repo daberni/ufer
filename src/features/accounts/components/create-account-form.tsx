@@ -13,8 +13,17 @@ import type { AccountKind } from "../account-kinds";
 import { useDialogSubmit, type DialogFormProps } from "@/features/dashboard/use-dialog-submit";
 import { useCreateAccount } from "@/features/accounts/mutations";
 import { FormError } from "@/components/ui/form-error";
+import { Dialog } from "@/components/ui/dialog";
 
-export function CreateAccountForm({ close }: DialogFormProps) {
+export function CreateAccountDialog({ close }: DialogFormProps) {
+  return (
+    <Dialog eyebrow="YOUR FINANCES" title="Add account" onClose={close}>
+      <CreateAccountForm close={close} />
+    </Dialog>
+  );
+}
+
+function CreateAccountForm({ close }: DialogFormProps) {
   const [kind, setKind] = useState<AccountKind | null>(null);
   const {
     error,

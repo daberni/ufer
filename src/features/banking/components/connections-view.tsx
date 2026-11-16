@@ -11,7 +11,9 @@ import { TimestampValue } from "@/components/ui/date-value";
 import { Empty } from "@/components/ui/empty-state";
 import { BridgeIllustration } from "@/components/branding/illustrations";
 import type { BankingConfiguration, Connection, SyncRun } from "@/features/dashboard/types";
-import { useDashboardStore } from "@/features/dashboard/dashboard-store";
+import { useState } from "react";
+import { BankConnectionDialog } from "./bank-connection-form";
+import { RemoveConnectionDialog } from "./remove-connection-form";
 import { useSyncRunHref } from "@/features/dashboard/use-dashboard-url";
 import { AreaPlaceholder } from "@/features/dashboard/components/area-placeholder";
 import type { Area } from "@/features/dashboard/use-area-result";
@@ -20,6 +22,15 @@ type Props = {
   banking: BankingConfiguration;
   connections: Area<Connection[]>;
   syncRuns: Area<SyncRun[]>;
+};
+
+type OpenDialog = {
+  kind: "bank";
+  /** The connection to reauthorize; null connects a new bank. */
+  connection: Connection | null;
+} | {
+  kind: "removeConnection";
+  connection: Connection;
 };
 
 const skeletonConnections = 2;
@@ -31,9 +42,14 @@ export function ConnectionsView({
   connections,
   syncRuns
 }: Props) {
-  const openDialog = useDashboardStore(state => state.openDialog);
-  const openBank = (connection: Connection | null = null) => openDialog({
+  const [dialog, setDialog] = useState<OpenDialog | null>(null);
+  const closeDialog = () => setDialog(null);
+  const openBank = (connection: Connection | null = null) => setDialog({
     kind: "bank",
+    connection
+  });
+  const removeConnection = (connection: Connection) => setDialog({
+    kind: "removeConnection",
     connection
   });
   const sandbox = banking.environment === "SANDBOX";
@@ -60,9 +76,18 @@ export function ConnectionsView({
           <AreaPlaceholder area={connections} subject="Your bank connections">
             <ConnectionRowsSkeleton />
           </AreaPlaceholder>
-        ) : <ConnectionRows connections={connections.data} openBank={openBank} sandbox={sandbox} />}
+        ) : (
+          <ConnectionRows
+            connections={connections.data}
+            openBank={openBank}
+            removeConnection={removeConnection}
+            sandbox={sandbox}
+          />
+        )}
       </section>
       <SyncHistory syncRuns={syncRuns} />
+      {dialog?.kind === "bank" && <BankConnectionDialog connection={dialog.connection} close={closeDialog} />}
+      {dialog?.kind === "removeConnection" && <RemoveConnectionDialog selectedConnection={dialog.connection} close={closeDialog} />}
     </>
   );
 }
@@ -100,14 +125,14 @@ function SyncHistory({ syncRuns }: {
 function ConnectionRows({
   connections,
   openBank,
+  removeConnection,
   sandbox
 }: {
   connections: Connection[];
   openBank: (connection?: Connection | null) => void;
+  removeConnection: (connection: Connection) => void;
   sandbox: boolean;
 }) {
-  const openDialog = useDashboardStore(state => state.openDialog);
-
   if (!connections.length) {
     return (
       <Empty
@@ -153,10 +178,7 @@ function ConnectionRows({
             </button>
             <button
               className={clsx(ui["button"], ui["small"])}
-              onClick={() => openDialog({
-                kind: "removeConnection",
-                connection
-              })}
+              onClick={() => removeConnection(connection)}
               aria-label={`Remove ${connection.bank_name} connection`}
             >
               <Trash2 size={13} />
