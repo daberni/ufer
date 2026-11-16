@@ -51,11 +51,8 @@ jobs:
           echo "url=$(cat "$RUNNER_TEMP/vercel-url.txt")" >> "$GITHUB_OUTPUT"
           echo "inspector=$(grep -o 'https://vercel.com/[^ ]*' "$output" | head -n 1 || true)" >> "$GITHUB_OUTPUT"
           if [ "$status" -ne 0 ]; then
-            message=$(grep -m 1 -E '^(✗|Error)' "$output" || grep -v '^[[:space:]]*$' "$output" | tail -n 1 || true)
-            printf '### Vercel deployment failed\n\n~~~\n%s\n~~~\n' "$message" >> "$GITHUB_STEP_SUMMARY"
-            echo "::error title=Vercel deployment failed::$(printf '%s' "$message" | sed 's/%/%25/g')"
+            echo "error=$(grep -m 1 -E '^(✗|Error)' "$output" || grep -v '^[[:space:]]*$' "$output" | tail -n 1 || echo "vercel deploy exited with $status")" >> "$GITHUB_OUTPUT"
           fi
-          exit "$status"
       # A cancelled run is superseded by a newer one, which reports its own state.
       - name: Report the result
         if: success() || failure()
@@ -64,11 +61,20 @@ jobs:
           PULL_REQUEST: ${{ github.event.pull_request.number }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           OUTCOME: ${{ steps.deploy.outcome }}
+          ERROR: ${{ steps.deploy.outputs.error }}
           URL: ${{ steps.deploy.outputs.url }}
           INSPECTOR: ${{ steps.deploy.outputs.inspector }}
         run: |
-          if [ "$OUTCOME" = "success" ]; then
+          if [ "$OUTCOME" = "success" ] && [ -z "$ERROR" ]; then
             .github/scripts/preview-comment.sh ready "$URL" "$INSPECTOR"
           else
             .github/scripts/preview-comment.sh error "" "$INSPECTOR"
           fi
+      # A failing JavaScript action reports only its own message, not the generic exit-code annotation of a failed shell step.
+      - name: Fail with the Vercel error
+        if: steps.deploy.outputs.error != ''
+        uses: actions/github-script@v9
+        env:
+          ERROR: ${{ steps.deploy.outputs.error }}
+        with:
+          script: core.setFailed(process.env.ERROR)
