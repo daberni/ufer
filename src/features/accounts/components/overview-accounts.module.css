@@ -125,12 +125,12 @@
 .onboarding h3 {
   font-weight: 500;
 }
-@media (min-width: 1600px) {
+@media (--wide) {
   .account-strip {
     gap: 18px;
   }
 }
-@media (max-width: 1250px) {
+@media (--laptop) {
   .account-strip {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -141,7 +141,7 @@
     min-width: calc(100% - 60px);
   }
 }
-@media (max-width: 760px), (max-width: 900px) and (pointer: coarse) {
+@media (--mobile) {
   .accounts-section {
     margin-top: 25px;
   }

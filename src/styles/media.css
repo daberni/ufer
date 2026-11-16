@@ -1,0 +1,12 @@
+/* Named breakpoints for every stylesheet. PostCSS expands them at build time (see postcss.config.mjs), so this file is never imported. A max-width name also covers every narrower viewport. */
+
+/* Phone layout with bottom navigation; touch tablets up to 900px use it as well. */
+@custom-media --mobile (width <= 760px), (width <= 900px) and (pointer: coarse);
+/* Icon-only sidebar. */
+@custom-media --tablet (width <= 900px);
+/* Narrower sidebar and stacked overview columns. */
+@custom-media --laptop (width <= 1250px);
+/* Everything wider than --laptop. */
+@custom-media --desktop (width > 1250px);
+/* Larger header, charts and dashboard columns. */
+@custom-media --wide (width >= 1600px);

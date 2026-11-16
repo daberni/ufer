@@ -57,7 +57,7 @@
   opacity: 0;
   cursor: pointer;
 }
-@media (max-width: 760px), (max-width: 900px) and (pointer: coarse) {
+@media (--mobile) {
   .option {
     min-height: 44px;
     font-size: var(--text-md);

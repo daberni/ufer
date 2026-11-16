@@ -71,7 +71,7 @@
   font-size: var(--text-sm);
   color: var(--muted);
 }
-@media (max-width: 760px) {
+@media (--mobile) {
   .document {
     padding: 22px 18px;
   }
