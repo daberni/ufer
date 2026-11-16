@@ -14,6 +14,7 @@ export function transactionListFilters(query: DashboardQuery): TransactionListFi
     search: query.search,
     account: query.account,
     category: query.category,
+    syncRun: query.syncRun,
     page: query.page
   };
 }

@@ -86,6 +86,11 @@
 .sync-row:last-child {
   border: 0;
 }
+.transactions-link {
+  color: var(--green);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
 .sync-row p {
   width: 100%;
   white-space: pre-line;

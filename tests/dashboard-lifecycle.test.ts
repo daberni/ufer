@@ -30,6 +30,7 @@ function dashboardQuery(changes: Partial<DashboardQuery> = {}): DashboardQuery {
     search: "",
     account: "",
     category: "",
+    syncRun: "",
     page: 1,
     ...changes
   };

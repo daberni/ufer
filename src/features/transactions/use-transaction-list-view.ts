@@ -23,6 +23,8 @@ export function useTransactionListView(query: DashboardQuery, replacePage: (page
 
   return {
     ...area,
+    /** Whether the data is the response for the URL's filters rather than a placeholder from earlier ones. */
+    current: current !== undefined,
     page
   };
 }

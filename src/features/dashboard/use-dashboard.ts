@@ -9,7 +9,7 @@ import type { ImportMode } from "@/features/imports/mutations";
 import { useActionFeedback, type Feedback } from "@/components/ui/use-action-feedback";
 import { navigation } from "./presentation";
 import { monthPeriod, type Period } from "./period";
-import { dashboardQuery, isPeriodAware, periodScope, viewFromPathname, viewHref as hrefForView, withQueryChanges, type DashboardQueryChanges } from "./dashboard-location";
+import { dashboardQuery, isPeriodAware, periodScope, viewFromPathname, viewHref as hrefForView, viewPaths, withQueryChanges, type DashboardQueryChanges } from "./dashboard-location";
 import type { Account, Category, View, Modal, Connection } from "./types";
 
 export type ActionResult<T> = {
@@ -178,6 +178,13 @@ export function useDashboard() {
     }, "push");
   }, [updateQuery]);
 
+  const setSyncRun = useCallback((next: string) => {
+    updateQuery({
+      syncRun: next,
+      page: 1
+    }, "push");
+  }, [updateQuery]);
+
   const setPage = useCallback((next: number) => {
     updateQuery({
       page: next
@@ -193,6 +200,13 @@ export function useDashboard() {
 
   function viewHref(next: View) {
     return hrefForView(next, scope);
+  }
+
+  // The run's transactions; the remembered period stays in the URL so clearing the run returns to it.
+  function syncRunHref(id: string) {
+    return withQueryChanges(viewPaths.transactions, scope, {
+      syncRun: id
+    });
   }
 
   function changeView(next: View) {
@@ -230,6 +244,7 @@ export function useDashboard() {
     search,
     account: accountFilter,
     category: categoryFilter,
+    syncRun,
     page
   } = query;
 
@@ -249,6 +264,9 @@ export function useDashboard() {
     setAccountFilter,
     categoryFilter,
     setCategoryFilter,
+    syncRun,
+    setSyncRun,
+    syncRunHref,
     page,
     setPage,
     replacePage,

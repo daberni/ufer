@@ -3,7 +3,7 @@ import { parsePage } from "./pagination";
 import type { View } from "./types";
 
 /**
- * Each dashboard view is a route. The period and currency are shared by the period-aware views; search, filters and page belong to the transaction list.
+ * Each dashboard view is a route. The period and currency are shared by the period-aware views; search, filters and page belong to the transaction list. A selected sync run replaces the period and currency for the list: it shows everything the run imported.
  */
 export const viewPaths: Record<View, string> = {
   overview: "/",
@@ -19,6 +19,7 @@ export type DashboardQuery = {
   search: string;
   account: string;
   category: string;
+  syncRun: string;
   page: number;
 };
 
@@ -29,6 +30,7 @@ export type DashboardQueryChanges = {
   search?: string;
   account?: string;
   category?: string;
+  syncRun?: string;
   page?: number;
 };
 
@@ -75,6 +77,7 @@ export function dashboardQuery(view: View, scope: string, params: SearchParams):
     search: listParams.get("search") || "",
     account: listParams.get("account") || "",
     category: listParams.get("category") || "",
+    syncRun: listParams.get("syncRun") || "",
     page: parsePage(listParams.get("page"))
   };
 }
@@ -96,7 +99,7 @@ export function withQueryChanges(pathname: string, search: string, changes: Dash
     values.currency = changes.currency === defaultCurrency ? "" : changes.currency;
   }
 
-  for (const key of ["search", "account", "category"] as const) {
+  for (const key of ["search", "account", "category", "syncRun"] as const) {
     if (changes[key] !== undefined) {
       values[key] = changes[key];
     }

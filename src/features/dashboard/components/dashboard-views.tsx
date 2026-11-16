@@ -4,6 +4,7 @@ import { OverviewView } from "@/features/dashboard/components/overview-view";
 import { PeriodControls } from "@/features/dashboard/components/period-controls";
 import { ViewLoading } from "@/features/dashboard/components/view-loading";
 import { TransactionsPanel } from "@/features/transactions/components/transactions-panel";
+import { SyncRunEmpty, SyncRunScope } from "@/features/transactions/components/sync-run-scope";
 import { AccountsView } from "@/features/accounts/components/accounts-view";
 import { RulesView } from "@/features/categorization/components/rules-view";
 import { ConnectionsView } from "@/features/banking/components/connections-view";
@@ -77,7 +78,7 @@ export function OverviewPage() {
         categories={categories.data}
         categoryFilter={dashboard.categoryFilter}
         changeView={dashboard.changeView}
-        currencyAccounts={groups.currencyAccounts}
+        filterAccounts={groups.currencyAccounts}
         list={{
           data: list.data,
           status: list.status
@@ -107,28 +108,44 @@ export function TransactionsPage() {
   }
 
   const groups = accountGroups(accounts.data, dashboard.currency);
+  const transactionCount = {
+    data: list.data.transactionCount,
+    status: list.status
+  };
+
+  // A placeholder from earlier filters says nothing about the selected run; only the run's own response can report it missing.
+  const selectedRun = list.data.syncRun?.id === dashboard.syncRun ? list.data.syncRun : null;
+  const runFound = selectedRun !== null || !list.current;
+  const runEmptyState = <SyncRunEmpty filtered={Boolean(dashboard.search || dashboard.accountFilter || dashboard.categoryFilter)} found={runFound} run={selectedRun} />;
 
   return (
     <>
-      <PeriodControls
-        currencies={groups.currencies}
-        currency={dashboard.currency}
-        moveMonth={dashboard.moveMonth}
-        period={dashboard.period}
-        selectPeriod={dashboard.selectPeriod}
-        setCurrency={dashboard.setCurrency}
-        transactionCount={{
-          data: list.data.transactionCount,
-          status: list.status
-        }}
-        view="transactions"
-      />
+      {dashboard.syncRun ? (
+        <SyncRunScope
+          clear={() => dashboard.setSyncRun("")}
+          found={runFound}
+          run={selectedRun}
+          transactionCount={transactionCount}
+        />
+      ) : (
+        <PeriodControls
+          currencies={groups.currencies}
+          currency={dashboard.currency}
+          moveMonth={dashboard.moveMonth}
+          period={dashboard.period}
+          selectPeriod={dashboard.selectPeriod}
+          setCurrency={dashboard.setCurrency}
+          transactionCount={transactionCount}
+          view="transactions"
+        />
+      )}
       <TransactionsPanel
         accountFilter={dashboard.accountFilter}
         categories={categories.data}
         categoryFilter={dashboard.categoryFilter}
         changeView={dashboard.changeView}
-        currencyAccounts={groups.currencyAccounts}
+        emptyState={dashboard.syncRun ? runEmptyState : undefined}
+        filterAccounts={dashboard.syncRun ? accounts.data : groups.currencyAccounts}
         list={{
           data: list.data,
           status: list.status
@@ -201,6 +218,7 @@ export function ConnectionsPage() {
       connections={connections.data}
       openBank={dashboard.openBank}
       openConnectionRemoval={dashboard.openConnectionRemoval}
+      syncRunHref={dashboard.syncRunHref}
       syncRuns={syncRuns.data}
     />
   );
