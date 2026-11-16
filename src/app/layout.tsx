@@ -1,4 +1,6 @@
 import type { Metadata, Viewport } from "next";
+import { themeAttribute, themeViewport } from "@/features/appearance/theme-preference";
+import { requestThemePreference } from "@/features/appearance/server/request-theme";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -9,15 +11,22 @@ export const metadata: Metadata = {
   description: "Your personal dashboard for accounts, transactions, and net worth."
 };
 
-export const viewport: Viewport = {
-  width: "device-width",
-  initialScale: 1,
-  viewportFit: "cover",
-  themeColor: "#233e31"
-};
+export async function generateViewport(): Promise<Viewport> {
+  const preference = await requestThemePreference();
 
-export default function RootLayout({ children }: Readonly<{
+  return {
+    width: "device-width",
+    initialScale: 1,
+    viewportFit: "cover",
+    ...themeViewport(preference)
+  };
+}
+
+// Every page already renders per request, so reading the theme cookie here sends the chosen theme with the document itself: no inline script and no flash before hydration.
+export default async function RootLayout({ children }: Readonly<{
   children: React.ReactNode;
 }>) {
-  return <html lang="en"><body>{children}</body></html>;
+  const preference = await requestThemePreference();
+
+  return <html lang="en" data-theme={themeAttribute(preference)}><body>{children}</body></html>;
 }

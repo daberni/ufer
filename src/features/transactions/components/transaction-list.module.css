@@ -1,6 +1,6 @@
 .transaction-icon.incoming {
-  background: #edf4e9;
-  color: #68845a;
+  background: var(--soft);
+  color: var(--green-text);
 }
 .table-scroll {
   overflow-x: auto;
@@ -14,16 +14,16 @@
 .table-scroll th {
   font-size: var(--text-xs);
   font-weight: 500;
-  color: #a1a896;
+  color: var(--muted);
   letter-spacing: 0.4px;
-  background: #fafbf8;
+  background: var(--surface-muted);
   padding: 13px 17px;
-  border-top: 1px solid #eff1e9;
-  border-bottom: 1px solid #eff1e9;
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
 }
 .table-scroll td {
   padding: 15px 17px;
-  border-bottom: 1px solid #f0f2eb;
+  border-bottom: 1px solid var(--border-subtle);
   font-size: var(--text-xs);
 }
 .table-scroll th:first-child {
@@ -46,13 +46,13 @@
 .transaction-icon {
   width: 32px;
   height: 32px;
-  border: 1px solid #edf0e7;
+  border: 1px solid var(--border-subtle);
   border-radius: 9px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #98a08a;
-  background: #fafbf7;
+  color: var(--muted);
+  background: var(--surface-muted);
   flex-shrink: 0;
 }
 .transaction-name strong {
@@ -66,7 +66,7 @@
 .transaction-name div > span {
   display: block;
   font-size: var(--text-xs);
-  color: #a4ab99;
+  color: var(--muted);
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 260px;
@@ -103,7 +103,7 @@
     padding: 16px;
     border: 1px solid var(--border);
     border-radius: 10px;
-    background: #fbfcf9;
+    background: var(--surface-muted);
     min-width: 0;
   }
   .transaction-card-meta {
@@ -113,7 +113,7 @@
     gap: 10px;
     font-size: var(--text-sm);
     line-height: 1.6;
-    color: #6e7c68;
+    color: var(--ink-soft);
   }
   .transaction-card-meta > span {
     min-width: 0;
@@ -151,13 +151,13 @@
     min-height: 44px;
     padding: 13px 0;
     cursor: pointer;
-    color: #577650;
+    color: var(--green-text);
   }
   .transaction-details p {
     overflow-wrap: anywhere;
     white-space: pre-wrap;
     line-height: 1.75;
-    color: #64725e;
+    color: var(--ink-soft);
     padding-bottom: 13px;
   }
   .transaction-card-category {
@@ -172,6 +172,6 @@
   }
   .transaction-card-category > span {
     font-size: var(--text-sm);
-    color: #6e7c68;
+    color: var(--ink-soft);
   }
 }

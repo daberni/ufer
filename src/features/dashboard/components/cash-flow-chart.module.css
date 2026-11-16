@@ -2,14 +2,14 @@
   composes: legend-dot from "../../../components/ui/primitives.module.css";
 }
 .legend-dot.expense-dot {
-  background: #b9c49e;
+  background: var(--chart-expense);
 }
 .chart-legend {
   display: flex;
   gap: 16px;
   margin-top: 18px;
   font-size: var(--text-xs);
-  color: #9ba391;
+  color: var(--muted);
 }
 .chart-legend > span {
   display: flex;
@@ -39,7 +39,7 @@
 }
 .chart-grid span {
   display: block;
-  border-top: 1px dashed #e8ece3;
+  border-top: 1px dashed var(--border);
 }
 .bar-group {
   height: 100%;
@@ -89,10 +89,10 @@
   transition: opacity 120ms ease;
 }
 .income-bar {
-  background: #719064;
+  background: var(--chart-income);
 }
 .expense-bar {
-  background: #bfcbab;
+  background: var(--chart-expense);
 }
 .bar > span {
   flex: none;
@@ -103,7 +103,7 @@
 }
 .month-label {
   font-size: var(--text-xs);
-  color: #9aa28f;
+  color: var(--muted);
   height: 23px;
   padding-top: 13px;
 }
@@ -153,7 +153,7 @@
 .chart-empty-note {
   text-align: center;
   font-size: var(--text-xs);
-  color: #a0aa96;
+  color: var(--muted);
   margin-top: 17px;
 }
 /* Wide layouts (the dashboard's widest breakpoint) leave a chart of at least ~440 px, so the details overlay the half of the chart away from the active bar instead. The card stays inside the chart box, and pointer events reach the bars underneath. */
@@ -189,8 +189,8 @@
     padding: 7px 10px;
     border: 1px solid var(--border);
     border-radius: 9px;
-    background: var(--surface);
-    box-shadow: 0 8px 24px #233e3126;
+    background: var(--surface-raised);
+    box-shadow: 0 8px 24px var(--shadow-color);
   }
 }
 @media (min-width: 1600px) {

@@ -6,11 +6,11 @@
   padding: 28px;
   border: 1px solid var(--border);
   border-radius: 16px;
-  background: var(--surface);
+  background: var(--surface-raised);
   color: var(--ink);
 }
 .dialog::backdrop {
-  background: rgb(22 42 31 / 35%);
+  background: var(--backdrop);
 }
 .heading {
   display: flex;
@@ -20,13 +20,23 @@
   margin-bottom: 16px;
 }
 .identity {
+  min-height: 1lh;
   margin-bottom: 6px;
   overflow-wrap: anywhere;
 }
 .email {
+  min-height: 1lh;
   margin-bottom: 24px;
   color: var(--muted);
   overflow-wrap: anywhere;
+}
+.section {
+  margin-top: 28px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+}
+.section-action {
+  margin-top: 16px;
 }
 .dialog input {
   font-size: var(--text-md);

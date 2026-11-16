@@ -11,7 +11,7 @@
 }
 .trigger:hover,
 .trigger[aria-expanded="true"] {
-  background: #e9eee5;
+  background: var(--soft);
 }
 .popover {
   position: absolute;
@@ -23,8 +23,8 @@
   padding: 10px;
   border: 1px solid var(--border);
   border-radius: 9px;
-  background: var(--surface);
-  box-shadow: 0 8px 24px #233e3126;
+  background: var(--surface-raised);
+  box-shadow: 0 8px 24px var(--shadow-color);
 }
 .year-bar {
   display: flex;
@@ -47,17 +47,17 @@
   font-size: var(--text-sm);
 }
 .month:hover {
-  background: #e9eee5;
+  background: var(--soft);
 }
 .month.current {
   border: 1px solid var(--green);
 }
 .month.selected {
   background: var(--green);
-  color: #fff;
+  color: var(--on-green);
 }
 .month.selected:hover {
-  background: var(--dark);
+  background: var(--green-strong);
 }
 @media (max-width: 760px), (max-width: 900px) and (pointer: coarse) {
   /* The trigger is an off-center grid cell, so the popover anchors to the positioned period controls instead. */

@@ -20,7 +20,7 @@
   composes: status-dot from "../../../components/ui/primitives.module.css";
 }
 .status-dot.warn {
-  background: #c5a365;
+  background: var(--status-warning);
 }
 .accounts-section {
   margin-top: 29px;
@@ -29,8 +29,8 @@
   margin-top: 0;
 }
 .count-badge {
-  background: #e9eee3;
-  color: #7d8c6d;
+  background: var(--soft-strong);
+  color: var(--ink-soft);
   min-width: 19px;
   padding: 3px 5px;
   border-radius: 5px;
@@ -43,7 +43,7 @@
 }
 .account-tile {
   text-align: left;
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--border);
   padding: 18px 17px 13px;
   border-radius: 10px;
@@ -54,8 +54,8 @@
   gap: 10px;
 }
 .account-tile:hover {
-  border-color: #b9c9ad;
-  box-shadow: 0 3px 12px #3a4c2a08;
+  border-color: var(--border-strong);
+  box-shadow: 0 3px 12px var(--shadow-faint);
 }
 .account-tile-name {
   font-size: var(--text-xs);
@@ -69,7 +69,7 @@
 .account-tile-name small {
   display: block;
   font-size: var(--text-xs);
-  color: #9ba28f;
+  color: var(--muted);
   font-weight: 400;
   margin-top: 5px;
   overflow: hidden;
@@ -85,12 +85,12 @@
 }
 .account-tile-foot {
   width: 100%;
-  border-top: 1px solid #f0f2ed;
+  border-top: 1px solid var(--border-subtle);
   display: flex;
   align-items: center;
   gap: 5px;
   font-size: var(--text-xs);
-  color: #99a18f;
+  color: var(--muted);
   padding-top: 11px;
   margin-top: 4px;
 }
@@ -105,19 +105,19 @@
   display: flex;
   gap: 16px;
   align-items: center;
-  border: 1px dashed #cfdac5;
+  border: 1px dashed var(--border-strong);
   border-radius: 10px;
   padding: 23px;
-  background: #f0f4e9;
+  background: var(--soft);
 }
 .onboarding-icon {
-  color: #7e9768;
+  color: var(--green-text);
 }
 .onboarding > div {
   flex: 1;
 }
 .onboarding p {
-  color: #8f9b82;
+  color: var(--muted);
   font-size: var(--text-xs);
   margin-top: 7px;
   line-height: 1.5;

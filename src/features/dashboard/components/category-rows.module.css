@@ -13,17 +13,17 @@
   align-items: center;
   gap: 7px;
   min-width: 0;
-  color: #8c9680;
+  color: var(--muted);
 }
 .row strong {
   font-weight: 500;
-  color: #6c775f;
+  color: var(--ink-soft);
   font-size: var(--text-xs);
 }
 .row > div {
   grid-column: 1/-1;
   height: 4px;
-  background: #f2f4ed;
+  background: var(--chart-track);
   border-radius: 3px;
   overflow: hidden;
 }

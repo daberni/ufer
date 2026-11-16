@@ -1,6 +1,6 @@
 import styles from "./category-icon-picker.module.css";
 import { categoryIconKeys, categoryIconLabels, type CategoryIconKey } from "@/features/categorization/category-icons";
-import { categoryChipColors } from "@/features/categorization/category-colors";
+import { categoryChipColors, themedColors } from "@/features/categorization/category-colors";
 import { categoryIconComponents } from "./category-icon-components";
 
 type Props = {
@@ -14,7 +14,7 @@ export function CategoryIconPicker({
   icon,
   onChange
 }: Props) {
-  const iconColor = categoryChipColors(color).foreground;
+  const { foreground: iconColor } = themedColors(scheme => categoryChipColors(color, scheme));
 
   return (
     <fieldset className={styles["icon-picker"]}>
