@@ -6,6 +6,7 @@ import { clsx } from "clsx";
 import { useId } from "react";
 import styles from "./sync-problem-details.module.css";
 import { ArrowRight, TriangleAlert, X } from "lucide-react";
+import { TraceId } from "@/components/ui/trace-id";
 import type { SyncProblem } from "@/features/banking/use-sync-status";
 
 type Props = {
@@ -58,6 +59,7 @@ export function SyncProblemDetails({
           </ul>
         )}
         <p className={styles["note"]}>{problem.note}</p>
+        <TraceId id={problem.traceId} />
         {problem.failures.some(failure => failure.reconnect) && (
           <button type="button" className={clsx(ui["text-button"], styles["connections"])} onClick={onOpenConnections}>
             Reconnect in Bank connections

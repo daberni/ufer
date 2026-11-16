@@ -13,7 +13,7 @@ The [HTTP boundary](../src/server/http/respond.ts) emits [RFC 9457 Problem Detai
 }
 ```
 
-The response uses `application/problem+json`, `Cache-Control: no-store` and an `X-Trace-Id` header matching the body. The instance URI identifies this particular error occurrence and is not a diagnostics endpoint. It contains no request URL, query parameters or financial identifiers. An existing active, valid [OpenTelemetry span](https://opentelemetry.io/docs/languages/js/instrumentation/#get-the-current-span) supplies its trace ID; otherwise a random 128-bit correlation ID is generated. Caller-provided X-Trace-Id headers are not trusted. This does not configure an exporter, collector or complete distributed tracing.
+The response uses `application/problem+json`, `Cache-Control: no-store` and an `X-Trace-Id` header matching the body. The instance URI identifies this particular error occurrence and is not a diagnostics endpoint. It contains no request URL, query parameters or financial identifiers. An existing active, valid [OpenTelemetry span](https://opentelemetry.io/docs/languages/js/instrumentation/#get-the-current-span) supplies its trace ID; otherwise a random 128-bit correlation ID is generated. Caller-provided X-Trace-Id headers are not trusted. This does not configure an exporter, collector or complete distributed tracing. The client shows the trace ID of 5xx failures as separate, copyable secondary text below the message, never inside it; it takes the ID from the body or, when an intermediary answered, from the header.
 
 | Failure | HTTP status | Public detail |
 | --- | --- | --- |

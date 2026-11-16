@@ -8,7 +8,7 @@ import type { ProblemDetails } from "@/lib/problem-details";
 
 export function problemResponse(error: unknown, originalHeaders?: HeadersInit) {
   let status = 500;
-  let detail = "The request could not be processed. Try again or use the trace ID when requesting support.";
+  let detail = "The request could not be processed. Try again.";
   let errorType = error instanceof Error ? error.name : typeof error;
 
   if (error instanceof HttpError && error.status >= 400 && error.status <= 599) {

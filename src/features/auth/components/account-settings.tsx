@@ -6,6 +6,8 @@ import { clsx } from "clsx";
 import { authClient, requireAuthResult } from "@/features/auth/client";
 import { ThemeChoice } from "@/features/appearance/components/theme-choice";
 import ui from "@/components/ui/primitives.module.css";
+import { FormError } from "@/components/ui/form-error";
+import { toFailure, type Failure } from "@/client/api";
 import { Dialog } from "@/components/ui/dialog";
 import styles from "./account-settings.module.css";
 
@@ -52,8 +54,10 @@ export function AccountSettings({ onClose }: Props) {
     });
   }
 
-  const passwordError = mismatch ? "The new passwords do not match." : failureText(passwordChange.error, "The password could not be changed.");
-  const sessionsError = failureText(otherSessionsSignOut.error, "The sessions could not be signed out.");
+  const passwordError = mismatch ? {
+    message: "The new passwords do not match."
+  } : failureOf(passwordChange.error, "The password could not be changed.");
+  const sessionsError = failureOf(otherSessionsSignOut.error, "The sessions could not be signed out.");
 
   return (
     <Dialog title="Your account" closeLabel="Close account settings" onClose={onClose}>
@@ -96,14 +100,14 @@ export function AccountSettings({ onClose }: Props) {
           />
         </label>
         <p className={ui["form-hint"]}>Use at least 12 characters. Changing your password signs out your other sessions.</p>
-        {passwordError && <p className={ui["error-text"]} role="alert">{passwordError}</p>}
+        <FormError failure={passwordError} />
         {passwordChange.isSuccess && <p className={ui.notice} role="status">Password changed. Your other sessions have been signed out.</p>}
         <button className={clsx(ui.button, ui.primary, ui["full-width"])} disabled={passwordChange.isPending}>Change password</button>
       </form>
       <section className={styles.section} aria-labelledby="account-sessions-title">
         <h3 id="account-sessions-title">Other devices</h3>
         <p className={ui["form-hint"]}>Signs out every session except this one.</p>
-        {sessionsError && <p className={ui["error-text"]} role="alert">{sessionsError}</p>}
+        <FormError failure={sessionsError} />
         {otherSessionsSignOut.isSuccess && <p className={ui.notice} role="status">Your other sessions have been signed out.</p>}
         <button
           className={clsx(ui.button, ui["full-width"], styles["section-action"])}
@@ -116,10 +120,13 @@ export function AccountSettings({ onClose }: Props) {
   );
 }
 
-function failureText(error: Error | null, fallback: string) {
+function failureOf(error: Error | null, fallback: string): Failure | null {
   if (!error) {
-    return "";
+    return null;
   }
 
-  return error.message || fallback;
+  return {
+    ...toFailure(error),
+    message: error.message || fallback
+  };
 }

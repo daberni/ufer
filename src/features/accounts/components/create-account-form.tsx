@@ -14,6 +14,7 @@ import type { AccountKind } from "../account-kinds";
 import { useDialogSubmit, type DialogFormProps } from "@/features/dashboard/use-dialog-submit";
 import { useCreateAccount } from "@/features/accounts/mutations";
 import { FormError } from "@/components/ui/form-error";
+import type { Failure } from "@/client/api";
 import { Dialog } from "@/components/ui/dialog";
 import { today } from "@/lib/time";
 
@@ -57,7 +58,7 @@ function accountBody(data: FormData) {
 }
 
 type DetailsProps = {
-  error: string;
+  error: Failure | null;
   kind: AccountKind;
   pending: boolean;
 };
@@ -120,7 +121,7 @@ function AccountDetailsFields({
         </label>
       </div>
       <p className={ui["form-hint"]}>{copy.hint} Leave the balance date empty to record the balance as of today.</p>
-      <FormError message={error} />
+      <FormError failure={error} />
       <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={pending}>
         Add {kinds[kind].toLowerCase()} <Plus size={16} />
       </button>

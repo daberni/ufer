@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { trace } from "@opentelemetry/api";
 import { z } from "zod";
-import { api } from "../src/client/api";
+import { api, errorStatus, failureMessage, failureTraceId, toFailure } from "../src/client/api";
+import { requireAuthResult } from "../src/features/auth/client";
 import { HttpError } from "../src/lib/errors";
 import { minorUnits } from "../src/lib/money";
 import { parseBalancesCsv } from "../src/lib/import";
@@ -289,6 +290,80 @@ test("a successful browser response without JSON is reported with its status", a
   await assert.rejects(api("accounts", {}), {
     status: 200
   });
+});
+
+test("server failures expose their trace ID apart from the message, validation failures do not", async context => {
+  const traceId = "d".repeat(32);
+  let answer = Response.json({
+    title: "Internal Server Error",
+    status: 500,
+    detail: "The request could not be processed. Try again.",
+    traceId
+  }, {
+    status: 500
+  });
+
+  context.mock.method(globalThis, "fetch", async () => answer);
+
+  const serverFailure = await api("accounts", {}).catch(error => error);
+
+  assert.deepEqual(toFailure(serverFailure), {
+    message: "The request could not be processed. Try again.",
+    traceId
+  });
+
+  answer = new Response("<html>Bad Gateway</html>", {
+    status: 502,
+    headers: {
+      "X-Trace-Id": traceId
+    }
+  });
+  assert.equal(failureTraceId(await api("accounts", {}).catch(error => error)), traceId);
+
+  answer = Response.json({
+    error: "Bad Gateway"
+  }, {
+    status: 502,
+    headers: {
+      "X-Trace-Id": traceId
+    }
+  });
+  const gatewayFailure = toFailure(await api("accounts", {}).catch(error => error));
+
+  assert.match(gatewayFailure.message, /HTTP 502/);
+  assert.equal(gatewayFailure.traceId, traceId);
+
+  answer = Response.json({
+    status: 422,
+    detail: "The amount has too many decimal places.",
+    traceId
+  }, {
+    status: 422
+  });
+  const validationFailure = await api("accounts", {}).catch(error => error);
+
+  assert.equal(failureMessage(validationFailure), "The amount has too many decimal places.");
+  assert.equal(failureTraceId(validationFailure), undefined);
+});
+
+test("authentication client failures keep their status and trace ID", () => {
+  const traceId = "e".repeat(32);
+
+  assert.throws(() => requireAuthResult({
+    error: {
+      message: "Internal Server Error",
+      status: 500,
+      traceId
+    }
+  }), error => failureTraceId(error) === traceId && errorStatus(error) === 500);
+
+  assert.throws(() => requireAuthResult({
+    error: {
+      message: "Invalid password.",
+      status: 401,
+      traceId
+    }
+  }), error => failureTraceId(error) === undefined && errorStatus(error) === 401);
 });
 
 test("readJson rejects a declared oversized body before parsing and accepts a 1 MB CSV import", async () => {
