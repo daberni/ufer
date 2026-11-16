@@ -40,7 +40,7 @@ Ufer is licensed under AGPL-3.0-or-later. Section 13 of the license requires an 
 
 | Variable | Meaning |
 | --- | --- |
-| SOURCE_CODE_URL | Optional absolute `http` or `https` URL. When set, the dashboard footer links to it as "Source code" next to the license name; when unset or empty, the footer shows only the license name |
+| SOURCE_CODE_URL | Optional absolute `http` or `https` URL. When set, the sign-in screen and the dashboard footer link to it as "Source code" next to the license name, also while dashboard data is loading or failed to load; when unset or empty, they show only the license name |
 
 The server reads the value at request time, not at build time. Any other value, such as a relative path or a non-HTTP scheme, is a configuration error: the dashboard fails to render until it is corrected rather than silently hiding the offer. Section 13 does not apply to an unmodified installation, which may leave the variable unset. The link does not cover the license's separate conditions for distributing copies, such as a prebuilt container image.
 

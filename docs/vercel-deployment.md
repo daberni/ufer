@@ -16,7 +16,7 @@ Use the existing Vercel Hobby account and Turso Starter plan. Do not select paid
 | DATABASE_URL | Persistent `libsql://` URL, not a local file or temporary directory |
 | ENABLE_BANKING_ENVIRONMENT | SANDBOX until production banking access is separately accepted |
 | ENABLE_BANKING_REDIRECT_URL | APP_URL followed by `/api/banking/callback`; register it with the provider |
-| SOURCE_CODE_URL | Public URL of the exact source the deployment runs, linked from the dashboard footer; required for a modified deployment used by others (see [source code offer](setup.md#source-code-offer)) |
+| SOURCE_CODE_URL | Public URL of the exact source the deployment runs, linked from the sign-in screen and dashboard footer; required for a modified deployment used by others (see [source code offer](setup.md#source-code-offer)) |
 
 | Secret | Purpose |
 | --- | --- |

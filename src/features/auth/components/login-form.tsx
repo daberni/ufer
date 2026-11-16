@@ -10,18 +10,24 @@ import { BrandIcon } from "@/components/branding/brand-icon";
 import { ShorelineBackdrop } from "@/components/branding/illustrations";
 import { apiGet, failureMessage } from "@/client/api";
 import { FormError } from "@/components/ui/form-error";
+import { SourceCodeNotice } from "@/features/legal/components/source-code-notice";
 import { authClient, requireAuthResult } from "@/features/auth/client";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
 import { signInMeta } from "@/features/dashboard/use-dashboard-lock";
 
-type Props = Pick<DashboardController, "unlock">;
+type Props = Pick<DashboardController, "unlock"> & {
+  sourceCodeUrl: string | null;
+};
 
 type Credentials = {
   username: string;
   password: string;
 };
 
-export function LoginForm({ unlock }: Props) {
+export function LoginForm({
+  sourceCodeUrl,
+  unlock
+}: Props) {
   const signIn = useMutation({
     meta: signInMeta,
     mutationFn: async (credentials: Credentials) => {
@@ -77,6 +83,7 @@ export function LoginForm({ unlock }: Props) {
         <button className={clsx(styles["button"], ui["primary"])} disabled={signIn.isPending}>
           Open dashboard <ArrowRight size={16} />
         </button>
+        <SourceCodeNotice className={styles["source-code"]} url={sourceCodeUrl} />
       </form>
     </main>
   );

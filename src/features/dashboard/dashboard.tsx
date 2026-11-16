@@ -30,7 +30,7 @@ export default function Dashboard({
   const dashboard = useDashboardController();
 
   if (dashboard.locked) {
-    return <LoginForm unlock={dashboard.unlock} />;
+    return <LoginForm sourceCodeUrl={sourceCodeUrl} unlock={dashboard.unlock} />;
   }
 
   return <DashboardShell sourceCodeUrl={sourceCodeUrl}>{children}</DashboardShell>;
@@ -54,6 +54,7 @@ function DashboardShell({
       <main className={styles["content"]}>
         <LoadErrorNotice message={loadError.message} retry={loadError.retry} />
         <ViewLoading failed={banking.isError || accounts.isError} />
+        <DashboardFooter sourceCodeUrl={sourceCodeUrl} />
       </main>
     );
   }
@@ -103,13 +104,7 @@ function DashboardShell({
             </div>
           )}
           {children}
-          <footer className={styles["page-footer"]}>
-            <span>
-              <BrandIcon size={16} /> Ufer
-            </span>
-            <span>A clearer view of your money.</span>
-            <SourceCodeNotice url={sourceCodeUrl} />
-          </footer>
+          <DashboardFooter sourceCodeUrl={sourceCodeUrl} />
         </main>
       </div>
       {dashboard.modal && (
@@ -143,6 +138,21 @@ function DashboardShell({
         placement="overlay"
       />
     </div>
+  );
+}
+
+// Also rendered while the dashboard data loads or fails, so the source offer never depends on a successful query.
+function DashboardFooter({ sourceCodeUrl }: {
+  sourceCodeUrl: string | null
+}) {
+  return (
+    <footer className={styles["page-footer"]}>
+      <span>
+        <BrandIcon size={16} /> Ufer
+      </span>
+      <span>A clearer view of your money.</span>
+      <SourceCodeNotice url={sourceCodeUrl} />
+    </footer>
   );
 }
 
