@@ -13,7 +13,7 @@
   border-bottom: 0;
 }
 .rule-priority {
-  color: #93a281;
+  color: var(--muted);
   font-size: var(--text-xs);
   min-width: 33px;
 }
@@ -26,11 +26,11 @@
 }
 .rule-row p {
   font-size: var(--text-xs);
-  color: #9ba68e;
+  color: var(--muted);
   margin-top: 6px;
 }
 .rule-row code {
-  background: #f6f8f1;
+  background: var(--surface-muted);
   padding: 3px 5px;
   border-radius: 4px;
 }
@@ -38,7 +38,7 @@
   width: 32px;
   height: 19px;
   border-radius: 20px;
-  background: #dce1d5;
+  background: var(--soft-strong);
   padding: 2px;
   flex-shrink: 0;
   transition: background 0.15s;
@@ -47,13 +47,13 @@
   display: block;
   width: 15px;
   height: 15px;
-  background: #fff;
-  box-shadow: 0 1px 2px #0002;
+  background: var(--knob);
+  box-shadow: 0 1px 2px var(--shadow-color);
   border-radius: 50%;
   transition: transform 0.15s;
 }
 .toggle.enabled {
-  background: #7b9a68;
+  background: var(--green);
 }
 .toggle.enabled > span {
   transform: translateX(13px);
@@ -117,7 +117,7 @@
     height: 44px;
     padding: 14px 4px;
     margin-left: auto;
-    background: #dce1d5;
+    background: var(--soft-strong);
     border-radius: 12px;
   }
   .rule-row .toggle > span {
@@ -125,7 +125,7 @@
     height: 16px;
   }
   .rule-row .toggle.enabled {
-    background: #7b9a68;
+    background: var(--green);
   }
   .rule-row .toggle.enabled > span {
     transform: translateX(28px);

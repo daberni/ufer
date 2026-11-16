@@ -6,7 +6,7 @@
 }
 .icon-picker legend {
   font-size: var(--text-xs);
-  color: #77876b;
+  color: var(--muted);
   padding: 0;
   margin-bottom: 8px;
 }
@@ -24,8 +24,8 @@
   height: 40px;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: #fff;
-  color: #77876b;
+  background: var(--surface);
+  color: var(--muted);
   cursor: pointer;
 }
 .icon-picker .icon-option:hover {
@@ -39,7 +39,7 @@
   box-shadow: inset 0 0 0 1px var(--green);
 }
 .icon-picker .icon-option:has(:focus-visible) {
-  outline: 3px solid #93b69f;
+  outline: 3px solid var(--focus-ring);
   outline-offset: 2px;
 }
 .icon-picker .icon-input {

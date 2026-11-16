@@ -10,8 +10,13 @@
   gap: 22px;
 }
 .wealth-card {
-  border: 1px solid #dce4ce;
-  background: linear-gradient(115deg, #edf2e2, #f0f4e9 70%, #eaf0dd);
+  border: 1px solid var(--border-strong);
+  background: linear-gradient(
+    115deg,
+    var(--wealth-surface),
+    var(--wealth-highlight) 70%,
+    var(--wealth-surface)
+  );
   border-radius: 12px;
   padding: 25px 27px 23px;
   position: relative;
@@ -22,20 +27,20 @@
   position: absolute;
   width: 270px;
   height: 270px;
-  border: 1px solid #aebf8d25;
+  border: 1px solid color-mix(in srgb, var(--chart-invested) 15%, transparent);
   border-radius: 50%;
   top: -110px;
   right: -60px;
   pointer-events: none;
   box-shadow:
-    0 0 0 28px #aebf8d09,
-    0 0 0 56px #aebf8d07;
+    0 0 0 28px color-mix(in srgb, var(--chart-invested) 4%, transparent),
+    0 0 0 56px color-mix(in srgb, var(--chart-invested) 3%, transparent);
 }
 .wealth-card-top {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  color: #53684b;
+  color: var(--ink-soft);
   font-size: var(--text-xs);
   position: relative;
   z-index: 1;
@@ -52,11 +57,11 @@
   align-items: center;
   justify-content: center;
   border-radius: 7px;
-  background: #dce6ca;
+  background: var(--soft-strong);
 }
 .small-tag {
   font-size: var(--text-xs);
-  border: 1px solid #d6dfc5;
+  border: 1px solid var(--border-strong);
   border-radius: 5px;
   padding: 4px 6px;
 }
@@ -72,7 +77,7 @@
 }
 .wealth-card > p {
   font-size: var(--text-xs);
-  color: #8d9a7e;
+  color: var(--muted);
   margin-top: 12px;
   line-height: 1.5;
 }
@@ -83,16 +88,16 @@
   margin-top: 27px;
   overflow: hidden;
   border-radius: 5px;
-  background: #dbe5ce;
+  background: var(--soft-strong);
 }
 .allocation-bar > span:first-child {
-  background: #567d53;
+  background: var(--chart-liquid);
 }
 .allocation-bar > span:nth-child(2) {
-  background: #b0be8e;
+  background: var(--chart-invested);
 }
 .allocation-bar > span:nth-child(3) {
-  background: #cfbd8d;
+  background: var(--chart-property);
 }
 .wealth-allocation {
   display: flex;
@@ -102,7 +107,7 @@
 }
 .wealth-allocation > span {
   font-size: var(--text-xs);
-  color: #829071;
+  color: var(--muted);
   position: relative;
   padding-left: 12px;
 }
@@ -114,28 +119,28 @@
 .wealth-allocation strong {
   display: block;
   font-size: var(--text-sm);
-  color: #485d3f;
+  color: var(--ink-soft);
   font-weight: 500;
   margin-top: 6px;
 }
 .legend-dot.invested {
-  background: #b0be8e;
+  background: var(--chart-invested);
 }
 .liabilities {
   display: flex;
   justify-content: space-between;
   margin-top: 17px;
   font-size: var(--text-xs);
-  border-top: 1px solid #dce4ce;
+  border-top: 1px solid var(--border-strong);
   padding-top: 12px;
-  color: #7a846b;
+  color: var(--muted);
 }
 .month-card {
   border: 1px solid var(--border);
   background: var(--surface);
   border-radius: 12px;
   padding: 23px 24px;
-  box-shadow: 0 2px 3px #344b3202;
+  box-shadow: 0 2px 3px var(--shadow-faint);
 }
 .flow-row {
   display: flex;
@@ -153,19 +158,19 @@
   flex-shrink: 0;
 }
 .flow-icon.incoming {
-  background: #edf4e9;
-  color: #68845a;
+  background: var(--soft);
+  color: var(--green-text);
 }
 .flow-icon.outgoing {
-  background: #f2f0e9;
-  color: #a59a75;
+  background: var(--gold-soft);
+  color: var(--gold-text);
 }
 .flow-row > div {
   min-width: 112px;
 }
 .flow-row > div > span {
   font-size: var(--text-xs);
-  color: #90988b;
+  color: var(--muted);
   display: block;
   margin-bottom: 6px;
 }
@@ -177,7 +182,7 @@
 .flow-track {
   height: 4px;
   border-radius: 3px;
-  background: #f1f4ed;
+  background: var(--chart-track);
   max-width: 100px;
   width: 100%;
   margin-left: auto;
@@ -186,14 +191,14 @@
 .flow-track i {
   height: 100%;
   display: block;
-  background: #8fae7c;
+  background: var(--chart-income);
   border-radius: 3px;
 }
 .flow-track.expense i {
-  background: #c1c9ab;
+  background: var(--chart-expense);
 }
 .monthly-result {
-  border-top: 1px solid #ebeee7;
+  border-top: 1px solid var(--border-subtle);
   margin-top: 23px;
   padding-top: 17px;
   display: flex;
@@ -206,7 +211,7 @@
 }
 .monthly-result small {
   display: block;
-  color: #a3aa9b;
+  color: var(--muted);
   font-size: var(--text-xs);
   margin-top: 5px;
 }

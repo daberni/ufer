@@ -5,25 +5,25 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: #eef2e7;
-  color: #788d67;
+  background: var(--kind-bank-bg);
+  color: var(--kind-bank);
   flex-shrink: 0;
 }
 .account-logo.investment {
-  background: #e9edf3;
-  color: #7186a2;
+  background: var(--kind-investment-bg);
+  color: var(--kind-investment);
 }
 .account-logo.property {
-  background: #f3eee4;
-  color: #a28b58;
+  background: var(--kind-property-bg);
+  color: var(--kind-property);
 }
 .account-logo.loan {
-  background: #f0eaea;
-  color: #a07d76;
+  background: var(--kind-debt-bg);
+  color: var(--kind-debt);
 }
 .account-logo.credit_card {
-  background: #f0eaea;
-  color: #a07d76;
+  background: var(--kind-debt-bg);
+  color: var(--kind-debt);
 }
 @media (max-width: 760px), (max-width: 900px) and (pointer: coarse) {
   .account-logo {

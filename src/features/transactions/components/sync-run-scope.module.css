@@ -18,7 +18,7 @@
   flex-wrap: wrap;
   gap: 8px;
   font-size: var(--text-sm);
-  color: #6f7c68;
+  color: var(--ink-soft);
 }
 @media (max-width: 760px), (max-width: 900px) and (pointer: coarse) {
   .scope-bar {

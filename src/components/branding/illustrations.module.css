@@ -1,8 +1,8 @@
 /* Illustration colors derive from the brand sage and the global surface/green/gold tokens, so a theme only needs to redefine those tokens or override these properties. */
 .illustration {
-  --illustration-land: color-mix(in srgb, #d9e8a9 62%, var(--surface));
-  --illustration-land-shade: color-mix(in srgb, #d9e8a9 92%, var(--green));
-  --illustration-land-far: color-mix(in srgb, #d9e8a9 34%, var(--surface));
+  --illustration-land: color-mix(in srgb, var(--sage) 62%, var(--surface));
+  --illustration-land-shade: color-mix(in srgb, var(--sage) 92%, var(--green));
+  --illustration-land-far: color-mix(in srgb, var(--sage) 34%, var(--surface));
   --illustration-water: color-mix(in srgb, var(--green) 9%, var(--surface));
   --illustration-sun: color-mix(in srgb, var(--gold) 55%, var(--surface));
   --illustration-structure: var(--green);

@@ -7,10 +7,10 @@
   width: max-content;
   min-width: 260px;
   max-width: min(360px, calc(100vw - 32px));
-  background: var(--surface);
-  border: 1px solid #efd9d2;
+  background: var(--surface-raised);
+  border: 1px solid var(--danger-border);
   border-radius: 8px;
-  box-shadow: 0 8px 24px #233e3126;
+  box-shadow: 0 8px 24px var(--shadow-color);
   padding: 6px 6px 12px 12px;
   color: var(--ink);
   font-size: var(--text-sm);
@@ -22,7 +22,7 @@
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  color: #944a40;
+  color: var(--danger-text);
 }
 .icon {
   display: flex;

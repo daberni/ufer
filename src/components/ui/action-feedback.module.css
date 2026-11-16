@@ -7,10 +7,10 @@
   width: max-content;
   max-width: min(360px, calc(100vw - 32px));
   box-sizing: border-box;
-  background: var(--surface);
+  background: var(--surface-raised);
   border: 1px solid var(--border);
   border-radius: 8px;
-  box-shadow: 0 8px 24px #233e3126;
+  box-shadow: 0 8px 24px var(--shadow-color);
   padding: 6px 6px 6px 12px;
   color: var(--ink);
   font-size: var(--text-sm);
@@ -28,8 +28,8 @@
   z-index: 40;
 }
 .card.problem {
-  border-color: #efd9d2;
-  color: #944a40;
+  border-color: var(--danger-border);
+  color: var(--danger-text);
 }
 /* Icon, first text line and dismiss button share one row height, so they stay centered on the first line. */
 .icon {

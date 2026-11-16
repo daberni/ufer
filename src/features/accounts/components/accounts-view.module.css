@@ -35,7 +35,7 @@
   justify-content: space-between;
   gap: 10px;
   font-size: var(--text-xs);
-  color: #9aa38e;
+  color: var(--muted);
   border-top: 1px solid var(--border);
   padding-top: 17px;
   margin: 20px 0;

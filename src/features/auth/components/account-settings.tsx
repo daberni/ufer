@@ -5,6 +5,7 @@ import { useMutation } from "@tanstack/react-query";
 import { X } from "lucide-react";
 import { clsx } from "clsx";
 import { authClient, requireAuthResult } from "@/features/auth/client";
+import { ThemeChoice } from "@/features/appearance/components/theme-choice";
 import ui from "@/components/ui/primitives.module.css";
 import styles from "./account-settings.module.css";
 
@@ -14,8 +15,7 @@ type Props = {
 
 export function AccountSettings({ onClose }: Props) {
   const ref = useRef<HTMLDialogElement>(null);
-  const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
+  const [mismatch, setMismatch] = useState(false);
   const { data } = authClient.useSession();
 
   useEffect(() => {
@@ -30,7 +30,7 @@ export function AccountSettings({ onClose }: Props) {
     };
   }, []);
 
-  // Each action has its own pending state; the message area shows the outcome of the latest one.
+  // Each action reports its own outcome next to its button.
   const passwordChange = useMutation({
     mutationFn: async (passwords: {
       currentPassword: string;
@@ -38,15 +38,11 @@ export function AccountSettings({ onClose }: Props) {
     }) => requireAuthResult(await authClient.changePassword({
       ...passwords,
       revokeOtherSessions: true
-    })),
-    onSuccess: () => setNotice("Password changed. Your other sessions have been signed out."),
-    onError: failure => setError(failure.message || "The password could not be changed.")
+    }))
   });
 
   const otherSessionsSignOut = useMutation({
-    mutationFn: async () => requireAuthResult(await authClient.revokeOtherSessions()),
-    onSuccess: () => setNotice("Your other sessions have been signed out."),
-    onError: failure => setError(failure.message || "The sessions could not be signed out.")
+    mutationFn: async () => requireAuthResult(await authClient.revokeOtherSessions())
   });
 
   function changePassword(event: FormEvent<HTMLFormElement>) {
@@ -54,12 +50,12 @@ export function AccountSettings({ onClose }: Props) {
     const form = event.currentTarget;
     const fields = new FormData(form);
     const newPassword = String(fields.get("newPassword"));
+    const confirmed = newPassword === fields.get("confirmation");
 
-    setError("");
-    setNotice("");
+    setMismatch(!confirmed);
 
-    if (newPassword !== fields.get("confirmation")) {
-      setError("The new passwords do not match.");
+    if (!confirmed) {
+      passwordChange.reset();
 
       return;
     }
@@ -72,11 +68,8 @@ export function AccountSettings({ onClose }: Props) {
     });
   }
 
-  function signOutOthers() {
-    setError("");
-    setNotice("");
-    otherSessionsSignOut.mutate();
-  }
+  const passwordError = mismatch ? "The new passwords do not match." : failureText(passwordChange.error, "The password could not be changed.");
+  const sessionsError = failureText(otherSessionsSignOut.error, "The sessions could not be signed out.");
 
   return (
     <dialog
@@ -96,9 +89,11 @@ export function AccountSettings({ onClose }: Props) {
           <X size={20} />
         </button>
       </div>
-      <p className={styles.identity}>{data?.user.name} · {data?.user.username}</p>
+      {/* The session loads when the dialog first opens; both lines keep their height so the dialog does not shift. */}
+      <p className={styles.identity}>{data ? `${data.user.name} · ${data.user.username}` : ""}</p>
       <p className={styles.email}>{data?.user.email}</p>
-      <form className={ui.form} onSubmit={changePassword}>
+      <ThemeChoice />
+      <form className={clsx(ui.form, styles.section)} onSubmit={changePassword}>
         <h3>Change password</h3>
         <label>
           Current password
@@ -133,16 +128,30 @@ export function AccountSettings({ onClose }: Props) {
           />
         </label>
         <p className={ui["form-hint"]}>Use at least 12 characters. Changing your password signs out your other sessions.</p>
-        {error && <p className={ui["error-text"]} role="alert">{error}</p>}
-        {notice && <p className={ui.notice} role="status">{notice}</p>}
-        <button className={clsx(ui.button, ui.primary)} disabled={passwordChange.isPending}>Change password</button>
+        {passwordError && <p className={ui["error-text"]} role="alert">{passwordError}</p>}
+        {passwordChange.isSuccess && <p className={ui.notice} role="status">Password changed. Your other sessions have been signed out.</p>}
+        <button className={clsx(ui.button, ui.primary, ui["full-width"])} disabled={passwordChange.isPending}>Change password</button>
+      </form>
+      <section className={styles.section} aria-labelledby="account-sessions-title">
+        <h3 id="account-sessions-title">Other devices</h3>
+        <p className={ui["form-hint"]}>Signs out every session except this one.</p>
+        {sessionsError && <p className={ui["error-text"]} role="alert">{sessionsError}</p>}
+        {otherSessionsSignOut.isSuccess && <p className={ui.notice} role="status">Your other sessions have been signed out.</p>}
         <button
-          className={clsx(ui.button, ui.secondary)}
+          className={clsx(ui.button, ui["full-width"], styles["section-action"])}
           type="button"
-          onClick={signOutOthers}
+          onClick={() => otherSessionsSignOut.mutate()}
           disabled={otherSessionsSignOut.isPending}
         >Sign out other devices</button>
-      </form>
+      </section>
     </dialog>
   );
+}
+
+function failureText(error: Error | null, fallback: string) {
+  if (!error) {
+    return "";
+  }
+
+  return error.message || fallback;
 }

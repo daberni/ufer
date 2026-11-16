@@ -1,13 +1,13 @@
 .topbar {
   height: 75px;
   border-bottom: 1px solid var(--border);
-  background: #ffffff88;
+  background: color-mix(in srgb, var(--surface) 53%, transparent);
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 43px;
   font-size: var(--text-xs);
-  color: #919a94;
+  color: var(--muted);
 }
 .topbar > span {
   display: flex;
@@ -21,7 +21,7 @@
 }
 .topbar strong {
   font-weight: 500;
-  color: #4c5b51;
+  color: var(--ink-soft);
 }
 .avatar {
   width: 31px;
@@ -29,18 +29,18 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #e7ecdf;
-  border: 2px solid #fff;
-  box-shadow: 0 0 0 1px #e3e8df;
+  background: var(--soft-strong);
+  border: 2px solid var(--surface);
+  box-shadow: 0 0 0 1px var(--border);
   border-radius: 50%;
   font-size: var(--text-xs);
-  color: #57704c;
+  color: var(--green-text);
 }
 .environment-pill {
   font-size: var(--text-xs);
   letter-spacing: 1px;
-  background: #f1ecde;
-  color: #90783e;
+  background: var(--gold-soft);
+  color: var(--gold-text);
   padding: 5px 7px;
   border-radius: 4px;
 }

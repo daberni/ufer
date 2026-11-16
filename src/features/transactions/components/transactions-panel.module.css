@@ -49,7 +49,7 @@
   border-radius: 6px;
   padding: 0 9px;
   margin: 0 !important;
-  color: #97a18b;
+  color: var(--muted);
 }
 .search-field input {
   border: 0;
@@ -67,7 +67,7 @@
 }
 .pagination > span {
   font-size: var(--text-xs);
-  color: #96a18b;
+  color: var(--muted);
   margin-right: auto;
 }
 @media (max-width: 1250px) {

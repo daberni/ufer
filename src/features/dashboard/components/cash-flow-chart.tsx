@@ -9,6 +9,7 @@ import styles from "./cash-flow-chart.module.css";
 import { monthRangeLabel } from "@/features/dashboard/presentation";
 import { groupByCategory, type CategoryGroup } from "@/features/dashboard/category-groups";
 import { useChartDetails } from "@/features/dashboard/use-chart-details";
+import { categoryBarColor, themedColor } from "@/features/categorization/category-colors";
 import { describeMonth } from "@/lib/date-format";
 import { money } from "@/lib/money";
 import { CategoryRows, describeCategoryGroups } from "@/features/dashboard/components/category-rows";
@@ -153,7 +154,7 @@ export function CashFlowChart({ cashFlow }: Props) {
                             key={group.key}
                             style={{
                               height: `${group.share * 100}%`,
-                              background: group.color
+                              background: themedColor(scheme => categoryBarColor(group.color, scheme))
                             }}
                           />
                         ))}
