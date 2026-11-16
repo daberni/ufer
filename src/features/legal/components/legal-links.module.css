@@ -1,0 +1,14 @@
+.legal-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+}
+.legal-links a {
+  padding: 6px 0;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 3px;
+}
+.legal-links a:hover {
+  text-decoration-color: currentColor;
+}

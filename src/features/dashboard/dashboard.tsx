@@ -13,6 +13,7 @@ import { PageHeading } from "@/features/dashboard/components/page-heading";
 import { DashboardDialogs } from "@/features/dashboard/components/dashboard-dialogs";
 import { ViewLoading } from "@/features/dashboard/components/view-loading";
 import { LoginForm } from "@/features/auth/components/login-form";
+import { LegalLinks } from "@/features/legal/components/legal-links";
 import { accountGroups, useAccounts } from "@/features/accounts/queries";
 import { useBankingStatus } from "@/features/banking/queries";
 import { useDashboardController } from "./dashboard-context";
@@ -99,6 +100,7 @@ function DashboardShell({ children }: {
               <BrandIcon size={16} /> Ufer
             </span>
             <span>A clearer view of your money.</span>
+            <LegalLinks />
           </footer>
         </main>
       </div>

@@ -10,6 +10,7 @@ import { BrandIcon } from "@/components/branding/brand-icon";
 import { ShorelineBackdrop } from "@/components/branding/illustrations";
 import { apiGet, failureMessage } from "@/client/api";
 import { FormError } from "@/components/ui/form-error";
+import { LegalLinks } from "@/features/legal/components/legal-links";
 import { authClient, requireAuthResult } from "@/features/auth/client";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
 import { signInMeta } from "@/features/dashboard/use-dashboard-lock";
@@ -77,6 +78,7 @@ export function LoginForm({ unlock }: Props) {
         <button className={clsx(styles["button"], ui["primary"])} disabled={signIn.isPending}>
           Open dashboard <ArrowRight size={16} />
         </button>
+        <LegalLinks className={styles["legal-links"]} />
       </form>
     </main>
   );
