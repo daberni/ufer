@@ -6,11 +6,7 @@ Thank you for your interest in contributing to Ufer. To clarify the intellectual
 
 ## How to accept this Agreement
 
-Accept this Agreement by posting the following comment on your pull request in the Ufer repository:
-
-> I have read the CLA Document and I hereby sign the CLA
-
-An automated check records your GitHub account name and numeric ID, the pull request number and the time of your comment in the repository. These records are visible to everyone who can see the repository. Your acceptance applies to all of Your present and future Contributions to the Work under this version of the Agreement.
+Accept this Agreement through the [CLA Assistant](https://cla-assistant.io/) check on your first pull request in the Ufer repository: sign in with your GitHub account and agree to this Agreement. CLA Assistant records your GitHub account, the version of this Agreement and the time of your acceptance. Your acceptance applies to all of Your present and future Contributions to the Work under this version of the Agreement.
 
 You accept and agree to the following terms and conditions for Your present and future Contributions submitted to the Maintainer. Except for the license granted herein to the Maintainer and recipients of software distributed by the Maintainer, You reserve all right, title, and interest in and to Your Contributions.
 

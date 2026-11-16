@@ -28,7 +28,7 @@ Thank you for helping improve Ufer. Contributions are accepted only from contrib
 
 ## Contributor license agreement
 
-Every commit author in a pull request must accept the [contributor license agreement](CLA.md). On your first pull request, a CLA check comments with instructions; reply with the exact sentence it asks for. The check passes once all authors have signed, and your acceptance covers later pull requests too. The check identifies authors by the GitHub account linked to each commit's email address, so commit with an email address that belongs to your GitHub account.
+Every commit author in a pull request must accept the [contributor license agreement](CLA.md). On your first pull request, the [CLA Assistant](https://cla-assistant.io/) check asks you to sign with your GitHub account. The check passes once all authors have signed, and your acceptance covers later pull requests too. It identifies authors by the GitHub account linked to each commit's email address, so commit with an email address that belongs to your GitHub account.
 
 You keep the copyright in your contributions. Ufer is published under [AGPL-3.0-or-later](LICENSE); the agreement additionally allows the maintainer to use contributions in a hosted offering and to license them under other terms, including commercial ones.
 
