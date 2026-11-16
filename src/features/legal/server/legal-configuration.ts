@@ -5,7 +5,7 @@ type Environment = Record<string, string | undefined>;
 
 const variables = {
   name: "OPERATOR_NAME",
-  address: "OPERATOR_ADDRESS",
+  residence: "OPERATOR_RESIDENCE",
   email: "OPERATOR_EMAIL",
   processors: "DATA_PROCESSORS"
 } as const;
@@ -20,8 +20,8 @@ const processorSchema = z.object({
 
 const configurationSchema = z.object({
   name: text(200),
-  address: z.string().trim().max(500).optional(),
-  email: z.email().max(254),
+  residence: text(200),
+  email: z.email().max(254).optional(),
   processors: z.array(processorSchema).max(20)
 });
 
@@ -32,8 +32,8 @@ const configurationSchema = z.object({
 export function legalConfiguration(env: Environment = process.env): LegalConfiguration {
   const result = configurationSchema.safeParse({
     name: env[variables.name],
-    address: env[variables.address],
-    email: env[variables.email]?.trim(),
+    residence: env[variables.residence],
+    email: optional(env[variables.email]),
     processors: parseJson(env[variables.processors])
   });
 
@@ -47,17 +47,22 @@ export function legalConfiguration(env: Environment = process.env): LegalConfigu
     };
   }
 
-  const addressLines = (result.data.address ?? "").split("\n").map(line => line.trim()).filter(Boolean);
-
   return {
     configured: true,
     operator: {
       name: result.data.name,
-      addressLines,
-      email: result.data.email
+      residence: result.data.residence,
+      email: result.data.email ?? null
     },
     processors: result.data.processors
   };
+}
+
+// Hosting dashboards often store an unused variable as an empty string; treat it as not set.
+function optional(value: string | undefined) {
+  const trimmed = value?.trim();
+
+  return trimmed ? trimmed : undefined;
 }
 
 // An unset or malformed value stays undefined so validation reports DATA_PROCESSORS; an explicit [] declares that no processors are used.

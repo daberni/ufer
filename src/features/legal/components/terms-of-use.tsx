@@ -68,7 +68,7 @@ export function TermsOfUse({ configuration }: {
 
       <h2>Liability</h2>
       <p>
-        Because the service is free of charge and provided without guarantee, the operator is liable only for intent and gross negligence, to the extent permitted by applicable law. This does not limit liability for injury to life, body or health or any liability that cannot be excluded by law.
+        The service is provided free of charge. The operator is liable without limitation for damage caused intentionally or by gross negligence and for any injury to life, body or health. For other damage caused by slight negligence, the operator is not liable. Claims under Art. 82 GDPR and rights under mandatory consumer protection law are not affected.
       </p>
 
       <h2>Changes to these terms</h2>
@@ -78,7 +78,7 @@ export function TermsOfUse({ configuration }: {
 
       <h2>Applicable law</h2>
       <p>
-        These terms are governed by the law of the country in which the operator is established, excluding its conflict-of-law rules. Mandatory consumer protection provisions of your country of residence remain unaffected.
+        These terms are governed by Austrian law, excluding its conflict-of-law rules. If you are a consumer, this choice of law does not deprive you of the protection of mandatory provisions of the law of the country where you habitually reside.
       </p>
     </LegalDocument>
   );

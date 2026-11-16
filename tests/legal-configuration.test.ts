@@ -10,17 +10,17 @@ const processors = JSON.stringify([{
 
 const complete = {
   OPERATOR_NAME: " Example Operator ",
-  OPERATOR_ADDRESS: "Example Street 1\n 1000 Example City \n\n",
+  OPERATOR_RESIDENCE: " Example City, Example Country ",
   OPERATOR_EMAIL: " operator@example.test ",
   DATA_PROCESSORS: processors
 };
 
-test("complete operator details and processors are trimmed and split into address lines", () => {
+test("complete operator details and processors are trimmed", () => {
   assert.deepEqual(legalConfiguration(complete), {
     configured: true,
     operator: {
       name: "Example Operator",
-      addressLines: ["Example Street 1", "1000 Example City"],
+      residence: "Example City, Example Country",
       email: "operator@example.test"
     },
     processors: [{
@@ -31,22 +31,31 @@ test("complete operator details and processors are trimmed and split into addres
   });
 });
 
-test("the postal address is optional and an explicit empty processor list is valid", () => {
+test("the contact email is optional, including the empty value hosting dashboards store", () => {
+  for (const email of [undefined, "", "  "]) {
+    const result = legalConfiguration({
+      ...complete,
+      OPERATOR_EMAIL: email
+    });
+
+    assert.equal(result.configured, true);
+    assert.equal(result.configured && result.operator.email, null);
+  }
+});
+
+test("an explicit empty processor list is valid", () => {
   const result = legalConfiguration({
     ...complete,
-    OPERATOR_ADDRESS: undefined,
     DATA_PROCESSORS: "[]"
   });
 
-  assert.equal(result.configured, true);
-  assert.deepEqual(result.configured && result.operator.addressLines, []);
   assert.deepEqual(result.configured && result.processors, []);
 });
 
-test("an unconfigured installation names every missing variable and exposes no partial details", () => {
+test("an unconfigured installation names every missing required variable and exposes no partial details", () => {
   assert.deepEqual(legalConfiguration({}), {
     configured: false,
-    invalidVariables: ["OPERATOR_NAME", "OPERATOR_EMAIL", "DATA_PROCESSORS"]
+    invalidVariables: ["OPERATOR_NAME", "OPERATOR_RESIDENCE", "DATA_PROCESSORS"]
   });
 });
 
@@ -55,6 +64,9 @@ test("blank, malformed or incomplete values make the configuration invalid", () 
     [{
       OPERATOR_NAME: "   "
     }, "OPERATOR_NAME"],
+    [{
+      OPERATOR_RESIDENCE: "   "
+    }, "OPERATOR_RESIDENCE"],
     [{
       OPERATOR_EMAIL: "operator at example.test"
     }, "OPERATOR_EMAIL"],

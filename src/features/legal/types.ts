@@ -1,8 +1,9 @@
 export type OperatorDetails = {
   name: string;
-  /** Empty when the deployment does not publish a postal address. */
-  addressLines: string[];
-  email: string;
+  /** Municipality and country of residence or seat; no street address. */
+  residence: string;
+  /** Null until the operator publishes a contact address. */
+  email: string | null;
 };
 
 /** A service provider that processes personal data on the operator's behalf, such as hosting or database infrastructure. */

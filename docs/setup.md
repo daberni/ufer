@@ -41,14 +41,15 @@ Set `BETTER_AUTH_SECRET`, `DATA_ENCRYPTION_KEY`, `CRON_SECRET`, the banking appl
 | Variable | Meaning |
 | --- | --- |
 | OPERATOR_NAME | Required. Name of the person or organization operating the installation (the GDPR controller) |
-| OPERATOR_EMAIL | Required. Contact email for privacy requests and questions about the terms |
-| OPERATOR_ADDRESS | Optional. Postal address; line breaks separate lines. Omitted from the pages when unset |
-| DATA_PROCESSORS | Required. JSON array of providers that process data for this installation, each with `name`, `purpose` and `location`; `[]` when the installation uses no external hosting or database provider |
+| OPERATOR_RESIDENCE | Required. Place of residence or seat as municipality and country; no street address |
+| OPERATOR_EMAIL | Optional. Contact email for privacy requests and questions about the terms. Without it, the pages tell users to contact the operator the way they were given access |
+| DATA_PROCESSORS | Required. JSON array of providers that process data for this installation, each with `name`, `purpose` and `location`; `[]` when the installation uses no external hosting or database provider. The privacy notice points to these entries for log and backup retention, so state retention periods in `purpose` where they are known |
 
-Enable Banking is named in the text because the bank integration always uses it. Hosting and database providers depend on the deployment, so they belong in DATA_PROCESSORS. A Docker/NAS installation on the operator's own hardware sets `[]`. Never commit real values; examples use synthetic data such as:
+Enable Banking is named in the text because the bank integration always uses it. The terms name Austrian law as the governing law. Hosting and database providers depend on the deployment, so they belong in DATA_PROCESSORS. A Docker/NAS installation on the operator's own hardware sets `[]`. Never commit real values; examples use synthetic data such as:
 
 ```sh
 OPERATOR_NAME="Example Operator"
+OPERATOR_RESIDENCE="Example City, Example Country"
 OPERATOR_EMAIL=operator@example.test
 DATA_PROCESSORS='[{"name":"Example Hosting","purpose":"Runs the application.","location":"Example Region"}]'
 ```

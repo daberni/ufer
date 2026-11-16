@@ -1,6 +1,6 @@
 import type { DataProcessor, LegalConfiguration } from "../types";
 import { LegalDocument } from "./legal-document";
-import { ConfigurationNotice, OperatorContact } from "./operator-contact";
+import { ConfigurationNotice, ContactInstructions, OperatorContact } from "./operator-contact";
 
 // Change this date whenever the text below changes.
 const lastUpdated = "2026-11-16";
@@ -49,6 +49,7 @@ export function PrivacyNotice({ configuration }: {
         <li>booked transactions with date, amount, currency, counterparty name and description;</li>
         <li>an account identifier provided by Enable Banking, used to recognize accounts when you reconnect;</li>
         <li>the Enable Banking session ID, encrypted;</li>
+        <li>a record of each bank connection with the bank&apos;s name and country, its status, the user who started it and when;</li>
         <li>a synchronization history with times, numbers of imported transactions and errors.</li>
       </ul>
       <p>
@@ -58,9 +59,13 @@ export function PrivacyNotice({ configuration }: {
       <p>
         Manual accounts and valuations, balances and transactions imported from CSV files into manual accounts, categories, categorization rules and category assignments. Ufer stores the imported rows, not the uploaded file.
       </p>
+      <h3>What you need to provide</h3>
+      <p>
+        To have a user account, the operator needs your username, display name and email address, and you need a password; without them you cannot use Ufer. Connecting a bank is optional and only needed for bank synchronization. Manual accounts, valuations and imports are optional too; without them the related features stay empty. There is no legal obligation to provide data.
+      </p>
       <h3>Technical logs</h3>
       <p>
-        When a request fails, the server logs a trace ID, the status code and the error type so that support requests can be matched to an error. These entries do not contain request contents or financial data. The infrastructure that runs Ufer also processes connection data such as IP addresses to deliver requests, and may keep its own request logs.
+        When a request fails, the server logs a trace ID, the status code and the error type so that support requests can be matched to an error. These entries do not contain request contents or financial data. The infrastructure that runs Ufer also processes connection data to deliver requests and may keep its own request logs, including the requested URL, the browser&apos;s user-agent string and the IP address.
       </p>
       <h3>Cookies</h3>
       <p>Ufer uses only cookies that are necessary to provide the service:</p>
@@ -96,11 +101,6 @@ export function PrivacyNotice({ configuration }: {
       <p>
         Other users of this installation can see the shared financial data. Data is not sold or used for advertising.
       </p>
-      {processors && processors.length > 0 && (
-        <p>
-          Where a provider processes data outside the European Economic Area, the transfer relies on the safeguards in that provider&apos;s data processing terms.
-        </p>
-      )}
 
       <h2>Security</h2>
       <p>
@@ -109,27 +109,39 @@ export function PrivacyNotice({ configuration }: {
 
       <h2>Retention and deletion</h2>
       <ul>
-        <li>Your user account data is kept as long as you have access to this installation.</li>
-        <li>Sessions end when you sign out or when they expire.</li>
+        <li>Your user account data is kept while you have access to this installation. The operator deletes it when your access ends or when you ask for deletion.</li>
         <li>
-          Removing a bank connection under Bank connections deletes the encrypted Enable Banking session ID and asks Enable Banking to end the session. If that request fails, the authorization ends when it expires or when you withdraw it at your bank. Accounts, balances and transactions retrieved before the removal are kept until they are deleted.
+          A session record, including its user-agent string, is deleted when you sign out, change your password or sign out other devices. A session that expires without a sign-out keeps its record in the database until the operator removes it.
         </li>
         <li>
-          Ufer does not yet offer self-service deletion of user accounts or financial data. The operator deletes them on request.
+          Removing a bank connection under Bank connections deletes the encrypted Enable Banking session ID and asks Enable Banking to end the session. If that request fails, the authorization ends when it expires or when you withdraw it at your bank. The connection record stays without the session ID. Accounts, balances and transactions retrieved before the removal remain in the shared workspace until the operator deletes them on request or deletes the installation&apos;s database when the installation is discontinued.
         </li>
-        <li>Technical logs are kept for the retention period of the infrastructure that produces them.</li>
-        <li>Deleted data can remain in database backups until those backups expire.</li>
+        <li>
+          Ufer does not yet offer self-service deletion of user accounts or financial data. The operator deletes them on request within the response times below and confirms the deletion. Because all users share one workspace, the operator may ask which accounts a request covers.
+        </li>
+        <li>
+          Error log entries and request logs are kept for the log retention period of the hosting infrastructure. Where a hosting provider is listed above, its entry states that period.
+        </li>
+        <li>Deleted data can remain in backups kept by the database provider until they expire under that provider&apos;s backup retention.</li>
       </ul>
 
       <h2>Your rights</h2>
       <p>
-        You have the right to access your personal data, to have it rectified or erased, to restrict its processing, to receive it in a portable format and to object to processing based on legitimate interests. To exercise these rights, contact the operator using the details above; requests are answered within one month.
+        You have the right to access your personal data, to have it rectified or erased, to restrict its processing and to receive it in a portable format. To exercise these rights, <ContactInstructions operator={operator} />.
+      </p>
+      <p>
+        The operator answers without undue delay and at the latest within one month of receiving your request. Where necessary because of the complexity or number of requests, this can be extended by two further months; you will be told about the extension and the reasons within the first month.
       </p>
       <p>
         You can withdraw a bank authorization at any time by removing the connection in Ufer or at your bank. You can also lodge a complaint with a data protection supervisory authority, in particular in the EU member state of your habitual residence, place of work or the place of the alleged infringement.
       </p>
       <p>
         Ufer does not make automated decisions that have legal or similarly significant effects on you.
+      </p>
+
+      <h3>Right to object</h3>
+      <p>
+        Where processing is based on legitimate interests (Art. 6(1)(f) GDPR), you can object to it at any time on grounds relating to your particular situation. The operator then stops that processing unless there are compelling legitimate grounds that override your interests, rights and freedoms, or the processing is needed to establish, exercise or defend legal claims.
       </p>
 
       <h2>Changes</h2>
