@@ -19,17 +19,18 @@ export function useBankDirectory(reauthorized: Connection | null) {
     }
 
     return {
-      country: defaultBankCountry(connections.data ?? [], navigator.languages),
+      country: null,
       query: "",
       bankName: ""
     };
   });
 
-  const directory = useBanks(selection.country);
+  const country = selection.country ?? defaultBankCountry(connections.data ?? [], navigator.languages);
+  const directory = useBanks(country);
   const banks = directory.data?.banks ?? [];
 
   return {
-    country: selection.country,
+    country,
     query: selection.query,
     banks,
     bankName: chosenBankName(selection, banks),

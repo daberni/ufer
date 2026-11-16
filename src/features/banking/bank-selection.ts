@@ -53,7 +53,8 @@ export function defaultBankCountry(connections: readonly Pick<Connection, "bank_
 }
 
 export type BankSelection = {
-  country: string;
+  /** Null until a country is picked, so the default can follow the connections once they load. */
+  country: string | null;
   /** The text in the bank field: a search, or the chosen bank's name. */
   query: string;
   /** Empty until a bank is chosen from the list. */
