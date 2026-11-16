@@ -24,7 +24,7 @@ const supportedCurrencies = new Set(Intl.supportedValuesOf("currency"));
 
 /** Decimal places of a currency: pinned for stored currencies, otherwise from the runtime's ISO 4217 data; undefined for unknown codes. */
 export function currencyExponent(currency: string) {
-  if (currency in pinnedExponents) {
+  if (Object.hasOwn(pinnedExponents, currency)) {
     return pinnedExponents[currency];
   }
 

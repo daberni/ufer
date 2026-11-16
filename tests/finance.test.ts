@@ -130,6 +130,10 @@ test("currencies outside the pinned list take their decimal places from the runt
   assert.equal(minorUnits("1.234", "TND"), 1234);
   assert.equal(minorUnits("1500.50", "HUF"), 150050);
   assert.throws(() => minorUnits("1.00", "ZZZ"));
+
+  for (const inherited of ["toString", "constructor", "__proto__"]) {
+    assert.throws(() => minorUnits("1.00", inherited), ValidationError);
+  }
 });
 test("booking dates must be real calendar dates in exactly YYYY-MM-DD form", () => {
   assert.equal(validDate("2026-02-30"), false);
