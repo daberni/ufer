@@ -38,9 +38,11 @@ export function currencyExponent(currency: string) {
   }).resolvedOptions().maximumFractionDigits;
 }
 
-/** A well-formed ISO 4217 code; `Intl.NumberFormat` throws a RangeError for anything else. */
-export function isCurrencyCode(value: string) {
-  return /^[A-Z]{3}$/.test(value);
+/** The uppercase code when the runtime supports the currency, otherwise null. */
+export function parseCurrencyCode(value: string) {
+  const code = value.toUpperCase();
+
+  return supportedCurrencies.has(code) ? code : null;
 }
 
 export function minorUnits(value: string, currency = "EUR"): number {
