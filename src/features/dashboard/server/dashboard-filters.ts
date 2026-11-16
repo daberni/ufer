@@ -1,4 +1,5 @@
 import { HttpError } from "@/lib/errors";
+import { parseCurrencyCode } from "@/lib/money";
 import { currentMonthPeriod, parsePeriod } from "@/features/dashboard/period";
 import { parsePage } from "@/features/dashboard/pagination";
 
@@ -16,10 +17,14 @@ function periodFilter(value: string | null) {
   return period;
 }
 
+function currencyFilter(value: string | null) {
+  return value && parseCurrencyCode(value) || "EUR";
+}
+
 export function dashboardFilters(query: URLSearchParams) {
   return {
     period: periodFilter(query.get("period")),
-    currency: query.get("currency") || "EUR",
+    currency: currencyFilter(query.get("currency")),
     page: parsePage(query.get("page")),
     search: query.get("search")?.slice(0, 200) || "",
     accountId: query.get("account") || "",

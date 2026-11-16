@@ -19,6 +19,15 @@ const exponents: Record<string, number> = {
   BHD: 3
 };
 
+const supportedCurrencies = new Set(Intl.supportedValuesOf("currency"));
+
+/** The uppercase code when the runtime supports the currency, otherwise null. */
+export function parseCurrencyCode(value: string) {
+  const code = value.toUpperCase();
+
+  return supportedCurrencies.has(code) ? code : null;
+}
+
 export function minorUnits(value: string, currency = "EUR"): number {
   const exponent = exponents[currency];
 

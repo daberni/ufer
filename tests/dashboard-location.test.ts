@@ -174,3 +174,27 @@ test("Back or Forward to another search replaces the field and its unsent draft"
   await waitForCommit();
   assert.deepEqual(commits, ["coffee"]);
 });
+
+test("a currency filter is normalized to uppercase and ignored on both sides unless the runtime knows the code", () => {
+  const serverCurrency = (value: string) => dashboardFilters(new URLSearchParams({
+    currency: value
+  })).currency;
+  const clientCurrency = (value: string) => {
+    const params = new URLSearchParams({
+      currency: value
+    });
+
+    return dashboardQuery("overview", periodScope(params), params).currency;
+  };
+
+  assert.equal(dashboardFilters(new URLSearchParams()).currency, "EUR");
+
+  for (const read of [serverCurrency, clientCurrency]) {
+    assert.equal(read("USD"), "USD");
+    assert.equal(read("usd"), "USD");
+
+    for (const ignored of ["XYZ", "E", "EURO", "E1R", ""]) {
+      assert.equal(read(ignored), "EUR", ignored);
+    }
+  }
+});

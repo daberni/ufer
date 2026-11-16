@@ -1,5 +1,6 @@
 import { currentMonth, currentMonthPeriod, parsePeriod, serializePeriod, type Period } from "./period";
 import { parsePage } from "./pagination";
+import { parseCurrencyCode } from "@/lib/money";
 import type { View } from "./types";
 
 /**
@@ -66,6 +67,10 @@ export function periodScope(params: SearchParams) {
   return scope.toString();
 }
 
+function currencyOrDefault(value: string | null) {
+  return value && parseCurrencyCode(value) || defaultCurrency;
+}
+
 /** The data query for a view: the shared period scope plus, on the transaction list, its own filters. */
 export function dashboardQuery(view: View, scope: string, params: SearchParams): DashboardQuery {
   const scoped = new URLSearchParams(scope);
@@ -73,7 +78,7 @@ export function dashboardQuery(view: View, scope: string, params: SearchParams):
 
   return {
     period: parsePeriod(scoped.get("period") || "") || currentMonthPeriod(),
-    currency: scoped.get("currency") || defaultCurrency,
+    currency: currencyOrDefault(scoped.get("currency")),
     search: listParams.get("search") || "",
     account: listParams.get("account") || "",
     category: listParams.get("category") || "",

@@ -71,7 +71,7 @@ export function PrivacyNotice({ configuration }: {
       <p>Ufer uses only cookies that are necessary to provide the service:</p>
       <ul>
         <li>
-          <code>better-auth.session_token</code> (named <code>__Secure-better-auth.session_token</code> on HTTPS) keeps you signed in. It is valid for up to seven days, is renewed while you use Ufer and ends when you sign out.
+          <code>better-auth.session_token</code> (named <code>__Secure-better-auth.session_token</code> on HTTPS) keeps you signed in. It expires after 24 hours without use and ends earlier when you sign out or when your password is changed in another session.
         </li>
         <li>
           <code>budget_bank_flow</code> links a bank authorization to the browser that started it. It is sent only to the bank callback, expires after 15 minutes and is deleted when the authorization completes.
