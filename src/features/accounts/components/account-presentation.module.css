@@ -1,7 +1,7 @@
 .account-logo {
   width: 37px;
   height: 37px;
-  border-radius: 9px;
+  border-radius: var(--radius-md);
   display: inline-flex;
   align-items: center;
   justify-content: center;

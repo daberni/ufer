@@ -2,11 +2,12 @@
   width: 100%;
 }
 .control {
+  --toggle-width: 40px;
   position: relative;
 }
 /* Room for the toggle button, which sits inside the field's right edge. */
 .input {
-  padding-right: 44px;
+  padding-right: calc(var(--toggle-width) + var(--space-1));
 }
 .toggle {
   position: absolute;
@@ -16,7 +17,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
+  width: var(--toggle-width);
   color: var(--muted);
 }
 .toggle svg {
@@ -28,13 +29,13 @@
 }
 /* The list opens in the surrounding flow, so neither a dialog nor a phone's on-screen keyboard can cover it. */
 .popup {
-  margin-top: 6px;
-  padding: 4px;
+  margin-top: var(--space-2);
+  padding: var(--space-1);
   border: 1px solid var(--border);
-  border-radius: 9px;
+  border-radius: var(--radius-md);
   background: var(--surface-raised);
   color: var(--ink);
-  box-shadow: 0 8px 24px var(--shadow-color);
+  box-shadow: var(--shadow-lg);
 }
 .popup[hidden] {
   display: none;
@@ -50,10 +51,10 @@
 .option {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   min-height: 36px;
-  padding: 6px 8px;
-  border-radius: 6px;
+  padding: var(--space-2);
+  border-radius: var(--radius-sm);
   font-size: var(--text-sm);
   cursor: pointer;
 }
@@ -73,21 +74,18 @@
   color: var(--green);
 }
 .message {
-  padding: 8px;
+  padding: var(--space-2);
   font-size: var(--text-sm);
   line-height: 1.5;
   color: var(--muted);
 }
 .listbox:not(:empty) + .message {
-  margin-top: 4px;
+  margin-top: var(--space-1);
   border-top: 1px solid var(--border);
 }
 @media (--mobile) {
-  .toggle {
-    width: 48px;
-  }
-  .input {
-    padding-right: 52px;
+  .control {
+    --toggle-width: 48px;
   }
   .option {
     min-height: 44px;

@@ -14,20 +14,19 @@
 .popover {
   position: fixed;
   inset: auto;
-  z-index: 30;
   display: flex;
   flex-direction: column;
   width: max-content;
   min-width: 200px;
   max-width: min(320px, calc(100vw - 32px));
   margin: 0;
-  padding: 4px;
+  padding: var(--space-1);
   overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: 9px;
+  border-radius: var(--radius-md);
   background: var(--surface-raised);
   color: var(--ink);
-  box-shadow: 0 8px 24px var(--shadow-color);
+  box-shadow: var(--shadow-lg);
 }
 .listbox {
   margin: 0;
@@ -40,10 +39,10 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: var(--space-3);
   min-height: 36px;
-  padding: 4px 8px;
-  border-radius: 6px;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
   cursor: pointer;
 }
 .option[data-active] {
@@ -64,11 +63,11 @@
 .note {
   display: flex;
   align-items: flex-start;
-  gap: 6px;
-  margin: 4px 0 0;
-  padding: 8px 8px 4px;
+  gap: var(--space-2);
+  margin: var(--space-1) 0 0;
+  padding: var(--space-2) var(--space-2) var(--space-1);
   border-top: 1px solid var(--border);
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   line-height: 1.5;
   color: var(--ink-soft);
 }
@@ -81,8 +80,5 @@
 @media (--mobile) {
   .option {
     min-height: 44px;
-  }
-  .note {
-    font-size: var(--text-sm);
   }
 }
