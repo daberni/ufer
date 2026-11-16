@@ -10,6 +10,12 @@ Ufer separately requires active membership of the existing installation workspac
 
 Origin checks apply to writes, including sign-in and sign-out. Authentication failures retain Problem Details and trace IDs alongside the fields required by the maintained library client. Provider/library secrets and raw failures are not logged. Authentication rate limits are described [below](#authentication-rate-limits).
 
+## Session lifetime and revocation
+
+A session ends after 24 hours without use: `expiresIn` is one day and activity renews it at most once an hour (`updateAge`). This rolling window replaces the previous seven-day window. Better Auth 1.7.25 offers either an absolute lifetime or an inactivity window that renews without an upper bound, not both; the operator chose the inactivity window for daily use, so a stolen session cookie stays usable as long as it is used at least once a day, until sign-out, a password change or revocation from the account dialog. An absolute lifetime (for example OWASP ASVS 4.0.3 requirement 3.3.2 at level 2: 12 hours) would cap that exposure at the cost of signing in again every day.
+
+Every password change revokes all of the user's sessions and issues a fresh one to the browser that made the change. A `before` hook in the [library configuration](../src/features/auth/server/auth.ts) sets the library's `revokeOtherSessions` option on every change-password call, so a client that omits or declines it cannot keep other sessions alive. Operator password recovery revokes every session through `revokeSessionsOnPasswordReset`. Users can additionally sign out other devices or a single session from the account dialog.
+
 ## Authentication rate limits
 
 Better Auth stores rate-limit counters in the database, keyed by client address and endpoint, so they persist across instances. Sign-in and password changes allow ten requests per client in a fifteen-minute window; other authentication endpoints use the library defaults.
@@ -34,6 +40,23 @@ The [secret-box module](../src/server/security/secret-box.ts) is a small adapter
 
 Scheduler bearer checks and one-time-token digests live in shared job/security infrastructure. They use Node's standard hash/constant-time primitives, not a home-grown authentication protocol. Provider credentials, session secrets and encryption keys stay in operator-managed configuration.
 
+## Browser security headers
+
+`next.config.ts` sends the same headers with every response. The Content-Security-Policy is fixed rather than per request: Next.js puts the App Router page data into inline scripts, so the policy allows inline scripts and styles, and limits everything else to the application's own origin.
+
+| Directive | Value | Reason |
+| --- | --- | --- |
+| `script-src` | `'self' 'unsafe-inline'` | Inline scripts carry the page data. Development adds `'unsafe-eval'`, which React uses to rebuild server error stacks. |
+| `style-src` | `'self' 'unsafe-inline'` | Next.js and the development overlay inject style elements and attributes. |
+| `img-src` | `'self' data:` | The select indicator is a data-URL SVG in the global stylesheet. |
+| `default-src`, `connect-src`, `font-src` | `'self'` | Bank and provider calls run on the server; development HMR uses a same-origin WebSocket. |
+| `object-src`, `base-uri`, `frame-ancestors` | `'none'` | No plugins, no `<base>` element, no framing. |
+| `form-action` | `'self'` | The bank consent redirect is a top-level navigation, which CSP does not restrict. |
+
+Trade-off: an injected inline script would run. A per-request nonce policy would block it, but needs a proxy on every page request, development exceptions and replacements for Next.js pages that inline unnonced styles. Ufer renders no untrusted HTML (React escapes all output and there is no `dangerouslySetInnerHTML`), so the fixed policy keeps the origin, framing, plugin and form restrictions at a fraction of the complexity. Revisit this if untrusted HTML is ever rendered.
+
+The other headers are a Permissions-Policy that disables browser features Ufer does not use, `Strict-Transport-Security: max-age=31536000` (browsers ignore it over plain HTTP; no `includeSubDomains`, because self-hosted installations do not own their parent domain; no preload) and `poweredByHeader: false`, alongside `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer` and `Cache-Control: no-store`.
+
 ## Ownership and verification
 
 | Area | Owner |
@@ -44,4 +67,4 @@ Scheduler bearer checks and one-time-token digests live in shared job/security i
 | Persisted secret format and token primitives | `src/server/security/` |
 | Scheduler access and coordination | `src/server/jobs/` |
 
-Tests exercise real library-managed signup/sign-in, duplicate and concurrent enrollment, membership denial/revocation, cookie integrity/expiry, logout, password/session revocation, persistent rate limiting across instances, per-client counting through the configured trusted header, ignored forged forwarded headers and the maintained client's Problem Details handling. Provider JWTs, stored-secret integrity and actor-bound single-use bank callbacks have separate regression coverage. These checks do not establish live deployment acceptance, multi-customer isolation, SSO support or independent security certification.
+Tests exercise real library-managed signup/sign-in, duplicate and concurrent enrollment, membership denial/revocation, cookie integrity/expiry, logout, password/session revocation enforced regardless of the client's revocation flag, persistent rate limiting across instances, per-client counting through the configured trusted header, ignored forged forwarded headers and the maintained client's Problem Details handling. Provider JWTs, stored-secret integrity and actor-bound single-use bank callbacks have separate regression coverage. These checks do not establish live deployment acceptance, multi-customer isolation, SSO support or independent security certification.
