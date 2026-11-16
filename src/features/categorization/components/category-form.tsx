@@ -10,8 +10,8 @@ import type { Category } from "@/features/dashboard/types";
 import { useDialogSubmit, type DialogFormProps } from "@/features/dashboard/use-dialog-submit";
 import { useSaveCategory } from "@/features/categorization/mutations";
 import { FormError } from "@/components/ui/form-error";
+import { CategoryChip } from "./category-chip";
 import { CategoryIconPicker } from "./category-icon-picker";
-import { CategoryMarker } from "./category-marker";
 
 type Props = DialogFormProps & {
   category?: Category | null;
@@ -39,8 +39,14 @@ export function CategoryForm({
       className={ui["form"]}
     >
       <div className={styles["preview"]} aria-hidden="true">
-        <CategoryMarker icon={icon || null} color={color} size="large" />
-        <span>{name.trim() || "New category"}</span>
+        <CategoryChip
+          category={{
+            name: name.trim() || "New category",
+            color,
+            icon: icon || null
+          }}
+          size="large"
+        />
       </div>
       <label>
         Name
@@ -54,13 +60,17 @@ export function CategoryForm({
       </label>
       <label>
         Color
-        <input
-          name="color"
-          type="color"
-          required
-          value={color}
-          onChange={event => setColor(event.target.value)}
-        />
+        <span className={styles["color-field"]}>
+          <input
+            className={styles["color-input"]}
+            name="color"
+            type="color"
+            required
+            value={color}
+            onChange={event => setColor(event.target.value)}
+          />
+          <code aria-hidden="true">{color}</code>
+        </span>
       </label>
       <CategoryIconPicker color={color} icon={icon} onChange={setIcon} />
       <FormError message={error} />
