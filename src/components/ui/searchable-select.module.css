@@ -1,4 +1,4 @@
-.picker {
+.searchable-select {
   width: 100%;
 }
 .control {
@@ -26,7 +26,7 @@
 .toggle[aria-expanded="true"] svg {
   transform: rotate(180deg);
 }
-/* The list opens inside the dialog's flow, so neither the dialog nor a phone's on-screen keyboard can cover it. */
+/* The list opens in the surrounding flow, so neither a dialog nor a phone's on-screen keyboard can cover it. */
 .popup {
   margin-top: 6px;
   padding: 4px;
@@ -61,7 +61,7 @@
   background: var(--soft);
   box-shadow: inset 0 0 0 1px var(--border-strong);
 }
-.name {
+.label {
   flex: 1;
   min-width: 0;
   overflow-wrap: anywhere;

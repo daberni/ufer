@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { apiGet } from "@/client/api";
 import { queryKeys } from "@/client/query-keys";
 import type { Bank, Connection, SyncRun } from "@/features/dashboard/types";
+import { directoryBanks } from "./bank-selection";
 
 export function useConnections() {
   return useQuery({
@@ -19,7 +20,13 @@ export function useSyncRuns() {
   });
 }
 
-/** The provider's bank directory for a country; requested by the connection dialog while it is open. */
+function offeredBanks(response: {
+  banks: Bank[];
+}) {
+  return directoryBanks(response.banks);
+}
+
+/** The provider's bank directory for a country as offered for choice; requested by the connection dialog while it is open. */
 export function useBanks(country: string) {
   return useQuery({
     queryKey: queryKeys.banking.banks(country),
@@ -28,6 +35,7 @@ export function useBanks(country: string) {
     }>("banks", {
       country
     }, signal),
+    select: offeredBanks,
     staleTime: 5 * 60_000
   });
 }

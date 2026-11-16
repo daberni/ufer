@@ -9,10 +9,10 @@ import { useDialogSubmit, type DialogFormProps } from "@/features/dashboard/use-
 import { useConnectBank } from "@/features/banking/mutations";
 import { bankCountries } from "@/features/banking/bank-selection";
 import { useBankDirectory } from "@/features/banking/use-bank-directory";
-import type { Connection } from "@/features/dashboard/types";
+import type { Bank, Connection } from "@/features/dashboard/types";
 import { FormError } from "@/components/ui/form-error";
+import { SearchableSelect, type SearchableSelectOption } from "@/components/ui/searchable-select";
 import { Select } from "@/components/ui/select";
-import { BankPicker } from "./bank-picker";
 
 type Props = DialogFormProps & {
   environment: string;
@@ -20,13 +20,57 @@ type Props = DialogFormProps & {
   connection: Connection | null;
 };
 
+const bankNoun = {
+  one: "bank",
+  other: "banks"
+};
+
+function bankOption(bank: Bank): SearchableSelectOption<string> {
+  return {
+    key: bank.name,
+    value: bank.name,
+    label: bank.name,
+    description: bank.beta ? <span className={ui["pill"]}>Beta</span> : undefined
+  };
+}
+
+function directoryStatus(directory: Pick<ReturnType<typeof useBankDirectory>, "banks" | "error" | "loading">) {
+  if (directory.loading) {
+    return {
+      notice: "Loading banks …",
+      placeholder: "Loading banks …"
+    };
+  }
+
+  if (directory.error) {
+    return {
+      notice: "The bank list could not be loaded.",
+      placeholder: "Bank list unavailable"
+    };
+  }
+
+  if (!directory.banks.length) {
+    return {
+      notice: "No personal bank is available for this country.",
+      placeholder: "No bank available"
+    };
+  }
+
+  return {
+    notice: "",
+    placeholder: "Type to search banks"
+  };
+}
+
 export function BankConnectionForm({
   close,
   connection,
   environment
 }: Props) {
   const directory = useBankDirectory(connection);
+  const status = directoryStatus(directory);
   const bankFieldId = useId();
+  const directoryErrorId = useId();
   const {
     error,
     pending,
@@ -50,16 +94,20 @@ export function BankConnectionForm({
       </label>
       <div className={ui["field"]}>
         <label htmlFor={bankFieldId}>Bank</label>
-        <BankPicker
+        <SearchableSelect
           id={bankFieldId}
-          banks={directory.banks}
+          options={directory.banks.map(bankOption)}
+          value={directory.bankName || undefined}
+          onChange={directory.choose}
           query={directory.query}
-          bankName={directory.bankName}
-          loading={directory.loading}
-          error={directory.error}
-          onSearch={directory.search}
-          onChoose={directory.choose}
+          onQueryChange={directory.search}
+          noun={bankNoun}
+          placeholder={status.placeholder}
+          notice={status.notice}
+          busy={directory.loading}
+          aria-describedby={directory.error ? directoryErrorId : undefined}
         />
+        {directory.error && <p id={directoryErrorId} className={ui["error-text"]}>{directory.error}</p>}
       </div>
       <FormError message={error} />
       <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={pending || !directory.bankName}>

@@ -95,6 +95,19 @@ export function changeBankSelection(selection: BankSelection, change: BankSelect
   }
 }
 
+/** The directory as offered for choice: alphabetical, and a bank listed twice under the same name only once, since the name identifies it. */
+export function directoryBanks(banks: readonly Bank[]) {
+  const unique = new Map<string, Bank>();
+
+  for (const bank of banks) {
+    if (!unique.has(bank.name)) {
+      unique.set(bank.name, bank);
+    }
+  }
+
+  return [...unique.values()].sort((left, right) => left.name.localeCompare(right.name));
+}
+
 /** The bank to authorize: only a chosen bank that the field still shows and the loaded directory still offers. */
 export function chosenBankName(selection: BankSelection, banks: readonly Bank[]) {
   const shown = selection.bankName !== "" && selection.query === selection.bankName;

@@ -1,78 +1,86 @@
 "use client";
 
-import ui from "../../../components/ui/primitives.module.css";
-import styles from "./bank-picker.module.css";
+import ui from "./primitives.module.css";
+import styles from "./searchable-select.module.css";
 import { Check, ChevronDown } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
-import type { KeyboardEvent } from "react";
-import { bankPickerKeyAction, matchingBanks } from "@/features/banking/bank-picker-behavior";
-import type { Bank } from "@/features/dashboard/types";
+import type { KeyboardEvent, ReactNode } from "react";
+import { matchOptions, searchableSelectKeyAction, shownOptionLimit } from "./searchable-select-behavior";
 
-type Props = {
-  id: string;
-  banks: readonly Bank[];
-  /** The text in the field: a search, or the chosen bank's name. */
-  query: string;
-  bankName: string;
-  loading: boolean;
-  error: string;
-  onSearch: (query: string) => void;
-  onChoose: (bankName: string) => void;
+export type SearchableSelectOption<Value> = {
+  key: string;
+  value: Value;
+  label: string;
+  icon?: ReactNode;
+  /** Shown after the label and read with it, such as a status badge. */
+  description?: ReactNode;
 };
 
-function countText(count: number) {
-  return count === 1 ? "1 bank" : `${count.toLocaleString("en")} banks`;
-}
+type Props<Value> = {
+  id: string;
+  options: readonly SearchableSelectOption<Value>[];
+  /** A value no option has, such as undefined, while nothing is selected. */
+  value: Value | undefined;
+  onChange: (value: Value) => void;
+  /** The text in the field: a search, or the selected option's label. */
+  query: string;
+  onQueryChange: (query: string) => void;
+  /** Filters and orders the options for the typed text. */
+  match?: (options: readonly SearchableSelectOption<Value>[], query: string) => readonly SearchableSelectOption<Value>[];
+  /** Names the options in counts and messages, such as "bank" and "banks". */
+  noun: {
+    one: string;
+    other: string;
+  };
+  placeholder: string;
+  /** Replaces the options with a message, such as a loading, error or empty state. */
+  notice?: string;
+  busy?: boolean;
+  "aria-describedby"?: string;
+};
 
-/** An editable combobox: typing filters the country's banks, and only a bank picked from the list is chosen. */
-export function BankPicker({
+/** An editable combobox: typing filters the options, and only an option picked from the list changes the value. */
+export function SearchableSelect<Value>({
   id,
-  banks,
+  options,
+  value,
+  onChange,
   query,
-  bankName,
-  loading,
-  error,
-  onSearch,
-  onChoose
-}: Props) {
+  onQueryChange,
+  match = matchOptions,
+  noun,
+  placeholder,
+  notice = "",
+  busy = false,
+  "aria-describedby": ariaDescribedBy
+}: Props<Value>) {
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
   const listboxRef = useRef<HTMLUListElement>(null);
   const listboxId = useId();
-  const errorId = useId();
-  // The chosen bank's name lists the whole directory again, so another bank can be picked without clearing the field first.
-  const matches = matchingBanks(banks, query === bankName ? "" : query);
-  const options = matches.banks;
-  const selectedIndex = options.findIndex(bank => bank.name === bankName);
-  const active = Math.min(activeIndex, options.length - 1);
+  const selected = options.find(option => Object.is(option.value, value));
+  // The selected option's label lists every option again, so another one can be picked without clearing the field first.
+  const matches = notice ? [] : match(options, query === selected?.label ? "" : query);
+  const shown = matches.slice(0, shownOptionLimit);
+  const selectedIndex = shown.findIndex(option => option === selected);
+  const active = Math.min(activeIndex, shown.length - 1);
   const optionId = (index: number) => `${listboxId}-option-${index}`;
+  const countText = (count: number) => (count === 1 ? `1 ${noun.one}` : `${count.toLocaleString("en")} ${noun.other}`);
+  const truncated = matches.length > shown.length;
+  const listLabel = `${noun.other.charAt(0).toLocaleUpperCase()}${noun.other.slice(1)}`;
 
-  let message = "";
+  let message = notice;
 
-  if (loading) {
-    message = "Loading banks …";
-  } else if (error) {
-    message = "The bank list could not be loaded.";
-  } else if (!banks.length) {
-    message = "No personal bank is available for this country.";
-  } else if (!matches.total) {
-    message = `No bank matches “${query.trim()}”.`;
+  if (!message && !matches.length) {
+    message = `No ${noun.one} matches “${query.trim()}”.`;
   }
 
-  let placeholder = "Type to search banks";
+  let announcement = "";
 
-  if (loading) {
-    placeholder = "Loading banks …";
-  } else if (error) {
-    placeholder = "Bank list unavailable";
-  } else if (!banks.length) {
-    placeholder = "No bank available";
+  if (open) {
+    announcement = message || (truncated ? `${countText(matches.length)}, showing the first ${shown.length}` : countText(matches.length));
   }
-
-  const truncated = matches.total > options.length;
-  const resultText = truncated ? `${countText(matches.total)}, showing the first ${options.length}` : countText(matches.total);
-  const announcement = open ? message || resultText : "";
 
   useEffect(() => {
     if (open) {
@@ -88,17 +96,17 @@ export function BankPicker({
   }
 
   function choose(index: number) {
-    const bank = options[index];
+    const option = shown[index];
 
     setOpen(false);
 
-    if (bank) {
-      onChoose(bank.name);
+    if (option) {
+      onChange(option.value);
     }
   }
 
   function search(text: string) {
-    onSearch(text);
+    onQueryChange(text);
     // The first match is highlighted, so Enter picks it; the list itself is refiltered from the new text.
     openAt(0);
   }
@@ -114,18 +122,18 @@ export function BankPicker({
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
-    const action = bankPickerKeyAction(event, {
+    const action = searchableSelectKeyAction(event, {
       open,
       activeIndex: active,
       selectedIndex,
-      optionCount: options.length
+      optionCount: shown.length
     });
 
     if (action.type === "none") {
       return;
     }
 
-    // Tab still moves focus; the other handled keys must not move the caret, submit the form or close the surrounding dialog.
+    // Tab still moves focus; the other handled keys must not move the caret, submit the form or close a surrounding dialog.
     if (event.key !== "Tab") {
       event.preventDefault();
     }
@@ -149,7 +157,7 @@ export function BankPicker({
   }
 
   return (
-    <div className={styles["picker"]}>
+    <div className={styles["searchable-select"]}>
       <div className={styles["control"]}>
         <input
           ref={inputRef}
@@ -167,8 +175,8 @@ export function BankPicker({
           aria-expanded={open}
           aria-controls={listboxId}
           aria-activedescendant={open && active >= 0 ? optionId(active) : undefined}
-          aria-busy={loading}
-          aria-describedby={error ? errorId : undefined}
+          aria-busy={busy}
+          aria-describedby={ariaDescribedBy}
           onChange={event => search(event.target.value)}
           onClick={() => {
             if (!open) {
@@ -182,7 +190,7 @@ export function BankPicker({
           type="button"
           className={styles["toggle"]}
           tabIndex={-1}
-          aria-label="Show banks"
+          aria-label={`Show ${noun.other}`}
           aria-expanded={open}
           aria-controls={listboxId}
           onMouseDown={event => event.preventDefault()}
@@ -197,12 +205,12 @@ export function BankPicker({
           id={listboxId}
           className={styles["listbox"]}
           role="listbox"
-          aria-label="Banks"
+          aria-label={listLabel}
           onMouseDown={event => event.preventDefault()}
         >
-          {open && !message && options.map((bank, index) => (
+          {open && shown.map((option, index) => (
             <li
-              key={bank.name}
+              key={option.key}
               id={optionId(index)}
               className={styles["option"]}
               role="option"
@@ -211,16 +219,16 @@ export function BankPicker({
               onPointerMove={() => setActiveIndex(index)}
               onClick={() => choose(index)}
             >
-              <span className={styles["name"]}>{bank.name}</span>
-              {bank.beta && <span className={ui["pill"]}>Beta</span>}
+              {option.icon}
+              <span className={styles["label"]}>{option.label}</span>
+              {option.description}
               {index === selectedIndex && <Check className={styles["check"]} aria-hidden="true" strokeWidth={2.4} />}
             </li>
           ))}
         </ul>
         {message && <p className={styles["message"]}>{message}</p>}
-        {!message && truncated && <p className={styles["message"]}>Showing the first {options.length} of {countText(matches.total)}. Type to narrow the list.</p>}
+        {!message && truncated && <p className={styles["message"]}>Showing the first {shown.length} of {countText(matches.length)}. Type to narrow the list.</p>}
       </div>
-      {error && <p id={errorId} className={ui["error-text"]}>{error}</p>}
       <div className={ui["visually-hidden"]} role="status">
         {announcement}
       </div>

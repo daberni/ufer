@@ -27,7 +27,7 @@ export function useBankDirectory(reauthorized: Connection | null) {
 
   const country = selection.country ?? defaultBankCountry(connections.data ?? [], navigator.languages);
   const directory = useBanks(country);
-  const banks = directory.data?.banks ?? [];
+  const banks = directory.data ?? [];
 
   return {
     country,
