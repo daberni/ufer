@@ -68,6 +68,16 @@ export async function finishSyncRun(db: Database, id: string, status: "PARTIAL" 
   }).where(eq(syncRuns.id, id));
 }
 
+/** Marks a run interrupted unless a competing sync already finalized it. */
+export async function interruptSyncRun(db: Database, id: string, error: string) {
+  await db.update(syncRuns).set({
+    status: "INTERRUPTED",
+    finished_at: timestamp(),
+    inserted_count: linkedTransactionCount,
+    error
+  }).where(and(eq(syncRuns.id, id), eq(syncRuns.status, "RUNNING")));
+}
+
 export async function recordAccountSyncError(db: Database, id: string, environment: string, error: string) {
   await db.update(accounts).set({
     sync_error: error
