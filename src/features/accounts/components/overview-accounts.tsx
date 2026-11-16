@@ -112,7 +112,7 @@ function AccountStrip({ currencyAccounts }: {
               }
             }}
           >
-            <span className={clsx(accountStyles["account-logo"], styles[account.kind])}>
+            <span className={clsx(accountStyles["account-logo"], accountStyles[account.kind])}>
               <Icon size={21} />
             </span>
             <span className={styles["account-tile-name"]}>

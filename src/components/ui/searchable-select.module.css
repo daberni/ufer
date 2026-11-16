@@ -2,25 +2,27 @@
   width: 100%;
 }
 .control {
+  --toggle-width: 40px;
   position: relative;
 }
 /* Room for the toggle button, which sits inside the field's right edge. */
 .input {
   width: 100%;
-  padding-right: 44px;
+  padding-right: calc(var(--toggle-width) + var(--space-1));
 }
 /* The selected option's icon sits inside the field's left edge while the field shows that option. */
 .selected-icon {
   position: absolute;
   top: 0;
   bottom: 0;
-  left: 12px;
+  left: var(--space-3);
   display: flex;
   align-items: center;
   pointer-events: none;
 }
+/* The icon (16px) with the field's inline padding on both sides. */
 .input.with-icon {
-  padding-left: 40px;
+  padding-left: calc(16px + 2 * var(--space-3));
 }
 .toggle {
   position: absolute;
@@ -30,7 +32,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
+  width: var(--toggle-width);
   color: var(--muted);
 }
 .toggle svg {
@@ -46,13 +48,13 @@
   inset: auto;
   width: max-content;
   margin: 0;
-  padding: 4px;
+  padding: var(--space-1);
   overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: 9px;
+  border-radius: var(--radius-md);
   background: var(--surface-raised);
   color: var(--ink);
-  box-shadow: 0 8px 24px var(--shadow-color);
+  box-shadow: var(--shadow-lg);
 }
 .popup:popover-open {
   display: flex;
@@ -71,10 +73,10 @@
 .option {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   min-height: 36px;
-  padding: 6px 8px;
-  border-radius: 6px;
+  padding: var(--space-2);
+  border-radius: var(--radius-sm);
   font-size: var(--text-sm);
   cursor: pointer;
 }
@@ -100,21 +102,18 @@
   color: var(--green);
 }
 .message {
-  padding: 8px;
+  padding: var(--space-2);
   font-size: var(--text-sm);
   line-height: 1.5;
   color: var(--muted);
 }
 .listbox:not(:empty) + .message {
-  margin-top: 4px;
+  margin-top: var(--space-1);
   border-top: 1px solid var(--border);
 }
 @media (--mobile) {
-  .toggle {
-    width: 48px;
-  }
-  .input {
-    padding-right: 52px;
+  .control {
+    --toggle-width: 48px;
   }
   .option {
     min-height: 44px;

@@ -9,7 +9,7 @@ import { parseBalancesCsv } from "../src/lib/import";
 import { normalizeTransactions, selectedBalance } from "../src/features/banking/server/bank-data";
 import type { BankTransaction } from "../src/features/banking/server/enable-banking-client";
 import { respond } from "../src/server/http/respond";
-import { readJson } from "../src/server/http/request-body";
+import { maxRequestBodyBytes, readJson } from "../src/server/http/request-body";
 
 type StatusError = {
   status?: number;
@@ -289,4 +289,53 @@ test("a successful browser response without JSON is reported with its status", a
   await assert.rejects(api("accounts", {}), {
     status: 200
   });
+});
+
+test("readJson rejects a declared oversized body before parsing and accepts a 1 MB CSV import", async () => {
+  const body = (size: number) => JSON.stringify({
+    csv: "a".repeat(size)
+  });
+  const post = (payload: string, length = String(payload.length)) => new Request("http://localhost/api/imports/transactions", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "content-length": length
+    },
+    body: payload
+  });
+
+  assert.deepEqual(await readJson(post(body(1_000_000))), {
+    csv: "a".repeat(1_000_000)
+  });
+  await assert.rejects(readJson(post("{}", String(maxRequestBodyBytes + 1))), {
+    status: 413
+  });
+});
+
+test("readJson counts the bytes it receives when a streamed body declares no length", async () => {
+  const chunk = new TextEncoder().encode("a".repeat(64 * 1024));
+  let sent = 0;
+  const stream = new ReadableStream<Uint8Array>({
+    pull(controller) {
+      controller.enqueue(chunk);
+      sent += chunk.byteLength;
+
+      if (sent > maxRequestBodyBytes * 2) {
+        controller.close();
+      }
+    }
+  });
+  const request = new Request("http://localhost/api/imports/transactions", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json"
+    },
+    body: stream,
+    duplex: "half"
+  } as RequestInit);
+
+  await assert.rejects(readJson(request), {
+    status: 413
+  });
+  assert.ok(sent <= maxRequestBodyBytes + chunk.byteLength * 2, "reading stopped soon after the limit");
 });

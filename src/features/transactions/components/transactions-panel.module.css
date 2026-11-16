@@ -5,26 +5,23 @@
   composes: card-heading from "../../../components/ui/primitives.module.css";
 }
 .transaction-panel {
-  margin-top: 25px;
-  padding: 23px 0 0;
+  margin-top: var(--space-6);
+  padding: var(--space-6) 0 0;
   overflow: hidden;
 }
 .transaction-panel > .card-heading {
-  padding: 0 24px 20px;
+  padding: 0 var(--space-6) var(--space-4);
 }
 .filters {
   display: flex;
-  gap: 10px;
+  gap: var(--space-3);
   align-items: center;
   flex-wrap: wrap;
-  padding: 0 24px 20px;
+  padding: 0 var(--space-6) var(--space-4);
 }
-.filters input {
-  font-size: var(--text-xs);
-  min-height: 36px;
-}
+.filters input,
 .filters select {
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   min-height: 36px;
 }
 
@@ -33,21 +30,20 @@
   max-width: 16rem;
 }
 .search-field {
-  display: flex !important;
+  display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   flex: 1;
   min-width: 190px;
   border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 0 9px;
-  margin: 0 !important;
+  border-radius: var(--radius-md);
+  padding: 0 var(--space-2);
   color: var(--muted);
 }
 .search-field input {
   border: 0;
   min-width: 0;
-  padding: 9px 0;
+  padding: var(--space-2) 0;
   flex: 1;
   width: 100%;
   background: transparent;
@@ -55,46 +51,27 @@
 .pagination {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 17px 24px;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-6);
 }
 .pagination > span {
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   color: var(--muted);
   margin-right: auto;
 }
-@media (--laptop) {
-  .transaction-panel {
-    padding: 22px 0 0;
-  }
-}
 @media (--mobile) {
-  .transaction-panel h2 {
-    font-size: var(--text-lg);
-  }
-  .transaction-panel {
-    padding: 22px 0 0;
-  }
   .transaction-panel > .card-heading {
-    padding: 0 18px 18px;
+    padding: 0 var(--space-4) var(--space-4);
     align-items: center;
   }
   .filters {
-    padding: 0 18px 18px;
-    gap: 10px;
+    padding: 0 var(--space-4) var(--space-4);
   }
   .filters .search-field {
     flex-basis: 100%;
   }
-  .filters input {
-    font-size: var(--text-md);
-    min-height: 46px;
-  }
+  .filters input,
   .filters select {
-    font-size: var(--text-md);
-    min-height: 46px;
-  }
-  .search-field input {
     font-size: var(--text-md);
     min-height: 46px;
   }
@@ -111,12 +88,11 @@
   }
   .pagination {
     flex-wrap: wrap;
-    padding: 16px 18px;
+    padding: var(--space-4);
   }
   .pagination > span {
-    font-size: var(--text-sm);
     flex-basis: 100%;
-    margin-bottom: 6px;
+    margin-bottom: var(--space-2);
   }
   .pagination .button {
     flex: 1;

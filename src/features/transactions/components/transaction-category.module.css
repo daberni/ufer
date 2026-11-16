@@ -2,7 +2,7 @@
   position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: var(--space-2);
   max-width: 100%;
   vertical-align: middle;
 }
@@ -14,7 +14,7 @@
 }
 .picker input {
   min-height: 32px;
-  padding-block: 4px;
+  padding-block: var(--space-1);
   font-size: var(--text-xs);
   text-overflow: ellipsis;
 }
@@ -53,7 +53,7 @@
 }
 @media (--mobile) {
   .category {
-    gap: 10px;
+    gap: var(--space-3);
   }
   .picker {
     width: 100%;

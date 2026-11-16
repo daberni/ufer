@@ -1,69 +1,54 @@
-.subtle {
-  composes: subtle from "../../../components/ui/primitives.module.css";
-}
 .period-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 15px;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
 }
 .period-controls {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 15px;
-}
-.period-bar {
-  margin-bottom: 17px;
+  gap: 3px;
 }
 .period-bar > div:first-child {
   display: flex;
   align-items: center;
-  gap: 13px;
-}
-.period-controls {
-  gap: 3px;
+  gap: var(--space-3);
 }
 .all-months {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-left: 8px;
-  font-size: var(--text-xs);
+  gap: var(--space-2);
+  margin-left: var(--space-2);
+  font-size: var(--text-sm);
   white-space: nowrap;
   cursor: pointer;
 }
-/* The global input base sets a 41px text-field height that does not apply to a checkbox. */
 .all-months input {
-  min-height: 0;
-  margin: 0;
   accent-color: var(--green);
 }
 @media (--laptop) {
   .period-bar > div:first-child {
     flex-direction: column;
     align-items: flex-start;
-    gap: 6px;
+    gap: var(--space-2);
   }
 }
 @media (--mobile) {
   .period-bar {
     align-items: stretch;
     flex-direction: column;
-    gap: 13px;
-    margin-bottom: 18px;
-  }
-  .period-bar > div:first-child > .subtle {
-    font-size: var(--text-sm);
+    gap: var(--space-3);
+    margin-bottom: var(--space-4);
   }
   .period-controls {
     position: relative;
     display: grid;
     grid-template-columns: auto 44px minmax(0, 1fr) 44px;
-    gap: 3px;
-    padding: 5px;
+    padding: var(--space-1);
     border: 1px solid var(--border);
-    border-radius: 9px;
+    border-radius: var(--radius-md);
     background: var(--surface);
   }
   .period-controls > select {
@@ -75,7 +60,7 @@
     grid-column: 1 / -1;
     min-height: 44px;
     margin-left: 0;
-    padding: 0 6px;
+    padding: 0 var(--space-2);
     font-size: var(--text-md);
   }
 }

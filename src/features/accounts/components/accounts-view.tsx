@@ -127,7 +127,7 @@ function AccountCards({
         return (
           <section className={clsx(ui["panel"], styles["account-detail"])} key={account.id}>
             <div className={ui["card-heading"]}>
-              <span className={clsx(accountStyles["account-logo"], styles[account.kind])}>
+              <span className={clsx(accountStyles["account-logo"], accountStyles[account.kind])}>
                 <Icon size={23} />
               </span>
               <span className={ui["pill"]}>{kinds[account.kind]}</span>

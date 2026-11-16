@@ -116,15 +116,15 @@ function LatestSync({
 }) {
   if (latestSync.status === "pending") {
     if (latestSync.failure) {
-      return <InlineFailure className={styles["subtle"]} failure={latestSync.failure} subject="The last sync" />;
+      return <InlineFailure className={ui["subtle"]} failure={latestSync.failure} subject="The last sync" />;
     }
 
-    return <span className={clsx(styles["subtle"], valueMask("loading"))}>Last sync: today · successful</span>;
+    return <span className={clsx(ui["subtle"], valueMask("loading"))}>Last sync: today · successful</span>;
   }
 
   const run = latestSync.data;
 
-  return <span className={styles["subtle"]} title={run ? describeDate(Temporal.Instant.from(run.started_at).toZonedDateTimeISO(timeZone)).title : undefined}>{lastSyncLabel(run, timeZone)}</span>;
+  return <span className={ui["subtle"]} title={run ? describeDate(Temporal.Instant.from(run.started_at).toZonedDateTimeISO(timeZone)).title : undefined}>{lastSyncLabel(run, timeZone)}</span>;
 }
 
 function TransactionCount({ count }: {

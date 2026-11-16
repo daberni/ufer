@@ -1,12 +1,12 @@
 .analytics-grid {
   display: grid;
   grid-template-columns: 1.2fr 1fr;
-  gap: 22px;
-  margin-top: 25px;
+  gap: var(--space-6);
+  margin-top: var(--space-6);
 }
 @media (--laptop) {
   .analytics-grid {
-    gap: 17px;
+    gap: var(--space-4);
   }
 }
 @media (--tablet) {
@@ -20,12 +20,8 @@
 @media (--mobile) {
   .analytics-grid {
     grid-template-columns: minmax(0, 1fr);
-    gap: 17px;
   }
   .analytics-grid h2 {
     font-size: var(--text-lg);
-  }
-  .analytics-grid {
-    margin-top: 25px;
   }
 }
