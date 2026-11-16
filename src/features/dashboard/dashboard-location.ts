@@ -1,6 +1,6 @@
 import { currentMonth, currentMonthPeriod, parsePeriod, serializePeriod, type Period } from "./period";
 import { parsePage } from "./pagination";
-import { isCurrencyCode } from "@/lib/money";
+import { parseCurrencyCode } from "@/lib/money";
 import type { View } from "./types";
 
 /**
@@ -68,7 +68,7 @@ export function periodScope(params: SearchParams) {
 }
 
 function currencyOrDefault(value: string | null) {
-  return value && isCurrencyCode(value) ? value : defaultCurrency;
+  return value && parseCurrencyCode(value) || defaultCurrency;
 }
 
 /** The data query for a view: the shared period scope plus, on the transaction list, its own filters. */
