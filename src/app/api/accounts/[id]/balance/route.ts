@@ -1,4 +1,5 @@
 import { respond } from "@/server/http/respond";
+import { readJson } from "@/server/http/request-body";
 import { updateManualValuation } from "@/features/accounts/server/account-service";
 
 export const runtime = "nodejs";
@@ -17,6 +18,6 @@ export async function POST(request: Request, context: Context) {
   return respond(request, async () => {
     const { id } = await context.params;
 
-    return updateManualValuation(id, await request.json());
+    return updateManualValuation(id, await readJson(request));
   });
 }
