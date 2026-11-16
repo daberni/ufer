@@ -36,13 +36,20 @@
   position: absolute;
   top: calc(100% + 1px);
   left: 0;
-  max-width: 260px;
+  display: flex;
+  gap: 6px;
+  max-width: 420px;
   font-size: var(--text-xs);
   line-height: 1.2;
+  white-space: nowrap;
   color: var(--danger);
 }
+.message > :not(.message-text) {
+  flex: none;
+  line-height: inherit;
+}
 .message-text {
-  display: block;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -59,9 +66,22 @@
     width: 18px;
     height: 18px;
   }
+  /* The card has no spacing to overlay, so the failure takes its own lines under the control. */
+  .category {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
   .message {
-    left: auto;
-    right: 0;
-    max-width: calc(100vw - 64px);
+    position: static;
+    flex: 1 0 100%;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    max-width: none;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-align: right;
+  }
+  .message-text {
+    white-space: normal;
   }
 }
