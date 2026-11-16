@@ -121,6 +121,8 @@ async function seededDatabase(context: TestContext) {
     currency: "EUR",
     counterparty: "Example pharmacy"
   }]);
+
+  return db;
 }
 
 function spending(cashFlow: Awaited<ReturnType<typeof readCashFlow>>) {
@@ -159,11 +161,27 @@ test("a month period limits transactions, cash flow and spending to the same cal
   assert.deepEqual(cashFlow.trend.slice(-2), [{
     month: "2025-12",
     income: 100000,
-    expenses: 0
+    expenses: 0,
+    incomeBreakdown: [{
+      categoryId: null,
+      name: "Uncategorized",
+      color: "#a2aaa5",
+      icon: null,
+      amount: 100000
+    }],
+    expenseBreakdown: []
   }, {
     month: "2026-01",
     income: 0,
-    expenses: 50000
+    expenses: 50000,
+    incomeBreakdown: [],
+    expenseBreakdown: [{
+      categoryId: null,
+      name: "Uncategorized",
+      color: "#a2aaa5",
+      icon: null,
+      amount: 50000
+    }]
   }]);
 });
 
@@ -184,4 +202,83 @@ test("the all-months period applies to cash flow and spending as well as the tra
   assert.equal(spending(cashFlow), 55000);
   assert.equal(cashFlow.trend.length, 6);
   assert.equal(cashFlow.trend.at(-1)?.month, currentMonth().toString());
+});
+
+async function seedCashFlowHistory(context: TestContext) {
+  const db = await seededDatabase(context);
+  const entries: [string, string, number, string | null][] = [
+    ["2025-11-01", "EUR", 250000, "income"],
+    ["2025-11-02", "EUR", 30000, "transfer"],
+    ["2025-11-15", "EUR", 1200, null],
+    ["2025-11-16", "USD", 5000, "income"],
+    ["2025-11-03", "EUR", -4000, "groceries"],
+    ["2025-11-20", "EUR", -90000, "home"],
+    ["2025-11-21", "EUR", -50000, "transfer"],
+    ["2025-12-02", "EUR", -2500, "groceries"],
+    ["2025-12-09", "EUR", -1200, "transport"],
+    ["2025-12-12", "EUR", -800, "leisure"],
+    ["2025-12-18", "EUR", -3100, "fees"],
+    ["2025-12-22", "EUR", -400, "health"],
+    ["2025-12-23", "EUR", -650, "gifts"],
+    ["2025-12-28", "EUR", -700, null],
+    ["2025-12-29", "EUR", -20000, "transfer"],
+    ["2025-12-30", "USD", -9900, "groceries"],
+    ["2026-02-10", "EUR", 15000, "groceries"],
+    ["2026-02-11", "EUR", -6000, "groceries"]
+  ];
+
+  await db.insert(schema.categories).values([{
+    id: "health",
+    name: "Health",
+    color: "#5f8fb0"
+  }, {
+    id: "gifts",
+    name: "Gifts",
+    color: "#b46f9a"
+  }]);
+  await db.insert(schema.transactions).values(entries.map(([bookingDate, currency, amount, categoryId], index) => ({
+    id: `history-${index}`,
+    account_id: "checking",
+    provider_reference: `synthetic-history-${index}`,
+    booking_date: bookingDate,
+    amount_minor: amount,
+    currency,
+    category_id: categoryId
+  })));
+}
+
+test("each trend month's breakdowns agree with that month's period totals and spending breakdown", async context => {
+  await seedCashFlowHistory(context);
+  const window = await readCashFlow(monthPeriod(Temporal.PlainYearMonth.from("2026-02")), "EUR");
+
+  assert.deepEqual(window.trend.map(item => item.month), ["2025-09", "2025-10", "2025-11", "2025-12", "2026-01", "2026-02"]);
+
+  for (const month of window.trend) {
+    const period = await readCashFlow(monthPeriod(Temporal.PlainYearMonth.from(month.month)), "EUR");
+
+    const monthIncome = month.incomeBreakdown.reduce((total, item) => total + item.amount, 0);
+
+    assert.deepEqual(month.expenseBreakdown, period.breakdown, month.month);
+    assert.equal(month.expenses, period.expenses, month.month);
+    assert.equal(spending(period), month.expenses, month.month);
+    assert.equal(month.income, period.income, month.month);
+    assert.equal(monthIncome, month.income, month.month);
+  }
+});
+
+test("a month's breakdowns leave out transfers and other currencies and keep uncategorized transactions", async context => {
+  await seedCashFlowHistory(context);
+  const window = await readCashFlow(monthPeriod(Temporal.PlainYearMonth.from("2026-02")), "EUR");
+  const november = window.trend.find(item => item.month === "2025-11");
+  const december = window.trend.find(item => item.month === "2025-12");
+  const january = window.trend.find(item => item.month === "2026-01");
+
+  assert.deepEqual(november?.incomeBreakdown.map(item => [item.categoryId, item.amount]), [["income", 250000], [null, 1200]]);
+  assert.equal(november?.income, 251200);
+  assert.deepEqual(november?.expenseBreakdown.map(item => [item.categoryId, item.amount]), [["home", 90000], ["groceries", 4000]]);
+  assert.equal(november?.expenses, 94000);
+  assert.deepEqual(december?.expenseBreakdown.map(item => [item.categoryId, item.amount]), [["fees", 3100], ["groceries", 2500], ["transport", 1200], ["leisure", 800], [null, 700], ["gifts", 650], ["health", 400]]);
+  assert.equal(december?.expenseBreakdown.find(item => item.categoryId === null)?.name, "Uncategorized");
+  assert.equal(december?.expenses, 9350);
+  assert.deepEqual(january?.expenseBreakdown.map(item => [item.categoryId, item.amount]), [[null, 50000]]);
 });
