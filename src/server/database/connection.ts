@@ -1,7 +1,8 @@
-import { createClient, type Client } from "@libsql/client";
+import { createClient, type Client, type Transaction } from "@libsql/client";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { drizzle, type LibSQLDatabase } from "drizzle-orm/libsql";
+import { measureDatabaseCall } from "@/server/http/server-timing";
 import { initializeDatabase } from "./migrations";
 import * as schema from "./schema";
 
@@ -35,11 +36,38 @@ export function createDatabaseClient() {
   });
 }
 
+const databaseCalls = new Set<PropertyKey>(["execute", "batch", "migrate", "executeMultiple", "transaction", "commit", "rollback"]);
+
+/** Counts each call that reaches the database toward the current request's Server-Timing, including calls inside a transaction. */
+function measuredCalls<T extends object>(target: T): T {
+  return new Proxy(target, {
+    get(object, property) {
+      const value = Reflect.get(object, property, object);
+
+      if (typeof value !== "function") {
+        return value;
+      }
+
+      if (!databaseCalls.has(property)) {
+        return value.bind(object);
+      }
+
+      return async (...args: unknown[]) => {
+        const result = await measureDatabaseCall(() => value.apply(object, args));
+
+        return property === "transaction" ? measuredCalls(result as Transaction) : result;
+      };
+    }
+  });
+}
+
 export function database(): Promise<Database> {
   if (!globalDb.budgetDb) {
     const client = createDatabaseClient();
+    // Initialization runs inside the first request, so its round trips count toward that request's timing.
+    const measuredClient = measuredCalls(client);
 
-    globalDb.budgetDb = initializeDatabase(client).then(() => drizzle(client, {
+    globalDb.budgetDb = initializeDatabase(measuredClient).then(() => drizzle(measuredClient, {
       schema
     })).catch(error => {
       globalDb.budgetDb = undefined;
