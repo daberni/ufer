@@ -2,6 +2,7 @@
 
 import { Temporal } from "temporal-polyfill";
 import { describeDate } from "@/lib/date-format";
+import { storedInstant } from "@/lib/time";
 import { useDisplayTimeZone } from "./use-display-time-zone";
 
 type DisplayProps = {
@@ -34,7 +35,7 @@ export function TimestampValue({
     return <>{fallback}</>;
   }
 
-  const display = describeDate(Temporal.Instant.from(value).toZonedDateTimeISO(timeZone));
+  const display = describeDate(storedInstant(value).toZonedDateTimeISO(timeZone));
 
   return <time dateTime={display.dateTime} title={display.title}>{display.label}</time>;
 }

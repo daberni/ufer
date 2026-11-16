@@ -4,6 +4,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Temporal } from "temporal-polyfill";
 import { apiGet } from "@/client/api";
 import { queryKeys } from "@/client/query-keys";
+import { storedInstant } from "@/lib/time";
 import type { Account, NetWorth } from "@/features/dashboard/types";
 
 const expiryWarning = Temporal.Duration.from({
@@ -31,7 +32,7 @@ export function useNetWorth(currency: string) {
 export function accountGroups(accounts: Account[], currency: string, now = Temporal.Now.instant()) {
   const bankAccounts = accounts.filter(account => account.provider === "enable_banking");
   const warningThreshold = now.add(expiryWarning);
-  const expiresSoon = (validUntil: string) => Temporal.Instant.compare(Temporal.Instant.from(validUntil), warningThreshold) < 0;
+  const expiresSoon = (validUntil: string) => Temporal.Instant.compare(storedInstant(validUntil), warningThreshold) < 0;
 
   return {
     currencies: [...new Set(["EUR", ...accounts.map(account => account.currency)])],
