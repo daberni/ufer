@@ -34,4 +34,4 @@ You keep the copyright in your contributions. Ufer is published under [AGPL-3.0-
 
 ## Security issues
 
-Do not report security vulnerabilities in public issues, pull requests or discussions. A private reporting channel has not been set up yet (TODO: OSS-04).
+Do not report security vulnerabilities in public issues, pull requests or discussions. Follow the [security policy](SECURITY.md) and report them privately through GitHub.
