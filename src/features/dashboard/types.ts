@@ -28,6 +28,9 @@ export type Transaction = {
   booking_date: string;
   amount_minor: number;
   currency: string;
+  /** The original amount of a foreign-currency booking, when the bank provides it. */
+  instructed_amount_minor: number | null;
+  instructed_currency: string | null;
   counterparty: string;
   description: string;
   account_name: string;
