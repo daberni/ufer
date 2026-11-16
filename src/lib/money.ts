@@ -1,6 +1,7 @@
 import { ValidationError } from "./errors";
 
-const exponents: Record<string, number> = {
+// Pinned minor units of the currencies stored so far; HUF keeps 2 although the runtime formats it with 0.
+const pinnedExponents: Record<string, number> = {
   EUR: 2,
   USD: 2,
   GBP: 2,
@@ -19,13 +20,31 @@ const exponents: Record<string, number> = {
   BHD: 3
 };
 
+const supportedCurrencies = new Set(Intl.supportedValuesOf("currency"));
+
+/** Decimal places of a currency: pinned for stored currencies, otherwise from the runtime's ISO 4217 data; undefined for unknown codes. */
+export function currencyExponent(currency: string) {
+  if (currency in pinnedExponents) {
+    return pinnedExponents[currency];
+  }
+
+  if (!supportedCurrencies.has(currency)) {
+    return undefined;
+  }
+
+  return new Intl.NumberFormat("en", {
+    style: "currency",
+    currency
+  }).resolvedOptions().maximumFractionDigits;
+}
+
 /** A well-formed ISO 4217 code; `Intl.NumberFormat` throws a RangeError for anything else. */
 export function isCurrencyCode(value: string) {
   return /^[A-Z]{3}$/.test(value);
 }
 
 export function minorUnits(value: string, currency = "EUR"): number {
-  const exponent = exponents[currency];
+  const exponent = currencyExponent(currency);
 
   if (exponent === undefined) {
     throw new ValidationError(`Unsupported currency: ${currency}`);
@@ -58,6 +77,6 @@ export function money(value: number, currency = "EUR") {
   return new Intl.NumberFormat("en-GB", {
     style: "currency",
     currency,
-    maximumFractionDigits: exponents[currency] ?? 2
-  }).format(value / 10 ** (exponents[currency] ?? 2));
+    maximumFractionDigits: currencyExponent(currency) ?? 2
+  }).format(value / 10 ** (currencyExponent(currency) ?? 2));
 }

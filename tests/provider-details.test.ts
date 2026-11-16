@@ -378,3 +378,19 @@ test("the transaction list returns the original amount and currency only for boo
 
   assert.deepEqual(originals.sort(), [[null, null], [-1340, "USD"]]);
 });
+
+test("an original amount in a currency outside the pinned list is kept", () => {
+  const entry = normalized({
+    ...complete,
+    exchange_rate: {
+      ...complete.exchange_rate,
+      instructed_amount: {
+        amount: "18.20",
+        currency: "CAD"
+      }
+    }
+  } as BankTransaction);
+
+  assert.equal(Math.abs(entry.provider?.instructedAmount ?? 0), 1820);
+  assert.equal(entry.provider?.instructedCurrency, "CAD");
+});
