@@ -1,5 +1,7 @@
+import { Temporal } from "temporal-polyfill";
 import { HttpError, ValidationError } from "@/lib/errors";
 import { minorUnits } from "@/lib/money";
+import { today } from "@/lib/time";
 import { accountInput, valuationInput } from "./account-schema";
 import { findManualAccount, insertManualAccount, saveManualValuation } from "./account-repository";
 
@@ -12,7 +14,7 @@ export async function createManualAccount(payload: unknown) {
   return insertManualAccount(input, amount);
 }
 
-export async function updateManualValuation(accountId: string, payload: unknown) {
+export async function updateManualValuation(accountId: string, payload: unknown, now = Temporal.Now.instant()) {
   const input = valuationInput.parse(payload);
   const account = await findManualAccount(accountId);
 
@@ -24,7 +26,7 @@ export async function updateManualValuation(accountId: string, payload: unknown)
 
   validateLiability(account.kind, amount);
 
-  if (input.date > new Date().toISOString().slice(0, 10)) {
+  if (Temporal.PlainDate.compare(Temporal.PlainDate.from(input.date), today(now)) > 0) {
     throw new ValidationError("The valuation date cannot be in the future.");
   }
 

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { and, count, eq, getTableColumns, ne } from "drizzle-orm";
 import type { Database } from "@/server/database/connection";
+import { timestamp } from "@/lib/time";
 import { accounts, balanceSnapshots, requisitions, syncRuns, transactions } from "@/server/database/schema";
 import { upsertTransactions } from "@/features/transactions/server/transaction-repository";
 import type { CategorizedEntry } from "@/features/transactions/server/transaction-entry";
@@ -33,7 +34,7 @@ export async function startSyncRun(db: Database, environment: string, id: string
 export async function finishSyncRun(db: Database, id: string, status: "PARTIAL" | "SUCCESS" | "FAILED", inserted: number, error: string | null) {
   await db.update(syncRuns).set({
     status,
-    finished_at: new Date().toISOString(),
+    finished_at: timestamp(),
     inserted_count: inserted,
     error
   }).where(eq(syncRuns.id, id));
@@ -58,7 +59,7 @@ export async function saveSyncedAccount(db: Database, accountId: string, balance
     await tx.update(accounts).set({
       balance_minor: balance.amount,
       balance_date: balance.date,
-      last_synced_at: new Date().toISOString(),
+      last_synced_at: timestamp(),
       sync_error: null
     }).where(eq(accounts.id, accountId));
     await tx.insert(balanceSnapshots).values({

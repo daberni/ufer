@@ -12,7 +12,7 @@ Ufer maintains code, comments, UI copy and examples in English. Readability and 
 | `src/components` | Shared layout and reusable UI; no financial persistence |
 | `src/client` | Browser HTTP transport |
 | `src/server` | Shared infrastructure: database lifecycle, HTTP guards, job coordination and cryptographic primitives |
-| `src/lib` | Shared money/rule/import utilities; no database queries, authentication protocol or feature workflow collection |
+| `src/lib` | Shared money/date/rule/import utilities; no database queries, authentication protocol or feature workflow collection |
 
 Organize around a reason to change. A component renders one coherent section or form; a hook owns one interaction or data lifecycle; a repository owns persistence; a service coordinates a use case and its domain rules. A page composes these pieces. SOLID does not require an interface, generic base class, factory or dependency-injection container for every function.
 
