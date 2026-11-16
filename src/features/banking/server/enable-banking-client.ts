@@ -139,7 +139,28 @@ export async function bankingRequest<T>(path: string, body?: unknown, method = b
     throw new BankingError(code, response.status);
   }
 
-  return response.json() as Promise<T>;
+  return readProviderBody<T>(response, method);
+}
+
+// A body that cannot be read is a provider failure, not the user's input. DELETE /sessions answers without a body.
+async function readProviderBody<T>(response: Response, method: string): Promise<T> {
+  let text: string;
+
+  try {
+    text = await response.text();
+  } catch {
+    throw new HttpError(502, "Enable Banking returned an unreadable response.");
+  }
+
+  if (!text.trim() && method === "DELETE") {
+    return undefined as T;
+  }
+
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new HttpError(502, "Enable Banking returned an unreadable response.");
+  }
 }
 
 export async function verifyApplication() {

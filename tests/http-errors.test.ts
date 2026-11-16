@@ -9,6 +9,11 @@ import { parseBalancesCsv } from "../src/lib/import";
 import { normalizeTransactions, selectedBalance } from "../src/features/banking/server/bank-data";
 import type { BankTransaction } from "../src/features/banking/server/enable-banking-client";
 import { respond } from "../src/server/http/respond";
+import { readJson } from "../src/server/http/request-body";
+
+type StatusError = {
+  status?: number;
+};
 
 const request = new Request("http://localhost/api/example?private=not-for-logs");
 const publicAccess = {
@@ -128,7 +133,10 @@ test("JSON, schema and domain validation keep their status without exposing subm
   context.mock.method(console, "warn", () => {});
   const invalidActions = [{
     status: 400,
-    action: async () => JSON.parse("private malformed payload")
+    action: async () => readJson(new Request("http://localhost/api/example", {
+      method: "POST",
+      body: "private malformed payload"
+    }))
   }, {
     status: 400,
     action: async () => z.number().parse("private submitted value")
@@ -245,5 +253,40 @@ test("the browser transport preserves the problem explanation and diagnostic ide
     status: 422,
     traceId: "c".repeat(32),
     instance: "urn:uuid:example"
+  });
+});
+
+test("a SyntaxError raised outside request parsing stays an internal failure", async context => {
+  context.mock.method(console, "error", () => {});
+  const response = await respond(request, async () => JSON.parse("private malformed payload"), publicAccess);
+
+  assert.equal(response.status, 500);
+});
+
+test("the browser reports the status and a fallback message when an intermediary answers without Problem Details", async context => {
+  context.mock.method(globalThis, "fetch", async () => new Response("<html>Bad Gateway</html>", {
+    status: 502,
+    headers: {
+      "Content-Type": "text/html"
+    }
+  }));
+
+  await assert.rejects(api("accounts", {}), (error: Error & StatusError) => {
+    assert.equal(error.status, 502);
+    assert.match(error.message, /502/);
+    assert.equal(error.message.includes("<"), false);
+    assert.equal(error.message.includes("Unexpected token"), false);
+
+    return true;
+  });
+});
+
+test("a successful browser response without JSON is reported with its status", async context => {
+  context.mock.method(globalThis, "fetch", async () => new Response("", {
+    status: 200
+  }));
+
+  await assert.rejects(api("accounts", {}), {
+    status: 200
   });
 });
