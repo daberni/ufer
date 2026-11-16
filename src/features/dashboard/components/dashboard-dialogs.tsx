@@ -4,7 +4,6 @@ import ui from "../../../components/ui/primitives.module.css";
 
 import styles from "./dashboard-dialogs.module.css";
 import { useEffect, useRef } from "react";
-import { useBankDirectory } from "@/features/banking/use-bank-directory";
 import { usePathname } from "next/navigation";
 import { X } from "lucide-react";
 import { BankConnectionForm } from "@/features/banking/components/bank-connection-form";
@@ -16,7 +15,7 @@ import { CategoryForm } from "@/features/categorization/components/category-form
 import { CsvImportForm } from "@/features/imports/components/csv-import-form";
 import { modalTitles } from "@/features/dashboard/presentation";
 import { onView, useDashboardStore, type DashboardDialog } from "@/features/dashboard/dashboard-store";
-import type { Account, Connection } from "@/features/dashboard/types";
+import type { Account } from "@/features/dashboard/types";
 
 type Props = {
   accounts: Account[];
@@ -102,7 +101,7 @@ function DialogForm({
 }) {
   switch (dialog.kind) {
     case "bank":
-      return <BankDialogForm close={close} connection={dialog.connection} environment={environment} />;
+      return <BankConnectionForm close={close} connection={dialog.connection} environment={environment} />;
     case "removeConnection":
       return <RemoveConnectionForm accounts={accounts} close={close} selectedConnection={dialog.connection} />;
     case "account":
@@ -118,30 +117,4 @@ function DialogForm({
     case "import":
       return <CsvImportForm accounts={accounts} close={close} initialMode={dialog.mode} />;
   }
-}
-
-// TEMPORARY until #122 moves the bank directory into the bank form.
-function BankDialogForm({
-  close,
-  connection,
-  environment
-}: {
-  close: () => void;
-  connection: Connection | null;
-  environment: string;
-}) {
-  const directory = useBankDirectory(true);
-  const {
-    setBankCountry,
-    setBankName
-  } = directory;
-
-  useEffect(() => {
-    if (connection) {
-      setBankCountry(connection.bank_country);
-      setBankName(connection.bank_name);
-    }
-  }, [connection, setBankCountry, setBankName]);
-
-  return <BankConnectionForm close={close} environment={environment} {...directory} />;
 }
