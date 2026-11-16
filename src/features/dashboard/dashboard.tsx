@@ -16,7 +16,7 @@ import { LoginForm } from "@/features/auth/components/login-form";
 import { LegalLinks } from "@/features/legal/components/legal-links";
 import { SourceCodeNotice } from "@/features/legal/components/source-code-notice";
 import { accountGroups, useAccounts } from "@/features/accounts/queries";
-import { useBankingStatus } from "@/features/banking/queries";
+import { useBankingConfiguration } from "@/features/banking/banking-configuration";
 import { useDashboardController } from "./dashboard-context";
 import { useLoadError } from "./use-load-error";
 
@@ -38,21 +38,20 @@ function DashboardShell({ children }: {
   children: React.ReactNode
 }) {
   const dashboard = useDashboardController();
-  const banking = useBankingStatus();
+  const { environment } = useBankingConfiguration();
   const accounts = useAccounts();
   const loadError = useLoadError();
 
-  if (!banking.data || !accounts.data) {
+  if (!accounts.data) {
     return (
       <main className={styles["content"]}>
         <LoadErrorNotice message={loadError.message} retry={loadError.retry} />
-        <ViewLoading failed={banking.isError || accounts.isError} />
+        <ViewLoading failed={accounts.isError} />
         <DashboardFooter />
       </main>
     );
   }
 
-  const environment = banking.data.environment;
   const {
     bankAccounts,
     expiring

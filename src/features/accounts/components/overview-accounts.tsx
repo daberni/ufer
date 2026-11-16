@@ -8,7 +8,7 @@ import styles from "./overview-accounts.module.css";
 import { ArrowRight, Landmark, Plus } from "lucide-react";
 import { accountIcon, kinds, accountSyncLabel } from "@/features/dashboard/presentation";
 import { DateValue } from "@/components/ui/date-value";
-import { useBankingStatus } from "@/features/banking/queries";
+import { useBankingConfiguration } from "@/features/banking/banking-configuration";
 import { money } from "@/lib/money";
 import type { Account } from "@/features/dashboard/types";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
@@ -25,8 +25,7 @@ export function OverviewAccounts({
   setModal,
   setSelectedAccount
 }: Props) {
-  const banking = useBankingStatus();
-  const sandbox = banking.data?.environment === "SANDBOX";
+  const sandbox = useBankingConfiguration().environment === "SANDBOX";
 
   return (
     <section className={styles["accounts-section"]}>

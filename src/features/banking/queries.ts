@@ -3,15 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { apiGet } from "@/client/api";
 import { queryKeys } from "@/client/query-keys";
-import type { Bank, BankingStatus, Connection, SyncRun } from "@/features/dashboard/types";
-
-export function useBankingStatus() {
-  return useQuery({
-    queryKey: queryKeys.banking.status(),
-    queryFn: ({ signal }) => apiGet<BankingStatus>("banking/status", undefined, signal),
-    staleTime: Infinity
-  });
-}
+import type { Bank, Connection, SyncRun } from "@/features/dashboard/types";
 
 export function useConnections() {
   return useQuery({

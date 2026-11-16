@@ -5,8 +5,9 @@ import { environment } from "./environment";
 import { linkedTransactionCount } from "./sync-repository";
 import { bankingConfigured } from "./enable-banking-client";
 import { timestamp } from "@/lib/time";
+import type { BankingConfiguration } from "@/features/dashboard/types";
 
-export function bankingStatus() {
+export function bankingConfiguration(): BankingConfiguration {
   return {
     environment: environment(),
     configured: bankingConfigured()

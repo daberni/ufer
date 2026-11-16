@@ -9,11 +9,11 @@ import { Landmark, Link2, Plus, ShieldCheck, Trash2 } from "lucide-react";
 import { TimestampValue } from "@/components/ui/date-value";
 import { Empty } from "@/components/ui/empty-state";
 import { BridgeIllustration } from "@/components/branding/illustrations";
-import type { BankingStatus, Connection, SyncRun } from "@/features/dashboard/types";
+import type { BankingConfiguration, Connection, SyncRun } from "@/features/dashboard/types";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
 
 type Props = Pick<DashboardController, "openBank" | "openConnectionRemoval" | "syncRunHref"> & {
-  banking: BankingStatus;
+  banking: BankingConfiguration;
   connections: Connection[];
   syncRuns: SyncRun[];
 };
