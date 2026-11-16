@@ -16,7 +16,7 @@
   content: "";
   position: absolute;
   inset: 0;
-  z-index: -1;
+  z-index: var(--layer-base);
   background: linear-gradient(
     100deg,
     transparent 25%,
@@ -28,6 +28,8 @@
 }
 /* All states occupy one cell; the cell is as wide as the widest state, so the button never resizes. */
 .layers {
+  position: relative;
+  z-index: var(--layer-raised);
   display: grid;
 }
 .layer {
@@ -35,16 +37,16 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: var(--space-2);
   opacity: 0;
-  transition: opacity 0.2s;
+  transition: opacity var(--duration);
 }
 .layer.visible {
   opacity: 1;
 }
 .layer > svg {
   scale: 0.5;
-  transition: scale 0.2s;
+  transition: scale var(--duration);
 }
 .layer.visible > svg {
   scale: 1;
@@ -53,14 +55,14 @@
   position: absolute;
   top: -8px;
   right: -8px;
-  z-index: 1;
+  z-index: var(--layer-raised);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   min-width: 20px;
   height: 20px;
-  padding: 0 5px;
-  border-radius: 10px;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-full);
   background: var(--danger);
   box-shadow: 0 0 0 2px var(--bg);
   color: var(--on-danger);
@@ -91,7 +93,7 @@
   .sync > .button {
     width: 40px;
     min-width: 40px;
-    padding: 10px;
+    padding: var(--space-2);
   }
   .sync > .button svg {
     width: 17px;
@@ -106,7 +108,7 @@
     width: 100%;
     min-height: 46px;
     font-size: var(--text-md);
-    padding: 12px 15px;
+    padding: var(--space-3) var(--space-4);
   }
   .sync > .button svg {
     width: 18px;
@@ -118,7 +120,6 @@
   .badge {
     min-width: 24px;
     height: 24px;
-    border-radius: 12px;
   }
   .badge::before {
     inset: -10px;

@@ -12,42 +12,42 @@
   white-space: nowrap;
 }
 .table-scroll th {
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   font-weight: 500;
   color: var(--muted);
   letter-spacing: 0.4px;
   background: var(--surface-muted);
-  padding: 13px 17px;
+  padding: var(--space-3) var(--space-4);
   border-top: 1px solid var(--border-subtle);
   border-bottom: 1px solid var(--border-subtle);
 }
 .table-scroll td {
-  padding: 15px 17px;
+  padding: var(--space-4);
   border-bottom: 1px solid var(--border-subtle);
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
 }
 .table-scroll th:first-child {
-  padding-left: 24px;
+  padding-left: var(--space-6);
 }
 .table-scroll td:first-child {
-  padding-left: 24px;
+  padding-left: var(--space-6);
 }
 .table-scroll th:last-child {
-  padding-right: 24px;
+  padding-right: var(--space-6);
 }
 .table-scroll td:last-child {
-  padding-right: 24px;
+  padding-right: var(--space-6);
 }
 .transaction-name {
   display: flex;
   align-items: center;
-  gap: 11px;
+  gap: var(--space-3);
 }
 .transaction-icon {
   width: 32px;
   height: 32px;
   border: 1px solid var(--border-subtle);
-  border-radius: 9px;
+  border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -56,7 +56,7 @@
   flex-shrink: 0;
 }
 .transaction-name strong {
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   font-weight: 500;
   display: block;
   overflow: hidden;
@@ -65,22 +65,22 @@
 }
 .transaction-name div > span {
   display: block;
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   color: var(--muted);
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 260px;
-  margin-top: 5px;
+  margin-top: var(--space-1);
 }
 .amount {
   font-variant-numeric: tabular-nums;
   font-weight: 500;
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
 }
 .original-amount {
   display: block;
-  margin-top: 5px;
-  font-size: var(--text-xs);
+  margin-top: var(--space-1);
+  font-size: var(--text-sm);
   font-weight: 400;
   color: var(--muted);
 }
@@ -101,15 +101,15 @@
     display: block;
     list-style: none;
     margin: 0;
-    padding: 0 16px 16px;
+    padding: 0 var(--space-4) var(--space-4);
   }
   .transaction-cards > li + li {
-    margin-top: 13px;
+    margin-top: var(--space-3);
   }
   .transaction-card {
-    padding: 16px;
+    padding: var(--space-4);
     border: 1px solid var(--border);
-    border-radius: 10px;
+    border-radius: var(--radius-lg);
     background: var(--surface-muted);
     min-width: 0;
   }
@@ -117,7 +117,7 @@
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    gap: 10px;
+    gap: var(--space-3);
     font-size: var(--text-sm);
     line-height: 1.6;
     color: var(--ink-soft);
@@ -134,8 +134,8 @@
     align-items: flex-start;
     flex-wrap: wrap;
     justify-content: space-between;
-    gap: 8px 14px;
-    margin-top: 12px;
+    gap: var(--space-2) var(--space-4);
+    margin-top: var(--space-3);
   }
   .transaction-card-heading h3 {
     flex: 1 1 115px;
@@ -151,12 +151,12 @@
     overflow-wrap: anywhere;
   }
   .transaction-details {
-    margin-top: 5px;
+    margin-top: var(--space-1);
     font-size: var(--text-sm);
   }
   .transaction-details summary {
     min-height: 44px;
-    padding: 13px 0;
+    padding: var(--space-3) 0;
     cursor: pointer;
     color: var(--green-text);
   }
@@ -165,16 +165,16 @@
     white-space: pre-wrap;
     line-height: 1.75;
     color: var(--ink-soft);
-    padding-bottom: 13px;
+    padding-bottom: var(--space-3);
   }
   .transaction-card-category {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
-    gap: 10px;
-    margin-top: 9px;
-    padding-top: 13px;
+    gap: var(--space-3);
+    margin-top: var(--space-2);
+    padding-top: var(--space-3);
     border-top: 1px solid var(--border);
   }
   .transaction-card-category > span {
