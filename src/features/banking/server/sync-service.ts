@@ -10,6 +10,15 @@ import { saveAccountSync } from "./account-sync-service";
 import { finishSyncRun, listSyncAccounts, recordAccountSyncError, startSyncRun } from "./sync-repository";
 import { expireConnection } from "./connection-repository";
 
+const expiredSessionCodes = ["EXPIREDSESSION", "EXPIRED_SESSION", "INVALID_SESSION"];
+
+// Only a new bank authorization resolves this failure; rate limits and provider data errors do not.
+class ReconnectRequired extends HttpError {
+  constructor(message: string) {
+    super(409, message);
+  }
+}
+
 export function syncLeaseName(environment: string) {
   return `sync:${environment}`;
 }
@@ -25,7 +34,11 @@ export async function syncAccounts() {
   }
 
   let inserted = 0;
-  const failures: string[] = [];
+  const failures: {
+    account: string;
+    message: string;
+    reconnect: boolean;
+  }[] = [];
 
   try {
     await startSyncRun(db, env, owner, new Date().toISOString());
@@ -51,11 +64,11 @@ export async function syncAccounts() {
         if (account.connection_status !== "LINKED" || !account.valid_until || Date.parse(account.valid_until) <= Date.now()) {
           await expireConnection(db, account.connection_id);
 
-          throw new HttpError(409, "Bank authorization has expired. Reconnect the bank.");
+          throw new ReconnectRequired("Bank authorization has expired. Reconnect the bank.");
         }
 
         if (!account.provider_uid) {
-          throw new HttpError(409, "The account is missing its bank reference. Reconnect the bank.");
+          throw new ReconnectRequired("The account is missing its bank reference. Reconnect the bank.");
         }
 
         const balanceResult = await bankingRequest<{
@@ -68,20 +81,27 @@ export async function syncAccounts() {
         inserted += await saveAccountSync(db, account.id, account.currency, balanceResult.balances, entries, rules);
       } catch (error) {
         const message = error instanceof HttpError ? error.message : "Sync could not be completed.";
+        const sessionExpired = error instanceof BankingError && expiredSessionCodes.includes(error.code);
 
         await recordAccountSyncError(db, account.id, env, message);
 
-        if (error instanceof BankingError && ["EXPIREDSESSION", "EXPIRED_SESSION", "INVALID_SESSION"].includes(error.code)) {
+        if (sessionExpired) {
           await expireConnection(db, account.connection_id);
         }
 
-        failures.push(`${account.name}: ${message}`);
+        failures.push({
+          account: account.name,
+          message,
+          reconnect: sessionExpired || error instanceof ReconnectRequired
+        });
       }
     }
 
     const status = failures.length ? "PARTIAL" : "SUCCESS";
 
-    await finishSyncRun(db, owner, status, inserted, failures.join("\n") || null);
+    const failureLog = failures.map(failure => `${failure.account}: ${failure.message}`).join("\n");
+
+    await finishSyncRun(db, owner, status, inserted, failureLog || null);
 
     return {
       inserted,

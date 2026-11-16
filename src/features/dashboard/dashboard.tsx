@@ -73,6 +73,7 @@ function DashboardShell({ children }: {
         <main className={styles["content"]}>
           <PageHeading
             bankAccounts={bankAccounts}
+            changeView={dashboard.changeView}
             nav={dashboard.nav}
             view={dashboard.view}
           />
