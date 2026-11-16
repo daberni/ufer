@@ -7,9 +7,15 @@ import { queryKeys } from "@/client/query-keys";
 import { sessionEpoch } from "@/client/session-epoch";
 import type { ConnectionRemoval } from "@/features/dashboard/types";
 
+export type SyncFailure = {
+  account: string;
+  message: string;
+  reconnect: boolean;
+};
+
 export type SyncOutcome = {
   inserted: number;
-  failures: string[];
+  failures: SyncFailure[];
 };
 
 export const syncMutationKey = ["banking", "sync"] as const;
