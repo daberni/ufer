@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect } from "react";
 import { useQueryClient, type Mutation } from "@tanstack/react-query";
 import { errorStatus } from "@/client/api";
 import { endSessionEpoch } from "@/client/session-epoch";
+import { useDashboardStore, useDashboardStoreApi } from "./dashboard-store";
 
 /** Marks a mutation that signs in: its 401 means wrong credentials, shown in its form, not an ended session. */
 export const signInMeta = {
@@ -18,23 +19,26 @@ function signsIn(mutation: Mutation<unknown, unknown, unknown, unknown>) {
   return mutation.meta?.signIn === true;
 }
 
+/** Shows the sign-in form. Locking drops all cached financial data, pending changes and the open dialog and cancels running requests, so a late response cannot restore them. */
+export function useLockSession() {
+  const queryClient = useQueryClient();
+  const store = useDashboardStoreApi();
+
+  return useCallback(() => {
+    endSessionEpoch();
+    queryClient.clear();
+    store.getState().lock();
+  }, [queryClient, store]);
+}
+
 /**
- * Whether the dashboard shows the sign-in form. Any read or write rejected with 401 locks it; locking drops all cached financial data and pending changes and cancels running requests, so a late response cannot restore them. Only a successful sign-in unlocks.
+ * Whether the dashboard shows the sign-in form. Any read or write rejected with 401 locks it; only a successful sign-in unlocks. Used once, by the dashboard layout.
  */
 export function useDashboardLock() {
   const queryClient = useQueryClient();
-
-  const [locked, setLocked] = useState(false);
-
-  const lock = useCallback(() => {
-    endSessionEpoch();
-    queryClient.clear();
-    setLocked(true);
-  }, [queryClient]);
-
-  const unlock = useCallback(() => {
-    setLocked(false);
-  }, []);
+  const locked = useDashboardStore(state => state.locked);
+  const unlock = useDashboardStore(state => state.unlock);
+  const lock = useLockSession();
 
   useEffect(() => {
     const unsubscribeQueries = queryClient.getQueryCache().subscribe(event => {

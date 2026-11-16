@@ -11,9 +11,10 @@ import { TimestampValue } from "@/components/ui/date-value";
 import { Empty } from "@/components/ui/empty-state";
 import { BridgeIllustration } from "@/components/branding/illustrations";
 import type { BankingConfiguration, Connection, SyncRun } from "@/features/dashboard/types";
-import type { DashboardController } from "@/features/dashboard/use-dashboard";
+import { useDashboardStore } from "@/features/dashboard/dashboard-store";
+import { useSyncRunHref } from "@/features/dashboard/use-dashboard-url";
 
-type Props = Pick<DashboardController, "openBank" | "openConnectionRemoval" | "syncRunHref"> & {
+type Props = {
   banking: BankingConfiguration;
   connections: Connection[];
   syncRuns: SyncRun[];
@@ -22,11 +23,14 @@ type Props = Pick<DashboardController, "openBank" | "openConnectionRemoval" | "s
 export function ConnectionsView({
   banking,
   connections,
-  openBank,
-  openConnectionRemoval,
-  syncRunHref,
   syncRuns
 }: Props) {
+  const openDialog = useDashboardStore(state => state.openDialog);
+  const syncRunHref = useSyncRunHref();
+  const openBank = (connection: Connection | null = null) => openDialog({
+    kind: "bank",
+    connection
+  });
   const sandbox = banking.environment === "SANDBOX";
 
   return (
@@ -75,7 +79,10 @@ export function ConnectionsView({
                   </button>
                   <button
                     className={clsx(styles["button"], ui["small"])}
-                    onClick={() => openConnectionRemoval(connection)}
+                    onClick={() => openDialog({
+                      kind: "removeConnection",
+                      connection
+                    })}
                     aria-label={`Remove ${connection.bank_name} connection`}
                   >
                     <Trash2 size={13} />
