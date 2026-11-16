@@ -93,25 +93,9 @@ export const transactions = sqliteTable("transactions", {
     enum: ["rule", "manual"]
   }).notNull().default("rule"),
   created_at: text("created_at").notNull().default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ','now'))`),
-  value_date: text("value_date"),
-  transaction_date: text("transaction_date"),
-  bank_transaction_code: text("bank_transaction_code"),
-  bank_transaction_sub_code: text("bank_transaction_sub_code"),
-  bank_transaction_description: text("bank_transaction_description"),
-  merchant_category_code: text("merchant_category_code"),
-  exchange_rate: text("exchange_rate"),
-  exchange_rate_unit_currency: text("exchange_rate_unit_currency"),
-  exchange_rate_type: text("exchange_rate_type"),
   // Signed like amount_minor, in minor units of instructed_currency.
   instructed_amount_minor: integer("instructed_amount_minor"),
   instructed_currency: text("instructed_currency"),
-  balance_after_minor: integer("balance_after_minor"),
-  balance_after_currency: text("balance_after_currency"),
-  reference_number: text("reference_number"),
-  counterparty_iban: text("counterparty_iban"),
-  counterparty_account_id: text("counterparty_account_id"),
-  counterparty_account_scheme: text("counterparty_account_scheme"),
-  counterparty_bic: text("counterparty_bic"),
   provider_payload: text("provider_payload")
 }, table => [
   unique("transactions_account_id_provider_reference_unique").on(table.account_id, table.provider_reference),

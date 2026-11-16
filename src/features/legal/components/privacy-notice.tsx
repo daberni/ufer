@@ -47,11 +47,9 @@ export function PrivacyNotice({ configuration }: {
         <li>the bank&apos;s name and country and how long your authorization is valid;</li>
         <li>account names, IBANs, currencies, balances and balance history;</li>
         <li>booked transactions with date, amount, currency, counterparty name and description;</li>
+        <li>for payments in a foreign currency, the original amount and currency where the bank provides them;</li>
         <li>
-          where the bank provides them, further transaction details: value and transaction dates, the bank&apos;s transaction code, the merchant category code, exchange rate and original amount and currency, the balance after the transaction, the payment reference number, and the counterparty&apos;s IBAN or other account number and bank identifier (BIC);
-        </li>
-        <li>
-          the complete transaction record as the bank delivered it, so that these details can be evaluated again later; depending on the bank it can also contain your own account identifiers and the counterparty&apos;s address or other identifiers;
+          the complete transaction record as the bank delivered it, so that it can be evaluated again later. Depending on the bank, it contains further transaction details such as value and transaction dates, the bank&apos;s transaction code, the merchant category code, the exchange rate, the balance after the transaction, the payment reference number, your own account identifiers and the counterparty&apos;s IBAN or other account number, bank identifier (BIC), address or other identifiers;
         </li>
         <li>an account identifier provided by Enable Banking, used to recognize accounts when you reconnect;</li>
         <li>the Enable Banking session ID, encrypted;</li>

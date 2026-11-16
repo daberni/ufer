@@ -26,71 +26,38 @@ export type BankAccount = {
   cash_account_type?: string;
 };
 
-export type AmountType = {
-  amount: string;
-  currency: string;
-};
-
-export type GenericIdentification = {
-  identification: string;
-  scheme_name: string;
-  issuer?: string;
-};
-
-export type AccountIdentification = {
-  iban?: string;
-  other?: GenericIdentification;
-};
-
-export type PartyIdentification = {
-  name?: string;
-  postal_address?: Record<string, unknown>;
-  organisation_id?: GenericIdentification;
-  private_id?: GenericIdentification;
-};
-
-export type FinancialInstitutionIdentification = {
-  bic_fi?: string;
-  clearing_system_member_id?: Record<string, unknown>;
-  name?: string;
-};
-
-/** The documented provider shape; optional fields are validated in bank-data before anything is stored. */
+/** The fields Ufer reads; the complete provider transaction is stored as JSON alongside them. */
 export type BankTransaction = {
   entry_reference?: string;
   transaction_id?: string;
   status: string;
   booking_date?: string;
   value_date?: string;
-  transaction_date?: string;
-  transaction_amount: AmountType;
+  transaction_amount: {
+    amount: string;
+    currency: string;
+  };
   credit_debit_indicator: "CRDT" | "DBIT";
-  creditor?: PartyIdentification;
-  debtor?: PartyIdentification;
-  creditor_account?: AccountIdentification;
-  debtor_account?: AccountIdentification;
-  creditor_agent?: FinancialInstitutionIdentification;
-  debtor_agent?: FinancialInstitutionIdentification;
-  creditor_account_additional_identification?: GenericIdentification[];
-  debtor_account_additional_identification?: GenericIdentification[];
-  bank_transaction_code?: {
-    code?: string;
-    sub_code?: string;
-    description?: string;
+  creditor?: {
+    name?: string;
   };
-  merchant_category_code?: string;
-  exchange_rate?: {
-    unit_currency?: string;
-    exchange_rate?: string;
-    rate_type?: "AGRD" | "SALE" | "SPOT";
-    contract_identification?: string;
-    instructed_amount?: AmountType;
+  debtor?: {
+    name?: string;
   };
-  balance_after_transaction?: AmountType;
-  reference_number?: string;
-  reference_number_schema?: string;
+  creditor_account?: {
+    iban?: string;
+  };
+  debtor_account?: {
+    iban?: string;
+  };
   remittance_information?: string[];
   note?: string;
+  exchange_rate?: {
+    instructed_amount?: {
+      amount: string;
+      currency: string;
+    };
+  };
 };
 
 export type Balance = {

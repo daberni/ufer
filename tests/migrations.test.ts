@@ -353,7 +353,7 @@ test("the category icon upgrade adds an empty icon to existing categories withou
   }
 });
 
-test("the provider details upgrade keeps existing transactions unchanged and leaves their new columns empty", async () => {
+test("the provider data upgrade keeps existing transactions unchanged and leaves their new columns empty", async () => {
   const directory = mkdtempSync(join(tmpdir(), "ufer-before-provider-details-"));
   const client = createClient({
     url: ":memory:"
@@ -362,7 +362,7 @@ test("the provider details upgrade keeps existing transactions unchanged and lea
   const previousEntries = journal.entries.slice(0, journal.entries.findIndex((entry: {
     tag: string
   }) => entry.tag === "0003_transaction_provider_details"));
-  const providerColumns = ["value_date", "transaction_date", "bank_transaction_code", "bank_transaction_sub_code", "bank_transaction_description", "merchant_category_code", "exchange_rate", "exchange_rate_unit_currency", "exchange_rate_type", "instructed_amount_minor", "instructed_currency", "balance_after_minor", "balance_after_currency", "reference_number", "counterparty_iban", "counterparty_account_id", "counterparty_account_scheme", "counterparty_bic", "provider_payload"];
+  const providerColumns = ["instructed_amount_minor", "instructed_currency", "provider_payload"];
 
   mkdirSync(join(directory, "meta"));
 
