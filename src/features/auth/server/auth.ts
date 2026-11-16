@@ -3,6 +3,7 @@ import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { username } from "better-auth/plugins";
 import { HttpError } from "@/lib/errors";
 import { database, type Database, type DatabaseTransaction } from "@/server/database/connection";
+import { trustedClientAddressHeaders } from "@/server/http/client-address";
 import { allowedOrigins, applicationOrigin } from "@/server/http/origin";
 import { authAccounts, authRateLimits, authSessions, authUsers, authVerifications } from "./auth-schema";
 
@@ -61,9 +62,9 @@ export function createAuth(db: Database | DatabaseTransaction, options: AuthOpti
     },
     advanced: {
       useSecureCookies: baseURL.startsWith("https:"),
-      // No untrusted forwarded header may create a fresh login-attempt counter.
+      // Rate limits count per client only for an address set by trusted infrastructure; any other forwarded header is ignored so it cannot create a fresh counter.
       ipAddress: {
-        ipAddressHeaders: []
+        ipAddressHeaders: trustedClientAddressHeaders()
       }
     },
     rateLimit: {

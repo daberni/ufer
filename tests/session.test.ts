@@ -331,9 +331,42 @@ test("the maintained client receives Problem Details errors without losing its e
   assert.equal((await handleAuthentication(wrongOrigin)).status, 403);
 });
 
-test("login throttling persists across auth instances and cannot be bypassed with forwarded IP headers", async context => {
+type ClientAddressEnvironment = {
+  VERCEL?: string;
+  TRUSTED_CLIENT_IP_HEADER?: string;
+};
+
+function clientAddressEnvironment(context: TestContext, values: ClientAddressEnvironment) {
+  const names = ["VERCEL", "TRUSTED_CLIENT_IP_HEADER"] as const;
+  const previous = new Map(names.map(name => [name, process.env[name]]));
+
+  for (const name of names) {
+    delete process.env[name];
+  }
+
+  Object.assign(process.env, values);
+  context.after(() => {
+    for (const [name, value] of previous) {
+      if (value === undefined) {
+        delete process.env[name];
+      } else {
+        process.env[name] = value;
+      }
+    }
+  });
+}
+
+function signInFrom(headers: HeadersInit, attemptPassword = password) {
+  return handleAuthentication(request("/sign-in/username", {
+    username: owner.username,
+    password: attemptPassword
+  }, "", headers));
+}
+
+test("without a trusted client address, throttling persists across auth instances and forwarded headers cannot bypass it", async context => {
   const db = await isolatedAuth(context);
 
+  clientAddressEnvironment(context, {});
   await provisionUser(owner);
 
   for (let index = 0; index < 10; index++) {
@@ -343,22 +376,101 @@ test("login throttling persists across auth instances and cannot be bypassed wit
       password: "wrong-password"
     }, "", {
       "x-forwarded-for": `198.51.100.${index}`,
-      "x-real-ip": `198.51.100.${index}`
+      "x-real-ip": `198.51.100.${index}`,
+      "x-vercel-forwarded-for": `198.51.100.${index}`
     }));
 
     assert.equal(response.status, 401);
   }
 
-  const limited = await handleAuthentication(request("/sign-in/username", {
-    username: owner.username,
-    password
-  }, "", {
-    "x-forwarded-for": "203.0.113.1"
-  }));
+  const limited = await signInFrom({
+    "x-forwarded-for": "203.0.113.1",
+    "x-vercel-forwarded-for": "203.0.113.1"
+  });
 
   assert.equal(limited.status, 429);
   assert.ok(limited.headers.get("x-retry-after"));
   assert.ok((await db.select().from(schema.authRateLimits)).length > 0);
+});
+
+test("on Vercel, one client exceeding the sign-in limit does not block another and spoofed headers do not reset its counter", async context => {
+  await isolatedAuth(context);
+
+  clientAddressEnvironment(context, {
+    VERCEL: "1"
+  });
+  await provisionUser(owner);
+
+  for (let index = 0; index < 10; index++) {
+    const response = await signInFrom({
+      "x-vercel-forwarded-for": "198.51.100.7",
+      "x-forwarded-for": `192.0.2.${index}`,
+      "x-real-ip": `192.0.2.${index}`
+    }, "wrong-password");
+
+    assert.equal(response.status, 401);
+  }
+
+  const limited = await signInFrom({
+    "x-vercel-forwarded-for": "198.51.100.7",
+    "x-forwarded-for": "192.0.2.200",
+    "x-real-ip": "192.0.2.200"
+  });
+
+  assert.equal(limited.status, 429);
+
+  const otherClient = await signInFrom({
+    "x-vercel-forwarded-for": "203.0.113.9"
+  });
+
+  assert.equal(otherClient.status, 200);
+
+  for (let index = 1; index <= 10; index++) {
+    const response = await signInFrom({
+      "x-vercel-forwarded-for": `2001:db8:1:2::${index}`
+    }, "wrong-password");
+
+    assert.equal(response.status, 401);
+  }
+
+  const sameIpv6Network = await signInFrom({
+    "x-vercel-forwarded-for": "2001:db8:1:2:ffff::1"
+  });
+
+  assert.equal(sameIpv6Network.status, 429);
+});
+
+test("self-hosted throttling counts per client only through the operator-declared proxy header", async context => {
+  await isolatedAuth(context);
+
+  clientAddressEnvironment(context, {
+    TRUSTED_CLIENT_IP_HEADER: "X-Real-IP"
+  });
+  await provisionUser(owner);
+
+  for (let index = 0; index < 10; index++) {
+    const response = await signInFrom({
+      "x-real-ip": "198.51.100.7",
+      "x-forwarded-for": `192.0.2.${index}`,
+      "x-vercel-forwarded-for": `192.0.2.${index}`
+    }, "wrong-password");
+
+    assert.equal(response.status, 401);
+  }
+
+  const limited = await signInFrom({
+    "x-real-ip": "198.51.100.7",
+    "x-forwarded-for": "192.0.2.200",
+    "x-vercel-forwarded-for": "192.0.2.200"
+  });
+
+  assert.equal(limited.status, 429);
+
+  const otherClient = await signInFrom({
+    "x-real-ip": "203.0.113.9"
+  });
+
+  assert.equal(otherClient.status, 200);
 });
 
 test("operator password recovery uses library reset tokens and revokes all sessions without opening public recovery", async context => {

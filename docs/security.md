@@ -8,7 +8,23 @@ The [auth feature](../src/features/auth/server/auth.ts) delegates credentials, s
 
 Ufer separately requires active membership of the existing installation workspace for every financial API request. The schema prevents adding a second independent customer while financial repositories remain installation-wide. Both owner and member roles can access these shared finances. Multi-customer SaaS, SSO, email verification/recovery and member-administration UI remain unimplemented.
 
-Origin checks apply to writes, including sign-in and sign-out. Authentication failures retain Problem Details and trace IDs alongside the fields required by the maintained library client. Provider/library secrets and raw failures are not logged. All clients share persistent endpoint rate limits because unverified forwarded IP headers are not trusted. This favors protection against spoofing over per-client availability; a trusted-proxy policy is a separate future decision.
+Origin checks apply to writes, including sign-in and sign-out. Authentication failures retain Problem Details and trace IDs alongside the fields required by the maintained library client. Provider/library secrets and raw failures are not logged. Authentication rate limits are described [below](#authentication-rate-limits).
+
+## Authentication rate limits
+
+Better Auth stores rate-limit counters in the database, keyed by client address and endpoint, so they persist across instances. Sign-in and password changes allow ten requests per client in a fifteen-minute window; other authentication endpoints use the library defaults. The [client-address policy](../src/server/http/client-address.ts) decides which single request header carries a client address that infrastructure, not the client, has set:
+
+| Deployment | Trusted header | Basis |
+| --- | --- | --- |
+| Vercel (`VERCEL=1`, production and previews) | `x-vercel-forwarded-for` | Vercel [overwrites the forwarded client address](https://vercel.com/docs/headers/request-headers#x-forwarded-for) "to prevent IP spoofing"; [`x-vercel-forwarded-for`](https://vercel.com/docs/headers/request-headers#x-vercel-forwarded-for) carries the same value and is not replaced by a proxy in front of Vercel. `VERCEL` is a [system environment variable](https://vercel.com/docs/environment-variables/system-environment-variables#vercel) available at runtime. |
+| Docker/self-hosted behind a reverse proxy | The header named in `TRUSTED_CLIENT_IP_HEADER` | Operator declaration; the proxy must replace any client value with the connecting address, for example `X-Real-IP` set to the remote address. |
+| Docker/self-hosted without that setting | None | Shared counter per endpoint. |
+
+Every other forwarded header, including `x-forwarded-for` and `x-real-ip` on Vercel, is ignored, so a forged header cannot create a fresh counter. Better Auth accepts only a single valid address from the trusted header; a missing, malformed or comma-separated value is not trusted and the request counts against the shared per-endpoint counter. IPv6 addresses are counted per /64 network, the library default, so rotating addresses within one allocation does not reset a counter.
+
+The self-hosted default trusts no header because Next.js fills `x-forwarded-for` with the socket address only when the request does not already carry one; a client connecting directly could otherwise choose its own counter. Do not set `TRUSTED_CLIENT_IP_HEADER` when clients can reach the application without passing the proxy, and never set `VERCEL` outside Vercel.
+
+Trade-off: per-client counting stops one client from locking every user out of sign-in and password changes, as one counter shared by all clients does. In exchange, an attacker controlling many addresses gets ten attempts per address and window, and users behind one shared address (NAT, carrier-grade NAT, an office network) share a counter. Better Auth 1.7.25 offers no global ceiling across clients without custom rate-limit storage, which Ufer does not add; the twelve-character password minimum bounds online guessing instead. Self-hosted installations without a trusted proxy keep the shared counter and its lockout window.
 
 ## Provider JWTs and saved bank secrets
 
@@ -28,4 +44,4 @@ Scheduler bearer checks and one-time-token digests live in shared job/security i
 | Persisted secret format and token primitives | `src/server/security/` |
 | Scheduler access and coordination | `src/server/jobs/` |
 
-Tests exercise real library-managed signup/sign-in, duplicate and concurrent enrollment, membership denial/revocation, cookie integrity/expiry, logout, password/session revocation, persistent rate limiting across instances and the maintained client's Problem Details handling. Provider JWTs, stored-secret integrity and actor-bound single-use bank callbacks have separate regression coverage. These checks do not establish live deployment acceptance, multi-customer isolation, SSO support or independent security certification.
+Tests exercise real library-managed signup/sign-in, duplicate and concurrent enrollment, membership denial/revocation, cookie integrity/expiry, logout, password/session revocation, persistent rate limiting across instances, per-client counting through the trusted header on Vercel and behind a declared proxy, ignored forged forwarded headers and the maintained client's Problem Details handling. Provider JWTs, stored-secret integrity and actor-bound single-use bank callbacks have separate regression coverage. These checks do not establish live deployment acceptance, multi-customer isolation, SSO support or independent security certification.
