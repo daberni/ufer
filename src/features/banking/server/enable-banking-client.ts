@@ -27,6 +27,7 @@ export type BankAccount = {
   cash_account_type?: string;
 };
 
+/** The fields Ufer reads; the complete provider transaction is stored as JSON alongside them. */
 export type BankTransaction = {
   entry_reference?: string;
   transaction_id?: string;
@@ -52,6 +53,12 @@ export type BankTransaction = {
   };
   remittance_information?: string[];
   note?: string;
+  exchange_rate?: {
+    instructed_amount?: {
+      amount: string;
+      currency: string;
+    };
+  };
 };
 
 export type Balance = {

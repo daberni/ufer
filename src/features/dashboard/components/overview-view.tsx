@@ -5,13 +5,13 @@ import { WealthSummary } from "@/features/dashboard/components/wealth-summary";
 import { OverviewAccounts } from "@/features/accounts/components/overview-accounts";
 import { CashFlowChart } from "@/features/dashboard/components/cash-flow-chart";
 import { SpendingBreakdown } from "@/features/dashboard/components/spending-breakdown";
-import type { AreaResult } from "@/features/dashboard/use-area-result";
+import type { Area } from "@/features/dashboard/use-area-result";
 import type { Account, CashFlow, NetWorth } from "@/features/dashboard/types";
 
 type Props = {
-  currencyAccounts: Account[];
-  netWorth: AreaResult<NetWorth>;
-  cashFlow: AreaResult<CashFlow>;
+  currencyAccounts: Area<Account[]>;
+  netWorth: Area<NetWorth>;
+  cashFlow: Area<CashFlow>;
 };
 
 export function OverviewView({
@@ -19,9 +19,11 @@ export function OverviewView({
   netWorth,
   cashFlow
 }: Props) {
+  const hasAccounts = currencyAccounts.status === "pending" || currencyAccounts.data.length > 0;
+
   return (
     <>
-      <WealthSummary hasAccounts={currencyAccounts.length > 0} netWorth={netWorth} cashFlow={cashFlow} />
+      <WealthSummary hasAccounts={hasAccounts} netWorthArea={netWorth} cashFlowArea={cashFlow} />
       <OverviewAccounts currencyAccounts={currencyAccounts} />
       <div className={styles["analytics-grid"]}>
         <CashFlowChart cashFlow={cashFlow} />

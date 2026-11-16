@@ -12,7 +12,7 @@ import { HttpError } from "../src/lib/errors";
 import { authentication, createAuth } from "../src/features/auth/server/auth";
 import { resetUserPassword } from "../src/features/auth/server/password-recovery";
 import { provisionUser } from "../src/features/auth/server/provision-user";
-import { requireAuth } from "../src/features/auth/server/session";
+import { hasWorkspaceAccess, requireAuth } from "../src/features/auth/server/session";
 import { handleAuthentication } from "../src/features/auth/server/auth-handler";
 import { respond } from "../src/server/http/respond";
 import { GET as readCurrentUser } from "../src/app/api/me/route";
@@ -258,6 +258,34 @@ test("valid identities without active membership cannot access financial data", 
   await assert.rejects(requireAuth(authorized), {
     status: 403
   });
+});
+
+test("the dashboard starts signed in exactly for sessions the API accepts", async context => {
+  const db = await isolatedAuth(context);
+
+  await provisionUser(owner);
+  await createAuth(db, {
+    enrollment: true
+  }).api.signUpEmail({
+    body: {
+      ...owner,
+      username: "outsider",
+      email: "outsider@example.test"
+    }
+  });
+  const signed = await signIn();
+  const outsider = await signIn("outsider");
+  const headers = (cookie: string) => new Headers({
+    cookie
+  });
+
+  assert.equal(await hasWorkspaceAccess(new Headers()), false);
+  assert.equal(await hasWorkspaceAccess(headers(signed.cookie + "tampered")), false);
+  assert.equal(await hasWorkspaceAccess(headers(outsider.cookie)), false);
+  assert.equal(await hasWorkspaceAccess(headers(signed.cookie)), true);
+
+  assert.equal((await handleAuthentication(request("/sign-out", {}, signed.cookie))).status, 200);
+  assert.equal(await hasWorkspaceAccess(headers(signed.cookie)), false);
 });
 
 test("requests share one auth instance per database connection and a new connection gets its own", async context => {

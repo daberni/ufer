@@ -13,24 +13,26 @@ import { allMonthsPeriod, currentMonthPeriod, monthPeriod } from "@/features/das
 import { selectPeriod, setCurrency, useCurrency, usePeriod } from "@/features/dashboard/use-dashboard-url";
 import { Select } from "@/components/ui/select";
 import { MonthPicker } from "@/features/dashboard/components/month-picker";
-import { valueMask } from "@/features/dashboard/components/result-presentation";
-import type { AreaResult } from "@/features/dashboard/use-area-result";
+import { shownStatus, valueMask } from "@/features/dashboard/components/result-presentation";
+import { InlineFailure } from "@/features/dashboard/components/area-placeholder";
+import type { Area } from "@/features/dashboard/use-area-result";
 import type { SyncRun } from "@/features/dashboard/types";
 
 type Props = {
-  currencies: string[];
+  /** The currencies of all accounts; until they load, only the selected one is offered. */
+  currencies: Area<string[]>;
 } & ({
   view: "overview";
-  latestSync: SyncRun | undefined;
+  latestSync: Area<SyncRun | undefined>;
 } | {
   view: "transactions";
   /** Matches for the selected filters. */
-  transactionCount: AreaResult<number>;
+  transactionCount: Area<number>;
 });
 
 export function PeriodControls(props: Props) {
-  const { currencies } = props;
   const currency = useCurrency();
+  const currencies = props.currencies.data ?? [currency];
   const period = usePeriod();
   const timeZone = useDisplayTimeZone();
   const allMonths = period.kind === "all";
@@ -94,19 +96,41 @@ function OverviewKicker({
   latestSync,
   timeZone
 }: {
-  latestSync: SyncRun | undefined;
+  latestSync: Area<SyncRun | undefined>;
   timeZone: string;
 }) {
   return (
     <>
       <span className={ui["section-kicker"]}>NET WORTH & CASH FLOW</span>
-      <span className={styles["subtle"]} title={latestSync ? describeDate(Temporal.Instant.from(latestSync.started_at).toZonedDateTimeISO(timeZone)).title : undefined}>{lastSyncLabel(latestSync, timeZone)}</span>
+      <LatestSync latestSync={latestSync} timeZone={timeZone} />
     </>
   );
 }
 
-function TransactionCount({ count }: {
-  count: AreaResult<number>
+function LatestSync({
+  latestSync,
+  timeZone
+}: {
+  latestSync: Area<SyncRun | undefined>;
+  timeZone: string;
 }) {
-  return <span className={clsx(ui["section-kicker"], valueMask(count.status))}>{`${count.data} ${count.data === 1 ? "TRANSACTION" : "TRANSACTIONS"}`}</span>;
+  if (latestSync.status === "pending") {
+    if (latestSync.failure) {
+      return <InlineFailure className={styles["subtle"]} failure={latestSync.failure} subject="The last sync" />;
+    }
+
+    return <span className={clsx(styles["subtle"], valueMask("loading"))}>Last sync: today · successful</span>;
+  }
+
+  const run = latestSync.data;
+
+  return <span className={styles["subtle"]} title={run ? describeDate(Temporal.Instant.from(run.started_at).toZonedDateTimeISO(timeZone)).title : undefined}>{lastSyncLabel(run, timeZone)}</span>;
+}
+
+function TransactionCount({ count }: {
+  count: Area<number>
+}) {
+  const shown = count.data ?? 0;
+
+  return <span className={clsx(ui["section-kicker"], valueMask(shownStatus(count)))}>{`${shown} ${shown === 1 ? "TRANSACTION" : "TRANSACTIONS"}`}</span>;
 }

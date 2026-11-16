@@ -1,0 +1,39 @@
+.placeholder {
+  position: relative;
+}
+/* The skeleton keeps the area's size while the failure takes its place; opacity also hides the visible pulse of masked values. */
+.failed .skeleton {
+  opacity: 0;
+}
+.failure {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 12px 16px;
+  border-radius: inherit;
+  background: inherit;
+  text-align: center;
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+}
+.failure p {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 36rem;
+  line-height: 1.5;
+}
+.failure svg {
+  flex-shrink: 0;
+  color: var(--danger);
+}
+.inline-failure {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}

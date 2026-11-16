@@ -32,16 +32,12 @@ export type DashboardActions = {
 
 export type DashboardStore = DashboardState & DashboardActions;
 
-const initialState: DashboardState = {
-  feedback: null,
-  locked: false,
-  periodScope: ""
-};
-
-/** `currentPathname` tells actions which view they were triggered on; feedback is reported from that view's event handlers. */
-export function createDashboardStore(currentPathname = () => window.location.pathname) {
+/** `locked` is the sign-in state the server resolved for the request. `currentPathname` tells actions which view they were triggered on; feedback is reported from that view's event handlers. */
+export function createDashboardStore(locked: boolean, currentPathname = () => window.location.pathname) {
   return createStore<DashboardStore>()(set => ({
-    ...initialState,
+    feedback: null,
+    locked,
+    periodScope: "",
     reportFeedback: feedback => set({
       feedback: {
         value: feedback,
@@ -75,10 +71,13 @@ export function onView<T>(bound: ViewBound<T> | null, pathname: string) {
 const DashboardStoreContext = createContext<StoreApi<DashboardStore> | null>(null);
 
 /** One store per mounted dashboard layout; the layout also renders on the server, where a shared module store would outlive the request. */
-export function DashboardStoreProvider({ children }: {
-  children: React.ReactNode
-}) {
-  const [store] = useState(() => createDashboardStore());
+export function DashboardStoreProvider({
+  locked,
+  children
+}: React.PropsWithChildren<{
+  locked: boolean;
+}>) {
+  const [store] = useState(() => createDashboardStore(locked));
 
   return <DashboardStoreContext value={store}>{children}</DashboardStoreContext>;
 }
