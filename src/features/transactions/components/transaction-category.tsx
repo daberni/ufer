@@ -1,5 +1,6 @@
 "use client";
 
+import styles from "./transaction-category.module.css";
 import { api } from "@/client/api";
 import type { Transaction } from "@/features/dashboard/types";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
@@ -36,6 +37,7 @@ export function TransactionCategory({
 
   return (
     <CategoryPicker
+      className={styles["picker"]}
       categories={state.categories}
       value={transaction.category_id}
       includeUncategorized

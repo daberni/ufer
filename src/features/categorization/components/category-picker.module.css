@@ -51,6 +51,11 @@
   background: #edf2e9;
   box-shadow: inset 0 0 0 1px #c9d6c1;
 }
+/* Options wrap long names so the list shows each category in full. */
+.option-chip {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
 .check {
   width: 16px;
   height: 16px;

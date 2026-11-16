@@ -306,6 +306,7 @@ export function CategoryPicker({
         aria-controls={open ? listboxId : undefined}
         aria-activedescendant={open ? optionId(activeIndex) : undefined}
         aria-disabled={disabled || undefined}
+        title={options[selectedIndex]?.label}
         onClick={toggle}
         onKeyDown={handleKeyDown}
       >
@@ -336,7 +337,7 @@ export function CategoryPicker({
                 onPointerMove={() => setActiveIndex(index)}
                 onClick={() => choose(index)}
               >
-                <CategoryChip category={option.chip} size={size} />
+                <CategoryChip className={styles["option-chip"]} category={option.chip} size={size} />
                 {index === selectedIndex && <Check className={styles["check"]} aria-hidden="true" strokeWidth={2.4} />}
               </li>
             ))}

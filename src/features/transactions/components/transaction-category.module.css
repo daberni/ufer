@@ -1,0 +1,9 @@
+/* Long category names end in an ellipsis instead of widening the nowrap transaction table; the open list shows them in full. */
+.picker {
+  max-width: 12rem;
+}
+@media (max-width: 760px), (max-width: 900px) and (pointer: coarse) {
+  .picker {
+    max-width: 100%;
+  }
+}

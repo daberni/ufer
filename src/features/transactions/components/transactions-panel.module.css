@@ -31,6 +31,7 @@
 /* The category filter chip stretches to the filter row's height and uses the account filter's corners. */
 .category-filter {
   align-self: stretch;
+  max-width: 16rem;
   border-radius: 7px;
 }
 .category-filter > * {
@@ -112,6 +113,7 @@
   }
   .filters .category-filter {
     flex: 1 1 100%;
+    max-width: 100%;
   }
   .filters .category-filter > * {
     flex: 1;
