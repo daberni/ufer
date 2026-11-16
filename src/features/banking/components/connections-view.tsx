@@ -1,6 +1,7 @@
 "use client";
 
 import ui from "../../../components/ui/primitives.module.css";
+import accountStyles from "../../accounts/components/account-presentation.module.css";
 
 import { clsx } from "clsx";
 import Link from "next/link";
@@ -47,10 +48,10 @@ export function ConnectionsView({
       {!banking.configured && <div className={clsx(ui["notice"], ui["warning"])}>Configure the application ID and private key on the server to enable bank access.</div>}
       <section className={ui["panel"]}>
         {connections.length ? (
-          <div className={styles["connections-list"]}>
+          <div>
             {connections.map(connection => (
               <div className={styles["connection-row"]} key={connection.id}>
-                <span className={clsx(ui["account-logo"], styles["checking"])}>
+                <span className={accountStyles["account-logo"]}>
                   <Landmark size={23} />
                 </span>
                 <div>
