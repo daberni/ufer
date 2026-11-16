@@ -13,12 +13,18 @@ import { BridgeIllustration } from "@/components/branding/illustrations";
 import type { BankingConfiguration, Connection, SyncRun } from "@/features/dashboard/types";
 import { useDashboardStore } from "@/features/dashboard/dashboard-store";
 import { useSyncRunHref } from "@/features/dashboard/use-dashboard-url";
+import { AreaPlaceholder } from "@/features/dashboard/components/area-placeholder";
+import type { Area } from "@/features/dashboard/use-area-result";
 
 type Props = {
   banking: BankingConfiguration;
-  connections: Connection[];
-  syncRuns: SyncRun[];
+  connections: Area<Connection[]>;
+  syncRuns: Area<SyncRun[]>;
 };
+
+const skeletonConnections = 2;
+
+const skeletonSyncRuns = 3;
 
 export function ConnectionsView({
   banking,
@@ -26,7 +32,6 @@ export function ConnectionsView({
   syncRuns
 }: Props) {
   const openDialog = useDashboardStore(state => state.openDialog);
-  const syncRunHref = useSyncRunHref();
   const openBank = (connection: Connection | null = null) => openDialog({
     kind: "bank",
     connection
@@ -51,79 +56,156 @@ export function ConnectionsView({
       </div>
       {!banking.configured && <div className={clsx(ui["notice"], ui["warning"])}>Configure the application ID and private key on the server to enable bank access.</div>}
       <section className={ui["panel"]}>
-        {connections.length ? (
-          <div>
-            {connections.map(connection => (
-              <div className={styles["connection-row"]} key={connection.id}>
-                <span className={accountStyles["account-logo"]}>
-                  <Landmark size={23} />
-                </span>
-                <div>
-                  <h3>{connection.bank_name}</h3>
-                  <p className={styles["connection-detail"]}>
-                    {connection.bank_country} · {connection.valid_until ? <>Authorized until <TimestampValue value={connection.valid_until} /></> : "Authorization not completed yet"}
-                  </p>
-                  {connection.error && <p className={ui["error-text"]}>{connection.error}</p>}
-                </div>
-                <span className={clsx(styles["pill"], connection.status === "LINKED" ? styles["success"] : "")}>{({
-                  LINKED: "Connected",
-                  PENDING: "Pending",
-                  EXCHANGING: "Connecting",
-                  EXPIRED: "Expired",
-                  ERROR: "Review",
-                  SUPERSEDED: "Superseded"
-                } as Record<string, string>)[connection.status] || connection.status}</span>
-                <div className={styles["connection-actions"]}>
-                  <button className={clsx(ui["button"], ui["small"])} onClick={() => openBank(connection)}>
-                    Reconnect
-                  </button>
-                  <button
-                    className={clsx(ui["button"], ui["small"])}
-                    onClick={() => openDialog({
-                      kind: "removeConnection",
-                      connection
-                    })}
-                    aria-label={`Remove ${connection.bank_name} connection`}
-                  >
-                    <Trash2 size={13} />
-                    Remove
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <Empty
-            title="Your first bank connection"
-            illustration={BridgeIllustration}
-            action={(
-              <button className={clsx(ui["button"], ui["primary"])} onClick={() => openBank()}>
-                <Link2 size={15} />
-                {sandbox ? "Select sandbox bank" : "Connect your bank"}
-              </button>
-            )}
-          >
-            {sandbox ? "Choose an available sandbox bank to test the complete flow with synthetic data." : "Authorize read-only access with your bank to import accounts and transactions."}
-          </Empty>
-        )}
+        {connections.status === "pending" ? (
+          <AreaPlaceholder area={connections} subject="Your bank connections">
+            <ConnectionRowsSkeleton />
+          </AreaPlaceholder>
+        ) : <ConnectionRows connections={connections.data} openBank={openBank} sandbox={sandbox} />}
       </section>
-      {syncRuns.length > 0 && (
-        <section className={clsx(ui["panel"], styles["sync-history"])}>
-          <div className={ui["card-heading"]}>
-            <h2>Recent syncs</h2>
-          </div>
-          {syncRuns.map(run => (
-            <div className={styles["sync-row"]} key={run.id}>
-              <span><TimestampValue value={run.started_at} /></span>
-              <span className={styles["pill"]}>{run.status}</span>
-              <SyncRunTransactions href={syncRunHref} run={run} />
-              {run.error && <p className={ui["error-text"]}>{run.error}</p>}
-            </div>
-          ))}
-        </section>
-      )}
+      <SyncHistory syncRuns={syncRuns} />
     </>
   );
+}
+
+function SyncHistory({ syncRuns }: {
+  syncRuns: Area<SyncRun[]>
+}) {
+  const syncRunHref = useSyncRunHref();
+
+  if (syncRuns.status !== "pending" && !syncRuns.data.length) {
+    return null;
+  }
+
+  return (
+    <section className={clsx(ui["panel"], styles["sync-history"])}>
+      <div className={ui["card-heading"]}>
+        <h2>Recent syncs</h2>
+      </div>
+      {syncRuns.status === "pending" ? (
+        <AreaPlaceholder area={syncRuns} subject="Recent syncs">
+          <SyncRowsSkeleton />
+        </AreaPlaceholder>
+      ) : syncRuns.data.map(run => (
+        <div className={styles["sync-row"]} key={run.id}>
+          <span><TimestampValue value={run.started_at} /></span>
+          <span className={styles["pill"]}>{run.status}</span>
+          <SyncRunTransactions href={syncRunHref} run={run} />
+          {run.error && <p className={ui["error-text"]}>{run.error}</p>}
+        </div>
+      ))}
+    </section>
+  );
+}
+
+function ConnectionRows({
+  connections,
+  openBank,
+  sandbox
+}: {
+  connections: Connection[];
+  openBank: (connection?: Connection | null) => void;
+  sandbox: boolean;
+}) {
+  const openDialog = useDashboardStore(state => state.openDialog);
+
+  if (!connections.length) {
+    return (
+      <Empty
+        title="Your first bank connection"
+        illustration={BridgeIllustration}
+        action={(
+          <button className={clsx(ui["button"], ui["primary"])} onClick={() => openBank()}>
+            <Link2 size={15} />
+            {sandbox ? "Select sandbox bank" : "Connect your bank"}
+          </button>
+        )}
+      >
+        {sandbox ? "Choose an available sandbox bank to test the complete flow with synthetic data." : "Authorize read-only access with your bank to import accounts and transactions."}
+      </Empty>
+    );
+  }
+
+  return (
+    <div>
+      {connections.map(connection => (
+        <div className={styles["connection-row"]} key={connection.id}>
+          <span className={accountStyles["account-logo"]}>
+            <Landmark size={23} />
+          </span>
+          <div>
+            <h3>{connection.bank_name}</h3>
+            <p className={styles["connection-detail"]}>
+              {connection.bank_country} · {connection.valid_until ? <>Authorized until <TimestampValue value={connection.valid_until} /></> : "Authorization not completed yet"}
+            </p>
+            {connection.error && <p className={ui["error-text"]}>{connection.error}</p>}
+          </div>
+          <span className={clsx(styles["pill"], connection.status === "LINKED" ? styles["success"] : "")}>{({
+            LINKED: "Connected",
+            PENDING: "Pending",
+            EXCHANGING: "Connecting",
+            EXPIRED: "Expired",
+            ERROR: "Review",
+            SUPERSEDED: "Superseded"
+          } as Record<string, string>)[connection.status] || connection.status}</span>
+          <div className={styles["connection-actions"]}>
+            <button className={clsx(ui["button"], ui["small"])} onClick={() => openBank(connection)}>
+              Reconnect
+            </button>
+            <button
+              className={clsx(ui["button"], ui["small"])}
+              onClick={() => openDialog({
+                kind: "removeConnection",
+                connection
+              })}
+              aria-label={`Remove ${connection.bank_name} connection`}
+            >
+              <Trash2 size={13} />
+              Remove
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ConnectionRowsSkeleton() {
+  return (
+    <div>
+      {Array.from({
+        length: skeletonConnections
+      }, (_, index) => (
+        <div className={styles["connection-row"]} key={index}>
+          <span className={clsx(accountStyles["account-logo"], ui["skeleton"])} />
+          <div>
+            <h3>
+              <span className={ui["skeleton"]}>Example bank</span>
+            </h3>
+            <p className={styles["connection-detail"]}>
+              <span className={ui["skeleton"]}>AT · Authorized until 12 Jan 2025, 10:00</span>
+            </p>
+          </div>
+          <span className={clsx(styles["pill"], ui["skeleton"])}>Connected</span>
+          <div className={styles["connection-actions"]}>
+            <span className={clsx(ui["button"], ui["small"], ui["skeleton"])}>Reconnect</span>
+            <span className={clsx(ui["button"], ui["small"], ui["skeleton"])}>Remove</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function SyncRowsSkeleton() {
+  return Array.from({
+    length: skeletonSyncRuns
+  }, (_, index) => (
+    <div className={styles["sync-row"]} key={index}>
+      <span className={ui["skeleton"]}>12 Jan 2025, 10:00</span>
+      <span className={clsx(styles["pill"], ui["skeleton"])}>SUCCESS</span>
+      <span className={ui["skeleton"]}>12 new transactions</span>
+    </div>
+  ));
 }
 
 /** Links a run to the transactions it imported; runs recorded before syncs stamped their transactions cannot be traced. */

@@ -34,6 +34,12 @@
 .name {
   min-width: 0;
 }
+/* Takes the place of the category marker in skeleton rows. */
+.marker {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+}
 /* Compact rows keep each row to one line: the name is truncated and the share bar sits in the row's bottom padding. */
 .rows.compact {
   gap: 1px;

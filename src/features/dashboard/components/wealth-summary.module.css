@@ -135,6 +135,10 @@
   padding-top: var(--space-3);
   color: var(--muted);
 }
+/* Positions the failure overlay of its loading area; the shared panel provides the card. */
+.month-card {
+  position: relative;
+}
 .flow-row {
   display: flex;
   align-items: center;

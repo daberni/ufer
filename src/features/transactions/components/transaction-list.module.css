@@ -79,8 +79,8 @@
 }
 .original-amount {
   display: block;
-  margin-top: 5px;
-  font-size: var(--text-xs);
+  margin-top: var(--space-1);
+  font-size: var(--text-sm);
   font-weight: 400;
   color: var(--muted);
 }

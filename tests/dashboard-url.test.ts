@@ -36,7 +36,9 @@ function renderUrlState(context: TestContext, url: string) {
       value: new URLSearchParams(window.location.search)
     }, children));
 
-    return createElement(DashboardStoreProvider, null, createElement(AppRouterContext, {
+    return createElement(DashboardStoreProvider, {
+      locked: false
+    }, createElement(AppRouterContext, {
       value: router
     }, route));
   }

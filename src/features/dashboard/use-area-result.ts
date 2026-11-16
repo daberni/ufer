@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { UseQueryResult } from "@tanstack/react-query";
+import { failureMessage } from "@/client/api";
 
 /**
  * Whether an area shows results for the selected filters, is loading them, or could not load them.
@@ -11,10 +12,33 @@ export type ResultStatus = "ready" | "loading" | "unavailable";
 /** Results that arrive faster than this replace the previous ones without a loading state first. */
 export const loadingDelay = 250;
 
+/** A failed first load as its area reports it. */
+export type LoadFailure = {
+  message: string;
+  retry: () => void;
+};
+
+/** An area before its first results: it shows a skeleton of its final layout, or the failure with a retry. */
+export type PendingArea = {
+  status: "pending";
+  data?: undefined;
+  failure: LoadFailure | null;
+};
+
+/** An area's results as the components render them: loaded data and whether it matches the selected filters. */
+export type AreaResult<T> = {
+  data: T;
+  status: ResultStatus;
+};
+
+export type Area<T> = AreaResult<T> | PendingArea;
+
+type AreaQuery<T> = Pick<UseQueryResult<T>, "data" | "error" | "isPlaceholderData" | "isError" | "isFetching" | "refetch">;
+
 /**
- * Presents a filter-keyed query for one dashboard area. While results for new filters load, the previous results stay in place: unmarked at first, then marked as loading. A failed request ends loading and keeps them only as an unavailable placeholder, so the layout does not jump.
+ * Presents a query for one dashboard area. Before the first results the area is pending. While results for new filters load, the previous results stay in place: unmarked at first, then marked as loading. A failed request ends loading and keeps them only as an unavailable placeholder, so the layout does not jump.
  */
-export function useAreaResult<T>(query: Pick<UseQueryResult<T>, "data" | "isPlaceholderData" | "isError" | "isFetching">) {
+export function useAreaResult<T>(query: AreaQuery<T>): Area<T> {
   const [shown, setShown] = useState(query.data);
 
   if (query.data !== undefined && query.data !== shown) {
@@ -23,10 +47,22 @@ export function useAreaResult<T>(query: Pick<UseQueryResult<T>, "data" | "isPlac
 
   const current = query.data !== undefined && !query.isPlaceholderData;
   const slow = useDelayedActivity(!current, loadingDelay);
+  const failed = query.isError && !query.isFetching;
+  const data = query.data ?? shown;
+
+  if (data === undefined) {
+    return {
+      status: "pending",
+      failure: failed ? {
+        message: failureMessage(query.error),
+        retry: () => void query.refetch()
+      } : null
+    };
+  }
 
   return {
-    data: query.data ?? shown,
-    status: resultStatus(current, slow, query.isError && !query.isFetching)
+    data,
+    status: resultStatus(current, slow, failed)
   };
 }
 
@@ -62,8 +98,38 @@ function useDelayedActivity(active: boolean, delay: number) {
   return active && elapsed;
 }
 
-/** An area's results as the components render them: loaded data and whether it matches the selected filters. */
-export type AreaResult<T> = {
-  data: T;
-  status: ResultStatus;
-};
+/** Derives the part of an area's results a component shows, keeping the area's state. */
+export function mapArea<T, U>(area: Area<T>, select: (data: T) => U): Area<U> {
+  if (area.status === "pending") {
+    return area;
+  }
+
+  return {
+    data: select(area.data),
+    status: area.status
+  };
+}
+
+/** Several areas that render as one before all of them have results; it reports the first failure and retries every failed load. */
+export function pendingTogether(...areas: Area<unknown>[]): PendingArea {
+  const failures = areas.flatMap(area => area.status === "pending" && area.failure ? [area.failure] : []);
+
+  if (!failures.length) {
+    return {
+      status: "pending",
+      failure: null
+    };
+  }
+
+  return {
+    status: "pending",
+    failure: {
+      message: failures[0].message,
+      retry: () => {
+        for (const failure of failures) {
+          failure.retry();
+        }
+      }
+    }
+  };
+}

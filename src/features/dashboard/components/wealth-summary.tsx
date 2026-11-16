@@ -6,24 +6,45 @@ import { clsx } from "clsx";
 import styles from "./wealth-summary.module.css";
 import { ArrowDownLeft, ArrowUpRight, Wallet } from "lucide-react";
 import { periodLabel } from "@/features/dashboard/presentation";
-import { periodFromJson } from "@/features/dashboard/period";
+import { periodFromJson, periodToJson } from "@/features/dashboard/period";
 import { money } from "@/lib/money";
-import { valueMask } from "@/features/dashboard/components/result-presentation";
-import type { AreaResult } from "@/features/dashboard/use-area-result";
+import { valueMask, withPlaceholder } from "@/features/dashboard/components/result-presentation";
+import { FailureCover } from "@/features/dashboard/components/area-placeholder";
+import { useCurrency, usePeriod } from "@/features/dashboard/use-dashboard-url";
+import type { Area } from "@/features/dashboard/use-area-result";
 import type { CashFlow, NetWorth } from "@/features/dashboard/types";
 
 type Props = {
-  /** Whether any account uses the display currency. */
+  /** Whether any account uses the display currency; assumed while the accounts load, so the masked figure keeps its place. */
   hasAccounts: boolean;
-  netWorth: AreaResult<NetWorth>;
-  cashFlow: AreaResult<CashFlow>;
+  netWorthArea: Area<NetWorth>;
+  cashFlowArea: Area<CashFlow>;
 };
 
 export function WealthSummary({
   hasAccounts,
-  netWorth,
-  cashFlow
+  netWorthArea,
+  cashFlowArea
 }: Props) {
+  const selectedCurrency = useCurrency();
+  const selectedPeriod = usePeriod();
+  const netWorth = withPlaceholder(netWorthArea, () => ({
+    currency: selectedCurrency,
+    netWorth: 0,
+    liquidity: 0,
+    investments: 0,
+    property: 0,
+    liabilities: 0,
+    unvalued: 0
+  }));
+  const cashFlow = withPlaceholder(cashFlowArea, () => ({
+    period: periodToJson(selectedPeriod),
+    currency: selectedCurrency,
+    income: 0,
+    expenses: 0,
+    breakdown: [],
+    trend: []
+  }));
   const summary = netWorth.data;
   const flows = cashFlow.data;
   const period = periodFromJson(flows.period);
@@ -77,11 +98,13 @@ export function WealthSummary({
             Property<strong className={netWorthValue}>{money(summary.property, currency)}</strong>
           </span>
         </div>
-        {summary.liabilities !== 0 && (
+        {/* Before the first results the loans line is laid out too, so a card with loans keeps its height when they arrive. */}
+        {(summary.liabilities !== 0 || netWorthArea.status === "pending") && (
           <div className={styles["liabilities"]}>
             Loans <span className={netWorthValue}>{money(summary.liabilities, currency)}</span>
           </div>
         )}
+        {netWorthArea.status === "pending" && netWorthArea.failure && <FailureCover failure={netWorthArea.failure} subject="Your net worth" />}
       </section>
       <section className={clsx(ui["panel"], styles["month-card"])} aria-busy={cashFlow.status === "loading"}>
         <div className={ui["card-heading"]}>
@@ -127,6 +150,7 @@ export function WealthSummary({
           </div>
           <strong className={clsx(flows.income - flows.expenses >= 0 && ui["positive"], cashFlowValue)}>{money(flows.income - flows.expenses, flows.currency)}</strong>
         </div>
+        {cashFlowArea.status === "pending" && cashFlowArea.failure && <FailureCover failure={cashFlowArea.failure} subject="Your cash flow" />}
       </section>
     </div>
   );

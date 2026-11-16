@@ -84,13 +84,14 @@ export async function readTransactionPage(filters: DashboardFilters) {
   }
 
   const condition = where.join(" AND ");
+  // Banks report dates without a time, so bookings within a day are ordered by payee and description; empty payees come last.
   const transactionsQuery = client.execute({
     sql: `
       SELECT t.id,t.booking_date,t.amount_minor,t.currency,t.instructed_amount_minor,t.instructed_currency,t.counterparty,t.description,a.name AS account_name,t.category_id,t.category_source
       FROM transactions t
       JOIN accounts a ON a.id=t.account_id
       WHERE ${condition}
-      ORDER BY t.booking_date DESC,t.created_at DESC,t.id
+      ORDER BY t.booking_date DESC,t.counterparty='',t.counterparty COLLATE NOCASE,t.description COLLATE NOCASE,t.id
       LIMIT ?
       OFFSET ?
     `,
