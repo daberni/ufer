@@ -458,3 +458,63 @@ test("sync refuses mismatching application environments before fetching financia
     client.close();
   }
 });
+
+test("sync offers reconnecting only for failures that a new bank authorization resolves", async () => {
+  const client = await initializeDatabase(createClient({
+    url: ":memory:"
+  }));
+  const globals = globalThis as unknown as {
+    budgetDb?: Promise<Database>;
+  };
+  const previousDb = globals.budgetDb;
+  const previousFetch = globalThis.fetch;
+
+  globals.budgetDb = Promise.resolve(drizzle(client, {
+    schema
+  }));
+  process.env.ENABLE_BANKING_ENVIRONMENT = "SANDBOX";
+  process.env.ENABLE_BANKING_APP_ID = "test-app";
+  process.env.ENABLE_BANKING_PRIVATE_KEY = generateKeyPairSync("rsa", {
+    modulusLength: 2048
+  }).privateKey.export({
+    type: "pkcs8",
+    format: "pem"
+  }).toString();
+
+  globalThis.fetch = async input => {
+    const path = new URL(String(input)).pathname;
+
+    if (path === "/application") {
+      return Response.json({
+        environment: "SANDBOX",
+        redirect_urls: []
+      });
+    }
+
+    return Response.json({
+      error: "ASPSP_RATE_LIMIT_EXCEEDED"
+    }, {
+      status: 429
+    });
+  };
+
+  try {
+    await client.execute("INSERT INTO requisitions(id,environment,bank_name,bank_country,status,valid_until) VALUES('current','SANDBOX','Mock','AT','LINKED','2099-01-01T00:00:00Z')");
+    await client.execute("INSERT INTO requisitions(id,environment,bank_name,bank_country,status,valid_until) VALUES('lapsed','SANDBOX','Mock','AT','LINKED','2000-01-01T00:00:00Z')");
+    await client.execute("INSERT INTO accounts(id,environment,name,institution,kind,provider,provider_uid,requisition_id) VALUES('limited','SANDBOX','Limited','Mock','checking','enable_banking','uid-limited','current')");
+    await client.execute("INSERT INTO accounts(id,environment,name,institution,kind,provider,provider_uid,requisition_id) VALUES('expired','SANDBOX','Expired','Mock','checking','enable_banking','uid-expired','lapsed')");
+
+    const result = await syncAccounts();
+    const reconnectByAccount = Object.fromEntries(result.failures.map(failure => [failure.account, failure.reconnect]));
+
+    assert.deepEqual(reconnectByAccount, {
+      Limited: false,
+      Expired: true
+    });
+  } finally {
+    globals.budgetDb = previousDb;
+    globalThis.fetch = previousFetch;
+    delete process.env.ENABLE_BANKING_PRIVATE_KEY;
+    client.close();
+  }
+});
