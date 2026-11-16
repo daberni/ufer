@@ -2,7 +2,7 @@ name: Checks
 
 on:
   push:
-    branches-ignore: [main, release]
+    branches-ignore: [main]
   pull_request:
   workflow_dispatch:
 

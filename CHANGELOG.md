@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to Ufer are documented here. Versions follow [Semantic Versioning](https://semver.org/); releases are published as GitHub releases, and each published release is deployed to the hosted production installation (see [releasing](docs/releasing.md)).
+All notable changes to Ufer are documented here. Versions follow [Semantic Versioning](https://semver.org/); each release is a version tag on `main` that deploys to the hosted production installation (see [releasing](docs/releasing.md)).
 
 ## [0.1.0] - 2026-11-16
 
@@ -42,6 +42,6 @@ First release of Ufer, a self-hosted personal finance overview for one household
 ### Operations
 
 - Deployment on Vercel with a Turso (libSQL) database, versioned SQL migrations, Docker and Compose for self-hosting.
-- Preview deployments for pull requests with a shared synthetic demo dataset (`npm run demo:seed`) and a sandbox bank connection.
+- Preview deployments for pull requests and a staging deployment of `main`, sharing a synthetic demo dataset (`npm run demo:seed`) and a sandbox bank connection; production deploys from version tags.
 
-[0.1.0]: https://github.com/daberni/ufer/releases/tag/v0.1.0
+[0.1.0]: https://github.com/daberni/ufer/releases/tag/0.1.0

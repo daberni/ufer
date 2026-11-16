@@ -1,0 +1,34 @@
+name: Staging
+
+# Every push to main deploys a preview build (preview environment and database) and points the staging alias at it.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: staging
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+      STAGING_ALIAS: ufer-staging.vercel.app
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - name: Deploy preview build
+        id: deploy
+        run: |
+          url="$(npx --yes vercel@65.16.0 deploy --yes --token "$VERCEL_TOKEN" --build-env UFER_DEPLOYMENT=staging)"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+      - name: Point the staging alias at it
+        env:
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.url }}
+        run: npx --yes vercel@65.16.0 alias set "$DEPLOYMENT_URL" "$STAGING_ALIAS" --token "$VERCEL_TOKEN"
