@@ -71,7 +71,7 @@ The current source uses Better Auth username/password identities and active memb
 
 ## Request timing
 
-API routes answer with a `Server-Timing` header: `auth` (session and membership lookup), `action` (the route's own work), `db` (database calls in the request with their summed duration; concurrent calls overlap) and `total`. Browser developer tools show it per request, so a slow view can be traced to session lookup, query count or provider calls. With functions in `fra1` and the database in another region, each database call adds a network round trip; an authenticated request usually needs three for the session, user and membership before its own queries. Warm and cold timings from the hosted deployment have not been recorded yet.
+API routes handled through the shared `respond()` boundary answer with a `Server-Timing` header (the authentication handler, the bank callback redirect and the 404 fallback do not): `auth` (session and membership lookup), `action` (the route's own work), `db` (database calls in the request with their summed duration; concurrent calls overlap) and `total`. Browser developer tools show it per request, so a slow view can be traced to session lookup, query count or provider calls. With functions in `fra1` and the database in another region, each database call adds a network round trip; an authenticated request usually needs three for the session, user and membership before its own queries. Warm and cold timings from the hosted deployment have not been recorded yet.
 
 ## Verification status
 

@@ -64,8 +64,10 @@ function measuredCalls<T extends object>(target: T): T {
 export function database(): Promise<Database> {
   if (!globalDb.budgetDb) {
     const client = createDatabaseClient();
+    // Initialization runs inside the first request, so its round trips count toward that request's timing.
+    const measuredClient = measuredCalls(client);
 
-    globalDb.budgetDb = initializeDatabase(client).then(() => drizzle(measuredCalls(client), {
+    globalDb.budgetDb = initializeDatabase(measuredClient).then(() => drizzle(measuredClient, {
       schema
     })).catch(error => {
       globalDb.budgetDb = undefined;
