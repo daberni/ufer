@@ -322,3 +322,43 @@ test("a month's breakdowns leave out transfers and other currencies and keep unc
   assert.equal(december?.expenses, 9350);
   assert.deepEqual(january?.expenseBreakdown.map(item => [item.categoryId, item.amount]), [[null, 50000]]);
 });
+
+test("bookings of the same day are listed alphabetically by payee, with empty payees last", async context => {
+  const db = await seededDatabase(context);
+
+  await db.insert(schema.transactions).values([{
+    id: "z-row",
+    account_id: "checking",
+    provider_reference: "same-day-1",
+    booking_date: "2026-03-10",
+    amount_minor: -100,
+    currency: "EUR",
+    counterparty: "",
+    description: "Card fee",
+    created_at: "2026-03-10T08:00:00.000Z"
+  }, {
+    id: "a-row",
+    account_id: "checking",
+    provider_reference: "same-day-2",
+    booking_date: "2026-03-10",
+    amount_minor: -200,
+    currency: "EUR",
+    counterparty: "zoo shop",
+    created_at: "2026-03-10T09:00:00.000Z"
+  }, {
+    id: "m-row",
+    account_id: "checking",
+    provider_reference: "same-day-3",
+    booking_date: "2026-03-10",
+    amount_minor: -300,
+    currency: "EUR",
+    counterparty: "Bakery",
+    created_at: "2026-03-10T07:00:00.000Z"
+  }]);
+
+  const page = await readTransactionPage(dashboardFilters(new URLSearchParams({
+    period: "2026-03"
+  })));
+
+  assert.deepEqual(page.transactions.map(transaction => transaction.id), ["m-row", "a-row", "z-row"]);
+});
