@@ -39,14 +39,14 @@
   margin: 0;
   accent-color: var(--green);
 }
-@media (max-width: 1250px) {
+@media (--laptop) {
   .period-bar > div:first-child {
     flex-direction: column;
     align-items: flex-start;
     gap: 6px;
   }
 }
-@media (max-width: 760px), (max-width: 900px) and (pointer: coarse) {
+@media (--mobile) {
   .period-bar {
     align-items: stretch;
     flex-direction: column;

@@ -44,7 +44,7 @@
   line-height: 1.2;
   color: var(--danger);
 }
-@media (max-width: 760px), (max-width: 900px) and (pointer: coarse) {
+@media (--mobile) {
   .category {
     gap: 10px;
   }

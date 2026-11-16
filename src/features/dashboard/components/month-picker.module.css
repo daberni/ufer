@@ -59,7 +59,7 @@
 .month.selected:hover {
   background: var(--green-strong);
 }
-@media (max-width: 760px), (max-width: 900px) and (pointer: coarse) {
+@media (--mobile) {
   /* The trigger is an off-center grid cell, so the popover anchors to the positioned period controls instead. */
   .root {
     position: static;

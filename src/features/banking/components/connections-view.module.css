@@ -84,7 +84,7 @@
   white-space: pre-line;
   line-height: 1.7;
 }
-@media (max-width: 1250px) {
+@media (--laptop) {
   .connection-row {
     flex-wrap: wrap;
   }
@@ -95,7 +95,7 @@
     min-width: 0;
   }
 }
-@media (max-width: 760px), (max-width: 900px) and (pointer: coarse) {
+@media (--mobile) {
   .connection-row {
     gap: 13px;
   }

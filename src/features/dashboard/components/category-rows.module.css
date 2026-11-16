@@ -61,7 +61,7 @@
   bottom: 0;
   height: 2px;
 }
-@media (max-width: 760px), (max-width: 900px) and (pointer: coarse) {
+@media (--mobile) {
   .row {
     font-size: var(--text-sm);
   }
