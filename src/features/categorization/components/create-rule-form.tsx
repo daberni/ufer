@@ -3,12 +3,14 @@
 import ui from "../../../components/ui/primitives.module.css";
 
 import { clsx } from "clsx";
+import { useId, useState } from "react";
 import { Sparkles } from "lucide-react";
 import { useDialogSubmit, type DialogFormProps } from "@/features/dashboard/use-dialog-submit";
 import { useCreateRule } from "@/features/categorization/mutations";
 import { useCategories } from "@/features/categorization/queries";
 import { FormError } from "@/components/ui/form-error";
 import { Select } from "@/components/ui/select";
+import { CategoryPicker } from "./category-picker";
 
 export function CreateRuleForm({ close }: DialogFormProps) {
   const categories = useCategories();
@@ -17,6 +19,9 @@ export function CreateRuleForm({ close }: DialogFormProps) {
     pending,
     submit
   } = useDialogSubmit(useCreateRule(), close);
+  const categoryFieldId = useId();
+  const [chosenCategoryId, setChosenCategoryId] = useState<string | null>(null);
+  const categoryId = chosenCategoryId ?? categories.data?.[0]?.id ?? null;
 
   return (
     <form
@@ -64,16 +69,17 @@ export function CreateRuleForm({ close }: DialogFormProps) {
           />
         </label>
       </div>
-      <label>
-        Category
-        <Select name="category_id" required>
-          {categories.data?.map(category => (
-            <option key={category.id} value={category.id}>
-              {category.name}
-            </option>
-          ))}
-        </Select>
-      </label>
+      <div className={ui["field"]}>
+        <label htmlFor={categoryFieldId}>Category</label>
+        <CategoryPicker
+          id={categoryFieldId}
+          name="category_id"
+          categories={categories.data ?? []}
+          value={categoryId}
+          size="medium"
+          onChange={setChosenCategoryId}
+        />
+      </div>
       <p className={ui["form-hint"]}>Matches the payee and description without case sensitivity. The first matching rule wins.</p>
       <FormError message={error} />
       <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={pending || !categories.data}>

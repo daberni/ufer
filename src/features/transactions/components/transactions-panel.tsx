@@ -9,6 +9,7 @@ import { Empty } from "@/components/ui/empty-state";
 import { TransactionList } from "@/features/transactions/components/transaction-list";
 import type { DashboardController } from "@/features/dashboard/use-dashboard";
 import { Select } from "@/components/ui/select";
+import { anyCategory, CategoryPicker, type CategoryPickerValue } from "@/features/categorization/components/category-picker";
 import { useSearchDraft } from "@/features/transactions/use-search-draft";
 import { transactionPageSize } from "@/features/dashboard/pagination";
 import { areaProps, valueMask } from "@/features/dashboard/components/result-presentation";
@@ -25,6 +26,23 @@ type Props = Pick<DashboardController, "accountFilter" | "categoryFilter" | "cha
 };
 
 const recentTransactions = 5;
+
+// The URL filter uses "" for all categories and "uncategorized" for transactions without one.
+function categoryPickerValue(filter: string): CategoryPickerValue {
+  if (filter === "") {
+    return anyCategory;
+  }
+
+  return filter === "uncategorized" ? null : filter;
+}
+
+function categoryFilterValue(value: CategoryPickerValue) {
+  if (value === anyCategory) {
+    return "";
+  }
+
+  return value ?? "uncategorized";
+}
 
 export function TransactionsPanel({
   accountFilter,
@@ -97,19 +115,15 @@ export function TransactionsPanel({
               </option>
             ))}
           </Select>
-          <Select
+          <CategoryPicker
+            className={styles["category-filter"]}
             aria-label="Category filter"
-            value={categoryFilter}
-            onChange={event => setCategoryFilter(event.target.value)}
-          >
-            <option value="">All categories</option>
-            <option value="uncategorized">Uncategorized</option>
-            {categories.map(category => (
-              <option key={category.id} value={category.id}>
-                {category.name}
-              </option>
-            ))}
-          </Select>
+            categories={categories}
+            value={categoryPickerValue(categoryFilter)}
+            includeAll
+            includeUncategorized
+            onChange={value => setCategoryFilter(categoryFilterValue(value))}
+          />
         </div>
       )}
       <div {...areaProps(list.status)}>
