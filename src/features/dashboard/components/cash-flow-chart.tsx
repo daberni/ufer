@@ -3,8 +3,10 @@
 import ui from "../../../components/ui/primitives.module.css";
 
 import { clsx } from "clsx";
+import { Temporal } from "temporal-polyfill";
 import styles from "./cash-flow-chart.module.css";
-import { monthLabel, monthRangeLabel } from "@/features/dashboard/presentation";
+import { monthRangeLabel } from "@/features/dashboard/presentation";
+import { describeMonth } from "@/lib/date-format";
 import { money } from "@/lib/money";
 import { areaProps, valueMask } from "@/features/dashboard/components/result-presentation";
 import type { AreaResult } from "@/features/dashboard/use-area-result";
@@ -20,12 +22,17 @@ export function CashFlowChart({ cashFlow }: Props) {
     trend
   } = cashFlow.data;
   const trendMax = Math.max(1, ...trend.flatMap(item => [item.income, item.expenses]));
+  const months = trend.map(item => Temporal.PlainYearMonth.from(item.month));
+  const bars = trend.map((item, index) => ({
+    ...item,
+    display: describeMonth(months[index])
+  }));
 
   return (
     <section className={ui["panel"]}>
       <div className={ui["card-heading"]}>
         <h2>Income & expenses</h2>
-        <span className={clsx(ui["subtle"], valueMask(cashFlow.status))}>{monthRangeLabel(trend.map(item => item.month))}</span>
+        <span className={clsx(ui["subtle"], valueMask(cashFlow.status))}>{monthRangeLabel(months)}</span>
       </div>
       <div className={styles["chart-legend"]}>
         <span>
@@ -37,14 +44,14 @@ export function CashFlowChart({ cashFlow }: Props) {
           Expenses
         </span>
       </div>
-      <div {...areaProps(cashFlow.status, styles["bar-chart"])} role="img" aria-label={`Monthly income and expenses for ${trend.map(item => `${monthLabel(item.month)}: Income ${money(item.income, currency)}, Expenses ${money(item.expenses, currency)}`).join("; ")}`}>
+      <div {...areaProps(cashFlow.status, styles["bar-chart"])} role="img" aria-label={`Monthly income and expenses for ${bars.map(item => `${item.display.title}: Income ${money(item.income, currency)}, Expenses ${money(item.expenses, currency)}`).join("; ")}`}>
         <div className={styles["chart-grid"]}>
           <span />
           <span />
           <span />
           <span />
         </div>
-        {trend.map(item => (
+        {bars.map(item => (
           <div className={styles["bar-group"]} key={item.month}>
             <div className={styles["bars"]}>
               <span
@@ -62,9 +69,7 @@ export function CashFlowChart({ cashFlow }: Props) {
                 title={money(item.expenses, currency)}
               />
             </div>
-            <span>{new Intl.DateTimeFormat("en-GB", {
-              month: "short"
-            }).format(new Date(`${item.month}-01`))}</span>
+            <span>{item.display.label}</span>
           </div>
         ))}
       </div>

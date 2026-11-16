@@ -8,6 +8,7 @@ import type { Account } from "@/features/dashboard/types";
 import { useDialogSubmit, type DialogFormProps } from "@/features/dashboard/use-dialog-submit";
 import { useSaveValuation } from "@/features/accounts/mutations";
 import { FormError } from "@/components/ui/form-error";
+import { today } from "@/lib/time";
 
 type Props = DialogFormProps & {
   selectedAccount: Account;
@@ -22,6 +23,7 @@ export function ValuationForm({
     pending,
     submit
   } = useDialogSubmit(useSaveValuation(selectedAccount.id), close);
+  const latestDate = today().toString();
 
   return (
     <form
@@ -46,8 +48,8 @@ export function ValuationForm({
           name="date"
           type="date"
           required
-          defaultValue={new Date().toISOString().slice(0, 10)}
-          max={new Date().toISOString().slice(0, 10)}
+          defaultValue={latestDate}
+          max={latestDate}
         />
       </label>
       <FormError message={error} />

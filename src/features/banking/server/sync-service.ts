@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
+import { Temporal } from "temporal-polyfill";
 import { HttpError } from "@/lib/errors";
+import { timestamp, today } from "@/lib/time";
 import { database } from "@/server/database/connection";
 import { acquireLease, releaseLease, renewLease } from "@/server/jobs/lease-repository";
 import { listRules } from "@/features/categorization/server/rule-repository";
@@ -12,6 +14,17 @@ import { expireConnection } from "./connection-repository";
 
 export function syncLeaseName(environment: string) {
   return `sync:${environment}`;
+}
+
+/** First booking date requested from the bank: 89 calendar days before today in the product zone. */
+export function syncWindowStart(now = Temporal.Now.instant()) {
+  return today(now).subtract({
+    days: 89
+  });
+}
+
+function authorizationExpired(validUntil: string, now: Temporal.Instant) {
+  return Temporal.Instant.compare(Temporal.Instant.from(validUntil), now) <= 0;
 }
 
 export async function syncAccounts() {
@@ -28,7 +41,7 @@ export async function syncAccounts() {
   const failures: string[] = [];
 
   try {
-    await startSyncRun(db, env, owner, new Date().toISOString());
+    await startSyncRun(db, env, owner, timestamp());
     const accounts = await listSyncAccounts(db, env);
 
     if (accounts.length) {
@@ -37,7 +50,7 @@ export async function syncAccounts() {
 
     const rules = await listRules();
     const ownIbans = new Set(accounts.map(account => (account.iban || "").replace(/\s/g, "")).filter(Boolean));
-    const dateFrom = new Date(Date.now() - 89 * 86_400_000).toISOString().slice(0, 10);
+    const dateFrom = syncWindowStart().toString();
     const heartbeat = async () => {
       if (!(await renewLease(db, leaseName, owner))) {
         throw new HttpError(409, "Sync lease lost; run sync again.");
@@ -48,7 +61,7 @@ export async function syncAccounts() {
       try {
         await heartbeat();
 
-        if (account.connection_status !== "LINKED" || !account.valid_until || Date.parse(account.valid_until) <= Date.now()) {
+        if (account.connection_status !== "LINKED" || !account.valid_until || authorizationExpired(account.valid_until, Temporal.Now.instant())) {
           await expireConnection(db, account.connection_id);
 
           throw new HttpError(409, "Bank authorization has expired. Reconnect the bank.");

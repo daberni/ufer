@@ -3,10 +3,6 @@ import { Temporal } from "temporal-polyfill";
 // Central place for date display so a locale can be introduced in one spot.
 const displayLocale = "en-GB";
 
-// Zone for the server render and first client render, so hydration is deterministic.
-// Matches the product zone of viennaMonth; clients then switch to their own zone after mount.
-export const defaultTimeZone = "Europe/Vienna";
-
 export type DateDisplay = {
   dateTime: string;
   label: string;
@@ -38,6 +34,23 @@ export function describeDate(value: Temporal.PlainDate | Temporal.ZonedDateTime)
     title: value.toLocaleString(displayLocale, {
       dateStyle: "long",
       timeStyle: "long"
+    })
+  };
+}
+
+// A month has no day or zone, so its names cannot shift with the viewer's zone.
+export function describeMonth(month: Temporal.PlainYearMonth) {
+  const firstDay = month.toPlainDate({
+    day: 1
+  });
+
+  return {
+    label: firstDay.toLocaleString(displayLocale, {
+      month: "short"
+    }),
+    title: firstDay.toLocaleString(displayLocale, {
+      month: "long",
+      year: "numeric"
     })
   };
 }

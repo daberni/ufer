@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { Temporal } from "temporal-polyfill";
 import { HttpError } from "@/lib/errors";
 import { database } from "@/server/database/connection";
 import { acquireLease, releaseLease } from "@/server/jobs/lease-repository";
@@ -11,7 +12,9 @@ import { syncLeaseName } from "./sync-service";
 export type ProviderRevocation = "revoked" | "not_revoked" | "no_session";
 
 // A callback that consumed its state shortly before may still be exchanging the code and must not be removed underneath it.
-const authorizationExchangeWindowMs = 5 * 60_000;
+const authorizationExchangeWindow = Temporal.Duration.from({
+  minutes: 5
+});
 
 export async function removeBankConnection(id: string) {
   const db = await database();
@@ -26,7 +29,7 @@ export async function removeBankConnection(id: string) {
   let removal: ConnectionRemoval;
 
   try {
-    const exchangeCutoff = new Date(Date.now() - authorizationExchangeWindowMs).toISOString();
+    const exchangeCutoff = Temporal.Now.instant().subtract(authorizationExchangeWindow);
 
     removal = await removeConnection(db, env, id, exchangeCutoff);
   } finally {

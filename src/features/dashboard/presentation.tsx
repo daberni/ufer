@@ -1,6 +1,6 @@
 import { ArrowDownLeft, Building2, CreditCard, HandCoins, Landmark, LayoutDashboard, Link2, PiggyBank, SlidersHorizontal, ChartNoAxesCombined, Wallet } from "lucide-react";
 import { Temporal } from "temporal-polyfill";
-import { describeDate } from "@/lib/date-format";
+import { describeDate, describeMonth } from "@/lib/date-format";
 import type { View } from "./types";
 import type { Period } from "./period";
 
@@ -40,38 +40,21 @@ export const navigation = [{
   icon: Link2
 }];
 
-export function monthLabel(value: string) {
-  return new Intl.DateTimeFormat("en-GB", {
-    month: "long",
-    year: "numeric",
-    timeZone: "UTC"
-  }).format(new Date(`${value}-01T12:00:00Z`));
-}
-
 export function periodLabel(period: Period) {
-  return period.kind === "all" ? "All months" : monthLabel(period.month.toString());
-}
-
-function shortMonthLabel(value: string) {
-  return new Intl.DateTimeFormat("en-GB", {
-    month: "short",
-    timeZone: "UTC"
-  }).format(new Date(`${value}-01T12:00:00Z`));
+  return period.kind === "all" ? "All months" : describeMonth(period.month).title;
 }
 
 /** Labels a month range such as the cash-flow trend window, e.g. "Jun – Nov 2026" or "Dec 2025 – May 2026". */
-export function monthRangeLabel(months: string[]) {
+export function monthRangeLabel(months: Temporal.PlainYearMonth[]) {
   if (!months.length) {
     return "";
   }
 
   const first = months[0];
   const last = months[months.length - 1];
-  const firstYear = first.slice(0, 4);
-  const lastYear = last.slice(0, 4);
-  const start = firstYear === lastYear ? shortMonthLabel(first) : `${shortMonthLabel(first)} ${firstYear}`;
+  const start = first.year === last.year ? describeMonth(first).label : `${describeMonth(first).label} ${first.year}`;
 
-  return `${start} – ${shortMonthLabel(last)} ${lastYear}`;
+  return `${start} – ${describeMonth(last).label} ${last.year}`;
 }
 
 export function accountIcon(kind: string) {

@@ -1,9 +1,11 @@
 import type { AuthContext } from "@/features/auth/server/session";
 import { HttpError } from "@/lib/errors";
 import { randomBytes, randomUUID } from "node:crypto";
+import { Temporal } from "temporal-polyfill";
 import { z } from "zod";
 import { availableBanks, bankingRequest, verifyApplication } from "@/features/banking/server/enable-banking-client";
 import { hash } from "@/server/security/tokens";
+import { timestamp } from "@/lib/time";
 import { insertAuthorization } from "./connection-repository";
 
 export async function connectBank(payload: unknown, actor: AuthContext) {
@@ -30,13 +32,18 @@ export async function connectBank(payload: unknown, actor: AuthContext) {
 
   const state = randomBytes(32).toString("base64url");
   const browser = randomBytes(32).toString("base64url");
-  const validity = Math.min(Number(selected.maximum_consent_validity) || 86400, 180 * 86400);
+  const validitySeconds = Math.min(Math.floor(Number(selected.maximum_consent_validity)) || 86400, 180 * 86400);
+  const validUntil = Temporal.Now.instant().add({
+    seconds: validitySeconds
+  }).subtract({
+    minutes: 1
+  });
   const authorization = await bankingRequest<{
     url: string;
     authorization_id: string;
   }>("/auth", {
     access: {
-      valid_until: new Date(Date.now() + validity * 1000 - 60_000).toISOString(),
+      valid_until: timestamp(validUntil),
       balances: true,
       transactions: true
     },

@@ -1,7 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { defaultTimeZone } from "@/lib/date-format";
+import { productTimeZone } from "@/lib/time";
 
 function subscribe() {
   return () => {};
@@ -12,10 +12,10 @@ function viewerTimeZone() {
 }
 
 function serverTimeZone() {
-  return defaultTimeZone;
+  return productTimeZone;
 }
 
-// The server snapshot is also used while hydrating, so timestamps switch to the viewer's zone only after mount.
+// The server snapshot is also used while hydrating, so the render is deterministic and timestamps switch to the viewer's zone only after mount.
 export function useDisplayTimeZone() {
   return useSyncExternalStore(subscribe, viewerTimeZone, serverTimeZone);
 }
