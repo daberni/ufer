@@ -259,34 +259,55 @@ test("valid identities without active membership cannot access financial data", 
   });
 });
 
-test("password changes revoke other sessions and the old password stops working", async context => {
-  await isolatedAuth(context);
-  await provisionUser(owner);
-  const first = await signIn();
-  const second = await signIn();
-  const changed = await handleAuthentication(request("/change-password", {
-    currentPassword: password,
-    newPassword: "changed-synthetic-password-456",
+for (const [description, clientFlag] of [
+  ["omits the revocation flag", {}],
+  ["declines revocation", {
+    revokeOtherSessions: false
+  }],
+  ["requests revocation", {
     revokeOtherSessions: true
-  }, second.cookie));
+  }]
+] as const) {
+  test(`password changes revoke other sessions and the old password stops working when the client ${description}`, async context => {
+    await isolatedAuth(context);
+    await provisionUser(owner);
+    const first = await signIn();
+    const second = await signIn();
+    const changed = await handleAuthentication(request("/change-password", {
+      currentPassword: password,
+      newPassword: "changed-synthetic-password-456",
+      ...clientFlag
+    }, second.cookie));
+    const rotatedCookie = changed.headers.getSetCookie().find(value => value.startsWith("__Secure-better-auth.session_token="))?.split(";")[0];
 
-  assert.equal(changed.status, 200, JSON.stringify(await changed.clone().json()));
-  await assert.rejects(requireAuth(new Request(`${origin}/api/accounts`, {
-    headers: {
-      cookie: first.cookie
+    assert.equal(changed.status, 200, JSON.stringify(await changed.clone().json()));
+
+    for (const revoked of [first.cookie, second.cookie]) {
+      await assert.rejects(requireAuth(new Request(`${origin}/api/accounts`, {
+        headers: {
+          cookie: revoked
+        }
+      })), {
+        status: 401
+      });
     }
-  })), {
-    status: 401
+
+    assert.ok(rotatedCookie);
+    assert.ok(await requireAuth(new Request(`${origin}/api/accounts`, {
+      headers: {
+        cookie: rotatedCookie
+      }
+    })));
+    assert.equal((await handleAuthentication(request("/sign-in/username", {
+      username: owner.username,
+      password
+    }))).status, 401);
+    assert.equal((await handleAuthentication(request("/sign-in/username", {
+      username: owner.username,
+      password: "changed-synthetic-password-456"
+    }))).status, 200);
   });
-  assert.equal((await handleAuthentication(request("/sign-in/username", {
-    username: owner.username,
-    password
-  }))).status, 401);
-  assert.equal((await handleAuthentication(request("/sign-in/username", {
-    username: owner.username,
-    password: "changed-synthetic-password-456"
-  }))).status, 200);
-});
+}
 
 test("the maintained client receives Problem Details errors without losing its error message", async context => {
   await isolatedAuth(context);
