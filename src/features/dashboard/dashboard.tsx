@@ -103,12 +103,6 @@ function DashboardShell({ children }: {
         <DashboardDialogs
           key={dashboard.modal}
           accounts={accounts.data}
-          bankCountry={dashboard.bankCountry}
-          bankName={dashboard.bankName}
-          bankSearch={dashboard.bankSearch}
-          banks={dashboard.banks}
-          banksError={dashboard.banksError}
-          banksLoading={dashboard.banksLoading}
           environment={environment}
           importMode={dashboard.importMode}
           modal={dashboard.modal}
@@ -116,9 +110,6 @@ function DashboardShell({ children }: {
           selectedAccount={dashboard.selectedAccount}
           selectedCategory={dashboard.selectedCategory}
           selectedConnection={dashboard.selectedConnection}
-          setBankCountry={dashboard.setBankCountry}
-          setBankName={dashboard.setBankName}
-          setBankSearch={dashboard.setBankSearch}
           setImportMode={dashboard.setImportMode}
           setModal={dashboard.setModal}
         />
