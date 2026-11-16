@@ -50,6 +50,11 @@ jobs:
           cat "$output" >&2
           echo "url=$(cat "$RUNNER_TEMP/vercel-url.txt")" >> "$GITHUB_OUTPUT"
           echo "inspector=$(grep -o 'https://vercel.com/[^ ]*' "$output" | head -n 1 || true)" >> "$GITHUB_OUTPUT"
+          if [ "$status" -ne 0 ]; then
+            message=$(grep -m 1 -E '^(✗|Error)' "$output" || grep -v '^[[:space:]]*$' "$output" | tail -n 1 || true)
+            printf '### Vercel deployment failed\n\n~~~\n%s\n~~~\n' "$message" >> "$GITHUB_STEP_SUMMARY"
+            echo "::error title=Vercel deployment failed::$(printf '%s' "$message" | sed 's/%/%25/g')"
+          fi
           exit "$status"
       # A cancelled run is superseded by a newer one, which reports its own state.
       - name: Report the result
