@@ -12,7 +12,9 @@ This guide covers development, deployment and verification. See [banking and imp
 4. Provision the installation owner using the operator-only [user enrollment](user-management.md#operator-enrollment), then run `npm run dev` and open [localhost:3000](http://localhost:3000). Keep the same hostname and browser throughout bank authorization.
 5. Open Bank connections, authorize a sandbox institution, then select Sync to retrieve balances and booked transactions.
 
-The development server binds to loopback. Username/password sign-in and `BETTER_AUTH_SECRET` are required in every environment. Existing installations need the reviewed [authentication migration](user-management.md#migration-and-rollout) before starting this version. `APP_URL` must match the browser origin because write requests validate their origin.
+The development server binds to loopback. Username/password sign-in and `BETTER_AUTH_SECRET` are required in every environment. Existing installations need the reviewed [authentication migration](user-management.md#migration-and-rollout) before starting this version. `APP_URL` must match the browser origin because write requests validate their origin. A production server (Docker, or `NODE_ENV=production`) refuses to start unless `APP_URL` is an HTTPS origin, so serve Docker installations through an HTTPS reverse proxy.
+
+JSON request bodies above 2 MiB are rejected with 413 by their declared `Content-Length` before parsing; CSV imports allow 1 MB of CSV text. Vercel additionally caps bodies at 4.5 MB.
 
 ## Demo data
 

@@ -13,6 +13,35 @@ const endpoints = new Map([
   ["/revoke-other-sessions", "POST"]
 ]);
 
+// The session cookie is the only credential carrier; no response body may repeat the raw session token.
+function withoutSessionTokens(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(withoutSessionTokens);
+  }
+
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.entries(value).filter(([key]) => key !== "token").map(([key, item]) => [key, withoutSessionTokens(item)]));
+  }
+
+  return value;
+}
+
+async function withoutTokens(response: Response) {
+  if (!response.headers.get("content-type")?.includes("application/json")) {
+    return response;
+  }
+
+  const data = await response.json();
+  const headers = new Headers(response.headers);
+
+  headers.delete("content-length");
+
+  return Response.json(withoutSessionTokens(data), {
+    status: response.status,
+    headers
+  });
+}
+
 export async function handleAuthentication(request: Request) {
   try {
     const path = new URL(request.url).pathname.slice("/api/auth".length);
@@ -29,9 +58,11 @@ export async function handleAuthentication(request: Request) {
     const response = await auth.handler(request);
 
     if (response.status < 400) {
-      response.headers.set("Cache-Control", "no-store");
+      const sanitized = await withoutTokens(response);
 
-      return response;
+      sanitized.headers.set("Cache-Control", "no-store");
+
+      return sanitized;
     }
 
     const data = await response.json().catch(() => null);
