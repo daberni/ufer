@@ -11,7 +11,7 @@ Ufer maintains code, comments, UI copy and examples in English. Readability and 
 | `src/features/dashboard` | The dashboard shell, navigation and view routes composed from feature components; nothing outside its routes imports it |
 | `src/features/<feature>/server` | Server-only validation/use cases, provider integration, repositories and read projections |
 | `src/components` | Shared layout with explicit props and reusable UI, including area placeholders and dialog form submission; no financial persistence |
-| `src/client` | Browser HTTP transport, query client and the dashboard's URL state, UI store and session lock |
+| `src/client` | Browser HTTP transport, query client and the app's URL state (`app-location.ts`, `use-app-url.ts`), UI store (`app-store.tsx`) and session lock (`use-session-lock.ts`) |
 | `src/server` | Shared infrastructure: database lifecycle, HTTP guards, job coordination and cryptographic primitives |
 | `src/lib` | Shared money/date/period/pagination/rule/import utilities; no database queries, authentication protocol or feature workflow collection |
 

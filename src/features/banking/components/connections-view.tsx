@@ -14,7 +14,7 @@ import type { BankingConfiguration, Connection, SyncRun } from "@/features/banki
 import { useState } from "react";
 import { BankConnectionDialog } from "./bank-connection-form";
 import { RemoveConnectionDialog } from "./remove-connection-form";
-import { useSyncRunHref } from "@/client/use-dashboard-url";
+import { useSyncRunHref } from "@/client/use-app-url";
 import { AreaPlaceholder } from "@/components/ui/area-placeholder";
 import type { Area } from "@/components/ui/use-area-result";
 

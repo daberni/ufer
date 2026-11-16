@@ -15,7 +15,7 @@ import { CategoryRows, describeCategoryGroups } from "@/features/reports/compone
 import { areaProps, valueMask } from "@/components/ui/result-presentation";
 import { AreaPlaceholder } from "@/components/ui/area-placeholder";
 import { currentMonth, trendMonths } from "@/lib/period";
-import { usePeriod } from "@/client/use-dashboard-url";
+import { usePeriod } from "@/client/use-app-url";
 import type { Area, AreaResult, PendingArea } from "@/components/ui/use-area-result";
 import type { CashFlow } from "@/features/reports/types";
 

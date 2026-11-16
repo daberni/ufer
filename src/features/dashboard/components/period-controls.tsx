@@ -10,7 +10,7 @@ import { describeDate, periodLabel } from "@/lib/date-format";
 import { useDisplayTimeZone } from "@/components/ui/use-display-time-zone";
 import { lastSyncLabel } from "@/features/banking/sync-run-presentation";
 import { allMonthsPeriod, currentMonthPeriod, monthPeriod } from "@/lib/period";
-import { selectPeriod, setCurrency, useCurrency, usePeriod } from "@/client/use-dashboard-url";
+import { selectPeriod, setCurrency, useCurrency, usePeriod } from "@/client/use-app-url";
 import { Select } from "@/components/ui/select";
 import { MonthPicker } from "@/features/dashboard/components/month-picker";
 import { shownStatus, valueMask } from "@/components/ui/result-presentation";

@@ -4,9 +4,9 @@ import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import type { Feedback } from "@/components/ui/use-action-feedback";
 import { callbackFailureMessage, parseCallbackResult, type CallbackResult } from "@/features/banking/callback-result";
-import { useDashboardStoreApi } from "@/client/dashboard-store";
-import { usePeriodScope, useView } from "@/client/use-dashboard-url";
-import { isPeriodAware } from "@/client/dashboard-location";
+import { useAppStoreApi } from "@/client/app-store";
+import { usePeriodScope, useView } from "@/client/use-app-url";
+import { isPeriodAware } from "@/client/app-location";
 
 /**
  * Keeps the UI store in step with navigation: a page message belongs to the view it was reported on, views without a period remember the last one selected, and a bank callback result is shown once.
@@ -16,7 +16,7 @@ export function useDashboardNavigation() {
   const pathname = usePathname();
   const view = useView();
   const scope = usePeriodScope();
-  const store = useDashboardStoreApi();
+  const store = useAppStoreApi();
 
   useEffect(() => {
     store.getState().enterView(pathname);

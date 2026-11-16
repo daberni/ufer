@@ -11,7 +11,7 @@ import { Empty } from "@/components/ui/empty-state";
 import { CategoryRows, CategoryRowsSkeleton } from "@/features/reports/components/category-rows";
 import { AreaPlaceholder } from "@/components/ui/area-placeholder";
 import { areaProps, valueMask } from "@/components/ui/result-presentation";
-import { usePeriod } from "@/client/use-dashboard-url";
+import { usePeriod } from "@/client/use-app-url";
 import type { Area, AreaResult } from "@/components/ui/use-area-result";
 import type { CashFlow } from "@/features/reports/types";
 

@@ -8,7 +8,7 @@ import { FormError } from "@/components/ui/form-error";
 import type { Feedback } from "@/components/ui/use-action-feedback";
 import type { Account } from "@/features/accounts/types";
 import type { Connection, ConnectionRemoval } from "@/features/banking/types";
-import { useDashboardStore } from "@/client/dashboard-store";
+import { useAppStore } from "@/client/app-store";
 import { useDialogSubmit, type DialogFormProps } from "@/components/ui/use-dialog-submit";
 import { useRemoveConnection } from "@/features/banking/mutations";
 import { useAccounts } from "@/features/accounts/queries";
@@ -36,7 +36,7 @@ function RemoveConnectionForm({
   selectedConnection
 }: Props) {
   const accounts = useAreaResult(useAccounts());
-  const reportFeedback = useDashboardStore(state => state.reportFeedback);
+  const reportFeedback = useAppStore(state => state.reportFeedback);
   const {
     error,
     pending,

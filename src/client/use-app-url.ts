@@ -2,8 +2,8 @@
 
 import { useCallback, useMemo } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useDashboardStore, useDashboardStoreApi } from "./dashboard-store";
-import { dashboardQuery, isPeriodAware, periodScope, viewFromPathname, viewHref, viewPaths, withQueryChanges, type DashboardQuery, type DashboardQueryChanges, type View } from "./dashboard-location";
+import { useAppStore, useAppStoreApi } from "./app-store";
+import { viewQuery, isPeriodAware, periodScope, viewFromPathname, viewHref, viewPaths, withQueryChanges, type ViewQuery, type ViewQueryChanges, type View } from "./app-location";
 import type { Period } from "@/lib/period";
 
 /*
@@ -18,51 +18,51 @@ export function useView(): View {
 export function usePeriodScope() {
   const view = useView();
   const searchParams = useSearchParams();
-  const remembered = useDashboardStore(state => state.periodScope);
+  const remembered = useAppStore(state => state.periodScope);
 
   return isPeriodAware(view) ? periodScope(searchParams) : remembered;
 }
 
 /** Every parameter the current view's data depends on; the transaction list filters are empty outside the transactions view. */
-export function useDashboardQuery(): DashboardQuery {
+export function useViewQuery(): ViewQuery {
   const view = useView();
   const scope = usePeriodScope();
   const searchParams = useSearchParams();
   const search = searchParams.toString();
 
-  return useMemo(() => dashboardQuery(view, scope, new URLSearchParams(search)), [view, scope, search]);
+  return useMemo(() => viewQuery(view, scope, new URLSearchParams(search)), [view, scope, search]);
 }
 
-function useDashboardParameter<K extends keyof DashboardQuery>(key: K): DashboardQuery[K] {
-  return useDashboardQuery()[key];
+function useViewParameter<K extends keyof ViewQuery>(key: K): ViewQuery[K] {
+  return useViewQuery()[key];
 }
 
 export function usePeriod() {
-  return useDashboardParameter("period");
+  return useViewParameter("period");
 }
 
 export function useCurrency() {
-  return useDashboardParameter("currency");
+  return useViewParameter("currency");
 }
 
 export function useSearchFilter() {
-  return useDashboardParameter("search");
+  return useViewParameter("search");
 }
 
 export function useAccountFilter() {
-  return useDashboardParameter("account");
+  return useViewParameter("account");
 }
 
 export function useCategoryFilter() {
-  return useDashboardParameter("category");
+  return useViewParameter("category");
 }
 
 export function useSyncRunFilter() {
-  return useDashboardParameter("syncRun");
+  return useViewParameter("syncRun");
 }
 
 export function usePage() {
-  return useDashboardParameter("page");
+  return useViewParameter("page");
 }
 
 /** Links to other views carry the period of the views that have one. */
@@ -84,7 +84,7 @@ export function useSyncRunHref() {
 /** Navigates to another view with the current period, without subscribing the caller to the URL. */
 export function useChangeView() {
   const router = useRouter();
-  const store = useDashboardStoreApi();
+  const store = useAppStoreApi();
 
   return useCallback((view: View) => {
     const current = viewFromPathname(window.location.pathname);
@@ -95,7 +95,7 @@ export function useChangeView() {
 }
 
 // Filter and page changes stay on the current view; typing a search replaces its history entry instead of adding one per keystroke.
-function updateQuery(changes: DashboardQueryChanges, entry: "push" | "replace") {
+function updateQuery(changes: ViewQueryChanges, entry: "push" | "replace") {
   const current = `${window.location.pathname}${window.location.search}`;
   const next = withQueryChanges(window.location.pathname, window.location.search, changes);
 

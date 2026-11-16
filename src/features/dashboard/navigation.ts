@@ -1,5 +1,5 @@
 import { ArrowDownLeft, LayoutDashboard, Link2, SlidersHorizontal, Wallet, type LucideIcon } from "lucide-react";
-import type { View } from "@/client/dashboard-location";
+import type { View } from "@/client/app-location";
 
 export type NavigationItem = {
   id: View;

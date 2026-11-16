@@ -9,7 +9,7 @@ import { ArrowDownToLine, ArrowRight, Search } from "lucide-react";
 import { Empty } from "@/components/ui/empty-state";
 import { TransactionList, TransactionListSkeleton } from "@/features/transactions/components/transaction-list";
 import { CsvImportDialog } from "@/features/imports/components/csv-import-form";
-import { setAccountFilter, setCategoryFilter, setPage, setSearch, useAccountFilter, useCategoryFilter, useChangeView, useSearchFilter } from "@/client/use-dashboard-url";
+import { setAccountFilter, setCategoryFilter, setPage, setSearch, useAccountFilter, useCategoryFilter, useChangeView, useSearchFilter } from "@/client/use-app-url";
 import { Select } from "@/components/ui/select";
 import { anyCategory, CategoryPicker, type CategoryPickerValue } from "@/features/categorization/components/category-picker";
 import { useSearchDraft } from "@/features/transactions/use-search-draft";

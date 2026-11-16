@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { lastPage } from "@/lib/pagination";
 import { useAreaResult, type Area } from "@/components/ui/use-area-result";
-import type { DashboardQuery } from "@/client/dashboard-location";
+import type { ViewQuery } from "@/client/app-location";
 import type { TransactionPage } from "@/features/transactions/types";
 import { useTransactionList } from "./queries";
 
@@ -17,7 +17,7 @@ type TransactionListView = Area<TransactionPage> & {
   page: number;
 };
 
-export function useTransactionListView(query: DashboardQuery, replacePage: (page: number) => void): TransactionListView {
+export function useTransactionListView(query: ViewQuery, replacePage: (page: number) => void): TransactionListView {
   const list = useTransactionList(query);
   const area = useAreaResult(list);
   const current = list.isPlaceholderData ? undefined : list.data;

@@ -10,7 +10,7 @@ import { periodFromJson, periodToJson } from "@/lib/period";
 import { money } from "@/lib/money";
 import { valueMask, withPlaceholder } from "@/components/ui/result-presentation";
 import { FailureCover } from "@/components/ui/area-placeholder";
-import { useCurrency, usePeriod } from "@/client/use-dashboard-url";
+import { useCurrency, usePeriod } from "@/client/use-app-url";
 import type { Area } from "@/components/ui/use-area-result";
 import type { CashFlow } from "@/features/reports/types";
 import type { NetWorth } from "@/features/accounts/types";

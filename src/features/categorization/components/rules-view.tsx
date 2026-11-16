@@ -10,7 +10,7 @@ import { Empty } from "@/components/ui/empty-state";
 import { useActionFeedback } from "@/components/ui/use-action-feedback";
 import type { Category, Rule } from "@/features/categorization/types";
 import { settle } from "@/client/settle";
-import { useDashboardStore } from "@/client/dashboard-store";
+import { useAppStore } from "@/client/app-store";
 import { useApplyRules, useToggleRule, useTogglingRules } from "@/features/categorization/mutations";
 import { AreaPlaceholder } from "@/components/ui/area-placeholder";
 import type { Area } from "@/components/ui/use-area-result";
@@ -42,7 +42,7 @@ export function RulesView({
 }: Props) {
   const [dialog, setDialog] = useState<OpenDialog | null>(null);
   const closeDialog = () => setDialog(null);
-  const reportFeedback = useDashboardStore(state => state.reportFeedback);
+  const reportFeedback = useAppStore(state => state.reportFeedback);
   const applyFeedback = useActionFeedback();
   const apply = useApplyRules();
   const toggle = useToggleRule();

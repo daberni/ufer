@@ -7,7 +7,7 @@ import { SyncRunEmpty, SyncRunScope } from "@/features/transactions/components/s
 import { AccountsView } from "@/features/accounts/components/accounts-view";
 import { RulesView } from "@/features/categorization/components/rules-view";
 import { ConnectionsView } from "@/features/banking/components/connections-view";
-import { replacePage, setSyncRun, useDashboardQuery } from "@/client/use-dashboard-url";
+import { replacePage, setSyncRun, useViewQuery } from "@/client/use-app-url";
 import { mapArea, useAreaResult } from "@/components/ui/use-area-result";
 import { useCashFlow } from "@/features/reports/queries";
 import { accountGroups, useAccounts, useNetWorth } from "@/features/accounts/queries";
@@ -22,7 +22,7 @@ import type { TransactionPage } from "@/features/transactions/types";
  */
 
 export function OverviewPage() {
-  const query = useDashboardQuery();
+  const query = useViewQuery();
   const accounts = useAreaResult(useAccounts());
   const categories = useAreaResult(useCategories());
   const syncRuns = useAreaResult(useSyncRuns());
@@ -48,7 +48,7 @@ export function OverviewPage() {
 }
 
 export function TransactionsPage() {
-  const query = useDashboardQuery();
+  const query = useViewQuery();
   const accounts = useAreaResult(useAccounts());
   const categories = useAreaResult(useCategories());
   const list = useTransactionListView(query, replacePage);

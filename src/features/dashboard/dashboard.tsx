@@ -20,10 +20,10 @@ import { accountGroups, useAccounts } from "@/features/accounts/queries";
 import { useBankingConfiguration } from "@/features/banking/banking-configuration";
 import { SyncButton } from "@/features/banking/components/sync-button";
 import { navigation } from "./navigation";
-import { onView, useDashboardStore } from "@/client/dashboard-store";
-import { useDashboardLock } from "@/client/use-dashboard-lock";
+import { onView, useAppStore } from "@/client/app-store";
+import { useSessionLock } from "@/client/use-session-lock";
 import { useDashboardNavigation } from "./use-dashboard-navigation";
-import { useChangeView, useCurrency, useView, useViewHref } from "@/client/use-dashboard-url";
+import { useChangeView, useCurrency, useView, useViewHref } from "@/client/use-app-url";
 import { useLoadError } from "./use-load-error";
 import { TraceId } from "@/components/ui/trace-id";
 import type { Failure } from "@/client/api";
@@ -32,7 +32,7 @@ import type { Failure } from "@/client/api";
 export default function Dashboard({ children }: {
   children: React.ReactNode
 }) {
-  const { locked } = useDashboardLock();
+  const { locked } = useSessionLock();
 
   return (
     <>
@@ -119,8 +119,8 @@ function DashboardShell({ children }: {
 // Page-level messages without a surviving trigger, such as a bank callback result; they belong to the view they were reported on.
 function PageFeedback() {
   const pathname = usePathname();
-  const bound = useDashboardStore(state => state.feedback);
-  const dismiss = useDashboardStore(state => state.dismissFeedback);
+  const bound = useAppStore(state => state.feedback);
+  const dismiss = useAppStore(state => state.dismissFeedback);
   const feedback = onView(bound, pathname);
 
   useFeedbackDismissal(feedback, dismiss);

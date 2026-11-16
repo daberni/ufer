@@ -5,9 +5,9 @@ import { createElement, type ReactNode } from "react";
 import { Temporal } from "temporal-polyfill";
 import { AppRouterContext, type AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import { PathnameContext, SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime";
-import { DashboardStoreProvider } from "../src/client/dashboard-store";
+import { AppStoreProvider } from "../src/client/app-store";
 import { useDashboardNavigation } from "../src/features/dashboard/use-dashboard-navigation";
-import { selectPeriod, setAccountFilter, setSearch, useChangeView, useDashboardQuery, useViewHref } from "../src/client/use-dashboard-url";
+import { selectPeriod, setAccountFilter, setSearch, useChangeView, useViewQuery, useViewHref } from "../src/client/use-app-url";
 import { monthPeriod, serializePeriod } from "../src/lib/period";
 import { browser } from "./fixtures/browser";
 
@@ -36,7 +36,7 @@ function renderUrlState(context: TestContext, url: string) {
       value: new URLSearchParams(window.location.search)
     }, children));
 
-    return createElement(DashboardStoreProvider, {
+    return createElement(AppStoreProvider, {
       locked: false
     }, createElement(AppRouterContext, {
       value: router
@@ -47,7 +47,7 @@ function renderUrlState(context: TestContext, url: string) {
     useDashboardNavigation();
 
     return {
-      query: useDashboardQuery(),
+      query: useViewQuery(),
       viewHref: useViewHref(),
       changeView: useChangeView()
     };

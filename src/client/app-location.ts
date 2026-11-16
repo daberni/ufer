@@ -15,7 +15,7 @@ export const viewPaths: Record<View, string> = {
   connections: "/connections"
 };
 
-export type DashboardQuery = {
+export type ViewQuery = {
   period: Period;
   currency: string;
   search: string;
@@ -26,7 +26,7 @@ export type DashboardQuery = {
 };
 
 /** Changes to the URL query; an empty or default value removes the parameter. */
-export type DashboardQueryChanges = {
+export type ViewQueryChanges = {
   period?: Period;
   currency?: string;
   search?: string;
@@ -73,7 +73,7 @@ function currencyOrDefault(value: string | null) {
 }
 
 /** The data query for a view: the shared period scope plus, on the transaction list, its own filters. */
-export function dashboardQuery(view: View, scope: string, params: SearchParams): DashboardQuery {
+export function viewQuery(view: View, scope: string, params: SearchParams): ViewQuery {
   const scoped = new URLSearchParams(scope);
   const listParams = view === "transactions" ? params : new URLSearchParams();
 
@@ -93,7 +93,7 @@ export function viewHref(view: View, scope: string) {
 }
 
 /** Applies query changes to a URL; default values are omitted so plain view URLs stay plain. */
-export function withQueryChanges(pathname: string, search: string, changes: DashboardQueryChanges) {
+export function withQueryChanges(pathname: string, search: string, changes: ViewQueryChanges) {
   const params = new URLSearchParams(search);
   const values: Record<string, string> = {};
 

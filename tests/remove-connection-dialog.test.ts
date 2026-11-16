@@ -45,8 +45,8 @@ test("removal stays disabled until the dialog knows how many linked accounts it 
   };
 
   const { RemoveConnectionDialog } = await import("../src/features/banking/components/remove-connection-form");
-  const { DashboardStoreProvider } = await import("../src/client/dashboard-store");
-  const screen = render(withQueryClient(queryClient, createElement(DashboardStoreProvider, {
+  const { AppStoreProvider } = await import("../src/client/app-store");
+  const screen = render(withQueryClient(queryClient, createElement(AppStoreProvider, {
     locked: false
   }, createElement(RemoveConnectionDialog, {
     selectedConnection: connection,
