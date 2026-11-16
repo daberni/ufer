@@ -19,6 +19,11 @@ const exponents: Record<string, number> = {
   BHD: 3
 };
 
+/** A well-formed ISO 4217 code; `Intl.NumberFormat` throws a RangeError for anything else. */
+export function isCurrencyCode(value: string) {
+  return /^[A-Z]{3}$/.test(value);
+}
+
 export function minorUnits(value: string, currency = "EUR"): number {
   const exponent = exponents[currency];
 
