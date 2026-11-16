@@ -10,14 +10,14 @@ import { describeDate } from "@/lib/date-format";
 import { useDisplayTimeZone } from "@/components/ui/use-display-time-zone";
 import { lastSyncLabel, periodLabel } from "@/features/dashboard/presentation";
 import { allMonthsPeriod, currentMonthPeriod, monthPeriod } from "@/features/dashboard/period";
-import type { DashboardController } from "@/features/dashboard/use-dashboard";
+import { selectPeriod, setCurrency, useCurrency, usePeriod } from "@/features/dashboard/use-dashboard-url";
 import { Select } from "@/components/ui/select";
 import { MonthPicker } from "@/features/dashboard/components/month-picker";
 import { valueMask } from "@/features/dashboard/components/result-presentation";
 import type { AreaResult } from "@/features/dashboard/use-area-result";
 import type { SyncRun } from "@/features/dashboard/types";
 
-type Props = Pick<DashboardController, "currency" | "moveMonth" | "period" | "selectPeriod" | "setCurrency"> & {
+type Props = {
   currencies: string[];
 } & ({
   view: "overview";
@@ -29,16 +29,19 @@ type Props = Pick<DashboardController, "currency" | "moveMonth" | "period" | "se
 });
 
 export function PeriodControls(props: Props) {
-  const {
-    currencies,
-    currency,
-    moveMonth,
-    period,
-    selectPeriod,
-    setCurrency
-  } = props;
+  const { currencies } = props;
+  const currency = useCurrency();
+  const period = usePeriod();
   const timeZone = useDisplayTimeZone();
   const allMonths = period.kind === "all";
+
+  function moveMonth(months: number) {
+    if (period.kind === "month") {
+      selectPeriod(monthPeriod(period.month.add({
+        months
+      })));
+    }
+  }
 
   return (
     <div className={styles["period-bar"]}>

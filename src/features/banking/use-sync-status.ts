@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { settle, type ActionResult } from "@/features/dashboard/use-dashboard";
+import { settle, type ActionResult } from "@/client/settle";
 import { useSync, type SyncFailure, type SyncOutcome } from "./mutations";
 
 // A sync that did not fully succeed stays reported until it is dismissed or a later sync succeeds.

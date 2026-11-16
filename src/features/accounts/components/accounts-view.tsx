@@ -11,28 +11,36 @@ import { DateValue } from "@/components/ui/date-value";
 import { money } from "@/lib/money";
 import { Empty } from "@/components/ui/empty-state";
 import type { Account } from "@/features/dashboard/types";
-import type { DashboardController } from "@/features/dashboard/use-dashboard";
+import { useDashboardStore } from "@/features/dashboard/dashboard-store";
 
-type Props = Pick<DashboardController, "openBank" | "setModal" | "setSelectedAccount"> & {
+type Props = {
   accounts: Account[];
 };
 
 export function AccountsView({
-  accounts,
-  openBank,
-  setModal,
-  setSelectedAccount
+  accounts
 }: Props) {
+  const openDialog = useDashboardStore(state => state.openDialog);
+  const addAccount = () => openDialog({
+    kind: "account"
+  });
+
   return (
     <>
       <div className={ui["section-heading"]}>
         <span className={ui["section-kicker"]}>{accounts.length} ACCOUNTS & ASSETS</span>
         <div className={ui["button-group"]}>
-          <button className={ui["button"]} onClick={() => setModal("account")}>
+          <button className={ui["button"]} onClick={addAccount}>
             <Plus size={15} />
             Add account
           </button>
-          <button className={clsx(ui["button"], ui["primary"])} onClick={() => openBank()}>
+          <button
+            className={clsx(ui["button"], ui["primary"])}
+            onClick={() => openDialog({
+              kind: "bank",
+              connection: null
+            })}
+          >
             <Link2 size={15} />
             Connect bank
           </button>
@@ -62,10 +70,10 @@ export function AccountsView({
                 {account.provider === "manual" && (
                   <button
                     className={clsx(ui["button"], ui["full-width"])}
-                    onClick={() => {
-                      setSelectedAccount(account);
-                      setModal("balance");
-                    }}
+                    onClick={() => openDialog({
+                      kind: "balance",
+                      account
+                    })}
                   >
                     Update balance <ArrowRight size={15} />
                   </button>
@@ -79,7 +87,7 @@ export function AccountsView({
           <Empty
             title="Everything in one place"
             action={(
-              <button className={clsx(ui["button"], ui["primary"])} onClick={() => setModal("account")}>
+              <button className={clsx(ui["button"], ui["primary"])} onClick={addAccount}>
                 <Plus size={15} />
                 Add your first account
               </button>

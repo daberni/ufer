@@ -1,6 +1,6 @@
 import { connection } from "next/server";
 import Dashboard from "@/features/dashboard/dashboard";
-import { DashboardProvider } from "@/features/dashboard/dashboard-context";
+import { DashboardStoreProvider } from "@/features/dashboard/dashboard-store";
 import { QueryProvider } from "@/client/query-provider";
 import { BankingConfigurationProvider } from "@/features/banking/banking-configuration";
 import { bankingConfiguration } from "@/features/banking/server/banking-queries";
@@ -14,9 +14,9 @@ export default async function DashboardLayout({ children }: Readonly<{
   return (
     <QueryProvider>
       <BankingConfigurationProvider configuration={bankingConfiguration()}>
-        <DashboardProvider>
+        <DashboardStoreProvider>
           <Dashboard>{children}</Dashboard>
-        </DashboardProvider>
+        </DashboardStoreProvider>
       </BankingConfigurationProvider>
     </QueryProvider>
   );

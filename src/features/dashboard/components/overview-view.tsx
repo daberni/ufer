@@ -7,19 +7,14 @@ import { CashFlowChart } from "@/features/dashboard/components/cash-flow-chart";
 import { SpendingBreakdown } from "@/features/dashboard/components/spending-breakdown";
 import type { AreaResult } from "@/features/dashboard/use-area-result";
 import type { Account, CashFlow, NetWorth } from "@/features/dashboard/types";
-import type { DashboardController } from "@/features/dashboard/use-dashboard";
 
-type Props = Pick<DashboardController, "changeView" | "openBank" | "setModal" | "setSelectedAccount"> & {
+type Props = {
   currencyAccounts: Account[];
   netWorth: AreaResult<NetWorth>;
   cashFlow: AreaResult<CashFlow>;
 };
 
 export function OverviewView({
-  changeView,
-  openBank,
-  setModal,
-  setSelectedAccount,
   currencyAccounts,
   netWorth,
   cashFlow
@@ -27,13 +22,7 @@ export function OverviewView({
   return (
     <>
       <WealthSummary hasAccounts={currencyAccounts.length > 0} netWorth={netWorth} cashFlow={cashFlow} />
-      <OverviewAccounts
-        changeView={changeView}
-        currencyAccounts={currencyAccounts}
-        openBank={openBank}
-        setModal={setModal}
-        setSelectedAccount={setSelectedAccount}
-      />
+      <OverviewAccounts currencyAccounts={currencyAccounts} />
       <div className={styles["analytics-grid"]}>
         <CashFlowChart cashFlow={cashFlow} />
         <SpendingBreakdown cashFlow={cashFlow} />

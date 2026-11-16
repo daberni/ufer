@@ -3,25 +3,26 @@
 import ui from "../../../components/ui/primitives.module.css";
 
 import { clsx } from "clsx";
+import { useState } from "react";
 import styles from "./csv-import-form.module.css";
 import { ArrowDownToLine } from "lucide-react";
 import type { Account } from "@/features/dashboard/types";
-import type { DashboardController } from "@/features/dashboard/use-dashboard";
 import { useDialogSubmit, type DialogFormProps } from "@/features/dashboard/use-dialog-submit";
 import { useCsvImport, type ImportMode } from "@/features/imports/mutations";
 import { FormError } from "@/components/ui/form-error";
 import { Select } from "@/components/ui/select";
 
-type Props = Pick<DashboardController, "importMode" | "setImportMode"> & DialogFormProps & {
+type Props = DialogFormProps & {
   accounts: Account[];
+  initialMode: ImportMode;
 };
 
 export function CsvImportForm({
   accounts,
   close,
-  importMode,
-  setImportMode
+  initialMode
 }: Props) {
+  const [importMode, setImportMode] = useState(initialMode);
   const manualAccounts = accounts.filter(account => account.provider === "manual");
   const {
     error,
