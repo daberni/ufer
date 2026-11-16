@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import clsx from "clsx";
+import { clsx } from "clsx";
 import { Empty } from "@/components/ui/empty-state";
 import ui from "@/components/ui/primitives.module.css";
 import styles from "./not-found.module.css";
