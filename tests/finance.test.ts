@@ -21,7 +21,7 @@ import { requireOrigin } from "../src/server/http/origin";
 import { seedActor } from "./fixtures/auth";
 import { completeAuthorization } from "../src/features/banking/server/authorization-service";
 import { syncAccounts } from "../src/features/banking/server/sync-service";
-import { applicationToken, availableBanks, fetchTransactions, type BankTransaction } from "../src/features/banking/server/enable-banking-client";
+import { applicationToken, availableBanks, listBanks, fetchTransactions, type BankTransaction } from "../src/features/banking/server/enable-banking-client";
 import { connectBank } from "../src/features/banking/server/connect-bank";
 import { decodeJwt, decodeProtectedHeader, jwtVerify } from "jose";
 import { generateKeyPairSync } from "node:crypto";
@@ -226,6 +226,16 @@ test("listing banks and starting a bank connection check the provider applicatio
     country: "AT"
   }, actor)).url, "https://bank.example/authorize");
   assert.deepEqual(requests.toSorted(), ["/application", "/aspsps", "/auth"]);
+  requests.length = 0;
+  assert.deepEqual((await listBanks("AT")).map(bank => bank.name), ["Example Bank"]);
+  assert.deepEqual(requests.toSorted(), ["/application", "/aspsps"]);
+  providerResponses["/application"] = {
+    environment: "PRODUCTION",
+    redirect_urls: [callback]
+  };
+  await assert.rejects(listBanks("AT"), {
+    status: 409
+  });
 });
 
 test("amounts keep exact decimal cents, direction and currency precision", () => {

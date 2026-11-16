@@ -242,6 +242,13 @@ export async function availableBanks(country: string) {
   return result.aspsps.filter(bank => !bank.psu_types || bank.psu_types.includes("personal"));
 }
 
+/** The bank directory for the connect dialog; it also confirms that the provider application belongs to the configured environment. */
+export async function listBanks(country: string) {
+  const [banks] = await Promise.all([availableBanks(country), verifyApplication()]);
+
+  return banks;
+}
+
 export async function fetchTransactions(uid: string, dateFrom: string, heartbeat?: () => Promise<void>): Promise<BankTransaction[]> {
   const result: BankTransaction[] = [];
   const seen = new Set<string>();
