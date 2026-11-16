@@ -1,0 +1,56 @@
+name: Release
+
+# Publishing a GitHub release for a version tag on main moves the `release` branch to that commit.
+# Vercel deploys the `release` branch to production; pushes to main only update the repository.
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: ${{ !github.event.release.prerelease }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.event.release.tag_name }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: 26
+          cache: npm
+      - name: Check tag, version and history
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          commit="$(git rev-parse HEAD)"
+          if [ "$TAG" != "v$version" ]; then
+            echo "::error::Release tag $TAG does not match package.json version $version."
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor "$commit" origin/main; then
+            echo "::error::Release tag $TAG does not point to a commit on main."
+            exit 1
+          fi
+          if git rev-parse --verify --quiet origin/release >/dev/null && ! git merge-base --is-ancestor origin/release "$commit"; then
+            echo "::error::Release $TAG is older than the deployed release branch."
+            exit 1
+          fi
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run check:styles
+      - run: npm run check
+      - run: npm test
+      - run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: '1'
+      - name: Move the release branch
+        run: git push origin "$(git rev-parse HEAD):refs/heads/release"
