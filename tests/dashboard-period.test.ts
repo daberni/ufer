@@ -9,6 +9,7 @@ import { Temporal } from "temporal-polyfill";
 import { allMonthsPeriod, currentMonth, monthPeriod, parsePeriod, periodFromJson, periodToJson, serializePeriod, trendMonths, type Period } from "../src/features/dashboard/period";
 import { dashboardFilters } from "../src/features/dashboard/server/dashboard-filters";
 import { readCashFlow } from "../src/features/dashboard/server/cash-flow-query";
+import { periodCondition } from "../src/features/dashboard/server/period-condition";
 import { readTransactionPage } from "../src/features/transactions/server/transaction-list-query";
 
 // Temporal values have no enumerable fields, so compare periods through their serialized form.
@@ -204,6 +205,45 @@ test("the all-months period applies to cash flow and spending as well as the tra
   assert.equal(cashFlow.trend.at(-1)?.month, currentMonth().toString());
 });
 
+test("a December period includes its last day and ends before the next year's first day", async context => {
+  const db = await seededDatabase(context);
+
+  await db.insert(schema.transactions).values([{
+    id: "november-end",
+    account_id: "checking",
+    provider_reference: "synthetic-5",
+    booking_date: "2025-11-30",
+    amount_minor: -700,
+    currency: "EUR"
+  }, {
+    id: "december-end",
+    account_id: "checking",
+    provider_reference: "synthetic-6",
+    booking_date: "2025-12-31",
+    amount_minor: -900,
+    currency: "EUR"
+  }]);
+  const {
+    list,
+    cashFlow
+  } = await readPeriod("period=2025-12");
+
+  assert.deepEqual(list.transactions.map(item => item.id), ["december-end", "december-income"]);
+  assert.equal(cashFlow.income, 100000);
+  assert.equal(cashFlow.expenses, 900);
+});
+
+test("a month period filters booking dates through the booking-date index", async context => {
+  const db = await seededDatabase(context);
+  const inPeriod = periodCondition(monthPeriod(Temporal.PlainYearMonth.from("2026-01")));
+  const plan = await db.$client.execute({
+    sql: `EXPLAIN QUERY PLAN SELECT COUNT(*) FROM transactions t JOIN accounts a ON a.id=t.account_id WHERE a.environment=? AND ${inPeriod.sql}`,
+    args: ["SANDBOX", ...inPeriod.args]
+  });
+
+  assert.match(plan.rows.map(row => String(row.detail)).join("\n"), /USING (COVERING )?INDEX transactions_\w+ \(.*booking_date>\? AND booking_date<\?\)/);
+});
+
 async function seedCashFlowHistory(context: TestContext) {
   const db = await seededDatabase(context);
   const entries: [string, string, number, string | null][] = [
@@ -281,4 +321,44 @@ test("a month's breakdowns leave out transfers and other currencies and keep unc
   assert.equal(december?.expenseBreakdown.find(item => item.categoryId === null)?.name, "Uncategorized");
   assert.equal(december?.expenses, 9350);
   assert.deepEqual(january?.expenseBreakdown.map(item => [item.categoryId, item.amount]), [[null, 50000]]);
+});
+
+test("bookings of the same day are listed alphabetically by payee, with empty payees last", async context => {
+  const db = await seededDatabase(context);
+
+  await db.insert(schema.transactions).values([{
+    id: "z-row",
+    account_id: "checking",
+    provider_reference: "same-day-1",
+    booking_date: "2026-03-10",
+    amount_minor: -100,
+    currency: "EUR",
+    counterparty: "",
+    description: "Card fee",
+    created_at: "2026-03-10T08:00:00.000Z"
+  }, {
+    id: "a-row",
+    account_id: "checking",
+    provider_reference: "same-day-2",
+    booking_date: "2026-03-10",
+    amount_minor: -200,
+    currency: "EUR",
+    counterparty: "zoo shop",
+    created_at: "2026-03-10T09:00:00.000Z"
+  }, {
+    id: "m-row",
+    account_id: "checking",
+    provider_reference: "same-day-3",
+    booking_date: "2026-03-10",
+    amount_minor: -300,
+    currency: "EUR",
+    counterparty: "Bakery",
+    created_at: "2026-03-10T07:00:00.000Z"
+  }]);
+
+  const page = await readTransactionPage(dashboardFilters(new URLSearchParams({
+    period: "2026-03"
+  })));
+
+  assert.deepEqual(page.transactions.map(transaction => transaction.id), ["m-row", "a-row", "z-row"]);
 });

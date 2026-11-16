@@ -14,11 +14,14 @@ import { describeMonth } from "@/lib/date-format";
 import { money } from "@/lib/money";
 import { CategoryRows, describeCategoryGroups } from "@/features/dashboard/components/category-rows";
 import { areaProps, valueMask } from "@/features/dashboard/components/result-presentation";
-import type { AreaResult } from "@/features/dashboard/use-area-result";
+import { AreaPlaceholder } from "@/features/dashboard/components/area-placeholder";
+import { currentMonth, trendMonths } from "@/features/dashboard/period";
+import { usePeriod } from "@/features/dashboard/use-dashboard-url";
+import type { Area, AreaResult, PendingArea } from "@/features/dashboard/use-area-result";
 import type { CashFlow } from "@/features/dashboard/types";
 
 type Props = {
-  cashFlow: AreaResult<CashFlow>;
+  cashFlow: Area<CashFlow>;
 };
 
 type Flow = "income" | "expenses";
@@ -57,6 +60,85 @@ type ChartMonth = {
 };
 
 export function CashFlowChart({ cashFlow }: Props) {
+  const period = usePeriod();
+  // The trend's months follow from the selected period, so the heading and month labels are known before the figures.
+  const months = cashFlow.status === "pending" ? trendMonths(period, currentMonth()) : cashFlow.data.trend.map(item => Temporal.PlainYearMonth.from(item.month));
+  const rangeMask = cashFlow.status === "pending" ? "" : valueMask(cashFlow.status);
+
+  return (
+    <section className={ui["panel"]}>
+      <div className={ui["card-heading"]}>
+        <h2>Income & expenses</h2>
+        <span className={clsx(ui["subtle"], rangeMask)}>{monthRangeLabel(months)}</span>
+      </div>
+      <div className={styles["chart-legend"]}>
+        <span>
+          <i className={clsx(styles["legend-dot"], ui["liquid"])} />
+          Income
+        </span>
+        <span>
+          <i className={clsx(styles["legend-dot"], styles["expense-dot"])} />
+          Expenses
+        </span>
+      </div>
+      {cashFlow.status === "pending" ? <ChartSkeleton area={cashFlow} months={months} /> : <ChartPlot cashFlow={cashFlow} months={months} />}
+    </section>
+  );
+}
+
+// Relative bar heights of the skeleton: income and expenses for each month of the trend.
+const skeletonBars = [[0.55, 0.4], [0.7, 0.5], [0.45, 0.6], [0.8, 0.55], [0.6, 0.35], [0.75, 0.65]];
+
+function ChartSkeleton({
+  area,
+  months
+}: {
+  area: PendingArea;
+  months: Temporal.PlainYearMonth[];
+}) {
+  return (
+    <AreaPlaceholder area={area} subject="Income and expenses">
+      <div className={styles["plot"]}>
+        <div className={styles["bar-chart"]}>
+          <div className={styles["chart-grid"]}>
+            <span />
+            <span />
+            <span />
+            <span />
+          </div>
+          {months.map((month, index) => (
+            <div className={styles["bar-group"]} key={month.toString()}>
+              <div className={styles["bars"]}>
+                {skeletonBars[index % skeletonBars.length].map((height, bar) => (
+                  <span className={styles["bar-target"]} data-flow={bar === 0 ? "income" : "expenses"} key={bar}>
+                    <span
+                      className={clsx(styles["bar"], ui["skeleton"])}
+                      style={{
+                        height: `${height * 100}%`
+                      }}
+                    />
+                  </span>
+                ))}
+              </div>
+              <span className={styles["month-label"]}>{describeMonth(month).label}</span>
+            </div>
+          ))}
+        </div>
+        <div className={styles["details-slot"]}>
+          <p className={styles["details-hint"]}>Select a bar to see its categories.</p>
+        </div>
+      </div>
+    </AreaPlaceholder>
+  );
+}
+
+function ChartPlot({
+  cashFlow,
+  months
+}: {
+  cashFlow: AreaResult<CashFlow>;
+  months: Temporal.PlainYearMonth[];
+}) {
   const descriptionPrefix = useId();
   const {
     activeKey,
@@ -68,7 +150,6 @@ export function CashFlowChart({ cashFlow }: Props) {
     trend
   } = cashFlow.data;
   const trendMax = Math.max(1, ...trend.flatMap(item => [item.income, item.expenses]));
-  const months = trend.map(item => Temporal.PlainYearMonth.from(item.month));
   const chartMonths: ChartMonth[] = trend.map((item, index) => {
     const display = describeMonth(months[index]);
 
@@ -96,21 +177,7 @@ export function CashFlowChart({ cashFlow }: Props) {
   const hasHistory = trend.some(item => item.income !== 0 || item.expenses !== 0);
 
   return (
-    <section className={ui["panel"]}>
-      <div className={ui["card-heading"]}>
-        <h2>Income & expenses</h2>
-        <span className={clsx(ui["subtle"], valueMask(cashFlow.status))}>{monthRangeLabel(months)}</span>
-      </div>
-      <div className={styles["chart-legend"]}>
-        <span>
-          <i className={clsx(styles["legend-dot"], ui["liquid"])} />
-          Income
-        </span>
-        <span>
-          <i className={clsx(styles["legend-dot"], styles["expense-dot"])} />
-          Expenses
-        </span>
-      </div>
+    <>
       <div className={styles["plot"]} {...chartProps}>
         <div
           {...areaProps(cashFlow.status, styles["bar-chart"])}
@@ -175,7 +242,7 @@ export function CashFlowChart({ cashFlow }: Props) {
         )}
       </div>
       {!hasHistory && <p className={clsx(styles["chart-empty-note"], valueMask(cashFlow.status))}>Your history appears here after the first import.</p>}
-    </section>
+    </>
   );
 }
 

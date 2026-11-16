@@ -8,11 +8,13 @@ import styles from "./app-sidebar.module.css";
 import { ShieldCheck } from "lucide-react";
 import { BrandIcon } from "@/components/branding/brand-icon";
 import { navigation } from "@/features/dashboard/presentation";
-import type { Account } from "@/features/dashboard/types";
-import type { DashboardController } from "@/features/dashboard/use-dashboard";
+import type { Account, View } from "@/features/dashboard/types";
 
-type Props = Pick<DashboardController, "view" | "viewHref"> & {
+type Props = {
   environment: string;
+  view: View;
+  /** The link to a view, carrying the selected period where the view has one. */
+  viewHref: (view: View) => string;
   /** Bank accounts whose authorization expires soon or has expired. */
   expiring: Account[];
 };

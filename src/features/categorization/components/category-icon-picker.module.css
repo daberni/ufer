@@ -67,7 +67,7 @@
   clip-path: inset(50%);
   white-space: nowrap;
 }
-@media (max-width: 760px), (max-width: 900px) and (pointer: coarse) {
+@media (--mobile) {
   .icon-picker {
     margin: 20px 0;
   }

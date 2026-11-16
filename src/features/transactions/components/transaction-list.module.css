@@ -77,6 +77,13 @@
   font-weight: 500;
   font-size: var(--text-xs);
 }
+.original-amount {
+  display: block;
+  margin-top: 5px;
+  font-size: var(--text-xs);
+  font-weight: 400;
+  color: var(--muted);
+}
 .align-right {
   text-align: right;
 }
@@ -86,7 +93,7 @@
 .transaction-cards {
   display: none;
 }
-@media (max-width: 760px), (max-width: 900px) and (pointer: coarse) {
+@media (--mobile) {
   .desktop-transactions {
     display: none;
   }

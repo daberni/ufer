@@ -2,32 +2,57 @@ import { HttpError } from "@/lib/errors";
 import { STATUS_CODES } from "node:http";
 import { NextResponse } from "next/server";
 import { cronAuthorized } from "@/server/jobs/authorization";
-import { requireAuth } from "@/features/auth/server/session";
+import { requireAuth, type AuthContext } from "@/features/auth/server/session";
 import { requireOrigin } from "./origin";
 import { problemResponse } from "./problem-response";
+import { measurePhase, measureRequest } from "./server-timing";
 
-type RouteOptions = {
-  access?: "session" | "public" | "scheduler";
+type ResponseOptions = {
   status?: number;
 };
 
-export async function respond(request: Request, action: () => Promise<unknown>, options: RouteOptions = {}) {
+type SessionRouteOptions = ResponseOptions & {
+  access?: "session";
+};
+
+type AnonymousRouteOptions = ResponseOptions & {
+  access: "public" | "scheduler";
+};
+
+type RouteOptions = SessionRouteOptions | AnonymousRouteOptions;
+
+type SessionAction = (actor: AuthContext) => Promise<unknown>;
+
+type AnonymousAction = () => Promise<unknown>;
+
+/** Runs a route action and returns its result or Problem Details; signed-in routes receive the verified session and membership. */
+export function respond(request: Request, action: SessionAction, options?: SessionRouteOptions): Promise<Response>;
+
+export function respond(request: Request, action: AnonymousAction, options: AnonymousRouteOptions): Promise<Response>;
+
+export function respond(request: Request, action: SessionAction, options: RouteOptions = {}): Promise<Response> {
+  return measureRequest(() => handle(request, action, options));
+}
+
+async function handle(request: Request, action: SessionAction, options: RouteOptions) {
   try {
     if (request.method !== "GET") {
       requireOrigin(request);
     }
 
     const access = options.access ?? "session";
+    let actor: AuthContext | undefined;
 
     if (access === "session") {
-      await requireAuth(request);
+      actor = await measurePhase("auth", () => requireAuth(request));
     }
 
     if (access === "scheduler" && !cronAuthorized(request)) {
       throw new HttpError(401, "Cron access denied.");
     }
 
-    const result = await action();
+    // The overloads accept only parameterless actions for routes without a session.
+    const result = await measurePhase("action", () => actor ? action(actor) : (action as AnonymousAction)());
 
     const response = result instanceof Response ? result : NextResponse.json(result, {
       status: options.status ?? 200

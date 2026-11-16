@@ -157,7 +157,7 @@
   margin-top: 17px;
 }
 /* Wide layouts (the dashboard's widest breakpoint) leave a chart of at least ~440 px, so the details overlay the half of the chart away from the active bar instead. The card stays inside the chart box, and pointer events reach the bars underneath. */
-@media (min-width: 1251px) {
+@media (--desktop) {
   .details-slot {
     position: absolute;
     top: 0;
@@ -193,17 +193,17 @@
     box-shadow: 0 8px 24px var(--shadow-color);
   }
 }
-@media (min-width: 1600px) {
+@media (--wide) {
   .bar-chart {
     height: 190px;
   }
 }
-@media (max-width: 900px) {
+@media (--tablet) {
   .bar-chart {
     gap: 9px;
   }
 }
-@media (max-width: 760px), (max-width: 900px) and (pointer: coarse) {
+@media (--mobile) {
   .chart-legend {
     font-size: var(--text-sm);
   }

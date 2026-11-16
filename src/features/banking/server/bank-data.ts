@@ -3,6 +3,7 @@ import { minorUnits } from "@/lib/money";
 import { today, validDate } from "@/lib/time";
 import type { Entry } from "@/features/transactions/server/transaction-entry";
 import type { BankTransaction, Balance } from "./enable-banking-client";
+import { providerDetails } from "./provider-details";
 
 export function normalizeTransactions(transactions: BankTransaction[], ownIbans: Set<string>): Entry[] {
   const references = new Map<string, string>();
@@ -35,7 +36,8 @@ export function normalizeTransactions(transactions: BankTransaction[], ownIbans:
       currency: item.transaction_amount.currency,
       counterparty,
       description: item.remittance_information?.join(" · ") || item.note || "",
-      transfer: Boolean(counterIban && ownIbans.has(counterIban))
+      transfer: Boolean(counterIban && ownIbans.has(counterIban)),
+      provider: providerDetails(item, debit)
     };
     const signature = JSON.stringify([entry.date, entry.amount, entry.currency, entry.counterparty, entry.description]);
     const previous = references.get(entry.reference);

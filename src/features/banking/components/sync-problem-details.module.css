@@ -73,7 +73,7 @@
   justify-self: start;
   font-size: var(--text-sm);
 }
-@media (max-width: 760px), (max-width: 900px) and (pointer: coarse) {
+@media (--mobile) {
   .details {
     --row-height: 44px;
     left: 0;

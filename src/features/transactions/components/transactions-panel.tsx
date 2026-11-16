@@ -7,21 +7,24 @@ import type { ReactNode } from "react";
 import styles from "./transactions-panel.module.css";
 import { ArrowDownToLine, ArrowRight, Search } from "lucide-react";
 import { Empty } from "@/components/ui/empty-state";
-import { TransactionList } from "@/features/transactions/components/transaction-list";
-import type { DashboardController } from "@/features/dashboard/use-dashboard";
+import { TransactionList, TransactionListSkeleton } from "@/features/transactions/components/transaction-list";
+import { useDashboardStore } from "@/features/dashboard/dashboard-store";
+import { setAccountFilter, setCategoryFilter, setPage, setSearch, useAccountFilter, useCategoryFilter, useChangeView, useSearchFilter } from "@/features/dashboard/use-dashboard-url";
 import { Select } from "@/components/ui/select";
 import { anyCategory, CategoryPicker, type CategoryPickerValue } from "@/features/categorization/components/category-picker";
 import { useSearchDraft } from "@/features/transactions/use-search-draft";
 import { transactionPageSize } from "@/features/dashboard/pagination";
 import { areaProps, valueMask } from "@/features/dashboard/components/result-presentation";
-import type { AreaResult } from "@/features/dashboard/use-area-result";
+import { AreaPlaceholder } from "@/features/dashboard/components/area-placeholder";
+import { pendingTogether, type Area, type AreaResult } from "@/features/dashboard/use-area-result";
 import type { Account, Category, TransactionPage } from "@/features/dashboard/types";
 
-type Props = Pick<DashboardController, "accountFilter" | "categoryFilter" | "changeView" | "search" | "setAccountFilter" | "setCategoryFilter" | "setImportMode" | "setModal" | "setPage" | "setSearch" | "view"> & {
-  categories: Category[];
+type Props = {
+  view: "overview" | "transactions";
+  categories: Area<Category[]>;
   /** Accounts offered as a filter. */
-  filterAccounts: Account[];
-  list: AreaResult<TransactionPage>;
+  filterAccounts: Area<Account[]>;
+  list: Area<TransactionPage>;
   /** Replaces the first-use empty state, such as for a selected sync run without listed transactions. */
   emptyState?: ReactNode;
   /** The page shown, after correcting a page past the last one. */
@@ -29,6 +32,9 @@ type Props = Pick<DashboardController, "accountFilter" | "categoryFilter" | "cha
 };
 
 const recentTransactions = 5;
+
+// Enough placeholder rows to fill a screen; a full page has more, which extend the list below.
+const skeletonTransactions = 10;
 
 // The URL filter uses "" for all categories and "uncategorized" for transactions without one.
 function categoryPickerValue(filter: string): CategoryPickerValue {
@@ -48,32 +54,15 @@ function categoryFilterValue(value: CategoryPickerValue) {
 }
 
 export function TransactionsPanel({
-  accountFilter,
   categories,
-  categoryFilter,
-  changeView,
   emptyState,
   filterAccounts,
   list,
   page,
-  search,
-  setAccountFilter,
-  setCategoryFilter,
-  setImportMode,
-  setModal,
-  setPage,
-  setSearch,
   view
 }: Props) {
-  const [searchDraft, setSearchDraft] = useSearchDraft(search, setSearch);
-  const {
-    transactionCount,
-    transactions
-  } = list.data;
-  const visibleTransactions = view === "overview" ? transactions.slice(0, recentTransactions) : transactions;
-
-  // An empty page with matches elsewhere is a page past the end, which the list view corrects; it is not an empty history.
-  const noMatches = transactionCount === 0;
+  const openDialog = useDashboardStore(state => state.openDialog);
+  const changeView = useChangeView();
 
   return (
     <section className={clsx(ui["panel"], styles["transaction-panel"])}>
@@ -86,50 +75,55 @@ export function TransactionsPanel({
         ) : (
           <button
             className={clsx(styles["button"], ui["small"])}
-            onClick={() => {
-              setImportMode("transactions");
-              setModal("import");
-            }}
+            onClick={() => openDialog({
+              kind: "import",
+              mode: "transactions"
+            })}
           >
             <ArrowDownToLine size={14} />
             Import CSV
           </button>
         )}
       </div>
-      {view === "transactions" && (
-        <div className={styles["filters"]}>
-          <label className={styles["search-field"]}>
-            <Search size={16} />
-            <input
-              aria-label="Search transactions"
-              placeholder="Payee or description …"
-              value={searchDraft}
-              onChange={event => setSearchDraft(event.target.value)}
-            />
-          </label>
-          <Select
-            aria-label="Account filter"
-            value={accountFilter}
-            onChange={event => setAccountFilter(event.target.value)}
-          >
-            <option value="">All accounts</option>
-            {filterAccounts.map(account => (
-              <option key={account.id} value={account.id}>
-                {account.name}
-              </option>
-            ))}
-          </Select>
-          <CategoryPicker
-            className={styles["category-filter"]}
-            aria-label="Category filter"
-            categories={categories}
-            value={categoryPickerValue(categoryFilter)}
-            includeAll
-            includeUncategorized
-            onChange={value => setCategoryFilter(categoryFilterValue(value))}
-          />
-        </div>
+      {view === "transactions" && <TransactionFilters categories={categories.data ?? []} filterAccounts={filterAccounts.data ?? []} />}
+      {list.status === "pending" || categories.status === "pending" ? (
+        <AreaPlaceholder area={pendingTogether(list, categories)} subject="Your transactions">
+          <TransactionListSkeleton rows={view === "overview" ? recentTransactions : skeletonTransactions} />
+        </AreaPlaceholder>
+      ) : (
+        <TransactionPages
+          categories={categories.data}
+          emptyState={emptyState}
+          list={list}
+          page={page}
+          view={view}
+        />
       )}
+    </section>
+  );
+}
+
+function TransactionPages({
+  categories,
+  emptyState,
+  list,
+  page,
+  view
+}: Pick<Props, "emptyState" | "page" | "view"> & {
+  categories: Category[];
+  list: AreaResult<TransactionPage>;
+}) {
+  const {
+    transactionCount,
+    transactions
+  } = list.data;
+  const visibleTransactions = view === "overview" ? transactions.slice(0, recentTransactions) : transactions;
+
+  // An empty page with matches elsewhere is a page past the end, which the list view corrects; it is not an empty history.
+  const noMatches = transactionCount === 0;
+
+  return (
+    <>
       <div {...areaProps(list.status)}>
         {visibleTransactions.length ? <TransactionList categories={categories} transactions={visibleTransactions} /> : noMatches && (emptyState ?? <Empty title="Your financial history starts here.">Connect a bank account and sync, or import your existing transactions from CSV.</Empty>)}
       </div>
@@ -146,6 +140,62 @@ export function TransactionsPanel({
           </button>
         </div>
       )}
-    </section>
+    </>
+  );
+}
+
+// Until categories and accounts load, the filters offer only "All" and keep the selection from the URL.
+function TransactionFilters({
+  categories,
+  filterAccounts
+}: {
+  categories: Category[];
+  filterAccounts: Account[];
+}) {
+  const accountFilter = useAccountFilter();
+  const categoryFilter = useCategoryFilter();
+
+  return (
+    <div className={styles["filters"]}>
+      <TransactionSearch />
+      <Select
+        aria-label="Account filter"
+        value={accountFilter}
+        onChange={event => setAccountFilter(event.target.value)}
+      >
+        <option value="">All accounts</option>
+        {filterAccounts.map(account => (
+          <option key={account.id} value={account.id}>
+            {account.name}
+          </option>
+        ))}
+      </Select>
+      <CategoryPicker
+        className={styles["category-filter"]}
+        aria-label="Category filter"
+        categories={categories}
+        value={categoryPickerValue(categoryFilter)}
+        includeAll
+        includeUncategorized
+        onChange={value => setCategoryFilter(categoryFilterValue(value))}
+      />
+    </div>
+  );
+}
+
+// Keystrokes change only this field's draft; the list follows once the committed search reaches the URL.
+function TransactionSearch() {
+  const [searchDraft, setSearchDraft] = useSearchDraft(useSearchFilter(), setSearch);
+
+  return (
+    <label className={styles["search-field"]}>
+      <Search size={16} />
+      <input
+        aria-label="Search transactions"
+        placeholder="Payee or description …"
+        value={searchDraft}
+        onChange={event => setSearchDraft(event.target.value)}
+      />
+    </label>
   );
 }

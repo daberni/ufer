@@ -42,12 +42,12 @@
   align-items: center;
   gap: 5px;
 }
-@media (min-width: 1600px) {
+@media (--wide) {
   .content {
     padding-top: 43px;
   }
 }
-@media (max-width: 1250px) {
+@media (--laptop) {
   .main-shell {
     margin-left: 215px;
   }
@@ -55,7 +55,7 @@
     padding: 30px 27px 0;
   }
 }
-@media (max-width: 900px) {
+@media (--tablet) {
   .main-shell {
     margin-left: 73px;
   }
@@ -66,7 +66,7 @@
     font-size: var(--text-xs);
   }
 }
-@media (max-width: 760px), (max-width: 900px) and (pointer: coarse) {
+@media (--mobile) {
   .main-shell {
     margin-left: 0;
   }

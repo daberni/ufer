@@ -47,13 +47,17 @@ export function PrivacyNotice({ configuration }: {
         <li>the bank&apos;s name and country and how long your authorization is valid;</li>
         <li>account names, IBANs, currencies, balances and balance history;</li>
         <li>booked transactions with date, amount, currency, counterparty name and description;</li>
+        <li>for payments in a foreign currency, the original amount and currency where the bank provides them;</li>
+        <li>
+          the complete transaction record as the bank delivered it, so that it can be evaluated again later. Depending on the bank, it contains further transaction details such as value and transaction dates, the bank&apos;s transaction code, the merchant category code, the exchange rate, the balance after the transaction, the payment reference number, your own account identifiers and the counterparty&apos;s IBAN or other account number, bank identifier (BIC), address or other identifiers;
+        </li>
         <li>an account identifier provided by Enable Banking, used to recognize accounts when you reconnect;</li>
         <li>the Enable Banking session ID, encrypted;</li>
         <li>a record of each bank connection with the bank&apos;s name and country, its status, the user who started it and when;</li>
         <li>a synchronization history with times, numbers of imported transactions and errors.</li>
       </ul>
       <p>
-        Synchronization runs when a user selects Sync and once a day automatically, and covers the last 89 days. Ufer only reads account information and cannot initiate payments. You sign in to your bank directly; your bank credentials never reach Ufer. Transactions can contain personal data of other people, such as the names of payers and payees and payment references.
+        Synchronization runs when a user selects Sync and once a day automatically, and covers the last 89 days. Ufer only reads account information and cannot initiate payments. You sign in to your bank directly; your bank credentials never reach Ufer. Transactions can contain personal data of other people, such as the names, account numbers and addresses of payers and payees and payment references.
       </p>
       <h3>Data you enter or import</h3>
       <p>

@@ -136,6 +136,7 @@
   color: var(--muted);
 }
 .month-card {
+  position: relative;
   border: 1px solid var(--border);
   background: var(--surface);
   border-radius: 12px;
@@ -220,12 +221,12 @@
   font-weight: 500;
   letter-spacing: -0.5px;
 }
-@media (min-width: 1600px) {
+@media (--wide) {
   .wealth-card {
     padding: 31px 32px;
   }
 }
-@media (max-width: 1250px) {
+@media (--laptop) {
   .wealth-card {
     padding: 24px 21px;
   }
@@ -242,7 +243,7 @@
     gap: 17px;
   }
 }
-@media (max-width: 900px) {
+@media (--tablet) {
   .wealth-grid {
     grid-template-columns: 1fr 1fr;
   }
@@ -274,7 +275,7 @@
     font-size: var(--text-xs);
   }
 }
-@media (max-width: 760px), (max-width: 900px) and (pointer: coarse) {
+@media (--mobile) {
   .wealth-grid {
     grid-template-columns: minmax(0, 1fr);
     gap: 17px;

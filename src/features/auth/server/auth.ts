@@ -117,6 +117,20 @@ export function createAuth(db: Database | DatabaseTransaction, options: AuthOpti
   });
 }
 
+type Auth = ReturnType<typeof createAuth>;
+
+// Built once per database connection instead of per request; configuration is read when the instance is created.
+const requestAuth = new WeakMap<Database, Auth>();
+
+/** The shared Better Auth instance for request handling on the application's database connection. */
 export async function authentication() {
-  return createAuth(await database());
+  const db = await database();
+  let auth = requestAuth.get(db);
+
+  if (!auth) {
+    auth = createAuth(db);
+    requestAuth.set(db, auth);
+  }
+
+  return auth;
 }

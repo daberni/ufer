@@ -70,12 +70,12 @@
   color: var(--muted);
   margin-right: auto;
 }
-@media (max-width: 1250px) {
+@media (--laptop) {
   .transaction-panel {
     padding: 22px 0 0;
   }
 }
-@media (max-width: 760px), (max-width: 900px) and (pointer: coarse) {
+@media (--mobile) {
   .transaction-panel h2 {
     font-size: var(--text-lg);
   }
