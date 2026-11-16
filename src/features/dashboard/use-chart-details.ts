@@ -3,14 +3,14 @@
 import { useEffect, useRef, useState, type FocusEvent, type PointerEvent } from "react";
 
 /**
- * Which month of a chart shows its details: the month under the mouse, the focused month or the last tapped month. Moving the mouse or focus out of the chart, Escape and a tap outside hide them again.
+ * Which element of a chart, such as one bar, shows its details: the one under the mouse, the focused one or the last tapped one. Moving the mouse or focus out of the chart, Escape and a tap outside hide them again.
  */
-export function useMonthDetails() {
-  const [activeMonth, setActiveMonth] = useState<string | null>(null);
+export function useChartDetails() {
+  const [activeKey, setActiveKey] = useState<string | null>(null);
   const chartRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (activeMonth === null) {
+    if (activeKey === null) {
       return;
     }
 
@@ -18,13 +18,13 @@ export function useMonthDetails() {
       const inChart = event.target instanceof Node && chartRef.current?.contains(event.target);
 
       if (!inChart) {
-        setActiveMonth(null);
+        setActiveKey(null);
       }
     }
 
     function dismissOnEscape(event: KeyboardEvent) {
       if (event.key === "Escape") {
-        setActiveMonth(null);
+        setActiveKey(null);
       }
     }
 
@@ -35,43 +35,43 @@ export function useMonthDetails() {
       document.removeEventListener("pointerdown", dismissOutside);
       document.removeEventListener("keydown", dismissOnEscape);
     };
-  }, [activeMonth]);
+  }, [activeKey]);
 
   const chartProps = {
     ref: chartRef,
     onPointerLeave(event: PointerEvent) {
       if (event.pointerType === "mouse") {
-        setActiveMonth(null);
+        setActiveKey(null);
       }
     },
     onBlur(event: FocusEvent) {
       const focusStaysInChart = event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget);
 
       if (!focusStaysInChart) {
-        setActiveMonth(null);
+        setActiveKey(null);
       }
     }
   };
 
-  function monthProps(month: string) {
+  function targetProps(key: string) {
     return {
       onPointerEnter(event: PointerEvent) {
         if (event.pointerType === "mouse") {
-          setActiveMonth(month);
+          setActiveKey(key);
         }
       },
       onFocus() {
-        setActiveMonth(month);
+        setActiveKey(key);
       },
       onClick() {
-        setActiveMonth(month);
+        setActiveKey(key);
       }
     };
   }
 
   return {
-    activeMonth,
+    activeKey,
     chartProps,
-    monthProps
+    targetProps
   };
 }

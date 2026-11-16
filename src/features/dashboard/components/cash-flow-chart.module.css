@@ -16,8 +16,11 @@
   align-items: center;
   gap: 6px;
 }
-.bar-chart {
+.plot {
   container: cash-flow-chart / inline-size;
+  position: relative;
+}
+.bar-chart {
   display: flex;
   align-items: flex-end;
   justify-content: space-around;
@@ -48,42 +51,55 @@
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  border-radius: 6px;
-  background: none;
-  color: inherit;
   text-align: center;
-  cursor: default;
 }
 .bars {
   height: calc(100% - 23px);
   display: flex;
-  align-items: flex-end;
   gap: 5px;
   justify-content: center;
-  transition: opacity 120ms ease;
 }
-.bars > span {
+/* Each bar's target spans its half of the month column, so the narrow bars are easy to hover and tap. */
+.bar-target {
+  flex: 1 1 0;
+  max-width: 30px;
+  display: flex;
+  align-items: flex-end;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: inherit;
+  cursor: default;
+}
+.bar-target[data-flow="income"] {
+  justify-content: flex-end;
+}
+.bar-target[data-flow="expenses"] {
+  justify-content: flex-start;
+}
+.bar {
+  display: flex;
+  flex-direction: column-reverse;
+  flex-shrink: 0;
   width: 15px;
-  border-radius: 3px 3px 0 0;
   min-height: 1px;
+  overflow: hidden;
+  border-radius: 3px 3px 0 0;
+  transition: opacity 120ms ease;
 }
 .income-bar {
   background: #719064;
 }
 .expense-bar {
-  display: flex;
-  flex-direction: column-reverse;
-  overflow: hidden;
   background: #bfcbab;
 }
-.expense-bar > span {
+.bar > span {
   flex: none;
 }
 /* A hairline in the panel color separates stacked category segments. */
-.expense-bar > span + span {
+.bar > span + span {
   box-shadow: inset 0 -1px 0 var(--surface);
 }
 .month-label {
@@ -92,14 +108,14 @@
   height: 23px;
   padding-top: 13px;
 }
-.bar-chart[data-active] .bar-group:not([data-active]) .bars {
+.bar-chart[data-active] .bar-target:not([data-active]) .bar {
   opacity: 0.4;
 }
 .bar-group[data-active] .month-label {
   color: var(--ink);
 }
-/* Overlays the chart so showing a month never moves the layout; pointer events reach the months underneath. */
-.month-details {
+/* On wide charts the details overlay the half away from the active bar, so showing them never moves the layout; pointer events reach the bars underneath. */
+.bar-details {
   position: absolute;
   z-index: 2;
   bottom: 0;
@@ -111,10 +127,10 @@
   box-shadow: 0 8px 24px #233e3126;
   pointer-events: none;
 }
-.month-details[data-side="start"] {
+.bar-details[data-side="start"] {
   left: 0;
 }
-.month-details[data-side="end"] {
+.bar-details[data-side="end"] {
   right: 0;
 }
 .details-heading {
@@ -131,13 +147,16 @@
   font-size: var(--text-xs);
   color: var(--muted);
 }
-.month-details .details-rows {
+.bar-details .details-rows {
   gap: 8px;
 }
 .details-empty {
   margin: 0;
   font-size: var(--text-xs);
   color: var(--muted);
+}
+.details-hint {
+  display: none;
 }
 .chart-empty-note {
   text-align: center;
@@ -146,19 +165,34 @@
   margin-top: 17px;
 }
 @container cash-flow-chart (max-width: 30rem) {
-  /* Spans the chart above the month labels, so the selected month stays marked. */
-  .month-details {
-    bottom: 23px;
-    left: 0;
-    right: 0;
+  /* Narrow charts have no free half, so the details take a fixed area below the bars instead of covering them; it fits a heading and five rows at the narrow-screen text size. */
+  .details-slot {
+    height: calc(7 * 1.3125rem + 5 * 13px + 24px + 10px + 15px);
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+    overflow: hidden;
+  }
+  .bar-details {
+    position: static;
     width: auto;
-    padding: 10px 12px;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
   }
   .details-heading {
     margin-bottom: 8px;
   }
-  .month-details .details-rows {
+  .bar-details .details-rows {
     gap: 6px;
+  }
+  .details-hint {
+    display: block;
+    margin: 0;
+    font-size: var(--text-sm);
+    color: var(--muted);
   }
 }
 @media (min-width: 1600px) {

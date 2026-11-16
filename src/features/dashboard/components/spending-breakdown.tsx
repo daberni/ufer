@@ -6,9 +6,9 @@ import { clsx } from "clsx";
 import styles from "./spending-breakdown.module.css";
 import { periodLabel } from "@/features/dashboard/presentation";
 import { periodFromJson } from "@/features/dashboard/period";
-import { groupSpending } from "@/features/dashboard/spending-groups";
+import { groupByCategory } from "@/features/dashboard/category-groups";
 import { Empty } from "@/components/ui/empty-state";
-import { SpendingRows } from "@/features/dashboard/components/spending-rows";
+import { CategoryRows } from "@/features/dashboard/components/category-rows";
 import { areaProps, valueMask } from "@/features/dashboard/components/result-presentation";
 import type { AreaResult } from "@/features/dashboard/use-area-result";
 import type { CashFlow } from "@/features/dashboard/types";
@@ -31,7 +31,7 @@ export function SpendingBreakdown({ cashFlow }: Props) {
         <span className={clsx(ui["subtle"], valueMask(cashFlow.status))}>{periodLabel(periodFromJson(period))}</span>
       </div>
       <div {...areaProps(cashFlow.status)}>
-        {breakdown.length ? <SpendingRows className={styles["rows"]} groups={groupSpending(breakdown)} currency={currency} /> : <Empty title="No expenses yet" illustration={null}>Your spending breakdown appears here once transactions are available.</Empty>}
+        {breakdown.length ? <CategoryRows className={styles["rows"]} groups={groupByCategory(breakdown)} currency={currency} /> : <Empty title="No expenses yet" illustration={null}>Your spending breakdown appears here once transactions are available.</Empty>}
       </div>
     </section>
   );

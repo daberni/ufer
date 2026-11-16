@@ -1,22 +1,22 @@
-import type { SpendingItem } from "./types";
+import type { CategoryAmount } from "./types";
 
-/** A row of a spending breakdown: one category, uncategorized spending, or the remaining categories combined. */
-export type SpendingGroup = {
+/** A row of a breakdown by category: one category, uncategorized transactions, or the remaining categories combined. */
+export type CategoryGroup = {
   key: string;
   name: string;
   color: string;
   icon: string | null;
   amount: number;
-  /** Share of all spending in the breakdown, from 0 to 1. */
+  /** Share of the breakdown total, from 0 to 1. */
   share: number;
 };
 
-/** The most rows a spending breakdown shows, including the combined row for the remaining categories. */
-export const spendingRowLimit = 5;
+/** The most rows a breakdown by category shows, including the combined row for the remaining categories. */
+export const categoryRowLimit = 5;
 
 const remainderColor = "#cdd3c7";
 
-function byAmount(first: SpendingItem, second: SpendingItem) {
+function byAmount(first: CategoryAmount, second: CategoryAmount) {
   if (first.amount !== second.amount) {
     return second.amount - first.amount;
   }
@@ -28,7 +28,7 @@ function byAmount(first: SpendingItem, second: SpendingItem) {
   return first.name < second.name ? -1 : 1;
 }
 
-function groupOf(item: SpendingItem, total: number): SpendingGroup {
+function groupOf(item: CategoryAmount, total: number): CategoryGroup {
   return {
     key: item.categoryId ?? "uncategorized",
     name: item.name,
@@ -39,7 +39,7 @@ function groupOf(item: SpendingItem, total: number): SpendingGroup {
   };
 }
 
-function remainderOf(items: SpendingItem[], total: number): SpendingGroup {
+function remainderOf(items: CategoryAmount[], total: number): CategoryGroup {
   const amount = items.reduce((sum, item) => sum + item.amount, 0);
 
   return {
@@ -53,19 +53,19 @@ function remainderOf(items: SpendingItem[], total: number): SpendingGroup {
 }
 
 /**
- * Rows for a spending breakdown, largest first. Up to five categories are shown as they are. With more, the four largest keep their rows and the rest are combined into a final row, so the rows always add up to all spending. Uncategorized spending always keeps its own row because it points to transactions that still need a category.
+ * Rows for a breakdown of income or spending by category, largest first. Up to five categories are shown as they are. With more, the four largest keep their rows and the rest are combined into a final row, so the rows always add up to the total. Uncategorized transactions always keep their own row because they still need a category.
  */
-export function groupSpending(items: SpendingItem[]): SpendingGroup[] {
+export function groupByCategory(items: CategoryAmount[]): CategoryGroup[] {
   const total = items.reduce((sum, item) => sum + item.amount, 0);
   const ranked = [...items].sort(byAmount);
 
-  if (ranked.length <= spendingRowLimit) {
+  if (ranked.length <= categoryRowLimit) {
     return ranked.map(item => groupOf(item, total));
   }
 
   const uncategorized = ranked.filter(item => item.categoryId === null);
   const categorized = ranked.filter(item => item.categoryId !== null);
-  const categorizedRows = spendingRowLimit - 1 - uncategorized.length;
+  const categorizedRows = categoryRowLimit - 1 - uncategorized.length;
   const kept = [...categorized.slice(0, categorizedRows), ...uncategorized].sort(byAmount);
   const remainder = categorized.slice(categorizedRows);
 

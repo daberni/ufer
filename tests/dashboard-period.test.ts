@@ -162,12 +162,20 @@ test("a month period limits transactions, cash flow and spending to the same cal
     month: "2025-12",
     income: 100000,
     expenses: 0,
-    breakdown: []
+    incomeBreakdown: [{
+      categoryId: null,
+      name: "Uncategorized",
+      color: "#a2aaa5",
+      icon: null,
+      amount: 100000
+    }],
+    expenseBreakdown: []
   }, {
     month: "2026-01",
     income: 0,
     expenses: 50000,
-    breakdown: [{
+    incomeBreakdown: [],
+    expenseBreakdown: [{
       categoryId: null,
       name: "Uncategorized",
       color: "#a2aaa5",
@@ -196,9 +204,13 @@ test("the all-months period applies to cash flow and spending as well as the tra
   assert.equal(cashFlow.trend.at(-1)?.month, currentMonth().toString());
 });
 
-async function seedSpendingHistory(context: TestContext) {
+async function seedCashFlowHistory(context: TestContext) {
   const db = await seededDatabase(context);
-  const spending: [string, string, number, string | null][] = [
+  const entries: [string, string, number, string | null][] = [
+    ["2025-11-01", "EUR", 250000, "income"],
+    ["2025-11-02", "EUR", 30000, "transfer"],
+    ["2025-11-15", "EUR", 1200, null],
+    ["2025-11-16", "USD", 5000, "income"],
     ["2025-11-03", "EUR", -4000, "groceries"],
     ["2025-11-20", "EUR", -90000, "home"],
     ["2025-11-21", "EUR", -50000, "transfer"],
@@ -224,10 +236,10 @@ async function seedSpendingHistory(context: TestContext) {
     name: "Gifts",
     color: "#b46f9a"
   }]);
-  await db.insert(schema.transactions).values(spending.map(([bookingDate, currency, amount, categoryId], index) => ({
-    id: `spending-${index}`,
+  await db.insert(schema.transactions).values(entries.map(([bookingDate, currency, amount, categoryId], index) => ({
+    id: `history-${index}`,
     account_id: "checking",
-    provider_reference: `synthetic-spending-${index}`,
+    provider_reference: `synthetic-history-${index}`,
     booking_date: bookingDate,
     amount_minor: amount,
     currency,
@@ -235,8 +247,8 @@ async function seedSpendingHistory(context: TestContext) {
   })));
 }
 
-test("each trend month's spending breakdown matches the spending breakdown of that month's period", async context => {
-  await seedSpendingHistory(context);
+test("each trend month's breakdowns agree with that month's period totals and spending breakdown", async context => {
+  await seedCashFlowHistory(context);
   const window = await readCashFlow(monthPeriod(Temporal.PlainYearMonth.from("2026-02")), "EUR");
 
   assert.deepEqual(window.trend.map(item => item.month), ["2025-09", "2025-10", "2025-11", "2025-12", "2026-01", "2026-02"]);
@@ -244,23 +256,29 @@ test("each trend month's spending breakdown matches the spending breakdown of th
   for (const month of window.trend) {
     const period = await readCashFlow(monthPeriod(Temporal.PlainYearMonth.from(month.month)), "EUR");
 
-    assert.deepEqual(month.breakdown, period.breakdown, month.month);
+    const monthIncome = month.incomeBreakdown.reduce((total, item) => total + item.amount, 0);
+
+    assert.deepEqual(month.expenseBreakdown, period.breakdown, month.month);
     assert.equal(month.expenses, period.expenses, month.month);
     assert.equal(spending(period), month.expenses, month.month);
+    assert.equal(month.income, period.income, month.month);
+    assert.equal(monthIncome, month.income, month.month);
   }
 });
 
-test("a month's spending breakdown leaves out transfers and other currencies and keeps uncategorized spending", async context => {
-  await seedSpendingHistory(context);
+test("a month's breakdowns leave out transfers and other currencies and keep uncategorized transactions", async context => {
+  await seedCashFlowHistory(context);
   const window = await readCashFlow(monthPeriod(Temporal.PlainYearMonth.from("2026-02")), "EUR");
   const november = window.trend.find(item => item.month === "2025-11");
   const december = window.trend.find(item => item.month === "2025-12");
   const january = window.trend.find(item => item.month === "2026-01");
 
-  assert.deepEqual(november?.breakdown.map(item => [item.categoryId, item.amount]), [["home", 90000], ["groceries", 4000]]);
+  assert.deepEqual(november?.incomeBreakdown.map(item => [item.categoryId, item.amount]), [["income", 250000], [null, 1200]]);
+  assert.equal(november?.income, 251200);
+  assert.deepEqual(november?.expenseBreakdown.map(item => [item.categoryId, item.amount]), [["home", 90000], ["groceries", 4000]]);
   assert.equal(november?.expenses, 94000);
-  assert.deepEqual(december?.breakdown.map(item => [item.categoryId, item.amount]), [["fees", 3100], ["groceries", 2500], ["transport", 1200], ["leisure", 800], [null, 700], ["gifts", 650], ["health", 400]]);
-  assert.equal(december?.breakdown.find(item => item.categoryId === null)?.name, "Uncategorized");
+  assert.deepEqual(december?.expenseBreakdown.map(item => [item.categoryId, item.amount]), [["fees", 3100], ["groceries", 2500], ["transport", 1200], ["leisure", 800], [null, 700], ["gifts", 650], ["health", 400]]);
+  assert.equal(december?.expenseBreakdown.find(item => item.categoryId === null)?.name, "Uncategorized");
   assert.equal(december?.expenses, 9350);
-  assert.deepEqual(january?.breakdown.map(item => [item.categoryId, item.amount]), [[null, 50000]]);
+  assert.deepEqual(january?.expenseBreakdown.map(item => [item.categoryId, item.amount]), [[null, 50000]]);
 });

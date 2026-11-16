@@ -2,7 +2,7 @@ import type { InValue } from "@libsql/client";
 import { database } from "@/server/database/connection";
 import { environment } from "@/features/banking/server/environment";
 import { currentMonth, periodToJson, trendMonths, type Period } from "@/features/dashboard/period";
-import type { SpendingItem } from "@/features/dashboard/types";
+import type { CategoryAmount } from "@/features/dashboard/types";
 import { periodCondition } from "./period-condition";
 
 type SqlCondition = {
@@ -30,16 +30,37 @@ function countedTransactions(currency: string, range: SqlCondition): SqlConditio
   };
 }
 
-/** Spending per category among counted transactions, largest first, with uncategorized spending as one row. Per month, rows are also split by booking month. */
-function spendingByCategory(source: SqlCondition, perMonth: boolean): SqlCondition {
+type Flow = "income" | "expenses";
+
+/** Which transactions make up each flow and the positive amount each contributes. */
+const flows: Record<Flow, {
+  condition: string;
+  amount: string;
+}> = {
+  income: {
+    condition: "t.amount_minor>0",
+    amount: "t.amount_minor"
+  },
+  expenses: {
+    condition: "t.amount_minor<0",
+    amount: "-t.amount_minor"
+  }
+};
+
+function flowTotal(flow: Flow) {
+  return `COALESCE(SUM(CASE WHEN ${flows[flow].condition} THEN ${flows[flow].amount} ELSE 0 END),0)`;
+}
+
+/** Amounts per category of one flow among counted transactions, largest first, with uncategorized transactions as one row. Per month, rows are also split by booking month. */
+function flowByCategory(source: SqlCondition, flow: Flow, perMonth: boolean): SqlCondition {
   const month = perMonth ? bookingMonth : "NULL";
   const grouping = perMonth ? `${bookingMonth},t.category_id` : "t.category_id";
 
   return {
     sql: `
-      SELECT ${month} AS month,t.category_id AS category_id,COALESCE(c.name,'Uncategorized') AS name,COALESCE(c.color,'#a2aaa5') AS color,c.icon AS icon,SUM(-t.amount_minor) AS amount
+      SELECT ${month} AS month,t.category_id AS category_id,COALESCE(c.name,'Uncategorized') AS name,COALESCE(c.color,'#a2aaa5') AS color,c.icon AS icon,SUM(${flows[flow].amount}) AS amount
       ${source.sql}
-      AND t.amount_minor<0
+      AND ${flows[flow].condition}
       GROUP BY ${grouping}
       ORDER BY month,amount DESC,name
     `,
@@ -47,7 +68,7 @@ function spendingByCategory(source: SqlCondition, perMonth: boolean): SqlConditi
   };
 }
 
-function spendingItem(row: Record<string, unknown>): SpendingItem {
+function categoryAmount(row: Record<string, unknown>): CategoryAmount {
   return {
     categoryId: row.category_id === null ? null : String(row.category_id),
     name: String(row.name),
@@ -57,7 +78,7 @@ function spendingItem(row: Record<string, unknown>): SpendingItem {
   };
 }
 
-/** Income, expenses, spending by category and the six-month trend, including each month's spending by category, for one period and currency. */
+/** Income, expenses, spending by category and the six-month trend, including each month's income and spending by category, for one period and currency. */
 export async function readCashFlow(period: Period, currency: string) {
   const client = (await database()).$client;
   const trendRange = trendMonths(period, currentMonth());
@@ -74,31 +95,32 @@ export async function readCashFlow(period: Period, currency: string) {
     sql: "t.booking_date>=? AND t.booking_date<?",
     args: [trendStart, trendEnd]
   });
-  const flowsQuery = client.execute({
+  const totalsQuery = client.execute({
     sql: `
-      SELECT COALESCE(SUM(CASE WHEN t.amount_minor>0 THEN t.amount_minor ELSE 0 END),0) AS income,COALESCE(SUM(CASE WHEN t.amount_minor<0 THEN -t.amount_minor ELSE 0 END),0) AS expenses
+      SELECT ${flowTotal("income")} AS income,${flowTotal("expenses")} AS expenses
       ${inPeriod.sql}
     `,
     args: inPeriod.args
   });
-  const breakdownQuery = client.execute(spendingByCategory(inPeriod, false));
+  const breakdownQuery = client.execute(flowByCategory(inPeriod, "expenses", false));
   const trendQuery = client.execute({
     sql: `
-      SELECT ${bookingMonth} AS month,SUM(CASE WHEN t.amount_minor>0 THEN t.amount_minor ELSE 0 END) AS income,SUM(CASE WHEN t.amount_minor<0 THEN -t.amount_minor ELSE 0 END) AS expenses
+      SELECT ${bookingMonth} AS month,${flowTotal("income")} AS income,${flowTotal("expenses")} AS expenses
       ${inTrend.sql}
       GROUP BY ${bookingMonth}
     `,
     args: inTrend.args
   });
-  const trendBreakdownQuery = client.execute(spendingByCategory(inTrend, true));
-  const [flows, breakdown, trend, trendBreakdown] = await Promise.all([flowsQuery, breakdownQuery, trendQuery, trendBreakdownQuery]);
+  const trendIncomeQuery = client.execute(flowByCategory(inTrend, "income", true));
+  const trendExpensesQuery = client.execute(flowByCategory(inTrend, "expenses", true));
+  const [totals, breakdown, trend, trendIncome, trendExpenses] = await Promise.all([totalsQuery, breakdownQuery, trendQuery, trendIncomeQuery, trendExpensesQuery]);
 
   return {
     period: periodToJson(period),
     currency,
-    income: Number(flows.rows[0].income),
-    expenses: Number(flows.rows[0].expenses),
-    breakdown: breakdown.rows.map(spendingItem),
+    income: Number(totals.rows[0].income),
+    expenses: Number(totals.rows[0].expenses),
+    breakdown: breakdown.rows.map(categoryAmount),
     trend: trendWindow.map(month => {
       const row = trend.rows.find(item => item.month === month);
 
@@ -106,7 +128,8 @@ export async function readCashFlow(period: Period, currency: string) {
         month,
         income: Number(row?.income || 0),
         expenses: Number(row?.expenses || 0),
-        breakdown: trendBreakdown.rows.filter(item => item.month === month).map(spendingItem)
+        incomeBreakdown: trendIncome.rows.filter(item => item.month === month).map(categoryAmount),
+        expenseBreakdown: trendExpenses.rows.filter(item => item.month === month).map(categoryAmount)
       };
     })
   };

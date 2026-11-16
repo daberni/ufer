@@ -1,8 +1,8 @@
-import styles from "./spending-rows.module.css";
+import styles from "./category-rows.module.css";
 import { clsx } from "clsx";
 import { money } from "@/lib/money";
 import { CategoryMarker } from "@/features/categorization/components/category-marker";
-import type { SpendingGroup } from "@/features/dashboard/spending-groups";
+import type { CategoryGroup } from "@/features/dashboard/category-groups";
 
 const shareFormat = new Intl.NumberFormat("en-GB", {
   style: "percent",
@@ -10,22 +10,22 @@ const shareFormat = new Intl.NumberFormat("en-GB", {
 });
 
 /** The rows as one sentence for an accessible description, e.g. "Groceries €120.00 (40%), Rent €180.00 (60%)". */
-export function describeSpending(groups: SpendingGroup[], currency: string) {
+export function describeCategoryGroups(groups: CategoryGroup[], currency: string) {
   if (!groups.length) {
-    return "No expenses.";
+    return "None.";
   }
 
   return groups.map(group => `${group.name} ${money(group.amount, currency)} (${shareFormat.format(group.share)})`).join(", ");
 }
 
 type Props = {
-  groups: SpendingGroup[];
+  groups: CategoryGroup[];
   currency: string;
   className?: string;
 };
 
-/** Spending rows with category, amount and share bar; shared by "Where your money goes" and the monthly breakdown in the cash-flow chart. */
-export function SpendingRows({
+/** Rows with category, amount and share bar; shared by "Where your money goes" and the monthly breakdowns in the cash-flow chart. */
+export function CategoryRows({
   groups,
   currency,
   className

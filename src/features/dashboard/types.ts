@@ -85,8 +85,8 @@ export type NetWorth = {
   unvalued: number;
 };
 
-/** Spending in one category; `categoryId` is null for uncategorized spending. */
-export type SpendingItem = {
+/** Income or spending in one category; `categoryId` is null for uncategorized transactions. */
+export type CategoryAmount = {
   categoryId: string | null;
   name: string;
   color: string;
@@ -101,13 +101,15 @@ export type CashFlow = {
   income: number;
   expenses: number;
   /** Spending by category in the period, largest first. */
-  breakdown: SpendingItem[];
+  breakdown: CategoryAmount[];
   trend: {
     month: string;
     income: number;
     expenses: number;
+    /** Income by category in this month, largest first; it sums to `income`. */
+    incomeBreakdown: CategoryAmount[];
     /** Spending by category in this month, largest first; it sums to `expenses`. */
-    breakdown: SpendingItem[];
+    expenseBreakdown: CategoryAmount[];
   }[];
 };
 
