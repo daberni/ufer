@@ -1,8 +1,6 @@
-.pill {
-  composes: pill from "../../../components/ui/primitives.module.css";
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
+.rule-category {
+  flex-shrink: 0;
+  max-width: 45%;
 }
 .rule-row {
   display: flex;
@@ -66,25 +64,16 @@
   flex-wrap: wrap;
 }
 .category-chip {
-  display: inline-flex;
-  gap: 9px;
-  align-items: center;
-  padding: 12px 15px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  font-size: var(--text-xs);
-  background: #fff;
-  color: inherit;
-  font-family: inherit;
-  cursor: pointer;
+  composes: chip-button from "./category-chip.module.css";
 }
-.category-chip:hover {
-  border-color: var(--ink);
+.chip-detail {
+  font-weight: 400;
 }
 .edit-hint {
-  color: #a3ad99;
+  width: 1em;
+  height: 1em;
+  flex-shrink: 0;
   opacity: 0;
-  margin-left: -3px;
   transition: opacity 0.15s;
 }
 .category-chip:hover .edit-hint,
@@ -120,8 +109,8 @@
   .rule-row code {
     overflow-wrap: anywhere;
   }
-  .rule-row > .pill {
-    margin-left: 0;
+  .rule-category {
+    max-width: 100%;
   }
   .rule-row .toggle {
     width: 52px;
@@ -140,10 +129,6 @@
   }
   .rule-row .toggle.enabled > span {
     transform: translateX(28px);
-  }
-  .category-chip {
-    font-size: var(--text-sm);
-    padding: 13px;
   }
 }
 .rule-actions {

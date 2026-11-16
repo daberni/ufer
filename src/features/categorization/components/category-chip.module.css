@@ -1,0 +1,87 @@
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45em;
+  max-width: 100%;
+  min-width: 0;
+  border: 1px solid var(--chip-border);
+  border-radius: 6px;
+  background: var(--chip-background);
+  color: var(--chip-foreground);
+  font-weight: 500;
+  line-height: 1.25;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.small {
+  min-height: 24px;
+  padding: 2px 7px;
+  font-size: var(--text-xs);
+}
+.medium {
+  min-height: 32px;
+  padding: 5px 10px;
+  font-size: var(--text-xs);
+}
+.large {
+  min-height: 42px;
+  padding: 8px 13px;
+  font-size: var(--text-md);
+}
+.icon {
+  width: 1.2em;
+  height: 1.2em;
+  flex-shrink: 0;
+}
+.dot {
+  width: 0.6em;
+  height: 0.6em;
+  margin-inline: 0.3em;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+.name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.manual {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+.manual-icon {
+  width: 1em;
+  height: 1em;
+  opacity: 0.8;
+}
+
+/* A button whose visible surface is the chip inside it, such as an edit chip or the category picker. */
+.chip-button {
+  display: inline-flex;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: inherit;
+  text-align: left;
+}
+.chip-button:not(:disabled):hover > .chip {
+  border-color: var(--chip-foreground);
+}
+.chip-button[aria-expanded="true"] > .chip {
+  border-color: var(--chip-foreground);
+}
+@media (max-width: 760px), (max-width: 900px) and (pointer: coarse) {
+  .small {
+    font-size: var(--text-sm);
+  }
+  .medium {
+    min-height: 44px;
+    font-size: var(--text-sm);
+  }
+  .chip-button > .chip {
+    min-height: 44px;
+  }
+}
