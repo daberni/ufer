@@ -8,12 +8,12 @@ import { usePathname } from "next/navigation";
 import { ArrowRight, CircleHelp, Link2 } from "lucide-react";
 import { BrandIcon } from "@/components/branding/brand-icon";
 import { ActionFeedback } from "@/components/ui/action-feedback";
+import { LiveAnnouncements } from "@/components/ui/live-announcements";
 import { useFeedbackDismissal } from "@/components/ui/use-action-feedback";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { AppHeader } from "@/components/layout/app-header";
 import { PageHeading } from "@/features/dashboard/components/page-heading";
 import { DashboardDialogs } from "@/features/dashboard/components/dashboard-dialogs";
-import { ViewLoading } from "@/features/dashboard/components/view-loading";
 import { LoginForm } from "@/features/auth/components/login-form";
 import { LegalLinks } from "@/features/legal/components/legal-links";
 import { SourceCodeNotice } from "@/features/legal/components/source-code-notice";
@@ -49,7 +49,7 @@ function DashboardNavigation() {
   return null;
 }
 
-// Rendered only while signed in, so no dashboard query runs behind the sign-in form.
+// Rendered only while signed in, so no dashboard query runs behind the sign-in form. The frame renders at once; parts that depend on data fill in as their queries resolve, like the areas of each view.
 function DashboardShell({ children }: {
   children: React.ReactNode
 }) {
@@ -60,22 +60,13 @@ function DashboardShell({ children }: {
   const currency = useCurrency();
   const accounts = useAccounts();
   const loadError = useLoadError();
+  const nav = navigation.find(item => item.id === view)!;
 
-  if (!accounts.data) {
-    return (
-      <main className={styles["content"]}>
-        <LoadErrorNotice failure={loadError.failure} retry={loadError.retry} />
-        <ViewLoading failed={accounts.isError} />
-        <DashboardFooter />
-      </main>
-    );
-  }
-
+  // Bank accounts only add the sync action and authorization reminders, so until they load the shell shows neither.
   const {
     bankAccounts,
     expiring
-  } = accountGroups(accounts.data, currency);
-  const nav = navigation.find(item => item.id === view)!;
+  } = accountGroups(accounts.data ?? [], currency);
 
   return (
     <div className={styles["app-shell"]}>
@@ -109,7 +100,9 @@ function DashboardShell({ children }: {
           <DashboardFooter />
         </main>
       </div>
-      <DashboardDialogs accounts={accounts.data} environment={environment} />
+      <LiveAnnouncements polite={loadError.announcement} assertive="" />
+      {/* Dialogs offer the account list, so a dialog requested earlier opens once it has loaded. */}
+      {accounts.data && <DashboardDialogs accounts={accounts.data} environment={environment} />}
       <PageFeedback />
     </div>
   );
@@ -134,7 +127,7 @@ function PageFeedback() {
   );
 }
 
-// Also rendered while the dashboard data loads or fails, so the source offer never depends on a successful query.
+// Rendered with the shell, so the source offer never depends on a successful query.
 function DashboardFooter() {
   return (
     <footer className={styles["page-footer"]}>

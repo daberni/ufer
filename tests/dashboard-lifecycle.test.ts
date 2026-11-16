@@ -43,7 +43,9 @@ function queryWrapper(queryClient: QueryClient) {
   return function wrapper({ children }: {
     children: ReactNode
   }) {
-    return withQueryClient(queryClient, createElement(DashboardStoreProvider, null, children));
+    return withQueryClient(queryClient, createElement(DashboardStoreProvider, {
+      locked: false
+    }, children));
   };
 }
 
@@ -515,37 +517,89 @@ test("a failed request for changed filters ends loading and masks the outdated r
   assert.equal(result.current.list.data?.transactionCount, 3);
 });
 
-test("a failed load stays reported until a later load succeeds", async context => {
+function databaseFailure() {
+  return Response.json({
+    title: "Internal Server Error",
+    detail: "The database is not reachable."
+  }, {
+    status: 500
+  });
+}
+
+test("an area without results reports its failed first load in place and retries it there", async context => {
   const {
     queryClient,
     requests
   } = browser(context);
   const { result } = renderHook(() => ({
-    accounts: useAccounts(),
+    accounts: useAreaResult(useAccounts()),
     loadError: useLoadError()
   }), {
     wrapper: queryWrapper(queryClient)
   });
 
   await wait(0);
-  await respond(requests("accounts")[0], Response.json({
-    title: "Internal Server Error",
-    detail: "The database is not reachable."
-  }, {
-    status: 500
+  assert.equal(result.current.accounts.status, "pending");
+  assert.equal(result.current.loadError.announcement, "Loading your data …");
+  await respond(requests("accounts")[0], databaseFailure());
+
+  const pending = result.current.accounts;
+
+  assert.equal(pending.status, "pending");
+  assert.equal(pending.failure?.message, "The database is not reachable.");
+  // The skeleton's place shows the failure, so the banner does not repeat it.
+  assert.equal(result.current.loadError.failure?.message ?? "", "");
+  assert.equal(result.current.loadError.announcement, "Some of your data could not be loaded.");
+
+  act(() => pending.failure?.retry());
+  await wait(0);
+  assert.equal(requests("accounts").length, 2);
+  assert.deepEqual(result.current.accounts, {
+    status: "pending",
+    failure: null
+  });
+  assert.equal(result.current.loadError.announcement, "Loading your data …");
+  await respond(requests("accounts")[1], Response.json([]));
+
+  assert.deepEqual(result.current.accounts, {
+    data: [],
+    status: "ready"
+  });
+  assert.equal(result.current.loadError.announcement, "");
+});
+
+test("a failed reload of shown results stays reported until a later load succeeds", async context => {
+  const {
+    queryClient,
+    requests
+  } = browser(context);
+  const { result } = renderHook(() => ({
+    accounts: useAreaResult(useAccounts()),
+    loadError: useLoadError()
+  }), {
+    wrapper: queryWrapper(queryClient)
+  });
+
+  await wait(0);
+  await respond(requests("accounts")[0], Response.json([]));
+  act(() => void queryClient.invalidateQueries({
+    queryKey: queryKeys.accounts()
   }));
+  await wait(0);
+  await respond(requests("accounts")[1], databaseFailure());
 
   assert.equal(result.current.loadError.failure?.message ?? "", "The database is not reachable.");
+  assert.equal(result.current.loadError.announcement, "");
+  assert.equal(result.current.accounts.status, "ready");
 
   act(() => result.current.loadError.retry());
   await wait(0);
   // The banner stays while the retry runs instead of disappearing and possibly coming back.
-  assert.equal(requests("accounts").length, 2);
+  assert.equal(requests("accounts").length, 3);
   assert.equal(result.current.loadError.failure?.message ?? "", "The database is not reachable.");
-  await respond(requests("accounts")[1], Response.json([]));
+  await respond(requests("accounts")[2], Response.json([]));
 
   assert.equal(result.current.loadError.failure?.message ?? "", "");
-  assert.deepEqual(result.current.accounts.data, []);
 });
 
 test("success feedback dismisses itself while problems stay until dismissed", async context => {
@@ -596,7 +650,9 @@ function renderDashboard(context: Parameters<typeof browser>[0], url: string) {
       value: new URLSearchParams(window.location.search)
     }, children));
 
-    return withQueryClient(environment.queryClient, createElement(DashboardStoreProvider, null, createElement(AppRouterContext, {
+    return withQueryClient(environment.queryClient, createElement(DashboardStoreProvider, {
+      locked: false
+    }, createElement(AppRouterContext, {
       value: router
     }, route)));
   }
