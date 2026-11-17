@@ -5,7 +5,7 @@ import { useMutation, useMutationState, useQueryClient, type QueryClient } from 
 import { api, toFailure, type Failure } from "@/client/api";
 import { invalidate } from "@/client/invalidate";
 import { queryKeys } from "@/client/query-keys";
-import type { Transaction, TransactionPage } from "@/features/dashboard/types";
+import type { Transaction, TransactionPage } from "@/features/transactions/types";
 
 export type CategoryAssignment = Pick<Transaction, "id" | "category_id" | "category_source">;
 

@@ -8,12 +8,12 @@ import { authClient, requireAuthResult } from "@/features/auth/client";
 import { AccountSettings } from "./account-settings";
 import ui from "@/components/ui/primitives.module.css";
 import { toFailure } from "@/client/api";
-import { useDashboardStore } from "@/features/dashboard/dashboard-store";
-import { useLockSession } from "@/features/dashboard/use-dashboard-lock";
+import { useAppStore } from "@/client/app-store";
+import { useLockSession } from "@/client/use-session-lock";
 
 export function UserAccess() {
   const lock = useLockSession();
-  const reportFeedback = useDashboardStore(state => state.reportFeedback);
+  const reportFeedback = useAppStore(state => state.reportFeedback);
   const pathname = usePathname();
   // The header outlives navigation, so the settings dialog remembers the view it was opened on and closes when another view is shown, including on Back and Forward.
   const [settingsView, setSettingsView] = useState<string | null>(null);

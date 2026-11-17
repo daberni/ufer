@@ -9,7 +9,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { useDismiss } from "@/components/ui/use-dismiss";
 import type { KeyboardEvent } from "react";
 import { Temporal } from "temporal-polyfill";
-import { currentMonth } from "@/features/dashboard/period";
+import { currentMonth } from "@/lib/period";
 import { describeMonth } from "@/lib/date-format";
 
 type Props = {

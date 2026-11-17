@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { createDashboardStore, onView } from "../src/features/dashboard/dashboard-store";
+import { createAppStore, onView } from "../src/client/app-store";
 
 function storeAt(pathname: string) {
   const location = {
     pathname
   };
-  const store = createDashboardStore(false, () => location.pathname);
+  const store = createAppStore(false, () => location.pathname);
 
   return {
     store,

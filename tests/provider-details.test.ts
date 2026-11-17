@@ -8,7 +8,7 @@ import * as schema from "../src/server/database/schema";
 import { normalizeTransactions } from "../src/features/banking/server/bank-data";
 import { maximumPayloadBytes } from "../src/features/banking/server/provider-details";
 import { saveAccountSync } from "../src/features/banking/server/account-sync-service";
-import { dashboardFilters } from "../src/features/dashboard/server/dashboard-filters";
+import { dashboardFilters } from "../src/server/http/dashboard-filters";
 import { readTransactionPage } from "../src/features/transactions/server/transaction-list-query";
 import type { BankTransaction } from "../src/features/banking/server/enable-banking-client";
 import type { Rule } from "../src/lib/rules";

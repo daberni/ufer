@@ -1,6 +1,6 @@
 // The connection dialog's country and bank choice. A bank counts as chosen only after it was picked from the list, never because a search matches it.
 
-import type { Bank, Connection } from "@/features/dashboard/types";
+import type { Bank, Connection } from "@/features/banking/types";
 
 export const bankCountries = [{
   code: "AT",

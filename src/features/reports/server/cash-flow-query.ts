@@ -1,9 +1,9 @@
 import type { InValue } from "@libsql/client";
 import { database } from "@/server/database/connection";
 import { environment } from "@/features/banking/server/environment";
-import { currentMonth, periodToJson, trendMonths, type Period } from "@/features/dashboard/period";
-import type { CategoryAmount } from "@/features/dashboard/types";
-import { periodCondition } from "./period-condition";
+import { currentMonth, periodToJson, trendMonths, type Period } from "@/lib/period";
+import type { CategoryAmount } from "@/features/reports/types";
+import { periodCondition } from "@/features/transactions/server/period-condition";
 
 type SqlCondition = {
   sql: string;

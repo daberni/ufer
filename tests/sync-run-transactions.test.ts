@@ -8,7 +8,7 @@ import * as schema from "../src/server/database/schema";
 import { saveAccountSync } from "../src/features/banking/server/account-sync-service";
 import { finishSyncRun, startSyncRun } from "../src/features/banking/server/sync-repository";
 import { listRecentSyncRuns } from "../src/features/banking/server/banking-queries";
-import { dashboardFilters } from "../src/features/dashboard/server/dashboard-filters";
+import { dashboardFilters } from "../src/server/http/dashboard-filters";
 import { readTransactionPage } from "../src/features/transactions/server/transaction-list-query";
 import type { Entry } from "../src/features/transactions/server/transaction-entry";
 

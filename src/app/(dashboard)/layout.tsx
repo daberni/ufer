@@ -1,5 +1,5 @@
 import Dashboard from "@/features/dashboard/dashboard";
-import { DashboardStoreProvider } from "@/features/dashboard/dashboard-store";
+import { AppStoreProvider } from "@/client/app-store";
 import { QueryProvider } from "@/client/query-provider";
 import { BankingConfigurationProvider } from "@/features/banking/banking-configuration";
 import { bankingConfiguration } from "@/features/banking/server/banking-queries";
@@ -14,9 +14,9 @@ export default async function DashboardLayout({ children }: Readonly<{
   return (
     <QueryProvider>
       <BankingConfigurationProvider configuration={bankingConfiguration()}>
-        <DashboardStoreProvider locked={signedOut}>
+        <AppStoreProvider locked={signedOut}>
           <Dashboard>{children}</Dashboard>
-        </DashboardStoreProvider>
+        </AppStoreProvider>
       </BankingConfigurationProvider>
     </QueryProvider>
   );

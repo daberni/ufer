@@ -4,7 +4,7 @@ import { act, renderHook } from "@testing-library/react";
 import { useQuery, type QueryClient } from "@tanstack/react-query";
 import { queryKeys } from "../src/client/query-keys";
 import { useTransactionCategory } from "../src/features/transactions/use-transaction-category";
-import type { Transaction, TransactionPage } from "../src/features/dashboard/types";
+import type { Transaction, TransactionPage } from "../src/features/transactions/types";
 import { browser, wait, withQueryClient, type PendingRequest } from "./fixtures/browser";
 
 const transaction: Transaction = {

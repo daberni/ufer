@@ -1,8 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Temporal } from "temporal-polyfill";
-import { describeDate, describeMonth } from "../src/lib/date-format";
-import { monthRangeLabel } from "../src/features/dashboard/presentation";
+import { describeDate, describeMonth, monthRangeLabel } from "../src/lib/date-format";
 import { productTimeZone } from "../src/lib/time";
 
 test("date-only values keep their calendar day and show no time or zone", () => {
