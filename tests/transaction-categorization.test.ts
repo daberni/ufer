@@ -18,7 +18,12 @@ const transaction: Transaction = {
   description: "Synthetic purchase",
   account_name: "Synthetic account",
   category_id: "groceries",
-  category_source: "rule"
+  category_source: "rule",
+  type: "expense",
+  type_source: "auto",
+  manual_account: false,
+  created_counterpart: false,
+  counterpart: null
 };
 
 const listKey = queryKeys.transactions.list({

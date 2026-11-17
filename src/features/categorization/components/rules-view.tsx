@@ -157,7 +157,6 @@ export function RulesView({
               })}
             >
               <CategoryChip category={category}>
-                {category.is_transfer ? <span className={styles["chip-detail"]}>· excluded from cash flow</span> : null}
                 <Pencil className={styles["edit-hint"]} aria-hidden="true" strokeWidth={2.2} />
               </CategoryChip>
             </button>

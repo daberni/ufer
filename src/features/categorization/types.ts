@@ -2,7 +2,6 @@ export type Category = {
   id: string;
   name: string;
   color: string;
-  is_transfer: number;
   icon: string | null;
 };
 

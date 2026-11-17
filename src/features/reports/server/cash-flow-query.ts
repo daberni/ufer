@@ -13,7 +13,7 @@ type SqlCondition = {
 const bookingMonth = "substr(t.booking_date,1,7)";
 
 /**
- * Transactions that count toward cash flow and spending in a date range: this environment and currency, without categorized transfers. Every cash-flow figure reads through this one definition so totals, breakdowns and the trend agree.
+ * Transactions that count toward cash flow and spending in a date range: income and expenses of this environment and currency. Transfers, opening balances and adjustments never count, whatever their category. Every cash-flow figure reads through this one definition so totals, breakdowns and the trend agree.
  */
 function countedTransactions(currency: string, range: SqlCondition): SqlCondition {
   return {
@@ -24,7 +24,7 @@ function countedTransactions(currency: string, range: SqlCondition): SqlConditio
       WHERE a.environment=?
       AND t.currency=?
       AND ${range.sql}
-      AND COALESCE(c.is_transfer,0)=0
+      AND t.type IN ('income','expense')
     `,
     args: [environment(), currency, ...range.args]
   };
@@ -32,17 +32,17 @@ function countedTransactions(currency: string, range: SqlCondition): SqlConditio
 
 type Flow = "income" | "expenses";
 
-/** Which transactions make up each flow and the positive amount each contributes. */
+/** Which transactions make up each flow and the amount each contributes. A refund is an expense with a positive amount, so it reduces spending. */
 const flows: Record<Flow, {
   condition: string;
   amount: string;
 }> = {
   income: {
-    condition: "t.amount_minor>0",
+    condition: "t.type='income'",
     amount: "t.amount_minor"
   },
   expenses: {
-    condition: "t.amount_minor<0",
+    condition: "t.type='expense'",
     amount: "-t.amount_minor"
   }
 };
@@ -51,7 +51,10 @@ function flowTotal(flow: Flow) {
   return `COALESCE(SUM(CASE WHEN ${flows[flow].condition} THEN ${flows[flow].amount} ELSE 0 END),0)`;
 }
 
-/** Amounts per category of one flow among counted transactions, largest first, with uncategorized transactions as one row. Per month, rows are also split by booking month. */
+/**
+ * Amounts per category of one flow among counted transactions, largest first, with uncategorized transactions as one row. Per month, rows are also split by booking month.
+ * A category whose refunds reach or exceed its spending has no row; its net amount still counts toward the flow's total.
+ */
 function flowByCategory(source: SqlCondition, flow: Flow, perMonth: boolean): SqlCondition {
   const month = perMonth ? bookingMonth : "NULL";
   const grouping = perMonth ? `${bookingMonth},t.category_id` : "t.category_id";
@@ -62,6 +65,7 @@ function flowByCategory(source: SqlCondition, flow: Flow, perMonth: boolean): Sq
       ${source.sql}
       AND ${flows[flow].condition}
       GROUP BY ${grouping}
+      HAVING amount>0
       ORDER BY month,amount DESC,name
     `,
     args: source.args

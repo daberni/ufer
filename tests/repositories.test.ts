@@ -226,7 +226,7 @@ test("a valuation dated today in Vienna is accepted before UTC reaches that day,
   }, viennaAfterMidnight), ValidationError);
 });
 
-test("category corrections retain environment isolation and manual exclusions survive rule application", async context => {
+test("category corrections retain environment isolation, manual exclusions survive rule application and transfers are categorized by rules", async context => {
   const db = await isolatedDatabase(context);
 
   await db.insert(schema.accounts).values([{
@@ -249,6 +249,7 @@ test("category corrections retain environment isolation and manual exclusions su
     booking_date: "2000-01-10",
     amount_minor: -100,
     currency: "EUR",
+    type: "expense",
     counterparty: "Supermarket"
   }, {
     id: "other-entry",
@@ -257,6 +258,7 @@ test("category corrections retain environment isolation and manual exclusions su
     booking_date: "2000-01-10",
     amount_minor: -200,
     currency: "EUR",
+    type: "expense",
     counterparty: "Supermarket"
   }]);
   await insertRule({
@@ -275,6 +277,7 @@ test("category corrections retain environment isolation and manual exclusions su
     booking_date: "2000-01-10",
     amount_minor: -300,
     currency: "EUR",
+    type: "expense",
     counterparty: "Supermarket"
   }, {
     id: "transfer-entry",
@@ -283,6 +286,7 @@ test("category corrections retain environment isolation and manual exclusions su
     booking_date: "2000-01-10",
     amount_minor: -400,
     currency: "EUR",
+    type: "transfer",
     counterparty: "Supermarket",
     category_id: "transfer"
   }]);
@@ -308,7 +312,10 @@ test("category corrections retain environment isolation and manual exclusions su
   assert.equal(other?.category_id, null);
   assert.equal(other?.category_source, "rule");
   assert.equal((await db.select().from(schema.transactions).where(eq(schema.transactions.id, "automatic-entry")).get())?.category_id, "groceries");
-  assert.equal((await db.select().from(schema.transactions).where(eq(schema.transactions.id, "transfer-entry")).get())?.category_id, "transfer");
+  // A rule-assigned category on a transfer is recalculated like any other; the type stays a transfer.
+  const transfer = await db.select().from(schema.transactions).where(eq(schema.transactions.id, "transfer-entry")).get();
+
+  assert.deepEqual([transfer?.category_id, transfer?.type], ["groceries", "transfer"]);
   assert.equal((await db.select().from(schema.balanceSnapshots)).length, 0);
 });
 
@@ -329,6 +336,7 @@ test("applying rules reports only transactions whose category changed", async co
     booking_date: "2000-01-10",
     amount_minor: -100,
     currency: "EUR",
+    type: "expense" as const,
     counterparty: index === 2 ? "Unmatched" : "Supermarket",
     category_id: index === 0 ? "groceries" : null
   })));
@@ -527,6 +535,7 @@ test("category edits keep transaction assignments and rules attached and reject 
     booking_date: "2000-01-10",
     amount_minor: -100,
     currency: "EUR",
+    type: "expense",
     counterparty: "Supermarket",
     category_id: "groceries",
     category_source: "manual"

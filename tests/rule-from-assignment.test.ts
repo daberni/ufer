@@ -160,6 +160,7 @@ async function seedBookings(context: TestContext) {
     provider_reference: `synthetic-${index}`,
     booking_date: "2000-01-10",
     amount_minor: -1000,
+    type: booking.id === "transfer" ? "transfer" as const : "expense" as const,
     currency: "EUR",
     ...booking
   })));
@@ -195,7 +196,7 @@ test("a rule preview counts the transactions the new rule would decide, without 
     mode: "keyword",
     priority: 100
   }), {
-    matched: 3,
+    matched: 4,
     uncategorized: 2
   });
   assert.deepEqual(await previewRule({
@@ -203,7 +204,7 @@ test("a rule preview counts the transactions the new rule would decide, without 
     mode: "keyword",
     priority: 5
   }), {
-    matched: 4,
+    matched: 5,
     uncategorized: 3
   });
   assert.deepEqual(await previewRule({
@@ -297,7 +298,7 @@ test("among rules of the same priority the older one decides, in the preview, on
     mode: "keyword",
     priority: 99
   }), {
-    matched: 3,
+    matched: 4,
     uncategorized: 2
   });
   assert.deepEqual(await createRule({

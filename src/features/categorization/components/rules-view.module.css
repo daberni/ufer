@@ -79,9 +79,6 @@
 .category-chip:focus-visible > * {
   border-color: var(--chip-foreground);
 }
-.chip-detail {
-  font-weight: 400;
-}
 .edit-hint {
   width: 1em;
   height: 1em;
