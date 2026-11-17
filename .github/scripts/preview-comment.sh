@@ -30,10 +30,10 @@ if [ "$status" = "ready" ] && [ -n "$preview_url" ]; then
   actions="[Preview]($preview_url)"
 fi
 
-source_details="PR head: [\`${HEAD_SHA:0:7}\`]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/commit/$HEAD_SHA)."
+source_details="PR head: [\`${HEAD_SHA:0:7}\`]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/commit/$HEAD_SHA). Base: [\`$BASE_REF@${BASE_SHA:0:7}\`]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/commit/$BASE_SHA)."
 
 if [ -n "${BUILD_SHA:-}" ] && [ "$BUILD_SHA" != "$HEAD_SHA" ]; then
-  source_details="$source_details **Integration preview:** includes the shared database/ledger foundation from [PR #156]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/pull/156) at [\`${FOUNDATION_SHA:0:7}\`]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/commit/$FOUNDATION_SHA). Build SHA: \`$BUILD_SHA\`. This is not an isolated PR-head preview."
+  source_details="$source_details **Integration preview:** combines the recorded head and base. Build SHA: \`$BUILD_SHA\`."
 fi
 
 body="$(cat <<EOF
