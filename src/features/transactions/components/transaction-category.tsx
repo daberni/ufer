@@ -41,21 +41,25 @@ export function TransactionCategory({
     <div className={styles["category"]}>
       <CategoryPicker
         className={styles["picker"]}
+        size="compact"
+        appearance="inline"
         categories={categories}
         value={categoryId}
         includeUncategorized
         manual={manual}
+        status={status && (
+          <span className={clsx(styles["status"], styles[status.kind])} aria-hidden="true">
+            {status.kind === "saving" && <LoaderCircle className={ui["spinning"]} />}
+            {status.kind === "saved" && <Check />}
+            {status.kind === "failed" && <CircleAlert />}
+          </span>
+        )}
         aria-label={`Category for ${transaction.counterparty || transaction.description || transactionTypeLabels[transaction.type]}`}
         aria-busy={status?.kind === "saving"}
         aria-invalid={status?.kind === "failed"}
         aria-describedby={failure ? messageId : undefined}
         onChange={change}
       />
-      <span className={clsx(styles["status"], status && styles[status.kind])} aria-hidden="true">
-        {status?.kind === "saving" && <LoaderCircle size={14} className={ui["spinning"]} />}
-        {status?.kind === "saved" && <Check size={14} />}
-        {status?.kind === "failed" && <CircleAlert size={14} />}
-      </span>
       <span className={ui["visually-hidden"]} role="status" aria-live={failure ? "assertive" : "polite"}>
         {status ? announcements[status.kind] : ""}
       </span>
@@ -74,7 +78,6 @@ export function TransactionCategorySkeleton() {
   return (
     <div className={styles["category"]}>
       <span className={clsx(styles["picker"], styles["picker-placeholder"], ui["skeleton"])} />
-      <span className={styles["status"]} />
     </div>
   );
 }

@@ -1,27 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { categoryBarColor, categoryChipColors, categoryTileColors, contrastRatio, neutralChipColor, themedColors, type ColorScheme } from "../src/features/categorization/category-colors";
+import { categoryBarColor, categoryChipColors, categoryTextColor, contrastRatio, neutralChipColor, themedColors, type ColorScheme } from "../src/features/categorization/category-colors";
 
 const schemes: ColorScheme[] = ["light", "dark"];
 
 // The dark --surface token in globals.css.
 const darkSurface = "#19221d";
-
-test("category icons keep a readable stored color unchanged and adjust others until they stay visible on their tile", () => {
-  assert.equal(categoryTileColors("#386B51", "light").icon, "#386b51");
-  assert.equal(categoryTileColors("#d0708f", "dark").icon, "#d0708f");
-
-  for (const scheme of schemes) {
-    for (const color of ["#ffffff", "#ffff00", "#f2f5ed", "#c2aa6b", "#a2aaa5", "#488a75", "#233e31", "#000000"]) {
-      const colors = categoryTileColors(color, scheme);
-
-      assert.ok(contrastRatio(colors.icon, colors.tile) >= 3, `${scheme} ${color} icon contrast`);
-    }
-  }
-
-  assert.notEqual(categoryTileColors("#ffff00", "light").icon, "#ffff00");
-  assert.notEqual(categoryTileColors("#000000", "dark").icon, "#000000");
-});
 
 test("category chip names keep 4.5:1 contrast on their tint in both themes for light, mid-tone, dark and neutral colors", () => {
   const colors = [neutralChipColor, "#638777", "#386b51", "#488a75", "#c2aa6b", "#8e82b3", "#ffffff", "#ffff00", "#f2f5ed", "#a2aaa5", "#00ff88", "#000000", "#123456", "not-a-color"];
@@ -37,6 +21,26 @@ test("category chip names keep 4.5:1 contrast on their tint in both themes for l
   assert.equal(categoryChipColors("#386b51", "light").foreground, "#386b51");
   assert.notEqual(categoryChipColors("#c2aa6b", "light").foreground, "#c2aa6b");
   assert.notEqual(categoryChipColors("#386b51", "dark").foreground, "#386b51");
+});
+
+test("category names in a select keep 4.5:1 contrast on the field, the list and its highlighted row in both themes", () => {
+  // --surface, --surface-raised and --soft in globals.css.
+  const backgrounds = {
+    light: ["#ffffff", "#edf2e9"],
+    dark: [darkSurface, "#1f2a24", "#22322a"]
+  };
+  const colors = [neutralChipColor, "#638777", "#386b51", "#c2aa6b", "#8e82b3", "#ffffff", "#ffff00", "#f2f5ed", "#00ff88", "#000000", "#123456", "#7a1f1f", "not-a-color"];
+
+  for (const scheme of schemes) {
+    for (const color of colors) {
+      for (const background of backgrounds[scheme]) {
+        assert.ok(contrastRatio(categoryTextColor(color, scheme), background) >= 4.5, `${scheme} ${color} on ${background}`);
+      }
+    }
+  }
+
+  assert.equal(categoryTextColor("#386b51", "light"), "#386b51");
+  assert.notEqual(categoryTextColor("#000000", "dark"), "#000000");
 });
 
 test("category bars show the stored color on light panels and lighten only dark colors on dark panels", () => {

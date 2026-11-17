@@ -32,11 +32,11 @@ export function useSaveCategory(category?: Category | null) {
   });
 }
 
-export function useCreateRule() {
+export function useSaveRule(rule?: Rule | null) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (rule: Record<string, unknown>) => api("rules", rule),
+    mutationFn: (details: Record<string, unknown>) => rule ? api(`rules/${encodeURIComponent(rule.id)}`, details, "PUT") : api("rules", details),
     onSettled: () => invalidate(queryClient, [queryKeys.rules()])
   });
 }

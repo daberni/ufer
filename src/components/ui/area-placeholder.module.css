@@ -1,9 +1,10 @@
 .placeholder {
   position: relative;
 }
-/* The skeleton keeps the area's size while the failure takes its place; opacity also hides the visible pulse of masked values. */
-.failed .skeleton {
-  opacity: 0;
+/* A failed first load has no results to preserve; keep its retry visible without a full page of empty rows. */
+.failed > .failure {
+  position: static;
+  min-height: 10rem;
 }
 .failure {
   position: absolute;
