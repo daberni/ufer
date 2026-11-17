@@ -3,6 +3,7 @@ import { z } from "zod";
 import { categoryExists } from "@/features/categorization/server/category-repository";
 import { transactionTypes } from "@/features/transactions/transaction-types";
 import { setTransactionCategory } from "./transaction-repository";
+import { manualLinkDays } from "./transfer-pairing";
 import { readTransferOptions, removeTransferLink, saveTransactionType, saveTransferLink, saveTransferToManualAccount, type LinkResult, type ManualCounterpartResult } from "./transfer-repository";
 
 export async function updateTransactionCategory(id: string, payload: unknown) {
@@ -57,7 +58,7 @@ const linkFailures: Record<Exclude<LinkResult | ManualCounterpartResult, "saved"
   counterpart_not_found: "The selected booking does not exist.",
   account_not_found: "Choose one of your manual accounts.",
   same_account: "A transfer moves money between two different accounts.",
-  same_direction: "Link an outgoing booking with an incoming one.",
+  not_a_candidate: `Link a booking with the opposite amount in the same currency on another account, at most ${manualLinkDays} days apart.`,
   currency_mismatch: "The manual account must use the booking's currency.",
   zero_amount: "A booking without an amount cannot be a transfer to another account.",
   already_linked: "Unlink the current counterpart first."

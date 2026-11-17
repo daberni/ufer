@@ -104,6 +104,13 @@ const subjectColumns = {
 
 type Subject = NonNullable<Awaited<ReturnType<typeof findSubject>>>;
 
+/** Bookings a person can link with `subject`: unlinked, the exact opposite amount in the same currency, on another account of this environment, within the manual link window. The dialog offers only these and linking accepts only these. */
+function linkCandidate(subject: Subject) {
+  const inWindow = sql`${transactions.booking_date} BETWEEN date(${subject.booking_date},${windowStart(manualLinkDays)}) AND date(${subject.booking_date},${windowEnd(manualLinkDays)})`;
+
+  return and(eq(accounts.environment, environment()), ne(transactions.account_id, subject.account_id), eq(transactions.amount_minor, -subject.amount_minor), eq(transactions.currency, subject.currency), sql`${transactions.transfer_id} IS NULL`, sql`${transactions.amount_minor}<>0`, inWindow);
+}
+
 async function findSubject(executor: Executor, id: string) {
   return executor.select(subjectColumns).from(transactions).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(and(eq(transactions.id, id), eq(accounts.environment, environment()))).get();
 }
@@ -170,6 +177,19 @@ export async function saveTransactionType(id: string, type: TransactionType): Pr
       return "manual_account_only";
     }
 
+    const counterpart = subject.transfer_id && type !== "transfer" ? await findCounterpart(tx, subject) : undefined;
+
+    // A booking Ufer created on a manual account exists only for its link: leaving the transfer type removes it and makes its source income or expense.
+    if (counterpart && createdCounterpart(subject)) {
+      await dissolveLink(tx, counterpart);
+      await tx.update(transactions).set({
+        type: derivedTransactionType(counterpart.amount_minor),
+        type_source: "manual"
+      }).where(eq(transactions.id, counterpart.id));
+
+      return "saved";
+    }
+
     if (subject.transfer_id && type !== "transfer") {
       await dissolveLink(tx, subject, booking => derivedTransactionType(booking.amount_minor));
     }
@@ -187,7 +207,7 @@ export async function saveTransactionType(id: string, type: TransactionType): Pr
   });
 }
 
-export type LinkResult = "saved" | "not_found" | "counterpart_not_found" | "same_account" | "same_direction" | "already_linked";
+export type LinkResult = "saved" | "not_found" | "counterpart_not_found" | "same_account" | "already_linked" | "not_a_candidate";
 
 async function link(tx: DatabaseTransaction, ids: string[]) {
   await tx.update(transactions).set({
@@ -198,7 +218,7 @@ async function link(tx: DatabaseTransaction, ids: string[]) {
   }).where(inArray(transactions.id, ids));
 }
 
-/** Links two existing bookings on different own accounts as the outgoing and incoming side of one transfer. */
+/** Links two existing bookings as the outgoing and incoming side of one transfer when the counterpart is one of the subject's link candidates. */
 export async function saveTransferLink(id: string, counterpartId: string): Promise<LinkResult> {
   const db = await database();
 
@@ -218,12 +238,16 @@ export async function saveTransferLink(id: string, counterpartId: string): Promi
       return "same_account";
     }
 
-    if (Math.sign(subject.amount_minor) * Math.sign(counterpart.amount_minor) !== -1) {
-      return "same_direction";
-    }
-
     if (subject.transfer_id || counterpart.transfer_id) {
       return "already_linked";
+    }
+
+    const candidate = await tx.select({
+      id: transactions.id
+    }).from(transactions).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(and(eq(transactions.id, counterpart.id), linkCandidate(subject))).get();
+
+    if (!candidate) {
+      return "not_a_candidate";
     }
 
     await link(tx, [subject.id, counterpart.id]);
@@ -355,9 +379,7 @@ export async function readTransferOptions(id: string): Promise<TransferOptions |
   }
 
   const distance = sql`abs(julianday(${transactions.booking_date})-julianday(${subject.booking_date}))`;
-  const inWindow = sql`${transactions.booking_date} BETWEEN date(${subject.booking_date},${windowStart(manualLinkDays)}) AND date(${subject.booking_date},${windowEnd(manualLinkDays)})`;
-  const candidateScope = and(eq(accounts.environment, environment()), ne(transactions.account_id, subject.account_id), eq(transactions.amount_minor, -subject.amount_minor), eq(transactions.currency, subject.currency), sql`${transactions.transfer_id} IS NULL`, sql`${transactions.amount_minor}<>0`, inWindow);
-  const candidates = await db.select(subjectColumns).from(transactions).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(candidateScope).orderBy(distance, asc(transactions.booking_date), asc(transactions.id)).limit(20);
+  const candidates = await db.select(subjectColumns).from(transactions).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(linkCandidate(subject)).orderBy(distance, asc(transactions.booking_date), asc(transactions.id)).limit(20);
   const manualAccounts = subject.amount_minor === 0 ? [] : await db.select({
     id: accounts.id,
     name: accounts.name

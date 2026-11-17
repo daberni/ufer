@@ -378,3 +378,45 @@ test("detected transfers are categorized by rules like any other booking and the
   assert.equal(cashFlow.expenses, 4500);
   assert.deepEqual(cashFlow.breakdown.map(item => [item.categoryId, item.amount]), [[null, 4500]]);
 });
+
+test("leaving the transfer type on a booking Ufer created on a manual account removes it and corrects its source", async context => {
+  const db = await isolatedDatabase(context);
+
+  await sync(db, "checking", [entry("deposit", "2026-09-15", -2500000)]);
+  await linkTransfer((await stored(db, "deposit")).id, {
+    account_id: "property"
+  });
+  const created = await db.select().from(schema.transactions).where(eq(schema.transactions.account_id, "property")).get();
+
+  assert.ok(created);
+  await updateTransactionType(created.id, {
+    type: "income"
+  });
+
+  const deposit = await stored(db, "deposit");
+
+  assert.equal((await db.select().from(schema.transactions).where(eq(schema.transactions.account_id, "property"))).length, 0);
+  assert.deepEqual([deposit.type, deposit.type_source, deposit.transfer_id], ["expense", "manual", null]);
+});
+
+test("linking accepts only the bookings the dialog offers: the exact opposite amount in the same currency within 14 days", async context => {
+  const db = await isolatedDatabase(context);
+
+  await sync(db, "checking", [entry("out", "2026-09-01", -10000)]);
+  await sync(db, "savings", [entry("smaller", "2026-09-02", 9999), entry("late", "2026-09-16", 10000), entry("in-window", "2026-09-15", 10000)]);
+  await sync(db, "dollars", [entry("dollars", "2026-09-02", 10000, false, "USD")], "USD");
+  const out = (await stored(db, "out")).id;
+
+  for (const reference of ["dollars", "smaller", "late"]) {
+    await assert.rejects(linkTransfer(out, {
+      counterpart_id: (await stored(db, reference)).id
+    }), ValidationError, reference);
+    assert.equal((await stored(db, reference)).transfer_id, null, reference);
+  }
+
+  assert.equal((await stored(db, "out")).transfer_id, null);
+  await linkTransfer(out, {
+    counterpart_id: (await stored(db, "in-window")).id
+  });
+  assert.ok(await linked(db, "out", "in-window"));
+});

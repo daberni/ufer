@@ -23,7 +23,8 @@ Transfers were a category flag (`is_transfer`): transactions in the seeded Trans
 | Default type | A synced booking whose counterparty IBAN belongs to another synced account is a transfer; otherwise income or expense by direction. Corrections are stored as manual and never recalculated. Rules categorize transfers like any other booking; no category is reserved for transfers |
 | Transfer link | The two bookings of one transfer stay two transactions, each with its account's provider booking and balance, and share a `transfer_id`. They are shown with each other's account, corrected together (another type ends the link and the counterpart becomes income or expense by direction) and never count as income or spending |
 | Untracked accounts | A transfer without a counterpart is a transfer to or from an account not tracked in Ufer |
-| Manual accounts | Marking a booking as a transfer to or from a manual account creates the counterpart booking there, so the movement is entered once; unlinking removes that created booking |
+| Manual accounts | Marking a booking as a transfer to or from a manual account creates the counterpart booking there, so the movement is entered once; unlinking it, or giving the created booking another type, removes that booking and the source becomes a transfer without a counterpart or, after a type change, income or expense by direction |
+| Manual linking | A person links a booking only with an unlinked booking of the exact opposite amount in the same currency on another own account at most 14 days apart; the server checks this again for every link request |
 | Automatic pairing | After sync and CSV import across the environment, and after the demo seed among demo accounts only: a transfer and a booking with the opposite amount in the same currency on another own account at most 3 days apart, where neither is linked, manually unlinked or manually typed as something else. A pair is linked only when each side has exactly one candidate; otherwise both stay unpaired until someone links them |
 | Corrections | Manual types, links and unlinks are stored with a manual source and survive resync and imports |
 
@@ -33,6 +34,7 @@ The changeset that introduces these columns turns transactions in a category fla
 
 - Reports no longer depend on categories, and transfers can carry a purpose category.
 - A new positive booking starts as income even when it is a refund; the person corrects it to an expense. Categorization rules do not set types.
+- Transfers whose two bookings differ, for example by a fee or a currency exchange, cannot be linked yet; each side stays a transfer without a counterpart.
 - A category whose refunds reach or exceed its spending in a period has no spending breakdown row, while its net amount still lowers total spending.
 - Manual account balances still come from valuations until #138 derives them from transactions; counterparts created on manual accounts do not change those balances yet.
 - Applying the changeset to a hosted database is a separate, explicitly approved maintenance step.
