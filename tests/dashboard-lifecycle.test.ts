@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { mock, test } from "node:test";
 import { act, renderHook } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
 import { AppRouterContext, type AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
@@ -15,7 +15,7 @@ import { useDashboardNavigation } from "../src/features/dashboard/use-dashboard-
 import { replacePage, useViewQuery, useView } from "../src/client/use-app-url";
 import { signInMeta, useSessionLock } from "../src/client/use-session-lock";
 import { useLoadError } from "../src/features/dashboard/use-load-error";
-import { useAreaResult } from "../src/components/ui/use-area-result";
+import { loadingDelay, useAreaResult } from "../src/components/ui/use-area-result";
 import { useCashFlow } from "../src/features/reports/queries";
 import { useAccounts, useNetWorth } from "../src/features/accounts/queries";
 import { useTransactionListView } from "../src/features/transactions/use-transaction-list-view";
@@ -24,7 +24,7 @@ import { useConnectBank } from "../src/features/banking/mutations";
 import type { Transaction } from "../src/features/transactions/types";
 import { currentMonthPeriod, monthPeriod, serializePeriod, type Period } from "../src/lib/period";
 import type { ViewQuery } from "../src/client/app-location";
-import { browser, wait, withQueryClient, type PendingRequest } from "./fixtures/browser";
+import { browser, respond, wait, withQueryClient } from "./fixtures/browser";
 
 function viewQuery(changes: Partial<ViewQuery> = {}): ViewQuery {
   return {
@@ -109,15 +109,6 @@ function statuses(results: ReturnType<typeof useDashboardResults>) {
     cashFlow: results.cashFlow.status,
     transactions: results.list.status
   };
-}
-
-async function respond(request: PendingRequest | undefined, response: Response) {
-  assert.ok(request, "expected a request");
-  await act(async () => {
-    request.resolve(response);
-    // Reading the response body takes a few event-loop turns.
-    await new Promise(resolve => setTimeout(resolve, 5));
-  });
 }
 
 async function renderResults(context: Parameters<typeof browser>[0]) {
@@ -350,7 +341,7 @@ test("a period change marks the period results as loading until the response for
       period
     })
   });
-  await wait(300);
+  await wait(loadingDelay);
 
   assert.deepEqual(statuses(result.current), {
     netWorth: "ready",
@@ -388,7 +379,7 @@ test("a transaction filter change marks only the transaction list as loading", a
     rerender({
       query: viewQuery(changes)
     });
-    await wait(300);
+    await wait(loadingDelay);
 
     assert.deepEqual(statuses(result.current), {
       netWorth: "ready",
@@ -413,10 +404,10 @@ test("a fast response replaces the results without showing loading first", async
       currency: "USD"
     })
   });
-  await wait(100);
+  await wait(loadingDelay - 1);
   seen.push(result.current.netWorth.status);
   await respond(requests("reports/net-worth")[1], netWorth("USD"));
-  await wait(200);
+  await wait(loadingDelay);
   seen.push(result.current.netWorth.status);
 
   assert.deepEqual(seen, ["ready", "ready"]);
@@ -431,7 +422,7 @@ test("a background refresh with unchanged filters keeps the current results visi
   } = await renderResults(context);
 
   void invalidate(queryClient, [queryKeys.transactions.all()]);
-  await wait(300);
+  await wait(loadingDelay);
 
   assert.equal(requests("transactions").length, 2);
   assert.equal(result.current.list.status, "ready");
@@ -458,7 +449,7 @@ test("after rapid period changes only the response for the latest period ends lo
       period: second
     })
   });
-  await wait(300);
+  await wait(loadingDelay);
   await respond(requests("transactions")[1], transactionPage(5));
 
   assert.equal(result.current.list.status, "loading");
@@ -483,7 +474,7 @@ test("a failed request for changed filters ends loading and masks the outdated r
       period: previousMonth(currentMonthPeriod())
     })
   });
-  await wait(300);
+  await wait(loadingDelay);
   assert.equal(result.current.cashFlow.status, "loading");
   await respond(requests("reports/cash-flow")[1], Response.json({
     detail: "The database is not reachable."
@@ -582,6 +573,8 @@ test("a failed reload of shown results stays reported until a later load succeed
 
   await wait(0);
   await respond(requests("accounts")[0], Response.json([]));
+  // The banner orders a failure and the last load by their update times, so each load starts a moment after the previous one.
+  await wait(1);
   act(() => void queryClient.invalidateQueries({
     queryKey: queryKeys.accounts()
   }));
@@ -592,6 +585,7 @@ test("a failed reload of shown results stays reported until a later load succeed
   assert.equal(result.current.loadError.announcement, "");
   assert.equal(result.current.accounts.status, "ready");
 
+  await wait(1);
   act(() => result.current.loadError.retry());
   await wait(0);
   // The banner stays while the retry runs instead of disappearing and possibly coming back.
@@ -604,23 +598,20 @@ test("a failed reload of shown results stays reported until a later load succeed
 
 test("success feedback dismisses itself while problems stay until dismissed", async context => {
   browser(context);
-  context.mock.timers.enable({
-    apis: ["setTimeout"]
-  });
   const { result } = renderHook(() => useActionFeedback());
 
   act(() => result.current.report({
     tone: "problem",
     messages: ["Sync failed."]
   }));
-  act(() => context.mock.timers.tick(60_000));
+  act(() => mock.timers.tick(60_000));
   assert.deepEqual(result.current.feedback?.messages, ["Sync failed."]);
 
   act(() => result.current.report({
     tone: "success",
     messages: ["Rules applied."]
   }));
-  act(() => context.mock.timers.tick(8_000));
+  act(() => mock.timers.tick(8_000));
   assert.equal(result.current.feedback, null);
 });
 

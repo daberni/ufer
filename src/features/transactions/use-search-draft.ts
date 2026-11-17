@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 
-const commitDelay = 250;
+/** How long typing must pause before the draft is committed. */
+export const commitDelay = 250;
 
 /**
  * Keeps the search field responsive while the URL holds the committed search. URL updates arrive asynchronously, so the field edits a local draft and commits it after typing pauses.

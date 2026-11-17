@@ -5,7 +5,7 @@ import { JSDOM } from "jsdom";
 import { viewQuery, periodScope, viewHref, withQueryChanges } from "../src/client/app-location";
 import { allMonthsPeriod, currentMonth, monthPeriod, serializePeriod } from "../src/lib/period";
 import { dashboardFilters } from "../src/server/http/dashboard-filters";
-import { useSearchDraft } from "../src/features/transactions/use-search-draft";
+import { commitDelay, useSearchDraft } from "../src/features/transactions/use-search-draft";
 
 test("a filter change resets pagination and leaves default values out of the URL", () => {
   const current = monthPeriod(currentMonth());
@@ -97,6 +97,11 @@ function browser(context: TestContext) {
     });
   }
 
+  // Typing pauses are measured on the mocked clock, so a busy machine cannot commit early or late.
+  context.mock.timers.enable({
+    apis: ["setTimeout"]
+  });
+
   context.after(() => {
     cleanup();
     dom.window.close();
@@ -111,10 +116,8 @@ function browser(context: TestContext) {
   });
 }
 
-async function waitForCommit() {
-  await act(async () => {
-    await new Promise(resolve => setTimeout(resolve, 300));
-  });
+function waitForCommit(context: TestContext) {
+  act(() => context.mock.timers.tick(commitDelay));
 }
 
 function renderSearchDraft(commits: string[]) {
@@ -138,7 +141,7 @@ test("typing after a search commit is kept while the URL catches up", async cont
   } = renderSearchDraft(commits);
 
   act(() => result.current[1]("gro"));
-  await waitForCommit();
+  waitForCommit(context);
   assert.deepEqual(commits, ["gro"]);
 
   // The URL update for "gro" arrives asynchronously, after the user has typed more.
@@ -148,7 +151,7 @@ test("typing after a search commit is kept while the URL catches up", async cont
   });
 
   assert.equal(result.current[0], "grocer");
-  await waitForCommit();
+  waitForCommit(context);
   assert.deepEqual(commits, ["gro", "grocer"]);
 });
 
@@ -161,7 +164,7 @@ test("Back or Forward to another search replaces the field and its unsent draft"
   } = renderSearchDraft(commits);
 
   act(() => result.current[1]("coffee"));
-  await waitForCommit();
+  waitForCommit(context);
   rerender({
     value: "coffee"
   });
@@ -171,7 +174,7 @@ test("Back or Forward to another search replaces the field and its unsent draft"
   });
 
   assert.equal(result.current[0], "rent");
-  await waitForCommit();
+  waitForCommit(context);
   assert.deepEqual(commits, ["coffee"]);
 });
 

@@ -1,12 +1,13 @@
-import type { TestContext } from "node:test";
+import assert from "node:assert/strict";
+import { mock, type TestContext } from "node:test";
 import { act, cleanup } from "@testing-library/react";
 import { JSDOM } from "jsdom";
 import { createElement, type ReactNode } from "react";
 import { QueryClientProvider, type QueryClient } from "@tanstack/react-query";
 import { createQueryClient } from "../../src/client/query-client";
 
-// Captured before a test can replace the timers with mock timers.
-const realSetTimeout = globalThis.setTimeout;
+// Responses, query notifications and React updates need a fixed number of event-loop turns, not elapsed time.
+const settleTurns = 10;
 
 export type PendingRequest = ReturnType<typeof Promise.withResolvers<Response>> & {
   url: URL;
@@ -16,6 +17,7 @@ export type PendingRequest = ReturnType<typeof Promise.withResolvers<Response>> 
 
 /**
  * A browser environment whose fetch calls wait until the test resolves them, in any order. The query client uses the application's defaults.
+ * setTimeout and Date are mocked, so time only passes through wait() and timing assertions do not depend on machine speed.
  */
 export function browser(context: TestContext, url = "http://localhost/") {
   const dom = new JSDOM("<!doctype html><html><body></body></html>", {
@@ -45,6 +47,11 @@ export function browser(context: TestContext, url = "http://localhost/") {
     });
   }
 
+  mock.timers.enable({
+    apis: ["setTimeout", "Date"],
+    now: Date.now()
+  });
+
   globalThis.fetch = async (input, init) => {
     const request = Object.assign(Promise.withResolvers<Response>(), {
       url: new URL(String(input), "http://localhost"),
@@ -61,7 +68,9 @@ export function browser(context: TestContext, url = "http://localhost/") {
     cleanup();
     queryClient.clear();
     // The query cache delivers notifications on a later turn; let them reach React while the DOM still exists.
-    await new Promise(resolve => realSetTimeout(resolve, 10));
+    await settle();
+    // Discarding the remaining timers, such as query garbage collection, keeps them from holding the process open.
+    mock.timers.reset();
     dom.window.close();
     globalThis.fetch = originalFetch;
 
@@ -87,8 +96,31 @@ export function withQueryClient(queryClient: QueryClient, children: ReactNode) {
   }, children);
 }
 
+// setImmediate is not mocked: it lets promise chains such as reading a response body finish, while due timers run only when ticked.
+async function settle() {
+  for (let turn = 0; turn < settleTurns; turn++) {
+    await new Promise(resolve => setImmediate(resolve));
+    mock.timers.tick(0);
+  }
+}
+
+/** Advances the mocked clock one millisecond at a time, so the work a timer starts settles before later timers are due. */
 export async function wait(milliseconds: number) {
   await act(async () => {
-    await new Promise(resolve => setTimeout(resolve, milliseconds));
+    await settle();
+
+    for (let elapsed = 0; elapsed < milliseconds; elapsed++) {
+      mock.timers.tick(1);
+      await settle();
+    }
+  });
+}
+
+/** Answers a pending request and lets the response reach React without advancing the clock. */
+export async function respond(request: PendingRequest | undefined, response: Response) {
+  assert.ok(request, "expected a request");
+  await act(async () => {
+    request.resolve(response);
+    await settle();
   });
 }
