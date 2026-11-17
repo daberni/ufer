@@ -1,6 +1,6 @@
 import { respond } from "@/server/http/respond";
 import { readJson } from "@/server/http/request-body";
-import { updateTransactionCategory } from "@/features/transactions/server/transaction-service";
+import { editManualTransaction, removeManualTransaction, updateTransactionCategory } from "@/features/transactions/server/transaction-service";
 
 export const runtime = "nodejs";
 
@@ -19,5 +19,21 @@ export async function PATCH(request: Request, context: Context) {
     const { id } = await context.params;
 
     return updateTransactionCategory(id, await readJson(request));
+  });
+}
+
+export async function PUT(request: Request, context: Context) {
+  return respond(request, async () => {
+    const { id } = await context.params;
+
+    return editManualTransaction(id, await readJson(request));
+  });
+}
+
+export async function DELETE(request: Request, context: Context) {
+  return respond(request, async () => {
+    const { id } = await context.params;
+
+    return removeManualTransaction(id);
   });
 }

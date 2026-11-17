@@ -6,7 +6,7 @@ import accountStyles from "./account-presentation.module.css";
 import { clsx } from "clsx";
 import Link from "next/link";
 import styles from "./accounts-view.module.css";
-import { Link2, Plus } from "lucide-react";
+import { ArrowRight, Link2, Plus } from "lucide-react";
 import { accountIcon, accountSourceLabel, kinds } from "@/features/accounts/account-presentation";
 import { DateValue } from "@/components/ui/date-value";
 import { money } from "@/lib/money";
@@ -16,6 +16,8 @@ import { useState } from "react";
 import { BankConnectionDialog } from "@/features/banking/components/bank-connection-form";
 import { CreateAccountDialog } from "./create-account-form";
 import { useAccountHref } from "@/client/use-app-url";
+import { ValuationDialog } from "./valuation-form";
+import { ManualTransactionDialog } from "@/features/transactions/components/manual-transaction-dialog";
 import { AreaPlaceholder } from "@/components/ui/area-placeholder";
 import { shownStatus, valueMask } from "@/components/ui/result-presentation";
 import type { Area } from "@/components/ui/use-area-result";
@@ -28,6 +30,12 @@ type OpenDialog = {
   kind: "account";
 } | {
   kind: "bank";
+} | {
+  kind: "balance";
+  account: Account;
+} | {
+  kind: "transaction";
+  account: Account;
 };
 
 const skeletonAccounts = 3;
@@ -39,6 +47,14 @@ export function AccountsView({
   const closeDialog = () => setDialog(null);
   const addAccount = () => setDialog({
     kind: "account"
+  });
+  const updateBalance = (account: Account) => setDialog({
+    kind: "balance",
+    account
+  });
+  const addTransaction = (account: Account) => setDialog({
+    kind: "transaction",
+    account
   });
 
   return (
@@ -65,9 +81,18 @@ export function AccountsView({
         <AreaPlaceholder area={accounts} subject="Your accounts">
           <AccountCardsSkeleton />
         </AreaPlaceholder>
-      ) : <AccountCards accounts={accounts.data} addAccount={addAccount} />}
+      ) : (
+        <AccountCards
+          accounts={accounts.data}
+          addAccount={addAccount}
+          updateBalance={updateBalance}
+          addTransaction={addTransaction}
+        />
+      )}
       {dialog?.kind === "account" && <CreateAccountDialog close={closeDialog} />}
       {dialog?.kind === "bank" && <BankConnectionDialog connection={null} close={closeDialog} />}
+      {dialog?.kind === "balance" && <ValuationDialog selectedAccount={dialog.account} close={closeDialog} />}
+      {dialog?.kind === "transaction" && <ManualTransactionDialog accounts={(accounts.data ?? []).filter(account => account.provider === "manual")} accountId={dialog.account.id} close={closeDialog} />}
     </>
   );
 }
@@ -96,19 +121,27 @@ function AccountCardsSkeleton() {
             <span className={ui["skeleton"]}>Balance 12 Jan 2025</span>
             <span className={ui["skeleton"]}>Bank sync</span>
           </div>
+          <div className={styles["account-actions"]}>
+            <span className={clsx(ui["button"], ui["skeleton"])}>Add transaction</span>
+            <span className={clsx(ui["button"], ui["skeleton"])}>Update balance</span>
+          </div>
         </div>
       ))}
     </div>
   );
 }
 
-// The name links to the account's details; the link covers the card, which has no other controls.
+// The name links to the account's details; raised action buttons remain independent of the card link.
 function AccountCards({
   accounts,
-  addAccount
+  addAccount,
+  updateBalance,
+  addTransaction
 }: {
   accounts: Account[];
   addAccount: () => void;
+  updateBalance: (account: Account) => void;
+  addTransaction: (account: Account) => void;
 }) {
   const accountHref = useAccountHref();
 
@@ -135,6 +168,17 @@ function AccountCards({
               <span>{accountSourceLabel(account)}</span>
             </div>
             {account.sync_error && <p className={ui["error-text"]}>{account.sync_error}</p>}
+            {account.provider === "manual" && (
+              <div className={styles["account-actions"]}>
+                <button className={ui["button"]} onClick={() => addTransaction(account)}>
+                  <Plus size={15} />
+                  Add transaction
+                </button>
+                <button className={ui["button"]} onClick={() => updateBalance(account)}>
+                  Update balance <ArrowRight size={15} />
+                </button>
+              </div>
+            )}
           </section>
         );
       })}

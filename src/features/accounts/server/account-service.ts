@@ -29,7 +29,7 @@ export async function updateManualValuation(accountId: string, payload: unknown,
   validateLiability(account.kind, amount);
   validateBalanceDate(input.date, now);
 
-  await saveManualValuation(accountId, amount, input.date);
+  await saveManualValuation(account, amount, input.date);
 
   return {
     ok: true

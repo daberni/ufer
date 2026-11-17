@@ -11,9 +11,14 @@ import { projectNetWorthHistory, type AccountBalances } from "@/features/account
 import { dailyBalances } from "@/features/accounts/daily-balances";
 import type { BalanceHistory, BalancePoint, NetWorthHistory } from "@/features/accounts/types";
 
+// A manual account's balance is the sum of its transactions, dated with the newest one; a synced account keeps its provider balance.
+const manual = sql`${accounts.provider}='manual'`;
+const balance = sql<number | null>`CASE WHEN ${manual} THEN (SELECT SUM(${transactions.amount_minor}) FROM ${transactions} WHERE ${transactions.account_id}=${accounts.id}) ELSE ${accounts.balance_minor} END`;
+const balanceDate = sql<string | null>`CASE WHEN ${manual} THEN (SELECT MAX(${transactions.booking_date}) FROM ${transactions} WHERE ${transactions.account_id}=${accounts.id}) ELSE ${accounts.balance_date} END`;
+
 const kindOrder = sql`CASE ${accounts.kind} WHEN 'checking' THEN 0 WHEN 'savings' THEN 1 WHEN 'investment' THEN 2 ELSE 3 END`;
 
-/** Accounts of the current banking environment with their latest balance and, for bank accounts, the authorization expiry. */
+/** Accounts of the current banking environment with their current balance and, for bank accounts, the authorization expiry. */
 export async function listAccounts() {
   const db = await database();
 
@@ -23,8 +28,8 @@ export async function listAccounts() {
     institution: accounts.institution,
     kind: accounts.kind,
     currency: accounts.currency,
-    balance_minor: accounts.balance_minor,
-    balance_date: accounts.balance_date,
+    balance_minor: balance,
+    balance_date: balanceDate,
     provider: accounts.provider,
     requisition_id: accounts.requisition_id,
     last_synced_at: accounts.last_synced_at,
@@ -124,7 +129,7 @@ export async function readBalanceHistory(accountId: string): Promise<BalanceHist
   };
 }
 
-/** Monthly net worth of the current banking environment's accounts in one currency, from their recorded balances. */
+/** Monthly net worth in one currency from recorded provider balances and exact manual-account ledger totals. */
 export async function readNetWorthHistory(period: Period, currency: string): Promise<NetWorthHistory> {
   const db = await database();
   const rows = await db.select({
@@ -160,7 +165,6 @@ export async function readNetWorthHistory(period: Period, currency: string): Pro
   // Manual balances are exact ledger totals after migration; provider accounts retain their recorded observations.
   const manualBookings = await db.select({
     id: accounts.id,
-    kind: accounts.kind,
     date: transactions.booking_date,
     amount_minor: sql<number>`SUM(SUM(${transactions.amount_minor})) OVER (PARTITION BY ${accounts.id} ORDER BY ${transactions.booking_date})`.mapWith(Number)
   }).from(accounts).innerJoin(transactions, eq(transactions.account_id, accounts.id)).where(and(eq(accounts.environment, environment()), eq(accounts.currency, currency), eq(accounts.provider, "manual"), eq(transactions.currency, accounts.currency), sql`${transactions.booking_date} <= ${today().toString()}`)).groupBy(accounts.id, transactions.booking_date).orderBy(asc(accounts.id), asc(transactions.booking_date));
