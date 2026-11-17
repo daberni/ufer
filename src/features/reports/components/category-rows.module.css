@@ -43,11 +43,6 @@
 .compact .category {
   min-height: 16px;
 }
-.compact .name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 /* The share bar starts after the category icon and its gap, underlining name and amount. */
 .compact .row > div {
   position: absolute;

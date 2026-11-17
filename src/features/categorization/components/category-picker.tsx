@@ -7,10 +7,10 @@ import { clsx } from "clsx";
 import { Pin } from "lucide-react";
 import { useId, useState, type ReactNode } from "react";
 import { SearchableSelect, type SearchableSelectOption } from "@/components/ui/searchable-select";
-import { CategoryGlyph, categoryLabel, categoryNameColor, type ChipCategory, type NeutralChip } from "./category-chip";
+import { CategoryGlyph, categoryLabel, categoryNameColor, type DisplayCategory, type NeutralCategory } from "./category-label";
 import { CategoryDialog } from "./category-form";
 
-export type PickerCategory = ChipCategory & {
+export type PickerCategory = DisplayCategory & {
   id: string;
 };
 
@@ -58,7 +58,7 @@ const categoryNoun = {
 };
 
 // Options show the category's icon and name in its color, as its chip does, without the chip's tint.
-function categoryOption(key: string, value: CategoryPickerValue, category: ChipCategory | NeutralChip): SearchableSelectOption<CategoryPickerValue> {
+function categoryOption(key: string, value: CategoryPickerValue, category: DisplayCategory | NeutralCategory): SearchableSelectOption<CategoryPickerValue> {
   return {
     key,
     value,

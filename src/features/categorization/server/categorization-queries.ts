@@ -24,6 +24,7 @@ export async function listRuleSummaries() {
     mode: categorizationRules.mode,
     priority: categorizationRules.priority,
     enabled: categorizationRules.enabled,
+    category_id: categorizationRules.category_id,
     category_name: categories.name,
     category_color: categories.color,
     category_icon: categories.icon

@@ -19,6 +19,7 @@
 }
 .rule-row > div {
   flex: 1;
+  min-width: 0;
 }
 .rule-row strong {
   font-size: var(--text-sm);
@@ -28,6 +29,7 @@
   font-size: var(--text-sm);
   color: var(--muted);
   margin-top: var(--space-2);
+  overflow-wrap: anywhere;
 }
 .rule-row code {
   background: var(--surface-muted);
@@ -58,42 +60,61 @@
 .toggle.enabled > span {
   transform: translateX(13px);
 }
-.category-chips {
-  display: flex;
-  gap: var(--space-3);
-  flex-wrap: wrap;
-}
-/* A button whose visible surface is the chip inside it. */
-.category-chip {
-  display: inline-flex;
-  align-items: center;
-  max-width: 100%;
+.category-list {
+  list-style: none;
+  margin: 0;
   padding: 0;
+}
+.category-list > li + li {
+  border-top: 1px solid var(--border);
+}
+.category-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  width: 100%;
+  min-height: 64px;
+  padding: var(--space-4) 0;
   border: 0;
-  border-radius: var(--radius-sm);
   background: none;
-  color: inherit;
+  color: var(--ink);
+  font-size: var(--text-lg);
   text-align: left;
 }
-.category-chip:hover > *,
-.category-chip:focus-visible > * {
-  border-color: var(--chip-foreground);
+button.category-row {
+  cursor: pointer;
+}
+button.category-row:hover,
+button.category-row:focus-visible {
+  background: var(--surface-muted);
+}
+.category-row > span {
+  min-width: 0;
+}
+.rule-name {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: 100%;
+  min-height: 44px;
+  text-align: left;
+}
+.rule-name strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: var(--text-md);
 }
 .edit-hint {
-  width: 1em;
-  height: 1em;
   flex-shrink: 0;
-  opacity: 0;
+  color: var(--muted);
+  opacity: 0.55;
   transition: opacity var(--duration);
 }
-.category-chip:hover .edit-hint,
-.category-chip:focus-visible .edit-hint {
+button:hover .edit-hint,
+button:focus-visible .edit-hint {
   opacity: 1;
-}
-@media (hover: none) {
-  .edit-hint {
-    opacity: 0.55;
-  }
 }
 @media (--mobile) {
   .rule-row {
@@ -117,13 +138,6 @@
   }
   .rule-category {
     max-width: 100%;
-  }
-  /* A touch-sized target around the chip, which keeps its size; the targets themselves space the rows. */
-  .category-chip {
-    min-height: 44px;
-  }
-  .category-chips {
-    row-gap: 0;
   }
   .rule-row .toggle {
     width: 52px;

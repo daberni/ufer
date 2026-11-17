@@ -32,6 +32,7 @@ const rule = {
   name: "Market",
   pattern: "MARKET",
   mode: "keyword",
+  category_id: "groceries",
   category_name: "Groceries",
   priority: 100,
   enabled: 1,
