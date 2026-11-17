@@ -11,6 +11,7 @@ import { dashboardFilters } from "../src/server/http/dashboard-filters";
 import { readCashFlow } from "../src/features/reports/server/cash-flow-query";
 import { periodCondition } from "../src/features/transactions/server/period-condition";
 import { readTransactionPage } from "../src/features/transactions/server/transaction-list-query";
+import { derivedTransactionType } from "../src/features/transactions/transaction-types";
 
 // Temporal values have no enumerable fields, so compare periods through their serialized form.
 function serialized(period: Period | null) {
@@ -96,6 +97,7 @@ async function seededDatabase(context: TestContext) {
     booking_date: "2025-12-15",
     amount_minor: 100000,
     currency: "EUR",
+    type: "income",
     counterparty: "Example employer"
   }, {
     id: "january-start",
@@ -104,6 +106,7 @@ async function seededDatabase(context: TestContext) {
     booking_date: "2026-01-01",
     amount_minor: -30000,
     currency: "EUR",
+    type: "expense",
     counterparty: "Example landlord"
   }, {
     id: "january-end",
@@ -112,6 +115,7 @@ async function seededDatabase(context: TestContext) {
     booking_date: "2026-01-31",
     amount_minor: -20000,
     currency: "EUR",
+    type: "expense",
     counterparty: "Example supermarket"
   }, {
     id: "february-start",
@@ -120,6 +124,7 @@ async function seededDatabase(context: TestContext) {
     booking_date: "2026-02-01",
     amount_minor: -5000,
     currency: "EUR",
+    type: "expense",
     counterparty: "Example pharmacy"
   }]);
 
@@ -214,14 +219,16 @@ test("a December period includes its last day and ends before the next year's fi
     provider_reference: "synthetic-5",
     booking_date: "2025-11-30",
     amount_minor: -700,
-    currency: "EUR"
+    currency: "EUR",
+    type: "expense"
   }, {
     id: "december-end",
     account_id: "checking",
     provider_reference: "synthetic-6",
     booking_date: "2025-12-31",
     amount_minor: -900,
-    currency: "EUR"
+    currency: "EUR",
+    type: "expense"
   }]);
   const {
     list,
@@ -283,7 +290,8 @@ async function seedCashFlowHistory(context: TestContext) {
     booking_date: bookingDate,
     amount_minor: amount,
     currency,
-    category_id: categoryId
+    category_id: categoryId,
+    type: derivedTransactionType(amount, categoryId === "transfer")
   })));
 }
 
@@ -333,6 +341,7 @@ test("bookings of the same day are listed alphabetically by payee, with empty pa
     booking_date: "2026-03-10",
     amount_minor: -100,
     currency: "EUR",
+    type: "expense",
     counterparty: "",
     description: "Card fee",
     created_at: "2026-03-10T08:00:00.000Z"
@@ -343,6 +352,7 @@ test("bookings of the same day are listed alphabetically by payee, with empty pa
     booking_date: "2026-03-10",
     amount_minor: -200,
     currency: "EUR",
+    type: "expense",
     counterparty: "zoo shop",
     created_at: "2026-03-10T09:00:00.000Z"
   }, {
@@ -352,6 +362,7 @@ test("bookings of the same day are listed alphabetically by payee, with empty pa
     booking_date: "2026-03-10",
     amount_minor: -300,
     currency: "EUR",
+    type: "expense",
     counterparty: "Bakery",
     created_at: "2026-03-10T07:00:00.000Z"
   }]);

@@ -4,12 +4,16 @@ import { database } from "@/server/database/connection";
 import { accounts, balanceSnapshots } from "@/server/database/schema";
 import { environment } from "@/features/banking/server/environment";
 import { upsertTransactions } from "@/features/transactions/server/transaction-repository";
+import { pairTransfers } from "@/features/transactions/server/transfer-repository";
 import type { CategorizedEntry } from "@/features/transactions/server/transaction-entry";
 
 export async function saveImportedTransactions(accountId: string, entries: CategorizedEntry[]) {
   const db = await database();
 
-  await db.transaction(tx => upsertTransactions(tx, accountId, entries));
+  await db.transaction(async tx => {
+    await upsertTransactions(tx, accountId, entries);
+    await pairTransfers(tx, environment());
+  });
 }
 
 export async function saveImportedValuations(accountId: string, entries: {

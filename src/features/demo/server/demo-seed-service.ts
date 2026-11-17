@@ -83,7 +83,8 @@ export async function seedDemoData(options: DemoSeedOptions) {
     environment: bankingEnvironment,
     categories: categories.created,
     rules,
-    accounts
+    accounts,
+    createdCounterparts: dataset.createdCounterparts
   }, assertDemoTarget);
 
   return {

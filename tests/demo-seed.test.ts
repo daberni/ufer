@@ -74,6 +74,7 @@ async function insertSandboxBankAccount(db: Database) {
     booking_date: "2026-11-01",
     amount_minor: -1999,
     currency: "EUR",
+    type: "expense",
     counterparty: "Example shop",
     description: "Sandbox purchase"
   });
@@ -147,7 +148,8 @@ test("re-running the demo seed replaces only demo rows and keeps bank-connected 
     provider_reference: "csv:reviewer",
     booking_date: "2026-11-10",
     amount_minor: -500,
-    currency: "EUR"
+    currency: "EUR",
+    type: "expense"
   });
 
   const before = await foreignRows(db);
@@ -156,7 +158,8 @@ test("re-running the demo seed replaces only demo rows and keeps bank-connected 
     runDate: secondRun
   });
   const after = await foreignRows(db);
-  const expected = buildDemoDataset(secondRun).accounts.reduce((total, account) => total + account.entries.length, 0);
+  const dataset = buildDemoDataset(secondRun);
+  const expected = dataset.accounts.reduce((total, account) => total + account.entries.length, dataset.createdCounterparts.length);
   const seeded = await demoTransactions(db);
   const demoAccounts = await db.select().from(schema.accounts).where(like(schema.accounts.id, "demo-%"));
   const diningRule = await db.select().from(schema.categorizationRules).where(eq(schema.categorizationRules.id, "demo-rule-dining")).get();
@@ -165,7 +168,8 @@ test("re-running the demo seed replaces only demo rows and keeps bank-connected 
   assert.equal(after.transactions.find(row => row.id === "sandbox-transaction")?.category_id, "demo-travel");
   assert.equal(summary.transactions, expected);
   assert.equal(seeded.length, expected);
-  assert.ok(seeded.every(row => row.provider_reference.startsWith("demo:")));
+  // Counterparts the seed creates on a manual account carry their source booking in the reference, as when a person creates them.
+  assert.ok(seeded.every(row => row.provider_reference.startsWith("demo:") || row.provider_reference.startsWith("transfer:")));
   assert.equal(demoAccounts.length, 6);
   assert.ok(demoAccounts.filter(account => account.kind !== "property").every(account => account.balance_date === "2026-12-01"));
   assert.ok(demoAccounts.every(account => account.environment === "SANDBOX" && account.provider === "manual"));
@@ -204,7 +208,8 @@ test("the guard refuses missing confirmation, production banking and real-lookin
     provider_reference: "csv:own",
     booking_date: "2026-11-02",
     amount_minor: -4200,
-    currency: "EUR"
+    currency: "EUR",
+    type: "expense"
   });
   await assert.rejects(seedDemoData({
     confirmed: true,
@@ -229,7 +234,7 @@ test("the guard refuses missing confirmation, production banking and real-lookin
   assert.deepEqual(await demoTransactions(db), seeded);
 });
 
-test("the dataset is reproducible for a run date and its rules categorize all but a handful of rows", async context => {
+test("the dataset is reproducible for a run date, its rules categorize all but a handful of rows and its transfers are linked in pairs", async context => {
   const db = await isolatedDatabase(context);
 
   assert.deepEqual(buildDemoDataset(firstRun), buildDemoDataset(firstRun));
@@ -240,11 +245,26 @@ test("the dataset is reproducible for a run date and its rules categorize all bu
   });
   const rows = await demoTransactions(db);
   const dates = rows.map(row => row.booking_date).sort();
-  const transfers = rows.filter(row => row.category_id === "transfer");
+  const transfers = rows.filter(row => row.type === "transfer");
+  const untracked = transfers.filter(row => row.transfer_id === null);
+  const linkedTransfers = transfers.filter(row => row.transfer_id !== null);
+  const transferIds = new Set(linkedTransfers.map(row => row.transfer_id));
+  const created = rows.filter(row => row.provider_reference.startsWith("transfer:"));
+  const createdSources = rows.filter(row => created.some(counterpart => counterpart.transfer_id === row.transfer_id && counterpart.id !== row.id));
 
   assert.ok(summary.transactions > 1000);
   assert.ok(summary.uncategorized >= 5 && summary.uncategorized <= 15, `${summary.uncategorized} uncategorized rows`);
   assert.equal(dates[0] >= "2025-05-16", true);
   assert.equal(dates[dates.length - 1] <= "2026-11-16", true);
-  assert.equal(transfers.reduce((total, row) => total + row.amount_minor, 0), 0);
+  // Three kinds of transfers: pairs between demo accounts, counterparts created on the manual mortgage account, and transfers to an untracked account.
+  assert.ok(transferIds.size > created.length);
+  assert.equal(linkedTransfers.reduce((total, row) => total + row.amount_minor, 0), 0);
+  assert.equal(transferIds.size * 2, linkedTransfers.length);
+  assert.equal(created.length, buildDemoDataset(firstRun).createdCounterparts.length);
+  assert.ok(created.length >= 2);
+  assert.ok(created.every(row => row.account_id === "demo-loan" && row.amount_minor > 0 && row.transfer_id !== null));
+  assert.equal(createdSources.length, created.length);
+  assert.ok(untracked.length >= 12);
+  assert.ok(untracked.every(row => row.counterparty === "Joint household account"));
+  assert.ok(transfers.every(row => row.category_id === "transfer"));
 });
