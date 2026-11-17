@@ -181,6 +181,7 @@
 }
 .flow-row > div {
   flex: 1;
+  min-width: 0;
 }
 .flow-row > div > span {
   font-size: var(--text-sm);
@@ -192,6 +193,7 @@
   font-size: var(--text-lg);
   letter-spacing: -0.5px;
   font-weight: 500;
+  overflow-wrap: anywhere;
 }
 .spending-share {
   margin-top: var(--space-4);
@@ -222,6 +224,10 @@
   align-items: center;
   gap: var(--space-3);
 }
+/* The label keeps a readable width; on phones the amount moves below it rather than squeezing it. */
+.result-link > div {
+  flex: 1 1 9rem;
+}
 .result-link > div > span {
   font-size: var(--text-sm);
 }
@@ -231,8 +237,17 @@
   font-size: var(--text-sm);
   margin-top: var(--space-1);
 }
-.result-link > strong {
+/* The amount and its chevron stay together when they move below the label. */
+.result-amount {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
   margin-left: auto;
+  min-width: 0;
+}
+.result-amount > strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
   font-size: var(--text-xl);
   font-weight: 500;
   letter-spacing: -0.5px;
@@ -263,7 +278,7 @@
   .month-card .subtle {
     display: none;
   }
-  .result-link > strong {
+  .result-amount > strong {
     font-size: var(--text-md);
   }
 }
@@ -301,16 +316,14 @@
     gap: var(--space-3);
   }
   .flow-row strong {
-    font-size: var(--text-2xl);
+    font-size: clamp(var(--text-xl), 7vw, var(--text-2xl));
   }
-  .result-link > strong {
+  .result-amount > strong {
     font-size: var(--text-2xl);
   }
   .result-link {
     align-items: flex-start;
-  }
-  .result-link .link-icon {
-    align-self: center;
+    flex-wrap: wrap;
   }
   .result-link > div > span {
     font-size: var(--text-md);

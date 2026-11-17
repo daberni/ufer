@@ -169,8 +169,10 @@ export function WealthSummary({
               <span>{singleMonth ? "Monthly cash flow" : "Net cash flow"}</span>
               <small>Excluding categorized transfers</small>
             </div>
-            <strong className={clsx(flows.income - flows.expenses >= 0 && ui["positive"], cashFlowValue)}>{money(flows.income - flows.expenses, flows.currency)}</strong>
-            <ChevronRight className={styles["link-icon"]} size={18} />
+            <span className={styles["result-amount"]}>
+              <strong className={clsx(flows.income - flows.expenses >= 0 && ui["positive"], cashFlowValue)}>{money(flows.income - flows.expenses, flows.currency)}</strong>
+              <ChevronRight className={styles["link-icon"]} size={18} />
+            </span>
           </Link>
         </div>
         {cashFlowArea.status === "pending" && cashFlowArea.failure && <FailureCover failure={cashFlowArea.failure} subject="Your cash flow" />}
