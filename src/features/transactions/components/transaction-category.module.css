@@ -19,7 +19,7 @@
   text-overflow: ellipsis;
 }
 
-/* The status slot keeps its width when empty, so progress and results never move neighboring content. */
+/* In the table the status slot keeps its width when empty, so progress and results never move neighboring content. */
 .status {
   display: inline-flex;
   align-items: center;
@@ -63,10 +63,13 @@
 }
 @media (--mobile) {
   .category {
+    width: 100%;
     gap: var(--space-3);
   }
+  /* The picker fills the card's line and shares it with a shown status instead of pushing the status onto a line of its own. */
   .picker {
-    width: 100%;
+    flex: 1 1 0;
+    width: auto;
     min-width: 0;
   }
   .picker input {
@@ -76,6 +79,9 @@
   .status {
     width: 18px;
     height: 18px;
+  }
+  .status:empty {
+    display: none;
   }
   /* The card has no spacing to overlay, so the failure takes its own lines under the control. */
   .category {
