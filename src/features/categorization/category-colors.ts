@@ -5,25 +5,25 @@ export type ColorScheme = "light" | "dark";
 type SchemeColors = {
   surface: Rgb;
   text: Rgb;
-  /** Share of the category color in the icon tile background; the rest is the surface. */
-  tileTint: number;
   /** Share of the category color in the chip background. */
   chipTint: number;
+  /** Untinted backgrounds of a category name in a select: the field, the option list and its highlighted row. */
+  selectBackgrounds: Rgb[];
 };
 
-// Mirrors --surface and --ink in globals.css: tints mix into the surface, and readable colors move toward the text color.
+// Mirrors --surface, --surface-raised, --soft and --ink in globals.css: tints mix into the surface, and readable colors move toward the text color.
 const schemes: Record<ColorScheme, SchemeColors> = {
   light: {
     surface: [0xff, 0xff, 0xff],
     text: [0x24, 0x3a, 0x30],
-    tileTint: 0.18,
-    chipTint: 0.16
+    chipTint: 0.16,
+    selectBackgrounds: [[0xff, 0xff, 0xff], [0xed, 0xf2, 0xe9]]
   },
   dark: {
     surface: [0x19, 0x22, 0x1d],
     text: [0xe3, 0xeb, 0xe5],
-    tileTint: 0.3,
-    chipTint: 0.22
+    chipTint: 0.22,
+    selectBackgrounds: [[0x19, 0x22, 0x1d], [0x1f, 0x2a, 0x24], [0x22, 0x32, 0x2a]]
   }
 };
 
@@ -34,10 +34,10 @@ const fallback: Rgb = [0x8b, 0x9e, 0x79];
 // Share of the chip text color in its border.
 const chipBorderShare = 0.3;
 
-// WCAG 1.4.11 asks for 3:1 contrast for meaningful graphics such as an icon on its tile or a share bar on its panel.
+// WCAG 1.4.11 asks for 3:1 contrast for meaningful graphics such as a share bar on its panel.
 const minimumGraphicContrast = 3;
 
-// WCAG 1.4.3 asks for 4.5:1 contrast for the chip's category name; its icon shares that color.
+// WCAG 1.4.3 asks for 4.5:1 contrast for a category name; its icon shares that color.
 const minimumTextContrast = 4.5;
 
 // Neutral chips such as Uncategorized have no category color and use this gray-green.
@@ -82,11 +82,12 @@ export function contrastRatio(first: string, second: string) {
   return rgbContrast(parseHex(first), parseHex(second));
 }
 
-// Keeps the category hue and mixes it toward the scheme's text color only as far as the color needs for contrast.
-function readableOn(base: Rgb, background: Rgb, minimumContrast: number, text: Rgb) {
+// Keeps the category hue and mixes it toward the scheme's text color only as far as the color needs for contrast on every given background.
+function readableOn(base: Rgb, backgrounds: Rgb[], minimumContrast: number, text: Rgb) {
   let color = base;
+  const lowestContrast = () => Math.min(...backgrounds.map(background => rgbContrast(color, background)));
 
-  for (let textSteps = 1; textSteps <= 10 && rgbContrast(color, background) < minimumContrast; textSteps++) {
+  for (let textSteps = 1; textSteps <= 10 && lowestContrast() < minimumContrast; textSteps++) {
     color = mix(base, text, 1 - textSteps / 10);
   }
 
@@ -105,25 +106,7 @@ export function categoryBarColor(color: string, scheme: ColorScheme) {
 
   const palette = schemes[scheme];
 
-  return toHex(readableOn(base, palette.surface, minimumGraphicContrast, palette.text));
-}
-
-export type CategoryTileColors = {
-  swatch: string;
-  tile: string;
-  icon: string;
-};
-
-export function categoryTileColors(color: string, scheme: ColorScheme): CategoryTileColors {
-  const base = parseHex(color);
-  const palette = schemes[scheme];
-  const tile = mix(base, palette.surface, palette.tileTint);
-
-  return {
-    swatch: categoryBarColor(color, scheme),
-    tile: toHex(tile),
-    icon: toHex(readableOn(base, tile, minimumGraphicContrast, palette.text))
-  };
+  return toHex(readableOn(base, [palette.surface], minimumGraphicContrast, palette.text));
 }
 
 export type CategoryChipColors = {
@@ -136,13 +119,20 @@ export function categoryChipColors(color: string, scheme: ColorScheme): Category
   const base = parseHex(color);
   const palette = schemes[scheme];
   const background = mix(base, palette.surface, palette.chipTint);
-  const foreground = readableOn(base, background, minimumTextContrast, palette.text);
+  const foreground = readableOn(base, [background], minimumTextContrast, palette.text);
 
   return {
     background: toHex(background),
     border: toHex(mix(foreground, background, chipBorderShare)),
     foreground: toHex(foreground)
   };
+}
+
+/** Display color of a category's icon and name without a chip, as in the field and options of a category select. The stored color itself never changes. */
+export function categoryTextColor(color: string, scheme: ColorScheme) {
+  const palette = schemes[scheme];
+
+  return toHex(readableOn(parseHex(color), palette.selectBackgrounds, minimumTextContrast, palette.text));
 }
 
 function lightDark(light: string, dark: string) {

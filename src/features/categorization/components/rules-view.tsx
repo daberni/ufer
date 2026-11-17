@@ -16,9 +16,9 @@ import { AreaPlaceholder } from "@/components/ui/area-placeholder";
 import type { Area } from "@/components/ui/use-area-result";
 import { neutralChipColor } from "@/features/categorization/category-colors";
 import { useState } from "react";
-import { CategoryChip } from "./category-chip";
+import { CategoryGlyph, CategoryLabel, categoryNameColor } from "./category-label";
 import { CategoryDialog } from "./category-form";
-import { CreateRuleDialog } from "./create-rule-form";
+import { RuleDialog } from "./create-rule-form";
 
 type Props = {
   categories: Area<Category[]>;
@@ -27,6 +27,7 @@ type Props = {
 
 type OpenDialog = {
   kind: "rule";
+  rule: Rule | null;
 } | {
   kind: "category";
   /** The category to edit; null adds one. */
@@ -79,7 +80,35 @@ export function RulesView({
   return (
     <>
       <div className={ui["section-heading"]}>
-        <span className={ui["section-kicker"]}>LOWER PRIORITY NUMBERS MATCH FIRST</span>
+        <h2>Your categories</h2>
+        <button
+          className={clsx(ui["button"], ui["primary"])}
+          onClick={() => setDialog({
+            kind: "category",
+            category: null
+          })}
+        >
+          <Plus size={16} />
+          Add category
+        </button>
+      </div>
+      <section className={styles["category-panel"]} aria-label="Your categories">
+        {categories.status === "pending" ? (
+          <AreaPlaceholder area={categories} subject="Your categories">
+            <CategoryGridSkeleton />
+          </AreaPlaceholder>
+        ) : (
+          <CategoryGrid
+            categories={categories.data}
+            editCategory={category => setDialog({
+              kind: "category",
+              category
+            })}
+          />
+        )}
+      </section>
+      <div className={ui["section-heading"]}>
+        <h2>Your rules</h2>
         <div className={clsx(ui["button-group"], styles["rule-actions"])}>
           <button
             className={ui["button"]}
@@ -91,9 +120,10 @@ export function RulesView({
             Apply rules
           </button>
           <button
-            className={clsx(ui["button"], ui["primary"])}
+            className={ui["button"]}
             onClick={() => setDialog({
-              kind: "rule"
+              kind: "rule",
+              rule: null
             })}
           >
             <Plus size={15} />
@@ -107,76 +137,96 @@ export function RulesView({
           />
         </div>
       </div>
-      <section className={ui["panel"]}>
+      <section className={clsx(ui["panel"], styles["rule-panel"])} aria-label="Your rules">
         {rules.status === "pending" ? (
           <AreaPlaceholder area={rules} subject="Your rules">
             <RuleRowsSkeleton />
           </AreaPlaceholder>
-        ) : <RuleRows rules={rules.data} togglingRules={togglingRules} toggleRule={toggleRule} />}
+        ) : (
+          <RuleRows
+            rules={rules.data}
+            togglingRules={togglingRules}
+            toggleRule={toggleRule}
+            editRule={rule => setDialog({
+              kind: "rule",
+              rule
+            })}
+          />
+        )}
       </section>
-      <div className={ui["section-heading"]}>
-        <h2>Your categories</h2>
-        <button
-          className={clsx(ui["button"], ui["small"])}
-          onClick={() => setDialog({
-            kind: "category",
-            category: null
-          })}
-        >
-          <Plus size={14} />
-          Category
-        </button>
-      </div>
-      {categories.status === "pending" ? (
-        <AreaPlaceholder area={categories} subject="Your categories">
-          <div className={styles["category-chips"]}>
-            {skeletonNames.map(name => (
-              <span className={styles["category-chip"]} key={name}>
-                <CategoryChip
-                  className={ui["skeleton"]}
-                  category={{
-                    name,
-                    color: neutralChipColor,
-                    icon: null
-                  }}
-                />
-              </span>
-            ))}
-          </div>
-        </AreaPlaceholder>
-      ) : (
-        <div className={styles["category-chips"]}>
-          {categories.data.map(category => (
-            <button
-              className={styles["category-chip"]}
-              key={category.id}
-              aria-label={`Edit category ${category.name}`}
-              onClick={() => setDialog({
-                kind: "category",
-                category
-              })}
-            >
-              <CategoryChip category={category}>
-                <Pencil className={styles["edit-hint"]} aria-hidden="true" strokeWidth={2.2} />
-              </CategoryChip>
-            </button>
-          ))}
-        </div>
-      )}
-      {dialog?.kind === "rule" && <CreateRuleDialog close={closeDialog} />}
+      {dialog?.kind === "rule" && <RuleDialog rule={dialog.rule} close={closeDialog} />}
       {dialog?.kind === "category" && <CategoryDialog category={dialog.category} close={closeDialog} />}
     </>
+  );
+}
+
+function CategoryGrid({
+  categories,
+  editCategory
+}: {
+  categories: Category[];
+  editCategory: (category: Category) => void;
+}) {
+  if (!categories.length) {
+    return <Empty title="Make your spending yours.">Add a category to organize your transactions.</Empty>;
+  }
+
+  return (
+    <ul className={styles["category-grid"]}>
+      {categories.map(category => (
+        <li key={category.id}>
+          <button
+            className={styles["category-tile"]}
+            type="button"
+            aria-label={`Edit category ${category.name}`}
+            title={category.name}
+            style={{
+              color: categoryNameColor(category)
+            }}
+            onClick={() => editCategory(category)}
+          >
+            <CategoryGlyph category={category} />
+            <span className={styles["category-name"]}>{category.name}</span>
+            <Pencil className={styles["edit-hint"]} aria-hidden="true" size={16} />
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function CategoryGridSkeleton() {
+  return (
+    <ul className={styles["category-grid"]}>
+      {skeletonNames.map(name => (
+        <li key={name}>
+          <div className={styles["category-tile"]}>
+            <CategoryGlyph
+              category={{
+                name,
+                color: neutralChipColor,
+                icon: null
+              }}
+            />
+            <span className={clsx(styles["category-name"], ui["skeleton"])}>{name}</span>
+            <Pencil className={clsx(styles["edit-hint"], ui["skeleton"])} aria-hidden="true" size={16} />
+          </div>
+        </li>
+      ))}
+    </ul>
   );
 }
 
 function RuleRows({
   rules,
   togglingRules,
-  toggleRule
+  toggleRule,
+  editRule
 }: {
   rules: Rule[];
   togglingRules: string[];
   toggleRule: (rule: Rule) => void;
+  editRule: (rule: Rule) => void;
 }) {
   if (!rules.length) {
     return <Empty title="Let your transactions sort themselves.">For example: “MARKET” in the payee or description → Groceries. Manual corrections always take precedence.</Empty>;
@@ -186,31 +236,45 @@ function RuleRows({
     <div>
       {rules.map(rule => (
         <div className={styles["rule-row"]} key={rule.id}>
-          <span className={styles["rule-priority"]}>{rule.priority}</span>
-          <div>
-            <strong>{rule.name}</strong>
-            <p>
-              <code>{rule.pattern}</code> · {rule.mode === "keyword" ? "Keyword" : "Regex"}
-            </p>
-          </div>
-          <CategoryChip
-            className={styles["rule-category"]}
-            category={{
-              name: rule.category_name,
-              color: rule.category_color,
-              icon: rule.category_icon
-            }}
-            size="small"
-          />
           <button
-            className={clsx(styles["toggle"], rule.enabled ? styles["enabled"] : "")}
+            className={styles["rule-name"]}
+            type="button"
+            title={`${rule.name}: ${rule.pattern} · Priority ${rule.priority}`}
+            aria-label={`Edit rule ${rule.name}`}
+            onClick={() => editRule(rule)}
+          >
+            <strong>{rule.name}</strong>
+            <Pencil className={styles["edit-hint"]} aria-hidden="true" size={16} />
+          </button>
+          <div className={styles["rule-pattern"]}>
+            <span className={styles["rule-label"]}>{rule.mode === "keyword" ? "Keyword" : "Regex"}</span>
+            <code title={rule.pattern}>{rule.pattern}</code>
+          </div>
+          <div className={styles["rule-details"]}>
+            <span className={styles["rule-category"]}>
+              <CategoryLabel
+                category={{
+                  name: rule.category_name,
+                  color: rule.category_color,
+                  icon: rule.category_icon
+                }}
+              />
+            </span>
+            <span className={styles["rule-priority"]} title={`Priority ${rule.priority}`}>
+              <span className={ui["visually-hidden"]}>Priority </span>
+              {rule.priority}
+            </span>
+          </div>
+          <button
+            className={clsx(styles["toggle"], rule.enabled && styles["enabled"])}
+            type="button"
             role="switch"
             aria-checked={Boolean(rule.enabled)}
             aria-label={`Enable rule ${rule.name}`}
             disabled={togglingRules.includes(rule.id)}
             onClick={() => toggleRule(rule)}
           >
-            <span />
+            <span aria-hidden="true" />
           </button>
         </div>
       ))}
@@ -223,25 +287,32 @@ function RuleRowsSkeleton() {
     <div>
       {skeletonNames.slice(0, 4).map((name, index) => (
         <div className={styles["rule-row"]} key={name}>
-          <span className={styles["rule-priority"]}>
-            <span className={ui["skeleton"]}>{(index + 1) * 10}</span>
-          </span>
-          <div>
+          <span className={styles["rule-name"]}>
             <strong className={ui["skeleton"]}>{name}</strong>
-            <p>
-              <span className={ui["skeleton"]}>MARKET · Keyword</span>
-            </p>
+          </span>
+          <div className={styles["rule-pattern"]}>
+            <span className={styles["rule-label"]}>Keyword</span>
+            <code className={ui["skeleton"]}>MARKET</code>
           </div>
-          <CategoryChip
-            className={clsx(styles["rule-category"], ui["skeleton"])}
-            category={{
-              name,
-              color: neutralChipColor,
-              icon: null
-            }}
-            size="small"
-          />
-          <span className={clsx(styles["toggle"], ui["skeleton"])} />
+          <div className={styles["rule-details"]}>
+            <span className={styles["rule-category"]}>
+              <CategoryLabel
+                className={ui["skeleton"]}
+                category={{
+                  name,
+                  color: neutralChipColor,
+                  icon: null
+                }}
+              />
+            </span>
+            <span className={styles["rule-priority"]}>
+              <span className={ui["visually-hidden"]}>Priority </span>
+              <span className={ui["skeleton"]}>{(index + 1) * 10}</span>
+            </span>
+          </div>
+          <span className={styles["toggle"]}>
+            <span className={ui["skeleton"]} />
+          </span>
         </div>
       ))}
     </div>
