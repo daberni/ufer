@@ -47,6 +47,7 @@ export const accounts = sqliteTable("accounts", {
   provider_uid: text("provider_uid"),
   requisition_id: text("requisition_id").references(() => requisitions.id),
   iban: text("iban"),
+  // The provider balance of a synced account; a manual account's balance is the sum of its transactions and this stays NULL.
   balance_minor: integer("balance_minor"),
   balance_date: text("balance_date"),
   last_synced_at: text("last_synced_at"),
@@ -122,6 +123,7 @@ export const transactions = sqliteTable("transactions", {
   check("transactions_transfer_type", sql`${table.transfer_id} IS NULL OR ${table.type}='transfer'`)
 ]);
 
+// Provider balance history of synced accounts; manual accounts record balance changes as transactions.
 export const balanceSnapshots = sqliteTable("balance_snapshots", {
   id: text("id").primaryKey(),
   account_id: text("account_id").notNull().references(() => accounts.id),
