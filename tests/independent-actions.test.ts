@@ -5,7 +5,7 @@ import { createElement } from "react";
 import type { Account } from "../src/features/accounts/types";
 import type { Category, Rule } from "../src/features/categorization/types";
 import type { Transaction } from "../src/features/transactions/types";
-import { browser, wait, withQueryClient, type PendingRequest } from "./fixtures/browser";
+import { browser, respond, wait, withQueryClient } from "./fixtures/browser";
 import { stubCssModules } from "./fixtures/css-modules";
 
 stubCssModules();
@@ -54,14 +54,6 @@ const transaction: Transaction = {
   category_id: "groceries",
   category_source: "rule"
 };
-
-async function respond(request: PendingRequest | undefined, response: Response) {
-  assert.ok(request, "expected a request");
-  await act(async () => {
-    request.resolve(response);
-    await new Promise(resolve => setTimeout(resolve, 5));
-  });
-}
 
 function controlsIn(screen: RenderResult) {
   return {
