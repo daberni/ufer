@@ -1,15 +1,19 @@
-import { and, eq, inArray, isNull, ne, or } from "drizzle-orm";
+import { and, eq, inArray, isNull, ne, or, sql } from "drizzle-orm";
 import { database } from "@/server/database/connection";
 import { environment } from "@/features/banking/server/environment";
 import type { Rule } from "@/lib/rules";
 import type { Transaction } from "@/server/database/models";
 import { accounts, categorizationRules, transactions } from "@/server/database/schema";
 
+/** Rules in creation order, which decides between rules of the same priority. */
 export async function listRules() {
   const db = await database();
 
-  return db.select().from(categorizationRules);
+  return db.select().from(categorizationRules).orderBy(ruleCreationOrder);
 }
+
+// SQLite gives a new row a larger rowid than every stored row, so rowid follows creation order without a dedicated column.
+export const ruleCreationOrder = sql`${categorizationRules}.rowid`;
 
 export type NewRule = Omit<Rule, "enabled"> & {
   enabled: boolean;

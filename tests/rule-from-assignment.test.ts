@@ -10,7 +10,7 @@ import { categorize, prepareRules } from "../src/lib/rules";
 import { ValidationError } from "../src/lib/errors";
 import { proposeRulePattern, proposedPatternLength } from "../src/features/categorization/rule-pattern";
 import { insertRule } from "../src/features/categorization/server/rule-repository";
-import { createRule, previewRule } from "../src/features/categorization/server/categorization-service";
+import { applyRulesToUncorrectedTransactions, createRule, previewRule } from "../src/features/categorization/server/categorization-service";
 
 function matchesOwnTransaction(pattern: string, counterparty: string, description: string) {
   const rules = prepareRules([{
@@ -268,4 +268,54 @@ test("a rule created without applying it leaves existing transactions unchanged"
   });
   assert.deepEqual(await categories(db), before);
   assert.equal((await db.select().from(schema.categorizationRules)).length, 2);
+});
+
+test("among rules of the same priority the older one decides, in the preview, on creation and when rules are applied", async context => {
+  const db = await seedBookings(context);
+
+  // An id that sorts after every generated one, so creation order and id order disagree.
+  await insertRule({
+    id: "zzz-older-rule",
+    name: "Market",
+    pattern: "Market",
+    mode: "keyword",
+    category_id: "leisure",
+    priority: 100,
+    enabled: true
+  });
+
+  assert.deepEqual(await previewRule({
+    pattern: "Example Market",
+    mode: "keyword",
+    priority: "100"
+  }), {
+    matched: 0,
+    uncategorized: 0
+  });
+  assert.deepEqual(await previewRule({
+    pattern: "Example Market",
+    mode: "keyword",
+    priority: "99"
+  }), {
+    matched: 3,
+    uncategorized: 2
+  });
+  assert.deepEqual(await createRule({
+    name: "Example Market",
+    pattern: "Example Market",
+    mode: "keyword",
+    category_id: "groceries",
+    priority: 100,
+    apply_to_uncategorized: true
+  }), {
+    ok: true,
+    categorized: 0
+  });
+
+  await applyRulesToUncorrectedTransactions();
+  const decided = await categories(db);
+
+  assert.equal(decided["uncategorized-payee"], "leisure/rule");
+  assert.equal(decided["uncategorized-description"], "leisure/rule");
+  assert.equal(decided["categorized-by-rule"], "leisure/rule");
 });

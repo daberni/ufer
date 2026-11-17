@@ -44,4 +44,4 @@ example-001;2026-01-15;-12.50;EUR;Example merchant;Example purchase
 
 IDs must be stable and unique per account. Reimporting updates rather than duplicates. Transaction imports do not recalculate the account balance. Limits: 1 MB, 10,000 rows, ISO dates, and the account's currency. Use a decimal point, or a decimal comma with semicolon delimiters, without thousands separators.
 
-Rules match payee and description case-insensitively. Lower priority numbers win; rule ID breaks ties. Applying rules preserves manual assignments. Regular expressions use RE2 syntax without backreferences or lookbehind.
+Rules match payee and description case-insensitively. Lower priority numbers win; among rules with the same priority, the older rule wins. Applying rules preserves manual assignments. Regular expressions use RE2 syntax without backreferences or lookbehind.

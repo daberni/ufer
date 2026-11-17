@@ -28,7 +28,10 @@ const rulePreviewInput = z.object({
   priority: z.coerce.number().int().min(0).max(10000)
 });
 
-/** Transactions without a manual assignment whose category the rule decides: it is the first matching rule in priority order. */
+/**
+ * Transactions without a manual assignment whose category a new rule decides: it is the first matching rule in priority order. The new rule comes last
+ * among rules of its priority, as it will once stored.
+ */
 async function transactionsDecidedBy(rule: Rule) {
   const rules = prepareRules([...(await listRules()), rule]);
   const entries = await findUncorrectedTransactions();
@@ -36,10 +39,7 @@ async function transactionsDecidedBy(rule: Rule) {
   return entries.filter(entry => decidingRule(entry.counterparty, entry.description, rules)?.id === rule.id);
 }
 
-/**
- * Counts the transactions a new enabled rule would categorize, without storing it. Manual assignments are never counted. Among rules with the same
- * priority the order depends on the new rule's generated id, so the preview counts such ties for the new rule.
- */
+/** Counts the transactions a new enabled rule would categorize, without storing it. Manual assignments are never counted. */
 export async function previewRule(payload: unknown) {
   const input = rulePreviewInput.parse(payload);
 
