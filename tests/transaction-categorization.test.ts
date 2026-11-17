@@ -22,6 +22,7 @@ const transaction: Transaction = {
   type: "expense",
   type_source: "auto",
   manual_account: false,
+  created_counterpart: false,
   counterpart: null
 };
 

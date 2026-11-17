@@ -476,3 +476,66 @@ test("one save moves a transfer between a booking, a manual account and no count
   assert.deepEqual([(await stored(db, "out")).transfer_id, (await stored(db, "out")).transfer_source], [null, "manual"]);
   assert.deepEqual([(await stored(db, "in")).type, (await stored(db, "in")).transfer_id], ["transfer", null]);
 });
+
+test("choosing no counterpart marks the transfer as manually unlinked, so neither the save nor later syncs and imports pair it", async context => {
+  const db = await isolatedDatabase(context);
+
+  await db.insert(schema.accounts).values({
+    id: "cash",
+    environment: "SANDBOX",
+    name: "Synthetic cash",
+    institution: "Wallet",
+    kind: "savings"
+  });
+  // Neither booking is a transfer yet, so nothing pairs them before the person decides.
+  await sync(db, "checking", [entry("out", "2026-09-01", -10000)]);
+  await sync(db, "savings", [entry("in", "2026-09-02", 10000)]);
+  await saveTransfer((await stored(db, "out")).id, null);
+
+  const out = await stored(db, "out");
+
+  assert.deepEqual([out.type, out.transfer_id, out.transfer_source], ["transfer", null, "manual"]);
+  assert.equal((await stored(db, "in")).transfer_id, null);
+
+  await sync(db, "checking", [entry("out", "2026-09-01", -10000)]);
+  await sync(db, "savings", [entry("in", "2026-09-02", 10000)]);
+  await importTransactions({
+    account_id: "cash",
+    csv: "id,date,amount,currency,counterparty,description\ncash-1,2026-09-01,100.00,EUR,ATM,Cash withdrawal"
+  });
+
+  assert.equal((await stored(db, "out")).transfer_id, null);
+  assert.equal((await db.select().from(schema.transactions).where(eq(schema.transactions.account_id, "cash")).get())?.transfer_id, null);
+});
+
+test("a booking Ufer created on a manual account keeps its source link or is removed, but is never retargeted", async context => {
+  const db = await isolatedDatabase(context);
+  const onFlat = async () => db.select().from(schema.transactions).where(eq(schema.transactions.account_id, "property"));
+
+  await sync(db, "checking", [entry("deposit", "2026-09-15", -2500000), entry("other-out", "2026-09-16", -2500000)]);
+  await saveTransfer((await stored(db, "deposit")).id, {
+    account_id: "property"
+  });
+  const [created] = await onFlat();
+  const deposit = await stored(db, "deposit");
+
+  for (const transfer of [{
+    counterpart_id: (await stored(db, "other-out")).id
+  }, {
+    account_id: "property"
+  }]) {
+    await assert.rejects(saveTransfer(created.id, transfer), ValidationError);
+  }
+
+  assert.equal((await onFlat())[0].transfer_id, deposit.transfer_id);
+  assert.equal((await stored(db, "other-out")).transfer_id, null);
+
+  await saveTransfer(created.id, {
+    counterpart_id: deposit.id
+  });
+  assert.equal((await onFlat())[0].transfer_id, deposit.transfer_id);
+
+  await saveTransfer(created.id, null);
+  assert.equal((await onFlat()).length, 0);
+  assert.deepEqual([(await stored(db, "deposit")).type, (await stored(db, "deposit")).transfer_id], ["transfer", null]);
+});

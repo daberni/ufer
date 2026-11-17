@@ -165,7 +165,7 @@ function TransactionEditForm({
       </label>
       <p className={ui["form-hint"]}>
         Income and expenses count toward cash flow and spending; transfers, opening balances and adjustments do not. A refund is an expense with a positive amount and reduces spending.
-        {!transfer && transaction.counterpart && ` Saving another type ends the link with ${transaction.counterpart.account_name}, whose booking becomes income or expense.`}
+        {!transfer && transaction.counterpart && <LeaveTransferHint transaction={transaction} />}
       </p>
       {transfer && (
         <TransferFields
@@ -180,6 +180,50 @@ function TransactionEditForm({
         Save <Check size={16} />
       </button>
     </form>
+  );
+}
+
+function LeaveTransferHint({ transaction }: {
+  transaction: Transaction
+}) {
+  const account = transaction.counterpart?.account_name;
+
+  if (transaction.created_counterpart) {
+    return ` Saving another type removes this booking, and the booking on ${account} becomes income or expense.`;
+  }
+
+  return ` Saving another type ends the link with ${account}, whose booking becomes income or expense.`;
+}
+
+/** A booking Ufer created on a manual account for another booking's transfer: it keeps that link or is removed; where the transfer goes is edited on the source booking. */
+function CreatedCounterpartFields({
+  source,
+  target,
+  onTarget
+}: {
+  source: TransferBooking;
+  target: Target;
+  onTarget: (target: Target) => void;
+}) {
+  const remove = target.kind === "none";
+
+  return (
+    <div className={styles["created"]}>
+      <p className={ui["form-hint"]}>Ufer created this booking for the transfer of {bookingLabel(source)}. Change where the transfer goes on that booking.</p>
+      <label className={styles["remove-option"]}>
+        <input
+          type="checkbox"
+          name="remove"
+          checked={remove}
+          onChange={event => onTarget(event.target.checked ? noTarget : {
+            kind: "booking",
+            booking: source
+          })}
+        />
+        Remove this booking
+      </label>
+      <p className={ui["form-hint"]} role="status">{remove ? `Save removes this booking; the booking on ${source.account_name} stays a transfer without a counterpart.` : `Save keeps this booking linked with ${source.account_name}.`}</p>
+    </div>
   );
 }
 
@@ -219,6 +263,12 @@ function TransferFields({
 
   if (options.status === "error") {
     return <FormError failure={toFailure(options.error)} />;
+  }
+
+  const source = options.data.counterpart;
+
+  if (transaction.created_counterpart && source) {
+    return <CreatedCounterpartFields source={source} target={target} onTarget={onTarget} />;
   }
 
   const suggestions = suggestionsOf(options.data);

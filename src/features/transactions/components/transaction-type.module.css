@@ -67,6 +67,19 @@
   margin-top: 3px;
 }
 
+/* Overrides the column layout and full-width inputs the form gives its labels. */
+.created .remove-option {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--ink);
+  min-height: 44px;
+  cursor: pointer;
+}
+.created .remove-option input {
+  width: auto;
+}
+
 @media (hover: none) {
   .edit-hint {
     opacity: 1;

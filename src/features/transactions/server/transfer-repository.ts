@@ -10,7 +10,7 @@ import { automaticPairingDays, manualLinkDays, unambiguousPairs, type PairingCan
 type Executor = Database | DatabaseTransaction;
 
 /** Counterparts created on a manual account carry the source booking's id in this reference; unlinking removes them again. */
-const createdCounterpartPrefix = "transfer:";
+export const createdCounterpartPrefix = "transfer:";
 
 // Bookings automatic pairing may link: unlinked, never linked or unlinked by a person, and either a transfer or a type nobody corrected.
 function pairable(alias: string) {
@@ -165,7 +165,7 @@ export type TransferTarget = {
   accountId: string;
 } | null;
 
-export type TypeChangeResult = "saved" | "not_found" | "manual_account_only" | "counterpart_not_found" | "same_account" | "not_a_candidate" | "account_not_found" | "currency_mismatch" | "zero_amount";
+export type TypeChangeResult = "saved" | "not_found" | "manual_account_only" | "counterpart_not_found" | "same_account" | "not_a_candidate" | "account_not_found" | "currency_mismatch" | "zero_amount" | "created_counterpart";
 
 async function link(tx: DatabaseTransaction, ids: string[]) {
   await tx.update(transactions).set({
@@ -295,11 +295,16 @@ async function linkManualAccount(tx: DatabaseTransaction, subject: Subject, coun
   return "saved";
 }
 
-/** A transfer without a counterpart. Ending an existing link is a manual unlink; a booking Ufer created on a manual account is removed with it. Without a previous link, the booking is paired automatically when exactly one counterpart matches. */
+/**
+ * A transfer that a person chose to leave without a counterpart. It is marked as manually unlinked, so automatic pairing never links it, now or on later syncs and imports. Ending an existing link removes a booking Ufer created on a manual account.
+ */
 async function transferWithoutCounterpart(tx: DatabaseTransaction, subject: Subject, counterpart: Subject | undefined) {
   if (!subject.transfer_id) {
-    await markManualType(tx, subject.id, "transfer");
-    await pairTransfers(tx, environment());
+    await tx.update(transactions).set({
+      type: "transfer",
+      type_source: "manual",
+      transfer_source: "manual"
+    }).where(eq(transactions.id, subject.id));
 
     return;
   }
@@ -315,7 +320,7 @@ async function transferWithoutCounterpart(tx: DatabaseTransaction, subject: Subj
 }
 
 /**
- * Stores a manually chosen type and, for a transfer, its target in one transaction. `target` undefined keeps a transfer's current link; null means no counterpart.
+ * Stores a manually chosen type and, for a transfer, its target in one transaction. `target` undefined keeps a transfer's current link; null means no counterpart, chosen deliberately.
  * A target booking must be one of the subject's link candidates, and a target manual account must use the subject's currency. Every check runs before anything is written.
  */
 export async function saveTransactionType(id: string, type: TransactionType, target?: TransferTarget): Promise<TypeChangeResult> {
@@ -340,18 +345,30 @@ export async function saveTransactionType(id: string, type: TransactionType, tar
       return "saved";
     }
 
+    const keepsLink = target === undefined || (target !== null && "counterpartId" in target && target.counterpartId === counterpart?.id);
+
+    // A booking Ufer created on a manual account exists only for its source's link: it can keep that link or be removed, never be retargeted.
+    if (counterpart && createdCounterpart(subject) && target !== null && !keepsLink) {
+      return "created_counterpart";
+    }
+
+    if (target === undefined) {
+      await markManualType(tx, subject.id, "transfer");
+
+      // Only a booking nobody linked or unlinked is paired automatically; pairing skips manual link decisions.
+      if (!subject.transfer_id) {
+        await pairTransfers(tx, environment());
+      }
+
+      return "saved";
+    }
+
     if (target && "counterpartId" in target) {
       return linkExisting(tx, subject, counterpart, target.counterpartId);
     }
 
     if (target && "accountId" in target) {
       return linkManualAccount(tx, subject, counterpart, target.accountId);
-    }
-
-    if (target === undefined && subject.transfer_id) {
-      await markManualType(tx, subject.id, "transfer");
-
-      return "saved";
     }
 
     await transferWithoutCounterpart(tx, subject, counterpart);

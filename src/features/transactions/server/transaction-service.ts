@@ -45,7 +45,8 @@ const typeFailures: Record<Exclude<TypeChangeResult, "saved" | "not_found">, str
   same_account: "A transfer moves money between two different accounts.",
   not_a_candidate: `Link a booking with the opposite amount in the same currency on another account, at most ${manualLinkDays} days apart.`,
   currency_mismatch: "The manual account must use the booking's currency.",
-  zero_amount: "A booking without an amount cannot be a transfer to another account."
+  zero_amount: "A booking without an amount cannot be a transfer to another account.",
+  created_counterpart: "Ufer created this booking for the transfer of its linked booking. Change where the transfer goes on that booking, or remove this one."
 };
 
 function target(transfer: z.infer<typeof transferTarget> | undefined): TransferTarget | undefined {

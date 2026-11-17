@@ -23,6 +23,7 @@ const outgoing: Transaction = {
   type: "expense",
   type_source: "auto",
   manual_account: false,
+  created_counterpart: false,
   counterpart: null
 };
 
@@ -236,5 +237,63 @@ test("other types load no transfer options and send no target", async context =>
   assert.equal(requests("transactions/out/transfer").length, 0);
   assert.deepEqual(requests("transactions/out/type")[0]?.body, {
     type: "expense"
+  });
+});
+
+test("a booking Ufer created on a manual account offers only removing it, without suggestions or a target account", async context => {
+  const created = {
+    ...outgoing,
+    id: "created",
+    amount_minor: 35000,
+    account_name: "Synthetic flat",
+    type: "transfer" as const,
+    manual_account: true,
+    created_counterpart: true,
+    counterpart: {
+      id: "source",
+      account_name: "Synthetic checking",
+      booking_date: "2026-09-02"
+    }
+  };
+  const {
+    requests,
+    save,
+    screen
+  } = await renderDialog(context, created);
+
+  await respond(requests("transactions/created/transfer")[0], Response.json({
+    counterpart: {
+      ...booking("source", "Synthetic checking"),
+      amount_minor: -35000
+    },
+    candidates: [booking("candidate", "Synthetic savings")],
+    accounts: [{
+      id: "flat",
+      name: "Synthetic flat"
+    }]
+  } satisfies TransferOptions));
+
+  assert.ok(screen.getByText(/Ufer created this booking for the transfer of Synthetic checking/));
+  assert.equal(screen.queryByRole("radio"), null);
+  assert.equal(screen.queryByRole("combobox", {
+    name: "Target account"
+  }), null);
+
+  act(() => {
+    fireEvent.click(screen.getByRole("checkbox", {
+      name: "Remove this booking"
+    }));
+  });
+
+  assert.match(screen.getByRole("status").textContent ?? "", /Save removes this booking/);
+
+  act(() => {
+    fireEvent.click(save());
+  });
+  await wait(0);
+
+  assert.deepEqual(requests("transactions/created/type")[0]?.body, {
+    type: "transfer",
+    transfer: null
   });
 });

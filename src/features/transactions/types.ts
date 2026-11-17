@@ -19,6 +19,8 @@ export type Transaction = {
   type_source: "auto" | "manual";
   /** Whether the booking belongs to a manual account, which also allows the opening balance and adjustment types. */
   manual_account: boolean;
+  /** Whether Ufer created this booking on a manual account as another booking's transfer counterpart; it can keep that link or be removed, not be retargeted. */
+  created_counterpart: boolean;
   /** The other booking of a linked transfer; null for a transfer to an account not tracked in Ufer and for every other type. */
   counterpart: {
     id: string;
