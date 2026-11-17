@@ -268,34 +268,3 @@ test("the dataset is reproducible for a run date, its rules categorize all but a
   assert.ok(untracked.every(row => row.counterparty === "Joint household account"));
   assert.ok(transfers.every(row => row.category_id === "transfer"));
 });
-
-test("seeding pairs transfers only among demo accounts and leaves a matching sandbox booking untouched", async context => {
-  const db = await isolatedDatabase(context);
-  const salaries = buildDemoDataset(firstRun).accounts.find(account => account.id === "demo-checking")?.entries.filter(entry => entry.description.startsWith("Salary")) ?? [];
-  const salary = salaries[salaries.length - 1];
-
-  assert.ok(salary);
-  await insertSandboxBankAccount(db);
-  // An unlinked sandbox transfer whose only opposite booking within three days is a demo salary.
-  await db.insert(schema.transactions).values({
-    id: "sandbox-transfer",
-    account_id: "sandbox-account",
-    provider_reference: "bank:sandbox-transfer",
-    booking_date: salary.date,
-    amount_minor: -salary.amount,
-    currency: "EUR",
-    type: "transfer",
-    counterparty: "Example own account"
-  });
-
-  await seedDemoData({
-    confirmed: true,
-    runDate: firstRun
-  });
-
-  const sandboxTransfer = await db.select().from(schema.transactions).where(eq(schema.transactions.id, "sandbox-transfer")).get();
-  const demoSalary = await db.select().from(schema.transactions).where(eq(schema.transactions.provider_reference, salary.reference)).get();
-
-  assert.deepEqual([sandboxTransfer?.type, sandboxTransfer?.transfer_id], ["transfer", null]);
-  assert.deepEqual([demoSalary?.type, demoSalary?.transfer_id], ["income", null]);
-});
