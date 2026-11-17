@@ -3,14 +3,15 @@
 import ui from "../../../components/ui/primitives.module.css";
 
 import { clsx } from "clsx";
+import Link from "next/link";
 import styles from "./wealth-summary.module.css";
-import { ArrowDownLeft, ArrowUpRight, Wallet } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, ChevronRight, Wallet } from "lucide-react";
 import { periodLabel } from "@/lib/date-format";
 import { periodFromJson, periodToJson } from "@/lib/period";
 import { money } from "@/lib/money";
 import { valueMask, withPlaceholder } from "@/components/ui/result-presentation";
 import { FailureCover } from "@/components/ui/area-placeholder";
-import { useCurrency, usePeriod } from "@/client/use-app-url";
+import { useCurrency, usePeriod, useViewHref } from "@/client/use-app-url";
 import type { Area } from "@/components/ui/use-area-result";
 import type { CashFlow } from "@/features/reports/types";
 import type { NetWorth } from "@/features/accounts/types";
@@ -22,6 +23,20 @@ type Props = {
   cashFlowArea: Area<CashFlow>;
 };
 
+const percent = new Intl.NumberFormat("en", {
+  style: "percent",
+  maximumFractionDigits: 0
+});
+
+/** Expenses as a share of income; without income there is nothing to compare them with. */
+function spendingShare(income: number, expenses: number) {
+  if (income <= 0) {
+    return null;
+  }
+
+  return expenses / income;
+}
+
 export function WealthSummary({
   hasAccounts,
   netWorthArea,
@@ -29,6 +44,7 @@ export function WealthSummary({
 }: Props) {
   const selectedCurrency = useCurrency();
   const selectedPeriod = usePeriod();
+  const viewHref = useViewHref();
   const netWorth = withPlaceholder(netWorthArea, () => ({
     currency: selectedCurrency,
     netWorth: 0,
@@ -53,6 +69,11 @@ export function WealthSummary({
   const netWorthValue = valueMask(netWorth.status);
   const cashFlowValue = valueMask(cashFlow.status);
   const currency = summary.currency;
+  // The transaction list has no direction or transfer filter, so every figure opens the period's transactions in this currency.
+  const transactionsHref = viewHref("transactions");
+  const share = spendingShare(flows.income, flows.expenses);
+  const shareText = share === null ? "No income to compare spending with" : `Spent ${percent.format(share)} of income`;
+  const shareWidth = share === null ? 0 : Math.min(1, share) * 100;
 
   return (
     <div className={styles["wealth-grid"]}>
@@ -112,7 +133,7 @@ export function WealthSummary({
           <h2>{singleMonth ? "Your month" : "Your cash flow"}</h2>
           <span className={clsx(styles["subtle"], cashFlowValue)}>{periodLabel(period)}</span>
         </div>
-        <div className={styles["flow-row"]}>
+        <Link className={clsx(styles["flow-link"], styles["flow-row"])} href={transactionsHref}>
           <span className={clsx(styles["flow-icon"], styles["incoming"])}>
             <ArrowDownLeft size={19} />
           </span>
@@ -120,15 +141,9 @@ export function WealthSummary({
             <span>Income</span>
             <strong className={clsx(ui["positive"], cashFlowValue)}>{money(flows.income, flows.currency)}</strong>
           </div>
-          <span className={clsx(styles["flow-track"], cashFlowValue)}>
-            <i
-              style={{
-                width: `${Math.min(100, flows.income / Math.max(flows.income, flows.expenses, 1) * 100)}%`
-              }}
-            />
-          </span>
-        </div>
-        <div className={styles["flow-row"]}>
+          <ChevronRight className={styles["link-icon"]} size={18} />
+        </Link>
+        <Link className={clsx(styles["flow-link"], styles["flow-row"])} href={transactionsHref}>
           <span className={clsx(styles["flow-icon"], styles["outgoing"])}>
             <ArrowUpRight size={19} />
           </span>
@@ -136,20 +151,27 @@ export function WealthSummary({
             <span>Expenses</span>
             <strong className={cashFlowValue}>{money(flows.expenses, flows.currency)}</strong>
           </div>
-          <span className={clsx(styles["flow-track"], styles["expense"], cashFlowValue)}>
+          <ChevronRight className={styles["link-icon"]} size={18} />
+        </Link>
+        <div className={styles["spending-share"]}>
+          <span className={cashFlowValue}>{shareText}</span>
+          <span className={clsx(styles["share-track"], cashFlowValue)} aria-hidden="true">
             <i
               style={{
-                width: `${Math.min(100, flows.expenses / Math.max(flows.income, flows.expenses, 1) * 100)}%`
+                width: `${shareWidth}%`
               }}
             />
           </span>
         </div>
         <div className={styles["monthly-result"]}>
-          <div>
-            <span>{singleMonth ? "Monthly cash flow" : "Net cash flow"}</span>
-            <small>Excluding categorized transfers</small>
-          </div>
-          <strong className={clsx(flows.income - flows.expenses >= 0 && ui["positive"], cashFlowValue)}>{money(flows.income - flows.expenses, flows.currency)}</strong>
+          <Link className={clsx(styles["flow-link"], styles["result-link"])} href={transactionsHref}>
+            <div>
+              <span>{singleMonth ? "Monthly cash flow" : "Net cash flow"}</span>
+              <small>Excluding categorized transfers</small>
+            </div>
+            <strong className={clsx(flows.income - flows.expenses >= 0 && ui["positive"], cashFlowValue)}>{money(flows.income - flows.expenses, flows.currency)}</strong>
+            <ChevronRight className={styles["link-icon"]} size={18} />
+          </Link>
         </div>
         {cashFlowArea.status === "pending" && cashFlowArea.failure && <FailureCover failure={cashFlowArea.failure} subject="Your cash flow" />}
       </section>

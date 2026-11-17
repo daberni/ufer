@@ -139,11 +139,28 @@
 .month-card {
   position: relative;
 }
+/* Each figure opens its transactions; the negative margin keeps the content aligned while the hover background extends around it. */
+.flow-link {
+  margin-inline: calc(var(--space-2) * -1);
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  transition: background-color var(--duration);
+}
+.flow-link:hover {
+  background: var(--soft);
+}
+.link-icon {
+  flex-shrink: 0;
+  color: var(--muted);
+}
 .flow-row {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  margin-top: var(--space-6);
+  margin-top: var(--space-4);
+}
+.flow-row + .flow-row {
+  margin-top: var(--space-2);
 }
 .flow-icon {
   width: 35px;
@@ -163,7 +180,7 @@
   color: var(--gold-text);
 }
 .flow-row > div {
-  min-width: 112px;
+  flex: 1;
 }
 .flow-row > div > span {
   font-size: var(--text-sm);
@@ -176,43 +193,46 @@
   letter-spacing: -0.5px;
   font-weight: 500;
 }
-.flow-track {
-  height: 4px;
+.spending-share {
+  margin-top: var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+.share-track {
+  display: block;
+  height: 6px;
+  margin-top: var(--space-2);
   border-radius: var(--radius-sm);
   background: var(--chart-track);
-  max-width: 100px;
-  width: 100%;
-  margin-left: auto;
   overflow: hidden;
 }
-.flow-track i {
-  height: 100%;
+.share-track i {
   display: block;
-  background: var(--chart-income);
-  border-radius: var(--radius-sm);
-}
-.flow-track.expense i {
+  height: 100%;
   background: var(--chart-expense);
+  border-radius: var(--radius-sm);
 }
 .monthly-result {
   border-top: 1px solid var(--border-subtle);
   margin-top: var(--space-6);
-  padding-top: var(--space-4);
+  padding-top: var(--space-2);
+}
+.result-link {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: var(--space-3);
 }
-.monthly-result > div > span {
+.result-link > div > span {
   font-size: var(--text-sm);
 }
-.monthly-result small {
+.result-link small {
   display: block;
   color: var(--muted);
   font-size: var(--text-sm);
   margin-top: var(--space-1);
 }
-.monthly-result > strong {
+.result-link > strong {
+  margin-left: auto;
   font-size: var(--text-xl);
   font-weight: 500;
   letter-spacing: -0.5px;
@@ -243,13 +263,7 @@
   .month-card .subtle {
     display: none;
   }
-  .flow-row > div {
-    min-width: 90px;
-  }
-  .flow-track {
-    display: none;
-  }
-  .monthly-result > strong {
+  .result-link > strong {
     font-size: var(--text-md);
   }
 }
@@ -289,21 +303,19 @@
   .flow-row strong {
     font-size: var(--text-2xl);
   }
-  .monthly-result > strong {
+  .result-link > strong {
     font-size: var(--text-2xl);
   }
-  .flow-track {
-    display: block;
-    max-width: 110px;
-  }
-  .monthly-result {
+  .result-link {
     align-items: flex-start;
-    flex-wrap: wrap;
   }
-  .monthly-result > div > span {
+  .result-link .link-icon {
+    align-self: center;
+  }
+  .result-link > div > span {
     font-size: var(--text-md);
   }
-  .monthly-result small {
+  .result-link small {
     line-height: 1.6;
     max-width: 170px;
   }
