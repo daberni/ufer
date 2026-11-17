@@ -290,7 +290,7 @@ async function seedCashFlowHistory(context: TestContext) {
     booking_date: bookingDate,
     amount_minor: amount,
     currency,
-    category_id: categoryId,
+    category_id: categoryId === "transfer" ? null : categoryId,
     type: derivedTransactionType(amount, categoryId === "transfer")
   })));
 }

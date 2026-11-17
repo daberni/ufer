@@ -219,3 +219,6 @@ Update status, limitation, evidence and date when a capability changes. Check a 
 [S14]: https://github.com/we-promise/sure/blob/v0.7.6-hotfix.1/app/controllers/pages_controller.rb
 
 User management is tracked in [issue #25](https://github.com/daberni/ufer/issues/25). The current source implements explicit operator enrollment, username/password sign-in, session/password lifecycle and active membership of one installation workspace. The [rollout](user-management.md#migration-and-rollout) is not yet applied to existing databases or the hosted installation.
+
+
+Transaction list update: the existing type icon identifies income, expenses, transfers, opening balances and adjustments without a separate Type column. A row-wide edit button supports pointer and keyboard use while category and description controls remain independent. Transfers show the counterpart account below their account name. The seeded Transfer category is retired by a separate, unapplied data migration; custom categories remain supported.
