@@ -1,6 +1,6 @@
 import { database } from "@/server/database/connection";
 import { environment } from "@/features/banking/server/environment";
-import { recordManualBalance } from "@/features/transactions/server/manual-transaction-repository";
+import { recordManualBalances } from "@/features/transactions/server/manual-transaction-repository";
 import { upsertTransactions } from "@/features/transactions/server/transaction-repository";
 import { pairTransfers } from "@/features/transactions/server/transfer-repository";
 import type { CategorizedEntry } from "@/features/transactions/server/transaction-entry";
@@ -25,8 +25,6 @@ export async function saveImportedValuations(account: {
   const db = await database();
 
   await db.transaction(async tx => {
-    for (const entry of entries) {
-      await recordManualBalance(tx, account, entry.date, entry.amount);
-    }
+    await recordManualBalances(tx, account, entries);
   });
 }

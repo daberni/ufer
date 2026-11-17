@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test, type TestContext } from "node:test";
 import { Temporal } from "temporal-polyfill";
 import { createClient } from "@libsql/client";
-import { eq } from "drizzle-orm";
+import { and, eq, lte, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/libsql";
 import type { Database } from "../src/server/database/connection";
 import { initializeDatabase } from "../src/server/database/migrations";
@@ -21,7 +21,7 @@ import { HttpError, ValidationError } from "../src/lib/errors";
 
 const now = Temporal.Instant.from("2026-10-31T12:00:00Z");
 
-async function isolatedDatabase(context: TestContext) {
+async function isolatedDatabase(context: TestContext, queries?: string[]) {
   const client = createClient({
     url: ":memory:"
   });
@@ -45,7 +45,10 @@ async function isolatedDatabase(context: TestContext) {
 
   await initializeDatabase(client);
   const db = drizzle(client, {
-    schema
+    schema,
+    logger: queries ? {
+      logQuery: query => queries.push(query)
+    } : undefined
   });
 
   globals.budgetDb = Promise.resolve(db);
@@ -783,4 +786,167 @@ test("editing an entered transfer recategorizes both rule-sourced legs from thei
   assert.equal(source?.counterparty, "Synthetic savings");
   assert.equal(counterpart?.description, "Salary adjustment");
   assert.deepEqual([source?.amount_minor, counterpart?.amount_minor], [-1500, 1500]);
+});
+
+for (const initiatingSide of ["entered", "imported"] as const) {
+  test(`linking from the ${initiatingSide} side gives an entered booking its imported source date immediately`, async context => {
+    const db = await isolatedDatabase(context);
+    const cash = await manualAccount("Synthetic cash", "0.00");
+    const imported = await syncBooking(db, "withdrawal", "2026-09-10", -10000);
+    const { id } = await enter(cash, {
+      booking_date: "2026-09-12",
+      amount: "100.00",
+      counterparty: "Cash machine",
+      description: "Entered withdrawal",
+      type: "transfer"
+    });
+    const subjectId = initiatingSide === "entered" ? id : imported.id;
+    const counterpartId = initiatingSide === "entered" ? imported.id : id;
+
+    await updateTransactionType(subjectId, {
+      type: "transfer",
+      transfer: {
+        counterpart_id: counterpartId
+      }
+    });
+
+    const saved = await row(db, id);
+    const source = await row(db, imported.id);
+
+    assert.equal(saved?.booking_date, imported.booking_date);
+    assert.equal(saved?.amount_minor, -imported.amount_minor);
+    assert.equal(saved?.description, "Entered withdrawal");
+    assert.equal(saved?.transfer_id, source?.transfer_id);
+    assert.equal(source?.booking_date, imported.booking_date);
+    assert.equal(source?.counterparty, imported.counterparty);
+    assert.equal(source?.description, imported.description);
+    assert.equal(source?.provider_reference, imported.provider_reference);
+
+    const page = await readTransactionPage(dashboardFilters(new URLSearchParams({
+      period: "2026-09",
+      account: cash
+    })));
+
+    assert.equal(page.transactions.find(item => item.id === id)?.follows_import, true);
+  });
+}
+
+
+test("large balance imports use bounded database batches and preserve dated balances on reimport", async context => {
+  const queries: string[] = [];
+  const db = await isolatedDatabase(context, queries);
+  const cash = await manualAccount("Synthetic cash", "0.00", "2020-01-01");
+  const start = Temporal.PlainDate.from("2020-01-01");
+  const csvRows = Array.from({
+    length: 1200
+  }, (_, index) => {
+    const date = start.add({
+      days: index
+    });
+
+    return `${date},${index + 1}.00,EUR`;
+  });
+  const csv = `date,balance,currency\n${csvRows.join("\n")}`;
+
+  queries.length = 0;
+  await importValuations({
+    account_id: cash,
+    csv
+  });
+  assert.ok(queries.length <= 40, `A 1,200-row import must use bounded batches, not per-row reads and writes; received ${queries.length} database operations.`);
+  assert.equal(await balanceOf(cash), 120000);
+  const middle = await db.select({
+    amount: sql<number>`SUM(${schema.transactions.amount_minor})`.mapWith(Number)
+  }).from(schema.transactions).where(and(eq(schema.transactions.account_id, cash), lte(schema.transactions.booking_date, start.add({
+    days: 599
+  }).toString()))).get();
+
+  assert.equal(middle?.amount, 60000);
+  const beforeReimport = await bookings(db, cash);
+
+  queries.length = 0;
+  await importValuations({
+    account_id: cash,
+    csv
+  });
+  assert.ok(queries.length <= 5, `An unchanged reimport must not perform per-row operations; received ${queries.length}.`);
+  assert.deepEqual(await bookings(db, cash), beforeReimport);
+});
+
+test("a batch of backdated valuations accounts for intervening bookings and keeps later bookings effective", async context => {
+  const db = await isolatedDatabase(context);
+  const cash = await manualAccount("Synthetic cash", "1000.00", "2026-03-31");
+
+  await enter(cash, {
+    booking_date: "2026-02-15",
+    amount: "-100.00",
+    type: "expense"
+  });
+  await enter(cash, {
+    booking_date: "2026-05-15",
+    amount: "50.00",
+    type: "income"
+  });
+  await importValuations({
+    account_id: cash,
+    csv: "date,balance,currency\n2026-01-31,500.00,EUR\n2026-02-28,600.00,EUR\n2026-04-30,2000.00,EUR"
+  });
+
+  assert.deepEqual(await bookings(db, cash), [
+    ["2026-01-31", "adjustment", 50000, "", ""],
+    ["2026-02-15", "expense", -10000, "", ""],
+    ["2026-02-28", "adjustment", 20000, "", ""],
+    ["2026-03-31", "opening_balance", 100000, "", ""],
+    ["2026-04-30", "adjustment", 40000, "", ""],
+    ["2026-05-15", "income", 5000, "", ""]
+  ]);
+  assert.equal(await balanceOf(cash), 205000);
+});
+
+
+test("a zero balance import establishes an empty manual ledger without redundant adjustments", async context => {
+  const db = await isolatedDatabase(context);
+
+  await db.insert(schema.accounts).values({
+    id: "empty-manual",
+    environment: "SANDBOX",
+    name: "Synthetic empty account",
+    institution: "Example institution",
+    kind: "savings",
+    provider: "manual"
+  });
+  await importValuations({
+    account_id: "empty-manual",
+    csv: "date,balance,currency\n2026-01-01,0.00,EUR\n2026-01-02,0.00,EUR"
+  });
+
+  assert.deepEqual(await bookings(db, "empty-manual"), [["2026-01-01", "opening_balance", 0, "", ""]]);
+  assert.equal(await balanceOf("empty-manual"), 0);
+});
+
+test("new manual bookings distinguish automatic categorization from an explicit Uncategorized choice", async context => {
+  const db = await isolatedDatabase(context);
+  const cash = await manualAccount("Synthetic cash", "100.00");
+
+  await categorizationRules(db);
+  const input = {
+    booking_date: "2026-09-05",
+    amount: "-12.50",
+    counterparty: "Market",
+    type: "expense"
+  };
+  const automatic = await enter(cash, input);
+  const uncategorized = await enter(cash, {
+    ...input,
+    category_id: null
+  });
+
+  assert.deepEqual([(await row(db, automatic.id))?.category_id, (await row(db, automatic.id))?.category_source], ["groceries", "rule"]);
+  assert.deepEqual([(await row(db, uncategorized.id))?.category_id, (await row(db, uncategorized.id))?.category_source], [null, "manual"]);
+
+  await edit(uncategorized.id, {
+    ...input,
+    counterparty: "Salary adjustment"
+  });
+  assert.deepEqual([(await row(db, uncategorized.id))?.category_id, (await row(db, uncategorized.id))?.category_source], [null, "manual"]);
 });
