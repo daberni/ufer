@@ -1,11 +1,16 @@
 import { asc, eq, sql } from "drizzle-orm";
 import { database } from "@/server/database/connection";
-import { accounts, requisitions } from "@/server/database/schema";
+import { accounts, requisitions, transactions } from "@/server/database/schema";
 import { environment } from "@/features/banking/server/environment";
+
+// A manual account's balance is the sum of its transactions, dated with the newest one; a synced account keeps its provider balance.
+const manual = sql`${accounts.provider}='manual'`;
+const balance = sql<number | null>`CASE WHEN ${manual} THEN (SELECT SUM(${transactions.amount_minor}) FROM ${transactions} WHERE ${transactions.account_id}=${accounts.id}) ELSE ${accounts.balance_minor} END`;
+const balanceDate = sql<string | null>`CASE WHEN ${manual} THEN (SELECT MAX(${transactions.booking_date}) FROM ${transactions} WHERE ${transactions.account_id}=${accounts.id}) ELSE ${accounts.balance_date} END`;
 
 const kindOrder = sql`CASE ${accounts.kind} WHEN 'checking' THEN 0 WHEN 'savings' THEN 1 WHEN 'investment' THEN 2 ELSE 3 END`;
 
-/** Accounts of the current banking environment with their latest balance and, for bank accounts, the authorization expiry. */
+/** Accounts of the current banking environment with their current balance and, for bank accounts, the authorization expiry. */
 export async function listAccounts() {
   const db = await database();
 
@@ -15,8 +20,8 @@ export async function listAccounts() {
     institution: accounts.institution,
     kind: accounts.kind,
     currency: accounts.currency,
-    balance_minor: accounts.balance_minor,
-    balance_date: accounts.balance_date,
+    balance_minor: balance,
+    balance_date: balanceDate,
     provider: accounts.provider,
     requisition_id: accounts.requisition_id,
     last_synced_at: accounts.last_synced_at,

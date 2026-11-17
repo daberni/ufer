@@ -8,6 +8,7 @@ import { useState } from "react";
 import { DateValue } from "@/components/ui/date-value";
 import { money } from "@/lib/money";
 import { TransactionCategory, TransactionCategorySkeleton } from "@/features/transactions/components/transaction-category";
+import { transactionTypeLabels } from "@/features/transactions/transaction-types";
 import { TransactionTypeIcon, transferDirection } from "@/features/transactions/components/transaction-type";
 import { TransactionEditDialog } from "@/features/transactions/components/transaction-edit-dialog";
 import type { Category } from "@/features/categorization/types";
@@ -66,18 +67,18 @@ function TransactionRow({
               className={styles["edit-transaction"]}
               type="button"
               onClick={() => setEditing(true)}
-              aria-label={`Edit transaction: ${transaction.counterparty || transaction.description || "Transaction"}`}
+              aria-label={`Edit transaction: ${transaction.counterparty || transaction.description || transactionTypeLabels[transaction.type]}`}
             >
-              {transaction.counterparty || transaction.description || "Transaction"}
+              {transaction.counterparty || transaction.description || transactionTypeLabels[transaction.type]}
             </button>
           </strong>
           <span className={styles["description"]} title={transaction.description}>{transaction.description || "No description"}</span>
-          {transaction.description && (
+          {transaction.description ? (
             <details className={styles["transaction-details"]}>
               <summary>Description</summary>
               <p>{transaction.description}</p>
             </details>
-          )}
+          ) : <span className={styles["no-details"]}>No description</span>}
         </div>
         {editing && <TransactionEditDialog transaction={transaction} close={() => setEditing(false)} />}
       </th>

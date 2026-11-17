@@ -5,7 +5,7 @@ import { environment } from "@/features/banking/server/environment";
 import { accounts, transactions } from "@/server/database/schema";
 import { derivedTransactionType } from "@/features/transactions/transaction-types";
 import type { CategorizedEntry, ProviderDetails } from "./transaction-entry";
-import { releaseOutdatedLinks } from "./transfer-repository";
+import { followImportedCorrections, releaseOutdatedLinks } from "./transfer-repository";
 
 function providerColumns(provider: ProviderDetails = {}) {
   return {
@@ -18,13 +18,14 @@ function providerColumns(provider: ProviderDetails = {}) {
 /**
  * Inserts new entries and updates existing ones. `createdAt` replaces the database clock only for inserted rows; updates keep the original `created_at`.
  * Updates replace the provider data with the latest delivery for every row; only rule-sourced categories are recalculated.
- * The type is recalculated only while nobody corrected it, the booking is not linked and it is not a transfer: no source reports that a booking is not a transfer, so a delivery without a transfer signal never downgrades one. Links whose corrected amount or currency no longer pairs are released first.
+ * The type is recalculated only while nobody corrected it, the booking is not linked and it is not a transfer: no source reports that a booking is not a transfer, so a delivery without a transfer signal never downgrades one. A booking entered in Ufer follows the corrected date and amount of the imported booking it is linked with; other links whose corrected amount or currency no longer pairs are released first.
  */
 export async function upsertTransactions(tx: DatabaseTransaction, accountId: string, entries: CategorizedEntry[], createdAt?: string) {
   // Bound statement parameters for both local SQLite and remote libSQL deployments.
   for (let offset = 0; offset < entries.length; offset += 50) {
     const chunk = entries.slice(offset, offset + 50);
 
+    await followImportedCorrections(tx, accountId, chunk);
     await releaseOutdatedLinks(tx, accountId, chunk);
 
     const values = chunk.map(entry => ({

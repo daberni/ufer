@@ -17,8 +17,13 @@ export type Transaction = {
   category_source: string;
   type: TransactionType;
   type_source: "auto" | "manual";
+  account_id: string;
   /** Whether the booking belongs to a manual account, which also allows the opening balance and adjustment types. */
   manual_account: boolean;
+  /** Whether the booking was entered in Ufer on a manual account, so its date, amount, payee and description can be edited and the booking deleted. A counterpart created for an imported booking is not. */
+  entered: boolean;
+  /** Whether an entered booking is linked with an imported booking, whose date and amount it follows. */
+  follows_import: boolean;
   /** Whether Ufer created this booking on a manual account as another booking's transfer counterpart; it can keep that link or be removed, not be retargeted. */
   created_counterpart: boolean;
   /** The other booking of a linked transfer; null for a transfer to an account not tracked in Ufer and for every other type. */
@@ -41,6 +46,8 @@ export type TransferBooking = {
   description: string;
   /** Whether Ufer created this booking on a manual account as a transfer's counterpart. */
   created: boolean;
+  /** Whether the booking was entered in Ufer on a manual account rather than imported. */
+  entered: boolean;
 };
 
 /** A booking's transfer link and what it can be linked with instead. */
