@@ -30,9 +30,9 @@ export async function completeAuthorization(state: string, browserSecret: string
   try {
     const envelope = await createSession(code);
 
-    // Persist the once-only provider response before mapping accounts, so a mapping failure still leaves the session to revoke.
+    // Retain the once-only credential before validating details, so a malformed response still leaves the session to revoke.
     const sessionCipher = encrypt(envelope.session_id);
-    const sessionSaved = await saveBankSession(db, connection.id, sessionCipher, envelope.access.valid_until);
+    const sessionSaved = await saveBankSession(db, connection.id, sessionCipher, null);
 
     if (!sessionSaved) {
       throw new HttpError(409, "The bank connection was removed during authorization.");
@@ -48,7 +48,7 @@ export async function completeAuthorization(state: string, browserSecret: string
       throw new HttpError(502, "The bank callback does not match the requested connection.");
     }
 
-    releasedSessions = await saveSessionAccounts(db, env, connection.id, connection.bank_name, session.accounts);
+    releasedSessions = await saveSessionAccounts(db, env, connection.id, connection.bank_name, session.access.valid_until, session.accounts);
 
     if (!session.accounts.length) {
       await recordEmptyConnection(db, connection.id);

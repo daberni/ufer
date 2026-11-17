@@ -183,7 +183,7 @@ test("removing a bank connection keeps accounts and history, deletes its credent
     status: "EXCHANGING",
     valid_until: "2099-01-01T00:00:00Z"
   });
-  await saveSessionAccounts(db, "SANDBOX", "renewed", "Example institution", [{
+  await saveSessionAccounts(db, "SANDBOX", "renewed", "Example institution", "2099-01-01T00:00:00Z", [{
     uid: "renewed-uid",
     identification_hash: "hash-removed-account",
     currency: "EUR"
@@ -360,7 +360,7 @@ test("a connection removed while its callback is mapping accounts is never linke
   }]);
 
   // Callback step 2 and its failure handling run after the removal.
-  await assert.rejects(saveSessionAccounts(db, "SANDBOX", "overlap", "Example institution", [{
+  await assert.rejects(saveSessionAccounts(db, "SANDBOX", "overlap", "Example institution", "2099-01-01T00:00:00Z", [{
     uid: "overlap-uid",
     identification_hash: "overlap-hash",
     currency: "EUR"
@@ -409,7 +409,7 @@ test("a callback completing after removal preflight keeps its new session until 
         used_at: new Date().toISOString()
       }).where(eq(schema.requisitions.id, "pending-overlap"));
       assert.equal(await saveBankSession(db, "pending-overlap", createdSessionCipher, "2099-01-01T00:00:00Z"), true);
-      await saveSessionAccounts(db, "SANDBOX", "pending-overlap", "Example institution", [{
+      await saveSessionAccounts(db, "SANDBOX", "pending-overlap", "Example institution", "2099-01-01T00:00:00Z", [{
         uid: "new-uid",
         identification_hash: "new-hash",
         currency: "EUR"

@@ -76,7 +76,7 @@ export async function clearRevokedSession(db: Database, id: string, sessionCiphe
 }
 
 // The connection stays EXCHANGING until its accounts are mapped, so removal cannot interleave between the two steps.
-export async function saveBankSession(db: Database, id: string, ciphertext: string, validUntil: string) {
+export async function saveBankSession(db: Database, id: string, ciphertext: string, validUntil: string | null) {
   const saved = await db.update(requisitions).set({
     session_cipher: ciphertext,
     valid_until: validUntil,

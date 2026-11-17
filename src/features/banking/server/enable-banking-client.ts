@@ -74,13 +74,13 @@ const bankAccount = z.object({
 });
 
 const sessionEnvelope = z.looseObject({
-  session_id: z.string().min(1),
-  access: z.object({
-    valid_until: providerInstant
-  })
+  session_id: z.string().min(1)
 });
 
 const sessionResponse = sessionEnvelope.extend({
+  access: z.object({
+    valid_until: providerInstant
+  }),
   accounts: z.array(bankAccount),
   aspsp: z.object({
     name: z.string(),

@@ -6,7 +6,7 @@ import { accountIdentifiers, accounts, requisitions } from "@/server/database/sc
 import type { BankAccount } from "./enable-banking-client";
 
 // Maps the authorized accounts and links the connection in one transaction; a connection removed meanwhile is never linked.
-export async function saveSessionAccounts(db: Database, environment: string, requisitionId: string, institution: string, bankAccounts: BankAccount[]) {
+export async function saveSessionAccounts(db: Database, environment: string, requisitionId: string, institution: string, validUntil: string, bankAccounts: BankAccount[]) {
   return db.transaction(async tx => {
     const displacedConnections = new Set<string>();
 
@@ -72,7 +72,8 @@ export async function saveSessionAccounts(db: Database, environment: string, req
     }
 
     const linked = await tx.update(requisitions).set({
-      status: "LINKED"
+      status: "LINKED",
+      valid_until: validUntil
     }).where(and(eq(requisitions.id, requisitionId), eq(requisitions.environment, environment), eq(requisitions.status, "EXCHANGING"))).returning({
       id: requisitions.id
     });

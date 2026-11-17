@@ -193,7 +193,7 @@ async function connection(db: Database, id: string) {
   return db.select().from(schema.requisitions).where(eq(schema.requisitions.id, id)).get();
 }
 
-test("malformed bank sessions are 502 provider failures and nothing from them is stored", async context => {
+test("a missing session ID is rejected without attempting revocation", async context => {
   context.mock.method(console, "warn", () => {});
   const {
     db,
@@ -202,14 +202,6 @@ test("malformed bank sessions are 502 provider failures and nothing from them is
     useProvider
   } = await providerDatabase(context);
   const malformedSessions = {
-    "unparseable-expiry": session("synthetic-session", "hash-a", {
-      access: {
-        valid_until: "in 90 days"
-      }
-    }),
-    "missing-access": session("synthetic-session", "hash-b", {
-      access: undefined
-    }),
     "missing-session-id": session("", "hash-d")
   };
 
@@ -269,6 +261,54 @@ for (const revocationStatus of [204, 503]) {
 
     assert.equal((await db.select().from(schema.accounts)).length, 0);
   });
+
+}
+
+for (const expiryCase of [{
+  name: "unparseable",
+  access: {
+    valid_until: "in 90 days"
+  }
+}, {
+  name: "missing",
+  access: undefined
+}]) {
+  for (const revocationStatus of [204, 503]) {
+    test(`invalid session expiry preserves a recoverable credential until cleanup succeeds (${expiryCase.name}, ${revocationStatus})`, async context => {
+      context.mock.method(console, "warn", () => {});
+      const {
+        db,
+        actor,
+        requests,
+        useProvider
+      } = await providerDatabase(context);
+
+      await insertPendingAuthorization(db, actor, "invalid-expiry");
+      useProvider(({ method }) => method === "DELETE" ? new Response(null, {
+        status: revocationStatus
+      }) : Response.json(session("invalid-expiry-session", "unused", {
+        access: expiryCase.access
+      })));
+
+      await assert.rejects(authorize("invalid-expiry", actor), {
+        status: 502,
+        message: "Enable Banking returned an unexpected response."
+      });
+      assert.deepEqual(requests, ["POST /sessions", "DELETE /sessions/invalid-expiry-session"]);
+      const stored = await connection(db, "invalid-expiry");
+
+      assert.equal(stored?.status, "ERROR");
+      assert.equal(stored?.valid_until, null);
+
+      if (revocationStatus === 204) {
+        assert.equal(stored?.session_cipher, null);
+      } else {
+        assert.equal(decrypt(String(stored?.session_cipher)), "invalid-expiry-session");
+      }
+
+      assert.equal((await db.select().from(schema.accounts)).length, 0);
+    });
+  }
 
 }
 
