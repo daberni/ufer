@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, eq, isNull, ne, or } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { database } from "@/server/database/connection";
 import { environment } from "@/features/banking/server/environment";
 import type { Rule } from "@/lib/rules";
@@ -36,7 +36,7 @@ export async function setRuleEnabled(id: string, enabled: boolean) {
 
 export async function findUncorrectedTransactions() {
   const db = await database();
-  const scope = and(eq(accounts.environment, environment()), eq(transactions.category_source, "rule"), or(isNull(transactions.category_id), ne(transactions.category_id, "transfer")));
+  const scope = and(eq(accounts.environment, environment()), eq(transactions.category_source, "rule"));
 
   return db.select({
     id: transactions.id,

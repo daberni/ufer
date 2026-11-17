@@ -147,7 +147,7 @@ export function WealthSummary({
         <div className={styles["monthly-result"]}>
           <div>
             <span>{singleMonth ? "Monthly cash flow" : "Net cash flow"}</span>
-            <small>Excluding categorized transfers</small>
+            <small>Excluding transfers</small>
           </div>
           <strong className={clsx(flows.income - flows.expenses >= 0 && ui["positive"], cashFlowValue)}>{money(flows.income - flows.expenses, flows.currency)}</strong>
         </div>

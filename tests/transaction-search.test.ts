@@ -70,6 +70,7 @@ async function seedSearchableTransactions(context: TestContext) {
     booking_date: "2026-01-15",
     amount_minor: -1000,
     currency: "EUR",
+    type: "expense" as const,
     counterparty,
     description
   })));

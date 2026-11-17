@@ -26,6 +26,45 @@
 .amount-heading {
   text-align: right;
 }
+.row {
+  position: relative;
+}
+.edit-transaction {
+  color: inherit;
+  font: inherit;
+  text-align: inherit;
+  cursor: pointer;
+}
+/* The native button covers the row; category controls and disclosure stay above its hit area. */
+.edit-transaction::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+.edit-transaction:focus-visible {
+  outline: none;
+}
+.edit-transaction:focus-visible::after {
+  outline: var(--focus-ring);
+  outline-offset: -3px;
+}
+.row:has(.edit-transaction):hover {
+  background: var(--surface-muted);
+}
+.category,
+.transaction-details {
+  position: relative;
+  z-index: var(--layer-raised);
+}
+.counterpart {
+  display: block;
+  margin-top: var(--space-1);
+  font-size: var(--text-xs);
+  font-weight: 400;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
 .row > * {
   padding: var(--space-4);
   border-bottom: 1px solid var(--border-subtle);
@@ -88,7 +127,10 @@
 .category-label {
   display: none;
 }
-.account,
+.account {
+  color: var(--ink-soft);
+  font-weight: 500;
+}
 .date {
   color: var(--muted);
 }
@@ -136,6 +178,42 @@
     background: var(--surface-muted);
     min-width: 0;
   }
+  .row {
+    position: relative;
+  }
+  .edit-transaction {
+    color: inherit;
+    font: inherit;
+    text-align: inherit;
+    cursor: pointer;
+  }
+  /* The native button covers the row; category controls and disclosure stay above its hit area. */
+  .edit-transaction::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+  }
+  .edit-transaction:focus-visible {
+    outline: none;
+  }
+  .edit-transaction:focus-visible::after {
+    outline: var(--focus-ring);
+    outline-offset: -3px;
+  }
+  .row:has(.edit-transaction):hover {
+    background: var(--surface-muted);
+  }
+  .category,
+  .transaction-details {
+    position: relative;
+    z-index: var(--layer-raised);
+  }
+  .counterpart {
+    display: block;
+    margin-top: var(--space-1);
+    overflow-wrap: anywhere;
+  }
   .row > * {
     padding: 0;
     border-bottom: 0;
@@ -166,11 +244,17 @@
   .transaction-name {
     display: contents;
   }
-  .transaction-icon,
+  .transaction-icon {
+    grid-column: 1;
+    grid-row: 1;
+    align-self: start;
+    margin-top: var(--space-3);
+  }
   .description {
     display: none;
   }
   .name {
+    padding-left: calc(32px + var(--space-3));
     grid-column: 1;
     grid-row: 1;
     align-self: start;
