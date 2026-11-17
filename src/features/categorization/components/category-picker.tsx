@@ -6,7 +6,7 @@ import styles from "./category-picker.module.css";
 import { clsx } from "clsx";
 import { Pin } from "lucide-react";
 import { useId, useState, type ReactNode } from "react";
-import { SearchableSelect, type SearchableSelectOption } from "@/components/ui/searchable-select";
+import { SearchableSelect, type SearchableSelectOption, type SearchableSelectAppearance } from "@/components/ui/searchable-select";
 import { CategoryGlyph, categoryLabel, categoryNameColor, type DisplayCategory, type NeutralCategory } from "./category-label";
 import { CategoryDialog } from "./category-form";
 
@@ -37,6 +37,8 @@ type Props = ValueProps & {
   manual?: boolean;
   /** Compact fields suit transaction rows and filters; regular fields match the inputs of forms and dialogs. */
   size?: "regular" | "compact";
+  /** Inline presentation is reserved for editable category labels in transaction rows. */
+  appearance?: SearchableSelectAppearance;
   /** Shown inside the field's right edge after the manual pin, such as the saving state of a change. */
   status?: ReactNode;
   /** Submits the chosen category ID with a surrounding form. */
@@ -57,7 +59,7 @@ const categoryNoun = {
   other: "categories"
 };
 
-// Options show the category's icon and name in its color, as its chip does, without the chip's tint.
+// Options show the same readable icon and name as a category label.
 function categoryOption(key: string, value: CategoryPickerValue, category: DisplayCategory | NeutralCategory): SearchableSelectOption<CategoryPickerValue> {
   return {
     key,
@@ -98,6 +100,7 @@ export function CategoryPicker({
   includeUncategorized = false,
   manual = false,
   size = "regular",
+  appearance = "default",
   status,
   name,
   id,
@@ -145,6 +148,7 @@ export function CategoryPicker({
         onQueryChange={setSearch}
         noun={categoryNoun}
         placeholder="Search categories"
+        appearance={appearance}
         busy={ariaBusy}
         aria-label={ariaLabel}
         aria-invalid={ariaInvalid}

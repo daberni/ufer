@@ -51,33 +51,16 @@ function RuleForm({
       }))}
       className={ui["form"]}
     >
-      <label>
-        Rule name
-        <input
-          name="name"
-          defaultValue={rule?.name}
-          required
-          placeholder="e.g. Groceries"
-          maxLength={100}
-        />
-      </label>
-      <label>
-        Matching pattern
-        <input
-          name="pattern"
-          defaultValue={rule?.pattern}
-          required
-          placeholder="e.g. MARKET"
-          maxLength={500}
-        />
-      </label>
       <div className={ui["form-grid"]}>
         <label>
-          Match type
-          <Select name="mode" defaultValue={rule?.mode ?? "keyword"}>
-            <option value="keyword">Contains keyword</option>
-            <option value="regex">Regular expression (RE2)</option>
-          </Select>
+          Rule name
+          <input
+            name="name"
+            defaultValue={rule?.name}
+            required
+            placeholder="e.g. Groceries"
+            maxLength={100}
+          />
         </label>
         <label>
           Priority
@@ -88,6 +71,25 @@ function RuleForm({
             max="10000"
             defaultValue={rule?.priority ?? 100}
             required
+          />
+        </label>
+      </div>
+      <div className={ui["form-grid"]}>
+        <label>
+          Match type
+          <Select name="mode" defaultValue={rule?.mode ?? "keyword"}>
+            <option value="keyword">Contains keyword</option>
+            <option value="regex">Regular expression (RE2)</option>
+          </Select>
+        </label>
+        <label>
+          Matching pattern
+          <input
+            name="pattern"
+            defaultValue={rule?.pattern}
+            required
+            placeholder="e.g. MARKET"
+            maxLength={500}
           />
         </label>
       </div>

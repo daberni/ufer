@@ -21,6 +21,8 @@ export type SearchableSelectOption<Value> = {
   description?: ReactNode;
 };
 
+export type SearchableSelectAppearance = "default" | "inline";
+
 type Props<Value> = {
   id: string;
   options: readonly SearchableSelectOption<Value>[];
@@ -45,6 +47,8 @@ type Props<Value> = {
   footer?: ReactNode;
   /** Status icons inside the field's right edge, before the toggle; the field keeps its width when they appear. */
   adornment?: ReactNode;
+  /** Inline fields keep their geometry but show chrome only during interaction or an inherited row hover. */
+  appearance?: SearchableSelectAppearance;
   /** Sizes the field, such as a denser control for tables and filters. */
   className?: string;
   /** Offers a last option that creates an option named after the typed text when no option has exactly that label. */
@@ -69,6 +73,7 @@ export function SearchableSelect<Value>({
   busy = false,
   footer,
   adornment,
+  appearance = "default",
   className,
   onCreate,
   "aria-label": ariaLabel,
@@ -319,7 +324,7 @@ export function SearchableSelect<Value>({
     <div className={styles["searchable-select"]}>
       <div
         ref={controlRef}
-        className={clsx(styles["control"], className)}
+        className={clsx(styles["control"], appearance === "inline" && styles["inline"], className)}
         style={{
           color: showsSelected ? selected.color : undefined
         }}

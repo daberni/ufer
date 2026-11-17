@@ -41,6 +41,7 @@ export function TransactionCategory({
       <CategoryPicker
         className={styles["picker"]}
         size="compact"
+        appearance="inline"
         categories={categories}
         value={categoryId}
         includeUncategorized

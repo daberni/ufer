@@ -1,8 +1,15 @@
 .category {
   position: relative;
+  z-index: var(--layer-raised);
+  pointer-events: none;
   display: inline-block;
   max-width: 100%;
   vertical-align: middle;
+}
+
+/* Only the field and rendered feedback intercept row clicks; space between them belongs to the row editor. */
+.category > * {
+  pointer-events: auto;
 }
 
 /* A fixed width keeps the nowrap transaction table from widening with long category names; the open list shows them in full. The manual pin and the saving status sit inside the field, so it keeps this width in every state. */

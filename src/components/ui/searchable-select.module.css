@@ -16,6 +16,28 @@
 .control:has([aria-invalid="true"]) {
   border-color: var(--danger);
 }
+/* Inline fields reserve their border and toggle space even when idle. A containing row can reveal them through these scoped variables. */
+.control.inline {
+  border-color: var(--inline-select-border, transparent);
+  background: var(--inline-select-background, transparent);
+}
+.control.inline .toggle svg {
+  opacity: var(--inline-select-indicator-opacity, 0);
+}
+.control.inline:focus-within,
+.control.inline:has([aria-expanded="true"]) {
+  border-color: var(--border);
+  background: var(--surface);
+}
+.control.inline:focus-within .toggle svg,
+.control.inline:has([aria-expanded="true"]) .toggle svg,
+.control.inline:has([aria-invalid="true"]) .toggle svg {
+  opacity: 1;
+}
+.control.inline:has([aria-invalid="true"]) {
+  border-color: var(--danger);
+  background: var(--surface);
+}
 /* The field's ring marks a focused search; the toggle draws its own ring inside the field. */
 .control:has(.input:focus-visible) {
   outline: var(--focus-ring);
