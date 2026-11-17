@@ -5,7 +5,7 @@ import { categorize, decidingRule, prepareRules, validatePattern, type Rule } fr
 import { normalizeCategoryName } from "@/lib/category-name";
 import { isCategoryIcon } from "@/features/categorization/category-icons";
 import { categoryExists, insertCategory, updateCategory, type CategoryDetails, type CategoryWriteResult } from "./category-repository";
-import { findUncorrectedTransactions, insertRule, listRules, saveRuleAssignments, setRuleEnabled, updateRule } from "./rule-repository";
+import { findUncorrectedTransactions, insertRule, listRules, saveRuleAssignments, setRuleEnabled, updateRule, type SelectRuleAssignments } from "./rule-repository";
 
 const ruleMatching = {
   pattern: z.string().min(1).max(500),
@@ -71,18 +71,12 @@ export async function createRule(payload: unknown) {
     ...input,
     id: randomUUID()
   };
-  let uncategorizedIds: string[] = [];
+  const selectAssignments: SelectRuleAssignments | undefined = applyToUncategorized ? (storedRules, entries) => {
+    const rules = prepareRules(storedRules);
 
-  if (applyToUncategorized) {
-    const decided = await transactionsDecidedBy({
-      ...rule,
-      enabled: rule.enabled ? 1 : 0
-    });
-
-    uncategorizedIds = decided.filter(entry => entry.category_id === null).map(entry => entry.id);
-  }
-
-  const categorized = await insertRule(rule, uncategorizedIds);
+    return entries.filter(entry => decidingRule(entry.counterparty, entry.description, rules)?.id === rule.id).map(entry => entry.id);
+  } : undefined;
+  const categorized = await insertRule(rule, selectAssignments);
 
   return {
     ok: true,

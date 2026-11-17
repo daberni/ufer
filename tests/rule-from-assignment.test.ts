@@ -320,3 +320,89 @@ test("among rules of the same priority the older one decides, in the preview, on
   assert.equal(decided["uncategorized-description"], "leisure/rule");
   assert.equal(decided["categorized-by-rule"], "leisure/rule");
 });
+
+test("rule creation does not categorize a transaction whose payee changed before its write begins", async context => {
+  const db = await seedBookings(context);
+  let editPending = true;
+
+  const editBeforeWrite = async () => {
+    if (!editPending) {
+      return;
+    }
+
+    editPending = false;
+    await db.update(schema.transactions).set({
+      counterparty: "Salary"
+    }).where(eq(schema.transactions.id, "uncategorized-payee"));
+  };
+  const batch = db.batch.bind(db);
+  const transaction = db.transaction.bind(db);
+
+  context.mock.method(db, "batch", async (...args: Parameters<Database["batch"]>) => {
+    await editBeforeWrite();
+
+    return batch(...args);
+  });
+  context.mock.method(db, "transaction", async (...args: Parameters<Database["transaction"]>) => {
+    await editBeforeWrite();
+
+    return transaction(...args);
+  });
+
+  const result = await createRule({
+    name: "Market",
+    pattern: "Market",
+    mode: "keyword",
+    category_id: "groceries",
+    priority: 100,
+    apply_to_uncategorized: true
+  });
+
+  assert.equal((await categories(db))["uncategorized-payee"], "none/rule");
+  assert.equal(result.categorized, 2);
+});
+
+test("applying a newly created higher-priority rule preserves already categorized transactions", async context => {
+  const db = await seedBookings(context);
+  const input = {
+    name: "Market",
+    pattern: "Market",
+    mode: "keyword" as const,
+    category_id: "groceries",
+    priority: 100,
+    apply_to_uncategorized: true
+  };
+
+  await createRule(input);
+  const before = await categories(db);
+  const result = await createRule({
+    ...input,
+    category_id: "home",
+    priority: 1
+  });
+
+  assert.equal((await categories(db))["uncategorized-payee"], before["uncategorized-payee"]);
+  assert.equal((await categories(db))["categorized-by-rule"], before["categorized-by-rule"]);
+  assert.equal(result.categorized, 1);
+});
+
+test("failed assignment selection rolls back the new rule without changing transactions", async context => {
+  const db = await seedBookings(context);
+  const before = await categories(db);
+  const failure = new Error("Matching failed");
+
+  await assert.rejects(insertRule({
+    id: "failed-rule",
+    name: "Market",
+    pattern: "Market",
+    mode: "keyword",
+    category_id: "groceries",
+    priority: 100,
+    enabled: true
+  }, () => {
+    throw failure;
+  }), failure);
+
+  assert.equal((await db.select().from(schema.categorizationRules)).length, 1);
+  assert.deepEqual(await categories(db), before);
+});

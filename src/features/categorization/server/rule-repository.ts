@@ -23,30 +23,45 @@ export type NewRule = Omit<Rule, "enabled"> & {
 // Bounds the bound parameters of each update for both local SQLite and remote libSQL deployments.
 const assignmentChunkSize = 500;
 
-/**
- * Stores a rule and, in the same batch, gives its category to the listed transactions that are still uncategorized by rules. Resolves to the number of
- * transactions categorized; one assigned or corrected in the meantime keeps its category.
- */
-export async function insertRule(rule: NewRule, uncategorizedIds: string[] = []) {
+type RuleCandidate = Pick<Transaction, "id" | "counterparty" | "description">;
+
+export type SelectRuleAssignments = (rules: Rule[], entries: RuleCandidate[]) => string[];
+
+/** Reads the matching inputs and stores the rule and its optional assignments in one write transaction. */
+export async function insertRule(rule: NewRule, selectAssignments?: SelectRuleAssignments) {
   const db = await database();
-  const insert = db.insert(categorizationRules).values({
-    ...rule,
-    enabled: rule.enabled ? 1 : 0
+
+  return db.transaction(async tx => {
+    await tx.insert(categorizationRules).values({
+      ...rule,
+      enabled: rule.enabled ? 1 : 0
+    });
+
+    if (!selectAssignments) {
+      return 0;
+    }
+
+    const rules = await tx.select().from(categorizationRules).orderBy(ruleCreationOrder);
+    const scope = and(eq(accounts.environment, environment()), eq(transactions.category_source, "rule"), isNull(transactions.category_id));
+    const candidates = await tx.select({
+      id: transactions.id,
+      counterparty: transactions.counterparty,
+      description: transactions.description
+    }).from(transactions).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(scope);
+    const ids = selectAssignments(rules, candidates);
+    let categorized = 0;
+
+    for (let offset = 0; offset < ids.length; offset += assignmentChunkSize) {
+      const chunk = ids.slice(offset, offset + assignmentChunkSize);
+      const result = await tx.update(transactions).set({
+        category_id: rule.category_id
+      }).where(inArray(transactions.id, chunk));
+
+      categorized += result.rowsAffected;
+    }
+
+    return categorized;
   });
-  const assignments = [];
-
-  for (let offset = 0; offset < uncategorizedIds.length; offset += assignmentChunkSize) {
-    const ids = uncategorizedIds.slice(offset, offset + assignmentChunkSize);
-    const scope = and(inArray(transactions.id, ids), eq(transactions.category_source, "rule"), isNull(transactions.category_id));
-
-    assignments.push(db.update(transactions).set({
-      category_id: rule.category_id
-    }).where(scope));
-  }
-
-  const [, ...updates] = await db.batch([insert, ...assignments]);
-
-  return updates.reduce((total, update) => total + update.rowsAffected, 0);
 }
 
 export async function updateRule(id: string, details: Pick<Rule, "name" | "pattern" | "mode" | "category_id" | "priority">) {
