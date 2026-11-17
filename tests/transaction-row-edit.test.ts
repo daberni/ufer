@@ -1,3 +1,4 @@
+import "./fixtures/dom-environment";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { fireEvent, render, within } from "@testing-library/react";
