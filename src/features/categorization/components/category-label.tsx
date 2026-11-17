@@ -1,6 +1,6 @@
 import styles from "./category-label.module.css";
 import { clsx } from "clsx";
-import { CircleDashed, Shapes } from "lucide-react";
+import { CircleDashed, Shapes, SlidersHorizontal } from "lucide-react";
 import { isCategoryIcon } from "@/features/categorization/category-icons";
 import { categoryTextColor, neutralChipColor, themedColor } from "@/features/categorization/category-colors";
 import { categoryIconComponents } from "./category-icon-components";
@@ -11,10 +11,14 @@ export type DisplayCategory = {
   icon: string | null;
 };
 
-/** Neutral labels for the absence of a category and, in filters, for no category restriction. */
-export type NeutralCategory = "uncategorized" | "all-categories";
+/** Neutral labels for automatic assignment, no assigned category and unrestricted category filters. */
+export type NeutralCategory = "automatic" | "uncategorized" | "all-categories";
 
 const neutralCategories = {
+  "automatic": {
+    label: "Automatic",
+    Icon: SlidersHorizontal
+  },
   "uncategorized": {
     label: "Uncategorized",
     Icon: CircleDashed

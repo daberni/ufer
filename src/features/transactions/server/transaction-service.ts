@@ -104,7 +104,7 @@ const entryInput = typeInput.extend({
 });
 
 const newEntryInput = entryInput.extend({
-  category_id: z.string().min(1).nullable().default(null)
+  category_id: z.string().min(1).nullable().optional()
 });
 
 function validateEntry(input: z.infer<typeof entryInput>, currency: string, now: Temporal.Instant) {
@@ -139,7 +139,7 @@ async function ruleCategory(entry: ReturnType<typeof validateEntry>, currency: s
   return categorized.categoryId;
 }
 
-/** Enters a transaction on a manual account. Without a chosen category, the categorization rules choose one, as for imported bookings. */
+/** Enters a manual booking: an omitted category applies rules; an explicit category or null records a manual assignment. */
 export async function enterManualTransaction(accountId: string, payload: unknown, now = Temporal.Now.instant()) {
   const input = newEntryInput.parse(payload);
   const account = await findManualAccount(accountId);
@@ -154,7 +154,8 @@ export async function enterManualTransaction(accountId: string, payload: unknown
     throw new ValidationError("Category does not exist.");
   }
 
-  const categoryId = input.category_id ?? await ruleCategory(entry, account.currency);
+  const automatic = input.category_id === undefined;
+  const categoryId = input.category_id === undefined ? await ruleCategory(entry, account.currency) : input.category_id;
   const {
     result,
     id
@@ -163,7 +164,7 @@ export async function enterManualTransaction(accountId: string, payload: unknown
     accountId: account.id,
     currency: account.currency,
     categoryId,
-    categorySource: input.category_id ? "manual" : "rule"
+    categorySource: automatic ? "rule" : "manual"
   });
 
   requireSaved(result);
