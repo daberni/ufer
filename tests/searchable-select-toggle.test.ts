@@ -136,29 +136,37 @@ test("from the toggle, arrow keys move through the options, Enter picks one and 
   assert.deepEqual(chosen, ["Cherry", "Banana"]);
 });
 
-test("the toggle closes a list that the search field opened", async context => {
-  const {
-    field,
-    toggle
-  } = await renderSelect(context);
+for (const [browserName, focusesButton] of [["browsers that focus a pressed button", true], ["Safari, which does not focus a pressed button", false]] as const) {
+  test(`the toggle closes a list that the search field opened, in ${browserName}`, async context => {
+    const {
+      field,
+      toggle
+    } = await renderSelect(context);
 
-  act(() => {
-    field.focus();
-    fireEvent.click(field);
-  });
-  assert.equal(field.getAttribute("aria-expanded"), "true");
+    act(() => {
+      field.focus();
+      fireEvent.click(field);
+    });
+    assert.equal(field.getAttribute("aria-expanded"), "true");
 
-  // A press on the toggle moves focus to it, and the page renders, before its click.
-  act(() => {
-    toggle.focus();
-  });
-  act(() => {
-    fireEvent.click(toggle);
-  });
+    // A press first reaches the toggle, then the field loses focus and the page renders, and only then the click follows.
+    act(() => {
+      fireEvent.pointerDown(toggle);
+    });
+    act(() => {
+      if (focusesButton) {
+        toggle.focus();
+      } else {
+        field.blur();
+      }
+    });
+    act(() => {
+      fireEvent.click(toggle);
+    });
 
-  assert.equal(toggle.getAttribute("aria-expanded"), "false");
-  assert.equal(document.activeElement, toggle);
-});
+    assert.equal(toggle.getAttribute("aria-expanded"), "false");
+  });
+}
 
 test("typing on the toggle moves focus to the search field and searches for the typed character", async context => {
   const {
