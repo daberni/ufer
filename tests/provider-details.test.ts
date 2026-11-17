@@ -28,15 +28,17 @@ const basic: BankTransaction = {
   remittance_information: ["Synthetic purchase"]
 };
 
+const instructedRate = {
+  instructed_amount: {
+    amount: "13.40",
+    currency: "USD"
+  }
+};
+
 // A foreign-currency card payment as a bank may deliver it; fields Ufer does not read are kept only in the raw JSON.
 const foreign: BankTransaction = {
   ...basic,
-  exchange_rate: {
-    instructed_amount: {
-      amount: "13.40",
-      currency: "USD"
-    }
-  }
+  exchange_rate: instructedRate
 };
 
 const delivered = {
@@ -48,7 +50,7 @@ const delivered = {
   },
   merchant_category_code: "5411",
   exchange_rate: {
-    ...foreign.exchange_rate,
+    ...instructedRate,
     exchange_rate: "1.0720",
     rate_type: "SPOT"
   }

@@ -3,84 +3,137 @@ import { createPrivateKey, type KeyObject } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { SignJWT } from "jose";
 import { Temporal } from "temporal-polyfill";
+import { z } from "zod";
+import { timestamp, validDate } from "@/lib/time";
 import { environment } from "./environment";
 
-export type Bank = {
-  name: string;
-  country: string;
-  maximum_consent_validity: number;
-  psu_types?: string[];
-  beta?: boolean;
-  logo?: string;
-};
+// Fields Ufer reads, persists or shows are checked here; a response that does not match them is rejected as a provider failure.
+const providerTextLength = 500;
 
-export type BankAccount = {
-  uid: string;
-  identification_hash: string;
-  identification_hashes?: string[];
-  account_id?: {
-    iban?: string;
-  };
-  currency: string;
-  name?: string;
-  product?: string;
-  cash_account_type?: string;
-};
+// An optional descriptive value never stops an import or a connection: a malformed value is dropped.
+const optionalText = z.string().max(providerTextLength).nullish().catch(undefined);
 
-/** The fields Ufer reads; the complete provider transaction is stored as JSON alongside them. */
-export type BankTransaction = {
-  entry_reference?: string;
-  transaction_id?: string;
-  status: string;
-  booking_date?: string;
-  value_date?: string;
-  transaction_amount: {
-    amount: string;
-    currency: string;
-  };
-  credit_debit_indicator: "CRDT" | "DBIT";
-  creditor?: {
-    name?: string;
-  };
-  debtor?: {
-    name?: string;
-  };
-  creditor_account?: {
-    iban?: string;
-  };
-  debtor_account?: {
-    iban?: string;
-  };
-  remittance_information?: string[];
-  note?: string;
-  exchange_rate?: {
-    instructed_amount?: {
-      amount: string;
-      currency: string;
-    };
-  };
-};
+const providerAmount = z.looseObject({
+  amount: z.string(),
+  currency: z.string()
+});
 
-export type Balance = {
-  balance_type: string;
-  balance_amount: {
-    amount: string;
-    currency: string;
-  };
-  reference_date?: string;
-};
+// Persisted timestamps use the format of `timestamp()`, because SQL compares them as text.
+const providerInstant = z.string().transform((value, context) => {
+  try {
+    return timestamp(Temporal.Instant.from(value));
+  } catch (error) {
+    if (!(error instanceof RangeError)) {
+      throw error;
+    }
 
-export type BankSession = {
-  session_id: string;
-  accounts: BankAccount[];
-  access: {
-    valid_until: string;
-  };
-  aspsp: {
-    name: string;
-    country: string;
-  };
-};
+    context.addIssue({
+      code: "custom",
+      message: "Expected an instant with a UTC offset."
+    });
+
+    return z.NEVER;
+  }
+});
+
+const applicationResponse = z.object({
+  environment: z.string(),
+  redirect_urls: z.array(z.string())
+});
+
+const bank = z.object({
+  name: z.string().min(1).max(200),
+  country: z.string().regex(/^[A-Z]{2}$/),
+  maximum_consent_validity: z.number().int().positive().nullish(),
+  psu_types: z.array(z.string()).nullish(),
+  beta: z.boolean().nullish()
+});
+
+const bankDirectoryResponse = z.object({
+  aspsps: z.array(bank)
+});
+
+const authorizationResponse = z.object({
+  url: z.url({
+    protocol: /^https$/
+  }),
+  authorization_id: z.string().min(1)
+});
+
+const bankAccount = z.object({
+  uid: z.string(),
+  identification_hash: z.string(),
+  identification_hashes: z.array(z.string()).nullish(),
+  account_id: z.object({
+    iban: z.string().max(64).nullish().catch(undefined)
+  }).nullish().catch(undefined),
+  currency: z.string(),
+  name: optionalText,
+  product: optionalText,
+  cash_account_type: optionalText
+});
+
+const sessionResponse = z.object({
+  session_id: z.string().min(1),
+  accounts: z.array(bankAccount),
+  access: z.object({
+    valid_until: providerInstant
+  }),
+  aspsp: z.object({
+    name: z.string(),
+    country: z.string()
+  })
+});
+
+const balance = z.object({
+  balance_type: z.string(),
+  balance_amount: providerAmount,
+  reference_date: z.string().refine(validDate).nullish()
+});
+
+const balancesResponse = z.object({
+  balances: z.array(balance)
+});
+
+const party = z.looseObject({
+  name: optionalText
+}).nullish().catch(undefined);
+
+const partyAccount = z.looseObject({
+  iban: z.string().max(64).nullish().catch(undefined)
+}).nullish().catch(undefined);
+
+// Loose objects keep the provider fields Ufer does not read, because the raw transaction is stored with each booking.
+const bankTransaction = z.looseObject({
+  entry_reference: z.string().nullish(),
+  transaction_id: z.string().nullish(),
+  status: z.string(),
+  booking_date: z.string().nullish(),
+  value_date: z.string().nullish(),
+  transaction_amount: providerAmount,
+  credit_debit_indicator: z.string(),
+  creditor: party,
+  debtor: party,
+  creditor_account: partyAccount,
+  debtor_account: partyAccount,
+  remittance_information: z.array(z.string().max(providerTextLength)).nullish().catch(undefined),
+  note: optionalText
+});
+
+const transactionPageResponse = z.object({
+  transactions: z.array(bankTransaction),
+  continuation_key: z.string().nullish()
+});
+
+export type Bank = z.infer<typeof bank>;
+
+export type BankAccount = z.infer<typeof bankAccount>;
+
+export type BankTransaction = z.infer<typeof bankTransaction>;
+
+export type Balance = z.infer<typeof balance>;
+
+export type BankSession = z.infer<typeof sessionResponse>;
 
 export class BankingError extends HttpError {
   constructor(public code: string, public upstreamStatus: number) {
@@ -94,6 +147,13 @@ export class BankingError extends HttpError {
 
     super(upstreamStatus === 429 ? 429 : 502, messages[code] || `Enable Banking returned ${code} (HTTP ${upstreamStatus}).`);
   }
+}
+
+const endedSessionCodes = ["EXPIREDSESSION", "EXPIRED_SESSION", "INVALID_SESSION"];
+
+/** The provider no longer accepts this session; only a new bank authorization gives access again. */
+export function sessionEnded(error: unknown) {
+  return error instanceof BankingError && endedSessionCodes.includes(error.code);
 }
 
 export function bankingConfigured() {
@@ -168,7 +228,7 @@ export async function applicationToken() {
   return token;
 }
 
-export async function bankingRequest<T>(path: string, body?: unknown, method = body ? "POST" : "GET"): Promise<T> {
+async function bankingRequest<T>(path: string, schema: z.ZodType<T>, body?: unknown, method = body ? "POST" : "GET"): Promise<T> {
   let response: Response;
 
   try {
@@ -200,11 +260,11 @@ export async function bankingRequest<T>(path: string, body?: unknown, method = b
     throw new BankingError(code, response.status);
   }
 
-  return readProviderBody<T>(response, method);
+  return validProviderData(await readProviderBody(response, method), schema);
 }
 
 // A body that cannot be read is a provider failure, not the user's input. DELETE /sessions answers without a body.
-async function readProviderBody<T>(response: Response, method: string): Promise<T> {
+async function readProviderBody(response: Response, method: string): Promise<unknown> {
   let text: string;
 
   try {
@@ -214,21 +274,36 @@ async function readProviderBody<T>(response: Response, method: string): Promise<
   }
 
   if (!text.trim() && method === "DELETE") {
-    return undefined as T;
+    return undefined;
   }
 
   try {
-    return JSON.parse(text) as T;
+    return JSON.parse(text);
   } catch {
     throw new HttpError(502, "Enable Banking returned an unreadable response.");
   }
 }
 
+// Only issue locations and codes are logged; provider values may contain financial data.
+function validProviderData<T>(data: unknown, schema: z.ZodType<T>) {
+  const result = schema.safeParse(data);
+
+  if (!result.success) {
+    console.warn("Enable Banking response rejected.", {
+      issues: result.error.issues.map(issue => ({
+        path: issue.path.join("."),
+        code: issue.code
+      }))
+    });
+
+    throw new HttpError(502, "Enable Banking returned an unexpected response.");
+  }
+
+  return result.data;
+}
+
 export async function verifyApplication() {
-  const application = await bankingRequest<{
-    environment: string;
-    redirect_urls: string[];
-  }>("/application");
+  const application = await bankingRequest("/application", applicationResponse);
 
   if (application.environment !== environment()) {
     throw new HttpError(409, "The application environment does not match ENABLE_BANKING_ENVIRONMENT.");
@@ -238,13 +313,29 @@ export async function verifyApplication() {
 }
 
 export async function deleteSession(sessionId: string) {
-  await bankingRequest<unknown>(`/sessions/${encodeURIComponent(sessionId)}`, undefined, "DELETE");
+  await bankingRequest(`/sessions/${encodeURIComponent(sessionId)}`, z.unknown(), undefined, "DELETE");
+}
+
+/** Starts a bank authorization; the returned redirect is always an HTTPS URL. */
+export async function requestAuthorization(request: object) {
+  return bankingRequest("/auth", authorizationResponse, request);
+}
+
+/** Exchanges the callback code for the provider session with its authorized accounts. */
+export async function createSession(code: string) {
+  return bankingRequest("/sessions", sessionResponse, {
+    code
+  });
+}
+
+export async function fetchBalances(uid: string) {
+  const result = await bankingRequest(`/accounts/${encodeURIComponent(uid)}/balances`, balancesResponse);
+
+  return result.balances;
 }
 
 export async function availableBanks(country: string) {
-  const result = await bankingRequest<{
-    aspsps: Bank[];
-  }>(`/aspsps?country=${encodeURIComponent(country)}`);
+  const result = await bankingRequest(`/aspsps?country=${encodeURIComponent(country)}`, bankDirectoryResponse);
 
   return result.aspsps.filter(bank => !bank.psu_types || bank.psu_types.includes("personal"));
 }
@@ -271,10 +362,7 @@ export async function fetchTransactions(uid: string, dateFrom: string, heartbeat
       query.set("continuation_key", continuation);
     }
 
-    const page = await bankingRequest<{
-      transactions: BankTransaction[];
-      continuation_key?: string | null;
-    }>(`/accounts/${encodeURIComponent(uid)}/transactions?${query}`);
+    const page = await bankingRequest(`/accounts/${encodeURIComponent(uid)}/transactions?${query}`, transactionPageResponse);
 
     result.push(...page.transactions);
     continuation = page.continuation_key || undefined;

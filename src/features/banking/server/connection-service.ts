@@ -3,13 +3,10 @@ import { Temporal } from "temporal-polyfill";
 import { HttpError } from "@/lib/errors";
 import { database } from "@/server/database/connection";
 import { acquireLease, releaseLease } from "@/server/jobs/lease-repository";
-import { decrypt } from "@/server/security/secret-box";
 import { removeConnection, type ConnectionRemoval } from "./connection-repository";
-import { BankingError, deleteSession } from "./enable-banking-client";
 import { environment } from "./environment";
+import { revokeStoredSession } from "./session-revocation";
 import { syncLeaseName } from "./sync-service";
-
-export type ProviderRevocation = "revoked" | "not_revoked" | "no_session";
 
 // A callback that consumed its state shortly before may still be exchanging the code and must not be removed underneath it.
 const authorizationExchangeWindow = Temporal.Duration.from({
@@ -44,42 +41,13 @@ export async function removeBankConnection(id: string) {
     throw new HttpError(409, "This bank connection is still being authorized. Try again in a few minutes.");
   }
 
-  const providerRevocation = await revokeProviderSession(removal.sessionCipher);
+  const providerRevocation = removal.sessionCipher ? await revokeStoredSession(db, {
+    id,
+    session_cipher: removal.sessionCipher
+  }) : "no_session";
 
   return {
     retainedAccounts: removal.retainedAccounts,
     providerRevocation
   };
-}
-
-// The local removal is already committed; a failed upstream revocation only leaves the consent to expire at the provider.
-async function revokeProviderSession(sessionCipher: string | null): Promise<ProviderRevocation> {
-  if (!sessionCipher) {
-    return "no_session";
-  }
-
-  try {
-    await deleteSession(decrypt(sessionCipher));
-
-    return "revoked";
-  } catch (error) {
-    console.warn("Enable Banking session revocation failed after local connection removal.", {
-      reason: revocationFailureReason(error)
-    });
-
-    return "not_revoked";
-  }
-}
-
-// Provider error codes and exception types are safe to log; messages may contain provider or configuration details.
-function revocationFailureReason(error: unknown) {
-  if (error instanceof BankingError) {
-    return error.code;
-  }
-
-  if (error instanceof Error) {
-    return error.name;
-  }
-
-  return "unknown";
 }

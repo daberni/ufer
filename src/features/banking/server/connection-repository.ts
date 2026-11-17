@@ -1,4 +1,4 @@
-import { and, eq, gt, isNull, ne } from "drizzle-orm";
+import { and, eq, gt, inArray, isNotNull, isNull, ne } from "drizzle-orm";
 import { Temporal } from "temporal-polyfill";
 import { database, type Database } from "@/server/database/connection";
 import { environment } from "@/features/banking/server/environment";
@@ -46,14 +46,43 @@ export async function insertAuthorization(record: AuthorizationRecord) {
   });
 }
 
+// Connections that no longer read bank data; a stored session stays until the provider confirms its revocation.
+const releasedStatuses = ["REMOVED", "SUPERSEDED", "ERROR"];
+
+function pendingAuthorization(environment: string, stateHash: string, browserHash: string, actor: AuthContext, now: string) {
+  return and(eq(requisitions.workspace_id, actor.workspaceId), eq(requisitions.initiated_by_user_id, actor.userId), eq(requisitions.auth_session_id, actor.sessionId), eq(requisitions.environment, environment), eq(requisitions.state_hash, stateHash), eq(requisitions.browser_hash, browserHash), isNull(requisitions.used_at), gt(requisitions.state_expires_at, now), eq(requisitions.status, "PENDING"));
+}
+
 export async function consumeAuthorization(db: Database, environment: string, stateHash: string, browserHash: string, actor: AuthContext) {
   const now = timestamp();
-  const scope = and(eq(requisitions.workspace_id, actor.workspaceId), eq(requisitions.initiated_by_user_id, actor.userId), eq(requisitions.auth_session_id, actor.sessionId), eq(requisitions.environment, environment), eq(requisitions.state_hash, stateHash), eq(requisitions.browser_hash, browserHash), isNull(requisitions.used_at), gt(requisitions.state_expires_at, now), eq(requisitions.status, "PENDING"));
 
   return db.update(requisitions).set({
     used_at: now,
     status: "EXCHANGING"
-  }).where(scope).returning().get();
+  }).where(pendingAuthorization(environment, stateHash, browserHash, actor, now)).returning().get();
+}
+
+export async function cancelPendingAuthorization(db: Database, environment: string, stateHash: string, browserHash: string, actor: AuthContext) {
+  const now = timestamp();
+
+  await db.update(requisitions).set({
+    used_at: now,
+    status: "ERROR",
+    error: "The bank authorization was cancelled."
+  }).where(pendingAuthorization(environment, stateHash, browserHash, actor, now));
+}
+
+export async function listUnrevokedSessions(db: Database, environment: string) {
+  return db.select({
+    id: requisitions.id,
+    session_cipher: requisitions.session_cipher
+  }).from(requisitions).where(and(eq(requisitions.environment, environment), inArray(requisitions.status, releasedStatuses), isNotNull(requisitions.session_cipher)));
+}
+
+export async function clearRevokedSession(db: Database, id: string, sessionCipher: string) {
+  await db.update(requisitions).set({
+    session_cipher: null
+  }).where(and(eq(requisitions.id, id), eq(requisitions.session_cipher, sessionCipher)));
 }
 
 // The connection stays EXCHANGING until its accounts are mapped, so removal cannot interleave between the two steps.
@@ -89,6 +118,7 @@ export async function recordConnectionFailure(db: Database, id: string, error: s
 }
 
 // Accounts are detached rather than deleted, so their history stays and a later reconnect can remap them by identification hash.
+// The session ID stays stored until the provider confirms its revocation, so a failed revocation can be retried.
 export async function removeConnection(db: Database, environment: string, id: string, exchangeCutoff: Temporal.Instant): Promise<ConnectionRemoval> {
   return db.transaction(async tx => {
     const scope = and(eq(requisitions.id, id), eq(requisitions.environment, environment), ne(requisitions.status, "REMOVED"));
@@ -121,7 +151,6 @@ export async function removeConnection(db: Database, environment: string, id: st
 
     await tx.update(requisitions).set({
       status: "REMOVED",
-      session_cipher: null,
       valid_until: null,
       error: null
     }).where(scope);

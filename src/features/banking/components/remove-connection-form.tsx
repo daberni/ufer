@@ -122,6 +122,6 @@ function revocationWarning(connection: Connection, removal: ConnectionRemoval): 
 
   return {
     tone: "problem",
-    messages: [`${connection.bank_name} removed. Enable Banking did not confirm revoking the authorization; it ends when it expires or when you withdraw it at your bank.`]
+    messages: [`${connection.bank_name} removed. Enable Banking did not confirm revoking the authorization; Ufer retries during the next sync. It also ends when it expires or when you withdraw it at your bank.`]
   };
 }

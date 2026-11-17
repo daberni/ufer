@@ -10,10 +10,11 @@ import * as schema from "../src/server/database/schema";
 import { acquireLease } from "../src/server/jobs/lease-repository";
 import { encrypt } from "../src/server/security/secret-box";
 import { recordConnectionFailure, saveBankSession } from "../src/features/banking/server/connection-repository";
-import { bankingRequest } from "../src/features/banking/server/enable-banking-client";
+import { verifyApplication } from "../src/features/banking/server/enable-banking-client";
 import { removeBankConnection } from "../src/features/banking/server/connection-service";
 import { saveSessionAccounts } from "../src/features/banking/server/bank-account-repository";
 import { listSyncAccounts } from "../src/features/banking/server/sync-repository";
+import { syncAccounts } from "../src/features/banking/server/sync-service";
 import { listConnections } from "../src/features/banking/server/banking-queries";
 import { listAccounts } from "../src/features/accounts/server/account-queries";
 
@@ -189,12 +190,15 @@ test("removing a bank connection keeps accounts and history, deletes its credent
   assert.equal((await db.select().from(schema.requisitions).where(eq(schema.requisitions.id, "removed")).get())?.status, "REMOVED");
 });
 
-test("local removal completes when the provider cannot revoke the session", async context => {
+test("local removal completes when the provider cannot revoke the session, and the next sync retries the revocation", async context => {
   context.mock.method(console, "warn", () => {});
+  let providerAvailable = false;
   const {
     db,
     requests
-  } = await bankingDatabase(context, () => Response.json({
+  } = await bankingDatabase(context, () => providerAvailable ? new Response(null, {
+    status: 204
+  }) : Response.json({
     error: "API_ERROR"
   }, {
     status: 500
@@ -219,10 +223,18 @@ test("local removal completes when the provider cannot revoke the session", asyn
   });
   assert.equal(requests.length, 1);
 
-  const connections = await db.select().from(schema.requisitions);
+  const unrevoked = await db.select().from(schema.requisitions).where(eq(schema.requisitions.id, "unrevoked")).get();
 
-  assert.ok(connections.every(connection => connection.status === "REMOVED" && connection.session_cipher === null));
+  assert.equal(unrevoked?.status, "REMOVED");
+  assert.notEqual(unrevoked?.session_cipher, null);
+  assert.deepEqual(await listConnections(), []);
   assert.equal((await listSyncAccounts(db, "SANDBOX")).length, 0);
+
+  providerAvailable = true;
+  await syncAccounts();
+
+  assert.deepEqual(requests.map(request => `${request.method} ${request.path}`), ["DELETE /sessions/session-unrevoked", "DELETE /sessions/session-unrevoked"]);
+  assert.equal((await db.select().from(schema.requisitions).where(eq(schema.requisitions.id, "unrevoked")).get())?.session_cipher, null);
 });
 
 test("removal does not interfere with a running sync or an authorization callback in progress", async context => {
@@ -329,8 +341,8 @@ test("an unreadable provider success body is a 502 provider failure, not a 400 a
     status: 200
   }));
 
-  await assert.rejects(bankingRequest("/application"), {
+  await assert.rejects(verifyApplication(), {
     status: 502
   });
-  await assert.rejects(bankingRequest("/application"), (error: Error) => !/input/i.test(error.message));
+  await assert.rejects(verifyApplication(), (error: Error) => !/input/i.test(error.message));
 });
