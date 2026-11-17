@@ -4,7 +4,7 @@ import { useState } from "react";
 import { ArrowLeftRight, Pencil } from "lucide-react";
 import styles from "./transaction-type.module.css";
 import { transactionTypeLabels } from "@/features/transactions/transaction-types";
-import { TransactionTypeDialog } from "@/features/transactions/components/transaction-type-dialog";
+import { TransactionEditDialog } from "@/features/transactions/components/transaction-edit-dialog";
 import type { Transaction } from "@/features/transactions/types";
 
 /** Where a transfer goes to or comes from: the linked booking's account, or an account not tracked in Ufer. */
@@ -18,7 +18,7 @@ export function transferDirection(transaction: Transaction) {
   return `${towards} ${transaction.counterpart.account_name}`;
 }
 
-/** A transaction row's type, which opens the dialog that changes the type and the transfer link. */
+/** A transaction row's type, which opens the edit dialog for the type and the transfer target. */
 export function TransactionType({ transaction }: {
   transaction: Transaction
 }) {
@@ -33,7 +33,7 @@ export function TransactionType({ transaction }: {
       <button
         type="button"
         className={styles["type-button"]}
-        aria-label={`Type of ${subject}: ${label}${detail ? ` ${detail}` : ""}. Change type`}
+        aria-label={`Type of ${subject}: ${label}${detail ? ` ${detail}` : ""}. Edit type and transfer`}
         onClick={() => setOpen(true)}
       >
         {transfer && <ArrowLeftRight size={14} aria-hidden="true" />}
@@ -43,7 +43,7 @@ export function TransactionType({ transaction }: {
         </span>
         <Pencil className={styles["edit-hint"]} size={13} aria-hidden="true" />
       </button>
-      {open && <TransactionTypeDialog transaction={transaction} close={() => setOpen(false)} />}
+      {open && <TransactionEditDialog transaction={transaction} close={() => setOpen(false)} />}
     </>
   );
 }

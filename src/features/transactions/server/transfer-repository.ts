@@ -158,12 +158,167 @@ async function dissolveLink(tx: DatabaseTransaction, subject: Subject, counterpa
   }).where(eq(transactions.id, counterpart.id));
 }
 
-export type TypeChangeResult = "saved" | "not_found" | "manual_account_only";
+/** Where a transfer goes: an existing booking on another own account, a manual account on which the counterpart is created, or no counterpart (an account not tracked in Ufer). */
+export type TransferTarget = {
+  counterpartId: string;
+} | {
+  accountId: string;
+} | null;
+
+export type TypeChangeResult = "saved" | "not_found" | "manual_account_only" | "counterpart_not_found" | "same_account" | "not_a_candidate" | "account_not_found" | "currency_mismatch" | "zero_amount";
+
+async function link(tx: DatabaseTransaction, ids: string[]) {
+  await tx.update(transactions).set({
+    type: "transfer",
+    type_source: "manual",
+    transfer_id: randomUUID(),
+    transfer_source: "manual"
+  }).where(inArray(transactions.id, ids));
+}
+
+async function markManualType(tx: DatabaseTransaction, id: string, type: TransactionType) {
+  await tx.update(transactions).set({
+    type,
+    type_source: "manual"
+  }).where(eq(transactions.id, id));
+}
+
+async function findManualTarget(tx: DatabaseTransaction, accountId: string) {
+  return tx.select({
+    id: accounts.id,
+    currency: accounts.currency
+  }).from(accounts).where(and(eq(accounts.id, accountId), eq(accounts.environment, environment()), eq(accounts.provider, "manual"))).get();
+}
+
+/** Creates the counterpart of `subject` on a manual account and links both; the created booking carries its source's id in its reference. */
+async function createCounterpart(tx: DatabaseTransaction, subject: Subject, accountId: string) {
+  const counterpartId = randomUUID();
+
+  await tx.insert(transactions).values({
+    id: counterpartId,
+    account_id: accountId,
+    provider_reference: `${createdCounterpartPrefix}${subject.id}`,
+    booking_date: subject.booking_date,
+    amount_minor: -subject.amount_minor,
+    currency: subject.currency,
+    counterparty: subject.account_name,
+    description: subject.description || subject.counterparty,
+    category_id: subject.category_id,
+    category_source: "manual",
+    type: "transfer",
+    type_source: "manual"
+  });
+  await link(tx, [subject.id, counterpartId]);
+}
+
+/** Leaves the transfer type. A booking Ufer created on a manual account exists only for its link and is removed, its source becoming income or expense; otherwise the pair is corrected together and the counterpart becomes income or expense by its direction. */
+async function leaveTransfer(tx: DatabaseTransaction, subject: Subject, counterpart: Subject | undefined, type: TransactionType) {
+  if (counterpart && createdCounterpart(subject)) {
+    await dissolveLink(tx, counterpart);
+    await markManualType(tx, counterpart.id, derivedTransactionType(counterpart.amount_minor));
+
+    return;
+  }
+
+  if (subject.transfer_id) {
+    await dissolveLink(tx, subject, booking => derivedTransactionType(booking.amount_minor));
+  }
+
+  await markManualType(tx, subject.id, type);
+}
+
+async function linkExisting(tx: DatabaseTransaction, subject: Subject, counterpart: Subject | undefined, counterpartId: string): Promise<TypeChangeResult> {
+  if (counterpart?.id === counterpartId) {
+    await markManualType(tx, subject.id, "transfer");
+
+    return "saved";
+  }
+
+  const chosen = await findSubject(tx, counterpartId);
+
+  if (!chosen) {
+    return "counterpart_not_found";
+  }
+
+  if (chosen.account_id === subject.account_id) {
+    return "same_account";
+  }
+
+  const candidate = await tx.select({
+    id: transactions.id
+  }).from(transactions).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(and(eq(transactions.id, chosen.id), linkCandidate(subject))).get();
+
+  if (!candidate) {
+    return "not_a_candidate";
+  }
+
+  if (subject.transfer_id) {
+    await dissolveLink(tx, subject);
+  }
+
+  await link(tx, [subject.id, chosen.id]);
+
+  return "saved";
+}
+
+async function linkManualAccount(tx: DatabaseTransaction, subject: Subject, counterpart: Subject | undefined, accountId: string): Promise<TypeChangeResult> {
+  if (counterpart && createdCounterpart(counterpart) && counterpart.account_id === accountId) {
+    await markManualType(tx, subject.id, "transfer");
+
+    return "saved";
+  }
+
+  const account = await findManualTarget(tx, accountId);
+
+  if (!account) {
+    return "account_not_found";
+  }
+
+  if (account.id === subject.account_id) {
+    return "same_account";
+  }
+
+  if (account.currency !== subject.currency) {
+    return "currency_mismatch";
+  }
+
+  if (subject.amount_minor === 0) {
+    return "zero_amount";
+  }
+
+  if (subject.transfer_id) {
+    await dissolveLink(tx, subject);
+  }
+
+  await createCounterpart(tx, subject, account.id);
+
+  return "saved";
+}
+
+/** A transfer without a counterpart. Ending an existing link is a manual unlink; a booking Ufer created on a manual account is removed with it. Without a previous link, the booking is paired automatically when exactly one counterpart matches. */
+async function transferWithoutCounterpart(tx: DatabaseTransaction, subject: Subject, counterpart: Subject | undefined) {
+  if (!subject.transfer_id) {
+    await markManualType(tx, subject.id, "transfer");
+    await pairTransfers(tx, environment());
+
+    return;
+  }
+
+  if (counterpart && createdCounterpart(subject)) {
+    await dissolveLink(tx, counterpart);
+
+    return;
+  }
+
+  await dissolveLink(tx, subject);
+  await markManualType(tx, subject.id, "transfer");
+}
 
 /**
- * Stores a manually chosen type. Leaving the transfer type corrects the linked pair together: the link ends and the counterpart becomes income or expense by its direction. Choosing the transfer type pairs the booking automatically when exactly one counterpart matches.
+ * Stores a manually chosen type and, for a transfer, its target in one transaction. `target` undefined keeps a transfer's current link; null means no counterpart.
+ * A target booking must be one of the subject's link candidates, and a target manual account must use the subject's currency. Every check runs before anything is written.
  */
-export async function saveTransactionType(id: string, type: TransactionType): Promise<TypeChangeResult> {
+export async function saveTransactionType(id: string, type: TransactionType, target?: TransferTarget): Promise<TypeChangeResult> {
   const db = await database();
 
   return db.transaction(async tx => {
@@ -177,189 +332,63 @@ export async function saveTransactionType(id: string, type: TransactionType): Pr
       return "manual_account_only";
     }
 
-    const counterpart = subject.transfer_id && type !== "transfer" ? await findCounterpart(tx, subject) : undefined;
-
-    // A booking Ufer created on a manual account exists only for its link: leaving the transfer type removes it and makes its source income or expense.
-    if (counterpart && createdCounterpart(subject)) {
-      await dissolveLink(tx, counterpart);
-      await tx.update(transactions).set({
-        type: derivedTransactionType(counterpart.amount_minor),
-        type_source: "manual"
-      }).where(eq(transactions.id, counterpart.id));
-
-      return "saved";
-    }
-
-    if (subject.transfer_id && type !== "transfer") {
-      await dissolveLink(tx, subject, booking => derivedTransactionType(booking.amount_minor));
-    }
-
-    await tx.update(transactions).set({
-      type,
-      type_source: "manual"
-    }).where(eq(transactions.id, subject.id));
-
-    if (type === "transfer" && !subject.transfer_id) {
-      await pairTransfers(tx, environment());
-    }
-
-    return "saved";
-  });
-}
-
-export type LinkResult = "saved" | "not_found" | "counterpart_not_found" | "same_account" | "already_linked" | "not_a_candidate";
-
-async function link(tx: DatabaseTransaction, ids: string[]) {
-  await tx.update(transactions).set({
-    type: "transfer",
-    type_source: "manual",
-    transfer_id: randomUUID(),
-    transfer_source: "manual"
-  }).where(inArray(transactions.id, ids));
-}
-
-/** Links two existing bookings as the outgoing and incoming side of one transfer when the counterpart is one of the subject's link candidates. */
-export async function saveTransferLink(id: string, counterpartId: string): Promise<LinkResult> {
-  const db = await database();
-
-  return db.transaction(async tx => {
-    const subject = await findSubject(tx, id);
-    const counterpart = await findSubject(tx, counterpartId);
-
-    if (!subject) {
-      return "not_found";
-    }
-
-    if (!counterpart) {
-      return "counterpart_not_found";
-    }
-
-    if (subject.account_id === counterpart.account_id) {
-      return "same_account";
-    }
-
-    if (subject.transfer_id || counterpart.transfer_id) {
-      return "already_linked";
-    }
-
-    const candidate = await tx.select({
-      id: transactions.id
-    }).from(transactions).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(and(eq(transactions.id, counterpart.id), linkCandidate(subject))).get();
-
-    if (!candidate) {
-      return "not_a_candidate";
-    }
-
-    await link(tx, [subject.id, counterpart.id]);
-
-    return "saved";
-  });
-}
-
-export type ManualCounterpartResult = "saved" | "not_found" | "account_not_found" | "same_account" | "currency_mismatch" | "zero_amount" | "already_linked";
-
-/** Marks a booking as a transfer to or from a manual account and creates the counterpart booking there, so the movement is entered once. */
-export async function saveTransferToManualAccount(id: string, accountId: string): Promise<ManualCounterpartResult> {
-  const db = await database();
-
-  return db.transaction(async tx => {
-    const subject = await findSubject(tx, id);
-    const account = await tx.select({
-      id: accounts.id,
-      currency: accounts.currency
-    }).from(accounts).where(and(eq(accounts.id, accountId), eq(accounts.environment, environment()), eq(accounts.provider, "manual"))).get();
-
-    if (!subject) {
-      return "not_found";
-    }
-
-    if (!account) {
-      return "account_not_found";
-    }
-
-    if (account.id === subject.account_id) {
-      return "same_account";
-    }
-
-    if (account.currency !== subject.currency) {
-      return "currency_mismatch";
-    }
-
-    if (subject.amount_minor === 0) {
-      return "zero_amount";
-    }
-
-    if (subject.transfer_id) {
-      return "already_linked";
-    }
-
-    const counterpartId = randomUUID();
-
-    await tx.insert(transactions).values({
-      id: counterpartId,
-      account_id: account.id,
-      provider_reference: `${createdCounterpartPrefix}${subject.id}`,
-      booking_date: subject.booking_date,
-      amount_minor: -subject.amount_minor,
-      currency: subject.currency,
-      counterparty: subject.account_name,
-      description: subject.description || subject.counterparty,
-      category_id: subject.category_id,
-      category_source: "manual",
-      type: "transfer",
-      type_source: "manual"
-    });
-    await link(tx, [subject.id, counterpartId]);
-
-    return "saved";
-  });
-}
-
-export type UnlinkResult = "saved" | "not_found" | "not_linked";
-
-/** Ends a transfer link; both bookings stay transfers without a counterpart unless one was created on a manual account, which is removed. */
-export async function removeTransferLink(id: string): Promise<UnlinkResult> {
-  const db = await database();
-
-  return db.transaction(async tx => {
-    const subject = await findSubject(tx, id);
-
-    if (!subject) {
-      return "not_found";
-    }
-
-    if (!subject.transfer_id) {
-      return "not_linked";
-    }
-
     const counterpart = await findCounterpart(tx, subject);
 
-    // Unlinking from the created side removes the created booking and keeps its source.
-    if (counterpart && createdCounterpart(subject)) {
-      await dissolveLink(tx, counterpart);
+    if (type !== "transfer") {
+      await leaveTransfer(tx, subject, counterpart, type);
 
       return "saved";
     }
 
-    await dissolveLink(tx, subject);
+    if (target && "counterpartId" in target) {
+      return linkExisting(tx, subject, counterpart, target.counterpartId);
+    }
+
+    if (target && "accountId" in target) {
+      return linkManualAccount(tx, subject, counterpart, target.accountId);
+    }
+
+    if (target === undefined && subject.transfer_id) {
+      await markManualType(tx, subject.id, "transfer");
+
+      return "saved";
+    }
+
+    await transferWithoutCounterpart(tx, subject, counterpart);
 
     return "saved";
   });
+}
+
+/** Creates the counterpart of the booking `sourceReference` on `accountId` and links both, as a person does in the edit dialog; for seeding data. */
+export async function createTransferCounterpart(tx: DatabaseTransaction, sourceAccountId: string, sourceReference: string, accountId: string) {
+  const source = await tx.select({
+    id: transactions.id
+  }).from(transactions).where(and(eq(transactions.account_id, sourceAccountId), eq(transactions.provider_reference, sourceReference))).get();
+  const subject = source ? await findSubject(tx, source.id) : undefined;
+
+  if (!subject) {
+    throw new Error("The source booking of a created counterpart is missing.");
+  }
+
+  await createCounterpart(tx, subject, accountId);
 }
 
 function transferBooking(booking: Subject): TransferBooking {
   return {
     id: booking.id,
+    account_id: booking.account_id,
     account_name: booking.account_name,
     booking_date: booking.booking_date,
     amount_minor: booking.amount_minor,
     currency: booking.currency,
     counterparty: booking.counterparty,
-    description: booking.description
+    description: booking.description,
+    created: createdCounterpart(booking)
   };
 }
 
-/** The current counterpart of a booking, or, while it has none, the bookings and manual accounts it can be linked with. Undefined for an unknown booking. */
+/** A booking's current counterpart, the bookings it can be linked with and the manual accounts a counterpart can be created on. Undefined for an unknown booking. */
 export async function readTransferOptions(id: string): Promise<TransferOptions | undefined> {
   const db = await database();
   const subject = await findSubject(db, id);
@@ -370,14 +399,6 @@ export async function readTransferOptions(id: string): Promise<TransferOptions |
 
   const counterpart = await findCounterpart(db, subject);
 
-  if (subject.transfer_id) {
-    return {
-      counterpart: counterpart ? transferBooking(counterpart) : null,
-      candidates: [],
-      accounts: []
-    };
-  }
-
   const distance = sql`abs(julianday(${transactions.booking_date})-julianday(${subject.booking_date}))`;
   const candidates = await db.select(subjectColumns).from(transactions).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(linkCandidate(subject)).orderBy(distance, asc(transactions.booking_date), asc(transactions.id)).limit(20);
   const manualAccounts = subject.amount_minor === 0 ? [] : await db.select({
@@ -386,7 +407,7 @@ export async function readTransferOptions(id: string): Promise<TransferOptions |
   }).from(accounts).where(and(eq(accounts.environment, environment()), eq(accounts.provider, "manual"), eq(accounts.currency, subject.currency), ne(accounts.id, subject.account_id))).orderBy(asc(accounts.name));
 
   return {
-    counterpart: null,
+    counterpart: counterpart ? transferBooking(counterpart) : null,
     candidates: candidates.map(transferBooking),
     accounts: manualAccounts
   };

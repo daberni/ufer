@@ -30,15 +30,18 @@ export type Transaction = {
 /** A booking as shown when linking the two sides of a transfer. */
 export type TransferBooking = {
   id: string;
+  account_id: string;
   account_name: string;
   booking_date: string;
   amount_minor: number;
   currency: string;
   counterparty: string;
   description: string;
+  /** Whether Ufer created this booking on a manual account as a transfer's counterpart. */
+  created: boolean;
 };
 
-/** A booking's transfer link, or, while it has none, what it can be linked with. */
+/** A booking's transfer link and what it can be linked with instead. */
 export type TransferOptions = {
   counterpart: TransferBooking | null;
   /** Unlinked bookings with the opposite amount on other accounts, closest booking date first. */

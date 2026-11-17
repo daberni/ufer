@@ -126,6 +126,14 @@ export const demoRules: DemoRule[] = [{
   priority: 5,
   enabled: true
 }, {
+  id: "demo-rule-joint-account",
+  name: "Joint household account",
+  pattern: "Joint household account",
+  mode: "keyword",
+  categoryId: "transfer",
+  priority: 6,
+  enabled: true
+}, {
   id: "demo-rule-salary",
   name: "Salary and bonuses",
   pattern: "Alder & Finch Engineering",

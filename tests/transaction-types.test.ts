@@ -10,7 +10,7 @@ import * as schema from "../src/server/database/schema";
 import { saveAccountSync } from "../src/features/banking/server/account-sync-service";
 import { pairTransfersInEnvironment } from "../src/features/transactions/server/transfer-repository";
 import { unambiguousPairs } from "../src/features/transactions/server/transfer-pairing";
-import { linkTransfer, transferOptions, unlinkTransfer, updateTransactionType } from "../src/features/transactions/server/transaction-service";
+import { transferOptions, updateTransactionType } from "../src/features/transactions/server/transaction-service";
 import { importTransactions } from "../src/features/imports/server/import-service";
 import { readCashFlow } from "../src/features/reports/server/cash-flow-query";
 import { readTransactionPage } from "../src/features/transactions/server/transaction-list-query";
@@ -79,6 +79,18 @@ async function isolatedDatabase(context: TestContext) {
   }]);
 
   return db;
+}
+
+/** Saves a transfer with the given target, as the edit dialog does. */
+function saveTransfer(id: string, transfer: {
+  counterpart_id: string
+} | {
+  account_id: string
+} | null) {
+  return updateTransactionType(id, {
+    type: "transfer",
+    transfer
+  });
 }
 
 let runCounter = 0;
@@ -233,11 +245,11 @@ test("manual types, links and unlinks survive resync and later pairing", async c
   assert.ok(await linked(db, "paired-out", "paired-in"));
   assert.equal((await stored(db, "relinked-out")).transfer_id, null);
 
-  await unlinkTransfer((await stored(db, "paired-out")).id);
+  await saveTransfer((await stored(db, "paired-out")).id, null);
   await updateTransactionType((await stored(db, "refund")).id, {
     type: "expense"
   });
-  await linkTransfer((await stored(db, "relinked-out")).id, {
+  await saveTransfer((await stored(db, "relinked-out")).id, {
     counterpart_id: (await stored(db, "relinked-in-2")).id
   });
 
@@ -278,10 +290,10 @@ test("a transfer to a manual account creates its counterpart there, and unlinkin
     id: "property",
     name: "Synthetic flat"
   }]);
-  await assert.rejects(linkTransfer(deposit.id, {
+  await assert.rejects(saveTransfer(deposit.id, {
     account_id: "dollars"
   }), ValidationError);
-  await linkTransfer(deposit.id, {
+  await saveTransfer(deposit.id, {
     account_id: "property"
   });
 
@@ -297,11 +309,13 @@ test("a transfer to a manual account creates its counterpart there, and unlinkin
 
   assert.equal(shown?.counterpart?.account_name, "Synthetic flat");
   assert.equal((await readCashFlow(monthPeriod(Temporal.PlainYearMonth.from("2026-09")), "EUR")).expenses, 0);
-  await assert.rejects(linkTransfer(deposit.id, {
+  // Saving the same target again keeps the one counterpart.
+  await saveTransfer(deposit.id, {
     account_id: "property"
-  }), (error: unknown) => error instanceof HttpError && error.status === 409);
+  });
+  assert.equal((await db.select().from(schema.transactions).where(eq(schema.transactions.account_id, "property"))).length, 1);
 
-  await unlinkTransfer(deposit.id);
+  await saveTransfer(deposit.id, null);
 
   assert.equal((await db.select().from(schema.transactions).where(eq(schema.transactions.account_id, "property"))).length, 0);
   assert.deepEqual([(await stored(db, "deposit")).type, (await stored(db, "deposit")).transfer_id], ["transfer", null]);
@@ -383,7 +397,7 @@ test("leaving the transfer type on a booking Ufer created on a manual account re
   const db = await isolatedDatabase(context);
 
   await sync(db, "checking", [entry("deposit", "2026-09-15", -2500000)]);
-  await linkTransfer((await stored(db, "deposit")).id, {
+  await saveTransfer((await stored(db, "deposit")).id, {
     account_id: "property"
   });
   const created = await db.select().from(schema.transactions).where(eq(schema.transactions.account_id, "property")).get();
@@ -408,15 +422,57 @@ test("linking accepts only the bookings the dialog offers: the exact opposite am
   const out = (await stored(db, "out")).id;
 
   for (const reference of ["dollars", "smaller", "late"]) {
-    await assert.rejects(linkTransfer(out, {
+    await assert.rejects(saveTransfer(out, {
       counterpart_id: (await stored(db, reference)).id
     }), ValidationError, reference);
     assert.equal((await stored(db, reference)).transfer_id, null, reference);
   }
 
   assert.equal((await stored(db, "out")).transfer_id, null);
-  await linkTransfer(out, {
+  await saveTransfer(out, {
     counterpart_id: (await stored(db, "in-window")).id
   });
   assert.ok(await linked(db, "out", "in-window"));
+});
+
+test("one save moves a transfer between a booking, a manual account and no counterpart without leaving stale links", async context => {
+  const db = await isolatedDatabase(context);
+  const createdOnFlat = async () => db.select().from(schema.transactions).where(eq(schema.transactions.account_id, "property"));
+
+  await sync(db, "checking", [entry("out", "2026-09-01", -10000, true)]);
+  await sync(db, "savings", [entry("in", "2026-09-01", 10000, true)]);
+  const out = (await stored(db, "out")).id;
+
+  assert.ok(await linked(db, "out", "in"));
+  assert.equal((await transferOptions(out)).counterpart?.id, (await stored(db, "in")).id);
+
+  await saveTransfer(out, {
+    account_id: "property"
+  });
+  assert.equal((await createdOnFlat()).length, 1);
+  assert.equal((await createdOnFlat())[0].transfer_id, (await stored(db, "out")).transfer_id);
+  assert.deepEqual([(await stored(db, "in")).type, (await stored(db, "in")).transfer_id], ["transfer", null]);
+  assert.equal((await transferOptions(out)).counterpart?.created, true);
+
+  await saveTransfer(out, {
+    counterpart_id: (await stored(db, "in")).id
+  });
+  assert.equal((await createdOnFlat()).length, 0);
+  assert.ok(await linked(db, "out", "in"));
+
+  // Omitting the target keeps the link; a target on another type is refused.
+  await updateTransactionType(out, {
+    type: "transfer"
+  });
+  assert.ok(await linked(db, "out", "in"));
+  await assert.rejects(updateTransactionType(out, {
+    type: "expense",
+    transfer: {
+      account_id: "property"
+    }
+  }), ValidationError);
+
+  await saveTransfer(out, null);
+  assert.deepEqual([(await stored(db, "out")).transfer_id, (await stored(db, "out")).transfer_source], [null, "manual"]);
+  assert.deepEqual([(await stored(db, "in")).type, (await stored(db, "in")).transfer_id], ["transfer", null]);
 });

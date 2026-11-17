@@ -32,10 +32,11 @@ export function useTransactionList(query: ViewQuery) {
   });
 }
 
-/** A booking's transfer link and what it can be linked with, loaded while its type dialog is open. */
-export function useTransferOptions(id: string) {
+/** A booking's transfer link and what it can be linked with, loaded while its edit dialog shows the transfer type. */
+export function useTransferOptions(id: string, enabled: boolean) {
   return useQuery({
     queryKey: queryKeys.transactions.transfer(id),
-    queryFn: ({ signal }) => apiGet<TransferOptions>(`transactions/${encodeURIComponent(id)}/transfer`, undefined, signal)
+    queryFn: ({ signal }) => apiGet<TransferOptions>(`transactions/${encodeURIComponent(id)}/transfer`, undefined, signal),
+    enabled
   });
 }

@@ -2,11 +2,11 @@ import { and, count, inArray, isNotNull, like, ne, not, sql } from "drizzle-orm"
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 import { accounts, balanceSnapshots, categories, categorizationRules, requisitions, transactions } from "@/server/database/schema";
 import { upsertTransactions } from "@/features/transactions/server/transaction-repository";
-import { pairTransfers } from "@/features/transactions/server/transfer-repository";
+import { createTransferCounterpart, pairTransfers } from "@/features/transactions/server/transfer-repository";
 import type { CategorizedEntry } from "@/features/transactions/server/transaction-entry";
 import type { CategorizationRule, Category } from "@/server/database/models";
 import { demoIdPrefix, type DemoAccountDefinition, type DemoCategory } from "./demo-catalog";
-import type { DemoSnapshot } from "./demo-dataset";
+import type { DemoCreatedCounterpart, DemoSnapshot } from "./demo-dataset";
 
 /** What the guard inspects before demo rows are replaced. */
 export type DemoSeedTarget = {
@@ -26,6 +26,7 @@ export type DemoSeedRows = {
   categories: DemoCategory[];
   rules: CategorizationRule[];
   accounts: DemoAccountRows[];
+  createdCounterparts: DemoCreatedCounterpart[];
 };
 
 const demoRows = `${demoIdPrefix}%`;
@@ -133,6 +134,10 @@ export async function replaceDemoRows(rows: DemoSeedRows, verify: (target: DemoS
 
     for (const account of rows.accounts) {
       await insertAccount(tx, rows.environment, account);
+    }
+
+    for (const counterpart of rows.createdCounterparts) {
+      await createTransferCounterpart(tx, counterpart.sourceAccountId, counterpart.sourceReference, counterpart.accountId);
     }
 
     // Only demo bookings are paired, so a synced sandbox booking never becomes a transfer to a demo account.

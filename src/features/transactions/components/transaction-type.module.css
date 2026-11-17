@@ -25,23 +25,46 @@
 .type-button:focus-visible .edit-hint {
   opacity: 1;
 }
-.transfer {
-  margin-top: var(--space-6);
-  padding-top: var(--space-6);
-  border-top: 1px solid var(--border);
+.suggestions {
+  margin: var(--space-4) 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
 }
-.transfer-heading {
-  font-size: var(--text-lg);
-  font-weight: 500;
-}
-.counterpart {
-  margin-top: var(--space-4);
+.suggestions legend {
+  padding: 0;
   font-size: var(--text-sm);
-  line-height: 1.7;
-  overflow-wrap: anywhere;
+  color: var(--muted);
 }
-.action {
-  margin-top: var(--space-4);
+.suggestions-hint {
+  margin: var(--space-1) 0 var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--muted);
+  line-height: 1.6;
+}
+/* Overrides the column layout the form gives its labels. */
+.suggestions .suggestion {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: var(--space-3);
+  margin: var(--space-2) 0 0;
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--ink);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.suggestions .suggestion:has(:checked) {
+  border-color: var(--green);
+  background: var(--soft);
+}
+/* The form's full-width rule for inputs must not stretch the radio. */
+.suggestions .suggestion input {
+  flex-shrink: 0;
+  width: auto;
+  margin-top: 3px;
 }
 
 @media (hover: none) {
