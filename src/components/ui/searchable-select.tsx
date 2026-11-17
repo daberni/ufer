@@ -81,6 +81,8 @@ export function SearchableSelect<Value>({
   const [toggleFocused, setToggleFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const toggleRef = useRef<HTMLButtonElement>(null);
+  // Whether the list was open when a press on the toggle began; the field's blur may close it before the click.
+  const openAtTogglePress = useRef<boolean | null>(null);
   const controlRef = useRef<HTMLDivElement>(null);
   const popupRef = useRef<HTMLDivElement>(null);
   const listboxRef = useRef<HTMLUListElement>(null);
@@ -248,9 +250,12 @@ export function SearchableSelect<Value>({
 
   // Opening from the button leaves the search field unfocused, so phones do not raise the on-screen keyboard.
   function toggle() {
+    const wasOpen = openAtTogglePress.current ?? open;
+
+    openAtTogglePress.current = null;
     toggleRef.current?.focus();
 
-    if (open) {
+    if (wasOpen) {
       setOpen(false);
     } else {
       openAt(Math.max(selectedIndex, 0));
@@ -365,6 +370,9 @@ export function SearchableSelect<Value>({
           aria-haspopup="listbox"
           aria-expanded={open}
           aria-controls={listboxId}
+          onPointerDown={() => {
+            openAtTogglePress.current = open;
+          }}
           onClick={toggle}
           onKeyDown={handleToggleKeyDown}
           // Space would click the button on release after it already picked an option.
