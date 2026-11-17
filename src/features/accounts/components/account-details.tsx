@@ -7,14 +7,13 @@ import { clsx } from "clsx";
 import Link from "next/link";
 import { useId, useState } from "react";
 import styles from "./account-details.module.css";
-import { ArrowLeft, ArrowRight, Pencil, RefreshCw } from "lucide-react";
+import { ArrowLeft, ArrowRight, RefreshCw } from "lucide-react";
 import { accountIcon, accountSourceLabel, accountSyncLabel, kinds } from "@/features/accounts/account-presentation";
 import { DateValue, TimestampValue } from "@/components/ui/date-value";
 import { Empty } from "@/components/ui/empty-state";
 import { AreaPlaceholder } from "@/components/ui/area-placeholder";
 import { money } from "@/lib/money";
 import { BankConnectionDialog } from "@/features/banking/components/bank-connection-form";
-import { ValuationDialog } from "./valuation-form";
 import { BalanceHistoryPanel } from "./balance-history";
 import { useViewHref } from "@/client/use-app-url";
 import type { Area } from "@/components/ui/use-area-result";
@@ -93,13 +92,6 @@ export function AccountNotFound({ back }: {
   );
 }
 
-type OpenDialog = {
-  kind: "balance";
-} | {
-  kind: "bank";
-  connection: Connection;
-};
-
 function AccountSummary({
   account,
   connections
@@ -107,20 +99,20 @@ function AccountSummary({
   account: Account;
   connections: Connection[];
 }) {
-  const [dialog, setDialog] = useState<OpenDialog | null>(null);
-  const closeDialog = () => setDialog(null);
-  const nameId = useId();
+  const [connection, setConnection] = useState<Connection | null>(null);
+  const closeDialog = () => setConnection(null);
+  const headingId = useId();
   const Icon = accountIcon(account.kind);
 
   return (
-    <section className={clsx(ui["panel"], styles["summary"])} aria-labelledby={nameId}>
+    <section className={clsx(ui["panel"], styles["summary"])} aria-labelledby={headingId}>
       <div className={ui["card-heading"]}>
         <span className={clsx(accountStyles["account-logo"], accountStyles[account.kind])}>
           <Icon size={23} />
         </span>
         <span className={ui["pill"]}>{kinds[account.kind] ?? account.kind}</span>
       </div>
-      <h2 id={nameId} className={styles["name"]}>{account.name}</h2>
+      <h2 id={headingId} className={styles["heading"]}>Balance</h2>
       <p className={ui["muted"]}>{account.institution} · {account.currency}</p>
       <strong className={styles["balance"]}>{account.balance_minor === null ? "—" : money(account.balance_minor, account.currency)}</strong>
       <dl className={styles["facts"]}>
@@ -135,30 +127,14 @@ function AccountSummary({
         {account.provider !== "manual" && <SyncFacts account={account} />}
       </dl>
       {account.sync_error && <p className={ui["error-text"]}>{account.sync_error}</p>}
-      {account.provider === "manual" ? (
-        <div className={styles["actions"]}>
-          <button
-            className={clsx(ui["button"], ui["primary"])}
-            onClick={() => setDialog({
-              kind: "balance"
-            })}
-          >
-            <Pencil size={15} />
-            Update balance
-          </button>
-        </div>
-      ) : (
+      {account.provider !== "manual" && (
         <ConnectionActions
           account={account}
           connections={connections}
-          reconnect={connection => setDialog({
-            kind: "bank",
-            connection
-          })}
+          reconnect={setConnection}
         />
       )}
-      {dialog?.kind === "balance" && <ValuationDialog selectedAccount={account} close={closeDialog} />}
-      {dialog?.kind === "bank" && <BankConnectionDialog connection={dialog.connection} close={closeDialog} />}
+      {connection && <BankConnectionDialog connection={connection} close={closeDialog} />}
     </section>
   );
 }
@@ -224,9 +200,7 @@ function AccountSummarySkeleton() {
         <span className={clsx(accountStyles["account-logo"], ui["skeleton"])} />
         <span className={clsx(ui["pill"], ui["skeleton"])}>Current account</span>
       </div>
-      <h2 className={styles["name"]}>
-        <span className={ui["skeleton"]}>Everyday account</span>
-      </h2>
+      <h2 className={styles["heading"]}>Balance</h2>
       <p>
         <span className={ui["skeleton"]}>Example bank · EUR</span>
       </p>
@@ -236,9 +210,6 @@ function AccountSummarySkeleton() {
       <div className={styles["facts"]}>
         <span className={ui["skeleton"]}>Balance date 12 Jan 2025</span>
         <span className={ui["skeleton"]}>Source Bank sync</span>
-      </div>
-      <div className={styles["actions"]}>
-        <span className={clsx(ui["button"], ui["skeleton"])}>Update balance</span>
       </div>
     </section>
   );

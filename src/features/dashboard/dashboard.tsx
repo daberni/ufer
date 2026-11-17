@@ -16,6 +16,7 @@ import { PageHeading } from "@/components/layout/page-heading";
 import { LoginForm } from "@/features/auth/components/login-form";
 import { LegalLinks } from "@/features/legal/components/legal-links";
 import { SourceCodeNotice } from "@/features/legal/components/source-code-notice";
+import { AccountDetailActions } from "@/features/accounts/components/account-detail-actions";
 import { accountGroups, useAccounts } from "@/features/accounts/queries";
 import { useBankingConfiguration } from "@/features/banking/banking-configuration";
 import { SyncButton } from "@/features/banking/components/sync-button";
@@ -23,7 +24,7 @@ import { navigation } from "./navigation";
 import { onView, useAppStore } from "@/client/app-store";
 import { useSessionLock } from "@/client/use-session-lock";
 import { useDashboardNavigation } from "./use-dashboard-navigation";
-import { useChangeView, useCurrency, useView, useViewHref } from "@/client/use-app-url";
+import { useAccountFilter, useChangeView, useCurrency, useView, useViewHref } from "@/client/use-app-url";
 import { sectionOf } from "@/client/app-location";
 import { useLoadError } from "./use-load-error";
 import { TraceId } from "@/components/ui/trace-id";
@@ -60,9 +61,14 @@ function DashboardShell({ children }: {
   const changeView = useChangeView();
   const currency = useCurrency();
   const accounts = useAccounts();
+  const accountId = useAccountFilter();
   const loadError = useLoadError();
   const section = sectionOf(view);
   const nav = navigation.find(item => item.id === section)!;
+  const selectedAccount = view === "account" ? accounts.data?.find(account => account.id === accountId) : undefined;
+  const heading = view === "account" ? selectedAccount?.name ?? "Account details" : nav.heading;
+  const description = view === "account" ? "Balance, transactions and history." : nav.description;
+  const showSync = view !== "account" || Boolean(selectedAccount && selectedAccount.provider !== "manual");
 
   // Bank accounts only add the sync action and authorization reminders, so until they load the shell shows neither.
   const {
@@ -89,8 +95,15 @@ function DashboardShell({ children }: {
       <div className={styles["main-shell"]}>
         <AppHeader environment={environment} title={nav.label} />
         <main className={styles["content"]}>
-          <PageHeading heading={nav.heading} description={nav.description}>
-            <SyncButton bankAccounts={bankAccounts} showConnections={() => changeView("connections")} />
+          <PageHeading heading={heading} description={description}>
+            {selectedAccount?.provider === "manual" && (
+              <AccountDetailActions
+                key={selectedAccount.id}
+                account={selectedAccount}
+                manualAccounts={(accounts.data ?? []).filter(account => account.provider === "manual")}
+              />
+            )}
+            {showSync && <SyncButton bankAccounts={bankAccounts} showConnections={() => changeView("connections")} />}
           </PageHeading>
           <LoadErrorNotice failure={loadError.failure} retry={loadError.retry} />
           {environment === "SANDBOX" && (
