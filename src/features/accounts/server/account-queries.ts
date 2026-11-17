@@ -1,7 +1,9 @@
-import { asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 import { database } from "@/server/database/connection";
-import { accounts, requisitions } from "@/server/database/schema";
+import { accounts, balanceSnapshots, requisitions } from "@/server/database/schema";
 import { environment } from "@/features/banking/server/environment";
+import { HttpError } from "@/lib/errors";
+import type { BalanceHistory } from "@/features/accounts/types";
 
 const kindOrder = sql`CASE ${accounts.kind} WHEN 'checking' THEN 0 WHEN 'savings' THEN 1 WHEN 'investment' THEN 2 ELSE 3 END`;
 
@@ -38,5 +40,28 @@ export async function readNetWorth(currency: string) {
     property: sum(["property"]),
     liabilities: sum(["loan"]),
     unvalued: relevant.filter(account => account.balance_minor === null).length
+  };
+}
+
+/** Every recorded balance of one account of the current banking environment, oldest first. */
+export async function readBalanceHistory(accountId: string): Promise<BalanceHistory> {
+  const db = await database();
+  const account = await db.select({
+    currency: accounts.currency
+  }).from(accounts).where(and(eq(accounts.id, accountId), eq(accounts.environment, environment()))).get();
+
+  if (!account) {
+    throw new HttpError(404, "Account not found.");
+  }
+
+  const balances = await db.select({
+    date: balanceSnapshots.observed_at,
+    amount_minor: balanceSnapshots.amount_minor,
+    source: balanceSnapshots.source
+  }).from(balanceSnapshots).where(eq(balanceSnapshots.account_id, accountId)).orderBy(asc(balanceSnapshots.observed_at));
+
+  return {
+    currency: account.currency,
+    balances
   };
 }

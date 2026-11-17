@@ -4,8 +4,9 @@ import ui from "../../../components/ui/primitives.module.css";
 import accountStyles from "./account-presentation.module.css";
 
 import { clsx } from "clsx";
+import Link from "next/link";
 import styles from "./accounts-view.module.css";
-import { ArrowRight, Link2, Plus } from "lucide-react";
+import { Link2, Plus } from "lucide-react";
 import { accountIcon, accountSourceLabel, kinds } from "@/features/accounts/account-presentation";
 import { DateValue } from "@/components/ui/date-value";
 import { money } from "@/lib/money";
@@ -14,7 +15,7 @@ import type { Account } from "@/features/accounts/types";
 import { useState } from "react";
 import { BankConnectionDialog } from "@/features/banking/components/bank-connection-form";
 import { CreateAccountDialog } from "./create-account-form";
-import { ValuationDialog } from "./valuation-form";
+import { useAccountHref } from "@/client/use-app-url";
 import { AreaPlaceholder } from "@/components/ui/area-placeholder";
 import { shownStatus, valueMask } from "@/components/ui/result-presentation";
 import type { Area } from "@/components/ui/use-area-result";
@@ -27,9 +28,6 @@ type OpenDialog = {
   kind: "account";
 } | {
   kind: "bank";
-} | {
-  kind: "balance";
-  account: Account;
 };
 
 const skeletonAccounts = 3;
@@ -41,10 +39,6 @@ export function AccountsView({
   const closeDialog = () => setDialog(null);
   const addAccount = () => setDialog({
     kind: "account"
-  });
-  const updateBalance = (account: Account) => setDialog({
-    kind: "balance",
-    account
   });
 
   return (
@@ -71,10 +65,9 @@ export function AccountsView({
         <AreaPlaceholder area={accounts} subject="Your accounts">
           <AccountCardsSkeleton />
         </AreaPlaceholder>
-      ) : <AccountCards accounts={accounts.data} addAccount={addAccount} updateBalance={updateBalance} />}
+      ) : <AccountCards accounts={accounts.data} addAccount={addAccount} />}
       {dialog?.kind === "account" && <CreateAccountDialog close={closeDialog} />}
       {dialog?.kind === "bank" && <BankConnectionDialog connection={null} close={closeDialog} />}
-      {dialog?.kind === "balance" && <ValuationDialog selectedAccount={dialog.account} close={closeDialog} />}
     </>
   );
 }
@@ -103,22 +96,22 @@ function AccountCardsSkeleton() {
             <span className={ui["skeleton"]}>Balance 12 Jan 2025</span>
             <span className={ui["skeleton"]}>Bank sync</span>
           </div>
-          <span className={clsx(ui["button"], ui["full-width"], ui["skeleton"])}>Update balance</span>
         </div>
       ))}
     </div>
   );
 }
 
+// The name links to the account's details; the link covers the card, which has no other controls.
 function AccountCards({
   accounts,
-  addAccount,
-  updateBalance
+  addAccount
 }: {
   accounts: Account[];
   addAccount: () => void;
-  updateBalance: (account: Account) => void;
 }) {
+  const accountHref = useAccountHref();
+
   return accounts.length ? (
     <div className={styles["accounts-grid"]}>
       {accounts.map(account => {
@@ -132,7 +125,9 @@ function AccountCards({
               </span>
               <span className={ui["pill"]}>{kinds[account.kind]}</span>
             </div>
-            <h2>{account.name}</h2>
+            <h2>
+              <Link className={styles["account-link"]} href={accountHref(account.id)}>{account.name}</Link>
+            </h2>
             <p className={ui["muted"]}>{account.institution}</p>
             <strong className={styles["account-detail-balance"]}>{account.balance_minor === null ? "—" : money(account.balance_minor, account.currency)}</strong>
             <div className={styles["account-detail-meta"]}>
@@ -140,14 +135,6 @@ function AccountCards({
               <span>{accountSourceLabel(account)}</span>
             </div>
             {account.sync_error && <p className={ui["error-text"]}>{account.sync_error}</p>}
-            {account.provider === "manual" && (
-              <button
-                className={clsx(ui["button"], ui["full-width"])}
-                onClick={() => updateBalance(account)}
-              >
-                Update balance <ArrowRight size={15} />
-              </button>
-            )}
           </section>
         );
       })}

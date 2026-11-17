@@ -24,6 +24,7 @@ import { onView, useAppStore } from "@/client/app-store";
 import { useSessionLock } from "@/client/use-session-lock";
 import { useDashboardNavigation } from "./use-dashboard-navigation";
 import { useChangeView, useCurrency, useView, useViewHref } from "@/client/use-app-url";
+import { sectionOf } from "@/client/app-location";
 import { useLoadError } from "./use-load-error";
 import { TraceId } from "@/components/ui/trace-id";
 import type { Failure } from "@/client/api";
@@ -60,7 +61,8 @@ function DashboardShell({ children }: {
   const currency = useCurrency();
   const accounts = useAccounts();
   const loadError = useLoadError();
-  const nav = navigation.find(item => item.id === view)!;
+  const section = sectionOf(view);
+  const nav = navigation.find(item => item.id === section)!;
 
   // Bank accounts only add the sync action and authorization reminders, so until they load the shell shows neither.
   const {
@@ -73,7 +75,7 @@ function DashboardShell({ children }: {
     mobileLabel: item.mobileLabel,
     icon: item.icon,
     href: viewHref(item.id),
-    current: item.id === view,
+    current: item.id === section,
     count: item.id === "connections" ? expiring.length : 0
   }));
 

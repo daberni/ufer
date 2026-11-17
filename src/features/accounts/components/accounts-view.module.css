@@ -3,6 +3,25 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--space-4);
 }
+.account-detail {
+  position: relative;
+}
+.account-detail:has(.account-link:hover) {
+  border-color: var(--border-strong);
+}
+.account-link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+.account-link:focus-visible {
+  outline: none;
+}
+.account-detail:has(.account-link:focus-visible) {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+}
 .account-detail h2 {
   margin-top: var(--space-4);
   font-size: var(--text-md);

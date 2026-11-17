@@ -2,7 +2,8 @@ import type { InValue } from "@libsql/client";
 import { database } from "@/server/database/connection";
 import { environment } from "@/features/banking/server/environment";
 import { currentMonth, periodToJson, trendMonths, type Period } from "@/lib/period";
-import type { CategoryAmount } from "@/features/reports/types";
+import { HttpError } from "@/lib/errors";
+import type { AccountCashFlow, CategoryAmount } from "@/features/reports/types";
 import { periodCondition } from "@/features/transactions/server/period-condition";
 
 type SqlCondition = {
@@ -132,5 +133,46 @@ export async function readCashFlow(period: Period, currency: string) {
         expenseBreakdown: trendExpenses.rows.filter(item => item.month === month).map(categoryAmount)
       };
     })
+  };
+}
+
+const transferCondition = {
+  counted: "COALESCE(c.is_transfer,0)=0",
+  transfer: "COALESCE(c.is_transfer,0)=1"
+};
+
+function accountFlowTotal(flow: Flow, kind: keyof typeof transferCondition) {
+  return `COALESCE(SUM(CASE WHEN ${transferCondition[kind]} AND ${flows[flow].condition} THEN ${flows[flow].amount} ELSE 0 END),0)`;
+}
+
+/** One account's income, expenses and categorized transfers in a period, from its transactions in the account's own currency. */
+export async function readAccountCashFlow(accountId: string, period: Period): Promise<AccountCashFlow> {
+  const client = (await database()).$client;
+  const inPeriod = periodCondition(period);
+  const result = await client.execute({
+    sql: `
+      SELECT a.currency AS currency,${accountFlowTotal("income", "counted")} AS income,${accountFlowTotal("expenses", "counted")} AS expenses,${accountFlowTotal("income", "transfer")} AS transfers_in,${accountFlowTotal("expenses", "transfer")} AS transfers_out
+      FROM accounts a
+      LEFT JOIN transactions t ON t.account_id=a.id AND t.currency=a.currency AND ${inPeriod.sql}
+      LEFT JOIN categories c ON c.id=t.category_id
+      WHERE a.id=?
+      AND a.environment=?
+      GROUP BY a.id
+    `,
+    args: [...inPeriod.args, accountId, environment()]
+  });
+  const row = result.rows[0];
+
+  if (!row) {
+    throw new HttpError(404, "Account not found.");
+  }
+
+  return {
+    period: periodToJson(period),
+    currency: String(row.currency),
+    income: Number(row.income),
+    expenses: Number(row.expenses),
+    transfersIn: Number(row.transfers_in),
+    transfersOut: Number(row.transfers_out)
   };
 }

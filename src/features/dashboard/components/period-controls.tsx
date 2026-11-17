@@ -18,21 +18,27 @@ import { InlineFailure } from "@/components/ui/area-placeholder";
 import type { Area } from "@/components/ui/use-area-result";
 import type { SyncRun } from "@/features/banking/types";
 
-type Props = {
+type DisplayCurrencies = {
   /** The currencies of all accounts; until they load, only the selected one is offered. */
   currencies: Area<string[]>;
-} & ({
+};
+
+type Props = (DisplayCurrencies & {
   view: "overview";
   latestSync: Area<SyncRun | undefined>;
-} | {
+}) | (DisplayCurrencies & {
   view: "transactions";
   /** Matches for the selected filters. */
   transactionCount: Area<number>;
-});
+}) | {
+  /** An account's details use the account's own currency, so they offer no display currency. */
+  view: "account";
+  transactionCount: Area<number>;
+};
 
 export function PeriodControls(props: Props) {
   const currency = useCurrency();
-  const currencies = props.currencies.data ?? [currency];
+  const currencies = props.view === "account" ? [] : props.currencies.data ?? [currency];
   const period = usePeriod();
   const timeZone = useDisplayTimeZone();
   const allMonths = period.kind === "all";
@@ -49,15 +55,17 @@ export function PeriodControls(props: Props) {
     <div className={styles["period-bar"]}>
       <div>
         {props.view === "overview" ? <OverviewKicker latestSync={props.latestSync} timeZone={timeZone} /> : <TransactionCount count={props.transactionCount} />}
-      </div>       <div className={styles["period-controls"]}>
-        <Select
-          variant="bare"
-          aria-label="Display currency"
-          value={currency}
-          onChange={event => setCurrency(event.target.value)}
-        >
-          {currencies.map(value => <option key={value}>{value}</option>)}
-        </Select>
+      </div>       <div className={clsx(styles["period-controls"], props.view === "account" && styles["without-currency"])}>
+        {props.view !== "account" && (
+          <Select
+            variant="bare"
+            aria-label="Display currency"
+            value={currency}
+            onChange={event => setCurrency(event.target.value)}
+          >
+            {currencies.map(value => <option key={value}>{value}</option>)}
+          </Select>
+        )}
         <button
           className={ui["icon-button"]}
           aria-label="Previous month"
