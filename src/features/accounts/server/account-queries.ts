@@ -157,6 +157,30 @@ export async function readNetWorthHistory(period: Period, currency: string): Pro
     }
   }
 
+  // Manual balances are exact ledger totals after migration; provider accounts retain their recorded observations.
+  const manualBookings = await db.select({
+    id: accounts.id,
+    kind: accounts.kind,
+    date: transactions.booking_date,
+    amount_minor: sql<number>`SUM(SUM(${transactions.amount_minor})) OVER (PARTITION BY ${accounts.id} ORDER BY ${transactions.booking_date})`.mapWith(Number)
+  }).from(accounts).innerJoin(transactions, eq(transactions.account_id, accounts.id)).where(and(eq(accounts.environment, environment()), eq(accounts.currency, currency), eq(accounts.provider, "manual"), eq(transactions.currency, accounts.currency), sql`${transactions.booking_date} <= ${today().toString()}`)).groupBy(accounts.id, transactions.booking_date).orderBy(asc(accounts.id), asc(transactions.booking_date));
+  const manualAccounts = new Set<string>();
+
+  for (const booking of manualBookings) {
+    const account = byAccount.get(booking.id)!;
+
+    if (!manualAccounts.has(booking.id)) {
+      account.balances = [];
+      manualAccounts.add(booking.id);
+    }
+
+    account.balances.push({
+      date: booking.date,
+      amount_minor: booking.amount_minor,
+      source: "manual"
+    });
+  }
+
   return {
     period: periodToJson(period),
     currency,

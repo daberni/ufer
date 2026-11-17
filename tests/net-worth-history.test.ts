@@ -232,3 +232,41 @@ test("series share one scale, and zero is marked only when amounts lie on both s
     amount_minor: 1000
   }]]).zero, null);
 });
+
+
+test("monthly net worth includes manual-ledger balances after their snapshots have been migrated", async context => {
+  const db = await seededDatabase(context);
+  const before = await readNetWorthHistory(month("2026-02"), "EUR");
+
+  await db.insert(schema.accounts).values({
+    id: "manual-investment",
+    environment: "SANDBOX",
+    name: "Synthetic manual investment",
+    institution: "Example institution",
+    kind: "investment",
+    currency: "EUR",
+    provider: "manual"
+  });
+  await db.insert(schema.transactions).values([
+    { id: "ledger-opening", booking_date: "2025-12-10", amount_minor: 50000, currency: "EUR", type: "opening_balance" as const },
+    { id: "ledger-expense", booking_date: "2026-01-15", amount_minor: -5000, currency: "EUR", type: "expense" as const },
+    { id: "ledger-adjustment", booking_date: "2026-02-12", amount_minor: 15000, currency: "EUR", type: "adjustment" as const },
+    { id: "ledger-wrong-currency", booking_date: "2026-01-20", amount_minor: 99999, currency: "USD", type: "income" as const },
+    { id: "ledger-future", booking_date: "2099-01-20", amount_minor: 99999, currency: "EUR", type: "income" as const }
+  ].map(entry => ({
+    ...entry,
+    account_id: "manual-investment",
+    provider_reference: `manual:${entry.id}`,
+    type_source: "manual" as const
+  })));
+
+  const after = await readNetWorthHistory(month("2026-02"), "EUR");
+
+  assert.deepEqual(after.points.map((point, index) => [point.month, point.netWorth - before.points[index].netWorth, point.investments - before.points[index].investments]), [
+    ["2025-12", 50000, 50000],
+    ["2026-01", 45000, 45000],
+    ["2026-02", 60000, 60000]
+  ]);
+  assert.deepEqual(after.points.map((point, index) => point.manual - before.points[index].manual), [1, 1, 1]);
+  assert.deepEqual(after.points.map((point, index) => point.unvalued - before.points[index].unvalued), [0, 0, 0]);
+});
