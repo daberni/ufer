@@ -10,7 +10,7 @@ import { fetchBalances, fetchTransactions, sessionEnded, verifyApplication } fro
 import { normalizeTransactions } from "./bank-data";
 import { saveAccountSync } from "./account-sync-service";
 import { finishSyncRun, interruptSyncRun, listSyncAccounts, recordAccountSyncError, startSyncRun } from "./sync-repository";
-import { expireConnection } from "./connection-repository";
+import { expireConnection, expireEndedSession } from "./connection-repository";
 import { revokeReleasedSessions } from "./session-revocation";
 
 // Only a new bank authorization resolves this failure; rate limits and provider data errors do not.
@@ -113,7 +113,7 @@ export async function syncAccounts() {
         await recordAccountSyncError(db, account.id, env, message);
 
         if (sessionExpired) {
-          await expireConnection(db, account.connection_id);
+          await expireEndedSession(db, account.connection_id);
         }
 
         failures.push({

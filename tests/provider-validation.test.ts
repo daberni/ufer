@@ -549,3 +549,80 @@ test("a cancelled bank callback consumes its state", async context => {
   });
   assert.deepEqual(requests, []);
 });
+
+test("a sync that receives a terminal session code expires the connection and deletes its session ID without a revocation", async context => {
+  context.mock.method(console, "warn", () => {});
+  const {
+    db,
+    requests,
+    useProvider
+  } = await providerDatabase(context);
+
+  await insertLinkedConnection(db, "closed", "closed-account");
+  useProvider(({ path }) => path === "/application" ? Response.json({
+    environment: "SANDBOX",
+    redirect_urls: []
+  }) : Response.json({
+    message: "Session is closed",
+    code: 400,
+    error: "CLOSED_SESSION"
+  }, {
+    status: 400
+  }));
+
+  const result = await syncAccounts();
+
+  assert.deepEqual(result.failures.map(failure => failure.reconnect), [true]);
+  assert.equal((await connection(db, "closed"))?.status, "EXPIRED");
+  assert.equal((await connection(db, "closed"))?.session_cipher, null);
+  assert.equal((await db.select().from(schema.accounts).get())?.requisition_id, "closed");
+  assert.deepEqual(requests.filter(request => request.startsWith("DELETE")), []);
+});
+
+test("a connection past its consent expiry gets one revocation attempt and keeps its reconnect prompt", async context => {
+  const {
+    db,
+    requests,
+    useProvider
+  } = await providerDatabase(context);
+
+  await insertLinkedConnection(db, "lapsed", "lapsed-account");
+  await insertLinkedConnection(db, "unknown", "unknown-account");
+  await db.update(schema.requisitions).set({
+    valid_until: "2000-01-01T00:00:00.000Z"
+  });
+  useProvider(({
+    method,
+    path
+  }) => {
+    if (path === "/sessions/unknown-session") {
+      return Response.json({
+        message: "No session found matching provided id",
+        code: 404,
+        error: "SESSION_DOES_NOT_EXIST"
+      }, {
+        status: 404
+      });
+    }
+
+    return method === "DELETE" ? new Response(null, {
+      status: 204
+    }) : Response.json({
+      environment: "SANDBOX",
+      redirect_urls: []
+    });
+  });
+
+  const result = await syncAccounts();
+
+  assert.deepEqual(result.failures.map(failure => failure.reconnect), [true, true]);
+  assert.deepEqual(requests.filter(request => request.startsWith("DELETE")).toSorted(), ["DELETE /sessions/lapsed-session", "DELETE /sessions/unknown-session"]);
+
+  for (const id of ["lapsed", "unknown"]) {
+    assert.equal((await connection(db, id))?.status, "EXPIRED");
+    assert.equal((await connection(db, id))?.session_cipher, null);
+  }
+
+  await syncAccounts();
+  assert.equal(requests.filter(request => request.startsWith("DELETE")).length, 2);
+});

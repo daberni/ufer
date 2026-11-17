@@ -46,8 +46,8 @@ export async function insertAuthorization(record: AuthorizationRecord) {
   });
 }
 
-// Connections that no longer read bank data; a stored session stays until the provider confirms its revocation.
-const releasedStatuses = ["REMOVED", "SUPERSEDED", "ERROR"];
+// Connections that no longer read bank data; a stored session stays until the provider confirms its revocation or reports it ended.
+const releasedStatuses = ["REMOVED", "SUPERSEDED", "ERROR", "EXPIRED"];
 
 function pendingAuthorization(environment: string, stateHash: string, browserHash: string, actor: AuthContext, now: string) {
   return and(eq(requisitions.workspace_id, actor.workspaceId), eq(requisitions.initiated_by_user_id, actor.userId), eq(requisitions.auth_session_id, actor.sessionId), eq(requisitions.environment, environment), eq(requisitions.state_hash, stateHash), eq(requisitions.browser_hash, browserHash), isNull(requisitions.used_at), gt(requisitions.state_expires_at, now), eq(requisitions.status, "PENDING"));
@@ -101,6 +101,14 @@ export async function saveBankSession(db: Database, id: string, ciphertext: stri
 export async function expireConnection(db: Database, id: string) {
   await db.update(requisitions).set({
     status: "EXPIRED"
+  }).where(eq(requisitions.id, id));
+}
+
+/** Expires a connection whose session the provider reports as ended; that session needs no revocation, so its ID is deleted. */
+export async function expireEndedSession(db: Database, id: string) {
+  await db.update(requisitions).set({
+    status: "EXPIRED",
+    session_cipher: null
   }).where(eq(requisitions.id, id));
 }
 
