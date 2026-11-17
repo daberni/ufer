@@ -7,7 +7,7 @@ import { useState } from "react";
 import styles from "./balance-history.module.css";
 import { money } from "@/lib/money";
 import { balanceSourceLabels, describeBalanceDate } from "@/features/accounts/balance-presentation";
-import { BalanceHistoryChart } from "./balance-history-chart";
+import { BalanceHistoryChart, BalanceHistoryChartSkeleton } from "./balance-history-chart";
 import { AreaPlaceholder } from "@/components/ui/area-placeholder";
 import { areaProps } from "@/components/ui/result-presentation";
 import type { Area, AreaResult } from "@/components/ui/use-area-result";
@@ -15,8 +15,6 @@ import type { BalanceHistory, BalancePoint } from "@/features/accounts/types";
 
 // The table starts with the latest balances; the chart already shows the whole history.
 const initialRows = 5;
-
-const skeletonRows = 3;
 
 export function BalanceHistoryPanel({ history }: {
   history: Area<BalanceHistory>
@@ -29,7 +27,7 @@ export function BalanceHistoryPanel({ history }: {
       </div>
       {history.status === "pending" ? (
         <AreaPlaceholder area={history} subject="The balance history">
-          <HistorySkeleton />
+          <BalanceHistoryChartSkeleton />
         </AreaPlaceholder>
       ) : <HistoryContent history={history} />}
     </section>
@@ -99,30 +97,6 @@ function BalanceTable({
           {expanded ? "Show latest balances only" : `Show all ${balances.length} balances`}
         </button>
       )}
-    </>
-  );
-}
-
-function HistorySkeleton() {
-  return (
-    <>
-      <div className={styles["chart"]}>
-        <div className={clsx(styles["plot"], ui["skeleton"])} />
-        <div className={styles["dates"]}>
-          <span className={ui["skeleton"]}>12 Jan 2025</span>
-          <span className={ui["skeleton"]}>12 Nov 2026</span>
-        </div>
-      </div>
-      <div className={styles["table"]}>
-        {Array.from({
-          length: skeletonRows
-        }, (_, index) => (
-          <p className={styles["skeleton-row"]} key={index}>
-            <span className={ui["skeleton"]}>12 Nov 2026</span>
-            <span className={ui["skeleton"]}>€0,000.00</span>
-          </p>
-        ))}
-      </div>
     </>
   );
 }
