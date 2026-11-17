@@ -5,6 +5,7 @@ import { environment } from "./environment";
 import { linkedTransactionCount } from "./sync-repository";
 import { bankingConfigured } from "./enable-banking-client";
 import { timestamp } from "@/lib/time";
+import { recentSyncRuns } from "@/features/banking/sync-run-presentation";
 import type { BankingConfiguration } from "@/features/banking/types";
 
 export function bankingConfiguration(): BankingConfiguration {
@@ -41,7 +42,7 @@ export async function listRecentSyncRuns() {
     // Runs recorded before syncs stamped their rows report inserted rows without any links.
     linked_count: linkedTransactionCount,
     error: syncRuns.error
-  }).from(syncRuns).where(eq(syncRuns.environment, environment())).orderBy(desc(syncRuns.started_at)).limit(5);
+  }).from(syncRuns).where(eq(syncRuns.environment, environment())).orderBy(desc(syncRuns.started_at)).limit(recentSyncRuns);
 }
 
 /** A sync run of the current banking environment; undefined for unknown runs and runs of another environment. */

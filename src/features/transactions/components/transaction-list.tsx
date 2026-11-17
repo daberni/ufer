@@ -7,7 +7,8 @@ import styles from "./transaction-list.module.css";
 import { ArrowDownLeft, ArrowUpRight } from "lucide-react";
 import { DateValue } from "@/components/ui/date-value";
 import { money } from "@/lib/money";
-import { TransactionCategory } from "@/features/transactions/components/transaction-category";
+import { TransactionCategory, TransactionCategorySkeleton } from "@/features/transactions/components/transaction-category";
+import { TransactionType, TransactionTypeSkeleton } from "@/features/transactions/components/transaction-type";
 import type { Category } from "@/features/categorization/types";
 import type { Transaction } from "@/features/transactions/types";
 
@@ -23,6 +24,7 @@ function TableHeader() {
       <tr role="row">
         <th role="columnheader" scope="col">Payee / description</th>
         <th role="columnheader" scope="col">Category</th>
+        <th role="columnheader" scope="col">Type</th>
         <th role="columnheader" scope="col">Account</th>
         <th role="columnheader" scope="col">Date</th>
         <th role="columnheader" scope="col" className={styles["amount-heading"]}>Amount</th>
@@ -71,6 +73,10 @@ function TransactionRow({
       <td role="cell" className={styles["category"]}>
         <span className={styles["category-label"]} aria-hidden="true">Category</span>
         <TransactionCategory categories={categories} transaction={transaction} />
+      </td>
+      <td role="cell" className={styles["type"]}>
+        <span className={styles["category-label"]} aria-hidden="true">Type</span>
+        <TransactionType transaction={transaction} />
       </td>
       <td role="cell" className={styles["account"]}>{transaction.account_name}</td>
       <td role="cell" className={styles["date"]}>
@@ -141,7 +147,11 @@ export function TransactionListSkeleton({ rows }: {
               </th>
               <td className={styles["category"]}>
                 <span className={styles["category-label"]}>Category</span>
-                <span className={ui["skeleton"]}>Category name with menu</span>
+                <TransactionCategorySkeleton />
+              </td>
+              <td className={styles["type"]}>
+                <span className={styles["category-label"]}>Type</span>
+                <TransactionTypeSkeleton />
               </td>
               <td className={styles["account"]}>
                 <span className={ui["skeleton"]}>Everyday account</span>

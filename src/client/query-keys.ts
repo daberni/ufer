@@ -34,7 +34,8 @@ export const queryKeys = {
   rules: () => ["rules"] as const,
   transactions: {
     all: () => ["transactions"] as const,
-    list: (filters: TransactionListFilters) => ["transactions", "list", filters] as const
+    list: (filters: TransactionListFilters) => ["transactions", "list", filters] as const,
+    transfer: (id: string) => ["transactions", "transfer", id] as const
   },
   reports: {
     netWorth: () => ["reports", "net-worth"] as const,
