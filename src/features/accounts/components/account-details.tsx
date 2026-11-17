@@ -122,7 +122,22 @@ function AccountSummary({
       </div>
       <h2 id={nameId} className={styles["name"]}>{account.name}</h2>
       <p className={ui["muted"]}>{account.institution} · {account.currency}</p>
-      <strong className={styles["balance"]}>{account.balance_minor === null ? "—" : money(account.balance_minor, account.currency)}</strong>
+      <div className={styles["balance-row"]}>
+        <strong className={styles["balance"]}>{account.balance_minor === null ? "—" : money(account.balance_minor, account.currency)}</strong>
+        {account.provider === "manual" && (
+          <button
+            className={ui["icon-button"]}
+            type="button"
+            aria-label="Update balance"
+            title="Update balance"
+            onClick={() => setDialog({
+              kind: "balance"
+            })}
+          >
+            <Pencil size={18} />
+          </button>
+        )}
+      </div>
       <dl className={styles["facts"]}>
         <div>
           <dt>Balance date</dt>
@@ -135,19 +150,7 @@ function AccountSummary({
         {account.provider !== "manual" && <SyncFacts account={account} />}
       </dl>
       {account.sync_error && <p className={ui["error-text"]}>{account.sync_error}</p>}
-      {account.provider === "manual" ? (
-        <div className={styles["actions"]}>
-          <button
-            className={clsx(ui["button"], ui["primary"])}
-            onClick={() => setDialog({
-              kind: "balance"
-            })}
-          >
-            <Pencil size={15} />
-            Update balance
-          </button>
-        </div>
-      ) : (
+      {account.provider !== "manual" && (
         <ConnectionActions
           account={account}
           connections={connections}
@@ -230,15 +233,14 @@ function AccountSummarySkeleton() {
       <p>
         <span className={ui["skeleton"]}>Example bank · EUR</span>
       </p>
-      <strong className={styles["balance"]}>
-        <span className={ui["skeleton"]}>€0,000.00</span>
-      </strong>
+      <div className={styles["balance-row"]}>
+        <strong className={styles["balance"]}>
+          <span className={ui["skeleton"]}>€0,000.00</span>
+        </strong>
+      </div>
       <div className={styles["facts"]}>
         <span className={ui["skeleton"]}>Balance date 12 Jan 2025</span>
         <span className={ui["skeleton"]}>Source Bank sync</span>
-      </div>
-      <div className={styles["actions"]}>
-        <span className={clsx(ui["button"], ui["skeleton"])}>Update balance</span>
       </div>
     </section>
   );
