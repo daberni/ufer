@@ -248,11 +248,41 @@ test("monthly net worth includes manual-ledger balances after their snapshots ha
     provider: "manual"
   });
   await db.insert(schema.transactions).values([
-    { id: "ledger-opening", booking_date: "2025-12-10", amount_minor: 50000, currency: "EUR", type: "opening_balance" as const },
-    { id: "ledger-expense", booking_date: "2026-01-15", amount_minor: -5000, currency: "EUR", type: "expense" as const },
-    { id: "ledger-adjustment", booking_date: "2026-02-12", amount_minor: 15000, currency: "EUR", type: "adjustment" as const },
-    { id: "ledger-wrong-currency", booking_date: "2026-01-20", amount_minor: 99999, currency: "USD", type: "income" as const },
-    { id: "ledger-future", booking_date: "2099-01-20", amount_minor: 99999, currency: "EUR", type: "income" as const }
+    {
+      id: "ledger-opening",
+      booking_date: "2025-12-10",
+      amount_minor: 50000,
+      currency: "EUR",
+      type: "opening_balance" as const
+    },
+    {
+      id: "ledger-expense",
+      booking_date: "2026-01-15",
+      amount_minor: -5000,
+      currency: "EUR",
+      type: "expense" as const
+    },
+    {
+      id: "ledger-adjustment",
+      booking_date: "2026-02-12",
+      amount_minor: 15000,
+      currency: "EUR",
+      type: "adjustment" as const
+    },
+    {
+      id: "ledger-wrong-currency",
+      booking_date: "2026-01-20",
+      amount_minor: 99999,
+      currency: "USD",
+      type: "income" as const
+    },
+    {
+      id: "ledger-future",
+      booking_date: "2099-01-20",
+      amount_minor: 99999,
+      currency: "EUR",
+      type: "income" as const
+    }
   ].map(entry => ({
     ...entry,
     account_id: "manual-investment",
