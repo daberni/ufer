@@ -71,7 +71,6 @@ function CategoryForm({
             color,
             icon: icon || null
           }}
-          size="large"
         />
       </div>
       <label>

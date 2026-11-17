@@ -1,32 +1,22 @@
 .category {
   position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
+  display: inline-block;
   max-width: 100%;
   vertical-align: middle;
 }
 
-/* A fixed width keeps the nowrap transaction table from widening with long category names; the open list shows them in full. */
+/* A fixed width keeps the nowrap transaction table from widening with long category names; the open list shows them in full. The manual pin and the saving status sit inside the field, so it keeps this width in every state. */
 .picker {
   width: 12rem;
   max-width: 100%;
 }
-.picker input {
-  min-height: 32px;
-  padding-block: var(--space-1);
-  font-size: var(--text-xs);
-  text-overflow: ellipsis;
-}
 
-/* In the table the status slot keeps its width when empty, so progress and results never move neighboring content. */
 .status {
   display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 14px;
-  height: 14px;
-  flex-shrink: 0;
+}
+.status svg {
+  width: 1em;
+  height: 1em;
 }
 .saving {
   color: var(--muted);
@@ -62,35 +52,19 @@
   white-space: nowrap;
 }
 @media (--mobile) {
+  /* The field fills the card's line; a failure takes its own lines under it, since the card has no spacing to overlay. */
   .category {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: var(--space-2);
     width: 100%;
-    gap: var(--space-3);
   }
-  /* The picker fills the card's line and shares it with a shown status instead of pushing the status onto a line of its own. */
   .picker {
-    flex: 1 1 0;
-    width: auto;
-    min-width: 0;
-  }
-  .picker input {
-    min-height: 44px;
-    font-size: var(--text-md);
-  }
-  .status {
-    width: 18px;
-    height: 18px;
-  }
-  .status:empty {
-    display: none;
-  }
-  /* The card has no spacing to overlay, so the failure takes its own lines under the control. */
-  .category {
-    flex-wrap: wrap;
-    justify-content: flex-end;
+    width: 100%;
   }
   .message {
     position: static;
-    flex: 1 0 100%;
     flex-wrap: wrap;
     justify-content: flex-end;
     max-width: none;

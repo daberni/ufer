@@ -1,11 +1,9 @@
-import ui from "../../../components/ui/primitives.module.css";
-
 import styles from "./category-chip.module.css";
 import { clsx } from "clsx";
-import { CircleDashed, Pin, Shapes } from "lucide-react";
+import { CircleDashed, Shapes } from "lucide-react";
 import type { CSSProperties, ReactNode } from "react";
 import { isCategoryIcon } from "@/features/categorization/category-icons";
-import { categoryChipColors, neutralChipColor, themedColors } from "@/features/categorization/category-colors";
+import { categoryChipColors, categoryTextColor, neutralChipColor, themedColor, themedColors } from "@/features/categorization/category-colors";
 import { categoryIconComponents } from "./category-icon-components";
 
 export type ChipCategory = {
@@ -28,21 +26,28 @@ const neutralChips = {
   }
 };
 
-export type CategoryChipSize = "small" | "medium" | "large";
-
 type Props = {
   category: ChipCategory | NeutralChip;
-  size?: CategoryChipSize;
-  /** Marks a manual assignment, which syncing and rule application preserve. */
-  manual?: boolean;
   className?: string;
-  /** Trailing content inside the chip, such as an edit or dropdown indicator. */
+  /** Trailing content inside the chip, such as an edit indicator. */
   children?: ReactNode;
 };
 
-export const manualAssignmentHint = "Set manually; kept when syncing and applying rules";
+export function categoryLabel(category: ChipCategory | NeutralChip) {
+  return typeof category === "string" ? neutralChips[category].label : category.name;
+}
 
-function CategoryGlyph({
+function baseColor(category: ChipCategory | NeutralChip) {
+  return typeof category === "string" ? neutralChipColor : category.color;
+}
+
+/** The color of the category's icon and name without its chip, such as in a category select. */
+export function categoryNameColor(category: ChipCategory | NeutralChip) {
+  return themedColor(scheme => categoryTextColor(baseColor(category), scheme));
+}
+
+/** The category's icon, or a dot without one, in the current text color and sized with the text. Decorative: the name always accompanies it. */
+export function CategoryGlyph({
   category
 }: {
   category: ChipCategory | NeutralChip;
@@ -62,18 +67,13 @@ function CategoryGlyph({
   return <Icon className={styles["icon"]} aria-hidden="true" strokeWidth={2.2} />;
 }
 
-/** The single presentation of a category: a tinted chip with its icon followed by its name. */
+/** The single presentation of a category wherever one is shown: a tinted chip with its icon followed by its name, in one size. */
 export function CategoryChip({
   category,
-  size = "medium",
-  manual = false,
   className,
   children
 }: Props) {
-  const isNeutral = typeof category === "string";
-  const baseColor = isNeutral ? neutralChipColor : category.color;
-  const colors = themedColors(scheme => categoryChipColors(baseColor, scheme));
-  const label = isNeutral ? neutralChips[category].label : category.name;
+  const colors = themedColors(scheme => categoryChipColors(baseColor(category), scheme));
   const colorVariables = {
     "--chip-background": colors.background,
     "--chip-border": colors.border,
@@ -81,15 +81,9 @@ export function CategoryChip({
   } as CSSProperties;
 
   return (
-    <span className={clsx(styles["chip"], styles[size], className)} style={colorVariables}>
+    <span className={clsx(styles["chip"], className)} style={colorVariables}>
       <CategoryGlyph category={category} />
-      <span className={styles["name"]}>{label}</span>
-      {manual && (
-        <span className={styles["manual"]} title={manualAssignmentHint}>
-          <Pin className={styles["manual-icon"]} aria-hidden="true" strokeWidth={2.2} />
-          <span className={ui["visually-hidden"]}>, set manually</span>
-        </span>
-      )}
+      <span className={styles["name"]}>{categoryLabel(category)}</span>
       {children}
     </span>
   );

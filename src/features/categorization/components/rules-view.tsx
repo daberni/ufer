@@ -201,7 +201,6 @@ function RuleRows({
               color: rule.category_color,
               icon: rule.category_icon
             }}
-            size="small"
           />
           <button
             className={clsx(styles["toggle"], rule.enabled ? styles["enabled"] : "")}
@@ -240,7 +239,6 @@ function RuleRowsSkeleton() {
               color: neutralChipColor,
               icon: null
             }}
-            size="small"
           />
           <span className={clsx(styles["toggle"], ui["skeleton"])} />
         </div>

@@ -3,8 +3,8 @@ import ui from "../../../components/ui/primitives.module.css";
 import styles from "./category-rows.module.css";
 import { clsx } from "clsx";
 import { money } from "@/lib/money";
-import { CategoryMarker } from "@/features/categorization/components/category-marker";
-import { categoryBarColor, themedColor } from "@/features/categorization/category-colors";
+import { CategoryChip, CategoryGlyph, categoryNameColor, type ChipCategory, type NeutralChip } from "@/features/categorization/components/category-chip";
+import { categoryBarColor, neutralChipColor, themedColor } from "@/features/categorization/category-colors";
 import type { CategoryGroup } from "@/features/reports/category-groups";
 
 const shareFormat = new Intl.NumberFormat("en-GB", {
@@ -19,6 +19,18 @@ export function describeCategoryGroups(groups: CategoryGroup[], currency: string
   }
 
   return groups.map(group => `${group.name} ${money(group.amount, currency)} (${shareFormat.format(group.share)})`).join(", ");
+}
+
+function groupCategory(group: CategoryGroup): ChipCategory | NeutralChip {
+  if (group.key === "uncategorized") {
+    return "uncategorized";
+  }
+
+  return {
+    name: group.name,
+    color: group.color,
+    icon: group.icon
+  };
 }
 
 type Props = {
@@ -40,10 +52,23 @@ export function CategoryRows({
     <div className={clsx(styles["rows"], compact && styles["compact"], className)}>
       {groups.map(group => (
         <div className={styles["row"]} key={group.key}>
-          <span>
-            <CategoryMarker icon={group.icon} color={group.color} />
-            <span className={styles["name"]} title={compact ? group.name : undefined}>{group.name}</span>
-          </span>
+          {compact ? (
+            // Five rows must fit the chart's fixed details area, so they show the category without its chip, as category select options do.
+            <span
+              className={styles["category"]}
+              title={group.name}
+              style={{
+                color: categoryNameColor(groupCategory(group))
+              }}
+            >
+              <CategoryGlyph category={groupCategory(group)} />
+              <span className={styles["name"]}>{group.name}</span>
+            </span>
+          ) : (
+            <span className={styles["category"]}>
+              <CategoryChip category={groupCategory(group)} />
+            </span>
+          )}
           <strong>{money(group.amount, currency)}</strong>
           <div>
             <i
@@ -76,9 +101,15 @@ export function CategoryRowsSkeleton({
         length: rows
       }, (_, index) => (
         <div className={styles["row"]} key={index}>
-          <span>
-            <span className={clsx(styles["marker"], ui["skeleton"])} />
-            <span className={ui["skeleton"]}>{skeletonNames[index % skeletonNames.length]}</span>
+          <span className={styles["category"]}>
+            <CategoryChip
+              className={ui["skeleton"]}
+              category={{
+                name: skeletonNames[index % skeletonNames.length],
+                color: neutralChipColor,
+                icon: null
+              }}
+            />
           </span>
           <strong className={ui["skeleton"]}>€000.00</strong>
           <div />

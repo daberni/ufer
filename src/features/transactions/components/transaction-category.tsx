@@ -44,17 +44,19 @@ export function TransactionCategory({
         value={categoryId}
         includeUncategorized
         manual={manual}
+        status={status && (
+          <span className={clsx(styles["status"], styles[status.kind])} aria-hidden="true">
+            {status.kind === "saving" && <LoaderCircle className={ui["spinning"]} />}
+            {status.kind === "saved" && <Check />}
+            {status.kind === "failed" && <CircleAlert />}
+          </span>
+        )}
         aria-label={`Category for ${transaction.counterparty || transaction.description}`}
         aria-busy={status?.kind === "saving"}
         aria-invalid={status?.kind === "failed"}
         aria-describedby={failure ? messageId : undefined}
         onChange={change}
       />
-      <span className={clsx(styles["status"], status && styles[status.kind])} aria-hidden="true">
-        {status?.kind === "saving" && <LoaderCircle size={14} className={ui["spinning"]} />}
-        {status?.kind === "saved" && <Check size={14} />}
-        {status?.kind === "failed" && <CircleAlert size={14} />}
-      </span>
       <span className={ui["visually-hidden"]} role="status" aria-live={failure ? "assertive" : "polite"}>
         {status ? announcements[status.kind] : ""}
       </span>

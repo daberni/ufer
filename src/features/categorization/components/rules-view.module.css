@@ -63,8 +63,21 @@
   gap: var(--space-3);
   flex-wrap: wrap;
 }
+/* A button whose visible surface is the chip inside it. */
 .category-chip {
-  composes: chip-button from "./category-chip.module.css";
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: inherit;
+  text-align: left;
+}
+.category-chip:hover > *,
+.category-chip:focus-visible > * {
+  border-color: var(--chip-foreground);
 }
 .chip-detail {
   font-weight: 400;
@@ -107,6 +120,13 @@
   }
   .rule-category {
     max-width: 100%;
+  }
+  /* A touch-sized target around the chip, which keeps its size; the targets themselves space the rows. */
+  .category-chip {
+    min-height: 44px;
+  }
+  .category-chips {
+    row-gap: 0;
   }
   .rule-row .toggle {
     width: 52px;

@@ -5,12 +5,10 @@ import ui from "../../../components/ui/primitives.module.css";
 import styles from "./category-picker.module.css";
 import { clsx } from "clsx";
 import { Pin } from "lucide-react";
-import { useId, useState } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { SearchableSelect, type SearchableSelectOption } from "@/components/ui/searchable-select";
-import { neutralChipColor } from "@/features/categorization/category-colors";
-import { manualAssignmentHint, type ChipCategory } from "./category-chip";
+import { CategoryGlyph, categoryLabel, categoryNameColor, type ChipCategory, type NeutralChip } from "./category-chip";
 import { CategoryDialog } from "./category-form";
-import { CategoryMarker } from "./category-marker";
 
 export type PickerCategory = ChipCategory & {
   id: string;
@@ -37,6 +35,8 @@ type Props = ValueProps & {
   /** Offers "Uncategorized", chosen by null. */
   includeUncategorized?: boolean;
   manual?: boolean;
+  /** Shown inside the field's right edge after the manual pin, such as the saving state of a change. */
+  status?: ReactNode;
   /** Submits the chosen category ID with a surrounding form. */
   name?: string;
   id?: string;
@@ -48,17 +48,21 @@ type Props = ValueProps & {
   className?: string;
 };
 
+const manualAssignmentHint = "Set manually; kept when syncing and applying rules";
+
 const categoryNoun = {
   one: "category",
   other: "categories"
 };
 
-function neutralOption(key: string, value: CategoryPickerValue, label: string): SearchableSelectOption<CategoryPickerValue> {
+// Options show the category's icon and name in its color, as its chip does, without the chip's tint.
+function categoryOption(key: string, value: CategoryPickerValue, category: ChipCategory | NeutralChip): SearchableSelectOption<CategoryPickerValue> {
   return {
     key,
     value,
-    label,
-    icon: <CategoryMarker icon={null} color={neutralChipColor} />
+    label: categoryLabel(category),
+    icon: <CategoryGlyph category={category} />,
+    color: categoryNameColor(category)
   };
 }
 
@@ -66,20 +70,15 @@ function pickerOptions(categories: readonly PickerCategory[], includeAll: boolea
   const options: SearchableSelectOption<CategoryPickerValue>[] = [];
 
   if (includeAll) {
-    options.push(neutralOption("all-categories", anyCategory, "All categories"));
+    options.push(categoryOption("all-categories", anyCategory, "all-categories"));
   }
 
   if (includeUncategorized) {
-    options.push(neutralOption("uncategorized", null, "Uncategorized"));
+    options.push(categoryOption("uncategorized", null, "uncategorized"));
   }
 
   for (const category of categories) {
-    options.push({
-      key: category.id,
-      value: category.id,
-      label: category.name,
-      icon: <CategoryMarker icon={category.icon} color={category.color} />
-    });
+    options.push(categoryOption(category.id, category.id, category));
   }
 
   return options;
@@ -96,6 +95,7 @@ export function CategoryPicker({
   includeAll = false,
   includeUncategorized = false,
   manual = false,
+  status,
   name,
   id,
   "aria-label": ariaLabel,
@@ -148,6 +148,18 @@ export function CategoryPicker({
         aria-describedby={describedBy}
         // A filter offers existing categories only.
         onCreate={includeAll ? undefined : setNewCategoryName}
+        className={styles["field"]}
+        adornment={(manual || status) && (
+          <span className={styles["adornment"]}>
+            {manual && (
+              <span className={styles["manual"]} title={manualAssignmentHint}>
+                <Pin className={styles["adornment-icon"]} aria-hidden="true" strokeWidth={2.2} />
+                <span id={manualHintId} className={ui["visually-hidden"]}>{manualAssignmentHint}</span>
+              </span>
+            )}
+            {status}
+          </span>
+        )}
         footer={manual && (
           <p className={styles["note"]}>
             <Pin className={styles["note-icon"]} aria-hidden="true" strokeWidth={2.2} />
@@ -155,12 +167,6 @@ export function CategoryPicker({
           </p>
         )}
       />
-      {manual && (
-        <span className={styles["manual"]} title={manualAssignmentHint}>
-          <Pin className={styles["note-icon"]} aria-hidden="true" strokeWidth={2.2} />
-          <span id={manualHintId} className={ui["visually-hidden"]}>{manualAssignmentHint}</span>
-        </span>
-      )}
       {name && <input type="hidden" name={name} value={typeof value === "string" ? value : ""} />}
       {newCategoryName !== null && (
         <CategoryDialog
