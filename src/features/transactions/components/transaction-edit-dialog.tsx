@@ -5,7 +5,7 @@ import ui from "../../../components/ui/primitives.module.css";
 import { useId, useState } from "react";
 import { clsx } from "clsx";
 import { Temporal } from "temporal-polyfill";
-import { Check } from "lucide-react";
+import { Check, Trash2 } from "lucide-react";
 import styles from "./transaction-type.module.css";
 import { toFailure } from "@/client/api";
 import { Dialog } from "@/components/ui/dialog";
@@ -13,11 +13,12 @@ import { FormError } from "@/components/ui/form-error";
 import { Select } from "@/components/ui/select";
 import { useDialogSubmit } from "@/components/ui/use-dialog-submit";
 import { describeDate } from "@/lib/date-format";
-import { money } from "@/lib/money";
+import { decimalAmount, money } from "@/lib/money";
 import { isTransactionType, manualAccountTypes, transactionTypeLabels, transactionTypes, type TransactionType } from "@/features/transactions/transaction-types";
-import { useSaveTransaction, type TransactionEdit } from "@/features/transactions/mutations";
+import { useDeleteTransaction, useSaveTransaction, type EntryEdit, type TransactionEdit } from "@/features/transactions/mutations";
 import { useTransferOptions } from "@/features/transactions/queries";
 import type { Transaction, TransferBooking, TransferOptions } from "@/features/transactions/types";
+import { EntryFields, suggestedType } from "./entry-fields";
 
 type Props = {
   transaction: Transaction;
@@ -50,15 +51,20 @@ function bookingLabel(booking: TransferBooking) {
   return [booking.account_name, date, signedMoney(booking.amount_minor, booking.currency), payee].filter(Boolean).join(" · ");
 }
 
-/** The stored target: the linked booking, or the manual account of a counterpart Ufer created there. */
-function storedTarget(options: TransferOptions | undefined): Target {
+/** Whether the linked booking is chosen through its manual account: a counterpart Ufer created there, or the other side of a pair entered in Ufer. */
+function linkedThroughAccount(transaction: Transaction, counterpart: TransferBooking) {
+  return counterpart.created || (transaction.entered && counterpart.entered);
+}
+
+/** The stored target: the linked booking, or the manual account of a counterpart chosen through its account. */
+function storedTarget(transaction: Transaction, options: TransferOptions | undefined): Target {
   const counterpart = options?.counterpart;
 
   if (!counterpart) {
     return noTarget;
   }
 
-  if (counterpart.created) {
+  if (linkedThroughAccount(transaction, counterpart)) {
     return {
       kind: "account",
       accountId: counterpart.account_id
@@ -71,13 +77,13 @@ function storedTarget(options: TransferOptions | undefined): Target {
   };
 }
 
-/** Suggested counterparts: the linked booking first, then unlinked bookings with the opposite amount. A counterpart Ufer created is chosen through its account instead. */
-function suggestionsOf(options: TransferOptions | undefined) {
+/** Suggested counterparts: the linked booking first, then unlinked bookings with the opposite amount. A counterpart chosen through its account is not repeated here. */
+function suggestionsOf(transaction: Transaction, options: TransferOptions | undefined) {
   if (!options) {
     return [];
   }
 
-  const linked = options.counterpart && !options.counterpart.created ? [options.counterpart] : [];
+  const linked = options.counterpart && !linkedThroughAccount(transaction, options.counterpart) ? [options.counterpart] : [];
 
   return [...linked, ...options.candidates];
 }
@@ -102,37 +108,107 @@ function transferEdit(target: Target): TransactionEdit["transfer"] {
   } : null;
 }
 
-/** Edits a transaction's type and, for a transfer, where it goes; one Save stores both. */
+/** Edits a transaction's type and, for a transfer, where it goes; a transaction entered in Ufer also edits its date, amount, payee and description and can be deleted. One Save stores everything. */
 export function TransactionEditDialog({
   transaction,
   close
 }: Props) {
-  const subject = transaction.counterparty || transaction.description || "Transaction";
+  const [deleting, setDeleting] = useState(false);
+  const subject = transaction.counterparty || transaction.description || transactionTypeLabels[transaction.type];
 
   return (
-    <Dialog eyebrow="TRANSACTION" title="Edit transaction" onClose={close}>
+    <Dialog eyebrow="TRANSACTION" title={deleting ? "Delete transaction" : "Edit transaction"} onClose={close}>
       <p className={ui["form-description"]}>
         {subject} · {transaction.account_name} · {signedMoney(transaction.amount_minor, transaction.currency)}
       </p>
-      <TransactionEditForm transaction={transaction} close={close} />
+      {deleting ? <DeleteConfirmation transaction={transaction} close={close} cancel={() => setDeleting(false)} /> : <TransactionEditForm transaction={transaction} close={close} onDelete={() => setDeleting(true)} />}
     </Dialog>
   );
 }
 
+/** What deleting a transaction entered in Ufer also changes. */
+function deletionEffect(transaction: Transaction) {
+  const other = transaction.counterpart?.account_name;
+
+  if (!other) {
+    return "The transaction is removed from the account and its balance.";
+  }
+
+  if (transaction.follows_import) {
+    return `The transaction is removed; the linked booking on ${other} stays as a transfer without a counterpart.`;
+  }
+
+  return `Both sides of this transfer are removed, including the booking on ${other}.`;
+}
+
+function DeleteConfirmation({
+  transaction,
+  close,
+  cancel
+}: {
+  transaction: Transaction;
+  close: () => void;
+  cancel: () => void;
+}) {
+  const remove = useDeleteTransaction(transaction.id);
+
+  return (
+    <form
+      className={ui["form"]}
+      onSubmit={event => {
+        event.preventDefault();
+        remove.mutate(undefined, {
+          onSuccess: close
+        });
+      }}
+    >
+      <p className={ui["form-hint"]}>{deletionEffect(transaction)} This cannot be undone.</p>
+      <FormError failure={remove.error ? toFailure(remove.error) : null} />
+      <div className={ui["form-actions"]}>
+        <button
+          type="button"
+          className={ui["button"]}
+          disabled={remove.isPending}
+          onClick={cancel}
+        >
+          Cancel
+        </button>
+        <button className={styles["danger"]} disabled={remove.isPending}>
+          <Trash2 size={15} />
+          Delete
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function entryDefaults(transaction: Transaction) {
+  return {
+    booking_date: transaction.booking_date,
+    amount: decimalAmount(transaction.amount_minor, transaction.currency),
+    counterparty: transaction.counterparty,
+    description: transaction.description
+  };
+}
+
 function TransactionEditForm({
   transaction,
-  close
-}: Props) {
+  close,
+  onDelete
+}: Props & {
+  onDelete: () => void;
+}) {
   const {
     error,
     pending,
     submit
   } = useDialogSubmit(useSaveTransaction(transaction.id), close);
   const [type, setType] = useState<TransactionType>(transaction.type);
+  const [typeChosen, setTypeChosen] = useState(false);
   const [chosenTarget, setTarget] = useState<Target>();
   const transfer = type === "transfer";
   const options = useTransferOptions(transaction.id, transfer);
-  const target = chosenTarget ?? storedTarget(options.data);
+  const target = chosenTarget ?? storedTarget(transaction, options.data);
   const available = transactionTypes.filter(option => transaction.manual_account || !manualAccountTypes.includes(option) || option === transaction.type);
   // Without loaded options, saving a transfer could drop a link the form cannot show.
   const targetUnknown = transfer && options.status !== "success";
@@ -140,13 +216,31 @@ function TransactionEditForm({
   return (
     <form
       className={ui["form"]}
-      onSubmit={event => submit(event, () => transfer ? {
-        type,
-        transfer: transferEdit(target)
-      } : {
-        type
+      onSubmit={event => submit(event, data => {
+        const edit: TransactionEdit = transfer ? {
+          type,
+          transfer: transferEdit(target)
+        } : {
+          type
+        };
+
+        return transaction.entered ? entryEdit(edit, data) : edit;
       })}
     >
+      {transaction.entered && (
+        <EntryFields
+          defaults={entryDefaults(transaction)}
+          payee={!(transfer && target.kind === "account")}
+          followedAccount={transaction.follows_import ? transaction.counterpart?.account_name : undefined}
+          onAmount={amount => {
+            const suggested = suggestedType(amount);
+
+            if (!typeChosen && suggested && (type === "income" || type === "expense")) {
+              setType(suggested);
+            }
+          }}
+        />
+      )}
       <label>
         Type
         <Select
@@ -157,6 +251,7 @@ function TransactionEditForm({
 
             if (isTransactionType(value)) {
               setType(value);
+              setTypeChosen(true);
             }
           }}
         >
@@ -179,14 +274,39 @@ function TransactionEditForm({
       <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={pending || targetUnknown}>
         Save <Check size={16} />
       </button>
+      {transaction.entered && (
+        <button
+          type="button"
+          className={clsx(ui["button"], ui["full-width"], styles["delete"])}
+          disabled={pending}
+          onClick={onDelete}
+        >
+          <Trash2 size={15} />
+          Delete transaction
+        </button>
+      )}
     </form>
   );
+}
+
+function entryEdit(edit: TransactionEdit, data: FormData): EntryEdit {
+  return {
+    ...edit,
+    booking_date: String(data.get("booking_date")),
+    amount: String(data.get("amount")),
+    counterparty: String(data.get("counterparty") ?? ""),
+    description: String(data.get("description") ?? "")
+  };
 }
 
 function LeaveTransferHint({ transaction }: {
   transaction: Transaction
 }) {
   const account = transaction.counterpart?.account_name;
+
+  if (transaction.entered && !transaction.follows_import) {
+    return ` Saving another type removes the other side on ${account}.`;
+  }
 
   if (transaction.created_counterpart) {
     return ` Saving another type removes this booking, and the booking on ${account} becomes income or expense.`;
@@ -237,7 +357,7 @@ function targetSummary(transaction: Transaction, target: Target, accounts: Trans
   if (target.kind === "account") {
     const account = accounts.find(item => item.id === target.accountId);
 
-    return `Save books the counterpart on ${account?.name ?? "the manual account"}.`;
+    return `Save books the other side on ${account?.name ?? "the manual account"}.`;
   }
 
   return `Without a target account this is a transfer ${direction} an account not tracked in Ufer.`;
@@ -267,11 +387,12 @@ function TransferFields({
 
   const source = options.data.counterpart;
 
-  if (transaction.created_counterpart && source) {
+  // Only a counterpart created for an imported booking follows it; one side of a pair entered in Ufer edits the pair like any other booking.
+  if (transaction.created_counterpart && !transaction.entered && source) {
     return <CreatedCounterpartFields source={source} target={target} onTarget={onTarget} />;
   }
 
-  const suggestions = suggestionsOf(options.data);
+  const suggestions = suggestionsOf(transaction, options.data);
   const accounts = options.data.accounts;
 
   return (

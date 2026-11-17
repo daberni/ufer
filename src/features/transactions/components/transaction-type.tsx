@@ -26,14 +26,15 @@ export function TransactionType({ transaction }: {
   const label = transactionTypeLabels[transaction.type];
   const transfer = transaction.type === "transfer";
   const detail = transfer ? transferDirection(transaction) : null;
-  const subject = transaction.counterparty || transaction.description || "transaction";
+  const subject = transaction.counterparty || transaction.description || label;
+  const action = transaction.entered ? "Edit transaction" : "Edit type and transfer";
 
   return (
     <>
       <button
         type="button"
         className={styles["type-button"]}
-        aria-label={`Type of ${subject}: ${label}${detail ? ` ${detail}` : ""}. Edit type and transfer`}
+        aria-label={`Type of ${subject}: ${label}${detail ? ` ${detail}` : ""}. ${action}`}
         onClick={() => setOpen(true)}
       >
         {transfer && <ArrowLeftRight size={14} aria-hidden="true" />}

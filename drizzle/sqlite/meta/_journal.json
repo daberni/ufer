@@ -43,6 +43,13 @@
       "when": 1794878083722,
       "tag": "0005_transaction_types",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1794882016186,
+      "tag": "0006_manual_account_transactions",
+      "breakpoints": true
     }
   ]
 }

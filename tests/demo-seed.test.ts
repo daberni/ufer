@@ -10,6 +10,7 @@ import { initializeDatabase } from "../src/server/database/migrations";
 import * as schema from "../src/server/database/schema";
 import { buildDemoDataset } from "../src/features/demo/server/demo-dataset";
 import { DemoSeedRefusal, seedDemoData } from "../src/features/demo/server/demo-seed-service";
+import { listAccounts } from "../src/features/accounts/server/account-queries";
 
 const firstRun = Temporal.PlainDate.from("2026-11-16");
 const secondRun = Temporal.PlainDate.from("2026-12-01");
@@ -86,16 +87,17 @@ async function insertManualAccount(db: Database, id: string) {
     environment: "SANDBOX",
     name: "Reviewer asset",
     institution: "Example institution",
-    kind: "property",
-    balance_minor: 1000000,
-    balance_date: "2026-10-01"
+    kind: "property"
   });
-  await db.insert(schema.balanceSnapshots).values({
-    id: `${id}-snapshot`,
+  await db.insert(schema.transactions).values({
+    id: `${id}-opening`,
     account_id: id,
-    observed_at: "2026-10-01",
+    provider_reference: `manual:${id}-opening`,
+    booking_date: "2026-10-01",
     amount_minor: 1000000,
-    source: "manual"
+    currency: "EUR",
+    type: "opening_balance",
+    type_source: "manual"
   });
 }
 
@@ -161,17 +163,24 @@ test("re-running the demo seed replaces only demo rows and keeps bank-connected 
   const dataset = buildDemoDataset(secondRun);
   const expected = dataset.accounts.reduce((total, account) => total + account.entries.length, dataset.createdCounterparts.length);
   const seeded = await demoTransactions(db);
+  const balanceBookings = seeded.filter(row => row.type === "opening_balance" || row.type === "adjustment");
+  const balances = new Map((await listAccounts()).map(account => [account.id, account.balance_minor]));
+  const lastValuation = (id: string) => dataset.accounts.find(account => account.id === id)?.valuations.at(-1)?.amount;
   const demoAccounts = await db.select().from(schema.accounts).where(like(schema.accounts.id, "demo-%"));
   const diningRule = await db.select().from(schema.categorizationRules).where(eq(schema.categorizationRules.id, "demo-rule-dining")).get();
 
   assert.deepEqual(after, before);
   assert.equal(after.transactions.find(row => row.id === "sandbox-transaction")?.category_id, "demo-travel");
-  assert.equal(summary.transactions, expected);
-  assert.equal(seeded.length, expected);
-  // Counterparts the seed creates on a manual account carry their source booking in the reference, as when a person creates them.
-  assert.ok(seeded.every(row => row.provider_reference.startsWith("demo:") || row.provider_reference.startsWith("transfer:")));
+  assert.equal(summary.transactions, expected + balanceBookings.length);
+  assert.equal(seeded.length, expected + balanceBookings.length);
+  assert.equal(balanceBookings.filter(row => row.type === "opening_balance").length, 6);
+  // Counterparts the seed creates on a manual account carry their source booking in the reference, as when a person creates them; balances are booked as a person enters them.
+  assert.ok(seeded.every(row => ["demo:", "transfer:", "manual:"].some(prefix => row.provider_reference.startsWith(prefix))));
   assert.equal(demoAccounts.length, 6);
-  assert.ok(demoAccounts.filter(account => account.kind !== "property").every(account => account.balance_date === "2026-12-01"));
+  // Market values end on their last valuation; every other balance follows from the transactions.
+  assert.equal(balances.get("demo-investment"), lastValuation("demo-investment"));
+  assert.equal(balances.get("demo-property"), lastValuation("demo-property"));
+  assert.ok(demoAccounts.every(account => account.balance_minor === null && typeof balances.get(account.id) === "number"));
   assert.ok(demoAccounts.every(account => account.environment === "SANDBOX" && account.provider === "manual"));
   // A category someone created with the same name is reused instead of adding a conflicting demo category.
   assert.equal(diningRule?.category_id, "reviewer-dining");

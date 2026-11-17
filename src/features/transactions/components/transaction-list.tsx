@@ -9,6 +9,7 @@ import { DateValue } from "@/components/ui/date-value";
 import { money } from "@/lib/money";
 import { TransactionCategory } from "@/features/transactions/components/transaction-category";
 import { TransactionType } from "@/features/transactions/components/transaction-type";
+import { transactionTypeLabels } from "@/features/transactions/transaction-types";
 import type { Category } from "@/features/categorization/types";
 import type { Transaction } from "@/features/transactions/types";
 
@@ -60,7 +61,7 @@ function TransactionRow({
       <th role="rowheader" scope="row" className={styles["payee"]}>
         <div className={styles["transaction-name"]}>
           <span className={clsx(styles["transaction-icon"], incoming && styles["incoming"])}>{incoming ? <ArrowDownLeft size={17} /> : <ArrowUpRight size={17} />}</span>
-          <strong className={styles["name"]}>{transaction.counterparty || transaction.description || "Transaction"}</strong>
+          <strong className={styles["name"]}>{transaction.counterparty || transaction.description || transactionTypeLabels[transaction.type]}</strong>
           <span className={styles["description"]} title={transaction.description}>{transaction.description || "No description"}</span>
           {transaction.description && (
             <details className={styles["transaction-details"]}>
