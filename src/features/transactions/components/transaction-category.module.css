@@ -10,6 +10,11 @@
   width: 12rem;
   max-width: 100%;
 }
+/* Has the compact category field's height, so a skeleton row matches a loaded one. */
+.picker-placeholder {
+  display: block;
+  min-height: 36px;
+}
 
 .status {
   display: inline-flex;
@@ -98,6 +103,9 @@
   }
   .category .picker {
     width: 100%;
+  }
+  .picker-placeholder {
+    min-height: 44px;
   }
   .message {
     position: static;
