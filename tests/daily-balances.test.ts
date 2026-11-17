@@ -20,11 +20,11 @@ test("partial history uses the known balance rather than assuming the account op
       date: "2024-03-03",
       amount_minor: -50
     }
-  ], {
+  ], [{
     date: "2024-03-01",
     amount_minor: 10000,
     source: "sync"
-  }, "2024-03-04");
+  }], "2024-03-04");
 
   assert.deepEqual(balances.map(balance => [balance.date, balance.amount_minor]), [
     ["2024-02-28", 9900],
@@ -48,11 +48,39 @@ test("a reference before the first booking is carried forward and future booking
       date: "2026-01-10",
       amount_minor: 99900
     }
-  ], {
+  ], [{
     date: "2026-01-01",
     amount_minor: 1000,
     source: "manual"
-  }, "2026-01-04");
+  }], "2026-01-04");
 
   assert.deepEqual(balances.map(balance => balance.amount_minor), [1000, 1000, 800, 800]);
+});
+
+
+test("incomplete imports never overwrite recorded balances and preserve observations before the first booking", () => {
+  const balances = dailyBalances([
+    {
+      date: "2026-01-02",
+      amount_minor: -100
+    }
+  ], [
+    {
+      date: "2026-01-01",
+      amount_minor: 1000,
+      source: "sync"
+    },
+    {
+      date: "2026-01-03",
+      amount_minor: 2000,
+      source: "sync"
+    }
+  ], "2026-01-04");
+
+  assert.deepEqual(balances.map(balance => [balance.date, balance.amount_minor, balance.source]), [
+    ["2026-01-01", 1000, "sync"],
+    ["2026-01-02", 900, "transactions"],
+    ["2026-01-03", 2000, "sync"],
+    ["2026-01-04", 2000, "transactions"]
+  ]);
 });
