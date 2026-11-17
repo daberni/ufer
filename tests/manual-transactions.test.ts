@@ -12,7 +12,7 @@ import { listAccounts } from "../src/features/accounts/server/account-queries";
 import { saveAccountSync } from "../src/features/banking/server/account-sync-service";
 import { importTransactions, importValuations } from "../src/features/imports/server/import-service";
 import { readCashFlow } from "../src/features/reports/server/cash-flow-query";
-import { editManualTransaction, enterManualTransaction, removeManualTransaction, updateTransactionType } from "../src/features/transactions/server/transaction-service";
+import { editManualTransaction, enterManualTransaction, removeManualTransaction, updateTransactionCategory, updateTransactionType } from "../src/features/transactions/server/transaction-service";
 import { pairTransfersInEnvironment } from "../src/features/transactions/server/transfer-repository";
 import { readTransactionPage } from "../src/features/transactions/server/transaction-list-query";
 import { dashboardFilters } from "../src/server/http/dashboard-filters";
@@ -655,4 +655,132 @@ test("linking two entered bookings gives the counterpart the subject's date", as
 
   assert.equal(linked?.transfer_id, (await row(db, outgoing.id))?.transfer_id);
   assert.deepEqual([linked?.booking_date, linked?.counterparty], ["2026-09-07", "Synthetic cash"]);
+});
+
+
+async function categorizationRules(db: Database) {
+  await db.insert(schema.categorizationRules).values([{
+    id: "market-rule",
+    name: "Market purchases",
+    pattern: "Market",
+    mode: "keyword",
+    category_id: "groceries",
+    priority: 1,
+    enabled: 1
+  }, {
+    id: "salary-rule",
+    name: "Salary payments",
+    pattern: "Salary",
+    mode: "keyword",
+    category_id: "income",
+    priority: 2,
+    enabled: 1
+  }]);
+}
+
+test("editing a rule-categorized manual booking reapplies current rules and clears an obsolete match", async context => {
+  const db = await isolatedDatabase(context);
+  const cash = await manualAccount("Synthetic cash", "100.00");
+
+  await categorizationRules(db);
+  const { id } = await enter(cash, {
+    booking_date: "2026-09-05",
+    amount: "-12.50",
+    counterparty: "Market",
+    type: "expense"
+  });
+  const original = await row(db, id);
+
+  assert.equal(original?.category_id, "groceries");
+  await edit(id, {
+    booking_date: "2026-09-05",
+    amount: "-12.50",
+    counterparty: "Salary adjustment",
+    type: "expense"
+  });
+  assert.deepEqual([(await row(db, id))?.category_id, (await row(db, id))?.category_source], ["income", "rule"]);
+
+  await edit(id, {
+    booking_date: "2026-09-05",
+    amount: "-12.50",
+    description: "Unmatched purchase",
+    type: "expense"
+  });
+  const unmatched = await row(db, id);
+
+  assert.equal(unmatched?.category_id, null);
+  assert.equal(unmatched?.category_source, "rule");
+  assert.equal(unmatched?.provider_reference, original?.provider_reference);
+  assert.equal(unmatched?.amount_minor, original?.amount_minor);
+});
+
+test("editing a manual booking preserves explicit categories, including Uncategorized", async context => {
+  const db = await isolatedDatabase(context);
+  const cash = await manualAccount("Synthetic cash", "100.00");
+
+  await categorizationRules(db);
+
+  for (const categoryId of ["groceries", null]) {
+    const { id } = await enter(cash, {
+      booking_date: "2026-09-05",
+      amount: "-12.50",
+      counterparty: "Market",
+      type: "expense"
+    });
+
+    await updateTransactionCategory(id, {
+      category_id: categoryId
+    });
+    await edit(id, {
+      booking_date: "2026-09-06",
+      amount: "-10.00",
+      description: "Salary adjustment",
+      type: "expense"
+    });
+    const saved = await row(db, id);
+
+    assert.deepEqual([saved?.category_id, saved?.category_source], [categoryId, "manual"]);
+  }
+});
+
+test("editing an entered transfer recategorizes both rule-sourced legs from their final mirrored fields", async context => {
+  const db = await isolatedDatabase(context);
+  const cash = await manualAccount("Synthetic cash", "100.00");
+  const savings = await manualAccount("Synthetic savings", "0.00");
+
+  await categorizationRules(db);
+  const outgoing = await enter(cash, {
+    booking_date: "2026-09-05",
+    amount: "-12.50",
+    description: "Market",
+    type: "transfer"
+  });
+  const incoming = await enter(savings, {
+    booking_date: "2026-09-05",
+    amount: "12.50",
+    description: "Market",
+    type: "transfer"
+  });
+
+  await updateTransactionType(outgoing.id, {
+    type: "transfer",
+    transfer: {
+      counterpart_id: incoming.id
+    }
+  });
+  await edit(outgoing.id, {
+    booking_date: "2026-09-06",
+    amount: "-15.00",
+    counterparty: "Market",
+    description: "Salary adjustment",
+    type: "transfer"
+  });
+  const source = await row(db, outgoing.id);
+  const counterpart = await row(db, incoming.id);
+
+  assert.deepEqual([source?.category_id, counterpart?.category_id], ["income", "income"]);
+  assert.equal(source?.transfer_id, counterpart?.transfer_id);
+  assert.equal(source?.counterparty, "Synthetic savings");
+  assert.equal(counterpart?.description, "Salary adjustment");
+  assert.deepEqual([source?.amount_minor, counterpart?.amount_minor], [-1500, 1500]);
 });
