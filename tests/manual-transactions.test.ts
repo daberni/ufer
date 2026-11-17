@@ -784,3 +784,46 @@ test("editing an entered transfer recategorizes both rule-sourced legs from thei
   assert.equal(counterpart?.description, "Salary adjustment");
   assert.deepEqual([source?.amount_minor, counterpart?.amount_minor], [-1500, 1500]);
 });
+
+for (const initiatingSide of ["entered", "imported"] as const) {
+  test(`linking from the ${initiatingSide} side gives an entered booking its imported source date immediately`, async context => {
+    const db = await isolatedDatabase(context);
+    const cash = await manualAccount("Synthetic cash", "0.00");
+    const imported = await syncBooking(db, "withdrawal", "2026-09-10", -10000);
+    const { id } = await enter(cash, {
+      booking_date: "2026-09-12",
+      amount: "100.00",
+      counterparty: "Cash machine",
+      description: "Entered withdrawal",
+      type: "transfer"
+    });
+    const subjectId = initiatingSide === "entered" ? id : imported.id;
+    const counterpartId = initiatingSide === "entered" ? imported.id : id;
+
+    await updateTransactionType(subjectId, {
+      type: "transfer",
+      transfer: {
+        counterpart_id: counterpartId
+      }
+    });
+
+    const saved = await row(db, id);
+    const source = await row(db, imported.id);
+
+    assert.equal(saved?.booking_date, imported.booking_date);
+    assert.equal(saved?.amount_minor, -imported.amount_minor);
+    assert.equal(saved?.description, "Entered withdrawal");
+    assert.equal(saved?.transfer_id, source?.transfer_id);
+    assert.equal(source?.booking_date, imported.booking_date);
+    assert.equal(source?.counterparty, imported.counterparty);
+    assert.equal(source?.description, imported.description);
+    assert.equal(source?.provider_reference, imported.provider_reference);
+
+    const page = await readTransactionPage(dashboardFilters(new URLSearchParams({
+      period: "2026-09",
+      account: cash
+    })));
+
+    assert.equal(page.transactions.find(item => item.id === id)?.follows_import, true);
+  });
+}
