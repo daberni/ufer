@@ -114,6 +114,7 @@ export function TransactionCategory({
         id={fieldId}
         className={styles["picker"]}
         size="compact"
+        appearance="inline"
         categories={categories}
         value={categoryId}
         includeUncategorized

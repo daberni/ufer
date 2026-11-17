@@ -92,7 +92,7 @@ export function RulesView({
           Add category
         </button>
       </div>
-      <section className={ui["panel"]} aria-label="Your categories">
+      <section className={clsx(ui["panel"], styles["category-panel"])} aria-label="Your categories">
         {categories.status === "pending" ? (
           <AreaPlaceholder area={categories} subject="Your categories">
             <CategoryRowsSkeleton />
@@ -137,7 +137,7 @@ export function RulesView({
           />
         </div>
       </div>
-      <section className={ui["panel"]} aria-label="Your rules">
+      <section className={clsx(ui["panel"], styles["rule-panel"])} aria-label="Your rules">
         {rules.status === "pending" ? (
           <AreaPlaceholder area={rules} subject="Your rules">
             <RuleRowsSkeleton />
@@ -228,38 +228,45 @@ function RuleRows({
     <div>
       {rules.map(rule => (
         <div className={styles["rule-row"]} key={rule.id}>
-          <span className={styles["rule-priority"]}>{rule.priority}</span>
-          <div>
-            <button
-              className={clsx(ui["text-button"], styles["rule-name"])}
-              type="button"
-              aria-label={`Edit rule ${rule.name}`}
-              onClick={() => editRule(rule)}
-            >
-              <strong>{rule.name}</strong>
-              <Pencil className={styles["edit-hint"]} aria-hidden="true" size={16} />
-            </button>
-            <p>
-              <code>{rule.pattern}</code> · {rule.mode === "keyword" ? "Keyword" : "Regex"}
-            </p>
-          </div>
-          <CategoryLabel
-            className={styles["rule-category"]}
-            category={{
-              name: rule.category_name,
-              color: rule.category_color,
-              icon: rule.category_icon
-            }}
-          />
           <button
-            className={clsx(styles["toggle"], rule.enabled ? styles["enabled"] : "")}
+            className={styles["rule-name"]}
+            type="button"
+            title={`${rule.name}: ${rule.pattern} · Priority ${rule.priority}`}
+            aria-label={`Edit rule ${rule.name}`}
+            onClick={() => editRule(rule)}
+          >
+            <strong>{rule.name}</strong>
+            <Pencil className={styles["edit-hint"]} aria-hidden="true" size={16} />
+          </button>
+          <div className={styles["rule-pattern"]}>
+            <span className={styles["rule-label"]}>{rule.mode === "keyword" ? "Keyword" : "Regex"}</span>
+            <code title={rule.pattern}>{rule.pattern}</code>
+          </div>
+          <div className={styles["rule-details"]}>
+            <span className={styles["rule-category"]}>
+              <CategoryLabel
+                category={{
+                  name: rule.category_name,
+                  color: rule.category_color,
+                  icon: rule.category_icon
+                }}
+              />
+            </span>
+            <span className={styles["rule-priority"]} title={`Priority ${rule.priority}`}>
+              <span className={ui["visually-hidden"]}>Priority </span>
+              {rule.priority}
+            </span>
+          </div>
+          <button
+            className={clsx(styles["toggle"], rule.enabled && styles["enabled"])}
+            type="button"
             role="switch"
             aria-checked={Boolean(rule.enabled)}
             aria-label={`Enable rule ${rule.name}`}
             disabled={togglingRules.includes(rule.id)}
             onClick={() => toggleRule(rule)}
           >
-            <span />
+            <span aria-hidden="true" />
           </button>
         </div>
       ))}
@@ -272,24 +279,32 @@ function RuleRowsSkeleton() {
     <div>
       {skeletonNames.slice(0, 4).map((name, index) => (
         <div className={styles["rule-row"]} key={name}>
-          <span className={styles["rule-priority"]}>
-            <span className={ui["skeleton"]}>{(index + 1) * 10}</span>
+          <span className={styles["rule-name"]}>
+            <strong className={ui["skeleton"]}>{name}</strong>
           </span>
-          <div>
-            <span className={styles["rule-name"]}><strong className={ui["skeleton"]}>{name}</strong></span>
-            <p>
-              <span className={ui["skeleton"]}>MARKET · Keyword</span>
-            </p>
+          <div className={styles["rule-pattern"]}>
+            <span className={styles["rule-label"]}>Keyword</span>
+            <code className={ui["skeleton"]}>MARKET</code>
           </div>
-          <CategoryLabel
-            className={clsx(styles["rule-category"], ui["skeleton"])}
-            category={{
-              name,
-              color: neutralChipColor,
-              icon: null
-            }}
-          />
-          <span className={clsx(styles["toggle"], ui["skeleton"])} />
+          <div className={styles["rule-details"]}>
+            <span className={styles["rule-category"]}>
+              <CategoryLabel
+                className={ui["skeleton"]}
+                category={{
+                  name,
+                  color: neutralChipColor,
+                  icon: null
+                }}
+              />
+            </span>
+            <span className={styles["rule-priority"]}>
+              <span className={ui["visually-hidden"]}>Priority </span>
+              <span className={ui["skeleton"]}>{(index + 1) * 10}</span>
+            </span>
+          </div>
+          <span className={styles["toggle"]}>
+            <span className={ui["skeleton"]} />
+          </span>
         </div>
       ))}
     </div>
