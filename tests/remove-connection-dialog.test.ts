@@ -4,7 +4,7 @@ import { act, fireEvent, render } from "@testing-library/react";
 import { createElement } from "react";
 import type { Account } from "../src/features/accounts/types";
 import type { Connection } from "../src/features/banking/types";
-import { browser, wait, withQueryClient, type PendingRequest } from "./fixtures/browser";
+import { browser, respond, wait, withQueryClient } from "./fixtures/browser";
 import { stubCssModules } from "./fixtures/css-modules";
 
 stubCssModules();
@@ -20,14 +20,6 @@ const linkedAccount = {
   provider: "enable_banking",
   requisition_id: "synthetic-connection"
 } as Account;
-
-async function respond(request: PendingRequest | undefined, response: Response) {
-  assert.ok(request, "expected a request");
-  await act(async () => {
-    request.resolve(response);
-    await new Promise(resolve => setTimeout(resolve, 5));
-  });
-}
 
 test("removal stays disabled until the dialog knows how many linked accounts it keeps, and a failed load offers a retry", async context => {
   const {

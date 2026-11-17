@@ -5,7 +5,7 @@ import { useQuery, type QueryClient } from "@tanstack/react-query";
 import { queryKeys } from "../src/client/query-keys";
 import { useTransactionCategory } from "../src/features/transactions/use-transaction-category";
 import type { Transaction, TransactionPage } from "../src/features/transactions/types";
-import { browser, wait, withQueryClient, type PendingRequest } from "./fixtures/browser";
+import { browser, respond, wait, withQueryClient, type PendingRequest } from "./fixtures/browser";
 
 const transaction: Transaction = {
   id: "synthetic-entry",
@@ -74,14 +74,6 @@ function assignment(categoryId: string | null) {
     id: transaction.id,
     category_id: categoryId,
     category_source: "manual"
-  });
-}
-
-async function respond(request: PendingRequest | undefined, response: Response) {
-  assert.ok(request, "expected a request");
-  await act(async () => {
-    request.resolve(response);
-    await new Promise(resolve => setTimeout(resolve, 5));
   });
 }
 

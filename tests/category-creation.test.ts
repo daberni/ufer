@@ -4,7 +4,7 @@ import { test, type TestContext } from "node:test";
 import { act, fireEvent, render, type RenderResult } from "@testing-library/react";
 import { createElement, useState } from "react";
 import type { Category } from "../src/features/categorization/types";
-import { browser, wait, withQueryClient, type PendingRequest } from "./fixtures/browser";
+import { browser, respond, wait, withQueryClient } from "./fixtures/browser";
 import { stubCssModules } from "./fixtures/css-modules";
 
 stubCssModules();
@@ -16,14 +16,6 @@ const groceries: Category = {
   is_transfer: 0,
   icon: null
 };
-
-async function respond(request: PendingRequest | undefined, response: Response) {
-  assert.ok(request, "expected a request");
-  await act(async () => {
-    request.resolve(response);
-    await new Promise(resolve => setTimeout(resolve, 5));
-  });
-}
 
 function categoryField(screen: RenderResult) {
   return screen.getByRole("combobox", {
@@ -72,19 +64,7 @@ function modalDialogs() {
 // A transaction row in miniature: the picker shows the categories query and assigns what it reports.
 async function renderPicker(context: TestContext) {
   const environment = browser(context);
-  const defaults = environment.queryClient.getDefaultOptions();
 
-  // With a window present at import, the query library schedules cache garbage collection, whose timers would keep the test process alive.
-  environment.queryClient.setDefaultOptions({
-    queries: {
-      ...defaults.queries,
-      gcTime: Infinity
-    },
-    mutations: {
-      ...defaults.mutations,
-      gcTime: Infinity
-    }
-  });
   modalDialogs();
 
   const { CategoryPicker } = await import("../src/features/categorization/components/category-picker");
@@ -111,8 +91,6 @@ async function renderPicker(context: TestContext) {
 
   await wait(0);
   await respond(environment.requests("categories")[0], Response.json([groceries]));
-  // The query library notifies React on a later turn.
-  await wait(10);
 
   return {
     ...environment,
