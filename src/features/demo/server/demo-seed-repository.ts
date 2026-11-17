@@ -135,7 +135,8 @@ export async function replaceDemoRows(rows: DemoSeedRows, verify: (target: DemoS
       await insertAccount(tx, rows.environment, account);
     }
 
-    await pairTransfers(tx, rows.environment);
+    // Only demo bookings are paired, so a synced sandbox booking never becomes a transfer to a demo account.
+    await pairTransfers(tx, rows.environment, rows.accounts.map(account => account.id));
   });
 }
 

@@ -340,3 +340,41 @@ test("a CSV import pairs its bookings with an unpaired transfer of a synced acco
   assert.equal(cash?.type, "transfer");
   assert.equal(cash?.transfer_id, (await stored(db, "withdrawal")).transfer_id);
 });
+
+test("detected transfers are categorized by rules like any other booking and their category never changes the cash flow", async context => {
+  const db = await isolatedDatabase(context);
+  const rules = [{
+    id: "rule-savings",
+    name: "Savings",
+    pattern: "Standing order",
+    mode: "keyword" as const,
+    category_id: "leisure",
+    priority: 10,
+    enabled: 1
+  }];
+  const balances = [{
+    balance_type: "CLBD",
+    balance_amount: {
+      amount: "0.00",
+      currency: "EUR"
+    },
+    reference_date: "2026-09-30"
+  }];
+  const standingOrder = {
+    ...entry("standing-order", "2026-09-02", -35000, true),
+    description: "Standing order"
+  };
+
+  await saveAccountSync(db, {
+    environment: "SANDBOX",
+    startedAt: "2026-09-30T09:00:00.000Z"
+  }, "checking", "EUR", balances, [standingOrder, entry("unmatched", "2026-09-03", -20000, true), entry("market", "2026-09-04", -4500)], rules);
+
+  assert.deepEqual([(await stored(db, "standing-order")).category_id, (await stored(db, "standing-order")).type], ["leisure", "transfer"]);
+  assert.deepEqual([(await stored(db, "unmatched")).category_id, (await stored(db, "unmatched")).type], [null, "transfer"]);
+
+  const cashFlow = await readCashFlow(monthPeriod(Temporal.PlainYearMonth.from("2026-09")), "EUR");
+
+  assert.equal(cashFlow.expenses, 4500);
+  assert.deepEqual(cashFlow.breakdown.map(item => [item.categoryId, item.amount]), [[null, 4500]]);
+});

@@ -117,6 +117,15 @@ export type DemoRule = {
 
 /** Ordered by priority; earlier rules win, so gift and travel rules precede the shop and restaurant rules they overlap with. */
 export const demoRules: DemoRule[] = [{
+  // Demo transfers name the other demo account as their counterparty; their type is set separately from this category.
+  id: "demo-rule-own-transfers",
+  name: "Transfers between own accounts",
+  pattern: `^(${Object.values(demoAccounts).map(account => account.name).join("|")}) `,
+  mode: "regex",
+  categoryId: "transfer",
+  priority: 5,
+  enabled: true
+}, {
   id: "demo-rule-salary",
   name: "Salary and bonuses",
   pattern: "Alder & Finch Engineering",

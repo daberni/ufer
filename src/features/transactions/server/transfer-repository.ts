@@ -27,9 +27,12 @@ function windowEnd(days: number) {
 
 /**
  * Links the bookings of transfers between own accounts that match unambiguously: opposite amounts in the same currency on two accounts of this environment, at most three days apart, with at least one side already a transfer.
- * Bookings with more than one candidate stay unpaired. Returns the number of transfers linked.
+ * Bookings with more than one candidate stay unpaired. `accountIds` limits both sides to those accounts, so bookings outside them are neither linked nor counted as candidates. Returns the number of transfers linked.
  */
-export async function pairTransfers(executor: Executor, bankingEnvironment: string) {
+export async function pairTransfers(executor: Executor, bankingEnvironment: string, accountIds?: string[]) {
+  const scopedIds = accountIds ? sql.join(accountIds.map(id => sql`${id}`), sql`,`) : null;
+  const withinAccounts = scopedIds ? sql`AND anchor.account_id IN (${scopedIds}) AND other.account_id IN (${scopedIds})` : sql``;
+
   // The anchor is a transfer; a transfer on the other side is reported once, from its outgoing booking.
   const rows = await executor.all<{
     anchor_id: string;
@@ -50,6 +53,7 @@ export async function pairTransfers(executor: Executor, bankingEnvironment: stri
     AND ${pairable("anchor")}
     AND ${pairable("other")}
     AND (other.type<>'transfer' OR anchor.amount_minor<0)
+    ${withinAccounts}
   `);
   const candidates: PairingCandidate[] = rows.map(row => Number(row.anchor_amount) < 0 ? {
     outgoingId: String(row.anchor_id),

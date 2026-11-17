@@ -304,7 +304,7 @@ test("only booked transactions enter cashflow; non-unique transaction_id does no
     }
   }], new Set()), /different transactions/);
 });
-test("transfers to owned accounts are excluded through their category", () => {
+test("bookings with an owned counterparty IBAN are detected as transfers", () => {
   const entry = normalizeTransactions([{
     ...bankTransaction,
     creditor_account: {
