@@ -106,18 +106,15 @@
   margin-top: var(--space-4);
 }
 .wealth-allocation > span {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: var(--space-1);
   font-size: var(--text-sm);
   color: var(--muted);
-  position: relative;
-  padding-left: var(--space-3);
-}
-.wealth-allocation .legend-dot {
-  position: absolute;
-  top: 2px;
-  left: 0;
 }
 .wealth-allocation strong {
-  display: block;
+  grid-column: 2;
   font-size: var(--text-sm);
   color: var(--ink-soft);
   font-weight: 500;
