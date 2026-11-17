@@ -149,7 +149,8 @@ export class BankingError extends HttpError {
   }
 }
 
-const endedSessionCodes = ["EXPIREDSESSION", "EXPIRED_SESSION", "INVALID_SESSION"];
+// Enable Banking ErrorCode values for a session that can no longer be used or revoked.
+const endedSessionCodes = ["EXPIRED_SESSION", "CLOSED_SESSION", "REVOKED_SESSION", "SESSION_DOES_NOT_EXIST", "EXPIREDSESSION", "INVALID_SESSION"];
 
 /** The provider no longer accepts this session; only a new bank authorization gives access again. */
 export function sessionEnded(error: unknown) {

@@ -237,6 +237,38 @@ test("local removal completes when the provider cannot revoke the session, and t
   assert.equal((await db.select().from(schema.requisitions).where(eq(schema.requisitions.id, "unrevoked")).get())?.session_cipher, null);
 });
 
+test("a session the provider reports as ended counts as revoked and its stored ID is deleted", async context => {
+  const endedSessions = [["EXPIRED_SESSION", 400], ["CLOSED_SESSION", 400], ["REVOKED_SESSION", 400], ["SESSION_DOES_NOT_EXIST", 404]] as const;
+  let current: (typeof endedSessions)[number] = endedSessions[0];
+  const {
+    db,
+    requests
+  } = await bankingDatabase(context, () => Response.json({
+    message: "Synthetic provider error",
+    code: current[1],
+    error: current[0]
+  }, {
+    status: current[1]
+  }));
+
+  for (const ended of endedSessions) {
+    const id = ended[0].toLowerCase();
+
+    current = ended;
+    await insertLinkedConnection(db, id, `${id}-account`);
+
+    assert.deepEqual(await removeBankConnection(id), {
+      retainedAccounts: 1,
+      providerRevocation: "revoked"
+    }, ended[0]);
+    assert.equal((await db.select().from(schema.requisitions).where(eq(schema.requisitions.id, id)).get())?.session_cipher, null, ended[0]);
+  }
+
+  // A later sync finds nothing left to revoke.
+  await syncAccounts();
+  assert.equal(requests.length, endedSessions.length);
+});
+
 test("removal does not interfere with a running sync or an authorization callback in progress", async context => {
   const {
     db,
