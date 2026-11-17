@@ -5,8 +5,8 @@ import { api } from "@/client/api";
 import { invalidate } from "@/client/invalidate";
 import { queryKeys } from "@/client/query-keys";
 
-// Balances feed the account list and the net worth in every currency.
-const balanceKeys = [queryKeys.accounts(), queryKeys.reports.netWorth()];
+// A manual account's balance is booked as transactions, which feed the account list, the net worth in every currency and the transaction lists.
+const balanceKeys = [queryKeys.accounts(), queryKeys.reports.netWorth(), queryKeys.transactions.all()];
 
 export function useCreateAccount() {
   const queryClient = useQueryClient();
