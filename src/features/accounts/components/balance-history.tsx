@@ -4,11 +4,10 @@ import ui from "../../../components/ui/primitives.module.css";
 
 import { clsx } from "clsx";
 import { useState } from "react";
-import { Temporal } from "temporal-polyfill";
 import styles from "./balance-history.module.css";
-import { dateWithYear } from "@/lib/date-format";
+import chartStyles from "./history-chart.module.css";
 import { money } from "@/lib/money";
-import { plotBalances } from "@/features/accounts/balance-chart";
+import { HistoryChart, HistoryChartSkeleton, historyDateLabel as dateLabel } from "@/features/accounts/components/history-chart";
 import { AreaPlaceholder } from "@/components/ui/area-placeholder";
 import { areaProps } from "@/components/ui/result-presentation";
 import type { Area, AreaResult } from "@/components/ui/use-area-result";
@@ -24,10 +23,6 @@ const sourceLabels: Record<BalancePoint["source"], string> = {
 const initialRows = 5;
 
 const skeletonRows = 3;
-
-function dateLabel(date: string) {
-  return dateWithYear(Temporal.PlainDate.from(date));
-}
 
 export function BalanceHistoryPanel({ history }: {
   history: Area<BalanceHistory>
@@ -74,33 +69,21 @@ function BalanceChart({
   balances: BalancePoint[];
   currency: string;
 }) {
-  const chart = plotBalances(balances);
   const first = balances[0];
   const last = balances[balances.length - 1];
-  const line = chart.points.map((point, index) => `${index ? "L" : "M"}${point.x} ${point.y}`).join(" ");
-  const area = `${line} L100 100 L0 100 Z`;
-  const summary = `Balance from ${dateLabel(first.date)} to ${dateLabel(last.date)}: from ${money(first.amount_minor, currency)} to ${money(last.amount_minor, currency)}, lowest ${money(chart.lowest, currency)}, highest ${money(chart.highest, currency)}.`;
+  const amounts = balances.map(balance => balance.amount_minor);
+  const summary = `Balance from ${dateLabel(first.date)} to ${dateLabel(last.date)}: from ${money(first.amount_minor, currency)} to ${money(last.amount_minor, currency)}, lowest ${money(Math.min(...amounts), currency)}, highest ${money(Math.max(...amounts), currency)}.`;
 
   return (
-    <figure className={styles["chart"]}>
-      <div className={styles["plot"]} role="img" aria-label={summary}>
-        <span className={styles["axis-label"]} data-edge="top" aria-hidden="true">{money(chart.highest, currency)}</span>
-        <span className={styles["axis-label"]} data-edge="bottom" aria-hidden="true">{money(chart.lowest, currency)}</span>
-        <svg
-          viewBox="0 0 100 100"
-          preserveAspectRatio="none"
-          aria-hidden="true"
-          focusable="false"
-        >
-          <path className={styles["area"]} d={area} />
-          <path className={styles["line"]} d={line} vectorEffect="non-scaling-stroke" />
-        </svg>
-      </div>
-      <figcaption className={styles["dates"]} aria-hidden="true">
-        <span>{dateLabel(first.date)}</span>
-        <span>{dateLabel(last.date)}</span>
-      </figcaption>
-    </figure>
+    <HistoryChart
+      currency={currency}
+      series={[{
+        label: "Balance",
+        tone: "balance",
+        points: balances
+      }]}
+      summary={summary}
+    />
   );
 }
 
@@ -117,13 +100,13 @@ function BalanceTable({
 
   return (
     <>
-      <table className={styles["table"]}>
+      <table className={chartStyles["table"]}>
         <caption className={ui["visually-hidden"]}>Recorded balances, newest first</caption>
         <thead>
           <tr>
             <th scope="col">Date</th>
             <th scope="col">Source</th>
-            <th scope="col" className={styles["amount"]}>Balance</th>
+            <th scope="col" className={chartStyles["amount"]}>Balance</th>
           </tr>
         </thead>
         <tbody>
@@ -132,8 +115,8 @@ function BalanceTable({
               <th scope="row">
                 <time dateTime={balance.date}>{dateLabel(balance.date)}</time>
               </th>
-              <td>{sourceLabels[balance.source]}</td>
-              <td className={styles["amount"]}>{money(balance.amount_minor, currency)}</td>
+              <td className={styles["source"]}>{sourceLabels[balance.source]}</td>
+              <td className={chartStyles["amount"]}>{money(balance.amount_minor, currency)}</td>
             </tr>
           ))}
         </tbody>
@@ -150,14 +133,8 @@ function BalanceTable({
 function HistorySkeleton() {
   return (
     <>
-      <div className={styles["chart"]}>
-        <div className={clsx(styles["plot"], ui["skeleton"])} />
-        <div className={styles["dates"]}>
-          <span className={ui["skeleton"]}>12 Jan 2025</span>
-          <span className={ui["skeleton"]}>12 Nov 2026</span>
-        </div>
-      </div>
-      <div className={styles["table"]}>
+      <HistoryChartSkeleton />
+      <div className={chartStyles["table"]}>
         {Array.from({
           length: skeletonRows
         }, (_, index) => (

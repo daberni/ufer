@@ -1,3 +1,5 @@
+import type { PeriodJson } from "@/lib/period";
+
 export type Account = {
   id: string;
   name: string;
@@ -35,4 +37,34 @@ export type BalancePoint = {
 export type BalanceHistory = {
   currency: string;
   balances: BalancePoint[];
+};
+
+/**
+ * Net worth in one currency at the end of a month, or today in the current month, from each account's latest recorded balance on or before that day. Balances are carried forward, never interpolated.
+ */
+export type NetWorthPoint = {
+  /** `YYYY-MM` */
+  month: string;
+  /** The day the balances hold for. */
+  date: string;
+  netWorth: number;
+  liquidity: number;
+  investments: number;
+  property: number;
+  liabilities: number;
+  /** How many accounts' balances come from each source. */
+  synced: number;
+  manual: number;
+  imported: number;
+  /** Accounts whose latest balance was recorded before this month. */
+  carried: number;
+  /** Accounts in this currency without a balance on or before this day. */
+  unvalued: number;
+};
+
+/** Monthly net worth in one currency, oldest first; it starts with the first month that has a balance. */
+export type NetWorthHistory = {
+  period: PeriodJson;
+  currency: string;
+  points: NetWorthPoint[];
 };

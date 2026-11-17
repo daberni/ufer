@@ -10,7 +10,7 @@ import { allMonthsPeriod, monthPeriod } from "../src/lib/period";
 import { HttpError } from "../src/lib/errors";
 import { readAccountCashFlow } from "../src/features/reports/server/cash-flow-query";
 import { readBalanceHistory } from "../src/features/accounts/server/account-queries";
-import { plotBalances } from "../src/features/accounts/balance-chart";
+import { plotSeries } from "../src/features/accounts/balance-chart";
 import { accountHref, accountIdFromPathname, isPeriodAware, periodScope, sectionOf, viewFromPathname, viewQuery } from "../src/client/app-location";
 
 const january = monthPeriod(Temporal.PlainYearMonth.from("2026-01"));
@@ -169,32 +169,29 @@ test("an account's balance history lists only its own balances, oldest first, an
 });
 
 test("balances are spaced by date, and a flat or single balance stays inside the plot", () => {
-  const plotted = plotBalances([{
+  const plotted = plotSeries([[{
     date: "2026-01-01",
-    amount_minor: 1000,
-    source: "manual"
+    amount_minor: 1000
   }, {
     date: "2026-01-04",
-    amount_minor: 3000,
-    source: "sync"
+    amount_minor: 3000
   }, {
     date: "2026-01-11",
-    amount_minor: 2000,
-    source: "sync"
-  }]);
+    amount_minor: 2000
+  }]]);
+  const [points] = plotted.series;
 
-  assert.deepEqual(plotted.points.map(point => point.x), [0, 30, 100]);
-  assert.ok(plotted.points[1].y < plotted.points[2].y && plotted.points[2].y < plotted.points[0].y);
+  assert.deepEqual(points.map(point => point.x), [0, 30, 100]);
+  assert.ok(points[1].y < points[2].y && points[2].y < points[0].y);
   assert.deepEqual([plotted.lowest, plotted.highest], [1000, 3000]);
 
   for (const balances of [[1000, 1000], [0, 0], [-500]]) {
-    const flat = plotBalances(balances.map((amount, index) => ({
+    const flat = plotSeries([balances.map((amount, index) => ({
       date: `2026-01-0${index + 1}`,
-      amount_minor: amount,
-      source: "sync" as const
-    })));
+      amount_minor: amount
+    }))]);
 
-    for (const point of flat.points) {
+    for (const point of flat.series[0]) {
       assert.ok(Number.isFinite(point.x) && point.x >= 0 && point.x <= 100, String(balances));
       assert.equal(point.y, 50, String(balances));
     }

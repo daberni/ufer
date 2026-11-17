@@ -4,7 +4,8 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Temporal } from "temporal-polyfill";
 import { apiGet } from "@/client/api";
 import { queryKeys } from "@/client/query-keys";
-import type { Account, BalanceHistory, NetWorth } from "@/features/accounts/types";
+import { serializePeriod, type Period } from "@/lib/period";
+import type { Account, BalanceHistory, NetWorth, NetWorthHistory } from "@/features/accounts/types";
 
 const expiryWarning = Temporal.Duration.from({
   hours: 7 * 24
@@ -30,6 +31,19 @@ export function useNetWorth(currency: string) {
     queryFn: ({ signal }) => apiGet<NetWorth>("reports/net-worth", {
       currency
     }, signal),
+    placeholderData: keepPreviousData
+  });
+}
+
+export function useNetWorthHistory(period: Period, currency: string) {
+  const filters = {
+    period: serializePeriod(period),
+    currency
+  };
+
+  return useQuery({
+    queryKey: queryKeys.reports.netWorthHistoryFor(filters),
+    queryFn: ({ signal }) => apiGet<NetWorthHistory>("reports/net-worth/history", filters, signal),
     placeholderData: keepPreviousData
   });
 }

@@ -25,6 +25,7 @@ Since #48, routes hold the view and search parameters hold the period, currency 
 | `["accounts"]` | `GET /api/accounts` | none |
 | `["accounts", "balance-history", account]` | `GET /api/accounts/{id}/balance` | account |
 | `["reports", "net-worth", { currency }]` | `GET /api/reports/net-worth` | currency |
+| `["reports", "net-worth", "history", { period, currency }]` | `GET /api/reports/net-worth/history` | period, currency |
 | `["reports", "cash-flow", { period, currency }]` | `GET /api/reports/cash-flow` | period, currency |
 | `["reports", "cash-flow", "account", { account, period }]` | `GET /api/accounts/{id}/cash-flow` | account, period |
 | `["transactions", "list", { period, currency, search, account, category, page }]` | `GET /api/transactions` | every list filter |

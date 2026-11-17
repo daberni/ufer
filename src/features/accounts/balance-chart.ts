@@ -1,5 +1,10 @@
 import { Temporal } from "temporal-polyfill";
-import type { BalancePoint } from "@/features/accounts/types";
+
+/** An amount on a calendar day, such as a recorded balance or a month's net worth. */
+export type DatedAmount = {
+  date: string;
+  amount_minor: number;
+};
 
 /** A balance positioned in a 100 × 100 plot: x by date, y downwards from the highest balance. */
 export type PlottedBalance = {
@@ -8,43 +13,51 @@ export type PlottedBalance = {
 };
 
 export type BalanceChart = {
-  points: PlottedBalance[];
+  /** Each series' points, in the order given. */
+  series: PlottedBalance[][];
   lowest: number;
   highest: number;
+  /** The height of zero when the amounts lie on both sides of it. */
+  zero: number | null;
 };
 
 // Space above the highest and below the lowest balance, as a share of their range, so the line never touches the plot's edge.
 const verticalPadding = 0.1;
 
 /**
- * Plots balances, oldest first, against their dates. Dates are spaced by days rather than by observation, so gaps between syncs stay visible. A single day or an unchanged balance is drawn in the middle instead of dividing by zero.
+ * Plots series of amounts, each oldest first, on one shared scale against their dates. Dates are spaced by days rather than by observation, so gaps between observations stay visible. A single day or an unchanged amount is drawn in the middle instead of dividing by zero.
  */
-export function plotBalances(balances: BalancePoint[]): BalanceChart {
-  if (!balances.length) {
+export function plotSeries(series: DatedAmount[][]): BalanceChart {
+  const all = series.flat();
+
+  if (!all.length) {
     return {
-      points: [],
+      series: series.map(() => []),
       lowest: 0,
-      highest: 0
+      highest: 0,
+      zero: null
     };
   }
 
-  const first = Temporal.PlainDate.from(balances[0].date);
-  const last = Temporal.PlainDate.from(balances[balances.length - 1].date);
-  const span = first.until(last).days;
-  const amounts = balances.map(balance => balance.amount_minor);
+  const dates = all.map(entry => entry.date).toSorted();
+  const first = Temporal.PlainDate.from(dates[0]);
+  const span = first.until(Temporal.PlainDate.from(dates[dates.length - 1])).days;
+  const amounts = all.map(entry => entry.amount_minor);
   const lowest = Math.min(...amounts);
   const highest = Math.max(...amounts);
   const range = highest - lowest;
   const padding = range > 0 ? range * verticalPadding : Math.max(Math.abs(highest) * verticalPadding, 1);
   const bottom = lowest - padding;
   const top = highest + padding;
+  const height = (amount: number) => (top - amount) / (top - bottom) * 100;
 
   return {
-    points: balances.map(balance => ({
-      x: span > 0 ? first.until(Temporal.PlainDate.from(balance.date)).days / span * 100 : 50,
-      y: (top - balance.amount_minor) / (top - bottom) * 100
-    })),
+    series: series.map(entries => entries.map(entry => ({
+      x: span > 0 ? first.until(Temporal.PlainDate.from(entry.date)).days / span * 100 : 50,
+      y: height(entry.amount_minor)
+    }))),
     lowest,
-    highest
+    highest,
+    zero: lowest < 0 && highest > 0 ? height(0) : null
   };
 }

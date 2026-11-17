@@ -1,3 +1,6 @@
+.history {
+  margin-top: var(--space-6);
+}
 .analytics-grid {
   display: grid;
   grid-template-columns: 1.2fr 1fr;
@@ -7,6 +10,9 @@
 @media (--laptop) {
   .analytics-grid {
     gap: var(--space-4);
+  }
+  .history {
+    margin-top: var(--space-4);
   }
 }
 @media (--tablet) {
