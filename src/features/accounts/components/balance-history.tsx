@@ -103,7 +103,7 @@ function BalanceTable({
   return (
     <>
       <table className={chartStyles["table"]}>
-        <caption className={ui["visually-hidden"]}>Account balances, newest first</caption>
+        <caption className={ui["visually-hidden"]}>Balances, newest first</caption>
         <thead>
           <tr>
             <th scope="col">Date</th>

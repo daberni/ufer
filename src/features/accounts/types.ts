@@ -26,14 +26,14 @@ export type NetWorth = {
   unvalued: number;
 };
 
-/** A daily closing balance, recorded by an operator/provider or calculated from booked transactions. */
+/** A dated balance, recorded by an operator/provider or estimated from booked transactions. */
 export type BalancePoint = {
   date: string;
   amount_minor: number;
   source: "sync" | "manual" | "csv" | "transactions";
 };
 
-/** An account's closing balances, oldest first. */
+/** An account's dated balances, oldest first. */
 export type BalanceHistory = {
   currency: string;
   balances: BalancePoint[];
