@@ -539,3 +539,74 @@ test("a booking Ufer created on a manual account keeps its source link or is rem
   assert.equal((await onFlat()).length, 0);
   assert.deepEqual([(await stored(db, "deposit")).type, (await stored(db, "deposit")).transfer_id], ["transfer", null]);
 });
+
+test("a migrated transfer keeps its type when a CSV reimport carries no transfer signal", async context => {
+  const db = await isolatedDatabase(context);
+  const csv = "id,date,amount,currency,counterparty,description\nsaving-1,2026-09-03,-500.00,EUR,Savings,Monthly saving";
+
+  await db.insert(schema.accounts).values({
+    id: "cash",
+    environment: "SANDBOX",
+    name: "Synthetic cash",
+    institution: "Wallet",
+    kind: "savings"
+  });
+  await importTransactions({
+    account_id: "cash",
+    csv
+  });
+  // The changeset turns a rule-categorized Transfer booking into an automatic transfer.
+  await db.update(schema.transactions).set({
+    type: "transfer",
+    category_id: "transfer"
+  }).where(eq(schema.transactions.account_id, "cash"));
+  await importTransactions({
+    account_id: "cash",
+    csv
+  });
+
+  const reimported = await db.select().from(schema.transactions).where(eq(schema.transactions.account_id, "cash")).get();
+
+  assert.deepEqual([reimported?.type, reimported?.type_source], ["transfer", "auto"]);
+  assert.equal((await readCashFlow(monthPeriod(Temporal.PlainYearMonth.from("2026-09")), "EUR")).expenses, 0);
+});
+
+test("a redelivered booking whose sign changed releases its link instead of failing the sync", async context => {
+  const db = await isolatedDatabase(context);
+
+  await sync(db, "checking", [entry("out", "2026-09-01", -10000, true)]);
+  await sync(db, "savings", [entry("in", "2026-09-01", 10000, true)]);
+  assert.ok(await linked(db, "out", "in"));
+
+  await sync(db, "checking", [entry("out", "2026-09-01", 10000)]);
+
+  const [out, incoming] = [await stored(db, "out"), await stored(db, "in")];
+
+  assert.deepEqual([out.amount_minor, out.type, out.transfer_id], [10000, "income", null]);
+  assert.deepEqual([incoming.type, incoming.transfer_id], ["transfer", null]);
+});
+
+test("a redelivered amount that no longer matches releases the link and removes a counterpart created on a manual account", async context => {
+  const db = await isolatedDatabase(context);
+
+  await sync(db, "checking", [entry("out", "2026-09-01", -10000, true), entry("deposit", "2026-09-15", -2500000)]);
+  await sync(db, "savings", [entry("in", "2026-09-01", 10000, true)]);
+  await saveTransfer((await stored(db, "deposit")).id, {
+    account_id: "property"
+  });
+  assert.ok(await linked(db, "out", "in"));
+
+  await sync(db, "checking", [entry("out", "2026-09-01", -9000, true), entry("deposit", "2026-09-15", -2400000)]);
+
+  assert.equal((await stored(db, "out")).transfer_id, null);
+  assert.equal((await stored(db, "in")).transfer_id, null);
+  assert.equal((await db.select().from(schema.transactions).where(eq(schema.transactions.account_id, "property"))).length, 0);
+  assert.deepEqual([(await stored(db, "deposit")).type, (await stored(db, "deposit")).transfer_id], ["expense", null]);
+
+  // An unchanged redelivery keeps a link.
+  await sync(db, "checking", [entry("out", "2026-09-01", -10000, true)]);
+  await sync(db, "savings", [entry("in", "2026-09-01", 10000, true)]);
+  assert.ok(await linked(db, "out", "in"));
+  await sync(db, "checking", [entry("out", "2026-09-01", -10000, true)]);
+  assert.ok(await linked(db, "out", "in"));
+});

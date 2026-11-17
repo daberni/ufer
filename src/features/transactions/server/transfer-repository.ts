@@ -1,10 +1,11 @@
 import { randomUUID } from "node:crypto";
-import { and, asc, eq, inArray, ne, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull, ne, sql } from "drizzle-orm";
 import { database, type Database, type DatabaseTransaction } from "@/server/database/connection";
 import { environment } from "@/features/banking/server/environment";
 import { accounts, transactions } from "@/server/database/schema";
 import { derivedTransactionType, manualAccountTypes, type TransactionType } from "@/features/transactions/transaction-types";
 import type { TransferBooking, TransferOptions } from "@/features/transactions/types";
+import type { CategorizedEntry } from "./transaction-entry";
 import { automaticPairingDays, manualLinkDays, unambiguousPairs, type PairingCandidate } from "./transfer-pairing";
 
 type Executor = Database | DatabaseTransaction;
@@ -424,4 +425,65 @@ export async function readTransferOptions(id: string): Promise<TransferOptions |
     candidates: candidates.map(transferBooking),
     accounts: manualAccounts
   };
+}
+
+/**
+ * Releases the links of stored bookings whose redelivered amount or currency no longer pairs with their counterpart (the exact opposite amount in the same currency), before the corrected values are written.
+ * The corrected booking takes the type its delivery implies, its counterpart stays a transfer without a counterpart, and a counterpart Ufer created on a manual account is removed. Both keep an automatic link source, so pairing can link them again.
+ */
+export async function releaseOutdatedLinks(tx: DatabaseTransaction, accountId: string, entries: CategorizedEntry[]) {
+  const deliveries = new Map(entries.map(entry => [entry.reference, entry]));
+
+  if (!deliveries.size) {
+    return;
+  }
+
+  const linked = await tx.select({
+    id: transactions.id,
+    provider_reference: transactions.provider_reference,
+    amount_minor: transactions.amount_minor,
+    currency: transactions.currency,
+    transfer_id: transactions.transfer_id
+  }).from(transactions).where(and(eq(transactions.account_id, accountId), inArray(transactions.provider_reference, [...deliveries.keys()]), isNotNull(transactions.transfer_id)));
+
+  for (const booking of linked) {
+    const delivery = deliveries.get(booking.provider_reference);
+    const unchanged = delivery?.amount === booking.amount_minor && delivery.currency === booking.currency;
+
+    if (!delivery || unchanged || !booking.transfer_id) {
+      continue;
+    }
+
+    const counterpart = await tx.select({
+      id: transactions.id,
+      provider_reference: transactions.provider_reference,
+      amount_minor: transactions.amount_minor,
+      currency: transactions.currency
+    }).from(transactions).where(and(eq(transactions.transfer_id, booking.transfer_id), ne(transactions.id, booking.id))).get();
+    const stillPairs = counterpart !== undefined && delivery.amount === -counterpart.amount_minor && delivery.currency === counterpart.currency;
+
+    if (stillPairs) {
+      continue;
+    }
+
+    await tx.update(transactions).set({
+      transfer_id: null,
+      transfer_source: "auto",
+      type: derivedTransactionType(delivery.amount, delivery.transfer),
+      type_source: "auto"
+    }).where(eq(transactions.id, booking.id));
+
+    if (!counterpart) {
+      continue;
+    }
+
+    if (counterpart.provider_reference.startsWith(createdCounterpartPrefix)) {
+      await tx.delete(transactions).where(eq(transactions.id, counterpart.id));
+    } else {
+      await tx.update(transactions).set({
+        transfer_id: null,
+        transfer_source: "auto"
+      }).where(eq(transactions.id, counterpart.id));
+    }
+  }
 }
