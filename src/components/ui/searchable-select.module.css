@@ -16,7 +16,8 @@
 .control:has([aria-invalid="true"]) {
   border-color: var(--danger);
 }
-.control:has(:focus-visible) {
+/* The field's ring marks a focused search; the toggle draws its own ring inside the field. */
+.control:has(.input:focus-visible) {
   outline: var(--focus-ring);
   outline-offset: 2px;
 }
@@ -55,6 +56,10 @@
   flex-shrink: 0;
   width: var(--toggle-width);
   color: var(--muted);
+}
+.toggle:focus-visible {
+  outline-offset: -2px;
+  border-radius: var(--radius-md);
 }
 .toggle svg {
   width: 16px;
