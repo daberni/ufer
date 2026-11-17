@@ -11,6 +11,7 @@ import { normalizeTransactions } from "./bank-data";
 import { saveAccountSync } from "./account-sync-service";
 import { finishSyncRun, interruptSyncRun, listSyncAccounts, recordAccountSyncError, startSyncRun } from "./sync-repository";
 import { expireConnection } from "./connection-repository";
+import { pairTransfersInEnvironment } from "@/features/transactions/server/transfer-repository";
 
 const expiredSessionCodes = ["EXPIREDSESSION", "EXPIRED_SESSION", "INVALID_SESSION"];
 
@@ -126,6 +127,10 @@ export async function syncAccounts() {
         });
       }
     }
+
+    // Both bookings of a transfer between two synced accounts exist only once every account is stored.
+    await heartbeat();
+    await pairTransfersInEnvironment(env);
 
     const allFailed = accounts.length > 0 && failures.length === accounts.length;
     const partialStatus = failures.length ? "PARTIAL" : "SUCCESS";
