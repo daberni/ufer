@@ -8,6 +8,9 @@ import type { Database } from "../src/server/database/connection";
 import { dashboardFilters } from "../src/server/http/dashboard-filters";
 import { readTransactionPage } from "../src/features/transactions/server/transaction-list-query";
 
+// More distinct case-mapped letters than the search folds; SQLite cannot nest one replace() for each of them.
+const manyLetters = "абвгдежзийклмнопрстуфхцчшщ αβγδεζηθσ ss";
+
 const bookings = {
   "upper-umlaut": ["MÜLLER GMBH", "Invoice 4711"],
   "mixed-umlaut": ["Müller Bäckerei", ""],
@@ -18,7 +21,10 @@ const bookings = {
   "street-capital": ["STRAẞENBAHN", ""],
   "accentless": ["Muller Transport", ""],
   "grocery": ["SPAR Filiale", "Card payment"],
-  "online": ["Example Store", "order spar-2026"]
+  "online": ["Example Store", "order spar-2026"],
+  "greek-upper": ["ΚΟΣΜΟΣ ΤΑΒΕΡΝΑ", ""],
+  "greek-lower": ["", "ταβερνα κοσμος"],
+  "many-letters": ["", `alphabet ${manyLetters}`]
 };
 
 async function seedSearchableTransactions(context: TestContext) {
@@ -111,4 +117,18 @@ test("search keeps matching ASCII text regardless of case and does not ignore ac
   assert.deepEqual(await matches("invoice 4711"), ["upper-umlaut"]);
   assert.deepEqual(await matches("muller"), ["accentless"]);
   assert.deepEqual(await matches("unknown payee"), []);
+});
+
+test("search treats Greek σ, final ς and Σ as one letter", async context => {
+  await seedSearchableTransactions(context);
+
+  assert.deepEqual(await matches("κοσμος"), ["greek-lower", "greek-upper"]);
+  assert.deepEqual(await matches("ΚΟΣΜΟΣ"), ["greek-lower", "greek-upper"]);
+  assert.deepEqual(await matches("ος"), ["greek-lower", "greek-upper"]);
+});
+
+test("a search with many distinct non-ASCII letters still returns its matches", async context => {
+  await seedSearchableTransactions(context);
+
+  assert.deepEqual(await matches(manyLetters), ["many-letters"]);
 });

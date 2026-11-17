@@ -1,9 +1,19 @@
 const searchedText = "lower(t.counterparty || ' ' || t.description)";
 const asciiOnly = /^[\x00-\x7f]*$/;
 
-/** Unicode lower case with the full case folding of ß, so "STRASSE", "Straße" and "STRAẞE" compare equal. */
+// Folds that are not a one-to-one uppercase mapping: ß and ẞ become "ss", Greek final ς becomes σ.
+const foldedSequences: [string, string][] = [
+  ["ß", "ss"],
+  ["ẞ", "ss"],
+  ["ς", "σ"]
+];
+
+// Each folded letter nests one replace() call and SQLite's parser stack overflows at about 27, so letters beyond this cap match case-sensitively.
+const maxFoldedLetters = 16;
+
+/** Unicode lower case with the full case folding of ß and Greek final sigma, so "STRASSE", "Straße" and "STRAẞE" compare equal. */
 function foldCase(text: string) {
-  return text.normalize("NFC").toLowerCase().replaceAll("ß", "ss");
+  return text.normalize("NFC").toLowerCase().replaceAll("ß", "ss").replaceAll("ς", "σ");
 }
 
 // The uppercase letter that folds to a lowercase letter of the search term; SQLite lower() already handles ASCII.
@@ -24,19 +34,18 @@ function nonAsciiUppercase(letter: string) {
  */
 export function searchCondition(search: string) {
   const term = foldCase(search);
-  const replacements: [string, string][] = [];
+  const replacements = foldedSequences.filter(([, folded]) => term.includes(folded));
+  const letterReplacements: [string, string][] = [];
 
   for (const letter of new Set(term)) {
     const uppercase = nonAsciiUppercase(letter);
 
     if (uppercase) {
-      replacements.push([uppercase, letter]);
+      letterReplacements.push([uppercase, letter]);
     }
   }
 
-  if (term.includes("s")) {
-    replacements.push(["ß", "ss"], ["ẞ", "ss"]);
-  }
+  replacements.push(...letterReplacements.slice(0, maxFoldedLetters));
 
   const foldedText = replacements.reduce(text => `replace(${text},?,?)`, searchedText);
 
