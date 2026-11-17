@@ -2,6 +2,7 @@ import { Temporal } from "temporal-polyfill";
 import { HttpError, ValidationError } from "@/lib/errors";
 import { z } from "zod";
 import { minorUnits } from "@/lib/money";
+import { categorize, prepareRules } from "@/lib/rules";
 import { today, validDate } from "@/lib/time";
 import { findManualAccount } from "@/features/accounts/server/account-repository";
 import { categoryExists } from "@/features/categorization/server/category-repository";
@@ -181,7 +182,11 @@ export async function editManualTransaction(id: string, payload: unknown, now = 
     throw new HttpError(404, "Transaction not found.");
   }
 
-  requireSaved(await updateManualTransaction(id, validateEntry(input, currency, now)));
+  const entry = validateEntry(input, currency, now);
+  const rules = prepareRules(await listRules());
+  const categoryFor = (counterparty: string, description: string) => categorize(counterparty, description, rules);
+
+  requireSaved(await updateManualTransaction(id, entry, categoryFor));
 
   return {
     ok: true

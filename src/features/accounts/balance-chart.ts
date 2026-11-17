@@ -31,9 +31,14 @@ export function plotBalances(balances: BalancePoint[]): BalanceChart {
   const first = Temporal.PlainDate.from(balances[0].date);
   const last = Temporal.PlainDate.from(balances[balances.length - 1].date);
   const span = first.until(last).days;
-  const amounts = balances.map(balance => balance.amount_minor);
-  const lowest = Math.min(...amounts);
-  const highest = Math.max(...amounts);
+  let lowest = balances[0].amount_minor;
+  let highest = lowest;
+
+  for (const balance of balances) {
+    lowest = Math.min(lowest, balance.amount_minor);
+    highest = Math.max(highest, balance.amount_minor);
+  }
+
   const range = highest - lowest;
   const padding = range > 0 ? range * verticalPadding : Math.max(Math.abs(highest) * verticalPadding, 1);
   const bottom = lowest - padding;
