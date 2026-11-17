@@ -230,7 +230,7 @@ function TransactionEditForm({
       {transaction.entered && (
         <EntryFields
           defaults={entryDefaults(transaction)}
-          payee={!(transfer && target.kind === "account")}
+          payee={!(transfer && (target.kind === "account" || targetUnknown))}
           followedAccount={transaction.follows_import ? transaction.counterpart?.account_name : undefined}
           onAmount={amount => {
             const suggested = suggestedType(amount);

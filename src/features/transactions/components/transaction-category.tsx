@@ -11,6 +11,7 @@ import type { Transaction } from "@/features/transactions/types";
 import { TraceId } from "@/components/ui/trace-id";
 import { CategoryPicker } from "@/features/categorization/components/category-picker";
 import { useTransactionCategory } from "@/features/transactions/use-transaction-category";
+import { transactionTypeLabels } from "@/features/transactions/transaction-types";
 
 type Props = {
   categories: Category[];
@@ -44,7 +45,7 @@ export function TransactionCategory({
         value={categoryId}
         includeUncategorized
         manual={manual}
-        aria-label={`Category for ${transaction.counterparty || transaction.description}`}
+        aria-label={`Category for ${transaction.counterparty || transaction.description || transactionTypeLabels[transaction.type]}`}
         aria-busy={status?.kind === "saving"}
         aria-invalid={status?.kind === "failed"}
         aria-describedby={failure ? messageId : undefined}
