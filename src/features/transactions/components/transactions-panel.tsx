@@ -199,6 +199,7 @@ function TransactionFilters({
       </Select>
       <CategoryPicker
         className={styles["category-filter"]}
+        size="compact"
         aria-label="Category filter"
         categories={categories}
         value={categoryPickerValue(categoryFilter)}

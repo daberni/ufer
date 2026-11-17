@@ -5,7 +5,7 @@ import { categorize, prepareRules, validatePattern } from "@/lib/rules";
 import { normalizeCategoryName } from "@/lib/category-name";
 import { isCategoryIcon } from "@/features/categorization/category-icons";
 import { categoryExists, insertCategory, updateCategory, type CategoryDetails, type CategoryWriteResult } from "./category-repository";
-import { findUncorrectedTransactions, insertRule, listRules, saveRuleAssignments, setRuleEnabled } from "./rule-repository";
+import { findUncorrectedTransactions, insertRule, listRules, saveRuleAssignments, setRuleEnabled, updateRule } from "./rule-repository";
 
 const ruleInput = z.object({
   name: z.string().trim().min(1).max(100),
@@ -26,6 +26,27 @@ export async function createRule(payload: unknown) {
   }
 
   await insertRule(input);
+
+  return {
+    ok: true
+  };
+}
+
+/** Editing the matching details never changes enabled state or existing transaction assignments. */
+export async function updateRuleDetails(id: string, payload: unknown) {
+  const input = ruleInput.omit({
+    enabled: true
+  }).strict().parse(payload);
+
+  validatePattern(input.pattern, input.mode);
+
+  if (!(await categoryExists(input.category_id))) {
+    throw new ValidationError("Category does not exist.");
+  }
+
+  if (!(await updateRule(id, input))) {
+    throw new HttpError(404, "Rule not found.");
+  }
 
   return {
     ok: true

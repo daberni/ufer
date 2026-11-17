@@ -50,9 +50,11 @@
   outline-offset: -3px;
 }
 .row:has(.edit-transaction):hover {
+  --inline-select-border: var(--border);
+  --inline-select-background: var(--surface);
+  --inline-select-indicator-opacity: 1;
   background: var(--surface-muted);
 }
-.category,
 .transaction-details {
   position: relative;
   z-index: var(--layer-raised);
@@ -205,7 +207,6 @@
   .row:has(.edit-transaction):hover {
     background: var(--surface-muted);
   }
-  .category,
   .transaction-details {
     position: relative;
     z-index: var(--layer-raised);

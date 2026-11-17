@@ -62,6 +62,8 @@ export function creatableName(options: readonly {
 export type SearchableSelectKey = {
   key: string;
   altKey: boolean;
+  ctrlKey?: boolean;
+  metaKey?: boolean;
 };
 
 export type SearchableSelectState = {
@@ -84,6 +86,12 @@ export type SearchableSelectAction = {
   type: "close";
 } | {
   type: "none";
+};
+
+/** Typing on the toggle button hands the text to the search field. */
+export type SearchableSelectToggleAction = SearchableSelectAction | {
+  type: "search";
+  text: string;
 };
 
 const pageSize = 10;
@@ -153,4 +161,34 @@ function openAction(input: SearchableSelectKey, state: SearchableSelectState): S
 /** Home, End, the arrow keys left and right and typing keep editing the search text; typing is handled by the input's change. */
 export function searchableSelectKeyAction(input: SearchableSelectKey, state: SearchableSelectState): SearchableSelectAction {
   return state.open ? openAction(input, state) : closedAction(input, state);
+}
+
+function isPrintable(input: SearchableSelectKey) {
+  return input.key.length === 1 && input.key !== " " && !input.altKey && !input.ctrlKey && !input.metaKey;
+}
+
+/** The toggle button works the list like a select without editing text: Enter and Space open it or pick the highlighted option, and typing starts a search. */
+export function searchableSelectToggleKeyAction(input: SearchableSelectKey, state: SearchableSelectState): SearchableSelectToggleAction {
+  if (isPrintable(input)) {
+    return {
+      type: "search",
+      text: input.key
+    };
+  }
+
+  const confirms = input.key === "Enter" || input.key === " ";
+
+  if (confirms && !state.open) {
+    return {
+      type: "open",
+      activeIndex: state.selectedIndex >= 0 ? state.selectedIndex : Math.min(0, state.optionCount - 1)
+    };
+  }
+
+  const key = confirms ? "Enter" : input.key;
+
+  return searchableSelectKeyAction({
+    ...input,
+    key
+  }, state);
 }
