@@ -4,10 +4,13 @@ import ui from "../../../components/ui/primitives.module.css";
 
 import { clsx } from "clsx";
 import styles from "./transaction-list.module.css";
-import { ArrowDownLeft, ArrowUpRight } from "lucide-react";
+import { useState } from "react";
 import { DateValue } from "@/components/ui/date-value";
 import { money } from "@/lib/money";
-import { TransactionCategory } from "@/features/transactions/components/transaction-category";
+import { TransactionCategory, TransactionCategorySkeleton } from "@/features/transactions/components/transaction-category";
+import { transactionTypeLabels } from "@/features/transactions/transaction-types";
+import { TransactionTypeIcon, transferDirection } from "@/features/transactions/components/transaction-type";
+import { TransactionEditDialog } from "@/features/transactions/components/transaction-edit-dialog";
 import type { Category } from "@/features/categorization/types";
 import type { Transaction } from "@/features/transactions/types";
 
@@ -50,6 +53,7 @@ function TransactionRow({
   categories: Category[];
   transaction: Transaction;
 }) {
+  const [editing, setEditing] = useState(false);
   const incoming = transaction.amount_minor > 0;
   const original = originalAmount(transaction);
 
@@ -57,22 +61,35 @@ function TransactionRow({
     <tr role="row" className={styles["row"]}>
       <th role="rowheader" scope="row" className={styles["payee"]}>
         <div className={styles["transaction-name"]}>
-          <span className={clsx(styles["transaction-icon"], incoming && styles["incoming"])}>{incoming ? <ArrowDownLeft size={17} /> : <ArrowUpRight size={17} />}</span>
-          <strong className={styles["name"]}>{transaction.counterparty || transaction.description || "Transaction"}</strong>
+          <span className={clsx(styles["transaction-icon"], incoming && styles["incoming"])}><TransactionTypeIcon type={transaction.type} /></span>
+          <strong className={styles["name"]}>
+            <button
+              className={styles["edit-transaction"]}
+              type="button"
+              onClick={() => setEditing(true)}
+              aria-label={`Edit transaction: ${transaction.counterparty || transaction.description || transactionTypeLabels[transaction.type]}`}
+            >
+              {transaction.counterparty || transaction.description || transactionTypeLabels[transaction.type]}
+            </button>
+          </strong>
           <span className={styles["description"]} title={transaction.description}>{transaction.description || "No description"}</span>
-          {transaction.description && (
+          {transaction.description ? (
             <details className={styles["transaction-details"]}>
               <summary>Description</summary>
               <p>{transaction.description}</p>
             </details>
-          )}
+          ) : <span className={styles["no-details"]}>No description</span>}
         </div>
+        {editing && <TransactionEditDialog transaction={transaction} close={() => setEditing(false)} />}
       </th>
       <td role="cell" className={styles["category"]}>
         <span className={styles["category-label"]} aria-hidden="true">Category</span>
         <TransactionCategory categories={categories} transaction={transaction} />
       </td>
-      <td role="cell" className={styles["account"]}>{transaction.account_name}</td>
+      <td role="cell" className={styles["account"]}>
+        {transaction.account_name}
+        {transaction.type === "transfer" && <span className={styles["counterpart"]}>{transferDirection(transaction)}</span>}
+      </td>
       <td role="cell" className={styles["date"]}>
         <DateValue value={transaction.booking_date} />
       </td>
@@ -141,7 +158,7 @@ export function TransactionListSkeleton({ rows }: {
               </th>
               <td className={styles["category"]}>
                 <span className={styles["category-label"]}>Category</span>
-                <span className={ui["skeleton"]}>Category name with menu</span>
+                <TransactionCategorySkeleton />
               </td>
               <td className={styles["account"]}>
                 <span className={ui["skeleton"]}>Everyday account</span>

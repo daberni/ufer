@@ -1,6 +1,6 @@
 # Architecture: deployment, identity and bank connections
 
-Updated: 2026-11-15. Ufer remains an independent Node.js/TypeScript and React application. The [accepted decision](adr/decisions/001-continue-ufer.md) records the choice over a Sure fork. [Code style](code-style.md) defines the implementation boundaries. This document distinguishes the implemented refactor from the proposed multi-user architecture.
+Updated: 2026-11-17. Ufer remains an independent Node.js/TypeScript and React application. The [accepted decision](adr/decisions/001-continue-ufer.md) records the choice over a Sure fork. [Code style](code-style.md) defines the implementation boundaries. This document distinguishes the implemented refactor from the proposed multi-user architecture.
 
 ## Current implementation and target
 
@@ -44,6 +44,12 @@ Application modules evolve together against the current state. Previous internal
 ### Database dialect boundary
 
 Drizzle table definitions describe a physical database dialect: the implemented SQLite/libSQL adapter uses sqliteTable, while PostgreSQL would use pgTable and its own driver and changesets. A generic schema/provider label cannot make defaults, conflict handling, migrations or read-projection SQL portable. The current schema is intentionally honest about the implemented adapter. PostgreSQL can be added behind the repository boundary with a separate dialect schema/migration history, verified query behavior and data migration; it is not prohibited by the product model and is not supported yet. Avoid a speculative universal-provider abstraction before implementing the second adapter. See [Drizzle schema declaration](https://orm.drizzle.team/docs/sql-schema-declaration).
+
+### Transaction types and transfers
+
+Each transaction stores a `type` (income, expense, transfer, opening balance, adjustment) next to its category; the category describes purpose only. The cash-flow read projection counts `income` and `expense` and nothing else, so totals, the spending breakdown and the trend follow the type, never a category flag. Two bookings of one transfer share a `transfer_id`; a unique index allows at most one outgoing and one incoming booking per transfer, and a check constraint allows a `transfer_id` only on transfers. `type_source` and `transfer_source` record manual corrections: the transaction upsert recalculates the type only while it is automatic and unlinked, and automatic pairing skips bookings someone linked or unlinked. The pure pairing rule lives in `features/transactions/server/transfer-pairing.ts`; the [transfer repository](../src/features/transactions/server/transfer-repository.ts) reads candidates and saves a booking's type together with its transfer target (a suggested booking, a manual account on which the counterpart is created, or none) in one transaction. Sync pairs once after storing every account; CSV import and the demo seed pair inside their write transaction. See [ADR 008](adr/decisions/008-transaction-types-and-transfers.md).
+
+A manual account's balance is the sum of its transactions, read in the account list; `accounts.balance_minor` and `balance_snapshots` hold provider balances of synced accounts only. The [manual transaction repository](../src/features/transactions/server/manual-transaction-repository.ts) enters, edits and deletes bookings entered in Ufer (`manual:` references and created counterparts on manual accounts) and records a balance for a date as an opening balance or an adjustment for the difference; account creation, Update balance, CSV balance imports and the demo seed share that rule. When both sides of a transfer were entered in Ufer, the transfer repository treats them as one movement that either side edits, moves or removes. See [ADR 009](adr/decisions/009-manual-account-balances-from-transactions.md).
 
 ### Client request lifecycle
 

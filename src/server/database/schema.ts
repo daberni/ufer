@@ -1,14 +1,14 @@
 import { desc, sql } from "drizzle-orm";
 import { authSessions, authUsers, workspaces } from "@/features/auth/server/auth-schema";
-import { check, index, integer, primaryKey, sqliteTable, text, unique } from "drizzle-orm/sqlite-core";
+import { check, index, integer, primaryKey, sqliteTable, text, unique, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { transactionTypes } from "@/features/transactions/transaction-types";
 
 export const categories = sqliteTable("categories", {
   id: text("id").primaryKey(),
   name: text("name").notNull().unique(),
   color: text("color").notNull(),
-  is_transfer: integer("is_transfer").notNull().default(0),
   icon: text("icon")
-}, table => [check("categories_is_transfer", sql`${table.is_transfer} IN (0,1)`)]);
+});
 
 export const requisitions = sqliteTable("requisitions", {
   id: text("id").primaryKey(),
@@ -47,6 +47,7 @@ export const accounts = sqliteTable("accounts", {
   provider_uid: text("provider_uid"),
   requisition_id: text("requisition_id").references(() => requisitions.id),
   iban: text("iban"),
+  // The provider balance of a synced account; a manual account's balance is the sum of its transactions and this stays NULL.
   balance_minor: integer("balance_minor"),
   balance_date: text("balance_date"),
   last_synced_at: text("last_synced_at"),
@@ -96,15 +97,33 @@ export const transactions = sqliteTable("transactions", {
   // Signed like amount_minor, in minor units of instructed_currency.
   instructed_amount_minor: integer("instructed_amount_minor"),
   instructed_currency: text("instructed_currency"),
-  provider_payload: text("provider_payload")
+  provider_payload: text("provider_payload"),
+  type: text("type", {
+    enum: transactionTypes
+  }).notNull(),
+  type_source: text("type_source", {
+    enum: ["auto", "manual"]
+  }).notNull().default("auto"),
+  // Shared by the two linked bookings of one transfer between own accounts.
+  transfer_id: text("transfer_id"),
+  // Manual once a person linked or unlinked the booking; automatic pairing then leaves it alone.
+  transfer_source: text("transfer_source", {
+    enum: ["auto", "manual"]
+  }).notNull().default("auto")
 }, table => [
   unique("transactions_account_id_provider_reference_unique").on(table.account_id, table.provider_reference),
   index("transactions_date").on(desc(table.booking_date)),
   index("transactions_account").on(table.account_id, table.booking_date),
   index("transactions_created_at").on(table.created_at),
-  check("transactions_category_source", sql`${table.category_source} IN ('rule','manual')`)
+  uniqueIndex("transactions_transfer_side").on(table.transfer_id, sql`${table.amount_minor} > 0`).where(sql`${table.transfer_id} IS NOT NULL`),
+  check("transactions_category_source", sql`${table.category_source} IN ('rule','manual')`),
+  check("transactions_type", sql`${table.type} IN ('income','expense','transfer','opening_balance','adjustment')`),
+  check("transactions_type_source", sql`${table.type_source} IN ('auto','manual')`),
+  check("transactions_transfer_source", sql`${table.transfer_source} IN ('auto','manual')`),
+  check("transactions_transfer_type", sql`${table.transfer_id} IS NULL OR ${table.type}='transfer'`)
 ]);
 
+// Provider balance history of synced accounts; manual accounts record balance changes as transactions.
 export const balanceSnapshots = sqliteTable("balance_snapshots", {
   id: text("id").primaryKey(),
   account_id: text("account_id").notNull().references(() => accounts.id),

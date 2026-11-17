@@ -82,3 +82,14 @@ export function money(value: number, currency = "EUR") {
     maximumFractionDigits: currencyExponent(currency) ?? 2
   }).format(value / 10 ** (currencyExponent(currency) ?? 2));
 }
+
+/** Minor units as a plain decimal string for an amount field, for example -1250 EUR as "-12.50". */
+export function decimalAmount(value: number, currency = "EUR") {
+  const exponent = currencyExponent(currency) ?? 2;
+  const digits = String(Math.abs(value)).padStart(exponent + 1, "0");
+  const whole = digits.slice(0, digits.length - exponent);
+  const fraction = digits.slice(digits.length - exponent);
+  const sign = value < 0 ? "-" : "";
+
+  return exponent ? `${sign}${whole}.${fraction}` : `${sign}${whole}`;
+}

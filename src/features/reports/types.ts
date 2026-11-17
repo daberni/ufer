@@ -21,9 +21,9 @@ export type CashFlow = {
     month: string;
     income: number;
     expenses: number;
-    /** Income by category in this month, largest first; it sums to `income`. */
+    /** Income by category in this month, largest first; it sums to `income` unless a category's net amount is not positive. */
     incomeBreakdown: CategoryAmount[];
-    /** Spending by category in this month, largest first; it sums to `expenses`. */
+    /** Spending by category in this month, largest first; it sums to `expenses` unless a category's refunds reach its spending. */
     expenseBreakdown: CategoryAmount[];
   }[];
 };

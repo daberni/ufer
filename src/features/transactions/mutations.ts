@@ -1,0 +1,67 @@
+"use client";
+
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { api } from "@/client/api";
+import { invalidate } from "@/client/invalidate";
+import { queryKeys } from "@/client/query-keys";
+import type { TransactionType } from "@/features/transactions/transaction-types";
+
+/** Where a transfer goes: an existing booking, a manual account on which its counterpart is created, or null for no counterpart. */
+export type TransferTarget = {
+  counterpart_id: string;
+} | {
+  account_id: string;
+} | null;
+
+/** The fields the edit dialog saves; `transfer` is sent for transfers only. */
+export type TransactionEdit = {
+  type: TransactionType;
+  transfer?: TransferTarget;
+};
+
+/** The date, amount, payee and description of a booking entered in Ufer, saved together with its type. */
+export type EntryEdit = TransactionEdit & {
+  booking_date: string;
+  amount: string;
+  counterparty: string;
+  description: string;
+};
+
+export type NewEntry = EntryEdit & {
+  category_id: string | null;
+};
+
+// A change can touch both bookings of a transfer and the balance of every manual account involved, so every list, the cash flow and the balances are refreshed.
+const editKeys = [queryKeys.transactions.all(), queryKeys.reports.cashFlow(), queryKeys.accounts(), queryKeys.reports.netWorth()];
+
+/** Saves a booking's type and transfer target, or for a booking entered in Ufer also its date, amount, payee and description. */
+export function useSaveTransaction(id: string) {
+  const queryClient = useQueryClient();
+  const path = `transactions/${encodeURIComponent(id)}`;
+
+  return useMutation({
+    mutationFn: (edit: TransactionEdit | EntryEdit) => "booking_date" in edit ? api(path, edit, "PUT") : api(`${path}/type`, edit, "PUT"),
+    onSettled: () => invalidate(queryClient, editKeys)
+  });
+}
+
+export function useDeleteTransaction(id: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => api(`transactions/${encodeURIComponent(id)}`, undefined, "DELETE"),
+    onSettled: () => invalidate(queryClient, editKeys)
+  });
+}
+
+export function useEnterTransaction() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ accountId, entry }: {
+      accountId: string;
+      entry: NewEntry;
+    }) => api(`accounts/${encodeURIComponent(accountId)}/transactions`, entry),
+    onSettled: () => invalidate(queryClient, editKeys)
+  });
+}

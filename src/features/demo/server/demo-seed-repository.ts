@@ -1,11 +1,14 @@
-import { and, count, inArray, like, ne, not, sql } from "drizzle-orm";
+import { and, count, inArray, isNotNull, like, ne, not, notInArray, sql } from "drizzle-orm";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
-import { accounts, balanceSnapshots, categories, categorizationRules, requisitions, transactions } from "@/server/database/schema";
+import { accounts, categories, categorizationRules, requisitions, transactions } from "@/server/database/schema";
 import { upsertTransactions } from "@/features/transactions/server/transaction-repository";
+import { recordManualBalance } from "@/features/transactions/server/manual-transaction-repository";
+import { manualAccountTypes } from "@/features/transactions/transaction-types";
+import { createTransferCounterpart, pairTransfers } from "@/features/transactions/server/transfer-repository";
 import type { CategorizedEntry } from "@/features/transactions/server/transaction-entry";
 import type { CategorizationRule, Category } from "@/server/database/models";
 import { demoIdPrefix, type DemoAccountDefinition, type DemoCategory } from "./demo-catalog";
-import type { DemoSnapshot } from "./demo-dataset";
+import type { DemoCreatedCounterpart, DemoSnapshot } from "./demo-dataset";
 
 /** What the guard inspects before demo rows are replaced. */
 export type DemoSeedTarget = {
@@ -14,10 +17,9 @@ export type DemoSeedTarget = {
 };
 
 export type DemoAccountRows = DemoAccountDefinition & {
-  balance: number;
-  balanceDate: string;
+  opening: DemoSnapshot;
   entries: CategorizedEntry[];
-  snapshots: DemoSnapshot[];
+  valuations: DemoSnapshot[];
 };
 
 export type DemoSeedRows = {
@@ -25,6 +27,7 @@ export type DemoSeedRows = {
   categories: DemoCategory[];
   rules: CategorizationRule[];
   accounts: DemoAccountRows[];
+  createdCounterparts: DemoCreatedCounterpart[];
 };
 
 const demoRows = `${demoIdPrefix}%`;
@@ -46,13 +49,13 @@ async function inspectTarget(tx: DatabaseTransaction, environment: string): Prom
   const otherRequisitions = await tx.select({
     count: count()
   }).from(requisitions).where(ne(requisitions.environment, environment)).get();
-  // Bank-connected sandbox accounts may coexist with the demo; manual and CSV accounts hold data someone entered.
+  // Bank-connected sandbox accounts may coexist with the demo; manual and CSV accounts hold data someone entered. Their opening balances and adjustments only record balances and do not count.
   const foreignManualAccounts = tx.select({
     id: accounts.id
   }).from(accounts).where(and(not(like(accounts.id, demoRows)), ne(accounts.provider, "enable_banking")));
   const manualTransactions = await tx.select({
     count: count()
-  }).from(transactions).where(inArray(transactions.account_id, foreignManualAccounts)).get();
+  }).from(transactions).where(and(inArray(transactions.account_id, foreignManualAccounts), notInArray(transactions.type, [...manualAccountTypes]))).get();
 
   return {
     otherEnvironmentRows: (otherAccounts?.count ?? 0) + (otherRequisitions?.count ?? 0),
@@ -61,8 +64,15 @@ async function inspectTarget(tx: DatabaseTransaction, environment: string): Prom
 }
 
 async function deleteDemoRows(tx: DatabaseTransaction) {
+  const demoTransfers = tx.select({
+    transfer_id: transactions.transfer_id
+  }).from(transactions).where(and(like(transactions.account_id, demoRows), isNotNull(transactions.transfer_id)));
+
+  // A synced sandbox booking linked to a demo booking stays a transfer without a counterpart.
+  await tx.update(transactions).set({
+    transfer_id: null
+  }).where(and(not(like(transactions.account_id, demoRows)), inArray(transactions.transfer_id, demoTransfers)));
   await tx.delete(transactions).where(like(transactions.account_id, demoRows));
-  await tx.delete(balanceSnapshots).where(like(balanceSnapshots.account_id, demoRows));
   await tx.delete(accounts).where(like(accounts.id, demoRows));
   await tx.delete(categorizationRules).where(like(categorizationRules.id, demoRows));
 }
@@ -89,21 +99,17 @@ async function insertAccount(tx: DatabaseTransaction, environment: string, accou
     institution: account.institution,
     kind: account.kind,
     currency: "EUR",
-    provider: "manual",
-    balance_minor: account.balance,
-    balance_date: account.balanceDate
+    provider: "manual"
   });
+  await recordManualBalance(tx, demoAccount(account), account.opening.date, account.opening.amount);
   await upsertTransactions(tx, account.id, account.entries);
+}
 
-  if (account.snapshots.length) {
-    await tx.insert(balanceSnapshots).values(account.snapshots.map(snapshot => ({
-      id: `${account.id}-${snapshot.date}`,
-      account_id: account.id,
-      observed_at: snapshot.date,
-      amount_minor: snapshot.amount,
-      source: "manual" as const
-    })));
-  }
+function demoAccount(account: DemoAccountRows) {
+  return {
+    id: account.id,
+    currency: "EUR"
+  };
 }
 
 /**
@@ -125,6 +131,19 @@ export async function replaceDemoRows(rows: DemoSeedRows, verify: (target: DemoS
     for (const account of rows.accounts) {
       await insertAccount(tx, rows.environment, account);
     }
+
+    for (const counterpart of rows.createdCounterparts) {
+      await createTransferCounterpart(tx, counterpart.sourceAccountId, counterpart.sourceReference, counterpart.accountId);
+    }
+
+    await pairTransfers(tx, rows.environment);
+
+    // Valuations follow every transaction, including created counterparts, as when a person updates a balance.
+    for (const account of rows.accounts) {
+      for (const valuation of account.valuations) {
+        await recordManualBalance(tx, demoAccount(account), valuation.date, valuation.amount);
+      }
+    }
   });
 }
 
@@ -133,7 +152,8 @@ export async function countDemoRows() {
   const db = await database();
   const transactionCounts = await db.select({
     total: count(),
-    uncategorized: sql<number>`SUM(CASE WHEN ${transactions.category_id} IS NULL THEN 1 ELSE 0 END)`
+    // Opening balances and adjustments have no purpose to categorize.
+    uncategorized: sql<number>`SUM(CASE WHEN ${transactions.category_id} IS NULL AND ${notInArray(transactions.type, [...manualAccountTypes])} THEN 1 ELSE 0 END)`
   }).from(transactions).where(like(transactions.account_id, demoRows)).get();
   const accountCount = await db.select({
     count: count()
