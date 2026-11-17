@@ -5,6 +5,7 @@ import { environment } from "@/features/banking/server/environment";
 import { accounts, transactions } from "@/server/database/schema";
 import { derivedTransactionType, manualAccountTypes, type TransactionType } from "@/features/transactions/transaction-types";
 import type { TransferBooking, TransferOptions } from "@/features/transactions/types";
+import { demoIdPrefix } from "@/features/demo/server/demo-catalog";
 import { automaticPairingDays, manualLinkDays, unambiguousPairs, type PairingCandidate } from "./transfer-pairing";
 
 type Executor = Database | DatabaseTransaction;
@@ -27,11 +28,12 @@ function windowEnd(days: number) {
 
 /**
  * Links the bookings of transfers between own accounts that match unambiguously: opposite amounts in the same currency on two accounts of this environment, at most three days apart, with at least one side already a transfer.
- * Bookings with more than one candidate stay unpaired. `accountIds` limits both sides to those accounts, so bookings outside them are neither linked nor counted as candidates. Returns the number of transfers linked.
+ * Bookings with more than one candidate stay unpaired. `accountIds` limits both sides to those accounts, so bookings outside them are neither linked nor counted as candidates; without it, demo-owned accounts are left out, so real and demo bookings never pair. Returns the number of transfers linked.
  */
 export async function pairTransfers(executor: Executor, bankingEnvironment: string, accountIds?: string[]) {
   const scopedIds = accountIds ? sql.join(accountIds.map(id => sql`${id}`), sql`,`) : null;
-  const withinAccounts = scopedIds ? sql`AND anchor.account_id IN (${scopedIds}) AND other.account_id IN (${scopedIds})` : sql``;
+  const demoAccounts = `${demoIdPrefix}%`;
+  const withinAccounts = scopedIds ? sql`AND anchor.account_id IN (${scopedIds}) AND other.account_id IN (${scopedIds})` : sql`AND anchor.account_id NOT LIKE ${demoAccounts} AND other.account_id NOT LIKE ${demoAccounts}`;
 
   // The anchor is a transfer; a transfer on the other side is reported once, from its outgoing booking.
   const rows = await executor.all<{

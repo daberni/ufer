@@ -539,3 +539,51 @@ test("a booking Ufer created on a manual account keeps its source link or is rem
   assert.equal((await onFlat()).length, 0);
   assert.deepEqual([(await stored(db, "deposit")).type, (await stored(db, "deposit")).transfer_id], ["transfer", null]);
 });
+
+test("pairing after a sync or an import never links a real booking with a demo booking", async context => {
+  const db = await isolatedDatabase(context);
+
+  await db.insert(schema.accounts).values([{
+    id: "demo-savings",
+    environment: "SANDBOX",
+    name: "Demo savings",
+    institution: "Demo bank",
+    kind: "savings"
+  }, {
+    id: "cash",
+    environment: "SANDBOX",
+    name: "Synthetic cash",
+    institution: "Wallet",
+    kind: "savings"
+  }]);
+  await db.insert(schema.transactions).values({
+    id: "demo-in",
+    account_id: "demo-savings",
+    provider_reference: "demo:00001",
+    booking_date: "2026-09-02",
+    amount_minor: 25000,
+    currency: "EUR",
+    type: "income"
+  });
+  await sync(db, "checking", [entry("to-joint", "2026-09-01", -25000, true)]);
+  await importTransactions({
+    account_id: "cash",
+    csv: "id,date,amount,currency,counterparty,description\ncash-1,2026-09-10,-75.00,EUR,ATM,Cash deposit"
+  });
+  await db.insert(schema.transactions).values({
+    id: "demo-from-cash",
+    account_id: "demo-savings",
+    provider_reference: "demo:00002",
+    booking_date: "2026-09-10",
+    amount_minor: 7500,
+    currency: "EUR",
+    type: "transfer"
+  });
+  await pairTransfersInEnvironment("SANDBOX");
+
+  const demo = await db.select().from(schema.transactions).where(eq(schema.transactions.account_id, "demo-savings"));
+
+  assert.equal((await stored(db, "to-joint")).transfer_id, null);
+  assert.ok(demo.every(row => row.transfer_id === null));
+  assert.deepEqual(demo.map(row => row.type).sort(), ["income", "transfer"]);
+});
