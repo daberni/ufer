@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { eq, lte, sql } from "drizzle-orm";
+import { and, eq, lte, sql } from "drizzle-orm";
 import { TransactionRollbackError } from "drizzle-orm/errors";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 import { transactions } from "@/server/database/schema";
@@ -108,7 +108,7 @@ export async function findEntryCurrency(id: string) {
  * Saves an entered booking's date, amount, payee, description and type together.
  * The other side of an entered pair mirrors the date, the opposite amount and the description; a booking linked with an imported booking keeps that booking's date and amount.
  */
-export async function updateManualTransaction(id: string, entry: ManualEntry) {
+export async function updateManualTransaction(id: string, entry: ManualEntry, categoryFor: (counterparty: string, description: string) => string | null) {
   return refusable(async tx => {
     const subject = await findSubject(tx, id);
 
@@ -160,8 +160,40 @@ export async function updateManualTransaction(id: string, entry: ManualEntry) {
       await tx.update(transactions).set(fields).where(eq(transactions.id, subject.id));
     }
 
-    return applyTransactionType(tx, id, entry.type, entry.target);
+    const result = await applyTransactionType(tx, id, entry.type, entry.target);
+
+    if (result !== "saved") {
+      return result;
+    }
+
+    const saved = await findSubject(tx, id);
+    const other = saved ? await findCounterpart(tx, saved) : undefined;
+
+    await reapplyRuleCategory(tx, id, categoryFor);
+
+    if (saved && other && enteredPair(saved, other)) {
+      await reapplyRuleCategory(tx, other.id, categoryFor);
+    }
+
+    return "saved";
   });
+}
+
+/** Rechecks final mirrored fields under the edit's write lock; explicit manual assignments, including null, stay untouched. */
+async function reapplyRuleCategory(tx: DatabaseTransaction, id: string, categoryFor: (counterparty: string, description: string) => string | null) {
+  const automatic = and(eq(transactions.id, id), eq(transactions.category_source, "rule"));
+  const booking = await tx.select({
+    counterparty: transactions.counterparty,
+    description: transactions.description
+  }).from(transactions).where(automatic).get();
+
+  if (!booking) {
+    return;
+  }
+
+  await tx.update(transactions).set({
+    category_id: categoryFor(booking.counterparty, booking.description)
+  }).where(automatic);
 }
 
 /**
