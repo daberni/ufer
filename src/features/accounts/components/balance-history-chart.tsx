@@ -3,6 +3,7 @@
 import ui from "../../../components/ui/primitives.module.css";
 
 import { useId, useMemo } from "react";
+import { clsx } from "clsx";
 import { money } from "@/lib/money";
 import { plotSeries } from "@/features/accounts/balance-chart";
 import { balanceSourceLabels, describeBalanceDate } from "@/features/accounts/balance-presentation";
@@ -96,6 +97,25 @@ export function BalanceHistoryChart({
       <div className={styles["dates"]} aria-hidden="true">
         <span>{firstDate.label}</span>
         <span>{lastDate.label}</span>
+      </div>
+    </figure>
+  );
+}
+
+export function BalanceHistoryChartSkeleton() {
+  return (
+    <figure className={styles["chart"]} aria-hidden="true">
+      <figcaption className={styles["readout"]}>
+        <span>
+          <span className={ui["skeleton"]}>12 Nov 2026</span>
+          <small className={ui["skeleton"]}>Calculated</small>
+        </span>
+        <strong className={ui["skeleton"]}>€0,000.00</strong>
+      </figcaption>
+      <div className={clsx(styles["plot"], ui["skeleton"])} />
+      <div className={styles["dates"]}>
+        <span className={ui["skeleton"]}>12 Jan 2025</span>
+        <span className={ui["skeleton"]}>12 Nov 2026</span>
       </div>
     </figure>
   );

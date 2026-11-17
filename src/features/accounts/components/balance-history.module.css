@@ -10,9 +10,3 @@
 .source {
   color: var(--muted);
 }
-.skeleton-row {
-  display: flex;
-  justify-content: space-between;
-  padding: var(--space-2) 0;
-  border-bottom: 1px solid var(--border-subtle);
-}
