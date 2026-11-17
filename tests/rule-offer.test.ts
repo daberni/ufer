@@ -80,8 +80,9 @@ function assignment(id: string, categoryId: string) {
   });
 }
 
+// The latest change of a transaction; earlier ones have already been answered.
 function patchFor(pending: PendingRequest[], id: string) {
-  return pending.find(request => request.method === "PATCH" && request.url.pathname === `/api/transactions/${id}`);
+  return pending.findLast(request => request.method === "PATCH" && request.url.pathname === `/api/transactions/${id}`);
 }
 
 test("the rule dialog posts its preview and keeps its row's offer and the edited pattern when a save on another row finishes", async context => {
@@ -157,4 +158,75 @@ test("the rule dialog posts its preview and keeps its row's offer and the edited
   assert.equal((screen.getByRole("combobox", {
     name: "Category"
   }) as HTMLInputElement).value, "Groceries");
+});
+
+test("a later change of the row retires the rule confirmation, so its failure is shown and announced on its own", async context => {
+  const {
+    pending,
+    queryClient,
+    requests
+  } = browser(context);
+
+  modalDialogs();
+
+  const { TransactionCategory } = await import("../src/features/transactions/components/transaction-category");
+  const market = booking("market-entry", "Example Market");
+  const screen = render(withQueryClient(queryClient, createElement(TransactionCategory, {
+    categories,
+    transaction: market
+  })));
+  const confirmation = () => screen.queryAllByText(/Rule created/);
+
+  choose(screen, "Example Market", "Groc");
+  await wait(0);
+  await respond(patchFor(pending, market.id), assignment(market.id, "groceries"));
+
+  act(() => {
+    fireEvent.click(screen.getByRole("button", {
+      name: "Create rule…"
+    }));
+  });
+  await wait(0);
+  act(() => {
+    fireEvent.submit(screen.getByRole("textbox", {
+      name: "Matching pattern"
+    }).closest("form")!);
+  });
+  await wait(0);
+  await respond(requests("rules").find(request => request.method === "POST"), Response.json({
+    ok: true,
+    categorized: 2
+  }, {
+    status: 201
+  }));
+
+  // Creating the rule refreshes the rule queries, including the open preview, before the dialog closes.
+  for (const preview of requests("rules/preview")) {
+    await respond(preview, Response.json({
+      matched: 0,
+      uncategorized: 0
+    }));
+  }
+
+  assert.equal(screen.queryByRole("dialog"), null);
+  assert.equal(confirmation().length, 2);
+
+  choose(screen, "Example Market", "Leis");
+  await wait(0);
+
+  assert.equal(confirmation().length, 0);
+
+  await respond(patchFor(pending, market.id), Response.json({
+    title: "Internal Server Error",
+    detail: "Request failed.",
+    status: 500
+  }, {
+    status: 500
+  }));
+
+  assert.equal(confirmation().length, 0);
+
+  const announcement = screen.getAllByRole("status").find(region => region.getAttribute("aria-live") === "assertive");
+
+  assert.equal(announcement?.textContent, "Category not saved: Request failed.");
 });

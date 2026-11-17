@@ -48,6 +48,7 @@ export function TransactionCategory({
     categoryId,
     status,
     ruleOffer,
+    latestChange,
     change
   } = useTransactionCategory(transaction);
   const [offerOutcome, setOfferOutcome] = useState<OfferOutcome>();
@@ -56,8 +57,8 @@ export function TransactionCategory({
   const [fieldFocusRequest, setFieldFocusRequest] = useState(0);
   const offered = ruleOffer !== null && offerOutcome?.change !== ruleOffer.change;
   const createdOutcome = offerOutcome?.kind === "created" ? offerOutcome : undefined;
-  // A newer saved change of this row replaces the confirmation with its own offer.
-  const created = createdOutcome && (ruleOffer === null || ruleOffer.change === createdOutcome.change) ? createdOutcome : undefined;
+  // The confirmation lasts until the row changes again, so a pending or failed change shows only its own status.
+  const created = createdOutcome?.change === latestChange ? createdOutcome : undefined;
   const failure = status?.kind === "failed" ? `Category not saved: ${status.failure.message}` : "";
   const announcements = {
     saving: "Saving category …",
