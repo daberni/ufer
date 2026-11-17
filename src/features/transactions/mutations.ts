@@ -28,7 +28,8 @@ export type EntryEdit = TransactionEdit & {
 };
 
 export type NewEntry = EntryEdit & {
-  category_id: string | null;
+  /** Omitted applies rules; null deliberately leaves the booking uncategorized. */
+  category_id?: string | null;
 };
 
 // A change can touch both bookings of a transfer and the balance of every manual account involved, so every list, the cash flow and the balances are refreshed.

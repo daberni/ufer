@@ -371,12 +371,26 @@ async function changeEnteredPair(tx: DatabaseTransaction, subject: Subject, coun
   return "saved";
 }
 
-/** Keeps the two sides of an entered pair consistent: each names the other's account as its counterparty, and the other side takes the subject's date and description. */
-export async function alignEnteredPair(tx: DatabaseTransaction, id: string) {
+/** An imported booking fixes the entered leg's date; two entered legs share the subject's date and description and name the other account. */
+async function alignTransferPair(tx: DatabaseTransaction, id: string) {
   const subject = await findSubject(tx, id);
   const counterpart = subject ? await findCounterpart(tx, subject) : undefined;
 
-  if (!subject || !counterpart || !enteredPair(subject, counterpart)) {
+  if (!subject || !counterpart) {
+    return;
+  }
+
+  if (!enteredPair(subject, counterpart)) {
+    const subjectIsEntered = enteredInUfer(subject);
+    const entered = subjectIsEntered ? subject : counterpart;
+    const imported = subjectIsEntered ? counterpart : subject;
+
+    if (enteredInUfer(entered)) {
+      await tx.update(transactions).set({
+        booking_date: imported.booking_date
+      }).where(eq(transactions.id, entered.id));
+    }
+
     return;
   }
 
@@ -463,7 +477,7 @@ export async function applyTransactionType(tx: DatabaseTransaction, id: string, 
   const result = await changeType(tx, id, type, target);
 
   if (result === "saved") {
-    await alignEnteredPair(tx, id);
+    await alignTransferPair(tx, id);
   }
 
   return result;

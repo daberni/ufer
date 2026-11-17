@@ -19,15 +19,30 @@ export const anyCategory: unique symbol = Symbol("any category");
 
 export type CategoryPickerValue = string | null | typeof anyCategory;
 
+/** Applies categorization rules to a new booking instead of explicitly assigning a category. */
+export const automaticCategory: unique symbol = Symbol("automatic category");
+
+export type CategoryAssignmentValue = string | null | typeof automaticCategory;
+
+type PickerValue = CategoryPickerValue | typeof automaticCategory;
+
 type ValueProps = {
   includeAll?: false;
+  includeAutomatic?: false;
   value: string | null;
   onChange: (categoryId: string | null) => void;
 } | {
   /** Offers "All categories" first, chosen by anyCategory; for filters. */
   includeAll: true;
+  includeAutomatic?: false;
   value: CategoryPickerValue;
   onChange: (value: CategoryPickerValue) => void;
+} | {
+  includeAll?: false;
+  /** Offers "Automatic" before explicit assignments; for a new booking. */
+  includeAutomatic: true;
+  value: CategoryAssignmentValue;
+  onChange: (value: CategoryAssignmentValue) => void;
 };
 
 type Props = ValueProps & {
@@ -60,7 +75,7 @@ const categoryNoun = {
 };
 
 // Options show the same readable icon and name as a category label.
-function categoryOption(key: string, value: CategoryPickerValue, category: DisplayCategory | NeutralCategory): SearchableSelectOption<CategoryPickerValue> {
+function categoryOption(key: string, value: PickerValue, category: DisplayCategory | NeutralCategory): SearchableSelectOption<PickerValue> {
   return {
     key,
     value,
@@ -70,8 +85,12 @@ function categoryOption(key: string, value: CategoryPickerValue, category: Displ
   };
 }
 
-function pickerOptions(categories: readonly PickerCategory[], includeAll: boolean, includeUncategorized: boolean) {
-  const options: SearchableSelectOption<CategoryPickerValue>[] = [];
+function pickerOptions(categories: readonly PickerCategory[], includeAll: boolean, includeUncategorized: boolean, includeAutomatic: boolean) {
+  const options: SearchableSelectOption<PickerValue>[] = [];
+
+  if (includeAutomatic) {
+    options.push(categoryOption("automatic-category", automaticCategory, "automatic"));
+  }
 
   if (includeAll) {
     options.push(categoryOption("all-categories", anyCategory, "all-categories"));
@@ -97,6 +116,7 @@ export function CategoryPicker({
   value,
   onChange,
   includeAll = false,
+  includeAutomatic = false,
   includeUncategorized = false,
   manual = false,
   size = "regular",
@@ -116,16 +136,16 @@ export function CategoryPicker({
   const [search, setSearch] = useState<string | null>(null);
   // The name of a category being created from a search; its dialog is open while set.
   const [newCategoryName, setNewCategoryName] = useState<string | null>(null);
-  const options = pickerOptions(categories, includeAll, includeUncategorized);
+  const options = pickerOptions(categories, includeAll, includeUncategorized, includeAutomatic);
   const selected = options.find(option => Object.is(option.value, value));
   const describedBy = clsx(ariaDescribedBy, manual && manualHintId) || undefined;
 
-  function choose(next: CategoryPickerValue) {
+  function choose(next: PickerValue) {
     setSearch(null);
 
     if (!Object.is(next, value)) {
-      // The offered values always match the onChange variant that includeAll selects.
-      (onChange as (next: CategoryPickerValue) => void)(next);
+      // The offered values match the assignment, automatic or filter variant selected by the flags.
+      (onChange as (next: PickerValue) => void)(next);
     }
   }
 
