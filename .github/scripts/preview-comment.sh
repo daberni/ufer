@@ -32,10 +32,6 @@ fi
 
 source_details="PR head: [\`${HEAD_SHA:0:7}\`]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/commit/$HEAD_SHA)."
 
-if [ -n "${BUILD_SHA:-}" ] && [ "$BUILD_SHA" != "$HEAD_SHA" ]; then
-  source_details="$source_details **Integration preview:** includes the shared database/ledger foundation from [PR #156]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/pull/156) at [\`${FOUNDATION_SHA:0:7}\`]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/commit/$FOUNDATION_SHA). Build SHA: \`$BUILD_SHA\`. This is not an isolated PR-head preview."
-fi
-
 body="$(cat <<EOF
 $marker
 Preview deployment (\`preview\` label). Remove the label to stop deploying new commits.
