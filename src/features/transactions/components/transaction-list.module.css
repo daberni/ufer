@@ -60,6 +60,9 @@
 .counterpart {
   display: block;
   margin-top: var(--space-1);
+  font-size: var(--text-xs);
+  font-weight: 400;
+  color: var(--muted);
   overflow-wrap: anywhere;
 }
 .row > * {
@@ -124,7 +127,10 @@
 .category-label {
   display: none;
 }
-.account,
+.account {
+  color: var(--ink-soft);
+  font-weight: 500;
+}
 .date {
   color: var(--muted);
 }
