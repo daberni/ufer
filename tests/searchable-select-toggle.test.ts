@@ -136,6 +136,30 @@ test("from the toggle, arrow keys move through the options, Enter picks one and 
   assert.deepEqual(chosen, ["Cherry", "Banana"]);
 });
 
+test("the toggle closes a list that the search field opened", async context => {
+  const {
+    field,
+    toggle
+  } = await renderSelect(context);
+
+  act(() => {
+    field.focus();
+    fireEvent.click(field);
+  });
+  assert.equal(field.getAttribute("aria-expanded"), "true");
+
+  // A press on the toggle moves focus to it, and the page renders, before its click.
+  act(() => {
+    toggle.focus();
+  });
+  act(() => {
+    fireEvent.click(toggle);
+  });
+
+  assert.equal(toggle.getAttribute("aria-expanded"), "false");
+  assert.equal(document.activeElement, toggle);
+});
+
 test("typing on the toggle moves focus to the search field and searches for the typed character", async context => {
   const {
     screen,

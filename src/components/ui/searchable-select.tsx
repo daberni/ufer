@@ -352,7 +352,12 @@ export function SearchableSelect<Value>({
               openAt(Math.max(selectedIndex, 0));
             }
           }}
-          onBlur={() => setOpen(false)}
+          onBlur={event => {
+            // Focus moving to the toggle is a click on it, which decides itself whether the list closes.
+            if (event.relatedTarget !== toggleRef.current) {
+              setOpen(false);
+            }
+          }}
           onKeyDown={handleKeyDown}
         />
         {adornment}
