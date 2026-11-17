@@ -15,6 +15,7 @@ import { useState } from "react";
 import { BankConnectionDialog } from "./bank-connection-form";
 import { RemoveConnectionDialog } from "./remove-connection-form";
 import { useSyncRunHref } from "@/client/use-app-url";
+import { recentSyncRuns } from "@/features/banking/sync-run-presentation";
 import { AreaPlaceholder } from "@/components/ui/area-placeholder";
 import type { Area } from "@/components/ui/use-area-result";
 
@@ -34,8 +35,6 @@ type OpenDialog = {
 };
 
 const skeletonConnections = 2;
-
-const skeletonSyncRuns = 3;
 
 export function ConnectionsView({
   banking,
@@ -210,7 +209,10 @@ function ConnectionRowsSkeleton() {
           <span className={clsx(styles["pill"], ui["skeleton"])}>Connected</span>
           <div className={styles["connection-actions"]}>
             <span className={clsx(ui["button"], ui["small"], ui["skeleton"])}>Reconnect</span>
-            <span className={clsx(ui["button"], ui["small"], ui["skeleton"])}>Remove</span>
+            <span className={clsx(ui["button"], ui["small"], ui["skeleton"])}>
+              <Trash2 size={13} />
+              Remove
+            </span>
           </div>
         </div>
       ))}
@@ -220,7 +222,7 @@ function ConnectionRowsSkeleton() {
 
 function SyncRowsSkeleton() {
   return Array.from({
-    length: skeletonSyncRuns
+    length: recentSyncRuns
   }, (_, index) => (
     <div className={styles["sync-row"]} key={index}>
       <span className={ui["skeleton"]}>12 Jan 2025, 10:00</span>
