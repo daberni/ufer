@@ -6,7 +6,7 @@ import { Check, ChevronDown, Plus } from "lucide-react";
 import { clsx } from "clsx";
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
-import { creatableName, matchOptions, searchableSelectKeyAction, shownOptionLimit } from "./searchable-select-behavior";
+import { creatableName, matchOptions, searchableSelectKeyAction, searchableSelectToggleKeyAction, shownOptionLimit, type SearchableSelectAction } from "./searchable-select-behavior";
 import { popoverMaxWidth, popoverPlacement, visibleArea } from "./popover-placement";
 import { useDismiss } from "./use-dismiss";
 
@@ -77,7 +77,10 @@ export function SearchableSelect<Value>({
 }: Props<Value>) {
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
+  // While the toggle button has focus, the field's active descendant is not read, so the highlighted option is announced instead.
+  const [toggleFocused, setToggleFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const toggleRef = useRef<HTMLButtonElement>(null);
   const controlRef = useRef<HTMLDivElement>(null);
   const popupRef = useRef<HTMLDivElement>(null);
   const listboxRef = useRef<HTMLUListElement>(null);
@@ -116,6 +119,12 @@ export function SearchableSelect<Value>({
 
   if (open && createName) {
     announcement = `${announcement} ${createLabel} is available.`;
+  }
+
+  const activeLabel = active === createIndex ? createLabel : shown[active]?.label;
+
+  if (open && toggleFocused && activeLabel) {
+    announcement = `${activeLabel}${active === selectedIndex ? ", selected" : ""}, ${active + 1} of ${optionCount}`;
   }
 
   const place = useCallback(() => {
@@ -237,8 +246,9 @@ export function SearchableSelect<Value>({
     openAt(0);
   }
 
+  // Opening from the button leaves the search field unfocused, so phones do not raise the on-screen keyboard.
   function toggle() {
-    inputRef.current?.focus();
+    toggleRef.current?.focus();
 
     if (open) {
       setOpen(false);
@@ -247,19 +257,37 @@ export function SearchableSelect<Value>({
     }
   }
 
-  function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
-    const action = searchableSelectKeyAction(event, {
-      open,
-      activeIndex: active,
-      selectedIndex,
-      optionCount
-    });
+  const keyState = {
+    open,
+    activeIndex: active,
+    selectedIndex,
+    optionCount
+  };
 
+  function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    apply(event, searchableSelectKeyAction(event, keyState));
+  }
+
+  function handleToggleKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
+    const action = searchableSelectToggleKeyAction(event, keyState);
+
+    if (action.type === "search") {
+      event.preventDefault();
+      inputRef.current?.focus();
+      search(action.text);
+
+      return;
+    }
+
+    apply(event, action);
+  }
+
+  function apply(event: KeyboardEvent, action: SearchableSelectAction) {
     if (action.type === "none") {
       return;
     }
 
-    // Tab still moves focus; the other handled keys must not move the caret, submit the form or close a surrounding dialog.
+    // Tab still moves focus; the other handled keys must not move the caret, click the button, submit the form or close a surrounding dialog.
     if (event.key !== "Tab") {
       event.preventDefault();
     }
@@ -329,14 +357,23 @@ export function SearchableSelect<Value>({
         />
         {adornment}
         <button
+          ref={toggleRef}
           type="button"
           className={styles["toggle"]}
           tabIndex={-1}
           aria-label={`Show ${noun.other}`}
+          aria-haspopup="listbox"
           aria-expanded={open}
           aria-controls={listboxId}
-          onMouseDown={event => event.preventDefault()}
           onClick={toggle}
+          onKeyDown={handleToggleKeyDown}
+          // Space would click the button on release after it already picked an option.
+          onKeyUp={event => event.preventDefault()}
+          onFocus={() => setToggleFocused(true)}
+          onBlur={() => {
+            setToggleFocused(false);
+            setOpen(false);
+          }}
         >
           <ChevronDown aria-hidden="true" strokeWidth={2.2} />
         </button>
