@@ -67,3 +67,13 @@ export function TransactionCategory({
     </div>
   );
 }
+
+/** The category control's place in a skeleton row, so the row keeps the height of a loaded one. */
+export function TransactionCategorySkeleton() {
+  return (
+    <div className={styles["category"]}>
+      <span className={clsx(styles["picker"], styles["picker-placeholder"], ui["skeleton"])} />
+      <span className={styles["status"]} />
+    </div>
+  );
+}

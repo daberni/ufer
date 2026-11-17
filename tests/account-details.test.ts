@@ -75,14 +75,23 @@ async function seededDatabase(context: TestContext) {
     ["production-checking", "2026-01-03", "EUR", 70000, null]
   ];
 
-  await db.insert(schema.transactions).values(entries.map(([accountId, bookingDate, currency, amount, categoryId], index) => ({
+  const entryType = (amount: number, categoryId: string | null): typeof schema.transactions.$inferInsert.type => {
+    if (categoryId === "transfer") {
+      return "transfer";
+    }
+
+    return amount > 0 ? "income" : "expense";
+  };
+
+  await db.insert(schema.transactions).values(entries.map(([accountId, bookingDate, currency, amount, categoryId], index): typeof schema.transactions.$inferInsert => ({
     id: `entry-${index}`,
     account_id: accountId,
     provider_reference: `synthetic-${index}`,
     booking_date: bookingDate,
     amount_minor: amount,
     currency,
-    category_id: categoryId
+    category_id: categoryId,
+    type: entryType(amount, categoryId)
   })));
   await db.insert(schema.balanceSnapshots).values([{
     id: "snapshot-2",
