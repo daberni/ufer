@@ -12,7 +12,8 @@ export async function listRules() {
   return db.select().from(categorizationRules).orderBy(ruleCreationOrder);
 }
 
-// SQLite gives a new row a larger rowid than every stored row, so rowid follows creation order without a dedicated column.
+// The table has no creation timestamp; SQLite gives a new row a larger rowid than every stored row. The rowid is not a stable key: VACUUM or a table
+// rebuild can renumber it and so reorder rules of equal priority.
 export const ruleCreationOrder = sql`${categorizationRules}.rowid`;
 
 export type NewRule = Omit<Rule, "enabled"> & {
