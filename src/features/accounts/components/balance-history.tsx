@@ -16,7 +16,8 @@ import type { BalanceHistory, BalancePoint } from "@/features/accounts/types";
 const sourceLabels: Record<BalancePoint["source"], string> = {
   sync: "Bank sync",
   manual: "Manual",
-  csv: "CSV import"
+  csv: "CSV import",
+  transactions: "Calculated"
 };
 
 // The table starts with the latest balances; the chart already shows the whole history.
@@ -77,6 +78,7 @@ function BalanceChart({
   return (
     <HistoryChart
       currency={currency}
+      interpolation="step"
       series={[{
         label: "Balance",
         tone: "balance",
@@ -101,7 +103,7 @@ function BalanceTable({
   return (
     <>
       <table className={chartStyles["table"]}>
-        <caption className={ui["visually-hidden"]}>Recorded balances, newest first</caption>
+        <caption className={ui["visually-hidden"]}>Account balances, newest first</caption>
         <thead>
           <tr>
             <th scope="col">Date</th>

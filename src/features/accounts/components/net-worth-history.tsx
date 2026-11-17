@@ -164,6 +164,7 @@ function NetWorthChart({
   return (
     <HistoryChart
       currency={currency}
+      interpolation="linear"
       markers={points.map(point => point.carried > 0 ? "carried" : "observed")}
       series={[netWorth, ...parts]}
       summary={summary}

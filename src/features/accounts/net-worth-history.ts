@@ -3,16 +3,20 @@ import { wealthGroups, type AccountKind } from "@/features/accounts/account-kind
 import type { Period } from "@/lib/period";
 import type { BalancePoint, NetWorthPoint } from "@/features/accounts/types";
 
-/** One account's recorded balances, oldest first, whatever records or derives them. */
+type RecordedBalance = BalancePoint & {
+  source: "sync" | "manual" | "csv";
+};
+
+/** One account's recorded valuations, oldest first; reconstructed daily estimates do not establish monthly observation provenance. */
 export type AccountBalances = {
   kind: AccountKind;
-  balances: BalancePoint[];
+  balances: RecordedBalance[];
 };
 
 // A month period shows the year up to the selected month.
 const monthsShown = 12;
 
-const sourceCounts: Record<BalancePoint["source"], "synced" | "manual" | "imported"> = {
+const sourceCounts: Record<RecordedBalance["source"], "synced" | "manual" | "imported"> = {
   sync: "synced",
   manual: "manual",
   csv: "imported"

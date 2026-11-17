@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test, type TestContext } from "node:test";
 import { createClient } from "@libsql/client";
+import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/libsql";
 import { Temporal } from "temporal-polyfill";
 import { initializeDatabase } from "../src/server/database/migrations";
@@ -90,7 +91,7 @@ async function seededDatabase(context: TestContext) {
     booking_date: bookingDate,
     amount_minor: amount,
     currency,
-    category_id: categoryId,
+    category_id: categoryId === "transfer" ? null : categoryId,
     type: entryType(amount, categoryId)
   })));
   await db.insert(schema.balanceSnapshots).values([{
@@ -158,20 +159,49 @@ test("an account without transactions in the period has zero flows, while unknow
   await assertNotFound(readAccountCashFlow("production-checking", january));
 });
 
-test("an account's balance history lists only its own balances, oldest first, and other environments are not found", async context => {
+test("an account's daily balances use only its own currency and preserve the known closing balance", async context => {
   await seededDatabase(context);
 
-  assert.deepEqual(await readBalanceHistory("checking"), {
-    currency: "EUR",
-    balances: [{
+  const history = await readBalanceHistory("checking");
+
+  assert.equal(history.currency, "EUR");
+  assert.deepEqual(history.balances.slice(0, 6), [
+    {
       date: "2025-12-31",
       amount_minor: 0,
       source: "manual"
-    }, {
-      date: "2026-02-01",
-      amount_minor: 205300,
-      source: "sync"
-    }]
+    },
+    {
+      date: "2026-01-01",
+      amount_minor: 0,
+      source: "transactions"
+    },
+    {
+      date: "2026-01-02",
+      amount_minor: 250000,
+      source: "transactions"
+    },
+    {
+      date: "2026-01-03",
+      amount_minor: 250000,
+      source: "transactions"
+    },
+    {
+      date: "2026-01-04",
+      amount_minor: 250000,
+      source: "transactions"
+    },
+    {
+      date: "2026-01-05",
+      amount_minor: 246000,
+      source: "transactions"
+    }
+  ]);
+  assert.equal(history.balances.find(balance => balance.date === "2026-01-20")?.amount_minor, 206000);
+  assert.deepEqual(history.balances.find(balance => balance.date === "2026-02-01"), {
+    date: "2026-02-01",
+    amount_minor: 205300,
+    source: "sync"
   });
   await assertNotFound(readBalanceHistory("unknown"));
   await assertNotFound(readBalanceHistory("production-checking"));
@@ -221,4 +251,40 @@ test("an account's details path selects its transactions, keeps the period and b
   assert.deepEqual([query.account, query.search, query.category, query.page], ["acc-1", "", "", 2]);
   assert.equal(accountHref("acc 1", "period=2026-01"), "/accounts/acc%201?period=2026-01");
   assert.equal(viewQuery(new URL(accountHref("acc 1", ""), "http://localhost").pathname, "", new URLSearchParams()).account, "acc 1");
+});
+
+
+test("market-valued assets keep their actual valuations instead of inferring returns from cash bookings", async context => {
+  const db = await seededDatabase(context);
+
+  await db.update(schema.accounts).set({
+    kind: "investment"
+  }).where(eq(schema.accounts.id, "checking"));
+  const history = await readBalanceHistory("checking");
+
+  assert.deepEqual(history.balances.map(balance => [balance.date, balance.amount_minor]), [
+    ["2025-12-31", 0],
+    ["2026-02-01", 205300]
+  ]);
+});
+
+test("stale synced balances stop at known coverage rather than extrapolating to today", async context => {
+  const db = await seededDatabase(context);
+
+  await db.update(schema.accounts).set({
+    provider: "enable_banking",
+    last_synced_at: "2026-01-31T23:30:00.000Z"
+  }).where(eq(schema.accounts.id, "checking"));
+  const history = await readBalanceHistory("checking");
+
+  assert.equal(history.balances.at(-1)?.date, "2026-02-01");
+});
+
+test("partial cash imports without a balance reference do not imply a zero opening balance", async context => {
+  const db = await seededDatabase(context);
+
+  await db.delete(schema.balanceSnapshots).where(eq(schema.balanceSnapshots.account_id, "checking"));
+  const history = await readBalanceHistory("checking");
+
+  assert.deepEqual(history.balances, []);
 });

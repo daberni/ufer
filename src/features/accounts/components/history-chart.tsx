@@ -21,6 +21,8 @@ export type ChartSeries = {
 /** How a point of the first series was observed; carried points reuse a balance recorded before their month. */
 export type PointMarker = "observed" | "carried";
 
+type Interpolation = "linear" | "step";
+
 type Props = {
   /** The first series is the subject of the chart, drawn on top and with its area when it is alone; the others share its scale. */
   series: ChartSeries[];
@@ -28,6 +30,7 @@ type Props = {
   /** What the chart shows, for screen readers; a table next to the chart carries the values. */
   summary: string;
   markers?: PointMarker[];
+  interpolation: Interpolation;
 };
 
 export function historyDateLabel(date: string) {
@@ -37,21 +40,28 @@ export function historyDateLabel(date: string) {
 function linePath(points: {
   x: number;
   y: number;
-}[]) {
-  return points.map((point, index) => `${index ? "L" : "M"}${point.x} ${point.y}`).join(" ");
+}[], interpolation: Interpolation) {
+  return points.map((point, index) => {
+    if (index === 0) {
+      return `M${point.x} ${point.y}`;
+    }
+
+    return interpolation === "step" ? `H${point.x} V${point.y}` : `L${point.x} ${point.y}`;
+  }).join(" ");
 }
 
-/** A line chart of amounts over time, spaced by date. */
+/** Amounts over time, spaced by date: daily balances step between bookings; monthly wealth can connect its period observations. */
 export function HistoryChart({
   series,
   currency,
   summary,
-  markers
+  markers,
+  interpolation
 }: Props) {
   const chart = plotSeries(series.map(entry => entry.points));
   const [subject] = chart.series;
   const subjectPoints = series[0].points;
-  const subjectLine = linePath(subject);
+  const subjectLine = linePath(subject, interpolation);
 
   return (
     <figure className={styles["chart"]}>
@@ -90,7 +100,7 @@ export function HistoryChart({
               key={series[index + 1].label}
               className={styles["line"]}
               data-tone={series[index + 1].tone}
-              d={linePath(points)}
+              d={linePath(points, interpolation)}
               vectorEffect="non-scaling-stroke"
             />
           ))}
