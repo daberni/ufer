@@ -5,14 +5,12 @@ import ui from "../../../components/ui/primitives.module.css";
 import styles from "./category-picker.module.css";
 import { clsx } from "clsx";
 import { Pin } from "lucide-react";
-import { useId, useState } from "react";
-import { SearchableSelect, type SearchableSelectOption } from "@/components/ui/searchable-select";
-import { neutralChipColor } from "@/features/categorization/category-colors";
-import { manualAssignmentHint, type ChipCategory } from "./category-chip";
+import { useId, useState, type ReactNode } from "react";
+import { SearchableSelect, type SearchableSelectOption, type SearchableSelectAppearance } from "@/components/ui/searchable-select";
+import { CategoryGlyph, categoryLabel, categoryNameColor, type DisplayCategory, type NeutralCategory } from "./category-label";
 import { CategoryDialog } from "./category-form";
-import { CategoryMarker } from "./category-marker";
 
-export type PickerCategory = ChipCategory & {
+export type PickerCategory = DisplayCategory & {
   id: string;
 };
 
@@ -52,6 +50,12 @@ type Props = ValueProps & {
   /** Offers "Uncategorized", chosen by null. */
   includeUncategorized?: boolean;
   manual?: boolean;
+  /** Compact fields suit transaction rows and filters; regular fields match the inputs of forms and dialogs. */
+  size?: "regular" | "compact";
+  /** Inline presentation is reserved for editable category labels in transaction rows. */
+  appearance?: SearchableSelectAppearance;
+  /** Shown inside the field's right edge after the manual pin, such as the saving state of a change. */
+  status?: ReactNode;
   /** Submits the chosen category ID with a surrounding form. */
   name?: string;
   id?: string;
@@ -63,17 +67,21 @@ type Props = ValueProps & {
   className?: string;
 };
 
+const manualAssignmentHint = "Set manually; kept when syncing and applying rules";
+
 const categoryNoun = {
   one: "category",
   other: "categories"
 };
 
-function neutralOption(key: string, value: PickerValue, label: string): SearchableSelectOption<PickerValue> {
+// Options show the same readable icon and name as a category label.
+function categoryOption(key: string, value: PickerValue, category: DisplayCategory | NeutralCategory): SearchableSelectOption<PickerValue> {
   return {
     key,
     value,
-    label,
-    icon: <CategoryMarker icon={null} color={neutralChipColor} />
+    label: categoryLabel(category),
+    icon: <CategoryGlyph category={category} />,
+    color: categoryNameColor(category)
   };
 }
 
@@ -81,24 +89,19 @@ function pickerOptions(categories: readonly PickerCategory[], includeAll: boolea
   const options: SearchableSelectOption<PickerValue>[] = [];
 
   if (includeAutomatic) {
-    options.push(neutralOption("automatic-category", automaticCategory, "Automatic"));
+    options.push(categoryOption("automatic-category", automaticCategory, "automatic"));
   }
 
   if (includeAll) {
-    options.push(neutralOption("all-categories", anyCategory, "All categories"));
+    options.push(categoryOption("all-categories", anyCategory, "all-categories"));
   }
 
   if (includeUncategorized) {
-    options.push(neutralOption("uncategorized", null, "Uncategorized"));
+    options.push(categoryOption("uncategorized", null, "uncategorized"));
   }
 
   for (const category of categories) {
-    options.push({
-      key: category.id,
-      value: category.id,
-      label: category.name,
-      icon: <CategoryMarker icon={category.icon} color={category.color} />
-    });
+    options.push(categoryOption(category.id, category.id, category));
   }
 
   return options;
@@ -116,6 +119,9 @@ export function CategoryPicker({
   includeAutomatic = false,
   includeUncategorized = false,
   manual = false,
+  size = "regular",
+  appearance = "default",
+  status,
   name,
   id,
   "aria-label": ariaLabel,
@@ -162,12 +168,25 @@ export function CategoryPicker({
         onQueryChange={setSearch}
         noun={categoryNoun}
         placeholder="Search categories"
+        appearance={appearance}
         busy={ariaBusy}
         aria-label={ariaLabel}
         aria-invalid={ariaInvalid}
         aria-describedby={describedBy}
         // A filter offers existing categories only.
         onCreate={includeAll ? undefined : setNewCategoryName}
+        className={size === "compact" ? styles["compact"] : undefined}
+        adornment={(manual || status) && (
+          <span className={styles["adornment"]}>
+            {manual && (
+              <span className={styles["manual"]} title={manualAssignmentHint}>
+                <Pin className={styles["adornment-icon"]} aria-hidden="true" strokeWidth={2.2} />
+                <span id={manualHintId} className={ui["visually-hidden"]}>{manualAssignmentHint}</span>
+              </span>
+            )}
+            {status}
+          </span>
+        )}
         footer={manual && (
           <p className={styles["note"]}>
             <Pin className={styles["note-icon"]} aria-hidden="true" strokeWidth={2.2} />
@@ -175,12 +194,6 @@ export function CategoryPicker({
           </p>
         )}
       />
-      {manual && (
-        <span className={styles["manual"]} title={manualAssignmentHint}>
-          <Pin className={styles["note-icon"]} aria-hidden="true" strokeWidth={2.2} />
-          <span id={manualHintId} className={ui["visually-hidden"]}>{manualAssignmentHint}</span>
-        </span>
-      )}
       {name && <input type="hidden" name={name} value={typeof value === "string" ? value : ""} />}
       {newCategoryName !== null && (
         <CategoryDialog

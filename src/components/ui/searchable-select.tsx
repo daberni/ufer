@@ -6,7 +6,7 @@ import { Check, ChevronDown, Plus } from "lucide-react";
 import { clsx } from "clsx";
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
-import { creatableName, matchOptions, searchableSelectKeyAction, shownOptionLimit } from "./searchable-select-behavior";
+import { creatableName, matchOptions, searchableSelectKeyAction, searchableSelectToggleKeyAction, shownOptionLimit, type SearchableSelectAction } from "./searchable-select-behavior";
 import { popoverMaxWidth, popoverPlacement, visibleArea } from "./popover-placement";
 import { useDismiss } from "./use-dismiss";
 
@@ -15,9 +15,13 @@ export type SearchableSelectOption<Value> = {
   value: Value;
   label: string;
   icon?: ReactNode;
+  /** Colors the icon and label in the list and in the field while it shows the option, such as a category color. */
+  color?: string;
   /** Shown after the label and read with it, such as a status badge. */
   description?: ReactNode;
 };
+
+export type SearchableSelectAppearance = "default" | "inline";
 
 type Props<Value> = {
   id: string;
@@ -41,6 +45,12 @@ type Props<Value> = {
   busy?: boolean;
   /** Shown below the options while the list is open, such as a note about the choice. */
   footer?: ReactNode;
+  /** Status icons inside the field's right edge, before the toggle; the field keeps its width when they appear. */
+  adornment?: ReactNode;
+  /** Inline fields keep their geometry but show chrome only during interaction or an inherited row hover. */
+  appearance?: SearchableSelectAppearance;
+  /** Sizes the field, such as a denser control for tables and filters. */
+  className?: string;
   /** Offers a last option that creates an option named after the typed text when no option has exactly that label. */
   onCreate?: (name: string) => void;
   "aria-label"?: string;
@@ -62,6 +72,9 @@ export function SearchableSelect<Value>({
   notice = "",
   busy = false,
   footer,
+  adornment,
+  appearance = "default",
+  className,
   onCreate,
   "aria-label": ariaLabel,
   "aria-invalid": ariaInvalid,
@@ -69,7 +82,12 @@ export function SearchableSelect<Value>({
 }: Props<Value>) {
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
+  // While the toggle button has focus, the field's active descendant is not read, so the highlighted option is announced instead.
+  const [toggleFocused, setToggleFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const toggleRef = useRef<HTMLButtonElement>(null);
+  // Whether the list was open when a press on the toggle began; the field's blur may close it before the click.
+  const openAtTogglePress = useRef<boolean | null>(null);
   const controlRef = useRef<HTMLDivElement>(null);
   const popupRef = useRef<HTMLDivElement>(null);
   const listboxRef = useRef<HTMLUListElement>(null);
@@ -88,7 +106,7 @@ export function SearchableSelect<Value>({
   const countText = (count: number) => (count === 1 ? `1 ${noun.one}` : `${count.toLocaleString("en")} ${noun.other}`);
   const truncated = matches.length > shown.length;
   const listLabel = `${noun.other.charAt(0).toLocaleUpperCase()}${noun.other.slice(1)}`;
-  const selectedIcon = selected && query === selected.label ? selected.icon : undefined;
+  const showsSelected = selected !== undefined && query === selected.label;
 
   const noMatchText = `No ${noun.one} matches “${query.trim()}”.`;
   let message = notice;
@@ -108,6 +126,12 @@ export function SearchableSelect<Value>({
 
   if (open && createName) {
     announcement = `${announcement} ${createLabel} is available.`;
+  }
+
+  const activeLabel = active === createIndex ? createLabel : shown[active]?.label;
+
+  if (open && toggleFocused && activeLabel) {
+    announcement = `${activeLabel}${active === selectedIndex ? ", selected" : ""}, ${active + 1} of ${optionCount}`;
   }
 
   const place = useCallback(() => {
@@ -229,29 +253,51 @@ export function SearchableSelect<Value>({
     openAt(0);
   }
 
+  // Opening from the button leaves the search field unfocused, so phones do not raise the on-screen keyboard.
   function toggle() {
-    inputRef.current?.focus();
+    const wasOpen = openAtTogglePress.current ?? open;
 
-    if (open) {
+    openAtTogglePress.current = null;
+    toggleRef.current?.focus();
+
+    if (wasOpen) {
       setOpen(false);
     } else {
       openAt(Math.max(selectedIndex, 0));
     }
   }
 
-  function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
-    const action = searchableSelectKeyAction(event, {
-      open,
-      activeIndex: active,
-      selectedIndex,
-      optionCount
-    });
+  const keyState = {
+    open,
+    activeIndex: active,
+    selectedIndex,
+    optionCount
+  };
 
+  function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    apply(event, searchableSelectKeyAction(event, keyState));
+  }
+
+  function handleToggleKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
+    const action = searchableSelectToggleKeyAction(event, keyState);
+
+    if (action.type === "search") {
+      event.preventDefault();
+      inputRef.current?.focus();
+      search(action.text);
+
+      return;
+    }
+
+    apply(event, action);
+  }
+
+  function apply(event: KeyboardEvent, action: SearchableSelectAction) {
     if (action.type === "none") {
       return;
     }
 
-    // Tab still moves focus; the other handled keys must not move the caret, submit the form or close a surrounding dialog.
+    // Tab still moves focus; the other handled keys must not move the caret, click the button, submit the form or close a surrounding dialog.
     if (event.key !== "Tab") {
       event.preventDefault();
     }
@@ -276,12 +322,18 @@ export function SearchableSelect<Value>({
 
   return (
     <div className={styles["searchable-select"]}>
-      <div ref={controlRef} className={styles["control"]}>
-        {selectedIcon && <span className={styles["selected-icon"]}>{selectedIcon}</span>}
+      <div
+        ref={controlRef}
+        className={clsx(styles["control"], appearance === "inline" && styles["inline"], className)}
+        style={{
+          color: showsSelected ? selected.color : undefined
+        }}
+      >
+        {showsSelected && selected.icon && <span className={styles["selected-icon"]}>{selected.icon}</span>}
         <input
           ref={inputRef}
           id={id}
-          className={clsx(styles["input"], selectedIcon && styles["with-icon"])}
+          className={styles["input"]}
           type="text"
           role="combobox"
           autoComplete="off"
@@ -313,15 +365,28 @@ export function SearchableSelect<Value>({
           onBlur={() => setOpen(false)}
           onKeyDown={handleKeyDown}
         />
+        {adornment}
         <button
+          ref={toggleRef}
           type="button"
           className={styles["toggle"]}
           tabIndex={-1}
           aria-label={`Show ${noun.other}`}
+          aria-haspopup="listbox"
           aria-expanded={open}
           aria-controls={listboxId}
-          onMouseDown={event => event.preventDefault()}
+          onPointerDown={() => {
+            openAtTogglePress.current = open;
+          }}
           onClick={toggle}
+          onKeyDown={handleToggleKeyDown}
+          // Space would click the button on release after it already picked an option.
+          onKeyUp={event => event.preventDefault()}
+          onFocus={() => setToggleFocused(true)}
+          onBlur={() => {
+            setToggleFocused(false);
+            setOpen(false);
+          }}
         >
           <ChevronDown aria-hidden="true" strokeWidth={2.2} />
         </button>
@@ -342,6 +407,9 @@ export function SearchableSelect<Value>({
               className={styles["option"]}
               role="option"
               aria-selected={index === selectedIndex}
+              style={{
+                color: option.color
+              }}
               data-active={index === active ? "" : undefined}
               onPointerMove={() => setActiveIndex(index)}
               onClick={() => choose(index)}

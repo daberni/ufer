@@ -5,15 +5,15 @@
 .row {
   display: grid;
   grid-template-columns: 1fr auto;
+  align-items: center;
   gap: var(--space-2);
   font-size: var(--text-sm);
 }
-.row > span {
+.category {
   display: flex;
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
-  color: var(--muted);
 }
 .row strong {
   font-weight: 500;
@@ -31,37 +31,22 @@
   height: 100%;
   border-radius: var(--radius-sm);
 }
-.name {
-  min-width: 0;
-}
-/* Takes the place of the category marker in skeleton rows. */
-.marker {
-  flex-shrink: 0;
-  width: 16px;
-  height: 16px;
-}
 /* Compact rows keep each row to one line: the name is truncated and the share bar sits in the row's bottom padding. */
 .rows.compact {
   gap: 1px;
 }
 .compact .row {
   position: relative;
-  align-items: center;
   padding-bottom: 3px;
   line-height: 1.25;
 }
-.compact .row > span {
+.compact .category {
   min-height: 16px;
 }
-.compact .name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-/* The share bar starts after the 16px marker and its gap, underlining name and amount. */
+/* The share bar starts after the category icon and its gap, underlining name and amount. */
 .compact .row > div {
   position: absolute;
-  left: calc(16px + var(--space-2));
+  left: calc(1.2em + var(--space-2));
   right: 0;
   bottom: 0;
   height: 2px;

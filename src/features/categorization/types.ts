@@ -10,6 +10,7 @@ export type Rule = {
   name: string;
   pattern: string;
   mode: string;
+  category_id: string;
   category_name: string;
   priority: number;
   enabled: number;
