@@ -504,11 +504,8 @@ test("the transaction type upgrade turns transfer-category bookings into transfe
       applied: changesetCount,
       pending: 0
     });
-    assert.deepEqual((await client.execute(`SELECT ${transactionColumns} FROM transactions ORDER BY id`)).rows, transactionsBefore.rows.map(row => ({
-      ...row,
-      category_id: row.category_id === "transfer" ? null : row.category_id
-    })));
-    assert.deepEqual((await client.execute("SELECT id,name,color,icon FROM categories ORDER BY id")).rows, categoriesBefore.rows.filter(row => row.id !== "transfer"));
+    assert.deepEqual((await client.execute(`SELECT ${transactionColumns} FROM transactions ORDER BY id`)).rows, transactionsBefore.rows);
+    assert.deepEqual((await client.execute("SELECT id,name,color,icon FROM categories ORDER BY id")).rows, categoriesBefore.rows);
     assert.equal((await client.execute("SELECT COUNT(*) AS count FROM pragma_table_info('categories') WHERE name='is_transfer'")).rows[0].count, 0);
     assert.deepEqual((await client.execute("SELECT id,type,type_source,transfer_id,transfer_source FROM transactions ORDER BY id")).rows.map(row => ({
       ...row
@@ -586,14 +583,15 @@ test("retiring the seeded transfer category preserves bookings, transfer links a
     await client.batch([
       "INSERT INTO accounts(id,environment,name,institution,kind) VALUES('checking','SANDBOX','Synthetic checking','Example bank','checking')",
       "INSERT INTO categories(id,name,color) VALUES('custom-transfer','Transfers for travel','#123456')",
-      "INSERT INTO categorization_rules(id,name,pattern,mode,category_id) VALUES('obsolete','Old transfer rule','TRANSFER','keyword','transfer')",
+      "INSERT INTO categorization_rules(id,name,pattern,mode,category_id,priority,enabled) VALUES('demo-rule-joint-account','Joint household account','Joint household account','keyword','transfer',6,1)",
+      "INSERT INTO categorization_rules(id,name,pattern,mode,category_id,priority,enabled) VALUES('demo-rule-own-transfers','Transfers between own accounts','^(Everyday account|Emergency fund|Travel credit card|ETF portfolio|Rental flat, Linden Street|Mortgage, rental flat) ','regex','transfer',5,1)",
       "INSERT INTO categorization_rules(id,name,pattern,mode,category_id) VALUES('custom','Travel','TRAVEL','keyword','custom-transfer')",
       "INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,category_id,type,transfer_id) VALUES('entry','checking','synthetic-1','2026-01-01',-12345,'EUR','transfer','transfer','preserved-link')"
     ], "write");
     await migrateDatabase(client);
 
     assert.equal((await client.execute("SELECT COUNT(*) AS n FROM categories WHERE id='transfer'")).rows[0].n, 0);
-    assert.equal((await client.execute("SELECT COUNT(*) AS n FROM categorization_rules WHERE id='obsolete'")).rows[0].n, 0);
+    assert.equal((await client.execute("SELECT COUNT(*) AS n FROM categorization_rules WHERE id IN ('demo-rule-own-transfers','demo-rule-joint-account')")).rows[0].n, 0);
     assert.equal((await client.execute("SELECT COUNT(*) AS n FROM categorization_rules WHERE id='custom'")).rows[0].n, 1);
     assert.deepEqual({
       ...(await client.execute("SELECT amount_minor,type,transfer_id,category_id FROM transactions WHERE id='entry'")).rows[0]
@@ -612,3 +610,78 @@ test("retiring the seeded transfer category preserves bookings, transfer links a
     });
   }
 });
+
+
+const transferCustomizations = [
+  {
+    name: "a renamed seeded category",
+    sql: "UPDATE categories SET name='Own movements' WHERE id='transfer'"
+  },
+  {
+    name: "a recolored seeded category",
+    sql: "UPDATE categories SET color='#123456' WHERE id='transfer'"
+  },
+  {
+    name: "a seeded category with an assigned icon",
+    sql: "UPDATE categories SET icon='travel' WHERE id='transfer'"
+  },
+  {
+    name: "a manual category assignment",
+    sql: "UPDATE transactions SET category_source='manual' WHERE id='entry'"
+  },
+  {
+    name: "a user-created rule targeting the seeded category",
+    sql: "INSERT INTO categorization_rules(id,name,pattern,mode,category_id) VALUES('user-created','Own payments','SAVINGS','keyword','transfer')"
+  },
+  {
+    name: "a customized demo-owned rule",
+    sql: "UPDATE categorization_rules SET pattern='MY HOUSEHOLD' WHERE id='demo-rule-joint-account'"
+  }
+];
+
+for (const customization of transferCustomizations) {
+  test(`category retirement preserves ${customization.name} and every dependent booking and rule`, async () => {
+    const client = createClient({
+      url: ":memory:"
+    });
+    const directory = mkdtempSync(join(tmpdir(), "ufer-custom-transfer-category-"));
+    const journal = JSON.parse(readFileSync("drizzle/sqlite/meta/_journal.json", "utf8"));
+
+    journal.entries = journal.entries.filter((entry: {
+      idx: number
+    }) => entry.idx < 6);
+    mkdirSync(join(directory, "meta"));
+
+    for (const entry of journal.entries) {
+      cpSync(`drizzle/sqlite/${entry.tag}.sql`, join(directory, `${entry.tag}.sql`));
+    }
+
+    writeFileSync(join(directory, "meta/_journal.json"), JSON.stringify(journal));
+
+    try {
+      await migrateDatabase(client, directory);
+      await client.batch([
+        "INSERT INTO accounts(id,environment,name,institution,kind) VALUES('checking','SANDBOX','Synthetic checking','Example bank','checking')",
+        "INSERT INTO categorization_rules(id,name,pattern,mode,category_id,priority,enabled) VALUES('demo-rule-joint-account','Joint household account','Joint household account','keyword','transfer',6,1)",
+        "INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,category_id,type,transfer_id) VALUES('entry','checking','synthetic-1','2026-01-01',-12345,'EUR','transfer','transfer','preserved-link')",
+        customization.sql
+      ], "write");
+      const categoryBefore = (await client.execute("SELECT * FROM categories WHERE id='transfer'")).rows;
+      const rulesBefore = (await client.execute("SELECT * FROM categorization_rules ORDER BY id")).rows;
+      const bookingsBefore = (await client.execute("SELECT * FROM transactions ORDER BY id")).rows;
+
+      await migrateDatabase(client);
+
+      assert.deepEqual((await client.execute("SELECT * FROM categories WHERE id='transfer'")).rows, categoryBefore);
+      assert.deepEqual((await client.execute("SELECT * FROM categorization_rules ORDER BY id")).rows, rulesBefore);
+      assert.deepEqual((await client.execute("SELECT * FROM transactions ORDER BY id")).rows, bookingsBefore);
+      assert.equal((await client.execute("PRAGMA foreign_key_check")).rows.length, 0);
+    } finally {
+      client.close();
+      rmSync(directory, {
+        recursive: true,
+        force: true
+      });
+    }
+  });
+}
