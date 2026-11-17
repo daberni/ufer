@@ -30,11 +30,7 @@ if [ "$status" = "ready" ] && [ -n "$preview_url" ]; then
   actions="[Preview]($preview_url)"
 fi
 
-source_details="PR head: [\`${HEAD_SHA:0:7}\`]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/commit/$HEAD_SHA). Base: [\`$BASE_REF@${BASE_SHA:0:7}\`]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/commit/$BASE_SHA)."
-
-if [ -n "${BUILD_SHA:-}" ] && [ "$BUILD_SHA" != "$HEAD_SHA" ]; then
-  source_details="$source_details **Integration preview:** combines the recorded head and base. Build SHA: \`$BUILD_SHA\`."
-fi
+source_details="PR head: [\`${HEAD_SHA:0:7}\`]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/commit/$HEAD_SHA)."
 
 body="$(cat <<EOF
 $marker

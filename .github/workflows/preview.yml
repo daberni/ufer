@@ -25,17 +25,11 @@ jobs:
       VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
       HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-      BASE_SHA: ${{ github.event.pull_request.base.sha }}
-      BASE_REF: ${{ github.event.pull_request.base.ref }}
     steps:
       - uses: actions/checkout@v7
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           persist-credentials: false
-          fetch-depth: 0
-      - name: Prepare preview source
-        id: source
-        run: .github/scripts/prepare-preview-source.sh
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
@@ -43,18 +37,16 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           PULL_REQUEST: ${{ github.event.pull_request.number }}
-          BUILD_SHA: ${{ steps.source.outputs.build }}
         run: .github/scripts/preview-comment.sh building
       - name: Deploy to Vercel
         id: deploy
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           PULL_REQUEST: ${{ github.event.pull_request.number }}
-          BUILD_SHA: ${{ steps.source.outputs.build }}
         run: |
           output="$RUNNER_TEMP/vercel-deploy.log"
           status=0
-          npx --yes vercel@65.16.0 deploy --yes --token "$VERCEL_TOKEN" --meta "githubPullRequest=$PULL_REQUEST" --meta "previewHeadSha=$HEAD_SHA" --meta "previewBuildSha=$BUILD_SHA" --meta "previewBaseSha=$BASE_SHA" --meta "previewBaseRef=$BASE_REF" > "$RUNNER_TEMP/vercel-url.txt" 2> "$output" || status=$?
+          npx --yes vercel@65.16.0 deploy --yes --token "$VERCEL_TOKEN" --meta "githubPullRequest=$PULL_REQUEST" --meta "previewHeadSha=$HEAD_SHA" > "$RUNNER_TEMP/vercel-url.txt" 2> "$output" || status=$?
           cat "$output" >&2
           echo "url=$(cat "$RUNNER_TEMP/vercel-url.txt")" >> "$GITHUB_OUTPUT"
           echo "inspector=$(grep -o 'https://vercel.com/[^ ]*' "$output" | head -n 1 || true)" >> "$GITHUB_OUTPUT"
@@ -67,7 +59,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           PULL_REQUEST: ${{ github.event.pull_request.number }}
-          BUILD_SHA: ${{ steps.source.outputs.build }}
           OUTCOME: ${{ steps.deploy.outcome }}
           ERROR: ${{ steps.deploy.outputs.error }}
           URL: ${{ steps.deploy.outputs.url }}
