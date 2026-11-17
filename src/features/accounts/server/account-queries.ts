@@ -46,7 +46,7 @@ export async function readNetWorth(currency: string) {
   };
 }
 
-/** Daily closing balances for an account with bookings, otherwise its recorded valuations, scoped to the current banking environment. */
+/** Daily estimates between recorded cash-account balances, or recorded asset valuations, scoped to the current banking environment. */
 export async function readBalanceHistory(accountId: string): Promise<BalanceHistory> {
   const db = await database();
   const account = await db.select({
