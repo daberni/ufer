@@ -53,11 +53,6 @@
   background: var(--gold-soft);
   color: var(--gold-text);
 }
-.note {
-  margin-top: var(--space-3);
-  font-size: var(--text-sm);
-  color: var(--muted);
-}
 @media (--mobile) {
   .flows {
     grid-template-columns: minmax(0, 1fr);

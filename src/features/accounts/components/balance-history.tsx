@@ -17,7 +17,8 @@ import type { BalanceHistory, BalancePoint } from "@/features/accounts/types";
 const sourceLabels: Record<BalancePoint["source"], string> = {
   sync: "Bank sync",
   manual: "Manual",
-  csv: "CSV import"
+  csv: "CSV import",
+  transactions: "Calculated"
 };
 
 // The table starts with the latest balances; the chart already shows the whole history.
@@ -77,7 +78,7 @@ function BalanceChart({
   const chart = plotBalances(balances);
   const first = balances[0];
   const last = balances[balances.length - 1];
-  const line = chart.points.map((point, index) => `${index ? "L" : "M"}${point.x} ${point.y}`).join(" ");
+  const line = chart.points.map((point, index) => index ? `H${point.x} V${point.y}` : `M${point.x} ${point.y}`).join(" ");
   const area = `${line} L100 100 L0 100 Z`;
   const summary = `Balance from ${dateLabel(first.date)} to ${dateLabel(last.date)}: from ${money(first.amount_minor, currency)} to ${money(last.amount_minor, currency)}, lowest ${money(chart.lowest, currency)}, highest ${money(chart.highest, currency)}.`;
 
