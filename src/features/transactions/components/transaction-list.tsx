@@ -16,15 +16,16 @@ type Props = {
   transactions: Transaction[];
 };
 
+// Phones show each table row as a card; the explicit roles keep the table semantics that WebKit drops from table elements whose display changes.
 function TableHeader() {
   return (
-    <thead>
-      <tr>
-        <th>Payee / description</th>
-        <th>Category</th>
-        <th>Account</th>
-        <th>Date</th>
-        <th className={styles["align-right"]}>Amount</th>
+    <thead role="rowgroup" className={styles["header"]}>
+      <tr role="row">
+        <th role="columnheader" scope="col">Payee / description</th>
+        <th role="columnheader" scope="col">Category</th>
+        <th role="columnheader" scope="col">Account</th>
+        <th role="columnheader" scope="col">Date</th>
+        <th role="columnheader" scope="col" className={styles["amount-heading"]}>Amount</th>
       </tr>
     </thead>
   );
@@ -42,16 +43,46 @@ function originalAmount(transaction: Transaction) {
   return `${money(Math.abs(instructed), currency)} original`;
 }
 
-function OriginalAmount({ transaction }: {
-  transaction: Transaction
+function TransactionRow({
+  categories,
+  transaction
+}: {
+  categories: Category[];
+  transaction: Transaction;
 }) {
+  const incoming = transaction.amount_minor > 0;
   const original = originalAmount(transaction);
 
-  if (!original) {
-    return null;
-  }
-
-  return <span className={styles["original-amount"]}>{original}</span>;
+  return (
+    <tr role="row" className={styles["row"]}>
+      <th role="rowheader" scope="row" className={styles["payee"]}>
+        <div className={styles["transaction-name"]}>
+          <span className={clsx(styles["transaction-icon"], incoming && styles["incoming"])}>{incoming ? <ArrowDownLeft size={17} /> : <ArrowUpRight size={17} />}</span>
+          <strong className={styles["name"]}>{transaction.counterparty || transaction.description || "Transaction"}</strong>
+          <span className={styles["description"]} title={transaction.description}>{transaction.description || "No description"}</span>
+          {transaction.description && (
+            <details className={styles["transaction-details"]}>
+              <summary>Description</summary>
+              <p>{transaction.description}</p>
+            </details>
+          )}
+        </div>
+      </th>
+      <td role="cell" className={styles["category"]}>
+        <span className={styles["category-label"]} aria-hidden="true">Category</span>
+        <TransactionCategory categories={categories} transaction={transaction} />
+      </td>
+      <td role="cell" className={styles["account"]}>{transaction.account_name}</td>
+      <td role="cell" className={styles["date"]}>
+        <DateValue value={transaction.booking_date} />
+      </td>
+      <td role="cell" className={clsx(styles["amount"], incoming && ui["positive"])}>
+        {incoming ? "+" : ""}
+        {money(transaction.amount_minor, transaction.currency)}
+        {original && <span className={styles["original-amount"]}>{original}</span>}
+      </td>
+    </tr>
+  );
 }
 
 export function TransactionList({
@@ -59,68 +90,14 @@ export function TransactionList({
   transactions
 }: Props) {
   return (
-    <>
-      <div className={clsx(styles["table-scroll"], styles["desktop-transactions"])}>
-        <table>
-          <TableHeader />
-          <tbody>
-            {transactions.map(transaction => (
-              <tr key={transaction.id}>
-                <td>
-                  <div className={styles["transaction-name"]}>
-                    <span className={clsx(styles["transaction-icon"], transaction.amount_minor > 0 ? styles["incoming"] : "")}>{transaction.amount_minor > 0 ? <ArrowDownLeft size={17} /> : <ArrowUpRight size={17} />}</span>
-                    <div>
-                      <strong>{transaction.counterparty || transaction.description || "Transaction"}</strong>
-                      <span title={transaction.description}>{transaction.description || "No description"}</span>
-                    </div>
-                  </div>
-                </td>
-                <td>
-                  <TransactionCategory categories={categories} transaction={transaction} />
-                </td>
-                <td className={ui["muted"]}>{transaction.account_name}</td>
-                <td className={clsx(ui["muted"], styles["nowrap"])}><DateValue value={transaction.booking_date} /></td>
-                <td className={clsx(styles["amount"], styles["align-right"], transaction.amount_minor > 0 ? ui["positive"] : "")}>
-                  {transaction.amount_minor > 0 ? "+" : ""}
-                  {money(transaction.amount_minor, transaction.currency)}
-                  <OriginalAmount transaction={transaction} />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <ul className={styles["transaction-cards"]} aria-label="Transactions">
-        {transactions.map(transaction => (
-          <li key={transaction.id}>
-            <article className={styles["transaction-card"]}>
-              <div className={styles["transaction-card-meta"]}>
-                <span>{transaction.account_name}</span>
-                <DateValue value={transaction.booking_date} />
-              </div>
-              <div className={styles["transaction-card-heading"]}>
-                <h3>{transaction.counterparty || transaction.description || "Transaction"}</h3>
-                <strong className={clsx(styles["amount"], transaction.amount_minor > 0 ? ui["positive"] : "")}>
-                  {transaction.amount_minor > 0 ? "+" : ""}
-                  {money(transaction.amount_minor, transaction.currency)}
-                  <OriginalAmount transaction={transaction} />
-                </strong>
-              </div>
-              {transaction.description && (
-                <details className={styles["transaction-details"]}>
-                  <summary>Description</summary>
-                  <p>{transaction.description}</p>
-                </details>
-              )}
-              <div className={styles["transaction-card-category"]}>
-                <span>Category</span>
-                <TransactionCategory categories={categories} transaction={transaction} />
-              </div>
-            </article>
-          </li>
-        ))}
-      </ul>
-    </>
+    <div className={styles["table-scroll"]}>
+      <table role="table" className={styles["table"]} aria-label="Transactions">
+        <TableHeader />
+        <tbody role="rowgroup">
+          {transactions.map(transaction => <TransactionRow key={transaction.id} categories={categories} transaction={transaction} />)}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -128,7 +105,7 @@ export function TransactionList({
 const skeletonPayees = ["Grocery market", "Monthly rent payment", "Coffee shop", "Salary", "Public transport pass"];
 const skeletonDescriptions = ["Debit card purchase", "Standing order, reference 2025-01 rent", "Card payment", "Monthly salary payment from employer", "Direct debit"];
 
-/** The list's table and cards with placeholder rows, for a list whose first results are loading. */
+/** The list's rows with placeholder content, for a list whose first results are loading. */
 export function TransactionListSkeleton({ rows }: {
   rows: number
 }) {
@@ -140,72 +117,45 @@ export function TransactionListSkeleton({ rows }: {
   }));
 
   return (
-    <>
-      <div className={clsx(styles["table-scroll"], styles["desktop-transactions"])}>
-        <table>
-          <TableHeader />
-          <tbody>
-            {placeholders.map((placeholder, index) => (
-              <tr key={index}>
-                <td>
-                  <div className={styles["transaction-name"]}>
-                    <span className={clsx(styles["transaction-icon"], ui["skeleton"])} />
-                    <div>
-                      <strong>
-                        <span className={ui["skeleton"]}>{placeholder.payee}</span>
-                      </strong>
-                      <span>
-                        <span className={ui["skeleton"]}>{placeholder.description}</span>
-                      </span>
-                    </div>
-                  </div>
-                </td>
-                <td>
-                  <span className={ui["skeleton"]}>Category name with menu</span>
-                </td>
-                <td>
-                  <span className={ui["skeleton"]}>Everyday account</span>
-                </td>
-                <td>
-                  <span className={ui["skeleton"]}>16 Nov</span>
-                </td>
-                <td className={clsx(styles["amount"], styles["align-right"])}>
-                  <span className={ui["skeleton"]}>€000.00</span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <ul className={styles["transaction-cards"]}>
-        {placeholders.map((placeholder, index) => (
-          <li key={index}>
-            <div className={styles["transaction-card"]}>
-              <div className={styles["transaction-card-meta"]}>
+    <div className={styles["table-scroll"]}>
+      <table className={styles["table"]}>
+        <TableHeader />
+        <tbody>
+          {placeholders.map((placeholder, index) => (
+            <tr key={index} className={styles["row"]}>
+              <th scope="row" className={styles["payee"]}>
+                <div className={styles["transaction-name"]}>
+                  <span className={clsx(styles["transaction-icon"], ui["skeleton"])} />
+                  <strong className={styles["name"]}>
+                    <span className={ui["skeleton"]}>{placeholder.payee}</span>
+                  </strong>
+                  <span className={styles["description"]}>
+                    <span className={ui["skeleton"]}>{placeholder.description}</span>
+                  </span>
+                  <details className={styles["transaction-details"]}>
+                    <summary>
+                      <span className={ui["skeleton"]}>Description</span>
+                    </summary>
+                  </details>
+                </div>
+              </th>
+              <td className={styles["category"]}>
+                <span className={styles["category-label"]}>Category</span>
+                <span className={ui["skeleton"]}>Category name with menu</span>
+              </td>
+              <td className={styles["account"]}>
                 <span className={ui["skeleton"]}>Everyday account</span>
+              </td>
+              <td className={styles["date"]}>
                 <span className={ui["skeleton"]}>16 Nov</span>
-              </div>
-              <div className={styles["transaction-card-heading"]}>
-                <h3>
-                  <span className={ui["skeleton"]}>{placeholder.payee}</span>
-                </h3>
-                <strong className={styles["amount"]}>
-                  <span className={ui["skeleton"]}>€000.00</span>
-                </strong>
-              </div>
-              <details className={styles["transaction-details"]}>
-                <summary>
-                  <span className={ui["skeleton"]}>Description</span>
-                </summary>
-              </details>
-              <div className={styles["transaction-card-category"]}>
-                <span>Category</span>
-                <span className={ui["skeleton"]}>Category name</span>
-              </div>
-            </div>
-          </li>
-        ))}
-      </ul>
-    </>
+              </td>
+              <td className={styles["amount"]}>
+                <span className={ui["skeleton"]}>€000.00</span>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }

@@ -50,6 +50,12 @@ const config: NextConfig = {
   },
   devIndicators: false,
   poweredByHeader: false,
+  // The React Compiler memoizes components and hooks; the memoization guarantee is pinned because its default depends on the compiler version.
+  reactCompiler: {
+    environment: {
+      enablePreserveExistingMemoizationGuarantees: true
+    }
+  },
   serverExternalPackages: ["@libsql/client"],
   async headers() {
     return [{
