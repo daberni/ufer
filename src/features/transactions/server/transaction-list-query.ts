@@ -7,6 +7,7 @@ import { syncRunTransactions } from "@/features/banking/server/sync-repository";
 import { periodToJson } from "@/lib/period";
 import { transactionPageSize } from "@/lib/pagination";
 import { periodCondition } from "@/features/transactions/server/period-condition";
+import { searchCondition } from "@/features/transactions/server/search-condition";
 import type { DashboardFilters } from "@/server/http/dashboard-filters";
 import type { TransactionType } from "@/features/transactions/transaction-types";
 
@@ -68,8 +69,10 @@ export async function readTransactionPage(filters: DashboardFilters) {
   const args: (string | number)[] = [environment(), ...scope.args];
 
   if (filters.search) {
-    where.push("instr(lower(t.counterparty || ' ' || t.description),lower(?)) > 0");
-    args.push(filters.search);
+    const matchesSearch = searchCondition(filters.search);
+
+    where.push(matchesSearch.sql);
+    args.push(...matchesSearch.args);
   }
 
   if (filters.accountId) {
