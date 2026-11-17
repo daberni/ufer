@@ -4,13 +4,22 @@
   font-weight: 500;
   text-align: left;
   min-height: 32px;
+  /* A transfer's two label lines fit the control's height, so its row is as tall as the others and their placeholders. */
+  padding-block: 0;
 }
 .type-button:hover {
   color: var(--green-text);
 }
+/* Has the type button's height. */
+.type-placeholder {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+}
 .label {
   display: flex;
   flex-direction: column;
+  line-height: 1.3;
 }
 .detail {
   font-weight: 400;
@@ -88,6 +97,10 @@
 
 @media (--mobile) {
   .type-button {
+    min-height: 44px;
+    font-size: var(--text-md);
+  }
+  .type-placeholder {
     min-height: 44px;
     font-size: var(--text-md);
   }

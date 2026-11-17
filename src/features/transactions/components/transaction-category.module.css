@@ -18,6 +18,10 @@
   font-size: var(--text-xs);
   text-overflow: ellipsis;
 }
+/* Has the field's height, which the picker input sets above. */
+.picker-placeholder {
+  min-height: 32px;
+}
 
 /* In the table the status slot keeps its width when empty, so progress and results never move neighboring content. */
 .status {
@@ -75,6 +79,9 @@
   .picker input {
     min-height: 44px;
     font-size: var(--text-md);
+  }
+  .picker-placeholder {
+    min-height: 44px;
   }
   .status {
     width: 18px;
