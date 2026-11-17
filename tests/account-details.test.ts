@@ -158,20 +158,39 @@ test("an account without transactions in the period has zero flows, while unknow
   await assertNotFound(readAccountCashFlow("production-checking", january));
 });
 
-test("an account's balance history lists only its own balances, oldest first, and other environments are not found", async context => {
+test("an account's daily balances use only its own currency and preserve the known closing balance", async context => {
   await seededDatabase(context);
 
-  assert.deepEqual(await readBalanceHistory("checking"), {
-    currency: "EUR",
-    balances: [{
-      date: "2025-12-31",
-      amount_minor: 0,
-      source: "manual"
-    }, {
-      date: "2026-02-01",
-      amount_minor: 205300,
-      source: "sync"
-    }]
+  const history = await readBalanceHistory("checking");
+
+  assert.equal(history.currency, "EUR");
+  assert.deepEqual(history.balances.slice(0, 4), [
+    {
+      date: "2026-01-02",
+      amount_minor: 250000,
+      source: "transactions"
+    },
+    {
+      date: "2026-01-03",
+      amount_minor: 250000,
+      source: "transactions"
+    },
+    {
+      date: "2026-01-04",
+      amount_minor: 250000,
+      source: "transactions"
+    },
+    {
+      date: "2026-01-05",
+      amount_minor: 246000,
+      source: "transactions"
+    }
+  ]);
+  assert.equal(history.balances.find(balance => balance.date === "2026-01-20")?.amount_minor, 206000);
+  assert.deepEqual(history.balances.find(balance => balance.date === "2026-02-01"), {
+    date: "2026-02-01",
+    amount_minor: 205300,
+    source: "sync"
   });
   await assertNotFound(readBalanceHistory("unknown"));
   await assertNotFound(readBalanceHistory("production-checking"));

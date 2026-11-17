@@ -76,7 +76,6 @@ export function AccountCashFlowSummary({
           </dd>
         </div>
       </dl>
-      <p className={styles["note"]}>Transfers are transactions in a transfer category; income and spending leave them out.</p>
       {area.status === "pending" && area.failure && <FailureCover failure={area.failure} subject="The cash flow" />}
     </section>
   );

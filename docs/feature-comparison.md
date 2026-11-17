@@ -219,3 +219,6 @@ Update status, limitation, evidence and date when a capability changes. Check a 
 [S14]: https://github.com/we-promise/sure/blob/v0.7.6-hotfix.1/app/controllers/pages_controller.rb
 
 User management is tracked in [issue #25](https://github.com/daberni/ufer/issues/25). The current source implements explicit operator enrollment, username/password sign-in, session/password lifecycle and active membership of one installation workspace. The [rollout](user-management.md#migration-and-rollout) is not yet applied to existing databases or the hosted installation.
+
+
+Account balance history: accounts with booked transactions show daily closing balances reconstructed from their latest dated balance, with calculated points identified in the table. Days without bookings carry the preceding closing balance. Explicit opening-balance transactions can anchor manual accounts at zero before their first booking; partial imports without any balance reference do not imply zero. Accounts without transactions retain their recorded valuation history. The chart uses horizontal steps and vertical changes, and was checked with synthetic data at desktop and 375 px width.

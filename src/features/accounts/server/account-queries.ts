@@ -1,9 +1,12 @@
+import { Temporal } from "temporal-polyfill";
 import { and, asc, eq, sql } from "drizzle-orm";
 import { database } from "@/server/database/connection";
-import { accounts, balanceSnapshots, requisitions } from "@/server/database/schema";
+import { accounts, balanceSnapshots, requisitions, transactions } from "@/server/database/schema";
 import { environment } from "@/features/banking/server/environment";
 import { HttpError } from "@/lib/errors";
-import type { BalanceHistory } from "@/features/accounts/types";
+import { today } from "@/lib/time";
+import { dailyBalances } from "@/features/accounts/daily-balances";
+import type { BalanceHistory, BalancePoint } from "@/features/accounts/types";
 
 const kindOrder = sql`CASE ${accounts.kind} WHEN 'checking' THEN 0 WHEN 'savings' THEN 1 WHEN 'investment' THEN 2 ELSE 3 END`;
 
@@ -43,11 +46,14 @@ export async function readNetWorth(currency: string) {
   };
 }
 
-/** Every recorded balance of one account of the current banking environment, oldest first. */
+/** Daily closing balances for an account with bookings, otherwise its recorded valuations, scoped to the current banking environment. */
 export async function readBalanceHistory(accountId: string): Promise<BalanceHistory> {
   const db = await database();
   const account = await db.select({
-    currency: accounts.currency
+    currency: accounts.currency,
+    balance_minor: accounts.balance_minor,
+    balance_date: accounts.balance_date,
+    provider: accounts.provider
   }).from(accounts).where(and(eq(accounts.id, accountId), eq(accounts.environment, environment()))).get();
 
   if (!account) {
@@ -60,8 +66,41 @@ export async function readBalanceHistory(accountId: string): Promise<BalanceHist
     source: balanceSnapshots.source
   }).from(balanceSnapshots).where(eq(balanceSnapshots.account_id, accountId)).orderBy(asc(balanceSnapshots.observed_at));
 
+  const endDate = today().toString();
+  const bookings = await db.select({
+    date: transactions.booking_date,
+    amount_minor: sql<number>`SUM(${transactions.amount_minor})`.mapWith(Number),
+    opening: sql<number>`MAX(CASE WHEN ${transactions.type}='opening_balance' THEN 1 ELSE 0 END)`.mapWith(Number)
+  }).from(transactions).where(and(eq(transactions.account_id, accountId), eq(transactions.currency, account.currency), sql`${transactions.booking_date} <= ${endDate}`)).groupBy(transactions.booking_date).orderBy(asc(transactions.booking_date));
+  const providerSources = {
+    enable_banking: "sync",
+    csv: "csv",
+    manual: "manual"
+  } as const;
+  const source = providerSources[account.provider as keyof typeof providerSources] ?? "manual";
+  const observations: BalancePoint[] = balances.filter(balance => balance.date <= endDate);
+
+  if (account.balance_minor !== null && account.balance_date && account.balance_date <= endDate) {
+    observations.push({
+      date: account.balance_date,
+      amount_minor: account.balance_minor,
+      source
+    });
+  }
+
+  observations.sort((left, right) => left.date.localeCompare(right.date));
+  const latest = observations.at(-1);
+  const opening = bookings.find(booking => booking.opening);
+  const reference = latest ?? (opening ? {
+    date: Temporal.PlainDate.from(bookings[0].date).subtract({
+      days: 1
+    }).toString(),
+    amount_minor: 0,
+    source: "transactions" as const
+  } : undefined);
+
   return {
     currency: account.currency,
-    balances
+    balances: bookings.length && reference ? dailyBalances(bookings, reference, endDate) : balances
   };
 }
