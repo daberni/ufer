@@ -2,6 +2,7 @@
 
 import ui from "../../../components/ui/primitives.module.css";
 import accountStyles from "./account-presentation.module.css";
+import contextStyles from "./account-context.module.css";
 
 import { clsx } from "clsx";
 import Link from "next/link";
@@ -43,9 +44,9 @@ export function AccountsView({
 
   return (
     <>
-      <div className={ui["section-heading"]}>
-        <span className={clsx(ui["section-kicker"], valueMask(shownStatus(accounts)))}>{accounts.data?.length ?? 0} ACCOUNTS & ASSETS</span>
-        <div className={ui["button-group"]}>
+      <div className={contextStyles["context-row"]}>
+        <span className={clsx(contextStyles["label"], ui["section-kicker"], valueMask(shownStatus(accounts)))}>{accounts.data?.length ?? 0} ACCOUNTS & ASSETS</span>
+        <div className={clsx(contextStyles["actions"], ui["button-group"])}>
           <button className={ui["button"]} onClick={addAccount}>
             <Plus size={15} />
             Add account

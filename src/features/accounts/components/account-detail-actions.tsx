@@ -1,6 +1,7 @@
 "use client";
 
 import ui from "../../../components/ui/primitives.module.css";
+import styles from "./account-detail-actions.module.css";
 
 import { useState } from "react";
 import { clsx } from "clsx";
@@ -25,12 +26,12 @@ export function AccountDetailActions({
   }
 
   return (
-    <div className={ui["button-group"]}>
-      <button className={clsx(ui["button"], ui["primary"])} onClick={() => setDialog("transaction")}>
+    <div className={clsx(ui["button-group"], styles["actions"])}>
+      <button className={clsx(ui["button"], ui["primary"], styles["button"])} onClick={() => setDialog("transaction")}>
         <Plus size={15} />
         Add transaction
       </button>
-      <button className={ui["button"]} onClick={() => setDialog("balance")}>
+      <button className={clsx(ui["button"], styles["button"])} onClick={() => setDialog("balance")}>
         <Pencil size={15} />
         Update balance
       </button>

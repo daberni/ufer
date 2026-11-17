@@ -2,6 +2,7 @@
 
 import ui from "../../../components/ui/primitives.module.css";
 import accountStyles from "./account-presentation.module.css";
+import contextStyles from "./account-context.module.css";
 
 import { clsx } from "clsx";
 import Link from "next/link";
@@ -60,8 +61,8 @@ function BackNavigation({ back }: {
   back: BackLink
 }) {
   return (
-    <nav className={styles["back"]} aria-label="Back">
-      <Link className={ui["text-button"]} href={back.href}>
+    <nav className={contextStyles["context-row"]} aria-label="Back">
+      <Link className={clsx(contextStyles["back-link"], ui["text-button"])} href={back.href}>
         <ArrowLeft size={15} />
         {back.label}
       </Link>
