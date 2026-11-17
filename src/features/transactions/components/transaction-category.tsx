@@ -13,6 +13,7 @@ import { useDismiss } from "@/components/ui/use-dismiss";
 import { CategoryPicker } from "@/features/categorization/components/category-picker";
 import { RuleFromAssignmentDialog } from "@/features/categorization/components/rule-from-assignment-form";
 import { useTransactionCategory, type RuleOffer } from "@/features/transactions/use-transaction-category";
+import { transactionTypeLabels } from "@/features/transactions/transaction-types";
 
 type Props = {
   categories: Category[];
@@ -126,7 +127,7 @@ export function TransactionCategory({
             {status.kind === "failed" && <CircleAlert />}
           </span>
         )}
-        aria-label={`Category for ${transaction.counterparty || transaction.description}`}
+        aria-label={`Category for ${transaction.counterparty || transaction.description || transactionTypeLabels[transaction.type]}`}
         aria-busy={status?.kind === "saving"}
         aria-invalid={status?.kind === "failed"}
         aria-describedby={failure ? messageId : undefined}

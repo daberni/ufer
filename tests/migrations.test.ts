@@ -10,6 +10,7 @@ import { initializeDatabase, migrateDatabase, migrationStatus } from "../src/ser
 import * as schema from "../src/server/database/schema";
 import type { Database } from "../src/server/database/connection";
 import { readCashFlow } from "../src/features/reports/server/cash-flow-query";
+import { listAccounts } from "../src/features/accounts/server/account-queries";
 import { monthPeriod } from "../src/lib/period";
 
 const changesetCount = JSON.parse(readFileSync("drizzle/sqlite/meta/_journal.json", "utf8")).entries.length;
@@ -40,12 +41,25 @@ async function columnList(client: Client, table: string) {
   return columns.rows.map(row => String(row.name)).join(",");
 }
 
+// Changeset 0007 moves a manual account's balance from the stored column into its transactions, so a balance is read from whichever holds it.
+const currentBalance = "COALESCE(balance_minor,(SELECT SUM(t.amount_minor) FROM transactions t WHERE t.account_id=accounts.id)) AS balance";
+
+/** Accounts with their current balance; comparable across every upgrade. */
+async function accountState(client: Client) {
+  return (await client.execute(`SELECT id,environment,name,institution,kind,currency,provider,provider_uid,requisition_id,iban,last_synced_at,sync_error,${currentBalance} FROM accounts ORDER BY id`)).rows;
+}
+
+/** Transactions that existed before changeset 0007 booked manual balances as transactions. */
+async function originalTransactions(client: Client, columns: string) {
+  return (await client.execute(`SELECT ${columns} FROM transactions WHERE provider_reference NOT LIKE 'manual:%' ORDER BY id`)).rows;
+}
+
 async function assertFinancialData(client: Client) {
-  const account = await client.execute("SELECT balance_minor FROM accounts WHERE id='asset'");
+  const account = await client.execute(`SELECT ${currentBalance} FROM accounts WHERE id='asset'`);
   const transaction = await client.execute("SELECT amount_minor,category_id,category_source FROM transactions WHERE id='entry'");
   const category = await client.execute("SELECT name FROM categories WHERE id='custom'");
 
-  assert.equal(account.rows[0].balance_minor, 12345);
+  assert.equal(account.rows[0].balance, 12345);
   assert.deepEqual({
     ...transaction.rows[0]
   }, {
@@ -270,7 +284,7 @@ test("the auth upgrade preserves financial history and linked credentials while 
     await client.batch([
       "INSERT INTO requisitions(id,environment,bank_name,bank_country,status,session_cipher,valid_until) VALUES('linked','SANDBOX','Example institution','AT','LINKED','unchanged-synthetic-ciphertext','2099-01-01')",
       "INSERT INTO requisitions(id,environment,bank_name,bank_country,status,state_hash) VALUES('pending','SANDBOX','Example institution','AT','PENDING','synthetic-pending-state')",
-      "INSERT INTO accounts(id,environment,name,institution,kind,balance_minor,requisition_id) VALUES('asset','SANDBOX','Synthetic asset','Example institution','checking',12345,'linked')",
+      "INSERT INTO accounts(id,environment,name,institution,kind,balance_minor,requisition_id,provider,provider_uid) VALUES('asset','SANDBOX','Synthetic asset','Example institution','checking',12345,'linked','enable_banking','synthetic-uid')",
       "INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,category_id,category_source) VALUES('entry','asset','original-reference','2026-11-15',-2500,'EUR','groceries','manual')",
       "INSERT INTO balance_snapshots(id,account_id,observed_at,amount_minor,source) VALUES('snapshot','asset','2026-11-15',12345,'sync')"
     ], "write");
@@ -340,7 +354,8 @@ test("the category icon upgrade adds an empty icon to existing categories withou
     // A later changeset replaces is_transfer, so only the columns that remain are compared.
     const categoriesBefore = await client.execute("SELECT id,name,color FROM categories ORDER BY id");
     const transactionColumns = await columnList(client, "transactions");
-    const transactionsBefore = await client.execute(`SELECT ${transactionColumns} FROM transactions`);
+    const transactionsBefore = await originalTransactions(client, transactionColumns);
+    const accountsBefore = await accountState(client);
     const rulesBefore = await client.execute("SELECT * FROM categorization_rules");
 
     await assert.rejects(initializeDatabase(client), /migrations are pending/);
@@ -354,10 +369,11 @@ test("the category icon upgrade adds an empty icon to existing categories withou
     });
     assert.deepEqual((await client.execute("SELECT id,name,color FROM categories ORDER BY id")).rows, categoriesBefore.rows.filter(row => row.id !== "transfer"));
     assert.equal((await client.execute("SELECT COUNT(*) AS count FROM categories WHERE icon IS NOT NULL")).rows[0].count, 0);
-    assert.deepEqual((await client.execute(`SELECT ${transactionColumns} FROM transactions`)).rows, transactionsBefore.rows.map(row => ({
+    assert.deepEqual(await originalTransactions(client, transactionColumns), transactionsBefore.map(row => ({
       ...row,
       category_id: row.category_id === "transfer" ? null : row.category_id
     })));
+    assert.deepEqual(await accountState(client), accountsBefore);
     assert.deepEqual((await client.execute("SELECT * FROM categorization_rules")).rows, rulesBefore.rows);
     assert.equal((await client.execute("PRAGMA foreign_key_check")).rows.length, 0);
   } finally {
@@ -401,8 +417,8 @@ test("the provider data upgrade keeps existing transactions unchanged and leaves
       "INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,category_id,category_source,created_at) VALUES('imported','manual','csv:1','2026-11-13',10000,'EUR',NULL,'rule','2026-11-15T08:00:00.000Z')"
     ], "write");
     const transactionColumns = await columnList(client, "transactions");
-    const transactionsBefore = await client.execute(`SELECT ${transactionColumns} FROM transactions ORDER BY id`);
-    const accountsBefore = await client.execute("SELECT * FROM accounts ORDER BY id");
+    const transactionsBefore = await originalTransactions(client, transactionColumns);
+    const accountsBefore = await accountState(client);
 
     await assert.rejects(initializeDatabase(client), /migrations are pending/);
     assert.equal((await client.execute("SELECT COUNT(*) AS count FROM pragma_table_info('transactions') WHERE name='provider_payload'")).rows[0].count, 0);
@@ -414,12 +430,12 @@ test("the provider data upgrade keeps existing transactions unchanged and leaves
       pending: 0
     });
     assert.ok((await columnList(client, "transactions")).startsWith(`${transactionColumns},${providerColumns.join(",")}`));
-    assert.deepEqual((await client.execute(`SELECT ${transactionColumns} FROM transactions ORDER BY id`)).rows, transactionsBefore.rows.map(row => ({
+    assert.deepEqual(await originalTransactions(client, transactionColumns), transactionsBefore.map(row => ({
       ...row,
       category_id: row.category_id === "transfer" ? null : row.category_id
     })));
     assert.equal((await client.execute(`SELECT COUNT(*) AS count FROM transactions WHERE ${providerColumns.map(column => `${column} IS NOT NULL`).join(" OR ")}`)).rows[0].count, 0);
-    assert.deepEqual((await client.execute("SELECT * FROM accounts ORDER BY id")).rows, accountsBefore.rows);
+    assert.deepEqual(await accountState(client), accountsBefore);
     assert.equal((await client.execute("PRAGMA foreign_key_check")).rows.length, 0);
   } finally {
     client.close();
@@ -559,6 +575,131 @@ test("the transaction type upgrade turns transfer-category bookings into transfe
   }
 });
 
+
+test("the manual account upgrade turns balance history into transactions without changing any balance or cash-flow result", async () => {
+  const directory = mkdtempSync(join(tmpdir(), "ufer-before-manual-transactions-"));
+  const client = createClient({
+    url: ":memory:"
+  });
+  const journal = JSON.parse(readFileSync("drizzle/sqlite/meta/_journal.json", "utf8"));
+  const previousEntries = journal.entries.slice(0, journal.entries.findIndex((entry: {
+    tag: string
+  }) => entry.tag === "0007_manual_account_transactions"));
+  const globals = globalThis as unknown as {
+    budgetDb?: Promise<Database>
+  };
+  const previousDatabase = globals.budgetDb;
+  const previousEnvironment = process.env.ENABLE_BANKING_ENVIRONMENT;
+  const months = ["2026-01", "2026-04", "2026-09", "2026-10"];
+  const snapshots = [
+    ["flat-1", "flat", "2026-01-01", 30000000],
+    ["flat-2", "flat", "2026-04-01", 31000000],
+    ["flat-3", "flat", "2026-07-01", 31000000],
+    ["flat-4", "flat", "2026-10-01", 32000000],
+    ["cash-1", "cash", "2026-09-01", 10000],
+    ["cash-2", "cash", "2026-09-10", 9000]
+  ] as const;
+
+  mkdirSync(join(directory, "meta"));
+
+  for (const entry of previousEntries) {
+    cpSync(`drizzle/sqlite/${entry.tag}.sql`, join(directory, `${entry.tag}.sql`));
+  }
+
+  writeFileSync(join(directory, "meta/_journal.json"), JSON.stringify({
+    ...journal,
+    entries: previousEntries
+  }));
+
+  try {
+    await migrateDatabase(client, directory);
+    await client.batch([
+      "INSERT INTO accounts(id,environment,name,institution,kind,provider,provider_uid,balance_minor,balance_date) VALUES('bank','SANDBOX','Synthetic checking','Example institution','checking','enable_banking','synthetic-uid',12345,'2026-09-30')",
+      "INSERT INTO accounts(id,environment,name,institution,kind,balance_minor,balance_date) VALUES('flat','SANDBOX','Synthetic flat','Example institution','property',32000000,'2026-10-01')",
+      "INSERT INTO accounts(id,environment,name,institution,kind,balance_minor,balance_date) VALUES('cash','SANDBOX','Synthetic cash','Example institution','savings',9000,'2026-09-10')",
+      "INSERT INTO accounts(id,environment,name,institution,kind,balance_minor,balance_date) VALUES('loan','SANDBOX','Synthetic loan','Example institution','loan',-5000000,'2026-08-01')",
+      "INSERT INTO accounts(id,environment,name,institution,kind) VALUES('unvalued','SANDBOX','Synthetic unvalued','Example institution','investment')",
+      "INSERT INTO balance_snapshots(id,account_id,observed_at,amount_minor,source) VALUES('bank-1','bank','2026-09-30',12345,'sync')",
+      ...snapshots.map(([id, account, date, amount]) => `INSERT INTO balance_snapshots(id,account_id,observed_at,amount_minor,source) VALUES('${id}','${account}','${date}',${amount},'${id === "flat-2" ? "csv" : "manual"}')`),
+      "INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,type) VALUES('salary','bank','bank:1','2026-09-01',300000,'EUR','income')",
+      "INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,type) VALUES('rent','bank','bank:2','2026-09-03',-90000,'EUR','expense')",
+      // Bookings already on manual accounts: CSV imports in and after the history, and a counterpart created for a synced transfer.
+      "INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,type) VALUES('cash-spend','cash','csv:1','2026-09-05',-2000,'EUR','expense')",
+      "INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,type) VALUES('cash-late','cash','csv:2','2026-09-20',-500,'EUR','expense')",
+      "INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,type,type_source,transfer_id,transfer_source) VALUES('withdrawal','bank','bank:3','2026-09-15',-3000,'EUR','transfer','manual','synthetic-transfer','manual')",
+      "INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,type,type_source,transfer_id,transfer_source) VALUES('withdrawal-in','cash','transfer:withdrawal','2026-09-15',3000,'EUR','transfer','manual','synthetic-transfer','manual')",
+      "INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,type) VALUES('flat-fee','flat','csv:3','2026-02-01',-10000,'EUR','expense')"
+    ], "write");
+
+    globals.budgetDb = Promise.resolve(drizzle(client, {
+      schema
+    }));
+    process.env.ENABLE_BANKING_ENVIRONMENT = "SANDBOX";
+
+    const transactionColumns = await columnList(client, "transactions");
+    const transactionsBefore = await originalTransactions(client, transactionColumns);
+    const balancesBefore = (await client.execute("SELECT id,balance_minor FROM accounts ORDER BY id")).rows.map(row => [row.id, row.balance_minor]);
+    const flowsBefore = await Promise.all(months.map(month => readCashFlow(monthPeriod(Temporal.PlainYearMonth.from(month)), "EUR")));
+
+    await assert.rejects(initializeDatabase(client), /migrations are pending/);
+    await migrateDatabase(client);
+
+    assert.deepEqual(await migrationStatus(client), {
+      mode: "managed",
+      applied: changesetCount,
+      pending: 0
+    });
+
+    const accountsAfter = await listAccounts();
+
+    assert.deepEqual(accountsAfter.map(account => [account.id, account.balance_minor]).sort(), balancesBefore.sort());
+    assert.deepEqual(await Promise.all(months.map(month => readCashFlow(monthPeriod(Temporal.PlainYearMonth.from(month)), "EUR"))), flowsBefore);
+    assert.deepEqual(await originalTransactions(client, transactionColumns), transactionsBefore);
+
+    // The balance at the end of every snapshot date is that snapshot.
+    for (const [id, account, date, amount] of snapshots) {
+      const onDate = await client.execute({
+        sql: "SELECT SUM(amount_minor) AS balance FROM transactions WHERE account_id=? AND booking_date<=?",
+        args: [account, date]
+      });
+
+      assert.equal(onDate.rows[0].balance, amount, id);
+    }
+
+    const booked = await client.execute("SELECT account_id,booking_date,type,amount_minor,type_source,category_source,provider_reference='manual:' || id AS entered FROM transactions WHERE type IN ('opening_balance','adjustment') ORDER BY account_id,booking_date");
+
+    // An unchanged valuation books nothing; the booking after the newest cash snapshot is balanced on its date.
+    assert.deepEqual(booked.rows.map(row => [row.account_id, row.booking_date, row.type, row.amount_minor]), [
+      ["cash", "2026-09-01", "opening_balance", 10000],
+      ["cash", "2026-09-10", "adjustment", 1000],
+      ["cash", "2026-09-20", "adjustment", -2500],
+      ["flat", "2026-01-01", "opening_balance", 30000000],
+      ["flat", "2026-04-01", "adjustment", 1010000],
+      ["flat", "2026-10-01", "adjustment", 1000000],
+      ["loan", "2026-08-01", "opening_balance", -5000000]
+    ]);
+    assert.ok(booked.rows.every(row => row.type_source === "manual" && row.category_source === "manual" && row.entered === 1));
+    assert.deepEqual((await client.execute("SELECT id FROM balance_snapshots")).rows.map(row => row.id), ["bank-1"]);
+    assert.equal((await client.execute("SELECT COUNT(*) AS count FROM accounts WHERE provider='manual' AND (balance_minor IS NOT NULL OR balance_date IS NOT NULL)")).rows[0].count, 0);
+    assert.deepEqual((await client.execute("SELECT balance_minor,balance_date FROM accounts WHERE id='bank'")).rows.map(row => [row.balance_minor, row.balance_date]), [[12345, "2026-09-30"]]);
+    assert.equal(accountsAfter.find(account => account.id === "unvalued")?.balance_minor, null);
+    assert.equal((await client.execute("PRAGMA foreign_key_check")).rows.length, 0);
+  } finally {
+    globals.budgetDb = previousDatabase;
+
+    if (previousEnvironment === undefined) {
+      delete process.env.ENABLE_BANKING_ENVIRONMENT;
+    } else {
+      process.env.ENABLE_BANKING_ENVIRONMENT = previousEnvironment;
+    }
+
+    client.close();
+    rmSync(directory, {
+      recursive: true,
+      force: true
+    });
+  }
+});
 
 test("retiring the seeded transfer category preserves bookings, transfer links and custom categories", async () => {
   const client = createClient({

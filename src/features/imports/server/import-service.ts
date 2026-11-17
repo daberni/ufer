@@ -22,7 +22,7 @@ export async function importTransactions(payload: unknown) {
 
   return {
     processed: entries.length,
-    message: "Transactions imported. Update the current account balance separately."
+    message: "Transactions imported. They count toward the account balance."
   };
 }
 
@@ -35,11 +35,11 @@ export async function importValuations(payload: unknown) {
     validateLiability(account.kind, entry.amount);
   }
 
-  await saveImportedValuations(input.account_id, entries);
+  await saveImportedValuations(account, entries);
 
   return {
     processed: entries.length,
-    message: "Valuation balances imported."
+    message: "Balances imported. Differences to the account balance were booked as adjustments."
   };
 }
 

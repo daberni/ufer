@@ -1,8 +1,9 @@
 import { randomUUID } from "node:crypto";
-import { and, eq, isNull, lte, or } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { database } from "@/server/database/connection";
-import { accounts, balanceSnapshots } from "@/server/database/schema";
+import { accounts } from "@/server/database/schema";
 import { environment } from "@/features/banking/server/environment";
+import { recordManualBalance } from "@/features/transactions/server/manual-transaction-repository";
 import type { ManualAccountInput } from "./account-schema";
 
 export async function findManualAccount(id: string) {
@@ -12,6 +13,7 @@ export async function findManualAccount(id: string) {
   return db.select().from(accounts).where(scope).get();
 }
 
+/** Creates a manual account with its starting balance as the opening balance transaction. */
 export async function insertManualAccount(input: ManualAccountInput, amount: number, date: string) {
   const db = await database();
   const id = randomUUID();
@@ -23,17 +25,12 @@ export async function insertManualAccount(input: ManualAccountInput, amount: num
       name: input.name,
       institution: input.institution,
       kind: input.kind,
-      currency: input.currency,
-      balance_minor: amount,
-      balance_date: date
+      currency: input.currency
     });
-    await tx.insert(balanceSnapshots).values({
-      id: randomUUID(),
-      account_id: id,
-      observed_at: date,
-      amount_minor: amount,
-      source: "manual"
-    });
+    await recordManualBalance(tx, {
+      id,
+      currency: input.currency
+    }, date, amount);
   });
 
   return {
@@ -41,27 +38,12 @@ export async function insertManualAccount(input: ManualAccountInput, amount: num
   };
 }
 
-export async function saveManualValuation(accountId: string, amount: number, date: string) {
+/** Records a manual account's balance on a date as an opening balance or an adjustment for the difference. */
+export async function saveManualValuation(account: {
+  id: string;
+  currency: string;
+}, amount: number, date: string) {
   const db = await database();
-  const scope = and(eq(accounts.id, accountId), eq(accounts.environment, environment()), or(isNull(accounts.balance_date), lte(accounts.balance_date, date)));
 
-  await db.transaction(async tx => {
-    await tx.insert(balanceSnapshots).values({
-      id: randomUUID(),
-      account_id: accountId,
-      observed_at: date,
-      amount_minor: amount,
-      source: "manual"
-    }).onConflictDoUpdate({
-      target: [balanceSnapshots.account_id, balanceSnapshots.observed_at],
-      set: {
-        amount_minor: amount,
-        source: "manual"
-      }
-    });
-    await tx.update(accounts).set({
-      balance_minor: amount,
-      balance_date: date
-    }).where(scope);
-  });
+  return db.transaction(tx => recordManualBalance(tx, account, date, amount));
 }
