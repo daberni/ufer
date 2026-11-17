@@ -371,7 +371,7 @@ async function changeEnteredPair(tx: DatabaseTransaction, subject: Subject, coun
   return "saved";
 }
 
-/** Keeps the two sides of an entered pair consistent: each names the other's account as its counterparty and both share the description. */
+/** Keeps the two sides of an entered pair consistent: each names the other's account as its counterparty, and the other side takes the subject's date and description. */
 export async function alignEnteredPair(tx: DatabaseTransaction, id: string) {
   const subject = await findSubject(tx, id);
   const counterpart = subject ? await findCounterpart(tx, subject) : undefined;
@@ -385,7 +385,8 @@ export async function alignEnteredPair(tx: DatabaseTransaction, id: string) {
   }).where(eq(transactions.id, subject.id));
   await tx.update(transactions).set({
     counterparty: subject.account_name,
-    description: subject.description
+    description: subject.description,
+    booking_date: subject.booking_date
   }).where(eq(transactions.id, counterpart.id));
 }
 
@@ -574,6 +575,55 @@ export async function readTransferOptions(id: string): Promise<TransferOptions |
     candidates: candidates.map(transferBooking),
     accounts: manualAccounts
   };
+}
+
+/**
+ * Lets a booking entered in Ufer follow the imported booking it is linked with; runs before the corrected values are written.
+ * A redelivered date is always mirrored. An amount in the same currency and direction is mirrored as the opposite amount and the pair stays linked, so the manual account's balance follows the correction.
+ * A correction that ends the link (the other direction or no amount) still mirrors the amount into a manual entry, which is detached first; a counterpart Ufer created is removed by `releaseOutdatedLinks`, as is every link after a currency change.
+ */
+export async function followImportedCorrections(tx: DatabaseTransaction, accountId: string, entries: CategorizedEntry[]) {
+  const deliveries = new Map(entries.map(entry => [entry.reference, entry]));
+
+  if (!deliveries.size) {
+    return;
+  }
+
+  const linked = await tx.select({
+    id: transactions.id
+  }).from(transactions).where(and(eq(transactions.account_id, accountId), inArray(transactions.provider_reference, [...deliveries.keys()]), isNotNull(transactions.transfer_id)));
+
+  for (const { id } of linked) {
+    const booking = await findSubject(tx, id);
+    const counterpart = booking ? await findCounterpart(tx, booking) : undefined;
+    const delivery = booking ? deliveries.get(booking.provider_reference) : undefined;
+
+    if (!booking || !counterpart || !delivery || enteredInUfer(booking) || !enteredInUfer(counterpart)) {
+      continue;
+    }
+
+    const sameCurrency = delivery.currency === counterpart.currency;
+    const keepsLink = sameCurrency && delivery.amount !== 0 && Math.sign(delivery.amount) === Math.sign(booking.amount_minor);
+
+    if (keepsLink) {
+      await tx.update(transactions).set({
+        booking_date: delivery.date,
+        amount_minor: -delivery.amount
+      }).where(eq(transactions.id, counterpart.id));
+    } else if (sameCurrency && !createdCounterpart(counterpart)) {
+      // Detached first: the unique transfer-side index rejects two linked bookings in the same direction.
+      await tx.update(transactions).set({
+        transfer_id: null,
+        transfer_source: "auto",
+        booking_date: delivery.date,
+        amount_minor: -delivery.amount
+      }).where(eq(transactions.id, counterpart.id));
+    } else {
+      await tx.update(transactions).set({
+        booking_date: delivery.date
+      }).where(eq(transactions.id, counterpart.id));
+    }
+  }
 }
 
 /**

@@ -586,7 +586,7 @@ test("a redelivered booking whose sign changed releases its link instead of fail
   assert.deepEqual([incoming.type, incoming.transfer_id], ["transfer", null]);
 });
 
-test("a redelivered amount that no longer matches releases the link and removes a counterpart created on a manual account", async context => {
+test("a redelivered amount that no longer matches releases a link between imported bookings, and a counterpart created on a manual account follows it", async context => {
   const db = await isolatedDatabase(context);
 
   await sync(db, "checking", [entry("out", "2026-09-01", -10000, true), entry("deposit", "2026-09-15", -2500000)]);
@@ -600,8 +600,11 @@ test("a redelivered amount that no longer matches releases the link and removes 
 
   assert.equal((await stored(db, "out")).transfer_id, null);
   assert.equal((await stored(db, "in")).transfer_id, null);
-  assert.equal((await db.select().from(schema.transactions).where(eq(schema.transactions.account_id, "property"))).length, 0);
-  assert.deepEqual([(await stored(db, "deposit")).type, (await stored(db, "deposit")).transfer_id], ["expense", null]);
+  // The created counterpart exists only for its source, so it takes the corrected amount and stays linked (ADR 009).
+  const created = await db.select().from(schema.transactions).where(eq(schema.transactions.account_id, "property"));
+
+  assert.deepEqual(created.map(row => [row.amount_minor, row.transfer_id]), [[2400000, (await stored(db, "deposit")).transfer_id]]);
+  assert.equal((await stored(db, "deposit")).type, "transfer");
 
   // An unchanged redelivery keeps a link.
   await sync(db, "checking", [entry("out", "2026-09-01", -10000, true)]);

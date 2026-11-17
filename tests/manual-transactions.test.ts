@@ -521,3 +521,85 @@ test("imported balances become adjustments for the difference on their date, and
   assert.equal(await balanceOf(fund), 120000);
   assert.equal((await db.select().from(schema.balanceSnapshots)).length, 0);
 });
+
+test("an entered booking follows corrections of the imported booking it is linked with", async context => {
+  const db = await isolatedDatabase(context);
+  const cash = await manualAccount("Synthetic cash", "0.00");
+  const withdrawal = await syncBooking(db, "withdrawal", "2026-09-10", -10000);
+  const { id } = await enter(cash, {
+    booking_date: "2026-09-10",
+    amount: "100.00",
+    type: "transfer",
+    transfer: {
+      counterpart_id: withdrawal.id
+    }
+  });
+
+  // The bank corrects only the date: the entered side moves with it and stays linked.
+  await syncBooking(db, "withdrawal", "2026-09-11", -10000);
+  assert.deepEqual([(await row(db, id))?.booking_date, (await row(db, id))?.amount_minor], ["2026-09-11", 10000]);
+  assert.equal((await row(db, id))?.transfer_id, (await row(db, withdrawal.id))?.transfer_id);
+
+  // The bank corrects the amount: the entered side mirrors it, so the cash balance follows.
+  await syncBooking(db, "withdrawal", "2026-09-11", -12000);
+  assert.deepEqual([(await row(db, id))?.amount_minor, (await row(db, id))?.transfer_id === (await row(db, withdrawal.id))?.transfer_id], [12000, true]);
+  assert.equal(await balanceOf(cash), 12000);
+
+  // A correction in the other direction ends the link; the entered side still mirrors the amount instead of keeping a stale one.
+  await syncBooking(db, "withdrawal", "2026-09-11", 3000);
+  assert.deepEqual([(await row(db, id))?.amount_minor, (await row(db, id))?.transfer_id, (await row(db, withdrawal.id))?.transfer_id], [-3000, null, null]);
+  assert.equal(await balanceOf(cash), -3000);
+});
+
+test("a counterpart created for a synced booking follows its corrections and is removed when the link ends", async context => {
+  const db = await isolatedDatabase(context);
+  const cash = await manualAccount("Synthetic cash", "0.00");
+  const deposit = await syncBooking(db, "deposit", "2026-09-12", -5000);
+
+  await updateTransactionType(deposit.id, {
+    type: "transfer",
+    transfer: {
+      account_id: cash
+    }
+  });
+  const created = await transferLeg(db, cash);
+
+  await syncBooking(db, "deposit", "2026-09-13", -6000);
+  assert.deepEqual([(await row(db, created.id))?.booking_date, (await row(db, created.id))?.amount_minor], ["2026-09-13", 6000]);
+  assert.equal(await balanceOf(cash), 6000);
+
+  await syncBooking(db, "deposit", "2026-09-13", 6000);
+  assert.equal(await row(db, created.id), undefined);
+  assert.equal(await balanceOf(cash), 0);
+});
+
+test("linking two entered bookings gives the counterpart the subject's date", async context => {
+  const db = await isolatedDatabase(context);
+  const cash = await manualAccount("Synthetic cash", "1000.00");
+  const savings = await manualAccount("Synthetic savings", "0.00");
+  const outgoing = await enter(cash, {
+    booking_date: "2026-09-07",
+    amount: "-200.00",
+    type: "transfer",
+    transfer: null
+  });
+  const incoming = await enter(savings, {
+    booking_date: "2026-09-12",
+    amount: "200.00",
+    description: "Saving",
+    type: "transfer",
+    transfer: null
+  });
+
+  await updateTransactionType(outgoing.id, {
+    type: "transfer",
+    transfer: {
+      counterpart_id: incoming.id
+    }
+  });
+
+  const linked = await row(db, incoming.id);
+
+  assert.equal(linked?.transfer_id, (await row(db, outgoing.id))?.transfer_id);
+  assert.deepEqual([linked?.booking_date, linked?.counterparty], ["2026-09-07", "Synthetic cash"]);
+});
