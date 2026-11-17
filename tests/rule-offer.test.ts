@@ -33,11 +33,14 @@ function booking(id: string, counterparty: string): Transaction {
     counterparty,
     description: "Synthetic purchase",
     account_name: "Synthetic account",
+    account_id: "synthetic-account",
     category_id: null,
     category_source: "rule",
     type: "expense",
     type_source: "auto",
     manual_account: false,
+    entered: false,
+    follows_import: false,
     created_counterpart: false,
     counterpart: null
   };
