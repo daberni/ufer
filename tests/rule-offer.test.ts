@@ -46,6 +46,7 @@ function booking(id: string, counterparty: string): Transaction {
   };
 }
 
+// jsdom has no Popover API; popover action queries include hidden content while exercising React's open/dismiss state.
 // jsdom has no modal dialogs; these stand in for showModal and close.
 function modalDialogs() {
   const prototype = window.HTMLDialogElement.prototype;
@@ -120,7 +121,8 @@ test("the rule dialog posts its preview and keeps its row's offer and the edited
 
   act(() => {
     fireEvent.click(screen.getByRole("button", {
-      name: "Create rule…"
+      name: "Create rule…",
+      hidden: true
     }));
   });
 
@@ -154,7 +156,8 @@ test("the rule dialog posts its preview and keeps its row's offer and the edited
 
   // The offer has moved to the other row, but the open dialog still belongs to the first one.
   assert.equal(screen.getAllByRole("button", {
-    name: "Create rule…"
+    name: "Create rule…",
+    hidden: true
   }).length, 1);
 
   assert.ok(screen.getByRole("dialog", {
@@ -189,7 +192,8 @@ test("a later change of the row retires the rule confirmation, so its failure is
 
   act(() => {
     fireEvent.click(screen.getByRole("button", {
-      name: "Create rule…"
+      name: "Create rule…",
+      hidden: true
     }));
   });
   await wait(0);
@@ -235,4 +239,109 @@ test("a later change of the row retires the rule confirmation, so its failure is
   const announcement = screen.getAllByRole("status").find(region => region.getAttribute("aria-live") === "assertive");
 
   assert.equal(announcement?.textContent, "Category not saved: Request failed.");
+});
+
+
+test("the optional rule prompt keeps category focus, can be dismissed, and restores category focus after its dialog closes", async context => {
+  const {
+    pending,
+    queryClient
+  } = browser(context);
+
+  modalDialogs();
+  const { TransactionCategory } = await import("../src/features/transactions/components/transaction-category");
+  const market = booking("market-entry", "Example Market");
+  const screen = render(withQueryClient(queryClient, createElement(TransactionCategory, {
+    categories,
+    transaction: market
+  })));
+  const field = screen.getByRole("combobox", {
+    name: "Category for Example Market"
+  });
+
+  act(() => field.focus());
+  choose(screen, "Example Market", "Groc");
+  await wait(0);
+  await respond(patchFor(pending, market.id), assignment(market.id, "groceries"));
+
+  assert.equal(screen.queryByRole("dialog"), null);
+  assert.equal(document.activeElement, field);
+  act(() => fireEvent.click(screen.getByRole("button", {
+    name: "Dismiss rule suggestion",
+    hidden: true
+  })));
+  assert.equal(screen.queryByRole("button", {
+    name: "Create rule…",
+    hidden: true
+  }), null);
+  assert.equal(document.activeElement, field);
+
+  choose(screen, "Example Market", "Leis");
+  await wait(0);
+  await respond(patchFor(pending, market.id), assignment(market.id, "leisure"));
+  const create = screen.getByRole("button", {
+    name: "Create rule…",
+    hidden: true
+  });
+
+  act(() => {
+    create.focus();
+    fireEvent.click(create);
+  });
+  assert.ok(screen.getByRole("dialog", {
+    name: "Create rule"
+  }));
+  act(() => fireEvent.click(screen.getByRole("button", {
+    name: "Close dialog"
+  })));
+  assert.equal(screen.queryByRole("dialog"), null);
+  assert.equal(document.activeElement, field);
+});
+
+test("dismissing a rule prompt by pressing another category does not consume that category interaction", async context => {
+  const {
+    pending,
+    queryClient
+  } = browser(context);
+  const { TransactionCategory } = await import("../src/features/transactions/components/transaction-category");
+  const market = booking("market-entry", "Example Market");
+  const bakery = booking("bakery-entry", "Example Bakery");
+  const screen = render(withQueryClient(queryClient, createElement(Fragment, null, createElement(TransactionCategory, {
+    categories,
+    transaction: market
+  }), createElement(TransactionCategory, {
+    categories,
+    transaction: bakery
+  }))));
+
+  choose(screen, "Example Market", "Groc");
+  await wait(0);
+  await respond(patchFor(pending, market.id), assignment(market.id, "groceries"));
+  const otherField = screen.getByRole("combobox", {
+    name: "Category for Example Bakery"
+  });
+  let continued = false;
+
+  act(() => {
+    continued = fireEvent.pointerDown(otherField);
+    otherField.focus();
+  });
+  assert.equal(continued, true);
+  assert.equal(screen.queryByRole("button", {
+    name: "Create rule…",
+    hidden: true
+  }), null);
+  choose(screen, "Example Bakery", "Leis");
+  await wait(0);
+  const request = patchFor(pending, bakery.id);
+
+  assert.deepEqual(request?.body, {
+    category_id: "leisure"
+  });
+  await respond(request, assignment(bakery.id, "leisure"));
+  assert.equal(screen.queryByRole("dialog"), null);
+  assert.ok(screen.getByRole("button", {
+    name: "Create rule…",
+    hidden: true
+  }));
 });

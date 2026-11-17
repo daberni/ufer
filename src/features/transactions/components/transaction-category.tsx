@@ -5,7 +5,7 @@ import ui from "../../../components/ui/primitives.module.css";
 import { useEffect, useId, useRef, useState } from "react";
 import { clsx } from "clsx";
 import styles from "./transaction-category.module.css";
-import { Check, CircleAlert, LoaderCircle, Sparkles } from "lucide-react";
+import { Check, CircleAlert, LoaderCircle } from "lucide-react";
 import type { Category } from "@/features/categorization/types";
 import type { Transaction } from "@/features/transactions/types";
 import { TraceId } from "@/components/ui/trace-id";
@@ -14,6 +14,7 @@ import { CategoryPicker } from "@/features/categorization/components/category-pi
 import { RuleFromAssignmentDialog } from "@/features/categorization/components/rule-from-assignment-form";
 import { useTransactionCategory, type RuleOffer } from "@/features/transactions/use-transaction-category";
 import { transactionTypeLabels } from "@/features/transactions/transaction-types";
+import { RuleOffer as RuleOfferPrompt } from "./rule-offer";
 
 type Props = {
   categories: Category[];
@@ -101,12 +102,10 @@ export function TransactionCategory({
     }
   }, [fieldFocusRequest, fieldId]);
 
-  function closeRuleDialog(pinned: RuleOffer) {
+  function closeRuleDialog() {
     setCreatingRule(null);
-
-    if (ruleOffer?.change !== pinned.change) {
-      setFieldFocusRequest(request => request + 1);
-    }
+    // The suggestion is hidden while its dialog is open; return to the field instead of a hidden or replaced opener.
+    setFieldFocusRequest(request => request + 1);
   }
 
   return (
@@ -142,18 +141,20 @@ export function TransactionCategory({
           <TraceId id={status?.kind === "failed" ? status.failure.traceId : undefined} />
         </span>
       )}
-      {offered && (
-        <span className={styles["offer"]}>
-          <button
-            type="button"
-            className={clsx(ui["text-button"], styles["offer-button"])}
-            aria-haspopup="dialog"
-            onClick={() => setCreatingRule(ruleOffer)}
-          >
-            <Sparkles aria-hidden="true" />
-            Create rule…
-          </button>
-        </span>
+      {offered && creatingRule === null && (
+        <RuleOfferPrompt
+          anchor={categoryRef}
+          payee={transaction.counterparty || transaction.description || transactionTypeLabels[transaction.type]}
+          category={categories.find(category => category.id === ruleOffer.categoryId)?.name ?? "Selected category"}
+          onCreate={() => setCreatingRule(ruleOffer)}
+          onDismiss={() => {
+            setOfferOutcome({
+              change: ruleOffer.change,
+              kind: "dismissed"
+            });
+            setFieldFocusRequest(request => request + 1);
+          }}
+        />
       )}
       {created && (
         <span className={clsx(styles["offer"], styles["created"])} aria-hidden="true">
@@ -166,14 +167,13 @@ export function TransactionCategory({
           counterparty={transaction.counterparty}
           description={transaction.description}
           categoryId={creatingRule.categoryId}
-          close={() => closeRuleDialog(creatingRule)}
+          close={closeRuleDialog}
           onCreated={categorized => {
             setOfferOutcome({
               change: creatingRule.change,
               kind: "created",
               categorized
             });
-            setFieldFocusRequest(request => request + 1);
           }}
         />
       )}

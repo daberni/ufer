@@ -63,7 +63,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* The rule offer after a saved choice, and the confirmation of a rule created from it, take the same place as a failure. */
+/* A created-rule confirmation fits below its field without changing the row height. */
 .offer {
   position: absolute;
   top: calc(100% + 1px);
@@ -79,22 +79,6 @@
   width: 1em;
   height: 1em;
   flex: none;
-}
-.offer > .offer-button {
-  position: relative;
-  gap: var(--space-1);
-  padding: 0;
-  font-size: inherit;
-  line-height: inherit;
-}
-/* A 24px hit area from the field's edge down into the row padding, so the small button stays easy to hit without making the row taller. */
-.offer > .offer-button::before {
-  content: "";
-  position: absolute;
-  top: -1px;
-  right: 0;
-  left: 0;
-  height: max(24px, calc(100% + 1px));
 }
 .created {
   color: var(--green-text);
