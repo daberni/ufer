@@ -611,10 +611,10 @@ export async function followImportedCorrections(tx: DatabaseTransaction, account
         amount_minor: -delivery.amount
       }).where(eq(transactions.id, counterpart.id));
     } else if (sameCurrency && !createdCounterpart(counterpart)) {
-      // Detached first: the unique transfer-side index rejects two linked bookings in the same direction.
+      // Detach before changing direction, and prevent the pairing pass from hiding the corrected income or expense as a transfer again.
       await tx.update(transactions).set({
         transfer_id: null,
-        transfer_source: "auto",
+        transfer_source: "manual",
         booking_date: delivery.date,
         amount_minor: -delivery.amount
       }).where(eq(transactions.id, counterpart.id));
@@ -628,7 +628,7 @@ export async function followImportedCorrections(tx: DatabaseTransaction, account
 
 /**
  * Releases the links of stored bookings whose redelivered amount or currency no longer pairs with their counterpart (the exact opposite amount in the same currency), before the corrected values are written.
- * The corrected booking takes the type its delivery implies, its counterpart stays a transfer without a counterpart, and a counterpart Ufer created on a manual account is removed. Both keep an automatic link source, so pairing can link them again.
+ * The corrected booking takes the type its delivery implies, its counterpart stays a transfer without a counterpart, and a counterpart Ufer created on a manual account is removed. Links released here keep an automatic source; entered legs detached while following a correction keep their exclusion from pairing.
  */
 export async function releaseOutdatedLinks(tx: DatabaseTransaction, accountId: string, entries: CategorizedEntry[]) {
   const deliveries = new Map(entries.map(entry => [entry.reference, entry]));
