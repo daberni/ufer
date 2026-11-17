@@ -1,6 +1,9 @@
 import { Temporal } from "temporal-polyfill";
 import { describeDate } from "@/lib/date-format";
 
+/** The sync history lists this many of the latest runs. */
+export const recentSyncRuns = 5;
+
 const syncStatusLabels: Record<string, string> = {
   SUCCESS: "successful",
   PARTIAL: "partial",

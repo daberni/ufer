@@ -7,7 +7,7 @@ import styles from "./transaction-list.module.css";
 import { ArrowDownLeft, ArrowUpRight } from "lucide-react";
 import { DateValue } from "@/components/ui/date-value";
 import { money } from "@/lib/money";
-import { TransactionCategory } from "@/features/transactions/components/transaction-category";
+import { TransactionCategory, TransactionCategorySkeleton } from "@/features/transactions/components/transaction-category";
 import type { Category } from "@/features/categorization/types";
 import type { Transaction } from "@/features/transactions/types";
 
@@ -141,7 +141,7 @@ export function TransactionListSkeleton({ rows }: {
               </th>
               <td className={styles["category"]}>
                 <span className={styles["category-label"]}>Category</span>
-                <span className={ui["skeleton"]}>Category name with menu</span>
+                <TransactionCategorySkeleton />
               </td>
               <td className={styles["account"]}>
                 <span className={ui["skeleton"]}>Everyday account</span>

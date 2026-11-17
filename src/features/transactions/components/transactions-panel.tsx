@@ -35,9 +35,6 @@ type Props = {
 
 const recentTransactions = 5;
 
-// Enough placeholder rows to fill a screen; a full page has more, which extend the list below.
-const skeletonTransactions = 10;
-
 // The URL filter uses "" for all categories and "uncategorized" for transactions without one.
 function categoryPickerValue(filter: string): CategoryPickerValue {
   if (filter === "") {
@@ -87,7 +84,7 @@ export function TransactionsPanel({
       {view === "transactions" && <TransactionFilters categories={categories.data ?? []} filterAccounts={filterAccounts.data ?? []} />}
       {list.status === "pending" || categories.status === "pending" ? (
         <AreaPlaceholder area={pendingTogether(list, categories)} subject="Your transactions">
-          <TransactionListSkeleton rows={view === "overview" ? recentTransactions : skeletonTransactions} />
+          {view === "overview" ? <TransactionListSkeleton rows={recentTransactions} /> : <TransactionPageSkeleton />}
         </AreaPlaceholder>
       ) : (
         <TransactionPages
@@ -140,6 +137,20 @@ function TransactionPages({
           </button>
         </div>
       )}
+    </>
+  );
+}
+
+// Takes the place of a full page and its pagination; a period with fewer transactions ends earlier.
+function TransactionPageSkeleton() {
+  return (
+    <>
+      <TransactionListSkeleton rows={transactionPageSize} />
+      <div className={styles["pagination"]}>
+        <span className={ui["skeleton"]}>1–50 of 120</span>
+        <button className={clsx(styles["button"], ui["small"], ui["skeleton"])} type="button" disabled>Previous</button>
+        <button className={clsx(styles["button"], ui["small"], ui["skeleton"])} type="button" disabled>Next</button>
+      </div>
     </>
   );
 }
