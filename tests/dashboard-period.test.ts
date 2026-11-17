@@ -6,10 +6,10 @@ import { initializeDatabase } from "../src/server/database/migrations";
 import * as schema from "../src/server/database/schema";
 import type { Database } from "../src/server/database/connection";
 import { Temporal } from "temporal-polyfill";
-import { allMonthsPeriod, currentMonth, monthPeriod, parsePeriod, periodFromJson, periodToJson, serializePeriod, trendMonths, type Period } from "../src/features/dashboard/period";
-import { dashboardFilters } from "../src/features/dashboard/server/dashboard-filters";
-import { readCashFlow } from "../src/features/dashboard/server/cash-flow-query";
-import { periodCondition } from "../src/features/dashboard/server/period-condition";
+import { allMonthsPeriod, currentMonth, monthPeriod, parsePeriod, periodFromJson, periodToJson, serializePeriod, trendMonths, type Period } from "../src/lib/period";
+import { dashboardFilters } from "../src/server/http/dashboard-filters";
+import { readCashFlow } from "../src/features/reports/server/cash-flow-query";
+import { periodCondition } from "../src/features/transactions/server/period-condition";
 import { readTransactionPage } from "../src/features/transactions/server/transaction-list-query";
 
 // Temporal values have no enumerable fields, so compare periods through their serialized form.

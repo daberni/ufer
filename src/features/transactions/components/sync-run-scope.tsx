@@ -7,9 +7,9 @@ import styles from "./sync-run-scope.module.css";
 import { X } from "lucide-react";
 import { TimestampValue } from "@/components/ui/date-value";
 import { Empty } from "@/components/ui/empty-state";
-import { shownStatus, valueMask } from "@/features/dashboard/components/result-presentation";
-import type { Area } from "@/features/dashboard/use-area-result";
-import type { TransactionPage } from "@/features/dashboard/types";
+import { shownStatus, valueMask } from "@/components/ui/result-presentation";
+import type { Area } from "@/components/ui/use-area-result";
+import type { TransactionPage } from "@/features/transactions/types";
 
 type SelectedRun = TransactionPage["syncRun"];
 

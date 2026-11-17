@@ -4,7 +4,7 @@ import { useCallback, useEffect } from "react";
 import { useQueryClient, type Mutation } from "@tanstack/react-query";
 import { errorStatus } from "@/client/api";
 import { endSessionEpoch } from "@/client/session-epoch";
-import { useDashboardStore, useDashboardStoreApi } from "./dashboard-store";
+import { useAppStore, useAppStoreApi } from "./app-store";
 
 /** Marks a mutation that signs in: its 401 means wrong credentials, shown in its form, not an ended session. */
 export const signInMeta = {
@@ -22,7 +22,7 @@ function signsIn(mutation: Mutation<unknown, unknown, unknown, unknown>) {
 /** Shows the sign-in form, which unmounts the dashboard and any open dialog. Locking drops all cached financial data and pending changes and cancels running requests, so a late response cannot restore them. */
 export function useLockSession() {
   const queryClient = useQueryClient();
-  const store = useDashboardStoreApi();
+  const store = useAppStoreApi();
 
   return useCallback(() => {
     endSessionEpoch();
@@ -34,10 +34,10 @@ export function useLockSession() {
 /**
  * Whether the dashboard shows the sign-in form. Any read or write rejected with 401 locks it; only a successful sign-in unlocks. Used once, by the dashboard layout.
  */
-export function useDashboardLock() {
+export function useSessionLock() {
   const queryClient = useQueryClient();
-  const locked = useDashboardStore(state => state.locked);
-  const unlock = useDashboardStore(state => state.unlock);
+  const locked = useAppStore(state => state.locked);
+  const unlock = useAppStore(state => state.unlock);
   const lock = useLockSession();
 
   useEffect(() => {

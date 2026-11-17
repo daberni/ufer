@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { test, type TestContext } from "node:test";
 import { act, fireEvent, render, type RenderResult } from "@testing-library/react";
 import { createElement, useState } from "react";
-import type { Category } from "../src/features/dashboard/types";
+import type { Category } from "../src/features/categorization/types";
 import { browser, wait, withQueryClient, type PendingRequest } from "./fixtures/browser";
 import { stubCssModules } from "./fixtures/css-modules";
 

@@ -10,19 +10,20 @@ import { BrandIcon } from "@/components/branding/brand-icon";
 import { ActionFeedback } from "@/components/ui/action-feedback";
 import { LiveAnnouncements } from "@/components/ui/live-announcements";
 import { useFeedbackDismissal } from "@/components/ui/use-action-feedback";
-import { AppSidebar } from "@/components/layout/app-sidebar";
+import { AppSidebar, type SidebarLink } from "@/components/layout/app-sidebar";
 import { AppHeader } from "@/components/layout/app-header";
-import { PageHeading } from "@/features/dashboard/components/page-heading";
+import { PageHeading } from "@/components/layout/page-heading";
 import { LoginForm } from "@/features/auth/components/login-form";
 import { LegalLinks } from "@/features/legal/components/legal-links";
 import { SourceCodeNotice } from "@/features/legal/components/source-code-notice";
 import { accountGroups, useAccounts } from "@/features/accounts/queries";
 import { useBankingConfiguration } from "@/features/banking/banking-configuration";
-import { navigation } from "./presentation";
-import { onView, useDashboardStore } from "./dashboard-store";
-import { useDashboardLock } from "./use-dashboard-lock";
+import { SyncButton } from "@/features/banking/components/sync-button";
+import { navigation } from "./navigation";
+import { onView, useAppStore } from "@/client/app-store";
+import { useSessionLock } from "@/client/use-session-lock";
 import { useDashboardNavigation } from "./use-dashboard-navigation";
-import { useChangeView, useCurrency, useView, useViewHref } from "./use-dashboard-url";
+import { useChangeView, useCurrency, useView, useViewHref } from "@/client/use-app-url";
 import { useLoadError } from "./use-load-error";
 import { TraceId } from "@/components/ui/trace-id";
 import type { Failure } from "@/client/api";
@@ -31,7 +32,7 @@ import type { Failure } from "@/client/api";
 export default function Dashboard({ children }: {
   children: React.ReactNode
 }) {
-  const { locked } = useDashboardLock();
+  const { locked } = useSessionLock();
 
   return (
     <>
@@ -66,19 +67,29 @@ function DashboardShell({ children }: {
     bankAccounts,
     expiring
   } = accountGroups(accounts.data ?? [], currency);
+  const links: SidebarLink[] = navigation.map(item => ({
+    id: item.id,
+    label: item.label,
+    mobileLabel: item.mobileLabel,
+    icon: item.icon,
+    href: viewHref(item.id),
+    current: item.id === view,
+    count: item.id === "connections" ? expiring.length : 0
+  }));
 
   return (
     <div className={styles["app-shell"]}>
       <AppSidebar
         environment={environment}
-        expiring={expiring}
-        view={view}
-        viewHref={viewHref}
+        homeHref={viewHref("overview")}
+        links={links}
       />
       <div className={styles["main-shell"]}>
         <AppHeader environment={environment} title={nav.label} />
         <main className={styles["content"]}>
-          <PageHeading bankAccounts={bankAccounts} view={view} />
+          <PageHeading heading={nav.heading} description={nav.description}>
+            <SyncButton bankAccounts={bankAccounts} showConnections={() => changeView("connections")} />
+          </PageHeading>
           <LoadErrorNotice failure={loadError.failure} retry={loadError.retry} />
           {environment === "SANDBOX" && (
             <div className={styles["sandbox-note"]}>
@@ -108,8 +119,8 @@ function DashboardShell({ children }: {
 // Page-level messages without a surviving trigger, such as a bank callback result; they belong to the view they were reported on.
 function PageFeedback() {
   const pathname = usePathname();
-  const bound = useDashboardStore(state => state.feedback);
-  const dismiss = useDashboardStore(state => state.dismissFeedback);
+  const bound = useAppStore(state => state.feedback);
+  const dismiss = useAppStore(state => state.dismissFeedback);
   const feedback = onView(bound, pathname);
 
   useFeedbackDismissal(feedback, dismiss);

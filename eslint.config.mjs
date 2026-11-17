@@ -1,6 +1,17 @@
 import babelParser from "@babel/eslint-parser";
 import stylistic from "@stylistic/eslint-plugin";
 
+const browserImports = {
+  group: ["node:*", "@libsql/client", "drizzle-orm", "drizzle-orm/**", "**/server/**", "@/server/**", "@/lib/import"],
+  message: "Browser features depend on contracts and the HTTP client, never server infrastructure."
+};
+
+// The dashboard composes routes and views from feature components; nothing outside its routes depends on it.
+const dashboardImports = {
+  group: ["@/features/dashboard", "@/features/dashboard/**", "**/dashboard", "**/dashboard/**"],
+  message: "Only the dashboard routes import the dashboard; move shared code to the owning feature, src/client, src/components or src/lib."
+};
+
 export default [{
   ignores: [".claude/**", "node_modules/**", ".next/**", "data/**", "drizzle/meta/**", "next-env.d.ts"]
 }, {
@@ -128,14 +139,26 @@ export default [{
     }]
   }
 }, {
-  files: ["src/features/**/*.{ts,tsx}", "src/components/**/*.{ts,tsx}", "src/client/**/*.{ts,tsx}"],
-  ignores: ["src/features/**/server/**"],
+  files: ["src/**/*.{ts,tsx}"],
+  ignores: ["src/features/dashboard/**", "src/app/(dashboard)/**"],
   rules: {
     "no-restricted-imports": ["error", {
-      patterns: [{
-        group: ["node:*", "@libsql/client", "drizzle-orm", "drizzle-orm/**", "**/server/**", "@/server/**", "@/lib/import"],
-        message: "Browser features depend on contracts and the HTTP client, never server infrastructure."
-      }]
+      patterns: [dashboardImports]
+    }]
+  }
+}, {
+  files: ["src/features/**/*.{ts,tsx}", "src/components/**/*.{ts,tsx}", "src/client/**/*.{ts,tsx}"],
+  ignores: ["src/features/**/server/**", "src/features/dashboard/**"],
+  rules: {
+    "no-restricted-imports": ["error", {
+      patterns: [browserImports, dashboardImports]
+    }]
+  }
+}, {
+  files: ["src/features/dashboard/**/*.{ts,tsx}"],
+  rules: {
+    "no-restricted-imports": ["error", {
+      patterns: [browserImports]
     }]
   }
 }, {
@@ -145,7 +168,7 @@ export default [{
       patterns: [{
         group: ["@libsql/client", "drizzle-orm", "drizzle-orm/**"],
         message: "Route handlers delegate persistence to server modules."
-      }]
+      }, dashboardImports]
     }]
   }
 }, {
@@ -155,7 +178,7 @@ export default [{
       patterns: [{
         group: ["@libsql/client", "drizzle-orm", "drizzle-orm/**", "**/database/schema", "@/server/database/schema"],
         message: "Services and utilities delegate data access to repositories; use inferred model types when needed."
-      }]
+      }, dashboardImports]
     }],
     "no-restricted-syntax": ["error", {
       selector: "MemberExpression[property.name='$client']",

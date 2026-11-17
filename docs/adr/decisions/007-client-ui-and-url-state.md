@@ -30,7 +30,7 @@ State has three kinds and each kind has one owner. There is no controller object
 | Whether a dialog is open, and the data it shows | The component that opens it |
 | Field drafts: bank country and search, chosen bank, CSV import mode, transaction search draft | The form or field component that edits them |
 
-**URL state uses a small in-house module, not nuqs.** `use-dashboard-url.ts` provides `useView`, `usePeriod`, `useCurrency`, `useSearchFilter`, `useAccountFilter`, `useCategoryFilter`, `useSyncRunFilter`, `usePage`, the combined `useDashboardQuery` for the transaction list, and link helpers. Each hook parses only through the tested pure functions in `dashboard-location.ts`, so a component reads exactly the parameters it uses. Writes are plain functions (`selectPeriod`, `setCurrency`, `setSearch`, `setPage`, …) that read `window.location` when called and write with `pushState` or `replaceState`; components that only change the URL therefore do not subscribe to it. The existing rules stay: default values are left out of the URL, a filter change resets the page, typing a search replaces its history entry, the list filters apply only on the transactions view, and views without a period link back to the last period selected on a view with one.
+**URL state uses a small in-house module, not nuqs.** `use-app-url.ts` provides `useView`, `usePeriod`, `useCurrency`, `useSearchFilter`, `useAccountFilter`, `useCategoryFilter`, `useSyncRunFilter`, `usePage`, the combined `useViewQuery` for the transaction list, and link helpers. Each hook parses only through the tested pure functions in `app-location.ts`, so a component reads exactly the parameters it uses. Writes are plain functions (`selectPeriod`, `setCurrency`, `setSearch`, `setPage`, …) that read `window.location` when called and write with `pushState` or `replaceState`; components that only change the URL therefore do not subscribe to it. The existing rules stay: default values are left out of the URL, a filter change resets the page, typing a search replaces its history entry, the list filters apply only on the transactions view, and views without a period link back to the last period selected on a view with one.
 
 nuqs 2 was evaluated. It offers typed parsers, `clearOnDefault`, push/replace history modes, batched multi-key updates and URL write throttling, and supports Next.js 16. It was not adopted because:
 
@@ -43,7 +43,7 @@ Revisit nuqs if URL state spreads to many routes or needs throttled writes or sh
 
 Every component that reads a URL hook re-renders when any query parameter changes. This is accepted: URL writes are discrete actions (a click, a selection, or a search committed 250 ms after typing pauses), never single keystrokes. The persistent shell passes the current route as `children`, so a shell update does not re-render the route's view.
 
-**Client UI state uses a Zustand vanilla store.** `DashboardStoreProvider` creates one store per mounted dashboard layout and supplies it through context; components read it with `useDashboardStore(selector)` and re-render only when the selected value changes. Actions are part of the store and stable, so selecting an action never re-renders. The store holds:
+**Client UI state uses a Zustand vanilla store.** `AppStoreProvider` creates one store per mounted dashboard layout and supplies it through context; components read it with `useAppStore(selector)` and re-render only when the selected value changes. Actions are part of the store and stable, so selecting an action never re-renders. The store holds:
 
 - `feedback`: the page-level message for results without a surviving trigger (a bank callback, a failed rule toggle, an unconfirmed revocation), also bound to its pathname;
 - `locked`: whether the sign-in form replaces the dashboard; locking still clears the query and mutation caches as ADR 006 requires and also drops page feedback;
@@ -57,7 +57,7 @@ Zustand was chosen over a hand-written store on React's `useSyncExternalStore`. 
 
 This record amends ADR 006 where it said the dashboard context carries dialog selection and transient feedback. ADR 006's rule that no client store holds server data still applies: the store never contains query results.
 
-**Implementation boundary.** Implemented for the `(dashboard)` layout and its views. `useDashboard`, `DashboardController`, the dashboard context, the central `DashboardDialogs` switch and `modalTitles` are removed. Moving shared types, presentation and helpers out of the dashboard feature is a separate change.
+**Implementation boundary.** Implemented for the `(dashboard)` layout and its views. `useDashboard`, `DashboardController`, the dashboard context, the central `DashboardDialogs` switch and `modalTitles` are removed. Issue #106 moved the URL module, the store and the session lock to `src/client`, because feature components read them directly, renamed them after what they hold (`app-location.ts`, `use-app-url.ts`, `app-store.tsx` with `useAppStore`, `use-session-lock.ts` with `useSessionLock`; the view query is `useViewQuery`), and moved shared types, presentation and helpers out of the dashboard feature.
 
 ## Consequences
 

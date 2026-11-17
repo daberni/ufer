@@ -5,7 +5,7 @@ import accountStyles from "./account-presentation.module.css";
 import { clsx } from "clsx";
 import styles from "./account-type-choice.module.css";
 import { useId } from "react";
-import { accountIcon, kinds } from "@/features/dashboard/presentation";
+import { accountIcon, kinds } from "@/features/accounts/account-presentation";
 import { accountTypeCopy, accountTypeGroups } from "./account-type-options";
 import type { AccountKind } from "../account-kinds";
 

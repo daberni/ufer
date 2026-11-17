@@ -7,22 +7,22 @@ import { SyncRunEmpty, SyncRunScope } from "@/features/transactions/components/s
 import { AccountsView } from "@/features/accounts/components/accounts-view";
 import { RulesView } from "@/features/categorization/components/rules-view";
 import { ConnectionsView } from "@/features/banking/components/connections-view";
-import { replacePage, setSyncRun, useDashboardQuery } from "@/features/dashboard/use-dashboard-url";
-import { mapArea, useAreaResult } from "@/features/dashboard/use-area-result";
-import { useCashFlow } from "@/features/dashboard/queries";
+import { replacePage, setSyncRun, useViewQuery } from "@/client/use-app-url";
+import { mapArea, useAreaResult } from "@/components/ui/use-area-result";
+import { useCashFlow } from "@/features/reports/queries";
 import { accountGroups, useAccounts, useNetWorth } from "@/features/accounts/queries";
 import { useCategories, useRules } from "@/features/categorization/queries";
 import { useBankingConfiguration } from "@/features/banking/banking-configuration";
 import { useConnections, useSyncRuns } from "@/features/banking/queries";
 import { useTransactionListView } from "@/features/transactions/use-transaction-list-view";
-import type { TransactionPage } from "@/features/dashboard/types";
+import type { TransactionPage } from "@/features/transactions/types";
 
 /*
  * A view lays out all of its areas at once. Each area shows a skeleton until its first results arrive; later filter changes keep it in place and mark only the affected areas.
  */
 
 export function OverviewPage() {
-  const query = useDashboardQuery();
+  const query = useViewQuery();
   const accounts = useAreaResult(useAccounts());
   const categories = useAreaResult(useCategories());
   const syncRuns = useAreaResult(useSyncRuns());
@@ -48,7 +48,7 @@ export function OverviewPage() {
 }
 
 export function TransactionsPage() {
-  const query = useDashboardQuery();
+  const query = useViewQuery();
   const accounts = useAreaResult(useAccounts());
   const categories = useAreaResult(useCategories());
   const list = useTransactionListView(query, replacePage);

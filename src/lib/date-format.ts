@@ -1,4 +1,5 @@
 import { Temporal } from "temporal-polyfill";
+import type { Period } from "./period";
 
 // Central place for date display so a locale can be introduced in one spot.
 const displayLocale = "en-GB";
@@ -53,4 +54,21 @@ export function describeMonth(month: Temporal.PlainYearMonth) {
       year: "numeric"
     })
   };
+}
+
+export function periodLabel(period: Period) {
+  return period.kind === "all" ? "All months" : describeMonth(period.month).title;
+}
+
+/** Labels a month range such as the cash-flow trend window, e.g. "Jun – Nov 2026" or "Dec 2025 – May 2026". */
+export function monthRangeLabel(months: Temporal.PlainYearMonth[]) {
+  if (!months.length) {
+    return "";
+  }
+
+  const first = months[0];
+  const last = months[months.length - 1];
+  const start = first.year === last.year ? describeMonth(first).label : `${describeMonth(first).label} ${first.year}`;
+
+  return `${start} – ${describeMonth(last).label} ${last.year}`;
 }

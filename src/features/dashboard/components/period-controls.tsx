@@ -6,17 +6,17 @@ import { clsx } from "clsx";
 import styles from "./period-controls.module.css";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Temporal } from "temporal-polyfill";
-import { describeDate } from "@/lib/date-format";
+import { describeDate, periodLabel } from "@/lib/date-format";
 import { useDisplayTimeZone } from "@/components/ui/use-display-time-zone";
-import { lastSyncLabel, periodLabel } from "@/features/dashboard/presentation";
-import { allMonthsPeriod, currentMonthPeriod, monthPeriod } from "@/features/dashboard/period";
-import { selectPeriod, setCurrency, useCurrency, usePeriod } from "@/features/dashboard/use-dashboard-url";
+import { lastSyncLabel } from "@/features/banking/sync-run-presentation";
+import { allMonthsPeriod, currentMonthPeriod, monthPeriod } from "@/lib/period";
+import { selectPeriod, setCurrency, useCurrency, usePeriod } from "@/client/use-app-url";
 import { Select } from "@/components/ui/select";
 import { MonthPicker } from "@/features/dashboard/components/month-picker";
-import { shownStatus, valueMask } from "@/features/dashboard/components/result-presentation";
-import { InlineFailure } from "@/features/dashboard/components/area-placeholder";
-import type { Area } from "@/features/dashboard/use-area-result";
-import type { SyncRun } from "@/features/dashboard/types";
+import { shownStatus, valueMask } from "@/components/ui/result-presentation";
+import { InlineFailure } from "@/components/ui/area-placeholder";
+import type { Area } from "@/components/ui/use-area-result";
+import type { SyncRun } from "@/features/banking/types";
 
 type Props = {
   /** The currencies of all accounts; until they load, only the selected one is offered. */

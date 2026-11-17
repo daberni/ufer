@@ -2,7 +2,7 @@
 
 import { useReducer } from "react";
 import { toFailure } from "@/client/api";
-import type { Connection } from "@/features/dashboard/types";
+import type { Connection } from "@/features/banking/types";
 import { changeBankSelection, chosenBankName, defaultBankCountry, type BankSelection } from "./bank-selection";
 import { useBanks, useConnections } from "./queries";
 

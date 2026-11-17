@@ -1,5 +1,5 @@
 import { respond } from "@/server/http/respond";
-import { dashboardFilters } from "@/features/dashboard/server/dashboard-filters";
+import { dashboardFilters } from "@/server/http/dashboard-filters";
 import { readNetWorth } from "@/features/accounts/server/account-queries";
 
 export const runtime = "nodejs";

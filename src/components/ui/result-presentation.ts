@@ -1,7 +1,7 @@
-import ui from "../../../components/ui/primitives.module.css";
+import ui from "./primitives.module.css";
 
 import { clsx } from "clsx";
-import type { Area, AreaResult, ResultStatus } from "@/features/dashboard/use-area-result";
+import type { Area, AreaResult, ResultStatus } from "@/components/ui/use-area-result";
 
 /** How a value of an area is masked: an area without results pulses like one loading new results until its first load fails. */
 export function shownStatus(area: Area<unknown>): ResultStatus {

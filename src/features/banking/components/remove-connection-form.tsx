@@ -6,13 +6,14 @@ import { Trash2 } from "lucide-react";
 import styles from "./remove-connection-form.module.css";
 import { FormError } from "@/components/ui/form-error";
 import type { Feedback } from "@/components/ui/use-action-feedback";
-import type { Account, Connection, ConnectionRemoval } from "@/features/dashboard/types";
-import { useDashboardStore } from "@/features/dashboard/dashboard-store";
-import { useDialogSubmit, type DialogFormProps } from "@/features/dashboard/use-dialog-submit";
+import type { Account } from "@/features/accounts/types";
+import type { Connection, ConnectionRemoval } from "@/features/banking/types";
+import { useAppStore } from "@/client/app-store";
+import { useDialogSubmit, type DialogFormProps } from "@/components/ui/use-dialog-submit";
 import { useRemoveConnection } from "@/features/banking/mutations";
 import { useAccounts } from "@/features/accounts/queries";
-import { InlineFailure } from "@/features/dashboard/components/area-placeholder";
-import { useAreaResult, type Area } from "@/features/dashboard/use-area-result";
+import { InlineFailure } from "@/components/ui/area-placeholder";
+import { useAreaResult, type Area } from "@/components/ui/use-area-result";
 import { Dialog } from "@/components/ui/dialog";
 
 type Props = DialogFormProps & {
@@ -35,7 +36,7 @@ function RemoveConnectionForm({
   selectedConnection
 }: Props) {
   const accounts = useAreaResult(useAccounts());
-  const reportFeedback = useDashboardStore(state => state.reportFeedback);
+  const reportFeedback = useAppStore(state => state.reportFeedback);
   const {
     error,
     pending,

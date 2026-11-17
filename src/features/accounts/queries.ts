@@ -4,7 +4,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Temporal } from "temporal-polyfill";
 import { apiGet } from "@/client/api";
 import { queryKeys } from "@/client/query-keys";
-import type { Account, NetWorth } from "@/features/dashboard/types";
+import type { Account, NetWorth } from "@/features/accounts/types";
 
 const expiryWarning = Temporal.Duration.from({
   hours: 7 * 24

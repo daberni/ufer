@@ -10,7 +10,7 @@ import { LiveAnnouncements } from "@/components/ui/live-announcements";
 import { useDismiss } from "@/components/ui/use-dismiss";
 import { SyncProblemDetails } from "@/features/banking/components/sync-problem-details";
 import { useSyncStatus, type SyncPhase, type SyncProblem } from "@/features/banking/use-sync-status";
-import type { Account } from "@/features/dashboard/types";
+import type { Account } from "@/features/accounts/types";
 
 type Props = {
   bankAccounts: Account[];

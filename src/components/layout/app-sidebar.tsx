@@ -5,29 +5,35 @@ import ui from "../ui/primitives.module.css";
 import { clsx } from "clsx";
 import Link from "next/link";
 import styles from "./app-sidebar.module.css";
-import { ShieldCheck } from "lucide-react";
+import { ShieldCheck, type LucideIcon } from "lucide-react";
 import { BrandIcon } from "@/components/branding/brand-icon";
-import { navigation } from "@/features/dashboard/presentation";
-import type { Account, View } from "@/features/dashboard/types";
+
+export type SidebarLink = {
+  id: string;
+  label: string;
+  mobileLabel: string;
+  icon: LucideIcon;
+  href: string;
+  current: boolean;
+  /** Items that need attention, shown as a badge when there are any. */
+  count: number;
+};
 
 type Props = {
   environment: string;
-  view: View;
-  /** The link to a view, carrying the selected period where the view has one. */
-  viewHref: (view: View) => string;
-  /** Bank accounts whose authorization expires soon or has expired. */
-  expiring: Account[];
+  /** Where the brand links to. */
+  homeHref: string;
+  links: SidebarLink[];
 };
 
 export function AppSidebar({
   environment,
-  expiring,
-  view,
-  viewHref
+  homeHref,
+  links
 }: Props) {
   return (
     <aside className={styles["sidebar"]}>
-      <Link className={styles["brand"]} href={viewHref("overview")}>
+      <Link className={styles["brand"]} href={homeHref}>
         <span className={styles["brand-symbol"]}>
           <BrandIcon />
         </span>
@@ -45,20 +51,20 @@ export function AppSidebar({
       </div>
       <span className={styles["nav-label"]}>MY OVERVIEW</span>
       <nav>
-        {navigation.map(item => (
+        {links.map(item => (
           <Link
             key={item.id}
             aria-label={item.label}
-            aria-current={view === item.id ? "page" : undefined}
-            className={clsx(styles["nav-item"], view === item.id ? styles["active"] : "")}
-            href={viewHref(item.id)}
+            aria-current={item.current ? "page" : undefined}
+            className={clsx(styles["nav-item"], item.current ? styles["active"] : "")}
+            href={item.href}
           >
             <item.icon size={18} />
             <span className={styles["nav-full-label"]}>{item.label}</span>
             <span className={styles["nav-mobile-label"]} aria-hidden="true">
               {item.mobileLabel}
             </span>
-            {item.id === "connections" && expiring.length > 0 && <span className={styles["nav-count"]}>{expiring.length}</span>}
+            {item.count > 0 && <span className={styles["nav-count"]}>{item.count}</span>}
           </Link>
         ))}
       </nav>

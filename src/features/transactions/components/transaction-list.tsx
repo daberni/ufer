@@ -8,7 +8,8 @@ import { ArrowDownLeft, ArrowUpRight } from "lucide-react";
 import { DateValue } from "@/components/ui/date-value";
 import { money } from "@/lib/money";
 import { TransactionCategory } from "@/features/transactions/components/transaction-category";
-import type { Category, Transaction } from "@/features/dashboard/types";
+import type { Category } from "@/features/categorization/types";
+import type { Transaction } from "@/features/transactions/types";
 
 type Props = {
   categories: Category[];

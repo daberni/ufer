@@ -1,7 +1,7 @@
 import { HttpError } from "@/lib/errors";
 import { parseCurrencyCode } from "@/lib/money";
-import { currentMonthPeriod, parsePeriod } from "@/features/dashboard/period";
-import { parsePage } from "@/features/dashboard/pagination";
+import { currentMonthPeriod, parsePeriod } from "@/lib/period";
+import { parsePage } from "@/lib/pagination";
 
 function periodFilter(value: string | null) {
   if (!value) {

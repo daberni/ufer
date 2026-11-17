@@ -10,23 +10,23 @@ import { api } from "../src/client/api";
 import { invalidate } from "../src/client/invalidate";
 import { queryKeys } from "../src/client/query-keys";
 import { useActionFeedback } from "../src/components/ui/use-action-feedback";
-import { DashboardStoreProvider, onView, useDashboardStore } from "../src/features/dashboard/dashboard-store";
+import { AppStoreProvider, onView, useAppStore } from "../src/client/app-store";
 import { useDashboardNavigation } from "../src/features/dashboard/use-dashboard-navigation";
-import { replacePage, useDashboardQuery, useView } from "../src/features/dashboard/use-dashboard-url";
-import { signInMeta, useDashboardLock } from "../src/features/dashboard/use-dashboard-lock";
+import { replacePage, useViewQuery, useView } from "../src/client/use-app-url";
+import { signInMeta, useSessionLock } from "../src/client/use-session-lock";
 import { useLoadError } from "../src/features/dashboard/use-load-error";
-import { useAreaResult } from "../src/features/dashboard/use-area-result";
-import { useCashFlow } from "../src/features/dashboard/queries";
+import { useAreaResult } from "../src/components/ui/use-area-result";
+import { useCashFlow } from "../src/features/reports/queries";
 import { useAccounts, useNetWorth } from "../src/features/accounts/queries";
 import { useTransactionListView } from "../src/features/transactions/use-transaction-list-view";
 import { useTransactionCategory } from "../src/features/transactions/use-transaction-category";
 import { useConnectBank } from "../src/features/banking/mutations";
-import type { Transaction } from "../src/features/dashboard/types";
-import { currentMonthPeriod, monthPeriod, serializePeriod, type Period } from "../src/features/dashboard/period";
-import type { DashboardQuery } from "../src/features/dashboard/dashboard-location";
+import type { Transaction } from "../src/features/transactions/types";
+import { currentMonthPeriod, monthPeriod, serializePeriod, type Period } from "../src/lib/period";
+import type { ViewQuery } from "../src/client/app-location";
 import { browser, wait, withQueryClient, type PendingRequest } from "./fixtures/browser";
 
-function dashboardQuery(changes: Partial<DashboardQuery> = {}): DashboardQuery {
+function viewQuery(changes: Partial<ViewQuery> = {}): ViewQuery {
   return {
     period: currentMonthPeriod(),
     currency: "EUR",
@@ -43,7 +43,7 @@ function queryWrapper(queryClient: QueryClient) {
   return function wrapper({ children }: {
     children: ReactNode
   }) {
-    return withQueryClient(queryClient, createElement(DashboardStoreProvider, {
+    return withQueryClient(queryClient, createElement(AppStoreProvider, {
       locked: false
     }, children));
   };
@@ -94,7 +94,7 @@ function netWorth(currency: string) {
 }
 
 // The areas a filter change can affect: net worth follows the currency, cash flow the currency and period, the list every filter.
-function useDashboardResults(query: DashboardQuery) {
+function useDashboardResults(query: ViewQuery) {
   return {
     netWorth: useAreaResult(useNetWorth(query.currency)),
     cashFlow: useAreaResult(useCashFlow(query.period, query.currency)),
@@ -124,7 +124,7 @@ async function renderResults(context: Parameters<typeof browser>[0]) {
   const environment = browser(context);
   const rendered = renderHook(({ query }) => useDashboardResults(query), {
     initialProps: {
-      query: dashboardQuery()
+      query: viewQuery()
     },
     wrapper: queryWrapper(environment.queryClient)
   });
@@ -146,7 +146,7 @@ test("a delayed pre-logout response cannot reopen the dashboard or restore finan
     requests
   } = browser(context);
   const { result } = renderHook(() => ({
-    lock: useDashboardLock(),
+    lock: useSessionLock(),
     accounts: useAccounts()
   }), {
     wrapper: queryWrapper(queryClient)
@@ -171,7 +171,7 @@ test("a read rejected with 401 locks the dashboard and drops cached financial da
 
   queryClient.setQueryData(queryKeys.categories(), []);
   const { result } = renderHook(() => ({
-    lock: useDashboardLock(),
+    lock: useSessionLock(),
     accounts: useAccounts()
   }), {
     wrapper: queryWrapper(queryClient)
@@ -202,7 +202,7 @@ test("a write rejected with 401 locks the dashboard and drops pending changes, w
 
   queryClient.setQueryData(queryKeys.categories(), []);
   const { result } = renderHook(() => ({
-    lock: useDashboardLock(),
+    lock: useSessionLock(),
     row: useTransactionCategory(transaction),
     connect: useConnectBank(),
     signIn: useMutation({
@@ -253,7 +253,7 @@ test("a bank authorization that completes after the dashboard locked does not le
     requests
   } = browser(context);
   const { result } = renderHook(() => ({
-    lock: useDashboardLock(),
+    lock: useSessionLock(),
     connect: useConnectBank()
   }), {
     wrapper: queryWrapper(queryClient)
@@ -290,13 +290,13 @@ test("an older response cannot replace the results for newer filters", async con
   } = await renderResults(context);
 
   rerender({
-    query: dashboardQuery({
+    query: viewQuery({
       currency: "USD"
     })
   });
   await wait(0);
   rerender({
-    query: dashboardQuery({
+    query: viewQuery({
       currency: "CHF"
     })
   });
@@ -317,7 +317,7 @@ test("a write completed after a filter change refreshes the results for the curr
   } = await renderResults(context);
 
   rerender({
-    query: dashboardQuery({
+    query: viewQuery({
       currency: "USD"
     })
   });
@@ -346,7 +346,7 @@ test("a period change marks the period results as loading until the response for
   const period = previousMonth(currentMonthPeriod());
 
   rerender({
-    query: dashboardQuery({
+    query: viewQuery({
       period
     })
   });
@@ -386,7 +386,7 @@ test("a transaction filter change marks only the transaction list as loading", a
     category: "uncategorized"
   }]) {
     rerender({
-      query: dashboardQuery(changes)
+      query: viewQuery(changes)
     });
     await wait(300);
 
@@ -409,7 +409,7 @@ test("a fast response replaces the results without showing loading first", async
   const seen: string[] = [];
 
   rerender({
-    query: dashboardQuery({
+    query: viewQuery({
       currency: "USD"
     })
   });
@@ -448,13 +448,13 @@ test("after rapid period changes only the response for the latest period ends lo
   const second = previousMonth(first);
 
   rerender({
-    query: dashboardQuery({
+    query: viewQuery({
       period: first
     })
   });
   await wait(50);
   rerender({
-    query: dashboardQuery({
+    query: viewQuery({
       period: second
     })
   });
@@ -479,7 +479,7 @@ test("a failed request for changed filters ends loading and masks the outdated r
   } = await renderResults(context);
 
   rerender({
-    query: dashboardQuery({
+    query: viewQuery({
       period: previousMonth(currentMonthPeriod())
     })
   });
@@ -650,7 +650,7 @@ function renderDashboard(context: Parameters<typeof browser>[0], url: string) {
       value: new URLSearchParams(window.location.search)
     }, children));
 
-    return withQueryClient(environment.queryClient, createElement(DashboardStoreProvider, {
+    return withQueryClient(environment.queryClient, createElement(AppStoreProvider, {
       locked: false
     }, createElement(AppRouterContext, {
       value: router
@@ -661,12 +661,12 @@ function renderDashboard(context: Parameters<typeof browser>[0], url: string) {
     ...environment,
     ...renderHook(() => {
       useDashboardNavigation();
-      const feedback = useDashboardStore(state => state.feedback);
+      const feedback = useAppStore(state => state.feedback);
 
       return {
         view: useView(),
         feedback: onView(feedback, usePathname()),
-        list: useTransactionListView(useDashboardQuery(), replacePage)
+        list: useTransactionListView(useViewQuery(), replacePage)
       };
     }, {
       wrapper

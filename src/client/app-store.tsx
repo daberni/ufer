@@ -11,7 +11,7 @@ type ViewBound<T> = {
   pathname: string;
 };
 
-export type DashboardState = {
+export type AppState = {
   /** Page-level feedback for results without a surviving trigger, such as a bank callback. */
   feedback: ViewBound<Feedback> | null;
   /** Whether the sign-in form replaces the dashboard. */
@@ -20,7 +20,7 @@ export type DashboardState = {
   periodScope: string;
 };
 
-export type DashboardActions = {
+export type AppActions = {
   reportFeedback: (feedback: Feedback) => void;
   dismissFeedback: () => void;
   /** Drops the feedback of other views after a navigation, including Back and Forward. */
@@ -30,11 +30,11 @@ export type DashboardActions = {
   unlock: () => void;
 };
 
-export type DashboardStore = DashboardState & DashboardActions;
+export type AppStore = AppState & AppActions;
 
 /** `locked` is the sign-in state the server resolved for the request. `currentPathname` tells actions which view they were triggered on; feedback is reported from that view's event handlers. */
-export function createDashboardStore(locked: boolean, currentPathname = () => window.location.pathname) {
-  return createStore<DashboardStore>()(set => ({
+export function createAppStore(locked: boolean, currentPathname = () => window.location.pathname) {
+  return createStore<AppStore>()(set => ({
     feedback: null,
     locked,
     periodScope: "",
@@ -68,31 +68,31 @@ export function onView<T>(bound: ViewBound<T> | null, pathname: string) {
   return bound && bound.pathname === pathname ? bound.value : null;
 }
 
-const DashboardStoreContext = createContext<StoreApi<DashboardStore> | null>(null);
+const AppStoreContext = createContext<StoreApi<AppStore> | null>(null);
 
 /** One store per mounted dashboard layout; the layout also renders on the server, where a shared module store would outlive the request. */
-export function DashboardStoreProvider({
+export function AppStoreProvider({
   locked,
   children
 }: React.PropsWithChildren<{
   locked: boolean;
 }>) {
-  const [store] = useState(() => createDashboardStore(locked));
+  const [store] = useState(() => createAppStore(locked));
 
-  return <DashboardStoreContext value={store}>{children}</DashboardStoreContext>;
+  return <AppStoreContext value={store}>{children}</AppStoreContext>;
 }
 
-export function useDashboardStoreApi() {
-  const store = useContext(DashboardStoreContext);
+export function useAppStoreApi() {
+  const store = useContext(AppStoreContext);
 
   if (!store) {
-    throw new Error("Dashboard components must be rendered inside the dashboard layout.");
+    throw new Error("Components that read the app store must be rendered inside the dashboard layout.");
   }
 
   return store;
 }
 
 /** Subscribes to one slice of the dashboard UI state; the component re-renders only when that slice changes. */
-export function useDashboardStore<T>(selector: (state: DashboardStore) => T) {
-  return useStore(useDashboardStoreApi(), selector);
+export function useAppStore<T>(selector: (state: AppStore) => T) {
+  return useStore(useAppStoreApi(), selector);
 }
