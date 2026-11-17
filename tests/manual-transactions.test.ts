@@ -923,3 +923,30 @@ test("a zero balance import establishes an empty manual ledger without redundant
   assert.deepEqual(await bookings(db, "empty-manual"), [["2026-01-01", "opening_balance", 0, "", ""]]);
   assert.equal(await balanceOf("empty-manual"), 0);
 });
+
+test("new manual bookings distinguish automatic categorization from an explicit Uncategorized choice", async context => {
+  const db = await isolatedDatabase(context);
+  const cash = await manualAccount("Synthetic cash", "100.00");
+
+  await categorizationRules(db);
+  const input = {
+    booking_date: "2026-09-05",
+    amount: "-12.50",
+    counterparty: "Market",
+    type: "expense"
+  };
+  const automatic = await enter(cash, input);
+  const uncategorized = await enter(cash, {
+    ...input,
+    category_id: null
+  });
+
+  assert.deepEqual([(await row(db, automatic.id))?.category_id, (await row(db, automatic.id))?.category_source], ["groceries", "rule"]);
+  assert.deepEqual([(await row(db, uncategorized.id))?.category_id, (await row(db, uncategorized.id))?.category_source], [null, "manual"]);
+
+  await edit(uncategorized.id, {
+    ...input,
+    counterparty: "Salary adjustment"
+  });
+  assert.deepEqual([(await row(db, uncategorized.id))?.category_id, (await row(db, uncategorized.id))?.category_source], [null, "manual"]);
+});

@@ -9,7 +9,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { FormError } from "@/components/ui/form-error";
 import { Select } from "@/components/ui/select";
 import { useDialogSubmit } from "@/components/ui/use-dialog-submit";
-import { CategoryPicker } from "@/features/categorization/components/category-picker";
+import { automaticCategory, CategoryPicker, type CategoryAssignmentValue } from "@/features/categorization/components/category-picker";
 import { useCategories } from "@/features/categorization/queries";
 import { isTransactionType, transactionTypeLabels, transactionTypes, type TransactionType } from "@/features/transactions/transaction-types";
 import { useEnterTransaction, type NewEntry } from "@/features/transactions/mutations";
@@ -46,7 +46,7 @@ function ManualTransactionForm({
   const [type, setType] = useState<TransactionType>("expense");
   const [typeChosen, setTypeChosen] = useState(false);
   const [targetId, setTargetId] = useState("");
-  const [categoryId, setCategoryId] = useState<string | null>(null);
+  const [category, setCategory] = useState<CategoryAssignmentValue>(automaticCategory);
   const categories = useCategories();
   const typeId = useId();
   const categoryFieldId = useId();
@@ -66,7 +66,7 @@ function ManualTransactionForm({
       amount: String(data.get("amount")),
       counterparty: String(data.get("counterparty") ?? ""),
       description: String(data.get("description") ?? ""),
-      category_id: categoryId,
+      category_id: category === automaticCategory ? undefined : category,
       type
     };
 
@@ -115,12 +115,13 @@ function ManualTransactionForm({
         <CategoryPicker
           id={categoryFieldId}
           categories={categories.data ?? []}
-          value={categoryId}
+          value={category}
+          includeAutomatic
           includeUncategorized
-          onChange={setCategoryId}
+          onChange={setCategory}
         />
       </div>
-      <p className={ui["form-hint"]}>Without a category, your rules choose one.</p>
+      <p className={ui["form-hint"]}>Automatic applies your categorization rules.</p>
       <label htmlFor={typeId}>
         Type
         <Select
