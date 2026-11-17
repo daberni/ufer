@@ -16,7 +16,7 @@ import { AreaPlaceholder } from "@/components/ui/area-placeholder";
 import type { Area } from "@/components/ui/use-area-result";
 import { neutralChipColor } from "@/features/categorization/category-colors";
 import { useState } from "react";
-import { CategoryLabel } from "./category-label";
+import { CategoryGlyph, CategoryLabel, categoryNameColor } from "./category-label";
 import { CategoryDialog } from "./category-form";
 import { RuleDialog } from "./create-rule-form";
 
@@ -92,13 +92,13 @@ export function RulesView({
           Add category
         </button>
       </div>
-      <section className={clsx(ui["panel"], styles["category-panel"])} aria-label="Your categories">
+      <section className={styles["category-panel"]} aria-label="Your categories">
         {categories.status === "pending" ? (
           <AreaPlaceholder area={categories} subject="Your categories">
-            <CategoryRowsSkeleton />
+            <CategoryGridSkeleton />
           </AreaPlaceholder>
         ) : (
-          <CategoryRows
+          <CategoryGrid
             categories={categories.data}
             editCategory={category => setDialog({
               kind: "category",
@@ -160,7 +160,7 @@ export function RulesView({
   );
 }
 
-function CategoryRows({
+function CategoryGrid({
   categories,
   editCategory
 }: {
@@ -172,17 +172,22 @@ function CategoryRows({
   }
 
   return (
-    <ul className={styles["category-list"]}>
+    <ul className={styles["category-grid"]}>
       {categories.map(category => (
         <li key={category.id}>
           <button
-            className={styles["category-row"]}
+            className={styles["category-tile"]}
             type="button"
             aria-label={`Edit category ${category.name}`}
+            title={category.name}
+            style={{
+              color: categoryNameColor(category)
+            }}
             onClick={() => editCategory(category)}
           >
-            <CategoryLabel category={category} />
-            <Pencil className={styles["edit-hint"]} aria-hidden="true" size={18} />
+            <CategoryGlyph category={category} />
+            <span className={styles["category-name"]}>{category.name}</span>
+            <Pencil className={styles["edit-hint"]} aria-hidden="true" size={16} />
           </button>
         </li>
       ))}
@@ -190,19 +195,22 @@ function CategoryRows({
   );
 }
 
-function CategoryRowsSkeleton() {
+function CategoryGridSkeleton() {
   return (
-    <ul className={styles["category-list"]}>
+    <ul className={styles["category-grid"]}>
       {skeletonNames.map(name => (
-        <li className={styles["category-row"]} key={name}>
-          <CategoryLabel
-            className={ui["skeleton"]}
-            category={{
-              name,
-              color: neutralChipColor,
-              icon: null
-            }}
-          />
+        <li key={name}>
+          <div className={styles["category-tile"]}>
+            <CategoryGlyph
+              category={{
+                name,
+                color: neutralChipColor,
+                icon: null
+              }}
+            />
+            <span className={clsx(styles["category-name"], ui["skeleton"])}>{name}</span>
+            <Pencil className={clsx(styles["edit-hint"], ui["skeleton"])} aria-hidden="true" size={16} />
+          </div>
         </li>
       ))}
     </ul>
