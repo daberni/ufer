@@ -5,7 +5,7 @@ import { api } from "@/client/api";
 import { invalidate } from "@/client/invalidate";
 import { queryKeys } from "@/client/query-keys";
 import { sessionEpoch } from "@/client/session-epoch";
-import type { ConnectionRemoval } from "@/features/dashboard/types";
+import type { ConnectionRemoval } from "@/features/banking/types";
 
 export type SyncFailure = {
   account: string;

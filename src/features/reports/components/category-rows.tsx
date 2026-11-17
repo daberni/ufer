@@ -5,7 +5,7 @@ import { clsx } from "clsx";
 import { money } from "@/lib/money";
 import { CategoryMarker } from "@/features/categorization/components/category-marker";
 import { categoryBarColor, themedColor } from "@/features/categorization/category-colors";
-import type { CategoryGroup } from "@/features/dashboard/category-groups";
+import type { CategoryGroup } from "@/features/reports/category-groups";
 
 const shareFormat = new Intl.NumberFormat("en-GB", {
   style: "percent",

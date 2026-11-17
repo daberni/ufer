@@ -3,11 +3,11 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { apiGet } from "@/client/api";
 import { queryKeys, type TransactionListFilters } from "@/client/query-keys";
-import { serializePeriod } from "@/features/dashboard/period";
-import type { DashboardQuery } from "@/features/dashboard/dashboard-location";
-import type { TransactionPage } from "@/features/dashboard/types";
+import { serializePeriod } from "@/lib/period";
+import type { ViewQuery } from "@/client/app-location";
+import type { TransactionPage } from "@/features/transactions/types";
 
-export function transactionListFilters(query: DashboardQuery): TransactionListFilters {
+export function transactionListFilters(query: ViewQuery): TransactionListFilters {
   return {
     period: serializePeriod(query.period),
     currency: query.currency,
@@ -19,7 +19,7 @@ export function transactionListFilters(query: DashboardQuery): TransactionListFi
   };
 }
 
-export function useTransactionList(query: DashboardQuery) {
+export function useTransactionList(query: ViewQuery) {
   const filters = transactionListFilters(query);
 
   return useQuery({

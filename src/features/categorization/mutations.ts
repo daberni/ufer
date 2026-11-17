@@ -4,7 +4,7 @@ import { useMutation, useMutationState, useQueryClient } from "@tanstack/react-q
 import { api } from "@/client/api";
 import { invalidate } from "@/client/invalidate";
 import { queryKeys } from "@/client/query-keys";
-import type { Category, Rule } from "@/features/dashboard/types";
+import type { Category, Rule } from "@/features/categorization/types";
 
 type CategoryDetails = Record<string, FormDataEntryValue>;
 

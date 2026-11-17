@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { act, fireEvent, render } from "@testing-library/react";
 import { createElement } from "react";
-import type { Account, Connection } from "../src/features/dashboard/types";
+import type { Account } from "../src/features/accounts/types";
+import type { Connection } from "../src/features/banking/types";
 import { browser, wait, withQueryClient, type PendingRequest } from "./fixtures/browser";
 import { stubCssModules } from "./fixtures/css-modules";
 
@@ -44,8 +45,8 @@ test("removal stays disabled until the dialog knows how many linked accounts it 
   };
 
   const { RemoveConnectionDialog } = await import("../src/features/banking/components/remove-connection-form");
-  const { DashboardStoreProvider } = await import("../src/features/dashboard/dashboard-store");
-  const screen = render(withQueryClient(queryClient, createElement(DashboardStoreProvider, {
+  const { AppStoreProvider } = await import("../src/client/app-store");
+  const screen = render(withQueryClient(queryClient, createElement(AppStoreProvider, {
     locked: false
   }, createElement(RemoveConnectionDialog, {
     selectedConnection: connection,

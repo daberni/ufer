@@ -1,6 +1,6 @@
 import { respond } from "@/server/http/respond";
-import { dashboardFilters } from "@/features/dashboard/server/dashboard-filters";
-import { readCashFlow } from "@/features/dashboard/server/cash-flow-query";
+import { dashboardFilters } from "@/server/http/dashboard-filters";
+import { readCashFlow } from "@/features/reports/server/cash-flow-query";
 
 export const runtime = "nodejs";
 

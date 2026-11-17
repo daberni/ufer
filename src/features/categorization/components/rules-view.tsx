@@ -8,12 +8,12 @@ import { Pencil, Plus, Sparkles } from "lucide-react";
 import { ActionFeedback } from "@/components/ui/action-feedback";
 import { Empty } from "@/components/ui/empty-state";
 import { useActionFeedback } from "@/components/ui/use-action-feedback";
-import type { Category, Rule } from "@/features/dashboard/types";
+import type { Category, Rule } from "@/features/categorization/types";
 import { settle } from "@/client/settle";
-import { useDashboardStore } from "@/features/dashboard/dashboard-store";
+import { useAppStore } from "@/client/app-store";
 import { useApplyRules, useToggleRule, useTogglingRules } from "@/features/categorization/mutations";
-import { AreaPlaceholder } from "@/features/dashboard/components/area-placeholder";
-import type { Area } from "@/features/dashboard/use-area-result";
+import { AreaPlaceholder } from "@/components/ui/area-placeholder";
+import type { Area } from "@/components/ui/use-area-result";
 import { neutralChipColor } from "@/features/categorization/category-colors";
 import { useState } from "react";
 import { CategoryChip } from "./category-chip";
@@ -42,7 +42,7 @@ export function RulesView({
 }: Props) {
   const [dialog, setDialog] = useState<OpenDialog | null>(null);
   const closeDialog = () => setDialog(null);
-  const reportFeedback = useDashboardStore(state => state.reportFeedback);
+  const reportFeedback = useAppStore(state => state.reportFeedback);
   const applyFeedback = useActionFeedback();
   const apply = useApplyRules();
   const toggle = useToggleRule();

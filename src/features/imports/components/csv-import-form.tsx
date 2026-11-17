@@ -6,14 +6,14 @@ import { clsx } from "clsx";
 import { useState } from "react";
 import styles from "./csv-import-form.module.css";
 import { ArrowDownToLine } from "lucide-react";
-import { useDialogSubmit, type DialogFormProps } from "@/features/dashboard/use-dialog-submit";
+import { useDialogSubmit, type DialogFormProps } from "@/components/ui/use-dialog-submit";
 import { useCsvImport, type ImportMode } from "@/features/imports/mutations";
 import { FormError } from "@/components/ui/form-error";
 import { Select } from "@/components/ui/select";
 import { Dialog } from "@/components/ui/dialog";
 import { useAccounts } from "@/features/accounts/queries";
-import { InlineFailure } from "@/features/dashboard/components/area-placeholder";
-import { useAreaResult } from "@/features/dashboard/use-area-result";
+import { InlineFailure } from "@/components/ui/area-placeholder";
+import { useAreaResult } from "@/components/ui/use-area-result";
 
 type Props = DialogFormProps & {
   initialMode: ImportMode;

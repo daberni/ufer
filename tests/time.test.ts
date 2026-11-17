@@ -4,7 +4,7 @@ import { Temporal } from "temporal-polyfill";
 import { timestamp, today } from "../src/lib/time";
 import { syncWindowStart } from "../src/features/banking/server/sync-service";
 import { accountGroups } from "../src/features/accounts/queries";
-import type { Account } from "../src/features/dashboard/types";
+import type { Account } from "../src/features/accounts/types";
 
 test("today follows the Vienna calendar day, not the UTC date", () => {
   assert.equal(today(Temporal.Instant.from("2026-03-01T22:59:59Z")).toString(), "2026-03-01");
