@@ -23,7 +23,10 @@ const transfer: Transaction = {
   category_source: "rule",
   type: "transfer",
   type_source: "auto",
+  account_id: "checking",
   manual_account: false,
+  entered: false,
+  follows_import: false,
   created_counterpart: false,
   counterpart: {
     id: "other",

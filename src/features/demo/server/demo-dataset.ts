@@ -12,10 +12,11 @@ export type DemoSnapshot = {
 };
 
 export type DemoAccountData = DemoAccountDefinition & {
-  balance: number;
-  balanceDate: string;
+  /** The balance on the first day of the history, booked as the opening balance. */
+  opening: DemoSnapshot;
   entries: Entry[];
-  snapshots: DemoSnapshot[];
+  /** Market values recorded with Update balance; each books the difference to the transactions as an adjustment. */
+  valuations: DemoSnapshot[];
 };
 
 /** A transfer whose counterpart the seed creates on a manual account, as a person does in the edit dialog. */
@@ -705,13 +706,6 @@ function monthEnds(firstMonth: PlainYearMonth, runDate: PlainDate) {
   return [...dates, runDate];
 }
 
-function ledgerSnapshots(ledger: Ledger, account: DemoAccountKey, dates: PlainDate[]) {
-  return dates.map(date => ({
-    date: date.toString(),
-    amount: ledger.balanceAt(account, date)
-  }));
-}
-
 /** Market value: contributions plus a seeded monthly return around a modest positive trend. */
 function investmentSnapshots(ledger: Ledger, random: DemoRandom, dates: PlainDate[]) {
   let value = openingBalances.investment;
@@ -761,15 +755,15 @@ function propertySnapshots(random: DemoRandom, firstDate: PlainDate, runDate: Pl
   return snapshots;
 }
 
-function accountData(key: DemoAccountKey, entries: Entry[], snapshots: DemoSnapshot[]): DemoAccountData {
-  const latest = snapshots[snapshots.length - 1];
-
+function accountData(ledger: Ledger, key: DemoAccountKey, valuations: DemoSnapshot[] = []): DemoAccountData {
   return {
     ...demoAccounts[key],
-    balance: latest.amount,
-    balanceDate: latest.date,
-    entries,
-    snapshots
+    opening: {
+      date: ledger.firstDate.toString(),
+      amount: ledger.openings[key]
+    },
+    entries: ledger.entries[key],
+    valuations
   };
 }
 
@@ -825,12 +819,12 @@ export function buildDemoDataset(runDate: PlainDate): DemoDataset {
     firstDate: firstDate.toString(),
     runDate: runDate.toString(),
     accounts: [
-      accountData("checking", ledger.entries.checking, ledgerSnapshots(ledger, "checking", dates)),
-      accountData("savings", ledger.entries.savings, ledgerSnapshots(ledger, "savings", dates)),
-      accountData("creditCard", ledger.entries.creditCard, ledgerSnapshots(ledger, "creditCard", dates)),
-      accountData("investment", ledger.entries.investment, investmentSnapshots(ledger, random, dates)),
-      accountData("property", [], propertySnapshots(random, firstDate, runDate)),
-      accountData("loan", ledger.entries.loan, ledgerSnapshots(ledger, "loan", dates))
+      accountData(ledger, "checking"),
+      accountData(ledger, "savings"),
+      accountData(ledger, "creditCard"),
+      accountData(ledger, "investment", investmentSnapshots(ledger, random, dates)),
+      accountData(ledger, "property", propertySnapshots(random, firstDate, runDate)),
+      accountData(ledger, "loan")
     ],
     createdCounterparts: ledger.createdCounterparts.map(item => ({
       sourceAccountId: demoAccounts[item.from].id,
