@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test, type TestContext } from "node:test";
-import { render } from "@testing-library/react";
+import { render, type RenderResult } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
 import { Temporal } from "temporal-polyfill";
 import { AppRouterContext, type AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
@@ -81,19 +81,38 @@ async function renderSummary(context: TestContext, url: string, flows: {
   });
 }
 
-test("income, expenses and the monthly result open the transactions of the selected period and currency", async context => {
+function comparisonBar(screen: RenderResult, flow: "income" | "expenses") {
+  const bar = screen.container.querySelector<HTMLElement>(`i[data-flow="${flow}"]`);
+
+  assert.ok(bar, `Missing ${flow} comparison bar`);
+
+  return bar;
+}
+
+test("one Transactions link preserves the selected period and currency without making all figures navigation targets", async context => {
   const screen = await renderSummary(context, "/?period=2026-10&currency=USD", {
     income: 400000,
     expenses: 300000
   });
-  const links = ["Income", "Expenses", "Monthly cash flow"].map(name => screen.getByRole("link", {
-    name: new RegExp(name)
-  }));
+  const link = screen.getByRole("link", {
+    name: "View transactions"
+  });
 
-  for (const link of links) {
-    assert.equal(link.getAttribute("href"), "/transactions?period=2026-10&currency=USD");
-  }
+  assert.equal(screen.getAllByRole("link").length, 1);
+  assert.equal(link.getAttribute("href"), "/transactions?period=2026-10&currency=USD");
+  assert.ok(screen.getByText("Income"));
+  assert.ok(screen.getByText("Expenses"));
+  assert.ok(screen.getByText("Monthly cash flow"));
+});
 
+test("income and spending bars use the same scale and keep the spending percentage as supporting text", async context => {
+  const screen = await renderSummary(context, "/?period=2026-10&currency=USD", {
+    income: 400000,
+    expenses: 300000
+  });
+
+  assert.equal(comparisonBar(screen, "income").style.width, "100%");
+  assert.equal(comparisonBar(screen, "expenses").style.width, "75%");
   assert.ok(screen.getByText("Spent 75% of income"));
 });
 
@@ -104,7 +123,9 @@ test("spending without income is not compared as a percentage", async context =>
   });
 
   assert.ok(screen.getByText("No income to compare spending with"));
-  assert.equal(screen.queryByText(/%/), null);
+  assert.equal(screen.queryByText(/%/) === null, true);
+  assert.equal(comparisonBar(screen, "income").style.width, "0%");
+  assert.equal(comparisonBar(screen, "expenses").style.width, "100%");
 });
 
 for (const income of [400000, 0, -40000]) {
@@ -113,14 +134,12 @@ for (const income of [400000, 0, -40000]) {
       income,
       expenses: -100000
     });
-    const label = screen.getByText("Refunds exceeded spending");
-    const fill = label.parentElement?.querySelector<HTMLElement>("[aria-hidden] > i");
 
-    assert.equal(fill?.style.width, "0%");
+    assert.ok(screen.getByText("Refunds exceeded spending"));
+    assert.equal(comparisonBar(screen, "expenses").style.width, "0%");
+    assert.equal(comparisonBar(screen, "income").style.width, income > 0 ? "100%" : "0%");
     assert.equal(screen.queryByText(/Spent -/) === null, true);
-    assert.match(screen.getByRole("link", {
-      name: /Expenses/
-    }).textContent || "", /-.*1,000\.00/);
+    assert.match(screen.getByText("Expenses").parentElement?.textContent || "", /-.*1,000\.00/);
   });
 }
 
@@ -129,10 +148,10 @@ test("a period with no net spending has an empty comparison", async context => {
     income: 400000,
     expenses: 0
   });
-  const label = screen.getByText("No spending this period");
-  const fill = label.parentElement?.querySelector<HTMLElement>("[aria-hidden] > i");
 
-  assert.equal(fill?.style.width, "0%");
+  assert.ok(screen.getByText("No spending this period"));
+  assert.equal(comparisonBar(screen, "expenses").style.width, "0%");
+  assert.equal(comparisonBar(screen, "income").style.width, "100%");
 });
 
 test("overspending keeps the real percentage while the comparison bar stops at its full width", async context => {
@@ -140,8 +159,19 @@ test("overspending keeps the real percentage while the comparison bar stops at i
     income: 400000,
     expenses: 1100000
   });
-  const label = screen.getByText("Spent 275% of income");
-  const fill = label.parentElement?.querySelector<HTMLElement>("[aria-hidden] > i");
 
-  assert.equal(fill?.style.width, "100%");
+  assert.ok(screen.getByText("Spent 275% of income"));
+  assert.equal(comparisonBar(screen, "expenses").style.width, "100%");
+  assert.ok(Math.abs(Number.parseFloat(comparisonBar(screen, "income").style.width) - 36.36) < 0.01);
+});
+
+test("a period without income or spending keeps both comparison bars empty", async context => {
+  const screen = await renderSummary(context, "/?period=2026-10&currency=USD", {
+    income: 0,
+    expenses: 0
+  });
+
+  assert.ok(screen.getByText("No spending this period"));
+  assert.equal(comparisonBar(screen, "income").style.width, "0%");
+  assert.equal(comparisonBar(screen, "expenses").style.width, "0%");
 });

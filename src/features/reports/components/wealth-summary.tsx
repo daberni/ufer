@@ -28,28 +28,17 @@ const percent = new Intl.NumberFormat("en", {
   maximumFractionDigits: 0
 });
 
-/** Refunds can make net spending negative; neither refunds nor missing income represent a spending share. */
-function spendingComparison(income: number, expenses: number) {
+/** Refunds and missing income need an explanation instead of a misleading spending percentage. */
+function spendingShareText(income: number, expenses: number) {
   if (expenses <= 0) {
-    return {
-      label: expenses < 0 ? "Refunds exceeded spending" : "No spending this period",
-      width: 0
-    };
+    return expenses < 0 ? "Refunds exceeded spending" : "No spending this period";
   }
 
   if (income <= 0) {
-    return {
-      label: "No income to compare spending with",
-      width: 0
-    };
+    return "No income to compare spending with";
   }
 
-  const share = expenses / income;
-
-  return {
-    label: `Spent ${percent.format(share)} of income`,
-    width: Math.min(1, share) * 100
-  };
+  return `Spent ${percent.format(expenses / income)} of income`;
 }
 
 export function WealthSummary({
@@ -84,9 +73,11 @@ export function WealthSummary({
   const netWorthValue = valueMask(netWorth.status);
   const cashFlowValue = valueMask(cashFlow.status);
   const currency = summary.currency;
-  // The transaction list has no direction or transfer filter, so every figure opens the period's transactions in this currency.
   const transactionsHref = viewHref("transactions");
-  const comparison = spendingComparison(flows.income, flows.expenses);
+  const scale = Math.max(0, flows.income, flows.expenses);
+  const incomeWidth = scale > 0 ? Math.max(0, flows.income) / scale * 100 : 0;
+  const expenseWidth = scale > 0 ? Math.max(0, flows.expenses) / scale * 100 : 0;
+  const comparisonText = spendingShareText(flows.income, flows.expenses);
 
   return (
     <div className={styles["wealth-grid"]}>
@@ -146,49 +137,54 @@ export function WealthSummary({
           <h2>{singleMonth ? "Your month" : "Your cash flow"}</h2>
           <span className={clsx(styles["subtle"], cashFlowValue)}>{periodLabel(period)}</span>
         </div>
-        <Link className={clsx(styles["flow-link"], styles["flow-row"])} href={transactionsHref}>
+        <div className={styles["flow-row"]}>
           <span className={clsx(styles["flow-icon"], styles["incoming"])}>
             <ArrowDownLeft size={19} />
           </span>
           <div>
             <span>Income</span>
             <strong className={clsx(ui["positive"], cashFlowValue)}>{money(flows.income, flows.currency)}</strong>
+            <span className={clsx(styles["comparison-track"], cashFlowValue)} aria-hidden="true">
+              <i
+                data-flow="income"
+                style={{
+                  width: `${incomeWidth}%`
+                }}
+              />
+            </span>
           </div>
-          <ChevronRight className={styles["link-icon"]} size={18} />
-        </Link>
-        <Link className={clsx(styles["flow-link"], styles["flow-row"])} href={transactionsHref}>
+        </div>
+        <div className={styles["flow-row"]}>
           <span className={clsx(styles["flow-icon"], styles["outgoing"])}>
             <ArrowUpRight size={19} />
           </span>
           <div>
             <span>Expenses</span>
             <strong className={cashFlowValue}>{money(flows.expenses, flows.currency)}</strong>
+            <span className={clsx(styles["comparison-track"], cashFlowValue)} aria-hidden="true">
+              <i
+                data-flow="expenses"
+                style={{
+                  width: `${expenseWidth}%`
+                }}
+              />
+            </span>
           </div>
-          <ChevronRight className={styles["link-icon"]} size={18} />
-        </Link>
-        <div className={styles["spending-share"]}>
-          <span className={cashFlowValue}>{comparison.label}</span>
-          <span className={clsx(styles["share-track"], cashFlowValue)} aria-hidden="true">
-            <i
-              style={{
-                width: `${comparison.width}%`
-              }}
-            />
-          </span>
         </div>
+        <p className={clsx(styles["spending-share"], cashFlowValue)}>{comparisonText}</p>
         <div className={styles["monthly-result"]}>
-          <Link className={clsx(styles["flow-link"], styles["result-link"])} href={transactionsHref}>
+          <div className={styles["result-row"]}>
             <div>
               <span>{singleMonth ? "Monthly cash flow" : "Net cash flow"}</span>
               <small>Excluding transfers</small>
             </div>
-            <span className={styles["result-amount"]}>
-              <strong className={clsx(flows.income - flows.expenses >= 0 && ui["positive"], cashFlowValue)}>{money(flows.income - flows.expenses, flows.currency)}</strong>
-              <ChevronRight className={styles["link-icon"]} size={18} />
-            </span>
-          </Link>
-
+            <strong className={clsx(styles["result-amount"], flows.income - flows.expenses >= 0 && ui["positive"], cashFlowValue)}>{money(flows.income - flows.expenses, flows.currency)}</strong>
+          </div>
         </div>
+        <Link className={clsx(ui["text-button"], styles["transactions-link"])} href={transactionsHref}>
+          View transactions
+          <ChevronRight className={styles["link-icon"]} size={18} />
+        </Link>
         {cashFlowArea.status === "pending" && cashFlowArea.failure && <FailureCover failure={cashFlowArea.failure} subject="Your cash flow" />}
       </section>
     </div>

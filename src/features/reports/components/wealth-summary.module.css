@@ -136,16 +136,6 @@
 .month-card {
   position: relative;
 }
-/* Each figure opens its transactions; the negative margin keeps the content aligned while the hover background extends around it. */
-.flow-link {
-  margin-inline: calc(var(--space-2) * -1);
-  padding: var(--space-2);
-  border-radius: var(--radius-md);
-  transition: background-color var(--duration);
-}
-.flow-link:hover {
-  background: var(--soft);
-}
 .link-icon {
   flex-shrink: 0;
   color: var(--muted);
@@ -180,7 +170,7 @@
   flex: 1;
   min-width: 0;
 }
-.flow-row > div > span {
+.flow-row > div > span:first-child {
   font-size: var(--text-sm);
   color: var(--muted);
   display: block;
@@ -197,53 +187,53 @@
   font-size: var(--text-sm);
   color: var(--muted);
 }
-.share-track {
+.comparison-track {
   display: block;
-  height: 6px;
+  height: var(--space-2);
   margin-top: var(--space-2);
   border-radius: var(--radius-sm);
   background: var(--chart-track);
   overflow: hidden;
 }
-.share-track i {
+.comparison-track i {
   display: block;
   height: 100%;
-  background: var(--chart-expense);
+  background: var(--chart-income);
   border-radius: var(--radius-sm);
+}
+.comparison-track i[data-flow="expenses"] {
+  background: var(--chart-expense);
+}
+.transactions-link {
+  margin-top: var(--space-4);
 }
 .monthly-result {
   border-top: 1px solid var(--border-subtle);
   margin-top: var(--space-6);
   padding-top: var(--space-2);
 }
-.result-link {
+.result-row {
   display: flex;
   align-items: center;
   gap: var(--space-3);
 }
 /* The label keeps a readable width; on phones the amount moves below it rather than squeezing it. */
-.result-link > div {
+.result-row > div {
   flex: 1 1 9rem;
 }
-.result-link > div > span {
+.result-row > div > span {
   font-size: var(--text-sm);
 }
-.result-link small {
+.result-row small {
   display: block;
   color: var(--muted);
   font-size: var(--text-sm);
   margin-top: var(--space-1);
 }
-/* The amount and its chevron stay together when they move below the label. */
 .result-amount {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
   margin-left: auto;
   min-width: 0;
-}
-.result-amount > strong {
-  min-width: 0;
+  max-width: 100%;
   overflow-wrap: anywhere;
   font-size: var(--text-xl);
   font-weight: 500;
@@ -275,7 +265,7 @@
   .month-card .subtle {
     display: none;
   }
-  .result-amount > strong {
+  .result-amount {
     font-size: var(--text-md);
   }
 }
@@ -315,17 +305,17 @@
   .flow-row strong {
     font-size: clamp(var(--text-xl), 7vw, var(--text-2xl));
   }
-  .result-amount > strong {
+  .result-amount {
     font-size: var(--text-2xl);
   }
-  .result-link {
+  .result-row {
     align-items: flex-start;
     flex-wrap: wrap;
   }
-  .result-link > div > span {
+  .result-row > div > span {
     font-size: var(--text-md);
   }
-  .result-link small {
+  .result-row small {
     line-height: 1.6;
     max-width: 170px;
   }
