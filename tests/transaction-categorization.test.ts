@@ -240,3 +240,56 @@ test("a row changed again after its view was left and reopened still waits for t
   assert.equal(second.result.current.stored.category_id, "transport");
   assert.equal(second.result.current.row.categoryId, "transport");
 });
+
+test("only the latest saved category assignment across rows offers a rule", async context => {
+  const {
+    pending,
+    queryClient
+  } = browser(context);
+  const other: Transaction = {
+    ...transaction,
+    id: "other-entry",
+    counterparty: "Example Bakery"
+  };
+  const { result } = renderHook(() => ({
+    first: useTransactionCategory(transaction),
+    second: useTransactionCategory(other)
+  }), {
+    wrapper: ({ children }) => withQueryClient(queryClient, children)
+  });
+  // Reads the current render's offer; assertions on one render must not narrow the next one.
+  const offer = (row: "first" | "second") => result.current[row].ruleOffer;
+
+  act(() => result.current.first.change("leisure"));
+  await wait(0);
+
+  // A pending change offers nothing yet.
+  assert.equal(offer("first"), null);
+
+  await respond(patches(pending)[0], assignment("leisure"));
+
+  assert.equal(offer("first")?.categoryId, "leisure");
+
+  act(() => result.current.second.change("groceries"));
+  await wait(0);
+  await respond(patches(pending)[1], Response.json({
+    id: other.id,
+    category_id: "groceries",
+    category_source: "manual"
+  }));
+
+  assert.equal(offer("first"), null);
+  assert.equal(offer("second")?.categoryId, "groceries");
+
+  // Choosing "Uncategorized" gives a rule nothing to assign.
+  act(() => result.current.second.change(null));
+  await wait(0);
+  await respond(patches(pending)[2], Response.json({
+    id: other.id,
+    category_id: null,
+    category_source: "manual"
+  }));
+
+  assert.equal(offer("first"), null);
+  assert.equal(offer("second"), null);
+});

@@ -1,5 +1,4 @@
-import { randomUUID } from "node:crypto";
-import { and, eq, isNull, ne, or } from "drizzle-orm";
+import { and, eq, inArray, isNull, ne, or } from "drizzle-orm";
 import { database } from "@/server/database/connection";
 import { environment } from "@/features/banking/server/environment";
 import type { Rule } from "@/lib/rules";
@@ -12,16 +11,37 @@ export async function listRules() {
   return db.select().from(categorizationRules);
 }
 
-export async function insertRule(input: Omit<Rule, "id" | "enabled"> & {
+export type NewRule = Omit<Rule, "enabled"> & {
   enabled: boolean;
-}) {
-  const db = await database();
+};
 
-  await db.insert(categorizationRules).values({
-    ...input,
-    id: randomUUID(),
-    enabled: input.enabled ? 1 : 0
+// Bounds the bound parameters of each update for both local SQLite and remote libSQL deployments.
+const assignmentChunkSize = 500;
+
+/**
+ * Stores a rule and, in the same batch, gives its category to the listed transactions that are still uncategorized by rules. Resolves to the number of
+ * transactions categorized; one assigned or corrected in the meantime keeps its category.
+ */
+export async function insertRule(rule: NewRule, uncategorizedIds: string[] = []) {
+  const db = await database();
+  const insert = db.insert(categorizationRules).values({
+    ...rule,
+    enabled: rule.enabled ? 1 : 0
   });
+  const assignments = [];
+
+  for (let offset = 0; offset < uncategorizedIds.length; offset += assignmentChunkSize) {
+    const ids = uncategorizedIds.slice(offset, offset + assignmentChunkSize);
+    const scope = and(inArray(transactions.id, ids), eq(transactions.category_source, "rule"), isNull(transactions.category_id));
+
+    assignments.push(db.update(transactions).set({
+      category_id: rule.category_id
+    }).where(scope));
+  }
+
+  const [, ...updates] = await db.batch([insert, ...assignments]);
+
+  return updates.reduce((total, update) => total + update.rowsAffected, 0);
 }
 
 export async function setRuleEnabled(id: string, enabled: boolean) {

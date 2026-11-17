@@ -5,6 +5,7 @@ import type { CategorizationRule } from "@/server/database/models";
 export type Rule = CategorizationRule;
 
 export type PreparedRule = {
+  id: string;
   categoryId: string;
   matches: (text: string) => boolean;
 };
@@ -38,6 +39,7 @@ export function prepareRules(rules: Rule[]): PreparedRule[] {
       const regex = compileRegex(rule.pattern);
 
       return {
+        id: rule.id,
         categoryId: rule.category_id,
         matches: text => regex.matcher(text).find()
       };
@@ -46,14 +48,20 @@ export function prepareRules(rules: Rule[]): PreparedRule[] {
     const keyword = rule.pattern.toLocaleLowerCase("en-GB");
 
     return {
+      id: rule.id,
       categoryId: rule.category_id,
       matches: text => text.toLocaleLowerCase("en-GB").includes(keyword)
     };
   });
 }
 
-export function categorize(counterparty: string, description: string, rules: PreparedRule[]) {
+/** The rule that decides a transaction's category: the first prepared rule that matches. */
+export function decidingRule(counterparty: string, description: string, rules: PreparedRule[]) {
   const text = `${counterparty} ${description}`;
 
-  return rules.find(rule => rule.matches(text))?.categoryId ?? null;
+  return rules.find(rule => rule.matches(text));
+}
+
+export function categorize(counterparty: string, description: string, rules: PreparedRule[]) {
+  return decidingRule(counterparty, description, rules)?.categoryId ?? null;
 }

@@ -51,6 +51,32 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* The rule offer after a saved choice, and the confirmation of a rule created from it, take the same place as a failure. */
+.offer {
+  position: absolute;
+  top: calc(100% + 1px);
+  left: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-xs);
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.offer svg {
+  width: 1em;
+  height: 1em;
+  flex: none;
+}
+.offer > .offer-button {
+  gap: var(--space-1);
+  padding: 0;
+  font-size: inherit;
+  line-height: inherit;
+}
+.created {
+  color: var(--green-text);
+}
 @media (--mobile) {
   /* The field fills the card's line; a failure takes its own lines under it, since the card has no spacing to overlay. */
   .category {
@@ -74,5 +100,13 @@
   }
   .message-text {
     white-space: normal;
+  }
+  .offer {
+    position: static;
+    justify-content: flex-end;
+    max-width: 100%;
+    font-size: var(--text-sm);
+    white-space: normal;
+    text-align: right;
   }
 }

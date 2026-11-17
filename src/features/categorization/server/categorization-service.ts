@@ -1,23 +1,69 @@
 import { randomUUID } from "node:crypto";
 import { HttpError, ValidationError } from "@/lib/errors";
 import { z } from "zod";
-import { categorize, prepareRules, validatePattern } from "@/lib/rules";
+import { categorize, decidingRule, prepareRules, validatePattern, type Rule } from "@/lib/rules";
 import { normalizeCategoryName } from "@/lib/category-name";
 import { isCategoryIcon } from "@/features/categorization/category-icons";
 import { categoryExists, insertCategory, updateCategory, type CategoryDetails, type CategoryWriteResult } from "./category-repository";
 import { findUncorrectedTransactions, insertRule, listRules, saveRuleAssignments, setRuleEnabled } from "./rule-repository";
 
+const rulePattern = {
+  pattern: z.string().min(1).max(500),
+  mode: z.enum(["keyword", "regex"])
+};
+
 const ruleInput = z.object({
   name: z.string().trim().min(1).max(100),
-  pattern: z.string().min(1).max(500),
-  mode: z.enum(["keyword", "regex"]),
+  ...rulePattern,
   category_id: z.string().min(1),
   priority: z.number().int().min(0).max(10000),
-  enabled: z.boolean().default(true)
+  enabled: z.boolean().default(true),
+  // Gives the rule's category to the transactions it decides that are still uncategorized; other matches change when rules are applied.
+  apply_to_uncategorized: z.boolean().default(false)
 });
 
+// Preview parameters arrive as query strings.
+const rulePreviewInput = z.object({
+  ...rulePattern,
+  priority: z.coerce.number().int().min(0).max(10000)
+});
+
+/** Transactions without a manual assignment whose category the rule decides: it is the first matching rule in priority order. */
+async function transactionsDecidedBy(rule: Rule) {
+  const rules = prepareRules([...(await listRules()), rule]);
+  const entries = await findUncorrectedTransactions();
+
+  return entries.filter(entry => decidingRule(entry.counterparty, entry.description, rules)?.id === rule.id);
+}
+
+/**
+ * Counts the transactions a new enabled rule would categorize, without storing it. Manual assignments are never counted. Among rules with the same
+ * priority the order depends on the new rule's generated id, so the preview counts such ties for the new rule.
+ */
+export async function previewRule(payload: unknown) {
+  const input = rulePreviewInput.parse(payload);
+
+  validatePattern(input.pattern, input.mode);
+
+  const decided = await transactionsDecidedBy({
+    ...input,
+    id: "",
+    name: "",
+    category_id: "",
+    enabled: 1
+  });
+
+  return {
+    matched: decided.length,
+    uncategorized: decided.filter(entry => entry.category_id === null).length
+  };
+}
+
 export async function createRule(payload: unknown) {
-  const input = ruleInput.parse(payload);
+  const {
+    apply_to_uncategorized: applyToUncategorized,
+    ...input
+  } = ruleInput.parse(payload);
 
   validatePattern(input.pattern, input.mode);
 
@@ -25,10 +71,26 @@ export async function createRule(payload: unknown) {
     throw new ValidationError("Category does not exist.");
   }
 
-  await insertRule(input);
+  const rule = {
+    ...input,
+    id: randomUUID()
+  };
+  let uncategorizedIds: string[] = [];
+
+  if (applyToUncategorized) {
+    const decided = await transactionsDecidedBy({
+      ...rule,
+      enabled: rule.enabled ? 1 : 0
+    });
+
+    uncategorizedIds = decided.filter(entry => entry.category_id === null).map(entry => entry.id);
+  }
+
+  const categorized = await insertRule(rule, uncategorizedIds);
 
   return {
-    ok: true
+    ok: true,
+    categorized
   };
 }
 

@@ -32,12 +32,23 @@ export function useSaveCategory(category?: Category | null) {
   });
 }
 
+export type CreatedRule = {
+  ok: true;
+  /** Uncategorized transactions that received the rule's category when it was created. */
+  categorized: number;
+};
+
+/** Creates a rule; applying it to uncategorized transactions also changes lists and spending. */
 export function useCreateRule() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (rule: Record<string, unknown>) => api("rules", rule),
-    onSettled: () => invalidate(queryClient, [queryKeys.rules()])
+    mutationFn: (rule: Record<string, unknown>) => api<CreatedRule>("rules", rule),
+    onSettled: (_result, _error, rule) => {
+      const affected = rule.apply_to_uncategorized === true ? [queryKeys.rules(), queryKeys.transactions.all(), queryKeys.reports.cashFlow()] : [queryKeys.rules()];
+
+      return invalidate(queryClient, affected);
+    }
   });
 }
 

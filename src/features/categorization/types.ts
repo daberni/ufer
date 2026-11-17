@@ -17,3 +17,14 @@ export type Rule = {
   category_color: string;
   category_icon: string | null;
 };
+
+/** The transactions a rule would categorize, counted without storing it; manual assignments are never included. */
+export type RulePreview = {
+  matched: number;
+  uncategorized: number;
+};
+
+export type RulePreviewDraft = {
+  pattern: string;
+  priority: number;
+};
