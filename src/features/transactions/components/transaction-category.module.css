@@ -6,7 +6,7 @@
 }
 
 /* A fixed width keeps the nowrap transaction table from widening with long category names; the open list shows them in full. The manual pin and the saving status sit inside the field, so it keeps this width in every state. */
-.picker {
+.category .picker {
   width: 12rem;
   max-width: 100%;
 }
@@ -60,7 +60,7 @@
     gap: var(--space-2);
     width: 100%;
   }
-  .picker {
+  .category .picker {
     width: 100%;
   }
   .message {

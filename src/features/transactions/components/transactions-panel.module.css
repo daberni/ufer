@@ -25,7 +25,7 @@
   min-height: 36px;
 }
 
-.category-filter {
+.filters .category-filter {
   width: 14rem;
   max-width: 16rem;
 }

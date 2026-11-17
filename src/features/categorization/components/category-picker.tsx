@@ -35,6 +35,8 @@ type Props = ValueProps & {
   /** Offers "Uncategorized", chosen by null. */
   includeUncategorized?: boolean;
   manual?: boolean;
+  /** Compact fields suit transaction rows and filters; regular fields match the inputs of forms and dialogs. */
+  size?: "regular" | "compact";
   /** Shown inside the field's right edge after the manual pin, such as the saving state of a change. */
   status?: ReactNode;
   /** Submits the chosen category ID with a surrounding form. */
@@ -95,6 +97,7 @@ export function CategoryPicker({
   includeAll = false,
   includeUncategorized = false,
   manual = false,
+  size = "regular",
   status,
   name,
   id,
@@ -148,7 +151,7 @@ export function CategoryPicker({
         aria-describedby={describedBy}
         // A filter offers existing categories only.
         onCreate={includeAll ? undefined : setNewCategoryName}
-        className={styles["field"]}
+        className={size === "compact" ? styles["compact"] : undefined}
         adornment={(manual || status) && (
           <span className={styles["adornment"]}>
             {manual && (

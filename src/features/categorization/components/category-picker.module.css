@@ -1,8 +1,9 @@
 .picker {
+  width: 100%;
   min-width: 0;
 }
-/* Every category select has this field: in transaction rows, filters, the rule form and dialogs. */
-.picker .field {
+/* The denser field of transaction rows and filters; in forms and dialogs the field matches the other inputs. */
+.picker .compact {
   min-height: 36px;
   font-size: var(--text-sm);
 }
@@ -39,7 +40,7 @@
   flex-shrink: 0;
 }
 @media (--mobile) {
-  .picker .field {
+  .picker .compact {
     min-height: 44px;
     font-size: var(--text-md);
   }

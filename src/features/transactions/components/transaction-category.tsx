@@ -40,6 +40,7 @@ export function TransactionCategory({
     <div className={styles["category"]}>
       <CategoryPicker
         className={styles["picker"]}
+        size="compact"
         categories={categories}
         value={categoryId}
         includeUncategorized
