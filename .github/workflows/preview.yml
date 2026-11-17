@@ -24,21 +24,12 @@ jobs:
     env:
       VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
     steps:
       - uses: actions/checkout@v7
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           persist-credentials: false
-          fetch-depth: 0
-      - name: Prepare schema-compatible preview
-        id: source
-        run: |
-          foundation="$(git rev-parse refs/remotes/origin/issue-138-manual-transactions)"
-          if ! git merge-base --is-ancestor "$foundation" HEAD; then
-            git -c user.name=github-actions[bot] -c user.email=41898282+github-actions[bot]@users.noreply.github.com merge --no-ff --no-edit "$foundation"
-          fi
-          echo "foundation=$foundation" >> "$GITHUB_OUTPUT"
-          echo "build=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
@@ -46,22 +37,16 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           PULL_REQUEST: ${{ github.event.pull_request.number }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          BUILD_SHA: ${{ steps.source.outputs.build }}
-          FOUNDATION_SHA: ${{ steps.source.outputs.foundation }}
         run: .github/scripts/preview-comment.sh building
       - name: Deploy to Vercel
         id: deploy
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           PULL_REQUEST: ${{ github.event.pull_request.number }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          BUILD_SHA: ${{ steps.source.outputs.build }}
-          FOUNDATION_SHA: ${{ steps.source.outputs.foundation }}
         run: |
           output="$RUNNER_TEMP/vercel-deploy.log"
           status=0
-          npx --yes vercel@65.16.0 deploy --yes --token "$VERCEL_TOKEN" --meta "githubPullRequest=$PULL_REQUEST" --meta "previewHeadSha=$HEAD_SHA" --meta "previewBuildSha=$BUILD_SHA" --meta "previewFoundationSha=$FOUNDATION_SHA" > "$RUNNER_TEMP/vercel-url.txt" 2> "$output" || status=$?
+          npx --yes vercel@65.16.0 deploy --yes --token "$VERCEL_TOKEN" --meta "githubPullRequest=$PULL_REQUEST" --meta "previewHeadSha=$HEAD_SHA" > "$RUNNER_TEMP/vercel-url.txt" 2> "$output" || status=$?
           cat "$output" >&2
           echo "url=$(cat "$RUNNER_TEMP/vercel-url.txt")" >> "$GITHUB_OUTPUT"
           echo "inspector=$(grep -o 'https://vercel.com/[^ ]*' "$output" | head -n 1 || true)" >> "$GITHUB_OUTPUT"
@@ -74,9 +59,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           PULL_REQUEST: ${{ github.event.pull_request.number }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          BUILD_SHA: ${{ steps.source.outputs.build }}
-          FOUNDATION_SHA: ${{ steps.source.outputs.foundation }}
           OUTCOME: ${{ steps.deploy.outcome }}
           ERROR: ${{ steps.deploy.outputs.error }}
           URL: ${{ steps.deploy.outputs.url }}
