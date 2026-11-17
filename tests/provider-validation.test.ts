@@ -210,13 +210,6 @@ test("malformed bank sessions are 502 provider failures and nothing from them is
     "missing-access": session("synthetic-session", "hash-b", {
       access: undefined
     }),
-    "numeric-account-id": session("synthetic-session", "hash-c", {
-      accounts: [{
-        uid: 42,
-        identification_hash: "hash-c",
-        currency: "EUR"
-      }]
-    }),
     "missing-session-id": session("", "hash-d")
   };
 
@@ -239,6 +232,45 @@ test("malformed bank sessions are 502 provider failures and nothing from them is
   assert.equal((await db.select().from(schema.accounts)).length, 0);
   assert.equal(requests.filter(request => request.startsWith("DELETE")).length, 0);
 });
+
+for (const revocationStatus of [204, 503]) {
+  test(`malformed session accounts retain cleanup credentials until revocation is confirmed (${revocationStatus})`, async context => {
+    context.mock.method(console, "warn", () => {});
+    const {
+      db,
+      actor,
+      requests,
+      useProvider
+    } = await providerDatabase(context);
+
+    await insertPendingAuthorization(db, actor, "invalid-accounts");
+    useProvider(({ method }) => method === "DELETE" ? new Response(null, {
+      status: revocationStatus
+    }) : Response.json(session("invalid-account-session", "unused", {
+      accounts: [{
+        uid: "account",
+        currency: "EUR"
+      }]
+    })));
+
+    await assert.rejects(authorize("invalid-accounts", actor), {
+      status: 502,
+      message: "Enable Banking returned an unexpected response."
+    });
+    assert.deepEqual(requests, ["POST /sessions", "DELETE /sessions/invalid-account-session"]);
+    assert.equal((await connection(db, "invalid-accounts"))?.status, "ERROR");
+    const stored = await connection(db, "invalid-accounts");
+
+    if (revocationStatus === 204) {
+      assert.equal(stored?.session_cipher, null);
+    } else {
+      assert.equal(decrypt(String(stored?.session_cipher)), "invalid-account-session");
+    }
+
+    assert.equal((await db.select().from(schema.accounts)).length, 0);
+  });
+
+}
 
 test("a bank redirect or directory that does not match the provider contract is rejected before anything is stored", async context => {
   context.mock.method(console, "warn", () => {});

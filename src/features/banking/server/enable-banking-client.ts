@@ -73,12 +73,15 @@ const bankAccount = z.object({
   cash_account_type: optionalText
 });
 
-const sessionResponse = z.object({
+const sessionEnvelope = z.looseObject({
   session_id: z.string().min(1),
-  accounts: z.array(bankAccount),
   access: z.object({
     valid_until: providerInstant
-  }),
+  })
+});
+
+const sessionResponse = sessionEnvelope.extend({
+  accounts: z.array(bankAccount),
   aspsp: z.object({
     name: z.string(),
     country: z.string()
@@ -322,11 +325,15 @@ export async function requestAuthorization(request: object) {
   return bankingRequest("/auth", authorizationResponse, request);
 }
 
-/** Exchanges the callback code for the provider session with its authorized accounts. */
+/** Capture the recoverable credential before validating nested session details. */
 export async function createSession(code: string) {
-  return bankingRequest("/sessions", sessionResponse, {
+  return bankingRequest("/sessions", sessionEnvelope, {
     code
   });
+}
+
+export function validateBankSession(session: unknown) {
+  return validProviderData(session, sessionResponse);
 }
 
 export async function fetchBalances(uid: string) {

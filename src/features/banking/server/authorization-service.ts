@@ -5,7 +5,7 @@ import { hash } from "@/server/security/tokens";
 import { database } from "@/server/database/connection";
 import { cancelPendingAuthorization, clearRevokedSession, consumeAuthorization, recordConnectionFailure, recordEmptyConnection, recordRevocationFailure, saveBankSession } from "./connection-repository";
 import { saveSessionAccounts } from "./bank-account-repository";
-import { createSession } from "./enable-banking-client";
+import { createSession, validateBankSession } from "./enable-banking-client";
 import { environment } from "./environment";
 import { revokeSession } from "./session-revocation";
 
@@ -28,15 +28,11 @@ export async function completeAuthorization(state: string, browserSecret: string
   }[] = [];
 
   try {
-    const session = await createSession(code);
-
-    if (session.aspsp.name !== connection.bank_name || session.aspsp.country !== connection.bank_country) {
-      throw new HttpError(502, "The bank callback does not match the requested connection.");
-    }
+    const envelope = await createSession(code);
 
     // Persist the once-only provider response before mapping accounts, so a mapping failure still leaves the session to revoke.
-    const sessionCipher = encrypt(session.session_id);
-    const sessionSaved = await saveBankSession(db, connection.id, sessionCipher, session.access.valid_until);
+    const sessionCipher = encrypt(envelope.session_id);
+    const sessionSaved = await saveBankSession(db, connection.id, sessionCipher, envelope.access.valid_until);
 
     if (!sessionSaved) {
       throw new HttpError(409, "The bank connection was removed during authorization.");
@@ -46,6 +42,12 @@ export async function completeAuthorization(state: string, browserSecret: string
       id: connection.id,
       session_cipher: sessionCipher
     };
+    const session = validateBankSession(envelope);
+
+    if (session.aspsp.name !== connection.bank_name || session.aspsp.country !== connection.bank_country) {
+      throw new HttpError(502, "The bank callback does not match the requested connection.");
+    }
+
     releasedSessions = await saveSessionAccounts(db, env, connection.id, connection.bank_name, session.accounts);
 
     if (!session.accounts.length) {
