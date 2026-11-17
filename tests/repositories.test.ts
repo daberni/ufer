@@ -288,7 +288,7 @@ test("category corrections retain environment isolation, manual exclusions survi
     currency: "EUR",
     type: "transfer",
     counterparty: "Supermarket",
-    category_id: "transfer"
+    category_id: null
   }]);
 
   assert.equal(await findManualAccount("other"), undefined);

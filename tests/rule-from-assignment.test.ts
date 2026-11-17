@@ -141,8 +141,7 @@ async function seedBookings(context: TestContext) {
     },
     {
       id: "transfer",
-      counterparty: "Example Market",
-      category_id: "transfer"
+      counterparty: "Example Market"
     },
     {
       id: "unrelated",
@@ -197,7 +196,7 @@ test("a rule preview counts the transactions the new rule would decide, without 
     priority: 100
   }), {
     matched: 4,
-    uncategorized: 2
+    uncategorized: 3
   });
   assert.deepEqual(await previewRule({
     pattern: "Example Market",
@@ -205,7 +204,7 @@ test("a rule preview counts the transactions the new rule would decide, without 
     priority: 5
   }), {
     matched: 5,
-    uncategorized: 3
+    uncategorized: 4
   });
   assert.deepEqual(await previewRule({
     pattern: "No such payee",
@@ -238,13 +237,14 @@ test("a rule applied to existing transactions categorizes only the uncategorized
     apply_to_uncategorized: true
   }), {
     ok: true,
-    categorized: 2
+    categorized: 3
   });
 
   assert.deepEqual(await categories(db), {
     ...before,
     "uncategorized-payee": "groceries/rule",
-    "uncategorized-description": "groceries/rule"
+    "uncategorized-description": "groceries/rule",
+    "transfer": "groceries/rule"
   });
 
   const stored = await db.select().from(schema.categorizationRules).where(eq(schema.categorizationRules.name, "Example Market")).get();
@@ -299,7 +299,7 @@ test("among rules of the same priority the older one decides, in the preview, on
     priority: 99
   }), {
     matched: 4,
-    uncategorized: 2
+    uncategorized: 3
   });
   assert.deepEqual(await createRule({
     name: "Example Market",

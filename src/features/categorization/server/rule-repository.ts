@@ -49,6 +49,13 @@ export async function insertRule(rule: NewRule, uncategorizedIds: string[] = [])
   return updates.reduce((total, update) => total + update.rowsAffected, 0);
 }
 
+export async function updateRule(id: string, details: Pick<Rule, "name" | "pattern" | "mode" | "category_id" | "priority">) {
+  const db = await database();
+  const result = await db.update(categorizationRules).set(details).where(eq(categorizationRules.id, id));
+
+  return result.rowsAffected > 0;
+}
+
 export async function setRuleEnabled(id: string, enabled: boolean) {
   const db = await database();
 

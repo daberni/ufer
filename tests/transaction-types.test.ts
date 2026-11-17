@@ -558,7 +558,7 @@ test("a migrated transfer keeps its type when a CSV reimport carries no transfer
   // The changeset turns a rule-categorized Transfer booking into an automatic transfer.
   await db.update(schema.transactions).set({
     type: "transfer",
-    category_id: "transfer"
+    category_id: null
   }).where(eq(schema.transactions.account_id, "cash"));
   await importTransactions({
     account_id: "cash",

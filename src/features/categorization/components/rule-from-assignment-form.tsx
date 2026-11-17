@@ -10,7 +10,7 @@ import { toFailure } from "@/client/api";
 import { Dialog } from "@/components/ui/dialog";
 import { FormError } from "@/components/ui/form-error";
 import { useDialogSubmit } from "@/components/ui/use-dialog-submit";
-import { useCreateRule } from "@/features/categorization/mutations";
+import { useCreateRuleFromAssignment } from "@/features/categorization/mutations";
 import { useCategories, useRulePreview } from "@/features/categorization/queries";
 import { proposeRulePattern } from "@/features/categorization/rule-pattern";
 import type { RulePreviewDraft } from "@/features/categorization/types";
@@ -69,7 +69,7 @@ function RuleFromAssignmentForm({
     error,
     pending,
     submit
-  } = useDialogSubmit(useCreateRule(), close);
+  } = useDialogSubmit(useCreateRuleFromAssignment(), close);
   const patternFieldId = useId();
   const patternHintId = useId();
   const categoryFieldId = useId();

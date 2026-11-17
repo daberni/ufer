@@ -39,7 +39,7 @@ export type CreatedRule = {
 };
 
 /** Creates a rule; applying it to uncategorized transactions also changes lists and spending. */
-export function useCreateRule() {
+export function useCreateRuleFromAssignment() {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -49,6 +49,15 @@ export function useCreateRule() {
 
       return invalidate(queryClient, affected);
     }
+  });
+}
+
+export function useSaveRule(rule?: Rule | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (details: Record<string, unknown>) => rule ? api(`rules/${encodeURIComponent(rule.id)}`, details, "PUT") : api("rules", details),
+    onSettled: () => invalidate(queryClient, [queryKeys.rules()])
   });
 }
 

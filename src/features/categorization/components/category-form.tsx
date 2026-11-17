@@ -10,7 +10,7 @@ import type { Category } from "@/features/categorization/types";
 import { useDialogSubmit, type DialogFormProps } from "@/components/ui/use-dialog-submit";
 import { useSaveCategory } from "@/features/categorization/mutations";
 import { FormError } from "@/components/ui/form-error";
-import { CategoryChip } from "./category-chip";
+import { CategoryLabel } from "./category-label";
 import { CategoryIconPicker } from "./category-icon-picker";
 import { Dialog } from "@/components/ui/dialog";
 
@@ -65,7 +65,7 @@ function CategoryForm({
       className={ui["form"]}
     >
       <div className={styles["preview"]} aria-hidden="true">
-        <CategoryChip
+        <CategoryLabel
           category={{
             name: name.trim() || "New category",
             color,

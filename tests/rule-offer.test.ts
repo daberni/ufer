@@ -14,13 +14,11 @@ const categories: Category[] = [{
   id: "groceries",
   name: "Groceries",
   color: "#638777",
-  is_transfer: 0,
   icon: null
 }, {
   id: "leisure",
   name: "Leisure",
   color: "#cb8577",
-  is_transfer: 0,
   icon: null
 }];
 
@@ -36,7 +34,12 @@ function booking(id: string, counterparty: string): Transaction {
     description: "Synthetic purchase",
     account_name: "Synthetic account",
     category_id: null,
-    category_source: "rule"
+    category_source: "rule",
+    type: "expense",
+    type_source: "auto",
+    manual_account: false,
+    created_counterpart: false,
+    counterpart: null
   };
 }
 
