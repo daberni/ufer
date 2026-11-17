@@ -28,13 +28,28 @@ const percent = new Intl.NumberFormat("en", {
   maximumFractionDigits: 0
 });
 
-/** Expenses as a share of income; without income there is nothing to compare them with. */
-function spendingShare(income: number, expenses: number) {
-  if (income <= 0) {
-    return null;
+/** Refunds can make net spending negative; neither refunds nor missing income represent a spending share. */
+function spendingComparison(income: number, expenses: number) {
+  if (expenses <= 0) {
+    return {
+      label: expenses < 0 ? "Refunds exceeded spending" : "No spending this period",
+      width: 0
+    };
   }
 
-  return expenses / income;
+  if (income <= 0) {
+    return {
+      label: "No income to compare spending with",
+      width: 0
+    };
+  }
+
+  const share = expenses / income;
+
+  return {
+    label: `Spent ${percent.format(share)} of income`,
+    width: Math.min(1, share) * 100
+  };
 }
 
 export function WealthSummary({
@@ -71,9 +86,7 @@ export function WealthSummary({
   const currency = summary.currency;
   // The transaction list has no direction or transfer filter, so every figure opens the period's transactions in this currency.
   const transactionsHref = viewHref("transactions");
-  const share = spendingShare(flows.income, flows.expenses);
-  const shareText = share === null ? "No income to compare spending with" : `Spent ${percent.format(share)} of income`;
-  const shareWidth = share === null ? 0 : Math.min(1, share) * 100;
+  const comparison = spendingComparison(flows.income, flows.expenses);
 
   return (
     <div className={styles["wealth-grid"]}>
@@ -154,11 +167,11 @@ export function WealthSummary({
           <ChevronRight className={styles["link-icon"]} size={18} />
         </Link>
         <div className={styles["spending-share"]}>
-          <span className={cashFlowValue}>{shareText}</span>
+          <span className={cashFlowValue}>{comparison.label}</span>
           <span className={clsx(styles["share-track"], cashFlowValue)} aria-hidden="true">
             <i
               style={{
-                width: `${shareWidth}%`
+                width: `${comparison.width}%`
               }}
             />
           </span>

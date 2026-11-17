@@ -106,3 +106,42 @@ test("spending without income is not compared as a percentage", async context =>
   assert.ok(screen.getByText("No income to compare spending with"));
   assert.equal(screen.queryByText(/%/), null);
 });
+
+for (const income of [400000, 0, -40000]) {
+  test(`net refunds with income ${income} show an empty comparison rather than negative spending`, async context => {
+    const screen = await renderSummary(context, "/?period=2026-10&currency=USD", {
+      income,
+      expenses: -100000
+    });
+    const label = screen.getByText("Refunds exceeded spending");
+    const fill = label.parentElement?.querySelector<HTMLElement>("[aria-hidden] > i");
+
+    assert.equal(fill?.style.width, "0%");
+    assert.equal(screen.queryByText(/Spent -/) === null, true);
+    assert.match(screen.getByRole("link", {
+      name: /Expenses/
+    }).textContent || "", /-.*1,000\.00/);
+  });
+}
+
+test("a period with no net spending has an empty comparison", async context => {
+  const screen = await renderSummary(context, "/?period=2026-10&currency=USD", {
+    income: 400000,
+    expenses: 0
+  });
+  const label = screen.getByText("No spending this period");
+  const fill = label.parentElement?.querySelector<HTMLElement>("[aria-hidden] > i");
+
+  assert.equal(fill?.style.width, "0%");
+});
+
+test("overspending keeps the real percentage while the comparison bar stops at its full width", async context => {
+  const screen = await renderSummary(context, "/?period=2026-10&currency=USD", {
+    income: 400000,
+    expenses: 1100000
+  });
+  const label = screen.getByText("Spent 275% of income");
+  const fill = label.parentElement?.querySelector<HTMLElement>("[aria-hidden] > i");
+
+  assert.equal(fill?.style.width, "100%");
+});
