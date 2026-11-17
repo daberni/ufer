@@ -1,39 +1,87 @@
 .searchable-select {
   width: 100%;
 }
+/* The visible field is the control: the selected option's icon, the text, status icons and the toggle share its row, so status icons never change its width. It matches the form inputs beside it; callers may size it more densely. */
 .control {
   --toggle-width: 40px;
-  position: relative;
-}
-/* Room for the toggle button, which sits inside the field's right edge. */
-.input {
-  width: 100%;
-  padding-right: calc(var(--toggle-width) + var(--space-1));
-}
-/* The selected option's icon sits inside the field's left edge while the field shows that option. */
-.selected-icon {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: var(--space-3);
   display: flex;
   align-items: center;
+  min-height: 42px;
+  font-size: var(--text-sm);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--ink);
+}
+.control:has([aria-invalid="true"]) {
+  border-color: var(--danger);
+}
+/* Inline fields reserve their border and toggle space even when idle. A containing row can reveal them through these scoped variables. */
+.control.inline {
+  border-color: var(--inline-select-border, transparent);
+  background: var(--inline-select-background, transparent);
+}
+.control.inline .toggle svg {
+  opacity: var(--inline-select-indicator-opacity, 0);
+}
+.control.inline:focus-within,
+.control.inline:has([aria-expanded="true"]) {
+  border-color: var(--border);
+  background: var(--surface);
+}
+.control.inline:focus-within .toggle svg,
+.control.inline:has([aria-expanded="true"]) .toggle svg,
+.control.inline:has([aria-invalid="true"]) .toggle svg {
+  opacity: 1;
+}
+.control.inline:has([aria-invalid="true"]) {
+  border-color: var(--danger);
+  background: var(--surface);
+}
+/* The field's ring marks a focused search; the toggle draws its own ring inside the field. */
+.control:has(.input:focus-visible) {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+}
+/* Outranks form input rules, so the control alone sets the field's height and text size. */
+.control .input {
+  flex: 1 1 0;
+  align-self: stretch;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  padding: var(--space-1) var(--space-1) var(--space-1) var(--space-3);
+  font-size: inherit;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: inherit;
+  text-overflow: ellipsis;
+}
+.input:focus-visible {
+  outline: none;
+}
+.selected-icon {
+  display: flex;
+  align-items: center;
+  margin-left: var(--space-3);
   pointer-events: none;
 }
-/* The icon (16px) with the field's inline padding on both sides. */
-.input.with-icon {
-  padding-left: calc(16px + 2 * var(--space-3));
+.selected-icon + .input {
+  padding-left: var(--space-2);
 }
 .toggle {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
   display: flex;
   align-items: center;
   justify-content: center;
+  align-self: stretch;
+  flex-shrink: 0;
   width: var(--toggle-width);
   color: var(--muted);
+}
+.toggle:focus-visible {
+  outline-offset: -2px;
+  border-radius: var(--radius-md);
 }
 .toggle svg {
   width: 16px;
@@ -114,6 +162,8 @@
 @media (--mobile) {
   .control {
     --toggle-width: 48px;
+    min-height: 48px;
+    font-size: var(--text-md);
   }
   .option {
     min-height: 44px;

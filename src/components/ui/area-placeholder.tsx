@@ -18,7 +18,7 @@ type Props = {
 };
 
 /**
- * Holds an area's place until its first results arrive. The skeleton keeps the final layout and is hidden from assistive technology, which hears the view's single loading announcement instead; a failed load covers it with the reason and a retry.
+ * Holds an area's place until its first results arrive. The skeleton keeps the final layout and is hidden from assistive technology, which hears the view's single loading announcement instead; a failed load replaces it with a compact reason and a retry.
  */
 export function AreaPlaceholder({
   area,
@@ -30,10 +30,13 @@ export function AreaPlaceholder({
 
   return (
     <div className={clsx(styles["placeholder"], failure && styles["failed"], className)}>
-      <div className={styles["skeleton"]} aria-hidden="true" inert>
-        {children}
-      </div>
-      {failure && <FailureCover failure={failure} subject={subject} />}
+      {failure ? (
+        <FailureCover failure={failure} subject={subject} />
+      ) : (
+        <div className={styles["skeleton"]} aria-hidden="true" inert>
+          {children}
+        </div>
+      )}
     </div>
   );
 }
@@ -47,7 +50,7 @@ export function FailureCover({
   subject: string;
 }) {
   return (
-    <div className={styles["failure"]}>
+    <div className={styles["failure"]} role="alert">
       <p>
         <CircleAlert size={16} aria-hidden="true" />
         {`${subject} could not be loaded: ${failure.message}`}
