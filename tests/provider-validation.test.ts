@@ -434,6 +434,39 @@ test("reauthorizing a bank revokes the provider session of the connection it sup
   assert.equal(decrypt(String((await connection(db, "renewed"))?.session_cipher)), "renewed-session");
 });
 
+test("reauthorization preserves an unrelated connection that was already empty", async context => {
+  const {
+    db,
+    actor,
+    requests,
+    useProvider
+  } = await providerDatabase(context);
+
+  await insertPendingAuthorization(db, actor, "empty");
+  useProvider(() => Response.json(session("empty-session", "unused", {
+    accounts: []
+  })));
+  assert.deepEqual(await authorize("empty", actor), {
+    accounts: 0
+  });
+  const emptyBefore = await connection(db, "empty");
+
+  await insertLinkedConnection(db, "previous", "kept");
+  await insertPendingAuthorization(db, actor, "renewed");
+  useProvider(({ method }) => method === "DELETE" ? new Response(null, {
+    status: 204
+  }) : Response.json(session("renewed-session", "hash-kept")));
+
+  assert.deepEqual(await authorize("renewed", actor), {
+    accounts: 1
+  });
+  assert.deepEqual(requests, ["POST /sessions", "POST /sessions", "DELETE /sessions/previous-session"]);
+  assert.deepEqual(await connection(db, "empty"), emptyBefore);
+  assert.equal((await connection(db, "previous"))?.status, "SUPERSEDED");
+  assert.equal((await connection(db, "previous"))?.session_cipher, null);
+  assert.equal((await db.select().from(schema.accounts).where(eq(schema.accounts.id, "kept")).get())?.requisition_id, "renewed");
+});
+
 test("a failed superseded-session revocation keeps the new connection and waits for explicit removal", async context => {
   const warnings = context.mock.method(console, "warn", () => {});
   const {
