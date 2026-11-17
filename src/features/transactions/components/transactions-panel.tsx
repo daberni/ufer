@@ -6,10 +6,12 @@ import { clsx } from "clsx";
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import styles from "./transactions-panel.module.css";
-import { ArrowDownToLine, ArrowRight, Search, SlidersHorizontal } from "lucide-react";
+import { ArrowDownToLine, ArrowRight, Plus, Search, SlidersHorizontal } from "lucide-react";
 import { Empty } from "@/components/ui/empty-state";
 import { TransactionList, TransactionListSkeleton } from "@/features/transactions/components/transaction-list";
 import { CsvImportDialog } from "@/features/imports/components/csv-import-form";
+import { ManualTransactionDialog } from "@/features/transactions/components/manual-transaction-dialog";
+import { useAccounts } from "@/features/accounts/queries";
 import { setAccountFilter, setCategoryFilter, setPage, setSearch, useAccountFilter, useCategoryFilter, useChangeView, useSearchFilter } from "@/client/use-app-url";
 import { Select } from "@/components/ui/select";
 import { anyCategory, CategoryPicker, type CategoryPickerValue } from "@/features/categorization/components/category-picker";
@@ -75,7 +77,9 @@ export function TransactionsPanel(props: Props) {
     view
   } = props;
   const [importOpen, setImportOpen] = useState(false);
+  const [entryOpen, setEntryOpen] = useState(false);
   const changeView = useChangeView();
+  const manualAccounts = (useAccounts().data ?? []).filter(account => account.provider === "manual");
 
   return (
     <section className={clsx(ui["panel"], styles["transaction-panel"])}>
@@ -88,6 +92,15 @@ export function TransactionsPanel(props: Props) {
         )}
         {props.view === "transactions" && (
           <div className={styles["heading-actions"]}>
+            {manualAccounts.length > 0 && (
+              <button
+                className={clsx(styles["button"], ui["small"])}
+                onClick={() => setEntryOpen(true)}
+              >
+                <Plus size={14} />
+                Add transaction
+              </button>
+            )}
             <button
               className={clsx(styles["button"], ui["small"])}
               onClick={() => setImportOpen(true)}
@@ -119,6 +132,7 @@ export function TransactionsPanel(props: Props) {
         />
       )}
       {importOpen && <CsvImportDialog initialMode="transactions" close={() => setImportOpen(false)} />}
+      {entryOpen && <ManualTransactionDialog accounts={manualAccounts} close={() => setEntryOpen(false)} />}
     </section>
   );
 }
@@ -206,6 +220,7 @@ function TransactionFilters({
       </Select>
       <CategoryPicker
         className={styles["category-filter"]}
+        size="compact"
         aria-label="Category filter"
         categories={categories}
         value={categoryPickerValue(categoryFilter)}

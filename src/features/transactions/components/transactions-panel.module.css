@@ -25,13 +25,13 @@
   flex-wrap: wrap;
   padding: 0 var(--space-6) var(--space-4);
 }
-.filters input,
+.search-field input,
 .filters select {
   font-size: var(--text-sm);
   min-height: 36px;
 }
 
-.category-filter {
+.filters .category-filter {
   width: 14rem;
   max-width: 16rem;
 }
@@ -83,10 +83,10 @@
   .filters .search-field {
     flex-basis: 100%;
   }
-  .filters input,
+  .search-field input,
   .filters select {
     font-size: var(--text-md);
-    min-height: 46px;
+    min-height: 44px;
   }
   .filters select {
     flex: 1 1 100%;
