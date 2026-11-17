@@ -63,12 +63,12 @@ function TransactionRow({
           <span className={clsx(styles["transaction-icon"], incoming && styles["incoming"])}>{incoming ? <ArrowDownLeft size={17} /> : <ArrowUpRight size={17} />}</span>
           <strong className={styles["name"]}>{transaction.counterparty || transaction.description || transactionTypeLabels[transaction.type]}</strong>
           <span className={styles["description"]} title={transaction.description}>{transaction.description || "No description"}</span>
-          {transaction.description && (
+          {transaction.description ? (
             <details className={styles["transaction-details"]}>
               <summary>Description</summary>
               <p>{transaction.description}</p>
             </details>
-          )}
+          ) : <span className={styles["no-details"]}>No description</span>}
         </div>
       </th>
       <td role="cell" className={styles["category"]}>
