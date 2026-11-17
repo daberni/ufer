@@ -132,6 +132,7 @@ test("removing a bank connection keeps accounts and history, deletes its credent
     booking_date: "2000-01-10",
     amount_minor: -500,
     currency: "EUR",
+    type: "expense",
     counterparty: "Example payee"
   });
   await db.insert(schema.balanceSnapshots).values({

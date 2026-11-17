@@ -19,13 +19,11 @@ const categories: Category[] = [{
   id: "groceries",
   name: "Groceries",
   color: "#638777",
-  is_transfer: 0,
   icon: null
 }, {
   id: "leisure",
   name: "Leisure",
   color: "#c2aa6b",
-  is_transfer: 0,
   icon: null
 }];
 
@@ -51,8 +49,16 @@ const transaction: Transaction = {
   counterparty: "Example Market",
   description: "Synthetic purchase",
   account_name: "Synthetic account",
+  account_id: "synthetic-account",
   category_id: "groceries",
-  category_source: "rule"
+  category_source: "rule",
+  type: "expense",
+  type_source: "auto",
+  manual_account: false,
+  entered: false,
+  follows_import: false,
+  created_counterpart: false,
+  counterpart: null
 };
 
 function controlsIn(screen: RenderResult) {

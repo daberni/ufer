@@ -11,6 +11,7 @@ import { normalizeTransactions } from "./bank-data";
 import { saveAccountSync } from "./account-sync-service";
 import { finishSyncRun, interruptSyncRun, listSyncAccounts, recordAccountSyncError, startSyncRun } from "./sync-repository";
 import { expireConnection, expireEndedSession } from "./connection-repository";
+import { pairTransfersInEnvironment } from "@/features/transactions/server/transfer-repository";
 
 // Only a new bank authorization resolves this failure; rate limits and provider data errors do not.
 class ReconnectRequired extends HttpError {
@@ -122,6 +123,10 @@ export async function syncAccounts() {
         });
       }
     }
+
+    // Both bookings of a transfer between two synced accounts exist only once every account is stored.
+    await heartbeat();
+    await pairTransfersInEnvironment(env);
 
     const allFailed = accounts.length > 0 && failures.length === accounts.length;
     const partialStatus = failures.length ? "PARTIAL" : "SUCCESS";

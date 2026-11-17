@@ -9,7 +9,6 @@ export async function listCategories() {
     id: categories.id,
     name: categories.name,
     color: categories.color,
-    is_transfer: categories.is_transfer,
     icon: categories.icon
   }).from(categories).orderBy(asc(categories.name));
 }

@@ -20,13 +20,13 @@ Application keys stay on the server. Bank session IDs are encrypted with AES-256
 
 ## Data and imports
 
-Amounts use integer minor units. Different currencies are never silently converted or summed. The dashboard separates latest known asset balances from month-filtered cash flow. Categorized transfers are excluded from income and expenses; transfers to known owned IBANs are identified automatically.
+Amounts use integer minor units. Different currencies are never silently converted or summed. The dashboard separates latest known asset balances from month-filtered cash flow. Every transaction has a type (income, expense, transfer; opening balance and adjustment for manual accounts) independent of its category, and only income and expenses count toward cash flow, spending and trends. A synced booking whose counterparty IBAN belongs to another synced account becomes a transfer; otherwise new bookings start as income or expense by direction. Rules assign categories to transfers like to any other booking, and a transfer no rule matches stays uncategorized. After each sync and CSV import, a transfer and an unlinked booking with the opposite amount in the same currency on another own account at most three days apart are linked as one transfer when each has exactly one such candidate. Manual type changes, links and unlinks survive resync and imports. A person links only bookings with the exact opposite amount in the same currency at most 14 days apart; transfers with a fee or a currency exchange stay transfers without a counterpart. A transfer someone saved without a counterpart is never paired automatically afterwards. See [ADR 008](adr/decisions/008-transaction-types-and-transfers.md).
 
 The schema includes accounts, transactions, categories, categorization rules, bank connections (`requisitions`), account identifiers, balance snapshots, sync history, leases, and login throttling. Drizzle provides typed table models, a shared database connection and versioned SQL changesets. Empty databases receive the initial schema; a recognized existing database opens without automatic schema/history changes. Existing-database adoption and future upgrades require explicit maintenance; see the [migration workflow](database-migrations.md). Individual users and active membership of one constrained installation workspace are implemented in source; independent-customer isolation and SSO remain unimplemented. See [user management](user-management.md) for the required rollout.
 
-Manual valuations and CSV imports are available. Current imports require a fixed UTF-8 format with comma or semicolon delimiters and an optional BOM. Configurable field mapping, previews, and reusable import profiles are planned. There is no PDF importer or dedicated migration wizard for another product.
+Manual accounts accept transactions entered in Ufer, Update balance and CSV imports. A manual account's balance is the sum of its transactions: the opening balance booked when the account is created, entered or imported transactions, transfers and adjustments ([ADR 009](adr/decisions/009-manual-account-balances-from-transactions.md)). Current imports require a fixed UTF-8 format with comma or semicolon delimiters and an optional BOM. Configurable field mapping, previews, and reusable import profiles are planned. There is no PDF importer or dedicated migration wizard for another product.
 
-Balance snapshots record an account's balance or asset valuation on a given date, together with its source (bank sync, manual entry or CSV). They preserve history when the latest balance changes. This is necessary for investments whose market value cannot be reconstructed from cash transactions alone. Historical net-worth charts are planned; snapshots are already persisted, but no history chart is available yet.
+Balance snapshots record a synced account's provider balance on a given date. A manual account records a balance instead as an adjustment: Update balance and each imported balance book the difference between the entered balance and the account's balance at the end of that date, so a market value that cannot be reconstructed from cash transactions alone is kept in the account's running balance. Historical net-worth charts are planned; no history chart is available yet.
 
 Balance-history CSV:
 
@@ -35,7 +35,7 @@ date;balance;currency
 2026-01-15;1000.00;EUR
 ```
 
-The latest dated snapshot updates the current balance; older imports cannot overwrite a newer current balance. A repeated date updates that snapshot.
+Rows are recorded oldest first. Each books an adjustment for the difference to the account's balance at the end of its date (an opening balance if the account has no transactions yet); a balance the account already has books nothing, so importing the same file again changes nothing. Later transactions keep their effect, so an older balance does not replace the current one.
 
 Booked transactions:
 
@@ -44,6 +44,6 @@ id;date;amount;currency;counterparty;description
 example-001;2026-01-15;-12.50;EUR;Example merchant;Example purchase
 ```
 
-IDs must be stable and unique per account. Reimporting updates rather than duplicates. Transaction imports do not recalculate the account balance. Limits: 1 MB, 10,000 rows, ISO dates, and the account's currency. Use a decimal point, or a decimal comma with semicolon delimiters, without thousands separators.
+IDs must be stable and unique per account. Reimporting updates rather than duplicates. Imported transactions count toward the account balance. Limits: 1 MB, 10,000 rows, ISO dates, and the account's currency. Use a decimal point, or a decimal comma with semicolon delimiters, without thousands separators.
 
 Rules match payee and description case-insensitively. Lower priority numbers win; rule ID breaks ties. Applying rules preserves manual assignments. Regular expressions use RE2 syntax without backreferences or lookbehind.
