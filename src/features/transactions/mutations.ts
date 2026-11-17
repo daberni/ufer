@@ -19,8 +19,8 @@ export type TransactionEdit = {
   transfer?: TransferTarget;
 };
 
-// A type or link change can touch both bookings of a transfer, so every list and the cash flow are refreshed.
-const editKeys = [queryKeys.transactions.all(), queryKeys.reports.cashFlow()];
+// A type or link change can touch both transfer bookings, so lists, cash flow and derived account histories are refreshed.
+const editKeys = [queryKeys.transactions.all(), queryKeys.reports.cashFlow(), queryKeys.accounts()];
 
 export function useSaveTransaction(id: string) {
   const queryClient = useQueryClient();

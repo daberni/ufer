@@ -85,7 +85,9 @@ export async function readBalanceHistory(accountId: string): Promise<BalanceHist
   const source = providerSources[account.provider as keyof typeof providerSources] ?? "manual";
   const observations: BalancePoint[] = balances.filter(balance => balance.date <= currentDate);
 
-  if (account.balance_minor !== null && account.balance_date && account.balance_date <= currentDate) {
+  const currentBalanceIsObserved = observations.some(observation => observation.date === account.balance_date);
+
+  if (account.balance_minor !== null && account.balance_date && account.balance_date <= currentDate && !currentBalanceIsObserved) {
     observations.push({
       date: account.balance_date,
       amount_minor: account.balance_minor,

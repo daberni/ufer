@@ -288,3 +288,19 @@ test("partial cash imports without a balance reference do not imply a zero openi
 
   assert.deepEqual(history.balances, []);
 });
+
+
+test("a CSV balance keeps its recorded provenance when the current account balance has the same date", async context => {
+  const db = await seededDatabase(context);
+
+  await db.update(schema.balanceSnapshots).set({
+    source: "csv"
+  }).where(eq(schema.balanceSnapshots.id, "snapshot-2"));
+  await db.update(schema.accounts).set({
+    balance_minor: 205300,
+    balance_date: "2026-02-01"
+  }).where(eq(schema.accounts.id, "checking"));
+  const history = await readBalanceHistory("checking");
+
+  assert.equal(history.balances.find(balance => balance.date === "2026-02-01")?.source, "csv");
+});
