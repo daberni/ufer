@@ -1,0 +1,58 @@
+.type-button {
+  composes: text-button from "../../../components/ui/primitives.module.css";
+  color: var(--ink-soft);
+  font-weight: 500;
+  text-align: left;
+  min-height: 32px;
+}
+.type-button:hover {
+  color: var(--green-text);
+}
+.label {
+  display: flex;
+  flex-direction: column;
+}
+.detail {
+  font-weight: 400;
+  color: var(--muted);
+}
+.edit-hint {
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity var(--duration);
+}
+.type-button:hover .edit-hint,
+.type-button:focus-visible .edit-hint {
+  opacity: 1;
+}
+.transfer {
+  margin-top: var(--space-6);
+  padding-top: var(--space-6);
+  border-top: 1px solid var(--border);
+}
+.transfer-heading {
+  font-size: var(--text-lg);
+  font-weight: 500;
+}
+.counterpart {
+  margin-top: var(--space-4);
+  font-size: var(--text-sm);
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.action {
+  margin-top: var(--space-4);
+}
+
+@media (hover: none) {
+  .edit-hint {
+    opacity: 1;
+  }
+}
+
+@media (--mobile) {
+  .type-button {
+    min-height: 44px;
+    font-size: var(--text-md);
+  }
+}

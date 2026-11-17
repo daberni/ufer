@@ -74,6 +74,7 @@ async function insertSandboxBankAccount(db: Database) {
     booking_date: "2026-11-01",
     amount_minor: -1999,
     currency: "EUR",
+    type: "expense",
     counterparty: "Example shop",
     description: "Sandbox purchase"
   });
@@ -147,7 +148,8 @@ test("re-running the demo seed replaces only demo rows and keeps bank-connected 
     provider_reference: "csv:reviewer",
     booking_date: "2026-11-10",
     amount_minor: -500,
-    currency: "EUR"
+    currency: "EUR",
+    type: "expense"
   });
 
   const before = await foreignRows(db);
@@ -204,7 +206,8 @@ test("the guard refuses missing confirmation, production banking and real-lookin
     provider_reference: "csv:own",
     booking_date: "2026-11-02",
     amount_minor: -4200,
-    currency: "EUR"
+    currency: "EUR",
+    type: "expense"
   });
   await assert.rejects(seedDemoData({
     confirmed: true,
@@ -229,7 +232,7 @@ test("the guard refuses missing confirmation, production banking and real-lookin
   assert.deepEqual(await demoTransactions(db), seeded);
 });
 
-test("the dataset is reproducible for a run date and its rules categorize all but a handful of rows", async context => {
+test("the dataset is reproducible for a run date, its rules categorize all but a handful of rows and its transfers are linked in pairs", async context => {
   const db = await isolatedDatabase(context);
 
   assert.deepEqual(buildDemoDataset(firstRun), buildDemoDataset(firstRun));
@@ -240,11 +243,14 @@ test("the dataset is reproducible for a run date and its rules categorize all bu
   });
   const rows = await demoTransactions(db);
   const dates = rows.map(row => row.booking_date).sort();
-  const transfers = rows.filter(row => row.category_id === "transfer");
+  const transfers = rows.filter(row => row.type === "transfer");
+  const transferIds = new Set(transfers.map(row => row.transfer_id));
 
   assert.ok(summary.transactions > 1000);
   assert.ok(summary.uncategorized >= 5 && summary.uncategorized <= 15, `${summary.uncategorized} uncategorized rows`);
   assert.equal(dates[0] >= "2025-05-16", true);
   assert.equal(dates[dates.length - 1] <= "2026-11-16", true);
   assert.equal(transfers.reduce((total, row) => total + row.amount_minor, 0), 0);
+  assert.ok(transfers.every(row => row.transfer_id !== null && row.category_id === "transfer"));
+  assert.equal(transferIds.size * 2, transfers.length);
 });

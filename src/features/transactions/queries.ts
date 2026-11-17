@@ -5,7 +5,7 @@ import { apiGet } from "@/client/api";
 import { queryKeys, type TransactionListFilters } from "@/client/query-keys";
 import { serializePeriod } from "@/lib/period";
 import type { ViewQuery } from "@/client/app-location";
-import type { TransactionPage } from "@/features/transactions/types";
+import type { TransactionPage, TransferOptions } from "@/features/transactions/types";
 
 export function transactionListFilters(query: ViewQuery): TransactionListFilters {
   return {
@@ -29,5 +29,13 @@ export function useTransactionList(query: ViewQuery) {
       page: String(filters.page)
     }, signal),
     placeholderData: keepPreviousData
+  });
+}
+
+/** A booking's transfer link and what it can be linked with, loaded while its type dialog is open. */
+export function useTransferOptions(id: string) {
+  return useQuery({
+    queryKey: queryKeys.transactions.transfer(id),
+    queryFn: ({ signal }) => apiGet<TransferOptions>(`transactions/${encodeURIComponent(id)}/transfer`, undefined, signal)
   });
 }

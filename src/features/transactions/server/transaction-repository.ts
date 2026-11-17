@@ -3,6 +3,7 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 import { environment } from "@/features/banking/server/environment";
 import { accounts, transactions } from "@/server/database/schema";
+import { derivedTransactionType } from "@/features/transactions/transaction-types";
 import type { CategorizedEntry, ProviderDetails } from "./transaction-entry";
 
 function providerColumns(provider: ProviderDetails = {}) {
@@ -15,7 +16,7 @@ function providerColumns(provider: ProviderDetails = {}) {
 
 /**
  * Inserts new entries and updates existing ones. `createdAt` replaces the database clock only for inserted rows; updates keep the original `created_at`.
- * Updates replace the provider data with the latest delivery for every row; only rule-sourced categories are recalculated.
+ * Updates replace the provider data with the latest delivery for every row; only rule-sourced categories are recalculated. The type is recalculated only while nobody corrected it and the booking is not linked to a transfer counterpart, so manual corrections and pairings survive resync and imports.
  */
 export async function upsertTransactions(tx: DatabaseTransaction, accountId: string, entries: CategorizedEntry[], createdAt?: string) {
   // Bound statement parameters for both local SQLite and remote libSQL deployments.
@@ -30,6 +31,7 @@ export async function upsertTransactions(tx: DatabaseTransaction, accountId: str
       counterparty: entry.counterparty,
       description: entry.description,
       category_id: entry.categoryId,
+      type: derivedTransactionType(entry.amount, entry.transfer),
       created_at: createdAt,
       ...providerColumns(entry.provider)
     }));
@@ -45,7 +47,8 @@ export async function upsertTransactions(tx: DatabaseTransaction, accountId: str
         instructed_amount_minor: sql`excluded.instructed_amount_minor`,
         instructed_currency: sql`excluded.instructed_currency`,
         provider_payload: sql`excluded.provider_payload`,
-        category_id: sql`CASE WHEN ${transactions.category_source}='manual' THEN ${transactions.category_id} ELSE excluded.category_id END`
+        category_id: sql`CASE WHEN ${transactions.category_source}='manual' THEN ${transactions.category_id} ELSE excluded.category_id END`,
+        type: sql`CASE WHEN ${transactions.type_source}='manual' OR ${transactions.transfer_id} IS NOT NULL THEN ${transactions.type} ELSE excluded.type END`
       }
     });
   }

@@ -13,7 +13,6 @@ const groceries: Category = {
   id: "groceries",
   name: "Groceries",
   color: "#638777",
-  is_transfer: 0,
   icon: null
 };
 

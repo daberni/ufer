@@ -212,7 +212,7 @@ class Ledger {
     });
   }
 
-  /** Books both sides of a transfer between own accounts; the transfer category keeps them out of income and expenses. */
+  /** Books both sides of a transfer between own accounts; the seed links them as one transfer, which keeps them out of income and expenses. */
   transfer(from: DemoAccountKey, to: DemoAccountKey, date: PlainDate, amount: number, description: string) {
     this.book(from, date, -amount, demoAccounts[to].name, description, true);
     this.book(to, date, amount, demoAccounts[from].name, description, true);

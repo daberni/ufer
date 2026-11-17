@@ -19,13 +19,11 @@ const categories: Category[] = [{
   id: "groceries",
   name: "Groceries",
   color: "#638777",
-  is_transfer: 0,
   icon: null
 }, {
   id: "leisure",
   name: "Leisure",
   color: "#c2aa6b",
-  is_transfer: 0,
   icon: null
 }];
 
@@ -52,7 +50,11 @@ const transaction: Transaction = {
   description: "Synthetic purchase",
   account_name: "Synthetic account",
   category_id: "groceries",
-  category_source: "rule"
+  category_source: "rule",
+  type: "expense",
+  type_source: "auto",
+  manual_account: false,
+  counterpart: null
 };
 
 function controlsIn(screen: RenderResult) {

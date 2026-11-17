@@ -249,6 +249,7 @@ test("category corrections retain environment isolation and manual exclusions su
     booking_date: "2000-01-10",
     amount_minor: -100,
     currency: "EUR",
+    type: "expense",
     counterparty: "Supermarket"
   }, {
     id: "other-entry",
@@ -257,6 +258,7 @@ test("category corrections retain environment isolation and manual exclusions su
     booking_date: "2000-01-10",
     amount_minor: -200,
     currency: "EUR",
+    type: "expense",
     counterparty: "Supermarket"
   }]);
   await insertRule({
@@ -274,6 +276,7 @@ test("category corrections retain environment isolation and manual exclusions su
     booking_date: "2000-01-10",
     amount_minor: -300,
     currency: "EUR",
+    type: "expense",
     counterparty: "Supermarket"
   }, {
     id: "transfer-entry",
@@ -282,6 +285,7 @@ test("category corrections retain environment isolation and manual exclusions su
     booking_date: "2000-01-10",
     amount_minor: -400,
     currency: "EUR",
+    type: "transfer",
     counterparty: "Supermarket",
     category_id: "transfer"
   }]);
@@ -328,6 +332,7 @@ test("applying rules reports only transactions whose category changed", async co
     booking_date: "2000-01-10",
     amount_minor: -100,
     currency: "EUR",
+    type: "expense" as const,
     counterparty: index === 2 ? "Unmatched" : "Supermarket",
     category_id: index === 0 ? "groceries" : null
   })));
@@ -524,6 +529,7 @@ test("category edits keep transaction assignments and rules attached and reject 
     booking_date: "2000-01-10",
     amount_minor: -100,
     currency: "EUR",
+    type: "expense",
     counterparty: "Supermarket",
     category_id: "groceries",
     category_source: "manual"
