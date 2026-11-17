@@ -5,6 +5,7 @@ import { environment } from "@/features/banking/server/environment";
 import type { AuthContext } from "@/features/auth/server/session";
 import { accounts, requisitions } from "@/server/database/schema";
 import { timestamp } from "@/lib/time";
+import { HttpError } from "@/lib/errors";
 
 export type ConnectionRemoval = {
   outcome: "missing";
@@ -147,7 +148,7 @@ export async function recordRevocationFailure(db: Database, id: string) {
 }
 
 // Accounts are detached only after confirmed provider revocation, preserving their history and reconnect mapping.
-export async function removeConnection(db: Database, environment: string, id: string, exchangeCutoff: Temporal.Instant): Promise<ConnectionRemoval> {
+export async function removeConnection(db: Database, environment: string, id: string, exchangeCutoff: Temporal.Instant, expectedSessionCipher: string | null): Promise<ConnectionRemoval> {
   return db.transaction(async tx => {
     const scope = and(eq(requisitions.id, id), eq(requisitions.environment, environment), ne(requisitions.status, "REMOVED"));
     const connection = await tx.select({
@@ -170,19 +171,27 @@ export async function removeConnection(db: Database, environment: string, id: st
       };
     }
 
+    const expectedSession = expectedSessionCipher === null ? isNull(requisitions.session_cipher) : eq(requisitions.session_cipher, expectedSessionCipher);
+    // A callback may finish after preflight. Reserve removal only for the exact session that was checked or revoked, before detaching accounts.
+    const removed = await tx.update(requisitions).set({
+      status: "REMOVED",
+      session_cipher: null,
+      valid_until: null,
+      error: null
+    }).where(and(scope, eq(requisitions.status, connection.status), expectedSession)).returning({
+      id: requisitions.id
+    });
+
+    if (!removed.length) {
+      throw new HttpError(409, "The bank connection changed during removal. Try again.");
+    }
+
     const detached = await tx.update(accounts).set({
       requisition_id: null,
       sync_error: null
     }).where(and(eq(accounts.requisition_id, id), eq(accounts.environment, environment))).returning({
       id: accounts.id
     });
-
-    await tx.update(requisitions).set({
-      status: "REMOVED",
-      session_cipher: null,
-      valid_until: null,
-      error: null
-    }).where(scope);
 
     return {
       outcome: "removed",

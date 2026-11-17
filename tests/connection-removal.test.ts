@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { generateKeyPairSync } from "node:crypto";
 import { test, type TestContext } from "node:test";
-import { createClient } from "@libsql/client";
+import { createClient, type InArgs, type InStatement } from "@libsql/client";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/libsql";
 import type { Database } from "../src/server/database/connection";
@@ -375,6 +375,70 @@ test("a connection removed while its callback is mapping accounts is never linke
   assert.equal(connection?.session_cipher, null);
   assert.equal((await db.select().from(schema.accounts)).length, 0);
   assert.equal((await db.select().from(schema.accountIdentifiers)).length, 0);
+});
+
+test("a callback completing after removal preflight keeps its new session until an explicit removal retry", async context => {
+  const {
+    db,
+    requests
+  } = await bankingDatabase(context, () => new Response(null, {
+    status: 204
+  }));
+
+  await db.insert(schema.requisitions).values({
+    id: "pending-overlap",
+    environment: "SANDBOX",
+    bank_name: "Example institution",
+    bank_country: "AT",
+    status: "PENDING"
+  });
+  const execute = db.$client.execute.bind(db.$client);
+  const createdSessionCipher = encrypt("session-created-during-removal");
+  let linkedDuringPreflight = false;
+
+  context.mock.method(db.$client, "execute", async (statement: InStatement, args?: InArgs) => {
+    const result = typeof statement === "string" ? await execute(statement, args) : await execute(statement);
+    const sql = typeof statement === "string" ? statement : statement.sql;
+
+    if (!linkedDuringPreflight && /^select /i.test(sql) && sql.includes('from "requisitions"')) {
+      linkedDuringPreflight = true;
+      // The query already read PENDING without a credential; finish the callback before removal resumes with that stale result.
+      await db.update(schema.requisitions).set({
+        status: "EXCHANGING",
+        used_at: new Date().toISOString()
+      }).where(eq(schema.requisitions.id, "pending-overlap"));
+      assert.equal(await saveBankSession(db, "pending-overlap", createdSessionCipher, "2099-01-01T00:00:00Z"), true);
+      await saveSessionAccounts(db, "SANDBOX", "pending-overlap", "Example institution", [{
+        uid: "new-uid",
+        identification_hash: "new-hash",
+        currency: "EUR"
+      }]);
+    }
+
+    return result;
+  });
+
+  await assert.rejects(removeBankConnection("pending-overlap"), {
+    status: 409,
+    message: "The bank connection changed during removal. Try again."
+  });
+  assert.equal(linkedDuringPreflight, true);
+  const linked = await db.select().from(schema.requisitions).where(eq(schema.requisitions.id, "pending-overlap")).get();
+
+  assert.equal(linked?.status, "LINKED");
+  assert.equal(linked?.session_cipher, createdSessionCipher);
+  assert.equal((await db.select().from(schema.accounts).get())?.requisition_id, "pending-overlap");
+  assert.deepEqual(requests, []);
+
+  assert.deepEqual(await removeBankConnection("pending-overlap"), {
+    retainedAccounts: 1
+  });
+  assert.deepEqual(requests, [{
+    method: "DELETE",
+    path: "/sessions/session-created-during-removal"
+  }]);
+  assert.equal((await db.select().from(schema.requisitions).where(eq(schema.requisitions.id, "pending-overlap")).get())?.session_cipher, null);
+  assert.equal((await db.select().from(schema.accounts).get())?.requisition_id, null);
 });
 
 test("a provider session revocation answered without a body counts as revoked", async context => {

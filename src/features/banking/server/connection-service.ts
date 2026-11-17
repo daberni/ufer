@@ -39,7 +39,7 @@ export async function removeBankConnection(id: string) {
       throw new HttpError(502, "The bank authorization could not be revoked. The connection has not been removed. Try again.");
     }
 
-    const removal = await removeConnection(db, env, id, exchangeCutoff);
+    const removal = await removeConnection(db, env, id, exchangeCutoff, prepared.sessionCipher);
 
     if (removal.outcome === "missing") {
       throw new HttpError(404, "Bank connection not found or already removed.");
