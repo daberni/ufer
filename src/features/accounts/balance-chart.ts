@@ -17,7 +17,7 @@ export type BalanceChart = {
   series: PlottedBalance[][];
   lowest: number;
   highest: number;
-  /** The height of zero when the amounts lie on both sides of it. */
+  /** The height of zero when the scale explicitly includes it or amounts lie on both sides of it. */
   zero: number | null;
 };
 
@@ -25,9 +25,9 @@ export type BalanceChart = {
 const verticalPadding = 0.1;
 
 /**
- * Plots series of amounts, each oldest first, on one shared scale against their dates. Dates are spaced by days rather than by observation, so gaps between observations stay visible. A single day or an unchanged amount is drawn in the middle instead of dividing by zero.
+ * Plots series of amounts, each oldest first, on one shared scale against their dates. Dates are spaced by days rather than by observation, so gaps between observations stay visible. A single day or an unchanged amount is drawn in the middle instead of dividing by zero. Net-worth charts include zero in the domain; account balances keep their observed range.
  */
-export function plotSeries(series: DatedAmount[][]): BalanceChart {
+export function plotSeries(series: DatedAmount[][], includeZero = false): BalanceChart {
   const all = series.flat();
 
   if (!all.length) {
@@ -50,6 +50,11 @@ export function plotSeries(series: DatedAmount[][]): BalanceChart {
     highest = Math.max(highest, entry.amount_minor);
   }
 
+  if (includeZero) {
+    lowest = Math.min(lowest, 0);
+    highest = Math.max(highest, 0);
+  }
+
   const range = highest - lowest;
   const padding = range > 0 ? range * verticalPadding : Math.max(Math.abs(highest) * verticalPadding, 1);
   const bottom = lowest - padding;
@@ -63,6 +68,6 @@ export function plotSeries(series: DatedAmount[][]): BalanceChart {
     }))),
     lowest,
     highest,
-    zero: lowest < 0 && highest > 0 ? height(0) : null
+    zero: includeZero || lowest < 0 && highest > 0 ? height(0) : null
   };
 }

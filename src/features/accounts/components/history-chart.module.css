@@ -63,8 +63,9 @@
   fill: color-mix(in srgb, var(--series) 12%, transparent);
 }
 .zero {
-  stroke: var(--border-strong);
+  stroke: var(--muted);
   stroke-width: 1;
+  stroke-dasharray: 4 4;
 }
 .marker {
   position: absolute;
@@ -87,6 +88,11 @@
   background: color-mix(in srgb, var(--surface) 85%, transparent);
   font-size: var(--text-xs);
   color: var(--muted);
+}
+.zero-label {
+  left: auto;
+  right: 0;
+  transform: translateY(-50%);
 }
 .axis-label[data-edge="top"] {
   top: var(--space-1);

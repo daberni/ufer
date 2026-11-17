@@ -31,6 +31,8 @@ type Props = {
   summary: string;
   markers?: PointMarker[];
   interpolation: Interpolation;
+  /** Keep a labelled zero baseline in the visible domain, including for one-sided wealth totals. */
+  includeZero: boolean;
 };
 
 export function historyDateLabel(date: string) {
@@ -56,9 +58,10 @@ export function HistoryChart({
   currency,
   summary,
   markers,
-  interpolation
+  interpolation,
+  includeZero
 }: Props) {
-  const chart = plotSeries(series.map(entry => entry.points));
+  const chart = plotSeries(series.map(entry => entry.points), includeZero);
   const [subject] = chart.series;
   const subjectPoints = series[0].points;
   const subjectLine = linePath(subject, interpolation);
@@ -76,14 +79,26 @@ export function HistoryChart({
         </ul>
       )}
       <div className={styles["plot"]} role="img" aria-label={summary}>
-        <span className={styles["axis-label"]} data-edge="top" aria-hidden="true">{money(chart.highest, currency)}</span>
-        <span className={styles["axis-label"]} data-edge="bottom" aria-hidden="true">{money(chart.lowest, currency)}</span>
+        {(chart.highest !== 0 || chart.zero === null) && <span className={styles["axis-label"]} data-edge="top" aria-hidden="true">{money(chart.highest, currency)}</span>}
+        {(chart.lowest !== 0 || chart.zero === null) && <span className={styles["axis-label"]} data-edge="bottom" aria-hidden="true">{money(chart.lowest, currency)}</span>}
+        {chart.zero !== null && (
+          <span
+            className={clsx(styles["axis-label"], styles["zero-label"])}
+            style={{
+              top: `${chart.zero}%`
+            }}
+            aria-hidden="true"
+          >
+            {money(0, currency)}
+          </span>
+        )}
         <svg
           viewBox="0 0 100 100"
           preserveAspectRatio="none"
           aria-hidden="true"
           focusable="false"
         >
+          {series.length === 1 && <path className={styles["area"]} data-tone={series[0].tone} d={`${subjectLine} L100 100 L0 100 Z`} />}
           {chart.zero !== null && (
             <line
               className={styles["zero"]}
@@ -94,7 +109,6 @@ export function HistoryChart({
               vectorEffect="non-scaling-stroke"
             />
           )}
-          {series.length === 1 && <path className={styles["area"]} data-tone={series[0].tone} d={`${subjectLine} L100 100 L0 100 Z`} />}
           {chart.series.slice(1).map((points, index) => (
             <path
               key={series[index + 1].label}

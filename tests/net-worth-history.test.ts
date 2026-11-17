@@ -319,3 +319,65 @@ test("plotting a large recorded series preserves its extrema without exceeding t
   assert.equal(chart.series[0][0].x, 50);
   assert.ok(chart.series[0][0].y > chart.series[0].at(-1)!.y);
 });
+
+
+for (const scenario of [
+  {
+    name: "positive",
+    values: [1000, 3000],
+    domain: [0, 3000]
+  },
+  {
+    name: "negative",
+    values: [-3000, -1000],
+    domain: [-3000, 0]
+  },
+  {
+    name: "mixed",
+    values: [-1000, 3000],
+    domain: [-1000, 3000]
+  },
+  {
+    name: "zero",
+    values: [0, 0],
+    domain: [0, 0]
+  }
+]) {
+  test(`a ${scenario.name} wealth chart includes a visible zero baseline without clipping its data`, () => {
+    const chart = plotSeries([scenario.values.map((amount, index) => ({
+      date: `2026-01-0${index + 1}`,
+      amount_minor: amount
+    }))], true);
+
+    assert.deepEqual([chart.lowest, chart.highest], scenario.domain);
+    assert.ok(chart.zero !== null && chart.zero > 0 && chart.zero < 100);
+
+    for (const point of chart.series[0]) {
+      assert.ok(Number.isFinite(point.y) && point.y > 0 && point.y < 100);
+    }
+
+    if (scenario.name === "positive") {
+      assert.ok(chart.series[0].every(point => point.y < chart.zero!));
+    } else if (scenario.name === "negative") {
+      assert.ok(chart.series[0].every(point => point.y > chart.zero!));
+    } else if (scenario.name === "zero") {
+      assert.equal(chart.zero, 50);
+      assert.ok(chart.series[0].every(point => point.y === chart.zero));
+    }
+  });
+}
+
+
+test("zero-baseline scaling keeps net worth and signed wealth groups on the same visible domain", () => {
+  const series = [[1000, 1500], [2000, 2500], [-1000, -1000]].map(values => values.map((amount, index) => ({
+    date: `2026-01-0${index + 1}`,
+    amount_minor: amount
+  })));
+  const chart = plotSeries(series, true);
+
+  assert.deepEqual([chart.lowest, chart.highest], [-1000, 2500]);
+  assert.ok(chart.zero !== null);
+  assert.ok(chart.series[0].every(point => point.y < chart.zero!));
+  assert.ok(chart.series[2].every(point => point.y > chart.zero!));
+  assert.ok(chart.series.flat().every(point => point.y > 0 && point.y < 100));
+});
