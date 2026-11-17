@@ -84,3 +84,51 @@ test("incomplete imports never overwrite recorded balances and preserve observat
     ["2026-01-04", 2000, "transactions"]
   ]);
 });
+
+test("ancient imported dates keep every change and observation without expanding centuries of unchanged days", () => {
+  const balances = dailyBalances([
+    {
+      date: "0001-01-01",
+      amount_minor: -500
+    },
+    {
+      date: "1999-12-31",
+      amount_minor: -200
+    },
+    {
+      date: "2026-01-02",
+      amount_minor: 75
+    }
+  ], [
+    {
+      date: "1900-01-01",
+      amount_minor: 10000,
+      source: "csv"
+    },
+    {
+      date: "2026-01-01",
+      amount_minor: 20000,
+      source: "sync"
+    }
+  ], "2026-01-04");
+
+  assert.ok(balances.length < 3700, "A centuries-long inactive gap must not become hundreds of thousands of rows.");
+  assert.equal(balances[0].date, "0001-01-01");
+  assert.equal(balances.find(balance => balance.date === "1999-12-31")?.amount_minor, 9800);
+  assert.deepEqual(balances.find(balance => balance.date === "1900-01-01"), {
+    date: "1900-01-01",
+    amount_minor: 10000,
+    source: "csv"
+  });
+  assert.deepEqual(balances.find(balance => balance.date === "2026-01-01"), {
+    date: "2026-01-01",
+    amount_minor: 20000,
+    source: "sync"
+  });
+  assert.equal(balances.find(balance => balance.date === "2024-02-29")?.amount_minor, 9800);
+  assert.deepEqual(balances.at(-1), {
+    date: "2026-01-04",
+    amount_minor: 20075,
+    source: "transactions"
+  });
+});

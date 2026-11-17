@@ -6,7 +6,10 @@ export type DailyBooking = {
   amount_minor: number;
 };
 
-/** Estimates missing daily balances from bookings while retaining every recorded observation on its date. */
+// Retain recent daily detail without expanding centuries of unchanged history from an imported date.
+const dailyHistoryDays = 3660;
+
+/** Estimates balances from bookings, keeping recent days and every older change or recorded observation. */
 export function dailyBalances(bookings: DailyBooking[], observations: BalancePoint[], endDate: string): BalancePoint[] {
   const eligible = bookings.filter(booking => booking.date <= endDate);
 
@@ -34,13 +37,22 @@ export function dailyBalances(bookings: DailyBooking[], observations: BalancePoi
     }
   }
 
-  const balances: BalancePoint[] = [];
+  const dates = new Set([firstDate, endDate, ...changes.keys(), ...actual.keys()]);
+  const recentStart = Temporal.PlainDate.from(endDate).subtract({
+    days: dailyHistoryDays - 1
+  }).toString();
+  const dailyStart = firstDate > recentStart ? firstDate : recentStart;
 
-  for (let date = Temporal.PlainDate.from(firstDate); date.toString() <= endDate; date = date.add({
+  for (let date = Temporal.PlainDate.from(dailyStart); date.toString() <= endDate; date = date.add({
     days: 1
   })) {
-    const day = date.toString();
+    dates.add(date.toString());
+  }
 
+  const balances: BalancePoint[] = [];
+
+  // Every booking and observation date remains, so skipped flat stretches retain their exact step value.
+  for (const day of [...dates].sort()) {
     amount += changes.get(day) ?? 0;
     const observed = actual.get(day);
 

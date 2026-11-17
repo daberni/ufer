@@ -300,3 +300,22 @@ test("monthly net worth includes manual-ledger balances after their snapshots ha
   assert.deepEqual(after.points.map((point, index) => point.manual - before.points[index].manual), [1, 1, 1]);
   assert.deepEqual(after.points.map((point, index) => point.unvalued - before.points[index].unvalued), [0, 0, 0]);
 });
+
+
+test("plotting a large recorded series preserves its extrema without exceeding the argument limit", () => {
+  const entries = Array.from({
+    length: 200000
+  }, () => ({
+    date: "2026-01-01",
+    amount_minor: 0
+  }));
+
+  entries[0].amount_minor = -100;
+  entries[entries.length - 1].amount_minor = 100;
+  const chart = plotSeries([entries]);
+
+  assert.deepEqual([chart.lowest, chart.highest], [-100, 100]);
+  assert.equal(chart.series[0].length, entries.length);
+  assert.equal(chart.series[0][0].x, 50);
+  assert.ok(chart.series[0][0].y > chart.series[0].at(-1)!.y);
+});

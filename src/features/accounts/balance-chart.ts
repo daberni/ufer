@@ -42,9 +42,14 @@ export function plotSeries(series: DatedAmount[][]): BalanceChart {
   const dates = all.map(entry => entry.date).toSorted();
   const first = Temporal.PlainDate.from(dates[0]);
   const span = first.until(Temporal.PlainDate.from(dates[dates.length - 1])).days;
-  const amounts = all.map(entry => entry.amount_minor);
-  const lowest = Math.min(...amounts);
-  const highest = Math.max(...amounts);
+  let lowest = all[0].amount_minor;
+  let highest = lowest;
+
+  for (const entry of all) {
+    lowest = Math.min(lowest, entry.amount_minor);
+    highest = Math.max(highest, entry.amount_minor);
+  }
+
   const range = highest - lowest;
   const padding = range > 0 ? range * verticalPadding : Math.max(Math.abs(highest) * verticalPadding, 1);
   const bottom = lowest - padding;
