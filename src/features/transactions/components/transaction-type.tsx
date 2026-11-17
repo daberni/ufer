@@ -1,6 +1,9 @@
 "use client";
 
+import ui from "../../../components/ui/primitives.module.css";
+
 import { useState } from "react";
+import { clsx } from "clsx";
 import { ArrowLeftRight, Pencil } from "lucide-react";
 import styles from "./transaction-type.module.css";
 import { transactionTypeLabels } from "@/features/transactions/transaction-types";
@@ -47,4 +50,9 @@ export function TransactionType({ transaction }: {
       {open && <TransactionEditDialog transaction={transaction} close={() => setOpen(false)} />}
     </>
   );
+}
+
+/** The type control's placeholder while the list loads; it has the control's height so rows keep theirs. */
+export function TransactionTypeSkeleton() {
+  return <span className={clsx(styles["type-placeholder"], ui["skeleton"])}>Expense</span>;
 }

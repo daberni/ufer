@@ -65,7 +65,12 @@ function RunDescription({
     return <p className={styles["run"]}>This sync was not found.</p>;
   }
 
-  return <p className={clsx(styles["run"], ui["skeleton"])}>Loading sync</p>;
+  return (
+    <p className={styles["run"]}>
+      <span className={ui["skeleton"]}>Imported by the sync on 16 Nov</span>
+      <span className={clsx(ui["pill"], ui["skeleton"])}>SUCCESS</span>
+    </p>
+  );
 }
 
 /** Why a selected sync run lists no transactions. */
