@@ -17,7 +17,7 @@ const maxFileSize = 1_000_000;
 
 const affectedKeys = {
   balances: [queryKeys.accounts(), queryKeys.reports.netWorth()],
-  transactions: [queryKeys.transactions.all(), queryKeys.reports.cashFlow()]
+  transactions: [queryKeys.transactions.all(), queryKeys.reports.cashFlow(), queryKeys.accounts()]
 };
 
 export function useCsvImport() {
