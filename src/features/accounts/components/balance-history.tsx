@@ -23,7 +23,8 @@ export function BalanceHistoryPanel({ history }: {
     <section className={clsx(ui["panel"], styles["history"])}>
       <div className={ui["card-heading"]}>
         <h2>Balance history</h2>
-        {history.status !== "pending" && history.data.balances.length > 0 && <span className={ui["subtle"]} title={describeBalanceDate(history.data.balances[0].date).title}>Since {describeBalanceDate(history.data.balances[0].date).label}</span>}
+        {history.status === "pending" && <span className={clsx(ui["subtle"], styles["range"], ui["skeleton"])} aria-hidden="true">Since 12 Jan 2025</span>}
+        {history.status !== "pending" && history.data.balances.length > 0 && <span className={clsx(ui["subtle"], styles["range"])} title={describeBalanceDate(history.data.balances[0].date).title}>Since {describeBalanceDate(history.data.balances[0].date).label}</span>}
       </div>
       {history.status === "pending" ? (
         <AreaPlaceholder area={history} subject="The balance history">
