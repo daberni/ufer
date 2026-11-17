@@ -18,10 +18,18 @@ export type DemoAccountData = DemoAccountDefinition & {
   snapshots: DemoSnapshot[];
 };
 
+/** A transfer whose counterpart the seed creates on a manual account, as a person does in the edit dialog. */
+export type DemoCreatedCounterpart = {
+  sourceAccountId: string;
+  sourceReference: string;
+  accountId: string;
+};
+
 export type DemoDataset = {
   firstDate: string;
   runDate: string;
   accounts: DemoAccountData[];
+  createdCounterparts: DemoCreatedCounterpart[];
 };
 
 type PlainDate = Temporal.PlainDate;
@@ -186,6 +194,15 @@ class Ledger {
     ...openingBalances
   };
 
+  /** Counterparts created on manual accounts; they count toward that account's balance but are not entries. */
+  readonly createdCounterparts: {
+    from: DemoAccountKey;
+    to: DemoAccountKey;
+    reference: string;
+    date: string;
+    amount: number;
+  }[] = [];
+
   private sequence = 0;
 
   constructor(readonly firstDate: PlainDate, readonly runDate: PlainDate) {}
@@ -194,14 +211,17 @@ class Ledger {
     return isBetween(date, this.firstDate, this.runDate);
   }
 
+  /** Books an entry and returns its reference; dates outside the history and zero amounts are skipped. */
   book(account: DemoAccountKey, date: PlainDate, amount: number, counterparty: string, description: string, transfer = false, provider?: ProviderDetails) {
     if (!this.covers(date) || amount === 0) {
-      return;
+      return undefined;
     }
 
     this.sequence += 1;
+    const reference = `${demoReferencePrefix}${String(this.sequence).padStart(5, "0")}`;
+
     this.entries[account].push({
-      reference: `${demoReferencePrefix}${String(this.sequence).padStart(5, "0")}`,
+      reference,
       date: date.toString(),
       amount,
       currency: "EUR",
@@ -210,18 +230,36 @@ class Ledger {
       transfer,
       provider
     });
+
+    return reference;
   }
 
-  /** Books both sides of a transfer between own accounts; the transfer category keeps them out of income and expenses. */
+  /** Books both sides of a transfer between own accounts; the seed links them as one transfer, which keeps them out of income and expenses. */
   transfer(from: DemoAccountKey, to: DemoAccountKey, date: PlainDate, amount: number, description: string) {
     this.book(from, date, -amount, demoAccounts[to].name, description, true);
     this.book(to, date, amount, demoAccounts[from].name, description, true);
   }
 
+  /** Books the outgoing side of a transfer to a manual account; the seed creates the incoming side there and links both. */
+  transferToManual(from: DemoAccountKey, to: DemoAccountKey, date: PlainDate, amount: number, description: string) {
+    const reference = this.book(from, date, -amount, demoAccounts[to].name, description, true);
+
+    if (reference) {
+      this.createdCounterparts.push({
+        from,
+        to,
+        reference,
+        date: date.toString(),
+        amount
+      });
+    }
+  }
+
   balanceAt(account: DemoAccountKey, date: PlainDate) {
     const last = date.toString();
+    const created = this.createdCounterparts.filter(item => item.to === account && item.date <= last).reduce((total, item) => total + item.amount, 0);
 
-    return this.entries[account].filter(entry => entry.date <= last).reduce((total, entry) => total + entry.amount, this.openings[account]);
+    return this.entries[account].filter(entry => entry.date <= last).reduce((total, entry) => total + entry.amount, this.openings[account] + created);
   }
 }
 
@@ -357,6 +395,8 @@ function bookSavings({
 }: MonthContext) {
   ledger.transfer("checking", "savings", businessDay(dayOf(month, 2)), 35000, "Standing order, emergency fund");
   ledger.transfer("checking", "investment", businessDay(dayOf(month, 5)), 30000, "Savings plan, Global Equity ETF");
+  // A transfer to an account not tracked in Ufer: it has no counterpart.
+  ledger.book("checking", businessDay(dayOf(month, 15)), -25000, "Joint household account", "Household budget contribution", true);
 
   if (month.month % 3 === 0) {
     ledger.book("investment", businessDay(dayOf(month, 15)), 3800 + month.month * 270, "Northwind Brokerage", "Dividend distribution, Global Equity ETF");
@@ -584,6 +624,8 @@ function bookOneOffs(ledger: Ledger, runMonth: PlainYearMonth) {
   ledger.book("checking", monthsAgo(7, 14), -16500, "Brightfix Handyman Services", "Boiler service and tap repair, flat 5");
   ledger.book("checking", monthsAgo(5, 21), -64900, "Appliance Center", "Washing machine incl. installation");
   ledger.book("checking", monthsAgo(3, 6), -68000, "Smilewell Dental Practice", "Dental crown");
+  ledger.transferToManual("savings", "loan", businessDay(monthsAgo(8, 16)), 400000, "Special repayment, loan 7741");
+  ledger.transferToManual("checking", "loan", businessDay(monthsAgo(2, 16)), 150000, "Special repayment, loan 7741");
 }
 
 function bookUnmatched(ledger: Ledger) {
@@ -789,6 +831,11 @@ export function buildDemoDataset(runDate: PlainDate): DemoDataset {
       accountData("investment", ledger.entries.investment, investmentSnapshots(ledger, random, dates)),
       accountData("property", [], propertySnapshots(random, firstDate, runDate)),
       accountData("loan", ledger.entries.loan, ledgerSnapshots(ledger, "loan", dates))
-    ]
+    ],
+    createdCounterparts: ledger.createdCounterparts.map(item => ({
+      sourceAccountId: demoAccounts[item.from].id,
+      sourceReference: item.reference,
+      accountId: demoAccounts[item.to].id
+    }))
   };
 }

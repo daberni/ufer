@@ -36,6 +36,20 @@
       "when": 1794865711270,
       "tag": "0004_transaction_provider_details",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1794878083722,
+      "tag": "0005_transaction_types",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1794878083723,
+      "tag": "0006_retire_transfer_category",
+      "breakpoints": true
     }
   ]
 }
