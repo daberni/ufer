@@ -27,7 +27,10 @@ const providerKey = generateKeyPairSync("rsa", {
 
 const environmentNames = ["ENABLE_BANKING_ENVIRONMENT", "ENABLE_BANKING_APP_ID", "ENABLE_BANKING_PRIVATE_KEY", "DATA_ENCRYPTION_KEY"];
 
-async function bankingDatabase(context: TestContext, providerResponse: () => Response) {
+async function bankingDatabase(context: TestContext, providerResponse: (request: {
+  method: string;
+  path: string
+}) => Response) {
   const client = createClient({
     url: ":memory:"
   });
@@ -73,7 +76,7 @@ async function bankingDatabase(context: TestContext, providerResponse: () => Res
       path: new URL(String(input)).pathname
     });
 
-    return providerResponse();
+    return providerResponse(requests[requests.length - 1]);
   };
 
   return {
@@ -140,8 +143,7 @@ test("removing a bank connection keeps accounts and history, deletes its credent
   });
 
   assert.deepEqual(await removeBankConnection("removed"), {
-    retainedAccounts: 1,
-    providerRevocation: "revoked"
+    retainedAccounts: 1
   });
   assert.deepEqual(requests, [{
     method: "DELETE",
@@ -190,51 +192,75 @@ test("removing a bank connection keeps accounts and history, deletes its credent
   assert.equal((await db.select().from(schema.requisitions).where(eq(schema.requisitions.id, "removed")).get())?.status, "REMOVED");
 });
 
-test("local removal completes when the provider cannot revoke the session, and the next sync retries the revocation", async context => {
+test("a failed revocation leaves the connection intact for an explicit retry, without background retries", async context => {
   context.mock.method(console, "warn", () => {});
   let providerAvailable = false;
   const {
     db,
     requests
-  } = await bankingDatabase(context, () => providerAvailable ? new Response(null, {
-    status: 204
-  }) : Response.json({
-    error: "API_ERROR"
-  }, {
-    status: 500
-  }));
+  } = await bankingDatabase(context, request => {
+    if (request.method === "DELETE") {
+      return providerAvailable ? new Response(null, {
+        status: 204
+      }) : Response.json({
+        error: "API_ERROR"
+      }, {
+        status: 503
+      });
+    }
+
+    if (request.path === "/application") {
+      return Response.json({
+        environment: "SANDBOX",
+        redirect_urls: []
+      });
+    }
+
+    if (request.path.endsWith("/balances")) {
+      return Response.json({
+        balances: [{
+          balance_type: "CLBD",
+          balance_amount: {
+            amount: "123.45",
+            currency: "EUR"
+          },
+          reference_date: "2000-01-31"
+        }]
+      });
+    }
+
+    return Response.json({
+      transactions: [],
+      continuation_key: null
+    });
+  });
 
   await insertLinkedConnection(db, "unrevoked", "unrevoked-account");
-  await db.insert(schema.requisitions).values({
-    id: "pending",
-    environment: "SANDBOX",
-    bank_name: "Example institution",
-    bank_country: "AT",
-    status: "PENDING"
-  });
+  const connectionBefore = await db.select().from(schema.requisitions).where(eq(schema.requisitions.id, "unrevoked")).get();
+  const accountBefore = await db.select().from(schema.accounts).where(eq(schema.accounts.id, "unrevoked-account")).get();
 
-  assert.deepEqual(await removeBankConnection("unrevoked"), {
-    retainedAccounts: 1,
-    providerRevocation: "not_revoked"
+  await assert.rejects(removeBankConnection("unrevoked"), {
+    status: 502,
+    message: "The bank authorization could not be revoked. The connection has not been removed. Try again."
   });
-  assert.deepEqual(await removeBankConnection("pending"), {
-    retainedAccounts: 0,
-    providerRevocation: "no_session"
-  });
-  assert.equal(requests.length, 1);
+  assert.deepEqual(await db.select().from(schema.requisitions).where(eq(schema.requisitions.id, "unrevoked")).get(), connectionBefore);
+  assert.deepEqual(await db.select().from(schema.accounts).where(eq(schema.accounts.id, "unrevoked-account")).get(), accountBefore);
+  assert.deepEqual((await listConnections()).map(connection => connection.id), ["unrevoked"]);
 
-  const unrevoked = await db.select().from(schema.requisitions).where(eq(schema.requisitions.id, "unrevoked")).get();
-
-  assert.equal(unrevoked?.status, "REMOVED");
-  assert.notEqual(unrevoked?.session_cipher, null);
-  assert.deepEqual(await listConnections(), []);
-  assert.equal((await listSyncAccounts(db, "SANDBOX")).length, 0);
+  assert.equal((await syncAccounts()).status, "SUCCESS");
+  assert.equal(requests.filter(request => request.method === "DELETE").length, 1);
+  assert.notEqual((await db.select().from(schema.requisitions).where(eq(schema.requisitions.id, "unrevoked")).get())?.session_cipher, null);
 
   providerAvailable = true;
-  await syncAccounts();
+  assert.deepEqual(await removeBankConnection("unrevoked"), {
+    retainedAccounts: 1
+  });
+  assert.equal(requests.filter(request => request.method === "DELETE").length, 2);
+  const removed = await db.select().from(schema.requisitions).where(eq(schema.requisitions.id, "unrevoked")).get();
 
-  assert.deepEqual(requests.map(request => `${request.method} ${request.path}`), ["DELETE /sessions/session-unrevoked", "DELETE /sessions/session-unrevoked"]);
-  assert.equal((await db.select().from(schema.requisitions).where(eq(schema.requisitions.id, "unrevoked")).get())?.session_cipher, null);
+  assert.equal(removed?.status, "REMOVED");
+  assert.equal(removed?.session_cipher, null);
+  assert.equal((await db.select().from(schema.accounts).where(eq(schema.accounts.id, "unrevoked-account")).get())?.requisition_id, null);
 });
 
 test("a session the provider reports as ended counts as revoked and its stored ID is deleted", async context => {
@@ -258,8 +284,7 @@ test("a session the provider reports as ended counts as revoked and its stored I
     await insertLinkedConnection(db, id, `${id}-account`);
 
     assert.deepEqual(await removeBankConnection(id), {
-      retainedAccounts: 1,
-      providerRevocation: "revoked"
+      retainedAccounts: 1
     }, ended[0]);
     assert.equal((await db.select().from(schema.requisitions).where(eq(schema.requisitions.id, id)).get())?.session_cipher, null, ended[0]);
   }
@@ -326,8 +351,7 @@ test("a connection removed while its callback is mapping accounts is never linke
   assert.equal((await db.select().from(schema.requisitions).get())?.status, "EXCHANGING");
 
   assert.deepEqual(await removeBankConnection("overlap"), {
-    retainedAccounts: 0,
-    providerRevocation: "revoked"
+    retainedAccounts: 0
   });
   assert.deepEqual(requests, [{
     method: "DELETE",
@@ -363,8 +387,7 @@ test("a provider session revocation answered without a body counts as revoked", 
   await insertLinkedConnection(db, "no-body", "no-body-account");
 
   assert.deepEqual(await removeBankConnection("no-body"), {
-    retainedAccounts: 1,
-    providerRevocation: "revoked"
+    retainedAccounts: 1
   });
 });
 

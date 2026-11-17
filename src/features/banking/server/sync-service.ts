@@ -11,7 +11,6 @@ import { normalizeTransactions } from "./bank-data";
 import { saveAccountSync } from "./account-sync-service";
 import { finishSyncRun, interruptSyncRun, listSyncAccounts, recordAccountSyncError, startSyncRun } from "./sync-repository";
 import { expireConnection, expireEndedSession } from "./connection-repository";
-import { revokeReleasedSessions } from "./session-revocation";
 
 // Only a new bank authorization resolves this failure; rate limits and provider data errors do not.
 class ReconnectRequired extends HttpError {
@@ -123,9 +122,6 @@ export async function syncAccounts() {
         });
       }
     }
-
-    // Revocations that failed during removal or reauthorization are retried here, so they do not depend on another user action.
-    await revokeReleasedSessions(db, env);
 
     const allFailed = accounts.length > 0 && failures.length === accounts.length;
     const partialStatus = failures.length ? "PARTIAL" : "SUCCESS";

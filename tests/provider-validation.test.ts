@@ -13,6 +13,7 @@ import { hash } from "../src/server/security/tokens";
 import { cancelAuthorization, completeAuthorization } from "../src/features/banking/server/authorization-service";
 import { connectBank } from "../src/features/banking/server/connect-bank";
 import { availableBanks } from "../src/features/banking/server/enable-banking-client";
+import { removeBankConnection } from "../src/features/banking/server/connection-service";
 import { syncAccounts } from "../src/features/banking/server/sync-service";
 import { seedActor } from "./fixtures/auth";
 
@@ -433,7 +434,7 @@ test("reauthorizing a bank revokes the provider session of the connection it sup
   assert.equal(decrypt(String((await connection(db, "renewed"))?.session_cipher)), "renewed-session");
 });
 
-test("a failed revocation of a superseded session keeps the new connection and is retried by the next sync", async context => {
+test("a failed superseded-session revocation keeps the new connection and waits for explicit removal", async context => {
   const warnings = context.mock.method(console, "warn", () => {});
   const {
     db,
@@ -494,6 +495,11 @@ test("a failed revocation of a superseded session keeps the new connection and i
   revocationAvailable = true;
 
   assert.equal((await syncAccounts()).status, "SUCCESS");
+  assert.deepEqual(requests.filter(request => request.startsWith("DELETE")), ["DELETE /sessions/previous-session"]);
+  assert.notEqual((await connection(db, "previous"))?.session_cipher, null);
+  assert.match(String((await connection(db, "previous"))?.error), /Remove this connection to retry/);
+
+  await removeBankConnection("previous");
   assert.deepEqual(requests.filter(request => request.startsWith("DELETE")), ["DELETE /sessions/previous-session", "DELETE /sessions/previous-session"]);
   assert.equal((await connection(db, "previous"))?.session_cipher, null);
   assert.notEqual((await connection(db, "renewed"))?.session_cipher, null);
@@ -579,7 +585,7 @@ test("a sync that receives a terminal session code expires the connection and de
   assert.deepEqual(requests.filter(request => request.startsWith("DELETE")), []);
 });
 
-test("a connection past its consent expiry gets one revocation attempt and keeps its reconnect prompt", async context => {
+test("a connection past its consent expiry keeps its session for explicit removal instead of revoking in the background", async context => {
   const {
     db,
     requests,
@@ -616,13 +622,20 @@ test("a connection past its consent expiry gets one revocation attempt and keeps
   const result = await syncAccounts();
 
   assert.deepEqual(result.failures.map(failure => failure.reconnect), [true, true]);
-  assert.deepEqual(requests.filter(request => request.startsWith("DELETE")).toSorted(), ["DELETE /sessions/lapsed-session", "DELETE /sessions/unknown-session"]);
+  assert.deepEqual(requests.filter(request => request.startsWith("DELETE")), []);
 
   for (const id of ["lapsed", "unknown"]) {
     assert.equal((await connection(db, id))?.status, "EXPIRED");
-    assert.equal((await connection(db, id))?.session_cipher, null);
+    assert.notEqual((await connection(db, id))?.session_cipher, null);
   }
 
   await syncAccounts();
+  assert.equal(requests.filter(request => request.startsWith("DELETE")).length, 0);
+
+  for (const id of ["lapsed", "unknown"]) {
+    await removeBankConnection(id);
+    assert.equal((await connection(db, id))?.session_cipher, null);
+  }
+
   assert.equal(requests.filter(request => request.startsWith("DELETE")).length, 2);
 });

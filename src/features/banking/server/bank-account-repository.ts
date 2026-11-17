@@ -7,7 +7,7 @@ import type { BankAccount } from "./enable-banking-client";
 
 // Maps the authorized accounts and links the connection in one transaction; a connection removed meanwhile is never linked.
 export async function saveSessionAccounts(db: Database, environment: string, requisitionId: string, institution: string, bankAccounts: BankAccount[]) {
-  await db.transaction(async tx => {
+  return db.transaction(async tx => {
     for (const account of bankAccounts) {
       if (!account.identification_hash || !account.uid || !account.currency || account.currency === "XXX") {
         throw new HttpError(502, "Bank account is missing a stable identifier or an unambiguous currency.");
@@ -79,8 +79,11 @@ export async function saveSessionAccounts(db: Database, environment: string, req
     }).from(accounts).where(eq(accounts.requisition_id, requisitions.id));
     const superseded = and(eq(requisitions.environment, environment), eq(requisitions.status, "LINKED"), ne(requisitions.id, requisitionId), notExists(linkedAccounts));
 
-    await tx.update(requisitions).set({
+    return tx.update(requisitions).set({
       status: "SUPERSEDED"
-    }).where(superseded);
+    }).where(superseded).returning({
+      id: requisitions.id,
+      session_cipher: requisitions.session_cipher
+    });
   });
 }

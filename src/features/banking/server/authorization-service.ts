@@ -3,11 +3,11 @@ import { HttpError } from "@/lib/errors";
 import { encrypt } from "@/server/security/secret-box";
 import { hash } from "@/server/security/tokens";
 import { database } from "@/server/database/connection";
-import { cancelPendingAuthorization, consumeAuthorization, recordConnectionFailure, recordEmptyConnection, saveBankSession } from "./connection-repository";
+import { cancelPendingAuthorization, clearRevokedSession, consumeAuthorization, recordConnectionFailure, recordEmptyConnection, recordRevocationFailure, saveBankSession } from "./connection-repository";
 import { saveSessionAccounts } from "./bank-account-repository";
 import { createSession } from "./enable-banking-client";
 import { environment } from "./environment";
-import { revokeReleasedSessions } from "./session-revocation";
+import { revokeSession } from "./session-revocation";
 
 export async function completeAuthorization(state: string, browserSecret: string, code: string, actor: AuthContext) {
   const db = await database();
@@ -18,6 +18,15 @@ export async function completeAuthorization(state: string, browserSecret: string
     throw new HttpError(400, "The bank callback has expired, has already been used, or belongs to another browser.");
   }
 
+  let storedSession: {
+    id: string;
+    session_cipher: string
+  } | null = null;
+  let releasedSessions: {
+    id: string;
+    session_cipher: string | null
+  }[] = [];
+
   try {
     const session = await createSession(code);
 
@@ -26,13 +35,18 @@ export async function completeAuthorization(state: string, browserSecret: string
     }
 
     // Persist the once-only provider response before mapping accounts, so a mapping failure still leaves the session to revoke.
-    const sessionSaved = await saveBankSession(db, connection.id, encrypt(session.session_id), session.access.valid_until);
+    const sessionCipher = encrypt(session.session_id);
+    const sessionSaved = await saveBankSession(db, connection.id, sessionCipher, session.access.valid_until);
 
     if (!sessionSaved) {
       throw new HttpError(409, "The bank connection was removed during authorization.");
     }
 
-    await saveSessionAccounts(db, env, connection.id, connection.bank_name, session.accounts);
+    storedSession = {
+      id: connection.id,
+      session_cipher: sessionCipher
+    };
+    releasedSessions = await saveSessionAccounts(db, env, connection.id, connection.bank_name, session.accounts);
 
     if (!session.accounts.length) {
       await recordEmptyConnection(db, connection.id);
@@ -42,12 +56,26 @@ export async function completeAuthorization(state: string, browserSecret: string
       accounts: session.accounts.length
     };
   } catch (error) {
+    if (storedSession) {
+      releasedSessions.push(storedSession);
+    }
+
     await recordConnectionFailure(db, connection.id, error instanceof HttpError ? error.message : "Bank connection failed.");
 
     throw error;
   } finally {
-    // Sessions this authorization superseded or could not use are revoked; a failed revocation is logged and retried by later syncs.
-    await revokeReleasedSessions(db, env);
+    // Only this callback's newly released sessions get one attempt; a failure stays visible for an explicit removal retry.
+    for (const session of releasedSessions) {
+      if (!session.session_cipher) {
+        continue;
+      }
+
+      if (await revokeSession(session.session_cipher)) {
+        await clearRevokedSession(db, session.id, session.session_cipher);
+      } else {
+        await recordRevocationFailure(db, session.id);
+      }
+    }
   }
 }
 

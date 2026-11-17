@@ -47,7 +47,7 @@ The [secret-box module](../src/server/security/secret-box.ts) is a small adapter
 The key encrypts only the stored Enable Banking session IDs (`requisitions.session_cipher`). Ufer reads them with a single key, so replacing the key makes every stored session unreadable. Until a re-encryption migration exists, rotate the key by re-establishing the sessions:
 
 1. Back up the database together with the current key.
-2. Remove every bank connection in the Bank connections view, including superseded, expired and failed ones, and confirm that no removal reports an unconfirmed revocation; repeat a sync until any retried revocation succeeds. Accounts and their history stay.
+2. Remove every bank connection in the Bank connections view, including superseded, expired and failed ones, and confirm each removal succeeds; if revocation fails, retry that connection's removal. Scheduled syncs do not retry revocations. Accounts and their history stay.
 3. Check that no session remains: `SELECT COUNT(*) FROM requisitions WHERE session_cipher IS NOT NULL` returns 0.
 4. Set the new `DATA_ENCRYPTION_KEY` and restart the application.
 5. Reconnect the banks; the kept accounts are remapped by their identification hashes.
