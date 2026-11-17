@@ -12,7 +12,7 @@ import { TraceId } from "@/components/ui/trace-id";
 import { useDismiss } from "@/components/ui/use-dismiss";
 import { CategoryPicker } from "@/features/categorization/components/category-picker";
 import { RuleFromAssignmentDialog } from "@/features/categorization/components/rule-from-assignment-form";
-import { useTransactionCategory } from "@/features/transactions/use-transaction-category";
+import { useTransactionCategory, type RuleOffer } from "@/features/transactions/use-transaction-category";
 
 type Props = {
   categories: Category[];
@@ -51,10 +51,13 @@ export function TransactionCategory({
     change
   } = useTransactionCategory(transaction);
   const [offerOutcome, setOfferOutcome] = useState<OfferOutcome>();
-  const [creatingRule, setCreatingRule] = useState(false);
-  const outcome = ruleOffer && offerOutcome?.change === ruleOffer.change ? offerOutcome : undefined;
-  const offered = ruleOffer !== null && outcome === undefined;
-  const created = outcome?.kind === "created" ? outcome : undefined;
+  // The offer a rule is being created from; the dialog keeps it even when a later save elsewhere moves the offer to another row.
+  const [creatingRule, setCreatingRule] = useState<RuleOffer | null>(null);
+  const [fieldFocusRequest, setFieldFocusRequest] = useState(0);
+  const offered = ruleOffer !== null && offerOutcome?.change !== ruleOffer.change;
+  const createdOutcome = offerOutcome?.kind === "created" ? offerOutcome : undefined;
+  // A newer saved change of this row replaces the confirmation with its own offer.
+  const created = createdOutcome && (ruleOffer === null || ruleOffer.change === createdOutcome.change) ? createdOutcome : undefined;
   const failure = status?.kind === "failed" ? `Category not saved: ${status.failure.message}` : "";
   const announcements = {
     saving: "Saving category …",
@@ -71,12 +74,14 @@ export function TransactionCategory({
 
   // The offer and its confirmation are transient: Escape and a press outside the category field dismiss them.
   useDismiss({
-    active: (offered || created !== undefined) && !creatingRule,
+    active: (offered || created !== undefined) && creatingRule === null,
     inside: [categoryRef],
     onDismiss: dismissal => {
-      if (ruleOffer) {
+      const shownChange = offered ? ruleOffer.change : created?.change;
+
+      if (shownChange !== undefined) {
         setOfferOutcome({
-          change: ruleOffer.change,
+          change: shownChange,
           kind: "dismissed"
         });
       }
@@ -87,12 +92,20 @@ export function TransactionCategory({
     }
   });
 
-  // The offer button is gone once the rule exists, so focus returns to the field instead.
+  // Runs after the closed dialog has tried to restore focus to an offer button that is gone, such as once the rule exists.
   useEffect(() => {
-    if (created) {
+    if (fieldFocusRequest > 0) {
       document.getElementById(fieldId)?.focus();
     }
-  }, [created, fieldId]);
+  }, [fieldFocusRequest, fieldId]);
+
+  function closeRuleDialog(pinned: RuleOffer) {
+    setCreatingRule(null);
+
+    if (ruleOffer?.change !== pinned.change) {
+      setFieldFocusRequest(request => request + 1);
+    }
+  }
 
   return (
     <div ref={categoryRef} className={styles["category"]}>
@@ -132,7 +145,7 @@ export function TransactionCategory({
             type="button"
             className={clsx(ui["text-button"], styles["offer-button"])}
             aria-haspopup="dialog"
-            onClick={() => setCreatingRule(true)}
+            onClick={() => setCreatingRule(ruleOffer)}
           >
             <Sparkles aria-hidden="true" />
             Create rule…
@@ -145,17 +158,20 @@ export function TransactionCategory({
           {createdText(created.categorized)}
         </span>
       )}
-      {creatingRule && ruleOffer && (
+      {creatingRule && (
         <RuleFromAssignmentDialog
           counterparty={transaction.counterparty}
           description={transaction.description}
-          categoryId={ruleOffer.categoryId}
-          close={() => setCreatingRule(false)}
-          onCreated={categorized => setOfferOutcome({
-            change: ruleOffer.change,
-            kind: "created",
-            categorized
-          })}
+          categoryId={creatingRule.categoryId}
+          close={() => closeRuleDialog(creatingRule)}
+          onCreated={categorized => {
+            setOfferOutcome({
+              change: creatingRule.change,
+              kind: "created",
+              categorized
+            });
+            setFieldFocusRequest(request => request + 1);
+          }}
         />
       )}
     </div>
