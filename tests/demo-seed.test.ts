@@ -262,7 +262,9 @@ test("the dataset is reproducible for a run date, its rules categorize all but a
   const createdSources = rows.filter(row => created.some(counterpart => counterpart.transfer_id === row.transfer_id && counterpart.id !== row.id));
 
   assert.ok(summary.transactions > 1000);
-  assert.ok(summary.uncategorized >= 5 && summary.uncategorized <= 15, `${summary.uncategorized} uncategorized rows`);
+  const uncategorizedSpending = rows.filter(row => (row.type === "income" || row.type === "expense") && row.category_id === null).length;
+
+  assert.ok(uncategorizedSpending >= 5 && uncategorizedSpending <= 15, `${uncategorizedSpending} uncategorized income/expense rows`);
   assert.equal(dates[0] >= "2025-05-16", true);
   assert.equal(dates[dates.length - 1] <= "2026-11-16", true);
   // Three kinds of transfers: pairs between demo accounts, counterparts created on the manual mortgage account, and transfers to an untracked account.
@@ -275,5 +277,5 @@ test("the dataset is reproducible for a run date, its rules categorize all but a
   assert.equal(createdSources.length, created.length);
   assert.ok(untracked.length >= 12);
   assert.ok(untracked.every(row => row.counterparty === "Joint household account"));
-  assert.ok(transfers.every(row => row.category_id === "transfer"));
+  assert.ok(transfers.every(row => row.category_id === null));
 });

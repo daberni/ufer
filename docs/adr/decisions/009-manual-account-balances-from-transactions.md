@@ -28,7 +28,7 @@ A manual account (cash, savings, investment, property, loan) was a series of dat
 | Transfers with an imported side | A booking from a bank sync or a CSV import is the source of truth. An entered booking linked with it keeps its date and amount (payee, description and type stay editable), and a counterpart Ufer created for it can only keep its link or be removed, as in ADR 008. When the imported booking is redelivered with a corrected date or amount, the entered side follows: the date always, the opposite amount while currency and direction stay the same, and the pair stays linked. A correction in the other direction or to no amount ends the link: a manual entry still takes the opposite amount as a transfer without a counterpart, and a counterpart Ufer created is removed; after a currency change both are released as in ADR 008. Deleting the entered side leaves the imported booking a transfer without a counterpart |
 | Linking two entered bookings | Linking two separately entered bookings makes them an entered pair: the linked booking takes the subject's date, description and the subject's account as payee |
 
-Changeset 0006 converts existing data without changing any current balance: for every manual account, the first snapshot becomes the opening balance and each later snapshot an adjustment, both dated as the snapshot, so the balance at the end of every snapshot date equals that snapshot. Transactions already on the account between two snapshots were part of the later snapshot, so only the remaining difference is booked; a later snapshot without a difference books nothing. Where transactions after the newest snapshot or a missing history make the sum differ from the stored balance, one more adjustment on the newest date keeps the current balance. The manual accounts' snapshots and stored balances are then removed.
+Changeset 0007 converts existing data without changing any current balance: for every manual account, the first snapshot becomes the opening balance and each later snapshot an adjustment, both dated as the snapshot, so the balance at the end of every snapshot date equals that snapshot. Transactions already on the account between two snapshots were part of the later snapshot, so only the remaining difference is booked; a later snapshot without a difference books nothing. Where transactions after the newest snapshot or a missing history make the sum differ from the stored balance, one more adjustment on the newest date keeps the current balance. The manual accounts' snapshots and stored balances are then removed.
 
 ## Consequences
 
@@ -38,13 +38,13 @@ Changeset 0006 converts existing data without changing any current balance: for 
 - A manual account's balance history no longer lives in `balance_snapshots`; a net-worth history ([#87](https://github.com/daberni/ufer/issues/87)) reads manual accounts' running balances from their transactions and synced accounts' from snapshots.
 - A repeated snapshot with the same value leaves no booking; its date is not kept.
 - The demo seed refuses a database whose own manual accounts hold transactions other than opening balances and adjustments, as before it refused any transactions there.
-- Applying changeset 0006 to a hosted database is a separate, explicitly approved maintenance step.
+- Applying changeset 0007 to a hosted database is a separate, explicitly approved maintenance step.
 
 ## Compliance
 
 - [Manual transaction tests](../../../tests/manual-transactions.test.ts) cover derived balances, Update balance on past dates, report exclusion, editing and deleting entries, editing, moving and removing a transfer between manual accounts from either side, entered bookings that follow an imported booking and its redelivered corrections, linking two entered bookings and repeated CSV balance imports.
 - [Repository tests](../../../tests/repositories.test.ts) cover the opening balance at account creation and its rollback.
-- [Migration tests](../../../tests/migrations.test.ts) build a database before changeset 0006 and compare every balance, the balance at each snapshot date, original transactions and cash-flow results before and after it.
+- [Migration tests](../../../tests/migrations.test.ts) build a database before changeset 0007 and compare every balance, the balance at each snapshot date, original transactions and cash-flow results before and after it.
 
 ## Notes
 

@@ -47,8 +47,15 @@
     {
       "idx": 6,
       "version": "6",
+      "when": 1794878083723,
+      "tag": "0006_retire_transfer_category",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
       "when": 1794882016186,
-      "tag": "0006_manual_account_transactions",
+      "tag": "0007_manual_account_transactions",
       "breakpoints": true
     }
   ]
