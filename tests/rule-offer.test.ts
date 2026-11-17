@@ -84,7 +84,7 @@ function patchFor(pending: PendingRequest[], id: string) {
   return pending.find(request => request.method === "PATCH" && request.url.pathname === `/api/transactions/${id}`);
 }
 
-test("the rule dialog keeps its row's offer and the edited pattern when a save on another row finishes", async context => {
+test("the rule dialog posts its preview and keeps its row's offer and the edited pattern when a save on another row finishes", async context => {
   const {
     pending,
     queryClient
@@ -122,6 +122,18 @@ test("the rule dialog keeps its row's offer and the edited pattern when a save o
   }) as HTMLInputElement;
 
   assert.equal(pattern().value, "Example Market");
+
+  // The preview posts the pattern, which comes from payee text, instead of putting it in the URL.
+  await wait(0);
+  const preview = pending.find(request => request.url.pathname === "/api/rules/preview");
+
+  assert.equal(preview?.method, "POST");
+  assert.equal(preview?.url.search, "");
+  assert.deepEqual(preview?.body, {
+    pattern: "Example Market",
+    mode: "keyword",
+    priority: 100
+  });
   act(() => {
     fireEvent.change(pattern(), {
       target: {

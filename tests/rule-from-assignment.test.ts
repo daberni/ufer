@@ -193,7 +193,7 @@ test("a rule preview counts the transactions the new rule would decide, without 
   assert.deepEqual(await previewRule({
     pattern: "example market",
     mode: "keyword",
-    priority: "100"
+    priority: 100
   }), {
     matched: 3,
     uncategorized: 2
@@ -201,7 +201,7 @@ test("a rule preview counts the transactions the new rule would decide, without 
   assert.deepEqual(await previewRule({
     pattern: "Example Market",
     mode: "keyword",
-    priority: "5"
+    priority: 5
   }), {
     matched: 4,
     uncategorized: 3
@@ -209,7 +209,7 @@ test("a rule preview counts the transactions the new rule would decide, without 
   assert.deepEqual(await previewRule({
     pattern: "No such payee",
     mode: "keyword",
-    priority: "100"
+    priority: 100
   }), {
     matched: 0,
     uncategorized: 0
@@ -217,7 +217,7 @@ test("a rule preview counts the transactions the new rule would decide, without 
   await assert.rejects(previewRule({
     pattern: "   ",
     mode: "keyword",
-    priority: "100"
+    priority: 100
   }), ValidationError);
 
   assert.deepEqual(await categories(db), before);
@@ -287,7 +287,7 @@ test("among rules of the same priority the older one decides, in the preview, on
   assert.deepEqual(await previewRule({
     pattern: "Example Market",
     mode: "keyword",
-    priority: "100"
+    priority: 100
   }), {
     matched: 0,
     uncategorized: 0
@@ -295,7 +295,7 @@ test("among rules of the same priority the older one decides, in the preview, on
   assert.deepEqual(await previewRule({
     pattern: "Example Market",
     mode: "keyword",
-    priority: "99"
+    priority: 99
   }), {
     matched: 3,
     uncategorized: 2

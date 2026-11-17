@@ -7,26 +7,22 @@ import { isCategoryIcon } from "@/features/categorization/category-icons";
 import { categoryExists, insertCategory, updateCategory, type CategoryDetails, type CategoryWriteResult } from "./category-repository";
 import { findUncorrectedTransactions, insertRule, listRules, saveRuleAssignments, setRuleEnabled } from "./rule-repository";
 
-const rulePattern = {
+const ruleMatching = {
   pattern: z.string().min(1).max(500),
-  mode: z.enum(["keyword", "regex"])
+  mode: z.enum(["keyword", "regex"]),
+  priority: z.number().int().min(0).max(10000)
 };
 
 const ruleInput = z.object({
   name: z.string().trim().min(1).max(100),
-  ...rulePattern,
+  ...ruleMatching,
   category_id: z.string().min(1),
-  priority: z.number().int().min(0).max(10000),
   enabled: z.boolean().default(true),
   // Gives the rule's category to the transactions it decides that are still uncategorized; other matches change when rules are applied.
   apply_to_uncategorized: z.boolean().default(false)
 });
 
-// Preview parameters arrive as query strings.
-const rulePreviewInput = z.object({
-  ...rulePattern,
-  priority: z.coerce.number().int().min(0).max(10000)
-});
+const rulePreviewInput = z.object(ruleMatching);
 
 /**
  * Transactions without a manual assignment whose category a new rule decides: it is the first matching rule in priority order. The new rule comes last
