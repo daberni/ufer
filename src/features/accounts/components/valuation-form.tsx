@@ -55,7 +55,7 @@ function ValuationForm({
         />
       </label>
       <label>
-        Valuation date
+        Balance date
         <input
           name="date"
           type="date"
@@ -64,6 +64,7 @@ function ValuationForm({
           max={latestDate}
         />
       </label>
+      <p className={ui["form-hint"]}>The balance is derived from the account's transactions. Saving books the difference to the balance on that date as an adjustment, for example a revaluation.</p>
       <FormError failure={error} />
       <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={pending}>
         Save balance <Check size={16} />

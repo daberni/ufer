@@ -13,6 +13,9 @@ type Executor = Database | DatabaseTransaction;
 /** Counterparts created on a manual account carry the source booking's id in this reference; unlinking removes them again. */
 export const createdCounterpartPrefix = "transfer:";
 
+/** Bookings entered in Ufer on a manual account (manual transactions, opening balances and adjustments) carry their own id in this reference. */
+export const manualEntryPrefix = "manual:";
+
 // Bookings automatic pairing may link: unlinked, never linked or unlinked by a person, and either a transfer or a type nobody corrected.
 function pairable(alias: string) {
   return sql.raw(`${alias}.transfer_id IS NULL AND ${alias}.transfer_source='auto' AND ${alias}.amount_minor<>0 AND (${alias}.type='transfer' OR (${alias}.type_source='auto' AND ${alias}.type IN ('income','expense')))`);
@@ -99,7 +102,7 @@ const subjectColumns = {
   transfer_id: transactions.transfer_id
 };
 
-type Subject = NonNullable<Awaited<ReturnType<typeof findSubject>>>;
+export type Subject = NonNullable<Awaited<ReturnType<typeof findSubject>>>;
 
 /** Bookings a person can link with `subject`: unlinked, the exact opposite amount in the same currency, on another account of this environment, within the manual link window. The dialog offers only these and linking accepts only these. */
 function linkCandidate(subject: Subject) {
@@ -108,11 +111,11 @@ function linkCandidate(subject: Subject) {
   return and(eq(accounts.environment, environment()), ne(transactions.account_id, subject.account_id), eq(transactions.amount_minor, -subject.amount_minor), eq(transactions.currency, subject.currency), sql`${transactions.transfer_id} IS NULL`, sql`${transactions.amount_minor}<>0`, inWindow);
 }
 
-async function findSubject(executor: Executor, id: string) {
+export async function findSubject(executor: Executor, id: string) {
   return executor.select(subjectColumns).from(transactions).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(and(eq(transactions.id, id), eq(accounts.environment, environment()))).get();
 }
 
-async function findCounterpart(executor: Executor, subject: Subject) {
+export async function findCounterpart(executor: Executor, subject: Subject) {
   if (!subject.transfer_id) {
     return undefined;
   }
@@ -124,11 +127,39 @@ function createdCounterpart(booking: Subject) {
   return booking.provider_reference.startsWith(createdCounterpartPrefix);
 }
 
+/** Whether a booking was entered in Ufer rather than imported from a bank or a CSV file: a manual entry or a created counterpart on a manual account. */
+export function enteredInUfer(booking: Pick<Subject, "account_provider" | "provider_reference">) {
+  const reference = booking.provider_reference;
+
+  return booking.account_provider === "manual" && (reference.startsWith(manualEntryPrefix) || reference.startsWith(createdCounterpartPrefix));
+}
+
+/**
+ * Whether two linked bookings form one movement between manual accounts entered in Ufer. Neither side is the source of truth: either side edits, moves or removes the pair.
+ * When one side was imported, the imported booking is the source of truth and the entered side follows it.
+ */
+export function enteredPair(subject: Subject, counterpart: Subject) {
+  return enteredInUfer(subject) && enteredInUfer(counterpart);
+}
+
+/** Removes one side of an entered pair. The other side stays as a transfer without a counterpart; if it was created for the removed side, it becomes an ordinary manual entry. */
+export async function removeEnteredLeg(tx: DatabaseTransaction, leg: Subject, remaining: Subject) {
+  await tx.delete(transactions).where(eq(transactions.id, leg.id));
+
+  const reference = remaining.provider_reference === `${createdCounterpartPrefix}${leg.id}` ? `${manualEntryPrefix}${remaining.id}` : remaining.provider_reference;
+
+  await tx.update(transactions).set({
+    provider_reference: reference,
+    transfer_id: null,
+    transfer_source: "manual"
+  }).where(eq(transactions.id, remaining.id));
+}
+
 /**
  * Ends a link. A counterpart Ufer created on a manual account is removed with it; any other counterpart keeps its booking and becomes a transfer without a counterpart, or, with `counterpartType`, takes that type.
  * Both sides are marked as manually unlinked, so automatic pairing and resync leave them alone.
  */
-async function dissolveLink(tx: DatabaseTransaction, subject: Subject, counterpartType?: (booking: Subject) => TransactionType) {
+export async function dissolveLink(tx: DatabaseTransaction, subject: Subject, counterpartType?: (booking: Subject) => TransactionType) {
   const counterpart = await findCounterpart(tx, subject);
 
   await tx.update(transactions).set({
@@ -183,6 +214,7 @@ async function markManualType(tx: DatabaseTransaction, id: string, type: Transac
 async function findManualTarget(tx: DatabaseTransaction, accountId: string) {
   return tx.select({
     id: accounts.id,
+    name: accounts.name,
     currency: accounts.currency
   }).from(accounts).where(and(eq(accounts.id, accountId), eq(accounts.environment, environment()), eq(accounts.provider, "manual"))).get();
 }
@@ -224,13 +256,8 @@ async function leaveTransfer(tx: DatabaseTransaction, subject: Subject, counterp
   await markManualType(tx, subject.id, type);
 }
 
-async function linkExisting(tx: DatabaseTransaction, subject: Subject, counterpart: Subject | undefined, counterpartId: string): Promise<TypeChangeResult> {
-  if (counterpart?.id === counterpartId) {
-    await markManualType(tx, subject.id, "transfer");
-
-    return "saved";
-  }
-
+/** The booking `counterpartId` if a person may link it with `subject`, otherwise why not. */
+async function checkLinkCandidate(tx: DatabaseTransaction, subject: Subject, counterpartId: string): Promise<TypeChangeResult | Subject> {
   const chosen = await findSubject(tx, counterpartId);
 
   if (!chosen) {
@@ -245,8 +272,20 @@ async function linkExisting(tx: DatabaseTransaction, subject: Subject, counterpa
     id: transactions.id
   }).from(transactions).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(and(eq(transactions.id, chosen.id), linkCandidate(subject))).get();
 
-  if (!candidate) {
-    return "not_a_candidate";
+  return candidate ? chosen : "not_a_candidate";
+}
+
+async function linkExisting(tx: DatabaseTransaction, subject: Subject, counterpart: Subject | undefined, counterpartId: string): Promise<TypeChangeResult> {
+  if (counterpart?.id === counterpartId) {
+    await markManualType(tx, subject.id, "transfer");
+
+    return "saved";
+  }
+
+  const chosen = await checkLinkCandidate(tx, subject, counterpartId);
+
+  if (typeof chosen === "string") {
+    return chosen;
   }
 
   if (subject.transfer_id) {
@@ -256,6 +295,99 @@ async function linkExisting(tx: DatabaseTransaction, subject: Subject, counterpa
   await link(tx, [subject.id, chosen.id]);
 
   return "saved";
+}
+
+/** Moves the other side of an entered pair to another manual account, keeping its booking. */
+async function moveEnteredLeg(tx: DatabaseTransaction, subject: Subject, counterpart: Subject, accountId: string): Promise<TypeChangeResult> {
+  const account = await findManualTarget(tx, accountId);
+
+  if (!account) {
+    return "account_not_found";
+  }
+
+  if (account.id === subject.account_id) {
+    return "same_account";
+  }
+
+  if (account.currency !== subject.currency) {
+    return "currency_mismatch";
+  }
+
+  await tx.update(transactions).set({
+    account_id: account.id
+  }).where(eq(transactions.id, counterpart.id));
+  await markManualType(tx, subject.id, "transfer");
+
+  return "saved";
+}
+
+function keepsEnteredPair(counterpart: Subject, target: TransferTarget | undefined) {
+  if (target === undefined) {
+    return true;
+  }
+
+  if (target === null) {
+    return false;
+  }
+
+  return "counterpartId" in target ? target.counterpartId === counterpart.id : target.accountId === counterpart.account_id;
+}
+
+/** A type or target change on one side of an entered pair; both sides are one movement, so the other side moves or is removed with it. */
+async function changeEnteredPair(tx: DatabaseTransaction, subject: Subject, counterpart: Subject, type: TransactionType, target: TransferTarget | undefined): Promise<TypeChangeResult> {
+  if (type !== "transfer") {
+    await removeEnteredLeg(tx, counterpart, subject);
+    await markManualType(tx, subject.id, type);
+
+    return "saved";
+  }
+
+  if (keepsEnteredPair(counterpart, target)) {
+    await markManualType(tx, subject.id, "transfer");
+
+    return "saved";
+  }
+
+  if (target && "accountId" in target) {
+    return moveEnteredLeg(tx, subject, counterpart, target.accountId);
+  }
+
+  if (target) {
+    const chosen = await checkLinkCandidate(tx, subject, target.counterpartId);
+
+    if (typeof chosen === "string") {
+      return chosen;
+    }
+
+    await removeEnteredLeg(tx, counterpart, subject);
+    await link(tx, [subject.id, chosen.id]);
+
+    return "saved";
+  }
+
+  await removeEnteredLeg(tx, counterpart, subject);
+  await markManualType(tx, subject.id, "transfer");
+
+  return "saved";
+}
+
+/** Keeps the two sides of an entered pair consistent: each names the other's account as its counterparty, and the other side takes the subject's date and description. */
+export async function alignEnteredPair(tx: DatabaseTransaction, id: string) {
+  const subject = await findSubject(tx, id);
+  const counterpart = subject ? await findCounterpart(tx, subject) : undefined;
+
+  if (!subject || !counterpart || !enteredPair(subject, counterpart)) {
+    return;
+  }
+
+  await tx.update(transactions).set({
+    counterparty: counterpart.account_name
+  }).where(eq(transactions.id, subject.id));
+  await tx.update(transactions).set({
+    counterparty: subject.account_name,
+    description: subject.description,
+    booking_date: subject.booking_date
+  }).where(eq(transactions.id, counterpart.id));
 }
 
 async function linkManualAccount(tx: DatabaseTransaction, subject: Subject, counterpart: Subject | undefined, accountId: string): Promise<TypeChangeResult> {
@@ -323,55 +455,72 @@ async function transferWithoutCounterpart(tx: DatabaseTransaction, subject: Subj
 export async function saveTransactionType(id: string, type: TransactionType, target?: TransferTarget): Promise<TypeChangeResult> {
   const db = await database();
 
-  return db.transaction(async tx => {
-    const subject = await findSubject(tx, id);
+  return db.transaction(tx => applyTransactionType(tx, id, type, target));
+}
 
-    if (!subject) {
-      return "not_found";
-    }
+/** `saveTransactionType` inside a caller's transaction, for example after entering or editing a booking. A failed check returns before anything is written. */
+export async function applyTransactionType(tx: DatabaseTransaction, id: string, type: TransactionType, target?: TransferTarget): Promise<TypeChangeResult> {
+  const result = await changeType(tx, id, type, target);
 
-    if (manualAccountTypes.includes(type) && subject.account_provider !== "manual") {
-      return "manual_account_only";
-    }
+  if (result === "saved") {
+    await alignEnteredPair(tx, id);
+  }
 
-    const counterpart = await findCounterpart(tx, subject);
+  return result;
+}
 
-    if (type !== "transfer") {
-      await leaveTransfer(tx, subject, counterpart, type);
+async function changeType(tx: DatabaseTransaction, id: string, type: TransactionType, target?: TransferTarget): Promise<TypeChangeResult> {
+  const subject = await findSubject(tx, id);
 
-      return "saved";
-    }
+  if (!subject) {
+    return "not_found";
+  }
 
-    const keepsLink = target === undefined || (target !== null && "counterpartId" in target && target.counterpartId === counterpart?.id);
+  if (manualAccountTypes.includes(type) && subject.account_provider !== "manual") {
+    return "manual_account_only";
+  }
 
-    // A booking Ufer created on a manual account exists only for its source's link: it can keep that link or be removed, never be retargeted.
-    if (counterpart && createdCounterpart(subject) && target !== null && !keepsLink) {
-      return "created_counterpart";
-    }
+  const counterpart = await findCounterpart(tx, subject);
 
-    if (target === undefined) {
-      await markManualType(tx, subject.id, "transfer");
+  if (counterpart && enteredPair(subject, counterpart)) {
+    return changeEnteredPair(tx, subject, counterpart, type, target);
+  }
 
-      // Only a booking nobody linked or unlinked is paired automatically; pairing skips manual link decisions.
-      if (!subject.transfer_id) {
-        await pairTransfers(tx, environment());
-      }
-
-      return "saved";
-    }
-
-    if (target && "counterpartId" in target) {
-      return linkExisting(tx, subject, counterpart, target.counterpartId);
-    }
-
-    if (target && "accountId" in target) {
-      return linkManualAccount(tx, subject, counterpart, target.accountId);
-    }
-
-    await transferWithoutCounterpart(tx, subject, counterpart);
+  if (type !== "transfer") {
+    await leaveTransfer(tx, subject, counterpart, type);
 
     return "saved";
-  });
+  }
+
+  const keepsLink = target === undefined || (target !== null && "counterpartId" in target && target.counterpartId === counterpart?.id);
+
+  // A booking Ufer created on a manual account for an imported booking exists only for that link: it can keep it or be removed, never be retargeted.
+  if (counterpart && createdCounterpart(subject) && target !== null && !keepsLink) {
+    return "created_counterpart";
+  }
+
+  if (target === undefined) {
+    await markManualType(tx, subject.id, "transfer");
+
+    // Only a booking nobody linked or unlinked is paired automatically; pairing skips manual link decisions.
+    if (!subject.transfer_id) {
+      await pairTransfers(tx, environment());
+    }
+
+    return "saved";
+  }
+
+  if (target && "counterpartId" in target) {
+    return linkExisting(tx, subject, counterpart, target.counterpartId);
+  }
+
+  if (target && "accountId" in target) {
+    return linkManualAccount(tx, subject, counterpart, target.accountId);
+  }
+
+  await transferWithoutCounterpart(tx, subject, counterpart);
+
+  return "saved";
 }
 
 /** Creates the counterpart of the booking `sourceReference` on `accountId` and links both, as a person does in the edit dialog; for seeding data. */
@@ -398,7 +547,8 @@ function transferBooking(booking: Subject): TransferBooking {
     currency: booking.currency,
     counterparty: booking.counterparty,
     description: booking.description,
-    created: createdCounterpart(booking)
+    created: createdCounterpart(booking),
+    entered: enteredInUfer(booking)
   };
 }
 
@@ -428,8 +578,57 @@ export async function readTransferOptions(id: string): Promise<TransferOptions |
 }
 
 /**
+ * Lets a booking entered in Ufer follow the imported booking it is linked with; runs before the corrected values are written.
+ * A redelivered date is always mirrored. An amount in the same currency and direction is mirrored as the opposite amount and the pair stays linked, so the manual account's balance follows the correction.
+ * A correction that ends the link (the other direction or no amount) still mirrors the amount into a manual entry, which is detached first; a counterpart Ufer created is removed by `releaseOutdatedLinks`, as is every link after a currency change.
+ */
+export async function followImportedCorrections(tx: DatabaseTransaction, accountId: string, entries: CategorizedEntry[]) {
+  const deliveries = new Map(entries.map(entry => [entry.reference, entry]));
+
+  if (!deliveries.size) {
+    return;
+  }
+
+  const linked = await tx.select({
+    id: transactions.id
+  }).from(transactions).where(and(eq(transactions.account_id, accountId), inArray(transactions.provider_reference, [...deliveries.keys()]), isNotNull(transactions.transfer_id)));
+
+  for (const { id } of linked) {
+    const booking = await findSubject(tx, id);
+    const counterpart = booking ? await findCounterpart(tx, booking) : undefined;
+    const delivery = booking ? deliveries.get(booking.provider_reference) : undefined;
+
+    if (!booking || !counterpart || !delivery || enteredInUfer(booking) || !enteredInUfer(counterpart)) {
+      continue;
+    }
+
+    const sameCurrency = delivery.currency === counterpart.currency;
+    const keepsLink = sameCurrency && delivery.amount !== 0 && Math.sign(delivery.amount) === Math.sign(booking.amount_minor);
+
+    if (keepsLink) {
+      await tx.update(transactions).set({
+        booking_date: delivery.date,
+        amount_minor: -delivery.amount
+      }).where(eq(transactions.id, counterpart.id));
+    } else if (sameCurrency && !createdCounterpart(counterpart)) {
+      // Detach before changing direction, and prevent the pairing pass from hiding the corrected income or expense as a transfer again.
+      await tx.update(transactions).set({
+        transfer_id: null,
+        transfer_source: "manual",
+        booking_date: delivery.date,
+        amount_minor: -delivery.amount
+      }).where(eq(transactions.id, counterpart.id));
+    } else {
+      await tx.update(transactions).set({
+        booking_date: delivery.date
+      }).where(eq(transactions.id, counterpart.id));
+    }
+  }
+}
+
+/**
  * Releases the links of stored bookings whose redelivered amount or currency no longer pairs with their counterpart (the exact opposite amount in the same currency), before the corrected values are written.
- * The corrected booking takes the type its delivery implies, its counterpart stays a transfer without a counterpart, and a counterpart Ufer created on a manual account is removed. Both keep an automatic link source, so pairing can link them again.
+ * The corrected booking takes the type its delivery implies, its counterpart stays a transfer without a counterpart, and a counterpart Ufer created on a manual account is removed. Links released here keep an automatic source; entered legs detached while following a correction keep their exclusion from pairing.
  */
 export async function releaseOutdatedLinks(tx: DatabaseTransaction, accountId: string, entries: CategorizedEntry[]) {
   const deliveries = new Map(entries.map(entry => [entry.reference, entry]));

@@ -87,7 +87,7 @@ function CsvImportForm({
         <span>Expected format · comma or semicolon</span>
         <pre>{importMode === "balances" ? "date;balance;currency\n2026-11-15;12500.00;EUR" : "id;date;amount;currency;counterparty;description\nentry-001;2026-11-15;-12.50;EUR;Supermarket;Purchase"}</pre>
       </div>
-      <p className={ui["form-hint"]}>{importMode === "balances" ? "Multiple valuation dates are supported. The latest balance is used." : "IDs must be stable and unique within an account. Reimporting updates existing transactions. Update the account balance separately."}</p>
+      <p className={ui["form-hint"]}>{importMode === "balances" ? "Each balance becomes the account balance at the end of its date; the difference is booked as an adjustment." : "IDs must be stable and unique within an account. Reimporting updates existing transactions, and they count toward the account balance."}</p>
       <FormError failure={error} />
       <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={pending || !manualAccounts.length}>
         Import CSV <ArrowDownToLine size={16} />

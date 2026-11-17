@@ -18,11 +18,14 @@ const outgoing: Transaction = {
   counterparty: "Synthetic savings",
   description: "Standing order",
   account_name: "Synthetic checking",
+  account_id: "synthetic-checking",
   category_id: null,
   category_source: "rule",
   type: "expense",
   type_source: "auto",
   manual_account: false,
+  entered: false,
+  follows_import: false,
   created_counterpart: false,
   counterpart: null
 };
@@ -37,7 +40,8 @@ function booking(id: string, accountName: string): TransferBooking {
     currency: "EUR",
     counterparty: "Synthetic checking",
     description: "Standing order",
-    created: false
+    created: false,
+    entered: false
   };
 }
 
@@ -169,7 +173,7 @@ test("choosing a suggestion sets the target account, and a manual account or non
   });
 
   assert.equal(suggestion().checked, false);
-  assert.match(screen.getByRole("status").textContent ?? "", /counterpart on Synthetic flat/);
+  assert.match(screen.getByRole("status").textContent ?? "", /other side on Synthetic flat/);
 
   act(() => {
     fireEvent.click(save());
@@ -296,4 +300,111 @@ test("a booking Ufer created on a manual account offers only removing it, withou
     type: "transfer",
     transfer: null
   });
+});
+
+test("one side of a transfer entered between manual accounts edits the pair: the other account is the target and Save sends the entry", async context => {
+  const created: Transaction = {
+    ...outgoing,
+    id: "created",
+    account_id: "savings",
+    account_name: "Synthetic savings",
+    amount_minor: 20000,
+    counterparty: "Synthetic cash",
+    description: "Monthly saving",
+    type: "transfer",
+    manual_account: true,
+    created_counterpart: true,
+    entered: true,
+    counterpart: {
+      id: "source",
+      account_name: "Synthetic cash",
+      booking_date: "2026-09-02"
+    }
+  };
+  const {
+    requests,
+    save,
+    screen,
+    target
+  } = await renderDialog(context, created);
+
+  await respond(requests("transactions/created/transfer")[0], Response.json({
+    counterpart: {
+      ...booking("source", "Synthetic cash"),
+      account_id: "cash",
+      amount_minor: -20000,
+      entered: true
+    },
+    candidates: [],
+    accounts: [{
+      id: "cash",
+      name: "Synthetic cash"
+    }, {
+      id: "broker",
+      name: "Synthetic broker"
+    }]
+  } satisfies TransferOptions));
+
+  // A created side of an entered pair is not limited to keeping or removing its link, and its payee is the other account.
+  assert.equal(screen.queryByRole("checkbox", {
+    name: "Remove this booking"
+  }), null);
+  assert.equal(screen.queryByRole("textbox", {
+    name: "Payee"
+  }), null);
+  assert.equal(target().value, "account:cash");
+
+  act(() => {
+    fireEvent.change(screen.getByRole("textbox", {
+      name: "Amount"
+    }), {
+      target: {
+        value: "250.00"
+      }
+    });
+    fireEvent.change(target(), {
+      target: {
+        value: "account:broker"
+      }
+    });
+  });
+  act(() => {
+    fireEvent.click(save());
+  });
+  await wait(0);
+
+  assert.deepEqual(requests("transactions/created")[0]?.body, {
+    type: "transfer",
+    transfer: {
+      account_id: "broker"
+    },
+    booking_date: "2026-09-02",
+    amount: "250.00",
+    counterparty: "",
+    description: "Monthly saving"
+  });
+  assert.equal(requests("transactions/created")[0]?.method, "PUT");
+});
+
+test("an entered booking linked with an imported booking keeps that booking's date and amount read-only", async context => {
+  const { screen } = await renderDialog(context, {
+    ...outgoing,
+    id: "entered",
+    manual_account: true,
+    entered: true,
+    follows_import: true,
+    counterpart: {
+      id: "bank",
+      account_name: "Synthetic checking",
+      booking_date: "2026-09-02"
+    }
+  });
+
+  assert.equal((screen.getByRole("textbox", {
+    name: "Amount"
+  }) as HTMLInputElement).readOnly, true);
+  assert.match(screen.getByText(/follow the linked booking/).textContent ?? "", /Synthetic checking/);
+  assert.ok(screen.getByRole("button", {
+    name: "Delete transaction"
+  }));
 });

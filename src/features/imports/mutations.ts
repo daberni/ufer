@@ -15,10 +15,8 @@ type CsvImport = {
 
 const maxFileSize = 1_000_000;
 
-const affectedKeys = {
-  balances: [queryKeys.accounts(), queryKeys.reports.netWorth()],
-  transactions: [queryKeys.transactions.all(), queryKeys.reports.cashFlow(), queryKeys.accounts()]
-};
+// Both imports book transactions on a manual account, which change its balance.
+const affectedKeys = [queryKeys.accounts(), queryKeys.reports.netWorth(), queryKeys.transactions.all(), queryKeys.reports.cashFlow()];
 
 export function useCsvImport() {
   const queryClient = useQueryClient();
@@ -38,6 +36,6 @@ export function useCsvImport() {
         csv: await file.text()
       });
     },
-    onSettled: (_data, _error, { mode }) => invalidate(queryClient, affectedKeys[mode])
+    onSettled: () => invalidate(queryClient, affectedKeys)
   });
 }
