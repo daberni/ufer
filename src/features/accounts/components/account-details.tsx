@@ -16,7 +16,7 @@ import { AreaPlaceholder } from "@/components/ui/area-placeholder";
 import { money } from "@/lib/money";
 import { BankConnectionDialog } from "@/features/banking/components/bank-connection-form";
 import { BalanceHistoryPanel } from "./balance-history";
-import { useViewHref } from "@/client/use-app-url";
+import { bankConnectionsHref } from "@/features/banking/connections-location";
 import type { Area } from "@/components/ui/use-area-result";
 import type { Account, BalanceHistory } from "@/features/accounts/types";
 import type { Connection } from "@/features/banking/types";
@@ -176,7 +176,6 @@ function ConnectionActions({
   connections: Connection[];
   reconnect: (connection: Connection) => void;
 }) {
-  const viewHref = useViewHref();
   const connection = connections.find(item => item.id === account.requisition_id);
 
   return (
@@ -187,7 +186,7 @@ function ConnectionActions({
           Reconnect {connection.bank_name}
         </button>
       )}
-      <Link className={ui["text-button"]} href={viewHref("connections")}>
+      <Link className={ui["text-button"]} href={bankConnectionsHref}>
         Manage bank connections <ArrowRight size={15} />
       </Link>
     </div>

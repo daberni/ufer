@@ -56,7 +56,9 @@ test("editing a row opens its dialog and restores focus without turning category
     name: "Edit transaction: Synthetic savings"
   });
 
-  fireEvent.click(within(row).getByText("Description"));
+  fireEvent.click(within(row).getByText("Details", {
+    selector: "summary"
+  }));
   assert.equal(screen.queryByRole("dialog"), null);
   fireEvent.focus(within(row).getByRole("combobox"));
   assert.equal(screen.queryByRole("dialog"), null);

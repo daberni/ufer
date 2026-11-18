@@ -317,6 +317,7 @@ svg {
     overflow-wrap: anywhere;
   }
 }
+/* stylelint-disable declaration-no-important -- Reduced-motion overrides must beat component animations and transitions. */
 @media (prefers-reduced-motion: reduce) {
   * {
     animation: none !important;
@@ -331,3 +332,4 @@ svg {
     transition: none !important;
   }
 }
+/* stylelint-enable declaration-no-important */

@@ -34,6 +34,8 @@
   font: inherit;
   text-align: inherit;
   cursor: pointer;
+  display: block;
+  width: 100%;
 }
 /* The native button covers the row; category controls and disclosure stay above its hit area. */
 .edit-transaction::after {
@@ -55,10 +57,6 @@
   --inline-select-indicator-opacity: 1;
   background: var(--surface-muted);
 }
-.transaction-details {
-  position: relative;
-  z-index: var(--layer-raised);
-}
 .counterpart {
   display: block;
   margin-top: var(--space-1);
@@ -79,10 +77,11 @@
 }
 .transaction-name {
   display: grid;
-  grid-template-columns: auto minmax(0, auto);
+  grid-template-columns: 32px 270px;
   grid-template-areas:
     "icon name"
-    "icon description";
+    "icon description"
+    ". details";
   justify-content: start;
   align-items: center;
   column-gap: var(--space-3);
@@ -108,22 +107,53 @@
   font-size: var(--text-sm);
   font-weight: 500;
   display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
   max-width: 270px;
+}
+.name-preview,
+.description {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 .description {
   grid-area: description;
-  display: block;
   font-size: var(--text-sm);
   color: var(--muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 260px;
+  max-width: 270px;
   margin-top: var(--space-1);
 }
-/* Phones show the full description on request instead of the truncated line. */
-.transaction-details,
+.transaction-details {
+  position: relative;
+  z-index: var(--layer-raised);
+  grid-area: details;
+  width: 270px;
+  white-space: normal;
+  font-size: var(--text-sm);
+}
+.transaction-details summary {
+  min-height: 32px;
+  padding: var(--space-1) 0;
+  cursor: pointer;
+  color: var(--green-text);
+}
+.transaction-details dl {
+  margin: 0;
+  padding-bottom: var(--space-3);
+}
+.transaction-details dt {
+  margin-top: var(--space-2);
+  color: var(--muted);
+}
+.transaction-details dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  line-height: 1.75;
+  color: var(--ink-soft);
+}
 .no-details {
   display: none;
 }
@@ -172,6 +202,7 @@
     padding: 0 var(--space-4) var(--space-4);
   }
   .row {
+    position: relative;
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     column-gap: var(--space-4);
@@ -180,9 +211,6 @@
     border-radius: var(--radius-lg);
     background: var(--surface-muted);
     min-width: 0;
-  }
-  .row {
-    position: relative;
   }
   .edit-transaction {
     color: inherit;
@@ -206,10 +234,6 @@
   }
   .row:has(.edit-transaction):hover {
     background: var(--surface-muted);
-  }
-  .transaction-details {
-    position: relative;
-    z-index: var(--layer-raised);
   }
   .counterpart {
     display: block;
@@ -252,6 +276,9 @@
     align-self: start;
     margin-top: var(--space-3);
   }
+  .name-preview {
+    display: block;
+  }
   .description {
     display: none;
   }
@@ -268,9 +295,13 @@
     overflow-wrap: anywhere;
   }
   .transaction-details {
+    position: relative;
+    z-index: var(--layer-raised);
     display: block;
     grid-column: 1 / -1;
     grid-row: 2;
+    width: auto;
+    min-width: 0;
     margin-top: var(--space-1);
     font-size: var(--text-sm);
   }
@@ -290,13 +321,6 @@
     padding: var(--space-3) 0;
     font-size: var(--text-sm);
     color: var(--muted);
-  }
-  .transaction-details p {
-    overflow-wrap: anywhere;
-    white-space: pre-wrap;
-    line-height: 1.75;
-    color: var(--ink-soft);
-    padding-bottom: var(--space-3);
   }
   .amount {
     grid-row: 2;

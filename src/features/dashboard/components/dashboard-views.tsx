@@ -1,12 +1,14 @@
 "use client";
 
+import { useEffect } from "react";
+import { bankConnectionsSectionId } from "@/features/banking/connections-location";
 import { OverviewView } from "@/features/dashboard/components/overview-view";
 import { PeriodControls } from "@/features/dashboard/components/period-controls";
 import { TransactionsPanel } from "@/features/transactions/components/transactions-panel";
 import { SyncRunEmpty, SyncRunScope } from "@/features/transactions/components/sync-run-scope";
 import { AccountsView } from "@/features/accounts/components/accounts-view";
 import { RulesView } from "@/features/categorization/components/rules-view";
-import { ConnectionsView } from "@/features/banking/components/connections-view";
+import { ConnectionsSection } from "@/features/banking/components/connections-view";
 import { AccountDetails, AccountNotFound, type BackLink } from "@/features/accounts/components/account-details";
 import { AccountCashFlowSummary } from "@/features/reports/components/account-cash-flow";
 import { replacePage, setSyncRun, useAccountTransactionsHref, useViewHref, useViewQuery } from "@/client/use-app-url";
@@ -95,9 +97,23 @@ export function TransactionsPage() {
 
 export function AccountsPage() {
   const accounts = useAreaResult(useAccounts());
+  const banking = useBankingConfiguration();
+  const connections = useAreaResult(useConnections());
+  const syncRuns = useAreaResult(useSyncRuns());
+  const accountsSettled = accounts.status !== "pending" || accounts.failure !== null;
+
+  // Sign-in and the first account load can finish after the browser tried to scroll to the fragment.
+  useEffect(() => {
+    if (accountsSettled && window.location.hash === `#${bankConnectionsSectionId}`) {
+      document.getElementById(bankConnectionsSectionId)?.scrollIntoView();
+    }
+  }, [accountsSettled]);
 
   return (
-    <AccountsView accounts={accounts} />
+    <>
+      <AccountsView accounts={accounts} />
+      <ConnectionsSection banking={banking} connections={connections} syncRuns={syncRuns} />
+    </>
   );
 }
 
@@ -107,20 +123,6 @@ export function RulesPage() {
 
   return (
     <RulesView categories={categories} rules={rules} />
-  );
-}
-
-export function ConnectionsPage() {
-  const banking = useBankingConfiguration();
-  const connections = useAreaResult(useConnections());
-  const syncRuns = useAreaResult(useSyncRuns());
-
-  return (
-    <ConnectionsView
-      banking={banking}
-      connections={connections}
-      syncRuns={syncRuns}
-    />
   );
 }
 
