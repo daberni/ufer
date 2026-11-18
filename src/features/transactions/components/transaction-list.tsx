@@ -22,15 +22,24 @@ type Props = {
 // Phones show each table row as a card; the explicit roles keep the table semantics that WebKit drops from table elements whose display changes.
 function TableHeader() {
   return (
-    <thead role="rowgroup" className={styles["header"]}>
-      <tr role="row">
-        <th role="columnheader" scope="col">Payee / description</th>
-        <th role="columnheader" scope="col">Category</th>
-        <th role="columnheader" scope="col">Account</th>
-        <th role="columnheader" scope="col">Date</th>
-        <th role="columnheader" scope="col" className={styles["amount-heading"]}>Amount</th>
-      </tr>
-    </thead>
+    <>
+      <colgroup>
+        <col />
+        <col className={styles["category-column"]} />
+        <col className={styles["account-column"]} />
+        <col className={styles["date-column"]} />
+        <col className={styles["amount-column"]} />
+      </colgroup>
+      <thead role="rowgroup" className={styles["header"]}>
+        <tr role="row">
+          <th role="columnheader" scope="col">Payee / description</th>
+          <th role="columnheader" scope="col">Category</th>
+          <th role="columnheader" scope="col">Account</th>
+          <th role="columnheader" scope="col">Date</th>
+          <th role="columnheader" scope="col" className={styles["amount-heading"]}>Amount</th>
+        </tr>
+      </thead>
+    </>
   );
 }
 
@@ -70,7 +79,7 @@ function TransactionRow({
               onClick={() => setEditing(true)}
               aria-label={`Edit transaction: ${subject}`}
             >
-              <span className={styles["name-preview"]}>{subject}</span>
+              <span className={styles["name-preview"]} title={subject}>{subject}</span>
             </button>
           </strong>
           <span className={styles["description"]} title={transaction.description}>{transaction.description || "No description"}</span>
@@ -124,7 +133,7 @@ export function TransactionList({
   );
 }
 
-// Payees and descriptions of different lengths give the skeleton rows a natural outline; the long ones reach the column's maximum width, as typical descriptions do.
+// Payees and descriptions of different lengths give the skeleton rows a natural outline; the long ones wrap like typical descriptions.
 const skeletonPayees = ["Grocery market", "Monthly rent payment", "Coffee shop", "Salary", "Public transport pass"];
 const skeletonDescriptions = ["Debit card purchase", "Standing order, reference 2025-01 rent", "Card payment", "Monthly salary payment from employer", "Direct debit"];
 
