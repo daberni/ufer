@@ -14,6 +14,8 @@ const ruleMatching = {
 };
 
 const ruleInput = z.object({
+  // A preview supplies the exact new ID whose tie-breaking position was counted.
+  id: z.uuid().optional(),
   name: z.string().trim().min(1).max(100),
   ...ruleMatching,
   category_id: z.string().min(1),
@@ -25,8 +27,7 @@ const ruleInput = z.object({
 const rulePreviewInput = z.object(ruleMatching);
 
 /**
- * Transactions without a manual assignment whose category a new rule decides: it is the first matching rule in priority order. The new rule comes last
- * among rules of its priority, as it will once stored.
+ * Transactions without a manual assignment decided by this rule, using the same persisted-ID tie-break as future matching.
  */
 async function transactionsDecidedBy(rule: Rule) {
   const rules = prepareRules([...(await listRules()), rule]);
@@ -41,15 +42,17 @@ export async function previewRule(payload: unknown) {
 
   validatePattern(input.pattern, input.mode);
 
+  const id = randomUUID();
   const decided = await transactionsDecidedBy({
     ...input,
-    id: "",
+    id,
     name: "",
     category_id: "",
     enabled: 1
   });
 
   return {
+    id,
     matched: decided.length,
     uncategorized: decided.filter(entry => entry.category_id === null).length
   };
@@ -58,6 +61,7 @@ export async function previewRule(payload: unknown) {
 export async function createRule(payload: unknown) {
   const {
     apply_to_uncategorized: applyToUncategorized,
+    id: previewId,
     ...input
   } = ruleInput.parse(payload);
 
@@ -69,7 +73,7 @@ export async function createRule(payload: unknown) {
 
   const rule = {
     ...input,
-    id: randomUUID()
+    id: previewId ?? randomUUID()
   };
   const selectAssignments: SelectRuleAssignments | undefined = applyToUncategorized ? (storedRules, entries) => {
     const rules = prepareRules(storedRules);
@@ -87,6 +91,7 @@ export async function createRule(payload: unknown) {
 /** Editing the matching details never changes enabled state or existing transaction assignments. */
 export async function updateRuleDetails(id: string, payload: unknown) {
   const input = ruleInput.omit({
+    id: true,
     enabled: true,
     apply_to_uncategorized: true
   }).strict().parse(payload);

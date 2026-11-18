@@ -9,6 +9,7 @@ import type { Database } from "../src/server/database/connection";
 import { categorize, prepareRules } from "../src/lib/rules";
 import { ValidationError } from "../src/lib/errors";
 import { proposeRulePattern, proposedPatternLength } from "../src/features/categorization/rule-pattern";
+import { listRuleSummaries } from "../src/features/categorization/server/categorization-queries";
 import { insertRule } from "../src/features/categorization/server/rule-repository";
 import { applyRulesToUncorrectedTransactions, createRule, previewRule } from "../src/features/categorization/server/categorization-service";
 
@@ -186,11 +187,22 @@ async function categories(db: Database) {
   return Object.fromEntries(rows.map(row => [row.id, `${row.category_id ?? "none"}/${row.category_source}`]));
 }
 
+async function previewCounts(payload: unknown) {
+  const {
+    id,
+    ...counts
+  } = await previewRule(payload);
+
+  assert.match(id, /^[0-9a-f-]{36}$/);
+
+  return counts;
+}
+
 test("a rule preview counts the transactions the new rule would decide, without writing", async context => {
   const db = await seedBookings(context);
   const before = await categories(db);
 
-  assert.deepEqual(await previewRule({
+  assert.deepEqual(await previewCounts({
     pattern: "example market",
     mode: "keyword",
     priority: 100
@@ -198,7 +210,7 @@ test("a rule preview counts the transactions the new rule would decide, without 
     matched: 4,
     uncategorized: 3
   });
-  assert.deepEqual(await previewRule({
+  assert.deepEqual(await previewCounts({
     pattern: "Example Market",
     mode: "keyword",
     priority: 5
@@ -206,7 +218,7 @@ test("a rule preview counts the transactions the new rule would decide, without 
     matched: 5,
     uncategorized: 4
   });
-  assert.deepEqual(await previewRule({
+  assert.deepEqual(await previewCounts({
     pattern: "No such payee",
     mode: "keyword",
     priority: 100
@@ -271,10 +283,9 @@ test("a rule created without applying it leaves existing transactions unchanged"
   assert.equal((await db.select().from(schema.categorizationRules)).length, 2);
 });
 
-test("among rules of the same priority the older one decides, in the preview, on creation and when rules are applied", async context => {
+test("preview, creation and later matching use the same live ID tie-break", async context => {
   const db = await seedBookings(context);
 
-  // An id that sorts after every generated one, so creation order and id order disagree.
   await insertRule({
     id: "zzz-older-rule",
     name: "Market",
@@ -284,24 +295,22 @@ test("among rules of the same priority the older one decides, in the preview, on
     priority: 100,
     enabled: true
   });
-
-  assert.deepEqual(await previewRule({
+  const preview = await previewRule({
     pattern: "Example Market",
     mode: "keyword",
     priority: 100
-  }), {
-    matched: 0,
-    uncategorized: 0
   });
-  assert.deepEqual(await previewRule({
-    pattern: "Example Market",
-    mode: "keyword",
-    priority: 99
-  }), {
+
+  assert.match(preview.id, /^[0-9a-f-]{36}$/);
+  assert.deepEqual({
+    matched: preview.matched,
+    uncategorized: preview.uncategorized
+  }, {
     matched: 4,
     uncategorized: 3
   });
   assert.deepEqual(await createRule({
+    id: preview.id,
     name: "Example Market",
     pattern: "Example Market",
     mode: "keyword",
@@ -310,15 +319,16 @@ test("among rules of the same priority the older one decides, in the preview, on
     apply_to_uncategorized: true
   }), {
     ok: true,
-    categorized: 0
+    categorized: preview.uncategorized
   });
+  assert.ok(await db.select().from(schema.categorizationRules).where(eq(schema.categorizationRules.id, preview.id)).get());
 
   await applyRulesToUncorrectedTransactions();
   const decided = await categories(db);
 
-  assert.equal(decided["uncategorized-payee"], "leisure/rule");
-  assert.equal(decided["uncategorized-description"], "leisure/rule");
-  assert.equal(decided["categorized-by-rule"], "leisure/rule");
+  assert.equal(decided["uncategorized-payee"], "groceries/rule");
+  assert.equal(decided["uncategorized-description"], "groceries/rule");
+  assert.equal(decided["categorized-by-rule"], "groceries/rule");
 });
 
 test("rule creation does not categorize a transaction whose payee changed before its write begins", async context => {
@@ -405,4 +415,68 @@ test("failed assignment selection rolls back the new rule without changing trans
 
   assert.equal((await db.select().from(schema.categorizationRules)).length, 1);
   assert.deepEqual(await categories(db), before);
+});
+
+
+test("equal-priority rules retain the live ID tie-break regardless of insertion or storage order", async context => {
+  const db = await seedBookings(context);
+
+  for (const rule of [{
+    id: "zzz-older",
+    category_id: "groceries"
+  }, {
+    id: "aaa-newer",
+    category_id: "leisure"
+  }]) {
+    await insertRule({
+      ...rule,
+      name: "Market",
+      pattern: "Market",
+      mode: "keyword",
+      priority: 100,
+      enabled: true
+    });
+  }
+
+  await applyRulesToUncorrectedTransactions();
+  assert.equal((await categories(db))["uncategorized-payee"], "leisure/rule");
+  assert.deepEqual((await listRuleSummaries()).filter(rule => rule.priority === 100).map(rule => rule.id), ["aaa-newer", "zzz-older"]);
+
+  await db.$client.execute("UPDATE categorization_rules SET rowid=1000 WHERE id='aaa-newer'");
+  await db.$client.execute("VACUUM");
+  await applyRulesToUncorrectedTransactions();
+  assert.equal((await categories(db))["uncategorized-payee"], "leisure/rule");
+});
+
+test("a preview does not count equal-priority matches won by a lower existing rule ID", async context => {
+  await seedBookings(context);
+  await insertRule({
+    id: "00000000-0000-0000-0000-000000000000",
+    name: "Market",
+    pattern: "Market",
+    mode: "keyword",
+    category_id: "leisure",
+    priority: 100,
+    enabled: true
+  });
+  const preview = await previewRule({
+    pattern: "Market",
+    mode: "keyword",
+    priority: 100
+  });
+
+  assert.equal(preview.matched, 0);
+  assert.equal(preview.uncategorized, 0);
+  assert.deepEqual(await createRule({
+    id: preview.id,
+    name: "Market",
+    pattern: "Market",
+    mode: "keyword",
+    category_id: "groceries",
+    priority: 100,
+    apply_to_uncategorized: true
+  }), {
+    ok: true,
+    categorized: 0
+  });
 });

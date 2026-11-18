@@ -10,6 +10,8 @@ import { stubCssModules } from "./fixtures/css-modules";
 
 stubCssModules();
 
+const previewId = "11111111-1111-4111-8111-111111111111";
+
 const categories: Category[] = [{
   id: "groceries",
   name: "Groceries",
@@ -198,6 +200,7 @@ test("a later change of the row retires the rule confirmation, so its failure is
   });
   await wait(0);
   await respond(requests("rules/preview").at(-1), Response.json({
+    id: previewId,
     matched: 2,
     uncategorized: 2
   }));
@@ -217,6 +220,7 @@ test("a later change of the row retires the rule confirmation, so its failure is
   // Creating the rule refreshes the rule queries, including the open preview, before the dialog closes.
   for (const preview of requests("rules/preview")) {
     await respond(preview, Response.json({
+      id: previewId,
       matched: 0,
       uncategorized: 0
     }));
@@ -382,6 +386,7 @@ test("rule creation waits for the current pattern and priority preview, includin
   await respond(pending.find(request => request.url.pathname === "/api/categories"), Response.json(categories));
   assert.equal(create().disabled, true);
   await respond(requests("rules/preview").at(-1), Response.json({
+    id: previewId,
     matched: 2,
     uncategorized: 2
   }));
@@ -399,6 +404,7 @@ test("rule creation waits for the current pattern and priority preview, includin
   await wait(350);
   assert.equal(create().disabled, true);
   await respond(requests("rules/preview").at(-1), Response.json({
+    id: previewId,
     matched: 8,
     uncategorized: 5
   }));
@@ -428,6 +434,7 @@ test("rule creation waits for the current pattern and priority preview, includin
   }));
   await wait(350);
   await respond(requests("rules/preview").at(-1), Response.json({
+    id: previewId,
     matched: 3,
     uncategorized: 1
   }));
@@ -437,6 +444,7 @@ test("rule creation waits for the current pattern and priority preview, includin
   const created = requests("rules").find(request => request.method === "POST");
 
   assert.deepEqual(created?.body, {
+    id: previewId,
     name: "Salary",
     pattern: "Salary",
     mode: "keyword",

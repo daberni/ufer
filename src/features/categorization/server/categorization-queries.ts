@@ -1,7 +1,6 @@
 import { asc, eq } from "drizzle-orm";
 import { database } from "@/server/database/connection";
 import { categories, categorizationRules } from "@/server/database/schema";
-import { ruleCreationOrder } from "./rule-repository";
 
 export async function listCategories() {
   const db = await database();
@@ -29,5 +28,5 @@ export async function listRuleSummaries() {
     category_name: categories.name,
     category_color: categories.color,
     category_icon: categories.icon
-  }).from(categorizationRules).innerJoin(categories, eq(categories.id, categorizationRules.category_id)).orderBy(asc(categorizationRules.priority), ruleCreationOrder);
+  }).from(categorizationRules).innerJoin(categories, eq(categories.id, categorizationRules.category_id)).orderBy(asc(categorizationRules.priority), asc(categorizationRules.id));
 }

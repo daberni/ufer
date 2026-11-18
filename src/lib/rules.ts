@@ -32,10 +32,9 @@ function compileRegex(pattern: string) {
   }
 }
 
-// Sorts the enabled rules by precedence and compiles their patterns once for a whole batch. Rules with the same priority keep the given order, which
-// is creation order when they come from the repository.
+// Compile enabled rules in the live precedence order: priority first, then their persisted ID.
 export function prepareRules(rules: Rule[]): PreparedRule[] {
-  return rules.filter(rule => rule.enabled).sort((a, b) => a.priority - b.priority).map(rule => {
+  return rules.filter(rule => rule.enabled).sort((a, b) => a.priority - b.priority || a.id.localeCompare(b.id)).map(rule => {
     if (rule.mode === "regex") {
       const regex = compileRegex(rule.pattern);
 

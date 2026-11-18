@@ -106,7 +106,9 @@ function RuleFromAssignmentForm({
   return (
     <form
       onSubmit={event => {
-        if (!previewReady) {
+        const previewId = preview.data?.id;
+
+        if (!previewReady || !previewId) {
           event.preventDefault();
 
           return;
@@ -116,6 +118,7 @@ function RuleFromAssignmentForm({
           const keyword = pattern.trim();
 
           return {
+            id: previewId,
             name: keyword.slice(0, 100),
             pattern: keyword,
             mode: "keyword",
@@ -175,7 +178,7 @@ function RuleFromAssignmentForm({
       </label>
       <p className={ui["form-hint"]}>Other matches follow the rule when rules are applied. Lower priority numbers match first.</p>
       <FormError failure={error} />
-      <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={pending || !categories.data || !previewReady}>
+      <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={pending || !categories.data || !previewReady || !preview.data?.id}>
         Create rule <Sparkles size={16} />
       </button>
     </form>
