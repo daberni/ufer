@@ -13,6 +13,7 @@ updates:
         dependency-type: production
       development-dependencies:
         dependency-type: development
+  # Workflows use major tags, so routine updates are major upgrades that wait for cooldown.
   - package-ecosystem: github-actions
     directory: /
     schedule:
