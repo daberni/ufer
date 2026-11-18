@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type FocusEvent, type PointerEvent } from "react";
+import { useEffect, useRef, useState, type FocusEvent, type PointerEvent } from "react";
 import { useDismiss } from "@/components/ui/use-dismiss";
 
 /**
@@ -10,12 +10,34 @@ export function useChartDetails() {
   const [activeKey, setActiveKey] = useState<string | null>(null);
   const regionRef = useRef<HTMLDivElement>(null);
   const inputMethod = useRef<"keyboard" | "pointer">("keyboard");
+  const active = activeKey !== null;
 
   useDismiss({
-    active: activeKey !== null,
+    active,
     inside: [regionRef],
     onDismiss: () => setActiveKey(null)
   });
+
+  // A touch can leave focus on body; the next Tab then starts outside this region and emits no region blur.
+  useEffect(() => {
+    if (!active) {
+      return;
+    }
+
+    function dismissOnKeyboardReturn(event: KeyboardEvent) {
+      if (event.key !== "Tab" || event.defaultPrevented) {
+        return;
+      }
+
+      if (!regionRef.current?.contains(document.activeElement)) {
+        setActiveKey(null);
+      }
+    }
+
+    document.addEventListener("keydown", dismissOnKeyboardReturn);
+
+    return () => document.removeEventListener("keydown", dismissOnKeyboardReturn);
+  }, [active]);
 
   const regionProps = {
     ref: regionRef,

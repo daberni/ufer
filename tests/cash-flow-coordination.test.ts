@@ -1,7 +1,7 @@
 import "./fixtures/dom-environment";
 import assert from "node:assert/strict";
 import { test, type TestContext } from "node:test";
-import { fireEvent, render, within } from "@testing-library/react";
+import { act, fireEvent, render, within } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
 import { Temporal } from "temporal-polyfill";
 import { AppRouterContext, type AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
@@ -209,7 +209,7 @@ test("a pointer-selected breakdown survives blur inside the report while keyboar
   });
 
   fireEvent.click(income);
-  fireEvent.focus(income);
+  act(() => income.focus());
   const press = new window.Event("pointerdown", {
     bubbles: true
   });
@@ -218,15 +218,11 @@ test("a pointer-selected breakdown survives blur inside the report while keyboar
     value: "touch"
   });
   fireEvent(screen.panel(), press);
-  fireEvent.blur(income, {
-    relatedTarget: null
-  });
+  act(() => income.blur());
+  assert.equal(document.activeElement, document.body);
   assert.ok(within(screen.panel()).getByText("Salary"));
-  fireEvent.keyDown(income, {
+  fireEvent.keyDown(document.activeElement, {
     key: "Tab"
-  });
-  fireEvent.blur(income, {
-    relatedTarget: document.body
   });
   assert.ok(within(screen.panel()).getByText("Food"));
 });
