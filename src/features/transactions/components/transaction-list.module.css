@@ -6,7 +6,8 @@
   table-layout: fixed;
   border-collapse: collapse;
   width: 100%;
-  min-width: 760px;
+  /* Fixed columns take 672px; this leaves the payee column about 240px before the table scrolls. */
+  min-width: 960px;
   text-align: left;
   white-space: nowrap;
 }
@@ -131,7 +132,10 @@
   white-space: normal;
   overflow-wrap: anywhere;
 }
+/* Above the row's edit overlay, so the pointer reaches the full-description tooltip. */
 .description {
+  position: relative;
+  z-index: var(--layer-raised);
   grid-area: description;
   font-size: var(--text-sm);
   color: var(--muted);

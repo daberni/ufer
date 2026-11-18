@@ -78,8 +78,9 @@ function TransactionRow({
               type="button"
               onClick={() => setEditing(true)}
               aria-label={`Edit transaction: ${subject}`}
+              title={subject}
             >
-              <span className={styles["name-preview"]} title={subject}>{subject}</span>
+              <span className={styles["name-preview"]}>{subject}</span>
             </button>
           </strong>
           <span className={styles["description"]} title={transaction.description}>{transaction.description || "No description"}</span>
