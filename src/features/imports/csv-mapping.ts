@@ -224,33 +224,49 @@ const currencySymbols: Record<string, string | null> = {
 
 let isoCurrencies: Set<string> | undefined;
 
-/** Splits a leading or trailing currency symbol or ISO 4217 code off an amount; any other letters stay and make the amount invalid. */
+const leadingAffix = /^([-+(]?)\s*(€|£|\$|¥|[A-Za-z]{3}(?![A-Za-z]))\s*/;
+const trailingAffix = /\s*(€|£|\$|¥|(?<![A-Za-z])[A-Za-z]{3})\s*([-)]?)$/;
+
+/** Splits at most one currency symbol or ISO 4217 code off the start or end of an amount. Anything else, such as a symbol between digits or a second affix, stays in the text and makes the amount invalid. */
 export function splitCurrency(value: string): {
   text: string;
   currency: string | null;
 } {
-  isoCurrencies ??= new Set(Intl.supportedValuesOf("currency"));
+  const text = value.trim();
+  const leading = leadingAffix.exec(text);
+  const trailing = trailingAffix.exec(text);
+  const leadingCurrency = leading ? affixCurrency(leading[2]) : undefined;
+  const trailingCurrency = trailing ? affixCurrency(trailing[1]) : undefined;
 
-  let text = value.trim();
-  let currency: string | null = null;
-  const code = /^([A-Za-z]{3})(?![A-Za-z])|(?<![A-Za-z])([A-Za-z]{3})$/.exec(text);
-
-  if (code && isoCurrencies.has((code[1] ?? code[2]).toUpperCase())) {
-    currency = (code[1] ?? code[2]).toUpperCase();
-    text = text.replace(code[0], "").trim();
+  if (leading && leadingCurrency !== undefined && !(trailing && trailingCurrency !== undefined)) {
+    return {
+      text: `${leading[1]}${text.slice(leading[0].length)}`,
+      currency: leadingCurrency
+    };
   }
 
-  const symbol = Object.keys(currencySymbols).find(candidate => text.includes(candidate));
-
-  if (symbol) {
-    currency ??= currencySymbols[symbol];
-    text = text.replaceAll(symbol, "").trim();
+  if (trailing && trailingCurrency !== undefined && !(leading && leadingCurrency !== undefined)) {
+    return {
+      text: `${text.slice(0, trailing.index)}${trailing[2]}`,
+      currency: trailingCurrency
+    };
   }
 
   return {
     text,
-    currency
+    currency: null
   };
+}
+
+/** The currency an affix names: null for an ambiguous symbol, undefined when it is no currency. */
+function affixCurrency(affix: string) {
+  if (Object.hasOwn(currencySymbols, affix)) {
+    return currencySymbols[affix];
+  }
+
+  isoCurrencies ??= new Set(Intl.supportedValuesOf("currency"));
+
+  return isoCurrencies.has(affix.toUpperCase()) ? affix.toUpperCase() : undefined;
 }
 
 /** Reads a money amount with the given decimal separator into a signed decimal string with a point; tolerates a currency symbol or code, grouping, a trailing minus and accounting parentheses. Other letters, such as an exponent, make it invalid. */

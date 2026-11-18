@@ -708,6 +708,10 @@ test("amounts accept currency symbols and codes but reject other letters", () =>
   assert.equal(parseAmount("-€1.234,50", ","), "-1234.50");
   assert.equal(parseAmount("(€1,234.56)", "."), "-1234.56");
   assert.equal(parseAmount("12.00 usd", "."), "12.00");
+  assert.equal(parseAmount("12,50 €", ","), "12.50");
+  assert.equal(parseAmount("1€2", "."), null);
+  assert.equal(parseAmount("USD €10", "."), null);
+  assert.equal(parseAmount("€10 EUR", "."), null);
 
   const result = mapRows([["2024-01-01", "12.00 USD", "Shop"], ["2024-01-02", "1e3", "Shop"], ["2024-01-03", "5 GBP", "Shop", "EUR"]], {
     date: 0,
