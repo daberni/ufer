@@ -51,7 +51,7 @@ export type MappedRow = {
   category: string | null;
   /** The source account label from the account column; empty without one. */
   source: string;
-  /** How many identical rows (same source, date, amount and texts) precede this one in the file; keeps genuine repeats distinct on reimport. */
+  /** How many rows with the same date, amount and normalized texts precede this one in the file, across source accounts; keeps genuine repeats distinct on reimport. Uses the fields of the server's import reference. */
   occurrence: number;
 };
 
@@ -362,7 +362,7 @@ export function mapRows(rows: string[][], mapping: CsvMapping, settings: CsvSett
     const payee = cell(mapping.payee).slice(0, 500);
     const description = cell(mapping.description).slice(0, 2000);
     const source = cell(mapping.account).slice(0, 200);
-    const identity = [source, date, amount, payee, description].join("\u0000");
+    const identity = [date, canonicalAmount(amount), normalizeText(payee), normalizeText(description)].join("\u0000");
     const occurrence = seen.get(identity) ?? 0;
 
     seen.set(identity, occurrence + 1);
@@ -383,6 +383,16 @@ export function mapRows(rows: string[][], mapping: CsvMapping, settings: CsvSett
     rows: mapped,
     errors
   };
+}
+
+/** Lowercase Unicode letters and digits separated by single spaces; punctuation, symbols and diacritics are dropped. */
+export function normalizeText(value: string) {
+  return value.normalize("NFKD").replace(/\p{M}/gu, "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+}
+
+// Equal values in minor units have equal canonical forms: "2.5" and "2.50" both become "2.5".
+function canonicalAmount(amount: string) {
+  return amount.includes(".") ? amount.replace(/0+$/, "").replace(/\.$/, "") : amount;
 }
 
 // Debit and credit columns combine as credit minus the debit's absolute value, so exports that sign their debits work as well.

@@ -56,75 +56,74 @@ export type MappedImportSummary = {
     line: number;
     reason: "already_imported" | "existing_booking";
   }[];
+  possibleDuplicates: number[];
   errors: RowError[];
   unknownCategories: string[];
   toleranceDays: number;
 };
 
+type MatchedBooking = {
+  account_id: string;
+  reference: string;
+};
+
 type MappedImport = {
+  /** One ID per file import, kept across the check and confirmation retries, so new accounts are created once. */
+  importId: string;
   rows: MappedRow[];
   rowErrors: RowError[];
   targets: MappedTarget[];
   confirm: boolean;
 };
 
-/** Checks or saves mapped rows in request batches and merges the batch summaries; confirming first creates the requested new accounts. */
+/** Checks or saves mapped rows in request batches and merges the batch summaries. The server creates new accounts with the first confirmed batch. */
 export function useMappedImport() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({
+      importId,
       rows,
       rowErrors,
       targets,
       confirm
     }: MappedImport) => {
-      const resolved = [];
-
-      for (const target of targets) {
-        if (target.accountId !== "new") {
-          resolved.push({
-            source: target.source,
-            account_id: target.accountId
-          });
-        } else if (confirm) {
-          const created = await api<{
-            id: string;
-          }>("imports/mapped/accounts", {
-            name: target.name,
-            currency: target.currency
-          });
-
-          resolved.push({
-            source: target.source,
-            account_id: created.id
-          });
-        } else {
-          resolved.push({
-            source: target.source,
-            currency: target.currency
-          });
+      const resolved = targets.map(target => target.accountId === "new" ? {
+        source: target.source,
+        new_account: {
+          name: target.name.trim(),
+          currency: target.currency
         }
-      }
-
+      } : {
+        source: target.source,
+        account_id: target.accountId
+      });
       const summary: MappedImportSummary = {
         confirmed: confirm,
         newRows: 0,
         duplicates: [],
+        possibleDuplicates: [],
         errors: [...rowErrors],
         unknownCategories: [],
         toleranceDays: 0
       };
+      let consumed: MatchedBooking[] = [];
 
       for (const batch of batchRows([...rows].sort((left, right) => left.date.localeCompare(right.date)))) {
-        const result = await api<MappedImportSummary>("imports/mapped", {
+        const result = await api<MappedImportSummary & {
+          matched: MatchedBooking[];
+        }>("imports/mapped", {
+          import_id: importId,
           rows: batch,
           targets: resolved,
+          consumed,
           confirm
         });
 
+        consumed = [...consumed, ...result.matched];
         summary.newRows += result.newRows;
         summary.duplicates.push(...result.duplicates);
+        summary.possibleDuplicates.push(...result.possibleDuplicates);
         summary.errors.push(...result.errors);
         summary.unknownCategories = [...new Set([...summary.unknownCategories, ...result.unknownCategories])].sort();
         summary.toleranceDays = result.toleranceDays;
@@ -132,6 +131,7 @@ export function useMappedImport() {
 
       summary.errors.sort((left, right) => left.line - right.line);
       summary.duplicates.sort((left, right) => left.line - right.line);
+      summary.possibleDuplicates.sort((left, right) => left - right);
 
       return summary;
     },

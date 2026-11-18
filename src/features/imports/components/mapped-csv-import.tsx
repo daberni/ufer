@@ -51,6 +51,7 @@ export function MappedCsvImport({
   const [mapping, setMapping] = useState<CsvMapping | null>(null);
   const [targets, setTargets] = useState<Record<string, MappedTarget>>({});
   const [summary, setSummary] = useState<MappedImportSummary | null>(null);
+  const [importId, setImportId] = useState(() => crypto.randomUUID());
   const accounts = useAccounts();
   const mutation = useMappedImport();
   const table = useMemo(() => {
@@ -66,7 +67,9 @@ export function MappedCsvImport({
       rows
     };
   }, [file, settings]);
-  const mapped = useMemo(() => table && mapping && !mappingProblem(mapping) && settings ? mapRows(table.rows, mapping, settings) : null, [table, mapping, settings]);
+  // Without a stored mapping (a new file, delimiter or encoding), the suggestion for the current header applies.
+  const effectiveMapping = useMemo(() => mapping ?? (table ? suggestMapping(table.header) : null), [mapping, table]);
+  const mapped = useMemo(() => table && effectiveMapping && !mappingProblem(effectiveMapping) && settings ? mapRows(table.rows, effectiveMapping, settings) : null, [table, effectiveMapping, settings]);
   const sources = useMemo(() => [...new Set(mapped?.rows.map(row => row.source) ?? [])].sort(), [mapped]);
   const resolvedTargets = sources.map(source => targets[source] ?? defaultTarget(source));
   const targetsComplete = resolvedTargets.every(target => target.accountId !== "" && (target.accountId !== "new" || target.name.trim() !== ""));
@@ -107,6 +110,7 @@ export function MappedCsvImport({
     });
     setMapping(suggested);
     setTargets({});
+    setImportId(crypto.randomUUID());
   }
 
   function updateSettings(change: Partial<CsvSettings>) {
@@ -146,6 +150,7 @@ export function MappedCsvImport({
     }
 
     mutation.mutate({
+      importId,
       rows: mapped.rows,
       rowErrors: mapped.errors,
       targets: resolvedTargets,
@@ -161,7 +166,7 @@ export function MappedCsvImport({
     });
   }
 
-  const currentMapping = mapping ?? (table ? suggestMapping(table.header) : null);
+  const currentMapping = effectiveMapping;
   const problem = currentMapping ? mappingProblem(currentMapping) : null;
 
   return (
@@ -358,6 +363,7 @@ function ImportSummary({
         </ul>
       )}
       {summary.duplicates.length > 0 && <p className={ui["form-hint"]}>Skipped rows: {summary.duplicates.slice(0, 30).map(duplicate => duplicate.line).join(", ")}{summary.duplicates.length > 30 ? " …" : ""}</p>}
+      {summary.possibleDuplicates.length > 0 && <p className={ui["form-hint"]}>Possible duplicates, imported because several existing bookings within {summary.toleranceDays} days could match: rows {summary.possibleDuplicates.slice(0, 30).join(", ")}{summary.possibleDuplicates.length > 30 ? " …" : ""}</p>}
       {summary.unknownCategories.length > 0 && <p className={ui["form-hint"]}>Unknown categories, categorized by rules instead: {summary.unknownCategories.join(", ")}</p>}
     </section>
   );
