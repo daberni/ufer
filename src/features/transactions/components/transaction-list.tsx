@@ -56,6 +56,7 @@ function TransactionRow({
   const [editing, setEditing] = useState(false);
   const incoming = transaction.amount_minor > 0;
   const original = originalAmount(transaction);
+  const subject = transaction.counterparty || transaction.description || transactionTypeLabels[transaction.type];
 
   return (
     <tr role="row" className={styles["row"]}>
@@ -67,16 +68,21 @@ function TransactionRow({
               className={styles["edit-transaction"]}
               type="button"
               onClick={() => setEditing(true)}
-              aria-label={`Edit transaction: ${transaction.counterparty || transaction.description || transactionTypeLabels[transaction.type]}`}
+              aria-label={`Edit transaction: ${subject}`}
             >
-              {transaction.counterparty || transaction.description || transactionTypeLabels[transaction.type]}
+              <span className={styles["name-preview"]}>{subject}</span>
             </button>
           </strong>
           <span className={styles["description"]} title={transaction.description}>{transaction.description || "No description"}</span>
-          {transaction.description ? (
+          {transaction.counterparty || transaction.description ? (
             <details className={styles["transaction-details"]}>
-              <summary>Description</summary>
-              <p>{transaction.description}</p>
+              <summary aria-label={`Details for ${subject}`}>Details</summary>
+              <dl>
+                <dt>Payee</dt>
+                <dd>{transaction.counterparty || "Not provided"}</dd>
+                <dt>Description</dt>
+                <dd>{transaction.description || "No description"}</dd>
+              </dl>
             </details>
           ) : <span className={styles["no-details"]}>No description</span>}
         </div>
@@ -149,9 +155,9 @@ export function TransactionListSkeleton({ rows }: {
                   <span className={styles["description"]}>
                     <span className={ui["skeleton"]}>{placeholder.description}</span>
                   </span>
-                  <details className={styles["transaction-details"]}>
+                  <details className={styles["transaction-details"]} inert>
                     <summary>
-                      <span className={ui["skeleton"]}>Description</span>
+                      <span className={ui["skeleton"]}>Details</span>
                     </summary>
                   </details>
                 </div>
