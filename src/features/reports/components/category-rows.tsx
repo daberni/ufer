@@ -36,20 +36,17 @@ function groupCategory(group: CategoryGroup): DisplayCategory | NeutralCategory 
 type Props = {
   groups: CategoryGroup[];
   currency: string;
-  /** One line per row with the name truncated and a thin share bar, for details that must fit a fixed height. */
-  compact?: boolean;
   className?: string;
 };
 
-/** Rows with category, amount and share bar; shared by "Where your money goes" and the monthly breakdowns in the cash-flow chart. */
+/** Category, amount and share bar for the selected period or monthly flow. */
 export function CategoryRows({
   groups,
   currency,
-  compact = false,
   className
 }: Props) {
   return (
-    <div className={clsx(styles["rows"], compact && styles["compact"], className)}>
+    <div className={clsx(styles["rows"], className)}>
       {groups.map(group => (
         <div className={styles["row"]} key={group.key}>
           <span className={styles["category"]}>

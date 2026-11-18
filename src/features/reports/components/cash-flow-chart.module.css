@@ -113,85 +113,11 @@
 .bar-group[data-active] .month-label {
   color: var(--ink);
 }
-/* Below the wide-layout breakpoint the details take this fixed area below the bars, so they never cover a bar and the panel keeps its height. It fits a heading and five compact rows (each with its 3px bar padding and 1px gap) below the padding and border; the line variables follow the text sizes. */
-.details-slot {
-  --title-line: calc(var(--text-sm) * 1.25);
-  --text-line: calc(var(--text-sm) * 1.25);
-  height: calc(
-    var(--title-line) + var(--text-line) + var(--space-1) + 5 *
-      (max(var(--text-line), 16px) + 3px) + 4px + var(--space-4) + 1px
-  );
-  margin-top: var(--space-4);
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--border);
-  overflow: hidden;
-}
-.details-heading {
-  display: grid;
-  margin-bottom: var(--space-1);
-  line-height: 1.25;
-}
-.details-heading strong {
-  font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--ink);
-}
-.details-heading span {
-  font-size: var(--text-sm);
-  color: var(--muted);
-}
-.details-empty {
-  margin: 0;
-  font-size: var(--text-sm);
-  color: var(--muted);
-}
-.details-hint {
-  margin: 0;
-  font-size: var(--text-sm);
-  color: var(--muted);
-}
 .chart-empty-note {
   text-align: center;
   font-size: var(--text-sm);
   color: var(--muted);
   margin-top: var(--space-4);
-}
-/* Wide layouts (the dashboard's widest breakpoint) leave a chart of at least ~440 px, so the details overlay the half of the chart away from the active bar instead. The card stays inside the chart box, and pointer events reach the bars underneath. */
-@media (--desktop) {
-  .details-slot {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    z-index: var(--layer-popover);
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-end;
-    width: calc(50% - var(--space-2));
-    height: auto;
-    margin: 0;
-    padding: 0;
-    border: 0;
-    overflow: visible;
-    pointer-events: none;
-  }
-  .details-slot[data-side="start"] {
-    left: 0;
-  }
-  .details-slot[data-side="end"] {
-    right: 0;
-  }
-  .details-hint {
-    display: none;
-  }
-  .bar-details {
-    max-height: 100%;
-    overflow: hidden;
-    padding: var(--space-2) var(--space-3);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    background: var(--surface-raised);
-    box-shadow: var(--shadow-lg);
-  }
 }
 @media (--wide) {
   .bar-chart {

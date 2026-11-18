@@ -7,44 +7,29 @@ import { clsx } from "clsx";
 import { Temporal } from "temporal-polyfill";
 import styles from "./cash-flow-chart.module.css";
 import { groupByCategory, type CategoryGroup } from "@/features/reports/category-groups";
-import { useChartDetails } from "@/features/reports/use-chart-details";
+import type { useChartDetails } from "@/features/reports/use-chart-details";
 import { categoryBarColor, themedColor } from "@/features/categorization/category-colors";
 import { describeMonth, monthRangeLabel } from "@/lib/date-format";
 import { money } from "@/lib/money";
-import { CategoryRows, describeCategoryGroups } from "@/features/reports/components/category-rows";
+import { describeCategoryGroups } from "@/features/reports/components/category-rows";
 import { areaProps, valueMask } from "@/components/ui/result-presentation";
 import { AreaPlaceholder } from "@/components/ui/area-placeholder";
 import { currentMonth, trendMonths } from "@/lib/period";
 import { usePeriod } from "@/client/use-app-url";
 import type { Area, AreaResult, PendingArea } from "@/components/ui/use-area-result";
 import type { CashFlow } from "@/features/reports/types";
+import { flowPresentation, type CashFlowDirection, type CashFlowSelection } from "@/features/reports/cash-flow-selection";
 
 type Props = {
   cashFlow: Area<CashFlow>;
-};
-
-type Flow = "income" | "expenses";
-
-const flowPresentation: Record<Flow, {
-  label: string;
-  breakdownLabel: string;
-  empty: string;
-}> = {
-  income: {
-    label: "Income",
-    breakdownLabel: "Income by category",
-    empty: "No income this month."
-  },
-  expenses: {
-    label: "Expenses",
-    breakdownLabel: "Spending by category",
-    empty: "No expenses this month."
-  }
+  selection: CashFlowSelection | null;
+  targetProps: ReturnType<typeof useChartDetails>["targetProps"];
+  detailsId: string;
 };
 
 type ChartBar = {
   key: string;
-  flow: Flow;
+  flow: CashFlowDirection;
   total: number;
   groups: CategoryGroup[];
 };
@@ -53,12 +38,15 @@ type ChartMonth = {
   month: string;
   label: string;
   title: string;
-  /** In the later half of the window; an overlay for it then covers the chart's start side. */
-  late: boolean;
   bars: ChartBar[];
 };
 
-export function CashFlowChart({ cashFlow }: Props) {
+export function CashFlowChart({
+  cashFlow,
+  selection,
+  targetProps,
+  detailsId
+}: Props) {
   const period = usePeriod();
   // The trend's months follow from the selected period, so the heading and month labels are known before the figures.
   const months = cashFlow.status === "pending" ? trendMonths(period, currentMonth()) : cashFlow.data.trend.map(item => Temporal.PlainYearMonth.from(item.month));
@@ -80,7 +68,15 @@ export function CashFlowChart({ cashFlow }: Props) {
           Expenses
         </span>
       </div>
-      {cashFlow.status === "pending" ? <ChartSkeleton area={cashFlow} months={months} /> : <ChartPlot cashFlow={cashFlow} months={months} />}
+      {cashFlow.status === "pending" ? <ChartSkeleton area={cashFlow} months={months} /> : (
+        <ChartPlot
+          cashFlow={cashFlow}
+          months={months}
+          selection={selection}
+          targetProps={targetProps}
+          detailsId={detailsId}
+        />
+      )}
     </section>
   );
 }
@@ -123,9 +119,6 @@ function ChartSkeleton({
             </div>
           ))}
         </div>
-        <div className={styles["details-slot"]}>
-          <p className={styles["details-hint"]}>Select a bar to see its categories.</p>
-        </div>
       </div>
     </AreaPlaceholder>
   );
@@ -133,17 +126,15 @@ function ChartSkeleton({
 
 function ChartPlot({
   cashFlow,
-  months
-}: {
+  months,
+  selection,
+  targetProps,
+  detailsId
+}: Omit<Props, "cashFlow"> & {
   cashFlow: AreaResult<CashFlow>;
   months: Temporal.PlainYearMonth[];
 }) {
   const descriptionPrefix = useId();
-  const {
-    activeKey,
-    chartProps,
-    targetProps
-  } = useChartDetails();
   const {
     currency,
     trend
@@ -156,7 +147,6 @@ function ChartPlot({
       month: item.month,
       label: display.label,
       title: display.title,
-      late: index >= trend.length / 2,
       bars: [{
         key: `${item.month}-income`,
         flow: "income",
@@ -170,14 +160,14 @@ function ChartPlot({
       }]
     };
   });
-  const shownKey = cashFlow.status === "ready" ? activeKey : null;
+  const shownKey = selection?.key ?? null;
   const activeMonth = chartMonths.find(item => item.bars.some(bar => bar.key === shownKey));
   const activeBar = activeMonth?.bars.find(bar => bar.key === shownKey);
   const hasHistory = trend.some(item => item.income !== 0 || item.expenses !== 0);
 
   return (
     <>
-      <div className={styles["plot"]} {...chartProps}>
+      <div className={styles["plot"]}>
         <div
           {...areaProps(cashFlow.status, styles["bar-chart"])}
           role="group"
@@ -205,6 +195,7 @@ function ChartPlot({
                       key={bar.key}
                       aria-label={`${item.title} ${presentation.label.toLowerCase()}: ${money(bar.total, currency)}`}
                       aria-describedby={descriptionId}
+                      aria-controls={detailsId}
                       data-flow={bar.flow}
                       data-active={active ? "" : undefined}
                       {...targetProps(bar.key)}
@@ -234,38 +225,9 @@ function ChartPlot({
             </div>
           ))}
         </div>
-        {hasHistory && (
-          <div className={styles["details-slot"]} data-side={activeMonth?.late ? "start" : "end"}>
-            {activeMonth && activeBar ? <BarDetails month={activeMonth} bar={activeBar} currency={currency} /> : <p className={styles["details-hint"]}>Select a bar to see its categories.</p>}
-          </div>
-        )}
+
       </div>
       {!hasHistory && <p className={clsx(styles["chart-empty-note"], valueMask(cashFlow.status))}>Your history appears here after the first import.</p>}
     </>
-  );
-}
-
-type BarDetailsProps = {
-  month: ChartMonth;
-  bar: ChartBar;
-  currency: string;
-};
-
-// Visual only: each bar button already describes the same breakdown to assistive technology. Wide layouts show it as an overlay on the chart, narrower ones in a fixed area below the bars.
-function BarDetails({
-  month,
-  bar,
-  currency
-}: BarDetailsProps) {
-  const presentation = flowPresentation[bar.flow];
-
-  return (
-    <div className={styles["bar-details"]} aria-hidden="true">
-      <div className={styles["details-heading"]}>
-        <strong>{month.title}</strong>
-        <span>{`${presentation.label} ${money(bar.total, currency)}`}</span>
-      </div>
-      {bar.groups.length ? <CategoryRows groups={bar.groups} currency={currency} compact /> : <p className={styles["details-empty"]}>{presentation.empty}</p>}
-    </div>
   );
 }
