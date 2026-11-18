@@ -35,5 +35,5 @@ export function describeBalanceSource(balance: BalancePoint) {
 
   const classification = balance.bank_balance_type ? bankBalanceLabels[balance.bank_balance_type] : undefined;
 
-  return `Bank sync · ${classification ?? "Type unknown"}`;
+  return classification ? `Bank sync · ${classification}` : "Bank sync";
 }
