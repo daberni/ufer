@@ -1,5 +1,9 @@
+import { fixupPluginRules } from "@eslint/compat";
+import cssModules from "eslint-plugin-css-modules";
 import babelParser from "@babel/eslint-parser";
 import stylistic from "@stylistic/eslint-plugin";
+import reactHooks from "eslint-plugin-react-hooks";
+import next from "@next/eslint-plugin-next";
 
 const browserImports = {
   group: ["node:*", "@libsql/client", "drizzle-orm", "drizzle-orm/**", "**/server/**", "@/server/**", "@/lib/import"],
@@ -137,6 +141,20 @@ export default [{
       prev: ["const", "let"],
       next: ["const", "let"]
     }]
+  }
+}, {
+  files: ["src/**/*.{ts,tsx}"],
+  plugins: {
+    "react-hooks": reactHooks,
+    "@next/next": next,
+    "css-modules": fixupPluginRules(cssModules)
+  },
+  rules: {
+    ...reactHooks.configs.flat.recommended.rules,
+    // The compiler currently misidentifies the stable accountIcon lookup as component construction.
+    "react-hooks/static-components": "off",
+    ...next.configs["core-web-vitals"].rules,
+    "css-modules/no-undef-class": "error"
   }
 }, {
   files: ["src/**/*.{ts,tsx}"],
