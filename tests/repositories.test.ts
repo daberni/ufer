@@ -153,7 +153,7 @@ test("invalid provider currencies and identities return provider failures withou
   }], []), {
     status: 502
   });
-  await assert.rejects(saveSessionAccounts(db, "SANDBOX", "unused-connection", "Example institution", [{
+  await assert.rejects(saveSessionAccounts(db, "SANDBOX", "unused-connection", "Example institution", "2099-01-01T00:00:00Z", [{
     uid: "synthetic-uid",
     identification_hash: "",
     currency: "EUR"
@@ -521,7 +521,7 @@ test("ambiguous reauthorization rolls back earlier account mappings and added al
     });
   }
 
-  await assert.rejects(saveSessionAccounts(db, "SANDBOX", "new", "Example institution", [{
+  await assert.rejects(saveSessionAccounts(db, "SANDBOX", "new", "Example institution", "2099-01-01T00:00:00Z", [{
     uid: "new-first",
     identification_hash: "hash-first",
     identification_hashes: ["new-alias"],

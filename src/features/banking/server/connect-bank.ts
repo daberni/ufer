@@ -3,7 +3,7 @@ import { HttpError } from "@/lib/errors";
 import { randomBytes, randomUUID } from "node:crypto";
 import { Temporal } from "temporal-polyfill";
 import { z } from "zod";
-import { availableBanks, bankingRequest, verifyApplication } from "@/features/banking/server/enable-banking-client";
+import { availableBanks, requestAuthorization, verifyApplication } from "@/features/banking/server/enable-banking-client";
 import { hash } from "@/server/security/tokens";
 import { timestamp } from "@/lib/time";
 import { insertAuthorization } from "./connection-repository";
@@ -25,22 +25,19 @@ export async function connectBank(payload: unknown, actor: AuthContext) {
     throw new HttpError(400, "This bank is unavailable in the selected environment.");
   }
 
-  if (!application.redirect_urls?.includes(callback)) {
+  if (!application.redirect_urls.includes(callback)) {
     throw new HttpError(409, "Register this exact callback URL in the Enable Banking application.");
   }
 
   const state = randomBytes(32).toString("base64url");
   const browser = randomBytes(32).toString("base64url");
-  const validitySeconds = Math.min(Math.floor(Number(selected.maximum_consent_validity)) || 86400, 180 * 86400);
+  const validitySeconds = Math.min(selected.maximum_consent_validity ?? 86400, 180 * 86400);
   const validUntil = Temporal.Now.instant().add({
     seconds: validitySeconds
   }).subtract({
     minutes: 1
   });
-  const authorization = await bankingRequest<{
-    url: string;
-    authorization_id: string;
-  }>("/auth", {
+  const authorization = await requestAuthorization({
     access: {
       valid_until: timestamp(validUntil),
       balances: true,
@@ -55,10 +52,6 @@ export async function connectBank(payload: unknown, actor: AuthContext) {
     psu_type: "personal",
     language: "en"
   });
-
-  if (new URL(authorization.url).protocol !== "https:") {
-    throw new HttpError(502, "Invalid bank redirect.");
-  }
 
   await insertAuthorization({
     id: randomUUID(),
