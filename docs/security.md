@@ -38,7 +38,21 @@ Trade-off: per-client counting stops one client from locking every user out of s
 
 The [provider client](../src/features/banking/server/enable-banking-client.ts) uses jose's SignJWT for RS256, issuer/audience claims, application key ID and a five-minute expiry. Node's key parser handles standard RSA PEM input; Ufer does not assemble or sign base64 JWT segments itself. Bank consent is browser-bound and single-use, additionally bound to the initiating user, exact live authentication session and active workspace membership; a successful bank callback does not sign a user into Ufer.
 
-The [secret-box module](../src/server/security/secret-box.ts) is a small adapter over Node's standard AES-256-GCM implementation. Its IV/tag/ciphertext serialization is already persisted in bank connections. This change preserves that format and DATA_ENCRYPTION_KEY; changing it would require an explicit data migration. An immutable synthetic ciphertext fixture checks that stored values remain readable, and a modified authentication tag is rejected. Do not introduce a second encryption format or copy secrets into session cookies.
+Provider responses are validated with zod schemas at the provider client before any value is used or stored; see [bank data validation](banking-and-imports.md). The API authenticates Ufer by JWT and the response by TLS; there is no response signature, so this validation protects against unexpected shapes, not tampering. Rejections log only the failing field paths and issue codes, never provider values.
+
+The [secret-box module](../src/server/security/secret-box.ts) is a small adapter over Node's standard AES-256-GCM implementation with an explicit 16-byte authentication tag length. Its IV/tag/ciphertext serialization is already persisted in bank connections. This change preserves that format and DATA_ENCRYPTION_KEY; changing it would require an explicit data migration. An immutable synthetic ciphertext fixture checks that stored values remain readable, and a modified authentication tag is rejected. Do not introduce a second encryption format or copy secrets into session cookies.
+
+### Rotating DATA_ENCRYPTION_KEY
+
+The key encrypts only the stored Enable Banking session IDs (`requisitions.session_cipher`). Ufer reads them with a single key, so replacing the key makes every stored session unreadable. Until a re-encryption migration exists, rotate the key by re-establishing the sessions:
+
+1. Back up the database together with the current key.
+2. Remove every bank connection in the Bank connections view, including superseded, expired and failed ones, and confirm each removal succeeds; if revocation fails, retry that connection's removal. Scheduled syncs do not retry revocations. Accounts and their history stay.
+3. Check that no session remains: `SELECT COUNT(*) FROM requisitions WHERE session_cipher IS NOT NULL` returns 0.
+4. Set the new `DATA_ENCRYPTION_KEY` and restart the application.
+5. Reconnect the banks; the kept accounts are remapped by their identification hashes.
+
+Rotating without reconnecting requires a versioned re-encryption migration that decrypts each stored session with the old key and encrypts it with the new key in one transaction, with both keys available only while it runs. It is not implemented.
 
 Scheduler bearer checks and one-time-token digests live in shared job/security infrastructure. They use Node's standard hash/constant-time primitives, not a home-grown authentication protocol. Provider credentials, session secrets and encryption keys stay in operator-managed configuration.
 
