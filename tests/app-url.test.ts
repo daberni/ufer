@@ -112,7 +112,7 @@ test("a period selected on the overview replaces the remembered one", context =>
 
   act(() => selectPeriod(monthPeriod(Temporal.PlainYearMonth.from("2026-08"))));
   navigate(`${window.location.pathname}${window.location.search}`);
-  navigate("/connections");
+  navigate("/accounts");
 
   assert.equal(result.current.viewHref("transactions"), "/transactions?period=2026-08");
 });
@@ -137,7 +137,7 @@ test("an account's details keep the period and return to the list they were open
   assert.equal(result.current.viewHref(result.current.accountList), "/?period=2026-08");
 
   navigate("/accounts");
-  navigate("/connections");
+  navigate("/accounts");
   navigate("/accounts/synthetic-account");
 
   assert.equal(result.current.accountList, "accounts");

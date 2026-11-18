@@ -22,15 +22,15 @@ test("page feedback stays on its view and is dropped by a navigation", () => {
   const {
     state,
     navigate
-  } = storeAt("/connections");
+  } = storeAt("/accounts");
   const feedback = {
     tone: "success" as const,
     messages: ["Bank connected."]
   };
 
   state().reportFeedback(feedback);
-  navigate("/connections");
-  assert.deepEqual(onView(state().feedback, "/connections"), feedback);
+  navigate("/accounts");
+  assert.deepEqual(onView(state().feedback, "/accounts"), feedback);
 
   navigate("/transactions");
   assert.equal(state().feedback, null);

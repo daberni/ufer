@@ -10,6 +10,7 @@ import { Landmark, Link2, Plus, ShieldCheck, Trash2 } from "lucide-react";
 import { TimestampValue } from "@/components/ui/date-value";
 import { Empty } from "@/components/ui/empty-state";
 import { BridgeIllustration } from "@/components/branding/illustrations";
+import { bankConnectionsSectionId } from "@/features/banking/connections-location";
 import type { BankingConfiguration, Connection, SyncRun } from "@/features/banking/types";
 import { useState } from "react";
 import { BankConnectionDialog } from "./bank-connection-form";
@@ -36,7 +37,7 @@ type OpenDialog = {
 
 const skeletonConnections = 2;
 
-export function ConnectionsView({
+export function ConnectionsSection({
   banking,
   connections,
   syncRuns
@@ -54,14 +55,15 @@ export function ConnectionsView({
   const sandbox = banking.environment === "SANDBOX";
 
   return (
-    <>
+    <section id={bankConnectionsSectionId} aria-labelledby="bank-connections-heading" className={styles["connections-section"]}>
       <div className={ui["section-heading"]}>
-        <span className={ui["section-kicker"]}>ENABLE BANKING{sandbox && " · SANDBOX"}</span>
+        <h2 id="bank-connections-heading">Bank connections</h2>
         <button className={clsx(ui["button"], ui["primary"])} onClick={() => openBank()}>
           <Plus size={15} />
           Connect bank
         </button>
       </div>
+      <p className={styles["provider"]}>ENABLE BANKING{sandbox && " · SANDBOX"}</p>
       <div className={styles["connection-info"]}>
         <ShieldCheck size={23} />
         <div>
@@ -87,7 +89,7 @@ export function ConnectionsView({
       <SyncHistory syncRuns={syncRuns} />
       {dialog?.kind === "bank" && <BankConnectionDialog connection={dialog.connection} close={closeDialog} />}
       {dialog?.kind === "removeConnection" && <RemoveConnectionDialog selectedConnection={dialog.connection} close={closeDialog} />}
-    </>
+    </section>
   );
 }
 

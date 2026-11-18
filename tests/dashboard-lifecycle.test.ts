@@ -669,16 +669,16 @@ function renderDashboard(context: Parameters<typeof browser>[0], url: string) {
   };
 }
 
-test("a bank callback result is shown on the connections view and cleared when the view changes", async context => {
+test("a bank callback keeps the connections deep link while consuming its result and clears feedback on navigation", async context => {
   const {
     result,
     rerender,
     replaced
-  } = renderDashboard(context, "/connections?banking=connected");
+  } = renderDashboard(context, "/accounts?banking=connected#bank-connections");
 
-  assert.equal(result.current.view, "connections");
+  assert.equal(result.current.view, "accounts");
   assert.equal(result.current.feedback?.tone, "success");
-  assert.deepEqual(replaced, ["/connections"]);
+  assert.deepEqual(replaced, ["/accounts#bank-connections"]);
 
   window.history.replaceState(null, "", "/");
   rerender();
