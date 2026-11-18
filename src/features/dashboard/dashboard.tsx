@@ -4,7 +4,9 @@ import ui from "../../components/ui/primitives.module.css";
 
 import { clsx } from "clsx";
 import styles from "./dashboard.module.css";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import Link from "next/link";
+import { bankConnectionsHref } from "@/features/banking/connections-location";
 import { ArrowRight, CircleHelp, Link2 } from "lucide-react";
 import { BrandIcon } from "@/components/branding/brand-icon";
 import { ActionFeedback } from "@/components/ui/action-feedback";
@@ -24,7 +26,7 @@ import { navigation } from "./navigation";
 import { onView, useAppStore } from "@/client/app-store";
 import { useSessionLock } from "@/client/use-session-lock";
 import { useDashboardNavigation } from "./use-dashboard-navigation";
-import { useAccountFilter, useChangeView, useCurrency, useView, useViewHref } from "@/client/use-app-url";
+import { useAccountFilter, useCurrency, useView, useViewHref } from "@/client/use-app-url";
 import { sectionOf } from "@/client/app-location";
 import { useLoadError } from "./use-load-error";
 import { TraceId } from "@/components/ui/trace-id";
@@ -58,7 +60,7 @@ function DashboardShell({ children }: {
   const { environment } = useBankingConfiguration();
   const view = useView();
   const viewHref = useViewHref();
-  const changeView = useChangeView();
+  const router = useRouter();
   const currency = useCurrency();
   const accounts = useAccounts();
   const accountId = useAccountFilter();
@@ -89,7 +91,7 @@ function DashboardShell({ children }: {
     icon: item.icon,
     href: viewHref(item.id),
     current: item.id === section,
-    count: item.id === "connections" ? expiring.length : 0
+    count: item.id === "accounts" ? expiring.length : 0
   }));
 
   return (
@@ -110,7 +112,7 @@ function DashboardShell({ children }: {
                 manualAccounts={(accounts.data ?? []).filter(account => account.provider === "manual")}
               />
             )}
-            {showSync && <SyncButton bankAccounts={bankAccounts} showConnections={() => changeView("connections")} />}
+            {showSync && <SyncButton bankAccounts={bankAccounts} showConnections={() => router.push(bankConnectionsHref)} />}
           </PageHeading>
           <LoadErrorNotice failure={loadError.failure} retry={loadError.retry} />
           {environment === "SANDBOX" && (
@@ -123,9 +125,9 @@ function DashboardShell({ children }: {
             <div className={clsx(ui["notice"], ui["warning"])}>
               <Link2 size={17} />
               {expiring.length} bank authorization(s) are expiring or have expired.
-              <button className={ui["text-button"]} onClick={() => changeView("connections")}>
+              <Link className={ui["text-button"]} href={bankConnectionsHref}>
                 Review authorizations <ArrowRight size={14} />
-              </button>
+              </Link>
             </div>
           )}
           {children}
