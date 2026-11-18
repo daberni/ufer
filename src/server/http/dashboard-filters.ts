@@ -1,3 +1,4 @@
+import { isTransactionType } from "@/features/transactions/transaction-types";
 import { HttpError } from "@/lib/errors";
 import { parseCurrencyCode } from "@/lib/money";
 import { currentMonthPeriod, parsePeriod } from "@/lib/period";
@@ -22,6 +23,12 @@ function currencyFilter(value: string | null) {
 }
 
 export function dashboardFilters(query: URLSearchParams) {
+  const type = query.get("type") || "";
+
+  if (type && !isTransactionType(type)) {
+    throw new HttpError(400, "Invalid transaction type.");
+  }
+
   return {
     period: periodFilter(query.get("period")),
     currency: currencyFilter(query.get("currency")),
@@ -29,6 +36,7 @@ export function dashboardFilters(query: URLSearchParams) {
     search: query.get("search")?.slice(0, 200) || "",
     accountId: query.get("account") || "",
     categoryId: query.get("category") || "",
+    type,
     syncRunId: query.get("syncRun") || ""
   };
 }

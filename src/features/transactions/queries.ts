@@ -14,6 +14,7 @@ export function transactionListFilters(query: ViewQuery): TransactionListFilters
     search: query.search,
     account: query.account,
     category: query.category,
+    type: query.type,
     syncRun: query.syncRun,
     page: query.page
   };
