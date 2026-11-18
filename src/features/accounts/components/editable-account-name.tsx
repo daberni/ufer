@@ -8,7 +8,7 @@ import { FormError } from "@/components/ui/form-error";
 import { useDialogSubmit } from "@/components/ui/use-dialog-submit";
 import { useRenameAccount } from "@/features/accounts/mutations";
 import type { Account } from "@/features/accounts/types";
-import ui from "@/components/ui/primitives.module.css";
+import ui from "../../../components/ui/primitives.module.css";
 import styles from "./editable-account-name.module.css";
 
 /** The account's page heading is also its rename action; switching accounts closes the dialog. */

@@ -104,6 +104,11 @@ export async function readTransactionPage(filters: DashboardFilters) {
     args.push(filters.categoryId);
   }
 
+  if (filters.type) {
+    where.push("t.type=?");
+    args.push(filters.type);
+  }
+
   const condition = where.join(" AND ");
   // Banks report dates without a time, so bookings within a day are ordered by payee and description; empty payees come last.
   const transactionsQuery = client.execute({
