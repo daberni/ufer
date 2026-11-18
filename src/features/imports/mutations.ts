@@ -4,7 +4,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/client/api";
 import { invalidate } from "@/client/invalidate";
 import { queryKeys } from "@/client/query-keys";
-import { batchRows, type MappedRow, type RowError } from "./csv-mapping";
+import { batchRows, pruneConsumed, type ConsumedBooking, type MappedRow, type RowError } from "./csv-mapping";
 
 export type ImportMode = "mapped" | "balances" | "transactions";
 
@@ -62,11 +62,6 @@ export type MappedImportSummary = {
   toleranceDays: number;
 };
 
-type MatchedBooking = {
-  account_id: string;
-  reference: string;
-};
-
 type MappedImport = {
   /** One ID per file import, kept across the check and confirmation retries, so new accounts are created once. */
   importId: string;
@@ -107,16 +102,16 @@ export function useMappedImport() {
         unknownCategories: [],
         toleranceDays: 0
       };
-      let consumed: MatchedBooking[] = [];
+      let consumed: ConsumedBooking[] = [];
 
       for (const batch of batchRows([...rows].sort((left, right) => left.date.localeCompare(right.date)))) {
         const result = await api<MappedImportSummary & {
-          matched: MatchedBooking[];
+          matched: ConsumedBooking[];
         }>("imports/mapped", {
           import_id: importId,
           rows: batch,
           targets: resolved,
-          consumed,
+          consumed: pruneConsumed(consumed, batch[0].date),
           confirm
         });
 

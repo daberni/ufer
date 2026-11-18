@@ -9,11 +9,12 @@ import { initializeDatabase } from "../src/server/database/migrations";
 import * as schema from "../src/server/database/schema";
 import { listAccounts } from "../src/features/accounts/server/account-queries";
 import { insertRule } from "../src/features/categorization/server/rule-repository";
+import { insertMappedEntries } from "../src/features/imports/server/mapped-import-repository";
 import { importMappedRows } from "../src/features/imports/server/mapped-import-service";
 import { findDuplicates } from "../src/features/imports/server/duplicate-matching";
 import { saveAccountSync } from "../src/features/banking/server/account-sync-service";
 import { startSyncRun } from "../src/features/banking/server/sync-repository";
-import { normalizeText, decodeCsv, detectDateFormat, detectDecimal, detectDelimiter, mapRows, parseAmount, parseCsv, parseDate, suggestMapping, type CsvSettings, type MappedRow } from "../src/features/imports/csv-mapping";
+import { normalizeText, pruneConsumed, decodeCsv, detectDateFormat, detectDecimal, detectDelimiter, mapRows, parseAmount, parseCsv, parseDate, suggestMapping, type CsvSettings, type MappedRow } from "../src/features/imports/csv-mapping";
 
 const now = Temporal.Instant.from("2026-06-30T12:00:00Z");
 
@@ -539,10 +540,10 @@ test("a same-date booking wins; several window candidates are only possible dupl
   const ambiguous = findDuplicates([candidate], [booking("bank:a", "2024-01-09"), booking("bank:b", "2024-01-11")]);
   const single = findDuplicates([candidate], [booking("bank:a", "2024-01-12")]);
 
-  assert.deepEqual(sameDate.matched, ["bank:b"]);
+  assert.deepEqual(sameDate.matched.map(booking => booking.reference), ["bank:b"]);
   assert.deepEqual([...ambiguous.duplicates.keys()], []);
   assert.deepEqual(ambiguous.possible, [0]);
-  assert.deepEqual(single.matched, ["bank:a"]);
+  assert.deepEqual(single.matched.map(booking => booking.reference), ["bank:a"]);
 });
 
 test("a later bank sync adopts the matching CSV-imported row with its category instead of inserting a duplicate", async context => {
@@ -600,4 +601,66 @@ test("a later bank sync adopts the matching CSV-imported row with its category i
     ["csv", "Kiosk", null],
     ["bank:other", "Pharmacy", null]
   ]);
+});
+
+test("consumed matches stay bounded for files with more than 20,000 matched bookings", async context => {
+  await isolatedDatabase(context);
+
+  const account = await manualAccount("Long history");
+  const start = Date.UTC(1990, 0, 1);
+  const consumed = Array.from({
+    length: 25_000
+  }, (_value, index) => ({
+    account_id: account.id,
+    reference: `bank:${index}`,
+    date: new Date(start + index * 86_400_000).toISOString().slice(0, 10)
+  }));
+  const lastDate = consumed[consumed.length - 1].date;
+  const pruned = pruneConsumed(consumed, lastDate);
+  const result = await importMappedRows({
+    import_id: importId,
+    rows: [mappedRow(2, lastDate, "-1.00", "Shop")],
+    targets: [{
+      source: "",
+      account_id: account.id
+    }],
+    consumed: pruned,
+    confirm: false
+  }, Temporal.Instant.from("2060-01-01T00:00:00Z"));
+
+  assert.deepEqual(pruned.map(booking => booking.reference), ["bank:24996", "bank:24997", "bank:24998", "bank:24999"]);
+  assert.equal(result.newRows, 1);
+});
+
+test("saving rechecks duplicates in its write transaction, so bookings synced after the check are not duplicated", async context => {
+  const db = await isolatedDatabase(context);
+
+  await insertBankAccount(db);
+
+  // The check ran before this booking arrived from the bank.
+  await db.insert(schema.transactions).values({
+    id: "synced-late",
+    account_id: "synthetic-bank-account",
+    provider_reference: "bank:late",
+    booking_date: "2024-07-01",
+    amount_minor: -2500,
+    currency: "EUR",
+    counterparty: "Example Hardware",
+    description: "",
+    type: "expense"
+  });
+
+  const inserted = await insertMappedEntries("synthetic-bank-account", [{
+    reference: "csv:m:late",
+    date: "2024-07-01",
+    amount: -2500,
+    currency: "EUR",
+    counterparty: "EXAMPLE HARDWARE STORE",
+    description: "",
+    categoryId: null,
+    categorySource: "rule"
+  }], null);
+
+  assert.equal(inserted, 0);
+  assert.equal((await db.select().from(schema.transactions)).length, 1);
 });

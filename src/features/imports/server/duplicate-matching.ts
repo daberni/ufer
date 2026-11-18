@@ -1,7 +1,6 @@
-import { normalizeText } from "../csv-mapping";
+import { duplicateDateToleranceDays, normalizeText } from "../csv-mapping";
 
-/** Days a booking date may differ: banks and exports disagree between booking and value date, and weekends shift bookings by up to three days. */
-export const duplicateDateToleranceDays = 3;
+export { duplicateDateToleranceDays };
 
 export type ImportCandidate = {
   reference: string;
@@ -30,7 +29,7 @@ export const mappedReferencePrefix = "csv:m:";
  */
 export function findDuplicates(candidates: ImportCandidate[], existing: ExistingBooking[], consumed: ReadonlySet<string> = new Set()) {
   const duplicates = new Map<number, DuplicateReason>();
-  const matched: string[] = [];
+  const matched: Pick<ExistingBooking, "reference" | "date">[] = [];
   const possible: number[] = [];
   const references = new Set(existing.map(booking => booking.reference));
   const available = existing.filter(booking => !booking.reference.startsWith(mappedReferencePrefix) && !consumed.has(booking.reference) && !candidates.some(candidate => candidate.reference === booking.reference));
@@ -49,7 +48,10 @@ export function findDuplicates(candidates: ImportCandidate[], existing: Existing
       possible.push(index);
     } else if (match >= 0) {
       used.add(match);
-      matched.push(available[match].reference);
+      matched.push({
+        reference: available[match].reference,
+        date: available[match].date
+      });
       duplicates.set(index, "existing_booking");
     }
   });

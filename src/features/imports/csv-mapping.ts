@@ -1,5 +1,8 @@
 // Reads arbitrary transaction CSV exports in the browser and maps their columns to import rows. Shared with the server, so it must stay free of server-only imports.
 
+/** Days a booking date may differ between duplicates: banks and exports disagree between booking and value date, and weekends shift bookings by up to three days. */
+export const duplicateDateToleranceDays = 3;
+
 export type CsvEncoding = "utf-8" | "windows-1252";
 
 export type CsvDelimiter = "," | ";" | "\t" | "|";
@@ -450,4 +453,18 @@ export function batchRows(rows: MappedRow[], maxBytes = 1_000_000, maxRows = 200
   }
 
   return batches;
+}
+
+/** An existing booking an earlier batch matched as a duplicate. */
+export type ConsumedBooking = {
+  account_id: string;
+  reference: string;
+  date: string;
+};
+
+/** Drops matches that no row of a batch starting at `earliestDate` can reach; with date-sorted batches this keeps the list bounded however large the file is. */
+export function pruneConsumed(consumed: ConsumedBooking[], earliestDate: string) {
+  const reach = new Date(Date.parse(`${earliestDate}T00:00:00Z`) - duplicateDateToleranceDays * 86_400_000).toISOString().slice(0, 10);
+
+  return consumed.filter(booking => booking.date >= reach);
 }

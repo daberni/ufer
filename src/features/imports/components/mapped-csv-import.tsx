@@ -86,6 +86,10 @@ export function MappedCsvImport({
 
     if (selected.size > maxFileBytes) {
       setFileError("The file cannot exceed 25 MB.");
+      setFile(null);
+      setSettings(null);
+      setMapping(null);
+      setTargets({});
 
       return;
     }

@@ -36,7 +36,8 @@ const target = z.object({
 
 const matchedBooking = z.object({
   account_id: z.string(),
-  reference: z.string()
+  reference: z.string(),
+  date: z.string()
 });
 
 const mappedImportInput = z.object({
@@ -135,7 +136,7 @@ export async function importMappedRows(payload: unknown, now = Temporal.Now.inst
   let newRows = fresh.length;
 
   if (input.confirm) {
-    newRows = await saveRows(fresh, targets);
+    newRows = await saveRows(fresh, targets, input.consumed);
   }
 
   return {
@@ -251,9 +252,9 @@ async function markDuplicates(planned: PlannedRow[], consumed: z.infer<typeof ma
     }
 
     possible.push(...found.possible.map(index => rows[index].line));
-    matched.push(...found.matched.map(reference => ({
+    matched.push(...found.matched.map(booking => ({
       account_id: accountId,
-      reference
+      ...booking
     })));
   }
 
@@ -264,7 +265,7 @@ async function markDuplicates(planned: PlannedRow[], consumed: z.infer<typeof ma
   };
 }
 
-async function saveRows(rows: PlannedRow[], targets: Map<string, Target>) {
+async function saveRows(rows: PlannedRow[], targets: Map<string, Target>, consumed: z.infer<typeof matchedBooking>[]) {
   const rules = await listRules();
   const newAccounts = new Map([...targets.values()].flatMap(target => target.accountId && target.newAccount ? [[target.accountId, target.newAccount] as const] : []));
   const accountIds = new Set(rows.flatMap(item => item.accountId ? [item.accountId] : []));
@@ -279,7 +280,9 @@ async function saveRows(rows: PlannedRow[], targets: Map<string, Target>) {
       categoryId: ruled[uncategorized.indexOf(entry)].categoryId
     });
 
-    saved += await insertMappedEntries(accountId, categorized, newAccounts.get(accountId) ?? null);
+    const absorbed = new Set(consumed.filter(item => item.account_id === accountId).map(item => item.reference));
+
+    saved += await insertMappedEntries(accountId, categorized, newAccounts.get(accountId) ?? null, absorbed);
   }
 
   return saved;
