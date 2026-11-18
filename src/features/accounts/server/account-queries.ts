@@ -22,6 +22,7 @@ export async function listAccounts() {
   return db.select({
     id: accounts.id,
     name: accounts.name,
+    provider_name: accounts.provider_name,
     institution: accounts.institution,
     kind: accounts.kind,
     currency: accounts.currency,
@@ -70,7 +71,8 @@ export async function readBalanceHistory(accountId: string): Promise<BalanceHist
   const balances = await db.select({
     date: balanceSnapshots.observed_at,
     amount_minor: balanceSnapshots.amount_minor,
-    source: balanceSnapshots.source
+    source: balanceSnapshots.source,
+    bank_balance_type: balanceSnapshots.bank_balance_type
   }).from(balanceSnapshots).where(eq(balanceSnapshots.account_id, accountId)).orderBy(asc(balanceSnapshots.observed_at));
 
   const currentDate = today().toString();
@@ -93,7 +95,8 @@ export async function readBalanceHistory(accountId: string): Promise<BalanceHist
     observations.push({
       date: account.balance_date,
       amount_minor: account.balance_minor,
-      source
+      source,
+      bank_balance_type: null
     });
   }
 
@@ -105,7 +108,8 @@ export async function readBalanceHistory(accountId: string): Promise<BalanceHist
       days: 1
     }).toString(),
     amount_minor: 0,
-    source: "transactions" as const
+    source: "transactions" as const,
+    bank_balance_type: null
   } : undefined;
   const cashAccount = ["checking", "savings", "credit_card"].includes(account.kind);
   const explicitLedger = account.provider === "manual" && openingReference && observations.length === 0;

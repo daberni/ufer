@@ -16,6 +16,7 @@ import { PageHeading } from "@/components/layout/page-heading";
 import { LoginForm } from "@/features/auth/components/login-form";
 import { LegalLinks } from "@/features/legal/components/legal-links";
 import { SourceCodeNotice } from "@/features/legal/components/source-code-notice";
+import { EditableAccountName } from "@/features/accounts/components/editable-account-name";
 import { AccountDetailActions } from "@/features/accounts/components/account-detail-actions";
 import { accountGroups, useAccounts } from "@/features/accounts/queries";
 import { useBankingConfiguration } from "@/features/banking/banking-configuration";
@@ -102,7 +103,7 @@ function DashboardShell({ children }: {
       <div className={styles["main-shell"]}>
         <AppHeader environment={environment} title={nav.label} />
         <main className={styles["content"]}>
-          <PageHeading heading={heading} description={description}>
+          <PageHeading heading={selectedAccount ? <EditableAccountName key={selectedAccount.id} account={selectedAccount} /> : heading} description={description}>
             {selectedAccount?.provider === "manual" && (
               <AccountDetailActions
                 key={selectedAccount.id}

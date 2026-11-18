@@ -63,7 +63,8 @@ export function dailyBalances(bookings: DailyBooking[], observations: BalancePoi
     balances.push({
       date: day,
       amount_minor: amount,
-      source: observed?.source ?? "transactions"
+      source: observed?.source ?? "transactions",
+      bank_balance_type: observed?.bank_balance_type ?? null
     });
   }
 

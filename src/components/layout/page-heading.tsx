@@ -3,7 +3,7 @@ import ui from "../ui/primitives.module.css";
 import styles from "./page-heading.module.css";
 
 type Props = {
-  heading: string;
+  heading: React.ReactNode;
   description: string;
   /** Actions beside the heading, such as the sync button. */
   children?: React.ReactNode;

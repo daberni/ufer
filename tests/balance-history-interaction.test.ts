@@ -12,15 +12,18 @@ stubCssModules();
 const dailyBalances: BalancePoint[] = [{
   date: "2026-01-01",
   amount_minor: 10000,
-  source: "sync"
+  source: "sync",
+  bank_balance_type: "CLAV"
 }, {
   date: "2026-01-04",
   amount_minor: 12000,
-  source: "transactions"
+  source: "transactions",
+  bank_balance_type: null
 }, {
   date: "2026-01-11",
   amount_minor: 9000,
-  source: "csv"
+  source: "csv",
+  bank_balance_type: null
 }];
 
 async function showHistory(context: TestContext, balances = dailyBalances) {
@@ -58,13 +61,14 @@ test("only recorded observations are listed or counted while calculated days rem
   }, (_, index) => ({
     date: `2026-01-${String(index + 1).padStart(2, "0")}`,
     amount_minor: 10000 + index * 100,
-    source: index % 2 ? "transactions" : "sync"
+    source: index % 2 ? "transactions" : "sync",
+    bank_balance_type: null
   }));
   const screen = await showHistory(context, balances);
   const table = screen.getByRole("table");
 
   assert.equal(within(table).getAllByRole("row").length, 6);
-  assert.equal(within(table).queryByText("Calculated") === null, true);
+  assert.equal(within(table).queryByText("Estimated") === null, true);
   fireEvent.click(screen.getByRole("button", {
     name: "Show all 6 balances"
   }));
@@ -81,7 +85,7 @@ test("only recorded observations are listed or counted while calculated days rem
   fireEvent.keyDown(plot, {
     key: "ArrowRight"
   });
-  assert.match(plot.getAttribute("aria-valuetext") || "", /2 Jan 2026.*101\.00.*Calculated/);
+  assert.match(plot.getAttribute("aria-valuetext") || "", /2 Jan 2026.*101\.00.*Estimated/);
   fireEvent.keyDown(plot, {
     key: "End"
   });
@@ -106,12 +110,12 @@ test("hovering a step shows the balance effective there rather than the next obs
     pointerType: "mouse",
     clientX: 219
   });
-  assert.match(plot.getAttribute("aria-valuetext") || "", /1 Jan 2026.*100\.00/);
+  assert.match(plot.getAttribute("aria-valuetext") || "", /1 Jan 2026.*100\.00.*Bank sync · Closing available/);
   fireEvent.pointerMove(plot, {
     pointerType: "mouse",
     clientX: 220
   });
-  assert.match(plot.getAttribute("aria-valuetext") || "", /4 Jan 2026.*120\.00.*Calculated/);
+  assert.match(plot.getAttribute("aria-valuetext") || "", /4 Jan 2026.*120\.00.*Estimated/);
   fireEvent.pointerMove(plot, {
     pointerType: "mouse",
     clientX: 600
@@ -159,7 +163,8 @@ test("touch selection persists after release, follows a scrub, and dismisses out
 test("ledger-only history has an interactive chart without an empty recorded-balances table", async context => {
   const screen = await showHistory(context, dailyBalances.map(balance => ({
     ...balance,
-    source: "transactions"
+    source: "transactions",
+    bank_balance_type: null
   })));
 
   assert.equal(screen.queryByRole("table") === null, true);
@@ -171,5 +176,5 @@ test("ledger-only history has an interactive chart without an empty recorded-bal
   fireEvent.keyDown(plot, {
     key: "Home"
   });
-  assert.match(plot.getAttribute("aria-valuetext") || "", /1 Jan 2026.*100\.00.*Calculated/);
+  assert.match(plot.getAttribute("aria-valuetext") || "", /1 Jan 2026.*100\.00.*Estimated/);
 });
