@@ -57,6 +57,10 @@ export function useCategoryFilter() {
   return useViewParameter("category");
 }
 
+export function useTypeFilter() {
+  return useViewParameter("type");
+}
+
 export function useSyncRunFilter() {
   return useViewParameter("syncRun");
 }
@@ -161,6 +165,13 @@ export function setAccountFilter(account: string) {
 export function setCategoryFilter(category: string) {
   updateQuery({
     category,
+    page: 1
+  }, "push");
+}
+
+export function setTypeFilter(type: string) {
+  updateQuery({
+    type,
     page: 1
   }, "push");
 }

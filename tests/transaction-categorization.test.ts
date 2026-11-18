@@ -35,6 +35,7 @@ const listKey = queryKeys.transactions.list({
   search: "",
   account: "",
   category: "",
+  type: "",
   syncRun: "",
   page: 1
 });
