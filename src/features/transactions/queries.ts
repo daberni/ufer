@@ -1,7 +1,7 @@
 "use client";
 
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { apiGet } from "@/client/api";
+import { apiGet, apiQuery } from "@/client/api";
 import { queryKeys, type TransactionListFilters } from "@/client/query-keys";
 import { serializePeriod } from "@/lib/period";
 import type { ViewQuery } from "@/client/app-location";
@@ -25,10 +25,7 @@ export function useTransactionList(query: ViewQuery) {
 
   return useQuery({
     queryKey: queryKeys.transactions.list(filters),
-    queryFn: ({ signal }) => apiGet<TransactionPage>("transactions", {
-      ...filters,
-      page: String(filters.page)
-    }, signal),
+    queryFn: ({ signal }) => apiQuery<TransactionPage>("transactions/query", filters, signal),
     placeholderData: keepPreviousData
   });
 }
