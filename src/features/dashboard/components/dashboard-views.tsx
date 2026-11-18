@@ -67,7 +67,7 @@ export function TransactionsPage() {
   const listedRun = list.data?.syncRun ?? null;
   const selectedRun = listedRun?.id === query.syncRun ? listedRun : null;
   const runFound = selectedRun !== null || !list.current;
-  const runEmptyState = <SyncRunEmpty filtered={Boolean(query.search || query.account || query.category)} found={runFound} run={selectedRun} />;
+  const runEmptyState = <SyncRunEmpty filtered={Boolean(query.search || query.account || query.category || query.type)} found={runFound} run={selectedRun} />;
 
   return (
     <>
