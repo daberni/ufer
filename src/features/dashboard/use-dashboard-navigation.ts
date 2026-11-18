@@ -34,7 +34,7 @@ export function useDashboardNavigation() {
     }
   }, [store, view]);
 
-  // The bank callback returns to the connections view with its result, which is shown once and removed from the URL.
+  // The bank callback returns to the accounts connections section with its result, which is shown once and removed from the URL.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const result = parseCallbackResult(params.get("banking"));
@@ -50,7 +50,9 @@ export function useDashboardNavigation() {
     params.delete("banking");
     const rest = params.toString();
 
-    router.replace(rest ? `${window.location.pathname}?${rest}` : window.location.pathname, {
+    const destination = rest ? `${window.location.pathname}?${rest}` : window.location.pathname;
+
+    router.replace(`${destination}${window.location.hash}`, {
       scroll: false
     });
   }, [store, router]);

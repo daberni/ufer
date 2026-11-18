@@ -1,3 +1,4 @@
+import { bankConnectionsHref } from "@/features/banking/connections-location";
 import { requireAuth } from "@/features/auth/server/session";
 import { applicationOrigin } from "@/server/http/origin";
 import { callbackResultForError, type CallbackResult } from "@/features/banking/callback-result";
@@ -38,7 +39,7 @@ export async function GET(request: Request) {
     }
   }
 
-  const destination = new URL("/connections", base);
+  const destination = new URL(bankConnectionsHref, base);
 
   destination.searchParams.set("banking", result);
   const response = NextResponse.redirect(destination, 303);

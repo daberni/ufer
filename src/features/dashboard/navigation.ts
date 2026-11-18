@@ -1,4 +1,4 @@
-import { ArrowDownLeft, LayoutDashboard, Link2, SlidersHorizontal, Wallet, type LucideIcon } from "lucide-react";
+import { ArrowDownLeft, LayoutDashboard, SlidersHorizontal, Wallet, type LucideIcon } from "lucide-react";
 import type { Section } from "@/client/app-location";
 
 export type NavigationItem = {
@@ -40,11 +40,4 @@ export const navigation: NavigationItem[] = [{
   heading: "Categories & rules",
   description: "Less sorting. More clarity.",
   icon: SlidersHorizontal
-}, {
-  id: "connections",
-  label: "Bank connections",
-  mobileLabel: "Banks",
-  heading: "Bank connections",
-  description: "Connect your banks and keep track of their authorizations.",
-  icon: Link2
 }];

@@ -1,10 +1,6 @@
-import type { Metadata } from "next";
-import { ConnectionsPage } from "@/features/dashboard/components/dashboard-views";
-
-export const metadata: Metadata = {
-  title: "Bank connections"
-};
+import { redirect } from "next/navigation";
+import { bankConnectionsHref } from "@/features/banking/connections-location";
 
 export default function Page() {
-  return <ConnectionsPage />;
+  redirect(bankConnectionsHref);
 }
