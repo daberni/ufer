@@ -197,6 +197,10 @@ test("a later change of the row retires the rule confirmation, so its failure is
     }));
   });
   await wait(0);
+  await respond(requests("rules/preview").at(-1), Response.json({
+    matched: 2,
+    uncategorized: 2
+  }));
   act(() => {
     fireEvent.submit(screen.getByRole("textbox", {
       name: "Matching pattern"
@@ -344,4 +348,100 @@ test("dismissing a rule prompt by pressing another category does not consume tha
     name: "Create rule…",
     hidden: true
   }));
+});
+
+test("rule creation waits for the current pattern and priority preview, including debounce and failed requests", async context => {
+  const {
+    pending,
+    queryClient,
+    requests
+  } = browser(context);
+
+  modalDialogs();
+
+  const { RuleFromAssignmentDialog } = await import("../src/features/categorization/components/rule-from-assignment-form");
+  const screen = render(withQueryClient(queryClient, createElement(RuleFromAssignmentDialog, {
+    counterparty: "Example Market",
+    description: "Synthetic purchase",
+    categoryId: "groceries",
+    close: () => {},
+    onCreated: () => {}
+  })));
+  const create = () => screen.getByRole("button", {
+    name: "Create rule"
+  }) as HTMLButtonElement;
+  const pattern = screen.getByRole("textbox", {
+    name: "Matching pattern"
+  });
+  const priority = screen.getByRole("spinbutton", {
+    name: "Priority"
+  });
+  const form = pattern.closest("form")!;
+
+  await wait(0);
+  await respond(pending.find(request => request.url.pathname === "/api/categories"), Response.json(categories));
+  assert.equal(create().disabled, true);
+  await respond(requests("rules/preview").at(-1), Response.json({
+    matched: 2,
+    uncategorized: 2
+  }));
+  assert.equal(create().disabled, false);
+
+  act(() => fireEvent.change(pattern, {
+    target: {
+      value: "Salary"
+    }
+  }));
+  assert.equal(create().disabled, true);
+  assert.equal(screen.queryByText(/2 other transactions/), null);
+  act(() => fireEvent.submit(form));
+  assert.equal(requests("rules").filter(request => request.method === "POST").length, 0);
+  await wait(350);
+  assert.equal(create().disabled, true);
+  await respond(requests("rules/preview").at(-1), Response.json({
+    matched: 8,
+    uncategorized: 5
+  }));
+  assert.equal(create().disabled, false);
+
+  act(() => fireEvent.change(priority, {
+    target: {
+      value: "5"
+    }
+  }));
+  assert.equal(create().disabled, true);
+  await wait(350);
+  await respond(requests("rules/preview").at(-1), Response.json({
+    title: "Unavailable",
+    status: 503
+  }, {
+    status: 503
+  }));
+  assert.equal(create().disabled, true);
+  act(() => fireEvent.submit(form));
+  assert.equal(requests("rules").filter(request => request.method === "POST").length, 0);
+
+  act(() => fireEvent.change(priority, {
+    target: {
+      value: "6"
+    }
+  }));
+  await wait(350);
+  await respond(requests("rules/preview").at(-1), Response.json({
+    matched: 3,
+    uncategorized: 1
+  }));
+  assert.equal(create().disabled, false);
+  act(() => fireEvent.submit(form));
+  await wait(0);
+  const created = requests("rules").find(request => request.method === "POST");
+
+  assert.deepEqual(created?.body, {
+    name: "Salary",
+    pattern: "Salary",
+    mode: "keyword",
+    category_id: "groceries",
+    priority: 6,
+    apply_to_uncategorized: true
+  });
 });

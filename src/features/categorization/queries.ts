@@ -20,7 +20,7 @@ export function useRules() {
 }
 
 /**
- * Counts what a keyword rule would categorize; the previous count stays shown while an edited pattern is counted. The read posts the pattern, since
+ * Counts what a keyword rule would categorize. Consumers must retire placeholder counts while an edited draft is being counted. The read posts the pattern, since
  * it comes from payee and remittance text that must not appear in URLs and request logs.
  */
 export function useRulePreview(draft: RulePreviewDraft | null) {

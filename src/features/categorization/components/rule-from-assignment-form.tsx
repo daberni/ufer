@@ -85,34 +85,46 @@ function RuleFromAssignmentForm({
     return () => clearTimeout(timer);
   }, [pattern, priority]);
 
+  const draft = previewDraft(pattern, priority);
   const preview = useRulePreview(previewed);
+  const matchesCurrentDraft = draft !== null && draft.pattern === previewed?.pattern && draft.priority === previewed?.priority;
+  const previewReady = matchesCurrentDraft && preview.isSuccess && !preview.isFetching && !preview.isPlaceholderData;
+  const previewPending = draft !== null && (!matchesCurrentDraft || preview.isFetching);
 
   let previewText = "Enter a pattern and a priority to see what the rule would categorize.";
 
-  if (previewed && preview.isError) {
+  if (matchesCurrentDraft && preview.isError) {
     previewText = `The preview is unavailable: ${toFailure(preview.error).message}`;
-  } else if (previewed && !preview.data) {
+  } else if (previewPending) {
     previewText = "Counting matching transactions …";
-  } else if (previewed && preview.data?.matched === 0) {
+  } else if (previewReady && preview.data?.matched === 0) {
     previewText = "Would not categorize any other transactions yet.";
-  } else if (previewed && preview.data) {
+  } else if (previewReady && preview.data) {
     previewText = `Would categorize ${transactionCount(preview.data.matched)}; ${preview.data.uncategorized.toLocaleString("en")} of them ${preview.data.uncategorized === 1 ? "is" : "are"} uncategorized.`;
   }
 
   return (
     <form
-      onSubmit={event => submit(event, () => {
-        const keyword = pattern.trim();
+      onSubmit={event => {
+        if (!previewReady) {
+          event.preventDefault();
 
-        return {
-          name: keyword.slice(0, 100),
-          pattern: keyword,
-          mode: "keyword",
-          category_id: categoryId,
-          priority: Number(priority),
-          apply_to_uncategorized: applyToUncategorized
-        };
-      }, created => onCreated(created.categorized))}
+          return;
+        }
+
+        submit(event, () => {
+          const keyword = pattern.trim();
+
+          return {
+            name: keyword.slice(0, 100),
+            pattern: keyword,
+            mode: "keyword",
+            category_id: categoryId,
+            priority: Number(priority),
+            apply_to_uncategorized: applyToUncategorized
+          };
+        }, created => onCreated(created.categorized));
+      }}
       className={ui["form"]}
     >
       <p className={ui["form-description"]}>Categorize transactions like “{counterparty || description}” automatically. The first matching rule wins; manual assignments are never changed.</p>
@@ -152,7 +164,7 @@ function RuleFromAssignmentForm({
           />
         </label>
       </div>
-      <p className={clsx(ui["form-hint"], styles["preview"])} role="status" aria-busy={preview.isFetching}>{previewText}</p>
+      <p className={clsx(ui["form-hint"], styles["preview"])} role="status" aria-busy={previewPending}>{previewText}</p>
       <label className={styles["apply"]}>
         <input
           type="checkbox"
@@ -163,7 +175,7 @@ function RuleFromAssignmentForm({
       </label>
       <p className={ui["form-hint"]}>Other matches follow the rule when rules are applied. Lower priority numbers match first.</p>
       <FormError failure={error} />
-      <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={pending || !categories.data}>
+      <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={pending || !categories.data || !previewReady}>
         Create rule <Sparkles size={16} />
       </button>
     </form>
