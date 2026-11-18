@@ -14,6 +14,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { useAccounts } from "@/features/accounts/queries";
 import { InlineFailure } from "@/components/ui/area-placeholder";
 import { useAreaResult } from "@/components/ui/use-area-result";
+import { MappedCsvImport } from "./mapped-csv-import";
 
 type Props = DialogFormProps & {
   initialMode: ImportMode;
@@ -45,23 +46,37 @@ function CsvImportForm({
     submit
   } = useDialogSubmit(useCsvImport(), close);
 
+  const modeSelect = (
+    <label>
+      Import
+      <Select value={importMode} onChange={event => setImportMode(event.target.value as ImportMode)}>
+        <option value="mapped">Transaction history (map any CSV)</option>
+        <option value="transactions">Transactions with stable IDs</option>
+        <option value="balances">Investment / account balances</option>
+      </Select>
+    </label>
+  );
+
+  if (importMode === "mapped") {
+    return (
+      <>
+        {modeSelect}
+        <MappedCsvImport close={close} />
+      </>
+    );
+  }
+
   return (
     <form
       onSubmit={event => submit(event, data => ({
-        mode: importMode,
+        mode: importMode as Exclude<ImportMode, "mapped">,
         accountId: String(data.get("account_id")),
         file: data.get("file") as File
       }))}
       className={ui["form"]}
     >
       <p className={ui["form-description"]}>Import balances or booked transactions into a manual account. Files must use the format below; map bank exports to these columns first.</p>
-      <label>
-        Import
-        <Select value={importMode} onChange={event => setImportMode(event.target.value as ImportMode)}>
-          <option value="balances">Investment / account balances</option>
-          <option value="transactions">Booked transactions</option>
-        </Select>
-      </label>
+      {modeSelect}
       <label>
         Target account
         <Select name="account_id" required disabled={accountsPending}>

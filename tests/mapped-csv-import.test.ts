@@ -1,0 +1,374 @@
+import assert from "node:assert/strict";
+import { test, type TestContext } from "node:test";
+import { Temporal } from "temporal-polyfill";
+import { createClient } from "@libsql/client";
+import { eq } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/libsql";
+import type { Database } from "../src/server/database/connection";
+import { initializeDatabase } from "../src/server/database/migrations";
+import * as schema from "../src/server/database/schema";
+import { listAccounts } from "../src/features/accounts/server/account-queries";
+import { insertRule } from "../src/features/categorization/server/rule-repository";
+import { createImportAccount, importMappedRows } from "../src/features/imports/server/mapped-import-service";
+import { findDuplicates } from "../src/features/imports/server/duplicate-matching";
+import { decodeCsv, detectDateFormat, detectDecimal, detectDelimiter, mapRows, parseAmount, parseCsv, parseDate, suggestMapping, type CsvSettings, type MappedRow } from "../src/features/imports/csv-mapping";
+
+const now = Temporal.Instant.from("2026-06-30T12:00:00Z");
+
+async function isolatedDatabase(context: TestContext) {
+  const client = createClient({
+    url: ":memory:"
+  });
+  const globals = globalThis as unknown as {
+    budgetDb?: Promise<Database>
+  };
+  const previousDatabase = globals.budgetDb;
+  const previousEnvironment = process.env.ENABLE_BANKING_ENVIRONMENT;
+
+  context.after(() => {
+    globals.budgetDb = previousDatabase;
+
+    if (previousEnvironment === undefined) {
+      delete process.env.ENABLE_BANKING_ENVIRONMENT;
+    } else {
+      process.env.ENABLE_BANKING_ENVIRONMENT = previousEnvironment;
+    }
+
+    client.close();
+  });
+
+  await initializeDatabase(client);
+  const db = drizzle(client, {
+    schema
+  });
+
+  globals.budgetDb = Promise.resolve(db);
+  process.env.ENABLE_BANKING_ENVIRONMENT = "SANDBOX";
+
+  return db;
+}
+
+function mappedRow(line: number, date: string, amount: string, payee: string, extra: Partial<MappedRow> = {}): MappedRow {
+  return {
+    line,
+    date,
+    amount,
+    currency: "EUR",
+    payee,
+    description: "",
+    category: null,
+    source: "",
+    occurrence: 0,
+    ...extra
+  };
+}
+
+async function insertBankAccount(db: Database) {
+  await db.insert(schema.accounts).values({
+    id: "synthetic-bank-account",
+    environment: "SANDBOX",
+    name: "Synthetic bank account",
+    institution: "Example bank",
+    kind: "checking",
+    provider: "enablebanking",
+    balance_minor: 123_456,
+    balance_date: "2026-06-29"
+  });
+}
+
+test("parses German semicolon exports with decimal commas and a Windows-1252 encoding", () => {
+  const csv = "Buchungsdatum;Empfänger;Verwendungszweck;Betrag\n02.01.2024;Bäckerei Müller;\"Brot; Gebäck\";-1.234,50\n03.01.2024;Arbeitgeber;Gehalt;2.500,00\n";
+  const bytes = Uint8Array.from([...csv].map(character => character.charCodeAt(0)));
+  const decoded = decodeCsv(bytes);
+
+  assert.equal(decoded.encoding, "windows-1252");
+
+  const delimiter = detectDelimiter(decoded.text);
+  const [header, ...rows] = parseCsv(decoded.text, delimiter);
+  const settings: CsvSettings = {
+    encoding: decoded.encoding,
+    delimiter,
+    decimal: detectDecimal(rows.map(row => row[3])),
+    dateFormat: detectDateFormat(rows.map(row => row[0]))
+  };
+  const result = mapRows(rows, suggestMapping(header), settings);
+
+  assert.deepEqual(settings, {
+    encoding: "windows-1252",
+    delimiter: ";",
+    decimal: ",",
+    dateFormat: "DD.MM.YYYY"
+  });
+  assert.deepEqual(result.errors, []);
+  assert.deepEqual(result.rows.map(row => [row.line, row.date, row.amount, row.payee, row.description]), [
+    [2, "2024-01-02", "-1234.50", "Bäckerei Müller", "Brot; Gebäck"],
+    [3, "2024-01-03", "2500.00", "Arbeitgeber", "Gehalt"]
+  ]);
+});
+
+test("reads UTF-8 with a byte order mark, debit and credit columns, and reports bad rows by line", () => {
+  const csv = "﻿Date,Payee,Debit,Credit\n2024-03-01,Shop,12.30,\n2024-02-30,Shop,1.00,\n2024-03-02,Refund,,4.5\n2024-03-03,Nothing,,\n";
+  const decoded = decodeCsv(new TextEncoder().encode(csv));
+  const [header, ...rows] = parseCsv(decoded.text, detectDelimiter(decoded.text));
+  const result = mapRows(rows, suggestMapping(header), {
+    encoding: decoded.encoding,
+    delimiter: ",",
+    decimal: ".",
+    dateFormat: "YYYY-MM-DD"
+  });
+
+  assert.equal(decoded.encoding, "utf-8");
+  assert.equal(header[0], "Date");
+  assert.deepEqual(result.rows.map(row => [row.line, row.amount]), [[2, "-12.30"], [4, "4.5"]]);
+  assert.deepEqual(result.errors.map(error => error.line), [3, 5]);
+});
+
+test("amount and date variants", () => {
+  assert.equal(parseAmount("(1,234.56)", "."), "-1234.56");
+  assert.equal(parseAmount("12,50-", ","), "-12.50");
+  assert.equal(parseAmount("€ 1 000,00", ","), "1000.00");
+  assert.equal(parseAmount("1.234", "."), "1.234");
+  assert.equal(parseAmount("abc", "."), null);
+  assert.equal(parseDate("12/31/2023", "MM/DD/YYYY"), "2023-12-31");
+  assert.equal(parseDate("31.12.23", "DD.MM.YY"), "2023-12-31");
+  assert.equal(parseDate("2024-01-05 10:22:00", "YYYY-MM-DD"), "2024-01-05");
+  assert.equal(detectDateFormat(["31/01/2024", "01/02/2024"]), "DD/MM/YYYY");
+  assert.equal(detectDateFormat(["02.01.2023", "31.02.2023"]), "DD.MM.YYYY");
+  assert.equal(detectDecimal(["-12,50", "3,00"]), ",");
+});
+
+test("identical rows in one file stay distinct through their occurrence", () => {
+  const result = mapRows([["2024-01-01", "-5.00", "Coffee"], ["2024-01-01", "-5.00", "Coffee"]], {
+    date: 0,
+    amount: 1,
+    debit: null,
+    credit: null,
+    payee: 2,
+    description: null,
+    currency: null,
+    category: null,
+    account: null
+  }, {
+    encoding: "utf-8",
+    delimiter: ",",
+    decimal: ".",
+    dateFormat: "YYYY-MM-DD"
+  });
+
+  assert.deepEqual(result.rows.map(row => row.occurrence), [0, 1]);
+});
+
+test("duplicate matching tolerates date shifts and text variants but consumes each existing booking once", () => {
+  const existing = [{
+    reference: "bank:1",
+    date: "2024-01-03",
+    amount: -1250,
+    counterparty: "BILLA DANKT 1234",
+    description: "Card payment"
+  }];
+  const candidate = (date: string, amount: number, counterparty: string) => ({
+    reference: `csv:${date}:${counterparty}`,
+    date,
+    amount,
+    counterparty,
+    description: ""
+  });
+
+  assert.deepEqual([...findDuplicates([candidate("2024-01-01", -1250, "Billa")], existing).keys()], [0]);
+  assert.deepEqual([...findDuplicates([candidate("2023-12-30", -1250, "Billa")], existing).keys()], []);
+  assert.deepEqual([...findDuplicates([candidate("2024-01-01", -1251, "Billa")], existing).keys()], []);
+  assert.deepEqual([...findDuplicates([candidate("2024-01-01", -1250, "Spar")], existing).keys()], []);
+  assert.deepEqual([...findDuplicates([candidate("2024-01-01", -1250, "Billa"), candidate("2024-01-02", -1250, "Billa")], existing).keys()], [0]);
+});
+
+test("checking persists nothing; confirming saves new rows once and is idempotent", async context => {
+  const db = await isolatedDatabase(context);
+  const account = await createImportAccount({
+    name: "Closed account"
+  });
+  const payload = {
+    rows: [mappedRow(2, "2024-01-01", "-10.00", "Shop"), mappedRow(3, "2024-01-01", "-10.00", "Shop", {
+      occurrence: 1
+    }), mappedRow(4, "2027-01-01", "1.00", "Future"), mappedRow(5, "2024-01-02", "1.00", "Dollar", {
+      currency: "USD"
+    })],
+    targets: [{
+      source: "",
+      account_id: account.id
+    }]
+  };
+  const checked = await importMappedRows({
+    ...payload,
+    confirm: false
+  }, now);
+
+  assert.equal(checked.newRows, 2);
+  assert.deepEqual(checked.errors.map(error => error.line), [4, 5]);
+  assert.equal((await db.select().from(schema.transactions)).length, 0);
+
+  const confirmed = await importMappedRows({
+    ...payload,
+    confirm: true
+  }, now);
+  const again = await importMappedRows({
+    ...payload,
+    confirm: true
+  }, now);
+
+  assert.equal(confirmed.newRows, 2);
+  assert.equal(again.newRows, 0);
+  assert.deepEqual(again.duplicates.map(duplicate => [duplicate.line, duplicate.reason]), [[2, "already_imported"], [3, "already_imported"]]);
+  assert.equal((await db.select().from(schema.transactions)).length, 2);
+  assert.equal((await listAccounts()).find(item => item.id === account.id)?.balance_minor, -2000);
+});
+
+test("a check against a not yet created account reports all valid rows as new", async context => {
+  await isolatedDatabase(context);
+
+  const checked = await importMappedRows({
+    rows: [mappedRow(2, "2024-01-01", "-10.00", "Shop")],
+    targets: [{
+      source: "",
+      currency: "EUR"
+    }],
+    confirm: false
+  }, now);
+
+  assert.equal(checked.newRows, 1);
+  await assert.rejects(importMappedRows({
+    rows: [mappedRow(2, "2024-01-01", "-10.00", "Shop")],
+    targets: [{
+      source: "",
+      currency: "EUR"
+    }],
+    confirm: true
+  }, now), /Create new accounts/);
+});
+
+test("imports into a bank-linked account skip synced bookings and leave the bank balance unchanged", async context => {
+  const db = await isolatedDatabase(context);
+
+  await insertBankAccount(db);
+  await db.insert(schema.transactions).values({
+    id: "synced-1",
+    account_id: "synthetic-bank-account",
+    provider_reference: "bank:synced-1",
+    booking_date: "2024-05-03",
+    amount_minor: -4599,
+    currency: "EUR",
+    counterparty: "Example Grocer GmbH",
+    description: "Card payment",
+    type: "expense"
+  });
+
+  const result = await importMappedRows({
+    rows: [mappedRow(2, "2024-05-02", "-45.99", "EXAMPLE GROCER"), mappedRow(3, "2024-04-01", "-20.00", "Older history")],
+    targets: [{
+      source: "",
+      account_id: "synthetic-bank-account"
+    }],
+    confirm: true
+  }, now);
+  const account = (await listAccounts()).find(item => item.id === "synthetic-bank-account");
+
+  assert.equal(result.newRows, 1);
+  assert.deepEqual(result.duplicates, [{
+    line: 2,
+    reason: "existing_booking"
+  }]);
+  assert.equal((await db.select().from(schema.transactions)).length, 2);
+  assert.equal(account?.balance_minor, 123_456);
+  assert.equal(account?.balance_date, "2026-06-29");
+});
+
+test("CSV categories map by name, rules categorize the rest, and existing categories are never overwritten", async context => {
+  const db = await isolatedDatabase(context);
+  const account = await createImportAccount({
+    name: "History"
+  });
+
+  await db.insert(schema.categories).values([{
+    id: "synthetic-groceries",
+    name: "Synthetic groceries",
+    color: "#00aa00"
+  }, {
+    id: "synthetic-travel",
+    name: "Synthetic travel",
+    color: "#0000aa"
+  }]);
+  await insertRule({
+    name: "Train",
+    pattern: "railway",
+    mode: "keyword",
+    category_id: "synthetic-travel",
+    priority: 100,
+    enabled: true
+  });
+  await db.insert(schema.transactions).values({
+    id: "earlier",
+    account_id: account.id,
+    provider_reference: "manual:earlier",
+    booking_date: "2024-02-01",
+    amount_minor: -800,
+    currency: "EUR",
+    counterparty: "Corner shop",
+    description: "",
+    category_id: "synthetic-travel",
+    category_source: "manual",
+    type: "expense"
+  });
+
+  const result = await importMappedRows({
+    rows: [mappedRow(2, "2024-02-01", "-8.00", "Corner shop", {
+      category: "synthetic groceries"
+    }), mappedRow(3, "2024-02-05", "-30.00", "Market", {
+      category: "SYNTHETIC GROCERIES"
+    }), mappedRow(4, "2024-02-06", "-55.00", "National Railway", {
+      category: "Unknown things"
+    })],
+    targets: [{
+      source: "",
+      account_id: account.id
+    }],
+    confirm: true
+  }, now);
+  const rows = await db.select().from(schema.transactions).where(eq(schema.transactions.account_id, account.id)).orderBy(schema.transactions.booking_date);
+
+  assert.deepEqual(result.unknownCategories, ["Unknown things"]);
+  assert.deepEqual(rows.map(row => [row.counterparty, row.category_id, row.category_source]), [
+    ["Corner shop", "synthetic-travel", "manual"],
+    ["Market", "synthetic-groceries", "manual"],
+    ["National Railway", "synthetic-travel", "rule"]
+  ]);
+});
+
+test("rows route to targets by their source account column", async context => {
+  const db = await isolatedDatabase(context);
+  const first = await createImportAccount({
+    name: "First"
+  });
+  const second = await createImportAccount({
+    name: "Second"
+  });
+  const result = await importMappedRows({
+    rows: [mappedRow(2, "2024-01-01", "-1.00", "A", {
+      source: "Wallet"
+    }), mappedRow(3, "2024-01-01", "-2.00", "B", {
+      source: "Card"
+    }), mappedRow(4, "2024-01-01", "-3.00", "C", {
+      source: "Unmapped"
+    })],
+    targets: [{
+      source: "Wallet",
+      account_id: first.id
+    }, {
+      source: "Card",
+      account_id: second.id
+    }],
+    confirm: true
+  }, now);
+
+  assert.equal(result.newRows, 2);
+  assert.deepEqual(result.errors.map(error => error.line), [4]);
+  assert.equal((await db.select().from(schema.transactions).where(eq(schema.transactions.account_id, second.id))).length, 1);
+});
