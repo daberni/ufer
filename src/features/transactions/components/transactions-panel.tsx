@@ -4,10 +4,11 @@ import ui from "../../../components/ui/primitives.module.css";
 
 import { clsx } from "clsx";
 import Link from "next/link";
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import styles from "./transactions-panel.module.css";
 import { ArrowDownToLine, ArrowRight, Plus, Search, SlidersHorizontal } from "lucide-react";
 import { Empty } from "@/components/ui/empty-state";
+import { TransactionRuleProvider } from "./transaction-rule-provider";
 import { TransactionList, TransactionListSkeleton } from "@/features/transactions/components/transaction-list";
 import { CsvImportDialog } from "@/features/imports/components/csv-import-form";
 import { ManualTransactionDialog } from "@/features/transactions/components/manual-transaction-dialog";
@@ -76,6 +77,7 @@ export function TransactionsPanel(props: Props) {
     page,
     view
   } = props;
+  const headingRef = useRef<HTMLHeadingElement>(null);
   const [importOpen, setImportOpen] = useState(false);
   const [entryOpen, setEntryOpen] = useState(false);
   const changeView = useChangeView();
@@ -84,7 +86,7 @@ export function TransactionsPanel(props: Props) {
   return (
     <section className={clsx(ui["panel"], styles["transaction-panel"])}>
       <div className={styles["card-heading"]}>
-        <h2>{headings[view]}</h2>
+        <h2 ref={headingRef} tabIndex={-1}>{headings[view]}</h2>
         {props.view === "overview" && (
           <button className={ui["text-button"]} onClick={() => changeView("transactions")}>
             View all <ArrowRight size={15} />
@@ -118,19 +120,21 @@ export function TransactionsPanel(props: Props) {
         )}
       </div>
       {props.view === "transactions" && <TransactionFilters categories={categories.data ?? []} filterAccounts={props.filterAccounts.data ?? []} />}
-      {list.status === "pending" || categories.status === "pending" ? (
-        <AreaPlaceholder area={pendingTogether(list, categories)} subject="Your transactions">
-          {view === "overview" ? <TransactionListSkeleton rows={recentTransactions} /> : <TransactionPageSkeleton />}
-        </AreaPlaceholder>
-      ) : (
-        <TransactionPages
-          categories={categories.data}
-          emptyState={emptyState}
-          list={list}
-          page={page}
-          view={view}
-        />
-      )}
+      <TransactionRuleProvider fallbackFocus={headingRef}>
+        {list.status === "pending" || categories.status === "pending" ? (
+          <AreaPlaceholder area={pendingTogether(list, categories)} subject="Your transactions">
+            {view === "overview" ? <TransactionListSkeleton rows={recentTransactions} /> : <TransactionPageSkeleton />}
+          </AreaPlaceholder>
+        ) : (
+          <TransactionPages
+            categories={categories.data}
+            emptyState={emptyState}
+            list={list}
+            page={page}
+            view={view}
+          />
+        )}
+      </TransactionRuleProvider>
       {importOpen && <CsvImportDialog initialMode="transactions" close={() => setImportOpen(false)} />}
       {entryOpen && <ManualTransactionDialog accounts={manualAccounts} close={() => setEntryOpen(false)} />}
     </section>

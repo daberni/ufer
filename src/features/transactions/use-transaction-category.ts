@@ -106,8 +106,6 @@ export function useTransactionCategory(transaction: Transaction) {
   return {
     categoryId: pending ? pending.categoryId : transaction.category_id,
     status: categorizationStatus(pending !== undefined, latest, savedChange !== undefined && savedChange !== expiredSave),
-    /** The row's most recent change, pending or settled; a newer one supersedes what an earlier change offered. */
-    latestChange: latest?.id,
     change: (categoryId: string | null) => mutation.mutate(categoryId)
   };
 }

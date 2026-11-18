@@ -2,7 +2,8 @@ import "./fixtures/dom-environment";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { act, fireEvent, render, type RenderResult } from "@testing-library/react";
-import { createElement, Fragment } from "react";
+import { createElement, createRef, Fragment, type ReactNode, type RefObject } from "react";
+import type { QueryClient } from "@tanstack/react-query";
 import type { Category } from "../src/features/categorization/types";
 import type { Transaction } from "../src/features/transactions/types";
 import { browser, respond, wait, withQueryClient, type PendingRequest } from "./fixtures/browser";
@@ -93,6 +94,14 @@ function patchFor(pending: PendingRequest[], id: string) {
   return pending.findLast(request => request.method === "PATCH" && request.url.pathname === `/api/transactions/${id}`);
 }
 
+async function transactionRuleScope(queryClient: QueryClient, fallbackFocus: RefObject<HTMLElement | null> = createRef<HTMLElement>()) {
+  const { TransactionRuleProvider } = await import("../src/features/transactions/components/transaction-rule-provider");
+
+  return (children: ReactNode) => withQueryClient(queryClient, createElement(TransactionRuleProvider, {
+    fallbackFocus
+  }, children));
+}
+
 test("an explicit category action keeps its draft when another row finishes saving", async context => {
   const {
     pending,
@@ -100,6 +109,7 @@ test("an explicit category action keeps its draft when another row finishes savi
   } = browser(context);
 
   modalDialogs();
+  const withRules = await transactionRuleScope(queryClient);
 
   const { TransactionCategory } = await import("../src/features/transactions/components/transaction-category");
   const market = {
@@ -112,7 +122,7 @@ test("an explicit category action keeps its draft when another row finishes savi
     category_id: "leisure",
     category_source: "manual" as const
   };
-  const rows = () => withQueryClient(queryClient, createElement(Fragment, null, createElement(TransactionCategory, {
+  const rows = () => withRules(createElement(Fragment, null, createElement(TransactionCategory, {
     categories,
     transaction: market
   }), createElement(TransactionCategory, {
@@ -172,6 +182,7 @@ test("rule creation is announced quietly and a later failed assignment reports i
   } = browser(context);
 
   modalDialogs();
+  const withRules = await transactionRuleScope(queryClient);
 
   const { TransactionCategory } = await import("../src/features/transactions/components/transaction-category");
   const market = {
@@ -179,7 +190,7 @@ test("rule creation is announced quietly and a later failed assignment reports i
     category_id: "groceries",
     category_source: "manual" as const
   };
-  const screen = render(withQueryClient(queryClient, createElement(TransactionCategory, {
+  const screen = render(withRules(createElement(TransactionCategory, {
     categories,
     transaction: market
   })));
@@ -242,6 +253,7 @@ test("saving never opens a prompt; the lightning action is explicit and disappea
   } = browser(context);
 
   modalDialogs();
+  const withRules = await transactionRuleScope(queryClient);
 
   const { TransactionCategory } = await import("../src/features/transactions/components/transaction-category");
   let market = {
@@ -249,7 +261,7 @@ test("saving never opens a prompt; the lightning action is explicit and disappea
     category_id: "groceries" as string | null,
     category_source: "rule" as "rule" | "manual"
   };
-  const row = () => withQueryClient(queryClient, createElement(TransactionCategory, {
+  const row = () => withRules(createElement(TransactionCategory, {
     categories,
     transaction: market
   }));
@@ -310,9 +322,10 @@ test("rule creation waits for the current pattern and priority preview, includin
   } = browser(context);
 
   modalDialogs();
+  const withRules = await transactionRuleScope(queryClient);
 
   const { RuleFromAssignmentDialog } = await import("../src/features/categorization/components/rule-from-assignment-form");
-  const screen = render(withQueryClient(queryClient, createElement(RuleFromAssignmentDialog, {
+  const screen = render(withRules(createElement(RuleFromAssignmentDialog, {
     counterparty: "Example Market",
     description: "Synthetic purchase",
     categoryId: "groceries",
@@ -400,4 +413,101 @@ test("rule creation waits for the current pattern and priority preview, includin
     priority: 6,
     apply_to_uncategorized: true
   });
+});
+
+test("an explicitly opened draft survives removal of its filtered source row and can still be submitted", async context => {
+  const {
+    queryClient,
+    requests
+  } = browser(context);
+
+  modalDialogs();
+  const headingRef = createRef<HTMLHeadingElement>();
+  const withRules = await transactionRuleScope(queryClient, headingRef);
+
+  const { TransactionCategory } = await import("../src/features/transactions/components/transaction-category");
+  const transaction = {
+    ...booking("filtered-entry", "Example Market"),
+    category_id: "groceries",
+    category_source: "manual" as const
+  };
+  const panel = (visible: boolean) => withRules(createElement(Fragment, null, createElement("h2", {
+    ref: headingRef,
+    tabIndex: -1
+  }, "Transactions"), visible && createElement(TransactionCategory, {
+    categories,
+    transaction
+  })));
+  const screen = render(panel(true));
+  const action = screen.getByRole("button", {
+    name: "Create rule for Example Market"
+  });
+
+  act(() => {
+    action.focus();
+    fireEvent.click(action);
+  });
+  await wait(0);
+  await respond(requests("categories")[0], Response.json(categories));
+  await respond(requests("rules/preview").at(-1), Response.json({
+    id: previewId,
+    matched: 2,
+    uncategorized: 2
+  }));
+  act(() => fireEvent.change(screen.getByRole("textbox", {
+    name: "Matching pattern"
+  }), {
+    target: {
+      value: "Edited Market"
+    }
+  }));
+  await wait(350);
+  await respond(requests("rules/preview").at(-1), Response.json({
+    id: previewId,
+    matched: 3,
+    uncategorized: 3
+  }));
+
+  screen.rerender(panel(false));
+  assert.ok(screen.queryByRole("dialog", {
+    name: "Create rule"
+  }));
+  assert.equal((screen.getByRole("textbox", {
+    name: "Matching pattern"
+  }) as HTMLInputElement).value, "Edited Market");
+  assert.equal((screen.getByRole("combobox", {
+    name: "Category"
+  }) as HTMLInputElement).value, "Groceries");
+  act(() => fireEvent.submit(screen.getByRole("textbox", {
+    name: "Matching pattern"
+  }).closest("form")!));
+  await wait(0);
+  const created = requests("rules").find(request => request.method === "POST");
+
+  assert.deepEqual(created?.body, {
+    id: previewId,
+    name: "Edited Market",
+    pattern: "Edited Market",
+    mode: "keyword",
+    category_id: "groceries",
+    priority: 100,
+    apply_to_uncategorized: true
+  });
+  await respond(created, Response.json({
+    ok: true,
+    categorized: 3
+  }, {
+    status: 201
+  }));
+
+  for (const preview of requests("rules/preview").slice(2)) {
+    await respond(preview, Response.json({
+      id: previewId,
+      matched: 0,
+      uncategorized: 0
+    }));
+  }
+
+  assert.equal(screen.queryByRole("dialog"), null);
+  assert.equal(document.activeElement, headingRef.current);
 });

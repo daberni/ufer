@@ -47,10 +47,15 @@ test("editing a row opens its dialog and restores focus without turning category
   };
 
   const { TransactionList } = await import("../src/features/transactions/components/transaction-list");
-  const screen = render(withQueryClient(environment.queryClient, createElement(TransactionList, {
+  const { TransactionRuleProvider } = await import("../src/features/transactions/components/transaction-rule-provider");
+  const screen = render(withQueryClient(environment.queryClient, createElement(TransactionRuleProvider, {
+    fallbackFocus: {
+      current: null
+    }
+  }, createElement(TransactionList, {
     transactions: [transfer],
     categories: []
-  })));
+  }))));
   const row = screen.getAllByRole("row")[1];
   const edit = within(row).getByRole("button", {
     name: "Edit transaction: Synthetic savings"

@@ -187,29 +187,24 @@ export function CategoryPicker({
         // A filter offers existing categories only.
         onCreate={includeAll ? undefined : setNewCategoryName}
         className={size === "compact" ? styles["compact"] : undefined}
-        adornment={(assignment || status) && (
-          <span className={styles["adornment"]}>
-            {assignment && (
-              <span className={styles["assignment-slot"]}>
-                {assignmentSource && (
-                  <button
-                    type="button"
-                    className={styles["assignment-action"]}
-                    data-assignment-source={assignmentSource}
-                    aria-label={assignment.actionLabel}
-                    aria-describedby={assignmentHintId}
-                    aria-haspopup="dialog"
-                    title={`${assignmentHint}. ${assignment.actionLabel}.`}
-                    disabled={assignment.disabled}
-                    onClick={assignment.createRule}
-                  >
-                    <Zap className={clsx(styles["assignment-icon"], styles[assignmentSource])} aria-hidden="true" />
-                  </button>
-                )}
-              </span>
+        adornment={status && <span className={styles["adornment"]}>{status}</span>}
+        endAdornment={assignment && (
+          <span className={styles["assignment-slot"]}>
+            {assignmentSource && (
+              <button
+                type="button"
+                className={styles["assignment-action"]}
+                data-assignment-source={assignmentSource}
+                aria-label={assignment.actionLabel}
+                aria-describedby={assignmentHintId}
+                aria-haspopup="dialog"
+                title={`${assignmentHint}. ${assignment.actionLabel}.`}
+                disabled={assignment.disabled}
+                onClick={assignment.createRule}
+              >
+                <Zap className={clsx(styles["assignment-icon"], styles[assignmentSource])} aria-hidden="true" />
+              </button>
             )}
-            {assignmentHint && <span id={assignmentHintId} className={ui["visually-hidden"]}>{assignmentHint}</span>}
-            {status}
           </span>
         )}
         footer={assignmentHint && assignmentSource && (
@@ -219,6 +214,7 @@ export function CategoryPicker({
           </p>
         )}
       />
+      {assignmentHint && <span id={assignmentHintId} className={ui["visually-hidden"]}>{assignmentHint}</span>}
       {name && <input type="hidden" name={name} value={typeof value === "string" ? value : ""} />}
       {newCategoryName !== null && (
         <CategoryDialog

@@ -2,7 +2,7 @@
 
 import ui from "../../../components/ui/primitives.module.css";
 
-import { useId, useState } from "react";
+import { useId } from "react";
 import { clsx } from "clsx";
 import styles from "./transaction-category.module.css";
 import { Check, CircleAlert, LoaderCircle } from "lucide-react";
@@ -10,34 +10,14 @@ import type { Category } from "@/features/categorization/types";
 import type { Transaction } from "@/features/transactions/types";
 import { TraceId } from "@/components/ui/trace-id";
 import { CategoryPicker } from "@/features/categorization/components/category-picker";
-import { RuleFromAssignmentDialog } from "@/features/categorization/components/rule-from-assignment-form";
 import { useTransactionCategory } from "@/features/transactions/use-transaction-category";
+import { useTransactionRules } from "./transaction-rule-provider";
 import { transactionTypeLabels } from "@/features/transactions/transaction-types";
 
 type Props = {
   categories: Category[];
   transaction: Transaction;
 };
-
-type RuleDraft = {
-  change: number | undefined;
-  categoryId: string;
-  counterparty: string;
-  description: string;
-};
-
-type CreatedRule = {
-  change: number | undefined;
-  categorized: number;
-};
-
-function createdText(categorized: number) {
-  if (categorized === 0) {
-    return "Rule created.";
-  }
-
-  return `Rule created; ${categorized.toLocaleString("en")} ${categorized === 1 ? "transaction" : "transactions"} categorized.`;
-}
 
 export function TransactionCategory({
   categories,
@@ -48,12 +28,9 @@ export function TransactionCategory({
   const {
     categoryId,
     status,
-    latestChange,
     change
   } = useTransactionCategory(transaction);
-  const [creatingRule, setCreatingRule] = useState<RuleDraft | null>(null);
-  const [createdRule, setCreatedRule] = useState<CreatedRule>();
-  const created = createdRule?.change === latestChange ? createdRule : undefined;
+  const rules = useTransactionRules();
   const failure = status?.kind === "failed" ? `Category not saved: ${status.failure.message}` : "";
   const announcements = {
     saving: "Saving category …",
@@ -63,11 +40,7 @@ export function TransactionCategory({
   // A pending choice is a manual assignment before the server confirms it.
   const manual = status?.kind === "saving" || transaction.category_source === "manual";
   const assignmentSource = manual ? "manual" : "rule";
-  let announcement = status ? announcements[status.kind] : "";
-
-  if (created) {
-    announcement = createdText(created.categorized);
-  }
+  const announcement = status ? announcements[status.kind] : "";
 
   return (
     <div className={styles["category"]}>
@@ -85,8 +58,7 @@ export function TransactionCategory({
           disabled: status?.kind === "saving",
           createRule: () => {
             if (categoryId !== null) {
-              setCreatingRule({
-                change: latestChange,
+              rules.open({
                 categoryId,
                 counterparty: transaction.counterparty,
                 description: transaction.description
@@ -105,7 +77,10 @@ export function TransactionCategory({
         aria-busy={status?.kind === "saving"}
         aria-invalid={status?.kind === "failed"}
         aria-describedby={failure ? messageId : undefined}
-        onChange={change}
+        onChange={next => {
+          rules.clearAnnouncement();
+          change(next);
+        }}
       />
       <span className={ui["visually-hidden"]} role="status" aria-live={failure ? "assertive" : "polite"}>
         {announcement}
@@ -116,20 +91,7 @@ export function TransactionCategory({
           <TraceId id={status?.kind === "failed" ? status.failure.traceId : undefined} />
         </span>
       )}
-      {creatingRule && (
-        <RuleFromAssignmentDialog
-          counterparty={creatingRule.counterparty}
-          description={creatingRule.description}
-          categoryId={creatingRule.categoryId}
-          close={() => setCreatingRule(null)}
-          onCreated={categorized => {
-            setCreatedRule({
-              change: creatingRule.change,
-              categorized
-            });
-          }}
-        />
-      )}
+
     </div>
   );
 }
