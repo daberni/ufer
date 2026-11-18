@@ -7,7 +7,8 @@ import { clsx } from "clsx";
 import Link from "next/link";
 import styles from "./overview-accounts.module.css";
 import { ArrowRight, Landmark, Plus } from "lucide-react";
-import { accountIcon, kinds, accountSyncLabel } from "@/features/accounts/account-presentation";
+import { accountIcon, kinds } from "@/features/accounts/account-presentation";
+import { AccountSourceIndicator } from "./account-source-indicator";
 import { DateValue } from "@/components/ui/date-value";
 import { useBankingConfiguration } from "@/features/banking/banking-configuration";
 import { money } from "@/lib/money";
@@ -107,8 +108,7 @@ function AccountStrip({ currencyAccounts }: {
             </span>
             <strong>{account.balance_minor === null ? "—" : money(account.balance_minor, account.currency)}</strong>
             <span className={styles["account-tile-foot"]}>
-              <span className={clsx(styles["status-dot"], account.sync_error ? styles["warn"] : "")} />
-              {accountSyncLabel(account)}
+              <AccountSourceIndicator account={account} />
               <span><DateValue value={account.balance_date} fallback="No balance yet" /></span>
             </span>
           </Link>
