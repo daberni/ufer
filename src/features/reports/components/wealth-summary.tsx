@@ -3,14 +3,15 @@
 import ui from "../../../components/ui/primitives.module.css";
 
 import { clsx } from "clsx";
+import Link from "next/link";
 import styles from "./wealth-summary.module.css";
-import { ArrowDownLeft, ArrowUpRight, Wallet } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, ChevronRight, Wallet } from "lucide-react";
 import { periodLabel } from "@/lib/date-format";
 import { periodFromJson, periodToJson } from "@/lib/period";
 import { money } from "@/lib/money";
 import { valueMask, withPlaceholder } from "@/components/ui/result-presentation";
 import { FailureCover } from "@/components/ui/area-placeholder";
-import { useCurrency, usePeriod } from "@/client/use-app-url";
+import { useCurrency, usePeriod, useViewHref } from "@/client/use-app-url";
 import type { Area } from "@/components/ui/use-area-result";
 import type { CashFlow } from "@/features/reports/types";
 import type { NetWorth } from "@/features/accounts/types";
@@ -22,6 +23,24 @@ type Props = {
   cashFlowArea: Area<CashFlow>;
 };
 
+const percent = new Intl.NumberFormat("en", {
+  style: "percent",
+  maximumFractionDigits: 0
+});
+
+/** Refunds and missing income need an explanation instead of a misleading spending percentage. */
+function spendingShareText(income: number, expenses: number) {
+  if (expenses <= 0) {
+    return expenses < 0 ? "Refunds exceeded spending" : "No spending this period";
+  }
+
+  if (income <= 0) {
+    return "No income to compare spending with";
+  }
+
+  return `Spent ${percent.format(expenses / income)} of income`;
+}
+
 export function WealthSummary({
   hasAccounts,
   netWorthArea,
@@ -29,6 +48,7 @@ export function WealthSummary({
 }: Props) {
   const selectedCurrency = useCurrency();
   const selectedPeriod = usePeriod();
+  const viewHref = useViewHref();
   const netWorth = withPlaceholder(netWorthArea, () => ({
     currency: selectedCurrency,
     netWorth: 0,
@@ -53,6 +73,11 @@ export function WealthSummary({
   const netWorthValue = valueMask(netWorth.status);
   const cashFlowValue = valueMask(cashFlow.status);
   const currency = summary.currency;
+  const transactionsHref = viewHref("transactions");
+  const scale = Math.max(0, flows.income, flows.expenses);
+  const incomeWidth = scale > 0 ? Math.max(0, flows.income) / scale * 100 : 0;
+  const expenseWidth = scale > 0 ? Math.max(0, flows.expenses) / scale * 100 : 0;
+  const comparisonText = spendingShareText(flows.income, flows.expenses);
 
   return (
     <div className={styles["wealth-grid"]}>
@@ -119,14 +144,15 @@ export function WealthSummary({
           <div>
             <span>Income</span>
             <strong className={clsx(ui["positive"], cashFlowValue)}>{money(flows.income, flows.currency)}</strong>
+            <span className={clsx(styles["comparison-track"], cashFlowValue)} aria-hidden="true">
+              <i
+                data-flow="income"
+                style={{
+                  width: `${incomeWidth}%`
+                }}
+              />
+            </span>
           </div>
-          <span className={clsx(styles["flow-track"], cashFlowValue)}>
-            <i
-              style={{
-                width: `${Math.min(100, flows.income / Math.max(flows.income, flows.expenses, 1) * 100)}%`
-              }}
-            />
-          </span>
         </div>
         <div className={styles["flow-row"]}>
           <span className={clsx(styles["flow-icon"], styles["outgoing"])}>
@@ -135,22 +161,30 @@ export function WealthSummary({
           <div>
             <span>Expenses</span>
             <strong className={cashFlowValue}>{money(flows.expenses, flows.currency)}</strong>
+            <span className={clsx(styles["comparison-track"], cashFlowValue)} aria-hidden="true">
+              <i
+                data-flow="expenses"
+                style={{
+                  width: `${expenseWidth}%`
+                }}
+              />
+            </span>
           </div>
-          <span className={clsx(styles["flow-track"], styles["expense"], cashFlowValue)}>
-            <i
-              style={{
-                width: `${Math.min(100, flows.expenses / Math.max(flows.income, flows.expenses, 1) * 100)}%`
-              }}
-            />
-          </span>
         </div>
+        <p className={clsx(styles["spending-share"], cashFlowValue)}>{comparisonText}</p>
         <div className={styles["monthly-result"]}>
-          <div>
-            <span>{singleMonth ? "Monthly cash flow" : "Net cash flow"}</span>
-            <small>Excluding transfers</small>
+          <div className={styles["result-row"]}>
+            <div>
+              <span>{singleMonth ? "Monthly cash flow" : "Net cash flow"}</span>
+              <small>Excluding transfers</small>
+            </div>
+            <strong className={clsx(styles["result-amount"], flows.income - flows.expenses >= 0 && ui["positive"], cashFlowValue)}>{money(flows.income - flows.expenses, flows.currency)}</strong>
           </div>
-          <strong className={clsx(flows.income - flows.expenses >= 0 && ui["positive"], cashFlowValue)}>{money(flows.income - flows.expenses, flows.currency)}</strong>
         </div>
+        <Link className={clsx(ui["text-button"], styles["transactions-link"])} href={transactionsHref}>
+          View transactions
+          <ChevronRight className={styles["link-icon"]} size={18} />
+        </Link>
         {cashFlowArea.status === "pending" && cashFlowArea.failure && <FailureCover failure={cashFlowArea.failure} subject="Your cash flow" />}
       </section>
     </div>
