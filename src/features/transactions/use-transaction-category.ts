@@ -46,14 +46,8 @@ function storeAssignment(queryClient: QueryClient, assignment: CategoryAssignmen
   });
 }
 
-export type RuleOffer = {
-  /** The saved change the offer belongs to. */
-  change: number;
-  categoryId: string;
-};
-
 /**
- * A transaction row's category. A change shows at once while it is saved; changes to one transaction are saved one after another, also across views and remounts, so the latest selection is stored last. Without a pending change the row shows the stored category, so a failed save falls back to it with an error at the row. A saved category offers to create a rule from it.
+ * A transaction row's category. A change shows at once while it is saved; changes to one transaction are saved one after another, also across views and remounts, so the latest selection is stored last. Without a pending change the row shows the stored category, so a failed save falls back to it with an error at the row.
  */
 export function useTransactionCategory(transaction: Transaction) {
   const queryClient = useQueryClient();
@@ -94,15 +88,6 @@ export function useTransactionCategory(transaction: Transaction) {
     })
   });
 
-  // Only the latest saved change across all rows offers a rule, so assigning several rows in a row leaves one offer.
-  const latestSavedAnywhere = useMutationState({
-    filters: {
-      mutationKey: categoryMutations,
-      status: "success"
-    },
-    select: change => change.mutationId
-  }).at(-1);
-
   const pending = changes.filter(change => change.status === "pending").at(-1);
   const latest = changes.at(-1);
   const savedChange = latest?.status === "success" ? latest.id : undefined;
@@ -118,16 +103,9 @@ export function useTransactionCategory(transaction: Transaction) {
     return () => clearTimeout(timer);
   }, [savedChange]);
 
-  const offersRule = latest?.status === "success" && latest.id === latestSavedAnywhere;
-  const ruleOffer: RuleOffer | null = offersRule && latest.categoryId !== null ? {
-    change: latest.id,
-    categoryId: latest.categoryId
-  } : null;
-
   return {
     categoryId: pending ? pending.categoryId : transaction.category_id,
     status: categorizationStatus(pending !== undefined, latest, savedChange !== undefined && savedChange !== expiredSave),
-    ruleOffer,
     /** The row's most recent change, pending or settled; a newer one supersedes what an earlier change offered. */
     latestChange: latest?.id,
     change: (categoryId: string | null) => mutation.mutate(categoryId)

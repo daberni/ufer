@@ -4,7 +4,7 @@ import ui from "../../../components/ui/primitives.module.css";
 
 import styles from "./category-picker.module.css";
 import { clsx } from "clsx";
-import { Pin } from "lucide-react";
+import { Zap } from "lucide-react";
 import { useId, useState, type ReactNode } from "react";
 import { SearchableSelect, type SearchableSelectOption, type SearchableSelectAppearance } from "@/components/ui/searchable-select";
 import { CategoryGlyph, categoryLabel, categoryNameColor, type DisplayCategory, type NeutralCategory } from "./category-label";
@@ -49,12 +49,18 @@ type Props = ValueProps & {
   categories: readonly PickerCategory[];
   /** Offers "Uncategorized", chosen by null. */
   includeUncategorized?: boolean;
-  manual?: boolean;
+  /** A transaction's assignment source and explicit rule action; null reserves the slot without showing an indicator. */
+  assignment?: {
+    source: "manual" | "rule" | null;
+    actionLabel: string;
+    disabled: boolean;
+    createRule: () => void;
+  };
   /** Compact fields suit transaction rows and filters; regular fields match the inputs of forms and dialogs. */
   size?: "regular" | "compact";
   /** Inline presentation is reserved for editable category labels in transaction rows. */
   appearance?: SearchableSelectAppearance;
-  /** Shown inside the field's right edge after the manual pin, such as the saving state of a change. */
+  /** Shown inside the field's right edge after the assignment indicator, such as the saving state of a change. */
   status?: ReactNode;
   /** Submits the chosen category ID with a surrounding form. */
   name?: string;
@@ -67,7 +73,10 @@ type Props = ValueProps & {
   className?: string;
 };
 
-const manualAssignmentHint = "Set manually; kept when syncing and applying rules";
+const assignmentHints = {
+  manual: "Set manually; kept when syncing and applying rules",
+  rule: "Assigned by a categorization rule"
+};
 
 const categoryNoun = {
   one: "category",
@@ -118,7 +127,7 @@ export function CategoryPicker({
   includeAll = false,
   includeAutomatic = false,
   includeUncategorized = false,
-  manual = false,
+  assignment,
   size = "regular",
   appearance = "default",
   status,
@@ -131,14 +140,16 @@ export function CategoryPicker({
   className
 }: Props) {
   const generatedId = useId();
-  const manualHintId = useId();
+  const assignmentHintId = useId();
   // A typed search; null while the field shows the selected category.
   const [search, setSearch] = useState<string | null>(null);
   // The name of a category being created from a search; its dialog is open while set.
   const [newCategoryName, setNewCategoryName] = useState<string | null>(null);
   const options = pickerOptions(categories, includeAll, includeUncategorized, includeAutomatic);
   const selected = options.find(option => Object.is(option.value, value));
-  const describedBy = clsx(ariaDescribedBy, manual && manualHintId) || undefined;
+  const assignmentSource = assignment?.source;
+  const assignmentHint = assignmentSource ? assignmentHints[assignmentSource] : undefined;
+  const describedBy = clsx(ariaDescribedBy, assignmentHint && assignmentHintId) || undefined;
 
   function choose(next: PickerValue) {
     setSearch(null);
@@ -176,21 +187,35 @@ export function CategoryPicker({
         // A filter offers existing categories only.
         onCreate={includeAll ? undefined : setNewCategoryName}
         className={size === "compact" ? styles["compact"] : undefined}
-        adornment={(manual || status) && (
+        adornment={(assignment || status) && (
           <span className={styles["adornment"]}>
-            {manual && (
-              <span className={styles["manual"]} title={manualAssignmentHint}>
-                <Pin className={styles["adornment-icon"]} aria-hidden="true" strokeWidth={2.2} />
-                <span id={manualHintId} className={ui["visually-hidden"]}>{manualAssignmentHint}</span>
+            {assignment && (
+              <span className={styles["assignment-slot"]}>
+                {assignmentSource && (
+                  <button
+                    type="button"
+                    className={styles["assignment-action"]}
+                    data-assignment-source={assignmentSource}
+                    aria-label={assignment.actionLabel}
+                    aria-describedby={assignmentHintId}
+                    aria-haspopup="dialog"
+                    title={`${assignmentHint}. ${assignment.actionLabel}.`}
+                    disabled={assignment.disabled}
+                    onClick={assignment.createRule}
+                  >
+                    <Zap className={clsx(styles["assignment-icon"], styles[assignmentSource])} aria-hidden="true" />
+                  </button>
+                )}
               </span>
             )}
+            {assignmentHint && <span id={assignmentHintId} className={ui["visually-hidden"]}>{assignmentHint}</span>}
             {status}
           </span>
         )}
-        footer={manual && (
+        footer={assignmentHint && assignmentSource && (
           <p className={styles["note"]}>
-            <Pin className={styles["note-icon"]} aria-hidden="true" strokeWidth={2.2} />
-            {manualAssignmentHint}.
+            <Zap className={clsx(styles["note-icon"], styles[assignmentSource])} aria-hidden="true" />
+            {assignmentHint}.
           </p>
         )}
       />

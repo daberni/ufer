@@ -12,9 +12,9 @@
   pointer-events: auto;
 }
 
-/* A fixed width keeps the nowrap transaction table from widening with long category names; the open list shows them in full. The manual pin and the saving status sit inside the field, so it keeps this width in every state. */
+/* A fixed width keeps the nowrap transaction table from widening with long category names; the open list shows them in full. The assignment action and saving status reserve space inside the field, so it keeps this width in every state. */
 .category .picker {
-  width: 12rem;
+  width: 15rem;
   max-width: 100%;
 }
 /* Has the compact category field's height, so a skeleton row matches a loaded one. */
@@ -25,6 +25,7 @@
 
 .status {
   display: inline-flex;
+  width: 1em;
 }
 .status svg {
   width: 1em;
@@ -63,26 +64,6 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* A created-rule confirmation fits below its field without changing the row height. */
-.offer {
-  position: absolute;
-  top: calc(100% + 1px);
-  left: 0;
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  font-size: var(--text-xs);
-  line-height: 1.2;
-  white-space: nowrap;
-}
-.offer svg {
-  width: 1em;
-  height: 1em;
-  flex: none;
-}
-.created {
-  color: var(--green-text);
-}
 @media (--mobile) {
   /* The field fills the card's line; a failure takes its own lines under it, since the card has no spacing to overlay. */
   .category {
@@ -109,13 +90,5 @@
   }
   .message-text {
     white-space: normal;
-  }
-  .offer {
-    position: static;
-    justify-content: flex-end;
-    max-width: 100%;
-    font-size: var(--text-sm);
-    white-space: normal;
-    text-align: right;
   }
 }

@@ -14,13 +14,47 @@
   flex-shrink: 0;
   padding-left: var(--space-1);
 }
-.manual {
-  display: inline-flex;
-  color: var(--ink-soft);
+.assignment-slot {
+  display: flex;
+  align-self: stretch;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  flex: none;
 }
-.adornment-icon {
-  width: 1em;
-  height: 1em;
+.assignment-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+}
+.assignment-action:hover,
+.assignment-action:focus-visible {
+  color: var(--ink);
+  background: var(--surface-muted);
+}
+.assignment-action:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: -2px;
+}
+.assignment-action:disabled {
+  cursor: wait;
+  opacity: 0.5;
+}
+.assignment-icon {
+  width: 16px;
+  height: 16px;
+}
+.rule {
+  fill: currentColor;
+}
+.manual {
+  fill: none;
+  stroke-dasharray: 2.5 1.5;
 }
 .note {
   display: flex;
@@ -40,6 +74,16 @@
   flex-shrink: 0;
 }
 @media (--mobile) {
+  .assignment-slot,
+  .assignment-action {
+    width: 44px;
+  }
+  .assignment-action {
+    height: 44px;
+    /* Include the control's borders in the touch target without growing the row. */
+    margin-block: -1px;
+  }
+
   .picker .compact {
     min-height: 44px;
     font-size: var(--text-md);

@@ -48,7 +48,6 @@ function booking(id: string, counterparty: string): Transaction {
   };
 }
 
-// jsdom has no Popover API; popover action queries include hidden content while exercising React's open/dismiss state.
 // jsdom has no modal dialogs; these stand in for showModal and close.
 function modalDialogs() {
   const prototype = window.HTMLDialogElement.prototype;
@@ -81,7 +80,7 @@ function choose(screen: RenderResult, counterparty: string, search: string) {
   });
 }
 
-function assignment(id: string, categoryId: string) {
+function assignment(id: string, categoryId: string | null) {
   return Response.json({
     id,
     category_id: categoryId,
@@ -94,7 +93,7 @@ function patchFor(pending: PendingRequest[], id: string) {
   return pending.findLast(request => request.method === "PATCH" && request.url.pathname === `/api/transactions/${id}`);
 }
 
-test("the rule dialog posts its preview and keeps its row's offer and the edited pattern when a save on another row finishes", async context => {
+test("an explicit category action keeps its draft when another row finishes saving", async context => {
   const {
     pending,
     queryClient
@@ -103,38 +102,35 @@ test("the rule dialog posts its preview and keeps its row's offer and the edited
   modalDialogs();
 
   const { TransactionCategory } = await import("../src/features/transactions/components/transaction-category");
-  const market = booking("market-entry", "Example Market");
-  const bakery = booking("bakery-entry", "Example Bakery");
-  const screen = render(withQueryClient(queryClient, createElement(Fragment, null, createElement(TransactionCategory, {
+  const market = {
+    ...booking("market-entry", "Example Market"),
+    category_id: "groceries",
+    category_source: "manual" as const
+  };
+  let bakery = {
+    ...booking("bakery-entry", "Example Bakery"),
+    category_id: "leisure",
+    category_source: "manual" as const
+  };
+  const rows = () => withQueryClient(queryClient, createElement(Fragment, null, createElement(TransactionCategory, {
     categories,
     transaction: market
   }), createElement(TransactionCategory, {
     categories,
     transaction: bakery
-  }))));
+  })));
+  const screen = render(rows());
 
-  choose(screen, "Example Market", "Groc");
+  choose(screen, "Example Bakery", "Groc");
   await wait(0);
-  await respond(patchFor(pending, market.id), assignment(market.id, "groceries"));
-
-  // The other row's save is still pending while the dialog opens.
-  choose(screen, "Example Bakery", "Leis");
-  await wait(0);
-
-  act(() => {
-    fireEvent.click(screen.getByRole("button", {
-      name: "Create rule…",
-      hidden: true
-    }));
+  const action = screen.getByRole("button", {
+    name: "Create rule for Example Market"
   });
 
-  const pattern = () => screen.getByRole("textbox", {
-    name: "Matching pattern"
-  }) as HTMLInputElement;
-
-  assert.equal(pattern().value, "Example Market");
-
-  // The preview posts the pattern, which comes from payee text, instead of putting it in the URL.
+  act(() => {
+    action.focus();
+    fireEvent.click(action);
+  });
   await wait(0);
   const preview = pending.find(request => request.url.pathname === "/api/rules/preview");
 
@@ -145,33 +141,30 @@ test("the rule dialog posts its preview and keeps its row's offer and the edited
     mode: "keyword",
     priority: 100
   });
-  act(() => {
-    fireEvent.change(pattern(), {
-      target: {
-        value: "Example Mar"
-      }
-    });
-  });
+  const pattern = screen.getByRole("textbox", {
+    name: "Matching pattern"
+  }) as HTMLInputElement;
 
-  await respond(pending.find(request => request.url.pathname === "/api/categories"), Response.json(categories));
-  await respond(patchFor(pending, bakery.id), assignment(bakery.id, "leisure"));
-
-  // The offer has moved to the other row, but the open dialog still belongs to the first one.
-  assert.equal(screen.getAllByRole("button", {
-    name: "Create rule…",
-    hidden: true
-  }).length, 1);
-
-  assert.ok(screen.getByRole("dialog", {
-    name: "Create rule"
+  act(() => fireEvent.change(pattern, {
+    target: {
+      value: "Example Mar"
+    }
   }));
-  assert.equal(pattern().value, "Example Mar");
+  await respond(pending.find(request => request.url.pathname === "/api/categories"), Response.json(categories));
+  await respond(patchFor(pending, bakery.id), assignment(bakery.id, "groceries"));
+  bakery = {
+    ...bakery,
+    category_id: "groceries"
+  };
+  screen.rerender(rows());
+
+  assert.equal(pattern.value, "Example Mar");
   assert.equal((screen.getByRole("combobox", {
     name: "Category"
   }) as HTMLInputElement).value, "Groceries");
 });
 
-test("a later change of the row retires the rule confirmation, so its failure is shown and announced on its own", async context => {
+test("rule creation is announced quietly and a later failed assignment reports its own error", async context => {
   const {
     pending,
     queryClient,
@@ -181,34 +174,33 @@ test("a later change of the row retires the rule confirmation, so its failure is
   modalDialogs();
 
   const { TransactionCategory } = await import("../src/features/transactions/components/transaction-category");
-  const market = booking("market-entry", "Example Market");
+  const market = {
+    ...booking("market-entry", "Example Market"),
+    category_id: "groceries",
+    category_source: "manual" as const
+  };
   const screen = render(withQueryClient(queryClient, createElement(TransactionCategory, {
     categories,
     transaction: market
   })));
-  const confirmation = () => screen.queryAllByText(/Rule created/);
-
-  choose(screen, "Example Market", "Groc");
-  await wait(0);
-  await respond(patchFor(pending, market.id), assignment(market.id, "groceries"));
+  const action = screen.getByRole("button", {
+    name: "Create rule for Example Market"
+  });
 
   act(() => {
-    fireEvent.click(screen.getByRole("button", {
-      name: "Create rule…",
-      hidden: true
-    }));
+    action.focus();
+    fireEvent.click(action);
   });
   await wait(0);
+  await respond(requests("categories")[0], Response.json(categories));
   await respond(requests("rules/preview").at(-1), Response.json({
     id: previewId,
     matched: 2,
     uncategorized: 2
   }));
-  act(() => {
-    fireEvent.submit(screen.getByRole("textbox", {
-      name: "Matching pattern"
-    }).closest("form")!);
-  });
+  act(() => fireEvent.submit(screen.getByRole("textbox", {
+    name: "Matching pattern"
+  }).closest("form")!));
   await wait(0);
   await respond(requests("rules").find(request => request.method === "POST"), Response.json({
     ok: true,
@@ -217,8 +209,7 @@ test("a later change of the row retires the rule confirmation, so its failure is
     status: 201
   }));
 
-  // Creating the rule refreshes the rule queries, including the open preview, before the dialog closes.
-  for (const preview of requests("rules/preview")) {
+  for (const preview of requests("rules/preview").slice(1)) {
     await respond(preview, Response.json({
       id: previewId,
       matched: 0,
@@ -227,13 +218,12 @@ test("a later change of the row retires the rule confirmation, so its failure is
   }
 
   assert.equal(screen.queryByRole("dialog"), null);
-  assert.equal(confirmation().length, 2);
+  assert.ok(screen.getAllByRole("status").some(region => region.textContent === "Rule created; 2 transactions categorized."));
+  assert.equal(document.activeElement, action);
 
   choose(screen, "Example Market", "Leis");
   await wait(0);
-
-  assert.equal(confirmation().length, 0);
-
+  assert.equal(screen.queryByText(/Rule created/), null);
   await respond(patchFor(pending, market.id), Response.json({
     title: "Internal Server Error",
     detail: "Request failed.",
@@ -241,60 +231,54 @@ test("a later change of the row retires the rule confirmation, so its failure is
   }, {
     status: 500
   }));
-
-  assert.equal(confirmation().length, 0);
-
-  const announcement = screen.getAllByRole("status").find(region => region.getAttribute("aria-live") === "assertive");
-
-  assert.equal(announcement?.textContent, "Category not saved: Request failed.");
+  assert.ok(screen.getAllByRole("status").some(region => region.textContent === "Category not saved: Request failed."));
+  assert.equal(screen.queryByRole("dialog"), null);
 });
 
-
-test("the optional rule prompt keeps category focus, can be dismissed, and restores category focus after its dialog closes", async context => {
+test("saving never opens a prompt; the lightning action is explicit and disappears for Uncategorized", async context => {
   const {
     pending,
     queryClient
   } = browser(context);
 
   modalDialogs();
+
   const { TransactionCategory } = await import("../src/features/transactions/components/transaction-category");
-  const market = booking("market-entry", "Example Market");
-  const screen = render(withQueryClient(queryClient, createElement(TransactionCategory, {
+  let market = {
+    ...booking("market-entry", "Example Market"),
+    category_id: "groceries" as string | null,
+    category_source: "rule" as "rule" | "manual"
+  };
+  const row = () => withQueryClient(queryClient, createElement(TransactionCategory, {
     categories,
     transaction: market
-  })));
-  const field = screen.getByRole("combobox", {
-    name: "Category for Example Market"
-  });
+  }));
+  const screen = render(row());
+  const action = () => screen.getByRole("button", {
+    name: "Create rule for Example Market"
+  }) as HTMLButtonElement;
 
-  act(() => field.focus());
-  choose(screen, "Example Market", "Groc");
-  await wait(0);
-  await respond(patchFor(pending, market.id), assignment(market.id, "groceries"));
-
-  assert.equal(screen.queryByRole("dialog"), null);
-  assert.equal(document.activeElement, field);
-  act(() => fireEvent.click(screen.getByRole("button", {
-    name: "Dismiss rule suggestion",
-    hidden: true
-  })));
-  assert.equal(screen.queryByRole("button", {
-    name: "Create rule…",
-    hidden: true
-  }), null);
-  assert.equal(document.activeElement, field);
-
+  assert.equal(action().getAttribute("data-assignment-source"), "rule");
   choose(screen, "Example Market", "Leis");
   await wait(0);
+  assert.equal(action().disabled, true);
   await respond(patchFor(pending, market.id), assignment(market.id, "leisure"));
-  const create = screen.getByRole("button", {
-    name: "Create rule…",
-    hidden: true
-  });
+  market = {
+    ...market,
+    category_id: "leisure",
+    category_source: "manual"
+  };
+  screen.rerender(row());
 
+  assert.equal(screen.queryByRole("region", {
+    name: "Category saved",
+    hidden: true
+  }), null);
+  assert.equal(screen.queryByRole("dialog"), null);
+  assert.equal(action().getAttribute("data-assignment-source"), "manual");
   act(() => {
-    create.focus();
-    fireEvent.click(create);
+    action().focus();
+    fireEvent.click(action());
   });
   assert.ok(screen.getByRole("dialog", {
     name: "Create rule"
@@ -302,56 +286,20 @@ test("the optional rule prompt keeps category focus, can be dismissed, and resto
   act(() => fireEvent.click(screen.getByRole("button", {
     name: "Close dialog"
   })));
-  assert.equal(screen.queryByRole("dialog"), null);
-  assert.equal(document.activeElement, field);
-});
+  assert.equal(document.activeElement, action());
 
-test("dismissing a rule prompt by pressing another category does not consume that category interaction", async context => {
-  const {
-    pending,
-    queryClient
-  } = browser(context);
-  const { TransactionCategory } = await import("../src/features/transactions/components/transaction-category");
-  const market = booking("market-entry", "Example Market");
-  const bakery = booking("bakery-entry", "Example Bakery");
-  const screen = render(withQueryClient(queryClient, createElement(Fragment, null, createElement(TransactionCategory, {
-    categories,
-    transaction: market
-  }), createElement(TransactionCategory, {
-    categories,
-    transaction: bakery
-  }))));
-
-  choose(screen, "Example Market", "Groc");
+  choose(screen, "Example Market", "Uncat");
   await wait(0);
-  await respond(patchFor(pending, market.id), assignment(market.id, "groceries"));
-  const otherField = screen.getByRole("combobox", {
-    name: "Category for Example Bakery"
-  });
-  let continued = false;
-
-  act(() => {
-    continued = fireEvent.pointerDown(otherField);
-    otherField.focus();
-  });
-  assert.equal(continued, true);
+  await respond(patchFor(pending, market.id), assignment(market.id, null));
+  market = {
+    ...market,
+    category_id: null
+  };
+  screen.rerender(row());
   assert.equal(screen.queryByRole("button", {
-    name: "Create rule…",
-    hidden: true
+    name: "Create rule for Example Market"
   }), null);
-  choose(screen, "Example Bakery", "Leis");
-  await wait(0);
-  const request = patchFor(pending, bakery.id);
-
-  assert.deepEqual(request?.body, {
-    category_id: "leisure"
-  });
-  await respond(request, assignment(bakery.id, "leisure"));
   assert.equal(screen.queryByRole("dialog"), null);
-  assert.ok(screen.getByRole("button", {
-    name: "Create rule…",
-    hidden: true
-  }));
 });
 
 test("rule creation waits for the current pattern and priority preview, including debounce and failed requests", async context => {
