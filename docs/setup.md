@@ -79,6 +79,7 @@ All five views were checked in Chrome emulation at widths from 320 to 844 pixels
 ## Checks
 
 ```sh
+npm audit --omit=dev --audit-level=high
 npm run lint
 npm run check:styles
 npm run check
@@ -86,7 +87,7 @@ npm test
 npm run build
 ```
 
-The behavior tests cover exact amounts, accounting month boundaries, rule precedence, demo-seed scope and guard, booked versus pending transactions, provider identifiers, CSV validation, repeat imports, manual categories, reconnects, environment isolation, leases, authentication throttling, library-managed enrollment, membership access, cookie integrity/expiry and session revocation, jose provider signatures, persisted bank-secret integrity, pagination, and browser-bound single-use callbacks. CI runs lint, stylesheet checks, type checking, behavior tests, and a production build without real banking credentials. See [security boundaries](security.md) for the current single-installation scope and future identity requirements.
+The behavior tests cover exact amounts, accounting month boundaries, rule precedence, demo-seed scope and guard, booked versus pending transactions, provider identifiers, CSV validation, repeat imports, manual categories, reconnects, environment isolation, leases, authentication throttling, library-managed enrollment, membership access, cookie integrity/expiry and session revocation, jose provider signatures, persisted bank-secret integrity, pagination, and browser-bound single-use callbacks. CI rejects high/critical advisories in production dependencies and runs lint, stylesheet checks, type checking, behavior tests, and a production build without real banking credentials. GitHub Actions are pinned to full commit SHAs. Dependabot checks npm and Actions weekly, grouping production dependencies, development dependencies and Actions separately; updates remain reviewable pull requests and are not automatically merged. See [security boundaries](security.md) for the current single-installation scope and future identity requirements.
 
 ## Parallel checkouts
 
