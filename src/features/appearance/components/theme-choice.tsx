@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Monitor, Moon, Sun } from "lucide-react";
-import ui from "@/components/ui/primitives.module.css";
+import ui from "../../../components/ui/primitives.module.css";
 import { browserColor, parseThemePreference, themeAttribute, themeCookie, themeViewport, type ThemePreference } from "@/features/appearance/theme-preference";
 import styles from "./theme-choice.module.css";
 

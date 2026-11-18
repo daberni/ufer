@@ -172,6 +172,7 @@
     padding: 0 var(--space-4) var(--space-4);
   }
   .row {
+    position: relative;
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     column-gap: var(--space-4);
@@ -180,9 +181,6 @@
     border-radius: var(--radius-lg);
     background: var(--surface-muted);
     min-width: 0;
-  }
-  .row {
-    position: relative;
   }
   .edit-transaction {
     color: inherit;
@@ -206,10 +204,6 @@
   }
   .row:has(.edit-transaction):hover {
     background: var(--surface-muted);
-  }
-  .transaction-details {
-    position: relative;
-    z-index: var(--layer-raised);
   }
   .counterpart {
     display: block;
@@ -268,6 +262,8 @@
     overflow-wrap: anywhere;
   }
   .transaction-details {
+    position: relative;
+    z-index: var(--layer-raised);
     display: block;
     grid-column: 1 / -1;
     grid-row: 2;
