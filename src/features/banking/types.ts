@@ -9,7 +9,6 @@ export type Connection = {
 
 export type ConnectionRemoval = {
   retainedAccounts: number;
-  providerRevocation: "revoked" | "not_revoked" | "no_session";
 };
 
 export type SyncRun = {

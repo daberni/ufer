@@ -387,14 +387,14 @@ test("reauthorization matches alternative identification hashes while sandbox an
 
   try {
     await client.batch(["INSERT INTO requisitions(id,environment,bank_name,bank_country,status) VALUES('old','SANDBOX','Test','AT','EXCHANGING')", "INSERT INTO requisitions(id,environment,bank_name,bank_country,status) VALUES('new','SANDBOX','Test','AT','EXCHANGING')", "INSERT INTO requisitions(id,environment,bank_name,bank_country,status) VALUES('prod','PRODUCTION','Test','AT','EXCHANGING')"], "write");
-    await saveSessionAccounts(db, "SANDBOX", "old", "Test", [{
+    await saveSessionAccounts(db, "SANDBOX", "old", "Test", "2099-01-01T00:00:00Z", [{
       uid: "uid-old",
       identification_hash: "iban-hash",
       currency: "EUR"
     }]);
     const initial = (await client.execute("SELECT id FROM accounts")).rows[0].id;
 
-    await saveSessionAccounts(db, "SANDBOX", "new", "Test", [{
+    await saveSessionAccounts(db, "SANDBOX", "new", "Test", "2099-01-01T00:00:00Z", [{
       uid: "uid-new",
       identification_hash: "new-hash",
       identification_hashes: ["iban-hash"],
@@ -403,7 +403,7 @@ test("reauthorization matches alternative identification hashes while sandbox an
     assert.equal((await client.execute("SELECT id FROM accounts")).rows[0].id, initial);
     assert.equal((await client.execute("SELECT provider_uid FROM accounts")).rows[0].provider_uid, "uid-new");
     assert.equal((await client.execute("SELECT status FROM requisitions WHERE id='old'")).rows[0].status, "SUPERSEDED");
-    await saveSessionAccounts(db, "PRODUCTION", "prod", "Test", [{
+    await saveSessionAccounts(db, "PRODUCTION", "prod", "Test", "2099-01-01T00:00:00Z", [{
       uid: "uid-prod",
       identification_hash: "iban-hash",
       currency: "EUR"

@@ -5,10 +5,8 @@ import ui from "../../../components/ui/primitives.module.css";
 import { Trash2 } from "lucide-react";
 import styles from "./remove-connection-form.module.css";
 import { FormError } from "@/components/ui/form-error";
-import type { Feedback } from "@/components/ui/use-action-feedback";
 import type { Account } from "@/features/accounts/types";
-import type { Connection, ConnectionRemoval } from "@/features/banking/types";
-import { useAppStore } from "@/client/app-store";
+import type { Connection } from "@/features/banking/types";
 import { useDialogSubmit, type DialogFormProps } from "@/components/ui/use-dialog-submit";
 import { useRemoveConnection } from "@/features/banking/mutations";
 import { useAccounts } from "@/features/accounts/queries";
@@ -36,7 +34,6 @@ function RemoveConnectionForm({
   selectedConnection
 }: Props) {
   const accounts = useAreaResult(useAccounts());
-  const reportFeedback = useAppStore(state => state.reportFeedback);
   const {
     error,
     pending,
@@ -45,13 +42,7 @@ function RemoveConnectionForm({
 
   return (
     <form
-      onSubmit={event => submit(event, () => selectedConnection.id, removal => {
-        const warning = revocationWarning(selectedConnection, removal);
-
-        if (warning) {
-          reportFeedback(warning);
-        }
-      })}
+      onSubmit={event => submit(event, () => selectedConnection.id)}
       className={ui["form"]}
     >
       <p className={ui["form-description"]}>
@@ -62,7 +53,7 @@ function RemoveConnectionForm({
           <RetainedAccounts accounts={accounts} connection={selectedConnection} />
         </li>
         <li>These accounts are no longer synced, including scheduled syncs. Their balances stay at the last synced value.</li>
-        <li>The stored bank authorization is deleted and Ufer asks Enable Banking to revoke it.</li>
+        <li>Ufer revokes the bank authorization before removing the connection. If that fails, the connection stays and you can try again.</li>
         <li>Connecting the same bank again later continues the kept accounts instead of creating duplicates.</li>
       </ul>
       <FormError failure={error} />
@@ -112,16 +103,4 @@ function RetainedAccounts({
       <strong>{linkedAccounts.length} linked account(s) stay in Ufer</strong> with their balances, transaction history and categories.
     </>
   );
-}
-
-// The removed connection disappears from the list; only an unconfirmed revocation needs a message after the dialog closes.
-function revocationWarning(connection: Connection, removal: ConnectionRemoval): Feedback | null {
-  if (removal.providerRevocation !== "not_revoked") {
-    return null;
-  }
-
-  return {
-    tone: "problem",
-    messages: [`${connection.bank_name} removed. Enable Banking did not confirm revoking the authorization; it ends when it expires or when you withdraw it at your bank.`]
-  };
 }
