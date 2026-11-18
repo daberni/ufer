@@ -45,3 +45,8 @@ example-001;2026-01-15;-12.50;EUR;Example merchant;Example purchase
 IDs must be stable and unique per account. Reimporting updates rather than duplicates. Imported transactions count toward the account balance. Limits: 1 MB, 10,000 rows, ISO dates, and the account's currency. Use a decimal point, or a decimal comma with semicolon delimiters, without thousands separators.
 
 Rules match payee and description case-insensitively. Lower priority numbers win; rule ID breaks ties. Applying rules preserves manual assignments. Regular expressions use RE2 syntax without backreferences or lookbehind.
+
+
+### Recorded bank balance classification
+
+A bank balance observation retains the selected provider `balance_type` alongside its amount and date. The history source label distinguishes closing booked, interim booked, closing available, interim available, previous closing booked and expected balances; observations recorded before this provenance was retained show an unknown type. These are provider classifications, not a claim that Ufer certifies historical bank closing balances. Daily values reconstructed from transactions are labelled as estimates and do not inherit the anchor's bank classification. Selection priority is unchanged. Code meanings follow the [Enable Banking API reference](https://enablebanking.com/docs/api/reference/).

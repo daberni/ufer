@@ -129,6 +129,7 @@ export const balanceSnapshots = sqliteTable("balance_snapshots", {
   account_id: text("account_id").notNull().references(() => accounts.id),
   observed_at: text("observed_at").notNull(),
   amount_minor: integer("amount_minor").notNull(),
+  bank_balance_type: text("bank_balance_type"),
   source: text("source", {
     enum: ["sync", "manual", "csv"]
   }).notNull()

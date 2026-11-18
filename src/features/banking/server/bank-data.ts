@@ -59,6 +59,7 @@ export function selectedBalance(balances: Balance[], currency: string) {
     if (balance) {
       return {
         amount: bankAmount(balance.balance_amount.amount, currency),
+        bank_balance_type: balance.balance_type,
         date: balance.reference_date || today().toString()
       };
     }

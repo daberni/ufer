@@ -29,6 +29,7 @@ export type BalancePoint = {
   date: string;
   amount_minor: number;
   source: "sync" | "manual" | "csv" | "transactions";
+  bank_balance_type: string | null;
 };
 
 /** An account's dated balances, oldest first. */
