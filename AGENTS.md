@@ -65,6 +65,8 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 ## PR feedback and review readiness
 
+- Attach every PR created or actively reviewed, updated or continued in Codex to the owning chat. Verify the attachment at handoff. Leave PRs used only as references or dependencies unattached.
+
 - Read the current PR description, base/head, checks, general comments, review summaries and inline threads before working on feedback or declaring a PR ready. Include feedback from automated reviewers, not just comments by the user.
 - During active PR work, monitor new comments, reviews, head/base changes and checks. Re-read the latest state before publication and review handoff; do not rely on an earlier green check or an old preview URL.
 - The user's clear feedback is an instruction within its scope. Validate other review findings against the code before changing it. Clear correctness fixes within the authorized scope do not need another approval round; uncertain code or design choices need a focused question or an explicit open checkbox in the PR.
