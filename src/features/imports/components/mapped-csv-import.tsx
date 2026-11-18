@@ -11,7 +11,7 @@ import { FormError } from "@/components/ui/form-error";
 import { toFailure } from "@/client/api";
 import { useAccounts } from "@/features/accounts/queries";
 import { useMappedImport, type MappedImportSummary, type MappedTarget } from "@/features/imports/mutations";
-import { dateFormats, decodeCsv, detectDateFormat, detectDecimal, detectDelimiter, mapRows, mappingProblem, parseCsv, suggestMapping, type CsvMapping, type CsvSettings } from "@/features/imports/csv-mapping";
+import { dateFormats, decodeCsv, detectDateFormat, detectDecimal, detectDelimiter, mapRows, mappingProblem, parseCsv, parseCsvRecords, suggestMapping, type CsvMapping, type CsvSettings } from "@/features/imports/csv-mapping";
 
 /** Large multi-year exports are read in the browser and sent as mapped rows in batches, so only the browser's memory bounds the file. */
 const maxFileBytes = 25_000_000;
@@ -62,16 +62,17 @@ export function MappedCsvImport({
     }
 
     const text = decodeCsv(file.bytes, settings.encoding).text;
-    const [header = [], ...rows] = parseCsv(text, settings.delimiter);
+    const [header, ...records] = parseCsvRecords(text, settings.delimiter);
 
     return {
-      header,
-      rows
+      header: header?.cells ?? [],
+      rows: records.map(record => record.cells),
+      lines: records.map(record => record.line)
     };
   }, [file, settings]);
   // Without a stored mapping (a new file, delimiter or encoding), the suggestion for the current header applies.
   const effectiveMapping = useMemo(() => mapping ?? (table ? suggestMapping(table.header) : null), [mapping, table]);
-  const mapped = useMemo(() => table && effectiveMapping && !mappingProblem(effectiveMapping) && settings ? mapRows(table.rows, effectiveMapping, settings) : null, [table, effectiveMapping, settings]);
+  const mapped = useMemo(() => table && effectiveMapping && !mappingProblem(effectiveMapping) && settings ? mapRows(table.rows, effectiveMapping, settings, table.lines) : null, [table, effectiveMapping, settings]);
   const sources = useMemo(() => [...new Set(mapped?.rows.map(row => row.source) ?? [])].sort(), [mapped]);
   const resolvedTargets = sources.map(source => targets[source] ?? defaultTarget(source));
   const targetsComplete = resolvedTargets.every(target => target.accountId !== "" && (target.accountId !== "new" || target.name.trim() !== ""));

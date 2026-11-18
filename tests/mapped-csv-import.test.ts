@@ -15,7 +15,7 @@ import { importMappedRows } from "../src/features/imports/server/mapped-import-s
 import { findDuplicates } from "../src/features/imports/server/duplicate-matching";
 import { saveAccountSync } from "../src/features/banking/server/account-sync-service";
 import { startSyncRun } from "../src/features/banking/server/sync-repository";
-import { normalizeText, pruneConsumed, decodeCsv, detectDateFormat, detectDecimal, detectDelimiter, mapRows, parseAmount, parseCsv, parseDate, suggestMapping, type CsvSettings, type MappedRow } from "../src/features/imports/csv-mapping";
+import { assignOccurrences, normalizeText, parseCsvRecords, pruneConsumed, decodeCsv, detectDateFormat, detectDecimal, detectDelimiter, mapRows, parseAmount, parseCsv, parseDate, suggestMapping, type CsvSettings, type DateFormat, type ImportRow } from "../src/features/imports/csv-mapping";
 
 const now = Temporal.Instant.from("2026-06-30T12:00:00Z");
 
@@ -52,7 +52,7 @@ async function isolatedDatabase(context: TestContext) {
   return db;
 }
 
-function mappedRow(line: number, date: string, amount: string, payee: string, extra: Partial<MappedRow> = {}): MappedRow {
+function mappedRow(line: number, date: string, amount: string, payee: string, extra: Partial<ImportRow> = {}): ImportRow {
   return {
     line,
     date,
@@ -180,7 +180,7 @@ test("identical rows in one file stay distinct through their occurrence", () => 
     dateFormat: "YYYY-MM-DD"
   });
 
-  assert.deepEqual(result.rows.map(row => row.occurrence), [0, 1]);
+  assert.deepEqual(assignOccurrences(result.rows, () => "account").map(row => row.occurrence), [0, 1]);
 });
 
 test("duplicate matching tolerates date shifts and text variants but consumes each existing booking once", () => {
@@ -519,7 +519,7 @@ test("occurrences count rows with equal canonical amounts and normalized texts",
     dateFormat: "YYYY-MM-DD"
   });
 
-  assert.deepEqual(result.rows.map(row => row.occurrence), [0, 1]);
+  assert.deepEqual(assignOccurrences(result.rows, () => "account").map(row => row.occurrence), [0, 1]);
 });
 
 test("a same-date booking wins; several window candidates are only possible duplicates", () => {
@@ -769,4 +769,160 @@ test("a retry uses the account an earlier batch created and rejects a conflictin
   }, now), ValidationError);
   assert.equal((await db.select().from(schema.accounts)).length, 1);
   assert.equal((await db.select().from(schema.transactions)).length, 1);
+});
+
+const plainMapping = {
+  date: 0,
+  amount: 1,
+  debit: null,
+  credit: null,
+  payee: 2,
+  description: null,
+  currency: null,
+  category: null,
+  account: 3
+};
+
+const isoSettings: CsvSettings = {
+  encoding: "utf-8",
+  delimiter: ",",
+  decimal: ".",
+  dateFormat: "YYYY-MM-DD"
+};
+
+test("occurrences count per target account, independent of order and other accounts in the export", () => {
+  const rows = [["2024-01-01", "-5.00", "Coffee", "Card"], ["2024-01-01", "-5.00", "Coffee", "Wallet"], ["2024-01-01", "-5.00", "Coffee", "Wallet"]];
+  const target = (source: string) => source;
+  const full = assignOccurrences(mapRows(rows, plainMapping, isoSettings).rows, target);
+  const reordered = assignOccurrences(mapRows([rows[2], rows[0], rows[1]], plainMapping, isoSettings).rows, target);
+  const walletOnly = assignOccurrences(mapRows([rows[1], rows[2]], plainMapping, isoSettings).rows, target);
+  const occurrences = (items: ImportRow[], source: string) => items.filter(row => row.source === source).map(row => row.occurrence).sort();
+
+  assert.deepEqual(occurrences(full, "Wallet"), [0, 1]);
+  assert.deepEqual(occurrences(full, "Card"), [0]);
+  assert.deepEqual(occurrences(reordered, "Wallet"), [0, 1]);
+  assert.deepEqual(occurrences(walletOnly, "Wallet"), [0, 1]);
+});
+
+test("debit and credit columns with conflicting currencies are row errors", () => {
+  const mapping = {
+    ...plainMapping,
+    amount: null,
+    debit: 1,
+    credit: 4,
+    currency: 5
+  };
+  const result = mapRows([["2024-01-01", "5 USD", "Shop", "", "1 EUR", ""], ["2024-01-02", "5 EUR", "Shop", "", "", "USD"], ["2024-01-03", "5 EUR", "Shop", "", "1 EUR", "EUR"]], mapping, isoSettings);
+
+  assert.deepEqual(result.errors.map(error => error.line), [2, 3]);
+  assert.deepEqual(result.rows.map(row => [row.amount, row.currency]), [["-4", "EUR"]]);
+});
+
+test("amount parsing is exact, bounded and rejects ambiguous input", () => {
+  const cases: [string, "." | ",", string | null][] = [
+    ["-12.50", ".", "-12.50"],
+    ["+12.50", ".", "12.50"],
+    ["12.50-", ".", "-12.50"],
+    ["(12.50)", ".", "-12.50"],
+    ["(-12.50)", ".", null],
+    ["-12.50-", ".", null],
+    ["--5", ".", null],
+    ["1,234,567.89", ".", "1234567.89"],
+    ["1.234.567,89", ",", "1234567.89"],
+    ["1,234", ".", "1234"],
+    ["1,234", ",", "1.234"],
+    ["1,23,456", ".", null],
+    ["1\u00a0234,50", ",", "1234.50"],
+    ["1\u202f234,50", ",", "1234.50"],
+    ["1'234.50", ".", "1234.50"],
+    ["0", ".", "0"],
+    ["-0.00", ".", "0.00"],
+    ["", ".", null],
+    ["-", ".", null],
+    ["()", ".", null],
+    [".5", ".", null],
+    ["1.1234567", ".", null],
+    ["1.123456", ".", "1.123456"],
+    ["1234567890123456", ".", null],
+    ["123456789012345", ".", "123456789012345"],
+    ["9".repeat(100), ".", null],
+    ["1e3", ".", null]
+  ];
+
+  for (const [input, decimal, expected] of cases) {
+    assert.equal(parseAmount(input, decimal), expected, `${input} with ${decimal}`);
+  }
+});
+
+test("debit and credit combine exactly, including large values and both columns filled", () => {
+  const mapping = {
+    ...plainMapping,
+    amount: null,
+    debit: 1,
+    credit: 4
+  };
+  const result = mapRows([["2024-01-01", "0.1", "A", "", "0.2"], ["2024-01-02", "", "B", "", "123456789012345.67"], ["2024-01-03", "-10.005", "C", "", ""], ["2024-01-04", "", "D", "", ""], ["2024-01-05", "0", "E", "", ""]], mapping, isoSettings);
+
+  assert.deepEqual(result.rows.map(row => row.amount), ["0.1", "123456789012345.67", "-10.005", "0"]);
+  assert.deepEqual(result.errors.map(error => error.line), [5]);
+});
+
+test("dates reject impossible days and map two-digit years to the most recent past century", () => {
+  const nextYear = (new Date().getUTCFullYear() + 1) % 100;
+  const cases: [string, DateFormat, string | null][] = [
+    ["2024-02-29", "YYYY-MM-DD", "2024-02-29"],
+    ["2023-02-29", "YYYY-MM-DD", null],
+    ["30.02.2024", "DD.MM.YYYY", null],
+    ["31.04.2024", "DD.MM.YYYY", null],
+    ["00.01.2024", "DD.MM.YYYY", null],
+    ["01.13.2024", "DD.MM.YYYY", null],
+    ["05.06.07", "DD.MM.YY", "2007-06-05"],
+    [`01.01.${String(nextYear).padStart(2, "0")}`, "DD.MM.YY", `19${String(nextYear).padStart(2, "0")}-01-01`],
+    ["2024-01-05T10:00:00", "YYYY-MM-DD", "2024-01-05"],
+    ["", "YYYY-MM-DD", null]
+  ];
+
+  for (const [input, format, expected] of cases) {
+    assert.equal(parseDate(input, format), expected, input);
+  }
+});
+
+test("CSV records keep quoted delimiters, line breaks and quotes, and report physical line numbers", () => {
+  const text = "\ufeffDate,Payee,Amount\r\n2024-01-01,\"Shop, Inc.\",-1.00\r\n\r\n2024-01-02,\"Two\nlines\",-2.00\n2024-01-03,5\" screen,-3.00\n2024-01-04,\"He said \"\"hi\"\"\",-4.00";
+  const decoded = decodeCsv(new TextEncoder().encode(text));
+  const records = parseCsvRecords(decoded.text, ",");
+
+  assert.deepEqual(records.map(record => record.line), [1, 2, 4, 6, 7]);
+  assert.deepEqual(records.map(record => record.cells[1]), ["Payee", "Shop, Inc.", "Two\nlines", "5\" screen", "He said \"hi\""]);
+
+  const result = mapRows(records.slice(1).map(record => record.cells), {
+    ...plainMapping,
+    amount: 2,
+    payee: 1,
+    account: null
+  }, isoSettings, records.slice(1).map(record => record.line));
+
+  assert.deepEqual(result.rows.map(row => row.line), [2, 4, 6, 7]);
+});
+
+test("references stay stable when the export reorders rows", async context => {
+  const db = await isolatedDatabase(context);
+  const account = await manualAccount("Stable");
+  const rows = [["2024-01-01", "-5.00", "Coffee", ""], ["2024-01-02", "-7.00", "Bakery", ""], ["2024-01-01", "-5.00", "Coffee", ""]];
+  const run = async (order: string[][], confirm: boolean) => importMappedRows({
+    import_id: importId,
+    rows: assignOccurrences(mapRows(order, plainMapping, isoSettings).rows, () => account.id),
+    targets: [{
+      source: "",
+      account_id: account.id
+    }],
+    confirm
+  }, now);
+
+  await run(rows, true);
+
+  const again = await run([rows[2], rows[1], rows[0]], false);
+
+  assert.equal(again.newRows, 0);
+  assert.equal((await db.select().from(schema.transactions)).length, 3);
 });

@@ -4,7 +4,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/client/api";
 import { invalidate } from "@/client/invalidate";
 import { queryKeys } from "@/client/query-keys";
-import { batchRows, pruneConsumed, type ConsumedBooking, type MappedRow, type RowError } from "./csv-mapping";
+import { assignOccurrences, batchRows, pruneConsumed, type ConsumedBooking, type MappedRow, type RowError } from "./csv-mapping";
 
 export type ImportMode = "mapped" | "balances" | "transactions";
 
@@ -107,7 +107,15 @@ export function useMappedImport() {
       };
       let consumed: ConsumedBooking[] = [];
 
-      for (const batch of batchRows([...rows].sort((left, right) => left.date.localeCompare(right.date)))) {
+      // Occurrences count per target account, so a reference does not depend on the order or the other accounts in the export.
+      const targetOf = (source: string) => {
+        const target = targets.find(item => item.source === source);
+
+        return target?.accountId === "new" ? `new:${source}` : target?.accountId ?? "";
+      };
+      const numbered = assignOccurrences(rows, targetOf);
+
+      for (const batch of batchRows(numbered.sort((left, right) => left.date.localeCompare(right.date)))) {
         const result = await api<MappedImportSummary & {
           matched: ConsumedBooking[];
         }>("imports/mapped", {

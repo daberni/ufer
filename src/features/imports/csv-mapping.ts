@@ -54,9 +54,17 @@ export type MappedRow = {
   category: string | null;
   /** The source account label from the account column; empty without one. */
   source: string;
-  /** How many rows with the same date, amount and normalized texts precede this one in the file, across source accounts; keeps genuine repeats distinct on reimport. Uses the fields of the server's import reference. */
+};
+
+/** A mapped row with its occurrence: how many rows for the same target account with the same date, amount and normalized texts precede it. It keeps genuine repeats distinct, and identical rows get the same set of references however the export orders them or which other accounts it contains. */
+export type ImportRow = MappedRow & {
   occurrence: number;
 };
+
+/** Longest amount text and digit counts accepted; anything longer is a row error rather than a rejected request. */
+const maxAmountLength = 40;
+const maxIntegerDigits = 15;
+const maxFractionDigits = 6;
 
 export type RowError = {
   line: number;
@@ -137,18 +145,29 @@ function countOutsideQuotes(line: string, character: string) {
   return count;
 }
 
-/** Splits CSV text into trimmed cells, honoring quoted fields with doubled quotes and line breaks; blank lines are dropped. */
-export function parseCsv(text: string, delimiter: string): string[][] {
-  const rows: string[][] = [];
+/** A CSV record with the physical line it starts on, counting from 1. */
+export type CsvRecord = {
+  cells: string[];
+  line: number;
+};
+
+/** Splits CSV text into trimmed cells, honoring quoted fields with doubled quotes, delimiters and line breaks; blank lines are dropped. A quote only opens a quoted field at the start of a cell. */
+export function parseCsvRecords(text: string, delimiter: string): CsvRecord[] {
+  const records: CsvRecord[] = [];
   let row: string[] = [];
   let cell = "";
   let quoted = false;
+  let line = 1;
+  let rowLine = 1;
 
   function endRow() {
     row.push(cell.trim());
 
     if (row.some(value => value !== "")) {
-      rows.push(row);
+      records.push({
+        cells: row,
+        line: rowLine
+      });
     }
 
     row = [];
@@ -157,6 +176,10 @@ export function parseCsv(text: string, delimiter: string): string[][] {
 
   for (let index = 0; index < text.length; index++) {
     const current = text[index];
+
+    if (current === "\n") {
+      line++;
+    }
 
     if (quoted) {
       if (current === "\"" && text[index + 1] === "\"") {
@@ -167,13 +190,15 @@ export function parseCsv(text: string, delimiter: string): string[][] {
       } else {
         cell += current;
       }
-    } else if (current === "\"") {
+    } else if (current === "\"" && cell.trim() === "") {
       quoted = true;
+      cell = "";
     } else if (current === delimiter) {
       row.push(cell.trim());
       cell = "";
     } else if (current === "\n") {
       endRow();
+      rowLine = line;
     } else if (current !== "\r") {
       cell += current;
     }
@@ -181,7 +206,18 @@ export function parseCsv(text: string, delimiter: string): string[][] {
 
   endRow();
 
-  return rows;
+  return records;
+}
+
+export function parseCsv(text: string, delimiter: string): string[][] {
+  return parseCsvRecords(text, delimiter).map(record => record.cells);
+}
+
+// Two-digit years belong to the most recent century that does not put them in the future.
+function twoDigitYear(value: number) {
+  const currentYear = new Date().getUTCFullYear();
+
+  return 2000 + value > currentYear ? 1900 + value : 2000 + value;
 }
 
 /** Reads a date in the given format; null when it is not a real calendar date. */
@@ -202,7 +238,7 @@ export function parseDate(value: string, format: DateFormat): string | null {
     return null;
   }
 
-  const year = groups.year.length === 2 ? 2000 + Number(groups.year) : Number(groups.year);
+  const year = groups.year.length === 2 ? twoDigitYear(Number(groups.year)) : Number(groups.year);
   const month = Number(groups.month);
   const day = Number(groups.day);
   const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
@@ -269,27 +305,22 @@ function affixCurrency(affix: string) {
   return isoCurrencies.has(affix.toUpperCase()) ? affix.toUpperCase() : undefined;
 }
 
-/** Reads a money amount with the given decimal separator into a signed decimal string with a point; tolerates a currency symbol or code, grouping, a trailing minus and accounting parentheses. Other letters, such as an exponent, make it invalid. */
+/** Reads a money amount with the given decimal separator into an exact signed decimal string with a point. It tolerates one currency symbol or code, spaces and apostrophes as grouping, consistent thousands separators, and exactly one sign marker: a leading or trailing minus, a leading plus, or accounting parentheses. Anything else, including more than 15 integer or 6 fraction digits, is invalid. */
 export function parseAmount(value: string, decimal: DecimalSeparator): string | null {
-  let text = splitCurrency(value).text.replace(/[\s\u00a0'’]/g, "");
-  let negative = false;
-
-  if (/^\(.*\)$/.test(text)) {
-    negative = true;
-    text = text.slice(1, -1);
+  if (value.length > maxAmountLength) {
+    return null;
   }
 
-  if (text.endsWith("-")) {
-    negative = !negative;
-    text = text.slice(0, -1);
+  let text = splitCurrency(value).text.replace(/[\s\u00a0\u202f'’]/g, "");
+  const markers = [/^\(.*\)$/.test(text), text.startsWith("-"), text.endsWith("-") && text.length > 1, text.startsWith("+")].filter(Boolean).length;
+
+  if (markers > 1) {
+    return null;
   }
 
-  if (text.startsWith("-")) {
-    negative = !negative;
-    text = text.slice(1);
-  } else if (text.startsWith("+")) {
-    text = text.slice(1);
-  }
+  const negative = markers === 1 && !text.startsWith("+");
+
+  text = text.replace(/^[(+-]|[)-]$/g, "");
 
   const grouping = decimal === "," ? "." : ",";
   const grouped = new RegExp(`^\\d{1,3}(\\${grouping}\\d{3})+(\\${decimal}\\d+)?$`);
@@ -301,9 +332,16 @@ export function parseAmount(value: string, decimal: DecimalSeparator): string | 
     return null;
   }
 
-  const normalized = text.replace(decimal, ".").replace(/^0+(?=\d)/, "");
+  const [integer, fraction = ""] = text.split(decimal);
+  const whole = integer.replace(/^0+(?=\d)/, "");
 
-  return negative && Number(normalized) !== 0 ? `-${normalized}` : normalized;
+  if (whole.length > maxIntegerDigits || fraction.length > maxFractionDigits) {
+    return null;
+  }
+
+  const normalized = fraction ? `${whole}.${fraction}` : whole;
+
+  return negative && /[1-9]/.test(normalized) ? `-${normalized}` : normalized;
 }
 
 /** The date format that reads the most samples, preferring the earlier format on ties; a few broken rows do not change the detected format. */
@@ -387,64 +425,51 @@ export function mappingProblem(mapping: CsvMapping) {
   return null;
 }
 
-/** Turns data rows (without the header) into mapped rows and row-level errors; line numbers count the header as line 1. */
-export function mapRows(rows: string[][], mapping: CsvMapping, settings: CsvSettings) {
+/** Turns data rows (without the header) into mapped rows and row-level errors. `lines` gives each row's physical line in the file; without it, rows count from line 2. */
+export function mapRows(rows: string[][], mapping: CsvMapping, settings: CsvSettings, lines?: number[]) {
   const mapped: MappedRow[] = [];
   const errors: RowError[] = [];
-  const seen = new Map<string, number>();
 
   rows.forEach((row, index) => {
-    const line = index + 2;
+    const line = lines?.[index] ?? index + 2;
     const cell = (column: number | null) => column === null ? "" : (row[column] ?? "").trim();
+    const failure = (message: string) => errors.push({
+      line,
+      message
+    });
     const date = parseDate(cell(mapping.date), settings.dateFormat);
-    const amount = rowAmount(cell, mapping, settings.decimal);
-    const columnCurrency = cell(mapping.currency).toUpperCase() || null;
-    const amountCurrency = rowAmountCurrency(cell, mapping);
 
     if (!date) {
-      errors.push({
-        line,
-        message: `The date “${cell(mapping.date)}” does not match ${settings.dateFormat}.`
-      });
+      failure(`The date “${cell(mapping.date).slice(0, 40)}” does not match ${settings.dateFormat}.`);
 
       return;
     }
+
+    const amount = rowAmount(cell, mapping, settings.decimal);
 
     if (amount === null) {
-      errors.push({
-        line,
-        message: "The amount is missing or not a number."
-      });
+      failure("The amount is missing or not a number with at most 15 digits and 6 decimal places.");
 
       return;
     }
 
-    if (columnCurrency && amountCurrency && columnCurrency !== amountCurrency) {
-      errors.push({
-        line,
-        message: `The amount is in ${amountCurrency}, but the currency column says ${columnCurrency}.`
-      });
+    const currency = rowCurrency(cell, mapping);
+
+    if (typeof currency === "object" && currency !== null) {
+      failure(currency.error);
 
       return;
     }
 
-    const payee = cell(mapping.payee).slice(0, 500);
-    const description = cell(mapping.description).slice(0, 2000);
-    const source = cell(mapping.account).slice(0, 200);
-    const identity = [date, canonicalAmount(amount), normalizeText(payee), normalizeText(description)].join("\u0000");
-    const occurrence = seen.get(identity) ?? 0;
-
-    seen.set(identity, occurrence + 1);
     mapped.push({
       line,
       date,
       amount,
-      currency: columnCurrency ?? amountCurrency,
-      payee,
-      description,
+      currency,
+      payee: cell(mapping.payee).slice(0, 500),
+      description: cell(mapping.description).slice(0, 2000),
       category: cell(mapping.category).slice(0, 100) || null,
-      source,
-      occurrence
+      source: cell(mapping.account).slice(0, 200)
     });
   });
 
@@ -452,6 +477,23 @@ export function mapRows(rows: string[][], mapping: CsvMapping, settings: CsvSett
     rows: mapped,
     errors
   };
+}
+
+/** Numbers identical rows per target account; `targetOf` resolves a row's source account to its target. */
+export function assignOccurrences(rows: MappedRow[], targetOf: (source: string) => string): ImportRow[] {
+  const seen = new Map<string, number>();
+
+  return rows.map(row => {
+    const identity = [targetOf(row.source), row.date, canonicalAmount(row.amount), normalizeText(row.payee), normalizeText(row.description)].join("\u0000");
+    const occurrence = seen.get(identity) ?? 0;
+
+    seen.set(identity, occurrence + 1);
+
+    return {
+      ...row,
+      occurrence
+    };
+  });
 }
 
 /** Lowercase Unicode letters and digits separated by single spaces; punctuation, symbols and diacritics are dropped. */
@@ -464,7 +506,7 @@ function canonicalAmount(amount: string) {
   return amount.includes(".") ? amount.replace(/0+$/, "").replace(/\.$/, "") : amount;
 }
 
-// Debit and credit columns combine as credit minus the debit's absolute value, so exports that sign their debits work as well.
+// Debit and credit columns combine as credit minus the debit's absolute value, so exports that sign their debits work as well. The arithmetic is exact on scaled integers.
 function rowAmount(cell: (column: number | null) => string, mapping: CsvMapping, decimal: DecimalSeparator) {
   if (mapping.amount !== null) {
     return parseAmount(cell(mapping.amount), decimal);
@@ -485,16 +527,48 @@ function rowAmount(cell: (column: number | null) => string, mapping: CsvMapping,
   }
 
   const scale = Math.max(fractionDigits(debit), fractionDigits(credit));
-  const factor = 10 ** scale;
-  const cents = Math.round(Math.abs(Number(credit)) * factor) - Math.round(Math.abs(Number(debit)) * factor);
+  const result = absoluteScaled(credit, scale) - absoluteScaled(debit, scale);
 
-  return (cents / factor).toFixed(scale);
+  return formatScaled(result, scale);
 }
 
-function rowAmountCurrency(cell: (column: number | null) => string, mapping: CsvMapping) {
-  const columns = mapping.amount !== null ? [mapping.amount] : [mapping.debit, mapping.credit];
+function absoluteScaled(amount: string, scale: number) {
+  const [integer, fraction = ""] = amount.replace("-", "").split(".");
 
-  return columns.map(column => splitCurrency(cell(column)).currency).find(currency => currency !== null) ?? null;
+  return BigInt(integer + fraction.padEnd(scale, "0"));
+}
+
+function formatScaled(value: bigint, scale: number) {
+  const digits = (value < 0n ? -value : value).toString().padStart(scale + 1, "0");
+  const integer = digits.slice(0, digits.length - scale);
+  const fraction = scale > 0 ? `.${digits.slice(digits.length - scale)}` : "";
+
+  return `${value < 0n ? "-" : ""}${integer}${fraction}`;
+}
+
+/** The row's currency from the currency column and any currency on the amount cells; conflicting or unknown codes are row errors. */
+function rowCurrency(cell: (column: number | null) => string, mapping: CsvMapping): string | null | {
+  error: string;
+} {
+  const columns = mapping.amount !== null ? [mapping.amount] : [mapping.debit, mapping.credit];
+  const columnText = cell(mapping.currency);
+  const columnCurrency = columnText ? affixCurrency(columnText) : null;
+
+  if (columnText && (columnCurrency === undefined || columnText.length !== 3)) {
+    return {
+      error: `The currency “${columnText.slice(0, 20)}” is not an ISO 4217 code.`
+    };
+  }
+
+  const found = new Set([columnCurrency, ...columns.map(column => splitCurrency(cell(column)).currency)].filter((currency): currency is string => Boolean(currency)));
+
+  if (found.size > 1) {
+    return {
+      error: `The row names different currencies: ${[...found].sort().join(", ")}.`
+    };
+  }
+
+  return [...found][0] ?? null;
 }
 
 function fractionDigits(value: string) {
@@ -502,9 +576,9 @@ function fractionDigits(value: string) {
 }
 
 /** Splits mapped rows into request batches that stay well below hosted request body limits. */
-export function batchRows(rows: MappedRow[], maxBytes = 1_000_000, maxRows = 2000) {
-  const batches: MappedRow[][] = [];
-  let current: MappedRow[] = [];
+export function batchRows(rows: ImportRow[], maxBytes = 1_000_000, maxRows = 2000) {
+  const batches: ImportRow[][] = [];
+  let current: ImportRow[] = [];
   let size = 0;
 
   for (const row of rows) {
