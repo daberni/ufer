@@ -613,3 +613,52 @@ test("a redelivered amount that no longer matches releases a link between import
   await sync(db, "checking", [entry("out", "2026-09-01", -10000, true)]);
   assert.ok(await linked(db, "out", "in"));
 });
+
+
+test("type filtering uses booking types, combines with list filters and paginates matching counts", async context => {
+  const db = await isolatedDatabase(context);
+  const types = ["income", "expense", "transfer", "opening_balance", "adjustment"] as const;
+
+  await db.insert(schema.transactions).values(types.map(type => ({
+    id: `filter-${type}`,
+    account_id: "property",
+    provider_reference: `filter-${type}`,
+    booking_date: "2026-09-15",
+    amount_minor: 1000,
+    currency: "EUR",
+    counterparty: "Synthetic matching payee",
+    category_id: "income",
+    type
+  })));
+  await db.insert(schema.transactions).values(Array.from({
+    length: 51
+  }, (_, index) => ({
+    id: `expense-${index}`,
+    account_id: "checking",
+    provider_reference: `expense-${index}`,
+    booking_date: "2026-09-10",
+    amount_minor: -100,
+    currency: "EUR",
+    type: "expense" as const
+  })));
+
+  for (const type of types) {
+    const result = await readTransactionPage(dashboardFilters(new URLSearchParams({
+      period: "2026-09",
+      type
+    })));
+
+    assert.equal(result.transactionCount, type === "expense" ? 52 : 1);
+    assert.ok(result.transactions.every(booking => booking.type === type));
+  }
+
+  const secondPage = await readTransactionPage(dashboardFilters(new URLSearchParams("period=2026-09&type=expense&page=2")));
+
+  assert.equal(secondPage.transactionCount, 52);
+  assert.equal(secondPage.transactions.length, 2);
+  const combined = await readTransactionPage(dashboardFilters(new URLSearchParams("period=2026-09&type=expense&account=property&category=income&search=matching")));
+
+  assert.deepEqual(combined.transactions.map(booking => booking.id), ["filter-expense"]);
+  assert.equal(combined.transactions[0].amount_minor, 1000, "a positive expense refund stays an expense");
+  assert.throws(() => dashboardFilters(new URLSearchParams("type=unknown")), error => error instanceof HttpError && error.status === 400);
+});

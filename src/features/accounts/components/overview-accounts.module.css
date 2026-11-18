@@ -4,12 +4,6 @@
 .section-heading {
   composes: section-heading from "../../../components/ui/primitives.module.css";
 }
-.status-dot {
-  composes: status-dot from "../../../components/ui/primitives.module.css";
-}
-.status-dot.warn {
-  background: var(--status-warning);
-}
 .accounts-section {
   margin-top: var(--space-8);
 }
@@ -19,8 +13,17 @@
 .count-badge {
   background: var(--soft-strong);
   color: var(--ink-soft);
-  min-width: 19px;
-  padding: 3px var(--space-1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  min-width: 1.5rem;
+  height: 1.5rem;
+  padding: 0 var(--space-1);
+  line-height: 1;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: normal;
   border-radius: var(--radius-sm);
   font-size: var(--text-xs);
 }
@@ -81,10 +84,6 @@
   color: var(--muted);
   padding-top: var(--space-3);
   margin-top: var(--space-1);
-}
-.account-tile-foot .status-dot {
-  width: 4px;
-  height: 4px;
 }
 .account-tile-foot > span:last-child {
   margin-left: auto;
