@@ -1,0 +1,49 @@
+.context-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  min-height: 44px;
+  margin: var(--space-6) 0 var(--space-4);
+}
+.context-row .back-link {
+  position: relative;
+  min-height: 44px;
+}
+@media (--mobile) {
+  .context-row {
+    /* Keep the overview's labelled action row when showing only the back link. */
+    --action-height: calc(1.5 * var(--text-md) + 2 * var(--space-3) + 2px);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: 24px var(--action-height);
+    gap: var(--space-3);
+  }
+  .label,
+  .context-row .back-link {
+    grid-row: 1;
+    justify-self: start;
+  }
+  .context-row .actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-row: 2;
+  }
+  .context-row .actions > button {
+    min-width: 0;
+    padding-inline: var(--space-2);
+    white-space: nowrap;
+  }
+  .context-row .actions > button > svg {
+    display: none;
+  }
+  .context-row .back-link {
+    min-height: 24px;
+    padding: 0;
+  }
+  .context-row .back-link::after {
+    content: "";
+    position: absolute;
+    inset: -10px 0;
+  }
+}

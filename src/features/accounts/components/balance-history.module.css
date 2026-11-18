@@ -1,0 +1,39 @@
+.history {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.range {
+  width: 9rem;
+  max-width: 100%;
+  flex-shrink: 0;
+}
+.note {
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+.table th,
+.table td {
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border-subtle);
+  text-align: left;
+  font-weight: 400;
+}
+.table thead th {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--muted);
+}
+.table td:nth-child(2) {
+  color: var(--muted);
+}
+.table .amount {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}

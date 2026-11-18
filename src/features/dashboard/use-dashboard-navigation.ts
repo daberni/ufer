@@ -6,10 +6,10 @@ import type { Feedback } from "@/components/ui/use-action-feedback";
 import { callbackFailureMessage, parseCallbackResult, type CallbackResult } from "@/features/banking/callback-result";
 import { useAppStoreApi } from "@/client/app-store";
 import { usePeriodScope, useView } from "@/client/use-app-url";
-import { isPeriodAware } from "@/client/app-location";
+import { isAccountList, isPeriodAware } from "@/client/app-location";
 
 /**
- * Keeps the UI store in step with navigation: a page message belongs to the view it was reported on, views without a period remember the last one selected, and a bank callback result is shown once.
+ * Keeps the UI store in step with navigation: a page message belongs to the view it was reported on, views without a period remember the last one selected, an account's details return to the list they were opened from, and a bank callback result is shown once.
  */
 export function useDashboardNavigation() {
   const router = useRouter();
@@ -27,6 +27,12 @@ export function useDashboardNavigation() {
       store.getState().rememberPeriodScope(scope);
     }
   }, [store, view, scope]);
+
+  useEffect(() => {
+    if (isAccountList(view)) {
+      store.getState().rememberAccountList(view);
+    }
+  }, [store, view]);
 
   // The bank callback returns to the connections view with its result, which is shown once and removed from the URL.
   useEffect(() => {

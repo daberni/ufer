@@ -4,6 +4,7 @@ import { createContext, useContext, useState } from "react";
 import { useStore } from "zustand";
 import { createStore, type StoreApi } from "zustand/vanilla";
 import type { Feedback } from "@/components/ui/use-action-feedback";
+import type { AccountList } from "./app-location";
 
 /** A value that belongs to the view it was created on. */
 type ViewBound<T> = {
@@ -18,6 +19,8 @@ export type AppState = {
   locked: boolean;
   /** The period and currency last selected on a view that has them; other views link back to it. */
   periodScope: string;
+  /** The list visited last among those that open an account's details; its Back link returns there. */
+  accountList: AccountList;
 };
 
 export type AppActions = {
@@ -26,6 +29,7 @@ export type AppActions = {
   /** Drops the feedback of other views after a navigation, including Back and Forward. */
   enterView: (pathname: string) => void;
   rememberPeriodScope: (scope: string) => void;
+  rememberAccountList: (view: AccountList) => void;
   lock: () => void;
   unlock: () => void;
 };
@@ -38,6 +42,7 @@ export function createAppStore(locked: boolean, currentPathname = () => window.l
     feedback: null,
     locked,
     periodScope: "",
+    accountList: "accounts",
     reportFeedback: feedback => set({
       feedback: {
         value: feedback,
@@ -52,6 +57,9 @@ export function createAppStore(locked: boolean, currentPathname = () => window.l
     })),
     rememberPeriodScope: scope => set({
       periodScope: scope
+    }),
+    rememberAccountList: view => set({
+      accountList: view
     }),
     lock: () => set({
       locked: true,

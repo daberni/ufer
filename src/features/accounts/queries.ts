@@ -4,7 +4,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Temporal } from "temporal-polyfill";
 import { apiGet } from "@/client/api";
 import { queryKeys } from "@/client/query-keys";
-import type { Account, NetWorth } from "@/features/accounts/types";
+import type { Account, BalanceHistory, NetWorth } from "@/features/accounts/types";
 
 const expiryWarning = Temporal.Duration.from({
   hours: 7 * 24
@@ -14,6 +14,13 @@ export function useAccounts() {
   return useQuery({
     queryKey: queryKeys.accounts(),
     queryFn: ({ signal }) => apiGet<Account[]>("accounts", undefined, signal)
+  });
+}
+
+export function useBalanceHistory(accountId: string) {
+  return useQuery({
+    queryKey: queryKeys.balanceHistory(accountId),
+    queryFn: ({ signal }) => apiGet<BalanceHistory>(`accounts/${encodeURIComponent(accountId)}/balance`, undefined, signal)
   });
 }
 

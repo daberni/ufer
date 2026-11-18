@@ -1,8 +1,8 @@
 import { ArrowDownLeft, LayoutDashboard, Link2, SlidersHorizontal, Wallet, type LucideIcon } from "lucide-react";
-import type { View } from "@/client/app-location";
+import type { Section } from "@/client/app-location";
 
 export type NavigationItem = {
-  id: View;
+  id: Section;
   /** The view's name in the sidebar and the header. */
   label: string;
   mobileLabel: string;
