@@ -2,12 +2,18 @@ import { currentMonth, currentMonthPeriod, parsePeriod, serializePeriod, type Pe
 import { parsePage } from "@/lib/pagination";
 import { parseCurrencyCode } from "@/lib/money";
 
-export type View = "overview" | "transactions" | "accounts" | "rules" | "connections";
+export type View = "overview" | "transactions" | "accounts" | "account" | "rules" | "connections";
+
+/** A view in the navigation; an account's details belong to accounts. */
+export type Section = Exclude<View, "account">;
+
+/** The lists an account's details are opened from and return to. */
+export type AccountList = "overview" | "accounts";
 
 /**
- * Each dashboard view is a route. The period and currency are shared by the period-aware views; search, filters and page belong to the transaction list. A selected sync run replaces the period and currency for the list: it shows everything the run imported.
+ * Each dashboard view is a route. The period and currency are shared by the period-aware views; search, filters and page belong to the transaction list. A selected sync run replaces the period and currency for the list: it shows everything the run imported. An account's details list that account's transactions page by page.
  */
-export const viewPaths: Record<View, string> = {
+export const viewPaths: Record<Section, string> = {
   overview: "/",
   transactions: "/transactions",
   accounts: "/accounts",
@@ -42,14 +48,47 @@ const defaultCurrency = "EUR";
 
 const scopeKeys = ["period", "currency"];
 
+const accountPathPrefix = `${viewPaths.accounts}/`;
+
+export function accountPath(id: string) {
+  return `${accountPathPrefix}${encodeURIComponent(id)}`;
+}
+
+/** The account a details path shows; empty on every other path. */
+export function accountIdFromPathname(pathname: string) {
+  const segment = pathname.startsWith(accountPathPrefix) ? pathname.slice(accountPathPrefix.length) : "";
+
+  if (!segment || segment.includes("/")) {
+    return "";
+  }
+
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return "";
+  }
+}
+
 export function viewFromPathname(pathname: string): View {
+  if (accountIdFromPathname(pathname)) {
+    return "account";
+  }
+
   const match = Object.entries(viewPaths).find(([, path]) => path === pathname);
 
-  return match ? match[0] as View : "overview";
+  return match ? match[0] as Section : "overview";
+}
+
+export function sectionOf(view: View): Section {
+  return view === "account" ? "accounts" : view;
 }
 
 export function isPeriodAware(view: View) {
-  return view === "overview" || view === "transactions";
+  return view === "overview" || view === "transactions" || view === "account";
+}
+
+export function isAccountList(view: View): view is AccountList {
+  return view === "overview" || view === "accounts";
 }
 
 /** The period and currency parameters that period-aware views carry between each other. */
@@ -72,24 +111,31 @@ function currencyOrDefault(value: string | null) {
   return value && parseCurrencyCode(value) || defaultCurrency;
 }
 
-/** The data query for a view: the shared period scope plus, on the transaction list, its own filters. */
-export function viewQuery(view: View, scope: string, params: SearchParams): ViewQuery {
+/** The data query for the view at a path: the shared period scope plus, on the transaction list, its own filters, and on an account's details that account and the page. */
+export function viewQuery(pathname: string, scope: string, params: SearchParams): ViewQuery {
+  const view = viewFromPathname(pathname);
   const scoped = new URLSearchParams(scope);
   const listParams = view === "transactions" ? params : new URLSearchParams();
+  const pageParams = view === "account" ? params : listParams;
 
   return {
     period: parsePeriod(scoped.get("period") || "") || currentMonthPeriod(),
     currency: currencyOrDefault(scoped.get("currency")),
     search: listParams.get("search") || "",
-    account: listParams.get("account") || "",
+    account: view === "account" ? accountIdFromPathname(pathname) : listParams.get("account") || "",
     category: listParams.get("category") || "",
     syncRun: listParams.get("syncRun") || "",
-    page: parsePage(listParams.get("page"))
+    page: parsePage(pageParams.get("page"))
   };
 }
 
-export function viewHref(view: View, scope: string) {
+export function viewHref(view: Section, scope: string) {
   return isPeriodAware(view) && scope ? `${viewPaths[view]}?${scope}` : viewPaths[view];
+}
+
+/** An account's details carry the period selected last. */
+export function accountHref(id: string, scope: string) {
+  return scope ? `${accountPath(id)}?${scope}` : accountPath(id);
 }
 
 /** Applies query changes to a URL; default values are omitted so plain view URLs stay plain. */

@@ -1,0 +1,70 @@
+.cash-flow {
+  position: relative;
+  margin-top: var(--space-4);
+}
+.flows {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-4);
+  margin: var(--space-4) 0 0;
+}
+.flows > div {
+  display: grid;
+  align-content: start;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--surface-muted);
+}
+.flows dt {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+.flows dd {
+  margin: 0;
+  font-size: var(--text-xl);
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.flows dd small {
+  display: block;
+  margin-top: var(--space-1);
+  font-size: var(--text-xs);
+  font-weight: 400;
+  color: var(--muted);
+}
+.flow-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-md);
+  background: var(--soft);
+  color: var(--ink-soft);
+}
+.flow-icon.incoming {
+  color: var(--green-text);
+}
+.flow-icon.outgoing {
+  background: var(--gold-soft);
+  color: var(--gold-text);
+}
+@media (--mobile) {
+  .flows {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-2);
+  }
+  .flows > div {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    padding: var(--space-3);
+  }
+  .flows dd {
+    font-size: var(--text-lg);
+    text-align: right;
+  }
+}

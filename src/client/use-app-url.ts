@@ -3,7 +3,7 @@
 import { useCallback, useMemo } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useAppStore, useAppStoreApi } from "./app-store";
-import { viewQuery, isPeriodAware, periodScope, viewFromPathname, viewHref, viewPaths, withQueryChanges, type ViewQuery, type ViewQueryChanges, type View } from "./app-location";
+import { accountHref, viewQuery, isPeriodAware, periodScope, viewFromPathname, viewHref, viewPaths, withQueryChanges, type Section, type ViewQuery, type ViewQueryChanges, type View } from "./app-location";
 import type { Period } from "@/lib/period";
 
 /*
@@ -25,12 +25,12 @@ export function usePeriodScope() {
 
 /** Every parameter the current view's data depends on; the transaction list filters are empty outside the transactions view. */
 export function useViewQuery(): ViewQuery {
-  const view = useView();
+  const pathname = usePathname();
   const scope = usePeriodScope();
   const searchParams = useSearchParams();
   const search = searchParams.toString();
 
-  return useMemo(() => viewQuery(view, scope, new URLSearchParams(search)), [view, scope, search]);
+  return useMemo(() => viewQuery(pathname, scope, new URLSearchParams(search)), [pathname, scope, search]);
 }
 
 function useViewParameter<K extends keyof ViewQuery>(key: K): ViewQuery[K] {
@@ -69,7 +69,27 @@ export function usePage() {
 export function useViewHref() {
   const scope = usePeriodScope();
 
-  return useCallback((view: View) => viewHref(view, scope), [scope]);
+  return useCallback((view: Section) => viewHref(view, scope), [scope]);
+}
+
+/** An account's details with the current period. */
+export function useAccountHref() {
+  const scope = usePeriodScope();
+
+  return useCallback((id: string) => accountHref(id, scope), [scope]);
+}
+
+/** The transactions view filtered to one account, in the account's currency, for search and category filters. */
+export function useAccountTransactionsHref() {
+  const scope = usePeriodScope();
+
+  return useCallback((account: {
+    id: string;
+    currency: string;
+  }) => withQueryChanges(viewPaths.transactions, scope, {
+    account: account.id,
+    currency: account.currency
+  }), [scope]);
 }
 
 /** A run's transactions; the period stays in the URL so clearing the run returns to it. */
@@ -86,7 +106,7 @@ export function useChangeView() {
   const router = useRouter();
   const store = useAppStoreApi();
 
-  return useCallback((view: View) => {
+  return useCallback((view: Section) => {
     const current = viewFromPathname(window.location.pathname);
     const scope = isPeriodAware(current) ? periodScope(new URLSearchParams(window.location.search)) : store.getState().periodScope;
 

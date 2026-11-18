@@ -4,6 +4,7 @@ import ui from "../../../components/ui/primitives.module.css";
 import accountStyles from "./account-presentation.module.css";
 
 import { clsx } from "clsx";
+import Link from "next/link";
 import styles from "./overview-accounts.module.css";
 import { ArrowRight, Landmark, Plus } from "lucide-react";
 import { accountIcon, kinds, accountSyncLabel } from "@/features/accounts/account-presentation";
@@ -14,8 +15,7 @@ import type { Account } from "@/features/accounts/types";
 import { useState } from "react";
 import { BankConnectionDialog } from "@/features/banking/components/bank-connection-form";
 import { CreateAccountDialog } from "./create-account-form";
-import { ValuationDialog } from "./valuation-form";
-import { useChangeView } from "@/client/use-app-url";
+import { useAccountHref, useChangeView } from "@/client/use-app-url";
 import { AreaPlaceholder } from "@/components/ui/area-placeholder";
 import { shownStatus, valueMask } from "@/components/ui/result-presentation";
 import type { Area, PendingArea } from "@/components/ui/use-area-result";
@@ -29,9 +29,6 @@ type OpenDialog = {
   kind: "account";
 } | {
   kind: "bank";
-} | {
-  kind: "balance";
-  account: Account;
 };
 
 const shownTiles = 4;
@@ -89,7 +86,7 @@ function AccountStrip({ currencyAccounts }: {
 }) {
   const [dialog, setDialog] = useState<OpenDialog | null>(null);
   const closeDialog = () => setDialog(null);
-  const changeView = useChangeView();
+  const accountHref = useAccountHref();
   const sandbox = useBankingConfiguration().environment === "SANDBOX";
 
   const content = currencyAccounts.length ? (
@@ -98,20 +95,7 @@ function AccountStrip({ currencyAccounts }: {
         const Icon = accountIcon(account.kind);
 
         return (
-          <button
-            className={styles["account-tile"]}
-            key={account.id}
-            onClick={() => {
-              if (account.provider === "manual") {
-                setDialog({
-                  kind: "balance",
-                  account
-                });
-              } else {
-                changeView("accounts");
-              }
-            }}
-          >
+          <Link className={styles["account-tile"]} key={account.id} href={accountHref(account.id)}>
             <span className={clsx(accountStyles["account-logo"], accountStyles[account.kind])}>
               <Icon size={21} />
             </span>
@@ -127,7 +111,7 @@ function AccountStrip({ currencyAccounts }: {
               {accountSyncLabel(account)}
               <span><DateValue value={account.balance_date} fallback="No balance yet" /></span>
             </span>
-          </button>
+          </Link>
         );
       })}
     </div>
@@ -165,7 +149,6 @@ function AccountStrip({ currencyAccounts }: {
       {content}
       {dialog?.kind === "account" && <CreateAccountDialog close={closeDialog} />}
       {dialog?.kind === "bank" && <BankConnectionDialog connection={null} close={closeDialog} />}
-      {dialog?.kind === "balance" && <ValuationDialog selectedAccount={dialog.account} close={closeDialog} />}
     </>
   );
 }

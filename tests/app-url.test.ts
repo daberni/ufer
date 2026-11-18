@@ -5,9 +5,9 @@ import { createElement, type ReactNode } from "react";
 import { Temporal } from "temporal-polyfill";
 import { AppRouterContext, type AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import { PathnameContext, SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime";
-import { AppStoreProvider } from "../src/client/app-store";
+import { AppStoreProvider, useAppStore } from "../src/client/app-store";
 import { useDashboardNavigation } from "../src/features/dashboard/use-dashboard-navigation";
-import { selectPeriod, setAccountFilter, setSearch, useChangeView, useViewQuery, useViewHref } from "../src/client/use-app-url";
+import { selectPeriod, setAccountFilter, setSearch, useAccountHref, useChangeView, useViewQuery, useViewHref } from "../src/client/use-app-url";
 import { monthPeriod, serializePeriod } from "../src/lib/period";
 import { browser } from "./fixtures/browser";
 
@@ -49,6 +49,8 @@ function renderUrlState(context: TestContext, url: string) {
     return {
       query: useViewQuery(),
       viewHref: useViewHref(),
+      accountHref: useAccountHref(),
+      accountList: useAppStore(state => state.accountList),
       changeView: useChangeView()
     };
   }, {
@@ -113,4 +115,31 @@ test("a period selected on the overview replaces the remembered one", context =>
   navigate("/connections");
 
   assert.equal(result.current.viewHref("transactions"), "/transactions?period=2026-08");
+});
+
+test("an account's details keep the period and return to the list they were opened from", context => {
+  const {
+    result,
+    navigate
+  } = renderUrlState(context, "/?period=2026-10");
+
+  assert.equal(result.current.accountHref("synthetic-account"), "/accounts/synthetic-account?period=2026-10");
+
+  navigate("/accounts/synthetic-account?period=2026-10&page=2");
+
+  assert.equal(result.current.accountList, "overview");
+  assert.equal(result.current.query.account, "synthetic-account");
+  assert.equal(result.current.query.page, 2);
+
+  act(() => selectPeriod(monthPeriod(Temporal.PlainYearMonth.from("2026-08"))));
+  navigate(`${window.location.pathname}${window.location.search}`);
+
+  assert.equal(result.current.viewHref(result.current.accountList), "/?period=2026-08");
+
+  navigate("/accounts");
+  navigate("/connections");
+  navigate("/accounts/synthetic-account");
+
+  assert.equal(result.current.accountList, "accounts");
+  assert.equal(result.current.viewHref(result.current.accountList), "/accounts");
 });

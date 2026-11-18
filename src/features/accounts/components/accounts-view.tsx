@@ -2,10 +2,12 @@
 
 import ui from "../../../components/ui/primitives.module.css";
 import accountStyles from "./account-presentation.module.css";
+import contextStyles from "./account-context.module.css";
 
 import { clsx } from "clsx";
+import Link from "next/link";
 import styles from "./accounts-view.module.css";
-import { ArrowRight, Link2, Plus } from "lucide-react";
+import { Link2, Plus } from "lucide-react";
 import { accountIcon, accountSourceLabel, kinds } from "@/features/accounts/account-presentation";
 import { DateValue } from "@/components/ui/date-value";
 import { money } from "@/lib/money";
@@ -14,8 +16,7 @@ import type { Account } from "@/features/accounts/types";
 import { useState } from "react";
 import { BankConnectionDialog } from "@/features/banking/components/bank-connection-form";
 import { CreateAccountDialog } from "./create-account-form";
-import { ValuationDialog } from "./valuation-form";
-import { ManualTransactionDialog } from "@/features/transactions/components/manual-transaction-dialog";
+import { useAccountHref } from "@/client/use-app-url";
 import { AreaPlaceholder } from "@/components/ui/area-placeholder";
 import { shownStatus, valueMask } from "@/components/ui/result-presentation";
 import type { Area } from "@/components/ui/use-area-result";
@@ -28,12 +29,6 @@ type OpenDialog = {
   kind: "account";
 } | {
   kind: "bank";
-} | {
-  kind: "balance";
-  account: Account;
-} | {
-  kind: "transaction";
-  account: Account;
 };
 
 const skeletonAccounts = 3;
@@ -46,20 +41,12 @@ export function AccountsView({
   const addAccount = () => setDialog({
     kind: "account"
   });
-  const updateBalance = (account: Account) => setDialog({
-    kind: "balance",
-    account
-  });
-  const addTransaction = (account: Account) => setDialog({
-    kind: "transaction",
-    account
-  });
 
   return (
     <>
-      <div className={ui["section-heading"]}>
-        <span className={clsx(ui["section-kicker"], valueMask(shownStatus(accounts)))}>{accounts.data?.length ?? 0} ACCOUNTS & ASSETS</span>
-        <div className={ui["button-group"]}>
+      <div className={contextStyles["context-row"]}>
+        <span className={clsx(contextStyles["label"], ui["section-kicker"], valueMask(shownStatus(accounts)))}>{accounts.data?.length ?? 0} ACCOUNTS & ASSETS</span>
+        <div className={clsx(contextStyles["actions"], ui["button-group"])}>
           <button className={ui["button"]} onClick={addAccount}>
             <Plus size={15} />
             Add account
@@ -83,14 +70,10 @@ export function AccountsView({
         <AccountCards
           accounts={accounts.data}
           addAccount={addAccount}
-          updateBalance={updateBalance}
-          addTransaction={addTransaction}
         />
       )}
       {dialog?.kind === "account" && <CreateAccountDialog close={closeDialog} />}
       {dialog?.kind === "bank" && <BankConnectionDialog connection={null} close={closeDialog} />}
-      {dialog?.kind === "balance" && <ValuationDialog selectedAccount={dialog.account} close={closeDialog} />}
-      {dialog?.kind === "transaction" && <ManualTransactionDialog accounts={(accounts.data ?? []).filter(account => account.provider === "manual")} accountId={dialog.account.id} close={closeDialog} />}
     </>
   );
 }
@@ -119,27 +102,22 @@ function AccountCardsSkeleton() {
             <span className={ui["skeleton"]}>Balance 12 Jan 2025</span>
             <span className={ui["skeleton"]}>Bank sync</span>
           </div>
-          <div className={styles["account-actions"]}>
-            <span className={clsx(ui["button"], ui["skeleton"])}>Add transaction</span>
-            <span className={clsx(ui["button"], ui["skeleton"])}>Update balance</span>
-          </div>
         </div>
       ))}
     </div>
   );
 }
 
+// The whole card links to the account's details, where account-specific actions are offered.
 function AccountCards({
   accounts,
-  addAccount,
-  updateBalance,
-  addTransaction
+  addAccount
 }: {
   accounts: Account[];
   addAccount: () => void;
-  updateBalance: (account: Account) => void;
-  addTransaction: (account: Account) => void;
 }) {
+  const accountHref = useAccountHref();
+
   return accounts.length ? (
     <div className={styles["accounts-grid"]}>
       {accounts.map(account => {
@@ -153,7 +131,9 @@ function AccountCards({
               </span>
               <span className={ui["pill"]}>{kinds[account.kind]}</span>
             </div>
-            <h2>{account.name}</h2>
+            <h2>
+              <Link className={styles["account-link"]} href={accountHref(account.id)}>{account.name}</Link>
+            </h2>
             <p className={ui["muted"]}>{account.institution}</p>
             <strong className={styles["account-detail-balance"]}>{account.balance_minor === null ? "—" : money(account.balance_minor, account.currency)}</strong>
             <div className={styles["account-detail-meta"]}>
@@ -161,17 +141,6 @@ function AccountCards({
               <span>{accountSourceLabel(account)}</span>
             </div>
             {account.sync_error && <p className={ui["error-text"]}>{account.sync_error}</p>}
-            {account.provider === "manual" && (
-              <div className={styles["account-actions"]}>
-                <button className={ui["button"]} onClick={() => addTransaction(account)}>
-                  <Plus size={15} />
-                  Add transaction
-                </button>
-                <button className={ui["button"]} onClick={() => updateBalance(account)}>
-                  Update balance <ArrowRight size={15} />
-                </button>
-              </div>
-            )}
           </section>
         );
       })}

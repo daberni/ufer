@@ -3,9 +3,10 @@
 import ui from "../../../components/ui/primitives.module.css";
 
 import { clsx } from "clsx";
+import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import styles from "./transactions-panel.module.css";
-import { ArrowDownToLine, ArrowRight, Plus, Search } from "lucide-react";
+import { ArrowDownToLine, ArrowRight, Plus, Search, SlidersHorizontal } from "lucide-react";
 import { Empty } from "@/components/ui/empty-state";
 import { TransactionList, TransactionListSkeleton } from "@/features/transactions/components/transaction-list";
 import { CsvImportDialog } from "@/features/imports/components/csv-import-form";
@@ -24,16 +25,23 @@ import type { Category } from "@/features/categorization/types";
 import type { TransactionPage } from "@/features/transactions/types";
 
 type Props = {
-  view: "overview" | "transactions";
   categories: Area<Category[]>;
-  /** Accounts offered as a filter. */
-  filterAccounts: Area<Account[]>;
   list: Area<TransactionPage>;
   /** Replaces the first-use empty state, such as for a selected sync run without listed transactions. */
   emptyState?: ReactNode;
   /** The page shown, after correcting a page past the last one. */
   page: number;
-};
+} & ({
+  view: "overview";
+} | {
+  view: "transactions";
+  /** Accounts offered as a filter. */
+  filterAccounts: Area<Account[]>;
+} | {
+  view: "account";
+  /** The transactions view filtered to this account, which offers search and category filters. */
+  filterHref: string;
+});
 
 const recentTransactions = 5;
 
@@ -54,14 +62,20 @@ function categoryFilterValue(value: CategoryPickerValue) {
   return value ?? "uncategorized";
 }
 
-export function TransactionsPanel({
-  categories,
-  emptyState,
-  filterAccounts,
-  list,
-  page,
-  view
-}: Props) {
+const headings: Record<Props["view"], string> = {
+  overview: "Recent transactions",
+  transactions: "All transactions",
+  account: "Transactions"
+};
+
+export function TransactionsPanel(props: Props) {
+  const {
+    categories,
+    emptyState,
+    list,
+    page,
+    view
+  } = props;
   const [importOpen, setImportOpen] = useState(false);
   const [entryOpen, setEntryOpen] = useState(false);
   const changeView = useChangeView();
@@ -70,12 +84,13 @@ export function TransactionsPanel({
   return (
     <section className={clsx(ui["panel"], styles["transaction-panel"])}>
       <div className={styles["card-heading"]}>
-        <h2>{view === "overview" ? "Recent transactions" : "All transactions"}</h2>
-        {view === "overview" ? (
+        <h2>{headings[view]}</h2>
+        {props.view === "overview" && (
           <button className={ui["text-button"]} onClick={() => changeView("transactions")}>
             View all <ArrowRight size={15} />
           </button>
-        ) : (
+        )}
+        {props.view === "transactions" && (
           <div className={styles["heading-actions"]}>
             {manualAccounts.length > 0 && (
               <button
@@ -95,8 +110,14 @@ export function TransactionsPanel({
             </button>
           </div>
         )}
+        {props.view === "account" && (
+          <Link className={ui["text-button"]} href={props.filterHref}>
+            <SlidersHorizontal size={14} />
+            Search and filter
+          </Link>
+        )}
       </div>
-      {view === "transactions" && <TransactionFilters categories={categories.data ?? []} filterAccounts={filterAccounts.data ?? []} />}
+      {props.view === "transactions" && <TransactionFilters categories={categories.data ?? []} filterAccounts={props.filterAccounts.data ?? []} />}
       {list.status === "pending" || categories.status === "pending" ? (
         <AreaPlaceholder area={pendingTogether(list, categories)} subject="Your transactions">
           {view === "overview" ? <TransactionListSkeleton rows={recentTransactions} /> : <TransactionPageSkeleton />}
@@ -140,7 +161,7 @@ function TransactionPages({
       <div {...areaProps(list.status)}>
         {visibleTransactions.length ? <TransactionList categories={categories} transactions={visibleTransactions} /> : noMatches && (emptyState ?? <Empty title="Your financial history starts here.">Connect a bank account and sync, or import your existing transactions from CSV.</Empty>)}
       </div>
-      {view === "transactions" && transactionCount > transactionPageSize && (
+      {view !== "overview" && transactionCount > transactionPageSize && (
         <div className={styles["pagination"]}>
           <span className={valueMask(list.status)}>
             {(page - 1) * transactionPageSize + 1}–{Math.min(page * transactionPageSize, transactionCount)} of {transactionCount}

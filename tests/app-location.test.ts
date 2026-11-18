@@ -29,8 +29,8 @@ test("a filter change resets pagination and leaves default values out of the URL
 test("the transaction list filters apply only to the transactions view", () => {
   const params = new URLSearchParams("period=2026-10&currency=USD&search=rent&account=acc-1&category=home&syncRun=run-1&page=2");
   const scope = periodScope(params);
-  const overview = viewQuery("overview", scope, params);
-  const transactions = viewQuery("transactions", scope, params);
+  const overview = viewQuery("/", scope, params);
+  const transactions = viewQuery("/transactions", scope, params);
 
   assert.equal(scope, "period=2026-10&currency=USD");
   assert.equal(serializePeriod(overview.period), "2026-10");
@@ -55,7 +55,7 @@ test("a page in a link is a positive integer within the range the API serves", (
       page: value
     });
 
-    return viewQuery("transactions", "", params).page;
+    return viewQuery("/transactions", "", params).page;
   };
 
   for (const invalid of ["Infinity", "-Infinity", "NaN", "abc", "2.5", "0", "-3", ""]) {
@@ -71,7 +71,7 @@ test("a page in a link is a positive integer within the range the API serves", (
 
 test("an invalid period in a link falls back to the current month", () => {
   const params = new URLSearchParams("period=2026-13&page=0");
-  const query = viewQuery("transactions", periodScope(params), params);
+  const query = viewQuery("/transactions", periodScope(params), params);
 
   assert.ok(query.period.kind === "month" && query.period.month.equals(currentMonth()));
   assert.equal(query.page, 1);
@@ -187,7 +187,7 @@ test("a currency filter is normalized to uppercase and ignored on both sides unl
       currency: value
     });
 
-    return viewQuery("overview", periodScope(params), params).currency;
+    return viewQuery("/", periodScope(params), params).currency;
   };
 
   assert.equal(dashboardFilters(new URLSearchParams()).currency, "EUR");

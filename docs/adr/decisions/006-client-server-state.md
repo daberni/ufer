@@ -23,8 +23,10 @@ Since #48, routes hold the view and search parameters hold the period, currency 
 | Query key | Route | Filters |
 | --- | --- | --- |
 | `["accounts"]` | `GET /api/accounts` | none |
+| `["accounts", "balance-history", account]` | `GET /api/accounts/{id}/balance` | account |
 | `["reports", "net-worth", { currency }]` | `GET /api/reports/net-worth` | currency |
 | `["reports", "cash-flow", { period, currency }]` | `GET /api/reports/cash-flow` | period, currency |
+| `["reports", "cash-flow", "account", { account, period }]` | `GET /api/accounts/{id}/cash-flow` | account, period |
 | `["transactions", "list", { period, currency, search, account, category, page }]` | `GET /api/transactions` | every list filter |
 | `["categories"]`, `["rules"]` | `GET /api/categories`, `GET /api/rules` | none |
 | `["banking", "connections"]`, `["banking", "sync-runs"]`, `["banking", "banks", country]` | `GET /api/banking/connections`, `/api/sync/runs`, `/api/banks` | country for the bank directory |

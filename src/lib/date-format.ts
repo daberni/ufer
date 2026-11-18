@@ -39,6 +39,15 @@ export function describeDate(value: Temporal.PlainDate | Temporal.ZonedDateTime)
   };
 }
 
+/** A calendar day with its year, for values that may lie in another year, such as a balance history. */
+export function dateWithYear(value: Temporal.PlainDate) {
+  return value.toLocaleString(displayLocale, {
+    day: "numeric",
+    month: "short",
+    year: "numeric"
+  });
+}
+
 // A month has no day or zone, so its names cannot shift with the viewer's zone.
 export function describeMonth(month: Temporal.PlainYearMonth) {
   const firstDay = month.toPlainDate({
