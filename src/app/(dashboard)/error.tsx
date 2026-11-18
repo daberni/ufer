@@ -1,6 +1,6 @@
 "use client";
 
-import ui from "@/components/ui/primitives.module.css";
+import ui from "../../components/ui/primitives.module.css";
 
 import { clsx } from "clsx";
 import { Empty } from "@/components/ui/empty-state";

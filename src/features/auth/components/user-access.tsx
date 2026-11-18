@@ -6,7 +6,7 @@ import { useMutation } from "@tanstack/react-query";
 import { LogOut, UserRound } from "lucide-react";
 import { authClient, requireAuthResult } from "@/features/auth/client";
 import { AccountSettings } from "./account-settings";
-import ui from "@/components/ui/primitives.module.css";
+import ui from "../../../components/ui/primitives.module.css";
 import { toFailure } from "@/client/api";
 import { useAppStore } from "@/client/app-store";
 import { useLockSession } from "@/client/use-session-lock";

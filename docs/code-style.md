@@ -144,3 +144,12 @@ Font sizes use the rem-based scale in `src/app/globals.css` (`--text-xs` 12px, `
 - **Bottom navigation** offsets are calculated where they are used from the height, the bottom safe-area inset and a spacing step, for example `calc(var(--bottom-nav-height) + env(safe-area-inset-bottom) + var(--space-6))`.
 - The global `input` rule styles text-like fields only; checkboxes, radios, color and file inputs keep their native box without local resets.
 - Fix specificity instead of using `!important`; the reduced-motion rule is the only exception.
+
+
+## Automated frontend checks
+
+`npm run lint` includes React Hooks rules, the matching Next.js plugin and checks literal CSS Module class references. CSS imports use relative paths so the module rule resolves the same file as the bundler. ESLint's maintained compatibility utility adapts the CSS Module plugin's legacy rule API to ESLint 10; application code does not carry compatibility wrappers.
+
+`npm run check:styles` runs Stylelint before Prettier. Stylelint checks semantic CSS errors, CSS Module syntax, duplicate selectors and `!important` usage. The reduced-motion override in `globals.css` is the narrowly documented exception. Component font sizes, colors and radii use design variables; font weights use the existing 400/500/600/700 scale. Prettier remains responsible for formatting. Selector-specificity ordering is not enforced because module-local state selectors and separate DOM branches intentionally have different specificity.
+
+Known gaps remain in [#111](https://github.com/daberni/ufer/issues/111): the current `eslint-plugin-jsx-a11y` release does not support ESLint 10, so it is not installed with a peer override or replaced by a fork. The React Compiler `static-components` check is also deferred because it currently misidentifies Ufer's stable module-level icon lookup as component construction. Other recommended Hooks checks remain active. Literal CSS class accesses are checked; dynamically computed class keys are not statically validated by this plugin.

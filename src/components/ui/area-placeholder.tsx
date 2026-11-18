@@ -33,7 +33,7 @@ export function AreaPlaceholder({
       {failure ? (
         <FailureCover failure={failure} subject={subject} />
       ) : (
-        <div className={styles["skeleton"]} aria-hidden="true" inert>
+        <div aria-hidden="true" inert>
           {children}
         </div>
       )}
