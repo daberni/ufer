@@ -201,3 +201,21 @@ test("a currency filter is normalized to uppercase and ignored on both sides unl
     }
   }
 });
+
+
+test("transaction type links keep their scope and clear pagination when changed", () => {
+  const params = new URLSearchParams("period=2026-10&currency=USD&type=expense&account=checking&page=3");
+  const scope = periodScope(params);
+
+  assert.equal(viewQuery("/transactions", scope, params).type, "expense");
+  assert.equal(viewQuery("/", scope, params).type, "");
+  assert.equal(withQueryChanges("/transactions", params.toString(), {
+    type: "transfer",
+    page: 1
+  }), "/transactions?period=2026-10&currency=USD&type=transfer&account=checking");
+  assert.equal(withQueryChanges("/transactions", "type=expense&page=3", {
+    type: "",
+    page: 1
+  }), "/transactions");
+  assert.equal(viewQuery("/transactions", scope, new URLSearchParams("type=unknown")).type, "");
+});

@@ -1,3 +1,4 @@
+import { isTransactionType, type TransactionType } from "@/features/transactions/transaction-types";
 import { currentMonth, currentMonthPeriod, parsePeriod, serializePeriod, type Period } from "@/lib/period";
 import { parsePage } from "@/lib/pagination";
 import { parseCurrencyCode } from "@/lib/money";
@@ -27,6 +28,7 @@ export type ViewQuery = {
   search: string;
   account: string;
   category: string;
+  type: TransactionType | "";
   syncRun: string;
   page: number;
 };
@@ -38,6 +40,7 @@ export type ViewQueryChanges = {
   search?: string;
   account?: string;
   category?: string;
+  type?: string;
   syncRun?: string;
   page?: number;
 };
@@ -116,6 +119,7 @@ export function viewQuery(pathname: string, scope: string, params: SearchParams)
   const view = viewFromPathname(pathname);
   const scoped = new URLSearchParams(scope);
   const listParams = view === "transactions" ? params : new URLSearchParams();
+  const type = listParams.get("type") || "";
   const pageParams = view === "account" ? params : listParams;
 
   return {
@@ -124,6 +128,7 @@ export function viewQuery(pathname: string, scope: string, params: SearchParams)
     search: listParams.get("search") || "",
     account: view === "account" ? accountIdFromPathname(pathname) : listParams.get("account") || "",
     category: listParams.get("category") || "",
+    type: isTransactionType(type) ? type : "",
     syncRun: listParams.get("syncRun") || "",
     page: parsePage(pageParams.get("page"))
   };
@@ -151,7 +156,7 @@ export function withQueryChanges(pathname: string, search: string, changes: View
     values.currency = changes.currency === defaultCurrency ? "" : changes.currency;
   }
 
-  for (const key of ["search", "account", "category", "syncRun"] as const) {
+  for (const key of ["search", "account", "category", "type", "syncRun"] as const) {
     if (changes[key] !== undefined) {
       values[key] = changes[key];
     }

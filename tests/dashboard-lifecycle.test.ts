@@ -33,6 +33,7 @@ function viewQuery(changes: Partial<ViewQuery> = {}): ViewQuery {
     search: "",
     account: "",
     category: "",
+    type: "",
     syncRun: "",
     page: 1,
     ...changes
@@ -375,6 +376,8 @@ test("a transaction filter change marks only the transaction list as loading", a
     account: "synthetic-account"
   }, {
     category: "uncategorized"
+  }, {
+    type: "expense" as const
   }]) {
     rerender({
       query: viewQuery(changes)
