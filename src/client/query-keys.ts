@@ -7,6 +7,7 @@ export type TransactionListFilters = {
   search: string;
   account: string;
   category: string;
+  type: string;
   syncRun: string;
   page: number;
 };
