@@ -22,7 +22,8 @@
   width: 32px;
   flex: none;
 }
-.assignment-action {
+.assignment-action,
+.assignment-indicator {
   display: inline-flex;
   align-items: center;
   justify-content: center;

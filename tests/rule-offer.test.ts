@@ -228,9 +228,9 @@ test("rule creation is announced quietly and a later failed assignment reports i
     }));
   }
 
-  assert.equal(screen.queryByRole("dialog"), null);
+  assert.equal(screen.queryAllByRole("dialog").length, 0);
   assert.ok(screen.getAllByRole("status").some(region => region.textContent === "Rule created; 2 transactions categorized."));
-  assert.equal(document.activeElement, action);
+  assert.equal(document.activeElement === action, true);
 
   choose(screen, "Example Market", "Leis");
   await wait(0);
@@ -243,7 +243,7 @@ test("rule creation is announced quietly and a later failed assignment reports i
     status: 500
   }));
   assert.ok(screen.getAllByRole("status").some(region => region.textContent === "Category not saved: Request failed."));
-  assert.equal(screen.queryByRole("dialog"), null);
+  assert.equal(screen.queryAllByRole("dialog").length, 0);
 });
 
 test("saving never opens a prompt; the lightning action is explicit and disappears for Uncategorized", async context => {
@@ -270,7 +270,15 @@ test("saving never opens a prompt; the lightning action is explicit and disappea
     name: "Create rule for Example Market"
   }) as HTMLButtonElement;
 
-  assert.equal(action().getAttribute("data-assignment-source"), "rule");
+  assert.equal(Boolean(screen.queryByRole("button", {
+    name: "Create rule for Example Market"
+  })), false);
+  const automaticSource = document.querySelector('[data-assignment-source="rule"]');
+
+  assert.ok(automaticSource);
+  assert.equal(automaticSource.tagName, "SPAN");
+  act(() => fireEvent.click(automaticSource));
+  assert.equal(screen.queryAllByRole("dialog").length, 0);
   choose(screen, "Example Market", "Leis");
   await wait(0);
   assert.equal(action().disabled, true);
@@ -282,11 +290,11 @@ test("saving never opens a prompt; the lightning action is explicit and disappea
   };
   screen.rerender(row());
 
-  assert.equal(screen.queryByRole("region", {
+  assert.equal(screen.queryAllByRole("region", {
     name: "Category saved",
     hidden: true
-  }), null);
-  assert.equal(screen.queryByRole("dialog"), null);
+  }).length, 0);
+  assert.equal(screen.queryAllByRole("dialog").length, 0);
   assert.equal(action().getAttribute("data-assignment-source"), "manual");
   act(() => {
     action().focus();
@@ -298,7 +306,7 @@ test("saving never opens a prompt; the lightning action is explicit and disappea
   act(() => fireEvent.click(screen.getByRole("button", {
     name: "Close dialog"
   })));
-  assert.equal(document.activeElement, action());
+  assert.equal(document.activeElement === action(), true);
 
   choose(screen, "Example Market", "Uncat");
   await wait(0);
@@ -308,10 +316,10 @@ test("saving never opens a prompt; the lightning action is explicit and disappea
     category_id: null
   };
   screen.rerender(row());
-  assert.equal(screen.queryByRole("button", {
+  assert.equal(Boolean(screen.queryByRole("button", {
     name: "Create rule for Example Market"
-  }), null);
-  assert.equal(screen.queryByRole("dialog"), null);
+  })), false);
+  assert.equal(screen.queryAllByRole("dialog").length, 0);
 });
 
 test("rule creation waits for the current pattern and priority preview, including debounce and failed requests", async context => {
@@ -508,6 +516,6 @@ test("an explicitly opened draft survives removal of its filtered source row and
     }));
   }
 
-  assert.equal(screen.queryByRole("dialog"), null);
-  assert.equal(document.activeElement, headingRef.current);
+  assert.equal(screen.queryAllByRole("dialog").length, 0);
+  assert.equal(document.activeElement === headingRef.current, true);
 });

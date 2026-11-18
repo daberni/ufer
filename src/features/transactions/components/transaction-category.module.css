@@ -12,7 +12,7 @@
   pointer-events: auto;
 }
 
-/* A fixed width keeps the nowrap transaction table from widening with long category names; the open list shows them in full. The assignment action and saving status reserve space inside the field, so it keeps this width in every state. */
+/* A fixed width keeps the nowrap transaction table from widening with long category names; the open list shows them in full. The assignment action and saving status stay inside the field, so its outer width remains fixed. */
 .category .picker {
   width: 15rem;
   max-width: 100%;

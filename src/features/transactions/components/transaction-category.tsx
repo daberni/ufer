@@ -57,7 +57,7 @@ export function TransactionCategory({
           actionLabel: `Create rule for ${transaction.counterparty || transaction.description || transactionTypeLabels[transaction.type]}`,
           disabled: status?.kind === "saving",
           createRule: () => {
-            if (categoryId !== null) {
+            if (categoryId !== null && manual) {
               rules.open({
                 categoryId,
                 counterparty: transaction.counterparty,
@@ -66,11 +66,11 @@ export function TransactionCategory({
             }
           }
         }}
-        status={(
-          <span className={clsx(styles["status"], status && styles[status.kind])} aria-hidden="true">
-            {status?.kind === "saving" && <LoaderCircle className={ui["spinning"]} />}
-            {status?.kind === "saved" && <Check />}
-            {status?.kind === "failed" && <CircleAlert />}
+        status={status && (
+          <span className={clsx(styles["status"], styles[status.kind])} aria-hidden="true">
+            {status.kind === "saving" && <LoaderCircle className={ui["spinning"]} />}
+            {status.kind === "saved" && <Check />}
+            {status.kind === "failed" && <CircleAlert />}
           </span>
         )}
         aria-label={`Category for ${transaction.counterparty || transaction.description || transactionTypeLabels[transaction.type]}`}

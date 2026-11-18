@@ -49,7 +49,7 @@ type Props = ValueProps & {
   categories: readonly PickerCategory[];
   /** Offers "Uncategorized", chosen by null. */
   includeUncategorized?: boolean;
-  /** A transaction's assignment source and explicit rule action; null reserves the slot without showing an indicator. */
+  /** Transaction source; only manual assignments expose rule creation. Null shows no indicator. */
   assignment?: {
     source: "manual" | "rule" | null;
     actionLabel: string;
@@ -60,7 +60,7 @@ type Props = ValueProps & {
   size?: "regular" | "compact";
   /** Inline presentation is reserved for editable category labels in transaction rows. */
   appearance?: SearchableSelectAppearance;
-  /** Shown inside the field's right edge after the assignment indicator, such as the saving state of a change. */
+  /** Save feedback inside the field, before the dropdown toggle and source indicator. */
   status?: ReactNode;
   /** Submits the chosen category ID with a surrounding form. */
   name?: string;
@@ -75,7 +75,7 @@ type Props = ValueProps & {
 
 const assignmentHints = {
   manual: "Set manually; kept when syncing and applying rules",
-  rule: "Assigned by a categorization rule"
+  rule: "Assigned by a rule; source rule not recorded"
 };
 
 const categoryNoun = {
@@ -188,13 +188,13 @@ export function CategoryPicker({
         onCreate={includeAll ? undefined : setNewCategoryName}
         className={size === "compact" ? styles["compact"] : undefined}
         adornment={status && <span className={styles["adornment"]}>{status}</span>}
-        endAdornment={assignment && (
+        endAdornment={assignment && assignmentSource && (
           <span className={styles["assignment-slot"]}>
-            {assignmentSource && (
+            {assignmentSource === "manual" && (
               <button
                 type="button"
                 className={styles["assignment-action"]}
-                data-assignment-source={assignmentSource}
+                data-assignment-source="manual"
                 aria-label={assignment.actionLabel}
                 aria-describedby={assignmentHintId}
                 aria-haspopup="dialog"
@@ -202,8 +202,18 @@ export function CategoryPicker({
                 disabled={assignment.disabled}
                 onClick={assignment.createRule}
               >
-                <Zap className={clsx(styles["assignment-icon"], styles[assignmentSource])} aria-hidden="true" />
+                <Zap className={clsx(styles["assignment-icon"], styles["manual"])} aria-hidden="true" />
               </button>
+            )}
+            {assignmentSource === "rule" && (
+              <span
+                className={styles["assignment-indicator"]}
+                data-assignment-source="rule"
+                title={assignmentHint}
+                aria-hidden="true"
+              >
+                <Zap className={clsx(styles["assignment-icon"], styles["rule"])} />
+              </span>
             )}
           </span>
         )}
