@@ -52,6 +52,8 @@ export function MappedCsvImport({
   const [targets, setTargets] = useState<Record<string, MappedTarget>>({});
   const [summary, setSummary] = useState<MappedImportSummary | null>(null);
   const [importId, setImportId] = useState(() => crypto.randomUUID());
+  // Once a batch is saved, new accounts exist with the chosen name and currency; changing targets would split the import.
+  const [targetsLocked, setTargetsLocked] = useState(false);
   const accounts = useAccounts();
   const mutation = useMappedImport();
   const table = useMemo(() => {
@@ -115,6 +117,7 @@ export function MappedCsvImport({
     setMapping(suggested);
     setTargets({});
     setImportId(crypto.randomUUID());
+    setTargetsLocked(false);
   }
 
   function updateSettings(change: Partial<CsvSettings>) {
@@ -158,7 +161,8 @@ export function MappedCsvImport({
       rows: mapped.rows,
       rowErrors: mapped.errors,
       targets: resolvedTargets,
-      confirm
+      confirm,
+      onBatchSaved: () => setTargetsLocked(true)
     }, {
       onSuccess: result => {
         if (confirm) {
@@ -277,6 +281,7 @@ export function MappedCsvImport({
                     {target.source ? `Rows from “${target.source}”` : "All rows"}
                     <Select
                       value={target.accountId}
+                      disabled={targetsLocked}
                       onChange={event => updateTarget(target.source, {
                         accountId: event.target.value
                       })}
@@ -296,6 +301,7 @@ export function MappedCsvImport({
                         Account name
                         <input
                           value={target.name}
+                          disabled={targetsLocked}
                           maxLength={100}
                           onChange={event => updateTarget(target.source, {
                             name: event.target.value
@@ -306,6 +312,7 @@ export function MappedCsvImport({
                         Currency
                         <input
                           value={target.currency}
+                          disabled={targetsLocked}
                           maxLength={3}
                           onChange={event => updateTarget(target.source, {
                             currency: event.target.value.toUpperCase()

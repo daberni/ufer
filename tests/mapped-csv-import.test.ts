@@ -9,7 +9,8 @@ import { initializeDatabase } from "../src/server/database/migrations";
 import * as schema from "../src/server/database/schema";
 import { listAccounts } from "../src/features/accounts/server/account-queries";
 import { insertRule } from "../src/features/categorization/server/rule-repository";
-import { insertMappedEntries } from "../src/features/imports/server/mapped-import-repository";
+import { saveMappedEntries } from "../src/features/imports/server/mapped-import-repository";
+import { ValidationError } from "../src/lib/errors";
 import { importMappedRows } from "../src/features/imports/server/mapped-import-service";
 import { findDuplicates } from "../src/features/imports/server/duplicate-matching";
 import { saveAccountSync } from "../src/features/banking/server/account-sync-service";
@@ -650,7 +651,9 @@ test("saving rechecks duplicates in its write transaction, so bookings synced af
     type: "expense"
   });
 
-  const inserted = await insertMappedEntries("synthetic-bank-account", [{
+  const {
+    inserted
+  } = await saveMappedEntries("synthetic-bank-account", [{
     reference: "csv:m:late",
     date: "2024-07-01",
     amount: -2500,
@@ -662,5 +665,104 @@ test("saving rechecks duplicates in its write transaction, so bookings synced af
   }], null);
 
   assert.equal(inserted, 0);
+  assert.equal((await db.select().from(schema.transactions)).length, 1);
+});
+
+test("check and confirm agree when a duplicate row consumes a booking a later row of the batch could also match", async context => {
+  const db = await isolatedDatabase(context);
+
+  await insertBankAccount(db);
+  await db.insert(schema.transactions).values({
+    id: "synced-cafe",
+    account_id: "synthetic-bank-account",
+    provider_reference: "bank:cafe",
+    booking_date: "2024-08-02",
+    amount_minor: -1000,
+    currency: "EUR",
+    counterparty: "Example Cafe",
+    description: "",
+    type: "expense"
+  });
+
+  const payload = (confirm: boolean) => ({
+    import_id: importId,
+    rows: [mappedRow(2, "2024-08-02", "-10.00", "Example Cafe"), mappedRow(3, "2024-08-04", "-10.00", "Example Cafe")],
+    targets: [{
+      source: "",
+      account_id: "synthetic-bank-account"
+    }],
+    confirm
+  });
+  const checked = await importMappedRows(payload(false), now);
+  const confirmed = await importMappedRows(payload(true), now);
+
+  assert.equal(checked.newRows, 1);
+  assert.equal(confirmed.newRows, 1);
+  assert.deepEqual(confirmed.duplicates.map(duplicate => duplicate.line), [2]);
+});
+
+test("amounts accept currency symbols and codes but reject other letters", () => {
+  assert.equal(parseAmount("1e3", "."), null);
+  assert.equal(parseAmount("12abc", "."), null);
+  assert.equal(parseAmount("EUR -12,50", ","), "-12.50");
+  assert.equal(parseAmount("-€1.234,50", ","), "-1234.50");
+  assert.equal(parseAmount("(€1,234.56)", "."), "-1234.56");
+  assert.equal(parseAmount("12.00 usd", "."), "12.00");
+
+  const result = mapRows([["2024-01-01", "12.00 USD", "Shop"], ["2024-01-02", "1e3", "Shop"], ["2024-01-03", "5 GBP", "Shop", "EUR"]], {
+    date: 0,
+    amount: 1,
+    debit: null,
+    credit: null,
+    payee: 2,
+    description: null,
+    currency: 3,
+    category: null,
+    account: null
+  }, {
+    encoding: "utf-8",
+    delimiter: ",",
+    decimal: ".",
+    dateFormat: "YYYY-MM-DD"
+  });
+
+  assert.deepEqual(result.rows.map(row => [row.line, row.currency]), [[2, "USD"]]);
+  assert.deepEqual(result.errors.map(error => error.line), [3, 4]);
+});
+
+test("a retry uses the account an earlier batch created and rejects a conflicting configuration", async context => {
+  const db = await isolatedDatabase(context);
+  const target = (currency: string) => [{
+    source: "",
+    new_account: {
+      name: "Closed account",
+      currency
+    }
+  }];
+
+  await importMappedRows({
+    import_id: importId,
+    rows: [mappedRow(2, "2024-01-01", "-10.00", "Shop")],
+    targets: target("EUR"),
+    confirm: true
+  }, now);
+
+  const rechecked = await importMappedRows({
+    import_id: importId,
+    rows: [mappedRow(2, "2024-01-01", "-10.00", "Shop")],
+    targets: target("EUR"),
+    confirm: false
+  }, now);
+
+  assert.equal(rechecked.newRows, 0);
+  await assert.rejects(importMappedRows({
+    import_id: importId,
+    rows: [mappedRow(3, "2024-01-02", "-5.00", "Shop", {
+      currency: null
+    })],
+    targets: target("USD"),
+    confirm: true
+  }, now), ValidationError);
+  assert.equal((await db.select().from(schema.accounts)).length, 1);
   assert.equal((await db.select().from(schema.transactions)).length, 1);
 });

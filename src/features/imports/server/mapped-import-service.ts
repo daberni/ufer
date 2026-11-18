@@ -7,8 +7,8 @@ import { today, validDate } from "@/lib/time";
 import { listRules } from "@/features/categorization/server/rule-repository";
 import { categorizeEntries } from "@/features/transactions/server/categorize-entries";
 import { normalizeText, type RowError } from "../csv-mapping";
-import { duplicateDateToleranceDays, findDuplicates, mappedReferencePrefix, type DuplicateReason } from "./duplicate-matching";
-import { findImportTarget, insertMappedEntries, listCategoryNames, readBookingsBetween, type MappedEntry, type NewImportAccount } from "./mapped-import-repository";
+import { duplicateDateToleranceDays, mappedReferencePrefix, type DuplicateReason } from "./duplicate-matching";
+import { checkMappedEntries, findImportTarget, listCategoryNames, saveMappedEntries, type MappedEntry, type NewImportAccount } from "./mapped-import-repository";
 
 export const maxRowsPerRequest = 2000;
 
@@ -127,17 +127,13 @@ export async function importMappedRows(payload: unknown, now = Temporal.Now.inst
     });
   }
 
+  // Checking and confirming classify rows with the same function on the same data; confirming does it inside the write transaction.
   const {
     duplicates,
     matched,
-    possible
-  } = await markDuplicates(planned, input.consumed);
-  const fresh = planned.filter(item => !duplicates.has(item.line));
-  let newRows = fresh.length;
-
-  if (input.confirm) {
-    newRows = await saveRows(fresh, targets, input.consumed);
-  }
+    possible,
+    newRows
+  } = await classifyAndSave(planned, targets, input.consumed, input.confirm);
 
   return {
     confirmed: input.confirm,
@@ -159,11 +155,19 @@ async function resolveTargets(importId: string, inputs: z.infer<typeof target>[]
 
   for (const input of inputs) {
     if (input.new_account) {
-      // Checking creates nothing, so a new account has no bookings to compare against yet.
+      const id = importAccountId(importId, input.source);
+      const persisted = await findImportTarget(id);
+
+      // An earlier confirmed batch of this import created the account; its stored configuration is authoritative.
+      if (persisted && (persisted.currency !== input.new_account.currency || persisted.name !== input.new_account.name)) {
+        throw new ValidationError(`The account “${persisted.name}” (${persisted.currency}) was already created by this import; keep its name and currency.`);
+      }
+
+      // Checking creates nothing: until the account exists it has no bookings to compare against.
       targets.set(input.source, {
-        accountId: confirm ? importAccountId(importId, input.source) : null,
+        accountId: confirm || persisted ? id : null,
         currency: input.new_account.currency,
-        newAccount: {
+        newAccount: persisted ? null : {
           name: input.new_account.name,
           currency: input.new_account.currency
         }
@@ -232,64 +236,47 @@ function importReference(date: string, amount: number, payee: string, descriptio
   return `${mappedReferencePrefix}${createHash("sha256").update(content).digest("hex").slice(0, 32)}`;
 }
 
-async function markDuplicates(planned: PlannedRow[], consumed: z.infer<typeof matchedBooking>[]) {
+async function classifyAndSave(planned: PlannedRow[], targets: Map<string, Target>, consumed: z.infer<typeof matchedBooking>[], confirm: boolean) {
   const duplicates = new Map<number, DuplicateReason>();
   const matched: z.infer<typeof matchedBooking>[] = [];
   const possible: number[] = [];
-  const accountIds = new Set(planned.flatMap(item => item.accountId ? [item.accountId] : []));
+  const rules = confirm ? await listRules() : [];
+  const newAccounts = new Map([...targets.values()].flatMap(target => target.accountId && target.newAccount ? [[target.accountId, target.newAccount] as const] : []));
+  let newRows = planned.filter(item => item.accountId === null).length;
 
-  for (const accountId of accountIds) {
+  for (const accountId of new Set(planned.flatMap(item => item.accountId ? [item.accountId] : []))) {
     const rows = planned.filter(item => item.accountId === accountId);
-    const dates = rows.map(item => item.entry.date).sort();
-    const from = shiftDate(dates[0], -duplicateDateToleranceDays);
-    const to = shiftDate(dates[dates.length - 1], duplicateDateToleranceDays);
-    const existing = await readBookingsBetween(accountId, from, to);
+    const entries = rows.map(item => item.entry);
     const absorbed = new Set(consumed.filter(item => item.account_id === accountId).map(item => item.reference));
-    const found = findDuplicates(rows.map(item => item.entry), existing, absorbed);
+    const result = confirm ? await saveMappedEntries(accountId, categorized(entries, rules), newAccounts.get(accountId) ?? null, absorbed) : await checkMappedEntries(accountId, entries, absorbed);
 
-    for (const [index, reason] of found.duplicates) {
+    for (const [index, reason] of result.duplicates) {
       duplicates.set(rows[index].line, reason);
     }
 
-    possible.push(...found.possible.map(index => rows[index].line));
-    matched.push(...found.matched.map(booking => ({
+    possible.push(...result.possible.map(index => rows[index].line));
+    matched.push(...result.matched.map(booking => ({
       account_id: accountId,
       ...booking
     })));
+    newRows += result.inserted;
   }
 
   return {
     duplicates,
     matched,
-    possible
+    possible,
+    newRows
   };
 }
 
-async function saveRows(rows: PlannedRow[], targets: Map<string, Target>, consumed: z.infer<typeof matchedBooking>[]) {
-  const rules = await listRules();
-  const newAccounts = new Map([...targets.values()].flatMap(target => target.accountId && target.newAccount ? [[target.accountId, target.newAccount] as const] : []));
-  const accountIds = new Set(rows.flatMap(item => item.accountId ? [item.accountId] : []));
-  let saved = 0;
+/** Rules categorize rows without a category from the CSV. */
+function categorized(entries: MappedEntry[], rules: Awaited<ReturnType<typeof listRules>>) {
+  const uncategorized = entries.filter(entry => !entry.categoryId);
+  const ruled = categorizeEntries(uncategorized, rules);
 
-  for (const accountId of accountIds) {
-    const entries = rows.filter(item => item.accountId === accountId).map(item => item.entry);
-    const uncategorized = entries.filter(entry => !entry.categoryId);
-    const ruled = categorizeEntries(uncategorized, rules);
-    const categorized = entries.map(entry => entry.categoryId ? entry : {
-      ...entry,
-      categoryId: ruled[uncategorized.indexOf(entry)].categoryId
-    });
-
-    const absorbed = new Set(consumed.filter(item => item.account_id === accountId).map(item => item.reference));
-
-    saved += await insertMappedEntries(accountId, categorized, newAccounts.get(accountId) ?? null, absorbed);
-  }
-
-  return saved;
-}
-
-function shiftDate(date: string, days: number) {
-  return Temporal.PlainDate.from(date).add({
-    days
-  }).toString();
+  return entries.map(entry => entry.categoryId ? entry : {
+    ...entry,
+    categoryId: ruled[uncategorized.indexOf(entry)].categoryId
+  });
 }

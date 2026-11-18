@@ -69,6 +69,8 @@ type MappedImport = {
   rowErrors: RowError[];
   targets: MappedTarget[];
   confirm: boolean;
+  /** Called once a confirmed batch is saved; from then on the import's targets are fixed. */
+  onBatchSaved?: () => void;
 };
 
 /** Checks or saves mapped rows in request batches and merges the batch summaries. The server creates new accounts with the first confirmed batch. */
@@ -81,7 +83,8 @@ export function useMappedImport() {
       rows,
       rowErrors,
       targets,
-      confirm
+      confirm,
+      onBatchSaved
     }: MappedImport) => {
       const resolved = targets.map(target => target.accountId === "new" ? {
         source: target.source,
@@ -114,6 +117,10 @@ export function useMappedImport() {
           consumed: pruneConsumed(consumed, batch[0].date),
           confirm
         });
+
+        if (confirm) {
+          onBatchSaved?.();
+        }
 
         consumed = [...consumed, ...result.matched];
         summary.newRows += result.newRows;

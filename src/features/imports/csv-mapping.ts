@@ -214,9 +214,48 @@ export function parseDate(value: string, format: DateFormat): string | null {
   return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
-/** Reads a money amount with the given decimal separator into a signed decimal string with a point; tolerates currency symbols, grouping, a trailing minus and accounting parentheses. */
+const currencySymbols: Record<string, string | null> = {
+  "€": "EUR",
+  "£": "GBP",
+  // Shared by several currencies, so they identify none.
+  "$": null,
+  "¥": null
+};
+
+let isoCurrencies: Set<string> | undefined;
+
+/** Splits a leading or trailing currency symbol or ISO 4217 code off an amount; any other letters stay and make the amount invalid. */
+export function splitCurrency(value: string): {
+  text: string;
+  currency: string | null;
+} {
+  isoCurrencies ??= new Set(Intl.supportedValuesOf("currency"));
+
+  let text = value.trim();
+  let currency: string | null = null;
+  const code = /^([A-Za-z]{3})(?![A-Za-z])|(?<![A-Za-z])([A-Za-z]{3})$/.exec(text);
+
+  if (code && isoCurrencies.has((code[1] ?? code[2]).toUpperCase())) {
+    currency = (code[1] ?? code[2]).toUpperCase();
+    text = text.replace(code[0], "").trim();
+  }
+
+  const symbol = Object.keys(currencySymbols).find(candidate => text.includes(candidate));
+
+  if (symbol) {
+    currency ??= currencySymbols[symbol];
+    text = text.replaceAll(symbol, "").trim();
+  }
+
+  return {
+    text,
+    currency
+  };
+}
+
+/** Reads a money amount with the given decimal separator into a signed decimal string with a point; tolerates a currency symbol or code, grouping, a trailing minus and accounting parentheses. Other letters, such as an exponent, make it invalid. */
 export function parseAmount(value: string, decimal: DecimalSeparator): string | null {
-  let text = value.replace(/[\s '’]/g, "").replace(/[A-Za-z€$£¥]/g, "");
+  let text = splitCurrency(value).text.replace(/[\s\u00a0'’]/g, "");
   let negative = false;
 
   if (/^\(.*\)$/.test(text)) {
@@ -343,6 +382,8 @@ export function mapRows(rows: string[][], mapping: CsvMapping, settings: CsvSett
     const cell = (column: number | null) => column === null ? "" : (row[column] ?? "").trim();
     const date = parseDate(cell(mapping.date), settings.dateFormat);
     const amount = rowAmount(cell, mapping, settings.decimal);
+    const columnCurrency = cell(mapping.currency).toUpperCase() || null;
+    const amountCurrency = rowAmountCurrency(cell, mapping);
 
     if (!date) {
       errors.push({
@@ -362,6 +403,15 @@ export function mapRows(rows: string[][], mapping: CsvMapping, settings: CsvSett
       return;
     }
 
+    if (columnCurrency && amountCurrency && columnCurrency !== amountCurrency) {
+      errors.push({
+        line,
+        message: `The amount is in ${amountCurrency}, but the currency column says ${columnCurrency}.`
+      });
+
+      return;
+    }
+
     const payee = cell(mapping.payee).slice(0, 500);
     const description = cell(mapping.description).slice(0, 2000);
     const source = cell(mapping.account).slice(0, 200);
@@ -373,7 +423,7 @@ export function mapRows(rows: string[][], mapping: CsvMapping, settings: CsvSett
       line,
       date,
       amount,
-      currency: cell(mapping.currency).toUpperCase() || null,
+      currency: columnCurrency ?? amountCurrency,
       payee,
       description,
       category: cell(mapping.category).slice(0, 100) || null,
@@ -423,6 +473,12 @@ function rowAmount(cell: (column: number | null) => string, mapping: CsvMapping,
   const cents = Math.round(Math.abs(Number(credit)) * factor) - Math.round(Math.abs(Number(debit)) * factor);
 
   return (cents / factor).toFixed(scale);
+}
+
+function rowAmountCurrency(cell: (column: number | null) => string, mapping: CsvMapping) {
+  const columns = mapping.amount !== null ? [mapping.amount] : [mapping.debit, mapping.credit];
+
+  return columns.map(column => splitCurrency(cell(column)).currency).find(currency => currency !== null) ?? null;
 }
 
 function fractionDigits(value: string) {

@@ -31,17 +31,14 @@ export async function findImportTarget(id: string) {
 
   return db.select({
     id: accounts.id,
+    name: accounts.name,
     currency: accounts.currency,
     provider: accounts.provider
   }).from(accounts).where(and(eq(accounts.id, id), eq(accounts.environment, environment()))).get();
 }
 
 /** Bookings that imported rows could duplicate; balance corrections are never imported rows. */
-export async function readBookingsBetween(accountId: string, from: string, to: string): Promise<ExistingBooking[]> {
-  return bookingsBetween(await database(), accountId, from, to);
-}
-
-function bookingsBetween(executor: Pick<DatabaseTransaction, "select">, accountId: string, from: string, to: string): Promise<ExistingBooking[]> {
+function bookingsBetween(executor: Executor, accountId: string, from: string, to: string): Promise<ExistingBooking[]> {
   const scope = and(eq(transactions.account_id, accountId), between(transactions.booking_date, from, to), notInArray(transactions.type, ["opening_balance", "adjustment"]));
 
   return executor.select({
@@ -62,15 +59,33 @@ export async function listCategoryNames() {
   }).from(categories);
 }
 
-/**
- * Inserts new rows only. Duplicates are checked again inside the write transaction, so a bank sync that saved the same bookings after the caller's check cannot cause duplicates. A row whose reference the account already holds is left untouched, so confirming an import again changes nothing and existing categories survive.
- * Inserting bookings never writes a bank-linked account's provider balance.
- */
-export async function insertMappedEntries(accountId: string, entries: MappedEntry[], newAccount: NewImportAccount | null, consumed: ReadonlySet<string> = new Set()) {
-  const db = await database();
-  let inserted = 0;
+type Executor = Pick<DatabaseTransaction, "select">;
 
-  await db.transaction(async tx => {
+async function classify(executor: Executor, accountId: string, entries: MappedEntry[], consumed: ReadonlySet<string>) {
+  const dates = entries.map(entry => entry.date).sort();
+  const existing = entries.length === 0 ? [] : await bookingsBetween(executor, accountId, shiftDays(dates[0], -duplicateDateToleranceDays), shiftDays(dates[dates.length - 1], duplicateDateToleranceDays));
+
+  return findDuplicates(entries, existing, consumed);
+}
+
+/** Classifies rows against the account's bookings without writing anything. */
+export async function checkMappedEntries(accountId: string, entries: MappedEntry[], consumed: ReadonlySet<string>) {
+  const found = await classify(await database(), accountId, entries, consumed);
+
+  return {
+    ...found,
+    inserted: entries.length - found.duplicates.size
+  };
+}
+
+/**
+ * Classifies rows exactly like `checkMappedEntries`, but inside the write transaction, and inserts the new ones, so a bank sync between check and confirmation cannot cause duplicates and both report the same result on unchanged data.
+ * A row whose reference the account already holds is left untouched, so confirming again changes nothing and existing categories survive. Inserting bookings never writes a bank-linked account's provider balance.
+ */
+export async function saveMappedEntries(accountId: string, entries: MappedEntry[], newAccount: NewImportAccount | null, consumed: ReadonlySet<string> = new Set()) {
+  const db = await database();
+
+  return db.transaction(async tx => {
     if (newAccount) {
       // The ID is stable per import and source account, so a retried or later batch reuses the account. It has no opening balance: its balance is the sum of the imported rows.
       await tx.insert(accounts).values({
@@ -83,7 +98,9 @@ export async function insertMappedEntries(accountId: string, entries: MappedEntr
       }).onConflictDoNothing();
     }
 
-    const fresh = await withoutDuplicates(tx, accountId, entries, consumed);
+    const found = await classify(tx, accountId, entries, consumed);
+    const fresh = entries.filter((_entry, index) => !found.duplicates.has(index));
+    let inserted = 0;
 
     // Bound statement parameters for both local SQLite and remote libSQL deployments.
     for (let offset = 0; offset < fresh.length; offset += 50) {
@@ -110,23 +127,12 @@ export async function insertMappedEntries(accountId: string, entries: MappedEntr
     }
 
     await pairTransfers(tx, environment());
+
+    return {
+      ...found,
+      inserted
+    };
   });
-
-  return inserted;
-}
-
-async function withoutDuplicates(tx: DatabaseTransaction, accountId: string, entries: MappedEntry[], consumed: ReadonlySet<string>) {
-  if (entries.length === 0) {
-    return entries;
-  }
-
-  const dates = entries.map(entry => entry.date).sort();
-  const existing = await bookingsBetween(tx, accountId, shiftDays(dates[0], -duplicateDateToleranceDays), shiftDays(dates[dates.length - 1], duplicateDateToleranceDays));
-  const {
-    duplicates
-  } = findDuplicates(entries, existing, consumed);
-
-  return entries.filter((_entry, index) => !duplicates.has(index));
 }
 
 /**
