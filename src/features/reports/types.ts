@@ -27,3 +27,13 @@ export type CashFlow = {
     expenseBreakdown: CategoryAmount[];
   }[];
 };
+
+/** One account's flows in a period, in the account's currency; income and expenses exclude categorized transfers, which are reported separately. */
+export type AccountCashFlow = {
+  period: PeriodJson;
+  currency: string;
+  income: number;
+  expenses: number;
+  transfersIn: number;
+  transfersOut: number;
+};

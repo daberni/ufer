@@ -47,7 +47,8 @@ Every component that reads a URL hook re-renders when any query parameter change
 
 - `feedback`: the page-level message for results without a surviving trigger (a bank callback, a failed rule toggle, an unconfirmed revocation), also bound to its pathname;
 - `locked`: whether the sign-in form replaces the dashboard; locking still clears the query and mutation caches as ADR 006 requires and also drops page feedback;
-- `periodScope`: the period and currency last selected on a period-aware view.
+- `periodScope`: the period and currency last selected on a period-aware view;
+- `accountList`: the overview or accounts view visited last, to which an account's details link back (amended 2026-11-17, issue #139).
 
 Page feedback belongs to the view it was reported on: it is hidden as soon as the pathname differs and cleared after the navigation, including Back and Forward.
 
