@@ -12,7 +12,7 @@ import { TransactionList, TransactionListSkeleton } from "@/features/transaction
 import { CsvImportDialog } from "@/features/imports/components/csv-import-form";
 import { ManualTransactionDialog } from "@/features/transactions/components/manual-transaction-dialog";
 import { useAccounts } from "@/features/accounts/queries";
-import { setAccountFilter, setCategoryFilter, setPage, setSearch, useAccountFilter, useCategoryFilter, useChangeView, useSearchFilter } from "@/client/use-app-url";
+import { setAccountFilter, setCategoryFilter, setTypeFilter, setPage, setSearch, useAccountFilter, useCategoryFilter, useTypeFilter, useChangeView, useSearchFilter } from "@/client/use-app-url";
 import { Select } from "@/components/ui/select";
 import { anyCategory, CategoryPicker, type CategoryPickerValue } from "@/features/categorization/components/category-picker";
 import { useSearchDraft } from "@/features/transactions/use-search-draft";
@@ -22,6 +22,7 @@ import { AreaPlaceholder } from "@/components/ui/area-placeholder";
 import { pendingTogether, type Area, type AreaResult } from "@/components/ui/use-area-result";
 import type { Account } from "@/features/accounts/types";
 import type { Category } from "@/features/categorization/types";
+import { transactionTypes, transactionTypeLabels } from "@/features/transactions/transaction-types";
 import type { TransactionPage } from "@/features/transactions/types";
 
 type Props = {
@@ -202,6 +203,7 @@ function TransactionFilters({
 }) {
   const accountFilter = useAccountFilter();
   const categoryFilter = useCategoryFilter();
+  const typeFilter = useTypeFilter();
 
   return (
     <div className={styles["filters"]}>
@@ -217,6 +219,10 @@ function TransactionFilters({
             {account.name}
           </option>
         ))}
+      </Select>
+      <Select aria-label="Transaction type filter" value={typeFilter} onChange={event => setTypeFilter(event.target.value)}>
+        <option value="">All types</option>
+        {transactionTypes.map(type => <option key={type} value={type}>{transactionTypeLabels[type]}</option>)}
       </Select>
       <CategoryPicker
         className={styles["category-filter"]}
