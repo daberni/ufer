@@ -52,3 +52,10 @@ Rules match payee and description case-insensitively. Lower priority numbers win
 ### Recorded bank balance classification
 
 A bank balance observation retains the selected provider `balance_type` alongside its amount and date. The history source label distinguishes closing booked, interim booked, closing available, interim available, previous closing booked and expected balances; observations recorded before this provenance was retained show an unknown type. These are provider classifications, not a claim that Ufer certifies historical bank closing balances. Daily values reconstructed from transactions are labelled as estimates and do not inherit the anchor's bank classification. Selection priority is unchanged. Code meanings follow the [Enable Banking API reference](https://enablebanking.com/docs/api/reference/).
+
+
+### Account display names
+
+Open an account's details and select its heading to rename it, for both manual and bank-linked accounts. Names are trimmed and must contain 1–100 characters. Duplicate display names are allowed: immutable account IDs and provider identifiers distinguish accounts. Renaming changes no bank identity, connection, balance or transaction. Account lists and transaction labels refresh after saving.
+
+A bank-supplied account name or product remains visible in the details as “Bank account name” when known. A reconnect may refresh that provider label but preserves the custom display name. Existing installations have no recoverable separate provider label until the bank supplies it during a later authorization; no historical name is inferred.

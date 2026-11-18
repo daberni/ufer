@@ -1,6 +1,7 @@
 export type Account = {
   id: string;
   name: string;
+  provider_name: string | null;
   institution: string;
   kind: string;
   currency: string;

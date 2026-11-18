@@ -288,7 +288,8 @@ test("the auth upgrade preserves financial history and linked credentials while 
       "INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,category_id,category_source) VALUES('entry','asset','original-reference','2026-11-15',-2500,'EUR','groceries','manual')",
       "INSERT INTO balance_snapshots(id,account_id,observed_at,amount_minor,source) VALUES('snapshot','asset','2026-11-15',12345,'sync')"
     ], "write");
-    const financialBefore = await client.execute("SELECT * FROM accounts");
+    const financialColumns = await columnList(client, "accounts");
+    const financialBefore = await client.execute(`SELECT ${financialColumns} FROM accounts`);
     const transactionColumns = await columnList(client, "transactions");
     const transactionsBefore = await client.execute(`SELECT ${transactionColumns} FROM transactions`);
     const historyColumns = await columnList(client, "balance_snapshots");
@@ -297,7 +298,7 @@ test("the auth upgrade preserves financial history and linked credentials while 
     await assert.rejects(initializeDatabase(client), /migrations are pending/);
     await migrateDatabase(client);
 
-    assert.deepEqual((await client.execute("SELECT * FROM accounts")).rows, financialBefore.rows);
+    assert.deepEqual((await client.execute(`SELECT ${financialColumns} FROM accounts`)).rows, financialBefore.rows);
     assert.deepEqual((await client.execute(`SELECT ${transactionColumns} FROM transactions`)).rows, transactionsBefore.rows.map(row => ({
       ...row,
       category_id: row.category_id === "transfer" ? null : row.category_id
@@ -856,7 +857,8 @@ test("bank balance provenance migration preserves existing history and leaves it
     ], "write");
     const columns = await columnList(client, "balance_snapshots");
     const balances = (await client.execute(`SELECT ${columns} FROM balance_snapshots ORDER BY id`)).rows;
-    const accounts = (await client.execute("SELECT * FROM accounts ORDER BY id")).rows;
+    const accountColumns = await columnList(client, "accounts");
+    const accounts = (await client.execute(`SELECT ${accountColumns} FROM accounts ORDER BY id`)).rows;
     const bookings = (await client.execute("SELECT * FROM transactions ORDER BY id")).rows;
 
     await assert.rejects(initializeDatabase(client), /migrations are pending/);
@@ -864,9 +866,49 @@ test("bank balance provenance migration preserves existing history and leaves it
     await migrateDatabase(client);
 
     assert.deepEqual((await client.execute(`SELECT ${columns} FROM balance_snapshots ORDER BY id`)).rows, balances);
-    assert.deepEqual((await client.execute("SELECT * FROM accounts ORDER BY id")).rows, accounts);
+    assert.deepEqual((await client.execute(`SELECT ${accountColumns} FROM accounts ORDER BY id`)).rows, accounts);
     assert.deepEqual((await client.execute("SELECT * FROM transactions ORDER BY id")).rows, bookings);
     assert.deepEqual((await client.execute("SELECT bank_balance_type FROM balance_snapshots ORDER BY id")).rows.map(row => row.bank_balance_type), [null, null]);
+    assert.equal((await client.execute("PRAGMA foreign_key_check")).rows.length, 0);
+  } finally {
+    client.close();
+    rmSync(directory, {
+      recursive: true,
+      force: true
+    });
+  }
+});
+
+
+test("provider-name migration keeps existing custom names and identities without inferring provider labels", async () => {
+  const client = createClient({
+    url: ":memory:"
+  });
+  const directory = mkdtempSync(join(tmpdir(), "ufer-provider-name-"));
+  const journal = JSON.parse(readFileSync("drizzle/sqlite/meta/_journal.json", "utf8"));
+
+  journal.entries = journal.entries.filter((entry: {
+    idx: number
+  }) => entry.idx < 9);
+  mkdirSync(join(directory, "meta"));
+
+  for (const entry of journal.entries) {
+    cpSync(`drizzle/sqlite/${entry.tag}.sql`, join(directory, `${entry.tag}.sql`));
+  }
+
+  writeFileSync(join(directory, "meta/_journal.json"), JSON.stringify(journal));
+
+  try {
+    await migrateDatabase(client, directory);
+    await client.execute("INSERT INTO accounts(id,environment,name,institution,kind,provider,provider_uid,balance_minor,balance_date) VALUES('named','SANDBOX','Custom name','Example bank','checking','enable_banking','stable-provider-id',12345,'2026-01-01')");
+    const columns = await columnList(client, "accounts");
+    const before = (await client.execute(`SELECT ${columns} FROM accounts`)).rows;
+
+    await assert.rejects(initializeDatabase(client), /migrations are pending/);
+    await migrateDatabase(client);
+    await migrateDatabase(client);
+    assert.deepEqual((await client.execute(`SELECT ${columns} FROM accounts`)).rows, before);
+    assert.equal((await client.execute("SELECT provider_name FROM accounts")).rows[0].provider_name, null);
     assert.equal((await client.execute("PRAGMA foreign_key_check")).rows.length, 0);
   } finally {
     client.close();

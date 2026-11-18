@@ -38,6 +38,7 @@ export const accounts = sqliteTable("accounts", {
   id: text("id").primaryKey(),
   environment: text("environment").notNull(),
   name: text("name").notNull(),
+  provider_name: text("provider_name"),
   institution: text("institution").notNull(),
   kind: text("kind", {
     enum: ["checking", "savings", "investment", "loan", "property", "credit_card"]
