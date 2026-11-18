@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { createHash, generateKeyPairSync } from "node:crypto";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { backup, DatabaseSync } from "node:sqlite";
@@ -316,5 +316,47 @@ test("missing, corrupt and pending artifacts are rejected without file creation 
   const before = fingerprint(file);
 
   assert.throws(() => verifyLocalBackup(file), /matching the backup's applied migrations/);
+  assert.equal(fingerprint(file), before);
+});
+
+
+test("verification rejects a WAL-backed file whose committed rows are absent from the main file alone", async context => {
+  const {
+    directory,
+    file,
+    client,
+    db
+  } = await localFixture(context);
+
+  await client.execute("PRAGMA journal_mode=WAL");
+  await client.execute("PRAGMA wal_autocheckpoint=0");
+  await db.insert(schema.accounts).values({
+    id: "wal-only",
+    environment: "SANDBOX",
+    name: "Synthetic WAL account",
+    institution: "Example bank",
+    kind: "checking"
+  });
+  assert.ok(statSync(`${file}-wal`).size > 0);
+  const fileOnly = join(directory, "incomplete-file-only.sqlite");
+
+  copyFileSync(file, fileOnly);
+  const incomplete = new DatabaseSync(fileOnly, {
+    readOnly: true
+  });
+
+  try {
+    assert.equal(incomplete.prepare("SELECT COUNT(*) AS count FROM accounts").get()?.count, 0);
+  } finally {
+    incomplete.close();
+  }
+
+  const before = fingerprint(file);
+
+  assert.throws(() => verifyLocalBackup(file), /self-contained/);
+  const link = join(directory, "backup-link.sqlite");
+
+  symlinkSync(file, link);
+  assert.throws(() => verifyLocalBackup(link), /self-contained/);
   assert.equal(fingerprint(file), before);
 });

@@ -1,4 +1,4 @@
-import { statSync } from "node:fs";
+import { realpathSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { getTableName, is } from "drizzle-orm";
@@ -15,11 +15,13 @@ export function verifyLocalBackup(filename: string, options: {
     throw new Error("Provide a local filesystem path, not a database URL.");
   }
 
-  const file = resolve(filename);
+  const file = realpathSync(resolve(filename));
 
   if (!statSync(file).isFile()) {
     throw new Error("Provide an existing local SQLite backup file.");
   }
+
+  assertStandaloneBackup(file);
 
   const db = new DatabaseSync(file, {
     readOnly: true
@@ -72,6 +74,8 @@ export function verifyLocalBackup(filename: string, options: {
       }
     }
 
+    assertStandaloneBackup(file);
+
     return {
       appliedMigrations: status.applied,
       counts,
@@ -80,5 +84,19 @@ export function verifyLocalBackup(filename: string, options: {
     };
   } finally {
     db.close();
+  }
+}
+
+
+function assertStandaloneBackup(file: string) {
+  // Read-only SQLite still consults recovery logs; those pages would be lost when moving only the named artifact.
+  for (const suffix of ["-wal", "-journal"]) {
+    const sidecar = statSync(`${file}${suffix}`, {
+      throwIfNoEntry: false
+    });
+
+    if (sidecar && sidecar.size > 0) {
+      throw new Error("The backup is not self-contained: nonempty SQLite recovery logs are present. Create a consistent SQLite backup in a fresh directory before verification.");
+    }
   }
 }

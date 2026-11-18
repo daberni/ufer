@@ -24,7 +24,9 @@ Use the repository revision matching the artifact's applied migrations and Node 
 npm run db:verify-backup -- --file=/path/to/offline-copy.sqlite
 ```
 
-The file must already exist. The command opens it read-only and checks SQLite integrity, foreign keys, exact applied migration identities/checksums and the presence/counts of the application's tables. It does not create a missing database, apply migrations, repair data, load `.env` files, use `DATABASE_URL` as a fallback or call a bank/provider. A pending, changed or newer migration history fails; select the matching application revision rather than bypassing it.
+The file must already exist and remain quiescent throughout verification. This is an offline artifact check, not a way to certify a live data directory. Nonempty `-wal` or rollback `-journal` siblings are rejected before opening and before reporting success, including when the supplied path is a symlink. Create a self-contained SQLite API snapshot in a fresh directory instead; copying just the main file beside an active WAL can omit committed records.
+
+The command opens the artifact read-only and checks SQLite integrity, foreign keys, exact applied migration identities/checksums and the presence/counts of the application's tables. It does not create a missing database, apply migrations, repair data, load `.env` files, use `DATABASE_URL` as a fallback or call a bank/provider. A pending, changed or newer migration history fails; select the matching application revision rather than bypassing it.
 
 The JSON result contains migration/table counts and `bankSessionSecrets: "not_checked"`. No account names, transaction contents, password hashes or encrypted/decrypted session values are emitted. Counts help compare against a separately recorded source manifest; a self-consistent export alone cannot prove that every original record was included.
 
@@ -48,7 +50,7 @@ The command decrypts locally using Ufer's existing encryption implementation and
 
 `tests/backup-restore.test.ts` creates a local database with an individual owner, encrypted synthetic bank session and manually corrected transaction. It writes committed data in WAL mode, takes a consistent SQLite API backup to a fresh file, and exercises recovery against that file. It verifies unchanged financial rows and manual corrections, signing in with the restored owner's credentials, workspace access, decryption with the matching key and a successful fully mocked bank sync on the restored copy. The source balance stays unchanged.
 
-Additional cases verify rejection of missing/corrupt artifacts, broken foreign keys, altered/pending migration history and wrong encryption keys. File checksums remain unchanged during verification. The missing-key check is explicit rather than silently counted as complete recovery. These checks were exercised only with synthetic local data; they do not replace a restore trial of an actual authorized hosted export.
+A regression fixture also demonstrates a committed account present in WAL but missing from a raw main-file copy; the verifier rejects that source and its symlink instead of reporting the WAL-assisted counts as a standalone backup. Additional cases verify rejection of missing/corrupt artifacts, broken foreign keys, altered/pending migration history and wrong encryption keys. File checksums remain unchanged during verification. The missing-key check is explicit rather than silently counted as complete recovery. These checks were exercised only with synthetic local data; they do not replace a restore trial of an actual authorized hosted export.
 
 ## Open operations decisions
 
