@@ -20,7 +20,6 @@ export const categoryIconLabels = {
   bar: "Bars & alcohol",
   fuel: "Fuel",
   transit: "Public transport",
-  bike: "Bike",
   insurance: "Insurance",
   phone: "Phone & internet",
   subscriptions: "Subscriptions & streaming",

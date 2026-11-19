@@ -11,7 +11,7 @@
   padding: 0;
   margin-bottom: var(--space-2);
 }
-/* Column counts divide the 36 icons so every row is complete. */
+/* Column counts divide the 36 options (no icon plus 35 icons) so every row is complete. */
 .icon-options {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -44,14 +44,6 @@
   background: var(--surface);
   color: var(--muted);
   cursor: pointer;
-}
-.icon-picker .icon-option.no-icon-option {
-  flex-direction: row;
-  gap: var(--space-2);
-  width: fit-content;
-  padding: 0 var(--space-3);
-  margin-bottom: var(--space-2);
-  font-size: var(--text-sm);
 }
 .icon-picker .icon-option:hover {
   border-color: var(--ink);
