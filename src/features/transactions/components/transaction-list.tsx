@@ -98,7 +98,6 @@ function TransactionRow({
         {editing && <TransactionEditDialog transaction={transaction} close={() => setEditing(false)} />}
       </th>
       <td role="cell" className={styles["category"]}>
-        <span className={styles["category-label"]} aria-hidden="true">Category</span>
         <TransactionCategory categories={categories} transaction={transaction} />
       </td>
       <td role="cell" className={styles["account"]}>
@@ -173,7 +172,6 @@ export function TransactionListSkeleton({ rows }: {
                 </div>
               </th>
               <td className={styles["category"]}>
-                <span className={styles["category-label"]}>Category</span>
                 <TransactionCategorySkeleton />
               </td>
               <td className={styles["account"]}>
