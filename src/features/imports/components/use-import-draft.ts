@@ -5,8 +5,9 @@ import { useAccounts } from "@/features/accounts/queries";
 import { useAreaResult } from "@/components/ui/use-area-result";
 import { useCategories } from "@/features/categorization/queries";
 import { useMappedImport, type MappedImportSummary } from "@/features/imports/mutations";
-import { decodeCsv, detectDateFormat, detectDecimal, detectDelimiter, mapRows, mappingProblem, parseCsv, importIdFor, readCsvTable, suggestMapping, type CsvMapping, type CsvSettings } from "@/features/imports/csv-mapping";
-import { categoryValues, defaultCategorySelection, importKey, defaultTargetChoice, needsCategoryReview, prepareImport, sourceAccounts, type CategorySelection, type TargetChoice } from "@/features/imports/import-plan";
+import { decodeCsv, detectDateFormat, detectDecimal, detectDelimiter, mapRows, mappingProblem, matchTemplate, parseCsv, importIdFor, readCsvTable, suggestMapping, templateMapping, type CsvMapping, type CsvSettings, type CsvTemplate } from "@/features/imports/csv-mapping";
+import { categoryValues, defaultCategorySelection, importKey, defaultTargetChoice, needsCategoryReview, prepareImport, sourceAccounts, templateChoices, type CategorySelection, type TargetChoice } from "@/features/imports/import-plan";
+import { useImportTemplates } from "@/features/imports/template-queries";
 
 /** Large multi-year exports are read in the browser and sent as mapped rows in batches, so only the browser's memory bounds the file. */
 const maxFileBytes = 25_000_000;
@@ -23,6 +24,12 @@ export function useImportDraft() {
   const [file, setFile] = useState<LoadedFile | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const [settings, setSettings] = useState<CsvSettings | null>(null);
+  // The format detected from the file, restored when a template is switched off.
+  const [detected, setDetected] = useState<CsvSettings | null>(null);
+  // The template whose mapping is applied; null for a manual mapping.
+  const [template, setTemplate] = useState<CsvTemplate | null>(null);
+  // A matching template the person switched off is not offered as applied again for the same file.
+  const [templateDismissed, setTemplateDismissed] = useState(false);
   const [mapping, setMapping] = useState<CsvMapping | null>(null);
   const [targetChoices, setTargetChoices] = useState<Map<string, TargetChoice>>(new Map());
   const [categoryChoices, setCategoryChoices] = useState<Map<string, CategorySelection>>(new Map());
@@ -36,6 +43,8 @@ export function useImportDraft() {
   const latestSelection = useRef(0);
   const accounts = useAreaResult(useAccounts());
   const categories = useCategories();
+  const templates = useImportTemplates();
+  const savedTemplates = useMemo(() => templates.data ?? [], [templates.data]);
   const mutation = useMappedImport();
   const accountOptions = useMemo(() => accounts.data ?? [], [accounts.data]);
   const table = useMemo(() => file && settings ? readCsvTable(file.bytes, settings) : null, [file, settings]);
@@ -57,6 +66,8 @@ export function useImportDraft() {
   const summary = checked && checked.key === preparedKey ? checked.summary : null;
   const reviewLines = useMemo(() => new Set(prepared?.rows.filter(row => needsCategoryReview(row, resolvedCategories)).map(row => row.line) ?? []), [prepared, resolvedCategories]);
   const inputsLocked = configurationLocked || mutation.isPending;
+  // Saved templates can arrive after the file was read; a match is then offered instead of applied silently.
+  const matchingTemplate = useMemo(() => table ? matchTemplate(table.header, savedTemplates) : null, [table, savedTemplates]);
 
   // Leaving during a running request or after a confirmation started would lose the import's ID and let a new visit import differently.
   const unfinished = mutation.isPending || configurationLocked;
@@ -65,6 +76,9 @@ export function useImportDraft() {
 
   function reset() {
     setSettings(null);
+    setDetected(null);
+    setTemplate(null);
+    setTemplateDismissed(false);
     setMapping(null);
     setTargetChoices(new Map());
     setCategoryChoices(new Map());
@@ -131,19 +145,58 @@ export function useImportDraft() {
     const suggested = suggestMapping(header);
     const sample = rows.slice(0, 200);
     const column = (index: number | null) => index === null ? [] : sample.map(row => row[index] ?? "");
+    const detectedSettings: CsvSettings = {
+      encoding: decoded.encoding,
+      delimiter,
+      decimal: detectDecimal([...column(suggested.amount), ...column(suggested.debit), ...column(suggested.credit)]),
+      dateFormat: detectDateFormat(column(suggested.date))
+    };
+    const match = matchTemplate(header, savedTemplates);
 
     setImportId(derivedId);
     setFile({
       name: selected.name,
       bytes
     });
+    setDetected(detectedSettings);
+
+    if (match) {
+      applyTemplate(match, header, detectedSettings);
+    } else {
+      setSettings(detectedSettings);
+      setMapping(suggested);
+    }
+  }
+
+  /** Applies a template's format, column roles and remembered choices to the loaded file. */
+  function applyTemplate(chosen: CsvTemplate, header = table?.header ?? [], base = detected) {
+    if (!base) {
+      return;
+    }
+
+    const choices = templateChoices(chosen, accountOptions, categories.data ?? []);
+
+    setChecked(null);
+    setTemplate(chosen);
+    setTemplateDismissed(false);
     setSettings({
-      encoding: decoded.encoding,
-      delimiter,
-      decimal: detectDecimal([...column(suggested.amount), ...column(suggested.debit), ...column(suggested.credit)]),
-      dateFormat: detectDateFormat(column(suggested.date))
+      ...base,
+      ...chosen.settings
     });
-    setMapping(suggested);
+    setMapping(templateMapping(chosen, header));
+    setTargetChoices(choices.targets);
+    setCategoryChoices(choices.selections);
+  }
+
+  /** Switches a template off: the detected format and the suggested roles apply again, and its remembered choices are dropped. */
+  function mapManually() {
+    setChecked(null);
+    setTemplate(null);
+    setTemplateDismissed(true);
+    setSettings(detected);
+    setMapping(table ? suggestMapping(table.header) : null);
+    setTargetChoices(new Map());
+    setCategoryChoices(new Map());
   }
 
   function updateSettings(change: Partial<CsvSettings>) {
@@ -155,6 +208,7 @@ export function useImportDraft() {
 
     if (change.delimiter || change.encoding) {
       setMapping(null);
+      setTemplate(null);
     }
   }
 
@@ -241,6 +295,14 @@ export function useImportDraft() {
     settings,
     table,
     mapping: effectiveMapping,
+    template,
+    // A match that is not applied, because it was switched off or arrived after the file was read.
+    offeredTemplate: matchingTemplate && matchingTemplate.id !== template?.id ? matchingTemplate : null,
+    templateDismissed,
+    savedTemplates,
+    templatesStatus: templates.status,
+    applyTemplate: (chosen: CsvTemplate) => applyTemplate(chosen),
+    mapManually,
     problem,
     mapped,
     prepared,

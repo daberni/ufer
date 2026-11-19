@@ -1,0 +1,299 @@
+import assert from "node:assert/strict";
+import { test, type TestContext } from "node:test";
+import { createClient } from "@libsql/client";
+import { drizzle } from "drizzle-orm/libsql";
+import { z } from "zod";
+import type { Database } from "../src/server/database/connection";
+import { initializeDatabase } from "../src/server/database/migrations";
+import * as schema from "../src/server/database/schema";
+import { HttpError } from "../src/lib/errors";
+import { buxferTemplate, decodeCsv, detectDelimiter, mapRows, matchTemplate, parseCsv, suggestMapping, templateFromMapping, templateMapping, type CsvSettings, type CsvTemplate } from "../src/features/imports/csv-mapping";
+import { categoryValues, rememberedChoices, sourceAccounts, templateChoices, type CategorySelection, type TargetChoice } from "../src/features/imports/import-plan";
+import { textsMatch } from "../src/features/imports/server/duplicate-matching";
+import { changeTemplate, createTemplate, readTemplates, removeTemplate } from "../src/features/imports/server/template-service";
+
+async function isolatedDatabase(context: TestContext) {
+  const client = createClient({
+    url: ":memory:"
+  });
+  const globals = globalThis as unknown as {
+    budgetDb?: Promise<Database>
+  };
+  const previousDatabase = globals.budgetDb;
+
+  context.after(() => {
+    globals.budgetDb = previousDatabase;
+    client.close();
+  });
+
+  await initializeDatabase(client);
+  globals.budgetDb = Promise.resolve(drizzle(client, {
+    schema
+  }));
+}
+
+// Synthetic Buxfer export: two accounts, a multi-tag row, a transfer pair and a description Buxfer shortened with "...".
+const buxferCsv = [
+  "ID,Date,Description,Currency,Amount,Type,Tags,Account,Status,Memo,IOU",
+  "9001,2024-03-01,Example Grocer,EUR,-42.10,Expense,Groceries,Example Checking,Reconciled,,",
+  "9002,2024-03-02,Example Employer Salary,EUR,2500.00,Income,Salary,Example Checking,Reconciled,,",
+  "9003,2024-03-03,Example Café,EUR,-12.50,Expense,\"Dining,Travel\",Example Card,Pending,note,",
+  "9004,2024-03-04,Transfer to Example Card,EUR,-100.00,Transfer,,Example Checking,Reconciled,,",
+  "9005,2024-03-04,Transfer from Example Checking,EUR,100.00,Transfer,,Example Card,Reconciled,,",
+  "9006,2024-03-05,Example Hardware Store Purchase Number 12...,EUR,-1234.56,Expense,Home,Example Card,Reconciled,,"
+].join("\n");
+
+function readBuxfer(saved: CsvTemplate[] = []) {
+  const decoded = decodeCsv(new TextEncoder().encode(buxferCsv));
+  const [header, ...rows] = parseCsv(decoded.text, detectDelimiter(decoded.text));
+  const template = matchTemplate(header, saved);
+
+  return {
+    header,
+    rows,
+    template,
+    settings: {
+      encoding: decoded.encoding,
+      delimiter: ",",
+      // Deliberately different from Buxfer's format, so the test sees the template's settings win.
+      decimal: ",",
+      dateFormat: "DD.MM.YYYY",
+      ...template?.settings
+    } satisfies CsvSettings
+  };
+}
+
+test("a Buxfer export is recognized and maps IDs, accounts, signed amounts and tags", () => {
+  const {
+    header,
+    rows,
+    template,
+    settings
+  } = readBuxfer();
+
+  assert.equal(template?.id, buxferTemplate.id);
+
+  const result = mapRows(rows, templateMapping(template!, header), settings);
+
+  assert.deepEqual(result.errors, []);
+  assert.deepEqual(result.rows.map(row => [row.id, row.date, row.amount, row.source]), [
+    ["9001", "2024-03-01", "-42.10", "Example Checking"],
+    ["9002", "2024-03-02", "2500.00", "Example Checking"],
+    ["9003", "2024-03-03", "-12.50", "Example Card"],
+    ["9004", "2024-03-04", "-100.00", "Example Checking"],
+    ["9005", "2024-03-04", "100.00", "Example Card"],
+    ["9006", "2024-03-05", "-1234.56", "Example Card"]
+  ]);
+  assert.deepEqual(sourceAccounts(result.rows).map(source => source.source), ["Example Checking", "Example Card"]);
+
+  const values = categoryValues(result.rows, []);
+
+  assert.equal(values.find(value => value.value === "Dining,Travel")?.multiTag, true);
+  assert.equal(values.find(value => value.value === "Groceries")?.multiTag, false);
+  // Status, Memo and IOU never reach a row.
+  assert.equal(result.rows[2].description, "Example Café");
+});
+
+test("a shortened Buxfer description still matches the full bank booking", () => {
+  const {
+    header,
+    rows,
+    template,
+    settings
+  } = readBuxfer();
+  const truncated = mapRows(rows, templateMapping(template!, header), settings).rows[5];
+
+  assert.equal(textsMatch({
+    counterparty: truncated.payee,
+    description: truncated.description
+  }, {
+    counterparty: "Example Hardware Store",
+    description: "Example Hardware Store Purchase Number 1234567"
+  }), true);
+});
+
+test("only an exact header matches a template, and a saved template wins over the built-in one", () => {
+  assert.equal(matchTemplate([...buxferTemplate.header, "Extra"], []), null);
+  assert.equal(matchTemplate(buxferTemplate.header.slice(0, -1), []), null);
+  assert.equal(matchTemplate(buxferTemplate.header.map(column => ` ${column} `), [])?.id, buxferTemplate.id);
+
+  const saved: CsvTemplate = {
+    ...buxferTemplate,
+    id: "saved",
+    name: "My Buxfer",
+    builtIn: false,
+    accounts: {
+      "Example Card": "card"
+    }
+  };
+
+  assert.equal(readBuxfer([saved]).template?.id, "saved");
+});
+
+test("a saved mapping reproduces the roles, format and still existing choices on the next file", () => {
+  const header = ["Buchungsdatum", "Betrag", "Empfänger", "Kategorie", "Konto"];
+  const mapping = suggestMapping(header);
+  const settings: CsvSettings = {
+    encoding: "windows-1252",
+    delimiter: ";",
+    decimal: ",",
+    dateFormat: "DD.MM.YYYY"
+  };
+  const targets = new Map<string, TargetChoice>([
+    ["Giro", {
+      kind: "existing",
+      accountId: "giro"
+    }],
+    ["Old card", {
+      kind: "existing",
+      accountId: "deleted-account"
+    }],
+    ["Closed", {
+      kind: "new",
+      name: "Closed",
+      currency: "EUR",
+      balanceKind: "current",
+      balance: ""
+    }]
+  ]);
+  const selections = new Map<string, CategorySelection>([
+    ["Lebensmittel", {
+      action: "existing",
+      categoryId: "groceries",
+      chosen: false
+    }],
+    ["Neu", {
+      action: "create",
+      chosen: false
+    }]
+  ]);
+  const choices = rememberedChoices(targets, selections);
+  const template = templateFromMapping(" Bank export ", header, mapping, settings, choices.accounts, choices.categories);
+
+  assert.equal(template.name, "Bank export");
+  assert.deepEqual(template.settings, {
+    decimal: ",",
+    dateFormat: "DD.MM.YYYY"
+  });
+  assert.deepEqual(template.accounts, {
+    "Giro": "giro",
+    "Old card": "deleted-account"
+  });
+  assert.deepEqual(template.categories, {
+    Lebensmittel: "groceries"
+  });
+
+  const stored: CsvTemplate = {
+    ...template,
+    id: "t1",
+    builtIn: false
+  };
+
+  assert.equal(matchTemplate(header, [stored])?.id, "t1");
+  assert.deepEqual(templateMapping(stored, header), mapping);
+
+  const applied = templateChoices(stored, [{
+    id: "giro",
+    name: "Giro",
+    currency: "EUR"
+  }], [{
+    id: "groceries"
+  }]);
+
+  assert.deepEqual([...applied.targets], [["Giro", {
+    kind: "existing",
+    accountId: "giro"
+  }]]);
+  assert.deepEqual([...applied.selections], [["Lebensmittel", {
+    action: "existing",
+    categoryId: "groceries",
+    chosen: true
+  }]]);
+});
+
+const savedInput = {
+  name: "Bank export",
+  header: ["Date", "Amount", "Payee"],
+  settings: {
+    decimal: ",",
+    dateFormat: "DD.MM.YYYY"
+  },
+  columns: {
+    date: "Date",
+    amount: "Amount",
+    payee: "Payee"
+  },
+  accounts: {},
+  categories: {
+    Food: "groceries"
+  }
+};
+
+test("templates are stored, listed, renamed, updated and deleted", async context => {
+  await isolatedDatabase(context);
+
+  const { id } = await createTemplate(savedInput);
+  const [stored] = await readTemplates();
+
+  assert.deepEqual(stored, {
+    ...savedInput,
+    id,
+    builtIn: false
+  });
+
+  await changeTemplate(id, {
+    name: "Renamed"
+  });
+  await changeTemplate(id, {
+    definition: {
+      header: savedInput.header,
+      settings: savedInput.settings,
+      columns: savedInput.columns,
+      accounts: {
+        Giro: "giro"
+      },
+      categories: {}
+    }
+  });
+
+  const [changed] = await readTemplates();
+
+  assert.equal(changed.name, "Renamed");
+  assert.deepEqual(changed.accounts, {
+    Giro: "giro"
+  });
+  assert.deepEqual(changed.categories, {});
+
+  await removeTemplate(id);
+  assert.deepEqual(await readTemplates(), []);
+  await assert.rejects(removeTemplate(id), (error: unknown) => error instanceof HttpError && error.status === 404);
+});
+
+test("a second template for the same columns or name is rejected, and invalid definitions are refused", async context => {
+  await isolatedDatabase(context);
+  await createTemplate(savedInput);
+
+  await assert.rejects(createTemplate({
+    ...savedInput,
+    name: "Other name"
+  }), (error: unknown) => error instanceof HttpError && error.status === 409 && /already covers/.test(error.message));
+  await assert.rejects(createTemplate({
+    ...savedInput,
+    name: "bank EXPORT",
+    header: ["Date", "Amount", "Payee", "Extra"]
+  }), (error: unknown) => error instanceof HttpError && error.status === 409 && /already exists/.test(error.message));
+  await assert.rejects(createTemplate({
+    ...savedInput,
+    name: "Unknown column",
+    header: ["Datum", "Betrag", "Empfänger"]
+  }), z.ZodError);
+  await assert.rejects(createTemplate({
+    ...savedInput,
+    name: "Bad format",
+    header: ["A"],
+    columns: {},
+    settings: {
+      dateFormat: "YYYYMMDD"
+    }
+  }), z.ZodError);
+});

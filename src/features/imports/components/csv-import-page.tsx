@@ -14,6 +14,9 @@ import { TargetAccounts } from "./target-accounts";
 import { ColumnPreview } from "./column-preview";
 import { CategoryChoices } from "./category-choices";
 import { ImportSummaryBar } from "./import-summary-bar";
+import { SaveTemplate } from "./save-template";
+import { TemplateList } from "./template-list";
+import { TemplateNotice } from "./template-notice";
 import { useImportDraft } from "./use-import-draft";
 import { takeImportFile } from "@/features/imports/pending-import-file";
 
@@ -46,7 +49,9 @@ export function CsvImportPage() {
             </Link>
             <button type="button" className={ui["button"]} onClick={draft.clear}>Import another file</button>
           </div>
+          <SaveTemplate draft={draft} />
         </section>
+        <TemplateList templates={draft.savedTemplates} disabled={false} />
       </div>
     );
   }
@@ -60,9 +65,10 @@ export function CsvImportPage() {
       <section className={clsx(ui["panel"], styles["section"])} aria-labelledby="import-file">
         <h2 id="import-file">File</h2>
         {loaded ? <FileCard draft={draft} /> : <FileDropZone disabled={draft.inputsLocked} onFile={file => void draft.load(file)} />}
+        {loaded && <TemplateNotice draft={draft} />}
         {draft.fileError && <p className={ui["error-text"]} role="alert">{draft.fileError}</p>}
         {draft.formatError && <p className={ui["error-text"]} role="alert">{draft.formatError}</p>}
-        {!loaded && <p className={ui["form-hint"]}>Any CSV export with a date and an amount works: bank exports, Buxfer, spreadsheets. You choose what each column means, check the result, then import. Nothing is saved before you import.</p>}
+        {!loaded && <p className={ui["form-hint"]}>Any CSV export with a date and an amount works: bank exports, Buxfer, spreadsheets. Buxfer exports and files matching a saved template are mapped automatically. You choose what each column means, check the result, then import. Nothing is saved before you import.</p>}
       </section>
       {loaded && draft.table && (
         <>
@@ -81,6 +87,7 @@ export function CsvImportPage() {
           />
         </>
       )}
+      <TemplateList templates={draft.savedTemplates} disabled={draft.inputsLocked} />
     </div>
   );
 }

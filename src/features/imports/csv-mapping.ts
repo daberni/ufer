@@ -38,15 +38,91 @@ export type CsvMapping = {
   id: number | null;
 };
 
-/** A source-specific layout, such as a later built-in Buxfer export, recognized by its header row and mapped by column name. */
+/** A source-specific layout, recognized by its exact header row and mapped by column name. Saved templates also remember account and category choices by source value. */
 export type CsvTemplate = {
   id: string;
   name: string;
-  settings: Partial<CsvSettings>;
+  builtIn: boolean;
+  /** The header row the template recognizes, compared cell by cell after trimming. */
+  header: string[];
+  settings: Partial<Pick<CsvSettings, "decimal" | "dateFormat">>;
   columns: Partial<Record<keyof CsvMapping, string>>;
+  /** Existing account IDs by source account label. */
+  accounts: Record<string, string>;
+  /** Existing category IDs by category value. */
+  categories: Record<string, string>;
 };
 
-export const builtInTemplates: CsvTemplate[] = [];
+/** Longest header and template name the saved templates accept; the server applies the same limits. */
+export const maxTemplateColumns = 200;
+
+export const maxTemplateNameLength = 100;
+
+export const maxColumnNameLength = 200;
+
+/**
+ * Buxfer's transaction export. `Tags` holds the categories, possibly several separated by commas; `Type`, `Status`, `Memo` and `IOU` stay unmapped: amounts are already signed, and transfers are paired by the automatic rule after the import. Buxfer shortens long descriptions with "...", which duplicate matching tolerates because a shortened text is contained in the full one.
+ */
+export const buxferTemplate: CsvTemplate = {
+  id: "builtin:buxfer",
+  name: "Buxfer export",
+  builtIn: true,
+  header: ["ID", "Date", "Description", "Currency", "Amount", "Type", "Tags", "Account", "Status", "Memo", "IOU"],
+  settings: {
+    decimal: ".",
+    dateFormat: "YYYY-MM-DD"
+  },
+  columns: {
+    id: "ID",
+    date: "Date",
+    description: "Description",
+    currency: "Currency",
+    amount: "Amount",
+    category: "Tags",
+    account: "Account"
+  },
+  accounts: {},
+  categories: {}
+};
+
+export const builtInTemplates: CsvTemplate[] = [buxferTemplate];
+
+/** A comparable form of a header row: trimmed cells, order preserved. */
+export function headerKey(header: string[]) {
+  return JSON.stringify(header.map(column => column.trim()));
+}
+
+/** The template for a header: a saved template first, so a person can override a built-in layout, then a built-in one. */
+export function matchTemplate(header: string[], saved: CsvTemplate[]): CsvTemplate | null {
+  const key = headerKey(header);
+
+  return [...saved, ...builtInTemplates].find(template => headerKey(template.header) === key) ?? null;
+}
+
+/** A template that recreates a mapping on files with the same header: columns by name, the format, and the given account and category choices. */
+export function templateFromMapping(name: string, header: string[], mapping: CsvMapping, settings: CsvSettings, accounts: Record<string, string>, categories: Record<string, string>): Omit<CsvTemplate, "id" | "builtIn"> {
+  const columns: CsvTemplate["columns"] = {};
+
+  for (const field of Object.keys(mapping) as (keyof CsvMapping)[]) {
+    const column = mapping[field];
+
+    if (column !== null && header[column] !== undefined) {
+      columns[field] = header[column].trim();
+    }
+  }
+
+  return {
+    name: name.trim(),
+    header: header.map(column => column.trim()),
+    settings: {
+      decimal: settings.decimal,
+      dateFormat: settings.dateFormat
+    },
+    columns,
+    accounts,
+    categories
+  };
+}
 
 /** A mapped row as sent to the server: the date is ISO, the amount a signed decimal with a point. */
 export type MappedRow = {
@@ -471,8 +547,10 @@ export function templateMapping(template: CsvTemplate, header: string[]): CsvMap
     ...emptyMapping
   };
 
+  const names = header.map(column => column.trim());
+
   for (const [field, column] of Object.entries(template.columns) as [keyof CsvMapping, string][]) {
-    const index = header.indexOf(column);
+    const index = names.indexOf(column);
 
     mapping[field] = index >= 0 ? index : null;
   }
