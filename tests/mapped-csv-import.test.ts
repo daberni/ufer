@@ -17,7 +17,7 @@ import { findDuplicates } from "../src/features/imports/server/duplicate-matchin
 import { saveAccountSync } from "../src/features/banking/server/account-sync-service";
 import { startSyncRun } from "../src/features/banking/server/sync-repository";
 import { accountLabel, categoryValues, defaultCategorySelection, defaultTargetChoice, importKey, newAccountChoice, needsCategoryReview, prepareImport, type TargetChoice } from "../src/features/imports/import-plan";
-import { assignOccurrences, batchRows, currencyAllows, duplicateIdErrors, importIdFor, maxTargetsPerRequest, readCsvTable, emptyMapping, mappingProblem, normalizeText, parseCsvRecords, pruneConsumed, decodeCsv, detectDateFormat, detectDecimal, detectDelimiter, mapRows, parseAmount, parseCsv, parseDate, suggestMapping, type CsvSettings, type DateFormat, type ImportRow } from "../src/features/imports/csv-mapping";
+import { assignOccurrences, batchRows, currencyAllows, maxCategoryChoicesPerRequest, duplicateIdErrors, importIdFor, maxTargetsPerRequest, readCsvTable, emptyMapping, mappingProblem, normalizeText, parseCsvRecords, pruneConsumed, decodeCsv, detectDateFormat, detectDecimal, detectDelimiter, mapRows, parseAmount, parseCsv, parseDate, suggestMapping, type CsvSettings, type DateFormat, type ImportRow } from "../src/features/imports/csv-mapping";
 
 const now = Temporal.Instant.from("2026-06-30T12:00:00Z");
 
@@ -1601,4 +1601,78 @@ test("batches hold at most as many source accounts as a request accepts targets"
   assert.equal(batches.flat().length, 120);
   assert.ok(batches.length > 1);
   assert.ok(batches.every(batch => new Set(batch.map(row => row.source)).size <= maxTargetsPerRequest));
+});
+
+test("the same file imported as a new account in two banking environments creates one account in each", async context => {
+  const db = await isolatedDatabase(context);
+  const payload = {
+    import_id: importId,
+    rows: [mappedRow(2, "2024-05-01", "-10.00", "Shop")],
+    targets: [{
+      source: "",
+      new_account: {
+        name: "Imported wallet",
+        currency: "EUR"
+      }
+    }],
+    confirm: true
+  };
+
+  await importMappedRows(payload, now);
+  process.env.ENABLE_BANKING_ENVIRONMENT = "PRODUCTION";
+  await importMappedRows(payload, now);
+
+  const accounts = await db.select().from(schema.accounts);
+  const bookings = await db.select().from(schema.transactions);
+
+  assert.deepEqual(accounts.map(account => account.environment).sort(), ["PRODUCTION", "SANDBOX"]);
+  assert.equal(new Set(bookings.map(booking => booking.account_id)).size, 2);
+});
+
+test("a resumed import must state the opening balance its new account already has", async context => {
+  await isolatedDatabase(context);
+  const withOpening = (kind: "current" | "start", amount: string) => ({
+    import_id: importId,
+    rows: [mappedRow(2, "2024-05-01", "-10.00", "Shop")],
+    targets: [{
+      source: "",
+      new_account: {
+        name: "Imported wallet",
+        currency: "EUR",
+        opening: {
+          kind,
+          amount,
+          date: "2024-05-01"
+        }
+      }
+    }],
+    confirm: true
+  });
+
+  await importMappedRows(withOpening("current", "100.00"), now);
+  await importMappedRows(withOpening("current", "100.00"), now);
+  await assert.rejects(importMappedRows(withOpening("current", "90.00"), now), ValidationError);
+  await assert.rejects(importMappedRows(withOpening("start", "100.00"), now), ValidationError);
+  await assert.rejects(importMappedRows({
+    ...withOpening("current", "100.00"),
+    targets: [{
+      source: "",
+      new_account: {
+        name: "Imported wallet",
+        currency: "EUR"
+      }
+    }]
+  }, now), ValidationError);
+});
+
+test("batches hold at most as many category values as a request accepts choices", () => {
+  const rows = Array.from({
+    length: 1200
+  }, (_value, index) => mappedRow(index + 2, "2024-01-01", "-1.00", "Shop", {
+    category: `Synthetic category ${index}`
+  }));
+  const batches = batchRows(rows);
+
+  assert.equal(batches.flat().length, 1200);
+  assert.ok(batches.every(batch => new Set(batch.map(row => row.category)).size <= maxCategoryChoicesPerRequest));
 });

@@ -85,6 +85,9 @@ export const maxAccountNameLength = 100;
 /** Most targets one import request accepts; the server applies the same limit. */
 export const maxTargetsPerRequest = 100;
 
+/** Most category choices one import request accepts; the server applies the same limit. */
+export const maxCategoryChoicesPerRequest = 1000;
+
 /** Derives an import ID from the file's bytes, shaped as a version 8 UUID: choosing the same file again, for example after signing in anew, resumes its import and reuses the accounts it created. */
 export async function importIdFor(bytes: Uint8Array) {
   const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes as Uint8Array<ArrayBuffer>));
@@ -725,26 +728,35 @@ function fractionDigits(value: string) {
 }
 
 /** Splits mapped rows into request batches that stay well below hosted request body limits. */
-export function batchRows(rows: ImportRow[], maxBytes = 1_000_000, maxRows = 2000, maxSources = maxTargetsPerRequest) {
+export function batchRows(rows: ImportRow[], maxBytes = 1_000_000, maxRows = 2000, maxSources = maxTargetsPerRequest, maxCategories = maxCategoryChoicesPerRequest) {
   const batches: ImportRow[][] = [];
   let current: ImportRow[] = [];
   let sources = new Set<string>();
+  let categories = new Set<string>();
   let size = 0;
 
   for (const row of rows) {
     const rowSize = JSON.stringify(row).length * 2;
     // Each batch sends only the targets of its own rows, so it may hold at most as many source accounts as a request accepts targets.
     const tooManySources = !sources.has(row.source) && sources.size >= maxSources;
+    // Likewise for the category choices of its rows' category values.
+    const tooManyCategories = row.category !== null && !categories.has(row.category) && categories.size >= maxCategories;
 
-    if (current.length > 0 && (size + rowSize > maxBytes || current.length >= maxRows || tooManySources)) {
+    if (current.length > 0 && (size + rowSize > maxBytes || current.length >= maxRows || tooManySources || tooManyCategories)) {
       batches.push(current);
       current = [];
       sources = new Set();
+      categories = new Set();
       size = 0;
     }
 
     current.push(row);
     sources.add(row.source);
+
+    if (row.category !== null) {
+      categories.add(row.category);
+    }
+
     size += rowSize;
   }
 

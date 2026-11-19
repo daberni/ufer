@@ -9,9 +9,9 @@ import { listRules } from "@/features/categorization/server/rule-repository";
 import { categorizeEntries } from "@/features/transactions/server/categorize-entries";
 import { pairTransfersInEnvironment } from "@/features/transactions/server/transfer-repository";
 import { environment } from "@/features/banking/server/environment";
-import { currencyAllows, maxTargetsPerRequest, maxAccountNameLength, maxCategoryLength, maxIdLength, maxSourceLength, normalizeText, type RowError } from "../csv-mapping";
+import { currencyAllows, maxCategoryChoicesPerRequest, maxTargetsPerRequest, maxAccountNameLength, maxCategoryLength, maxIdLength, maxSourceLength, normalizeText, type RowError } from "../csv-mapping";
 import { duplicateDateToleranceDays, mappedReferencePrefix, type DuplicateReason } from "./duplicate-matching";
-import { checkMappedEntries, createImportCategory, findImportTarget, listCategoryNames, saveMappedEntries, type MappedEntry, type NewImportAccount, type OpeningBalance } from "./mapped-import-repository";
+import { checkMappedEntries, createImportCategory, findImportOpening, findImportTarget, listCategoryNames, saveMappedEntries, type MappedEntry, type NewImportAccount, type OpeningBalance } from "./mapped-import-repository";
 
 export const maxRowsPerRequest = 2000;
 
@@ -66,7 +66,7 @@ const mappedImportInput = z.object({
   targets: z.array(target).min(1).max(maxTargetsPerRequest),
   /** Existing bookings that earlier batches of this import matched as duplicates. */
   consumed: z.array(matchedBooking).max(20_000).default([]),
-  categories: z.array(categoryChoice).max(1000).default([]),
+  categories: z.array(categoryChoice).max(maxCategoryChoicesPerRequest).default([]),
   confirm: z.boolean(),
   /** Marks the last batch of a confirmed import; transfers are paired only then, so the order of batches and accounts cannot decide an ambiguous link. */
   final: z.boolean().default(true)
@@ -190,10 +190,11 @@ async function resolveTargets(importId: string, inputs: z.infer<typeof target>[]
     if (input.new_account) {
       const id = importAccountId(importId, input.source);
       const persisted = await findImportTarget(id);
+      const opening = input.new_account.opening ? openingBalance(importAccountId(importId, `${input.source}|opening|${input.new_account.opening.kind}`), input.new_account.opening, input.new_account.currency) : null;
 
       // An earlier confirmed batch of this import created the account; its stored configuration is authoritative.
-      if (persisted && (persisted.currency !== input.new_account.currency || persisted.name !== input.new_account.name)) {
-        throw new ValidationError(`The account “${persisted.name}” (${persisted.currency}) was already created by this import; keep its name and currency.`);
+      if (persisted && (persisted.currency !== input.new_account.currency || persisted.name !== input.new_account.name || !await sameOpening(importId, input.source, persisted.id, opening))) {
+        throw new ValidationError(`The account “${persisted.name}” (${persisted.currency}) was already created by this import; keep its name, currency and balance.`);
       }
 
       // Checking creates nothing: until the account exists it has no bookings to compare against.
@@ -204,7 +205,7 @@ async function resolveTargets(importId: string, inputs: z.infer<typeof target>[]
           name: input.new_account.name,
           currency: input.new_account.currency
         },
-        opening: input.new_account.opening ? openingBalance(importAccountId(importId, `${input.source}|opening`), input.new_account.opening, input.new_account.currency) : null
+        opening
       });
 
       continue;
@@ -227,9 +228,26 @@ async function resolveTargets(importId: string, inputs: z.infer<typeof target>[]
   return targets;
 }
 
-/** A stable account ID per import and source account, so every batch and retry of one import targets the same new account. */
+/**
+ * Whether a resumed import states the opening balance the account already has: the same kind (part of the booking's ID), date and amount.
+ * A `current` balance is compared as the account's balance, its opening booking plus every other transaction.
+ */
+async function sameOpening(importId: string, source: string, accountId: string, opening: OpeningBalance | null) {
+  const kinds = ["current", "start"] as const;
+  const stored = await findImportOpening(accountId, kinds.map(kind => importAccountId(importId, `${source}|opening|${kind}`)));
+
+  if (!opening || !stored) {
+    return !opening && !stored;
+  }
+
+  const statedAmount = opening.kind === "current" ? stored.amount + stored.others : stored.amount;
+
+  return stored.id === opening.id && stored.date === opening.date && statedAmount === opening.amount;
+}
+
+/** A stable account ID per banking environment, import and source account, so every batch and retry of one import targets the same new account, and the same file imported in another environment gets its own. */
 function importAccountId(importId: string, source: string) {
-  const hex = createHash("sha256").update(`${importId}|${source}`).digest("hex");
+  const hex = createHash("sha256").update(`${environment()}|${importId}|${source}`).digest("hex");
 
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
 }

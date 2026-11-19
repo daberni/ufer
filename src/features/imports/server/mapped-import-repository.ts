@@ -72,6 +72,29 @@ export async function findImportTarget(id: string) {
   }).from(accounts).where(and(eq(accounts.id, id), eq(accounts.environment, environment()))).get();
 }
 
+/** The opening balance an import booked on its new account under one of the given IDs, with the sum of the account's other transactions. */
+export async function findImportOpening(accountId: string, ids: string[]) {
+  const db = await database();
+  const opening = await db.select({
+    id: transactions.id,
+    date: transactions.booking_date,
+    amount: transactions.amount_minor
+  }).from(transactions).where(and(eq(transactions.account_id, accountId), inArray(transactions.id, ids))).get();
+
+  if (!opening) {
+    return null;
+  }
+
+  const others = await db.select({
+    total: sql<number>`COALESCE(SUM(${transactions.amount_minor}),0)`.mapWith(Number)
+  }).from(transactions).where(and(eq(transactions.account_id, accountId), ne(transactions.id, opening.id))).get();
+
+  return {
+    ...opening,
+    others: others?.total ?? 0
+  };
+}
+
 /** Bookings that imported rows could duplicate; balance corrections are never imported rows. */
 function bookingsBetween(executor: Executor, accountId: string, from: string, to: string): Promise<ExistingBooking[]> {
   const scope = and(eq(transactions.account_id, accountId), between(transactions.booking_date, from, to), notInArray(transactions.type, ["opening_balance", "adjustment"]));
