@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { Temporal } from "temporal-polyfill";
 import { z } from "zod";
+import { categoryNameKey } from "@/lib/category-name";
 import { HttpError, ValidationError } from "@/lib/errors";
 import { minorUnits } from "@/lib/money";
 import { today, validDate } from "@/lib/time";
@@ -86,7 +87,7 @@ export async function importMappedRows(payload: unknown, now = Temporal.Now.inst
   const targets = await resolveTargets(input.import_id, input.targets, input.confirm);
   const errors: RowError[] = [];
   const planned: PlannedRow[] = [];
-  const categoryIds = new Map((await listCategoryNames()).map(category => [category.name.toLocaleLowerCase(), category.id]));
+  const categoryIds = new Map((await listCategoryNames()).map(category => [categoryNameKey(category.name), category.id]));
   const unknownCategories = new Set<string>();
   const latestDate = today(now);
 
@@ -103,7 +104,7 @@ export async function importMappedRows(payload: unknown, now = Temporal.Now.inst
       continue;
     }
 
-    const categoryId = item.category ? categoryIds.get(item.category.toLocaleLowerCase()) ?? null : null;
+    const categoryId = item.category ? categoryIds.get(categoryNameKey(item.category)) ?? null : null;
 
     if (item.category && !categoryId) {
       unknownCategories.add(item.category);

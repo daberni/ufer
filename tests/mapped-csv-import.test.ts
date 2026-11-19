@@ -1068,3 +1068,30 @@ test("an ambiguous currency symbol is rejected for an account outside its curren
   assert.equal(currencyAllows("¥", "JPY"), true);
   assert.equal(currencyAllows("$", "EUR"), false);
 });
+
+test("CSV categories match canonically equivalent spellings of a stored name", async context => {
+  const db = await isolatedDatabase(context);
+  const account = await manualAccount("Wallet");
+
+  await db.insert(schema.categories).values({
+    id: "synthetic-cafe",
+    name: "Synthetic Café",
+    color: "#00aa00"
+  });
+
+  const result = await importMappedRows({
+    import_id: importId,
+    rows: [mappedRow(2, "2024-03-01", "-4.20", "Espresso bar", {
+      category: "synthetic café"
+    })],
+    targets: [{
+      source: "",
+      account_id: account.id
+    }],
+    confirm: true
+  }, now);
+  const rows = await db.select().from(schema.transactions).where(eq(schema.transactions.account_id, account.id));
+
+  assert.deepEqual(result.unknownCategories, []);
+  assert.deepEqual(rows.map(row => [row.category_id, row.category_source]), [["synthetic-cafe", "manual"]]);
+});
