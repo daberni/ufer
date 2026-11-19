@@ -39,9 +39,9 @@ export function activeAccounts(accounts: Account[]) {
   return accounts.filter(account => account.archived_at === null);
 }
 
-/** The account groupings the dashboard shows for a display currency; bank accounts include archived ones because they still sync. */
+/** The account groupings the dashboard shows for a display currency; archived bank accounts do not sync, so they offer no sync or expiry reminder. */
 export function accountGroups(accounts: Account[], currency: string, now = Temporal.Now.instant()) {
-  const bankAccounts = accounts.filter(account => account.provider === "enable_banking");
+  const bankAccounts = activeAccounts(accounts).filter(account => account.provider === "enable_banking");
   const warningThreshold = now.add(expiryWarning);
   const expiresSoon = (validUntil: string) => Temporal.Instant.compare(Temporal.Instant.from(validUntil), warningThreshold) < 0;
 

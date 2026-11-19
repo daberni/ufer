@@ -237,6 +237,80 @@ test("disconnecting a bank can archive its accounts while keeping their history 
   assert.deepEqual((await listSyncAccounts(db, "SANDBOX")).map(item => item.id), ["other-account"]);
 });
 
+test("sync skips an archived account of a linked connection and resumes it once restored", async context => {
+  const {
+    db,
+    requests
+  } = await bankingDatabase(context, request => {
+    if (request.path === "/application") {
+      return Response.json({
+        environment: "SANDBOX",
+        redirect_urls: []
+      });
+    }
+
+    if (request.path.endsWith("/balances")) {
+      return Response.json({
+        balances: [{
+          balance_type: "CLBD",
+          balance_amount: {
+            amount: "200.00",
+            currency: "EUR"
+          },
+          reference_date: "2000-02-01"
+        }]
+      });
+    }
+
+    const uid = request.path.split("/")[2];
+
+    return Response.json({
+      transactions: [{
+        entry_reference: `booking-${uid}`,
+        transaction_amount: {
+          amount: "5.00",
+          currency: "EUR"
+        },
+        credit_debit_indicator: "DBIT",
+        status: "BOOK",
+        booking_date: "2000-01-15"
+      }],
+      continuation_key: null
+    });
+  });
+
+  await insertLinkedConnection(db, "shared", "active-account");
+  await db.insert(schema.accounts).values({
+    id: "archived-account",
+    environment: "SANDBOX",
+    name: "Synthetic archived account",
+    institution: "Example institution",
+    kind: "checking",
+    provider: "enable_banking",
+    provider_uid: "uid-archived-account",
+    requisition_id: "shared",
+    balance_minor: 12345,
+    balance_date: "2000-01-31",
+    archived_at: "2000-02-01T00:00:00.000Z"
+  });
+  const archivedBefore = await db.select().from(schema.accounts).where(eq(schema.accounts.id, "archived-account")).get();
+
+  assert.equal((await syncAccounts()).status, "SUCCESS");
+  assert.equal(requests.some(request => request.path.includes("uid-archived-account")), false);
+  assert.ok(requests.some(request => request.path.includes("uid-active-account")));
+  assert.deepEqual(await db.select().from(schema.accounts).where(eq(schema.accounts.id, "archived-account")).get(), archivedBefore);
+  assert.deepEqual((await db.select().from(schema.transactions)).map(booking => booking.account_id), ["active-account"]);
+  assert.equal((await db.select().from(schema.balanceSnapshots).where(eq(schema.balanceSnapshots.account_id, "archived-account"))).length, 0);
+
+  await db.update(schema.accounts).set({
+    archived_at: null
+  }).where(eq(schema.accounts.id, "archived-account"));
+  assert.equal((await syncAccounts()).status, "SUCCESS");
+  assert.ok(requests.some(request => request.path.includes("uid-archived-account")));
+  assert.equal((await db.select().from(schema.transactions).where(eq(schema.transactions.account_id, "archived-account"))).length, 1);
+  assert.equal((await db.select().from(schema.accounts).where(eq(schema.accounts.id, "archived-account")).get())?.balance_minor, 20000);
+});
+
 test("a failed revocation leaves the connection intact for an explicit retry, without background retries", async context => {
   context.mock.method(console, "warn", () => {});
   let providerAvailable = false;

@@ -119,7 +119,7 @@ function AccountSummary({
         </span>
         <span className={ui["pill"]}>{kinds[account.kind] ?? account.kind}</span>
       </div>
-      {archived && <p className={clsx(ui["notice"], styles["archived"])}>This account is archived. It is hidden from the account lists and pickers; its history still counts in reports.</p>}
+      {archived && <p className={clsx(ui["notice"], styles["archived"])}>This account is archived. It is hidden from the account lists and pickers and is not synced; its history still counts in reports.</p>}
       <h2 id={headingId} className={styles["heading"]}>Balance</h2>
       <p className={ui["muted"]}>{account.institution} · {account.currency}</p>
       <div className={styles["balance-row"]}>
