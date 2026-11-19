@@ -12,6 +12,7 @@ stubCssModules();
 const account: Account = {
   id: "synthetic-cash",
   name: "Synthetic cash",
+  provider_name: null,
   institution: "Example institution",
   kind: "checking",
   currency: "EUR",

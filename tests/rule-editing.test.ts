@@ -127,6 +127,10 @@ test("invalid rule edits and missing categories leave the rule unchanged", async
     enabled: true
   }), z.ZodError);
   assert.deepEqual(await storedRule(db), before);
+  await assert.rejects(updateRuleDetails("edited-rule", {
+    ...editedDetails,
+    apply_to_uncategorized: true
+  }), z.ZodError);
   await assert.rejects(updateRuleDetails("missing-rule", editedDetails), (error: unknown) => error instanceof HttpError && error.status === 404);
 });
 

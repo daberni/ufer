@@ -1,11 +1,27 @@
 .table-scroll {
   overflow-x: auto;
 }
+/* A fixed layout keeps column widths independent of the loaded rows; the payee column takes the remaining width. */
 .table {
+  table-layout: fixed;
   border-collapse: collapse;
   width: 100%;
+  /* Fixed columns take 672px; this leaves the payee column about 240px before the table scrolls. */
+  min-width: 960px;
   text-align: left;
   white-space: nowrap;
+}
+.category-column {
+  width: 224px;
+}
+.account-column {
+  width: 176px;
+}
+.date-column {
+  width: 112px;
+}
+.amount-column {
+  width: 160px;
 }
 .header th {
   font-size: var(--text-sm);
@@ -77,11 +93,10 @@
 }
 .transaction-name {
   display: grid;
-  grid-template-columns: 32px 270px;
+  grid-template-columns: 32px minmax(0, 1fr);
   grid-template-areas:
     "icon name"
-    "icon description"
-    ". details";
+    "icon description";
   justify-content: start;
   align-items: center;
   column-gap: var(--space-3);
@@ -107,7 +122,6 @@
   font-size: var(--text-sm);
   font-weight: 500;
   display: block;
-  max-width: 270px;
 }
 .name-preview,
 .description {
@@ -118,26 +132,19 @@
   white-space: normal;
   overflow-wrap: anywhere;
 }
+/* Above the row's edit overlay, so the pointer reaches the full-description tooltip. */
 .description {
+  position: relative;
+  z-index: var(--layer-raised);
   grid-area: description;
   font-size: var(--text-sm);
   color: var(--muted);
-  max-width: 270px;
   margin-top: var(--space-1);
 }
+/* Wider layouts show the full payee and description as tooltips; only phone cards use the disclosure. */
 .transaction-details {
-  position: relative;
-  z-index: var(--layer-raised);
-  grid-area: details;
-  width: 270px;
+  display: none;
   white-space: normal;
-  font-size: var(--text-sm);
-}
-.transaction-details summary {
-  min-height: 32px;
-  padding: var(--space-1) 0;
-  cursor: pointer;
-  color: var(--green-text);
 }
 .transaction-details dl {
   margin: 0;
@@ -161,6 +168,8 @@
   display: none;
 }
 .account {
+  overflow: hidden;
+  text-overflow: ellipsis;
   color: var(--ink-soft);
   font-weight: 500;
 }
@@ -185,6 +194,7 @@
 @media (--mobile) {
   .table {
     display: block;
+    min-width: 0;
     white-space: normal;
   }
   /* Visually hidden, so each cell keeps its column header for assistive technology. */
@@ -253,6 +263,7 @@
   .account {
     grid-column: 1;
     min-width: 0;
+    overflow: visible;
     overflow-wrap: anywhere;
   }
   .date {

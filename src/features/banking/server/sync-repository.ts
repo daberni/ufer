@@ -88,6 +88,7 @@ export async function recordAccountSyncError(db: Database, id: string, environme
 /** Stores one account's sync result and returns how many of its transactions this run inserted. */
 export async function saveSyncedAccount(db: Database, run: SyncRunStart, accountId: string, balance: {
   amount: number;
+  bank_balance_type: string;
   date: string
 }, entries: CategorizedEntry[]) {
   return db.transaction(async tx => {
@@ -103,11 +104,14 @@ export async function saveSyncedAccount(db: Database, run: SyncRunStart, account
       account_id: accountId,
       observed_at: balance.date,
       amount_minor: balance.amount,
+      bank_balance_type: balance.bank_balance_type,
       source: "sync"
     }).onConflictDoUpdate({
       target: [balanceSnapshots.account_id, balanceSnapshots.observed_at],
       set: {
-        amount_minor: balance.amount
+        amount_minor: balance.amount,
+        bank_balance_type: balance.bank_balance_type,
+        source: "sync"
       }
     });
     const inserted = await tx.select({

@@ -408,6 +408,7 @@ test("CSV categories map by name, rules categorize the rest, and existing catego
     color: "#0000aa"
   }]);
   await insertRule({
+    id: "synthetic-rule-train",
     name: "Train",
     pattern: "railway",
     mode: "keyword",

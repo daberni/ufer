@@ -124,7 +124,7 @@ async function renderResults(context: Parameters<typeof browser>[0]) {
   await wait(0);
   await respond(environment.requests("reports/net-worth")[0], netWorth("EUR"));
   await respond(environment.requests("reports/cash-flow")[0], cashFlow("EUR"));
-  await respond(environment.requests("transactions")[0], transactionPage(1));
+  await respond(environment.requests("transactions/query")[0], transactionPage(1));
 
   return {
     ...environment,
@@ -314,15 +314,15 @@ test("a write completed after a filter change refreshes the results for the curr
     })
   });
   await wait(0);
-  await respond(requests("transactions")[1], transactionPage(0));
+  await respond(requests("transactions/query")[1], transactionPage(0));
 
   // A mutation that started before the change invalidates the list when it settles.
   const refresh = invalidate(queryClient, [queryKeys.transactions.all()]);
 
   await wait(0);
-  assert.equal(requests("transactions").length, 3);
-  assert.equal(requests("transactions")[2].url.searchParams.get("currency"), "USD");
-  await respond(requests("transactions")[2], transactionPage(2));
+  assert.equal(requests("transactions/query").length, 3);
+  assert.equal((requests("transactions/query")[2].body as Record<string, unknown>).currency, "USD");
+  await respond(requests("transactions/query")[2], transactionPage(2));
   await act(() => refresh);
 
   assert.equal(result.current.list.data?.transactionCount, 2);
@@ -352,7 +352,7 @@ test("a period change marks the period results as loading until the response for
   assert.equal(requests("reports/net-worth").length, 1);
 
   await respond(requests("reports/cash-flow")[1], cashFlow("EUR"));
-  await respond(requests("transactions")[1], transactionPage(2));
+  await respond(requests("transactions/query")[1], transactionPage(2));
 
   assert.deepEqual(statuses(result.current), {
     netWorth: "ready",
@@ -360,7 +360,7 @@ test("a period change marks the period results as loading until the response for
     transactions: "ready"
   });
   assert.equal(result.current.list.data?.transactionCount, 2);
-  assert.equal(requests("transactions")[1].url.searchParams.get("period"), serializePeriod(period));
+  assert.equal((requests("transactions/query")[1].body as Record<string, unknown>).period, serializePeriod(period));
 });
 
 test("a transaction filter change marks only the transaction list as loading", async context => {
@@ -427,7 +427,7 @@ test("a background refresh with unchanged filters keeps the current results visi
   void invalidate(queryClient, [queryKeys.transactions.all()]);
   await wait(loadingDelay);
 
-  assert.equal(requests("transactions").length, 2);
+  assert.equal(requests("transactions/query").length, 2);
   assert.equal(result.current.list.status, "ready");
   assert.equal(result.current.list.data?.transactionCount, 1);
 });
@@ -453,16 +453,16 @@ test("after rapid period changes only the response for the latest period ends lo
     })
   });
   await wait(loadingDelay);
-  await respond(requests("transactions")[1], transactionPage(5));
+  await respond(requests("transactions/query")[1], transactionPage(5));
 
   assert.equal(result.current.list.status, "loading");
   assert.equal(result.current.list.data?.transactionCount, 1);
 
-  await respond(requests("transactions")[2], transactionPage(7));
+  await respond(requests("transactions/query")[2], transactionPage(7));
 
   assert.equal(result.current.list.status, "ready");
   assert.equal(result.current.list.data?.transactionCount, 7);
-  assert.equal(requests("transactions")[2].url.searchParams.get("period"), serializePeriod(second));
+  assert.equal((requests("transactions/query")[2].body as Record<string, unknown>).period, serializePeriod(second));
 });
 
 test("a failed request for changed filters ends loading and masks the outdated results until a retry succeeds", async context => {
@@ -484,7 +484,7 @@ test("a failed request for changed filters ends loading and masks the outdated r
   }, {
     status: 500
   }));
-  await respond(requests("transactions")[1], Response.json({
+  await respond(requests("transactions/query")[1], Response.json({
     detail: "The database is not reachable."
   }, {
     status: 500
@@ -504,7 +504,7 @@ test("a failed request for changed filters ends loading and masks the outdated r
   assert.equal(result.current.cashFlow.status, "loading");
   assert.equal(result.current.loadError.failure?.message ?? "", "The database is not reachable.");
   await respond(requests("reports/cash-flow")[2], cashFlow("EUR"));
-  await respond(requests("transactions")[2], transactionPage(3));
+  await respond(requests("transactions/query")[2], transactionPage(3));
 
   assert.equal(result.current.loadError.failure?.message ?? "", "");
   assert.equal(result.current.cashFlow.status, "ready");
@@ -692,19 +692,22 @@ test("a page past the last one is replaced by the last available page", async co
     requests,
     result,
     rerender
-  } = renderDashboard(context, "/transactions?page=10");
+  } = renderDashboard(context, "/transactions?page=10&search=Private%20Payee");
 
   await wait(0);
-  assert.equal(requests("transactions")[0].url.searchParams.get("page"), "10");
-  await respond(requests("transactions")[0], transactionPage(60, 10));
+  assert.equal((requests("transactions/query")[0].body as Record<string, unknown>).page, 10);
+  // The address keeps the search; the API request carries it only in its body.
+  assert.equal((requests("transactions/query")[0].body as Record<string, unknown>).search, "Private Payee");
+  assert.equal(requests("transactions/query")[0].url.search, "");
+  await respond(requests("transactions/query")[0], transactionPage(60, 10));
 
   assert.equal(result.current.list.page, 2);
-  assert.equal(window.location.search, "?page=2");
+  assert.equal(window.location.search, "?page=2&search=Private+Payee");
 
   rerender();
   await wait(0);
-  assert.equal(requests("transactions").length, 2);
-  assert.equal(requests("transactions")[1].url.searchParams.get("page"), "2");
+  assert.equal(requests("transactions/query").length, 2);
+  assert.equal((requests("transactions/query")[1].body as Record<string, unknown>).page, 2);
 });
 
 test("an empty transaction history falls back to the first page", async context => {
@@ -715,15 +718,15 @@ test("an empty transaction history falls back to the first page", async context 
   } = renderDashboard(context, "/transactions?page=3");
 
   await wait(0);
-  await respond(requests("transactions")[0], transactionPage(0, 3));
+  await respond(requests("transactions/query")[0], transactionPage(0, 3));
 
   assert.equal(result.current.list.page, 1);
   assert.equal(window.location.search, "");
 
   rerender();
   await wait(0);
-  assert.equal(requests("transactions")[1].url.searchParams.get("page"), "1");
-  await respond(requests("transactions")[1], transactionPage(0, 1));
+  assert.equal((requests("transactions/query")[1].body as Record<string, unknown>).page, 1);
+  await respond(requests("transactions/query")[1], transactionPage(0, 1));
   assert.equal(result.current.list.page, 1);
-  assert.equal(requests("transactions").length, 2);
+  assert.equal(requests("transactions/query").length, 2);
 });

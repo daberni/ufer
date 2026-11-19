@@ -47,3 +47,17 @@ export async function saveManualValuation(account: {
 
   return db.transaction(tx => recordManualBalance(tx, account, date, amount));
 }
+
+
+/** Changes only the display label; provider identity and financial history remain untouched. */
+export async function saveAccountName(id: string, name: string) {
+  const db = await database();
+
+  const updated = await db.update(accounts).set({
+    name
+  }).where(and(eq(accounts.id, id), eq(accounts.environment, environment()))).returning({
+    id: accounts.id
+  });
+
+  return updated.length === 1;
+}
