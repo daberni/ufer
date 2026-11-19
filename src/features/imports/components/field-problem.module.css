@@ -1,0 +1,6 @@
+.problem {
+  display: block;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--gold-text);
+}

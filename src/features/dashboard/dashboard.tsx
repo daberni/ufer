@@ -69,16 +69,23 @@ function DashboardShell({ children }: {
   const section = sectionOf(view);
   const nav = navigation.find(item => item.id === section)!;
   const selectedAccount = view === "account" ? accounts.data?.find(account => account.id === accountId) : undefined;
-  const heading = view === "account" ? selectedAccount?.name ?? "Account details" : nav.heading;
+  let heading = view === "account" ? selectedAccount?.name ?? "Account details" : nav.heading;
+
+  if (view === "import") {
+    heading = "Import transactions";
+  }
+
   let description = nav.description;
 
   if (view === "account") {
     description = "Balance, transactions and history.";
+  } else if (view === "import") {
+    description = "Bring in the history of an account from a bank or app export.";
   } else if (view === "accounts") {
     description = "All your accounts and assets.";
   }
 
-  const showSync = view !== "account" || Boolean(selectedAccount && selectedAccount.provider !== "manual");
+  const showSync = view !== "import" && (view !== "account" || Boolean(selectedAccount && selectedAccount.provider !== "manual"));
 
   // Bank accounts only add the sync action and authorization reminders, so until they load the shell shows neither.
   const {

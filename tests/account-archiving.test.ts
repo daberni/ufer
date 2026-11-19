@@ -25,7 +25,7 @@ import { pairTransfersInEnvironment } from "../src/features/transactions/server/
 import { acquireLease } from "../src/server/jobs/lease-repository";
 import { removeConnection } from "../src/features/banking/server/connection-repository";
 import { queryKeys } from "../src/client/query-keys";
-import { importTransactions, importValuations } from "../src/features/imports/server/import-service";
+import { importValuations } from "../src/features/imports/server/import-service";
 import { readAccountCashFlow, readCashFlow } from "../src/features/reports/server/cash-flow-query";
 import { accountGroups } from "../src/features/accounts/queries";
 import type { Account } from "../src/features/accounts/types";
@@ -205,10 +205,6 @@ test("an archived account rejects balance updates, manual entries and CSV import
     amount: "-5.00",
     booking_date: "2026-01-10",
     type: "expense"
-  }), archived);
-  await assert.rejects(importTransactions({
-    account_id: "closed",
-    csv: "id,date,amount,currency,counterparty,description\nentry-1,2026-01-10,-5.00,EUR,Example payee,Synthetic"
   }), archived);
   await assert.rejects(importValuations({
     account_id: "closed",

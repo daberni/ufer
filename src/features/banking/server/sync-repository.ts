@@ -1,3 +1,4 @@
+import { adoptImportedRows } from "@/features/imports/server/mapped-import-repository";
 import { randomUUID } from "node:crypto";
 import { and, count, eq, getTableColumns, isNull, like, ne, sql, type SQLWrapper } from "drizzle-orm";
 import type { Database } from "@/server/database/connection";
@@ -92,7 +93,7 @@ export async function saveSyncedAccount(db: Database, run: SyncRunStart, account
   date: string
 }, entries: CategorizedEntry[]) {
   return db.transaction(async tx => {
-    await upsertTransactions(tx, accountId, entries, run.startedAt);
+    await upsertTransactions(tx, accountId, await adoptImportedRows(tx, accountId, entries), run.startedAt);
     await tx.update(accounts).set({
       balance_minor: balance.amount,
       balance_date: balance.date,
