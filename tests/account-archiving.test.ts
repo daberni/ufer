@@ -19,7 +19,7 @@ import { ValidationError } from "../src/lib/errors";
 import { listAccounts, readBalanceHistory, readNetWorth } from "../src/features/accounts/server/account-queries";
 import { archiveAccount, restoreAccount, updateManualValuation } from "../src/features/accounts/server/account-service";
 import { editManualTransaction, enterManualTransaction, hideTransaction, removeManualTransaction, transferOptions, updateTransactionCategory, updateTransactionDetails } from "../src/features/transactions/server/transaction-service";
-import { applyRulesToUncorrectedTransactions } from "../src/features/categorization/server/categorization-service";
+import { applyRulesToUncorrectedTransactions, deleteCategory } from "../src/features/categorization/server/categorization-service";
 import { saveRuleAssignments } from "../src/features/categorization/server/rule-repository";
 import { pairTransfersInEnvironment } from "../src/features/transactions/server/transfer-repository";
 import { acquireLease } from "../src/server/jobs/lease-repository";
@@ -499,6 +499,62 @@ test("imported bookings on an archived account take no payee override and cannot
   }), archived);
   await assert.rejects(hideTransaction("imported-zero", true), archived);
   assert.deepEqual(await db.select().from(schema.transactions), bookingsBefore);
+});
+
+test("archiving uses the displayed balance, which leaves hidden bookings out", async context => {
+  const db = await seededDatabase(context);
+
+  await db.insert(schema.transactions).values([{
+    id: "hidden-target",
+    account_id: "target",
+    provider_reference: "csv:hidden-target",
+    booking_date: "2026-01-04",
+    amount_minor: 900,
+    currency: "EUR",
+    type: "income",
+    suppressed_at: "2026-01-05T00:00:00.000Z"
+  }, {
+    id: "hidden-open",
+    account_id: "open",
+    provider_reference: "csv:hidden-open",
+    booking_date: "2026-01-04",
+    amount_minor: 900,
+    currency: "EUR",
+    type: "income",
+    suppressed_at: "2026-01-05T00:00:00.000Z"
+  }]);
+  const listed = await listAccounts();
+
+  assert.equal(listed.find(account => account.id === "target")?.balance_minor ?? 0, 0);
+  assert.equal(listed.find(account => account.id === "open")?.balance_minor, 50000);
+
+  await archiveAccount("target", {});
+  await archiveAccount("open", {
+    closing: {
+      date: "2026-01-15",
+      balance_minor: 50000
+    }
+  });
+  const archived = await listAccounts();
+
+  assert.ok(archived.find(account => account.id === "target")?.archived_at);
+  assert.ok(archived.find(account => account.id === "open")?.archived_at);
+  assert.equal(archived.find(account => account.id === "open")?.balance_minor, 0);
+});
+
+test("deleting a category also reassigns bookings on archived accounts, leaving no deleted category behind", async context => {
+  const db = await seededDatabase(context);
+
+  await db.insert(schema.categories).values({
+    id: "replacement",
+    name: "Synthetic replacement",
+    color: "#3f8f5a"
+  });
+  await archiveAccount("closed", {});
+  await deleteCategory("groceries", {
+    replacement_id: "replacement"
+  });
+  assert.equal((await db.select().from(schema.transactions).where(eq(schema.transactions.id, "groceries")).get())?.category_id, "replacement");
 });
 
 test("a currency whose accounts are all archived still reports its figures on the overview", () => {

@@ -190,10 +190,12 @@ async function categories(db: Database) {
 async function previewCounts(payload: unknown) {
   const {
     id,
+    enabled,
     ...counts
   } = await previewRule(payload);
 
   assert.match(id, /^[0-9a-f-]{36}$/);
+  assert.equal(enabled, true);
 
   return counts;
 }

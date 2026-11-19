@@ -13,6 +13,7 @@ import { FormError } from "@/components/ui/form-error";
 import { CategoryLabel } from "./category-label";
 import { CategoryIconPicker } from "./category-icon-picker";
 import { Dialog } from "@/components/ui/dialog";
+import { CategoryDeleteForm, DeleteButton } from "./deletion-forms";
 
 type Props = DialogFormProps & {
   category?: Category | null;
@@ -31,14 +32,26 @@ export function CategoryDialog({
   initialName,
   onSaved
 }: Props) {
+  const [deleting, setDeleting] = useState(false);
+  let title = category ? "Edit category" : "Add category";
+
+  if (category && deleting) {
+    title = "Delete category";
+  }
+
   return (
-    <Dialog eyebrow="YOUR FINANCES" title={category ? "Edit category" : "Add category"} onClose={close}>
-      <CategoryForm
-        category={category}
-        close={close}
-        initialName={initialName}
-        onSaved={onSaved}
-      />
+    <Dialog eyebrow="YOUR FINANCES" title={title} onClose={close}>
+      {category && deleting ? (
+        <CategoryDeleteForm category={category} close={close} cancel={() => setDeleting(false)} />
+      ) : (
+        <CategoryForm
+          category={category}
+          close={close}
+          initialName={initialName}
+          onSaved={onSaved}
+          onDelete={() => setDeleting(true)}
+        />
+      )}
     </Dialog>
   );
 }
@@ -47,8 +60,11 @@ function CategoryForm({
   category,
   close,
   initialName = "",
-  onSaved
-}: Props) {
+  onSaved,
+  onDelete
+}: Props & {
+  onDelete: () => void;
+}) {
   const {
     error,
     pending,
@@ -102,6 +118,7 @@ function CategoryForm({
       <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={pending}>
         Save category
       </button>
+      {category && <DeleteButton label="Delete category" disabled={pending} onClick={onDelete} />}
     </form>
   );
 }

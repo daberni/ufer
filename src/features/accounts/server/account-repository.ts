@@ -55,8 +55,8 @@ export async function saveManualValuation(account: {
 }
 
 
-// The current balance in one statement with the update: a manual account's transaction sum (0 without bookings), otherwise the provider balance, whose NULL (unknown) never equals 0.
-const currentBalance = sql`(CASE WHEN ${accounts.provider}='manual' THEN COALESCE((SELECT SUM(t.amount_minor) FROM transactions t WHERE t.account_id=accounts.id),0) ELSE ${accounts.balance_minor} END)`;
+// The current balance in one statement with the update, as listed: a manual account's sum of visible (not hidden) bookings (0 without any), otherwise the provider balance, whose NULL (unknown) never equals 0.
+const currentBalance = sql`(CASE WHEN ${accounts.provider}='manual' THEN COALESCE((SELECT SUM(t.amount_minor) FROM transactions t WHERE t.account_id=accounts.id AND t.suppressed_at IS NULL),0) ELSE ${accounts.balance_minor} END)`;
 
 /** Archives an active account only if its balance is exactly 0 at the moment of the update; returns whether it was archived. */
 export async function archiveSettledAccount(executor: Pick<Database, "update">, id: string, archivedAt: string) {
@@ -118,7 +118,7 @@ export async function closeAndArchiveManualAccount(account: {
       const total = await tx.select({
         amount: sql<number>`COALESCE(SUM(${transactions.amount_minor}),0)`.mapWith(Number),
         latest: sql<string | null>`MAX(${transactions.booking_date})`
-      }).from(transactions).where(eq(transactions.account_id, account.id)).get();
+      }).from(transactions).where(and(eq(transactions.account_id, account.id), isNull(transactions.suppressed_at))).get();
 
       if ((total?.amount ?? 0) !== expectedBalance) {
         throw new ClosingRefused("balance_changed");

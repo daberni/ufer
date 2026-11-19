@@ -153,8 +153,7 @@ test("an explicit category action keeps its draft when another row finishes savi
   assert.equal(preview?.url.search, "");
   assert.deepEqual(preview?.body, {
     pattern: "Example Market",
-    mode: "keyword",
-    priority: 100
+    mode: "keyword"
   });
   const pattern = screen.getByRole("textbox", {
     name: "Matching pattern"
@@ -327,7 +326,7 @@ test("saving never opens a prompt; the lightning action is explicit and disappea
   assert.equal(screen.queryAllByRole("dialog").length, 0);
 });
 
-test("rule creation waits for the current pattern and priority preview, including debounce and failed requests", async context => {
+test("rule creation waits for the current pattern preview, including debounce and failed requests", async context => {
   const {
     pending,
     queryClient,
@@ -350,9 +349,6 @@ test("rule creation waits for the current pattern and priority preview, includin
   }) as HTMLButtonElement;
   const pattern = screen.getByRole("textbox", {
     name: "Matching pattern"
-  });
-  const priority = screen.getByRole("spinbutton", {
-    name: "Priority"
   });
   const form = pattern.closest("form")!;
 
@@ -384,9 +380,9 @@ test("rule creation waits for the current pattern and priority preview, includin
   }));
   assert.equal(create().disabled, false);
 
-  act(() => fireEvent.change(priority, {
+  act(() => fireEvent.change(pattern, {
     target: {
-      value: "5"
+      value: "Salary payment"
     }
   }));
   assert.equal(create().disabled, true);
@@ -401,9 +397,9 @@ test("rule creation waits for the current pattern and priority preview, includin
   act(() => fireEvent.submit(form));
   assert.equal(requests("rules").filter(request => request.method === "POST").length, 0);
 
-  act(() => fireEvent.change(priority, {
+  act(() => fireEvent.change(pattern, {
     target: {
-      value: "6"
+      value: "Salary"
     }
   }));
   await wait(350);
@@ -423,7 +419,6 @@ test("rule creation waits for the current pattern and priority preview, includin
     pattern: "Salary",
     mode: "keyword",
     category_id: "groceries",
-    priority: 6,
     apply_to_uncategorized: true
   });
 });
@@ -540,7 +535,6 @@ test("an explicitly opened draft survives removal of its filtered source row and
     pattern: "Edited Market",
     mode: "keyword",
     category_id: "groceries",
-    priority: 100,
     apply_to_uncategorized: true
   });
   await respond(created, Response.json({

@@ -3,7 +3,7 @@
 import { keepPreviousData, skipToken, useQuery } from "@tanstack/react-query";
 import { apiGet, apiQuery } from "@/client/api";
 import { queryKeys } from "@/client/query-keys";
-import type { Category, Rule, RulePreview, RulePreviewDraft } from "@/features/categorization/types";
+import type { Category, CategoryUsage, Rule, RulePreview, RulePreviewDraft } from "@/features/categorization/types";
 
 export function useCategories() {
   return useQuery({
@@ -19,8 +19,17 @@ export function useRules() {
   });
 }
 
+/** Counts what references a category, so deleting it can say what moves. */
+export function useCategoryUsage(id: string) {
+  return useQuery({
+    queryKey: queryKeys.categoryUsage(id),
+    queryFn: ({ signal }) => apiGet<CategoryUsage>(`categories/${encodeURIComponent(id)}/usage`, undefined, signal),
+    staleTime: 0
+  });
+}
+
 /**
- * Counts what a keyword rule would categorize. Consumers must retire placeholder counts while an edited draft is being counted. The read posts the pattern, since
+ * Counts what a new or edited rule would categorize. Consumers must retire placeholder counts while an edited draft is being counted. The read posts the pattern, since
  * it comes from payee and remittance text that must not appear in URLs and request logs.
  */
 export function useRulePreview(draft: RulePreviewDraft | null) {
@@ -28,8 +37,10 @@ export function useRulePreview(draft: RulePreviewDraft | null) {
     queryKey: queryKeys.rulePreview(draft),
     queryFn: draft ? ({ signal }) => apiQuery<RulePreview>("rules/preview", {
       pattern: draft.pattern,
-      mode: "keyword",
-      priority: draft.priority
+      mode: draft.mode,
+      ...(draft.ruleId === null ? {} : {
+        rule_id: draft.ruleId
+      })
     }, signal) : skipToken,
     // Assignments change the count, so an open preview never reuses an earlier one.
     staleTime: 0,
