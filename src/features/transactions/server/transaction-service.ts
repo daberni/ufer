@@ -52,7 +52,7 @@ const detailsInput = typeInput.extend({
   description: z.string().trim().max(2000).optional()
 });
 
-const typeFailures: Record<Exclude<ManualEntryResult, "saved" | "not_found">, string> = {
+const typeFailures: Record<Exclude<ManualEntryResult, "saved" | "not_found" | "hidden">, string> = {
   manual_account_only: "Opening balances and adjustments are only available for manual accounts.",
   counterpart_not_found: "The selected booking does not exist.",
   account_not_found: "Choose one of your manual accounts.",
@@ -69,6 +69,10 @@ const typeFailures: Record<Exclude<ManualEntryResult, "saved" | "not_found">, st
 function requireSaved(result: ManualEntryResult) {
   if (result === "not_found") {
     throw new HttpError(404, "Transaction not found.");
+  }
+
+  if (result === "hidden") {
+    throw new HttpError(409, "This transaction is hidden. Show it before linking it with another booking.");
   }
 
   if (result !== "saved") {

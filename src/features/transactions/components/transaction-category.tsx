@@ -60,8 +60,9 @@ export function TransactionCategory({
             if (categoryId !== null && manual) {
               rules.open({
                 categoryId,
-                counterparty: transaction.counterparty,
-                description: transaction.description
+                // Rules match the source's text, so a pattern from a person's override would not match later deliveries.
+                counterparty: transaction.source_counterparty,
+                description: transaction.source_description
               });
             }
           }

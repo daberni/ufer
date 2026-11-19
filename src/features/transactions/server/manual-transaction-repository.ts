@@ -24,7 +24,7 @@ export type NewManualEntry = ManualEntry & {
   categorySource: "rule" | "manual";
 };
 
-export type ManualEntryResult = TypeChangeResult | "not_entered" | "follows_import" | "entered";
+export type ManualEntryResult = TypeChangeResult | "not_entered" | "follows_import" | "entered" | "hidden";
 
 /** Thrown inside a write transaction to roll it back and report why a change was refused. */
 class Refused extends TransactionRollbackError {

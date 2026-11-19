@@ -17,7 +17,7 @@ import { pairTransfersInEnvironment } from "../src/features/transactions/server/
 import { readTransactionPage } from "../src/features/transactions/server/transaction-list-query";
 import { dashboardFilters } from "../src/server/http/dashboard-filters";
 import { monthPeriod } from "../src/lib/period";
-import { ValidationError } from "../src/lib/errors";
+import { HttpError, ValidationError } from "../src/lib/errors";
 
 const now = Temporal.Instant.from("2026-10-31T12:00:00Z");
 const september = monthPeriod(Temporal.PlainYearMonth.from("2026-09"));
@@ -300,4 +300,59 @@ test("hiding a linked transfer releases its counterpart, and automatic pairing n
     transfer_source: "auto"
   });
   assert.equal(await pairTransfersInEnvironment("SANDBOX"), 0);
+});
+
+test("a hidden booking cannot be linked with another booking until it is shown again", async context => {
+  const db = await isolatedDatabase(context);
+
+  await sync(db, "checking", [{
+    reference: "bank:out",
+    date: "2026-09-03",
+    amount: -5000
+  }]);
+  await sync(db, "savings", [{
+    reference: "bank:in",
+    date: "2026-09-03",
+    amount: 5000
+  }]);
+  const outgoing = await byReference(db, "bank:out");
+  const incoming = await byReference(db, "bank:in");
+  const link = () => updateTransactionDetails(outgoing.id, {
+    type: "transfer",
+    transfer: {
+      counterpart_id: incoming.id
+    }
+  });
+
+  await hideTransaction(outgoing.id, true, now);
+  await assert.rejects(link(), (error: unknown) => error instanceof HttpError && error.status === 409);
+  assert.equal((await byReference(db, "bank:in")).transfer_id, null);
+  assert.equal((await byReference(db, "bank:out")).type, "expense");
+
+  await hideTransaction(outgoing.id, false, now);
+  await link();
+  assert.ok((await byReference(db, "bank:in")).transfer_id);
+});
+
+test("untouched source text with surrounding spaces stores no override", async context => {
+  const db = await isolatedDatabase(context);
+
+  await sync(db, "checking", [{
+    reference: "bank:1",
+    date: "2026-09-03",
+    amount: -1250,
+    counterparty: " Example Market ",
+    description: "Card payment "
+  }]);
+  const booking = await byReference(db, "bank:1");
+
+  await updateTransactionDetails(booking.id, {
+    type: "expense",
+    counterparty: " Example Market ",
+    description: "Card payment "
+  });
+
+  const stored = await byReference(db, "bank:1");
+
+  assert.deepEqual([stored.counterparty_override, stored.description_override], [null, null]);
 });

@@ -289,6 +289,63 @@ test("an imported booking sends only the changed payee, and restoring the bank's
   });
 });
 
+test("untouched bank text with surrounding spaces is not sent as an override", async context => {
+  const {
+    requests,
+    save
+  } = await renderDialog(context, {
+    ...outgoing,
+    counterparty: " Synthetic savings ",
+    source_counterparty: " Synthetic savings ",
+    description: "Standing order ",
+    source_description: "Standing order "
+  });
+
+  act(() => {
+    fireEvent.click(save());
+  });
+  await wait(0);
+
+  assert.deepEqual(requests("transactions/out/details")[0]?.body, {
+    type: "expense"
+  });
+});
+
+test("a hidden booking offers no transfer targets and saves a transfer without a link", async context => {
+  const {
+    requests,
+    save,
+    screen
+  } = await renderDialog(context, {
+    ...outgoing,
+    hidden: true
+  });
+
+  act(() => {
+    fireEvent.change(screen.getByRole("combobox", {
+      name: "Type"
+    }), {
+      target: {
+        value: "transfer"
+      }
+    });
+  });
+  await wait(0);
+
+  assert.equal(requests("transactions/out/transfer").length, 0);
+  assert.equal(screen.queryByRole("combobox", {
+    name: "Target account"
+  }), null);
+  act(() => {
+    fireEvent.click(save());
+  });
+  await wait(0);
+
+  assert.deepEqual(requests("transactions/out/details")[0]?.body, {
+    type: "transfer"
+  });
+});
+
 test("a booking Ufer created on a manual account offers only removing it, without suggestions or a target account", async context => {
   const created = {
     ...outgoing,

@@ -310,17 +310,19 @@ function TransactionEditForm({
   const [typeChosen, setTypeChosen] = useState(false);
   const [chosenTarget, setTarget] = useState<Target>();
   const transfer = type === "transfer";
-  const options = useTransferOptions(transaction.id, transfer);
+  // A hidden booking is not linked; it can be a transfer to an untracked account until it is shown again.
+  const linkable = transfer && !transaction.hidden;
+  const options = useTransferOptions(transaction.id, linkable);
   const target = chosenTarget ?? storedTarget(transaction, options.data);
   const available = transactionTypes.filter(option => transaction.manual_account || !manualAccountTypes.includes(option) || option === transaction.type);
   // Without loaded options, saving a transfer could drop a link the form cannot show.
-  const targetUnknown = transfer && options.status !== "success";
+  const targetUnknown = linkable && options.status !== "success";
 
   return (
     <form
       className={ui["form"]}
       onSubmit={event => submit(event, data => {
-        const edit: TransactionEdit = transfer ? {
+        const edit: TransactionEdit = linkable ? {
           type,
           transfer: transferEdit(target)
         } : {
@@ -367,7 +369,7 @@ function TransactionEditForm({
         Income and expenses count toward cash flow and spending; transfers, opening balances and adjustments do not. A refund is an expense with a positive amount and reduces spending.
         {!transfer && transaction.counterpart && <LeaveTransferHint transaction={transaction} />}
       </p>
-      {transfer && (
+      {linkable && (
         <TransferFields
           transaction={transaction}
           options={options}
@@ -412,10 +414,10 @@ function textEdit(edit: TransactionEdit, data: FormData, transaction: Transactio
 
   return {
     ...edit,
-    ...(counterparty === transaction.counterparty ? {} : {
+    ...(counterparty === transaction.counterparty.trim() ? {} : {
       counterparty
     }),
-    ...(description === transaction.description ? {} : {
+    ...(description === transaction.description.trim() ? {} : {
       description
     })
   };
@@ -461,7 +463,7 @@ function OverridableText({
 }) {
   const hintId = useId();
   const input = useRef<HTMLInputElement>(null);
-  const [overridden, setOverridden] = useState(initial !== source);
+  const [overridden, setOverridden] = useState(initial.trim() !== source.trim());
 
   return (
     <div className={styles["overridable"]}>
@@ -473,7 +475,7 @@ function OverridableText({
           maxLength={maxLength}
           defaultValue={initial}
           aria-describedby={overridden ? hintId : undefined}
-          onChange={event => setOverridden(event.target.value.trim() !== source)}
+          onChange={event => setOverridden(event.target.value.trim() !== source.trim())}
         />
       </label>
       {overridden && (

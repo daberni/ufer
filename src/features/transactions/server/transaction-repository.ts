@@ -92,7 +92,8 @@ function overrideOf(value: string | undefined, source: string) {
     return undefined;
   }
 
-  return value === source ? null : value;
+  // The input arrives trimmed, so untouched source text with surrounding spaces must not become an override.
+  return value === source.trim() ? null : value;
 }
 
 /**
@@ -113,6 +114,13 @@ export async function saveTransactionDetails(id: string, type: TransactionType, 
       return "entered";
     }
 
+    const linksTarget = type === "transfer" && target !== undefined && target !== null;
+
+    // Linking a hidden booking could create a visible counterpart for a booking that counts nowhere.
+    if (linksTarget && await isHidden(tx, id)) {
+      return "hidden";
+    }
+
     if (changesText) {
       await tx.update(transactions).set({
         counterparty_override: overrideOf(text.counterparty, subject.counterparty),
@@ -122,6 +130,14 @@ export async function saveTransactionDetails(id: string, type: TransactionType, 
 
     return applyTransactionType(tx, id, type, target);
   });
+}
+
+async function isHidden(tx: DatabaseTransaction, id: string) {
+  const booking = await tx.select({
+    suppressed_at: transactions.suppressed_at
+  }).from(transactions).where(eq(transactions.id, id)).get();
+
+  return Boolean(booking?.suppressed_at);
 }
 
 /**
