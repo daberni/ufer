@@ -31,7 +31,7 @@ export function CsvImportPage() {
       void load(file);
     }
   }, [load]);
-  const loaded = draft.file && draft.settings && draft.table;
+  const loaded = draft.file && draft.settings;
 
   if (draft.imported) {
     return (
@@ -61,9 +61,10 @@ export function CsvImportPage() {
         <h2 id="import-file">File</h2>
         {loaded ? <FileCard draft={draft} /> : <FileDropZone disabled={draft.inputsLocked} onFile={file => void draft.load(file)} />}
         {draft.fileError && <p className={ui["error-text"]} role="alert">{draft.fileError}</p>}
+        {draft.formatError && <p className={ui["error-text"]} role="alert">{draft.formatError}</p>}
         {!loaded && <p className={ui["form-hint"]}>Any CSV export with a date and an amount works: bank exports, Buxfer, spreadsheets. You choose what each column means, check the result, then import. Nothing is saved before you import.</p>}
       </section>
-      {loaded && (
+      {loaded && draft.table && (
         <>
           <TargetAccounts draft={draft} />
           <ColumnPreview draft={draft} reviewing={reviewing} />

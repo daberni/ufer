@@ -16,7 +16,7 @@ import { findDuplicates } from "../src/features/imports/server/duplicate-matchin
 import { saveAccountSync } from "../src/features/banking/server/account-sync-service";
 import { startSyncRun } from "../src/features/banking/server/sync-repository";
 import { accountLabel, categoryValues, defaultCategorySelection, defaultTargetChoice, importKey, newAccountChoice, needsCategoryReview, prepareImport, type TargetChoice } from "../src/features/imports/import-plan";
-import { assignOccurrences, currencyAllows, duplicateIdErrors, emptyMapping, mappingProblem, normalizeText, parseCsvRecords, pruneConsumed, decodeCsv, detectDateFormat, detectDecimal, detectDelimiter, mapRows, parseAmount, parseCsv, parseDate, suggestMapping, type CsvSettings, type DateFormat, type ImportRow } from "../src/features/imports/csv-mapping";
+import { assignOccurrences, currencyAllows, duplicateIdErrors, readCsvTable, emptyMapping, mappingProblem, normalizeText, parseCsvRecords, pruneConsumed, decodeCsv, detectDateFormat, detectDecimal, detectDelimiter, mapRows, parseAmount, parseCsv, parseDate, suggestMapping, type CsvSettings, type DateFormat, type ImportRow } from "../src/features/imports/csv-mapping";
 
 const now = Temporal.Instant.from("2026-06-30T12:00:00Z");
 
@@ -1525,4 +1525,18 @@ test("a new account name over the server's limit is shortened in the prefill and
     balanceKind: "current",
     balance: ""
   }]]), [], new Map(), ".").problems.length, 1);
+});
+
+test("a delimiter that breaks the file's quoting reads as no table instead of throwing", () => {
+  // With a semicolon delimiter, the second cell opens a quoted field that never closes.
+  const bytes = new TextEncoder().encode("Payee,Amount\nSynthetic 5\";\"Shop,1.00\n");
+
+  assert.equal(readCsvTable(bytes, {
+    encoding: "utf-8",
+    delimiter: ","
+  })?.rows.length, 1);
+  assert.equal(readCsvTable(bytes, {
+    encoding: "utf-8",
+    delimiter: ";"
+  }), null);
 });

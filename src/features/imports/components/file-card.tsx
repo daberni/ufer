@@ -32,7 +32,7 @@ export function FileCard({
     inputsLocked
   } = draft;
 
-  if (!file || !settings || !table) {
+  if (!file || !settings) {
     return null;
   }
 
@@ -42,7 +42,7 @@ export function FileCard({
         <FileText size={22} aria-hidden="true" />
         <div className={styles["name"]}>
           <strong>{file.name}</strong>
-          <span>{rowCount(table.rows.length)}</span>
+          {table && <span>{rowCount(table.rows.length)}</span>}
         </div>
         <button
           type="button"

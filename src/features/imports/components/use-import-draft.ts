@@ -5,7 +5,7 @@ import { useAccounts } from "@/features/accounts/queries";
 import { useAreaResult } from "@/components/ui/use-area-result";
 import { useCategories } from "@/features/categorization/queries";
 import { useMappedImport, type MappedImportSummary } from "@/features/imports/mutations";
-import { decodeCsv, detectDateFormat, detectDecimal, detectDelimiter, mapRows, mappingProblem, parseCsv, parseCsvRecords, suggestMapping, type CsvMapping, type CsvSettings } from "@/features/imports/csv-mapping";
+import { decodeCsv, detectDateFormat, detectDecimal, detectDelimiter, mapRows, mappingProblem, parseCsv, readCsvTable, suggestMapping, type CsvMapping, type CsvSettings } from "@/features/imports/csv-mapping";
 import { categoryValues, defaultCategorySelection, importKey, defaultTargetChoice, needsCategoryReview, prepareImport, sourceAccounts, type CategorySelection, type TargetChoice } from "@/features/imports/import-plan";
 
 /** Large multi-year exports are read in the browser and sent as mapped rows in batches, so only the browser's memory bounds the file. */
@@ -38,20 +38,9 @@ export function useImportDraft() {
   const categories = useCategories();
   const mutation = useMappedImport();
   const accountOptions = useMemo(() => accounts.data ?? [], [accounts.data]);
-  const table = useMemo(() => {
-    if (!file || !settings) {
-      return null;
-    }
-
-    const text = decodeCsv(file.bytes, settings.encoding).text;
-    const [header, ...records] = parseCsvRecords(text, settings.delimiter);
-
-    return {
-      header: header?.cells ?? [],
-      rows: records.map(record => record.cells),
-      lines: records.map(record => record.line)
-    };
-  }, [file, settings]);
+  const table = useMemo(() => file && settings ? readCsvTable(file.bytes, settings) : null, [file, settings]);
+  // A delimiter or encoding that breaks the file keeps it loaded so another format can be chosen; nothing else works until then.
+  const formatError = file && settings && !table ? "The file could not be read with these settings." : null;
   // Without a stored mapping (a new file, delimiter or encoding), the suggestion for the current header applies.
   const effectiveMapping = useMemo(() => mapping ?? (table ? suggestMapping(table.header) : null), [mapping, table]);
   const problem = effectiveMapping ? mappingProblem(effectiveMapping) : null;
@@ -235,6 +224,7 @@ export function useImportDraft() {
   return {
     file,
     fileError,
+    formatError,
     settings,
     table,
     mapping: effectiveMapping,

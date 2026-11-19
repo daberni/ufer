@@ -158,6 +158,26 @@ export function detectDelimiter(text: string): CsvDelimiter {
   return scores[best] > 0 ? delimiters[best] : ",";
 }
 
+/** The header and data rows of a file read with the given settings; null when the file is not valid CSV with them, such as an unterminated quoted field. */
+export function readCsvTable(bytes: Uint8Array, settings: Pick<CsvSettings, "encoding" | "delimiter">) {
+  const text = decodeCsv(bytes, settings.encoding).text;
+  let records: ReturnType<typeof parseCsvRecords>;
+
+  try {
+    records = parseCsvRecords(text, settings.delimiter);
+  } catch {
+    return null;
+  }
+
+  const [header, ...rows] = records;
+
+  return {
+    header: header?.cells ?? [],
+    rows: rows.map(record => record.cells),
+    lines: rows.map(record => record.line)
+  };
+}
+
 /** A CSV record with the physical line it starts on, counting from 1. */
 export type CsvRecord = {
   cells: string[];
