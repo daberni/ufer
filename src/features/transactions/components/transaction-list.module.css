@@ -362,3 +362,18 @@
     color: var(--ink-soft);
   }
 }
+
+/* A hidden booking stays listed so it can be shown again, but reads as not counting. */
+.hidden .name,
+.hidden .description {
+  color: var(--muted);
+}
+.hidden .amount {
+  color: var(--muted);
+}
+.hidden-tag {
+  display: block;
+  margin-top: var(--space-1);
+  font-size: var(--text-sm);
+  font-weight: 400;
+}

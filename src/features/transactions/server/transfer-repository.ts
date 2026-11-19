@@ -16,9 +16,9 @@ export const createdCounterpartPrefix = "transfer:";
 /** Bookings entered in Ufer on a manual account (manual transactions, opening balances and adjustments) carry their own id in this reference. */
 export const manualEntryPrefix = "manual:";
 
-// Bookings automatic pairing may link: unlinked, never linked or unlinked by a person, and either a transfer or a type nobody corrected.
+// Bookings automatic pairing may link: visible, unlinked, never linked or unlinked by a person, and either a transfer or a type nobody corrected.
 function pairable(alias: string) {
-  return sql.raw(`${alias}.transfer_id IS NULL AND ${alias}.transfer_source='auto' AND ${alias}.amount_minor<>0 AND (${alias}.type='transfer' OR (${alias}.type_source='auto' AND ${alias}.type IN ('income','expense')))`);
+  return sql.raw(`${alias}.suppressed_at IS NULL AND ${alias}.transfer_id IS NULL AND ${alias}.transfer_source='auto' AND ${alias}.amount_minor<>0 AND (${alias}.type='transfer' OR (${alias}.type_source='auto' AND ${alias}.type IN ('income','expense')))`);
 }
 
 function windowStart(days: number) {
@@ -108,7 +108,7 @@ export type Subject = NonNullable<Awaited<ReturnType<typeof findSubject>>>;
 function linkCandidate(subject: Subject) {
   const inWindow = sql`${transactions.booking_date} BETWEEN date(${subject.booking_date},${windowStart(manualLinkDays)}) AND date(${subject.booking_date},${windowEnd(manualLinkDays)})`;
 
-  return and(eq(accounts.environment, environment()), ne(transactions.account_id, subject.account_id), eq(transactions.amount_minor, -subject.amount_minor), eq(transactions.currency, subject.currency), sql`${transactions.transfer_id} IS NULL`, sql`${transactions.amount_minor}<>0`, inWindow);
+  return and(eq(accounts.environment, environment()), ne(transactions.account_id, subject.account_id), eq(transactions.amount_minor, -subject.amount_minor), eq(transactions.currency, subject.currency), sql`${transactions.transfer_id} IS NULL`, sql`${transactions.suppressed_at} IS NULL`, sql`${transactions.amount_minor}<>0`, inWindow);
 }
 
 export async function findSubject(executor: Executor, id: string) {
@@ -463,16 +463,9 @@ async function transferWithoutCounterpart(tx: DatabaseTransaction, subject: Subj
 }
 
 /**
- * Stores a manually chosen type and, for a transfer, its target in one transaction. `target` undefined keeps a transfer's current link; null means no counterpart, chosen deliberately.
- * A target booking must be one of the subject's link candidates, and a target manual account must use the subject's currency. Every check runs before anything is written.
+ * Stores a manually chosen type and, for a transfer, its target inside a caller's transaction. `target` undefined keeps a transfer's current link; null means no counterpart, chosen deliberately.
+ * A target booking must be one of the subject's link candidates, and a target manual account must use the subject's currency. A failed check returns before anything is written.
  */
-export async function saveTransactionType(id: string, type: TransactionType, target?: TransferTarget): Promise<TypeChangeResult> {
-  const db = await database();
-
-  return db.transaction(tx => applyTransactionType(tx, id, type, target));
-}
-
-/** `saveTransactionType` inside a caller's transaction, for example after entering or editing a booking. A failed check returns before anything is written. */
 export async function applyTransactionType(tx: DatabaseTransaction, id: string, type: TransactionType, target?: TransferTarget): Promise<TypeChangeResult> {
   const result = await changeType(tx, id, type, target);
 
