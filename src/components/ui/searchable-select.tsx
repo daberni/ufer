@@ -47,6 +47,8 @@ type Props<Value> = {
   footer?: ReactNode;
   /** Status icons inside the field's right edge, before the toggle; the field keeps its width when they appear. */
   adornment?: ReactNode;
+  /** An independent action at the end of the field, after its dropdown toggle. */
+  endAdornment?: ReactNode;
   /** Inline fields keep their geometry but show chrome only during interaction or an inherited row hover. */
   appearance?: SearchableSelectAppearance;
   /** Sizes the field, such as a denser control for tables and filters. */
@@ -73,6 +75,7 @@ export function SearchableSelect<Value>({
   busy = false,
   footer,
   adornment,
+  endAdornment,
   appearance = "default",
   className,
   onCreate,
@@ -390,6 +393,7 @@ export function SearchableSelect<Value>({
         >
           <ChevronDown aria-hidden="true" strokeWidth={2.2} />
         </button>
+        {endAdornment}
       </div>
       <div ref={popupRef} className={styles["popup"]} popover="manual">
         <ul

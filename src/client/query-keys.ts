@@ -28,6 +28,10 @@ export const queryKeys = {
   balanceHistory: (account: string) => ["accounts", "balance-history", account] as const,
   categories: () => ["categories"] as const,
   rules: () => ["rules"] as const,
+  rulePreview: (draft: {
+    pattern: string;
+    priority: number;
+  } | null) => ["rules", "preview", draft] as const,
   transactions: {
     all: () => ["transactions"] as const,
     list: (filters: TransactionListFilters) => ["transactions", "list", filters] as const,

@@ -293,6 +293,7 @@ test("category corrections retain environment isolation, manual exclusions survi
     counterparty: "Supermarket"
   }]);
   await insertRule({
+    id: "groceries-rule",
     name: "Groceries",
     pattern: "Supermarket",
     mode: "keyword",
@@ -371,6 +372,7 @@ test("applying rules reports only transactions whose category changed", async co
     category_id: index === 0 ? "groceries" : null
   })));
   await insertRule({
+    id: "groceries-rule",
     name: "Groceries",
     pattern: "Supermarket",
     mode: "keyword",
@@ -549,6 +551,7 @@ test("category edits keep transaction assignments and rules attached and reject 
     kind: "checking"
   });
   await insertRule({
+    id: "groceries-rule",
     name: "Groceries",
     pattern: "Supermarket",
     mode: "keyword",

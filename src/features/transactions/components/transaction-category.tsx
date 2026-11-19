@@ -11,6 +11,7 @@ import type { Transaction } from "@/features/transactions/types";
 import { TraceId } from "@/components/ui/trace-id";
 import { CategoryPicker } from "@/features/categorization/components/category-picker";
 import { useTransactionCategory } from "@/features/transactions/use-transaction-category";
+import { useTransactionRules } from "./transaction-rule-provider";
 import { transactionTypeLabels } from "@/features/transactions/transaction-types";
 
 type Props = {
@@ -23,11 +24,13 @@ export function TransactionCategory({
   transaction
 }: Props) {
   const messageId = useId();
+  const fieldId = useId();
   const {
     categoryId,
     status,
     change
   } = useTransactionCategory(transaction);
+  const rules = useTransactionRules();
   const failure = status?.kind === "failed" ? `Category not saved: ${status.failure.message}` : "";
   const announcements = {
     saving: "Saving category …",
@@ -36,17 +39,33 @@ export function TransactionCategory({
   };
   // A pending choice is a manual assignment before the server confirms it.
   const manual = status?.kind === "saving" || transaction.category_source === "manual";
+  const assignmentSource = manual ? "manual" : "rule";
+  const announcement = status ? announcements[status.kind] : "";
 
   return (
     <div className={styles["category"]}>
       <CategoryPicker
+        id={fieldId}
         className={styles["picker"]}
         size="compact"
         appearance="inline"
         categories={categories}
         value={categoryId}
         includeUncategorized
-        manual={manual}
+        assignment={{
+          source: categoryId === null ? null : assignmentSource,
+          actionLabel: `Create rule for ${transaction.counterparty || transaction.description || transactionTypeLabels[transaction.type]}`,
+          disabled: status?.kind === "saving",
+          createRule: () => {
+            if (categoryId !== null && manual) {
+              rules.open({
+                categoryId,
+                counterparty: transaction.counterparty,
+                description: transaction.description
+              });
+            }
+          }
+        }}
         status={status && (
           <span className={clsx(styles["status"], styles[status.kind])} aria-hidden="true">
             {status.kind === "saving" && <LoaderCircle className={ui["spinning"]} />}
@@ -58,10 +77,13 @@ export function TransactionCategory({
         aria-busy={status?.kind === "saving"}
         aria-invalid={status?.kind === "failed"}
         aria-describedby={failure ? messageId : undefined}
-        onChange={change}
+        onChange={next => {
+          rules.clearAnnouncement();
+          change(next);
+        }}
       />
       <span className={ui["visually-hidden"]} role="status" aria-live={failure ? "assertive" : "polite"}>
-        {status ? announcements[status.kind] : ""}
+        {announcement}
       </span>
       {failure && (
         <span id={messageId} className={styles["message"]} title={failure}>
@@ -69,6 +91,7 @@ export function TransactionCategory({
           <TraceId id={status?.kind === "failed" ? status.failure.traceId : undefined} />
         </span>
       )}
+
     </div>
   );
 }
