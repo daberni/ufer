@@ -51,6 +51,21 @@ export function trendCashFlow(trend: CashFlow["trend"]) {
   return netFlow(income, expenses);
 }
 
+/**
+ * The net at the plot's left edge: halfway between the month before the first visible one and that first month, as on the line between their column centres. That month is a hidden trend month when fewer months fit, otherwise the month before the trend.
+ */
+export function edgeNet(data: CashFlow, visibleCount: number) {
+  const hiddenCount = data.trend.length - visibleCount;
+  const previous = hiddenCount > 0 ? data.trend[hiddenCount - 1] : data.leadIn;
+  const first = data.trend[hiddenCount];
+
+  if (!first) {
+    return null;
+  }
+
+  return (netFlow(previous.income, previous.expenses).net + netFlow(first.income, first.expenses).net) / 2;
+}
+
 /** A selected month uses the same monthly totals and breakdowns as its chart column, rather than the page's whole period. */
 export function selectedCashFlow(data: CashFlow, month: string | null): CashFlowSelection | null {
   const item = data.trend.find(entry => entry.month === month);

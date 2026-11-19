@@ -10,10 +10,10 @@ type MonthFlows = {
 };
 
 /**
- * One y-axis for all months. Income is drawn upward and expenses downward from the zero line, so a negative flow (refunds exceeding spending, for example) points the other way. The bounds include every signed bar end and every net, so all bars and net points stay inside the plot.
+ * One y-axis for all months. Income is drawn upward and expenses downward from the zero line, so a negative flow (refunds exceeding spending, for example) points the other way. The bounds include every signed bar end, every net and any further net values drawn (such as the net area's continuation at the plot edge), so everything stays inside the plot.
  */
-export function cashFlowScale(months: MonthFlows[]): CashFlowScale {
-  const values = months.flatMap(month => [month.income, -month.expenses, month.income - month.expenses]);
+export function cashFlowScale(months: MonthFlows[], extraNets: number[] = []): CashFlowScale {
+  const values = [...months.flatMap(month => [month.income, -month.expenses, month.income - month.expenses]), ...extraNets];
   const up = Math.max(0, ...values);
   const down = Math.max(0, ...values.map(value => -value));
   const extent = up + down;

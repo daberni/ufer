@@ -19,6 +19,12 @@ export type CashFlow = {
   incomeBreakdown: CategoryAmount[];
   /** Spending by category in the period, largest first. */
   expenseBreakdown: CategoryAmount[];
+  /** Totals of the month before the trend; they only continue the chart's net area to its left edge and count toward nothing else. */
+  leadIn: {
+    month: string;
+    income: number;
+    expenses: number;
+  };
   trend: {
     month: string;
     income: number;

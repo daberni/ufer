@@ -21,7 +21,7 @@ import { useMonthTransactionsHref, usePeriod } from "@/client/use-app-url";
 import type { Area, AreaResult, PendingArea } from "@/components/ui/use-area-result";
 import type { CashFlow } from "@/features/reports/types";
 import { barSpan, cashFlowScale, scaleOffset, type CashFlowScale } from "@/features/reports/cash-flow-scale";
-import { formatSavingsRate, isNegativeRate, netFlow, trendCashFlow, type CashFlowSelection } from "@/features/reports/cash-flow-selection";
+import { edgeNet, formatSavingsRate, isNegativeRate, netFlow, trendCashFlow, type CashFlowSelection } from "@/features/reports/cash-flow-selection";
 
 type Props = {
   cashFlow: Area<CashFlow>;
@@ -216,7 +216,8 @@ function ChartPlot({
   } = cashFlow.data;
   // The chart shows the latest of the trend's months that fit its width.
   const trend = cashFlow.data.trend.slice(-months.length);
-  const scale = cashFlowScale(trend);
+  const leftEdgeNet = edgeNet(cashFlow.data, trend.length);
+  const scale = cashFlowScale(trend, leftEdgeNet === null ? [] : [leftEdgeNet]);
   const chartMonths: ChartMonth[] = trend.map((item, index) => {
     const display = describeMonth(months[index]);
 
@@ -243,9 +244,12 @@ function ChartPlot({
   // Month columns share the width equally, so their centres lie at even steps of a 0–100 coordinate space that stretches with the plot.
   const centre = (index: number) => (index + 0.5) / chartMonths.length * 100;
   const zero = scale.zero * 100;
-  const netPoints = chartMonths.map((item, index) => `${centre(index)},${scaleOffset(item.net, scale) * 100}`).join(" ");
+  const monthPoints = chartMonths.map((item, index) => `${centre(index)},${scaleOffset(item.net, scale) * 100}`);
+  // The area starts at the left edge on the way from the previous month's net, so it reads as continuing beyond the visible months; it ends at the last month, after which there is no data.
+  const startX = leftEdgeNet === null ? centre(0) : 0;
+  const netPoints = [...leftEdgeNet === null ? [] : [`0,${scaleOffset(leftEdgeNet, scale) * 100}`], ...monthPoints].join(" ");
   // The area closes along the zero line; clipping splits it into a surplus tone above and a deficit tone below.
-  const netArea = `${centre(0)},${zero} ${netPoints} ${centre(chartMonths.length - 1)},${zero}`;
+  const netArea = `${startX},${zero} ${netPoints} ${centre(chartMonths.length - 1)},${zero}`;
   const surplusClip = `${clipPrefix}-surplus`;
   const deficitClip = `${clipPrefix}-deficit`;
 
@@ -268,7 +272,6 @@ function ChartPlot({
             }}
           />
         )}
-        <ZeroLine scale={scale} />
         {hasHistory && (
           <span className={styles["plot-area"]} aria-hidden="true">
             <svg className={styles["net-area"]} viewBox="0 0 100 100" preserveAspectRatio="none">
@@ -296,6 +299,8 @@ function ChartPlot({
             </svg>
           </span>
         )}
+        {/* Drawn after the highlight and the net area, so the zero line runs uninterrupted beneath the bars. */}
+        <ZeroLine scale={scale} />
         {chartMonths.map(item => {
           const active = item === activeMonth;
           const descriptionId = `${descriptionPrefix}-${item.month}`;

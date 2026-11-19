@@ -73,6 +73,16 @@ function flowByCategory(source: SqlCondition, flow: Flow, perMonth: boolean): Sq
   };
 }
 
+function monthTotals(rows: Record<string, unknown>[], month: string) {
+  const row = rows.find(item => item.month === month);
+
+  return {
+    month,
+    income: Number(row?.income || 0),
+    expenses: Number(row?.expenses || 0)
+  };
+}
+
 function categoryAmount(row: Record<string, unknown>): CategoryAmount {
   return {
     categoryId: row.category_id === null ? null : String(row.category_id),
@@ -83,7 +93,7 @@ function categoryAmount(row: Record<string, unknown>): CategoryAmount {
   };
 }
 
-/** Income, expenses, both by category, and the twelve-month trend, including each month's income and spending by category, for one period and currency. */
+/** Income, expenses, both by category, and the twelve-month trend with the totals of the month before it, including each month's income and spending by category, for one period and currency. */
 export async function readCashFlow(period: Period, currency: string) {
   const client = (await database()).$client;
   const trendRange = trendMonths(period, currentMonth());
@@ -92,6 +102,11 @@ export async function readCashFlow(period: Period, currency: string) {
     day: 1
   };
   const trendStart = trendRange[0].toPlainDate(firstDay).toString();
+  // The month before the trend only continues the chart's net area to its left edge.
+  const leadMonth = trendRange[0].subtract({
+    months: 1
+  });
+  const leadStart = leadMonth.toPlainDate(firstDay).toString();
   const trendEnd = trendRange[trendRange.length - 1].add({
     months: 1
   }).toPlainDate(firstDay).toString();
@@ -109,13 +124,17 @@ export async function readCashFlow(period: Period, currency: string) {
   });
   const incomeBreakdownQuery = client.execute(flowByCategory(inPeriod, "income", false));
   const expenseBreakdownQuery = client.execute(flowByCategory(inPeriod, "expenses", false));
+  const totalsByMonth = countedTransactions(currency, {
+    sql: "t.booking_date>=? AND t.booking_date<?",
+    args: [leadStart, trendEnd]
+  });
   const trendQuery = client.execute({
     sql: `
       SELECT ${bookingMonth} AS month,${flowTotal("income")} AS income,${flowTotal("expenses")} AS expenses
-      ${inTrend.sql}
+      ${totalsByMonth.sql}
       GROUP BY ${bookingMonth}
     `,
-    args: inTrend.args
+    args: totalsByMonth.args
   });
   const trendIncomeQuery = client.execute(flowByCategory(inTrend, "income", true));
   const trendExpensesQuery = client.execute(flowByCategory(inTrend, "expenses", true));
@@ -128,13 +147,10 @@ export async function readCashFlow(period: Period, currency: string) {
     expenses: Number(totals.rows[0].expenses),
     incomeBreakdown: incomeBreakdown.rows.map(categoryAmount),
     expenseBreakdown: expenseBreakdown.rows.map(categoryAmount),
+    leadIn: monthTotals(trend.rows, leadMonth.toString()),
     trend: trendWindow.map(month => {
-      const row = trend.rows.find(item => item.month === month);
-
       return {
-        month,
-        income: Number(row?.income || 0),
-        expenses: Number(row?.expenses || 0),
+        ...monthTotals(trend.rows, month),
         incomeBreakdown: trendIncome.rows.filter(item => item.month === month).map(categoryAmount),
         expenseBreakdown: trendExpenses.rows.filter(item => item.month === month).map(categoryAmount)
       };

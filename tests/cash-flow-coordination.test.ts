@@ -32,6 +32,11 @@ const cashFlow: CashFlow = {
   expenses: 10000,
   incomeBreakdown: [category("Salary", 300000)],
   expenseBreakdown: [category("Food", 10000)],
+  leadIn: {
+    month: "2026-05",
+    income: 0,
+    expenses: 0
+  },
   trend: [{
     month: "2026-06",
     income: 200000,
@@ -367,5 +372,8 @@ test("clicking or pressing Enter on a month opens its transactions, while the fi
   assert.ok(within(screen.panel()).getByText("July 2026"));
   tap(july);
   assert.deepEqual(screen.pushed.at(-1), "/transactions?period=2026-07");
-  assert.equal(within(screen.panel()).queryByRole("link"), null);
+  // The panel's link (shown in the phone layout) follows the selected month.
+  assert.equal(within(screen.panel()).getByRole("link", {
+    name: "View transactions, July 2026"
+  }).getAttribute("href"), "/transactions?period=2026-07");
 });

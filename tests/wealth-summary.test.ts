@@ -74,6 +74,11 @@ async function renderSummary(context: TestContext, url: string, flows: {
         expenses: flows.expenses,
         incomeBreakdown: [],
         expenseBreakdown: [],
+        leadIn: {
+          month: "2026-01",
+          income: 0,
+          expenses: 0
+        },
         trend: []
       }
     }

@@ -315,6 +315,21 @@ test("each trend month's breakdowns agree with that month's period totals and sp
   }
 });
 
+test("the month before the trend carries only its totals, for the chart's net continuation", async context => {
+  await seedCashFlowHistory(context);
+  const window = await readCashFlow(monthPeriod(Temporal.PlainYearMonth.from("2026-12")), "EUR");
+  const before = await readCashFlow(monthPeriod(Temporal.PlainYearMonth.from("2025-12")), "EUR");
+
+  assert.ok(before.expenses > 0);
+  assert.deepEqual(window.leadIn, {
+    month: "2025-12",
+    income: before.income,
+    expenses: before.expenses
+  });
+  assert.equal(window.trend.length, 12);
+  assert.equal(window.trend[0].month, "2026-01");
+});
+
 test("a month's breakdowns leave out transfers and other currencies and keep uncategorized transactions", async context => {
   await seedCashFlowHistory(context);
   const window = await readCashFlow(monthPeriod(Temporal.PlainYearMonth.from("2026-02")), "EUR");

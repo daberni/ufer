@@ -7,7 +7,7 @@ import Link from "next/link";
 import styles from "./wealth-summary.module.css";
 import { ArrowDownLeft, ArrowUpRight, ChevronRight, Wallet } from "lucide-react";
 import { periodLabel } from "@/lib/date-format";
-import { periodFromJson, periodToJson } from "@/lib/period";
+import { currentMonth, periodFromJson, periodToJson } from "@/lib/period";
 import { money } from "@/lib/money";
 import { valueMask, withPlaceholder } from "@/components/ui/result-presentation";
 import { FailureCover } from "@/components/ui/area-placeholder";
@@ -65,6 +65,11 @@ export function WealthSummary({
     expenses: 0,
     incomeBreakdown: [],
     expenseBreakdown: [],
+    leadIn: {
+      month: currentMonth().toString(),
+      income: 0,
+      expenses: 0
+    },
     trend: []
   }));
   const summary = netWorth.data;

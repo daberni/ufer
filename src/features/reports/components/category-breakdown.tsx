@@ -2,6 +2,8 @@
 
 import ui from "../../../components/ui/primitives.module.css";
 
+import Link from "next/link";
+import { ChevronRight } from "lucide-react";
 import { clsx } from "clsx";
 import { Temporal } from "temporal-polyfill";
 import styles from "./category-breakdown.module.css";
@@ -13,7 +15,7 @@ import { formatSavingsRate, isNegativeRate, periodCashFlow, reservedCategoryRows
 import { CategoryRows, CategoryRowsSkeleton } from "@/features/reports/components/category-rows";
 import { AreaPlaceholder } from "@/components/ui/area-placeholder";
 import { areaProps, valueMask } from "@/components/ui/result-presentation";
-import { useCurrency, usePeriod } from "@/client/use-app-url";
+import { useCurrency, useMonthTransactionsHref, usePeriod, useViewHref } from "@/client/use-app-url";
 import type { Area } from "@/components/ui/use-area-result";
 import type { CashFlow } from "@/features/reports/types";
 
@@ -44,6 +46,9 @@ export function CategoryBreakdown({
   const period = pending ? selectedPeriod : periodFromJson(cashFlow.data.period);
   const mask = pending ? ui["skeleton"] : valueMask(cashFlow.status);
   const currency = pending ? selectedCurrency : cashFlow.data.currency;
+  const viewHref = useViewHref();
+  const monthTransactionsHref = useMonthTransactionsHref();
+  const transactionsHref = selection ? monthTransactionsHref(selection.month) : viewHref("transactions");
   const summary = selection ?? (pending ? emptySummary : periodCashFlow(cashFlow.data));
   const context = selection ? describeMonth(Temporal.PlainYearMonth.from(selection.month)).title : periodLabel(period);
   const emptyNote = selection ? "this month" : "in this period";
@@ -65,6 +70,11 @@ export function CategoryBreakdown({
         <span>
           Savings rate <strong className={clsx(isNegativeRate(summary.savingsRate) && styles["negative"], mask)}>{formatSavingsRate(summary.savingsRate)}</strong>
         </span>
+        {/* Only the phone layout shows the link: a tap there first selects a month, while elsewhere clicking the month opens its transactions. */}
+        <Link className={clsx(ui["text-button"], styles["transactions-link"])} href={transactionsHref} aria-label={`View transactions, ${context}`}>
+          View transactions
+          <ChevronRight className={styles["link-icon"]} size={16} />
+        </Link>
       </div>
       {pending ? (
         <AreaPlaceholder area={cashFlow} subject="Income and spending by category">

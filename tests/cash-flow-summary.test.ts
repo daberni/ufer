@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { formatSavingsRate, netFlow, reservedCategoryRows, selectedCashFlow, trendCashFlow } from "../src/features/reports/cash-flow-selection";
+import { edgeNet, formatSavingsRate, netFlow, reservedCategoryRows, selectedCashFlow, trendCashFlow } from "../src/features/reports/cash-flow-selection";
 import type { CashFlow } from "../src/features/reports/types";
 
 function month(name: string, income: number, expenses: number): CashFlow["trend"][number] {
@@ -55,6 +55,7 @@ test("a selected month carries that month's totals, and an unknown month selects
     expenses: 0,
     incomeBreakdown: [],
     expenseBreakdown: [],
+    leadIn: month("2026-05", 0, 0),
     trend: [month("2026-06", 0, 4200), month("2026-07", 100001, 1)]
   };
 
@@ -89,6 +90,7 @@ test("panel columns reserve the most rows any month or the period needs, at leas
     expenses: 0,
     incomeBreakdown: [],
     expenseBreakdown: [amount("a")],
+    leadIn: month("2026-05", 0, 0),
     trend: [{
       ...month("2026-06", 100, 300),
       incomeBreakdown: [amount("salary"), amount("interest")],
@@ -108,4 +110,28 @@ test("panel columns reserve the most rows any month or the period needs, at leas
     income: 1,
     expenses: 1
   });
+});
+
+test("the net area's left edge lies halfway to the previous month's net, from hidden trend months or the month before the trend", () => {
+  const data: CashFlow = {
+    period: {
+      kind: "all"
+    } as CashFlow["period"],
+    currency: "EUR",
+    income: 0,
+    expenses: 0,
+    incomeBreakdown: [],
+    expenseBreakdown: [],
+    leadIn: month("2026-04", 1000, 9000),
+    trend: [month("2026-05", 10000, 2000), month("2026-06", 3000, 1000), month("2026-07", 0, 0)]
+  };
+
+  // All three months visible: the month before the trend (net -8000) and May (net 8000).
+  assert.equal(edgeNet(data, 3), 0);
+  // Two visible: hidden May (net 8000) and June (net 2000).
+  assert.equal(edgeNet(data, 2), 5000);
+  assert.equal(edgeNet({
+    ...data,
+    trend: []
+  }, 0), null);
 });
