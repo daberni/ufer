@@ -55,7 +55,7 @@ function flowTotal(flow: Flow) {
 
 /**
  * Amounts per category of one flow among counted transactions, largest first, with uncategorized transactions as one row. Per month, rows are also split by booking month.
- * A category whose refunds reach or exceed its spending has no row; its net amount still counts toward the flow's total.
+ * A category with a negative net amount, such as an income correction or refunds exceeding spending, keeps a signed row, so the rows always sum to the flow's total; only categories netting to zero are left out.
  */
 function flowByCategory(source: SqlCondition, flow: Flow, perMonth: boolean): SqlCondition {
   const month = perMonth ? bookingMonth : "NULL";
@@ -67,10 +67,20 @@ function flowByCategory(source: SqlCondition, flow: Flow, perMonth: boolean): Sq
       ${source.sql}
       AND ${flows[flow].condition}
       GROUP BY ${grouping}
-      HAVING amount>0
+      HAVING amount<>0
       ORDER BY month,amount DESC,name
     `,
     args: source.args
+  };
+}
+
+function monthTotals(rows: Record<string, unknown>[], month: string) {
+  const row = rows.find(item => item.month === month);
+
+  return {
+    month,
+    income: Number(row?.income || 0),
+    expenses: Number(row?.expenses || 0)
   };
 }
 
@@ -84,7 +94,7 @@ function categoryAmount(row: Record<string, unknown>): CategoryAmount {
   };
 }
 
-/** Income, expenses, spending by category and the twelve-month trend, including each month's income and spending by category, for one period and currency. */
+/** Income, expenses, both by category, and the twelve-month trend with the totals of the month before it, including each month's income and spending by category, for one period and currency. */
 export async function readCashFlow(period: Period, currency: string) {
   const client = (await database()).$client;
   const trendRange = trendMonths(period, currentMonth());
@@ -93,6 +103,11 @@ export async function readCashFlow(period: Period, currency: string) {
     day: 1
   };
   const trendStart = trendRange[0].toPlainDate(firstDay).toString();
+  // The month before the trend only continues the chart's net area to its left edge.
+  const leadMonth = trendRange[0].subtract({
+    months: 1
+  });
+  const leadStart = leadMonth.toPlainDate(firstDay).toString();
   const trendEnd = trendRange[trendRange.length - 1].add({
     months: 1
   }).toPlainDate(firstDay).toString();
@@ -108,32 +123,35 @@ export async function readCashFlow(period: Period, currency: string) {
     `,
     args: inPeriod.args
   });
-  const breakdownQuery = client.execute(flowByCategory(inPeriod, "expenses", false));
+  const incomeBreakdownQuery = client.execute(flowByCategory(inPeriod, "income", false));
+  const expenseBreakdownQuery = client.execute(flowByCategory(inPeriod, "expenses", false));
+  const totalsByMonth = countedTransactions(currency, {
+    sql: "t.booking_date>=? AND t.booking_date<?",
+    args: [leadStart, trendEnd]
+  });
   const trendQuery = client.execute({
     sql: `
       SELECT ${bookingMonth} AS month,${flowTotal("income")} AS income,${flowTotal("expenses")} AS expenses
-      ${inTrend.sql}
+      ${totalsByMonth.sql}
       GROUP BY ${bookingMonth}
     `,
-    args: inTrend.args
+    args: totalsByMonth.args
   });
   const trendIncomeQuery = client.execute(flowByCategory(inTrend, "income", true));
   const trendExpensesQuery = client.execute(flowByCategory(inTrend, "expenses", true));
-  const [totals, breakdown, trend, trendIncome, trendExpenses] = await Promise.all([totalsQuery, breakdownQuery, trendQuery, trendIncomeQuery, trendExpensesQuery]);
+  const [totals, incomeBreakdown, expenseBreakdown, trend, trendIncome, trendExpenses] = await Promise.all([totalsQuery, incomeBreakdownQuery, expenseBreakdownQuery, trendQuery, trendIncomeQuery, trendExpensesQuery]);
 
   return {
     period: periodToJson(period),
     currency,
     income: Number(totals.rows[0].income),
     expenses: Number(totals.rows[0].expenses),
-    breakdown: breakdown.rows.map(categoryAmount),
+    incomeBreakdown: incomeBreakdown.rows.map(categoryAmount),
+    expenseBreakdown: expenseBreakdown.rows.map(categoryAmount),
+    leadIn: monthTotals(trend.rows, leadMonth.toString()),
     trend: trendWindow.map(month => {
-      const row = trend.rows.find(item => item.month === month);
-
       return {
-        month,
-        income: Number(row?.income || 0),
-        expenses: Number(row?.expenses || 0),
+        ...monthTotals(trend.rows, month),
         incomeBreakdown: trendIncome.rows.filter(item => item.month === month).map(categoryAmount),
         expenseBreakdown: trendExpenses.rows.filter(item => item.month === month).map(categoryAmount)
       };
