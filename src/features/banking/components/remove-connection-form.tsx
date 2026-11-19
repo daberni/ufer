@@ -2,6 +2,7 @@
 
 import ui from "../../../components/ui/primitives.module.css";
 
+import { useState } from "react";
 import { Trash2 } from "lucide-react";
 import styles from "./remove-connection-form.module.css";
 import { FormError } from "@/components/ui/form-error";
@@ -37,6 +38,7 @@ function RemoveConnectionForm({
   onRemoved,
   selectedConnection
 }: Props) {
+  const [archiveAccounts, setArchiveAccounts] = useState(false);
   const accounts = useAreaResult(useAccounts());
   const {
     error,
@@ -46,9 +48,9 @@ function RemoveConnectionForm({
 
   return (
     <form
-      onSubmit={event => submit(event, data => ({
+      onSubmit={event => submit(event, () => ({
         connectionId: selectedConnection.id,
-        archiveAccounts: data.get("archive_accounts") === "on"
+        archiveAccounts
       }), onRemoved)}
       className={ui["form"]}
     >
@@ -64,10 +66,15 @@ function RemoveConnectionForm({
         <li>Connecting the same bank again later continues the kept accounts instead of creating duplicates.</li>
       </ul>
       <label className={styles["archive"]}>
-        <input name="archive_accounts" type="checkbox" />
+        <input
+          name="archive_accounts"
+          type="checkbox"
+          checked={archiveAccounts}
+          onChange={event => setArchiveAccounts(event.target.checked)}
+        />
         Archive these accounts: hide them from the account lists and pickers, keep them in reports, restore them any time
       </label>
-      <UnsettledAccounts accounts={accounts} connection={selectedConnection} />
+      {archiveAccounts && <UnsettledAccounts accounts={accounts} connection={selectedConnection} />}
       <FormError failure={error} />
       <div className={ui["form-actions"]}>
         <button

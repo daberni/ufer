@@ -129,6 +129,8 @@ test("a failed revocation stays in the open removal dialog and the same action c
   assert.equal(remove().hasAttribute("disabled"), false);
 
   assert.equal(requests("banking/connections/synthetic-connection")[0].url.searchParams.get("accounts"), "keep");
+  // The hint only matters when archiving is chosen.
+  assert.equal(screen.queryByText(/Only accounts with a balance of 0 are archived/), null);
   fireEvent.click(screen.getByRole("checkbox", {
     name: /Archive these accounts/
   }));
