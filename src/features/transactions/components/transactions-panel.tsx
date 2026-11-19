@@ -12,7 +12,7 @@ import { TransactionRuleProvider } from "./transaction-rule-provider";
 import { TransactionList, TransactionListSkeleton } from "@/features/transactions/components/transaction-list";
 import { ManualTransactionDialog } from "@/features/transactions/components/manual-transaction-dialog";
 import { useAccounts } from "@/features/accounts/queries";
-import { importPath } from "@/client/app-location";
+import { CsvFileDialog } from "@/features/imports/components/csv-file-dialog";
 import { setAccountFilter, setCategoryFilter, setTypeFilter, setPage, setSearch, useAccountFilter, useCategoryFilter, useTypeFilter, useChangeView, useSearchFilter } from "@/client/use-app-url";
 import { Select } from "@/components/ui/select";
 import { anyCategory, CategoryPicker, type CategoryPickerValue } from "@/features/categorization/components/category-picker";
@@ -80,6 +80,7 @@ export function TransactionsPanel(props: Props) {
   } = props;
   const headingRef = useRef<HTMLHeadingElement>(null);
   const [entryOpen, setEntryOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const changeView = useChangeView();
   const manualAccounts = (useAccounts().data ?? []).filter(account => account.provider === "manual");
 
@@ -103,10 +104,10 @@ export function TransactionsPanel(props: Props) {
                 Add transaction
               </button>
             )}
-            <Link className={clsx(styles["button"], ui["small"])} href={importPath}>
+            <button className={clsx(styles["button"], ui["small"])} onClick={() => setImportOpen(true)}>
               <ArrowDownToLine size={14} />
               Import CSV
-            </Link>
+            </button>
           </div>
         )}
         {props.view === "account" && (
@@ -132,6 +133,7 @@ export function TransactionsPanel(props: Props) {
           />
         )}
       </TransactionRuleProvider>
+      {importOpen && <CsvFileDialog close={() => setImportOpen(false)} />}
       {entryOpen && <ManualTransactionDialog accounts={manualAccounts} close={() => setEntryOpen(false)} />}
     </section>
   );

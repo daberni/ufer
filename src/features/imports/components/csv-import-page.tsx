@@ -3,9 +3,9 @@
 import ui from "../../../components/ui/primitives.module.css";
 
 import { clsx } from "clsx";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, CircleCheck } from "lucide-react";
+import { ArrowRight, CircleCheck, X } from "lucide-react";
 import styles from "./csv-import-page.module.css";
 import { viewPaths } from "@/client/app-location";
 import { FileDropZone } from "./file-drop-zone";
@@ -15,11 +15,22 @@ import { ColumnPreview } from "./column-preview";
 import { CategoryChoices } from "./category-choices";
 import { ImportSummaryBar } from "./import-summary-bar";
 import { useImportDraft } from "./use-import-draft";
+import { takeImportFile } from "@/features/imports/pending-import-file";
 
 /** The full-page CSV import: file, accounts, columns and categories, then a check and the import. */
 export function CsvImportPage() {
   const draft = useImportDraft();
   const [reviewing, setReviewing] = useState(false);
+  const load = draft.load;
+
+  // A file chosen in the transactions view's dialog opens here already loaded; opened directly, the page shows its own drop zone.
+  useEffect(() => {
+    const file = takeImportFile();
+
+    if (file) {
+      void load(file);
+    }
+  }, [load]);
   const loaded = draft.file && draft.settings && draft.table;
 
   if (draft.imported) {
@@ -43,8 +54,8 @@ export function CsvImportPage() {
   return (
     <div className={styles["page"]}>
       <Link className={clsx(ui["text-button"], styles["back"])} href={viewPaths.transactions}>
-        <ArrowLeft size={15} />
-        Transactions
+        <X size={15} />
+        Cancel import
       </Link>
       <section className={clsx(ui["panel"], styles["section"])} aria-labelledby="import-file">
         <h2 id="import-file">File</h2>
