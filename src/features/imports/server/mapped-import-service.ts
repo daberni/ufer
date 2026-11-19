@@ -7,7 +7,9 @@ import { minorUnits } from "@/lib/money";
 import { today, validDate } from "@/lib/time";
 import { listRules } from "@/features/categorization/server/rule-repository";
 import { categorizeEntries } from "@/features/transactions/server/categorize-entries";
-import { currencyAllows, maxIdLength, normalizeText, type RowError } from "../csv-mapping";
+import { pairTransfersInEnvironment } from "@/features/transactions/server/transfer-repository";
+import { environment } from "@/features/banking/server/environment";
+import { currencyAllows, maxIdLength, maxSourceLength, normalizeText, type RowError } from "../csv-mapping";
 import { duplicateDateToleranceDays, mappedReferencePrefix, type DuplicateReason } from "./duplicate-matching";
 import { checkMappedEntries, createImportCategory, findImportTarget, listCategoryNames, saveMappedEntries, type MappedEntry, type NewImportAccount, type OpeningBalance } from "./mapped-import-repository";
 
@@ -21,7 +23,7 @@ const row = z.object({
   payee: z.string().max(500),
   description: z.string().max(2000),
   category: z.string().max(100).nullable(),
-  source: z.string().max(200),
+  source: z.string().max(maxSourceLength),
   occurrence: z.number().int().min(0),
   id: z.string().max(maxIdLength).nullable().default(null)
 });
@@ -35,7 +37,7 @@ const opening = z.object({
 
 /** A target is an existing account or a new manual account, which the first confirmed batch with rows for it creates. */
 const target = z.object({
-  source: z.string().max(200),
+  source: z.string().max(maxSourceLength),
   account_id: z.string().optional(),
   new_account: z.object({
     name: z.string().trim().min(1).max(100),
@@ -65,7 +67,9 @@ const mappedImportInput = z.object({
   /** Existing bookings that earlier batches of this import matched as duplicates. */
   consumed: z.array(matchedBooking).max(20_000).default([]),
   categories: z.array(categoryChoice).max(1000).default([]),
-  confirm: z.boolean()
+  confirm: z.boolean(),
+  /** Marks the last batch of a confirmed import; transfers are paired only then, so the order of batches and accounts cannot decide an ambiguous link. */
+  final: z.boolean().default(true)
 });
 
 type Target = {
@@ -157,6 +161,11 @@ export async function importMappedRows(payload: unknown, now = Temporal.Now.inst
     possible,
     newRows
   } = await classifyAndSave(planned, targets, input.consumed, input.confirm);
+
+  // Pairing sees every account this import touched at once, so a transfer with candidates in two of them stays ambiguous.
+  if (input.confirm && input.final) {
+    await pairTransfersInEnvironment(environment());
+  }
 
   return {
     confirmed: input.confirm,

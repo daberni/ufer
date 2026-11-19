@@ -4,7 +4,7 @@ import { and, between, eq, inArray, like, ne, notInArray, sql } from "drizzle-or
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 import { accounts, categories, transactions } from "@/server/database/schema";
 import { environment } from "@/features/banking/server/environment";
-import { manualEntryPrefix, pairTransfers } from "@/features/transactions/server/transfer-repository";
+import { manualEntryPrefix } from "@/features/transactions/server/transfer-repository";
 import { insertCategory } from "@/features/categorization/server/category-repository";
 import { defaultCategoryColor } from "@/features/categorization/category-colors";
 import { sameCategoryName } from "@/lib/category-name";
@@ -164,8 +164,6 @@ export async function saveMappedEntries(accountId: string, entries: MappedEntry[
     if (opening) {
       await saveOpeningBalance(tx, accountId, newAccount?.currency ?? entries[0]?.currency ?? "", opening);
     }
-
-    await pairTransfers(tx, environment());
 
     return {
       ...found,

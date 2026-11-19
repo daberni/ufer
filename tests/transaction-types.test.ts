@@ -378,6 +378,53 @@ test("a CSV import pairs its bookings with an unpaired transfer of a synced acco
   assert.equal(cash?.transfer_id, (await stored(db, "withdrawal")).transfer_id);
 });
 
+for (const [accounts, paired] of [[["cash", "wallet"], false], [["cash"], true]] as const) {
+  test(`a CSV import in batches pairs an existing transfer only after its last batch, ${paired ? "with its single candidate" : "and not with two candidates in different accounts"}`, async context => {
+    const db = await isolatedDatabase(context);
+    const importId = randomUUID();
+
+    for (const id of ["cash", "wallet"]) {
+      await db.insert(schema.accounts).values({
+        id,
+        environment: "SANDBOX",
+        name: `Synthetic ${id}`,
+        institution: "Wallet",
+        kind: "savings"
+      });
+    }
+
+    await sync(db, "checking", [entry("withdrawal", "2026-09-01", -20000, true)]);
+
+    for (const [index, account] of accounts.entries()) {
+      await importMappedRows({
+        import_id: importId,
+        rows: [{
+          line: index + 2,
+          date: "2026-09-02",
+          amount: "200.00",
+          currency: "EUR",
+          payee: "ATM",
+          description: "Cash withdrawal",
+          category: null,
+          source: account,
+          occurrence: 0,
+          id: null
+        }],
+        targets: accounts.map(source => ({
+          source,
+          account_id: source
+        })),
+        confirm: true,
+        final: index === accounts.length - 1
+      });
+    }
+
+    const linked = (await db.select().from(schema.transactions)).filter(row => row.transfer_id !== null);
+
+    assert.equal(linked.length, paired ? 2 : 0);
+  });
+}
+
 test("detected transfers are categorized by rules like any other booking and their category never changes the cash flow", async context => {
   const db = await isolatedDatabase(context);
   const rules = [{

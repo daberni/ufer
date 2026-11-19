@@ -1424,3 +1424,22 @@ test("a new account's balance stated in another currency blocks the check", () =
   assert.deepEqual(prepare("€1000"), []);
   assert.deepEqual(prepare("1000"), []);
 });
+
+test("long account values are row errors instead of merging into one source", () => {
+  const prefix = "Synthetic account ".padEnd(200, "x");
+  const result = mapRows([["2024-01-01", "1.00", "Shop", `${prefix}A`], ["2024-01-02", "2.00", "Shop", `${prefix}B`], ["2024-01-03", "3.00", "Shop", "Short account"]], {
+    ...emptyMapping,
+    date: 0,
+    amount: 1,
+    payee: 2,
+    account: 3
+  }, {
+    encoding: "utf-8",
+    delimiter: ",",
+    decimal: ".",
+    dateFormat: "YYYY-MM-DD"
+  });
+
+  assert.deepEqual(result.errors.map(error => error.line), [2, 3]);
+  assert.deepEqual(result.rows.map(row => row.source), ["Short account"]);
+});

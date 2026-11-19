@@ -76,6 +76,9 @@ const maxFractionDigits = 6;
 /** Longest transaction ID; the server applies the same limit. */
 export const maxIdLength = 200;
 
+/** Longest account value; the server applies the same limit. */
+export const maxSourceLength = 200;
+
 export type RowError = {
   line: number;
   message: string;
@@ -499,6 +502,15 @@ export function mapRows(rows: string[][], mapping: CsvMapping, settings: CsvSett
       return;
     }
 
+    // The account value identifies the row's target, so it is never shortened: two long values must not merge.
+    const source = cell(mapping.account);
+
+    if (source.length > maxSourceLength) {
+      failure(`The account value is longer than ${maxSourceLength} characters.`);
+
+      return;
+    }
+
     const id = cell(mapping.id);
 
     if (mapping.id !== null && !id) {
@@ -521,7 +533,7 @@ export function mapRows(rows: string[][], mapping: CsvMapping, settings: CsvSett
       payee: cell(mapping.payee).slice(0, 500),
       description: cell(mapping.description).slice(0, 2000),
       category: cell(mapping.category).slice(0, 100) || null,
-      source: cell(mapping.account).slice(0, 200),
+      source,
       id: mapping.id === null ? null : id
     });
   });

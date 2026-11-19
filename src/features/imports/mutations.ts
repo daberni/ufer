@@ -151,7 +151,9 @@ export function useMappedImport() {
         onConfirmStart?.();
       }
 
-      for (const batch of batchRows(numbered.sort((left, right) => left.date.localeCompare(right.date)))) {
+      const batches = batchRows(numbered.sort((left, right) => left.date.localeCompare(right.date)));
+
+      for (const [index, batch] of batches.entries()) {
         const result = await api<MappedImportSummary & {
           matched: ConsumedBooking[];
         }>("imports/mapped", {
@@ -160,7 +162,8 @@ export function useMappedImport() {
           targets: resolved,
           categories: categoryChoices,
           consumed: pruneConsumed(consumed, batch[0].date),
-          confirm
+          confirm,
+          final: index === batches.length - 1
         });
 
         consumed = [...consumed, ...result.matched];
