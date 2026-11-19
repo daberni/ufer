@@ -1540,3 +1540,12 @@ test("a delimiter that breaks the file's quoting reads as no table instead of th
     delimiter: ";"
   }), null);
 });
+
+test("a record with a quoted line break reports the line it starts on, for every kind of line break", () => {
+  for (const lineBreak of ["\n", "\r\n", "\r"]) {
+    const text = ["date,payee", `2024-01-01,"Multi${lineBreak}line"`, "2024-01-02,Single"].join("\n");
+    const records = parseCsvRecords(text, ",");
+
+    assert.equal(records[1].line, 2, JSON.stringify(lineBreak));
+  }
+});

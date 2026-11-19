@@ -208,8 +208,8 @@ export function parseCsvRecords(text: string, delimiter: string, toLine?: number
     info
   }) => ({
     cells: record.map(cell => cell.trim()),
-    // csv-parse reports the line a record ends on; quoted line breaks move its start back.
-    line: info.lines - record.reduce((breaks, cell) => breaks + cell.split("\n").length - 1, 0)
+    // csv-parse reports the line a record ends on and counts each \r and \n inside quotes as a line, so the same count moves the start back.
+    line: info.lines - record.reduce((breaks, cell) => breaks + (cell.match(/\r|\n/g)?.length ?? 0), 0)
   })).filter(record => record.cells.some(cell => cell !== ""));
 }
 
