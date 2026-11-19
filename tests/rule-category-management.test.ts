@@ -514,3 +514,25 @@ test("creating a rule, with or without a priority, is rejected once 1,000 rules 
   }), (error: unknown) => error instanceof HttpError && error.status === 409);
   assert.equal((await storedRules(db)).length, 1000);
 });
+
+test("deleting a category also moves hidden bookings, which stay out of the reports", async context => {
+  const db = await managementDatabase(context);
+
+  await db.update(schema.transactions).set({
+    suppressed_at: "2026-01-20T00:00:00.000Z"
+  }).where(eq(schema.transactions.id, "cinema-rule"));
+  assert.deepEqual(await spendingByCategory(), {
+    groceries: 2000,
+    uncategorized: 1000
+  });
+
+  await deleteCategory("leisure", {
+    replacement_id: "home"
+  });
+
+  assert.equal(await categoryOf(db, "cinema-rule"), "home");
+  assert.deepEqual(await spendingByCategory(), {
+    groceries: 2000,
+    uncategorized: 1000
+  });
+});

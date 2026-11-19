@@ -65,3 +65,39 @@
 .danger:not(:disabled):hover {
   background: var(--danger-strong);
 }
+
+.hidden-note {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+}
+.hidden-note > p {
+  margin: 0;
+}
+
+.overridable {
+  display: grid;
+  gap: var(--space-1);
+}
+.source-text {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.restore {
+  min-height: 32px;
+  padding: 0 var(--space-2);
+  border: 0;
+  background: none;
+  color: var(--green-text);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}

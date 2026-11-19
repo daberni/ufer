@@ -35,6 +35,9 @@ function booking(id: string, counterparty: string): Transaction {
     instructed_currency: null,
     counterparty,
     description: "Synthetic purchase",
+    source_counterparty: counterparty,
+    source_description: "Synthetic purchase",
+    hidden: false,
     account_name: "Synthetic account",
     account_id: "synthetic-account",
     category_id: null,
@@ -416,6 +419,43 @@ test("rule creation waits for the current pattern preview, including debounce an
     category_id: "groceries",
     apply_to_uncategorized: true
   });
+});
+
+test("a rule proposed from an overridden booking uses the source's payee, which later deliveries match", async context => {
+  const {
+    queryClient,
+    requests
+  } = browser(context);
+
+  modalDialogs();
+  const headingRef = createRef<HTMLHeadingElement>();
+  const withRules = await transactionRuleScope(queryClient, headingRef);
+  const { TransactionCategory } = await import("../src/features/transactions/components/transaction-category");
+  const transaction = {
+    ...booking("overridden-entry", "My market"),
+    source_counterparty: "EXAMPLE MKT 0412",
+    category_id: "groceries",
+    category_source: "manual" as const
+  };
+  const screen = render(withRules(createElement(Fragment, null, createElement("h2", {
+    ref: headingRef,
+    tabIndex: -1
+  }, "Transactions"), createElement(TransactionCategory, {
+    categories,
+    transaction
+  }))));
+
+  act(() => {
+    fireEvent.click(screen.getByRole("button", {
+      name: "Create rule for My market"
+    }));
+  });
+  await wait(0);
+  await respond(requests("categories")[0], Response.json(categories));
+
+  assert.equal((screen.getByRole("textbox", {
+    name: "Matching pattern"
+  }) as HTMLInputElement).value, "EXAMPLE MKT 0412");
 });
 
 test("an explicitly opened draft survives removal of its filtered source row and can still be submitted", async context => {
