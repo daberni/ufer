@@ -93,7 +93,7 @@
   }
 }
 /* Touch pointers keep 44px targets at every width. */
-@media (pointer: coarse) {
+@media (any-pointer: coarse) {
   .icon-picker .icon-option {
     height: 44px;
   }
