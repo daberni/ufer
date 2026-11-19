@@ -11,11 +11,11 @@ import * as schema from "../src/server/database/schema";
 import { HttpError, ValidationError } from "../src/lib/errors";
 import { categorize, prepareRules } from "../src/lib/rules";
 import { monthPeriod } from "../src/lib/period";
-import { applyRulesToUncorrectedTransactions, categoryUsage, createRule, deleteCategory, deleteRule, previewRule, reorderRules } from "../src/features/categorization/server/categorization-service";
+import { applyRulesToUncorrectedTransactions, categoryUsage, createRule, updateRuleDetails, deleteCategory, deleteRule, previewRule, reorderRules } from "../src/features/categorization/server/categorization-service";
 import { listRuleSummaries } from "../src/features/categorization/server/categorization-queries";
 import { listRules } from "../src/features/categorization/server/rule-repository";
 import { readCashFlow } from "../src/features/reports/server/cash-flow-query";
-import { moveItem, orderedPriorities } from "../src/features/categorization/rule-order";
+import { endPriority, orderedPriorities } from "../src/features/categorization/rule-order";
 
 const january = monthPeriod(Temporal.PlainYearMonth.from("2026-01"));
 
@@ -212,7 +212,9 @@ test("ordered priorities stay distinct and within the editor's range for long ru
 
   assert.equal(new Set(many).size, 4000);
   assert.ok(many.every((priority, index) => priority > 0 && priority <= 10000 && (index === 0 || priority > many[index - 1])));
-  assert.deepEqual(moveItem(["a", "b", "c", "d"], 3, 1), ["a", "d", "b", "c"]);
+  assert.equal(endPriority([{
+    priority: 9995
+  }]), 10000);
 });
 
 test("deleting a rule keeps the categories it assigned until rules are applied", async context => {
@@ -417,4 +419,30 @@ test("a new rule is stored with its previewed ID, so it decides exactly the coun
     name: "Invalid",
     category_id: "home"
   }), z.ZodError);
+});
+
+test("without a priority, a new rule goes to the end of the list and an edited rule keeps its position", async context => {
+  const db = await managementDatabase(context);
+
+  await reorderRules({
+    ids: ["rule-cafe", "rule-market", "rule-cinema"]
+  });
+  await createRule({
+    name: "Bakery",
+    pattern: "BAKERY",
+    mode: "keyword",
+    category_id: "groceries"
+  });
+  await updateRuleDetails("rule-cafe", {
+    name: "Cafe and bistro",
+    pattern: "CAFE",
+    mode: "keyword",
+    category_id: "leisure"
+  });
+
+  const summaries = await listRuleSummaries();
+
+  assert.deepEqual(summaries.map(rule => rule.name), ["Cafe and bistro", "Market", "Cinema", "Bakery"]);
+  assert.equal(summaries[3].priority, 40);
+  assert.equal((await storedRules(db)).length, 4);
 });

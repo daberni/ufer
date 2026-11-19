@@ -260,13 +260,11 @@ test("a settled category assignment refreshes an open rule preview and invalidat
   const draft = {
     pattern: "Example Market",
     mode: "keyword" as const,
-    priority: 100,
     ruleId: null
   };
   const inactiveDraft = {
     pattern: "Example Bakery",
     mode: "keyword" as const,
-    priority: 100,
     ruleId: null
   };
 

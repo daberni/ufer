@@ -110,28 +110,21 @@ export function useDeleteRule(rule: Rule) {
 const ruleOrderScope = "rule-order";
 
 /**
- * Saves the matching order. Orders are serialized, and the list shows the latest order until it has been saved and reloaded; a failed save reloads the stored order.
+ * Saves the matching order. The list shows the new order at once; orders are saved one after another, and a failed save restores the order shown before it.
  */
 export function useReorderRules() {
   const queryClient = useQueryClient();
-
-  return useMutation({
+  const mutation = useMutation({
     scope: {
       id: ruleOrderScope
     },
     mutationFn: (rules: Rule[]) => api("rules/order", {
       ids: rules.map(rule => rule.id)
     }, "PUT"),
-    onMutate: async rules => {
-      await queryClient.cancelQueries({
-        queryKey: queryKeys.rules()
-      });
-      queryClient.setQueryData(queryKeys.rules(), withOrderedPriorities(rules));
-    },
     onSettled: () => {
       // Later queued orders refresh the list themselves; refreshing in between would briefly show an older order.
       if (queryClient.isMutating({
-        predicate: mutation => mutation.options.scope?.id === ruleOrderScope
+        predicate: pending => pending.options.scope?.id === ruleOrderScope
       }) > 1) {
         return;
       }
@@ -139,6 +132,31 @@ export function useReorderRules() {
       return invalidate(queryClient, [queryKeys.rules()]);
     }
   });
+
+  async function save(rules: Rule[]) {
+    const previous = queryClient.getQueryData<Rule[]>(queryKeys.rules());
+    const ordered = withOrderedPriorities(rules);
+
+    // Shown synchronously, so the dropped row stays where it was dropped; a cancelled refetch must not restore the old order.
+    queryClient.setQueryData(queryKeys.rules(), ordered);
+    await queryClient.cancelQueries({
+      queryKey: queryKeys.rules()
+    });
+    queryClient.setQueryData(queryKeys.rules(), ordered);
+
+    try {
+      await mutation.mutateAsync(rules);
+    } catch (error) {
+      queryClient.setQueryData(queryKeys.rules(), previous);
+
+      throw error;
+    }
+  }
+
+  return {
+    save,
+    isPending: mutation.isPending
+  };
 }
 
 export type DeletedCategory = {

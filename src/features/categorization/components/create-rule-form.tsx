@@ -43,23 +43,20 @@ const previewDelay = 300;
 
 type Mode = RulePreviewDraft["mode"];
 
-function previewDraft(pattern: string, mode: Mode, priority: string, ruleId: string | null): RulePreviewDraft | null {
-  const order = Number(priority);
-
-  if (!pattern.trim() || priority.trim() === "" || !Number.isInteger(order) || order < 0 || order > 10000) {
+function previewDraft(pattern: string, mode: Mode, ruleId: string | null): RulePreviewDraft | null {
+  if (!pattern.trim()) {
     return null;
   }
 
   return {
     pattern,
     mode,
-    priority: order,
     ruleId
   };
 }
 
 function sameDraft(first: RulePreviewDraft | null, second: RulePreviewDraft | null) {
-  return first !== null && second !== null && first.pattern === second.pattern && first.mode === second.mode && first.priority === second.priority && first.ruleId === second.ruleId;
+  return first !== null && second !== null && first.pattern === second.pattern && first.mode === second.mode && first.ruleId === second.ruleId;
 }
 
 function transactionCount(count: number) {
@@ -84,7 +81,7 @@ function useRuleImpact(draft: RulePreviewDraft | null) {
     return {
       pending: false,
       previewId: null,
-      text: "Enter a pattern and a priority to see which transactions the rule would decide."
+      text: "Enter a pattern to see which transactions the rule would decide."
     };
   }
 
@@ -148,9 +145,8 @@ function RuleForm({
   const categoryId = chosenCategoryId ?? categories.data?.[0]?.id ?? null;
   const [pattern, setPattern] = useState(rule?.pattern ?? "");
   const [mode, setMode] = useState<Mode>(rule?.mode === "regex" ? "regex" : "keyword");
-  const [priority, setPriority] = useState(String(rule?.priority ?? 100));
   const ruleId = rule?.id ?? null;
-  const draft = useMemo(() => previewDraft(pattern, mode, priority, ruleId), [pattern, mode, priority, ruleId]);
+  const draft = useMemo(() => previewDraft(pattern, mode, ruleId), [pattern, mode, ruleId]);
   const impact = useRuleImpact(draft);
 
   return (
@@ -166,7 +162,6 @@ function RuleForm({
 
         submit(event, data => ({
           ...Object.fromEntries(data),
-          priority: Number(data.get("priority")),
           ...(rule ? {} : {
             id: previewId
           })
@@ -174,30 +169,16 @@ function RuleForm({
       }}
       className={ui["form"]}
     >
-      <div className={ui["form-grid"]}>
-        <label>
-          Rule name
-          <input
-            name="name"
-            defaultValue={rule?.name}
-            required
-            placeholder="e.g. Groceries"
-            maxLength={100}
-          />
-        </label>
-        <label>
-          Priority
-          <input
-            name="priority"
-            type="number"
-            min="0"
-            max="10000"
-            value={priority}
-            onChange={event => setPriority(event.target.value)}
-            required
-          />
-        </label>
-      </div>
+      <label>
+        Rule name
+        <input
+          name="name"
+          defaultValue={rule?.name}
+          required
+          placeholder="e.g. Groceries"
+          maxLength={100}
+        />
+      </label>
       <div className={ui["form-grid"]}>
         <label>
           Match type
@@ -228,7 +209,7 @@ function RuleForm({
           onChange={setChosenCategoryId}
         />
       </div>
-      <p className={ui["form-hint"]}>Matches the payee and description without case sensitivity. Lower priority numbers match first; the first matching rule wins.</p>
+      <p className={ui["form-hint"]}>Matches the payee and description without case sensitivity. The first matching rule in the list wins; new rules are added at the end.</p>
       <p className={ui["form-hint"]} role="status" aria-busy={impact.pending}>{impact.text}</p>
       <p className={ui["form-hint"]}>Existing transactions stay unchanged until you apply the rules. Manual assignments are never changed.</p>
       <FormError failure={error} />

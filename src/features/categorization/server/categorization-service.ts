@@ -3,7 +3,7 @@ import { HttpError, ValidationError } from "@/lib/errors";
 import { z } from "zod";
 import { categorize, decidingRule, prepareRules, validatePattern, type Rule } from "@/lib/rules";
 import { normalizeCategoryName } from "@/lib/category-name";
-import { orderedPriorities } from "@/features/categorization/rule-order";
+import { endPriority, orderedPriorities } from "@/features/categorization/rule-order";
 import { isCategoryIcon } from "@/features/categorization/category-icons";
 import { defaultCategoryColor } from "@/features/categorization/category-colors";
 import { categoryExists, deleteCategory as deleteStoredCategory, insertCategory, readCategoryUsage, updateCategory, type CategoryDetails, type CategoryWriteResult } from "./category-repository";
@@ -12,7 +12,8 @@ import { deleteRule as deleteStoredRule, findUncorrectedTransactions, insertRule
 const ruleMatching = {
   pattern: z.string().min(1).max(500),
   mode: z.enum(["keyword", "regex"]),
-  priority: z.number().int().min(0).max(10000)
+  // The list order is the priority. Omitted, a new rule goes to the end of the list and an edited rule keeps its position.
+  priority: z.number().int().min(0).max(10000).optional()
 };
 
 const ruleInput = z.object({
@@ -63,8 +64,10 @@ export async function previewRule(payload: unknown) {
   // Editing never changes the enabled state, so an edit is counted as it will be stored.
   const enabled = stored ? stored.enabled : 1;
   const id = ruleId ?? randomUUID();
+  const priority = input.priority ?? stored?.priority ?? endPriority(await listRules());
   const decided = enabled ? await transactionsDecidedBy({
     ...input,
+    priority,
     id,
     name: "",
     category_id: "",
@@ -99,6 +102,7 @@ export async function createRule(payload: unknown) {
 
   const rule = {
     ...input,
+    priority: input.priority ?? endPriority(await listRules()),
     id: previewId ?? randomUUID()
   };
   const selectAssignments: SelectRuleAssignments | undefined = applyToUncategorized ? (storedRules, entries) => {

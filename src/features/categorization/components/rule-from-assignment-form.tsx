@@ -26,8 +26,6 @@ type Props = {
   onCreated: (categorized: number) => void;
 };
 
-const defaultPriority = "100";
-
 // Counting waits for typing to pause.
 const previewDelay = 300;
 
@@ -39,18 +37,16 @@ export function RuleFromAssignmentDialog(props: Props) {
   );
 }
 
-function previewDraft(pattern: string, priority: string): RulePreviewDraft | null {
+function previewDraft(pattern: string): RulePreviewDraft | null {
   const trimmed = pattern.trim();
-  const order = Number(priority);
 
-  if (!trimmed || priority.trim() === "" || !Number.isInteger(order) || order < 0 || order > 10000) {
+  if (!trimmed) {
     return null;
   }
 
   return {
     pattern: trimmed,
     mode: "keyword",
-    priority: order,
     ruleId: null
   };
 }
@@ -76,24 +72,23 @@ function RuleFromAssignmentForm({
   const patternHintId = useId();
   const categoryFieldId = useId();
   const [pattern, setPattern] = useState(() => proposeRulePattern(counterparty, description));
-  const [priority, setPriority] = useState(defaultPriority);
   const [categoryId, setCategoryId] = useState(assignedCategoryId);
   const [applyToUncategorized, setApplyToUncategorized] = useState(true);
-  const [previewed, setPreviewed] = useState(() => previewDraft(pattern, priority));
+  const [previewed, setPreviewed] = useState(() => previewDraft(pattern));
 
   useEffect(() => {
-    const timer = setTimeout(() => setPreviewed(previewDraft(pattern, priority)), previewDelay);
+    const timer = setTimeout(() => setPreviewed(previewDraft(pattern)), previewDelay);
 
     return () => clearTimeout(timer);
-  }, [pattern, priority]);
+  }, [pattern]);
 
-  const draft = previewDraft(pattern, priority);
+  const draft = previewDraft(pattern);
   const preview = useRulePreview(previewed);
-  const matchesCurrentDraft = draft !== null && draft.pattern === previewed?.pattern && draft.priority === previewed?.priority;
+  const matchesCurrentDraft = draft !== null && draft.pattern === previewed?.pattern;
   const previewReady = matchesCurrentDraft && preview.isSuccess && !preview.isFetching && !preview.isPlaceholderData;
   const previewPending = draft !== null && (!matchesCurrentDraft || preview.isFetching);
 
-  let previewText = "Enter a pattern and a priority to see what the rule would categorize.";
+  let previewText = "Enter a pattern to see what the rule would categorize.";
 
   if (matchesCurrentDraft && preview.isError) {
     previewText = `The preview is unavailable: ${toFailure(preview.error).message}`;
@@ -125,7 +120,6 @@ function RuleFromAssignmentForm({
             pattern: keyword,
             mode: "keyword",
             category_id: categoryId,
-            priority: Number(priority),
             apply_to_uncategorized: applyToUncategorized
           };
         }, created => onCreated(created.categorized));
@@ -146,28 +140,14 @@ function RuleFromAssignmentForm({
         />
         <span id={patternHintId} className={styles["hint"]}>Contained in the payee or description, without case sensitivity.</span>
       </div>
-      <div className={ui["form-grid"]}>
-        <div className={ui["field"]}>
-          <label htmlFor={categoryFieldId}>Category</label>
-          <CategoryPicker
-            id={categoryFieldId}
-            categories={categories.data ?? []}
-            value={categoryId}
-            onChange={next => setCategoryId(next ?? assignedCategoryId)}
-          />
-        </div>
-        <label>
-          Priority
-          <input
-            name="priority"
-            type="number"
-            min="0"
-            max="10000"
-            required
-            value={priority}
-            onChange={event => setPriority(event.target.value)}
-          />
-        </label>
+      <div className={ui["field"]}>
+        <label htmlFor={categoryFieldId}>Category</label>
+        <CategoryPicker
+          id={categoryFieldId}
+          categories={categories.data ?? []}
+          value={categoryId}
+          onChange={next => setCategoryId(next ?? assignedCategoryId)}
+        />
       </div>
       <p className={clsx(ui["form-hint"], styles["preview"])} role="status" aria-busy={previewPending}>{previewText}</p>
       <label className={styles["apply"]}>
@@ -178,7 +158,7 @@ function RuleFromAssignmentForm({
         />
         Categorize the uncategorized matches now
       </label>
-      <p className={ui["form-hint"]}>Other matches follow the rule when rules are applied. Lower priority numbers match first.</p>
+      <p className={ui["form-hint"]}>The rule is added at the end of your rules; reorder it in the rule list. Other matches follow the rule when rules are applied.</p>
       <FormError failure={error} />
       <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={pending || !categories.data || !previewReady || !preview.data?.id}>
         Create rule <Sparkles size={16} />

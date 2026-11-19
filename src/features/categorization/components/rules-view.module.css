@@ -18,10 +18,35 @@
   border-bottom: 1px solid var(--border-subtle);
   background: var(--surface);
 }
-.rule-row.dragging {
-  z-index: var(--layer-raised);
+/* While a rule is dragged, its slot stays as an outlined gap that the other rows move around, marking where it will drop. */
+.rule-row.drop-position {
   background: var(--surface-muted);
+  outline: 2px dashed var(--muted);
+  outline-offset: -6px;
+}
+/* Transparent rather than hidden, so the keyboard-dragged handle keeps focus. */
+.rule-row.drop-position > * {
+  opacity: 0;
+}
+/* The copy that follows the pointer is slightly transparent, so the drop position below stays visible. */
+.rule-row.dragged {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
+  opacity: 0.9;
+  cursor: grabbing;
+}
+.order-failure {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-6);
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: var(--text-sm);
+}
+.order-failure p {
+  margin: 0;
 }
 .handle {
   position: relative;
@@ -43,10 +68,6 @@
 }
 button.handle:not(:disabled) {
   cursor: grab;
-}
-.dragging button.handle {
-  cursor: grabbing;
-  color: var(--ink);
 }
 button.handle:not(:disabled):hover {
   color: var(--ink);
@@ -141,19 +162,12 @@ button.rule-name:focus-visible {
   max-width: 24rem;
   font-size: var(--text-sm);
 }
-.rule-category,
-.rule-priority {
+.rule-category {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-}
-.rule-category {
   min-width: 0;
   max-width: 100%;
-}
-.rule-priority {
-  flex-shrink: 0;
-  color: var(--ink-soft);
 }
 .toggle {
   position: relative;

@@ -60,7 +60,8 @@ export async function insertRule(rule: NewRule, selectAssignments?: SelectRuleAs
   });
 }
 
-export async function updateRule(id: string, details: Pick<Rule, "name" | "pattern" | "mode" | "category_id" | "priority">) {
+/** Updates the rule's details; without a priority the rule keeps its position in the matching order. */
+export async function updateRule(id: string, details: Pick<Rule, "name" | "pattern" | "mode" | "category_id"> & Partial<Pick<Rule, "priority">>) {
   const db = await database();
   const result = await db.update(categorizationRules).set(details).where(eq(categorizationRules.id, id));
 

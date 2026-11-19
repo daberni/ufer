@@ -12,6 +12,15 @@ export function orderedPriorities(count: number) {
   }, (_, index) => (index + 1) * step);
 }
 
+/** The priority that places a new rule after every stored rule, as far as the allowed range permits. */
+export function endPriority(rules: {
+  priority: number;
+}[]) {
+  const last = Math.max(0, ...rules.map(rule => rule.priority));
+
+  return Math.min(highestPriority, last + priorityStep);
+}
+
 /** The rules with the priorities that saving this order stores, so the list shows them before the save completes. */
 export function withOrderedPriorities<T extends {
   priority: number;
@@ -22,14 +31,4 @@ export function withOrderedPriorities<T extends {
     ...rule,
     priority: priorities[index]
   }));
-}
-
-/** Moves the item at one position to another, keeping the others in order. */
-export function moveItem<T>(items: T[], from: number, to: number) {
-  const moved = [...items];
-  const [item] = moved.splice(from, 1);
-
-  moved.splice(to, 0, item);
-
-  return moved;
 }

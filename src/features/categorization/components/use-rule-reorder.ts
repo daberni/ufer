@@ -1,198 +1,89 @@
 "use client";
 
-import { useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type RefObject } from "react";
+import { KeyboardSensor, PointerSensor, useSensor, useSensors, type Announcements, type DragEndEvent, type DragStartEvent, type Modifier, type UniqueIdentifier } from "@dnd-kit/core";
+import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
+import { useState } from "react";
 import { settle } from "@/client/settle";
+import type { Failure } from "@/client/api";
 import { useReorderRules } from "@/features/categorization/mutations";
-import { moveItem } from "@/features/categorization/rule-order";
 import type { Rule } from "@/features/categorization/types";
 
-type Drag = {
-  id: string;
-  pointerId: number;
-  order: Rule[];
+/** Rules only move up and down, so the dragged row stays aligned with the list. */
+export const verticalOnly: Modifier = ({ transform }) => ({
+  ...transform,
+  x: 0
+});
+
+function ruleAnnouncements(rules: Rule[]): Announcements {
+  const name = (id: UniqueIdentifier) => rules.find(rule => rule.id === id)?.name ?? "Rule";
+  const position = (id: UniqueIdentifier | undefined) => rules.findIndex(rule => rule.id === id) + 1;
+
+  return {
+    onDragStart: event => `Picked up ${name(event.active.id)} at position ${position(event.active.id)} of ${rules.length}.`,
+    onDragOver: event => event.over ? `${name(event.active.id)} is at position ${position(event.over.id)} of ${rules.length}.` : `${name(event.active.id)} is outside the list.`,
+    onDragEnd: event => event.over ? `${name(event.active.id)} dropped at position ${position(event.over.id)} of ${rules.length}.` : `${name(event.active.id)} returned to its position.`,
+    onDragCancel: event => `Moving ${name(event.active.id)} was cancelled; it returned to position ${position(event.active.id)}.`
+  };
+}
+
+export const reorderInstructions = {
+  draggable: "To move a rule, press Space or Enter on its handle, use the arrow keys to choose its position, then press Space or Enter again to drop it or Escape to cancel. Rules match from the top; existing transactions change only when you apply the rules."
 };
 
-/** Distance from the viewport edge at which dragging scrolls the page, since the handle blocks touch scrolling. */
-const scrollEdge = 64;
-
-const scrollStep = 12;
-
-function rowCenters(list: HTMLElement, draggedId: string) {
-  return [...list.querySelectorAll<HTMLElement>("[data-rule-id]")].filter(row => row.dataset.ruleId !== draggedId).map(row => {
-    const bounds = row.getBoundingClientRect();
-
-    return bounds.top + bounds.height / 2;
-  });
-}
-
-function keyboardTarget(key: string, index: number, count: number) {
-  if (key === "ArrowUp") {
-    return Math.max(0, index - 1);
-  }
-
-  if (key === "ArrowDown") {
-    return Math.min(count - 1, index + 1);
-  }
-
-  if (key === "Home") {
-    return 0;
-  }
-
-  if (key === "End") {
-    return count - 1;
-  }
-
-  return null;
-}
-
-function sameOrder(first: Rule[], second: Rule[]) {
-  return first.length === second.length && first.every((rule, index) => rule.id === second[index].id);
-}
-
 /**
- * Reorders rules by dragging a handle with a mouse, pen or touch, or with the arrow, Home and End keys on the focused handle. A pointer drag is saved once on release; each key press is saved immediately and announced.
+ * Sorting through dnd-kit: a pointer sensor for mouse, pen and touch on the drag handle, and a keyboard sensor with screen-reader announcements. A drop saves the new order; a failed save restores the previous order and reports the failure next to the list.
  */
-export function useRuleReorder(rules: Rule[], listRef: RefObject<HTMLOListElement | null>, reportFailure: (message: string, traceId?: string) => void) {
+export function useRuleReorder(rules: Rule[]) {
   const reorder = useReorderRules();
-  const [drag, setDrag] = useState<Drag | null>(null);
-  const [announcement, setAnnouncement] = useState("");
-  // The latest order chosen by keyboard, shown until its save settles, so quick key presses build on each other.
-  const [chosen, setChosen] = useState<Rule[] | null>(null);
-  const saves = useRef(0);
-  const handles = useRef(new Map<string, HTMLButtonElement>());
-  // Moving a focused row can drop focus in some browsers, so the moved handle is focused again after rendering.
-  const refocus = useRef<string | null>(null);
-  const shown = drag?.order ?? chosen ?? rules;
+  const [failure, setFailure] = useState<Failure | null>(null);
+  const [draggedId, setDraggedId] = useState<UniqueIdentifier | null>(null);
+  const sensors = useSensors(
+    // A short distance keeps a tap on the handle from starting a drag.
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 4
+      }
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates
+    })
+  );
 
-  useLayoutEffect(() => {
-    if (refocus.current === null) {
+  async function onDragEnd(event: DragEndEvent) {
+    const {
+      active,
+      over
+    } = event;
+
+    setDraggedId(null);
+
+    if (!over || active.id === over.id) {
       return;
     }
 
-    const handle = handles.current.get(refocus.current);
+    const from = rules.findIndex(rule => rule.id === active.id);
+    const to = rules.findIndex(rule => rule.id === over.id);
 
-    refocus.current = null;
-
-    if (handle && document.activeElement !== handle) {
-      handle.focus();
+    if (from < 0 || to < 0) {
+      return;
     }
-  });
 
-  async function save(order: Rule[], moved: Rule) {
-    const position = order.findIndex(rule => rule.id === moved.id) + 1;
-
-    const save = ++saves.current;
-
-    setChosen(order);
-    setAnnouncement(`${moved.name} moved to position ${position} of ${order.length}.`);
-    const result = await settle(reorder.mutateAsync(order));
-
-    if (save === saves.current) {
-      setChosen(null);
-    }
+    setFailure(null);
+    const result = await settle(reorder.save(arrayMove(rules, from, to)));
 
     if (!result.ok) {
-      setAnnouncement("");
-      reportFailure(`The rule order could not be saved: ${result.failure.message}`, result.failure.traceId);
+      setFailure(result.failure);
     }
-  }
-
-  function handleRef(id: string) {
-    return (element: HTMLButtonElement | null) => {
-      if (element) {
-        handles.current.set(id, element);
-      } else {
-        handles.current.delete(id);
-      }
-    };
-  }
-
-  function onPointerDown(event: PointerEvent<HTMLButtonElement>, rule: Rule) {
-    if (event.button !== 0 || shown.length < 2) {
-      return;
-    }
-
-    event.currentTarget.setPointerCapture(event.pointerId);
-    setDrag({
-      id: rule.id,
-      pointerId: event.pointerId,
-      order: shown
-    });
-  }
-
-  function onPointerMove(event: PointerEvent<HTMLButtonElement>) {
-    const list = listRef.current;
-
-    if (!drag || drag.pointerId !== event.pointerId || !list) {
-      return;
-    }
-
-    if (event.clientY < scrollEdge) {
-      window.scrollBy(0, -scrollStep);
-    } else if (event.clientY > window.innerHeight - scrollEdge) {
-      window.scrollBy(0, scrollStep);
-    }
-
-    const from = drag.order.findIndex(rule => rule.id === drag.id);
-    const to = rowCenters(list, drag.id).filter(center => center < event.clientY).length;
-
-    if (from !== to) {
-      setDrag({
-        ...drag,
-        order: moveItem(drag.order, from, to)
-      });
-    }
-  }
-
-  function onPointerUp(event: PointerEvent<HTMLButtonElement>) {
-    if (!drag || drag.pointerId !== event.pointerId) {
-      return;
-    }
-
-    const moved = drag.order.find(rule => rule.id === drag.id);
-
-    setDrag(null);
-
-    if (moved && !sameOrder(drag.order, chosen ?? rules)) {
-      refocus.current = moved.id;
-      void save(drag.order, moved);
-    }
-  }
-
-  function onPointerCancel() {
-    setDrag(null);
-  }
-
-  function onKeyDown(event: KeyboardEvent<HTMLButtonElement>, rule: Rule) {
-    const from = shown.findIndex(stored => stored.id === rule.id);
-    const to = keyboardTarget(event.key, from, shown.length);
-
-    if (to === null || drag) {
-      return;
-    }
-
-    event.preventDefault();
-
-    if (to === from) {
-      return;
-    }
-
-    refocus.current = rule.id;
-    void save(moveItem(shown, from, to), rule);
   }
 
   return {
-    rules: shown,
-    draggingId: drag?.id ?? null,
-    announcement,
-    handleProps: (rule: Rule) => ({
-      ref: handleRef(rule.id),
-      onPointerDown: (event: PointerEvent<HTMLButtonElement>) => onPointerDown(event, rule),
-      onPointerMove,
-      onPointerUp,
-      onPointerCancel,
-      onLostPointerCapture: onPointerCancel,
-      onKeyDown: (event: KeyboardEvent<HTMLButtonElement>) => onKeyDown(event, rule)
-    })
+    sensors,
+    dragged: rules.find(rule => rule.id === draggedId) ?? null,
+    onDragStart: (event: DragStartEvent) => setDraggedId(event.active.id),
+    onDragCancel: () => setDraggedId(null),
+    announcements: ruleAnnouncements(rules),
+    failure,
+    dismissFailure: () => setFailure(null),
+    onDragEnd
   };
 }
