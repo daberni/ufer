@@ -78,9 +78,8 @@ function TransactionRow({
               type="button"
               onClick={() => setEditing(true)}
               aria-label={`Edit transaction: ${subject}`}
-              title={subject}
             >
-              <span className={styles["name-preview"]}>{subject}</span>
+              <span className={styles["name-preview"]} title={subject}>{subject}</span>
             </button>
           </strong>
           <span className={styles["description"]} title={transaction.description}>{transaction.description || "No description"}</span>
@@ -99,7 +98,6 @@ function TransactionRow({
         {editing && <TransactionEditDialog transaction={transaction} close={() => setEditing(false)} />}
       </th>
       <td role="cell" className={styles["category"]}>
-        <span className={styles["category-label"]} aria-hidden="true">Category</span>
         <TransactionCategory categories={categories} transaction={transaction} />
       </td>
       <td role="cell" className={styles["account"]}>
@@ -174,7 +172,6 @@ export function TransactionListSkeleton({ rows }: {
                 </div>
               </th>
               <td className={styles["category"]}>
-                <span className={styles["category-label"]}>Category</span>
                 <TransactionCategorySkeleton />
               </td>
               <td className={styles["account"]}>

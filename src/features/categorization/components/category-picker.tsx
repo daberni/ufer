@@ -156,7 +156,10 @@ export function CategoryPicker({
   const assignmentSource = assignment?.source;
   const assigningRule = assignmentSource === "rule" ? assignment?.assigningRule : undefined;
   const assignmentHint = assignmentSource ? assignmentHints[assigningRule ? "recordedRule" : assignmentSource] : undefined;
-  const describedBy = clsx(ariaDescribedBy, assignmentHint && assignmentHintId) || undefined;
+  // "Uncategorized" is a hint, not text in the field, so typing a search starts from an empty field; a description keeps the selection announced.
+  const uncategorized = includeUncategorized && value === null;
+  const uncategorizedId = useId();
+  const describedBy = clsx(uncategorized && uncategorizedId, ariaDescribedBy, assignmentHint && assignmentHintId) || undefined;
 
   function choose(next: PickerValue) {
     setSearch(null);
@@ -182,10 +185,10 @@ export function CategoryPicker({
         options={options}
         value={value}
         onChange={choose}
-        query={search ?? selected?.label ?? ""}
+        query={search ?? (uncategorized ? "" : selected?.label) ?? ""}
         onQueryChange={setSearch}
         noun={categoryNoun}
-        placeholder="Search categories"
+        placeholder={uncategorized ? "Uncategorized" : "Search categories"}
         appearance={appearance}
         busy={ariaBusy}
         aria-label={ariaLabel}
@@ -246,6 +249,7 @@ export function CategoryPicker({
           </p>
         )}
       />
+      {uncategorized && <span id={uncategorizedId} className={ui["visually-hidden"]}>Uncategorized</span>}
       {assignmentHint && <span id={assignmentHintId} className={ui["visually-hidden"]}>{assignmentHint}</span>}
       {name && <input type="hidden" name={name} value={typeof value === "string" ? value : ""} />}
       {newCategoryName !== null && (

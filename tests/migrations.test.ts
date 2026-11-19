@@ -981,7 +981,7 @@ test("category-rule migration keeps every booking unchanged and leaves existing 
 
   journal.entries = journal.entries.filter((entry: {
     tag: string
-  }) => entry.tag !== "0012_transaction_category_rule");
+  }) => entry.tag !== "0011_transaction_category_rule");
   mkdirSync(join(directory, "meta"));
 
   for (const entry of journal.entries) {

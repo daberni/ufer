@@ -80,10 +80,10 @@
       "breakpoints": true
     },
     {
-      "idx": 12,
+      "idx": 11,
       "version": "6",
       "when": 1795126884000,
-      "tag": "0012_transaction_category_rule",
+      "tag": "0011_transaction_category_rule",
       "breakpoints": true
     }
   ]
