@@ -1007,9 +1007,9 @@ test("import template migration adds an empty template table and leaves every ex
     assert.deepEqual((await client.execute(objects)).rows, before);
     assert.deepEqual((await client.execute("SELECT * FROM transactions")).rows, transactionsBefore);
     assert.equal((await client.execute("SELECT COUNT(*) AS total FROM import_templates")).rows[0].total, 0);
-    await client.execute("INSERT INTO import_templates(id,name,header_key,definition,created_at,updated_at) VALUES('a','Bank','[\"Date\"]','{}','2026-01-01T00:00:00Z','2026-01-01T00:00:00Z')");
-    await assert.rejects(client.execute("INSERT INTO import_templates(id,name,header_key,definition,created_at,updated_at) VALUES('b','BANK','[\"Other\"]','{}','2026-01-01T00:00:00Z','2026-01-01T00:00:00Z')"), /UNIQUE/);
-    await assert.rejects(client.execute("INSERT INTO import_templates(id,name,header_key,definition,created_at,updated_at) VALUES('c','Other','[\"Date\"]','{}','2026-01-01T00:00:00Z','2026-01-01T00:00:00Z')"), /UNIQUE/);
+    await client.execute("INSERT INTO import_templates(id,name,name_key,header_key,definition,created_at,updated_at) VALUES('a','Bank','bank','[\"Date\"]','{}','2026-01-01T00:00:00Z','2026-01-01T00:00:00Z')");
+    await assert.rejects(client.execute("INSERT INTO import_templates(id,name,name_key,header_key,definition,created_at,updated_at) VALUES('b','BANK','bank','[\"Other\"]','{}','2026-01-01T00:00:00Z','2026-01-01T00:00:00Z')"), /UNIQUE/);
+    await assert.rejects(client.execute("INSERT INTO import_templates(id,name,name_key,header_key,definition,created_at,updated_at) VALUES('c','Other','other','[\"Date\"]','{}','2026-01-01T00:00:00Z','2026-01-01T00:00:00Z')"), /UNIQUE/);
   } finally {
     client.close();
     rmSync(directory, {

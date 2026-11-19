@@ -1,4 +1,5 @@
-import { asc, count, eq, sql } from "drizzle-orm";
+import { asc, count, eq } from "drizzle-orm";
+import { categoryNameKey } from "@/lib/category-name";
 import { HttpError } from "@/lib/errors";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 import { importTemplates } from "@/server/database/schema";
@@ -11,7 +12,7 @@ export type TemplateDefinition = Omit<CsvTemplate, "id" | "name" | "builtIn">;
 
 export async function listTemplates(): Promise<CsvTemplate[]> {
   const db = await database();
-  const rows = await db.select().from(importTemplates).orderBy(asc(sql`lower(${importTemplates.name})`), asc(importTemplates.id));
+  const rows = await db.select().from(importTemplates).orderBy(asc(importTemplates.name_key), asc(importTemplates.id));
 
   return rows.map(row => ({
     ...(JSON.parse(row.definition) as TemplateDefinition),
@@ -39,6 +40,7 @@ export async function insertTemplate(id: string, name: string, definition: Templ
     await tx.insert(importTemplates).values({
       id,
       name,
+      name_key: categoryNameKey(name),
       header_key: headerKey(definition.header),
       definition: JSON.stringify(definition),
       created_at: now,
@@ -67,6 +69,7 @@ export async function updateTemplate(id: string, change: {
     await requireUnique(tx, name, definition.header, id);
     await tx.update(importTemplates).set({
       name,
+      name_key: categoryNameKey(name),
       header_key: headerKey(definition.header),
       definition: JSON.stringify(definition),
       updated_at: new Date().toISOString()
@@ -89,7 +92,7 @@ export async function deleteTemplate(id: string) {
 async function requireUnique(tx: DatabaseTransaction, name: string, header: string[], ownId: string | null) {
   const sameName = await tx.select({
     id: importTemplates.id
-  }).from(importTemplates).where(eq(sql`lower(${importTemplates.name})`, name.toLowerCase())).get();
+  }).from(importTemplates).where(eq(importTemplates.name_key, categoryNameKey(name))).get();
 
   if (sameName && sameName.id !== ownId) {
     throw new HttpError(409, `A template named “${name}” already exists.`);

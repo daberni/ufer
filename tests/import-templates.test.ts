@@ -292,6 +292,16 @@ test("a second template for the same columns or name is rejected, and invalid de
     name: "bank EXPORT",
     header: ["Date", "Amount", "Payee", "Extra"]
   }), (error: unknown) => error instanceof HttpError && error.status === 409 && /already exists/.test(error.message));
+  await createTemplate({
+    ...savedInput,
+    name: "Ärzte",
+    header: ["Datum", "Betrag", "Arzt"]
+  });
+  await assert.rejects(createTemplate({
+    ...savedInput,
+    name: "ärzte",
+    header: ["Datum", "Betrag", "Praxis"]
+  }), (error: unknown) => error instanceof HttpError && error.status === 409 && /already exists/.test(error.message));
   await assert.rejects(createTemplate({
     ...savedInput,
     name: "Unknown column",
