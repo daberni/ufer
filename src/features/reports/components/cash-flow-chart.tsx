@@ -183,6 +183,17 @@ function Hairline({ fraction }: {
   );
 }
 
+/** Exposes the device pixel ratio as `--device-pixel-ratio`, so sizes measured in device pixels (like the bars' minimum height beside the hairlines) can be written in CSS. */
+function useDevicePixelRatioProperty() {
+  const elementRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    elementRef.current?.style.setProperty("--device-pixel-ratio", String(window.devicePixelRatio || 1));
+  });
+
+  return elementRef;
+}
+
 /** Places a hairline (one device pixel tall) at a fraction of its container's height, rounded to a device pixel row, so it is drawn crisp and identical over everything beneath it. */
 function useDevicePixelTop(lineRef: RefObject<HTMLSpanElement | null>, fraction: number) {
   useLayoutEffect(() => {
@@ -265,6 +276,7 @@ function ChartPlot({
   months: Temporal.PlainYearMonth[];
 }) {
   const descriptionPrefix = useId();
+  const chartRef = useDevicePixelRatioProperty();
   const clipPrefix = useId();
   const router = useRouter();
   const monthTransactionsHref = useMonthTransactionsHref();
@@ -314,6 +326,7 @@ function ChartPlot({
     <>
       <div
         {...areaProps(cashFlow.status, styles["bar-chart"])}
+        ref={chartRef}
         role="group"
         aria-label={`Monthly income, expenses and net, ${monthRangeLabel(months)}`}
         data-active={activeMonth ? "" : undefined}

@@ -150,7 +150,8 @@
   position: absolute;
   left: 50%;
   width: clamp(12px, 40%, 24px);
-  min-height: 1px;
+  /* Three device pixels: the hairline covers one, rounding the line to a pixel row can take up to another, and at least one stays visible beyond it in either direction. */
+  min-height: calc(3px / var(--device-pixel-ratio, 1));
   transform: translateX(-50%);
   display: flex;
   overflow: hidden;
