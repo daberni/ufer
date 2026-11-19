@@ -46,7 +46,8 @@ export type CsvTemplate = {
   /** The header row the template recognizes, compared cell by cell after trimming. */
   header: string[];
   settings: Partial<Pick<CsvSettings, "decimal" | "dateFormat">>;
-  columns: Partial<Record<keyof CsvMapping, string>>;
+  /** Column positions in `header`; positions rather than names keep repeated header names apart. */
+  columns: Partial<Record<keyof CsvMapping, number>>;
   /** Existing account IDs by source account label. */
   accounts: Record<string, string>;
   /** Existing category IDs by category value. */
@@ -73,13 +74,13 @@ export const buxferTemplate: CsvTemplate = {
     dateFormat: "YYYY-MM-DD"
   },
   columns: {
-    id: "ID",
-    date: "Date",
-    description: "Description",
-    currency: "Currency",
-    amount: "Amount",
-    category: "Tags",
-    account: "Account"
+    id: 0,
+    date: 1,
+    description: 2,
+    currency: 3,
+    amount: 4,
+    category: 6,
+    account: 7
   },
   accounts: {},
   categories: {}
@@ -99,7 +100,7 @@ export function matchTemplate(header: string[], saved: CsvTemplate[]): CsvTempla
   return [...saved, ...builtInTemplates].find(template => headerKey(template.header) === key) ?? null;
 }
 
-/** A template that recreates a mapping on files with the same header: columns by name, the format, and the given account and category choices. */
+/** A template that recreates a mapping on files with the same header: column positions, the format, and the given account and category choices. */
 export function templateFromMapping(name: string, header: string[], mapping: CsvMapping, settings: CsvSettings, accounts: Record<string, string>, categories: Record<string, string>): Omit<CsvTemplate, "id" | "builtIn"> {
   const columns: CsvTemplate["columns"] = {};
 
@@ -107,7 +108,7 @@ export function templateFromMapping(name: string, header: string[], mapping: Csv
     const column = mapping[field];
 
     if (column !== null && header[column] !== undefined) {
-      columns[field] = header[column].trim();
+      columns[field] = column;
     }
   }
 
@@ -541,18 +542,14 @@ export function suggestMapping(header: string[]): CsvMapping {
   return mapping;
 }
 
-/** Applies a template's column names to a header; columns the header lacks stay unmapped. */
+/** Applies a template's column positions to a header it matches; positions outside the header stay unmapped. */
 export function templateMapping(template: CsvTemplate, header: string[]): CsvMapping {
   const mapping = {
     ...emptyMapping
   };
 
-  const names = header.map(column => column.trim());
-
-  for (const [field, column] of Object.entries(template.columns) as [keyof CsvMapping, string][]) {
-    const index = names.indexOf(column);
-
-    mapping[field] = index >= 0 ? index : null;
+  for (const [field, column] of Object.entries(template.columns) as [keyof CsvMapping, number][]) {
+    mapping[field] = column < header.length ? column : null;
   }
 
   return mapping;

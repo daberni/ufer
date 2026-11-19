@@ -6,7 +6,7 @@ import { useAreaResult } from "@/components/ui/use-area-result";
 import { useCategories } from "@/features/categorization/queries";
 import { useMappedImport, type MappedImportSummary } from "@/features/imports/mutations";
 import { decodeCsv, detectDateFormat, detectDecimal, detectDelimiter, mapRows, mappingProblem, matchTemplate, parseCsv, importIdFor, readCsvTable, suggestMapping, templateMapping, type CsvMapping, type CsvSettings, type CsvTemplate } from "@/features/imports/csv-mapping";
-import { categoryValues, defaultCategorySelection, importKey, defaultTargetChoice, needsCategoryReview, prepareImport, sourceAccounts, templateChoices, type CategorySelection, type TargetChoice } from "@/features/imports/import-plan";
+import { categoryValues, importKey, needsCategoryReview, prepareImport, resolveCategories, resolveTargets, sourceAccounts, templateChoices, type CategorySelection, type TargetChoice } from "@/features/imports/import-plan";
 import { useImportTemplates } from "@/features/imports/template-queries";
 
 /** Large multi-year exports are read in the browser and sent as mapped rows in batches, so only the browser's memory bounds the file. */
@@ -55,11 +55,13 @@ export function useImportDraft() {
   const problem = effectiveMapping ? mappingProblem(effectiveMapping) : null;
   const mapped = useMemo(() => table && effectiveMapping && !mappingProblem(effectiveMapping) && settings ? mapRows(table.rows, effectiveMapping, settings, table.lines) : null, [table, effectiveMapping, settings]);
   const sources = useMemo(() => sourceAccounts(mapped?.rows ?? []), [mapped]);
-  const resolvedTargets = useMemo(() => new Map(sources.map(({ source }) => [source, targetChoices.get(source) ?? defaultTargetChoice(source, accountOptions)])), [sources, targetChoices, accountOptions]);
+  // Remembered choices follow the option lists, so a template applied before accounts or categories loaded still restores them.
+  const remembered = useMemo(() => template ? templateChoices(template, accountOptions, categories.data ?? []) : null, [template, accountOptions, categories.data]);
+  const resolvedTargets = useMemo(() => resolveTargets(sources.map(({ source }) => source), targetChoices, remembered?.targets ?? new Map(), accountOptions), [sources, targetChoices, remembered, accountOptions]);
   // Skipped accounts' rows neither count toward category values nor need review.
   const keptRows = useMemo(() => mapped?.rows.filter(row => resolvedTargets.get(row.source)?.kind !== "skip") ?? [], [mapped, resolvedTargets]);
   const values = useMemo(() => categoryValues(keptRows, categories.data ?? []), [keptRows, categories.data]);
-  const resolvedCategories = useMemo(() => new Map(values.map(value => [value.value, categoryChoices.get(value.value) ?? defaultCategorySelection(value)])), [values, categoryChoices]);
+  const resolvedCategories = useMemo(() => resolveCategories(values, categoryChoices, remembered?.selections ?? new Map()), [values, categoryChoices, remembered]);
   const prepared = useMemo(() => mapped && settings ? prepareImport(mapped.rows, resolvedTargets, accountOptions, resolvedCategories, settings.decimal) : null, [mapped, settings, resolvedTargets, accountOptions, resolvedCategories]);
   const preparedKey = useMemo(() => prepared ? importKey(prepared) : null, [prepared]);
   // A refetched account list can change a preselected target; the check then no longer describes what Import would save.
@@ -174,8 +176,6 @@ export function useImportDraft() {
       return;
     }
 
-    const choices = templateChoices(chosen, accountOptions, categories.data ?? []);
-
     setChecked(null);
     setTemplate(chosen);
     setTemplateDismissed(false);
@@ -184,8 +184,8 @@ export function useImportDraft() {
       ...chosen.settings
     });
     setMapping(templateMapping(chosen, header));
-    setTargetChoices(choices.targets);
-    setCategoryChoices(choices.selections);
+    setTargetChoices(new Map());
+    setCategoryChoices(new Map());
   }
 
   /** Switches a template off: the detected format and the suggested roles apply again, and its remembered choices are dropped. */

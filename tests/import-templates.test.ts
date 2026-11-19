@@ -8,7 +8,7 @@ import { initializeDatabase } from "../src/server/database/migrations";
 import * as schema from "../src/server/database/schema";
 import { HttpError } from "../src/lib/errors";
 import { buxferTemplate, decodeCsv, detectDelimiter, mapRows, matchTemplate, parseCsv, suggestMapping, templateFromMapping, templateMapping, type CsvSettings, type CsvTemplate } from "../src/features/imports/csv-mapping";
-import { categoryValues, rememberedChoices, sourceAccounts, templateChoices, type CategorySelection, type TargetChoice } from "../src/features/imports/import-plan";
+import { categoryValues, rememberedChoices, resolveCategories, resolveTargets, sourceAccounts, templateChoices, type CategorySelection, type TargetChoice } from "../src/features/imports/import-plan";
 import { textsMatch } from "../src/features/imports/server/duplicate-matching";
 import { changeTemplate, createTemplate, readTemplates, removeTemplate } from "../src/features/imports/server/template-service";
 
@@ -219,9 +219,9 @@ const savedInput = {
     dateFormat: "DD.MM.YYYY"
   },
   columns: {
-    date: "Date",
-    amount: "Amount",
-    payee: "Payee"
+    date: 0,
+    amount: 1,
+    payee: 2
   },
   accounts: {},
   categories: {
@@ -285,7 +285,16 @@ test("a second template for the same columns or name is rejected, and invalid de
   await assert.rejects(createTemplate({
     ...savedInput,
     name: "Unknown column",
-    header: ["Datum", "Betrag", "Empfänger"]
+    header: ["Datum", "Betrag"]
+  }), z.ZodError);
+  await assert.rejects(createTemplate({
+    ...savedInput,
+    name: "Shared column",
+    columns: {
+      date: 0,
+      amount: 1,
+      payee: 1
+    }
   }), z.ZodError);
   await assert.rejects(createTemplate({
     ...savedInput,
@@ -296,4 +305,74 @@ test("a second template for the same columns or name is rejected, and invalid de
       dateFormat: "YYYYMMDD"
     }
   }), z.ZodError);
+});
+
+test("a repeated header name keeps its role on the same occurrence", () => {
+  const header = ["Date", "Amount", "Payee", "Amount"];
+  const mapping = {
+    ...suggestMapping(header),
+    amount: 3
+  };
+  const stored: CsvTemplate = {
+    ...templateFromMapping("Two amounts", header, mapping, {
+      encoding: "utf-8",
+      delimiter: ",",
+      decimal: ".",
+      dateFormat: "YYYY-MM-DD"
+    }, {}, {}),
+    id: "two",
+    builtIn: false
+  };
+
+  assert.equal(templateMapping(stored, header).amount, 3);
+  assert.deepEqual(mapRows([["2024-01-02", "-1.00", "Example payee", "-2.50"]], templateMapping(stored, header), {
+    encoding: "utf-8",
+    delimiter: ",",
+    decimal: ".",
+    dateFormat: "YYYY-MM-DD"
+  }).rows.map(row => row.amount), ["-2.50"]);
+});
+
+test("remembered choices apply once accounts and categories load, and never override the person's choice", () => {
+  const template = {
+    accounts: {
+      "Example Card": "card"
+    },
+    categories: {
+      "Dining,Travel": "dining"
+    }
+  };
+  const value = {
+    value: "Dining,Travel",
+    rows: 1,
+    multiTag: true,
+    matchId: null
+  };
+  const notLoaded = templateChoices(template, [], []);
+
+  assert.deepEqual(resolveTargets(["Example Card"], new Map(), notLoaded.targets, []).get("Example Card"), {
+    kind: "unset"
+  });
+
+  const loaded = templateChoices(template, [{
+    id: "card",
+    name: "Travel card",
+    currency: "EUR"
+  }], [{
+    id: "dining"
+  }]);
+
+  assert.deepEqual(resolveTargets(["Example Card"], new Map(), loaded.targets, []).get("Example Card"), {
+    kind: "existing",
+    accountId: "card"
+  });
+  assert.equal(resolveCategories([value], new Map(), loaded.selections).get(value.value)?.categoryId, "dining");
+
+  const chosen = new Map<string, TargetChoice>([["Example Card", {
+    kind: "skip"
+  }]]);
+
+  assert.deepEqual(resolveTargets(["Example Card"], chosen, loaded.targets, []).get("Example Card"), {
+    kind: "skip"
+  });
 });

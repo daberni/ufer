@@ -16,10 +16,10 @@ const definition = z.object({
     decimal: z.enum([".", ","]).optional(),
     dateFormat: z.enum(dateFormats).optional()
   }).strict(),
-  columns: z.partialRecord(z.enum(fields), column),
+  columns: z.partialRecord(z.enum(fields), z.number().int().min(0).max(maxTemplateColumns - 1)),
   accounts: z.record(z.string().max(maxSourceLength), z.string().min(1).max(100)).refine(accounts => Object.keys(accounts).length <= maxTargetsPerRequest, "Too many account choices."),
   categories: z.record(z.string().max(maxCategoryLength), z.string().min(1).max(100)).refine(categories => Object.keys(categories).length <= maxCategoryChoicesPerRequest, "Too many category choices.")
-}).strict().refine(value => Object.values(value.columns).every(columnName => value.header.includes(columnName)), "Every mapped column must be part of the header.");
+}).strict().refine(value => Object.values(value.columns).every(position => position < value.header.length), "Every mapped column must be part of the header.").refine(value => new Set(Object.values(value.columns)).size === Object.values(value.columns).length, "Each column can have only one role.");
 
 const templateInput = definition.and(z.object({
   name

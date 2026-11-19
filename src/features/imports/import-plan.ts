@@ -324,3 +324,13 @@ export function rememberedChoices(targets: ReadonlyMap<string, TargetChoice>, se
     categories
   };
 }
+
+/** Each source's target: the person's choice, else the template's remembered account once the accounts are loaded, else the default. Remembered choices are resolved on every render, so they apply whenever the option lists arrive. */
+export function resolveTargets(sources: string[], chosen: ReadonlyMap<string, TargetChoice>, remembered: ReadonlyMap<string, TargetChoice>, accounts: AccountOption[]) {
+  return new Map(sources.map(source => [source, chosen.get(source) ?? remembered.get(source) ?? defaultTargetChoice(source, accounts)]));
+}
+
+/** Each category value's selection: the person's choice, else the template's remembered category, else the default. */
+export function resolveCategories(values: CategoryValue[], chosen: ReadonlyMap<string, CategorySelection>, remembered: ReadonlyMap<string, CategorySelection>) {
+  return new Map(values.map(value => [value.value, chosen.get(value.value) ?? remembered.get(value.value) ?? defaultCategorySelection(value)]));
+}
