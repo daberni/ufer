@@ -309,6 +309,13 @@ test("a second template for the same columns or name is rejected, and invalid de
   }), z.ZodError);
   await assert.rejects(createTemplate({
     ...savedInput,
+    name: "Unknown key",
+    header: ["Other"],
+    columns: {},
+    extra: true
+  }), z.ZodError);
+  await assert.rejects(createTemplate({
+    ...savedInput,
     name: "Shared column",
     columns: {
       date: 0,

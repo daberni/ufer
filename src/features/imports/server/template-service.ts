@@ -10,7 +10,7 @@ const column = z.string().trim().max(maxColumnNameLength);
 
 const fields = Object.keys(emptyMapping) as [keyof CsvMapping, ...(keyof CsvMapping)[]];
 
-const definition = z.object({
+const definitionFields = {
   header: z.array(column).min(1).max(maxTemplateColumns),
   settings: z.object({
     decimal: z.enum([".", ","]).optional(),
@@ -19,11 +19,32 @@ const definition = z.object({
   columns: z.partialRecord(z.enum(fields), z.number().int().min(0).max(maxTemplateColumns - 1)),
   accounts: z.record(z.string().max(maxSourceLength), z.string().min(1).max(100)).refine(accounts => Object.keys(accounts).length <= maxTargetsPerRequest, "Too many account choices."),
   categories: z.record(z.string().max(maxCategoryLength), z.string().min(1).max(100)).refine(categories => Object.keys(categories).length <= maxCategoryChoicesPerRequest, "Too many category choices.")
-}).strict().refine(value => Object.values(value.columns).every(position => position < value.header.length), "Every mapped column must be part of the header.").refine(value => new Set(Object.values(value.columns)).size === Object.values(value.columns).length, "Each column can have only one role.");
+};
 
-const templateInput = definition.and(z.object({
-  name
-}));
+type DefinitionShape = {
+  header: string[];
+  columns: Partial<Record<keyof CsvMapping, number>>;
+};
+
+function columnsFitHeader(value: DefinitionShape) {
+  return Object.values(value.columns).every(position => position < value.header.length);
+}
+
+function columnsDistinct(value: DefinitionShape) {
+  return new Set(Object.values(value.columns)).size === Object.values(value.columns).length;
+}
+
+// One strict object per request shape, so no strict part of a combined schema can reject the other part's keys.
+function checkedDefinition<T extends z.ZodType<DefinitionShape>>(schema: T) {
+  return schema.refine(columnsFitHeader, "Every mapped column must be part of the header.").refine(columnsDistinct, "Each column can have only one role.");
+}
+
+const definition = checkedDefinition(z.object(definitionFields).strict());
+
+const templateInput = checkedDefinition(z.object({
+  name,
+  ...definitionFields
+}).strict());
 
 /** Saved templates first, then the built-in ones defined in code; matching uses the same order, so a saved template for a built-in header wins. */
 export async function readTemplates() {
