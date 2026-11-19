@@ -75,6 +75,7 @@ async function showReports(context: TestContext) {
   });
   const { OverviewView } = await import("../src/features/dashboard/components/overview-view");
   const props = {
+    hasReportedAccounts: false,
     currencyAccounts: {
       status: "ready" as const,
       data: []
