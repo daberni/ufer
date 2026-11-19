@@ -43,6 +43,26 @@ export function useChangeTemplate() {
   });
 }
 
+/** Saves an editable copy of a template, such as a built-in one, under a new name. */
+export function useDuplicateTemplate() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      id,
+      name
+    }: {
+      id: string;
+      name: string;
+    }) => api<{
+      id: string;
+    }>(`imports/templates/${encodeURIComponent(id)}/duplicate`, {
+      name
+    }),
+    onSettled: () => invalidate(queryClient, [queryKeys.importTemplates()])
+  });
+}
+
 export function useDeleteTemplate() {
   const queryClient = useQueryClient();
 

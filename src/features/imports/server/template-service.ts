@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { HttpError } from "@/lib/errors";
-import { dateFormats, emptyMapping, maxCategoryChoicesPerRequest, maxCategoryLength, maxColumnNameLength, maxSourceLength, maxTargetsPerRequest, maxTemplateColumns, maxTemplateNameLength, type CsvMapping } from "../csv-mapping";
+import { builtInTemplates, dateFormats, emptyMapping, maxCategoryChoicesPerRequest, maxCategoryLength, maxColumnNameLength, maxSourceLength, maxTargetsPerRequest, maxTemplateColumns, maxTemplateNameLength, type CsvMapping } from "../csv-mapping";
 import { deleteTemplate, insertTemplate, listTemplates, updateTemplate, type TemplateDefinition } from "./template-repository";
 
 const name = z.string().trim().min(1).max(maxTemplateNameLength);
@@ -25,8 +25,36 @@ const templateInput = definition.and(z.object({
   name
 }));
 
-export function readTemplates() {
-  return listTemplates();
+/** Saved templates first, then the built-in ones defined in code; matching uses the same order, so a saved template for a built-in header wins. */
+export async function readTemplates() {
+  return [...(await listTemplates()), ...builtInTemplates];
+}
+
+function requireEditable(id: string) {
+  if (builtInTemplates.some(template => template.id === id)) {
+    throw new HttpError(409, "Built-in templates cannot be changed. Duplicate it to edit a copy.");
+  }
+}
+
+/** Saves an editable copy of a template under a new name; the copy takes over files with the same header. */
+export async function duplicateTemplate(id: string, payload: unknown) {
+  const { name: copyName } = z.object({
+    name
+  }).strict().parse(payload);
+  const source = (await readTemplates()).find(template => template.id === id);
+
+  if (!source) {
+    throw new HttpError(404, "Template not found.");
+  }
+
+  return createTemplate({
+    name: copyName,
+    header: source.header,
+    settings: source.settings,
+    columns: source.columns,
+    accounts: source.accounts,
+    categories: source.categories
+  });
 }
 
 export async function createTemplate(payload: unknown) {
@@ -45,6 +73,8 @@ export async function createTemplate(payload: unknown) {
 
 /** Renames a template, replaces its mapping, or both. */
 export async function changeTemplate(id: string, payload: unknown) {
+  requireEditable(id);
+
   const input = z.object({
     name: name.optional(),
     definition: definition.optional()
@@ -63,6 +93,8 @@ export async function changeTemplate(id: string, payload: unknown) {
 }
 
 export async function removeTemplate(id: string) {
+  requireEditable(id);
+
   if (!(await deleteTemplate(id))) {
     throw new HttpError(404, "Template not found.");
   }

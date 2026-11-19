@@ -93,11 +93,16 @@ export function headerKey(header: string[]) {
   return JSON.stringify(header.map(column => column.trim()));
 }
 
-/** The template for a header: a saved template first, so a person can override a built-in layout, then a built-in one. */
-export function matchTemplate(header: string[], saved: CsvTemplate[]): CsvTemplate | null {
+/** The first template in `templates` for a header; lists put saved templates before built-in ones, so a person can override a built-in layout. */
+export function matchTemplate(header: string[], templates: CsvTemplate[]): CsvTemplate | null {
   const key = headerKey(header);
 
-  return [...saved, ...builtInTemplates].find(template => headerKey(template.header) === key) ?? null;
+  return templates.find(template => headerKey(template.header) === key) ?? null;
+}
+
+/** A template's name as listed, marking the ones defined in code. */
+export function templateLabel(template: Pick<CsvTemplate, "name" | "builtIn">) {
+  return template.builtIn ? `${template.name} (built-in)` : template.name;
 }
 
 /** A template that recreates a mapping on files with the same header: column positions, the format, and the given account and category choices. */

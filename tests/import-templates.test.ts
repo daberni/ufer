@@ -7,10 +7,10 @@ import type { Database } from "../src/server/database/connection";
 import { initializeDatabase } from "../src/server/database/migrations";
 import * as schema from "../src/server/database/schema";
 import { HttpError } from "../src/lib/errors";
-import { buxferTemplate, decodeCsv, detectDelimiter, mapRows, matchTemplate, parseCsv, suggestMapping, templateFromMapping, templateMapping, type CsvSettings, type CsvTemplate } from "../src/features/imports/csv-mapping";
+import { builtInTemplates, buxferTemplate, decodeCsv, detectDelimiter, mapRows, matchTemplate, parseCsv, suggestMapping, templateFromMapping, templateLabel, templateMapping, type CsvSettings, type CsvTemplate } from "../src/features/imports/csv-mapping";
 import { categoryValues, rememberedChoices, resolveCategories, resolveTargets, sourceAccounts, templateChoices, type CategorySelection, type TargetChoice } from "../src/features/imports/import-plan";
 import { textsMatch } from "../src/features/imports/server/duplicate-matching";
-import { changeTemplate, createTemplate, readTemplates, removeTemplate } from "../src/features/imports/server/template-service";
+import { changeTemplate, createTemplate, duplicateTemplate, readTemplates, removeTemplate } from "../src/features/imports/server/template-service";
 
 async function isolatedDatabase(context: TestContext) {
   const client = createClient({
@@ -46,7 +46,7 @@ const buxferCsv = [
 function readBuxfer(saved: CsvTemplate[] = []) {
   const decoded = decodeCsv(new TextEncoder().encode(buxferCsv));
   const [header, ...rows] = parseCsv(decoded.text, detectDelimiter(decoded.text));
-  const template = matchTemplate(header, saved);
+  const template = matchTemplate(header, [...saved, ...builtInTemplates]);
 
   return {
     header,
@@ -113,9 +113,9 @@ test("a shortened Buxfer description still matches the full bank booking", () =>
 });
 
 test("only an exact header matches a template, and a saved template wins over the built-in one", () => {
-  assert.equal(matchTemplate([...buxferTemplate.header, "Extra"], []), null);
-  assert.equal(matchTemplate(buxferTemplate.header.slice(0, -1), []), null);
-  assert.equal(matchTemplate(buxferTemplate.header.map(column => ` ${column} `), [])?.id, buxferTemplate.id);
+  assert.equal(matchTemplate([...buxferTemplate.header, "Extra"], builtInTemplates), null);
+  assert.equal(matchTemplate(buxferTemplate.header.slice(0, -1), builtInTemplates), null);
+  assert.equal(matchTemplate(buxferTemplate.header.map(column => ` ${column} `), builtInTemplates)?.id, buxferTemplate.id);
 
   const saved: CsvTemplate = {
     ...buxferTemplate,
@@ -265,7 +265,7 @@ test("templates are stored, listed, renamed, updated and deleted", async context
   assert.deepEqual(changed.categories, {});
 
   await removeTemplate(id);
-  assert.deepEqual(await readTemplates(), []);
+  assert.deepEqual(await readTemplates(), builtInTemplates);
   await assert.rejects(removeTemplate(id), (error: unknown) => error instanceof HttpError && error.status === 404);
 });
 
@@ -375,4 +375,43 @@ test("remembered choices apply once accounts and categories load, and never over
   assert.deepEqual(resolveTargets(["Example Card"], chosen, loaded.targets, []).get("Example Card"), {
     kind: "skip"
   });
+});
+
+test("the built-in Buxfer template is listed after saved ones, cannot be renamed or deleted, and can be duplicated", async context => {
+  await isolatedDatabase(context);
+
+  const [listed] = await readTemplates();
+
+  assert.equal(listed.id, buxferTemplate.id);
+  assert.equal(templateLabel(listed), "Buxfer export (built-in)");
+  await assert.rejects(changeTemplate(buxferTemplate.id, {
+    name: "Renamed"
+  }), (error: unknown) => error instanceof HttpError && error.status === 409);
+  await assert.rejects(removeTemplate(buxferTemplate.id), (error: unknown) => error instanceof HttpError && error.status === 409);
+
+  const { id } = await duplicateTemplate(buxferTemplate.id, {
+    name: "Buxfer export (copy)"
+  });
+  const templates = await readTemplates();
+
+  assert.deepEqual(templates.map(template => [template.id, template.builtIn]), [[id, false], [buxferTemplate.id, true]]);
+  assert.deepEqual({
+    ...templates[0],
+    id: undefined,
+    name: undefined,
+    builtIn: undefined
+  }, {
+    ...buxferTemplate,
+    id: undefined,
+    name: undefined,
+    builtIn: undefined
+  });
+  // The editable copy now wins for Buxfer files.
+  assert.equal(matchTemplate(buxferTemplate.header, templates)?.id, id);
+  await changeTemplate(id, {
+    name: "My Buxfer"
+  });
+  await assert.rejects(duplicateTemplate("missing", {
+    name: "Other"
+  }), (error: unknown) => error instanceof HttpError && error.status === 404);
 });

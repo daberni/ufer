@@ -5,7 +5,7 @@ import { useAccounts } from "@/features/accounts/queries";
 import { useAreaResult } from "@/components/ui/use-area-result";
 import { useCategories } from "@/features/categorization/queries";
 import { useMappedImport, type MappedImportSummary } from "@/features/imports/mutations";
-import { decodeCsv, detectDateFormat, detectDecimal, detectDelimiter, mapRows, mappingProblem, matchTemplate, parseCsv, importIdFor, readCsvTable, suggestMapping, templateMapping, type CsvMapping, type CsvSettings, type CsvTemplate } from "@/features/imports/csv-mapping";
+import { builtInTemplates, decodeCsv, detectDateFormat, detectDecimal, detectDelimiter, mapRows, mappingProblem, matchTemplate, parseCsv, importIdFor, readCsvTable, suggestMapping, templateMapping, type CsvMapping, type CsvSettings, type CsvTemplate } from "@/features/imports/csv-mapping";
 import { categoryValues, importKey, needsCategoryReview, prepareImport, resolveCategories, resolveTargets, sourceAccounts, templateChoices, type CategorySelection, type TargetChoice } from "@/features/imports/import-plan";
 import { useImportTemplates } from "@/features/imports/template-queries";
 
@@ -44,7 +44,8 @@ export function useImportDraft() {
   const accounts = useAreaResult(useAccounts());
   const categories = useCategories();
   const templates = useImportTemplates();
-  const savedTemplates = useMemo(() => templates.data ?? [], [templates.data]);
+  // Built-in templates are defined in code, so they match even before the list has loaded.
+  const templateList = useMemo(() => templates.data ?? builtInTemplates, [templates.data]);
   const mutation = useMappedImport();
   const accountOptions = useMemo(() => accounts.data ?? [], [accounts.data]);
   const table = useMemo(() => file && settings ? readCsvTable(file.bytes, settings) : null, [file, settings]);
@@ -69,7 +70,7 @@ export function useImportDraft() {
   const reviewLines = useMemo(() => new Set(prepared?.rows.filter(row => needsCategoryReview(row, resolvedCategories)).map(row => row.line) ?? []), [prepared, resolvedCategories]);
   const inputsLocked = configurationLocked || mutation.isPending;
   // Saved templates can arrive after the file was read; a match is then offered instead of applied silently.
-  const matchingTemplate = useMemo(() => table ? matchTemplate(table.header, savedTemplates) : null, [table, savedTemplates]);
+  const matchingTemplate = useMemo(() => table ? matchTemplate(table.header, templateList) : null, [table, templateList]);
 
   // Leaving during a running request or after a confirmation started would lose the import's ID and let a new visit import differently.
   const unfinished = mutation.isPending || configurationLocked;
@@ -153,7 +154,7 @@ export function useImportDraft() {
       decimal: detectDecimal([...column(suggested.amount), ...column(suggested.debit), ...column(suggested.credit)]),
       dateFormat: detectDateFormat(column(suggested.date))
     };
-    const match = matchTemplate(header, savedTemplates);
+    const match = matchTemplate(header, templateList);
 
     setImportId(derivedId);
     setFile({
@@ -299,7 +300,7 @@ export function useImportDraft() {
     // A match that is not applied, because it was switched off or arrived after the file was read.
     offeredTemplate: matchingTemplate && matchingTemplate.id !== template?.id ? matchingTemplate : null,
     templateDismissed,
-    savedTemplates,
+    templates: templateList,
     templatesStatus: templates.status,
     applyTemplate: (chosen: CsvTemplate) => applyTemplate(chosen),
     mapManually,

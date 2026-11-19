@@ -51,7 +51,7 @@ export function CsvImportPage() {
           </div>
           <SaveTemplate draft={draft} />
         </section>
-        <TemplateList templates={draft.savedTemplates} disabled={false} />
+        <TemplateList templates={draft.templates} disabled={false} />
       </div>
     );
   }
@@ -68,7 +68,7 @@ export function CsvImportPage() {
         {loaded && <TemplateNotice draft={draft} />}
         {draft.fileError && <p className={ui["error-text"]} role="alert">{draft.fileError}</p>}
         {draft.formatError && <p className={ui["error-text"]} role="alert">{draft.formatError}</p>}
-        {!loaded && <p className={ui["form-hint"]}>Any CSV export with a date and an amount works: bank exports, Buxfer, spreadsheets. Buxfer exports and files matching a saved template are mapped automatically. You choose what each column means, check the result, then import. Nothing is saved before you import.</p>}
+        {!loaded && <p className={ui["form-hint"]}>Any CSV export with a date and an amount works: bank exports, Buxfer, spreadsheets. Files matching a template, such as Buxfer exports, are mapped automatically. You choose what each column means, check the result, then import. Nothing is saved before you import.</p>}
       </section>
       {loaded && draft.table && (
         <>
@@ -87,7 +87,7 @@ export function CsvImportPage() {
           />
         </>
       )}
-      <TemplateList templates={draft.savedTemplates} disabled={draft.inputsLocked} />
+      <TemplateList templates={draft.templates} disabled={draft.inputsLocked} />
     </div>
   );
 }
