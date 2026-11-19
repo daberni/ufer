@@ -135,6 +135,7 @@ function CloseAccountForm({
   } = useDialogSubmit(useArchiveAccount(account.id), close);
   const transferAccounts = activeAccounts(useAccounts().data ?? []).filter(other => other.provider === "manual" && other.currency === account.currency && other.id !== account.id);
   const latestDate = today().toString();
+  // A manual account's balance date is its latest booking; the closing cannot precede it.
   const remaining = account.balance_minor ?? 0;
 
   return (
@@ -168,6 +169,7 @@ function CloseAccountForm({
           type="date"
           required
           defaultValue={latestDate}
+          min={account.balance_date ?? undefined}
           max={latestDate}
         />
       </label>

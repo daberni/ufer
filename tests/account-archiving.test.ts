@@ -28,6 +28,7 @@ import { queryKeys } from "../src/client/query-keys";
 import { importValuations } from "../src/features/imports/server/import-service";
 import { readAccountCashFlow, readCashFlow } from "../src/features/reports/server/cash-flow-query";
 import { accountGroups } from "../src/features/accounts/queries";
+import { showsSync } from "../src/features/dashboard/sync-visibility";
 import type { Account } from "../src/features/accounts/types";
 import { browser, respond, wait, withQueryClient } from "./fixtures/browser";
 import { stubCssModules } from "./fixtures/css-modules";
@@ -702,6 +703,46 @@ test("a manual account without bookings has a balance of 0, while an unknown ban
     notArchived: ["Synthetic bank account"]
   });
   assert.equal((await listAccounts()).filter(account => account.archived_at).length, 0);
+});
+
+test("the closing date cannot precede the account's last booking", async context => {
+  const db = await seededDatabase(context);
+  const bookingsBefore = await db.select().from(schema.transactions);
+
+  await assert.rejects(archiveAccount("open", {
+    closing: {
+      date: "2026-01-01",
+      balance_minor: 50000
+    }
+  }), {
+    message: "Choose a date on or after the last booking (2026-01-02)."
+  });
+  assert.deepEqual(await db.select().from(schema.transactions), bookingsBefore);
+  assert.equal((await listAccounts()).find(account => account.id === "open")?.archived_at, null);
+
+  await archiveAccount("open", {
+    closing: {
+      date: "2026-01-02",
+      balance_minor: 50000
+    }
+  });
+  assert.ok((await listAccounts()).find(account => account.id === "open")?.archived_at);
+});
+
+test("account details offer the sync control only for an active bank account", () => {
+  assert.equal(showsSync("account", {
+    provider: "enable_banking",
+    archived_at: null
+  }), true);
+  assert.equal(showsSync("account", {
+    provider: "enable_banking",
+    archived_at: "2026-11-01T00:00:00.000Z"
+  }), false);
+  assert.equal(showsSync("account", {
+    provider: "manual",
+    archived_at: null
+  }), false);
+  assert.equal(showsSync("accounts", undefined), true);
 });
 
 test("archiving an unknown account or one of another banking environment is not found", async context => {

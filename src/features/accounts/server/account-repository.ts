@@ -4,6 +4,7 @@ import { database, type Database } from "@/server/database/connection";
 import { accounts, transactions } from "@/server/database/schema";
 import { environment } from "@/features/banking/server/environment";
 import { bookManualEntry, recordManualBalance, type ManualEntryResult } from "@/features/transactions/server/manual-transaction-repository";
+import { ValidationError } from "@/lib/errors";
 import type { ManualAccountInput } from "./account-schema";
 import { assertWritableAccount } from "./writable-account";
 
@@ -115,11 +116,17 @@ export async function closeAndArchiveManualAccount(account: {
   try {
     return await db.transaction(async tx => {
       const total = await tx.select({
-        amount: sql<number>`COALESCE(SUM(${transactions.amount_minor}),0)`.mapWith(Number)
+        amount: sql<number>`COALESCE(SUM(${transactions.amount_minor}),0)`.mapWith(Number),
+        latest: sql<string | null>`MAX(${transactions.booking_date})`
       }).from(transactions).where(eq(transactions.account_id, account.id)).get();
 
       if ((total?.amount ?? 0) !== expectedBalance) {
         throw new ClosingRefused("balance_changed");
+      }
+
+      // A closing before the last booking would leave activity after the account reached 0.
+      if (total?.latest && date < total.latest) {
+        throw new ValidationError(`Choose a date on or after the last booking (${total.latest}).`);
       }
 
       const result = await bookManualEntry(tx, randomUUID(), {
