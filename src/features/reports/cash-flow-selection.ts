@@ -70,7 +70,26 @@ const rateFormat = new Intl.NumberFormat("en-GB", {
   maximumFractionDigits: 0
 });
 
-/** "18%", "-25%", or an en dash when there is no rate. */
+/** "18%", "-25%", or an en dash when there is no rate; a rate that rounds to zero shows "0%" rather than "-0%". */
 export function formatSavingsRate(rate: number | null) {
-  return rate === null ? "–" : rateFormat.format(rate);
+  if (rate === null) {
+    return "–";
+  }
+
+  const roundsToZero = Math.round(rate * 100) === 0;
+
+  return rateFormat.format(roundsToZero ? 0 : rate);
+}
+
+/**
+ * Category rows each column of the panel reserves: the most any month of the trend or the period needs, up to the row limit. The panel's height then stays the same for every selection without reserving rows no selection can fill.
+ */
+export function reservedCategoryRows(data: CashFlow) {
+  const sources = [data, ...data.trend];
+  const rows = (breakdown: (source: typeof sources[number]) => CategoryAmount[]) => Math.max(1, ...sources.map(source => groupByCategory(breakdown(source)).length));
+
+  return {
+    income: rows(source => source.incomeBreakdown),
+    expenses: rows(source => source.expenseBreakdown)
+  };
 }

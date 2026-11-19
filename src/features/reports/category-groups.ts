@@ -44,7 +44,7 @@ function remainderOf(items: CategoryAmount[], total: number): CategoryGroup {
 
   return {
     key: "remainder",
-    name: `${items.length} other categories`,
+    name: `+${items.length} more`,
     color: remainderColor,
     icon: null,
     amount,

@@ -19,6 +19,7 @@ import { chartMonthCount, minimumChartMonths } from "@/features/reports/chart-mo
 import { usePeriod } from "@/client/use-app-url";
 import type { Area, AreaResult, PendingArea } from "@/components/ui/use-area-result";
 import type { CashFlow } from "@/features/reports/types";
+import { barSpan, cashFlowScale, scaleOffset, type CashFlowScale } from "@/features/reports/cash-flow-scale";
 import { formatSavingsRate, netFlow, trendCashFlow, type CashFlowSelection } from "@/features/reports/cash-flow-selection";
 
 type Props = {
@@ -119,61 +120,26 @@ function useChartMonthCount(plotRef: RefObject<HTMLDivElement | null>) {
   return count;
 }
 
-/** Where the shared zero line sits, as a fraction of the bar area's height from the top, and the amount that spans the whole height. */
-type Scale = {
-  zero: number;
-  extent: number;
-};
-
-/** One y-axis for all months: income reaches up to the largest income and expenses down to the largest expenses; each month's net lies between its two bars. */
-function chartScale(items: {
-  income: number;
-  expenses: number;
-}[]): Scale {
-  const up = Math.max(0, ...items.map(item => item.income));
-  const down = Math.max(0, ...items.map(item => item.expenses));
-  const extent = up + down;
-
-  if (extent === 0) {
-    return {
-      zero: 0.5,
-      extent: 1
-    };
-  }
-
-  return {
-    zero: up / extent,
-    extent
-  };
-}
-
 function percent(value: number) {
   return `${value * 100}%`;
 }
 
-/** Distance from the top of the bar area for an amount above (positive) or below (negative) the zero line. */
-function offset(amount: number, scale: Scale) {
-  return scale.zero - amount / scale.extent;
+/** A flow's bar from the zero line: income upward and expenses downward, each reversed when its amount is negative. */
+function signedAmount(flow: Flow, amount: number) {
+  return flow === "income" ? amount : -amount;
 }
 
-function barPosition(flow: Flow, amount: number, scale: Scale): CSSProperties {
-  const height = percent(amount / scale.extent);
-
-  if (flow === "income") {
-    return {
-      bottom: percent(1 - scale.zero),
-      height
-    };
-  }
+function barPosition(flow: Flow, amount: number, scale: CashFlowScale): CSSProperties {
+  const span = barSpan(signedAmount(flow, amount), scale);
 
   return {
-    top: percent(scale.zero),
-    height
+    top: percent(span.top),
+    height: percent(span.height)
   };
 }
 
 function ZeroLine({ scale }: {
-  scale: Scale;
+  scale: CashFlowScale;
 }) {
   return (
     <span className={styles["plot-area"]} aria-hidden="true">
@@ -240,7 +206,7 @@ function ChartPlot({
   } = cashFlow.data;
   // The chart shows the latest of the trend's months that fit its width.
   const trend = cashFlow.data.trend.slice(-months.length);
-  const scale = chartScale(trend);
+  const scale = cashFlowScale(trend);
   const chartMonths: ChartMonth[] = trend.map((item, index) => {
     const display = describeMonth(months[index]);
 
@@ -258,7 +224,7 @@ function ChartPlot({
   const activeMonth = chartMonths.find(item => item.month === selection?.month);
   const hasHistory = trend.some(item => item.income !== 0 || item.expenses !== 0);
   // Month columns share the width equally, so their centres lie at even steps of a 0–100 coordinate space that stretches with the plot.
-  const netPoints = chartMonths.map((item, index) => `${(index + 0.5) / chartMonths.length * 100},${offset(item.net, scale) * 100}`).join(" ");
+  const netPoints = chartMonths.map((item, index) => `${(index + 0.5) / chartMonths.length * 100},${scaleOffset(item.net, scale) * 100}`).join(" ");
 
   return (
     <>
@@ -311,7 +277,7 @@ function ChartPlot({
                   <span
                     className={styles["net-point"]}
                     style={{
-                      top: percent(offset(item.net, scale))
+                      top: percent(scaleOffset(item.net, scale))
                     }}
                   />
                 )}
@@ -327,7 +293,7 @@ function ChartPlot({
   );
 }
 
-/** A month's income above or expenses below the zero line; while its month is selected, it splits into category segments stacked outward from the zero line. */
+/** A month's income above or expenses below the zero line (reversed for a negative amount); while its month is selected, it splits into category segments stacked outward from the zero line. */
 function FlowBar({
   flow,
   amount,
@@ -337,14 +303,16 @@ function FlowBar({
   flow: Flow;
   amount: number;
   groups: CategoryGroup[];
-  scale: Scale;
+  scale: CashFlowScale;
 }) {
-  if (amount <= 0) {
+  if (amount === 0) {
     return null;
   }
 
+  const direction = signedAmount(flow, amount) > 0 ? "up" : "down";
+
   return (
-    <span className={clsx(styles["bar"], flow === "income" ? styles["income-bar"] : styles["expense-bar"])} style={barPosition(flow, amount, scale)}>
+    <span className={clsx(styles["bar"], flow === "income" ? styles["income-bar"] : styles["expense-bar"])} data-direction={direction} style={barPosition(flow, amount, scale)}>
       {groups.map(group => (
         <span
           key={group.key}

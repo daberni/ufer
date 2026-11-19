@@ -127,25 +127,29 @@
   overflow: hidden;
   transition: opacity var(--duration) ease;
 }
-/* Category segments stack outward from the zero line. */
 .income-bar {
-  flex-direction: column-reverse;
-  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
   background: var(--chart-income);
 }
 .expense-bar {
+  background: var(--chart-expense);
+}
+/* Category segments stack outward from the zero line. */
+.bar[data-direction="up"] {
+  flex-direction: column-reverse;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+}
+.bar[data-direction="down"] {
   flex-direction: column;
   border-radius: 0 0 var(--radius-sm) var(--radius-sm);
-  background: var(--chart-expense);
 }
 .bar > span {
   flex: none;
 }
 /* A hairline in the panel color separates stacked category segments. */
-.income-bar > span + span {
+.bar[data-direction="up"] > span + span {
   box-shadow: inset 0 -1px 0 var(--surface);
 }
-.expense-bar > span + span {
+.bar[data-direction="down"] > span + span {
   box-shadow: inset 0 1px 0 var(--surface);
 }
 .net-point {

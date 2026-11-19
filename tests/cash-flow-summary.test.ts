@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { formatSavingsRate, netFlow, selectedCashFlow, trendCashFlow } from "../src/features/reports/cash-flow-selection";
+import { formatSavingsRate, netFlow, reservedCategoryRows, selectedCashFlow, trendCashFlow } from "../src/features/reports/cash-flow-selection";
 import type { CashFlow } from "../src/features/reports/types";
 
 function month(name: string, income: number, expenses: number): CashFlow["trend"][number] {
@@ -62,4 +62,48 @@ test("a selected month carries that month's totals, and an unknown month selects
   assert.equal(selectedCashFlow(data, "2026-07")?.net, 100000);
   assert.equal(selectedCashFlow(data, "2026-08"), null);
   assert.equal(selectedCashFlow(data, null), null);
+});
+
+test("a savings rate that rounds to zero shows 0% without a sign", () => {
+  assert.equal(formatSavingsRate(-0.001), "0%");
+  assert.equal(formatSavingsRate(0.004), "0%");
+  assert.equal(formatSavingsRate(-0.006), "-1%");
+});
+
+test("panel columns reserve the most rows any month or the period needs, at least one", () => {
+  const amount = (name: string) => ({
+    categoryId: name,
+    name,
+    color: "#638777",
+    icon: null,
+    amount: 100
+  });
+  const data: CashFlow = {
+    period: {
+      kind: "all"
+    } as CashFlow["period"],
+    currency: "EUR",
+    income: 0,
+    expenses: 0,
+    incomeBreakdown: [],
+    expenseBreakdown: [amount("a")],
+    trend: [{
+      ...month("2026-06", 100, 300),
+      incomeBreakdown: [amount("salary"), amount("interest")],
+      expenseBreakdown: ["a", "b", "c", "d", "e", "f", "g"].map(amount)
+    }, month("2026-07", 0, 0)]
+  };
+
+  assert.deepEqual(reservedCategoryRows(data), {
+    income: 2,
+    expenses: 5
+  });
+  assert.deepEqual(reservedCategoryRows({
+    ...data,
+    expenseBreakdown: [],
+    trend: [month("2026-07", 0, 0)]
+  }), {
+    income: 1,
+    expenses: 1
+  });
 });

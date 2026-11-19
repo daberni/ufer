@@ -9,7 +9,7 @@ import { describeMonth, periodLabel } from "@/lib/date-format";
 import { periodFromJson } from "@/lib/period";
 import { money } from "@/lib/money";
 import { categoryRowLimit, type CategoryGroup } from "@/features/reports/category-groups";
-import { formatSavingsRate, periodCashFlow, type CashFlowSelection, type CashFlowSummary } from "@/features/reports/cash-flow-selection";
+import { formatSavingsRate, periodCashFlow, reservedCategoryRows, type CashFlowSelection, type CashFlowSummary } from "@/features/reports/cash-flow-selection";
 import { CategoryRows, CategoryRowsSkeleton } from "@/features/reports/components/category-rows";
 import { AreaPlaceholder } from "@/components/ui/area-placeholder";
 import { areaProps, valueMask } from "@/components/ui/result-presentation";
@@ -47,6 +47,10 @@ export function CategoryBreakdown({
   const summary = selection ?? (pending ? emptySummary : periodCashFlow(cashFlow.data));
   const context = selection ? describeMonth(Temporal.PlainYearMonth.from(selection.month)).title : periodLabel(period);
   const emptyNote = selection ? "this month" : "in this period";
+  const reserved = pending ? {
+    income: categoryRowLimit,
+    expenses: categoryRowLimit
+  } : reservedCategoryRows(cashFlow.data);
 
   return (
     <section className={clsx(ui["panel"], styles["panel"])} id={id}>
@@ -75,6 +79,7 @@ export function CategoryBreakdown({
             label="Income"
             total={summary.income}
             groups={summary.incomeGroups}
+            reservedRows={reserved.income}
             currency={currency}
             empty={`No income ${emptyNote}.`}
           />
@@ -82,6 +87,7 @@ export function CategoryBreakdown({
             label="Expenses"
             total={summary.expenses}
             groups={summary.expenseGroups}
+            reservedRows={reserved.expenses}
             currency={currency}
             empty={`No expenses ${emptyNote}.`}
           />
@@ -95,12 +101,14 @@ function FlowColumn({
   label,
   total,
   groups,
+  reservedRows,
   currency,
   empty
 }: {
   label: string;
   total: number;
   groups: CategoryGroup[];
+  reservedRows: number;
   currency: string;
   empty: string;
 }) {
@@ -111,9 +119,9 @@ function FlowColumn({
         <strong>{money(total, currency)}</strong>
       </h3>
       <div className={styles["rows-frame"]}>
-        {/* Invisible full-length rows reserve the column's height, so the panel stays still as selections with fewer categories come and go. */}
+        {/* Invisible rows reserve the column's height, so the panel stays still as selections with fewer categories come and go. */}
         <div className={styles["reserved-rows"]} aria-hidden="true">
-          <CategoryRowsSkeleton rows={categoryRowLimit} />
+          <CategoryRowsSkeleton rows={reservedRows} />
         </div>
         <div className={styles["shown-rows"]}>
           {groups.length ? <CategoryRows groups={groups} currency={currency} /> : <p className={ui["subtle"]}>{empty}</p>}
