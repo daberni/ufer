@@ -15,7 +15,7 @@ import { importMappedRows } from "../src/features/imports/server/mapped-import-s
 import { findDuplicates } from "../src/features/imports/server/duplicate-matching";
 import { saveAccountSync } from "../src/features/banking/server/account-sync-service";
 import { startSyncRun } from "../src/features/banking/server/sync-repository";
-import { categoryValues, defaultCategorySelection, needsCategoryReview, prepareImport, type TargetChoice } from "../src/features/imports/import-plan";
+import { accountLabel, categoryValues, defaultCategorySelection, defaultTargetChoice, needsCategoryReview, prepareImport, type TargetChoice } from "../src/features/imports/import-plan";
 import { assignOccurrences, currencyAllows, duplicateIdErrors, emptyMapping, mappingProblem, normalizeText, parseCsvRecords, pruneConsumed, decodeCsv, detectDateFormat, detectDecimal, detectDelimiter, mapRows, parseAmount, parseCsv, parseDate, suggestMapping, type CsvSettings, type DateFormat, type ImportRow } from "../src/features/imports/csv-mapping";
 
 const now = Temporal.Instant.from("2026-06-30T12:00:00Z");
@@ -1442,4 +1442,52 @@ test("long account values are row errors instead of merging into one source", ()
 
   assert.deepEqual(result.errors.map(error => error.line), [2, 3]);
   assert.deepEqual(result.rows.map(row => row.source), ["Short account"]);
+});
+
+test("an account is preselected only when exactly one has the source's name, and same-named accounts get distinct labels", () => {
+  const accounts = [{
+    id: "synthetic-0001",
+    name: "Wallet",
+    currency: "EUR",
+    institution: "Bank A"
+  }, {
+    id: "synthetic-0002",
+    name: "wallet",
+    currency: "EUR",
+    institution: "Bank B"
+  }, {
+    id: "synthetic-0003",
+    name: "Savings",
+    currency: "EUR",
+    institution: "Bank A"
+  }];
+
+  assert.deepEqual(defaultTargetChoice("Wallet", accounts), {
+    kind: "unset"
+  });
+  assert.deepEqual(defaultTargetChoice("Savings", accounts), {
+    kind: "existing",
+    accountId: "synthetic-0003"
+  });
+  assert.notEqual(accountLabel(accounts[0], accounts), accountLabel(accounts[1], accounts));
+  assert.equal(accountLabel(accounts[2], accounts), "Savings (EUR)");
+});
+
+test("long category values are row errors instead of merging into one choice", () => {
+  const prefix = "Synthetic category ".padEnd(100, "x");
+  const result = mapRows([["2024-01-01", "1.00", "Shop", `${prefix}A`], ["2024-01-02", "2.00", "Shop", `${prefix}B`], ["2024-01-03", "3.00", "Shop", "Food"]], {
+    ...emptyMapping,
+    date: 0,
+    amount: 1,
+    payee: 2,
+    category: 3
+  }, {
+    encoding: "utf-8",
+    delimiter: ",",
+    decimal: ".",
+    dateFormat: "YYYY-MM-DD"
+  });
+
+  assert.deepEqual(result.errors.map(error => error.line), [2, 3]);
+  assert.deepEqual(result.rows.map(row => row.category), ["Food"]);
 });

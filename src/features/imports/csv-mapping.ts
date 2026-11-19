@@ -76,6 +76,9 @@ const maxFractionDigits = 6;
 /** Longest transaction ID; the server applies the same limit. */
 export const maxIdLength = 200;
 
+/** Longest category value, the limit of a category name; the server applies the same limit. */
+export const maxCategoryLength = 100;
+
 /** Longest account value; the server applies the same limit. */
 export const maxSourceLength = 200;
 
@@ -511,6 +514,15 @@ export function mapRows(rows: string[][], mapping: CsvMapping, settings: CsvSett
       return;
     }
 
+    // The category value identifies its choice, so it is never shortened: two long values must not merge.
+    const category = cell(mapping.category);
+
+    if (category.length > maxCategoryLength) {
+      failure(`The category is longer than ${maxCategoryLength} characters.`);
+
+      return;
+    }
+
     const id = cell(mapping.id);
 
     if (mapping.id !== null && !id) {
@@ -532,7 +544,7 @@ export function mapRows(rows: string[][], mapping: CsvMapping, settings: CsvSett
       currency,
       payee: cell(mapping.payee).slice(0, 500),
       description: cell(mapping.description).slice(0, 2000),
-      category: cell(mapping.category).slice(0, 100) || null,
+      category: category || null,
       source,
       id: mapping.id === null ? null : id
     });

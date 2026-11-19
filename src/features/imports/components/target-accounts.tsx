@@ -6,7 +6,7 @@ import { clsx } from "clsx";
 import { useId } from "react";
 import styles from "./target-accounts.module.css";
 import { Select } from "@/components/ui/select";
-import { newAccountChoice, rowCount, type TargetChoice } from "@/features/imports/import-plan";
+import { accountLabel, newAccountChoice, rowCount, type TargetChoice } from "@/features/imports/import-plan";
 import type { Account } from "@/features/accounts/types";
 import type { ImportDraft } from "./use-import-draft";
 
@@ -112,12 +112,12 @@ function TargetRow({
           <option value="">Choose an account</option>
           {manual.length > 0 && (
             <optgroup label="Manual accounts">
-              {manual.map(account => <option key={account.id} value={account.id}>{account.name} ({account.currency})</option>)}
+              {manual.map(account => <option key={account.id} value={account.id}>{accountLabel(account, accounts)}</option>)}
             </optgroup>
           )}
           {linked.length > 0 && (
             <optgroup label="Bank-linked accounts">
-              {linked.map(account => <option key={account.id} value={account.id}>{account.name} ({account.currency})</option>)}
+              {linked.map(account => <option key={account.id} value={account.id}>{accountLabel(account, accounts)}</option>)}
             </optgroup>
           )}
           <option value="new">New manual account …</option>

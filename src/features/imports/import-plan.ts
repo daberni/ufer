@@ -65,20 +65,29 @@ export function sourceAccounts(rows: MappedRow[]): SourceAccount[] {
   }));
 }
 
-/** An existing account named like the source value is preselected; otherwise the person chooses. */
+/** The one existing account named like the source value is preselected; with none or several, the person chooses. */
 export function defaultTargetChoice(source: string, accounts: AccountOption[]): TargetChoice {
-  const match = source ? accounts.find(account => categoryNameKey(account.name) === categoryNameKey(source)) : undefined;
+  const matches = source ? accounts.filter(account => categoryNameKey(account.name) === categoryNameKey(source)) : [];
 
-  if (match) {
+  if (matches.length === 1) {
     return {
       kind: "existing",
-      accountId: match.id
+      accountId: matches[0].id
     };
   }
 
   return {
     kind: "unset"
   };
+}
+
+/** An account's option label; accounts sharing a name also show their institution and the end of their ID, so the options stay distinguishable. */
+export function accountLabel(account: AccountOption & {
+  institution: string;
+}, accounts: AccountOption[]) {
+  const shared = accounts.filter(other => categoryNameKey(other.name) === categoryNameKey(account.name)).length > 1;
+
+  return shared ? `${account.name} (${account.currency} · ${account.institution} · …${account.id.slice(-4)})` : `${account.name} (${account.currency})`;
 }
 
 export function newAccountChoice(source: string): TargetChoice {

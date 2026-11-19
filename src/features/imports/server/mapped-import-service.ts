@@ -9,7 +9,7 @@ import { listRules } from "@/features/categorization/server/rule-repository";
 import { categorizeEntries } from "@/features/transactions/server/categorize-entries";
 import { pairTransfersInEnvironment } from "@/features/transactions/server/transfer-repository";
 import { environment } from "@/features/banking/server/environment";
-import { currencyAllows, maxIdLength, maxSourceLength, normalizeText, type RowError } from "../csv-mapping";
+import { currencyAllows, maxCategoryLength, maxIdLength, maxSourceLength, normalizeText, type RowError } from "../csv-mapping";
 import { duplicateDateToleranceDays, mappedReferencePrefix, type DuplicateReason } from "./duplicate-matching";
 import { checkMappedEntries, createImportCategory, findImportTarget, listCategoryNames, saveMappedEntries, type MappedEntry, type NewImportAccount, type OpeningBalance } from "./mapped-import-repository";
 
@@ -22,7 +22,7 @@ const row = z.object({
   currency: z.string().max(10).nullable(),
   payee: z.string().max(500),
   description: z.string().max(2000),
-  category: z.string().max(100).nullable(),
+  category: z.string().max(maxCategoryLength).nullable(),
   source: z.string().max(maxSourceLength),
   occurrence: z.number().int().min(0),
   id: z.string().max(maxIdLength).nullable().default(null)
@@ -48,7 +48,7 @@ const target = z.object({
 
 /** How the rows' category cells map to categories: an existing category, one created on confirmation, or the rules. Values without a choice match existing categories by name. */
 const categoryChoice = z.object({
-  value: z.string().max(100),
+  value: z.string().max(maxCategoryLength),
   action: z.enum(["existing", "create", "rules"]),
   category_id: z.string().optional()
 });
