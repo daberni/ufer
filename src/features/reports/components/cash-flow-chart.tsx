@@ -260,6 +260,9 @@ function ChartPlot({
         role="group"
         aria-label={`Monthly income, expenses and net, ${monthRangeLabel(months)}`}
         data-active={activeMonth ? "" : undefined}
+        style={{
+          "--zero": scale.zero
+        } as CSSProperties}
       >
         {/* The selected month's column is highlighted behind the net area, so the area stays continuous across all months. */}
         {activeMonth && (

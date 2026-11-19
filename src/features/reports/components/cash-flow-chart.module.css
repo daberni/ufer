@@ -83,15 +83,22 @@
   inset: var(--space-2) 0 calc(23px + var(--space-2));
   pointer-events: none;
 }
+/* An opaque colour keeps the line identical over the panel, the column highlight and the net area. */
 .zero-line {
   position: absolute;
   left: 0;
   right: 0;
-  border-top: 1px solid var(--muted);
-  opacity: 0.5;
+  border-top: 1px solid color-mix(in srgb, var(--muted) 50%, var(--surface));
 }
 /* The net is a quiet area behind the bars: the bars stay the primary reading, the area shows surplus and deficit between them. */
 .net-area {
+  mask-image: linear-gradient(
+    to bottom,
+    #000 calc(var(--zero) * 100% - 2px),
+    transparent calc(var(--zero) * 100% - 2px),
+    transparent calc(var(--zero) * 100% + 3px),
+    #000 calc(var(--zero) * 100% + 3px)
+  );
   position: absolute;
   inset: 0;
   width: 100%;
@@ -130,13 +137,25 @@
   font: inherit;
   cursor: pointer;
 }
+/* The highlight and the net area leave a band around the zero line uncovered, so the line looks exactly the same with and without a selection even where it falls between device pixels. */
 .column-highlight {
+  --zero-y: calc(
+    var(--space-2) + var(--zero) * (100% - 2 * var(--space-2) - 23px)
+  );
+
   position: absolute;
   top: 0;
   bottom: 0;
   border-radius: var(--radius-sm);
   background: var(--chart-track);
   pointer-events: none;
+  mask-image: linear-gradient(
+    to bottom,
+    #000 calc(var(--zero-y) - 2px),
+    transparent calc(var(--zero-y) - 2px),
+    transparent calc(var(--zero-y) + 3px),
+    #000 calc(var(--zero-y) + 3px)
+  );
 }
 .bars {
   position: relative;
@@ -166,16 +185,16 @@
   background: var(--chart-expense);
 }
 /* Category segments stack outward from the zero line. */
-/* Each bar stops 2px short of the zero line, so the line always separates a month's income from its expenses; the clipped edge stays part of the bar's proportional height. */
+/* Each bar stops 3px short of the zero line (enough to clear it at any subpixel position), so the line always separates a month's income from its expenses; the clipped edge stays part of the bar's proportional height. */
 .bar[data-direction="up"] {
   flex-direction: column-reverse;
   border-radius: var(--radius-sm) var(--radius-sm) 0 0;
-  clip-path: inset(0 0 2px);
+  clip-path: inset(0 0 3px);
 }
 .bar[data-direction="down"] {
   flex-direction: column;
   border-radius: 0 0 var(--radius-sm) var(--radius-sm);
-  clip-path: inset(2px 0 0);
+  clip-path: inset(3px 0 0);
 }
 .bar > span {
   flex: none;
