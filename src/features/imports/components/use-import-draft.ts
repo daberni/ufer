@@ -96,7 +96,17 @@ export function useImportDraft() {
       return;
     }
 
-    const bytes = new Uint8Array(await selected.arrayBuffer());
+    let bytes: Uint8Array;
+
+    try {
+      bytes = new Uint8Array(await selected.arrayBuffer());
+    } catch {
+      if (selection === latestSelection.current) {
+        setFileError("The file could not be read.");
+      }
+
+      return;
+    }
 
     // A later selection, including a rejected one, supersedes this read.
     if (selection !== latestSelection.current) {
@@ -244,12 +254,22 @@ export function useImportDraft() {
 
 export type ImportDraft = ReturnType<typeof useImportDraft>;
 
-/** Asks before the page is left while `active`: on reload or closing the tab, and on in-app links. */
+const leaveQuestion = "The import has not finished. Leave anyway? Rows saved so far stay imported.";
+
+const guardMarker = "uferImportGuard";
+
+/** Asks before the page is left while `active`: on reload or closing the tab, on in-app links, and on Back/Forward, which a guard history entry on top of the page intercepts. */
 function useNavigationGuard(active: boolean) {
   useEffect(() => {
     if (!active) {
       return;
     }
+
+    const guarded = () => Boolean((window.history.state as Record<string, unknown> | null)?.[guardMarker]);
+    const pushGuard = () => window.history.pushState({
+      ...window.history.state,
+      [guardMarker]: true
+    }, "", window.location.href);
 
     function beforeUnload(event: BeforeUnloadEvent) {
       event.preventDefault();
@@ -262,18 +282,43 @@ function useNavigationGuard(active: boolean) {
         return;
       }
 
-      if (!window.confirm("The import has not finished. Leave anyway? Rows saved so far stay imported.")) {
+      if (!window.confirm(leaveQuestion)) {
         event.preventDefault();
         event.stopPropagation();
       }
     }
 
+    // Back left the guard entry for the page's own entry; staying restores the guard, leaving goes one step further.
+    function historyMoved() {
+      if (guarded()) {
+        return;
+      }
+
+      if (window.confirm(leaveQuestion)) {
+        window.removeEventListener("popstate", historyMoved);
+        window.history.back();
+      } else {
+        pushGuard();
+      }
+    }
+
+    if (!guarded()) {
+      pushGuard();
+    }
+
     window.addEventListener("beforeunload", beforeUnload);
+    window.addEventListener("popstate", historyMoved);
     document.addEventListener("click", linkClicked, true);
 
     return () => {
       window.removeEventListener("beforeunload", beforeUnload);
+      window.removeEventListener("popstate", historyMoved);
       document.removeEventListener("click", linkClicked, true);
+
+      // When the import ends on this page, the guard entry goes, so Back works in one step again.
+      if (guarded()) {
+        window.history.back();
+      }
     };
   }, [active]);
 }
