@@ -144,7 +144,11 @@ function TemplateItem({
                 type="button"
                 className={clsx(ui["button"], ui["small"])}
                 disabled={disabled}
-                onClick={() => setEditing(true)}
+                onClick={() => {
+                  // The stored name may have changed since the last edit, for example after a rename.
+                  setName(template.name);
+                  setEditing(true);
+                }}
               >
                 <Pencil size={14} aria-hidden="true" />
                 Rename

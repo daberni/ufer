@@ -68,3 +68,39 @@ test("a deleted template is reported to the draft only after the server deleted 
   }));
   assert.deepEqual(deleted, ["saved/1"]);
 });
+
+test("renaming starts from the current name, also after an earlier rename", async context => {
+  const environment = browser(context);
+  const TemplateList = await loadTemplateList();
+  const list = (template: CsvTemplate) => withQueryClient(environment.queryClient, createElement(TemplateList, {
+    templates: [template],
+    disabled: false
+  }));
+  const screen = render(list(saved));
+  const startRename = () => act(() => fireEvent.click(screen.getByRole("button", {
+    name: "Rename"
+  })));
+
+  startRename();
+  act(() => {
+    fireEvent.change(screen.getByRole("textbox", {
+      name: "Template name"
+    }), {
+      target: {
+        value: "Typed but cancelled"
+      }
+    });
+  });
+  act(() => fireEvent.click(screen.getByRole("button", {
+    name: "Cancel"
+  })));
+  screen.rerender(list({
+    ...saved,
+    name: "Renamed elsewhere"
+  }));
+  startRename();
+
+  assert.equal((screen.getByRole("textbox", {
+    name: "Template name"
+  }) as HTMLInputElement).value, "Renamed elsewhere");
+});
