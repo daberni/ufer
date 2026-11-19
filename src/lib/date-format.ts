@@ -1,5 +1,6 @@
 import { Temporal } from "temporal-polyfill";
 import type { Period } from "./period";
+import { today } from "./time";
 
 // Central place for date display so a locale can be introduced in one spot.
 const displayLocale = "en-GB";
@@ -12,14 +13,19 @@ export type DateDisplay = {
 
 // A plain date has no time or zone to show; a zoned timestamp names its zone in the title
 // because the same instant reads differently elsewhere.
-export function describeDate(value: Temporal.PlainDate | Temporal.ZonedDateTime): DateDisplay {
+export function describeDate(value: Temporal.PlainDate | Temporal.ZonedDateTime, now = Temporal.Now.instant()): DateDisplay {
+  // Calendar dates follow the product year; timestamps compare years in the same zone used to display them.
+  const currentYear = value instanceof Temporal.PlainDate ? today(now).year : now.toZonedDateTimeISO(value.timeZoneId).year;
+  const label = value.toLocaleString(displayLocale, {
+    day: "numeric",
+    month: "short",
+    year: value.year === currentYear ? undefined : "numeric"
+  });
+
   if (value instanceof Temporal.PlainDate) {
     return {
       dateTime: value.toString(),
-      label: value.toLocaleString(displayLocale, {
-        day: "numeric",
-        month: "short"
-      }),
+      label,
       title: value.toLocaleString(displayLocale, {
         dateStyle: "full"
       })
@@ -28,10 +34,7 @@ export function describeDate(value: Temporal.PlainDate | Temporal.ZonedDateTime)
 
   return {
     dateTime: value.toInstant().toString(),
-    label: value.toLocaleString(displayLocale, {
-      day: "numeric",
-      month: "short"
-    }),
+    label,
     title: value.toLocaleString(displayLocale, {
       dateStyle: "long",
       timeStyle: "long"
