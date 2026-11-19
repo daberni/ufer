@@ -156,16 +156,53 @@ function barPosition(flow: Flow, amount: number, scale: CashFlowScale): CSSPrope
 function ZeroLine({ scale }: {
   scale: CashFlowScale;
 }) {
+  const lineRef = useRef<HTMLSpanElement>(null);
+
+  useDevicePixelTop(lineRef, scale.zero);
+
   return (
-    <span className={styles["plot-area"]} aria-hidden="true">
+    <span className={clsx(styles["plot-area"], styles["zero-layer"])} aria-hidden="true">
       <span
         className={styles["zero-line"]}
+        ref={lineRef}
         style={{
           top: percent(scale.zero)
         }}
       />
     </span>
   );
+}
+
+/** Places a 1px line at a fraction of its container's height, rounded to a device pixel row, so it is drawn crisp and identical over everything beneath it. */
+function useDevicePixelTop(lineRef: RefObject<HTMLSpanElement | null>, fraction: number) {
+  useLayoutEffect(() => {
+    const line = lineRef.current;
+    const container = line?.parentElement;
+
+    if (!line || !container) {
+      return;
+    }
+
+    const place = () => {
+      const ratio = window.devicePixelRatio || 1;
+      const box = container.getBoundingClientRect();
+      const target = Math.round((box.top + fraction * box.height) * ratio) / ratio;
+
+      line.style.top = `${target - box.top}px`;
+    };
+    const observer = new ResizeObserver(place);
+
+    place();
+    observer.observe(container);
+    window.addEventListener("scroll", place, {
+      passive: true
+    });
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("scroll", place);
+    };
+  }, [lineRef, fraction]);
 }
 
 // Relative income and expense heights of the skeleton for each month of the trend.
@@ -269,9 +306,6 @@ function ChartPlot({
         role="group"
         aria-label={`Monthly income, expenses and net, ${monthRangeLabel(months)}`}
         data-active={activeMonth ? "" : undefined}
-        style={{
-          "--zero": scale.zero
-        } as CSSProperties}
       >
         {/* The selected month's column is highlighted behind the net area, so the area stays continuous across all months. */}
         {activeMonth && (
