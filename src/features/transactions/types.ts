@@ -12,6 +12,11 @@ export type Transaction = {
   instructed_currency: string | null;
   counterparty: string;
   description: string;
+  /** The payee and description the source delivered; they differ from `counterparty` and `description` while a person's override applies. */
+  source_counterparty: string;
+  source_description: string;
+  /** Whether the imported booking is hidden: it stays listed but counts toward no balance or report, and later syncs and imports keep it hidden. */
+  hidden: boolean;
   account_name: string;
   category_id: string | null;
   category_source: string;

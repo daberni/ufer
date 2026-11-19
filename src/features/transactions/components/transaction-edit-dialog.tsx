@@ -2,10 +2,10 @@
 
 import ui from "../../../components/ui/primitives.module.css";
 
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { clsx } from "clsx";
 import { Temporal } from "temporal-polyfill";
-import { Check, Trash2 } from "lucide-react";
+import { Check, Eye, EyeOff, Trash2 } from "lucide-react";
 import styles from "./transaction-type.module.css";
 import { toFailure } from "@/client/api";
 import { Dialog } from "@/components/ui/dialog";
@@ -15,7 +15,7 @@ import { useDialogSubmit } from "@/components/ui/use-dialog-submit";
 import { describeDate } from "@/lib/date-format";
 import { decimalAmount, money } from "@/lib/money";
 import { isTransactionType, manualAccountTypes, transactionTypeLabels, transactionTypes, type TransactionType } from "@/features/transactions/transaction-types";
-import { useDeleteTransaction, useSaveTransaction, type EntryEdit, type TransactionEdit } from "@/features/transactions/mutations";
+import { useDeleteTransaction, useHideTransaction, useSaveTransaction, type EntryEdit, type TransactionEdit } from "@/features/transactions/mutations";
 import { useTransferOptions } from "@/features/transactions/queries";
 import type { Transaction, TransferBooking, TransferOptions } from "@/features/transactions/types";
 import { EntryFields, suggestedType } from "./entry-fields";
@@ -108,21 +108,122 @@ function transferEdit(target: Target): TransactionEdit["transfer"] {
   } : null;
 }
 
-/** Edits a transaction's type and, for a transfer, where it goes; a transaction entered in Ufer also edits its date, amount, payee and description and can be deleted. One Save stores everything. */
+type Step = "edit" | "delete" | "hide";
+
+const stepTitles: Record<Step, string> = {
+  edit: "Edit transaction",
+  delete: "Delete transaction",
+  hide: "Hide transaction"
+};
+
+/**
+ * Edits a transaction's type and, for a transfer, where it goes. A transaction entered in Ufer also edits its date, amount, payee and description and can be deleted; an imported one overrides its payee and description and can be hidden. One Save stores everything.
+ */
 export function TransactionEditDialog({
   transaction,
   close
 }: Props) {
-  const [deleting, setDeleting] = useState(false);
+  const [step, setStep] = useState<Step>("edit");
   const subject = transaction.counterparty || transaction.description || transactionTypeLabels[transaction.type];
 
   return (
-    <Dialog eyebrow="TRANSACTION" title={deleting ? "Delete transaction" : "Edit transaction"} onClose={close}>
+    <Dialog eyebrow="TRANSACTION" title={stepTitles[step]} onClose={close}>
       <p className={ui["form-description"]}>
         {subject} · {transaction.account_name} · {signedMoney(transaction.amount_minor, transaction.currency)}
       </p>
-      {deleting ? <DeleteConfirmation transaction={transaction} close={close} cancel={() => setDeleting(false)} /> : <TransactionEditForm transaction={transaction} close={close} onDelete={() => setDeleting(true)} />}
+      {step === "delete" && <DeleteConfirmation transaction={transaction} close={close} cancel={() => setStep("edit")} />}
+      {step === "hide" && <HideConfirmation transaction={transaction} close={close} cancel={() => setStep("edit")} />}
+      {step === "edit" && (
+        <TransactionEditForm
+          transaction={transaction}
+          close={close}
+          onDelete={() => setStep("delete")}
+          onHide={() => setStep("hide")}
+        />
+      )}
     </Dialog>
+  );
+}
+
+/** What hiding an imported booking changes, including the transfer link it ends. */
+function hidingEffect(transaction: Transaction) {
+  const effect = "The transaction stays in the list but no longer counts toward balances, cash flow or spending. Later syncs and imports keep it hidden; you can show it again at any time.";
+  const other = transaction.counterpart?.account_name;
+
+  if (!other) {
+    return effect;
+  }
+
+  return `${effect} Its link with the booking on ${other} ends.`;
+}
+
+function HideConfirmation({
+  transaction,
+  close,
+  cancel
+}: {
+  transaction: Transaction;
+  close: () => void;
+  cancel: () => void;
+}) {
+  const hide = useHideTransaction(transaction.id);
+
+  return (
+    <form
+      className={ui["form"]}
+      onSubmit={event => {
+        event.preventDefault();
+        hide.mutate(true, {
+          onSuccess: close
+        });
+      }}
+    >
+      <p className={ui["form-hint"]}>{hidingEffect(transaction)}</p>
+      <FormError failure={hide.error ? toFailure(hide.error) : null} />
+      <div className={ui["form-actions"]}>
+        <button
+          type="button"
+          className={ui["button"]}
+          disabled={hide.isPending}
+          onClick={cancel}
+        >
+          Cancel
+        </button>
+        <button className={clsx(ui["button"], ui["primary"])} disabled={hide.isPending}>
+          <EyeOff size={15} />
+          Hide
+        </button>
+      </div>
+    </form>
+  );
+}
+
+/** Shows a hidden imported booking again; it counts toward balances and reports from then on. */
+function ShowAgain({
+  transaction,
+  close
+}: {
+  transaction: Transaction;
+  close: () => void;
+}) {
+  const show = useHideTransaction(transaction.id);
+
+  return (
+    <div className={styles["hidden-note"]}>
+      <p className={ui["form-hint"]}>This transaction is hidden: it counts toward no balance or report, and syncs and imports keep it hidden.</p>
+      <FormError failure={show.error ? toFailure(show.error) : null} />
+      <button
+        type="button"
+        className={clsx(ui["button"], ui["full-width"])}
+        disabled={show.isPending}
+        onClick={() => show.mutate(false, {
+          onSuccess: close
+        })}
+      >
+        <Eye size={15} />
+        Show transaction
+      </button>
+    </div>
   );
 }
 
@@ -194,9 +295,11 @@ function entryDefaults(transaction: Transaction) {
 function TransactionEditForm({
   transaction,
   close,
-  onDelete
+  onDelete,
+  onHide
 }: Props & {
   onDelete: () => void;
+  onHide: () => void;
 }) {
   const {
     error,
@@ -207,26 +310,36 @@ function TransactionEditForm({
   const [typeChosen, setTypeChosen] = useState(false);
   const [chosenTarget, setTarget] = useState<Target>();
   const transfer = type === "transfer";
-  const options = useTransferOptions(transaction.id, transfer);
+  // A hidden booking is not linked; it can be a transfer to an untracked account until it is shown again.
+  const linkable = transfer && !transaction.hidden;
+  // Imported from a bank or file: not entered in Ufer and not a counterpart Ufer created, which the server treats as entered.
+  const imported = !transaction.entered && !transaction.created_counterpart;
+  const options = useTransferOptions(transaction.id, linkable);
   const target = chosenTarget ?? storedTarget(transaction, options.data);
   const available = transactionTypes.filter(option => transaction.manual_account || !manualAccountTypes.includes(option) || option === transaction.type);
   // Without loaded options, saving a transfer could drop a link the form cannot show.
-  const targetUnknown = transfer && options.status !== "success";
+  const targetUnknown = linkable && options.status !== "success";
 
   return (
     <form
       className={ui["form"]}
       onSubmit={event => submit(event, data => {
-        const edit: TransactionEdit = transfer ? {
+        const edit: TransactionEdit = linkable ? {
           type,
           transfer: transferEdit(target)
         } : {
           type
         };
 
-        return transaction.entered ? entryEdit(edit, data) : edit;
+        if (transaction.entered) {
+          return entryEdit(edit, data);
+        }
+
+        return imported ? textEdit(edit, data, transaction) : edit;
       })}
     >
+      {transaction.hidden && <ShowAgain transaction={transaction} close={close} />}
+      {imported && <ImportedTextFields transaction={transaction} />}
       {transaction.entered && (
         <EntryFields
           defaults={entryDefaults(transaction)}
@@ -262,7 +375,7 @@ function TransactionEditForm({
         Income and expenses count toward cash flow and spending; transfers, opening balances and adjustments do not. A refund is an expense with a positive amount and reduces spending.
         {!transfer && transaction.counterpart && <LeaveTransferHint transaction={transaction} />}
       </p>
-      {transfer && (
+      {linkable && (
         <TransferFields
           transaction={transaction}
           options={options}
@@ -285,7 +398,111 @@ function TransactionEditForm({
           Delete transaction
         </button>
       )}
+      {imported && !transaction.hidden && (
+        <button
+          type="button"
+          className={clsx(ui["button"], ui["full-width"])}
+          disabled={pending}
+          onClick={onHide}
+        >
+          <EyeOff size={15} />
+          Hide transaction
+        </button>
+      )}
     </form>
+  );
+}
+
+/** Adds an imported booking's payee and description to the edit only when they changed, so saving a type never turns the source's text into an override. */
+function textEdit(edit: TransactionEdit, data: FormData, transaction: Transaction): TransactionEdit {
+  const counterparty = String(data.get("counterparty") ?? "").trim();
+  const description = String(data.get("description") ?? "").trim();
+
+  return {
+    ...edit,
+    ...(counterparty === transaction.counterparty.trim() ? {} : {
+      counterparty
+    }),
+    ...(description === transaction.description.trim() ? {} : {
+      description
+    })
+  };
+}
+
+/** Payee and description of an imported booking. A changed text overrides the source's and survives later syncs; restoring the source's text follows the source again. */
+function ImportedTextFields({ transaction }: {
+  transaction: Transaction
+}) {
+  return (
+    <>
+      <OverridableText
+        label="Payee"
+        name="counterparty"
+        maxLength={500}
+        initial={transaction.counterparty}
+        source={transaction.source_counterparty}
+      />
+      <OverridableText
+        label="Description"
+        name="description"
+        maxLength={2000}
+        initial={transaction.description}
+        source={transaction.source_description}
+      />
+      <p className={ui["form-hint"]}>The date and amount come from the {transaction.manual_account ? "import" : "bank"} and cannot be changed here. Your payee and description stay when the transaction is synced or imported again.</p>
+    </>
+  );
+}
+
+function OverridableText({
+  label,
+  name,
+  maxLength,
+  initial,
+  source
+}: {
+  label: string;
+  name: string;
+  maxLength: number;
+  initial: string;
+  source: string;
+}) {
+  const hintId = useId();
+  const input = useRef<HTMLInputElement>(null);
+  const [overridden, setOverridden] = useState(initial.trim() !== source.trim());
+
+  return (
+    <div className={styles["overridable"]}>
+      <label>
+        {label}
+        <input
+          ref={input}
+          name={name}
+          maxLength={maxLength}
+          defaultValue={initial}
+          aria-describedby={overridden ? hintId : undefined}
+          onChange={event => setOverridden(event.target.value.trim() !== source.trim())}
+        />
+      </label>
+      {overridden && (
+        <p id={hintId} className={styles["source-text"]}>
+          <span>Original: {source || "empty"}</span>
+          <button
+            type="button"
+            className={styles["restore"]}
+            onClick={() => {
+              if (input.current) {
+                input.current.value = source;
+              }
+
+              setOverridden(false);
+            }}
+          >
+            Restore
+          </button>
+        </p>
+      )}
+    </div>
   );
 }
 

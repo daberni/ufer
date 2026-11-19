@@ -14,7 +14,7 @@ type SqlCondition = {
 const bookingMonth = "substr(t.booking_date,1,7)";
 
 /**
- * Transactions that count toward cash flow and spending in a date range: income and expenses of this environment and currency. Transfers, opening balances and adjustments never count, whatever their category. Every cash-flow figure reads through this one definition so totals, breakdowns and the trend agree.
+ * Transactions that count toward cash flow and spending in a date range: visible income and expenses of this environment and currency. Transfers, opening balances, adjustments and hidden bookings never count, whatever their category. Every cash-flow figure reads through this one definition so totals, breakdowns and the trend agree.
  */
 function countedTransactions(currency: string, range: SqlCondition): SqlCondition {
   return {
@@ -26,6 +26,7 @@ function countedTransactions(currency: string, range: SqlCondition): SqlConditio
       AND t.currency=?
       AND ${range.sql}
       AND t.type IN ('income','expense')
+      AND t.suppressed_at IS NULL
     `,
     args: [environment(), currency, ...range.args]
   };
@@ -156,7 +157,7 @@ export async function readAccountCashFlow(accountId: string, period: Period): Pr
     sql: `
       SELECT a.currency AS currency,${flowTotal("income")} AS income,${flowTotal("expenses")} AS expenses,${accountTransferTotal("incoming")} AS transfers_in,${accountTransferTotal("outgoing")} AS transfers_out
       FROM accounts a
-      LEFT JOIN transactions t ON t.account_id=a.id AND t.currency=a.currency AND ${inPeriod.sql}
+      LEFT JOIN transactions t ON t.account_id=a.id AND t.currency=a.currency AND t.suppressed_at IS NULL AND ${inPeriod.sql}
       WHERE a.id=?
       AND a.environment=?
       GROUP BY a.id
