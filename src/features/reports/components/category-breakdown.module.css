@@ -1,5 +1,50 @@
-.rows {
+/* The columns sit side by side when the panel is wide enough and stack in narrow panels; each keeps its reserved height either way. */
+.panel {
+  container-type: inline-size;
+}
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+}
+.summary strong {
+  font-weight: 600;
+  color: var(--ink);
+}
+.columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-6);
   margin-top: var(--space-6);
+}
+@container (width >= 340px) {
+  .columns {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.column-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.column-heading strong {
+  font-weight: 600;
+  color: var(--ink);
+  text-transform: none;
+  letter-spacing: normal;
 }
 /* The reserved and shown rows share one grid cell; the taller of the two sets the height. */
 .rows-frame {
@@ -15,7 +60,7 @@
   visibility: hidden;
   opacity: 0;
 }
-/* Heading and month stay on one line for every selection, so the panel's height never depends on the title's length. */
+/* Heading and context stay on one line for every selection, so the panel's height never depends on the title's length. */
 .heading {
   flex-wrap: nowrap;
   gap: var(--space-2);
@@ -28,15 +73,4 @@
 }
 .heading > span {
   flex-shrink: 0;
-}
-/* On phones the month moves below the heading, which then has the panel's full width. */
-@media (--mobile) {
-  .heading {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: var(--space-1);
-  }
-  .heading h2 {
-    max-width: 100%;
-  }
 }

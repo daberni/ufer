@@ -132,7 +132,7 @@ async function seededDatabase(context: TestContext) {
 }
 
 function spending(cashFlow: Awaited<ReturnType<typeof readCashFlow>>) {
-  return cashFlow.breakdown.reduce((total, item) => total + item.amount, 0);
+  return cashFlow.expenseBreakdown.reduce((total, item) => total + item.amount, 0);
 }
 
 // The transaction list and the cash-flow report are separate requests for the same filters.
@@ -306,7 +306,8 @@ test("each trend month's breakdowns agree with that month's period totals and sp
 
     const monthIncome = month.incomeBreakdown.reduce((total, item) => total + item.amount, 0);
 
-    assert.deepEqual(month.expenseBreakdown, period.breakdown, month.month);
+    assert.deepEqual(month.expenseBreakdown, period.expenseBreakdown, month.month);
+    assert.deepEqual(month.incomeBreakdown, period.incomeBreakdown, month.month);
     assert.equal(month.expenses, period.expenses, month.month);
     assert.equal(spending(period), month.expenses, month.month);
     assert.equal(month.income, period.income, month.month);

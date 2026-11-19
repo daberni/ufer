@@ -15,8 +15,10 @@ export type CashFlow = {
   currency: string;
   income: number;
   expenses: number;
+  /** Income by category in the period, largest first. */
+  incomeBreakdown: CategoryAmount[];
   /** Spending by category in the period, largest first. */
-  breakdown: CategoryAmount[];
+  expenseBreakdown: CategoryAmount[];
   trend: {
     month: string;
     income: number;

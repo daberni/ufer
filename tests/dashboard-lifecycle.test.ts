@@ -77,7 +77,8 @@ function cashFlow(currency: string) {
     currency,
     income: 0,
     expenses: 0,
-    breakdown: [],
+    incomeBreakdown: [],
+    expenseBreakdown: [],
     trend: []
   });
 }

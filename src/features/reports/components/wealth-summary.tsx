@@ -63,7 +63,8 @@ export function WealthSummary({
     currency: selectedCurrency,
     income: 0,
     expenses: 0,
-    breakdown: [],
+    incomeBreakdown: [],
+    expenseBreakdown: [],
     trend: []
   }));
   const summary = netWorth.data;

@@ -72,7 +72,8 @@ async function renderSummary(context: TestContext, url: string, flows: {
         currency: "USD",
         income: flows.income,
         expenses: flows.expenses,
-        breakdown: [],
+        incomeBreakdown: [],
+        expenseBreakdown: [],
         trend: []
       }
     }

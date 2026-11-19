@@ -83,7 +83,7 @@ function categoryAmount(row: Record<string, unknown>): CategoryAmount {
   };
 }
 
-/** Income, expenses, spending by category and the twelve-month trend, including each month's income and spending by category, for one period and currency. */
+/** Income, expenses, both by category, and the twelve-month trend, including each month's income and spending by category, for one period and currency. */
 export async function readCashFlow(period: Period, currency: string) {
   const client = (await database()).$client;
   const trendRange = trendMonths(period, currentMonth());
@@ -107,7 +107,8 @@ export async function readCashFlow(period: Period, currency: string) {
     `,
     args: inPeriod.args
   });
-  const breakdownQuery = client.execute(flowByCategory(inPeriod, "expenses", false));
+  const incomeBreakdownQuery = client.execute(flowByCategory(inPeriod, "income", false));
+  const expenseBreakdownQuery = client.execute(flowByCategory(inPeriod, "expenses", false));
   const trendQuery = client.execute({
     sql: `
       SELECT ${bookingMonth} AS month,${flowTotal("income")} AS income,${flowTotal("expenses")} AS expenses
@@ -118,14 +119,15 @@ export async function readCashFlow(period: Period, currency: string) {
   });
   const trendIncomeQuery = client.execute(flowByCategory(inTrend, "income", true));
   const trendExpensesQuery = client.execute(flowByCategory(inTrend, "expenses", true));
-  const [totals, breakdown, trend, trendIncome, trendExpenses] = await Promise.all([totalsQuery, breakdownQuery, trendQuery, trendIncomeQuery, trendExpensesQuery]);
+  const [totals, incomeBreakdown, expenseBreakdown, trend, trendIncome, trendExpenses] = await Promise.all([totalsQuery, incomeBreakdownQuery, expenseBreakdownQuery, trendQuery, trendIncomeQuery, trendExpensesQuery]);
 
   return {
     period: periodToJson(period),
     currency,
     income: Number(totals.rows[0].income),
     expenses: Number(totals.rows[0].expenses),
-    breakdown: breakdown.rows.map(categoryAmount),
+    incomeBreakdown: incomeBreakdown.rows.map(categoryAmount),
+    expenseBreakdown: expenseBreakdown.rows.map(categoryAmount),
     trend: trendWindow.map(month => {
       const row = trend.rows.find(item => item.month === month);
 

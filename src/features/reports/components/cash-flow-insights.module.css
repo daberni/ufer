@@ -9,9 +9,10 @@
     gap: var(--space-4);
   }
 }
+/* Below laptop width the category panel moves under the chart, where its income and expense columns fit side by side. */
 @media (--tablet) {
   .analytics-grid {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
   .analytics-grid h2 {
     font-size: var(--text-md);

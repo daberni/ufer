@@ -1,12 +1,24 @@
 .legend-dot {
   composes: legend-dot from "../../../components/ui/primitives.module.css";
 }
+.legend-dot.income-dot {
+  background: var(--chart-income);
+}
 .legend-dot.expense-dot {
   background: var(--chart-expense);
 }
+.legend-line {
+  display: inline-block;
+  width: 14px;
+  height: 2px;
+  border-radius: var(--radius-sm);
+  background: var(--ink);
+}
 .chart-legend {
   display: flex;
-  gap: var(--space-4);
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
   margin-top: var(--space-4);
   font-size: var(--text-sm);
   color: var(--muted);
@@ -15,6 +27,13 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
+}
+.chart-legend > .savings-rate {
+  margin-left: auto;
+}
+.savings-rate strong {
+  font-weight: 600;
+  color: var(--ink);
 }
 /* Beside the category panel, the plot grows to the shared row height instead of leaving a gap below the bars. */
 .chart-panel {
@@ -34,98 +53,124 @@
   display: flex;
   flex-direction: column;
 }
+/* Month columns share the width equally, so the net line's points meet the column centres. */
 .bar-chart {
   flex: 1 1 auto;
   display: flex;
-  align-items: flex-end;
-  justify-content: space-around;
-  gap: var(--space-4);
-  min-height: 160px;
-  padding: 0 var(--space-2);
+  min-height: 180px;
   position: relative;
 }
-.chart-grid {
+/* The bar area above the month labels, shared by the zero line, the net line and each column's bars. */
+.plot-area {
   position: absolute;
-  inset: 0 0 23px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
+  inset: var(--space-2) 0 23px;
   pointer-events: none;
 }
-.chart-grid span {
-  display: block;
-  border-top: 1px dashed var(--border);
+.zero-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1px solid var(--muted);
+  opacity: 0.5;
 }
-.bar-group {
+.net-line {
+  position: absolute;
+  inset: 0;
+  width: 100%;
   height: 100%;
-  flex: 1;
-  max-width: 70px;
+  overflow: visible;
+  z-index: calc(var(--layer-raised) + 1);
+}
+.net-line polyline {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 2px;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.net-line .net-halo {
+  stroke: var(--surface);
+  stroke-width: 5px;
+  opacity: 0.85;
+}
+/* The whole column is the hover, focus and tap target of its month. */
+.month {
+  flex: 1 1 0;
+  min-width: 0;
   position: relative;
   z-index: var(--layer-raised);
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
-  text-align: center;
-}
-.bars {
-  height: calc(100% - 23px);
-  display: flex;
-  gap: var(--space-1);
-  justify-content: center;
-}
-/* Each bar's target spans its half of the month column, so the narrow bars are easy to hover and tap. */
-.bar-target {
-  flex: 1 1 0;
-  max-width: 30px;
-  display: flex;
-  align-items: flex-end;
   margin: 0;
-  padding: 0;
+  padding: var(--space-2) 0 0;
   border: 0;
   border-radius: var(--radius-sm);
   background: none;
   color: inherit;
+  font: inherit;
   cursor: default;
 }
-.bar-target[data-flow="income"] {
-  justify-content: flex-end;
+.month[data-active] {
+  background: var(--chart-track);
 }
-.bar-target[data-flow="expenses"] {
-  justify-content: flex-start;
+.bars {
+  position: relative;
+  flex: 1 1 auto;
 }
 .bar {
-  display: flex;
-  flex-direction: column-reverse;
-  flex-shrink: 0;
-  width: 15px;
+  position: absolute;
+  left: 50%;
+  width: clamp(12px, 40%, 24px);
   min-height: 1px;
+  transform: translateX(-50%);
+  display: flex;
   overflow: hidden;
-  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
   transition: opacity var(--duration) ease;
 }
+/* Category segments stack outward from the zero line. */
 .income-bar {
+  flex-direction: column-reverse;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
   background: var(--chart-income);
 }
 .expense-bar {
+  flex-direction: column;
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
   background: var(--chart-expense);
 }
 .bar > span {
   flex: none;
 }
 /* A hairline in the panel color separates stacked category segments. */
-.bar > span + span {
+.income-bar > span + span {
   box-shadow: inset 0 -1px 0 var(--surface);
+}
+.expense-bar > span + span {
+  box-shadow: inset 0 1px 0 var(--surface);
+}
+.net-point {
+  position: absolute;
+  left: 50%;
+  z-index: calc(var(--layer-raised) + 2);
+  width: 8px;
+  height: 8px;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  background: var(--ink);
+  box-sizing: content-box;
+  transform: translate(-50%, -50%);
 }
 .month-label {
   font-size: var(--text-xs);
   color: var(--muted);
   height: 23px;
-  padding-top: var(--space-3);
+  padding-top: var(--space-2);
+  text-align: center;
 }
-.bar-chart[data-active] .bar-target:not([data-active]) .bar {
-  opacity: 0.4;
+.bar-chart[data-active] .month:not([data-active]) .bar {
+  opacity: 0.45;
 }
-.bar-group[data-active] .month-label {
+.month[data-active] .month-label {
   color: var(--ink);
 }
 .chart-empty-note {
@@ -136,12 +181,7 @@
 }
 @media (--wide) {
   .bar-chart {
-    min-height: 190px;
-  }
-}
-@media (--tablet) {
-  .bar-chart {
-    gap: var(--space-2);
+    min-height: 210px;
   }
 }
 @media (--mobile) {
@@ -149,8 +189,6 @@
     font-size: var(--text-sm);
   }
   .bar-chart {
-    min-height: 180px;
-    gap: var(--space-2);
-    padding: 0;
+    min-height: 200px;
   }
 }

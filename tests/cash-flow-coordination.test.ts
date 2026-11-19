@@ -30,7 +30,8 @@ const cashFlow: CashFlow = {
   currency: "EUR",
   income: 300000,
   expenses: 10000,
-  breakdown: [category("Food", 10000)],
+  incomeBreakdown: [category("Salary", 300000)],
+  expenseBreakdown: [category("Food", 10000)],
   trend: [{
     month: "2026-06",
     income: 200000,
@@ -133,7 +134,7 @@ async function showReports(context: TestContext) {
       screen.rerender(createElement(OverviewView, props));
     },
     panel: () => screen.getByRole("heading", {
-      name: /Where your money goes|Spending by category|Income by category/
+      name: "By category"
     }).closest("section")!
   };
 }
@@ -163,22 +164,20 @@ function mouseOut(target: Element, next: Element) {
   fireEvent(target, event);
 }
 
-test("hovering a monthly flow updates the existing category panel without a second breakdown", async context => {
+test("hovering a month updates the existing category panel with both flows of that month", async context => {
   const screen = await showReports(context);
-  const bar = screen.getByRole("button", {
-    name: /June 2026 expenses:/
+  const june = screen.getByRole("button", {
+    name: /June 2026:/
   });
 
   assert.ok(within(screen.panel()).getByText("Food"));
-  pointerOver(bar, "mouse");
-  assert.ok(within(screen.panel()).getByRole("heading", {
-    name: "Spending by category"
-  }));
+  pointerOver(june, "mouse");
   assert.ok(within(screen.panel()).getByText("June 2026"));
   assert.ok(within(screen.panel()).getByText("Rent"));
+  assert.ok(within(screen.panel()).getByText("Salary"));
   assert.equal(within(screen.panel()).queryByText("Food"), null);
-  assert.equal(screen.container.querySelector('[class*="details-slot"]'), null);
-  assert.equal(bar.getAttribute("aria-controls"), screen.panel().id);
+  assert.equal(june.getAttribute("aria-controls"), screen.panel().id);
+  assert.match(june.getAttribute("aria-label")!, /net €1,000\.00, savings rate 50%/);
   fireEvent.keyDown(document, {
     key: "Escape"
   });
@@ -187,50 +186,45 @@ test("hovering a monthly flow updates the existing category panel without a seco
 
 test("touch selection survives interaction with the adjacent panel and clears outside the shared reports", async context => {
   const screen = await showReports(context);
-  const bar = screen.getByRole("button", {
-    name: /June 2026 income:/
+  const june = screen.getByRole("button", {
+    name: /June 2026:/
   });
 
-  pointerOver(bar, "touch");
+  pointerOver(june, "touch");
   assert.ok(within(screen.panel()).getByText("Food"));
-  fireEvent.click(bar);
-  assert.ok(within(screen.panel()).getByRole("heading", {
-    name: "Income by category"
-  }));
-  assert.ok(within(screen.panel()).getByText("Salary"));
+  fireEvent.click(june);
+  assert.ok(within(screen.panel()).getByText("Rent"));
   fireEvent.pointerDown(screen.panel());
-  assert.ok(within(screen.panel()).getByText("Salary"));
+  assert.ok(within(screen.panel()).getByText("Rent"));
   fireEvent.pointerDown(document.body);
   assert.ok(within(screen.panel()).getByText("Food"));
 });
 
-test("keyboard focus follows the monthly breakdown and period or currency changes clear the selection", async context => {
+test("keyboard focus follows the month and period or currency changes clear the selection", async context => {
   const screen = await showReports(context);
-  const income = screen.getByRole("button", {
-    name: /June 2026 income:/
-  });
 
-  fireEvent.focus(income);
-  assert.ok(within(screen.panel()).getByText("Salary"));
+  fireEvent.focus(screen.getByRole("button", {
+    name: /June 2026:/
+  }));
+  assert.ok(within(screen.panel()).getByText("Rent"));
   screen.changeScope("/?period=2026-08");
   assert.ok(within(screen.panel()).getByText("Food"));
   fireEvent.focus(screen.getByRole("button", {
-    name: /June 2026 expenses:/
+    name: /June 2026:/
   }));
   assert.ok(within(screen.panel()).getByText("Rent"));
   screen.changeScope("/?period=2026-08&currency=USD");
   assert.ok(within(screen.panel()).getByText("Food"));
 });
 
-
-test("a pointer-selected breakdown survives blur inside the report while keyboard departure clears it", async context => {
+test("a pointer-selected month survives blur inside the report while keyboard departure clears it", async context => {
   const screen = await showReports(context);
-  const income = screen.getByRole("button", {
-    name: /June 2026 income:/
+  const june = screen.getByRole("button", {
+    name: /June 2026:/
   });
 
-  fireEvent.click(income);
-  act(() => income.focus());
+  fireEvent.click(june);
+  act(() => june.focus());
   const press = new window.Event("pointerdown", {
     bubbles: true
   });
@@ -239,36 +233,34 @@ test("a pointer-selected breakdown survives blur inside the report while keyboar
     value: "touch"
   });
   fireEvent(screen.panel(), press);
-  act(() => income.blur());
+  act(() => june.blur());
   assert.equal(document.activeElement, document.body);
-  assert.ok(within(screen.panel()).getByText("Salary"));
+  assert.ok(within(screen.panel()).getByText("Rent"));
   fireEvent.keyDown(document.activeElement, {
     key: "Tab"
   });
   assert.ok(within(screen.panel()).getByText("Food"));
 });
 
-test("moving the mouse off a bar ends its hover even inside the reports, and returns to a tapped selection", async context => {
+test("moving the mouse off a month ends its hover even inside the reports, and returns to a tapped month", async context => {
   const screen = await showReports(context);
-  const expenses = screen.getByRole("button", {
-    name: /June 2026 expenses:/
+  const june = screen.getByRole("button", {
+    name: /June 2026:/
   });
-  const income = screen.getByRole("button", {
-    name: /July 2026 income:/
+  const july = screen.getByRole("button", {
+    name: /July 2026:/
   });
 
-  pointerOver(expenses, "mouse");
+  pointerOver(june, "mouse");
   assert.ok(within(screen.panel()).getByText("Rent"));
-  mouseOut(expenses, screen.panel());
+  mouseOut(june, screen.panel());
   assert.ok(within(screen.panel()).getByText("Food"));
   assert.equal(within(screen.panel()).queryByText("Rent"), null);
 
-  fireEvent.click(income);
-  pointerOver(expenses, "mouse");
+  fireEvent.click(july);
+  pointerOver(june, "mouse");
   assert.ok(within(screen.panel()).getByText("Rent"));
-  mouseOut(expenses, screen.panel());
-  assert.ok(within(screen.panel()).getByRole("heading", {
-    name: "Income by category"
-  }));
+  mouseOut(june, screen.panel());
   assert.ok(within(screen.panel()).getByText("July 2026"));
+  assert.ok(within(screen.panel()).getByText("Food"));
 });
