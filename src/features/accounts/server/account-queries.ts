@@ -22,6 +22,7 @@ export async function listAccounts() {
   return db.select({
     id: accounts.id,
     name: accounts.name,
+    provider_name: accounts.provider_name,
     institution: accounts.institution,
     kind: accounts.kind,
     currency: accounts.currency,

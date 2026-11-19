@@ -25,3 +25,13 @@ export function useSaveValuation(accountId: string) {
     onSettled: () => invalidate(queryClient, balanceKeys)
   });
 }
+
+
+export function useRenameAccount(accountId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (body: Record<string, FormDataEntryValue>) => api(`accounts/${encodeURIComponent(accountId)}`, body, "PATCH"),
+    onSettled: () => invalidate(queryClient, [queryKeys.accounts(), queryKeys.transactions.all()])
+  });
+}

@@ -8,7 +8,7 @@ import { drizzle } from "drizzle-orm/libsql";
 import { database, type Database } from "../src/server/database/connection";
 import { initializeDatabase } from "../src/server/database/migrations";
 import * as schema from "../src/server/database/schema";
-import { createManualAccount, updateManualValuation } from "../src/features/accounts/server/account-service";
+import { createManualAccount, renameAccount, updateManualValuation } from "../src/features/accounts/server/account-service";
 import { findManualAccount } from "../src/features/accounts/server/account-repository";
 import { listAccounts } from "../src/features/accounts/server/account-queries";
 import { enterManualTransaction } from "../src/features/transactions/server/transaction-service";
@@ -689,4 +689,135 @@ test("category icons persist through create and edit and only accept the curated
 
   assert.equal(response.status, 422);
   assert.equal((await response.json()).detail, "Choose one of the available category icons.");
+});
+
+
+test("renaming changes only the account display name, allows duplicates and rejects invalid or out-of-environment writes", async context => {
+  const db = await isolatedDatabase(context);
+
+  await db.insert(schema.accounts).values([
+    {
+      id: "manual-name",
+      environment: "SANDBOX",
+      name: "Before",
+      institution: "Example",
+      kind: "checking"
+    },
+    {
+      id: "bank-name",
+      environment: "SANDBOX",
+      name: "Bank supplied",
+      provider_name: "Bank supplied",
+      institution: "Bank",
+      kind: "checking",
+      provider: "enable_banking",
+      provider_uid: "stable-provider-id",
+      iban: "synthetic-iban",
+      balance_minor: 12345,
+      balance_date: "2026-01-01"
+    },
+    {
+      id: "foreign-name",
+      environment: "PRODUCTION",
+      name: "Other environment",
+      institution: "Example",
+      kind: "checking"
+    }
+  ]);
+  await db.insert(schema.transactions).values({
+    id: "preserved-booking",
+    account_id: "bank-name",
+    provider_reference: "bank:stable",
+    booking_date: "2026-01-01",
+    amount_minor: 1200,
+    currency: "EUR",
+    type: "income"
+  });
+  const before = await db.select().from(schema.accounts).where(eq(schema.accounts.id, "bank-name")).get();
+  const bookings = await db.select().from(schema.transactions);
+
+  await renameAccount("bank-name", {
+    name: "  Everyday account  ",
+    provider_uid: "ignored",
+    balance_minor: 0
+  });
+  await renameAccount("manual-name", {
+    name: "Everyday account"
+  });
+  assert.deepEqual(await db.select().from(schema.accounts).where(eq(schema.accounts.id, "bank-name")).get(), {
+    ...before,
+    name: "Everyday account"
+  });
+  assert.deepEqual(await db.select().from(schema.transactions), bookings);
+
+  for (const name of ["", "   ", "x".repeat(101), null, 42]) {
+    await assert.rejects(renameAccount("bank-name", {
+      name
+    }), ValidationError);
+  }
+
+  await assert.rejects(renameAccount("foreign-name", {
+    name: "Not allowed"
+  }), {
+    status: 404
+  });
+  await assert.rejects(renameAccount("missing", {
+    name: "Not allowed"
+  }), {
+    status: 404
+  });
+  assert.equal((await db.select().from(schema.accounts).where(eq(schema.accounts.id, "foreign-name")).get())?.name, "Other environment");
+  assert.equal((await listAccounts()).filter(account => account.name === "Everyday account").length, 2);
+});
+
+test("sync and reconnect retain a custom account name while refreshing the separate provider label", async context => {
+  const db = await isolatedDatabase(context);
+
+  await db.insert(schema.requisitions).values([{
+    id: "first-name",
+    environment: "SANDBOX",
+    bank_name: "Bank",
+    bank_country: "AT",
+    status: "EXCHANGING"
+  }, {
+    id: "renewed-name",
+    environment: "SANDBOX",
+    bank_name: "Bank",
+    bank_country: "AT",
+    status: "EXCHANGING"
+  }]);
+  await saveSessionAccounts(db, "SANDBOX", "first-name", "Bank", "2099-01-01T00:00:00Z", [{
+    uid: "old-uid",
+    identification_hash: "stable-name-hash",
+    currency: "EUR",
+    name: "Original bank account"
+  }]);
+  const initial = (await listAccounts())[0];
+
+  assert.equal(initial.provider_name, "Original bank account");
+  await renameAccount(initial.id, {
+    name: "My household account"
+  });
+  await saveAccountSync(db, syncRun("2026-01-01T10:00:00.000Z"), initial.id, "EUR", [{
+    balance_type: "CLBD",
+    balance_amount: {
+      amount: "125.00",
+      currency: "EUR"
+    },
+    reference_date: "2026-01-01"
+  }], [], []);
+  assert.equal((await listAccounts())[0].name, "My household account");
+  await saveSessionAccounts(db, "SANDBOX", "renewed-name", "Bank", "2099-01-01T00:00:00Z", [{
+    uid: "renewed-uid",
+    identification_hash: "stable-name-hash",
+    currency: "EUR",
+    name: "Updated bank account"
+  }]);
+  const reconnected = (await listAccounts())[0];
+
+  assert.equal(reconnected.id, initial.id);
+  assert.equal(reconnected.name, "My household account");
+  assert.equal(reconnected.provider_name, "Updated bank account");
+  assert.equal(reconnected.balance_minor, 12500);
+  assert.equal((await db.select().from(schema.accountIdentifiers))[0].account_id, initial.id);
 });
