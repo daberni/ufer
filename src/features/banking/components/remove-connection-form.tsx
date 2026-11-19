@@ -42,7 +42,10 @@ function RemoveConnectionForm({
 
   return (
     <form
-      onSubmit={event => submit(event, () => selectedConnection.id)}
+      onSubmit={event => submit(event, data => ({
+        connectionId: selectedConnection.id,
+        archiveAccounts: data.get("archive_accounts") === "on"
+      }))}
       className={ui["form"]}
     >
       <p className={ui["form-description"]}>
@@ -56,6 +59,10 @@ function RemoveConnectionForm({
         <li>Ufer revokes the bank authorization before removing the connection. If that fails, the connection stays and you can try again.</li>
         <li>Connecting the same bank again later continues the kept accounts instead of creating duplicates.</li>
       </ul>
+      <label className={styles["archive"]}>
+        <input name="archive_accounts" type="checkbox" />
+        Archive these accounts: hide them from the account lists and pickers, keep them in reports, restore them any time
+      </label>
       <FormError failure={error} />
       <div className={ui["form-actions"]}>
         <button

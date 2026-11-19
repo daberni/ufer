@@ -5,12 +5,11 @@ import styles from "./account-detail-actions.module.css";
 
 import { useState } from "react";
 import { clsx } from "clsx";
-import { Pencil, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { ManualTransactionDialog } from "@/features/transactions/components/manual-transaction-dialog";
-import { ValuationDialog } from "./valuation-form";
 import type { Account } from "@/features/accounts/types";
 
-/** The selected manual account's actions in the page heading; changing accounts remounts the toolbar and closes its dialogs. */
+/** The selected manual account's actions in the page heading; its balance is updated beside the balance. Changing accounts remounts the toolbar and closes its dialogs. */
 export function AccountDetailActions({
   account,
   manualAccounts
@@ -18,25 +17,19 @@ export function AccountDetailActions({
   account: Account;
   manualAccounts: Account[];
 }) {
-  const [dialog, setDialog] = useState<"transaction" | "balance" | null>(null);
-  const close = () => setDialog(null);
+  const [entryOpen, setEntryOpen] = useState(false);
 
-  if (account.provider !== "manual") {
+  if (account.provider !== "manual" || account.archived_at !== null) {
     return null;
   }
 
   return (
     <div className={clsx(ui["button-group"], styles["actions"])}>
-      <button className={clsx(ui["button"], ui["primary"], styles["button"])} onClick={() => setDialog("transaction")}>
+      <button className={clsx(ui["button"], ui["primary"], styles["button"])} onClick={() => setEntryOpen(true)}>
         <Plus size={15} />
         Add transaction
       </button>
-      <button className={clsx(ui["button"], styles["button"])} onClick={() => setDialog("balance")}>
-        <Pencil size={15} />
-        Update balance
-      </button>
-      {dialog === "transaction" && <ManualTransactionDialog accounts={manualAccounts} accountId={account.id} close={close} />}
-      {dialog === "balance" && <ValuationDialog selectedAccount={account} close={close} />}
+      {entryOpen && <ManualTransactionDialog accounts={manualAccounts} accountId={account.id} close={() => setEntryOpen(false)} />}
     </div>
   );
 }

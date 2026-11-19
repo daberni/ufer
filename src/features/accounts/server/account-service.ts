@@ -1,9 +1,9 @@
 import { Temporal } from "temporal-polyfill";
 import { HttpError, ValidationError } from "@/lib/errors";
 import { minorUnits } from "@/lib/money";
-import { today } from "@/lib/time";
+import { timestamp, today } from "@/lib/time";
 import { accountInput, accountRenameInput, valuationInput } from "./account-schema";
-import { findManualAccount, insertManualAccount, saveAccountName, saveManualValuation } from "./account-repository";
+import { findManualAccount, insertManualAccount, saveAccountArchived, saveAccountName, saveManualValuation } from "./account-repository";
 
 export async function createManualAccount(payload: unknown, now = Temporal.Now.instant()) {
   const input = accountInput.parse(payload);
@@ -57,6 +57,17 @@ export async function renameAccount(accountId: string, payload: unknown) {
   }
 
   if (!await saveAccountName(accountId, result.data.name)) {
+    throw new HttpError(404, "Account not found.");
+  }
+
+  return {
+    ok: true
+  };
+}
+
+/** Hides an account from the account lists and pickers; restoring it shows it again with its unchanged history. */
+export async function setAccountArchived(accountId: string, archived: boolean) {
+  if (!await saveAccountArchived(accountId, archived ? timestamp() : null)) {
     throw new HttpError(404, "Account not found.");
   }
 

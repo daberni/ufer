@@ -13,6 +13,7 @@ import { DateValue } from "@/components/ui/date-value";
 import { money } from "@/lib/money";
 import { Empty } from "@/components/ui/empty-state";
 import type { Account } from "@/features/accounts/types";
+import { activeAccounts } from "@/features/accounts/queries";
 import { useState } from "react";
 import { BankConnectionDialog } from "@/features/banking/components/bank-connection-form";
 import { CreateAccountDialog } from "./create-account-form";
@@ -41,11 +42,12 @@ export function AccountsView({
   const addAccount = () => setDialog({
     kind: "account"
   });
+  const shownAccounts = accounts.data ? activeAccounts(accounts.data) : [];
 
   return (
     <>
       <div className={contextStyles["context-row"]}>
-        <span className={clsx(contextStyles["label"], ui["section-kicker"], valueMask(shownStatus(accounts)))}>{accounts.data?.length ?? 0} ACCOUNTS & ASSETS</span>
+        <span className={clsx(contextStyles["label"], ui["section-kicker"], valueMask(shownStatus(accounts)))}>{shownAccounts.length} ACCOUNTS & ASSETS</span>
         <div className={clsx(contextStyles["actions"], ui["button-group"])}>
           <button className={ui["button"]} onClick={addAccount}>
             <Plus size={15} />
@@ -116,48 +118,66 @@ function AccountCards({
   accounts: Account[];
   addAccount: () => void;
 }) {
+  const shown = activeAccounts(accounts);
+  const archived = accounts.filter(account => account.archived_at !== null);
+
+  return (
+    <>
+      {shown.length ? (
+        <div className={styles["accounts-grid"]}>
+          {shown.map(account => <AccountCard account={account} key={account.id} />)}
+        </div>
+      ) : (
+        <section className={ui["panel"]}>
+          <Empty
+            title="Everything in one place"
+            action={(
+              <button className={clsx(ui["button"], ui["primary"])} onClick={addAccount}>
+                <Plus size={15} />
+                Add your first account
+              </button>
+            )}
+          >
+            Add bank accounts, investments, property and debts to build your overview.
+          </Empty>
+        </section>
+      )}
+      {archived.length > 0 && (
+        <details className={styles["archived"]}>
+          <summary className={ui["text-button"]}>Archived accounts ({archived.length})</summary>
+          <div className={styles["accounts-grid"]}>
+            {archived.map(account => <AccountCard account={account} key={account.id} />)}
+          </div>
+        </details>
+      )}
+    </>
+  );
+}
+
+function AccountCard({ account }: {
+  account: Account
+}) {
   const accountHref = useAccountHref();
+  const Icon = accountIcon(account.kind);
 
-  return accounts.length ? (
-    <div className={styles["accounts-grid"]}>
-      {accounts.map(account => {
-        const Icon = accountIcon(account.kind);
-
-        return (
-          <section className={clsx(ui["panel"], styles["account-detail"])} key={account.id}>
-            <div className={ui["card-heading"]}>
-              <span className={clsx(accountStyles["account-logo"], accountStyles[account.kind])}>
-                <Icon size={23} />
-              </span>
-              <span className={ui["pill"]}>{kinds[account.kind]}</span>
-            </div>
-            <h2>
-              <Link className={styles["account-link"]} href={accountHref(account.id)}>{account.name}</Link>
-            </h2>
-            <p className={ui["muted"]}>{account.institution}</p>
-            <strong className={styles["account-detail-balance"]}>{account.balance_minor === null ? "—" : money(account.balance_minor, account.currency)}</strong>
-            <div className={styles["account-detail-meta"]}>
-              <span>Balance <DateValue value={account.balance_date} fallback="not recorded yet" /></span>
-              <span>{accountSourceLabel(account)}</span>
-            </div>
-            {account.sync_error && <p className={ui["error-text"]}>{account.sync_error}</p>}
-          </section>
-        );
-      })}
-    </div>
-  ) : (
-    <section className={ui["panel"]}>
-      <Empty
-        title="Everything in one place"
-        action={(
-          <button className={clsx(ui["button"], ui["primary"])} onClick={addAccount}>
-            <Plus size={15} />
-            Add your first account
-          </button>
-        )}
-      >
-        Add bank accounts, investments, property and debts to build your overview.
-      </Empty>
+  return (
+    <section className={clsx(ui["panel"], styles["account-detail"])}>
+      <div className={ui["card-heading"]}>
+        <span className={clsx(accountStyles["account-logo"], accountStyles[account.kind])}>
+          <Icon size={23} />
+        </span>
+        <span className={ui["pill"]}>{account.archived_at ? "Archived" : kinds[account.kind]}</span>
+      </div>
+      <h2>
+        <Link className={styles["account-link"]} href={accountHref(account.id)}>{account.name}</Link>
+      </h2>
+      <p className={ui["muted"]}>{account.institution}</p>
+      <strong className={styles["account-detail-balance"]}>{account.balance_minor === null ? "—" : money(account.balance_minor, account.currency)}</strong>
+      <div className={styles["account-detail-meta"]}>
+        <span>Balance <DateValue value={account.balance_date} fallback="not recorded yet" /></span>
+        <span>{accountSourceLabel(account)}</span>
+      </div>
+      {account.sync_error && <p className={ui["error-text"]}>{account.sync_error}</p>}
     </section>
   );
 }

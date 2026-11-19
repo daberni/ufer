@@ -34,7 +34,12 @@ export function useNetWorth(currency: string) {
   });
 }
 
-/** The account groupings the dashboard shows for a display currency. */
+/** Accounts that are not archived, as offered in lists and pickers. */
+export function activeAccounts(accounts: Account[]) {
+  return accounts.filter(account => account.archived_at === null);
+}
+
+/** The account groupings the dashboard shows for a display currency; bank accounts include archived ones because they still sync. */
 export function accountGroups(accounts: Account[], currency: string, now = Temporal.Now.instant()) {
   const bankAccounts = accounts.filter(account => account.provider === "enable_banking");
   const warningThreshold = now.add(expiryWarning);
@@ -42,8 +47,8 @@ export function accountGroups(accounts: Account[], currency: string, now = Tempo
 
   return {
     currencies: [...new Set(["EUR", ...accounts.map(account => account.currency)])],
-    currencyAccounts: accounts.filter(account => account.currency === currency),
-    manualAccounts: accounts.filter(account => account.provider === "manual"),
+    currencyAccounts: activeAccounts(accounts).filter(account => account.currency === currency),
+    manualAccounts: activeAccounts(accounts).filter(account => account.provider === "manual"),
     bankAccounts,
     expiring: bankAccounts.filter(account => account.valid_until && expiresSoon(account.valid_until))
   };

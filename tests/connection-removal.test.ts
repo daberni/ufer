@@ -16,7 +16,7 @@ import { saveSessionAccounts } from "../src/features/banking/server/bank-account
 import { listSyncAccounts } from "../src/features/banking/server/sync-repository";
 import { syncAccounts } from "../src/features/banking/server/sync-service";
 import { listConnections } from "../src/features/banking/server/banking-queries";
-import { listAccounts } from "../src/features/accounts/server/account-queries";
+import { listAccounts, readNetWorth } from "../src/features/accounts/server/account-queries";
 
 const providerKey = generateKeyPairSync("rsa", {
   modulusLength: 2048
@@ -191,6 +191,50 @@ test("removing a bank connection keeps accounts and history, deletes its credent
   assert.equal((await db.select().from(schema.accounts)).length, 2);
   assert.equal((await db.select().from(schema.accounts).where(eq(schema.accounts.id, "removed-account")).get())?.requisition_id, "renewed");
   assert.equal((await db.select().from(schema.requisitions).where(eq(schema.requisitions.id, "removed")).get())?.status, "REMOVED");
+});
+
+test("disconnecting a bank can archive its accounts while keeping their history and report contributions", async context => {
+  const {
+    db,
+    requests
+  } = await bankingDatabase(context, () => Response.json({
+    message: "OK"
+  }));
+
+  await insertLinkedConnection(db, "archived-bank", "archived-account");
+  await insertLinkedConnection(db, "other-bank", "other-account");
+  await db.insert(schema.transactions).values({
+    id: "archived-history",
+    account_id: "archived-account",
+    provider_reference: "bank:synthetic-archived-history",
+    booking_date: "2000-01-10",
+    amount_minor: -500,
+    currency: "EUR",
+    type: "expense",
+    counterparty: "Example payee"
+  });
+  const netWorthBefore = await readNetWorth("EUR");
+
+  assert.deepEqual(await removeBankConnection("archived-bank", {
+    archiveAccounts: true
+  }), {
+    retainedAccounts: 1
+  });
+  assert.deepEqual(requests, [{
+    method: "DELETE",
+    path: "/sessions/session-archived-bank"
+  }]);
+
+  const accountsAfter = await listAccounts();
+  const archived = accountsAfter.find(account => account.id === "archived-account");
+
+  assert.ok(archived?.archived_at);
+  assert.equal(archived.requisition_id, null);
+  assert.equal(archived.balance_minor, 12345);
+  assert.equal(accountsAfter.find(account => account.id === "other-account")?.archived_at, null);
+  assert.equal((await db.select().from(schema.transactions)).length, 1);
+  assert.deepEqual(await readNetWorth("EUR"), netWorthBefore);
+  assert.deepEqual((await listSyncAccounts(db, "SANDBOX")).map(item => item.id), ["other-account"]);
 });
 
 test("a failed revocation leaves the connection intact for an explicit retry, without background retries", async context => {

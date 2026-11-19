@@ -35,3 +35,12 @@ export function useRenameAccount(accountId: string) {
     onSettled: () => invalidate(queryClient, [queryKeys.accounts(), queryKeys.transactions.all()])
   });
 }
+
+export function useArchiveAccount(accountId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (archived: boolean) => api(`accounts/${encodeURIComponent(accountId)}/archive`, undefined, archived ? "PUT" : "DELETE"),
+    onSettled: () => invalidate(queryClient, [queryKeys.accounts()])
+  });
+}

@@ -62,7 +62,10 @@ export function useRemoveConnection() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (connectionId: string) => api<ConnectionRemoval>(`banking/connections/${encodeURIComponent(connectionId)}`, undefined, "DELETE"),
+    mutationFn: (removal: {
+      connectionId: string;
+      archiveAccounts: boolean;
+    }) => api<ConnectionRemoval>(`banking/connections/${encodeURIComponent(removal.connectionId)}?accounts=${removal.archiveAccounts ? "archive" : "keep"}`, undefined, "DELETE"),
     onSettled: () => invalidate(queryClient, [queryKeys.banking.connections(), queryKeys.accounts()])
   });
 }

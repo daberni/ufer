@@ -147,8 +147,8 @@ export async function recordRevocationFailure(db: Database, id: string) {
   }).where(and(eq(requisitions.id, id), ne(requisitions.status, "REMOVED")));
 }
 
-// Accounts are detached only after confirmed provider revocation, preserving their history and reconnect mapping.
-export async function removeConnection(db: Database, environment: string, id: string, exchangeCutoff: Temporal.Instant, expectedSessionCipher: string | null): Promise<ConnectionRemoval> {
+// Accounts are detached only after confirmed provider revocation, preserving their history and reconnect mapping; a given archive time also archives them.
+export async function removeConnection(db: Database, environment: string, id: string, exchangeCutoff: Temporal.Instant, expectedSessionCipher: string | null, archivedAt: string | null = null): Promise<ConnectionRemoval> {
   return db.transaction(async tx => {
     const scope = and(eq(requisitions.id, id), eq(requisitions.environment, environment), ne(requisitions.status, "REMOVED"));
     const connection = await tx.select({
@@ -188,7 +188,10 @@ export async function removeConnection(db: Database, environment: string, id: st
 
     const detached = await tx.update(accounts).set({
       requisition_id: null,
-      sync_error: null
+      sync_error: null,
+      ...(archivedAt ? {
+        archived_at: archivedAt
+      } : {})
     }).where(and(eq(accounts.requisition_id, id), eq(accounts.environment, environment))).returning({
       id: accounts.id
     });

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { Temporal } from "temporal-polyfill";
 import { HttpError } from "@/lib/errors";
+import { timestamp } from "@/lib/time";
 import { database } from "@/server/database/connection";
 import { acquireLease, releaseLease } from "@/server/jobs/lease-repository";
 import { prepareConnectionRemoval, removeConnection } from "./connection-repository";
@@ -13,7 +14,12 @@ const authorizationExchangeWindow = Temporal.Duration.from({
   minutes: 5
 });
 
-export async function removeBankConnection(id: string) {
+/** Revokes the provider session and keeps the connection's accounts with their history, optionally archiving them. */
+export async function removeBankConnection(id: string, options: {
+  archiveAccounts: boolean
+} = {
+  archiveAccounts: false
+}) {
   const db = await database();
   const env = environment();
   const owner = randomUUID();
@@ -39,7 +45,8 @@ export async function removeBankConnection(id: string) {
       throw new HttpError(502, "The bank authorization could not be revoked. The connection has not been removed. Try again.");
     }
 
-    const removal = await removeConnection(db, env, id, exchangeCutoff, prepared.sessionCipher);
+    const archivedAt = options.archiveAccounts ? timestamp() : null;
+    const removal = await removeConnection(db, env, id, exchangeCutoff, prepared.sessionCipher, archivedAt);
 
     if (removal.outcome === "missing") {
       throw new HttpError(404, "Bank connection not found or already removed.");

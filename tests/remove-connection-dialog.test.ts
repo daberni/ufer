@@ -124,8 +124,13 @@ test("a failed revocation stays in the open removal dialog and the same action c
   assert.match(screen.getByRole("alert").textContent ?? "", /synthetic-removal-trace/);
   assert.equal(remove().hasAttribute("disabled"), false);
 
+  assert.equal(requests("banking/connections/synthetic-connection")[0].url.searchParams.get("accounts"), "keep");
+  fireEvent.click(screen.getByRole("checkbox", {
+    name: /Archive these accounts/
+  }));
   fireEvent.click(remove());
   await wait(0);
+  assert.equal(requests("banking/connections/synthetic-connection")[1].url.searchParams.get("accounts"), "archive");
   await respond(requests("banking/connections/synthetic-connection")[1], Response.json({
     retainedAccounts: 1
   }));

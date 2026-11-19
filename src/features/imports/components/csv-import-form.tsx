@@ -11,7 +11,7 @@ import { useCsvImport, type ImportMode } from "@/features/imports/mutations";
 import { FormError } from "@/components/ui/form-error";
 import { Select } from "@/components/ui/select";
 import { Dialog } from "@/components/ui/dialog";
-import { useAccounts } from "@/features/accounts/queries";
+import { activeAccounts, useAccounts } from "@/features/accounts/queries";
 import { InlineFailure } from "@/components/ui/area-placeholder";
 import { useAreaResult } from "@/components/ui/use-area-result";
 
@@ -38,7 +38,7 @@ function CsvImportForm({
   const accounts = useAreaResult(useAccounts());
   const accountsPending = accounts.status === "pending";
   const accountsFailure = accountsPending ? accounts.failure : null;
-  const manualAccounts = accounts.data?.filter(account => account.provider === "manual") ?? [];
+  const manualAccounts = activeAccounts(accounts.data ?? []).filter(account => account.provider === "manual");
   const {
     error,
     pending,

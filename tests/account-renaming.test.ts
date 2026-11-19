@@ -22,7 +22,8 @@ const account: Account = {
   requisition_id: "connection",
   last_synced_at: null,
   valid_until: null,
-  sync_error: null
+  sync_error: null,
+  archived_at: null
 };
 
 test("renaming a bank account targets its encoded ID, keeps failures in the dialog and refreshes cached account and transaction labels", async context => {

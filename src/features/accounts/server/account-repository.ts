@@ -49,6 +49,19 @@ export async function saveManualValuation(account: {
 }
 
 
+/** Sets or clears the archive mark; balances, transactions, observations and provider identity remain untouched. */
+export async function saveAccountArchived(id: string, archivedAt: string | null) {
+  const db = await database();
+
+  const updated = await db.update(accounts).set({
+    archived_at: archivedAt
+  }).where(and(eq(accounts.id, id), eq(accounts.environment, environment()))).returning({
+    id: accounts.id
+  });
+
+  return updated.length === 1;
+}
+
 /** Changes only the display label; provider identity and financial history remain untouched. */
 export async function saveAccountName(id: string, name: string) {
   const db = await database();
