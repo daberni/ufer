@@ -68,7 +68,7 @@ function TransactionRow({
   const subject = transaction.counterparty || transaction.description || transactionTypeLabels[transaction.type];
 
   return (
-    <tr role="row" className={styles["row"]}>
+    <tr role="row" className={clsx(styles["row"], transaction.hidden && styles["hidden"])}>
       <th role="rowheader" scope="row" className={styles["payee"]}>
         <div className={styles["transaction-name"]}>
           <span className={clsx(styles["transaction-icon"], incoming && styles["incoming"])}><TransactionTypeIcon type={transaction.type} /></span>
@@ -118,6 +118,7 @@ function TransactionRow({
         {incoming ? "+" : ""}
         {money(transaction.amount_minor, transaction.currency)}
         {original && <span className={styles["original-amount"]}>{original}</span>}
+        {transaction.hidden && <span className={styles["hidden-tag"]}>Hidden</span>}
       </td>
     </tr>
   );

@@ -14,6 +14,7 @@ import { insertRule } from "../src/features/categorization/server/rule-repositor
 import { saveMappedEntries } from "../src/features/imports/server/mapped-import-repository";
 import { ValidationError } from "../src/lib/errors";
 import { importMappedRows } from "../src/features/imports/server/mapped-import-service";
+import { hideTransaction } from "../src/features/transactions/server/transaction-service";
 import { findDuplicates } from "../src/features/imports/server/duplicate-matching";
 import { saveAccountSync } from "../src/features/banking/server/account-sync-service";
 import { startSyncRun } from "../src/features/banking/server/sync-repository";
@@ -1664,6 +1665,36 @@ test("a resumed import must state the opening balance its new account already ha
       }
     }]
   }, now), ValidationError);
+});
+
+test("hiding an imported row does not make an unchanged resume look like a changed opening balance", async context => {
+  const db = await isolatedDatabase(context);
+  const payload = {
+    import_id: importId,
+    rows: [mappedRow(2, "2024-05-01", "-10.00", "Shop"), mappedRow(3, "2024-05-02", "-5.00", "Bakery")],
+    targets: [{
+      source: "",
+      new_account: {
+        name: "Imported wallet",
+        currency: "EUR",
+        opening: {
+          kind: "current" as const,
+          amount: "100.00",
+          date: "2024-05-01"
+        }
+      }
+    }],
+    confirm: true
+  };
+
+  await importMappedRows(payload, now);
+  const bakery = (await db.select().from(schema.transactions)).find(booking => booking.counterparty === "Bakery");
+
+  assert.ok(bakery);
+  await hideTransaction(bakery.id, true, now);
+  await importMappedRows(payload, now);
+
+  assert.equal(await db.$count(schema.transactions), 3);
 });
 
 test("batches hold at most as many category values as a request accepts choices", () => {

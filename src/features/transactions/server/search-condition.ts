@@ -1,4 +1,5 @@
-const searchedText = "lower(t.counterparty || ' ' || t.description)";
+// Searches what the list shows: a person's payee and description override the source's text.
+const searchedText = "lower(COALESCE(t.counterparty_override,t.counterparty) || ' ' || COALESCE(t.description_override,t.description))";
 const asciiOnly = /^[\x00-\x7f]*$/;
 
 // Folds that are not a one-to-one uppercase mapping: ß and ẞ become "ss", Greek final ς becomes σ.

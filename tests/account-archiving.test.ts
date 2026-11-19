@@ -18,7 +18,7 @@ import { dashboardFilters } from "../src/server/http/dashboard-filters";
 import { ValidationError } from "../src/lib/errors";
 import { listAccounts, readBalanceHistory, readNetWorth } from "../src/features/accounts/server/account-queries";
 import { archiveAccount, restoreAccount, updateManualValuation } from "../src/features/accounts/server/account-service";
-import { editManualTransaction, enterManualTransaction, removeManualTransaction, transferOptions, updateTransactionCategory, updateTransactionType } from "../src/features/transactions/server/transaction-service";
+import { editManualTransaction, enterManualTransaction, hideTransaction, removeManualTransaction, transferOptions, updateTransactionCategory, updateTransactionDetails } from "../src/features/transactions/server/transaction-service";
 import { applyRulesToUncorrectedTransactions } from "../src/features/categorization/server/categorization-service";
 import { saveRuleAssignments } from "../src/features/categorization/server/rule-repository";
 import { pairTransfersInEnvironment } from "../src/features/transactions/server/transfer-repository";
@@ -249,7 +249,7 @@ test("bookings on an archived account cannot be edited, deleted or linked, and a
     amount: "1.00"
   }), archived);
   await assert.rejects(removeManualTransaction("salary"), archived);
-  await assert.rejects(updateTransactionType("groceries", {
+  await assert.rejects(updateTransactionDetails("groceries", {
     type: "transfer",
     transfer: {
       counterpart_id: "refund"
@@ -263,7 +263,7 @@ test("bookings on an archived account cannot be edited, deleted or linked, and a
 
   assert.equal(page.transactions.find(item => item.id === "salary")?.entered, false);
   assert.equal(page.transactions.find(item => item.id === "refund")?.entered, true);
-  await assert.rejects(updateTransactionType("refund", {
+  await assert.rejects(updateTransactionDetails("refund", {
     type: "transfer",
     transfer: {
       counterpart_id: "groceries"
@@ -367,7 +367,7 @@ test("changing a booking linked to a counterpart on an archived account is refus
     currency: "EUR",
     type: "expense"
   });
-  await updateTransactionType("imported", {
+  await updateTransactionDetails("imported", {
     type: "transfer",
     transfer: {
       account_id: "closed"
@@ -384,7 +384,7 @@ test("changing a booking linked to a counterpart on an archived account is refus
   });
   const bookingsBefore = await db.select().from(schema.transactions);
 
-  await assert.rejects(updateTransactionType("imported", {
+  await assert.rejects(updateTransactionDetails("imported", {
     type: "expense"
   }), {
     status: 409
@@ -470,6 +470,34 @@ test("an account archived after the request's check but before the write receive
     csv: "date,balance,currency\n2026-01-10,10.00,EUR"
   }), archived);
   assert.equal(interleaved, 3);
+  assert.deepEqual(await db.select().from(schema.transactions), bookingsBefore);
+});
+
+test("imported bookings on an archived account take no payee override and cannot be hidden", async context => {
+  const db = await seededDatabase(context);
+
+  await db.insert(schema.transactions).values({
+    id: "imported-zero",
+    account_id: "closed",
+    provider_reference: "csv:imported-zero",
+    booking_date: "2026-01-09",
+    amount_minor: 0,
+    currency: "EUR",
+    counterparty: "Example payee",
+    type: "expense"
+  });
+  await archiveAccount("closed", {});
+  const bookingsBefore = await db.select().from(schema.transactions);
+  const archived = {
+    status: 409,
+    message: "This account is archived. Restore the account first."
+  };
+
+  await assert.rejects(updateTransactionDetails("imported-zero", {
+    type: "expense",
+    counterparty: "Changed payee"
+  }), archived);
+  await assert.rejects(hideTransaction("imported-zero", true), archived);
   assert.deepEqual(await db.select().from(schema.transactions), bookingsBefore);
 });
 

@@ -87,6 +87,7 @@ export async function findImportOpening(accountId: string, ids: string[]) {
     return null;
   }
 
+  // Hidden rows count here too: this sum identifies the import's stated balance, not the balance shown.
   const others = await db.select({
     total: sql<number>`COALESCE(SUM(${transactions.amount_minor}),0)`.mapWith(Number)
   }).from(transactions).where(and(eq(transactions.account_id, accountId), ne(transactions.id, opening.id))).get();
@@ -97,7 +98,7 @@ export async function findImportOpening(accountId: string, ids: string[]) {
   };
 }
 
-/** Bookings that imported rows could duplicate; balance corrections are never imported rows. */
+/** Bookings that imported rows could duplicate, hidden ones included so a later import does not add them again; balance corrections are never imported rows. */
 function bookingsBetween(executor: Executor, accountId: string, from: string, to: string): Promise<ExistingBooking[]> {
   const scope = and(eq(transactions.account_id, accountId), between(transactions.booking_date, from, to), notInArray(transactions.type, ["opening_balance", "adjustment"]));
 

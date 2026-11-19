@@ -51,7 +51,7 @@ for (const operation of ["import", "transfer"] as const) {
       }
     });
     await wait(0);
-    const path = operation === "import" ? "imports/balances" : "transactions/entry/type";
+    const path = operation === "import" ? "imports/balances" : "transactions/entry/details";
 
     await respond(environment.requests(path)[0], Response.json({
       ok: true
