@@ -1,9 +1,14 @@
+import { randomUUID } from "node:crypto";
 import { Temporal } from "temporal-polyfill";
+import { database } from "@/server/database/connection";
+import { acquireLease, releaseLease } from "@/server/jobs/lease-repository";
+import { environment } from "@/features/banking/server/environment";
+import { syncLeaseName } from "@/features/banking/server/sync-service";
 import { HttpError, ValidationError } from "@/lib/errors";
 import { minorUnits } from "@/lib/money";
 import { timestamp, today } from "@/lib/time";
 import { accountInput, accountRenameInput, archiveInput, valuationInput } from "./account-schema";
-import { closeAndArchiveManualAccount, findManualAccount, insertManualAccount, saveAccountArchived, saveAccountName, saveManualValuation, type ClosingResult } from "./account-repository";
+import { archiveSettledAccount, closeAndArchiveManualAccount, findManualAccount, insertManualAccount, saveAccountArchived, saveAccountName, saveManualValuation, type ClosingResult } from "./account-repository";
 import { findAccountWithBalance } from "./account-queries";
 
 export async function createManualAccount(payload: unknown, now = Temporal.Now.instant()) {
@@ -78,10 +83,22 @@ export async function archiveAccount(accountId: string, payload: unknown, now = 
     throw new HttpError(404, "Account not found.");
   }
 
-  const balance = account.balance_minor ?? 0;
+  if (account.archived_at !== null) {
+    return {
+      ok: true
+    };
+  }
+
+  if (account.balance_minor === null) {
+    throw new HttpError(409, "No balance is known yet. An account can only be archived with a balance of 0.");
+  }
+
+  const balance = account.balance_minor;
 
   if (balance === 0) {
-    await saveAccountArchived(accountId, timestamp(now));
+    if (!await archiveSettled(account)) {
+      throw new HttpError(409, closingFailures.balance_changed!);
+    }
 
     return {
       ok: true
@@ -106,6 +123,30 @@ export async function archiveAccount(accountId: string, payload: unknown, now = 
   return {
     ok: true
   };
+}
+
+// A bank sync may be writing a new balance; archiving waits until it has finished.
+async function archiveSettled(account: {
+  id: string;
+  provider: string
+}) {
+  if (account.provider === "manual") {
+    return archiveSettledAccount(await database(), account.id, timestamp());
+  }
+
+  const db = await database();
+  const owner = randomUUID();
+  const leaseName = syncLeaseName(environment());
+
+  if (!(await acquireLease(db, leaseName, owner))) {
+    throw new HttpError(409, "A sync is running. Archive the account after it has finished.");
+  }
+
+  try {
+    return await archiveSettledAccount(db, account.id, timestamp());
+  } finally {
+    await releaseLease(db, leaseName, owner);
+  }
 }
 
 /** Shows an archived account again with its unchanged history. */

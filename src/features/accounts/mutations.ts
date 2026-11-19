@@ -60,6 +60,7 @@ export function useRestoreAccount(accountId: string) {
 
   return useMutation({
     mutationFn: () => api(`accounts/${encodeURIComponent(accountId)}/archive`, undefined, "DELETE"),
-    onSettled: () => invalidate(queryClient, [queryKeys.accounts()])
+    // Listed transactions carry whether their account is archived.
+    onSettled: () => invalidate(queryClient, [queryKeys.accounts(), queryKeys.transactions.all()])
   });
 }

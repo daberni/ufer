@@ -44,7 +44,7 @@ function ArchiveButton({ account }: {
 }) {
   const archive = useArchiveAccount(account.id);
   const [closing, setClosing] = useState(false);
-  const settled = (account.balance_minor ?? 0) === 0;
+  const settled = account.balance_minor === 0;
 
   return (
     <>
@@ -67,8 +67,38 @@ function CloseAccountDialog({
 }) {
   return (
     <Dialog eyebrow="YOUR FINANCES" title="Archive account" onClose={close}>
-      {account.provider === "manual" ? <CloseAccountForm account={account} close={close} /> : <BankBalanceNotice account={account} close={close} />}
+      <ArchiveDialogContent account={account} close={close} />
     </Dialog>
+  );
+}
+
+function ArchiveDialogContent({
+  account,
+  close
+}: {
+  account: Account;
+  close: () => void
+}) {
+  if (account.balance_minor === null) {
+    return <UnknownBalanceNotice account={account} close={close} />;
+  }
+
+  return account.provider === "manual" ? <CloseAccountForm account={account} close={close} /> : <BankBalanceNotice account={account} close={close} />;
+}
+
+function UnknownBalanceNotice({
+  account,
+  close
+}: {
+  account: Account;
+  close: () => void
+}) {
+  return (
+    <div className={ui["form"]}>
+      <p className={ui["form-description"]}>{account.name}</p>
+      <p>No balance known yet. An account can only be archived with a balance of 0.</p>
+      <button type="button" className={clsx(ui["button"], ui["full-width"])} onClick={close}>Cancel</button>
+    </div>
   );
 }
 

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test, type TestContext } from "node:test";
-import { createClient } from "@libsql/client";
+import { createClient, type InArgs, type InStatement } from "@libsql/client";
 import { act, fireEvent, render, within } from "@testing-library/react";
 import { and, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/libsql";
@@ -21,6 +21,9 @@ import { archiveAccount, restoreAccount, updateManualValuation } from "../src/fe
 import { editManualTransaction, enterManualTransaction, removeManualTransaction, transferOptions, updateTransactionCategory, updateTransactionType } from "../src/features/transactions/server/transaction-service";
 import { applyRulesToUncorrectedTransactions } from "../src/features/categorization/server/categorization-service";
 import { pairTransfersInEnvironment } from "../src/features/transactions/server/transfer-repository";
+import { acquireLease } from "../src/server/jobs/lease-repository";
+import { removeConnection } from "../src/features/banking/server/connection-repository";
+import { queryKeys } from "../src/client/query-keys";
 import { importTransactions, importValuations } from "../src/features/imports/server/import-service";
 import { readAccountCashFlow, readCashFlow } from "../src/features/reports/server/cash-flow-query";
 import { accountGroups } from "../src/features/accounts/queries";
@@ -505,6 +508,80 @@ test("a closing transfer to an archived, foreign-currency or bank account rolls 
   assert.equal((await listAccounts()).find(account => account.id === "open")?.archived_at, null);
 });
 
+test("a booking written between the balance check and the archive update keeps the account active", async context => {
+  const db = await seededDatabase(context);
+  const execute = db.$client.execute.bind(db.$client);
+  let interleaved = false;
+
+  context.mock.method(db.$client, "execute", async (statement: InStatement, args?: InArgs) => {
+    const result = typeof statement === "string" ? await execute(statement, args) : await execute(statement);
+    const text = typeof statement === "string" ? statement : statement.sql;
+
+    if (!interleaved && /^select /i.test(text) && text.includes('from "accounts"')) {
+      interleaved = true;
+      await execute("INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,type,type_source) VALUES('late','closed','manual:late','2026-01-21',700,'EUR','income','manual')");
+    }
+
+    return result;
+  });
+
+  await assert.rejects(archiveAccount("closed", {}), {
+    status: 409
+  });
+  assert.ok(interleaved);
+  assert.equal((await listAccounts()).find(account => account.id === "closed")?.archived_at, null);
+});
+
+test("a bank account with a balance of 0 is not archived while a sync holds the lease", async context => {
+  const db = await seededDatabase(context);
+
+  await db.update(schema.accounts).set({
+    balance_minor: 0
+  }).where(eq(schema.accounts.id, "bank"));
+  assert.equal(await acquireLease(db, "sync:SANDBOX", "synthetic-sync"), true);
+  await assert.rejects(archiveAccount("bank", {}), {
+    status: 409,
+    message: "A sync is running. Archive the account after it has finished."
+  });
+  assert.equal((await listAccounts()).find(account => account.id === "bank")?.archived_at, null);
+});
+
+test("an unknown balance is not 0: such accounts stay active when archiving or disconnecting", async context => {
+  const db = await seededDatabase(context);
+  const unknown = {
+    status: 409,
+    message: "No balance is known yet. An account can only be archived with a balance of 0."
+  };
+
+  // A manual account without bookings and a bank account without a reported balance.
+  await db.delete(schema.transactions).where(eq(schema.transactions.account_id, "target"));
+  await db.update(schema.accounts).set({
+    balance_minor: null,
+    balance_date: null
+  }).where(eq(schema.accounts.id, "bank"));
+  await assert.rejects(archiveAccount("target", {}), unknown);
+  await assert.rejects(archiveAccount("bank", {}), unknown);
+
+  await db.insert(schema.requisitions).values({
+    id: "connection",
+    environment: "SANDBOX",
+    bank_name: "Example institution",
+    bank_country: "AT",
+    status: "LINKED"
+  });
+  await db.update(schema.accounts).set({
+    requisition_id: "connection"
+  }).where(eq(schema.accounts.id, "bank"));
+  const removal = await removeConnection(db, "SANDBOX", "connection", Temporal.Now.instant(), null, "2026-11-01T00:00:00.000Z");
+
+  assert.deepEqual(removal, {
+    outcome: "removed",
+    retainedAccounts: 1,
+    notArchived: ["Synthetic bank account"]
+  });
+  assert.equal((await listAccounts()).filter(account => account.archived_at).length, 0);
+});
+
 test("archiving an unknown account or one of another banking environment is not found", async context => {
   await seededDatabase(context);
 
@@ -712,11 +789,32 @@ test("a bank-linked account with a remaining balance explains why it cannot be a
   assert.equal(requests("accounts/manual%2Fcash/archive").length, 0);
 });
 
+test("an account without a known balance explains that it cannot be archived yet", async context => {
+  const {
+    screen,
+    requests
+  } = await renderDetails(context, {
+    ...manualAccount,
+    balance_minor: null
+  });
+
+  act(() => fireEvent.click(screen.getByRole("button", {
+    name: "Archive account"
+  })));
+  const dialog = within(screen.getByRole("dialog"));
+
+  assert.ok(dialog.getByText(/No balance known yet/));
+  assert.deepEqual(dialog.getAllByRole("button").map(button => button.textContent).filter(text => text !== ""), ["Cancel"]);
+  assert.equal(requests("accounts/manual%2Fcash/archive").length, 0);
+});
+
 test("an archived account offers restore and no balance update", async context => {
   const archived = await renderDetails(context, {
     ...manualAccount,
     archived_at: "2026-11-01T00:00:00.000Z"
   });
+
+  archived.queryClient.setQueryData(queryKeys.transactions.all(), []);
 
   assert.equal(archived.screen.queryByRole("button", {
     name: /Update balance/
@@ -731,6 +829,9 @@ test("an archived account offers restore and no balance update", async context =
   await respond(restore, Response.json({
     ok: true
   }));
+  await wait(0);
+  // Listed transactions carry the archived flag, so restoring refreshes them.
+  assert.equal(archived.queryClient.getQueryState(queryKeys.transactions.all())?.isInvalidated, true);
 });
 
 test("the accounts view lists archived accounts apart and does not count them", async context => {

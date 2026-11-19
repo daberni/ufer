@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { and, eq, isNull, sql, TransactionRollbackError } from "drizzle-orm";
-import { database } from "@/server/database/connection";
+import { database, type Database } from "@/server/database/connection";
 import { accounts, transactions } from "@/server/database/schema";
 import { environment } from "@/features/banking/server/environment";
 import { bookManualEntry, recordManualBalance, type ManualEntryResult } from "@/features/transactions/server/manual-transaction-repository";
@@ -48,6 +48,20 @@ export async function saveManualValuation(account: {
   return db.transaction(tx => recordManualBalance(tx, account, date, amount));
 }
 
+
+// The current balance in one statement with the update: a manual account's transaction sum, otherwise the provider balance. NULL (unknown) never equals 0.
+const currentBalance = sql`(CASE WHEN ${accounts.provider}='manual' THEN (SELECT SUM(t.amount_minor) FROM transactions t WHERE t.account_id=accounts.id) ELSE ${accounts.balance_minor} END)`;
+
+/** Archives an active account only if its balance is exactly 0 at the moment of the update; returns whether it was archived. */
+export async function archiveSettledAccount(executor: Pick<Database, "update">, id: string, archivedAt: string) {
+  const updated = await executor.update(accounts).set({
+    archived_at: archivedAt
+  }).where(and(eq(accounts.id, id), eq(accounts.environment, environment()), isNull(accounts.archived_at), sql`${currentBalance}=0`)).returning({
+    id: accounts.id
+  });
+
+  return updated.length === 1;
+}
 
 /** Sets or clears the archive mark; balances, transactions, observations and provider identity remain untouched. */
 export async function saveAccountArchived(id: string, archivedAt: string | null) {
@@ -122,9 +136,10 @@ export async function closeAndArchiveManualAccount(account: {
         throw new ClosingRefused(result);
       }
 
-      await tx.update(accounts).set({
-        archived_at: archivedAt
-      }).where(and(eq(accounts.id, account.id), isNull(accounts.archived_at)));
+      // A concurrent booking leaves a balance other than 0, which refuses the closing and rolls back its booking.
+      if (!await archiveSettledAccount(tx, account.id, archivedAt)) {
+        throw new ClosingRefused("balance_changed");
+      }
 
       return "saved" as const;
     });

@@ -125,7 +125,7 @@ function UnsettledAccounts({
   accounts: Area<Account[]>;
   connection: Connection;
 }) {
-  const unsettled = accounts.data?.filter(account => account.requisition_id === connection.id && (account.balance_minor ?? 0) !== 0) ?? [];
+  const unsettled = accounts.data?.filter(account => account.requisition_id === connection.id && account.balance_minor !== 0) ?? [];
 
   if (!unsettled.length) {
     return null;

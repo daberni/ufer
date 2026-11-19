@@ -66,6 +66,7 @@ export function useRemoveConnection() {
       connectionId: string;
       archiveAccounts: boolean;
     }) => api<ConnectionRemoval>(`banking/connections/${encodeURIComponent(removal.connectionId)}?accounts=${removal.archiveAccounts ? "archive" : "keep"}`, undefined, "DELETE"),
-    onSettled: () => invalidate(queryClient, [queryKeys.banking.connections(), queryKeys.accounts()])
+    // Archiving kept accounts changes the archived flag of their listed transactions.
+    onSettled: () => invalidate(queryClient, [queryKeys.banking.connections(), queryKeys.accounts(), queryKeys.transactions.all()])
   });
 }

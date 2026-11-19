@@ -188,7 +188,8 @@ export async function removeConnection(db: Database, environment: string, id: st
       throw new HttpError(409, "The bank connection changed during removal. Try again.");
     }
 
-    const zeroBalance = sql`COALESCE(${accounts.balance_minor},0)=0`;
+    // An unknown (NULL) balance is not 0, so such an account stays active.
+    const zeroBalance = sql`${accounts.balance_minor}=0`;
     const detached = await tx.update(accounts).set({
       requisition_id: null,
       sync_error: null,
