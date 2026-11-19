@@ -4,14 +4,15 @@ import ui from "../../../components/ui/primitives.module.css";
 
 import { clsx } from "clsx";
 import styles from "./rules-view.module.css";
-import { Pencil, Plus, Sparkles } from "lucide-react";
+import { GripVertical, Pencil, Plus, Sparkles } from "lucide-react";
 import { ActionFeedback } from "@/components/ui/action-feedback";
 import { Empty } from "@/components/ui/empty-state";
+import { FormError } from "@/components/ui/form-error";
 import { useActionFeedback } from "@/components/ui/use-action-feedback";
 import type { Category, Rule } from "@/features/categorization/types";
 import { settle } from "@/client/settle";
 import { useAppStore } from "@/client/app-store";
-import { useApplyRules, useToggleRule, useTogglingRules } from "@/features/categorization/mutations";
+import { useApplyRules, useSavingRuleOrder, useToggleRule, useTogglingRules } from "@/features/categorization/mutations";
 import { AreaPlaceholder } from "@/components/ui/area-placeholder";
 import type { Area } from "@/components/ui/use-area-result";
 import { neutralChipColor } from "@/features/categorization/category-colors";
@@ -19,6 +20,10 @@ import { useState } from "react";
 import { CategoryGlyph, CategoryLabel, categoryNameColor } from "./category-label";
 import { CategoryDialog } from "./category-form";
 import { RuleDialog } from "./create-rule-form";
+import { closestCenter, DndContext, DragOverlay } from "@dnd-kit/core";
+import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { reorderInstructions, useRuleReorder, verticalOnly } from "./use-rule-reorder";
 
 type Props = {
   categories: Area<Category[]>;
@@ -46,6 +51,7 @@ export function RulesView({
   const reportFeedback = useAppStore(state => state.reportFeedback);
   const applyFeedback = useActionFeedback();
   const apply = useApplyRules();
+  const savingOrder = useSavingRuleOrder();
   const toggle = useToggleRule();
 
   async function applyRules() {
@@ -112,12 +118,12 @@ export function RulesView({
         <div className={clsx(ui["button-group"], styles["rule-actions"])}>
           <button
             className={ui["button"]}
-            disabled={apply.isPending}
-            aria-busy={apply.isPending}
+            disabled={apply.isPending || savingOrder}
+            aria-busy={apply.isPending || savingOrder}
             onClick={applyRules}
           >
             <Sparkles size={15} />
-            Apply rules
+            {savingOrder ? "Saving order …" : "Apply rules"}
           </button>
           <button
             className={ui["button"]}
@@ -217,6 +223,15 @@ function CategoryGridSkeleton() {
   );
 }
 
+type RuleRowProps = {
+  rule: Rule;
+  position: number;
+  count: number;
+  toggling: boolean;
+  toggleRule: (rule: Rule) => void;
+  editRule: (rule: Rule) => void;
+};
+
 function RuleRows({
   rules,
   togglingRules,
@@ -228,65 +243,204 @@ function RuleRows({
   toggleRule: (rule: Rule) => void;
   editRule: (rule: Rule) => void;
 }) {
+  const reorder = useRuleReorder(rules);
+
   if (!rules.length) {
     return <Empty title="Let your transactions sort themselves.">For example: “MARKET” in the payee or description → Groceries. Manual corrections always take precedence.</Empty>;
   }
 
   return (
-    <div>
-      {rules.map(rule => (
-        <div className={styles["rule-row"]} key={rule.id}>
-          <button
-            className={styles["rule-name"]}
-            type="button"
-            title={`${rule.name}: ${rule.pattern} · Priority ${rule.priority}`}
-            aria-label={`Edit rule ${rule.name}`}
-            onClick={() => editRule(rule)}
-          >
-            <strong>{rule.name}</strong>
-            <Pencil className={styles["edit-hint"]} aria-hidden="true" size={16} />
-          </button>
-          <div className={styles["rule-pattern"]}>
-            <span className={styles["rule-label"]}>{rule.mode === "keyword" ? "Keyword" : "Regex"}</span>
-            <code title={rule.pattern}>{rule.pattern}</code>
-          </div>
-          <div className={styles["rule-details"]}>
-            <span className={styles["rule-category"]}>
-              <CategoryLabel
-                category={{
-                  name: rule.category_name,
-                  color: rule.category_color,
-                  icon: rule.category_icon
-                }}
-              />
-            </span>
-            <span className={styles["rule-priority"]} title={`Priority ${rule.priority}`}>
-              <span className={ui["visually-hidden"]}>Priority </span>
-              {rule.priority}
-            </span>
-          </div>
-          <button
-            className={clsx(styles["toggle"], rule.enabled && styles["enabled"])}
-            type="button"
-            role="switch"
-            aria-checked={Boolean(rule.enabled)}
-            aria-label={`Enable rule ${rule.name}`}
-            disabled={togglingRules.includes(rule.id)}
-            onClick={() => toggleRule(rule)}
-          >
-            <span aria-hidden="true" />
-          </button>
+    <>
+      {reorder.failure && (
+        <div className={styles["order-failure"]}>
+          <FormError
+            failure={{
+              ...reorder.failure,
+              message: `The new order could not be saved, so the previous order was restored: ${reorder.failure.message}`
+            }}
+          />
+          <button className={ui["text-button"]} type="button" onClick={reorder.dismissFailure}>Dismiss</button>
         </div>
-      ))}
+      )}
+      <DndContext
+        sensors={reorder.sensors}
+        collisionDetection={closestCenter}
+        modifiers={[verticalOnly]}
+        accessibility={{
+          announcements: reorder.announcements,
+          screenReaderInstructions: reorderInstructions
+        }}
+        onDragStart={reorder.onDragStart}
+        onDragCancel={reorder.onDragCancel}
+        onDragEnd={reorder.onDragEnd}
+      >
+        <SortableContext items={reorder.rules.map(rule => rule.id)} strategy={verticalListSortingStrategy}>
+          <ol className={styles["rule-list"]}>
+            {reorder.rules.map((rule, index) => (
+              <SortableRuleRow
+                key={rule.id}
+                rule={rule}
+                position={index + 1}
+                count={reorder.rules.length}
+                toggling={togglingRules.includes(rule.id)}
+                toggleRule={toggleRule}
+                editRule={editRule}
+              />
+            ))}
+          </ol>
+        </SortableContext>
+        <DragOverlay modifiers={[verticalOnly]}>
+          {reorder.dragged && <DraggedRuleRow rule={reorder.dragged} />}
+        </DragOverlay>
+      </DndContext>
+    </>
+  );
+}
+
+function SortableRuleRow({
+  rule,
+  position,
+  count,
+  toggling,
+  toggleRule,
+  editRule
+}: RuleRowProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    setActivatorNodeRef,
+    transform,
+    transition,
+    isDragging
+  } = useSortable({
+    id: rule.id,
+    disabled: count < 2
+  });
+
+  return (
+    <li
+      ref={setNodeRef}
+      className={clsx(styles["rule-row"], isDragging && styles["drop-position"])}
+      style={{
+        transform: CSS.Translate.toString(transform),
+        transition
+      }}
+    >
+      <button
+        ref={setActivatorNodeRef}
+        className={styles["handle"]}
+        type="button"
+        title="Drag to reorder"
+        disabled={count < 2}
+        {...attributes}
+        {...listeners}
+        aria-label={`Move rule ${rule.name}, position ${position} of ${count}`}
+      >
+        <GripVertical aria-hidden="true" size={18} />
+      </button>
+      <RuleRowContent
+        rule={rule}
+        toggling={toggling}
+        toggleRule={toggleRule}
+        editRule={editRule}
+      />
+    </li>
+  );
+}
+
+/** The dragged rule as it follows the pointer; its place in the list stays empty to show where it will drop. */
+function DraggedRuleRow({
+  rule
+}: {
+  rule: Rule;
+}) {
+  return (
+    <div className={clsx(styles["rule-row"], styles["dragged"])} aria-hidden="true">
+      <span className={styles["handle"]}>
+        <GripVertical size={18} />
+      </span>
+      <span className={styles["rule-name"]}>
+        <strong>{rule.name}</strong>
+      </span>
+      <div className={styles["rule-pattern"]}>
+        <span className={styles["rule-label"]}>{rule.mode === "keyword" ? "Keyword" : "Regex"}</span>
+        <code>{rule.pattern}</code>
+      </div>
+      <div className={styles["rule-details"]}>
+        <span className={styles["rule-category"]}>
+          <CategoryLabel
+            category={{
+              name: rule.category_name,
+              color: rule.category_color,
+              icon: rule.category_icon
+            }}
+          />
+        </span>
+      </div>
+      <span className={clsx(styles["toggle"], rule.enabled && styles["enabled"])}>
+        <span />
+      </span>
     </div>
+  );
+}
+
+function RuleRowContent({
+  rule,
+  toggling,
+  toggleRule,
+  editRule
+}: Pick<RuleRowProps, "rule" | "toggling" | "toggleRule" | "editRule">) {
+  return (
+    <>
+      <button
+        className={styles["rule-name"]}
+        type="button"
+        title={`${rule.name}: ${rule.pattern}`}
+        aria-label={`Edit rule ${rule.name}`}
+        onClick={() => editRule(rule)}
+      >
+        <strong>{rule.name}</strong>
+        <Pencil className={styles["edit-hint"]} aria-hidden="true" size={16} />
+      </button>
+      <div className={styles["rule-pattern"]}>
+        <span className={styles["rule-label"]}>{rule.mode === "keyword" ? "Keyword" : "Regex"}</span>
+        <code title={rule.pattern}>{rule.pattern}</code>
+      </div>
+      <div className={styles["rule-details"]}>
+        <span className={styles["rule-category"]}>
+          <CategoryLabel
+            category={{
+              name: rule.category_name,
+              color: rule.category_color,
+              icon: rule.category_icon
+            }}
+          />
+        </span>
+      </div>
+      <button
+        className={clsx(styles["toggle"], rule.enabled && styles["enabled"])}
+        type="button"
+        role="switch"
+        aria-checked={Boolean(rule.enabled)}
+        aria-label={`Enable rule ${rule.name}`}
+        disabled={toggling}
+        onClick={() => toggleRule(rule)}
+      >
+        <span aria-hidden="true" />
+      </button>
+    </>
   );
 }
 
 function RuleRowsSkeleton() {
   return (
-    <div>
-      {skeletonNames.slice(0, 4).map((name, index) => (
-        <div className={styles["rule-row"]} key={name}>
+    <ol className={styles["rule-list"]}>
+      {skeletonNames.slice(0, 4).map(name => (
+        <li className={styles["rule-row"]} key={name}>
+          <span className={styles["handle"]}>
+            <GripVertical className={ui["skeleton"]} aria-hidden="true" size={18} />
+          </span>
           <span className={styles["rule-name"]}>
             <strong className={ui["skeleton"]}>{name}</strong>
           </span>
@@ -305,16 +459,12 @@ function RuleRowsSkeleton() {
                 }}
               />
             </span>
-            <span className={styles["rule-priority"]}>
-              <span className={ui["visually-hidden"]}>Priority </span>
-              <span className={ui["skeleton"]}>{(index + 1) * 10}</span>
-            </span>
           </div>
           <span className={styles["toggle"]}>
             <span className={ui["skeleton"]} />
           </span>
-        </div>
+        </li>
       ))}
-    </div>
+    </ol>
   );
 }
