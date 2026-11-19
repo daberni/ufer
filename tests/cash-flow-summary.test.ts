@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { edgeNet, formatSavingsRate, netFlow, reservedCategoryRows, selectedCashFlow, trendCashFlow } from "../src/features/reports/cash-flow-selection";
+import { edgeNet, hasCashFlowToDraw, formatSavingsRate, netFlow, reservedCategoryRows, selectedCashFlow, trendCashFlow } from "../src/features/reports/cash-flow-selection";
+import { cashFlowScale, scaleOffset } from "../src/features/reports/cash-flow-scale";
 import type { CashFlow } from "../src/features/reports/types";
 
 function month(name: string, income: number, expenses: number): CashFlow["trend"][number] {
@@ -134,4 +135,30 @@ test("the net area's left edge lies halfway to the previous month's net, from hi
     ...data,
     trend: []
   }, 0), null);
+});
+
+test("an empty visible window still draws the net entering from an earlier month, and nothing when every value is zero", () => {
+  const data: CashFlow = {
+    period: {
+      kind: "all"
+    } as CashFlow["period"],
+    currency: "EUR",
+    income: 0,
+    expenses: 0,
+    incomeBreakdown: [],
+    expenseBreakdown: [],
+    leadIn: month("2026-04", 0, 0),
+    trend: [month("2026-05", 10000, 2000), month("2026-06", 0, 0), month("2026-07", 0, 0)]
+  };
+  const visible = data.trend.slice(-2);
+  const edge = edgeNet(data, 2);
+
+  // Halfway between May's net of 8000 and June's 0.
+  assert.equal(edge, 4000);
+  assert.equal(hasCashFlowToDraw(visible, edge), true);
+  assert.equal(scaleOffset(edge!, cashFlowScale(visible, [edge!])), 0);
+  assert.equal(hasCashFlowToDraw(visible, edgeNet({
+    ...data,
+    trend: [month("2026-05", 0, 0), month("2026-06", 0, 0), month("2026-07", 0, 0)]
+  }, 2)), false);
 });

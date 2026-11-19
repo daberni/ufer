@@ -66,6 +66,13 @@ export function edgeNet(data: CashFlow, visibleCount: number) {
   return (netFlow(previous.income, previous.expenses).net + netFlow(first.income, first.expenses).net) / 2;
 }
 
+/** Whether the chart has anything to draw: a visible month with a flow, or a net entering from the left edge out of an earlier month. */
+export function hasCashFlowToDraw(visible: CashFlow["trend"], leftEdgeNet: number | null) {
+  const visibleFlow = visible.some(item => item.income !== 0 || item.expenses !== 0);
+
+  return visibleFlow || (leftEdgeNet !== null && leftEdgeNet !== 0);
+}
+
 /** A selected month uses the same monthly totals and breakdowns as its chart column, rather than the page's whole period. */
 export function selectedCashFlow(data: CashFlow, month: string | null): CashFlowSelection | null {
   const item = data.trend.find(entry => entry.month === month);

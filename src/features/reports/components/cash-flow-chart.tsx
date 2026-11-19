@@ -21,7 +21,7 @@ import { useMonthTransactionsHref, usePeriod } from "@/client/use-app-url";
 import type { Area, AreaResult, PendingArea } from "@/components/ui/use-area-result";
 import type { CashFlow } from "@/features/reports/types";
 import { barSpan, cashFlowScale, scaleOffset, type CashFlowScale } from "@/features/reports/cash-flow-scale";
-import { edgeNet, formatSavingsRate, isNegativeRate, netFlow, trendCashFlow, type CashFlowSelection } from "@/features/reports/cash-flow-selection";
+import { edgeNet, hasCashFlowToDraw, formatSavingsRate, isNegativeRate, netFlow, trendCashFlow, type CashFlowSelection } from "@/features/reports/cash-flow-selection";
 
 type Props = {
   cashFlow: Area<CashFlow>;
@@ -297,7 +297,7 @@ function ChartPlot({
       onSelectionHidden();
     }
   }, [selectionHidden, onSelectionHidden]);
-  const hasHistory = trend.some(item => item.income !== 0 || item.expenses !== 0);
+  const hasHistory = hasCashFlowToDraw(trend, leftEdgeNet);
   // Month columns share the width equally, so their centres lie at even steps of a 0–100 coordinate space that stretches with the plot.
   const centre = (index: number) => (index + 0.5) / chartMonths.length * 100;
   const zero = scale.zero * 100;
