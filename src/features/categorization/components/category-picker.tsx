@@ -4,7 +4,7 @@ import ui from "../../../components/ui/primitives.module.css";
 
 import styles from "./category-picker.module.css";
 import { clsx } from "clsx";
-import { Zap } from "lucide-react";
+import { Plus, Zap } from "lucide-react";
 import { useId, useState, type ReactNode } from "react";
 import { SearchableSelect, type SearchableSelectOption, type SearchableSelectAppearance } from "@/components/ui/searchable-select";
 import { CategoryGlyph, categoryLabel, categoryNameColor, type DisplayCategory, type NeutralCategory } from "./category-label";
@@ -213,6 +213,7 @@ export function CategoryPicker({
                 onClick={assignment.createRule}
               >
                 <Zap className={clsx(styles["assignment-icon"], styles["manual"])} aria-hidden="true" />
+                <Plus className={styles["assignment-badge"]} aria-hidden="true" />
               </button>
             )}
             {assigningRule && (
