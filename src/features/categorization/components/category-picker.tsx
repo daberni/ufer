@@ -149,9 +149,10 @@ export function CategoryPicker({
   const selected = options.find(option => Object.is(option.value, value));
   const assignmentSource = assignment?.source;
   const assignmentHint = assignmentSource ? assignmentHints[assignmentSource] : undefined;
-  const describedBy = clsx(ariaDescribedBy, assignmentHint && assignmentHintId) || undefined;
-  // "Uncategorized" is a hint, not text in the field, so typing a search starts from an empty field.
+  // "Uncategorized" is a hint, not text in the field, so typing a search starts from an empty field; a description keeps the selection announced.
   const uncategorized = includeUncategorized && value === null;
+  const uncategorizedId = useId();
+  const describedBy = clsx(uncategorized && uncategorizedId, ariaDescribedBy, assignmentHint && assignmentHintId) || undefined;
 
   function choose(next: PickerValue) {
     setSearch(null);
@@ -226,6 +227,7 @@ export function CategoryPicker({
           </p>
         )}
       />
+      {uncategorized && <span id={uncategorizedId} className={ui["visually-hidden"]}>Uncategorized</span>}
       {assignmentHint && <span id={assignmentHintId} className={ui["visually-hidden"]}>{assignmentHint}</span>}
       {name && <input type="hidden" name={name} value={typeof value === "string" ? value : ""} />}
       {newCategoryName !== null && (
