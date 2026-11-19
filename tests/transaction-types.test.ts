@@ -10,7 +10,7 @@ import * as schema from "../src/server/database/schema";
 import { saveAccountSync } from "../src/features/banking/server/account-sync-service";
 import { pairTransfersInEnvironment } from "../src/features/transactions/server/transfer-repository";
 import { unambiguousPairs } from "../src/features/transactions/server/transfer-pairing";
-import { transferOptions, updateTransactionType } from "../src/features/transactions/server/transaction-service";
+import { transferOptions, updateTransactionDetails } from "../src/features/transactions/server/transaction-service";
 import { importTransactions } from "../src/features/imports/server/import-service";
 import { readCashFlow } from "../src/features/reports/server/cash-flow-query";
 import { readTransactionPage } from "../src/features/transactions/server/transaction-list-query";
@@ -87,7 +87,7 @@ function saveTransfer(id: string, transfer: {
 } | {
   account_id: string
 } | null) {
-  return updateTransactionType(id, {
+  return updateTransactionDetails(id, {
     type: "transfer",
     transfer
   });
@@ -195,7 +195,7 @@ test("synced bookings get a type by direction and detected transfers, and cash f
   }).returning();
 
   // A refund corrected to an expense reduces spending in its category instead of counting as income.
-  await updateTransactionType(refund[0].id, {
+  await updateTransactionDetails(refund[0].id, {
     type: "expense"
   });
   const cashFlow = await readCashFlow(monthPeriod(Temporal.PlainYearMonth.from("2026-09")), "EUR");
@@ -246,7 +246,7 @@ test("manual types, links and unlinks survive resync and later pairing", async c
   assert.equal((await stored(db, "relinked-out")).transfer_id, null);
 
   await saveTransfer((await stored(db, "paired-out")).id, null);
-  await updateTransactionType((await stored(db, "refund")).id, {
+  await updateTransactionDetails((await stored(db, "refund")).id, {
     type: "expense"
   });
   await saveTransfer((await stored(db, "relinked-out")).id, {
@@ -269,7 +269,7 @@ test("leaving the transfer type corrects both linked bookings together", async c
 
   await sync(db, "checking", [entry("out", "2026-09-01", -10000, true)]);
   await sync(db, "savings", [entry("in", "2026-09-01", 10000, true)]);
-  await updateTransactionType((await stored(db, "out")).id, {
+  await updateTransactionDetails((await stored(db, "out")).id, {
     type: "expense"
   });
 
@@ -325,10 +325,10 @@ test("opening balances and adjustments are refused for bank-synced bookings", as
   const db = await isolatedDatabase(context);
 
   await sync(db, "checking", [entry("synced", "2026-09-01", -100)]);
-  await assert.rejects(updateTransactionType((await stored(db, "synced")).id, {
+  await assert.rejects(updateTransactionDetails((await stored(db, "synced")).id, {
     type: "adjustment"
   }), ValidationError);
-  await assert.rejects(updateTransactionType("missing", {
+  await assert.rejects(updateTransactionDetails("missing", {
     type: "income"
   }), (error: unknown) => error instanceof HttpError && error.status === 404);
 });
@@ -403,7 +403,7 @@ test("leaving the transfer type on a booking Ufer created on a manual account re
   const created = await db.select().from(schema.transactions).where(eq(schema.transactions.account_id, "property")).get();
 
   assert.ok(created);
-  await updateTransactionType(created.id, {
+  await updateTransactionDetails(created.id, {
     type: "income"
   });
 
@@ -461,11 +461,11 @@ test("one save moves a transfer between a booking, a manual account and no count
   assert.ok(await linked(db, "out", "in"));
 
   // Omitting the target keeps the link; a target on another type is refused.
-  await updateTransactionType(out, {
+  await updateTransactionDetails(out, {
     type: "transfer"
   });
   assert.ok(await linked(db, "out", "in"));
-  await assert.rejects(updateTransactionType(out, {
+  await assert.rejects(updateTransactionDetails(out, {
     type: "expense",
     transfer: {
       account_id: "property"

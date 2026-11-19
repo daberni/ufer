@@ -110,7 +110,12 @@ export const transactions = sqliteTable("transactions", {
   // Manual once a person linked or unlinked the booking; automatic pairing then leaves it alone.
   transfer_source: text("transfer_source", {
     enum: ["auto", "manual"]
-  }).notNull().default("auto")
+  }).notNull().default("auto"),
+  // A person's payee and description for an imported booking; null shows the source's text, which every sync keeps refreshing.
+  counterparty_override: text("counterparty_override"),
+  description_override: text("description_override"),
+  // Hidden imported booking: kept so a later sync or import finds and leaves it, excluded from balances, reports and pairing.
+  suppressed_at: text("suppressed_at")
 }, table => [
   unique("transactions_account_id_provider_reference_unique").on(table.account_id, table.provider_reference),
   index("transactions_date").on(desc(table.booking_date)),

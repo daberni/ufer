@@ -641,7 +641,12 @@ test("the manual account upgrade turns balance history into transactions without
     const transactionColumns = await columnList(client, "transactions");
     const transactionsBefore = await originalTransactions(client, transactionColumns);
     const balancesBefore = (await client.execute("SELECT id,balance_minor FROM accounts ORDER BY id")).rows.map(row => [row.id, row.balance_minor]);
+
+    // The current cash-flow query reads the hidden-booking column of a later changeset; it exists only while the previous result is read.
+    await client.execute("ALTER TABLE transactions ADD COLUMN suppressed_at TEXT");
     const flowsBefore = await Promise.all(months.map(month => readCashFlow(monthPeriod(Temporal.PlainYearMonth.from(month)), "EUR")));
+
+    await client.execute("ALTER TABLE transactions DROP COLUMN suppressed_at");
 
     await assert.rejects(initializeDatabase(client), /migrations are pending/);
     await migrateDatabase(client);
@@ -811,13 +816,14 @@ for (const customization of transferCustomizations) {
       ], "write");
       const categoryBefore = (await client.execute("SELECT * FROM categories WHERE id='transfer'")).rows;
       const rulesBefore = (await client.execute("SELECT * FROM categorization_rules ORDER BY id")).rows;
-      const bookingsBefore = (await client.execute("SELECT * FROM transactions ORDER BY id")).rows;
+      const bookingColumns = await columnList(client, "transactions");
+      const bookingsBefore = (await client.execute(`SELECT ${bookingColumns} FROM transactions ORDER BY id`)).rows;
 
       await migrateDatabase(client);
 
       assert.deepEqual((await client.execute("SELECT * FROM categories WHERE id='transfer'")).rows, categoryBefore);
       assert.deepEqual((await client.execute("SELECT * FROM categorization_rules ORDER BY id")).rows, rulesBefore);
-      assert.deepEqual((await client.execute("SELECT * FROM transactions ORDER BY id")).rows, bookingsBefore);
+      assert.deepEqual((await client.execute(`SELECT ${bookingColumns} FROM transactions ORDER BY id`)).rows, bookingsBefore);
       assert.equal((await client.execute("PRAGMA foreign_key_check")).rows.length, 0);
     } finally {
       client.close();
@@ -859,7 +865,8 @@ test("bank balance provenance migration preserves existing history and leaves it
     const balances = (await client.execute(`SELECT ${columns} FROM balance_snapshots ORDER BY id`)).rows;
     const accountColumns = await columnList(client, "accounts");
     const accounts = (await client.execute(`SELECT ${accountColumns} FROM accounts ORDER BY id`)).rows;
-    const bookings = (await client.execute("SELECT * FROM transactions ORDER BY id")).rows;
+    const bookingColumns = await columnList(client, "transactions");
+    const bookings = (await client.execute(`SELECT ${bookingColumns} FROM transactions ORDER BY id`)).rows;
 
     await assert.rejects(initializeDatabase(client), /migrations are pending/);
     await migrateDatabase(client);
@@ -867,7 +874,7 @@ test("bank balance provenance migration preserves existing history and leaves it
 
     assert.deepEqual((await client.execute(`SELECT ${columns} FROM balance_snapshots ORDER BY id`)).rows, balances);
     assert.deepEqual((await client.execute(`SELECT ${accountColumns} FROM accounts ORDER BY id`)).rows, accounts);
-    assert.deepEqual((await client.execute("SELECT * FROM transactions ORDER BY id")).rows, bookings);
+    assert.deepEqual((await client.execute(`SELECT ${bookingColumns} FROM transactions ORDER BY id`)).rows, bookings);
     assert.deepEqual((await client.execute("SELECT bank_balance_type FROM balance_snapshots ORDER BY id")).rows.map(row => row.bank_balance_type), [null, null]);
     assert.equal((await client.execute("PRAGMA foreign_key_check")).rows.length, 0);
   } finally {
@@ -909,6 +916,52 @@ test("provider-name migration keeps existing custom names and identities without
     await migrateDatabase(client);
     assert.deepEqual((await client.execute(`SELECT ${columns} FROM accounts`)).rows, before);
     assert.equal((await client.execute("SELECT provider_name FROM accounts")).rows[0].provider_name, null);
+    assert.equal((await client.execute("PRAGMA foreign_key_check")).rows.length, 0);
+  } finally {
+    client.close();
+    rmSync(directory, {
+      recursive: true,
+      force: true
+    });
+  }
+});
+
+test("transaction override migration keeps every booking unchanged and leaves bookings without overrides and visible", async () => {
+  const client = createClient({
+    url: ":memory:"
+  });
+  const directory = mkdtempSync(join(tmpdir(), "ufer-transaction-overrides-"));
+  const journal = JSON.parse(readFileSync("drizzle/sqlite/meta/_journal.json", "utf8"));
+
+  journal.entries = journal.entries.filter((entry: {
+    idx: number
+  }) => entry.idx < 10);
+  mkdirSync(join(directory, "meta"));
+
+  for (const entry of journal.entries) {
+    cpSync(`drizzle/sqlite/${entry.tag}.sql`, join(directory, `${entry.tag}.sql`));
+  }
+
+  writeFileSync(join(directory, "meta/_journal.json"), JSON.stringify(journal));
+
+  try {
+    await migrateDatabase(client, directory);
+    await client.batch([
+      "INSERT INTO accounts(id,environment,name,institution,kind,provider,provider_uid,balance_minor,balance_date) VALUES('bank','SANDBOX','Synthetic checking','Example bank','checking','enable_banking','synthetic-uid',12345,'2026-01-02')",
+      "INSERT INTO accounts(id,environment,name,institution,kind) VALUES('cash','SANDBOX','Synthetic cash','Example institution','savings')",
+      "INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,counterparty,description,category_source,type,type_source,transfer_id,transfer_source) VALUES('out','bank','bank:1','2026-01-02',-500,'EUR','Example payee','Synthetic transfer','manual','transfer','manual','link','manual')",
+      "INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,type,type_source,transfer_id,transfer_source) VALUES('in','cash','transfer:out','2026-01-02',500,'EUR','transfer','manual','link','manual')",
+      "INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,counterparty,type) VALUES('fee','cash','csv:1','2026-01-03',-200,'EUR','Example bank','expense')"
+    ], "write");
+    const columns = await columnList(client, "transactions");
+    const before = (await client.execute(`SELECT ${columns} FROM transactions ORDER BY id`)).rows;
+
+    await assert.rejects(initializeDatabase(client), /migrations are pending/);
+    await migrateDatabase(client);
+    await migrateDatabase(client);
+
+    assert.deepEqual((await client.execute(`SELECT ${columns} FROM transactions ORDER BY id`)).rows, before);
+    assert.deepEqual((await client.execute("SELECT counterparty_override,description_override,suppressed_at FROM transactions")).rows.flatMap(row => [row.counterparty_override, row.description_override, row.suppressed_at]), Array(9).fill(null));
     assert.equal((await client.execute("PRAGMA foreign_key_check")).rows.length, 0);
   } finally {
     client.close();

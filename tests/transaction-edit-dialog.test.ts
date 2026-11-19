@@ -17,6 +17,9 @@ const outgoing: Transaction = {
   instructed_currency: null,
   counterparty: "Synthetic savings",
   description: "Standing order",
+  source_counterparty: "Synthetic savings",
+  source_description: "Standing order",
+  hidden: false,
   account_name: "Synthetic checking",
   account_id: "synthetic-checking",
   category_id: null,
@@ -112,7 +115,7 @@ test("a linked transfer cannot be saved before its target is known, and saving u
   });
   await wait(0);
 
-  assert.deepEqual(requests("transactions/out/type")[0]?.body, {
+  assert.deepEqual(requests("transactions/out/details")[0]?.body, {
     type: "transfer",
     transfer: {
       counterpart_id: "in"
@@ -180,7 +183,7 @@ test("choosing a suggestion sets the target account, and a manual account or non
   });
   await wait(0);
 
-  assert.deepEqual(requests("transactions/out/type")[0]?.body, {
+  assert.deepEqual(requests("transactions/out/details")[0]?.body, {
     type: "transfer",
     transfer: {
       account_id: "flat"
@@ -221,7 +224,7 @@ test("a transfer without a target account is saved without a counterpart", async
   });
   await wait(0);
 
-  assert.deepEqual(requests("transactions/out/type")[0]?.body, {
+  assert.deepEqual(requests("transactions/out/details")[0]?.body, {
     type: "transfer",
     transfer: null
   });
@@ -239,8 +242,50 @@ test("other types load no transfer options and send no target", async context =>
   await wait(0);
 
   assert.equal(requests("transactions/out/transfer").length, 0);
-  assert.deepEqual(requests("transactions/out/type")[0]?.body, {
+  assert.deepEqual(requests("transactions/out/details")[0]?.body, {
     type: "expense"
+  });
+});
+
+test("an imported booking sends only the changed payee, and restoring the bank's description drops its override", async context => {
+  const overridden = {
+    ...outgoing,
+    description: "Rent reserve",
+    source_description: "Standing order"
+  };
+  const {
+    requests,
+    save,
+    screen
+  } = await renderDialog(context, overridden);
+
+  act(() => {
+    fireEvent.change(screen.getByRole("textbox", {
+      name: "Payee"
+    }), {
+      target: {
+        value: "Example landlord"
+      }
+    });
+  });
+  act(() => {
+    fireEvent.click(screen.getAllByRole("button", {
+      name: "Restore"
+    })[0]);
+  });
+  assert.equal((screen.getByRole("textbox", {
+    name: "Description"
+  }) as HTMLInputElement).value, "Standing order");
+
+  act(() => {
+    fireEvent.click(save());
+  });
+  await wait(0);
+
+  assert.deepEqual(requests("transactions/out/details")[0]?.body, {
+    type: "expense",
+    counterparty: "Example landlord",
+    description: "Standing order"
   });
 });
 
@@ -296,7 +341,7 @@ test("a booking Ufer created on a manual account offers only removing it, withou
   });
   await wait(0);
 
-  assert.deepEqual(requests("transactions/created/type")[0]?.body, {
+  assert.deepEqual(requests("transactions/created/details")[0]?.body, {
     type: "transfer",
     transfer: null
   });

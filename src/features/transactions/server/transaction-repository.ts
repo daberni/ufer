@@ -3,9 +3,10 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 import { environment } from "@/features/banking/server/environment";
 import { accounts, transactions } from "@/server/database/schema";
-import { derivedTransactionType } from "@/features/transactions/transaction-types";
+import { derivedTransactionType, type TransactionType } from "@/features/transactions/transaction-types";
+import { refusable, type ManualEntryResult } from "./manual-transaction-repository";
 import type { CategorizedEntry, ProviderDetails } from "./transaction-entry";
-import { followImportedCorrections, releaseOutdatedLinks } from "./transfer-repository";
+import { applyTransactionType, dissolveLink, enteredInUfer, findSubject, followImportedCorrections, releaseOutdatedLinks, type TransferTarget } from "./transfer-repository";
 
 function providerColumns(provider: ProviderDetails = {}) {
   return {
@@ -17,7 +18,7 @@ function providerColumns(provider: ProviderDetails = {}) {
 
 /**
  * Inserts new entries and updates existing ones. `createdAt` replaces the database clock only for inserted rows; updates keep the original `created_at`.
- * Updates replace the provider data with the latest delivery for every row; only rule-sourced categories are recalculated.
+ * Updates replace the provider data with the latest delivery for every row; only rule-sourced categories are recalculated. Payee and description overrides and hidden state are separate columns, so a delivery never undoes them.
  * The type is recalculated only while nobody corrected it, the booking is not linked and it is not a transfer: no source reports that a booking is not a transfer, so a delivery without a transfer signal never downgrades one. A booking entered in Ufer follows the corrected date and amount of the imported booking it is linked with; other links whose corrected amount or currency no longer pairs are released first.
  */
 export async function upsertTransactions(tx: DatabaseTransaction, accountId: string, entries: CategorizedEntry[], createdAt?: string) {
@@ -77,4 +78,76 @@ export async function setTransactionCategory(id: string, categoryId: string | nu
   });
 
   return assignment;
+}
+
+/** A person's payee and description for an imported booking; undefined keeps a field's current text. */
+export type TextOverrides = {
+  counterparty?: string;
+  description?: string;
+};
+
+// Text equal to the source's own clears the override, so the booking follows later syncs again.
+function overrideOf(value: string | undefined, source: string) {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  return value === source ? null : value;
+}
+
+/**
+ * Saves a booking's type, transfer target and, for an imported booking, payee and description overrides in one transaction.
+ * The source's own text stays in `counterparty` and `description`, which syncs and imports keep refreshing; the date, amount and provider identity stay the source's.
+ */
+export async function saveTransactionDetails(id: string, type: TransactionType, target: TransferTarget | undefined, text: TextOverrides): Promise<ManualEntryResult> {
+  return refusable(async tx => {
+    const subject = await findSubject(tx, id);
+
+    if (!subject) {
+      return "not_found";
+    }
+
+    const changesText = text.counterparty !== undefined || text.description !== undefined;
+
+    if (changesText && enteredInUfer(subject)) {
+      return "entered";
+    }
+
+    if (changesText) {
+      await tx.update(transactions).set({
+        counterparty_override: overrideOf(text.counterparty, subject.counterparty),
+        description_override: overrideOf(text.description, subject.description)
+      }).where(eq(transactions.id, id));
+    }
+
+    return applyTransactionType(tx, id, type, target);
+  });
+}
+
+/**
+ * Hides an imported booking, or shows it again. A hidden booking stays stored, so the next sync or import updates it instead of adding it again; it no longer counts toward balances or reports and is not paired.
+ * Hiding ends a transfer link: a counterpart Ufer created for it is removed and any other linked booking becomes income or expense again.
+ */
+export async function setTransactionHidden(id: string, hidden: boolean, at: string): Promise<ManualEntryResult> {
+  return refusable(async tx => {
+    const subject = await findSubject(tx, id);
+
+    if (!subject) {
+      return "not_found";
+    }
+
+    if (enteredInUfer(subject)) {
+      return "entered";
+    }
+
+    if (hidden && subject.transfer_id) {
+      await dissolveLink(tx, subject, booking => derivedTransactionType(booking.amount_minor));
+    }
+
+    await tx.update(transactions).set({
+      suppressed_at: hidden ? at : null
+    }).where(eq(transactions.id, id));
+
+    return "saved";
+  });
 }

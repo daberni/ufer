@@ -52,7 +52,7 @@ for (const operation of ["import", "transfer"] as const) {
       }
     });
     await wait(0);
-    const path = operation === "import" ? "imports/transactions" : "transactions/entry/type";
+    const path = operation === "import" ? "imports/transactions" : "transactions/entry/details";
 
     await respond(environment.requests(path)[0], Response.json({
       ok: true

@@ -10,9 +10,9 @@ import { listRules } from "@/features/categorization/server/rule-repository";
 import { transactionTypes } from "@/features/transactions/transaction-types";
 import { categorizeEntries } from "./categorize-entries";
 import { createManualTransaction, deleteManualTransaction, findEntryCurrency, updateManualTransaction, type ManualEntryResult } from "./manual-transaction-repository";
-import { setTransactionCategory } from "./transaction-repository";
+import { saveTransactionDetails, setTransactionCategory, setTransactionHidden } from "./transaction-repository";
 import { manualLinkDays } from "./transfer-pairing";
-import { readTransferOptions, saveTransactionType, type TransferTarget } from "./transfer-repository";
+import { readTransferOptions, type TransferTarget } from "./transfer-repository";
 
 export async function updateTransactionCategory(id: string, payload: unknown) {
   const {
@@ -46,6 +46,12 @@ const typeInput = z.object({
   transfer: transferTarget.optional()
 });
 
+// Omitted text keeps a booking's current payee or description.
+const detailsInput = typeInput.extend({
+  counterparty: z.string().trim().max(500).optional(),
+  description: z.string().trim().max(2000).optional()
+});
+
 const typeFailures: Record<Exclude<ManualEntryResult, "saved" | "not_found">, string> = {
   manual_account_only: "Opening balances and adjustments are only available for manual accounts.",
   counterpart_not_found: "The selected booking does not exist.",
@@ -56,7 +62,8 @@ const typeFailures: Record<Exclude<ManualEntryResult, "saved" | "not_found">, st
   zero_amount: "A booking without an amount cannot be a transfer to another account.",
   created_counterpart: "Ufer created this booking for the transfer of its linked booking. Change where the transfer goes on that booking, or remove this one.",
   not_entered: "Only transactions entered in Ufer on a manual account can be edited or deleted this way.",
-  follows_import: "This booking is linked with an imported booking and keeps its date and amount. Unlink it to change them."
+  follows_import: "This booking is linked with an imported booking and keeps its date and amount. Unlink it to change them.",
+  entered: "This transaction was entered in Ufer. Edit or delete it instead."
 };
 
 function requireSaved(result: ManualEntryResult) {
@@ -81,15 +88,18 @@ function target(transfer: z.infer<typeof transferTarget> | undefined): TransferT
   };
 }
 
-/** Saves a transaction's type and, for a transfer, where it goes. */
-export async function updateTransactionType(id: string, payload: unknown) {
-  const input = typeInput.parse(payload);
+/** Saves a transaction's type and, for a transfer, where it goes; an imported booking also takes the person's payee and description, which later syncs and imports keep. */
+export async function updateTransactionDetails(id: string, payload: unknown) {
+  const input = detailsInput.parse(payload);
 
   if (input.type !== "transfer" && input.transfer) {
     throw new ValidationError("Only a transfer has a target account.");
   }
 
-  requireSaved(await saveTransactionType(id, input.type, target(input.transfer)));
+  requireSaved(await saveTransactionDetails(id, input.type, target(input.transfer), {
+    counterparty: input.counterparty,
+    description: input.description
+  }));
 
   return {
     ok: true
@@ -199,6 +209,15 @@ export async function removeManualTransaction(id: string) {
 
   return {
     ok: true
+  };
+}
+
+/** Hides an imported booking from balances and reports, or shows it again; later syncs and imports keep it hidden. */
+export async function hideTransaction(id: string, hidden: boolean, now = Temporal.Now.instant()) {
+  requireSaved(await setTransactionHidden(id, hidden, now.toString()));
+
+  return {
+    hidden
   };
 }
 

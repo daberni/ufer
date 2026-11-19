@@ -12,7 +12,7 @@ import { listAccounts } from "../src/features/accounts/server/account-queries";
 import { saveAccountSync } from "../src/features/banking/server/account-sync-service";
 import { importTransactions, importValuations } from "../src/features/imports/server/import-service";
 import { readCashFlow } from "../src/features/reports/server/cash-flow-query";
-import { editManualTransaction, enterManualTransaction, removeManualTransaction, updateTransactionCategory, updateTransactionType } from "../src/features/transactions/server/transaction-service";
+import { editManualTransaction, enterManualTransaction, removeManualTransaction, updateTransactionCategory, updateTransactionDetails } from "../src/features/transactions/server/transaction-service";
 import { pairTransfersInEnvironment } from "../src/features/transactions/server/transfer-repository";
 import { readTransactionPage } from "../src/features/transactions/server/transaction-list-query";
 import { dashboardFilters } from "../src/server/http/dashboard-filters";
@@ -150,7 +150,7 @@ test("a manual account's balance is its opening balance plus every transaction, 
     type: "expense"
   });
   // The synced booking moved money into the cash account; its counterpart is created there.
-  await updateTransactionType(purchase.id, {
+  await updateTransactionDetails(purchase.id, {
     type: "transfer",
     transfer: {
       account_id: cash
@@ -332,7 +332,7 @@ test("changing the other account from either side moves the other side of a manu
   const created = await transferLeg(db, savings);
 
   // From the source side the created side moves to the broker.
-  await updateTransactionType(id, {
+  await updateTransactionDetails(id, {
     type: "transfer",
     transfer: {
       account_id: broker
@@ -414,7 +414,7 @@ test("removing a manual transfer from either side removes both sides; leaving it
   // Choosing no other account on the created side keeps it as a transfer to an untracked account and removes the source; it becomes an ordinary entry.
   const third = await transfer();
 
-  await updateTransactionType(third.created, {
+  await updateTransactionDetails(third.created, {
     type: "transfer",
     transfer: null
   });
@@ -472,7 +472,7 @@ test("an entered booking linked with a synced booking follows its date and amoun
   // A counterpart Ufer created for a synced booking follows it: it cannot be edited as an entry, only removed.
   const purchase = await syncBooking(db, "deposit", "2026-09-12", -5000);
 
-  await updateTransactionType(purchase.id, {
+  await updateTransactionDetails(purchase.id, {
     type: "transfer",
     transfer: {
       account_id: cash
@@ -485,7 +485,7 @@ test("an entered booking linked with a synced booking follows its date and amoun
     amount: "50.00",
     type: "transfer"
   }), /entered in Ufer/);
-  await assert.rejects(updateTransactionType(created.id, {
+  await assert.rejects(updateTransactionDetails(created.id, {
     type: "transfer",
     transfer: {
       account_id: "checking"
@@ -612,7 +612,7 @@ test("a counterpart created for a synced booking follows its corrections and is 
   const cash = await manualAccount("Synthetic cash", "0.00");
   const deposit = await syncBooking(db, "deposit", "2026-09-12", -5000);
 
-  await updateTransactionType(deposit.id, {
+  await updateTransactionDetails(deposit.id, {
     type: "transfer",
     transfer: {
       account_id: cash
@@ -647,7 +647,7 @@ test("linking two entered bookings gives the counterpart the subject's date", as
     transfer: null
   });
 
-  await updateTransactionType(outgoing.id, {
+  await updateTransactionDetails(outgoing.id, {
     type: "transfer",
     transfer: {
       counterpart_id: incoming.id
@@ -765,7 +765,7 @@ test("editing an entered transfer recategorizes both rule-sourced legs from thei
     type: "transfer"
   });
 
-  await updateTransactionType(outgoing.id, {
+  await updateTransactionDetails(outgoing.id, {
     type: "transfer",
     transfer: {
       counterpart_id: incoming.id
@@ -803,7 +803,7 @@ for (const initiatingSide of ["entered", "imported"] as const) {
     const subjectId = initiatingSide === "entered" ? id : imported.id;
     const counterpartId = initiatingSide === "entered" ? imported.id : id;
 
-    await updateTransactionType(subjectId, {
+    await updateTransactionDetails(subjectId, {
       type: "transfer",
       transfer: {
         counterpart_id: counterpartId
