@@ -11,7 +11,7 @@ import * as schema from "../src/server/database/schema";
 import { HttpError, ValidationError } from "../src/lib/errors";
 import { categorize, prepareRules } from "../src/lib/rules";
 import { monthPeriod } from "../src/lib/period";
-import { applyRulesToUncorrectedTransactions, categoryUsage, deleteCategory, deleteRule, previewRule, reorderRules } from "../src/features/categorization/server/categorization-service";
+import { applyRulesToUncorrectedTransactions, categoryUsage, createRule, deleteCategory, deleteRule, previewRule, reorderRules } from "../src/features/categorization/server/categorization-service";
 import { listRuleSummaries } from "../src/features/categorization/server/categorization-queries";
 import { listRules } from "../src/features/categorization/server/rule-repository";
 import { readCashFlow } from "../src/features/reports/server/cash-flow-query";
@@ -242,6 +242,7 @@ test("previewing an edit counts the edited rule in place of its stored version",
     rule_id: "rule-market"
   }), {
     id: "rule-market",
+    enabled: true,
     matched: 0,
     uncategorized: 0
   });
@@ -252,6 +253,7 @@ test("previewing an edit counts the edited rule in place of its stored version",
     rule_id: "rule-market"
   }), {
     id: "rule-market",
+    enabled: true,
     matched: 2,
     uncategorized: 1
   });
@@ -351,4 +353,68 @@ test("invalid category deletions change nothing", async context => {
   assert.deepEqual(await storedTransactions(db), transactionsBefore);
   assert.deepEqual(await storedRules(db), rulesBefore);
   assert.ok(await db.select().from(schema.categories).where(eq(schema.categories.id, "groceries")).get());
+});
+
+test("an edit preview of a disabled rule decides nothing, as applying the saved edit would", async context => {
+  const db = await managementDatabase(context);
+  const draft = {
+    pattern: "CINEMA",
+    mode: "keyword",
+    priority: 1,
+    rule_id: "rule-cinema"
+  };
+
+  assert.deepEqual(await previewRule(draft), {
+    id: "rule-cinema",
+    enabled: false,
+    matched: 0,
+    uncategorized: 0
+  });
+
+  // Applying after the saved edit agrees: the disabled rule leaves the cinema booking with its previous category.
+  await db.update(schema.transactions).set({
+    category_id: "groceries"
+  }).where(eq(schema.transactions.id, "cinema-rule"));
+  await applyRulesToUncorrectedTransactions();
+  assert.equal(await categoryOf(db, "cinema-rule"), null);
+});
+
+test("a new rule is stored with its previewed ID, so it decides exactly the counted transactions", async context => {
+  const db = await managementDatabase(context);
+  const draft = {
+    pattern: "CAFE",
+    mode: "keyword",
+    priority: 100
+  };
+  // The ID tie-break against the cafe rule at the same priority decides the outcome; try previews until one sorts first.
+  let preview = await previewRule(draft);
+
+  while (preview.id.localeCompare("rule-cafe") >= 0) {
+    preview = await previewRule(draft);
+  }
+
+  assert.equal(preview.matched, 2);
+  assert.equal(preview.uncategorized, 1);
+  await createRule({
+    ...draft,
+    id: preview.id,
+    name: "Cafe first",
+    category_id: "home",
+    apply_to_uncategorized: true
+  });
+
+  assert.ok((await storedRules(db)).some(rule => rule.id === preview.id));
+  assert.equal(await categoryOf(db, "uncategorized-cafe"), "home");
+  await assert.rejects(createRule({
+    ...draft,
+    id: preview.id,
+    name: "Duplicate",
+    category_id: "home"
+  }), (error: unknown) => error instanceof HttpError && error.status === 409);
+  await assert.rejects(createRule({
+    ...draft,
+    id: "not-a-uuid",
+    name: "Invalid",
+    category_id: "home"
+  }), z.ZodError);
 });

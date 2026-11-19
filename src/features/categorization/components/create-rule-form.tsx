@@ -83,6 +83,7 @@ function useRuleImpact(draft: RulePreviewDraft | null) {
   if (draft === null) {
     return {
       pending: false,
+      previewId: null,
       text: "Enter a pattern and a priority to see which transactions the rule would decide."
     };
   }
@@ -90,6 +91,7 @@ function useRuleImpact(draft: RulePreviewDraft | null) {
   if (current && preview.isError) {
     return {
       pending: false,
+      previewId: null,
       text: `The preview is unavailable: ${toFailure(preview.error).message}`
     };
   }
@@ -97,19 +99,33 @@ function useRuleImpact(draft: RulePreviewDraft | null) {
   if (pending || !preview.data || preview.isPlaceholderData) {
     return {
       pending: true,
+      previewId: null,
       text: "Counting matching transactions …"
+    };
+  }
+
+  // The counted ID breaks equal-priority ties, so a new rule is stored with exactly this ID.
+  const previewId = preview.data.id;
+
+  if (!preview.data.enabled) {
+    return {
+      pending: false,
+      previewId,
+      text: "This rule is disabled, so it decides no transactions until you enable it in the list."
     };
   }
 
   if (preview.data.matched === 0) {
     return {
       pending: false,
+      previewId,
       text: "Would not decide any transactions yet."
     };
   }
 
   return {
     pending: false,
+    previewId,
     text: `Would decide ${transactionCount(preview.data.matched)} without a manual category when rules are applied; ${preview.data.uncategorized.toLocaleString("en")} of them ${preview.data.uncategorized === 1 ? "is" : "are"} uncategorized now.`
   };
 }
@@ -139,10 +155,23 @@ function RuleForm({
 
   return (
     <form
-      onSubmit={event => submit(event, data => ({
-        ...Object.fromEntries(data),
-        priority: Number(data.get("priority"))
-      }))}
+      onSubmit={event => {
+        const previewId = impact.previewId;
+
+        if (!rule && !previewId) {
+          event.preventDefault();
+
+          return;
+        }
+
+        submit(event, data => ({
+          ...Object.fromEntries(data),
+          priority: Number(data.get("priority")),
+          ...(rule ? {} : {
+            id: previewId
+          })
+        }));
+      }}
       className={ui["form"]}
     >
       <div className={ui["form-grid"]}>
@@ -203,7 +232,7 @@ function RuleForm({
       <p className={ui["form-hint"]} role="status" aria-busy={impact.pending}>{impact.text}</p>
       <p className={ui["form-hint"]}>Existing transactions stay unchanged until you apply the rules. Manual assignments are never changed.</p>
       <FormError failure={error} />
-      <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={pending || !categories.data}>
+      <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={pending || !categories.data || (!rule && !impact.previewId)}>
         {rule ? "Save changes" : "Create rule"} <Sparkles size={16} />
       </button>
       {rule && <DeleteButton label="Delete rule" disabled={pending} onClick={onDelete} />}

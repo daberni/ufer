@@ -42,7 +42,9 @@ async function transactionsDecidedBy(rule: Rule) {
   return entries.filter(entry => decidingRule(entry.counterparty, entry.description, rules)?.id === rule.id);
 }
 
-/** Counts the transactions a new or edited enabled rule would categorize, without storing it. Manual assignments are never counted. */
+/**
+ * Counts the transactions a new rule, or an edited rule in its stored enabled state, would categorize, without storing it. A disabled rule decides nothing. Manual assignments are never counted.
+ */
 export async function previewRule(payload: unknown) {
   const {
     rule_id: ruleId,
@@ -51,21 +53,26 @@ export async function previewRule(payload: unknown) {
 
   validatePattern(input.pattern, input.mode);
 
-  if (ruleId !== undefined && !(await listRules()).some(rule => rule.id === ruleId)) {
+  const stored = ruleId === undefined ? undefined : (await listRules()).find(rule => rule.id === ruleId);
+
+  if (ruleId !== undefined && !stored) {
     throw new HttpError(404, "Rule not found.");
   }
 
+  // Editing never changes the enabled state, so an edit is counted as it will be stored.
+  const enabled = stored ? stored.enabled : 1;
   const id = ruleId ?? randomUUID();
-  const decided = await transactionsDecidedBy({
+  const decided = enabled ? await transactionsDecidedBy({
     ...input,
     id,
     name: "",
     category_id: "",
-    enabled: 1
-  });
+    enabled
+  }) : [];
 
   return {
     id,
+    enabled: Boolean(enabled),
     matched: decided.length,
     uncategorized: decided.filter(entry => entry.category_id === null).length
   };
@@ -82,6 +89,11 @@ export async function createRule(payload: unknown) {
 
   if (!(await categoryExists(input.category_id))) {
     throw new ValidationError("Category does not exist.");
+  }
+
+  // A previewed ID decides equal-priority ties exactly as counted, so it must not belong to another rule.
+  if (previewId !== undefined && (await listRules()).some(rule => rule.id === previewId)) {
+    throw new HttpError(409, "This rule preview is outdated. Check the preview and try again.");
   }
 
   const rule = {
