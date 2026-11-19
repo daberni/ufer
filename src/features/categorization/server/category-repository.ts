@@ -136,10 +136,19 @@ export async function deleteCategory(id: string, deletion: CategoryDeletion): Pr
       };
     }
 
-    // Moved rules keep assigning the moved transactions; without a replacement the rules are deleted, and so are their references.
+    // Moved rules keep their references; without a replacement the rules are deleted, so every reference to them is cleared, also from transactions a rule assigned before it was retargeted to this category.
+    if (deletion.replacementId === null) {
+      const deletedRules = tx.select({
+        id: categorizationRules.id
+      }).from(categorizationRules).where(eq(categorizationRules.category_id, id));
+
+      await tx.update(transactions).set({
+        category_rule_id: null
+      }).where(inArray(transactions.category_rule_id, deletedRules));
+    }
+
     const moved = await tx.update(transactions).set({
-      category_id: deletion.replacementId,
-      category_rule_id: deletion.replacementId === null ? null : undefined
+      category_id: deletion.replacementId
     }).where(eq(transactions.category_id, id));
     const rules = deletion.replacementId === null ? await tx.delete(categorizationRules).where(eq(categorizationRules.category_id, id)) : await tx.update(categorizationRules).set({
       category_id: deletion.replacementId

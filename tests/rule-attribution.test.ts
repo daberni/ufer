@@ -193,3 +193,18 @@ test("deleting a category without a replacement deletes its rules and their refe
   });
   assert.deepEqual(await attributions(db), ["market:null:rule:null", "store:null:rule:null"]);
 });
+
+test("deleting a category without a replacement clears references of its rules on bookings they assigned to another category", async context => {
+  const db = await attributionDatabase(context);
+
+  await insertBooking(db, "market", "Example Market");
+  await applyRulesToUncorrectedTransactions();
+  // The rule is retargeted after it assigned the booking, which keeps its earlier category.
+  await db.$client.execute("UPDATE categorization_rules SET category_id='leisure' WHERE id='market-rule'");
+
+  await deleteCategory("leisure", {
+    replacement_id: null
+  });
+
+  assert.deepEqual(await attributions(db), ["market:groceries:rule:null"]);
+});
