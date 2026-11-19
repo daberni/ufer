@@ -10,7 +10,7 @@ import * as schema from "../src/server/database/schema";
 import { createManualAccount, updateManualValuation } from "../src/features/accounts/server/account-service";
 import { listAccounts } from "../src/features/accounts/server/account-queries";
 import { saveAccountSync } from "../src/features/banking/server/account-sync-service";
-import { importTransactions, importValuations } from "../src/features/imports/server/import-service";
+import { importValuations } from "../src/features/imports/server/import-service";
 import { readCashFlow } from "../src/features/reports/server/cash-flow-query";
 import { editManualTransaction, enterManualTransaction, removeManualTransaction, updateTransactionCategory, updateTransactionType } from "../src/features/transactions/server/transaction-service";
 import { pairTransfersInEnvironment } from "../src/features/transactions/server/transfer-repository";
@@ -555,57 +555,42 @@ test("an entered booking follows corrections of the imported booking it is linke
   assert.equal(await balanceOf(cash), -3000);
 });
 
-for (const source of ["bank sync", "CSV import"] as const) {
-  test(`${source} leaves a direction-changing correction unlinked after automatic pairing`, async context => {
-    const db = await isolatedDatabase(context);
-    const sourceAccount = source === "bank sync" ? "checking" : await manualAccount("Synthetic imported account", "0.00");
-    const cash = await manualAccount("Synthetic cash", "0.00");
+test("a bank sync leaves a direction-changing correction unlinked after automatic pairing", async context => {
+  const db = await isolatedDatabase(context);
+  const cash = await manualAccount("Synthetic cash", "0.00");
 
-    async function deliver(amount: number) {
-      if (source === "bank sync") {
-        const booking = await syncBooking(db, "direction-change", "2026-09-10", amount);
+  async function deliver(amount: number) {
+    const booking = await syncBooking(db, "direction-change", "2026-09-10", amount);
 
-        await pairTransfersInEnvironment("SANDBOX");
+    await pairTransfersInEnvironment("SANDBOX");
 
-        return booking;
-      }
+    return booking;
+  }
 
-      await importTransactions({
-        account_id: sourceAccount,
-        csv: `id,date,amount,currency,counterparty,description\ndirection-change,2026-09-10,${(amount / 100).toFixed(2)},EUR,Example counterparty,Synthetic correction`
-      });
-      const booking = await db.select().from(schema.transactions).where(eq(schema.transactions.provider_reference, "csv:direction-change")).get();
-
-      assert.ok(booking);
-
-      return booking;
+  const imported = await deliver(-10000);
+  const entered = await enter(cash, {
+    booking_date: "2026-09-10",
+    amount: "100.00",
+    type: "transfer",
+    transfer: {
+      counterpart_id: imported.id
     }
-
-    const imported = await deliver(-10000);
-    const entered = await enter(cash, {
-      booking_date: "2026-09-10",
-      amount: "100.00",
-      type: "transfer",
-      transfer: {
-        counterpart_id: imported.id
-      }
-    });
-
-    await deliver(3000);
-    const corrected = await row(db, imported.id);
-    const detached = await row(db, entered.id);
-
-    assert.deepEqual([corrected?.amount_minor, corrected?.type, corrected?.transfer_id], [3000, "income", null]);
-    assert.deepEqual([detached?.amount_minor, detached?.type, detached?.transfer_id, detached?.transfer_source], [-3000, "transfer", null, "manual"]);
-    assert.equal(await balanceOf(cash), -3000);
-    const flow = await readCashFlow(monthPeriod(Temporal.PlainYearMonth.from("2026-09")), "EUR");
-
-    assert.deepEqual([flow.income, flow.expenses], [3000, 0]);
-
-    await deliver(3000);
-    assert.deepEqual([(await row(db, imported.id))?.type, (await row(db, imported.id))?.transfer_id, (await row(db, entered.id))?.transfer_id], ["income", null, null]);
   });
-}
+
+  await deliver(3000);
+  const corrected = await row(db, imported.id);
+  const detached = await row(db, entered.id);
+
+  assert.deepEqual([corrected?.amount_minor, corrected?.type, corrected?.transfer_id], [3000, "income", null]);
+  assert.deepEqual([detached?.amount_minor, detached?.type, detached?.transfer_id, detached?.transfer_source], [-3000, "transfer", null, "manual"]);
+  assert.equal(await balanceOf(cash), -3000);
+  const flow = await readCashFlow(monthPeriod(Temporal.PlainYearMonth.from("2026-09")), "EUR");
+
+  assert.deepEqual([flow.income, flow.expenses], [3000, 0]);
+
+  await deliver(3000);
+  assert.deepEqual([(await row(db, imported.id))?.type, (await row(db, imported.id))?.transfer_id, (await row(db, entered.id))?.transfer_id], ["income", null, null]);
+});
 
 test("a counterpart created for a synced booking follows its corrections and is removed when the link ends", async context => {
   const db = await isolatedDatabase(context);

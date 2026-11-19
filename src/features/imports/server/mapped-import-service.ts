@@ -1,0 +1,438 @@
+import { createHash } from "node:crypto";
+import { Temporal } from "temporal-polyfill";
+import { z } from "zod";
+import { categoryNameKey, normalizeCategoryName } from "@/lib/category-name";
+import { HttpError, ValidationError } from "@/lib/errors";
+import { minorUnits } from "@/lib/money";
+import { today, validDate } from "@/lib/time";
+import { listRules } from "@/features/categorization/server/rule-repository";
+import { categorizeEntries } from "@/features/transactions/server/categorize-entries";
+import { pairTransfersInEnvironment } from "@/features/transactions/server/transfer-repository";
+import { environment } from "@/features/banking/server/environment";
+import { currencyAllows, maxCategoryChoicesPerRequest, maxTargetsPerRequest, maxAccountNameLength, maxCategoryLength, maxIdLength, maxSourceLength, normalizeText, type RowError } from "../csv-mapping";
+import { duplicateDateToleranceDays, mappedReferencePrefix, type DuplicateReason } from "./duplicate-matching";
+import { checkMappedEntries, createImportCategory, findImportOpening, findImportTarget, listCategoryNames, saveMappedEntries, type MappedEntry, type NewImportAccount, type OpeningBalance } from "./mapped-import-repository";
+
+export const maxRowsPerRequest = 2000;
+
+const row = z.object({
+  line: z.number().int().min(1),
+  date: z.string(),
+  amount: z.string().max(30),
+  currency: z.string().max(10).nullable(),
+  payee: z.string().max(500),
+  description: z.string().max(2000),
+  category: z.string().max(maxCategoryLength).nullable(),
+  source: z.string().max(maxSourceLength),
+  occurrence: z.number().int().min(0),
+  id: z.string().max(maxIdLength).nullable().default(null)
+});
+
+/** The balance a new account should have: today's balance, or its balance before the file's first row. The difference to the imported rows is booked as an opening balance on `date`. */
+const opening = z.object({
+  kind: z.enum(["current", "start"]),
+  amount: z.string().max(30),
+  date: z.string()
+});
+
+/** A target is an existing account or a new manual account, which the first confirmed batch with rows for it creates. */
+const target = z.object({
+  source: z.string().max(maxSourceLength),
+  account_id: z.string().optional(),
+  new_account: z.object({
+    name: z.string().trim().min(1).max(maxAccountNameLength),
+    currency: z.string().regex(/^[A-Z]{3}$/),
+    opening: opening.optional()
+  }).optional()
+}).refine(value => (value.account_id === undefined) !== (value.new_account === undefined));
+
+/** How the rows' category cells map to categories: an existing category, one created on confirmation, or the rules. Values without a choice match existing categories by name. */
+const categoryChoice = z.object({
+  value: z.string().max(maxCategoryLength),
+  action: z.enum(["existing", "create", "rules"]),
+  category_id: z.string().optional()
+});
+
+const matchedBooking = z.object({
+  account_id: z.string(),
+  reference: z.string(),
+  date: z.string()
+});
+
+const mappedImportInput = z.object({
+  /** Identifies one import of one file; batches and retries with the same ID create each new account once. */
+  import_id: z.uuid(),
+  rows: z.array(row).min(1).max(maxRowsPerRequest),
+  targets: z.array(target).min(1).max(maxTargetsPerRequest),
+  /** Existing bookings that earlier batches of this import matched as duplicates. */
+  consumed: z.array(matchedBooking).max(20_000).default([]),
+  categories: z.array(categoryChoice).max(maxCategoryChoicesPerRequest).default([]),
+  confirm: z.boolean(),
+  /** Marks the last batch of a confirmed import; transfers are paired only then, so the order of batches and accounts cannot decide an ambiguous link. */
+  final: z.boolean().default(true)
+});
+
+type Target = {
+  accountId: string | null;
+  currency: string;
+  newAccount: NewImportAccount | null;
+  opening: OpeningBalance | null;
+};
+
+type PlannedRow = {
+  line: number;
+  accountId: string | null;
+  entry: MappedEntry;
+};
+
+export type MappedImportResult = {
+  confirmed: boolean;
+  /** Rows that are new, or with `confirmed` were saved. */
+  newRows: number;
+  /** Lines with several possible existing bookings in the date window; they import unless the person removes them. */
+  possibleDuplicates: number[];
+  /** Existing bookings this batch matched; the next batch passes them as `consumed`. */
+  matched: z.infer<typeof matchedBooking>[];
+  duplicates: {
+    line: number;
+    reason: DuplicateReason;
+  }[];
+  errors: RowError[];
+  /** CSV category names without a matching category or choice; their rows are categorized by rules. */
+  unknownCategories: string[];
+  /** Categories created for "create" choices; with `confirmed` they were saved. */
+  createdCategories: string[];
+  toleranceDays: number;
+};
+
+/** Checks one batch of mapped rows against their target accounts and, when confirmed, saves the new ones. Nothing persists without confirmation. */
+export async function importMappedRows(payload: unknown, now = Temporal.Now.instant()): Promise<MappedImportResult> {
+  const input = mappedImportInput.parse(payload);
+  const targets = await resolveTargets(input.import_id, input.targets, input.confirm);
+  const errors: RowError[] = [];
+  const planned: PlannedRow[] = [];
+  const categories = await resolveCategories(input.categories, input.confirm);
+  const unknownCategories = new Set<string>();
+  const latestDate = today(now);
+  const repeatedIds = repeatedIdLines(input.rows, targets);
+
+  for (const item of input.rows) {
+    const destination = targets.get(item.source);
+    const failure = repeatedIds.has(item.line) ? "The ID appears more than once for this account." : rowFailure(item, destination, latestDate);
+
+    if (failure || !destination) {
+      errors.push({
+        line: item.line,
+        message: failure ?? "No target account."
+      });
+
+      continue;
+    }
+
+    const category = item.category ? categories.resolve(item.category) : null;
+    const categoryId = category === "unknown" ? null : category;
+
+    if (item.category && category === "unknown") {
+      unknownCategories.add(item.category);
+    }
+
+    const amount = minorUnits(item.amount, destination.currency);
+
+    planned.push({
+      line: item.line,
+      accountId: destination.accountId,
+      entry: {
+        reference: item.id === null ? importReference(item.date, amount, item.payee, item.description, item.occurrence) : idReference(item.id),
+        date: item.date,
+        amount,
+        currency: destination.currency,
+        counterparty: item.payee,
+        description: item.description,
+        categoryId,
+        categorySource: categoryId ? "manual" : "rule"
+      }
+    });
+  }
+
+  // Checking and confirming classify rows with the same function on the same data; confirming does it inside the write transaction.
+  const {
+    duplicates,
+    matched,
+    possible,
+    newRows
+  } = await classifyAndSave(planned, targets, input.consumed, input.confirm);
+
+  // Pairing sees every account this import touched at once, so a transfer with candidates in two of them stays ambiguous.
+  if (input.confirm && input.final) {
+    await pairTransfersInEnvironment(environment());
+  }
+
+  return {
+    confirmed: input.confirm,
+    newRows,
+    matched,
+    possibleDuplicates: possible.sort((left, right) => left - right),
+    duplicates: [...duplicates].map(([line, reason]) => ({
+      line,
+      reason
+    })).sort((left, right) => left.line - right.line),
+    errors,
+    unknownCategories: [...unknownCategories].sort(),
+    createdCategories: categories.created,
+    toleranceDays: duplicateDateToleranceDays
+  };
+}
+
+async function resolveTargets(importId: string, inputs: z.infer<typeof target>[], confirm: boolean) {
+  const targets = new Map<string, Target>();
+
+  for (const input of inputs) {
+    if (input.new_account) {
+      const id = importAccountId(importId, input.source);
+      const persisted = await findImportTarget(id);
+      const opening = input.new_account.opening ? openingBalance(importAccountId(importId, `${input.source}|opening|${input.new_account.opening.kind}`), input.new_account.opening, input.new_account.currency) : null;
+
+      // An earlier confirmed batch of this import created the account; its stored configuration is authoritative.
+      if (persisted && (persisted.currency !== input.new_account.currency || persisted.name !== input.new_account.name || !await sameOpening(importId, input.source, persisted.id, opening))) {
+        throw new ValidationError(`The account “${persisted.name}” (${persisted.currency}) was already created by this import; keep its name, currency and balance.`);
+      }
+
+      // Checking creates nothing: until the account exists it has no bookings to compare against.
+      targets.set(input.source, {
+        accountId: confirm || persisted ? id : null,
+        currency: input.new_account.currency,
+        newAccount: persisted ? null : {
+          name: input.new_account.name,
+          currency: input.new_account.currency
+        },
+        opening
+      });
+
+      continue;
+    }
+
+    const account = await findImportTarget(input.account_id ?? "");
+
+    if (!account) {
+      throw new HttpError(404, "Target account not found.");
+    }
+
+    targets.set(input.source, {
+      accountId: account.id,
+      currency: account.currency,
+      newAccount: null,
+      opening: null
+    });
+  }
+
+  return targets;
+}
+
+/**
+ * Whether a resumed import states the opening balance the account already has: the same kind (part of the booking's ID), date and amount.
+ * A `current` balance is compared as the account's balance, its opening booking plus every other transaction.
+ */
+async function sameOpening(importId: string, source: string, accountId: string, opening: OpeningBalance | null) {
+  const kinds = ["current", "start"] as const;
+  const stored = await findImportOpening(accountId, kinds.map(kind => importAccountId(importId, `${source}|opening|${kind}`)));
+
+  if (!opening || !stored) {
+    return !opening && !stored;
+  }
+
+  const statedAmount = opening.kind === "current" ? stored.amount + stored.others : stored.amount;
+
+  return stored.id === opening.id && stored.date === opening.date && statedAmount === opening.amount;
+}
+
+/** A stable account ID per banking environment, import and source account, so every batch and retry of one import targets the same new account, and the same file imported in another environment gets its own. */
+function importAccountId(importId: string, source: string) {
+  const hex = createHash("sha256").update(`${environment()}|${importId}|${source}`).digest("hex");
+
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
+}
+
+function rowFailure(item: z.infer<typeof row>, destination: Target | undefined, latestDate: Temporal.PlainDate) {
+  if (!destination) {
+    return `No target account for “${item.source}”.`;
+  }
+
+  if (!validDate(item.date)) {
+    return "The date is invalid.";
+  }
+
+  if (Temporal.PlainDate.compare(Temporal.PlainDate.from(item.date), latestDate) > 0) {
+    return "The booking date is in the future.";
+  }
+
+  if (!currencyAllows(item.currency, destination.currency)) {
+    return `The currency ${item.currency} differs from the account currency ${destination.currency}.`;
+  }
+
+  try {
+    minorUnits(item.amount, destination.currency);
+  } catch (error) {
+    if (error instanceof ValidationError) {
+      return error.message;
+    }
+
+    throw error;
+  }
+
+  return null;
+}
+
+/** A reference from the export's ID, so a reimport recognizes the row even when its content changed. References are unique per account, so equal IDs in different accounts do not collide. */
+function idReference(id: string) {
+  return `${mappedReferencePrefix}${createHash("sha256").update(`id|${id}`).digest("hex").slice(0, 32)}`;
+}
+
+/** Lines whose ID another row for the same target account repeats; the client rejects them already, so this guards each batch. */
+function repeatedIdLines(rows: z.infer<typeof row>[], targets: Map<string, Target>) {
+  const lines = new Map<string, number[]>();
+
+  for (const item of rows) {
+    if (item.id !== null) {
+      const account = targets.get(item.source)?.accountId ?? `new:${item.source}`;
+      const key = `${account}\u0000${item.id}`;
+
+      lines.set(key, [...lines.get(key) ?? [], item.line]);
+    }
+  }
+
+  return new Set([...lines.values()].filter(group => group.length > 1).flat());
+}
+
+function openingBalance(id: string, input: z.infer<typeof opening>, currency: string): OpeningBalance {
+  if (!validDate(input.date)) {
+    throw new ValidationError("The opening balance date is invalid.");
+  }
+
+  return {
+    id,
+    kind: input.kind,
+    amount: minorUnits(input.amount, currency),
+    date: input.date
+  };
+}
+
+/**
+ * Resolves category choices once per batch. "create" choices reuse a category whose name matches and otherwise create one on confirmation; checking only reports them.
+ * Values without a choice match existing categories by name, and unmatched ones are reported as unknown.
+ */
+async function resolveCategories(choices: z.infer<typeof categoryChoice>[], confirm: boolean) {
+  const existing = await listCategoryNames();
+  const byName = new Map(existing.map(category => [categoryNameKey(category.name), category.id]));
+  const byId = new Set(existing.map(category => category.id));
+  const chosen = new Map<string, string | null>();
+  const created: string[] = [];
+
+  for (const choice of choices) {
+    if (choice.action === "rules") {
+      chosen.set(choice.value, null);
+
+      continue;
+    }
+
+    if (choice.action === "existing") {
+      if (!choice.category_id || !byId.has(choice.category_id)) {
+        throw new ValidationError(`The category chosen for “${choice.value}” no longer exists.`);
+      }
+
+      chosen.set(choice.value, choice.category_id);
+
+      continue;
+    }
+
+    const name = normalizeCategoryName(choice.value);
+
+    if (!name) {
+      throw new ValidationError("A category name cannot be empty.");
+    }
+
+    const match = byName.get(categoryNameKey(name));
+
+    if (match) {
+      chosen.set(choice.value, match);
+
+      continue;
+    }
+
+    created.push(name);
+
+    if (!confirm) {
+      chosen.set(choice.value, null);
+
+      continue;
+    }
+
+    const id = await createImportCategory(name);
+
+    byName.set(categoryNameKey(name), id);
+    chosen.set(choice.value, id);
+  }
+
+  return {
+    created,
+    resolve(value: string): string | null | "unknown" {
+      if (chosen.has(value)) {
+        return chosen.get(value) ?? null;
+      }
+
+      return byName.get(categoryNameKey(value)) ?? "unknown";
+    }
+  };
+}
+
+/** A stable reference from the row's content, so the same file imported again matches its earlier rows exactly. */
+function importReference(date: string, amount: number, payee: string, description: string, occurrence: number) {
+  const content = [date, amount, normalizeText(payee), normalizeText(description), occurrence].join("|");
+
+  return `${mappedReferencePrefix}${createHash("sha256").update(content).digest("hex").slice(0, 32)}`;
+}
+
+async function classifyAndSave(planned: PlannedRow[], targets: Map<string, Target>, consumed: z.infer<typeof matchedBooking>[], confirm: boolean) {
+  const duplicates = new Map<number, DuplicateReason>();
+  const matched: z.infer<typeof matchedBooking>[] = [];
+  const possible: number[] = [];
+  const rules = confirm ? await listRules() : [];
+  const newAccounts = new Map([...targets.values()].flatMap(target => target.accountId && target.newAccount ? [[target.accountId, target.newAccount] as const] : []));
+  const openings = new Map([...targets.values()].flatMap(target => target.accountId && target.opening ? [[target.accountId, target.opening] as const] : []));
+  let newRows = planned.filter(item => item.accountId === null).length;
+
+  for (const accountId of new Set(planned.flatMap(item => item.accountId ? [item.accountId] : []))) {
+    const rows = planned.filter(item => item.accountId === accountId);
+    const entries = rows.map(item => item.entry);
+    const absorbed = new Set(consumed.filter(item => item.account_id === accountId).map(item => item.reference));
+    const result = confirm ? await saveMappedEntries(accountId, categorized(entries, rules), newAccounts.get(accountId) ?? null, absorbed, openings.get(accountId) ?? null) : await checkMappedEntries(accountId, entries, absorbed);
+
+    for (const [index, reason] of result.duplicates) {
+      duplicates.set(rows[index].line, reason);
+    }
+
+    possible.push(...result.possible.map(index => rows[index].line));
+    matched.push(...result.matched.map(booking => ({
+      account_id: accountId,
+      ...booking
+    })));
+    newRows += result.inserted;
+  }
+
+  return {
+    duplicates,
+    matched,
+    possible,
+    newRows
+  };
+}
+
+/** Rules categorize rows without a category from the CSV. */
+function categorized(entries: MappedEntry[], rules: Awaited<ReturnType<typeof listRules>>) {
+  const uncategorized = entries.filter(entry => !entry.categoryId);
+  const ruled = categorizeEntries(uncategorized, rules);
+
+  return entries.map(entry => entry.categoryId ? entry : {
+    ...entry,
+    categoryId: ruled[uncategorized.indexOf(entry)].categoryId
+  });
+}

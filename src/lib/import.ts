@@ -3,7 +3,6 @@ import { parse } from "csv-parse/sync";
 import { Temporal } from "temporal-polyfill";
 import { minorUnits } from "./money";
 import { today, validDate } from "./time";
-import type { Entry } from "@/features/transactions/server/transaction-entry";
 
 type CsvRow = Record<string, string>;
 
@@ -30,39 +29,6 @@ export function parseBalancesCsv(text: string, currency: string, now = Temporal.
       amount: rowAmount(line, row.balance, currency)
     };
   }).sort((a, b) => a.date.localeCompare(b.date));
-}
-
-export function parseTransactionsCsv(text: string, currency: string, now = Temporal.Now.instant()): Entry[] {
-  const rows = readCsvRows(text, "transactions", "id,date,amount,currency,counterparty,description");
-  const references = new Set<string>();
-  const latestDate = today(now);
-
-  return rows.map((row, index) => {
-    const line = index + 2;
-
-    if (!row.id || row.id.length > 200 || !validDate(row.date || "") || !row.amount || row.currency !== currency) {
-      throw new ValidationError(`CSV row ${line}: id, ISO date, amount, or account currency is missing or invalid.`);
-    }
-
-    if (isFutureDate(row.date, latestDate)) {
-      throw new ValidationError(`CSV row ${line}: the booking date is in the future.`);
-    }
-
-    if (references.has(row.id)) {
-      throw new ValidationError(`CSV row ${line}: duplicate ID.`);
-    }
-
-    references.add(row.id);
-
-    return {
-      reference: `csv:${row.id}`,
-      date: row.date,
-      amount: rowAmount(line, row.amount, currency),
-      currency,
-      counterparty: (row.counterparty || "").slice(0, 500),
-      description: (row.description || "").slice(0, 2000)
-    };
-  });
 }
 
 function readCsvRows(text: string, noun: string, expectedColumns: string) {
