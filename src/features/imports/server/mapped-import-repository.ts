@@ -176,6 +176,8 @@ export async function adoptImportedRows(tx: DatabaseTransaction, accountId: stri
     }
 
     used.add(row.id);
+    // A repeated bank entry must not adopt a second imported row under the same reference.
+    knownReferences.add(entry.reference);
     await tx.update(transactions).set({
       provider_reference: entry.reference
     }).where(eq(transactions.id, row.id));

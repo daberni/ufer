@@ -936,3 +936,47 @@ test("scientific notation is a row error that explains the likely spreadsheet ex
 
   assert.match(result.errors[0]?.message ?? "", /Scientific notation is not supported/);
 });
+
+test("a bank entry repeated in one response adopts only one CSV-imported row", async context => {
+  const db = await isolatedDatabase(context);
+
+  await insertBankAccount(db);
+  await importMappedRows({
+    import_id: importId,
+    rows: [mappedRow(2, "2024-06-01", "-18.40", "Example Bistro"), mappedRow(3, "2024-06-01", "-18.40", "Example Bistro", {
+      occurrence: 1
+    })],
+    targets: [{
+      source: "",
+      account_id: "synthetic-bank-account"
+    }],
+    confirm: true
+  }, now);
+  await startSyncRun(db, "SANDBOX", "repeat", "2026-06-30T08:00:00.000Z");
+
+  const booking = {
+    reference: "bank:bistro",
+    date: "2024-06-01",
+    amount: -1840,
+    currency: "EUR",
+    counterparty: "EXAMPLE BISTRO",
+    description: ""
+  };
+
+  await saveAccountSync(db, {
+    environment: "SANDBOX",
+    startedAt: "2026-06-30T08:00:00.000Z"
+  }, "synthetic-bank-account", "EUR", [{
+    balance_type: "CLBD",
+    balance_amount: {
+      amount: "100.00",
+      currency: "EUR"
+    },
+    reference_date: "2026-06-29"
+  }], [booking, {
+    ...booking
+  }], []);
+  const rows = await db.select().from(schema.transactions);
+
+  assert.deepEqual(rows.map(row => row.provider_reference.startsWith("csv:") ? "csv" : row.provider_reference).sort(), ["bank:bistro", "csv"]);
+});

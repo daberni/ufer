@@ -3,7 +3,7 @@
 import ui from "../../../components/ui/primitives.module.css";
 
 import { clsx } from "clsx";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { ArrowDownToLine, SearchCheck } from "lucide-react";
 import styles from "./mapped-csv-import.module.css";
 import { Select } from "@/components/ui/select";
@@ -54,6 +54,7 @@ export function MappedCsvImport({
   const [importId, setImportId] = useState(() => crypto.randomUUID());
   // Once a batch is saved, new accounts exist with the chosen name and currency; changing targets would split the import.
   const [targetsLocked, setTargetsLocked] = useState(false);
+  const latestSelection = useRef(0);
   const accounts = useAccounts();
   const mutation = useMappedImport();
   const table = useMemo(() => {
@@ -78,6 +79,8 @@ export function MappedCsvImport({
   const targetsComplete = resolvedTargets.every(target => target.accountId !== "" && (target.accountId !== "new" || target.name.trim() !== ""));
 
   async function load(selected: File | undefined) {
+    const selection = ++latestSelection.current;
+
     setSummary(null);
     setFileError(null);
 
@@ -98,6 +101,12 @@ export function MappedCsvImport({
     }
 
     const bytes = new Uint8Array(await selected.arrayBuffer());
+
+    // A later selection, including a rejected one, supersedes this read.
+    if (selection !== latestSelection.current) {
+      return;
+    }
+
     const decoded = decodeCsv(bytes);
     const delimiter = detectDelimiter(decoded.text);
     const [header = [], ...rows] = parseCsv(decoded.text, delimiter);
@@ -163,7 +172,7 @@ export function MappedCsvImport({
       rowErrors: mapped.errors,
       targets: resolvedTargets,
       confirm,
-      onBatchSaved: () => setTargetsLocked(true)
+      onConfirmStart: () => setTargetsLocked(true)
     }, {
       onSuccess: result => {
         if (confirm) {
