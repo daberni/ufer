@@ -135,11 +135,20 @@ function signedAmount(flow: Flow, amount: number) {
   return flow === "income" ? amount : -amount;
 }
 
+/** Each bar is anchored at the zero line, so a minimum height for tiny bars grows away from it. */
 function barPosition(flow: Flow, amount: number, scale: CashFlowScale): CSSProperties {
-  const span = barSpan(signedAmount(flow, amount), scale);
+  const signed = signedAmount(flow, amount);
+  const span = barSpan(signed, scale);
+
+  if (signed > 0) {
+    return {
+      bottom: percent(1 - scale.zero),
+      height: percent(span.height)
+    };
+  }
 
   return {
-    top: percent(span.top),
+    top: percent(scale.zero),
     height: percent(span.height)
   };
 }

@@ -165,7 +165,8 @@
   position: absolute;
   left: 50%;
   width: clamp(12px, 40%, 24px);
-  min-height: 1px;
+  /* A nonzero bar keeps at least a 1px mark beyond the 3px it leaves clear of the zero line. */
+  min-height: 4px;
   transform: translateX(-50%);
   display: flex;
   overflow: hidden;
