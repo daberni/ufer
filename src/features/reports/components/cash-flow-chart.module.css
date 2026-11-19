@@ -83,7 +83,7 @@
   inset: var(--space-2) 0 calc(23px + var(--space-2));
   pointer-events: none;
 }
-/* The zero line is the plot's top layer: one opaque, device-pixel-aligned line that looks the same over bars, the highlight and the net area. */
+/* The zero line is the plot's top layer: an opaque hairline in the border colour, aligned to a device pixel row, that looks the same over bars, the highlight and the net area. */
 .zero-layer {
   z-index: calc(var(--layer-raised) + 2);
 }
@@ -92,7 +92,7 @@
   left: 0;
   right: 0;
   height: 1px;
-  background: color-mix(in srgb, var(--muted) 50%, var(--surface));
+  background: var(--border-strong);
 }
 /* The net is a quiet area behind the bars: the bars stay the primary reading, the area shows surplus and deficit between them. */
 .net-area {

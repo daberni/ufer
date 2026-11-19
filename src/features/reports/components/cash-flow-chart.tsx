@@ -173,7 +173,7 @@ function ZeroLine({ scale }: {
   );
 }
 
-/** Places a 1px line at a fraction of its container's height, rounded to a device pixel row, so it is drawn crisp and identical over everything beneath it. */
+/** Places a hairline (one device pixel tall) at a fraction of its container's height, rounded to a device pixel row, so it is drawn crisp and identical over everything beneath it. */
 function useDevicePixelTop(lineRef: RefObject<HTMLSpanElement | null>, fraction: number) {
   useLayoutEffect(() => {
     const line = lineRef.current;
@@ -189,6 +189,7 @@ function useDevicePixelTop(lineRef: RefObject<HTMLSpanElement | null>, fraction:
       const target = Math.round((box.top + fraction * box.height) * ratio) / ratio;
 
       line.style.top = `${target - box.top}px`;
+      line.style.height = `${1 / ratio}px`;
     };
     const observer = new ResizeObserver(place);
 
