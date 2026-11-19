@@ -926,3 +926,9 @@ test("references stay stable when the export reorders rows", async context => {
   assert.equal(again.newRows, 0);
   assert.equal((await db.select().from(schema.transactions)).length, 3);
 });
+
+test("scientific notation is a row error that explains the likely spreadsheet export", () => {
+  const result = mapRows([["2024-01-01", "1.5E+03", "Shop", ""]], plainMapping, isoSettings);
+
+  assert.match(result.errors[0]?.message ?? "", /Scientific notation is not supported/);
+});

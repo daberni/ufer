@@ -1,3 +1,6 @@
+import { parse } from "csv-parse/browser/esm/sync";
+import { Temporal } from "temporal-polyfill";
+
 // Reads arbitrary transaction CSV exports in the browser and maps their columns to import rows. Shared with the server, so it must stay free of server-only imports.
 
 /** Days a booking date may differ between duplicates: banks and exports disagree between booking and value date, and weekends shift bookings by up to three days. */
@@ -120,29 +123,22 @@ export function decodeCsv(bytes: Uint8Array, encoding?: CsvEncoding): {
   }
 }
 
-/** The candidate delimiter that occurs most often outside quotes in the first line. */
+const delimiters: CsvDelimiter[] = [";", ",", "\t", "|"];
+
+/** The candidate delimiter that splits the first records into the most columns, counting only records with the header's column count. */
 export function detectDelimiter(text: string): CsvDelimiter {
-  const candidates: CsvDelimiter[] = [";", ",", "\t", "|"];
-  const firstLine = parseCsv(text.slice(0, 20_000), "\n")[0]?.[0] ?? "";
-  const counts = candidates.map(candidate => countOutsideQuotes(firstLine, candidate));
-  const best = counts.indexOf(Math.max(...counts));
+  const scores = delimiters.map(delimiter => {
+    try {
+      const [header = [], ...rows] = parseCsv(text, delimiter, 50);
 
-  return counts[best] > 0 ? candidates[best] : ",";
-}
-
-function countOutsideQuotes(line: string, character: string) {
-  let quoted = false;
-  let count = 0;
-
-  for (const current of line) {
-    if (current === "\"") {
-      quoted = !quoted;
-    } else if (!quoted && current === character) {
-      count++;
+      return header.length < 2 ? 0 : header.length * (1 + rows.filter(row => row.length === header.length).length);
+    } catch {
+      return 0;
     }
-  }
+  });
+  const best = scores.indexOf(Math.max(...scores));
 
-  return count;
+  return scores[best] > 0 ? delimiters[best] : ",";
 }
 
 /** A CSV record with the physical line it starts on, counting from 1. */
@@ -151,66 +147,37 @@ export type CsvRecord = {
   line: number;
 };
 
-/** Splits CSV text into trimmed cells, honoring quoted fields with doubled quotes, delimiters and line breaks; blank lines are dropped. A quote only opens a quoted field at the start of a cell. */
-export function parseCsvRecords(text: string, delimiter: string): CsvRecord[] {
-  const records: CsvRecord[] = [];
-  let row: string[] = [];
-  let cell = "";
-  let quoted = false;
-  let line = 1;
-  let rowLine = 1;
+/** Parses CSV text with csv-parse into trimmed cells; quotes inside unquoted cells are literal, line endings may be mixed, and blank records are dropped. */
+export function parseCsvRecords(text: string, delimiter: string, toLine?: number): CsvRecord[] {
+  // With `info`, csv-parse returns each record with its parsing metadata.
+  const records = parse(text, {
+    delimiter,
+    record_delimiter: ["\r\n", "\n", "\r"],
+    bom: true,
+    relax_quotes: true,
+    relax_column_count: true,
+    skip_empty_lines: true,
+    info: true,
+    to_line: toLine
+  }) as unknown as {
+    record: string[];
+    info: {
+      lines: number;
+    };
+  }[];
 
-  function endRow() {
-    row.push(cell.trim());
-
-    if (row.some(value => value !== "")) {
-      records.push({
-        cells: row,
-        line: rowLine
-      });
-    }
-
-    row = [];
-    cell = "";
-  }
-
-  for (let index = 0; index < text.length; index++) {
-    const current = text[index];
-
-    if (current === "\n") {
-      line++;
-    }
-
-    if (quoted) {
-      if (current === "\"" && text[index + 1] === "\"") {
-        cell += "\"";
-        index++;
-      } else if (current === "\"") {
-        quoted = false;
-      } else {
-        cell += current;
-      }
-    } else if (current === "\"" && cell.trim() === "") {
-      quoted = true;
-      cell = "";
-    } else if (current === delimiter) {
-      row.push(cell.trim());
-      cell = "";
-    } else if (current === "\n") {
-      endRow();
-      rowLine = line;
-    } else if (current !== "\r") {
-      cell += current;
-    }
-  }
-
-  endRow();
-
-  return records;
+  return records.map(({
+    record,
+    info
+  }) => ({
+    cells: record.map(cell => cell.trim()),
+    // csv-parse reports the line a record ends on; quoted line breaks move its start back.
+    line: info.lines - record.reduce((breaks, cell) => breaks + cell.split("\n").length - 1, 0)
+  })).filter(record => record.cells.some(cell => cell !== ""));
 }
 
-export function parseCsv(text: string, delimiter: string): string[][] {
-  return parseCsvRecords(text, delimiter).map(record => record.cells);
+export function parseCsv(text: string, delimiter: string, toLine?: number): string[][] {
+  return parseCsvRecords(text, delimiter, toLine).map(record => record.cells);
 }
 
 // Two-digit years belong to the most recent century that does not put them in the future.
@@ -239,15 +206,18 @@ export function parseDate(value: string, format: DateFormat): string | null {
   }
 
   const year = groups.year.length === 2 ? twoDigitYear(Number(groups.year)) : Number(groups.year);
-  const month = Number(groups.month);
-  const day = Number(groups.day);
-  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
 
-  if (month < 1 || month > 12 || day < 1 || day > daysInMonth) {
+  try {
+    return Temporal.PlainDate.from({
+      year,
+      month: Number(groups.month),
+      day: Number(groups.day)
+    }, {
+      overflow: "reject"
+    }).toString();
+  } catch {
     return null;
   }
-
-  return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
 const currencySymbols: Record<string, string | null> = {
@@ -448,7 +418,9 @@ export function mapRows(rows: string[][], mapping: CsvMapping, settings: CsvSett
     const amount = rowAmount(cell, mapping, settings.decimal);
 
     if (amount === null) {
-      failure("The amount is missing or not a number with at most 15 digits and 6 decimal places.");
+      const scientific = [mapping.amount, mapping.debit, mapping.credit].some(column => /\d[eE][+-]?\d/.test(cell(column)));
+
+      failure(scientific ? "Scientific notation is not supported; export amounts as plain numbers." : "The amount is missing or not a number with at most 15 digits and 6 decimal places.");
 
       return;
     }
