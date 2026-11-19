@@ -1,20 +1,55 @@
 .legend-dot {
   composes: legend-dot from "../../../components/ui/primitives.module.css";
 }
+.legend-dot.income-dot {
+  background: var(--chart-income);
+}
 .legend-dot.expense-dot {
   background: var(--chart-expense);
 }
+.legend-area {
+  display: inline-block;
+  width: 14px;
+  height: 8px;
+  border-top: 1px solid var(--muted);
+  background: var(--chart-income);
+  opacity: 0.45;
+}
+/* Title and month range share one baseline, legend entries and the savings rate another; the category panel's header uses the same rows. */
+.chart-panel .heading {
+  align-items: baseline;
+}
 .chart-legend {
   display: flex;
-  gap: var(--space-4);
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2) var(--space-4);
   margin-top: var(--space-4);
   font-size: var(--text-sm);
   color: var(--muted);
 }
 .chart-legend > span {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: var(--space-2);
+}
+.chart-legend i {
+  align-self: center;
+}
+.chart-legend > .savings-rate {
+  margin-left: auto;
+}
+/* The value keeps one width for every rate from "–" to "-100%" and while loading, so the legend never shifts. */
+.savings-rate .negative {
+  color: var(--danger-text);
+}
+.savings-rate strong {
+  display: inline-block;
+  min-width: 5ch;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: var(--ink);
 }
 /* Beside the category panel, the plot grows to the shared row height instead of leaving a gap below the bars. */
 .chart-panel {
@@ -28,80 +63,106 @@
   flex-direction: column;
   margin-top: var(--space-6);
 }
-/* The loading placeholder around the skeleton passes the height on to it. */
-.plot > :not(.bar-chart, .chart-empty-note) {
+/* The loading placeholder and its inner wrapper pass the plot's height on to the skeleton, so the skeleton's month labels sit where the loaded chart puts them. */
+.plot > :not(.bar-chart, .chart-empty-note),
+.plot > :not(.bar-chart, .chart-empty-note) > * {
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
 }
+/* Month columns share the width equally, so the net line's points meet the column centres. */
 .bar-chart {
   flex: 1 1 auto;
   display: flex;
-  align-items: flex-end;
-  justify-content: space-around;
-  gap: var(--space-4);
-  min-height: 160px;
-  padding: 0 var(--space-2);
+  min-height: 180px;
   position: relative;
 }
-.chart-grid {
+/* The bar area above the month labels, shared by the zero line, the net line and each column's bars. */
+.plot-area {
   position: absolute;
-  inset: 0 0 23px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
+  inset: var(--space-2) 0 calc(23px + var(--space-2));
   pointer-events: none;
 }
-.chart-grid span {
-  display: block;
-  border-top: 1px dashed var(--border);
+/* The zero line is the plot's top layer: an opaque hairline in the border colour, aligned to a device pixel row, that looks the same over bars, the highlight and the net area. */
+.zero-layer {
+  z-index: calc(var(--layer-raised) + 2);
 }
-.bar-group {
+.hairline {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--border-strong);
+}
+/* The net is a quiet area behind the bars: the bars stay the primary reading, the area shows surplus and deficit between them. */
+.net-area {
+  position: absolute;
+  inset: 0;
+  width: 100%;
   height: 100%;
-  flex: 1;
-  max-width: 70px;
+  overflow: visible;
+}
+.net-surplus {
+  fill: var(--chart-income);
+  opacity: 0.22;
+}
+.net-deficit {
+  fill: var(--chart-expense);
+  opacity: 0.22;
+}
+.net-outline {
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 1px;
+  stroke-linejoin: round;
+  opacity: 0.6;
+}
+/* The whole column is the hover, focus and tap target of its month. */
+.month {
+  flex: 1 1 0;
+  min-width: 0;
   position: relative;
   z-index: var(--layer-raised);
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
-  text-align: center;
-}
-.bars {
-  height: calc(100% - 23px);
-  display: flex;
-  gap: var(--space-1);
-  justify-content: center;
-}
-/* Each bar's target spans its half of the month column, so the narrow bars are easy to hover and tap. */
-.bar-target {
-  flex: 1 1 0;
-  max-width: 30px;
-  display: flex;
-  align-items: flex-end;
   margin: 0;
-  padding: 0;
+  padding: var(--space-2) 0;
   border: 0;
   border-radius: var(--radius-sm);
   background: none;
   color: inherit;
-  cursor: default;
+  font: inherit;
+  cursor: pointer;
 }
-.bar-target[data-flow="income"] {
-  justify-content: flex-end;
+.column-highlight {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: var(--radius-sm);
+  background: var(--chart-track);
+  pointer-events: none;
 }
-.bar-target[data-flow="expenses"] {
-  justify-content: flex-start;
+.bars {
+  position: relative;
+  flex: 1 1 auto;
 }
 .bar {
+  position: absolute;
+  left: 50%;
+  width: clamp(12px, 40%, 24px);
+  /* Three device pixels: the hairline covers one, rounding the line to a pixel row can take up to another, and at least one stays visible beyond it in either direction. */
+  min-height: calc(3px / var(--device-pixel-ratio, 1));
+  transform: translateX(-50%);
   display: flex;
-  flex-direction: column-reverse;
-  flex-shrink: 0;
-  width: 15px;
-  min-height: 1px;
   overflow: hidden;
-  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
   transition: opacity var(--duration) ease;
+}
+/* Bars on the same side of the zero line sit next to each other: income left, expenses right. */
+.income-bar[data-shared] {
+  transform: translateX(calc(-100% - 1px));
+}
+.expense-bar[data-shared] {
+  transform: translateX(1px);
 }
 .income-bar {
   background: var(--chart-income);
@@ -109,23 +170,40 @@
 .expense-bar {
   background: var(--chart-expense);
 }
+/* Category segments stack outward from the zero line. */
+.bar[data-direction="up"] {
+  flex-direction: column-reverse;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+}
+.bar[data-direction="down"] {
+  flex-direction: column;
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+}
 .bar > span {
   flex: none;
 }
-/* A hairline in the panel color separates stacked category segments. */
-.bar > span + span {
-  box-shadow: inset 0 -1px 0 var(--surface);
+.net-point {
+  position: absolute;
+  left: 50%;
+  width: 6px;
+  height: 6px;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  background: var(--ink);
+  box-sizing: content-box;
+  transform: translate(-50%, -50%);
 }
 .month-label {
   font-size: var(--text-xs);
   color: var(--muted);
   height: 23px;
-  padding-top: var(--space-3);
+  padding-top: var(--space-2);
+  text-align: center;
 }
-.bar-chart[data-active] .bar-target:not([data-active]) .bar {
-  opacity: 0.4;
+.bar-chart[data-active] .month:not([data-active]) .bar {
+  opacity: 0.45;
 }
-.bar-group[data-active] .month-label {
+.month[data-active] .month-label {
   color: var(--ink);
 }
 .chart-empty-note {
@@ -136,12 +214,7 @@
 }
 @media (--wide) {
   .bar-chart {
-    min-height: 190px;
-  }
-}
-@media (--tablet) {
-  .bar-chart {
-    gap: var(--space-2);
+    min-height: 210px;
   }
 }
 @media (--mobile) {
@@ -149,8 +222,6 @@
     font-size: var(--text-sm);
   }
   .bar-chart {
-    min-height: 180px;
-    gap: var(--space-2);
-    padding: 0;
+    min-height: 200px;
   }
 }

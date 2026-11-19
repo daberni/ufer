@@ -557,7 +557,7 @@ test("the transaction type upgrade turns transfer-category bookings into transfe
       assert.deepEqual({
         income: after.income,
         expenses: after.expenses,
-        breakdown: after.breakdown.map(item => [item.categoryId, item.amount])
+        breakdown: after.expenseBreakdown.map(item => [item.categoryId, item.amount])
       }, resultsBefore[index], month);
     }
   } finally {
