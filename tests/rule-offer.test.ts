@@ -42,6 +42,7 @@ function booking(id: string, counterparty: string): Transaction {
     account_id: "synthetic-account",
     category_id: null,
     category_source: "rule",
+    category_rule_id: null,
     type: "expense",
     type_source: "auto",
     manual_account: false,
@@ -228,6 +229,11 @@ test("rule creation is announced quietly and a later failed assignment reports i
       matched: 0,
       uncategorized: 0
     }));
+  }
+
+  // The rule provider reads the rule list to open a category's assigning rule, so creating a rule refreshes it before the dialog closes.
+  for (const list of requests("rules").filter(request => request.method === "GET")) {
+    await respond(list, Response.json([]));
   }
 
   assert.equal(screen.queryAllByRole("dialog").length, 0);
@@ -550,6 +556,71 @@ test("an explicitly opened draft survives removal of its filtered source row and
     }));
   }
 
+  for (const list of requests("rules").filter(request => request.method === "GET")) {
+    await respond(list, Response.json([]));
+  }
+
   assert.equal(screen.queryAllByRole("dialog").length, 0);
   assert.equal(document.activeElement === headingRef.current, true);
+});
+
+test("a rule-assigned category opens its recorded rule, and an unrecorded one stays informational", async context => {
+  const {
+    pending,
+    queryClient
+  } = browser(context);
+
+  modalDialogs();
+  const withRules = await transactionRuleScope(queryClient);
+  const { TransactionCategory } = await import("../src/features/transactions/components/transaction-category");
+  const recorded = {
+    ...booking("recorded-entry", "Example Market"),
+    category_id: "groceries",
+    category_rule_id: "market-rule"
+  };
+  const unrecorded = {
+    ...booking("unrecorded-entry", "Example Bakery"),
+    category_id: "groceries"
+  };
+  const screen = render(withRules(createElement(Fragment, null, createElement(TransactionCategory, {
+    categories,
+    transaction: recorded
+  }), createElement(TransactionCategory, {
+    categories,
+    transaction: unrecorded
+  }))));
+
+  await respond(pending.find(request => request.url.pathname === "/api/rules"), Response.json([{
+    id: "market-rule",
+    name: "Markets",
+    pattern: "MARKET",
+    mode: "keyword",
+    category_id: "groceries",
+    category_name: "Groceries",
+    priority: 100,
+    enabled: 1,
+    category_color: "#638777",
+    category_icon: null
+  }]));
+
+  const action = screen.getByRole("button", {
+    name: "Open rule Markets"
+  });
+
+  assert.equal(screen.queryAllByRole("button", {
+    name: /^Open rule/
+  }).length, 1);
+  assert.equal(screen.getAllByText("Assigned by a rule; source rule not recorded").length, 1);
+
+  act(() => {
+    action.focus();
+    fireEvent.click(action);
+  });
+  await wait(0);
+
+  const dialog = screen.getByRole("dialog", {
+    name: "Edit rule"
+  });
+
+  assert.equal((dialog.querySelector("input[name='name']") as HTMLInputElement | null)?.value, "Markets");
 });

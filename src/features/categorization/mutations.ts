@@ -105,13 +105,13 @@ export function useApplyRules() {
   });
 }
 
-/** Deleting a rule keeps the categories it assigned, so only the rule list changes. */
+/** Deleting a rule keeps the categories it assigned but clears their reference to it, so transactions show the rule as no longer recorded. */
 export function useDeleteRule(rule: Rule) {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: () => api(`rules/${encodeURIComponent(rule.id)}`, undefined, "DELETE"),
-    onSettled: () => invalidate(queryClient, [queryKeys.rules()])
+    onSettled: () => invalidate(queryClient, [queryKeys.rules(), queryKeys.transactions.all()])
   });
 }
 

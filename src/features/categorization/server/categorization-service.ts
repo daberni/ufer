@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { HttpError, ValidationError } from "@/lib/errors";
 import { z } from "zod";
-import { categorize, decidingRule, prepareRules, validatePattern, type Rule } from "@/lib/rules";
+import { decidingRule, prepareRules, ruleAssignment, validatePattern, type Rule } from "@/lib/rules";
 import { normalizeCategoryName } from "@/lib/category-name";
 import { maximumRules, nextPriority, orderedPriorities } from "@/features/categorization/rule-order";
 import { isCategoryIcon } from "@/features/categorization/category-icons";
@@ -164,7 +164,7 @@ export async function updateRuleEnabled(id: string, payload: unknown) {
   };
 }
 
-/** Deleting a rule keeps the categories it already assigned; only future applications of the rules change. */
+/** Deleting a rule keeps the categories it already assigned, without a reference to the deleted rule; only future applications of the rules change. */
 export async function deleteRule(id: string) {
   if (!(await deleteStoredRule(id))) {
     throw new HttpError(404, "Rule not found.");
@@ -308,18 +308,30 @@ export async function deleteCategory(id: string, payload: unknown) {
 export async function applyRulesToUncorrectedTransactions() {
   const rules = prepareRules(await listRules());
   const entries = await findUncorrectedTransactions();
+  let recategorized = 0;
   const changes = entries.flatMap(entry => {
-    const categoryId = categorize(entry.counterparty, entry.description, rules);
+    const assignment = ruleAssignment(entry.counterparty, entry.description, rules);
+    const categoryChanged = assignment.categoryId !== entry.category_id;
 
-    return categoryId === entry.category_id ? [] : [{
+    if (!categoryChanged && assignment.ruleId === entry.category_rule_id) {
+      return [];
+    }
+
+    if (categoryChanged) {
+      recategorized += 1;
+    }
+
+    return [{
       id: entry.id,
-      category_id: categoryId
+      category_id: assignment.categoryId,
+      category_rule_id: assignment.ruleId
     }];
   });
 
   await saveRuleAssignments(changes);
 
+  // Recording which rule decides an unchanged category is not reported as an update.
   return {
-    updated: changes.length
+    updated: recategorized
   };
 }

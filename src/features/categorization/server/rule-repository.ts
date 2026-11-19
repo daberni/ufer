@@ -62,7 +62,8 @@ async function storeRule(tx: DatabaseTransaction, rule: NewRule, selectAssignmen
   for (let offset = 0; offset < ids.length; offset += assignmentChunkSize) {
     const chunk = ids.slice(offset, offset + assignmentChunkSize);
     const result = await tx.update(transactions).set({
-      category_id: rule.category_id
+      category_id: rule.category_id,
+      category_rule_id: rule.id
     }).where(inArray(transactions.id, chunk));
 
     categorized += result.rowsAffected;
@@ -139,15 +140,17 @@ export async function findUncorrectedTransactions() {
   return db.select({
     id: transactions.id,
     category_id: transactions.category_id,
+    category_rule_id: transactions.category_rule_id,
     counterparty: transactions.counterparty,
     description: transactions.description
   }).from(transactions).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(scope);
 }
 
-export async function saveRuleAssignments(entries: Pick<Transaction, "id" | "category_id">[]) {
+export async function saveRuleAssignments(entries: Pick<Transaction, "id" | "category_id" | "category_rule_id">[]) {
   const db = await database();
   const [first, ...rest] = entries.map(entry => db.update(transactions).set({
-    category_id: entry.category_id
+    category_id: entry.category_id,
+    category_rule_id: entry.category_rule_id
   }).where(and(eq(transactions.id, entry.id), eq(transactions.category_source, "rule"))));
 
   if (first) {
@@ -156,11 +159,19 @@ export async function saveRuleAssignments(entries: Pick<Transaction, "id" | "cat
 
 }
 
+/** Deletes the rule and, in the same write transaction, its references from the categories it assigned, which keep their category. */
 export async function deleteRule(id: string) {
   const db = await database();
-  const result = await db.delete(categorizationRules).where(eq(categorizationRules.id, id));
 
-  return result.rowsAffected > 0;
+  return db.transaction(async tx => {
+    const result = await tx.delete(categorizationRules).where(eq(categorizationRules.id, id));
+
+    await tx.update(transactions).set({
+      category_rule_id: null
+    }).where(eq(transactions.category_rule_id, id));
+
+    return result.rowsAffected > 0;
+  });
 }
 
 /**

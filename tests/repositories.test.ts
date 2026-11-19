@@ -331,7 +331,8 @@ test("category corrections retain environment isolation, manual exclusions survi
   assert.deepEqual(await setTransactionCategory("local-entry", null), {
     id: "local-entry",
     category_id: null,
-    category_source: "manual"
+    category_source: "manual",
+    category_rule_id: null
   });
 
   await applyRulesToUncorrectedTransactions();
