@@ -15,7 +15,7 @@ import { importMappedRows } from "../src/features/imports/server/mapped-import-s
 import { findDuplicates } from "../src/features/imports/server/duplicate-matching";
 import { saveAccountSync } from "../src/features/banking/server/account-sync-service";
 import { startSyncRun } from "../src/features/banking/server/sync-repository";
-import { assignOccurrences, normalizeText, parseCsvRecords, pruneConsumed, decodeCsv, detectDateFormat, detectDecimal, detectDelimiter, mapRows, parseAmount, parseCsv, parseDate, suggestMapping, type CsvSettings, type DateFormat, type ImportRow } from "../src/features/imports/csv-mapping";
+import { assignOccurrences, mappingProblem, normalizeText, parseCsvRecords, pruneConsumed, decodeCsv, detectDateFormat, detectDecimal, detectDelimiter, mapRows, parseAmount, parseCsv, parseDate, suggestMapping, type CsvSettings, type DateFormat, type ImportRow } from "../src/features/imports/csv-mapping";
 
 const now = Temporal.Instant.from("2026-06-30T12:00:00Z");
 
@@ -979,4 +979,56 @@ test("a bank entry repeated in one response adopts only one CSV-imported row", a
   const rows = await db.select().from(schema.transactions);
 
   assert.deepEqual(rows.map(row => row.provider_reference.startsWith("csv:") ? "csv" : row.provider_reference).sort(), ["bank:bistro", "csv"]);
+});
+
+test("rows that differ only in their stated currency count occurrences separately", () => {
+  const row = {
+    line: 2,
+    date: "2026-03-01",
+    amount: "-10.00",
+    payee: "Example Shop",
+    description: "Purchase",
+    category: null,
+    source: ""
+  };
+  const rows = assignOccurrences([{
+    ...row,
+    currency: "EUR"
+  }, {
+    ...row,
+    line: 3,
+    currency: "USD"
+  }], () => "account");
+
+  assert.deepEqual(rows.map(item => item.occurrence), [0, 0]);
+});
+
+test("space and apostrophe thousands separators must form groups of three", () => {
+  assert.equal(parseAmount("1'23", "."), null);
+  assert.equal(parseAmount("12 34", ","), null);
+  assert.equal(parseAmount("1'2'3", "."), null);
+  assert.equal(parseAmount("1'234.56", "."), "1234.56");
+  assert.equal(parseAmount("1 234,56", ","), "1234.56");
+  assert.equal(parseAmount("-1 234 567,89", ","), "-1234567.89");
+  assert.equal(parseAmount("- 12,50", ","), "-12.50");
+});
+
+test("the same column cannot be both debit and credit", () => {
+  const mapping = {
+    date: 0,
+    amount: null,
+    debit: 1,
+    credit: 1,
+    payee: 2,
+    description: null,
+    currency: null,
+    category: null,
+    account: null
+  };
+
+  assert.notEqual(mappingProblem(mapping), null);
+  assert.equal(mappingProblem({
+    ...mapping,
+    credit: 3
+  }), null);
 });

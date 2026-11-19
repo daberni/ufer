@@ -59,7 +59,7 @@ export type MappedRow = {
   source: string;
 };
 
-/** A mapped row with its occurrence: how many rows for the same target account with the same date, amount and normalized texts precede it. It keeps genuine repeats distinct, and identical rows get the same set of references however the export orders them or which other accounts it contains. */
+/** A mapped row with its occurrence: how many rows for the same target account with the same date, amount, stated currency and normalized texts precede it. It keeps genuine repeats distinct, and identical rows get the same set of references however the export orders them or which other accounts it contains. */
 export type ImportRow = MappedRow & {
   occurrence: number;
 };
@@ -281,7 +281,14 @@ export function parseAmount(value: string, decimal: DecimalSeparator): string | 
     return null;
   }
 
-  let text = splitCurrency(value).text.replace(/[\s\u00a0\u202f'’]/g, "");
+  // Whitespace between digits and apostrophes stay until they are validated as groups of three; other whitespace is dropped.
+  let text = splitCurrency(value).text.replace(/\s+(?!\d)|(?<!\d)\s+/gu, "");
+  const separated = /^(\D*)(\d{1,3}(?:[\s'’]\d{3})+)(?!\d)/u.exec(text);
+
+  if (separated) {
+    text = separated[1] + separated[2].replace(/[\s'’]/gu, "") + text.slice(separated[0].length);
+  }
+
   const parenthesized = /^\(.*\)$/.test(text);
   const markers = [parenthesized, text.startsWith("-"), text.endsWith("-") && text.length > 1, text.startsWith("+")].filter(Boolean).length;
 
@@ -390,6 +397,10 @@ export function mappingProblem(mapping: CsvMapping) {
     return "Map an amount column, or debit and credit columns.";
   }
 
+  if (mapping.debit !== null && mapping.debit === mapping.credit) {
+    return "Map debit and credit to different columns.";
+  }
+
   if (mapping.payee === null && mapping.description === null) {
     return "Map a payee or description column.";
   }
@@ -458,7 +469,7 @@ export function assignOccurrences(rows: MappedRow[], targetOf: (source: string) 
   const seen = new Map<string, number>();
 
   return rows.map(row => {
-    const identity = [targetOf(row.source), row.date, canonicalAmount(row.amount), normalizeText(row.payee), normalizeText(row.description)].join("\u0000");
+    const identity = [targetOf(row.source), row.date, canonicalAmount(row.amount), row.currency ?? "", normalizeText(row.payee), normalizeText(row.description)].join("\u0000");
     const occurrence = seen.get(identity) ?? 0;
 
     seen.set(identity, occurrence + 1);

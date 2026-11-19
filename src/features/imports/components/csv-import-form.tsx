@@ -46,10 +46,11 @@ function CsvImportForm({
     submit
   } = useDialogSubmit(useCsvImport(), close);
 
-  const modeSelect = (
+  // The mapped import disables the selector while its check or confirmation runs; switching modes would discard its locked import.
+  const modeSelect = (disabled = false) => (
     <label>
       Import
-      <Select value={importMode} onChange={event => setImportMode(event.target.value as ImportMode)}>
+      <Select value={importMode} disabled={disabled} onChange={event => setImportMode(event.target.value as ImportMode)}>
         <option value="mapped">Transaction history (map any CSV)</option>
         <option value="transactions">Transactions with stable IDs</option>
         <option value="balances">Investment / account balances</option>
@@ -59,10 +60,7 @@ function CsvImportForm({
 
   if (importMode === "mapped") {
     return (
-      <>
-        {modeSelect}
-        <MappedCsvImport close={close} />
-      </>
+      <MappedCsvImport close={close} modeSelect={modeSelect} />
     );
   }
 
@@ -76,7 +74,7 @@ function CsvImportForm({
       className={ui["form"]}
     >
       <p className={ui["form-description"]}>Import balances or booked transactions into a manual account. Files must use the format below; map bank exports to these columns first.</p>
-      {modeSelect}
+      {modeSelect()}
       <label>
         Target account
         <Select name="account_id" required disabled={accountsPending}>

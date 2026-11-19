@@ -3,7 +3,7 @@
 import ui from "../../../components/ui/primitives.module.css";
 
 import { clsx } from "clsx";
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, type ReactNode } from "react";
 import { ArrowDownToLine, SearchCheck } from "lucide-react";
 import styles from "./mapped-csv-import.module.css";
 import { Select } from "@/components/ui/select";
@@ -41,9 +41,11 @@ type LoadedFile = {
 };
 
 export function MappedCsvImport({
-  close
+  close,
+  modeSelect
 }: {
   close: () => void;
+  modeSelect: (disabled: boolean) => ReactNode;
 }) {
   const [file, setFile] = useState<LoadedFile | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
@@ -111,7 +113,21 @@ export function MappedCsvImport({
 
     const decoded = decodeCsv(bytes);
     const delimiter = detectDelimiter(decoded.text);
-    const [header = [], ...rows] = parseCsv(decoded.text, delimiter);
+    let parsed: string[][];
+
+    try {
+      parsed = parseCsv(decoded.text, delimiter);
+    } catch {
+      setFileError("The file could not be read as CSV.");
+      setFile(null);
+      setSettings(null);
+      setMapping(null);
+      setTargets({});
+
+      return;
+    }
+
+    const [header = [], ...rows] = parsed;
     const suggested = suggestMapping(header);
     const sample = rows.slice(0, 200);
     const column = (index: number | null) => index === null ? [] : sample.map(row => row[index] ?? "");
@@ -192,6 +208,7 @@ export function MappedCsvImport({
   return (
     <div className={ui["form"]}>
       <p className={ui["form-description"]}>Import transaction history from any CSV export. Map its columns, check the result, then confirm. Nothing is saved before you confirm.</p>
+      {modeSelect(inputsLocked)}
       <label>
         CSV file
         <input
