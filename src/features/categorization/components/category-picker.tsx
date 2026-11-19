@@ -150,6 +150,8 @@ export function CategoryPicker({
   const assignmentSource = assignment?.source;
   const assignmentHint = assignmentSource ? assignmentHints[assignmentSource] : undefined;
   const describedBy = clsx(ariaDescribedBy, assignmentHint && assignmentHintId) || undefined;
+  // "Uncategorized" is a hint, not text in the field, so typing a search starts from an empty field.
+  const uncategorized = includeUncategorized && value === null;
 
   function choose(next: PickerValue) {
     setSearch(null);
@@ -175,10 +177,10 @@ export function CategoryPicker({
         options={options}
         value={value}
         onChange={choose}
-        query={search ?? selected?.label ?? ""}
+        query={search ?? (uncategorized ? "" : selected?.label) ?? ""}
         onQueryChange={setSearch}
         noun={categoryNoun}
-        placeholder="Search categories"
+        placeholder={uncategorized ? "Uncategorized" : "Search categories"}
         appearance={appearance}
         busy={ariaBusy}
         aria-label={ariaLabel}

@@ -89,7 +89,8 @@ test("a manual entry starts with Automatic and can return to it after an explici
 
   assert.equal(entry.category.value, "Automatic");
   entry.choose("Uncategorized");
-  assert.equal(entry.category.value, "Uncategorized");
+  assert.equal(entry.category.value, "");
+  assert.equal(entry.category.placeholder, "Uncategorized");
   entry.choose("Automatic");
   assert.equal(entry.category.value, "Automatic");
   assert.equal(Object.hasOwn(await entry.submit(), "category_id"), false);
@@ -99,6 +100,7 @@ test("choosing Uncategorized in a manual entry sends an explicit null instead of
   const entry = await renderEntry(context);
 
   entry.choose("Uncategorized");
-  assert.equal(entry.category.value, "Uncategorized");
+  assert.equal(entry.category.value, "");
+  assert.equal(entry.category.placeholder, "Uncategorized");
   assert.equal((await entry.submit()).category_id, null);
 });
