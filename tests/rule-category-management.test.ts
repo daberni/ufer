@@ -147,7 +147,7 @@ async function storedRules(db: Database) {
 async function spendingByCategory() {
   const cashFlow = await readCashFlow(january, "EUR");
 
-  return Object.fromEntries(cashFlow.breakdown.map(item => [item.categoryId ?? "uncategorized", item.amount]));
+  return Object.fromEntries(cashFlow.expenseBreakdown.map(item => [item.categoryId ?? "uncategorized", item.amount]));
 }
 
 test("reordering stores distinct priorities in list order and keeps every other rule detail", async context => {
