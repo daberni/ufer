@@ -1,10 +1,8 @@
 "use client";
 
-import styles from "./overview-view.module.css";
 import { WealthSummary } from "@/features/reports/components/wealth-summary";
 import { OverviewAccounts } from "@/features/accounts/components/overview-accounts";
-import { CashFlowChart } from "@/features/reports/components/cash-flow-chart";
-import { SpendingBreakdown } from "@/features/reports/components/spending-breakdown";
+import { CashFlowInsights } from "@/features/reports/components/cash-flow-insights";
 import type { Area } from "@/components/ui/use-area-result";
 import type { Account, NetWorth } from "@/features/accounts/types";
 import type { CashFlow } from "@/features/reports/types";
@@ -27,10 +25,7 @@ export function OverviewView({
     <>
       <WealthSummary hasAccounts={hasReportedAccounts} netWorthArea={netWorth} cashFlowArea={cashFlow} />
       <OverviewAccounts currencyAccounts={currencyAccounts} />
-      <div className={styles["analytics-grid"]}>
-        <CashFlowChart cashFlow={cashFlow} />
-        <SpendingBreakdown cashFlow={cashFlow} />
-      </div>
+      <CashFlowInsights cashFlow={cashFlow} />
     </>
   );
 }
