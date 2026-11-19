@@ -156,20 +156,30 @@ function barPosition(flow: Flow, amount: number, scale: CashFlowScale): CSSPrope
 function ZeroLine({ scale }: {
   scale: CashFlowScale;
 }) {
-  const lineRef = useRef<HTMLSpanElement>(null);
-
-  useDevicePixelTop(lineRef, scale.zero);
-
   return (
     <span className={clsx(styles["plot-area"], styles["zero-layer"])} aria-hidden="true">
-      <span
-        className={styles["zero-line"]}
-        ref={lineRef}
-        style={{
-          top: percent(scale.zero)
-        }}
-      />
+      <Hairline fraction={scale.zero} />
     </span>
+  );
+}
+
+/** A one-device-pixel line at a fraction of its positioned parent's height, like the zero line and the dividers between category segments. */
+function Hairline({ fraction }: {
+  fraction: number;
+}) {
+  const lineRef = useRef<HTMLSpanElement>(null);
+
+  useDevicePixelTop(lineRef, fraction);
+
+  return (
+    <span
+      className={styles["hairline"]}
+      ref={lineRef}
+      aria-hidden="true"
+      style={{
+        top: percent(fraction)
+      }}
+    />
   );
 }
 
@@ -399,6 +409,13 @@ function ChartPlot({
   );
 }
 
+/** Distances from the bar's top edge of the boundaries between its segments, which stack outward from the zero line. */
+function dividerOffsets(segments: CategoryGroup[], direction: "up" | "down") {
+  const boundaries = segments.slice(0, -1).map((_, index) => segments.slice(0, index + 1).reduce((sum, group) => sum + group.share, 0));
+
+  return direction === "up" ? boundaries.map(boundary => 1 - boundary) : boundaries;
+}
+
 /** Segments show the categories of a positive total only when every category is positive: negative categories (corrections or net refunds) reduce the total, and stacking the others would overstate it. */
 function splitsIntoSegments(amount: number, groups: CategoryGroup[]) {
   const shareSum = groups.reduce((sum, group) => sum + group.share, 0);
@@ -452,6 +469,8 @@ function FlowBar({
           }}
         />
       ))}
+      {/* Hairlines between segments, drawn over them so every segment keeps a height proportional to its amount. */}
+      {dividerOffsets(segments, direction).map(offset => <Hairline key={offset} fraction={offset} />)}
     </span>
   );
 }
