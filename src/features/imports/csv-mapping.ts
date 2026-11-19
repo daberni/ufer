@@ -282,7 +282,8 @@ export function parseAmount(value: string, decimal: DecimalSeparator): string | 
   }
 
   let text = splitCurrency(value).text.replace(/[\s\u00a0\u202f'’]/g, "");
-  const markers = [/^\(.*\)$/.test(text), text.startsWith("-"), text.endsWith("-") && text.length > 1, text.startsWith("+")].filter(Boolean).length;
+  const parenthesized = /^\(.*\)$/.test(text);
+  const markers = [parenthesized, text.startsWith("-"), text.endsWith("-") && text.length > 1, text.startsWith("+")].filter(Boolean).length;
 
   if (markers > 1) {
     return null;
@@ -290,7 +291,8 @@ export function parseAmount(value: string, decimal: DecimalSeparator): string | 
 
   const negative = markers === 1 && !text.startsWith("+");
 
-  text = text.replace(/^[(+-]|[)-]$/g, "");
+  // Parentheses count only as a matching pair around the whole value; a lone one stays and makes the amount invalid.
+  text = parenthesized ? text.slice(1, -1) : text.replace(/^[+-]|-$/g, "");
 
   const grouping = decimal === "," ? "." : ",";
   const grouped = new RegExp(`^\\d{1,3}(\\${grouping}\\d{3})+(\\${decimal}\\d+)?$`);
