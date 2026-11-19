@@ -3,6 +3,7 @@ import { and, asc, eq, lte, sql } from "drizzle-orm";
 import { TransactionRollbackError } from "drizzle-orm/errors";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 import { transactions } from "@/server/database/schema";
+import { assertWritableAccount } from "@/features/accounts/server/writable-account";
 import type { TransactionType } from "@/features/transactions/transaction-types";
 import { applyTransactionType, createdCounterpartPrefix, dissolveLink, enteredInUfer, enteredPair, findCounterpart, findSubject, manualEntryPrefix, touchesArchivedAccount, type TransferTarget, type TypeChangeResult } from "./transfer-repository";
 
@@ -86,7 +87,11 @@ export async function bookManualEntry(tx: DatabaseTransaction, id: string, entry
 /** Enters a booking on a manual account and, for a transfer, creates or links its other side in the same transaction. */
 export async function createManualTransaction(entry: NewManualEntry) {
   const id = randomUUID();
-  const result = await refusable(tx => bookManualEntry(tx, id, entry));
+  const result = await refusable(async tx => {
+    await assertWritableAccount(tx, entry.accountId);
+
+    return bookManualEntry(tx, id, entry);
+  });
 
   return {
     result,

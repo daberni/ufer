@@ -5,6 +5,7 @@ import { accounts, transactions } from "@/server/database/schema";
 import { environment } from "@/features/banking/server/environment";
 import { bookManualEntry, recordManualBalance, type ManualEntryResult } from "@/features/transactions/server/manual-transaction-repository";
 import type { ManualAccountInput } from "./account-schema";
+import { assertWritableAccount } from "./writable-account";
 
 export async function findManualAccount(id: string) {
   const db = await database();
@@ -45,7 +46,11 @@ export async function saveManualValuation(account: {
 }, amount: number, date: string) {
   const db = await database();
 
-  return db.transaction(tx => recordManualBalance(tx, account, date, amount));
+  return db.transaction(async tx => {
+    await assertWritableAccount(tx, account.id);
+
+    return recordManualBalance(tx, account, date, amount);
+  });
 }
 
 

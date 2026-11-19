@@ -422,6 +422,56 @@ test("a booking on an archived account shows its category as a label instead of 
   assert.equal(screen.queryAllByRole("button").length, 0);
 });
 
+test("an account archived after the request's check but before the write receives no entry or balance", async context => {
+  const db = await seededDatabase(context);
+  const execute = db.$client.execute.bind(db.$client);
+  let archiveNext = false;
+  let interleaved = 0;
+
+  context.mock.method(db.$client, "execute", async (statement: InStatement, args?: InArgs) => {
+    const result = typeof statement === "string" ? await execute(statement, args) : await execute(statement);
+    const text = typeof statement === "string" ? statement : statement.sql;
+
+    if (archiveNext && /^select /i.test(text) && text.includes('from "accounts"')) {
+      archiveNext = false;
+      interleaved++;
+      await execute("UPDATE accounts SET archived_at='2026-11-01T00:00:00.000Z' WHERE id='open'");
+    }
+
+    return result;
+  });
+  const bookingsBefore = await db.select().from(schema.transactions);
+  const archived = {
+    status: 409,
+    message: "This account is archived. Restore the account first."
+  };
+
+  archiveNext = true;
+  await assert.rejects(enterManualTransaction("open", {
+    amount: "-5.00",
+    booking_date: "2026-01-10",
+    type: "expense"
+  }), archived);
+  await db.update(schema.accounts).set({
+    archived_at: null
+  }).where(eq(schema.accounts.id, "open"));
+  archiveNext = true;
+  await assert.rejects(updateManualValuation("open", {
+    balance: "10.00",
+    date: "2026-01-10"
+  }), archived);
+  await db.update(schema.accounts).set({
+    archived_at: null
+  }).where(eq(schema.accounts.id, "open"));
+  archiveNext = true;
+  await assert.rejects(importValuations({
+    account_id: "open",
+    csv: "date,balance,currency\n2026-01-10,10.00,EUR"
+  }), archived);
+  assert.equal(interleaved, 3);
+  assert.deepEqual(await db.select().from(schema.transactions), bookingsBefore);
+});
+
 test("a currency whose accounts are all archived still reports its figures on the overview", () => {
   const archivedOnly = accountGroups([{
     ...manualAccount,

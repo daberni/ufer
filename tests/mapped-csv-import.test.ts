@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { z } from "zod";
 import { test, type TestContext } from "node:test";
 import { Temporal } from "temporal-polyfill";
-import { createClient } from "@libsql/client";
+import { createClient, type InArgs, type InStatement } from "@libsql/client";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/libsql";
 import type { Database } from "../src/server/database/connection";
@@ -1709,4 +1709,41 @@ test("an archived account is refused as an import target until it is restored", 
     ...payload,
     confirm: true
   }, now)).newRows, 1);
+});
+
+test("an account archived after the target check receives no imported rows", async context => {
+  const db = await isolatedDatabase(context);
+  const account = await manualAccount("Archived meanwhile");
+  const execute = db.$client.execute.bind(db.$client);
+  let interleaved = false;
+
+  context.mock.method(db.$client, "execute", async (statement: InStatement, args?: InArgs) => {
+    const result = typeof statement === "string" ? await execute(statement, args) : await execute(statement);
+    const text = typeof statement === "string" ? statement : statement.sql;
+
+    if (!interleaved && /^select /i.test(text) && text.includes('from "accounts"')) {
+      interleaved = true;
+      await execute({
+        sql: "UPDATE accounts SET archived_at='2026-06-30T00:00:00.000Z' WHERE id=?",
+        args: [account.id]
+      });
+    }
+
+    return result;
+  });
+
+  await assert.rejects(importMappedRows({
+    import_id: importId,
+    rows: [mappedRow(2, "2024-01-01", "-10.00", "Shop")],
+    targets: [{
+      source: "",
+      account_id: account.id
+    }],
+    confirm: true
+  }, now), {
+    status: 409,
+    message: "This account is archived. Restore the account first."
+  });
+  assert.ok(interleaved);
+  assert.equal((await db.select().from(schema.transactions)).length, 0);
 });
