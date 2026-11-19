@@ -1,3 +1,4 @@
+import clsx from "clsx";
 import styles from "./category-icon-picker.module.css";
 import { categoryIconKeys, categoryIconLabels, type CategoryIconKey } from "@/features/categorization/category-icons";
 import { categoryChipColors, themedColors } from "@/features/categorization/category-colors";
@@ -19,25 +20,26 @@ export function CategoryIconPicker({
   return (
     <fieldset className={styles["icon-picker"]}>
       <legend>Icon</legend>
+      {/* Kept outside the grid so the 36 icons fill complete rows. */}
+      <label className={clsx(styles["icon-option"], styles["no-icon-option"])}>
+        <input
+          className={styles["icon-input"]}
+          type="radio"
+          name="icon"
+          value=""
+          checked={icon === ""}
+          onChange={() => onChange("")}
+        />
+        <span
+          className={styles["no-icon"]}
+          aria-hidden="true"
+          style={{
+            background: iconColor
+          }}
+        />
+        <span>No icon</span>
+      </label>
       <div className={styles["icon-options"]}>
-        <label className={styles["icon-option"]} title="No icon">
-          <input
-            className={styles["icon-input"]}
-            type="radio"
-            name="icon"
-            value=""
-            checked={icon === ""}
-            onChange={() => onChange("")}
-          />
-          <span
-            className={styles["no-icon"]}
-            aria-hidden="true"
-            style={{
-              background: iconColor
-            }}
-          />
-          <span className={styles["icon-label"]}>No icon</span>
-        </label>
         {categoryIconKeys.map(key => {
           const Icon = categoryIconComponents[key];
 

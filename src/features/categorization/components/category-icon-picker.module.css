@@ -3,6 +3,7 @@
   margin: var(--space-4) 0;
   padding: 0;
   min-width: 0;
+  container-type: inline-size;
 }
 .icon-picker legend {
   font-size: var(--text-sm);
@@ -10,10 +11,26 @@
   padding: 0;
   margin-bottom: var(--space-2);
 }
+/* Column counts divide the 36 icons so every row is complete. */
 .icon-options {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--space-2);
+}
+@container (width >= 310px) {
+  .icon-options {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+@container (width >= 460px) {
+  .icon-options {
+    grid-template-columns: repeat(9, minmax(0, 1fr));
+  }
+}
+@container (width >= 620px) {
+  .icon-options {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+  }
 }
 .icon-picker .icon-option {
   position: relative;
@@ -27,6 +44,14 @@
   background: var(--surface);
   color: var(--muted);
   cursor: pointer;
+}
+.icon-picker .icon-option.no-icon-option {
+  flex-direction: row;
+  gap: var(--space-2);
+  width: fit-content;
+  padding: 0 var(--space-3);
+  margin-bottom: var(--space-2);
+  font-size: var(--text-sm);
 }
 .icon-picker .icon-option:hover {
   border-color: var(--ink);
@@ -71,18 +96,12 @@
   .icon-picker legend {
     font-size: var(--text-md);
   }
-  .icon-options {
-    grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
-  }
   .icon-picker .icon-option {
     height: 44px;
   }
 }
 /* Touch pointers keep 44px targets at every width. */
 @media (pointer: coarse) {
-  .icon-options {
-    grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
-  }
   .icon-picker .icon-option {
     height: 44px;
   }
