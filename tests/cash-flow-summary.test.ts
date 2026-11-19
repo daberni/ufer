@@ -38,7 +38,7 @@ test("without income there is no savings rate, even when money was spent", () =>
   assert.equal(formatSavingsRate(null), "–");
 });
 
-test("the trend's rate sums their minor units before dividing, so months are weighted by income", () => {
+test("the visible months' rate sums their minor units before dividing, so months are weighted by income", () => {
   const flow = trendCashFlow([month("2026-05", 100000, 150000), month("2026-06", 300000, 150000), month("2026-07", 0, 20000)]);
 
   assert.equal(flow.net, 80000);
