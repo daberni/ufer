@@ -403,6 +403,12 @@ export function suggestMapping(header: string[]): CsvMapping {
     mapping[field] = index >= 0 ? index : null;
   }
 
+  // Only one amount mode may be mapped; a signed amount column wins over debit and credit.
+  if (mapping.amount !== null) {
+    mapping.debit = null;
+    mapping.credit = null;
+  }
+
   return mapping;
 }
 
@@ -429,6 +435,10 @@ export function mappingProblem(mapping: CsvMapping) {
 
   if (mapping.amount === null && mapping.debit === null && mapping.credit === null) {
     return "Map an amount column, or debit and credit columns.";
+  }
+
+  if (mapping.amount !== null && (mapping.debit !== null || mapping.credit !== null)) {
+    return "Map either an amount column or debit and credit columns, not both.";
   }
 
   if (mapping.debit !== null && mapping.debit === mapping.credit) {

@@ -1125,3 +1125,16 @@ test("CSV categories match canonically equivalent spellings of a stored name", a
   assert.deepEqual(result.unknownCategories, []);
   assert.deepEqual(rows.map(row => [row.category_id, row.category_source]), [["synthetic-cafe", "manual"]]);
 });
+
+test("a mapping uses either a signed amount or debit and credit, never both", () => {
+  const suggested = suggestMapping(["Date", "Payee", "Amount", "Debit", "Credit"]);
+
+  assert.equal(suggested.amount, 2);
+  assert.equal(suggested.debit, null);
+  assert.equal(suggested.credit, null);
+  assert.equal(mappingProblem(suggested), null);
+  assert.match(mappingProblem({
+    ...suggested,
+    debit: 3
+  }) ?? "", /not both/);
+});

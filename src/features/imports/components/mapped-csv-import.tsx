@@ -96,29 +96,42 @@ export function MappedCsvImport({
 
   const targetsComplete = resolvedTargets.every(target => target.accountId !== "" && (target.accountId !== "new" || target.name.trim() !== ""));
 
+  function clearLoaded(error: string | null) {
+    setFileError(error);
+    setFile(null);
+    setSettings(null);
+    setMapping(null);
+    setTargets({});
+  }
+
   async function load(selected: File | undefined) {
     const selection = ++latestSelection.current;
 
     setSummary(null);
-    setFileError(null);
+    // The previous file stops being importable as soon as another is chosen, so nothing can be checked or imported while the replacement is read.
+    clearLoaded(null);
 
     if (!selected) {
-      setFile(null);
-
       return;
     }
 
     if (selected.size > maxFileBytes) {
-      setFileError("The file cannot exceed 25 MB.");
-      setFile(null);
-      setSettings(null);
-      setMapping(null);
-      setTargets({});
+      clearLoaded("The file cannot exceed 25 MB.");
 
       return;
     }
 
-    const bytes = new Uint8Array(await selected.arrayBuffer());
+    let bytes: Uint8Array;
+
+    try {
+      bytes = new Uint8Array(await selected.arrayBuffer());
+    } catch {
+      if (selection === latestSelection.current) {
+        clearLoaded("The file could not be read.");
+      }
+
+      return;
+    }
 
     // A later selection, including a rejected one, supersedes this read.
     if (selection !== latestSelection.current) {
@@ -132,11 +145,7 @@ export function MappedCsvImport({
     try {
       parsed = parseCsv(decoded.text, delimiter);
     } catch {
-      setFileError("The file could not be read as CSV.");
-      setFile(null);
-      setSettings(null);
-      setMapping(null);
-      setTargets({});
+      clearLoaded("The file could not be read as CSV.");
 
       return;
     }
