@@ -82,8 +82,15 @@
     {
       "idx": 11,
       "version": "6",
-      "when": 1795114900000,
-      "tag": "0011_account_archiving",
+      "when": 1795126884000,
+      "tag": "0011_transaction_category_rule",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1795126885000,
+      "tag": "0012_account_archiving",
       "breakpoints": true
     }
   ]

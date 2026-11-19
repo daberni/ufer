@@ -138,6 +138,7 @@ export async function closeAndArchiveManualAccount(account: {
         description: "Account closed",
         categoryId: null,
         categorySource: "manual",
+        categoryRuleId: null,
         type: transferAccountId ? "transfer" : "adjustment",
         target: transferAccountId ? {
           accountId: transferAccountId

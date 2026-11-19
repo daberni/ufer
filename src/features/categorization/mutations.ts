@@ -44,14 +44,15 @@ export type CreatedRule = {
   categorized: number;
 };
 
-/** Creates a rule; applying it to uncategorized transactions also changes lists and spending. */
+/** Creates a rule from a manual assignment, which may hand the source transaction to the rule; applying it to uncategorized transactions also changes spending. */
 export function useCreateRuleFromAssignment() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (rule: Record<string, unknown>) => api<CreatedRule>("rules", rule),
     onSettled: (_result, _error, rule) => {
-      const affected = rule.apply_to_uncategorized === true ? [queryKeys.rules(), queryKeys.transactions.all(), queryKeys.reports.cashFlow()] : [queryKeys.rules()];
+      // The source transaction can become rule-assigned; applying also changes categories and spending.
+      const affected = rule.apply_to_uncategorized === true ? [queryKeys.rules(), queryKeys.transactions.all(), queryKeys.reports.cashFlow()] : [queryKeys.rules(), queryKeys.transactions.all()];
 
       return invalidate(queryClient, affected);
     }
@@ -105,13 +106,13 @@ export function useApplyRules() {
   });
 }
 
-/** Deleting a rule keeps the categories it assigned, so only the rule list changes. */
+/** Deleting a rule keeps the categories it assigned but clears their reference to it, so transactions show the rule as no longer recorded. */
 export function useDeleteRule(rule: Rule) {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: () => api(`rules/${encodeURIComponent(rule.id)}`, undefined, "DELETE"),
-    onSettled: () => invalidate(queryClient, [queryKeys.rules()])
+    onSettled: () => invalidate(queryClient, [queryKeys.rules(), queryKeys.transactions.all()])
   });
 }
 

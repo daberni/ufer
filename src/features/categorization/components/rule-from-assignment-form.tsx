@@ -17,7 +17,8 @@ import type { RulePreviewDraft } from "@/features/categorization/types";
 import { CategoryPicker } from "./category-picker";
 
 type Props = {
-  /** The transaction whose category was just chosen; the proposed pattern comes from it. */
+  /** The transaction whose category was chosen manually; the proposed pattern comes from it, and it becomes rule-assigned when the new rule decides its category. */
+  transactionId: string;
   counterparty: string;
   description: string;
   categoryId: string;
@@ -56,6 +57,7 @@ function transactionCount(count: number) {
 }
 
 function RuleFromAssignmentForm({
+  transactionId,
   counterparty,
   description,
   categoryId: assignedCategoryId,
@@ -120,13 +122,14 @@ function RuleFromAssignmentForm({
             pattern: keyword,
             mode: "keyword",
             category_id: categoryId,
-            apply_to_uncategorized: applyToUncategorized
+            apply_to_uncategorized: applyToUncategorized,
+            source_transaction_id: transactionId
           };
         }, created => onCreated(created.categorized));
       }}
       className={ui["form"]}
     >
-      <p className={ui["form-description"]}>Categorize transactions like “{counterparty || description}” automatically. The first matching rule wins; manual assignments are never changed.</p>
+      <p className={ui["form-description"]}>Categorize transactions like “{counterparty || description}” automatically. The first matching rule wins. This transaction follows the rule when the rule decides its category; other manual assignments are never changed.</p>
       <div className={ui["field"]}>
         <label htmlFor={patternFieldId}>Matching pattern</label>
         <input

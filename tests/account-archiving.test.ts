@@ -311,7 +311,8 @@ test("categories of bookings on an archived account change neither manually nor 
   // Assignments computed before the account was archived are not written afterwards.
   await saveRuleAssignments([{
     id: "shop",
-    category_id: "groceries"
+    category_id: "groceries",
+    category_rule_id: null
   }]);
   assert.deepEqual(await db.select().from(schema.transactions), bookingsBefore);
 

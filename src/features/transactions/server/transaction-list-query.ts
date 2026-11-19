@@ -113,7 +113,7 @@ export async function readTransactionPage(filters: DashboardFilters) {
   // Banks report dates without a time, so bookings within a day are ordered by payee and description; empty payees come last.
   const transactionsQuery = client.execute({
     sql: `
-      SELECT t.id,t.booking_date,t.amount_minor,t.currency,t.instructed_amount_minor,t.instructed_currency,COALESCE(t.counterparty_override,t.counterparty) AS counterparty,COALESCE(t.description_override,t.description) AS description,t.counterparty AS source_counterparty,t.description AS source_description,t.suppressed_at IS NOT NULL AS hidden,a.name AS account_name,t.account_id,t.category_id,t.category_source,t.type,t.type_source,a.provider='manual' AS manual_account,a.archived_at IS NOT NULL AS account_archived,COALESCE(pa.archived_at IS NOT NULL,0) AS counterpart_archived,t.provider_reference LIKE ? AS created_counterpart,${enteredColumn("t", "a")} AS entered,${enteredColumn("p", "pa")} AS counterpart_entered,p.id AS counterpart_id,pa.name AS counterpart_account_name,p.booking_date AS counterpart_booking_date
+      SELECT t.id,t.booking_date,t.amount_minor,t.currency,t.instructed_amount_minor,t.instructed_currency,COALESCE(t.counterparty_override,t.counterparty) AS counterparty,COALESCE(t.description_override,t.description) AS description,t.counterparty AS source_counterparty,t.description AS source_description,t.suppressed_at IS NOT NULL AS hidden,a.name AS account_name,t.account_id,t.category_id,t.category_source,t.category_rule_id,t.type,t.type_source,a.provider='manual' AS manual_account,a.archived_at IS NOT NULL AS account_archived,COALESCE(pa.archived_at IS NOT NULL,0) AS counterpart_archived,t.provider_reference LIKE ? AS created_counterpart,${enteredColumn("t", "a")} AS entered,${enteredColumn("p", "pa")} AS counterpart_entered,p.id AS counterpart_id,pa.name AS counterpart_account_name,p.booking_date AS counterpart_booking_date
       FROM transactions t
       JOIN accounts a ON a.id=t.account_id
       LEFT JOIN transactions p ON p.transfer_id=t.transfer_id AND p.id<>t.id
@@ -157,6 +157,7 @@ export async function readTransactionPage(filters: DashboardFilters) {
       account_id: String(row.account_id),
       category_id: row.category_id === null ? null : String(row.category_id),
       category_source: String(row.category_source),
+      category_rule_id: row.category_rule_id === null ? null : String(row.category_rule_id),
       type: row.type as TransactionType,
       type_source: row.type_source === "manual" ? "manual" as const : "auto" as const,
       manual_account: Boolean(row.manual_account),

@@ -96,6 +96,9 @@ export const transactions = sqliteTable("transactions", {
   category_source: text("category_source", {
     enum: ["rule", "manual"]
   }).notNull().default("rule"),
+  // The rule that assigned a rule-sourced category; null for manual or uncategorized bookings and assignments before it was recorded. Deleting a rule clears it.
+  // Not a foreign key: a sync or import that read a rule deleted meanwhile must still save, and readers treat an unknown rule as unrecorded.
+  category_rule_id: text("category_rule_id"),
   created_at: text("created_at").notNull().default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ','now'))`),
   // Signed like amount_minor, in minor units of instructed_currency.
   instructed_amount_minor: integer("instructed_amount_minor"),

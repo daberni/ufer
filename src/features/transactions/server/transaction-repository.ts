@@ -39,6 +39,7 @@ export async function upsertTransactions(tx: DatabaseTransaction, accountId: str
       counterparty: entry.counterparty,
       description: entry.description,
       category_id: entry.categoryId,
+      category_rule_id: entry.categoryRuleId,
       type: derivedTransactionType(entry.amount, entry.transfer),
       created_at: createdAt,
       ...providerColumns(entry.provider)
@@ -56,6 +57,7 @@ export async function upsertTransactions(tx: DatabaseTransaction, accountId: str
         instructed_currency: sql`excluded.instructed_currency`,
         provider_payload: sql`excluded.provider_payload`,
         category_id: sql`CASE WHEN ${transactions.category_source}='manual' THEN ${transactions.category_id} ELSE excluded.category_id END`,
+        category_rule_id: sql`CASE WHEN ${transactions.category_source}='manual' THEN NULL ELSE excluded.category_rule_id END`,
         type: sql`CASE WHEN ${transactions.type_source}='manual' OR ${transactions.transfer_id} IS NOT NULL OR ${transactions.type}='transfer' THEN ${transactions.type} ELSE excluded.type END`
       }
     });
@@ -79,11 +81,13 @@ export async function setTransactionCategory(id: string, categoryId: string | nu
   const scope = and(eq(transactions.id, id), inArray(transactions.account_id, scopedAccounts));
   const [assignment] = await db.update(transactions).set({
     category_id: categoryId,
-    category_source: "manual"
+    category_source: "manual",
+    category_rule_id: null
   }).where(scope).returning({
     id: transactions.id,
     category_id: transactions.category_id,
-    category_source: transactions.category_source
+    category_source: transactions.category_source,
+    category_rule_id: transactions.category_rule_id
   });
 
   return assignment;

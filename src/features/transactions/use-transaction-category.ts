@@ -7,7 +7,7 @@ import { invalidate } from "@/client/invalidate";
 import { queryKeys } from "@/client/query-keys";
 import type { Transaction, TransactionPage } from "@/features/transactions/types";
 
-export type CategoryAssignment = Pick<Transaction, "id" | "category_id" | "category_source">;
+export type CategoryAssignment = Pick<Transaction, "id" | "category_id" | "category_source" | "category_rule_id">;
 
 export type CategorizationStatus = {
   kind: "saving";
@@ -26,10 +26,10 @@ function categoryMutationKey(transactionId: string) {
   return [...categoryMutations, transactionId] as const;
 }
 
-// Stores the server's assignment in every cached list page that contains the transaction.
+// Stores the server's assignment in every cached list page that contains the transaction; other transaction queries, such as transfer options, have a different shape.
 function storeAssignment(queryClient: QueryClient, assignment: CategoryAssignment) {
   queryClient.setQueriesData<TransactionPage>({
-    queryKey: queryKeys.transactions.all()
+    queryKey: queryKeys.transactions.lists()
   }, page => {
     if (!page?.transactions.some(transaction => transaction.id === assignment.id)) {
       return page;
@@ -40,7 +40,8 @@ function storeAssignment(queryClient: QueryClient, assignment: CategoryAssignmen
       transactions: page.transactions.map(transaction => transaction.id === assignment.id ? {
         ...transaction,
         category_id: assignment.category_id,
-        category_source: assignment.category_source
+        category_source: assignment.category_source,
+        category_rule_id: assignment.category_rule_id
       } : transaction)
     };
   });

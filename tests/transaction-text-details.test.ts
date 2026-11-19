@@ -26,6 +26,7 @@ const booking: Transaction = {
   account_name: "Synthetic checking",
   category_id: null,
   category_source: "rule",
+  category_rule_id: null,
   type: "expense",
   type_source: "auto",
   account_id: "checking",

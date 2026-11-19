@@ -67,6 +67,8 @@ function EditableTransactionCategory({
   const manual = status?.kind === "saving" || transaction.category_source === "manual";
   const assignmentSource = manual ? "manual" : "rule";
   const announcement = status ? announcements[status.kind] : "";
+  // A rule deleted since, or one not yet loaded, leaves the indicator informational.
+  const assigningRule = manual ? undefined : rules.findRule(transaction.category_rule_id);
 
   return (
     <div className={styles["category"]}>
@@ -82,9 +84,14 @@ function EditableTransactionCategory({
           source: categoryId === null ? null : assignmentSource,
           actionLabel: `Create rule for ${transaction.counterparty || transaction.description || transactionTypeLabels[transaction.type]}`,
           disabled: status?.kind === "saving",
+          assigningRule: assigningRule && {
+            label: `Open rule ${assigningRule.name}`,
+            open: () => rules.edit(assigningRule)
+          },
           createRule: () => {
             if (categoryId !== null && manual) {
               rules.open({
+                transactionId: transaction.id,
                 categoryId,
                 // Rules match the source's text, so a pattern from a person's override would not match later deliveries.
                 counterparty: transaction.source_counterparty,
