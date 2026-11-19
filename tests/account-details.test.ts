@@ -10,6 +10,7 @@ import type { Database } from "../src/server/database/connection";
 import { allMonthsPeriod, monthPeriod } from "../src/lib/period";
 import { HttpError } from "../src/lib/errors";
 import { readAccountCashFlow } from "../src/features/reports/server/cash-flow-query";
+import { saveAccountSync } from "../src/features/banking/server/account-sync-service";
 import { readBalanceHistory } from "../src/features/accounts/server/account-queries";
 import { plotBalances } from "../src/features/accounts/balance-chart";
 import { accountHref, accountIdFromPathname, isPeriodAware, periodScope, sectionOf, viewFromPathname, viewQuery } from "../src/client/app-location";
@@ -99,19 +100,22 @@ async function seededDatabase(context: TestContext) {
     account_id: "checking",
     observed_at: "2026-02-01",
     amount_minor: 205300,
-    source: "sync"
+    source: "sync",
+    bank_balance_type: null
   }, {
     id: "snapshot-1",
     account_id: "checking",
     observed_at: "2025-12-31",
     amount_minor: 0,
-    source: "manual"
+    source: "manual",
+    bank_balance_type: null
   }, {
     id: "snapshot-savings",
     account_id: "savings",
     observed_at: "2026-01-10",
     amount_minor: 50000,
-    source: "csv"
+    source: "csv",
+    bank_balance_type: null
   }]);
 
   return db;
@@ -169,39 +173,46 @@ test("an account's daily balances use only its own currency and preserve the kno
     {
       date: "2025-12-31",
       amount_minor: 0,
-      source: "manual"
+      source: "manual",
+      bank_balance_type: null
     },
     {
       date: "2026-01-01",
       amount_minor: 0,
-      source: "transactions"
+      source: "transactions",
+      bank_balance_type: null
     },
     {
       date: "2026-01-02",
       amount_minor: 250000,
-      source: "transactions"
+      source: "transactions",
+      bank_balance_type: null
     },
     {
       date: "2026-01-03",
       amount_minor: 250000,
-      source: "transactions"
+      source: "transactions",
+      bank_balance_type: null
     },
     {
       date: "2026-01-04",
       amount_minor: 250000,
-      source: "transactions"
+      source: "transactions",
+      bank_balance_type: null
     },
     {
       date: "2026-01-05",
       amount_minor: 246000,
-      source: "transactions"
+      source: "transactions",
+      bank_balance_type: null
     }
   ]);
   assert.equal(history.balances.find(balance => balance.date === "2026-01-20")?.amount_minor, 206000);
   assert.deepEqual(history.balances.find(balance => balance.date === "2026-02-01"), {
     date: "2026-02-01",
     amount_minor: 205300,
-    source: "sync"
+    source: "sync",
+    bank_balance_type: null
   });
   await assertNotFound(readBalanceHistory("unknown"));
   await assertNotFound(readBalanceHistory("production-checking"));
@@ -211,15 +222,18 @@ test("balances are spaced by date, and a flat or single balance stays inside the
   const plotted = plotBalances([{
     date: "2026-01-01",
     amount_minor: 1000,
-    source: "manual"
+    source: "manual",
+    bank_balance_type: null
   }, {
     date: "2026-01-04",
     amount_minor: 3000,
-    source: "sync"
+    source: "sync",
+    bank_balance_type: null
   }, {
     date: "2026-01-11",
     amount_minor: 2000,
-    source: "sync"
+    source: "sync",
+    bank_balance_type: null
   }]);
 
   assert.deepEqual(plotted.points.map(point => point.x), [0, 30, 100]);
@@ -230,7 +244,8 @@ test("balances are spaced by date, and a flat or single balance stays inside the
     const flat = plotBalances(balances.map((amount, index) => ({
       date: `2026-01-0${index + 1}`,
       amount_minor: amount,
-      source: "sync" as const
+      source: "sync" as const,
+      bank_balance_type: null
     })));
 
     for (const point of flat.points) {
@@ -297,7 +312,8 @@ test("a CSV balance keeps its recorded provenance when the current account balan
   const db = await seededDatabase(context);
 
   await db.update(schema.balanceSnapshots).set({
-    source: "csv"
+    source: "csv",
+    bank_balance_type: null
   }).where(eq(schema.balanceSnapshots.id, "snapshot-2"));
   await db.update(schema.accounts).set({
     balance_minor: 205300,
@@ -306,4 +322,38 @@ test("a CSV balance keeps its recorded provenance when the current account balan
   const history = await readBalanceHistory("checking");
 
   assert.equal(history.balances.find(balance => balance.date === "2026-02-01")?.source, "csv");
+});
+
+
+test("bank balance classification survives resync while derived days and older observations remain unknown", async context => {
+  const db = await seededDatabase(context);
+  const run = {
+    environment: "SANDBOX",
+    startedAt: "2026-02-01T12:00:00.000Z"
+  };
+
+  for (const type of ["CLAV", "CLBD"]) {
+    await saveAccountSync(db, run, "checking", "EUR", [{
+      balance_type: type,
+      balance_amount: {
+        amount: "2053.00",
+        currency: "EUR"
+      },
+      reference_date: "2026-02-01"
+    }], [], []);
+    const history = await readBalanceHistory("checking");
+
+    assert.deepEqual(history.balances.find(balance => balance.date === "2026-02-01"), {
+      date: "2026-02-01",
+      amount_minor: 205300,
+      source: "sync",
+      bank_balance_type: type
+    });
+    assert.deepEqual(history.balances.find(balance => balance.date === "2026-01-31"), {
+      date: "2026-01-31",
+      amount_minor: 206000,
+      source: "transactions",
+      bank_balance_type: null
+    });
+  }
 });
