@@ -1,12 +1,9 @@
 import { respond } from "@/server/http/respond";
-import { readJson } from "@/server/http/request-body";
-import { updateTransactionType } from "@/features/transactions/server/transaction-service";
+import { hideTransaction } from "@/features/transactions/server/transaction-service";
 
 export const runtime = "nodejs";
 
 export const dynamic = "force-dynamic";
-
-export const maxDuration = 300;
 
 type Context = {
   params: Promise<{
@@ -18,6 +15,14 @@ export async function PUT(request: Request, context: Context) {
   return respond(request, async () => {
     const { id } = await context.params;
 
-    return updateTransactionType(id, await readJson(request));
+    return hideTransaction(id, true);
+  });
+}
+
+export async function DELETE(request: Request, context: Context) {
+  return respond(request, async () => {
+    const { id } = await context.params;
+
+    return hideTransaction(id, false);
   });
 }

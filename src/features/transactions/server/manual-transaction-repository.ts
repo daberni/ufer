@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, asc, eq, lte, sql } from "drizzle-orm";
+import { and, asc, eq, isNull, lte, sql } from "drizzle-orm";
 import { TransactionRollbackError } from "drizzle-orm/errors";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 import { transactions } from "@/server/database/schema";
@@ -24,7 +24,7 @@ export type NewManualEntry = ManualEntry & {
   categorySource: "rule" | "manual";
 };
 
-export type ManualEntryResult = TypeChangeResult | "not_entered" | "follows_import";
+export type ManualEntryResult = TypeChangeResult | "not_entered" | "follows_import" | "entered" | "hidden";
 
 /** Thrown inside a write transaction to roll it back and report why a change was refused. */
 class Refused extends TransactionRollbackError {
@@ -33,7 +33,7 @@ class Refused extends TransactionRollbackError {
   }
 }
 
-async function refusable(write: (tx: DatabaseTransaction) => Promise<ManualEntryResult>): Promise<ManualEntryResult> {
+export async function refusable(write: (tx: DatabaseTransaction) => Promise<ManualEntryResult>): Promise<ManualEntryResult> {
   const db = await database();
 
   try {
@@ -230,7 +230,7 @@ export async function recordManualBalance(tx: DatabaseTransaction, account: {
   const booked = await tx.select({
     count: sql<number>`COUNT(*)`,
     onDate: sql<number>`COALESCE(SUM(CASE WHEN ${lte(transactions.booking_date, date)} THEN ${transactions.amount_minor} ELSE 0 END),0)`
-  }).from(transactions).where(eq(transactions.account_id, account.id)).get();
+  }).from(transactions).where(and(eq(transactions.account_id, account.id), isNull(transactions.suppressed_at))).get();
   const opening = Number(booked?.count ?? 0) === 0;
   const difference = amount - Number(booked?.onDate ?? 0);
 
@@ -271,7 +271,7 @@ export async function recordManualBalances(tx: DatabaseTransaction, account: {
   const ledger = await tx.select({
     date: transactions.booking_date,
     amount: sql<number>`SUM(${transactions.amount_minor})`.mapWith(Number)
-  }).from(transactions).where(eq(transactions.account_id, account.id)).groupBy(transactions.booking_date).orderBy(asc(transactions.booking_date));
+  }).from(transactions).where(and(eq(transactions.account_id, account.id), isNull(transactions.suppressed_at))).groupBy(transactions.booking_date).orderBy(asc(transactions.booking_date));
   const values: (typeof transactions.$inferInsert)[] = [];
   let ledgerIndex = 0;
   let bookedBalance = 0;
