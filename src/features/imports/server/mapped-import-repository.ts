@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { Temporal } from "temporal-polyfill";
-import { and, between, eq, inArray, isNull, like, ne, notInArray, sql } from "drizzle-orm";
+import { and, between, eq, inArray, like, ne, notInArray, sql } from "drizzle-orm";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 import { accounts, categories, transactions } from "@/server/database/schema";
 import { environment } from "@/features/banking/server/environment";
@@ -85,9 +85,10 @@ export async function findImportOpening(accountId: string, ids: string[]) {
     return null;
   }
 
+  // Hidden rows count here too: this sum identifies the import's stated balance, not the balance shown.
   const others = await db.select({
     total: sql<number>`COALESCE(SUM(${transactions.amount_minor}),0)`.mapWith(Number)
-  }).from(transactions).where(and(eq(transactions.account_id, accountId), ne(transactions.id, opening.id), isNull(transactions.suppressed_at))).get();
+  }).from(transactions).where(and(eq(transactions.account_id, accountId), ne(transactions.id, opening.id))).get();
 
   return {
     ...opening,
@@ -286,7 +287,7 @@ export async function adoptImportedRows(tx: DatabaseTransaction, accountId: stri
 async function saveOpeningBalance(tx: DatabaseTransaction, accountId: string, currency: string, opening: OpeningBalance) {
   const others = await tx.select({
     total: sql<number>`COALESCE(SUM(${transactions.amount_minor}),0)`.mapWith(Number)
-  }).from(transactions).where(and(eq(transactions.account_id, accountId), ne(transactions.id, opening.id), isNull(transactions.suppressed_at))).get();
+  }).from(transactions).where(and(eq(transactions.account_id, accountId), ne(transactions.id, opening.id))).get();
   const amount = opening.kind === "current" ? opening.amount - (others?.total ?? 0) : opening.amount;
   const account = await tx.select({
     currency: accounts.currency
