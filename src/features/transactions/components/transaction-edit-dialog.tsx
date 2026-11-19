@@ -312,6 +312,8 @@ function TransactionEditForm({
   const transfer = type === "transfer";
   // A hidden booking is not linked; it can be a transfer to an untracked account until it is shown again.
   const linkable = transfer && !transaction.hidden;
+  // Imported from a bank or file: not entered in Ufer and not a counterpart Ufer created, which the server treats as entered.
+  const imported = !transaction.entered && !transaction.created_counterpart;
   const options = useTransferOptions(transaction.id, linkable);
   const target = chosenTarget ?? storedTarget(transaction, options.data);
   const available = transactionTypes.filter(option => transaction.manual_account || !manualAccountTypes.includes(option) || option === transaction.type);
@@ -329,11 +331,15 @@ function TransactionEditForm({
           type
         };
 
-        return transaction.entered ? entryEdit(edit, data) : textEdit(edit, data, transaction);
+        if (transaction.entered) {
+          return entryEdit(edit, data);
+        }
+
+        return imported ? textEdit(edit, data, transaction) : edit;
       })}
     >
       {transaction.hidden && <ShowAgain transaction={transaction} close={close} />}
-      {!transaction.entered && <ImportedTextFields transaction={transaction} />}
+      {imported && <ImportedTextFields transaction={transaction} />}
       {transaction.entered && (
         <EntryFields
           defaults={entryDefaults(transaction)}
@@ -392,7 +398,7 @@ function TransactionEditForm({
           Delete transaction
         </button>
       )}
-      {!transaction.entered && !transaction.hidden && (
+      {imported && !transaction.hidden && (
         <button
           type="button"
           className={clsx(ui["button"], ui["full-width"])}

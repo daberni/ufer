@@ -346,6 +346,37 @@ test("a hidden booking offers no transfer targets and saves a transfer without a
   });
 });
 
+test("a counterpart Ufer created on a manual account offers neither text overrides nor hiding and sends no text", async context => {
+  const {
+    requests,
+    save,
+    screen
+  } = await renderDialog(context, {
+    ...outgoing,
+    id: "created",
+    amount_minor: 35000,
+    account_name: "Synthetic flat",
+    type: "income",
+    manual_account: true,
+    created_counterpart: true
+  });
+
+  assert.equal(screen.queryByRole("textbox", {
+    name: "Payee"
+  }), null);
+  assert.equal(screen.queryByRole("button", {
+    name: "Hide transaction"
+  }), null);
+  act(() => {
+    fireEvent.click(save());
+  });
+  await wait(0);
+
+  assert.deepEqual(requests("transactions/created/details")[0]?.body, {
+    type: "income"
+  });
+});
+
 test("a booking Ufer created on a manual account offers only removing it, without suggestions or a target account", async context => {
   const created = {
     ...outgoing,
