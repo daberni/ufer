@@ -76,9 +76,9 @@ export function formatSavingsRate(rate: number | null) {
     return "–";
   }
 
-  const roundsToZero = Math.round(rate * 100) === 0;
+  const formatted = rateFormat.format(rate);
 
-  return rateFormat.format(roundsToZero ? 0 : rate);
+  return formatted === rateFormat.format(-0) ? rateFormat.format(0) : formatted;
 }
 
 /**

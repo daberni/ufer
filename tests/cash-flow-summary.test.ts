@@ -67,6 +67,8 @@ test("a selected month carries that month's totals, and an unknown month selects
 test("a savings rate that rounds to zero shows 0% without a sign", () => {
   assert.equal(formatSavingsRate(-0.001), "0%");
   assert.equal(formatSavingsRate(0.004), "0%");
+  assert.equal(formatSavingsRate(-0.004), "0%");
+  assert.equal(formatSavingsRate(-0.005), "-1%");
   assert.equal(formatSavingsRate(-0.006), "-1%");
 });
 

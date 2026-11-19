@@ -264,12 +264,14 @@ function ChartPlot({
               <span className={styles["bars"]}>
                 <FlowBar
                   flow="income"
+                  shared={sharesDirection(item)}
                   amount={item.income}
                   groups={active ? item.incomeGroups : []}
                   scale={scale}
                 />
                 <FlowBar
                   flow="expenses"
+                  shared={sharesDirection(item)}
                   amount={item.expenses}
                   groups={active ? item.expenseGroups : []}
                   scale={scale}
@@ -294,14 +296,24 @@ function ChartPlot({
   );
 }
 
-/** A month's income above or expenses below the zero line (reversed for a negative amount); while its month is selected, it splits into category segments stacked outward from the zero line. */
+/** Whether a month's income and expense bars extend to the same side of the zero line, as when refunds exceed spending; they are then drawn next to each other instead of on top of each other. */
+function sharesDirection(month: {
+  income: number;
+  expenses: number;
+}) {
+  return month.income * -month.expenses > 0;
+}
+
+/** A month's income above or expenses below the zero line (reversed for a negative amount); while its month is selected, a positive total splits into category segments stacked outward from the zero line. */
 function FlowBar({
   flow,
+  shared,
   amount,
   groups,
   scale
 }: {
   flow: Flow;
+  shared: boolean;
   amount: number;
   groups: CategoryGroup[];
   scale: CashFlowScale;
@@ -311,10 +323,18 @@ function FlowBar({
   }
 
   const direction = signedAmount(flow, amount) > 0 ? "up" : "down";
+  // The category breakdown only lists categories with a positive amount, so it cannot split a negative total correctly.
+  const segments = amount > 0 ? groups : [];
 
   return (
-    <span className={clsx(styles["bar"], flow === "income" ? styles["income-bar"] : styles["expense-bar"])} data-direction={direction} style={barPosition(flow, amount, scale)}>
-      {groups.map(group => (
+    <span
+      className={clsx(styles["bar"], flow === "income" ? styles["income-bar"] : styles["expense-bar"])}
+      data-flow={flow}
+      data-direction={direction}
+      data-shared={shared ? "" : undefined}
+      style={barPosition(flow, amount, scale)}
+    >
+      {segments.map(group => (
         <span
           key={group.key}
           style={{

@@ -127,6 +127,13 @@
   overflow: hidden;
   transition: opacity var(--duration) ease;
 }
+/* Bars on the same side of the zero line sit next to each other: income left, expenses right. */
+.income-bar[data-shared] {
+  transform: translateX(calc(-100% - 1px));
+}
+.expense-bar[data-shared] {
+  transform: translateX(1px);
+}
 .income-bar {
   background: var(--chart-income);
 }

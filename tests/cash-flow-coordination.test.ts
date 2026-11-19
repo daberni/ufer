@@ -290,3 +290,27 @@ test("the savings rate beside the chart covers exactly the visible months", asyn
   // The six visible months give (6 × 100000) / (6 × 200000) = 50%; the whole trend would give 1400000 / 2200000 = 64%.
   assert.equal(rate?.textContent, "50%");
 });
+
+test("a month whose refunds exceed its spending keeps its reversed expense bar unsplit beside the income bar", async context => {
+  const screen = await showReports(context, {
+    ...cashFlow,
+    trend: [cashFlow.trend[0], {
+      ...cashFlow.trend[1],
+      expenses: -1000,
+      // Refund categories have no row, so this breakdown does not describe the negative total.
+      expenseBreakdown: [category("Groceries", 500)]
+    }]
+  });
+  const july = screen.getByRole("button", {
+    name: /July 2026:/
+  });
+
+  fireEvent.click(july);
+  const income = july.querySelector('[data-flow="income"]')!;
+  const expenses = july.querySelector('[data-flow="expenses"]')!;
+
+  assert.ok(income.children.length > 0);
+  assert.equal(expenses.children.length, 0);
+  assert.equal(expenses.getAttribute("data-direction"), "up");
+  assert.ok(income.hasAttribute("data-shared") && expenses.hasAttribute("data-shared"));
+});
