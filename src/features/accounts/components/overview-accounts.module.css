@@ -5,7 +5,8 @@
   composes: section-heading from "../../../components/ui/primitives.module.css";
 }
 .accounts-section {
-  margin-top: var(--space-8);
+  composes: panel from "../../../components/ui/primitives.module.css";
+  min-width: 0;
 }
 .accounts-section > .section-heading {
   margin-top: 0;
@@ -27,66 +28,67 @@
   border-radius: var(--radius-sm);
   font-size: var(--text-xs);
 }
+/* Compact two-line rows beside the net-worth card: name and balance, then type, institution, source and balance date. */
 .account-strip {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--space-4);
+  display: flex;
+  flex-direction: column;
 }
 .account-tile {
-  text-align: left;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  padding: var(--space-4) var(--space-4) var(--space-3);
-  border-radius: var(--radius-lg);
-  position: relative;
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "logo name balance"
+    "logo meta date";
   align-items: center;
-  gap: var(--space-3);
+  column-gap: var(--space-3);
+  row-gap: var(--space-1);
+  padding: var(--space-3) var(--space-2);
+  border-radius: var(--radius-md);
+}
+.account-tile + .account-tile {
+  border-top: 1px solid var(--border-subtle);
 }
 .account-tile:hover {
-  border-color: var(--border-strong);
-  box-shadow: var(--shadow-sm);
+  background: var(--soft);
+}
+.account-tile > :first-child {
+  grid-area: logo;
 }
 .account-tile-name {
+  grid-area: name;
   font-size: var(--text-sm);
   font-weight: 600;
-  flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.account-tile-name small {
-  display: block;
-  font-size: var(--text-sm);
-  color: var(--muted);
-  font-weight: 400;
-  margin-top: var(--space-1);
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
 .account-tile > strong {
-  display: block;
-  width: 100%;
+  grid-area: balance;
   font-weight: 500;
-  font-size: var(--text-xl);
-  letter-spacing: -0.7px;
-  margin-top: var(--space-2);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
 }
-.account-tile-foot {
-  width: 100%;
-  border-top: 1px solid var(--border-subtle);
+.account-tile-meta {
+  grid-area: meta;
   display: flex;
   align-items: center;
-  gap: var(--space-1);
-  font-size: var(--text-sm);
+  gap: var(--space-2);
+  min-width: 0;
+  font-size: var(--text-xs);
   color: var(--muted);
-  padding-top: var(--space-3);
-  margin-top: var(--space-1);
 }
-.account-tile-foot > span:last-child {
-  margin-left: auto;
+.account-tile-kind {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.account-tile-date {
+  grid-area: date;
+  font-size: var(--text-xs);
+  color: var(--muted);
+  text-align: right;
 }
 .onboarding {
   display: flex;
@@ -113,9 +115,6 @@
   font-weight: 500;
 }
 @media (--laptop) {
-  .account-strip {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
   .onboarding {
     flex-wrap: wrap;
   }
@@ -124,32 +123,15 @@
   }
 }
 @media (--mobile) {
-  .accounts-section {
-    margin-top: var(--space-6);
-  }
-  .account-strip {
-    grid-template-columns: minmax(0, 1fr);
-    gap: var(--space-3);
-  }
   .account-tile {
-    padding: var(--space-4);
-    gap: var(--space-3);
+    padding-inline: 0;
   }
-  .account-tile-name {
-    font-size: var(--text-md);
-    white-space: normal;
-    overflow-wrap: anywhere;
-  }
-  .account-tile-name small {
-    line-height: 1.6;
-    white-space: normal;
-  }
-  .account-tile > strong {
-    font-size: var(--text-2xl);
-    overflow-wrap: anywhere;
-  }
-  .account-tile-foot {
+  .account-tile-meta {
     flex-wrap: wrap;
+    row-gap: 0;
+  }
+  .account-tile-kind {
+    white-space: normal;
   }
   .onboarding {
     padding: var(--space-4);
