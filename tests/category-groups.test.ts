@@ -80,3 +80,10 @@ test("equal amounts keep a stable order by name regardless of input order", () =
 test("no spending has no rows", () => {
   assert.deepEqual(groupByCategory([]), []);
 });
+
+test("a negative category keeps its signed amount without a bar, and the rows still sum to the total", () => {
+  const groups = groupByCategory([category("salary", 10000), category("correction", -2000)]);
+
+  assert.deepEqual(groups.map(group => [group.key, group.amount, group.share]), [["salary", 10000, 1], ["correction", -2000, 0]]);
+  assert.equal(groups.reduce((sum, group) => sum + group.amount, 0), 8000);
+});

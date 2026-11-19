@@ -54,7 +54,7 @@ function flowTotal(flow: Flow) {
 
 /**
  * Amounts per category of one flow among counted transactions, largest first, with uncategorized transactions as one row. Per month, rows are also split by booking month.
- * A category whose refunds reach or exceed its spending has no row; its net amount still counts toward the flow's total.
+ * A category with a negative net amount, such as an income correction or refunds exceeding spending, keeps a signed row, so the rows always sum to the flow's total; only categories netting to zero are left out.
  */
 function flowByCategory(source: SqlCondition, flow: Flow, perMonth: boolean): SqlCondition {
   const month = perMonth ? bookingMonth : "NULL";
@@ -66,7 +66,7 @@ function flowByCategory(source: SqlCondition, flow: Flow, perMonth: boolean): Sq
       ${source.sql}
       AND ${flows[flow].condition}
       GROUP BY ${grouping}
-      HAVING amount>0
+      HAVING amount<>0
       ORDER BY month,amount DESC,name
     `,
     args: source.args

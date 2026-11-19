@@ -15,9 +15,9 @@ export type CashFlow = {
   currency: string;
   income: number;
   expenses: number;
-  /** Income by category in the period, largest first. */
+  /** Income by category in the period, largest first; it sums to `income` and may include negative rows. */
   incomeBreakdown: CategoryAmount[];
-  /** Spending by category in the period, largest first. */
+  /** Spending by category in the period, largest first; it sums to `expenses` and may include negative rows for net refunds. */
   expenseBreakdown: CategoryAmount[];
   /** Totals of the month before the trend; they only continue the chart's net area to its left edge and count toward nothing else. */
   leadIn: {
@@ -29,9 +29,9 @@ export type CashFlow = {
     month: string;
     income: number;
     expenses: number;
-    /** Income by category in this month, largest first; it sums to `income` unless a category's net amount is not positive. */
+    /** Income by category in this month, largest first; it sums to `income`, with a negative row for a category whose corrections exceed its income. */
     incomeBreakdown: CategoryAmount[];
-    /** Spending by category in this month, largest first; it sums to `expenses` unless a category's refunds reach its spending. */
+    /** Spending by category in this month, largest first; it sums to `expenses`, with a negative row for a category whose refunds exceed its spending. */
     expenseBreakdown: CategoryAmount[];
   }[];
 };

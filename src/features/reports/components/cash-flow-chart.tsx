@@ -355,6 +355,13 @@ function ChartPlot({
   );
 }
 
+/** Segments show the categories of a positive total only when every category is positive: negative categories (corrections or net refunds) reduce the total, and stacking the others would overstate it. */
+function splitsIntoSegments(amount: number, groups: CategoryGroup[]) {
+  const shareSum = groups.reduce((sum, group) => sum + group.share, 0);
+
+  return amount > 0 && groups.every(group => group.amount > 0) && Math.abs(shareSum - 1) < 1e-9;
+}
+
 /** Whether a month's income and expense bars extend to the same side of the zero line, as when refunds exceed spending; they are then drawn next to each other instead of on top of each other. */
 function sharesDirection(month: {
   income: number;
@@ -382,8 +389,7 @@ function FlowBar({
   }
 
   const direction = signedAmount(flow, amount) > 0 ? "up" : "down";
-  // The category breakdown only lists categories with a positive amount, so it cannot split a negative total correctly.
-  const segments = amount > 0 ? groups : [];
+  const segments = splitsIntoSegments(amount, groups) ? groups : [];
 
   return (
     <span
