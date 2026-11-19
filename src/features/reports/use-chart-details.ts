@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type FocusEvent, type PointerEvent } from 
 import { useDismiss } from "@/components/ui/use-dismiss";
 
 /**
- * Which element of the report shows its details: the one under the mouse, otherwise the focused or last tapped one. Clicking a target with the mouse or activating it with the keyboard runs its activation (such as opening its transactions); a tap only selects it, so touch users first see its details. Mouse hover is transient and ends when the pointer leaves that element. A keyboard or touch selection lives in the shared report region of the chart and its category panel, so moving between them preserves it; keyboard focus leaving the region, Escape and an outside press clear it.
+ * Which element of the report shows its details: the one under the mouse, otherwise the focused or last tapped one. Clicking a target with the mouse or activating it with the keyboard runs its activation (such as opening its transactions); a first tap only selects it, so touch users see its details before a second tap activates it. Mouse hover is transient and ends when the pointer leaves that element. A keyboard or touch selection lives in the shared report region of the chart and its category panel, so moving between them preserves it; keyboard focus leaving the region, Escape and an outside press clear it.
  */
 export function useChartDetails() {
   const [hoveredKey, setHoveredKey] = useState<string | null>(null);
@@ -91,8 +91,11 @@ export function useChartDetails() {
           setSelectedKey(key);
         }
       },
+      // A tap first selects; tapping the selected target again activates it.
       onClick() {
-        if (inputMethod.current === "touch") {
+        const firstTap = inputMethod.current === "touch" && selectedKey !== key;
+
+        if (firstTap) {
           setSelectedKey(key);
         } else {
           onActivate();

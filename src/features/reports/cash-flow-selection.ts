@@ -65,6 +65,11 @@ export function selectedCashFlow(data: CashFlow, month: string | null): CashFlow
   };
 }
 
+/** Whether a rate is shown with a minus sign; a rate that rounds to zero is not. */
+export function isNegativeRate(rate: number | null) {
+  return rate !== null && formatSavingsRate(rate).startsWith("-");
+}
+
 const rateFormat = new Intl.NumberFormat("en-GB", {
   style: "percent",
   maximumFractionDigits: 0

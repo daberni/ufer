@@ -10,24 +10,14 @@
   gap: var(--space-1) var(--space-4);
   margin-top: var(--space-4);
 }
-/* The link has its own line, so figures of different lengths never move it to another line and change the panel's height. */
-.summary > .transactions-link {
-  flex-basis: 100%;
-}
-.link-icon {
-  flex-shrink: 0;
-  color: var(--muted);
-}
 .summary strong {
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   color: var(--ink);
 }
-/* Like the chart's savings rate, the value keeps one width for every rate and while loading. */
-.summary .rate {
-  display: inline-block;
-  min-width: 5ch;
-  text-align: right;
+/* A deficit and a negative savings rate read as warnings. */
+.summary .negative {
+  color: var(--danger-text);
 }
 .columns {
   display: grid;

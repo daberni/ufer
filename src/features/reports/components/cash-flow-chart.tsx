@@ -21,7 +21,7 @@ import { useMonthTransactionsHref, usePeriod } from "@/client/use-app-url";
 import type { Area, AreaResult, PendingArea } from "@/components/ui/use-area-result";
 import type { CashFlow } from "@/features/reports/types";
 import { barSpan, cashFlowScale, scaleOffset, type CashFlowScale } from "@/features/reports/cash-flow-scale";
-import { formatSavingsRate, netFlow, trendCashFlow, type CashFlowSelection } from "@/features/reports/cash-flow-selection";
+import { formatSavingsRate, isNegativeRate, netFlow, trendCashFlow, type CashFlowSelection } from "@/features/reports/cash-flow-selection";
 
 type Props = {
   cashFlow: Area<CashFlow>;
@@ -81,7 +81,7 @@ export function CashFlowChart({
           Net
         </span>
         <span className={styles["savings-rate"]}>
-          Savings rate <strong className={rateMask}>{formatSavingsRate(visibleRate)}</strong>
+          Savings rate <strong className={clsx(isNegativeRate(visibleRate) && styles["negative"], rateMask)}>{formatSavingsRate(visibleRate)}</strong>
         </span>
       </div>
       <div className={styles["plot"]} ref={plotRef}>
@@ -245,6 +245,17 @@ function ChartPlot({
         aria-label={`Monthly income, expenses and net, ${monthRangeLabel(months)}`}
         data-active={activeMonth ? "" : undefined}
       >
+        {/* The selected month's column is highlighted behind the net area, so the area stays continuous across all months. */}
+        {activeMonth && (
+          <span
+            className={styles["column-highlight"]}
+            aria-hidden="true"
+            style={{
+              left: percent(chartMonths.indexOf(activeMonth) / chartMonths.length),
+              width: percent(1 / chartMonths.length)
+            }}
+          />
+        )}
         <ZeroLine scale={scale} />
         {hasHistory && (
           <span className={styles["plot-area"]} aria-hidden="true">

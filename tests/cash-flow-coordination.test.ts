@@ -332,10 +332,13 @@ test("a month whose refunds exceed its spending keeps its reversed expense bar u
   assert.ok(income.hasAttribute("data-shared") && expenses.hasAttribute("data-shared"));
 });
 
-test("clicking or pressing Enter on a month opens its transactions, while a tap selects it and offers the same link", async context => {
+test("clicking or pressing Enter on a month opens its transactions, while the first tap selects it and a second tap opens them", async context => {
   const screen = await showReports(context);
   const june = screen.getByRole("button", {
     name: /June 2026:/
+  });
+  const july = screen.getByRole("button", {
+    name: /July 2026:/
   });
   const mousePress = new window.Event("pointerdown", {
     bubbles: true
@@ -352,14 +355,15 @@ test("clicking or pressing Enter on a month opens its transactions, while a tap 
     key: "Enter"
   });
   fireEvent.click(june);
-  assert.deepEqual(screen.pushed, ["/transactions?period=2026-06", "/transactions?period=2026-06"]);
+  assert.equal(screen.pushed.length, 2);
 
-  assert.equal(within(screen.panel()).getByRole("link", {
-    name: "View transactions, July 2026"
-  }).getAttribute("href"), "/transactions?period=2026-07");
   tap(june);
   assert.equal(screen.pushed.length, 2);
-  assert.equal(within(screen.panel()).getByRole("link", {
-    name: "View transactions, June 2026"
-  }).getAttribute("href"), "/transactions?period=2026-06");
+  assert.ok(within(screen.panel()).getByText("Rent"));
+  tap(july);
+  assert.equal(screen.pushed.length, 2);
+  assert.ok(within(screen.panel()).getByText("July 2026"));
+  tap(july);
+  assert.deepEqual(screen.pushed.at(-1), "/transactions?period=2026-07");
+  assert.equal(within(screen.panel()).queryByRole("link"), null);
 });

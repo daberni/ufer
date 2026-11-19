@@ -2,8 +2,6 @@
 
 import ui from "../../../components/ui/primitives.module.css";
 
-import Link from "next/link";
-import { ChevronRight } from "lucide-react";
 import { clsx } from "clsx";
 import { Temporal } from "temporal-polyfill";
 import styles from "./category-breakdown.module.css";
@@ -11,11 +9,11 @@ import { describeMonth, periodLabel } from "@/lib/date-format";
 import { periodFromJson } from "@/lib/period";
 import { money } from "@/lib/money";
 import { categoryRowLimit, type CategoryGroup } from "@/features/reports/category-groups";
-import { formatSavingsRate, periodCashFlow, reservedCategoryRows, type CashFlowSelection, type CashFlowSummary } from "@/features/reports/cash-flow-selection";
+import { formatSavingsRate, isNegativeRate, periodCashFlow, reservedCategoryRows, type CashFlowSelection, type CashFlowSummary } from "@/features/reports/cash-flow-selection";
 import { CategoryRows, CategoryRowsSkeleton } from "@/features/reports/components/category-rows";
 import { AreaPlaceholder } from "@/components/ui/area-placeholder";
 import { areaProps, valueMask } from "@/components/ui/result-presentation";
-import { useCurrency, useMonthTransactionsHref, usePeriod, useViewHref } from "@/client/use-app-url";
+import { useCurrency, usePeriod } from "@/client/use-app-url";
 import type { Area } from "@/components/ui/use-area-result";
 import type { CashFlow } from "@/features/reports/types";
 
@@ -46,10 +44,6 @@ export function CategoryBreakdown({
   const period = pending ? selectedPeriod : periodFromJson(cashFlow.data.period);
   const mask = pending ? ui["skeleton"] : valueMask(cashFlow.status);
   const currency = pending ? selectedCurrency : cashFlow.data.currency;
-  const viewHref = useViewHref();
-  const monthTransactionsHref = useMonthTransactionsHref();
-  // The same link in every state keeps the panel's height; it follows the selected month or the page period.
-  const transactionsHref = selection ? monthTransactionsHref(selection.month) : viewHref("transactions");
   const summary = selection ?? (pending ? emptySummary : periodCashFlow(cashFlow.data));
   const context = selection ? describeMonth(Temporal.PlainYearMonth.from(selection.month)).title : periodLabel(period);
   const emptyNote = selection ? "this month" : "in this period";
@@ -66,15 +60,11 @@ export function CategoryBreakdown({
       </div>
       <div className={clsx(ui["subtle"], styles["summary"])}>
         <span>
-          Net <strong className={mask}>{money(summary.net, currency)}</strong>
+          Net <strong className={clsx(summary.net < 0 && styles["negative"], mask)}>{money(summary.net, currency)}</strong>
         </span>
         <span>
-          Savings rate <strong className={clsx(styles["rate"], mask)}>{formatSavingsRate(summary.savingsRate)}</strong>
+          Savings rate <strong className={clsx(isNegativeRate(summary.savingsRate) && styles["negative"], mask)}>{formatSavingsRate(summary.savingsRate)}</strong>
         </span>
-        <Link className={clsx(ui["text-button"], styles["transactions-link"])} href={transactionsHref} aria-label={`View transactions, ${context}`}>
-          View transactions
-          <ChevronRight className={styles["link-icon"]} size={16} />
-        </Link>
       </div>
       {pending ? (
         <AreaPlaceholder area={cashFlow} subject="Income and spending by category">
