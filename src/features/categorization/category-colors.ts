@@ -1,3 +1,6 @@
+/** The stored color of a category created without one. */
+export const defaultCategoryColor = "#638777";
+
 type Rgb = [number, number, number];
 
 export type ColorScheme = "light" | "dark";

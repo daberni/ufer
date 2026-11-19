@@ -14,6 +14,7 @@
     "db:generate": "drizzle-kit generate --custom",
     "db:migrate": "tsx scripts/migrate.ts",
     "db:status": "tsx scripts/migrate.ts --status",
+    "db:verify-backup": "tsx scripts/verify-backup.ts",
     "demo:seed": "tsx scripts/seed-demo.ts",
     "format:styles": "prettier --write \"src/**/*.css\"",
     "check:styles": "stylelint \"src/**/*.css\" && prettier --check \"src/**/*.css\"",
@@ -41,7 +42,7 @@
     "react-dom": "^19.3.1",
     "temporal-polyfill": "^1.0.8",
     "zod": "^4.6.7",
-    "zustand": "^5.0.16"
+    "zustand": "^5.1.0"
   },
   "devDependencies": {
     "@babel/eslint-parser": "^8.1.2",

@@ -3,10 +3,10 @@ import { currentMonth, currentMonthPeriod, parsePeriod, serializePeriod, type Pe
 import { parsePage } from "@/lib/pagination";
 import { parseCurrencyCode } from "@/lib/money";
 
-export type View = "overview" | "transactions" | "accounts" | "account" | "rules";
+export type View = "overview" | "transactions" | "import" | "accounts" | "account" | "rules";
 
-/** A view in the navigation; an account's details belong to accounts. */
-export type Section = Exclude<View, "account">;
+/** A view in the navigation; an account's details belong to accounts and the import page to transactions. */
+export type Section = Exclude<View, "account" | "import">;
 
 /** The lists an account's details are opened from and return to. */
 export type AccountList = "overview" | "accounts";
@@ -46,6 +46,9 @@ export type ViewQueryChanges = {
 
 type SearchParams = Pick<URLSearchParams, "get" | "toString">;
 
+/** The CSV import page, below the transactions it adds to. */
+export const importPath = "/transactions/import";
+
 const defaultCurrency = "EUR";
 
 const scopeKeys = ["period", "currency"];
@@ -76,13 +79,21 @@ export function viewFromPathname(pathname: string): View {
     return "account";
   }
 
+  if (pathname === importPath) {
+    return "import";
+  }
+
   const match = Object.entries(viewPaths).find(([, path]) => path === pathname);
 
   return match ? match[0] as Section : "overview";
 }
 
 export function sectionOf(view: View): Section {
-  return view === "account" ? "accounts" : view;
+  if (view === "account") {
+    return "accounts";
+  }
+
+  return view === "import" ? "transactions" : view;
 }
 
 export function isPeriodAware(view: View) {
