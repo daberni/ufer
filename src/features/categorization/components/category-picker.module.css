@@ -36,17 +36,6 @@
 .assignment-action {
   position: relative;
 }
-/* Creating a rule is a secondary action, so it appears while pointing at or focused in the field; touch devices without hover always show it. */
-@media (hover: hover) {
-  .assignment-action {
-    opacity: 0;
-    transition: opacity 120ms ease;
-  }
-  .picker:hover .assignment-action,
-  .picker:focus-within .assignment-action {
-    opacity: 1;
-  }
-}
 .assignment-badge {
   position: absolute;
   top: 5px;
@@ -67,6 +56,22 @@
 .assignment-action:disabled {
   cursor: wait;
   opacity: 0.5;
+}
+/* Creating a rule is a secondary action, so it appears while pointing at or focused in the field; touch devices without hover always show it. A pending save keeps it hidden until it is revealed. */
+@media (hover: hover) {
+  .assignment-action,
+  .assignment-action:disabled {
+    opacity: 0;
+    transition: opacity 120ms ease;
+  }
+  .picker:hover .assignment-action,
+  .picker:focus-within .assignment-action {
+    opacity: 1;
+  }
+  .picker:hover .assignment-action:disabled,
+  .picker:focus-within .assignment-action:disabled {
+    opacity: 0.5;
+  }
 }
 .assignment-icon {
   width: 16px;
