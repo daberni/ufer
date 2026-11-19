@@ -5,8 +5,9 @@ import styles from "./account-detail-actions.module.css";
 
 import { useState } from "react";
 import { clsx } from "clsx";
-import { Pencil, Plus } from "lucide-react";
+import { ArrowDownToLine, Pencil, Plus } from "lucide-react";
 import { ManualTransactionDialog } from "@/features/transactions/components/manual-transaction-dialog";
+import { BalanceImportDialog } from "@/features/imports/components/balance-import-dialog";
 import { ValuationDialog } from "./valuation-form";
 import type { Account } from "@/features/accounts/types";
 
@@ -18,7 +19,7 @@ export function AccountDetailActions({
   account: Account;
   manualAccounts: Account[];
 }) {
-  const [dialog, setDialog] = useState<"transaction" | "balance" | null>(null);
+  const [dialog, setDialog] = useState<"transaction" | "balance" | "import" | null>(null);
   const close = () => setDialog(null);
 
   if (account.provider !== "manual") {
@@ -35,8 +36,13 @@ export function AccountDetailActions({
         <Pencil size={15} />
         Update balance
       </button>
+      <button className={clsx(ui["button"], styles["button"])} onClick={() => setDialog("import")}>
+        <ArrowDownToLine size={15} />
+        Import balances
+      </button>
       {dialog === "transaction" && <ManualTransactionDialog accounts={manualAccounts} accountId={account.id} close={close} />}
       {dialog === "balance" && <ValuationDialog selectedAccount={account} close={close} />}
+      {dialog === "import" && <BalanceImportDialog account={account} close={close} />}
     </div>
   );
 }

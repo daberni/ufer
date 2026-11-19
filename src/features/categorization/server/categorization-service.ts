@@ -4,6 +4,7 @@ import { z } from "zod";
 import { categorize, decidingRule, prepareRules, validatePattern, type Rule } from "@/lib/rules";
 import { normalizeCategoryName } from "@/lib/category-name";
 import { isCategoryIcon } from "@/features/categorization/category-icons";
+import { defaultCategoryColor } from "@/features/categorization/category-colors";
 import { categoryExists, insertCategory, updateCategory, type CategoryDetails, type CategoryWriteResult } from "./category-repository";
 import { findUncorrectedTransactions, insertRule, listRules, saveRuleAssignments, setRuleEnabled, updateRule, type SelectRuleAssignments } from "./rule-repository";
 
@@ -126,8 +127,6 @@ export async function updateRuleEnabled(id: string, payload: unknown) {
     ok: true
   };
 }
-
-const defaultCategoryColor = "#638777";
 
 const categoryColor = z.string().regex(/^#[0-9a-fA-F]{6}$/, "Color must be a hex value such as #638777.").transform(value => value.toLowerCase());
 

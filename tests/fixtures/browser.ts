@@ -26,6 +26,8 @@ export function browser(context: TestContext, url = "http://localhost/") {
   const originalFetch = globalThis.fetch;
   const globals = {
     window: dom.window,
+    // Next.js links schedule prefetching through self.requestIdleCallback.
+    self: dom.window,
     document: dom.window.document,
     navigator: dom.window.navigator,
     HTMLElement: dom.window.HTMLElement,
