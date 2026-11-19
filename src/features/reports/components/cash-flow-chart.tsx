@@ -3,7 +3,7 @@
 import ui from "../../../components/ui/primitives.module.css";
 
 import { useRouter } from "next/navigation";
-import { useId, useLayoutEffect, useRef, useState, type CSSProperties, type RefObject } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type RefObject } from "react";
 import { clsx } from "clsx";
 import { Temporal } from "temporal-polyfill";
 import styles from "./cash-flow-chart.module.css";
@@ -28,6 +28,8 @@ type Props = {
   selection: CashFlowSelection | null;
   targetProps: ReturnType<typeof useChartDetails>["targetProps"];
   detailsId: string;
+  /** Called when the selected month is no longer among the months that fit, so the panel does not describe a hidden month. */
+  onSelectionHidden: () => void;
 };
 
 type Flow = "income" | "expenses";
@@ -48,7 +50,8 @@ export function CashFlowChart({
   cashFlow,
   selection,
   targetProps,
-  detailsId
+  detailsId,
+  onSelectionHidden
 }: Props) {
   const period = usePeriod();
   const plotRef = useRef<HTMLDivElement>(null);
@@ -92,6 +95,7 @@ export function CashFlowChart({
             selection={selection}
             targetProps={targetProps}
             detailsId={detailsId}
+            onSelectionHidden={onSelectionHidden}
           />
         )}
       </div>
@@ -197,7 +201,8 @@ function ChartPlot({
   months,
   selection,
   targetProps,
-  detailsId
+  detailsId,
+  onSelectionHidden
 }: Omit<Props, "cashFlow"> & {
   cashFlow: AreaResult<CashFlow>;
   months: Temporal.PlainYearMonth[];
@@ -227,6 +232,13 @@ function ChartPlot({
     };
   });
   const activeMonth = chartMonths.find(item => item.month === selection?.month);
+  const selectionHidden = selection !== null && activeMonth === undefined;
+
+  useEffect(() => {
+    if (selectionHidden) {
+      onSelectionHidden();
+    }
+  }, [selectionHidden, onSelectionHidden]);
   const hasHistory = trend.some(item => item.income !== 0 || item.expenses !== 0);
   // Month columns share the width equally, so their centres lie at even steps of a 0–100 coordinate space that stretches with the plot.
   const centre = (index: number) => (index + 0.5) / chartMonths.length * 100;

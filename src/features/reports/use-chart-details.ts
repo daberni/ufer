@@ -113,6 +113,7 @@ export function useChartDetails() {
 
   return {
     activeKey,
+    clear,
     regionProps,
     targetProps
   };
