@@ -1,3 +1,5 @@
+import type { RulePreviewDraft } from "@/features/categorization/types";
+
 /**
  * Query keys for server state. Each key starts with its resource, followed by the filters that select the result, so a write can invalidate everything below a prefix.
  */
@@ -28,10 +30,9 @@ export const queryKeys = {
   balanceHistory: (account: string) => ["accounts", "balance-history", account] as const,
   categories: () => ["categories"] as const,
   rules: () => ["rules"] as const,
-  rulePreview: (draft: {
-    pattern: string;
-    priority: number;
-  } | null) => ["rules", "preview", draft] as const,
+  rulePreview: (draft: RulePreviewDraft | null) => ["rules", "preview", draft] as const,
+  // Below the categories prefix, so category writes also recount it.
+  categoryUsage: (id: string) => ["categories", "usage", id] as const,
   transactions: {
     all: () => ["transactions"] as const,
     list: (filters: TransactionListFilters) => ["transactions", "list", filters] as const,
