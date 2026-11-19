@@ -323,9 +323,9 @@ export function parseAmount(value: string, decimal: DecimalSeparator): string | 
     return null;
   }
 
-  // Whitespace between digits and apostrophes stay until they are validated as groups of three; other whitespace is dropped.
+  // Whitespace between digits and apostrophes stay until they are validated as groups of three of one kind (spaces or apostrophes); other whitespace is dropped.
   let text = splitCurrency(value).text.replace(/\s+(?!\d)|(?<!\d)\s+/gu, "");
-  const separated = /^(\D*)(\d{1,3}(?:[ \u00A0\u202F'’]\d{3})+)(?!\d)/u.exec(text);
+  const separated = /^(\D*)(\d{1,3}(?:(?:[ \u00A0\u202F]\d{3})+|(?:['’]\d{3})+))(?!\d)/u.exec(text);
 
   if (separated) {
     text = separated[1] + separated[2].replace(/[ \u00A0\u202F'’]/gu, "") + text.slice(separated[0].length);

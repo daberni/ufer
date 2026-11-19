@@ -1047,6 +1047,9 @@ test("space and apostrophe thousands separators must form groups of three", () =
   assert.equal(parseAmount("- 12,50", ","), "-12.50");
   assert.equal(parseAmount("1\n234", "."), null);
   assert.equal(parseAmount("1\t234", "."), null);
+  assert.equal(parseAmount("1 234'567", "."), null);
+  assert.equal(parseAmount("1'234 567", "."), null);
+  assert.equal(parseAmount("1'234'567.5", "."), "1234567.5");
   assert.equal(parseAmount("1\u00A0234,56", ","), "1234.56");
 });
 
