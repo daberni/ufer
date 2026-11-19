@@ -15,7 +15,7 @@ import { importMappedRows } from "../src/features/imports/server/mapped-import-s
 import { findDuplicates } from "../src/features/imports/server/duplicate-matching";
 import { saveAccountSync } from "../src/features/banking/server/account-sync-service";
 import { startSyncRun } from "../src/features/banking/server/sync-repository";
-import { assignOccurrences, mappingProblem, normalizeText, parseCsvRecords, pruneConsumed, decodeCsv, detectDateFormat, detectDecimal, detectDelimiter, mapRows, parseAmount, parseCsv, parseDate, suggestMapping, type CsvSettings, type DateFormat, type ImportRow } from "../src/features/imports/csv-mapping";
+import { assignOccurrences, currencyAllows, mappingProblem, normalizeText, parseCsvRecords, pruneConsumed, decodeCsv, detectDateFormat, detectDecimal, detectDelimiter, mapRows, parseAmount, parseCsv, parseDate, suggestMapping, type CsvSettings, type DateFormat, type ImportRow } from "../src/features/imports/csv-mapping";
 
 const now = Temporal.Instant.from("2026-06-30T12:00:00Z");
 
@@ -1031,4 +1031,40 @@ test("the same column cannot be both debit and credit", () => {
     ...mapping,
     credit: 3
   }), null);
+});
+
+test("an ambiguous currency symbol is rejected for an account outside its currencies", async context => {
+  await isolatedDatabase(context);
+  const account = await manualAccount("Euro account");
+  const result = mapRows([["2024-01-01", "$10.00", "Shop"], ["2024-01-02", "¥500", "Shop"]], {
+    date: 0,
+    amount: 1,
+    debit: null,
+    credit: null,
+    payee: 2,
+    description: null,
+    currency: null,
+    category: null,
+    account: null
+  }, {
+    encoding: "utf-8",
+    delimiter: ",",
+    decimal: ".",
+    dateFormat: "YYYY-MM-DD"
+  });
+  const checked = await importMappedRows({
+    import_id: importId,
+    rows: assignOccurrences(result.rows, () => "account"),
+    targets: [{
+      source: "",
+      account_id: account.id
+    }],
+    confirm: false
+  }, now);
+
+  assert.equal(checked.newRows, 0);
+  assert.deepEqual(checked.errors.map(error => error.line), [2, 3]);
+  assert.equal(currencyAllows("$", "USD"), true);
+  assert.equal(currencyAllows("¥", "JPY"), true);
+  assert.equal(currencyAllows("$", "EUR"), false);
 });

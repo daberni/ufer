@@ -9,6 +9,8 @@ import { derivedTransactionType } from "@/features/transactions/transaction-type
 import type { CategorizedEntry } from "@/features/transactions/server/transaction-entry";
 import { duplicateDateToleranceDays, findDuplicates, mappedReferencePrefix, matchBooking, type ExistingBooking } from "./duplicate-matching";
 
+const referenceChunkSize = 500;
+
 export type MappedEntry = {
   reference: string;
   date: string;
@@ -158,10 +160,20 @@ export async function adoptImportedRows(tx: DatabaseTransaction, accountId: stri
     return entries;
   }
 
-  const known = await tx.select({
-    reference: transactions.provider_reference
-  }).from(transactions).where(and(eq(transactions.account_id, accountId), inArray(transactions.provider_reference, entries.map(entry => entry.reference))));
-  const knownReferences = new Set(known.map(row => row.reference));
+  const knownReferences = new Set<string | null>();
+
+  // One bound parameter per reference; chunks stay below SQLite's variable limit for large syncs.
+  for (let offset = 0; offset < entries.length; offset += referenceChunkSize) {
+    const references = entries.slice(offset, offset + referenceChunkSize).map(entry => entry.reference);
+    const known = await tx.select({
+      reference: transactions.provider_reference
+    }).from(transactions).where(and(eq(transactions.account_id, accountId), inArray(transactions.provider_reference, references)));
+
+    for (const row of known) {
+      knownReferences.add(row.reference);
+    }
+  }
+
   const used = new Set<string>();
   const adopted: CategorizedEntry[] = [];
 

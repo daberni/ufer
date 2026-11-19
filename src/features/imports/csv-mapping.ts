@@ -220,13 +220,27 @@ export function parseDate(value: string, format: DateFormat): string | null {
   }
 }
 
-const currencySymbols: Record<string, string | null> = {
+const currencySymbols: Record<string, string> = {
   "€": "EUR",
   "£": "GBP",
-  // Shared by several currencies, so they identify none.
-  "$": null,
-  "¥": null
+  // Shared by several currencies: the row keeps the symbol, and only an account in one of its currencies accepts it.
+  "$": "$",
+  "¥": "¥"
 };
+
+const ambiguousSymbols: Record<string, string[]> = {
+  "$": ["USD", "CAD", "AUD", "NZD", "HKD", "SGD", "MXN", "TWD", "ARS", "CLP", "COP"],
+  "¥": ["JPY", "CNY"]
+};
+
+/** Whether a row's stated currency, an ISO code or an ambiguous symbol, allows the account currency; rows without a currency allow any. */
+export function currencyAllows(stated: string | null, accountCurrency: string) {
+  if (!stated) {
+    return true;
+  }
+
+  return (ambiguousSymbols[stated] ?? [stated]).includes(accountCurrency);
+}
 
 let isoCurrencies: Set<string> | undefined;
 
@@ -264,7 +278,7 @@ export function splitCurrency(value: string): {
   };
 }
 
-/** The currency an affix names: null for an ambiguous symbol, undefined when it is no currency. */
+/** The currency an affix names: the symbol itself when it is ambiguous, undefined when it is no currency. */
 function affixCurrency(affix: string) {
   if (Object.hasOwn(currencySymbols, affix)) {
     return currencySymbols[affix];
@@ -546,14 +560,18 @@ function rowCurrency(cell: (column: number | null) => string, mapping: CsvMappin
   }
 
   const found = new Set([columnCurrency, ...columns.map(column => splitCurrency(cell(column)).currency)].filter((currency): currency is string => Boolean(currency)));
+  const codes = [...found].filter(currency => !Object.hasOwn(ambiguousSymbols, currency));
+  const symbols = [...found].filter(currency => Object.hasOwn(ambiguousSymbols, currency));
+  // A code settles which currency an ambiguous symbol on the same row means.
+  const consistent = codes.length > 0 ? codes.length === 1 && symbols.every(symbol => currencyAllows(symbol, codes[0])) : symbols.length <= 1;
 
-  if (found.size > 1) {
+  if (!consistent) {
     return {
       error: `The row names different currencies: ${[...found].sort().join(", ")}.`
     };
   }
 
-  return [...found][0] ?? null;
+  return codes[0] ?? symbols[0] ?? null;
 }
 
 function fractionDigits(value: string) {

@@ -3,7 +3,7 @@
 import ui from "../../../components/ui/primitives.module.css";
 
 import { clsx } from "clsx";
-import { useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ArrowDownToLine, SearchCheck } from "lucide-react";
 import styles from "./mapped-csv-import.module.css";
 import { Select } from "@/components/ui/select";
@@ -35,6 +35,9 @@ const delimiterLabels: Record<CsvSettings["delimiter"], string> = {
   "|": "Pipe"
 };
 
+/** Whether closing would lose import state: a running request, or a confirmation that started but did not finish. */
+export type ImportProgress = "idle" | "pending" | "unfinished";
+
 type LoadedFile = {
   name: string;
   bytes: Uint8Array;
@@ -42,10 +45,12 @@ type LoadedFile = {
 
 export function MappedCsvImport({
   close,
-  modeSelect
+  modeSelect,
+  onProgress
 }: {
   close: () => void;
   modeSelect: (disabled: boolean) => ReactNode;
+  onProgress: (progress: ImportProgress) => void;
 }) {
   const [file, setFile] = useState<LoadedFile | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
@@ -80,6 +85,15 @@ export function MappedCsvImport({
   const resolvedTargets = sources.map(source => targets[source] ?? defaultTarget(source));
   // A pending check or a started confirmation fixes the whole definition: a stale check must not approve changed inputs, and a retry must reproduce the same row references and targets.
   const inputsLocked = configurationLocked || mutation.isPending;
+
+  useEffect(() => {
+    if (mutation.isPending) {
+      onProgress("pending");
+    } else {
+      onProgress(configurationLocked ? "unfinished" : "idle");
+    }
+  }, [onProgress, mutation.isPending, configurationLocked]);
+
   const targetsComplete = resolvedTargets.every(target => target.accountId !== "" && (target.accountId !== "new" || target.name.trim() !== ""));
 
   async function load(selected: File | undefined) {

@@ -6,7 +6,7 @@ import { minorUnits } from "@/lib/money";
 import { today, validDate } from "@/lib/time";
 import { listRules } from "@/features/categorization/server/rule-repository";
 import { categorizeEntries } from "@/features/transactions/server/categorize-entries";
-import { normalizeText, type RowError } from "../csv-mapping";
+import { currencyAllows, normalizeText, type RowError } from "../csv-mapping";
 import { duplicateDateToleranceDays, mappedReferencePrefix, type DuplicateReason } from "./duplicate-matching";
 import { checkMappedEntries, findImportTarget, listCategoryNames, saveMappedEntries, type MappedEntry, type NewImportAccount } from "./mapped-import-repository";
 
@@ -212,7 +212,7 @@ function rowFailure(item: z.infer<typeof row>, destination: Target | undefined, 
     return "The booking date is in the future.";
   }
 
-  if (item.currency && item.currency !== destination.currency) {
+  if (!currencyAllows(item.currency, destination.currency)) {
     return `The currency ${item.currency} differs from the account currency ${destination.currency}.`;
   }
 

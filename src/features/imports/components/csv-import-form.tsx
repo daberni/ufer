@@ -3,7 +3,7 @@
 import ui from "../../../components/ui/primitives.module.css";
 
 import { clsx } from "clsx";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import styles from "./csv-import-form.module.css";
 import { ArrowDownToLine } from "lucide-react";
 import { useDialogSubmit, type DialogFormProps } from "@/components/ui/use-dialog-submit";
@@ -14,7 +14,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { useAccounts } from "@/features/accounts/queries";
 import { InlineFailure } from "@/components/ui/area-placeholder";
 import { useAreaResult } from "@/components/ui/use-area-result";
-import { MappedCsvImport } from "./mapped-csv-import";
+import { MappedCsvImport, type ImportProgress } from "./mapped-csv-import";
 
 type Props = DialogFormProps & {
   initialMode: ImportMode;
@@ -24,17 +24,42 @@ export function CsvImportDialog({
   close,
   initialMode
 }: Props) {
+  const progress = useRef<ImportProgress>("idle");
+
+  // A started confirmation owns its import ID and any accounts it created; dismissing would let a reopened dialog import differently.
+  function canClose() {
+    if (progress.current === "pending") {
+      return false;
+    }
+
+    return progress.current !== "unfinished" || window.confirm("The import has not finished. Close anyway? Rows saved so far stay imported.");
+  }
+
   return (
-    <Dialog eyebrow="YOUR FINANCES" title="Import CSV" onClose={close}>
-      <CsvImportForm close={close} initialMode={initialMode} />
+    <Dialog
+      eyebrow="YOUR FINANCES"
+      title="Import CSV"
+      onClose={close}
+      canClose={canClose}
+    >
+      <CsvImportForm
+        close={close}
+        initialMode={initialMode}
+        onProgress={value => {
+          progress.current = value;
+        }}
+      />
     </Dialog>
   );
 }
 
 function CsvImportForm({
   close,
-  initialMode
-}: Props) {
+  initialMode,
+  onProgress
+}: Props & {
+  onProgress: (progress: ImportProgress) => void;
+}) {
   const [importMode, setImportMode] = useState(initialMode);
   const accounts = useAreaResult(useAccounts());
   const accountsPending = accounts.status === "pending";
@@ -60,7 +85,7 @@ function CsvImportForm({
 
   if (importMode === "mapped") {
     return (
-      <MappedCsvImport close={close} modeSelect={modeSelect} />
+      <MappedCsvImport close={close} modeSelect={modeSelect} onProgress={onProgress} />
     );
   }
 

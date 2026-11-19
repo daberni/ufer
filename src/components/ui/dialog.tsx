@@ -14,6 +14,8 @@ type Props = {
   closeLabel?: string;
   /** Called when the person dismisses the dialog; the opener then stops rendering it. */
   onClose: () => void;
+  /** Asked before any dismissal; returning false keeps the dialog open, for example while unsaved work is in flight. */
+  canClose?: () => boolean;
   children: ReactNode;
 };
 
@@ -27,16 +29,25 @@ export function Dialog({
   eyebrow,
   closeLabel = "Close dialog",
   onClose,
+  canClose = () => true,
   children
 }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const onCloseRef = useRef(onClose);
+  const canCloseRef = useRef(canClose);
   const pressStartedOnBackdrop = useRef(false);
   const titleId = useId();
 
   useEffect(() => {
     onCloseRef.current = onClose;
+    canCloseRef.current = canClose;
   });
+
+  function dismiss() {
+    if (canClose()) {
+      onClose();
+    }
+  }
 
   useEffect(() => {
     const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -45,16 +56,31 @@ export function Dialog({
     // Escape closes the native dialog first; the opener learns about it through the close event. The event is queued, so one left over from a
     // remount, as in development's strict mode, arrives while the dialog is open again and is ignored.
     function closedByBrowser() {
-      if (!dialog?.open) {
+      if (dialog?.open) {
+        return;
+      }
+
+      // Browsers may close a dialog despite a cancelled Escape; a guarded dialog opens again.
+      if (canCloseRef.current()) {
         onCloseRef.current();
+      } else {
+        dialog?.showModal();
+      }
+    }
+
+    function cancelledByBrowser(event: Event) {
+      if (!canCloseRef.current()) {
+        event.preventDefault();
       }
     }
 
     dialog?.showModal();
     dialog?.addEventListener("close", closedByBrowser);
+    dialog?.addEventListener("cancel", cancelledByBrowser);
 
     return () => {
       dialog?.removeEventListener("close", closedByBrowser);
+      dialog?.removeEventListener("cancel", cancelledByBrowser);
 
       if (dialog?.open) {
         dialog.close();
@@ -77,7 +103,7 @@ export function Dialog({
       onClick={event => {
         // A text selection dragged out of a field ends on the backdrop too; only a press that also started there dismisses.
         if (pressStartedOnBackdrop.current && event.target === event.currentTarget) {
-          onClose();
+          dismiss();
         }
 
         pressStartedOnBackdrop.current = false;
@@ -93,7 +119,7 @@ export function Dialog({
             type="button"
             className={ui["icon-button"]}
             aria-label={closeLabel}
-            onClick={onClose}
+            onClick={dismiss}
           >
             <X size={20} />
           </button>
