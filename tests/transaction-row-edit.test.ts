@@ -26,6 +26,7 @@ const transfer: Transaction = {
   account_id: "checking",
   manual_account: false,
   account_archived: false,
+  counterpart_archived: false,
   entered: false,
   follows_import: false,
   created_counterpart: false,
@@ -109,4 +110,27 @@ test("bookings on archived accounts show their payee without an edit action", as
     name: /Edit transaction/
   }), null);
   assert.ok(within(row).getAllByText("Synthetic savings").length > 0);
+});
+
+test("a booking linked to a counterpart on an archived account shows no edit action but keeps its category picker", async context => {
+  const environment = browser(context);
+  const { TransactionList } = await import("../src/features/transactions/components/transaction-list");
+  const { TransactionRuleProvider } = await import("../src/features/transactions/components/transaction-rule-provider");
+  const screen = render(withQueryClient(environment.queryClient, createElement(TransactionRuleProvider, {
+    fallbackFocus: {
+      current: null
+    }
+  }, createElement(TransactionList, {
+    transactions: [{
+      ...transfer,
+      counterpart_archived: true
+    }],
+    categories: []
+  }))));
+  const row = screen.getAllByRole("row")[1];
+
+  assert.equal(within(row).queryByRole("button", {
+    name: /Edit transaction/
+  }), null);
+  assert.ok(within(row).getByRole("combobox"));
 });

@@ -12,7 +12,7 @@ import { transactionTypeLabels } from "@/features/transactions/transaction-types
 import { TransactionTypeIcon, transferDirection } from "@/features/transactions/components/transaction-type";
 import { TransactionEditDialog } from "@/features/transactions/components/transaction-edit-dialog";
 import type { Category } from "@/features/categorization/types";
-import type { Transaction } from "@/features/transactions/types";
+import { editLocked, type Transaction } from "@/features/transactions/types";
 
 type Props = {
   categories: Category[];
@@ -73,8 +73,8 @@ function TransactionRow({
         <div className={styles["transaction-name"]}>
           <span className={clsx(styles["transaction-icon"], incoming && styles["incoming"])}><TransactionTypeIcon type={transaction.type} /></span>
           <strong className={styles["name"]}>
-            {transaction.account_archived ? (
-              // Archived accounts are read-only until restored, so their bookings offer no edit dialog.
+            {editLocked(transaction) ? (
+              // Archived accounts are read-only until restored, so their bookings and bookings linked to them offer no edit dialog.
               <span className={styles["name-preview"]} title={subject}>{subject}</span>
             ) : (
               <button
@@ -101,7 +101,7 @@ function TransactionRow({
             </details>
           ) : <span className={styles["no-details"]}>No description</span>}
         </div>
-        {editing && !transaction.account_archived && <TransactionEditDialog transaction={transaction} close={() => setEditing(false)} />}
+        {editing && !editLocked(transaction) && <TransactionEditDialog transaction={transaction} close={() => setEditing(false)} />}
       </th>
       <td role="cell" className={styles["category"]}>
         <span className={styles["category-label"]} aria-hidden="true">Category</span>

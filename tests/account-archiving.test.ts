@@ -20,6 +20,7 @@ import { listAccounts, readBalanceHistory, readNetWorth } from "../src/features/
 import { archiveAccount, restoreAccount, updateManualValuation } from "../src/features/accounts/server/account-service";
 import { editManualTransaction, enterManualTransaction, removeManualTransaction, transferOptions, updateTransactionCategory, updateTransactionType } from "../src/features/transactions/server/transaction-service";
 import { applyRulesToUncorrectedTransactions } from "../src/features/categorization/server/categorization-service";
+import { saveRuleAssignments } from "../src/features/categorization/server/rule-repository";
 import { pairTransfersInEnvironment } from "../src/features/transactions/server/transfer-repository";
 import { acquireLease } from "../src/server/jobs/lease-repository";
 import { removeConnection } from "../src/features/banking/server/connection-repository";
@@ -310,6 +311,13 @@ test("categories of bookings on an archived account change neither manually nor 
   await applyRulesToUncorrectedTransactions();
   assert.deepEqual(await db.select().from(schema.transactions), bookingsBefore);
 
+  // Assignments computed before the account was archived are not written afterwards.
+  await saveRuleAssignments([{
+    id: "shop",
+    category_id: "groceries"
+  }]);
+  assert.deepEqual(await db.select().from(schema.transactions), bookingsBefore);
+
   await restoreAccount("closed");
   await applyRulesToUncorrectedTransactions();
   assert.equal((await db.select().from(schema.transactions).where(eq(schema.transactions.id, "shop")).get())?.category_id, "groceries");
@@ -384,6 +392,12 @@ test("changing a booking linked to a counterpart on an archived account is refus
   }), {
     status: 409
   });
+  const listed = (await readTransactionPage(dashboardFilters(new URLSearchParams({
+    period: "2026-01"
+  })))).transactions.find(item => item.id === "imported");
+
+  assert.equal(listed?.account_archived, false);
+  assert.equal(listed?.counterpart_archived, true);
   assert.deepEqual(await db.select().from(schema.transactions), bookingsBefore);
 });
 

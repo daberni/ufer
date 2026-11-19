@@ -52,7 +52,9 @@ export async function insertRule(rule: NewRule, selectAssignments?: SelectRuleAs
       const chunk = ids.slice(offset, offset + assignmentChunkSize);
       const result = await tx.update(transactions).set({
         category_id: rule.category_id
-      }).where(inArray(transactions.id, chunk));
+      }).where(and(inArray(transactions.id, chunk), inArray(transactions.account_id, tx.select({
+        id: accounts.id
+      }).from(accounts).where(isNull(accounts.archived_at)))));
 
       categorized += result.rowsAffected;
     }
@@ -93,9 +95,13 @@ export async function findUncorrectedTransactions() {
 
 export async function saveRuleAssignments(entries: Pick<Transaction, "id" | "category_id">[]) {
   const db = await database();
+  // An account archived after the candidates were read stays read-only.
+  const activeAccounts = db.select({
+    id: accounts.id
+  }).from(accounts).where(isNull(accounts.archived_at));
   const [first, ...rest] = entries.map(entry => db.update(transactions).set({
     category_id: entry.category_id
-  }).where(and(eq(transactions.id, entry.id), eq(transactions.category_source, "rule"))));
+  }).where(and(eq(transactions.id, entry.id), eq(transactions.category_source, "rule"), inArray(transactions.account_id, activeAccounts))));
 
   if (first) {
     await db.batch([first, ...rest]);

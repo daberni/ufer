@@ -22,6 +22,8 @@ export type Transaction = {
   manual_account: boolean;
   /** Whether the booking's account is archived, which keeps the booking read-only. */
   account_archived: boolean;
+  /** Whether the linked counterpart's account is archived; changes to this booking would change that counterpart, so only its category stays editable. */
+  counterpart_archived: boolean;
   /** Whether the booking was entered in Ufer on a manual account, so its date, amount, payee and description can be edited and the booking deleted. A counterpart created for an imported booking is not. */
   entered: boolean;
   /** Whether an entered booking is linked with an imported booking, whose date and amount it follows. */
@@ -73,3 +75,8 @@ export type TransactionPage = {
   transactionCount: number;
   transactions: Transaction[];
 };
+
+/** Whether the edit dialog is unavailable: every change of type, link, entry or deletion is refused while either side's account is archived. */
+export function editLocked(transaction: Pick<Transaction, "account_archived" | "counterpart_archived">) {
+  return transaction.account_archived || transaction.counterpart_archived;
+}
