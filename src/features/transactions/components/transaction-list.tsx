@@ -73,15 +73,20 @@ function TransactionRow({
         <div className={styles["transaction-name"]}>
           <span className={clsx(styles["transaction-icon"], incoming && styles["incoming"])}><TransactionTypeIcon type={transaction.type} /></span>
           <strong className={styles["name"]}>
-            <button
-              className={styles["edit-transaction"]}
-              type="button"
-              onClick={() => setEditing(true)}
-              aria-label={`Edit transaction: ${subject}`}
-              title={subject}
-            >
-              <span className={styles["name-preview"]}>{subject}</span>
-            </button>
+            {transaction.account_archived ? (
+              // Archived accounts are read-only until restored, so their bookings offer no edit dialog.
+              <span className={styles["name-preview"]} title={subject}>{subject}</span>
+            ) : (
+              <button
+                className={styles["edit-transaction"]}
+                type="button"
+                onClick={() => setEditing(true)}
+                aria-label={`Edit transaction: ${subject}`}
+                title={subject}
+              >
+                <span className={styles["name-preview"]}>{subject}</span>
+              </button>
+            )}
           </strong>
           <span className={styles["description"]} title={transaction.description}>{transaction.description || "No description"}</span>
           {transaction.counterparty || transaction.description ? (
@@ -96,7 +101,7 @@ function TransactionRow({
             </details>
           ) : <span className={styles["no-details"]}>No description</span>}
         </div>
-        {editing && <TransactionEditDialog transaction={transaction} close={() => setEditing(false)} />}
+        {editing && !transaction.account_archived && <TransactionEditDialog transaction={transaction} close={() => setEditing(false)} />}
       </th>
       <td role="cell" className={styles["category"]}>
         <span className={styles["category-label"]} aria-hidden="true">Category</span>
