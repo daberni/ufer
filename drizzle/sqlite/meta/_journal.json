@@ -82,8 +82,15 @@
     {
       "idx": 11,
       "version": "6",
+      "when": 1795126884000,
+      "tag": "0011_transaction_category_rule",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
       "when": 1795126909186,
-      "tag": "0012_import_templates",
+      "tag": "0013_import_templates",
       "breakpoints": true
     }
   ]

@@ -36,6 +36,7 @@ export const queryKeys = {
   categoryUsage: (id: string) => ["categories", "usage", id] as const,
   transactions: {
     all: () => ["transactions"] as const,
+    lists: () => ["transactions", "list"] as const,
     list: (filters: TransactionListFilters) => ["transactions", "list", filters] as const,
     transfer: (id: string) => ["transactions", "transfer", id] as const
   },

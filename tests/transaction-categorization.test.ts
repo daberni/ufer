@@ -24,6 +24,7 @@ const transaction: Transaction = {
   account_id: "synthetic-account",
   category_id: "groceries",
   category_source: "rule",
+  category_rule_id: null,
   type: "expense",
   type_source: "auto",
   manual_account: false,
@@ -309,4 +310,25 @@ test("a settled category assignment refreshes an open rule preview and invalidat
     matched: 1,
     uncategorized: 1
   });
+});
+
+test("a saved category is not reported as failed while other transaction queries, such as transfer options, are cached", async context => {
+  const {
+    pending,
+    queryClient
+  } = browser(context);
+
+  seed(queryClient);
+  queryClient.setQueryData(queryKeys.transactions.transfer(transaction.id), {
+    bookings: [],
+    accounts: []
+  });
+  const { result } = renderRow(queryClient);
+
+  act(() => result.current.row.change("leisure"));
+  await wait(0);
+  await respond(patches(pending)[0], assignment("leisure"));
+
+  assert.equal(result.current.row.status?.kind, "saved");
+  assert.equal(result.current.stored.category_id, "leisure");
 });

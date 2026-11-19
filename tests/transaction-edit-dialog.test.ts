@@ -24,6 +24,7 @@ const outgoing: Transaction = {
   account_id: "synthetic-checking",
   category_id: null,
   category_source: "rule",
+  category_rule_id: null,
   type: "expense",
   type_source: "auto",
   manual_account: false,

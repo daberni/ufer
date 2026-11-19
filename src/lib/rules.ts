@@ -62,6 +62,21 @@ export function decidingRule(counterparty: string, description: string, rules: P
   return rules.find(rule => rule.matches(text));
 }
 
+/** A rule-sourced category together with the rule that decided it; both are null when no rule matches. */
+export type RuleAssignment = {
+  categoryId: string | null;
+  ruleId: string | null;
+};
+
+export function ruleAssignment(counterparty: string, description: string, rules: PreparedRule[]): RuleAssignment {
+  const rule = decidingRule(counterparty, description, rules);
+
+  return {
+    categoryId: rule?.categoryId ?? null,
+    ruleId: rule?.id ?? null
+  };
+}
+
 export function categorize(counterparty: string, description: string, rules: PreparedRule[]) {
-  return decidingRule(counterparty, description, rules)?.categoryId ?? null;
+  return ruleAssignment(counterparty, description, rules).categoryId;
 }

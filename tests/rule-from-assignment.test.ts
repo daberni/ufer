@@ -411,8 +411,10 @@ test("failed assignment selection rolls back the new rule without changing trans
     category_id: "groceries",
     priority: 100,
     enabled: true
-  }, () => {
-    throw failure;
+  }, {
+    uncategorized: () => {
+      throw failure;
+    }
   }), failure);
 
   assert.equal((await db.select().from(schema.categorizationRules)).length, 1);

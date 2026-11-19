@@ -151,6 +151,7 @@ export async function importMappedRows(payload: unknown, now = Temporal.Now.inst
         description: item.description,
         categoryId,
         categorySource: categoryId ? "manual" : "rule",
+        categoryRuleId: null,
         transfer: item.transfer
       }
     });
@@ -433,8 +434,17 @@ function categorized(entries: MappedEntry[], rules: Awaited<ReturnType<typeof li
   const uncategorized = entries.filter(entry => !entry.categoryId);
   const ruled = categorizeEntries(uncategorized, rules);
 
-  return entries.map(entry => entry.categoryId ? entry : {
-    ...entry,
-    categoryId: ruled[uncategorized.indexOf(entry)].categoryId
+  return entries.map(entry => {
+    if (entry.categoryId) {
+      return entry;
+    }
+
+    const assignment = ruled[uncategorized.indexOf(entry)];
+
+    return {
+      ...entry,
+      categoryId: assignment.categoryId,
+      categoryRuleId: assignment.categoryRuleId
+    };
   });
 }

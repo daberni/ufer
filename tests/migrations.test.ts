@@ -972,6 +972,53 @@ test("transaction override migration keeps every booking unchanged and leaves bo
   }
 });
 
+test("category-rule migration keeps every booking unchanged and leaves existing rule assignments unattributed", async () => {
+  const client = createClient({
+    url: ":memory:"
+  });
+  const directory = mkdtempSync(join(tmpdir(), "ufer-category-rule-"));
+  const journal = JSON.parse(readFileSync("drizzle/sqlite/meta/_journal.json", "utf8"));
+
+  // Later changesets are left out as well, so the upgrade applies 0011 after the earlier history.
+  journal.entries = journal.entries.slice(0, journal.entries.findIndex((entry: {
+    tag: string
+  }) => entry.tag === "0011_transaction_category_rule"));
+  mkdirSync(join(directory, "meta"));
+
+  for (const entry of journal.entries) {
+    cpSync(`drizzle/sqlite/${entry.tag}.sql`, join(directory, `${entry.tag}.sql`));
+  }
+
+  writeFileSync(join(directory, "meta/_journal.json"), JSON.stringify(journal));
+
+  try {
+    await migrateDatabase(client, directory);
+    await client.batch([
+      "INSERT INTO accounts(id,environment,name,institution,kind) VALUES('checking','SANDBOX','Synthetic checking','Example institution','checking')",
+      "INSERT INTO categorization_rules(id,name,pattern,mode,category_id,priority,enabled) VALUES('market-rule','Markets','MARKET','keyword','groceries',100,1)",
+      "INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,counterparty,category_id,category_source,type) VALUES('ruled','checking','bank:1','2026-01-02',-500,'EUR','Example Market','groceries','rule','expense')",
+      "INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,counterparty,category_id,category_source,type) VALUES('manual','checking','bank:2','2026-01-03',-700,'EUR','Example Bakery','leisure','manual','expense')"
+    ], "write");
+    const columns = await columnList(client, "transactions");
+    const before = (await client.execute(`SELECT ${columns} FROM transactions ORDER BY id`)).rows;
+
+    await assert.rejects(initializeDatabase(client), /migrations are pending/);
+    await migrateDatabase(client);
+    await migrateDatabase(client);
+
+    assert.deepEqual((await client.execute(`SELECT ${columns} FROM transactions ORDER BY id`)).rows, before);
+    assert.deepEqual((await client.execute("SELECT category_rule_id FROM transactions")).rows.map(row => row.category_rule_id), [null, null]);
+
+    assert.equal((await client.execute("PRAGMA foreign_key_check")).rows.length, 0);
+  } finally {
+    client.close();
+    rmSync(directory, {
+      recursive: true,
+      force: true
+    });
+  }
+});
+
 test("import template migration adds an empty template table and leaves every existing table unchanged", async () => {
   const client = createClient({
     url: ":memory:"
@@ -981,7 +1028,7 @@ test("import template migration adds an empty template table and leaves every ex
 
   journal.entries = journal.entries.filter((entry: {
     tag: string
-  }) => entry.tag !== "0012_import_templates");
+  }) => entry.tag !== "0013_import_templates");
   mkdirSync(join(directory, "meta"));
 
   for (const entry of journal.entries) {

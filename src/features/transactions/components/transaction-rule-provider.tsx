@@ -4,8 +4,12 @@ import ui from "../../../components/ui/primitives.module.css";
 
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { RuleFromAssignmentDialog } from "@/features/categorization/components/rule-from-assignment-form";
+import { RuleDialog } from "@/features/categorization/components/create-rule-form";
+import { useRules } from "@/features/categorization/queries";
+import type { Rule } from "@/features/categorization/types";
 
 type RuleDraft = {
+  transactionId: string;
   categoryId: string;
   counterparty: string;
   description: string;
@@ -13,6 +17,10 @@ type RuleDraft = {
 
 type RuleActions = {
   open: (draft: RuleDraft) => void;
+  /** Opens a stored rule's editor, for example the rule that assigned a transaction's category. */
+  edit: (rule: Rule) => void;
+  /** A stored rule by ID; undefined while the rules load or for a rule deleted since. */
+  findRule: (id: string | null) => Rule | undefined;
   clearAnnouncement: () => void;
 };
 
@@ -45,11 +53,15 @@ export function TransactionRuleProvider({
   fallbackFocus: RefObject<HTMLElement | null>;
 }) {
   const [draft, setDraft] = useState<RuleDraft | null>(null);
+  const [editedRule, setEditedRule] = useState<Rule | null>(null);
   const [announcement, setAnnouncement] = useState("");
   const opener = useRef<HTMLElement | null>(null);
+  const storedRules = useRules();
+
+  const dialogOpen = draft !== null || editedRule !== null;
 
   useEffect(() => {
-    if (draft !== null) {
+    if (dialogOpen) {
       return;
     }
 
@@ -61,20 +73,31 @@ export function TransactionRuleProvider({
     if (previous && !previous.isConnected) {
       fallbackFocus.current?.focus();
     }
-  }, [draft, fallbackFocus]);
+  }, [dialogOpen, fallbackFocus]);
 
-  function open(next: RuleDraft) {
+  function rememberOpener() {
     opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setAnnouncement("");
+  }
+
+  function open(next: RuleDraft) {
+    rememberOpener();
     setDraft({
       ...next
     });
+  }
+
+  function edit(rule: Rule) {
+    rememberOpener();
+    setEditedRule(rule);
   }
 
   return (
     <RuleContext
       value={{
         open,
+        edit,
+        findRule: id => storedRules.data?.find(rule => rule.id === id),
         clearAnnouncement: () => setAnnouncement("")
       }}
     >
@@ -82,6 +105,7 @@ export function TransactionRuleProvider({
       <span className={ui["visually-hidden"]} role="status" aria-live="polite">{announcement}</span>
       {draft && (
         <RuleFromAssignmentDialog
+          transactionId={draft.transactionId}
           counterparty={draft.counterparty}
           description={draft.description}
           categoryId={draft.categoryId}
@@ -89,6 +113,7 @@ export function TransactionRuleProvider({
           onCreated={categorized => setAnnouncement(createdText(categorized))}
         />
       )}
+      {editedRule && <RuleDialog rule={editedRule} close={() => setEditedRule(null)} />}
     </RuleContext>
   );
 }
