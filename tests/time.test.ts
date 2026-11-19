@@ -31,6 +31,7 @@ function bankAccount(id: string, validUntil: string | null): Account {
   return {
     id,
     name: id,
+    provider_name: null,
     institution: "Example institution",
     kind: "checking",
     currency: "EUR",

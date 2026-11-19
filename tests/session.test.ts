@@ -15,6 +15,7 @@ import { provisionUser } from "../src/features/auth/server/provision-user";
 import { hasWorkspaceAccess, requireAuth } from "../src/features/auth/server/session";
 import { handleAuthentication } from "../src/features/auth/server/auth-handler";
 import { respond } from "../src/server/http/respond";
+import { PATCH as renameAccountRoute } from "../src/app/api/accounts/[id]/route";
 import { GET as readCurrentUser } from "../src/app/api/me/route";
 
 const origin = "https://finance.example";
@@ -562,4 +563,46 @@ test("operator password recovery uses library reset tokens and revokes all sessi
     token: "untrusted",
     newPassword: password
   }))).status, 404);
+});
+
+
+test("account renaming requires a session and trusted origin and answers invalid names with 422 Problem Details", async context => {
+  const db = await isolatedAuth(context);
+
+  await provisionUser(owner);
+  await db.insert(schema.accounts).values({
+    id: "rename-route",
+    environment: "SANDBOX",
+    name: "Original",
+    institution: "Example",
+    kind: "checking"
+  });
+  const renameRequest = (cookie = "", requestedOrigin = origin, name = "Renamed") => new Request(`${origin}/api/accounts/rename-route`, {
+    method: "PATCH",
+    headers: {
+      "content-type": "application/json",
+      origin: requestedOrigin,
+      cookie
+    },
+    body: JSON.stringify({
+      name
+    })
+  });
+  const routeContext = {
+    params: Promise.resolve({
+      id: "rename-route"
+    })
+  };
+
+  assert.equal((await renameAccountRoute(renameRequest(), routeContext)).status, 401);
+  const { cookie } = await signIn();
+
+  assert.equal((await renameAccountRoute(renameRequest(cookie, "https://untrusted.example"), routeContext)).status, 403);
+  const invalid = await renameAccountRoute(renameRequest(cookie, origin, " "), routeContext);
+
+  assert.equal(invalid.status, 422);
+  assert.match(invalid.headers.get("content-type") ?? "", /application\/problem\+json/);
+  assert.equal((await db.select().from(schema.accounts).get())?.name, "Original");
+  assert.equal((await renameAccountRoute(renameRequest(cookie), routeContext)).status, 200);
+  assert.equal((await db.select().from(schema.accounts).get())?.name, "Renamed");
 });

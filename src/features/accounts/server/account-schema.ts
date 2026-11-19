@@ -19,3 +19,8 @@ export const valuationInput = z.object({
 });
 
 export type ManualAccountInput = z.infer<typeof accountInput>;
+
+
+export const accountRenameInput = z.object({
+  name: z.string().trim().min(1).max(100)
+});
