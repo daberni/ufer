@@ -16,7 +16,7 @@ import { useAppStore } from "@/client/app-store";
 import { mapArea, useAreaResult, type Area } from "@/components/ui/use-area-result";
 import { Empty } from "@/components/ui/empty-state";
 import { useAccountCashFlow, useCashFlow } from "@/features/reports/queries";
-import { accountGroups, useAccounts, useBalanceHistory, useNetWorth } from "@/features/accounts/queries";
+import { accountGroups, activeAccounts, useAccounts, useBalanceHistory, useNetWorth } from "@/features/accounts/queries";
 import { navigation } from "@/features/dashboard/navigation";
 import { useCategories, useRules } from "@/features/categorization/queries";
 import { useBankingConfiguration } from "@/features/banking/banking-configuration";
@@ -92,7 +92,7 @@ export function TransactionsPage() {
       <TransactionsPanel
         categories={categories}
         emptyState={query.syncRun ? runEmptyState : undefined}
-        filterAccounts={query.syncRun ? accounts : mapArea(groups, data => data.currencyAccounts)}
+        filterAccounts={query.syncRun ? mapArea(accounts, activeAccounts) : mapArea(groups, data => data.currencyAccounts)}
         list={list}
         page={list.page}
         view="transactions"
