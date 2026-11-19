@@ -50,6 +50,8 @@ export async function pairTransfers(executor: Executor, bankingEnvironment: stri
     JOIN accounts other_account ON other_account.id=other.account_id
     WHERE anchor_account.environment=${bankingEnvironment}
     AND other_account.environment=${bankingEnvironment}
+    AND anchor_account.archived_at IS NULL
+    AND other_account.archived_at IS NULL
     AND anchor.type='transfer'
     AND ${pairable("anchor")}
     AND ${pairable("other")}
@@ -116,7 +118,7 @@ export async function findSubject(executor: Executor, id: string) {
   return executor.select(subjectColumns).from(transactions).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(and(eq(transactions.id, id), eq(accounts.environment, environment()))).get();
 }
 
-// An entered pair changes both sides together, so either side on an archived account keeps the booking read-only.
+// Changing a linked booking can rewrite, unlink or delete its counterpart, so a link to an archived account keeps both sides read-only.
 export async function touchesArchivedAccount(executor: Executor, subject: Subject) {
   if (subject.account_archived_at !== null) {
     return true;
@@ -124,7 +126,7 @@ export async function touchesArchivedAccount(executor: Executor, subject: Subjec
 
   const counterpart = await findCounterpart(executor, subject);
 
-  return counterpart !== undefined && counterpart.account_archived_at !== null && enteredPair(subject, counterpart);
+  return counterpart !== undefined && counterpart.account_archived_at !== null;
 }
 
 export async function findCounterpart(executor: Executor, subject: Subject) {

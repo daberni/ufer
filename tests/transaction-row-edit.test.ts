@@ -25,6 +25,7 @@ const transfer: Transaction = {
   type_source: "auto",
   account_id: "checking",
   manual_account: false,
+  account_archived: false,
   entered: false,
   follows_import: false,
   created_counterpart: false,

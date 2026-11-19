@@ -38,7 +38,8 @@ export async function insertRule(rule: NewRule, selectAssignments?: SelectRuleAs
     }
 
     const rules = await tx.select().from(categorizationRules).orderBy(asc(categorizationRules.priority), asc(categorizationRules.id));
-    const scope = and(eq(accounts.environment, environment()), eq(transactions.category_source, "rule"), isNull(transactions.category_id));
+    // Bookings on archived accounts are read-only, so rules never recategorize them.
+    const scope = and(eq(accounts.environment, environment()), isNull(accounts.archived_at), eq(transactions.category_source, "rule"), isNull(transactions.category_id));
     const candidates = await tx.select({
       id: transactions.id,
       counterparty: transactions.counterparty,
@@ -79,7 +80,8 @@ export async function setRuleEnabled(id: string, enabled: boolean) {
 
 export async function findUncorrectedTransactions() {
   const db = await database();
-  const scope = and(eq(accounts.environment, environment()), eq(transactions.category_source, "rule"));
+  // Bookings on archived accounts are read-only, so applying rules leaves them unchanged.
+  const scope = and(eq(accounts.environment, environment()), isNull(accounts.archived_at), eq(transactions.category_source, "rule"));
 
   return db.select({
     id: transactions.id,

@@ -56,6 +56,7 @@ const transaction: Transaction = {
   type: "expense",
   type_source: "auto",
   manual_account: false,
+  account_archived: false,
   entered: false,
   follows_import: false,
   created_counterpart: false,

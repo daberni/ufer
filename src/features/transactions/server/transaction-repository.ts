@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 import { environment } from "@/features/banking/server/environment";
 import { accounts, transactions } from "@/server/database/schema";
@@ -61,11 +61,20 @@ export async function upsertTransactions(tx: DatabaseTransaction, accountId: str
   }
 }
 
+/** Assigns a category manually; a booking on an archived account is refused because it is read-only. */
 export async function setTransactionCategory(id: string, categoryId: string | null) {
   const db = await database();
+  const owner = await db.select({
+    archived_at: accounts.archived_at
+  }).from(transactions).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(and(eq(transactions.id, id), eq(accounts.environment, environment()))).get();
+
+  if (owner?.archived_at) {
+    return "archived_account" as const;
+  }
+
   const scopedAccounts = db.select({
     id: accounts.id
-  }).from(accounts).where(eq(accounts.environment, environment()));
+  }).from(accounts).where(and(eq(accounts.environment, environment()), isNull(accounts.archived_at)));
   const scope = and(eq(transactions.id, id), inArray(transactions.account_id, scopedAccounts));
   const [assignment] = await db.update(transactions).set({
     category_id: categoryId,

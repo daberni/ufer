@@ -42,6 +42,7 @@ function booking(id: string, counterparty: string): Transaction {
     type: "expense",
     type_source: "auto",
     manual_account: false,
+    account_archived: false,
     entered: false,
     follows_import: false,
     created_counterpart: false,

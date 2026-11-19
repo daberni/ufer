@@ -157,6 +157,7 @@ export async function readTransactionPage(filters: DashboardFilters) {
       type: row.type as TransactionType,
       type_source: row.type_source === "manual" ? "manual" as const : "auto" as const,
       manual_account: Boolean(row.manual_account),
+      account_archived: Boolean(row.account_archived),
       created_counterpart: Boolean(row.created_counterpart),
       ...entryState(row),
       counterpart: row.counterpart_id === null ? null : {

@@ -20,6 +20,8 @@ export type Transaction = {
   account_id: string;
   /** Whether the booking belongs to a manual account, which also allows the opening balance and adjustment types. */
   manual_account: boolean;
+  /** Whether the booking's account is archived, which keeps the booking read-only. */
+  account_archived: boolean;
   /** Whether the booking was entered in Ufer on a manual account, so its date, amount, payee and description can be edited and the booking deleted. A counterpart created for an imported booking is not. */
   entered: boolean;
   /** Whether an entered booking is linked with an imported booking, whose date and amount it follows. */

@@ -27,6 +27,10 @@ export async function updateTransactionCategory(id: string, payload: unknown) {
 
   const assignment = await setTransactionCategory(id, categoryId);
 
+  if (assignment === "archived_account") {
+    throw new HttpError(409, "This account is archived. Restore the account first.");
+  }
+
   if (!assignment) {
     throw new HttpError(404, "Transaction not found.");
   }
