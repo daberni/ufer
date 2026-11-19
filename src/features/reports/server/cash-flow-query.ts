@@ -83,7 +83,7 @@ function categoryAmount(row: Record<string, unknown>): CategoryAmount {
   };
 }
 
-/** Income, expenses, spending by category and the six-month trend, including each month's income and spending by category, for one period and currency. */
+/** Income, expenses, spending by category and the twelve-month trend, including each month's income and spending by category, for one period and currency. */
 export async function readCashFlow(period: Period, currency: string) {
   const client = (await database()).$client;
   const trendRange = trendMonths(period, currentMonth());

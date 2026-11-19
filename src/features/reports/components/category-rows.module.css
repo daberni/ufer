@@ -31,26 +31,6 @@
   height: 100%;
   border-radius: var(--radius-sm);
 }
-/* Compact rows keep each row to one line: the name is truncated and the share bar sits in the row's bottom padding. */
-.rows.compact {
-  gap: 1px;
-}
-.compact .row {
-  position: relative;
-  padding-bottom: 3px;
-  line-height: 1.25;
-}
-.compact .category {
-  min-height: 16px;
-}
-/* The share bar starts after the category icon and its gap, underlining name and amount. */
-.compact .row > div {
-  position: absolute;
-  left: calc(1.2em + var(--space-2));
-  right: 0;
-  bottom: 0;
-  height: 2px;
-}
 @media (--mobile) {
   .rows {
     gap: var(--space-6);
