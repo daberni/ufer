@@ -228,10 +228,28 @@ const currencySymbols: Record<string, string> = {
   "¥": "¥"
 };
 
-const ambiguousSymbols: Record<string, string[]> = {
-  "$": ["USD", "CAD", "AUD", "NZD", "HKD", "SGD", "MXN", "TWD", "ARS", "CLP", "COP"],
-  "¥": ["JPY", "CNY"]
-};
+const ambiguousSymbols = new Set(["$", "¥"]);
+const ambiguousSymbolCurrencies = new Map<string, string[]>();
+
+/** The currencies an ambiguous symbol can denote: every currency the runtime writes with that narrow symbol. */
+function symbolCurrencies(symbol: string) {
+  let currencies = ambiguousSymbolCurrencies.get(symbol);
+
+  if (!currencies) {
+    currencies = Intl.supportedValuesOf("currency").filter(code => narrowSymbol(code) === symbol);
+    ambiguousSymbolCurrencies.set(symbol, currencies);
+  }
+
+  return currencies;
+}
+
+function narrowSymbol(code: string) {
+  return new Intl.NumberFormat("en", {
+    style: "currency",
+    currency: code,
+    currencyDisplay: "narrowSymbol"
+  }).formatToParts(0).find(part => part.type === "currency")?.value;
+}
 
 /** Whether a row's stated currency, an ISO code or an ambiguous symbol, allows the account currency; rows without a currency allow any. */
 export function currencyAllows(stated: string | null, accountCurrency: string) {
@@ -239,7 +257,9 @@ export function currencyAllows(stated: string | null, accountCurrency: string) {
     return true;
   }
 
-  return (ambiguousSymbols[stated] ?? [stated]).includes(accountCurrency);
+  const accepted = ambiguousSymbols.has(stated) ? symbolCurrencies(stated) : [stated];
+
+  return accepted.includes(accountCurrency);
 }
 
 let isoCurrencies: Set<string> | undefined;
@@ -571,8 +591,8 @@ function rowCurrency(cell: (column: number | null) => string, mapping: CsvMappin
   }
 
   const found = new Set([columnCurrency, ...columns.map(column => splitCurrency(cell(column)).currency)].filter((currency): currency is string => Boolean(currency)));
-  const codes = [...found].filter(currency => !Object.hasOwn(ambiguousSymbols, currency));
-  const symbols = [...found].filter(currency => Object.hasOwn(ambiguousSymbols, currency));
+  const codes = [...found].filter(currency => !ambiguousSymbols.has(currency));
+  const symbols = [...found].filter(currency => ambiguousSymbols.has(currency));
   // A code settles which currency an ambiguous symbol on the same row means.
   const consistent = codes.length > 0 ? codes.length === 1 && symbols.every(symbol => currencyAllows(symbol, codes[0])) : symbols.length <= 1;
 

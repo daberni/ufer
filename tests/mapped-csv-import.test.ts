@@ -1093,6 +1093,10 @@ test("an ambiguous currency symbol is rejected for an account outside its curren
   assert.equal(currencyAllows("$", "USD"), true);
   assert.equal(currencyAllows("¥", "JPY"), true);
   assert.equal(currencyAllows("$", "EUR"), false);
+  assert.equal(currencyAllows("$", "XCD"), true);
+  assert.equal(currencyAllows("$", "BMD"), true);
+  assert.equal(currencyAllows("¥", "CNY"), true);
+  assert.equal(currencyAllows("¥", "KRW"), false);
 });
 
 test("CSV categories match canonically equivalent spellings of a stored name", async context => {
