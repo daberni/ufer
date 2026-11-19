@@ -8,6 +8,7 @@ import styles from "./column-preview.module.css";
 import { Select } from "@/components/ui/select";
 import type { CsvMapping } from "@/features/imports/csv-mapping";
 import { rowCount } from "@/features/imports/import-plan";
+import { problemProps } from "./field-problem";
 import type { ImportDraft } from "./use-import-draft";
 
 const roles: [keyof CsvMapping, string][] = [
@@ -55,7 +56,7 @@ export function ColumnPreview({
         <h2 id="import-columns">{reviewing ? "Rows to review" : "Columns"}</h2>
         <p className={ui["form-hint"]}>{reviewing ? `${reviewCount.toLocaleString("en")} rows need attention${reviewCount > maxReviewRows ? `; the first ${maxReviewRows} are shown` : ""}.` : "Choose what each column means. Columns you leave on Ignore are not imported."}</p>
       </div>
-      {draft.problem && <p className={ui["error-text"]} role="status">{draft.problem}</p>}
+      {draft.problem && <p id="import-columns-problem" className={styles["problem"]}>{draft.problem}</p>}
       <div
         className={styles["preview"]}
         role="region"
@@ -73,6 +74,9 @@ export function ColumnPreview({
                     variant="compact"
                     className={clsx(styles["role"], roleOf(index) && styles["assigned"])}
                     aria-label={`Role of column ${column || index + 1}`}
+                    {...index === 0 ? problemProps(draft.problem ? {
+                      message: draft.problem
+                    } : null, "import-columns-problem") : {}}
                     value={roleOf(index)}
                     disabled={draft.inputsLocked}
                     onChange={event => draft.assignRole(index, (event.target.value || null) as keyof CsvMapping | null)}

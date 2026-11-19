@@ -7,7 +7,8 @@ import { useId } from "react";
 import styles from "./target-accounts.module.css";
 import { Select } from "@/components/ui/select";
 import { InlineFailure } from "@/components/ui/area-placeholder";
-import { accountLabel, newAccountChoice, rowCount, type TargetChoice } from "@/features/imports/import-plan";
+import { accountLabel, newAccountChoice, rowCount, type ImportProblem, type TargetChoice } from "@/features/imports/import-plan";
+import { FieldProblem, problemProps } from "./field-problem";
 import type { Account } from "@/features/accounts/types";
 import type { ImportDraft } from "./use-import-draft";
 
@@ -47,6 +48,7 @@ export function TargetAccounts({
               kind: "unset"
             }}
             accounts={draft.accounts}
+            problems={draft.prepared?.problems.filter(problem => problem.source === source) ?? []}
             onChange={choice => draft.chooseTarget(source, choice)}
           />
         ))}
@@ -62,6 +64,7 @@ function TargetRow({
   perSource,
   choice,
   accounts,
+  problems,
   onChange
 }: {
   source: string;
@@ -69,9 +72,11 @@ function TargetRow({
   perSource: boolean;
   choice: TargetChoice;
   accounts: Account[];
+  problems: ImportProblem[];
   onChange: (choice: TargetChoice) => void;
 }) {
   const selectId = useId();
+  const targetProblem = problems.find(problem => problem.field === "target");
   const manual = accounts.filter(account => account.provider === "manual");
   const linked = accounts.filter(account => account.provider !== "manual");
   let value = "";
@@ -102,7 +107,7 @@ function TargetRow({
   }
 
   return (
-    <div className={clsx(styles["target"], perSource && styles["listed"])}>
+    <div className={clsx(styles["target"], perSource && styles["listed"], problems.length > 0 && styles["incomplete"])}>
       <div className={styles["choice"]}>
         {perSource ? (
           <label htmlFor={selectId} className={styles["source"]}>
@@ -112,37 +117,50 @@ function TargetRow({
         ) : (
           <label htmlFor={selectId} className={ui["visually-hidden"]}>Target account</label>
         )}
-        <Select id={selectId} value={value} onChange={event => select(event.target.value)}>
-          <option value="">Choose an account</option>
-          {manual.length > 0 && (
-            <optgroup label="Manual accounts">
-              {manual.map(account => <option key={account.id} value={account.id}>{accountLabel(account, accounts)}</option>)}
-            </optgroup>
-          )}
-          {linked.length > 0 && (
-            <optgroup label="Bank-linked accounts">
-              {linked.map(account => <option key={account.id} value={account.id}>{accountLabel(account, accounts)}</option>)}
-            </optgroup>
-          )}
-          <option value="new">New manual account …</option>
-          {perSource && <option value="skip">Skip these rows</option>}
-        </Select>
+        <div className={styles["control"]}>
+          <Select
+            id={selectId}
+            value={value}
+            {...problemProps(targetProblem, `${selectId}-problem`)}
+            onChange={event => select(event.target.value)}
+          >
+            <option value="">Choose an account</option>
+            {manual.length > 0 && (
+              <optgroup label="Manual accounts">
+                {manual.map(account => <option key={account.id} value={account.id}>{accountLabel(account, accounts)}</option>)}
+              </optgroup>
+            )}
+            {linked.length > 0 && (
+              <optgroup label="Bank-linked accounts">
+                {linked.map(account => <option key={account.id} value={account.id}>{accountLabel(account, accounts)}</option>)}
+              </optgroup>
+            )}
+            <option value="new">New manual account …</option>
+            {perSource && <option value="skip">Skip these rows</option>}
+          </Select>
+          <FieldProblem problem={targetProblem} id={`${selectId}-problem`} />
+        </div>
       </div>
-      {choice.kind === "new" && <NewAccountFields choice={choice} onChange={onChange} />}
+      {choice.kind === "new" && <NewAccountFields choice={choice} problems={problems} onChange={onChange} />}
     </div>
   );
 }
 
 function NewAccountFields({
   choice,
+  problems,
   onChange
 }: {
   choice: Extract<TargetChoice, {
     kind: "new";
   }>;
+  problems: ImportProblem[];
   onChange: (choice: TargetChoice) => void;
 }) {
   const balanceName = useId();
+  const nameProblem = problems.find(problem => problem.field === "name");
+  const currencyProblem = problems.find(problem => problem.field === "currency");
+  const balanceProblem = problems.find(problem => problem.field === "balance");
   const change = (update: Partial<typeof choice>) => onChange({
     ...choice,
     ...update
@@ -155,10 +173,12 @@ function NewAccountFields({
         <input
           value={choice.name}
           maxLength={100}
+          {...problemProps(nameProblem, `${balanceName}-name`)}
           onChange={event => change({
             name: event.target.value
           })}
         />
+        <FieldProblem problem={nameProblem} id={`${balanceName}-name`} />
       </label>
       <label>
         Currency
@@ -166,10 +186,12 @@ function NewAccountFields({
           value={choice.currency}
           maxLength={3}
           autoCapitalize="characters"
+          {...problemProps(currencyProblem, `${balanceName}-currency`)}
           onChange={event => change({
             currency: event.target.value.toUpperCase()
           })}
         />
+        <FieldProblem problem={currencyProblem} id={`${balanceName}-currency`} />
       </label>
       <fieldset className={styles["balance"]}>
         <legend>Balance</legend>
@@ -200,12 +222,14 @@ function NewAccountFields({
         <input
           aria-label="Balance amount"
           inputMode="decimal"
+          {...problemProps(balanceProblem, `${balanceName}-balance`)}
           placeholder="0.00"
           value={choice.balance}
           onChange={event => change({
             balance: event.target.value
           })}
         />
+        <FieldProblem problem={balanceProblem} id={`${balanceName}-balance`} />
         <span className={ui["form-hint"]}>{choice.balanceKind === "current" ? "The difference to the imported rows is booked as an opening balance on the file's first date." : "Booked as the opening balance on the file's first date."} Leave empty to start from zero.</span>
       </fieldset>
     </div>

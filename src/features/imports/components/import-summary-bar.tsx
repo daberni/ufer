@@ -27,11 +27,11 @@ export function ImportSummaryBar({
     mapped,
     mutation
   } = draft;
-  const problems = draft.problem ? [draft.problem] : prepared?.problems ?? [];
   const errors = summary?.errors.length ?? mapped?.errors.length ?? 0;
   const review = draft.reviewLines.size;
   const alreadyImported = summary?.duplicates.length ?? 0;
-  const ready = Boolean(prepared && problems.length === 0 && draft.accountsReady);
+  // Missing inputs do not disable the action: pressing it leads to them.
+  const ready = draft.accountsReady;
   const pending = mutation.isPending;
   const counts: [string, number | null, string?][] = [
     ["New rows", summary ? summary.newRows : null],
@@ -54,11 +54,6 @@ export function ImportSummaryBar({
       </dl>
       {prepared && prepared.skipped > 0 && <p className={ui["form-hint"]}>{prepared.skipped.toLocaleString("en")} rows of skipped accounts are left out.</p>}
       {summary && summary.createdCategories.length > 0 && <p className={ui["form-hint"]}>New categories: {summary.createdCategories.join(", ")}.</p>}
-      {problems.length > 0 && (
-        <ul className={styles["problems"]}>
-          {problems.map(problem => <li key={problem}>{problem}</li>)}
-        </ul>
-      )}
       <FormError failure={mutation.error ? toFailure(mutation.error) : null} />
       <div className={styles["actions"]}>
         {(issues.size > 0 || reviewing) && (

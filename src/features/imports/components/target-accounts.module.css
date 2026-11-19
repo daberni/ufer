@@ -115,3 +115,12 @@
     max-width: none;
   }
 }
+.control {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.incomplete [aria-invalid="true"] {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 1px var(--gold);
+}

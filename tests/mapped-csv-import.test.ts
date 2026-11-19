@@ -1376,7 +1376,7 @@ test("an unchosen source and an unreadable balance block the check", () => {
     balance: "twelve"
   }]]), [], new Map(), ".");
 
-  assert.equal(prepared.problems.length, 2);
+  assert.deepEqual(prepared.problems.map(problem => [problem.source, problem.field]), [["Wallet", "balance"], ["Card", "target"]]);
 });
 
 test("category values match existing categories, create the rest, and leave multi-tag values to review", () => {
@@ -1417,10 +1417,10 @@ test("a new account's balance stated in another currency blocks the check", () =
     currency: "EUR",
     balanceKind: "current",
     balance
-  }]]), [], new Map(), ".").problems;
+  }]]), [], new Map(), ".").problems.map(problem => problem.message);
 
-  assert.deepEqual(prepare("USD 1000"), ["Enter the balance for “Wallet” in EUR."]);
-  assert.deepEqual(prepare("$1000"), ["Enter the balance for “Wallet” in EUR."]);
+  assert.deepEqual(prepare("USD 1000"), ["Enter the balance in EUR."]);
+  assert.deepEqual(prepare("$1000"), ["Enter the balance in EUR."]);
   assert.deepEqual(prepare("€1000"), []);
   assert.deepEqual(prepare("1000"), []);
 });

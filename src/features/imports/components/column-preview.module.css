@@ -87,3 +87,12 @@
 .skipped td {
   opacity: 0.5;
 }
+.problem {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--gold-text);
+}
+.preview .role[aria-invalid="true"] {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 1px var(--gold);
+}

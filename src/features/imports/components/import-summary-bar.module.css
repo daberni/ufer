@@ -39,12 +39,6 @@
 .danger dd {
   color: var(--danger-text);
 }
-.problems {
-  margin: 0;
-  padding-left: var(--space-4);
-  font-size: var(--text-sm);
-  color: var(--danger-text);
-}
 .bar > p {
   margin: 0;
 }

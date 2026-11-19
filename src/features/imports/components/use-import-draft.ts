@@ -192,7 +192,13 @@ export function useImportDraft() {
   }
 
   function run(confirm: boolean) {
-    if (!mapped || !prepared || prepared.problems.length > 0 || accounts.status === "pending") {
+    if (accounts.status === "pending") {
+      return;
+    }
+
+    if (!mapped || !prepared || prepared.problems.length > 0) {
+      revealFirstProblem();
+
       return;
     }
 
@@ -256,6 +262,25 @@ export function useImportDraft() {
 }
 
 export type ImportDraft = ReturnType<typeof useImportDraft>;
+
+/** Scrolls to the first incomplete input on the page and focuses it; every incomplete input is already marked in place. */
+function revealFirstProblem() {
+  const input = document.querySelector<HTMLElement>("[aria-invalid=\"true\"]");
+
+  if (!input) {
+    return;
+  }
+
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  input.scrollIntoView({
+    behavior: reducedMotion ? "auto" : "smooth",
+    block: "center"
+  });
+  input.focus({
+    preventScroll: true
+  });
+}
 
 const leaveQuestion = "The import has not finished. Leave anyway? Rows saved so far stay imported.";
 

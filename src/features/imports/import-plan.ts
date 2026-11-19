@@ -154,28 +154,39 @@ export type PreparedImport = {
   categories: CategoryChoice[];
   /** Rows of sources the person skipped. */
   skipped: number;
-  /** What still blocks a check, in the order the page shows it. */
-  problems: string[];
+  /** What still blocks a check, in the order the page shows it; each belongs to one input of one source account. */
+  problems: ImportProblem[];
+};
+
+/** A missing or invalid input that blocks the check, shown next to that input. */
+export type ImportProblem = {
+  source: string;
+  field: "target" | "name" | "currency" | "balance";
+  message: string;
 };
 
 /** Turns the page's choices into the import request: skipped sources drop their rows, and a new account's opening balance is dated on its first row. */
 export function prepareImport(rows: MappedRow[], choices: ReadonlyMap<string, TargetChoice>, accounts: AccountOption[], selections: ReadonlyMap<string, CategorySelection>, decimal: DecimalSeparator): PreparedImport {
   const targets: ImportTarget[] = [];
-  const problems: string[] = [];
+  const problems: ImportProblem[] = [];
   const kept = rows.filter(row => choices.get(row.source)?.kind !== "skip");
 
   for (const { source } of sourceAccounts(rows)) {
     const choice = choices.get(source) ?? {
       kind: "unset"
     };
-    const label = source ? `“${source}”` : "the rows";
+    const problem = (field: ImportProblem["field"], message: string) => problems.push({
+      source,
+      field,
+      message
+    });
 
     if (choice.kind === "skip") {
       continue;
     }
 
     if (choice.kind === "unset") {
-      problems.push(`Choose an account for ${label}.`);
+      problem("target", "Choose an account.");
 
       continue;
     }
@@ -184,7 +195,7 @@ export function prepareImport(rows: MappedRow[], choices: ReadonlyMap<string, Ta
       const account = accounts.find(item => item.id === choice.accountId);
 
       if (!account) {
-        problems.push(`Choose an account for ${label}.`);
+        problem("target", "Choose an account.");
 
         continue;
       }
@@ -203,26 +214,26 @@ export function prepareImport(rows: MappedRow[], choices: ReadonlyMap<string, Ta
     const balance = choice.balance.trim() ? parseAmount(choice.balance, decimal) : null;
 
     if (!name) {
-      problems.push(`Name the new account for ${label}.`);
+      problem("name", "Enter a name for the new account.");
     }
 
     if (name.length > maxAccountNameLength) {
-      problems.push(`Shorten the new account name for ${label} to ${maxAccountNameLength} characters.`);
+      problem("name", `Use at most ${maxAccountNameLength} characters.`);
     }
 
     if (!/^[A-Z]{3}$/.test(choice.currency)) {
-      problems.push(`Enter a three-letter currency code for ${label}.`);
+      problem("currency", "Enter a three-letter code.");
     }
 
     if (choice.balance.trim() && balance === null) {
-      problems.push(`Enter the balance for ${label} as a number.`);
+      problem("balance", "Enter the balance as a number.");
     }
 
     const balanceCurrency = splitCurrency(choice.balance.trim()).currency;
 
     // The amount is stored in the account currency, so a balance stated in another currency must not be relabelled.
     if (balance !== null && balanceCurrency && !currencyAllows(balanceCurrency, choice.currency)) {
-      problems.push(`Enter the balance for ${label} in ${choice.currency}.`);
+      problem("balance", `Enter the balance in ${choice.currency}.`);
     }
 
     const firstDate = kept.filter(row => row.source === source).map(row => row.date).sort()[0];
