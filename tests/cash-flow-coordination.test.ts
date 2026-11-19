@@ -154,7 +154,7 @@ function pointerOver(target: Element, pointerType: "mouse" | "touch") {
   fireEvent(target, event);
 }
 
-/** A tap: the touch press that precedes the click tells the report that touch input selects rather than navigates. */
+/** A tap as browsers deliver it: touch press, focus, click. The press tells the report that touch input selects before it navigates. */
 function tap(target: Element) {
   const press = new window.Event("pointerdown", {
     bubbles: true
@@ -164,6 +164,8 @@ function tap(target: Element) {
     value: "touch"
   });
   fireEvent(target, press);
+  // Touch browsers focus a button between the press and its click.
+  fireEvent.focus(target);
   fireEvent.click(target);
 }
 

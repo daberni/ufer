@@ -11,6 +11,8 @@ export function useChartDetails() {
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const regionRef = useRef<HTMLDivElement>(null);
   const inputMethod = useRef<"keyboard" | "mouse" | "touch">("keyboard");
+  // Whether the pressed target was already selected when a touch began; a tap can focus (and so select) it before its click.
+  const pressedSelected = useRef(false);
   const activeKey = hoveredKey ?? selectedKey;
   const active = activeKey !== null;
 
@@ -91,9 +93,14 @@ export function useChartDetails() {
           setSelectedKey(key);
         }
       },
+      onPointerDown(event: PointerEvent) {
+        if (event.pointerType !== "mouse") {
+          pressedSelected.current = selectedKey === key;
+        }
+      },
       // A tap first selects; tapping the selected target again activates it.
       onClick() {
-        const firstTap = inputMethod.current === "touch" && selectedKey !== key;
+        const firstTap = inputMethod.current === "touch" && !pressedSelected.current;
 
         if (firstTap) {
           setSelectedKey(key);
