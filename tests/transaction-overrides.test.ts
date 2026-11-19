@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 import { test, type TestContext } from "node:test";
 import { Temporal } from "temporal-polyfill";
 import { createClient } from "@libsql/client";
@@ -10,7 +11,7 @@ import * as schema from "../src/server/database/schema";
 import { createManualAccount } from "../src/features/accounts/server/account-service";
 import { listAccounts } from "../src/features/accounts/server/account-queries";
 import { saveAccountSync } from "../src/features/banking/server/account-sync-service";
-import { importTransactions } from "../src/features/imports/server/import-service";
+import { importMappedRows } from "../src/features/imports/server/mapped-import-service";
 import { readCashFlow } from "../src/features/reports/server/cash-flow-query";
 import { enterManualTransaction, hideTransaction, updateTransactionDetails } from "../src/features/transactions/server/transaction-service";
 import { pairTransfersInEnvironment } from "../src/features/transactions/server/transfer-repository";
@@ -106,6 +107,10 @@ async function byReference(db: Database, reference: string) {
   assert.ok(booking, reference);
 
   return booking;
+}
+
+async function row(db: Database, id: string) {
+  return db.select().from(schema.transactions).where(eq(schema.transactions.id, id)).get();
 }
 
 async function listed(search = "") {
@@ -243,24 +248,45 @@ test("a hidden CSV booking leaves the manual account balance, and importing the 
     balance: "100.00",
     date: "2026-09-01"
   }, now);
-  const csv = "id,date,amount,currency,counterparty,description\nfee,2026-09-10,-20.00,EUR,Example bank,Synthetic fee\nfee-again,2026-09-10,-20.00,EUR,Example bank,Synthetic fee";
   const balance = async () => (await listAccounts()).find(account => account.id === cash)?.balance_minor;
+  const importFile = (id: string) => importMappedRows({
+    import_id: randomUUID(),
+    rows: [0, 1].map(occurrence => ({
+      line: occurrence + 2,
+      date: "2026-09-10",
+      amount: "-20.00",
+      currency: "EUR",
+      payee: "Example bank",
+      description: "Synthetic fee",
+      category: null,
+      source: "",
+      occurrence,
+      id: `${id}-${occurrence}`
+    })),
+    targets: [{
+      source: "",
+      account_id: cash
+    }],
+    confirm: true
+  }, now);
+  const fees = () => db.select().from(schema.transactions).where(eq(schema.transactions.account_id, cash)).all().then(rows => rows.filter(row => row.type === "expense"));
 
-  await importTransactions({
-    account_id: cash,
-    csv
-  });
+  await importFile("fee");
   assert.equal(await balance(), 6000);
 
-  await hideTransaction((await byReference(db, "csv:fee-again")).id, true, now);
-  await importTransactions({
-    account_id: cash,
-    csv
-  });
+  const [, duplicate] = await fees();
 
+  await hideTransaction(duplicate.id, true, now);
+  await updateTransactionDetails(duplicate.id, {
+    type: "expense",
+    counterparty: "Duplicate of the bank fee"
+  });
+  await importFile("fee");
+
+  assert.equal((await fees()).length, 2);
   assert.equal(await balance(), 8000);
   assert.equal(await expenses(), 2000);
-  assert.ok((await byReference(db, "csv:fee-again")).suppressed_at);
+  assert.ok((await row(db, duplicate.id))?.suppressed_at);
 });
 
 test("hiding a linked transfer releases its counterpart, and automatic pairing never links a hidden booking", async context => {
@@ -355,4 +381,46 @@ test("untouched source text with surrounding spaces stores no override", async c
   const stored = await byReference(db, "bank:1");
 
   assert.deepEqual([stored.counterparty_override, stored.description_override], [null, null]);
+});
+
+test("a file row matching a hidden, overridden synced booking by the bank's text is a duplicate and does not bring it back", async context => {
+  const db = await isolatedDatabase(context);
+
+  await sync(db, "checking", [{
+    reference: "bank:1",
+    date: "2026-09-03",
+    amount: -1250,
+    counterparty: "Example Market",
+    description: "Card payment"
+  }]);
+  const booking = await byReference(db, "bank:1");
+
+  await updateTransactionDetails(booking.id, {
+    type: "expense",
+    counterparty: "Renamed by a person"
+  });
+  await hideTransaction(booking.id, true, now);
+  await importMappedRows({
+    import_id: randomUUID(),
+    rows: [{
+      line: 2,
+      date: "2026-09-03",
+      amount: "-12.50",
+      currency: "EUR",
+      payee: "Example Market",
+      description: "Card payment",
+      category: null,
+      source: "",
+      occurrence: 0,
+      id: null
+    }],
+    targets: [{
+      source: "",
+      account_id: "checking"
+    }],
+    confirm: true
+  }, now);
+
+  assert.equal(await db.$count(schema.transactions), 1);
+  assert.equal(await expenses(), 0);
 });
