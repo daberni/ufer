@@ -478,3 +478,31 @@ test("appending after a rule at the highest priority renumbers the stored order 
   // Earlier rules still decide what they decided before.
   assert.equal(categorize("Harbour Cafe", "", prepareRules(rules)), "leisure");
 });
+
+test("creating a rule is rejected once the rule limit is reached, so every order stays storable", async context => {
+  const db = await managementDatabase(context);
+  const existing = (await storedRules(db)).length;
+  const filler = Array.from({
+    length: 10000 - existing
+  }, (_, index) => ({
+    id: `filler-${String(index).padStart(5, "0")}`,
+    name: "Filler",
+    pattern: `FILLER${index}`,
+    mode: "keyword" as const,
+    category_id: "groceries",
+    priority: 1,
+    enabled: 0
+  }));
+
+  for (let offset = 0; offset < filler.length; offset += 500) {
+    await db.insert(schema.categorizationRules).values(filler.slice(offset, offset + 500));
+  }
+
+  await assert.rejects(createRule({
+    name: "One too many",
+    pattern: "EXTRA",
+    mode: "keyword",
+    category_id: "groceries"
+  }), (error: unknown) => error instanceof HttpError && error.status === 409);
+  assert.equal((await storedRules(db)).length, 10000);
+});

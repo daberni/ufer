@@ -2,7 +2,7 @@ import { and, eq, inArray, isNull, asc } from "drizzle-orm";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 import { environment } from "@/features/banking/server/environment";
 import type { Rule } from "@/lib/rules";
-import { highestPriority, nextPriority, orderedPriorities } from "@/features/categorization/rule-order";
+import { highestPriority, maximumRules, nextPriority, orderedPriorities } from "@/features/categorization/rule-order";
 import type { Transaction } from "@/server/database/models";
 import { accounts, categorizationRules, transactions } from "@/server/database/schema";
 
@@ -65,7 +65,7 @@ export async function insertRule(rule: NewRule, selectAssignments?: SelectRuleAs
 
 /**
  * Stores a rule after every stored rule, with its optional assignments, in one write transaction. When the next priority would leave the allowed range, the stored
- * rules are first renumbered in their current matching order, which keeps their order and leaves room at the end.
+ * rules are first renumbered in their current matching order, which keeps their order and leaves room at the end. Returns null when the rule limit is reached.
  */
 export async function appendRule(rule: Omit<NewRule, "priority">, selectAssignments?: SelectRuleAssignments) {
   const db = await database();
@@ -75,6 +75,11 @@ export async function appendRule(rule: Omit<NewRule, "priority">, selectAssignme
       id: categorizationRules.id,
       priority: categorizationRules.priority
     }).from(categorizationRules).orderBy(asc(categorizationRules.priority), asc(categorizationRules.id));
+
+    if (stored.length >= maximumRules) {
+      return null;
+    }
+
     let priority = nextPriority(stored);
 
     if (priority > highestPriority) {

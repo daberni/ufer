@@ -79,14 +79,14 @@ export function useRuleReorder(rules: Rule[]) {
     setDropped(order);
     const result = await settle(reorder.save(order));
 
-    // By now the query holds the saved order, or the restored one after a failure.
-    if (save === saves.current) {
-      setDropped(null);
+    // Only the latest drop decides what the list and its message show; an older save's outcome is superseded.
+    if (save !== saves.current) {
+      return;
     }
 
-    if (!result.ok) {
-      setFailure(result.failure);
-    }
+    // By now the query holds the saved order, or the restored one after a failure.
+    setDropped(null);
+    setFailure(result.ok ? null : result.failure);
   }
 
   return {

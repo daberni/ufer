@@ -128,18 +128,15 @@ export function useReorderRules() {
     },
     mutationFn: (rules: Rule[]) => api("rules/order", {
       ids: rules.map(rule => rule.id)
-    }, "PUT"),
-    onSettled: () => {
-      // Later queued orders refresh the list themselves; refreshing in between would briefly show an older order.
-      if (queryClient.isMutating({
-        mutationKey: ruleOrderKey
-      }) > 1) {
-        return;
-      }
-
-      return invalidate(queryClient, [queryKeys.rules()]);
-    }
+    }, "PUT")
   });
+
+  // Later queued orders restore and refresh the list themselves; doing it in between would briefly show an older order.
+  function laterOrderPending() {
+    return queryClient.isMutating({
+      mutationKey: ruleOrderKey
+    }) > 0;
+  }
 
   async function save(rules: Rule[]) {
     const previous = queryClient.getQueryData<Rule[]>(queryKeys.rules());
@@ -158,9 +155,17 @@ export function useReorderRules() {
     try {
       await saved;
     } catch (error) {
-      queryClient.setQueryData(queryKeys.rules(), previous);
+      // The snapshot is restored before the refresh, so the stored list, including rules changed elsewhere, has the last word.
+      if (!laterOrderPending()) {
+        queryClient.setQueryData(queryKeys.rules(), previous);
+        await invalidate(queryClient, [queryKeys.rules()]);
+      }
 
       throw error;
+    }
+
+    if (!laterOrderPending()) {
+      await invalidate(queryClient, [queryKeys.rules()]);
     }
   }
 

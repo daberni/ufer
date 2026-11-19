@@ -124,3 +124,96 @@ test("a rule cannot be created without a category, and the form offers to add on
   await wait(0);
   assert.equal(requests("rules").filter(request => request.method === "POST").length, 0);
 });
+
+test("a rejected order restores the earlier list and then reloads the stored one, including rules changed elsewhere", async context => {
+  const {
+    queryClient,
+    requests
+  } = browser(context);
+  const {
+    useReorderRules
+  } = await import("../src/features/categorization/mutations");
+  const {
+    useRules
+  } = await import("../src/features/categorization/queries");
+  const stored = [rule("a", 10), rule("b", 20)];
+
+  queryClient.setQueryData(queryKeys.rules(), stored);
+  const hook = renderHook(() => ({
+    reorder: useReorderRules(),
+    rules: useRules()
+  }), {
+    wrapper: ({ children }) => withQueryClient(queryClient, children)
+  });
+  let saved: Promise<void> | undefined;
+
+  act(() => {
+    saved = hook.result.current.reorder.save([stored[1], stored[0]]).catch(() => undefined);
+  });
+  await wait(0);
+  await respond(requests("rules/order")[0], Response.json({
+    title: "Conflict",
+    status: 409,
+    detail: "The rules have changed."
+  }, {
+    status: 409
+  }));
+
+  // Another tab added a rule in the meantime; the reload after the rollback shows it.
+  const reload = requests("rules").filter(request => request.method === "GET").at(-1);
+
+  await respond(reload, Response.json([...stored, rule("c", 30)]));
+  await saved;
+  await wait(0);
+
+  assert.deepEqual(queryClient.getQueryData<Rule[]>(queryKeys.rules())?.map(entry => entry.id), ["a", "b", "c"]);
+});
+
+test("a failed older drop does not report a failure once a newer drop has been saved", async context => {
+  const {
+    queryClient,
+    requests
+  } = browser(context);
+  const {
+    useRuleReorder
+  } = await import("../src/features/categorization/components/use-rule-reorder");
+  const stored = [rule("a", 10), rule("b", 20), rule("c", 30)];
+
+  queryClient.setQueryData(queryKeys.rules(), stored);
+  const hook = renderHook(() => useRuleReorder(queryClient.getQueryData<Rule[]>(queryKeys.rules()) ?? []), {
+    wrapper: ({ children }) => withQueryClient(queryClient, children)
+  });
+  const drop = (active: string, over: string) => hook.result.current.onDragEnd({
+    active: {
+      id: active
+    },
+    over: {
+      id: over
+    }
+  } as Parameters<typeof hook.result.current.onDragEnd>[0]);
+  let first: Promise<void> | undefined;
+  let second: Promise<void> | undefined;
+
+  act(() => {
+    first = drop("a", "b");
+  });
+  act(() => {
+    second = drop("a", "c");
+  });
+  await wait(0);
+  await respond(requests("rules/order")[0], Response.json({
+    title: "Unavailable",
+    status: 503
+  }, {
+    status: 503
+  }));
+  await first;
+  await wait(0);
+  await respond(requests("rules/order")[1], Response.json({
+    ok: true
+  }));
+  await second;
+  await wait(0);
+
+  assert.equal(hook.result.current.failure, null);
+});

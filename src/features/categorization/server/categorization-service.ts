@@ -3,7 +3,7 @@ import { HttpError, ValidationError } from "@/lib/errors";
 import { z } from "zod";
 import { categorize, decidingRule, prepareRules, validatePattern, type Rule } from "@/lib/rules";
 import { normalizeCategoryName } from "@/lib/category-name";
-import { nextPriority, orderedPriorities } from "@/features/categorization/rule-order";
+import { maximumRules, nextPriority, orderedPriorities } from "@/features/categorization/rule-order";
 import { isCategoryIcon } from "@/features/categorization/category-icons";
 import { defaultCategoryColor } from "@/features/categorization/category-colors";
 import { categoryExists, deleteCategory as deleteStoredCategory, insertCategory, readCategoryUsage, updateCategory, type CategoryDetails, type CategoryWriteResult } from "./category-repository";
@@ -119,6 +119,10 @@ export async function createRule(payload: unknown) {
     priority
   }, selectAssignments);
 
+  if (categorized === null) {
+    throw new HttpError(409, `Ufer supports at most ${maximumRules.toLocaleString("en")} rules. Delete a rule before creating another.`);
+  }
+
   return {
     ok: true,
     categorized
@@ -176,7 +180,7 @@ export async function deleteRule(id: string) {
 }
 
 const ruleOrderInput = z.object({
-  ids: z.array(z.string().min(1)).max(10000).refine(ids => new Set(ids).size === ids.length, "Each rule may appear only once.")
+  ids: z.array(z.string().min(1)).max(maximumRules).refine(ids => new Set(ids).size === ids.length, "Each rule may appear only once.")
 }).strict();
 
 /**
