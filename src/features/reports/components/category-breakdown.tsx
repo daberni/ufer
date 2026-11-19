@@ -70,7 +70,7 @@ export function CategoryBreakdown({
         <span>
           Savings rate <strong className={clsx(isNegativeRate(summary.savingsRate) && styles["negative"], mask)}>{formatSavingsRate(summary.savingsRate)}</strong>
         </span>
-        {/* Only the phone layout shows the link: a tap there first selects a month, while elsewhere clicking the month opens its transactions. */}
+        {/* The overview's only link to the period's transactions; with a month selected it opens that month's. */}
         <Link className={clsx(ui["text-button"], styles["transactions-link"])} href={transactionsHref} aria-label={`View transactions, ${context}`}>
           View transactions
           <ChevronRight className={styles["link-icon"]} size={16} />

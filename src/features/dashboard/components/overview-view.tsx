@@ -22,7 +22,7 @@ export function OverviewView({
 
   return (
     <>
-      <WealthSummary hasAccounts={hasAccounts} netWorthArea={netWorth} cashFlowArea={cashFlow} />
+      <WealthSummary hasAccounts={hasAccounts} netWorthArea={netWorth} />
       <OverviewAccounts currencyAccounts={currencyAccounts} />
       <CashFlowInsights cashFlow={cashFlow} />
     </>
