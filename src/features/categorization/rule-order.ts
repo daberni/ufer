@@ -3,8 +3,8 @@ const priorityStep = 10;
 
 export const highestPriority = 10000;
 
-/** Every rule needs a distinct priority within the allowed range, which also bounds a saved order. */
-export const maximumRules = highestPriority;
+/** The most rules a workspace keeps; it bounds a saved order and leaves every rule a distinct priority within the allowed range. */
+export const maximumRules = 1000;
 
 /** Distinct, ascending priorities for rules in list order, within the range the rule editor accepts. */
 export function orderedPriorities(count: number) {

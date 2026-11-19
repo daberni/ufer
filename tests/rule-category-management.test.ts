@@ -479,11 +479,11 @@ test("appending after a rule at the highest priority renumbers the stored order 
   assert.equal(categorize("Harbour Cafe", "", prepareRules(rules)), "leisure");
 });
 
-test("creating a rule is rejected once the rule limit is reached, so every order stays storable", async context => {
+test("creating a rule, with or without a priority, is rejected once 1,000 rules exist", async context => {
   const db = await managementDatabase(context);
   const existing = (await storedRules(db)).length;
   const filler = Array.from({
-    length: 10000 - existing
+    length: 1000 - existing
   }, (_, index) => ({
     id: `filler-${String(index).padStart(5, "0")}`,
     name: "Filler",
@@ -503,6 +503,14 @@ test("creating a rule is rejected once the rule limit is reached, so every order
     pattern: "EXTRA",
     mode: "keyword",
     category_id: "groceries"
+  }), (error: unknown) => error instanceof HttpError && error.status === 409 && error.message === "Ufer supports at most 1,000 rules. Delete a rule before creating another.");
+  await assert.rejects(createRule({
+    name: "One too many at a priority",
+    pattern: "EXTRA",
+    mode: "keyword",
+    category_id: "groceries",
+    priority: 5,
+    apply_to_uncategorized: true
   }), (error: unknown) => error instanceof HttpError && error.status === 409);
-  assert.equal((await storedRules(db)).length, 10000);
+  assert.equal((await storedRules(db)).length, 1000);
 });

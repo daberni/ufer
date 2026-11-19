@@ -1,4 +1,5 @@
-import { and, eq, inArray, isNull, asc } from "drizzle-orm";
+import { and, count, eq, inArray, isNull, asc } from "drizzle-orm";
+import { HttpError } from "@/lib/errors";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 import { environment } from "@/features/banking/server/environment";
 import type { Rule } from "@/lib/rules";
@@ -24,7 +25,21 @@ type RuleCandidate = Pick<Transaction, "id" | "counterparty" | "description">;
 
 export type SelectRuleAssignments = (rules: Rule[], entries: RuleCandidate[]) => string[];
 
+/**
+ * Rejects adding rules beyond the limit, inside the caller's write transaction, so concurrent creations cannot exceed it.
+ */
+export async function requireRuleCapacity(tx: DatabaseTransaction, added: number) {
+  const stored = await tx.select({
+    total: count()
+  }).from(categorizationRules).get();
+
+  if ((stored?.total ?? 0) + added > maximumRules) {
+    throw new HttpError(409, `Ufer supports at most ${maximumRules.toLocaleString("en")} rules. Delete a rule before creating another.`);
+  }
+}
+
 async function storeRule(tx: DatabaseTransaction, rule: NewRule, selectAssignments?: SelectRuleAssignments) {
+  await requireRuleCapacity(tx, 1);
   await tx.insert(categorizationRules).values({
     ...rule,
     enabled: rule.enabled ? 1 : 0
@@ -65,7 +80,7 @@ export async function insertRule(rule: NewRule, selectAssignments?: SelectRuleAs
 
 /**
  * Stores a rule after every stored rule, with its optional assignments, in one write transaction. When the next priority would leave the allowed range, the stored
- * rules are first renumbered in their current matching order, which keeps their order and leaves room at the end. Returns null when the rule limit is reached.
+ * rules are first renumbered in their current matching order, which keeps their order and leaves room at the end.
  */
 export async function appendRule(rule: Omit<NewRule, "priority">, selectAssignments?: SelectRuleAssignments) {
   const db = await database();
@@ -76,9 +91,7 @@ export async function appendRule(rule: Omit<NewRule, "priority">, selectAssignme
       priority: categorizationRules.priority
     }).from(categorizationRules).orderBy(asc(categorizationRules.priority), asc(categorizationRules.id));
 
-    if (stored.length >= maximumRules) {
-      return null;
-    }
+    await requireRuleCapacity(tx, 1);
 
     let priority = nextPriority(stored);
 

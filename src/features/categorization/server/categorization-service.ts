@@ -119,10 +119,6 @@ export async function createRule(payload: unknown) {
     priority
   }, selectAssignments);
 
-  if (categorized === null) {
-    throw new HttpError(409, `Ufer supports at most ${maximumRules.toLocaleString("en")} rules. Delete a rule before creating another.`);
-  }
-
   return {
     ok: true,
     categorized
