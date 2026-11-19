@@ -1,10 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { Temporal } from "temporal-polyfill";
-import { and, between, eq, inArray, like, notInArray } from "drizzle-orm";
+import { and, between, eq, inArray, like, ne, notInArray, sql } from "drizzle-orm";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 import { accounts, categories, transactions } from "@/server/database/schema";
 import { environment } from "@/features/banking/server/environment";
-import { pairTransfers } from "@/features/transactions/server/transfer-repository";
+import { manualEntryPrefix, pairTransfers } from "@/features/transactions/server/transfer-repository";
+import { insertCategory } from "@/features/categorization/server/category-repository";
+import { defaultCategoryColor } from "@/features/categorization/category-colors";
+import { sameCategoryName } from "@/lib/category-name";
 import { derivedTransactionType } from "@/features/transactions/transaction-types";
 import type { CategorizedEntry } from "@/features/transactions/server/transaction-entry";
 import { duplicateDateToleranceDays, findDuplicates, mappedReferencePrefix, matchBooking, type ExistingBooking } from "./duplicate-matching";
@@ -26,6 +29,36 @@ export type NewImportAccount = {
   name: string;
   currency: string;
 };
+
+/** A new account's opening balance: `current` is its balance today, so the booking is that amount minus its other transactions; `start` is booked as given. */
+export type OpeningBalance = {
+  id: string;
+  kind: "current" | "start";
+  amount: number;
+  date: string;
+};
+
+/** Creates a category for an import, or returns the one that took the name concurrently. */
+export async function createImportCategory(name: string) {
+  const id = randomUUID();
+  const result = await insertCategory(id, {
+    name,
+    color: defaultCategoryColor,
+    icon: null
+  });
+
+  if (result === "saved") {
+    return id;
+  }
+
+  const existing = (await listCategoryNames()).find(category => sameCategoryName(category.name, name));
+
+  if (!existing) {
+    throw new Error("The imported category could not be created.");
+  }
+
+  return existing.id;
+}
 
 /** A manual or bank-linked account of the current banking environment. */
 export async function findImportTarget(id: string) {
@@ -84,12 +117,12 @@ export async function checkMappedEntries(accountId: string, entries: MappedEntry
  * Classifies rows exactly like `checkMappedEntries`, but inside the write transaction, and inserts the new ones, so a bank sync between check and confirmation cannot cause duplicates and both report the same result on unchanged data.
  * A row whose reference the account already holds is left untouched, so confirming again changes nothing and existing categories survive. Inserting bookings never writes a bank-linked account's provider balance.
  */
-export async function saveMappedEntries(accountId: string, entries: MappedEntry[], newAccount: NewImportAccount | null, consumed: ReadonlySet<string> = new Set()) {
+export async function saveMappedEntries(accountId: string, entries: MappedEntry[], newAccount: NewImportAccount | null, consumed: ReadonlySet<string> = new Set(), opening: OpeningBalance | null = null) {
   const db = await database();
 
   return db.transaction(async tx => {
     if (newAccount) {
-      // The ID is stable per import and source account, so a retried or later batch reuses the account. It has no opening balance: its balance is the sum of the imported rows.
+      // The ID is stable per import and source account, so a retried or later batch reuses the account. Its balance is the sum of its transactions, including any opening balance.
       await tx.insert(accounts).values({
         id: accountId,
         environment: environment(),
@@ -126,6 +159,10 @@ export async function saveMappedEntries(accountId: string, entries: MappedEntry[
       });
 
       inserted += rows.length;
+    }
+
+    if (opening) {
+      await saveOpeningBalance(tx, accountId, newAccount?.currency ?? entries[0]?.currency ?? "", opening);
     }
 
     await pairTransfers(tx, environment());
@@ -200,6 +237,38 @@ export async function adoptImportedRows(tx: DatabaseTransaction, accountId: stri
   }
 
   return adopted;
+}
+
+/** Books or updates a new import account's opening balance. Every confirmed batch recalculates it, so after the last batch a `current` balance equals the account balance today. */
+async function saveOpeningBalance(tx: DatabaseTransaction, accountId: string, currency: string, opening: OpeningBalance) {
+  const others = await tx.select({
+    total: sql<number>`COALESCE(SUM(${transactions.amount_minor}),0)`.mapWith(Number)
+  }).from(transactions).where(and(eq(transactions.account_id, accountId), ne(transactions.id, opening.id))).get();
+  const amount = opening.kind === "current" ? opening.amount - (others?.total ?? 0) : opening.amount;
+  const account = await tx.select({
+    currency: accounts.currency
+  }).from(accounts).where(eq(accounts.id, accountId)).get();
+
+  await tx.insert(transactions).values({
+    id: opening.id,
+    account_id: accountId,
+    provider_reference: `${manualEntryPrefix}${opening.id}`,
+    booking_date: opening.date,
+    amount_minor: amount,
+    currency: account?.currency ?? currency,
+    counterparty: "",
+    description: "",
+    category_id: null,
+    category_source: "manual",
+    type: "opening_balance",
+    type_source: "manual"
+  }).onConflictDoUpdate({
+    target: transactions.id,
+    set: {
+      booking_date: opening.date,
+      amount_minor: amount
+    }
+  });
 }
 
 function shiftDays(date: string, days: number) {

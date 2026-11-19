@@ -15,7 +15,8 @@ import { importMappedRows } from "../src/features/imports/server/mapped-import-s
 import { findDuplicates } from "../src/features/imports/server/duplicate-matching";
 import { saveAccountSync } from "../src/features/banking/server/account-sync-service";
 import { startSyncRun } from "../src/features/banking/server/sync-repository";
-import { assignOccurrences, currencyAllows, mappingProblem, normalizeText, parseCsvRecords, pruneConsumed, decodeCsv, detectDateFormat, detectDecimal, detectDelimiter, mapRows, parseAmount, parseCsv, parseDate, suggestMapping, type CsvSettings, type DateFormat, type ImportRow } from "../src/features/imports/csv-mapping";
+import { categoryValues, defaultCategorySelection, needsCategoryReview, prepareImport, type TargetChoice } from "../src/features/imports/import-plan";
+import { assignOccurrences, currencyAllows, duplicateIdErrors, emptyMapping, mappingProblem, normalizeText, parseCsvRecords, pruneConsumed, decodeCsv, detectDateFormat, detectDecimal, detectDelimiter, mapRows, parseAmount, parseCsv, parseDate, suggestMapping, type CsvSettings, type DateFormat, type ImportRow } from "../src/features/imports/csv-mapping";
 
 const now = Temporal.Instant.from("2026-06-30T12:00:00Z");
 
@@ -63,6 +64,7 @@ function mappedRow(line: number, date: string, amount: string, payee: string, ex
     category: null,
     source: "",
     occurrence: 0,
+    id: null,
     ...extra
   };
 }
@@ -172,7 +174,8 @@ test("identical rows in one file stay distinct through their occurrence", () => 
     description: null,
     currency: null,
     category: null,
-    account: null
+    account: null,
+    id: null
   }, {
     encoding: "utf-8",
     delimiter: ",",
@@ -512,7 +515,8 @@ test("occurrences count rows with equal canonical amounts and normalized texts",
     description: null,
     currency: null,
     category: null,
-    account: null
+    account: null,
+    id: null
   }, {
     encoding: "utf-8",
     delimiter: ",",
@@ -723,7 +727,8 @@ test("amounts accept currency symbols and codes but reject other letters", () =>
     description: null,
     currency: 3,
     category: null,
-    account: null
+    account: null,
+    id: null
   }, {
     encoding: "utf-8",
     delimiter: ",",
@@ -781,7 +786,8 @@ const plainMapping = {
   description: null,
   currency: null,
   category: null,
-  account: 3
+  account: 3,
+  id: null
 };
 
 const isoSettings: CsvSettings = {
@@ -903,7 +909,8 @@ test("CSV records keep quoted delimiters, line breaks and quotes, and report phy
     ...plainMapping,
     amount: 2,
     payee: 1,
-    account: null
+    account: null,
+    id: null
   }, isoSettings, records.slice(1).map(record => record.line));
 
   assert.deepEqual(result.rows.map(row => row.line), [2, 4, 6, 7]);
@@ -989,7 +996,8 @@ test("a row the target rejects for its currency does not shift the occurrences o
     payee: "Example Shop",
     description: "Purchase",
     category: null,
-    source: ""
+    source: "",
+    id: null
   };
   const rows = assignOccurrences([{
     ...row,
@@ -1052,7 +1060,8 @@ test("the same column cannot be both debit and credit", () => {
     description: null,
     currency: null,
     category: null,
-    account: null
+    account: null,
+    id: null
   };
 
   assert.notEqual(mappingProblem(mapping), null);
@@ -1074,7 +1083,8 @@ test("an ambiguous currency symbol is rejected for an account outside its curren
     description: null,
     currency: null,
     category: null,
-    account: null
+    account: null,
+    id: null
   }, {
     encoding: "utf-8",
     delimiter: ",",
@@ -1140,4 +1150,256 @@ test("a mapping uses either a signed amount or debit and credit, never both", ()
     ...suggested,
     debit: 3
   }) ?? "", /not both/);
+});
+
+test("rows with an export ID are recognized by it on reimport even when their content changed", async context => {
+  const db = await isolatedDatabase(context);
+  const account = await manualAccount("Identified history");
+  const targets = [{
+    source: "",
+    account_id: account.id
+  }];
+
+  await importMappedRows({
+    import_id: importId,
+    rows: [mappedRow(2, "2024-04-01", "-12.00", "Bakery", {
+      id: "tx-1"
+    }), mappedRow(3, "2024-04-01", "-12.00", "Bakery", {
+      id: "tx-2"
+    })],
+    targets,
+    confirm: true
+  }, now);
+
+  const reimport = await importMappedRows({
+    import_id: importId,
+    rows: [mappedRow(2, "2024-04-01", "-12.00", "Bakery (corrected text)", {
+      id: "tx-1"
+    }), mappedRow(3, "2024-04-02", "-5.00", "Kiosk", {
+      id: "tx-3"
+    })],
+    targets,
+    confirm: true
+  }, now);
+
+  assert.deepEqual(reimport.duplicates.map(duplicate => [duplicate.line, duplicate.reason]), [[2, "already_imported"]]);
+  assert.equal(reimport.newRows, 1);
+  assert.equal((await db.select().from(schema.transactions)).length, 3);
+});
+
+test("an ID repeated for the same account rejects every row that carries it", async context => {
+  await isolatedDatabase(context);
+  const account = await manualAccount("Identified history");
+  const rows = [mappedRow(2, "2024-04-01", "-1.00", "A", {
+    id: "same"
+  }), mappedRow(3, "2024-04-02", "-2.00", "B", {
+    id: "same"
+  }), mappedRow(4, "2024-04-03", "-3.00", "C", {
+    id: "other"
+  })];
+  const checked = await importMappedRows({
+    import_id: importId,
+    rows,
+    targets: [{
+      source: "",
+      account_id: account.id
+    }],
+    confirm: false
+  }, now);
+
+  assert.deepEqual(checked.errors.map(error => error.line), [2, 3]);
+  assert.equal(checked.newRows, 1);
+  assert.deepEqual(duplicateIdErrors(rows, () => account.id).map(error => error.line), [2, 3]);
+  assert.deepEqual(duplicateIdErrors(rows, source => source).map(error => error.line), [2, 3]);
+});
+
+test("a mapped but empty ID cell is a row error", () => {
+  const result = mapRows([["2024-01-01", "1.00", "Shop", ""], ["2024-01-02", "2.00", "Shop", "tx-9"]], {
+    ...emptyMapping,
+    date: 0,
+    amount: 1,
+    payee: 2,
+    id: 3
+  }, {
+    encoding: "utf-8",
+    delimiter: ",",
+    decimal: ".",
+    dateFormat: "YYYY-MM-DD"
+  });
+
+  assert.deepEqual(result.errors.map(error => error.line), [2]);
+  assert.deepEqual(result.rows.map(row => row.id), ["tx-9"]);
+});
+
+for (const [kind, amount, expected] of [["current", "100.00", 13000], ["start", "50.00", 5000]] as const) {
+  test(`a new account's ${kind} balance books its opening balance on the file's first date across batches`, async context => {
+    const db = await isolatedDatabase(context);
+    const base = {
+      import_id: importId,
+      targets: [{
+        source: "",
+        new_account: {
+          name: "Imported wallet",
+          currency: "EUR",
+          opening: {
+            kind,
+            amount,
+            date: "2024-05-01"
+          }
+        }
+      }],
+      confirm: true
+    };
+
+    await importMappedRows({
+      ...base,
+      rows: [mappedRow(2, "2024-05-01", "-10.00", "Shop")]
+    }, now);
+    await importMappedRows({
+      ...base,
+      rows: [mappedRow(3, "2024-05-02", "-20.00", "Market")]
+    }, now);
+    // A retried batch changes nothing.
+    await importMappedRows({
+      ...base,
+      rows: [mappedRow(3, "2024-05-02", "-20.00", "Market")]
+    }, now);
+
+    const bookings = await db.select().from(schema.transactions);
+    const openings = bookings.filter(booking => booking.type === "opening_balance");
+
+    assert.equal(bookings.length, 3);
+    assert.deepEqual(openings.map(booking => [booking.booking_date, booking.amount_minor]), [["2024-05-01", expected]]);
+    assert.equal((await listAccounts()).find(item => item.name === "Imported wallet")?.balance_minor, expected - 3000);
+  });
+}
+
+test("category choices assign existing categories, create missing ones on confirmation, and leave rule rows to the rules", async context => {
+  const db = await isolatedDatabase(context);
+  const account = await manualAccount("Categorized history");
+
+  await db.insert(schema.categories).values({
+    id: "synthetic-food",
+    name: "Synthetic food",
+    color: "#00aa00"
+  });
+
+  const payload = {
+    import_id: importId,
+    rows: [mappedRow(2, "2024-06-01", "-1.00", "A", {
+      category: "Lebensmittel"
+    }), mappedRow(3, "2024-06-02", "-2.00", "B", {
+      category: "Hobby"
+    }), mappedRow(4, "2024-06-03", "-3.00", "C", {
+      category: "Food, Travel"
+    })],
+    targets: [{
+      source: "",
+      account_id: account.id
+    }],
+    categories: [{
+      value: "Lebensmittel",
+      action: "existing",
+      category_id: "synthetic-food"
+    }, {
+      value: "Hobby",
+      action: "create"
+    }, {
+      value: "Food, Travel",
+      action: "rules"
+    }]
+  };
+  const before = (await db.select().from(schema.categories)).length;
+  const checked = await importMappedRows({
+    ...payload,
+    confirm: false
+  }, now);
+
+  assert.deepEqual([checked.createdCategories, checked.unknownCategories], [["Hobby"], []]);
+  assert.equal((await db.select().from(schema.categories)).length, before);
+
+  await importMappedRows({
+    ...payload,
+    confirm: true
+  }, now);
+
+  const hobby = (await db.select().from(schema.categories)).find(category => category.name === "Hobby");
+  const assigned = new Map((await db.select().from(schema.transactions)).map(booking => [booking.counterparty, booking.category_id]));
+
+  assert.ok(hobby);
+  assert.deepEqual([assigned.get("A"), assigned.get("B"), assigned.get("C")], ["synthetic-food", hobby.id, null]);
+});
+
+test("skipped source accounts leave their rows out, and a new account's opening balance is dated on its first row", () => {
+  const rows = [mappedRow(2, "2024-07-03", "-1.00", "A", {
+    source: "Wallet"
+  }), mappedRow(3, "2024-07-01", "-2.00", "B", {
+    source: "Wallet"
+  }), mappedRow(4, "2024-06-01", "-3.00", "C", {
+    source: "Old card"
+  })];
+  const choices = new Map<string, TargetChoice>([["Wallet", {
+    kind: "new",
+    name: "Wallet",
+    currency: "EUR",
+    balanceKind: "current",
+    balance: "1.234,50"
+  }], ["Old card", {
+    kind: "skip"
+  }]]);
+  const prepared = prepareImport(rows, choices, [], new Map(), ",");
+
+  assert.deepEqual(prepared.rows.map(row => row.line), [2, 3]);
+  assert.equal(prepared.skipped, 1);
+  assert.deepEqual(prepared.problems, []);
+  assert.deepEqual(prepared.targets.map(target => target.newAccount?.opening), [{
+    kind: "current",
+    amount: "1234.50",
+    date: "2024-07-01"
+  }]);
+});
+
+test("an unchosen source and an unreadable balance block the check", () => {
+  const rows = [mappedRow(2, "2024-07-01", "-1.00", "A", {
+    source: "Wallet"
+  }), mappedRow(3, "2024-07-01", "-1.00", "A", {
+    source: "Card"
+  })];
+  const prepared = prepareImport(rows, new Map<string, TargetChoice>([["Wallet", {
+    kind: "new",
+    name: "Wallet",
+    currency: "EUR",
+    balanceKind: "start",
+    balance: "twelve"
+  }]]), [], new Map(), ".");
+
+  assert.equal(prepared.problems.length, 2);
+});
+
+test("category values match existing categories, create the rest, and leave multi-tag values to review", () => {
+  const rows = [mappedRow(2, "2024-07-01", "-1.00", "A", {
+    category: "synthetic FOOD"
+  }), mappedRow(3, "2024-07-02", "-1.00", "B", {
+    category: "Hobby"
+  }), mappedRow(4, "2024-07-03", "-1.00", "C", {
+    category: "Food, Travel"
+  }), mappedRow(5, "2024-07-04", "-1.00", "D", {
+    category: "Hobby"
+  })];
+  const values = categoryValues(rows, [{
+    id: "synthetic-food",
+    name: "Synthetic food"
+  }]);
+  const selections = new Map(values.map(value => [value.value, defaultCategorySelection(value)]));
+
+  assert.deepEqual(values.map(value => [value.value, value.rows, value.multiTag]), [["Hobby", 2, false], ["Food, Travel", 1, true], ["synthetic FOOD", 1, false]]);
+  assert.deepEqual([...selections.values()].map(selection => [selection.action, selection.categoryId]), [["create", undefined], ["rules", undefined], ["existing", "synthetic-food"]]);
+  assert.deepEqual(rows.filter(row => needsCategoryReview(row, selections)).map(row => row.line), [4]);
+
+  selections.set("Food, Travel", {
+    action: "existing",
+    categoryId: "synthetic-food",
+    chosen: true
+  });
+  assert.deepEqual(rows.filter(row => needsCategoryReview(row, selections)).map(row => row.line), []);
 });

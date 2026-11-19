@@ -4,7 +4,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/client/api";
 import { invalidate } from "@/client/invalidate";
 import { queryKeys } from "@/client/query-keys";
-import { assignOccurrences, batchRows, pruneConsumed, type ConsumedBooking, type MappedRow, type RowError } from "./csv-mapping";
+import { assignOccurrences, batchRows, duplicateIdErrors, pruneConsumed, type ConsumedBooking, type MappedRow, type RowError } from "./csv-mapping";
 
 type BalanceImport = {
   accountId: string;
@@ -37,13 +37,30 @@ export function useBalanceImport() {
   });
 }
 
-export type MappedTarget = {
+/** Where one source account's rows go: an existing account, or a manual account created on confirmation (`accountId` null). */
+export type ImportTarget = {
   source: string;
-  /** An existing account, or "new" to create a manual account named `name` on confirmation. */
-  accountId: string;
-  name: string;
-  /** The new account's currency, or the existing account's when sent for an import; empty when unknown. */
+  accountId: string | null;
+  /** The account currency, which decides the rows it accepts. */
   currency: string;
+  newAccount: {
+    name: string;
+    opening: OpeningBalanceInput | null;
+  } | null;
+};
+
+/** A new account's balance today or at the start of the file, booked as an opening balance on `date`. */
+export type OpeningBalanceInput = {
+  kind: "current" | "start";
+  amount: string;
+  date: string;
+};
+
+/** How the rows' category values map: an existing category, a category created on confirmation, or the rules. */
+export type CategoryChoice = {
+  value: string;
+  action: "existing" | "create" | "rules";
+  categoryId?: string;
 };
 
 export type MappedImportSummary = {
@@ -56,6 +73,7 @@ export type MappedImportSummary = {
   possibleDuplicates: number[];
   errors: RowError[];
   unknownCategories: string[];
+  createdCategories: string[];
   toleranceDays: number;
 };
 
@@ -64,7 +82,8 @@ type MappedImport = {
   importId: string;
   rows: MappedRow[];
   rowErrors: RowError[];
-  targets: MappedTarget[];
+  targets: ImportTarget[];
+  categories: CategoryChoice[];
   confirm: boolean;
   /** Called before the first confirmed batch is sent, since a batch can commit even when its response is lost; from then on the import's file, format, mapping and targets are fixed. */
   onConfirmStart?: () => void;
@@ -80,19 +99,28 @@ export function useMappedImport() {
       rows,
       rowErrors,
       targets,
+      categories,
       confirm,
       onConfirmStart
     }: MappedImport) => {
-      const resolved = targets.map(target => target.accountId === "new" ? {
+      const resolved = targets.map(target => target.newAccount ? {
         source: target.source,
         new_account: {
-          name: target.name.trim(),
-          currency: target.currency
+          name: target.newAccount.name.trim(),
+          currency: target.currency,
+          ...target.newAccount.opening ? {
+            opening: target.newAccount.opening
+          } : {}
         }
       } : {
         source: target.source,
         account_id: target.accountId
       });
+      const categoryChoices = categories.map(choice => ({
+        value: choice.value,
+        action: choice.action,
+        category_id: choice.categoryId
+      }));
       const summary: MappedImportSummary = {
         confirmed: confirm,
         newRows: 0,
@@ -100,6 +128,7 @@ export function useMappedImport() {
         possibleDuplicates: [],
         errors: [...rowErrors],
         unknownCategories: [],
+        createdCategories: [],
         toleranceDays: 0
       };
       let consumed: ConsumedBooking[] = [];
@@ -108,10 +137,15 @@ export function useMappedImport() {
       const targetOf = (source: string) => {
         const target = targets.find(item => item.source === source);
 
-        return target?.accountId === "new" ? `new:${source}` : target?.accountId ?? "";
+        return target?.accountId ?? `new:${source}`;
       };
       const currencyOf = (source: string) => targets.find(item => item.source === source)?.currency || null;
-      const numbered = assignOccurrences(rows, targetOf, currencyOf);
+      // An ID must identify one row per account; rows sharing one are rejected before anything is sent.
+      const idErrors = duplicateIdErrors(rows, targetOf);
+      const rejected = new Set(idErrors.map(error => error.line));
+      const numbered = assignOccurrences(rows.filter(row => !rejected.has(row.line)), targetOf, currencyOf);
+
+      summary.errors.push(...idErrors);
 
       if (confirm) {
         onConfirmStart?.();
@@ -124,6 +158,7 @@ export function useMappedImport() {
           import_id: importId,
           rows: batch,
           targets: resolved,
+          categories: categoryChoices,
           consumed: pruneConsumed(consumed, batch[0].date),
           confirm
         });
@@ -134,6 +169,7 @@ export function useMappedImport() {
         summary.possibleDuplicates.push(...result.possibleDuplicates);
         summary.errors.push(...result.errors);
         summary.unknownCategories = [...new Set([...summary.unknownCategories, ...result.unknownCategories])].sort();
+        summary.createdCategories = [...new Set([...summary.createdCategories, ...result.createdCategories])].sort();
         summary.toleranceDays = result.toleranceDays;
       }
 
@@ -143,6 +179,6 @@ export function useMappedImport() {
 
       return summary;
     },
-    onSettled: (_data, _error, variables) => variables.confirm ? invalidate(queryClient, affectedKeys) : undefined
+    onSettled: (_data, _error, variables) => variables.confirm ? invalidate(queryClient, [...affectedKeys, queryKeys.categories()]) : undefined
   });
 }

@@ -1,0 +1,117 @@
+.section {
+  display: grid;
+  gap: var(--space-3);
+}
+.section h2 {
+  margin: 0;
+  font-size: var(--text-lg);
+}
+.section p {
+  margin: 0;
+}
+.targets {
+  display: grid;
+  gap: var(--space-3);
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+.target {
+  display: grid;
+  gap: var(--space-3);
+}
+.listed {
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.listed:last-of-type {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+.choice {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 20rem);
+  align-items: center;
+  gap: var(--space-3);
+}
+.target:not(.listed) .choice {
+  grid-template-columns: minmax(0, 24rem);
+}
+.source {
+  display: grid;
+  margin: 0;
+  min-width: 0;
+}
+.source strong {
+  overflow-wrap: anywhere;
+}
+.source span {
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+.new-account {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 6rem);
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--surface-muted);
+}
+.new-account label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+.new-account input:not([type="radio"]) {
+  width: 100%;
+  min-width: 0;
+  color: var(--ink);
+  font-size: var(--text-sm);
+}
+.balance {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: var(--space-2);
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+.balance legend {
+  padding: 0;
+  margin-bottom: var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--ink);
+}
+.balance > input {
+  max-width: 14rem;
+}
+.balance-kinds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+}
+.balance-kinds label {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  color: var(--ink);
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--text-sm);
+}
+@media (--mobile) {
+  .choice,
+  .target:not(.listed) .choice {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-2);
+  }
+  .balance > input {
+    max-width: none;
+  }
+}

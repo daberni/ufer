@@ -1,0 +1,42 @@
+.zone {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-2);
+  padding: var(--space-8) var(--space-4);
+  border: 2px dashed color-mix(in srgb, var(--ink) 28%, transparent);
+  border-radius: var(--radius-lg);
+  background: var(--surface-muted);
+  color: var(--muted);
+  text-align: center;
+  transition:
+    background var(--duration),
+    border-color var(--duration);
+}
+.dragging {
+  border-color: var(--green);
+  background: color-mix(in srgb, var(--green) 10%, var(--surface));
+  color: var(--ink);
+}
+.title {
+  margin: 0;
+  color: var(--ink);
+  font-weight: 500;
+}
+.hint {
+  margin: 0;
+  font-size: var(--text-sm);
+}
+.choose {
+  font: inherit;
+  font-weight: 600;
+  color: var(--green-text);
+  background: none;
+  border: 0;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.input {
+  display: none;
+}

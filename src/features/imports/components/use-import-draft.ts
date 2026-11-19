@@ -1,0 +1,279 @@
+"use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useAccounts } from "@/features/accounts/queries";
+import { useCategories } from "@/features/categorization/queries";
+import { useMappedImport, type MappedImportSummary } from "@/features/imports/mutations";
+import { decodeCsv, detectDateFormat, detectDecimal, detectDelimiter, mapRows, mappingProblem, parseCsv, parseCsvRecords, suggestMapping, type CsvMapping, type CsvSettings } from "@/features/imports/csv-mapping";
+import { categoryValues, defaultCategorySelection, defaultTargetChoice, needsCategoryReview, prepareImport, sourceAccounts, type CategorySelection, type TargetChoice } from "@/features/imports/import-plan";
+
+/** Large multi-year exports are read in the browser and sent as mapped rows in batches, so only the browser's memory bounds the file. */
+const maxFileBytes = 25_000_000;
+
+export type LoadedFile = {
+  name: string;
+  bytes: Uint8Array;
+};
+
+/**
+ * The import page's state: the file and its format, the column roles, target accounts and category choices, and the check result. A check or a started confirmation fixes the whole definition: a stale check must not approve changed inputs, and a retry must reproduce the same row references and targets.
+ */
+export function useImportDraft() {
+  const [file, setFile] = useState<LoadedFile | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
+  const [settings, setSettings] = useState<CsvSettings | null>(null);
+  const [mapping, setMapping] = useState<CsvMapping | null>(null);
+  const [targetChoices, setTargetChoices] = useState<Map<string, TargetChoice>>(new Map());
+  const [categoryChoices, setCategoryChoices] = useState<Map<string, CategorySelection>>(new Map());
+  const [summary, setSummary] = useState<MappedImportSummary | null>(null);
+  const [imported, setImported] = useState<MappedImportSummary | null>(null);
+  const [importId, setImportId] = useState(() => crypto.randomUUID());
+  const [configurationLocked, setConfigurationLocked] = useState(false);
+  const latestSelection = useRef(0);
+  const accounts = useAccounts();
+  const categories = useCategories();
+  const mutation = useMappedImport();
+  const accountOptions = useMemo(() => accounts.data ?? [], [accounts.data]);
+  const table = useMemo(() => {
+    if (!file || !settings) {
+      return null;
+    }
+
+    const text = decodeCsv(file.bytes, settings.encoding).text;
+    const [header, ...records] = parseCsvRecords(text, settings.delimiter);
+
+    return {
+      header: header?.cells ?? [],
+      rows: records.map(record => record.cells),
+      lines: records.map(record => record.line)
+    };
+  }, [file, settings]);
+  // Without a stored mapping (a new file, delimiter or encoding), the suggestion for the current header applies.
+  const effectiveMapping = useMemo(() => mapping ?? (table ? suggestMapping(table.header) : null), [mapping, table]);
+  const problem = effectiveMapping ? mappingProblem(effectiveMapping) : null;
+  const mapped = useMemo(() => table && effectiveMapping && !mappingProblem(effectiveMapping) && settings ? mapRows(table.rows, effectiveMapping, settings, table.lines) : null, [table, effectiveMapping, settings]);
+  const sources = useMemo(() => sourceAccounts(mapped?.rows ?? []), [mapped]);
+  const resolvedTargets = useMemo(() => new Map(sources.map(({ source }) => [source, targetChoices.get(source) ?? defaultTargetChoice(source, accountOptions)])), [sources, targetChoices, accountOptions]);
+  // Skipped accounts' rows neither count toward category values nor need review.
+  const keptRows = useMemo(() => mapped?.rows.filter(row => resolvedTargets.get(row.source)?.kind !== "skip") ?? [], [mapped, resolvedTargets]);
+  const values = useMemo(() => categoryValues(keptRows, categories.data ?? []), [keptRows, categories.data]);
+  const resolvedCategories = useMemo(() => new Map(values.map(value => [value.value, categoryChoices.get(value.value) ?? defaultCategorySelection(value)])), [values, categoryChoices]);
+  const prepared = useMemo(() => mapped && settings ? prepareImport(mapped.rows, resolvedTargets, accountOptions, resolvedCategories, settings.decimal) : null, [mapped, settings, resolvedTargets, accountOptions, resolvedCategories]);
+  const reviewLines = useMemo(() => new Set(prepared?.rows.filter(row => needsCategoryReview(row, resolvedCategories)).map(row => row.line) ?? []), [prepared, resolvedCategories]);
+  const inputsLocked = configurationLocked || mutation.isPending;
+
+  // Leaving during a running request or after a confirmation started would lose the import's ID and let a new visit import differently.
+  const unfinished = mutation.isPending || configurationLocked;
+
+  useNavigationGuard(unfinished);
+
+  function reset() {
+    setSettings(null);
+    setMapping(null);
+    setTargetChoices(new Map());
+    setCategoryChoices(new Map());
+    setImportId(crypto.randomUUID());
+    setConfigurationLocked(false);
+    mutation.reset();
+  }
+
+  async function load(selected: File | undefined) {
+    const selection = ++latestSelection.current;
+
+    setSummary(null);
+    setFileError(null);
+    // The previous file never stays visible next to a new selection, so a check cannot run on it.
+    setFile(null);
+    reset();
+
+    if (!selected) {
+      return;
+    }
+
+    if (selected.size > maxFileBytes) {
+      setFileError("The file cannot exceed 25 MB.");
+
+      return;
+    }
+
+    const bytes = new Uint8Array(await selected.arrayBuffer());
+
+    // A later selection, including a rejected one, supersedes this read.
+    if (selection !== latestSelection.current) {
+      return;
+    }
+
+    const decoded = decodeCsv(bytes);
+    const delimiter = detectDelimiter(decoded.text);
+    let parsed: string[][];
+
+    try {
+      parsed = parseCsv(decoded.text, delimiter);
+    } catch {
+      setFileError("The file could not be read as CSV.");
+
+      return;
+    }
+
+    const [header = [], ...rows] = parsed;
+    const suggested = suggestMapping(header);
+    const sample = rows.slice(0, 200);
+    const column = (index: number | null) => index === null ? [] : sample.map(row => row[index] ?? "");
+
+    setFile({
+      name: selected.name,
+      bytes
+    });
+    setSettings({
+      encoding: decoded.encoding,
+      delimiter,
+      decimal: detectDecimal([...column(suggested.amount), ...column(suggested.debit), ...column(suggested.credit)]),
+      dateFormat: detectDateFormat(column(suggested.date))
+    });
+    setMapping(suggested);
+  }
+
+  function updateSettings(change: Partial<CsvSettings>) {
+    setSummary(null);
+    setSettings(current => current ? {
+      ...current,
+      ...change
+    } : current);
+
+    if (change.delimiter || change.encoding) {
+      setMapping(null);
+    }
+  }
+
+  /** Gives a column a role; the role leaves the column it had, and the column's previous role is cleared. */
+  function assignRole(column: number, role: keyof CsvMapping | null) {
+    setSummary(null);
+    setMapping(current => {
+      const next = {
+        ...(current ?? suggestMapping(table?.header ?? []))
+      };
+
+      for (const field of Object.keys(next) as (keyof CsvMapping)[]) {
+        if (next[field] === column) {
+          next[field] = null;
+        }
+      }
+
+      if (role) {
+        next[role] = column;
+      }
+
+      return next;
+    });
+  }
+
+  function chooseTarget(source: string, choice: TargetChoice) {
+    setSummary(null);
+    setTargetChoices(current => new Map(current).set(source, choice));
+  }
+
+  function chooseCategory(value: string, selection: CategorySelection) {
+    setSummary(null);
+    setCategoryChoices(current => new Map(current).set(value, selection));
+  }
+
+  /** Starts over with an empty page after an import. */
+  function clear() {
+    setImported(null);
+    setSummary(null);
+    setFile(null);
+    reset();
+  }
+
+  function run(confirm: boolean) {
+    if (!mapped || !prepared || prepared.problems.length > 0) {
+      return;
+    }
+
+    mutation.mutate({
+      importId,
+      rows: prepared.rows,
+      rowErrors: mapped.errors,
+      targets: prepared.targets,
+      categories: prepared.categories,
+      confirm,
+      onConfirmStart: () => setConfigurationLocked(true)
+    }, {
+      onSuccess: result => {
+        if (confirm) {
+          setConfigurationLocked(false);
+          setImported(result);
+        } else {
+          setSummary(result);
+        }
+      }
+    });
+  }
+
+  return {
+    file,
+    fileError,
+    settings,
+    table,
+    mapping: effectiveMapping,
+    problem,
+    mapped,
+    prepared,
+    sources,
+    targets: resolvedTargets,
+    categoryValues: values,
+    categories: resolvedCategories,
+    reviewLines,
+    keptRows,
+    summary,
+    imported,
+    accounts: accountOptions,
+    accountsPending: accounts.isPending,
+    categoryOptions: categories.data ?? [],
+    mutation,
+    inputsLocked,
+    load,
+    updateSettings,
+    assignRole,
+    chooseTarget,
+    chooseCategory,
+    run,
+    clear
+  };
+}
+
+export type ImportDraft = ReturnType<typeof useImportDraft>;
+
+/** Asks before the page is left while `active`: on reload or closing the tab, and on in-app links. */
+function useNavigationGuard(active: boolean) {
+  useEffect(() => {
+    if (!active) {
+      return;
+    }
+
+    function beforeUnload(event: BeforeUnloadEvent) {
+      event.preventDefault();
+    }
+
+    function linkClicked(event: MouseEvent) {
+      const link = event.target instanceof Element ? event.target.closest("a[href]") : null;
+
+      if (!link || event.defaultPrevented) {
+        return;
+      }
+
+      if (!window.confirm("The import has not finished. Leave anyway? Rows saved so far stay imported.")) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    }
+
+    window.addEventListener("beforeunload", beforeUnload);
+    document.addEventListener("click", linkClicked, true);
+
+    return () => {
+      window.removeEventListener("beforeunload", beforeUnload);
+      document.removeEventListener("click", linkClicked, true);
+    };
+  }, [active]);
+}

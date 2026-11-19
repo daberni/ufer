@@ -34,6 +34,8 @@ export type CsvMapping = {
   currency: number | null;
   category: number | null;
   account: number | null;
+  /** A transaction ID from the export; when mapped, it identifies the row on reimport instead of its content. */
+  id: number | null;
 };
 
 /** A source-specific layout, such as a later built-in Buxfer export, recognized by its header row and mapped by column name. */
@@ -57,6 +59,8 @@ export type MappedRow = {
   category: string | null;
   /** The source account label from the account column; empty without one. */
   source: string;
+  /** The export's transaction ID; null without an ID column. */
+  id: string | null;
 };
 
 /** A mapped row with its occurrence: how many rows for the same target account with the same date, amount and normalized texts precede it, counting only rows whose currency the target accepts. It keeps genuine repeats distinct, and identical rows get the same set of references however the export orders them or which other accounts it contains. */
@@ -68,6 +72,9 @@ export type ImportRow = MappedRow & {
 const maxAmountLength = 40;
 const maxIntegerDigits = 15;
 const maxFractionDigits = 6;
+
+/** Longest transaction ID; the server applies the same limit. */
+export const maxIdLength = 200;
 
 export type RowError = {
   line: number;
@@ -83,7 +90,8 @@ export const emptyMapping: CsvMapping = {
   description: null,
   currency: null,
   category: null,
-  account: null
+  account: null,
+  id: null
 };
 
 /** Decodes file bytes: a UTF-8 BOM or valid UTF-8 means UTF-8, anything else is read as Windows-1252, the usual encoding of legacy bank exports. */
@@ -388,7 +396,8 @@ const headerHints: Record<keyof CsvMapping, RegExp> = {
   description: /^(description|memo|verwendungszweck|purpose|buchungstext|reference|text|notes?)$/i,
   currency: /^(currency|währung|waehrung|ccy)$/i,
   category: /^(category|kategorie|tags?)$/i,
-  account: /^(account|konto|account name)$/i
+  account: /^(account|konto|account name)$/i,
+  id: /^(id|transaction ?id|booking ?id|reference ?id)$/i
 };
 
 /** Guesses a mapping from common header names; the person reviews and adjusts it. */
@@ -490,6 +499,20 @@ export function mapRows(rows: string[][], mapping: CsvMapping, settings: CsvSett
       return;
     }
 
+    const id = cell(mapping.id);
+
+    if (mapping.id !== null && !id) {
+      failure("The ID is empty.");
+
+      return;
+    }
+
+    if (id.length > maxIdLength) {
+      failure(`The ID is longer than ${maxIdLength} characters.`);
+
+      return;
+    }
+
     mapped.push({
       line,
       date,
@@ -498,7 +521,8 @@ export function mapRows(rows: string[][], mapping: CsvMapping, settings: CsvSett
       payee: cell(mapping.payee).slice(0, 500),
       description: cell(mapping.description).slice(0, 2000),
       category: cell(mapping.category).slice(0, 100) || null,
-      source: cell(mapping.account).slice(0, 200)
+      source: cell(mapping.account).slice(0, 200),
+      id: mapping.id === null ? null : id
     });
   });
 
@@ -534,6 +558,28 @@ export function assignOccurrences(rows: MappedRow[], targetOf: (source: string) 
       occurrence
     };
   });
+}
+
+/** Rows whose ID repeats for the same target account; an ID must identify one row, so every row sharing it is rejected. */
+export function duplicateIdErrors(rows: MappedRow[], targetOf: (source: string) => string): RowError[] {
+  const counts = new Map<string, number>();
+  const key = (row: MappedRow) => `${targetOf(row.source)}\u0000${row.id}`;
+
+  for (const row of rows) {
+    if (row.id !== null) {
+      counts.set(key(row), (counts.get(key(row)) ?? 0) + 1);
+    }
+  }
+
+  return rows.filter(row => row.id !== null && (counts.get(key(row)) ?? 0) > 1).map(row => ({
+    line: row.line,
+    message: `The ID “${row.id!.slice(0, 40)}” appears more than once for this account.`
+  }));
+}
+
+/** The tags in a category cell; exports such as Buxfer list several tags separated by commas. */
+export function categoryTags(value: string) {
+  return value.split(",").map(tag => tag.trim()).filter(Boolean);
 }
 
 /** Lowercase Unicode letters and digits separated by single spaces; punctuation, symbols and diacritics are dropped. */

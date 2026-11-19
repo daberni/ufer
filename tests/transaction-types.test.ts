@@ -156,7 +156,8 @@ async function importCashRow(date: string, amount: string) {
       description: "Cash withdrawal",
       category: null,
       source: "",
-      occurrence: 0
+      occurrence: 0,
+      id: null
     }],
     targets: [{
       source: "",
