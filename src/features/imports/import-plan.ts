@@ -1,5 +1,5 @@
 import { categoryNameKey } from "@/lib/category-name";
-import { categoryTags, parseAmount, type DecimalSeparator, type MappedRow } from "./csv-mapping";
+import { categoryTags, currencyAllows, parseAmount, splitCurrency, type DecimalSeparator, type MappedRow } from "./csv-mapping";
 import type { CategoryChoice, ImportTarget } from "./mutations";
 
 /** What the person chose for one source account's rows. */
@@ -197,6 +197,13 @@ export function prepareImport(rows: MappedRow[], choices: ReadonlyMap<string, Ta
 
     if (choice.balance.trim() && balance === null) {
       problems.push(`Enter the balance for ${label} as a number.`);
+    }
+
+    const balanceCurrency = splitCurrency(choice.balance.trim()).currency;
+
+    // The amount is stored in the account currency, so a balance stated in another currency must not be relabelled.
+    if (balance !== null && balanceCurrency && !currencyAllows(balanceCurrency, choice.currency)) {
+      problems.push(`Enter the balance for ${label} in ${choice.currency}.`);
     }
 
     const firstDate = kept.filter(row => row.source === source).map(row => row.date).sort()[0];

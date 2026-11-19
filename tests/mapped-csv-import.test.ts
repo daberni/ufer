@@ -1406,3 +1406,21 @@ test("category values match existing categories, create the rest, and leave mult
   });
   assert.deepEqual(rows.filter(row => needsCategoryReview(row, selections)).map(row => row.line), []);
 });
+
+test("a new account's balance stated in another currency blocks the check", () => {
+  const rows = [mappedRow(2, "2024-07-01", "-1.00", "A", {
+    source: "Wallet"
+  })];
+  const prepare = (balance: string) => prepareImport(rows, new Map<string, TargetChoice>([["Wallet", {
+    kind: "new",
+    name: "Wallet",
+    currency: "EUR",
+    balanceKind: "current",
+    balance
+  }]]), [], new Map(), ".").problems;
+
+  assert.deepEqual(prepare("USD 1000"), ["Enter the balance for “Wallet” in EUR."]);
+  assert.deepEqual(prepare("$1000"), ["Enter the balance for “Wallet” in EUR."]);
+  assert.deepEqual(prepare("€1000"), []);
+  assert.deepEqual(prepare("1000"), []);
+});
