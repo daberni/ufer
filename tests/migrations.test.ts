@@ -291,7 +291,8 @@ test("the auth upgrade preserves financial history and linked credentials while 
     const financialBefore = await client.execute("SELECT * FROM accounts");
     const transactionColumns = await columnList(client, "transactions");
     const transactionsBefore = await client.execute(`SELECT ${transactionColumns} FROM transactions`);
-    const historyBefore = await client.execute("SELECT * FROM balance_snapshots");
+    const historyColumns = await columnList(client, "balance_snapshots");
+    const historyBefore = await client.execute(`SELECT ${historyColumns} FROM balance_snapshots`);
 
     await assert.rejects(initializeDatabase(client), /migrations are pending/);
     await migrateDatabase(client);
@@ -301,7 +302,7 @@ test("the auth upgrade preserves financial history and linked credentials while 
       ...row,
       category_id: row.category_id === "transfer" ? null : row.category_id
     })));
-    assert.deepEqual((await client.execute("SELECT * FROM balance_snapshots")).rows, historyBefore.rows);
+    assert.deepEqual((await client.execute(`SELECT ${historyColumns} FROM balance_snapshots`)).rows, historyBefore.rows);
     const linked = (await client.execute("SELECT status,session_cipher,valid_until,workspace_id FROM requisitions WHERE id='linked'")).rows[0];
 
     assert.equal(linked.status, "LINKED");
@@ -826,3 +827,52 @@ for (const customization of transferCustomizations) {
     }
   });
 }
+
+
+test("bank balance provenance migration preserves existing history and leaves its classification unknown", async () => {
+  const client = createClient({
+    url: ":memory:"
+  });
+  const directory = mkdtempSync(join(tmpdir(), "ufer-balance-provenance-"));
+  const journal = JSON.parse(readFileSync("drizzle/sqlite/meta/_journal.json", "utf8"));
+
+  journal.entries = journal.entries.filter((entry: {
+    idx: number
+  }) => entry.idx < 8);
+  mkdirSync(join(directory, "meta"));
+
+  for (const entry of journal.entries) {
+    cpSync(`drizzle/sqlite/${entry.tag}.sql`, join(directory, `${entry.tag}.sql`));
+  }
+
+  writeFileSync(join(directory, "meta/_journal.json"), JSON.stringify(journal));
+
+  try {
+    await migrateDatabase(client, directory);
+    await client.batch([
+      "INSERT INTO accounts(id,environment,name,institution,kind,balance_minor,balance_date) VALUES('bank','SANDBOX','Synthetic bank account','Example bank','checking',12345,'2026-01-02')",
+      "INSERT INTO balance_snapshots(id,account_id,observed_at,amount_minor,source) VALUES('bank-record','bank','2026-01-02',12345,'sync'),('csv-record','bank','2026-01-01',12000,'csv')",
+      "INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,type) VALUES('entry','bank','bank:entry','2026-01-02',345,'EUR','income')"
+    ], "write");
+    const columns = await columnList(client, "balance_snapshots");
+    const balances = (await client.execute(`SELECT ${columns} FROM balance_snapshots ORDER BY id`)).rows;
+    const accounts = (await client.execute("SELECT * FROM accounts ORDER BY id")).rows;
+    const bookings = (await client.execute("SELECT * FROM transactions ORDER BY id")).rows;
+
+    await assert.rejects(initializeDatabase(client), /migrations are pending/);
+    await migrateDatabase(client);
+    await migrateDatabase(client);
+
+    assert.deepEqual((await client.execute(`SELECT ${columns} FROM balance_snapshots ORDER BY id`)).rows, balances);
+    assert.deepEqual((await client.execute("SELECT * FROM accounts ORDER BY id")).rows, accounts);
+    assert.deepEqual((await client.execute("SELECT * FROM transactions ORDER BY id")).rows, bookings);
+    assert.deepEqual((await client.execute("SELECT bank_balance_type FROM balance_snapshots ORDER BY id")).rows.map(row => row.bank_balance_type), [null, null]);
+    assert.equal((await client.execute("PRAGMA foreign_key_check")).rows.length, 0);
+  } finally {
+    client.close();
+    rmSync(directory, {
+      recursive: true,
+      force: true
+    });
+  }
+});
