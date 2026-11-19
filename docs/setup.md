@@ -79,6 +79,7 @@ All five views were checked in Chrome emulation at widths from 320 to 844 pixels
 ## Checks
 
 ```sh
+npm audit --omit=dev --audit-level=high
 npm run lint
 npm run check:styles
 npm run check
@@ -86,7 +87,7 @@ npm test
 npm run build
 ```
 
-The behavior tests cover exact amounts, accounting month boundaries, rule precedence, demo-seed scope and guard, booked versus pending transactions, provider identifiers, CSV validation, repeat imports, manual categories, reconnects, environment isolation, leases, authentication throttling, library-managed enrollment, membership access, cookie integrity/expiry and session revocation, jose provider signatures, persisted bank-secret integrity, pagination, and browser-bound single-use callbacks. CI runs lint, stylesheet checks, type checking, behavior tests, and a production build without real banking credentials. See [security boundaries](security.md) for the current single-installation scope and future identity requirements.
+The behavior tests cover exact amounts, accounting month boundaries, rule precedence, demo-seed scope and guard, booked versus pending transactions, provider identifiers, CSV validation, repeat imports, manual categories, reconnects, environment isolation, leases, authentication throttling, library-managed enrollment, membership access, cookie integrity/expiry and session revocation, jose provider signatures, persisted bank-secret integrity, pagination, and browser-bound single-use callbacks. CI rejects high/critical advisories in production dependencies and runs lint, stylesheet checks, type checking, behavior tests, and a production build without real banking credentials. GitHub Actions use version tags. Dependabot checks npm and Actions weekly and waits until ordinary releases are at least seven days old, grouping production dependencies, development dependencies and Actions separately. [Security updates](https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference#cooldown) bypass this cooldown and the weekly version-update schedule; they are not grouped with routine updates. Updates still require review and passing CI and are not automatically merged. Dependabot cannot identify an arbitrary non-security hotfix from its version number; urgent fixes can be updated manually without waiting for the routine schedule. See [security boundaries](security.md) for the current single-installation scope and future identity requirements.
 
 ## Parallel checkouts
 

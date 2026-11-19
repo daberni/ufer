@@ -6,7 +6,7 @@ import { useId, useMemo } from "react";
 import { clsx } from "clsx";
 import { money } from "@/lib/money";
 import { plotBalances } from "@/features/accounts/balance-chart";
-import { balanceSourceLabels, describeBalanceDate } from "@/features/accounts/balance-presentation";
+import { describeBalanceSource, describeBalanceDate } from "@/features/accounts/balance-presentation";
 import { useBalanceChart } from "@/features/accounts/use-balance-chart";
 import type { BalancePoint } from "@/features/accounts/types";
 import styles from "./balance-history-chart.module.css";
@@ -34,7 +34,7 @@ export function BalanceHistoryChart({
   const lastDate = describeBalanceDate(balances[lastIndex].date);
   const balance = balances[activeIndex ?? lastIndex];
   const date = describeBalanceDate(balance.date);
-  const source = balanceSourceLabels[balance.source];
+  const source = describeBalanceSource(balance);
   const amount = money(balance.amount_minor, currency);
   const activePoint = activeIndex === null ? null : chart.points[activeIndex];
   const line = useMemo(() => chart.points.map((point, index) => index ? `H${point.x} V${point.y}` : `M${point.x} ${point.y}`).join(" "), [chart]);
@@ -107,7 +107,7 @@ export function BalanceHistoryChartSkeleton() {
       <figcaption className={styles["readout"]}>
         <span>
           <span className={ui["skeleton"]}>12 Nov 2026</span>
-          <small className={ui["skeleton"]}>Calculated</small>
+          <small className={ui["skeleton"]}>Estimated</small>
         </span>
         <strong className={ui["skeleton"]}>€0,000.00</strong>
       </figcaption>

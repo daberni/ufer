@@ -125,6 +125,12 @@ function AccountSummary({
           <dt>Source</dt>
           <dd>{accountSourceLabel(account)}</dd>
         </div>
+        {account.provider === "enable_banking" && account.provider_name && (
+          <div>
+            <dt>Bank account name</dt>
+            <dd className={styles["provider-name"]}>{account.provider_name}</dd>
+          </div>
+        )}
         {account.provider !== "manual" && <SyncFacts account={account} />}
       </dl>
       {account.sync_error && <p className={ui["error-text"]}>{account.sync_error}</p>}
