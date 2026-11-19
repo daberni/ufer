@@ -103,6 +103,16 @@ export function matchTemplate(header: string[], templates: CsvTemplate[]): CsvTe
   return templates.find(template => headerKey(template.header) === key) ?? null;
 }
 
+/** The format a template applies: the file's current encoding and delimiter, which the person may have corrected and which decide how the header was read, with the template's date and decimal format over the detected ones. */
+export function templateSettings(template: Pick<CsvTemplate, "settings">, detected: CsvSettings, current: CsvSettings | null): CsvSettings {
+  return {
+    ...detected,
+    encoding: current?.encoding ?? detected.encoding,
+    delimiter: current?.delimiter ?? detected.delimiter,
+    ...template.settings
+  };
+}
+
 /** A template's name as listed, marking the ones defined in code. */
 export function templateLabel(template: Pick<CsvTemplate, "name" | "builtIn">) {
   return template.builtIn ? `${template.name} (built-in)` : template.name;

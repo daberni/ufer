@@ -7,7 +7,7 @@ import type { Database } from "../src/server/database/connection";
 import { initializeDatabase } from "../src/server/database/migrations";
 import * as schema from "../src/server/database/schema";
 import { HttpError } from "../src/lib/errors";
-import { builtInTemplates, buxferTemplate, decodeCsv, detectDelimiter, mapRows, matchTemplate, parseCsv, suggestMapping, templateFromMapping, templateLabel, templateMapping, type CsvSettings, type CsvTemplate } from "../src/features/imports/csv-mapping";
+import { builtInTemplates, buxferTemplate, decodeCsv, detectDelimiter, mapRows, matchTemplate, parseCsv, suggestMapping, templateFromMapping, templateLabel, templateMapping, templateSettings, type CsvSettings, type CsvTemplate } from "../src/features/imports/csv-mapping";
 import { categoryValues, rememberedChoices, resolveCategories, resolveTargets, sourceAccounts, templateChoices, type CategorySelection, type TargetChoice } from "../src/features/imports/import-plan";
 import { textsMatch } from "../src/features/imports/server/duplicate-matching";
 import { importMappedRows } from "../src/features/imports/server/mapped-import-service";
@@ -488,4 +488,31 @@ test("Buxfer transfers import as transfers, and automatic pairing links both sid
   assert.equal(transfers[0].transfer_id, transfers[1].transfer_id);
   assert.ok(transfers.every(row => row.type_source === "auto"));
   assert.equal(saved.find(row => row.amount_minor === -4210)?.type, "expense");
+});
+
+test("an offered template keeps the encoding and delimiter the person corrected", () => {
+  const detected: CsvSettings = {
+    encoding: "utf-8",
+    delimiter: ";",
+    decimal: ",",
+    dateFormat: "DD.MM.YYYY"
+  };
+  const corrected: CsvSettings = {
+    ...detected,
+    encoding: "windows-1252",
+    delimiter: ","
+  };
+
+  assert.deepEqual(templateSettings(buxferTemplate, detected, corrected), {
+    encoding: "windows-1252",
+    delimiter: ",",
+    decimal: ".",
+    dateFormat: "YYYY-MM-DD"
+  });
+  assert.deepEqual(templateSettings(buxferTemplate, detected, null), {
+    encoding: "utf-8",
+    delimiter: ";",
+    decimal: ".",
+    dateFormat: "YYYY-MM-DD"
+  });
 });

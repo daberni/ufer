@@ -5,7 +5,7 @@ import { useAccounts } from "@/features/accounts/queries";
 import { useAreaResult } from "@/components/ui/use-area-result";
 import { useCategories } from "@/features/categorization/queries";
 import { useMappedImport, type MappedImportSummary } from "@/features/imports/mutations";
-import { builtInTemplates, decodeCsv, detectDateFormat, detectDecimal, detectDelimiter, mapRows, mappingProblem, matchTemplate, parseCsv, importIdFor, readCsvTable, suggestMapping, templateMapping, type CsvMapping, type CsvSettings, type CsvTemplate } from "@/features/imports/csv-mapping";
+import { builtInTemplates, decodeCsv, detectDateFormat, detectDecimal, detectDelimiter, mapRows, mappingProblem, matchTemplate, parseCsv, importIdFor, readCsvTable, suggestMapping, templateMapping, templateSettings, type CsvMapping, type CsvSettings, type CsvTemplate } from "@/features/imports/csv-mapping";
 import { categoryValues, importKey, needsCategoryReview, prepareImport, resolveCategories, resolveTargets, sourceAccounts, templateChoices, type CategorySelection, type TargetChoice } from "@/features/imports/import-plan";
 import { useImportTemplates } from "@/features/imports/template-queries";
 
@@ -164,7 +164,7 @@ export function useImportDraft() {
     setDetected(detectedSettings);
 
     if (match) {
-      applyTemplate(match, header, detectedSettings);
+      applyTemplate(match, header, detectedSettings, true);
     } else {
       setSettings(detectedSettings);
       setMapping(suggested);
@@ -172,7 +172,7 @@ export function useImportDraft() {
   }
 
   /** Applies a template's format, column roles and remembered choices to the loaded file. */
-  function applyTemplate(chosen: CsvTemplate, header = table?.header ?? [], base = detected) {
+  function applyTemplate(chosen: CsvTemplate, header = table?.header ?? [], base = detected, initial = false) {
     if (!base) {
       return;
     }
@@ -180,10 +180,8 @@ export function useImportDraft() {
     setChecked(null);
     setTemplate(chosen);
     setTemplateDismissed(false);
-    setSettings({
-      ...base,
-      ...chosen.settings
-    });
+    // On load the file has no settings yet; an offered template applies over the current encoding and delimiter.
+    setSettings(templateSettings(chosen, base, initial ? null : settings));
     setMapping(templateMapping(chosen, header));
     setTargetChoices(new Map());
     setCategoryChoices(new Map());
