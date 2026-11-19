@@ -15,7 +15,7 @@ import { applyRulesToUncorrectedTransactions, categoryUsage, createRule, updateR
 import { listRuleSummaries } from "../src/features/categorization/server/categorization-queries";
 import { listRules } from "../src/features/categorization/server/rule-repository";
 import { readCashFlow } from "../src/features/reports/server/cash-flow-query";
-import { endPriority, orderedPriorities } from "../src/features/categorization/rule-order";
+import { orderedPriorities } from "../src/features/categorization/rule-order";
 
 const january = monthPeriod(Temporal.PlainYearMonth.from("2026-01"));
 
@@ -212,9 +212,7 @@ test("ordered priorities stay distinct and within the editor's range for long ru
 
   assert.equal(new Set(many).size, 4000);
   assert.ok(many.every((priority, index) => priority > 0 && priority <= 10000 && (index === 0 || priority > many[index - 1])));
-  assert.equal(endPriority([{
-    priority: 9995
-  }]), 10000);
+
 });
 
 test("deleting a rule keeps the categories it assigned until rules are applied", async context => {
@@ -445,4 +443,38 @@ test("without a priority, a new rule goes to the end of the list and an edited r
   assert.deepEqual(summaries.map(rule => rule.name), ["Cafe and bistro", "Market", "Cinema", "Bakery"]);
   assert.equal(summaries[3].priority, 40);
   assert.equal((await storedRules(db)).length, 4);
+});
+
+test("appending after a rule at the highest priority renumbers the stored order atomically and places the new rule last", async context => {
+  const db = await managementDatabase(context);
+
+  // Priorities left by the earlier numeric editor: two rules already sit at the ceiling.
+  await db.update(schema.categorizationRules).set({
+    priority: 10000
+  }).where(eq(schema.categorizationRules.id, "rule-cafe"));
+  await db.update(schema.categorizationRules).set({
+    priority: 10000
+  }).where(eq(schema.categorizationRules.id, "rule-cinema"));
+  const orderBefore = (await listRules()).map(rule => rule.id);
+  // "0000…" sorts before every stored ID, so a shared ceiling priority would put it first among equals.
+  const preview = await previewRule({
+    pattern: "CAFE",
+    mode: "keyword"
+  });
+
+  await createRule({
+    id: "00000000-0000-4000-8000-000000000000",
+    name: "Last",
+    pattern: "CAFE",
+    mode: "keyword",
+    category_id: "home"
+  });
+
+  const rules = await listRules();
+
+  assert.deepEqual(rules.map(rule => rule.id), [...orderBefore, "00000000-0000-4000-8000-000000000000"]);
+  assert.deepEqual(rules.map(rule => rule.priority), [10, 20, 30, 40]);
+  assert.equal(preview.matched, 0);
+  // Earlier rules still decide what they decided before.
+  assert.equal(categorize("Harbour Cafe", "", prepareRules(rules)), "leisure");
 });

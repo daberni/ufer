@@ -3,11 +3,11 @@ import { HttpError, ValidationError } from "@/lib/errors";
 import { z } from "zod";
 import { categorize, decidingRule, prepareRules, validatePattern, type Rule } from "@/lib/rules";
 import { normalizeCategoryName } from "@/lib/category-name";
-import { endPriority, orderedPriorities } from "@/features/categorization/rule-order";
+import { nextPriority, orderedPriorities } from "@/features/categorization/rule-order";
 import { isCategoryIcon } from "@/features/categorization/category-icons";
 import { defaultCategoryColor } from "@/features/categorization/category-colors";
 import { categoryExists, deleteCategory as deleteStoredCategory, insertCategory, readCategoryUsage, updateCategory, type CategoryDetails, type CategoryWriteResult } from "./category-repository";
-import { deleteRule as deleteStoredRule, findUncorrectedTransactions, insertRule, listRules, saveRuleAssignments, saveRuleOrder, setRuleEnabled, updateRule, type SelectRuleAssignments } from "./rule-repository";
+import { appendRule, deleteRule as deleteStoredRule, findUncorrectedTransactions, insertRule, listRules, saveRuleAssignments, saveRuleOrder, setRuleEnabled, updateRule, type SelectRuleAssignments } from "./rule-repository";
 
 const ruleMatching = {
   pattern: z.string().min(1).max(500),
@@ -64,7 +64,8 @@ export async function previewRule(payload: unknown) {
   // Editing never changes the enabled state, so an edit is counted as it will be stored.
   const enabled = stored ? stored.enabled : 1;
   const id = ruleId ?? randomUUID();
-  const priority = input.priority ?? stored?.priority ?? endPriority(await listRules());
+  // A new rule without a priority is counted after every stored rule, where appending places it.
+  const priority = input.priority ?? stored?.priority ?? nextPriority(await listRules());
   const decided = enabled ? await transactionsDecidedBy({
     ...input,
     priority,
@@ -100,9 +101,12 @@ export async function createRule(payload: unknown) {
     throw new HttpError(409, "This rule preview is outdated. Check the preview and try again.");
   }
 
+  const {
+    priority,
+    ...details
+  } = input;
   const rule = {
-    ...input,
-    priority: input.priority ?? endPriority(await listRules()),
+    ...details,
     id: previewId ?? randomUUID()
   };
   const selectAssignments: SelectRuleAssignments | undefined = applyToUncategorized ? (storedRules, entries) => {
@@ -110,7 +114,10 @@ export async function createRule(payload: unknown) {
 
     return entries.filter(entry => decidingRule(entry.counterparty, entry.description, rules)?.id === rule.id).map(entry => entry.id);
   } : undefined;
-  const categorized = await insertRule(rule, selectAssignments);
+  const categorized = priority === undefined ? await appendRule(rule, selectAssignments) : await insertRule({
+    ...rule,
+    priority
+  }, selectAssignments);
 
   return {
     ok: true,

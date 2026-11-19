@@ -1,7 +1,7 @@
 /** The preferred gap between ordered priorities, which leaves room to place a rule between two others in the editor. */
 const priorityStep = 10;
 
-const highestPriority = 10000;
+export const highestPriority = 10000;
 
 /** Distinct, ascending priorities for rules in list order, within the range the rule editor accepts. */
 export function orderedPriorities(count: number) {
@@ -12,13 +12,13 @@ export function orderedPriorities(count: number) {
   }, (_, index) => (index + 1) * step);
 }
 
-/** The priority that places a new rule after every stored rule, as far as the allowed range permits. */
-export function endPriority(rules: {
+/** The priority directly after every stored rule; it may exceed the allowed range, in which case appending renumbers the stored rules first. */
+export function nextPriority(rules: {
   priority: number;
 }[]) {
   const last = Math.max(0, ...rules.map(rule => rule.priority));
 
-  return Math.min(highestPriority, last + priorityStep);
+  return last + priorityStep;
 }
 
 /** The rules with the priorities that saving this order stores, so the list shows them before the save completes. */

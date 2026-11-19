@@ -1,7 +1,8 @@
 import { and, eq, inArray, isNull, asc } from "drizzle-orm";
-import { database } from "@/server/database/connection";
+import { database, type DatabaseTransaction } from "@/server/database/connection";
 import { environment } from "@/features/banking/server/environment";
 import type { Rule } from "@/lib/rules";
+import { highestPriority, nextPriority, orderedPriorities } from "@/features/categorization/rule-order";
 import type { Transaction } from "@/server/database/models";
 import { accounts, categorizationRules, transactions } from "@/server/database/schema";
 
@@ -23,40 +24,75 @@ type RuleCandidate = Pick<Transaction, "id" | "counterparty" | "description">;
 
 export type SelectRuleAssignments = (rules: Rule[], entries: RuleCandidate[]) => string[];
 
+async function storeRule(tx: DatabaseTransaction, rule: NewRule, selectAssignments?: SelectRuleAssignments) {
+  await tx.insert(categorizationRules).values({
+    ...rule,
+    enabled: rule.enabled ? 1 : 0
+  });
+
+  if (!selectAssignments) {
+    return 0;
+  }
+
+  const rules = await tx.select().from(categorizationRules).orderBy(asc(categorizationRules.priority), asc(categorizationRules.id));
+  const scope = and(eq(accounts.environment, environment()), eq(transactions.category_source, "rule"), isNull(transactions.category_id));
+  const candidates = await tx.select({
+    id: transactions.id,
+    counterparty: transactions.counterparty,
+    description: transactions.description
+  }).from(transactions).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(scope);
+  const ids = selectAssignments(rules, candidates);
+  let categorized = 0;
+
+  for (let offset = 0; offset < ids.length; offset += assignmentChunkSize) {
+    const chunk = ids.slice(offset, offset + assignmentChunkSize);
+    const result = await tx.update(transactions).set({
+      category_id: rule.category_id
+    }).where(inArray(transactions.id, chunk));
+
+    categorized += result.rowsAffected;
+  }
+
+  return categorized;
+}
+
 /** Reads the matching inputs and stores the rule and its optional assignments in one write transaction. */
 export async function insertRule(rule: NewRule, selectAssignments?: SelectRuleAssignments) {
   const db = await database();
 
+  return db.transaction(tx => storeRule(tx, rule, selectAssignments));
+}
+
+/**
+ * Stores a rule after every stored rule, with its optional assignments, in one write transaction. When the next priority would leave the allowed range, the stored
+ * rules are first renumbered in their current matching order, which keeps their order and leaves room at the end.
+ */
+export async function appendRule(rule: Omit<NewRule, "priority">, selectAssignments?: SelectRuleAssignments) {
+  const db = await database();
+
   return db.transaction(async tx => {
-    await tx.insert(categorizationRules).values({
+    const stored = await tx.select({
+      id: categorizationRules.id,
+      priority: categorizationRules.priority
+    }).from(categorizationRules).orderBy(asc(categorizationRules.priority), asc(categorizationRules.id));
+    let priority = nextPriority(stored);
+
+    if (priority > highestPriority) {
+      const renumbered = orderedPriorities(stored.length + 1);
+
+      for (const [index, existing] of stored.entries()) {
+        await tx.update(categorizationRules).set({
+          priority: renumbered[index]
+        }).where(eq(categorizationRules.id, existing.id));
+      }
+
+      priority = renumbered[stored.length];
+    }
+
+    return storeRule(tx, {
       ...rule,
-      enabled: rule.enabled ? 1 : 0
-    });
-
-    if (!selectAssignments) {
-      return 0;
-    }
-
-    const rules = await tx.select().from(categorizationRules).orderBy(asc(categorizationRules.priority), asc(categorizationRules.id));
-    const scope = and(eq(accounts.environment, environment()), eq(transactions.category_source, "rule"), isNull(transactions.category_id));
-    const candidates = await tx.select({
-      id: transactions.id,
-      counterparty: transactions.counterparty,
-      description: transactions.description
-    }).from(transactions).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(scope);
-    const ids = selectAssignments(rules, candidates);
-    let categorized = 0;
-
-    for (let offset = 0; offset < ids.length; offset += assignmentChunkSize) {
-      const chunk = ids.slice(offset, offset + assignmentChunkSize);
-      const result = await tx.update(transactions).set({
-        category_id: rule.category_id
-      }).where(inArray(transactions.id, chunk));
-
-      categorized += result.rowsAffected;
-    }
-
-    return categorized;
+      priority
+    }, selectAssignments);
   });
 }
 
