@@ -6,6 +6,7 @@ import { clsx } from "clsx";
 import { useId } from "react";
 import styles from "./target-accounts.module.css";
 import { Select } from "@/components/ui/select";
+import { InlineFailure } from "@/components/ui/area-placeholder";
 import { accountLabel, newAccountChoice, rowCount, type TargetChoice } from "@/features/imports/import-plan";
 import type { Account } from "@/features/accounts/types";
 import type { ImportDraft } from "./use-import-draft";
@@ -28,7 +29,10 @@ export function TargetAccounts({
       <h2 id="import-accounts">{perSource ? "Accounts in the file" : "Import into"}</h2>
       {perSource && <p className={ui["form-hint"]}>Each account value in the file goes to an existing account, a new manual account, or is skipped.</p>}
       {perSource && !draft.mapped && <p className={ui["form-hint"]}>Choose the date, amount and payee or description columns below to see the accounts.</p>}
-      <fieldset className={styles["targets"]} disabled={draft.inputsLocked}>
+      {draft.accountsFailure && <InlineFailure failure={draft.accountsFailure} subject="Your accounts" />}
+      {!draft.accountsReady && !draft.accountsFailure && <p className={ui["form-hint"]}>Loading your accounts …</p>}
+      {/* An explicit choice before the accounts load would override the preselection of a same-named account. */}
+      <fieldset className={styles["targets"]} disabled={draft.inputsLocked || !draft.accountsReady}>
         <legend className={ui["visually-hidden"]}>Target accounts</legend>
         {sources.map(({
           source,

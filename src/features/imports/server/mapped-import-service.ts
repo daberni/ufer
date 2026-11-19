@@ -9,7 +9,7 @@ import { listRules } from "@/features/categorization/server/rule-repository";
 import { categorizeEntries } from "@/features/transactions/server/categorize-entries";
 import { pairTransfersInEnvironment } from "@/features/transactions/server/transfer-repository";
 import { environment } from "@/features/banking/server/environment";
-import { currencyAllows, maxCategoryLength, maxIdLength, maxSourceLength, normalizeText, type RowError } from "../csv-mapping";
+import { currencyAllows, maxAccountNameLength, maxCategoryLength, maxIdLength, maxSourceLength, normalizeText, type RowError } from "../csv-mapping";
 import { duplicateDateToleranceDays, mappedReferencePrefix, type DuplicateReason } from "./duplicate-matching";
 import { checkMappedEntries, createImportCategory, findImportTarget, listCategoryNames, saveMappedEntries, type MappedEntry, type NewImportAccount, type OpeningBalance } from "./mapped-import-repository";
 
@@ -40,7 +40,7 @@ const target = z.object({
   source: z.string().max(maxSourceLength),
   account_id: z.string().optional(),
   new_account: z.object({
-    name: z.string().trim().min(1).max(100),
+    name: z.string().trim().min(1).max(maxAccountNameLength),
     currency: z.string().regex(/^[A-Z]{3}$/),
     opening: opening.optional()
   }).optional()

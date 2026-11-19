@@ -79,6 +79,9 @@ export const maxIdLength = 200;
 /** Longest category value, the limit of a category name; the server applies the same limit. */
 export const maxCategoryLength = 100;
 
+/** Longest name of a new account; the server applies the same limit. */
+export const maxAccountNameLength = 100;
+
 /** Longest account value; the server applies the same limit. */
 export const maxSourceLength = 200;
 

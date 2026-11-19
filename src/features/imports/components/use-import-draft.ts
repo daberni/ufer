@@ -2,10 +2,11 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAccounts } from "@/features/accounts/queries";
+import { useAreaResult } from "@/components/ui/use-area-result";
 import { useCategories } from "@/features/categorization/queries";
 import { useMappedImport, type MappedImportSummary } from "@/features/imports/mutations";
 import { decodeCsv, detectDateFormat, detectDecimal, detectDelimiter, mapRows, mappingProblem, parseCsv, parseCsvRecords, suggestMapping, type CsvMapping, type CsvSettings } from "@/features/imports/csv-mapping";
-import { categoryValues, defaultCategorySelection, defaultTargetChoice, needsCategoryReview, prepareImport, sourceAccounts, type CategorySelection, type TargetChoice } from "@/features/imports/import-plan";
+import { categoryValues, defaultCategorySelection, importKey, defaultTargetChoice, needsCategoryReview, prepareImport, sourceAccounts, type CategorySelection, type TargetChoice } from "@/features/imports/import-plan";
 
 /** Large multi-year exports are read in the browser and sent as mapped rows in batches, so only the browser's memory bounds the file. */
 const maxFileBytes = 25_000_000;
@@ -25,12 +26,15 @@ export function useImportDraft() {
   const [mapping, setMapping] = useState<CsvMapping | null>(null);
   const [targetChoices, setTargetChoices] = useState<Map<string, TargetChoice>>(new Map());
   const [categoryChoices, setCategoryChoices] = useState<Map<string, CategorySelection>>(new Map());
-  const [summary, setSummary] = useState<MappedImportSummary | null>(null);
+  const [checked, setChecked] = useState<{
+    summary: MappedImportSummary;
+    key: string;
+  } | null>(null);
   const [imported, setImported] = useState<MappedImportSummary | null>(null);
   const [importId, setImportId] = useState(() => crypto.randomUUID());
   const [configurationLocked, setConfigurationLocked] = useState(false);
   const latestSelection = useRef(0);
-  const accounts = useAccounts();
+  const accounts = useAreaResult(useAccounts());
   const categories = useCategories();
   const mutation = useMappedImport();
   const accountOptions = useMemo(() => accounts.data ?? [], [accounts.data]);
@@ -59,6 +63,9 @@ export function useImportDraft() {
   const values = useMemo(() => categoryValues(keptRows, categories.data ?? []), [keptRows, categories.data]);
   const resolvedCategories = useMemo(() => new Map(values.map(value => [value.value, categoryChoices.get(value.value) ?? defaultCategorySelection(value)])), [values, categoryChoices]);
   const prepared = useMemo(() => mapped && settings ? prepareImport(mapped.rows, resolvedTargets, accountOptions, resolvedCategories, settings.decimal) : null, [mapped, settings, resolvedTargets, accountOptions, resolvedCategories]);
+  const preparedKey = useMemo(() => prepared ? importKey(prepared) : null, [prepared]);
+  // A refetched account list can change a preselected target; the check then no longer describes what Import would save.
+  const summary = checked && checked.key === preparedKey ? checked.summary : null;
   const reviewLines = useMemo(() => new Set(prepared?.rows.filter(row => needsCategoryReview(row, resolvedCategories)).map(row => row.line) ?? []), [prepared, resolvedCategories]);
   const inputsLocked = configurationLocked || mutation.isPending;
 
@@ -80,7 +87,7 @@ export function useImportDraft() {
   async function load(selected: File | undefined) {
     const selection = ++latestSelection.current;
 
-    setSummary(null);
+    setChecked(null);
     setFileError(null);
     // The previous file never stays visible next to a new selection, so a check cannot run on it.
     setFile(null);
@@ -144,7 +151,7 @@ export function useImportDraft() {
   }
 
   function updateSettings(change: Partial<CsvSettings>) {
-    setSummary(null);
+    setChecked(null);
     setSettings(current => current ? {
       ...current,
       ...change
@@ -157,7 +164,7 @@ export function useImportDraft() {
 
   /** Gives a column a role; the role leaves the column it had, and the column's previous role is cleared. */
   function assignRole(column: number, role: keyof CsvMapping | null) {
-    setSummary(null);
+    setChecked(null);
     setMapping(current => {
       const next = {
         ...(current ?? suggestMapping(table?.header ?? []))
@@ -178,27 +185,29 @@ export function useImportDraft() {
   }
 
   function chooseTarget(source: string, choice: TargetChoice) {
-    setSummary(null);
+    setChecked(null);
     setTargetChoices(current => new Map(current).set(source, choice));
   }
 
   function chooseCategory(value: string, selection: CategorySelection) {
-    setSummary(null);
+    setChecked(null);
     setCategoryChoices(current => new Map(current).set(value, selection));
   }
 
   /** Starts over with an empty page after an import. */
   function clear() {
     setImported(null);
-    setSummary(null);
+    setChecked(null);
     setFile(null);
     reset();
   }
 
   function run(confirm: boolean) {
-    if (!mapped || !prepared || prepared.problems.length > 0) {
+    if (!mapped || !prepared || prepared.problems.length > 0 || accounts.status === "pending") {
       return;
     }
+
+    const key = importKey(prepared);
 
     mutation.mutate({
       importId,
@@ -214,7 +223,10 @@ export function useImportDraft() {
           setConfigurationLocked(false);
           setImported(result);
         } else {
-          setSummary(result);
+          setChecked({
+            summary: result,
+            key
+          });
         }
       }
     });
@@ -238,7 +250,8 @@ export function useImportDraft() {
     summary,
     imported,
     accounts: accountOptions,
-    accountsPending: accounts.isPending,
+    accountsReady: accounts.status !== "pending",
+    accountsFailure: accounts.status === "pending" ? accounts.failure : null,
     categoryOptions: categories.data ?? [],
     mutation,
     inputsLocked,

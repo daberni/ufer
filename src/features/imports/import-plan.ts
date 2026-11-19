@@ -1,5 +1,5 @@
 import { categoryNameKey } from "@/lib/category-name";
-import { categoryTags, currencyAllows, parseAmount, splitCurrency, type DecimalSeparator, type MappedRow } from "./csv-mapping";
+import { categoryTags, currencyAllows, maxAccountNameLength, parseAmount, splitCurrency, type DecimalSeparator, type MappedRow } from "./csv-mapping";
 import type { CategoryChoice, ImportTarget } from "./mutations";
 
 /** What the person chose for one source account's rows. */
@@ -90,10 +90,11 @@ export function accountLabel(account: AccountOption & {
   return shared ? `${account.name} (${account.currency} · ${account.institution} · …${account.id.slice(-4)})` : `${account.name} (${account.currency})`;
 }
 
+/** A new account named after the source value, shortened to the longest allowed name; the person sees and can edit the prefill. */
 export function newAccountChoice(source: string): TargetChoice {
   return {
     kind: "new",
-    name: source,
+    name: source.slice(0, maxAccountNameLength),
     currency: "EUR",
     balanceKind: "current",
     balance: ""
@@ -140,6 +141,11 @@ export function defaultCategorySelection(value: CategoryValue): CategorySelectio
 
 export function needsCategoryReview(row: MappedRow, selections: ReadonlyMap<string, CategorySelection>) {
   return row.category !== null && categoryTags(row.category).length > 1 && !selections.get(row.category)?.chosen;
+}
+
+/** Identifies what a check covered: the rows, targets and category choices sent. A check result only applies while this key is unchanged. */
+export function importKey(prepared: Pick<PreparedImport, "rows" | "targets" | "categories">) {
+  return JSON.stringify([prepared.rows, prepared.targets, prepared.categories]);
 }
 
 export type PreparedImport = {
@@ -198,6 +204,10 @@ export function prepareImport(rows: MappedRow[], choices: ReadonlyMap<string, Ta
 
     if (!name) {
       problems.push(`Name the new account for ${label}.`);
+    }
+
+    if (name.length > maxAccountNameLength) {
+      problems.push(`Shorten the new account name for ${label} to ${maxAccountNameLength} characters.`);
     }
 
     if (!/^[A-Z]{3}$/.test(choice.currency)) {

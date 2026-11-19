@@ -31,7 +31,7 @@ export function ImportSummaryBar({
   const errors = summary?.errors.length ?? mapped?.errors.length ?? 0;
   const review = draft.reviewLines.size;
   const alreadyImported = summary?.duplicates.length ?? 0;
-  const ready = Boolean(prepared && problems.length === 0);
+  const ready = Boolean(prepared && problems.length === 0 && draft.accountsReady);
   const pending = mutation.isPending;
   const counts: [string, number | null, string?][] = [
     ["New rows", summary ? summary.newRows : null],

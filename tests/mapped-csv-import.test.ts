@@ -15,7 +15,7 @@ import { importMappedRows } from "../src/features/imports/server/mapped-import-s
 import { findDuplicates } from "../src/features/imports/server/duplicate-matching";
 import { saveAccountSync } from "../src/features/banking/server/account-sync-service";
 import { startSyncRun } from "../src/features/banking/server/sync-repository";
-import { accountLabel, categoryValues, defaultCategorySelection, defaultTargetChoice, needsCategoryReview, prepareImport, type TargetChoice } from "../src/features/imports/import-plan";
+import { accountLabel, categoryValues, defaultCategorySelection, defaultTargetChoice, importKey, newAccountChoice, needsCategoryReview, prepareImport, type TargetChoice } from "../src/features/imports/import-plan";
 import { assignOccurrences, currencyAllows, duplicateIdErrors, emptyMapping, mappingProblem, normalizeText, parseCsvRecords, pruneConsumed, decodeCsv, detectDateFormat, detectDecimal, detectDelimiter, mapRows, parseAmount, parseCsv, parseDate, suggestMapping, type CsvSettings, type DateFormat, type ImportRow } from "../src/features/imports/csv-mapping";
 
 const now = Temporal.Instant.from("2026-06-30T12:00:00Z");
@@ -1490,4 +1490,39 @@ test("long category values are row errors instead of merging into one choice", (
 
   assert.deepEqual(result.errors.map(error => error.line), [2, 3]);
   assert.deepEqual(result.rows.map(row => row.category), ["Food"]);
+});
+
+test("a check stops applying when a preselected target changes after an account refetch", () => {
+  const rows = [mappedRow(2, "2024-07-01", "-1.00", "A", {
+    source: "Wallet"
+  })];
+  const account = (id: string) => ({
+    id,
+    name: "Wallet",
+    currency: "EUR"
+  });
+  const before = prepareImport(rows, new Map([["Wallet", defaultTargetChoice("Wallet", [account("synthetic-1")])]]), [account("synthetic-1")], new Map(), ".");
+  const after = prepareImport(rows, new Map([["Wallet", defaultTargetChoice("Wallet", [account("synthetic-2")])]]), [account("synthetic-2")], new Map(), ".");
+
+  assert.notEqual(importKey(before), importKey(after));
+  assert.equal(importKey(before), importKey(prepareImport(rows, new Map([["Wallet", defaultTargetChoice("Wallet", [account("synthetic-1")])]]), [account("synthetic-1")], new Map(), ".")));
+});
+
+test("a new account name over the server's limit is shortened in the prefill and reported when typed", () => {
+  const source = "Synthetic account ".padEnd(150, "x");
+  const prefill = newAccountChoice(source);
+  const rows = [mappedRow(2, "2024-07-01", "-1.00", "A", {
+    source
+  })];
+
+  assert.equal(prefill.kind === "new" ? prefill.name.length : 0, 100);
+  assert.deepEqual(prepareImport(rows, new Map([[source, prefill]]), [], new Map(), ".").problems, []);
+  assert.equal(prepareImport(rows, new Map<string, TargetChoice>([[source, {
+    ...newAccountChoice(source),
+    kind: "new",
+    name: source,
+    currency: "EUR",
+    balanceKind: "current",
+    balance: ""
+  }]]), [], new Map(), ".").problems.length, 1);
 });
