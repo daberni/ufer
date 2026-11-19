@@ -45,7 +45,11 @@ test("applying rules right after a drop waits until the dropped order is saved",
     queryClient,
     requests
   } = browser(context);
-  const { useApplyRules, useReorderRules, useSavingRuleOrder } = await import("../src/features/categorization/mutations");
+  const {
+    useApplyRules,
+    useReorderRules,
+    useSavingRuleOrder
+  } = await import("../src/features/categorization/mutations");
   const stored = [rule("a", 10), rule("b", 20)];
 
   queryClient.setQueryData(queryKeys.rules(), stored);
