@@ -51,7 +51,7 @@ export function CsvImportPage() {
           </div>
           <SaveTemplate draft={draft} />
         </section>
-        <TemplateList templates={draft.templates} disabled={false} />
+        <TemplateList templates={draft.templates} disabled={false} onDeleted={draft.forgetTemplate} />
       </div>
     );
   }
@@ -87,7 +87,7 @@ export function CsvImportPage() {
           />
         </>
       )}
-      <TemplateList templates={draft.templates} disabled={draft.inputsLocked} />
+      <TemplateList templates={draft.templates} disabled={draft.inputsLocked} onDeleted={draft.forgetTemplate} />
     </div>
   );
 }

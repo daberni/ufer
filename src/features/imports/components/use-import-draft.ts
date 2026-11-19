@@ -189,6 +189,20 @@ export function useImportDraft() {
     setCategoryChoices(new Map());
   }
 
+  /** Lets go of a deleted template: its remembered choices stay as explicit choices, so the draft keeps what it showed, and a later save creates a new template. */
+  function forgetTemplate(id: string) {
+    if (template?.id !== id) {
+      return;
+    }
+
+    if (remembered) {
+      setTargetChoices(current => new Map([...remembered.targets, ...current]));
+      setCategoryChoices(current => new Map([...remembered.selections, ...current]));
+    }
+
+    setTemplate(null);
+  }
+
   /** Switches a template off: the detected format and the suggested roles apply again, and its remembered choices are dropped. */
   function mapManually() {
     setChecked(null);
@@ -304,6 +318,7 @@ export function useImportDraft() {
     templatesStatus: templates.status,
     applyTemplate: (chosen: CsvTemplate) => applyTemplate(chosen),
     mapManually,
+    forgetTemplate,
     problem,
     mapped,
     prepared,

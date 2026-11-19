@@ -14,10 +14,13 @@ import { useChangeTemplate, useDeleteTemplate, useDuplicateTemplate } from "@/fe
 /** Built-in and saved templates with their recognized columns. Saved ones can be renamed or deleted; built-in ones can be duplicated into an editable saved copy. */
 export function TemplateList({
   templates,
-  disabled
+  disabled,
+  onDeleted
 }: {
   templates: CsvTemplate[];
   disabled: boolean;
+  /** Called after a template was deleted, so a draft using it can let it go. */
+  onDeleted?: (id: string) => void;
 }) {
   if (templates.length === 0) {
     return null;
@@ -28,7 +31,14 @@ export function TemplateList({
       <h2 id="import-templates">Templates</h2>
       <p className={ui["form-hint"]}>A file whose header row matches a template is mapped with it automatically; your templates come before built-in ones.</p>
       <ul className={styles["list"]}>
-        {templates.map(template => <TemplateItem key={template.id} template={template} disabled={disabled} />)}
+        {templates.map(template => (
+          <TemplateItem
+            key={template.id}
+            template={template}
+            disabled={disabled}
+            onDeleted={onDeleted}
+          />
+        ))}
       </ul>
     </section>
   );
@@ -36,10 +46,12 @@ export function TemplateList({
 
 function TemplateItem({
   template,
-  disabled
+  disabled,
+  onDeleted
 }: {
   template: CsvTemplate;
   disabled: boolean;
+  onDeleted?: (id: string) => void;
 }) {
   const inputId = useId();
   const change = useChangeTemplate();
@@ -120,7 +132,9 @@ function TemplateItem({
                 type="button"
                 className={clsx(ui["button"], ui["small"], styles["danger"])}
                 disabled={remove.isPending}
-                onClick={() => remove.mutate(template.id)}
+                onClick={() => remove.mutate(template.id, {
+                  onSuccess: () => onDeleted?.(template.id)
+                })}
               >Delete “{template.name}”</button>
               <button type="button" className={clsx(ui["button"], ui["small"])} onClick={() => setConfirming(false)}>Keep</button>
             </>
