@@ -2,11 +2,13 @@
 .panel {
   container-type: inline-size;
 }
+/* The figures sit on the same row as the chart's legend and savings rate. */
 .summary {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: baseline;
   gap: var(--space-1) var(--space-4);
+  margin-top: var(--space-4);
 }
 /* The link has its own line, so figures of different lengths never move it to another line and change the panel's height. */
 .summary > .transactions-link {
@@ -18,7 +20,14 @@
 }
 .summary strong {
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
   color: var(--ink);
+}
+/* Like the chart's savings rate, the value keeps one width for every rate and while loading. */
+.summary .rate {
+  display: inline-block;
+  min-width: 5ch;
+  text-align: right;
 }
 .columns {
   display: grid;
@@ -70,6 +79,9 @@
   opacity: 0;
 }
 /* Heading and context stay on one line for every selection, so the panel's height never depends on the title's length. */
+.panel .heading {
+  align-items: baseline;
+}
 .heading {
   flex-wrap: nowrap;
   gap: var(--space-2);

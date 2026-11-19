@@ -69,7 +69,7 @@ export function CategoryBreakdown({
           Net <strong className={mask}>{money(summary.net, currency)}</strong>
         </span>
         <span>
-          Savings rate <strong className={mask}>{formatSavingsRate(summary.savingsRate)}</strong>
+          Savings rate <strong className={clsx(styles["rate"], mask)}>{formatSavingsRate(summary.savingsRate)}</strong>
         </span>
         <Link className={clsx(ui["text-button"], styles["transactions-link"])} href={transactionsHref} aria-label={`View transactions, ${context}`}>
           View transactions

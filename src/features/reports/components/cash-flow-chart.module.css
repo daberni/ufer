@@ -15,10 +15,14 @@
   background: var(--chart-income);
   opacity: 0.45;
 }
+/* Title and month range share one baseline, legend entries and the savings rate another; the category panel's header uses the same rows. */
+.chart-panel .heading {
+  align-items: baseline;
+}
 .chart-legend {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: baseline;
   gap: var(--space-2) var(--space-4);
   margin-top: var(--space-4);
   font-size: var(--text-sm);
@@ -26,14 +30,22 @@
 }
 .chart-legend > span {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: var(--space-2);
+}
+.chart-legend i {
+  align-self: center;
 }
 .chart-legend > .savings-rate {
   margin-left: auto;
 }
+/* The value keeps one width for every rate from "–" to "-100%" and while loading, so the legend never shifts. */
 .savings-rate strong {
+  display: inline-block;
+  min-width: 5ch;
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
   color: var(--ink);
 }
 /* Beside the category panel, the plot grows to the shared row height instead of leaving a gap below the bars. */
@@ -48,8 +60,9 @@
   flex-direction: column;
   margin-top: var(--space-6);
 }
-/* The loading placeholder around the skeleton passes the height on to it. */
-.plot > :not(.bar-chart, .chart-empty-note) {
+/* The loading placeholder and its inner wrapper pass the plot's height on to the skeleton, so the skeleton's month labels sit where the loaded chart puts them. */
+.plot > :not(.bar-chart, .chart-empty-note),
+.plot > :not(.bar-chart, .chart-empty-note) > * {
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
