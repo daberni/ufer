@@ -6,7 +6,7 @@ import { clsx } from "clsx";
 import { useState } from "react";
 import styles from "./balance-history.module.css";
 import { money } from "@/lib/money";
-import { balanceSourceLabels, describeBalanceDate } from "@/features/accounts/balance-presentation";
+import { describeBalanceSource, describeBalanceDate } from "@/features/accounts/balance-presentation";
 import { BalanceHistoryChart, BalanceHistoryChartSkeleton } from "./balance-history-chart";
 import { AreaPlaceholder } from "@/components/ui/area-placeholder";
 import { areaProps } from "@/components/ui/result-presentation";
@@ -87,7 +87,7 @@ function BalanceTable({
               <th scope="row">
                 <time dateTime={balance.date} title={describeBalanceDate(balance.date).title}>{describeBalanceDate(balance.date).label}</time>
               </th>
-              <td>{balanceSourceLabels[balance.source]}</td>
+              <td>{describeBalanceSource(balance)}</td>
               <td className={styles["amount"]}>{money(balance.amount_minor, currency)}</td>
             </tr>
           ))}

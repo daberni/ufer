@@ -28,11 +28,15 @@ export async function saveSessionAccounts(db: Database, environment: string, req
 
       const id = matches[0]?.account_id || randomUUID();
       const iban = account.account_id?.iban;
+      const providerName = account.name || account.product || null;
 
       if (matches.length) {
         const accountScope = and(eq(accounts.id, id), eq(accounts.environment, environment), eq(accounts.currency, account.currency));
         const saved = await tx.update(accounts).set({
           provider_uid: account.uid,
+          ...(providerName ? {
+            provider_name: providerName
+          } : {}),
           requisition_id: requisitionId,
           ...(iban ? {
             iban
@@ -53,7 +57,8 @@ export async function saveSessionAccounts(db: Database, environment: string, req
         await tx.insert(accounts).values({
           id,
           environment,
-          name: account.name || account.product || institution,
+          name: providerName || institution,
+          provider_name: providerName,
           institution,
           kind: "checking",
           currency: account.currency,

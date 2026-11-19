@@ -100,9 +100,14 @@ test("an action in flight leaves the controls of every other action unchanged", 
   const { SyncButton } = await import("../src/features/banking/components/sync-button");
   const { RulesView } = await import("../src/features/categorization/components/rules-view");
   const { TransactionCategory } = await import("../src/features/transactions/components/transaction-category");
+  const { TransactionRuleProvider } = await import("../src/features/transactions/components/transaction-rule-provider");
   const { AppStoreProvider } = await import("../src/client/app-store");
 
-  const screen = render(withQueryClient(queryClient, createElement(AppStoreProvider, {
+  const screen = render(withQueryClient(queryClient, createElement(TransactionRuleProvider, {
+    fallbackFocus: {
+      current: null
+    }
+  }, createElement(AppStoreProvider, {
     locked: false
   }, [
     createElement(SyncButton, {
@@ -126,7 +131,7 @@ test("an action in flight leaves the controls of every other action unchanged", 
       categories,
       transaction
     })
-  ])));
+  ]))));
 
   const controls = () => controlsIn(screen);
 

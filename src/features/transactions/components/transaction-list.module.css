@@ -1,11 +1,27 @@
 .table-scroll {
   overflow-x: auto;
 }
+/* A fixed layout keeps column widths independent of the loaded rows; the payee column takes the remaining width. */
 .table {
+  table-layout: fixed;
   border-collapse: collapse;
   width: 100%;
+  /* Fixed columns take 672px; this leaves the payee column about 240px before the table scrolls. */
+  min-width: 960px;
   text-align: left;
   white-space: nowrap;
+}
+.category-column {
+  width: 224px;
+}
+.account-column {
+  width: 176px;
+}
+.date-column {
+  width: 112px;
+}
+.amount-column {
+  width: 160px;
 }
 .header th {
   font-size: var(--text-sm);
@@ -34,6 +50,8 @@
   font: inherit;
   text-align: inherit;
   cursor: pointer;
+  display: block;
+  width: 100%;
 }
 /* The native button covers the row; category controls and disclosure stay above its hit area. */
 .edit-transaction::after {
@@ -55,10 +73,6 @@
   --inline-select-indicator-opacity: 1;
   background: var(--surface-muted);
 }
-.transaction-details {
-  position: relative;
-  z-index: var(--layer-raised);
-}
 .counterpart {
   display: block;
   margin-top: var(--space-1);
@@ -79,7 +93,7 @@
 }
 .transaction-name {
   display: grid;
-  grid-template-columns: auto minmax(0, auto);
+  grid-template-columns: 32px minmax(0, 1fr);
   grid-template-areas:
     "icon name"
     "icon description";
@@ -108,22 +122,45 @@
   font-size: var(--text-sm);
   font-weight: 500;
   display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 270px;
 }
+.name-preview,
 .description {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+/* Above the row's edit overlay, so the pointer reaches the full-description tooltip. */
+.description {
+  position: relative;
+  z-index: var(--layer-raised);
   grid-area: description;
-  display: block;
   font-size: var(--text-sm);
   color: var(--muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 260px;
   margin-top: var(--space-1);
 }
-/* Phones show the full description on request instead of the truncated line. */
-.transaction-details,
+/* Wider layouts show the full payee and description as tooltips; only phone cards use the disclosure. */
+.transaction-details {
+  display: none;
+  white-space: normal;
+}
+.transaction-details dl {
+  margin: 0;
+  padding-bottom: var(--space-3);
+}
+.transaction-details dt {
+  margin-top: var(--space-2);
+  color: var(--muted);
+}
+.transaction-details dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  line-height: 1.75;
+  color: var(--ink-soft);
+}
 .no-details {
   display: none;
 }
@@ -131,6 +168,8 @@
   display: none;
 }
 .account {
+  overflow: hidden;
+  text-overflow: ellipsis;
   color: var(--ink-soft);
   font-weight: 500;
 }
@@ -155,6 +194,7 @@
 @media (--mobile) {
   .table {
     display: block;
+    min-width: 0;
     white-space: normal;
   }
   /* Visually hidden, so each cell keeps its column header for assistive technology. */
@@ -223,6 +263,7 @@
   .account {
     grid-column: 1;
     min-width: 0;
+    overflow: visible;
     overflow-wrap: anywhere;
   }
   .date {
@@ -246,6 +287,9 @@
     align-self: start;
     margin-top: var(--space-3);
   }
+  .name-preview {
+    display: block;
+  }
   .description {
     display: none;
   }
@@ -267,6 +311,8 @@
     display: block;
     grid-column: 1 / -1;
     grid-row: 2;
+    width: auto;
+    min-width: 0;
     margin-top: var(--space-1);
     font-size: var(--text-sm);
   }
@@ -286,13 +332,6 @@
     padding: var(--space-3) 0;
     font-size: var(--text-sm);
     color: var(--muted);
-  }
-  .transaction-details p {
-    overflow-wrap: anywhere;
-    white-space: pre-wrap;
-    line-height: 1.75;
-    color: var(--ink-soft);
-    padding-bottom: var(--space-3);
   }
   .amount {
     grid-row: 2;

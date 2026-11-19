@@ -22,15 +22,24 @@ type Props = {
 // Phones show each table row as a card; the explicit roles keep the table semantics that WebKit drops from table elements whose display changes.
 function TableHeader() {
   return (
-    <thead role="rowgroup" className={styles["header"]}>
-      <tr role="row">
-        <th role="columnheader" scope="col">Payee / description</th>
-        <th role="columnheader" scope="col">Category</th>
-        <th role="columnheader" scope="col">Account</th>
-        <th role="columnheader" scope="col">Date</th>
-        <th role="columnheader" scope="col" className={styles["amount-heading"]}>Amount</th>
-      </tr>
-    </thead>
+    <>
+      <colgroup>
+        <col />
+        <col className={styles["category-column"]} />
+        <col className={styles["account-column"]} />
+        <col className={styles["date-column"]} />
+        <col className={styles["amount-column"]} />
+      </colgroup>
+      <thead role="rowgroup" className={styles["header"]}>
+        <tr role="row">
+          <th role="columnheader" scope="col">Payee / description</th>
+          <th role="columnheader" scope="col">Category</th>
+          <th role="columnheader" scope="col">Account</th>
+          <th role="columnheader" scope="col">Date</th>
+          <th role="columnheader" scope="col" className={styles["amount-heading"]}>Amount</th>
+        </tr>
+      </thead>
+    </>
   );
 }
 
@@ -56,6 +65,7 @@ function TransactionRow({
   const [editing, setEditing] = useState(false);
   const incoming = transaction.amount_minor > 0;
   const original = originalAmount(transaction);
+  const subject = transaction.counterparty || transaction.description || transactionTypeLabels[transaction.type];
 
   return (
     <tr role="row" className={styles["row"]}>
@@ -67,16 +77,22 @@ function TransactionRow({
               className={styles["edit-transaction"]}
               type="button"
               onClick={() => setEditing(true)}
-              aria-label={`Edit transaction: ${transaction.counterparty || transaction.description || transactionTypeLabels[transaction.type]}`}
+              aria-label={`Edit transaction: ${subject}`}
+              title={subject}
             >
-              {transaction.counterparty || transaction.description || transactionTypeLabels[transaction.type]}
+              <span className={styles["name-preview"]}>{subject}</span>
             </button>
           </strong>
           <span className={styles["description"]} title={transaction.description}>{transaction.description || "No description"}</span>
-          {transaction.description ? (
+          {transaction.counterparty || transaction.description ? (
             <details className={styles["transaction-details"]}>
-              <summary>Description</summary>
-              <p>{transaction.description}</p>
+              <summary aria-label={`Details for ${subject}`}>Details</summary>
+              <dl>
+                <dt>Payee</dt>
+                <dd>{transaction.counterparty || "Not provided"}</dd>
+                <dt>Description</dt>
+                <dd>{transaction.description || "No description"}</dd>
+              </dl>
             </details>
           ) : <span className={styles["no-details"]}>No description</span>}
         </div>
@@ -118,7 +134,7 @@ export function TransactionList({
   );
 }
 
-// Payees and descriptions of different lengths give the skeleton rows a natural outline; the long ones reach the column's maximum width, as typical descriptions do.
+// Payees and descriptions of different lengths give the skeleton rows a natural outline; the long ones wrap like typical descriptions.
 const skeletonPayees = ["Grocery market", "Monthly rent payment", "Coffee shop", "Salary", "Public transport pass"];
 const skeletonDescriptions = ["Debit card purchase", "Standing order, reference 2025-01 rent", "Card payment", "Monthly salary payment from employer", "Direct debit"];
 
@@ -149,9 +165,9 @@ export function TransactionListSkeleton({ rows }: {
                   <span className={styles["description"]}>
                     <span className={ui["skeleton"]}>{placeholder.description}</span>
                   </span>
-                  <details className={styles["transaction-details"]}>
+                  <details className={styles["transaction-details"]} inert>
                     <summary>
-                      <span className={ui["skeleton"]}>Description</span>
+                      <span className={ui["skeleton"]}>Details</span>
                     </summary>
                   </details>
                 </div>
