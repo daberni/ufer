@@ -1,11 +1,16 @@
 "use client";
 
-import { useMutation, useMutationState, useQueryClient } from "@tanstack/react-query";
+import { useIsMutating, useMutation, useMutationState, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/client/api";
 import { invalidate } from "@/client/invalidate";
 import { queryKeys } from "@/client/query-keys";
 import type { Category, Rule } from "@/features/categorization/types";
 import { withOrderedPriorities } from "@/features/categorization/rule-order";
+
+// Shared by saving an order and applying rules, so an apply always runs after the order shown in the list has been saved.
+const ruleOrderScope = "rule-order";
+
+export const ruleOrderKey = ["rules", "order"] as const;
 
 type CategoryDetails = Record<string, FormDataEntryValue>;
 
@@ -87,11 +92,14 @@ export function useTogglingRules() {
   });
 }
 
-/** Re-categorizes every transaction without a manual assignment, which changes lists and spending. */
+/** Re-categorizes every transaction without a manual assignment, which changes lists and spending. It runs after any order save started before it. */
 export function useApplyRules() {
   const queryClient = useQueryClient();
 
   return useMutation({
+    scope: {
+      id: ruleOrderScope
+    },
     mutationFn: () => api("rules/apply", {}),
     onSettled: () => invalidate(queryClient, [queryKeys.transactions.all(), queryKeys.reports.cashFlow()])
   });
@@ -107,7 +115,6 @@ export function useDeleteRule(rule: Rule) {
   });
 }
 
-const ruleOrderScope = "rule-order";
 
 /**
  * Saves the matching order. The list shows the new order at once; orders are saved one after another, and a failed save restores the order shown before it.
@@ -115,6 +122,7 @@ const ruleOrderScope = "rule-order";
 export function useReorderRules() {
   const queryClient = useQueryClient();
   const mutation = useMutation({
+    mutationKey: ruleOrderKey,
     scope: {
       id: ruleOrderScope
     },
@@ -124,7 +132,7 @@ export function useReorderRules() {
     onSettled: () => {
       // Later queued orders refresh the list themselves; refreshing in between would briefly show an older order.
       if (queryClient.isMutating({
-        predicate: pending => pending.options.scope?.id === ruleOrderScope
+        mutationKey: ruleOrderKey
       }) > 1) {
         return;
       }
@@ -139,13 +147,16 @@ export function useReorderRules() {
 
     // Shown synchronously, so the dropped row stays where it was dropped; a cancelled refetch must not restore the old order.
     queryClient.setQueryData(queryKeys.rules(), ordered);
+    // Queued at once, so an apply started from now on waits for this order.
+    const saved = mutation.mutateAsync(rules);
+
     await queryClient.cancelQueries({
       queryKey: queryKeys.rules()
     });
     queryClient.setQueryData(queryKeys.rules(), ordered);
 
     try {
-      await mutation.mutateAsync(rules);
+      await saved;
     } catch (error) {
       queryClient.setQueryData(queryKeys.rules(), previous);
 
@@ -175,4 +186,11 @@ export function useDeleteCategory(category: Category) {
     }, "DELETE"),
     onSettled: () => invalidate(queryClient, [queryKeys.categories(), queryKeys.rules(), queryKeys.transactions.all(), queryKeys.reports.cashFlow()])
   });
+}
+
+/** Whether a rule order is still being saved; applying rules waits for it. */
+export function useSavingRuleOrder() {
+  return useIsMutating({
+    mutationKey: ruleOrderKey
+  }) > 0;
 }

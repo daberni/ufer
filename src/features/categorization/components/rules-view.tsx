@@ -12,7 +12,7 @@ import { useActionFeedback } from "@/components/ui/use-action-feedback";
 import type { Category, Rule } from "@/features/categorization/types";
 import { settle } from "@/client/settle";
 import { useAppStore } from "@/client/app-store";
-import { useApplyRules, useToggleRule, useTogglingRules } from "@/features/categorization/mutations";
+import { useApplyRules, useSavingRuleOrder, useToggleRule, useTogglingRules } from "@/features/categorization/mutations";
 import { AreaPlaceholder } from "@/components/ui/area-placeholder";
 import type { Area } from "@/components/ui/use-area-result";
 import { neutralChipColor } from "@/features/categorization/category-colors";
@@ -51,6 +51,7 @@ export function RulesView({
   const reportFeedback = useAppStore(state => state.reportFeedback);
   const applyFeedback = useActionFeedback();
   const apply = useApplyRules();
+  const savingOrder = useSavingRuleOrder();
   const toggle = useToggleRule();
 
   async function applyRules() {
@@ -117,12 +118,12 @@ export function RulesView({
         <div className={clsx(ui["button-group"], styles["rule-actions"])}>
           <button
             className={ui["button"]}
-            disabled={apply.isPending}
-            aria-busy={apply.isPending}
+            disabled={apply.isPending || savingOrder}
+            aria-busy={apply.isPending || savingOrder}
             onClick={applyRules}
           >
             <Sparkles size={15} />
-            Apply rules
+            {savingOrder ? "Saving order …" : "Apply rules"}
           </button>
           <button
             className={ui["button"]}

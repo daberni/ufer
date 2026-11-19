@@ -12,6 +12,7 @@ import { toFailure } from "@/client/api";
 import { FormError } from "@/components/ui/form-error";
 import { Select } from "@/components/ui/select";
 import { CategoryPicker } from "./category-picker";
+import { CategoryDialog } from "./category-form";
 import { Dialog } from "@/components/ui/dialog";
 import type { Rule, RulePreviewDraft } from "@/features/categorization/types";
 import { DeleteButton, RuleDeleteConfirmation } from "./deletion-forms";
@@ -143,6 +144,9 @@ function RuleForm({
   const categoryFieldId = useId();
   const [chosenCategoryId, setChosenCategoryId] = useState<string | null>(rule?.category_id ?? null);
   const categoryId = chosenCategoryId ?? categories.data?.[0]?.id ?? null;
+  const categorySelected = categoryId !== null && Boolean(categories.data?.some(category => category.id === categoryId));
+  const noCategories = categories.data?.length === 0;
+  const [addingCategory, setAddingCategory] = useState(false);
   const [pattern, setPattern] = useState(rule?.pattern ?? "");
   const [mode, setMode] = useState<Mode>(rule?.mode === "regex" ? "regex" : "keyword");
   const ruleId = rule?.id ?? null;
@@ -154,7 +158,7 @@ function RuleForm({
       onSubmit={event => {
         const previewId = impact.previewId;
 
-        if (!rule && !previewId) {
+        if ((!rule && !previewId) || !categorySelected) {
           event.preventDefault();
 
           return;
@@ -208,12 +212,19 @@ function RuleForm({
           value={categoryId}
           onChange={setChosenCategoryId}
         />
+        {noCategories && (
+          <p className={ui["form-hint"]}>
+            A rule needs a category, and none exist yet.{" "}
+            <button className={ui["text-button"]} type="button" onClick={() => setAddingCategory(true)}>Add a category</button>
+          </p>
+        )}
       </div>
+      {addingCategory && <CategoryDialog close={() => setAddingCategory(false)} onSaved={setChosenCategoryId} />}
       <p className={ui["form-hint"]}>Matches the payee and description without case sensitivity. The first matching rule in the list wins; new rules are added at the end.</p>
       <p className={ui["form-hint"]} role="status" aria-busy={impact.pending}>{impact.text}</p>
       <p className={ui["form-hint"]}>Existing transactions stay unchanged until you apply the rules. Manual assignments are never changed.</p>
       <FormError failure={error} />
-      <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={pending || !categories.data || (!rule && !impact.previewId)}>
+      <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={pending || !categorySelected || (!rule && !impact.previewId)}>
         {rule ? "Save changes" : "Create rule"} <Sparkles size={16} />
       </button>
       {rule && <DeleteButton label="Delete rule" disabled={pending} onClick={onDelete} />}
