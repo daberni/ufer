@@ -36,6 +36,8 @@ export type CsvMapping = {
   account: number | null;
   /** A transaction ID from the export; when mapped, it identifies the row on reimport instead of its content. */
   id: number | null;
+  /** A transaction type column; rows marked as a transfer import as transfers, every other row's type follows its amount. */
+  type: number | null;
 };
 
 /** A source-specific layout, recognized by its exact header row and mapped by column name. Saved templates also remember account and category choices by source value. */
@@ -62,7 +64,7 @@ export const maxTemplateNameLength = 100;
 export const maxColumnNameLength = 200;
 
 /**
- * Buxfer's transaction export. `Tags` holds the categories, possibly several separated by commas; `Type`, `Status`, `Memo` and `IOU` stay unmapped: amounts are already signed, and transfers are paired by the automatic rule after the import. Buxfer shortens long descriptions with "...", which duplicate matching tolerates because a shortened text is contained in the full one.
+ * Buxfer's transaction export. `Tags` holds the categories, possibly several separated by commas; `Type` marks transfers, which the automatic rule pairs after the import, and `Status`, `Memo` and `IOU` stay unmapped; amounts are already signed. Buxfer shortens long descriptions with "...", which duplicate matching tolerates because a shortened text is contained in the full one.
  */
 export const buxferTemplate: CsvTemplate = {
   id: "builtin:buxfer",
@@ -79,6 +81,7 @@ export const buxferTemplate: CsvTemplate = {
     description: 2,
     currency: 3,
     amount: 4,
+    type: 5,
     category: 6,
     account: 7
   },
@@ -143,6 +146,8 @@ export type MappedRow = {
   source: string;
   /** The export's transaction ID; null without an ID column. */
   id: string | null;
+  /** The type column marks the row as a transfer, which automatic pairing then links to its counterpart. */
+  transfer: boolean;
 };
 
 /** A mapped row with its occurrence: how many rows for the same target account with the same date, amount and normalized texts precede it, counting only rows whose currency the target accepts. It keeps genuine repeats distinct, and identical rows get the same set of references however the export orders them or which other accounts it contains. */
@@ -197,7 +202,8 @@ export const emptyMapping: CsvMapping = {
   currency: null,
   category: null,
   account: null,
-  id: null
+  id: null,
+  type: null
 };
 
 /** Decodes file bytes: a UTF-8 BOM or valid UTF-8 means UTF-8, anything else is read as Windows-1252, the usual encoding of legacy bank exports. */
@@ -523,7 +529,8 @@ const headerHints: Record<keyof CsvMapping, RegExp> = {
   currency: /^(currency|währung|waehrung|ccy)$/i,
   category: /^(category|kategorie|tags?)$/i,
   account: /^(account|konto|account name)$/i,
-  id: /^(id|transaction ?id|booking ?id|reference ?id)$/i
+  id: /^(id|transaction ?id|booking ?id|reference ?id)$/i,
+  type: /^(type|transaction ?type)$/i
 };
 
 /** Guesses a mapping from common header names; the person reviews and adjusts it. */
@@ -664,7 +671,8 @@ export function mapRows(rows: string[][], mapping: CsvMapping, settings: CsvSett
       description: cell(mapping.description).slice(0, 2000),
       category: category || null,
       source,
-      id: mapping.id === null ? null : id
+      id: mapping.id === null ? null : id,
+      transfer: isTransferMarker(cell(mapping.type))
     });
   });
 
@@ -672,6 +680,11 @@ export function mapRows(rows: string[][], mapping: CsvMapping, settings: CsvSett
     rows: mapped,
     errors
   };
+}
+
+/** Type values that mark a transfer, such as Buxfer's "Transfer"; other values leave the type to the amount. */
+export function isTransferMarker(value: string) {
+  return /^(transfer|umbuchung|übertrag)$/i.test(value.trim());
 }
 
 /** Numbers identical rows per target account; `targetOf` resolves a row's source account to its target and `currencyOf` to that target's currency, when known. */

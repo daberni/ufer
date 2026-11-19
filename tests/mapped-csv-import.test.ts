@@ -67,6 +67,7 @@ function mappedRow(line: number, date: string, amount: string, payee: string, ex
     source: "",
     occurrence: 0,
     id: null,
+    transfer: false,
     ...extra
   };
 }
@@ -177,7 +178,8 @@ test("identical rows in one file stay distinct through their occurrence", () => 
     currency: null,
     category: null,
     account: null,
-    id: null
+    id: null,
+    type: null
   }, {
     encoding: "utf-8",
     delimiter: ",",
@@ -518,7 +520,8 @@ test("occurrences count rows with equal canonical amounts and normalized texts",
     currency: null,
     category: null,
     account: null,
-    id: null
+    id: null,
+    type: null
   }, {
     encoding: "utf-8",
     delimiter: ",",
@@ -668,7 +671,8 @@ test("saving rechecks duplicates in its write transaction, so bookings synced af
     counterparty: "EXAMPLE HARDWARE STORE",
     description: "",
     categoryId: null,
-    categorySource: "rule"
+    categorySource: "rule",
+    transfer: false
   }], null);
 
   assert.equal(inserted, 0);
@@ -730,7 +734,8 @@ test("amounts accept currency symbols and codes but reject other letters", () =>
     currency: 3,
     category: null,
     account: null,
-    id: null
+    id: null,
+    type: null
   }, {
     encoding: "utf-8",
     delimiter: ",",
@@ -789,7 +794,8 @@ const plainMapping = {
   currency: null,
   category: null,
   account: 3,
-  id: null
+  id: null,
+  type: null
 };
 
 const isoSettings: CsvSettings = {
@@ -912,7 +918,8 @@ test("CSV records keep quoted delimiters, line breaks and quotes, and report phy
     amount: 2,
     payee: 1,
     account: null,
-    id: null
+    id: null,
+    type: null
   }, isoSettings, records.slice(1).map(record => record.line));
 
   assert.deepEqual(result.rows.map(row => row.line), [2, 4, 6, 7]);
@@ -999,7 +1006,8 @@ test("a row the target rejects for its currency does not shift the occurrences o
     description: "Purchase",
     category: null,
     source: "",
-    id: null
+    id: null,
+    transfer: false
   };
   const rows = assignOccurrences([{
     ...row,
@@ -1066,7 +1074,8 @@ test("the same column cannot be both debit and credit", () => {
     currency: null,
     category: null,
     account: null,
-    id: null
+    id: null,
+    type: null
   };
 
   assert.notEqual(mappingProblem(mapping), null);
@@ -1089,7 +1098,8 @@ test("an ambiguous currency symbol is rejected for an account outside its curren
     currency: null,
     category: null,
     account: null,
-    id: null
+    id: null,
+    type: null
   }, {
     encoding: "utf-8",
     delimiter: ",",

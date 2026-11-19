@@ -25,7 +25,8 @@ const row = z.object({
   category: z.string().max(maxCategoryLength).nullable(),
   source: z.string().max(maxSourceLength),
   occurrence: z.number().int().min(0),
-  id: z.string().max(maxIdLength).nullable().default(null)
+  id: z.string().max(maxIdLength).nullable().default(null),
+  transfer: z.boolean().default(false)
 });
 
 /** The balance a new account should have: today's balance, or its balance before the file's first row. The difference to the imported rows is booked as an opening balance on `date`. */
@@ -149,7 +150,8 @@ export async function importMappedRows(payload: unknown, now = Temporal.Now.inst
         counterparty: item.payee,
         description: item.description,
         categoryId,
-        categorySource: categoryId ? "manual" : "rule"
+        categorySource: categoryId ? "manual" : "rule",
+        transfer: item.transfer
       }
     });
   }

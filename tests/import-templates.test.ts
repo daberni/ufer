@@ -10,6 +10,8 @@ import { HttpError } from "../src/lib/errors";
 import { builtInTemplates, buxferTemplate, decodeCsv, detectDelimiter, mapRows, matchTemplate, parseCsv, suggestMapping, templateFromMapping, templateLabel, templateMapping, type CsvSettings, type CsvTemplate } from "../src/features/imports/csv-mapping";
 import { categoryValues, rememberedChoices, resolveCategories, resolveTargets, sourceAccounts, templateChoices, type CategorySelection, type TargetChoice } from "../src/features/imports/import-plan";
 import { textsMatch } from "../src/features/imports/server/duplicate-matching";
+import { importMappedRows } from "../src/features/imports/server/mapped-import-service";
+import { assignOccurrences } from "../src/features/imports/csv-mapping";
 import { changeTemplate, createTemplate, duplicateTemplate, readTemplates, removeTemplate } from "../src/features/imports/server/template-service";
 
 async function isolatedDatabase(context: TestContext) {
@@ -21,15 +23,23 @@ async function isolatedDatabase(context: TestContext) {
   };
   const previousDatabase = globals.budgetDb;
 
+  const previousEnvironment = process.env.ENABLE_BANKING_ENVIRONMENT;
+
   context.after(() => {
     globals.budgetDb = previousDatabase;
+    process.env.ENABLE_BANKING_ENVIRONMENT = previousEnvironment;
     client.close();
   });
+  process.env.ENABLE_BANKING_ENVIRONMENT = "SANDBOX";
 
   await initializeDatabase(client);
-  globals.budgetDb = Promise.resolve(drizzle(client, {
+  const db = drizzle(client, {
     schema
-  }));
+  });
+
+  globals.budgetDb = Promise.resolve(db);
+
+  return db;
 }
 
 // Synthetic Buxfer export: two accounts, a multi-tag row, a transfer pair and a description Buxfer shortened with "...".
@@ -414,4 +424,51 @@ test("the built-in Buxfer template is listed after saved ones, cannot be renamed
   await assert.rejects(duplicateTemplate("missing", {
     name: "Other"
   }), (error: unknown) => error instanceof HttpError && error.status === 404);
+});
+
+test("Buxfer transfers import as transfers, and automatic pairing links both sides", async context => {
+  const db = await isolatedDatabase(context);
+  const {
+    header,
+    rows,
+    template,
+    settings
+  } = readBuxfer();
+  const mapped = mapRows(rows, templateMapping(template!, header), settings).rows;
+
+  assert.deepEqual(mapped.map(row => row.transfer), [false, false, false, true, true, false]);
+
+  for (const [id, name] of [["checking", "Example Checking"], ["card", "Example Card"]]) {
+    await db.insert(schema.accounts).values({
+      id,
+      environment: "SANDBOX",
+      name,
+      institution: "Example institution",
+      kind: "checking"
+    });
+  }
+
+  const targets = [{
+    source: "Example Checking",
+    account_id: "checking"
+  }, {
+    source: "Example Card",
+    account_id: "card"
+  }];
+
+  await importMappedRows({
+    import_id: "00000000-0000-4000-8000-000000000206",
+    rows: assignOccurrences(mapped, source => source),
+    targets,
+    confirm: true
+  });
+
+  const saved = await db.select().from(schema.transactions);
+  const transfers = saved.filter(row => row.type === "transfer");
+
+  assert.deepEqual(transfers.map(row => row.amount_minor).sort((left, right) => left - right), [-10000, 10000]);
+  assert.ok(transfers[0].transfer_id);
+  assert.equal(transfers[0].transfer_id, transfers[1].transfer_id);
+  assert.ok(transfers.every(row => row.type_source === "auto"));
+  assert.equal(saved.find(row => row.amount_minor === -4210)?.type, "expense");
 });
