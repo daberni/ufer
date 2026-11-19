@@ -729,20 +729,46 @@ test("the closing date cannot precede the account's last booking", async context
   assert.ok((await listAccounts()).find(account => account.id === "open")?.archived_at);
 });
 
-test("account details offer the sync control only for an active bank account", () => {
-  assert.equal(showsSync("account", {
+test("the sync control and reminders cover only active, connected bank accounts", () => {
+  const connected = {
     provider: "enable_banking",
-    archived_at: null
-  }), true);
+    archived_at: null,
+    requisition_id: "connection"
+  };
+
+  assert.equal(showsSync("account", connected), true);
   assert.equal(showsSync("account", {
-    provider: "enable_banking",
+    ...connected,
     archived_at: "2026-11-01T00:00:00.000Z"
   }), false);
+  // Restored after its connection was removed: detached, so nothing to sync.
   assert.equal(showsSync("account", {
+    ...connected,
+    requisition_id: null
+  }), false);
+  assert.equal(showsSync("account", {
+    ...connected,
     provider: "manual",
-    archived_at: null
+    requisition_id: null
   }), false);
   assert.equal(showsSync("accounts", undefined), true);
+
+  const bank: Account = {
+    ...manualAccount,
+    id: "connected-bank",
+    provider: "enable_banking",
+    requisition_id: "connection"
+  };
+
+  assert.deepEqual(accountGroups([bank, {
+    ...bank,
+    id: "detached-bank",
+    requisition_id: null
+  }, {
+    ...bank,
+    id: "archived-bank",
+    archived_at: "2026-11-01T00:00:00.000Z"
+  }], "EUR").bankAccounts.map(account => account.id), ["connected-bank"]);
 });
 
 test("archiving an unknown account or one of another banking environment is not found", async context => {
