@@ -377,3 +377,19 @@ test("clicking or pressing Enter on a month opens its transactions, while the fi
     name: "View transactions, July 2026"
   }).getAttribute("href"), "/transactions?period=2026-07");
 });
+
+test("a tap after a lingering mouse hover shows the tapped month instead of the hovered one", async context => {
+  const screen = await showReports(context);
+  const june = screen.getByRole("button", {
+    name: /June 2026:/
+  });
+  const july = screen.getByRole("button", {
+    name: /July 2026:/
+  });
+
+  pointerOver(june, "mouse");
+  assert.ok(within(screen.panel()).getByText("June 2026"));
+  tap(july);
+  assert.ok(within(screen.panel()).getByText("July 2026"));
+  assert.equal(screen.pushed.length, 0);
+});

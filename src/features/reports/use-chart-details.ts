@@ -52,6 +52,11 @@ export function useChartDetails() {
     ref: regionRef,
     onPointerDown(event: PointerEvent) {
       inputMethod.current = event.pointerType === "mouse" ? "mouse" : "touch";
+
+      // On hybrid devices a mouse hover left behind would outrank the month a touch selects.
+      if (event.pointerType !== "mouse") {
+        setHoveredKey(null);
+      }
     },
     onKeyDown() {
       inputMethod.current = "keyboard";
