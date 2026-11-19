@@ -273,14 +273,14 @@ function RuleRows({
         onDragCancel={reorder.onDragCancel}
         onDragEnd={reorder.onDragEnd}
       >
-        <SortableContext items={rules.map(rule => rule.id)} strategy={verticalListSortingStrategy}>
+        <SortableContext items={reorder.rules.map(rule => rule.id)} strategy={verticalListSortingStrategy}>
           <ol className={styles["rule-list"]}>
-            {rules.map((rule, index) => (
+            {reorder.rules.map((rule, index) => (
               <SortableRuleRow
                 key={rule.id}
                 rule={rule}
                 position={index + 1}
-                count={rules.length}
+                count={reorder.rules.length}
                 toggling={togglingRules.includes(rule.id)}
                 toggleRule={toggleRule}
                 editRule={editRule}

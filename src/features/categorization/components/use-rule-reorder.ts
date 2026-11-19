@@ -2,7 +2,7 @@
 
 import { KeyboardSensor, PointerSensor, useSensor, useSensors, type Announcements, type DragEndEvent, type DragStartEvent, type Modifier, type UniqueIdentifier } from "@dnd-kit/core";
 import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { settle } from "@/client/settle";
 import type { Failure } from "@/client/api";
 import { useReorderRules } from "@/features/categorization/mutations";
@@ -37,6 +37,10 @@ export function useRuleReorder(rules: Rule[]) {
   const reorder = useReorderRules();
   const [failure, setFailure] = useState<Failure | null>(null);
   const [draggedId, setDraggedId] = useState<UniqueIdentifier | null>(null);
+  // The dropped order, rendered in the same update as the drop so the overlay animates into the new slot; query updates reach the list a tick later.
+  const [dropped, setDropped] = useState<Rule[] | null>(null);
+  const saves = useRef(0);
+  const shown = dropped ?? rules;
   const sensors = useSensors(
     // A short distance keeps a tap on the handle from starting a drag.
     useSensor(PointerSensor, {
@@ -61,15 +65,24 @@ export function useRuleReorder(rules: Rule[]) {
       return;
     }
 
-    const from = rules.findIndex(rule => rule.id === active.id);
-    const to = rules.findIndex(rule => rule.id === over.id);
+    const from = shown.findIndex(rule => rule.id === active.id);
+    const to = shown.findIndex(rule => rule.id === over.id);
 
     if (from < 0 || to < 0) {
       return;
     }
 
+    const order = arrayMove(shown, from, to);
+    const save = ++saves.current;
+
     setFailure(null);
-    const result = await settle(reorder.save(arrayMove(rules, from, to)));
+    setDropped(order);
+    const result = await settle(reorder.save(order));
+
+    // By now the query holds the saved order, or the restored one after a failure.
+    if (save === saves.current) {
+      setDropped(null);
+    }
 
     if (!result.ok) {
       setFailure(result.failure);
@@ -77,11 +90,12 @@ export function useRuleReorder(rules: Rule[]) {
   }
 
   return {
+    rules: shown,
     sensors,
-    dragged: rules.find(rule => rule.id === draggedId) ?? null,
+    dragged: shown.find(rule => rule.id === draggedId) ?? null,
     onDragStart: (event: DragStartEvent) => setDraggedId(event.active.id),
     onDragCancel: () => setDraggedId(null),
-    announcements: ruleAnnouncements(rules),
+    announcements: ruleAnnouncements(shown),
     failure,
     dismissFailure: () => setFailure(null),
     onDragEnd
