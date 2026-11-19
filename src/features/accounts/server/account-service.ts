@@ -89,11 +89,12 @@ export async function archiveAccount(accountId: string, payload: unknown, now = 
     };
   }
 
-  if (account.balance_minor === null) {
+  // A manual account's balance is the sum of its bookings, so it is 0 without any; only a provider balance can be unknown.
+  const balance = account.provider === "manual" ? account.balance_minor ?? 0 : account.balance_minor;
+
+  if (balance === null) {
     throw new HttpError(409, "No balance is known yet. An account can only be archived with a balance of 0.");
   }
-
-  const balance = account.balance_minor;
 
   if (balance === 0) {
     if (!await archiveSettled(account)) {

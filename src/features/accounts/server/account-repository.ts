@@ -49,8 +49,8 @@ export async function saveManualValuation(account: {
 }
 
 
-// The current balance in one statement with the update: a manual account's transaction sum, otherwise the provider balance. NULL (unknown) never equals 0.
-const currentBalance = sql`(CASE WHEN ${accounts.provider}='manual' THEN (SELECT SUM(t.amount_minor) FROM transactions t WHERE t.account_id=accounts.id) ELSE ${accounts.balance_minor} END)`;
+// The current balance in one statement with the update: a manual account's transaction sum (0 without bookings), otherwise the provider balance, whose NULL (unknown) never equals 0.
+const currentBalance = sql`(CASE WHEN ${accounts.provider}='manual' THEN COALESCE((SELECT SUM(t.amount_minor) FROM transactions t WHERE t.account_id=accounts.id),0) ELSE ${accounts.balance_minor} END)`;
 
 /** Archives an active account only if its balance is exactly 0 at the moment of the update; returns whether it was archived. */
 export async function archiveSettledAccount(executor: Pick<Database, "update">, id: string, archivedAt: string) {

@@ -44,7 +44,8 @@ function ArchiveButton({ account }: {
 }) {
   const archive = useArchiveAccount(account.id);
   const [closing, setClosing] = useState(false);
-  const settled = account.balance_minor === 0;
+  // A manual account without bookings has a balance of 0; only a bank balance can be unknown.
+  const settled = account.balance_minor === 0 || (account.provider === "manual" && account.balance_minor === null);
 
   return (
     <>
@@ -79,7 +80,7 @@ function ArchiveDialogContent({
   account: Account;
   close: () => void
 }) {
-  if (account.balance_minor === null) {
+  if (account.provider !== "manual" && account.balance_minor === null) {
     return <UnknownBalanceNotice account={account} close={close} />;
   }
 

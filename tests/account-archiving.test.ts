@@ -546,7 +546,7 @@ test("a bank account with a balance of 0 is not archived while a sync holds the 
   assert.equal((await listAccounts()).find(account => account.id === "bank")?.archived_at, null);
 });
 
-test("an unknown balance is not 0: such accounts stay active when archiving or disconnecting", async context => {
+test("a manual account without bookings has a balance of 0, while an unknown bank balance keeps the account active when archiving or disconnecting", async context => {
   const db = await seededDatabase(context);
   const unknown = {
     status: 409,
@@ -559,7 +559,9 @@ test("an unknown balance is not 0: such accounts stay active when archiving or d
     balance_minor: null,
     balance_date: null
   }).where(eq(schema.accounts.id, "bank"));
-  await assert.rejects(archiveAccount("target", {}), unknown);
+  await archiveAccount("target", {});
+  assert.ok((await listAccounts()).find(account => account.id === "target")?.archived_at);
+  await restoreAccount("target");
   await assert.rejects(archiveAccount("bank", {}), unknown);
 
   await db.insert(schema.requisitions).values({
@@ -789,12 +791,30 @@ test("a bank-linked account with a remaining balance explains why it cannot be a
   assert.equal(requests("accounts/manual%2Fcash/archive").length, 0);
 });
 
-test("an account without a known balance explains that it cannot be archived yet", async context => {
+test("a manual account without bookings is archived directly", async context => {
   const {
     screen,
     requests
   } = await renderDetails(context, {
     ...manualAccount,
+    balance_minor: null
+  });
+
+  act(() => fireEvent.click(screen.getByRole("button", {
+    name: "Archive account"
+  })));
+  await wait(0);
+  assert.equal(screen.queryByRole("dialog"), null);
+  assert.equal(requests("accounts/manual%2Fcash/archive")[0].method, "PUT");
+});
+
+test("a bank account without a known balance explains that it cannot be archived yet", async context => {
+  const {
+    screen,
+    requests
+  } = await renderDetails(context, {
+    ...manualAccount,
+    provider: "enable_banking",
     balance_minor: null
   });
 
