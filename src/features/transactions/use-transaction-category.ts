@@ -26,10 +26,10 @@ function categoryMutationKey(transactionId: string) {
   return [...categoryMutations, transactionId] as const;
 }
 
-// Stores the server's assignment in every cached list page that contains the transaction.
+// Stores the server's assignment in every cached list page that contains the transaction; other transaction queries, such as transfer options, have a different shape.
 function storeAssignment(queryClient: QueryClient, assignment: CategoryAssignment) {
   queryClient.setQueriesData<TransactionPage>({
-    queryKey: queryKeys.transactions.all()
+    queryKey: queryKeys.transactions.lists()
   }, page => {
     if (!page?.transactions.some(transaction => transaction.id === assignment.id)) {
       return page;
