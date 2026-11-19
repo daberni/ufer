@@ -1,0 +1,74 @@
+.delete {
+  color: var(--danger-text);
+}
+.danger {
+  composes: button from "../../../components/ui/primitives.module.css";
+  background: var(--danger);
+  border-color: var(--danger);
+  color: var(--on-danger);
+}
+.danger:not(:disabled):hover {
+  background: var(--danger-strong);
+}
+.effects {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding-left: var(--space-4);
+  font-size: var(--text-sm);
+  line-height: 1.7;
+  color: var(--ink);
+  list-style: disc;
+}
+.usage {
+  margin: 0 0 var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--ink);
+}
+.usage strong {
+  font-weight: 500;
+}
+.outcomes {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.outcomes legend {
+  margin-bottom: var(--space-2);
+  padding: 0;
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+/* Outranks the column layout of form labels, so each radio sits beside its text. */
+.outcomes label.outcome {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--text-md);
+  color: var(--ink);
+  cursor: pointer;
+}
+.outcome input {
+  width: auto;
+  margin-top: 0.3em;
+}
+.outcome small {
+  display: block;
+  margin-top: var(--space-1);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  color: var(--muted);
+}
+.outcomes .replacement {
+  margin: 0 0 0 var(--space-6);
+}
+@media (--mobile) {
+  .effects,
+  .usage {
+    font-size: var(--text-md);
+  }
+}

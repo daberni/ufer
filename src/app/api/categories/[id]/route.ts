@@ -1,6 +1,6 @@
 import { respond } from "@/server/http/respond";
 import { readJson } from "@/server/http/request-body";
-import { updateCategoryDetails } from "@/features/categorization/server/categorization-service";
+import { deleteCategory, updateCategoryDetails } from "@/features/categorization/server/categorization-service";
 
 export const runtime = "nodejs";
 
@@ -19,5 +19,13 @@ export async function PATCH(request: Request, context: Context) {
     const { id } = await context.params;
 
     return updateCategoryDetails(id, await readJson(request));
+  });
+}
+
+export async function DELETE(request: Request, context: Context) {
+  return respond(request, async () => {
+    const { id } = await context.params;
+
+    return deleteCategory(id, await readJson(request));
   });
 }

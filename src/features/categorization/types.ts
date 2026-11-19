@@ -20,13 +20,24 @@ export type Rule = {
 
 /** The transactions a rule would categorize, counted without storing it; manual assignments are never included. */
 export type RulePreview = {
-  /** The exact rule ID used to count equal-priority matches; submit it when creating this previewed rule. */
+  /** The exact rule ID used to count ties in the matching order; submit it when creating this previewed rule. */
   id: string;
+  /** False for an edit of a disabled rule, which decides nothing until it is enabled. */
+  enabled: boolean;
   matched: number;
   uncategorized: number;
 };
 
 export type RulePreviewDraft = {
   pattern: string;
-  priority: number;
+  mode: "keyword" | "regex";
+  /** The stored rule an edit replaces; null previews a new rule. */
+  ruleId: string | null;
+};
+
+/** What references a category, counted before it is deleted. */
+export type CategoryUsage = {
+  transactions: number;
+  manual_transactions: number;
+  rules: number;
 };
