@@ -5,7 +5,16 @@
 .summary {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: var(--space-1) var(--space-4);
+}
+/* The link has its own line, so figures of different lengths never move it to another line and change the panel's height. */
+.summary > .transactions-link {
+  flex-basis: 100%;
+}
+.link-icon {
+  flex-shrink: 0;
+  color: var(--muted);
 }
 .summary strong {
   font-weight: 600;

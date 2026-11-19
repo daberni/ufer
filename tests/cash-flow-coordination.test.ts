@@ -97,8 +97,11 @@ async function showReports(context: TestContext, data: CashFlow = cashFlow) {
       data
     }
   };
+  const pushed: string[] = [];
   const router = {
-    push: () => {}
+    push: (href: string) => {
+      pushed.push(href);
+    }
   } as unknown as AppRouterInstance;
 
   function wrapper({ children }: {
@@ -129,6 +132,7 @@ async function showReports(context: TestContext, data: CashFlow = cashFlow) {
 
   return {
     ...screen,
+    pushed,
     changeScope: (url: string) => {
       window.history.replaceState(null, "", url);
       screen.rerender(createElement(OverviewView, props));
@@ -148,6 +152,19 @@ function pointerOver(target: Element, pointerType: "mouse" | "touch") {
     value: pointerType
   });
   fireEvent(target, event);
+}
+
+/** A tap: the touch press that precedes the click tells the report that touch input selects rather than navigates. */
+function tap(target: Element) {
+  const press = new window.Event("pointerdown", {
+    bubbles: true
+  });
+
+  Object.defineProperty(press, "pointerType", {
+    value: "touch"
+  });
+  fireEvent(target, press);
+  fireEvent.click(target);
 }
 
 function mouseOut(target: Element, next: Element) {
@@ -192,7 +209,7 @@ test("touch selection survives interaction with the adjacent panel and clears ou
 
   pointerOver(june, "touch");
   assert.ok(within(screen.panel()).getByText("Food"));
-  fireEvent.click(june);
+  tap(june);
   assert.ok(within(screen.panel()).getByText("Rent"));
   fireEvent.pointerDown(screen.panel());
   assert.ok(within(screen.panel()).getByText("Rent"));
@@ -223,7 +240,7 @@ test("a pointer-selected month survives blur inside the report while keyboard de
     name: /June 2026:/
   });
 
-  fireEvent.click(june);
+  tap(june);
   act(() => june.focus());
   const press = new window.Event("pointerdown", {
     bubbles: true
@@ -257,7 +274,7 @@ test("moving the mouse off a month ends its hover even inside the reports, and r
   assert.ok(within(screen.panel()).getByText("Food"));
   assert.equal(within(screen.panel()).queryByText("Rent"), null);
 
-  fireEvent.click(july);
+  tap(july);
   pointerOver(june, "mouse");
   assert.ok(within(screen.panel()).getByText("Rent"));
   mouseOut(june, screen.panel());
@@ -305,7 +322,7 @@ test("a month whose refunds exceed its spending keeps its reversed expense bar u
     name: /July 2026:/
   });
 
-  fireEvent.click(july);
+  tap(july);
   const income = july.querySelector('[data-flow="income"]')!;
   const expenses = july.querySelector('[data-flow="expenses"]')!;
 
@@ -313,4 +330,36 @@ test("a month whose refunds exceed its spending keeps its reversed expense bar u
   assert.equal(expenses.children.length, 0);
   assert.equal(expenses.getAttribute("data-direction"), "up");
   assert.ok(income.hasAttribute("data-shared") && expenses.hasAttribute("data-shared"));
+});
+
+test("clicking or pressing Enter on a month opens its transactions, while a tap selects it and offers the same link", async context => {
+  const screen = await showReports(context);
+  const june = screen.getByRole("button", {
+    name: /June 2026:/
+  });
+  const mousePress = new window.Event("pointerdown", {
+    bubbles: true
+  });
+
+  Object.defineProperty(mousePress, "pointerType", {
+    value: "mouse"
+  });
+  fireEvent(june, mousePress);
+  fireEvent.click(june);
+  assert.deepEqual(screen.pushed, ["/transactions?period=2026-06"]);
+
+  fireEvent.keyDown(june, {
+    key: "Enter"
+  });
+  fireEvent.click(june);
+  assert.deepEqual(screen.pushed, ["/transactions?period=2026-06", "/transactions?period=2026-06"]);
+
+  assert.equal(within(screen.panel()).getByRole("link", {
+    name: "View transactions, July 2026"
+  }).getAttribute("href"), "/transactions?period=2026-07");
+  tap(june);
+  assert.equal(screen.pushed.length, 2);
+  assert.equal(within(screen.panel()).getByRole("link", {
+    name: "View transactions, June 2026"
+  }).getAttribute("href"), "/transactions?period=2026-06");
 });

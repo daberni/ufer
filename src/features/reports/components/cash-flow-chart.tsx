@@ -2,6 +2,7 @@
 
 import ui from "../../../components/ui/primitives.module.css";
 
+import { useRouter } from "next/navigation";
 import { useId, useLayoutEffect, useRef, useState, type CSSProperties, type RefObject } from "react";
 import { clsx } from "clsx";
 import { Temporal } from "temporal-polyfill";
@@ -16,7 +17,7 @@ import { areaProps, valueMask } from "@/components/ui/result-presentation";
 import { AreaPlaceholder } from "@/components/ui/area-placeholder";
 import { currentMonth, trendMonths } from "@/lib/period";
 import { chartMonthCount, minimumChartMonths } from "@/features/reports/chart-months";
-import { usePeriod } from "@/client/use-app-url";
+import { useMonthTransactionsHref, usePeriod } from "@/client/use-app-url";
 import type { Area, AreaResult, PendingArea } from "@/components/ui/use-area-result";
 import type { CashFlow } from "@/features/reports/types";
 import { barSpan, cashFlowScale, scaleOffset, type CashFlowScale } from "@/features/reports/cash-flow-scale";
@@ -76,7 +77,7 @@ export function CashFlowChart({
           Expenses
         </span>
         <span>
-          <i className={styles["legend-line"]} />
+          <i className={styles["legend-area"]} />
           Net
         </span>
         <span className={styles["savings-rate"]}>
@@ -202,6 +203,9 @@ function ChartPlot({
   months: Temporal.PlainYearMonth[];
 }) {
   const descriptionPrefix = useId();
+  const clipPrefix = useId();
+  const router = useRouter();
+  const monthTransactionsHref = useMonthTransactionsHref();
   const {
     currency
   } = cashFlow.data;
@@ -225,7 +229,13 @@ function ChartPlot({
   const activeMonth = chartMonths.find(item => item.month === selection?.month);
   const hasHistory = trend.some(item => item.income !== 0 || item.expenses !== 0);
   // Month columns share the width equally, so their centres lie at even steps of a 0–100 coordinate space that stretches with the plot.
-  const netPoints = chartMonths.map((item, index) => `${(index + 0.5) / chartMonths.length * 100},${scaleOffset(item.net, scale) * 100}`).join(" ");
+  const centre = (index: number) => (index + 0.5) / chartMonths.length * 100;
+  const zero = scale.zero * 100;
+  const netPoints = chartMonths.map((item, index) => `${centre(index)},${scaleOffset(item.net, scale) * 100}`).join(" ");
+  // The area closes along the zero line; clipping splits it into a surplus tone above and a deficit tone below.
+  const netArea = `${centre(0)},${zero} ${netPoints} ${centre(chartMonths.length - 1)},${zero}`;
+  const surplusClip = `${clipPrefix}-surplus`;
+  const deficitClip = `${clipPrefix}-deficit`;
 
   return (
     <>
@@ -238,10 +248,28 @@ function ChartPlot({
         <ZeroLine scale={scale} />
         {hasHistory && (
           <span className={styles["plot-area"]} aria-hidden="true">
-            <svg className={styles["net-line"]} viewBox="0 0 100 100" preserveAspectRatio="none">
-              {/* A halo in the panel colour keeps the line legible where it crosses bars. */}
-              <polyline className={styles["net-halo"]} points={netPoints} vectorEffect="non-scaling-stroke" />
-              <polyline points={netPoints} vectorEffect="non-scaling-stroke" />
+            <svg className={styles["net-area"]} viewBox="0 0 100 100" preserveAspectRatio="none">
+              <defs>
+                <clipPath id={surplusClip}>
+                  <rect
+                    x="0"
+                    y="0"
+                    width="100"
+                    height={zero}
+                  />
+                </clipPath>
+                <clipPath id={deficitClip}>
+                  <rect
+                    x="0"
+                    y={zero}
+                    width="100"
+                    height={100 - zero}
+                  />
+                </clipPath>
+              </defs>
+              <polygon className={styles["net-surplus"]} points={netArea} clipPath={`url(#${surplusClip})`} />
+              <polygon className={styles["net-deficit"]} points={netArea} clipPath={`url(#${deficitClip})`} />
+              <polyline className={styles["net-outline"]} points={netPoints} vectorEffect="non-scaling-stroke" />
             </svg>
           </span>
         )}
@@ -259,7 +287,7 @@ function ChartPlot({
               aria-describedby={descriptionId}
               aria-controls={detailsId}
               data-active={active ? "" : undefined}
-              {...targetProps(item.month)}
+              {...targetProps(item.month, () => router.push(monthTransactionsHref(item.month)))}
             >
               <span className={styles["bars"]}>
                 <FlowBar
@@ -276,7 +304,7 @@ function ChartPlot({
                   groups={active ? item.expenseGroups : []}
                   scale={scale}
                 />
-                {hasHistory && (
+                {active && (
                   <span
                     className={styles["net-point"]}
                     style={{
