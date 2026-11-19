@@ -69,7 +69,7 @@ type MappedImport = {
   rowErrors: RowError[];
   targets: MappedTarget[];
   confirm: boolean;
-  /** Called before the first confirmed batch is sent, since a batch can commit even when its response is lost; from then on the import's targets are fixed. */
+  /** Called before the first confirmed batch is sent, since a batch can commit even when its response is lost; from then on the import's file, format, mapping and targets are fixed. */
   onConfirmStart?: () => void;
 };
 

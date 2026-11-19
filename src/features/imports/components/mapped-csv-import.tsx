@@ -53,7 +53,7 @@ export function MappedCsvImport({
   const [summary, setSummary] = useState<MappedImportSummary | null>(null);
   const [importId, setImportId] = useState(() => crypto.randomUUID());
   // Once a batch is saved, new accounts exist with the chosen name and currency; changing targets would split the import.
-  const [targetsLocked, setTargetsLocked] = useState(false);
+  const [configurationLocked, setConfigurationLocked] = useState(false);
   const latestSelection = useRef(0);
   const accounts = useAccounts();
   const mutation = useMappedImport();
@@ -76,6 +76,8 @@ export function MappedCsvImport({
   const mapped = useMemo(() => table && effectiveMapping && !mappingProblem(effectiveMapping) && settings ? mapRows(table.rows, effectiveMapping, settings, table.lines) : null, [table, effectiveMapping, settings]);
   const sources = useMemo(() => [...new Set(mapped?.rows.map(row => row.source) ?? [])].sort(), [mapped]);
   const resolvedTargets = sources.map(source => targets[source] ?? defaultTarget(source));
+  // A pending check or a started confirmation fixes the whole definition: a stale check must not approve changed inputs, and a retry must reproduce the same row references and targets.
+  const inputsLocked = configurationLocked || mutation.isPending;
   const targetsComplete = resolvedTargets.every(target => target.accountId !== "" && (target.accountId !== "new" || target.name.trim() !== ""));
 
   async function load(selected: File | undefined) {
@@ -127,7 +129,7 @@ export function MappedCsvImport({
     setMapping(suggested);
     setTargets({});
     setImportId(crypto.randomUUID());
-    setTargetsLocked(false);
+    setConfigurationLocked(false);
   }
 
   function updateSettings(change: Partial<CsvSettings>) {
@@ -172,7 +174,7 @@ export function MappedCsvImport({
       rowErrors: mapped.errors,
       targets: resolvedTargets,
       confirm,
-      onConfirmStart: () => setTargetsLocked(true)
+      onConfirmStart: () => setConfigurationLocked(true)
     }, {
       onSuccess: result => {
         if (confirm) {
@@ -192,12 +194,17 @@ export function MappedCsvImport({
       <p className={ui["form-description"]}>Import transaction history from any CSV export. Map its columns, check the result, then confirm. Nothing is saved before you confirm.</p>
       <label>
         CSV file
-        <input type="file" accept=".csv,.txt,text/csv" onChange={event => void load(event.target.files?.[0])} />
+        <input
+          type="file"
+          accept=".csv,.txt,text/csv"
+          disabled={inputsLocked}
+          onChange={event => void load(event.target.files?.[0])}
+        />
       </label>
       {fileError && <p className={ui["error-text"]}>{fileError}</p>}
       {file && settings && table && (
         <>
-          <fieldset className={styles["group"]}>
+          <fieldset className={styles["group"]} disabled={inputsLocked}>
             <legend>File format</legend>
             <div className={styles["grid"]}>
               <label>
@@ -266,7 +273,7 @@ export function MappedCsvImport({
             </table>
           </div>
           <p className={ui["form-hint"]}>{table.rows.length.toLocaleString("en")} data rows in {file.name}.</p>
-          <fieldset className={styles["group"]}>
+          <fieldset className={styles["group"]} disabled={inputsLocked}>
             <legend>Columns</legend>
             <div className={styles["grid"]}>
               {fieldLabels.map(([field, label]) => (
@@ -283,7 +290,7 @@ export function MappedCsvImport({
           </fieldset>
           {problem && <p className={ui["error-text"]}>{problem}</p>}
           {mapped && (
-            <fieldset className={styles["group"]}>
+            <fieldset className={styles["group"]} disabled={inputsLocked}>
               <legend>Target accounts</legend>
               {resolvedTargets.map(target => (
                 <div key={target.source} className={styles["target"]}>
@@ -291,7 +298,7 @@ export function MappedCsvImport({
                     {target.source ? `Rows from “${target.source}”` : "All rows"}
                     <Select
                       value={target.accountId}
-                      disabled={targetsLocked}
+                      disabled={inputsLocked}
                       onChange={event => updateTarget(target.source, {
                         accountId: event.target.value
                       })}
@@ -311,7 +318,7 @@ export function MappedCsvImport({
                         Account name
                         <input
                           value={target.name}
-                          disabled={targetsLocked}
+                          disabled={inputsLocked}
                           maxLength={100}
                           onChange={event => updateTarget(target.source, {
                             name: event.target.value
@@ -322,7 +329,7 @@ export function MappedCsvImport({
                         Currency
                         <input
                           value={target.currency}
-                          disabled={targetsLocked}
+                          disabled={inputsLocked}
                           maxLength={3}
                           onChange={event => updateTarget(target.source, {
                             currency: event.target.value.toUpperCase()
