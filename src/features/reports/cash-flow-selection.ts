@@ -43,7 +43,7 @@ export function periodCashFlow(data: CashFlow): CashFlowSummary {
   return summarize(data.income, data.expenses, data.incomeBreakdown, data.expenseBreakdown);
 }
 
-/** Net flow and savings rate across the given trend months, such as the months visible in the chart. */
+/** Net flow and savings rate across the given trend months, such as the chart's twelve-month trend. */
 export function trendCashFlow(trend: CashFlow["trend"]) {
   const income = trend.reduce((total, item) => total + item.income, 0);
   const expenses = trend.reduce((total, item) => total + item.expenses, 0);

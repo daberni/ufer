@@ -47,7 +47,7 @@ const cashFlow: CashFlow = {
   }]
 };
 
-async function showReports(context: TestContext) {
+async function showReports(context: TestContext, data: CashFlow = cashFlow) {
   browser(context, "http://localhost/?period=2026-07");
   const previousNode = Object.getOwnPropertyDescriptor(globalThis, "Node");
 
@@ -94,7 +94,7 @@ async function showReports(context: TestContext) {
     },
     cashFlow: {
       status: "ready" as const,
-      data: cashFlow
+      data
     }
   };
   const router = {
@@ -263,4 +263,27 @@ test("moving the mouse off a month ends its hover even inside the reports, and r
   mouseOut(june, screen.panel());
   assert.ok(within(screen.panel()).getByText("July 2026"));
   assert.ok(within(screen.panel()).getByText("Food"));
+});
+
+test("the savings rate beside the chart covers the whole trend, including months too narrow to show", async context => {
+  const months = ["2026-02", "2026-03", "2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09"];
+  const trend = months.map((month, index) => ({
+    month,
+    // The two earliest months fall outside the six columns a narrow chart shows.
+    income: index < 2 ? 500000 : 100000,
+    expenses: 100000,
+    incomeBreakdown: [],
+    expenseBreakdown: []
+  }));
+  const screen = await showReports(context, {
+    ...cashFlow,
+    trend
+  });
+  const legend = screen.getByText(/Savings rate · 12 months/);
+
+  assert.equal(screen.getAllByRole("button", {
+    name: /2026: income/
+  }).length, 6);
+  // (2 × 400000 net) / (2 × 500000 + 6 × 100000) = 50%; the six visible months alone would give 0%.
+  assert.equal(legend.querySelector("strong")?.textContent, "50%");
 });

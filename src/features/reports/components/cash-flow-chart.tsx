@@ -14,7 +14,7 @@ import { money } from "@/lib/money";
 import { describeCategoryGroups } from "@/features/reports/components/category-rows";
 import { areaProps, valueMask } from "@/components/ui/result-presentation";
 import { AreaPlaceholder } from "@/components/ui/area-placeholder";
-import { currentMonth, trendMonths } from "@/lib/period";
+import { currentMonth, trendLength, trendMonths } from "@/lib/period";
 import { chartMonthCount, minimumChartMonths } from "@/features/reports/chart-months";
 import { usePeriod } from "@/client/use-app-url";
 import type { Area, AreaResult, PendingArea } from "@/components/ui/use-area-result";
@@ -57,7 +57,8 @@ export function CashFlowChart({
   const months = trend.slice(-monthCount);
   const rangeMask = cashFlow.status === "pending" ? "" : valueMask(cashFlow.status);
   const rateMask = cashFlow.status === "pending" ? ui["skeleton"] : rangeMask;
-  const visibleRate = cashFlow.status === "pending" ? null : trendCashFlow(cashFlow.data.trend.slice(-months.length)).savingsRate;
+  // The rate covers the whole twelve-month trend, so it does not change with the number of months that fit the width.
+  const trendRate = cashFlow.status === "pending" ? null : trendCashFlow(cashFlow.data.trend).savingsRate;
 
   return (
     <section className={clsx(ui["panel"], styles["chart-panel"])}>
@@ -79,7 +80,7 @@ export function CashFlowChart({
           Net
         </span>
         <span className={styles["savings-rate"]}>
-          Savings rate <strong className={rateMask}>{formatSavingsRate(visibleRate)}</strong>
+          Savings rate · {trendLength} months <strong className={rateMask}>{formatSavingsRate(trendRate)}</strong>
         </span>
       </div>
       <div className={styles["plot"]} ref={plotRef}>
