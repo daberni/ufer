@@ -660,6 +660,19 @@ test("category icons persist through create and edit and only accept the curated
   });
   assert.equal(await categoryIcon("Dining out"), "travel");
 
+  // Keys added to the curated set are accepted alongside the original ones.
+  await createCategory({
+    name: "Pet food",
+    icon: "pets"
+  });
+  assert.equal(await categoryIcon("Pet food"), "pets");
+  await updateCategoryDetails(String(dining?.id), {
+    name: "Dining out",
+    color: "#123456",
+    icon: "coffee"
+  });
+  assert.equal(await categoryIcon("Dining out"), "coffee");
+
   await updateCategoryDetails(String(dining?.id), {
     name: "Dining out",
     color: "#123456",

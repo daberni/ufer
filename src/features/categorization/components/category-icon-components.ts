@@ -1,4 +1,4 @@
-import { ArrowLeftRight, Banknote, Car, GraduationCap, Gift, HeartPulse, House, PiggyBank, Plane, Receipt, ShoppingBag, ShoppingBasket, Tag, Ticket, UtensilsCrossed, Zap, type LucideIcon } from "lucide-react";
+import { ArrowLeftRight, Baby, Banknote, BedDouble, Bike, BookOpen, BriefcaseBusiness, Car, Coffee, Dumbbell, Fuel, GraduationCap, Gift, HandHeart, HeartPulse, House, Landmark, Palette, PawPrint, PiggyBank, Pill, Plane, Receipt, Shirt, ShieldCheck, ShoppingBag, ShoppingBasket, Smartphone, Sofa, SquareParking, Tag, Ticket, TramFront, TrendingUp, Tv, UtensilsCrossed, Wallet, Wine, Wrench, Zap, type LucideIcon } from "lucide-react";
 import type { CategoryIconKey } from "@/features/categorization/category-icons";
 
 export const categoryIconComponents: Record<CategoryIconKey, LucideIcon> = {
@@ -17,5 +17,29 @@ export const categoryIconComponents: Record<CategoryIconKey, LucideIcon> = {
   income: Banknote,
   savings: PiggyBank,
   transfer: ArrowLeftRight,
-  other: Tag
+  other: Tag,
+  coffee: Coffee,
+  bar: Wine,
+  fuel: Fuel,
+  parking: SquareParking,
+  transit: TramFront,
+  bike: Bike,
+  insurance: ShieldCheck,
+  phone: Smartphone,
+  subscriptions: Tv,
+  furniture: Sofa,
+  repairs: Wrench,
+  clothing: Shirt,
+  pharmacy: Pill,
+  fitness: Dumbbell,
+  hobbies: Palette,
+  pets: PawPrint,
+  childcare: Baby,
+  books: BookOpen,
+  hotel: BedDouble,
+  charity: HandHeart,
+  salary: BriefcaseBusiness,
+  investments: TrendingUp,
+  cash: Wallet,
+  loan: Landmark
 };

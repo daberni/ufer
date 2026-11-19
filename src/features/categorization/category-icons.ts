@@ -15,7 +15,31 @@ export const categoryIconLabels = {
   income: "Income",
   savings: "Savings",
   transfer: "Transfer",
-  other: "Other"
+  other: "Other",
+  coffee: "Coffee & cafés",
+  bar: "Bars & alcohol",
+  fuel: "Fuel",
+  parking: "Parking",
+  transit: "Public transport",
+  bike: "Bike",
+  insurance: "Insurance",
+  phone: "Phone & internet",
+  subscriptions: "Subscriptions & streaming",
+  furniture: "Furniture & home",
+  repairs: "Repairs & DIY",
+  clothing: "Clothing",
+  pharmacy: "Pharmacy",
+  fitness: "Sport & fitness",
+  hobbies: "Hobbies",
+  pets: "Pets",
+  childcare: "Kids & childcare",
+  books: "Books",
+  hotel: "Hotels",
+  charity: "Charity & donations",
+  salary: "Salary & work",
+  investments: "Investments",
+  cash: "Cash",
+  loan: "Loans & debt"
 } as const;
 
 export type CategoryIconKey = keyof typeof categoryIconLabels;
