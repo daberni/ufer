@@ -13,10 +13,12 @@ import type { Database } from "../src/server/database/connection";
 import { initializeDatabase } from "../src/server/database/migrations";
 import * as schema from "../src/server/database/schema";
 import { allMonthsPeriod } from "../src/lib/period";
+import { readTransactionPage } from "../src/features/transactions/server/transaction-list-query";
+import { dashboardFilters } from "../src/server/http/dashboard-filters";
 import { ValidationError } from "../src/lib/errors";
 import { listAccounts, readBalanceHistory, readNetWorth } from "../src/features/accounts/server/account-queries";
 import { archiveAccount, restoreAccount, updateManualValuation } from "../src/features/accounts/server/account-service";
-import { enterManualTransaction } from "../src/features/transactions/server/transaction-service";
+import { editManualTransaction, enterManualTransaction, removeManualTransaction, transferOptions, updateTransactionType } from "../src/features/transactions/server/transaction-service";
 import { importTransactions, importValuations } from "../src/features/imports/server/import-service";
 import { readAccountCashFlow, readCashFlow } from "../src/features/reports/server/cash-flow-query";
 import { accountGroups } from "../src/features/accounts/queries";
@@ -214,6 +216,61 @@ test("an archived account rejects balance updates, manual entries and CSV import
     date: "2026-01-10"
   });
   assert.equal((await db.select().from(schema.transactions)).length, bookingsBefore.length + 1);
+});
+
+test("bookings on an archived account cannot be edited, deleted or linked, and are not offered as link candidates", async context => {
+  const db = await seededDatabase(context);
+
+  await db.insert(schema.transactions).values({
+    id: "refund",
+    account_id: "target",
+    provider_reference: "manual:refund",
+    booking_date: "2026-01-06",
+    amount_minor: 4000,
+    currency: "EUR",
+    type: "income"
+  });
+  const candidates = async () => (await transferOptions("refund")).candidates.map(candidate => candidate.id);
+
+  assert.deepEqual(await candidates(), ["groceries"]);
+  await archiveAccount("closed", {});
+  const bookingsBefore = await db.select().from(schema.transactions);
+  const archived = {
+    status: 409,
+    message: "This account is archived. Restore the account first."
+  };
+
+  await assert.rejects(editManualTransaction("salary", {
+    type: "income",
+    booking_date: "2026-01-05",
+    amount: "1.00"
+  }), archived);
+  await assert.rejects(removeManualTransaction("salary"), archived);
+  await assert.rejects(updateTransactionType("groceries", {
+    type: "transfer",
+    transfer: {
+      counterpart_id: "refund"
+    }
+  }), archived);
+  assert.deepEqual(await candidates(), []);
+  // The list offers no entry editing or deletion for bookings on the archived account.
+  const page = await readTransactionPage(dashboardFilters(new URLSearchParams({
+    period: "2026-01"
+  })));
+
+  assert.equal(page.transactions.find(item => item.id === "salary")?.entered, false);
+  assert.equal(page.transactions.find(item => item.id === "refund")?.entered, true);
+  await assert.rejects(updateTransactionType("refund", {
+    type: "transfer",
+    transfer: {
+      counterpart_id: "groceries"
+    }
+  }), ValidationError);
+  assert.deepEqual(await db.select().from(schema.transactions), bookingsBefore);
+
+  await restoreAccount("closed");
+  await removeManualTransaction("salary");
+  assert.equal((await db.select().from(schema.transactions)).length, bookingsBefore.length - 1);
 });
 
 test("a currency whose accounts are all archived still reports its figures on the overview", () => {

@@ -4,7 +4,7 @@ import { TransactionRollbackError } from "drizzle-orm/errors";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 import { transactions } from "@/server/database/schema";
 import type { TransactionType } from "@/features/transactions/transaction-types";
-import { applyTransactionType, createdCounterpartPrefix, dissolveLink, enteredInUfer, enteredPair, findCounterpart, findSubject, manualEntryPrefix, type TransferTarget, type TypeChangeResult } from "./transfer-repository";
+import { applyTransactionType, createdCounterpartPrefix, dissolveLink, enteredInUfer, enteredPair, findCounterpart, findSubject, manualEntryPrefix, touchesArchivedAccount, type TransferTarget, type TypeChangeResult } from "./transfer-repository";
 
 /** The fields a person enters for a booking on a manual account. */
 export type ManualEntry = {
@@ -113,6 +113,10 @@ export async function updateManualTransaction(id: string, entry: ManualEntry, ca
       return "not_found";
     }
 
+    if (await touchesArchivedAccount(tx, subject)) {
+      return "archived_account";
+    }
+
     if (!enteredInUfer(subject)) {
       return "not_entered";
     }
@@ -202,6 +206,10 @@ export async function deleteManualTransaction(id: string) {
 
     if (!subject) {
       return "not_found";
+    }
+
+    if (await touchesArchivedAccount(tx, subject)) {
+      return "archived_account";
     }
 
     if (!enteredInUfer(subject)) {

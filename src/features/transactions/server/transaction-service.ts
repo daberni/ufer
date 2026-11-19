@@ -46,7 +46,7 @@ const typeInput = z.object({
   transfer: transferTarget.optional()
 });
 
-const typeFailures: Record<Exclude<ManualEntryResult, "saved" | "not_found">, string> = {
+const typeFailures: Record<Exclude<ManualEntryResult, "saved" | "not_found" | "archived_account">, string> = {
   manual_account_only: "Opening balances and adjustments are only available for manual accounts.",
   counterpart_not_found: "The selected booking does not exist.",
   account_not_found: "Choose one of your manual accounts.",
@@ -62,6 +62,10 @@ const typeFailures: Record<Exclude<ManualEntryResult, "saved" | "not_found">, st
 function requireSaved(result: ManualEntryResult) {
   if (result === "not_found") {
     throw new HttpError(404, "Transaction not found.");
+  }
+
+  if (result === "archived_account") {
+    throw new HttpError(409, "This account is archived. Restore the account first.");
   }
 
   if (result !== "saved") {
