@@ -39,6 +39,7 @@ export function useRenameAccount(accountId: string) {
 export type ArchiveRequest = {
   closing?: {
     date: string;
+    balance_minor: number;
     transfer_account_id: string | null;
   };
 };

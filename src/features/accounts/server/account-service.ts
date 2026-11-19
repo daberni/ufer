@@ -96,7 +96,14 @@ export async function archiveAccount(accountId: string, payload: unknown, now = 
     throw new HttpError(409, "No balance is known yet. An account can only be archived with a balance of 0.");
   }
 
+  // A closing confirms the balance the user saw; any other current balance needs a new confirmation.
+  const confirmedOther = input.closing !== undefined && input.closing.balance_minor !== balance;
+
   if (balance === 0) {
+    if (confirmedOther) {
+      throw new HttpError(409, closingFailures.balance_changed!);
+    }
+
     if (!await archiveSettled(account)) {
       throw new HttpError(409, closingFailures.balance_changed!);
     }
@@ -110,8 +117,12 @@ export async function archiveAccount(accountId: string, payload: unknown, now = 
     throw new HttpError(409, "Bring the balance to 0 before archiving.");
   }
 
+  if (confirmedOther) {
+    throw new HttpError(409, closingFailures.balance_changed!);
+  }
+
   validateBalanceDate(input.closing.date, now);
-  const result = await closeAndArchiveManualAccount(account, balance, input.closing.date, input.closing.transfer_account_id, timestamp(now));
+  const result = await closeAndArchiveManualAccount(account, input.closing.balance_minor, input.closing.date, input.closing.transfer_account_id, timestamp(now));
 
   if (result === "balance_changed") {
     throw new HttpError(409, closingFailures.balance_changed!);

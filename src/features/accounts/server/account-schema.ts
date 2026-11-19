@@ -29,6 +29,8 @@ export const accountRenameInput = z.object({
 export const archiveInput = z.object({
   closing: z.object({
     date: balanceDate,
+    /** The balance in minor units the user confirmed; a different current balance refuses the closing. */
+    balance_minor: z.number().int(),
     transfer_account_id: z.string().min(1).nullable().default(null)
   }).optional()
 }).default({});

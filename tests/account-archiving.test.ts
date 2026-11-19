@@ -337,7 +337,8 @@ test("automatic pairing never links a booking on an archived account", async con
   }]);
   await archiveAccount("closed", {
     closing: {
-      date: "2026-01-31"
+      date: "2026-01-31",
+      balance_minor: -2500
     }
   });
   const bookingsBefore = await db.select().from(schema.transactions);
@@ -372,7 +373,8 @@ test("changing a booking linked to a counterpart on an archived account is refus
   assert.equal(counterpart?.account_id, "closed");
   await archiveAccount("closed", {
     closing: {
-      date: "2026-01-31"
+      date: "2026-01-31",
+      balance_minor: 2500
     }
   });
   const bookingsBefore = await db.select().from(schema.transactions);
@@ -433,7 +435,8 @@ test("archiving an account whose balance is not 0 is refused without changes", a
   // A bank-linked balance comes from the bank and cannot be booked away.
   await assert.rejects(archiveAccount("bank", {
     closing: {
-      date: "2026-02-01"
+      date: "2026-02-01",
+      balance_minor: 7000
     }
   }), refused);
   assert.deepEqual(await db.select().from(schema.transactions), bookingsBefore);
@@ -452,7 +455,8 @@ test("closing a manual account books its balance away as an adjustment on the ch
 
   await archiveAccount("open", {
     closing: {
-      date: "2026-01-15"
+      date: "2026-01-15",
+      balance_minor: 50000
     }
   });
   const open = (await listAccounts()).find(account => account.id === "open");
@@ -465,12 +469,66 @@ test("closing a manual account books its balance away as an adjustment on the ch
   assert.deepEqual(await readCashFlow(allMonthsPeriod, "EUR"), cashFlowBefore);
 });
 
+test("closing refuses a balance that changed after the user saw it, also between the check and the booking", async context => {
+  const db = await seededDatabase(context);
+  const changed = {
+    status: 409,
+    message: "The balance changed meanwhile. Review it and try again."
+  };
+
+  // The dialog showed 500.00; a booking arrived before the submit.
+  await db.insert(schema.transactions).values({
+    id: "arrived",
+    account_id: "open",
+    provider_reference: "manual:arrived",
+    booking_date: "2026-01-20",
+    amount_minor: 700,
+    currency: "EUR",
+    type: "income"
+  });
+  const bookingsBefore = await db.select().from(schema.transactions);
+
+  await assert.rejects(archiveAccount("open", {
+    closing: {
+      date: "2026-01-31",
+      balance_minor: 50000
+    }
+  }), changed);
+  assert.deepEqual(await db.select().from(schema.transactions), bookingsBefore);
+
+  // The confirmed balance matches when read, and a booking lands before the closing transaction.
+  const execute = db.$client.execute.bind(db.$client);
+  let interleaved = false;
+
+  context.mock.method(db.$client, "execute", async (statement: InStatement, args?: InArgs) => {
+    const result = typeof statement === "string" ? await execute(statement, args) : await execute(statement);
+    const text = typeof statement === "string" ? statement : statement.sql;
+
+    if (!interleaved && /^select /i.test(text) && text.includes('from "accounts"')) {
+      interleaved = true;
+      await execute("INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,type,type_source) VALUES('late','open','manual:late','2026-01-21',300,'EUR','income','manual')");
+    }
+
+    return result;
+  });
+  await assert.rejects(archiveAccount("open", {
+    closing: {
+      date: "2026-01-31",
+      balance_minor: 50700
+    }
+  }), changed);
+  assert.ok(interleaved);
+  assert.deepEqual((await db.select().from(schema.transactions)).filter(booking => booking.account_id === "open" && booking.type === "adjustment"), []);
+  assert.equal((await listAccounts()).find(account => account.id === "open")?.archived_at, null);
+});
+
 test("closing a manual account can transfer its balance to another active manual account in the same currency", async context => {
   const db = await seededDatabase(context);
 
   await archiveAccount("open", {
     closing: {
       date: "2026-01-15",
+      balance_minor: 50000,
       transfer_account_id: "target"
     }
   });
@@ -494,6 +552,7 @@ test("a closing transfer to an archived, foreign-currency or bank account rolls 
     await assert.rejects(archiveAccount("open", {
       closing: {
         date: "2026-01-15",
+        balance_minor: 50000,
         transfer_account_id: target
       }
     }), ValidationError, target);
@@ -501,7 +560,8 @@ test("a closing transfer to an archived, foreign-currency or bank account rolls 
 
   await assert.rejects(archiveAccount("open", {
     closing: {
-      date: "2999-01-01"
+      date: "2999-01-01",
+      balance_minor: 50000
     }
   }), ValidationError);
   assert.deepEqual(await db.select().from(schema.transactions), bookingsBefore);
@@ -767,6 +827,7 @@ test("a manual account with a remaining balance is closed through a dialog that 
   assert.deepEqual(requests("accounts/manual%2Fcash/archive")[0].body, {
     closing: {
       date: "2026-01-15",
+      balance_minor: 10000,
       transfer_account_id: null
     }
   });

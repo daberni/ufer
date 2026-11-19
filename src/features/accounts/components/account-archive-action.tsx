@@ -143,6 +143,7 @@ function CloseAccountForm({
       onSubmit={event => submit(event, data => ({
         closing: {
           date: String(data.get("date")),
+          balance_minor: remaining,
           transfer_account_id: String(data.get("transfer_account_id")) || null
         }
       }))}
