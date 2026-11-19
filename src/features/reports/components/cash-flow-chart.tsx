@@ -2,7 +2,7 @@
 
 import ui from "../../../components/ui/primitives.module.css";
 
-import { useId, useLayoutEffect, useRef, useState, type RefObject } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { clsx } from "clsx";
 import { Temporal } from "temporal-polyfill";
 import styles from "./cash-flow-chart.module.css";
@@ -26,6 +26,8 @@ type Props = {
   selection: CashFlowSelection | null;
   targetProps: ReturnType<typeof useChartDetails>["targetProps"];
   detailsId: string;
+  /** Called when the selected bar is no longer among the months that fit, so the panel does not describe a hidden month. */
+  onSelectionHidden: () => void;
 };
 
 type ChartBar = {
@@ -46,7 +48,8 @@ export function CashFlowChart({
   cashFlow,
   selection,
   targetProps,
-  detailsId
+  detailsId,
+  onSelectionHidden
 }: Props) {
   const period = usePeriod();
   const plotRef = useRef<HTMLDivElement>(null);
@@ -80,6 +83,7 @@ export function CashFlowChart({
             selection={selection}
             targetProps={targetProps}
             detailsId={detailsId}
+            onSelectionHidden={onSelectionHidden}
           />
         )}
       </div>
@@ -156,7 +160,8 @@ function ChartPlot({
   months,
   selection,
   targetProps,
-  detailsId
+  detailsId,
+  onSelectionHidden
 }: Omit<Props, "cashFlow"> & {
   cashFlow: AreaResult<CashFlow>;
   months: Temporal.PlainYearMonth[];
@@ -191,6 +196,13 @@ function ChartPlot({
   const shownKey = selection?.key ?? null;
   const activeMonth = chartMonths.find(item => item.bars.some(bar => bar.key === shownKey));
   const activeBar = activeMonth?.bars.find(bar => bar.key === shownKey);
+  const selectionHidden = shownKey !== null && activeMonth === undefined;
+
+  useEffect(() => {
+    if (selectionHidden) {
+      onSelectionHidden();
+    }
+  }, [selectionHidden, onSelectionHidden]);
   const hasHistory = trend.some(item => item.income !== 0 || item.expenses !== 0);
 
   return (

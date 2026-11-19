@@ -27,6 +27,7 @@ function InsightPanels({ cashFlow }: Props) {
   const detailsId = useId();
   const {
     activeKey,
+    clear,
     regionProps,
     targetProps
   } = useChartDetails();
@@ -39,6 +40,7 @@ function InsightPanels({ cashFlow }: Props) {
         selection={selection}
         targetProps={targetProps}
         detailsId={detailsId}
+        onSelectionHidden={clear}
       />
       <CategoryBreakdown cashFlow={cashFlow} selection={selection} id={detailsId} />
     </div>
