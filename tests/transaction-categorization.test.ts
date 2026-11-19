@@ -24,6 +24,7 @@ const transaction: Transaction = {
   account_id: "synthetic-account",
   category_id: "groceries",
   category_source: "rule",
+  category_rule_id: null,
   type: "expense",
   type_source: "auto",
   manual_account: false,

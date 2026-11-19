@@ -668,7 +668,8 @@ test("saving rechecks duplicates in its write transaction, so bookings synced af
     counterparty: "EXAMPLE HARDWARE STORE",
     description: "",
     categoryId: null,
-    categorySource: "rule"
+    categorySource: "rule",
+    categoryRuleId: null
   }], null);
 
   assert.equal(inserted, 0);

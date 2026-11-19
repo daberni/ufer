@@ -78,6 +78,13 @@
       "when": 1795114828332,
       "tag": "0010_transaction_overrides_suppression",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1795126884000,
+      "tag": "0011_transaction_category_rule",
+      "breakpoints": true
     }
   ]
 }

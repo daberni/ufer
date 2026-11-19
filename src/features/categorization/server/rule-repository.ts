@@ -38,18 +38,62 @@ export async function requireRuleCapacity(tx: DatabaseTransaction, added: number
   }
 }
 
-async function storeRule(tx: DatabaseTransaction, rule: NewRule, selectAssignments?: SelectRuleAssignments) {
+/** What a new rule assigns in its creation transaction: matching uncategorized transactions, and the manually categorized transaction it was created from. */
+export type RuleCreationAssignments = {
+  uncategorized?: SelectRuleAssignments;
+  source?: {
+    transactionId: string;
+    select: SelectRuleAssignments;
+  };
+};
+
+/** Hands the transaction a rule was created from to that rule when the selector confirms the rule decides its manual category. */
+async function adoptSourceTransaction(tx: DatabaseTransaction, rule: NewRule, rules: Rule[], source: NonNullable<RuleCreationAssignments["source"]>) {
+  const scope = and(eq(transactions.id, source.transactionId), eq(transactions.category_source, "manual"), eq(transactions.category_id, rule.category_id), inArray(transactions.account_id, tx.select({
+    id: accounts.id
+  }).from(accounts).where(eq(accounts.environment, environment()))));
+  const candidates = await tx.select({
+    id: transactions.id,
+    counterparty: transactions.counterparty,
+    description: transactions.description
+  }).from(transactions).where(scope);
+
+  if (source.select(rules, candidates).length === 0) {
+    return;
+  }
+
+  await tx.update(transactions).set({
+    category_source: "rule",
+    category_rule_id: rule.id
+  }).where(scope);
+}
+
+async function storeRule(tx: DatabaseTransaction, rule: NewRule, assignments: RuleCreationAssignments = {}) {
   await requireRuleCapacity(tx, 1);
   await tx.insert(categorizationRules).values({
     ...rule,
     enabled: rule.enabled ? 1 : 0
   });
 
-  if (!selectAssignments) {
+  const {
+    uncategorized: selectAssignments,
+    source
+  } = assignments;
+
+  if (!selectAssignments && !source) {
     return 0;
   }
 
   const rules = await tx.select().from(categorizationRules).orderBy(asc(categorizationRules.priority), asc(categorizationRules.id));
+
+  if (source) {
+    await adoptSourceTransaction(tx, rule, rules, source);
+  }
+
+  if (!selectAssignments) {
+    return 0;
+  }
+
   const scope = and(eq(accounts.environment, environment()), eq(transactions.category_source, "rule"), isNull(transactions.category_id));
   const candidates = await tx.select({
     id: transactions.id,
@@ -62,7 +106,8 @@ async function storeRule(tx: DatabaseTransaction, rule: NewRule, selectAssignmen
   for (let offset = 0; offset < ids.length; offset += assignmentChunkSize) {
     const chunk = ids.slice(offset, offset + assignmentChunkSize);
     const result = await tx.update(transactions).set({
-      category_id: rule.category_id
+      category_id: rule.category_id,
+      category_rule_id: rule.id
     }).where(inArray(transactions.id, chunk));
 
     categorized += result.rowsAffected;
@@ -72,17 +117,17 @@ async function storeRule(tx: DatabaseTransaction, rule: NewRule, selectAssignmen
 }
 
 /** Reads the matching inputs and stores the rule and its optional assignments in one write transaction. */
-export async function insertRule(rule: NewRule, selectAssignments?: SelectRuleAssignments) {
+export async function insertRule(rule: NewRule, assignments?: RuleCreationAssignments) {
   const db = await database();
 
-  return db.transaction(tx => storeRule(tx, rule, selectAssignments));
+  return db.transaction(tx => storeRule(tx, rule, assignments));
 }
 
 /**
  * Stores a rule after every stored rule, with its optional assignments, in one write transaction. When the next priority would leave the allowed range, the stored
  * rules are first renumbered in their current matching order, which keeps their order and leaves room at the end.
  */
-export async function appendRule(rule: Omit<NewRule, "priority">, selectAssignments?: SelectRuleAssignments) {
+export async function appendRule(rule: Omit<NewRule, "priority">, assignments?: RuleCreationAssignments) {
   const db = await database();
 
   return db.transaction(async tx => {
@@ -110,7 +155,7 @@ export async function appendRule(rule: Omit<NewRule, "priority">, selectAssignme
     return storeRule(tx, {
       ...rule,
       priority
-    }, selectAssignments);
+    }, assignments);
   });
 }
 
@@ -139,15 +184,17 @@ export async function findUncorrectedTransactions() {
   return db.select({
     id: transactions.id,
     category_id: transactions.category_id,
+    category_rule_id: transactions.category_rule_id,
     counterparty: transactions.counterparty,
     description: transactions.description
   }).from(transactions).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(scope);
 }
 
-export async function saveRuleAssignments(entries: Pick<Transaction, "id" | "category_id">[]) {
+export async function saveRuleAssignments(entries: Pick<Transaction, "id" | "category_id" | "category_rule_id">[]) {
   const db = await database();
   const [first, ...rest] = entries.map(entry => db.update(transactions).set({
-    category_id: entry.category_id
+    category_id: entry.category_id,
+    category_rule_id: entry.category_rule_id
   }).where(and(eq(transactions.id, entry.id), eq(transactions.category_source, "rule"))));
 
   if (first) {
@@ -156,11 +203,19 @@ export async function saveRuleAssignments(entries: Pick<Transaction, "id" | "cat
 
 }
 
+/** Deletes the rule and, in the same write transaction, its references from the categories it assigned, which keep their category. */
 export async function deleteRule(id: string) {
   const db = await database();
-  const result = await db.delete(categorizationRules).where(eq(categorizationRules.id, id));
 
-  return result.rowsAffected > 0;
+  return db.transaction(async tx => {
+    const result = await tx.delete(categorizationRules).where(eq(categorizationRules.id, id));
+
+    await tx.update(transactions).set({
+      category_rule_id: null
+    }).where(eq(transactions.category_rule_id, id));
+
+    return result.rowsAffected > 0;
+  });
 }
 
 /**
