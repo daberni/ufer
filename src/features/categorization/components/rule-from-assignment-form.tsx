@@ -49,7 +49,9 @@ function previewDraft(pattern: string, priority: string): RulePreviewDraft | nul
 
   return {
     pattern: trimmed,
-    priority: order
+    mode: "keyword",
+    priority: order,
+    ruleId: null
   };
 }
 

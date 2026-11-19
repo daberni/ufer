@@ -1,6 +1,6 @@
 import { respond } from "@/server/http/respond";
 import { readJson } from "@/server/http/request-body";
-import { updateRuleDetails, updateRuleEnabled } from "@/features/categorization/server/categorization-service";
+import { deleteRule, updateRuleDetails, updateRuleEnabled } from "@/features/categorization/server/categorization-service";
 
 export const runtime = "nodejs";
 
@@ -27,5 +27,13 @@ export async function PUT(request: Request, context: Context) {
     const { id } = await context.params;
 
     return updateRuleDetails(id, await readJson(request));
+  });
+}
+
+export async function DELETE(request: Request, context: Context) {
+  return respond(request, async () => {
+    const { id } = await context.params;
+
+    return deleteRule(id);
   });
 }

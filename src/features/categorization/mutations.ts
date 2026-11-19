@@ -5,6 +5,7 @@ import { api } from "@/client/api";
 import { invalidate } from "@/client/invalidate";
 import { queryKeys } from "@/client/query-keys";
 import type { Category, Rule } from "@/features/categorization/types";
+import { withOrderedPriorities } from "@/features/categorization/rule-order";
 
 type CategoryDetails = Record<string, FormDataEntryValue>;
 
@@ -93,5 +94,67 @@ export function useApplyRules() {
   return useMutation({
     mutationFn: () => api("rules/apply", {}),
     onSettled: () => invalidate(queryClient, [queryKeys.transactions.all(), queryKeys.reports.cashFlow()])
+  });
+}
+
+/** Deleting a rule keeps the categories it assigned, so only the rule list changes. */
+export function useDeleteRule(rule: Rule) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => api(`rules/${encodeURIComponent(rule.id)}`, undefined, "DELETE"),
+    onSettled: () => invalidate(queryClient, [queryKeys.rules()])
+  });
+}
+
+const ruleOrderScope = "rule-order";
+
+/**
+ * Saves the matching order. Orders are serialized, and the list shows the latest order until it has been saved and reloaded; a failed save reloads the stored order.
+ */
+export function useReorderRules() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    scope: {
+      id: ruleOrderScope
+    },
+    mutationFn: (rules: Rule[]) => api("rules/order", {
+      ids: rules.map(rule => rule.id)
+    }, "PUT"),
+    onMutate: async rules => {
+      await queryClient.cancelQueries({
+        queryKey: queryKeys.rules()
+      });
+      queryClient.setQueryData(queryKeys.rules(), withOrderedPriorities(rules));
+    },
+    onSettled: () => {
+      // Later queued orders refresh the list themselves; refreshing in between would briefly show an older order.
+      if (queryClient.isMutating({
+        predicate: mutation => mutation.options.scope?.id === ruleOrderScope
+      }) > 1) {
+        return;
+      }
+
+      return invalidate(queryClient, [queryKeys.rules()]);
+    }
+  });
+}
+
+export type DeletedCategory = {
+  ok: true;
+  transactions: number;
+  rules: number;
+};
+
+/** Deleting a category moves its transactions and rules, which changes lists, rules and spending. */
+export function useDeleteCategory(category: Category) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (replacementId: string | null) => api<DeletedCategory>(`categories/${encodeURIComponent(category.id)}`, {
+      replacement_id: replacementId
+    }, "DELETE"),
+    onSettled: () => invalidate(queryClient, [queryKeys.categories(), queryKeys.rules(), queryKeys.transactions.all(), queryKeys.reports.cashFlow()])
   });
 }

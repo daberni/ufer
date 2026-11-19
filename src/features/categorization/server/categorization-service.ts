@@ -3,9 +3,10 @@ import { HttpError, ValidationError } from "@/lib/errors";
 import { z } from "zod";
 import { categorize, decidingRule, prepareRules, validatePattern, type Rule } from "@/lib/rules";
 import { normalizeCategoryName } from "@/lib/category-name";
+import { orderedPriorities } from "@/features/categorization/rule-order";
 import { isCategoryIcon } from "@/features/categorization/category-icons";
-import { categoryExists, insertCategory, updateCategory, type CategoryDetails, type CategoryWriteResult } from "./category-repository";
-import { findUncorrectedTransactions, insertRule, listRules, saveRuleAssignments, setRuleEnabled, updateRule, type SelectRuleAssignments } from "./rule-repository";
+import { categoryExists, deleteCategory as deleteStoredCategory, insertCategory, readCategoryUsage, updateCategory, type CategoryDetails, type CategoryWriteResult } from "./category-repository";
+import { deleteRule as deleteStoredRule, findUncorrectedTransactions, insertRule, listRules, saveRuleAssignments, saveRuleOrder, setRuleEnabled, updateRule, type SelectRuleAssignments } from "./rule-repository";
 
 const ruleMatching = {
   pattern: z.string().min(1).max(500),
@@ -24,25 +25,37 @@ const ruleInput = z.object({
   apply_to_uncategorized: z.boolean().default(false)
 });
 
-const rulePreviewInput = z.object(ruleMatching);
+const rulePreviewInput = z.object({
+  ...ruleMatching,
+  // An edited rule is counted in place of its stored version.
+  rule_id: z.string().min(1).optional()
+});
 
 /**
- * Transactions without a manual assignment decided by this rule, using the same persisted-ID tie-break as future matching.
+ * Transactions without a manual assignment decided by this rule, using the same persisted-ID tie-break as future matching. A stored rule with the same ID is replaced by the draft.
  */
 async function transactionsDecidedBy(rule: Rule) {
-  const rules = prepareRules([...(await listRules()), rule]);
+  const others = (await listRules()).filter(stored => stored.id !== rule.id);
+  const rules = prepareRules([...others, rule]);
   const entries = await findUncorrectedTransactions();
 
   return entries.filter(entry => decidingRule(entry.counterparty, entry.description, rules)?.id === rule.id);
 }
 
-/** Counts the transactions a new enabled rule would categorize, without storing it. Manual assignments are never counted. */
+/** Counts the transactions a new or edited enabled rule would categorize, without storing it. Manual assignments are never counted. */
 export async function previewRule(payload: unknown) {
-  const input = rulePreviewInput.parse(payload);
+  const {
+    rule_id: ruleId,
+    ...input
+  } = rulePreviewInput.parse(payload);
 
   validatePattern(input.pattern, input.mode);
 
-  const id = randomUUID();
+  if (ruleId !== undefined && !(await listRules()).some(rule => rule.id === ruleId)) {
+    throw new HttpError(404, "Rule not found.");
+  }
+
+  const id = ruleId ?? randomUUID();
   const decided = await transactionsDecidedBy({
     ...input,
     id,
@@ -127,6 +140,38 @@ export async function updateRuleEnabled(id: string, payload: unknown) {
   };
 }
 
+/** Deleting a rule keeps the categories it already assigned; only future applications of the rules change. */
+export async function deleteRule(id: string) {
+  if (!(await deleteStoredRule(id))) {
+    throw new HttpError(404, "Rule not found.");
+  }
+
+  return {
+    ok: true
+  };
+}
+
+const ruleOrderInput = z.object({
+  ids: z.array(z.string().min(1)).max(10000).refine(ids => new Set(ids).size === ids.length, "Each rule may appear only once.")
+}).strict();
+
+/**
+ * Stores a new matching order. The order is saved as distinct priorities, so the list, the rule editor and matching agree. Existing assignments stay unchanged until rules are applied.
+ */
+export async function reorderRules(payload: unknown) {
+  const {
+    ids
+  } = ruleOrderInput.parse(payload);
+
+  if (!(await saveRuleOrder(ids, orderedPriorities(ids.length)))) {
+    throw new HttpError(409, "The rules have changed. Reload them and try again.");
+  }
+
+  return {
+    ok: true
+  };
+}
+
 const defaultCategoryColor = "#638777";
 
 const categoryColor = z.string().regex(/^#[0-9a-fA-F]{6}$/, "Color must be a hex value such as #638777.").transform(value => value.toLowerCase());
@@ -188,6 +233,53 @@ export async function updateCategoryDetails(id: string, payload: unknown) {
 
   return {
     ok: true
+  };
+}
+
+export async function categoryUsage(id: string) {
+  const usage = await readCategoryUsage(id);
+
+  if (!usage) {
+    throw new HttpError(404, "Category not found.");
+  }
+
+  return {
+    transactions: usage.transactions,
+    manual_transactions: usage.manualTransactions,
+    rules: usage.rules
+  };
+}
+
+const categoryDeletionInput = z.object({
+  // Null leaves the category's transactions uncategorized and deletes its rules, which cannot exist without a category.
+  replacement_id: z.string().min(1).nullable()
+}).strict();
+
+export async function deleteCategory(id: string, payload: unknown) {
+  const {
+    replacement_id: replacementId
+  } = categoryDeletionInput.parse(payload);
+
+  if (replacementId === id) {
+    throw new ValidationError("Choose a different category for the transactions and rules.");
+  }
+
+  const result = await deleteStoredCategory(id, {
+    replacementId
+  });
+
+  if (result.status === "not_found") {
+    throw new HttpError(404, "Category not found.");
+  }
+
+  if (result.status !== "deleted") {
+    throw new ValidationError("The chosen replacement category does not exist.");
+  }
+
+  return {
+    ok: true,
+    transactions: result.transactions,
+    rules: result.rules
   };
 }
 

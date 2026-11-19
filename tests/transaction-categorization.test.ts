@@ -259,11 +259,15 @@ test("a settled category assignment refreshes an open rule preview and invalidat
   } = browser(context);
   const draft = {
     pattern: "Example Market",
-    priority: 100
+    mode: "keyword" as const,
+    priority: 100,
+    ruleId: null
   };
   const inactiveDraft = {
     pattern: "Example Bakery",
-    priority: 100
+    mode: "keyword" as const,
+    priority: 100,
+    ruleId: null
   };
 
   queryClient.setQueryData(queryKeys.rulePreview(draft), {

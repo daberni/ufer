@@ -1,9 +1,9 @@
-import { eq } from "drizzle-orm";
+import { count, eq, inArray, sql } from "drizzle-orm";
 import type { InStatement } from "@libsql/client";
 import { sameCategoryName } from "@/lib/category-name";
 import type { CategoryIconKey } from "@/features/categorization/category-icons";
 import { database } from "@/server/database/connection";
-import { categories } from "@/server/database/schema";
+import { categories, categorizationRules, transactions } from "@/server/database/schema";
 
 export type CategoryDetails = {
   name: string;
@@ -64,5 +64,91 @@ export async function updateCategory(id: string, details: CategoryDetails) {
   return writeUniquelyNamed(id, details.name, {
     sql: "UPDATE categories SET name=?, color=?, icon=? WHERE id=?",
     args: [details.name, details.color, details.icon, id]
+  });
+}
+
+export type CategoryUsage = {
+  transactions: number;
+  manualTransactions: number;
+  rules: number;
+};
+
+/** Everything that references a category, across all provider environments, since categories are shared by them. */
+export async function readCategoryUsage(id: string): Promise<CategoryUsage | null> {
+  const db = await database();
+
+  if (!(await categoryExists(id))) {
+    return null;
+  }
+
+  const [assigned, rules] = await Promise.all([
+    db.select({
+      total: count(),
+      manual: sql<number>`COALESCE(SUM(${transactions.category_source}='manual'),0)`
+    }).from(transactions).where(eq(transactions.category_id, id)).get(),
+    db.select({
+      total: count()
+    }).from(categorizationRules).where(eq(categorizationRules.category_id, id)).get()
+  ]);
+
+  return {
+    transactions: assigned?.total ?? 0,
+    manualTransactions: Number(assigned?.manual ?? 0),
+    rules: rules?.total ?? 0
+  };
+}
+
+export type CategoryDeletion = {
+  /** The category that receives the transactions and rules; null leaves the transactions uncategorized and deletes the rules. */
+  replacementId: string | null;
+};
+
+export type CategoryDeleteResult = {
+  status: "deleted";
+  transactions: number;
+  rules: number;
+} | {
+  status: "not_found" | "replacement_not_found";
+};
+
+/**
+ * Deletes a category and moves what referenced it in one write transaction. Transactions keep their category source, so a manual assignment stays manual
+ * (with the replacement or uncategorized) and is never overwritten by rules afterwards.
+ */
+export async function deleteCategory(id: string, deletion: CategoryDeletion): Promise<CategoryDeleteResult> {
+  const db = await database();
+
+  return db.transaction(async tx => {
+    const ids = [id, deletion.replacementId].filter(value => value !== null);
+    const existing = new Set((await tx.select({
+      id: categories.id
+    }).from(categories).where(inArray(categories.id, ids))).map(row => row.id));
+
+    if (!existing.has(id)) {
+      return {
+        status: "not_found"
+      };
+    }
+
+    if (deletion.replacementId !== null && !existing.has(deletion.replacementId)) {
+      return {
+        status: "replacement_not_found"
+      };
+    }
+
+    const moved = await tx.update(transactions).set({
+      category_id: deletion.replacementId
+    }).where(eq(transactions.category_id, id));
+    const rules = deletion.replacementId === null ? await tx.delete(categorizationRules).where(eq(categorizationRules.category_id, id)) : await tx.update(categorizationRules).set({
+      category_id: deletion.replacementId
+    }).where(eq(categorizationRules.category_id, id));
+
+    await tx.delete(categories).where(eq(categories.id, id));
+
+    return {
+      status: "deleted",
+      transactions: moved.rowsAffected,
+      rules: rules.rowsAffected
+    };
   });
 }

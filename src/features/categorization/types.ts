@@ -28,5 +28,15 @@ export type RulePreview = {
 
 export type RulePreviewDraft = {
   pattern: string;
+  mode: "keyword" | "regex";
   priority: number;
+  /** The stored rule an edit replaces; null previews a new rule. */
+  ruleId: string | null;
+};
+
+/** What references a category, counted before it is deleted. */
+export type CategoryUsage = {
+  transactions: number;
+  manual_transactions: number;
+  rules: number;
 };

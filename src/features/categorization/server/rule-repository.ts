@@ -100,3 +100,38 @@ export async function saveRuleAssignments(entries: Pick<Transaction, "id" | "cat
   }
 
 }
+
+export async function deleteRule(id: string) {
+  const db = await database();
+  const result = await db.delete(categorizationRules).where(eq(categorizationRules.id, id));
+
+  return result.rowsAffected > 0;
+}
+
+/**
+ * Stores the given matching order as distinct priorities in one write transaction. Only priorities change; transactions keep their categories until rules are applied.
+ * Returns false when the IDs are not exactly the stored rules, for example after another tab added or deleted one.
+ */
+export async function saveRuleOrder(ids: string[], priorities: number[]) {
+  const db = await database();
+
+  return db.transaction(async tx => {
+    const stored = await tx.select({
+      id: categorizationRules.id
+    }).from(categorizationRules);
+    const storedIds = new Set(stored.map(rule => rule.id));
+    const sameRules = stored.length === ids.length && ids.every(id => storedIds.has(id));
+
+    if (!sameRules) {
+      return false;
+    }
+
+    for (const [index, id] of ids.entries()) {
+      await tx.update(categorizationRules).set({
+        priority: priorities[index]
+      }).where(eq(categorizationRules.id, id));
+    }
+
+    return true;
+  });
+}
