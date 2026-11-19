@@ -1,7 +1,6 @@
-import { HttpError } from "@/lib/errors";
 import { z } from "zod";
 import { parseBalancesCsv, parseTransactionsCsv } from "@/lib/import";
-import { findManualAccount } from "@/features/accounts/server/account-repository";
+import { requireWritableManualAccount } from "@/features/accounts/server/account-service";
 import { validateLiability } from "@/features/accounts/server/account-service";
 import { listRules } from "@/features/categorization/server/rule-repository";
 import { saveImportedTransactions, saveImportedValuations } from "./import-repository";
@@ -44,11 +43,5 @@ export async function importValuations(payload: unknown) {
 }
 
 async function requireImportAccount(accountId: string) {
-  const account = await findManualAccount(accountId);
-
-  if (!account) {
-    throw new HttpError(404, "CSV import requires a manual account.");
-  }
-
-  return account;
+  return requireWritableManualAccount(accountId, "CSV import requires a manual account.");
 }

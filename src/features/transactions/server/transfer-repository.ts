@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, asc, eq, inArray, isNotNull, ne, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull, isNull, ne, sql } from "drizzle-orm";
 import { database, type Database, type DatabaseTransaction } from "@/server/database/connection";
 import { environment } from "@/features/banking/server/environment";
 import { accounts, transactions } from "@/server/database/schema";
@@ -216,7 +216,7 @@ async function findManualTarget(tx: DatabaseTransaction, accountId: string) {
     id: accounts.id,
     name: accounts.name,
     currency: accounts.currency
-  }).from(accounts).where(and(eq(accounts.id, accountId), eq(accounts.environment, environment()), eq(accounts.provider, "manual"))).get();
+  }).from(accounts).where(and(eq(accounts.id, accountId), eq(accounts.environment, environment()), eq(accounts.provider, "manual"), isNull(accounts.archived_at))).get();
 }
 
 /** Creates the counterpart of `subject` on a manual account and links both; the created booking carries its source's id in its reference. */
@@ -582,7 +582,7 @@ export async function readTransferOptions(id: string): Promise<TransferOptions |
   const manualAccounts = subject.amount_minor === 0 ? [] : await db.select({
     id: accounts.id,
     name: accounts.name
-  }).from(accounts).where(and(eq(accounts.environment, environment()), eq(accounts.provider, "manual"), eq(accounts.currency, subject.currency), ne(accounts.id, subject.account_id))).orderBy(asc(accounts.name));
+  }).from(accounts).where(and(eq(accounts.environment, environment()), eq(accounts.provider, "manual"), isNull(accounts.archived_at), eq(accounts.currency, subject.currency), ne(accounts.id, subject.account_id))).orderBy(asc(accounts.name));
 
   return {
     counterpart: counterpart ? transferBooking(counterpart) : null,

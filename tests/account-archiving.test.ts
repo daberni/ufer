@@ -13,7 +13,9 @@ import { initializeDatabase } from "../src/server/database/migrations";
 import * as schema from "../src/server/database/schema";
 import { allMonthsPeriod } from "../src/lib/period";
 import { listAccounts, readBalanceHistory, readNetWorth } from "../src/features/accounts/server/account-queries";
-import { setAccountArchived } from "../src/features/accounts/server/account-service";
+import { setAccountArchived, updateManualValuation } from "../src/features/accounts/server/account-service";
+import { enterManualTransaction } from "../src/features/transactions/server/transaction-service";
+import { importTransactions, importValuations } from "../src/features/imports/server/import-service";
 import { readAccountCashFlow, readCashFlow } from "../src/features/reports/server/cash-flow-query";
 import { accountGroups } from "../src/features/accounts/queries";
 import type { Account } from "../src/features/accounts/types";
@@ -142,6 +144,54 @@ test("archiving hides an account from lists while its history and every report s
   assert.equal((await listAccounts()).find(account => account.id === "closed")?.archived_at, null);
   assert.deepEqual(accountGroups(await listAccounts() as Account[], "EUR").currencyAccounts.map(account => account.id), ["closed", "open"]);
   assert.deepEqual(await reports(), before);
+});
+
+test("an archived account rejects balance updates, manual entries and CSV imports until it is restored", async context => {
+  const db = await seededDatabase(context);
+
+  await setAccountArchived("closed", true);
+  const bookingsBefore = await db.select().from(schema.transactions);
+  const archived = {
+    status: 409,
+    message: "This account is archived. Restore the account first."
+  };
+
+  await assert.rejects(updateManualValuation("closed", {
+    balance: "10.00",
+    date: "2026-01-10"
+  }), archived);
+  await assert.rejects(enterManualTransaction("closed", {
+    amount: "-5.00",
+    booking_date: "2026-01-10",
+    type: "expense"
+  }), archived);
+  await assert.rejects(importTransactions({
+    account_id: "closed",
+    csv: "id,date,amount,currency,counterparty,description\nentry-1,2026-01-10,-5.00,EUR,Example payee,Synthetic"
+  }), archived);
+  await assert.rejects(importValuations({
+    account_id: "closed",
+    csv: "date,balance,currency\n2026-01-10,10.00,EUR"
+  }), archived);
+  assert.deepEqual(await db.select().from(schema.transactions), bookingsBefore);
+
+  await setAccountArchived("closed", false);
+  await updateManualValuation("closed", {
+    balance: "10.00",
+    date: "2026-01-10"
+  });
+  assert.equal((await db.select().from(schema.transactions)).length, bookingsBefore.length + 1);
+});
+
+test("a currency whose accounts are all archived still reports its figures on the overview", () => {
+  const archivedOnly = accountGroups([{
+    ...manualAccount,
+    currency: "USD",
+    archived_at: "2026-11-01T00:00:00.000Z"
+  }], "USD");
+
+  assert.deepEqual(archivedOnly.currencyAccounts, []);
+  assert.equal(archivedOnly.reportedAccounts.length, 1);
 });
 
 test("archiving an unknown account or one of another banking environment is not found", async context => {

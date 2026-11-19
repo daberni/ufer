@@ -48,6 +48,8 @@ export function accountGroups(accounts: Account[], currency: string, now = Tempo
   return {
     currencies: [...new Set(["EUR", ...accounts.map(account => account.currency)])],
     currencyAccounts: activeAccounts(accounts).filter(account => account.currency === currency),
+    // Reports include archived accounts, so their presence decides whether a currency has figures to show.
+    reportedAccounts: accounts.filter(account => account.currency === currency),
     manualAccounts: activeAccounts(accounts).filter(account => account.provider === "manual"),
     bankAccounts,
     expiring: bankAccounts.filter(account => account.valid_until && expiresSoon(account.valid_until))

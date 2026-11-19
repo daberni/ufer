@@ -4,7 +4,7 @@ import { z } from "zod";
 import { minorUnits } from "@/lib/money";
 import { categorize, prepareRules } from "@/lib/rules";
 import { today, validDate } from "@/lib/time";
-import { findManualAccount } from "@/features/accounts/server/account-repository";
+import { requireWritableManualAccount } from "@/features/accounts/server/account-service";
 import { categoryExists } from "@/features/categorization/server/category-repository";
 import { listRules } from "@/features/categorization/server/rule-repository";
 import { transactionTypes } from "@/features/transactions/transaction-types";
@@ -142,12 +142,7 @@ async function ruleCategory(entry: ReturnType<typeof validateEntry>, currency: s
 /** Enters a manual booking: an omitted category applies rules; an explicit category or null records a manual assignment. */
 export async function enterManualTransaction(accountId: string, payload: unknown, now = Temporal.Now.instant()) {
   const input = newEntryInput.parse(payload);
-  const account = await findManualAccount(accountId);
-
-  if (!account) {
-    throw new HttpError(404, "Manual account not found.");
-  }
-
+  const account = await requireWritableManualAccount(accountId, "Manual account not found.");
   const entry = validateEntry(input, account.currency, now);
 
   if (input.category_id && !(await categoryExists(input.category_id))) {

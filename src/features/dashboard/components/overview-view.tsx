@@ -11,20 +11,21 @@ import type { CashFlow } from "@/features/reports/types";
 
 type Props = {
   currencyAccounts: Area<Account[]>;
+  /** Whether any account in the currency, archived ones included, contributes to the reports. */
+  hasReportedAccounts: boolean;
   netWorth: Area<NetWorth>;
   cashFlow: Area<CashFlow>;
 };
 
 export function OverviewView({
   currencyAccounts,
+  hasReportedAccounts,
   netWorth,
   cashFlow
 }: Props) {
-  const hasAccounts = currencyAccounts.status === "pending" || currencyAccounts.data.length > 0;
-
   return (
     <>
-      <WealthSummary hasAccounts={hasAccounts} netWorthArea={netWorth} cashFlowArea={cashFlow} />
+      <WealthSummary hasAccounts={hasReportedAccounts} netWorthArea={netWorth} cashFlowArea={cashFlow} />
       <OverviewAccounts currencyAccounts={currencyAccounts} />
       <div className={styles["analytics-grid"]}>
         <CashFlowChart cashFlow={cashFlow} />

@@ -42,11 +42,17 @@ export function OverviewPage() {
   const list = useTransactionListView(query, replacePage);
   const groups = mapArea(accounts, data => accountGroups(data, query.currency));
   const currencyAccounts = mapArea(groups, data => data.currencyAccounts);
+  const hasReportedAccounts = groups.status === "pending" || groups.data.reportedAccounts.length > 0;
 
   return (
     <>
       <PeriodControls currencies={mapArea(groups, data => data.currencies)} latestSync={mapArea(syncRuns, runs => runs[0])} view="overview" />
-      <OverviewView cashFlow={cashFlow} currencyAccounts={currencyAccounts} netWorth={netWorth} />
+      <OverviewView
+        cashFlow={cashFlow}
+        currencyAccounts={currencyAccounts}
+        hasReportedAccounts={hasReportedAccounts}
+        netWorth={netWorth}
+      />
       <TransactionsPanel
         categories={categories}
         list={list}

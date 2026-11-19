@@ -18,11 +18,7 @@ export async function createManualAccount(payload: unknown, now = Temporal.Now.i
 
 export async function updateManualValuation(accountId: string, payload: unknown, now = Temporal.Now.instant()) {
   const input = valuationInput.parse(payload);
-  const account = await findManualAccount(accountId);
-
-  if (!account) {
-    throw new HttpError(404, "Manual account not found.");
-  }
+  const account = await requireWritableManualAccount(accountId, "Manual account not found.");
 
   const amount = minorUnits(input.balance, account.currency);
 
@@ -74,4 +70,19 @@ export async function setAccountArchived(accountId: string, archived: boolean) {
   return {
     ok: true
   };
+}
+
+/** A manual account that accepts new bookings; an archived account is read-only until it is restored. */
+export async function requireWritableManualAccount(accountId: string, notFound: string) {
+  const account = await findManualAccount(accountId);
+
+  if (!account) {
+    throw new HttpError(404, notFound);
+  }
+
+  if (account.archived_at !== null) {
+    throw new HttpError(409, "This account is archived. Restore the account first.");
+  }
+
+  return account;
 }
