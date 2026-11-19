@@ -9,6 +9,7 @@ import { useRules } from "@/features/categorization/queries";
 import type { Rule } from "@/features/categorization/types";
 
 type RuleDraft = {
+  transactionId: string;
   categoryId: string;
   counterparty: string;
   description: string;
@@ -104,6 +105,7 @@ export function TransactionRuleProvider({
       <span className={ui["visually-hidden"]} role="status" aria-live="polite">{announcement}</span>
       {draft && (
         <RuleFromAssignmentDialog
+          transactionId={draft.transactionId}
           counterparty={draft.counterparty}
           description={draft.description}
           categoryId={draft.categoryId}

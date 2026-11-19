@@ -7,7 +7,7 @@ import { maximumRules, nextPriority, orderedPriorities } from "@/features/catego
 import { isCategoryIcon } from "@/features/categorization/category-icons";
 import { defaultCategoryColor } from "@/features/categorization/category-colors";
 import { categoryExists, deleteCategory as deleteStoredCategory, insertCategory, readCategoryUsage, updateCategory, type CategoryDetails, type CategoryWriteResult } from "./category-repository";
-import { appendRule, deleteRule as deleteStoredRule, findUncorrectedTransactions, insertRule, listRules, saveRuleAssignments, saveRuleOrder, setRuleEnabled, updateRule, type SelectRuleAssignments } from "./rule-repository";
+import { appendRule, deleteRule as deleteStoredRule, findUncorrectedTransactions, insertRule, listRules, saveRuleAssignments, saveRuleOrder, setRuleEnabled, updateRule, type RuleCreationAssignments, type SelectRuleAssignments } from "./rule-repository";
 
 const ruleMatching = {
   pattern: z.string().min(1).max(500),
@@ -24,7 +24,9 @@ const ruleInput = z.object({
   category_id: z.string().min(1),
   enabled: z.boolean().default(true),
   // Gives the rule's category to the transactions it decides that are still uncategorized; other matches change when rules are applied.
-  apply_to_uncategorized: z.boolean().default(false)
+  apply_to_uncategorized: z.boolean().default(false),
+  // The manually categorized transaction the rule is created from; it becomes rule-assigned when the new rule decides its category.
+  source_transaction_id: z.string().min(1).optional()
 });
 
 const rulePreviewInput = z.object({
@@ -86,6 +88,7 @@ export async function previewRule(payload: unknown) {
 export async function createRule(payload: unknown) {
   const {
     apply_to_uncategorized: applyToUncategorized,
+    source_transaction_id: sourceTransactionId,
     id: previewId,
     ...input
   } = ruleInput.parse(payload);
@@ -109,15 +112,22 @@ export async function createRule(payload: unknown) {
     ...details,
     id: previewId ?? randomUUID()
   };
-  const selectAssignments: SelectRuleAssignments | undefined = applyToUncategorized ? (storedRules, entries) => {
+  const decidedByRule: SelectRuleAssignments = (storedRules, entries) => {
     const rules = prepareRules(storedRules);
 
     return entries.filter(entry => decidingRule(entry.counterparty, entry.description, rules)?.id === rule.id).map(entry => entry.id);
-  } : undefined;
-  const categorized = priority === undefined ? await appendRule(rule, selectAssignments) : await insertRule({
+  };
+  const assignments: RuleCreationAssignments = {
+    uncategorized: applyToUncategorized ? decidedByRule : undefined,
+    source: sourceTransactionId === undefined ? undefined : {
+      transactionId: sourceTransactionId,
+      select: decidedByRule
+    }
+  };
+  const categorized = priority === undefined ? await appendRule(rule, assignments) : await insertRule({
     ...rule,
     priority
-  }, selectAssignments);
+  }, assignments);
 
   return {
     ok: true,
@@ -130,7 +140,8 @@ export async function updateRuleDetails(id: string, payload: unknown) {
   const input = ruleInput.omit({
     id: true,
     enabled: true,
-    apply_to_uncategorized: true
+    apply_to_uncategorized: true,
+    source_transaction_id: true
   }).strict().parse(payload);
 
   validatePattern(input.pattern, input.mode);

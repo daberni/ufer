@@ -208,3 +208,56 @@ test("deleting a category without a replacement clears references of its rules o
 
   assert.deepEqual(await attributions(db), ["market:groceries:rule:null"]);
 });
+
+async function assignManually(db: Database, id: string, counterparty: string, categoryId: string) {
+  await insertBooking(db, id, counterparty);
+  await updateTransactionCategory(id, {
+    category_id: categoryId
+  });
+}
+
+async function createRuleFrom(sourceTransactionId: string, pattern: string, categoryId: string) {
+  const result = await createRule({
+    name: pattern,
+    pattern,
+    mode: "keyword",
+    category_id: categoryId,
+    source_transaction_id: sourceTransactionId
+  });
+  const created = (await listRules()).find(rule => rule.name === pattern);
+
+  return {
+    result,
+    ruleId: created?.id
+  };
+}
+
+test("a rule created from a manual assignment takes over that transaction when it decides the same category, and only that one", async context => {
+  const db = await attributionDatabase(context);
+
+  await assignManually(db, "bakery", "Example Bakery", "groceries");
+  await assignManually(db, "other-bakery", "Other Bakery", "groceries");
+
+  const {
+    result,
+    ruleId
+  } = await createRuleFrom("bakery", "BAKERY", "groceries");
+
+  assert.equal(result.categorized, 0);
+  assert.deepEqual(await attributions(db), [`bakery:groceries:rule:${ruleId}`, "other-bakery:groceries:manual:null"]);
+});
+
+test("the source transaction stays manual when the new rule does not match it, assigns another category or is overridden by an earlier rule", async context => {
+  const db = await attributionDatabase(context);
+
+  await assignManually(db, "unmatched", "Example Bakery", "groceries");
+  await assignManually(db, "other-category", "Example Cafe", "groceries");
+  // The earlier market rule decides this booking with groceries, so a later rule cannot take it over.
+  await assignManually(db, "overridden", "Example Market Bakery", "leisure");
+
+  await createRuleFrom("unmatched", "CAFE", "groceries");
+  await createRuleFrom("other-category", "EXAMPLE CAFE", "leisure");
+  await createRuleFrom("overridden", "BAKERY", "leisure");
+
+  assert.deepEqual(await attributions(db), ["other-category:groceries:manual:null", "overridden:leisure:manual:null", "unmatched:groceries:manual:null"]);
+});

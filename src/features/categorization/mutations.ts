@@ -44,14 +44,15 @@ export type CreatedRule = {
   categorized: number;
 };
 
-/** Creates a rule; applying it to uncategorized transactions also changes lists and spending. */
+/** Creates a rule from a manual assignment, which may hand the source transaction to the rule; applying it to uncategorized transactions also changes spending. */
 export function useCreateRuleFromAssignment() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (rule: Record<string, unknown>) => api<CreatedRule>("rules", rule),
     onSettled: (_result, _error, rule) => {
-      const affected = rule.apply_to_uncategorized === true ? [queryKeys.rules(), queryKeys.transactions.all(), queryKeys.reports.cashFlow()] : [queryKeys.rules()];
+      // The source transaction can become rule-assigned; applying also changes categories and spending.
+      const affected = rule.apply_to_uncategorized === true ? [queryKeys.rules(), queryKeys.transactions.all(), queryKeys.reports.cashFlow()] : [queryKeys.rules(), queryKeys.transactions.all()];
 
       return invalidate(queryClient, affected);
     }

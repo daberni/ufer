@@ -65,6 +65,7 @@ export function TransactionCategory({
           createRule: () => {
             if (categoryId !== null && manual) {
               rules.open({
+                transactionId: transaction.id,
                 categoryId,
                 // Rules match the source's text, so a pattern from a person's override would not match later deliveries.
                 counterparty: transaction.source_counterparty,

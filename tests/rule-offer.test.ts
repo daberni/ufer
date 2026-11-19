@@ -342,6 +342,7 @@ test("rule creation waits for the current pattern preview, including debounce an
 
   const { RuleFromAssignmentDialog } = await import("../src/features/categorization/components/rule-from-assignment-form");
   const screen = render(withRules(createElement(RuleFromAssignmentDialog, {
+    transactionId: "draft-entry",
     counterparty: "Example Market",
     description: "Synthetic purchase",
     categoryId: "groceries",
@@ -423,7 +424,8 @@ test("rule creation waits for the current pattern preview, including debounce an
     pattern: "Salary",
     mode: "keyword",
     category_id: "groceries",
-    apply_to_uncategorized: true
+    apply_to_uncategorized: true,
+    source_transaction_id: "draft-entry"
   });
 });
 
@@ -539,7 +541,8 @@ test("an explicitly opened draft survives removal of its filtered source row and
     pattern: "Edited Market",
     mode: "keyword",
     category_id: "groceries",
-    apply_to_uncategorized: true
+    apply_to_uncategorized: true,
+    source_transaction_id: "filtered-entry"
   });
   await respond(created, Response.json({
     ok: true,
