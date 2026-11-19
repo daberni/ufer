@@ -5,6 +5,7 @@ import { categorize, decidingRule, prepareRules, validatePattern, type Rule } fr
 import { normalizeCategoryName } from "@/lib/category-name";
 import { orderedPriorities } from "@/features/categorization/rule-order";
 import { isCategoryIcon } from "@/features/categorization/category-icons";
+import { defaultCategoryColor } from "@/features/categorization/category-colors";
 import { categoryExists, deleteCategory as deleteStoredCategory, insertCategory, readCategoryUsage, updateCategory, type CategoryDetails, type CategoryWriteResult } from "./category-repository";
 import { deleteRule as deleteStoredRule, findUncorrectedTransactions, insertRule, listRules, saveRuleAssignments, saveRuleOrder, setRuleEnabled, updateRule, type SelectRuleAssignments } from "./rule-repository";
 
@@ -183,8 +184,6 @@ export async function reorderRules(payload: unknown) {
     ok: true
   };
 }
-
-const defaultCategoryColor = "#638777";
 
 const categoryColor = z.string().regex(/^#[0-9a-fA-F]{6}$/, "Color must be a hex value such as #638777.").transform(value => value.toLowerCase());
 

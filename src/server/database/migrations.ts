@@ -57,14 +57,13 @@ function verifyLegacyBaseline(objects: SchemaObject[], directory: string) {
 }
 
 export async function migrationStatus(client: Client, directory = migrationDirectory): Promise<MigrationStatus> {
-  const files = migrationFiles(directory);
   const objects = await schemaObjects(client);
 
   if (!objects.length) {
     return {
       mode: "empty",
       applied: 0,
-      pending: files.length
+      pending: migrationFiles(directory).length
     };
   }
 
@@ -74,13 +73,26 @@ export async function migrationStatus(client: Client, directory = migrationDirec
     return {
       mode: "legacy",
       applied: 0,
-      pending: files.length
+      pending: migrationFiles(directory).length
     };
   }
 
   const result = await client.execute(`SELECT hash,created_at FROM ${historyTable} ORDER BY created_at`);
 
-  for (const [index, row] of result.rows.entries()) {
+  return verifyAppliedMigrations(result.rows.map(row => ({
+    hash: row.hash,
+    created_at: row.created_at
+  })), directory);
+}
+
+/** Verifies persisted history without applying SQL; also used by read-only offline recovery checks. */
+export function verifyAppliedMigrations(rows: {
+  hash: unknown;
+  created_at: unknown
+}[], directory = migrationDirectory): MigrationStatus {
+  const files = migrationFiles(directory);
+
+  for (const [index, row] of rows.entries()) {
     const file = files[index];
 
     if (!file || file.hash !== row.hash || file.folderMillis !== Number(row.created_at)) {
@@ -90,8 +102,8 @@ export async function migrationStatus(client: Client, directory = migrationDirec
 
   return {
     mode: "managed",
-    applied: result.rows.length,
-    pending: files.length - result.rows.length
+    applied: rows.length,
+    pending: files.length - rows.length
   };
 }
 

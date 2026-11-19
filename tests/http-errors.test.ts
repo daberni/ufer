@@ -370,7 +370,7 @@ test("readJson rejects a declared oversized body before parsing and accepts a 1 
   const body = (size: number) => JSON.stringify({
     csv: "a".repeat(size)
   });
-  const post = (payload: string, length = String(payload.length)) => new Request("http://localhost/api/imports/transactions", {
+  const post = (payload: string, length = String(payload.length)) => new Request("http://localhost/api/imports/balances", {
     method: "POST",
     headers: {
       "content-type": "application/json",
@@ -400,7 +400,7 @@ test("readJson counts the bytes it receives when a streamed body declares no len
       }
     }
   });
-  const request = new Request("http://localhost/api/imports/transactions", {
+  const request = new Request("http://localhost/api/imports/balances", {
     method: "POST",
     headers: {
       "content-type": "application/json"
