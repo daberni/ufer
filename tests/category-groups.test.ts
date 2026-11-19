@@ -87,3 +87,12 @@ test("a negative category keeps its signed amount without a bar, and the rows st
   assert.deepEqual(groups.map(group => [group.key, group.amount, group.share]), [["salary", 10000, 1], ["correction", -2000, 0]]);
   assert.equal(groups.reduce((sum, group) => sum + group.amount, 0), 8000);
 });
+
+test("shares come from the rows shown, so a remainder netting a negative category still leaves the visible bars at 100%", () => {
+  const groups = groupByCategory([category("a", 100), category("b", 90), category("c", 80), category("d", 70), category("e", 60), category("f", -100)]);
+
+  assert.deepEqual(groups.map(group => [group.key, group.amount]), [["a", 100], ["b", 90], ["c", 80], ["d", 70], ["remainder", -40]]);
+  assert.equal(groups.at(-1)?.share, 0);
+  assert.ok(Math.abs(groups.reduce((sum, group) => sum + group.share, 0) - 1) < 1e-9);
+  assert.equal(groups[0].share, 100 / 340);
+});
