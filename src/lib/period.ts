@@ -19,7 +19,8 @@ export type PeriodJson = {
   kind: "all";
 };
 
-const trendLength = 6;
+/** Months in the cash-flow trend; the chart shows the latest of them that fit its width. */
+export const trendLength = 12;
 
 const monthPattern = /^\d{4}-(0[1-9]|1[0-2])$/;
 
