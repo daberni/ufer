@@ -2,7 +2,7 @@ import { Temporal } from "temporal-polyfill";
 import { HttpError, ValidationError } from "@/lib/errors";
 import { z } from "zod";
 import { minorUnits } from "@/lib/money";
-import { categorize, prepareRules } from "@/lib/rules";
+import { prepareRules, ruleAssignment } from "@/lib/rules";
 import { today, validDate } from "@/lib/time";
 import { findManualAccount } from "@/features/accounts/server/account-repository";
 import { categoryExists } from "@/features/categorization/server/category-repository";
@@ -140,7 +140,7 @@ function validateEntry(input: z.infer<typeof entryInput>, currency: string, now:
   };
 }
 
-async function ruleCategory(entry: ReturnType<typeof validateEntry>, currency: string) {
+async function automaticAssignment(entry: ReturnType<typeof validateEntry>, currency: string) {
   const [categorized] = categorizeEntries([{
     reference: "",
     date: entry.date,
@@ -150,7 +150,7 @@ async function ruleCategory(entry: ReturnType<typeof validateEntry>, currency: s
     description: entry.description
   }], await listRules());
 
-  return categorized.categoryId;
+  return categorized;
 }
 
 /** Enters a manual booking: an omitted category applies rules; an explicit category or null records a manual assignment. */
@@ -169,7 +169,10 @@ export async function enterManualTransaction(accountId: string, payload: unknown
   }
 
   const automatic = input.category_id === undefined;
-  const categoryId = input.category_id === undefined ? await ruleCategory(entry, account.currency) : input.category_id;
+  const assignment = automatic ? await automaticAssignment(entry, account.currency) : {
+    categoryId: input.category_id ?? null,
+    categoryRuleId: null
+  };
   const {
     result,
     id
@@ -177,8 +180,9 @@ export async function enterManualTransaction(accountId: string, payload: unknown
     ...entry,
     accountId: account.id,
     currency: account.currency,
-    categoryId,
-    categorySource: automatic ? "rule" : "manual"
+    categoryId: assignment.categoryId,
+    categorySource: automatic ? "rule" : "manual",
+    categoryRuleId: assignment.categoryRuleId
   });
 
   requireSaved(result);
@@ -199,7 +203,7 @@ export async function editManualTransaction(id: string, payload: unknown, now = 
 
   const entry = validateEntry(input, currency, now);
   const rules = prepareRules(await listRules());
-  const categoryFor = (counterparty: string, description: string) => categorize(counterparty, description, rules);
+  const categoryFor = (counterparty: string, description: string) => ruleAssignment(counterparty, description, rules);
 
   requireSaved(await updateManualTransaction(id, entry, categoryFor));
 

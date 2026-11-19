@@ -23,6 +23,8 @@ export type MappedEntry = {
   description: string;
   categoryId: string | null;
   categorySource: "rule" | "manual";
+  /** The rule that decided a rule-sourced category. */
+  categoryRuleId: string | null;
 };
 
 export type NewImportAccount = {
@@ -196,6 +198,7 @@ export async function saveMappedEntries(accountId: string, entries: MappedEntry[
         description: entry.description,
         category_id: entry.categoryId,
         category_source: entry.categorySource,
+        category_rule_id: entry.categoryRuleId,
         type: derivedTransactionType(entry.amount)
       }));
       const rows = await tx.insert(transactions).values(values).onConflictDoNothing({
@@ -234,7 +237,8 @@ export async function adoptImportedRows(tx: DatabaseTransaction, accountId: stri
     amount: transactions.amount_minor,
     counterparty: transactions.counterparty,
     description: transactions.description,
-    categoryId: transactions.category_id
+    categoryId: transactions.category_id,
+    categoryRuleId: transactions.category_rule_id
   }).from(transactions).where(and(eq(transactions.account_id, accountId), like(transactions.provider_reference, `${mappedReferencePrefix}%`), between(transactions.booking_date, shiftDays(dates[0], -duplicateDateToleranceDays), shiftDays(dates[dates.length - 1], duplicateDateToleranceDays))));
 
   if (imported.length === 0) {
@@ -276,7 +280,8 @@ export async function adoptImportedRows(tx: DatabaseTransaction, accountId: stri
     }).where(eq(transactions.id, row.id));
     adopted.push({
       ...entry,
-      categoryId: row.categoryId
+      categoryId: row.categoryId,
+      categoryRuleId: row.categoryRuleId
     });
   }
 

@@ -49,12 +49,17 @@ type Props = ValueProps & {
   categories: readonly PickerCategory[];
   /** Offers "Uncategorized", chosen by null. */
   includeUncategorized?: boolean;
-  /** Transaction source; only manual assignments expose rule creation. Null shows no indicator. */
+  /** Transaction source; manual assignments expose rule creation and a recorded assigning rule can be opened. Null shows no indicator. */
   assignment?: {
     source: "manual" | "rule" | null;
     actionLabel: string;
     disabled: boolean;
     createRule: () => void;
+    /** The rule that assigned a rule-sourced category; without it the rule indicator stays informational. */
+    assigningRule?: {
+      label: string;
+      open: () => void;
+    };
   };
   /** Compact fields suit transaction rows and filters; regular fields match the inputs of forms and dialogs. */
   size?: "regular" | "compact";
@@ -75,7 +80,8 @@ type Props = ValueProps & {
 
 const assignmentHints = {
   manual: "Set manually; kept when syncing and applying rules",
-  rule: "Assigned by a rule; source rule not recorded"
+  rule: "Assigned by a rule; source rule not recorded",
+  recordedRule: "Assigned by a rule"
 };
 
 const categoryNoun = {
@@ -148,7 +154,8 @@ export function CategoryPicker({
   const options = pickerOptions(categories, includeAll, includeUncategorized, includeAutomatic);
   const selected = options.find(option => Object.is(option.value, value));
   const assignmentSource = assignment?.source;
-  const assignmentHint = assignmentSource ? assignmentHints[assignmentSource] : undefined;
+  const assigningRule = assignmentSource === "rule" ? assignment?.assigningRule : undefined;
+  const assignmentHint = assignmentSource ? assignmentHints[assigningRule ? "recordedRule" : assignmentSource] : undefined;
   // "Uncategorized" is a hint, not text in the field, so typing a search starts from an empty field; a description keeps the selection announced.
   const uncategorized = includeUncategorized && value === null;
   const uncategorizedId = useId();
@@ -208,7 +215,22 @@ export function CategoryPicker({
                 <Zap className={clsx(styles["assignment-icon"], styles["manual"])} aria-hidden="true" />
               </button>
             )}
-            {assignmentSource === "rule" && (
+            {assigningRule && (
+              <button
+                type="button"
+                className={styles["assignment-action"]}
+                data-assignment-source="rule"
+                aria-label={assigningRule.label}
+                aria-describedby={assignmentHintId}
+                aria-haspopup="dialog"
+                title={`${assignmentHint}. ${assigningRule.label}.`}
+                disabled={assignment.disabled}
+                onClick={assigningRule.open}
+              >
+                <Zap className={clsx(styles["assignment-icon"], styles["rule"])} aria-hidden="true" />
+              </button>
+            )}
+            {assignmentSource === "rule" && !assigningRule && (
               <span
                 className={styles["assignment-indicator"]}
                 data-assignment-source="rule"
