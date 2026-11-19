@@ -27,7 +27,7 @@ Since #48, routes hold the view and search parameters hold the period, currency 
 | `["reports", "net-worth", { currency }]` | `GET /api/reports/net-worth` | currency |
 | `["reports", "cash-flow", { period, currency }]` | `GET /api/reports/cash-flow` | period, currency |
 | `["reports", "cash-flow", "account", { account, period }]` | `GET /api/accounts/{id}/cash-flow` | account, period |
-| `["transactions", "list", { period, currency, search, account, category, page }]` | `GET /api/transactions` | every list filter |
+| `["transactions", "list", { period, currency, search, account, category, page }]` | `POST /api/transactions/query` (filters in the JSON body) | every list filter |
 | `["categories"]`, `["rules"]` | `GET /api/categories`, `GET /api/rules` | none |
 | `["rules", "preview", { pattern, priority }]` | `POST /api/rules/preview` (a read; the draft is posted so payee and remittance text stay out of URLs) | the draft keyword rule; always refetched, below the rules prefix |
 | `["banking", "connections"]`, `["banking", "sync-runs"]`, `["banking", "banks", country]` | `GET /api/banking/connections`, `/api/sync/runs`, `/api/banks` | country for the bank directory |

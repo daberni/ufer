@@ -1,7 +1,7 @@
 "use client";
 
 import { keepPreviousData, skipToken, useQuery } from "@tanstack/react-query";
-import { api, apiGet } from "@/client/api";
+import { apiGet, apiQuery } from "@/client/api";
 import { queryKeys } from "@/client/query-keys";
 import type { Category, Rule, RulePreview, RulePreviewDraft } from "@/features/categorization/types";
 
@@ -26,11 +26,11 @@ export function useRules() {
 export function useRulePreview(draft: RulePreviewDraft | null) {
   return useQuery({
     queryKey: queryKeys.rulePreview(draft),
-    queryFn: draft ? ({ signal }) => api<RulePreview>("rules/preview", {
+    queryFn: draft ? ({ signal }) => apiQuery<RulePreview>("rules/preview", {
       pattern: draft.pattern,
       mode: "keyword",
       priority: draft.priority
-    }, "POST", signal) : skipToken,
+    }, signal) : skipToken,
     // Assignments change the count, so an open preview never reuses an earlier one.
     staleTime: 0,
     placeholderData: keepPreviousData

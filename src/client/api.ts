@@ -97,11 +97,22 @@ export function apiGet<T>(path: string, params?: Record<string, string>, signal?
   });
 }
 
-/** Sends a write with a JSON body; a write without a body, such as DELETE, leaves it out. A read whose input must stay out of the URL posts it too. */
-export function api<T>(path: string, body?: unknown, method = "POST", signal?: AbortSignal): Promise<T> {
+/** Reads a result selected by a JSON body, for filters such as search text that must not appear in the request URL. */
+export function apiQuery<T>(path: string, body: unknown, signal?: AbortSignal): Promise<T> {
+  return send<T>(path, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(body),
+    signal
+  });
+}
+
+/** Sends a write with a JSON body; a write without a body, such as DELETE, leaves it out. */
+export function api<T>(path: string, body?: unknown, method = "POST"): Promise<T> {
   return send<T>(path, {
     method,
-    signal,
     headers: {
       "Content-Type": "application/json"
     },
