@@ -123,19 +123,21 @@
   font-weight: 500;
   display: block;
 }
+/* Shrunk to the text and raised above the row's edit overlay, so full-text tooltips appear only over the text. */
 .name-preview,
 .description {
+  position: relative;
+  z-index: var(--layer-raised);
   display: -webkit-box;
+  width: fit-content;
+  max-width: 100%;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   overflow: hidden;
   white-space: normal;
   overflow-wrap: anywhere;
 }
-/* Above the row's edit overlay, so the pointer reaches the full-description tooltip. */
 .description {
-  position: relative;
-  z-index: var(--layer-raised);
   grid-area: description;
   font-size: var(--text-sm);
   color: var(--muted);
