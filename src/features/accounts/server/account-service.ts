@@ -2,8 +2,9 @@ import { Temporal } from "temporal-polyfill";
 import { HttpError, ValidationError } from "@/lib/errors";
 import { minorUnits } from "@/lib/money";
 import { timestamp, today } from "@/lib/time";
-import { accountInput, accountRenameInput, valuationInput } from "./account-schema";
-import { findManualAccount, insertManualAccount, saveAccountArchived, saveAccountName, saveManualValuation } from "./account-repository";
+import { accountInput, accountRenameInput, archiveInput, valuationInput } from "./account-schema";
+import { closeAndArchiveManualAccount, findManualAccount, insertManualAccount, saveAccountArchived, saveAccountName, saveManualValuation, type ClosingResult } from "./account-repository";
+import { findAccountWithBalance } from "./account-queries";
 
 export async function createManualAccount(payload: unknown, now = Temporal.Now.instant()) {
   const input = accountInput.parse(payload);
@@ -61,9 +62,55 @@ export async function renameAccount(accountId: string, payload: unknown) {
   };
 }
 
-/** Hides an account from the account lists and pickers; restoring it shows it again with its unchanged history. */
-export async function setAccountArchived(accountId: string, archived: boolean) {
-  if (!await saveAccountArchived(accountId, archived ? timestamp() : null)) {
+const closingFailures: Partial<Record<ClosingResult, string>> = {
+  account_not_found: "Choose another active manual account to transfer the balance to.",
+  same_account: "Choose another account to transfer the balance to.",
+  currency_mismatch: "The transfer account must use the same currency.",
+  balance_changed: "The balance changed meanwhile. Review it and try again."
+};
+
+/** Archives an account whose balance is 0; a manual account can first book its remaining balance away. Archived accounts are hidden from lists and pickers and keep their history. */
+export async function archiveAccount(accountId: string, payload: unknown, now = Temporal.Now.instant()) {
+  const input = archiveInput.parse(payload);
+  const account = await findAccountWithBalance(accountId);
+
+  if (!account) {
+    throw new HttpError(404, "Account not found.");
+  }
+
+  const balance = account.balance_minor ?? 0;
+
+  if (balance === 0) {
+    await saveAccountArchived(accountId, timestamp(now));
+
+    return {
+      ok: true
+    };
+  }
+
+  if (!input.closing || account.provider !== "manual") {
+    throw new HttpError(409, "Bring the balance to 0 before archiving.");
+  }
+
+  validateBalanceDate(input.closing.date, now);
+  const result = await closeAndArchiveManualAccount(account, balance, input.closing.date, input.closing.transfer_account_id, timestamp(now));
+
+  if (result === "balance_changed") {
+    throw new HttpError(409, closingFailures.balance_changed!);
+  }
+
+  if (result !== "saved") {
+    throw new ValidationError(closingFailures[result] ?? "The remaining balance could not be booked.");
+  }
+
+  return {
+    ok: true
+  };
+}
+
+/** Shows an archived account again with its unchanged history. */
+export async function restoreAccount(accountId: string) {
+  if (!await saveAccountArchived(accountId, null)) {
     throw new HttpError(404, "Account not found.");
   }
 

@@ -76,14 +76,17 @@ async function insertEntry(tx: DatabaseTransaction, id: string, entry: NewManual
   await tx.insert(transactions).values(manualEntryValues(id, entry));
 }
 
+/** Enters a booking within the caller's transaction and, for a transfer, creates or links its other side; the caller rolls back unless the result is "saved". */
+export async function bookManualEntry(tx: DatabaseTransaction, id: string, entry: NewManualEntry) {
+  await insertEntry(tx, id, entry);
+
+  return applyTransactionType(tx, id, entry.type, entry.target);
+}
+
 /** Enters a booking on a manual account and, for a transfer, creates or links its other side in the same transaction. */
 export async function createManualTransaction(entry: NewManualEntry) {
   const id = randomUUID();
-  const result = await refusable(async tx => {
-    await insertEntry(tx, id, entry);
-
-    return applyTransactionType(tx, id, entry.type, entry.target);
-  });
+  const result = await refusable(tx => bookManualEntry(tx, id, entry));
 
   return {
     result,

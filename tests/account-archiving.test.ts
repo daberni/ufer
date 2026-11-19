@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test, type TestContext } from "node:test";
 import { createClient } from "@libsql/client";
 import { act, fireEvent, render, within } from "@testing-library/react";
+import { and, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/libsql";
 import { createElement, type ReactNode } from "react";
 import { AppRouterContext, type AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
@@ -12,8 +13,9 @@ import type { Database } from "../src/server/database/connection";
 import { initializeDatabase } from "../src/server/database/migrations";
 import * as schema from "../src/server/database/schema";
 import { allMonthsPeriod } from "../src/lib/period";
+import { ValidationError } from "../src/lib/errors";
 import { listAccounts, readBalanceHistory, readNetWorth } from "../src/features/accounts/server/account-queries";
-import { setAccountArchived, updateManualValuation } from "../src/features/accounts/server/account-service";
+import { archiveAccount, restoreAccount, updateManualValuation } from "../src/features/accounts/server/account-service";
 import { enterManualTransaction } from "../src/features/transactions/server/transaction-service";
 import { importTransactions, importValuations } from "../src/features/imports/server/import-service";
 import { readAccountCashFlow, readCashFlow } from "../src/features/reports/server/cash-flow-query";
@@ -66,6 +68,29 @@ async function seededDatabase(context: TestContext) {
     institution: "Example institution",
     kind: "savings"
   }, {
+    id: "target",
+    environment: "SANDBOX",
+    name: "Synthetic target account",
+    institution: "Example institution",
+    kind: "checking"
+  }, {
+    id: "dollars",
+    environment: "SANDBOX",
+    name: "Synthetic dollar account",
+    institution: "Example institution",
+    kind: "checking",
+    currency: "USD"
+  }, {
+    id: "bank",
+    environment: "SANDBOX",
+    name: "Synthetic bank account",
+    institution: "Example institution",
+    kind: "checking",
+    provider: "enable_banking",
+    provider_uid: "uid-bank",
+    balance_minor: 7000,
+    balance_date: "2026-01-31"
+  }, {
     id: "other-environment",
     environment: "PRODUCTION",
     name: "Synthetic production account",
@@ -105,6 +130,14 @@ async function seededDatabase(context: TestContext) {
     amount_minor: 50000,
     currency: "EUR",
     type: "opening_balance"
+  }, {
+    id: "settled",
+    account_id: "closed",
+    provider_reference: "manual:settled",
+    booking_date: "2026-01-20",
+    amount_minor: -346000,
+    currency: "EUR",
+    type: "adjustment"
   }]);
 
   return db;
@@ -125,31 +158,31 @@ test("archiving hides an account from lists while its history and every report s
   await seededDatabase(context);
   const before = await reports();
 
-  assert.deepEqual(await setAccountArchived("closed", true), {
+  assert.deepEqual(await archiveAccount("closed", {}), {
     ok: true
   });
   const archived = await listAccounts();
   const closed = archived.find(account => account.id === "closed");
 
   assert.ok(closed?.archived_at);
-  assert.equal(closed.balance_minor, 346000);
+  assert.equal(closed.balance_minor, 0);
   assert.deepEqual(await reports(), before);
 
   const groups = accountGroups(archived as Account[], "EUR");
 
-  assert.deepEqual(groups.currencyAccounts.map(account => account.id), ["open"]);
-  assert.deepEqual(groups.manualAccounts.map(account => account.id), ["open"]);
+  assert.equal(groups.currencyAccounts.some(account => account.id === "closed"), false);
+  assert.equal(groups.manualAccounts.some(account => account.id === "closed"), false);
 
-  await setAccountArchived("closed", false);
+  await restoreAccount("closed");
   assert.equal((await listAccounts()).find(account => account.id === "closed")?.archived_at, null);
-  assert.deepEqual(accountGroups(await listAccounts() as Account[], "EUR").currencyAccounts.map(account => account.id), ["closed", "open"]);
+  assert.ok(accountGroups(await listAccounts() as Account[], "EUR").currencyAccounts.some(account => account.id === "closed"));
   assert.deepEqual(await reports(), before);
 });
 
 test("an archived account rejects balance updates, manual entries and CSV imports until it is restored", async context => {
   const db = await seededDatabase(context);
 
-  await setAccountArchived("closed", true);
+  await archiveAccount("closed", {});
   const bookingsBefore = await db.select().from(schema.transactions);
   const archived = {
     status: 409,
@@ -175,7 +208,7 @@ test("an archived account rejects balance updates, manual entries and CSV import
   }), archived);
   assert.deepEqual(await db.select().from(schema.transactions), bookingsBefore);
 
-  await setAccountArchived("closed", false);
+  await restoreAccount("closed");
   await updateManualValuation("closed", {
     balance: "10.00",
     date: "2026-01-10"
@@ -194,13 +227,100 @@ test("a currency whose accounts are all archived still reports its figures on th
   assert.equal(archivedOnly.reportedAccounts.length, 1);
 });
 
+test("archiving an account whose balance is not 0 is refused without changes", async context => {
+  const db = await seededDatabase(context);
+  const bookingsBefore = await db.select().from(schema.transactions);
+  const refused = {
+    status: 409,
+    message: "Bring the balance to 0 before archiving."
+  };
+
+  await assert.rejects(archiveAccount("open", {}), refused);
+  // A bank-linked balance comes from the bank and cannot be booked away.
+  await assert.rejects(archiveAccount("bank", {
+    closing: {
+      date: "2026-02-01"
+    }
+  }), refused);
+  assert.deepEqual(await db.select().from(schema.transactions), bookingsBefore);
+  assert.equal((await listAccounts()).filter(account => account.archived_at).length, 0);
+
+  await db.update(schema.accounts).set({
+    balance_minor: 0
+  }).where(eq(schema.accounts.id, "bank"));
+  await archiveAccount("bank", {});
+  assert.ok((await listAccounts()).find(account => account.id === "bank")?.archived_at);
+});
+
+test("closing a manual account books its balance away as an adjustment on the chosen date and archives it", async context => {
+  const db = await seededDatabase(context);
+  const cashFlowBefore = await readCashFlow(allMonthsPeriod, "EUR");
+
+  await archiveAccount("open", {
+    closing: {
+      date: "2026-01-15"
+    }
+  });
+  const open = (await listAccounts()).find(account => account.id === "open");
+  const closing = await db.select().from(schema.transactions).where(and(eq(schema.transactions.account_id, "open"), eq(schema.transactions.type, "adjustment"))).get();
+
+  assert.ok(open?.archived_at);
+  assert.equal(open.balance_minor, 0);
+  assert.equal(closing?.amount_minor, -50000);
+  assert.equal(closing?.booking_date, "2026-01-15");
+  assert.deepEqual(await readCashFlow(allMonthsPeriod, "EUR"), cashFlowBefore);
+});
+
+test("closing a manual account can transfer its balance to another active manual account in the same currency", async context => {
+  const db = await seededDatabase(context);
+
+  await archiveAccount("open", {
+    closing: {
+      date: "2026-01-15",
+      transfer_account_id: "target"
+    }
+  });
+  const accountsAfter = await listAccounts();
+  const legs = await db.select().from(schema.transactions).where(eq(schema.transactions.type, "transfer"));
+
+  assert.equal(accountsAfter.find(account => account.id === "open")?.balance_minor, 0);
+  assert.equal(accountsAfter.find(account => account.id === "target")?.balance_minor, 50000);
+  assert.equal(accountsAfter.find(account => account.id === "target")?.archived_at, null);
+  assert.deepEqual(legs.map(leg => [leg.account_id, leg.amount_minor]).sort(), [["open", -50000], ["target", 50000]]);
+  assert.equal(new Set(legs.map(leg => leg.transfer_id)).size, 1);
+});
+
+test("a closing transfer to an archived, foreign-currency or bank account rolls back without booking or archiving", async context => {
+  const db = await seededDatabase(context);
+
+  await archiveAccount("closed", {});
+  const bookingsBefore = await db.select().from(schema.transactions);
+
+  for (const target of ["closed", "dollars", "bank", "open"]) {
+    await assert.rejects(archiveAccount("open", {
+      closing: {
+        date: "2026-01-15",
+        transfer_account_id: target
+      }
+    }), ValidationError, target);
+  }
+
+  await assert.rejects(archiveAccount("open", {
+    closing: {
+      date: "2999-01-01"
+    }
+  }), ValidationError);
+  assert.deepEqual(await db.select().from(schema.transactions), bookingsBefore);
+  assert.equal((await listAccounts()).find(account => account.id === "open")?.archived_at, null);
+});
+
 test("archiving an unknown account or one of another banking environment is not found", async context => {
   await seededDatabase(context);
 
-  await assert.rejects(setAccountArchived("unknown", true), {
+  await assert.rejects(archiveAccount("unknown", {}), {
     status: 404
   });
-  await assert.rejects(setAccountArchived("other-environment", true), {
+  await assert.rejects(archiveAccount("other-environment", {}), {
     status: 404
   });
 });
@@ -326,10 +446,11 @@ test("a manual account's balance has a labelled edit button that opens the balan
   assert.equal(requests("accounts/manual%2Fcash/balance").length, 1);
 });
 
-test("a bank-synced account offers archiving but no manual balance update", async context => {
+test("a bank-synced account with a balance of 0 is archived directly and offers no manual balance update", async context => {
   const bank = await renderDetails(context, {
     ...manualAccount,
-    provider: "enable_banking"
+    provider: "enable_banking",
+    balance_minor: 0
   });
 
   assert.equal(bank.screen.queryByRole("button", {
@@ -340,6 +461,64 @@ test("a bank-synced account offers archiving but no manual balance update", asyn
   })));
   await wait(0);
   assert.equal(bank.requests("accounts/manual%2Fcash/archive")[0].method, "PUT");
+});
+
+test("a manual account with a remaining balance is closed through a dialog that cancel leaves unchanged", async context => {
+  const {
+    screen,
+    requests
+  } = await renderDetails(context, manualAccount);
+  const openDialog = () => act(() => fireEvent.click(screen.getByRole("button", {
+    name: "Archive account"
+  })));
+
+  openDialog();
+  act(() => fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", {
+    name: "Cancel"
+  })));
+  await wait(0);
+  assert.equal(screen.queryByRole("dialog"), null);
+  assert.equal(requests("accounts/manual%2Fcash/archive").length, 0);
+
+  openDialog();
+  const dialog = within(screen.getByRole("dialog"));
+
+  act(() => {
+    fireEvent.change(dialog.getByLabelText("Closing date"), {
+      target: {
+        value: "2026-01-15"
+      }
+    });
+    fireEvent.submit(dialog.getByRole("button", {
+      name: "Close and archive"
+    }).closest("form")!);
+  });
+  await wait(0);
+  assert.deepEqual(requests("accounts/manual%2Fcash/archive")[0].body, {
+    closing: {
+      date: "2026-01-15",
+      transfer_account_id: null
+    }
+  });
+});
+
+test("a bank-linked account with a remaining balance explains why it cannot be archived and offers only cancel", async context => {
+  const {
+    screen,
+    requests
+  } = await renderDetails(context, {
+    ...manualAccount,
+    provider: "enable_banking"
+  });
+
+  act(() => fireEvent.click(screen.getByRole("button", {
+    name: "Archive account"
+  })));
+  const dialog = within(screen.getByRole("dialog"));
+
+  assert.ok(dialog.getByText(/balance comes from the bank/));
+  assert.deepEqual(dialog.getAllByRole("button").map(button => button.textContent).filter(text => text !== ""), ["Cancel"]);
+  assert.equal(requests("accounts/manual%2Fcash/archive").length, 0);
 });
 
 test("an archived account offers restore and no balance update", async context => {

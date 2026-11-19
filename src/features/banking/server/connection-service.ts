@@ -57,7 +57,8 @@ export async function removeBankConnection(id: string, options: {
     }
 
     return {
-      retainedAccounts: removal.retainedAccounts
+      retainedAccounts: removal.retainedAccounts,
+      notArchived: removal.notArchived
     };
   } finally {
     await releaseLease(db, leaseName, owner);

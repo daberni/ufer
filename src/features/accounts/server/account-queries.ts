@@ -37,6 +37,11 @@ export async function listAccounts() {
   }).from(accounts).leftJoin(requisitions, eq(requisitions.id, accounts.requisition_id)).where(eq(accounts.environment, environment())).orderBy(kindOrder, asc(accounts.name));
 }
 
+/** One account of the current banking environment with its current balance, as listed. */
+export async function findAccountWithBalance(id: string) {
+  return (await listAccounts()).find(account => account.id === id);
+}
+
 /** Net worth and its composition from the latest known balances of the accounts in one currency; it does not depend on a period. Archived accounts still count, so archiving never changes a report. */
 export async function readNetWorth(currency: string) {
   const relevant = (await listAccounts()).filter(account => account.currency === currency);

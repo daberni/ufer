@@ -24,3 +24,11 @@ export type ManualAccountInput = z.infer<typeof accountInput>;
 export const accountRenameInput = z.object({
   name: z.string().trim().min(1).max(100)
 });
+
+/** Archiving optionally closes a manual account first by booking its remaining balance away on a date. */
+export const archiveInput = z.object({
+  closing: z.object({
+    date: balanceDate,
+    transfer_account_id: z.string().min(1).nullable().default(null)
+  }).optional()
+}).default({});

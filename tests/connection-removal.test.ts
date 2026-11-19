@@ -144,7 +144,8 @@ test("removing a bank connection keeps accounts and history, deletes its credent
   });
 
   assert.deepEqual(await removeBankConnection("removed"), {
-    retainedAccounts: 1
+    retainedAccounts: 1,
+    notArchived: []
   });
   assert.deepEqual(requests, [{
     method: "DELETE",
@@ -193,7 +194,7 @@ test("removing a bank connection keeps accounts and history, deletes its credent
   assert.equal((await db.select().from(schema.requisitions).where(eq(schema.requisitions.id, "removed")).get())?.status, "REMOVED");
 });
 
-test("disconnecting a bank can archive its accounts while keeping their history and report contributions", async context => {
+test("disconnecting a bank archives only its accounts with a balance of 0 and names the ones that stay active", async context => {
   const {
     db,
     requests
@@ -203,6 +204,21 @@ test("disconnecting a bank can archive its accounts while keeping their history 
 
   await insertLinkedConnection(db, "archived-bank", "archived-account");
   await insertLinkedConnection(db, "other-bank", "other-account");
+  await db.update(schema.accounts).set({
+    balance_minor: 0
+  }).where(eq(schema.accounts.id, "archived-account"));
+  await db.insert(schema.accounts).values({
+    id: "unsettled-account",
+    environment: "SANDBOX",
+    name: "Synthetic unsettled account",
+    institution: "Example institution",
+    kind: "checking",
+    provider: "enable_banking",
+    provider_uid: "uid-unsettled-account",
+    requisition_id: "archived-bank",
+    balance_minor: 4200,
+    balance_date: "2000-01-31"
+  });
   await db.insert(schema.transactions).values({
     id: "archived-history",
     account_id: "archived-account",
@@ -218,7 +234,8 @@ test("disconnecting a bank can archive its accounts while keeping their history 
   assert.deepEqual(await removeBankConnection("archived-bank", {
     archiveAccounts: true
   }), {
-    retainedAccounts: 1
+    retainedAccounts: 2,
+    notArchived: ["Synthetic unsettled account"]
   });
   assert.deepEqual(requests, [{
     method: "DELETE",
@@ -230,7 +247,9 @@ test("disconnecting a bank can archive its accounts while keeping their history 
 
   assert.ok(archived?.archived_at);
   assert.equal(archived.requisition_id, null);
-  assert.equal(archived.balance_minor, 12345);
+  assert.equal(archived.balance_minor, 0);
+  assert.equal(accountsAfter.find(account => account.id === "unsettled-account")?.archived_at, null);
+  assert.equal(accountsAfter.find(account => account.id === "unsettled-account")?.requisition_id, null);
   assert.equal(accountsAfter.find(account => account.id === "other-account")?.archived_at, null);
   assert.equal((await db.select().from(schema.transactions)).length, 1);
   assert.deepEqual(await readNetWorth("EUR"), netWorthBefore);
@@ -372,7 +391,8 @@ test("a failed revocation leaves the connection intact for an explicit retry, wi
 
   providerAvailable = true;
   assert.deepEqual(await removeBankConnection("unrevoked"), {
-    retainedAccounts: 1
+    retainedAccounts: 1,
+    notArchived: []
   });
   assert.equal(requests.filter(request => request.method === "DELETE").length, 2);
   const removed = await db.select().from(schema.requisitions).where(eq(schema.requisitions.id, "unrevoked")).get();
@@ -403,7 +423,8 @@ test("a session the provider reports as ended counts as revoked and its stored I
     await insertLinkedConnection(db, id, `${id}-account`);
 
     assert.deepEqual(await removeBankConnection(id), {
-      retainedAccounts: 1
+      retainedAccounts: 1,
+      notArchived: []
     }, ended[0]);
     assert.equal((await db.select().from(schema.requisitions).where(eq(schema.requisitions.id, id)).get())?.session_cipher, null, ended[0]);
   }
@@ -470,7 +491,8 @@ test("a connection removed while its callback is mapping accounts is never linke
   assert.equal((await db.select().from(schema.requisitions).get())?.status, "EXCHANGING");
 
   assert.deepEqual(await removeBankConnection("overlap"), {
-    retainedAccounts: 0
+    retainedAccounts: 0,
+    notArchived: []
   });
   assert.deepEqual(requests, [{
     method: "DELETE",
@@ -550,7 +572,8 @@ test("a callback completing after removal preflight keeps its new session until 
   assert.deepEqual(requests, []);
 
   assert.deepEqual(await removeBankConnection("pending-overlap"), {
-    retainedAccounts: 1
+    retainedAccounts: 1,
+    notArchived: []
   });
   assert.deepEqual(requests, [{
     method: "DELETE",
@@ -570,7 +593,8 @@ test("a provider session revocation answered without a body counts as revoked", 
   await insertLinkedConnection(db, "no-body", "no-body-account");
 
   assert.deepEqual(await removeBankConnection("no-body"), {
-    retainedAccounts: 1
+    retainedAccounts: 1,
+    notArchived: []
   });
 });
 

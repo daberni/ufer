@@ -1,4 +1,4 @@
-import { and, eq, gt, isNull, ne } from "drizzle-orm";
+import { and, eq, gt, isNull, ne, sql } from "drizzle-orm";
 import { Temporal } from "temporal-polyfill";
 import { database, type Database } from "@/server/database/connection";
 import { environment } from "@/features/banking/server/environment";
@@ -14,6 +14,8 @@ export type ConnectionRemoval = {
 } | {
   outcome: "removed";
   retainedAccounts: number;
+  /** Names of the accounts that stayed active because archiving needs a balance of 0. */
+  notArchived: string[];
 };
 
 export type AuthorizationRecord = {
@@ -147,7 +149,7 @@ export async function recordRevocationFailure(db: Database, id: string) {
   }).where(and(eq(requisitions.id, id), ne(requisitions.status, "REMOVED")));
 }
 
-// Accounts are detached only after confirmed provider revocation, preserving their history and reconnect mapping; a given archive time also archives them.
+// Accounts are detached only after confirmed provider revocation, preserving their history and reconnect mapping; a given archive time also archives those whose balance is 0.
 export async function removeConnection(db: Database, environment: string, id: string, exchangeCutoff: Temporal.Instant, expectedSessionCipher: string | null, archivedAt: string | null = null): Promise<ConnectionRemoval> {
   return db.transaction(async tx => {
     const scope = and(eq(requisitions.id, id), eq(requisitions.environment, environment), ne(requisitions.status, "REMOVED"));
@@ -186,19 +188,22 @@ export async function removeConnection(db: Database, environment: string, id: st
       throw new HttpError(409, "The bank connection changed during removal. Try again.");
     }
 
+    const zeroBalance = sql`COALESCE(${accounts.balance_minor},0)=0`;
     const detached = await tx.update(accounts).set({
       requisition_id: null,
       sync_error: null,
       ...(archivedAt ? {
-        archived_at: archivedAt
+        archived_at: sql`CASE WHEN ${zeroBalance} THEN COALESCE(${accounts.archived_at},${archivedAt}) ELSE ${accounts.archived_at} END`
       } : {})
     }).where(and(eq(accounts.requisition_id, id), eq(accounts.environment, environment))).returning({
-      id: accounts.id
+      name: accounts.name,
+      archived_at: accounts.archived_at
     });
 
     return {
       outcome: "removed",
-      retainedAccounts: detached.length
+      retainedAccounts: detached.length,
+      notArchived: archivedAt ? detached.filter(account => account.archived_at === null).map(account => account.name) : []
     };
   });
 }
