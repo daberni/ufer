@@ -463,16 +463,9 @@ async function transferWithoutCounterpart(tx: DatabaseTransaction, subject: Subj
 }
 
 /**
- * Stores a manually chosen type and, for a transfer, its target in one transaction. `target` undefined keeps a transfer's current link; null means no counterpart, chosen deliberately.
- * A target booking must be one of the subject's link candidates, and a target manual account must use the subject's currency. Every check runs before anything is written.
+ * Stores a manually chosen type and, for a transfer, its target inside a caller's transaction. `target` undefined keeps a transfer's current link; null means no counterpart, chosen deliberately.
+ * A target booking must be one of the subject's link candidates, and a target manual account must use the subject's currency. A failed check returns before anything is written.
  */
-export async function saveTransactionType(id: string, type: TransactionType, target?: TransferTarget): Promise<TypeChangeResult> {
-  const db = await database();
-
-  return db.transaction(tx => applyTransactionType(tx, id, type, target));
-}
-
-/** `saveTransactionType` inside a caller's transaction, for example after entering or editing a booking. A failed check returns before anything is written. */
 export async function applyTransactionType(tx: DatabaseTransaction, id: string, type: TransactionType, target?: TransferTarget): Promise<TypeChangeResult> {
   const result = await changeType(tx, id, type, target);
 
