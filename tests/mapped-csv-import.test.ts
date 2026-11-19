@@ -1037,6 +1037,9 @@ test("space and apostrophe thousands separators must form groups of three", () =
   assert.equal(parseAmount("1 234,56", ","), "1234.56");
   assert.equal(parseAmount("-1 234 567,89", ","), "-1234567.89");
   assert.equal(parseAmount("- 12,50", ","), "-12.50");
+  assert.equal(parseAmount("1\n234", "."), null);
+  assert.equal(parseAmount("1\t234", "."), null);
+  assert.equal(parseAmount("1\u00A0234,56", ","), "1234.56");
 });
 
 test("the same column cannot be both debit and credit", () => {
