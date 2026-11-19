@@ -58,7 +58,7 @@
 
   /* Charts and account kinds: marks keep 3:1 against their background where they carry meaning. */
   --chart-income: light-dark(#719064, #7fae7b);
-  --chart-expense: light-dark(#bfcbab, #66785c);
+  --chart-expense: light-dark(#c0724f, #c98463);
   --chart-liquid: light-dark(#567d53, #86b383);
   --chart-invested: light-dark(#b0be8e, #a3b47f);
   --chart-property: light-dark(#cfbd8d, #cdb47d);
