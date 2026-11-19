@@ -7,6 +7,7 @@
 .accounts-section {
   composes: panel from "../../../components/ui/primitives.module.css";
   min-width: 0;
+  container-type: inline-size;
 }
 .accounts-section > .section-heading {
   margin-top: 0;
@@ -114,7 +115,8 @@
 .onboarding h3 {
   font-weight: 500;
 }
-@media (--laptop) {
+/* In a narrow card, such as the column beside net worth, the buttons wrap below the copy. */
+@container (width < 640px) {
   .onboarding {
     flex-wrap: wrap;
   }
