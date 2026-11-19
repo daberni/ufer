@@ -29,6 +29,7 @@ Since #48, routes hold the view and search parameters hold the period, currency 
 | `["reports", "cash-flow", "account", { account, period }]` | `GET /api/accounts/{id}/cash-flow` | account, period |
 | `["transactions", "list", { period, currency, search, account, category, page }]` | `POST /api/transactions/query` (filters in the JSON body) | every list filter |
 | `["categories"]`, `["rules"]` | `GET /api/categories`, `GET /api/rules` | none |
+| `["rules", "preview", { pattern, priority }]` | `POST /api/rules/preview` (a read; the draft is posted so payee and remittance text stay out of URLs) | the draft keyword rule; always refetched, below the rules prefix |
 | `["banking", "connections"]`, `["banking", "sync-runs"]`, `["banking", "banks", country]` | `GET /api/banking/connections`, `/api/sync/runs`, `/api/banks` | country for the bank directory |
 
 `/api/state` and its client lifecycle are removed. Keys live in one registry (`src/client/query-keys.ts`): the resource comes first, then the serialized filters that select the result, so a write invalidates a whole resource by prefix. Route handlers stay thin, delegate to read projections in the owning feature's `server/` modules and keep RFC 9457 Problem Details and the session/membership check of `respond()`.

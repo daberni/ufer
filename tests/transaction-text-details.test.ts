@@ -36,10 +36,15 @@ const booking: Transaction = {
 async function showBooking(context: TestContext, transaction = booking) {
   const environment = browser(context);
   const { TransactionList } = await import("../src/features/transactions/components/transaction-list");
-  const screen = render(withQueryClient(environment.queryClient, createElement(TransactionList, {
+  const { TransactionRuleProvider } = await import("../src/features/transactions/components/transaction-rule-provider");
+  const screen = render(withQueryClient(environment.queryClient, createElement(TransactionRuleProvider, {
+    fallbackFocus: {
+      current: null
+    }
+  }, createElement(TransactionList, {
     transactions: [transaction],
     categories: []
-  })));
+  }))));
   const details = screen.container.querySelector("details");
 
   assert.ok(details, "Full bank text needs a disclosure independently of whether a description exists.");

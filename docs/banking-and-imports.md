@@ -46,7 +46,7 @@ example-001;2026-01-15;-12.50;EUR;Example merchant;Example purchase
 
 IDs must be stable and unique per account. Reimporting updates rather than duplicates. Imported transactions count toward the account balance. Limits: 1 MB, 10,000 rows, ISO dates, and the account's currency. Use a decimal point, or a decimal comma with semicolon delimiters, without thousands separators.
 
-Rules match payee and description case-insensitively. Lower priority numbers win; rule ID breaks ties. Applying rules preserves manual assignments. Regular expressions use RE2 syntax without backreferences or lookbehind.
+Rules match payee and description case-insensitively. Lower priority numbers win; equal priorities retain the existing persisted rule-ID tie-break. Applying rules preserves manual assignments. A manually assigned category's dashed lightning action explicitly opens a matching-rule form. Solid lightning identifies a rule-assigned category but is noninteractive because the causing rule ID was not recorded; the application does not guess historical attribution. Uncategorized has no indicator. Saving a category never opens a prompt automatically. The form proposes a keyword from the payee or description and waits for a settled preview of the current pattern and priority. Creation stores the same UUID used by that preview. Optional application affects only transactions that are still uncategorized, with matching reads and writes in one transaction. Regular expressions use RE2 syntax without backreferences or lookbehind.
 
 
 ### Recorded bank balance classification
