@@ -98,9 +98,31 @@ type Executor = Pick<DatabaseTransaction, "select">;
 
 async function classify(executor: Executor, accountId: string, entries: MappedEntry[], consumed: ReadonlySet<string>) {
   const dates = entries.map(entry => entry.date).sort();
-  const existing = entries.length === 0 ? [] : await bookingsBetween(executor, accountId, shiftDays(dates[0], -duplicateDateToleranceDays), shiftDays(dates[dates.length - 1], duplicateDateToleranceDays));
+  const nearby = entries.length === 0 ? [] : await bookingsBetween(executor, accountId, shiftDays(dates[0], -duplicateDateToleranceDays), shiftDays(dates[dates.length - 1], duplicateDateToleranceDays));
+  // A row identified by an export ID may have moved further than the window since it was imported; its reference still identifies it.
+  const sameReference = await bookingsWithReferences(executor, accountId, entries.map(entry => entry.reference));
+  const nearbyReferences = new Set(nearby.map(booking => booking.reference));
+  const existing = [...nearby, ...sameReference.filter(booking => !nearbyReferences.has(booking.reference))];
 
   return findDuplicates(entries, existing, consumed);
+}
+
+async function bookingsWithReferences(executor: Executor, accountId: string, references: string[]) {
+  const found: ExistingBooking[] = [];
+
+  for (let offset = 0; offset < references.length; offset += referenceChunkSize) {
+    const chunk = references.slice(offset, offset + referenceChunkSize);
+
+    found.push(...await executor.select({
+      reference: transactions.provider_reference,
+      date: transactions.booking_date,
+      amount: transactions.amount_minor,
+      counterparty: transactions.counterparty,
+      description: transactions.description
+    }).from(transactions).where(and(eq(transactions.account_id, accountId), inArray(transactions.provider_reference, chunk))));
+  }
+
+  return found;
 }
 
 /** Classifies rows against the account's bookings without writing anything. */

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { z } from "zod";
 import { test, type TestContext } from "node:test";
 import { Temporal } from "temporal-polyfill";
 import { createClient } from "@libsql/client";
@@ -16,7 +17,7 @@ import { findDuplicates } from "../src/features/imports/server/duplicate-matchin
 import { saveAccountSync } from "../src/features/banking/server/account-sync-service";
 import { startSyncRun } from "../src/features/banking/server/sync-repository";
 import { accountLabel, categoryValues, defaultCategorySelection, defaultTargetChoice, importKey, newAccountChoice, needsCategoryReview, prepareImport, type TargetChoice } from "../src/features/imports/import-plan";
-import { assignOccurrences, currencyAllows, duplicateIdErrors, readCsvTable, emptyMapping, mappingProblem, normalizeText, parseCsvRecords, pruneConsumed, decodeCsv, detectDateFormat, detectDecimal, detectDelimiter, mapRows, parseAmount, parseCsv, parseDate, suggestMapping, type CsvSettings, type DateFormat, type ImportRow } from "../src/features/imports/csv-mapping";
+import { assignOccurrences, batchRows, currencyAllows, duplicateIdErrors, importIdFor, maxTargetsPerRequest, readCsvTable, emptyMapping, mappingProblem, normalizeText, parseCsvRecords, pruneConsumed, decodeCsv, detectDateFormat, detectDecimal, detectDelimiter, mapRows, parseAmount, parseCsv, parseDate, suggestMapping, type CsvSettings, type DateFormat, type ImportRow } from "../src/features/imports/csv-mapping";
 
 const now = Temporal.Instant.from("2026-06-30T12:00:00Z");
 
@@ -1548,4 +1549,56 @@ test("a record with a quoted line break reports the line it starts on, for every
 
     assert.equal(records[1].line, 2, JSON.stringify(lineBreak));
   }
+});
+
+test("the import ID derives from the file's bytes as a UUID the server accepts", async () => {
+  const encode = (text: string) => new TextEncoder().encode(text);
+  const first = await importIdFor(encode("Date,Amount\n2024-01-01,1.00\n"));
+
+  assert.equal(first, await importIdFor(encode("Date,Amount\n2024-01-01,1.00\n")));
+  assert.notEqual(first, await importIdFor(encode("Date,Amount\n2024-01-01,2.00\n")));
+  assert.ok(z.uuid().safeParse(first).success);
+});
+
+test("a row with an export ID is recognized as imported even after its date moved beyond the duplicate window", async context => {
+  await isolatedDatabase(context);
+  const account = await manualAccount("Identified history");
+  const targets = [{
+    source: "",
+    account_id: account.id
+  }];
+
+  await importMappedRows({
+    import_id: importId,
+    rows: [mappedRow(2, "2024-04-01", "-12.00", "Bakery", {
+      id: "tx-moved"
+    })],
+    targets,
+    confirm: true
+  }, now);
+
+  const checked = await importMappedRows({
+    import_id: importId,
+    rows: [mappedRow(2, "2024-04-20", "-12.00", "Bakery", {
+      id: "tx-moved"
+    })],
+    targets,
+    confirm: false
+  }, now);
+
+  assert.equal(checked.newRows, 0);
+  assert.deepEqual(checked.duplicates.map(duplicate => duplicate.reason), ["already_imported"]);
+});
+
+test("batches hold at most as many source accounts as a request accepts targets", () => {
+  const rows = Array.from({
+    length: 120
+  }, (_value, index) => mappedRow(index + 2, "2024-01-01", "-1.00", "Shop", {
+    source: `Synthetic account ${index}`
+  }));
+  const batches = batchRows(rows);
+
+  assert.equal(batches.flat().length, 120);
+  assert.ok(batches.length > 1);
+  assert.ok(batches.every(batch => new Set(batch.map(row => row.source)).size <= maxTargetsPerRequest));
 });

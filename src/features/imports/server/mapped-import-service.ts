@@ -9,7 +9,7 @@ import { listRules } from "@/features/categorization/server/rule-repository";
 import { categorizeEntries } from "@/features/transactions/server/categorize-entries";
 import { pairTransfersInEnvironment } from "@/features/transactions/server/transfer-repository";
 import { environment } from "@/features/banking/server/environment";
-import { currencyAllows, maxAccountNameLength, maxCategoryLength, maxIdLength, maxSourceLength, normalizeText, type RowError } from "../csv-mapping";
+import { currencyAllows, maxTargetsPerRequest, maxAccountNameLength, maxCategoryLength, maxIdLength, maxSourceLength, normalizeText, type RowError } from "../csv-mapping";
 import { duplicateDateToleranceDays, mappedReferencePrefix, type DuplicateReason } from "./duplicate-matching";
 import { checkMappedEntries, createImportCategory, findImportTarget, listCategoryNames, saveMappedEntries, type MappedEntry, type NewImportAccount, type OpeningBalance } from "./mapped-import-repository";
 
@@ -63,7 +63,7 @@ const mappedImportInput = z.object({
   /** Identifies one import of one file; batches and retries with the same ID create each new account once. */
   import_id: z.uuid(),
   rows: z.array(row).min(1).max(maxRowsPerRequest),
-  targets: z.array(target).min(1).max(100),
+  targets: z.array(target).min(1).max(maxTargetsPerRequest),
   /** Existing bookings that earlier batches of this import matched as duplicates. */
   consumed: z.array(matchedBooking).max(20_000).default([]),
   categories: z.array(categoryChoice).max(1000).default([]),

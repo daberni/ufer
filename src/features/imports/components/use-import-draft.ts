@@ -5,7 +5,7 @@ import { useAccounts } from "@/features/accounts/queries";
 import { useAreaResult } from "@/components/ui/use-area-result";
 import { useCategories } from "@/features/categorization/queries";
 import { useMappedImport, type MappedImportSummary } from "@/features/imports/mutations";
-import { decodeCsv, detectDateFormat, detectDecimal, detectDelimiter, mapRows, mappingProblem, parseCsv, readCsvTable, suggestMapping, type CsvMapping, type CsvSettings } from "@/features/imports/csv-mapping";
+import { decodeCsv, detectDateFormat, detectDecimal, detectDelimiter, mapRows, mappingProblem, parseCsv, importIdFor, readCsvTable, suggestMapping, type CsvMapping, type CsvSettings } from "@/features/imports/csv-mapping";
 import { categoryValues, defaultCategorySelection, importKey, defaultTargetChoice, needsCategoryReview, prepareImport, sourceAccounts, type CategorySelection, type TargetChoice } from "@/features/imports/import-plan";
 
 /** Large multi-year exports are read in the browser and sent as mapped rows in batches, so only the browser's memory bounds the file. */
@@ -109,6 +109,12 @@ export function useImportDraft() {
       return;
     }
 
+    const derivedId = await importIdFor(bytes);
+
+    if (selection !== latestSelection.current) {
+      return;
+    }
+
     const decoded = decodeCsv(bytes);
     const delimiter = detectDelimiter(decoded.text);
     let parsed: string[][];
@@ -126,6 +132,7 @@ export function useImportDraft() {
     const sample = rows.slice(0, 200);
     const column = (index: number | null) => index === null ? [] : sample.map(row => row[index] ?? "");
 
+    setImportId(derivedId);
     setFile({
       name: selected.name,
       bytes

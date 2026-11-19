@@ -159,7 +159,7 @@ export function useMappedImport() {
         }>("imports/mapped", {
           import_id: importId,
           rows: batch,
-          targets: resolved,
+          targets: resolved.filter(target => batch.some(row => row.source === target.source)),
           categories: categoryChoices,
           consumed: pruneConsumed(consumed, batch[0].date),
           confirm,
