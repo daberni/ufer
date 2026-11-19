@@ -136,7 +136,7 @@ export function TransactionsPanel(props: Props) {
           />
         )}
       </TransactionRuleProvider>
-      {importOpen && <CsvImportDialog initialMode="mapped" close={() => setImportOpen(false)} />}
+      {importOpen && <CsvImportDialog close={() => setImportOpen(false)} />}
       {entryOpen && <ManualTransactionDialog accounts={manualAccounts} close={() => setEntryOpen(false)} />}
     </section>
   );

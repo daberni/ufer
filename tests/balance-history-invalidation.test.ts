@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 import { browser, respond, wait, withQueryClient } from "./fixtures/browser";
 import { queryKeys } from "../src/client/query-keys";
 import { useBalanceHistory } from "../src/features/accounts/queries";
-import { useCsvImport } from "../src/features/imports/mutations";
+import { useBalanceImport } from "../src/features/imports/mutations";
 import { useSaveTransaction } from "../src/features/transactions/mutations";
 
 const cachedHistory = {
@@ -25,7 +25,7 @@ for (const operation of ["import", "transfer"] as const) {
     environment.queryClient.setQueryData(queryKeys.balanceHistory("savings"), cachedHistory);
     const hook = renderHook(() => ({
       history: useBalanceHistory("checking"),
-      importCsv: useCsvImport(),
+      importCsv: useBalanceImport(),
       edit: useSaveTransaction("entry")
     }), {
       wrapper: ({ children }: {
@@ -38,9 +38,8 @@ for (const operation of ["import", "transfer"] as const) {
     act(() => {
       if (operation === "import") {
         hook.result.current.importCsv.mutate({
-          mode: "transactions",
           accountId: "checking",
-          file: new File(["date,amount"], "synthetic.csv")
+          file: new File(["date,balance,currency"], "synthetic.csv")
         });
       } else {
         hook.result.current.edit.mutate({
@@ -52,7 +51,7 @@ for (const operation of ["import", "transfer"] as const) {
       }
     });
     await wait(0);
-    const path = operation === "import" ? "imports/transactions" : "transactions/entry/type";
+    const path = operation === "import" ? "imports/balances" : "transactions/entry/type";
 
     await respond(environment.requests(path)[0], Response.json({
       ok: true

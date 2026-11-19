@@ -6,33 +6,29 @@ import { invalidate } from "@/client/invalidate";
 import { queryKeys } from "@/client/query-keys";
 import { assignOccurrences, batchRows, pruneConsumed, type ConsumedBooking, type MappedRow, type RowError } from "./csv-mapping";
 
-export type ImportMode = "mapped" | "balances" | "transactions";
-
-type CsvImport = {
-  mode: Exclude<ImportMode, "mapped">;
+type BalanceImport = {
   accountId: string;
   file: File;
 };
 
-const maxFileSize = 1_000_000;
+const maxBalanceFileSize = 1_000_000;
 
-// Both imports book transactions on a manual account, which change its balance.
+// Imported balances book opening balances and adjustments on a manual account, which change its balance.
 const affectedKeys = [queryKeys.accounts(), queryKeys.reports.netWorth(), queryKeys.transactions.all(), queryKeys.reports.cashFlow()];
 
-export function useCsvImport() {
+export function useBalanceImport() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({
-      mode,
       accountId,
       file
-    }: CsvImport) => {
-      if (file.size > maxFileSize) {
+    }: BalanceImport) => {
+      if (file.size > maxBalanceFileSize) {
         throw new Error("The file cannot exceed 1 MB.");
       }
 
-      return api(`imports/${mode}`, {
+      return api("imports/balances", {
         account_id: accountId,
         csv: await file.text()
       });

@@ -1,29 +1,13 @@
 "use client";
 
-import ui from "../../../components/ui/primitives.module.css";
-
-import { clsx } from "clsx";
-import { useRef, useState } from "react";
-import styles from "./csv-import-form.module.css";
-import { ArrowDownToLine } from "lucide-react";
-import { useDialogSubmit, type DialogFormProps } from "@/components/ui/use-dialog-submit";
-import { useCsvImport, type ImportMode } from "@/features/imports/mutations";
-import { FormError } from "@/components/ui/form-error";
-import { Select } from "@/components/ui/select";
+import { useRef } from "react";
+import { type DialogFormProps } from "@/components/ui/use-dialog-submit";
 import { Dialog } from "@/components/ui/dialog";
-import { useAccounts } from "@/features/accounts/queries";
-import { InlineFailure } from "@/components/ui/area-placeholder";
-import { useAreaResult } from "@/components/ui/use-area-result";
 import { MappedCsvImport, type ImportProgress } from "./mapped-csv-import";
 
-type Props = DialogFormProps & {
-  initialMode: ImportMode;
-};
-
 export function CsvImportDialog({
-  close,
-  initialMode
-}: Props) {
+  close
+}: DialogFormProps) {
   const progress = useRef<ImportProgress>("idle");
 
   // A started confirmation owns its import ID and any accounts it created; dismissing would let a reopened dialog import differently.
@@ -42,102 +26,13 @@ export function CsvImportDialog({
       onClose={close}
       canClose={canClose}
     >
-      <CsvImportForm
+      <MappedCsvImport
         close={close}
-        initialMode={initialMode}
+        modeSelect={() => null}
         onProgress={value => {
           progress.current = value;
         }}
       />
     </Dialog>
   );
-}
-
-function CsvImportForm({
-  close,
-  initialMode,
-  onProgress
-}: Props & {
-  onProgress: (progress: ImportProgress) => void;
-}) {
-  const [importMode, setImportMode] = useState(initialMode);
-  const accounts = useAreaResult(useAccounts());
-  const accountsPending = accounts.status === "pending";
-  const accountsFailure = accountsPending ? accounts.failure : null;
-  const manualAccounts = accounts.data?.filter(account => account.provider === "manual") ?? [];
-  const {
-    error,
-    pending,
-    submit
-  } = useDialogSubmit(useCsvImport(), close);
-
-  // The mapped import disables the selector while its check or confirmation runs; switching modes would discard its locked import.
-  const modeSelect = (disabled = false) => (
-    <label>
-      Import
-      <Select value={importMode} disabled={disabled} onChange={event => setImportMode(event.target.value as ImportMode)}>
-        <option value="mapped">Transaction history (map any CSV)</option>
-        <option value="transactions">Transactions with stable IDs</option>
-        <option value="balances">Investment / account balances</option>
-      </Select>
-    </label>
-  );
-
-  if (importMode === "mapped") {
-    return (
-      <MappedCsvImport close={close} modeSelect={modeSelect} onProgress={onProgress} />
-    );
-  }
-
-  return (
-    <form
-      onSubmit={event => submit(event, data => ({
-        mode: importMode as Exclude<ImportMode, "mapped">,
-        accountId: String(data.get("account_id")),
-        file: data.get("file") as File
-      }))}
-      className={ui["form"]}
-    >
-      <p className={ui["form-description"]}>Import balances or booked transactions into a manual account. Files must use the format below; map bank exports to these columns first.</p>
-      {modeSelect()}
-      <label>
-        Target account
-        <Select name="account_id" required disabled={accountsPending}>
-          <option value="">{targetPlaceholder(accounts.status, accountsFailure !== null)}</option>
-          {manualAccounts.map(account => (
-            <option key={account.id} value={account.id}>
-              {account.name} ({account.currency})
-            </option>
-          ))}
-        </Select>
-      </label>
-      {accountsFailure && <InlineFailure failure={accountsFailure} subject="Your accounts" />}
-      <label>
-        CSV file
-        <input
-          name="file"
-          type="file"
-          accept=".csv,text/csv"
-          required
-        />
-      </label>
-      <div className={styles["csv-example"]}>
-        <span>Expected format · comma or semicolon</span>
-        <pre>{importMode === "balances" ? "date;balance;currency\n2026-11-15;12500.00;EUR" : "id;date;amount;currency;counterparty;description\nentry-001;2026-11-15;-12.50;EUR;Supermarket;Purchase"}</pre>
-      </div>
-      <p className={ui["form-hint"]}>{importMode === "balances" ? "Each balance becomes the account balance at the end of its date; the difference is booked as an adjustment." : "IDs must be stable and unique within an account. Reimporting updates existing transactions, and they count toward the account balance."}</p>
-      <FormError failure={error} />
-      <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={pending || !manualAccounts.length}>
-        Import CSV <ArrowDownToLine size={16} />
-      </button>
-    </form>
-  );
-}
-
-function targetPlaceholder(status: string, failed: boolean) {
-  if (failed) {
-    return "Accounts unavailable";
-  }
-
-  return status === "pending" ? "Loading accounts …" : "Select account";
 }

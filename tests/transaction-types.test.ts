@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import assert from "node:assert/strict";
 import { test, type TestContext } from "node:test";
 import { Temporal } from "temporal-polyfill";
@@ -11,7 +12,7 @@ import { saveAccountSync } from "../src/features/banking/server/account-sync-ser
 import { pairTransfersInEnvironment } from "../src/features/transactions/server/transfer-repository";
 import { unambiguousPairs } from "../src/features/transactions/server/transfer-pairing";
 import { transferOptions, updateTransactionType } from "../src/features/transactions/server/transaction-service";
-import { importTransactions } from "../src/features/imports/server/import-service";
+import { importMappedRows } from "../src/features/imports/server/mapped-import-service";
 import { readCashFlow } from "../src/features/reports/server/cash-flow-query";
 import { readTransactionPage } from "../src/features/transactions/server/transaction-list-query";
 import { dashboardFilters } from "../src/server/http/dashboard-filters";
@@ -139,6 +140,30 @@ async function linked(db: Database, first: string, second: string) {
   const [one, two] = [await stored(db, first), await stored(db, second)];
 
   return one.transfer_id !== null && one.transfer_id === two.transfer_id;
+}
+
+
+/** Imports one synthetic cash withdrawal row into the manual account "cash" through the mapped CSV import. */
+async function importCashRow(date: string, amount: string) {
+  await importMappedRows({
+    import_id: randomUUID(),
+    rows: [{
+      line: 2,
+      date,
+      amount,
+      currency: "EUR",
+      payee: "ATM",
+      description: "Cash withdrawal",
+      category: null,
+      source: "",
+      occurrence: 0
+    }],
+    targets: [{
+      source: "",
+      account_id: "cash"
+    }],
+    confirm: true
+  });
 }
 
 test("only bookings whose two sides each have exactly one candidate are paired", () => {
@@ -344,10 +369,7 @@ test("a CSV import pairs its bookings with an unpaired transfer of a synced acco
     kind: "savings"
   });
   await sync(db, "checking", [entry("withdrawal", "2026-09-01", -20000, true)]);
-  await importTransactions({
-    account_id: "cash",
-    csv: "id,date,amount,currency,counterparty,description\ncash-1,2026-09-02,200.00,EUR,ATM,Cash withdrawal"
-  });
+  await importCashRow("2026-09-02", "200.00");
 
   const cash = await db.select().from(schema.transactions).where(eq(schema.transactions.account_id, "cash")).get();
 
@@ -499,10 +521,7 @@ test("choosing no counterpart marks the transfer as manually unlinked, so neithe
 
   await sync(db, "checking", [entry("out", "2026-09-01", -10000)]);
   await sync(db, "savings", [entry("in", "2026-09-02", 10000)]);
-  await importTransactions({
-    account_id: "cash",
-    csv: "id,date,amount,currency,counterparty,description\ncash-1,2026-09-01,100.00,EUR,ATM,Cash withdrawal"
-  });
+  await importCashRow("2026-09-01", "100.00");
 
   assert.equal((await stored(db, "out")).transfer_id, null);
   assert.equal((await db.select().from(schema.transactions).where(eq(schema.transactions.account_id, "cash")).get())?.transfer_id, null);
@@ -538,37 +557,6 @@ test("a booking Ufer created on a manual account keeps its source link or is rem
   await saveTransfer(created.id, null);
   assert.equal((await onFlat()).length, 0);
   assert.deepEqual([(await stored(db, "deposit")).type, (await stored(db, "deposit")).transfer_id], ["transfer", null]);
-});
-
-test("a migrated transfer keeps its type when a CSV reimport carries no transfer signal", async context => {
-  const db = await isolatedDatabase(context);
-  const csv = "id,date,amount,currency,counterparty,description\nsaving-1,2026-09-03,-500.00,EUR,Savings,Monthly saving";
-
-  await db.insert(schema.accounts).values({
-    id: "cash",
-    environment: "SANDBOX",
-    name: "Synthetic cash",
-    institution: "Wallet",
-    kind: "savings"
-  });
-  await importTransactions({
-    account_id: "cash",
-    csv
-  });
-  // The changeset turns a rule-categorized Transfer booking into an automatic transfer.
-  await db.update(schema.transactions).set({
-    type: "transfer",
-    category_id: null
-  }).where(eq(schema.transactions.account_id, "cash"));
-  await importTransactions({
-    account_id: "cash",
-    csv
-  });
-
-  const reimported = await db.select().from(schema.transactions).where(eq(schema.transactions.account_id, "cash")).get();
-
-  assert.deepEqual([reimported?.type, reimported?.type_source], ["transfer", "auto"]);
-  assert.equal((await readCashFlow(monthPeriod(Temporal.PlainYearMonth.from("2026-09")), "EUR")).expenses, 0);
 });
 
 test("a redelivered booking whose sign changed releases its link instead of failing the sync", async context => {
