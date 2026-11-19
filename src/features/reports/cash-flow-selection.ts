@@ -1,48 +1,122 @@
 import { groupByCategory, type CategoryGroup } from "./category-groups";
-import type { CashFlow } from "./types";
+import type { CashFlow, CategoryAmount } from "./types";
 
-export type CashFlowDirection = "income" | "expenses";
-
-export const flowPresentation: Record<CashFlowDirection, {
-  label: string;
-  breakdownLabel: string;
-  empty: string;
-}> = {
-  income: {
-    label: "Income",
-    breakdownLabel: "Income by category",
-    empty: "No income this month."
-  },
-  expenses: {
-    label: "Expenses",
-    breakdownLabel: "Spending by category",
-    empty: "No expenses this month."
-  }
+/** Income, expenses and their categories for a month or a period, with the derived net flow and savings rate. */
+export type CashFlowSummary = {
+  income: number;
+  expenses: number;
+  /** Income minus expenses in minor units; negative when expenses exceed income. */
+  net: number;
+  /** Net divided by income, or null without positive income, where a rate would be meaningless. */
+  savingsRate: number | null;
+  incomeGroups: CategoryGroup[];
+  expenseGroups: CategoryGroup[];
 };
 
-export type CashFlowSelection = {
-  key: string;
+/** The month whose column is hovered, focused or tapped in the chart. */
+export type CashFlowSelection = CashFlowSummary & {
   month: string;
-  flow: CashFlowDirection;
-  total: number;
-  groups: CategoryGroup[];
 };
 
-/** A selected bar uses the same monthly breakdown and total as the chart, rather than the page's whole-period spending. */
-export function selectedCashFlow(data: CashFlow, key: string | null): CashFlowSelection | null {
-  const month = data.trend.find(item => key === `${item.month}-income` || key === `${item.month}-expenses`);
+/** Net flow and savings rate of the given totals; integer minor units stay exact and only the rate is a fraction. */
+export function netFlow(income: number, expenses: number) {
+  const net = income - expenses;
 
-  if (!month || !key) {
+  return {
+    net,
+    savingsRate: income > 0 ? net / income : null
+  };
+}
+
+function summarize(income: number, expenses: number, incomeBreakdown: CategoryAmount[], expenseBreakdown: CategoryAmount[]): CashFlowSummary {
+  return {
+    income,
+    expenses,
+    ...netFlow(income, expenses),
+    incomeGroups: groupByCategory(incomeBreakdown),
+    expenseGroups: groupByCategory(expenseBreakdown)
+  };
+}
+
+/** The whole period's figures, shown while no month is selected. */
+export function periodCashFlow(data: CashFlow): CashFlowSummary {
+  return summarize(data.income, data.expenses, data.incomeBreakdown, data.expenseBreakdown);
+}
+
+/** Net flow and savings rate across the given trend months, such as the months visible in the chart. */
+export function trendCashFlow(trend: CashFlow["trend"]) {
+  const income = trend.reduce((total, item) => total + item.income, 0);
+  const expenses = trend.reduce((total, item) => total + item.expenses, 0);
+
+  return netFlow(income, expenses);
+}
+
+/**
+ * The net at the plot's left edge: halfway between the month before the first visible one and that first month, as on the line between their column centres. That month is a hidden trend month when fewer months fit, otherwise the month before the trend.
+ */
+export function edgeNet(data: CashFlow, visibleCount: number) {
+  const hiddenCount = data.trend.length - visibleCount;
+  const previous = hiddenCount > 0 ? data.trend[hiddenCount - 1] : data.leadIn;
+  const first = data.trend[hiddenCount];
+
+  if (!first) {
     return null;
   }
 
-  const flow = key === `${month.month}-income` ? "income" : "expenses";
+  return (netFlow(previous.income, previous.expenses).net + netFlow(first.income, first.expenses).net) / 2;
+}
+
+/** Whether the chart has anything to draw: a visible month with a flow, or a net entering from the left edge out of an earlier month. */
+export function hasCashFlowToDraw(visible: CashFlow["trend"], leftEdgeNet: number | null) {
+  const visibleFlow = visible.some(item => item.income !== 0 || item.expenses !== 0);
+
+  return visibleFlow || (leftEdgeNet !== null && leftEdgeNet !== 0);
+}
+
+/** A selected month uses the same monthly totals and breakdowns as its chart column, rather than the page's whole period. */
+export function selectedCashFlow(data: CashFlow, month: string | null): CashFlowSelection | null {
+  const item = data.trend.find(entry => entry.month === month);
+
+  if (!item) {
+    return null;
+  }
 
   return {
-    key,
-    month: month.month,
-    flow,
-    total: month[flow],
-    groups: groupByCategory(flow === "income" ? month.incomeBreakdown : month.expenseBreakdown)
+    month: item.month,
+    ...summarize(item.income, item.expenses, item.incomeBreakdown, item.expenseBreakdown)
+  };
+}
+
+/** Whether a rate is shown with a minus sign; a rate that rounds to zero is not. */
+export function isNegativeRate(rate: number | null) {
+  return rate !== null && formatSavingsRate(rate).startsWith("-");
+}
+
+const rateFormat = new Intl.NumberFormat("en-GB", {
+  style: "percent",
+  maximumFractionDigits: 0
+});
+
+/** "18%", "-25%", or an en dash when there is no rate; a rate that rounds to zero shows "0%" rather than "-0%". */
+export function formatSavingsRate(rate: number | null) {
+  if (rate === null) {
+    return "–";
+  }
+
+  const formatted = rateFormat.format(rate);
+
+  return formatted === rateFormat.format(-0) ? rateFormat.format(0) : formatted;
+}
+
+/**
+ * Category rows each column of the panel reserves: the most any month of the trend or the period needs, up to the row limit. The panel's height then stays the same for every selection without reserving rows no selection can fill.
+ */
+export function reservedCategoryRows(data: CashFlow) {
+  const sources = [data, ...data.trend];
+  const rows = (breakdown: (source: typeof sources[number]) => CategoryAmount[]) => Math.max(1, ...sources.map(source => groupByCategory(breakdown(source)).length));
+
+  return {
+    income: rows(source => source.incomeBreakdown),
+    expenses: rows(source => source.expenseBreakdown)
   };
 }

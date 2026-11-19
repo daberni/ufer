@@ -4,7 +4,8 @@ import { useCallback, useMemo } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useAppStore, useAppStoreApi } from "./app-store";
 import { accountHref, viewQuery, isPeriodAware, periodScope, viewFromPathname, viewHref, viewPaths, withQueryChanges, type Section, type ViewQuery, type ViewQueryChanges, type View } from "./app-location";
-import type { Period } from "@/lib/period";
+import { monthPeriod, type Period } from "@/lib/period";
+import { Temporal } from "temporal-polyfill";
 
 /*
  * Typed access to the dashboard URL. Hooks read single parameters for rendering; setters are plain functions that read window.location when called, so components that only change the URL do not subscribe to it. Next.js integrates pushState and replaceState into its router, so the hooks follow these writes as well as links and Back/Forward.
@@ -93,6 +94,16 @@ export function useAccountTransactionsHref() {
   }) => withQueryChanges(viewPaths.transactions, scope, {
     account: account.id,
     currency: account.currency
+  }), [scope]);
+}
+
+/** The transactions of one month ("YYYY-MM") in the current currency, as when choosing that month in the period controls. */
+export function useMonthTransactionsHref() {
+  const scope = usePeriodScope();
+
+  return useCallback((month: string) => withQueryChanges(viewPaths.transactions, scope, {
+    period: monthPeriod(Temporal.PlainYearMonth.from(month)),
+    page: 1
   }), [scope]);
 }
 

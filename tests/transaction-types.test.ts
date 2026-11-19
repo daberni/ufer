@@ -460,7 +460,7 @@ test("detected transfers are categorized by rules like any other booking and the
   const cashFlow = await readCashFlow(monthPeriod(Temporal.PlainYearMonth.from("2026-09")), "EUR");
 
   assert.equal(cashFlow.expenses, 4500);
-  assert.deepEqual(cashFlow.breakdown.map(item => [item.categoryId, item.amount]), [[null, 4500]]);
+  assert.deepEqual(cashFlow.expenseBreakdown.map(item => [item.categoryId, item.amount]), [[null, 4500]]);
 });
 
 test("leaving the transfer type on a booking Ufer created on a manual account removes it and corrects its source", async context => {
