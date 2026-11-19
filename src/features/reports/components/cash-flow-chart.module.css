@@ -166,23 +166,26 @@
   background: var(--chart-expense);
 }
 /* Category segments stack outward from the zero line. */
+/* Each bar stops 2px short of the zero line, so the line always separates a month's income from its expenses; the clipped edge stays part of the bar's proportional height. */
 .bar[data-direction="up"] {
   flex-direction: column-reverse;
   border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  clip-path: inset(0 0 2px);
 }
 .bar[data-direction="down"] {
   flex-direction: column;
   border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  clip-path: inset(2px 0 0);
 }
 .bar > span {
   flex: none;
 }
-/* A hairline in the panel color separates stacked category segments. */
+/* Segments only show in the selected column, so a 2px gap in its highlight colour separates them. The gap is drawn over the start of each following segment, which keeps every segment's height proportional to its amount. */
 .bar[data-direction="up"] > span + span {
-  box-shadow: inset 0 -1px 0 var(--surface);
+  box-shadow: inset 0 -2px 0 var(--chart-track);
 }
 .bar[data-direction="down"] > span + span {
-  box-shadow: inset 0 1px 0 var(--surface);
+  box-shadow: inset 0 2px 0 var(--chart-track);
 }
 .net-point {
   position: absolute;
