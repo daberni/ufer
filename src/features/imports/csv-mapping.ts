@@ -59,7 +59,7 @@ export type MappedRow = {
   source: string;
 };
 
-/** A mapped row with its occurrence: how many rows for the same target account with the same date, amount, stated currency and normalized texts precede it. It keeps genuine repeats distinct, and identical rows get the same set of references however the export orders them or which other accounts it contains. */
+/** A mapped row with its occurrence: how many rows for the same target account with the same date, amount and normalized texts precede it, counting only rows whose currency the target accepts. It keeps genuine repeats distinct, and identical rows get the same set of references however the export orders them or which other accounts it contains. */
 export type ImportRow = MappedRow & {
   occurrence: number;
 };
@@ -478,12 +478,23 @@ export function mapRows(rows: string[][], mapping: CsvMapping, settings: CsvSett
   };
 }
 
-/** Numbers identical rows per target account; `targetOf` resolves a row's source account to its target. */
-export function assignOccurrences(rows: MappedRow[], targetOf: (source: string) => string): ImportRow[] {
+/** Numbers identical rows per target account; `targetOf` resolves a row's source account to its target and `currencyOf` to that target's currency, when known. */
+export function assignOccurrences(rows: MappedRow[], targetOf: (source: string) => string, currencyOf: (source: string) => string | null = () => null): ImportRow[] {
   const seen = new Map<string, number>();
 
   return rows.map(row => {
-    const identity = [targetOf(row.source), row.date, canonicalAmount(row.amount), row.currency ?? "", normalizeText(row.payee), normalizeText(row.description)].join("\u0000");
+    const accountCurrency = currencyOf(row.source);
+
+    // The server rejects such a row, so it must not shift the occurrences, and thereby the references, of the accepted rows.
+    if (accountCurrency && !currencyAllows(row.currency, accountCurrency)) {
+      return {
+        ...row,
+        occurrence: 0
+      };
+    }
+
+    // Matches the server's reference identity, which ignores the stated currency.
+    const identity = [targetOf(row.source), row.date, canonicalAmount(row.amount), normalizeText(row.payee), normalizeText(row.description)].join("\u0000");
     const occurrence = seen.get(identity) ?? 0;
 
     seen.set(identity, occurrence + 1);

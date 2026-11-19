@@ -202,7 +202,11 @@ export function MappedCsvImport({
       importId,
       rows: mapped.rows,
       rowErrors: mapped.errors,
-      targets: resolvedTargets,
+      // An existing account's own currency decides which rows it accepts.
+      targets: resolvedTargets.map(target => target.accountId === "new" ? target : {
+        ...target,
+        currency: accounts.data?.find(account => account.id === target.accountId)?.currency ?? ""
+      }),
       confirm,
       onConfirmStart: () => setConfigurationLocked(true)
     }, {

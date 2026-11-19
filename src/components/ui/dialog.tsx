@@ -53,14 +53,17 @@ export function Dialog({
     const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const dialog = dialogRef.current;
 
-    // Escape closes the native dialog first; the opener learns about it through the close event. The event is queued, so one left over from a
-    // remount, as in development's strict mode, arrives while the dialog is open again and is ignored.
+    // A close event is queued, so one left over from a remount, as in development's strict mode, arrives while the dialog is open again and is
+    // ignored.
+    // Set once an Escape dismissal was approved, so the close event that may follow does not ask again.
+    let dismissed = false;
+
     function closedByBrowser() {
-      if (dialog?.open) {
+      if (dialog?.open || dismissed) {
         return;
       }
 
-      // Browsers may close a dialog despite a cancelled Escape; a guarded dialog opens again.
+      // Browsers may close a dialog without a cancel event, for example on a repeated Escape; a guarded dialog then opens again.
       if (canCloseRef.current()) {
         onCloseRef.current();
       } else {
@@ -68,9 +71,13 @@ export function Dialog({
       }
     }
 
+    // Escape is handled here so the guard is asked once per dismissal.
     function cancelledByBrowser(event: Event) {
-      if (!canCloseRef.current()) {
-        event.preventDefault();
+      event.preventDefault();
+
+      if (canCloseRef.current()) {
+        dismissed = true;
+        onCloseRef.current();
       }
     }
 

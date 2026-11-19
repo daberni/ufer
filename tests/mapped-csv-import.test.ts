@@ -981,7 +981,7 @@ test("a bank entry repeated in one response adopts only one CSV-imported row", a
   assert.deepEqual(rows.map(row => row.provider_reference.startsWith("csv:") ? "csv" : row.provider_reference).sort(), ["bank:bistro", "csv"]);
 });
 
-test("rows that differ only in their stated currency count occurrences separately", () => {
+test("a row the target rejects for its currency does not shift the occurrences of accepted rows", () => {
   const row = {
     line: 2,
     date: "2026-03-01",
@@ -998,9 +998,35 @@ test("rows that differ only in their stated currency count occurrences separatel
     ...row,
     line: 3,
     currency: "USD"
-  }], () => "account");
+  }], () => "account", () => "USD");
 
-  assert.deepEqual(rows.map(item => item.occurrence), [0, 0]);
+  assert.equal(rows[1].occurrence, 0);
+});
+
+test("identical rows stated as USD, $ and blank import as distinct transactions into a USD account", async context => {
+  const db = await isolatedDatabase(context);
+  const rows = assignOccurrences([mappedRow(2, "2024-01-01", "-10.00", "Shop", {
+    currency: "USD"
+  }), mappedRow(3, "2024-01-01", "-10.00", "Shop", {
+    currency: "$"
+  }), mappedRow(4, "2024-01-01", "-10.00", "Shop", {
+    currency: null
+  })], () => "new:", () => "USD");
+  const confirmed = await importMappedRows({
+    import_id: importId,
+    rows,
+    targets: [{
+      source: "",
+      new_account: {
+        name: "Dollar account",
+        currency: "USD"
+      }
+    }],
+    confirm: true
+  }, now);
+
+  assert.equal(confirmed.newRows, 3);
+  assert.equal((await db.select().from(schema.transactions)).length, 3);
 });
 
 test("space and apostrophe thousands separators must form groups of three", () => {

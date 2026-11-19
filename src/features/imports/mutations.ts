@@ -46,6 +46,7 @@ export type MappedTarget = {
   /** An existing account, or "new" to create a manual account named `name` on confirmation. */
   accountId: string;
   name: string;
+  /** The new account's currency, or the existing account's when sent for an import; empty when unknown. */
   currency: string;
 };
 
@@ -113,7 +114,8 @@ export function useMappedImport() {
 
         return target?.accountId === "new" ? `new:${source}` : target?.accountId ?? "";
       };
-      const numbered = assignOccurrences(rows, targetOf);
+      const currencyOf = (source: string) => targets.find(item => item.source === source)?.currency || null;
+      const numbered = assignOccurrences(rows, targetOf, currencyOf);
 
       if (confirm) {
         onConfirmStart?.();
