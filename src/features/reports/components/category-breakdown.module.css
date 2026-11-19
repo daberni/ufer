@@ -1,3 +1,42 @@
 .rows {
   margin-top: var(--space-6);
 }
+/* The reserved and shown rows share one grid cell; the taller of the two sets the height. */
+.rows-frame {
+  display: grid;
+}
+.reserved-rows,
+.shown-rows {
+  grid-area: 1 / 1;
+  min-width: 0;
+}
+/* Opacity also hides the skeleton shapes, which stay visible inside a hidden parent. */
+.reserved-rows {
+  visibility: hidden;
+  opacity: 0;
+}
+/* Heading and month stay on one line for every selection, so the panel's height never depends on the title's length. */
+.heading {
+  flex-wrap: nowrap;
+  gap: var(--space-2);
+}
+.heading h2 {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.heading > span {
+  flex-shrink: 0;
+}
+/* On phones the month moves below the heading, which then has the panel's full width. */
+@media (--mobile) {
+  .heading {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-1);
+  }
+  .heading h2 {
+    max-width: 100%;
+  }
+}

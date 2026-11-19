@@ -55,7 +55,13 @@ async function showReports(context: TestContext) {
     value: window.Node
   });
   Object.assign(globalThis, {
-    self: window
+    self: window,
+    // jsdom lays nothing out, so the chart keeps its narrowest month count.
+    ResizeObserver: class {
+      observe() {}
+
+      disconnect() {}
+    }
   });
   context.after(() => {
     if (previousNode) {
@@ -65,6 +71,7 @@ async function showReports(context: TestContext) {
     }
 
     Reflect.deleteProperty(globalThis, "self");
+    Reflect.deleteProperty(globalThis, "ResizeObserver");
   });
   const { OverviewView } = await import("../src/features/dashboard/components/overview-view");
   const props = {
@@ -138,6 +145,20 @@ function pointerOver(target: Element, pointerType: "mouse" | "touch") {
 
   Object.defineProperty(event, "pointerType", {
     value: pointerType
+  });
+  fireEvent(target, event);
+}
+
+function mouseOut(target: Element, next: Element) {
+  const event = new window.Event("pointerout", {
+    bubbles: true
+  });
+
+  Object.defineProperty(event, "pointerType", {
+    value: "mouse"
+  });
+  Object.defineProperty(event, "relatedTarget", {
+    value: next
   });
   fireEvent(target, event);
 }
@@ -225,4 +246,29 @@ test("a pointer-selected breakdown survives blur inside the report while keyboar
     key: "Tab"
   });
   assert.ok(within(screen.panel()).getByText("Food"));
+});
+
+test("moving the mouse off a bar ends its hover even inside the reports, and returns to a tapped selection", async context => {
+  const screen = await showReports(context);
+  const expenses = screen.getByRole("button", {
+    name: /June 2026 expenses:/
+  });
+  const income = screen.getByRole("button", {
+    name: /July 2026 income:/
+  });
+
+  pointerOver(expenses, "mouse");
+  assert.ok(within(screen.panel()).getByText("Rent"));
+  mouseOut(expenses, screen.panel());
+  assert.ok(within(screen.panel()).getByText("Food"));
+  assert.equal(within(screen.panel()).queryByText("Rent"), null);
+
+  fireEvent.click(income);
+  pointerOver(expenses, "mouse");
+  assert.ok(within(screen.panel()).getByText("Rent"));
+  mouseOut(expenses, screen.panel());
+  assert.ok(within(screen.panel()).getByRole("heading", {
+    name: "Income by category"
+  }));
+  assert.ok(within(screen.panel()).getByText("July 2026"));
 });
