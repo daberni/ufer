@@ -237,7 +237,7 @@ function RuleForm({
       <p className={ui["form-hint"]}>Matches the payee and description without case sensitivity. The first matching rule in the list wins; new rules are added at the end.</p>
       <p className={ui["form-hint"]} role="status" aria-busy={impact.pending}>{impact.text}</p>
       <ManualAdoptionOption adoption={adoption} />
-      <p className={ui["form-hint"]}>Existing transactions stay unchanged until you apply the rules. Other manual assignments are never changed.</p>
+      <p className={ui["form-hint"]}>{adoption.checked ? "Saving also lets this rule decide the chosen manual assignments; other transactions stay unchanged until you apply the rules." : "Existing transactions stay unchanged until you apply the rules. Manual assignments are never changed."}</p>
       <FormError failure={error} />
       <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={pending || !categorySelected || (!rule && !impact.previewId)}>
         {rule ? "Save changes" : "Create rule"} <Sparkles size={16} />
