@@ -28,7 +28,8 @@ export function useSaveValuation(accountId: string) {
 
 
 // Listed transactions carry their account's name; the type decides how an account counts toward net worth and cash flow.
-const editKeys = [queryKeys.accounts(), queryKeys.transactions.all(), queryKeys.reports.netWorth(), queryKeys.reports.cashFlow()];
+// Rule summaries show a transfer rule's account name.
+const editKeys = [queryKeys.accounts(), queryKeys.transactions.all(), queryKeys.reports.netWorth(), queryKeys.reports.cashFlow(), queryKeys.rules()];
 
 export function useEditAccount(accountId: string) {
   const queryClient = useQueryClient();

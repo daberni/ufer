@@ -239,7 +239,12 @@ function RuleForm({
           </p>
         )}
       </div>
-      <RuleTypeFields type={type} onTypeChange={setType} accountId={rule?.transfer_account_id ?? ""} />
+      <RuleTypeFields
+        type={type}
+        onTypeChange={setType}
+        accountId={rule?.transfer_account_id ?? ""}
+        accountName={rule?.transfer_account_name ?? null}
+      />
       {addingCategory && <CategoryDialog close={() => setAddingCategory(false)} onSaved={setChosenCategoryId} />}
       <p className={ui["form-hint"]}>Matches the payee and description without case sensitivity. The first matching rule in the list wins; new rules are added at the end.</p>
       <p className={ui["form-hint"]} role="status" aria-busy={impact.pending}>{impact.text}</p>
@@ -262,14 +267,19 @@ function isRuleType(value: string): value is RuleTransactionType {
 function RuleTypeFields({
   type,
   onTypeChange,
-  accountId
+  accountId,
+  accountName
 }: {
   type: RuleTransactionType | "";
   onTypeChange: (type: RuleTransactionType | "") => void;
   accountId: string;
+  /** The stored account's name from the rule, shown until the account list includes it, so loading never drops the stored choice. */
+  accountName: string | null;
 }) {
   const accounts = useAccounts();
   const [chosenAccountId, setChosenAccountId] = useState(accountId);
+  const options = activeAccounts(accounts.data ?? []);
+  const storedMissing = accountId !== "" && !options.some(account => account.id === accountId);
 
   return (
     <>
@@ -286,7 +296,8 @@ function RuleTypeFields({
             Account
             <Select name="transfer_account_id" value={chosenAccountId} onChange={event => setChosenAccountId(event.target.value)}>
               <option value="">Any or untracked account</option>
-              {activeAccounts(accounts.data ?? []).map(account => <option key={account.id} value={account.id}>{account.name}</option>)}
+              {storedMissing && <option value={accountId}>{accountName ?? accountId}</option>}
+              {options.map(account => <option key={account.id} value={account.id}>{account.name}</option>)}
             </Select>
           </label>
         )}

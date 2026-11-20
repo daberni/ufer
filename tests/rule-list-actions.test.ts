@@ -311,3 +311,44 @@ test("a rule can set the transfer type and its account, which the form sends wit
   assert.equal(body?.transaction_type, "transfer");
   assert.equal(body?.transfer_account_id, "synthetic-savings");
 });
+
+test("editing a transfer rule keeps its stored account while the account list is still loading", async context => {
+  const {
+    queryClient
+  } = browser(context);
+
+  modalDialogs();
+  queryClient.setQueryData(queryKeys.categories(), [{
+    id: "savings",
+    name: "Savings",
+    color: "#638777",
+    icon: null
+  }]);
+  const { RuleDialog } = await import("../src/features/categorization/components/create-rule-form");
+  const screen = render(withQueryClient(queryClient, createElement(RuleDialog, {
+    rule: {
+      id: "plan",
+      name: "Savings plan",
+      pattern: "SAVINGS PLAN",
+      mode: "keyword",
+      category_id: "savings",
+      category_name: "Savings",
+      priority: 100,
+      enabled: 1,
+      category_color: "#638777",
+      category_icon: null,
+      transaction_type: "transfer",
+      transfer_account_id: "synthetic-savings",
+      transfer_account_name: "Synthetic savings"
+    },
+    close: () => {}
+  })));
+  const account = screen.getByRole("combobox", {
+    name: "Account"
+  }) as HTMLSelectElement;
+
+  assert.equal(account.value, "synthetic-savings");
+  assert.ok(screen.getByRole("option", {
+    name: "Synthetic savings"
+  }));
+});
