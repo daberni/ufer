@@ -353,6 +353,8 @@ function booking(overrides: Partial<Transaction>): Transaction {
     type_source: "auto",
     type_rule_id: null,
     manual_account: false,
+    account_archived: false,
+    counterpart_archived: false,
     entered: false,
     follows_import: false,
     created_counterpart: false,

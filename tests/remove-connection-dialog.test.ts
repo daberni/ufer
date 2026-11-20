@@ -17,8 +17,10 @@ const connection = {
 
 const linkedAccount = {
   id: "synthetic-bank-account",
+  name: "Synthetic unsettled account",
   provider: "enable_banking",
-  requisition_id: "synthetic-connection"
+  requisition_id: "synthetic-connection",
+  balance_minor: 4200
 } as Account;
 
 test("removal stays disabled until the dialog knows how many linked accounts it keeps, and a failed load offers a retry", async context => {
@@ -91,11 +93,13 @@ test("a failed revocation stays in the open removal dialog and the same action c
   };
 
   const { RemoveConnectionDialog } = await import("../src/features/banking/components/remove-connection-form");
+  const removals: unknown[] = [];
   const screen = render(withQueryClient(queryClient, createElement(RemoveConnectionDialog, {
     selectedConnection: connection,
     close: () => {
       closes++;
-    }
+    },
+    onRemoved: removal => removals.push(removal)
   })));
   const remove = () => screen.getByRole("button", {
     name: "Remove connection"
@@ -124,10 +128,19 @@ test("a failed revocation stays in the open removal dialog and the same action c
   assert.match(screen.getByRole("alert").textContent ?? "", /synthetic-removal-trace/);
   assert.equal(remove().hasAttribute("disabled"), false);
 
+  assert.equal(requests("banking/connections/synthetic-connection")[0].url.searchParams.get("accounts"), "keep");
+  // The hint only matters when archiving is chosen.
+  assert.equal(screen.queryByText(/Only accounts with a balance of 0 are archived/), null);
+  fireEvent.click(screen.getByRole("checkbox", {
+    name: /Archive these accounts/
+  }));
+  assert.match(screen.getByText(/Only accounts with a balance of 0 are archived/).textContent ?? "", /Synthetic unsettled account/);
   fireEvent.click(remove());
   await wait(0);
+  assert.equal(requests("banking/connections/synthetic-connection")[1].url.searchParams.get("accounts"), "archive");
   await respond(requests("banking/connections/synthetic-connection")[1], Response.json({
-    retainedAccounts: 1
+    retainedAccounts: 1,
+    notArchived: ["Synthetic unsettled account"]
   }));
   await respond(requests("accounts")[2], Response.json([{
     ...linkedAccount,
@@ -135,4 +148,8 @@ test("a failed revocation stays in the open removal dialog and the same action c
   }]));
   await wait(0);
   assert.equal(closes, 1);
+  assert.deepEqual(removals, [{
+    retainedAccounts: 1,
+    notArchived: ["Synthetic unsettled account"]
+  }]);
 });

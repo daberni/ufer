@@ -11,7 +11,7 @@ import { Empty } from "@/components/ui/empty-state";
 import { TransactionRuleProvider } from "./transaction-rule-provider";
 import { TransactionList, TransactionListSkeleton } from "@/features/transactions/components/transaction-list";
 import { ManualTransactionDialog } from "@/features/transactions/components/manual-transaction-dialog";
-import { useAccounts } from "@/features/accounts/queries";
+import { activeAccounts, useAccounts } from "@/features/accounts/queries";
 import { CsvFileDialog } from "@/features/imports/components/csv-file-dialog";
 import { setAccountFilter, setCategoryFilter, setTypeFilter, setPage, setSearch, useAccountFilter, useCategoryFilter, useTypeFilter, useChangeView, useSearchFilter } from "@/client/use-app-url";
 import { Select } from "@/components/ui/select";
@@ -82,7 +82,7 @@ export function TransactionsPanel(props: Props) {
   const [entryOpen, setEntryOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const changeView = useChangeView();
-  const manualAccounts = (useAccounts().data ?? []).filter(account => account.provider === "manual");
+  const manualAccounts = activeAccounts(useAccounts().data ?? []).filter(account => account.provider === "manual");
 
   return (
     <section className={clsx(ui["panel"], styles["transaction-panel"])}>

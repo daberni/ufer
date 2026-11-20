@@ -2,13 +2,14 @@ import assert from "node:assert/strict";
 import { z } from "zod";
 import { test, type TestContext } from "node:test";
 import { Temporal } from "temporal-polyfill";
-import { createClient } from "@libsql/client";
+import { createClient, type InArgs, type InStatement } from "@libsql/client";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/libsql";
 import type { Database } from "../src/server/database/connection";
 import { initializeDatabase } from "../src/server/database/migrations";
 import * as schema from "../src/server/database/schema";
 import { listAccounts } from "../src/features/accounts/server/account-queries";
+import { archiveAccount, restoreAccount } from "../src/features/accounts/server/account-service";
 import { insertRule } from "../src/features/categorization/server/rule-repository";
 import { saveMappedEntries } from "../src/features/imports/server/mapped-import-repository";
 import { ValidationError } from "../src/lib/errors";
@@ -17,7 +18,7 @@ import { hideTransaction } from "../src/features/transactions/server/transaction
 import { findDuplicates } from "../src/features/imports/server/duplicate-matching";
 import { saveAccountSync } from "../src/features/banking/server/account-sync-service";
 import { startSyncRun } from "../src/features/banking/server/sync-repository";
-import { accountLabel, categoryValues, defaultCategorySelection, defaultTargetChoice, importKey, newAccountChoice, needsCategoryReview, prepareImport, type TargetChoice } from "../src/features/imports/import-plan";
+import { accountLabel, categoryValues, defaultCategorySelection, defaultTargetChoice, importKey, newAccountChoice, prepareImport, type TargetChoice } from "../src/features/imports/import-plan";
 import { assignOccurrences, batchRows, currencyAllows, maxCategoryChoicesPerRequest, duplicateIdErrors, importIdFor, maxTargetsPerRequest, readCsvTable, emptyMapping, mappingProblem, normalizeText, parseCsvRecords, pruneConsumed, decodeCsv, detectDateFormat, detectDecimal, detectDelimiter, mapRows, parseAmount, parseCsv, parseDate, suggestMapping, type CsvSettings, type DateFormat, type ImportRow } from "../src/features/imports/csv-mapping";
 
 const now = Temporal.Instant.from("2026-06-30T12:00:00Z");
@@ -1381,10 +1382,10 @@ test("an unchosen source and an unreadable balance block the check", () => {
     balance: "twelve"
   }]]), [], new Map(), ".");
 
-  assert.deepEqual(prepared.problems.map(problem => [problem.source, problem.field]), [["Wallet", "balance"], ["Card", "target"]]);
+  assert.deepEqual(prepared.problems.map(problem => [problem.field === "category" ? problem.value : problem.source, problem.field]), [["Wallet", "balance"], ["Card", "target"]]);
 });
 
-test("category values match existing categories, create the rest, and leave multi-tag values to review", () => {
+test("category values preselect only an existing category of the same name; the rest start unset", () => {
   const rows = [mappedRow(2, "2024-07-01", "-1.00", "A", {
     category: "synthetic FOOD"
   }), mappedRow(3, "2024-07-02", "-1.00", "B", {
@@ -1401,15 +1402,53 @@ test("category values match existing categories, create the rest, and leave mult
   const selections = new Map(values.map(value => [value.value, defaultCategorySelection(value)]));
 
   assert.deepEqual(values.map(value => [value.value, value.rows, value.multiTag]), [["Hobby", 2, false], ["Food, Travel", 1, true], ["synthetic FOOD", 1, false]]);
-  assert.deepEqual([...selections.values()].map(selection => [selection.action, selection.categoryId]), [["create", undefined], ["rules", undefined], ["existing", "synthetic-food"]]);
-  assert.deepEqual(rows.filter(row => needsCategoryReview(row, selections)).map(row => row.line), [4]);
-
-  selections.set("Food, Travel", {
+  assert.deepEqual([...selections.values()], [{
+    action: "unset"
+  }, {
+    action: "unset"
+  }, {
     action: "existing",
-    categoryId: "synthetic-food",
-    chosen: true
+    categoryId: "synthetic-food"
+  }]);
+});
+
+test("an unset category value blocks the check until a choice is made, and only chosen values are sent", () => {
+  const rows = [mappedRow(2, "2024-07-01", "-1.00", "A", {
+    category: "Hobby"
+  }), mappedRow(3, "2024-07-02", "-1.00", "B", {
+    category: "synthetic FOOD"
+  })];
+  const values = categoryValues(rows, [{
+    id: "synthetic-food",
+    name: "Synthetic food"
+  }]);
+  const selections = new Map(values.map(value => [value.value, defaultCategorySelection(value)]));
+  const target = new Map<string, TargetChoice>([["", {
+    kind: "existing",
+    accountId: "wallet"
+  }]]);
+  const accounts = [{
+    id: "wallet",
+    name: "Wallet",
+    currency: "EUR"
+  }];
+  const blocked = prepareImport(rows, target, accounts, selections, ".");
+
+  assert.deepEqual(blocked.problems, [{
+    value: "Hobby",
+    field: "category",
+    message: "Choose a category."
+  }]);
+  assert.deepEqual(blocked.categories.map(choice => choice.value), ["synthetic FOOD"]);
+
+  selections.set("Hobby", {
+    action: "create"
   });
-  assert.deepEqual(rows.filter(row => needsCategoryReview(row, selections)).map(row => row.line), []);
+
+  const ready = prepareImport(rows, target, accounts, selections, ".");
+
+  assert.deepEqual(ready.problems, []);
+  assert.deepEqual(ready.categories.map(choice => [choice.value, choice.action, choice.categoryId]), [["Hobby", "create", undefined], ["synthetic FOOD", "existing", "synthetic-food"]]);
 });
 
 test("a new account's balance stated in another currency blocks the check", () => {
@@ -1709,4 +1748,74 @@ test("batches hold at most as many category values as a request accepts choices"
 
   assert.equal(batches.flat().length, 1200);
   assert.ok(batches.every(batch => new Set(batch.map(row => row.category)).size <= maxCategoryChoicesPerRequest));
+});
+
+test("an archived account is refused as an import target until it is restored", async context => {
+  const db = await isolatedDatabase(context);
+  const account = await manualAccount("Archived target");
+  const payload = {
+    import_id: importId,
+    rows: [mappedRow(2, "2024-01-01", "-10.00", "Shop")],
+    targets: [{
+      source: "",
+      account_id: account.id
+    }]
+  };
+
+  await archiveAccount(account.id, {});
+
+  for (const confirm of [false, true]) {
+    await assert.rejects(importMappedRows({
+      ...payload,
+      confirm
+    }, now), {
+      status: 409,
+      message: "This account is archived. Restore the account first."
+    });
+  }
+
+  assert.equal((await db.select().from(schema.transactions)).length, 0);
+
+  await restoreAccount(account.id);
+  assert.equal((await importMappedRows({
+    ...payload,
+    confirm: true
+  }, now)).newRows, 1);
+});
+
+test("an account archived after the target check receives no imported rows", async context => {
+  const db = await isolatedDatabase(context);
+  const account = await manualAccount("Archived meanwhile");
+  const execute = db.$client.execute.bind(db.$client);
+  let interleaved = false;
+
+  context.mock.method(db.$client, "execute", async (statement: InStatement, args?: InArgs) => {
+    const result = typeof statement === "string" ? await execute(statement, args) : await execute(statement);
+    const text = typeof statement === "string" ? statement : statement.sql;
+
+    if (!interleaved && /^select /i.test(text) && text.includes('from "accounts"')) {
+      interleaved = true;
+      await execute({
+        sql: "UPDATE accounts SET archived_at='2026-06-30T00:00:00.000Z' WHERE id=?",
+        args: [account.id]
+      });
+    }
+
+    return result;
+  });
+
+  await assert.rejects(importMappedRows({
+    import_id: importId,
+    rows: [mappedRow(2, "2024-01-01", "-10.00", "Shop")],
+    targets: [{
+      source: "",
+      account_id: account.id
+    }],
+    confirm: true
+  }, now), {
+    status: 409,
+    message: "This account is archived. Restore the account first."
+  });
+  assert.ok(interleaved);
+  assert.equal((await db.select().from(schema.transactions)).length, 0);
 });

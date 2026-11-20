@@ -20,7 +20,8 @@ import { LegalLinks } from "@/features/legal/components/legal-links";
 import { SourceCodeNotice } from "@/features/legal/components/source-code-notice";
 import { EditableAccountName } from "@/features/accounts/components/editable-account-name";
 import { AccountDetailActions } from "@/features/accounts/components/account-detail-actions";
-import { accountGroups, useAccounts } from "@/features/accounts/queries";
+import { accountGroups, activeAccounts, useAccounts } from "@/features/accounts/queries";
+import { showsSync } from "./sync-visibility";
 import { useBankingConfiguration } from "@/features/banking/banking-configuration";
 import { SyncButton } from "@/features/banking/components/sync-button";
 import { navigation } from "./navigation";
@@ -85,7 +86,7 @@ function DashboardShell({ children }: {
     description = "All your accounts and assets.";
   }
 
-  const showSync = view !== "import" && (view !== "account" || Boolean(selectedAccount && selectedAccount.provider !== "manual"));
+  const showSync = showsSync(view, selectedAccount);
 
   // Bank accounts only add the sync action and authorization reminders, so until they load the shell shows neither.
   const {
@@ -113,11 +114,11 @@ function DashboardShell({ children }: {
         <AppHeader environment={environment} title={nav.label} />
         <main className={styles["content"]}>
           <PageHeading heading={selectedAccount ? <EditableAccountName key={selectedAccount.id} account={selectedAccount} /> : heading} description={description}>
-            {selectedAccount?.provider === "manual" && (
+            {selectedAccount?.provider === "manual" && !selectedAccount.archived_at && (
               <AccountDetailActions
                 key={selectedAccount.id}
                 account={selectedAccount}
-                manualAccounts={(accounts.data ?? []).filter(account => account.provider === "manual")}
+                manualAccounts={activeAccounts(accounts.data ?? []).filter(account => account.provider === "manual")}
               />
             )}
             {showSync && <SyncButton bankAccounts={bankAccounts} showConnections={() => router.push(bankConnectionsHref)} />}

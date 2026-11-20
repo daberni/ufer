@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useAccounts } from "@/features/accounts/queries";
+import { activeAccounts, useAccounts } from "@/features/accounts/queries";
 import { useAreaResult } from "@/components/ui/use-area-result";
 import { useCategories } from "@/features/categorization/queries";
 import { useMappedImport, type MappedImportSummary } from "@/features/imports/mutations";
 import { decodeCsv, detectDateFormat, detectDecimal, detectDelimiter, mapRows, mappingProblem, parseCsv, importIdFor, readCsvTable, suggestMapping, type CsvMapping, type CsvSettings } from "@/features/imports/csv-mapping";
-import { categoryValues, defaultCategorySelection, importKey, defaultTargetChoice, needsCategoryReview, prepareImport, sourceAccounts, type CategorySelection, type TargetChoice } from "@/features/imports/import-plan";
+import { categoryValues, defaultCategorySelection, importKey, defaultTargetChoice, prepareImport, sourceAccounts, type CategorySelection, type TargetChoice } from "@/features/imports/import-plan";
 
 /** Large multi-year exports are read in the browser and sent as mapped rows in batches, so only the browser's memory bounds the file. */
 const maxFileBytes = 25_000_000;
@@ -37,7 +37,8 @@ export function useImportDraft() {
   const accounts = useAreaResult(useAccounts());
   const categories = useCategories();
   const mutation = useMappedImport();
-  const accountOptions = useMemo(() => accounts.data ?? [], [accounts.data]);
+  // Archived accounts are not import targets.
+  const accountOptions = useMemo(() => activeAccounts(accounts.data ?? []), [accounts.data]);
   const table = useMemo(() => file && settings ? readCsvTable(file.bytes, settings) : null, [file, settings]);
   // A delimiter or encoding that breaks the file keeps it loaded so another format can be chosen; nothing else works until then.
   const formatError = file && settings && !table ? "The file could not be read with these settings." : null;
@@ -47,7 +48,7 @@ export function useImportDraft() {
   const mapped = useMemo(() => table && effectiveMapping && !mappingProblem(effectiveMapping) && settings ? mapRows(table.rows, effectiveMapping, settings, table.lines) : null, [table, effectiveMapping, settings]);
   const sources = useMemo(() => sourceAccounts(mapped?.rows ?? []), [mapped]);
   const resolvedTargets = useMemo(() => new Map(sources.map(({ source }) => [source, targetChoices.get(source) ?? defaultTargetChoice(source, accountOptions)])), [sources, targetChoices, accountOptions]);
-  // Skipped accounts' rows neither count toward category values nor need review.
+  // Skipped accounts' rows neither count toward category values nor need a category choice.
   const keptRows = useMemo(() => mapped?.rows.filter(row => resolvedTargets.get(row.source)?.kind !== "skip") ?? [], [mapped, resolvedTargets]);
   const values = useMemo(() => categoryValues(keptRows, categories.data ?? []), [keptRows, categories.data]);
   const resolvedCategories = useMemo(() => new Map(values.map(value => [value.value, categoryChoices.get(value.value) ?? defaultCategorySelection(value)])), [values, categoryChoices]);
@@ -55,7 +56,6 @@ export function useImportDraft() {
   const preparedKey = useMemo(() => prepared ? importKey(prepared) : null, [prepared]);
   // A refetched account list can change a preselected target; the check then no longer describes what Import would save.
   const summary = checked && checked.key === preparedKey ? checked.summary : null;
-  const reviewLines = useMemo(() => new Set(prepared?.rows.filter(row => needsCategoryReview(row, resolvedCategories)).map(row => row.line) ?? []), [prepared, resolvedCategories]);
   const inputsLocked = configurationLocked || mutation.isPending;
 
   // Leaving during a running request or after a confirmation started would lose the import's ID and let a new visit import differently.
@@ -248,7 +248,6 @@ export function useImportDraft() {
     targets: resolvedTargets,
     categoryValues: values,
     categories: resolvedCategories,
-    reviewLines,
     keptRows,
     summary,
     imported,

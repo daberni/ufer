@@ -77,10 +77,11 @@
   grid-area: 1 / 1;
   min-width: 0;
 }
-/* Opacity also hides the skeleton shapes, which stay visible inside a hidden parent. */
+/* Opacity also hides the skeleton shapes, which stay visible inside a hidden parent; they must not catch presses meant for the row links underneath. */
 .reserved-rows {
   visibility: hidden;
   opacity: 0;
+  pointer-events: none;
 }
 /* Heading and context stay on one line for every selection, so the panel's height never depends on the title's length. */
 .panel .heading {

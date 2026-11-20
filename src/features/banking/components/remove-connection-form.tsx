@@ -2,11 +2,12 @@
 
 import ui from "../../../components/ui/primitives.module.css";
 
+import { useState } from "react";
 import { Trash2 } from "lucide-react";
 import styles from "./remove-connection-form.module.css";
 import { FormError } from "@/components/ui/form-error";
 import type { Account } from "@/features/accounts/types";
-import type { Connection } from "@/features/banking/types";
+import type { Connection, ConnectionRemoval } from "@/features/banking/types";
 import { useDialogSubmit, type DialogFormProps } from "@/components/ui/use-dialog-submit";
 import { useRemoveConnection } from "@/features/banking/mutations";
 import { useAccounts } from "@/features/accounts/queries";
@@ -16,23 +17,28 @@ import { Dialog } from "@/components/ui/dialog";
 
 type Props = DialogFormProps & {
   selectedConnection: Connection;
+  /** Called after removal with the accounts that stayed active although archiving was chosen. */
+  onRemoved?: (removal: ConnectionRemoval) => void;
 };
 
 export function RemoveConnectionDialog({
   close,
+  onRemoved,
   selectedConnection
 }: Props) {
   return (
     <Dialog eyebrow="YOUR FINANCES" title="Remove connection" onClose={close}>
-      <RemoveConnectionForm close={close} selectedConnection={selectedConnection} />
+      <RemoveConnectionForm close={close} onRemoved={onRemoved} selectedConnection={selectedConnection} />
     </Dialog>
   );
 }
 
 function RemoveConnectionForm({
   close,
+  onRemoved,
   selectedConnection
 }: Props) {
+  const [archiveAccounts, setArchiveAccounts] = useState(false);
   const accounts = useAreaResult(useAccounts());
   const {
     error,
@@ -42,7 +48,10 @@ function RemoveConnectionForm({
 
   return (
     <form
-      onSubmit={event => submit(event, () => selectedConnection.id)}
+      onSubmit={event => submit(event, () => ({
+        connectionId: selectedConnection.id,
+        archiveAccounts
+      }), onRemoved)}
       className={ui["form"]}
     >
       <p className={ui["form-description"]}>
@@ -56,6 +65,16 @@ function RemoveConnectionForm({
         <li>Ufer revokes the bank authorization before removing the connection. If that fails, the connection stays and you can try again.</li>
         <li>Connecting the same bank again later continues the kept accounts instead of creating duplicates.</li>
       </ul>
+      <label className={styles["archive"]}>
+        <input
+          name="archive_accounts"
+          type="checkbox"
+          checked={archiveAccounts}
+          onChange={event => setArchiveAccounts(event.target.checked)}
+        />
+        Archive these accounts: hide them from the account lists and pickers, keep them in reports, restore them any time
+      </label>
+      {archiveAccounts && <UnsettledAccounts accounts={accounts} connection={selectedConnection} />}
       <FormError failure={error} />
       <div className={ui["form-actions"]}>
         <button
@@ -103,4 +122,21 @@ function RetainedAccounts({
       <strong>{linkedAccounts.length} linked account(s) stay in Ufer</strong> with their balances, transaction history and categories.
     </>
   );
+}
+
+// Archiving needs a balance of 0; the others stay active after removal.
+function UnsettledAccounts({
+  accounts,
+  connection
+}: {
+  accounts: Area<Account[]>;
+  connection: Connection;
+}) {
+  const unsettled = accounts.data?.filter(account => account.requisition_id === connection.id && account.balance_minor !== 0) ?? [];
+
+  if (!unsettled.length) {
+    return null;
+  }
+
+  return <p className={ui["form-hint"]}>Only accounts with a balance of 0 are archived. These stay active: {unsettled.map(account => account.name).join(", ")}.</p>;
 }

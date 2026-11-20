@@ -29,10 +29,16 @@ export function accountIcon(kind: string) {
 export function accountSyncLabel(account: {
   provider: string;
   requisition_id: string | null;
-  sync_error: string | null
+  sync_error: string | null;
+  archived_at: string | null
 }) {
   if (account.provider === "manual") {
     return "Manual";
+  }
+
+  // Archived accounts keep their connection but are skipped by syncs until restored.
+  if (account.archived_at) {
+    return "Archived · not synced";
   }
 
   if (!account.requisition_id) {
