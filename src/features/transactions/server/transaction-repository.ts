@@ -2,13 +2,13 @@ import { randomUUID } from "node:crypto";
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 import { environment } from "@/features/banking/server/environment";
-import { accounts, categorizationRules, transactions } from "@/server/database/schema";
+import { accounts, transactions } from "@/server/database/schema";
 import type { Rule, RuleAssignment, RuleText } from "@/lib/rules";
 import { derivedTransactionType, type TransactionType } from "@/features/transactions/transaction-types";
 import { refusable, type ManualEntryResult } from "./manual-transaction-repository";
 import { assignRuleDecision, dissolveSplit, dropSplitsOnCurrencyChange, notSplit, splitRefusesType } from "./split-repository";
 import type { CategorizedEntry, Entry, ProviderDetails } from "./transaction-entry";
-import { applyTransactionType, dissolveLink, enteredInUfer, findSubject, followImportedCorrections, releaseOutdatedLinks, touchesArchivedAccount, type TransferTarget } from "./transfer-repository";
+import { applyTransactionType, dissolveLink, enteredInUfer, findSubject, followImportedCorrections, pairTransfers, releaseOutdatedLinks, touchesArchivedAccount, type TransferTarget } from "./transfer-repository";
 
 function providerColumns(provider: ProviderDetails = {}) {
   return {
@@ -136,7 +136,7 @@ export async function setTransactionCategory(id: string, categoryId: string | nu
 }
 
 /**
- * Returns a manual assignment to automatic categorization: the category and assigning rule come from the transaction's source and overridden text, as applying rules would assign them.
+ * Returns a manual assignment to automatic categorization: the category, assigning rule and, for an automatic, unlinked booking, the rule's type and transfer account come from the transaction's source and overridden text, as applying rules would assign them.
  * The rules and the transaction are read in the write transaction that stores the result. Resolves to undefined for a transaction outside the current environment; a booking on an archived account is refused because it is read-only.
  */
 export async function returnTransactionToRules(id: string, assign: (rules: Rule[], text: RuleText) => RuleAssignment) {
@@ -162,20 +162,25 @@ export async function returnTransactionToRules(id: string, assign: (rules: Rule[
       return "archived_account" as const;
     }
 
-    const rules = await tx.select().from(categorizationRules);
-    const assignment = assign(rules, found);
-    const [saved] = await tx.update(transactions).set({
-      category_id: assignment.categoryId,
-      category_source: "rule",
-      category_rule_id: assignment.ruleId
-    }).where(and(eq(transactions.id, id), inArray(transactions.account_id, writableAccounts), notSplit)).returning({
+    // A split booking keeps its categories in its parts.
+    const returnable = await tx.select({
+      id: transactions.id
+    }).from(transactions).where(and(eq(transactions.id, id), inArray(transactions.account_id, writableAccounts), notSplit)).get();
+
+    if (!returnable) {
+      return undefined;
+    }
+
+    // The same decision as applying rules: category, and for an automatic, unlinked booking the rule's type and transfer account, then pairing.
+    await assignRuleDecision(tx, id, assign);
+    await pairTransfers(tx, environment());
+
+    return tx.select({
       id: transactions.id,
       category_id: transactions.category_id,
       category_source: transactions.category_source,
       category_rule_id: transactions.category_rule_id
-    });
-
-    return saved;
+    }).from(transactions).where(eq(transactions.id, id)).get();
   });
 }
 

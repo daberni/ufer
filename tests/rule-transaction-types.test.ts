@@ -12,7 +12,7 @@ import { applyRulesToUncorrectedTransactions, createRule, deleteRule, updateRule
 import { listRules, saveRuleTypes } from "../src/features/categorization/server/rule-repository";
 import { importMappedRows } from "../src/features/imports/server/mapped-import-service";
 import { pairTransfersInEnvironment } from "../src/features/transactions/server/transfer-repository";
-import { updateTransactionDetails } from "../src/features/transactions/server/transaction-service";
+import { updateTransactionCategory, updateTransactionDetails } from "../src/features/transactions/server/transaction-service";
 import { unsplitTransaction } from "../src/features/transactions/server/split-service";
 import { ValidationError } from "../src/lib/errors";
 import type { Entry } from "../src/features/transactions/server/transaction-entry";
@@ -837,4 +837,40 @@ test("removing a split applies a Transfer rule's account and pairs the booking w
   assert.ok(plan.transfer_id);
   assert.equal(savings.transfer_id, plan.transfer_id);
   assert.equal(deposit.transfer_id, null);
+});
+
+test("returning a booking to automatic categorization applies the deciding rule's type and transfer account and pairs it", async context => {
+  const db = await isolatedDatabase(context);
+
+  await sync(db, "checking", [entry("plan", "2026-09-01", -20000, "Savings plan")]);
+  const earlier = await rule({
+    pattern: "SAVINGS PLAN",
+    transaction_type: "expense",
+    apply_to_uncategorized: true
+  });
+  const booking = await stored(db, "bank:plan");
+
+  assert.deepEqual([booking.type, booking.type_rule_id], ["expense", earlier.id]);
+  await updateTransactionCategory(booking.id, {
+    category_id: "leisure"
+  });
+  await db.update(schema.categorizationRules).set({
+    pattern: "UNRELATED"
+  }).where(eq(schema.categorizationRules.id, earlier.id));
+  const transfer = await rule({
+    pattern: "SAVINGS PLAN",
+    transaction_type: "transfer",
+    transfer_account_id: "savings"
+  });
+
+  await sync(db, "savings", [entry("savings-in", "2026-09-02", 20000, "Synthetic checking")]);
+  await updateTransactionCategory(booking.id, {
+    automatic: true
+  });
+
+  const [plan, savings] = [await stored(db, "bank:plan"), await stored(db, "bank:savings-in")];
+
+  assert.deepEqual([plan.category_source, plan.category_rule_id, plan.type, plan.type_rule_id, plan.type_transfer_account_id], ["rule", transfer.id, "transfer", transfer.id, "savings"]);
+  assert.ok(plan.transfer_id);
+  assert.equal(savings.transfer_id, plan.transfer_id);
 });

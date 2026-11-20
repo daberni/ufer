@@ -72,13 +72,15 @@ export function useTransactionCategory(transaction: Transaction) {
       category_id: choice
     }, "PATCH"),
     onSuccess: assignment => storeAssignment(queryClient, assignment),
-    onSettled: () => {
-      // Totals, filtered lists and rule-preview counts depend on assignments; refresh after this row's last save settles.
+    onSettled: (_assignment, _error, choice) => {
+      // Totals, filtered lists and rule-preview counts depend on assignments, and a return to the rules can create a transfer counterpart that changes balances; refresh after this row's last save settles.
       // The settling change itself still counts as pending here.
       if (queryClient.isMutating({
         mutationKey
       }) <= 1) {
-        void invalidate(queryClient, [queryKeys.transactions.all(), queryKeys.reports.cashFlow(), queryKeys.rules()]);
+        const balances = choice === automaticChoice ? [queryKeys.accounts(), queryKeys.reports.netWorth()] : [];
+
+        void invalidate(queryClient, [queryKeys.transactions.all(), queryKeys.reports.cashFlow(), queryKeys.rules(), ...balances]);
       }
     },
     // A settled result is only shown briefly once the row is no longer on screen; pending changes are never collected.
