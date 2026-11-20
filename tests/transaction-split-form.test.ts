@@ -335,3 +335,61 @@ test("removing a stored split and choosing a type it does not allow removes the 
   assert.equal(requests("transactions/out/split").length, 0);
   assert.deepEqual(closed, [true]);
 });
+
+test("split parts cannot be changed while the save runs", async context => {
+  const {
+    requests,
+    screen
+  } = await renderDialog(context, outgoing);
+
+  fireEvent.click(screen.getByRole("button", {
+    name: "Split into categories"
+  }));
+  fireEvent.change(screen.getByRole("textbox", {
+    name: "Amount of part 1"
+  }), {
+    target: {
+      value: "300"
+    }
+  });
+  fireEvent.click(screen.getByRole("button", {
+    name: "Add part"
+  }));
+  act(() => {
+    fireEvent.click(screen.getByRole("button", {
+      name: "Save"
+    }));
+  });
+  await wait(0);
+
+  const controls = [
+    screen.getByRole("textbox", {
+      name: "Amount of part 2"
+    }),
+    screen.getByRole("combobox", {
+      name: "Category of part 2"
+    }),
+    screen.getByRole("textbox", {
+      name: "Note of part 2"
+    }),
+    screen.getByRole("button", {
+      name: "Remove part 2"
+    }),
+    screen.getByRole("button", {
+      name: "Add part"
+    }),
+    screen.getByRole("button", {
+      name: "Cancel split"
+    }),
+    screen.getByRole("combobox", {
+      name: "Type"
+    })
+  ];
+
+  assert.ok(controls.every(control => control.matches(":disabled")));
+  await respond(requests("transactions/out/details")[0], Response.json({}, {
+    status: 500
+  }));
+  await wait(0);
+  assert.ok(controls.every(control => !control.matches(":disabled")));
+});

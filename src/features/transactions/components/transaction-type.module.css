@@ -149,6 +149,13 @@
   background-color: var(--surface);
 }
 
+.busy {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
 .fields {
   display: grid;
   gap: var(--space-4);
