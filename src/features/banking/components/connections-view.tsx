@@ -10,7 +10,10 @@ import { Landmark, Link2, Plus, ShieldCheck, Trash2 } from "lucide-react";
 import { TimestampValue } from "@/components/ui/date-value";
 import { Empty } from "@/components/ui/empty-state";
 import { BridgeIllustration } from "@/components/branding/illustrations";
-import type { BankingConfiguration, Connection, SyncRun } from "@/features/banking/types";
+import { bankConnectionsSectionId } from "@/features/banking/connections-location";
+import type { BankingConfiguration, Connection, ConnectionRemoval, SyncRun } from "@/features/banking/types";
+import { ActionFeedback } from "@/components/ui/action-feedback";
+import { useActionFeedback } from "@/components/ui/use-action-feedback";
 import { useState } from "react";
 import { BankConnectionDialog } from "./bank-connection-form";
 import { RemoveConnectionDialog } from "./remove-connection-form";
@@ -18,6 +21,8 @@ import { useSyncRunHref } from "@/client/use-app-url";
 import { recentSyncRuns } from "@/features/banking/sync-run-presentation";
 import { AreaPlaceholder } from "@/components/ui/area-placeholder";
 import type { Area } from "@/components/ui/use-area-result";
+import { useLocale } from "@/client/locale-provider";
+import { formatCount } from "@/lib/locale";
 
 type Props = {
   banking: BankingConfiguration;
@@ -36,7 +41,7 @@ type OpenDialog = {
 
 const skeletonConnections = 2;
 
-export function ConnectionsView({
+export function ConnectionsSection({
   banking,
   connections,
   syncRuns
@@ -52,16 +57,26 @@ export function ConnectionsView({
     connection
   });
   const sandbox = banking.environment === "SANDBOX";
+  const removalFeedback = useActionFeedback();
+  const reportRemoval = (removal: ConnectionRemoval) => {
+    if (removal.notArchived.length) {
+      removalFeedback.report({
+        tone: "problem",
+        messages: [`Not archived because their balance is not 0: ${removal.notArchived.join(", ")}. They stay active.`]
+      });
+    }
+  };
 
   return (
-    <>
+    <section id={bankConnectionsSectionId} aria-labelledby="bank-connections-heading" className={styles["connections-section"]}>
       <div className={ui["section-heading"]}>
-        <span className={ui["section-kicker"]}>ENABLE BANKING{sandbox && " · SANDBOX"}</span>
+        <h2 id="bank-connections-heading">Bank connections</h2>
         <button className={clsx(ui["button"], ui["primary"])} onClick={() => openBank()}>
           <Plus size={15} />
           Connect bank
         </button>
       </div>
+      <p className={styles["provider"]}>ENABLE BANKING{sandbox && " · SANDBOX"}</p>
       <div className={styles["connection-info"]}>
         <ShieldCheck size={23} />
         <div>
@@ -86,8 +101,14 @@ export function ConnectionsView({
       </section>
       <SyncHistory syncRuns={syncRuns} />
       {dialog?.kind === "bank" && <BankConnectionDialog connection={dialog.connection} close={closeDialog} />}
-      {dialog?.kind === "removeConnection" && <RemoveConnectionDialog selectedConnection={dialog.connection} close={closeDialog} />}
-    </>
+      {dialog?.kind === "removeConnection" && <RemoveConnectionDialog selectedConnection={dialog.connection} close={closeDialog} onRemoved={reportRemoval} />}
+      <ActionFeedback
+        feedback={removalFeedback.feedback}
+        dismissLabel="Dismiss message"
+        onDismiss={removalFeedback.dismiss}
+        placement="overlay"
+      />
+    </section>
   );
 }
 
@@ -240,7 +261,8 @@ function SyncRunTransactions({
   href: (id: string) => string;
   run: SyncRun;
 }) {
-  const label = (count: number) => `${count} new ${count === 1 ? "transaction" : "transactions"}`;
+  const locale = useLocale();
+  const label = (count: number) => `${formatCount(count, locale)} new ${count === 1 ? "transaction" : "transactions"}`;
 
   if (run.linked_count > 0) {
     return <Link className={styles["transactions-link"]} href={href(run.id)}>{label(run.linked_count)}</Link>;

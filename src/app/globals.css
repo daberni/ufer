@@ -32,6 +32,8 @@
   --gold-soft: light-dark(#f6f0e1, #2e2a1d);
   --gold-border: light-dark(#e9dfc4, #4a4128);
   --gold-text: light-dark(#7a6532, #dcc58a);
+  /* The suggestion sparkle; light surfaces need a darker, warmer gold for the glow to read. */
+  --sparkle: light-dark(#b07a12, #d4bd7f);
   --sage: light-dark(#d9e8a9, #66804f);
   --danger: light-dark(#aa5146, #e8968a);
   --danger-strong: light-dark(#8f4339, #f0ada3);
@@ -58,10 +60,11 @@
 
   /* Charts and account kinds: marks keep 3:1 against their background where they carry meaning. */
   --chart-income: light-dark(#719064, #7fae7b);
-  --chart-expense: light-dark(#bfcbab, #66785c);
+  --chart-expense: light-dark(#c0724f, #c98463);
   --chart-liquid: light-dark(#567d53, #86b383);
   --chart-invested: light-dark(#b0be8e, #a3b47f);
   --chart-property: light-dark(#cfbd8d, #cdb47d);
+  --chart-loans: light-dark(#b67a6c, #d39888);
   --chart-track: light-dark(#eef1e9, #26332c);
   --wealth-surface: light-dark(#edf2e2, #1b2a21);
   --wealth-highlight: light-dark(#f2f5ec, #21322a);
@@ -239,6 +242,14 @@
     height: auto;
   }
 }
+html {
+  /* Reserve the scrollbar's space so locking page scroll for a dialog does not shift the layout. */
+  scrollbar-gutter: stable;
+}
+/* While any modal dialog is open, the page behind it does not scroll; nested dialogs keep the lock until the last one closes. */
+html:has(dialog:modal) {
+  overflow: hidden;
+}
 body {
   background: var(--bg);
   color: var(--ink);
@@ -317,6 +328,7 @@ svg {
     overflow-wrap: anywhere;
   }
 }
+/* stylelint-disable declaration-no-important -- Reduced-motion overrides must beat component animations and transitions. */
 @media (prefers-reduced-motion: reduce) {
   * {
     animation: none !important;
@@ -331,3 +343,4 @@ svg {
     transition: none !important;
   }
 }
+/* stylelint-enable declaration-no-important */

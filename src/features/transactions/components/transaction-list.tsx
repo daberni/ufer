@@ -6,13 +6,15 @@ import { clsx } from "clsx";
 import styles from "./transaction-list.module.css";
 import { useState } from "react";
 import { DateValue } from "@/components/ui/date-value";
-import { money } from "@/lib/money";
+import { money, signedMoney } from "@/lib/money";
 import { TransactionCategory, TransactionCategorySkeleton } from "@/features/transactions/components/transaction-category";
 import { transactionTypeLabels } from "@/features/transactions/transaction-types";
 import { TransactionTypeIcon, transferDirection } from "@/features/transactions/components/transaction-type";
 import { TransactionEditDialog } from "@/features/transactions/components/transaction-edit-dialog";
+import { SplitTag } from "@/features/transactions/components/transaction-split";
 import type { Category } from "@/features/categorization/types";
-import type { Transaction } from "@/features/transactions/types";
+import { editLocked, type Transaction } from "@/features/transactions/types";
+import { useLocale } from "@/client/locale-provider";
 
 type Props = {
   categories: Category[];
@@ -22,20 +24,29 @@ type Props = {
 // Phones show each table row as a card; the explicit roles keep the table semantics that WebKit drops from table elements whose display changes.
 function TableHeader() {
   return (
-    <thead role="rowgroup" className={styles["header"]}>
-      <tr role="row">
-        <th role="columnheader" scope="col">Payee / description</th>
-        <th role="columnheader" scope="col">Category</th>
-        <th role="columnheader" scope="col">Account</th>
-        <th role="columnheader" scope="col">Date</th>
-        <th role="columnheader" scope="col" className={styles["amount-heading"]}>Amount</th>
-      </tr>
-    </thead>
+    <>
+      <colgroup>
+        <col />
+        <col className={styles["category-column"]} />
+        <col className={styles["account-column"]} />
+        <col className={styles["date-column"]} />
+        <col className={styles["amount-column"]} />
+      </colgroup>
+      <thead role="rowgroup" className={styles["header"]}>
+        <tr role="row">
+          <th role="columnheader" scope="col">Payee / description</th>
+          <th role="columnheader" scope="col">Category</th>
+          <th role="columnheader" scope="col">Account</th>
+          <th role="columnheader" scope="col">Date</th>
+          <th role="columnheader" scope="col" className={styles["amount-heading"]}>Amount</th>
+        </tr>
+      </thead>
+    </>
   );
 }
 
 /** The original amount of a foreign-currency booking; the direction is already shown by the booked amount. */
-function originalAmount(transaction: Transaction) {
+function originalAmount(transaction: Transaction, locale: string) {
   const instructed = transaction.instructed_amount_minor;
   const currency = transaction.instructed_currency;
 
@@ -43,7 +54,7 @@ function originalAmount(transaction: Transaction) {
     return null;
   }
 
-  return `${money(Math.abs(instructed), currency)} original`;
+  return `${money(Math.abs(instructed), currency, locale)} original`;
 }
 
 function TransactionRow({
@@ -53,38 +64,58 @@ function TransactionRow({
   categories: Category[];
   transaction: Transaction;
 }) {
+  const locale = useLocale();
   const [editing, setEditing] = useState(false);
   const incoming = transaction.amount_minor > 0;
-  const original = originalAmount(transaction);
+  const original = originalAmount(transaction, locale);
+  const subject = transaction.counterparty || transaction.description || transactionTypeLabels[transaction.type];
+  // Without a payee the description is already the title, so it is not repeated below.
+  const showsDescription = Boolean(transaction.counterparty) || !transaction.description;
 
   return (
-    <tr role="row" className={styles["row"]}>
+    <tr role="row" className={clsx(styles["row"], transaction.hidden && styles["hidden"])}>
       <th role="rowheader" scope="row" className={styles["payee"]}>
-        <div className={styles["transaction-name"]}>
+        <div className={clsx(styles["transaction-name"], !showsDescription && styles["title-only"])}>
           <span className={clsx(styles["transaction-icon"], incoming && styles["incoming"])}><TransactionTypeIcon type={transaction.type} /></span>
           <strong className={styles["name"]}>
-            <button
-              className={styles["edit-transaction"]}
-              type="button"
-              onClick={() => setEditing(true)}
-              aria-label={`Edit transaction: ${transaction.counterparty || transaction.description || transactionTypeLabels[transaction.type]}`}
-            >
-              {transaction.counterparty || transaction.description || transactionTypeLabels[transaction.type]}
-            </button>
+            {editLocked(transaction) ? (
+              // Archived accounts are read-only until restored, so their bookings and bookings linked to them offer no edit dialog.
+              <span className={styles["name-preview"]} title={subject}>{subject}</span>
+            ) : (
+              <button
+                className={styles["edit-transaction"]}
+                type="button"
+                onClick={() => setEditing(true)}
+                aria-label={`Edit transaction: ${subject}`}
+              >
+                <span className={styles["name-preview"]} title={subject}>{subject}</span>
+              </button>
+            )}
           </strong>
-          <span className={styles["description"]} title={transaction.description}>{transaction.description || "No description"}</span>
-          {transaction.description ? (
+          {showsDescription ? (
+            <span className={styles["description"]} title={transaction.description}>{transaction.description || "No description"}</span>
+          ) : (
+            <>
+              <span className={clsx(styles["name-spacer"], styles["spacer"])} aria-hidden="true">&nbsp;</span>
+              <span className={clsx(styles["description"], styles["spacer"])} aria-hidden="true">&nbsp;</span>
+            </>
+          )}
+          {transaction.counterparty || transaction.description ? (
             <details className={styles["transaction-details"]}>
-              <summary>Description</summary>
-              <p>{transaction.description}</p>
+              <summary aria-label={`Details for ${subject}`}>Details</summary>
+              <dl>
+                <dt>Payee</dt>
+                <dd>{transaction.counterparty || "Not provided"}</dd>
+                <dt>Description</dt>
+                <dd>{transaction.description || "No description"}</dd>
+              </dl>
             </details>
           ) : <span className={styles["no-details"]}>No description</span>}
         </div>
-        {editing && <TransactionEditDialog transaction={transaction} close={() => setEditing(false)} />}
+        {editing && !editLocked(transaction) && <TransactionEditDialog transaction={transaction} close={() => setEditing(false)} />}
       </th>
       <td role="cell" className={styles["category"]}>
-        <span className={styles["category-label"]} aria-hidden="true">Category</span>
-        <TransactionCategory categories={categories} transaction={transaction} />
+        {transaction.split ? <SplitTag transaction={transaction} split={transaction.split} /> : <TransactionCategory categories={categories} transaction={transaction} />}
       </td>
       <td role="cell" className={styles["account"]}>
         {transaction.account_name}
@@ -94,9 +125,9 @@ function TransactionRow({
         <DateValue value={transaction.booking_date} />
       </td>
       <td role="cell" className={clsx(styles["amount"], incoming && ui["positive"])}>
-        {incoming ? "+" : ""}
-        {money(transaction.amount_minor, transaction.currency)}
+        {signedMoney(transaction.amount_minor, transaction.currency, locale)}
         {original && <span className={styles["original-amount"]}>{original}</span>}
+        {transaction.hidden && <span className={styles["hidden-tag"]}>Hidden</span>}
       </td>
     </tr>
   );
@@ -118,7 +149,7 @@ export function TransactionList({
   );
 }
 
-// Payees and descriptions of different lengths give the skeleton rows a natural outline; the long ones reach the column's maximum width, as typical descriptions do.
+// Payees and descriptions of different lengths give the skeleton rows a natural outline; the long ones wrap like typical descriptions.
 const skeletonPayees = ["Grocery market", "Monthly rent payment", "Coffee shop", "Salary", "Public transport pass"];
 const skeletonDescriptions = ["Debit card purchase", "Standing order, reference 2025-01 rent", "Card payment", "Monthly salary payment from employer", "Direct debit"];
 
@@ -149,15 +180,14 @@ export function TransactionListSkeleton({ rows }: {
                   <span className={styles["description"]}>
                     <span className={ui["skeleton"]}>{placeholder.description}</span>
                   </span>
-                  <details className={styles["transaction-details"]}>
+                  <details className={styles["transaction-details"]} inert>
                     <summary>
-                      <span className={ui["skeleton"]}>Description</span>
+                      <span className={ui["skeleton"]}>Details</span>
                     </summary>
                   </details>
                 </div>
               </th>
               <td className={styles["category"]}>
-                <span className={styles["category-label"]}>Category</span>
                 <TransactionCategorySkeleton />
               </td>
               <td className={styles["account"]}>

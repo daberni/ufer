@@ -2,6 +2,21 @@ import type { PeriodJson } from "@/lib/period";
 import type { SyncRun } from "@/features/banking/types";
 import type { TransactionType } from "./transaction-types";
 
+/** One part of a split booking, signed like the booking's amount and in its currency. */
+export type SplitPart = {
+  id: string;
+  amount_minor: number;
+  category_id: string | null;
+  note: string;
+};
+
+/** How a booking is divided into category parts; reports count the parts instead of the booking. */
+export type TransactionSplit = {
+  parts: SplitPart[];
+  /** False once the booking's amount changed after splitting, for example through a sync; reports count the difference as uncategorized until the split is corrected. */
+  balanced: boolean;
+};
+
 export type Transaction = {
   id: string;
   booking_date: string;
@@ -12,14 +27,32 @@ export type Transaction = {
   instructed_currency: string | null;
   counterparty: string;
   description: string;
+  /** The payee and description the source delivered; they differ from `counterparty` and `description` while a person's override applies. */
+  source_counterparty: string;
+  source_description: string;
+  /** Whether the imported booking is hidden: it stays listed but counts toward no balance or report, and later syncs and imports keep it hidden. */
+  hidden: boolean;
   account_name: string;
   category_id: string | null;
   category_source: string;
+  /** The rule that assigned a rule-sourced category; null when it is not recorded, for example for assignments made before Ufer recorded it or by a deleted rule. */
+  category_rule_id: string | null;
+  /** For a manual assignment, the category and deciding rule that returning it to automatic categorization would produce now; null for a rule-assigned category. */
+  automatic_assignment: {
+    category_id: string | null;
+    rule_id: string | null;
+  } | null;
+  /** The parts of a split booking; null for a booking that is not split. */
+  split: TransactionSplit | null;
   type: TransactionType;
   type_source: "auto" | "manual";
   account_id: string;
   /** Whether the booking belongs to a manual account, which also allows the opening balance and adjustment types. */
   manual_account: boolean;
+  /** Whether the booking's account is archived, which keeps the booking read-only. */
+  account_archived: boolean;
+  /** Whether the linked counterpart's account is archived; changes to this booking would change that counterpart, so only its category stays editable. */
+  counterpart_archived: boolean;
   /** Whether the booking was entered in Ufer on a manual account, so its date, amount, payee and description can be edited and the booking deleted. A counterpart created for an imported booking is not. */
   entered: boolean;
   /** Whether an entered booking is linked with an imported booking, whose date and amount it follows. */
@@ -71,3 +104,13 @@ export type TransactionPage = {
   transactionCount: number;
   transactions: Transaction[];
 };
+
+/** Existing payees suggested for a typed payee, best first. */
+export type PayeeSuggestions = {
+  payees: string[];
+};
+
+/** Whether the edit dialog is unavailable: every change of type, link, entry or deletion is refused while either side's account is archived. */
+export function editLocked(transaction: Pick<Transaction, "account_archived" | "counterpart_archived">) {
+  return transaction.account_archived || transaction.counterpart_archived;
+}

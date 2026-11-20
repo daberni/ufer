@@ -5,17 +5,21 @@ import { useMutation } from "@tanstack/react-query";
 import { clsx } from "clsx";
 import { authClient, requireAuthResult } from "@/features/auth/client";
 import { ThemeChoice } from "@/features/appearance/components/theme-choice";
-import ui from "@/components/ui/primitives.module.css";
+import { LocaleChoice } from "@/features/appearance/components/locale-choice";
+import ui from "../../../components/ui/primitives.module.css";
 import { FormError } from "@/components/ui/form-error";
 import { toFailure, type Failure } from "@/client/api";
 import { Dialog } from "@/components/ui/dialog";
 import styles from "./account-settings.module.css";
+import { useLocale } from "@/client/locale-provider";
+import { formatCount } from "@/lib/locale";
 
 type Props = {
   onClose: () => void;
 };
 
 export function AccountSettings({ onClose }: Props) {
+  const locale = useLocale();
   const [mismatch, setMismatch] = useState(false);
   const { data } = authClient.useSession();
 
@@ -65,6 +69,7 @@ export function AccountSettings({ onClose }: Props) {
       <p className={styles.identity}>{data ? `${data.user.name} · ${data.user.username}` : ""}</p>
       <p className={styles.email}>{data?.user.email}</p>
       <ThemeChoice />
+      <LocaleChoice />
       <form className={clsx(ui.form, styles.section)} onSubmit={changePassword}>
         <h3>Change password</h3>
         <label>
@@ -99,7 +104,7 @@ export function AccountSettings({ onClose }: Props) {
             maxLength={128}
           />
         </label>
-        <p className={ui["form-hint"]}>Use at least 12 characters. Changing your password signs out your other sessions.</p>
+        <p className={ui["form-hint"]}>{`Use at least ${formatCount(12, locale)} characters. Changing your password signs out your other sessions.`}</p>
         <FormError failure={passwordError} />
         {passwordChange.isSuccess && <p className={ui.notice} role="status">Password changed. Your other sessions have been signed out.</p>}
         <button className={clsx(ui.button, ui.primary, ui["full-width"])} disabled={passwordChange.isPending}>Change password</button>

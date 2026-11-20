@@ -11,16 +11,19 @@ stubCssModules();
 const first: Account = {
   id: "cash",
   name: "Synthetic cash",
+  provider_name: null,
   institution: "Example institution",
   kind: "checking",
   currency: "EUR",
   balance_minor: 10000,
   balance_date: "2026-09-01",
+  last_booking_date: null,
   provider: "manual",
   requisition_id: null,
   last_synced_at: null,
   valid_until: null,
-  sync_error: null
+  sync_error: null,
+  archived_at: null
 };
 
 const selected: Account = {
@@ -55,7 +58,7 @@ async function renderActions(context: TestContext) {
   };
 }
 
-test("account-detail actions submit entries and valuations to the selected account instead of the first manual account", async context => {
+test("account-detail actions submit entries to the selected account instead of the first manual account, and leave balance updates to the balance", async context => {
   const {
     screen,
     requests
@@ -87,27 +90,9 @@ test("account-detail actions submit entries and valuations to the selected accou
   }));
   assert.equal(screen.queryByRole("dialog"), null);
 
-  act(() => fireEvent.click(screen.getByRole("button", {
+  assert.equal(screen.queryByRole("button", {
     name: "Update balance"
-  })));
-  const balanceDialog = within(screen.getByRole("dialog"));
-
-  assert.ok(balanceDialog.getByText("Synthetic savings · EUR"));
-  act(() => {
-    fireEvent.change(balanceDialog.getByRole("textbox", {
-      name: "New balance"
-    }), {
-      target: {
-        value: "150.00"
-      }
-    });
-    fireEvent.submit(balanceDialog.getByRole("button", {
-      name: "Save balance"
-    }).closest("form")!);
-  });
-  await wait(0);
-  assert.equal(requests("accounts/savings/balance").length, 1);
-  assert.equal(requests("accounts/cash/balance").length, 0);
+  }), null);
 });
 
 test("switching the account closes its open dialog and the next entry uses the new account", async context => {

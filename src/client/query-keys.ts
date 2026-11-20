@@ -1,3 +1,5 @@
+import type { RulePreviewDraft } from "@/features/categorization/types";
+
 /**
  * Query keys for server state. Each key starts with its resource, followed by the filters that select the result, so a write can invalidate everything below a prefix.
  */
@@ -7,6 +9,7 @@ export type TransactionListFilters = {
   search: string;
   account: string;
   category: string;
+  type: string;
   syncRun: string;
   page: number;
 };
@@ -27,14 +30,25 @@ export const queryKeys = {
   balanceHistory: (account: string) => ["accounts", "balance-history", account] as const,
   categories: () => ["categories"] as const,
   rules: () => ["rules"] as const,
+  importTemplates: () => ["import-templates"] as const,
+  rulePreview: (draft: RulePreviewDraft | null) => ["rules", "preview", draft] as const,
+  // Below the categories prefix, so category writes also recount it.
+  categoryUsage: (id: string) => ["categories", "usage", id] as const,
   transactions: {
     all: () => ["transactions"] as const,
+    lists: () => ["transactions", "list"] as const,
     list: (filters: TransactionListFilters) => ["transactions", "list", filters] as const,
-    transfer: (id: string) => ["transactions", "transfer", id] as const
+    transfer: (id: string) => ["transactions", "transfer", id] as const,
+    // Below the transactions prefix, so saved payees appear in later suggestions.
+    payees: (query: string) => ["transactions", "payees", query] as const
   },
   reports: {
     netWorth: () => ["reports", "net-worth"] as const,
     netWorthIn: (currency: string) => ["reports", "net-worth", {
+      currency
+    }] as const,
+    // Below the net-worth prefix, so every balance write also refreshes the curve.
+    netWorthHistoryIn: (currency: string) => ["reports", "net-worth", "history", {
       currency
     }] as const,
     cashFlow: () => ["reports", "cash-flow"] as const,

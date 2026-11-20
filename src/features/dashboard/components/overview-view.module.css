@@ -1,27 +1,16 @@
-.analytics-grid {
+/* Net worth and the accounts that hold it read as one block. */
+.wealth-overview {
   display: grid;
-  grid-template-columns: 1.2fr 1fr;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
   gap: var(--space-6);
-  margin-top: var(--space-6);
 }
 @media (--laptop) {
-  .analytics-grid {
+  .wealth-overview {
     gap: var(--space-4);
   }
 }
 @media (--tablet) {
-  .analytics-grid {
-    grid-template-columns: 1fr 1fr;
-  }
-  .analytics-grid h2 {
-    font-size: var(--text-md);
-  }
-}
-@media (--mobile) {
-  .analytics-grid {
+  .wealth-overview {
     grid-template-columns: minmax(0, 1fr);
-  }
-  .analytics-grid h2 {
-    font-size: var(--text-lg);
   }
 }

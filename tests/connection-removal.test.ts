@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { generateKeyPairSync } from "node:crypto";
 import { test, type TestContext } from "node:test";
-import { createClient } from "@libsql/client";
+import { createClient, type InArgs, type InStatement } from "@libsql/client";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/libsql";
 import type { Database } from "../src/server/database/connection";
@@ -10,12 +10,13 @@ import * as schema from "../src/server/database/schema";
 import { acquireLease } from "../src/server/jobs/lease-repository";
 import { encrypt } from "../src/server/security/secret-box";
 import { recordConnectionFailure, saveBankSession } from "../src/features/banking/server/connection-repository";
-import { bankingRequest } from "../src/features/banking/server/enable-banking-client";
+import { verifyApplication } from "../src/features/banking/server/enable-banking-client";
 import { removeBankConnection } from "../src/features/banking/server/connection-service";
 import { saveSessionAccounts } from "../src/features/banking/server/bank-account-repository";
 import { listSyncAccounts } from "../src/features/banking/server/sync-repository";
+import { syncAccounts } from "../src/features/banking/server/sync-service";
 import { listConnections } from "../src/features/banking/server/banking-queries";
-import { listAccounts } from "../src/features/accounts/server/account-queries";
+import { listAccounts, readNetWorth } from "../src/features/accounts/server/account-queries";
 
 const providerKey = generateKeyPairSync("rsa", {
   modulusLength: 2048
@@ -26,7 +27,10 @@ const providerKey = generateKeyPairSync("rsa", {
 
 const environmentNames = ["ENABLE_BANKING_ENVIRONMENT", "ENABLE_BANKING_APP_ID", "ENABLE_BANKING_PRIVATE_KEY", "DATA_ENCRYPTION_KEY"];
 
-async function bankingDatabase(context: TestContext, providerResponse: () => Response) {
+async function bankingDatabase(context: TestContext, providerResponse: (request: {
+  method: string;
+  path: string
+}) => Response) {
   const client = createClient({
     url: ":memory:"
   });
@@ -72,7 +76,7 @@ async function bankingDatabase(context: TestContext, providerResponse: () => Res
       path: new URL(String(input)).pathname
     });
 
-    return providerResponse();
+    return providerResponse(requests[requests.length - 1]);
   };
 
   return {
@@ -141,7 +145,7 @@ test("removing a bank connection keeps accounts and history, deletes its credent
 
   assert.deepEqual(await removeBankConnection("removed"), {
     retainedAccounts: 1,
-    providerRevocation: "revoked"
+    notArchived: []
   });
   assert.deepEqual(requests, [{
     method: "DELETE",
@@ -180,7 +184,7 @@ test("removing a bank connection keeps accounts and history, deletes its credent
     status: "EXCHANGING",
     valid_until: "2099-01-01T00:00:00Z"
   });
-  await saveSessionAccounts(db, "SANDBOX", "renewed", "Example institution", [{
+  await saveSessionAccounts(db, "SANDBOX", "renewed", "Example institution", "2099-01-01T00:00:00Z", [{
     uid: "renewed-uid",
     identification_hash: "hash-removed-account",
     currency: "EUR"
@@ -190,40 +194,244 @@ test("removing a bank connection keeps accounts and history, deletes its credent
   assert.equal((await db.select().from(schema.requisitions).where(eq(schema.requisitions.id, "removed")).get())?.status, "REMOVED");
 });
 
-test("local removal completes when the provider cannot revoke the session", async context => {
-  context.mock.method(console, "warn", () => {});
+test("disconnecting a bank archives only its accounts with a balance of 0 and names the ones that stay active", async context => {
   const {
     db,
     requests
   } = await bankingDatabase(context, () => Response.json({
-    error: "API_ERROR"
-  }, {
-    status: 500
+    message: "OK"
   }));
 
-  await insertLinkedConnection(db, "unrevoked", "unrevoked-account");
-  await db.insert(schema.requisitions).values({
-    id: "pending",
+  await insertLinkedConnection(db, "archived-bank", "archived-account");
+  await insertLinkedConnection(db, "other-bank", "other-account");
+  await db.update(schema.accounts).set({
+    balance_minor: 0
+  }).where(eq(schema.accounts.id, "archived-account"));
+  await db.insert(schema.accounts).values({
+    id: "unsettled-account",
     environment: "SANDBOX",
-    bank_name: "Example institution",
-    bank_country: "AT",
-    status: "PENDING"
+    name: "Synthetic unsettled account",
+    institution: "Example institution",
+    kind: "checking",
+    provider: "enable_banking",
+    provider_uid: "uid-unsettled-account",
+    requisition_id: "archived-bank",
+    balance_minor: 4200,
+    balance_date: "2000-01-31"
+  });
+  await db.insert(schema.transactions).values({
+    id: "archived-history",
+    account_id: "archived-account",
+    provider_reference: "bank:synthetic-archived-history",
+    booking_date: "2000-01-10",
+    amount_minor: -500,
+    currency: "EUR",
+    type: "expense",
+    counterparty: "Example payee"
+  });
+  const netWorthBefore = await readNetWorth("EUR");
+
+  assert.deepEqual(await removeBankConnection("archived-bank", {
+    archiveAccounts: true
+  }), {
+    retainedAccounts: 2,
+    notArchived: ["Synthetic unsettled account"]
+  });
+  assert.deepEqual(requests, [{
+    method: "DELETE",
+    path: "/sessions/session-archived-bank"
+  }]);
+
+  const accountsAfter = await listAccounts();
+  const archived = accountsAfter.find(account => account.id === "archived-account");
+
+  assert.ok(archived?.archived_at);
+  assert.equal(archived.requisition_id, null);
+  assert.equal(archived.balance_minor, 0);
+  assert.equal(accountsAfter.find(account => account.id === "unsettled-account")?.archived_at, null);
+  assert.equal(accountsAfter.find(account => account.id === "unsettled-account")?.requisition_id, null);
+  assert.equal(accountsAfter.find(account => account.id === "other-account")?.archived_at, null);
+  assert.equal((await db.select().from(schema.transactions)).length, 1);
+  assert.deepEqual(await readNetWorth("EUR"), netWorthBefore);
+  assert.deepEqual((await listSyncAccounts(db, "SANDBOX")).map(item => item.id), ["other-account"]);
+});
+
+test("sync skips an archived account of a linked connection and resumes it once restored", async context => {
+  const {
+    db,
+    requests
+  } = await bankingDatabase(context, request => {
+    if (request.path === "/application") {
+      return Response.json({
+        environment: "SANDBOX",
+        redirect_urls: []
+      });
+    }
+
+    if (request.path.endsWith("/balances")) {
+      return Response.json({
+        balances: [{
+          balance_type: "CLBD",
+          balance_amount: {
+            amount: "200.00",
+            currency: "EUR"
+          },
+          reference_date: "2000-02-01"
+        }]
+      });
+    }
+
+    const uid = request.path.split("/")[2];
+
+    return Response.json({
+      transactions: [{
+        entry_reference: `booking-${uid}`,
+        transaction_amount: {
+          amount: "5.00",
+          currency: "EUR"
+        },
+        credit_debit_indicator: "DBIT",
+        status: "BOOK",
+        booking_date: "2000-01-15"
+      }],
+      continuation_key: null
+    });
   });
 
+  await insertLinkedConnection(db, "shared", "active-account");
+  await db.insert(schema.accounts).values({
+    id: "archived-account",
+    environment: "SANDBOX",
+    name: "Synthetic archived account",
+    institution: "Example institution",
+    kind: "checking",
+    provider: "enable_banking",
+    provider_uid: "uid-archived-account",
+    requisition_id: "shared",
+    balance_minor: 12345,
+    balance_date: "2000-01-31",
+    archived_at: "2000-02-01T00:00:00.000Z"
+  });
+  const archivedBefore = await db.select().from(schema.accounts).where(eq(schema.accounts.id, "archived-account")).get();
+
+  assert.equal((await syncAccounts()).status, "SUCCESS");
+  assert.equal(requests.some(request => request.path.includes("uid-archived-account")), false);
+  assert.ok(requests.some(request => request.path.includes("uid-active-account")));
+  assert.deepEqual(await db.select().from(schema.accounts).where(eq(schema.accounts.id, "archived-account")).get(), archivedBefore);
+  assert.deepEqual((await db.select().from(schema.transactions)).map(booking => booking.account_id), ["active-account"]);
+  assert.equal((await db.select().from(schema.balanceSnapshots).where(eq(schema.balanceSnapshots.account_id, "archived-account"))).length, 0);
+
+  await db.update(schema.accounts).set({
+    archived_at: null
+  }).where(eq(schema.accounts.id, "archived-account"));
+  assert.equal((await syncAccounts()).status, "SUCCESS");
+  assert.ok(requests.some(request => request.path.includes("uid-archived-account")));
+  assert.equal((await db.select().from(schema.transactions).where(eq(schema.transactions.account_id, "archived-account"))).length, 1);
+  assert.equal((await db.select().from(schema.accounts).where(eq(schema.accounts.id, "archived-account")).get())?.balance_minor, 20000);
+});
+
+test("a failed revocation leaves the connection intact for an explicit retry, without background retries", async context => {
+  context.mock.method(console, "warn", () => {});
+  let providerAvailable = false;
+  const {
+    db,
+    requests
+  } = await bankingDatabase(context, request => {
+    if (request.method === "DELETE") {
+      return providerAvailable ? new Response(null, {
+        status: 204
+      }) : Response.json({
+        error: "API_ERROR"
+      }, {
+        status: 503
+      });
+    }
+
+    if (request.path === "/application") {
+      return Response.json({
+        environment: "SANDBOX",
+        redirect_urls: []
+      });
+    }
+
+    if (request.path.endsWith("/balances")) {
+      return Response.json({
+        balances: [{
+          balance_type: "CLBD",
+          balance_amount: {
+            amount: "123.45",
+            currency: "EUR"
+          },
+          reference_date: "2000-01-31"
+        }]
+      });
+    }
+
+    return Response.json({
+      transactions: [],
+      continuation_key: null
+    });
+  });
+
+  await insertLinkedConnection(db, "unrevoked", "unrevoked-account");
+  const connectionBefore = await db.select().from(schema.requisitions).where(eq(schema.requisitions.id, "unrevoked")).get();
+  const accountBefore = await db.select().from(schema.accounts).where(eq(schema.accounts.id, "unrevoked-account")).get();
+
+  await assert.rejects(removeBankConnection("unrevoked"), {
+    status: 502,
+    message: "The bank authorization could not be revoked. The connection has not been removed. Try again."
+  });
+  assert.deepEqual(await db.select().from(schema.requisitions).where(eq(schema.requisitions.id, "unrevoked")).get(), connectionBefore);
+  assert.deepEqual(await db.select().from(schema.accounts).where(eq(schema.accounts.id, "unrevoked-account")).get(), accountBefore);
+  assert.deepEqual((await listConnections()).map(connection => connection.id), ["unrevoked"]);
+
+  assert.equal((await syncAccounts()).status, "SUCCESS");
+  assert.equal(requests.filter(request => request.method === "DELETE").length, 1);
+  assert.notEqual((await db.select().from(schema.requisitions).where(eq(schema.requisitions.id, "unrevoked")).get())?.session_cipher, null);
+
+  providerAvailable = true;
   assert.deepEqual(await removeBankConnection("unrevoked"), {
     retainedAccounts: 1,
-    providerRevocation: "not_revoked"
+    notArchived: []
   });
-  assert.deepEqual(await removeBankConnection("pending"), {
-    retainedAccounts: 0,
-    providerRevocation: "no_session"
-  });
-  assert.equal(requests.length, 1);
+  assert.equal(requests.filter(request => request.method === "DELETE").length, 2);
+  const removed = await db.select().from(schema.requisitions).where(eq(schema.requisitions.id, "unrevoked")).get();
 
-  const connections = await db.select().from(schema.requisitions);
+  assert.equal(removed?.status, "REMOVED");
+  assert.equal(removed?.session_cipher, null);
+  assert.equal((await db.select().from(schema.accounts).where(eq(schema.accounts.id, "unrevoked-account")).get())?.requisition_id, null);
+});
 
-  assert.ok(connections.every(connection => connection.status === "REMOVED" && connection.session_cipher === null));
-  assert.equal((await listSyncAccounts(db, "SANDBOX")).length, 0);
+test("a session the provider reports as ended counts as revoked and its stored ID is deleted", async context => {
+  const endedSessions = [["EXPIRED_SESSION", 400], ["CLOSED_SESSION", 400], ["REVOKED_SESSION", 400], ["SESSION_DOES_NOT_EXIST", 404]] as const;
+  let current: (typeof endedSessions)[number] = endedSessions[0];
+  const {
+    db,
+    requests
+  } = await bankingDatabase(context, () => Response.json({
+    message: "Synthetic provider error",
+    code: current[1],
+    error: current[0]
+  }, {
+    status: current[1]
+  }));
+
+  for (const ended of endedSessions) {
+    const id = ended[0].toLowerCase();
+
+    current = ended;
+    await insertLinkedConnection(db, id, `${id}-account`);
+
+    assert.deepEqual(await removeBankConnection(id), {
+      retainedAccounts: 1,
+      notArchived: []
+    }, ended[0]);
+    assert.equal((await db.select().from(schema.requisitions).where(eq(schema.requisitions.id, id)).get())?.session_cipher, null, ended[0]);
+  }
+
+  // A later sync finds nothing left to revoke.
+  await syncAccounts();
+  assert.equal(requests.length, endedSessions.length);
 });
 
 test("removal does not interfere with a running sync or an authorization callback in progress", async context => {
@@ -284,7 +492,7 @@ test("a connection removed while its callback is mapping accounts is never linke
 
   assert.deepEqual(await removeBankConnection("overlap"), {
     retainedAccounts: 0,
-    providerRevocation: "revoked"
+    notArchived: []
   });
   assert.deepEqual(requests, [{
     method: "DELETE",
@@ -292,7 +500,7 @@ test("a connection removed while its callback is mapping accounts is never linke
   }]);
 
   // Callback step 2 and its failure handling run after the removal.
-  await assert.rejects(saveSessionAccounts(db, "SANDBOX", "overlap", "Example institution", [{
+  await assert.rejects(saveSessionAccounts(db, "SANDBOX", "overlap", "Example institution", "2099-01-01T00:00:00Z", [{
     uid: "overlap-uid",
     identification_hash: "overlap-hash",
     currency: "EUR"
@@ -310,6 +518,71 @@ test("a connection removed while its callback is mapping accounts is never linke
   assert.equal((await db.select().from(schema.accountIdentifiers)).length, 0);
 });
 
+test("a callback completing after removal preflight keeps its new session until an explicit removal retry", async context => {
+  const {
+    db,
+    requests
+  } = await bankingDatabase(context, () => new Response(null, {
+    status: 204
+  }));
+
+  await db.insert(schema.requisitions).values({
+    id: "pending-overlap",
+    environment: "SANDBOX",
+    bank_name: "Example institution",
+    bank_country: "AT",
+    status: "PENDING"
+  });
+  const execute = db.$client.execute.bind(db.$client);
+  const createdSessionCipher = encrypt("session-created-during-removal");
+  let linkedDuringPreflight = false;
+
+  context.mock.method(db.$client, "execute", async (statement: InStatement, args?: InArgs) => {
+    const result = typeof statement === "string" ? await execute(statement, args) : await execute(statement);
+    const sql = typeof statement === "string" ? statement : statement.sql;
+
+    if (!linkedDuringPreflight && /^select /i.test(sql) && sql.includes('from "requisitions"')) {
+      linkedDuringPreflight = true;
+      // The query already read PENDING without a credential; finish the callback before removal resumes with that stale result.
+      await db.update(schema.requisitions).set({
+        status: "EXCHANGING",
+        used_at: new Date().toISOString()
+      }).where(eq(schema.requisitions.id, "pending-overlap"));
+      assert.equal(await saveBankSession(db, "pending-overlap", createdSessionCipher, "2099-01-01T00:00:00Z"), true);
+      await saveSessionAccounts(db, "SANDBOX", "pending-overlap", "Example institution", "2099-01-01T00:00:00Z", [{
+        uid: "new-uid",
+        identification_hash: "new-hash",
+        currency: "EUR"
+      }]);
+    }
+
+    return result;
+  });
+
+  await assert.rejects(removeBankConnection("pending-overlap"), {
+    status: 409,
+    message: "The bank connection changed during removal. Try again."
+  });
+  assert.equal(linkedDuringPreflight, true);
+  const linked = await db.select().from(schema.requisitions).where(eq(schema.requisitions.id, "pending-overlap")).get();
+
+  assert.equal(linked?.status, "LINKED");
+  assert.equal(linked?.session_cipher, createdSessionCipher);
+  assert.equal((await db.select().from(schema.accounts).get())?.requisition_id, "pending-overlap");
+  assert.deepEqual(requests, []);
+
+  assert.deepEqual(await removeBankConnection("pending-overlap"), {
+    retainedAccounts: 1,
+    notArchived: []
+  });
+  assert.deepEqual(requests, [{
+    method: "DELETE",
+    path: "/sessions/session-created-during-removal"
+  }]);
+  assert.equal((await db.select().from(schema.requisitions).where(eq(schema.requisitions.id, "pending-overlap")).get())?.session_cipher, null);
+  assert.equal((await db.select().from(schema.accounts).get())?.requisition_id, null);
+});
+
 test("a provider session revocation answered without a body counts as revoked", async context => {
   const {
     db
@@ -321,7 +594,7 @@ test("a provider session revocation answered without a body counts as revoked", 
 
   assert.deepEqual(await removeBankConnection("no-body"), {
     retainedAccounts: 1,
-    providerRevocation: "revoked"
+    notArchived: []
   });
 });
 
@@ -330,8 +603,8 @@ test("an unreadable provider success body is a 502 provider failure, not a 400 a
     status: 200
   }));
 
-  await assert.rejects(bankingRequest("/application"), {
+  await assert.rejects(verifyApplication(), {
     status: 502
   });
-  await assert.rejects(bankingRequest("/application"), (error: Error) => !/input/i.test(error.message));
+  await assert.rejects(verifyApplication(), (error: Error) => !/input/i.test(error.message));
 });

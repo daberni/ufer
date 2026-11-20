@@ -49,13 +49,21 @@ const transaction: Transaction = {
   instructed_currency: null,
   counterparty: "Example Market",
   description: "Synthetic purchase",
+  source_counterparty: "Example Market",
+  source_description: "Synthetic purchase",
+  hidden: false,
   account_name: "Synthetic account",
   account_id: "synthetic-account",
   category_id: "groceries",
   category_source: "rule",
+  category_rule_id: null,
+  automatic_assignment: null,
+  split: null,
   type: "expense",
   type_source: "auto",
   manual_account: false,
+  account_archived: false,
+  counterpart_archived: false,
   entered: false,
   follows_import: false,
   created_counterpart: false,
@@ -100,9 +108,14 @@ test("an action in flight leaves the controls of every other action unchanged", 
   const { SyncButton } = await import("../src/features/banking/components/sync-button");
   const { RulesView } = await import("../src/features/categorization/components/rules-view");
   const { TransactionCategory } = await import("../src/features/transactions/components/transaction-category");
+  const { TransactionRuleProvider } = await import("../src/features/transactions/components/transaction-rule-provider");
   const { AppStoreProvider } = await import("../src/client/app-store");
 
-  const screen = render(withQueryClient(queryClient, createElement(AppStoreProvider, {
+  const screen = render(withQueryClient(queryClient, createElement(TransactionRuleProvider, {
+    fallbackFocus: {
+      current: null
+    }
+  }, createElement(AppStoreProvider, {
     locked: false
   }, [
     createElement(SyncButton, {
@@ -126,7 +139,7 @@ test("an action in flight leaves the controls of every other action unchanged", 
       categories,
       transaction
     })
-  ])));
+  ]))));
 
   const controls = () => controlsIn(screen);
 

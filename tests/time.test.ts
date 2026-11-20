@@ -31,16 +31,19 @@ function bankAccount(id: string, validUntil: string | null): Account {
   return {
     id,
     name: id,
+    provider_name: null,
     institution: "Example institution",
     kind: "checking",
     currency: "EUR",
     balance_minor: 0,
     balance_date: "2026-11-01",
+    last_booking_date: null,
     provider: "enable_banking",
     requisition_id: "connection",
     sync_error: null,
     last_synced_at: null,
-    valid_until: validUntil
+    valid_until: validUntil,
+    archived_at: null
   };
 }
 

@@ -34,7 +34,7 @@ To seed a local throwaway database, point `DATABASE_URL` at a new file, for exam
    Behind a reverse proxy that replaces a client-address header with the connecting address (for example nginx `proxy_set_header X-Real-IP $remote_addr;`), set `TRUSTED_CLIENT_IP_HEADER=X-Real-IP` so authentication rate limits count per client. Only set it when the application port is reachable exclusively through that proxy. Without it, all clients share one counter per authentication endpoint; see [authentication rate limits](security.md#authentication-rate-limits).
 3. Run `docker compose up -d --build`. The application runs as a non-root user with a read-only root filesystem and a persistent `budget-data` volume. The existing volume and database names are intentionally retained for compatibility.
 4. Unattended daily synchronization is included in the default Compose stack. It runs once in the configured hour, default 06:00 Europe/Vienna; set `SYNC_HOUR` to change the hour. There is no immediate retry loop on failure.
-5. For a consistent backup, stop the app and scheduler, back up the data volume and configuration/encryption secrets separately, then restart. Copying an actively written SQLite file is not a verified backup procedure.
+5. For a consistent backup, stop the app and scheduler, back up the data volume and configuration/encryption secrets separately, then restart. Copying an actively written SQLite file is not a verified backup procedure. See [backup and restore](backup-and-restore.md) for read-only artifact checks and the separately authorized recovery procedure.
 
 The image build excludes environment files, private keys, and financial databases. Outbound HTTPS to Enable Banking is required. No incoming webhook is required; the registered callback must be reachable from the user's browser. Production redirect compatibility depends on the institution.
 
@@ -79,6 +79,7 @@ All five views were checked in Chrome emulation at widths from 320 to 844 pixels
 ## Checks
 
 ```sh
+npm audit --omit=dev --audit-level=high
 npm run lint
 npm run check:styles
 npm run check
@@ -86,7 +87,7 @@ npm test
 npm run build
 ```
 
-The behavior tests cover exact amounts, accounting month boundaries, rule precedence, demo-seed scope and guard, booked versus pending transactions, provider identifiers, CSV validation, repeat imports, manual categories, reconnects, environment isolation, leases, authentication throttling, library-managed enrollment, membership access, cookie integrity/expiry and session revocation, jose provider signatures, persisted bank-secret integrity, pagination, and browser-bound single-use callbacks. CI runs lint, stylesheet checks, type checking, behavior tests, and a production build without real banking credentials. See [security boundaries](security.md) for the current single-installation scope and future identity requirements.
+The behavior tests cover exact amounts, accounting month boundaries, rule precedence, demo-seed scope and guard, booked versus pending transactions, provider identifiers, CSV validation, repeat imports, manual categories, reconnects, environment isolation, leases, authentication throttling, library-managed enrollment, membership access, cookie integrity/expiry and session revocation, jose provider signatures, persisted bank-secret integrity, pagination, and browser-bound single-use callbacks. CI rejects high/critical advisories in production dependencies and runs lint, stylesheet checks, type checking, behavior tests, and a production build without real banking credentials. GitHub Actions use version tags. Dependabot checks npm and Actions weekly and waits until ordinary releases are at least seven days old, grouping production dependencies, development dependencies and Actions separately. [Security updates](https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference#cooldown) bypass this cooldown and the weekly version-update schedule; they are not grouped with routine updates. Updates still require review and passing CI and are not automatically merged. Dependabot cannot identify an arbitrary non-security hotfix from its version number; urgent fixes can be updated manually without waiting for the routine schedule. See [security boundaries](security.md) for the current single-installation scope and future identity requirements.
 
 ## Parallel checkouts
 

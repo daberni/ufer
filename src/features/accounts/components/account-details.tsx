@@ -8,7 +8,7 @@ import { clsx } from "clsx";
 import Link from "next/link";
 import { useId, useState } from "react";
 import styles from "./account-details.module.css";
-import { ArrowLeft, ArrowRight, RefreshCw } from "lucide-react";
+import { ArrowLeft, ArrowRight, Pencil, RefreshCw } from "lucide-react";
 import { accountIcon, accountSourceLabel, accountSyncLabel, kinds } from "@/features/accounts/account-presentation";
 import { DateValue, TimestampValue } from "@/components/ui/date-value";
 import { Empty } from "@/components/ui/empty-state";
@@ -16,10 +16,13 @@ import { AreaPlaceholder } from "@/components/ui/area-placeholder";
 import { money } from "@/lib/money";
 import { BankConnectionDialog } from "@/features/banking/components/bank-connection-form";
 import { BalanceHistoryPanel } from "./balance-history";
-import { useViewHref } from "@/client/use-app-url";
+import { AccountArchiveAction } from "./account-archive-action";
+import { ValuationDialog } from "./valuation-form";
+import { bankConnectionsHref } from "@/features/banking/connections-location";
 import type { Area } from "@/components/ui/use-area-result";
 import type { Account, BalanceHistory } from "@/features/accounts/types";
 import type { Connection } from "@/features/banking/types";
+import { useLocale } from "@/client/locale-provider";
 
 /** Where an account's details return to: the list they were opened from. */
 export type BackLink = {
@@ -100,8 +103,13 @@ function AccountSummary({
   account: Account;
   connections: Connection[];
 }) {
+  const locale = useLocale();
   const [connection, setConnection] = useState<Connection | null>(null);
+  const [updatingBalance, setUpdatingBalance] = useState(false);
   const closeDialog = () => setConnection(null);
+  const archived = account.archived_at !== null;
+  // A synced account's balance comes from its bank; an archived account is read-only until it is restored.
+  const balanceEditable = account.provider === "manual" && !archived;
   const headingId = useId();
   const Icon = accountIcon(account.kind);
 
@@ -113,9 +121,22 @@ function AccountSummary({
         </span>
         <span className={ui["pill"]}>{kinds[account.kind] ?? account.kind}</span>
       </div>
+      {archived && <p className={clsx(ui["notice"], styles["archived"])}>This account is archived. It is hidden from the account lists and pickers and is not synced; its history still counts in reports.</p>}
       <h2 id={headingId} className={styles["heading"]}>Balance</h2>
       <p className={ui["muted"]}>{account.institution} · {account.currency}</p>
-      <strong className={styles["balance"]}>{account.balance_minor === null ? "—" : money(account.balance_minor, account.currency)}</strong>
+      <div className={styles["balance-row"]}>
+        <strong className={styles["balance"]}>{account.balance_minor === null ? "—" : money(account.balance_minor, account.currency, locale)}</strong>
+        {balanceEditable && (
+          <button
+            className={clsx(ui["icon-button"], styles["balance-edit"])}
+            aria-label={`Update balance of ${account.name}`}
+            title="Update balance"
+            onClick={() => setUpdatingBalance(true)}
+          >
+            <Pencil size={18} aria-hidden="true" />
+          </button>
+        )}
+      </div>
       <dl className={styles["facts"]}>
         <div>
           <dt>Balance date</dt>
@@ -125,6 +146,12 @@ function AccountSummary({
           <dt>Source</dt>
           <dd>{accountSourceLabel(account)}</dd>
         </div>
+        {account.provider === "enable_banking" && account.provider_name && (
+          <div>
+            <dt>Bank account name</dt>
+            <dd className={styles["provider-name"]}>{account.provider_name}</dd>
+          </div>
+        )}
         {account.provider !== "manual" && <SyncFacts account={account} />}
       </dl>
       {account.sync_error && <p className={ui["error-text"]}>{account.sync_error}</p>}
@@ -135,7 +162,11 @@ function AccountSummary({
           reconnect={setConnection}
         />
       )}
+      <div className={styles["actions"]}>
+        <AccountArchiveAction account={account} />
+      </div>
       {connection && <BankConnectionDialog connection={connection} close={closeDialog} />}
+      {updatingBalance && <ValuationDialog selectedAccount={account} close={() => setUpdatingBalance(false)} />}
     </section>
   );
 }
@@ -176,7 +207,6 @@ function ConnectionActions({
   connections: Connection[];
   reconnect: (connection: Connection) => void;
 }) {
-  const viewHref = useViewHref();
   const connection = connections.find(item => item.id === account.requisition_id);
 
   return (
@@ -187,7 +217,7 @@ function ConnectionActions({
           Reconnect {connection.bank_name}
         </button>
       )}
-      <Link className={ui["text-button"]} href={viewHref("connections")}>
+      <Link className={ui["text-button"]} href={bankConnectionsHref}>
         Manage bank connections <ArrowRight size={15} />
       </Link>
     </div>
@@ -205,9 +235,11 @@ function AccountSummarySkeleton() {
       <p>
         <span className={ui["skeleton"]}>Example bank · EUR</span>
       </p>
-      <strong className={styles["balance"]}>
-        <span className={ui["skeleton"]}>€0,000.00</span>
-      </strong>
+      <div className={styles["balance-row"]}>
+        <strong className={styles["balance"]}>
+          <span className={ui["skeleton"]}>€0,000.00</span>
+        </strong>
+      </div>
       <div className={styles["facts"]}>
         <span className={ui["skeleton"]}>Balance date 12 Jan 2025</span>
         <span className={ui["skeleton"]}>Source Bank sync</span>

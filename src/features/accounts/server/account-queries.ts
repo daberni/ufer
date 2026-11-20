@@ -8,10 +8,12 @@ import { productTimeZone, today } from "@/lib/time";
 import { dailyBalances } from "@/features/accounts/daily-balances";
 import type { BalanceHistory, BalancePoint } from "@/features/accounts/types";
 
-// A manual account's balance is the sum of its transactions, dated with the newest one; a synced account keeps its provider balance.
+// A manual account's balance is the sum of its visible transactions, dated with the newest one; a synced account keeps its provider balance.
 const manual = sql`${accounts.provider}='manual'`;
-const balance = sql<number | null>`CASE WHEN ${manual} THEN (SELECT SUM(${transactions.amount_minor}) FROM ${transactions} WHERE ${transactions.account_id}=${accounts.id}) ELSE ${accounts.balance_minor} END`;
-const balanceDate = sql<string | null>`CASE WHEN ${manual} THEN (SELECT MAX(${transactions.booking_date}) FROM ${transactions} WHERE ${transactions.account_id}=${accounts.id}) ELSE ${accounts.balance_date} END`;
+const balance = sql<number | null>`CASE WHEN ${manual} THEN (SELECT SUM(${transactions.amount_minor}) FROM ${transactions} WHERE ${transactions.account_id}=${accounts.id} AND ${transactions.suppressed_at} IS NULL) ELSE ${accounts.balance_minor} END`;
+const balanceDate = sql<string | null>`CASE WHEN ${manual} THEN (SELECT MAX(${transactions.booking_date}) FROM ${transactions} WHERE ${transactions.account_id}=${accounts.id} AND ${transactions.suppressed_at} IS NULL) ELSE ${accounts.balance_date} END`;
+
+const lastBookingDate = sql<string | null>`(SELECT MAX(${transactions.booking_date}) FROM ${transactions} WHERE ${transactions.account_id}=${accounts.id} AND ${transactions.suppressed_at} IS NULL)`;
 
 const kindOrder = sql`CASE ${accounts.kind} WHEN 'checking' THEN 0 WHEN 'savings' THEN 1 WHEN 'investment' THEN 2 ELSE 3 END`;
 
@@ -22,27 +24,38 @@ export async function listAccounts() {
   return db.select({
     id: accounts.id,
     name: accounts.name,
+    provider_name: accounts.provider_name,
     institution: accounts.institution,
     kind: accounts.kind,
     currency: accounts.currency,
     balance_minor: balance,
     balance_date: balanceDate,
+    last_booking_date: lastBookingDate,
     provider: accounts.provider,
     requisition_id: accounts.requisition_id,
     last_synced_at: accounts.last_synced_at,
     valid_until: requisitions.valid_until,
-    sync_error: accounts.sync_error
+    sync_error: accounts.sync_error,
+    archived_at: accounts.archived_at
   }).from(accounts).leftJoin(requisitions, eq(requisitions.id, accounts.requisition_id)).where(eq(accounts.environment, environment())).orderBy(kindOrder, asc(accounts.name));
 }
 
-/** Net worth and its composition from the latest known balances of the accounts in one currency; it does not depend on a period. */
+/** Account kinds that count toward net worth. */
+export const netWorthKinds = ["checking", "savings", "investment", "property", "credit_card", "loan"];
+
+/** One account of the current banking environment with its current balance, as listed. */
+export async function findAccountWithBalance(id: string) {
+  return (await listAccounts()).find(account => account.id === id);
+}
+
+/** Net worth and its composition from the latest known balances of the accounts in one currency; it does not depend on a period. Archived accounts still count, so archiving never changes a report. */
 export async function readNetWorth(currency: string) {
   const relevant = (await listAccounts()).filter(account => account.currency === currency);
   const sum = (kinds: string[]) => relevant.filter(account => kinds.includes(account.kind)).reduce((total, account) => total + (account.balance_minor ?? 0), 0);
 
   return {
     currency,
-    netWorth: sum(["checking", "savings", "investment", "property", "credit_card", "loan"]),
+    netWorth: sum(netWorthKinds),
     liquidity: sum(["checking", "savings", "credit_card"]),
     investments: sum(["investment"]),
     property: sum(["property"]),
@@ -70,7 +83,8 @@ export async function readBalanceHistory(accountId: string): Promise<BalanceHist
   const balances = await db.select({
     date: balanceSnapshots.observed_at,
     amount_minor: balanceSnapshots.amount_minor,
-    source: balanceSnapshots.source
+    source: balanceSnapshots.source,
+    bank_balance_type: balanceSnapshots.bank_balance_type
   }).from(balanceSnapshots).where(eq(balanceSnapshots.account_id, accountId)).orderBy(asc(balanceSnapshots.observed_at));
 
   const currentDate = today().toString();
@@ -78,7 +92,7 @@ export async function readBalanceHistory(accountId: string): Promise<BalanceHist
     date: transactions.booking_date,
     amount_minor: sql<number>`SUM(${transactions.amount_minor})`.mapWith(Number),
     opening: sql<number>`MAX(CASE WHEN ${transactions.type}='opening_balance' THEN 1 ELSE 0 END)`.mapWith(Number)
-  }).from(transactions).where(and(eq(transactions.account_id, accountId), eq(transactions.currency, account.currency), sql`${transactions.booking_date} <= ${currentDate}`)).groupBy(transactions.booking_date).orderBy(asc(transactions.booking_date));
+  }).from(transactions).where(and(eq(transactions.account_id, accountId), eq(transactions.currency, account.currency), sql`${transactions.suppressed_at} IS NULL`, sql`${transactions.booking_date} <= ${currentDate}`)).groupBy(transactions.booking_date).orderBy(asc(transactions.booking_date));
   const providerSources = {
     enable_banking: "sync",
     csv: "csv",
@@ -93,7 +107,8 @@ export async function readBalanceHistory(accountId: string): Promise<BalanceHist
     observations.push({
       date: account.balance_date,
       amount_minor: account.balance_minor,
-      source
+      source,
+      bank_balance_type: null
     });
   }
 
@@ -105,7 +120,8 @@ export async function readBalanceHistory(accountId: string): Promise<BalanceHist
       days: 1
     }).toString(),
     amount_minor: 0,
-    source: "transactions" as const
+    source: "transactions" as const,
+    bank_balance_type: null
   } : undefined;
   const cashAccount = ["checking", "savings", "credit_card"].includes(account.kind);
   const explicitLedger = account.provider === "manual" && openingReference && observations.length === 0;

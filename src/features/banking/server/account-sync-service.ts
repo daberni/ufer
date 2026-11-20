@@ -13,7 +13,6 @@ export async function saveAccountSync(db: Database, run: SyncRunStart, accountId
   }
 
   const balance = selectedBalance(balances, currency);
-  const categorized = categorizeEntries(entries, rules);
 
-  return saveSyncedAccount(db, run, accountId, balance, categorized);
+  return saveSyncedAccount(db, run, accountId, balance, entries, stored => categorizeEntries(stored, rules));
 }

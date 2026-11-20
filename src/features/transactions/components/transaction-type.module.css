@@ -1,5 +1,7 @@
 .suggestions {
-  margin: var(--space-4) 0;
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
   padding: 0;
   border: 0;
   min-width: 0;
@@ -64,4 +66,155 @@
 }
 .danger:not(:disabled):hover {
   background: var(--danger-strong);
+}
+
+.hidden-note {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+}
+.hidden-note > p {
+  margin: 0;
+}
+
+.overridable {
+  display: grid;
+  align-content: start;
+  gap: var(--space-1);
+}
+.overridable > label {
+  margin: 0;
+}
+.source-text {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.restore {
+  min-height: 32px;
+  padding: 0 var(--space-2);
+  border: 0;
+  background: none;
+  color: var(--green-text);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.facts {
+  display: grid;
+  gap: var(--space-1);
+  margin: calc(var(--space-2) * -1) 0 var(--space-6);
+}
+.facts-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+.facts-amount {
+  font-size: var(--text-3xl);
+  font-weight: 500;
+  letter-spacing: -0.8px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+.facts-amount.incoming {
+  color: var(--green-text);
+}
+.facts-meta {
+  font-size: var(--text-sm);
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+/* Styled like the inline category pickers of transaction rows: a quiet field until it is hovered or focused. Overrides the form's full-width inputs. */
+.facts .type-control {
+  width: auto;
+  min-height: 36px;
+  border-color: transparent;
+  background-color: transparent;
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+}
+.facts .type-control:hover,
+.facts .type-control:focus-visible {
+  border-color: var(--border);
+  background-color: var(--surface);
+}
+
+.busy {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.fields {
+  display: grid;
+  gap: var(--space-4);
+}
+/* Overrides the vertical margins the form gives its labels and hints; the grid gap spaces the fields. */
+.fields.fields > *,
+.fields.fields label {
+  margin: 0;
+}
+/* Two related fields side by side, such as a transfer's target account and the booking it pairs with. */
+.pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-4) var(--space-6);
+  align-items: start;
+}
+.pair.pair > * {
+  margin: 0;
+}
+.cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  min-width: 0;
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+.cell > :not(button) {
+  align-self: stretch;
+}
+/* The cell's gap spaces its hint. */
+.cell.cell > p {
+  margin: 0;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-6);
+}
+.actions > :first-child {
+  order: 1;
+  margin-left: auto;
+  min-width: 9rem;
+}
+
+@media (--mobile) {
+  .pair {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .actions {
+    flex-direction: column;
+  }
+  .actions > * {
+    width: 100%;
+  }
+  .actions > :first-child {
+    order: 0;
+    margin-left: 0;
+  }
 }

@@ -11,6 +11,10 @@
   color: var(--ink);
   box-shadow: var(--shadow-lg);
   background: var(--surface-raised);
+  overscroll-behavior: contain;
+}
+.modal.wide {
+  width: min(720px, calc(100vw - 30px));
 }
 .modal::backdrop {
   background: var(--backdrop);
@@ -35,7 +39,8 @@
   margin-bottom: var(--space-2);
 }
 @media (--mobile) {
-  .modal {
+  .modal,
+  .modal.wide {
     width: 100%;
     max-width: 100%;
     max-height: calc(100dvh - env(safe-area-inset-top));

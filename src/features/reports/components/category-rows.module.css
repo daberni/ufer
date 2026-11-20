@@ -9,6 +9,18 @@
   gap: var(--space-2);
   font-size: var(--text-sm);
 }
+/* A linked row is highlighted like the chart's selected month column; the padding sits in a negative margin, so rows keep their spacing. */
+.link {
+  margin: calc(-1 * var(--space-2));
+  padding: var(--space-2);
+  color: inherit;
+  text-decoration: none;
+  border-radius: var(--radius-sm);
+}
+.link:hover,
+.link:focus-visible {
+  background: var(--chart-track);
+}
 .category {
   display: flex;
   align-items: center;
@@ -17,6 +29,8 @@
 }
 .row strong {
   font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  text-align: end;
   color: var(--ink-soft);
 }
 .row > div {
@@ -30,26 +44,6 @@
   display: block;
   height: 100%;
   border-radius: var(--radius-sm);
-}
-/* Compact rows keep each row to one line: the name is truncated and the share bar sits in the row's bottom padding. */
-.rows.compact {
-  gap: 1px;
-}
-.compact .row {
-  position: relative;
-  padding-bottom: 3px;
-  line-height: 1.25;
-}
-.compact .category {
-  min-height: 16px;
-}
-/* The share bar starts after the category icon and its gap, underlining name and amount. */
-.compact .row > div {
-  position: absolute;
-  left: calc(1.2em + var(--space-2));
-  right: 0;
-  bottom: 0;
-  height: 2px;
 }
 @media (--mobile) {
   .rows {

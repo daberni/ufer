@@ -17,13 +17,21 @@ const outgoing: Transaction = {
   instructed_currency: null,
   counterparty: "Synthetic savings",
   description: "Standing order",
+  source_counterparty: "Synthetic savings",
+  source_description: "Standing order",
+  hidden: false,
   account_name: "Synthetic checking",
   account_id: "synthetic-checking",
   category_id: null,
   category_source: "rule",
+  category_rule_id: null,
+  automatic_assignment: null,
+  split: null,
   type: "expense",
   type_source: "auto",
   manual_account: false,
+  account_archived: false,
+  counterpart_archived: false,
   entered: false,
   follows_import: false,
   created_counterpart: false,
@@ -57,10 +65,11 @@ async function renderDialog(context: TestContext, transaction: Transaction) {
     this.removeAttribute("open");
   };
 
+  const closed: boolean[] = [];
   const { TransactionEditDialog } = await import("../src/features/transactions/components/transaction-edit-dialog");
   const screen = render(withQueryClient(browserEnvironment.queryClient, createElement(TransactionEditDialog, {
     transaction,
-    close: () => {}
+    close: () => closed.push(true)
   })));
 
   await wait(0);
@@ -68,6 +77,7 @@ async function renderDialog(context: TestContext, transaction: Transaction) {
   return {
     ...browserEnvironment,
     screen,
+    closed,
     save: () => screen.getByRole("button", {
       name: "Save"
     }) as HTMLButtonElement,
@@ -112,7 +122,7 @@ test("a linked transfer cannot be saved before its target is known, and saving u
   });
   await wait(0);
 
-  assert.deepEqual(requests("transactions/out/type")[0]?.body, {
+  assert.deepEqual(requests("transactions/out/details")[0]?.body, {
     type: "transfer",
     transfer: {
       counterpart_id: "in"
@@ -162,7 +172,7 @@ test("choosing a suggestion sets the target account, and a manual account or non
   });
 
   assert.equal(target().value, "booking:candidate");
-  assert.match(screen.getByRole("status").textContent ?? "", /links this booking with Synthetic savings/);
+  assert.ok(screen.getByText(/Linked with Synthetic savings/));
 
   act(() => {
     fireEvent.change(target(), {
@@ -173,14 +183,14 @@ test("choosing a suggestion sets the target account, and a manual account or non
   });
 
   assert.equal(suggestion().checked, false);
-  assert.match(screen.getByRole("status").textContent ?? "", /other side on Synthetic flat/);
+  assert.ok(screen.getByText(/other side on Synthetic flat/));
 
   act(() => {
     fireEvent.click(save());
   });
   await wait(0);
 
-  assert.deepEqual(requests("transactions/out/type")[0]?.body, {
+  assert.deepEqual(requests("transactions/out/details")[0]?.body, {
     type: "transfer",
     transfer: {
       account_id: "flat"
@@ -221,7 +231,7 @@ test("a transfer without a target account is saved without a counterpart", async
   });
   await wait(0);
 
-  assert.deepEqual(requests("transactions/out/type")[0]?.body, {
+  assert.deepEqual(requests("transactions/out/details")[0]?.body, {
     type: "transfer",
     transfer: null
   });
@@ -239,8 +249,138 @@ test("other types load no transfer options and send no target", async context =>
   await wait(0);
 
   assert.equal(requests("transactions/out/transfer").length, 0);
-  assert.deepEqual(requests("transactions/out/type")[0]?.body, {
+  assert.deepEqual(requests("transactions/out/details")[0]?.body, {
     type: "expense"
+  });
+});
+
+test("an imported booking sends only the changed payee, and restoring the bank's description drops its override", async context => {
+  const overridden = {
+    ...outgoing,
+    description: "Rent reserve",
+    source_description: "Standing order"
+  };
+  const {
+    requests,
+    save,
+    screen
+  } = await renderDialog(context, overridden);
+
+  act(() => {
+    fireEvent.change(screen.getByRole("combobox", {
+      name: "Payee"
+    }), {
+      target: {
+        value: "Example landlord"
+      }
+    });
+  });
+  act(() => {
+    fireEvent.click(screen.getAllByRole("button", {
+      name: "Restore"
+    })[0]);
+  });
+  assert.equal((screen.getByRole("textbox", {
+    name: "Description"
+  }) as HTMLInputElement).value, "Standing order");
+
+  act(() => {
+    fireEvent.click(save());
+  });
+  await wait(0);
+
+  assert.deepEqual(requests("transactions/out/details")[0]?.body, {
+    type: "expense",
+    counterparty: "Example landlord",
+    description: "Standing order"
+  });
+});
+
+test("untouched bank text with surrounding spaces is not sent as an override", async context => {
+  const {
+    requests,
+    save
+  } = await renderDialog(context, {
+    ...outgoing,
+    counterparty: " Synthetic savings ",
+    source_counterparty: " Synthetic savings ",
+    description: "Standing order ",
+    source_description: "Standing order "
+  });
+
+  act(() => {
+    fireEvent.click(save());
+  });
+  await wait(0);
+
+  assert.deepEqual(requests("transactions/out/details")[0]?.body, {
+    type: "expense"
+  });
+});
+
+test("a hidden booking offers no transfer targets and saves a transfer without a link", async context => {
+  const {
+    requests,
+    save,
+    screen
+  } = await renderDialog(context, {
+    ...outgoing,
+    hidden: true
+  });
+
+  act(() => {
+    fireEvent.change(screen.getByRole("combobox", {
+      name: "Type"
+    }), {
+      target: {
+        value: "transfer"
+      }
+    });
+  });
+  await wait(0);
+
+  assert.equal(requests("transactions/out/transfer").length, 0);
+  assert.equal(screen.queryByRole("combobox", {
+    name: "Target account"
+  }), null);
+  act(() => {
+    fireEvent.click(save());
+  });
+  await wait(0);
+
+  assert.deepEqual(requests("transactions/out/details")[0]?.body, {
+    type: "transfer"
+  });
+});
+
+test("a counterpart Ufer created on a manual account offers neither text overrides nor hiding and sends no text", async context => {
+  const {
+    requests,
+    save,
+    screen
+  } = await renderDialog(context, {
+    ...outgoing,
+    id: "created",
+    amount_minor: 35000,
+    account_name: "Synthetic flat",
+    type: "income",
+    manual_account: true,
+    created_counterpart: true
+  });
+
+  assert.equal(screen.queryByRole("combobox", {
+    name: "Payee"
+  }), null);
+  assert.equal(screen.queryByRole("button", {
+    name: "Hide transaction"
+  }), null);
+  act(() => {
+    fireEvent.click(save());
+  });
+  await wait(0);
+
+  assert.deepEqual(requests("transactions/created/details")[0]?.body, {
+    type: "income"
   });
 });
 
@@ -277,7 +417,7 @@ test("a booking Ufer created on a manual account offers only removing it, withou
     }]
   } satisfies TransferOptions));
 
-  assert.ok(screen.getByText(/Ufer created this booking for the transfer of Synthetic checking/));
+  assert.ok(screen.getByText(/Created for the transfer of Synthetic checking/));
   assert.equal(screen.queryByRole("radio"), null);
   assert.equal(screen.queryByRole("combobox", {
     name: "Target account"
@@ -289,14 +429,14 @@ test("a booking Ufer created on a manual account offers only removing it, withou
     }));
   });
 
-  assert.match(screen.getByRole("status").textContent ?? "", /Save removes this booking/);
+  assert.ok(screen.getByText(/Save removes this booking/));
 
   act(() => {
     fireEvent.click(save());
   });
   await wait(0);
 
-  assert.deepEqual(requests("transactions/created/type")[0]?.body, {
+  assert.deepEqual(requests("transactions/created/details")[0]?.body, {
     type: "transfer",
     transfer: null
   });
@@ -349,7 +489,7 @@ test("one side of a transfer entered between manual accounts edits the pair: the
   assert.equal(screen.queryByRole("checkbox", {
     name: "Remove this booking"
   }), null);
-  assert.equal(screen.queryByRole("textbox", {
+  assert.equal(screen.queryByRole("combobox", {
     name: "Payee"
   }), null);
   assert.equal(target().value, "account:cash");
@@ -407,4 +547,170 @@ test("an entered booking linked with an imported booking keeps that booking's da
   assert.ok(screen.getByRole("button", {
     name: "Delete transaction"
   }));
+});
+
+type Requests = Awaited<ReturnType<typeof renderDialog>>["requests"];
+
+async function chooseCategory(screen: ReturnType<typeof render>, requests: Requests, name: string) {
+  await respond(requests("categories")[0], Response.json([{
+    id: "groceries",
+    name: "Groceries",
+    color: "#638777",
+    icon: null
+  }]));
+
+  const field = screen.getByRole("combobox", {
+    name: "Category"
+  });
+
+  act(() => {
+    fireEvent.click(field);
+  });
+  // jsdom has no Popover API, so the opened list may count as hidden there.
+  act(() => {
+    fireEvent.click(screen.getByRole("option", {
+      name,
+      hidden: true
+    }));
+  });
+}
+
+function categoryPatches(requests: Requests) {
+  return requests("transactions/out").filter(request => request.method === "PATCH");
+}
+
+test("saving a changed category assigns it once after the details, then closes", async context => {
+  const {
+    closed,
+    requests,
+    save,
+    screen
+  } = await renderDialog(context, outgoing);
+
+  await chooseCategory(screen, requests, "Groceries");
+  act(() => {
+    fireEvent.click(save());
+  });
+  await wait(0);
+
+  assert.equal(categoryPatches(requests).length, 0);
+  await respond(requests("transactions/out/details")[0], Response.json({}));
+  await wait(0);
+
+  const patches = categoryPatches(requests);
+
+  assert.equal(patches.length, 1);
+  assert.deepEqual(patches[0].body, {
+    category_id: "groceries"
+  });
+  assert.equal(closed.length, 0);
+
+  await respond(patches[0], Response.json({
+    id: "out",
+    category_id: "groceries",
+    category_source: "manual",
+    category_rule_id: null
+  }));
+  await wait(0);
+
+  assert.equal(closed.length, 1);
+});
+
+test("saving an unchanged category sends no assignment", async context => {
+  const {
+    closed,
+    requests,
+    save
+  } = await renderDialog(context, outgoing);
+
+  act(() => {
+    fireEvent.click(save());
+  });
+  await wait(0);
+  await respond(requests("transactions/out/details")[0], Response.json({}));
+  await wait(0);
+
+  assert.equal(categoryPatches(requests).length, 0);
+  assert.equal(closed.length, 1);
+});
+
+test("a failed category assignment keeps the dialog open with its error", async context => {
+  const {
+    closed,
+    requests,
+    save,
+    screen
+  } = await renderDialog(context, outgoing);
+
+  await chooseCategory(screen, requests, "Groceries");
+  act(() => {
+    fireEvent.click(save());
+  });
+  await wait(0);
+  await respond(requests("transactions/out/details")[0], Response.json({}));
+  await wait(0);
+  await respond(categoryPatches(requests)[0], Response.json({
+    title: "Category not found.",
+    status: 422,
+    detail: "Category not found."
+  }, {
+    status: 422,
+    headers: {
+      "content-type": "application/problem+json"
+    }
+  }));
+  await wait(0);
+
+  assert.equal(closed.length, 0);
+  assert.ok(screen.getByText(/Category not found/));
+  assert.equal(save().disabled, false);
+});
+
+test("a changed category is still assigned when the details' refresh removes the dialog", async context => {
+  const {
+    requests,
+    save,
+    screen
+  } = await renderDialog(context, outgoing);
+
+  await chooseCategory(screen, requests, "Groceries");
+  act(() => {
+    fireEvent.click(save());
+  });
+  await wait(0);
+
+  // The refreshed list no longer contains the row, which unmounts its dialog.
+  screen.unmount();
+  await respond(requests("transactions/out/details")[0], Response.json({}));
+  await wait(0);
+
+  assert.equal(categoryPatches(requests).length, 1);
+});
+
+test("a split booking offers only income and expense as its type, also on a manual account", async context => {
+  const {
+    screen
+  } = await renderDialog(context, {
+    ...outgoing,
+    manual_account: true,
+    split: {
+      parts: [{
+        id: "part-1",
+        amount_minor: -20000,
+        category_id: null,
+        note: ""
+      }, {
+        id: "part-2",
+        amount_minor: -15000,
+        category_id: null,
+        note: ""
+      }],
+      balanced: true
+    }
+  });
+  const type = screen.getByRole("combobox", {
+    name: "Type"
+  }) as HTMLSelectElement;
+
+  assert.deepEqual([...type.options].map(option => option.value), ["income", "expense"]);
 });

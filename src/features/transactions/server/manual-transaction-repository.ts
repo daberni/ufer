@@ -1,10 +1,13 @@
 import { randomUUID } from "node:crypto";
-import { and, asc, eq, lte, sql } from "drizzle-orm";
+import { and, asc, eq, isNull, lte, sql } from "drizzle-orm";
 import { TransactionRollbackError } from "drizzle-orm/errors";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 import { transactions } from "@/server/database/schema";
+import { assertWritableAccount } from "@/features/accounts/server/writable-account";
 import type { TransactionType } from "@/features/transactions/transaction-types";
-import { applyTransactionType, createdCounterpartPrefix, dissolveLink, enteredInUfer, enteredPair, findCounterpart, findSubject, manualEntryPrefix, type TransferTarget, type TypeChangeResult } from "./transfer-repository";
+import type { Rule, RuleAssignment, RuleText } from "@/lib/rules";
+import { applyTransactionType, createdCounterpartPrefix, dissolveLink, enteredInUfer, enteredPair, findCounterpart, findSubject, manualEntryPrefix, touchesArchivedAccount, type TransferTarget, type TypeChangeResult } from "./transfer-repository";
+import { dissolveSplit, splitRefusesType } from "./split-repository";
 
 /** The fields a person enters for a booking on a manual account. */
 export type ManualEntry = {
@@ -22,9 +25,10 @@ export type NewManualEntry = ManualEntry & {
   currency: string;
   categoryId: string | null;
   categorySource: "rule" | "manual";
+  categoryRuleId: string | null;
 };
 
-export type ManualEntryResult = TypeChangeResult | "not_entered" | "follows_import";
+export type ManualEntryResult = TypeChangeResult | "not_entered" | "follows_import" | "entered" | "hidden" | "split";
 
 /** Thrown inside a write transaction to roll it back and report why a change was refused. */
 class Refused extends TransactionRollbackError {
@@ -33,7 +37,7 @@ class Refused extends TransactionRollbackError {
   }
 }
 
-async function refusable(write: (tx: DatabaseTransaction) => Promise<ManualEntryResult>): Promise<ManualEntryResult> {
+export async function refusable(write: (tx: DatabaseTransaction) => Promise<ManualEntryResult>): Promise<ManualEntryResult> {
   const db = await database();
 
   try {
@@ -67,6 +71,7 @@ function manualEntryValues(id: string, entry: NewManualEntry): typeof transactio
     description: entry.description,
     category_id: entry.categoryId,
     category_source: entry.categorySource,
+    category_rule_id: entry.categoryRuleId,
     type: entry.type,
     type_source: "manual"
   };
@@ -76,13 +81,20 @@ async function insertEntry(tx: DatabaseTransaction, id: string, entry: NewManual
   await tx.insert(transactions).values(manualEntryValues(id, entry));
 }
 
+/** Enters a booking within the caller's transaction and, for a transfer, creates or links its other side; the caller rolls back unless the result is "saved". */
+export async function bookManualEntry(tx: DatabaseTransaction, id: string, entry: NewManualEntry) {
+  await insertEntry(tx, id, entry);
+
+  return applyTransactionType(tx, id, entry.type, entry.target);
+}
+
 /** Enters a booking on a manual account and, for a transfer, creates or links its other side in the same transaction. */
 export async function createManualTransaction(entry: NewManualEntry) {
   const id = randomUUID();
   const result = await refusable(async tx => {
-    await insertEntry(tx, id, entry);
+    await assertWritableAccount(tx, entry.accountId);
 
-    return applyTransactionType(tx, id, entry.type, entry.target);
+    return bookManualEntry(tx, id, entry);
   });
 
   return {
@@ -102,7 +114,12 @@ export async function findEntryCurrency(id: string) {
  * Saves an entered booking's date, amount, payee, description and type together.
  * The other side of an entered pair mirrors the date, the opposite amount and the description; a booking linked with an imported booking keeps that booking's date and amount.
  */
-export async function updateManualTransaction(id: string, entry: ManualEntry, categoryFor: (counterparty: string, description: string) => string | null) {
+export async function updateManualTransaction(
+  id: string,
+  entry: ManualEntry,
+  categoryFor: (text: RuleText) => RuleAssignment,
+  dropSplit?: (rules: Rule[], text: RuleText) => RuleAssignment
+) {
   return refusable(async tx => {
     const subject = await findSubject(tx, id);
 
@@ -110,8 +127,21 @@ export async function updateManualTransaction(id: string, entry: ManualEntry, ca
       return "not_found";
     }
 
+    if (await touchesArchivedAccount(tx, subject)) {
+      return "archived_account";
+    }
+
     if (!enteredInUfer(subject)) {
       return "not_entered";
+    }
+
+    // Removing the split in the same write transaction lets it take a type a split booking refuses; a refused save keeps the split.
+    if (dropSplit) {
+      await dissolveSplit(tx, id, dropSplit);
+    }
+
+    if (await splitRefusesType(tx, id, entry.type)) {
+      return "split";
     }
 
     const counterpart = await findCounterpart(tx, subject);
@@ -174,19 +204,24 @@ export async function updateManualTransaction(id: string, entry: ManualEntry, ca
 }
 
 /** Rechecks final mirrored fields under the edit's write lock; explicit manual assignments, including null, stay untouched. */
-async function reapplyRuleCategory(tx: DatabaseTransaction, id: string, categoryFor: (counterparty: string, description: string) => string | null) {
+async function reapplyRuleCategory(tx: DatabaseTransaction, id: string, categoryFor: (text: RuleText) => RuleAssignment) {
   const automatic = and(eq(transactions.id, id), eq(transactions.category_source, "rule"));
   const booking = await tx.select({
     counterparty: transactions.counterparty,
-    description: transactions.description
+    description: transactions.description,
+    counterparty_override: transactions.counterparty_override,
+    description_override: transactions.description_override
   }).from(transactions).where(automatic).get();
 
   if (!booking) {
     return;
   }
 
+  const assignment = categoryFor(booking);
+
   await tx.update(transactions).set({
-    category_id: categoryFor(booking.counterparty, booking.description)
+    category_id: assignment.categoryId,
+    category_rule_id: assignment.ruleId
   }).where(automatic);
 }
 
@@ -199,6 +234,10 @@ export async function deleteManualTransaction(id: string) {
 
     if (!subject) {
       return "not_found";
+    }
+
+    if (await touchesArchivedAccount(tx, subject)) {
+      return "archived_account";
     }
 
     if (!enteredInUfer(subject)) {
@@ -230,7 +269,7 @@ export async function recordManualBalance(tx: DatabaseTransaction, account: {
   const booked = await tx.select({
     count: sql<number>`COUNT(*)`,
     onDate: sql<number>`COALESCE(SUM(CASE WHEN ${lte(transactions.booking_date, date)} THEN ${transactions.amount_minor} ELSE 0 END),0)`
-  }).from(transactions).where(eq(transactions.account_id, account.id)).get();
+  }).from(transactions).where(and(eq(transactions.account_id, account.id), isNull(transactions.suppressed_at))).get();
   const opening = Number(booked?.count ?? 0) === 0;
   const difference = amount - Number(booked?.onDate ?? 0);
 
@@ -249,6 +288,7 @@ export async function recordManualBalance(tx: DatabaseTransaction, account: {
     description: "",
     categoryId: null,
     categorySource: "manual",
+    categoryRuleId: null,
     type
   });
 
@@ -271,7 +311,7 @@ export async function recordManualBalances(tx: DatabaseTransaction, account: {
   const ledger = await tx.select({
     date: transactions.booking_date,
     amount: sql<number>`SUM(${transactions.amount_minor})`.mapWith(Number)
-  }).from(transactions).where(eq(transactions.account_id, account.id)).groupBy(transactions.booking_date).orderBy(asc(transactions.booking_date));
+  }).from(transactions).where(and(eq(transactions.account_id, account.id), isNull(transactions.suppressed_at))).groupBy(transactions.booking_date).orderBy(asc(transactions.booking_date));
   const values: (typeof transactions.$inferInsert)[] = [];
   let ledgerIndex = 0;
   let bookedBalance = 0;
@@ -299,6 +339,7 @@ export async function recordManualBalances(tx: DatabaseTransaction, account: {
       description: "",
       categoryId: null,
       categorySource: "manual",
+      categoryRuleId: null,
       type: hasTransactions ? "adjustment" : "opening_balance"
     }));
     previousAdjustments += difference;

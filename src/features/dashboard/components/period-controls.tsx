@@ -4,7 +4,7 @@ import ui from "../../../components/ui/primitives.module.css";
 
 import { clsx } from "clsx";
 import styles from "./period-controls.module.css";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { CalendarRange, Check, ChevronLeft, ChevronRight } from "lucide-react";
 import { Temporal } from "temporal-polyfill";
 import { describeDate, periodLabel } from "@/lib/date-format";
 import { useDisplayTimeZone } from "@/components/ui/use-display-time-zone";
@@ -17,6 +17,8 @@ import { shownStatus, valueMask } from "@/components/ui/result-presentation";
 import { InlineFailure } from "@/components/ui/area-placeholder";
 import type { Area } from "@/components/ui/use-area-result";
 import type { SyncRun } from "@/features/banking/types";
+import { useLocale } from "@/client/locale-provider";
+import { formatCount } from "@/lib/locale";
 
 type DisplayCurrencies = {
   /** The currencies of all accounts; until they load, only the selected one is offered. */
@@ -37,6 +39,7 @@ type Props = (DisplayCurrencies & {
 };
 
 export function PeriodControls(props: Props) {
+  const locale = useLocale();
   const currency = useCurrency();
   const currencies = props.view === "account" ? [] : props.currencies.data ?? [currency];
   const period = usePeriod();
@@ -55,7 +58,8 @@ export function PeriodControls(props: Props) {
     <div className={styles["period-bar"]}>
       <div>
         {props.view === "overview" ? <OverviewKicker latestSync={props.latestSync} timeZone={timeZone} /> : <TransactionCount count={props.transactionCount} />}
-      </div>       <div className={clsx(styles["period-controls"], props.view === "account" && styles["without-currency"])}>
+      </div>
+      <div className={clsx(styles["period-controls"], props.view === "account" && styles["without-currency"])}>
         {props.view !== "account" && (
           <Select
             variant="bare"
@@ -75,7 +79,7 @@ export function PeriodControls(props: Props) {
           <ChevronLeft size={17} />
         </button>
         <MonthPicker
-          label={periodLabel(period)}
+          label={periodLabel(period, locale)}
           selected={period.kind === "month" ? period.month : null}
           onSelect={month => selectPeriod(monthPeriod(month))}
         />
@@ -87,14 +91,15 @@ export function PeriodControls(props: Props) {
         >
           <ChevronRight size={17} />
         </button>
-        <label className={styles["all-months"]}>
-          <input
-            type="checkbox"
-            checked={allMonths}
-            onChange={event => selectPeriod(event.target.checked ? allMonthsPeriod : currentMonthPeriod())}
-          />
+        <button
+          type="button"
+          className={styles["all-months"]}
+          aria-pressed={allMonths}
+          onClick={() => selectPeriod(allMonths ? currentMonthPeriod() : allMonthsPeriod)}
+        >
+          {allMonths ? <Check size={16} aria-hidden="true" /> : <CalendarRange size={16} aria-hidden="true" />}
           All months
-        </label>
+        </button>
       </div>
     </div>
   );
@@ -122,6 +127,8 @@ function LatestSync({
   latestSync: Area<SyncRun | undefined>;
   timeZone: string;
 }) {
+  const locale = useLocale();
+
   if (latestSync.status === "pending") {
     if (latestSync.failure) {
       return <InlineFailure className={ui["subtle"]} failure={latestSync.failure} subject="The last sync" />;
@@ -132,13 +139,14 @@ function LatestSync({
 
   const run = latestSync.data;
 
-  return <span className={ui["subtle"]} title={run ? describeDate(Temporal.Instant.from(run.started_at).toZonedDateTimeISO(timeZone)).title : undefined}>{lastSyncLabel(run, timeZone)}</span>;
+  return <span className={ui["subtle"]} title={run ? describeDate(Temporal.Instant.from(run.started_at).toZonedDateTimeISO(timeZone), locale).title : undefined}>{lastSyncLabel(run, timeZone, locale)}</span>;
 }
 
 function TransactionCount({ count }: {
   count: Area<number>
 }) {
+  const locale = useLocale();
   const shown = count.data ?? 0;
 
-  return <span className={clsx(ui["section-kicker"], valueMask(shownStatus(count)))}>{`${shown} ${shown === 1 ? "TRANSACTION" : "TRANSACTIONS"}`}</span>;
+  return <span className={clsx(ui["section-kicker"], valueMask(shownStatus(count)))}>{`${formatCount(shown, locale)} ${shown === 1 ? "TRANSACTION" : "TRANSACTIONS"}`}</span>;
 }

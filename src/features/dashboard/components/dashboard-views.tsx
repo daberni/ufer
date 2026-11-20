@@ -1,20 +1,23 @@
 "use client";
 
+import { useEffect } from "react";
+import { bankConnectionsSectionId } from "@/features/banking/connections-location";
 import { OverviewView } from "@/features/dashboard/components/overview-view";
 import { PeriodControls } from "@/features/dashboard/components/period-controls";
 import { TransactionsPanel } from "@/features/transactions/components/transactions-panel";
 import { SyncRunEmpty, SyncRunScope } from "@/features/transactions/components/sync-run-scope";
 import { AccountsView } from "@/features/accounts/components/accounts-view";
 import { RulesView } from "@/features/categorization/components/rules-view";
-import { ConnectionsView } from "@/features/banking/components/connections-view";
+import { ConnectionsSection } from "@/features/banking/components/connections-view";
 import { AccountDetails, AccountNotFound, type BackLink } from "@/features/accounts/components/account-details";
+import { CsvImportPage } from "@/features/imports/components/csv-import-page";
 import { AccountCashFlowSummary } from "@/features/reports/components/account-cash-flow";
 import { replacePage, setSyncRun, useAccountTransactionsHref, useViewHref, useViewQuery } from "@/client/use-app-url";
 import { useAppStore } from "@/client/app-store";
 import { mapArea, useAreaResult, type Area } from "@/components/ui/use-area-result";
 import { Empty } from "@/components/ui/empty-state";
-import { useAccountCashFlow, useCashFlow } from "@/features/reports/queries";
-import { accountGroups, useAccounts, useBalanceHistory, useNetWorth } from "@/features/accounts/queries";
+import { useAccountCashFlow, useCashFlow, useNetWorthHistory } from "@/features/reports/queries";
+import { accountGroups, activeAccounts, useAccounts, useBalanceHistory, useNetWorth } from "@/features/accounts/queries";
 import { navigation } from "@/features/dashboard/navigation";
 import { useCategories, useRules } from "@/features/categorization/queries";
 import { useBankingConfiguration } from "@/features/banking/banking-configuration";
@@ -36,15 +39,23 @@ export function OverviewPage() {
   const categories = useAreaResult(useCategories());
   const syncRuns = useAreaResult(useSyncRuns());
   const netWorth = useAreaResult(useNetWorth(query.currency));
+  const netWorthHistory = useAreaResult(useNetWorthHistory(query.currency));
   const cashFlow = useAreaResult(useCashFlow(query.period, query.currency));
   const list = useTransactionListView(query, replacePage);
   const groups = mapArea(accounts, data => accountGroups(data, query.currency));
   const currencyAccounts = mapArea(groups, data => data.currencyAccounts);
+  const hasReportedAccounts = groups.status === "pending" || groups.data.reportedAccounts.length > 0;
 
   return (
     <>
       <PeriodControls currencies={mapArea(groups, data => data.currencies)} latestSync={mapArea(syncRuns, runs => runs[0])} view="overview" />
-      <OverviewView cashFlow={cashFlow} currencyAccounts={currencyAccounts} netWorth={netWorth} />
+      <OverviewView
+        cashFlow={cashFlow}
+        currencyAccounts={currencyAccounts}
+        hasReportedAccounts={hasReportedAccounts}
+        netWorth={netWorth}
+        netWorthHistory={netWorthHistory}
+      />
       <TransactionsPanel
         categories={categories}
         list={list}
@@ -67,7 +78,7 @@ export function TransactionsPage() {
   const listedRun = list.data?.syncRun ?? null;
   const selectedRun = listedRun?.id === query.syncRun ? listedRun : null;
   const runFound = selectedRun !== null || !list.current;
-  const runEmptyState = <SyncRunEmpty filtered={Boolean(query.search || query.account || query.category)} found={runFound} run={selectedRun} />;
+  const runEmptyState = <SyncRunEmpty filtered={Boolean(query.search || query.account || query.category || query.type)} found={runFound} run={selectedRun} />;
 
   return (
     <>
@@ -84,7 +95,7 @@ export function TransactionsPage() {
       <TransactionsPanel
         categories={categories}
         emptyState={query.syncRun ? runEmptyState : undefined}
-        filterAccounts={query.syncRun ? accounts : mapArea(groups, data => data.currencyAccounts)}
+        filterAccounts={query.syncRun ? mapArea(accounts, activeAccounts) : mapArea(groups, data => data.currencyAccounts)}
         list={list}
         page={list.page}
         view="transactions"
@@ -95,9 +106,23 @@ export function TransactionsPage() {
 
 export function AccountsPage() {
   const accounts = useAreaResult(useAccounts());
+  const banking = useBankingConfiguration();
+  const connections = useAreaResult(useConnections());
+  const syncRuns = useAreaResult(useSyncRuns());
+  const accountsSettled = accounts.status !== "pending" || accounts.failure !== null;
+
+  // Sign-in and the first account load can finish after the browser tried to scroll to the fragment.
+  useEffect(() => {
+    if (accountsSettled && window.location.hash === `#${bankConnectionsSectionId}`) {
+      document.getElementById(bankConnectionsSectionId)?.scrollIntoView();
+    }
+  }, [accountsSettled]);
 
   return (
-    <AccountsView accounts={accounts} />
+    <>
+      <AccountsView accounts={accounts} />
+      <ConnectionsSection banking={banking} connections={connections} syncRuns={syncRuns} />
+    </>
   );
 }
 
@@ -107,20 +132,6 @@ export function RulesPage() {
 
   return (
     <RulesView categories={categories} rules={rules} />
-  );
-}
-
-export function ConnectionsPage() {
-  const banking = useBankingConfiguration();
-  const connections = useAreaResult(useConnections());
-  const syncRuns = useAreaResult(useSyncRuns());
-
-  return (
-    <ConnectionsView
-      banking={banking}
-      connections={connections}
-      syncRuns={syncRuns}
-    />
   );
 }
 
@@ -136,6 +147,10 @@ function selectedAccount(accounts: Area<Account[]>, id: string): Area<Account> |
     data: account,
     status: accounts.status
   } : null;
+}
+
+export function ImportPage() {
+  return <CsvImportPage />;
 }
 
 export function AccountPage() {

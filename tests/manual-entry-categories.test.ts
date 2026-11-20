@@ -12,16 +12,19 @@ stubCssModules();
 const account: Account = {
   id: "synthetic-cash",
   name: "Synthetic cash",
+  provider_name: null,
   institution: "Example institution",
   kind: "checking",
   currency: "EUR",
   balance_minor: 10000,
   balance_date: "2026-09-01",
+  last_booking_date: null,
   provider: "manual",
   requisition_id: null,
   last_synced_at: null,
   valid_until: null,
-  sync_error: null
+  sync_error: null,
+  archived_at: null
 };
 
 async function renderEntry(context: TestContext) {
@@ -83,12 +86,22 @@ async function renderEntry(context: TestContext) {
   };
 }
 
+// The text assistive technology reads as the field's description, from the elements it references.
+function accessibleDescription(field: HTMLElement) {
+  const ids = field.getAttribute("aria-describedby")?.split(" ") ?? [];
+
+  return ids.map(id => field.ownerDocument.getElementById(id)?.textContent ?? "").join(" ");
+}
+
 test("a manual entry starts with Automatic and can return to it after an explicit choice", async context => {
   const entry = await renderEntry(context);
 
   assert.equal(entry.category.value, "Automatic");
   entry.choose("Uncategorized");
-  assert.equal(entry.category.value, "Uncategorized");
+  assert.equal(entry.category.value, "");
+  assert.equal(entry.category.placeholder, "Uncategorized");
+  assert.match(accessibleDescription(entry.category), /\bUncategorized\b/);
+  assert.ok(entry.category.parentElement?.querySelector(".selected-icon"), "The Uncategorized hint keeps its icon in the field.");
   entry.choose("Automatic");
   assert.equal(entry.category.value, "Automatic");
   assert.equal(Object.hasOwn(await entry.submit(), "category_id"), false);
@@ -98,6 +111,8 @@ test("choosing Uncategorized in a manual entry sends an explicit null instead of
   const entry = await renderEntry(context);
 
   entry.choose("Uncategorized");
-  assert.equal(entry.category.value, "Uncategorized");
+  assert.equal(entry.category.value, "");
+  assert.equal(entry.category.placeholder, "Uncategorized");
+  assert.match(accessibleDescription(entry.category), /\bUncategorized\b/);
   assert.equal((await entry.submit()).category_id, null);
 });

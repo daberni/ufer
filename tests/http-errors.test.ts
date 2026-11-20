@@ -23,7 +23,7 @@ const publicAccess = {
 
 test("an invalid amount is user validation in CSV but a provider failure in bank data", async context => {
   context.mock.method(console, "warn", () => {});
-  const csv = await respond(request, async () => parseBalancesCsv("date,balance,currency\n2020-01-01,0.005,EUR", "EUR"), publicAccess);
+  const csv = await respond(request, async () => parseBalancesCsv("date,balance,currency\n2020-01-01,0.005,EUR", "EUR", "en"), publicAccess);
   const bank = await respond(request, async () => selectedBalance([{
     balance_type: "CLBD",
     balance_amount: {
@@ -370,7 +370,7 @@ test("readJson rejects a declared oversized body before parsing and accepts a 1 
   const body = (size: number) => JSON.stringify({
     csv: "a".repeat(size)
   });
-  const post = (payload: string, length = String(payload.length)) => new Request("http://localhost/api/imports/transactions", {
+  const post = (payload: string, length = String(payload.length)) => new Request("http://localhost/api/imports/balances", {
     method: "POST",
     headers: {
       "content-type": "application/json",
@@ -400,7 +400,7 @@ test("readJson counts the bytes it receives when a streamed body declares no len
       }
     }
   });
-  const request = new Request("http://localhost/api/imports/transactions", {
+  const request = new Request("http://localhost/api/imports/balances", {
     method: "POST",
     headers: {
       "content-type": "application/json"

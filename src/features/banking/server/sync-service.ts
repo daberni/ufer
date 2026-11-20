@@ -6,14 +6,12 @@ import { database } from "@/server/database/connection";
 import { acquireLease, releaseLease, renewLease } from "@/server/jobs/lease-repository";
 import { listRules } from "@/features/categorization/server/rule-repository";
 import { environment } from "./environment";
-import { BankingError, bankingRequest, fetchTransactions, verifyApplication, type Balance } from "./enable-banking-client";
+import { fetchBalances, fetchTransactions, sessionEnded, verifyApplication } from "./enable-banking-client";
 import { normalizeTransactions } from "./bank-data";
 import { saveAccountSync } from "./account-sync-service";
 import { finishSyncRun, interruptSyncRun, listSyncAccounts, recordAccountSyncError, startSyncRun } from "./sync-repository";
-import { expireConnection } from "./connection-repository";
+import { expireConnection, expireEndedSession } from "./connection-repository";
 import { pairTransfersInEnvironment } from "@/features/transactions/server/transfer-repository";
-
-const expiredSessionCodes = ["EXPIREDSESSION", "EXPIRED_SESSION", "INVALID_SESSION"];
 
 // Only a new bank authorization resolves this failure; rate limits and provider data errors do not.
 class ReconnectRequired extends HttpError {
@@ -98,26 +96,24 @@ export async function syncAccounts() {
           throw new ReconnectRequired("The account is missing its bank reference. Reconnect the bank.");
         }
 
-        const balanceResult = await bankingRequest<{
-          balances: Balance[]
-        }>(`/accounts/${encodeURIComponent(account.provider_uid)}/balances`);
+        const balances = await fetchBalances(account.provider_uid);
         const transactions = await fetchTransactions(account.provider_uid, dateFrom, heartbeat);
         const entries = normalizeTransactions(transactions, ownIbans);
 
         await heartbeat();
-        inserted += await saveAccountSync(db, run, account.id, account.currency, balanceResult.balances, entries, rules);
+        inserted += await saveAccountSync(db, run, account.id, account.currency, balances, entries, rules);
       } catch (error) {
         if (error instanceof SyncLeaseLost) {
           throw error;
         }
 
         const message = error instanceof HttpError ? error.message : "Sync could not be completed.";
-        const sessionExpired = error instanceof BankingError && expiredSessionCodes.includes(error.code);
+        const sessionExpired = sessionEnded(error);
 
         await recordAccountSyncError(db, account.id, env, message);
 
         if (sessionExpired) {
-          await expireConnection(db, account.connection_id);
+          await expireEndedSession(db, account.connection_id);
         }
 
         failures.push({

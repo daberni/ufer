@@ -1,3 +1,4 @@
+
 type Rgb = [number, number, number];
 
 export type ColorScheme = "light" | "dark";
@@ -152,4 +153,109 @@ export function themedColors<Colors extends Record<string, string>>(colorsFor: (
   const entries = Object.keys(light).map(key => [key, lightDark(light[key], dark[key])]);
 
   return Object.fromEntries(entries) as Colors;
+}
+
+export type SuggestedCategoryColor = {
+  name: string;
+  value: string;
+};
+
+// Mid-tone colors: a white icon glyph keeps 3:1 on each, and each keeps 3:1 against the dark surface, so they read well as solid marks in both themes.
+export const suggestedCategoryColors: SuggestedCategoryColor[] = [
+  {
+    name: "Sage",
+    value: "#638777"
+  },
+  {
+    name: "Forest",
+    value: "#33805A"
+  },
+  {
+    name: "Jade",
+    value: "#1D9E75"
+  },
+  {
+    name: "Teal",
+    value: "#1D8A80"
+  },
+  {
+    name: "Ocean",
+    value: "#2A74B0"
+  },
+  {
+    name: "Indigo",
+    value: "#5868C6"
+  },
+  {
+    name: "Violet",
+    value: "#7E59C4"
+  },
+  {
+    name: "Plum",
+    value: "#A04F95"
+  },
+  {
+    name: "Rose",
+    value: "#C2456F"
+  },
+  {
+    name: "Crimson",
+    value: "#C2413B"
+  },
+  {
+    name: "Terracotta",
+    value: "#B85C38"
+  },
+  {
+    name: "Amber",
+    value: "#B07415"
+  },
+  {
+    name: "Ochre",
+    value: "#937A2E"
+  },
+  {
+    name: "Olive",
+    value: "#6C7F2A"
+  },
+  {
+    name: "Brown",
+    value: "#90674D"
+  },
+  {
+    name: "Slate",
+    value: "#617385"
+  }
+];
+
+/** A typed or pasted hex color as uppercase #RRGGBB: the leading # is optional, letter case is ignored and #RGB shorthand is expanded. Anything else is null. */
+export function parseHexColor(input: string) {
+  const digits = input.trim().replace(/^#/, "");
+
+  if (/^[0-9a-f]{3}$/i.test(digits)) {
+    return `#${[...digits].map(digit => digit + digit).join("").toUpperCase()}`;
+  }
+
+  if (/^[0-9a-f]{6}$/i.test(digits)) {
+    return `#${digits.toUpperCase()}`;
+  }
+
+  return null;
+}
+
+/** The uppercase display form of a stored color. */
+export function formatHexColor(color: string) {
+  return color.toUpperCase();
+}
+
+const white: Rgb = [0xff, 0xff, 0xff];
+
+// The light theme's text color, for a glyph on a category color too light for white.
+const darkGlyph: Rgb = [0x24, 0x3a, 0x30];
+
+/** Color of an icon glyph drawn on a solid category mark (see categoryBarColor): white where it keeps 3:1, dark text otherwise. */
+export function categoryGlyphColor(color: string, scheme: ColorScheme) {
+  const mark = parseHex(categoryBarColor(color, scheme));
+
+  return toHex(rgbContrast(white, mark) >= minimumGraphicContrast ? white : darkGlyph);
 }

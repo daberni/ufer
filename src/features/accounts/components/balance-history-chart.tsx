@@ -6,10 +6,11 @@ import { useId, useMemo } from "react";
 import { clsx } from "clsx";
 import { money } from "@/lib/money";
 import { plotBalances } from "@/features/accounts/balance-chart";
-import { balanceSourceLabels, describeBalanceDate } from "@/features/accounts/balance-presentation";
+import { describeBalanceSource, describeBalanceDate } from "@/features/accounts/balance-presentation";
 import { useBalanceChart } from "@/features/accounts/use-balance-chart";
 import type { BalancePoint } from "@/features/accounts/types";
 import styles from "./balance-history-chart.module.css";
+import { useLocale } from "@/client/locale-provider";
 
 type Props = {
   balances: BalancePoint[];
@@ -22,6 +23,7 @@ export function BalanceHistoryChart({
   currency,
   interactive
 }: Props) {
+  const locale = useLocale();
   const descriptionId = useId();
   const chart = useMemo(() => plotBalances(balances), [balances]);
   const positions = useMemo(() => chart.points.map(point => point.x), [chart]);
@@ -30,12 +32,12 @@ export function BalanceHistoryChart({
     plotProps
   } = useBalanceChart(positions, interactive);
   const lastIndex = balances.length - 1;
-  const firstDate = describeBalanceDate(balances[0].date);
-  const lastDate = describeBalanceDate(balances[lastIndex].date);
+  const firstDate = describeBalanceDate(balances[0].date, locale);
+  const lastDate = describeBalanceDate(balances[lastIndex].date, locale);
   const balance = balances[activeIndex ?? lastIndex];
-  const date = describeBalanceDate(balance.date);
-  const source = balanceSourceLabels[balance.source];
-  const amount = money(balance.amount_minor, currency);
+  const date = describeBalanceDate(balance.date, locale);
+  const source = describeBalanceSource(balance);
+  const amount = money(balance.amount_minor, currency, locale);
   const activePoint = activeIndex === null ? null : chart.points[activeIndex];
   const line = useMemo(() => chart.points.map((point, index) => index ? `H${point.x} V${point.y}` : `M${point.x} ${point.y}`).join(" "), [chart]);
   const area = `${line} L100 100 L0 100 Z`;
@@ -64,8 +66,8 @@ export function BalanceHistoryChart({
         aria-valuetext={`${date.label}: ${amount}, ${source}`}
         data-active={activePoint ? "" : undefined}
       >
-        <span className={styles["axis-label"]} data-edge="top" aria-hidden="true">{money(chart.highest, currency)}</span>
-        <span className={styles["axis-label"]} data-edge="bottom" aria-hidden="true">{money(chart.lowest, currency)}</span>
+        <span className={styles["axis-label"]} data-edge="top" aria-hidden="true">{money(chart.highest, currency, locale)}</span>
+        <span className={styles["axis-label"]} data-edge="bottom" aria-hidden="true">{money(chart.lowest, currency, locale)}</span>
         <svg
           viewBox="0 0 100 100"
           preserveAspectRatio="none"
@@ -107,7 +109,7 @@ export function BalanceHistoryChartSkeleton() {
       <figcaption className={styles["readout"]}>
         <span>
           <span className={ui["skeleton"]}>12 Nov 2026</span>
-          <small className={ui["skeleton"]}>Calculated</small>
+          <small className={ui["skeleton"]}>Estimated</small>
         </span>
         <strong className={ui["skeleton"]}>€0,000.00</strong>
       </figcaption>

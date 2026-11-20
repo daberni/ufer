@@ -41,8 +41,8 @@ test("the current month follows Vienna time at the UTC month boundary", () => {
 test("the trend window crosses year boundaries", () => {
   const march = Temporal.PlainYearMonth.from("2026-03");
 
-  assert.deepEqual(trendMonths(monthPeriod(Temporal.PlainYearMonth.from("2026-02")), march).map(String), ["2025-09", "2025-10", "2025-11", "2025-12", "2026-01", "2026-02"]);
-  assert.deepEqual(trendMonths(allMonthsPeriod, march).map(String), ["2025-10", "2025-11", "2025-12", "2026-01", "2026-02", "2026-03"]);
+  assert.deepEqual(trendMonths(monthPeriod(Temporal.PlainYearMonth.from("2026-02")), march).map(String), ["2025-03", "2025-04", "2025-05", "2025-06", "2025-07", "2025-08", "2025-09", "2025-10", "2025-11", "2025-12", "2026-01", "2026-02"]);
+  assert.deepEqual(trendMonths(allMonthsPeriod, march).map(String), ["2025-04", "2025-05", "2025-06", "2025-07", "2025-08", "2025-09", "2025-10", "2025-11", "2025-12", "2026-01", "2026-02", "2026-03"]);
 });
 
 test("dashboard filters accept one period parameter and reject invalid periods", () => {
@@ -132,7 +132,7 @@ async function seededDatabase(context: TestContext) {
 }
 
 function spending(cashFlow: Awaited<ReturnType<typeof readCashFlow>>) {
-  return cashFlow.breakdown.reduce((total, item) => total + item.amount, 0);
+  return cashFlow.expenseBreakdown.reduce((total, item) => total + item.amount, 0);
 }
 
 // The transaction list and the cash-flow report are separate requests for the same filters.
@@ -163,7 +163,7 @@ test("a month period limits transactions, cash flow and spending to the same cal
   assert.equal(cashFlow.income, 0);
   assert.equal(cashFlow.expenses, 50000);
   assert.equal(spending(cashFlow), 50000);
-  assert.deepEqual(cashFlow.trend.map(item => item.month), ["2025-08", "2025-09", "2025-10", "2025-11", "2025-12", "2026-01"]);
+  assert.deepEqual(cashFlow.trend.map(item => item.month), ["2025-02", "2025-03", "2025-04", "2025-05", "2025-06", "2025-07", "2025-08", "2025-09", "2025-10", "2025-11", "2025-12", "2026-01"]);
   assert.deepEqual(cashFlow.trend.slice(-2), [{
     month: "2025-12",
     income: 100000,
@@ -206,7 +206,7 @@ test("the all-months period applies to cash flow and spending as well as the tra
   assert.equal(cashFlow.income, 100000);
   assert.equal(cashFlow.expenses, 55000);
   assert.equal(spending(cashFlow), 55000);
-  assert.equal(cashFlow.trend.length, 6);
+  assert.equal(cashFlow.trend.length, 12);
   assert.equal(cashFlow.trend.at(-1)?.month, currentMonth().toString());
 });
 
@@ -299,19 +299,35 @@ test("each trend month's breakdowns agree with that month's period totals and sp
   await seedCashFlowHistory(context);
   const window = await readCashFlow(monthPeriod(Temporal.PlainYearMonth.from("2026-02")), "EUR");
 
-  assert.deepEqual(window.trend.map(item => item.month), ["2025-09", "2025-10", "2025-11", "2025-12", "2026-01", "2026-02"]);
+  assert.deepEqual(window.trend.map(item => item.month), ["2025-03", "2025-04", "2025-05", "2025-06", "2025-07", "2025-08", "2025-09", "2025-10", "2025-11", "2025-12", "2026-01", "2026-02"]);
 
   for (const month of window.trend) {
     const period = await readCashFlow(monthPeriod(Temporal.PlainYearMonth.from(month.month)), "EUR");
 
     const monthIncome = month.incomeBreakdown.reduce((total, item) => total + item.amount, 0);
 
-    assert.deepEqual(month.expenseBreakdown, period.breakdown, month.month);
+    assert.deepEqual(month.expenseBreakdown, period.expenseBreakdown, month.month);
+    assert.deepEqual(month.incomeBreakdown, period.incomeBreakdown, month.month);
     assert.equal(month.expenses, period.expenses, month.month);
     assert.equal(spending(period), month.expenses, month.month);
     assert.equal(month.income, period.income, month.month);
     assert.equal(monthIncome, month.income, month.month);
   }
+});
+
+test("the month before the trend carries only its totals, for the chart's net continuation", async context => {
+  await seedCashFlowHistory(context);
+  const window = await readCashFlow(monthPeriod(Temporal.PlainYearMonth.from("2026-12")), "EUR");
+  const before = await readCashFlow(monthPeriod(Temporal.PlainYearMonth.from("2025-12")), "EUR");
+
+  assert.ok(before.expenses > 0);
+  assert.deepEqual(window.leadIn, {
+    month: "2025-12",
+    income: before.income,
+    expenses: before.expenses
+  });
+  assert.equal(window.trend.length, 12);
+  assert.equal(window.trend[0].month, "2026-01");
 });
 
 test("a month's breakdowns leave out transfers and other currencies and keep uncategorized transactions", async context => {
@@ -372,4 +388,41 @@ test("bookings of the same day are listed alphabetically by payee, with empty pa
   })));
 
   assert.deepEqual(page.transactions.map(transaction => transaction.id), ["m-row", "a-row", "z-row"]);
+});
+
+test("breakdowns keep net-negative categories as signed rows, so they sum to their totals", async context => {
+  const db = await seededDatabase(context);
+  const entries: [string, number, string, "income" | "expense"][] = [
+    ["salary", 10000, "income", "income"],
+    // An income correction booked in another category nets that category negative.
+    ["correction", -2000, "fees", "income"],
+    ["groceries", -3000, "groceries", "expense"],
+    // A refund exceeding the category's spending nets it negative.
+    ["refund", 5000, "home", "expense"]
+  ];
+
+  await db.insert(schema.transactions).values(entries.map(([id, amount, categoryId, type]) => ({
+    id: `signed-${id}`,
+    account_id: "checking",
+    provider_reference: `synthetic-signed-${id}`,
+    booking_date: "2026-03-10",
+    amount_minor: amount,
+    currency: "EUR",
+    category_id: categoryId,
+    type
+  })));
+  const cashFlow = await readCashFlow(monthPeriod(Temporal.PlainYearMonth.from("2026-03")), "EUR");
+  const sum = (items: {
+    amount: number
+  }[]) => items.reduce((total, item) => total + item.amount, 0);
+  const march = cashFlow.trend.find(item => item.month === "2026-03")!;
+
+  assert.equal(cashFlow.income, 8000);
+  assert.equal(cashFlow.expenses, -2000);
+  assert.deepEqual(cashFlow.incomeBreakdown.map(item => [item.categoryId, item.amount]), [["income", 10000], ["fees", -2000]]);
+  assert.deepEqual(cashFlow.expenseBreakdown.map(item => [item.categoryId, item.amount]), [["groceries", 3000], ["home", -5000]]);
+  assert.equal(sum(cashFlow.incomeBreakdown), cashFlow.income);
+  assert.equal(sum(cashFlow.expenseBreakdown), cashFlow.expenses);
+  assert.equal(sum(march.incomeBreakdown), march.income);
+  assert.equal(sum(march.expenseBreakdown), march.expenses);
 });

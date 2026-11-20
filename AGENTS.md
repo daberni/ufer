@@ -50,6 +50,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Have each issue agent drive its task through verification and opening or updating its reviewable PR within its authorization. The coordinator checks the published result and keeps independent tickets moving while PRs wait for review. Stack only changes with a real dependency.
 - When conflicting priorities materially change what should ship next, identify the tradeoff and ask for that decision while unrelated work continues.
 - Reuse suitable worktrees and keep feature implementation out of the main checkout. Create new worktrees outside the project through the host's managed worktree tool when one is available.
+- After a PR is merged, clean up locally: stop its demo servers, remove its worktree and local branch once they hold no unpublished work, and delete its throwaway demo databases and credential files. Keep production backups and anything still used by open PRs.
 - Do not have agents edit the same files concurrently. Sharing a worktree requires explicit file ownership and coordination before changing a shared contract or staging another agent's work.
 - Parallelize independent work, but bound test concurrency and serialize expensive checks when the host is under load. Keep recoverable logs and persistent sessions; do not start duplicate runs or change a checkout's sources while its verification is running.
 
@@ -66,9 +67,8 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 ## PR feedback and review readiness
 
-- Attach every PR created or actively reviewed, updated or continued in Codex to the owning chat. Verify the attachment at handoff. Leave reference-only PRs unattached.
-
 - Read the current PR description and its task checkboxes, base/head, checks, general comments, review summaries and inline threads before working on feedback or declaring a PR ready. Include feedback from automated reviewers, not just comments by the user.
+- Attach every PR created or actively reviewed, updated or continued in Codex to the owning chat. Verify the attachment at handoff. Leave PRs used only as references or dependencies unattached.
 - During active PR work, monitor new comments, reviews, head/base changes and checks. Re-read the latest state before publication and review handoff; do not rely on an earlier green check or an old preview URL.
 - The user's clear feedback is an instruction within its scope. Validate other review findings against the code before changing it. Clear correctness fixes within the authorized scope do not need another approval round; uncertain code or design choices need a focused question or an explicit open checkbox in the PR.
 - Reproduce consequential defects and add behavior-focused regression coverage. Demonstrate failure on the original defect and success with the fix when adding regression tests. Do not add tests for styling alone, trivial rendering, delegation or logging.

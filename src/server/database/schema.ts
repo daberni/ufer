@@ -38,6 +38,7 @@ export const accounts = sqliteTable("accounts", {
   id: text("id").primaryKey(),
   environment: text("environment").notNull(),
   name: text("name").notNull(),
+  provider_name: text("provider_name"),
   institution: text("institution").notNull(),
   kind: text("kind", {
     enum: ["checking", "savings", "investment", "loan", "property", "credit_card"]
@@ -51,7 +52,9 @@ export const accounts = sqliteTable("accounts", {
   balance_minor: integer("balance_minor"),
   balance_date: text("balance_date"),
   last_synced_at: text("last_synced_at"),
-  sync_error: text("sync_error")
+  sync_error: text("sync_error"),
+  // Set while the account is archived: hidden from the account lists and pickers, but its history and report contributions remain.
+  archived_at: text("archived_at")
 }, table => [
   unique("accounts_environment_provider_uid_unique").on(table.environment, table.provider_uid),
   check("accounts_kind", sql`${table.kind} IN ('checking','savings','investment','loan','property','credit_card')`)
@@ -93,6 +96,9 @@ export const transactions = sqliteTable("transactions", {
   category_source: text("category_source", {
     enum: ["rule", "manual"]
   }).notNull().default("rule"),
+  // The rule that assigned a rule-sourced category; null for manual or uncategorized bookings and assignments before it was recorded. Deleting a rule clears it.
+  // Not a foreign key: a sync or import that read a rule deleted meanwhile must still save, and readers treat an unknown rule as unrecorded.
+  category_rule_id: text("category_rule_id"),
   created_at: text("created_at").notNull().default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ','now'))`),
   // Signed like amount_minor, in minor units of instructed_currency.
   instructed_amount_minor: integer("instructed_amount_minor"),
@@ -109,7 +115,12 @@ export const transactions = sqliteTable("transactions", {
   // Manual once a person linked or unlinked the booking; automatic pairing then leaves it alone.
   transfer_source: text("transfer_source", {
     enum: ["auto", "manual"]
-  }).notNull().default("auto")
+  }).notNull().default("auto"),
+  // A person's payee and description for an imported booking; null shows the source's text, which every sync keeps refreshing.
+  counterparty_override: text("counterparty_override"),
+  description_override: text("description_override"),
+  // Hidden imported booking: kept so a later sync or import finds and leaves it, excluded from balances, reports and pairing.
+  suppressed_at: text("suppressed_at")
 }, table => [
   unique("transactions_account_id_provider_reference_unique").on(table.account_id, table.provider_reference),
   index("transactions_date").on(desc(table.booking_date)),
@@ -123,12 +134,32 @@ export const transactions = sqliteTable("transactions", {
   check("transactions_transfer_type", sql`${table.transfer_id} IS NULL OR ${table.type}='transfer'`)
 ]);
 
+// The parts of a split booking. The booking keeps its amount for balances; reports count its parts, which a person keeps summing to the booking's amount.
+export const transactionSplits = sqliteTable("transaction_splits", {
+  id: text("id").primaryKey(),
+  transaction_id: text("transaction_id").notNull().references(() => transactions.id, {
+    onDelete: "cascade"
+  }),
+  position: integer("position").notNull(),
+  // Signed like the booking's amount_minor, in its currency.
+  amount_minor: integer("amount_minor").notNull(),
+  category_id: text("category_id").references(() => categories.id, {
+    onDelete: "set null"
+  }),
+  note: text("note").notNull().default("")
+}, table => [
+  uniqueIndex("transaction_splits_position").on(table.transaction_id, table.position),
+  index("transaction_splits_category").on(table.category_id),
+  check("transaction_splits_amount", sql`${table.amount_minor} <> 0`)
+]);
+
 // Provider balance history of synced accounts; manual accounts record balance changes as transactions.
 export const balanceSnapshots = sqliteTable("balance_snapshots", {
   id: text("id").primaryKey(),
   account_id: text("account_id").notNull().references(() => accounts.id),
   observed_at: text("observed_at").notNull(),
   amount_minor: integer("amount_minor").notNull(),
+  bank_balance_type: text("bank_balance_type"),
   source: text("source", {
     enum: ["sync", "manual", "csv"]
   }).notNull()
@@ -152,5 +183,19 @@ export const leases = sqliteTable("leases", {
   owner: text("owner").notNull(),
   expires_at: text("expires_at").notNull()
 });
+
+/** Saved CSV mapping templates; `definition` holds the template as JSON, `header_key` the header row it recognizes and `name_key` the case-folded name (SQLite lower() folds ASCII only). */
+export const importTemplates = sqliteTable("import_templates", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  name_key: text("name_key").notNull(),
+  header_key: text("header_key").notNull(),
+  definition: text("definition").notNull(),
+  created_at: text("created_at").notNull(),
+  updated_at: text("updated_at").notNull()
+}, table => [
+  uniqueIndex("import_templates_header_key").on(table.header_key),
+  uniqueIndex("import_templates_name_key").on(table.name_key)
+]);
 
 export { authUsers, authSessions, authAccounts, authVerifications, authRateLimits, workspaces, memberships } from "@/features/auth/server/auth-schema";

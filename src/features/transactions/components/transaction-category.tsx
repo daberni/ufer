@@ -6,11 +6,13 @@ import { useId } from "react";
 import { clsx } from "clsx";
 import styles from "./transaction-category.module.css";
 import { Check, CircleAlert, LoaderCircle } from "lucide-react";
-import type { Category } from "@/features/categorization/types";
+import type { Category, Rule } from "@/features/categorization/types";
 import type { Transaction } from "@/features/transactions/types";
 import { TraceId } from "@/components/ui/trace-id";
 import { CategoryPicker } from "@/features/categorization/components/category-picker";
+import { CategoryLabel } from "@/features/categorization/components/category-label";
 import { useTransactionCategory } from "@/features/transactions/use-transaction-category";
+import { useTransactionRules } from "./transaction-rule-provider";
 import { transactionTypeLabels } from "@/features/transactions/transaction-types";
 
 type Props = {
@@ -18,35 +20,109 @@ type Props = {
   transaction: Transaction;
 };
 
+/** Names what returning to automatic categorization assigns, for example: Automatic · Groceries via rule “Market”. */
+export function automaticLabel(assignment: NonNullable<Transaction["automatic_assignment"]>, categories: readonly Category[], rule: Rule | undefined) {
+  const category = categories.find(candidate => candidate.id === assignment.category_id);
+
+  if (!category) {
+    return "Automatic · Uncategorized";
+  }
+
+  const source = rule ? `via rule “${rule.name}”` : "via a rule";
+
+  return `Automatic · ${category.name} ${source}`;
+}
+
 export function TransactionCategory({
   categories,
   transaction
 }: Props) {
+  if (transaction.account_archived) {
+    return <ArchivedTransactionCategory categories={categories} transaction={transaction} />;
+  }
+
+  return <EditableTransactionCategory categories={categories} transaction={transaction} />;
+}
+
+// A booking on an archived account is read-only, so its category is shown as a label.
+function ArchivedTransactionCategory({
+  categories,
+  transaction
+}: Props) {
+  const category = categories.find(item => item.id === transaction.category_id);
+
+  return (
+    <div className={styles["category"]}>
+      <CategoryLabel className={styles["picker"]} category={category ?? "uncategorized"} />
+    </div>
+  );
+}
+
+function EditableTransactionCategory({
+  categories,
+  transaction
+}: Props) {
   const messageId = useId();
+  const fieldId = useId();
   const {
     categoryId,
+    pendingAutomatic,
     status,
-    change
+    change,
+    returnToAutomatic
   } = useTransactionCategory(transaction);
+  const rules = useTransactionRules();
   const failure = status?.kind === "failed" ? `Category not saved: ${status.failure.message}` : "";
   const announcements = {
     saving: "Saving category …",
     saved: "Category saved.",
     failed: failure
   };
-  // A pending choice is a manual assignment before the server confirms it.
-  const manual = status?.kind === "saving" || transaction.category_source === "manual";
+  // A pending choice is a manual assignment before the server confirms it, unless it returns the transaction to the rules.
+  const manual = pendingAutomatic ? false : status?.kind === "saving" || transaction.category_source === "manual";
+  const automatic = transaction.category_source === "manual" && !pendingAutomatic ? transaction.automatic_assignment : null;
+  const assignmentSource = manual ? "manual" : "rule";
+  const announcement = status ? announcements[status.kind] : "";
+  // A rule deleted since, or one not yet loaded, leaves the indicator informational.
+  const assigningRule = manual ? undefined : rules.findRule(transaction.category_rule_id);
 
   return (
     <div className={styles["category"]}>
       <CategoryPicker
+        id={fieldId}
         className={styles["picker"]}
         size="compact"
         appearance="inline"
         categories={categories}
         value={categoryId}
         includeUncategorized
-        manual={manual}
+        automaticOption={automatic ? {
+          label: automaticLabel(automatic, categories, rules.findRule(automatic.rule_id)),
+          choose: () => {
+            rules.clearAnnouncement();
+            returnToAutomatic();
+          }
+        } : undefined}
+        assignment={{
+          source: categoryId === null ? null : assignmentSource,
+          actionLabel: `Create rule for ${transaction.counterparty || transaction.description || transactionTypeLabels[transaction.type]}`,
+          disabled: status?.kind === "saving",
+          assigningRule: assigningRule && {
+            label: `Open rule ${assigningRule.name}`,
+            open: () => rules.edit(assigningRule, fieldId)
+          },
+          createRule: () => {
+            if (categoryId !== null && manual) {
+              rules.open({
+                transactionId: transaction.id,
+                categoryId,
+                // Rules match the source's text, so a pattern from a person's override would not match later deliveries.
+                counterparty: transaction.source_counterparty,
+                description: transaction.source_description
+              }, fieldId);
+            }
+          }
+        }}
         status={status && (
           <span className={clsx(styles["status"], styles[status.kind])} aria-hidden="true">
             {status.kind === "saving" && <LoaderCircle className={ui["spinning"]} />}
@@ -58,10 +134,13 @@ export function TransactionCategory({
         aria-busy={status?.kind === "saving"}
         aria-invalid={status?.kind === "failed"}
         aria-describedby={failure ? messageId : undefined}
-        onChange={change}
+        onChange={next => {
+          rules.clearAnnouncement();
+          change(next);
+        }}
       />
       <span className={ui["visually-hidden"]} role="status" aria-live={failure ? "assertive" : "polite"}>
-        {status ? announcements[status.kind] : ""}
+        {announcement}
       </span>
       {failure && (
         <span id={messageId} className={styles["message"]} title={failure}>
@@ -69,6 +148,7 @@ export function TransactionCategory({
           <TraceId id={status?.kind === "failed" ? status.failure.traceId : undefined} />
         </span>
       )}
+
     </div>
   );
 }

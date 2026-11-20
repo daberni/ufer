@@ -6,14 +6,34 @@ export const balanceSourceLabels: Record<BalancePoint["source"], string> = {
   sync: "Bank sync",
   manual: "Manual",
   csv: "CSV import",
-  transactions: "Calculated"
+  transactions: "Estimated"
 };
 
-export function describeBalanceDate(date: string) {
+export function describeBalanceDate(date: string, locale: string) {
   const day = Temporal.PlainDate.from(date);
 
   return {
-    ...describeDate(day),
-    label: dateWithYear(day)
+    ...describeDate(day, locale),
+    label: dateWithYear(day, locale)
   };
+}
+
+
+const bankBalanceLabels: Record<string, string> = {
+  CLBD: "Closing booked",
+  ITBD: "Interim booked",
+  CLAV: "Closing available",
+  ITAV: "Interim available",
+  PRCD: "Previous closing booked",
+  XPCD: "Expected"
+};
+
+export function describeBalanceSource(balance: BalancePoint) {
+  if (balance.source !== "sync") {
+    return balanceSourceLabels[balance.source];
+  }
+
+  const classification = balance.bank_balance_type ? bankBalanceLabels[balance.bank_balance_type] : undefined;
+
+  return classification ? `Bank sync · ${classification}` : "Bank sync";
 }

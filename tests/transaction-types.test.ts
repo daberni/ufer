@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import assert from "node:assert/strict";
 import { test, type TestContext } from "node:test";
 import { Temporal } from "temporal-polyfill";
@@ -10,8 +11,8 @@ import * as schema from "../src/server/database/schema";
 import { saveAccountSync } from "../src/features/banking/server/account-sync-service";
 import { pairTransfersInEnvironment } from "../src/features/transactions/server/transfer-repository";
 import { unambiguousPairs } from "../src/features/transactions/server/transfer-pairing";
-import { transferOptions, updateTransactionType } from "../src/features/transactions/server/transaction-service";
-import { importTransactions } from "../src/features/imports/server/import-service";
+import { transferOptions, updateTransactionDetails } from "../src/features/transactions/server/transaction-service";
+import { importMappedRows } from "../src/features/imports/server/mapped-import-service";
 import { readCashFlow } from "../src/features/reports/server/cash-flow-query";
 import { readTransactionPage } from "../src/features/transactions/server/transaction-list-query";
 import { dashboardFilters } from "../src/server/http/dashboard-filters";
@@ -87,7 +88,7 @@ function saveTransfer(id: string, transfer: {
 } | {
   account_id: string
 } | null) {
-  return updateTransactionType(id, {
+  return updateTransactionDetails(id, {
     type: "transfer",
     transfer
   });
@@ -139,6 +140,31 @@ async function linked(db: Database, first: string, second: string) {
   const [one, two] = [await stored(db, first), await stored(db, second)];
 
   return one.transfer_id !== null && one.transfer_id === two.transfer_id;
+}
+
+
+/** Imports one synthetic cash withdrawal row into the manual account "cash" through the mapped CSV import. */
+async function importCashRow(date: string, amount: string) {
+  await importMappedRows({
+    import_id: randomUUID(),
+    rows: [{
+      line: 2,
+      date,
+      amount,
+      currency: "EUR",
+      payee: "ATM",
+      description: "Cash withdrawal",
+      category: null,
+      source: "",
+      occurrence: 0,
+      id: null
+    }],
+    targets: [{
+      source: "",
+      account_id: "cash"
+    }],
+    confirm: true
+  });
 }
 
 test("only bookings whose two sides each have exactly one candidate are paired", () => {
@@ -195,7 +221,7 @@ test("synced bookings get a type by direction and detected transfers, and cash f
   }).returning();
 
   // A refund corrected to an expense reduces spending in its category instead of counting as income.
-  await updateTransactionType(refund[0].id, {
+  await updateTransactionDetails(refund[0].id, {
     type: "expense"
   });
   const cashFlow = await readCashFlow(monthPeriod(Temporal.PlainYearMonth.from("2026-09")), "EUR");
@@ -246,7 +272,7 @@ test("manual types, links and unlinks survive resync and later pairing", async c
   assert.equal((await stored(db, "relinked-out")).transfer_id, null);
 
   await saveTransfer((await stored(db, "paired-out")).id, null);
-  await updateTransactionType((await stored(db, "refund")).id, {
+  await updateTransactionDetails((await stored(db, "refund")).id, {
     type: "expense"
   });
   await saveTransfer((await stored(db, "relinked-out")).id, {
@@ -269,7 +295,7 @@ test("leaving the transfer type corrects both linked bookings together", async c
 
   await sync(db, "checking", [entry("out", "2026-09-01", -10000, true)]);
   await sync(db, "savings", [entry("in", "2026-09-01", 10000, true)]);
-  await updateTransactionType((await stored(db, "out")).id, {
+  await updateTransactionDetails((await stored(db, "out")).id, {
     type: "expense"
   });
 
@@ -325,10 +351,10 @@ test("opening balances and adjustments are refused for bank-synced bookings", as
   const db = await isolatedDatabase(context);
 
   await sync(db, "checking", [entry("synced", "2026-09-01", -100)]);
-  await assert.rejects(updateTransactionType((await stored(db, "synced")).id, {
+  await assert.rejects(updateTransactionDetails((await stored(db, "synced")).id, {
     type: "adjustment"
   }), ValidationError);
-  await assert.rejects(updateTransactionType("missing", {
+  await assert.rejects(updateTransactionDetails("missing", {
     type: "income"
   }), (error: unknown) => error instanceof HttpError && error.status === 404);
 });
@@ -344,16 +370,60 @@ test("a CSV import pairs its bookings with an unpaired transfer of a synced acco
     kind: "savings"
   });
   await sync(db, "checking", [entry("withdrawal", "2026-09-01", -20000, true)]);
-  await importTransactions({
-    account_id: "cash",
-    csv: "id,date,amount,currency,counterparty,description\ncash-1,2026-09-02,200.00,EUR,ATM,Cash withdrawal"
-  });
+  await importCashRow("2026-09-02", "200.00");
 
   const cash = await db.select().from(schema.transactions).where(eq(schema.transactions.account_id, "cash")).get();
 
   assert.equal(cash?.type, "transfer");
   assert.equal(cash?.transfer_id, (await stored(db, "withdrawal")).transfer_id);
 });
+
+for (const [accounts, paired] of [[["cash", "wallet"], false], [["cash"], true]] as const) {
+  test(`a CSV import in batches pairs an existing transfer only after its last batch, ${paired ? "with its single candidate" : "and not with two candidates in different accounts"}`, async context => {
+    const db = await isolatedDatabase(context);
+    const importId = randomUUID();
+
+    for (const id of ["cash", "wallet"]) {
+      await db.insert(schema.accounts).values({
+        id,
+        environment: "SANDBOX",
+        name: `Synthetic ${id}`,
+        institution: "Wallet",
+        kind: "savings"
+      });
+    }
+
+    await sync(db, "checking", [entry("withdrawal", "2026-09-01", -20000, true)]);
+
+    for (const [index, account] of accounts.entries()) {
+      await importMappedRows({
+        import_id: importId,
+        rows: [{
+          line: index + 2,
+          date: "2026-09-02",
+          amount: "200.00",
+          currency: "EUR",
+          payee: "ATM",
+          description: "Cash withdrawal",
+          category: null,
+          source: account,
+          occurrence: 0,
+          id: null
+        }],
+        targets: accounts.map(source => ({
+          source,
+          account_id: source
+        })),
+        confirm: true,
+        final: index === accounts.length - 1
+      });
+    }
+
+    const linked = (await db.select().from(schema.transactions)).filter(row => row.transfer_id !== null);
+
+    assert.equal(linked.length, paired ? 2 : 0);
+  });
+}
 
 test("detected transfers are categorized by rules like any other booking and their category never changes the cash flow", async context => {
   const db = await isolatedDatabase(context);
@@ -390,7 +460,7 @@ test("detected transfers are categorized by rules like any other booking and the
   const cashFlow = await readCashFlow(monthPeriod(Temporal.PlainYearMonth.from("2026-09")), "EUR");
 
   assert.equal(cashFlow.expenses, 4500);
-  assert.deepEqual(cashFlow.breakdown.map(item => [item.categoryId, item.amount]), [[null, 4500]]);
+  assert.deepEqual(cashFlow.expenseBreakdown.map(item => [item.categoryId, item.amount]), [[null, 4500]]);
 });
 
 test("leaving the transfer type on a booking Ufer created on a manual account removes it and corrects its source", async context => {
@@ -403,7 +473,7 @@ test("leaving the transfer type on a booking Ufer created on a manual account re
   const created = await db.select().from(schema.transactions).where(eq(schema.transactions.account_id, "property")).get();
 
   assert.ok(created);
-  await updateTransactionType(created.id, {
+  await updateTransactionDetails(created.id, {
     type: "income"
   });
 
@@ -461,11 +531,11 @@ test("one save moves a transfer between a booking, a manual account and no count
   assert.ok(await linked(db, "out", "in"));
 
   // Omitting the target keeps the link; a target on another type is refused.
-  await updateTransactionType(out, {
+  await updateTransactionDetails(out, {
     type: "transfer"
   });
   assert.ok(await linked(db, "out", "in"));
-  await assert.rejects(updateTransactionType(out, {
+  await assert.rejects(updateTransactionDetails(out, {
     type: "expense",
     transfer: {
       account_id: "property"
@@ -499,10 +569,7 @@ test("choosing no counterpart marks the transfer as manually unlinked, so neithe
 
   await sync(db, "checking", [entry("out", "2026-09-01", -10000)]);
   await sync(db, "savings", [entry("in", "2026-09-02", 10000)]);
-  await importTransactions({
-    account_id: "cash",
-    csv: "id,date,amount,currency,counterparty,description\ncash-1,2026-09-01,100.00,EUR,ATM,Cash withdrawal"
-  });
+  await importCashRow("2026-09-01", "100.00");
 
   assert.equal((await stored(db, "out")).transfer_id, null);
   assert.equal((await db.select().from(schema.transactions).where(eq(schema.transactions.account_id, "cash")).get())?.transfer_id, null);
@@ -538,37 +605,6 @@ test("a booking Ufer created on a manual account keeps its source link or is rem
   await saveTransfer(created.id, null);
   assert.equal((await onFlat()).length, 0);
   assert.deepEqual([(await stored(db, "deposit")).type, (await stored(db, "deposit")).transfer_id], ["transfer", null]);
-});
-
-test("a migrated transfer keeps its type when a CSV reimport carries no transfer signal", async context => {
-  const db = await isolatedDatabase(context);
-  const csv = "id,date,amount,currency,counterparty,description\nsaving-1,2026-09-03,-500.00,EUR,Savings,Monthly saving";
-
-  await db.insert(schema.accounts).values({
-    id: "cash",
-    environment: "SANDBOX",
-    name: "Synthetic cash",
-    institution: "Wallet",
-    kind: "savings"
-  });
-  await importTransactions({
-    account_id: "cash",
-    csv
-  });
-  // The changeset turns a rule-categorized Transfer booking into an automatic transfer.
-  await db.update(schema.transactions).set({
-    type: "transfer",
-    category_id: null
-  }).where(eq(schema.transactions.account_id, "cash"));
-  await importTransactions({
-    account_id: "cash",
-    csv
-  });
-
-  const reimported = await db.select().from(schema.transactions).where(eq(schema.transactions.account_id, "cash")).get();
-
-  assert.deepEqual([reimported?.type, reimported?.type_source], ["transfer", "auto"]);
-  assert.equal((await readCashFlow(monthPeriod(Temporal.PlainYearMonth.from("2026-09")), "EUR")).expenses, 0);
 });
 
 test("a redelivered booking whose sign changed releases its link instead of failing the sync", async context => {
@@ -612,4 +648,53 @@ test("a redelivered amount that no longer matches releases a link between import
   assert.ok(await linked(db, "out", "in"));
   await sync(db, "checking", [entry("out", "2026-09-01", -10000, true)]);
   assert.ok(await linked(db, "out", "in"));
+});
+
+
+test("type filtering uses booking types, combines with list filters and paginates matching counts", async context => {
+  const db = await isolatedDatabase(context);
+  const types = ["income", "expense", "transfer", "opening_balance", "adjustment"] as const;
+
+  await db.insert(schema.transactions).values(types.map(type => ({
+    id: `filter-${type}`,
+    account_id: "property",
+    provider_reference: `filter-${type}`,
+    booking_date: "2026-09-15",
+    amount_minor: 1000,
+    currency: "EUR",
+    counterparty: "Synthetic matching payee",
+    category_id: "income",
+    type
+  })));
+  await db.insert(schema.transactions).values(Array.from({
+    length: 51
+  }, (_, index) => ({
+    id: `expense-${index}`,
+    account_id: "checking",
+    provider_reference: `expense-${index}`,
+    booking_date: "2026-09-10",
+    amount_minor: -100,
+    currency: "EUR",
+    type: "expense" as const
+  })));
+
+  for (const type of types) {
+    const result = await readTransactionPage(dashboardFilters(new URLSearchParams({
+      period: "2026-09",
+      type
+    })));
+
+    assert.equal(result.transactionCount, type === "expense" ? 52 : 1);
+    assert.ok(result.transactions.every(booking => booking.type === type));
+  }
+
+  const secondPage = await readTransactionPage(dashboardFilters(new URLSearchParams("period=2026-09&type=expense&page=2")));
+
+  assert.equal(secondPage.transactionCount, 52);
+  assert.equal(secondPage.transactions.length, 2);
+  const combined = await readTransactionPage(dashboardFilters(new URLSearchParams("period=2026-09&type=expense&account=property&category=income&search=matching")));
+
+  assert.deepEqual(combined.transactions.map(booking => booking.id), ["filter-expense"]);
+  assert.equal(combined.transactions[0].amount_minor, 1000, "a positive expense refund stays an expense");
+  assert.throws(() => dashboardFilters(new URLSearchParams("type=unknown")), error => error instanceof HttpError && error.status === 400);
 });

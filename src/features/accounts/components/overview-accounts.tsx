@@ -7,11 +7,13 @@ import { clsx } from "clsx";
 import Link from "next/link";
 import styles from "./overview-accounts.module.css";
 import { ArrowRight, Landmark, Plus } from "lucide-react";
-import { accountIcon, kinds, accountSyncLabel } from "@/features/accounts/account-presentation";
+import { accountIcon, kinds } from "@/features/accounts/account-presentation";
+import { AccountSourceIndicator } from "./account-source-indicator";
 import { DateValue } from "@/components/ui/date-value";
 import { useBankingConfiguration } from "@/features/banking/banking-configuration";
 import { money } from "@/lib/money";
 import type { Account } from "@/features/accounts/types";
+import { recentlyBookedAccounts } from "@/features/accounts/recent-accounts";
 import { useState } from "react";
 import { BankConnectionDialog } from "@/features/banking/components/bank-connection-form";
 import { CreateAccountDialog } from "./create-account-form";
@@ -19,6 +21,8 @@ import { useAccountHref, useChangeView } from "@/client/use-app-url";
 import { AreaPlaceholder } from "@/components/ui/area-placeholder";
 import { shownStatus, valueMask } from "@/components/ui/result-presentation";
 import type { Area, PendingArea } from "@/components/ui/use-area-result";
+import { useLocale } from "@/client/locale-provider";
+import { formatCount } from "@/lib/locale";
 
 type Props = {
   /** Accounts in the display currency. */
@@ -31,16 +35,24 @@ type OpenDialog = {
   kind: "bank";
 };
 
-const shownTiles = 4;
+// Three rows keep the panel about as tall as the net-worth card; the heading links to all accounts.
+const shownRows = 3;
+
+const placeholderAccount = {
+  provider: "manual",
+  requisition_id: null,
+  sync_error: null
+};
 
 export function OverviewAccounts({ currencyAccounts }: Props) {
+  const locale = useLocale();
   const changeView = useChangeView();
 
   return (
     <section className={styles["accounts-section"]}>
       <div className={styles["section-heading"]}>
         <h2>
-          Your accounts <span className={clsx(styles["count-badge"], valueMask(shownStatus(currencyAccounts)))}>{currencyAccounts.data?.length ?? 0}</span>
+          Your accounts <span className={clsx(styles["count-badge"], valueMask(shownStatus(currencyAccounts)))}>{formatCount(currencyAccounts.data?.length ?? 0, locale)}</span>
         </h2>
         <button className={ui["text-button"]} onClick={() => changeView("accounts")}>
           Manage all <ArrowRight size={15} />
@@ -51,6 +63,7 @@ export function OverviewAccounts({ currencyAccounts }: Props) {
   );
 }
 
+// The skeleton repeats a loaded row's elements, including the source indicator, so each row keeps its final height.
 function AccountStripSkeleton({ area }: {
   area: PendingArea
 }) {
@@ -58,21 +71,22 @@ function AccountStripSkeleton({ area }: {
     <AreaPlaceholder area={area} subject="Your accounts">
       <div className={styles["account-strip"]}>
         {Array.from({
-          length: shownTiles
+          length: shownRows
         }, (_, index) => (
           <div className={styles["account-tile"]} key={index}>
             <span className={clsx(accountStyles["account-logo"], ui["skeleton"])} />
             <span className={styles["account-tile-name"]}>
               <span className={ui["skeleton"]}>Everyday account</span>
-              <small>
-                <span className={ui["skeleton"]}>Bank account · Bank</span>
-              </small>
             </span>
             <strong>
               <span className={ui["skeleton"]}>€0,000.00</span>
             </strong>
-            <span className={styles["account-tile-foot"]}>
-              <span className={ui["skeleton"]}>Synced today</span>
+            <span className={clsx(styles["account-tile-meta"], ui["skeleton"])}>
+              <span className={styles["account-tile-kind"]}>Bank account · Bank</span>
+              <AccountSourceIndicator account={placeholderAccount} />
+            </span>
+            <span className={styles["account-tile-date"]}>
+              <span className={ui["skeleton"]}>Today</span>
             </span>
           </div>
         ))}
@@ -84,6 +98,7 @@ function AccountStripSkeleton({ area }: {
 function AccountStrip({ currencyAccounts }: {
   currencyAccounts: Account[]
 }) {
+  const locale = useLocale();
   const [dialog, setDialog] = useState<OpenDialog | null>(null);
   const closeDialog = () => setDialog(null);
   const accountHref = useAccountHref();
@@ -91,7 +106,7 @@ function AccountStrip({ currencyAccounts }: {
 
   const content = currencyAccounts.length ? (
     <div className={styles["account-strip"]}>
-      {currencyAccounts.slice(0, shownTiles).map(account => {
+      {recentlyBookedAccounts(currencyAccounts, shownRows).map(account => {
         const Icon = accountIcon(account.kind);
 
         return (
@@ -99,17 +114,14 @@ function AccountStrip({ currencyAccounts }: {
             <span className={clsx(accountStyles["account-logo"], accountStyles[account.kind])}>
               <Icon size={21} />
             </span>
-            <span className={styles["account-tile-name"]}>
-              {account.name}
-              <small>
-                {kinds[account.kind]} · {account.institution}
-              </small>
+            <span className={styles["account-tile-name"]}>{account.name}</span>
+            <strong>{account.balance_minor === null ? "—" : money(account.balance_minor, account.currency, locale)}</strong>
+            <span className={styles["account-tile-meta"]}>
+              <span className={styles["account-tile-kind"]}>{kinds[account.kind]} · {account.institution}</span>
+              <AccountSourceIndicator account={account} />
             </span>
-            <strong>{account.balance_minor === null ? "—" : money(account.balance_minor, account.currency)}</strong>
-            <span className={styles["account-tile-foot"]}>
-              <span className={clsx(styles["status-dot"], account.sync_error ? styles["warn"] : "")} />
-              {accountSyncLabel(account)}
-              <span><DateValue value={account.balance_date} fallback="No balance yet" /></span>
+            <span className={styles["account-tile-date"]}>
+              <DateValue value={account.balance_date} fallback="No balance yet" />
             </span>
           </Link>
         );

@@ -1,0 +1,39 @@
+.indicator {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-2);
+  min-width: 0;
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+.source {
+  display: inline-grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: var(--space-2);
+}
+.dot {
+  composes: legend-dot from "../../../components/ui/primitives.module.css";
+  background: var(--muted);
+}
+.bank {
+  background: var(--green);
+}
+.problem {
+  color: var(--gold-text);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .connected {
+    animation: breathe 3s ease-in-out infinite;
+  }
+}
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}

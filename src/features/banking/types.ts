@@ -9,7 +9,8 @@ export type Connection = {
 
 export type ConnectionRemoval = {
   retainedAccounts: number;
-  providerRevocation: "revoked" | "not_revoked" | "no_session";
+  /** Names of kept accounts that stayed active because their balance was not 0. */
+  notArchived: string[];
 };
 
 export type SyncRun = {

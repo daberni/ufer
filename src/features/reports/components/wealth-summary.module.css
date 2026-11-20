@@ -1,14 +1,6 @@
 .legend-dot {
   composes: legend-dot from "../../../components/ui/primitives.module.css";
 }
-.subtle {
-  composes: subtle from "../../../components/ui/primitives.module.css";
-}
-.wealth-grid {
-  display: grid;
-  grid-template-columns: 1.35fr 1fr;
-  gap: var(--space-6);
-}
 .wealth-card {
   border: 1px solid var(--border-strong);
   background: linear-gradient(
@@ -19,8 +11,47 @@
   );
   border-radius: var(--radius-lg);
   padding: var(--space-6);
+  --card-padding-x: var(--space-6);
+  --card-padding-bottom: var(--space-6);
   position: relative;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+/* Below all card content and bleeding to its edges, so no text crosses the curve. */
+.history-curve {
+  display: block;
+  flex: 1 0 64px;
+  width: calc(100% + 2 * var(--card-padding-x));
+  margin: var(--space-4) calc(-1 * var(--card-padding-x))
+    calc(-1 * var(--card-padding-bottom));
+  pointer-events: none;
+}
+.headline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: var(--space-3);
+  row-gap: var(--space-1);
+  margin-top: var(--space-6);
+  position: relative;
+  z-index: var(--layer-raised);
+}
+/* The change takes its own line, so the figure's width, unknown while loading, never moves it. */
+.change {
+  flex-basis: 100%;
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.history-area {
+  fill: color-mix(in srgb, var(--chart-invested) 10%, transparent);
+}
+.history-line {
+  fill: none;
+  stroke: color-mix(in srgb, var(--chart-invested) 30%, transparent);
+  stroke-width: 1.5;
 }
 .wealth-card:after {
   content: "";
@@ -69,10 +100,7 @@
   font-size: var(--text-4xl);
   font-weight: 500;
   letter-spacing: -2px;
-  margin-top: var(--space-6);
   line-height: 1.1;
-  position: relative;
-  z-index: var(--layer-raised);
   font-variant-numeric: tabular-nums;
 }
 .wealth-card > p {
@@ -81,35 +109,50 @@
   margin-top: var(--space-3);
   line-height: 1.5;
 }
-.allocation-bar {
+.bars {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-top: var(--space-6);
+}
+.bar-track {
   height: 6px;
   display: flex;
-  gap: 3px;
-  margin-top: var(--space-6);
   overflow: hidden;
   border-radius: var(--radius-sm);
   background: var(--soft-strong);
 }
-.allocation-bar > span:first-child {
+.bar-fill {
+  display: flex;
+  gap: 3px;
+}
+.loan-track {
+  height: 3px;
+}
+.cash-segment {
   background: var(--chart-liquid);
 }
-.allocation-bar > span:nth-child(2) {
+.investment-segment {
   background: var(--chart-invested);
 }
-.allocation-bar > span:nth-child(3) {
+.property-segment {
   background: var(--chart-property);
 }
+.loan-segment {
+  background: var(--chart-loans);
+}
+/* Equal columns keep each figure in place when the loaded amounts are wider than their placeholders. */
 .wealth-allocation {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
   gap: var(--space-6);
-  flex-wrap: wrap;
   margin-top: var(--space-4);
 }
 .wealth-allocation > span {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  column-gap: var(--space-1);
+  column-gap: var(--space-2);
   font-size: var(--text-sm);
   color: var(--muted);
 }
@@ -123,124 +166,13 @@
 .legend-dot.invested {
   background: var(--chart-invested);
 }
-.liabilities {
-  display: flex;
-  justify-content: space-between;
-  margin-top: var(--space-4);
-  font-size: var(--text-sm);
-  border-top: 1px solid var(--border-strong);
-  padding-top: var(--space-3);
-  color: var(--muted);
-}
-/* Positions the failure overlay of its loading area; the shared panel provides the card. */
-.month-card {
-  position: relative;
-}
-.link-icon {
-  flex-shrink: 0;
-  color: var(--muted);
-}
-.flow-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  margin-top: var(--space-4);
-}
-.flow-row + .flow-row {
-  margin-top: var(--space-2);
-}
-.flow-icon {
-  width: 35px;
-  height: 35px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-md);
-  flex-shrink: 0;
-}
-.flow-icon.incoming {
-  background: var(--soft);
-  color: var(--green-text);
-}
-.flow-icon.outgoing {
-  background: var(--gold-soft);
-  color: var(--gold-text);
-}
-.flow-row > div {
-  flex: 1;
-  min-width: 0;
-}
-.flow-row > div > span:first-child {
-  font-size: var(--text-sm);
-  color: var(--muted);
-  display: block;
-  margin-bottom: var(--space-1);
-}
-.flow-row strong {
-  font-size: var(--text-lg);
-  letter-spacing: -0.5px;
-  font-weight: 500;
-  overflow-wrap: anywhere;
-}
-.spending-share {
-  margin-top: var(--space-4);
-  font-size: var(--text-sm);
-  color: var(--muted);
-}
-.comparison-track {
-  display: block;
-  height: var(--space-2);
-  margin-top: var(--space-2);
-  border-radius: var(--radius-sm);
-  background: var(--chart-track);
-  overflow: hidden;
-}
-.comparison-track i {
-  display: block;
-  height: 100%;
-  background: var(--chart-income);
-  border-radius: var(--radius-sm);
-}
-.comparison-track i[data-flow="expenses"] {
-  background: var(--chart-expense);
-}
-.transactions-link {
-  margin-top: var(--space-4);
-}
-.monthly-result {
-  border-top: 1px solid var(--border-subtle);
-  margin-top: var(--space-6);
-  padding-top: var(--space-2);
-}
-.result-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-}
-/* The label keeps a readable width; on phones the amount moves below it rather than squeezing it. */
-.result-row > div {
-  flex: 1 1 9rem;
-}
-.result-row > div > span {
-  font-size: var(--text-sm);
-}
-.result-row small {
-  display: block;
-  color: var(--muted);
-  font-size: var(--text-sm);
-  margin-top: var(--space-1);
-}
-.result-amount {
-  margin-left: auto;
-  min-width: 0;
-  max-width: 100%;
-  overflow-wrap: anywhere;
-  font-size: var(--text-xl);
-  font-weight: 500;
-  letter-spacing: -0.5px;
+.legend-dot.loans {
+  background: var(--chart-loans);
 }
 @media (--wide) {
   .wealth-card {
+    --card-padding-x: var(--space-8);
+    --card-padding-bottom: var(--space-8);
     padding: var(--space-8);
   }
 }
@@ -251,29 +183,15 @@
   .wealth-allocation {
     gap: var(--space-4);
   }
-  .wealth-grid {
-    gap: var(--space-4);
-  }
 }
 @media (--tablet) {
-  .wealth-grid {
-    grid-template-columns: 1fr 1fr;
-  }
   .wealth-allocation {
     gap: var(--space-3);
   }
-  .month-card .subtle {
-    display: none;
-  }
-  .result-amount {
-    font-size: var(--text-md);
-  }
 }
 @media (--mobile) {
-  .wealth-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
   .wealth-card {
+    --card-padding-x: var(--space-4);
     padding: var(--space-6) var(--space-4);
     min-width: 0;
   }
@@ -289,34 +207,9 @@
     line-height: 1.7;
   }
   .wealth-allocation {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
     gap: var(--space-4);
   }
   .wealth-allocation strong {
     overflow-wrap: anywhere;
-  }
-  .month-card .subtle {
-    display: block;
-  }
-  .flow-row {
-    gap: var(--space-3);
-  }
-  .flow-row strong {
-    font-size: clamp(var(--text-xl), 7vw, var(--text-2xl));
-  }
-  .result-amount {
-    font-size: var(--text-2xl);
-  }
-  .result-row {
-    align-items: flex-start;
-    flex-wrap: wrap;
-  }
-  .result-row > div > span {
-    font-size: var(--text-md);
-  }
-  .result-row small {
-    line-height: 1.6;
-    max-width: 170px;
   }
 }

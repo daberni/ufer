@@ -1,10 +1,11 @@
+import { adoptImportedRows } from "@/features/imports/server/mapped-import-repository";
 import { randomUUID } from "node:crypto";
-import { and, count, eq, getTableColumns, like, ne, sql, type SQLWrapper } from "drizzle-orm";
+import { and, count, eq, getTableColumns, isNull, like, ne, sql, type SQLWrapper } from "drizzle-orm";
 import type { Database } from "@/server/database/connection";
 import { timestamp } from "@/lib/time";
 import { accounts, balanceSnapshots, requisitions, syncRuns, transactions } from "@/server/database/schema";
-import { upsertTransactions } from "@/features/transactions/server/transaction-repository";
-import type { CategorizedEntry } from "@/features/transactions/server/transaction-entry";
+import { upsertTransactions, withStoredOverrides } from "@/features/transactions/server/transaction-repository";
+import type { CategorizedEntry, Entry } from "@/features/transactions/server/transaction-entry";
 
 /** What identifies a sync run's transactions: values for one run, or `sync_runs` columns for a correlated query. */
 export type SyncRunIdentity = {
@@ -33,13 +34,14 @@ export const linkedTransactionCount = sql<number>`(SELECT COUNT(*) FROM ${transa
   startedAt: syncRuns.started_at
 })})`;
 
+/** Linked bank accounts to sync; archived accounts are skipped until restored, when the sync window covers what they missed. */
 export async function listSyncAccounts(db: Database, environment: string) {
   return db.select({
     ...getTableColumns(accounts),
     connection_id: requisitions.id,
     valid_until: requisitions.valid_until,
     connection_status: requisitions.status
-  }).from(accounts).innerJoin(requisitions, eq(requisitions.id, accounts.requisition_id)).where(and(eq(accounts.environment, environment), eq(accounts.provider, "enable_banking"), ne(requisitions.status, "REMOVED")));
+  }).from(accounts).innerJoin(requisitions, eq(requisitions.id, accounts.requisition_id)).where(and(eq(accounts.environment, environment), eq(accounts.provider, "enable_banking"), isNull(accounts.archived_at), ne(requisitions.status, "REMOVED")));
 }
 
 export async function startSyncRun(db: Database, environment: string, id: string, started: string) {
@@ -84,13 +86,16 @@ export async function recordAccountSyncError(db: Database, id: string, environme
   }).where(and(eq(accounts.id, id), eq(accounts.environment, environment)));
 }
 
-/** Stores one account's sync result and returns how many of its transactions this run inserted. */
+/** Stores one account's sync result and returns how many of its transactions this run inserted. Entries are categorized in the write transaction, with the overrides stored for the rows they update. */
 export async function saveSyncedAccount(db: Database, run: SyncRunStart, accountId: string, balance: {
   amount: number;
+  bank_balance_type: string;
   date: string
-}, entries: CategorizedEntry[]) {
+}, entries: Entry[], categorize: (entries: Awaited<ReturnType<typeof withStoredOverrides<Entry>>>) => CategorizedEntry[]) {
   return db.transaction(async tx => {
-    await upsertTransactions(tx, accountId, entries, run.startedAt);
+    const categorized = categorize(await withStoredOverrides(tx, accountId, entries));
+
+    await upsertTransactions(tx, accountId, await adoptImportedRows(tx, accountId, categorized), run.startedAt);
     await tx.update(accounts).set({
       balance_minor: balance.amount,
       balance_date: balance.date,
@@ -102,11 +107,14 @@ export async function saveSyncedAccount(db: Database, run: SyncRunStart, account
       account_id: accountId,
       observed_at: balance.date,
       amount_minor: balance.amount,
+      bank_balance_type: balance.bank_balance_type,
       source: "sync"
     }).onConflictDoUpdate({
       target: [balanceSnapshots.account_id, balanceSnapshots.observed_at],
       set: {
-        amount_minor: balance.amount
+        amount_minor: balance.amount,
+        bank_balance_type: balance.bank_balance_type,
+        source: "sync"
       }
     });
     const inserted = await tx.select({

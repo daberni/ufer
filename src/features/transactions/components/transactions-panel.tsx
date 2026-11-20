@@ -4,15 +4,16 @@ import ui from "../../../components/ui/primitives.module.css";
 
 import { clsx } from "clsx";
 import Link from "next/link";
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type MouseEvent, type ReactNode } from "react";
 import styles from "./transactions-panel.module.css";
-import { ArrowDownToLine, ArrowRight, Plus, Search, SlidersHorizontal } from "lucide-react";
+import { ArrowDownToLine, ArrowRight, Plus, Search, SlidersHorizontal, X } from "lucide-react";
 import { Empty } from "@/components/ui/empty-state";
+import { TransactionRuleProvider } from "./transaction-rule-provider";
 import { TransactionList, TransactionListSkeleton } from "@/features/transactions/components/transaction-list";
-import { CsvImportDialog } from "@/features/imports/components/csv-import-form";
 import { ManualTransactionDialog } from "@/features/transactions/components/manual-transaction-dialog";
-import { useAccounts } from "@/features/accounts/queries";
-import { setAccountFilter, setCategoryFilter, setPage, setSearch, useAccountFilter, useCategoryFilter, useChangeView, useSearchFilter } from "@/client/use-app-url";
+import { activeAccounts, useAccounts } from "@/features/accounts/queries";
+import { CsvFileDialog } from "@/features/imports/components/csv-file-dialog";
+import { setAccountFilter, setCategoryFilter, setTypeFilter, setPage, setSearch, useAccountFilter, useCategoryFilter, useTypeFilter, useChangeView, useSearchFilter } from "@/client/use-app-url";
 import { Select } from "@/components/ui/select";
 import { anyCategory, CategoryPicker, type CategoryPickerValue } from "@/features/categorization/components/category-picker";
 import { useSearchDraft } from "@/features/transactions/use-search-draft";
@@ -22,7 +23,10 @@ import { AreaPlaceholder } from "@/components/ui/area-placeholder";
 import { pendingTogether, type Area, type AreaResult } from "@/components/ui/use-area-result";
 import type { Account } from "@/features/accounts/types";
 import type { Category } from "@/features/categorization/types";
+import { transactionTypes, transactionTypeLabels } from "@/features/transactions/transaction-types";
 import type { TransactionPage } from "@/features/transactions/types";
+import { useLocale } from "@/client/locale-provider";
+import { formatCount } from "@/lib/locale";
 
 type Props = {
   categories: Area<Category[]>;
@@ -76,15 +80,16 @@ export function TransactionsPanel(props: Props) {
     page,
     view
   } = props;
-  const [importOpen, setImportOpen] = useState(false);
+  const headingRef = useRef<HTMLHeadingElement>(null);
   const [entryOpen, setEntryOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const changeView = useChangeView();
-  const manualAccounts = (useAccounts().data ?? []).filter(account => account.provider === "manual");
+  const manualAccounts = activeAccounts(useAccounts().data ?? []).filter(account => account.provider === "manual");
 
   return (
     <section className={clsx(ui["panel"], styles["transaction-panel"])}>
       <div className={styles["card-heading"]}>
-        <h2>{headings[view]}</h2>
+        <h2 ref={headingRef} tabIndex={-1}>{headings[view]}</h2>
         {props.view === "overview" && (
           <button className={ui["text-button"]} onClick={() => changeView("transactions")}>
             View all <ArrowRight size={15} />
@@ -101,10 +106,7 @@ export function TransactionsPanel(props: Props) {
                 Add transaction
               </button>
             )}
-            <button
-              className={clsx(styles["button"], ui["small"])}
-              onClick={() => setImportOpen(true)}
-            >
+            <button className={clsx(styles["button"], ui["small"])} onClick={() => setImportOpen(true)}>
               <ArrowDownToLine size={14} />
               Import CSV
             </button>
@@ -118,20 +120,22 @@ export function TransactionsPanel(props: Props) {
         )}
       </div>
       {props.view === "transactions" && <TransactionFilters categories={categories.data ?? []} filterAccounts={props.filterAccounts.data ?? []} />}
-      {list.status === "pending" || categories.status === "pending" ? (
-        <AreaPlaceholder area={pendingTogether(list, categories)} subject="Your transactions">
-          {view === "overview" ? <TransactionListSkeleton rows={recentTransactions} /> : <TransactionPageSkeleton />}
-        </AreaPlaceholder>
-      ) : (
-        <TransactionPages
-          categories={categories.data}
-          emptyState={emptyState}
-          list={list}
-          page={page}
-          view={view}
-        />
-      )}
-      {importOpen && <CsvImportDialog initialMode="transactions" close={() => setImportOpen(false)} />}
+      <TransactionRuleProvider fallbackFocus={headingRef}>
+        {list.status === "pending" || categories.status === "pending" ? (
+          <AreaPlaceholder area={pendingTogether(list, categories)} subject="Your transactions">
+            {view === "overview" ? <TransactionListSkeleton rows={recentTransactions} /> : <TransactionPageSkeleton />}
+          </AreaPlaceholder>
+        ) : (
+          <TransactionPages
+            categories={categories.data}
+            emptyState={emptyState}
+            list={list}
+            page={page}
+            view={view}
+          />
+        )}
+      </TransactionRuleProvider>
+      {importOpen && <CsvFileDialog close={() => setImportOpen(false)} />}
       {entryOpen && <ManualTransactionDialog accounts={manualAccounts} close={() => setEntryOpen(false)} />}
     </section>
   );
@@ -147,6 +151,7 @@ function TransactionPages({
   categories: Category[];
   list: AreaResult<TransactionPage>;
 }) {
+  const locale = useLocale();
   const {
     transactionCount,
     transactions
@@ -164,7 +169,7 @@ function TransactionPages({
       {view !== "overview" && transactionCount > transactionPageSize && (
         <div className={styles["pagination"]}>
           <span className={valueMask(list.status)}>
-            {(page - 1) * transactionPageSize + 1}–{Math.min(page * transactionPageSize, transactionCount)} of {transactionCount}
+            {`${formatCount((page - 1) * transactionPageSize + 1, locale)}–${formatCount(Math.min(page * transactionPageSize, transactionCount), locale)} of ${formatCount(transactionCount, locale)}`}
           </span>
           <button className={clsx(styles["button"], ui["small"])} disabled={page === 1} onClick={() => setPage(page - 1)}>
             Previous
@@ -202,6 +207,7 @@ function TransactionFilters({
 }) {
   const accountFilter = useAccountFilter();
   const categoryFilter = useCategoryFilter();
+  const typeFilter = useTypeFilter();
 
   return (
     <div className={styles["filters"]}>
@@ -217,6 +223,10 @@ function TransactionFilters({
             {account.name}
           </option>
         ))}
+      </Select>
+      <Select aria-label="Transaction type filter" value={typeFilter} onChange={event => setTypeFilter(event.target.value)}>
+        <option value="">All types</option>
+        {transactionTypes.map(type => <option key={type} value={type}>{transactionTypeLabels[type]}</option>)}
       </Select>
       <CategoryPicker
         className={styles["category-filter"]}
@@ -235,16 +245,39 @@ function TransactionFilters({
 // Keystrokes change only this field's draft; the list follows once the committed search reaches the URL.
 function TransactionSearch() {
   const [searchDraft, setSearchDraft] = useSearchDraft(useSearchFilter(), setSearch);
+  const input = useRef<HTMLInputElement>(null);
+
+  // Pointer presses on the field's padding or magnifier focus the input, as its label did.
+  function focusInput(event: MouseEvent<HTMLDivElement>) {
+    if (!(event.target instanceof Element) || !event.target.closest("button, input")) {
+      input.current?.focus();
+    }
+  }
 
   return (
-    <label className={styles["search-field"]}>
-      <Search size={16} />
+    // A plain wrapper, since the clear button must not sit inside the input's label; the input has its own accessible name.
+    <div className={styles["search-field"]} onClick={focusInput}>
+      <Search size={16} aria-hidden="true" />
       <input
+        ref={input}
         aria-label="Search transactions"
         placeholder="Payee or description …"
         value={searchDraft}
         onChange={event => setSearchDraft(event.target.value)}
       />
-    </label>
+      {searchDraft && (
+        <button
+          type="button"
+          className={styles["clear-search"]}
+          aria-label="Clear search"
+          onClick={() => {
+            setSearchDraft("");
+            input.current?.focus();
+          }}
+        >
+          <X size={16} aria-hidden="true" />
+        </button>
+      )}
+    </div>
   );
 }

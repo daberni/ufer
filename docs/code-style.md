@@ -74,6 +74,8 @@ Own component-specific styles in a colocated `*.module.css`. Genuinely shared bu
 
 Component styles use the semantic color tokens in `src/app/globals.css` instead of literal colors. Each token defines its light and dark value with `light-dark()`, so a component never needs theme-specific selectors; translucent variants derive from a token with `color-mix()`. Category colors stored in data are adjusted for display per theme in `category-colors.ts`, never in the stored value.
 
+A suggestion the person can accept with one click, such as a category's suggested color or icon, uses the shared sparkle highlight (`components/ui/sparkle.module.css`): `sparkle` gives an option a steady glow with two twinkling stars, `sparkle-outline` puts a glowing halo behind a picker trigger's icon, keeping the icon crisp. It uses the `--sparkle` token, and reduced motion keeps the glow without the twinkle.
+
 Use clsx directly for conditional class lists instead of a local wrapper. Use the canonical Ufer SVG for branding; account-type icons communicate their own meaning and must not reuse an obsolete logo.
 
 Keep expected domain failures distinct from unexpected errors. The shared ValidationError identifies user-correctable input failures without depending on HTTP; use it for submitted amounts, CSV content, valuations and category selection. The HTTP adapter maps it to 422. HttpError is also allowed in application services, repositories and infrastructure when an explicit API outcome is useful, including missing resources, state conflicts, configuration failures and size limits; a strict transport-independent domain layer is not required. Treat rejected provider data as 502, not user validation: translate expected amount-validation errors at the bank-data boundary without including provider values. Keep generic catch messages for unexpected failures; do not expose every Error.message. API failures use [Problem Details](http-errors.md) with a trace ID and sanitized diagnostics, never raw SQL/error payloads. Update all callers when an internal response contract changes; do not retain obsolete error fields.
@@ -144,3 +146,12 @@ Font sizes use the rem-based scale in `src/app/globals.css` (`--text-xs` 12px, `
 - **Bottom navigation** offsets are calculated where they are used from the height, the bottom safe-area inset and a spacing step, for example `calc(var(--bottom-nav-height) + env(safe-area-inset-bottom) + var(--space-6))`.
 - The global `input` rule styles text-like fields only; checkboxes, radios, color and file inputs keep their native box without local resets.
 - Fix specificity instead of using `!important`; the reduced-motion rule is the only exception.
+
+
+## Automated frontend checks
+
+`npm run lint` includes React Hooks rules, the matching Next.js plugin and checks literal CSS Module class references. CSS imports use relative paths so the module rule resolves the same file as the bundler. ESLint's maintained compatibility utility adapts the CSS Module plugin's legacy rule API to ESLint 10; application code does not carry compatibility wrappers.
+
+`npm run check:styles` runs Stylelint before Prettier. Stylelint checks semantic CSS errors, CSS Module syntax, duplicate selectors and `!important` usage. The reduced-motion override in `globals.css` is the narrowly documented exception. Component font sizes, colors and radii use design variables; font weights use the existing 400/500/600/700 scale. Prettier remains responsible for formatting. Selector-specificity ordering is not enforced because module-local state selectors and separate DOM branches intentionally have different specificity.
+
+Known gaps remain in [#111](https://github.com/daberni/ufer/issues/111): the current `eslint-plugin-jsx-a11y` release does not support ESLint 10, so it is not installed with a peer override or replaced by a fork. The React Compiler `static-components` check is also deferred because it currently misidentifies Ufer's stable module-level icon lookup as component construction. Other recommended Hooks checks remain active. Literal CSS class accesses are checked; dynamically computed class keys are not statically validated by this plugin.

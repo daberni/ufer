@@ -135,7 +135,15 @@
 .label {
   flex: 1;
   min-width: 0;
+  max-width: 24rem;
   overflow-wrap: anywhere;
+  /* The list may open inside a nowrap table row; a label longer than the cap wraps onto further lines instead of widening the list or running past it. */
+  white-space: normal;
+}
+.detail {
+  display: block;
+  color: var(--muted);
+  font-size: var(--text-xs);
 }
 .create-icon {
   width: 16px;

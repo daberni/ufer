@@ -1,11 +1,12 @@
+import { isTransactionType, type TransactionType } from "@/features/transactions/transaction-types";
 import { currentMonth, currentMonthPeriod, parsePeriod, serializePeriod, type Period } from "@/lib/period";
 import { parsePage } from "@/lib/pagination";
 import { parseCurrencyCode } from "@/lib/money";
 
-export type View = "overview" | "transactions" | "accounts" | "account" | "rules" | "connections";
+export type View = "overview" | "transactions" | "import" | "accounts" | "account" | "rules";
 
-/** A view in the navigation; an account's details belong to accounts. */
-export type Section = Exclude<View, "account">;
+/** A view in the navigation; an account's details belong to accounts and the import page to transactions. */
+export type Section = Exclude<View, "account" | "import">;
 
 /** The lists an account's details are opened from and return to. */
 export type AccountList = "overview" | "accounts";
@@ -17,8 +18,7 @@ export const viewPaths: Record<Section, string> = {
   overview: "/",
   transactions: "/transactions",
   accounts: "/accounts",
-  rules: "/rules",
-  connections: "/connections"
+  rules: "/rules"
 };
 
 export type ViewQuery = {
@@ -27,6 +27,7 @@ export type ViewQuery = {
   search: string;
   account: string;
   category: string;
+  type: TransactionType | "";
   syncRun: string;
   page: number;
 };
@@ -38,11 +39,15 @@ export type ViewQueryChanges = {
   search?: string;
   account?: string;
   category?: string;
+  type?: string;
   syncRun?: string;
   page?: number;
 };
 
 type SearchParams = Pick<URLSearchParams, "get" | "toString">;
+
+/** The CSV import page, below the transactions it adds to. */
+export const importPath = "/transactions/import";
 
 const defaultCurrency = "EUR";
 
@@ -74,13 +79,21 @@ export function viewFromPathname(pathname: string): View {
     return "account";
   }
 
+  if (pathname === importPath) {
+    return "import";
+  }
+
   const match = Object.entries(viewPaths).find(([, path]) => path === pathname);
 
   return match ? match[0] as Section : "overview";
 }
 
 export function sectionOf(view: View): Section {
-  return view === "account" ? "accounts" : view;
+  if (view === "account") {
+    return "accounts";
+  }
+
+  return view === "import" ? "transactions" : view;
 }
 
 export function isPeriodAware(view: View) {
@@ -116,6 +129,7 @@ export function viewQuery(pathname: string, scope: string, params: SearchParams)
   const view = viewFromPathname(pathname);
   const scoped = new URLSearchParams(scope);
   const listParams = view === "transactions" ? params : new URLSearchParams();
+  const type = listParams.get("type") || "";
   const pageParams = view === "account" ? params : listParams;
 
   return {
@@ -124,6 +138,7 @@ export function viewQuery(pathname: string, scope: string, params: SearchParams)
     search: listParams.get("search") || "",
     account: view === "account" ? accountIdFromPathname(pathname) : listParams.get("account") || "",
     category: listParams.get("category") || "",
+    type: isTransactionType(type) ? type : "",
     syncRun: listParams.get("syncRun") || "",
     page: parsePage(pageParams.get("page"))
   };
@@ -136,6 +151,23 @@ export function viewHref(view: Section, scope: string) {
 /** An account's details carry the period selected last. */
 export function accountHref(id: string, scope: string) {
   return scope ? `${accountPath(id)}?${scope}` : accountPath(id);
+}
+
+/** The transactions behind one row of a breakdown by category: a category ID or "uncategorized", income or expenses, in the breakdown's period and currency. */
+export type CategoryTransactions = {
+  period: Period;
+  currency: string;
+  category: string;
+  type: "income" | "expense";
+};
+
+export function categoryTransactionsHref(filter: CategoryTransactions) {
+  return withQueryChanges(viewPaths.transactions, "", {
+    period: filter.period,
+    currency: filter.currency,
+    category: filter.category,
+    type: filter.type
+  });
 }
 
 /** Applies query changes to a URL; default values are omitted so plain view URLs stay plain. */
@@ -151,7 +183,7 @@ export function withQueryChanges(pathname: string, search: string, changes: View
     values.currency = changes.currency === defaultCurrency ? "" : changes.currency;
   }
 
-  for (const key of ["search", "account", "category", "syncRun"] as const) {
+  for (const key of ["search", "account", "category", "type", "syncRun"] as const) {
     if (changes[key] !== undefined) {
       values[key] = changes[key];
     }

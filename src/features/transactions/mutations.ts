@@ -13,10 +13,14 @@ export type TransferTarget = {
   account_id: string;
 } | null;
 
-/** The fields the edit dialog saves; `transfer` is sent for transfers only. */
+/** The fields the edit dialog saves; `transfer` is sent for transfers only, and an imported booking's payee and description only when they changed. */
 export type TransactionEdit = {
   type: TransactionType;
   transfer?: TransferTarget;
+  /** Removes the booking's split in the same write as the details. */
+  remove_split?: true;
+  counterparty?: string;
+  description?: string;
 };
 
 /** The date, amount, payee and description of a booking entered in Ufer, saved together with its type. */
@@ -41,7 +45,7 @@ export function useSaveTransaction(id: string) {
   const path = `transactions/${encodeURIComponent(id)}`;
 
   return useMutation({
-    mutationFn: (edit: TransactionEdit | EntryEdit) => "booking_date" in edit ? api(path, edit, "PUT") : api(`${path}/type`, edit, "PUT"),
+    mutationFn: (edit: TransactionEdit | EntryEdit) => "booking_date" in edit ? api(path, edit, "PUT") : api(`${path}/details`, edit, "PUT"),
     onSettled: () => invalidate(queryClient, editKeys)
   });
 }
@@ -51,6 +55,16 @@ export function useDeleteTransaction(id: string) {
 
   return useMutation({
     mutationFn: () => api(`transactions/${encodeURIComponent(id)}`, undefined, "DELETE"),
+    onSettled: () => invalidate(queryClient, editKeys)
+  });
+}
+
+/** Hides an imported booking from balances and reports, or shows it again. */
+export function useHideTransaction(id: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (hidden: boolean) => api(`transactions/${encodeURIComponent(id)}/hidden`, undefined, hidden ? "PUT" : "DELETE"),
     onSettled: () => invalidate(queryClient, editKeys)
   });
 }
@@ -66,3 +80,23 @@ export function useEnterTransaction() {
     onSettled: () => invalidate(queryClient, editKeys)
   });
 }
+
+/** One part of a split as the split form saves it: a signed decimal amount in the booking's currency. */
+export type SplitPartEdit = {
+  amount: string;
+  category_id: string | null;
+  note: string;
+};
+
+/** Splits a booking into category parts, replacing an earlier split. */
+export function useSaveSplit(id: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (parts: SplitPartEdit[]) => api(`transactions/${encodeURIComponent(id)}/split`, {
+      parts
+    }, "PUT"),
+    onSettled: () => invalidate(queryClient, editKeys)
+  });
+}
+

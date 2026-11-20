@@ -1,71 +1,95 @@
 import ui from "../../../components/ui/primitives.module.css";
 
 import styles from "./category-rows.module.css";
+import Link from "next/link";
 import { clsx } from "clsx";
+import { formatPercent } from "@/lib/locale";
 import { money } from "@/lib/money";
 import { CategoryLabel, type DisplayCategory, type NeutralCategory } from "@/features/categorization/components/category-label";
 import { categoryBarColor, neutralChipColor, themedColor } from "@/features/categorization/category-colors";
-import type { CategoryGroup } from "@/features/reports/category-groups";
-
-const shareFormat = new Intl.NumberFormat("en-GB", {
-  style: "percent",
-  maximumFractionDigits: 0
-});
+import { displayName, type CategoryGroup } from "@/features/reports/category-groups";
+import { useLocale } from "@/client/locale-provider";
 
 /** The rows as one sentence for an accessible description, e.g. "Groceries €120.00 (40%), Rent €180.00 (60%)". */
-export function describeCategoryGroups(groups: CategoryGroup[], currency: string) {
+export function describeCategoryGroups(groups: CategoryGroup[], currency: string, locale: string) {
   if (!groups.length) {
     return "None.";
   }
 
-  return groups.map(group => `${group.name} ${money(group.amount, currency)} (${shareFormat.format(group.share)})`).join(", ");
+  return groups.map(group => `${displayName(group, locale)} ${money(group.amount, currency, locale)} (${formatPercent(group.share, locale)})`).join(", ");
 }
 
-function groupCategory(group: CategoryGroup): DisplayCategory | NeutralCategory {
+function groupCategory(group: CategoryGroup, locale: string): DisplayCategory | NeutralCategory {
   if (group.key === "uncategorized") {
     return "uncategorized";
   }
 
   return {
-    name: group.name,
+    name: displayName(group, locale),
     color: group.color,
     icon: group.icon
   };
 }
 
+/** Where a row leads and how a screen reader names that link. */
+export type CategoryRowLink = {
+  href: string;
+  label: string;
+};
+
 type Props = {
   groups: CategoryGroup[];
   currency: string;
-  /** One line per row with the name truncated and a thin share bar, for details that must fit a fixed height. */
-  compact?: boolean;
+  /** The transactions behind a row; rows without one stay plain. */
+  rowLink?: (group: CategoryGroup) => CategoryRowLink | null;
   className?: string;
 };
 
-/** Rows with category, amount and share bar; shared by "Where your money goes" and the monthly breakdowns in the cash-flow chart. */
+/** Category, amount and share bar for the selected period or monthly flow. */
 export function CategoryRows({
   groups,
   currency,
-  compact = false,
+  rowLink,
   className
 }: Props) {
+  const locale = useLocale();
+
   return (
-    <div className={clsx(styles["rows"], compact && styles["compact"], className)}>
-      {groups.map(group => (
-        <div className={styles["row"]} key={group.key}>
-          <span className={styles["category"]}>
-            <CategoryLabel category={groupCategory(group)} />
-          </span>
-          <strong>{money(group.amount, currency)}</strong>
-          <div>
-            <i
-              style={{
-                width: `${group.share * 100}%`,
-                background: themedColor(scheme => categoryBarColor(group.color, scheme))
-              }}
-            />
-          </div>
-        </div>
-      ))}
+    <div className={clsx(styles["rows"], className)}>
+      {groups.map(group => {
+        const link = rowLink?.(group) ?? null;
+        const content = (
+          <>
+            <span className={styles["category"]}>
+              <CategoryLabel category={groupCategory(group, locale)} />
+            </span>
+            <strong>{money(group.amount, currency, locale)}</strong>
+            <div>
+              <i
+                style={{
+                  width: `${group.share * 100}%`,
+                  background: themedColor(scheme => categoryBarColor(group.color, scheme))
+                }}
+              />
+            </div>
+          </>
+        );
+
+        if (!link) {
+          return <div className={styles["row"]} key={group.key}>{content}</div>;
+        }
+
+        return (
+          <Link
+            className={clsx(styles["row"], styles["link"])}
+            key={group.key}
+            href={link.href}
+            aria-label={link.label}
+          >
+            {content}
+          </Link>
+        );
+      })}
     </div>
   );
 }

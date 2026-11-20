@@ -2,41 +2,46 @@
 
 import ui from "../../../components/ui/primitives.module.css";
 
+import { useState } from "react";
 import { Trash2 } from "lucide-react";
 import styles from "./remove-connection-form.module.css";
 import { FormError } from "@/components/ui/form-error";
-import type { Feedback } from "@/components/ui/use-action-feedback";
 import type { Account } from "@/features/accounts/types";
 import type { Connection, ConnectionRemoval } from "@/features/banking/types";
-import { useAppStore } from "@/client/app-store";
 import { useDialogSubmit, type DialogFormProps } from "@/components/ui/use-dialog-submit";
 import { useRemoveConnection } from "@/features/banking/mutations";
 import { useAccounts } from "@/features/accounts/queries";
 import { InlineFailure } from "@/components/ui/area-placeholder";
 import { useAreaResult, type Area } from "@/components/ui/use-area-result";
 import { Dialog } from "@/components/ui/dialog";
+import { useLocale } from "@/client/locale-provider";
+import { formatCount } from "@/lib/locale";
 
 type Props = DialogFormProps & {
   selectedConnection: Connection;
+  /** Called after removal with the accounts that stayed active although archiving was chosen. */
+  onRemoved?: (removal: ConnectionRemoval) => void;
 };
 
 export function RemoveConnectionDialog({
   close,
+  onRemoved,
   selectedConnection
 }: Props) {
   return (
     <Dialog eyebrow="YOUR FINANCES" title="Remove connection" onClose={close}>
-      <RemoveConnectionForm close={close} selectedConnection={selectedConnection} />
+      <RemoveConnectionForm close={close} onRemoved={onRemoved} selectedConnection={selectedConnection} />
     </Dialog>
   );
 }
 
 function RemoveConnectionForm({
   close,
+  onRemoved,
   selectedConnection
 }: Props) {
+  const [archiveAccounts, setArchiveAccounts] = useState(false);
   const accounts = useAreaResult(useAccounts());
-  const reportFeedback = useAppStore(state => state.reportFeedback);
   const {
     error,
     pending,
@@ -45,13 +50,10 @@ function RemoveConnectionForm({
 
   return (
     <form
-      onSubmit={event => submit(event, () => selectedConnection.id, removal => {
-        const warning = revocationWarning(selectedConnection, removal);
-
-        if (warning) {
-          reportFeedback(warning);
-        }
-      })}
+      onSubmit={event => submit(event, () => ({
+        connectionId: selectedConnection.id,
+        archiveAccounts
+      }), onRemoved)}
       className={ui["form"]}
     >
       <p className={ui["form-description"]}>
@@ -62,9 +64,19 @@ function RemoveConnectionForm({
           <RetainedAccounts accounts={accounts} connection={selectedConnection} />
         </li>
         <li>These accounts are no longer synced, including scheduled syncs. Their balances stay at the last synced value.</li>
-        <li>The stored bank authorization is deleted and Ufer asks Enable Banking to revoke it.</li>
+        <li>Ufer revokes the bank authorization before removing the connection. If that fails, the connection stays and you can try again.</li>
         <li>Connecting the same bank again later continues the kept accounts instead of creating duplicates.</li>
       </ul>
+      <label className={styles["archive"]}>
+        <input
+          name="archive_accounts"
+          type="checkbox"
+          checked={archiveAccounts}
+          onChange={event => setArchiveAccounts(event.target.checked)}
+        />
+        Archive these accounts: hide them from the account lists and pickers, keep them in reports, restore them any time
+      </label>
+      {archiveAccounts && <UnsettledAccounts accounts={accounts} connection={selectedConnection} />}
       <FormError failure={error} />
       <div className={ui["form-actions"]}>
         <button
@@ -92,6 +104,8 @@ function RetainedAccounts({
   accounts: Area<Account[]>;
   connection: Connection;
 }) {
+  const locale = useLocale();
+
   if (accounts.status === "pending" && accounts.failure) {
     return <InlineFailure failure={accounts.failure} subject="The linked accounts" />;
   }
@@ -109,19 +123,24 @@ function RetainedAccounts({
 
   return (
     <>
-      <strong>{linkedAccounts.length} linked account(s) stay in Ufer</strong> with their balances, transaction history and categories.
+      <strong>{`${formatCount(linkedAccounts.length, locale)} linked account(s) stay in Ufer`}</strong> with their balances, transaction history and categories.
     </>
   );
 }
 
-// The removed connection disappears from the list; only an unconfirmed revocation needs a message after the dialog closes.
-function revocationWarning(connection: Connection, removal: ConnectionRemoval): Feedback | null {
-  if (removal.providerRevocation !== "not_revoked") {
+// Archiving needs a balance of 0; the others stay active after removal.
+function UnsettledAccounts({
+  accounts,
+  connection
+}: {
+  accounts: Area<Account[]>;
+  connection: Connection;
+}) {
+  const unsettled = accounts.data?.filter(account => account.requisition_id === connection.id && account.balance_minor !== 0) ?? [];
+
+  if (!unsettled.length) {
     return null;
   }
 
-  return {
-    tone: "problem",
-    messages: [`${connection.bank_name} removed. Enable Banking did not confirm revoking the authorization; it ends when it expires or when you withdraw it at your bank.`]
-  };
+  return <p className={ui["form-hint"]}>Only accounts with a balance of 0 are archived. These stay active: {unsettled.map(account => account.name).join(", ")}.</p>;
 }

@@ -4,7 +4,9 @@ import ui from "../../components/ui/primitives.module.css";
 
 import { clsx } from "clsx";
 import styles from "./dashboard.module.css";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import Link from "next/link";
+import { bankConnectionsHref } from "@/features/banking/connections-location";
 import { ArrowRight, CircleHelp, Link2 } from "lucide-react";
 import { BrandIcon } from "@/components/branding/brand-icon";
 import { ActionFeedback } from "@/components/ui/action-feedback";
@@ -16,19 +18,23 @@ import { PageHeading } from "@/components/layout/page-heading";
 import { LoginForm } from "@/features/auth/components/login-form";
 import { LegalLinks } from "@/features/legal/components/legal-links";
 import { SourceCodeNotice } from "@/features/legal/components/source-code-notice";
+import { EditableAccountName } from "@/features/accounts/components/editable-account-name";
 import { AccountDetailActions } from "@/features/accounts/components/account-detail-actions";
-import { accountGroups, useAccounts } from "@/features/accounts/queries";
+import { accountGroups, activeAccounts, useAccounts } from "@/features/accounts/queries";
+import { showsSync } from "./sync-visibility";
 import { useBankingConfiguration } from "@/features/banking/banking-configuration";
 import { SyncButton } from "@/features/banking/components/sync-button";
 import { navigation } from "./navigation";
 import { onView, useAppStore } from "@/client/app-store";
 import { useSessionLock } from "@/client/use-session-lock";
 import { useDashboardNavigation } from "./use-dashboard-navigation";
-import { useAccountFilter, useChangeView, useCurrency, useView, useViewHref } from "@/client/use-app-url";
+import { useAccountFilter, useCurrency, useView, useViewHref } from "@/client/use-app-url";
 import { sectionOf } from "@/client/app-location";
 import { useLoadError } from "./use-load-error";
 import { TraceId } from "@/components/ui/trace-id";
 import type { Failure } from "@/client/api";
+import { useLocale } from "@/client/locale-provider";
+import { formatCount } from "@/lib/locale";
 
 /** The persistent dashboard shell; the current view route renders inside it. */
 export default function Dashboard({ children }: {
@@ -56,9 +62,10 @@ function DashboardShell({ children }: {
   children: React.ReactNode
 }) {
   const { environment } = useBankingConfiguration();
+  const locale = useLocale();
   const view = useView();
   const viewHref = useViewHref();
-  const changeView = useChangeView();
+  const router = useRouter();
   const currency = useCurrency();
   const accounts = useAccounts();
   const accountId = useAccountFilter();
@@ -66,16 +73,23 @@ function DashboardShell({ children }: {
   const section = sectionOf(view);
   const nav = navigation.find(item => item.id === section)!;
   const selectedAccount = view === "account" ? accounts.data?.find(account => account.id === accountId) : undefined;
-  const heading = view === "account" ? selectedAccount?.name ?? "Account details" : nav.heading;
+  let heading = view === "account" ? selectedAccount?.name ?? "Account details" : nav.heading;
+
+  if (view === "import") {
+    heading = "Import transactions";
+  }
+
   let description = nav.description;
 
   if (view === "account") {
     description = "Balance, transactions and history.";
+  } else if (view === "import") {
+    description = "Bring in the history of an account from a bank or app export.";
   } else if (view === "accounts") {
     description = "All your accounts and assets.";
   }
 
-  const showSync = view !== "account" || Boolean(selectedAccount && selectedAccount.provider !== "manual");
+  const showSync = showsSync(view, selectedAccount);
 
   // Bank accounts only add the sync action and authorization reminders, so until they load the shell shows neither.
   const {
@@ -89,7 +103,7 @@ function DashboardShell({ children }: {
     icon: item.icon,
     href: viewHref(item.id),
     current: item.id === section,
-    count: item.id === "connections" ? expiring.length : 0
+    count: item.id === "accounts" ? expiring.length : 0
   }));
 
   return (
@@ -102,15 +116,15 @@ function DashboardShell({ children }: {
       <div className={styles["main-shell"]}>
         <AppHeader environment={environment} title={nav.label} />
         <main className={styles["content"]}>
-          <PageHeading heading={heading} description={description}>
-            {selectedAccount?.provider === "manual" && (
+          <PageHeading heading={selectedAccount ? <EditableAccountName key={selectedAccount.id} account={selectedAccount} /> : heading} description={description}>
+            {selectedAccount?.provider === "manual" && !selectedAccount.archived_at && (
               <AccountDetailActions
                 key={selectedAccount.id}
                 account={selectedAccount}
-                manualAccounts={(accounts.data ?? []).filter(account => account.provider === "manual")}
+                manualAccounts={activeAccounts(accounts.data ?? []).filter(account => account.provider === "manual")}
               />
             )}
-            {showSync && <SyncButton bankAccounts={bankAccounts} showConnections={() => changeView("connections")} />}
+            {showSync && <SyncButton bankAccounts={bankAccounts} showConnections={() => router.push(bankConnectionsHref)} />}
           </PageHeading>
           <LoadErrorNotice failure={loadError.failure} retry={loadError.retry} />
           {environment === "SANDBOX" && (
@@ -122,10 +136,10 @@ function DashboardShell({ children }: {
           {expiring.length > 0 && (
             <div className={clsx(ui["notice"], ui["warning"])}>
               <Link2 size={17} />
-              {expiring.length} bank authorization(s) are expiring or have expired.
-              <button className={ui["text-button"]} onClick={() => changeView("connections")}>
+              {formatCount(expiring.length, locale)} bank authorization(s) are expiring or have expired.
+              <Link className={ui["text-button"]} href={bankConnectionsHref}>
                 Review authorizations <ArrowRight size={14} />
-              </button>
+              </Link>
             </div>
           )}
           {children}

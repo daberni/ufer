@@ -4,6 +4,7 @@ import { act, renderHook } from "@testing-library/react";
 import { useQuery, type QueryClient } from "@tanstack/react-query";
 import { queryKeys } from "../src/client/query-keys";
 import { useTransactionCategory } from "../src/features/transactions/use-transaction-category";
+import { useRulePreview } from "../src/features/categorization/queries";
 import type { Transaction, TransactionPage } from "../src/features/transactions/types";
 import { browser, respond, wait, withQueryClient, type PendingRequest } from "./fixtures/browser";
 
@@ -16,13 +17,21 @@ const transaction: Transaction = {
   instructed_currency: null,
   counterparty: "Example Market",
   description: "Synthetic purchase",
+  source_counterparty: "Example Market",
+  source_description: "Synthetic purchase",
+  hidden: false,
   account_name: "Synthetic account",
   account_id: "synthetic-account",
   category_id: "groceries",
   category_source: "rule",
+  category_rule_id: null,
+  automatic_assignment: null,
+  split: null,
   type: "expense",
   type_source: "auto",
   manual_account: false,
+  account_archived: false,
+  counterpart_archived: false,
   entered: false,
   follows_import: false,
   created_counterpart: false,
@@ -35,6 +44,7 @@ const listKey = queryKeys.transactions.list({
   search: "",
   account: "",
   category: "",
+  type: "",
   syncRun: "",
   page: 1
 });
@@ -247,4 +257,94 @@ test("a row changed again after its view was left and reopened still waits for t
 
   assert.equal(second.result.current.stored.category_id, "transport");
   assert.equal(second.result.current.row.categoryId, "transport");
+});
+
+test("a settled category assignment refreshes an open rule preview and invalidates cached previews without touching unrelated data", async context => {
+  const {
+    queryClient,
+    pending,
+    requests
+  } = browser(context);
+  const draft = {
+    pattern: "Example Market",
+    mode: "keyword" as const,
+    ruleId: null,
+    categoryId: null
+  };
+  const inactiveDraft = {
+    pattern: "Example Bakery",
+    mode: "keyword" as const,
+    ruleId: null,
+    categoryId: null
+  };
+
+  queryClient.setQueryData(queryKeys.rulePreview(draft), {
+    matched: 2,
+    uncategorized: 2,
+    manual: 0,
+    manual_same_category: 0
+  });
+  queryClient.setQueryData(queryKeys.rulePreview(inactiveDraft), {
+    matched: 3,
+    uncategorized: 3,
+    manual: 0,
+    manual_same_category: 0
+  });
+  queryClient.setQueryData(queryKeys.accounts(), []);
+  queryClient.setQueryData(queryKeys.categories(), []);
+  const hook = renderHook(() => ({
+    row: useTransactionCategory(transaction),
+    preview: useRulePreview(draft)
+  }), {
+    wrapper: ({ children }) => withQueryClient(queryClient, children)
+  });
+
+  await wait(0);
+  await respond(requests("rules/preview")[0], Response.json({
+    matched: 2,
+    uncategorized: 2,
+    manual: 0,
+    manual_same_category: 0
+  }));
+  act(() => hook.result.current.row.change("leisure"));
+  await wait(0);
+  await respond(patches(pending)[0], assignment("leisure"));
+
+  assert.equal(requests("rules/preview").length, 2);
+  assert.equal(queryClient.getQueryState(queryKeys.rulePreview(inactiveDraft))?.isInvalidated, true);
+  assert.equal(queryClient.getQueryState(queryKeys.accounts())?.isInvalidated, false);
+  assert.equal(queryClient.getQueryState(queryKeys.categories())?.isInvalidated, false);
+  await respond(requests("rules/preview")[1], Response.json({
+    matched: 1,
+    uncategorized: 1,
+    manual: 0,
+    manual_same_category: 0
+  }));
+  assert.deepEqual(hook.result.current.preview.data, {
+    matched: 1,
+    uncategorized: 1,
+    manual: 0,
+    manual_same_category: 0
+  });
+});
+
+test("a saved category is not reported as failed while other transaction queries, such as transfer options, are cached", async context => {
+  const {
+    pending,
+    queryClient
+  } = browser(context);
+
+  seed(queryClient);
+  queryClient.setQueryData(queryKeys.transactions.transfer(transaction.id), {
+    bookings: [],
+    accounts: []
+  });
+  const { result } = renderRow(queryClient);
+
+  act(() => result.current.row.change("leisure"));
+  await wait(0);
+  await respond(patches(pending)[0], assignment("leisure"));
+
+  assert.equal(result.current.row.status?.kind, "saved");
+  assert.equal(result.current.stored.category_id, "leisure");
 });

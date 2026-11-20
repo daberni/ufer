@@ -14,18 +14,38 @@ type SqlCondition = {
 const bookingMonth = "substr(t.booking_date,1,7)";
 
 /**
- * Transactions that count toward cash flow and spending in a date range: income and expenses of this environment and currency. Transfers, opening balances and adjustments never count, whatever their category. Every cash-flow figure reads through this one definition so totals, breakdowns and the trend agree.
+ * The amounts reports count, one row per booking or part: an unsplit booking with its category, each part of a split booking with the part's category, and, when a split booking's amount changed after splitting, the difference as an uncategorized row. Every booking thus counts exactly once with its full amount, and balances keep reading the bookings themselves.
+ */
+const countedLines = `(
+  SELECT t.account_id,t.currency,t.booking_date,t.type,t.suppressed_at,t.category_id,t.amount_minor
+  FROM transactions t
+  WHERE NOT EXISTS (SELECT 1 FROM transaction_splits s WHERE s.transaction_id=t.id)
+  UNION ALL
+  SELECT t.account_id,t.currency,t.booking_date,t.type,t.suppressed_at,s.category_id,s.amount_minor
+  FROM transaction_splits s
+  JOIN transactions t ON t.id=s.transaction_id
+  UNION ALL
+  SELECT t.account_id,t.currency,t.booking_date,t.type,t.suppressed_at,NULL,t.amount_minor-SUM(s.amount_minor)
+  FROM transaction_splits s
+  JOIN transactions t ON t.id=s.transaction_id
+  GROUP BY t.id
+  HAVING SUM(s.amount_minor)<>t.amount_minor
+)`;
+
+/**
+ * Transactions that count toward cash flow and spending in a date range: visible income and expenses of this environment and currency. Transfers, opening balances, adjustments and hidden bookings never count, whatever their category. A split booking counts as its parts. Every cash-flow figure reads through this one definition so totals, breakdowns and the trend agree.
  */
 function countedTransactions(currency: string, range: SqlCondition): SqlCondition {
   return {
     sql: `
-      FROM transactions t
+      FROM ${countedLines} t
       JOIN accounts a ON a.id=t.account_id
       LEFT JOIN categories c ON c.id=t.category_id
       WHERE a.environment=?
       AND t.currency=?
       AND ${range.sql}
       AND t.type IN ('income','expense')
+      AND t.suppressed_at IS NULL
     `,
     args: [environment(), currency, ...range.args]
   };
@@ -54,7 +74,7 @@ function flowTotal(flow: Flow) {
 
 /**
  * Amounts per category of one flow among counted transactions, largest first, with uncategorized transactions as one row. Per month, rows are also split by booking month.
- * A category whose refunds reach or exceed its spending has no row; its net amount still counts toward the flow's total.
+ * A category with a negative net amount, such as an income correction or refunds exceeding spending, keeps a signed row, so the rows always sum to the flow's total; only categories netting to zero are left out.
  */
 function flowByCategory(source: SqlCondition, flow: Flow, perMonth: boolean): SqlCondition {
   const month = perMonth ? bookingMonth : "NULL";
@@ -66,10 +86,20 @@ function flowByCategory(source: SqlCondition, flow: Flow, perMonth: boolean): Sq
       ${source.sql}
       AND ${flows[flow].condition}
       GROUP BY ${grouping}
-      HAVING amount>0
+      HAVING amount<>0
       ORDER BY month,amount DESC,name
     `,
     args: source.args
+  };
+}
+
+function monthTotals(rows: Record<string, unknown>[], month: string) {
+  const row = rows.find(item => item.month === month);
+
+  return {
+    month,
+    income: Number(row?.income || 0),
+    expenses: Number(row?.expenses || 0)
   };
 }
 
@@ -83,7 +113,7 @@ function categoryAmount(row: Record<string, unknown>): CategoryAmount {
   };
 }
 
-/** Income, expenses, spending by category and the six-month trend, including each month's income and spending by category, for one period and currency. */
+/** Income, expenses, both by category, and the twelve-month trend with the totals of the month before it, including each month's income and spending by category, for one period and currency. */
 export async function readCashFlow(period: Period, currency: string) {
   const client = (await database()).$client;
   const trendRange = trendMonths(period, currentMonth());
@@ -92,6 +122,11 @@ export async function readCashFlow(period: Period, currency: string) {
     day: 1
   };
   const trendStart = trendRange[0].toPlainDate(firstDay).toString();
+  // The month before the trend only continues the chart's net area to its left edge.
+  const leadMonth = trendRange[0].subtract({
+    months: 1
+  });
+  const leadStart = leadMonth.toPlainDate(firstDay).toString();
   const trendEnd = trendRange[trendRange.length - 1].add({
     months: 1
   }).toPlainDate(firstDay).toString();
@@ -107,32 +142,35 @@ export async function readCashFlow(period: Period, currency: string) {
     `,
     args: inPeriod.args
   });
-  const breakdownQuery = client.execute(flowByCategory(inPeriod, "expenses", false));
+  const incomeBreakdownQuery = client.execute(flowByCategory(inPeriod, "income", false));
+  const expenseBreakdownQuery = client.execute(flowByCategory(inPeriod, "expenses", false));
+  const totalsByMonth = countedTransactions(currency, {
+    sql: "t.booking_date>=? AND t.booking_date<?",
+    args: [leadStart, trendEnd]
+  });
   const trendQuery = client.execute({
     sql: `
       SELECT ${bookingMonth} AS month,${flowTotal("income")} AS income,${flowTotal("expenses")} AS expenses
-      ${inTrend.sql}
+      ${totalsByMonth.sql}
       GROUP BY ${bookingMonth}
     `,
-    args: inTrend.args
+    args: totalsByMonth.args
   });
   const trendIncomeQuery = client.execute(flowByCategory(inTrend, "income", true));
   const trendExpensesQuery = client.execute(flowByCategory(inTrend, "expenses", true));
-  const [totals, breakdown, trend, trendIncome, trendExpenses] = await Promise.all([totalsQuery, breakdownQuery, trendQuery, trendIncomeQuery, trendExpensesQuery]);
+  const [totals, incomeBreakdown, expenseBreakdown, trend, trendIncome, trendExpenses] = await Promise.all([totalsQuery, incomeBreakdownQuery, expenseBreakdownQuery, trendQuery, trendIncomeQuery, trendExpensesQuery]);
 
   return {
     period: periodToJson(period),
     currency,
     income: Number(totals.rows[0].income),
     expenses: Number(totals.rows[0].expenses),
-    breakdown: breakdown.rows.map(categoryAmount),
+    incomeBreakdown: incomeBreakdown.rows.map(categoryAmount),
+    expenseBreakdown: expenseBreakdown.rows.map(categoryAmount),
+    leadIn: monthTotals(trend.rows, leadMonth.toString()),
     trend: trendWindow.map(month => {
-      const row = trend.rows.find(item => item.month === month);
-
       return {
-        month,
-        income: Number(row?.income || 0),
-        expenses: Number(row?.expenses || 0),
+        ...monthTotals(trend.rows, month),
         incomeBreakdown: trendIncome.rows.filter(item => item.month === month).map(categoryAmount),
         expenseBreakdown: trendExpenses.rows.filter(item => item.month === month).map(categoryAmount)
       };
@@ -156,7 +194,7 @@ export async function readAccountCashFlow(accountId: string, period: Period): Pr
     sql: `
       SELECT a.currency AS currency,${flowTotal("income")} AS income,${flowTotal("expenses")} AS expenses,${accountTransferTotal("incoming")} AS transfers_in,${accountTransferTotal("outgoing")} AS transfers_out
       FROM accounts a
-      LEFT JOIN transactions t ON t.account_id=a.id AND t.currency=a.currency AND ${inPeriod.sql}
+      LEFT JOIN transactions t ON t.account_id=a.id AND t.currency=a.currency AND t.suppressed_at IS NULL AND ${inPeriod.sql}
       WHERE a.id=?
       AND a.environment=?
       GROUP BY a.id

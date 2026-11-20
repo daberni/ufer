@@ -1,0 +1,28 @@
+.analytics-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: var(--space-6);
+  margin-top: var(--space-6);
+}
+@media (--laptop) {
+  .analytics-grid {
+    gap: var(--space-4);
+  }
+}
+/* Below laptop width the category panel moves under the chart, where its income and expense columns fit side by side. */
+@media (--tablet) {
+  .analytics-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .analytics-grid h2 {
+    font-size: var(--text-md);
+  }
+}
+@media (--mobile) {
+  .analytics-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .analytics-grid h2 {
+    font-size: var(--text-lg);
+  }
+}

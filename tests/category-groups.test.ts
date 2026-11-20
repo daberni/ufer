@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { groupByCategory, categoryRowLimit } from "../src/features/reports/category-groups";
+import { groupByCategory, categoryRowLimit, displayName } from "../src/features/reports/category-groups";
 import type { CategoryAmount } from "../src/features/reports/types";
 
 function category(id: string, amount: number): CategoryAmount {
@@ -44,7 +44,8 @@ test("beyond five categories the four largest keep their rows and the rest are c
   assert.equal(groups.length, categoryRowLimit);
   assert.deepEqual(groups.slice(0, -1).map(group => group.amount), [70, 60, 50, 40]);
   assert.equal(remainder?.key, "remainder");
-  assert.equal(remainder?.name, "3 other categories");
+  assert.equal(remainder && displayName(remainder, "en"), "+3 more");
+  assert.equal(remainder && displayName(remainder, "ar-EG"), "+٣ more");
   assert.equal(remainder?.amount, 60);
   assert.equal(total(groups), total(items));
   assert.ok(Math.abs(groups.reduce((sum, group) => sum + group.share, 0) - 1) < 1e-9);
@@ -56,7 +57,7 @@ test("uncategorized spending keeps its own row even when it is the smallest", ()
 
   assert.equal(groups.length, categoryRowLimit);
   assert.deepEqual(groups.map(group => group.key), ["1", "3", "5", "uncategorized", "remainder"]);
-  assert.equal(groups.at(-1)?.name, "3 other categories");
+  assert.equal(displayName(groups.at(-1)!, "en"), "+3 more");
   assert.equal(groups.at(-1)?.amount, 60);
   assert.equal(total(groups), total(items));
 });
@@ -79,4 +80,20 @@ test("equal amounts keep a stable order by name regardless of input order", () =
 
 test("no spending has no rows", () => {
   assert.deepEqual(groupByCategory([]), []);
+});
+
+test("a negative category keeps its signed amount without a bar, and the rows still sum to the total", () => {
+  const groups = groupByCategory([category("salary", 10000), category("correction", -2000)]);
+
+  assert.deepEqual(groups.map(group => [group.key, group.amount, group.share]), [["salary", 10000, 1], ["correction", -2000, 0]]);
+  assert.equal(groups.reduce((sum, group) => sum + group.amount, 0), 8000);
+});
+
+test("shares come from the rows shown, so a remainder netting a negative category still leaves the visible bars at 100%", () => {
+  const groups = groupByCategory([category("a", 100), category("b", 90), category("c", 80), category("d", 70), category("e", 60), category("f", -100)]);
+
+  assert.deepEqual(groups.map(group => [group.key, group.amount]), [["a", 100], ["b", 90], ["c", 80], ["d", 70], ["remainder", -40]]);
+  assert.equal(groups.at(-1)?.share, 0);
+  assert.ok(Math.abs(groups.reduce((sum, group) => sum + group.share, 0) - 1) < 1e-9);
+  assert.equal(groups[0].share, 100 / 340);
 });
