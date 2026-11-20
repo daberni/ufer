@@ -686,3 +686,31 @@ test("a changed category is still assigned when the details' refresh removes the
 
   assert.equal(categoryPatches(requests).length, 1);
 });
+
+test("a split booking offers only income and expense as its type, also on a manual account", async context => {
+  const {
+    screen
+  } = await renderDialog(context, {
+    ...outgoing,
+    manual_account: true,
+    split: {
+      parts: [{
+        id: "part-1",
+        amount_minor: -20000,
+        category_id: null,
+        note: ""
+      }, {
+        id: "part-2",
+        amount_minor: -15000,
+        category_id: null,
+        note: ""
+      }],
+      balanced: true
+    }
+  });
+  const type = screen.getByRole("combobox", {
+    name: "Type"
+  }) as HTMLSelectElement;
+
+  assert.deepEqual([...type.options].map(option => option.value), ["income", "expense"]);
+});

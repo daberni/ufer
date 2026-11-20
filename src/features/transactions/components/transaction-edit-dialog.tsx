@@ -329,7 +329,9 @@ function TransactionEditForm({
   const imported = !transaction.entered && !transaction.created_counterpart;
   const options = useTransferOptions(transaction.id, linkable);
   const target = chosenTarget ?? storedTarget(transaction, options.data);
-  const available = transactionTypes.filter(option => transaction.manual_account || !manualAccountTypes.includes(option) || option === transaction.type);
+  // A split booking stays income or expense, since only those count by category; the stored type stays listed.
+  const typeAllowed = (option: TransactionType) => transaction.split === null || option === "income" || option === "expense";
+  const available = transactionTypes.filter(option => option === transaction.type || (typeAllowed(option) && (transaction.manual_account || !manualAccountTypes.includes(option))));
   // Without loaded options, saving a transfer could drop a link the form cannot show.
   const targetUnknown = linkable && options.status !== "success";
 
