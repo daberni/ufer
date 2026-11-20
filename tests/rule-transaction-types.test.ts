@@ -707,3 +707,38 @@ test("a rule's type wins over a CSV row's transfer marker on import and when app
 
   assert.deepEqual([(await imported()).type, (await imported()).type_rule_id], ["transfer", null]);
 });
+
+test("a rule's transfer creates no counterpart on a manual account that already holds ambiguous candidates", async context => {
+  const db = await isolatedDatabase(context);
+
+  await rule({
+    pattern: "CASH WITHDRAWAL",
+    transaction_type: "transfer",
+    transfer_account_id: "cash"
+  });
+  await db.insert(schema.transactions).values([{
+    id: "cash-in-1",
+    account_id: "cash",
+    provider_reference: "manual:cash-in-1",
+    booking_date: "2026-09-05",
+    amount_minor: 10000,
+    currency: "EUR",
+    type: "income"
+  }, {
+    id: "cash-in-2",
+    account_id: "cash",
+    provider_reference: "manual:cash-in-2",
+    booking_date: "2026-09-06",
+    amount_minor: 10000,
+    currency: "EUR",
+    type: "income"
+  }]);
+  await sync(db, "checking", [entry("atm", "2026-09-05", -10000, "Cash withdrawal")]);
+
+  const withdrawal = await stored(db, "bank:atm");
+  const onCash = await db.select().from(schema.transactions).where(eq(schema.transactions.account_id, "cash"));
+
+  assert.deepEqual([withdrawal.type, withdrawal.transfer_id], ["transfer", null]);
+  assert.equal(onCash.length, 2);
+  assert.ok(onCash.every(row => row.transfer_id === null));
+});

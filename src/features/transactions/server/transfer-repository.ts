@@ -91,7 +91,7 @@ export async function pairTransfers(executor: DatabaseTransaction, bankingEnviro
 }
 
 /**
- * Creates the counterpart of each unlinked transfer whose rule names a manual account, as a person does in the edit dialog, and links both automatically. Runs after pairing, so a booking already on that account is linked instead.
+ * Creates the counterpart of each unlinked transfer whose rule names a manual account, as a person does in the edit dialog, and links both automatically. Runs after pairing, so a booking already on that account is linked instead; while a booking there could still pair, for example when pairing found it ambiguous, none is created.
  * The counterpart's reference carries its source's id, so a booking never receives a second created counterpart.
  */
 async function createRuleCounterparts(tx: DatabaseTransaction, bankingEnvironment: string) {
@@ -116,6 +116,15 @@ async function createRuleCounterparts(tx: DatabaseTransaction, bankingEnvironmen
     AND booking.transfer_source='auto'
     AND booking.suppressed_at IS NULL
     AND booking.amount_minor<>0
+    AND NOT EXISTS (
+      SELECT 1 FROM transactions candidate
+      WHERE candidate.account_id=target.id
+      AND candidate.booking_date BETWEEN date(booking.booking_date,${windowStart(automaticPairingDays)}) AND date(booking.booking_date,${windowEnd(automaticPairingDays)})
+      AND candidate.amount_minor=-booking.amount_minor
+      AND candidate.currency=booking.currency
+      AND ${pairable("candidate")}
+      AND ${allowedByRule("candidate", "booking")}
+    )
   `);
 
   for (const target of targets) {

@@ -81,8 +81,9 @@ async function deleteDemoRows(tx: DatabaseTransaction) {
   await tx.update(categorizationRules).set({
     transfer_account_id: null
   }).where(like(categorizationRules.transfer_account_id, demoRows));
+  // A booking a rule sent to a removed demo account stays unpairable rather than pairing with any account.
   await tx.update(transactions).set({
-    type_transfer_account_id: null
+    type_transfer_account_id: sql`'removed:' || ${transactions.type_transfer_account_id}`
   }).where(like(transactions.type_transfer_account_id, demoRows));
 }
 
