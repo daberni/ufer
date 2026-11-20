@@ -32,7 +32,7 @@ type OpenDialog = {
   kind: "bank";
 };
 
-const shownTiles = 4;
+const shownTiles = 5;
 
 export function OverviewAccounts({ currencyAccounts }: Props) {
   const changeView = useChangeView();
@@ -65,21 +65,26 @@ function AccountStripSkeleton({ area }: {
             <span className={clsx(accountStyles["account-logo"], ui["skeleton"])} />
             <span className={styles["account-tile-name"]}>
               <span className={ui["skeleton"]}>Everyday account</span>
-              <small>
-                <span className={ui["skeleton"]}>Bank account · Bank</span>
-              </small>
             </span>
             <strong>
               <span className={ui["skeleton"]}>€0,000.00</span>
             </strong>
-            <span className={styles["account-tile-foot"]}>
-              <span className={ui["skeleton"]}>Synced today</span>
+            <span className={styles["account-tile-meta"]}>
+              <span className={ui["skeleton"]}>Bank account · Bank</span>
+            </span>
+            <span className={styles["account-tile-date"]}>
+              <span className={ui["skeleton"]}>Today</span>
             </span>
           </div>
         ))}
       </div>
     </AreaPlaceholder>
   );
+}
+
+// The largest balances, whatever their sign, keep the panel about as tall as the net-worth card; the heading links to all accounts.
+function largestAccounts(accounts: Account[]) {
+  return accounts.toSorted((left, right) => Math.abs(right.balance_minor ?? 0) - Math.abs(left.balance_minor ?? 0)).slice(0, shownTiles);
 }
 
 function AccountStrip({ currencyAccounts }: {
@@ -92,7 +97,7 @@ function AccountStrip({ currencyAccounts }: {
 
   const content = currencyAccounts.length ? (
     <div className={styles["account-strip"]}>
-      {currencyAccounts.slice(0, shownTiles).map(account => {
+      {largestAccounts(currencyAccounts).map(account => {
         const Icon = accountIcon(account.kind);
 
         return (
@@ -100,16 +105,14 @@ function AccountStrip({ currencyAccounts }: {
             <span className={clsx(accountStyles["account-logo"], accountStyles[account.kind])}>
               <Icon size={21} />
             </span>
-            <span className={styles["account-tile-name"]}>
-              {account.name}
-              <small>
-                {kinds[account.kind]} · {account.institution}
-              </small>
-            </span>
+            <span className={styles["account-tile-name"]}>{account.name}</span>
             <strong>{account.balance_minor === null ? "—" : money(account.balance_minor, account.currency)}</strong>
-            <span className={styles["account-tile-foot"]}>
+            <span className={styles["account-tile-meta"]}>
+              <span className={styles["account-tile-kind"]}>{kinds[account.kind]} · {account.institution}</span>
               <AccountSourceIndicator account={account} />
-              <span><DateValue value={account.balance_date} fallback="No balance yet" /></span>
+            </span>
+            <span className={styles["account-tile-date"]}>
+              <DateValue value={account.balance_date} fallback="No balance yet" />
             </span>
           </Link>
         );

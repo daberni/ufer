@@ -5,7 +5,7 @@ import { apiGet, apiQuery } from "@/client/api";
 import { queryKeys, type TransactionListFilters } from "@/client/query-keys";
 import { serializePeriod } from "@/lib/period";
 import type { ViewQuery } from "@/client/app-location";
-import type { TransactionPage, TransferOptions } from "@/features/transactions/types";
+import type { PayeeSuggestions, TransactionPage, TransferOptions } from "@/features/transactions/types";
 
 export function transactionListFilters(query: ViewQuery): TransactionListFilters {
   return {
@@ -36,5 +36,18 @@ export function useTransferOptions(id: string, enabled: boolean) {
     queryKey: queryKeys.transactions.transfer(id),
     queryFn: ({ signal }) => apiGet<TransferOptions>(`transactions/${encodeURIComponent(id)}/transfer`, undefined, signal),
     enabled
+  });
+}
+
+/** Existing payees matching the typed text; an empty text loads nothing. */
+export function usePayeeSuggestions(query: string) {
+  const text = query.trim();
+
+  return useQuery({
+    queryKey: queryKeys.transactions.payees(text),
+    queryFn: ({ signal }) => apiQuery<PayeeSuggestions>("transactions/payees", {
+      query: text
+    }, signal),
+    enabled: text !== ""
   });
 }

@@ -105,6 +105,11 @@ export type TransactionPage = {
   transactions: Transaction[];
 };
 
+/** Existing payees suggested for a typed payee, best first. */
+export type PayeeSuggestions = {
+  payees: string[];
+};
+
 /** Whether the edit dialog is unavailable: every change of type, link, entry or deletion is refused while either side's account is archived. */
 export function editLocked(transaction: Pick<Transaction, "account_archived" | "counterpart_archived">) {
   return transaction.account_archived || transaction.counterpart_archived;
