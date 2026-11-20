@@ -12,6 +12,7 @@ import { useCurrency } from "@/client/use-app-url";
 import type { Area } from "@/components/ui/use-area-result";
 import type { NetWorth } from "@/features/accounts/types";
 import { Temporal } from "temporal-polyfill";
+import { netWorthBars } from "@/features/reports/net-worth-bars";
 import { describeMonth } from "@/lib/date-format";
 import type { NetWorthHistory, NetWorthPoint } from "@/features/reports/net-worth-series";
 
@@ -41,6 +42,7 @@ export function WealthSummary({
   const summary = netWorth.data;
   const netWorthValue = valueMask(netWorth.status);
   const currency = summary.currency;
+  const bars = netWorthBars(summary);
   const historyReady = historyArea.status === "ready" && historyArea.data.currency === currency;
   const points = historyReady ? historyArea.data.points : [];
   const historyPending = !historyReady || netWorth.status !== "ready";
@@ -64,22 +66,43 @@ export function WealthSummary({
         {!change && hasAccounts && historyPending && <span className={clsx(styles["change"], ui["skeleton"])}>+€0,000.00 since Jan 2026</span>}
       </div>
       {summary.unvalued > 0 && <p>{summary.unvalued} without a balance</p>}
-      <div className={clsx(styles["allocation-bar"], netWorthValue)} aria-hidden="true">
-        <span
-          style={{
-            flex: Math.max(0, summary.liquidity)
-          }}
-        />
-        <span
-          style={{
-            flex: Math.max(0, summary.investments)
-          }}
-        />
-        <span
-          style={{
-            flex: Math.max(0, summary.property)
-          }}
-        />
+      {/* Assets and loans share one scale; the loan track is always laid out, so the card's height does not depend on having loans. */}
+      <div className={clsx(styles["bars"], netWorthValue)} aria-hidden="true">
+        <div className={styles["bar-track"]}>
+          <span
+            className={styles["bar-fill"]}
+            style={{
+              width: percent(bars.assets)
+            }}
+          >
+            <span
+              className={styles["cash-segment"]}
+              style={{
+                flex: bars.segments.cash
+              }}
+            />
+            <span
+              className={styles["investment-segment"]}
+              style={{
+                flex: bars.segments.investments
+              }}
+            />
+            <span
+              className={styles["property-segment"]}
+              style={{
+                flex: bars.segments.property
+              }}
+            />
+          </span>
+        </div>
+        <div className={clsx(styles["bar-track"], styles["loan-track"])}>
+          <span
+            className={clsx(styles["bar-fill"], styles["loan-segment"])}
+            style={{
+              width: percent(bars.loans)
+            }}
+          />
+        </div>
       </div>
       <div className={styles["wealth-allocation"]}>
         <span>
@@ -94,13 +117,11 @@ export function WealthSummary({
           <i className={clsx(styles["legend-dot"], ui["property"])} />
           Property<strong className={netWorthValue}>{money(summary.property, currency)}</strong>
         </span>
+        <span>
+          <i className={clsx(styles["legend-dot"], styles["loans"])} />
+          Loans<strong className={netWorthValue}>{summary.liabilities === 0 && netWorth.status === "ready" ? "—" : money(summary.liabilities, currency)}</strong>
+        </span>
       </div>
-      {/* Before the first results the loans line is laid out too, so a card with loans keeps its height when they arrive. */}
-      {(summary.liabilities !== 0 || netWorthArea.status === "pending") && (
-        <div className={styles["liabilities"]}>
-          Loans <span className={netWorthValue}>{money(summary.liabilities, currency)}</span>
-        </div>
-      )}
       {/* The curve's place is held until the history for the shown currency arrives, so the card and the accounts panel beside it keep their height. */}
       {hasAccounts && (historyReady ? <HistoryCurve points={points} /> : <div className={styles["history-curve"]} aria-hidden="true" />)}
       {netWorthArea.status === "pending" && netWorthArea.failure && <FailureCover failure={netWorthArea.failure} subject="Your net worth" />}
@@ -152,4 +173,8 @@ function HistoryCurve({ points }: {
       <path className={styles["history-line"]} d={line} vectorEffect="non-scaling-stroke" />
     </svg>
   );
+}
+
+function percent(share: number) {
+  return `${share * 100}%`;
 }

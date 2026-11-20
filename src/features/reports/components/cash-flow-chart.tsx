@@ -16,7 +16,7 @@ import { describeCategoryGroups } from "@/features/reports/components/category-r
 import { areaProps, valueMask } from "@/components/ui/result-presentation";
 import { AreaPlaceholder } from "@/components/ui/area-placeholder";
 import { currentMonth, trendMonths } from "@/lib/period";
-import { chartMonthCount, minimumChartMonths } from "@/features/reports/chart-months";
+import { chartMonthCount, minimumChartMonths, skeletonMonthBreakpoints } from "@/features/reports/chart-months";
 import { useMonthTransactionsHref, usePeriod } from "@/client/use-app-url";
 import type { Area, AreaResult, PendingArea } from "@/components/ui/use-area-result";
 import type { CashFlow } from "@/features/reports/types";
@@ -88,7 +88,7 @@ export function CashFlowChart({
         </span>
       </div>
       <div className={styles["plot"]} ref={plotRef}>
-        {cashFlow.status === "pending" ? <ChartSkeleton area={cashFlow} months={months} /> : (
+        {cashFlow.status === "pending" ? <ChartSkeleton area={cashFlow} months={trend} /> : (
           <ChartPlot
             cashFlow={cashFlow}
             months={months}
@@ -227,6 +227,12 @@ function useDevicePixelTop(lineRef: RefObject<HTMLSpanElement | null>, fraction:
   }, [lineRef, fraction]);
 }
 
+// Container queries on the plot that hide the skeleton's oldest months exactly where chartMonthCount drops them.
+const skeletonMonthStyles = skeletonMonthBreakpoints().map(({
+  belowWidth,
+  hiddenMonths
+}) => `@container (width < ${belowWidth}px) { [data-skeleton-months] > :nth-child(-n + ${hiddenMonths} of .${styles["month"]}) { display: none; } }`).join("\n");
+
 // Relative income and expense heights of the skeleton for each month of the trend.
 const skeletonFlows = [[0.55, 0.4], [0.7, 0.5], [0.45, 0.6], [0.8, 0.55], [0.6, 0.35], [0.75, 0.65]];
 
@@ -244,7 +250,9 @@ function ChartSkeleton({
 
   return (
     <AreaPlaceholder area={area} subject="Income and expenses">
-      <div className={styles["bar-chart"]}>
+      {/* The skeleton lays out every trend month and its stylesheet shows the ones that fit, so it matches the loaded chart before the page's script measures the width. */}
+      <div className={styles["bar-chart"]} data-skeleton-months>
+        <style>{skeletonMonthStyles}</style>
         <ZeroLine scale={scale} />
         {months.map((month, index) => {
           const [income, expenses] = skeletonFlows[index % skeletonFlows.length];
