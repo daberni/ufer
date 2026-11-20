@@ -5,7 +5,7 @@ import ui from "../../../components/ui/primitives.module.css";
 import { useId, useRef, useState } from "react";
 import { clsx } from "clsx";
 import { Temporal } from "temporal-polyfill";
-import { Check, Eye, EyeOff, Trash2 } from "lucide-react";
+import { Check, Eye, EyeOff, Split, Trash2 } from "lucide-react";
 import styles from "./transaction-type.module.css";
 import { toFailure, type Failure } from "@/client/api";
 import { Dialog } from "@/components/ui/dialog";
@@ -21,6 +21,7 @@ import { useTransferOptions } from "@/features/transactions/queries";
 import { useTransactionCategory } from "@/features/transactions/use-transaction-category";
 import type { Transaction, TransferBooking, TransferOptions } from "@/features/transactions/types";
 import { EntryFields, suggestedType } from "./entry-fields";
+import { SplitForm, SplitSummary, splittable } from "./transaction-split";
 
 type Props = {
   transaction: Transaction;
@@ -110,12 +111,13 @@ function transferEdit(target: Target): TransactionEdit["transfer"] {
   } : null;
 }
 
-type Step = "edit" | "delete" | "hide";
+type Step = "edit" | "delete" | "hide" | "split";
 
 const stepTitles: Record<Step, string> = {
   edit: "Edit transaction",
   delete: "Delete transaction",
-  hide: "Hide transaction"
+  hide: "Hide transaction",
+  split: "Split transaction"
 };
 
 /**
@@ -135,12 +137,14 @@ export function TransactionEditDialog({
       </p>
       {step === "delete" && <DeleteConfirmation transaction={transaction} close={close} cancel={() => setStep("edit")} />}
       {step === "hide" && <HideConfirmation transaction={transaction} close={close} cancel={() => setStep("edit")} />}
+      {step === "split" && <SplitForm transaction={transaction} close={close} />}
       {step === "edit" && (
         <TransactionEditForm
           transaction={transaction}
           close={close}
           onDelete={() => setStep("delete")}
           onHide={() => setStep("hide")}
+          onSplit={() => setStep("split")}
         />
       )}
     </Dialog>
@@ -298,10 +302,12 @@ function TransactionEditForm({
   transaction,
   close,
   onDelete,
-  onHide
+  onHide,
+  onSplit
 }: Props & {
   onDelete: () => void;
   onHide: () => void;
+  onSplit: () => void;
 }) {
   const save = useSaveTransaction(transaction.id);
   const categories = useCategories();
@@ -403,17 +409,21 @@ function TransactionEditForm({
           {available.map(option => <option key={option} value={option}>{transactionTypeLabels[option]}</option>)}
         </Select>
       </label>
-      <div className={ui["field"]}>
-        <label htmlFor={categoryFieldId}>Category</label>
-        <CategoryPicker
-          id={categoryFieldId}
-          categories={categories.data ?? []}
-          value={category}
-          includeUncategorized
-          onChange={setCategory}
-        />
-      </div>
-      {category !== null && category === initialCategory && category === transaction.category_id && transaction.category_source === "rule" && <p className={ui["form-hint"]}>Assigned by a rule.</p>}
+      {transaction.split ? <SplitSummary transaction={transaction} split={transaction.split} onEdit={onSplit} /> : (
+        <>
+          <div className={ui["field"]}>
+            <label htmlFor={categoryFieldId}>Category</label>
+            <CategoryPicker
+              id={categoryFieldId}
+              categories={categories.data ?? []}
+              value={category}
+              includeUncategorized
+              onChange={setCategory}
+            />
+          </div>
+          {category !== null && category === initialCategory && category === transaction.category_id && transaction.category_source === "rule" && <p className={ui["form-hint"]}>Assigned by a rule.</p>}
+        </>
+      )}
       {!transfer && transaction.counterpart && <p className={ui["form-hint"]}>{leaveTransferHint(transaction)}</p>}
       {linkable && (
         <TransferFields
@@ -427,6 +437,17 @@ function TransactionEditForm({
       <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={pending || targetUnknown}>
         Save <Check size={16} />
       </button>
+      {!transaction.split && splittable(transaction) && (
+        <button
+          type="button"
+          className={clsx(ui["button"], ui["full-width"])}
+          disabled={pending}
+          onClick={onSplit}
+        >
+          <Split size={15} />
+          Split into categories
+        </button>
+      )}
       {transaction.entered && (
         <button
           type="button"

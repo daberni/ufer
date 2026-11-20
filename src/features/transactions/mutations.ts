@@ -78,3 +78,32 @@ export function useEnterTransaction() {
     onSettled: () => invalidate(queryClient, editKeys)
   });
 }
+
+/** One part of a split as the split form saves it: a signed decimal amount in the booking's currency. */
+export type SplitPartEdit = {
+  amount: string;
+  category_id: string | null;
+  note: string;
+};
+
+/** Splits a booking into category parts, replacing an earlier split. */
+export function useSaveSplit(id: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (parts: SplitPartEdit[]) => api(`transactions/${encodeURIComponent(id)}/split`, {
+      parts
+    }, "PUT"),
+    onSettled: () => invalidate(queryClient, editKeys)
+  });
+}
+
+/** Removes a booking's split, returning it to automatic categorization. */
+export function useRemoveSplit(id: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => api(`transactions/${encodeURIComponent(id)}/split`, undefined, "DELETE"),
+    onSettled: () => invalidate(queryClient, editKeys)
+  });
+}

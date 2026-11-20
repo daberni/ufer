@@ -7,10 +7,11 @@ import { today, validDate } from "@/lib/time";
 import { findManualAccount } from "@/features/accounts/server/account-repository";
 import { categoryExists } from "@/features/categorization/server/category-repository";
 import { listRules } from "@/features/categorization/server/rule-repository";
-import { transactionTypes } from "@/features/transactions/transaction-types";
+import { transactionTypes, type TransactionType } from "@/features/transactions/transaction-types";
 import { categorizeEntries } from "./categorize-entries";
 import { createManualTransaction, deleteManualTransaction, findEntryCurrency, updateManualTransaction, type ManualEntryResult } from "./manual-transaction-repository";
 import { returnTransactionToRules, saveTransactionDetails, setTransactionCategory, setTransactionHidden } from "./transaction-repository";
+import { isSplit } from "./split-repository";
 import { manualLinkDays } from "./transfer-pairing";
 import { readTransferOptions, type TransferTarget } from "./transfer-repository";
 
@@ -24,6 +25,12 @@ const categoryChoice = z.union([z.object({
 /** Sets a transaction's category manually, or returns it to automatic categorization with the category and rule that the stored rules decide. */
 export async function updateTransactionCategory(id: string, payload: unknown) {
   const choice = categoryChoice.parse(payload);
+
+  // A split booking's categories are its parts; removing the split returns it to the rules.
+  if (await isSplit(id)) {
+    throw new HttpError(409, "This transaction is split. Change its parts or remove the split instead.");
+  }
+
   const assignment = "automatic" in choice ? await automaticCategory(id) : await manualCategory(id, choice.category_id);
 
   if (!assignment) {
@@ -111,6 +118,7 @@ export async function updateTransactionDetails(id: string, payload: unknown) {
     throw new ValidationError("Only a transfer has a target account.");
   }
 
+  await refuseSplitTypeChange(id, input.type);
   requireSaved(await saveTransactionDetails(id, input.type, target(input.transfer), {
     counterparty: input.counterparty,
     description: input.description
@@ -119,6 +127,15 @@ export async function updateTransactionDetails(id: string, payload: unknown) {
   return {
     ok: true
   };
+}
+
+/** Only income and expenses can be split, so a split booking keeps one of those types until its split is removed. */
+async function refuseSplitTypeChange(id: string, type: TransactionType) {
+  const countsByCategory = type === "income" || type === "expense";
+
+  if (!countsByCategory && await isSplit(id)) {
+    throw new ValidationError("Remove the split before changing this transaction to another type.");
+  }
 }
 
 const entryInput = typeInput.extend({
@@ -213,6 +230,9 @@ export async function editManualTransaction(id: string, payload: unknown, now = 
   }
 
   const entry = validateEntry(input, currency, now);
+
+  await refuseSplitTypeChange(id, entry.type);
+
   const rules = prepareRules(await listRules());
   const categoryFor = (text: RuleText) => ruleAssignment(text, rules);
 

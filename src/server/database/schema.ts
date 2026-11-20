@@ -132,6 +132,25 @@ export const transactions = sqliteTable("transactions", {
   check("transactions_transfer_type", sql`${table.transfer_id} IS NULL OR ${table.type}='transfer'`)
 ]);
 
+// The parts of a split booking. The booking keeps its amount for balances; reports count its parts, which a person keeps summing to the booking's amount.
+export const transactionSplits = sqliteTable("transaction_splits", {
+  id: text("id").primaryKey(),
+  transaction_id: text("transaction_id").notNull().references(() => transactions.id, {
+    onDelete: "cascade"
+  }),
+  position: integer("position").notNull(),
+  // Signed like the booking's amount_minor, in its currency.
+  amount_minor: integer("amount_minor").notNull(),
+  category_id: text("category_id").references(() => categories.id, {
+    onDelete: "set null"
+  }),
+  note: text("note").notNull().default("")
+}, table => [
+  uniqueIndex("transaction_splits_position").on(table.transaction_id, table.position),
+  index("transaction_splits_category").on(table.category_id),
+  check("transaction_splits_amount", sql`${table.amount_minor} <> 0`)
+]);
+
 // Provider balance history of synced accounts; manual accounts record balance changes as transactions.
 export const balanceSnapshots = sqliteTable("balance_snapshots", {
   id: text("id").primaryKey(),
