@@ -3,7 +3,7 @@ import test from "node:test";
 import { defaultFormatLocale, formatCount, formatPercent, isNegativePercent, parseFormatLocalePreference } from "../src/lib/locale";
 import { negotiateFormatLocale, requestedLanguages } from "../src/server/http/accept-language";
 import { money, signedMoney } from "../src/lib/money";
-import { browserDefaultLocale, formatLocaleExample, formatLocaleOptions } from "../src/features/appearance/format-locale-options";
+import { browserDefaultLocale, formatLocaleExample, formatLocaleOptions } from "../src/features/appearance/locale-options";
 import { currentFormatLocale } from "../src/server/http/request-locale";
 
 // These cases use en-GB; CLDR separates a letter currency code from the number with a no-break space.

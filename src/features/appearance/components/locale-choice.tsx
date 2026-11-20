@@ -7,8 +7,8 @@ import { useRequestLanguages } from "@/client/locale-provider";
 import { SearchableSelect, type SearchableSelectOption } from "@/components/ui/searchable-select";
 import { matchOptions } from "@/components/ui/searchable-select-behavior";
 import { localeCookie, localeCookieName, parseFormatLocalePreference, type FormatLocalePreference } from "@/lib/locale";
-import { browserDefaultLocale, formatLocaleExample, formatLocaleOptions } from "@/features/appearance/format-locale-options";
-import styles from "./format-locale-choice.module.css";
+import { browserDefaultLocale, formatLocaleExample, formatLocaleOptions } from "@/features/appearance/locale-options";
+import styles from "./locale-choice.module.css";
 
 const browserDefaultLabel = "Browser default";
 
@@ -86,7 +86,7 @@ function matchLocales(options: readonly SearchableSelectOption<FormatLocalePrefe
 }
 
 /** Browser default or any locale the browser can format, for amounts, numbers and dates in this browser; currencies stay per account. */
-export function FormatLocaleChoice() {
+export function LocaleChoice() {
   const requestLanguages = useRequestLanguages();
   const fieldId = useId();
   // Mounted only inside the account dialog in the browser, where the cookie is readable.
@@ -96,7 +96,7 @@ export function FormatLocaleChoice() {
   const [query, setQuery] = useState(selected?.label ?? browserDefaultLabel);
 
   return (
-    <div className={clsx(ui["form"], styles["format-locale-choice"])}>
+    <div className={clsx(ui["form"], styles["locale-choice"])}>
       <div className={ui["field"]}>
         <label htmlFor={fieldId}>Number and date format</label>
         <SearchableSelect

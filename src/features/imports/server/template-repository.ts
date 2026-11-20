@@ -28,6 +28,8 @@ export async function listTemplates(): Promise<CsvTemplate[]> {
 export async function insertTemplate(id: string, name: string, definition: TemplateDefinition) {
   const db = await database();
   const now = new Date().toISOString();
+  // Read before the transaction opens, so it does not wait on request state.
+  const locale = await currentFormatLocale();
 
   await db.transaction(async tx => {
     const stored = await tx.select({
@@ -35,7 +37,7 @@ export async function insertTemplate(id: string, name: string, definition: Templ
     }).from(importTemplates).get();
 
     if ((stored?.total ?? 0) >= maximumTemplates) {
-      throw new HttpError(409, `Ufer keeps at most ${formatCount(maximumTemplates, await currentFormatLocale())} templates. Delete one before saving another.`);
+      throw new HttpError(409, `Ufer keeps at most ${formatCount(maximumTemplates, locale)} templates. Delete one before saving another.`);
     }
 
     await requireUnique(tx, name, definition.header, null);

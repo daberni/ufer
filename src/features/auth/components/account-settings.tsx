@@ -5,7 +5,7 @@ import { useMutation } from "@tanstack/react-query";
 import { clsx } from "clsx";
 import { authClient, requireAuthResult } from "@/features/auth/client";
 import { ThemeChoice } from "@/features/appearance/components/theme-choice";
-import { FormatLocaleChoice } from "@/features/appearance/components/format-locale-choice";
+import { LocaleChoice } from "@/features/appearance/components/locale-choice";
 import ui from "../../../components/ui/primitives.module.css";
 import { FormError } from "@/components/ui/form-error";
 import { toFailure, type Failure } from "@/client/api";
@@ -69,7 +69,7 @@ export function AccountSettings({ onClose }: Props) {
       <p className={styles.identity}>{data ? `${data.user.name} · ${data.user.username}` : ""}</p>
       <p className={styles.email}>{data?.user.email}</p>
       <ThemeChoice />
-      <FormatLocaleChoice />
+      <LocaleChoice />
       <form className={clsx(ui.form, styles.section)} onSubmit={changePassword}>
         <h3>Change password</h3>
         <label>

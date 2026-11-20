@@ -133,6 +133,8 @@ export async function closeAndArchiveManualAccount(account: {
   currency: string;
 }, expectedBalance: number, date: string, transferAccountId: string | null, archivedAt: string): Promise<ClosingResult> {
   const db = await database();
+  // Read before the transaction opens, so it does not wait on request state.
+  const locale = await currentFormatLocale();
 
   try {
     return await db.transaction(async tx => {
@@ -147,7 +149,7 @@ export async function closeAndArchiveManualAccount(account: {
 
       // A closing before the last booking would leave activity after the account reached 0.
       if (total?.latest && date < total.latest) {
-        throw new ValidationError(`Choose a date on or after the last booking (${dateWithYear(Temporal.PlainDate.from(total.latest), await currentFormatLocale())}).`);
+        throw new ValidationError(`Choose a date on or after the last booking (${dateWithYear(Temporal.PlainDate.from(total.latest), locale)}).`);
       }
 
       const result = await bookManualEntry(tx, randomUUID(), {
