@@ -35,6 +35,7 @@ Transfers were a category flag (`is_transfer`): transactions in the seeded Trans
 | Rule types | A rule may set the type (income, expense or transfer) of the bookings it decides and, for a transfer, the own account on the other side; the category stays required. The first matching rule decides category and type together |
 | Precedence | A rule's type is set only while the type is automatic and the booking is unlinked, so manual corrections and links win. It replaces a bank-reported or file-marked transfer; that signal is kept on the booking, so when no rule sets a type any more the booking returns to Transfer instead of the type derived from its amount |
 | Applied transfer account | The account a rule named is stored on the booking when the rule sets its type. Pairing and counterpart creation use that stored account, so editing a rule changes pairing only when rules are applied again; a rule-set transfer pairs only with a booking on that account, and on a manual account without one the counterpart is created there |
+| Deleting rules | Deleting a rule, or a category together with its rules, does not change the types those rules set; only their rule reference is cleared. Applying rules later changes such a type only when another rule sets a new type (owner decision) |
 
 This replaces the earlier statement that categorization rules do not set types. Applying the changeset that adds these columns to a hosted database is a separate, explicitly approved step.
 
