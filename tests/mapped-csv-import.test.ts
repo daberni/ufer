@@ -669,7 +669,9 @@ test("saving rechecks duplicates in its write transaction, so bookings synced af
     description: "",
     categoryId: null,
     categorySource: "rule",
-    categoryRuleId: null
+    categoryRuleId: null,
+    ruleType: null,
+    typeRuleId: null
   }], null);
 
   assert.equal(inserted, 0);

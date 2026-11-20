@@ -18,6 +18,8 @@ import type { Area } from "@/components/ui/use-area-result";
 import { neutralChipColor } from "@/features/categorization/category-colors";
 import { useState } from "react";
 import { CategoryGlyph, CategoryLabel, categoryNameColor } from "./category-label";
+import { TransactionTypeIcon } from "@/features/transactions/components/transaction-type";
+import { transactionTypeLabels } from "@/features/transactions/transaction-types";
 import { CategoryDialog } from "./category-form";
 import { RuleDialog } from "./create-rule-form";
 import { closestCenter, DndContext, DragOverlay } from "@dnd-kit/core";
@@ -352,6 +354,27 @@ function SortableRuleRow({
 }
 
 /** The dragged rule as it follows the pointer; its place in the list stays empty to show where it will drop. */
+/** The type a rule sets, with a transfer's account, for example: Transfer · Savings. Nothing for a rule that leaves the type automatic. */
+function RuleTypeLabel({
+  rule
+}: {
+  rule: Rule;
+}) {
+  if (!rule.transaction_type) {
+    return null;
+  }
+
+  const label = transactionTypeLabels[rule.transaction_type];
+  const text = rule.transfer_account_name ? `${label} · ${rule.transfer_account_name}` : label;
+
+  return (
+    <span className={styles["rule-type"]} title={`Sets type: ${text}`}>
+      <TransactionTypeIcon type={rule.transaction_type} />
+      <span>{text}</span>
+    </span>
+  );
+}
+
 function DraggedRuleRow({
   rule
 }: {
@@ -379,6 +402,7 @@ function DraggedRuleRow({
             }}
           />
         </span>
+        <RuleTypeLabel rule={rule} />
       </div>
       <span className={clsx(styles["toggle"], rule.enabled && styles["enabled"])}>
         <span />
@@ -419,6 +443,7 @@ function RuleRowContent({
             }}
           />
         </span>
+        <RuleTypeLabel rule={rule} />
       </div>
       <button
         className={clsx(styles["toggle"], rule.enabled && styles["enabled"])}

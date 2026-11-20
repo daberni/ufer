@@ -28,6 +28,7 @@ const transfer: Transaction = {
   automatic_assignment: null,
   type: "transfer",
   type_source: "auto",
+  type_rule_id: null,
   account_id: "checking",
   manual_account: false,
   entered: false,

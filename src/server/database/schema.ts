@@ -1,7 +1,7 @@
 import { desc, sql } from "drizzle-orm";
 import { authSessions, authUsers, workspaces } from "@/features/auth/server/auth-schema";
 import { check, index, integer, primaryKey, sqliteTable, text, unique, uniqueIndex } from "drizzle-orm/sqlite-core";
-import { transactionTypes } from "@/features/transactions/transaction-types";
+import { ruleTransactionTypes, transactionTypes } from "@/features/transactions/transaction-types";
 
 export const categories = sqliteTable("categories", {
   id: text("id").primaryKey(),
@@ -75,10 +75,18 @@ export const categorizationRules = sqliteTable("categorization_rules", {
   }).notNull(),
   category_id: text("category_id").notNull().references(() => categories.id),
   priority: integer("priority").notNull().default(100),
-  enabled: integer("enabled").notNull().default(1)
+  enabled: integer("enabled").notNull().default(1),
+  // The type the rule sets on the bookings it decides; null leaves the automatic type.
+  transaction_type: text("transaction_type", {
+    enum: ruleTransactionTypes
+  }),
+  // For a transfer, the own account on the other side. Not a foreign key: removing an account must not fail on a rule, and an unknown account means no counterpart account.
+  transfer_account_id: text("transfer_account_id")
 }, table => [
   check("categorization_rules_mode", sql`${table.mode} IN ('keyword','regex')`),
-  check("categorization_rules_enabled", sql`${table.enabled} IN (0,1)`)
+  check("categorization_rules_enabled", sql`${table.enabled} IN (0,1)`),
+  check("categorization_rules_transaction_type", sql`${table.transaction_type} IN ('income','expense','transfer')`),
+  check("categorization_rules_transfer_account", sql`${table.transfer_account_id} IS NULL OR ${table.transaction_type}='transfer'`)
 ]);
 
 export const transactions = sqliteTable("transactions", {
@@ -108,6 +116,8 @@ export const transactions = sqliteTable("transactions", {
   type_source: text("type_source", {
     enum: ["auto", "manual"]
   }).notNull().default("auto"),
+  // The rule that set an automatic type; null for a derived or manual type and types set before it was recorded. Not a foreign key, like category_rule_id.
+  type_rule_id: text("type_rule_id"),
   // Shared by the two linked bookings of one transfer between own accounts.
   transfer_id: text("transfer_id"),
   // Manual once a person linked or unlinked the booking; automatic pairing then leaves it alone.

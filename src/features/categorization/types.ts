@@ -1,3 +1,5 @@
+import type { RuleTransactionType } from "@/features/transactions/transaction-types";
+
 export type Category = {
   id: string;
   name: string;
@@ -16,6 +18,11 @@ export type Rule = {
   enabled: number;
   category_color: string;
   category_icon: string | null;
+  /** The type the rule sets; null leaves the automatic type. */
+  transaction_type: RuleTransactionType | null;
+  /** For a transfer, the own account on the other side. */
+  transfer_account_id: string | null;
+  transfer_account_name: string | null;
 };
 
 /** The transactions a rule would categorize, counted without storing it; manual assignments are counted separately, since they only follow a rule when chosen. */

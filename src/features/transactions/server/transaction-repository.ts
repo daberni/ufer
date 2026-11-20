@@ -46,10 +46,13 @@ export async function withStoredOverrides<Delivered extends Entry>(tx: DatabaseT
   }));
 }
 
+// A stored type a delivery keeps: corrected, linked, or a detected transfer that neither the stored nor the delivered type came from a rule.
+const keepsType = sql`${transactions.type_source}='manual' OR ${transactions.transfer_id} IS NOT NULL OR (${transactions.type}='transfer' AND ${transactions.type_rule_id} IS NULL AND excluded.type_rule_id IS NULL)`;
+
 /**
  * Inserts new entries and updates existing ones. `createdAt` replaces the database clock only for inserted rows; updates keep the original `created_at`.
  * Updates replace the provider data with the latest delivery for every row; only rule-sourced categories are recalculated. Payee and description overrides and hidden state are separate columns, so a delivery never undoes them.
- * The type is recalculated only while nobody corrected it, the booking is not linked and it is not a transfer: no source reports that a booking is not a transfer, so a delivery without a transfer signal never downgrades one. A booking entered in Ufer follows the corrected date and amount of the imported booking it is linked with; other links whose corrected amount or currency no longer pairs are released first.
+ * The type is recalculated only while nobody corrected it and the booking is not linked; a rule's type takes precedence over the derived one. Without a rule, a detected transfer stays a transfer: no source reports that a booking is not a transfer, so a delivery without a transfer signal never downgrades one. A booking entered in Ufer follows the corrected date and amount of the imported booking it is linked with; other links whose corrected amount or currency no longer pairs are released first.
  */
 export async function upsertTransactions(tx: DatabaseTransaction, accountId: string, entries: CategorizedEntry[], createdAt?: string) {
   // Bound statement parameters for both local SQLite and remote libSQL deployments.
@@ -70,7 +73,8 @@ export async function upsertTransactions(tx: DatabaseTransaction, accountId: str
       description: entry.description,
       category_id: entry.categoryId,
       category_rule_id: entry.categoryRuleId,
-      type: derivedTransactionType(entry.amount, entry.transfer),
+      type: entry.ruleType ?? derivedTransactionType(entry.amount, entry.transfer),
+      type_rule_id: entry.typeRuleId,
       created_at: createdAt,
       ...providerColumns(entry.provider)
     }));
@@ -88,7 +92,8 @@ export async function upsertTransactions(tx: DatabaseTransaction, accountId: str
         provider_payload: sql`excluded.provider_payload`,
         category_id: sql`CASE WHEN ${transactions.category_source}='manual' THEN ${transactions.category_id} ELSE excluded.category_id END`,
         category_rule_id: sql`CASE WHEN ${transactions.category_source}='manual' THEN NULL ELSE excluded.category_rule_id END`,
-        type: sql`CASE WHEN ${transactions.type_source}='manual' OR ${transactions.transfer_id} IS NOT NULL OR ${transactions.type}='transfer' THEN ${transactions.type} ELSE excluded.type END`
+        type: sql`CASE WHEN ${keepsType} THEN ${transactions.type} ELSE excluded.type END`,
+        type_rule_id: sql`CASE WHEN ${keepsType} THEN ${transactions.type_rule_id} ELSE excluded.type_rule_id END`
       }
     });
   }

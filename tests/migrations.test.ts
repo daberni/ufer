@@ -358,7 +358,8 @@ test("the category icon upgrade adds an empty icon to existing categories withou
     const transactionColumns = await columnList(client, "transactions");
     const transactionsBefore = await originalTransactions(client, transactionColumns);
     const accountsBefore = await accountState(client);
-    const rulesBefore = await client.execute("SELECT * FROM categorization_rules");
+    const ruleColumns = await columnList(client, "categorization_rules");
+    const rulesBefore = await client.execute(`SELECT ${ruleColumns} FROM categorization_rules`);
 
     await assert.rejects(initializeDatabase(client), /migrations are pending/);
     assert.equal((await client.execute("SELECT COUNT(*) AS count FROM pragma_table_info('categories') WHERE name='icon'")).rows[0].count, 0);
@@ -376,7 +377,7 @@ test("the category icon upgrade adds an empty icon to existing categories withou
       category_id: row.category_id === "transfer" ? null : row.category_id
     })));
     assert.deepEqual(await accountState(client), accountsBefore);
-    assert.deepEqual((await client.execute("SELECT * FROM categorization_rules")).rows, rulesBefore.rows);
+    assert.deepEqual((await client.execute(`SELECT ${ruleColumns} FROM categorization_rules`)).rows, rulesBefore.rows);
     assert.equal((await client.execute("PRAGMA foreign_key_check")).rows.length, 0);
   } finally {
     client.close();
@@ -815,14 +816,15 @@ for (const customization of transferCustomizations) {
         customization.sql
       ], "write");
       const categoryBefore = (await client.execute("SELECT * FROM categories WHERE id='transfer'")).rows;
-      const rulesBefore = (await client.execute("SELECT * FROM categorization_rules ORDER BY id")).rows;
+      const ruleColumns = await columnList(client, "categorization_rules");
+      const rulesBefore = (await client.execute(`SELECT ${ruleColumns} FROM categorization_rules ORDER BY id`)).rows;
       const bookingColumns = await columnList(client, "transactions");
       const bookingsBefore = (await client.execute(`SELECT ${bookingColumns} FROM transactions ORDER BY id`)).rows;
 
       await migrateDatabase(client);
 
       assert.deepEqual((await client.execute("SELECT * FROM categories WHERE id='transfer'")).rows, categoryBefore);
-      assert.deepEqual((await client.execute("SELECT * FROM categorization_rules ORDER BY id")).rows, rulesBefore);
+      assert.deepEqual((await client.execute(`SELECT ${ruleColumns} FROM categorization_rules ORDER BY id`)).rows, rulesBefore);
       assert.deepEqual((await client.execute(`SELECT ${bookingColumns} FROM transactions ORDER BY id`)).rows, bookingsBefore);
       assert.equal((await client.execute("PRAGMA foreign_key_check")).rows.length, 0);
     } finally {
@@ -979,9 +981,10 @@ test("category-rule migration keeps every booking unchanged and leaves existing 
   const directory = mkdtempSync(join(tmpdir(), "ufer-category-rule-"));
   const journal = JSON.parse(readFileSync("drizzle/sqlite/meta/_journal.json", "utf8"));
 
-  journal.entries = journal.entries.filter((entry: {
+  // Earlier changesets only, so the upgrade starts from the schema just before this one.
+  journal.entries = journal.entries.slice(0, journal.entries.findIndex((entry: {
     tag: string
-  }) => entry.tag !== "0011_transaction_category_rule");
+  }) => entry.tag === "0011_transaction_category_rule"));
   mkdirSync(join(directory, "meta"));
 
   for (const entry of journal.entries) {
@@ -1008,6 +1011,63 @@ test("category-rule migration keeps every booking unchanged and leaves existing 
     assert.deepEqual((await client.execute(`SELECT ${columns} FROM transactions ORDER BY id`)).rows, before);
     assert.deepEqual((await client.execute("SELECT category_rule_id FROM transactions")).rows.map(row => row.category_rule_id), [null, null]);
 
+    assert.equal((await client.execute("PRAGMA foreign_key_check")).rows.length, 0);
+  } finally {
+    client.close();
+    rmSync(directory, {
+      recursive: true,
+      force: true
+    });
+  }
+});
+
+test("rule-type migration keeps every rule and booking unchanged and leaves existing types unattributed", async () => {
+  const client = createClient({
+    url: ":memory:"
+  });
+  const directory = mkdtempSync(join(tmpdir(), "ufer-rule-types-"));
+  const journal = JSON.parse(readFileSync("drizzle/sqlite/meta/_journal.json", "utf8"));
+
+  // Earlier changesets only, so the upgrade starts from the schema just before this one.
+  journal.entries = journal.entries.slice(0, journal.entries.findIndex((entry: {
+    tag: string
+  }) => entry.tag === "0014_rule_transaction_types"));
+  mkdirSync(join(directory, "meta"));
+
+  for (const entry of journal.entries) {
+    cpSync(`drizzle/sqlite/${entry.tag}.sql`, join(directory, `${entry.tag}.sql`));
+  }
+
+  writeFileSync(join(directory, "meta/_journal.json"), JSON.stringify(journal));
+
+  try {
+    await migrateDatabase(client, directory);
+    await client.batch([
+      "INSERT INTO accounts(id,environment,name,institution,kind) VALUES('checking','SANDBOX','Synthetic checking','Example institution','checking')",
+      "INSERT INTO categorization_rules(id,name,pattern,mode,category_id,priority,enabled) VALUES('market-rule','Markets','MARKET','keyword','groceries',100,1)",
+      "INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,counterparty,category_id,category_source,category_rule_id,type) VALUES('ruled','checking','bank:1','2026-01-02',-500,'EUR','Example Market','groceries','rule','market-rule','expense')",
+      "INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,counterparty,category_id,category_source,type,type_source) VALUES('manual','checking','bank:2','2026-01-03',700,'EUR','Example refund','leisure','manual','expense','manual')"
+    ], "write");
+    const transactionColumns = await columnList(client, "transactions");
+    const ruleColumns = await columnList(client, "categorization_rules");
+    const transactionsBefore = (await client.execute(`SELECT ${transactionColumns} FROM transactions ORDER BY id`)).rows;
+    const rulesBefore = (await client.execute(`SELECT ${ruleColumns} FROM categorization_rules ORDER BY id`)).rows;
+
+    await assert.rejects(initializeDatabase(client), /migrations are pending/);
+    await migrateDatabase(client);
+    await migrateDatabase(client);
+
+    assert.deepEqual((await client.execute(`SELECT ${transactionColumns} FROM transactions ORDER BY id`)).rows, transactionsBefore);
+    assert.deepEqual((await client.execute(`SELECT ${ruleColumns} FROM categorization_rules ORDER BY id`)).rows, rulesBefore);
+    assert.deepEqual((await client.execute("SELECT type_rule_id FROM transactions")).rows.map(row => row.type_rule_id), [null, null]);
+    assert.deepEqual({
+      ...(await client.execute("SELECT transaction_type,transfer_account_id FROM categorization_rules")).rows[0]
+    }, {
+      transaction_type: null,
+      transfer_account_id: null
+    });
+    await assert.rejects(client.execute("UPDATE categorization_rules SET transaction_type='opening_balance'"), /CHECK constraint failed/);
+    await assert.rejects(client.execute("UPDATE categorization_rules SET transaction_type='expense',transfer_account_id='checking'"), /CHECK constraint failed/);
     assert.equal((await client.execute("PRAGMA foreign_key_check")).rows.length, 0);
   } finally {
     client.close();

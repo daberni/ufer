@@ -145,6 +145,9 @@ export async function deleteCategory(id: string, deletion: CategoryDeletion): Pr
       await tx.update(transactions).set({
         category_rule_id: null
       }).where(inArray(transactions.category_rule_id, deletedRules));
+      await tx.update(transactions).set({
+        type_rule_id: null
+      }).where(inArray(transactions.type_rule_id, deletedRules));
     }
 
     const moved = await tx.update(transactions).set({

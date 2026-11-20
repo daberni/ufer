@@ -30,6 +30,7 @@ const booking: Transaction = {
   automatic_assignment: null,
   type: "expense",
   type_source: "auto",
+  type_rule_id: null,
   account_id: "checking",
   manual_account: false,
   entered: false,

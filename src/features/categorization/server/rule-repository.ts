@@ -6,6 +6,7 @@ import type { Rule } from "@/lib/rules";
 import { highestPriority, maximumRules, nextPriority, orderedPriorities } from "@/features/categorization/rule-order";
 import type { Transaction } from "@/server/database/models";
 import { accounts, categorizationRules, transactions } from "@/server/database/schema";
+import { pairTransfers } from "@/features/transactions/server/transfer-repository";
 
 /** Rules in matching order: priority first, then their persisted ID. */
 export async function listRules() {
@@ -17,6 +18,9 @@ export async function listRules() {
 export type NewRule = Omit<Rule, "enabled"> & {
   enabled: boolean;
 };
+
+/** A booking whose type rules may set: neither a person nor a link decided it. */
+const ruleTypeable = and(eq(transactions.type_source, "auto"), isNull(transactions.transfer_id));
 
 // Bounds the bound parameters of each update for both local SQLite and remote libSQL deployments.
 const assignmentChunkSize = 500;
@@ -161,6 +165,17 @@ async function storeRule(tx: DatabaseTransaction, rule: NewRule, assignments: Ru
     categorized += result.rowsAffected;
   }
 
+  if (rule.transaction_type) {
+    for (let offset = 0; offset < ids.length; offset += assignmentChunkSize) {
+      await tx.update(transactions).set({
+        type: rule.transaction_type,
+        type_rule_id: rule.id
+      }).where(and(inArray(transactions.id, ids.slice(offset, offset + assignmentChunkSize)), ruleTypeable));
+    }
+
+    await pairTransfers(tx, environment());
+  }
+
   return categorized;
 }
 
@@ -211,7 +226,7 @@ export async function appendRule(rule: Omit<NewRule, "priority">, assignments?: 
  * Updates the rule's details; without a priority the rule keeps its position in the matching order. Chosen manual assignments the updated rule decides are returned to
  * it in the same write transaction. Resolves to false for a missing rule.
  */
-export async function updateRule(id: string, details: Pick<Rule, "name" | "pattern" | "mode" | "category_id"> & Partial<Pick<Rule, "priority">>, manual?: ManualAdoption) {
+export async function updateRule(id: string, details: Pick<Rule, "name" | "pattern" | "mode" | "category_id" | "transaction_type" | "transfer_account_id"> & Partial<Pick<Rule, "priority">>, manual?: ManualAdoption) {
   const db = await database();
 
   return db.transaction(async tx => {
@@ -285,6 +300,38 @@ export async function saveRuleAssignments(entries: Pick<Transaction, "id" | "cat
 
 }
 
+/** Bookings whose type rules may set, with the text rules match and the rule that set their current type. */
+export async function findRuleTypeableTransactions() {
+  const db = await database();
+
+  return db.select({
+    id: transactions.id,
+    amount_minor: transactions.amount_minor,
+    type: transactions.type,
+    type_rule_id: transactions.type_rule_id,
+    counterparty: transactions.counterparty,
+    description: transactions.description,
+    counterparty_override: transactions.counterparty_override,
+    description_override: transactions.description_override
+  }).from(transactions).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(and(eq(accounts.environment, environment()), ruleTypeable));
+}
+
+/** Stores rule-decided types on bookings nobody corrected or linked meanwhile, then pairs transfers so rule-set transfers link to, or create, their counterparts in the same write transaction. */
+export async function saveRuleTypes(entries: Pick<Transaction, "id" | "type" | "type_rule_id">[]) {
+  const db = await database();
+
+  await db.transaction(async tx => {
+    for (const entry of entries) {
+      await tx.update(transactions).set({
+        type: entry.type,
+        type_rule_id: entry.type_rule_id
+      }).where(and(eq(transactions.id, entry.id), ruleTypeable));
+    }
+
+    await pairTransfers(tx, environment());
+  });
+}
+
 /** Deletes the rule and, in the same write transaction, its references from the categories it assigned, which keep their category. */
 export async function deleteRule(id: string) {
   const db = await database();
@@ -295,6 +342,9 @@ export async function deleteRule(id: string) {
     await tx.update(transactions).set({
       category_rule_id: null
     }).where(eq(transactions.category_rule_id, id));
+    await tx.update(transactions).set({
+      type_rule_id: null
+    }).where(eq(transactions.type_rule_id, id));
 
     return result.rowsAffected > 0;
   });

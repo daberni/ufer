@@ -1,13 +1,15 @@
 import { randomUUID } from "node:crypto";
 import { HttpError, ValidationError } from "@/lib/errors";
 import { z } from "zod";
-import { decidingRule, prepareRules, ruleAssignment, validatePattern, type Rule, type RuleText } from "@/lib/rules";
+import { decidingRule, prepareRules, ruleAssignment, validatePattern, type PreparedRule, type Rule, type RuleText } from "@/lib/rules";
 import { normalizeCategoryName } from "@/lib/category-name";
 import { maximumRules, nextPriority, orderedPriorities } from "@/features/categorization/rule-order";
 import { isCategoryIcon } from "@/features/categorization/category-icons";
 import { defaultCategoryColor } from "@/features/categorization/category-colors";
+import { accountExists } from "@/features/accounts/server/account-repository";
+import { derivedTransactionType, ruleTransactionTypes } from "@/features/transactions/transaction-types";
 import { categoryExists, deleteCategory as deleteStoredCategory, insertCategory, readCategoryUsage, updateCategory, type CategoryDetails, type CategoryWriteResult } from "./category-repository";
-import { appendRule, deleteRule as deleteStoredRule, findManualAssignments, findUncorrectedTransactions, insertRule, listRules, saveRuleAssignments, saveRuleOrder, setRuleEnabled, updateRule, type ManualAdoption, type RuleCreationAssignments, type SelectRuleAssignments } from "./rule-repository";
+import { appendRule, deleteRule as deleteStoredRule, findManualAssignments, findRuleTypeableTransactions, findUncorrectedTransactions, insertRule, listRules, saveRuleAssignments, saveRuleOrder, saveRuleTypes, setRuleEnabled, updateRule, type ManualAdoption, type RuleCreationAssignments, type SelectRuleAssignments } from "./rule-repository";
 
 const ruleMatching = {
   pattern: z.string().min(1).max(500),
@@ -16,12 +18,19 @@ const ruleMatching = {
   priority: z.number().int().min(0).max(10000).optional()
 };
 
+function emptyAsNull(value: unknown) {
+  return value === "" ? null : value;
+}
+
 const ruleInput = z.object({
   // A preview supplies the exact new ID whose tie-breaking position was counted.
   id: z.uuid().optional(),
   name: z.string().trim().min(1).max(100),
   ...ruleMatching,
   category_id: z.string().min(1),
+  // An empty form value or null leaves the automatic type; a transfer may name the own account on its other side.
+  transaction_type: z.preprocess(emptyAsNull, z.enum(ruleTransactionTypes).nullable().default(null)),
+  transfer_account_id: z.preprocess(emptyAsNull, z.string().min(1).max(200).nullable().default(null)),
   enabled: z.boolean().default(true),
   // Gives the rule's category to the transactions it decides that are still uncategorized; other matches change when rules are applied.
   apply_to_uncategorized: z.boolean().default(false),
@@ -40,6 +49,24 @@ const rulePreviewInput = z.object({
   // The transaction a rule is created from is adopted on its own terms, so it is not counted among the other manual assignments.
   source_transaction_id: z.string().min(1).optional()
 });
+
+/** Rejects a counterpart account for a rule that sets no transfer, and an account that is not one of the workspace's own. */
+async function validateRuleType(input: {
+  transaction_type: Rule["transaction_type"];
+  transfer_account_id: Rule["transfer_account_id"];
+}) {
+  if (!input.transfer_account_id) {
+    return;
+  }
+
+  if (input.transaction_type !== "transfer") {
+    throw new ValidationError("Only a transfer rule can name an account.");
+  }
+
+  if (!(await accountExists(input.transfer_account_id))) {
+    throw new ValidationError("Choose one of your accounts for the transfer.");
+  }
+}
 
 type RuleCandidate = RuleText & {
   id: string;
@@ -125,6 +152,8 @@ export async function createRule(payload: unknown) {
     throw new ValidationError("Category does not exist.");
   }
 
+  await validateRuleType(input);
+
   // A previewed ID decides equal-priority ties exactly as counted, so it must not belong to another rule.
   if (previewId !== undefined && (await listRules()).some(rule => rule.id === previewId)) {
     throw new HttpError(409, "This rule preview is outdated. Check the preview and try again.");
@@ -178,6 +207,8 @@ export async function updateRuleDetails(id: string, payload: unknown) {
   if (!(await categoryExists(input.category_id))) {
     throw new ValidationError("Category does not exist.");
   }
+
+  await validateRuleType(input);
 
   const manual: ManualAdoption | undefined = adoptManual ? {
     select: decidedByStoredRule(id)
@@ -374,8 +405,45 @@ export async function applyRulesToUncorrectedTransactions() {
 
   await saveRuleAssignments(changes);
 
+  const retyped = await applyRuleTypes(rules);
+
   // Recording which rule decides an unchanged category is not reported as an update.
   return {
-    updated: recategorized
+    updated: recategorized,
+    retyped
   };
+}
+
+/**
+ * Sets the types rules decide on bookings that neither a person nor a link decided, whatever their category source. A type a rule set earlier returns to the derived type when no rule sets one any more; a detected transfer without a rule stays a transfer.
+ * Rule-set transfers are then paired, so they link to their counterpart or create it on a named manual account. Returns the number of changed types.
+ */
+async function applyRuleTypes(rules: PreparedRule[]) {
+  const changes = (await findRuleTypeableTransactions()).flatMap(entry => {
+    const assignment = ruleAssignment(entry, rules);
+    const decided = assignment.type ? {
+      type: assignment.type,
+      ruleId: assignment.ruleId
+    } : undefined;
+    const released = !decided && entry.type_rule_id !== null ? {
+      type: derivedTransactionType(entry.amount_minor),
+      ruleId: null
+    } : undefined;
+    const next = decided ?? released;
+
+    if (!next || (next.type === entry.type && next.ruleId === entry.type_rule_id)) {
+      return [];
+    }
+
+    return [{
+      id: entry.id,
+      type: next.type,
+      type_rule_id: next.ruleId,
+      changed: next.type !== entry.type
+    }];
+  });
+
+  await saveRuleTypes(changes);
+
+  return changes.filter(change => change.changed).length;
 }

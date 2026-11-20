@@ -403,6 +403,7 @@ function TransactionEditForm({
           {available.map(option => <option key={option} value={option}>{transactionTypeLabels[option]}</option>)}
         </Select>
       </label>
+      {type === transaction.type && transaction.type_source === "auto" && transaction.type_rule_id !== null && <p className={ui["form-hint"]}>Set by a rule.</p>}
       <div className={ui["field"]}>
         <label htmlFor={categoryFieldId}>Category</label>
         <CategoryPicker

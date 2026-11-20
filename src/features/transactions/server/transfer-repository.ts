@@ -16,9 +16,14 @@ export const createdCounterpartPrefix = "transfer:";
 /** Bookings entered in Ufer on a manual account (manual transactions, opening balances and adjustments) carry their own id in this reference. */
 export const manualEntryPrefix = "manual:";
 
-// Bookings automatic pairing may link: visible, unlinked, never linked or unlinked by a person, and either a transfer or a type nobody corrected.
+// Bookings automatic pairing may link: visible, unlinked, never linked or unlinked by a person, and either a transfer or an income or expense that neither a person nor a rule set.
 function pairable(alias: string) {
-  return sql.raw(`${alias}.suppressed_at IS NULL AND ${alias}.transfer_id IS NULL AND ${alias}.transfer_source='auto' AND ${alias}.amount_minor<>0 AND (${alias}.type='transfer' OR (${alias}.type_source='auto' AND ${alias}.type IN ('income','expense')))`);
+  return sql.raw(`${alias}.suppressed_at IS NULL AND ${alias}.transfer_id IS NULL AND ${alias}.transfer_source='auto' AND ${alias}.amount_minor<>0 AND (${alias}.type='transfer' OR (${alias}.type_source='auto' AND ${alias}.type_rule_id IS NULL AND ${alias}.type IN ('income','expense')))`);
+}
+
+// A booking whose rule names the transfer's account pairs only with a booking on that account.
+function allowedByRule(alias: string, otherAlias: string) {
+  return sql.raw(`NOT EXISTS (SELECT 1 FROM categorization_rules rule WHERE rule.id=${alias}.type_rule_id AND rule.transaction_type='transfer' AND rule.transfer_account_id IS NOT NULL AND rule.transfer_account_id<>${otherAlias}.account_id)`);
 }
 
 function windowStart(days: number) {
@@ -33,7 +38,7 @@ function windowEnd(days: number) {
  * Links the bookings of transfers between own accounts that match unambiguously: opposite amounts in the same currency on two accounts of this environment, at most three days apart, with at least one side already a transfer.
  * Bookings with more than one candidate stay unpaired. Returns the number of transfers linked.
  */
-export async function pairTransfers(executor: Executor, bankingEnvironment: string) {
+export async function pairTransfers(executor: DatabaseTransaction, bankingEnvironment: string) {
   // The anchor is a transfer; a transfer on the other side is reported once, from its outgoing booking.
   const rows = await executor.all<{
     anchor_id: string;
@@ -54,6 +59,8 @@ export async function pairTransfers(executor: Executor, bankingEnvironment: stri
     AND ${pairable("anchor")}
     AND ${pairable("other")}
     AND (other.type<>'transfer' OR anchor.amount_minor<0)
+    AND ${allowedByRule("anchor", "other")}
+    AND ${allowedByRule("other", "anchor")}
   `);
   const candidates: PairingCandidate[] = rows.map(row => Number(row.anchor_amount) < 0 ? {
     outgoingId: String(row.anchor_id),
@@ -76,7 +83,46 @@ export async function pairTransfers(executor: Executor, bankingEnvironment: stri
     await executor.run(sql`UPDATE transactions SET type='transfer',transfer_id=CASE id ${sql.join(cases, sql` `)} END WHERE id IN (${sql.join(ids.map(id => sql`${id}`), sql`,`)})`);
   }
 
+  await createRuleCounterparts(executor, bankingEnvironment);
+
   return pairs.length;
+}
+
+/**
+ * Creates the counterpart of each unlinked transfer whose rule names a manual account, as a person does in the edit dialog, and links both automatically. Runs after pairing, so a booking already on that account is linked instead.
+ * The counterpart's reference carries its source's id, so a booking never receives a second created counterpart.
+ */
+async function createRuleCounterparts(tx: DatabaseTransaction, bankingEnvironment: string) {
+  const targets = await tx.all<{
+    id: string;
+    account_id: string;
+  }>(sql`
+    SELECT booking.id AS id,target.id AS account_id
+    FROM transactions booking
+    JOIN accounts own ON own.id=booking.account_id
+    JOIN categorization_rules rule ON rule.id=booking.type_rule_id
+    JOIN accounts target ON target.id=rule.transfer_account_id
+    WHERE own.environment=${bankingEnvironment}
+    AND target.environment=${bankingEnvironment}
+    AND target.provider='manual'
+    AND target.id<>booking.account_id
+    AND target.currency=booking.currency
+    AND rule.transaction_type='transfer'
+    AND booking.type='transfer'
+    AND booking.type_source='auto'
+    AND booking.transfer_id IS NULL
+    AND booking.transfer_source='auto'
+    AND booking.suppressed_at IS NULL
+    AND booking.amount_minor<>0
+  `);
+
+  for (const target of targets) {
+    const subject = await tx.select(subjectColumns).from(transactions).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(eq(transactions.id, String(target.id))).get();
+
+    if (subject) {
+      await createCounterpart(tx, subject, String(target.account_id), "rule");
+    }
+  }
 }
 
 /** Pairs transfers across this environment in one transaction, for example after a sync has stored every account. */
@@ -165,7 +211,8 @@ export async function dissolveLink(tx: DatabaseTransaction, subject: Subject, co
   await tx.update(transactions).set({
     transfer_id: null,
     transfer_source: "manual",
-    type_source: "manual"
+    type_source: "manual",
+    type_rule_id: null
   }).where(eq(transactions.id, subject.id));
 
   if (!counterpart) {
@@ -181,6 +228,7 @@ export async function dissolveLink(tx: DatabaseTransaction, subject: Subject, co
   await tx.update(transactions).set({
     type: counterpartType ? counterpartType(counterpart) : "transfer",
     type_source: "manual",
+    type_rule_id: null,
     transfer_id: null,
     transfer_source: "manual"
   }).where(eq(transactions.id, counterpart.id));
@@ -199,6 +247,7 @@ async function link(tx: DatabaseTransaction, ids: string[]) {
   await tx.update(transactions).set({
     type: "transfer",
     type_source: "manual",
+    type_rule_id: null,
     transfer_id: randomUUID(),
     transfer_source: "manual"
   }).where(inArray(transactions.id, ids));
@@ -207,7 +256,8 @@ async function link(tx: DatabaseTransaction, ids: string[]) {
 async function markManualType(tx: DatabaseTransaction, id: string, type: TransactionType) {
   await tx.update(transactions).set({
     type,
-    type_source: "manual"
+    type_source: "manual",
+    type_rule_id: null
   }).where(eq(transactions.id, id));
 }
 
@@ -219,11 +269,15 @@ async function findManualTarget(tx: DatabaseTransaction, accountId: string) {
   }).from(accounts).where(and(eq(accounts.id, accountId), eq(accounts.environment, environment()), eq(accounts.provider, "manual"))).get();
 }
 
-/** Creates the counterpart of `subject` on a manual account and links both; the created booking carries its source's id in its reference. */
-async function createCounterpart(tx: DatabaseTransaction, subject: Subject, accountId: string) {
+/**
+ * Creates the counterpart of `subject` on a manual account and links both; the created booking carries its source's id in its reference, so a booking never receives a second one.
+ * A person's link is manual. A rule's link stays automatic, so the subject keeps its rule-set type and a person can still correct either side.
+ */
+async function createCounterpart(tx: DatabaseTransaction, subject: Subject, accountId: string, decidedBy: "person" | "rule" = "person") {
   const counterpartId = randomUUID();
+  const transferId = randomUUID();
 
-  await tx.insert(transactions).values({
+  const created = await tx.insert(transactions).values({
     id: counterpartId,
     account_id: accountId,
     provider_reference: `${createdCounterpartPrefix}${subject.id}`,
@@ -235,9 +289,31 @@ async function createCounterpart(tx: DatabaseTransaction, subject: Subject, acco
     category_id: subject.category_id,
     category_source: "manual",
     type: "transfer",
-    type_source: "manual"
+    type_source: "manual",
+    type_rule_id: null,
+    transfer_id: decidedBy === "rule" ? transferId : null
+  }).onConflictDoNothing().returning({
+    id: transactions.id
   });
-  await link(tx, [subject.id, counterpartId]);
+
+  // A rule's pass finds this booking linked already; a person's link removes any earlier created counterpart first.
+  if (created.length === 0) {
+    if (decidedBy === "person") {
+      throw new Error("The booking already has a created counterpart.");
+    }
+
+    return;
+  }
+
+  if (decidedBy === "person") {
+    await link(tx, [subject.id, counterpartId]);
+
+    return;
+  }
+
+  await tx.update(transactions).set({
+    transfer_id: transferId
+  }).where(eq(transactions.id, subject.id));
 }
 
 /** Leaves the transfer type. A booking Ufer created on a manual account exists only for its link and is removed, its source becoming income or expense; otherwise the pair is corrected together and the counterpart becomes income or expense by its direction. */
@@ -446,6 +522,7 @@ async function transferWithoutCounterpart(tx: DatabaseTransaction, subject: Subj
     await tx.update(transactions).set({
       type: "transfer",
       type_source: "manual",
+      type_rule_id: null,
       transfer_source: "manual"
     }).where(eq(transactions.id, subject.id));
 
@@ -675,8 +752,9 @@ export async function releaseOutdatedLinks(tx: DatabaseTransaction, accountId: s
     await tx.update(transactions).set({
       transfer_id: null,
       transfer_source: "auto",
-      type: derivedTransactionType(delivery.amount, delivery.transfer),
-      type_source: "auto"
+      type: delivery.ruleType ?? derivedTransactionType(delivery.amount, delivery.transfer),
+      type_source: "auto",
+      type_rule_id: delivery.typeRuleId
     }).where(eq(transactions.id, booking.id));
 
     if (!counterpart) {

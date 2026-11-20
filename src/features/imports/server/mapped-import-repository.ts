@@ -8,7 +8,7 @@ import { manualEntryPrefix } from "@/features/transactions/server/transfer-repos
 import { insertCategory } from "@/features/categorization/server/category-repository";
 import { defaultCategoryColor } from "@/features/categorization/category-colors";
 import { sameCategoryName } from "@/lib/category-name";
-import { derivedTransactionType } from "@/features/transactions/transaction-types";
+import { derivedTransactionType, type RuleTransactionType } from "@/features/transactions/transaction-types";
 import type { CategorizedEntry } from "@/features/transactions/server/transaction-entry";
 import { duplicateDateToleranceDays, findDuplicates, mappedReferencePrefix, matchBooking, type ExistingBooking } from "./duplicate-matching";
 
@@ -25,6 +25,9 @@ export type MappedEntry = {
   categorySource: "rule" | "manual";
   /** The rule that decided a rule-sourced category. */
   categoryRuleId: string | null;
+  /** The type the deciding rule sets; null leaves the automatic type. */
+  ruleType: RuleTransactionType | null;
+  typeRuleId: string | null;
 };
 
 export type NewImportAccount = {
@@ -199,7 +202,8 @@ export async function saveMappedEntries(accountId: string, entries: MappedEntry[
         category_id: entry.categoryId,
         category_source: entry.categorySource,
         category_rule_id: entry.categoryRuleId,
-        type: derivedTransactionType(entry.amount)
+        type: entry.ruleType ?? derivedTransactionType(entry.amount),
+        type_rule_id: entry.typeRuleId
       }));
       const rows = await tx.insert(transactions).values(values).onConflictDoNothing({
         target: [transactions.account_id, transactions.provider_reference]

@@ -383,10 +383,12 @@ test("applying rules reports only transactions whose category changed", async co
   });
 
   assert.deepEqual(await applyRulesToUncorrectedTransactions(), {
-    updated: 1
+    updated: 1,
+    retyped: 0
   });
   assert.deepEqual(await applyRulesToUncorrectedTransactions(), {
-    updated: 0
+    updated: 0,
+    retyped: 0
   });
 });
 

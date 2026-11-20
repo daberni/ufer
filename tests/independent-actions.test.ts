@@ -37,7 +37,10 @@ const rule = {
   priority: 100,
   enabled: 1,
   category_color: "#638777",
-  category_icon: null
+  category_icon: null,
+  transaction_type: null,
+  transfer_account_id: null,
+  transfer_account_name: null
 } satisfies Rule;
 
 const transaction: Transaction = {
@@ -60,6 +63,7 @@ const transaction: Transaction = {
   automatic_assignment: null,
   type: "expense",
   type_source: "auto",
+  type_rule_id: null,
   manual_account: false,
   entered: false,
   follows_import: false,

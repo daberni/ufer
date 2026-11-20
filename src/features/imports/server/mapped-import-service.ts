@@ -150,7 +150,9 @@ export async function importMappedRows(payload: unknown, now = Temporal.Now.inst
         description: item.description,
         categoryId,
         categorySource: categoryId ? "manual" : "rule",
-        categoryRuleId: null
+        categoryRuleId: null,
+        ruleType: null,
+        typeRuleId: null
       }
     });
   }
@@ -427,20 +429,24 @@ async function classifyAndSave(planned: PlannedRow[], targets: Map<string, Targe
   };
 }
 
-/** Rules categorize rows without a category from the CSV. */
+/** Rules categorize rows without a category from the CSV; a rule's type applies to every row it decides. */
 function categorized(entries: MappedEntry[], rules: Awaited<ReturnType<typeof listRules>>) {
-  const uncategorized = entries.filter(entry => !entry.categoryId);
-  const ruled = categorizeEntries(uncategorized, rules);
+  const ruled = categorizeEntries(entries, rules);
 
-  return entries.map(entry => {
+  return entries.map((entry, index) => {
+    const assignment = ruled[index];
+    const typed = {
+      ...entry,
+      ruleType: assignment.ruleType,
+      typeRuleId: assignment.typeRuleId
+    };
+
     if (entry.categoryId) {
-      return entry;
+      return typed;
     }
 
-    const assignment = ruled[uncategorized.indexOf(entry)];
-
     return {
-      ...entry,
+      ...typed,
       categoryId: assignment.categoryId,
       categoryRuleId: assignment.categoryRuleId
     };
