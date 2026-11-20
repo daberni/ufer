@@ -153,6 +153,19 @@ test("a category created by an import takes the palette color no other category 
   assert.deepEqual(await colorsOf(db, "Car / "), ["#123456", "#123456", "#123456"]);
 });
 
+test("a category created by an import gets the icon its name suggests", async context => {
+  const db = await isolatedDatabase(context);
+
+  await createImportCategory("Imported / Groceries");
+  await createImportCategory("Xyzzy");
+
+  const rows = await db.select().from(schema.categories);
+  const iconOf = (name: string) => rows.find(row => row.name === name)?.icon;
+
+  assert.equal(iconOf("Imported / Groceries"), "groceries");
+  assert.equal(iconOf("Xyzzy"), null);
+});
+
 test("the edit dialog highlights the similar categories' color and applies it with one click", async context => {
   const environment = browser(context);
   const prototype = window.HTMLDialogElement.prototype;
@@ -364,10 +377,17 @@ test("a new category waits for the categories before showing a color and follows
       name: "Icon: Groceries"
     }));
   });
-  assert.ok(screen.getByRole("option", {
+  // The suggestion appears twice: next to "No icon" at the top and in its group.
+  const suggestedOptions = screen.getAllByRole("option", {
     name: "Groceries (suggested)",
     hidden: true
-  }));
+  });
+  const allOptions = screen.getAllByRole("option", {
+    hidden: true
+  });
+
+  assert.equal(suggestedOptions.length, 2);
+  assert.equal(allOptions.indexOf(suggestedOptions[0]), 1);
   act(() => {
     fireEvent.click(screen.getByRole("option", {
       name: "Bakery",

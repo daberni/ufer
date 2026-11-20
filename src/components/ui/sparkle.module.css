@@ -10,10 +10,20 @@
 .sparkle {
   box-shadow: 0 0 8px 2px color-mix(in srgb, var(--sparkle) 65%, transparent);
 }
-.sparkle-outline svg,
-.sparkle-outline > span {
-  filter: drop-shadow(0 0 3px var(--sparkle))
-    drop-shadow(0 0 1px var(--sparkle));
+/* The outline glow is a blurred halo behind the icon, so the icon itself stays crisp. */
+.sparkle-outline {
+  isolation: isolate;
+}
+.sparkle-outline::before {
+  content: "";
+  position: absolute;
+  inset: 18%;
+  z-index: -1;
+  border-radius: 50%;
+  background: var(--sparkle);
+  opacity: 0.55;
+  filter: blur(6px);
+  pointer-events: none;
 }
 .sparkle::before,
 .sparkle::after,

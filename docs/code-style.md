@@ -74,7 +74,7 @@ Own component-specific styles in a colocated `*.module.css`. Genuinely shared bu
 
 Component styles use the semantic color tokens in `src/app/globals.css` instead of literal colors. Each token defines its light and dark value with `light-dark()`, so a component never needs theme-specific selectors; translucent variants derive from a token with `color-mix()`. Category colors stored in data are adjusted for display per theme in `category-colors.ts`, never in the stored value.
 
-A suggestion the person can accept with one click, such as a category's suggested color or icon, uses the shared sparkle highlight (`components/ui/sparkle.module.css`): `sparkle` gives an option a steady glow with two twinkling stars, `sparkle-outline` makes a picker trigger's icon glow along its outline. It uses the `--sparkle` token, and reduced motion keeps the glow without the twinkle.
+A suggestion the person can accept with one click, such as a category's suggested color or icon, uses the shared sparkle highlight (`components/ui/sparkle.module.css`): `sparkle` gives an option a steady glow with two twinkling stars, `sparkle-outline` puts a glowing halo behind a picker trigger's icon, keeping the icon crisp. It uses the `--sparkle` token, and reduced motion keeps the glow without the twinkle.
 
 Use clsx directly for conditional class lists instead of a local wrapper. Use the canonical Ufer SVG for branding; account-type icons communicate their own meaning and must not reuse an obsolete logo.
 

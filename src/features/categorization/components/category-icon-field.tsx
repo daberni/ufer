@@ -103,20 +103,21 @@ export function CategoryIconField({
     }
   }
 
-  function renderOption(choice: IconChoice) {
+  // A shortcut copy of the suggested icon at the top is reachable with the arrow keys but is not the tab stop.
+  function renderOption(choice: IconChoice, shortcut = false) {
     const Icon = choice === "" ? null : categoryIconComponents[choice];
     const isSuggestion = choice !== "" && choice === suggested;
     const label = isSuggestion ? `${iconLabel(choice)} (suggested)` : iconLabel(choice);
 
     return (
       <button
-        key={choice || "none"}
+        key={`${shortcut ? "top-" : ""}${choice || "none"}`}
         type="button"
         role="option"
         aria-selected={choice === icon}
         aria-label={label}
         title={label}
-        tabIndex={choice === focusableChoice ? 0 : -1}
+        tabIndex={choice === focusableChoice && !shortcut ? 0 : -1}
         className={clsx(styles["icon-option"], isSuggestion && sparkle["sparkle"])}
         onClick={() => choose(choice)}
         onKeyDown={handleOptionKeyDown}
@@ -216,15 +217,18 @@ export function CategoryIconField({
               aria-label="Icons"
             >
               {searching ? (
-                <div className={styles["icon-grid"]}>{matches.map(renderOption)}</div>
+                <div className={styles["icon-grid"]}>{matches.map(match => renderOption(match))}</div>
               ) : (
                 <>
-                  <div className={styles["icon-grid"]}>{renderOption("")}</div>
+                  <div className={styles["icon-grid"]}>
+                    {renderOption("")}
+                    {suggested && renderOption(suggested, true)}
+                  </div>
                   {groupKeys.map(group => (
                     <div key={group} role="group" aria-labelledby={`${id}-${group}`}>
                       <span className={styles["group-heading"]} id={`${id}-${group}`}>{categoryIconGroups[group]}</span>
                       <div className={styles["icon-grid"]}>
-                        {categoryIconKeys.filter(key => categoryIcons[key].group === group).map(renderOption)}
+                        {categoryIconKeys.filter(key => categoryIcons[key].group === group).map(key => renderOption(key))}
                       </div>
                     </div>
                   ))}

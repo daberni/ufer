@@ -9,6 +9,7 @@ import { assertWritableAccount } from "@/features/accounts/server/writable-accou
 import { manualEntryPrefix } from "@/features/transactions/server/transfer-repository";
 import { insertCategory, listCategoryAppearances } from "@/features/categorization/server/category-repository";
 import { newCategoryColor } from "@/features/categorization/category-color-suggestions";
+import { suggestCategoryIcon } from "@/features/categorization/category-icons";
 import { sameCategoryName } from "@/lib/category-name";
 import { derivedTransactionType } from "@/features/transactions/transaction-types";
 import type { CategorizedEntry } from "@/features/transactions/server/transaction-entry";
@@ -48,10 +49,12 @@ export type OpeningBalance = {
 /** Creates a category for an import, or returns the one that took the name concurrently. */
 export async function createImportCategory(name: string) {
   const id = randomUUID();
+  // Imported categories get the icon and color the category dialog would suggest for the name.
+  const icon = suggestCategoryIcon(name);
   const result = await insertCategory(id, {
     name,
-    color: newCategoryColor(name, null, await listCategoryAppearances()),
-    icon: null
+    color: newCategoryColor(name, icon, await listCategoryAppearances()),
+    icon
   });
 
   if (result === "saved") {
