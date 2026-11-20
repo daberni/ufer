@@ -140,17 +140,17 @@ export async function splitRefusesType(tx: DatabaseTransaction, id: string, type
 
   const part = await tx.select({
     id: transactionSplits.id
-  }).from(transactionSplits).where(eq(transactionSplits.transaction_id, id)).limit(1).get();
+  }).from(transactionSplits).innerJoin(transactions, eq(transactions.id, transactionSplits.transaction_id)).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(and(eq(transactionSplits.transaction_id, id), eq(accounts.environment, environment()))).limit(1).get();
 
   return part !== undefined;
 }
 
-/** Whether a booking is split into parts. */
+/** Whether a booking of the current environment is split into parts. */
 export async function isSplit(id: string) {
   const db = await database();
   const part = await db.select({
     id: transactionSplits.id
-  }).from(transactionSplits).where(eq(transactionSplits.transaction_id, id)).limit(1).get();
+  }).from(transactionSplits).innerJoin(transactions, eq(transactions.id, transactionSplits.transaction_id)).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(and(eq(transactionSplits.transaction_id, id), eq(accounts.environment, environment()))).limit(1).get();
 
   return part !== undefined;
 }

@@ -14,7 +14,7 @@ import type { Category } from "@/features/categorization/types";
 import { decimalAmount, minorUnits, money } from "@/lib/money";
 import { useRemoveSplit, useSaveSplit, type SplitPartEdit } from "@/features/transactions/mutations";
 import type { Transaction, TransactionSplit } from "@/features/transactions/types";
-import { partAmountSupported } from "@/features/transactions/split-limits";
+import { maximumSplitParts, partAmountSupported } from "@/features/transactions/split-limits";
 
 /** Whether a booking of this type can be split; only income and expenses count by category. */
 export function splittable(transaction: Transaction) {
@@ -250,7 +250,7 @@ export function SplitForm({
       <button
         type="button"
         className={clsx(ui["button"], ui["full-width"])}
-        disabled={pending}
+        disabled={pending || parts.length >= maximumSplitParts}
         onClick={addPart}
       >
         <Plus size={15} />

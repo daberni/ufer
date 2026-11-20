@@ -549,3 +549,13 @@ test("deleting a category reports each booking whose parts it held once, as its 
   assert.equal(deleted.transactions, usage.transactions);
   assert.deepEqual((await db.select().from(schema.transactionSplits).where(eq(schema.transactionSplits.transaction_id, "market"))).map(part => part.category_id), [null, null]);
 });
+
+test("categorizing a split booking of another environment is not found rather than refused as split", async context => {
+  await seed(context);
+  await splitTransaction("market", marketSplit());
+  process.env.ENABLE_BANKING_ENVIRONMENT = "PRODUCTION";
+
+  await assert.rejects(updateTransactionCategory("market", {
+    category_id: "groceries"
+  }), error => error instanceof HttpError && error.status === 404);
+});
