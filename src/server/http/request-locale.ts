@@ -1,5 +1,6 @@
 import { cookies, headers } from "next/headers";
-import { acceptedLanguages, defaultFormatLocale, formatLocaleCookieName, parseFormatLocalePreference, resolveFormatLocale, supportedLocale } from "@/lib/locale";
+import { defaultFormatLocale, localeCookieName, parseFormatLocalePreference } from "@/lib/locale";
+import { formattableLanguages, negotiateFormatLocale } from "./accept-language";
 
 // Next.js has no request to read outside one, such as in the demo seed script or behavior tests.
 function outsideRequest(error: unknown) {
@@ -13,9 +14,9 @@ function outsideRequest(error: unknown) {
 export async function currentFormatLocale() {
   try {
     const [cookieStore, headerList] = await Promise.all([cookies(), headers()]);
-    const preference = parseFormatLocalePreference(cookieStore.get(formatLocaleCookieName)?.value);
+    const preference = parseFormatLocalePreference(cookieStore.get(localeCookieName)?.value);
 
-    return resolveFormatLocale(preference, headerList.get("accept-language"));
+    return negotiateFormatLocale(preference, headerList.get("accept-language"));
   } catch (error) {
     if (outsideRequest(error)) {
       return defaultFormatLocale;
@@ -29,9 +30,8 @@ export async function currentFormatLocale() {
 export async function currentRequestLanguages() {
   try {
     const headerList = await headers();
-    const locales = acceptedLanguages(headerList.get("accept-language")).map(supportedLocale).filter(locale => locale !== undefined);
 
-    return [...new Set(locales)];
+    return formattableLanguages(headerList.get("accept-language"));
   } catch (error) {
     if (outsideRequest(error)) {
       return [];

@@ -10,7 +10,7 @@ import { toFailure } from "@/client/api";
 import { useRowIssues } from "./column-preview";
 import type { ImportDraft } from "./use-import-draft";
 import { formatCount } from "@/lib/locale";
-import { useFormatLocale } from "@/client/format-locale-provider";
+import { useLocale } from "@/client/locale-provider";
 
 /** The import's counts, the review filter and the one primary action: check the rows, then import them. */
 export function ImportSummaryBar({
@@ -22,7 +22,7 @@ export function ImportSummaryBar({
   reviewing: boolean;
   onReview: (reviewing: boolean) => void;
 }) {
-  const locale = useFormatLocale();
+  const locale = useLocale();
   const issues = useRowIssues(draft);
   const {
     summary,

@@ -11,7 +11,7 @@ import { rowCount } from "@/features/imports/import-plan";
 import { problemProps } from "./field-problem";
 import type { ImportDraft } from "./use-import-draft";
 import { formatCount } from "@/lib/locale";
-import { useFormatLocale } from "@/client/format-locale-provider";
+import { useLocale } from "@/client/locale-provider";
 
 const roles: [keyof CsvMapping, string][] = [
   ["date", "Date"],
@@ -39,7 +39,7 @@ export function ColumnPreview({
   draft: ImportDraft;
   reviewing: boolean;
 }) {
-  const locale = useFormatLocale();
+  const locale = useLocale();
   const issues = useRowIssues(draft);
   const table = draft.table;
 

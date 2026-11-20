@@ -3,22 +3,22 @@
 import { createContext, useContext, useMemo } from "react";
 import { defaultFormatLocale } from "@/lib/locale";
 
-type FormatLocaleContextValue = {
+type LocaleContextValue = {
   locale: string;
   requestLanguages: readonly string[];
 };
 
-const FormatLocaleContext = createContext<FormatLocaleContextValue>({
+const LocaleContext = createContext<LocaleContextValue>({
   locale: defaultFormatLocale,
   requestLanguages: []
 });
 
 /** Hands the locale the server resolved for this request to every component, so server rendering and hydration format identically. */
-export function FormatLocaleProvider({
+export function LocaleProvider({
   locale,
   requestLanguages,
   children
-}: FormatLocaleContextValue & {
+}: LocaleContextValue & {
   children: React.ReactNode;
 }) {
   const value = useMemo(() => ({
@@ -27,18 +27,18 @@ export function FormatLocaleProvider({
   }), [locale, requestLanguages]);
 
   return (
-    <FormatLocaleContext value={value}>
+    <LocaleContext value={value}>
       {children}
-    </FormatLocaleContext>
+    </LocaleContext>
   );
 }
 
 /** The locale for amounts, numbers and dates in this request. */
-export function useFormatLocale() {
-  return useContext(FormatLocaleContext).locale;
+export function useLocale() {
+  return useContext(LocaleContext).locale;
 }
 
 /** The languages the browser sent with this request, in its order of preference. */
 export function useRequestLanguages() {
-  return useContext(FormatLocaleContext).requestLanguages;
+  return useContext(LocaleContext).requestLanguages;
 }

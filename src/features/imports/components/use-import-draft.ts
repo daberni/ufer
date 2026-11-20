@@ -8,7 +8,7 @@ import { useMappedImport, type MappedImportSummary } from "@/features/imports/mu
 import { builtInTemplates, decodeCsv, detectDateFormat, detectDecimal, detectDelimiter, mapRows, mappingProblem, matchTemplate, parseCsv, importIdFor, readCsvTable, suggestMapping, templateMapping, templateSettings, type CsvMapping, type CsvSettings, type CsvTemplate } from "@/features/imports/csv-mapping";
 import { categoryValues, importKey, prepareImport, resolveCategories, resolveTargets, sourceAccounts, templateChoices, type CategorySelection, type TargetChoice } from "@/features/imports/import-plan";
 import { useImportTemplates } from "@/features/imports/template-queries";
-import { useFormatLocale } from "@/client/format-locale-provider";
+import { useLocale } from "@/client/locale-provider";
 
 /** Large multi-year exports are read in the browser and sent as mapped rows in batches, so only the browser's memory bounds the file. */
 const maxFileBytes = 25_000_000;
@@ -22,7 +22,7 @@ export type LoadedFile = {
  * The import page's state: the file and its format, the column roles, target accounts and category choices, and the check result. A check or a started confirmation fixes the whole definition: a stale check must not approve changed inputs, and a retry must reproduce the same row references and targets.
  */
 export function useImportDraft() {
-  const locale = useFormatLocale();
+  const locale = useLocale();
   const [file, setFile] = useState<LoadedFile | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const [settings, setSettings] = useState<CsvSettings | null>(null);

@@ -19,7 +19,7 @@ import { areaProps, valueMask } from "@/components/ui/result-presentation";
 import { useCurrency, useMonthTransactionsHref, usePeriod, useViewHref } from "@/client/use-app-url";
 import type { Area } from "@/components/ui/use-area-result";
 import type { CashFlow } from "@/features/reports/types";
-import { useFormatLocale } from "@/client/format-locale-provider";
+import { useLocale } from "@/client/locale-provider";
 
 type Props = {
   cashFlow: Area<CashFlow>;
@@ -42,7 +42,7 @@ export function CategoryBreakdown({
   selection,
   id
 }: Props) {
-  const locale = useFormatLocale();
+  const locale = useLocale();
   const selectedPeriod = usePeriod();
   const selectedCurrency = useCurrency();
   const pending = cashFlow.status === "pending";
@@ -152,7 +152,7 @@ function FlowColumn({
   rowLink: (group: CategoryGroup) => CategoryRowLink | null;
   empty: string;
 }) {
-  const locale = useFormatLocale();
+  const locale = useLocale();
 
   return (
     <div className={styles["column"]}>

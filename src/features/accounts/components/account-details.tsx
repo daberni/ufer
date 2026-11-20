@@ -22,7 +22,7 @@ import { bankConnectionsHref } from "@/features/banking/connections-location";
 import type { Area } from "@/components/ui/use-area-result";
 import type { Account, BalanceHistory } from "@/features/accounts/types";
 import type { Connection } from "@/features/banking/types";
-import { useFormatLocale } from "@/client/format-locale-provider";
+import { useLocale } from "@/client/locale-provider";
 
 /** Where an account's details return to: the list they were opened from. */
 export type BackLink = {
@@ -103,7 +103,7 @@ function AccountSummary({
   account: Account;
   connections: Connection[];
 }) {
-  const locale = useFormatLocale();
+  const locale = useLocale();
   const [connection, setConnection] = useState<Connection | null>(null);
   const [updatingBalance, setUpdatingBalance] = useState(false);
   const closeDialog = () => setConnection(null);

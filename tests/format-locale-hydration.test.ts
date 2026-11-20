@@ -5,7 +5,7 @@ import { act, createElement } from "react";
 import { renderToString } from "react-dom/server";
 import { hydrateRoot } from "react-dom/client";
 import { stubCssModules } from "./fixtures/css-modules";
-import { FormatLocaleProvider } from "../src/client/format-locale-provider";
+import { LocaleProvider } from "../src/client/locale-provider";
 import type { CategoryGroup } from "../src/features/reports/category-groups";
 
 stubCssModules();
@@ -23,7 +23,7 @@ const groups: CategoryGroup[] = [{
 async function page(locale: string) {
   const { CategoryRows } = await import("../src/features/reports/components/category-rows");
 
-  return createElement(FormatLocaleProvider, {
+  return createElement(LocaleProvider, {
     locale,
     requestLanguages: [],
     children: createElement(CategoryRows, {

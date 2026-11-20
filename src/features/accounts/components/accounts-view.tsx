@@ -21,7 +21,7 @@ import { useAccountHref } from "@/client/use-app-url";
 import { AreaPlaceholder } from "@/components/ui/area-placeholder";
 import { shownStatus, valueMask } from "@/components/ui/result-presentation";
 import type { Area } from "@/components/ui/use-area-result";
-import { useFormatLocale } from "@/client/format-locale-provider";
+import { useLocale } from "@/client/locale-provider";
 
 type Props = {
   accounts: Area<Account[]>;
@@ -158,7 +158,7 @@ function AccountCards({
 function AccountCard({ account }: {
   account: Account
 }) {
-  const locale = useFormatLocale();
+  const locale = useLocale();
   const accountHref = useAccountHref();
   const Icon = accountIcon(account.kind);
 

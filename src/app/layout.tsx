@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { themeAttribute, themeViewport } from "@/features/appearance/theme-preference";
 import { requestThemePreference } from "@/features/appearance/server/request-theme";
-import { FormatLocaleProvider } from "@/client/format-locale-provider";
+import { LocaleProvider } from "@/client/locale-provider";
 import { currentFormatLocale, currentRequestLanguages } from "@/server/http/request-locale";
 import "./globals.css";
 
@@ -30,5 +30,5 @@ export default async function RootLayout({ children }: Readonly<{
 }>) {
   const [preference, formatLocale, requestLanguages] = await Promise.all([requestThemePreference(), currentFormatLocale(), currentRequestLanguages()]);
 
-  return <html lang="en" data-theme={themeAttribute(preference)}><body><FormatLocaleProvider locale={formatLocale} requestLanguages={requestLanguages}>{children}</FormatLocaleProvider></body></html>;
+  return <html lang="en" data-theme={themeAttribute(preference)}><body><LocaleProvider locale={formatLocale} requestLanguages={requestLanguages}>{children}</LocaleProvider></body></html>;
 }

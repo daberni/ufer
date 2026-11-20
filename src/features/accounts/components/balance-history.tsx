@@ -12,7 +12,7 @@ import { AreaPlaceholder } from "@/components/ui/area-placeholder";
 import { areaProps } from "@/components/ui/result-presentation";
 import type { Area, AreaResult } from "@/components/ui/use-area-result";
 import type { BalanceHistory, BalancePoint } from "@/features/accounts/types";
-import { useFormatLocale } from "@/client/format-locale-provider";
+import { useLocale } from "@/client/locale-provider";
 import { formatCount } from "@/lib/locale";
 
 // The table starts with the latest balances; the chart already shows the whole history.
@@ -21,7 +21,7 @@ const initialRows = 5;
 export function BalanceHistoryPanel({ history }: {
   history: Area<BalanceHistory>
 }) {
-  const locale = useFormatLocale();
+  const locale = useLocale();
 
   return (
     <section className={clsx(ui["panel"], styles["history"])}>
@@ -66,7 +66,7 @@ function BalanceTable({
   balances: BalancePoint[];
   currency: string;
 }) {
-  const locale = useFormatLocale();
+  const locale = useLocale();
   const [expanded, setExpanded] = useState(false);
   const newestFirst = balances.toReversed();
   const shown = expanded ? newestFirst : newestFirst.slice(0, initialRows);

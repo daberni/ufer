@@ -5,7 +5,7 @@ export const defaultFormatLocale = "en";
 export type FormatLocalePreference = "browser" | (string & {});
 
 /** Remembers an explicit number and date format per browser; the server reads it with every request, so server and browser format alike. */
-export const formatLocaleCookieName = "ufer-format-locale";
+export const localeCookieName = "locale";
 
 // A manual choice lasts a year and is renewed whenever it changes.
 const cookieMaxAgeSeconds = 60 * 60 * 24 * 365;
@@ -20,7 +20,7 @@ export function parseFormatLocalePreference(value: string | null | undefined): F
 }
 
 /** A document.cookie assignment that stores the preference. Choosing the browser default deletes the cookie. */
-export function formatLocaleCookie(preference: FormatLocalePreference, secure: boolean) {
+export function localeCookie(preference: FormatLocalePreference, secure: boolean) {
   const attributes = ["Path=/", "SameSite=Lax"];
 
   if (secure) {
@@ -28,44 +28,10 @@ export function formatLocaleCookie(preference: FormatLocalePreference, secure: b
   }
 
   if (preference === "browser") {
-    return [`${formatLocaleCookieName}=`, "Max-Age=0", ...attributes].join("; ");
+    return [`${localeCookieName}=`, "Max-Age=0", ...attributes].join("; ");
   }
 
-  return [`${formatLocaleCookieName}=${preference}`, `Max-Age=${cookieMaxAgeSeconds}`, ...attributes].join("; ");
-}
-
-/** The languages of an Accept-Language header from most to least preferred; the wildcard and refused languages (q=0) are left out. */
-export function acceptedLanguages(header: string | null | undefined) {
-  const ranges = (header ?? "").split(",").map((entry, index) => {
-    const [tag, ...parameters] = entry.trim().split(";");
-    const quality = parameters.map(parameter => /^\s*q\s*=\s*([0-9.]+)\s*$/i.exec(parameter)?.[1]).find(value => value !== undefined);
-
-    return {
-      tag: tag.trim(),
-      quality: quality === undefined ? 1 : Number(quality),
-      index
-    };
-  });
-  const accepted = ranges.filter(range => range.tag !== "" && range.tag !== "*" && range.quality > 0);
-
-  accepted.sort((a, b) => b.quality - a.quality || a.index - b.index);
-
-  return accepted.map(range => range.tag);
-}
-
-/** The locale for one request: an explicit preference wins, otherwise the first accepted language the runtime can format, otherwise the default. */
-export function resolveFormatLocale(preference: FormatLocalePreference, acceptLanguage: string | null | undefined) {
-  const candidates = preference === "browser" ? acceptedLanguages(acceptLanguage) : [preference];
-
-  for (const candidate of candidates) {
-    const supported = supportedLocale(candidate);
-
-    if (supported) {
-      return supported;
-    }
-  }
-
-  return defaultFormatLocale;
+  return [`${localeCookieName}=${preference}`, `Max-Age=${cookieMaxAgeSeconds}`, ...attributes].join("; ");
 }
 
 /**

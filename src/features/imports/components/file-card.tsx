@@ -10,7 +10,7 @@ import { Select } from "@/components/ui/select";
 import { dateFormats, type CsvSettings } from "@/features/imports/csv-mapping";
 import { rowCount } from "@/features/imports/import-plan";
 import type { ImportDraft } from "./use-import-draft";
-import { useFormatLocale } from "@/client/format-locale-provider";
+import { useLocale } from "@/client/locale-provider";
 
 const delimiterLabels: Record<CsvSettings["delimiter"], string> = {
   ";": "Semicolon",
@@ -25,7 +25,7 @@ export function FileCard({
 }: {
   draft: ImportDraft;
 }) {
-  const locale = useFormatLocale();
+  const locale = useLocale();
   const input = useRef<HTMLInputElement>(null);
   const {
     file,

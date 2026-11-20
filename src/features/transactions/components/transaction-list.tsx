@@ -13,7 +13,7 @@ import { TransactionTypeIcon, transferDirection } from "@/features/transactions/
 import { TransactionEditDialog } from "@/features/transactions/components/transaction-edit-dialog";
 import type { Category } from "@/features/categorization/types";
 import { editLocked, type Transaction } from "@/features/transactions/types";
-import { useFormatLocale } from "@/client/format-locale-provider";
+import { useLocale } from "@/client/locale-provider";
 
 type Props = {
   categories: Category[];
@@ -63,7 +63,7 @@ function TransactionRow({
   categories: Category[];
   transaction: Transaction;
 }) {
-  const locale = useFormatLocale();
+  const locale = useLocale();
   const [editing, setEditing] = useState(false);
   const incoming = transaction.amount_minor > 0;
   const original = originalAmount(transaction, locale);

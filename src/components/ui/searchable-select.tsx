@@ -10,7 +10,7 @@ import { creatableName, matchOptions, searchableSelectKeyAction, searchableSelec
 import { popoverMaxWidth, popoverPlacement, visibleArea } from "./popover-placement";
 import { useDismiss } from "./use-dismiss";
 import { formatCount } from "@/lib/locale";
-import { useFormatLocale } from "@/client/format-locale-provider";
+import { useLocale } from "@/client/locale-provider";
 
 export type SearchableSelectOption<Value> = {
   key: string;
@@ -102,7 +102,7 @@ export function SearchableSelect<Value>({
   const popupRef = useRef<HTMLDivElement>(null);
   const listboxRef = useRef<HTMLUListElement>(null);
   const listboxId = useId();
-  const locale = useFormatLocale();
+  const locale = useLocale();
   const selected = options.find(option => Object.is(option.value, value));
   // The selected option's label lists every option again, so another one can be picked without clearing the field first.
   const matches = notice ? [] : match(options, query === selected?.label ? "" : query);

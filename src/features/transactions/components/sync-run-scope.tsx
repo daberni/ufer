@@ -10,7 +10,7 @@ import { Empty } from "@/components/ui/empty-state";
 import { shownStatus, valueMask } from "@/components/ui/result-presentation";
 import type { Area } from "@/components/ui/use-area-result";
 import type { TransactionPage } from "@/features/transactions/types";
-import { useFormatLocale } from "@/client/format-locale-provider";
+import { useLocale } from "@/client/locale-provider";
 import { formatCount } from "@/lib/locale";
 
 type SelectedRun = TransactionPage["syncRun"];
@@ -31,7 +31,7 @@ export function SyncRunScope({
   run: SelectedRun;
   transactionCount: Area<number>;
 }) {
-  const locale = useFormatLocale();
+  const locale = useLocale();
   const count = transactionCount.data ?? 0;
 
   return (

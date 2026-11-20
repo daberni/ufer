@@ -20,11 +20,11 @@ import { TemplateNotice } from "./template-notice";
 import { useImportDraft } from "./use-import-draft";
 import { takeImportFile } from "@/features/imports/pending-import-file";
 import { formatCount } from "@/lib/locale";
-import { useFormatLocale } from "@/client/format-locale-provider";
+import { useLocale } from "@/client/locale-provider";
 
 /** The full-page CSV import: file, accounts, columns and categories, then a check and the import. */
 export function CsvImportPage() {
-  const locale = useFormatLocale();
+  const locale = useLocale();
   const draft = useImportDraft();
   const [reviewing, setReviewing] = useState(false);
   const load = draft.load;

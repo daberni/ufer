@@ -7,7 +7,7 @@ import { settle } from "@/client/settle";
 import type { Failure } from "@/client/api";
 import { useReorderRules } from "@/features/categorization/mutations";
 import type { Rule } from "@/features/categorization/types";
-import { useFormatLocale } from "@/client/format-locale-provider";
+import { useLocale } from "@/client/locale-provider";
 import { formatCount } from "@/lib/locale";
 
 /** Rules only move up and down, so the dragged row stays aligned with the list. */
@@ -37,7 +37,7 @@ export const reorderInstructions = {
  * Sorting through dnd-kit: a pointer sensor for mouse, pen and touch on the drag handle, and a keyboard sensor with screen-reader announcements. A drop saves the new order; a failed save restores the previous order and reports the failure next to the list.
  */
 export function useRuleReorder(rules: Rule[]) {
-  const locale = useFormatLocale();
+  const locale = useLocale();
   const reorder = useReorderRules();
   const [failure, setFailure] = useState<Failure | null>(null);
   const [draggedId, setDraggedId] = useState<UniqueIdentifier | null>(null);

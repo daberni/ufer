@@ -5,7 +5,7 @@ import ui from "../../../components/ui/primitives.module.css";
 import { useId, useState } from "react";
 import styles from "./manual-adoption-option.module.css";
 import { formatCount } from "@/lib/locale";
-import { useFormatLocale } from "@/client/format-locale-provider";
+import { useLocale } from "@/client/locale-provider";
 
 /** The manual assignments a previewed rule decides; null while no current count is known. */
 export type ManualMatches = {
@@ -42,7 +42,7 @@ export function ManualAdoptionOption({
 }: {
   adoption: ReturnType<typeof useManualAdoption>;
 }) {
-  const locale = useFormatLocale();
+  const locale = useLocale();
   const hintId = useId();
   const {
     matches,

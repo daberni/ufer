@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { settle, type ActionResult } from "@/client/settle";
 import { useSync, type SyncFailure, type SyncOutcome } from "./mutations";
-import { useFormatLocale } from "@/client/format-locale-provider";
+import { useLocale } from "@/client/locale-provider";
 import { formatCount } from "@/lib/locale";
 
 // A sync that did not fully succeed stays reported until it is dismissed or a later sync succeeds.
@@ -37,7 +37,7 @@ const idleStatus: SyncStatus = {
 
 // The sync button presents its own state; other dashboard actions never change it.
 export function useSyncStatus() {
-  const locale = useFormatLocale();
+  const locale = useLocale();
   const syncMutation = useSync();
 
   const [status, setStatus] = useState<SyncStatus>(idleStatus);

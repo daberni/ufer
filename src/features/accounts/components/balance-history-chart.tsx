@@ -10,7 +10,7 @@ import { describeBalanceSource, describeBalanceDate } from "@/features/accounts/
 import { useBalanceChart } from "@/features/accounts/use-balance-chart";
 import type { BalancePoint } from "@/features/accounts/types";
 import styles from "./balance-history-chart.module.css";
-import { useFormatLocale } from "@/client/format-locale-provider";
+import { useLocale } from "@/client/locale-provider";
 
 type Props = {
   balances: BalancePoint[];
@@ -23,7 +23,7 @@ export function BalanceHistoryChart({
   currency,
   interactive
 }: Props) {
-  const locale = useFormatLocale();
+  const locale = useLocale();
   const descriptionId = useId();
   const chart = useMemo(() => plotBalances(balances), [balances]);
   const positions = useMemo(() => chart.points.map(point => point.x), [chart]);

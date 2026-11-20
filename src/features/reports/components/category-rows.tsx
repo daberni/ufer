@@ -8,7 +8,7 @@ import { money } from "@/lib/money";
 import { CategoryLabel, type DisplayCategory, type NeutralCategory } from "@/features/categorization/components/category-label";
 import { categoryBarColor, neutralChipColor, themedColor } from "@/features/categorization/category-colors";
 import { displayName, type CategoryGroup } from "@/features/reports/category-groups";
-import { useFormatLocale } from "@/client/format-locale-provider";
+import { useLocale } from "@/client/locale-provider";
 
 /** The rows as one sentence for an accessible description, e.g. "Groceries €120.00 (40%), Rent €180.00 (60%)". */
 export function describeCategoryGroups(groups: CategoryGroup[], currency: string, locale: string) {
@@ -52,7 +52,7 @@ export function CategoryRows({
   rowLink,
   className
 }: Props) {
-  const locale = useFormatLocale();
+  const locale = useLocale();
 
   return (
     <div className={clsx(styles["rows"], className)}>

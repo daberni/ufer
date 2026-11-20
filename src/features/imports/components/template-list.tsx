@@ -10,7 +10,7 @@ import { toFailure } from "@/client/api";
 import { FormError } from "@/components/ui/form-error";
 import { maxTemplateNameLength, templateLabel, type CsvTemplate } from "@/features/imports/csv-mapping";
 import { useChangeTemplate, useDeleteTemplate, useDuplicateTemplate } from "@/features/imports/template-queries";
-import { useFormatLocale } from "@/client/format-locale-provider";
+import { useLocale } from "@/client/locale-provider";
 import { formatCount } from "@/lib/locale";
 
 /** Built-in and saved templates with their recognized columns. Saved ones can be renamed or deleted; built-in ones can be duplicated into an editable saved copy. */
@@ -63,7 +63,7 @@ function TemplateItem({
   const [confirming, setConfirming] = useState(false);
   const [name, setName] = useState(template.name);
   const failure = change.error ?? remove.error ?? duplicate.error;
-  const locale = useFormatLocale();
+  const locale = useLocale();
   const remembered = Object.keys(template.accounts).length + Object.keys(template.categories).length;
 
   function rename(event: React.FormEvent) {

@@ -13,7 +13,7 @@ import { FailureCover } from "@/components/ui/area-placeholder";
 import { usePeriod } from "@/client/use-app-url";
 import type { Area } from "@/components/ui/use-area-result";
 import type { AccountCashFlow } from "@/features/reports/types";
-import { useFormatLocale } from "@/client/format-locale-provider";
+import { useLocale } from "@/client/locale-provider";
 
 type Props = {
   cashFlow: Area<AccountCashFlow>;
@@ -26,7 +26,7 @@ export function AccountCashFlowSummary({
   cashFlow: area,
   currency
 }: Props) {
-  const locale = useFormatLocale();
+  const locale = useLocale();
   const selectedPeriod = usePeriod();
   const cashFlow = withPlaceholder(area, () => ({
     period: periodToJson(selectedPeriod),

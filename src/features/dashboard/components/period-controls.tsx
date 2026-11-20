@@ -17,7 +17,7 @@ import { shownStatus, valueMask } from "@/components/ui/result-presentation";
 import { InlineFailure } from "@/components/ui/area-placeholder";
 import type { Area } from "@/components/ui/use-area-result";
 import type { SyncRun } from "@/features/banking/types";
-import { useFormatLocale } from "@/client/format-locale-provider";
+import { useLocale } from "@/client/locale-provider";
 import { formatCount } from "@/lib/locale";
 
 type DisplayCurrencies = {
@@ -39,7 +39,7 @@ type Props = (DisplayCurrencies & {
 };
 
 export function PeriodControls(props: Props) {
-  const locale = useFormatLocale();
+  const locale = useLocale();
   const currency = useCurrency();
   const currencies = props.view === "account" ? [] : props.currencies.data ?? [currency];
   const period = usePeriod();
@@ -127,7 +127,7 @@ function LatestSync({
   latestSync: Area<SyncRun | undefined>;
   timeZone: string;
 }) {
-  const locale = useFormatLocale();
+  const locale = useLocale();
 
   if (latestSync.status === "pending") {
     if (latestSync.failure) {
@@ -145,7 +145,7 @@ function LatestSync({
 function TransactionCount({ count }: {
   count: Area<number>
 }) {
-  const locale = useFormatLocale();
+  const locale = useLocale();
   const shown = count.data ?? 0;
 
   return <span className={clsx(ui["section-kicker"], valueMask(shownStatus(count)))}>{`${formatCount(shown, locale)} ${shown === 1 ? "TRANSACTION" : "TRANSACTIONS"}`}</span>;

@@ -3,10 +3,10 @@
 import { useId, useMemo, useState } from "react";
 import { clsx } from "clsx";
 import ui from "../../../components/ui/primitives.module.css";
-import { useFormatLocale, useRequestLanguages } from "@/client/format-locale-provider";
+import { useLocale, useRequestLanguages } from "@/client/locale-provider";
 import { SearchableSelect, type SearchableSelectOption } from "@/components/ui/searchable-select";
 import { matchOptions } from "@/components/ui/searchable-select-behavior";
-import { formatLocaleCookie, formatLocaleCookieName, parseFormatLocalePreference, type FormatLocalePreference } from "@/lib/locale";
+import { localeCookie, localeCookieName, parseFormatLocalePreference, type FormatLocalePreference } from "@/lib/locale";
 import { formatLocaleExample, formatLocaleOptions } from "@/features/appearance/format-locale-options";
 import styles from "./format-locale-choice.module.css";
 
@@ -19,14 +19,14 @@ const localeNoun = {
 
 /** Stores the preference and reloads, so the server renders every formatted value again in the new locale. */
 function chooseFormatLocalePreference(preference: FormatLocalePreference) {
-  document.cookie = formatLocaleCookie(preference, location.protocol === "https:");
+  document.cookie = localeCookie(preference, location.protocol === "https:");
   location.reload();
 }
 
 function storedPreference() {
-  const stored = document.cookie.split("; ").find(entry => entry.startsWith(`${formatLocaleCookieName}=`));
+  const stored = document.cookie.split("; ").find(entry => entry.startsWith(`${localeCookieName}=`));
 
-  return parseFormatLocalePreference(stored?.slice(formatLocaleCookieName.length + 1));
+  return parseFormatLocalePreference(stored?.slice(localeCookieName.length + 1));
 }
 
 type LocaleOption = SearchableSelectOption<FormatLocalePreference> & {
@@ -85,7 +85,7 @@ function matchLocales(options: readonly SearchableSelectOption<FormatLocalePrefe
 
 /** Browser default or any locale the browser can format, for amounts, numbers and dates in this browser; currencies stay per account. */
 export function FormatLocaleChoice() {
-  const locale = useFormatLocale();
+  const locale = useLocale();
   const requestLanguages = useRequestLanguages();
   const fieldId = useId();
   // Mounted only inside the account dialog in the browser, where the cookie is readable.

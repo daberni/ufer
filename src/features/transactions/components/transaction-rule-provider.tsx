@@ -8,7 +8,7 @@ import { RuleDialog } from "@/features/categorization/components/create-rule-for
 import { useRules } from "@/features/categorization/queries";
 import type { Rule } from "@/features/categorization/types";
 import { formatCount } from "@/lib/locale";
-import { useFormatLocale } from "@/client/format-locale-provider";
+import { useLocale } from "@/client/locale-provider";
 
 type RuleDraft = {
   transactionId: string;
@@ -55,7 +55,7 @@ export function TransactionRuleProvider({
   children?: ReactNode;
   fallbackFocus: RefObject<HTMLElement | null>;
 }) {
-  const locale = useFormatLocale();
+  const locale = useLocale();
   const [draft, setDraft] = useState<RuleDraft | null>(null);
   const [editedRule, setEditedRule] = useState<Rule | null>(null);
   const [announcement, setAnnouncement] = useState("");

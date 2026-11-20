@@ -24,7 +24,7 @@ import { closestCenter, DndContext, DragOverlay } from "@dnd-kit/core";
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { reorderInstructions, useRuleReorder, verticalOnly } from "./use-rule-reorder";
-import { useFormatLocale } from "@/client/format-locale-provider";
+import { useLocale } from "@/client/locale-provider";
 import { formatCount } from "@/lib/locale";
 
 type Props = {
@@ -309,7 +309,7 @@ function SortableRuleRow({
   toggleRule,
   editRule
 }: RuleRowProps) {
-  const locale = useFormatLocale();
+  const locale = useLocale();
   const {
     attributes,
     listeners,

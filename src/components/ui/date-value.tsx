@@ -3,7 +3,7 @@
 import { Temporal } from "temporal-polyfill";
 import { describeDate } from "@/lib/date-format";
 import { useDisplayTimeZone } from "./use-display-time-zone";
-import { useFormatLocale } from "@/client/format-locale-provider";
+import { useLocale } from "@/client/locale-provider";
 
 type DisplayProps = {
   value: string | null;
@@ -15,7 +15,7 @@ export function DateValue({
   value,
   fallback = "—"
 }: DisplayProps) {
-  const locale = useFormatLocale();
+  const locale = useLocale();
 
   if (!value) {
     return <>{fallback}</>;
@@ -30,7 +30,7 @@ export function DateValue({
 export function FullDateValue({ value }: {
   value: string
 }) {
-  const locale = useFormatLocale();
+  const locale = useLocale();
   const display = describeDate(Temporal.PlainDate.from(value), locale);
 
   return <time dateTime={display.dateTime}>{display.title}</time>;
@@ -42,7 +42,7 @@ export function TimestampValue({
   fallback = "—"
 }: DisplayProps) {
   const timeZone = useDisplayTimeZone();
-  const locale = useFormatLocale();
+  const locale = useLocale();
 
   if (!value) {
     return <>{fallback}</>;

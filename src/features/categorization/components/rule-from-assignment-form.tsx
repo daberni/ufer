@@ -17,7 +17,7 @@ import type { RulePreviewDraft } from "@/features/categorization/types";
 import { CategoryPicker } from "./category-picker";
 import { ManualAdoptionOption, useManualAdoption } from "./manual-adoption-option";
 import { formatCount } from "@/lib/locale";
-import { useFormatLocale } from "@/client/format-locale-provider";
+import { useLocale } from "@/client/locale-provider";
 
 type Props = {
   /** The transaction whose category was chosen manually; the proposed pattern comes from it, and it becomes rule-assigned when the new rule decides its category. */
@@ -69,7 +69,7 @@ function RuleFromAssignmentForm({
   close,
   onCreated
 }: Props) {
-  const locale = useFormatLocale();
+  const locale = useLocale();
   const categories = useCategories();
   const {
     error,

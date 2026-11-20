@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { acceptedLanguages, defaultFormatLocale, formatCount, formatPercent, isNegativePercent, parseFormatLocalePreference, resolveFormatLocale } from "../src/lib/locale";
+import { defaultFormatLocale, formatCount, formatPercent, isNegativePercent, parseFormatLocalePreference } from "../src/lib/locale";
+import { negotiateFormatLocale, requestedLanguages } from "../src/server/http/accept-language";
 import { money, signedMoney } from "../src/lib/money";
 import { formatLocaleExample, formatLocaleOptions } from "../src/features/appearance/format-locale-options";
 import { currentFormatLocale } from "../src/server/http/request-locale";
@@ -54,25 +55,25 @@ test("other locales place the symbol, separators and sign their own way", () => 
 });
 
 test("Accept-Language languages are ordered by quality, keeping header order for ties and dropping refused ones", () => {
-  assert.deepEqual(acceptedLanguages("en-US;q=0.5, de-AT, fr;q=0, *;q=0.1, de;q=0.9"), ["de-AT", "de", "en-US"]);
-  assert.deepEqual(acceptedLanguages(null), []);
+  assert.deepEqual(requestedLanguages("en-US;q=0.5, de-AT, fr;q=0, *;q=0.1, de;q=0.9"), ["de-AT", "de", "en-US"]);
+  assert.deepEqual(requestedLanguages(null), []);
 });
 
 test("the request's first language the runtime can format decides the locale", () => {
-  assert.equal(resolveFormatLocale("browser", "de-AT,de;q=0.9,en;q=0.8"), "de-AT");
-  assert.equal(resolveFormatLocale("browser", "en-US;q=0.4, de-AT;q=0.8"), "de-AT");
-  assert.equal(resolveFormatLocale("browser", "not a tag, fr-FR;q=0.5"), "fr-FR");
+  assert.equal(negotiateFormatLocale("browser", "de-AT,de;q=0.9,en;q=0.8"), "de-AT");
+  assert.equal(negotiateFormatLocale("browser", "en-US;q=0.4, de-AT;q=0.8"), "de-AT");
+  assert.equal(negotiateFormatLocale("browser", "not a tag, fr-FR;q=0.5"), "fr-FR");
 });
 
 test("a request without a usable language falls back to English", () => {
   assert.equal(defaultFormatLocale, "en");
-  assert.equal(resolveFormatLocale("browser", null), "en");
-  assert.equal(resolveFormatLocale("browser", "*"), "en");
-  assert.equal(resolveFormatLocale("browser", "!!"), "en");
+  assert.equal(negotiateFormatLocale("browser", null), "en");
+  assert.equal(negotiateFormatLocale("browser", "*"), "en");
+  assert.equal(negotiateFormatLocale("browser", "!!"), "en");
 });
 
 test("an explicit preference overrides the request's languages", () => {
-  assert.equal(resolveFormatLocale("en-US", "de-AT"), "en-US");
+  assert.equal(negotiateFormatLocale("en-US", "de-AT"), "en-US");
   assert.equal(parseFormatLocalePreference("xx-unknown"), "browser");
   assert.equal(parseFormatLocalePreference(null), "browser");
 });
@@ -80,11 +81,11 @@ test("an explicit preference overrides the request's languages", () => {
 test("request-controlled private-use and unknown subtags collapse to the runtime's locale, so formatter caches stay bounded", () => {
   const resolved = new Set(Array.from({
     length: 500
-  }, (_, index) => resolveFormatLocale("browser", `en-x-tag${index}, de-AT-variant${index % 7}`)));
+  }, (_, index) => negotiateFormatLocale("browser", `en-x-tag${index}, de-AT-variant${index % 7}`)));
 
   assert.deepEqual([...resolved], ["en"]);
-  assert.equal(resolveFormatLocale("browser", "de-AT-x-anything"), "de-AT");
-  assert.equal(resolveFormatLocale("browser", "en-u-co-unknown"), "en");
+  assert.equal(negotiateFormatLocale("browser", "de-AT-x-anything"), "de-AT");
+  assert.equal(negotiateFormatLocale("browser", "en-u-co-unknown"), "en");
 });
 
 test("a stored preference is canonicalized, and an unusable one follows the browser", () => {
@@ -118,9 +119,9 @@ test("server code outside a request formats with the default locale", async () =
 });
 
 test("hour-cycle and numbering extensions with values Intl applies are kept; calendars and other subtags are dropped", () => {
-  assert.equal(resolveFormatLocale("browser", "fa-IR-u-ca-gregory"), "fa-IR");
-  assert.equal(resolveFormatLocale("browser", "en-GB-u-hc-h12-x-foo"), "en-GB-u-hc-h12");
-  assert.equal(resolveFormatLocale("browser", "en-u-nu-arab"), "en-u-nu-arab");
-  assert.equal(resolveFormatLocale("browser", "en-u-ca-unknown-nu-bogus"), "en");
-  assert.equal(resolveFormatLocale("browser", "en-x-foo"), "en");
+  assert.equal(negotiateFormatLocale("browser", "fa-IR-u-ca-gregory"), "fa-IR");
+  assert.equal(negotiateFormatLocale("browser", "en-GB-u-hc-h12-x-foo"), "en-GB-u-hc-h12");
+  assert.equal(negotiateFormatLocale("browser", "en-u-nu-arab"), "en-u-nu-arab");
+  assert.equal(negotiateFormatLocale("browser", "en-u-ca-unknown-nu-bogus"), "en");
+  assert.equal(negotiateFormatLocale("browser", "en-x-foo"), "en");
 });

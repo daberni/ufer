@@ -14,7 +14,7 @@ import type { NetWorth } from "@/features/accounts/types";
 import { Temporal } from "temporal-polyfill";
 import { shortMonthWithYear } from "@/lib/date-format";
 import type { NetWorthHistory, NetWorthPoint } from "@/features/reports/net-worth-series";
-import { useFormatLocale } from "@/client/format-locale-provider";
+import { useLocale } from "@/client/locale-provider";
 
 type Props = {
   /** Whether any account uses the display currency; assumed while the accounts load, so the masked figure keeps its place. */
@@ -29,7 +29,7 @@ export function WealthSummary({
   netWorthArea,
   historyArea
 }: Props) {
-  const locale = useFormatLocale();
+  const locale = useLocale();
   const selectedCurrency = useCurrency();
   const netWorth = withPlaceholder(netWorthArea, () => ({
     currency: selectedCurrency,

@@ -20,7 +20,7 @@ import { useAccountHref, useChangeView } from "@/client/use-app-url";
 import { AreaPlaceholder } from "@/components/ui/area-placeholder";
 import { shownStatus, valueMask } from "@/components/ui/result-presentation";
 import type { Area, PendingArea } from "@/components/ui/use-area-result";
-import { useFormatLocale } from "@/client/format-locale-provider";
+import { useLocale } from "@/client/locale-provider";
 
 type Props = {
   /** Accounts in the display currency. */
@@ -91,7 +91,7 @@ function largestAccounts(accounts: Account[]) {
 function AccountStrip({ currencyAccounts }: {
   currencyAccounts: Account[]
 }) {
-  const locale = useFormatLocale();
+  const locale = useLocale();
   const [dialog, setDialog] = useState<OpenDialog | null>(null);
   const closeDialog = () => setDialog(null);
   const accountHref = useAccountHref();

@@ -15,7 +15,7 @@ import { today } from "@/lib/time";
 import { useArchiveAccount, useRestoreAccount } from "@/features/accounts/mutations";
 import { activeAccounts, useAccounts } from "@/features/accounts/queries";
 import type { Account } from "@/features/accounts/types";
-import { useFormatLocale } from "@/client/format-locale-provider";
+import { useLocale } from "@/client/locale-provider";
 
 /** Archiving needs a balance of 0; a remaining balance opens a dialog that closes a manual account or explains why a bank account cannot be closed. */
 export function AccountArchiveAction({ account }: {
@@ -111,7 +111,7 @@ function BankBalanceNotice({
   account: Account;
   close: () => void
 }) {
-  const locale = useFormatLocale();
+  const locale = useLocale();
 
   return (
     <div className={ui["form"]}>
@@ -131,7 +131,7 @@ function CloseAccountForm({
   account: Account;
   close: () => void
 }) {
-  const locale = useFormatLocale();
+  const locale = useLocale();
   const {
     error,
     pending,

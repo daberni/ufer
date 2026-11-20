@@ -23,7 +23,7 @@ import { useTransactionCategory } from "@/features/transactions/use-transaction-
 import type { Transaction, TransferBooking, TransferOptions } from "@/features/transactions/types";
 import { EntryFields, suggestedType } from "./entry-fields";
 import { PayeeInput } from "./payee-input";
-import { useFormatLocale } from "@/client/format-locale-provider";
+import { useLocale } from "@/client/locale-provider";
 
 type Props = {
   transaction: Transaction;
@@ -124,7 +124,7 @@ export function TransactionEditDialog({
   transaction,
   close
 }: Props) {
-  const locale = useFormatLocale();
+  const locale = useLocale();
   const [step, setStep] = useState<Step>("edit");
   const subject = transaction.counterparty || transaction.description || transactionTypeLabels[transaction.type];
 
@@ -601,7 +601,7 @@ function CreatedCounterpartFields({
   target: Target;
   onTarget: (target: Target) => void;
 }) {
-  const locale = useFormatLocale();
+  const locale = useLocale();
   const remove = target.kind === "none";
 
   return (
@@ -651,7 +651,7 @@ function TransferFields({
   target: Target;
   onTarget: (target: Target) => void;
 }) {
-  const locale = useFormatLocale();
+  const locale = useLocale();
   const suggestionsId = useId();
   const targetId = useId();
 

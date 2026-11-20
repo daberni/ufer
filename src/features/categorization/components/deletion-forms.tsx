@@ -15,7 +15,7 @@ import { useCategories, useCategoryUsage } from "@/features/categorization/queri
 import type { Category, CategoryUsage, Rule } from "@/features/categorization/types";
 import { CategoryPicker } from "./category-picker";
 import { formatCount } from "@/lib/locale";
-import { useFormatLocale } from "@/client/format-locale-provider";
+import { useLocale } from "@/client/locale-provider";
 
 /** Opens the deletion step of an edit dialog. */
 export function DeleteButton({
@@ -204,7 +204,7 @@ function UsageSummary({
 }: {
   usage: CategoryUsage | null;
 }) {
-  const locale = useFormatLocale();
+  const locale = useLocale();
 
   if (!usage) {
     return (

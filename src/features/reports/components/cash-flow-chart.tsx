@@ -22,7 +22,7 @@ import type { Area, AreaResult, PendingArea } from "@/components/ui/use-area-res
 import type { CashFlow } from "@/features/reports/types";
 import { barSpan, cashFlowScale, scaleOffset, type CashFlowScale } from "@/features/reports/cash-flow-scale";
 import { edgeNet, hasCashFlowToDraw, formatSavingsRate, isNegativeRate, netFlow, trendCashFlow, type CashFlowSelection } from "@/features/reports/cash-flow-selection";
-import { useFormatLocale } from "@/client/format-locale-provider";
+import { useLocale } from "@/client/locale-provider";
 
 type Props = {
   cashFlow: Area<CashFlow>;
@@ -54,7 +54,7 @@ export function CashFlowChart({
   detailsId,
   onSelectionHidden
 }: Props) {
-  const locale = useFormatLocale();
+  const locale = useLocale();
   const period = usePeriod();
   const plotRef = useRef<HTMLDivElement>(null);
   const monthCount = useChartMonthCount(plotRef);
@@ -239,7 +239,7 @@ function ChartSkeleton({
   area: PendingArea;
   months: Temporal.PlainYearMonth[];
 }) {
-  const locale = useFormatLocale();
+  const locale = useLocale();
   const scale = {
     zero: 0.5,
     extent: 2
@@ -278,7 +278,7 @@ function ChartPlot({
   cashFlow: AreaResult<CashFlow>;
   months: Temporal.PlainYearMonth[];
 }) {
-  const locale = useFormatLocale();
+  const locale = useLocale();
   const descriptionPrefix = useId();
   const chartRef = useDevicePixelRatioProperty();
   const clipPrefix = useId();

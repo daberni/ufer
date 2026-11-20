@@ -1,7 +1,7 @@
 "use client";
 
 import ui from "../../../components/ui/primitives.module.css";
-import { useFormatLocale } from "@/client/format-locale-provider";
+import { useLocale } from "@/client/locale-provider";
 
 import { clsx } from "clsx";
 import { useEffect, useId, useMemo, useState } from "react";
@@ -70,7 +70,7 @@ function transactionCount(count: number, locale: string) {
 
 /** What the drafted rule would decide when rules are applied; nothing changes before that. The draft must keep its identity while its fields are unchanged. */
 function useRuleImpact(draft: RulePreviewDraft | null) {
-  const locale = useFormatLocale();
+  const locale = useLocale();
   const [previewed, setPreviewed] = useState(draft);
 
   useEffect(() => {
