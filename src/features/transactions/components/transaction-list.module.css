@@ -101,6 +101,18 @@
   align-items: center;
   column-gap: var(--space-3);
 }
+/* A title without a description line is centred over both lines; invisible spacers keep both lines, so the row stays as tall as the others. */
+.title-only .name {
+  grid-row: 1 / span 2;
+}
+.name-spacer {
+  grid-area: name;
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+.spacer {
+  visibility: hidden;
+}
 .transaction-icon {
   grid-area: icon;
   width: 32px;
@@ -289,7 +301,8 @@
   .name-preview {
     display: block;
   }
-  .description {
+  .description,
+  .spacer {
     display: none;
   }
   .name {
