@@ -3,6 +3,7 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 import { environment } from "@/features/banking/server/environment";
 import { accounts, transactions } from "@/server/database/schema";
+import type { RuleAssignment } from "@/lib/rules";
 import { derivedTransactionType, type TransactionType } from "@/features/transactions/transaction-types";
 import { refusable, type ManualEntryResult } from "./manual-transaction-repository";
 import type { CategorizedEntry, ProviderDetails } from "./transaction-entry";
@@ -82,6 +83,43 @@ export async function setTransactionCategory(id: string, categoryId: string | nu
   });
 
   return assignment;
+}
+
+/**
+ * Returns a manual assignment to automatic categorization: the category and assigning rule come from the transaction's source text, as applying rules would assign them.
+ * Resolves to undefined for a transaction outside the current environment.
+ */
+export async function returnTransactionToRules(id: string, assign: (counterparty: string, description: string) => RuleAssignment) {
+  const db = await database();
+  const scopedAccounts = db.select({
+    id: accounts.id
+  }).from(accounts).where(eq(accounts.environment, environment()));
+  const scope = and(eq(transactions.id, id), inArray(transactions.account_id, scopedAccounts));
+
+  return db.transaction(async tx => {
+    const found = await tx.select({
+      counterparty: transactions.counterparty,
+      description: transactions.description
+    }).from(transactions).where(scope).get();
+
+    if (!found) {
+      return undefined;
+    }
+
+    const assignment = assign(found.counterparty, found.description);
+    const [saved] = await tx.update(transactions).set({
+      category_id: assignment.categoryId,
+      category_source: "rule",
+      category_rule_id: assignment.ruleId
+    }).where(scope).returning({
+      id: transactions.id,
+      category_id: transactions.category_id,
+      category_source: transactions.category_source,
+      category_rule_id: transactions.category_rule_id
+    });
+
+    return saved;
+  });
 }
 
 /** A person's payee and description for an imported booking; undefined keeps a field's current text. */

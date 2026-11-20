@@ -10,28 +10,41 @@ import { listRules } from "@/features/categorization/server/rule-repository";
 import { transactionTypes } from "@/features/transactions/transaction-types";
 import { categorizeEntries } from "./categorize-entries";
 import { createManualTransaction, deleteManualTransaction, findEntryCurrency, updateManualTransaction, type ManualEntryResult } from "./manual-transaction-repository";
-import { saveTransactionDetails, setTransactionCategory, setTransactionHidden } from "./transaction-repository";
+import { returnTransactionToRules, saveTransactionDetails, setTransactionCategory, setTransactionHidden } from "./transaction-repository";
 import { manualLinkDays } from "./transfer-pairing";
 import { readTransferOptions, type TransferTarget } from "./transfer-repository";
 
+// A category ID or null sets the category manually; automatic returns the transaction to the rules.
+const categoryChoice = z.union([z.object({
+  category_id: z.string().min(1).nullable()
+}).strict(), z.object({
+  automatic: z.literal(true)
+}).strict()]);
+
+/** Sets a transaction's category manually, or returns it to automatic categorization with the category and rule that the stored rules decide. */
 export async function updateTransactionCategory(id: string, payload: unknown) {
-  const {
-    category_id: categoryId
-  } = z.object({
-    category_id: z.string().min(1).nullable()
-  }).parse(payload);
-
-  if (categoryId && !(await categoryExists(categoryId))) {
-    throw new ValidationError("Category does not exist.");
-  }
-
-  const assignment = await setTransactionCategory(id, categoryId);
+  const choice = categoryChoice.parse(payload);
+  const assignment = "automatic" in choice ? await automaticCategory(id) : await manualCategory(id, choice.category_id);
 
   if (!assignment) {
     throw new HttpError(404, "Transaction not found.");
   }
 
   return assignment;
+}
+
+async function automaticCategory(id: string) {
+  const rules = prepareRules(await listRules());
+
+  return returnTransactionToRules(id, (counterparty, description) => ruleAssignment(counterparty, description, rules));
+}
+
+async function manualCategory(id: string, categoryId: string | null) {
+  if (categoryId && !(await categoryExists(categoryId))) {
+    throw new ValidationError("Category does not exist.");
+  }
+
+  return setTransactionCategory(id, categoryId);
 }
 
 // Omitted keeps a transfer's current link; null means no counterpart.

@@ -38,14 +38,51 @@ export async function requireRuleCapacity(tx: DatabaseTransaction, added: number
   }
 }
 
-/** What a new rule assigns in its creation transaction: matching uncategorized transactions, and the manually categorized transaction it was created from. */
+/** What a new rule assigns in its creation transaction: matching uncategorized transactions, the manually categorized transaction it was created from, and other manual assignments a person chose to hand to it. */
 export type RuleCreationAssignments = {
   uncategorized?: SelectRuleAssignments;
   source?: {
     transactionId: string;
     select: SelectRuleAssignments;
   };
+  manual?: ManualAdoption;
 };
+
+/** Manual assignments a rule takes over: the selector picks those the rule decides; the excluded transaction is handled separately. */
+export type ManualAdoption = {
+  select: SelectRuleAssignments;
+  excludedTransactionId?: string;
+};
+
+/** Returns the selected manual assignments to automatic categorization with the rule's category and a reference to the rule. */
+async function adoptManualAssignments(tx: DatabaseTransaction, rule: Pick<Rule, "id" | "category_id">, rules: Rule[], adoption: ManualAdoption) {
+  const scope = and(eq(accounts.environment, environment()), eq(transactions.category_source, "manual"));
+  const candidates = await tx.select({
+    id: transactions.id,
+    counterparty: transactions.counterparty,
+    description: transactions.description
+  }).from(transactions).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(scope);
+  const eligible = candidates.filter(candidate => candidate.id !== adoption.excludedTransactionId);
+  const ids = adoption.select(rules, eligible);
+  let adopted = 0;
+
+  for (let offset = 0; offset < ids.length; offset += assignmentChunkSize) {
+    const chunk = ids.slice(offset, offset + assignmentChunkSize);
+    const result = await tx.update(transactions).set({
+      category_id: rule.category_id,
+      category_source: "rule",
+      category_rule_id: rule.id
+    }).where(and(inArray(transactions.id, chunk), eq(transactions.category_source, "manual")));
+
+    adopted += result.rowsAffected;
+  }
+
+  return adopted;
+}
+
+function readRules(tx: DatabaseTransaction) {
+  return tx.select().from(categorizationRules).orderBy(asc(categorizationRules.priority), asc(categorizationRules.id));
+}
 
 /** Hands the transaction a rule was created from to that rule when the selector confirms the rule decides its manual category. */
 async function adoptSourceTransaction(tx: DatabaseTransaction, rule: NewRule, rules: Rule[], source: NonNullable<RuleCreationAssignments["source"]>) {
@@ -77,17 +114,22 @@ async function storeRule(tx: DatabaseTransaction, rule: NewRule, assignments: Ru
 
   const {
     uncategorized: selectAssignments,
-    source
+    source,
+    manual
   } = assignments;
 
-  if (!selectAssignments && !source) {
+  if (!selectAssignments && !source && !manual) {
     return 0;
   }
 
-  const rules = await tx.select().from(categorizationRules).orderBy(asc(categorizationRules.priority), asc(categorizationRules.id));
+  const rules = await readRules(tx);
 
   if (source) {
     await adoptSourceTransaction(tx, rule, rules, source);
+  }
+
+  if (manual) {
+    await adoptManualAssignments(tx, rule, rules, manual);
   }
 
   if (!selectAssignments) {
@@ -159,12 +201,29 @@ export async function appendRule(rule: Omit<NewRule, "priority">, assignments?: 
   });
 }
 
-/** Updates the rule's details; without a priority the rule keeps its position in the matching order. */
-export async function updateRule(id: string, details: Pick<Rule, "name" | "pattern" | "mode" | "category_id"> & Partial<Pick<Rule, "priority">>) {
+/**
+ * Updates the rule's details; without a priority the rule keeps its position in the matching order. Chosen manual assignments the updated rule decides are returned to
+ * it in the same write transaction. Resolves to false for a missing rule.
+ */
+export async function updateRule(id: string, details: Pick<Rule, "name" | "pattern" | "mode" | "category_id"> & Partial<Pick<Rule, "priority">>, manual?: ManualAdoption) {
   const db = await database();
-  const result = await db.update(categorizationRules).set(details).where(eq(categorizationRules.id, id));
 
-  return result.rowsAffected > 0;
+  return db.transaction(async tx => {
+    const result = await tx.update(categorizationRules).set(details).where(eq(categorizationRules.id, id));
+
+    if (result.rowsAffected === 0) {
+      return false;
+    }
+
+    if (manual) {
+      await adoptManualAssignments(tx, {
+        id,
+        category_id: details.category_id
+      }, await readRules(tx), manual);
+    }
+
+    return true;
+  });
 }
 
 export async function setRuleEnabled(id: string, enabled: boolean) {
@@ -175,6 +234,19 @@ export async function setRuleEnabled(id: string, enabled: boolean) {
   }).where(eq(categorizationRules.id, id));
 
   return result.rowsAffected > 0;
+}
+
+/** Manually categorized transactions with the text rules match. */
+export async function findManualAssignments() {
+  const db = await database();
+  const scope = and(eq(accounts.environment, environment()), eq(transactions.category_source, "manual"));
+
+  return db.select({
+    id: transactions.id,
+    category_id: transactions.category_id,
+    counterparty: transactions.counterparty,
+    description: transactions.description
+  }).from(transactions).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(scope);
 }
 
 export async function findUncorrectedTransactions() {

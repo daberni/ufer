@@ -61,6 +61,11 @@ type Props = ValueProps & {
       open: () => void;
     };
   };
+  /** Offers returning a manual assignment to automatic categorization, labeled with what the rules would assign; choosing it calls `choose` instead of `onChange`. */
+  automaticOption?: {
+    label: string;
+    choose: () => void;
+  };
   /** Compact fields suit transaction rows and filters; regular fields match the inputs of forms and dialogs. */
   size?: "regular" | "compact";
   /** Inline presentation is reserved for editable category labels in transaction rows. */
@@ -100,11 +105,16 @@ function categoryOption(key: string, value: PickerValue, category: DisplayCatego
   };
 }
 
-function pickerOptions(categories: readonly PickerCategory[], includeAll: boolean, includeUncategorized: boolean, includeAutomatic: boolean) {
+function pickerOptions(categories: readonly PickerCategory[], includeAll: boolean, includeUncategorized: boolean, includeAutomatic: boolean, automaticLabel: string | undefined) {
   const options: SearchableSelectOption<PickerValue>[] = [];
 
   if (includeAutomatic) {
     options.push(categoryOption("automatic-category", automaticCategory, "automatic"));
+  } else if (automaticLabel !== undefined) {
+    options.push({
+      ...categoryOption("automatic-category", automaticCategory, "automatic"),
+      label: automaticLabel
+    });
   }
 
   if (includeAll) {
@@ -134,6 +144,7 @@ export function CategoryPicker({
   includeAutomatic = false,
   includeUncategorized = false,
   assignment,
+  automaticOption,
   size = "regular",
   appearance = "default",
   status,
@@ -151,7 +162,7 @@ export function CategoryPicker({
   const [search, setSearch] = useState<string | null>(null);
   // The name of a category being created from a search; its dialog is open while set.
   const [newCategoryName, setNewCategoryName] = useState<string | null>(null);
-  const options = pickerOptions(categories, includeAll, includeUncategorized, includeAutomatic);
+  const options = pickerOptions(categories, includeAll, includeUncategorized, includeAutomatic, automaticOption?.label);
   const selected = options.find(option => Object.is(option.value, value));
   const assignmentSource = assignment?.source;
   const assigningRule = assignmentSource === "rule" ? assignment?.assigningRule : undefined;
@@ -163,6 +174,12 @@ export function CategoryPicker({
 
   function choose(next: PickerValue) {
     setSearch(null);
+
+    if (next === automaticCategory && automaticOption && !includeAutomatic) {
+      automaticOption.choose();
+
+      return;
+    }
 
     if (!Object.is(next, value)) {
       // The offered values match the assignment, automatic or filter variant selected by the flags.
