@@ -87,7 +87,11 @@ export function CategoryColorField({
 
     setInvalid(false);
     setDraft(parsed);
-    onChange(parsed);
+
+    // Leaving the text unchanged is not a choice, so a new category keeps following its suggestion.
+    if (parsed !== hex) {
+      onChange(parsed);
+    }
   }
 
   function handleInputKeyDown(event: KeyboardEvent<HTMLInputElement>) {

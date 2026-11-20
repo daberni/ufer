@@ -262,6 +262,20 @@ test("a custom similar color appears as an extra highlighted swatch, a new categ
     name: "Similar categories (suggested)",
     hidden: true
   }).getAttribute("aria-checked"), "true");
+  // Leaving the unchanged text is no choice: the color keeps following the name.
+  act(() => {
+    hex.blur();
+  });
+  act(() => {
+    fireEvent.change(screen.getByRole("textbox", {
+      name: "Name"
+    }), {
+      target: {
+        value: "Pets"
+      }
+    });
+  });
+  assert.ok(palette.includes(color()));
 });
 
 test("a new category's fallback color follows the categories that load after the dialog opened", async context => {
