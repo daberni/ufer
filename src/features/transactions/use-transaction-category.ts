@@ -107,7 +107,9 @@ export function useTransactionCategory(transaction: Transaction) {
   return {
     categoryId: pending ? pending.categoryId : transaction.category_id,
     status: categorizationStatus(pending !== undefined, latest, savedChange !== undefined && savedChange !== expiredSave),
-    change: (categoryId: string | null) => mutation.mutate(categoryId)
+    change: (categoryId: string | null) => mutation.mutate(categoryId),
+    /** Saves a category like change, settling once stored; for a form that closes only after its save. */
+    assign: (categoryId: string | null) => mutation.mutateAsync(categoryId)
   };
 }
 

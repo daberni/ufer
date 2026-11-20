@@ -7,16 +7,18 @@ import { clsx } from "clsx";
 import { Temporal } from "temporal-polyfill";
 import { Check, Eye, EyeOff, Trash2 } from "lucide-react";
 import styles from "./transaction-type.module.css";
-import { toFailure } from "@/client/api";
+import { toFailure, type Failure } from "@/client/api";
 import { Dialog } from "@/components/ui/dialog";
 import { FormError } from "@/components/ui/form-error";
 import { Select } from "@/components/ui/select";
-import { useDialogSubmit } from "@/components/ui/use-dialog-submit";
+import { CategoryPicker } from "@/features/categorization/components/category-picker";
+import { useCategories } from "@/features/categorization/queries";
 import { describeDate } from "@/lib/date-format";
 import { decimalAmount, money } from "@/lib/money";
 import { isTransactionType, manualAccountTypes, transactionTypeLabels, transactionTypes, type TransactionType } from "@/features/transactions/transaction-types";
 import { useDeleteTransaction, useHideTransaction, useSaveTransaction, type EntryEdit, type TransactionEdit } from "@/features/transactions/mutations";
 import { useTransferOptions } from "@/features/transactions/queries";
+import { useTransactionCategory } from "@/features/transactions/use-transaction-category";
 import type { Transaction, TransferBooking, TransferOptions } from "@/features/transactions/types";
 import { EntryFields, suggestedType } from "./entry-fields";
 
@@ -117,7 +119,7 @@ const stepTitles: Record<Step, string> = {
 };
 
 /**
- * Edits a transaction's type and, for a transfer, where it goes. A transaction entered in Ufer also edits its date, amount, payee and description and can be deleted; an imported one overrides its payee and description and can be hidden. One Save stores everything.
+ * Edits a transaction's type, category and, for a transfer, where it goes. A transaction entered in Ufer also edits its date, amount, payee and description and can be deleted; an imported one overrides its payee and description and can be hidden. One Save stores everything.
  */
 export function TransactionEditDialog({
   transaction,
@@ -147,14 +149,14 @@ export function TransactionEditDialog({
 
 /** What hiding an imported booking changes, including the transfer link it ends. */
 function hidingEffect(transaction: Transaction) {
-  const effect = "The transaction stays in the list but no longer counts toward balances, cash flow or spending. Later syncs and imports keep it hidden; you can show it again at any time.";
+  const effect = "Excluded from balances and reports until shown again.";
   const other = transaction.counterpart?.account_name;
 
   if (!other) {
     return effect;
   }
 
-  return `${effect} Its link with the booking on ${other} ends.`;
+  return `${effect} Ends the link with ${other}.`;
 }
 
 function HideConfirmation({
@@ -210,7 +212,7 @@ function ShowAgain({
 
   return (
     <div className={styles["hidden-note"]}>
-      <p className={ui["form-hint"]}>This transaction is hidden: it counts toward no balance or report, and syncs and imports keep it hidden.</p>
+      <p className={ui["form-hint"]}>Hidden from balances and reports.</p>
       <FormError failure={show.error ? toFailure(show.error) : null} />
       <button
         type="button"
@@ -232,14 +234,14 @@ function deletionEffect(transaction: Transaction) {
   const other = transaction.counterpart?.account_name;
 
   if (!other) {
-    return "The transaction is removed from the account and its balance.";
+    return "This cannot be undone.";
   }
 
   if (transaction.follows_import) {
-    return `The transaction is removed; the linked booking on ${other} stays as a transfer without a counterpart.`;
+    return `The booking on ${other} stays. This cannot be undone.`;
   }
 
-  return `Both sides of this transfer are removed, including the booking on ${other}.`;
+  return `Also deletes the booking on ${other}. This cannot be undone.`;
 }
 
 function DeleteConfirmation({
@@ -263,7 +265,7 @@ function DeleteConfirmation({
         });
       }}
     >
-      <p className={ui["form-hint"]}>{deletionEffect(transaction)} This cannot be undone.</p>
+      <p className={ui["form-hint"]}>{deletionEffect(transaction)}</p>
       <FormError failure={remove.error ? toFailure(remove.error) : null} />
       <div className={ui["form-actions"]}>
         <button
@@ -301,11 +303,14 @@ function TransactionEditForm({
   onDelete: () => void;
   onHide: () => void;
 }) {
-  const {
-    error,
-    pending,
-    submit
-  } = useDialogSubmit(useSaveTransaction(transaction.id), close);
+  const save = useSaveTransaction(transaction.id);
+  const categories = useCategories();
+  const categoryFieldId = useId();
+  const assignment = useTransactionCategory(transaction);
+  const [category, setCategory] = useState(transaction.category_id);
+  const [categoryFailure, setCategoryFailure] = useState<Failure | null>(null);
+  const pending = save.isPending || assignment.status?.kind === "saving";
+  const error = save.error ? toFailure(save.error) : categoryFailure;
   const [type, setType] = useState<TransactionType>(transaction.type);
   const [typeChosen, setTypeChosen] = useState(false);
   const [chosenTarget, setTarget] = useState<Target>();
@@ -323,20 +328,37 @@ function TransactionEditForm({
   return (
     <form
       className={ui["form"]}
-      onSubmit={event => submit(event, data => {
+      onSubmit={event => {
+        event.preventDefault();
+
         const edit: TransactionEdit = linkable ? {
           type,
           transfer: transferEdit(target)
         } : {
           type
         };
+        const details = detailsEdit(edit, new FormData(event.currentTarget), transaction, imported);
+        const categoryChanged = category !== transaction.category_id;
 
-        if (transaction.entered) {
-          return entryEdit(edit, data);
-        }
+        setCategoryFailure(null);
+        // The details are saved first, so a rejected edit stores nothing; a category that fails afterwards keeps the dialog open, and saving again repeats both idempotent writes.
+        save.mutate(details, {
+          onSuccess: async () => {
+            if (!categoryChanged) {
+              close();
 
-        return imported ? textEdit(edit, data, transaction) : edit;
-      })}
+              return;
+            }
+
+            try {
+              await assignment.assign(category);
+              close();
+            } catch (failure) {
+              setCategoryFailure(toFailure(failure));
+            }
+          }
+        });
+      }}
     >
       {transaction.hidden && <ShowAgain transaction={transaction} close={close} />}
       {imported && <ImportedTextFields transaction={transaction} />}
@@ -371,10 +393,18 @@ function TransactionEditForm({
           {available.map(option => <option key={option} value={option}>{transactionTypeLabels[option]}</option>)}
         </Select>
       </label>
-      <p className={ui["form-hint"]}>
-        Income and expenses count toward cash flow and spending; transfers, opening balances and adjustments do not. A refund is an expense with a positive amount and reduces spending.
-        {!transfer && transaction.counterpart && <LeaveTransferHint transaction={transaction} />}
-      </p>
+      <div className={ui["field"]}>
+        <label htmlFor={categoryFieldId}>Category</label>
+        <CategoryPicker
+          id={categoryFieldId}
+          categories={categories.data ?? []}
+          value={category}
+          includeUncategorized
+          onChange={setCategory}
+        />
+      </div>
+      {category !== null && category === transaction.category_id && transaction.category_source === "rule" && <p className={ui["form-hint"]}>Assigned by a rule.</p>}
+      {!transfer && transaction.counterpart && <p className={ui["form-hint"]}>{leaveTransferHint(transaction)}</p>}
       {linkable && (
         <TransferFields
           transaction={transaction}
@@ -413,6 +443,14 @@ function TransactionEditForm({
   );
 }
 
+function detailsEdit(edit: TransactionEdit, data: FormData, transaction: Transaction, imported: boolean): TransactionEdit | EntryEdit {
+  if (transaction.entered) {
+    return entryEdit(edit, data);
+  }
+
+  return imported ? textEdit(edit, data, transaction) : edit;
+}
+
 /** Adds an imported booking's payee and description to the edit only when they changed, so saving a type never turns the source's text into an override. */
 function textEdit(edit: TransactionEdit, data: FormData, transaction: Transaction): TransactionEdit {
   const counterparty = String(data.get("counterparty") ?? "").trim();
@@ -449,7 +487,6 @@ function ImportedTextFields({ transaction }: {
         initial={transaction.description}
         source={transaction.source_description}
       />
-      <p className={ui["form-hint"]}>The date and amount come from the {transaction.manual_account ? "import" : "bank"} and cannot be changed here. Your payee and description stay when the transaction is synced or imported again.</p>
     </>
   );
 }
@@ -516,20 +553,19 @@ function entryEdit(edit: TransactionEdit, data: FormData): EntryEdit {
   };
 }
 
-function LeaveTransferHint({ transaction }: {
-  transaction: Transaction
-}) {
+/** What saving a type other than transfer does to the linked booking. */
+function leaveTransferHint(transaction: Transaction) {
   const account = transaction.counterpart?.account_name;
 
   if (transaction.entered && !transaction.follows_import) {
-    return ` Saving another type removes the other side on ${account}.`;
+    return `Also deletes the booking on ${account}.`;
   }
 
   if (transaction.created_counterpart) {
-    return ` Saving another type removes this booking, and the booking on ${account} becomes income or expense.`;
+    return "Deletes this booking.";
   }
 
-  return ` Saving another type ends the link with ${account}, whose booking becomes income or expense.`;
+  return `Ends the link with ${account}.`;
 }
 
 /** A booking Ufer created on a manual account for another booking's transfer: it keeps that link or is removed; where the transfer goes is edited on the source booking. */
@@ -546,7 +582,7 @@ function CreatedCounterpartFields({
 
   return (
     <div className={styles["created"]}>
-      <p className={ui["form-hint"]}>Ufer created this booking for the transfer of {bookingLabel(source)}. Change where the transfer goes on that booking.</p>
+      <p className={ui["form-hint"]}>Created for the transfer of {bookingLabel(source)}.</p>
       <label className={styles["remove-option"]}>
         <input
           type="checkbox"
@@ -559,7 +595,7 @@ function CreatedCounterpartFields({
         />
         Remove this booking
       </label>
-      <p className={ui["form-hint"]} role="status">{remove ? `Save removes this booking; the booking on ${source.account_name} stays a transfer without a counterpart.` : `Save keeps this booking linked with ${source.account_name}.`}</p>
+      <p className={ui["form-hint"]} role="status">{remove ? "Save removes this booking." : `Linked with ${source.account_name}.`}</p>
     </div>
   );
 }
@@ -568,16 +604,16 @@ function targetSummary(transaction: Transaction, target: Target, accounts: Trans
   const direction = transaction.amount_minor < 0 ? "to" : "from";
 
   if (target.kind === "booking") {
-    return `Save links this booking with ${bookingLabel(target.booking)}.`;
+    return `Linked with ${bookingLabel(target.booking)}.`;
   }
 
   if (target.kind === "account") {
     const account = accounts.find(item => item.id === target.accountId);
 
-    return `Save books the other side on ${account?.name ?? "the manual account"}.`;
+    return `Books the other side on ${account?.name ?? "the manual account"}.`;
   }
 
-  return `Without a target account this is a transfer ${direction} an account not tracked in Ufer.`;
+  return `Transfer ${direction} an untracked account.`;
 }
 
 function TransferFields({
@@ -595,7 +631,7 @@ function TransferFields({
   const targetId = useId();
 
   if (options.status === "pending") {
-    return <p className={ui["form-hint"]} role="status">Loading suggested counterparts …</p>;
+    return <p className={ui["form-hint"]} role="status">Loading suggestions …</p>;
   }
 
   if (options.status === "error") {
@@ -617,7 +653,7 @@ function TransferFields({
       {suggestions.length > 0 && (
         <fieldset className={styles["suggestions"]} aria-describedby={`${suggestionsId}-hint`}>
           <legend>Bookings on other accounts</legend>
-          <p id={`${suggestionsId}-hint`} className={styles["suggestions-hint"]}>The opposite amount within two weeks; choosing one makes it the counterpart.</p>
+          <p id={`${suggestionsId}-hint`} className={styles["suggestions-hint"]}>Opposite amount within two weeks.</p>
           {suggestions.map(booking => (
             <label key={booking.id} className={styles["suggestion"]}>
               <input
