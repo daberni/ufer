@@ -312,7 +312,10 @@ test("a sync that changes a split booking's amount keeps the split, flags it and
     counterparty: "Example Market",
     description: "",
     categoryId: "groceries",
-    categoryRuleId: null
+    categoryRuleId: null,
+    ruleType: null,
+    typeRuleId: null,
+    typeTransferAccountId: null
   }]));
 
   const row = await marketRow();
@@ -450,7 +453,10 @@ test("a sync that changes a split booking's currency removes the split and retur
     counterparty: "Example Market",
     description: "",
     categoryId: "groceries",
-    categoryRuleId: null
+    categoryRuleId: null,
+    ruleType: null,
+    typeRuleId: null,
+    typeTransferAccountId: null
   }]));
 
   const [stored] = await db.select().from(schema.transactions).where(eq(schema.transactions.id, "market"));
@@ -492,7 +498,10 @@ test("a split booking keeps its type through a sync and cannot become another bo
     description: "",
     transfer: true,
     categoryId: null,
-    categoryRuleId: null
+    categoryRuleId: null,
+    ruleType: null,
+    typeRuleId: null,
+    typeTransferAccountId: null
   }]));
 
   assert.equal((await marketRow())?.type, "expense");
@@ -589,7 +598,10 @@ test("removing a split returns an automatic type to the sign a sync changed mean
     counterparty: "Example Market",
     description: "",
     categoryId: "groceries",
-    categoryRuleId: null
+    categoryRuleId: null,
+    ruleType: null,
+    typeRuleId: null,
+    typeTransferAccountId: null
   };
 
   await splitTransaction("market", marketSplit());

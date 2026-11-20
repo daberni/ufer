@@ -473,6 +473,7 @@ function TransactionEditForm({
           </Select>
         </TransactionFacts>
         <div className={styles["fields"]}>
+          {type === transaction.type && transaction.type_source === "auto" && transaction.type_rule_id !== null && <p className={ui["form-hint"]}>Type set by a rule.</p>}
           {transaction.hidden && <ShowAgain transaction={transaction} close={close} />}
           {imported && <ImportedTextFields transaction={transaction} />}
           {transaction.entered && (

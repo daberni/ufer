@@ -1,12 +1,18 @@
 import { RE2JS, RE2JSSyntaxException } from "re2js";
 import { ValidationError } from "@/lib/errors";
 import type { CategorizationRule } from "@/server/database/models";
+import type { RuleTransactionType } from "@/features/transactions/transaction-types";
 
-export type Rule = CategorizationRule;
+/** A stored rule; a rule without a type may omit the type fields. */
+export type Rule = Omit<CategorizationRule, "transaction_type" | "transfer_account_id"> & Partial<Pick<CategorizationRule, "transaction_type" | "transfer_account_id">>;
 
 export type PreparedRule = {
   id: string;
   categoryId: string;
+  /** The type the rule sets; null leaves the automatic type. */
+  type: RuleTransactionType | null;
+  /** For a transfer rule, the own account on the other side. */
+  transferAccountId: string | null;
   matches: (text: string) => boolean;
 };
 
@@ -41,6 +47,8 @@ export function prepareRules(rules: Rule[]): PreparedRule[] {
       return {
         id: rule.id,
         categoryId: rule.category_id,
+        type: rule.transaction_type ?? null,
+        transferAccountId: rule.transaction_type === "transfer" ? rule.transfer_account_id ?? null : null,
         matches: text => regex.matcher(text).find()
       };
     }
@@ -50,6 +58,8 @@ export function prepareRules(rules: Rule[]): PreparedRule[] {
     return {
       id: rule.id,
       categoryId: rule.category_id,
+      type: rule.transaction_type ?? null,
+      transferAccountId: rule.transaction_type === "transfer" ? rule.transfer_account_id ?? null : null,
       matches: text => text.toLocaleLowerCase("en-GB").includes(keyword)
     };
   });
@@ -81,10 +91,12 @@ export function decidingRule(text: RuleText, rules: PreparedRule[]) {
   return rules.find(rule => texts.some(candidate => rule.matches(candidate)));
 }
 
-/** A rule-sourced category together with the rule that decided it; both are null when no rule matches. */
+/** A rule-sourced category together with the rule that decided it; both are null when no rule matches. The same deciding rule sets the type, or leaves it automatic with a null type. */
 export type RuleAssignment = {
   categoryId: string | null;
   ruleId: string | null;
+  type: RuleTransactionType | null;
+  transferAccountId: string | null;
 };
 
 export function ruleAssignment(text: RuleText, rules: PreparedRule[]): RuleAssignment {
@@ -92,7 +104,9 @@ export function ruleAssignment(text: RuleText, rules: PreparedRule[]): RuleAssig
 
   return {
     categoryId: rule?.categoryId ?? null,
-    ruleId: rule?.id ?? null
+    ruleId: rule?.id ?? null,
+    type: rule?.type ?? null,
+    transferAccountId: rule?.transferAccountId ?? null
   };
 }
 

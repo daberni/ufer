@@ -15,6 +15,16 @@ export async function findManualAccount(id: string) {
   return db.select().from(accounts).where(scope).get();
 }
 
+/** Whether an own, not archived account with this ID exists in the current environment. */
+export async function activeAccountExists(id: string) {
+  const db = await database();
+  const found = await db.select({
+    id: accounts.id
+  }).from(accounts).where(and(eq(accounts.id, id), eq(accounts.environment, environment()), isNull(accounts.archived_at))).get();
+
+  return found !== undefined;
+}
+
 /** Creates a manual account with its starting balance as the opening balance transaction. */
 export async function insertManualAccount(input: ManualAccountInput, amount: number, date: string) {
   const db = await database();

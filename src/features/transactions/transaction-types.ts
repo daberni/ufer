@@ -14,6 +14,11 @@ export const transactionTypeLabels: Record<TransactionType, string> = {
 /** Types that only describe how a manual account's balance came about; bank-synced bookings never have them. */
 export const manualAccountTypes: readonly TransactionType[] = ["opening_balance", "adjustment"];
 
+/** Types a categorization rule can set; the others describe manual account balances. */
+export const ruleTransactionTypes = ["income", "expense", "transfer"] as const;
+
+export type RuleTransactionType = typeof ruleTransactionTypes[number];
+
 export function isTransactionType(value: string): value is TransactionType {
   return (transactionTypes as readonly string[]).includes(value);
 }

@@ -6,7 +6,8 @@ import { recordManualBalance } from "@/features/transactions/server/manual-trans
 import { manualAccountTypes } from "@/features/transactions/transaction-types";
 import { createTransferCounterpart, pairTransfers } from "@/features/transactions/server/transfer-repository";
 import type { CategorizedEntry } from "@/features/transactions/server/transaction-entry";
-import type { CategorizationRule, Category } from "@/server/database/models";
+import type { Category } from "@/server/database/models";
+import type { Rule } from "@/lib/rules";
 import { requireRuleCapacity } from "@/features/categorization/server/rule-repository";
 import { demoIdPrefix, type DemoAccountDefinition, type DemoCategory } from "./demo-catalog";
 import type { DemoCreatedCounterpart, DemoSnapshot } from "./demo-dataset";
@@ -26,7 +27,7 @@ export type DemoAccountRows = DemoAccountDefinition & {
 export type DemoSeedRows = {
   environment: string;
   categories: DemoCategory[];
-  rules: CategorizationRule[];
+  rules: Rule[];
   accounts: DemoAccountRows[];
   createdCounterparts: DemoCreatedCounterpart[];
 };
@@ -76,6 +77,14 @@ async function deleteDemoRows(tx: DatabaseTransaction) {
   await tx.delete(transactions).where(like(transactions.account_id, demoRows));
   await tx.delete(accounts).where(like(accounts.id, demoRows));
   await tx.delete(categorizationRules).where(like(categorizationRules.id, demoRows));
+  // A person's transfer rule that names a removed demo account keeps its transfer type without a counterpart account.
+  await tx.update(categorizationRules).set({
+    transfer_account_id: null
+  }).where(like(categorizationRules.transfer_account_id, demoRows));
+  // A booking a rule sent to a removed demo account stays unpairable rather than pairing with any account.
+  await tx.update(transactions).set({
+    type_transfer_account_id: sql`'removed:' || ${transactions.type_transfer_account_id}`
+  }).where(like(transactions.type_transfer_account_id, demoRows));
 }
 
 // Demo categories are updated in place because synced sandbox transactions may already reference them.

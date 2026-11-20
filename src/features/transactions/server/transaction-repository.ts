@@ -2,13 +2,13 @@ import { randomUUID } from "node:crypto";
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 import { environment } from "@/features/banking/server/environment";
-import { accounts, categorizationRules, transactions } from "@/server/database/schema";
+import { accounts, transactions } from "@/server/database/schema";
 import type { Rule, RuleAssignment, RuleText } from "@/lib/rules";
 import { derivedTransactionType, type TransactionType } from "@/features/transactions/transaction-types";
 import { refusable, type ManualEntryResult } from "./manual-transaction-repository";
-import { assignRuleCategory, dissolveSplit, dropSplitsOnCurrencyChange, notSplit, splitRefusesType } from "./split-repository";
+import { assignRuleDecision, dissolveSplit, dropSplitsOnCurrencyChange, notSplit, splitRefusesType } from "./split-repository";
 import type { CategorizedEntry, Entry, ProviderDetails } from "./transaction-entry";
-import { applyTransactionType, dissolveLink, enteredInUfer, findSubject, followImportedCorrections, releaseOutdatedLinks, touchesArchivedAccount, type TransferTarget } from "./transfer-repository";
+import { applyTransactionType, dissolveLink, enteredInUfer, findSubject, followImportedCorrections, pairTransfers, releaseOutdatedLinks, touchesArchivedAccount, type TransferTarget } from "./transfer-repository";
 
 function providerColumns(provider: ProviderDetails = {}) {
   return {
@@ -47,10 +47,13 @@ export async function withStoredOverrides<Delivered extends Entry>(tx: DatabaseT
   }));
 }
 
+// A stored type a delivery keeps: corrected, linked, or a detected transfer that neither the stored nor the delivered type came from a rule.
+const keepsType = sql`${transactions.type_source}='manual' OR ${transactions.transfer_id} IS NOT NULL OR NOT ${notSplit} OR (${transactions.type}='transfer' AND ${transactions.type_rule_id} IS NULL AND excluded.type_rule_id IS NULL)`;
+
 /**
  * Inserts new entries and updates existing ones. `createdAt` replaces the database clock only for inserted rows; updates keep the original `created_at`.
  * Updates replace the provider data with the latest delivery for every row; only rule-sourced categories are recalculated. Payee and description overrides and hidden state are separate columns, so a delivery never undoes them.
- * The type is recalculated only while nobody corrected it, the booking is not linked and it is not a transfer: no source reports that a booking is not a transfer, so a delivery without a transfer signal never downgrades one. A split booking keeps its type; a changed currency removes its split, whose parts were amounts in the old currency. A booking entered in Ufer follows the corrected date and amount of the imported booking it is linked with; other links whose corrected amount or currency no longer pairs are released first.
+ * The type is recalculated only while nobody corrected it, the booking is not linked and it is not split; a rule's type takes precedence over the derived one. Without a rule, a detected transfer stays a transfer: no source reports that a booking is not a transfer, so a delivery without a transfer signal never downgrades one. A split booking keeps its type; a changed currency removes its split, whose parts were amounts in the old currency. A booking entered in Ufer follows the corrected date and amount of the imported booking it is linked with; other links whose corrected amount or currency no longer pairs are released first.
  */
 export async function upsertTransactions(tx: DatabaseTransaction, accountId: string, entries: CategorizedEntry[], createdAt?: string) {
   // Bound statement parameters for both local SQLite and remote libSQL deployments.
@@ -72,7 +75,10 @@ export async function upsertTransactions(tx: DatabaseTransaction, accountId: str
       description: entry.description,
       category_id: entry.categoryId,
       category_rule_id: entry.categoryRuleId,
-      type: derivedTransactionType(entry.amount, entry.transfer),
+      type: entry.ruleType ?? derivedTransactionType(entry.amount, entry.transfer),
+      type_rule_id: entry.typeRuleId,
+      type_transfer_account_id: entry.typeTransferAccountId,
+      transfer_detected: entry.transfer ? 1 : 0,
       created_at: createdAt,
       ...providerColumns(entry.provider)
     }));
@@ -90,7 +96,11 @@ export async function upsertTransactions(tx: DatabaseTransaction, accountId: str
         provider_payload: sql`excluded.provider_payload`,
         category_id: sql`CASE WHEN ${transactions.category_source}='manual' THEN ${transactions.category_id} ELSE excluded.category_id END`,
         category_rule_id: sql`CASE WHEN ${transactions.category_source}='manual' THEN NULL ELSE excluded.category_rule_id END`,
-        type: sql`CASE WHEN ${transactions.type_source}='manual' OR ${transactions.transfer_id} IS NOT NULL OR ${transactions.type}='transfer' OR NOT ${notSplit} THEN ${transactions.type} ELSE excluded.type END`
+        type: sql`CASE WHEN ${keepsType} THEN ${transactions.type} ELSE excluded.type END`,
+        // A kept or rule-set type keeps an earlier transfer signal for when the rule stops deciding; a type derived from this delivery takes the delivery's signal.
+        transfer_detected: sql`CASE WHEN ${keepsType} OR excluded.type_rule_id IS NOT NULL THEN max(${transactions.transfer_detected},excluded.transfer_detected) ELSE excluded.transfer_detected END`,
+        type_rule_id: sql`CASE WHEN ${keepsType} THEN ${transactions.type_rule_id} ELSE excluded.type_rule_id END`,
+        type_transfer_account_id: sql`CASE WHEN ${keepsType} THEN ${transactions.type_transfer_account_id} ELSE excluded.type_transfer_account_id END`
       }
     });
   }
@@ -126,7 +136,7 @@ export async function setTransactionCategory(id: string, categoryId: string | nu
 }
 
 /**
- * Returns a manual assignment to automatic categorization: the category and assigning rule come from the transaction's source and overridden text, as applying rules would assign them.
+ * Returns a manual assignment to automatic categorization: the category, assigning rule and, for an automatic, unlinked booking, the rule's type and transfer account come from the transaction's source and overridden text, as applying rules would assign them.
  * The rules and the transaction are read in the write transaction that stores the result. Resolves to undefined for a transaction outside the current environment; a booking on an archived account is refused because it is read-only.
  */
 export async function returnTransactionToRules(id: string, assign: (rules: Rule[], text: RuleText) => RuleAssignment) {
@@ -152,20 +162,25 @@ export async function returnTransactionToRules(id: string, assign: (rules: Rule[
       return "archived_account" as const;
     }
 
-    const rules = await tx.select().from(categorizationRules);
-    const assignment = assign(rules, found);
-    const [saved] = await tx.update(transactions).set({
-      category_id: assignment.categoryId,
-      category_source: "rule",
-      category_rule_id: assignment.ruleId
-    }).where(and(eq(transactions.id, id), inArray(transactions.account_id, writableAccounts), notSplit)).returning({
+    // A split booking keeps its categories in its parts.
+    const returnable = await tx.select({
+      id: transactions.id
+    }).from(transactions).where(and(eq(transactions.id, id), inArray(transactions.account_id, writableAccounts), notSplit)).get();
+
+    if (!returnable) {
+      return undefined;
+    }
+
+    // The same decision as applying rules: category, and for an automatic, unlinked booking the rule's type and transfer account, then pairing.
+    await assignRuleDecision(tx, id, assign);
+    await pairTransfers(tx, environment());
+
+    return tx.select({
       id: transactions.id,
       category_id: transactions.category_id,
       category_source: transactions.category_source,
       category_rule_id: transactions.category_rule_id
-    });
-
-    return saved;
+    }).from(transactions).where(eq(transactions.id, id)).get();
   });
 }
 
@@ -236,7 +251,7 @@ export async function saveTransactionDetails(
 
     // The rules decide the former split's category from the text as saved here, overrides included.
     if (dropSplit && dissolved) {
-      await assignRuleCategory(tx, id, dropSplit);
+      await assignRuleDecision(tx, id, dropSplit);
     }
 
     return applyTransactionType(tx, id, type, target);

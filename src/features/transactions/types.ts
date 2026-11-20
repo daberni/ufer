@@ -46,6 +46,8 @@ export type Transaction = {
   split: TransactionSplit | null;
   type: TransactionType;
   type_source: "auto" | "manual";
+  /** The rule that set an automatic type; null for a derived or manual type. */
+  type_rule_id: string | null;
   account_id: string;
   /** Whether the booking belongs to a manual account, which also allows the opening balance and adjustment types. */
   manual_account: boolean;

@@ -107,7 +107,8 @@ test("applying rules records the deciding rule, follows a changed decision with 
 
   // The category stays, so nothing is reported as updated, but the deciding rule is recorded.
   assert.deepEqual(await applyRulesToUncorrectedTransactions(), {
-    updated: 0
+    updated: 0,
+    retyped: 0
   });
   assert.deepEqual(await attributions(db), ["market:groceries:rule:store-rule", "other:null:rule:null"]);
 

@@ -11,7 +11,7 @@ import { insertCategory } from "@/features/categorization/server/category-reposi
 import { newCategoryColor } from "@/features/categorization/category-color-suggestions";
 import { suggestCategoryIcon } from "@/features/categorization/category-icons";
 import { sameCategoryName } from "@/lib/category-name";
-import { derivedTransactionType } from "@/features/transactions/transaction-types";
+import { derivedTransactionType, type RuleTransactionType } from "@/features/transactions/transaction-types";
 import type { CategorizedEntry } from "@/features/transactions/server/transaction-entry";
 import { duplicateDateToleranceDays, findDuplicates, mappedReferencePrefix, matchBooking, type ExistingBooking } from "./duplicate-matching";
 
@@ -28,6 +28,10 @@ export type MappedEntry = {
   categorySource: "rule" | "manual";
   /** The rule that decided a rule-sourced category. */
   categoryRuleId: string | null;
+  /** The type the deciding rule sets; null leaves the automatic type. */
+  ruleType: RuleTransactionType | null;
+  typeRuleId: string | null;
+  typeTransferAccountId: string | null;
   /** Marked as a transfer by the file; saved with an automatic transfer type so pairing can link it. */
   transfer: boolean;
 };
@@ -210,7 +214,11 @@ export async function saveMappedEntries(accountId: string, entries: MappedEntry[
         category_id: entry.categoryId,
         category_source: entry.categorySource,
         category_rule_id: entry.categoryRuleId,
-        type: entry.transfer ? "transfer" as const : derivedTransactionType(entry.amount)
+        // A rule's type wins over the file's transfer marker, as on syncs; the marker restores Transfer when the rule stops deciding.
+        type: entry.ruleType ?? derivedTransactionType(entry.amount, entry.transfer),
+        type_rule_id: entry.typeRuleId,
+        type_transfer_account_id: entry.typeTransferAccountId,
+        transfer_detected: entry.transfer ? 1 : 0
       }));
       const rows = await tx.insert(transactions).values(values).onConflictDoNothing({
         target: [transactions.account_id, transactions.provider_reference]

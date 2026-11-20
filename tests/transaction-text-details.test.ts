@@ -31,6 +31,7 @@ const booking: Transaction = {
   split: null,
   type: "expense",
   type_source: "auto",
+  type_rule_id: null,
   account_id: "checking",
   manual_account: false,
   account_archived: false,

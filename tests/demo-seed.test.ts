@@ -11,6 +11,7 @@ import * as schema from "../src/server/database/schema";
 import { buildDemoDataset } from "../src/features/demo/server/demo-dataset";
 import { DemoSeedRefusal, seedDemoData } from "../src/features/demo/server/demo-seed-service";
 import { listAccounts } from "../src/features/accounts/server/account-queries";
+import { pairTransfersInEnvironment } from "../src/features/transactions/server/transfer-repository";
 
 const firstRun = Temporal.PlainDate.from("2026-11-16");
 const secondRun = Temporal.PlainDate.from("2026-12-01");
@@ -278,4 +279,46 @@ test("the dataset is reproducible for a run date, its rules categorize all but a
   assert.ok(untracked.length >= 12);
   assert.ok(untracked.every(row => row.counterparty === "Joint household account"));
   assert.ok(transfers.every(row => row.category_id === null));
+});
+
+test("re-seeding keeps a person's rule-set transfer to a removed demo account unpairable instead of pairing it with any account", async context => {
+  const db = await isolatedDatabase(context);
+
+  await seedActor(db);
+  await insertSandboxBankAccount(db);
+  await insertManualAccount(db, "reviewer-asset");
+  await seedDemoData({
+    confirmed: true,
+    runDate: firstRun
+  });
+  await db.insert(schema.transactions).values({
+    id: "rule-transfer",
+    account_id: "sandbox-account",
+    provider_reference: "bank:rule-transfer",
+    booking_date: "2025-01-10",
+    amount_minor: -7000,
+    currency: "EUR",
+    type: "transfer",
+    type_rule_id: "reviewer-rule",
+    type_transfer_account_id: "demo-checking"
+  });
+  await seedDemoData({
+    confirmed: true,
+    runDate: secondRun
+  });
+  await db.insert(schema.transactions).values({
+    id: "other-side",
+    account_id: "reviewer-asset",
+    provider_reference: "manual:other-side",
+    booking_date: "2025-01-10",
+    amount_minor: 7000,
+    currency: "EUR",
+    type: "income"
+  });
+  await pairTransfersInEnvironment("SANDBOX");
+
+  const booking = await db.select().from(schema.transactions).where(eq(schema.transactions.id, "rule-transfer")).get();
+
+  assert.equal(booking?.type_transfer_account_id, "removed:demo-checking");
+  assert.equal(booking?.transfer_id, null);
 });

@@ -23,7 +23,10 @@ function rule(id: string, priority: number): Rule {
     priority,
     enabled: 1,
     category_color: "#638777",
-    category_icon: null
+    category_icon: null,
+    transaction_type: null,
+    transfer_account_id: null,
+    transfer_account_name: null
   };
 }
 
@@ -218,4 +221,134 @@ test("a failed older drop does not report a failure once a newer drop has been s
   await wait(0);
 
   assert.equal(hook.result.current.failure, null);
+});
+
+test("a rule can set the transfer type and its account, which the form sends with the rule", async context => {
+  const {
+    queryClient,
+    requests
+  } = browser(context);
+  const categories: Category[] = [{
+    id: "savings",
+    name: "Savings",
+    color: "#638777",
+    icon: null
+  }];
+
+  modalDialogs();
+  queryClient.setQueryData(queryKeys.categories(), categories);
+  queryClient.setQueryData(queryKeys.accounts(), [{
+    id: "synthetic-savings",
+    name: "Synthetic savings",
+    archived_at: null
+  }, {
+    id: "synthetic-closed",
+    name: "Synthetic closed",
+    archived_at: "2026-09-01T00:00:00.000Z"
+  }]);
+  const { RuleDialog } = await import("../src/features/categorization/components/create-rule-form");
+  const screen = render(withQueryClient(queryClient, createElement(RuleDialog, {
+    rule: null,
+    close: () => {}
+  })));
+
+  assert.equal(screen.queryByRole("combobox", {
+    name: "Account"
+  }), null);
+  act(() => fireEvent.change(screen.getByRole("textbox", {
+    name: "Rule name"
+  }), {
+    target: {
+      value: "Savings plan"
+    }
+  }));
+  act(() => fireEvent.change(screen.getByRole("textbox", {
+    name: "Matching pattern"
+  }), {
+    target: {
+      value: "SAVINGS PLAN"
+    }
+  }));
+  act(() => fireEvent.change(screen.getByRole("combobox", {
+    name: "Type"
+  }), {
+    target: {
+      value: "transfer"
+    }
+  }));
+  assert.equal(screen.queryByRole("option", {
+    name: "Synthetic closed"
+  }), null);
+  act(() => fireEvent.change(screen.getByRole("combobox", {
+    name: "Account"
+  }), {
+    target: {
+      value: "synthetic-savings"
+    }
+  }));
+  await wait(350);
+  await respond(requests("rules/preview").at(-1), Response.json({
+    id: previewId,
+    enabled: true,
+    matched: 1,
+    uncategorized: 1,
+    manual: 0,
+    manual_same_category: 0
+  }));
+
+  const create = screen.getByRole("button", {
+    name: "Create rule"
+  }) as HTMLButtonElement;
+
+  act(() => fireEvent.submit(create.closest("form")!));
+  await wait(0);
+
+  const saved = requests("rules").filter(request => request.method === "POST");
+
+  const body = saved[0]?.body as Record<string, unknown> | undefined;
+
+  assert.equal(saved.length, 1);
+  assert.equal(body?.transaction_type, "transfer");
+  assert.equal(body?.transfer_account_id, "synthetic-savings");
+});
+
+test("editing a transfer rule keeps its stored account while the account list is still loading", async context => {
+  const {
+    queryClient
+  } = browser(context);
+
+  modalDialogs();
+  queryClient.setQueryData(queryKeys.categories(), [{
+    id: "savings",
+    name: "Savings",
+    color: "#638777",
+    icon: null
+  }]);
+  const { RuleDialog } = await import("../src/features/categorization/components/create-rule-form");
+  const screen = render(withQueryClient(queryClient, createElement(RuleDialog, {
+    rule: {
+      id: "plan",
+      name: "Savings plan",
+      pattern: "SAVINGS PLAN",
+      mode: "keyword",
+      category_id: "savings",
+      category_name: "Savings",
+      priority: 100,
+      enabled: 1,
+      category_color: "#638777",
+      category_icon: null,
+      transaction_type: "transfer",
+      transfer_account_id: "synthetic-savings",
+      transfer_account_name: "Synthetic savings"
+    },
+    close: () => {}
+  })));
+  const account = screen.getByRole("combobox", {
+    name: "Account"
+  }) as HTMLSelectElement;
+
+  assert.equal(account.value, "synthetic-savings");
+  assert.ok(screen.getByRole("option", {
+    name: "Synthetic savings"
+  }));
 });

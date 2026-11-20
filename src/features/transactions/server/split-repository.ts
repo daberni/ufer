@@ -9,6 +9,7 @@ import type { TransactionType } from "@/features/transactions/transaction-types"
 import type { SplitPart } from "@/features/transactions/types";
 import { assertWritableAccount } from "@/features/accounts/server/writable-account";
 import type { Entry } from "./transaction-entry";
+import { pairTransfers } from "./transfer-repository";
 
 /** The booking a split divides, as the split's validation needs it. */
 export type SplitSubject = {
@@ -122,7 +123,10 @@ export async function removeSplit(id: string, assign: (rules: Rule[], text: Rule
 
     await assertWritableAccount(tx, found.account_id);
 
-    await dissolveSplit(tx, id, assign);
+    if (await dissolveSplit(tx, id, assign)) {
+      // A rule may have made the former split a transfer, which links to, or creates, its counterpart like any rule-set transfer.
+      await pairTransfers(tx, environment());
+    }
 
     return {
       ok: true
@@ -130,7 +134,7 @@ export async function removeSplit(id: string, assign: (rules: Rule[], text: Rule
   });
 }
 
-/** Removes a booking's parts inside the caller's write transaction and returns it to the category and rule the stored rules assign its text; an automatic, unlinked income or expense follows its current sign again. Resolves to whether the booking was split. */
+/** Removes a booking's parts inside the caller's write transaction and returns it to what the stored rules decide for its text: category, and for an automatic, unlinked booking the rule's type and transfer account or else the derived type. Resolves to whether the booking was split. */
 export async function dissolveSplit(tx: DatabaseTransaction, id: string, assign: (rules: Rule[], text: RuleText) => RuleAssignment) {
   const removed = await tx.delete(transactionSplits).where(eq(transactionSplits.transaction_id, id));
 
@@ -138,17 +142,15 @@ export async function dissolveSplit(tx: DatabaseTransaction, id: string, assign:
     return false;
   }
 
-  await assignRuleCategory(tx, id, assign);
-  // Syncs keep a split booking's type, so an automatic, unlinked one follows its current amount again. Deliveries' transfer signal is not stored, so only the sign is reconciled.
-  await tx.update(transactions).set({
-    type: sql`CASE WHEN ${transactions.amount_minor}>0 THEN 'income' ELSE 'expense' END`
-  }).where(and(eq(transactions.id, id), eq(transactions.type_source, "auto"), isNull(transactions.transfer_id), inArray(transactions.type, ["income", "expense"])));
+  await assignRuleDecision(tx, id, assign);
 
   return true;
 }
 
-/** Assigns the category and rule the stored rules decide for the booking's current text, including its overrides. */
-export async function assignRuleCategory(tx: DatabaseTransaction, id: string, assign: (rules: Rule[], text: RuleText) => RuleAssignment) {
+/**
+ * Assigns the category and rule the stored rules decide for the booking's current text, including its overrides. An automatic, unlinked booking also takes the deciding rule's type and transfer account, or without one the derived type: Transfer when its source reported one, otherwise its sign. Syncs keep a split booking's type, so this reconciles it.
+ */
+export async function assignRuleDecision(tx: DatabaseTransaction, id: string, assign: (rules: Rule[], text: RuleText) => RuleAssignment) {
   const text = await tx.select({
     counterparty: transactions.counterparty,
     description: transactions.description,
@@ -166,6 +168,24 @@ export async function assignRuleCategory(tx: DatabaseTransaction, id: string, as
     category_source: "rule",
     category_rule_id: assignment.ruleId
   }).where(eq(transactions.id, id));
+
+  const automatic = and(eq(transactions.id, id), eq(transactions.type_source, "auto"), isNull(transactions.transfer_id), notSplit);
+
+  if (assignment.type) {
+    await tx.update(transactions).set({
+      type: assignment.type,
+      type_rule_id: assignment.ruleId,
+      type_transfer_account_id: assignment.transferAccountId
+    }).where(automatic);
+
+    return;
+  }
+
+  await tx.update(transactions).set({
+    type: sql`CASE WHEN ${transactions.transfer_detected}=1 THEN 'transfer' WHEN ${transactions.amount_minor}>0 THEN 'income' ELSE 'expense' END`,
+    type_rule_id: null,
+    type_transfer_account_id: null
+  }).where(and(automatic, inArray(transactions.type, ["income", "expense", "transfer"])));
 }
 
 /** Whether saving this type would leave a split booking with a type that is not split: only income and expenses count by category. Read inside the write that saves the type. */

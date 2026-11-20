@@ -31,6 +31,7 @@ const outgoing: Transaction = {
   split: null,
   type: "expense",
   type_source: "auto",
+  type_rule_id: null,
   manual_account: false,
   entered: false,
   follows_import: false,

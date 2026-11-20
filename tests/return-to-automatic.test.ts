@@ -321,7 +321,10 @@ const marketRule: Rule = {
   priority: 100,
   enabled: 1,
   category_color: "#638777",
-  category_icon: null
+  category_icon: null,
+  transaction_type: null,
+  transfer_account_id: null,
+  transfer_account_name: null
 };
 
 function booking(overrides: Partial<Transaction>): Transaction {
@@ -349,6 +352,7 @@ function booking(overrides: Partial<Transaction>): Transaction {
     split: null,
     type: "expense",
     type_source: "auto",
+    type_rule_id: null,
     manual_account: false,
     account_archived: false,
     counterpart_archived: false,

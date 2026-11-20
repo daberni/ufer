@@ -47,6 +47,7 @@ function booking(id: string, counterparty: string): Transaction {
     split: null,
     type: "expense",
     type_source: "auto",
+    type_rule_id: null,
     manual_account: false,
     account_archived: false,
     counterpart_archived: false,

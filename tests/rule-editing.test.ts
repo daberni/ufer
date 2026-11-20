@@ -94,7 +94,9 @@ test("editing a rule preserves its identity, age and disabled state and does not
   assert.deepEqual(await storedRule(db), {
     id: "edited-rule",
     ...editedDetails,
-    enabled: 0
+    enabled: 0,
+    transaction_type: null,
+    transfer_account_id: null
   });
   assert.deepEqual(await db.$client.execute("SELECT rowid FROM categorization_rules WHERE id='edited-rule'"), ageBefore);
   assert.equal((await db.select().from(schema.categorizationRules)).length, 1);
