@@ -124,7 +124,7 @@ function currencyOrDefault(value: string | null) {
   return value && parseCurrencyCode(value) || defaultCurrency;
 }
 
-/** The data query for the view at a path: the shared period scope plus, on the transaction list, its own filters, and on an account's details that account and the page. */
+/** The data query for the view at a path: the shared period scope (the overview always shows the current month and keeps the scope only for its links) plus, on the transaction list, its own filters, and on an account's details that account and the page. */
 export function viewQuery(pathname: string, scope: string, params: SearchParams): ViewQuery {
   const view = viewFromPathname(pathname);
   const scoped = new URLSearchParams(scope);
@@ -133,7 +133,7 @@ export function viewQuery(pathname: string, scope: string, params: SearchParams)
   const pageParams = view === "account" ? params : listParams;
 
   return {
-    period: parsePeriod(scoped.get("period") || "") || currentMonthPeriod(),
+    period: view === "overview" ? currentMonthPeriod() : parsePeriod(scoped.get("period") || "") || currentMonthPeriod(),
     currency: currencyOrDefault(scoped.get("currency")),
     search: listParams.get("search") || "",
     account: view === "account" ? accountIdFromPathname(pathname) : listParams.get("account") || "",

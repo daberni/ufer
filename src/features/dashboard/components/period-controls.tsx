@@ -11,6 +11,7 @@ import { useDisplayTimeZone } from "@/components/ui/use-display-time-zone";
 import { lastSyncLabel } from "@/features/banking/sync-run-presentation";
 import { allMonthsPeriod, currentMonthPeriod, monthPeriod } from "@/lib/period";
 import { selectPeriod, setCurrency, useCurrency, usePeriod } from "@/client/use-app-url";
+import { showsCurrencySelect } from "@/features/accounts/queries";
 import { Select } from "@/components/ui/select";
 import { MonthPicker } from "@/features/dashboard/components/month-picker";
 import { shownStatus, valueMask } from "@/components/ui/result-presentation";
@@ -21,7 +22,7 @@ import { useLocale } from "@/client/locale-provider";
 import { formatCount } from "@/lib/locale";
 
 type DisplayCurrencies = {
-  /** The currencies of all accounts; until they load, only the selected one is offered. */
+  /** The currencies in use and the selected one; until they load, no currency choice is offered. */
   currencies: Area<string[]>;
 };
 
@@ -39,11 +40,50 @@ type Props = (DisplayCurrencies & {
 };
 
 export function PeriodControls(props: Props) {
-  const locale = useLocale();
+  const currencies = props.view === "account" ? [] : props.currencies.data ?? [];
+
+  return (
+    <div className={clsx(styles["period-bar"], props.view === "overview" && styles["overview-bar"])}>
+      <div>
+        {props.view === "overview" ? <OverviewKicker latestSync={props.latestSync} /> : <TransactionCount count={props.transactionCount} />}
+      </div>
+      {props.view === "overview" ? (
+        <CurrencySelect currencies={currencies} />
+      ) : (
+        <div className={clsx(styles["period-controls"], !showsCurrencySelect(currencies) && styles["without-currency"])}>
+          <CurrencySelect currencies={currencies} />
+          <PeriodSelect />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Choosing a currency picks which accounts' figures are shown, without conversion; with one currency in use there is nothing to choose. */
+function CurrencySelect({ currencies }: {
+  currencies: string[];
+}) {
   const currency = useCurrency();
-  const currencies = props.view === "account" ? [] : props.currencies.data ?? [currency];
+
+  if (!showsCurrencySelect(currencies)) {
+    return null;
+  }
+
+  return (
+    <Select
+      variant="bare"
+      aria-label="Accounts shown by currency"
+      value={currency}
+      onChange={event => setCurrency(event.target.value)}
+    >
+      {currencies.map(value => <option key={value} value={value}>{`${value} accounts`}</option>)}
+    </Select>
+  );
+}
+
+function PeriodSelect() {
+  const locale = useLocale();
   const period = usePeriod();
-  const timeZone = useDisplayTimeZone();
   const allMonths = period.kind === "all";
 
   function moveMonth(months: number) {
@@ -55,63 +95,46 @@ export function PeriodControls(props: Props) {
   }
 
   return (
-    <div className={styles["period-bar"]}>
-      <div>
-        {props.view === "overview" ? <OverviewKicker latestSync={props.latestSync} timeZone={timeZone} /> : <TransactionCount count={props.transactionCount} />}
-      </div>
-      <div className={clsx(styles["period-controls"], props.view === "account" && styles["without-currency"])}>
-        {props.view !== "account" && (
-          <Select
-            variant="bare"
-            aria-label="Display currency"
-            value={currency}
-            onChange={event => setCurrency(event.target.value)}
-          >
-            {currencies.map(value => <option key={value}>{value}</option>)}
-          </Select>
-        )}
-        <button
-          className={ui["icon-button"]}
-          aria-label="Previous month"
-          disabled={allMonths}
-          onClick={() => moveMonth(-1)}
-        >
-          <ChevronLeft size={17} />
-        </button>
-        <MonthPicker
-          label={periodLabel(period, locale)}
-          selected={period.kind === "month" ? period.month : null}
-          onSelect={month => selectPeriod(monthPeriod(month))}
-        />
-        <button
-          className={ui["icon-button"]}
-          aria-label="Next month"
-          disabled={allMonths}
-          onClick={() => moveMonth(1)}
-        >
-          <ChevronRight size={17} />
-        </button>
-        <button
-          type="button"
-          className={styles["all-months"]}
-          aria-pressed={allMonths}
-          onClick={() => selectPeriod(allMonths ? currentMonthPeriod() : allMonthsPeriod)}
-        >
-          {allMonths ? <Check size={16} aria-hidden="true" /> : <CalendarRange size={16} aria-hidden="true" />}
-          All months
-        </button>
-      </div>
-    </div>
+    <>
+      <button
+        className={ui["icon-button"]}
+        aria-label="Previous month"
+        disabled={allMonths}
+        onClick={() => moveMonth(-1)}
+      >
+        <ChevronLeft size={17} />
+      </button>
+      <MonthPicker
+        label={periodLabel(period, locale)}
+        selected={period.kind === "month" ? period.month : null}
+        onSelect={month => selectPeriod(monthPeriod(month))}
+      />
+      <button
+        className={ui["icon-button"]}
+        aria-label="Next month"
+        disabled={allMonths}
+        onClick={() => moveMonth(1)}
+      >
+        <ChevronRight size={17} />
+      </button>
+      <button
+        type="button"
+        className={styles["all-months"]}
+        aria-pressed={allMonths}
+        onClick={() => selectPeriod(allMonths ? currentMonthPeriod() : allMonthsPeriod)}
+      >
+        {allMonths ? <Check size={16} aria-hidden="true" /> : <CalendarRange size={16} aria-hidden="true" />}
+        All months
+      </button>
+    </>
   );
 }
 
-function OverviewKicker({
-  latestSync,
-  timeZone
-}: {
+function OverviewKicker({ latestSync }: {
   latestSync: Area<SyncRun | undefined>;
-  timeZone: string;
 }) {
+  const timeZone = useDisplayTimeZone();
+
   return (
     <>
       <span className={ui["section-kicker"]}>NET WORTH & CASH FLOW</span>

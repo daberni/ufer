@@ -51,7 +51,8 @@ export function CategoryBreakdown({
   const currency = pending ? selectedCurrency : cashFlow.data.currency;
   const viewHref = useViewHref();
   const monthTransactionsHref = useMonthTransactionsHref();
-  const transactionsHref = selection ? monthTransactionsHref(selection.month) : viewHref("transactions");
+  const shownMonth = selection?.month ?? (period.kind === "month" ? period.month.toString() : null);
+  const transactionsHref = shownMonth ? monthTransactionsHref(shownMonth) : viewHref("transactions");
   const summary = selection ?? (pending ? emptySummary : periodCashFlow(cashFlow.data));
   const context = selection ? describeMonth(Temporal.PlainYearMonth.from(selection.month), locale).title : periodLabel(period, locale);
   const emptyNote = selection ? "this month" : "in this period";
