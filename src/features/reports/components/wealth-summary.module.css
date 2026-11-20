@@ -192,6 +192,10 @@
     letter-spacing: -1.2px;
     overflow-wrap: anywhere;
   }
+  /* The change takes its own line, so its skeleton and the loaded text need the same height whatever the figure's width. */
+  .change {
+    flex-basis: 100%;
+  }
   .wealth-card > p {
     line-height: 1.7;
   }

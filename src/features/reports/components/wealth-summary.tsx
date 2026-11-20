@@ -15,6 +15,7 @@ import { Temporal } from "temporal-polyfill";
 import { shortMonthWithYear } from "@/lib/date-format";
 import type { NetWorthHistory, NetWorthPoint } from "@/features/reports/net-worth-series";
 import { useLocale } from "@/client/locale-provider";
+import { formatCount } from "@/lib/locale";
 
 type Props = {
   /** Whether any account uses the display currency; assumed while the accounts load, so the masked figure keeps its place. */
@@ -43,7 +44,9 @@ export function WealthSummary({
   const summary = netWorth.data;
   const netWorthValue = valueMask(netWorth.status);
   const currency = summary.currency;
-  const points = historyArea.status === "ready" && historyArea.data.currency === currency ? historyArea.data.points : [];
+  const historyReady = historyArea.status === "ready" && historyArea.data.currency === currency;
+  const points = historyReady ? historyArea.data.points : [];
+  const historyPending = !historyReady || netWorth.status !== "ready";
   const change = netWorth.status === "ready" && hasAccounts ? historyChange(points, locale) : null;
 
   return (
@@ -60,8 +63,10 @@ export function WealthSummary({
       <div className={styles["headline"]}>
         <div className={clsx(styles["wealth-number"], netWorthValue)}>{hasAccounts ? money(summary.netWorth, currency, locale) : "—"}</div>
         {change && <span className={styles["change"]}>{signedMoney(change.amount, currency, locale)} since {change.since}</span>}
+        {/* Holds the change's place, which wraps below the figure on a phone, until the history arrives. */}
+        {!change && hasAccounts && historyPending && <span className={clsx(styles["change"], ui["skeleton"])}>+€0,000.00 since Jan 2026</span>}
       </div>
-      {summary.unvalued > 0 && <p>{summary.unvalued} without a balance</p>}
+      {summary.unvalued > 0 && <p>{formatCount(summary.unvalued, locale)} without a balance</p>}
       <div className={clsx(styles["allocation-bar"], netWorthValue)} aria-hidden="true">
         <span
           style={{
@@ -99,7 +104,8 @@ export function WealthSummary({
           Loans <span className={netWorthValue}>{money(summary.liabilities, currency, locale)}</span>
         </div>
       )}
-      {hasAccounts && <HistoryCurve points={points} />}
+      {/* The curve's place is held until the history for the shown currency arrives, so the card and the accounts panel beside it keep their height. */}
+      {hasAccounts && (historyReady ? <HistoryCurve points={points} /> : <div className={styles["history-curve"]} aria-hidden="true" />)}
       {netWorthArea.status === "pending" && netWorthArea.failure && <FailureCover failure={netWorthArea.failure} subject="Your net worth" />}
     </section>
   );

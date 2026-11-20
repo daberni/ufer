@@ -7,6 +7,8 @@ export type Account = {
   currency: string;
   balance_minor: number | null;
   balance_date: string | null;
+  /** The newest visible booking date; null without transactions. */
+  last_booking_date: string | null;
   provider: string;
   requisition_id: string | null;
   last_synced_at: string | null;
