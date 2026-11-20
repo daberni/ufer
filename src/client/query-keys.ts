@@ -45,6 +45,10 @@ export const queryKeys = {
     netWorthIn: (currency: string) => ["reports", "net-worth", {
       currency
     }] as const,
+    // Below the net-worth prefix, so every balance write also refreshes the curve.
+    netWorthHistoryIn: (currency: string) => ["reports", "net-worth", "history", {
+      currency
+    }] as const,
     cashFlow: () => ["reports", "cash-flow"] as const,
     cashFlowFor: (filters: CashFlowFilters) => ["reports", "cash-flow", filters] as const,
     // Below the cash-flow prefix, so transaction and category writes also refresh an account's flows.
