@@ -34,11 +34,14 @@ export type CategoryValue = {
   matchId: string | null;
 };
 
+/** What the person chose for one category value; an unset value blocks the check like an unset account. */
 export type CategorySelection = {
-  action: CategoryChoice["action"];
-  categoryId?: string;
-  /** Set once the person picked an option; a multi-tag value needs review until then. */
-  chosen: boolean;
+  action: "unset";
+} | {
+  action: "existing";
+  categoryId: string;
+} | {
+  action: "create" | "rules";
 };
 
 type AccountOption = {
@@ -123,24 +126,18 @@ export function categoryValues(rows: MappedRow[], categories: {
   })).sort((left, right) => right.rows - left.rows || left.value.localeCompare(right.value));
 }
 
-/** A matching category is used; a multi-tag value is left to the rules until reviewed; any other value creates its category. */
+/** The existing category named like the value is preselected; any other value, including a multi-tag one, waits for the person's choice. */
 export function defaultCategorySelection(value: CategoryValue): CategorySelection {
   if (value.matchId && !value.multiTag) {
     return {
       action: "existing",
-      categoryId: value.matchId,
-      chosen: false
+      categoryId: value.matchId
     };
   }
 
   return {
-    action: value.multiTag ? "rules" : "create",
-    chosen: false
+    action: "unset"
   };
-}
-
-export function needsCategoryReview(row: MappedRow, selections: ReadonlyMap<string, CategorySelection>) {
-  return row.category !== null && categoryTags(row.category).length > 1 && !selections.get(row.category)?.chosen;
 }
 
 /** Identifies what a check covered: the rows, targets and category choices sent. A check result only applies while this key is unchanged. */
@@ -158,10 +155,17 @@ export type PreparedImport = {
   problems: ImportProblem[];
 };
 
-/** A missing or invalid input that blocks the check, shown next to that input. */
-export type ImportProblem = {
+/** A missing or invalid input of one source account's target. */
+export type AccountProblem = {
   source: string;
   field: "target" | "name" | "currency" | "balance";
+  message: string;
+};
+
+/** A missing or invalid input that blocks the check, shown next to that input: a source account's input or a category value's choice. */
+export type ImportProblem = AccountProblem | {
+  value: string;
+  field: "category";
   message: string;
 };
 
@@ -175,7 +179,7 @@ export function prepareImport(rows: MappedRow[], choices: ReadonlyMap<string, Ta
     const choice = choices.get(source) ?? {
       kind: "unset"
     };
-    const problem = (field: ImportProblem["field"], message: string) => problems.push({
+    const problem = (field: AccountProblem["field"], message: string) => problems.push({
       source,
       field,
       message
@@ -253,11 +257,25 @@ export function prepareImport(rows: MappedRow[], choices: ReadonlyMap<string, Ta
     });
   }
 
-  const categories = [...selections].map(([value, selection]) => ({
-    value,
-    action: selection.action,
-    categoryId: selection.categoryId
-  }));
+  const categories: CategoryChoice[] = [];
+
+  for (const [value, selection] of selections) {
+    if (selection.action === "unset") {
+      problems.push({
+        value,
+        field: "category",
+        message: "Choose a category."
+      });
+
+      continue;
+    }
+
+    categories.push({
+      value,
+      action: selection.action,
+      categoryId: selection.action === "existing" ? selection.categoryId : undefined
+    });
+  }
 
   return {
     rows: kept,
