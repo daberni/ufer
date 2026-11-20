@@ -2,6 +2,7 @@ import { count, eq, inArray, sql } from "drizzle-orm";
 import type { InStatement } from "@libsql/client";
 import { sameCategoryName } from "@/lib/category-name";
 import type { CategoryIconKey } from "@/features/categorization/category-icons";
+import type { ColoredCategory } from "@/features/categorization/category-color-suggestions";
 import { database } from "@/server/database/connection";
 import { categories, categorizationRules, transactions } from "@/server/database/schema";
 
@@ -24,12 +25,12 @@ export async function categoryExists(id: string) {
 
 // The name check and the write share one write-mode transaction, which serializes concurrent writers.
 // The database constraint is case-sensitive and cannot catch case variants of the same name.
-async function writeUniquelyNamed(existingId: string | null, name: string, statement: InStatement): Promise<CategoryWriteResult> {
+async function writeUniquelyNamed(existingId: string | null, name: string, statement: InStatement | ((existing: ColoredCategory[]) => InStatement)): Promise<CategoryWriteResult> {
   const db = await database();
   const transaction = await db.$client.transaction("write");
 
   try {
-    const rows = (await transaction.execute("SELECT id, name FROM categories")).rows;
+    const rows = (await transaction.execute("SELECT id, name, color, icon FROM categories")).rows;
     const targetMissing = existingId !== null && !rows.some(row => row.id === existingId);
     const nameTaken = rows.some(row => row.id !== existingId && sameCategoryName(String(row.name), name));
 
@@ -39,7 +40,14 @@ async function writeUniquelyNamed(existingId: string | null, name: string, state
       return targetMissing ? "not_found" : "name_taken";
     }
 
-    await transaction.execute(statement);
+    const existing = rows.map(row => ({
+      id: String(row.id),
+      name: String(row.name),
+      color: String(row.color),
+      icon: row.icon === null ? null : String(row.icon)
+    }));
+
+    await transaction.execute(typeof statement === "function" ? statement(existing) : statement);
     await transaction.commit();
 
     return "saved";
@@ -52,11 +60,18 @@ async function writeUniquelyNamed(existingId: string | null, name: string, state
   }
 }
 
-export async function insertCategory(id: string, details: CategoryDetails) {
-  return writeUniquelyNamed(null, details.name, {
+export type NewCategoryDetails = Omit<CategoryDetails, "color"> & {
+  /** A color, or a choice made from the existing categories inside the write transaction, so concurrent creates see each other's colors. */
+  color: string | ((existing: ColoredCategory[]) => string);
+};
+
+export async function insertCategory(id: string, details: NewCategoryDetails) {
+  const { color } = details;
+
+  return writeUniquelyNamed(null, details.name, existing => ({
     sql: "INSERT INTO categories(id,name,color,icon) VALUES (?,?,?,?)",
-    args: [id, details.name, details.color, details.icon]
-  });
+    args: [id, details.name, typeof color === "function" ? color(existing) : color, details.icon]
+  }));
 }
 
 // Transactions and rules reference categories by id, so changing the details never touches assignments.
