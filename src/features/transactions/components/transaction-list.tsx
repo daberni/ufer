@@ -68,7 +68,7 @@ function TransactionRow({
   const subject = transaction.counterparty || transaction.description || transactionTypeLabels[transaction.type];
 
   return (
-    <tr role="row" data-hover-scope className={clsx(styles["row"], transaction.hidden && styles["hidden"])}>
+    <tr role="row" className={clsx(styles["row"], transaction.hidden && styles["hidden"])}>
       <th role="rowheader" scope="row" className={styles["payee"]}>
         <div className={styles["transaction-name"]}>
           <span className={clsx(styles["transaction-icon"], incoming && styles["incoming"])}><TransactionTypeIcon type={transaction.type} /></span>
