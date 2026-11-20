@@ -34,16 +34,23 @@ export function useNetWorth(currency: string) {
   });
 }
 
-/** The account groupings the dashboard shows for a display currency. */
+/** Accounts that are not archived, as offered in lists and pickers. */
+export function activeAccounts(accounts: Account[]) {
+  return accounts.filter(account => account.archived_at === null);
+}
+
+/** The account groupings the dashboard shows for a display currency; archived and detached bank accounts do not sync, so they offer no sync or expiry reminder. */
 export function accountGroups(accounts: Account[], currency: string, now = Temporal.Now.instant()) {
-  const bankAccounts = accounts.filter(account => account.provider === "enable_banking");
+  const bankAccounts = activeAccounts(accounts).filter(account => account.provider === "enable_banking" && account.requisition_id !== null);
   const warningThreshold = now.add(expiryWarning);
   const expiresSoon = (validUntil: string) => Temporal.Instant.compare(Temporal.Instant.from(validUntil), warningThreshold) < 0;
 
   return {
     currencies: [...new Set(["EUR", ...accounts.map(account => account.currency)])],
-    currencyAccounts: accounts.filter(account => account.currency === currency),
-    manualAccounts: accounts.filter(account => account.provider === "manual"),
+    currencyAccounts: activeAccounts(accounts).filter(account => account.currency === currency),
+    // Reports include archived accounts, so their presence decides whether a currency has figures to show.
+    reportedAccounts: accounts.filter(account => account.currency === currency),
+    manualAccounts: activeAccounts(accounts).filter(account => account.provider === "manual"),
     bankAccounts,
     expiring: bankAccounts.filter(account => account.valid_until && expiresSoon(account.valid_until))
   };

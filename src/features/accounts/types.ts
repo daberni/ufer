@@ -12,6 +12,8 @@ export type Account = {
   last_synced_at: string | null;
   valid_until: string | null;
   sync_error: string | null;
+  /** When the account was archived; archived accounts are hidden from lists and pickers but keep counting in reports. */
+  archived_at: string | null;
 };
 
 /** Latest known balances in one currency; independent of the selected period. */

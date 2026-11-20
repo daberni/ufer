@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 import { environment } from "@/features/banking/server/environment";
 import { accounts, categorizationRules, transactions } from "@/server/database/schema";
@@ -7,7 +7,7 @@ import type { Rule, RuleAssignment, RuleText } from "@/lib/rules";
 import { derivedTransactionType, type TransactionType } from "@/features/transactions/transaction-types";
 import { refusable, type ManualEntryResult } from "./manual-transaction-repository";
 import type { CategorizedEntry, Entry, ProviderDetails } from "./transaction-entry";
-import { applyTransactionType, dissolveLink, enteredInUfer, findSubject, followImportedCorrections, releaseOutdatedLinks, type TransferTarget } from "./transfer-repository";
+import { applyTransactionType, dissolveLink, enteredInUfer, findSubject, followImportedCorrections, releaseOutdatedLinks, touchesArchivedAccount, type TransferTarget } from "./transfer-repository";
 
 function providerColumns(provider: ProviderDetails = {}) {
   return {
@@ -94,11 +94,20 @@ export async function upsertTransactions(tx: DatabaseTransaction, accountId: str
   }
 }
 
+/** Assigns a category manually; a booking on an archived account is refused because it is read-only. */
 export async function setTransactionCategory(id: string, categoryId: string | null) {
   const db = await database();
+  const owner = await db.select({
+    archived_at: accounts.archived_at
+  }).from(transactions).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(and(eq(transactions.id, id), eq(accounts.environment, environment()))).get();
+
+  if (owner?.archived_at) {
+    return "archived_account" as const;
+  }
+
   const scopedAccounts = db.select({
     id: accounts.id
-  }).from(accounts).where(eq(accounts.environment, environment()));
+  }).from(accounts).where(and(eq(accounts.environment, environment()), isNull(accounts.archived_at)));
   const scope = and(eq(transactions.id, id), inArray(transactions.account_id, scopedAccounts));
   const [assignment] = await db.update(transactions).set({
     category_id: categoryId,
@@ -116,25 +125,29 @@ export async function setTransactionCategory(id: string, categoryId: string | nu
 
 /**
  * Returns a manual assignment to automatic categorization: the category and assigning rule come from the transaction's source and overridden text, as applying rules would assign them.
- * The rules and the transaction are read in the write transaction that stores the result. Resolves to undefined for a transaction outside the current environment.
+ * The rules and the transaction are read in the write transaction that stores the result. Resolves to undefined for a transaction outside the current environment; a booking on an archived account is refused because it is read-only.
  */
 export async function returnTransactionToRules(id: string, assign: (rules: Rule[], text: RuleText) => RuleAssignment) {
   const db = await database();
-  const scopedAccounts = db.select({
+  const writableAccounts = db.select({
     id: accounts.id
-  }).from(accounts).where(eq(accounts.environment, environment()));
-  const scope = and(eq(transactions.id, id), inArray(transactions.account_id, scopedAccounts));
+  }).from(accounts).where(and(eq(accounts.environment, environment()), isNull(accounts.archived_at)));
 
   return db.transaction(async tx => {
     const found = await tx.select({
+      archived_at: accounts.archived_at,
       counterparty: transactions.counterparty,
       description: transactions.description,
       counterparty_override: transactions.counterparty_override,
       description_override: transactions.description_override
-    }).from(transactions).where(scope).get();
+    }).from(transactions).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(and(eq(transactions.id, id), eq(accounts.environment, environment()))).get();
 
     if (!found) {
       return undefined;
+    }
+
+    if (found.archived_at) {
+      return "archived_account" as const;
     }
 
     const rules = await tx.select().from(categorizationRules);
@@ -143,7 +156,7 @@ export async function returnTransactionToRules(id: string, assign: (rules: Rule[
       category_id: assignment.categoryId,
       category_source: "rule",
       category_rule_id: assignment.ruleId
-    }).where(scope).returning({
+    }).where(and(eq(transactions.id, id), inArray(transactions.account_id, writableAccounts))).returning({
       id: transactions.id,
       category_id: transactions.category_id,
       category_source: transactions.category_source,
@@ -180,6 +193,10 @@ export async function saveTransactionDetails(id: string, type: TransactionType, 
 
     if (!subject) {
       return "not_found";
+    }
+
+    if (await touchesArchivedAccount(tx, subject)) {
+      return "archived_account";
     }
 
     const changesText = text.counterparty !== undefined || text.description !== undefined;
@@ -224,6 +241,10 @@ export async function setTransactionHidden(id: string, hidden: boolean, at: stri
 
     if (!subject) {
       return "not_found";
+    }
+
+    if (await touchesArchivedAccount(tx, subject)) {
+      return "archived_account";
     }
 
     if (enteredInUfer(subject)) {
