@@ -6,7 +6,7 @@ import { clsx } from "clsx";
 import Link from "next/link";
 import { useRef, useState, type ReactNode } from "react";
 import styles from "./transactions-panel.module.css";
-import { ArrowDownToLine, ArrowRight, Plus, Search, SlidersHorizontal } from "lucide-react";
+import { ArrowDownToLine, ArrowRight, Plus, Search, SlidersHorizontal, X } from "lucide-react";
 import { Empty } from "@/components/ui/empty-state";
 import { TransactionRuleProvider } from "./transaction-rule-provider";
 import { TransactionList, TransactionListSkeleton } from "@/features/transactions/components/transaction-list";
@@ -242,16 +242,31 @@ function TransactionFilters({
 // Keystrokes change only this field's draft; the list follows once the committed search reaches the URL.
 function TransactionSearch() {
   const [searchDraft, setSearchDraft] = useSearchDraft(useSearchFilter(), setSearch);
+  const input = useRef<HTMLInputElement>(null);
 
   return (
     <label className={styles["search-field"]}>
       <Search size={16} />
       <input
+        ref={input}
         aria-label="Search transactions"
         placeholder="Payee or description …"
         value={searchDraft}
         onChange={event => setSearchDraft(event.target.value)}
       />
+      {searchDraft && (
+        <button
+          type="button"
+          className={styles["clear-search"]}
+          aria-label="Clear search"
+          onClick={() => {
+            setSearchDraft("");
+            input.current?.focus();
+          }}
+        >
+          <X size={16} aria-hidden="true" />
+        </button>
+      )}
     </label>
   );
 }
