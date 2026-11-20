@@ -23,6 +23,15 @@ export function DateValue({
   return <time dateTime={display.dateTime} title={display.title}>{display.label}</time>;
 }
 
+// A calendar day written out in full, for example a document's last update; formatted in the browser so it follows the browser's locale.
+export function FullDateValue({ value }: {
+  value: string
+}) {
+  const display = describeDate(Temporal.PlainDate.from(value));
+
+  return <time dateTime={display.dateTime}>{display.title}</time>;
+}
+
 // An instant such as a sync run or authorization expiry: shown in the viewer's timezone.
 export function TimestampValue({
   value,

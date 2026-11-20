@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { fallbackLocale, formatCount, formatPercent, formatLocale, parseFormatLocalePreference, resolveFormatLocale } from "../src/lib/locale";
+import { fallbackLocale, formatCount, formatPercent, isNegativePercent, formatLocale, parseFormatLocalePreference, resolveFormatLocale } from "../src/lib/locale";
 import { money, signedMoney } from "../src/lib/money";
 
 // The tests run like the server, with the fallback locale; CLDR separates a letter currency code from the number with a no-break space.
@@ -37,6 +37,8 @@ test("percentages never show a negative zero", () => {
   assert.equal(formatPercent(0.183), "18%");
   assert.equal(formatPercent(-0.25), "-25%");
   assert.equal(formatPercent(-0.004), "0%");
+  assert.equal(isNegativePercent(-0.25), true);
+  assert.equal(isNegativePercent(-0.004), false);
 });
 
 test("counts are grouped", () => {

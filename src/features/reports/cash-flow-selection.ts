@@ -1,6 +1,6 @@
 import { groupByCategory, type CategoryGroup } from "./category-groups";
 import type { CashFlow, CategoryAmount } from "./types";
-import { formatPercent } from "@/lib/locale";
+import { formatPercent, isNegativePercent } from "@/lib/locale";
 
 /** Income, expenses and their categories for a month or a period, with the derived net flow and savings rate. */
 export type CashFlowSummary = {
@@ -90,7 +90,7 @@ export function selectedCashFlow(data: CashFlow, month: string | null): CashFlow
 
 /** Whether a rate is shown with a minus sign; a rate that rounds to zero is not. */
 export function isNegativeRate(rate: number | null) {
-  return rate !== null && formatSavingsRate(rate).startsWith("-");
+  return rate !== null && isNegativePercent(rate);
 }
 
 /** "18%", "-25%", or an en dash when there is no rate. */

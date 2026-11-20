@@ -97,13 +97,20 @@ export function formatCount(value: number) {
   return cachedFormat(numberFormats, "count", locale => new Intl.NumberFormat(locale)).format(value);
 }
 
+/** Whether a ratio is shown with a minus sign; some locales write U+2212 instead of "-", and a ratio that rounds to zero has none. */
+export function isNegativePercent(ratio: number) {
+  return percentFormat().formatToParts(ratio).some(part => part.type === "minusSign");
+}
+
 /** A ratio as a whole percentage, for example 0.183 as "18%"; a negative ratio that rounds to zero shows "0%". */
 export function formatPercent(ratio: number) {
-  const format = cachedFormat(numberFormats, "percent", locale => new Intl.NumberFormat(locale, {
+  return percentFormat().format(ratio);
+}
+
+function percentFormat() {
+  return cachedFormat(numberFormats, "percent", locale => new Intl.NumberFormat(locale, {
     style: "percent",
     maximumFractionDigits: 0,
     signDisplay: "negative"
   }));
-
-  return format.format(ratio);
 }
