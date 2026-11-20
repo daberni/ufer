@@ -16,9 +16,10 @@ type RuleDraft = {
 };
 
 type RuleActions = {
-  open: (draft: RuleDraft) => void;
+  /** Opens a draft from a row; focus returns to the element with `fieldId`, the row's category field, when the control that opened it is gone. */
+  open: (draft: RuleDraft, fieldId: string) => void;
   /** Opens a stored rule's editor, for example the rule that assigned a transaction's category. */
-  edit: (rule: Rule) => void;
+  edit: (rule: Rule, fieldId: string) => void;
   /** A stored rule by ID; undefined while the rules load or for a rule deleted since. */
   findRule: (id: string | null) => Rule | undefined;
   clearAnnouncement: () => void;
@@ -55,40 +56,62 @@ export function TransactionRuleProvider({
   const [draft, setDraft] = useState<RuleDraft | null>(null);
   const [editedRule, setEditedRule] = useState<Rule | null>(null);
   const [announcement, setAnnouncement] = useState("");
-  const opener = useRef<HTMLElement | null>(null);
+  const opener = useRef<{
+    element: HTMLElement | null;
+    fieldId: string;
+  } | null>(null);
   const storedRules = useRules();
 
   const dialogOpen = draft !== null || editedRule !== null;
 
+  // The shared dialog restores focus to the row action that opened it, but a saved rule replaces that action and the refreshed list can arrive
+  // after the dialog closed. Until focus has moved on, a lost focus returns to the row's category field, or to the panel when the row is gone,
+  // without scrolling the page away from where the person was working.
   useEffect(() => {
-    if (dialogOpen) {
+    const previous = opener.current;
+
+    if (dialogOpen || !previous) {
       return;
     }
 
-    const previous = opener.current;
+    const active = document.activeElement;
+    const focusLost = active === null || active === document.body || active === previous.element;
+
+    if (!focusLost) {
+      opener.current = null;
+
+      return;
+    }
+
+    if (previous.element?.isConnected) {
+      return;
+    }
 
     opener.current = null;
+    const destination = document.getElementById(previous.fieldId) ?? fallbackFocus.current;
 
-    // The shared dialog restores its opener when present; a removed row needs a stable destination instead.
-    if (previous && !previous.isConnected) {
-      fallbackFocus.current?.focus();
-    }
-  }, [dialogOpen, fallbackFocus]);
+    destination?.focus({
+      preventScroll: true
+    });
+  });
 
-  function rememberOpener() {
-    opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  function rememberOpener(fieldId: string) {
+    opener.current = {
+      element: document.activeElement instanceof HTMLElement ? document.activeElement : null,
+      fieldId
+    };
     setAnnouncement("");
   }
 
-  function open(next: RuleDraft) {
-    rememberOpener();
+  function open(next: RuleDraft, fieldId: string) {
+    rememberOpener(fieldId);
     setDraft({
       ...next
     });
   }
 
-  function edit(rule: Rule) {
-    rememberOpener();
+  function edit(rule: Rule, fieldId: string) {
+    rememberOpener(fieldId);
     setEditedRule(rule);
   }
 
