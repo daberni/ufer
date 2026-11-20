@@ -51,8 +51,9 @@ export function useCreateRuleFromAssignment() {
   return useMutation({
     mutationFn: (rule: Record<string, unknown>) => api<CreatedRule>("rules", rule),
     onSettled: (_result, _error, rule) => {
-      // The source transaction can become rule-assigned; applying also changes categories and spending.
-      const affected = rule.apply_to_uncategorized === true ? [queryKeys.rules(), queryKeys.transactions.all(), queryKeys.reports.cashFlow()] : [queryKeys.rules(), queryKeys.transactions.all()];
+      // The source transaction can become rule-assigned; applying and adopting manual assignments also change categories and spending.
+      const changesCategories = rule.apply_to_uncategorized === true || rule.adopt_manual === true;
+      const affected = changesCategories ? [queryKeys.rules(), queryKeys.transactions.all(), queryKeys.reports.cashFlow()] : [queryKeys.rules(), queryKeys.transactions.all()];
 
       return invalidate(queryClient, affected);
     }
@@ -64,7 +65,12 @@ export function useSaveRule(rule?: Rule | null) {
 
   return useMutation({
     mutationFn: (details: Record<string, unknown>) => rule ? api(`rules/${encodeURIComponent(rule.id)}`, details, "PUT") : api("rules", details),
-    onSettled: () => invalidate(queryClient, [queryKeys.rules()])
+    onSettled: (_result, _error, details) => {
+      // Transaction rows show what returning to automatic categorization would assign; adopted manual assignments also change spending.
+      const affected = details.adopt_manual === true ? [queryKeys.rules(), queryKeys.transactions.all(), queryKeys.reports.cashFlow()] : [queryKeys.rules(), queryKeys.transactions.lists()];
+
+      return invalidate(queryClient, affected);
+    }
   });
 }
 
@@ -78,7 +84,7 @@ export function useToggleRule() {
     mutationFn: (rule: Rule) => api(`rules/${encodeURIComponent(rule.id)}`, {
       enabled: !rule.enabled
     }, "PATCH"),
-    onSettled: () => invalidate(queryClient, [queryKeys.rules()])
+    onSettled: () => invalidate(queryClient, [queryKeys.rules(), queryKeys.transactions.lists()])
   });
 }
 
@@ -166,7 +172,7 @@ export function useReorderRules() {
     }
 
     if (!laterOrderPending()) {
-      await invalidate(queryClient, [queryKeys.rules()]);
+      await invalidate(queryClient, [queryKeys.rules(), queryKeys.transactions.lists()]);
     }
   }
 

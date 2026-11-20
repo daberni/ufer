@@ -244,7 +244,9 @@ test("previewing an edit counts the edited rule in place of its stored version",
     id: "rule-market",
     enabled: true,
     matched: 0,
-    uncategorized: 0
+    uncategorized: 0,
+    manual: 0,
+    manual_same_category: 0
   });
   assert.deepEqual(await previewRule({
     pattern: "cafe\\b",
@@ -255,7 +257,9 @@ test("previewing an edit counts the edited rule in place of its stored version",
     id: "rule-market",
     enabled: true,
     matched: 2,
-    uncategorized: 1
+    uncategorized: 1,
+    manual: 1,
+    manual_same_category: 0
   });
   await assert.rejects(previewRule({
     pattern: "CAFE",
@@ -368,7 +372,9 @@ test("an edit preview of a disabled rule decides nothing, as applying the saved 
     id: "rule-cinema",
     enabled: false,
     matched: 0,
-    uncategorized: 0
+    uncategorized: 0,
+    manual: 0,
+    manual_same_category: 0
   });
 
   // Applying after the saved edit agrees: the disabled rule leaves the cinema booking with its previous category.

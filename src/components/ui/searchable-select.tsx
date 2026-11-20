@@ -53,6 +53,8 @@ type Props<Value> = {
   appearance?: SearchableSelectAppearance;
   /** Sizes the field, such as a denser control for tables and filters. */
   className?: string;
+  /** Opens with the first option highlighted and in view instead of the selected one, for a first option that should be seen whenever the list opens. */
+  openAtFirst?: boolean;
   /** Offers a last option that creates an option named after the typed text when no option has exactly that label. */
   onCreate?: (name: string) => void;
   "aria-label"?: string;
@@ -79,6 +81,7 @@ export function SearchableSelect<Value>({
   appearance = "default",
   className,
   onCreate,
+  openAtFirst = false,
   "aria-label": ariaLabel,
   "aria-invalid": ariaInvalid,
   "aria-describedby": ariaDescribedBy
@@ -267,14 +270,16 @@ export function SearchableSelect<Value>({
     if (wasOpen) {
       setOpen(false);
     } else {
-      openAt(Math.max(selectedIndex, 0));
+      openAt(openingIndex);
     }
   }
 
+  const openingIndex = openAtFirst ? 0 : Math.max(selectedIndex, 0);
   const keyState = {
     open,
     activeIndex: active,
-    selectedIndex,
+    // Keys that open the list start where opening by pointer does.
+    selectedIndex: openAtFirst ? -1 : selectedIndex,
     optionCount
   };
 
@@ -363,7 +368,7 @@ export function SearchableSelect<Value>({
           }}
           onClick={() => {
             if (!open) {
-              openAt(Math.max(selectedIndex, 0));
+              openAt(openingIndex);
             }
           }}
           onBlur={() => setOpen(false)}

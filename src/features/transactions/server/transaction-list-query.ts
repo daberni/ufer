@@ -11,6 +11,8 @@ import { searchCondition } from "@/features/transactions/server/search-condition
 import type { DashboardFilters } from "@/server/http/dashboard-filters";
 import type { TransactionType } from "@/features/transactions/transaction-types";
 import { createdCounterpartPrefix, manualEntryPrefix } from "@/features/transactions/server/transfer-repository";
+import { listRules } from "@/features/categorization/server/rule-repository";
+import { prepareRules, ruleAssignment, type PreparedRule } from "@/lib/rules";
 
 // Mirrors `enteredInUfer` for a booking and its account in the list's SQL.
 function enteredColumn(booking: string, account: string) {
@@ -25,6 +27,20 @@ function entryState(row: Record<string, unknown>) {
   return {
     entered,
     follows_import: entered && linkedToImport
+  };
+}
+
+/** What the rules would assign a manually categorized row, which it can return to; null for a rule-assigned row. Rules match the source's text. */
+function automaticAssignment(row: Record<string, unknown>, rules: PreparedRule[] | null) {
+  if (row.category_source !== "manual" || !rules) {
+    return null;
+  }
+
+  const assignment = ruleAssignment(String(row.source_counterparty), String(row.source_description), rules);
+
+  return {
+    category_id: assignment.categoryId,
+    rule_id: assignment.ruleId
   };
 }
 
@@ -135,6 +151,8 @@ export async function readTransactionPage(filters: DashboardFilters) {
     args
   });
   const [transactions, count] = await Promise.all([transactionsQuery, countQuery]);
+  const hasManualRows = transactions.rows.some(row => row.category_source === "manual");
+  const rules = hasManualRows ? prepareRules(await listRules()) : null;
 
   return {
     period: periodToJson(filters.period),
@@ -158,6 +176,7 @@ export async function readTransactionPage(filters: DashboardFilters) {
       category_id: row.category_id === null ? null : String(row.category_id),
       category_source: String(row.category_source),
       category_rule_id: row.category_rule_id === null ? null : String(row.category_rule_id),
+      automatic_assignment: automaticAssignment(row, rules),
       type: row.type as TransactionType,
       type_source: row.type_source === "manual" ? "manual" as const : "auto" as const,
       manual_account: Boolean(row.manual_account),

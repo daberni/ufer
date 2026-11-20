@@ -113,7 +113,9 @@ test("a rule cannot be created without a category, and the form offers to add on
     id: previewId,
     enabled: true,
     matched: 2,
-    uncategorized: 1
+    uncategorized: 1,
+    manual: 0,
+    manual_same_category: 0
   }));
 
   assert.equal(create().disabled, true);
