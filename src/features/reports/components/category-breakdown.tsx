@@ -64,18 +64,20 @@ export function CategoryBreakdown({
   return (
     <section className={clsx(ui["panel"], styles["panel"])} id={id}>
       <div className={clsx(ui["card-heading"], styles["heading"])}>
-        <h2>By category</h2>
+        <div className={styles["title"]}>
+          <h2>By category</h2>
+          <span className={clsx(ui["subtle"], pending ? "" : mask)}>{context}</span>
+        </div>
         <Link className={ui["text-button"]} href={transactionsHref} aria-label={`View transactions, ${context}`}>
           View transactions
           <ChevronRight className={styles["link-icon"]} size={16} />
         </Link>
       </div>
-      <div className={clsx(ui["subtle"], styles["summary"])}>
-        <span className={pending ? "" : mask}>{context}</span>
+      <div className={styles["summary"]}>
         <span>
           Net <strong className={clsx(summary.net < 0 && styles["negative"], mask)}>{money(summary.net, currency, locale)}</strong>
         </span>
-        <span>
+        <span className={styles["savings-rate"]}>
           Savings rate <strong className={clsx(isNegativeRate(summary.savingsRate, locale) && styles["negative"], mask)}>{formatSavingsRate(summary.savingsRate, locale)}</strong>
         </span>
       </div>

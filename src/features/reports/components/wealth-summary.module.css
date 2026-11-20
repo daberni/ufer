@@ -37,7 +37,9 @@
   position: relative;
   z-index: var(--layer-raised);
 }
+/* The change takes its own line, so the figure's width, unknown while loading, never moves it. */
 .change {
+  flex-basis: 100%;
   font-size: var(--text-sm);
   color: var(--ink-soft);
   font-variant-numeric: tabular-nums;
@@ -107,28 +109,43 @@
   margin-top: var(--space-3);
   line-height: 1.5;
 }
-.allocation-bar {
+.bars {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-top: var(--space-6);
+}
+.bar-track {
   height: 6px;
   display: flex;
-  gap: 3px;
-  margin-top: var(--space-6);
   overflow: hidden;
   border-radius: var(--radius-sm);
   background: var(--soft-strong);
 }
-.allocation-bar > span:first-child {
+.bar-fill {
+  display: flex;
+  gap: 3px;
+}
+.loan-track {
+  height: 3px;
+}
+.cash-segment {
   background: var(--chart-liquid);
 }
-.allocation-bar > span:nth-child(2) {
+.investment-segment {
   background: var(--chart-invested);
 }
-.allocation-bar > span:nth-child(3) {
+.property-segment {
   background: var(--chart-property);
 }
+.loan-segment {
+  background: var(--chart-loans);
+}
+/* Equal columns keep each figure in place when the loaded amounts are wider than their placeholders. */
 .wealth-allocation {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
   gap: var(--space-6);
-  flex-wrap: wrap;
   margin-top: var(--space-4);
 }
 .wealth-allocation > span {
@@ -149,14 +166,8 @@
 .legend-dot.invested {
   background: var(--chart-invested);
 }
-.liabilities {
-  display: flex;
-  justify-content: space-between;
-  margin-top: var(--space-4);
-  font-size: var(--text-sm);
-  border-top: 1px solid var(--border-strong);
-  padding-top: var(--space-3);
-  color: var(--muted);
+.legend-dot.loans {
+  background: var(--chart-loans);
 }
 @media (--wide) {
   .wealth-card {
@@ -192,16 +203,10 @@
     letter-spacing: -1.2px;
     overflow-wrap: anywhere;
   }
-  /* The change takes its own line, so its skeleton and the loaded text need the same height whatever the figure's width. */
-  .change {
-    flex-basis: 100%;
-  }
   .wealth-card > p {
     line-height: 1.7;
   }
   .wealth-allocation {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
     gap: var(--space-4);
   }
   .wealth-allocation strong {
