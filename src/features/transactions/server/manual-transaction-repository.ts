@@ -5,8 +5,9 @@ import { database, type DatabaseTransaction } from "@/server/database/connection
 import { transactions } from "@/server/database/schema";
 import { assertWritableAccount } from "@/features/accounts/server/writable-account";
 import type { TransactionType } from "@/features/transactions/transaction-types";
-import type { RuleAssignment, RuleText } from "@/lib/rules";
+import type { Rule, RuleAssignment, RuleText } from "@/lib/rules";
 import { applyTransactionType, createdCounterpartPrefix, dissolveLink, enteredInUfer, enteredPair, findCounterpart, findSubject, manualEntryPrefix, touchesArchivedAccount, type TransferTarget, type TypeChangeResult } from "./transfer-repository";
+import { dissolveSplit, splitRefusesType } from "./split-repository";
 
 /** The fields a person enters for a booking on a manual account. */
 export type ManualEntry = {
@@ -27,7 +28,7 @@ export type NewManualEntry = ManualEntry & {
   categoryRuleId: string | null;
 };
 
-export type ManualEntryResult = TypeChangeResult | "not_entered" | "follows_import" | "entered" | "hidden";
+export type ManualEntryResult = TypeChangeResult | "not_entered" | "follows_import" | "entered" | "hidden" | "split";
 
 /** Thrown inside a write transaction to roll it back and report why a change was refused. */
 class Refused extends TransactionRollbackError {
@@ -113,7 +114,12 @@ export async function findEntryCurrency(id: string) {
  * Saves an entered booking's date, amount, payee, description and type together.
  * The other side of an entered pair mirrors the date, the opposite amount and the description; a booking linked with an imported booking keeps that booking's date and amount.
  */
-export async function updateManualTransaction(id: string, entry: ManualEntry, categoryFor: (text: RuleText) => RuleAssignment) {
+export async function updateManualTransaction(
+  id: string,
+  entry: ManualEntry,
+  categoryFor: (text: RuleText) => RuleAssignment,
+  dropSplit?: (rules: Rule[], text: RuleText) => RuleAssignment
+) {
   return refusable(async tx => {
     const subject = await findSubject(tx, id);
 
@@ -127,6 +133,15 @@ export async function updateManualTransaction(id: string, entry: ManualEntry, ca
 
     if (!enteredInUfer(subject)) {
       return "not_entered";
+    }
+
+    // Removing the split in the same write transaction lets it take a type a split booking refuses; a refused save keeps the split.
+    if (dropSplit) {
+      await dissolveSplit(tx, id, dropSplit);
+    }
+
+    if (await splitRefusesType(tx, id, entry.type)) {
+      return "split";
     }
 
     const counterpart = await findCounterpart(tx, subject);

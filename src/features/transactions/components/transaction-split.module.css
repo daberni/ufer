@@ -1,0 +1,163 @@
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 32px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
+}
+.tag.unbalanced {
+  border-color: var(--gold-border);
+  background: var(--gold-soft);
+  color: var(--gold-text);
+}
+
+.section {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.section-title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--ink);
+}
+.close {
+  color: var(--muted);
+}
+.meter-row {
+  display: grid;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.meter-text {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-3);
+}
+.meter-row strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+.meter {
+  display: block;
+  height: 6px;
+  border-radius: var(--radius-sm);
+  background: var(--soft);
+  overflow: hidden;
+}
+.meter > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--green);
+}
+.meter.over > span {
+  background: var(--danger);
+}
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--green-text);
+}
+.status.problem {
+  color: var(--danger-text);
+}
+.status svg {
+  flex-shrink: 0;
+}
+
+.editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.part {
+  display: grid;
+  grid-template-columns: 7rem minmax(0, 3fr) minmax(0, 2fr) 36px;
+  grid-template-areas: "amount category note remove";
+  gap: var(--space-2);
+  align-items: center;
+}
+/* The dialog form stretches every input; the grid sizes these. */
+.part .amount {
+  grid-area: amount;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.category {
+  grid-area: category;
+  min-width: 0;
+}
+.part .note {
+  grid-area: note;
+}
+.remove,
+.remove-placeholder {
+  grid-area: remove;
+}
+.remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.remove:hover {
+  background: var(--soft);
+  color: var(--danger-text);
+}
+
+@media (--mobile) {
+  .section {
+    padding: var(--space-3);
+  }
+  .part {
+    grid-template-columns: 8rem minmax(0, 1fr) 44px;
+    grid-template-areas:
+      "amount . remove"
+      "category category category"
+      "note note note";
+    padding-bottom: var(--space-2);
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .part:last-child {
+    padding-bottom: 0;
+    border-bottom: 0;
+  }
+  .remove {
+    width: 44px;
+    height: 44px;
+  }
+}

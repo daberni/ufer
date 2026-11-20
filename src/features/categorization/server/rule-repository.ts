@@ -7,6 +7,7 @@ import { highestPriority, maximumRules, nextPriority, orderedPriorities } from "
 import type { Transaction } from "@/server/database/models";
 import { accounts, categorizationRules, transactions } from "@/server/database/schema";
 import { pairTransfers } from "@/features/transactions/server/transfer-repository";
+import { notSplit } from "@/features/transactions/server/split-repository";
 
 /** Rules in matching order: priority first, then their persisted ID. */
 export async function listRules() {
@@ -20,7 +21,8 @@ export type NewRule = Omit<Rule, "enabled"> & {
 };
 
 /** A booking whose type rules may set: neither a person nor a link decided it. */
-const ruleTypeable = and(eq(transactions.type_source, "auto"), isNull(transactions.transfer_id));
+// Split bookings keep their type; rules never set it.
+const ruleTypeable = and(eq(transactions.type_source, "auto"), isNull(transactions.transfer_id), notSplit);
 
 // Bounds the bound parameters of each update for both local SQLite and remote libSQL deployments.
 const assignmentChunkSize = 500;
@@ -60,7 +62,7 @@ export type ManualAdoption = {
 
 /** Returns the selected manual assignments to automatic categorization with the rule's category and a reference to the rule; resolves to the selected IDs. */
 async function adoptManualAssignments(tx: DatabaseTransaction, rule: Pick<Rule, "id" | "category_id">, rules: Rule[], adoption: ManualAdoption) {
-  const scope = and(eq(accounts.environment, environment()), isNull(accounts.archived_at), eq(transactions.category_source, "manual"));
+  const scope = and(eq(accounts.environment, environment()), isNull(accounts.archived_at), eq(transactions.category_source, "manual"), notSplit);
   const candidates = await tx.select({
     id: transactions.id,
     counterparty: transactions.counterparty,
@@ -292,7 +294,7 @@ export async function setRuleEnabled(id: string, enabled: boolean) {
 /** Manually categorized transactions with the text rules match. */
 export async function findManualAssignments() {
   const db = await database();
-  const scope = and(eq(accounts.environment, environment()), isNull(accounts.archived_at), eq(transactions.category_source, "manual"));
+  const scope = and(eq(accounts.environment, environment()), isNull(accounts.archived_at), eq(transactions.category_source, "manual"), notSplit);
 
   return db.select({
     id: transactions.id,

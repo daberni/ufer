@@ -13,6 +13,7 @@ import { DateValue } from "@/components/ui/date-value";
 import { useBankingConfiguration } from "@/features/banking/banking-configuration";
 import { money } from "@/lib/money";
 import type { Account } from "@/features/accounts/types";
+import { recentlyBookedAccounts } from "@/features/accounts/recent-accounts";
 import { useState } from "react";
 import { BankConnectionDialog } from "@/features/banking/components/bank-connection-form";
 import { CreateAccountDialog } from "./create-account-form";
@@ -32,7 +33,14 @@ type OpenDialog = {
   kind: "bank";
 };
 
-const shownTiles = 5;
+// Three rows keep the panel about as tall as the net-worth card; the heading links to all accounts.
+const shownRows = 3;
+
+const placeholderAccount = {
+  provider: "manual",
+  requisition_id: null,
+  sync_error: null
+};
 
 export function OverviewAccounts({ currencyAccounts }: Props) {
   const changeView = useChangeView();
@@ -52,6 +60,7 @@ export function OverviewAccounts({ currencyAccounts }: Props) {
   );
 }
 
+// The skeleton repeats a loaded row's elements, including the source indicator, so each row keeps its final height.
 function AccountStripSkeleton({ area }: {
   area: PendingArea
 }) {
@@ -59,7 +68,7 @@ function AccountStripSkeleton({ area }: {
     <AreaPlaceholder area={area} subject="Your accounts">
       <div className={styles["account-strip"]}>
         {Array.from({
-          length: shownTiles
+          length: shownRows
         }, (_, index) => (
           <div className={styles["account-tile"]} key={index}>
             <span className={clsx(accountStyles["account-logo"], ui["skeleton"])} />
@@ -69,8 +78,9 @@ function AccountStripSkeleton({ area }: {
             <strong>
               <span className={ui["skeleton"]}>€0,000.00</span>
             </strong>
-            <span className={styles["account-tile-meta"]}>
-              <span className={ui["skeleton"]}>Bank account · Bank</span>
+            <span className={clsx(styles["account-tile-meta"], ui["skeleton"])}>
+              <span className={styles["account-tile-kind"]}>Bank account · Bank</span>
+              <AccountSourceIndicator account={placeholderAccount} />
             </span>
             <span className={styles["account-tile-date"]}>
               <span className={ui["skeleton"]}>Today</span>
@@ -80,11 +90,6 @@ function AccountStripSkeleton({ area }: {
       </div>
     </AreaPlaceholder>
   );
-}
-
-// The largest balances, whatever their sign, keep the panel about as tall as the net-worth card; the heading links to all accounts.
-function largestAccounts(accounts: Account[]) {
-  return accounts.toSorted((left, right) => Math.abs(right.balance_minor ?? 0) - Math.abs(left.balance_minor ?? 0)).slice(0, shownTiles);
 }
 
 function AccountStrip({ currencyAccounts }: {
@@ -97,7 +102,7 @@ function AccountStrip({ currencyAccounts }: {
 
   const content = currencyAccounts.length ? (
     <div className={styles["account-strip"]}>
-      {largestAccounts(currencyAccounts).map(account => {
+      {recentlyBookedAccounts(currencyAccounts, shownRows).map(account => {
         const Icon = accountIcon(account.kind);
 
         return (

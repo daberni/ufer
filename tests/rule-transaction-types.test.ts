@@ -742,3 +742,38 @@ test("a rule's transfer creates no counterpart on a manual account that already 
   assert.equal(onCash.length, 2);
   assert.ok(onCash.every(row => row.transfer_id === null));
 });
+
+test("rules never set the type of a split booking, on syncs or when applying rules", async context => {
+  const db = await isolatedDatabase(context);
+
+  await sync(db, "checking", [entry("market", "2026-09-10", -5000, "Example market")]);
+  const booking = await stored(db, "bank:market");
+
+  await db.insert(schema.transactionSplits).values([{
+    id: "part-1",
+    transaction_id: booking.id,
+    position: 0,
+    amount_minor: -3000,
+    category_id: "groceries"
+  }, {
+    id: "part-2",
+    transaction_id: booking.id,
+    position: 1,
+    amount_minor: -2000,
+    category_id: "leisure"
+  }]);
+  await rule({
+    pattern: "EXAMPLE MARKET",
+    transaction_type: "transfer",
+    transfer_account_id: "cash"
+  });
+
+  assert.equal((await applyRulesToUncorrectedTransactions()).retyped, 0);
+  await sync(db, "checking", [entry("market", "2026-09-10", -5000, "Example market")]);
+
+  const split = await stored(db, "bank:market");
+  const onCash = await db.select().from(schema.transactions).where(eq(schema.transactions.account_id, "cash"));
+
+  assert.deepEqual([split.type, split.type_rule_id, split.transfer_id], ["expense", null, null]);
+  assert.equal(onCash.length, 0);
+});
