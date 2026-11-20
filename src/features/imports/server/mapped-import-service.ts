@@ -10,6 +10,7 @@ import { categorizeEntries } from "@/features/transactions/server/categorize-ent
 import { pairTransfersInEnvironment } from "@/features/transactions/server/transfer-repository";
 import { environment } from "@/features/banking/server/environment";
 import { accountKinds } from "@/features/accounts/account-kinds";
+import { validateLiability } from "@/features/accounts/server/account-service";
 import { currencyAllows, maxCategoryChoicesPerRequest, maxTargetsPerRequest, maxAccountNameLength, maxCategoryLength, maxIdLength, maxSourceLength, normalizeText, type RowError } from "../csv-mapping";
 import { duplicateDateToleranceDays, mappedReferencePrefix, type DuplicateReason } from "./duplicate-matching";
 import { checkMappedEntries, createImportCategory, findImportOpening, findImportTarget, listCategoryNames, saveMappedEntries, type MappedEntry, type NewImportAccount, type OpeningBalance } from "./mapped-import-repository";
@@ -205,6 +206,11 @@ async function resolveTargets(importId: string, inputs: z.infer<typeof target>[]
 
       requireActiveTarget(persisted);
       const opening = input.new_account.opening ? openingBalance(importAccountId(importId, `${input.source}|opening|${input.new_account.opening.kind}`), input.new_account.opening, input.new_account.currency) : null;
+
+      // The stated balance follows the same liability rule as creating or retyping an account.
+      if (opening) {
+        validateLiability(input.new_account.kind, opening.amount);
+      }
 
       // An earlier confirmed batch of this import created the account; its stored configuration is authoritative.
       if (persisted && (persisted.currency !== input.new_account.currency || persisted.name !== input.new_account.name || !await sameOpening(importId, input.source, persisted.id, opening))) {

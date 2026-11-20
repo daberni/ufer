@@ -1633,6 +1633,39 @@ test("a new account from an import gets the type the person chose", async contex
   }, now);
 
   assert.equal((await listAccounts()).find(account => account.name === "Imported card")?.kind, "credit_card");
+
+  for (const kind of ["current", "start"] as const) {
+    await assert.rejects(importMappedRows({
+      import_id: "00000000-0000-4000-8000-000000000216",
+      rows: [mappedRow(2, "2024-05-01", "-10.00", "Shop")],
+      targets: [{
+        source: "",
+        new_account: {
+          name: "Imported loan",
+          kind: "loan",
+          currency: "EUR",
+          opening: {
+            kind,
+            amount: "500.00",
+            date: "2024-05-01"
+          }
+        }
+      }],
+      confirm: true
+    }, now), ValidationError);
+  }
+
+  assert.equal((await listAccounts()).some(account => account.name === "Imported loan"), false);
+  const loanChoice = new Map<string, TargetChoice>([["", {
+    kind: "new",
+    name: "Imported loan",
+    accountKind: "loan",
+    currency: "EUR",
+    balanceKind: "current",
+    balance: "500.00"
+  }]]);
+
+  assert.deepEqual(prepareImport([mappedRow(2, "2024-05-01", "-10.00", "Shop")], loanChoice, [], new Map(), ".").problems.map(problem => problem.field), ["balance"]);
   await assert.rejects(importMappedRows({
     import_id: "00000000-0000-4000-8000-000000000215",
     rows: [mappedRow(2, "2024-05-01", "-10.00", "Shop")],

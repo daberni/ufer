@@ -232,6 +232,10 @@ export function prepareImport(rows: MappedRow[], choices: ReadonlyMap<string, Ta
       problem("balance", "Enter the balance as a number.");
     }
 
+    if (choice.accountKind === "loan" && balance !== null && Number(balance) > 0) {
+      problem("balance", "Enter outstanding debt as a negative balance.");
+    }
+
     const balanceCurrency = splitCurrency(choice.balance.trim()).currency;
 
     // The amount is stored in the account currency, so a balance stated in another currency must not be relabelled.
