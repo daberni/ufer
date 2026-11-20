@@ -2,8 +2,8 @@ import { randomUUID } from "node:crypto";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 import { environment } from "@/features/banking/server/environment";
-import { accounts, transactions } from "@/server/database/schema";
-import type { RuleAssignment } from "@/lib/rules";
+import { accounts, categorizationRules, transactions } from "@/server/database/schema";
+import type { Rule, RuleAssignment } from "@/lib/rules";
 import { derivedTransactionType, type TransactionType } from "@/features/transactions/transaction-types";
 import { refusable, type ManualEntryResult } from "./manual-transaction-repository";
 import type { CategorizedEntry, ProviderDetails } from "./transaction-entry";
@@ -87,9 +87,9 @@ export async function setTransactionCategory(id: string, categoryId: string | nu
 
 /**
  * Returns a manual assignment to automatic categorization: the category and assigning rule come from the transaction's source text, as applying rules would assign them.
- * Resolves to undefined for a transaction outside the current environment.
+ * The rules and the transaction are read in the write transaction that stores the result. Resolves to undefined for a transaction outside the current environment.
  */
-export async function returnTransactionToRules(id: string, assign: (counterparty: string, description: string) => RuleAssignment) {
+export async function returnTransactionToRules(id: string, assign: (rules: Rule[], counterparty: string, description: string) => RuleAssignment) {
   const db = await database();
   const scopedAccounts = db.select({
     id: accounts.id
@@ -106,7 +106,8 @@ export async function returnTransactionToRules(id: string, assign: (counterparty
       return undefined;
     }
 
-    const assignment = assign(found.counterparty, found.description);
+    const rules = await tx.select().from(categorizationRules);
+    const assignment = assign(rules, found.counterparty, found.description);
     const [saved] = await tx.update(transactions).set({
       category_id: assignment.categoryId,
       category_source: "rule",

@@ -33,10 +33,8 @@ export async function updateTransactionCategory(id: string, payload: unknown) {
   return assignment;
 }
 
-async function automaticCategory(id: string) {
-  const rules = prepareRules(await listRules());
-
-  return returnTransactionToRules(id, (counterparty, description) => ruleAssignment(counterparty, description, rules));
+function automaticCategory(id: string) {
+  return returnTransactionToRules(id, (storedRules, counterparty, description) => ruleAssignment(counterparty, description, prepareRules(storedRules)));
 }
 
 async function manualCategory(id: string, categoryId: string | null) {
