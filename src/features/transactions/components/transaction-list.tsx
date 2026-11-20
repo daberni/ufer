@@ -82,7 +82,10 @@ function TransactionRow({
               <span className={styles["name-preview"]} title={subject}>{subject}</span>
             </button>
           </strong>
-          <span className={styles["description"]} title={transaction.description}>{transaction.description || "No description"}</span>
+          {/* Without a payee the description is already the row's title, so it is not repeated below. */}
+          {(transaction.counterparty || !transaction.description) && (
+            <span className={styles["description"]} title={transaction.description}>{transaction.description || "No description"}</span>
+          )}
           {transaction.counterparty || transaction.description ? (
             <details className={styles["transaction-details"]}>
               <summary aria-label={`Details for ${subject}`}>Details</summary>
