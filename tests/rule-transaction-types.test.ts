@@ -654,3 +654,56 @@ test("pairing uses the transfer account a rule applied, not one edited into the 
   assert.equal(savings.transfer_id, booking.transfer_id);
   assert.equal(deposit.transfer_id, null);
 });
+
+test("a rule's type wins over a CSV row's transfer marker on import and when applying rules, and releasing the rule restores Transfer", async context => {
+  const db = await isolatedDatabase(context);
+  const sweep = await rule({
+    pattern: "ACCOUNT SWEEP",
+    transaction_type: "expense"
+  });
+
+  await importMappedRows({
+    import_id: randomUUID(),
+    rows: [{
+      line: 2,
+      date: "2026-09-12",
+      amount: "-25.00",
+      currency: "EUR",
+      payee: "Account sweep",
+      description: "",
+      category: null,
+      source: "",
+      occurrence: 0,
+      id: "sweep",
+      transfer: true
+    }],
+    targets: [{
+      source: "",
+      account_id: "cash"
+    }],
+    confirm: true
+  });
+
+  const imported = async () => {
+    const row = await db.select().from(schema.transactions).where(eq(schema.transactions.account_id, "cash")).get();
+
+    assert.ok(row);
+
+    return row;
+  };
+
+  assert.deepEqual([(await imported()).type, (await imported()).type_rule_id, (await imported()).transfer_detected], ["expense", sweep.id, 1]);
+  assert.equal((await applyRulesToUncorrectedTransactions()).retyped, 0);
+  assert.equal((await imported()).type, "expense");
+
+  await updateRuleDetails(sweep.id, {
+    name: sweep.name,
+    pattern: sweep.pattern,
+    mode: sweep.mode,
+    category_id: sweep.category_id,
+    transaction_type: ""
+  });
+  await applyRulesToUncorrectedTransactions();
+
+  assert.deepEqual([(await imported()).type, (await imported()).type_rule_id], ["transfer", null]);
+});

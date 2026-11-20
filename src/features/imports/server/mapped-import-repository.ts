@@ -179,11 +179,6 @@ export async function checkMappedEntries(accountId: string, entries: MappedEntry
  * Classifies rows exactly like `checkMappedEntries`, but inside the write transaction, and inserts the new ones, so a bank sync between check and confirmation cannot cause duplicates and both report the same result on unchanged data.
  * A row whose reference the account already holds is left untouched, so confirming again changes nothing and existing categories survive. Inserting bookings never writes a bank-linked account's provider balance.
  */
-// A row the file marks as a transfer stays one; a rule that also sets Transfer keeps deciding, so its account still constrains pairing.
-function fileTransfer(entry: MappedEntry) {
-  return entry.transfer && entry.ruleType !== "transfer";
-}
-
 export async function saveMappedEntries(accountId: string, entries: MappedEntry[], newAccount: NewImportAccount | null, consumed: ReadonlySet<string> = new Set(), opening: OpeningBalance | null = null) {
   const db = await database();
 
@@ -219,9 +214,10 @@ export async function saveMappedEntries(accountId: string, entries: MappedEntry[
         category_id: entry.categoryId,
         category_source: entry.categorySource,
         category_rule_id: entry.categoryRuleId,
-        type: fileTransfer(entry) ? "transfer" as const : entry.ruleType ?? derivedTransactionType(entry.amount),
-        type_rule_id: fileTransfer(entry) ? null : entry.typeRuleId,
-        type_transfer_account_id: fileTransfer(entry) ? null : entry.typeTransferAccountId,
+        // A rule's type wins over the file's transfer marker, as on syncs; the marker restores Transfer when the rule stops deciding.
+        type: entry.ruleType ?? derivedTransactionType(entry.amount, entry.transfer),
+        type_rule_id: entry.typeRuleId,
+        type_transfer_account_id: entry.typeTransferAccountId,
         transfer_detected: entry.transfer ? 1 : 0
       }));
       const rows = await tx.insert(transactions).values(values).onConflictDoNothing({
