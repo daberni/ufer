@@ -4,7 +4,7 @@ import { z } from "zod";
 import { minorUnits } from "@/lib/money";
 import { prepareRules, ruleAssignment, type RuleText } from "@/lib/rules";
 import { today, validDate } from "@/lib/time";
-import { findManualAccount } from "@/features/accounts/server/account-repository";
+import { requireWritableManualAccount } from "@/features/accounts/server/account-service";
 import { categoryExists } from "@/features/categorization/server/category-repository";
 import { listRules } from "@/features/categorization/server/rule-repository";
 import { transactionTypes } from "@/features/transactions/transaction-types";
@@ -25,6 +25,10 @@ const categoryChoice = z.union([z.object({
 export async function updateTransactionCategory(id: string, payload: unknown) {
   const choice = categoryChoice.parse(payload);
   const assignment = "automatic" in choice ? await automaticCategory(id) : await manualCategory(id, choice.category_id);
+
+  if (assignment === "archived_account") {
+    throw new HttpError(409, "This account is archived. Restore the account first.");
+  }
 
   if (!assignment) {
     throw new HttpError(404, "Transaction not found.");
@@ -63,7 +67,7 @@ const detailsInput = typeInput.extend({
   description: z.string().trim().max(2000).optional()
 });
 
-const typeFailures: Record<Exclude<ManualEntryResult, "saved" | "not_found" | "hidden">, string> = {
+const typeFailures: Record<Exclude<ManualEntryResult, "saved" | "not_found" | "hidden" | "archived_account">, string> = {
   manual_account_only: "Opening balances and adjustments are only available for manual accounts.",
   counterpart_not_found: "The selected booking does not exist.",
   account_not_found: "Choose one of your manual accounts.",
@@ -80,6 +84,10 @@ const typeFailures: Record<Exclude<ManualEntryResult, "saved" | "not_found" | "h
 function requireSaved(result: ManualEntryResult) {
   if (result === "not_found") {
     throw new HttpError(404, "Transaction not found.");
+  }
+
+  if (result === "archived_account") {
+    throw new HttpError(409, "This account is archived. Restore the account first.");
   }
 
   if (result === "hidden") {
@@ -167,12 +175,7 @@ async function automaticAssignment(entry: ReturnType<typeof validateEntry>, curr
 /** Enters a manual booking: an omitted category applies rules; an explicit category or null records a manual assignment. */
 export async function enterManualTransaction(accountId: string, payload: unknown, now = Temporal.Now.instant()) {
   const input = newEntryInput.parse(payload);
-  const account = await findManualAccount(accountId);
-
-  if (!account) {
-    throw new HttpError(404, "Manual account not found.");
-  }
-
+  const account = await requireWritableManualAccount(accountId, "Manual account not found.");
   const entry = validateEntry(input, account.currency, now);
 
   if (input.category_id && !(await categoryExists(input.category_id))) {
