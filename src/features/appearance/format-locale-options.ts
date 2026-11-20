@@ -68,6 +68,7 @@ export function formatLocaleOptions(requestLanguages: readonly string[]): Format
 export function formatLocaleExample(locale: string) {
   return {
     date: new Date(Date.UTC(2026, 10, 20)).toLocaleDateString(locale, {
+      calendar: "gregory",
       day: "numeric",
       month: "short",
       year: "numeric",

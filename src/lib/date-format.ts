@@ -2,6 +2,8 @@ import { Temporal } from "temporal-polyfill";
 import type { Period } from "./period";
 import { today } from "./time";
 
+// Ufer's data and navigation use ISO dates, so every date is shown in the Gregorian calendar; the locale still decides month names, numerals, order and hour cycle.
+
 export type DateDisplay = {
   dateTime: string;
   label: string;
@@ -14,6 +16,7 @@ export function describeDate(value: Temporal.PlainDate | Temporal.ZonedDateTime,
   // Calendar dates follow the product year; timestamps compare years in the same zone used to display them.
   const currentYear = value instanceof Temporal.PlainDate ? today(now).year : now.toZonedDateTimeISO(value.timeZoneId).year;
   const label = value.toLocaleString(locale, {
+    calendar: "gregory",
     day: "numeric",
     month: "short",
     year: value.year === currentYear ? undefined : "numeric"
@@ -24,6 +27,7 @@ export function describeDate(value: Temporal.PlainDate | Temporal.ZonedDateTime,
       dateTime: value.toString(),
       label,
       title: value.toLocaleString(locale, {
+        calendar: "gregory",
         dateStyle: "full"
       })
     };
@@ -33,6 +37,7 @@ export function describeDate(value: Temporal.PlainDate | Temporal.ZonedDateTime,
     dateTime: value.toInstant().toString(),
     label,
     title: value.toLocaleString(locale, {
+      calendar: "gregory",
       dateStyle: "long",
       timeStyle: "long"
     })
@@ -42,6 +47,7 @@ export function describeDate(value: Temporal.PlainDate | Temporal.ZonedDateTime,
 /** A calendar day with its year, for values that may lie in another year, such as a balance history. */
 export function dateWithYear(value: Temporal.PlainDate, locale: string) {
   return value.toLocaleString(locale, {
+    calendar: "gregory",
     day: "numeric",
     month: "short",
     year: "numeric"
@@ -56,9 +62,11 @@ export function describeMonth(month: Temporal.PlainYearMonth, locale: string) {
 
   return {
     label: firstDay.toLocaleString(locale, {
+      calendar: "gregory",
       month: "short"
     }),
     title: firstDay.toLocaleString(locale, {
+      calendar: "gregory",
       month: "long",
       year: "numeric"
     })
@@ -72,6 +80,7 @@ export function periodLabel(period: Period, locale: string) {
 // Month and year are formatted together, so the locale decides their order, spacing and numerals.
 function monthFormat(locale: string) {
   return new Intl.DateTimeFormat(locale, {
+    calendar: "gregory",
     month: "short",
     year: "numeric",
     timeZone: "UTC"
@@ -85,6 +94,7 @@ function monthStart(month: Temporal.PlainYearMonth) {
 /** A calendar year in the locale's numerals and style, e.g. "2026" in English or "2026年" in Japanese. */
 export function formatYear(year: number, locale: string) {
   return new Intl.DateTimeFormat(locale, {
+    calendar: "gregory",
     year: "numeric",
     timeZone: "UTC"
   }).format(new Date(Date.UTC(year, 0, 1)));

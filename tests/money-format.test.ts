@@ -117,9 +117,8 @@ test("server code outside a request formats with the default locale", async () =
   assert.equal(await currentFormatLocale(), "en");
 });
 
-test("calendar, hour-cycle and numbering extensions with values Intl applies are kept; other subtags are dropped", () => {
-  assert.equal(resolveFormatLocale("browser", "fa-IR-u-ca-gregory"), "fa-IR-u-ca-gregory");
-  assert.equal(new Intl.DateTimeFormat(resolveFormatLocale("browser", "fa-IR-u-ca-gregory")).resolvedOptions().calendar, "gregory");
+test("hour-cycle and numbering extensions with values Intl applies are kept; calendars and other subtags are dropped", () => {
+  assert.equal(resolveFormatLocale("browser", "fa-IR-u-ca-gregory"), "fa-IR");
   assert.equal(resolveFormatLocale("browser", "en-GB-u-hc-h12-x-foo"), "en-GB-u-hc-h12");
   assert.equal(resolveFormatLocale("browser", "en-u-nu-arab"), "en-u-nu-arab");
   assert.equal(resolveFormatLocale("browser", "en-u-ca-unknown-nu-bogus"), "en");

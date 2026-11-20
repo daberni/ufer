@@ -84,3 +84,15 @@ test("years use the locale's numerals and style", () => {
   assert.equal(formatYear(2026, "ja"), "2026年");
   assert.equal(formatYear(2026, "ar-EG"), "٢٠٢٦");
 });
+
+test("dates are always Gregorian, also in locales with another default calendar, while numerals stay localized", () => {
+  const sameYear = describeDate(Temporal.PlainDate.from("2026-03-01"), "fa-IR", yearReference);
+  const otherYear = describeDate(Temporal.PlainDate.from("2025-12-31"), "fa-IR", yearReference);
+
+  assert.doesNotMatch(sameYear.label, /[۰-۹]{4}/);
+  assert.equal(sameYear.label, "۱ مارس");
+  assert.match(otherYear.label, /۲۰۲۵/);
+  assert.match(shortMonthWithYear(Temporal.PlainYearMonth.from("2025-12"), "fa-IR"), /۲۰۲۵/);
+  assert.equal(formatYear(2026, "fa-IR"), "۲۰۲۶");
+  assert.equal(formatYear(2026, "th-TH"), "2026");
+});
