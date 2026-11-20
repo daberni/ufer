@@ -13,6 +13,8 @@ const manual = sql`${accounts.provider}='manual'`;
 const balance = sql<number | null>`CASE WHEN ${manual} THEN (SELECT SUM(${transactions.amount_minor}) FROM ${transactions} WHERE ${transactions.account_id}=${accounts.id} AND ${transactions.suppressed_at} IS NULL) ELSE ${accounts.balance_minor} END`;
 const balanceDate = sql<string | null>`CASE WHEN ${manual} THEN (SELECT MAX(${transactions.booking_date}) FROM ${transactions} WHERE ${transactions.account_id}=${accounts.id} AND ${transactions.suppressed_at} IS NULL) ELSE ${accounts.balance_date} END`;
 
+const lastBookingDate = sql<string | null>`(SELECT MAX(${transactions.booking_date}) FROM ${transactions} WHERE ${transactions.account_id}=${accounts.id} AND ${transactions.suppressed_at} IS NULL)`;
+
 const kindOrder = sql`CASE ${accounts.kind} WHEN 'checking' THEN 0 WHEN 'savings' THEN 1 WHEN 'investment' THEN 2 ELSE 3 END`;
 
 /** Accounts of the current banking environment with their current balance and, for bank accounts, the authorization expiry. */
@@ -28,6 +30,7 @@ export async function listAccounts() {
     currency: accounts.currency,
     balance_minor: balance,
     balance_date: balanceDate,
+    last_booking_date: lastBookingDate,
     provider: accounts.provider,
     requisition_id: accounts.requisition_id,
     last_synced_at: accounts.last_synced_at,

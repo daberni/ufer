@@ -42,6 +42,7 @@ export function WealthSummary({
   const netWorthValue = valueMask(netWorth.status);
   const currency = summary.currency;
   const points = historyArea.status === "ready" && historyArea.data.currency === currency ? historyArea.data.points : [];
+  const historyPending = historyArea.status === "pending" || netWorth.status !== "ready";
   const change = netWorth.status === "ready" && hasAccounts ? historyChange(points) : null;
 
   return (
@@ -58,6 +59,8 @@ export function WealthSummary({
       <div className={styles["headline"]}>
         <div className={clsx(styles["wealth-number"], netWorthValue)}>{hasAccounts ? money(summary.netWorth, currency) : "—"}</div>
         {change && <span className={styles["change"]}>{change.amount > 0 ? "+" : ""}{money(change.amount, currency)} since {change.since}</span>}
+        {/* Holds the change's place, which wraps below the figure on a phone, until the history arrives. */}
+        {!change && hasAccounts && historyPending && <span className={clsx(styles["change"], ui["skeleton"])}>+€0,000.00 since Jan 2026</span>}
       </div>
       {summary.unvalued > 0 && <p>{summary.unvalued} without a balance</p>}
       <div className={clsx(styles["allocation-bar"], netWorthValue)} aria-hidden="true">
@@ -97,7 +100,8 @@ export function WealthSummary({
           Loans <span className={netWorthValue}>{money(summary.liabilities, currency)}</span>
         </div>
       )}
-      {hasAccounts && <HistoryCurve points={points} />}
+      {/* The curve's place is held until the history arrives, so the card and the accounts panel beside it keep their height. */}
+      {hasAccounts && (historyArea.status === "pending" ? <div className={styles["history-curve"]} aria-hidden="true" /> : <HistoryCurve points={points} />)}
       {netWorthArea.status === "pending" && netWorthArea.failure && <FailureCover failure={netWorthArea.failure} subject="Your net worth" />}
     </section>
   );
