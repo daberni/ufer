@@ -83,3 +83,8 @@ export type TransactionPage = {
   transactionCount: number;
   transactions: Transaction[];
 };
+
+/** Existing payees suggested for a typed payee, best first. */
+export type PayeeSuggestions = {
+  payees: string[];
+};

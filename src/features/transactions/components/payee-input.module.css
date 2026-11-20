@@ -1,0 +1,51 @@
+/* The suggestions are a top-layer popover anchored to the field, so a dialog neither grows nor clips them. */
+.popup {
+  position: fixed;
+  inset: auto;
+  width: max-content;
+  margin: 0;
+  padding: var(--space-1);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  color: var(--ink);
+  box-shadow: var(--shadow-lg);
+}
+.popup:popover-open {
+  display: flex;
+  flex-direction: column;
+}
+.listbox {
+  flex: 0 1 auto;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.option {
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+  padding: var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.option[data-active] {
+  background: var(--soft);
+  box-shadow: inset 0 0 0 1px var(--border-strong);
+}
+@media (--mobile) {
+  .option {
+    font-size: var(--text-md);
+  }
+}
+@media (any-pointer: coarse) {
+  .option {
+    min-height: 44px;
+  }
+}

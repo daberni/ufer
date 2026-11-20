@@ -21,6 +21,7 @@ import { useTransferOptions } from "@/features/transactions/queries";
 import { useTransactionCategory } from "@/features/transactions/use-transaction-category";
 import type { Transaction, TransferBooking, TransferOptions } from "@/features/transactions/types";
 import { EntryFields, suggestedType } from "./entry-fields";
+import { PayeeInput } from "./payee-input";
 
 type Props = {
   transaction: Transaction;
@@ -489,6 +490,7 @@ function ImportedTextFields({ transaction }: {
         maxLength={500}
         initial={transaction.counterparty}
         source={transaction.source_counterparty}
+        suggestPayees
       />
       <OverridableText
         label="Description"
@@ -506,13 +508,16 @@ function OverridableText({
   name,
   maxLength,
   initial,
-  source
+  source,
+  suggestPayees = false
 }: {
   label: string;
   name: string;
   maxLength: number;
   initial: string;
   source: string;
+  /** Suggests existing payees while typing. */
+  suggestPayees?: boolean;
 }) {
   const hintId = useId();
   const input = useRef<HTMLInputElement>(null);
@@ -520,17 +525,29 @@ function OverridableText({
 
   return (
     <div className={styles["overridable"]}>
-      <label>
-        {label}
-        <input
-          ref={input}
+      {suggestPayees ? (
+        <PayeeInput
+          label={label}
           name={name}
           maxLength={maxLength}
           defaultValue={initial}
+          inputRef={input}
           aria-describedby={overridden ? hintId : undefined}
-          onChange={event => setOverridden(event.target.value.trim() !== source.trim())}
+          onValueChange={value => setOverridden(value.trim() !== source.trim())}
         />
-      </label>
+      ) : (
+        <label>
+          {label}
+          <input
+            ref={input}
+            name={name}
+            maxLength={maxLength}
+            defaultValue={initial}
+            aria-describedby={overridden ? hintId : undefined}
+            onChange={event => setOverridden(event.target.value.trim() !== source.trim())}
+          />
+        </label>
+      )}
       {overridden && (
         <p id={hintId} className={styles["source-text"]}>
           <span>Original: {source || "empty"}</span>
