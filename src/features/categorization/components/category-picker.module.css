@@ -69,6 +69,9 @@
   .assignment-action:disabled {
     opacity: calc(var(--inline-select-indicator-opacity, 0) * 0.5);
   }
+  .picker:focus-within .assignment-action:disabled {
+    opacity: 0.5;
+  }
 }
 .assignment-icon {
   width: 16px;
