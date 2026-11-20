@@ -46,7 +46,6 @@ export function WealthSummary({
 
   return (
     <section className={styles["wealth-card"]} aria-busy={netWorth.status === "loading"}>
-      {hasAccounts && <HistoryCurve points={points} />}
       <div className={styles["wealth-card-top"]}>
         <span>
           <span className={styles["wealth-mark"]}>
@@ -56,11 +55,11 @@ export function WealthSummary({
         </span>
         <span className={clsx(styles["small-tag"], netWorthValue)}>{currency}</span>
       </div>
-      <div className={clsx(styles["wealth-number"], netWorthValue)}>{hasAccounts ? money(summary.netWorth, currency) : "—"}</div>
-      <p>
-        {change ? `${change.amount > 0 ? "+" : ""}${money(change.amount, currency)} since ${change.since}` : "Latest known balances"}
-        {summary.unvalued > 0 ? ` · ${summary.unvalued} without a balance` : ""}
-      </p>
+      <div className={styles["headline"]}>
+        <div className={clsx(styles["wealth-number"], netWorthValue)}>{hasAccounts ? money(summary.netWorth, currency) : "—"}</div>
+        {change && <span className={styles["change"]}>{change.amount > 0 ? "+" : ""}{money(change.amount, currency)} since {change.since}</span>}
+      </div>
+      {summary.unvalued > 0 && <p>{summary.unvalued} without a balance</p>}
       <div className={clsx(styles["allocation-bar"], netWorthValue)} aria-hidden="true">
         <span
           style={{
@@ -98,6 +97,7 @@ export function WealthSummary({
           Loans <span className={netWorthValue}>{money(summary.liabilities, currency)}</span>
         </div>
       )}
+      {hasAccounts && <HistoryCurve points={points} />}
       {netWorthArea.status === "pending" && netWorthArea.failure && <FailureCover failure={netWorthArea.failure} subject="Your net worth" />}
     </section>
   );

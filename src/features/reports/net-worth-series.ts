@@ -43,11 +43,9 @@ function sampleDates(endDate: string) {
   return dates;
 }
 
-// Before an account's first known balance, its earliest balance stands in, so the sum does not jump when the account's history begins.
+// An account counts only from its first known balance; earlier months do not assume it already existed.
 function balanceOn(account: AccountBalanceSeries, date: string) {
-  const known = account.balances.filter(balance => balance.date <= date).at(-1) ?? account.balances[0];
-
-  return known?.amount_minor ?? account.current_minor ?? 0;
+  return account.balances.filter(balance => balance.date <= date).at(-1)?.amount_minor ?? 0;
 }
 
 /** Sums the accounts in `currency` at each month end; the final point uses current balances so it matches the net-worth figure. */

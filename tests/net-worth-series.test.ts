@@ -40,7 +40,7 @@ test("sums the accounts at each month end and ends at the current net worth", ()
   assert.deepEqual(series[11], [endDate, 150_00 - 60_00]);
 });
 
-test("carries an account's earliest balance backwards so the sum does not jump when it appears", () => {
+test("counts an account only from its first known balance", () => {
   const existing = {
     currency: "EUR",
     current_minor: 100_00,
@@ -59,7 +59,9 @@ test("carries an account's earliest balance backwards so the sum does not jump w
   };
   const series = amounts([existing, lateDepot]);
 
-  assert.ok(series.every(([, amount]) => amount === 600_00));
+  assert.deepEqual(series[7], ["2026-07-31", 100_00]);
+  assert.deepEqual(series[8], ["2026-08-31", 600_00]);
+  assert.deepEqual(series[11], [endDate, 600_00]);
 });
 
 test("counts only accounts in the selected currency", () => {
@@ -77,7 +79,9 @@ test("counts only accounts in the selected currency", () => {
     }]
   };
 
-  assert.ok(amounts([euro, dollar]).every(([, amount]) => amount === 10_00));
-  assert.ok(amounts([euro, dollar], "USD").slice(0, 2).every(([, amount]) => amount === 50_00));
+  assert.deepEqual(amounts([euro, dollar]).at(-1), [endDate, 10_00]);
+  assert.ok(amounts([euro, dollar]).slice(0, -1).every(([, amount]) => amount === 0));
+  assert.deepEqual(amounts([euro, dollar], "USD")[1], ["2026-01-31", 50_00]);
+  assert.deepEqual(amounts([euro, dollar], "USD").at(-1), [endDate, 99_00]);
   assert.deepEqual(amounts([euro], "CHF"), []);
 });

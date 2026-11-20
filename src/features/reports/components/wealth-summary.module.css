@@ -11,17 +11,37 @@
   );
   border-radius: var(--radius-lg);
   padding: var(--space-6);
+  --card-padding-x: var(--space-6);
+  --card-padding-bottom: var(--space-6);
   position: relative;
   overflow: hidden;
-  isolation: isolate;
+  display: flex;
+  flex-direction: column;
 }
+/* Below all card content and bleeding to its edges, so no text crosses the curve. */
 .history-curve {
-  position: absolute;
-  inset: auto 0 0;
-  width: 100%;
-  height: 45%;
-  z-index: -1;
+  display: block;
+  flex: 1 0 64px;
+  width: calc(100% + 2 * var(--card-padding-x));
+  margin: var(--space-4) calc(-1 * var(--card-padding-x))
+    calc(-1 * var(--card-padding-bottom));
   pointer-events: none;
+}
+.headline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: var(--space-3);
+  row-gap: var(--space-1);
+  margin-top: var(--space-6);
+  position: relative;
+  z-index: var(--layer-raised);
+}
+.change {
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 .history-area {
   fill: color-mix(in srgb, var(--chart-invested) 10%, transparent);
@@ -78,10 +98,7 @@
   font-size: var(--text-4xl);
   font-weight: 500;
   letter-spacing: -2px;
-  margin-top: var(--space-6);
   line-height: 1.1;
-  position: relative;
-  z-index: var(--layer-raised);
   font-variant-numeric: tabular-nums;
 }
 .wealth-card > p {
@@ -143,6 +160,8 @@
 }
 @media (--wide) {
   .wealth-card {
+    --card-padding-x: var(--space-8);
+    --card-padding-bottom: var(--space-8);
     padding: var(--space-8);
   }
 }
@@ -161,6 +180,7 @@
 }
 @media (--mobile) {
   .wealth-card {
+    --card-padding-x: var(--space-4);
     padding: var(--space-6) var(--space-4);
     min-width: 0;
   }
