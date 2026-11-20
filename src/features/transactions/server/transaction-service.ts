@@ -2,7 +2,7 @@ import { Temporal } from "temporal-polyfill";
 import { HttpError, ValidationError } from "@/lib/errors";
 import { z } from "zod";
 import { minorUnits } from "@/lib/money";
-import { prepareRules, ruleAssignment, type RuleText } from "@/lib/rules";
+import { prepareRules, ruleAssignment, type Rule, type RuleText } from "@/lib/rules";
 import { today, validDate } from "@/lib/time";
 import { requireWritableManualAccount } from "@/features/accounts/server/account-service";
 import { categoryExists } from "@/features/categorization/server/category-repository";
@@ -62,10 +62,16 @@ const transferTarget = z.union([z.object({
   account_id: z.string().min(1)
 }).strict()]).nullable();
 
+// remove_split removes a split in the same write as the details, so the booking can take a type a split refuses and a rejected save keeps the split.
 const typeInput = z.object({
   type: z.enum(transactionTypes),
-  transfer: transferTarget.optional()
+  transfer: transferTarget.optional(),
+  remove_split: z.literal(true).optional()
 });
+
+function splitRemoval(input: z.infer<typeof typeInput>) {
+  return input.remove_split ? (storedRules: Rule[], text: RuleText) => ruleAssignment(text, prepareRules(storedRules)) : undefined;
+}
 
 // Omitted text keeps a booking's current payee or description.
 const detailsInput = typeInput.extend({
@@ -126,10 +132,12 @@ export async function updateTransactionDetails(id: string, payload: unknown) {
     throw new ValidationError("Only a transfer has a target account.");
   }
 
-  requireSaved(await saveTransactionDetails(id, input.type, target(input.transfer), {
+  const text = {
     counterparty: input.counterparty,
     description: input.description
-  }));
+  };
+
+  requireSaved(await saveTransactionDetails(id, input.type, target(input.transfer), text, splitRemoval(input)));
 
   return {
     ok: true
@@ -227,7 +235,7 @@ export async function editManualTransaction(id: string, payload: unknown, now = 
   const rules = prepareRules(await listRules());
   const categoryFor = (text: RuleText) => ruleAssignment(text, rules);
 
-  requireSaved(await updateManualTransaction(id, entry, categoryFor));
+  requireSaved(await updateManualTransaction(id, entry, categoryFor, splitRemoval(input)));
 
   return {
     ok: true

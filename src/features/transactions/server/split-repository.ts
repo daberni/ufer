@@ -113,11 +113,7 @@ export async function removeSplit(id: string, assign: (rules: Rule[], text: Rule
 
   return db.transaction(async tx => {
     const found = await tx.select({
-      account_id: transactions.account_id,
-      counterparty: transactions.counterparty,
-      description: transactions.description,
-      counterparty_override: transactions.counterparty_override,
-      description_override: transactions.description_override
+      account_id: transactions.account_id
     }).from(transactions).where(scope).get();
 
     if (!found) {
@@ -126,27 +122,43 @@ export async function removeSplit(id: string, assign: (rules: Rule[], text: Rule
 
     await assertWritableAccount(tx, found.account_id);
 
-    const removed = await tx.delete(transactionSplits).where(eq(transactionSplits.transaction_id, id));
-
-    if (removed.rowsAffected > 0) {
-      const rules = await tx.select().from(categorizationRules);
-      const assignment = assign(rules, found);
-
-      await tx.update(transactions).set({
-        category_id: assignment.categoryId,
-        category_source: "rule",
-        category_rule_id: assignment.ruleId
-      }).where(eq(transactions.id, id));
-      // Syncs keep a split booking's type, so an automatic, unlinked one follows its current amount again. Deliveries' transfer signal is not stored, so only the sign is reconciled.
-      await tx.update(transactions).set({
-        type: sql`CASE WHEN ${transactions.amount_minor}>0 THEN 'income' ELSE 'expense' END`
-      }).where(and(eq(transactions.id, id), eq(transactions.type_source, "auto"), isNull(transactions.transfer_id), inArray(transactions.type, ["income", "expense"])));
-    }
+    await dissolveSplit(tx, id, assign);
 
     return {
       ok: true
     };
   });
+}
+
+/** Removes a booking's parts inside the caller's write transaction and returns it to the category and rule the stored rules assign its text; an automatic, unlinked income or expense follows its current sign again. A booking without parts is unchanged. */
+export async function dissolveSplit(tx: DatabaseTransaction, id: string, assign: (rules: Rule[], text: RuleText) => RuleAssignment) {
+  const removed = await tx.delete(transactionSplits).where(eq(transactionSplits.transaction_id, id));
+
+  if (removed.rowsAffected === 0) {
+    return;
+  }
+
+  const text = await tx.select({
+    counterparty: transactions.counterparty,
+    description: transactions.description,
+    counterparty_override: transactions.counterparty_override,
+    description_override: transactions.description_override
+  }).from(transactions).where(eq(transactions.id, id)).get();
+  const rules = await tx.select().from(categorizationRules);
+  const assignment = assign(rules, text ?? {
+    counterparty: "",
+    description: ""
+  });
+
+  await tx.update(transactions).set({
+    category_id: assignment.categoryId,
+    category_source: "rule",
+    category_rule_id: assignment.ruleId
+  }).where(eq(transactions.id, id));
+  // Syncs keep a split booking's type, so an automatic, unlinked one follows its current amount again. Deliveries' transfer signal is not stored, so only the sign is reconciled.
+  await tx.update(transactions).set({
+    type: sql`CASE WHEN ${transactions.amount_minor}>0 THEN 'income' ELSE 'expense' END`
+  }).where(and(eq(transactions.id, id), eq(transactions.type_source, "auto"), isNull(transactions.transfer_id), inArray(transactions.type, ["income", "expense"])));
 }
 
 /** Whether saving this type would leave a split booking with a type that is not split: only income and expenses count by category. Read inside the write that saves the type. */

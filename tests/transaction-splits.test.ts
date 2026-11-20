@@ -617,3 +617,26 @@ test("removing a split returns an automatic type to the sign a sync changed mean
   await unsplitTransaction("market");
   assert.equal((await marketRow())?.type, "expense");
 });
+
+test("saving details that remove a split is one write: a refused type keeps the split, an accepted one removes it", async context => {
+  const db = await seed(context);
+  const parts = async () => (await db.select().from(schema.transactionSplits).where(eq(schema.transactionSplits.transaction_id, "market"))).length;
+
+  await splitTransaction("market", marketSplit());
+
+  // Opening balances are refused on a synced account, after the split removal has already run in the same transaction.
+  await assert.rejects(updateTransactionDetails("market", {
+    type: "opening_balance",
+    remove_split: true
+  }), error => error instanceof ValidationError);
+  assert.equal(await parts(), 2);
+  assert.equal((await marketRow())?.type, "expense");
+
+  await updateTransactionDetails("market", {
+    type: "transfer",
+    remove_split: true
+  });
+  assert.equal(await parts(), 0);
+  assert.equal((await marketRow())?.type, "transfer");
+  assert.equal((await marketRow())?.split, null);
+});

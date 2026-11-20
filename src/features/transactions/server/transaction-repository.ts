@@ -6,7 +6,7 @@ import { accounts, categorizationRules, transactions } from "@/server/database/s
 import type { Rule, RuleAssignment, RuleText } from "@/lib/rules";
 import { derivedTransactionType, type TransactionType } from "@/features/transactions/transaction-types";
 import { refusable, type ManualEntryResult } from "./manual-transaction-repository";
-import { dropSplitsOnCurrencyChange, notSplit, splitRefusesType } from "./split-repository";
+import { dissolveSplit, dropSplitsOnCurrencyChange, notSplit, splitRefusesType } from "./split-repository";
 import type { CategorizedEntry, Entry, ProviderDetails } from "./transaction-entry";
 import { applyTransactionType, dissolveLink, enteredInUfer, findSubject, followImportedCorrections, releaseOutdatedLinks, touchesArchivedAccount, type TransferTarget } from "./transfer-repository";
 
@@ -189,7 +189,13 @@ function overrideOf(value: string | undefined, source: string) {
  * Saves a booking's type, transfer target and, for an imported booking, payee and description overrides in one transaction.
  * The source's own text stays in `counterparty` and `description`, which syncs and imports keep refreshing; the date, amount and provider identity stay the source's.
  */
-export async function saveTransactionDetails(id: string, type: TransactionType, target: TransferTarget | undefined, text: TextOverrides): Promise<ManualEntryResult> {
+export async function saveTransactionDetails(
+  id: string,
+  type: TransactionType,
+  target: TransferTarget | undefined,
+  text: TextOverrides,
+  dropSplit?: (rules: Rule[], text: RuleText) => RuleAssignment
+): Promise<ManualEntryResult> {
   return refusable(async tx => {
     const subject = await findSubject(tx, id);
 
@@ -199,6 +205,11 @@ export async function saveTransactionDetails(id: string, type: TransactionType, 
 
     if (await touchesArchivedAccount(tx, subject)) {
       return "archived_account";
+    }
+
+    // Removing the split in the same write transaction lets it take a type a split booking refuses; a refused save keeps the split.
+    if (dropSplit) {
+      await dissolveSplit(tx, id, dropSplit);
     }
 
     if (await splitRefusesType(tx, id, type)) {

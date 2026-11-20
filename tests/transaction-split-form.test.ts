@@ -188,7 +188,7 @@ test("cancelling a split returns to the category, and a split that was not chang
   assert.equal(requests("transactions/out/split").length, 0);
 });
 
-test("removing a stored split deletes it after the details and returns to the category picker", async context => {
+test("removing a stored split sends the removal with the details and returns to the category picker", async context => {
   const {
     requests,
     screen,
@@ -224,16 +224,14 @@ test("removing a stored split deletes it after the details and returns to the ca
     }));
   });
   await wait(0);
-  await respond(requests("transactions/out/details")[0], Response.json({}));
-  await wait(0);
+  const details = requests("transactions/out/details")[0];
 
-  const removal = requests("transactions/out/split")[0];
-
-  assert.equal(removal?.method, "DELETE");
-  await respond(removal, Response.json({
-    ok: true
-  }));
+  assert.equal((details?.body as {
+    remove_split?: boolean
+  }).remove_split, true);
+  await respond(details, Response.json({}));
   await wait(0);
+  assert.equal(requests("transactions/out/split").length, 0);
   assert.deepEqual(closed, [true]);
 });
 
@@ -285,7 +283,7 @@ test("a split of a booking entered in Ufer follows the amount being edited in th
   }) as HTMLButtonElement).disabled, true);
 });
 
-test("removing a stored split and choosing a type it does not allow removes the split before saving the type", async context => {
+test("removing a stored split and choosing a type it does not allow removes the split in the same request as the type", async context => {
   const {
     requests,
     screen,
@@ -326,23 +324,14 @@ test("removing a stored split and choosing a type it does not allow removes the 
   });
   await wait(0);
 
-  assert.equal(requests("transactions/out/details").length, 0);
-
-  const removal = requests("transactions/out/split")[0];
-
-  assert.equal(removal?.method, "DELETE");
-  await respond(removal, Response.json({
-    ok: true
-  }));
-  await wait(0);
-
   const details = requests("transactions/out/details")[0];
 
-  assert.equal((details?.body as {
-    type: string
-  }).type, "adjustment");
+  assert.deepEqual(details?.body, {
+    type: "adjustment",
+    remove_split: true
+  });
   await respond(details, Response.json({}));
   await wait(0);
-  assert.equal(requests("transactions/out/split").length, 1);
+  assert.equal(requests("transactions/out/split").length, 0);
   assert.deepEqual(closed, [true]);
 });
