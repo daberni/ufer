@@ -1,10 +1,10 @@
-import { count, eq, inArray, sql } from "drizzle-orm";
+import { count, eq, inArray, or, sql } from "drizzle-orm";
 import type { InStatement } from "@libsql/client";
 import { sameCategoryName } from "@/lib/category-name";
 import type { CategoryIconKey } from "@/features/categorization/category-icons";
 import type { ColoredCategory } from "@/features/categorization/category-color-suggestions";
 import { database } from "@/server/database/connection";
-import { categories, categorizationRules, transactions } from "@/server/database/schema";
+import { categories, categorizationRules, transactionSplits, transactions } from "@/server/database/schema";
 
 export type CategoryDetails = {
   name: string;
@@ -100,7 +100,9 @@ export async function readCategoryUsage(id: string): Promise<CategoryUsage | nul
     db.select({
       total: count(),
       manual: sql<number>`COALESCE(SUM(${transactions.category_source}='manual'),0)`
-    }).from(transactions).where(eq(transactions.category_id, id)).get(),
+    }).from(transactions).where(or(eq(transactions.category_id, id), inArray(transactions.id, db.select({
+      id: transactionSplits.transaction_id
+    }).from(transactionSplits).where(eq(transactionSplits.category_id, id))))).get(),
     db.select({
       total: count()
     }).from(categorizationRules).where(eq(categorizationRules.category_id, id)).get()
@@ -162,9 +164,21 @@ export async function deleteCategory(id: string, deletion: CategoryDeletion): Pr
       }).where(inArray(transactions.category_rule_id, deletedRules));
     }
 
-    const moved = await tx.update(transactions).set({
+    // A split booking keeps no category of its own, so its parts count it once alongside the bookings in the category.
+    const affected = await tx.select({
+      count: count()
+    }).from(transactions).where(or(eq(transactions.category_id, id), inArray(transactions.id, tx.selectDistinct({
+      id: transactionSplits.transaction_id
+    }).from(transactionSplits).where(eq(transactionSplits.category_id, id))))).get();
+
+    await tx.update(transactions).set({
       category_id: deletion.replacementId
     }).where(eq(transactions.category_id, id));
+
+    // Split parts follow the replacement too; without one, the foreign key leaves them uncategorized.
+    await tx.update(transactionSplits).set({
+      category_id: deletion.replacementId
+    }).where(eq(transactionSplits.category_id, id));
     const rules = deletion.replacementId === null ? await tx.delete(categorizationRules).where(eq(categorizationRules.category_id, id)) : await tx.update(categorizationRules).set({
       category_id: deletion.replacementId
     }).where(eq(categorizationRules.category_id, id));
@@ -173,7 +187,7 @@ export async function deleteCategory(id: string, deletion: CategoryDeletion): Pr
 
     return {
       status: "deleted",
-      transactions: moved.rowsAffected,
+      transactions: affected?.count ?? 0,
       rules: rules.rowsAffected
     };
   });

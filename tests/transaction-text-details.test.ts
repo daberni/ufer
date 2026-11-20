@@ -28,6 +28,7 @@ const booking: Transaction = {
   category_source: "rule",
   category_rule_id: null,
   automatic_assignment: null,
+  split: null,
   type: "expense",
   type_source: "auto",
   account_id: "checking",

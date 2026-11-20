@@ -6,6 +6,7 @@ import { accounts, categorizationRules, transactions } from "@/server/database/s
 import type { Rule, RuleAssignment, RuleText } from "@/lib/rules";
 import { derivedTransactionType, type TransactionType } from "@/features/transactions/transaction-types";
 import { refusable, type ManualEntryResult } from "./manual-transaction-repository";
+import { assignRuleCategory, dissolveSplit, dropSplitsOnCurrencyChange, notSplit, splitRefusesType } from "./split-repository";
 import type { CategorizedEntry, Entry, ProviderDetails } from "./transaction-entry";
 import { applyTransactionType, dissolveLink, enteredInUfer, findSubject, followImportedCorrections, releaseOutdatedLinks, touchesArchivedAccount, type TransferTarget } from "./transfer-repository";
 
@@ -49,13 +50,14 @@ export async function withStoredOverrides<Delivered extends Entry>(tx: DatabaseT
 /**
  * Inserts new entries and updates existing ones. `createdAt` replaces the database clock only for inserted rows; updates keep the original `created_at`.
  * Updates replace the provider data with the latest delivery for every row; only rule-sourced categories are recalculated. Payee and description overrides and hidden state are separate columns, so a delivery never undoes them.
- * The type is recalculated only while nobody corrected it, the booking is not linked and it is not a transfer: no source reports that a booking is not a transfer, so a delivery without a transfer signal never downgrades one. A booking entered in Ufer follows the corrected date and amount of the imported booking it is linked with; other links whose corrected amount or currency no longer pairs are released first.
+ * The type is recalculated only while nobody corrected it, the booking is not linked and it is not a transfer: no source reports that a booking is not a transfer, so a delivery without a transfer signal never downgrades one. A split booking keeps its type; a changed currency removes its split, whose parts were amounts in the old currency. A booking entered in Ufer follows the corrected date and amount of the imported booking it is linked with; other links whose corrected amount or currency no longer pairs are released first.
  */
 export async function upsertTransactions(tx: DatabaseTransaction, accountId: string, entries: CategorizedEntry[], createdAt?: string) {
   // Bound statement parameters for both local SQLite and remote libSQL deployments.
   for (let offset = 0; offset < entries.length; offset += 50) {
     const chunk = entries.slice(offset, offset + 50);
 
+    await dropSplitsOnCurrencyChange(tx, accountId, chunk);
     await followImportedCorrections(tx, accountId, chunk);
     await releaseOutdatedLinks(tx, accountId, chunk);
 
@@ -88,7 +90,7 @@ export async function upsertTransactions(tx: DatabaseTransaction, accountId: str
         provider_payload: sql`excluded.provider_payload`,
         category_id: sql`CASE WHEN ${transactions.category_source}='manual' THEN ${transactions.category_id} ELSE excluded.category_id END`,
         category_rule_id: sql`CASE WHEN ${transactions.category_source}='manual' THEN NULL ELSE excluded.category_rule_id END`,
-        type: sql`CASE WHEN ${transactions.type_source}='manual' OR ${transactions.transfer_id} IS NOT NULL OR ${transactions.type}='transfer' THEN ${transactions.type} ELSE excluded.type END`
+        type: sql`CASE WHEN ${transactions.type_source}='manual' OR ${transactions.transfer_id} IS NOT NULL OR ${transactions.type}='transfer' OR NOT ${notSplit} THEN ${transactions.type} ELSE excluded.type END`
       }
     });
   }
@@ -108,7 +110,7 @@ export async function setTransactionCategory(id: string, categoryId: string | nu
   const scopedAccounts = db.select({
     id: accounts.id
   }).from(accounts).where(and(eq(accounts.environment, environment()), isNull(accounts.archived_at)));
-  const scope = and(eq(transactions.id, id), inArray(transactions.account_id, scopedAccounts));
+  const scope = and(eq(transactions.id, id), inArray(transactions.account_id, scopedAccounts), notSplit);
   const [assignment] = await db.update(transactions).set({
     category_id: categoryId,
     category_source: "manual",
@@ -156,7 +158,7 @@ export async function returnTransactionToRules(id: string, assign: (rules: Rule[
       category_id: assignment.categoryId,
       category_source: "rule",
       category_rule_id: assignment.ruleId
-    }).where(and(eq(transactions.id, id), inArray(transactions.account_id, writableAccounts))).returning({
+    }).where(and(eq(transactions.id, id), inArray(transactions.account_id, writableAccounts), notSplit)).returning({
       id: transactions.id,
       category_id: transactions.category_id,
       category_source: transactions.category_source,
@@ -187,7 +189,13 @@ function overrideOf(value: string | undefined, source: string) {
  * Saves a booking's type, transfer target and, for an imported booking, payee and description overrides in one transaction.
  * The source's own text stays in `counterparty` and `description`, which syncs and imports keep refreshing; the date, amount and provider identity stay the source's.
  */
-export async function saveTransactionDetails(id: string, type: TransactionType, target: TransferTarget | undefined, text: TextOverrides): Promise<ManualEntryResult> {
+export async function saveTransactionDetails(
+  id: string,
+  type: TransactionType,
+  target: TransferTarget | undefined,
+  text: TextOverrides,
+  dropSplit?: (rules: Rule[], text: RuleText) => RuleAssignment
+): Promise<ManualEntryResult> {
   return refusable(async tx => {
     const subject = await findSubject(tx, id);
 
@@ -197,6 +205,13 @@ export async function saveTransactionDetails(id: string, type: TransactionType, 
 
     if (await touchesArchivedAccount(tx, subject)) {
       return "archived_account";
+    }
+
+    // Removing the split in the same write transaction lets it take a type a split booking refuses; a refused save keeps the split.
+    const dissolved = dropSplit ? await dissolveSplit(tx, id, dropSplit) : false;
+
+    if (await splitRefusesType(tx, id, type)) {
+      return "split";
     }
 
     const changesText = text.counterparty !== undefined || text.description !== undefined;
@@ -217,6 +232,11 @@ export async function saveTransactionDetails(id: string, type: TransactionType, 
         counterparty_override: overrideOf(text.counterparty, subject.counterparty),
         description_override: overrideOf(text.description, subject.description)
       }).where(eq(transactions.id, id));
+    }
+
+    // The rules decide the former split's category from the text as saved here, overrides included.
+    if (dropSplit && dissolved) {
+      await assignRuleCategory(tx, id, dropSplit);
     }
 
     return applyTransactionType(tx, id, type, target);

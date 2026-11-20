@@ -2,7 +2,7 @@ import { Temporal } from "temporal-polyfill";
 import { HttpError, ValidationError } from "@/lib/errors";
 import { z } from "zod";
 import { minorUnits } from "@/lib/money";
-import { prepareRules, ruleAssignment, type RuleText } from "@/lib/rules";
+import { prepareRules, ruleAssignment, type Rule, type RuleText } from "@/lib/rules";
 import { today, validDate } from "@/lib/time";
 import { requireWritableManualAccount } from "@/features/accounts/server/account-service";
 import { categoryExists } from "@/features/categorization/server/category-repository";
@@ -11,6 +11,7 @@ import { transactionTypes } from "@/features/transactions/transaction-types";
 import { categorizeEntries } from "./categorize-entries";
 import { createManualTransaction, deleteManualTransaction, findEntryCurrency, updateManualTransaction, type ManualEntryResult } from "./manual-transaction-repository";
 import { returnTransactionToRules, saveTransactionDetails, setTransactionCategory, setTransactionHidden } from "./transaction-repository";
+import { isSplit } from "./split-repository";
 import { manualLinkDays } from "./transfer-pairing";
 import { readTransferOptions, type TransferTarget } from "./transfer-repository";
 import { formatCount } from "@/lib/locale";
@@ -30,6 +31,11 @@ export async function updateTransactionCategory(id: string, payload: unknown) {
 
   if (assignment === "archived_account") {
     throw new HttpError(409, "This account is archived. Restore the account first.");
+  }
+
+  // The write skips split bookings, whose categories are their parts; removing the split returns one to the rules.
+  if (!assignment && await isSplit(id)) {
+    throw new HttpError(409, "This transaction is split. Change its parts or remove the split instead.");
   }
 
   if (!assignment) {
@@ -58,10 +64,16 @@ const transferTarget = z.union([z.object({
   account_id: z.string().min(1)
 }).strict()]).nullable();
 
+// remove_split removes a split in the same write as the details, so the booking can take a type a split refuses and a rejected save keeps the split.
 const typeInput = z.object({
   type: z.enum(transactionTypes),
-  transfer: transferTarget.optional()
+  transfer: transferTarget.optional(),
+  remove_split: z.literal(true).optional()
 });
+
+function splitRemoval(input: z.infer<typeof typeInput>) {
+  return input.remove_split ? (storedRules: Rule[], text: RuleText) => ruleAssignment(text, prepareRules(storedRules)) : undefined;
+}
 
 // Omitted text keeps a booking's current payee or description.
 const detailsInput = typeInput.extend({
@@ -79,7 +91,8 @@ const typeFailures: Record<Exclude<ManualEntryResult, "saved" | "not_found" | "h
   created_counterpart: "Ufer created this booking for the transfer of its linked booking. Change where the transfer goes on that booking, or remove this one.",
   not_entered: "Only transactions entered in Ufer on a manual account can be edited or deleted this way.",
   follows_import: "This booking is linked with an imported booking and keeps its date and amount. Unlink it to change them.",
-  entered: "This transaction was entered in Ufer. Edit or delete it instead."
+  entered: "This transaction was entered in Ufer. Edit or delete it instead.",
+  split: "Remove the split before changing this transaction to another type."
 };
 
 async function requireSaved(result: ManualEntryResult) {
@@ -124,10 +137,12 @@ export async function updateTransactionDetails(id: string, payload: unknown) {
     throw new ValidationError("Only a transfer has a target account.");
   }
 
-  await requireSaved(await saveTransactionDetails(id, input.type, target(input.transfer), {
+  const text = {
     counterparty: input.counterparty,
     description: input.description
-  }));
+  };
+
+  await requireSaved(await saveTransactionDetails(id, input.type, target(input.transfer), text, splitRemoval(input)));
 
   return {
     ok: true
@@ -221,10 +236,11 @@ export async function editManualTransaction(id: string, payload: unknown, now = 
   }
 
   const entry = validateEntry(input, currency, now);
+
   const rules = prepareRules(await listRules());
   const categoryFor = (text: RuleText) => ruleAssignment(text, rules);
 
-  await requireSaved(await updateManualTransaction(id, entry, categoryFor));
+  await requireSaved(await updateManualTransaction(id, entry, categoryFor, splitRemoval(input)));
 
   return {
     ok: true

@@ -11,6 +11,7 @@ import { TransactionCategory, TransactionCategorySkeleton } from "@/features/tra
 import { transactionTypeLabels } from "@/features/transactions/transaction-types";
 import { TransactionTypeIcon, transferDirection } from "@/features/transactions/components/transaction-type";
 import { TransactionEditDialog } from "@/features/transactions/components/transaction-edit-dialog";
+import { SplitTag } from "@/features/transactions/components/transaction-split";
 import type { Category } from "@/features/categorization/types";
 import { editLocked, type Transaction } from "@/features/transactions/types";
 import { useLocale } from "@/client/locale-provider";
@@ -114,7 +115,7 @@ function TransactionRow({
         {editing && !editLocked(transaction) && <TransactionEditDialog transaction={transaction} close={() => setEditing(false)} />}
       </th>
       <td role="cell" className={styles["category"]}>
-        <TransactionCategory categories={categories} transaction={transaction} />
+        {transaction.split ? <SplitTag transaction={transaction} split={transaction.split} /> : <TransactionCategory categories={categories} transaction={transaction} />}
       </td>
       <td role="cell" className={styles["account"]}>
         {transaction.account_name}
