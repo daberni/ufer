@@ -57,7 +57,7 @@
   cursor: wait;
   opacity: 0.5;
 }
-/* Creating a rule is a secondary action, so it appears while pointing at or focused in the field; touch devices without hover always show it. A pending save keeps it hidden until it is revealed. */
+/* Creating a rule is a secondary action, so it appears while pointing at or focused in the field or its enclosing row (marked data-hover-scope); touch devices without hover always show it. A pending save keeps it hidden until it is revealed. */
 @media (hover: hover) {
   .assignment-action,
   .assignment-action:disabled {
@@ -65,11 +65,15 @@
     transition: opacity 120ms ease;
   }
   .picker:hover .assignment-action,
-  .picker:focus-within .assignment-action {
+  .picker:focus-within .assignment-action,
+  :global([data-hover-scope]):hover .assignment-action,
+  :global([data-hover-scope]):focus-within .assignment-action {
     opacity: 1;
   }
   .picker:hover .assignment-action:disabled,
-  .picker:focus-within .assignment-action:disabled {
+  .picker:focus-within .assignment-action:disabled,
+  :global([data-hover-scope]):hover .assignment-action:disabled,
+  :global([data-hover-scope]):focus-within .assignment-action:disabled {
     opacity: 0.5;
   }
 }
