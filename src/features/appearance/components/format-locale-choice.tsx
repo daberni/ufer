@@ -39,14 +39,14 @@ function localeOptions(currentLocale: string): LocaleOption[] {
     key: "browser",
     value: "browser",
     label: browserDefaultLabel,
-    description: <span className={styles["example"]}>{formatLocaleSample(currentLocale)}</span>,
+    detail: formatLocaleSample(currentLocale),
     searchLabel: browserDefaultLabel
   };
   const locales = formatLocaleOptions(navigator.languages).map(option => ({
     key: option.locale,
     value: option.locale,
     label: option.name,
-    description: <span className={styles["example"]}>{formatLocaleSample(option.locale)}</span>,
+    detail: formatLocaleSample(option.locale),
     searchLabel: `${option.name} ${option.englishName} ${option.locale}`
   }));
 

@@ -21,6 +21,8 @@ export type SearchableSelectOption<Value> = {
   color?: string;
   /** Shown after the label and read with it, such as a status badge. */
   description?: ReactNode;
+  /** A muted second line below the label, read with it, such as an example of the option. */
+  detail?: ReactNode;
 };
 
 export type SearchableSelectAppearance = "default" | "inline";
@@ -428,7 +430,10 @@ export function SearchableSelect<Value>({
               onClick={() => choose(index)}
             >
               {option.icon}
-              <span className={styles["label"]}>{option.label}</span>
+              <span className={styles["label"]}>
+                {option.label}
+                {option.detail && <span className={styles["detail"]}>{option.detail}</span>}
+              </span>
               {option.description}
               {index === selectedIndex && <Check className={styles["check"]} aria-hidden="true" strokeWidth={2.4} />}
             </li>
