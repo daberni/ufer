@@ -346,6 +346,7 @@ function booking(overrides: Partial<Transaction>): Transaction {
       category_id: "groceries",
       rule_id: "market-rule"
     },
+    split: null,
     type: "expense",
     type_source: "auto",
     manual_account: false,

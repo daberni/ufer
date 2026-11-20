@@ -17,6 +17,8 @@ export type TransferTarget = {
 export type TransactionEdit = {
   type: TransactionType;
   transfer?: TransferTarget;
+  /** Removes the booking's split in the same write as the details. */
+  remove_split?: true;
   counterparty?: string;
   description?: string;
 };
@@ -78,3 +80,23 @@ export function useEnterTransaction() {
     onSettled: () => invalidate(queryClient, editKeys)
   });
 }
+
+/** One part of a split as the split form saves it: a signed decimal amount in the booking's currency. */
+export type SplitPartEdit = {
+  amount: string;
+  category_id: string | null;
+  note: string;
+};
+
+/** Splits a booking into category parts, replacing an earlier split. */
+export function useSaveSplit(id: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (parts: SplitPartEdit[]) => api(`transactions/${encodeURIComponent(id)}/split`, {
+      parts
+    }, "PUT"),
+    onSettled: () => invalidate(queryClient, editKeys)
+  });
+}
+

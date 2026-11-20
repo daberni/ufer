@@ -6,6 +6,7 @@ import { accounts, transactions } from "@/server/database/schema";
 import { derivedTransactionType, manualAccountTypes, type TransactionType } from "@/features/transactions/transaction-types";
 import type { TransferBooking, TransferOptions } from "@/features/transactions/types";
 import type { CategorizedEntry } from "./transaction-entry";
+import { notSplit, notSplitSql } from "./split-repository";
 import { automaticPairingDays, manualLinkDays, unambiguousPairs, type PairingCandidate } from "./transfer-pairing";
 
 type Executor = Database | DatabaseTransaction;
@@ -16,9 +17,9 @@ export const createdCounterpartPrefix = "transfer:";
 /** Bookings entered in Ufer on a manual account (manual transactions, opening balances and adjustments) carry their own id in this reference. */
 export const manualEntryPrefix = "manual:";
 
-// Bookings automatic pairing may link: visible, unlinked, never linked or unlinked by a person, and either a transfer or a type nobody corrected.
+// Bookings automatic pairing may link: visible, unlinked, not split, never linked or unlinked by a person, and either a transfer or a type nobody corrected.
 function pairable(alias: string) {
-  return sql.raw(`${alias}.suppressed_at IS NULL AND ${alias}.transfer_id IS NULL AND ${alias}.transfer_source='auto' AND ${alias}.amount_minor<>0 AND (${alias}.type='transfer' OR (${alias}.type_source='auto' AND ${alias}.type IN ('income','expense')))`);
+  return sql.raw(`${alias}.suppressed_at IS NULL AND ${alias}.transfer_id IS NULL AND ${alias}.transfer_source='auto' AND ${alias}.amount_minor<>0 AND ${notSplitSql(alias)} AND (${alias}.type='transfer' OR (${alias}.type_source='auto' AND ${alias}.type IN ('income','expense')))`);
 }
 
 function windowStart(days: number) {
@@ -107,11 +108,11 @@ const subjectColumns = {
 
 export type Subject = NonNullable<Awaited<ReturnType<typeof findSubject>>>;
 
-/** Bookings a person can link with `subject`: unlinked, the exact opposite amount in the same currency, on another active account of this environment, within the manual link window. The dialog offers only these and linking accepts only these. */
+/** Bookings a person can link with `subject`: unlinked, not split, the exact opposite amount in the same currency, on another active account of this environment, within the manual link window. The dialog offers only these and linking accepts only these. */
 function linkCandidate(subject: Subject) {
   const inWindow = sql`${transactions.booking_date} BETWEEN date(${subject.booking_date},${windowStart(manualLinkDays)}) AND date(${subject.booking_date},${windowEnd(manualLinkDays)})`;
 
-  return and(eq(accounts.environment, environment()), isNull(accounts.archived_at), ne(transactions.account_id, subject.account_id), eq(transactions.amount_minor, -subject.amount_minor), eq(transactions.currency, subject.currency), sql`${transactions.transfer_id} IS NULL`, sql`${transactions.suppressed_at} IS NULL`, sql`${transactions.amount_minor}<>0`, inWindow);
+  return and(eq(accounts.environment, environment()), isNull(accounts.archived_at), ne(transactions.account_id, subject.account_id), eq(transactions.amount_minor, -subject.amount_minor), eq(transactions.currency, subject.currency), sql`${transactions.transfer_id} IS NULL`, sql`${transactions.suppressed_at} IS NULL`, sql`${transactions.amount_minor}<>0`, notSplit, inWindow);
 }
 
 export async function findSubject(executor: Executor, id: string) {
