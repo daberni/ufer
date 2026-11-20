@@ -188,3 +188,12 @@ test("an invalid hex text blocks submitting the category form until it is correc
 
   assert.equal(form.checkValidity(), true);
 });
+
+test("icon search ignores letter case independent of a Turkish browser locale", context => {
+  // In a Turkish locale, the locale-aware lowercase of I is a dotless ı, which would stop DINING from matching Dining.
+  context.mock.method(String.prototype, "toLocaleLowerCase", function (this: string) {
+    return this.replace(/I/g, "ı").toLowerCase();
+  });
+
+  assert.ok(matchesCategoryIconSearch("dining", "DINING"));
+});
