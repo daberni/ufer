@@ -58,7 +58,7 @@ export type ManualAdoption = {
   excludedTransactionId?: string;
 };
 
-/** Returns the selected manual assignments to automatic categorization with the rule's category and a reference to the rule. */
+/** Returns the selected manual assignments to automatic categorization with the rule's category and a reference to the rule; resolves to the selected IDs. */
 async function adoptManualAssignments(tx: DatabaseTransaction, rule: Pick<Rule, "id" | "category_id">, rules: Rule[], adoption: ManualAdoption) {
   const scope = and(eq(accounts.environment, environment()), eq(transactions.category_source, "manual"));
   const candidates = await tx.select({
@@ -70,27 +70,41 @@ async function adoptManualAssignments(tx: DatabaseTransaction, rule: Pick<Rule, 
   }).from(transactions).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(scope);
   const eligible = candidates.filter(candidate => candidate.id !== adoption.excludedTransactionId);
   const ids = adoption.select(rules, eligible);
-  let adopted = 0;
 
   for (let offset = 0; offset < ids.length; offset += assignmentChunkSize) {
     const chunk = ids.slice(offset, offset + assignmentChunkSize);
-    const result = await tx.update(transactions).set({
+
+    await tx.update(transactions).set({
       category_id: rule.category_id,
       category_source: "rule",
       category_rule_id: rule.id
     }).where(and(inArray(transactions.id, chunk), eq(transactions.category_source, "manual")));
-
-    adopted += result.rowsAffected;
   }
 
-  return adopted;
+  return ids;
+}
+
+/** Sets the rule's type on the bookings it was just given, unless a person or a link decided their type, then pairs transfers so they link to, or create, their counterparts. */
+async function applyRuleType(tx: DatabaseTransaction, rule: Pick<Rule, "id" | "transaction_type">, ids: string[]) {
+  if (!rule.transaction_type || ids.length === 0) {
+    return;
+  }
+
+  for (let offset = 0; offset < ids.length; offset += assignmentChunkSize) {
+    await tx.update(transactions).set({
+      type: rule.transaction_type,
+      type_rule_id: rule.id
+    }).where(and(inArray(transactions.id, ids.slice(offset, offset + assignmentChunkSize)), ruleTypeable));
+  }
+
+  await pairTransfers(tx, environment());
 }
 
 function readRules(tx: DatabaseTransaction) {
   return tx.select().from(categorizationRules).orderBy(asc(categorizationRules.priority), asc(categorizationRules.id));
 }
 
-/** Hands the transaction a rule was created from to that rule when the selector confirms the rule decides its manual category. */
+/** Hands the transaction a rule was created from to that rule when the selector confirms the rule decides its manual category; resolves to the adopted IDs. */
 async function adoptSourceTransaction(tx: DatabaseTransaction, rule: NewRule, rules: Rule[], source: NonNullable<RuleCreationAssignments["source"]>) {
   const scope = and(eq(transactions.id, source.transactionId), eq(transactions.category_source, "manual"), eq(transactions.category_id, rule.category_id), inArray(transactions.account_id, tx.select({
     id: accounts.id
@@ -103,14 +117,18 @@ async function adoptSourceTransaction(tx: DatabaseTransaction, rule: NewRule, ru
     description_override: transactions.description_override
   }).from(transactions).where(scope);
 
-  if (source.select(rules, candidates).length === 0) {
-    return;
+  const adopted = source.select(rules, candidates);
+
+  if (adopted.length === 0) {
+    return [];
   }
 
   await tx.update(transactions).set({
     category_source: "rule",
     category_rule_id: rule.id
   }).where(scope);
+
+  return adopted;
 }
 
 async function storeRule(tx: DatabaseTransaction, rule: NewRule, assignments: RuleCreationAssignments = {}) {
@@ -131,16 +149,11 @@ async function storeRule(tx: DatabaseTransaction, rule: NewRule, assignments: Ru
   }
 
   const rules = await readRules(tx);
-
-  if (source) {
-    await adoptSourceTransaction(tx, rule, rules, source);
-  }
-
-  if (manual) {
-    await adoptManualAssignments(tx, rule, rules, manual);
-  }
+  const adopted = [...(source ? await adoptSourceTransaction(tx, rule, rules, source) : []), ...(manual ? await adoptManualAssignments(tx, rule, rules, manual) : [])];
 
   if (!selectAssignments) {
+    await applyRuleType(tx, rule, adopted);
+
     return 0;
   }
 
@@ -165,16 +178,7 @@ async function storeRule(tx: DatabaseTransaction, rule: NewRule, assignments: Ru
     categorized += result.rowsAffected;
   }
 
-  if (rule.transaction_type) {
-    for (let offset = 0; offset < ids.length; offset += assignmentChunkSize) {
-      await tx.update(transactions).set({
-        type: rule.transaction_type,
-        type_rule_id: rule.id
-      }).where(and(inArray(transactions.id, ids.slice(offset, offset + assignmentChunkSize)), ruleTypeable));
-    }
-
-    await pairTransfers(tx, environment());
-  }
+  await applyRuleType(tx, rule, [...adopted, ...ids]);
 
   return categorized;
 }
@@ -237,10 +241,15 @@ export async function updateRule(id: string, details: Pick<Rule, "name" | "patte
     }
 
     if (manual) {
-      await adoptManualAssignments(tx, {
+      const adopted = await adoptManualAssignments(tx, {
         id,
         category_id: details.category_id
       }, await readRules(tx), manual);
+
+      await applyRuleType(tx, {
+        id,
+        transaction_type: details.transaction_type
+      }, adopted);
     }
 
     return true;

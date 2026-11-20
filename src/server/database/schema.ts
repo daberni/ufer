@@ -86,7 +86,7 @@ export const categorizationRules = sqliteTable("categorization_rules", {
   check("categorization_rules_mode", sql`${table.mode} IN ('keyword','regex')`),
   check("categorization_rules_enabled", sql`${table.enabled} IN (0,1)`),
   check("categorization_rules_transaction_type", sql`${table.transaction_type} IN ('income','expense','transfer')`),
-  check("categorization_rules_transfer_account", sql`${table.transfer_account_id} IS NULL OR ${table.transaction_type}='transfer'`)
+  check("categorization_rules_transfer_account", sql`${table.transfer_account_id} IS NULL OR ${table.transaction_type} IS 'transfer'`)
 ]);
 
 export const transactions = sqliteTable("transactions", {

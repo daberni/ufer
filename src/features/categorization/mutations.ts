@@ -7,6 +7,9 @@ import { queryKeys } from "@/client/query-keys";
 import type { Category, Rule } from "@/features/categorization/types";
 import { withOrderedPriorities } from "@/features/categorization/rule-order";
 
+// Rule-set transfers can create counterparts on manual accounts, which changes their balances and net worth.
+const ruleWriteEffects = [queryKeys.transactions.all(), queryKeys.reports.cashFlow(), queryKeys.accounts(), queryKeys.reports.netWorth()];
+
 // Shared by saving an order and applying rules, so an apply always runs after the order shown in the list has been saved.
 const ruleOrderScope = "rule-order";
 
@@ -53,7 +56,7 @@ export function useCreateRuleFromAssignment() {
     onSettled: (_result, _error, rule) => {
       // The source transaction can become rule-assigned; applying and adopting manual assignments also change categories and spending.
       const changesCategories = rule.apply_to_uncategorized === true || rule.adopt_manual === true;
-      const affected = changesCategories ? [queryKeys.rules(), queryKeys.transactions.all(), queryKeys.reports.cashFlow()] : [queryKeys.rules(), queryKeys.transactions.all()];
+      const affected = changesCategories ? [queryKeys.rules(), ...ruleWriteEffects] : [queryKeys.rules(), queryKeys.transactions.all()];
 
       return invalidate(queryClient, affected);
     }
@@ -67,7 +70,7 @@ export function useSaveRule(rule?: Rule | null) {
     mutationFn: (details: Record<string, unknown>) => rule ? api(`rules/${encodeURIComponent(rule.id)}`, details, "PUT") : api("rules", details),
     onSettled: (_result, _error, details) => {
       // Transaction rows show what returning to automatic categorization would assign; adopted manual assignments also change spending.
-      const affected = details.adopt_manual === true ? [queryKeys.rules(), queryKeys.transactions.all(), queryKeys.reports.cashFlow()] : [queryKeys.rules(), queryKeys.transactions.lists()];
+      const affected = details.adopt_manual === true ? [queryKeys.rules(), ...ruleWriteEffects] : [queryKeys.rules(), queryKeys.transactions.lists()];
 
       return invalidate(queryClient, affected);
     }
@@ -99,7 +102,7 @@ export function useTogglingRules() {
   });
 }
 
-/** Re-categorizes every transaction without a manual assignment, which changes lists and spending. It runs after any order save started before it. */
+/** Re-categorizes every transaction without a manual assignment and sets rule types, which changes lists, spending and, through created counterparts, balances. It runs after any order save started before it. */
 export function useApplyRules() {
   const queryClient = useQueryClient();
 
@@ -108,7 +111,7 @@ export function useApplyRules() {
       id: ruleOrderScope
     },
     mutationFn: () => api("rules/apply", {}),
-    onSettled: () => invalidate(queryClient, [queryKeys.transactions.all(), queryKeys.reports.cashFlow()])
+    onSettled: () => invalidate(queryClient, ruleWriteEffects)
   });
 }
 

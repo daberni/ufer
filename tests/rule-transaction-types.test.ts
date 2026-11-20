@@ -123,6 +123,7 @@ async function rule(details: {
   transaction_type?: string | null;
   transfer_account_id?: string | null;
   apply_to_uncategorized?: boolean;
+  adopt_manual?: boolean;
 }) {
   await createRule({
     name: details.pattern,
@@ -344,6 +345,25 @@ test("creating a rule that applies to uncategorized bookings also sets its type 
   const booking = await stored(db, "bank:refund");
 
   assert.deepEqual([booking.category_id, booking.type, booking.type_rule_id], ["groceries", "expense", refund.id]);
+});
+
+test("a rule that takes over manual category assignments also sets its type on them", async context => {
+  const db = await isolatedDatabase(context);
+
+  await sync(db, "checking", [entry("refund", "2026-09-10", 1500, "Refund desk")]);
+  await db.update(schema.transactions).set({
+    category_id: "groceries",
+    category_source: "manual"
+  }).where(eq(schema.transactions.provider_reference, "bank:refund"));
+  const refund = await rule({
+    pattern: "REFUND DESK",
+    transaction_type: "expense",
+    adopt_manual: true
+  });
+
+  const booking = await stored(db, "bank:refund");
+
+  assert.deepEqual([booking.category_source, booking.type, booking.type_rule_id], ["rule", "expense", refund.id]);
 });
 
 test("deleting a rule keeps the types it set without a reference to the rule", async context => {

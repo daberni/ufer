@@ -1068,6 +1068,7 @@ test("rule-type migration keeps every rule and booking unchanged and leaves exis
     });
     await assert.rejects(client.execute("UPDATE categorization_rules SET transaction_type='opening_balance'"), /CHECK constraint failed/);
     await assert.rejects(client.execute("UPDATE categorization_rules SET transaction_type='expense',transfer_account_id='checking'"), /CHECK constraint failed/);
+    await assert.rejects(client.execute("UPDATE categorization_rules SET transaction_type=NULL,transfer_account_id='checking'"), /CHECK constraint failed/);
     assert.equal((await client.execute("PRAGMA foreign_key_check")).rows.length, 0);
   } finally {
     client.close();
