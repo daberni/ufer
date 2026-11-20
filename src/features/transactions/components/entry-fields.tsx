@@ -2,6 +2,7 @@
 
 import ui from "../../../components/ui/primitives.module.css";
 
+import { PayeeInput } from "./payee-input";
 import { today } from "@/lib/time";
 import type { TransactionType } from "@/features/transactions/transaction-types";
 
@@ -73,14 +74,12 @@ export function EntryFields({
       </div>
       <p className={ui["form-hint"]}>{locked ? `The date and amount follow the linked booking on ${followedAccount}.` : "Enter money leaving the account as a negative amount."}</p>
       {payee && (
-        <label>
-          Payee
-          <input
-            name="counterparty"
-            maxLength={500}
-            defaultValue={defaults?.counterparty}
-          />
-        </label>
+        <PayeeInput
+          label="Payee"
+          name="counterparty"
+          maxLength={500}
+          defaultValue={defaults?.counterparty}
+        />
       )}
       <label>
         Description
