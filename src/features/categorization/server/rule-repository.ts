@@ -1,4 +1,4 @@
-import { and, count, eq, inArray, isNull, asc } from "drizzle-orm";
+import { and, count, eq, inArray, isNotNull, isNull, asc, sql } from "drizzle-orm";
 import { HttpError } from "@/lib/errors";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 import { environment } from "@/features/banking/server/environment";
@@ -84,9 +84,23 @@ async function adoptManualAssignments(tx: DatabaseTransaction, rule: Pick<Rule, 
   return ids;
 }
 
-/** Sets the rule's type on the bookings it was just given, unless a person or a link decided their type, then pairs transfers so they link to, or create, their counterparts. */
+/**
+ * Sets the rule's type on the bookings it was just given, unless a person or a link decided their type, then pairs transfers so they link to, or create, their counterparts.
+ * A rule without a type returns a type an earlier rule set to the derived type, as applying rules does; a detected transfer without a rule stays a transfer.
+ */
 async function applyRuleType(tx: DatabaseTransaction, rule: Pick<Rule, "id" | "transaction_type">, ids: string[]) {
-  if (!rule.transaction_type || ids.length === 0) {
+  if (ids.length === 0) {
+    return;
+  }
+
+  if (!rule.transaction_type) {
+    for (let offset = 0; offset < ids.length; offset += assignmentChunkSize) {
+      await tx.update(transactions).set({
+        type: sql`CASE WHEN ${transactions.amount_minor}>0 THEN 'income' ELSE 'expense' END`,
+        type_rule_id: null
+      }).where(and(inArray(transactions.id, ids.slice(offset, offset + assignmentChunkSize)), ruleTypeable, isNotNull(transactions.type_rule_id)));
+    }
+
     return;
   }
 

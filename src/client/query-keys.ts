@@ -30,6 +30,7 @@ export const queryKeys = {
   balanceHistory: (account: string) => ["accounts", "balance-history", account] as const,
   categories: () => ["categories"] as const,
   rules: () => ["rules"] as const,
+  importTemplates: () => ["import-templates"] as const,
   rulePreview: (draft: RulePreviewDraft | null) => ["rules", "preview", draft] as const,
   // Below the categories prefix, so category writes also recount it.
   categoryUsage: (id: string) => ["categories", "usage", id] as const,

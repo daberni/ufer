@@ -1,5 +1,6 @@
 import { categoryNameKey } from "@/lib/category-name";
-import { categoryTags, currencyAllows, maxAccountNameLength, parseAmount, splitCurrency, type DecimalSeparator, type MappedRow } from "./csv-mapping";
+import { categoryTags, currencyAllows, maxAccountNameLength, parseAmount, splitCurrency, type CsvTemplate, type DecimalSeparator, type MappedRow } from "./csv-mapping";
+import type { AccountKind } from "@/features/accounts/account-kinds";
 import type { CategoryChoice, ImportTarget } from "./mutations";
 
 /** What the person chose for one source account's rows. */
@@ -11,6 +12,7 @@ export type TargetChoice = {
 } | {
   kind: "new";
   name: string;
+  accountKind: AccountKind;
   currency: string;
   /** Today's balance, or the balance before the file's first row. */
   balanceKind: "current" | "start";
@@ -98,6 +100,7 @@ export function newAccountChoice(source: string): TargetChoice {
   return {
     kind: "new",
     name: source.slice(0, maxAccountNameLength),
+    accountKind: "checking",
     currency: "EUR",
     balanceKind: "current",
     balance: ""
@@ -233,6 +236,10 @@ export function prepareImport(rows: MappedRow[], choices: ReadonlyMap<string, Ta
       problem("balance", "Enter the balance as a number.");
     }
 
+    if (choice.accountKind === "loan" && balance !== null && Number(balance) > 0) {
+      problem("balance", "Enter outstanding debt as a negative balance.");
+    }
+
     const balanceCurrency = splitCurrency(choice.balance.trim()).currency;
 
     // The amount is stored in the account currency, so a balance stated in another currency must not be relabelled.
@@ -248,6 +255,7 @@ export function prepareImport(rows: MappedRow[], choices: ReadonlyMap<string, Ta
       currency: choice.currency,
       newAccount: {
         name,
+        kind: choice.accountKind,
         opening: balance !== null && firstDate ? {
           kind: choice.balanceKind,
           amount: balance,
@@ -284,4 +292,70 @@ export function prepareImport(rows: MappedRow[], choices: ReadonlyMap<string, Ta
     skipped: rows.length - kept.length,
     problems
   };
+}
+
+/** A template's remembered choices that still apply: accounts and categories that no longer exist are left to the defaults. A remembered category counts as the person's choice. */
+export function templateChoices(template: Pick<CsvTemplate, "accounts" | "categories">, accounts: AccountOption[], categories: {
+  id: string;
+}[]) {
+  const accountIds = new Set(accounts.map(account => account.id));
+  const categoryIds = new Set(categories.map(category => category.id));
+  const targets = new Map<string, TargetChoice>();
+  const selections = new Map<string, CategorySelection>();
+
+  for (const [source, accountId] of Object.entries(template.accounts)) {
+    if (accountIds.has(accountId)) {
+      targets.set(source, {
+        kind: "existing",
+        accountId
+      });
+    }
+  }
+
+  for (const [value, categoryId] of Object.entries(template.categories)) {
+    if (categoryIds.has(categoryId)) {
+      selections.set(value, {
+        action: "existing",
+        categoryId
+      });
+    }
+  }
+
+  return {
+    targets,
+    selections
+  };
+}
+
+/** The account and category choices a template can remember: existing accounts and categories only, since new ones exist under their own IDs after the import. */
+export function rememberedChoices(targets: ReadonlyMap<string, TargetChoice>, selections: ReadonlyMap<string, CategorySelection>) {
+  const accounts: Record<string, string> = {};
+  const categories: Record<string, string> = {};
+
+  for (const [source, choice] of targets) {
+    if (choice.kind === "existing") {
+      accounts[source] = choice.accountId;
+    }
+  }
+
+  for (const [value, selection] of selections) {
+    if (selection.action === "existing" && selection.categoryId) {
+      categories[value] = selection.categoryId;
+    }
+  }
+
+  return {
+    accounts,
+    categories
+  };
+}
+
+/** Each source's target: the person's choice, else the template's remembered account once the accounts are loaded, else the default. Remembered choices are resolved on every render, so they apply whenever the option lists arrive. */
+export function resolveTargets(sources: string[], chosen: ReadonlyMap<string, TargetChoice>, remembered: ReadonlyMap<string, TargetChoice>, accounts: AccountOption[]) {
+  return new Map(sources.map(source => [source, chosen.get(source) ?? remembered.get(source) ?? defaultTargetChoice(source, accounts)]));
+}
+
+/** Each category value's selection: the person's choice, else the template's remembered category, else the default. */
+export function resolveCategories(values: CategoryValue[], chosen: ReadonlyMap<string, CategorySelection>, remembered: ReadonlyMap<string, CategorySelection>) {
+  return new Map(values.map(value => [value.value, chosen.get(value.value) ?? remembered.get(value.value) ?? defaultCategorySelection(value)]));
 }

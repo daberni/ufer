@@ -68,6 +68,7 @@ function mappedRow(line: number, date: string, amount: string, payee: string, ex
     source: "",
     occurrence: 0,
     id: null,
+    transfer: false,
     ...extra
   };
 }
@@ -178,7 +179,8 @@ test("identical rows in one file stay distinct through their occurrence", () => 
     currency: null,
     category: null,
     account: null,
-    id: null
+    id: null,
+    type: null
   }, {
     encoding: "utf-8",
     delimiter: ",",
@@ -260,6 +262,7 @@ test("new accounts are created once per import, on confirmation, across batches 
     source: "",
     new_account: {
       name: "Closed account",
+      kind: "checking",
       currency: "EUR"
     }
   }];
@@ -519,7 +522,8 @@ test("occurrences count rows with equal canonical amounts and normalized texts",
     currency: null,
     category: null,
     account: null,
-    id: null
+    id: null,
+    type: null
   }, {
     encoding: "utf-8",
     delimiter: ",",
@@ -672,7 +676,8 @@ test("saving rechecks duplicates in its write transaction, so bookings synced af
     categorySource: "rule",
     categoryRuleId: null,
     ruleType: null,
-    typeRuleId: null
+    typeRuleId: null,
+    transfer: false
   }], null);
 
   assert.equal(inserted, 0);
@@ -734,7 +739,8 @@ test("amounts accept currency symbols and codes but reject other letters", () =>
     currency: 3,
     category: null,
     account: null,
-    id: null
+    id: null,
+    type: null
   }, {
     encoding: "utf-8",
     delimiter: ",",
@@ -748,10 +754,11 @@ test("amounts accept currency symbols and codes but reject other letters", () =>
 
 test("a retry uses the account an earlier batch created and rejects a conflicting configuration", async context => {
   const db = await isolatedDatabase(context);
-  const target = (currency: string) => [{
+  const target = (currency: string, kind = "checking") => [{
     source: "",
     new_account: {
       name: "Closed account",
+      kind,
       currency
     }
   }];
@@ -779,6 +786,12 @@ test("a retry uses the account an earlier batch created and rejects a conflictin
     targets: target("USD"),
     confirm: true
   }, now), ValidationError);
+  await assert.rejects(importMappedRows({
+    import_id: importId,
+    rows: [mappedRow(3, "2024-01-02", "-5.00", "Shop")],
+    targets: target("EUR", "savings"),
+    confirm: true
+  }, now), ValidationError);
   assert.equal((await db.select().from(schema.accounts)).length, 1);
   assert.equal((await db.select().from(schema.transactions)).length, 1);
 });
@@ -793,7 +806,8 @@ const plainMapping = {
   currency: null,
   category: null,
   account: 3,
-  id: null
+  id: null,
+  type: null
 };
 
 const isoSettings: CsvSettings = {
@@ -916,7 +930,8 @@ test("CSV records keep quoted delimiters, line breaks and quotes, and report phy
     amount: 2,
     payee: 1,
     account: null,
-    id: null
+    id: null,
+    type: null
   }, isoSettings, records.slice(1).map(record => record.line));
 
   assert.deepEqual(result.rows.map(row => row.line), [2, 4, 6, 7]);
@@ -1003,7 +1018,8 @@ test("a row the target rejects for its currency does not shift the occurrences o
     description: "Purchase",
     category: null,
     source: "",
-    id: null
+    id: null,
+    transfer: false
   };
   const rows = assignOccurrences([{
     ...row,
@@ -1033,6 +1049,7 @@ test("identical rows stated as USD, $ and blank import as distinct transactions 
       source: "",
       new_account: {
         name: "Dollar account",
+        kind: "checking",
         currency: "USD"
       }
     }],
@@ -1070,7 +1087,8 @@ test("the same column cannot be both debit and credit", () => {
     currency: null,
     category: null,
     account: null,
-    id: null
+    id: null,
+    type: null
   };
 
   assert.notEqual(mappingProblem(mapping), null);
@@ -1093,7 +1111,8 @@ test("an ambiguous currency symbol is rejected for an account outside its curren
     currency: null,
     category: null,
     account: null,
-    id: null
+    id: null,
+    type: null
   }, {
     encoding: "utf-8",
     delimiter: ",",
@@ -1249,6 +1268,7 @@ for (const [kind, amount, expected] of [["current", "100.00", 13000], ["start", 
         source: "",
         new_account: {
           name: "Imported wallet",
+          kind: "checking",
           currency: "EUR",
           opening: {
             kind,
@@ -1350,6 +1370,7 @@ test("skipped source accounts leave their rows out, and a new account's opening 
   const choices = new Map<string, TargetChoice>([["Wallet", {
     kind: "new",
     name: "Wallet",
+    accountKind: "savings",
     currency: "EUR",
     balanceKind: "current",
     balance: "1.234,50"
@@ -1361,6 +1382,7 @@ test("skipped source accounts leave their rows out, and a new account's opening 
   assert.deepEqual(prepared.rows.map(row => row.line), [2, 3]);
   assert.equal(prepared.skipped, 1);
   assert.deepEqual(prepared.problems, []);
+  assert.deepEqual(prepared.targets.map(target => target.newAccount?.kind), ["savings"]);
   assert.deepEqual(prepared.targets.map(target => target.newAccount?.opening), [{
     kind: "current",
     amount: "1234.50",
@@ -1377,6 +1399,7 @@ test("an unchosen source and an unreadable balance block the check", () => {
   const prepared = prepareImport(rows, new Map<string, TargetChoice>([["Wallet", {
     kind: "new",
     name: "Wallet",
+    accountKind: "checking",
     currency: "EUR",
     balanceKind: "start",
     balance: "twelve"
@@ -1458,6 +1481,7 @@ test("a new account's balance stated in another currency blocks the check", () =
   const prepare = (balance: string) => prepareImport(rows, new Map<string, TargetChoice>([["Wallet", {
     kind: "new",
     name: "Wallet",
+    accountKind: "checking",
     currency: "EUR",
     balanceKind: "current",
     balance
@@ -1565,6 +1589,7 @@ test("a new account name over the server's limit is shortened in the prefill and
     ...newAccountChoice(source),
     kind: "new",
     name: source,
+    accountKind: "checking",
     currency: "EUR",
     balanceKind: "current",
     balance: ""
@@ -1646,6 +1671,72 @@ test("batches hold at most as many source accounts as a request accepts targets"
   assert.ok(batches.every(batch => new Set(batch.map(row => row.source)).size <= maxTargetsPerRequest));
 });
 
+test("a new account from an import gets the type the person chose", async context => {
+  await isolatedDatabase(context);
+
+  await importMappedRows({
+    import_id: importId,
+    rows: [mappedRow(2, "2024-05-01", "-10.00", "Shop")],
+    targets: [{
+      source: "",
+      new_account: {
+        name: "Imported card",
+        kind: "credit_card",
+        currency: "EUR"
+      }
+    }],
+    confirm: true
+  }, now);
+
+  assert.equal((await listAccounts()).find(account => account.name === "Imported card")?.kind, "credit_card");
+
+  for (const kind of ["current", "start"] as const) {
+    await assert.rejects(importMappedRows({
+      import_id: "00000000-0000-4000-8000-000000000216",
+      rows: [mappedRow(2, "2024-05-01", "-10.00", "Shop")],
+      targets: [{
+        source: "",
+        new_account: {
+          name: "Imported loan",
+          kind: "loan",
+          currency: "EUR",
+          opening: {
+            kind,
+            amount: "500.00",
+            date: "2024-05-01"
+          }
+        }
+      }],
+      confirm: true
+    }, now), ValidationError);
+  }
+
+  assert.equal((await listAccounts()).some(account => account.name === "Imported loan"), false);
+  const loanChoice = new Map<string, TargetChoice>([["", {
+    kind: "new",
+    name: "Imported loan",
+    accountKind: "loan",
+    currency: "EUR",
+    balanceKind: "current",
+    balance: "500.00"
+  }]]);
+
+  assert.deepEqual(prepareImport([mappedRow(2, "2024-05-01", "-10.00", "Shop")], loanChoice, [], new Map(), ".").problems.map(problem => problem.field), ["balance"]);
+  await assert.rejects(importMappedRows({
+    import_id: "00000000-0000-4000-8000-000000000215",
+    rows: [mappedRow(2, "2024-05-01", "-10.00", "Shop")],
+    targets: [{
+      source: "",
+      new_account: {
+        name: "Unknown type",
+        kind: "pension",
+        currency: "EUR"
+      }
+    }],
+    confirm: true
+  }, now));
+});
+
 test("the same file imported as a new account in two banking environments creates one account in each", async context => {
   const db = await isolatedDatabase(context);
   const payload = {
@@ -1655,6 +1746,7 @@ test("the same file imported as a new account in two banking environments create
       source: "",
       new_account: {
         name: "Imported wallet",
+        kind: "checking",
         currency: "EUR"
       }
     }],
@@ -1681,6 +1773,7 @@ test("a resumed import must state the opening balance its new account already ha
       source: "",
       new_account: {
         name: "Imported wallet",
+        kind: "checking",
         currency: "EUR",
         opening: {
           kind,
@@ -1702,6 +1795,7 @@ test("a resumed import must state the opening balance its new account already ha
       source: "",
       new_account: {
         name: "Imported wallet",
+        kind: "checking",
         currency: "EUR"
       }
     }]
@@ -1717,6 +1811,7 @@ test("hiding an imported row does not make an unchanged resume look like a chang
       source: "",
       new_account: {
         name: "Imported wallet",
+        kind: "checking",
         currency: "EUR",
         opening: {
           kind: "current" as const,

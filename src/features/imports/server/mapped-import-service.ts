@@ -9,6 +9,8 @@ import { listRules } from "@/features/categorization/server/rule-repository";
 import { categorizeEntries } from "@/features/transactions/server/categorize-entries";
 import { pairTransfersInEnvironment } from "@/features/transactions/server/transfer-repository";
 import { environment } from "@/features/banking/server/environment";
+import { accountKinds } from "@/features/accounts/account-kinds";
+import { validateLiability } from "@/features/accounts/server/account-service";
 import { currencyAllows, maxCategoryChoicesPerRequest, maxTargetsPerRequest, maxAccountNameLength, maxCategoryLength, maxIdLength, maxSourceLength, normalizeText, type RowError } from "../csv-mapping";
 import { duplicateDateToleranceDays, mappedReferencePrefix, type DuplicateReason } from "./duplicate-matching";
 import { checkMappedEntries, createImportCategory, findImportOpening, findImportTarget, listCategoryNames, saveMappedEntries, type MappedEntry, type NewImportAccount, type OpeningBalance } from "./mapped-import-repository";
@@ -25,7 +27,8 @@ const row = z.object({
   category: z.string().max(maxCategoryLength).nullable(),
   source: z.string().max(maxSourceLength),
   occurrence: z.number().int().min(0),
-  id: z.string().max(maxIdLength).nullable().default(null)
+  id: z.string().max(maxIdLength).nullable().default(null),
+  transfer: z.boolean().default(false)
 });
 
 /** The balance a new account should have: today's balance, or its balance before the file's first row. The difference to the imported rows is booked as an opening balance on `date`. */
@@ -41,6 +44,7 @@ const target = z.object({
   account_id: z.string().optional(),
   new_account: z.object({
     name: z.string().trim().min(1).max(maxAccountNameLength),
+    kind: z.enum(accountKinds),
     currency: z.string().regex(/^[A-Z]{3}$/),
     opening: opening.optional()
   }).optional()
@@ -152,7 +156,8 @@ export async function importMappedRows(payload: unknown, now = Temporal.Now.inst
         categorySource: categoryId ? "manual" : "rule",
         categoryRuleId: null,
         ruleType: null,
-        typeRuleId: null
+        typeRuleId: null,
+        transfer: item.transfer
       }
     });
   }
@@ -206,9 +211,14 @@ async function resolveTargets(importId: string, inputs: z.infer<typeof target>[]
       requireActiveTarget(persisted);
       const opening = input.new_account.opening ? openingBalance(importAccountId(importId, `${input.source}|opening|${input.new_account.opening.kind}`), input.new_account.opening, input.new_account.currency) : null;
 
+      // The stated balance follows the same liability rule as creating or retyping an account.
+      if (opening) {
+        validateLiability(input.new_account.kind, opening.amount);
+      }
+
       // An earlier confirmed batch of this import created the account; its stored configuration is authoritative.
-      if (persisted && (persisted.currency !== input.new_account.currency || persisted.name !== input.new_account.name || !await sameOpening(importId, input.source, persisted.id, opening))) {
-        throw new ValidationError(`The account “${persisted.name}” (${persisted.currency}) was already created by this import; keep its name, currency and balance.`);
+      if (persisted && (persisted.currency !== input.new_account.currency || persisted.name !== input.new_account.name || persisted.kind !== input.new_account.kind || !await sameOpening(importId, input.source, persisted.id, opening))) {
+        throw new ValidationError(`The account “${persisted.name}” (${persisted.currency}) was already created by this import; keep its name, type, currency and balance.`);
       }
 
       // Checking creates nothing: until the account exists it has no bookings to compare against.
@@ -217,6 +227,7 @@ async function resolveTargets(importId: string, inputs: z.infer<typeof target>[]
         currency: input.new_account.currency,
         newAccount: persisted ? null : {
           name: input.new_account.name,
+          kind: input.new_account.kind,
           currency: input.new_account.currency
         },
         opening

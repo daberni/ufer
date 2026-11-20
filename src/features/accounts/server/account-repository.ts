@@ -5,6 +5,7 @@ import { accounts, transactions } from "@/server/database/schema";
 import { environment } from "@/features/banking/server/environment";
 import { bookManualEntry, recordManualBalance, type ManualEntryResult } from "@/features/transactions/server/manual-transaction-repository";
 import { ValidationError } from "@/lib/errors";
+import type { AccountKind } from "../account-kinds";
 import type { ManualAccountInput } from "./account-schema";
 import { assertWritableAccount } from "./writable-account";
 
@@ -86,6 +87,23 @@ export async function saveAccountArchived(id: string, archivedAt: string | null)
   const updated = await db.update(accounts).set({
     archived_at: archivedAt
   }).where(and(eq(accounts.id, id), eq(accounts.environment, environment()))).returning({
+    id: accounts.id
+  });
+
+  return updated.length === 1;
+}
+
+/**
+ * Changes a manual account's type while it is active; a loan additionally requires a balance that is not positive at the moment of the update.
+ * Returns whether it was changed, so a concurrent archive or booking refuses the change.
+ */
+export async function saveAccountKind(id: string, kind: AccountKind) {
+  const db = await database();
+  const fitsBalance = kind === "loan" ? sql`${currentBalance}<=0` : undefined;
+
+  const updated = await db.update(accounts).set({
+    kind
+  }).where(and(eq(accounts.id, id), eq(accounts.environment, environment()), eq(accounts.provider, "manual"), isNull(accounts.archived_at), fitsBalance)).returning({
     id: accounts.id
   });
 

@@ -7,9 +7,11 @@ import { syncLeaseName } from "@/features/banking/server/sync-service";
 import { HttpError, ValidationError } from "@/lib/errors";
 import { minorUnits } from "@/lib/money";
 import { timestamp, today } from "@/lib/time";
-import { accountInput, accountRenameInput, archiveInput, valuationInput } from "./account-schema";
-import { archiveSettledAccount, closeAndArchiveManualAccount, findManualAccount, insertManualAccount, saveAccountArchived, saveAccountName, saveManualValuation, type ClosingResult } from "./account-repository";
+import { accountEditInput, accountInput, archiveInput, valuationInput } from "./account-schema";
+import { archiveSettledAccount, closeAndArchiveManualAccount, findManualAccount, insertManualAccount, saveAccountArchived, saveAccountKind, saveAccountName, saveManualValuation, type ClosingResult } from "./account-repository";
 import { findAccountWithBalance } from "./account-queries";
+import { archivedAccountMessage } from "./writable-account";
+import type { AccountKind } from "../account-kinds";
 
 export async function createManualAccount(payload: unknown, now = Temporal.Now.instant()) {
   const input = accountInput.parse(payload);
@@ -51,20 +53,53 @@ export function validateLiability(kind: string, amount: number) {
 }
 
 
-export async function renameAccount(accountId: string, payload: unknown) {
-  const result = accountRenameInput.safeParse(payload);
+/** Saves an account's name and, for a manual or imported account, its type; a bank-synced account keeps the type from its bank connection. */
+export async function updateAccount(accountId: string, payload: unknown) {
+  const result = accountEditInput.safeParse(payload);
 
   if (!result.success) {
-    throw new ValidationError("Enter an account name between 1 and 100 characters.");
+    throw new ValidationError(result.error.issues.some(issue => issue.path[0] === "kind") ? "Choose a valid account type." : "Enter an account name between 1 and 100 characters.");
   }
 
-  if (!await saveAccountName(accountId, result.data.name)) {
+  const input = result.data;
+  const account = await findAccountWithBalance(accountId);
+
+  if (!account) {
     throw new HttpError(404, "Account not found.");
   }
+
+  if (input.kind !== undefined && input.kind !== account.kind) {
+    await changeAccountKind(account, input.kind);
+  }
+
+  await saveAccountName(accountId, input.name);
 
   return {
     ok: true
   };
+}
+
+async function changeAccountKind(account: {
+  id: string;
+  provider: string;
+  archived_at: string | null;
+  balance_minor: number | null;
+}, kind: AccountKind) {
+  if (account.provider !== "manual") {
+    throw new HttpError(409, "A bank-synced account keeps the type from its bank connection.");
+  }
+
+  if (account.archived_at !== null) {
+    throw new HttpError(409, archivedAccountMessage);
+  }
+
+  if (kind === "loan" && (account.balance_minor ?? 0) > 0) {
+    throw new ValidationError("A loan's balance is the debt still owed and cannot be positive. Update the balance to a negative amount first.");
+  }
+
+  if (!await saveAccountKind(account.id, kind)) {
+    throw new HttpError(409, "The account changed meanwhile. Review it and try again.");
+  }
 }
 
 const closingFailures: Partial<Record<ClosingResult, string>> = {
@@ -181,7 +216,7 @@ export async function requireWritableManualAccount(accountId: string, notFound: 
   }
 
   if (account.archived_at !== null) {
-    throw new HttpError(409, "This account is archived. Restore the account first.");
+    throw new HttpError(409, archivedAccountMessage);
   }
 
   return account;

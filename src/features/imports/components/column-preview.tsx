@@ -21,7 +21,8 @@ const roles: [keyof CsvMapping, string][] = [
   ["currency", "Currency"],
   ["category", "Category"],
   ["account", "Account"],
-  ["id", "ID"]
+  ["id", "ID"],
+  ["type", "Type"]
 ];
 
 const previewRows = 8;

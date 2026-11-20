@@ -4,6 +4,7 @@ import { and, between, eq, inArray, like, ne, notInArray, sql } from "drizzle-or
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 import { accounts, categories, transactions } from "@/server/database/schema";
 import { environment } from "@/features/banking/server/environment";
+import type { AccountKind } from "@/features/accounts/account-kinds";
 import { assertWritableAccount } from "@/features/accounts/server/writable-account";
 import { manualEntryPrefix } from "@/features/transactions/server/transfer-repository";
 import { insertCategory } from "@/features/categorization/server/category-repository";
@@ -29,10 +30,13 @@ export type MappedEntry = {
   /** The type the deciding rule sets; null leaves the automatic type. */
   ruleType: RuleTransactionType | null;
   typeRuleId: string | null;
+  /** Marked as a transfer by the file; saved with an automatic transfer type so pairing can link it. */
+  transfer: boolean;
 };
 
 export type NewImportAccount = {
   name: string;
+  kind: AccountKind;
   currency: string;
 };
 
@@ -73,6 +77,7 @@ export async function findImportTarget(id: string) {
   return db.select({
     id: accounts.id,
     name: accounts.name,
+    kind: accounts.kind,
     currency: accounts.currency,
     provider: accounts.provider,
     archived_at: accounts.archived_at
@@ -170,6 +175,11 @@ export async function checkMappedEntries(accountId: string, entries: MappedEntry
  * Classifies rows exactly like `checkMappedEntries`, but inside the write transaction, and inserts the new ones, so a bank sync between check and confirmation cannot cause duplicates and both report the same result on unchanged data.
  * A row whose reference the account already holds is left untouched, so confirming again changes nothing and existing categories survive. Inserting bookings never writes a bank-linked account's provider balance.
  */
+// A row the file marks as a transfer stays one; a rule that also sets Transfer keeps deciding, so its account still constrains pairing.
+function fileTransfer(entry: MappedEntry) {
+  return entry.transfer && entry.ruleType !== "transfer";
+}
+
 export async function saveMappedEntries(accountId: string, entries: MappedEntry[], newAccount: NewImportAccount | null, consumed: ReadonlySet<string> = new Set(), opening: OpeningBalance | null = null) {
   const db = await database();
 
@@ -181,7 +191,7 @@ export async function saveMappedEntries(accountId: string, entries: MappedEntry[
         environment: environment(),
         name: newAccount.name,
         institution: "CSV import",
-        kind: "checking",
+        kind: newAccount.kind,
         currency: newAccount.currency
       }).onConflictDoNothing();
     }
@@ -205,8 +215,8 @@ export async function saveMappedEntries(accountId: string, entries: MappedEntry[
         category_id: entry.categoryId,
         category_source: entry.categorySource,
         category_rule_id: entry.categoryRuleId,
-        type: entry.ruleType ?? derivedTransactionType(entry.amount),
-        type_rule_id: entry.typeRuleId
+        type: fileTransfer(entry) ? "transfer" as const : entry.ruleType ?? derivedTransactionType(entry.amount),
+        type_rule_id: fileTransfer(entry) ? null : entry.typeRuleId
       }));
       const rows = await tx.insert(transactions).values(values).onConflictDoNothing({
         target: [transactions.account_id, transactions.provider_reference]

@@ -1074,7 +1074,7 @@ test("rule-type migration keeps every rule and booking unchanged and leaves exis
   // Earlier changesets only, so the upgrade starts from the schema just before this one.
   journal.entries = journal.entries.slice(0, journal.entries.findIndex((entry: {
     tag: string
-  }) => entry.tag === "0013_rule_transaction_types"));
+  }) => entry.tag === "0014_rule_transaction_types"));
   mkdirSync(join(directory, "meta"));
 
   for (const entry of journal.entries) {
@@ -1119,5 +1119,63 @@ test("rule-type migration keeps every rule and booking unchanged and leaves exis
       recursive: true,
       force: true
     });
+  }
+});
+
+test("import template migration adds an empty template table and leaves every existing table unchanged", async () => {
+  const client = createClient({
+    url: ":memory:"
+  });
+  const directory = mkdtempSync(join(tmpdir(), "ufer-import-templates-"));
+  const journal = JSON.parse(readFileSync("drizzle/sqlite/meta/_journal.json", "utf8"));
+
+  const upgradeDirectory = mkdtempSync(join(tmpdir(), "ufer-import-templates-upgrade-"));
+  const templates = journal.entries.findIndex((entry: {
+    tag: string
+  }) => entry.tag === "0013_import_templates");
+
+  // Earlier changesets first, then up to this one only, so later changesets do not change the compared schema.
+  for (const [target, entries] of [[directory, journal.entries.slice(0, templates)], [upgradeDirectory, journal.entries.slice(0, templates + 1)]] as const) {
+    mkdirSync(join(target, "meta"));
+
+    for (const entry of entries) {
+      cpSync(`drizzle/sqlite/${entry.tag}.sql`, join(target, `${entry.tag}.sql`));
+    }
+
+    writeFileSync(join(target, "meta/_journal.json"), JSON.stringify({
+      ...journal,
+      entries
+    }));
+  }
+
+  try {
+    await migrateDatabase(client, directory);
+    await client.batch([
+      "INSERT INTO accounts(id,environment,name,institution,kind) VALUES('cash','SANDBOX','Synthetic cash','Example institution','savings')",
+      "INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,type) VALUES('fee','cash','csv:1','2026-01-03',-200,'EUR','expense')"
+    ], "write");
+    const objects = "SELECT type,name,sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' AND name NOT LIKE '__drizzle%' AND name NOT LIKE 'import_templates%' ORDER BY name";
+    const before = (await client.execute(objects)).rows;
+    const transactionsBefore = (await client.execute("SELECT * FROM transactions")).rows;
+
+    await assert.rejects(initializeDatabase(client), /migrations are pending/);
+    await migrateDatabase(client, upgradeDirectory);
+    await migrateDatabase(client, upgradeDirectory);
+
+    assert.deepEqual((await client.execute(objects)).rows, before);
+    assert.deepEqual((await client.execute("SELECT * FROM transactions")).rows, transactionsBefore);
+    assert.equal((await client.execute("SELECT COUNT(*) AS total FROM import_templates")).rows[0].total, 0);
+    await client.execute("INSERT INTO import_templates(id,name,name_key,header_key,definition,created_at,updated_at) VALUES('a','Bank','bank','[\"Date\"]','{}','2026-01-01T00:00:00Z','2026-01-01T00:00:00Z')");
+    await assert.rejects(client.execute("INSERT INTO import_templates(id,name,name_key,header_key,definition,created_at,updated_at) VALUES('b','BANK','bank','[\"Other\"]','{}','2026-01-01T00:00:00Z','2026-01-01T00:00:00Z')"), /UNIQUE/);
+    await assert.rejects(client.execute("INSERT INTO import_templates(id,name,name_key,header_key,definition,created_at,updated_at) VALUES('c','Other','other','[\"Date\"]','{}','2026-01-01T00:00:00Z','2026-01-01T00:00:00Z')"), /UNIQUE/);
+  } finally {
+    client.close();
+
+    for (const target of [directory, upgradeDirectory]) {
+      rmSync(target, {
+        recursive: true,
+        force: true
+      });
+    }
   }
 });

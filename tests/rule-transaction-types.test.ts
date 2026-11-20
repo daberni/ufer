@@ -467,3 +467,33 @@ test("applying rule types leaves bookings on archived accounts unchanged, also w
 
   assert.deepEqual([unchanged.type, unchanged.type_rule_id], ["income", null]);
 });
+
+test("a rule without a type that takes over a manual assignment returns an earlier rule's type to the derived type", async context => {
+  const db = await isolatedDatabase(context);
+
+  await sync(db, "checking", [entry("refund", "2026-09-10", 1500, "Refund desk")]);
+  const earlier = await rule({
+    pattern: "REFUND DESK",
+    transaction_type: "expense",
+    apply_to_uncategorized: true
+  });
+
+  assert.deepEqual([(await stored(db, "bank:refund")).type, (await stored(db, "bank:refund")).type_rule_id], ["expense", earlier.id]);
+  // A person then chooses the category, and the earlier rule no longer matches the booking.
+  await db.update(schema.transactions).set({
+    category_source: "manual",
+    category_rule_id: null
+  }).where(eq(schema.transactions.provider_reference, "bank:refund"));
+  await db.update(schema.categorizationRules).set({
+    pattern: "UNRELATED"
+  }).where(eq(schema.categorizationRules.id, earlier.id));
+
+  await rule({
+    pattern: "REFUND",
+    adopt_manual: true
+  });
+
+  const adopted = await stored(db, "bank:refund");
+
+  assert.deepEqual([adopted.category_source, adopted.type, adopted.type_rule_id], ["rule", "income", null]);
+});
