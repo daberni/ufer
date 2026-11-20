@@ -645,11 +645,6 @@ function stem(word: string) {
   return word.length > 3 && word.endsWith("s") ? word.slice(0, -1) : word;
 }
 
-type IconMatch = {
-  key: CategoryIconKey;
-  rank: number;
-};
-
 function wordMatch(nameWord: string, iconWord: string) {
   const name = stem(nameWord);
   const icon = stem(iconWord);
@@ -666,35 +661,52 @@ function wordMatch(nameWord: string, iconWord: string) {
   return null;
 }
 
-function bestIconFor(words: string[]): IconMatch | null {
-  let best: IconMatch | null = null;
+/** Ranks how well the name words fit an icon; lower is better, null when nothing matches. */
+function iconRank(words: string[], key: CategoryIconKey) {
+  const icon = categoryIcons[key];
+  const labelWords = searchWords(icon.label);
+  const quality = (iconWord: string) => Math.min(...words.map(word => wordMatch(word, iconWord) ?? 2));
+  const labelQualities = labelWords.map(quality).filter(value => value < 2);
+  const keywordQualities = searchWords(icon.keywords).map(quality).filter(value => value < 2);
 
-  categoryIconKeys.forEach((key, order) => {
-    const icon = categoryIcons[key];
-    const fields = [searchWords(icon.label), searchWords(icon.keywords)];
+  if (labelQualities.length === 0 && keywordQualities.length === 0) {
+    return null;
+  }
 
-    fields.forEach((iconWords, field) => {
-      for (const nameWord of words) {
-        for (const iconWord of iconWords) {
-          const match = wordMatch(nameWord, iconWord);
+  // A name covering the whole label wins, then more covered label words, then a label over a keyword match, then exact over started words.
+  const complete = labelQualities.length === labelWords.length ? 0 : 1;
+  const bestQuality = Math.min(...labelQualities, ...keywordQualities);
 
-          if (match === null) {
-            continue;
-          }
+  return [complete, -labelQualities.length, labelQualities.length > 0 ? 0 : 1, bestQuality];
+}
 
-          // Label before keyword, exact before partial, then catalog order.
-          const rank = (field * 2 + match) * 1000 + order;
+function compareRanks(first: number[], second: number[]) {
+  for (let index = 0; index < first.length; index++) {
+    if (first[index] !== second[index]) {
+      return first[index] - second[index];
+    }
+  }
 
-          if (!best || rank < best.rank) {
-            best = {
-              key,
-              rank
-            };
-          }
-        }
-      }
-    });
-  });
+  return 0;
+}
+
+function bestIconFor(words: string[]) {
+  let best: {
+    key: CategoryIconKey;
+    rank: number[];
+  } | null = null;
+
+  // Catalog order decides between equal ranks because only a better rank replaces the current best.
+  for (const key of categoryIconKeys) {
+    const rank = iconRank(words, key);
+
+    if (rank && (!best || compareRanks(rank, best.rank) < 0)) {
+      best = {
+        key,
+        rank
+      };
+    }
+  }
 
   return best;
 }

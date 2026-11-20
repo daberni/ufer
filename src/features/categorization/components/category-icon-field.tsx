@@ -55,7 +55,12 @@ export function CategoryIconField({
       setSearch("");
       onOpenChange(next);
     },
-    initialFocus: () => optionsRef.current?.querySelector<HTMLElement>("[tabindex='0']")
+    // A suggestion other than the current icon is focused first through its shortcut, so the picker opens at the top where it is visible.
+    initialFocus: () => {
+      const shortcut = suggested && suggested !== icon ? optionsRef.current?.querySelector<HTMLElement>("[data-shortcut]") : null;
+
+      return shortcut ?? optionsRef.current?.querySelector<HTMLElement>("[tabindex='0']");
+    }
   });
   const TriggerIcon = icon === "" ? null : categoryIconComponents[icon];
   const { foreground: iconColor } = themedColors(scheme => categoryChipColors(color, scheme));
@@ -118,6 +123,7 @@ export function CategoryIconField({
         aria-label={label}
         title={label}
         tabIndex={choice === focusableChoice && !shortcut ? 0 : -1}
+        data-shortcut={shortcut || undefined}
         className={clsx(styles["icon-option"], isSuggestion && sparkle["sparkle"])}
         onClick={() => choose(choice)}
         onKeyDown={handleOptionKeyDown}

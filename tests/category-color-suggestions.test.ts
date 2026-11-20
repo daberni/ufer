@@ -12,6 +12,7 @@ import { newCategoryColor, randomCategoryColor, suggestCategoryColor, type Color
 import { suggestedCategoryColors } from "../src/features/categorization/category-colors";
 import { suggestCategoryIcon } from "../src/features/categorization/category-icons";
 import { createCategory } from "../src/features/categorization/server/categorization-service";
+import { insertCategory } from "../src/features/categorization/server/category-repository";
 import { createImportCategory } from "../src/features/imports/server/mapped-import-repository";
 import { browser, respond, wait, withQueryClient } from "./fixtures/browser";
 import { stubCssModules } from "./fixtures/css-modules";
@@ -123,6 +124,33 @@ test("categories created without a color get distinct palette colors until the p
   assert.ok(created.every(color => palette.includes(color)));
   // Each new category took one of the least used colors, so usage never differs by more than one.
   assert.ok(Math.max(...counts) - Math.min(...counts) <= 1, `uneven usage ${counts.join()}`);
+});
+
+test("an automatic color is chosen from the categories read inside the insert's write transaction", async context => {
+  const db = await isolatedDatabase(context);
+
+  await db.delete(schema.categories);
+  await db.insert(schema.categories).values({
+    id: "fuel",
+    name: "Car / Fuel",
+    color: ocean,
+    icon: null
+  });
+
+  let seen: ColoredCategory[] = [];
+
+  await insertCategory("wash", {
+    name: "Car / Wash",
+    icon: null,
+    color: existing => {
+      seen = existing;
+
+      return newCategoryColor("Car / Wash", null, existing);
+    }
+  });
+
+  assert.deepEqual(seen.map(row => row.name), ["Car / Fuel"]);
+  assert.deepEqual(await colorsOf(db, "Car / Wash"), [ocean]);
 });
 
 test("a category created by an import takes the palette color no other category uses", async context => {
@@ -329,6 +357,12 @@ test("the category name suggests an icon by its label or keywords, the part afte
   assert.equal(suggestCategoryIcon("TV"), null);
 });
 
+test("an icon whose whole label the name covers wins over one sharing a single word", () => {
+  assert.equal(suggestCategoryIcon("Car rental & sharing"), "car-sharing");
+  assert.equal(suggestCategoryIcon("Car service"), "car-service");
+  assert.equal(suggestCategoryIcon("Fees & taxes"), "fees");
+});
+
 test("a new category waits for the categories before showing a color and follows the icon its name suggests until one is chosen", async context => {
   const environment = browser(context);
   const prototype = window.HTMLDialogElement.prototype;
@@ -440,4 +474,63 @@ test("a new category submits no color when the categories cannot be loaded, so t
   assert.equal((screen.getByRole("textbox", {
     name: "Color"
   }) as HTMLInputElement).placeholder, "Automatic");
+});
+
+test("opening the icon picker focuses the suggested icon's shortcut at the top when it differs from the current icon", async context => {
+  const { CategoryIconField } = await import("../src/features/categorization/components/category-icon-field");
+  // The DOM test environment does not show manual popovers and so ignores focus inside them; the test records focus requests instead.
+  const focusRequests: Element[] = [];
+  const originalFocus = window.HTMLElement.prototype.focus;
+
+  window.HTMLElement.prototype.focus = function (this: HTMLElement) {
+    focusRequests.push(this);
+  };
+
+  context.after(() => {
+    window.HTMLElement.prototype.focus = originalFocus;
+  });
+
+  const props = {
+    color: ocean,
+    icon: "fuel" as const,
+    onChange: () => undefined,
+    onOpenChange: () => undefined
+  };
+  const screen = render(createElement(CategoryIconField, {
+    ...props,
+    suggested: "insurance",
+    open: false
+  }));
+  // Selectors instead of role queries: role queries over the whole icon catalog are very slow in the DOM test environment.
+  const options = () => [...screen.container.ownerDocument.querySelectorAll("[role='option']")];
+  const lastFocused = () => focusRequests[focusRequests.length - 1];
+
+  act(() => {
+    screen.rerender(createElement(CategoryIconField, {
+      ...props,
+      suggested: "insurance",
+      open: true
+    }));
+  });
+  assert.equal(lastFocused()?.getAttribute("aria-label"), "Insurance (suggested)");
+  assert.equal(options().indexOf(lastFocused()), 1);
+
+  // When the suggestion already is the icon, the selected option in its group keeps the initial focus.
+  act(() => {
+    screen.rerender(createElement(CategoryIconField, {
+      ...props,
+      suggested: "fuel",
+      open: false
+    }));
+  });
+  act(() => {
+    screen.rerender(createElement(CategoryIconField, {
+      ...props,
+      suggested: "fuel",
+      open: true
+    }));
+  });
+  assert.equal(lastFocused()?.getAttribute("aria-label"), "Fuel (suggested)");
+  assert.notEqual(options().indexOf(lastFocused()), 1);
+  screen.unmount();
 });

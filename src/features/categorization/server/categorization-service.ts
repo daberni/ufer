@@ -5,8 +5,8 @@ import { decidingRule, prepareRules, ruleAssignment, validatePattern, type Rule,
 import { normalizeCategoryName } from "@/lib/category-name";
 import { maximumRules, nextPriority, orderedPriorities } from "@/features/categorization/rule-order";
 import { isCategoryIcon } from "@/features/categorization/category-icons";
-import { newCategoryColor } from "@/features/categorization/category-color-suggestions";
-import { categoryExists, listCategoryAppearances, deleteCategory as deleteStoredCategory, insertCategory, readCategoryUsage, updateCategory, type CategoryDetails, type CategoryWriteResult } from "./category-repository";
+import { newCategoryColor, type ColoredCategory } from "@/features/categorization/category-color-suggestions";
+import { categoryExists, deleteCategory as deleteStoredCategory, insertCategory, readCategoryUsage, updateCategory, type CategoryDetails, type CategoryWriteResult } from "./category-repository";
 import { appendRule, deleteRule as deleteStoredRule, findManualAssignments, findUncorrectedTransactions, insertRule, listRules, saveRuleAssignments, saveRuleOrder, setRuleEnabled, updateRule, type ManualAdoption, type RuleCreationAssignments, type SelectRuleAssignments } from "./rule-repository";
 
 const ruleMatching = {
@@ -280,14 +280,24 @@ export async function createCategory(payload: unknown) {
     color: categoryColor.optional(),
     icon: categoryIcon.default(null)
   }).parse(payload);
-  const color = input.color ?? newCategoryColor(input.name, input.icon || null, await listCategoryAppearances());
 
   const id = randomUUID();
 
-  requireSaved(await insertCategory(id, categoryDetails({
+  const {
+    name,
+    icon
+  } = categoryDetails({
     ...input,
+    color: input.color ?? ""
+  });
+  // Without a color, the color is chosen inside the insert's transaction from the categories it sees.
+  const color = input.color ?? ((existing: ColoredCategory[]) => newCategoryColor(name, icon, existing));
+
+  requireSaved(await insertCategory(id, {
+    name,
+    icon,
     color
-  })));
+  }));
 
   // The id lets the client select a category it has just created.
   return {

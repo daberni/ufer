@@ -7,7 +7,7 @@ import { environment } from "@/features/banking/server/environment";
 import type { AccountKind } from "@/features/accounts/account-kinds";
 import { assertWritableAccount } from "@/features/accounts/server/writable-account";
 import { manualEntryPrefix } from "@/features/transactions/server/transfer-repository";
-import { insertCategory, listCategoryAppearances } from "@/features/categorization/server/category-repository";
+import { insertCategory } from "@/features/categorization/server/category-repository";
 import { newCategoryColor } from "@/features/categorization/category-color-suggestions";
 import { suggestCategoryIcon } from "@/features/categorization/category-icons";
 import { sameCategoryName } from "@/lib/category-name";
@@ -53,7 +53,7 @@ export async function createImportCategory(name: string) {
   const icon = suggestCategoryIcon(name);
   const result = await insertCategory(id, {
     name,
-    color: newCategoryColor(name, icon, await listCategoryAppearances()),
+    color: existing => newCategoryColor(name, icon, existing),
     icon
   });
 
