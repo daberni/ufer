@@ -25,6 +25,7 @@ async function page(locale: string) {
 
   return createElement(FormatLocaleProvider, {
     locale,
+    requestLanguages: [],
     children: createElement(CategoryRows, {
       groups,
       currency: "EUR"

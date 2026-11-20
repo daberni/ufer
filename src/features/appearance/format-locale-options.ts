@@ -1,6 +1,6 @@
 import { supportedLocale } from "@/lib/locale";
 
-// Regional formats people commonly choose; the browser's own languages are offered as well. Tags the runtime cannot format are left out.
+// Regional formats people commonly choose; the request's own languages are offered as well. Tags the runtime cannot format are left out.
 const candidateLocales = [
   "af-ZA", "ar-AE", "ar-EG", "ar-SA", "bg-BG", "bn-BD", "bs-BA", "ca-ES", "cs-CZ", "cy-GB", "da-DK",
   "de-AT", "de-BE", "de-CH", "de-DE", "de-LI", "de-LU", "el-GR", "en-AU", "en-CA", "en-GB", "en-IE", "en-IN", "en-NZ", "en-SG", "en-US", "en-ZA",
@@ -29,39 +29,53 @@ function displayName(locale: string, inLocale: string) {
   }
 }
 
-/** Every candidate and browser language the runtime can format, once each, sorted by English name. */
-export function formatLocaleOptions(browserLanguages: readonly string[]): FormatLocaleOption[] {
-  const locales = new Set<string>();
+/**
+ * Every candidate and request language the runtime can format, once each. The request's languages come first in the browser's order of preference;
+ * the rest follow alphabetically by their own name.
+ */
+export function formatLocaleOptions(requestLanguages: readonly string[]): FormatLocaleOption[] {
+  const preferred: string[] = [];
 
-  for (const tag of [...browserLanguages, ...candidateLocales]) {
+  for (const tag of requestLanguages) {
     const locale = supportedLocale(tag);
 
-    if (locale) {
-      locales.add(locale);
+    if (locale && !preferred.includes(locale)) {
+      preferred.push(locale);
     }
   }
 
-  return [...locales]
-    .map(locale => ({
-      locale,
-      name: displayName(locale, locale),
-      englishName: displayName(locale, "en")
-    }))
-    .sort((left, right) => left.englishName.localeCompare(right.englishName, "en"));
+  const others = new Set<string>();
+
+  for (const tag of candidateLocales) {
+    const locale = supportedLocale(tag);
+
+    if (locale && !preferred.includes(locale)) {
+      others.add(locale);
+    }
+  }
+
+  const option = (locale: string) => ({
+    locale,
+    name: displayName(locale, locale),
+    englishName: displayName(locale, "en")
+  });
+  const alphabetical = [...others].map(option).sort((left, right) => left.name.localeCompare(right.name));
+
+  return [...preferred.map(option), ...alphabetical];
 }
 
-/** An example amount and date in a locale, such as "-€1,234.56 · Nov 20, 2026". */
-export function formatLocaleSample(locale: string) {
-  const amount = new Intl.NumberFormat(locale, {
-    style: "currency",
-    currency: "EUR"
-  }).format(-1234.56);
-  const date = new Date(Date.UTC(2026, 10, 20)).toLocaleDateString(locale, {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    timeZone: "UTC"
-  });
-
-  return `${amount} · ${date}`;
+/** An example date and amount in a locale, such as "Nov 20, 2026" and "-€1,234.56" in English. */
+export function formatLocaleExample(locale: string) {
+  return {
+    date: new Date(Date.UTC(2026, 10, 20)).toLocaleDateString(locale, {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      timeZone: "UTC"
+    }),
+    amount: new Intl.NumberFormat(locale, {
+      style: "currency",
+      currency: "EUR"
+    }).format(-1234.56)
+  };
 }

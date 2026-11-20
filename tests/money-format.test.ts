@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { acceptedLanguages, defaultFormatLocale, formatCount, formatPercent, isNegativePercent, parseFormatLocalePreference, resolveFormatLocale } from "../src/lib/locale";
 import { money, signedMoney } from "../src/lib/money";
-import { formatLocaleOptions, formatLocaleSample } from "../src/features/appearance/format-locale-options";
+import { formatLocaleExample, formatLocaleOptions } from "../src/features/appearance/format-locale-options";
 import { currentFormatLocale } from "../src/server/http/request-locale";
 
 // These cases use en-GB; CLDR separates a letter currency code from the number with a no-break space.
@@ -93,19 +93,24 @@ test("a stored preference is canonicalized, and an unusable one follows the brow
   assert.equal(parseFormatLocalePreference("browser"), "browser");
 });
 
-test("the format list offers each supported locale once with its own name, including the browser's languages", () => {
-  const options = formatLocaleOptions(["de-AT", "de-AT-x-private", "!!", "en-PH"]);
+test("the format list puts the request's languages first in their order, then the rest alphabetically by their own name", () => {
+  const options = formatLocaleOptions(["en-PH", "de-AT", "de-AT-x-private", "!!"]);
   const locales = options.map(option => option.locale);
+  const rest = options.slice(2).map(option => option.name);
 
+  assert.deepEqual(locales.slice(0, 2), ["en-PH", "de-AT"]);
   assert.equal(new Set(locales).size, locales.length);
-  assert.ok(locales.includes("en-PH"));
   assert.ok(!locales.includes("!!"));
-  assert.deepEqual(options.find(option => option.locale === "de-AT"), {
+  assert.deepEqual(rest, [...rest].sort((left, right) => left.localeCompare(right)));
+  assert.deepEqual(options[1], {
     locale: "de-AT",
     name: "Deutsch (Österreich)",
     englishName: "German (Austria)"
   });
-  assert.equal(formatLocaleSample("de-AT"), "-€ 1.234,56 · 20. Nov. 2026");
+  assert.deepEqual(formatLocaleExample("de-AT"), {
+    date: "20. Nov. 2026",
+    amount: "-€\u00a01.234,56"
+  });
 });
 
 test("server code outside a request formats with the default locale", async () => {

@@ -1,3 +1,27 @@
 .format-locale-choice {
   margin-bottom: var(--space-6);
 }
+.example-beside,
+.example-below {
+  display: grid;
+  gap: var(--space-1);
+  color: var(--muted);
+  font-size: var(--text-xs);
+}
+.example-beside {
+  flex-shrink: 0;
+  margin-left: var(--space-4);
+  text-align: end;
+}
+.example-below {
+  display: none;
+  margin-top: var(--space-1);
+}
+@media (--mobile) {
+  .example-beside {
+    display: none;
+  }
+  .example-below {
+    display: grid;
+  }
+}

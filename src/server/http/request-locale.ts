@@ -1,10 +1,14 @@
 import { cookies, headers } from "next/headers";
-import { defaultFormatLocale, formatLocaleCookieName, parseFormatLocalePreference, resolveFormatLocale } from "@/lib/locale";
+import { acceptedLanguages, defaultFormatLocale, formatLocaleCookieName, parseFormatLocalePreference, resolveFormatLocale, supportedLocale } from "@/lib/locale";
+
+// Next.js has no request to read outside one, such as in the demo seed script or behavior tests.
+function outsideRequest(error: unknown) {
+  return error instanceof Error && error.message.includes("outside a request scope");
+}
 
 /**
  * The locale for formatted values in the current request: the browser's stored preference, otherwise its Accept-Language header.
- * Next.js scopes headers() and cookies() to the request being handled, so any server code can call this without the locale being passed down.
- * Outside a request, such as the demo seed script or behavior tests, Next.js has no request to read and the default locale applies.
+ * Next.js scopes headers() and cookies() to the request being handled, so any server code can call this without the locale being passed down. Outside a request the default locale applies.
  */
 export async function currentFormatLocale() {
   try {
@@ -13,8 +17,24 @@ export async function currentFormatLocale() {
 
     return resolveFormatLocale(preference, headerList.get("accept-language"));
   } catch (error) {
-    if (error instanceof Error && error.message.includes("outside a request scope")) {
+    if (outsideRequest(error)) {
       return defaultFormatLocale;
+    }
+
+    throw error;
+  }
+}
+
+/** The request's Accept-Language languages the runtime can format, canonical, once each, in the browser's order of preference. */
+export async function currentRequestLanguages() {
+  try {
+    const headerList = await headers();
+    const locales = acceptedLanguages(headerList.get("accept-language")).map(supportedLocale).filter(locale => locale !== undefined);
+
+    return [...new Set(locales)];
+  } catch (error) {
+    if (outsideRequest(error)) {
+      return [];
     }
 
     throw error;

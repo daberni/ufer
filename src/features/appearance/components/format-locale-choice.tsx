@@ -3,11 +3,11 @@
 import { useId, useMemo, useState } from "react";
 import { clsx } from "clsx";
 import ui from "../../../components/ui/primitives.module.css";
-import { useFormatLocale } from "@/client/format-locale-provider";
+import { useFormatLocale, useRequestLanguages } from "@/client/format-locale-provider";
 import { SearchableSelect, type SearchableSelectOption } from "@/components/ui/searchable-select";
 import { matchOptions } from "@/components/ui/searchable-select-behavior";
 import { formatLocaleCookie, formatLocaleCookieName, parseFormatLocalePreference, type FormatLocalePreference } from "@/lib/locale";
-import { formatLocaleOptions, formatLocaleSample } from "@/features/appearance/format-locale-options";
+import { formatLocaleExample, formatLocaleOptions } from "@/features/appearance/format-locale-options";
 import styles from "./format-locale-choice.module.css";
 
 const browserDefaultLabel = "Browser default";
@@ -34,21 +34,38 @@ type LocaleOption = SearchableSelectOption<FormatLocalePreference> & {
   searchLabel: string;
 };
 
-function localeOptions(currentLocale: string): LocaleOption[] {
-  const browserDefault: LocaleOption = {
-    key: "browser",
-    value: "browser",
-    label: browserDefaultLabel,
-    detail: formatLocaleSample(currentLocale),
-    searchLabel: browserDefaultLabel
+/** The labelled example date and amount: beside the name on wider screens, below it on phones. */
+function LocaleExample({
+  locale,
+  placement
+}: {
+  locale: string;
+  placement: "beside" | "below";
+}) {
+  const example = formatLocaleExample(locale);
+
+  return (
+    <span className={styles[placement === "beside" ? "example-beside" : "example-below"]}>
+      <span>{`Date: ${example.date}`}</span>
+      <span>{`Amount: ${example.amount}`}</span>
+    </span>
+  );
+}
+
+function localeOption(value: FormatLocalePreference, locale: string, label: string, searchLabel: string): LocaleOption {
+  return {
+    key: value,
+    value,
+    label,
+    description: <LocaleExample locale={locale} placement="beside" />,
+    detail: <LocaleExample locale={locale} placement="below" />,
+    searchLabel
   };
-  const locales = formatLocaleOptions(navigator.languages).map(option => ({
-    key: option.locale,
-    value: option.locale,
-    label: option.name,
-    detail: formatLocaleSample(option.locale),
-    searchLabel: `${option.name} ${option.englishName} ${option.locale}`
-  }));
+}
+
+function localeOptions(currentLocale: string, requestLanguages: readonly string[]): LocaleOption[] {
+  const browserDefault = localeOption("browser", currentLocale, browserDefaultLabel, browserDefaultLabel);
+  const locales = formatLocaleOptions(requestLanguages).map(option => localeOption(option.locale, option.locale, option.name, `${option.name} ${option.englishName} ${option.locale}`));
 
   return [browserDefault, ...locales];
 }
@@ -65,10 +82,11 @@ function matchLocales(options: readonly SearchableSelectOption<FormatLocalePrefe
 /** Browser default or any locale the browser can format, for amounts, numbers and dates in this browser; currencies stay per account. */
 export function FormatLocaleChoice() {
   const locale = useFormatLocale();
+  const requestLanguages = useRequestLanguages();
   const fieldId = useId();
-  // Mounted only inside the account dialog in the browser, where the cookie and the browser's languages are readable.
+  // Mounted only inside the account dialog in the browser, where the cookie is readable.
   const [preference] = useState(storedPreference);
-  const options = useMemo(() => localeOptions(locale), [locale]);
+  const options = useMemo(() => localeOptions(locale, requestLanguages), [locale, requestLanguages]);
   const selected = options.find(option => option.value === preference);
   const [query, setQuery] = useState(selected?.label ?? browserDefaultLabel);
 
@@ -88,7 +106,7 @@ export function FormatLocaleChoice() {
           placeholder="Search languages and regions"
         />
       </div>
-      <p className={ui["form-hint"]}>{`For example ${formatLocaleSample(locale)}. Saved in this browser; changing it reloads the page.`}</p>
+      <p className={ui["form-hint"]}>{"Saved in this browser; changing it reloads the page."}</p>
     </div>
   );
 }
