@@ -24,7 +24,10 @@ function matchesOwnTransaction(pattern: string, counterparty: string, descriptio
     enabled: 1
   }]);
 
-  return categorize(counterparty, description, rules) === "groceries";
+  return categorize({
+    counterparty,
+    description
+  }, rules) === "groceries";
 }
 
 test("a proposed pattern uses the payee or, without one, the distinctive words of the description", () => {

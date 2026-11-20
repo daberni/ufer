@@ -13,7 +13,10 @@ import { listAccounts } from "../src/features/accounts/server/account-queries";
 import { saveAccountSync } from "../src/features/banking/server/account-sync-service";
 import { importMappedRows } from "../src/features/imports/server/mapped-import-service";
 import { readCashFlow } from "../src/features/reports/server/cash-flow-query";
-import { enterManualTransaction, hideTransaction, updateTransactionDetails } from "../src/features/transactions/server/transaction-service";
+import { enterManualTransaction, hideTransaction, updateTransactionCategory, updateTransactionDetails } from "../src/features/transactions/server/transaction-service";
+import { listRules } from "../src/features/categorization/server/rule-repository";
+import type { Rule } from "../src/lib/rules";
+import { applyRulesToUncorrectedTransactions, createRule, previewRule } from "../src/features/categorization/server/categorization-service";
 import { pairTransfersInEnvironment } from "../src/features/transactions/server/transfer-repository";
 import { readTransactionPage } from "../src/features/transactions/server/transaction-list-query";
 import { dashboardFilters } from "../src/server/http/dashboard-filters";
@@ -80,7 +83,7 @@ type Booking = {
 };
 
 /** Stores one sync delivery of bookings on a synced account. */
-async function sync(db: Database, accountId: string, bookings: Booking[]) {
+async function sync(db: Database, accountId: string, bookings: Booking[], rules: Rule[] = []) {
   await saveAccountSync(db, {
     environment: "SANDBOX",
     startedAt: "2026-09-30T08:00:00.000Z"
@@ -98,7 +101,7 @@ async function sync(db: Database, accountId: string, bookings: Booking[]) {
     currency: "EUR",
     counterparty: booking.counterparty ?? "Example counterparty",
     description: booking.description ?? `Synthetic ${booking.reference}`
-  })), []);
+  })), rules);
 }
 
 async function byReference(db: Database, reference: string) {
@@ -423,4 +426,127 @@ test("a file row matching a hidden, overridden synced booking by the bank's text
 
   assert.equal(await db.$count(schema.transactions), 1);
   assert.equal(await expenses(), 0);
+});
+
+/** A synced booking whose bank text carries no payee, with a person's payee override that names it. */
+async function overriddenBooking(db: Database, reference = "bank:energy") {
+  await sync(db, "checking", [{
+    reference,
+    date: "2026-09-05",
+    amount: -4200,
+    counterparty: "",
+    description: "EXAMPLE Power, invoice 0001"
+  }]);
+  const booking = await byReference(db, reference);
+
+  await updateTransactionDetails(booking.id, {
+    type: "expense",
+    counterparty: "Example Energy Trading Ltd"
+  });
+
+  return booking.id;
+}
+
+const energyRule = {
+  name: "Energy",
+  pattern: "EXAMPLE ENERGY",
+  mode: "keyword",
+  category_id: "home"
+};
+
+test("a keyword matching only the payee override decides the booking when rules are applied, and later syncs keep it", async context => {
+  const db = await isolatedDatabase(context);
+  const id = await overriddenBooking(db);
+
+  await createRule(energyRule);
+  await applyRulesToUncorrectedTransactions();
+
+  assert.equal((await row(db, id))?.category_id, "home");
+
+  await sync(db, "checking", [{
+    reference: "bank:energy",
+    date: "2026-09-05",
+    amount: -4200,
+    counterparty: "",
+    description: "EXAMPLE Power, invoice 0001"
+  }], await listRules());
+
+  assert.equal((await row(db, id))?.category_id, "home");
+});
+
+test("a keyword matching only the payee override counts toward and adopts manual assignments, and the booking returns to it automatically", async context => {
+  const db = await isolatedDatabase(context);
+  const id = await overriddenBooking(db);
+
+  await updateTransactionCategory(id, {
+    category_id: "groceries"
+  });
+
+  const preview = await previewRule(energyRule);
+
+  assert.equal(preview.manual, 1);
+
+  const [shown] = await listed();
+
+  assert.equal(shown.automatic_assignment?.category_id, null);
+
+  await createRule({
+    ...energyRule,
+    id: preview.id,
+    adopt_manual: true
+  });
+  const adopted = await row(db, id);
+
+  assert.deepEqual([adopted?.category_id, adopted?.category_source], ["home", "rule"]);
+
+  await updateTransactionCategory(id, {
+    category_id: "groceries"
+  });
+  assert.equal((await listed())[0].automatic_assignment?.category_id, "home");
+  assert.equal((await updateTransactionCategory(id, {
+    automatic: true
+  })).category_id, "home");
+});
+
+test("a rule created from a manually categorized booking adopts it when only its payee override matches", async context => {
+  const db = await isolatedDatabase(context);
+  const id = await overriddenBooking(db);
+
+  await updateTransactionCategory(id, {
+    category_id: "home"
+  });
+  await createRule({
+    ...energyRule,
+    source_transaction_id: id
+  });
+
+  assert.equal((await row(db, id))?.category_source, "rule");
+});
+
+test("the source text still decides when an override does not match, and the first rule matching either text wins", async context => {
+  const db = await isolatedDatabase(context);
+  const id = await overriddenBooking(db);
+
+  await createRule({
+    name: "Power",
+    pattern: "EXAMPLE POWER",
+    mode: "keyword",
+    category_id: "leisure"
+  });
+  await applyRulesToUncorrectedTransactions();
+  assert.equal((await row(db, id))?.category_id, "leisure");
+
+  // The source-text rule comes first, so the later override rule does not decide.
+  await createRule(energyRule);
+  await applyRulesToUncorrectedTransactions();
+  assert.equal((await row(db, id))?.category_id, "leisure");
+
+  await createRule({
+    ...energyRule,
+    name: "Energy first",
+    category_id: "groceries",
+    priority: 0
+  });
+  await applyRulesToUncorrectedTransactions();
+  assert.equal((await row(db, id))?.category_id, "groceries");
 });
