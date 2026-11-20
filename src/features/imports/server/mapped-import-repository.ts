@@ -27,6 +27,8 @@ export type MappedEntry = {
   categorySource: "rule" | "manual";
   /** The rule that decided a rule-sourced category. */
   categoryRuleId: string | null;
+  /** Marked as a transfer by the file; saved with an automatic transfer type so pairing can link it. */
+  transfer: boolean;
 };
 
 export type NewImportAccount = {
@@ -205,7 +207,7 @@ export async function saveMappedEntries(accountId: string, entries: MappedEntry[
         category_id: entry.categoryId,
         category_source: entry.categorySource,
         category_rule_id: entry.categoryRuleId,
-        type: derivedTransactionType(entry.amount)
+        type: entry.transfer ? "transfer" as const : derivedTransactionType(entry.amount)
       }));
       const rows = await tx.insert(transactions).values(values).onConflictDoNothing({
         target: [transactions.account_id, transactions.provider_reference]

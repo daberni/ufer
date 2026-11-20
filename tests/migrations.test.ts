@@ -1063,6 +1063,54 @@ test("account-archiving migration keeps every account visible and unchanged", as
   }
 });
 
+test("import template migration adds an empty template table and leaves every existing table unchanged", async () => {
+  const client = createClient({
+    url: ":memory:"
+  });
+  const directory = mkdtempSync(join(tmpdir(), "ufer-import-templates-"));
+  const journal = JSON.parse(readFileSync("drizzle/sqlite/meta/_journal.json", "utf8"));
+
+  journal.entries = journal.entries.filter((entry: {
+    idx: number
+  }) => entry.idx < 13);
+  mkdirSync(join(directory, "meta"));
+
+  for (const entry of journal.entries) {
+    cpSync(`drizzle/sqlite/${entry.tag}.sql`, join(directory, `${entry.tag}.sql`));
+  }
+
+  writeFileSync(join(directory, "meta/_journal.json"), JSON.stringify(journal));
+
+  try {
+    await migrateDatabase(client, directory);
+    await client.batch([
+      "INSERT INTO accounts(id,environment,name,institution,kind) VALUES('cash','SANDBOX','Synthetic cash','Example institution','savings')",
+      "INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,type) VALUES('fee','cash','csv:1','2026-01-03',-200,'EUR','expense')"
+    ], "write");
+    // Migrating also applies the later split changeset, whose table and indexes are checked by its own test.
+    const objects = "SELECT type,name,sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' AND name NOT LIKE '__drizzle%' AND name NOT LIKE 'import_templates%' AND name NOT LIKE 'transaction_splits%' ORDER BY name";
+    const before = (await client.execute(objects)).rows;
+    const transactionsBefore = (await client.execute("SELECT * FROM transactions")).rows;
+
+    await assert.rejects(initializeDatabase(client), /migrations are pending/);
+    await migrateDatabase(client);
+    await migrateDatabase(client);
+
+    assert.deepEqual((await client.execute(objects)).rows, before);
+    assert.deepEqual((await client.execute("SELECT * FROM transactions")).rows, transactionsBefore);
+    assert.equal((await client.execute("SELECT COUNT(*) AS total FROM import_templates")).rows[0].total, 0);
+    await client.execute("INSERT INTO import_templates(id,name,name_key,header_key,definition,created_at,updated_at) VALUES('a','Bank','bank','[\"Date\"]','{}','2026-01-01T00:00:00Z','2026-01-01T00:00:00Z')");
+    await assert.rejects(client.execute("INSERT INTO import_templates(id,name,name_key,header_key,definition,created_at,updated_at) VALUES('b','BANK','bank','[\"Other\"]','{}','2026-01-01T00:00:00Z','2026-01-01T00:00:00Z')"), /UNIQUE/);
+    await assert.rejects(client.execute("INSERT INTO import_templates(id,name,name_key,header_key,definition,created_at,updated_at) VALUES('c','Other','other','[\"Date\"]','{}','2026-01-01T00:00:00Z','2026-01-01T00:00:00Z')"), /UNIQUE/);
+  } finally {
+    client.close();
+    rmSync(directory, {
+      recursive: true,
+      force: true
+    });
+  }
+});
+
 test("split migration keeps every booking unchanged and removes parts with their booking", async () => {
   const client = createClient({
     url: ":memory:"
@@ -1072,7 +1120,7 @@ test("split migration keeps every booking unchanged and removes parts with their
 
   journal.entries = journal.entries.filter((entry: {
     idx: number
-  }) => entry.idx < 13);
+  }) => entry.idx < 14);
   mkdirSync(join(directory, "meta"));
 
   for (const entry of journal.entries) {
