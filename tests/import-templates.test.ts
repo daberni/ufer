@@ -12,6 +12,7 @@ import { categoryValues, rememberedChoices, resolveCategories, resolveTargets, s
 import { textsMatch } from "../src/features/imports/server/duplicate-matching";
 import { importMappedRows } from "../src/features/imports/server/mapped-import-service";
 import { assignOccurrences } from "../src/features/imports/csv-mapping";
+import { uniqueWrite } from "../src/features/imports/server/template-repository";
 import { changeTemplate, createTemplate, duplicateTemplate, readTemplates, removeTemplate } from "../src/features/imports/server/template-service";
 
 async function isolatedDatabase(context: TestContext) {
@@ -518,4 +519,34 @@ test("an offered template keeps the encoding and delimiter the person corrected"
     decimal: ".",
     dateFormat: "YYYY-MM-DD"
   });
+});
+
+test("a generic Type column is not guessed as a transfer marker, while the Buxfer template maps it", () => {
+  assert.equal(suggestMapping(["Date", "Amount", "Description", "Type"]).type, null);
+  assert.equal(templateMapping(buxferTemplate, buxferTemplate.header).type, buxferTemplate.header.indexOf("Type"));
+});
+
+test("a template write that loses a uniqueness race is a conflict, not a server error", async context => {
+  const db = await isolatedDatabase(context);
+  const row = {
+    id: "first",
+    name: "Race",
+    name_key: "race",
+    header_key: "[\"Date\"]",
+    definition: "{}",
+    created_at: "2026-01-01T00:00:00Z",
+    updated_at: "2026-01-01T00:00:00Z"
+  };
+
+  await db.insert(schema.importTemplates).values(row);
+  await assert.rejects(uniqueWrite(db.insert(schema.importTemplates).values({
+    ...row,
+    id: "second",
+    header_key: "[\"Other\"]"
+  })), (error: unknown) => error instanceof HttpError && error.status === 409 && /name already exists/.test(error.message));
+  await assert.rejects(uniqueWrite(db.insert(schema.importTemplates).values({
+    ...row,
+    id: "third",
+    name_key: "other"
+  })), (error: unknown) => error instanceof HttpError && error.status === 409 && /already covers/.test(error.message));
 });

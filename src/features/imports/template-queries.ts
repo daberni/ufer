@@ -68,6 +68,8 @@ export function useDeleteTemplate() {
 
   return useMutation({
     mutationFn: (id: string) => api(`imports/templates/${encodeURIComponent(id)}`, undefined, "DELETE"),
+    // Until the refetch succeeds, a cached deleted template would be offered and applied again.
+    onSuccess: (_, id) => queryClient.setQueryData<CsvTemplate[]>(queryKeys.importTemplates(), current => current?.filter(template => template.id !== id)),
     onSettled: () => invalidate(queryClient, [queryKeys.importTemplates()])
   });
 }

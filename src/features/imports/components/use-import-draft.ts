@@ -201,12 +201,16 @@ export function useImportDraft() {
     setTemplate(null);
   }
 
-  /** Switches a template off: the detected format and the suggested roles apply again, and its remembered choices are dropped. */
+  /** Switches a template off: the detected number and date format and the suggested roles apply again, and its remembered choices are dropped. The current encoding and delimiter stay, since the person may have corrected them. */
   function mapManually() {
     setChecked(null);
     setTemplate(null);
     setTemplateDismissed(true);
-    setSettings(detected);
+    setSettings(current => detected ? {
+      ...detected,
+      encoding: current?.encoding ?? detected.encoding,
+      delimiter: current?.delimiter ?? detected.delimiter
+    } : current);
     setMapping(table ? suggestMapping(table.header) : null);
     setTargetChoices(new Map());
     setCategoryChoices(new Map());

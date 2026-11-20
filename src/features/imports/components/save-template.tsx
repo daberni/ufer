@@ -22,7 +22,8 @@ export function SaveTemplate({
   const nameId = useId();
   const save = useSaveTemplate();
   const change = useChangeTemplate();
-  const saved = draft.template && !draft.template.builtIn ? draft.template : null;
+  // A saved template for these columns is updated even when it was switched off, since a second one for the same header is rejected.
+  const saved = [draft.template, draft.offeredTemplate].find(candidate => candidate && !candidate.builtIn) ?? null;
   const [name, setName] = useState(() => saved?.name ?? defaultName(draft));
   const [remember, setRemember] = useState(true);
   const [done, setDone] = useState<string | null>(null);

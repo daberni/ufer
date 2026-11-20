@@ -529,7 +529,8 @@ export function detectDecimal(samples: string[]): DecimalSeparator {
   return filled.some(sample => /,\d{1,2}\)?-?$/.test(sample.trim())) ? "," : ".";
 }
 
-const headerHints: Record<keyof CsvMapping, RegExp> = {
+// A generic "Type" column is never guessed: banks use "Transfer" for external payments, and an internal transfer drops out of cash flow. Templates map it explicitly.
+const headerHints: Record<Exclude<keyof CsvMapping, "type">, RegExp> = {
   date: /^(booking ?date|date|buchungsdatum|datum|buchungstag|transaction date)$/i,
   amount: /^(amount|betrag|value|amount \(\w+\))$/i,
   debit: /^(debit|soll|withdrawal|outflow|ausgang)$/i,
@@ -539,8 +540,7 @@ const headerHints: Record<keyof CsvMapping, RegExp> = {
   currency: /^(currency|währung|waehrung|ccy)$/i,
   category: /^(category|kategorie|tags?)$/i,
   account: /^(account|konto|account name)$/i,
-  id: /^(id|transaction ?id|booking ?id|reference ?id)$/i,
-  type: /^(type|transaction ?type)$/i
+  id: /^(id|transaction ?id|booking ?id|reference ?id)$/i
 };
 
 /** Guesses a mapping from common header names; the person reviews and adjusts it. */
@@ -549,7 +549,7 @@ export function suggestMapping(header: string[]): CsvMapping {
     ...emptyMapping
   };
 
-  for (const field of Object.keys(headerHints) as (keyof CsvMapping)[]) {
+  for (const field of Object.keys(headerHints) as (keyof typeof headerHints)[]) {
     const index = header.findIndex(column => headerHints[field].test(column.trim()));
 
     mapping[field] = index >= 0 ? index : null;

@@ -37,7 +37,7 @@ export async function insertTemplate(id: string, name: string, definition: Templ
     }
 
     await requireUnique(tx, name, definition.header, null);
-    await tx.insert(importTemplates).values({
+    await uniqueWrite(tx.insert(importTemplates).values({
       id,
       name,
       name_key: categoryNameKey(name),
@@ -45,7 +45,7 @@ export async function insertTemplate(id: string, name: string, definition: Templ
       definition: JSON.stringify(definition),
       created_at: now,
       updated_at: now
-    });
+    }));
   });
 }
 
@@ -67,13 +67,13 @@ export async function updateTemplate(id: string, change: {
     const definition = change.definition ?? JSON.parse(current.definition) as TemplateDefinition;
 
     await requireUnique(tx, name, definition.header, id);
-    await tx.update(importTemplates).set({
+    await uniqueWrite(tx.update(importTemplates).set({
       name,
       name_key: categoryNameKey(name),
       header_key: headerKey(definition.header),
       definition: JSON.stringify(definition),
       updated_at: new Date().toISOString()
-    }).where(eq(importTemplates.id, id));
+    }).where(eq(importTemplates.id, id)));
 
     return true;
   });
@@ -106,4 +106,31 @@ async function requireUnique(tx: DatabaseTransaction, name: string, header: stri
   if (sameHeader && sameHeader.id !== ownId) {
     throw new HttpError(409, `The template “${sameHeader.name}” already covers files with these columns. Update or delete it instead.`);
   }
+}
+
+/** A concurrent write can pass the check above and still hit a unique index; it gets the same conflict instead of a server error. */
+export async function uniqueWrite<T>(write: PromiseLike<T>) {
+  try {
+    return await write;
+  } catch (error) {
+    const message = constraintMessage(error);
+
+    if (message.includes("import_templates.name_key")) {
+      throw new HttpError(409, "A template with this name already exists.");
+    }
+
+    if (message.includes("import_templates.header_key")) {
+      throw new HttpError(409, "Another template already covers files with these columns. Update or delete it instead.");
+    }
+
+    throw error;
+  }
+}
+
+function constraintMessage(error: unknown): string {
+  if (!(error instanceof Error)) {
+    return "";
+  }
+
+  return `${error.message} ${constraintMessage(error.cause)}`;
 }

@@ -5,6 +5,7 @@ import { createElement } from "react";
 import type { CsvTemplate } from "../src/features/imports/csv-mapping";
 import { browser, respond, wait, withQueryClient } from "./fixtures/browser";
 import { stubCssModules } from "./fixtures/css-modules";
+import { queryKeys } from "../src/client/query-keys";
 
 stubCssModules();
 
@@ -33,6 +34,8 @@ test("a deleted template is reported to the draft only after the server deleted 
   const environment = browser(context);
   const TemplateList = await loadTemplateList();
   const deleted: string[] = [];
+
+  environment.queryClient.setQueryData(queryKeys.importTemplates(), [saved]);
   const screen = render(withQueryClient(environment.queryClient, createElement(TemplateList, {
     templates: [saved],
     disabled: false,
@@ -67,6 +70,8 @@ test("a deleted template is reported to the draft only after the server deleted 
     ok: true
   }));
   assert.deepEqual(deleted, ["saved/1"]);
+  // A failed or pending refetch must not offer the deleted template again.
+  assert.deepEqual(environment.queryClient.getQueryData(queryKeys.importTemplates()), []);
 });
 
 test("renaming starts from the current name, also after an earlier rename", async context => {
