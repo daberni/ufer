@@ -1,0 +1,76 @@
+.section {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.section h2 {
+  margin: 0;
+  font-size: var(--text-lg);
+}
+.section > p {
+  margin: 0;
+}
+.list {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+.details {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+.details strong {
+  color: var(--ink);
+  font-size: var(--text-md);
+}
+.columns {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rename {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.rename input {
+  flex: 1;
+  min-width: 12rem;
+}
+.actions {
+  flex: none;
+}
+.danger {
+  color: var(--danger-text);
+  border-color: var(--danger-border);
+}
+.item > div[role="alert"]:empty {
+  display: none;
+}
+.item > div[role="alert"] {
+  flex-basis: 100%;
+}
+@media (--mobile) {
+  .actions {
+    width: 100%;
+  }
+  .actions > button {
+    flex: 1;
+  }
+}

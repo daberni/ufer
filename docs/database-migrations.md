@@ -104,3 +104,7 @@ Changeset 0011 adds the nullable text column `transactions.category_rule_id`, th
 ## Account archiving changeset
 
 Changeset 0012 adds the nullable `accounts.archived_at` text column, an ISO timestamp set while an account is archived. Every existing account keeps `NULL` and stays visible; no other column, row, transaction or observation changes. Archiving and restoring only set or clear this column, and removing a bank connection can set it for the detached accounts. The upgraded database requires this application version; earlier applications reject the unknown recorded changeset. Recover by restoring the pre-upgrade backup together with the previous application, or fix forward with a new changeset. It has been applied to disposable synthetic databases only; applying it to the shared Preview or Production database needs a backup and separate approval.
+
+## Import templates changeset
+
+Changeset 0013 adds the `import_templates` table (`id`, `name`, `name_key`, `header_key`, `definition` JSON, `created_at`, `updated_at`); `name_key` is the NFC, locale-independent lowercase name, since SQLite `lower()` folds ASCII only. Unique indexes cover `header_key` and `name_key`. It creates no rows and changes no existing table, column, index or row. The upgraded database requires this application version; roll back by restoring the pre-upgrade backup with the previous application, or fix forward with a new changeset. It has been applied to disposable test databases only; applying it to a hosted database needs separate approval.

@@ -1,0 +1,28 @@
+.notice {
+  margin-bottom: 0;
+}
+.notice > svg {
+  flex: none;
+  color: var(--green-text);
+}
+.notice p {
+  display: grid;
+  margin: 0;
+  min-width: 0;
+}
+.notice span {
+  color: var(--muted);
+}
+@media (--mobile) {
+  .notice {
+    flex-wrap: wrap;
+  }
+  .notice p {
+    flex: 1;
+  }
+  .notice > button.action {
+    flex-basis: 100%;
+    margin-left: 0;
+    padding-left: calc(18px + var(--space-3));
+  }
+}
