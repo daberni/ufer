@@ -3,16 +3,18 @@ import { parse } from "csv-parse/sync";
 import { Temporal } from "temporal-polyfill";
 import { minorUnits } from "./money";
 import { today, validDate } from "./time";
+import { formatCount } from "./locale";
 
 type CsvRow = Record<string, string>;
 
-export function parseBalancesCsv(text: string, currency: string, now = Temporal.Now.instant()) {
+/** Reads balance rows; the locale formats row numbers in error messages. */
+export function parseBalancesCsv(text: string, currency: string, locale: string, now = Temporal.Now.instant()) {
   const rows = readCsvRows(text, "balances", "date,balance,currency");
   const dates = new Set<string>();
   const latestDate = today(now);
 
   return rows.map((row, index) => {
-    const line = index + 2;
+    const line = formatCount(index + 2, locale);
 
     if (!validDate(row.date || "") || isFutureDate(row.date, latestDate) || !row.balance || row.currency !== currency) {
       throw new ValidationError(`CSV row ${line}: invalid date, balance, or account currency.`);
@@ -62,7 +64,7 @@ function isFutureDate(value: string, latestDate: Temporal.PlainDate) {
   return Temporal.PlainDate.compare(Temporal.PlainDate.from(value), latestDate) > 0;
 }
 
-function rowAmount(line: number, value: string, currency: string) {
+function rowAmount(line: string, value: string, currency: string) {
   try {
     return minorUnits(value.replace(",", "."), currency);
   } catch (error) {

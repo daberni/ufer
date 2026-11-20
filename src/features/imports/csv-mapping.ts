@@ -1,5 +1,6 @@
 import { parse } from "csv-parse/browser/esm/sync";
 import { Temporal } from "temporal-polyfill";
+import { formatCount } from "@/lib/locale";
 
 // Reads arbitrary transaction CSV exports in the browser and maps their columns to import rows. Shared with the server, so it must stay free of server-only imports.
 
@@ -603,7 +604,8 @@ export function mappingProblem(mapping: CsvMapping) {
 }
 
 /** Turns data rows (without the header) into mapped rows and row-level errors. `lines` gives each row's physical line in the file; without it, rows count from line 2. */
-export function mapRows(rows: string[][], mapping: CsvMapping, settings: CsvSettings, lines?: number[]) {
+/** Maps CSV rows; the locale formats numbers in row problems. */
+export function mapRows(rows: string[][], mapping: CsvMapping, settings: CsvSettings, locale: string, lines?: number[]) {
   const mapped: MappedRow[] = [];
   const errors: RowError[] = [];
 
@@ -644,7 +646,7 @@ export function mapRows(rows: string[][], mapping: CsvMapping, settings: CsvSett
     const source = cell(mapping.account);
 
     if (source.length > maxSourceLength) {
-      failure(`The account value is longer than ${maxSourceLength} characters.`);
+      failure(`The account value is longer than ${formatCount(maxSourceLength, locale)} characters.`);
 
       return;
     }
@@ -653,7 +655,7 @@ export function mapRows(rows: string[][], mapping: CsvMapping, settings: CsvSett
     const category = cell(mapping.category);
 
     if (category.length > maxCategoryLength) {
-      failure(`The category is longer than ${maxCategoryLength} characters.`);
+      failure(`The category is longer than ${formatCount(maxCategoryLength, locale)} characters.`);
 
       return;
     }

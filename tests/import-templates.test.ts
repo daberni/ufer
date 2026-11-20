@@ -84,7 +84,7 @@ test("a Buxfer export is recognized and maps IDs, accounts, signed amounts and t
 
   assert.equal(template?.id, buxferTemplate.id);
 
-  const result = mapRows(rows, templateMapping(template!, header), settings);
+  const result = mapRows(rows, templateMapping(template!, header), settings, "en");
 
   assert.deepEqual(result.errors, []);
   assert.deepEqual(result.rows.map(row => [row.id, row.date, row.amount, row.source]), [
@@ -112,7 +112,7 @@ test("a shortened Buxfer description still matches the full bank booking", () =>
     template,
     settings
   } = readBuxfer();
-  const truncated = mapRows(rows, templateMapping(template!, header), settings).rows[5];
+  const truncated = mapRows(rows, templateMapping(template!, header), settings, "en").rows[5];
 
   assert.equal(textsMatch({
     counterparty: truncated.payee,
@@ -356,7 +356,7 @@ test("a repeated header name keeps its role on the same occurrence", () => {
     delimiter: ",",
     decimal: ".",
     dateFormat: "YYYY-MM-DD"
-  }).rows.map(row => row.amount), ["-2.50"]);
+  }, "en").rows.map(row => row.amount), ["-2.50"]);
 });
 
 test("remembered choices apply once accounts and categories load, and never override the person's choice", () => {
@@ -456,7 +456,7 @@ test("Buxfer transfers import as transfers, and automatic pairing links both sid
     template,
     settings
   } = readBuxfer();
-  const mapped = mapRows(rows, templateMapping(template!, header), settings).rows;
+  const mapped = mapRows(rows, templateMapping(template!, header), settings, "en").rows;
 
   assert.deepEqual(mapped.map(row => row.transfer), [false, false, false, true, true, false]);
 

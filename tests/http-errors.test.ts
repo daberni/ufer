@@ -23,7 +23,7 @@ const publicAccess = {
 
 test("an invalid amount is user validation in CSV but a provider failure in bank data", async context => {
   context.mock.method(console, "warn", () => {});
-  const csv = await respond(request, async () => parseBalancesCsv("date,balance,currency\n2020-01-01,0.005,EUR", "EUR"), publicAccess);
+  const csv = await respond(request, async () => parseBalancesCsv("date,balance,currency\n2020-01-01,0.005,EUR", "EUR", "en"), publicAccess);
   const bank = await respond(request, async () => selectedBalance([{
     balance_type: "CLBD",
     balance_amount: {

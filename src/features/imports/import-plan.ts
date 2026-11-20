@@ -174,7 +174,7 @@ export type ImportProblem = AccountProblem | {
 };
 
 /** Turns the page's choices into the import request: skipped sources drop their rows, and a new account's opening balance is dated on its first row. */
-export function prepareImport(rows: MappedRow[], choices: ReadonlyMap<string, TargetChoice>, accounts: AccountOption[], selections: ReadonlyMap<string, CategorySelection>, decimal: DecimalSeparator): PreparedImport {
+export function prepareImport(rows: MappedRow[], choices: ReadonlyMap<string, TargetChoice>, accounts: AccountOption[], selections: ReadonlyMap<string, CategorySelection>, decimal: DecimalSeparator, locale: string): PreparedImport {
   const targets: ImportTarget[] = [];
   const problems: ImportProblem[] = [];
   const kept = rows.filter(row => choices.get(row.source)?.kind !== "skip");
@@ -226,7 +226,7 @@ export function prepareImport(rows: MappedRow[], choices: ReadonlyMap<string, Ta
     }
 
     if (name.length > maxAccountNameLength) {
-      problem("name", `Use at most ${maxAccountNameLength} characters.`);
+      problem("name", `Use at most ${formatCount(maxAccountNameLength, locale)} characters.`);
     }
 
     if (!/^[A-Z]{3}$/.test(choice.currency)) {

@@ -324,18 +324,18 @@ test("bookings with an owned counterparty IBAN are detected as transfers", () =>
   assert.equal(entry[0].transfer, true);
 });
 test("CSV balances reject duplicate dates and mismatching currencies before import", () => {
-  assert.throws(() => parseBalancesCsv("date,balance,currency\n2026-11-12,1,USD", "EUR"));
-  assert.throws(() => parseBalancesCsv("date,balance,currency\n2026-11-12,1,EUR\n2026-11-12,2,EUR", "EUR"), /multiple balances/);
-  assert.deepEqual(parseBalancesCsv("date,balance,currency\n2026-11-12,2,EUR\n2026-11-11,1,EUR", "EUR").map(row => row.amount), [100, 200]);
+  assert.throws(() => parseBalancesCsv("date,balance,currency\n2026-11-12,1,USD", "EUR", "en"));
+  assert.throws(() => parseBalancesCsv("date,balance,currency\n2026-11-12,1,EUR\n2026-11-12,2,EUR", "EUR", "en"), /multiple balances/);
+  assert.deepEqual(parseBalancesCsv("date,balance,currency\n2026-11-12,2,EUR\n2026-11-11,1,EUR", "EUR", "en").map(row => row.amount), [100, 200]);
 });
 test("CSV balances dated today in Vienna are accepted before UTC reaches that day", () => {
   const viennaAfterMidnight = Temporal.Instant.from("2026-03-01T23:30:00Z");
 
-  assert.deepEqual(parseBalancesCsv("date,balance,currency\n2026-03-02,1,EUR", "EUR", viennaAfterMidnight).map(row => row.date), ["2026-03-02"]);
-  assert.throws(() => parseBalancesCsv("date,balance,currency\n2026-03-03,1,EUR", "EUR", viennaAfterMidnight), /invalid date/);
+  assert.deepEqual(parseBalancesCsv("date,balance,currency\n2026-03-02,1,EUR", "EUR", "en", viennaAfterMidnight).map(row => row.date), ["2026-03-02"]);
+  assert.throws(() => parseBalancesCsv("date,balance,currency\n2026-03-03,1,EUR", "EUR", "en", viennaAfterMidnight), /invalid date/);
 });
 test("CSV balance amount errors name the row", () => {
-  assert.throws(() => parseBalancesCsv("date,balance,currency\n2026-11-11,1,EUR\n2026-11-12,1.234,EUR", "EUR"), /CSV row 3: .*decimal/);
+  assert.throws(() => parseBalancesCsv("date,balance,currency\n2026-11-11,1,EUR\n2026-11-12,1.234,EUR", "EUR", "en"), /CSV row 3: .*decimal/);
 });
 test("repeated sync preserves manual category corrections including deliberately uncategorized", async () => {
   const client = await initializeDatabase(createClient({
@@ -685,4 +685,8 @@ test("sync offers reconnecting only for failures that a new bank authorization r
     delete process.env.ENABLE_BANKING_PRIVATE_KEY;
     client.close();
   }
+});
+
+test("balance CSV row numbers in errors use the request locale's numerals", () => {
+  assert.throws(() => parseBalancesCsv("date,balance,currency\n2026-11-11,1,EUR\n2026-11-12,1,EUR\n2026-11-12,2,EUR", "EUR", "ar-EG"), /CSV row ٤: multiple balances/);
 });

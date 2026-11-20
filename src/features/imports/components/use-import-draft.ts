@@ -8,6 +8,7 @@ import { useMappedImport, type MappedImportSummary } from "@/features/imports/mu
 import { builtInTemplates, decodeCsv, detectDateFormat, detectDecimal, detectDelimiter, mapRows, mappingProblem, matchTemplate, parseCsv, importIdFor, readCsvTable, suggestMapping, templateMapping, templateSettings, type CsvMapping, type CsvSettings, type CsvTemplate } from "@/features/imports/csv-mapping";
 import { categoryValues, importKey, prepareImport, resolveCategories, resolveTargets, sourceAccounts, templateChoices, type CategorySelection, type TargetChoice } from "@/features/imports/import-plan";
 import { useImportTemplates } from "@/features/imports/template-queries";
+import { useFormatLocale } from "@/client/format-locale-provider";
 
 /** Large multi-year exports are read in the browser and sent as mapped rows in batches, so only the browser's memory bounds the file. */
 const maxFileBytes = 25_000_000;
@@ -21,6 +22,7 @@ export type LoadedFile = {
  * The import page's state: the file and its format, the column roles, target accounts and category choices, and the check result. A check or a started confirmation fixes the whole definition: a stale check must not approve changed inputs, and a retry must reproduce the same row references and targets.
  */
 export function useImportDraft() {
+  const locale = useFormatLocale();
   const [file, setFile] = useState<LoadedFile | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const [settings, setSettings] = useState<CsvSettings | null>(null);
@@ -55,7 +57,7 @@ export function useImportDraft() {
   // Without a stored mapping (a new file, delimiter or encoding), the suggestion for the current header applies.
   const effectiveMapping = useMemo(() => mapping ?? (table ? suggestMapping(table.header) : null), [mapping, table]);
   const problem = effectiveMapping ? mappingProblem(effectiveMapping) : null;
-  const mapped = useMemo(() => table && effectiveMapping && !mappingProblem(effectiveMapping) && settings ? mapRows(table.rows, effectiveMapping, settings, table.lines) : null, [table, effectiveMapping, settings]);
+  const mapped = useMemo(() => table && effectiveMapping && !mappingProblem(effectiveMapping) && settings ? mapRows(table.rows, effectiveMapping, settings, locale, table.lines) : null, [table, effectiveMapping, settings, locale]);
   const sources = useMemo(() => sourceAccounts(mapped?.rows ?? []), [mapped]);
   // Remembered choices follow the option lists, so a template applied before accounts or categories loaded still restores them.
   const remembered = useMemo(() => template ? templateChoices(template, accountOptions, categories.data ?? []) : null, [template, accountOptions, categories.data]);
@@ -64,7 +66,7 @@ export function useImportDraft() {
   const keptRows = useMemo(() => mapped?.rows.filter(row => resolvedTargets.get(row.source)?.kind !== "skip") ?? [], [mapped, resolvedTargets]);
   const values = useMemo(() => categoryValues(keptRows, categories.data ?? []), [keptRows, categories.data]);
   const resolvedCategories = useMemo(() => resolveCategories(values, categoryChoices, remembered?.selections ?? new Map()), [values, categoryChoices, remembered]);
-  const prepared = useMemo(() => mapped && settings ? prepareImport(mapped.rows, resolvedTargets, accountOptions, resolvedCategories, settings.decimal) : null, [mapped, settings, resolvedTargets, accountOptions, resolvedCategories]);
+  const prepared = useMemo(() => mapped && settings ? prepareImport(mapped.rows, resolvedTargets, accountOptions, resolvedCategories, settings.decimal, locale) : null, [mapped, settings, resolvedTargets, accountOptions, resolvedCategories, locale]);
   const preparedKey = useMemo(() => prepared ? importKey(prepared) : null, [prepared]);
   // A refetched account list can change a preselected target; the check then no longer describes what Import would save.
   const summary = checked && checked.key === preparedKey ? checked.summary : null;

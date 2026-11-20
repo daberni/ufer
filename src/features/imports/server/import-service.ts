@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { parseBalancesCsv } from "@/lib/import";
+import { currentFormatLocale } from "@/server/http/request-locale";
 import { requireWritableManualAccount, validateLiability } from "@/features/accounts/server/account-service";
 import { saveImportedValuations } from "./import-repository";
 
@@ -11,7 +12,7 @@ const importInput = z.object({
 export async function importValuations(payload: unknown) {
   const input = importInput.parse(payload);
   const account = await requireImportAccount(input.account_id);
-  const entries = parseBalancesCsv(input.csv, account.currency);
+  const entries = parseBalancesCsv(input.csv, account.currency, await currentFormatLocale());
 
   for (const entry of entries) {
     validateLiability(account.kind, entry.amount);
