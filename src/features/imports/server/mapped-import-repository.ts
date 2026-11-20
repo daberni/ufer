@@ -216,7 +216,8 @@ export async function saveMappedEntries(accountId: string, entries: MappedEntry[
         category_source: entry.categorySource,
         category_rule_id: entry.categoryRuleId,
         type: fileTransfer(entry) ? "transfer" as const : entry.ruleType ?? derivedTransactionType(entry.amount),
-        type_rule_id: fileTransfer(entry) ? null : entry.typeRuleId
+        type_rule_id: fileTransfer(entry) ? null : entry.typeRuleId,
+        transfer_detected: entry.transfer ? 1 : 0
       }));
       const rows = await tx.insert(transactions).values(values).onConflictDoNothing({
         target: [transactions.account_id, transactions.provider_reference]

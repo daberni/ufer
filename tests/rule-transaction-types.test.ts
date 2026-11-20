@@ -497,3 +497,66 @@ test("a rule without a type that takes over a manual assignment returns an earli
 
   assert.deepEqual([adopted.category_source, adopted.type, adopted.type_rule_id], ["rule", "income", null]);
 });
+
+test("a bank-reported transfer returns to Transfer when the rule that overrode its type stops setting one", async context => {
+  const db = await isolatedDatabase(context);
+
+  await sync(db, "checking", [{
+    ...entry("sweep", "2026-09-12", -2500, "Account sweep"),
+    transfer: true
+  }]);
+  assert.equal((await stored(db, "bank:sweep")).type, "transfer");
+
+  const sweep = await rule({
+    pattern: "ACCOUNT SWEEP",
+    transaction_type: "expense"
+  });
+
+  await applyRulesToUncorrectedTransactions();
+  assert.equal((await stored(db, "bank:sweep")).type, "expense");
+
+  await updateRuleDetails(sweep.id, {
+    name: sweep.name,
+    pattern: sweep.pattern,
+    mode: sweep.mode,
+    category_id: sweep.category_id,
+    transaction_type: ""
+  });
+  await applyRulesToUncorrectedTransactions();
+
+  const released = await stored(db, "bank:sweep");
+
+  assert.deepEqual([released.type, released.type_rule_id], ["transfer", null]);
+});
+
+test("a rule without a type that takes over a manual assignment returns a bank-reported transfer to Transfer", async context => {
+  const db = await isolatedDatabase(context);
+
+  await sync(db, "checking", [{
+    ...entry("sweep", "2026-09-12", -2500, "Account sweep"),
+    transfer: true
+  }]);
+  const earlier = await rule({
+    pattern: "ACCOUNT SWEEP",
+    transaction_type: "expense",
+    apply_to_uncategorized: true
+  });
+
+  assert.equal((await stored(db, "bank:sweep")).type, "expense");
+  await db.update(schema.transactions).set({
+    category_source: "manual",
+    category_rule_id: null
+  }).where(eq(schema.transactions.provider_reference, "bank:sweep"));
+  await db.update(schema.categorizationRules).set({
+    pattern: "UNRELATED"
+  }).where(eq(schema.categorizationRules.id, earlier.id));
+
+  await rule({
+    pattern: "SWEEP",
+    adopt_manual: true
+  });
+
+  const adopted = await stored(db, "bank:sweep");
+
+  assert.deepEqual([adopted.type, adopted.type_rule_id], ["transfer", null]);
+});

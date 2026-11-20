@@ -1089,7 +1089,11 @@ test("rule-type migration keeps every rule and booking unchanged and leaves exis
       "INSERT INTO accounts(id,environment,name,institution,kind) VALUES('checking','SANDBOX','Synthetic checking','Example institution','checking')",
       "INSERT INTO categorization_rules(id,name,pattern,mode,category_id,priority,enabled) VALUES('market-rule','Markets','MARKET','keyword','groceries',100,1)",
       "INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,counterparty,category_id,category_source,category_rule_id,type) VALUES('ruled','checking','bank:1','2026-01-02',-500,'EUR','Example Market','groceries','rule','market-rule','expense')",
-      "INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,counterparty,category_id,category_source,type,type_source) VALUES('manual','checking','bank:2','2026-01-03',700,'EUR','Example refund','leisure','manual','expense','manual')"
+      "INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,counterparty,category_id,category_source,type,type_source) VALUES('manual','checking','bank:2','2026-01-03',700,'EUR','Example refund','leisure','manual','expense','manual')",
+      "INSERT INTO accounts(id,environment,name,institution,kind) VALUES('savings','SANDBOX','Synthetic savings','Example institution','savings')",
+      "INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,type) VALUES('detected','checking','bank:3','2026-01-04',-900,'EUR','transfer')",
+      "INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,type,transfer_id) VALUES('linked-out','checking','bank:4','2026-01-05',-300,'EUR','transfer','pair')",
+      "INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,type,transfer_id) VALUES('linked-in','savings','bank:5','2026-01-05',300,'EUR','transfer','pair')"
     ], "write");
     const transactionColumns = await columnList(client, "transactions");
     const ruleColumns = await columnList(client, "categorization_rules");
@@ -1102,7 +1106,10 @@ test("rule-type migration keeps every rule and booking unchanged and leaves exis
 
     assert.deepEqual((await client.execute(`SELECT ${transactionColumns} FROM transactions ORDER BY id`)).rows, transactionsBefore);
     assert.deepEqual((await client.execute(`SELECT ${ruleColumns} FROM categorization_rules ORDER BY id`)).rows, rulesBefore);
-    assert.deepEqual((await client.execute("SELECT type_rule_id FROM transactions")).rows.map(row => row.type_rule_id), [null, null]);
+    assert.deepEqual((await client.execute("SELECT type_rule_id FROM transactions")).rows.map(row => row.type_rule_id), [null, null, null, null, null]);
+    // Only unlinked automatic transfers count as reported by the source.
+    assert.deepEqual((await client.execute("SELECT id FROM transactions WHERE transfer_detected=1")).rows.map(row => row.id), ["detected"]);
+    await assert.rejects(client.execute("UPDATE transactions SET transfer_detected=2"), /CHECK constraint failed/);
     assert.deepEqual({
       ...(await client.execute("SELECT transaction_type,transfer_account_id FROM categorization_rules")).rows[0]
     }, {

@@ -86,7 +86,7 @@ async function adoptManualAssignments(tx: DatabaseTransaction, rule: Pick<Rule, 
 
 /**
  * Sets the rule's type on the bookings it was just given, unless a person or a link decided their type, then pairs transfers so they link to, or create, their counterparts.
- * A rule without a type returns a type an earlier rule set to the derived type, as applying rules does; a detected transfer without a rule stays a transfer.
+ * A rule without a type returns a type an earlier rule set to the derived type, as applying rules does; a booking reported as a transfer returns to Transfer.
  */
 async function applyRuleType(tx: DatabaseTransaction, rule: Pick<Rule, "id" | "transaction_type">, ids: string[]) {
   if (ids.length === 0) {
@@ -96,7 +96,7 @@ async function applyRuleType(tx: DatabaseTransaction, rule: Pick<Rule, "id" | "t
   if (!rule.transaction_type) {
     for (let offset = 0; offset < ids.length; offset += assignmentChunkSize) {
       await tx.update(transactions).set({
-        type: sql`CASE WHEN ${transactions.amount_minor}>0 THEN 'income' ELSE 'expense' END`,
+        type: sql`CASE WHEN ${transactions.transfer_detected}=1 THEN 'transfer' WHEN ${transactions.amount_minor}>0 THEN 'income' ELSE 'expense' END`,
         type_rule_id: null
       }).where(and(inArray(transactions.id, ids.slice(offset, offset + assignmentChunkSize)), ruleTypeable, isNotNull(transactions.type_rule_id)));
     }
@@ -340,6 +340,7 @@ export async function findRuleTypeableTransactions() {
     amount_minor: transactions.amount_minor,
     type: transactions.type,
     type_rule_id: transactions.type_rule_id,
+    transfer_detected: transactions.transfer_detected,
     counterparty: transactions.counterparty,
     description: transactions.description,
     counterparty_override: transactions.counterparty_override,

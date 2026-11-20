@@ -120,6 +120,8 @@ export const transactions = sqliteTable("transactions", {
   }).notNull().default("auto"),
   // The rule that set an automatic type; null for a derived or manual type and types set before it was recorded. Not a foreign key, like category_rule_id.
   type_rule_id: text("type_rule_id"),
+  // Whether the bank or file reported a transfer; a released rule type returns to Transfer. A delivery that re-derives the type replaces it.
+  transfer_detected: integer("transfer_detected").notNull().default(0),
   // Shared by the two linked bookings of one transfer between own accounts.
   transfer_id: text("transfer_id"),
   // Manual once a person linked or unlinked the booking; automatic pairing then leaves it alone.
@@ -139,6 +141,7 @@ export const transactions = sqliteTable("transactions", {
   uniqueIndex("transactions_transfer_side").on(table.transfer_id, sql`${table.amount_minor} > 0`).where(sql`${table.transfer_id} IS NOT NULL`),
   check("transactions_category_source", sql`${table.category_source} IN ('rule','manual')`),
   check("transactions_type", sql`${table.type} IN ('income','expense','transfer','opening_balance','adjustment')`),
+  check("transactions_transfer_detected", sql`${table.transfer_detected} IN (0,1)`),
   check("transactions_type_source", sql`${table.type_source} IN ('auto','manual')`),
   check("transactions_transfer_source", sql`${table.transfer_source} IN ('auto','manual')`),
   check("transactions_transfer_type", sql`${table.transfer_id} IS NULL OR ${table.type}='transfer'`)

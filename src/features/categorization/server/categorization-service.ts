@@ -415,7 +415,7 @@ export async function applyRulesToUncorrectedTransactions() {
 }
 
 /**
- * Sets the types rules decide on bookings that neither a person nor a link decided, whatever their category source. A type a rule set earlier returns to the derived type when no rule sets one any more; a detected transfer without a rule stays a transfer.
+ * Sets the types rules decide on bookings that neither a person nor a link decided, whatever their category source. A type a rule set earlier returns to the derived type when no rule sets one any more, which is Transfer for a booking the bank or file reported as one; a detected transfer without a rule stays a transfer.
  * Rule-set transfers are then paired, so they link to their counterpart or create it on a named manual account. Returns the number of changed types.
  */
 async function applyRuleTypes(rules: PreparedRule[]) {
@@ -426,7 +426,7 @@ async function applyRuleTypes(rules: PreparedRule[]) {
       ruleId: assignment.ruleId
     } : undefined;
     const released = !decided && entry.type_rule_id !== null ? {
-      type: derivedTransactionType(entry.amount_minor),
+      type: derivedTransactionType(entry.amount_minor, entry.transfer_detected === 1),
       ruleId: null
     } : undefined;
     const next = decided ?? released;
