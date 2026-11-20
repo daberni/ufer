@@ -38,23 +38,6 @@ export function useSaveCategory(category?: Category | null) {
   });
 }
 
-export type CategoryColorChange = {
-  id: string;
-  color: string;
-};
-
-/** Stores confirmed color suggestions in one request; rules and the spending breakdown show category colors. */
-export function useApplyCategoryColors() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (colors: CategoryColorChange[]) => api("categories", {
-      colors
-    }, "PATCH"),
-    onSettled: () => invalidate(queryClient, [queryKeys.categories(), queryKeys.rules(), queryKeys.reports.cashFlow()])
-  });
-}
-
 export type CreatedRule = {
   ok: true;
   /** Uncategorized transactions that received the rule's category when it was created. */

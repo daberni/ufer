@@ -5,13 +5,12 @@ import ui from "../../../components/ui/primitives.module.css";
 import { clsx } from "clsx";
 import { useState } from "react";
 import styles from "./category-form.module.css";
-import { defaultCategoryColor } from "@/features/categorization/category-colors";
 import { isCategoryIcon, type CategoryIconKey } from "@/features/categorization/category-icons";
 import type { Category } from "@/features/categorization/types";
 import { useDialogSubmit, type DialogFormProps } from "@/components/ui/use-dialog-submit";
 import { useSaveCategory } from "@/features/categorization/mutations";
 import { useCategories } from "@/features/categorization/queries";
-import { suggestNewCategoryColor } from "@/features/categorization/category-color-suggestions";
+import { randomCategoryColor, suggestCategoryColor } from "@/features/categorization/category-color-suggestions";
 import { FormError } from "@/components/ui/form-error";
 import { CategoryLabel } from "./category-label";
 import { CategoryColorField } from "./category-color-field";
@@ -77,11 +76,12 @@ function CategoryForm({
   const [name, setName] = useState(category?.name ?? initialName);
   const savedIcon = category?.icon;
   const [icon, setIcon] = useState<CategoryIconKey | "">(isCategoryIcon(savedIcon) ? savedIcon : "");
-  const existing = useCategories().data;
-  // Only a new category gets a suggestion; it follows the name and icon until the person chooses a color.
-  const suggested = category ? null : suggestNewCategoryColor(name.trim(), icon || null, existing ?? []);
-  const [chosenColor, setChosenColor] = useState<string | null>(category?.color ?? null);
-  const color = chosenColor ?? suggested ?? defaultCategoryColor;
+  const existing = useCategories().data ?? [];
+  const others = existing.filter(other => other.id !== category?.id);
+  // A new category starts with a rarely used color, so new categories do not all look alike.
+  const [color, setColor] = useState(() => category?.color ?? randomCategoryColor(existing.map(other => other.color)));
+  const similarColor = suggestCategoryColor(name, icon || null, others);
+  const suggested = similarColor?.toLowerCase() === color.toLowerCase() ? null : similarColor;
   const [openPanel, setOpenPanel] = useState<OpenPanel>(null);
 
   function panelToggle(panel: Exclude<OpenPanel, null>) {
@@ -129,7 +129,7 @@ function CategoryForm({
         <CategoryColorField
           color={color}
           suggested={suggested}
-          onChange={setChosenColor}
+          onChange={setColor}
           open={openPanel === "color"}
           onOpenChange={panelToggle("color")}
         />

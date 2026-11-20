@@ -8,24 +8,21 @@ import { drizzle } from "drizzle-orm/libsql";
 import type { Database } from "../src/server/database/connection";
 import { initializeDatabase } from "../src/server/database/migrations";
 import * as schema from "../src/server/database/schema";
-import { suggestCategoryColors, suggestNewCategoryColor, type ColoredCategory } from "../src/features/categorization/category-color-suggestions";
-import { applyCategoryColors } from "../src/features/categorization/server/category-color-service";
+import { randomCategoryColor, suggestCategoryColor, type ColoredCategory } from "../src/features/categorization/category-color-suggestions";
+import { suggestedCategoryColors } from "../src/features/categorization/category-colors";
 import { createCategory } from "../src/features/categorization/server/categorization-service";
-import { HttpError, ValidationError } from "../src/lib/errors";
+import { createImportCategory } from "../src/features/imports/server/mapped-import-repository";
 import { browser, respond, wait, withQueryClient } from "./fixtures/browser";
 import { stubCssModules } from "./fixtures/css-modules";
 
 stubCssModules();
 
-const terracotta = "#B85C38";
-const brown = "#90674D";
+const palette = suggestedCategoryColors.map(color => color.value);
 const ocean = "#2A74B0";
 const teal = "#1D8A80";
-const crimson = "#C2413B";
-const forest = "#33805A";
-const sage = "#638777";
+const terracotta = "#B85C38";
 
-function category(id: string, name: string, icon: string | null, color = "#617385"): ColoredCategory {
+function category(id: string, name: string, icon: string | null, color: string): ColoredCategory {
   return {
     id,
     name,
@@ -34,67 +31,33 @@ function category(id: string, name: string, icon: string | null, color = "#61738
   };
 }
 
-function suggestionsById(categories: ColoredCategory[]) {
-  return Object.fromEntries(suggestCategoryColors(categories).map(suggestion => [suggestion.category.id, suggestion.suggested]));
-}
+test("similar categories by name prefix decide the suggestion before the icon's area", () => {
+  const others = [category("fuel", "Car / Fuel", "fuel", ocean), category("tolls", "Car / Tolls", "tolls", ocean), category("rent", "Rent", "rent", terracotta)];
 
-test("a new category takes the color its prefix siblings share, even against its icon", () => {
-  const existing = [category("fuel", "Car / Fuel", "fuel", "#123456"), category("tolls", "Car / Tolls", "tolls", "#123456"), category("rent", "Rent", "rent", "#654321")];
-
-  assert.equal(suggestNewCategoryColor("Car / Parking", "groceries", existing), "#123456");
-  assert.equal(suggestNewCategoryColor("car / Wash", null, existing), "#123456");
-  // A plain name joins the prefix group it names.
-  assert.equal(suggestNewCategoryColor("Car", null, existing), "#123456");
+  assert.equal(suggestCategoryColor("Car / Parking", "groceries", others), ocean);
+  assert.equal(suggestCategoryColor("car", null, others), ocean);
+  // Without prefix siblings, a category whose icon is in the same area decides.
+  assert.equal(suggestCategoryColor("Flat deposit", "housing", others), terracotta);
 });
 
-test("without prefix siblings the icon's area decides, and without an icon the default color", () => {
-  const existing = [category("rent", "Rent", "rent", "#654321")];
+test("there is no suggestion when nothing similar exists or similar categories use custom colors", () => {
+  const others = [category("rent", "Rent", "rent", terracotta), category("gym", "Gym / Fees", null, "#123456")];
 
-  assert.equal(suggestNewCategoryColor("Flat / Deposit", "housing", existing), terracotta);
-  assert.equal(suggestNewCategoryColor("Salary", "salary", existing), forest);
-  assert.equal(suggestNewCategoryColor("Speeding ticket", "fines", existing), crimson);
-  assert.equal(suggestNewCategoryColor("Misc", null, existing), sage);
+  assert.equal(suggestCategoryColor("Misc", null, others), null);
+  assert.equal(suggestCategoryColor("Salary", "salary", others), null);
+  // Two plain names are not a prefix group.
+  assert.equal(suggestCategoryColor("Rent", null, [category("rent2", "Rent", null, terracotta)]), null);
+  assert.equal(suggestCategoryColor("Gym / Classes", null, others), null);
 });
 
-test("prefix groups share one color, keep their area family and stay distinct from groups of the same area", () => {
-  const categories = [
-    category("rent", "Home / Rent", "rent"),
-    category("power", "Home / Power", "electricity"),
-    category("garden", "Cottage / Garden", "garden"),
-    category("cottage", "Cottage / Repairs", "repairs"),
-    category("fuel", "Car / Fuel", "fuel"),
-    category("ticket", "Car / Fines", "fines"),
-    category("hotel", "Vacation / Hotel", "hotel"),
-    category("trip", "Vacation / Sightseeing", "sightseeing"),
-    category("pay", "Salary", "salary")
-  ];
-  const suggested = suggestionsById(categories);
+test("random colors come only from the least used palette colors", () => {
+  const used = palette.filter(color => color !== teal).concat(palette);
 
-  assert.equal(suggested.rent, suggested.power);
-  assert.equal(suggested.garden, suggested.cottage);
-  // Groups are assigned in name order: "Cottage" takes the first home color, "Home" the next.
-  assert.equal(suggested.cottage, terracotta);
-  assert.equal(suggested.rent, brown);
-  assert.equal(suggested.fuel, ocean);
-  assert.equal(suggested.ticket, crimson);
-  assert.equal(suggested.hotel, teal);
-  assert.equal(suggested.pay, forest);
-});
-
-test("suggestions do not depend on the order of the categories and report unchanged colors", () => {
-  const categories = [
-    category("a", "Home / Rent", "rent", terracotta.toLowerCase()),
-    category("b", "Cottage / Garden", "garden"),
-    category("c", "Cottage", null),
-    category("d", "Home / Internet", "internet")
-  ];
-  const forward = suggestCategoryColors(categories);
-  const reversed = suggestCategoryColors([...categories].reverse());
-
-  assert.deepEqual(suggestionsById(categories), suggestionsById([...categories].reverse()));
-  assert.deepEqual(forward.map(entry => entry.category.id), ["a", "b", "c", "d"]);
-  assert.deepEqual(reversed.map(entry => entry.category.id), ["d", "c", "b", "a"]);
-  assert.equal(forward.find(entry => entry.category.id === "b")?.changed, true);
+  // Every color but teal is used twice, teal once: whatever the random value, teal is chosen.
+  assert.equal(randomCategoryColor(used, () => 0), teal);
+  assert.equal(randomCategoryColor(used, () => 0.999), teal);
+  // Custom colors and case do not matter.
+  assert.equal(randomCategoryColor([...palette.map(color => color.toLowerCase()).filter(color => color !== ocean.toLowerCase()), "#123456"], () => 0.5), ocean);
 });
 
 async function isolatedDatabase(context: TestContext) {
@@ -121,137 +84,48 @@ async function isolatedDatabase(context: TestContext) {
   return db;
 }
 
-async function storedColors(db: Database) {
+async function colorsOf(db: Database, prefix: string) {
   const rows = await db.select().from(schema.categories);
 
-  return Object.fromEntries(rows.filter(row => row.name.startsWith("Car / ")).map(row => [row.name, row.color]));
+  return rows.filter(row => row.name.startsWith(prefix)).map(row => row.color);
 }
 
-test("the batch update stores palette colors in one transaction and rejects anything else without changes", async context => {
+test("categories created without a color get distinct palette colors until the palette is used up", async context => {
   const db = await isolatedDatabase(context);
-  const fuel = await createCategory({
-    name: "Car / Fuel",
-    color: "#617385"
-  });
-  const tolls = await createCategory({
-    name: "Car / Tolls",
-    color: "#617385"
-  });
-  const before = await storedColors(db);
+  const existing = await colorsOf(db, "");
 
-  await assert.rejects(applyCategoryColors({
-    colors: [{
-      id: fuel.id,
-      color: "#123456"
-    }]
-  }), ValidationError);
-  await assert.rejects(applyCategoryColors({
-    colors: [{
-      id: fuel.id,
-      color: ocean
-    }, {
-      id: fuel.id,
-      color: teal
-    }]
-  }), ValidationError);
-  await assert.rejects(applyCategoryColors({
-    colors: [{
-      id: fuel.id,
-      color: ocean
-    }, {
-      id: "missing",
-      color: ocean
-    }]
-  }), (error: unknown) => error instanceof HttpError && error.status === 404);
-  await assert.rejects(applyCategoryColors({
-    colors: [{
-      id: fuel.id,
-      color: "blue"
-    }]
-  }));
-  assert.deepEqual(await storedColors(db), before);
+  for (let index = 0; index < palette.length; index++) {
+    await createCategory({
+      name: `Generated ${index}`
+    });
+  }
 
-  const result = await applyCategoryColors({
-    colors: [{
-      id: fuel.id,
-      color: ocean
-    }, {
-      id: tolls.id,
-      color: ocean.toLowerCase()
-    }]
-  });
+  const created = await colorsOf(db, "Generated ");
+  const allColors = [...existing, ...created];
+  const counts = palette.map(color => allColors.filter(used => used.toUpperCase() === color).length);
 
-  assert.deepEqual(result, {
-    ok: true,
-    updated: 2
-  });
-  assert.deepEqual(await storedColors(db), {
-    "Car / Fuel": ocean.toLowerCase(),
-    "Car / Tolls": ocean.toLowerCase()
-  });
+  assert.ok(created.every(color => palette.includes(color)));
+  // Each new category took one of the least used colors, so usage never differs by more than one.
+  assert.ok(Math.max(...counts) - Math.min(...counts) <= 1, `uneven usage ${counts.join()}`);
 });
 
-test("the suggestion dialog applies only the checked changes, in one request, after confirmation", async context => {
-  const environment = browser(context);
-  const prototype = window.HTMLDialogElement.prototype;
+test("a category created by an import takes the palette color no other category uses", async context => {
+  const db = await isolatedDatabase(context);
 
-  prototype.showModal = function (this: HTMLDialogElement) {
-    this.setAttribute("open", "");
-  };
-
-  prototype.close = function (this: HTMLDialogElement) {
-    this.removeAttribute("open");
-  };
-
-  const { CategoryColorSuggestionsDialog } = await import("../src/features/categorization/components/category-color-suggestions-dialog");
-  const categories = [
-    category("fuel", "Car / Fuel", "fuel"),
-    category("tolls", "Car / Tolls", "tolls"),
-    category("pay", "Salary", "salary", forest.toLowerCase())
-  ];
-  let closed = 0;
-  const screen = render(withQueryClient(environment.queryClient, createElement(CategoryColorSuggestionsDialog, {
-    categories,
-    close: () => {
-      closed += 1;
-    }
+  await db.delete(schema.categories);
+  await db.insert(schema.categories).values(palette.filter(color => color !== teal).map((color, index) => ({
+    id: `seed-${index}`,
+    name: `Seed ${index}`,
+    color,
+    icon: null
   })));
 
-  // Salary already has its suggestion and is not listed.
-  assert.deepEqual(screen.getAllByRole("checkbox").map(box => box.closest("label")?.textContent?.includes("Car /")), [true, true]);
-  assert.equal(environment.requests("categories").length, 0);
+  await createImportCategory("Imported");
 
-  act(() => {
-    fireEvent.click(screen.getByRole("checkbox", {
-      name: /Car \/ Tolls/
-    }));
-  });
-  act(() => {
-    fireEvent.click(screen.getByRole("button", {
-      name: "Apply 1 color"
-    }));
-  });
-  await wait(0);
-
-  const [request] = environment.requests("categories");
-
-  assert.equal(request.method, "PATCH");
-  assert.deepEqual(request.body, {
-    colors: [{
-      id: "fuel",
-      color: ocean
-    }]
-  });
-
-  await respond(request, Response.json({
-    ok: true,
-    updated: 1
-  }));
-  await wait(0);
-  assert.equal(closed, 1);
+  assert.deepEqual(await colorsOf(db, "Imported"), [teal]);
 });
 
-test("a new category preselects its prefix color until the person chooses another one", async context => {
+test("the edit dialog highlights the similar categories' color and applies it with one click", async context => {
   const environment = browser(context);
   const prototype = window.HTMLDialogElement.prototype;
 
@@ -263,29 +137,20 @@ test("a new category preselects its prefix color until the person chooses anothe
     this.removeAttribute("open");
   };
 
+  const parking = category("parking", "Car / Parking", null, terracotta);
   const { CategoryDialog } = await import("../src/features/categorization/components/category-form");
   const screen = render(withQueryClient(environment.queryClient, createElement(CategoryDialog, {
+    category: parking,
     close: () => undefined
   })));
 
   await wait(0);
-  await respond(environment.requests("categories")[0], Response.json([category("fuel", "Car / Fuel", "fuel", "#123456")]));
+  await respond(environment.requests("categories")[0], Response.json([parking, category("fuel", "Car / Fuel", "fuel", ocean), category("rent", "Rent", "rent", teal)]));
 
-  const name = screen.getByRole("textbox", {
-    name: "Name"
-  });
   const color = () => (screen.container.ownerDocument.querySelector("input[name='color']") as HTMLInputElement).value;
-
-  assert.equal(color(), sage);
-
-  act(() => {
-    fireEvent.change(name, {
-      target: {
-        value: "Car / Parking"
-      }
-    });
-  });
-  assert.equal(color(), "#123456");
+  const suggestedSwatches = () => screen.queryAllByRole("radio", {
+    hidden: true
+  }).filter(swatch => swatch.getAttribute("aria-label")?.endsWith("(suggested)"));
 
   act(() => {
     fireEvent.click(screen.getByRole("button", {
@@ -293,45 +158,29 @@ test("a new category preselects its prefix color until the person chooses anothe
     }));
   });
 
-  const swatches = screen.getAllByRole("radio", {
-    hidden: true
+  assert.deepEqual(suggestedSwatches().map(swatch => swatch.getAttribute("aria-label")), ["Ocean (suggested)"]);
+  act(() => {
+    fireEvent.click(suggestedSwatches()[0]);
   });
+  assert.equal(color().toUpperCase(), ocean);
+  // Once the category uses the suggestion, nothing is highlighted any more.
+  assert.equal(suggestedSwatches().length, 0);
 
-  // The palette has no #123456, so nothing is marked as the suggestion; choosing a swatch overrides it for good.
-  assert.equal(swatches.some(swatch => swatch.getAttribute("aria-label")?.includes("(suggested)")), false);
+  act(() => {
+    fireEvent.change(screen.getByRole("textbox", {
+      name: "Name"
+    }), {
+      target: {
+        value: "Parking"
+      }
+    });
+  });
   act(() => {
     fireEvent.click(screen.getByRole("radio", {
       name: "Teal",
       hidden: true
     }));
   });
-  act(() => {
-    fireEvent.change(name, {
-      target: {
-        value: "Car / Wash"
-      }
-    });
-  });
-  assert.equal(color(), teal);
-});
-
-test("a category without a prefix group or an icon keeps its color", () => {
-  const [suggestion] = suggestCategoryColors([category("misc", "Miscellaneous", null, "#d08a4f")]);
-
-  assert.equal(suggestion.suggested, "#D08A4F");
-  assert.equal(suggestion.changed, false);
-});
-
-test("a group of another area sharing a color does not make two groups of one area collide", () => {
-  const suggested = suggestionsById([
-    category("a1", "Auto / Fuel", "fuel"),
-    category("a2", "Auto / Tolls", "tolls"),
-    category("m1", "Media / Streaming", "subscriptions"),
-    category("m2", "Media / Music", "subscriptions"),
-    category("t1", "Truck / Fuel", "fuel"),
-    category("t2", "Truck / Parking", "parking")
-  ]);
-
-  assert.equal(suggested.a1, ocean);
-  assert.notEqual(suggested.t1, suggested.a1);
+  // A plain name without an icon has no similar categories.
+  assert.equal(suggestedSwatches().length, 0);
 });

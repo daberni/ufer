@@ -7,8 +7,8 @@ import { environment } from "@/features/banking/server/environment";
 import type { AccountKind } from "@/features/accounts/account-kinds";
 import { assertWritableAccount } from "@/features/accounts/server/writable-account";
 import { manualEntryPrefix } from "@/features/transactions/server/transfer-repository";
-import { insertCategory } from "@/features/categorization/server/category-repository";
-import { defaultCategoryColor } from "@/features/categorization/category-colors";
+import { insertCategory, listCategoryColors } from "@/features/categorization/server/category-repository";
+import { randomCategoryColor } from "@/features/categorization/category-color-suggestions";
 import { sameCategoryName } from "@/lib/category-name";
 import { derivedTransactionType } from "@/features/transactions/transaction-types";
 import type { CategorizedEntry } from "@/features/transactions/server/transaction-entry";
@@ -50,7 +50,7 @@ export async function createImportCategory(name: string) {
   const id = randomUUID();
   const result = await insertCategory(id, {
     name,
-    color: defaultCategoryColor,
+    color: randomCategoryColor(await listCategoryColors()),
     icon: null
   });
 

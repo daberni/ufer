@@ -139,10 +139,45 @@
 .swatch[aria-checked="true"] {
   box-shadow: inset 0 0 0 2px var(--ink);
 }
-/* The color suggested for this category leads the palette with a dashed ring. */
-.suggested:not([aria-checked="true"]) {
-  outline: 2px dashed var(--muted);
-  outline-offset: -2px;
+/* The color similar categories use carries a slowly turning gradient ring. */
+.suggested {
+  position: relative;
+}
+.suggested::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(
+    from var(--sparkle-angle),
+    var(--gold),
+    transparent 30%,
+    var(--gold) 50%,
+    transparent 80%,
+    var(--gold)
+  );
+  mask: radial-gradient(
+    closest-side,
+    transparent calc(100% - 3px),
+    #000 calc(100% - 2.5px)
+  );
+  animation: sparkle 3s linear infinite;
+  pointer-events: none;
+}
+@property --sparkle-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+@keyframes sparkle {
+  to {
+    --sparkle-angle: 360deg;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .suggested::before {
+    animation: none;
+  }
 }
 /* One framed field around the magnifier, the text and the clear button; the frame carries the focus ring. */
 .popover .search {

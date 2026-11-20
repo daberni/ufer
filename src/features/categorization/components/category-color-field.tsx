@@ -10,7 +10,7 @@ import { usePickerPanel } from "./use-picker-panel";
 
 type Props = {
   color: string;
-  /** A palette color suggested for this category, shown first and marked. */
+  /** The palette color similar categories use, highlighted in the palette. */
   suggested?: string | null;
   onChange: (color: string) => void;
   open: boolean;
@@ -25,17 +25,6 @@ function isFullHex(input: string) {
 
 function swatchColor(color: string) {
   return themedColor(scheme => categoryBarColor(color, scheme));
-}
-
-// The suggestion for this category leads the palette; the other colors keep their curated order.
-function suggestedFirst(suggested: string | null) {
-  const match = suggestedCategoryColors.find(suggestion => suggestion.value === suggested);
-
-  if (!match) {
-    return suggestedCategoryColors;
-  }
-
-  return [match, ...suggestedCategoryColors.filter(suggestion => suggestion !== match)];
 }
 
 /** A hex text field with a toggle for a popover of suggested colors. */
@@ -53,8 +42,7 @@ export function CategoryColorField({
   const [draft, setDraft] = useState(hex);
   const [shownHex, setShownHex] = useState(hex);
   const [invalid, setInvalid] = useState(false);
-  const swatches = suggestedFirst(suggested);
-  const checkedIndex = swatches.findIndex(suggestion => suggestion.value === hex);
+  const checkedIndex = suggestedCategoryColors.findIndex(suggestion => suggestion.value === hex);
   const {
     fieldRef,
     anchorRef,
@@ -113,7 +101,7 @@ export function CategoryColorField({
     }
 
     event.preventDefault();
-    onChange(swatches[next].value);
+    onChange(suggestedCategoryColors[next].value);
     options[next].focus();
   }
 
@@ -183,7 +171,7 @@ export function CategoryColorField({
             role="radiogroup"
             aria-label="Suggested colors"
           >
-            {swatches.map((suggestion, index) => {
+            {suggestedCategoryColors.map((suggestion, index) => {
               const checked = index === checkedIndex;
               const isSuggestion = suggestion.value === suggested;
               const label = isSuggestion ? `${suggestion.name} (suggested)` : suggestion.name;

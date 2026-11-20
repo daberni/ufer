@@ -52,6 +52,16 @@ async function writeUniquelyNamed(existingId: string | null, name: string, state
   }
 }
 
+/** The stored colors of all categories, for picking a rarely used one. */
+export async function listCategoryColors() {
+  const db = await database();
+  const rows = await db.select({
+    color: categories.color
+  }).from(categories);
+
+  return rows.map(row => row.color);
+}
+
 export async function insertCategory(id: string, details: CategoryDetails) {
   return writeUniquelyNamed(null, details.name, {
     sql: "INSERT INTO categories(id,name,color,icon) VALUES (?,?,?,?)",
@@ -161,34 +171,5 @@ export async function deleteCategory(id: string, deletion: CategoryDeletion): Pr
       transactions: moved.rowsAffected,
       rules: rules.rowsAffected
     };
-  });
-}
-
-export type CategoryColorUpdate = {
-  id: string;
-  color: string;
-};
-
-/** Stores several category colors in one transaction; nothing changes when one of the categories does not exist. */
-export async function updateCategoryColors(updates: CategoryColorUpdate[]): Promise<"saved" | "not_found"> {
-  const db = await database();
-  const ids = updates.map(update => update.id);
-
-  return db.transaction(async tx => {
-    const existing = await tx.select({
-      id: categories.id
-    }).from(categories).where(inArray(categories.id, ids));
-
-    if (existing.length !== new Set(ids).size) {
-      return "not_found";
-    }
-
-    for (const update of updates) {
-      await tx.update(categories).set({
-        color: update.color
-      }).where(eq(categories.id, update.id));
-    }
-
-    return "saved";
   });
 }
