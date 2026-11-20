@@ -9,6 +9,14 @@
   gap: var(--space-2);
   font-size: var(--text-sm);
 }
+.link {
+  color: inherit;
+  text-decoration: none;
+  border-radius: var(--radius-sm);
+}
+.link:hover .category {
+  text-decoration: underline;
+}
 .category {
   display: flex;
   align-items: center;
