@@ -162,6 +162,7 @@ test("a saved mapping reproduces the roles, format and still existing choices on
     ["Closed", {
       kind: "new",
       name: "Closed",
+      accountKind: "checking",
       currency: "EUR",
       balanceKind: "current",
       balance: ""
