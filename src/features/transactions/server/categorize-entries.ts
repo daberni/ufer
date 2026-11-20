@@ -13,7 +13,8 @@ export function categorizeEntries<Categorized extends Entry>(entries: (Categoriz
       categoryId: assignment.categoryId,
       categoryRuleId: assignment.ruleId,
       ruleType: assignment.type,
-      typeRuleId: assignment.type ? assignment.ruleId : null
+      typeRuleId: assignment.type ? assignment.ruleId : null,
+      typeTransferAccountId: assignment.transferAccountId
     };
   });
 }

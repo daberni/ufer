@@ -437,15 +437,17 @@ async function applyRuleTypes(rules: PreparedRule[]) {
     const assignment = ruleAssignment(entry, rules);
     const decided = assignment.type ? {
       type: assignment.type,
-      ruleId: assignment.ruleId
+      ruleId: assignment.ruleId,
+      transferAccountId: assignment.transferAccountId
     } : undefined;
     const released = !decided && entry.type_rule_id !== null ? {
       type: derivedTransactionType(entry.amount_minor, entry.transfer_detected === 1),
-      ruleId: null
+      ruleId: null,
+      transferAccountId: null
     } : undefined;
     const next = decided ?? released;
 
-    if (!next || (next.type === entry.type && next.ruleId === entry.type_rule_id)) {
+    if (!next || (next.type === entry.type && next.ruleId === entry.type_rule_id && next.transferAccountId === entry.type_transfer_account_id)) {
       return [];
     }
 
@@ -453,6 +455,7 @@ async function applyRuleTypes(rules: PreparedRule[]) {
       id: entry.id,
       type: next.type,
       type_rule_id: next.ruleId,
+      type_transfer_account_id: next.transferAccountId,
       changed: next.type !== entry.type
     }];
   });

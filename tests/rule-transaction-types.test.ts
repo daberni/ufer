@@ -460,7 +460,8 @@ test("applying rule types leaves bookings on archived accounts unchanged, also w
   await saveRuleTypes([{
     id: booking.id,
     type: "expense",
-    type_rule_id: refund.id
+    type_rule_id: refund.id,
+    type_transfer_account_id: null
   }]);
 
   const unchanged = await stored(db, "bank:refund");
@@ -622,4 +623,34 @@ test("a sync without a transfer signal keeps the earlier signal while a rule dec
   await applyRulesToUncorrectedTransactions();
 
   assert.equal((await stored(db, "bank:sweep")).type, "transfer");
+});
+
+test("pairing uses the transfer account a rule applied, not one edited into the rule afterwards", async context => {
+  const db = await isolatedDatabase(context);
+
+  const plan = await rule({
+    pattern: "SAVINGS PLAN",
+    transaction_type: "transfer",
+    transfer_account_id: "savings"
+  });
+
+  await sync(db, "checking", [entry("plan", "2026-09-01", -20000, "Savings plan")]);
+  assert.equal((await stored(db, "bank:plan")).type_transfer_account_id, "savings");
+  // Editing the rule without applying it leaves the booking's target unchanged.
+  await updateRuleDetails(plan.id, {
+    name: plan.name,
+    pattern: plan.pattern,
+    mode: plan.mode,
+    category_id: plan.category_id,
+    transaction_type: "transfer",
+    transfer_account_id: "deposit"
+  });
+  await sync(db, "deposit", [entry("deposit-in", "2026-09-02", 20000, "Synthetic checking")]);
+  await sync(db, "savings", [entry("savings-in", "2026-09-02", 20000, "Synthetic checking")]);
+
+  const [booking, savings, deposit] = [await stored(db, "bank:plan"), await stored(db, "bank:savings-in"), await stored(db, "bank:deposit-in")];
+
+  assert.ok(booking.transfer_id);
+  assert.equal(savings.transfer_id, booking.transfer_id);
+  assert.equal(deposit.transfer_id, null);
 });

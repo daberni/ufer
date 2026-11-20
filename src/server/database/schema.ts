@@ -120,6 +120,8 @@ export const transactions = sqliteTable("transactions", {
   }).notNull().default("auto"),
   // The rule that set an automatic type; null for a derived or manual type and types set before it was recorded. Not a foreign key, like category_rule_id.
   type_rule_id: text("type_rule_id"),
+  // The transfer account the rule named when it set the type; pairing uses it, so later rule edits apply only when rules are applied again. Not a foreign key.
+  type_transfer_account_id: text("type_transfer_account_id"),
   // Whether the bank or file reported a transfer; a released rule type returns to Transfer. A delivery that re-derives the type replaces it.
   transfer_detected: integer("transfer_detected").notNull().default(0),
   // Shared by the two linked bookings of one transfer between own accounts.

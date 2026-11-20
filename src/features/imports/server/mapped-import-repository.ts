@@ -31,6 +31,7 @@ export type MappedEntry = {
   /** The type the deciding rule sets; null leaves the automatic type. */
   ruleType: RuleTransactionType | null;
   typeRuleId: string | null;
+  typeTransferAccountId: string | null;
   /** Marked as a transfer by the file; saved with an automatic transfer type so pairing can link it. */
   transfer: boolean;
 };
@@ -220,6 +221,7 @@ export async function saveMappedEntries(accountId: string, entries: MappedEntry[
         category_rule_id: entry.categoryRuleId,
         type: fileTransfer(entry) ? "transfer" as const : entry.ruleType ?? derivedTransactionType(entry.amount),
         type_rule_id: fileTransfer(entry) ? null : entry.typeRuleId,
+        type_transfer_account_id: fileTransfer(entry) ? null : entry.typeTransferAccountId,
         transfer_detected: entry.transfer ? 1 : 0
       }));
       const rows = await tx.insert(transactions).values(values).onConflictDoNothing({

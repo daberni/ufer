@@ -23,7 +23,7 @@ function pairable(alias: string) {
 
 // A booking whose rule names the transfer's account pairs only with a booking on that account.
 function allowedByRule(alias: string, otherAlias: string) {
-  return sql.raw(`NOT EXISTS (SELECT 1 FROM categorization_rules rule WHERE rule.id=${alias}.type_rule_id AND rule.transaction_type='transfer' AND rule.transfer_account_id IS NOT NULL AND rule.transfer_account_id<>${otherAlias}.account_id)`);
+  return sql.raw(`(${alias}.type_transfer_account_id IS NULL OR ${alias}.type_transfer_account_id=${otherAlias}.account_id)`);
 }
 
 function windowStart(days: number) {
@@ -102,8 +102,7 @@ async function createRuleCounterparts(tx: DatabaseTransaction, bankingEnvironmen
     SELECT booking.id AS id,target.id AS account_id
     FROM transactions booking
     JOIN accounts own ON own.id=booking.account_id
-    JOIN categorization_rules rule ON rule.id=booking.type_rule_id
-    JOIN accounts target ON target.id=rule.transfer_account_id
+    JOIN accounts target ON target.id=booking.type_transfer_account_id
     WHERE own.environment=${bankingEnvironment}
     AND target.environment=${bankingEnvironment}
     AND target.provider='manual'
@@ -111,7 +110,6 @@ async function createRuleCounterparts(tx: DatabaseTransaction, bankingEnvironmen
     AND own.archived_at IS NULL
     AND target.id<>booking.account_id
     AND target.currency=booking.currency
-    AND rule.transaction_type='transfer'
     AND booking.type='transfer'
     AND booking.type_source='auto'
     AND booking.transfer_id IS NULL
@@ -228,7 +226,8 @@ export async function dissolveLink(tx: DatabaseTransaction, subject: Subject, co
     transfer_id: null,
     transfer_source: "manual",
     type_source: "manual",
-    type_rule_id: null
+    type_rule_id: null,
+    type_transfer_account_id: null
   }).where(eq(transactions.id, subject.id));
 
   if (!counterpart) {
@@ -245,6 +244,7 @@ export async function dissolveLink(tx: DatabaseTransaction, subject: Subject, co
     type: counterpartType ? counterpartType(counterpart) : "transfer",
     type_source: "manual",
     type_rule_id: null,
+    type_transfer_account_id: null,
     transfer_id: null,
     transfer_source: "manual"
   }).where(eq(transactions.id, counterpart.id));
@@ -264,6 +264,7 @@ async function link(tx: DatabaseTransaction, ids: string[]) {
     type: "transfer",
     type_source: "manual",
     type_rule_id: null,
+    type_transfer_account_id: null,
     transfer_id: randomUUID(),
     transfer_source: "manual"
   }).where(inArray(transactions.id, ids));
@@ -273,7 +274,8 @@ async function markManualType(tx: DatabaseTransaction, id: string, type: Transac
   await tx.update(transactions).set({
     type,
     type_source: "manual",
-    type_rule_id: null
+    type_rule_id: null,
+    type_transfer_account_id: null
   }).where(eq(transactions.id, id));
 }
 
@@ -307,6 +309,7 @@ async function createCounterpart(tx: DatabaseTransaction, subject: Subject, acco
     type: "transfer",
     type_source: "manual",
     type_rule_id: null,
+    type_transfer_account_id: null,
     transfer_id: decidedBy === "rule" ? transferId : null
   }).onConflictDoNothing().returning({
     id: transactions.id
@@ -539,6 +542,7 @@ async function transferWithoutCounterpart(tx: DatabaseTransaction, subject: Subj
       type: "transfer",
       type_source: "manual",
       type_rule_id: null,
+      type_transfer_account_id: null,
       transfer_source: "manual"
     }).where(eq(transactions.id, subject.id));
 
@@ -775,7 +779,8 @@ export async function releaseOutdatedLinks(tx: DatabaseTransaction, accountId: s
       transfer_source: "auto",
       type: delivery.ruleType ?? derivedTransactionType(delivery.amount, delivery.transfer),
       type_source: "auto",
-      type_rule_id: delivery.typeRuleId
+      type_rule_id: delivery.typeRuleId,
+      type_transfer_account_id: delivery.typeTransferAccountId
     }).where(eq(transactions.id, booking.id));
 
     if (!counterpart) {

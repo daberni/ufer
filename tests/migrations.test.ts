@@ -1106,7 +1106,7 @@ test("rule-type migration keeps every rule and booking unchanged and leaves exis
 
     assert.deepEqual((await client.execute(`SELECT ${transactionColumns} FROM transactions ORDER BY id`)).rows, transactionsBefore);
     assert.deepEqual((await client.execute(`SELECT ${ruleColumns} FROM categorization_rules ORDER BY id`)).rows, rulesBefore);
-    assert.deepEqual((await client.execute("SELECT type_rule_id FROM transactions")).rows.map(row => row.type_rule_id), [null, null, null, null, null]);
+    assert.deepEqual((await client.execute("SELECT type_rule_id,type_transfer_account_id FROM transactions")).rows.map(row => [row.type_rule_id, row.type_transfer_account_id]), [[null, null], [null, null], [null, null], [null, null], [null, null]]);
     // Only unlinked automatic transfers count as reported by the source.
     assert.deepEqual((await client.execute("SELECT id FROM transactions WHERE transfer_detected=1")).rows.map(row => row.id), ["detected"]);
     await assert.rejects(client.execute("UPDATE transactions SET transfer_detected=2"), /CHECK constraint failed/);

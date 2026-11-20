@@ -28,4 +28,6 @@ export type CategorizedEntry = Entry & {
   ruleType: RuleTransactionType | null;
   /** The rule that sets `ruleType`; null when it is null. */
   typeRuleId: string | null;
+  /** The transfer account of the rule that sets `ruleType`; pairing uses it rather than the rule's current account. */
+  typeTransferAccountId: string | null;
 };

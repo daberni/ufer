@@ -677,6 +677,7 @@ test("saving rechecks duplicates in its write transaction, so bookings synced af
     categoryRuleId: null,
     ruleType: null,
     typeRuleId: null,
+    typeTransferAccountId: null,
     transfer: false
   }], null);
 

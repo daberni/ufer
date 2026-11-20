@@ -157,6 +157,7 @@ export async function importMappedRows(payload: unknown, now = Temporal.Now.inst
         categoryRuleId: null,
         ruleType: null,
         typeRuleId: null,
+        typeTransferAccountId: null,
         transfer: item.transfer
       }
     });
@@ -462,7 +463,8 @@ function categorized(entries: MappedEntry[], rules: Awaited<ReturnType<typeof li
     const typed = {
       ...entry,
       ruleType: assignment.ruleType,
-      typeRuleId: assignment.typeRuleId
+      typeRuleId: assignment.typeRuleId,
+      typeTransferAccountId: assignment.typeTransferAccountId
     };
 
     if (entry.categoryId) {

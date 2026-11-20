@@ -81,6 +81,9 @@ async function deleteDemoRows(tx: DatabaseTransaction) {
   await tx.update(categorizationRules).set({
     transfer_account_id: null
   }).where(like(categorizationRules.transfer_account_id, demoRows));
+  await tx.update(transactions).set({
+    type_transfer_account_id: null
+  }).where(like(transactions.type_transfer_account_id, demoRows));
 }
 
 // Demo categories are updated in place because synced sandbox transactions may already reference them.

@@ -7,6 +7,9 @@ ALTER TABLE categorization_rules ADD COLUMN transfer_account_id TEXT CHECK (tran
 -- The rule that set an automatic type. Existing types stay unattributed; like category_rule_id it is not a foreign key.
 ALTER TABLE transactions ADD COLUMN type_rule_id TEXT;
 --> statement-breakpoint
+-- The transfer account the rule named when it set the type, so editing a rule changes pairing only once rules are applied again. Not a foreign key, like type_rule_id.
+ALTER TABLE transactions ADD COLUMN type_transfer_account_id TEXT;
+--> statement-breakpoint
 -- Whether the bank or file reported the booking as a transfer, so a released rule type returns to Transfer instead of the amount's sign.
 ALTER TABLE transactions ADD COLUMN transfer_detected INTEGER NOT NULL DEFAULT 0 CHECK (transfer_detected IN (0,1));
 --> statement-breakpoint

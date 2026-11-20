@@ -88,7 +88,7 @@ async function adoptManualAssignments(tx: DatabaseTransaction, rule: Pick<Rule, 
  * Sets the rule's type on the bookings it was just given, unless a person or a link decided their type, then pairs transfers so they link to, or create, their counterparts.
  * A rule without a type returns a type an earlier rule set to the derived type, as applying rules does; a booking reported as a transfer returns to Transfer.
  */
-async function applyRuleType(tx: DatabaseTransaction, rule: Pick<Rule, "id" | "transaction_type">, ids: string[]) {
+async function applyRuleType(tx: DatabaseTransaction, rule: Pick<Rule, "id" | "transaction_type" | "transfer_account_id">, ids: string[]) {
   if (ids.length === 0) {
     return;
   }
@@ -97,7 +97,8 @@ async function applyRuleType(tx: DatabaseTransaction, rule: Pick<Rule, "id" | "t
     for (let offset = 0; offset < ids.length; offset += assignmentChunkSize) {
       await tx.update(transactions).set({
         type: sql`CASE WHEN ${transactions.transfer_detected}=1 THEN 'transfer' WHEN ${transactions.amount_minor}>0 THEN 'income' ELSE 'expense' END`,
-        type_rule_id: null
+        type_rule_id: null,
+        type_transfer_account_id: null
       }).where(and(inArray(transactions.id, ids.slice(offset, offset + assignmentChunkSize)), ruleTypeable, isNotNull(transactions.type_rule_id)));
     }
 
@@ -110,7 +111,8 @@ async function applyRuleType(tx: DatabaseTransaction, rule: Pick<Rule, "id" | "t
   for (let offset = 0; offset < ids.length; offset += assignmentChunkSize) {
     await tx.update(transactions).set({
       type: rule.transaction_type,
-      type_rule_id: rule.id
+      type_rule_id: rule.id,
+      type_transfer_account_id: rule.transaction_type === "transfer" ? rule.transfer_account_id ?? null : null
     }).where(and(inArray(transactions.id, ids.slice(offset, offset + assignmentChunkSize)), ruleTypeable));
   }
 
@@ -268,7 +270,8 @@ export async function updateRule(id: string, details: Pick<Rule, "name" | "patte
 
       await applyRuleType(tx, {
         id,
-        transaction_type: details.transaction_type
+        transaction_type: details.transaction_type,
+        transfer_account_id: details.transfer_account_id
       }, adopted);
     }
 
@@ -343,6 +346,7 @@ export async function findRuleTypeableTransactions() {
     amount_minor: transactions.amount_minor,
     type: transactions.type,
     type_rule_id: transactions.type_rule_id,
+    type_transfer_account_id: transactions.type_transfer_account_id,
     transfer_detected: transactions.transfer_detected,
     counterparty: transactions.counterparty,
     description: transactions.description,
@@ -352,7 +356,7 @@ export async function findRuleTypeableTransactions() {
 }
 
 /** Stores rule-decided types on bookings nobody corrected or linked meanwhile, then pairs transfers so rule-set transfers link to, or create, their counterparts in the same write transaction. */
-export async function saveRuleTypes(entries: Pick<Transaction, "id" | "type" | "type_rule_id">[]) {
+export async function saveRuleTypes(entries: Pick<Transaction, "id" | "type" | "type_rule_id" | "type_transfer_account_id">[]) {
   const db = await database();
 
   await db.transaction(async tx => {
@@ -364,7 +368,8 @@ export async function saveRuleTypes(entries: Pick<Transaction, "id" | "type" | "
     for (const entry of entries) {
       await tx.update(transactions).set({
         type: entry.type,
-        type_rule_id: entry.type_rule_id
+        type_rule_id: entry.type_rule_id,
+        type_transfer_account_id: entry.type_transfer_account_id
       }).where(and(eq(transactions.id, entry.id), ruleTypeable, inArray(transactions.account_id, activeAccounts)));
     }
 
