@@ -54,9 +54,9 @@ export function useCreateRuleFromAssignment() {
   return useMutation({
     mutationFn: (rule: Record<string, unknown>) => api<CreatedRule>("rules", rule),
     onSettled: (_result, _error, rule) => {
-      // The source transaction can become rule-assigned; applying and adopting manual assignments also change categories and spending.
-      const changesCategories = rule.apply_to_uncategorized === true || rule.adopt_manual === true;
-      const affected = changesCategories ? [queryKeys.rules(), ...ruleWriteEffects] : [queryKeys.rules(), queryKeys.transactions.all()];
+      // Adopting the source transaction can also change its type, and with it spending, or create a transfer counterpart; applying and adopting manual assignments change categories and spending.
+      const changesBookings = rule.source_transaction_id !== undefined || rule.apply_to_uncategorized === true || rule.adopt_manual === true;
+      const affected = changesBookings ? [queryKeys.rules(), ...ruleWriteEffects] : [queryKeys.rules(), queryKeys.transactions.all()];
 
       return invalidate(queryClient, affected);
     }
