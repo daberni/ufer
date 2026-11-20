@@ -29,7 +29,6 @@ export function ImportSummaryBar({
     mutation
   } = draft;
   const errors = summary?.errors.length ?? mapped?.errors.length ?? 0;
-  const review = draft.reviewLines.size;
   const alreadyImported = summary?.duplicates.length ?? 0;
   // Missing inputs do not disable the action: pressing it leads to them.
   const ready = draft.accountsReady;
@@ -38,7 +37,6 @@ export function ImportSummaryBar({
     ["New rows", summary ? summary.newRows : null],
     ["Already in Ufer", summary ? alreadyImported : null],
     ["Possible duplicates", summary ? summary.possibleDuplicates.length : null, "warning"],
-    ["Needs review", review, "warning"],
     ["Errors", errors, "danger"]
   ];
 

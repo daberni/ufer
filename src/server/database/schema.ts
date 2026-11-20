@@ -52,7 +52,9 @@ export const accounts = sqliteTable("accounts", {
   balance_minor: integer("balance_minor"),
   balance_date: text("balance_date"),
   last_synced_at: text("last_synced_at"),
-  sync_error: text("sync_error")
+  sync_error: text("sync_error"),
+  // Set while the account is archived: hidden from the account lists and pickers, but its history and report contributions remain.
+  archived_at: text("archived_at")
 }, table => [
   unique("accounts_environment_provider_uid_unique").on(table.environment, table.provider_uid),
   check("accounts_kind", sql`${table.kind} IN ('checking','savings','investment','loan','property','credit_card')`)
@@ -162,5 +164,19 @@ export const leases = sqliteTable("leases", {
   owner: text("owner").notNull(),
   expires_at: text("expires_at").notNull()
 });
+
+/** Saved CSV mapping templates; `definition` holds the template as JSON, `header_key` the header row it recognizes and `name_key` the case-folded name (SQLite lower() folds ASCII only). */
+export const importTemplates = sqliteTable("import_templates", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  name_key: text("name_key").notNull(),
+  header_key: text("header_key").notNull(),
+  definition: text("definition").notNull(),
+  created_at: text("created_at").notNull(),
+  updated_at: text("updated_at").notNull()
+}, table => [
+  uniqueIndex("import_templates_header_key").on(table.header_key),
+  uniqueIndex("import_templates_name_key").on(table.name_key)
+]);
 
 export { authUsers, authSessions, authAccounts, authVerifications, authRateLimits, workspaces, memberships } from "@/features/auth/server/auth-schema";

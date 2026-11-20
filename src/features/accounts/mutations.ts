@@ -27,11 +27,44 @@ export function useSaveValuation(accountId: string) {
 }
 
 
-export function useRenameAccount(accountId: string) {
+// Listed transactions carry their account's name; the type decides how an account counts toward net worth and cash flow.
+const editKeys = [queryKeys.accounts(), queryKeys.transactions.all(), queryKeys.reports.netWorth(), queryKeys.reports.cashFlow()];
+
+export function useEditAccount(accountId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (body: Record<string, FormDataEntryValue>) => api(`accounts/${encodeURIComponent(accountId)}`, body, "PATCH"),
+    onSettled: () => invalidate(queryClient, editKeys)
+  });
+}
+
+export type ArchiveRequest = {
+  closing?: {
+    date: string;
+    balance_minor: number;
+    transfer_account_id: string | null;
+  };
+};
+
+// Closing an account books its remaining balance, which feeds the same views as a balance update and the cash-flow reports.
+const archiveKeys = [...balanceKeys, queryKeys.reports.cashFlow()];
+
+export function useArchiveAccount(accountId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (body: ArchiveRequest) => api(`accounts/${encodeURIComponent(accountId)}/archive`, body, "PUT"),
+    onSettled: () => invalidate(queryClient, archiveKeys)
+  });
+}
+
+export function useRestoreAccount(accountId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => api(`accounts/${encodeURIComponent(accountId)}/archive`, undefined, "DELETE"),
+    // Listed transactions carry whether their account is archived.
     onSettled: () => invalidate(queryClient, [queryKeys.accounts(), queryKeys.transactions.all()])
   });
 }

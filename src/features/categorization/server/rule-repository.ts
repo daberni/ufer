@@ -57,7 +57,7 @@ export type ManualAdoption = {
 
 /** Returns the selected manual assignments to automatic categorization with the rule's category and a reference to the rule. */
 async function adoptManualAssignments(tx: DatabaseTransaction, rule: Pick<Rule, "id" | "category_id">, rules: Rule[], adoption: ManualAdoption) {
-  const scope = and(eq(accounts.environment, environment()), eq(transactions.category_source, "manual"));
+  const scope = and(eq(accounts.environment, environment()), isNull(accounts.archived_at), eq(transactions.category_source, "manual"));
   const candidates = await tx.select({
     id: transactions.id,
     counterparty: transactions.counterparty,
@@ -91,7 +91,7 @@ function readRules(tx: DatabaseTransaction) {
 async function adoptSourceTransaction(tx: DatabaseTransaction, rule: NewRule, rules: Rule[], source: NonNullable<RuleCreationAssignments["source"]>) {
   const scope = and(eq(transactions.id, source.transactionId), eq(transactions.category_source, "manual"), eq(transactions.category_id, rule.category_id), inArray(transactions.account_id, tx.select({
     id: accounts.id
-  }).from(accounts).where(eq(accounts.environment, environment()))));
+  }).from(accounts).where(and(eq(accounts.environment, environment()), isNull(accounts.archived_at)))));
   const candidates = await tx.select({
     id: transactions.id,
     counterparty: transactions.counterparty,
@@ -141,7 +141,8 @@ async function storeRule(tx: DatabaseTransaction, rule: NewRule, assignments: Ru
     return 0;
   }
 
-  const scope = and(eq(accounts.environment, environment()), eq(transactions.category_source, "rule"), isNull(transactions.category_id));
+  // Bookings on archived accounts are read-only, so rules never recategorize them.
+  const scope = and(eq(accounts.environment, environment()), isNull(accounts.archived_at), eq(transactions.category_source, "rule"), isNull(transactions.category_id));
   const candidates = await tx.select({
     id: transactions.id,
     counterparty: transactions.counterparty,
@@ -157,7 +158,9 @@ async function storeRule(tx: DatabaseTransaction, rule: NewRule, assignments: Ru
     const result = await tx.update(transactions).set({
       category_id: rule.category_id,
       category_rule_id: rule.id
-    }).where(inArray(transactions.id, chunk));
+    }).where(and(inArray(transactions.id, chunk), inArray(transactions.account_id, tx.select({
+      id: accounts.id
+    }).from(accounts).where(isNull(accounts.archived_at)))));
 
     categorized += result.rowsAffected;
   }
@@ -246,7 +249,7 @@ export async function setRuleEnabled(id: string, enabled: boolean) {
 /** Manually categorized transactions with the text rules match. */
 export async function findManualAssignments() {
   const db = await database();
-  const scope = and(eq(accounts.environment, environment()), eq(transactions.category_source, "manual"));
+  const scope = and(eq(accounts.environment, environment()), isNull(accounts.archived_at), eq(transactions.category_source, "manual"));
 
   return db.select({
     id: transactions.id,
@@ -260,7 +263,8 @@ export async function findManualAssignments() {
 
 export async function findUncorrectedTransactions() {
   const db = await database();
-  const scope = and(eq(accounts.environment, environment()), eq(transactions.category_source, "rule"));
+  // Bookings on archived accounts are read-only, so applying rules leaves them unchanged.
+  const scope = and(eq(accounts.environment, environment()), isNull(accounts.archived_at), eq(transactions.category_source, "rule"));
 
   return db.select({
     id: transactions.id,
@@ -275,10 +279,14 @@ export async function findUncorrectedTransactions() {
 
 export async function saveRuleAssignments(entries: Pick<Transaction, "id" | "category_id" | "category_rule_id">[]) {
   const db = await database();
+  // An account archived after the candidates were read stays read-only.
+  const activeAccounts = db.select({
+    id: accounts.id
+  }).from(accounts).where(isNull(accounts.archived_at));
   const [first, ...rest] = entries.map(entry => db.update(transactions).set({
     category_id: entry.category_id,
     category_rule_id: entry.category_rule_id
-  }).where(and(eq(transactions.id, entry.id), eq(transactions.category_source, "rule"))));
+  }).where(and(eq(transactions.id, entry.id), eq(transactions.category_source, "rule"), inArray(transactions.account_id, activeAccounts))));
 
   if (first) {
     await db.batch([first, ...rest]);

@@ -17,6 +17,8 @@ import { handleAuthentication } from "../src/features/auth/server/auth-handler";
 import { respond } from "../src/server/http/respond";
 import { PATCH as renameAccountRoute } from "../src/app/api/accounts/[id]/route";
 import { GET as readCurrentUser } from "../src/app/api/me/route";
+import { GET as listTemplatesRoute, POST as createTemplateRoute } from "../src/app/api/imports/templates/route";
+import { POST as duplicateTemplateRoute } from "../src/app/api/imports/templates/[id]/duplicate/route";
 
 const origin = "https://finance.example";
 const password = "synthetic-test-password-123";
@@ -605,4 +607,56 @@ test("account renaming requires a session and trusted origin and answers invalid
   assert.equal((await db.select().from(schema.accounts).get())?.name, "Original");
   assert.equal((await renameAccountRoute(renameRequest(cookie), routeContext)).status, 200);
   assert.equal((await db.select().from(schema.accounts).get())?.name, "Renamed");
+});
+
+test("template requests with a name pass the route's validation for create and duplicate", async context => {
+  await isolatedAuth(context);
+  await provisionUser(owner);
+  const { cookie } = await signIn();
+  const post = (path: string, body: unknown) => new Request(`${origin}/api/${path}`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      origin,
+      cookie
+    },
+    body: JSON.stringify(body)
+  });
+  const created = await createTemplateRoute(post("imports/templates", {
+    name: "Bank export",
+    header: ["Date", "Amount", "Payee"],
+    settings: {
+      decimal: ",",
+      dateFormat: "DD.MM.YYYY"
+    },
+    columns: {
+      date: 0,
+      amount: 1,
+      payee: 2
+    },
+    accounts: {},
+    categories: {}
+  }));
+
+  assert.equal(created.status, 201, JSON.stringify(await created.clone().json()));
+
+  const duplicated = await duplicateTemplateRoute(post("imports/templates/builtin%3Abuxfer/duplicate", {
+    name: "My Buxfer"
+  }), {
+    params: Promise.resolve({
+      id: "builtin:buxfer"
+    })
+  });
+
+  assert.equal(duplicated.status, 201, JSON.stringify(await duplicated.clone().json()));
+
+  const listed = await listTemplatesRoute(new Request(`${origin}/api/imports/templates`, {
+    headers: {
+      cookie
+    }
+  }));
+
+  assert.deepEqual((await listed.json() as {
+    name: string
+  }[]).map(template => template.name), ["Bank export", "My Buxfer", "Buxfer export"]);
 });

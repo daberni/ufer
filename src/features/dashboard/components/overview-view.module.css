@@ -1,0 +1,16 @@
+/* Net worth and the accounts that hold it read as one block. */
+.wealth-overview {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: var(--space-6);
+}
+@media (--laptop) {
+  .wealth-overview {
+    gap: var(--space-4);
+  }
+}
+@media (--tablet) {
+  .wealth-overview {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
