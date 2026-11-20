@@ -40,7 +40,7 @@ type OpenDialog = {
 };
 
 // Names of different lengths give the skeleton rules and categories a natural outline.
-const skeletonNames = ["Groceries", "Rent", "Public transport", "Salary", "Restaurants", "Insurance"];
+const skeletonNames = ["Groceries", "Rent", "Public transport", "Salary", "Restaurants", "Insurance", "Leisure", "Health", "Utilities"];
 
 export function RulesView({
   categories,
@@ -214,8 +214,10 @@ function CategoryGridSkeleton() {
                 icon: null
               }}
             />
-            <span className={clsx(styles["category-name"], ui["skeleton"])}>{name}</span>
-            <Pencil className={clsx(styles["edit-hint"], ui["skeleton"])} aria-hidden="true" size={16} />
+            <span className={styles["category-name"]}>
+              <span className={ui["skeleton"]}>{name}</span>
+            </span>
+            <span className={styles["edit-hint-placeholder"]} />
           </div>
         </li>
       ))}
@@ -439,14 +441,16 @@ function RuleRowsSkeleton() {
       {skeletonNames.slice(0, 4).map(name => (
         <li className={styles["rule-row"]} key={name}>
           <span className={styles["handle"]}>
-            <GripVertical className={ui["skeleton"]} aria-hidden="true" size={18} />
+            <span className={clsx(styles["icon-placeholder"], ui["skeleton"])} />
           </span>
           <span className={styles["rule-name"]}>
             <strong className={ui["skeleton"]}>{name}</strong>
           </span>
           <div className={styles["rule-pattern"]}>
-            <span className={styles["rule-label"]}>Keyword</span>
-            <code className={ui["skeleton"]}>MARKET</code>
+            <span className={clsx(styles["rule-label"], ui["skeleton"])}>Keyword</span>
+            <code>
+              <span className={ui["skeleton"]}>MARKET</span>
+            </code>
           </div>
           <div className={styles["rule-details"]}>
             <span className={styles["rule-category"]}>
@@ -460,9 +464,9 @@ function RuleRowsSkeleton() {
               />
             </span>
           </div>
-          <span className={styles["toggle"]}>
-            <span className={ui["skeleton"]} />
-          </span>
+          <div className={styles["toggle"]}>
+            <div className={clsx(styles["toggle-placeholder"], ui["skeleton"])} />
+          </div>
         </li>
       ))}
     </ol>

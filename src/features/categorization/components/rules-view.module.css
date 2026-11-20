@@ -293,7 +293,8 @@ button.category-tile:focus-visible {
     grid-template-columns: auto minmax(0, 1fr);
     padding-inline: var(--space-2);
   }
-  .category-tile .edit-hint {
+  .category-tile .edit-hint,
+  .category-tile .edit-hint-placeholder {
     display: none;
   }
   .rule-row {
@@ -319,4 +320,20 @@ button.category-tile:focus-visible {
 }
 .rule-actions {
   position: relative;
+}
+/* Skeleton stand-ins with the size of the icons and switch they replace; the skeleton text elements keep their real typography. */
+.icon-placeholder {
+  display: block;
+  width: 18px;
+  height: 18px;
+}
+.edit-hint-placeholder {
+  width: 16px;
+}
+.toggle > .toggle-placeholder {
+  width: 32px;
+  height: 20px;
+}
+.toggle > .toggle-placeholder::after {
+  border-radius: var(--radius-full);
 }
