@@ -1,5 +1,7 @@
 "use client";
 
+import sparkle from "../../../components/ui/sparkle.module.css";
+
 import { clsx } from "clsx";
 import { Search, X } from "lucide-react";
 import { useId, useRef, useState, type KeyboardEvent } from "react";
@@ -15,6 +17,8 @@ type IconChoice = CategoryIconKey | "";
 type Props = {
   color: string;
   icon: IconChoice;
+  /** The icon the category name suggests, highlighted in the picker. */
+  suggested?: CategoryIconKey | null;
   onChange: (icon: IconChoice) => void;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -29,6 +33,7 @@ function iconLabel(icon: IconChoice) {
 export function CategoryIconField({
   color,
   icon,
+  suggested = null,
   onChange,
   open,
   onOpenChange
@@ -50,7 +55,12 @@ export function CategoryIconField({
       setSearch("");
       onOpenChange(next);
     },
-    initialFocus: () => optionsRef.current?.querySelector<HTMLElement>("[tabindex='0']")
+    // A suggestion other than the current icon is focused first through its shortcut, so the picker opens at the top where it is visible.
+    initialFocus: () => {
+      const shortcut = suggested && suggested !== icon ? optionsRef.current?.querySelector<HTMLElement>("[data-shortcut]") : null;
+
+      return shortcut ?? optionsRef.current?.querySelector<HTMLElement>("[tabindex='0']");
+    }
   });
   const TriggerIcon = icon === "" ? null : categoryIconComponents[icon];
   const { foreground: iconColor } = themedColors(scheme => categoryChipColors(color, scheme));
@@ -98,20 +108,23 @@ export function CategoryIconField({
     }
   }
 
-  function renderOption(choice: IconChoice) {
+  // A shortcut copy of the suggested icon at the top is reachable with the arrow keys but is not the tab stop.
+  function renderOption(choice: IconChoice, shortcut = false) {
     const Icon = choice === "" ? null : categoryIconComponents[choice];
-    const label = iconLabel(choice);
+    const isSuggestion = choice !== "" && choice === suggested;
+    const label = isSuggestion ? `${iconLabel(choice)} (suggested)` : iconLabel(choice);
 
     return (
       <button
-        key={choice || "none"}
+        key={`${shortcut ? "top-" : ""}${choice || "none"}`}
         type="button"
         role="option"
         aria-selected={choice === icon}
         aria-label={label}
         title={label}
-        tabIndex={choice === focusableChoice ? 0 : -1}
-        className={styles["icon-option"]}
+        tabIndex={choice === focusableChoice && !shortcut ? 0 : -1}
+        data-shortcut={shortcut || undefined}
+        className={clsx(styles["icon-option"], isSuggestion && sparkle["sparkle"])}
         onClick={() => choose(choice)}
         onKeyDown={handleOptionKeyDown}
       >
@@ -144,7 +157,7 @@ export function CategoryIconField({
         <button
           ref={triggerRef}
           type="button"
-          className={clsx(styles["control"], styles["icon-trigger"])}
+          className={clsx(styles["control"], styles["icon-trigger"], suggested && sparkle["sparkle-outline"])}
           aria-label={icon === "" ? "Icon: No icon" : `Icon: ${iconLabel(icon)}`}
           aria-expanded={open}
           aria-controls={`${id}-panel`}
@@ -210,15 +223,18 @@ export function CategoryIconField({
               aria-label="Icons"
             >
               {searching ? (
-                <div className={styles["icon-grid"]}>{matches.map(renderOption)}</div>
+                <div className={styles["icon-grid"]}>{matches.map(match => renderOption(match))}</div>
               ) : (
                 <>
-                  <div className={styles["icon-grid"]}>{renderOption("")}</div>
+                  <div className={styles["icon-grid"]}>
+                    {renderOption("")}
+                    {suggested && renderOption(suggested, true)}
+                  </div>
                   {groupKeys.map(group => (
                     <div key={group} role="group" aria-labelledby={`${id}-${group}`}>
                       <span className={styles["group-heading"]} id={`${id}-${group}`}>{categoryIconGroups[group]}</span>
                       <div className={styles["icon-grid"]}>
-                        {categoryIconKeys.filter(key => categoryIcons[key].group === group).map(renderOption)}
+                        {categoryIconKeys.filter(key => categoryIcons[key].group === group).map(key => renderOption(key))}
                       </div>
                     </div>
                   ))}

@@ -17,6 +17,7 @@ const first: Account = {
   currency: "EUR",
   balance_minor: 10000,
   balance_date: "2026-09-01",
+  last_booking_date: null,
   provider: "manual",
   requisition_id: null,
   last_synced_at: null,

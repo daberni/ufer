@@ -4,6 +4,7 @@ import { test, type TestContext } from "node:test";
 import { act, fireEvent, render, type RenderResult } from "@testing-library/react";
 import { createElement, useState } from "react";
 import type { Category } from "../src/features/categorization/types";
+import { suggestedCategoryColors } from "../src/features/categorization/category-colors";
 import { browser, respond, wait, withQueryClient } from "./fixtures/browser";
 import { stubCssModules } from "./fixtures/css-modules";
 
@@ -162,11 +163,20 @@ test("a created category is selected in the picker that started it, and cancelli
 
   const created = requests("categories").find(request => request.method === "POST");
 
-  assert.deepEqual(created?.body, {
+  const {
+    color,
+    ...details
+  } = created?.body as {
+    color: string;
+  };
+
+  // The name suggests the pets icon, which a new category takes until another one is chosen.
+  assert.deepEqual(details, {
     name: "Pets",
-    color: "#638777",
-    icon: ""
+    icon: "pets"
   });
+  // A new category starts with a randomly chosen palette color.
+  assert.ok(suggestedCategoryColors.some(suggestion => suggestion.value === color));
   await respond(created, Response.json({
     ok: true,
     id: "pets"
