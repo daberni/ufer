@@ -55,11 +55,30 @@ export function prepareRules(rules: Rule[]): PreparedRule[] {
   });
 }
 
-/** The rule that decides a transaction's category: the first prepared rule that matches. */
-export function decidingRule(counterparty: string, description: string, rules: PreparedRule[]) {
-  const text = `${counterparty} ${description}`;
+/** A transaction's text as rules see it: the source text, and a person's payee and description overrides where present. */
+export type RuleText = {
+  counterparty: string;
+  description: string;
+  counterparty_override?: string | null;
+  description_override?: string | null;
+};
 
-  return rules.find(rule => rule.matches(text));
+/** The texts a rule may match: the source text, and the text with the overrides applied when the person overrode a field. */
+function matchedTexts(text: RuleText) {
+  const source = `${text.counterparty} ${text.description}`;
+
+  if (text.counterparty_override == null && text.description_override == null) {
+    return [source];
+  }
+
+  return [source, `${text.counterparty_override ?? text.counterparty} ${text.description_override ?? text.description}`];
+}
+
+/** The rule that decides a transaction's category: the first prepared rule that matches its source text or its overridden text. */
+export function decidingRule(text: RuleText, rules: PreparedRule[]) {
+  const texts = matchedTexts(text);
+
+  return rules.find(rule => texts.some(candidate => rule.matches(candidate)));
 }
 
 /** A rule-sourced category together with the rule that decided it; both are null when no rule matches. */
@@ -68,8 +87,8 @@ export type RuleAssignment = {
   ruleId: string | null;
 };
 
-export function ruleAssignment(counterparty: string, description: string, rules: PreparedRule[]): RuleAssignment {
-  const rule = decidingRule(counterparty, description, rules);
+export function ruleAssignment(text: RuleText, rules: PreparedRule[]): RuleAssignment {
+  const rule = decidingRule(text, rules);
 
   return {
     categoryId: rule?.categoryId ?? null,
@@ -77,6 +96,6 @@ export function ruleAssignment(counterparty: string, description: string, rules:
   };
 }
 
-export function categorize(counterparty: string, description: string, rules: PreparedRule[]) {
-  return ruleAssignment(counterparty, description, rules).categoryId;
+export function categorize(text: RuleText, rules: PreparedRule[]) {
+  return ruleAssignment(text, rules).categoryId;
 }

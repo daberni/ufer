@@ -168,7 +168,10 @@ test("reordering stores distinct priorities in list order and keeps every other 
 
   // A reload reads the same order from storage, and matching follows it.
   assert.deepEqual((await listRules()).map(rule => rule.id), ["rule-cinema", "rule-cafe", "rule-market"]);
-  assert.equal(categorize("Corner Market Cafe", "", prepareRules(await listRules())), "leisure");
+  assert.equal(categorize({
+    counterparty: "Corner Market Cafe",
+    description: ""
+  }, prepareRules(await listRules())), "leisure");
 });
 
 test("reordering never recategorizes existing transactions until rules are applied, and applying keeps manual assignments", async context => {
@@ -482,7 +485,10 @@ test("appending after a rule at the highest priority renumbers the stored order 
   assert.deepEqual(rules.map(rule => rule.priority), [10, 20, 30, 40]);
   assert.equal(preview.matched, 0);
   // Earlier rules still decide what they decided before.
-  assert.equal(categorize("Harbour Cafe", "", prepareRules(rules)), "leisure");
+  assert.equal(categorize({
+    counterparty: "Harbour Cafe",
+    description: ""
+  }, prepareRules(rules)), "leisure");
 });
 
 test("creating a rule, with or without a priority, is rejected once 1,000 rules exist", async context => {

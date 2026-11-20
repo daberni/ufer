@@ -2,7 +2,7 @@ import { Temporal } from "temporal-polyfill";
 import { HttpError, ValidationError } from "@/lib/errors";
 import { z } from "zod";
 import { minorUnits } from "@/lib/money";
-import { prepareRules, ruleAssignment } from "@/lib/rules";
+import { prepareRules, ruleAssignment, type RuleText } from "@/lib/rules";
 import { today, validDate } from "@/lib/time";
 import { findManualAccount } from "@/features/accounts/server/account-repository";
 import { categoryExists } from "@/features/categorization/server/category-repository";
@@ -34,7 +34,7 @@ export async function updateTransactionCategory(id: string, payload: unknown) {
 }
 
 function automaticCategory(id: string) {
-  return returnTransactionToRules(id, (storedRules, counterparty, description) => ruleAssignment(counterparty, description, prepareRules(storedRules)));
+  return returnTransactionToRules(id, (storedRules, text) => ruleAssignment(text, prepareRules(storedRules)));
 }
 
 async function manualCategory(id: string, categoryId: string | null) {
@@ -214,7 +214,7 @@ export async function editManualTransaction(id: string, payload: unknown, now = 
 
   const entry = validateEntry(input, currency, now);
   const rules = prepareRules(await listRules());
-  const categoryFor = (counterparty: string, description: string) => ruleAssignment(counterparty, description, rules);
+  const categoryFor = (text: RuleText) => ruleAssignment(text, rules);
 
   requireSaved(await updateManualTransaction(id, entry, categoryFor));
 
