@@ -5,13 +5,23 @@
 .example-below {
   display: grid;
   gap: var(--space-1);
-  color: var(--muted);
   font-size: var(--text-xs);
+}
+.example-label {
+  color: var(--muted);
+}
+.example-value {
+  color: var(--ink);
+  font-weight: 500;
 }
 .example-beside {
   flex-shrink: 0;
   margin-left: var(--space-4);
   text-align: end;
+}
+/* Rows without the selection check reserve its column (16px icon plus the row gap), so every example ends at the same edge. */
+[aria-selected="false"] > .example-beside {
+  margin-right: calc(16px + var(--space-2));
 }
 .example-below {
   display: none;

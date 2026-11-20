@@ -46,8 +46,12 @@ function LocaleExample({
 
   return (
     <span className={styles[placement === "beside" ? "example-beside" : "example-below"]}>
-      <span>{`Date: ${example.date}`}</span>
-      <span>{`Amount: ${example.amount}`}</span>
+      <span>
+        <span className={styles["example-label"]}>Date</span> <span className={styles["example-value"]}>{example.date}</span>
+      </span>
+      <span>
+        <span className={styles["example-label"]}>Amount</span> <span className={styles["example-value"]}>{example.amount}</span>
+      </span>
     </span>
   );
 }
