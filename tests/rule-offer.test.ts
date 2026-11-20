@@ -650,3 +650,93 @@ test("a rule-assigned category opens its recorded rule, and an unrecorded one st
 
   assert.equal((dialog.querySelector("input[name='name']") as HTMLInputElement | null)?.value, "Markets");
 });
+
+// Saving a rule replaces the row's create-rule action with the rule indicator, before or after the dialog has closed.
+for (const refreshed of ["before", "after"] as const) {
+  test(`focus returns to the row's category field, not the panel heading, when the refreshed row arrives ${refreshed} the rule dialog closes`, async context => {
+    const {
+      queryClient,
+      requests
+    } = browser(context);
+
+    modalDialogs();
+    const headingRef = createRef<HTMLHeadingElement>();
+    const withRules = await transactionRuleScope(queryClient, headingRef);
+    const { TransactionCategory } = await import("../src/features/transactions/components/transaction-category");
+    const manual = {
+      ...booking("source-entry", "Example Market"),
+      category_id: "groceries",
+      category_source: "manual" as const
+    };
+    const ruleAssigned = {
+      ...manual,
+      category_source: "rule" as const
+    };
+    const panel = (transaction: Transaction) => withRules(createElement(Fragment, null, createElement("h2", {
+      ref: headingRef,
+      tabIndex: -1
+    }, "Transactions"), createElement(TransactionCategory, {
+      categories,
+      transaction
+    })));
+    const screen = render(panel(manual));
+    const action = screen.getByRole("button", {
+      name: "Create rule for Example Market"
+    });
+
+    act(() => {
+      action.focus();
+      fireEvent.click(action);
+    });
+    await wait(0);
+    await respond(requests("categories")[0], Response.json(categories));
+    await respond(requests("rules/preview").at(-1), Response.json({
+      id: previewId,
+      matched: 1,
+      uncategorized: 0,
+      manual: 0,
+      manual_same_category: 0
+    }));
+    act(() => fireEvent.submit(screen.getByRole("textbox", {
+      name: "Matching pattern"
+    }).closest("form")!));
+    await wait(0);
+    await respond(requests("rules").find(request => request.method === "POST"), Response.json({
+      ok: true,
+      categorized: 0
+    }, {
+      status: 201
+    }));
+
+    if (refreshed === "before") {
+      screen.rerender(panel(ruleAssigned));
+    }
+
+    for (const preview of requests("rules/preview").slice(1)) {
+      await respond(preview, Response.json({
+        id: previewId,
+        matched: 0,
+        uncategorized: 0,
+        manual: 0,
+        manual_same_category: 0
+      }));
+    }
+
+    for (const list of requests("rules").filter(request => request.method === "GET")) {
+      await respond(list, Response.json([]));
+    }
+
+    assert.equal(screen.queryAllByRole("dialog").length, 0);
+
+    if (refreshed === "after") {
+      screen.rerender(panel(ruleAssigned));
+    }
+
+    const field = screen.getByRole("combobox", {
+      name: "Category for Example Market"
+    });
+
+    // Comparing elements directly would print whole jsdom nodes on failure; the focused text says where focus went instead.
+    assert.equal(document.activeElement === field ? "category field" : document.activeElement?.textContent || document.activeElement?.tagName, "category field");
+  });
+}

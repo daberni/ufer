@@ -394,3 +394,64 @@ test("a tap after a lingering mouse hover shows the tapped month instead of the 
   assert.ok(within(screen.panel()).getByText("July 2026"));
   assert.equal(screen.pushed.length, 0);
 });
+
+function rowLink(panel: HTMLElement, name: RegExp) {
+  return within(panel).getByRole("link", {
+    name
+  });
+}
+
+test("category rows open their income or expense transactions in the shown period", async context => {
+  const screen = await showReports(context);
+
+  assert.equal(rowLink(screen.panel(), /^View expenses in Food, July 2026$/).getAttribute("href"), "/transactions?period=2026-07&category=food&type=expense");
+  assert.equal(rowLink(screen.panel(), /^View income in Salary, July 2026$/).getAttribute("href"), "/transactions?period=2026-07&category=salary&type=income");
+});
+
+test("a row of a selected month links to that month and pressing it keeps the selection", async context => {
+  const screen = await showReports(context);
+  const june = screen.getByRole("button", {
+    name: /June 2026:/
+  });
+
+  tap(june);
+
+  const rent = rowLink(screen.panel(), /^View expenses in Rent, June 2026$/);
+
+  assert.equal(rent.getAttribute("href"), "/transactions?period=2026-06&category=rent&type=expense");
+  fireEvent.pointerDown(rent);
+  assert.ok(within(screen.panel()).getByText("Rent"));
+  assert.deepEqual(screen.pushed, []);
+});
+
+test("the uncategorized row links to the uncategorized filter in the shown currency, while the combined row stays plain", async context => {
+  const expenses = [
+    category("Rent", 60000),
+    category("Food", 20000),
+    category("Travel", 9000),
+    category("Books", 3000),
+    category("Games", 2000),
+    {
+      ...category("Uncategorized", 6000),
+      categoryId: null
+    }
+  ];
+  const total = expenses.reduce((sum, item) => sum + item.amount, 0);
+  const screen = await showReports(context, {
+    ...cashFlow,
+    currency: "USD",
+    expenses: total,
+    expenseBreakdown: expenses,
+    trend: [{
+      ...cashFlow.trend[1],
+      expenses: total,
+      expenseBreakdown: expenses
+    }]
+  });
+
+  assert.equal(rowLink(screen.panel(), /^View expenses in Uncategorized, July 2026$/).getAttribute("href"), "/transactions?period=2026-07&currency=USD&category=uncategorized&type=expense");
+  assert.ok(within(screen.panel()).getByText("+2 more"));
+  assert.equal(within(screen.panel()).queryByRole("link", {
+    name: /more/
+  }), null);
+});

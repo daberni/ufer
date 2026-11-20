@@ -7,7 +7,7 @@ import { useId } from "react";
 import styles from "./target-accounts.module.css";
 import { Select } from "@/components/ui/select";
 import { InlineFailure } from "@/components/ui/area-placeholder";
-import { accountLabel, newAccountChoice, rowCount, type ImportProblem, type TargetChoice } from "@/features/imports/import-plan";
+import { accountLabel, newAccountChoice, rowCount, type AccountProblem, type TargetChoice } from "@/features/imports/import-plan";
 import { FieldProblem, problemProps } from "./field-problem";
 import { accountKinds, type AccountKind } from "@/features/accounts/account-kinds";
 import { kinds } from "@/features/accounts/account-presentation";
@@ -50,7 +50,7 @@ export function TargetAccounts({
               kind: "unset"
             }}
             accounts={draft.accounts}
-            problems={draft.prepared?.problems.filter(problem => problem.source === source) ?? []}
+            problems={draft.prepared?.problems.filter((problem): problem is AccountProblem => problem.field !== "category" && problem.source === source) ?? []}
             onChange={choice => draft.chooseTarget(source, choice)}
           />
         ))}
@@ -74,7 +74,7 @@ function TargetRow({
   perSource: boolean;
   choice: TargetChoice;
   accounts: Account[];
-  problems: ImportProblem[];
+  problems: AccountProblem[];
   onChange: (choice: TargetChoice) => void;
 }) {
   const selectId = useId();
@@ -156,7 +156,7 @@ function NewAccountFields({
   choice: Extract<TargetChoice, {
     kind: "new";
   }>;
-  problems: ImportProblem[];
+  problems: AccountProblem[];
   onChange: (choice: TargetChoice) => void;
 }) {
   const balanceName = useId();

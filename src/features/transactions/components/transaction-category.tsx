@@ -109,7 +109,7 @@ function EditableTransactionCategory({
           disabled: status?.kind === "saving",
           assigningRule: assigningRule && {
             label: `Open rule ${assigningRule.name}`,
-            open: () => rules.edit(assigningRule)
+            open: () => rules.edit(assigningRule, fieldId)
           },
           createRule: () => {
             if (categoryId !== null && manual) {
@@ -119,7 +119,7 @@ function EditableTransactionCategory({
                 // Rules match the source's text, so a pattern from a person's override would not match later deliveries.
                 counterparty: transaction.source_counterparty,
                 description: transaction.source_description
-              });
+              }, fieldId);
             }
           }
         }}
