@@ -22,6 +22,7 @@ import { AreaPlaceholder } from "@/components/ui/area-placeholder";
 import { shownStatus, valueMask } from "@/components/ui/result-presentation";
 import type { Area, PendingArea } from "@/components/ui/use-area-result";
 import { useLocale } from "@/client/locale-provider";
+import { formatCount } from "@/lib/locale";
 
 type Props = {
   /** Accounts in the display currency. */
@@ -44,13 +45,14 @@ const placeholderAccount = {
 };
 
 export function OverviewAccounts({ currencyAccounts }: Props) {
+  const locale = useLocale();
   const changeView = useChangeView();
 
   return (
     <section className={styles["accounts-section"]}>
       <div className={styles["section-heading"]}>
         <h2>
-          Your accounts <span className={clsx(styles["count-badge"], valueMask(shownStatus(currencyAccounts)))}>{currencyAccounts.data?.length ?? 0}</span>
+          Your accounts <span className={clsx(styles["count-badge"], valueMask(shownStatus(currencyAccounts)))}>{formatCount(currencyAccounts.data?.length ?? 0, locale)}</span>
         </h2>
         <button className={ui["text-button"]} onClick={() => changeView("accounts")}>
           Manage all <ArrowRight size={15} />
