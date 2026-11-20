@@ -1,7 +1,7 @@
 import "./fixtures/dom-environment";
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { act, fireEvent, render } from "@testing-library/react";
+import { act, fireEvent, render, type RenderResult } from "@testing-library/react";
 import { createElement, useState } from "react";
 import { browser } from "./fixtures/browser";
 import { stubCssModules } from "./fixtures/css-modules";
@@ -10,6 +10,11 @@ import { categoryIconKeys, isCategoryIcon, matchesCategoryIconSearch } from "../
 import { categoryIconComponents } from "../src/features/categorization/components/category-icon-components";
 
 stubCssModules();
+
+// jsdom has no popover API, so role queries treat the swatch popover's content as hidden.
+function swatch(screen: RenderResult, name: string) {
+  return screen.container.querySelector(`[role='radio'][aria-label='${name}']`);
+}
 
 // The dark --surface token in globals.css.
 const darkSurface = "#19221d";
@@ -69,7 +74,7 @@ test("icon search matches every word against label, group and keywords, ignoring
   assert.equal(matchesCategoryIconSearch("coffee", "petrol"), false);
 });
 
-test("the color panel applies a valid typed hex color, keeps the last color on invalid input and closes on Escape without reaching the dialog", async context => {
+test("the color field applies a valid typed hex color, keeps the last color on invalid input, and its swatch popover closes on Escape without reaching the dialog", async context => {
   browser(context);
 
   const { CategoryColorField } = await import("../src/features/categorization/components/category-color-field");
@@ -89,18 +94,16 @@ test("the color panel applies a valid typed hex color, keeps the last color on i
   const screen = render(createElement(Harness));
   const stored = () => (screen.container.querySelector("input[name='color']") as HTMLInputElement).value;
   const trigger = screen.getByRole("button", {
-    name: "Color #638777"
+    name: "Suggested colors"
   });
 
   act(() => {
     fireEvent.click(trigger);
   });
 
-  assert.equal(document.activeElement, screen.getByRole("radio", {
-    name: "Sage"
-  }));
+  assert.equal(swatch(screen, "Sage")?.getAttribute("tabindex"), "0");
 
-  const hex = screen.getByLabelText("Hex") as HTMLInputElement;
+  const hex = screen.getByLabelText("Color") as HTMLInputElement;
 
   act(() => {
     fireEvent.change(hex, {
@@ -127,9 +130,7 @@ test("the color panel applies a valid typed hex color, keeps the last color on i
 
   assert.equal(stored(), "#1D9E75");
   assert.equal(screen.queryByRole("alert"), null);
-  assert.equal(screen.getByRole("radio", {
-    name: "Jade"
-  }).getAttribute("aria-checked"), "true");
+  assert.equal(swatch(screen, "Jade")?.getAttribute("aria-checked"), "true");
 
   let escape: KeyboardEvent | undefined;
 
@@ -139,12 +140,12 @@ test("the color panel applies a valid typed hex color, keeps the last color on i
       bubbles: true,
       cancelable: true
     });
-    hex.dispatchEvent(escape);
+    swatch(screen, "Jade")?.dispatchEvent(escape);
   });
 
   assert.equal(escape?.defaultPrevented, true);
-  assert.equal(screen.queryByLabelText("Hex"), null);
-  assert.equal(document.activeElement, trigger);
+  assert.equal(screen.container.querySelector("[role='radiogroup']"), null);
+  assert.ok(document.activeElement === trigger);
 });
 
 test("an invalid hex text blocks submitting the category form until it is corrected", async context => {
@@ -158,7 +159,7 @@ test("an invalid hex text blocks submitting the category form until it is correc
     onOpenChange: () => undefined
   })));
   const form = screen.container.querySelector("form") as HTMLFormElement;
-  const hex = screen.getByLabelText("Hex") as HTMLInputElement;
+  const hex = screen.getByLabelText("Color") as HTMLInputElement;
 
   act(() => {
     fireEvent.change(hex, {

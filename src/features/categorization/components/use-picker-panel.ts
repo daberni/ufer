@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, type KeyboardEvent } from "react";
+import { useAnchoredPopover } from "@/components/ui/use-anchored-popover";
 import { useDismiss } from "@/components/ui/use-dismiss";
 
 type Options = {
@@ -11,8 +12,8 @@ type Options = {
 };
 
 /**
- * Open state handling of an inline picker panel below its trigger: the panel focuses its selected option on opening, and Escape or a press outside the
- * field closes it. Escape is handled on the field itself because the surrounding modal dialog would otherwise close.
+ * A picker panel in a popover anchored to its field: it focuses its selected option on opening, and Escape or a press outside the field and panel closes
+ * it. Escape is handled on the field itself because the surrounding modal dialog would otherwise close.
  */
 export function usePickerPanel({
   open,
@@ -20,11 +21,19 @@ export function usePickerPanel({
   initialFocus
 }: Options) {
   const fieldRef = useRef<HTMLDivElement>(null);
+  const anchorRef = useRef<HTMLDivElement>(null);
+  const popupRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const initialFocusRef = useRef(initialFocus);
 
   useEffect(() => {
     initialFocusRef.current = initialFocus;
+  });
+
+  useAnchoredPopover({
+    open,
+    anchorRef,
+    popupRef
   });
 
   useEffect(() => {
@@ -35,7 +44,7 @@ export function usePickerPanel({
 
   useDismiss({
     active: open,
-    inside: [fieldRef],
+    inside: [fieldRef, popupRef],
     onDismiss: () => onOpenChange(false)
   });
 
@@ -55,6 +64,8 @@ export function usePickerPanel({
 
   return {
     fieldRef,
+    anchorRef,
+    popupRef,
     triggerRef,
     close,
     handleKeyDown

@@ -38,6 +38,8 @@ export function CategoryIconField({
   const [search, setSearch] = useState("");
   const {
     fieldRef,
+    anchorRef,
+    popupRef,
     triggerRef,
     close: closePanel,
     handleKeyDown: handleFieldKeyDown
@@ -136,77 +138,82 @@ export function CategoryIconField({
   return (
     <div ref={fieldRef} className={styles["field"]} onKeyDown={handleFieldKeyDown}>
       <input type="hidden" name="icon" value={icon} />
-      <span className={styles["field-label"]} id={`${id}-label`}>Icon</span>
-      <button
-        ref={triggerRef}
-        type="button"
-        className={styles["trigger"]}
-        aria-labelledby={`${id}-label ${id}-value`}
-        aria-expanded={open}
-        aria-controls={`${id}-panel`}
-        onClick={() => {
-          setSearch("");
-          onOpenChange(!open);
-        }}
-      >
-        <span
-          className={styles["icon-preview"]}
-          aria-hidden="true"
-          style={{
-            background: themedColor(scheme => categoryBarColor(color, scheme)),
-            color: themedColor(scheme => categoryGlyphColor(color, scheme))
+      <span className={styles["field-label"]} aria-hidden="true">Icon</span>
+      <div ref={anchorRef} className={styles["icon-anchor"]}>
+        <button
+          ref={triggerRef}
+          type="button"
+          className={clsx(styles["control"], styles["icon-trigger"])}
+          aria-label={icon === "" ? "Icon: No icon" : `Icon: ${iconLabel(icon)}`}
+          aria-expanded={open}
+          aria-controls={`${id}-panel`}
+          onClick={() => {
+            setSearch("");
+            onOpenChange(!open);
           }}
         >
-          {TriggerIcon && <TriggerIcon size={14} />}
-        </span>
-        <span id={`${id}-value`} className={styles["trigger-value"]}>{iconLabel(icon)}</span>
-      </button>
-      {open && (
-        <div
-          id={`${id}-panel`}
-          className={clsx(styles["panel"], styles["icon-panel"])}
-          role="group"
-          aria-label="Choose an icon"
-        >
-          <label className={styles["search"]}>
-            <Search size={16} aria-hidden="true" />
-            <input
-              type="search"
-              placeholder="Search icons"
-              aria-label="Search icons"
-              aria-controls={`${id}-options`}
-              autoComplete="off"
-              value={search}
-              onChange={event => setSearch(event.target.value)}
-              onKeyDown={handleSearchKeyDown}
-            />
-          </label>
-          <div
-            ref={optionsRef}
-            id={`${id}-options`}
-            className={styles["icon-options"]}
-            role="listbox"
-            aria-label="Icons"
+          <span
+            className={styles["icon-preview"]}
+            aria-hidden="true"
+            style={{
+              background: themedColor(scheme => categoryBarColor(color, scheme)),
+              color: themedColor(scheme => categoryGlyphColor(color, scheme))
+            }}
           >
-            {searching ? (
-              <div className={styles["icon-grid"]}>{matches.map(renderOption)}</div>
-            ) : (
-              <>
-                <div className={styles["icon-grid"]}>{renderOption("")}</div>
-                {groupKeys.map(group => (
-                  <div key={group} role="group" aria-labelledby={`${id}-${group}`}>
-                    <span className={styles["group-heading"]} id={`${id}-${group}`}>{categoryIconGroups[group]}</span>
-                    <div className={styles["icon-grid"]}>
-                      {categoryIconKeys.filter(key => categoryIcons[key].group === group).map(renderOption)}
+            {TriggerIcon && <TriggerIcon size={16} />}
+          </span>
+        </button>
+      </div>
+      <div
+        ref={popupRef}
+        id={`${id}-panel`}
+        className={clsx(styles["popover"], styles["icon-popover"])}
+        popover="manual"
+        role="group"
+        aria-label="Choose an icon"
+      >
+        {open && (
+          <>
+            <label className={styles["search"]}>
+              <Search size={16} aria-hidden="true" />
+              <input
+                type="search"
+                placeholder="Search icons"
+                aria-label="Search icons"
+                aria-controls={`${id}-options`}
+                autoComplete="off"
+                value={search}
+                onChange={event => setSearch(event.target.value)}
+                onKeyDown={handleSearchKeyDown}
+              />
+            </label>
+            <div
+              ref={optionsRef}
+              id={`${id}-options`}
+              className={styles["icon-options"]}
+              role="listbox"
+              aria-label="Icons"
+            >
+              {searching ? (
+                <div className={styles["icon-grid"]}>{matches.map(renderOption)}</div>
+              ) : (
+                <>
+                  <div className={styles["icon-grid"]}>{renderOption("")}</div>
+                  {groupKeys.map(group => (
+                    <div key={group} role="group" aria-labelledby={`${id}-${group}`}>
+                      <span className={styles["group-heading"]} id={`${id}-${group}`}>{categoryIconGroups[group]}</span>
+                      <div className={styles["icon-grid"]}>
+                        {categoryIconKeys.filter(key => categoryIcons[key].group === group).map(renderOption)}
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </>
-            )}
-            {searching && matches.length === 0 && <p className={styles["empty"]}>No icons match “{search.trim()}”.</p>}
-          </div>
-        </div>
-      )}
+                  ))}
+                </>
+              )}
+              {searching && matches.length === 0 && <p className={styles["empty"]}>No icons match “{search.trim()}”.</p>}
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }

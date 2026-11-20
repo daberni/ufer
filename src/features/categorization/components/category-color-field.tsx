@@ -1,7 +1,7 @@
 "use client";
 
 import { clsx } from "clsx";
-import { Check, Copy } from "lucide-react";
+import { Palette } from "lucide-react";
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import styles from "./picker-field.module.css";
 import { categoryBarColor, formatHexColor, parseHexColor, suggestedCategoryColors, themedColor } from "@/features/categorization/category-colors";
@@ -15,8 +15,6 @@ type Props = {
   onOpenChange: (open: boolean) => void;
 };
 
-const copiedFeedbackMs = 1500;
-
 const invalidHexMessage = "Enter a color like #1D9E75";
 
 function isFullHex(input: string) {
@@ -27,6 +25,7 @@ function swatchColor(color: string) {
   return themedColor(scheme => categoryBarColor(color, scheme));
 }
 
+/** A hex text field with a toggle for a popover of suggested colors. */
 export function CategoryColorField({
   color,
   onChange,
@@ -35,10 +34,16 @@ export function CategoryColorField({
 }: Props) {
   const id = useId();
   const swatchesRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const hex = formatHexColor(color);
+  const [draft, setDraft] = useState(hex);
+  const [shownHex, setShownHex] = useState(hex);
+  const [invalid, setInvalid] = useState(false);
   const checkedIndex = suggestedCategoryColors.findIndex(suggestion => suggestion.value === hex);
   const {
     fieldRef,
+    anchorRef,
+    popupRef,
     triggerRef,
     handleKeyDown: handleFieldKeyDown
   } = usePickerPanel({
@@ -46,6 +51,43 @@ export function CategoryColorField({
     onOpenChange,
     initialFocus: () => swatchesRef.current?.querySelector<HTMLElement>("[tabindex='0']")
   });
+
+  // A color chosen elsewhere, such as a swatch, replaces the text unless the text already means that color.
+  if (hex !== shownHex) {
+    setShownHex(hex);
+
+    if (parseHexColor(draft) !== hex) {
+      setDraft(hex);
+      setInvalid(false);
+    }
+  }
+
+  // While the text is not a color, the category form cannot be submitted with the previous color.
+  useEffect(() => {
+    inputRef.current?.setCustomValidity(parseHexColor(draft) ? "" : invalidHexMessage);
+  }, [draft]);
+
+  function apply() {
+    const parsed = parseHexColor(draft);
+
+    if (!parsed) {
+      setInvalid(true);
+
+      return;
+    }
+
+    setInvalid(false);
+    setDraft(parsed);
+    onChange(parsed);
+  }
+
+  function handleInputKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    // Enter applies the value instead of submitting the category form.
+    if (event.key === "Enter") {
+      event.preventDefault();
+      apply();
+    }
+  }
 
   function handleSwatchKeyDown(event: KeyboardEvent, index: number) {
     const options = [...(swatchesRef.current?.querySelectorAll<HTMLElement>("[role='radio']") ?? [])];
@@ -63,16 +105,8 @@ export function CategoryColorField({
   return (
     <div ref={fieldRef} className={styles["field"]} onKeyDown={handleFieldKeyDown}>
       <input type="hidden" name="color" value={color} />
-      <span className={styles["field-label"]} id={`${id}-label`}>Color</span>
-      <button
-        ref={triggerRef}
-        type="button"
-        className={styles["trigger"]}
-        aria-labelledby={`${id}-label ${id}-value`}
-        aria-expanded={open}
-        aria-controls={`${id}-panel`}
-        onClick={() => onOpenChange(!open)}
-      >
+      <label className={styles["field-label"]} htmlFor={`${id}-hex`}>Color</label>
+      <div ref={anchorRef} className={clsx(styles["control"], invalid && styles["invalid"])}>
         <span
           className={styles["color-dot"]}
           aria-hidden="true"
@@ -80,21 +114,59 @@ export function CategoryColorField({
             background: swatchColor(color)
           }}
         />
-        <span id={`${id}-value`} className={styles["trigger-value"]}>{hex}</span>
-      </button>
-      {open && (
-        <div
-          id={`${id}-panel`}
-          className={styles["panel"]}
-          role="group"
-          aria-label="Choose a color"
+        <input
+          ref={inputRef}
+          id={`${id}-hex`}
+          className={styles["hex-input"]}
+          value={draft}
+          spellCheck={false}
+          autoComplete="off"
+          autoCapitalize="characters"
+          maxLength={16}
+          aria-invalid={invalid}
+          aria-describedby={invalid ? `${id}-error` : undefined}
+          onChange={event => {
+            setDraft(event.target.value);
+            setInvalid(false);
+
+            const parsed = parseHexColor(event.target.value);
+
+            // Typing applies a complete six-digit value right away; shorthand waits for Enter or leaving the field.
+            if (parsed && isFullHex(event.target.value)) {
+              onChange(parsed);
+            }
+          }}
+          onBlur={apply}
+          onInvalid={() => setInvalid(true)}
+          onKeyDown={handleInputKeyDown}
+        />
+        <button
+          ref={triggerRef}
+          type="button"
+          className={styles["toggle"]}
+          aria-label="Suggested colors"
+          aria-expanded={open}
+          aria-controls={`${id}-panel`}
+          onClick={() => onOpenChange(!open)}
         >
-          <span className={styles["panel-heading"]} id={`${id}-suggested`}>Suggested</span>
+          <Palette size={16} aria-hidden="true" />
+        </button>
+      </div>
+      {invalid && <p id={`${id}-error`} className={styles["hex-error"]} role="alert">{invalidHexMessage}</p>}
+      <div
+        ref={popupRef}
+        id={`${id}-panel`}
+        className={styles["popover"]}
+        popover="manual"
+        role="group"
+        aria-label="Suggested colors"
+      >
+        {open && (
           <div
             ref={swatchesRef}
             className={styles["swatches"]}
             role="radiogroup"
-            aria-labelledby={`${id}-suggested`}
+            aria-label="Suggested colors"
           >
             {suggestedCategoryColors.map((suggestion, index) => {
               const checked = index === checkedIndex;
@@ -123,124 +195,8 @@ export function CategoryColorField({
               );
             })}
           </div>
-          <HexInput hex={hex} onChange={onChange} />
-        </div>
-      )}
-    </div>
-  );
-}
-
-type HexInputProps = {
-  hex: string;
-  onChange: (color: string) => void;
-};
-
-function HexInput({
-  hex,
-  onChange
-}: HexInputProps) {
-  const id = useId();
-  const [draft, setDraft] = useState(hex);
-  const [shownHex, setShownHex] = useState(hex);
-  const [invalid, setInvalid] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  // A color chosen elsewhere, such as a swatch, replaces the text unless the text already means that color.
-  if (hex !== shownHex) {
-    setShownHex(hex);
-
-    if (parseHexColor(draft) !== hex) {
-      setDraft(hex);
-      setInvalid(false);
-    }
-  }
-
-  // While the text is not a color, the category form cannot be submitted with the previous color.
-  useEffect(() => {
-    inputRef.current?.setCustomValidity(parseHexColor(draft) ? "" : invalidHexMessage);
-  }, [draft]);
-
-  useEffect(() => {
-    if (!copied) {
-      return;
-    }
-
-    const timeout = window.setTimeout(() => setCopied(false), copiedFeedbackMs);
-
-    return () => window.clearTimeout(timeout);
-  }, [copied]);
-
-  function apply() {
-    const parsed = parseHexColor(draft);
-
-    if (!parsed) {
-      setInvalid(true);
-
-      return;
-    }
-
-    setInvalid(false);
-    setDraft(parsed);
-    onChange(parsed);
-  }
-
-  function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
-    // Enter applies the value instead of submitting the category form.
-    if (event.key === "Enter") {
-      event.preventDefault();
-      apply();
-    }
-  }
-
-  async function copy() {
-    try {
-      await navigator.clipboard.writeText(hex);
-      setCopied(true);
-    } catch {
-      setCopied(false);
-    }
-  }
-
-  return (
-    <div className={styles["hex-row"]}>
-      <label className={styles["hex-label"]} htmlFor={`${id}-hex`}>Hex</label>
-      <input
-        ref={inputRef}
-        id={`${id}-hex`}
-        className={clsx(styles["hex-input"], invalid && styles["invalid"])}
-        value={draft}
-        spellCheck={false}
-        autoComplete="off"
-        autoCapitalize="characters"
-        maxLength={16}
-        aria-invalid={invalid}
-        aria-describedby={invalid ? `${id}-error` : undefined}
-        onChange={event => {
-          setDraft(event.target.value);
-          setInvalid(false);
-
-          const parsed = parseHexColor(event.target.value);
-
-          // Typing applies a complete six-digit value right away; shorthand waits for Enter or leaving the field.
-          if (parsed && isFullHex(event.target.value)) {
-            onChange(parsed);
-          }
-        }}
-        onBlur={apply}
-        onInvalid={() => setInvalid(true)}
-        onKeyDown={handleKeyDown}
-      />
-      <button
-        type="button"
-        className={styles["copy-button"]}
-        aria-label={copied ? "Copied" : "Copy hex value"}
-        title="Copy hex value"
-        onClick={copy}
-      >
-        {copied ? <Check size={16} aria-hidden="true" /> : <Copy size={16} aria-hidden="true" />}
-      </button>
-      {invalid && <p id={`${id}-error`} className={styles["hex-error"]} role="alert">{invalidHexMessage}</p>}
+        )}
+      </div>
     </div>
   );
 }

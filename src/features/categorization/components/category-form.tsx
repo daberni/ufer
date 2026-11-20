@@ -113,18 +113,18 @@ function CategoryForm({
         />
       </label>
       <div className={styles["appearance"]}>
-        <CategoryColorField
-          color={color}
-          onChange={setColor}
-          open={openPanel === "color"}
-          onOpenChange={panelToggle("color")}
-        />
         <CategoryIconField
           color={color}
           icon={icon}
           onChange={setIcon}
           open={openPanel === "icon"}
           onOpenChange={panelToggle("icon")}
+        />
+        <CategoryColorField
+          color={color}
+          onChange={setColor}
+          open={openPanel === "color"}
+          onOpenChange={panelToggle("color")}
         />
       </div>
       <FormError failure={error} />
