@@ -22,7 +22,7 @@ export function CategoryChoices({
     <section className={clsx(ui["panel"], styles["section"])} aria-labelledby="import-categories">
       <div>
         <h2 id="import-categories">Categories</h2>
-        <p className={ui["form-hint"]}>Each value without a category of the same name goes to an existing category, a new one, or the rules. Values with several tags are not guessed.</p>
+        <p className={ui["form-hint"]}>Each value without a category of the same name goes to an existing category, a new one, or the rules. Values with several tags are not guessed; tags with amounts split their row, and each tag is listed here.</p>
       </div>
       <fieldset className={styles["values"]} disabled={draft.inputsLocked}>
         <legend className={ui["visually-hidden"]}>Category for each value</legend>

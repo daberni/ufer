@@ -109,7 +109,7 @@ export function ColumnPreview({
   );
 }
 
-/** Why each line needs attention: errors first, then the check's duplicate findings. */
+/** Why each line needs attention: errors first, then splits that could not be imported, then the check's duplicate findings. */
 export function useRowIssues(draft: ImportDraft) {
   const {
     mapped,
@@ -126,6 +126,16 @@ export function useRowIssues(draft: ImportDraft) {
 
     for (const error of summary?.errors ?? mapped?.errors ?? []) {
       add(error.line, error.message);
+    }
+
+    // The check also reports tag amounts that do not fit the account's currency.
+    const splitNotes = summary?.splitNotes ?? mapped?.rows.flatMap(row => row.splitNote ? [{
+      line: row.line,
+      message: row.splitNote
+    }] : []) ?? [];
+
+    for (const note of splitNotes) {
+      add(note.line, note.message);
     }
 
     // Rows imported before need no attention; a match with another booking may be a false positive.

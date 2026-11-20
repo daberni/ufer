@@ -1,5 +1,5 @@
 import { categoryNameKey } from "@/lib/category-name";
-import { categoryTags, currencyAllows, maxAccountNameLength, parseAmount, splitCurrency, type CsvTemplate, type DecimalSeparator, type MappedRow } from "./csv-mapping";
+import { categoryTags, currencyAllows, rowCategoryValues, maxAccountNameLength, parseAmount, splitCurrency, type CsvTemplate, type DecimalSeparator, type MappedRow } from "./csv-mapping";
 import type { AccountKind } from "@/features/accounts/account-kinds";
 import type { CategoryChoice, ImportTarget } from "./mutations";
 import { formatCount } from "@/lib/locale";
@@ -116,9 +116,10 @@ export function categoryValues(rows: MappedRow[], categories: {
   const counts = new Map<string, number>();
   const byName = new Map(categories.map(category => [categoryNameKey(category.name), category.id]));
 
+  // A split row counts once for each of its parts' category values, which are mapped like any other value.
   for (const row of rows) {
-    if (row.category) {
-      counts.set(row.category, (counts.get(row.category) ?? 0) + 1);
+    for (const value of rowCategoryValues(row)) {
+      counts.set(value, (counts.get(value) ?? 0) + 1);
     }
   }
 

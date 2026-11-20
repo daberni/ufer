@@ -5,7 +5,7 @@ import { api } from "@/client/api";
 import { invalidate } from "@/client/invalidate";
 import { queryKeys } from "@/client/query-keys";
 import type { AccountKind } from "@/features/accounts/account-kinds";
-import { assignOccurrences, batchRows, duplicateIdErrors, pruneConsumed, type ConsumedBooking, type MappedRow, type RowError } from "./csv-mapping";
+import { assignOccurrences, batchRows, duplicateIdErrors, pruneConsumed, rowCategoryValues, type ConsumedBooking, type MappedRow, type RowError } from "./csv-mapping";
 import { useLocale } from "@/client/locale-provider";
 import { formatCount } from "@/lib/locale";
 
@@ -77,6 +77,8 @@ export type MappedImportSummary = {
   }[];
   possibleDuplicates: number[];
   errors: RowError[];
+  /** Rows with amount-bearing tags that are imported unsplit and uncategorized, with the reason. */
+  splitNotes: RowError[];
   unknownCategories: string[];
   createdCategories: string[];
   toleranceDays: number;
@@ -133,6 +135,7 @@ export function useMappedImport() {
         duplicates: [],
         possibleDuplicates: [],
         errors: [...rowErrors],
+        splitNotes: [],
         unknownCategories: [],
         createdCategories: [],
         toleranceDays: 0
@@ -166,7 +169,7 @@ export function useMappedImport() {
           import_id: importId,
           rows: batch,
           targets: resolved.filter(target => batch.some(row => row.source === target.source)),
-          categories: categoryChoices.filter(choice => batch.some(row => row.category === choice.value)),
+          categories: categoryChoices.filter(choice => batch.some(row => rowCategoryValues(row).includes(choice.value))),
           consumed: pruneConsumed(consumed, batch[0].date),
           confirm,
           final: index === batches.length - 1
@@ -177,12 +180,14 @@ export function useMappedImport() {
         summary.duplicates.push(...result.duplicates);
         summary.possibleDuplicates.push(...result.possibleDuplicates);
         summary.errors.push(...result.errors);
+        summary.splitNotes.push(...result.splitNotes);
         summary.unknownCategories = [...new Set([...summary.unknownCategories, ...result.unknownCategories])].sort();
         summary.createdCategories = [...new Set([...summary.createdCategories, ...result.createdCategories])].sort();
         summary.toleranceDays = result.toleranceDays;
       }
 
       summary.errors.sort((left, right) => left.line - right.line);
+      summary.splitNotes.sort((left, right) => left.line - right.line);
       summary.duplicates.sort((left, right) => left.line - right.line);
       summary.possibleDuplicates.sort((left, right) => left - right);
 

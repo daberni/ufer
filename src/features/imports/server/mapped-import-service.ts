@@ -4,6 +4,7 @@ import { z } from "zod";
 import { categoryNameKey, normalizeCategoryName } from "@/lib/category-name";
 import { HttpError, ValidationError } from "@/lib/errors";
 import { minorUnits } from "@/lib/money";
+import { maximumSplitParts, partAmountSupported } from "@/features/transactions/split-limits";
 import { today, validDate } from "@/lib/time";
 import { listRules } from "@/features/categorization/server/rule-repository";
 import { categorizeEntries } from "@/features/transactions/server/categorize-entries";
@@ -13,6 +14,7 @@ import { accountKinds } from "@/features/accounts/account-kinds";
 import { validateLiability } from "@/features/accounts/server/account-service";
 import { currencyAllows, maxCategoryChoicesPerRequest, maxTargetsPerRequest, maxAccountNameLength, maxCategoryLength, maxIdLength, maxSourceLength, normalizeText, type RowError } from "../csv-mapping";
 import { duplicateDateToleranceDays, mappedReferencePrefix, type DuplicateReason } from "./duplicate-matching";
+import type { SplitPartValues } from "@/features/transactions/server/split-repository";
 import { checkMappedEntries, createImportCategory, findImportOpening, findImportTarget, listCategoryNames, saveMappedEntries, type MappedEntry, type NewImportAccount, type OpeningBalance } from "./mapped-import-repository";
 
 export const maxRowsPerRequest = 2000;
@@ -28,7 +30,12 @@ const row = z.object({
   source: z.string().max(maxSourceLength),
   occurrence: z.number().int().min(0),
   id: z.string().max(maxIdLength).nullable().default(null),
-  transfer: z.boolean().default(false)
+  transfer: z.boolean().default(false),
+  parts: z.array(z.object({
+    category: z.string().max(maxCategoryLength),
+    amount: z.string().max(30)
+  })).max(maximumSplitParts).nullable().default(null),
+  splitNote: z.string().max(300).nullable().default(null)
 });
 
 /** The balance a new account should have: today's balance, or its balance before the file's first row. The difference to the imported rows is booked as an opening balance on `date`. */
@@ -102,6 +109,8 @@ export type MappedImportResult = {
     reason: DuplicateReason;
   }[];
   errors: RowError[];
+  /** Rows with amount-bearing tags that are imported unsplit and uncategorized, with the reason. */
+  splitNotes: RowError[];
   /** CSV category names without a matching category or choice; their rows are categorized by rules. */
   unknownCategories: string[];
   /** Categories created for "create" choices; with `confirmed` they were saved. */
@@ -114,6 +123,7 @@ export async function importMappedRows(payload: unknown, now = Temporal.Now.inst
   const input = mappedImportInput.parse(payload);
   const targets = await resolveTargets(input.import_id, input.targets, input.confirm);
   const errors: RowError[] = [];
+  const splitNotes: RowError[] = [];
   const planned: PlannedRow[] = [];
   const categories = await resolveCategories(input.categories, input.confirm);
   const unknownCategories = new Set<string>();
@@ -133,14 +143,29 @@ export async function importMappedRows(payload: unknown, now = Temporal.Now.inst
       continue;
     }
 
-    const category = item.category ? categories.resolve(item.category) : null;
-    const categoryId = category === "unknown" ? null : category;
+    const resolveCategory = (value: string) => {
+      const category = categories.resolve(value);
 
-    if (item.category && category === "unknown") {
-      unknownCategories.add(item.category);
-    }
+      if (category === "unknown") {
+        unknownCategories.add(value);
 
+        return null;
+      }
+
+      return category;
+    };
     const amount = minorUnits(item.amount, destination.currency);
+    const split = item.parts ? splitParts(item, amount, destination.currency, resolveCategory) : null;
+    const note = item.splitNote ?? (typeof split === "string" ? split : null);
+    const parts = Array.isArray(split) ? split : null;
+    const categoryId = item.category && !parts && note === null ? resolveCategory(item.category) : null;
+
+    if (note !== null) {
+      splitNotes.push({
+        line: item.line,
+        message: note
+      });
+    }
 
     planned.push({
       line: item.line,
@@ -153,12 +178,14 @@ export async function importMappedRows(payload: unknown, now = Temporal.Now.inst
         counterparty: item.payee,
         description: item.description,
         categoryId,
-        categorySource: categoryId ? "manual" : "rule",
+        // A split booking's categories are its parts, and an unsplittable one stays deliberately uncategorized; rules decide neither.
+        categorySource: categoryId || parts || note !== null ? "manual" : "rule",
         categoryRuleId: null,
         ruleType: null,
         typeRuleId: null,
         typeTransferAccountId: null,
-        transfer: item.transfer
+        transfer: item.transfer,
+        parts
       }
     });
   }
@@ -186,6 +213,7 @@ export async function importMappedRows(payload: unknown, now = Temporal.Now.inst
       reason
     })).sort((left, right) => left.line - right.line),
     errors,
+    splitNotes,
     unknownCategories: [...unknownCategories].sort(),
     createdCategories: categories.created,
     toleranceDays: duplicateDateToleranceDays
@@ -412,6 +440,51 @@ async function resolveCategories(choices: z.infer<typeof categoryChoice>[], conf
   };
 }
 
+/**
+ * The parts of a split row in the account's minor units, checked like a split saved in the edit dialog: they must add up exactly to the booking's amount. Only income and expenses are split.
+ * A string says why the row is imported unsplit and uncategorized instead.
+ */
+function splitParts(item: z.infer<typeof row>, amount: number, currency: string, resolveCategory: (value: string) => string | null): SplitPartValues[] | string {
+  const unsplit = (reason: string) => `${reason} The row is imported unsplit and uncategorized.`;
+  const parts = item.parts ?? [];
+
+  if (item.transfer) {
+    return unsplit("Transfers are not split.");
+  }
+
+  if (parts.length < 2) {
+    return unsplit("A split needs at least two tags with amounts.");
+  }
+
+  const amounts: number[] = [];
+
+  for (const part of parts) {
+    try {
+      amounts.push(minorUnits(part.amount, currency));
+    } catch (error) {
+      if (error instanceof ValidationError) {
+        return unsplit(`The tag amount ${part.amount} does not fit ${currency}.`);
+      }
+
+      throw error;
+    }
+  }
+
+  if (amounts.some(value => value === 0 || !partAmountSupported(value))) {
+    return unsplit("A tag amount is 0 or too large.");
+  }
+
+  if (amounts.reduce((sum, value) => sum + value, 0) !== amount) {
+    return unsplit("The tag amounts do not add up to the amount.");
+  }
+
+  return parts.map((part, index) => ({
+    amount: amounts[index],
+    categoryId: resolveCategory(part.category),
+    note: ""
+  }));
+}
+
 /** A stable reference from the row's content, so the same file imported again matches its earlier rows exactly. */
 function importReference(date: string, amount: number, payee: string, description: string, occurrence: number) {
   const content = [date, amount, normalizeText(payee), normalizeText(description), occurrence].join("|");
@@ -454,12 +527,17 @@ async function classifyAndSave(planned: PlannedRow[], targets: Map<string, Targe
   };
 }
 
-/** Rules categorize rows without a category from the CSV; a rule's type applies to every row it decides. */
+/** Rules categorize rows without a category from the CSV; a rule's type applies to every row it decides except split ones, which stay income or expense. */
 function categorized(entries: MappedEntry[], rules: Awaited<ReturnType<typeof listRules>>) {
   const ruled = categorizeEntries(entries, rules);
 
   return entries.map((entry, index) => {
     const assignment = ruled[index];
+
+    if (entry.parts) {
+      return entry;
+    }
+
     const typed = {
       ...entry,
       ruleType: assignment.ruleType,
@@ -467,7 +545,7 @@ function categorized(entries: MappedEntry[], rules: Awaited<ReturnType<typeof li
       typeTransferAccountId: assignment.typeTransferAccountId
     };
 
-    if (entry.categoryId) {
+    if (entry.categorySource === "manual") {
       return typed;
     }
 

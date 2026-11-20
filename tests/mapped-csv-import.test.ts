@@ -69,6 +69,8 @@ function mappedRow(line: number, date: string, amount: string, payee: string, ex
     occurrence: 0,
     id: null,
     transfer: false,
+    parts: null,
+    splitNote: null,
     ...extra
   };
 }
@@ -678,7 +680,8 @@ test("saving rechecks duplicates in its write transaction, so bookings synced af
     ruleType: null,
     typeRuleId: null,
     typeTransferAccountId: null,
-    transfer: false
+    transfer: false,
+    parts: null
   }], null);
 
   assert.equal(inserted, 0);
@@ -1020,7 +1023,9 @@ test("a row the target rejects for its currency does not shift the occurrences o
     category: null,
     source: "",
     id: null,
-    transfer: false
+    transfer: false,
+    parts: null,
+    splitNote: null
   };
   const rows = assignOccurrences([{
     ...row,
