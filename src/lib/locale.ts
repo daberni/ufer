@@ -81,9 +81,14 @@ export function resolveFormatLocale(preference: FormatLocalePreference, acceptLa
   return defaultFormatLocale;
 }
 
+// The formatter's resolved locale drops private-use subtags, variants and extensions it ignores, so the request-controlled header yields only the runtime's finite set of locales, which also bounds the formatter caches.
 function supportedLocale(tag: string) {
   try {
-    return Intl.NumberFormat.supportedLocalesOf(tag)[0];
+    if (!Intl.NumberFormat.supportedLocalesOf(tag).length) {
+      return undefined;
+    }
+
+    return new Intl.NumberFormat(tag).resolvedOptions().locale;
   } catch {
     return undefined;
   }

@@ -74,3 +74,13 @@ test("an explicit preference overrides the request's languages", () => {
   assert.equal(parseFormatLocalePreference("xx-unknown"), "browser");
   assert.equal(parseFormatLocalePreference(null), "browser");
 });
+
+test("request-controlled private-use and unknown subtags collapse to the runtime's locale, so formatter caches stay bounded", () => {
+  const resolved = new Set(Array.from({
+    length: 500
+  }, (_, index) => resolveFormatLocale("browser", `en-x-tag${index}, de-AT-variant${index % 7}`)));
+
+  assert.deepEqual([...resolved], ["en"]);
+  assert.equal(resolveFormatLocale("browser", "de-AT-x-anything"), "de-AT");
+  assert.equal(resolveFormatLocale("browser", "en-u-co-unknown"), "en");
+});
