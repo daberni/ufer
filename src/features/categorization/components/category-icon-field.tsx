@@ -1,5 +1,7 @@
 "use client";
 
+import sparkle from "../../../components/ui/sparkle.module.css";
+
 import { clsx } from "clsx";
 import { Search, X } from "lucide-react";
 import { useId, useRef, useState, type KeyboardEvent } from "react";
@@ -15,6 +17,8 @@ type IconChoice = CategoryIconKey | "";
 type Props = {
   color: string;
   icon: IconChoice;
+  /** The icon the category name suggests, highlighted in the picker. */
+  suggested?: CategoryIconKey | null;
   onChange: (icon: IconChoice) => void;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -29,6 +33,7 @@ function iconLabel(icon: IconChoice) {
 export function CategoryIconField({
   color,
   icon,
+  suggested = null,
   onChange,
   open,
   onOpenChange
@@ -100,7 +105,8 @@ export function CategoryIconField({
 
   function renderOption(choice: IconChoice) {
     const Icon = choice === "" ? null : categoryIconComponents[choice];
-    const label = iconLabel(choice);
+    const isSuggestion = choice !== "" && choice === suggested;
+    const label = isSuggestion ? `${iconLabel(choice)} (suggested)` : iconLabel(choice);
 
     return (
       <button
@@ -111,7 +117,7 @@ export function CategoryIconField({
         aria-label={label}
         title={label}
         tabIndex={choice === focusableChoice ? 0 : -1}
-        className={styles["icon-option"]}
+        className={clsx(styles["icon-option"], isSuggestion && sparkle["sparkle"])}
         onClick={() => choose(choice)}
         onKeyDown={handleOptionKeyDown}
       >
@@ -144,7 +150,7 @@ export function CategoryIconField({
         <button
           ref={triggerRef}
           type="button"
-          className={clsx(styles["control"], styles["icon-trigger"])}
+          className={clsx(styles["control"], styles["icon-trigger"], suggested && sparkle["sparkle-outline"])}
           aria-label={icon === "" ? "Icon: No icon" : `Icon: ${iconLabel(icon)}`}
           aria-expanded={open}
           aria-controls={`${id}-panel`}

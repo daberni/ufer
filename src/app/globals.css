@@ -32,6 +32,8 @@
   --gold-soft: light-dark(#f6f0e1, #2e2a1d);
   --gold-border: light-dark(#e9dfc4, #4a4128);
   --gold-text: light-dark(#7a6532, #dcc58a);
+  /* The suggestion sparkle; light surfaces need a darker, warmer gold for the glow to read. */
+  --sparkle: light-dark(#b07a12, #d4bd7f);
   --sage: light-dark(#d9e8a9, #66804f);
   --danger: light-dark(#aa5146, #e8968a);
   --danger-strong: light-dark(#8f4339, #f0ada3);

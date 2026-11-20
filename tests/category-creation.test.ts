@@ -170,9 +170,10 @@ test("a created category is selected in the picker that started it, and cancelli
     color: string;
   };
 
+  // The name suggests the pets icon, which a new category takes until another one is chosen.
   assert.deepEqual(details, {
     name: "Pets",
-    icon: ""
+    icon: "pets"
   });
   // A new category starts with a randomly chosen palette color.
   assert.ok(suggestedCategoryColors.some(suggestion => suggestion.value === color));

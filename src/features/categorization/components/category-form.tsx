@@ -5,7 +5,7 @@ import ui from "../../../components/ui/primitives.module.css";
 import { clsx } from "clsx";
 import { useState } from "react";
 import styles from "./category-form.module.css";
-import { isCategoryIcon, type CategoryIconKey } from "@/features/categorization/category-icons";
+import { isCategoryIcon, suggestCategoryIcon, type CategoryIconKey } from "@/features/categorization/category-icons";
 import type { Category } from "@/features/categorization/types";
 import { useDialogSubmit, type DialogFormProps } from "@/components/ui/use-dialog-submit";
 import { useSaveCategory } from "@/features/categorization/mutations";
@@ -74,19 +74,26 @@ function CategoryForm({
     submit
   } = useDialogSubmit(useSaveCategory(category), close);
   const [name, setName] = useState(category?.name ?? initialName);
-  const savedIcon = category?.icon;
-  const [icon, setIcon] = useState<CategoryIconKey | "">(isCategoryIcon(savedIcon) ? savedIcon : "");
-  const existing = useCategories().data ?? [];
+  const savedIcon = isCategoryIcon(category?.icon) ? category.icon : "";
+  // Null while a new category follows its suggestions; an explicit choice, "" for no icon included, replaces them.
+  const [chosenIcon, setChosenIcon] = useState<CategoryIconKey | "" | null>(category ? savedIcon : null);
+  const similarIcon = suggestCategoryIcon(name);
+  const icon = chosenIcon ?? similarIcon ?? "";
+  const suggestedIcon = chosenIcon === null || similarIcon !== icon ? similarIcon : null;
+  const categories = useCategories();
+  // A new category's color derives from the other categories, so its field waits until they have loaded; a save meanwhile lets the server choose.
+  const loadingColor = !category && categories.isPending;
+  const existing = categories.data ?? [];
   const others = existing.filter(other => other.id !== category?.id);
-  // One random draw per dialog, applied to the loaded categories, so the fallback stays stable but follows the categories once they arrive.
+  // One random draw per dialog keeps the fallback stable while it is applied to the loaded categories.
   const [draw] = useState(Math.random);
   const fallbackColor = randomCategoryColor(existing.map(other => other.color), () => draw);
   const [chosenColor, setChosenColor] = useState<string | null>(category?.color ?? null);
   const similarColor = suggestCategoryColor(name, icon || null, others);
   // A new category follows what similar categories use until a color is chosen, otherwise a rarely used palette color.
   const color = chosenColor ?? similarColor ?? fallbackColor;
-  const following = chosenColor === null && similarColor !== null;
-  const suggested = following || similarColor?.toLowerCase() !== color.toLowerCase() ? similarColor : null;
+  const followingColor = chosenColor === null && similarColor !== null;
+  const suggestedColor = followingColor || similarColor?.toLowerCase() !== color.toLowerCase() ? similarColor : null;
   const [openPanel, setOpenPanel] = useState<OpenPanel>(null);
 
   function panelToggle(panel: Exclude<OpenPanel, null>) {
@@ -127,13 +134,15 @@ function CategoryForm({
         <CategoryIconField
           color={color}
           icon={icon}
-          onChange={setIcon}
+          suggested={suggestedIcon}
+          onChange={setChosenIcon}
           open={openPanel === "icon"}
           onOpenChange={panelToggle("icon")}
         />
         <CategoryColorField
           color={color}
-          suggested={suggested}
+          loading={loadingColor}
+          suggested={suggestedColor}
           onChange={setChosenColor}
           open={openPanel === "color"}
           onOpenChange={panelToggle("color")}

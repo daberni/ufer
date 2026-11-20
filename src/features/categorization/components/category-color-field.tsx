@@ -1,5 +1,7 @@
 "use client";
 
+import sparkle from "../../../components/ui/sparkle.module.css";
+
 import { clsx } from "clsx";
 import { Palette } from "lucide-react";
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
@@ -10,6 +12,8 @@ import { usePickerPanel } from "./use-picker-panel";
 
 type Props = {
   color: string;
+  /** While true the color is not known yet: the field shows a placeholder and submits no color. */
+  loading?: boolean;
   /** The palette color similar categories use, highlighted in the palette. */
   suggested?: string | null;
   onChange: (color: string) => void;
@@ -30,6 +34,7 @@ function swatchColor(color: string) {
 /** A hex text field with a toggle for a popover of suggested colors. */
 export function CategoryColorField({
   color,
+  loading = false,
   suggested = null,
   onChange,
   open,
@@ -117,21 +122,23 @@ export function CategoryColorField({
 
   return (
     <div ref={fieldRef} className={styles["field"]} onKeyDown={handleFieldKeyDown}>
-      <input type="hidden" name="color" value={color} />
+      {!loading && <input type="hidden" name="color" value={color} />}
       <label className={styles["field-label"]} htmlFor={`${id}-hex`}>Color</label>
       <div ref={anchorRef} className={clsx(styles["control"], invalid && styles["invalid"])}>
         <span
           className={styles["color-dot"]}
           aria-hidden="true"
           style={{
-            background: swatchColor(color)
+            background: loading ? "transparent" : swatchColor(color)
           }}
         />
         <input
           ref={inputRef}
           id={`${id}-hex`}
           className={styles["hex-input"]}
-          value={draft}
+          value={loading ? "" : draft}
+          placeholder={loading ? "Loading…" : undefined}
+          disabled={loading}
           spellCheck={false}
           autoComplete="off"
           autoCapitalize="characters"
@@ -157,10 +164,11 @@ export function CategoryColorField({
         <button
           ref={triggerRef}
           type="button"
-          className={clsx(styles["toggle"], suggested && styles["sparkling"])}
+          className={clsx(styles["toggle"], suggested && sparkle["sparkle-outline"])}
           aria-label="Suggested colors"
           aria-expanded={open}
           aria-controls={`${id}-panel`}
+          disabled={loading}
           onClick={() => onOpenChange(!open)}
         >
           <Palette size={16} aria-hidden="true" />
@@ -197,12 +205,12 @@ export function CategoryColorField({
                   aria-label={label}
                   title={`${label} ${suggestion.value}`}
                   tabIndex={focusable ? 0 : -1}
-                  className={clsx(styles["swatch"], isSuggestion && styles["suggested"])}
+                  className={styles["swatch"]}
                   onClick={() => onChange(suggestion.value)}
                   onKeyDown={event => handleSwatchKeyDown(event, index)}
                 >
                   <span
-                    className={styles["swatch-color"]}
+                    className={clsx(styles["swatch-color"], isSuggestion && sparkle["sparkle"])}
                     style={{
                       background: swatchColor(suggestion.value)
                     }}

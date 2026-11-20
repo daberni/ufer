@@ -10,6 +10,7 @@ import { initializeDatabase } from "../src/server/database/migrations";
 import * as schema from "../src/server/database/schema";
 import { newCategoryColor, randomCategoryColor, suggestCategoryColor, type ColoredCategory } from "../src/features/categorization/category-color-suggestions";
 import { suggestedCategoryColors } from "../src/features/categorization/category-colors";
+import { suggestCategoryIcon } from "../src/features/categorization/category-icons";
 import { createCategory } from "../src/features/categorization/server/categorization-service";
 import { createImportCategory } from "../src/features/imports/server/mapped-import-repository";
 import { browser, respond, wait, withQueryClient } from "./fixtures/browser";
@@ -300,4 +301,86 @@ test("a new category's fallback color follows the categories that load after the
   await respond(environment.requests("categories")[0], Response.json(used));
 
   assert.equal((screen.container.ownerDocument.querySelector("input[name='color']") as HTMLInputElement).value, teal);
+});
+
+test("the category name suggests an icon by its label or keywords, the part after the prefix first", () => {
+  assert.equal(suggestCategoryIcon("Car / Fuel"), "fuel");
+  assert.equal(suggestCategoryIcon("Car / Parking"), "parking");
+  // Label words win over keywords, plurals and started words still match.
+  assert.equal(suggestCategoryIcon("Pets"), "pets");
+  assert.equal(suggestCategoryIcon("Groc"), "groceries");
+  assert.equal(suggestCategoryIcon("Restaurant"), "dining");
+  assert.equal(suggestCategoryIcon("Netflix"), "subscriptions");
+  assert.equal(suggestCategoryIcon("Xyzzy"), null);
+  // Words shorter than three letters never match.
+  assert.equal(suggestCategoryIcon("TV"), null);
+});
+
+test("a new category waits for the categories before showing a color and follows the icon its name suggests until one is chosen", async context => {
+  const environment = browser(context);
+  const prototype = window.HTMLDialogElement.prototype;
+
+  prototype.showModal = function (this: HTMLDialogElement) {
+    this.setAttribute("open", "");
+  };
+
+  prototype.close = function (this: HTMLDialogElement) {
+    this.removeAttribute("open");
+  };
+
+  const { CategoryDialog } = await import("../src/features/categorization/components/category-form");
+  const screen = render(withQueryClient(environment.queryClient, createElement(CategoryDialog, {
+    close: () => undefined
+  })));
+  const document = screen.container.ownerDocument;
+  const colorInput = () => document.querySelector("input[name='color']") as HTMLInputElement | null;
+  const iconInput = () => (document.querySelector("input[name='icon']") as HTMLInputElement).value;
+
+  await wait(0);
+  // Until the categories arrive, no color is shown or submitted.
+  assert.equal(colorInput(), null);
+  assert.equal((screen.getByRole("textbox", {
+    name: "Color"
+  }) as HTMLInputElement).placeholder, "Loading…");
+
+  await respond(environment.requests("categories")[0], Response.json([]));
+  assert.ok(palette.includes(colorInput()!.value));
+
+  const name = screen.getByRole("textbox", {
+    name: "Name"
+  });
+
+  act(() => {
+    fireEvent.change(name, {
+      target: {
+        value: "Groceries"
+      }
+    });
+  });
+  assert.equal(iconInput(), "groceries");
+
+  act(() => {
+    fireEvent.click(screen.getByRole("button", {
+      name: "Icon: Groceries"
+    }));
+  });
+  assert.ok(screen.getByRole("option", {
+    name: "Groceries (suggested)",
+    hidden: true
+  }));
+  act(() => {
+    fireEvent.click(screen.getByRole("option", {
+      name: "Bakery",
+      hidden: true
+    }));
+  });
+  act(() => {
+    fireEvent.change(name, {
+      target: {
+        value: "Pets"
+      }
+    });
+  });
+  // The chosen icon stays; the name's suggestion is only highlighted.
+  assert.equal(iconInput(), "bakery");
 });

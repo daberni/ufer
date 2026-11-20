@@ -639,3 +639,83 @@ export function matchesCategoryIconSearch(key: CategoryIconKey, search: string) 
 
   return searchWords(search).every(query => iconWords.some(word => word.startsWith(query)));
 }
+
+// A trailing plural "s" does not keep "Pets" from matching "pet".
+function stem(word: string) {
+  return word.length > 3 && word.endsWith("s") ? word.slice(0, -1) : word;
+}
+
+type IconMatch = {
+  key: CategoryIconKey;
+  rank: number;
+};
+
+function wordMatch(nameWord: string, iconWord: string) {
+  const name = stem(nameWord);
+  const icon = stem(iconWord);
+
+  if (name === icon) {
+    return 0;
+  }
+
+  // A started word such as "groc" or a longer form such as "fuels" still matches; short words must match exactly.
+  if (name.length >= 4 && icon.length >= 4 && (icon.startsWith(name) || name.startsWith(icon))) {
+    return 1;
+  }
+
+  return null;
+}
+
+function bestIconFor(words: string[]): IconMatch | null {
+  let best: IconMatch | null = null;
+
+  categoryIconKeys.forEach((key, order) => {
+    const icon = categoryIcons[key];
+    const fields = [searchWords(icon.label), searchWords(icon.keywords)];
+
+    fields.forEach((iconWords, field) => {
+      for (const nameWord of words) {
+        for (const iconWord of iconWords) {
+          const match = wordMatch(nameWord, iconWord);
+
+          if (match === null) {
+            continue;
+          }
+
+          // Label before keyword, exact before partial, then catalog order.
+          const rank = (field * 2 + match) * 1000 + order;
+
+          if (!best || rank < best.rank) {
+            best = {
+              key,
+              rank
+            };
+          }
+        }
+      }
+    });
+  });
+
+  return best;
+}
+
+/**
+ * The icon whose label or keywords match a word of the category name, or null. The part after the last " / " decides first, so "Car / Fuel" suggests
+ * fuel rather than a car icon. Words shorter than three letters are ignored.
+ */
+export function suggestCategoryIcon(name: string): CategoryIconKey | null {
+  const parts = name.split(" / ");
+  const own = parts[parts.length - 1];
+  const segments = parts.length > 1 ? [own, name] : [name];
+
+  for (const segment of segments) {
+    const words = searchWords(segment).filter(word => word.length >= 3);
+    const match = bestIconFor(words);
+
+    if (match) {
+      return match.key;
+    }
+  }
+
+  return null;
+}

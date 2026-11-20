@@ -1,0 +1,73 @@
+/*
+ * The standard highlight for a suggestion: a steady gold glow with two small twinkling stars. `.sparkle` glows around the element's own box (a swatch,
+ * an option); `.sparkle-outline` glows along an icon's strokes, for a trigger that should not look like a framed button. Reduced motion keeps the glow
+ * and stills the stars.
+ */
+.sparkle,
+.sparkle-outline {
+  position: relative;
+}
+.sparkle {
+  box-shadow: 0 0 8px 2px color-mix(in srgb, var(--sparkle) 65%, transparent);
+}
+.sparkle-outline svg,
+.sparkle-outline > span {
+  filter: drop-shadow(0 0 3px var(--sparkle))
+    drop-shadow(0 0 1px var(--sparkle));
+}
+.sparkle::before,
+.sparkle::after,
+.sparkle-outline::after {
+  content: "";
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background: var(--sparkle);
+  clip-path: polygon(
+    50% 0,
+    62% 38%,
+    100% 50%,
+    62% 62%,
+    50% 100%,
+    38% 62%,
+    0 50%,
+    38% 38%
+  );
+  animation: twinkle 1.8s ease-in-out infinite;
+  pointer-events: none;
+}
+.sparkle::before {
+  top: -4px;
+  right: -4px;
+}
+.sparkle::after {
+  bottom: -3px;
+  left: -3px;
+  width: 6px;
+  height: 6px;
+  animation-delay: 0.9s;
+}
+.sparkle-outline::after {
+  top: 2px;
+  right: 2px;
+  width: 6px;
+  height: 6px;
+}
+@keyframes twinkle {
+  0%,
+  100% {
+    opacity: 0.2;
+    transform: scale(0.5) rotate(0deg);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1) rotate(45deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sparkle::before,
+  .sparkle::after,
+  .sparkle-outline::after {
+    animation: none;
+  }
+}
