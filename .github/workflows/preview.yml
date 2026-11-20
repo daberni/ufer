@@ -2,21 +2,24 @@ name: Preview deployment
 
 on:
   pull_request:
-    types: [labeled, synchronize, reopened]
+    types: [labeled, synchronize, reopened, unlabeled, closed]
 
 permissions:
   contents: read
   pull-requests: write
 
+# Removing an unrelated label must not cancel a running preview deployment.
 concurrency:
-  group: preview-${{ github.event.pull_request.number }}
+  group: ${{ github.event.action == 'unlabeled' && github.event.label.name != 'preview' && format('preview-ignored-{0}', github.run_id) || format('preview-{0}', github.event.pull_request.number) }}
   cancel-in-progress: true
 
 jobs:
   deploy:
     # Only maintainers can set labels. Fork pull requests and Dependabot pushes never receive the token; relabel to deploy a Dependabot update.
     if: >-
-      contains(github.event.pull_request.labels.*.name, 'preview')
+      github.event.action != 'closed'
+      && github.event.action != 'unlabeled'
+      && contains(github.event.pull_request.labels.*.name, 'preview')
       && github.event.pull_request.head.repo.full_name == github.repository
       && github.actor != 'dependabot[bot]'
       && (github.event.action != 'labeled' || github.event.label.name == 'preview')
@@ -53,6 +56,14 @@ jobs:
           if [ "$status" -ne 0 ]; then
             echo "error=$(grep -m 1 -E '^(✗|Error)' "$output" || grep -v '^[[:space:]]*$' "$output" | tail -n 1 || echo "vercel deploy exited with $status")" >> "$GITHUB_OUTPUT"
           fi
+      # Older deployments of this pull request only consume storage; a failed cleanup only warns.
+      - name: Remove older previews
+        if: steps.deploy.outcome == 'success' && steps.deploy.outputs.error == ''
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          PULL_REQUEST: ${{ github.event.pull_request.number }}
+          URL: ${{ steps.deploy.outputs.url }}
+        run: .github/scripts/preview-cleanup.sh "$URL" || echo "::warning::Removing older preview deployments failed."
       # A cancelled run is superseded by a newer one, which reports its own state.
       - name: Report the result
         if: success() || failure()
@@ -77,3 +88,29 @@ jobs:
           ERROR: ${{ steps.deploy.outputs.error }}
         with:
           script: core.setFailed(process.env.ERROR)
+
+  remove:
+    # Same guards as deploy: forks and Dependabot never receive the token.
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository
+      && github.actor != 'dependabot[bot]'
+      && (github.event.action == 'closed' || (github.event.action == 'unlabeled' && github.event.label.name == 'preview'))
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+      PULL_REQUEST: ${{ github.event.pull_request.number }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Remove previews
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: .github/scripts/preview-cleanup.sh
+      # Updates an existing preview comment only.
+      - name: Report the removal
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: .github/scripts/preview-comment.sh removed

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Usage: preview-comment.sh <building|ready|error> [preview URL] [inspector URL]
+# Usage: preview-comment.sh <building|ready|error|removed> [preview URL] [inspector URL]
 set -euo pipefail
 
 status="$1"
@@ -14,6 +14,7 @@ case "$status" in
   building) label="Building" ;;
   ready) label="Ready" ;;
   error) label="Error" ;;
+  removed) label="Removed" ;;
   *) echo "Unknown status: $status" >&2; exit 1 ;;
 esac
 
@@ -32,7 +33,14 @@ fi
 
 source_details="PR head: [\`${HEAD_SHA:0:7}\`]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/commit/$HEAD_SHA)."
 
-body="$(cat <<EOF
+if [ "$status" = "removed" ]; then
+  body="$(cat <<EOF
+$marker
+Preview deployment removed because the pull request was closed or the \`preview\` label was removed. Add the label to deploy again.
+EOF
+)"
+else
+  body="$(cat <<EOF
 $marker
 Preview deployment (\`preview\` label). Remove the label to stop deploying new commits.
 
@@ -43,8 +51,13 @@ $source_details
 | $project | ![$label](https://vercel.com/static/status/$status.svg) [$label]($details_url) | $actions | <relative-time datetime="$updated">$updated_label</relative-time> |
 EOF
 )"
+fi
 
 existing="$(gh api "repos/$GITHUB_REPOSITORY/issues/$PULL_REQUEST/comments" --paginate --jq ".[] | select(.user.login == \"github-actions[bot]\" and (.body | startswith(\"$marker\"))) | .id" | head -n 1)"
+
+if [ "$status" = "removed" ] && [ -z "$existing" ]; then
+  exit 0
+fi
 
 if [ -n "$existing" ]; then
   gh api --method PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$existing" -f body="$body" > /dev/null
