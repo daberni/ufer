@@ -3,6 +3,7 @@
 import ui from "../../../components/ui/primitives.module.css";
 
 import { useId, useRef, useState } from "react";
+import type { ReactNode, RefObject } from "react";
 import { clsx } from "clsx";
 import { Temporal } from "temporal-polyfill";
 import { Check, Eye, EyeOff, Trash2 } from "lucide-react";
@@ -484,40 +485,54 @@ function ImportedTextFields({ transaction }: {
 }) {
   return (
     <>
-      <OverridableText
-        label="Payee"
-        name="counterparty"
-        maxLength={500}
-        initial={transaction.counterparty}
-        source={transaction.source_counterparty}
-        suggestPayees
-      />
-      <OverridableText
-        label="Description"
-        name="description"
-        maxLength={2000}
-        initial={transaction.description}
-        source={transaction.source_description}
-      />
+      <OverridableText initial={transaction.counterparty} source={transaction.source_counterparty}>
+        {field => (
+          <PayeeInput
+            label="Payee"
+            name="counterparty"
+            maxLength={500}
+            defaultValue={field.defaultValue}
+            inputRef={field.inputRef}
+            aria-describedby={field.describedBy}
+            onValueChange={field.onValueChange}
+          />
+        )}
+      </OverridableText>
+      <OverridableText initial={transaction.description} source={transaction.source_description}>
+        {field => (
+          <label>
+            Description
+            <input
+              ref={field.inputRef}
+              name="description"
+              maxLength={2000}
+              defaultValue={field.defaultValue}
+              aria-describedby={field.describedBy}
+              onChange={event => field.onValueChange(event.target.value)}
+            />
+          </label>
+        )}
+      </OverridableText>
     </>
   );
 }
 
+/** What an overridable field's input needs to report its text and show the source's text beside it. */
+type OverridableField = {
+  defaultValue: string;
+  inputRef: RefObject<HTMLInputElement | null>;
+  describedBy: string | undefined;
+  onValueChange: (value: string) => void;
+};
+
 function OverridableText({
-  label,
-  name,
-  maxLength,
   initial,
   source,
-  suggestPayees = false
+  children
 }: {
-  label: string;
-  name: string;
-  maxLength: number;
   initial: string;
   source: string;
-  /** Suggests existing payees while typing. */
-  suggestPayees?: boolean;
+  children: (field: OverridableField) => ReactNode;
 }) {
   const hintId = useId();
   const input = useRef<HTMLInputElement>(null);
@@ -525,29 +540,12 @@ function OverridableText({
 
   return (
     <div className={styles["overridable"]}>
-      {suggestPayees ? (
-        <PayeeInput
-          label={label}
-          name={name}
-          maxLength={maxLength}
-          defaultValue={initial}
-          inputRef={input}
-          aria-describedby={overridden ? hintId : undefined}
-          onValueChange={value => setOverridden(value.trim() !== source.trim())}
-        />
-      ) : (
-        <label>
-          {label}
-          <input
-            ref={input}
-            name={name}
-            maxLength={maxLength}
-            defaultValue={initial}
-            aria-describedby={overridden ? hintId : undefined}
-            onChange={event => setOverridden(event.target.value.trim() !== source.trim())}
-          />
-        </label>
-      )}
+      {children({
+        defaultValue: initial,
+        inputRef: input,
+        describedBy: overridden ? hintId : undefined,
+        onValueChange: value => setOverridden(value.trim() !== source.trim())
+      })}
       {overridden && (
         <p id={hintId} className={styles["source-text"]}>
           <span>Original: {source || "empty"}</span>

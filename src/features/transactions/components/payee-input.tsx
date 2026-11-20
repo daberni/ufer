@@ -8,9 +8,6 @@ import { useDismiss } from "@/components/ui/use-dismiss";
 import { usePayeeSuggestions } from "@/features/transactions/queries";
 import { commitDelay } from "@/features/transactions/use-search-draft";
 
-// Three suggestions below the field beat flipping the list over the dialog's heading; the rest scroll.
-const suggestionsBelowFrom = 140;
-
 type Props = {
   label: string;
   name: string;
@@ -73,8 +70,7 @@ export function PayeeInput({
     open: expanded,
     anchorRef: input,
     popupRef,
-    matchAnchorWidth: true,
-    belowFrom: suggestionsBelowFrom
+    matchAnchorWidth: true
   });
 
   // Touch browsers keep the field focused when a tap lands on something that cannot take focus, so blurring alone does not close the list.
