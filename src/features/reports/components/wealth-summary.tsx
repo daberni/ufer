@@ -41,8 +41,9 @@ export function WealthSummary({
   const summary = netWorth.data;
   const netWorthValue = valueMask(netWorth.status);
   const currency = summary.currency;
-  const points = historyArea.status === "ready" && historyArea.data.currency === currency ? historyArea.data.points : [];
-  const historyPending = historyArea.status === "pending" || netWorth.status !== "ready";
+  const historyReady = historyArea.status === "ready" && historyArea.data.currency === currency;
+  const points = historyReady ? historyArea.data.points : [];
+  const historyPending = !historyReady || netWorth.status !== "ready";
   const change = netWorth.status === "ready" && hasAccounts ? historyChange(points) : null;
 
   return (
@@ -100,8 +101,8 @@ export function WealthSummary({
           Loans <span className={netWorthValue}>{money(summary.liabilities, currency)}</span>
         </div>
       )}
-      {/* The curve's place is held until the history arrives, so the card and the accounts panel beside it keep their height. */}
-      {hasAccounts && (historyArea.status === "pending" ? <div className={styles["history-curve"]} aria-hidden="true" /> : <HistoryCurve points={points} />)}
+      {/* The curve's place is held until the history for the shown currency arrives, so the card and the accounts panel beside it keep their height. */}
+      {hasAccounts && (historyReady ? <HistoryCurve points={points} /> : <div className={styles["history-curve"]} aria-hidden="true" />)}
       {netWorthArea.status === "pending" && netWorthArea.failure && <FailureCover failure={netWorthArea.failure} subject="Your net worth" />}
     </section>
   );
