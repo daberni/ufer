@@ -404,3 +404,40 @@ test("a new category waits for the categories before showing a color and follows
   // The chosen icon stays; the name's suggestion is only highlighted.
   assert.equal(iconInput(), "bakery");
 });
+
+test("a new category submits no color when the categories cannot be loaded, so the server chooses", async context => {
+  const environment = browser(context);
+  const prototype = window.HTMLDialogElement.prototype;
+
+  prototype.showModal = function (this: HTMLDialogElement) {
+    this.setAttribute("open", "");
+  };
+
+  prototype.close = function (this: HTMLDialogElement) {
+    this.removeAttribute("open");
+  };
+
+  environment.queryClient.setDefaultOptions({
+    queries: {
+      retry: false
+    }
+  });
+
+  const { CategoryDialog } = await import("../src/features/categorization/components/category-form");
+  const screen = render(withQueryClient(environment.queryClient, createElement(CategoryDialog, {
+    close: () => undefined
+  })));
+
+  await wait(0);
+  await respond(environment.requests("categories")[0], Response.json({
+    title: "Failure"
+  }, {
+    status: 500
+  }));
+  await wait(0);
+
+  assert.equal(screen.container.ownerDocument.querySelector("input[name='color']"), null);
+  assert.equal((screen.getByRole("textbox", {
+    name: "Color"
+  }) as HTMLInputElement).placeholder, "Automatic");
+});

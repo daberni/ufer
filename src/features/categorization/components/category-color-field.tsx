@@ -12,8 +12,8 @@ import { usePickerPanel } from "./use-picker-panel";
 
 type Props = {
   color: string;
-  /** While true the color is not known yet: the field shows a placeholder and submits no color. */
-  loading?: boolean;
+  /** Shown instead of the color while it is not known yet, such as "Loading…"; the field then submits no color, so the server chooses one. */
+  unknownLabel?: string | null;
   /** The palette color similar categories use, highlighted in the palette. */
   suggested?: string | null;
   onChange: (color: string) => void;
@@ -34,13 +34,14 @@ function swatchColor(color: string) {
 /** A hex text field with a toggle for a popover of suggested colors. */
 export function CategoryColorField({
   color,
-  loading = false,
+  unknownLabel = null,
   suggested = null,
   onChange,
   open,
   onOpenChange
 }: Props) {
   const id = useId();
+  const loading = unknownLabel !== null;
   const swatchesRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const hex = formatHexColor(color);
@@ -137,7 +138,7 @@ export function CategoryColorField({
           id={`${id}-hex`}
           className={styles["hex-input"]}
           value={loading ? "" : draft}
-          placeholder={loading ? "Loading…" : undefined}
+          placeholder={unknownLabel ?? undefined}
           disabled={loading}
           spellCheck={false}
           autoComplete="off"

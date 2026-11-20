@@ -81,8 +81,13 @@ function CategoryForm({
   const icon = chosenIcon ?? similarIcon ?? "";
   const suggestedIcon = chosenIcon === null || similarIcon !== icon ? similarIcon : null;
   const categories = useCategories();
-  // A new category's color derives from the other categories, so its field waits until they have loaded; a save meanwhile lets the server choose.
-  const loadingColor = !category && categories.isPending;
+  // A new category's color derives from the other categories; without them, while loading or after a failed load, the server chooses on save.
+  let unknownColorLabel: string | null = null;
+
+  if (!category && !categories.data) {
+    unknownColorLabel = categories.isError ? "Automatic" : "Loading…";
+  }
+
   const existing = categories.data ?? [];
   const others = existing.filter(other => other.id !== category?.id);
   // One random draw per dialog keeps the fallback stable while it is applied to the loaded categories.
@@ -141,7 +146,7 @@ function CategoryForm({
         />
         <CategoryColorField
           color={color}
-          loading={loadingColor}
+          unknownLabel={unknownColorLabel}
           suggested={suggestedColor}
           onChange={setChosenColor}
           open={openPanel === "color"}
