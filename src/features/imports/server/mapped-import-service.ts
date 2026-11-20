@@ -213,8 +213,8 @@ async function resolveTargets(importId: string, inputs: z.infer<typeof target>[]
       }
 
       // An earlier confirmed batch of this import created the account; its stored configuration is authoritative.
-      if (persisted && (persisted.currency !== input.new_account.currency || persisted.name !== input.new_account.name || !await sameOpening(importId, input.source, persisted.id, opening))) {
-        throw new ValidationError(`The account “${persisted.name}” (${persisted.currency}) was already created by this import; keep its name, currency and balance.`);
+      if (persisted && (persisted.currency !== input.new_account.currency || persisted.name !== input.new_account.name || persisted.kind !== input.new_account.kind || !await sameOpening(importId, input.source, persisted.id, opening))) {
+        throw new ValidationError(`The account “${persisted.name}” (${persisted.currency}) was already created by this import; keep its name, type, currency and balance.`);
       }
 
       // Checking creates nothing: until the account exists it has no bookings to compare against.

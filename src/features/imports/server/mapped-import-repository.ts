@@ -72,6 +72,7 @@ export async function findImportTarget(id: string) {
   return db.select({
     id: accounts.id,
     name: accounts.name,
+    kind: accounts.kind,
     currency: accounts.currency,
     provider: accounts.provider,
     archived_at: accounts.archived_at

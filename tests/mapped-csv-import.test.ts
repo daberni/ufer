@@ -747,11 +747,11 @@ test("amounts accept currency symbols and codes but reject other letters", () =>
 
 test("a retry uses the account an earlier batch created and rejects a conflicting configuration", async context => {
   const db = await isolatedDatabase(context);
-  const target = (currency: string) => [{
+  const target = (currency: string, kind = "checking") => [{
     source: "",
     new_account: {
       name: "Closed account",
-      kind: "checking",
+      kind,
       currency
     }
   }];
@@ -777,6 +777,12 @@ test("a retry uses the account an earlier batch created and rejects a conflictin
       currency: null
     })],
     targets: target("USD"),
+    confirm: true
+  }, now), ValidationError);
+  await assert.rejects(importMappedRows({
+    import_id: importId,
+    rows: [mappedRow(3, "2024-01-02", "-5.00", "Shop")],
+    targets: target("EUR", "savings"),
     confirm: true
   }, now), ValidationError);
   assert.equal((await db.select().from(schema.accounts)).length, 1);
