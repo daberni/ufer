@@ -12,6 +12,8 @@ import { archiveSettledAccount, closeAndArchiveManualAccount, findManualAccount,
 import { findAccountWithBalance } from "./account-queries";
 import { archivedAccountMessage } from "./writable-account";
 import type { AccountKind } from "../account-kinds";
+import { currentFormatLocale } from "@/server/http/request-locale";
+import { formatCount } from "@/lib/locale";
 
 export async function createManualAccount(payload: unknown, now = Temporal.Now.instant()) {
   const input = accountInput.parse(payload);
@@ -58,7 +60,10 @@ export async function updateAccount(accountId: string, payload: unknown) {
   const result = accountEditInput.safeParse(payload);
 
   if (!result.success) {
-    throw new ValidationError(result.error.issues.some(issue => issue.path[0] === "kind") ? "Choose a valid account type." : "Enter an account name between 1 and 100 characters.");
+    const locale = await currentFormatLocale();
+    const message = result.error.issues.some(issue => issue.path[0] === "kind") ? "Choose a valid account type." : `Enter an account name between ${formatCount(1, locale)} and ${formatCount(100, locale)} characters.`;
+
+    throw new ValidationError(message);
   }
 
   const input = result.data;

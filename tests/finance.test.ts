@@ -690,3 +690,12 @@ test("sync offers reconnecting only for failures that a new bank authorization r
 test("balance CSV row numbers in errors use the request locale's numerals", () => {
   assert.throws(() => parseBalancesCsv("date,balance,currency\n2026-11-11,1,EUR\n2026-11-12,1,EUR\n2026-11-12,2,EUR", "EUR", "ar-EG"), /CSV row ٤: multiple balances/);
 });
+
+test("balance CSV limits in errors use the request locale's numerals", () => {
+  const rows = Array.from({
+    length: 10_001
+  }, (_, index) => `2026-01-01,${index},EUR`);
+
+  assert.throws(() => parseBalancesCsv(`date,balance,currency\n${rows.join("\n")}`, "EUR", "de-DE"), /between 1 and 10\.000 balances/);
+  assert.throws(() => parseBalancesCsv("x".repeat(1_000_001), "EUR", "ar-EG"), /cannot exceed ١ MB/);
+});
