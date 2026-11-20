@@ -154,7 +154,7 @@ function groupFamily(members: ColoredCategory[], prefix: string): PaletteName[] 
 
 /**
  * Suggests a palette color for every category. Categories sharing a prefix get one color, chosen from the family of their icons and distinct from other prefix
- * groups while the family has colors left; other categories get their icon's family color. Fines keep their warning color inside a group. The result follows the
+ * groups while the family has colors left; other categories get their icon's family color, and those without an icon keep their color. Fines keep their warning color inside a group. The result follows the
  * given order and does not depend on it.
  */
 export function suggestCategoryColors(categories: ColoredCategory[]): CategoryColorSuggestion[] {
@@ -182,7 +182,8 @@ export function suggestCategoryColors(categories: ColoredCategory[]): CategoryCo
     const ownFamily = iconFamily(category.icon);
     const keepsOwnColor = ownFamily?.length === 1;
     const groupColor = groupColors.get(categoryPrefix(category.name));
-    let suggested = defaultCategoryColor.toUpperCase();
+    // Without a prefix group or an icon there is nothing to suggest from, so the category keeps its color.
+    let suggested = category.color.toUpperCase();
 
     if (groupColor && !keepsOwnColor) {
       suggested = groupColor;

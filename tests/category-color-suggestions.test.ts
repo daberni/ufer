@@ -314,3 +314,10 @@ test("a new category preselects its prefix color until the person chooses anothe
   });
   assert.equal(color(), teal);
 });
+
+test("a category without a prefix group or an icon keeps its color", () => {
+  const [suggestion] = suggestCategoryColors([category("misc", "Miscellaneous", null, "#d08a4f")]);
+
+  assert.equal(suggestion.suggested, "#D08A4F");
+  assert.equal(suggestion.changed, false);
+});
