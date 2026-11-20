@@ -62,7 +62,11 @@ export function useRemoveConnection() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (connectionId: string) => api<ConnectionRemoval>(`banking/connections/${encodeURIComponent(connectionId)}`, undefined, "DELETE"),
-    onSettled: () => invalidate(queryClient, [queryKeys.banking.connections(), queryKeys.accounts()])
+    mutationFn: (removal: {
+      connectionId: string;
+      archiveAccounts: boolean;
+    }) => api<ConnectionRemoval>(`banking/connections/${encodeURIComponent(removal.connectionId)}?accounts=${removal.archiveAccounts ? "archive" : "keep"}`, undefined, "DELETE"),
+    // Archiving kept accounts changes the archived flag of their listed transactions.
+    onSettled: () => invalidate(queryClient, [queryKeys.banking.connections(), queryKeys.accounts(), queryKeys.transactions.all()])
   });
 }

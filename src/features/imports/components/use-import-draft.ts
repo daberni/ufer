@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useAccounts } from "@/features/accounts/queries";
+import { activeAccounts, useAccounts } from "@/features/accounts/queries";
 import { useAreaResult } from "@/components/ui/use-area-result";
 import { useCategories } from "@/features/categorization/queries";
 import { useMappedImport, type MappedImportSummary } from "@/features/imports/mutations";
@@ -37,7 +37,8 @@ export function useImportDraft() {
   const accounts = useAreaResult(useAccounts());
   const categories = useCategories();
   const mutation = useMappedImport();
-  const accountOptions = useMemo(() => accounts.data ?? [], [accounts.data]);
+  // Archived accounts are not import targets.
+  const accountOptions = useMemo(() => activeAccounts(accounts.data ?? []), [accounts.data]);
   const table = useMemo(() => file && settings ? readCsvTable(file.bytes, settings) : null, [file, settings]);
   // A delimiter or encoding that breaks the file keeps it loaded so another format can be chosen; nothing else works until then.
   const formatError = file && settings && !table ? "The file could not be read with these settings." : null;

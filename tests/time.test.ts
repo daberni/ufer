@@ -41,7 +41,8 @@ function bankAccount(id: string, validUntil: string | null): Account {
     requisition_id: "connection",
     sync_error: null,
     last_synced_at: null,
-    valid_until: validUntil
+    valid_until: validUntil,
+    archived_at: null
   };
 }
 

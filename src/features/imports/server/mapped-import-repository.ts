@@ -4,6 +4,7 @@ import { and, between, eq, inArray, like, ne, notInArray, sql } from "drizzle-or
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 import { accounts, categories, transactions } from "@/server/database/schema";
 import { environment } from "@/features/banking/server/environment";
+import { assertWritableAccount } from "@/features/accounts/server/writable-account";
 import { manualEntryPrefix } from "@/features/transactions/server/transfer-repository";
 import { insertCategory } from "@/features/categorization/server/category-repository";
 import { defaultCategoryColor } from "@/features/categorization/category-colors";
@@ -70,7 +71,8 @@ export async function findImportTarget(id: string) {
     id: accounts.id,
     name: accounts.name,
     currency: accounts.currency,
-    provider: accounts.provider
+    provider: accounts.provider,
+    archived_at: accounts.archived_at
   }).from(accounts).where(and(eq(accounts.id, id), eq(accounts.environment, environment()))).get();
 }
 
@@ -181,6 +183,7 @@ export async function saveMappedEntries(accountId: string, entries: MappedEntry[
       }).onConflictDoNothing();
     }
 
+    await assertWritableAccount(tx, accountId);
     const found = await classify(tx, accountId, entries, consumed);
     const fresh = entries.filter((_entry, index) => !found.duplicates.has(index));
     let inserted = 0;
