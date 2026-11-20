@@ -14,7 +14,7 @@ import { readAccountCashFlow, readCashFlow } from "../src/features/reports/serve
 import { readTransactionPage } from "../src/features/transactions/server/transaction-list-query";
 import { pairTransfersInEnvironment } from "../src/features/transactions/server/transfer-repository";
 import { listAccounts } from "../src/features/accounts/server/account-queries";
-import { applyRulesToUncorrectedTransactions, categoryUsage, createRule, previewRule } from "../src/features/categorization/server/categorization-service";
+import { applyRulesToUncorrectedTransactions, categoryUsage, createRule, deleteCategory, previewRule } from "../src/features/categorization/server/categorization-service";
 import { insertRule } from "../src/features/categorization/server/rule-repository";
 import { dashboardFilters } from "../src/server/http/dashboard-filters";
 import { HttpError, ValidationError } from "../src/lib/errors";
@@ -523,4 +523,29 @@ test("a booking on an archived account can neither be split nor unsplit", async 
   await assert.rejects(splitTransaction("market", marketSplit()), error => error instanceof HttpError && error.status === 409);
   await assert.rejects(unsplitTransaction("market"), error => error instanceof HttpError && error.status === 409);
   assert.equal((await db.select().from(schema.transactionSplits).where(eq(schema.transactionSplits.transaction_id, "market"))).length, 2);
+});
+
+test("deleting a category reports each booking whose parts it held once, as its usage does", async context => {
+  const db = await seed(context);
+
+  await splitTransaction("market", {
+    parts: [{
+      amount: "-60.00",
+      category_id: "leisure",
+      note: ""
+    }, {
+      amount: "-40.00",
+      category_id: "leisure",
+      note: ""
+    }]
+  });
+
+  const usage = await categoryUsage("leisure");
+  const deleted = await deleteCategory("leisure", {
+    replacement_id: null
+  });
+
+  assert.equal(usage.transactions, 1);
+  assert.equal(deleted.transactions, usage.transactions);
+  assert.deepEqual((await db.select().from(schema.transactionSplits).where(eq(schema.transactionSplits.transaction_id, "market"))).map(part => part.category_id), [null, null]);
 });

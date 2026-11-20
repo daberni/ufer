@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/client/api";
 import { invalidate } from "@/client/invalidate";
 import { queryKeys } from "@/client/query-keys";
+import type { AccountKind } from "@/features/accounts/account-kinds";
 import { assignOccurrences, batchRows, duplicateIdErrors, pruneConsumed, type ConsumedBooking, type MappedRow, type RowError } from "./csv-mapping";
 
 type BalanceImport = {
@@ -45,6 +46,7 @@ export type ImportTarget = {
   currency: string;
   newAccount: {
     name: string;
+    kind: AccountKind;
     opening: OpeningBalanceInput | null;
   } | null;
 };
@@ -107,6 +109,7 @@ export function useMappedImport() {
         source: target.source,
         new_account: {
           name: target.newAccount.name.trim(),
+          kind: target.newAccount.kind,
           currency: target.currency,
           ...target.newAccount.opening ? {
             opening: target.newAccount.opening

@@ -149,7 +149,14 @@ export async function deleteCategory(id: string, deletion: CategoryDeletion): Pr
       }).where(inArray(transactions.category_rule_id, deletedRules));
     }
 
-    const moved = await tx.update(transactions).set({
+    // A split booking keeps no category of its own, so its parts count it once alongside the bookings in the category.
+    const affected = await tx.select({
+      count: count()
+    }).from(transactions).where(or(eq(transactions.category_id, id), inArray(transactions.id, tx.selectDistinct({
+      id: transactionSplits.transaction_id
+    }).from(transactionSplits).where(eq(transactionSplits.category_id, id))))).get();
+
+    await tx.update(transactions).set({
       category_id: deletion.replacementId
     }).where(eq(transactions.category_id, id));
 
@@ -165,7 +172,7 @@ export async function deleteCategory(id: string, deletion: CategoryDeletion): Pr
 
     return {
       status: "deleted",
-      transactions: moved.rowsAffected,
+      transactions: affected?.count ?? 0,
       rules: rules.rowsAffected
     };
   });

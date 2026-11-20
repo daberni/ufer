@@ -1,6 +1,6 @@
 import { respond } from "@/server/http/respond";
 import { readJson } from "@/server/http/request-body";
-import { renameAccount } from "@/features/accounts/server/account-service";
+import { updateAccount } from "@/features/accounts/server/account-service";
 
 export const runtime = "nodejs";
 
@@ -16,6 +16,6 @@ export async function PATCH(request: Request, context: Context) {
   return respond(request, async () => {
     const { id } = await context.params;
 
-    return renameAccount(id, await readJson(request));
+    return updateAccount(id, await readJson(request));
   });
 }

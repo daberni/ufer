@@ -4,6 +4,7 @@ import { and, between, eq, inArray, like, ne, notInArray, sql } from "drizzle-or
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 import { accounts, categories, transactions } from "@/server/database/schema";
 import { environment } from "@/features/banking/server/environment";
+import type { AccountKind } from "@/features/accounts/account-kinds";
 import { assertWritableAccount } from "@/features/accounts/server/writable-account";
 import { manualEntryPrefix } from "@/features/transactions/server/transfer-repository";
 import { insertCategory } from "@/features/categorization/server/category-repository";
@@ -30,6 +31,7 @@ export type MappedEntry = {
 
 export type NewImportAccount = {
   name: string;
+  kind: AccountKind;
   currency: string;
 };
 
@@ -70,6 +72,7 @@ export async function findImportTarget(id: string) {
   return db.select({
     id: accounts.id,
     name: accounts.name,
+    kind: accounts.kind,
     currency: accounts.currency,
     provider: accounts.provider,
     archived_at: accounts.archived_at
@@ -178,7 +181,7 @@ export async function saveMappedEntries(accountId: string, entries: MappedEntry[
         environment: environment(),
         name: newAccount.name,
         institution: "CSV import",
-        kind: "checking",
+        kind: newAccount.kind,
         currency: newAccount.currency
       }).onConflictDoNothing();
     }
