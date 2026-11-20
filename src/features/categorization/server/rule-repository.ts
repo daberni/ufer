@@ -1,13 +1,10 @@
 import { and, count, eq, inArray, isNull, asc } from "drizzle-orm";
-import { HttpError } from "@/lib/errors";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 import { environment } from "@/features/banking/server/environment";
 import type { Rule } from "@/lib/rules";
 import { highestPriority, maximumRules, nextPriority, orderedPriorities } from "@/features/categorization/rule-order";
 import type { Transaction } from "@/server/database/models";
 import { accounts, categorizationRules, transactions } from "@/server/database/schema";
-import { formatCount } from "@/lib/locale";
-import { currentFormatLocale } from "@/server/http/request-locale";
 import { notSplit } from "@/features/transactions/server/split-repository";
 
 /** Rules in matching order: priority first, then their persisted ID. */
@@ -28,6 +25,13 @@ type RuleCandidate = Pick<Transaction, "id" | "counterparty" | "description" | "
 
 export type SelectRuleAssignments = (rules: Rule[], entries: RuleCandidate[]) => string[];
 
+/** Refuses a rule beyond the limit; the service words the refusal for the request after the transaction has rolled back. */
+export class RuleLimitReached extends Error {
+  constructor(readonly maximum: number) {
+    super("The rule limit is reached.");
+  }
+}
+
 /**
  * Rejects adding rules beyond the limit, inside the caller's write transaction, so concurrent creations cannot exceed it.
  */
@@ -37,7 +41,7 @@ export async function requireRuleCapacity(tx: DatabaseTransaction, added: number
   }).from(categorizationRules).get();
 
   if ((stored?.total ?? 0) + added > maximumRules) {
-    throw new HttpError(409, `Ufer supports at most ${formatCount(maximumRules, await currentFormatLocale())} rules. Delete a rule before creating another.`);
+    throw new RuleLimitReached(maximumRules);
   }
 }
 

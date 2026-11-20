@@ -4,8 +4,6 @@ import { HttpError } from "@/lib/errors";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 import { importTemplates } from "@/server/database/schema";
 import { headerKey, type CsvTemplate } from "../csv-mapping";
-import { formatCount } from "@/lib/locale";
-import { currentFormatLocale } from "@/server/http/request-locale";
 
 /** Saved templates are few hand-made layouts; the bound keeps the list a page section. */
 export const maximumTemplates = 100;
@@ -24,12 +22,17 @@ export async function listTemplates(): Promise<CsvTemplate[]> {
   }));
 }
 
+/** Refuses a template beyond the limit; the service words the refusal for the request after the transaction has rolled back. */
+export class TemplateLimitReached extends Error {
+  constructor(readonly maximum: number) {
+    super("The template limit is reached.");
+  }
+}
+
 /** Stores a new template; another template for the same header or with the same name is a conflict. */
 export async function insertTemplate(id: string, name: string, definition: TemplateDefinition) {
   const db = await database();
   const now = new Date().toISOString();
-  // Read before the transaction opens, so it does not wait on request state.
-  const locale = await currentFormatLocale();
 
   await db.transaction(async tx => {
     const stored = await tx.select({
@@ -37,7 +40,7 @@ export async function insertTemplate(id: string, name: string, definition: Templ
     }).from(importTemplates).get();
 
     if ((stored?.total ?? 0) >= maximumTemplates) {
-      throw new HttpError(409, `Ufer keeps at most ${formatCount(maximumTemplates, locale)} templates. Delete one before saving another.`);
+      throw new TemplateLimitReached(maximumTemplates);
     }
 
     await requireUnique(tx, name, definition.header, null);
