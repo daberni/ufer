@@ -17,7 +17,7 @@ import { useAppStore } from "@/client/app-store";
 import { mapArea, useAreaResult, type Area } from "@/components/ui/use-area-result";
 import { Empty } from "@/components/ui/empty-state";
 import { useAccountCashFlow, useCashFlow, useNetWorthHistory } from "@/features/reports/queries";
-import { accountGroups, useAccounts, useBalanceHistory, useNetWorth } from "@/features/accounts/queries";
+import { accountGroups, activeAccounts, useAccounts, useBalanceHistory, useNetWorth } from "@/features/accounts/queries";
 import { navigation } from "@/features/dashboard/navigation";
 import { useCategories, useRules } from "@/features/categorization/queries";
 import { useBankingConfiguration } from "@/features/banking/banking-configuration";
@@ -44,6 +44,7 @@ export function OverviewPage() {
   const list = useTransactionListView(query, replacePage);
   const groups = mapArea(accounts, data => accountGroups(data, query.currency));
   const currencyAccounts = mapArea(groups, data => data.currencyAccounts);
+  const hasReportedAccounts = groups.status === "pending" || groups.data.reportedAccounts.length > 0;
 
   return (
     <>
@@ -51,6 +52,7 @@ export function OverviewPage() {
       <OverviewView
         cashFlow={cashFlow}
         currencyAccounts={currencyAccounts}
+        hasReportedAccounts={hasReportedAccounts}
         netWorth={netWorth}
         netWorthHistory={netWorthHistory}
       />
@@ -93,7 +95,7 @@ export function TransactionsPage() {
       <TransactionsPanel
         categories={categories}
         emptyState={query.syncRun ? runEmptyState : undefined}
-        filterAccounts={query.syncRun ? accounts : mapArea(groups, data => data.currencyAccounts)}
+        filterAccounts={query.syncRun ? mapArea(accounts, activeAccounts) : mapArea(groups, data => data.currencyAccounts)}
         list={list}
         page={list.page}
         view="transactions"

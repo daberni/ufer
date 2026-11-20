@@ -11,6 +11,8 @@ import type { NetWorthHistory } from "@/features/reports/net-worth-series";
 
 type Props = {
   currencyAccounts: Area<Account[]>;
+  /** Whether any account in the currency, archived ones included, contributes to the reports. */
+  hasReportedAccounts: boolean;
   netWorth: Area<NetWorth>;
   netWorthHistory: Area<NetWorthHistory>;
   cashFlow: Area<CashFlow>;
@@ -18,16 +20,15 @@ type Props = {
 
 export function OverviewView({
   currencyAccounts,
+  hasReportedAccounts,
   netWorth,
   netWorthHistory,
   cashFlow
 }: Props) {
-  const hasAccounts = currencyAccounts.status === "pending" || currencyAccounts.data.length > 0;
-
   return (
     <>
       <div className={styles["wealth-overview"]}>
-        <WealthSummary hasAccounts={hasAccounts} historyArea={netWorthHistory} netWorthArea={netWorth} />
+        <WealthSummary hasAccounts={hasReportedAccounts} historyArea={netWorthHistory} netWorthArea={netWorth} />
         <OverviewAccounts currencyAccounts={currencyAccounts} />
       </div>
       <CashFlowInsights cashFlow={cashFlow} />

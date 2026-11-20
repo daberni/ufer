@@ -2,13 +2,14 @@ import assert from "node:assert/strict";
 import { z } from "zod";
 import { test, type TestContext } from "node:test";
 import { Temporal } from "temporal-polyfill";
-import { createClient } from "@libsql/client";
+import { createClient, type InArgs, type InStatement } from "@libsql/client";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/libsql";
 import type { Database } from "../src/server/database/connection";
 import { initializeDatabase } from "../src/server/database/migrations";
 import * as schema from "../src/server/database/schema";
 import { listAccounts } from "../src/features/accounts/server/account-queries";
+import { archiveAccount, restoreAccount } from "../src/features/accounts/server/account-service";
 import { insertRule } from "../src/features/categorization/server/rule-repository";
 import { saveMappedEntries } from "../src/features/imports/server/mapped-import-repository";
 import { ValidationError } from "../src/lib/errors";
@@ -1745,4 +1746,74 @@ test("batches hold at most as many category values as a request accepts choices"
 
   assert.equal(batches.flat().length, 1200);
   assert.ok(batches.every(batch => new Set(batch.map(row => row.category)).size <= maxCategoryChoicesPerRequest));
+});
+
+test("an archived account is refused as an import target until it is restored", async context => {
+  const db = await isolatedDatabase(context);
+  const account = await manualAccount("Archived target");
+  const payload = {
+    import_id: importId,
+    rows: [mappedRow(2, "2024-01-01", "-10.00", "Shop")],
+    targets: [{
+      source: "",
+      account_id: account.id
+    }]
+  };
+
+  await archiveAccount(account.id, {});
+
+  for (const confirm of [false, true]) {
+    await assert.rejects(importMappedRows({
+      ...payload,
+      confirm
+    }, now), {
+      status: 409,
+      message: "This account is archived. Restore the account first."
+    });
+  }
+
+  assert.equal((await db.select().from(schema.transactions)).length, 0);
+
+  await restoreAccount(account.id);
+  assert.equal((await importMappedRows({
+    ...payload,
+    confirm: true
+  }, now)).newRows, 1);
+});
+
+test("an account archived after the target check receives no imported rows", async context => {
+  const db = await isolatedDatabase(context);
+  const account = await manualAccount("Archived meanwhile");
+  const execute = db.$client.execute.bind(db.$client);
+  let interleaved = false;
+
+  context.mock.method(db.$client, "execute", async (statement: InStatement, args?: InArgs) => {
+    const result = typeof statement === "string" ? await execute(statement, args) : await execute(statement);
+    const text = typeof statement === "string" ? statement : statement.sql;
+
+    if (!interleaved && /^select /i.test(text) && text.includes('from "accounts"')) {
+      interleaved = true;
+      await execute({
+        sql: "UPDATE accounts SET archived_at='2026-06-30T00:00:00.000Z' WHERE id=?",
+        args: [account.id]
+      });
+    }
+
+    return result;
+  });
+
+  await assert.rejects(importMappedRows({
+    import_id: importId,
+    rows: [mappedRow(2, "2024-01-01", "-10.00", "Shop")],
+    targets: [{
+      source: "",
+      account_id: account.id
+    }],
+    confirm: true
+  }, now), {
+    status: 409,
+    message: "This account is archived. Restore the account first."
+  });
+  assert.ok(interleaved);
+  assert.equal((await db.select().from(schema.transactions)).length, 0);
 });
