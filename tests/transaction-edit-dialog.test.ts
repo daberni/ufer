@@ -661,3 +661,24 @@ test("a failed category assignment keeps the dialog open with its error", async 
   assert.ok(screen.getByText(/Category not found/));
   assert.equal(save().disabled, false);
 });
+
+test("a changed category is still assigned when the details' refresh removes the dialog", async context => {
+  const {
+    requests,
+    save,
+    screen
+  } = await renderDialog(context, outgoing);
+
+  await chooseCategory(screen, requests, "Groceries");
+  act(() => {
+    fireEvent.click(save());
+  });
+  await wait(0);
+
+  // The refreshed list no longer contains the row, which unmounts its dialog.
+  screen.unmount();
+  await respond(requests("transactions/out/details")[0], Response.json({}));
+  await wait(0);
+
+  assert.equal(categoryPatches(requests).length, 1);
+});
