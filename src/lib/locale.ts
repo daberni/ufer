@@ -69,8 +69,9 @@ export function resolveFormatLocale(preference: FormatLocalePreference, acceptLa
 }
 
 /**
- * The runtime's canonical locale for a tag, or undefined when it cannot format it. The resolved locale drops private-use subtags, variants and ignored extensions,
- * so request-controlled tags yield only the runtime's finite set of locales, which also bounds the formatter caches.
+ * The runtime's canonical locale for a tag, or undefined when it cannot format it. Only the base language/region and the calendar (ca), hour cycle (hc) and numbering
+ * system (nu) extensions survive, and only with values Intl actually applies; private-use subtags, variants and other extensions are dropped. Request-controlled tags
+ * therefore yield a finite set of locales, which also bounds the formatter caches.
  */
 export function supportedLocale(tag: string) {
   try {
@@ -78,7 +79,19 @@ export function supportedLocale(tag: string) {
       return undefined;
     }
 
-    return new Intl.NumberFormat(tag).resolvedOptions().locale;
+    const requested = new Intl.Locale(tag);
+    const base = new Intl.Locale(new Intl.NumberFormat(tag).resolvedOptions().locale).baseName;
+    const calendar = requested.calendar && new Intl.DateTimeFormat(`${base}-u-ca-${requested.calendar}`).resolvedOptions().calendar === requested.calendar ? requested.calendar : undefined;
+    const hourCycle = requested.hourCycle && new Intl.DateTimeFormat(`${base}-u-hc-${requested.hourCycle}`, {
+      timeStyle: "short"
+    }).resolvedOptions().hourCycle === requested.hourCycle ? requested.hourCycle : undefined;
+    const numberingSystem = requested.numberingSystem && new Intl.NumberFormat(`${base}-u-nu-${requested.numberingSystem}`).resolvedOptions().numberingSystem === requested.numberingSystem ? requested.numberingSystem : undefined;
+
+    return new Intl.Locale(base, {
+      calendar,
+      hourCycle,
+      numberingSystem
+    }).toString();
   } catch {
     return undefined;
   }
