@@ -874,3 +874,33 @@ test("returning a booking to automatic categorization applies the deciding rule'
   assert.ok(plan.transfer_id);
   assert.equal(savings.transfer_id, plan.transfer_id);
 });
+
+test("both legs of a transfer matching the same rule pair when one leg is on the rule's account, without a created counterpart", async context => {
+  const db = await isolatedDatabase(context);
+
+  await rule({
+    pattern: "CASH TRANSFER",
+    transaction_type: "transfer",
+    transfer_account_id: "cash"
+  });
+  await db.insert(schema.transactions).values({
+    id: "cash-leg",
+    account_id: "cash",
+    provider_reference: "manual:cash-leg",
+    booking_date: "2026-09-05",
+    amount_minor: 10000,
+    currency: "EUR",
+    counterparty: "Cash transfer",
+    type: "income"
+  });
+  await applyRulesToUncorrectedTransactions();
+  await sync(db, "checking", [entry("atm", "2026-09-05", -10000, "Cash transfer")]);
+
+  const [checkingLeg, cashLeg] = [await stored(db, "bank:atm"), await stored(db, "manual:cash-leg")];
+  const onCash = await db.select().from(schema.transactions).where(eq(schema.transactions.account_id, "cash"));
+
+  assert.notEqual(cashLeg.type_rule_id, null);
+  assert.ok(checkingLeg.transfer_id);
+  assert.equal(cashLeg.transfer_id, checkingLeg.transfer_id);
+  assert.equal(onCash.length, 1);
+});

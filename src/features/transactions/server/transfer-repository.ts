@@ -22,9 +22,9 @@ function pairable(alias: string) {
   return sql.raw(`${alias}.suppressed_at IS NULL AND ${alias}.transfer_id IS NULL AND ${alias}.transfer_source='auto' AND ${alias}.amount_minor<>0 AND ${notSplitSql(alias)} AND (${alias}.type='transfer' OR (${alias}.type_source='auto' AND ${alias}.type_rule_id IS NULL AND ${alias}.type IN ('income','expense')))`);
 }
 
-// A booking whose rule names the transfer's account pairs only with a booking on that account.
+// A booking whose rule names the transfer's account pairs only with a booking on that account. A rule naming the booking's own account, as for the other leg of the same transfer, does not constrain it.
 function allowedByRule(alias: string, otherAlias: string) {
-  return sql.raw(`(${alias}.type_transfer_account_id IS NULL OR ${alias}.type_transfer_account_id=${otherAlias}.account_id)`);
+  return sql.raw(`(${alias}.type_transfer_account_id IS NULL OR ${alias}.type_transfer_account_id=${alias}.account_id OR ${alias}.type_transfer_account_id=${otherAlias}.account_id)`);
 }
 
 function windowStart(days: number) {
