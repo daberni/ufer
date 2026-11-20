@@ -578,3 +578,42 @@ test("a split whose category was deleted after the request's check is rejected a
   }]), error => error instanceof ValidationError);
   assert.deepEqual((await db.select().from(schema.transactionSplits).where(eq(schema.transactionSplits.transaction_id, "market"))).map(part => part.category_id).sort(), ["groceries", "leisure"]);
 });
+
+test("removing a split returns an automatic type to the sign a sync changed meanwhile, but keeps a manual type", async context => {
+  const db = await seed(context);
+  const refund = {
+    reference: "bank:market",
+    date: "2026-01-10",
+    amount: 10000,
+    currency: "EUR",
+    counterparty: "Example Market",
+    description: "",
+    categoryId: "groceries",
+    categoryRuleId: null
+  };
+
+  await splitTransaction("market", marketSplit());
+  await db.transaction(tx => upsertTransactions(tx, "checking", [refund]));
+  assert.equal((await marketRow())?.type, "expense");
+
+  await unsplitTransaction("market");
+  assert.equal((await marketRow())?.type, "income");
+
+  await db.update(schema.transactions).set({
+    type: "expense",
+    type_source: "manual"
+  }).where(eq(schema.transactions.id, "market"));
+  await splitTransaction("market", {
+    parts: [{
+      amount: "60.00",
+      category_id: "groceries",
+      note: ""
+    }, {
+      amount: "40.00",
+      category_id: "leisure",
+      note: ""
+    }]
+  });
+  await unsplitTransaction("market");
+  assert.equal((await marketRow())?.type, "expense");
+});

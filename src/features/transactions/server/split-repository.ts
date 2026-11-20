@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 import { environment } from "@/features/banking/server/environment";
 import { accounts, categories, categorizationRules, transactionSplits, transactions } from "@/server/database/schema";
@@ -102,7 +102,7 @@ export async function replaceSplit(id: string, decide: (subject: SplitSubject) =
 }
 
 /**
- * Removes a booking's parts and returns it to automatic categorization, with the category and rule the stored rules assign its text. A booking without parts keeps its category.
+ * Removes a booking's parts and returns it to automatic categorization, with the category and rule the stored rules assign its text, and an automatic type to the one its current sign gives. A booking without parts keeps its category and type.
  * Resolves to undefined for a booking outside the current environment; a booking on an archived account is refused.
  */
 export async function removeSplit(id: string, assign: (rules: Rule[], text: RuleText) => RuleAssignment) {
@@ -137,6 +137,10 @@ export async function removeSplit(id: string, assign: (rules: Rule[], text: Rule
         category_source: "rule",
         category_rule_id: assignment.ruleId
       }).where(eq(transactions.id, id));
+      // Syncs keep a split booking's type, so an automatic, unlinked one follows its current amount again. Deliveries' transfer signal is not stored, so only the sign is reconciled.
+      await tx.update(transactions).set({
+        type: sql`CASE WHEN ${transactions.amount_minor}>0 THEN 'income' ELSE 'expense' END`
+      }).where(and(eq(transactions.id, id), eq(transactions.type_source, "auto"), isNull(transactions.transfer_id), inArray(transactions.type, ["income", "expense"])));
     }
 
     return {
