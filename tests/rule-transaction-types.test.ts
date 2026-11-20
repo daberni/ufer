@@ -13,6 +13,7 @@ import { listRules, saveRuleTypes } from "../src/features/categorization/server/
 import { importMappedRows } from "../src/features/imports/server/mapped-import-service";
 import { pairTransfersInEnvironment } from "../src/features/transactions/server/transfer-repository";
 import { updateTransactionDetails } from "../src/features/transactions/server/transaction-service";
+import { unsplitTransaction } from "../src/features/transactions/server/split-service";
 import { ValidationError } from "../src/lib/errors";
 import type { Entry } from "../src/features/transactions/server/transaction-entry";
 
@@ -776,4 +777,64 @@ test("rules never set the type of a split booking, on syncs or when applying rul
 
   assert.deepEqual([split.type, split.type_rule_id, split.transfer_id], ["expense", null, null]);
   assert.equal(onCash.length, 0);
+});
+
+async function splitInTwo(db: Database, id: string, amount: number) {
+  await db.insert(schema.transactionSplits).values([{
+    id: `${id}-part-1`,
+    transaction_id: id,
+    position: 0,
+    amount_minor: amount - Math.trunc(amount / 2),
+    category_id: "groceries"
+  }, {
+    id: `${id}-part-2`,
+    transaction_id: id,
+    position: 1,
+    amount_minor: Math.trunc(amount / 2),
+    category_id: "leisure"
+  }]);
+}
+
+test("removing a split gives a refund its matching rule's Expense type and records the rule", async context => {
+  const db = await isolatedDatabase(context);
+
+  await sync(db, "checking", [entry("refund", "2026-09-10", 1500, "Refund desk")]);
+  const booking = await stored(db, "bank:refund");
+
+  await splitInTwo(db, booking.id, 1500);
+  const refund = await rule({
+    pattern: "REFUND DESK",
+    transaction_type: "expense"
+  });
+
+  await unsplitTransaction(booking.id);
+
+  const unsplit = await stored(db, "bank:refund");
+
+  assert.deepEqual([unsplit.type, unsplit.type_rule_id, unsplit.category_rule_id], ["expense", refund.id, refund.id]);
+});
+
+test("removing a split applies a Transfer rule's account and pairs the booking with its counterpart", async context => {
+  const db = await isolatedDatabase(context);
+
+  await sync(db, "checking", [entry("plan", "2026-09-01", -20000, "Savings plan")]);
+  const booking = await stored(db, "bank:plan");
+
+  await splitInTwo(db, booking.id, -20000);
+  await sync(db, "savings", [entry("savings-in", "2026-09-02", 20000, "Synthetic checking")]);
+  await sync(db, "deposit", [entry("deposit-in", "2026-09-02", 20000, "Synthetic checking")]);
+  await rule({
+    pattern: "SAVINGS PLAN",
+    transaction_type: "transfer",
+    transfer_account_id: "savings"
+  });
+
+  await unsplitTransaction(booking.id);
+
+  const [plan, savings, deposit] = [await stored(db, "bank:plan"), await stored(db, "bank:savings-in"), await stored(db, "bank:deposit-in")];
+
+  assert.deepEqual([plan.type, plan.type_transfer_account_id], ["transfer", "savings"]);
+  assert.ok(plan.transfer_id);
+  assert.equal(savings.transfer_id, plan.transfer_id);
+  assert.equal(deposit.transfer_id, null);
 });

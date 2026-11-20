@@ -6,7 +6,7 @@ import { accounts, categorizationRules, transactions } from "@/server/database/s
 import type { Rule, RuleAssignment, RuleText } from "@/lib/rules";
 import { derivedTransactionType, type TransactionType } from "@/features/transactions/transaction-types";
 import { refusable, type ManualEntryResult } from "./manual-transaction-repository";
-import { assignRuleCategory, dissolveSplit, dropSplitsOnCurrencyChange, notSplit, splitRefusesType } from "./split-repository";
+import { assignRuleDecision, dissolveSplit, dropSplitsOnCurrencyChange, notSplit, splitRefusesType } from "./split-repository";
 import type { CategorizedEntry, Entry, ProviderDetails } from "./transaction-entry";
 import { applyTransactionType, dissolveLink, enteredInUfer, findSubject, followImportedCorrections, releaseOutdatedLinks, touchesArchivedAccount, type TransferTarget } from "./transfer-repository";
 
@@ -246,7 +246,7 @@ export async function saveTransactionDetails(
 
     // The rules decide the former split's category from the text as saved here, overrides included.
     if (dropSplit && dissolved) {
-      await assignRuleCategory(tx, id, dropSplit);
+      await assignRuleDecision(tx, id, dropSplit);
     }
 
     return applyTransactionType(tx, id, type, target);
