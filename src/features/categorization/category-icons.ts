@@ -639,3 +639,95 @@ export function matchesCategoryIconSearch(key: CategoryIconKey, search: string) 
 
   return searchWords(search).every(query => iconWords.some(word => word.startsWith(query)));
 }
+
+// A trailing plural "s" does not keep "Pets" from matching "pet".
+function stem(word: string) {
+  return word.length > 3 && word.endsWith("s") ? word.slice(0, -1) : word;
+}
+
+function wordMatch(nameWord: string, iconWord: string) {
+  const name = stem(nameWord);
+  const icon = stem(iconWord);
+
+  if (name === icon) {
+    return 0;
+  }
+
+  // A started word such as "groc" or a longer form such as "fuels" still matches; short words must match exactly.
+  if (name.length >= 4 && icon.length >= 4 && (icon.startsWith(name) || name.startsWith(icon))) {
+    return 1;
+  }
+
+  return null;
+}
+
+/** Ranks how well the name words fit an icon; lower is better, null when nothing matches. */
+function iconRank(words: string[], key: CategoryIconKey) {
+  const icon = categoryIcons[key];
+  const labelWords = searchWords(icon.label);
+  const quality = (iconWord: string) => Math.min(...words.map(word => wordMatch(word, iconWord) ?? 2));
+  const labelQualities = labelWords.map(quality).filter(value => value < 2);
+  const keywordQualities = searchWords(icon.keywords).map(quality).filter(value => value < 2);
+
+  if (labelQualities.length === 0 && keywordQualities.length === 0) {
+    return null;
+  }
+
+  // A name covering the whole label wins, then more covered label words, then a label over a keyword match, then exact over started words.
+  const complete = labelQualities.length === labelWords.length ? 0 : 1;
+  const bestQuality = Math.min(...labelQualities, ...keywordQualities);
+
+  return [complete, -labelQualities.length, labelQualities.length > 0 ? 0 : 1, bestQuality];
+}
+
+function compareRanks(first: number[], second: number[]) {
+  for (let index = 0; index < first.length; index++) {
+    if (first[index] !== second[index]) {
+      return first[index] - second[index];
+    }
+  }
+
+  return 0;
+}
+
+function bestIconFor(words: string[]) {
+  let best: {
+    key: CategoryIconKey;
+    rank: number[];
+  } | null = null;
+
+  // Catalog order decides between equal ranks because only a better rank replaces the current best.
+  for (const key of categoryIconKeys) {
+    const rank = iconRank(words, key);
+
+    if (rank && (!best || compareRanks(rank, best.rank) < 0)) {
+      best = {
+        key,
+        rank
+      };
+    }
+  }
+
+  return best;
+}
+
+/**
+ * The icon whose label or keywords match a word of the category name, or null. The part after the last " / " decides first, so "Car / Fuel" suggests
+ * fuel rather than a car icon. Words shorter than three letters are ignored.
+ */
+export function suggestCategoryIcon(name: string): CategoryIconKey | null {
+  const parts = name.split(" / ");
+  const own = parts[parts.length - 1];
+  const segments = parts.length > 1 ? [own, name] : [name];
+
+  for (const segment of segments) {
+    const words = searchWords(segment).filter(word => word.length >= 3);
+    const match = bestIconFor(words);
+
+    if (match) {
+      return match.key;
+    }
+  }
+
+  return null;
+}
