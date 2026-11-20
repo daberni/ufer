@@ -10,6 +10,8 @@ import { usePickerPanel } from "./use-picker-panel";
 
 type Props = {
   color: string;
+  /** A palette color suggested for this category, shown first and marked. */
+  suggested?: string | null;
   onChange: (color: string) => void;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -25,9 +27,21 @@ function swatchColor(color: string) {
   return themedColor(scheme => categoryBarColor(color, scheme));
 }
 
+// The suggestion for this category leads the palette; the other colors keep their curated order.
+function suggestedFirst(suggested: string | null) {
+  const match = suggestedCategoryColors.find(suggestion => suggestion.value === suggested);
+
+  if (!match) {
+    return suggestedCategoryColors;
+  }
+
+  return [match, ...suggestedCategoryColors.filter(suggestion => suggestion !== match)];
+}
+
 /** A hex text field with a toggle for a popover of suggested colors. */
 export function CategoryColorField({
   color,
+  suggested = null,
   onChange,
   open,
   onOpenChange
@@ -39,7 +53,8 @@ export function CategoryColorField({
   const [draft, setDraft] = useState(hex);
   const [shownHex, setShownHex] = useState(hex);
   const [invalid, setInvalid] = useState(false);
-  const checkedIndex = suggestedCategoryColors.findIndex(suggestion => suggestion.value === hex);
+  const swatches = suggestedFirst(suggested);
+  const checkedIndex = swatches.findIndex(suggestion => suggestion.value === hex);
   const {
     fieldRef,
     anchorRef,
@@ -98,7 +113,7 @@ export function CategoryColorField({
     }
 
     event.preventDefault();
-    onChange(suggestedCategoryColors[next].value);
+    onChange(swatches[next].value);
     options[next].focus();
   }
 
@@ -168,8 +183,10 @@ export function CategoryColorField({
             role="radiogroup"
             aria-label="Suggested colors"
           >
-            {suggestedCategoryColors.map((suggestion, index) => {
+            {swatches.map((suggestion, index) => {
               const checked = index === checkedIndex;
+              const isSuggestion = suggestion.value === suggested;
+              const label = isSuggestion ? `${suggestion.name} (suggested)` : suggestion.name;
               const focusable = checked || (checkedIndex === -1 && index === 0);
 
               return (
@@ -178,10 +195,10 @@ export function CategoryColorField({
                   type="button"
                   role="radio"
                   aria-checked={checked}
-                  aria-label={suggestion.name}
-                  title={`${suggestion.name} ${suggestion.value}`}
+                  aria-label={label}
+                  title={`${label} ${suggestion.value}`}
                   tabIndex={focusable ? 0 : -1}
-                  className={styles["swatch"]}
+                  className={clsx(styles["swatch"], isSuggestion && styles["suggested"])}
                   onClick={() => onChange(suggestion.value)}
                   onKeyDown={event => handleSwatchKeyDown(event, index)}
                 >

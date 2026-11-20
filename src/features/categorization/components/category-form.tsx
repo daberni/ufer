@@ -10,6 +10,8 @@ import { isCategoryIcon, type CategoryIconKey } from "@/features/categorization/
 import type { Category } from "@/features/categorization/types";
 import { useDialogSubmit, type DialogFormProps } from "@/components/ui/use-dialog-submit";
 import { useSaveCategory } from "@/features/categorization/mutations";
+import { useCategories } from "@/features/categorization/queries";
+import { suggestNewCategoryColor } from "@/features/categorization/category-color-suggestions";
 import { FormError } from "@/components/ui/form-error";
 import { CategoryLabel } from "./category-label";
 import { CategoryColorField } from "./category-color-field";
@@ -73,9 +75,13 @@ function CategoryForm({
     submit
   } = useDialogSubmit(useSaveCategory(category), close);
   const [name, setName] = useState(category?.name ?? initialName);
-  const [color, setColor] = useState(category?.color ?? defaultCategoryColor);
   const savedIcon = category?.icon;
   const [icon, setIcon] = useState<CategoryIconKey | "">(isCategoryIcon(savedIcon) ? savedIcon : "");
+  const existing = useCategories().data;
+  // Only a new category gets a suggestion; it follows the name and icon until the person chooses a color.
+  const suggested = category ? null : suggestNewCategoryColor(name.trim(), icon || null, existing ?? []);
+  const [chosenColor, setChosenColor] = useState<string | null>(category?.color ?? null);
+  const color = chosenColor ?? suggested ?? defaultCategoryColor;
   const [openPanel, setOpenPanel] = useState<OpenPanel>(null);
 
   function panelToggle(panel: Exclude<OpenPanel, null>) {
@@ -122,7 +128,8 @@ function CategoryForm({
         />
         <CategoryColorField
           color={color}
-          onChange={setColor}
+          suggested={suggested}
+          onChange={setChosenColor}
           open={openPanel === "color"}
           onOpenChange={panelToggle("color")}
         />

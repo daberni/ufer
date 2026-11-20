@@ -1,0 +1,54 @@
+.list {
+  display: grid;
+  gap: var(--space-1);
+  max-height: min(60vh, 28rem);
+  overflow-y: auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+/* Rows are labels inside a form, so they override the stacked form-label layout. */
+.list .row {
+  display: flex;
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--ink);
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+.list .row input {
+  width: auto;
+  min-height: 0;
+  margin: 0;
+  accent-color: var(--green);
+}
+.row:hover {
+  background: var(--soft);
+}
+.skipped .name,
+.skipped .colors {
+  opacity: 0.55;
+}
+.name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.colors {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--muted);
+}
+.swatch {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+}

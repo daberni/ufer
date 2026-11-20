@@ -4,7 +4,7 @@ import ui from "../../../components/ui/primitives.module.css";
 
 import { clsx } from "clsx";
 import styles from "./rules-view.module.css";
-import { GripVertical, Pencil, Plus, Sparkles } from "lucide-react";
+import { GripVertical, Palette, Pencil, Plus, Sparkles } from "lucide-react";
 import { ActionFeedback } from "@/components/ui/action-feedback";
 import { Empty } from "@/components/ui/empty-state";
 import { FormError } from "@/components/ui/form-error";
@@ -19,6 +19,7 @@ import { neutralChipColor } from "@/features/categorization/category-colors";
 import { useState } from "react";
 import { CategoryGlyph, CategoryLabel, categoryNameColor } from "./category-label";
 import { CategoryDialog } from "./category-form";
+import { CategoryColorSuggestionsDialog } from "./category-color-suggestions-dialog";
 import { RuleDialog } from "./create-rule-form";
 import { closestCenter, DndContext, DragOverlay } from "@dnd-kit/core";
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
@@ -37,6 +38,8 @@ type OpenDialog = {
   kind: "category";
   /** The category to edit; null adds one. */
   category: Category | null;
+} | {
+  kind: "colors";
 };
 
 // Names of different lengths give the skeleton rules and categories a natural outline.
@@ -87,16 +90,28 @@ export function RulesView({
     <>
       <div className={ui["section-heading"]}>
         <h2>Your categories</h2>
-        <button
-          className={clsx(ui["button"], ui["primary"])}
-          onClick={() => setDialog({
-            kind: "category",
-            category: null
-          })}
-        >
-          <Plus size={16} />
-          Add category
-        </button>
+        <div className={ui["button-group"]}>
+          <button
+            className={ui["button"]}
+            disabled={!categories.data?.length}
+            onClick={() => setDialog({
+              kind: "colors"
+            })}
+          >
+            <Palette size={15} />
+            Suggest colors
+          </button>
+          <button
+            className={clsx(ui["button"], ui["primary"])}
+            onClick={() => setDialog({
+              kind: "category",
+              category: null
+            })}
+          >
+            <Plus size={16} />
+            Add category
+          </button>
+        </div>
       </div>
       <section className={styles["category-panel"]} aria-label="Your categories">
         {categories.status === "pending" ? (
@@ -162,6 +177,7 @@ export function RulesView({
       </section>
       {dialog?.kind === "rule" && <RuleDialog rule={dialog.rule} close={closeDialog} />}
       {dialog?.kind === "category" && <CategoryDialog category={dialog.category} close={closeDialog} />}
+      {dialog?.kind === "colors" && categories.data && <CategoryColorSuggestionsDialog categories={categories.data} close={closeDialog} />}
     </>
   );
 }

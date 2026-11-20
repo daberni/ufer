@@ -163,3 +163,32 @@ export async function deleteCategory(id: string, deletion: CategoryDeletion): Pr
     };
   });
 }
+
+export type CategoryColorUpdate = {
+  id: string;
+  color: string;
+};
+
+/** Stores several category colors in one transaction; nothing changes when one of the categories does not exist. */
+export async function updateCategoryColors(updates: CategoryColorUpdate[]): Promise<"saved" | "not_found"> {
+  const db = await database();
+  const ids = updates.map(update => update.id);
+
+  return db.transaction(async tx => {
+    const existing = await tx.select({
+      id: categories.id
+    }).from(categories).where(inArray(categories.id, ids));
+
+    if (existing.length !== new Set(ids).size) {
+      return "not_found";
+    }
+
+    for (const update of updates) {
+      await tx.update(categories).set({
+        color: update.color
+      }).where(eq(categories.id, update.id));
+    }
+
+    return "saved";
+  });
+}

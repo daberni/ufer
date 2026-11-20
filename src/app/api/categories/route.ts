@@ -1,6 +1,7 @@
 import { respond } from "@/server/http/respond";
 import { readJson } from "@/server/http/request-body";
 import { createCategory } from "@/features/categorization/server/categorization-service";
+import { applyCategoryColors } from "@/features/categorization/server/category-color-service";
 import { listCategories } from "@/features/categorization/server/categorization-queries";
 
 export const runtime = "nodejs";
@@ -17,4 +18,9 @@ export async function POST(request: Request) {
   return respond(request, async () => createCategory(await readJson(request)), {
     status: 201
   });
+}
+
+/** Applies confirmed color suggestions to several categories at once. */
+export async function PATCH(request: Request) {
+  return respond(request, async () => applyCategoryColors(await readJson(request)));
 }
