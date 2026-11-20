@@ -307,7 +307,9 @@ function TransactionEditForm({
   const categories = useCategories();
   const categoryFieldId = useId();
   const assignment = useTransactionCategory(transaction);
-  const [category, setCategory] = useState(transaction.category_id);
+  // A row change still being saved is the category the dialog starts from, so saving does not revert it.
+  const [initialCategory] = useState(assignment.categoryId);
+  const [category, setCategory] = useState(initialCategory);
   const [categoryFailure, setCategoryFailure] = useState<Failure | null>(null);
   const pending = save.isPending || assignment.status?.kind === "saving";
   const error = save.error ? toFailure(save.error) : categoryFailure;
@@ -325,6 +327,29 @@ function TransactionEditForm({
   // Without loaded options, saving a transfer could drop a link the form cannot show.
   const targetUnknown = linkable && options.status !== "success";
 
+  // The details are saved first, so a rejected edit stores nothing; a category that fails afterwards keeps the dialog open, and saving again repeats both idempotent writes.
+  // Awaited promises rather than per-call callbacks, so the category is still saved when the details' refresh removes the row and this dialog.
+  async function saveAll(details: TransactionEdit | EntryEdit, categoryChanged: boolean) {
+    try {
+      await save.mutateAsync(details);
+    } catch {
+      // The details mutation's error is shown from its state.
+      return;
+    }
+
+    if (categoryChanged) {
+      try {
+        await assignment.assign(category);
+      } catch (failure) {
+        setCategoryFailure(toFailure(failure));
+
+        return;
+      }
+    }
+
+    close();
+  }
+
   return (
     <form
       className={ui["form"]}
@@ -338,26 +363,11 @@ function TransactionEditForm({
           type
         };
         const details = detailsEdit(edit, new FormData(event.currentTarget), transaction, imported);
+        // Compared with the stored category, not the one the dialog started from: a row change that was pending at opening and then failed is assigned again.
         const categoryChanged = category !== transaction.category_id;
 
         setCategoryFailure(null);
-        // The details are saved first, so a rejected edit stores nothing; a category that fails afterwards keeps the dialog open, and saving again repeats both idempotent writes.
-        save.mutate(details, {
-          onSuccess: async () => {
-            if (!categoryChanged) {
-              close();
-
-              return;
-            }
-
-            try {
-              await assignment.assign(category);
-              close();
-            } catch (failure) {
-              setCategoryFailure(toFailure(failure));
-            }
-          }
-        });
+        void saveAll(details, categoryChanged);
       }}
     >
       {transaction.hidden && <ShowAgain transaction={transaction} close={close} />}
@@ -403,7 +413,7 @@ function TransactionEditForm({
           onChange={setCategory}
         />
       </div>
-      {category !== null && category === transaction.category_id && transaction.category_source === "rule" && <p className={ui["form-hint"]}>Assigned by a rule.</p>}
+      {category !== null && category === initialCategory && category === transaction.category_id && transaction.category_source === "rule" && <p className={ui["form-hint"]}>Assigned by a rule.</p>}
       {!transfer && transaction.counterpart && <p className={ui["form-hint"]}>{leaveTransferHint(transaction)}</p>}
       {linkable && (
         <TransferFields
