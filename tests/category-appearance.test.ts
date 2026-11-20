@@ -67,11 +67,20 @@ test("icon keys stored before the set grew stay valid and keep an icon", () => {
   assert.equal(isCategoryIcon("unknown-icon"), false);
 });
 
-test("icon search matches every word against label, group and keywords, ignoring letter case", () => {
+test("icon search matches every query word at the start of a word of the label, group or keywords, ignoring letter case", () => {
   assert.ok(matchesCategoryIconSearch("groceries", "SUPERMARKET"));
+  assert.ok(matchesCategoryIconSearch("groceries", "super"));
   assert.ok(matchesCategoryIconSearch("fuel", "transport petrol"));
+  assert.ok(matchesCategoryIconSearch("fuel", "trans pet"));
   assert.ok(matchesCategoryIconSearch("coffee", "Food"));
+  assert.ok(matchesCategoryIconSearch("transport", "car"));
+  assert.ok(matchesCategoryIconSearch("credit-card", "car"));
+  assert.ok(matchesCategoryIconSearch("childcare", "kids"));
   assert.equal(matchesCategoryIconSearch("coffee", "petrol"), false);
+  assert.equal(matchesCategoryIconSearch("fuel", "transport coffee"), false);
+  // Matches inside a word do not count.
+  assert.equal(matchesCategoryIconSearch("childcare", "car"), false);
+  assert.equal(matchesCategoryIconSearch("credit-card", "ard"), false);
 });
 
 test("the color field applies a valid typed hex color, keeps the last color on invalid input, and its swatch popover closes on Escape without reaching the dialog", async context => {

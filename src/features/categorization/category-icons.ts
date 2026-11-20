@@ -623,11 +623,19 @@ export function isCategoryIcon(value: unknown): value is CategoryIconKey {
   return typeof value === "string" && Object.hasOwn(categoryIcons, value);
 }
 
-/** Whether an icon's label, group or keywords contain every word of the search, ignoring letter case independent of the browser locale. */
+const wordSeparator = /[^\p{L}\p{N}]+/u;
+
+function searchWords(text: string) {
+  return text.toLowerCase().split(wordSeparator).filter(Boolean);
+}
+
+/**
+ * Whether every word of the search starts a word of the icon's label, group or keywords, so "car" finds "Car" and "card" but not "childcare". Letter case
+ * is ignored independent of the browser locale.
+ */
 export function matchesCategoryIconSearch(key: CategoryIconKey, search: string) {
   const icon = categoryIcons[key];
-  const text = `${icon.label} ${categoryIconGroups[icon.group]} ${icon.keywords}`.toLowerCase();
-  const words = search.toLowerCase().split(/\s+/).filter(Boolean);
+  const iconWords = searchWords(`${icon.label} ${categoryIconGroups[icon.group]} ${icon.keywords}`);
 
-  return words.every(word => text.includes(word));
+  return searchWords(search).every(query => iconWords.some(word => word.startsWith(query)));
 }
