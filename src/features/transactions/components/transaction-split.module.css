@@ -111,21 +111,6 @@
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
-.rest {
-  grid-area: amount;
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-2);
-  padding: 0 var(--space-3);
-  font-size: var(--text-sm);
-  font-variant-numeric: tabular-nums;
-  color: var(--ink);
-}
-.rest-label {
-  font-size: var(--text-xs);
-  color: var(--muted);
-}
 .category {
   grid-area: category;
   min-width: 0;
@@ -159,10 +144,11 @@
     padding: var(--space-3);
   }
   .part {
-    grid-template-columns: 6.5rem minmax(0, 1fr) 44px;
+    grid-template-columns: 8rem minmax(0, 1fr) 44px;
     grid-template-areas:
-      "category category remove"
-      "amount note note";
+      "amount . remove"
+      "category category category"
+      "note note note";
     padding-bottom: var(--space-2);
     border-bottom: 1px solid var(--border-subtle);
   }

@@ -2,7 +2,7 @@
 
 import ui from "../../../components/ui/primitives.module.css";
 
-import { useId, type ReactNode } from "react";
+import { useEffect, useId, useState } from "react";
 import { clsx } from "clsx";
 import { CircleAlert, Plus, Split, X } from "lucide-react";
 import styles from "./transaction-split.module.css";
@@ -10,7 +10,7 @@ import { CategoryPicker } from "@/features/categorization/components/category-pi
 import type { Category } from "@/features/categorization/types";
 import { money } from "@/lib/money";
 import type { Transaction, TransactionSplit } from "@/features/transactions/types";
-import type { DraftPart, DraftState, SplitDraft } from "@/features/transactions/split-draft";
+import { nextPartAmount, type DraftPart, type DraftState, type SplitDraft } from "@/features/transactions/split-draft";
 
 /** Whether a booking of this type can be split; only income and expenses count by category. */
 export function splittable(transaction: Transaction) {
@@ -56,27 +56,26 @@ export function SplitTag({
   );
 }
 
-function statusText(state: DraftState, currency: string, restCategory: string | null) {
+function statusText(state: DraftState, currency: string) {
   const remaining = money(Math.abs(state.remaining), currency);
 
   switch (state.status) {
     case "invalid":
       return "Check the highlighted amount.";
-    case "incomplete":
-      return "Enter an amount for every part.";
+    case "under":
+      return `${remaining} still to assign`;
     case "over":
       return `${remaining} more than the total`;
     case "single":
-      return "Lower an amount to split off the rest.";
+      return "Add a part to split the amount.";
     default:
-      // The rest part covers whatever the entered parts leave, so the booking is fully assigned either way.
-      return state.remaining > 0 && restCategory === null ? "Fully assigned · choose a category for the rest" : "Fully assigned";
+      return "Fully assigned";
   }
 }
 
 /**
- * Edits a booking's split inside the transaction dialog. The entered parts are amounts in the booking's direction; whatever they leave of the total is proposed as a remaining part whose amount follows them, so only its category is chosen.
- * The summary compares the assigned amount with the total and carries every validation message.
+ * Edits a booking's split inside the transaction dialog. Part amounts are entered in the booking's direction and must add up to the total; parts with an amount of 0 are ignored.
+ * The summary compares the assigned amount with the total and carries every validation message. A new part starts with what is still to assign.
  */
 export function SplitEditor({
   transaction,
@@ -99,11 +98,11 @@ export function SplitEditor({
   onClose: () => void;
 }) {
   const statusId = useId();
+  // The part just added, whose category takes focus since its amount is already filled in.
+  const [addedKey, setAddedKey] = useState<number | null>(null);
   const total = Math.abs(transaction.amount_minor);
-  // The rest part counts as assigned while it covers the gap.
-  const assigned = state.assigned + Math.max(state.remaining, 0);
-  const fill = total === 0 ? 0 : Math.min(100, Math.max(0, assigned / total * 100));
-  const problem = state.status === "invalid" || state.status === "incomplete" || state.status === "over";
+  const fill = total === 0 ? 0 : Math.min(100, Math.max(0, state.assigned / total * 100));
+  const problem = state.status === "invalid" || state.status === "under" || state.status === "over";
 
   function update(key: number, change: Partial<DraftPart>) {
     onDraft({
@@ -135,11 +134,11 @@ export function SplitEditor({
       <div className={styles["meter-row"]}>
         <div className={styles["meter-text"]}>
           <span>
-            Assigned <strong>{money(assigned, transaction.currency)}</strong> of {money(total, transaction.currency)}
+            Assigned <strong>{money(state.assigned, transaction.currency)}</strong> of {money(total, transaction.currency)}
           </span>
           <span id={statusId} className={clsx(styles["status"], problem && styles["problem"])} role="status">
             {problem && <CircleAlert size={14} aria-hidden="true" />}
-            {statusText(state, transaction.currency, draft.remainder.categoryId)}
+            {statusText(state, transaction.currency)}
           </span>
         </div>
         <span className={clsx(styles["meter"], state.status === "over" && styles["over"])} aria-hidden="true">
@@ -155,81 +154,37 @@ export function SplitEditor({
           <SplitPartFields
             key={part.key}
             position={index + 1}
+            part={part}
+            invalid={state.amounts[index] === null}
             categories={categories}
-            categoryId={part.categoryId}
-            note={part.note}
             statusId={statusId}
-            amount={(
-              <input
-                className={styles["amount"]}
-                aria-label={`Amount of part ${index + 1}`}
-                autoFocus={focusFirst && index === 0}
-                inputMode="decimal"
-                placeholder="0.00"
-                value={part.amount}
-                aria-invalid={state.amounts[index] === null && part.amount.trim() !== "" || undefined}
-                aria-describedby={statusId}
-                onChange={event => update(part.key, {
-                  amount: event.target.value
-                })}
-              />
-            )}
-            onCategory={categoryId => update(part.key, {
-              categoryId
-            })}
-            onNote={note => update(part.key, {
-              note
-            })}
+            focusAmount={focusFirst && index === 0}
+            focusCategory={part.key === addedKey}
+            onChange={change => update(part.key, change)}
             onRemove={draft.parts.length > 1 ? () => onDraft({
               ...draft,
               parts: draft.parts.filter(item => item.key !== part.key)
             }) : undefined}
           />
         ))}
-        {state.remaining > 0 && (
-          <SplitPartFields
-            position={draft.parts.length + 1}
-            categories={categories}
-            categoryId={draft.remainder.categoryId}
-            note={draft.remainder.note}
-            statusId={statusId}
-            amount={(
-              <span className={styles["rest"]}>
-                <span className={styles["rest-label"]}>Rest</span>
-                {money(state.remaining, transaction.currency)}
-              </span>
-            )}
-            onCategory={categoryId => onDraft({
-              ...draft,
-              remainder: {
-                ...draft.remainder,
-                categoryId
-              }
-            })}
-            onNote={note => onDraft({
-              ...draft,
-              remainder: {
-                ...draft.remainder,
-                note
-              }
-            })}
-          />
-        )}
       </ol>
       <button
         type="button"
         className={ui["text-button"]}
         disabled={disabled || !state.canAdd}
-        onClick={() => onDraft({
-          ...draft,
-          parts: [...draft.parts, {
-            key: draft.nextKey,
-            amount: "",
-            categoryId: null,
-            note: ""
-          }],
-          nextKey: draft.nextKey + 1
-        })}
+        onClick={() => {
+          setAddedKey(draft.nextKey);
+          onDraft({
+            ...draft,
+            parts: [...draft.parts, {
+              key: draft.nextKey,
+              amount: nextPartAmount(state, transaction.currency),
+              categoryId: null,
+              note: ""
+            }],
+            nextKey: draft.nextKey + 1
+          });
+        }}
       >
         <Plus size={14} aria-hidden="true" />
         Add part
@@ -240,48 +195,70 @@ export function SplitEditor({
 
 function SplitPartFields({
   position,
-  amount,
+  part,
+  invalid,
   categories,
-  categoryId,
-  note,
   statusId,
-  onCategory,
-  onNote,
+  focusAmount,
+  focusCategory,
+  onChange,
   onRemove
 }: {
   position: number;
-  amount: ReactNode;
+  part: DraftPart;
+  invalid: boolean;
   categories: Category[];
-  categoryId: string | null;
-  note: string;
   statusId: string;
-  onCategory: (categoryId: string | null) => void;
-  onNote: (note: string) => void;
+  focusAmount: boolean;
+  focusCategory: boolean;
+  onChange: (change: Partial<DraftPart>) => void;
   onRemove?: () => void;
 }) {
   const fieldId = useId();
+  const categoryId = `${fieldId}-category`;
+
+  useEffect(() => {
+    if (focusCategory) {
+      document.getElementById(categoryId)?.focus();
+    }
+  }, [focusCategory, categoryId]);
 
   return (
     <li className={styles["part"]}>
-      {amount}
+      <input
+        className={styles["amount"]}
+        aria-label={`Amount of part ${position}`}
+        autoFocus={focusAmount}
+        inputMode="decimal"
+        placeholder="0.00"
+        value={part.amount}
+        aria-invalid={invalid || undefined}
+        aria-describedby={statusId}
+        onChange={event => onChange({
+          amount: event.target.value
+        })}
+      />
       <div className={styles["category"]}>
-        <label htmlFor={`${fieldId}-category`} className={ui["visually-hidden"]}>{`Category of part ${position}`}</label>
+        <label htmlFor={categoryId} className={ui["visually-hidden"]}>{`Category of part ${position}`}</label>
         <CategoryPicker
-          id={`${fieldId}-category`}
+          id={categoryId}
           categories={categories}
-          value={categoryId}
+          value={part.categoryId}
           includeUncategorized
-          onChange={onCategory}
+          onChange={value => onChange({
+            categoryId: value
+          })}
         />
       </div>
       <input
         className={styles["note"]}
         aria-label={`Note of part ${position}`}
-        aria-describedby={statusId}
         maxLength={200}
         placeholder="Note"
-        value={note}
-        onChange={event => onNote(event.target.value)}
+        value={part.note}
+        onChange={event => onChange({
+          note: event.target.value
+        })}
       />
       {onRemove ? (
         <button

@@ -67,7 +67,7 @@ async function renderDialog(context: TestContext, transaction: Transaction) {
   };
 }
 
-test("lowering a part proposes the rest as a remaining part, and Save stores the details first, then the split", async context => {
+test("a part short of the total blocks Save until Add part fills in the rest, and Save stores the details first, then the split", async context => {
   const {
     requests,
     screen,
@@ -86,25 +86,22 @@ test("lowering a part proposes the rest as a remaining part, and Save stores the
   }) as HTMLButtonElement;
 
   assert.equal(amount(1).value, "350.00");
-  assert.equal(screen.queryByRole("combobox", {
-    name: "Category of part 2"
-  }), null);
-
   fireEvent.change(amount(1), {
     target: {
       value: "240"
     }
   });
-  assert.ok(screen.getByText("€110.00"));
-  assert.ok(screen.getByText("Fully assigned · choose a category for the rest"));
-  assert.ok(screen.getByRole("combobox", {
-    name: "Category of part 2"
-  }));
+  assert.ok(screen.getByText("€110.00 still to assign"));
+  assert.equal(save().disabled, true);
 
   fireEvent.click(screen.getByRole("button", {
     name: "Add part"
   }));
-  assert.equal(save().disabled, true);
+  assert.equal(amount(2).value, "110.00");
+  await wait(0);
+  assert.equal(document.activeElement?.id, screen.getByRole("combobox", {
+    name: "Category of part 2"
+  }).id);
   fireEvent.change(amount(2), {
     target: {
       value: "200"
@@ -118,7 +115,15 @@ test("lowering a part proposes the rest as a remaining part, and Save stores the
       value: "100"
     }
   });
-  assert.ok(screen.getByText("€10.00"));
+  fireEvent.click(screen.getByRole("button", {
+    name: "Add part"
+  }));
+  assert.equal(amount(3).value, "10.00");
+  fireEvent.click(screen.getByRole("button", {
+    name: "Add part"
+  }));
+  assert.equal(amount(4).value, "0.00");
+  assert.ok(screen.getByText("Fully assigned"));
   assert.equal(save().disabled, false);
 
   act(() => {

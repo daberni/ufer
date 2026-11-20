@@ -348,7 +348,7 @@ function TransactionEditForm({
   const [splitFocus, setSplitFocus] = useState<"editor" | "trigger" | null>(null);
   const [draft, setDraft] = useState(() => initialDraft(transaction, initialCategory));
   const split = draftState(draft, transaction);
-  const splitBlocked = splitOpen && (split.status === "invalid" || split.status === "incomplete" || split.status === "over");
+  const splitBlocked = splitOpen && (split.status === "invalid" || split.status === "under" || split.status === "over");
   const [type, setType] = useState<TransactionType>(transaction.type);
   const [typeChosen, setTypeChosen] = useState(false);
   const [chosenTarget, setTarget] = useState<Target>();
@@ -395,7 +395,9 @@ function TransactionEditForm({
       return;
     }
 
-    const chosen = splitOpen ? draft.parts[0]?.categoryId ?? null : category;
+    // A single counted part is the booking's category; parts with an amount of 0 are ignored.
+    const counted = draft.parts.find((_, index) => split.amounts[index] !== 0);
+    const chosen = splitOpen ? counted?.categoryId ?? null : category;
 
     if (transaction.split) {
       await removeSplit.mutateAsync();

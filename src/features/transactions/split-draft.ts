@@ -11,31 +11,24 @@ export type DraftPart = {
   note: string;
 };
 
-/**
- * A split being edited. Whatever the entered parts leave of the booking becomes the remainder part, whose amount always follows the others; only its category and note are chosen.
- * The remainder keeps them while the entered parts cover the booking, so they return when it reappears.
- */
+/** A split being edited. Parts with an empty or zero amount are ignored and not saved. */
 export type SplitDraft = {
   parts: DraftPart[];
-  remainder: {
-    categoryId: string | null;
-    note: string;
-  };
   nextKey: number;
 };
 
-/** Why the draft cannot be saved as a split yet, or `ready`. A `single` draft is one part that covers the booking, which is a plain category. */
-export type DraftStatus = "invalid" | "incomplete" | "over" | "single" | "ready";
+/** Why the draft cannot be saved as a split yet, or `ready`. A `single` draft is one counted part that covers the booking, which is a plain category. */
+export type DraftStatus = "invalid" | "under" | "over" | "single" | "ready";
 
 export type DraftState = {
-  /** Each entered part's signed minor units, or null while its amount is empty or invalid. */
+  /** Each part's signed minor units: 0 for an ignored part, null while its amount is invalid. */
   amounts: (number | null)[];
-  /** Assigned by the entered parts, in the booking's direction. */
+  /** Assigned by the counted parts, in the booking's direction. */
   assigned: number;
-  /** Still to assign, in the booking's direction; the remainder part's amount while positive. */
+  /** Still to assign, in the booking's direction; negative when the parts exceed the booking. */
   remaining: number;
   status: DraftStatus;
-  /** Whether another entered part fits within the part limit. */
+  /** Whether another part fits within the part limit. */
   canAdd: boolean;
 };
 
@@ -61,24 +54,20 @@ export function initialDraft(transaction: Pick<Transaction, "amount_minor" | "cu
 
   return {
     parts,
-    remainder: {
-      categoryId: null,
-      note: ""
-    },
     nextKey: parts.length
   };
 }
 
-/** A part's signed minor units; undefined while empty, null when invalid, zero or beyond the supported range. */
+/** A part's signed minor units; 0 when empty or zero, null when invalid or beyond the supported range. */
 function partAmount(part: DraftPart, transaction: Pick<Transaction, "amount_minor" | "currency">) {
   if (part.amount.trim() === "") {
-    return undefined;
+    return 0;
   }
 
   try {
     const amount = minorUnits(part.amount, transaction.currency) * direction(transaction);
 
-    return amount === 0 || !partAmountSupported(amount) ? null : amount;
+    return partAmountSupported(amount) ? amount : null;
   } catch {
     return null;
   }
@@ -86,38 +75,20 @@ function partAmount(part: DraftPart, transaction: Pick<Transaction, "amount_mino
 
 export function draftState(draft: SplitDraft, transaction: Pick<Transaction, "amount_minor" | "currency">): DraftState {
   const sign = direction(transaction);
-  const parsed = draft.parts.map(part => partAmount(part, transaction));
-  const amounts = parsed.map(amount => amount ?? null);
+  const amounts = draft.parts.map(part => partAmount(part, transaction));
   const assigned = amounts.reduce<number>((sum, amount) => sum + (amount ?? 0), 0) * sign;
   const remaining = transaction.amount_minor * sign - assigned;
-  const partCount = draft.parts.length + (remaining > 0 ? 1 : 0);
-  const canAdd = partCount < maximumSplitParts;
-
-  if (parsed.includes(null)) {
-    return {
-      amounts,
-      assigned,
-      remaining,
-      status: "invalid",
-      canAdd
-    };
-  }
-
-  if (parsed.includes(undefined)) {
-    return {
-      amounts,
-      assigned,
-      remaining,
-      status: "incomplete",
-      canAdd
-    };
-  }
-
+  const counted = amounts.filter(amount => amount !== null && amount !== 0).length;
+  const canAdd = draft.parts.length < maximumSplitParts;
   let status: DraftStatus = "ready";
 
-  if (remaining < 0) {
+  if (amounts.includes(null)) {
+    status = "invalid";
+  } else if (remaining > 0) {
+    status = "under";
+  } else if (remaining < 0) {
     status = "over";
-  } else if (partCount < 2) {
+  } else if (counted < 2) {
     status = "single";
   }
 
@@ -130,23 +101,26 @@ export function draftState(draft: SplitDraft, transaction: Pick<Transaction, "am
   };
 }
 
-/** The parts to save, the remainder last; only meaningful for a `ready` draft. */
+/** The counted parts to save, skipping parts with an empty or zero amount; only meaningful for a `ready` draft. */
 export function draftEdits(draft: SplitDraft, transaction: Pick<Transaction, "amount_minor" | "currency">): SplitPartEdit[] {
   const state = draftState(draft, transaction);
-  const sign = direction(transaction);
-  const entered = draft.parts.map((part, index) => ({
-    amount: decimalAmount(state.amounts[index] ?? 0, transaction.currency),
-    category_id: part.categoryId,
-    note: part.note.trim()
-  }));
 
-  if (state.remaining <= 0) {
-    return entered;
-  }
+  return draft.parts.flatMap((part, index) => {
+    const amount = state.amounts[index];
 
-  return [...entered, {
-    amount: decimalAmount(state.remaining * sign, transaction.currency),
-    category_id: draft.remainder.categoryId,
-    note: draft.remainder.note.trim()
-  }];
+    if (!amount) {
+      return [];
+    }
+
+    return [{
+      amount: decimalAmount(amount, transaction.currency),
+      category_id: part.categoryId,
+      note: part.note.trim()
+    }];
+  });
+}
+
+/** The amount a new part starts with: what is still to assign, or 0 when nothing is. */
+export function nextPartAmount(state: DraftState, currency: string) {
+  return decimalAmount(Math.max(state.remaining, 0), currency);
 }
