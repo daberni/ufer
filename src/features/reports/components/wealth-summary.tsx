@@ -11,17 +11,22 @@ import { FailureCover } from "@/components/ui/area-placeholder";
 import { useCurrency } from "@/client/use-app-url";
 import type { Area } from "@/components/ui/use-area-result";
 import type { NetWorth } from "@/features/accounts/types";
+import { Temporal } from "temporal-polyfill";
+import { describeMonth } from "@/lib/date-format";
+import type { NetWorthHistory, NetWorthPoint } from "@/features/reports/net-worth-series";
 
 type Props = {
   /** Whether any account uses the display currency; assumed while the accounts load, so the masked figure keeps its place. */
   hasAccounts: boolean;
   netWorthArea: Area<NetWorth>;
+  historyArea: Area<NetWorthHistory>;
 };
 
 /** Net worth and its composition; the period's income, expenses, net and savings rate belong to the cash-flow panels below. */
 export function WealthSummary({
   hasAccounts,
-  netWorthArea
+  netWorthArea,
+  historyArea
 }: Props) {
   const selectedCurrency = useCurrency();
   const netWorth = withPlaceholder(netWorthArea, () => ({
@@ -36,9 +41,12 @@ export function WealthSummary({
   const summary = netWorth.data;
   const netWorthValue = valueMask(netWorth.status);
   const currency = summary.currency;
+  const points = historyArea.status === "ready" && historyArea.data.currency === currency ? historyArea.data.points : [];
+  const change = netWorth.status === "ready" && hasAccounts ? historyChange(points) : null;
 
   return (
     <section className={styles["wealth-card"]} aria-busy={netWorth.status === "loading"}>
+      {hasAccounts && <HistoryCurve points={points} />}
       <div className={styles["wealth-card-top"]}>
         <span>
           <span className={styles["wealth-mark"]}>
@@ -49,7 +57,10 @@ export function WealthSummary({
         <span className={clsx(styles["small-tag"], netWorthValue)}>{currency}</span>
       </div>
       <div className={clsx(styles["wealth-number"], netWorthValue)}>{hasAccounts ? money(summary.netWorth, currency) : "—"}</div>
-      <p>Latest known balances · independent of the selected period{summary.unvalued > 0 ? ` · ${summary.unvalued} without a balance` : ""}</p>
+      <p>
+        {change ? `${change.amount > 0 ? "+" : ""}${money(change.amount, currency)} since ${change.since}` : "Latest known balances"}
+        {summary.unvalued > 0 ? ` · ${summary.unvalued} without a balance` : ""}
+      </p>
       <div className={clsx(styles["allocation-bar"], netWorthValue)} aria-hidden="true">
         <span
           style={{
@@ -89,5 +100,51 @@ export function WealthSummary({
       )}
       {netWorthArea.status === "pending" && netWorthArea.failure && <FailureCover failure={netWorthArea.failure} subject="Your net worth" />}
     </section>
+  );
+}
+
+function historyChange(points: NetWorthPoint[]) {
+  const first = points[0];
+  const last = points.at(-1);
+
+  if (!first || !last || first === last || first.amount_minor === last.amount_minor) {
+    return null;
+  }
+
+  const month = Temporal.PlainDate.from(first.date).toPlainYearMonth();
+
+  return {
+    amount: last.amount_minor - first.amount_minor,
+    since: `${describeMonth(month).label} ${month.year}`
+  };
+}
+
+/** A decorative area curve of the past year; the figure above stays the information. */
+function HistoryCurve({ points }: {
+  points: NetWorthPoint[]
+}) {
+  if (points.length < 2) {
+    return null;
+  }
+
+  const amounts = points.map(point => point.amount_minor);
+  const low = Math.min(...amounts);
+  const range = Math.max(...amounts) - low;
+  // A flat year sits low in the card instead of filling it.
+  const y = (amount: number) => range ? 40 - (amount - low) / range * 34 : 34;
+  const x = (index: number) => index / (points.length - 1) * 100;
+  const line = points.map((point, index) => `${index ? "L" : "M"}${x(index)},${y(point.amount_minor)}`).join(" ");
+
+  return (
+    <svg
+      className={styles["history-curve"]}
+      viewBox="0 0 100 40"
+      preserveAspectRatio="none"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path className={styles["history-area"]} d={`${line} L100,40 L0,40 Z`} />
+      <path className={styles["history-line"]} d={line} vectorEffect="non-scaling-stroke" />
+    </svg>
   );
 }

@@ -97,6 +97,13 @@ async function showReports(context: TestContext, data: CashFlow = cashFlow) {
         unvalued: 0
       }
     },
+    netWorthHistory: {
+      status: "ready" as const,
+      data: {
+        currency: "EUR",
+        points: []
+      }
+    },
     cashFlow: {
       status: "ready" as const,
       data

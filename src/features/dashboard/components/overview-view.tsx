@@ -7,16 +7,19 @@ import { CashFlowInsights } from "@/features/reports/components/cash-flow-insigh
 import type { Area } from "@/components/ui/use-area-result";
 import type { Account, NetWorth } from "@/features/accounts/types";
 import type { CashFlow } from "@/features/reports/types";
+import type { NetWorthHistory } from "@/features/reports/net-worth-series";
 
 type Props = {
   currencyAccounts: Area<Account[]>;
   netWorth: Area<NetWorth>;
+  netWorthHistory: Area<NetWorthHistory>;
   cashFlow: Area<CashFlow>;
 };
 
 export function OverviewView({
   currencyAccounts,
   netWorth,
+  netWorthHistory,
   cashFlow
 }: Props) {
   const hasAccounts = currencyAccounts.status === "pending" || currencyAccounts.data.length > 0;
@@ -24,7 +27,7 @@ export function OverviewView({
   return (
     <>
       <div className={styles["wealth-overview"]}>
-        <WealthSummary hasAccounts={hasAccounts} netWorthArea={netWorth} />
+        <WealthSummary hasAccounts={hasAccounts} historyArea={netWorthHistory} netWorthArea={netWorth} />
         <OverviewAccounts currencyAccounts={currencyAccounts} />
       </div>
       <CashFlowInsights cashFlow={cashFlow} />

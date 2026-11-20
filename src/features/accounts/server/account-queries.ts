@@ -36,6 +36,9 @@ export async function listAccounts() {
   }).from(accounts).leftJoin(requisitions, eq(requisitions.id, accounts.requisition_id)).where(eq(accounts.environment, environment())).orderBy(kindOrder, asc(accounts.name));
 }
 
+/** Account kinds that count toward net worth. */
+export const netWorthKinds = ["checking", "savings", "investment", "property", "credit_card", "loan"];
+
 /** Net worth and its composition from the latest known balances of the accounts in one currency; it does not depend on a period. */
 export async function readNetWorth(currency: string) {
   const relevant = (await listAccounts()).filter(account => account.currency === currency);
@@ -43,7 +46,7 @@ export async function readNetWorth(currency: string) {
 
   return {
     currency,
-    netWorth: sum(["checking", "savings", "investment", "property", "credit_card", "loan"]),
+    netWorth: sum(netWorthKinds),
     liquidity: sum(["checking", "savings", "credit_card"]),
     investments: sum(["investment"]),
     property: sum(["property"]),

@@ -13,6 +13,23 @@
   padding: var(--space-6);
   position: relative;
   overflow: hidden;
+  isolation: isolate;
+}
+.history-curve {
+  position: absolute;
+  inset: auto 0 0;
+  width: 100%;
+  height: 45%;
+  z-index: -1;
+  pointer-events: none;
+}
+.history-area {
+  fill: color-mix(in srgb, var(--chart-invested) 10%, transparent);
+}
+.history-line {
+  fill: none;
+  stroke: color-mix(in srgb, var(--chart-invested) 30%, transparent);
+  stroke-width: 1.5;
 }
 .wealth-card:after {
   content: "";

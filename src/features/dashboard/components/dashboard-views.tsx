@@ -16,7 +16,7 @@ import { replacePage, setSyncRun, useAccountTransactionsHref, useViewHref, useVi
 import { useAppStore } from "@/client/app-store";
 import { mapArea, useAreaResult, type Area } from "@/components/ui/use-area-result";
 import { Empty } from "@/components/ui/empty-state";
-import { useAccountCashFlow, useCashFlow } from "@/features/reports/queries";
+import { useAccountCashFlow, useCashFlow, useNetWorthHistory } from "@/features/reports/queries";
 import { accountGroups, useAccounts, useBalanceHistory, useNetWorth } from "@/features/accounts/queries";
 import { navigation } from "@/features/dashboard/navigation";
 import { useCategories, useRules } from "@/features/categorization/queries";
@@ -39,6 +39,7 @@ export function OverviewPage() {
   const categories = useAreaResult(useCategories());
   const syncRuns = useAreaResult(useSyncRuns());
   const netWorth = useAreaResult(useNetWorth(query.currency));
+  const netWorthHistory = useAreaResult(useNetWorthHistory(query.currency));
   const cashFlow = useAreaResult(useCashFlow(query.period, query.currency));
   const list = useTransactionListView(query, replacePage);
   const groups = mapArea(accounts, data => accountGroups(data, query.currency));
@@ -47,7 +48,12 @@ export function OverviewPage() {
   return (
     <>
       <PeriodControls currencies={mapArea(groups, data => data.currencies)} latestSync={mapArea(syncRuns, runs => runs[0])} view="overview" />
-      <OverviewView cashFlow={cashFlow} currencyAccounts={currencyAccounts} netWorth={netWorth} />
+      <OverviewView
+        cashFlow={cashFlow}
+        currencyAccounts={currencyAccounts}
+        netWorth={netWorth}
+        netWorthHistory={netWorthHistory}
+      />
       <TransactionsPanel
         categories={categories}
         list={list}

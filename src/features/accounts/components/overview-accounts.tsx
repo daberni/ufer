@@ -82,6 +82,11 @@ function AccountStripSkeleton({ area }: {
   );
 }
 
+// The largest balances, whatever their sign, keep the panel about as tall as the net-worth card; the heading links to all accounts.
+function largestAccounts(accounts: Account[]) {
+  return accounts.toSorted((left, right) => Math.abs(right.balance_minor ?? 0) - Math.abs(left.balance_minor ?? 0)).slice(0, shownTiles);
+}
+
 function AccountStrip({ currencyAccounts }: {
   currencyAccounts: Account[]
 }) {
@@ -92,7 +97,7 @@ function AccountStrip({ currencyAccounts }: {
 
   const content = currencyAccounts.length ? (
     <div className={styles["account-strip"]}>
-      {currencyAccounts.slice(0, shownTiles).map(account => {
+      {largestAccounts(currencyAccounts).map(account => {
         const Icon = accountIcon(account.kind);
 
         return (
