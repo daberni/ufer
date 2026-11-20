@@ -13,6 +13,7 @@ stubCssModules();
 const groups: CategoryGroup[] = [{
   key: "rent",
   name: "Rent",
+  combined: 0,
   color: "#4f7a5a",
   icon: null,
   amount: -123456,

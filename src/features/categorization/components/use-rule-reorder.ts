@@ -7,6 +7,8 @@ import { settle } from "@/client/settle";
 import type { Failure } from "@/client/api";
 import { useReorderRules } from "@/features/categorization/mutations";
 import type { Rule } from "@/features/categorization/types";
+import { useFormatLocale } from "@/client/format-locale-provider";
+import { formatCount } from "@/lib/locale";
 
 /** Rules only move up and down, so the dragged row stays aligned with the list. */
 export const verticalOnly: Modifier = ({ transform }) => ({
@@ -14,14 +16,15 @@ export const verticalOnly: Modifier = ({ transform }) => ({
   x: 0
 });
 
-function ruleAnnouncements(rules: Rule[]): Announcements {
+function ruleAnnouncements(rules: Rule[], locale: string): Announcements {
   const name = (id: UniqueIdentifier) => rules.find(rule => rule.id === id)?.name ?? "Rule";
-  const position = (id: UniqueIdentifier | undefined) => rules.findIndex(rule => rule.id === id) + 1;
+  const position = (id: UniqueIdentifier | undefined) => formatCount(rules.findIndex(rule => rule.id === id) + 1, locale);
+  const total = formatCount(rules.length, locale);
 
   return {
-    onDragStart: event => `Picked up ${name(event.active.id)} at position ${position(event.active.id)} of ${rules.length}.`,
-    onDragOver: event => event.over ? `${name(event.active.id)} is at position ${position(event.over.id)} of ${rules.length}.` : `${name(event.active.id)} is outside the list.`,
-    onDragEnd: event => event.over ? `${name(event.active.id)} dropped at position ${position(event.over.id)} of ${rules.length}.` : `${name(event.active.id)} returned to its position.`,
+    onDragStart: event => `Picked up ${name(event.active.id)} at position ${position(event.active.id)} of ${total}.`,
+    onDragOver: event => event.over ? `${name(event.active.id)} is at position ${position(event.over.id)} of ${total}.` : `${name(event.active.id)} is outside the list.`,
+    onDragEnd: event => event.over ? `${name(event.active.id)} dropped at position ${position(event.over.id)} of ${total}.` : `${name(event.active.id)} returned to its position.`,
     onDragCancel: event => `Moving ${name(event.active.id)} was cancelled; it returned to position ${position(event.active.id)}.`
   };
 }
@@ -34,6 +37,7 @@ export const reorderInstructions = {
  * Sorting through dnd-kit: a pointer sensor for mouse, pen and touch on the drag handle, and a keyboard sensor with screen-reader announcements. A drop saves the new order; a failed save restores the previous order and reports the failure next to the list.
  */
 export function useRuleReorder(rules: Rule[]) {
+  const locale = useFormatLocale();
   const reorder = useReorderRules();
   const [failure, setFailure] = useState<Failure | null>(null);
   const [draggedId, setDraggedId] = useState<UniqueIdentifier | null>(null);
@@ -95,7 +99,7 @@ export function useRuleReorder(rules: Rule[]) {
     dragged: shown.find(rule => rule.id === draggedId) ?? null,
     onDragStart: (event: DragStartEvent) => setDraggedId(event.active.id),
     onDragCancel: () => setDraggedId(null),
-    announcements: ruleAnnouncements(shown),
+    announcements: ruleAnnouncements(shown, locale),
     failure,
     dismissFailure: () => setFailure(null),
     onDragEnd

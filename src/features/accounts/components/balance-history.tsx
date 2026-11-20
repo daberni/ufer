@@ -13,6 +13,7 @@ import { areaProps } from "@/components/ui/result-presentation";
 import type { Area, AreaResult } from "@/components/ui/use-area-result";
 import type { BalanceHistory, BalancePoint } from "@/features/accounts/types";
 import { useFormatLocale } from "@/client/format-locale-provider";
+import { formatCount } from "@/lib/locale";
 
 // The table starts with the latest balances; the chart already shows the whole history.
 const initialRows = 5;
@@ -99,7 +100,7 @@ function BalanceTable({
       </table>
       {balances.length > initialRows && (
         <button className={ui["text-button"]} aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
-          {expanded ? "Show latest balances only" : `Show all ${balances.length} balances`}
+          {expanded ? "Show latest balances only" : `Show all ${formatCount(balances.length, locale)} balances`}
         </button>
       )}
     </>

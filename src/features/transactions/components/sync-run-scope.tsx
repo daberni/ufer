@@ -10,6 +10,8 @@ import { Empty } from "@/components/ui/empty-state";
 import { shownStatus, valueMask } from "@/components/ui/result-presentation";
 import type { Area } from "@/components/ui/use-area-result";
 import type { TransactionPage } from "@/features/transactions/types";
+import { useFormatLocale } from "@/client/format-locale-provider";
+import { formatCount } from "@/lib/locale";
 
 type SelectedRun = TransactionPage["syncRun"];
 
@@ -29,12 +31,13 @@ export function SyncRunScope({
   run: SelectedRun;
   transactionCount: Area<number>;
 }) {
+  const locale = useFormatLocale();
   const count = transactionCount.data ?? 0;
 
   return (
     <div className={styles["scope-bar"]}>
       <div className={styles["scope"]}>
-        <span className={clsx(ui["section-kicker"], valueMask(shownStatus(transactionCount)))}>{`${count} ${count === 1 ? "TRANSACTION" : "TRANSACTIONS"}`}</span>
+        <span className={clsx(ui["section-kicker"], valueMask(shownStatus(transactionCount)))}>{`${formatCount(count, locale)} ${count === 1 ? "TRANSACTION" : "TRANSACTIONS"}`}</span>
         <RunDescription found={found} run={run} />
       </div>
       <button className={clsx(ui["button"], ui["small"])} onClick={clear}>

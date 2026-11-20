@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Temporal } from "temporal-polyfill";
-import { describeDate, describeMonth, monthRangeLabel, shortMonthWithYear } from "../src/lib/date-format";
+import { describeDate, describeMonth, formatYear, monthRangeLabel, shortMonthWithYear } from "../src/lib/date-format";
 import { productTimeZone } from "../src/lib/time";
 
 // CLDR separates month ranges with thin spaces around the en dash.
@@ -77,4 +77,10 @@ test("months with their year follow the locale's order and punctuation instead o
   assert.equal(monthRangeLabel([june, november], "de-AT"), "Juni–Nov. 2026");
   assert.equal(monthRangeLabel([december, june], "de-AT"), "Dez. 2025\u2009–\u2009Juni 2026");
   assert.doesNotMatch(monthRangeLabel([december, june], "ja"), /12月 2025/);
+});
+
+test("years use the locale's numerals and style", () => {
+  assert.equal(formatYear(2026, "en"), "2026");
+  assert.equal(formatYear(2026, "ja"), "2026年");
+  assert.equal(formatYear(2026, "ar-EG"), "٢٠٢٦");
 });

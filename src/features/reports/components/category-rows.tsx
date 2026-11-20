@@ -7,7 +7,7 @@ import { formatPercent } from "@/lib/locale";
 import { money } from "@/lib/money";
 import { CategoryLabel, type DisplayCategory, type NeutralCategory } from "@/features/categorization/components/category-label";
 import { categoryBarColor, neutralChipColor, themedColor } from "@/features/categorization/category-colors";
-import type { CategoryGroup } from "@/features/reports/category-groups";
+import { displayName, type CategoryGroup } from "@/features/reports/category-groups";
 import { useFormatLocale } from "@/client/format-locale-provider";
 
 /** The rows as one sentence for an accessible description, e.g. "Groceries €120.00 (40%), Rent €180.00 (60%)". */
@@ -16,16 +16,16 @@ export function describeCategoryGroups(groups: CategoryGroup[], currency: string
     return "None.";
   }
 
-  return groups.map(group => `${group.name} ${money(group.amount, currency, locale)} (${formatPercent(group.share, locale)})`).join(", ");
+  return groups.map(group => `${displayName(group, locale)} ${money(group.amount, currency, locale)} (${formatPercent(group.share, locale)})`).join(", ");
 }
 
-function groupCategory(group: CategoryGroup): DisplayCategory | NeutralCategory {
+function groupCategory(group: CategoryGroup, locale: string): DisplayCategory | NeutralCategory {
   if (group.key === "uncategorized") {
     return "uncategorized";
   }
 
   return {
-    name: group.name,
+    name: displayName(group, locale),
     color: group.color,
     icon: group.icon
   };
@@ -61,7 +61,7 @@ export function CategoryRows({
         const content = (
           <>
             <span className={styles["category"]}>
-              <CategoryLabel category={groupCategory(group)} />
+              <CategoryLabel category={groupCategory(group, locale)} />
             </span>
             <strong>{money(group.amount, currency, locale)}</strong>
             <div>

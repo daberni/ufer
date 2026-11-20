@@ -18,6 +18,7 @@ import { InlineFailure } from "@/components/ui/area-placeholder";
 import type { Area } from "@/components/ui/use-area-result";
 import type { SyncRun } from "@/features/banking/types";
 import { useFormatLocale } from "@/client/format-locale-provider";
+import { formatCount } from "@/lib/locale";
 
 type DisplayCurrencies = {
   /** The currencies of all accounts; until they load, only the selected one is offered. */
@@ -144,7 +145,8 @@ function LatestSync({
 function TransactionCount({ count }: {
   count: Area<number>
 }) {
+  const locale = useFormatLocale();
   const shown = count.data ?? 0;
 
-  return <span className={clsx(ui["section-kicker"], valueMask(shownStatus(count)))}>{`${shown} ${shown === 1 ? "TRANSACTION" : "TRANSACTIONS"}`}</span>;
+  return <span className={clsx(ui["section-kicker"], valueMask(shownStatus(count)))}>{`${formatCount(shown, locale)} ${shown === 1 ? "TRANSACTION" : "TRANSACTIONS"}`}</span>;
 }

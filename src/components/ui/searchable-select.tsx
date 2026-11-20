@@ -133,7 +133,7 @@ export function SearchableSelect<Value>({
   if (open && !matches.length) {
     announcement = message || noMatchText;
   } else if (open) {
-    announcement = message || (truncated ? `${countText(matches.length)}, showing the first ${shown.length}` : countText(matches.length));
+    announcement = message || (truncated ? `${countText(matches.length)}, showing the first ${formatCount(shown.length, locale)}` : countText(matches.length));
   }
 
   if (open && createName) {
@@ -143,7 +143,7 @@ export function SearchableSelect<Value>({
   const activeLabel = active === createIndex ? createLabel : shown[active]?.label;
 
   if (open && toggleFocused && activeLabel) {
-    announcement = `${activeLabel}${active === selectedIndex ? ", selected" : ""}, ${active + 1} of ${optionCount}`;
+    announcement = `${activeLabel}${active === selectedIndex ? ", selected" : ""}, ${formatCount(active + 1, locale)} of ${formatCount(optionCount, locale)}`;
   }
 
   const place = useCallback(() => {

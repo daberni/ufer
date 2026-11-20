@@ -19,7 +19,7 @@ export function adoptByDefault(matches: ManualMatches) {
 }
 
 function transactionCount(count: number, locale: string) {
-  return count === 1 ? "1 manually categorized transaction" : `${formatCount(count, locale)} manually categorized transactions`;
+  return `${formatCount(count, locale)} ${count === 1 ? "manually categorized transaction" : "manually categorized transactions"}`;
 }
 
 /**

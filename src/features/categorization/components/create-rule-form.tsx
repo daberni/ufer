@@ -65,7 +65,7 @@ function sameDraft(first: RulePreviewDraft | null, second: RulePreviewDraft | nu
 }
 
 function transactionCount(count: number, locale: string) {
-  return count === 1 ? "1 transaction" : `${formatCount(count, locale)} transactions`;
+  return `${formatCount(count, locale)} ${count === 1 ? "transaction" : "transactions"}`;
 }
 
 /** What the drafted rule would decide when rules are applied; nothing changes before that. The draft must keep its identity while its fields are unchanged. */

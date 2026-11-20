@@ -82,6 +82,14 @@ function monthStart(month: Temporal.PlainYearMonth) {
   return new Date(Date.UTC(month.year, month.month - 1, 1));
 }
 
+/** A calendar year in the locale's numerals and style, e.g. "2026" in English or "2026年" in Japanese. */
+export function formatYear(year: number, locale: string) {
+  return new Intl.DateTimeFormat(locale, {
+    year: "numeric",
+    timeZone: "UTC"
+  }).format(new Date(Date.UTC(year, 0, 1)));
+}
+
 /** A short month with its year, e.g. "Dec 2025" in English. */
 export function shortMonthWithYear(month: Temporal.PlainYearMonth, locale: string) {
   return monthFormat(locale).format(monthStart(month));

@@ -24,6 +24,8 @@ import { closestCenter, DndContext, DragOverlay } from "@dnd-kit/core";
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { reorderInstructions, useRuleReorder, verticalOnly } from "./use-rule-reorder";
+import { useFormatLocale } from "@/client/format-locale-provider";
+import { formatCount } from "@/lib/locale";
 
 type Props = {
   categories: Area<Category[]>;
@@ -307,6 +309,7 @@ function SortableRuleRow({
   toggleRule,
   editRule
 }: RuleRowProps) {
+  const locale = useFormatLocale();
   const {
     attributes,
     listeners,
@@ -337,7 +340,7 @@ function SortableRuleRow({
         disabled={count < 2}
         {...attributes}
         {...listeners}
-        aria-label={`Move rule ${rule.name}, position ${position} of ${count}`}
+        aria-label={`Move rule ${rule.name}, position ${formatCount(position, locale)} of ${formatCount(count, locale)}`}
       >
         <GripVertical aria-hidden="true" size={18} />
       </button>

@@ -58,7 +58,7 @@ function previewDraft(pattern: string, categoryId: string, sourceTransactionId: 
 }
 
 function transactionCount(count: number, locale: string) {
-  return count === 1 ? "1 other transaction" : `${formatCount(count, locale)} other transactions`;
+  return `${formatCount(count, locale)} ${count === 1 ? "other transaction" : "other transactions"}`;
 }
 
 function RuleFromAssignmentForm({
