@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { themeAttribute, themeViewport } from "@/features/appearance/theme-preference";
 import { requestThemePreference } from "@/features/appearance/server/request-theme";
+import { FormatLocaleProvider } from "@/client/format-locale-provider";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -28,5 +29,5 @@ export default async function RootLayout({ children }: Readonly<{
 }>) {
   const preference = await requestThemePreference();
 
-  return <html lang="en" data-theme={themeAttribute(preference)}><body>{children}</body></html>;
+  return <html lang="en" data-theme={themeAttribute(preference)}><body><FormatLocaleProvider>{children}</FormatLocaleProvider></body></html>;
 }

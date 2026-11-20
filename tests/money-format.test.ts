@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { formatCount, formatPercent } from "../src/lib/locale";
+import { fallbackLocale, formatCount, formatPercent, formatLocale, parseFormatLocalePreference, resolveFormatLocale } from "../src/lib/locale";
 import { money, signedMoney } from "../src/lib/money";
 
-// CLDR separates a letter currency code from the number with a no-break space.
+// The tests run like the server, with the fallback locale; CLDR separates a letter currency code from the number with a no-break space.
 test("amounts use the application locale's standard currency format with the minus before the symbol", () => {
   assert.equal(money(123456, "EUR"), "€1,234.56");
   assert.equal(money(-123456, "EUR"), "-€1,234.56");
@@ -41,4 +41,20 @@ test("percentages never show a negative zero", () => {
 
 test("counts are grouped", () => {
   assert.equal(formatCount(1234567), "1,234,567");
+});
+
+test("the browser's first supported language decides the format", () => {
+  assert.equal(resolveFormatLocale("browser", ["de-AT", "en-GB"]), "de-AT");
+  assert.equal(resolveFormatLocale("browser", ["not a tag", "fr-FR"]), "fr-FR");
+  assert.equal(resolveFormatLocale("browser", []), fallbackLocale);
+});
+
+test("an explicit preference overrides the browser's languages", () => {
+  assert.equal(resolveFormatLocale("en-US", ["de-AT"]), "en-US");
+  assert.equal(parseFormatLocalePreference("xx-unknown"), "browser");
+  assert.equal(parseFormatLocalePreference(null), "browser");
+});
+
+test("the server keeps formatting with the fallback locale", () => {
+  assert.equal(formatLocale(), fallbackLocale);
 });

@@ -1,5 +1,5 @@
 import { ValidationError } from "./errors";
-import { appLocale } from "./locale";
+import { cachedFormat, fallbackLocale } from "./locale";
 
 // Pinned minor units of the currencies stored so far; HUF keeps 2 although the runtime formats it with 0.
 const pinnedExponents: Record<string, number> = {
@@ -33,7 +33,7 @@ export function currencyExponent(currency: string) {
     return undefined;
   }
 
-  return new Intl.NumberFormat(appLocale, {
+  return new Intl.NumberFormat(fallbackLocale, {
     style: "currency",
     currency
   }).resolvedOptions().maximumFractionDigits;
@@ -79,26 +79,20 @@ export function minorUnits(value: string, currency = "EUR"): number {
 const moneyFormats = new Map<string, Intl.NumberFormat>();
 
 function moneyFormat(currency: string, signed: boolean) {
-  const key = `${currency}:${signed}`;
-  let format = moneyFormats.get(key);
-
-  if (!format) {
+  return cachedFormat(moneyFormats, `${currency}:${signed}`, locale => {
     const exponent = currencyExponent(currency) ?? 2;
 
-    format = new Intl.NumberFormat(appLocale, {
+    return new Intl.NumberFormat(locale, {
       style: "currency",
       currency,
       minimumFractionDigits: exponent,
       maximumFractionDigits: exponent,
       signDisplay: signed ? "exceptZero" : "auto"
     });
-    moneyFormats.set(key, format);
-  }
-
-  return format;
+  });
 }
 
-/** Minor units in the application locale's standard currency format, for example -123456 EUR as "-€1,234.56". */
+/** Minor units in the formatting locale's standard currency format, for example -123456 EUR as "-€1,234.56" in English. */
 export function money(value: number, currency = "EUR") {
   return moneyFormat(currency, false).format(value / 10 ** (currencyExponent(currency) ?? 2));
 }
