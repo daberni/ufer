@@ -39,10 +39,13 @@ function validParts(subject: SplitSubject, parts: PartInput[]): SplitPartValues[
     throw new ValidationError("Every part needs an amount.");
   }
 
-  const total = values.reduce((sum, part) => sum + part.amount, 0);
+  // Each part is a safe integer, but their sum may not be; a sum beyond the safe range cannot equal the booking's amount.
+  const total = values.reduce((sum, part) => sum + BigInt(part.amount), 0n);
 
-  if (total !== subject.amount_minor) {
-    throw new ValidationError(`The parts add up to ${money(total, subject.currency)} instead of ${money(subject.amount_minor, subject.currency)}.`);
+  if (total !== BigInt(subject.amount_minor)) {
+    const shown = Number.isSafeInteger(Number(total)) ? money(Number(total), subject.currency) : "more than the supported range";
+
+    throw new ValidationError(`The parts add up to ${shown} instead of ${money(subject.amount_minor, subject.currency)}.`);
   }
 
   return values;

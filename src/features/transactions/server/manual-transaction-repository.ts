@@ -6,6 +6,7 @@ import { transactions } from "@/server/database/schema";
 import type { TransactionType } from "@/features/transactions/transaction-types";
 import type { RuleAssignment, RuleText } from "@/lib/rules";
 import { applyTransactionType, createdCounterpartPrefix, dissolveLink, enteredInUfer, enteredPair, findCounterpart, findSubject, manualEntryPrefix, type TransferTarget, type TypeChangeResult } from "./transfer-repository";
+import { splitRefusesType } from "./split-repository";
 
 /** The fields a person enters for a booking on a manual account. */
 export type ManualEntry = {
@@ -26,7 +27,7 @@ export type NewManualEntry = ManualEntry & {
   categoryRuleId: string | null;
 };
 
-export type ManualEntryResult = TypeChangeResult | "not_entered" | "follows_import" | "entered" | "hidden";
+export type ManualEntryResult = TypeChangeResult | "not_entered" | "follows_import" | "entered" | "hidden" | "split";
 
 /** Thrown inside a write transaction to roll it back and report why a change was refused. */
 class Refused extends TransactionRollbackError {
@@ -115,6 +116,10 @@ export async function updateManualTransaction(id: string, entry: ManualEntry, ca
 
     if (!enteredInUfer(subject)) {
       return "not_entered";
+    }
+
+    if (await splitRefusesType(tx, id, entry.type)) {
+      return "split";
     }
 
     const counterpart = await findCounterpart(tx, subject);

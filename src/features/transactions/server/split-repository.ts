@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { and, asc, eq, inArray, notExists } from "drizzle-orm";
-import { database } from "@/server/database/connection";
+import { database, type DatabaseTransaction } from "@/server/database/connection";
 import { environment } from "@/features/banking/server/environment";
 import { accounts, categorizationRules, transactionSplits, transactions } from "@/server/database/schema";
 import type { Rule, RuleAssignment, RuleText } from "@/lib/rules";
@@ -121,6 +121,19 @@ export async function removeSplit(id: string, assign: (rules: Rule[], text: Rule
       ok: true
     };
   });
+}
+
+/** Whether saving this type would leave a split booking with a type that is not split: only income and expenses count by category. Read inside the write that saves the type. */
+export async function splitRefusesType(tx: DatabaseTransaction, id: string, type: TransactionType) {
+  if (type === "income" || type === "expense") {
+    return false;
+  }
+
+  const part = await tx.select({
+    id: transactionSplits.id
+  }).from(transactionSplits).where(eq(transactionSplits.transaction_id, id)).limit(1).get();
+
+  return part !== undefined;
 }
 
 /** Whether a booking is split into parts. */

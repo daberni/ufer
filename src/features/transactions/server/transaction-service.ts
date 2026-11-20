@@ -7,7 +7,7 @@ import { today, validDate } from "@/lib/time";
 import { findManualAccount } from "@/features/accounts/server/account-repository";
 import { categoryExists } from "@/features/categorization/server/category-repository";
 import { listRules } from "@/features/categorization/server/rule-repository";
-import { transactionTypes, type TransactionType } from "@/features/transactions/transaction-types";
+import { transactionTypes } from "@/features/transactions/transaction-types";
 import { categorizeEntries } from "./categorize-entries";
 import { createManualTransaction, deleteManualTransaction, findEntryCurrency, updateManualTransaction, type ManualEntryResult } from "./manual-transaction-repository";
 import { returnTransactionToRules, saveTransactionDetails, setTransactionCategory, setTransactionHidden } from "./transaction-repository";
@@ -81,7 +81,8 @@ const typeFailures: Record<Exclude<ManualEntryResult, "saved" | "not_found" | "h
   created_counterpart: "Ufer created this booking for the transfer of its linked booking. Change where the transfer goes on that booking, or remove this one.",
   not_entered: "Only transactions entered in Ufer on a manual account can be edited or deleted this way.",
   follows_import: "This booking is linked with an imported booking and keeps its date and amount. Unlink it to change them.",
-  entered: "This transaction was entered in Ufer. Edit or delete it instead."
+  entered: "This transaction was entered in Ufer. Edit or delete it instead.",
+  split: "Remove the split before changing this transaction to another type."
 };
 
 function requireSaved(result: ManualEntryResult) {
@@ -118,7 +119,6 @@ export async function updateTransactionDetails(id: string, payload: unknown) {
     throw new ValidationError("Only a transfer has a target account.");
   }
 
-  await refuseSplitTypeChange(id, input.type);
   requireSaved(await saveTransactionDetails(id, input.type, target(input.transfer), {
     counterparty: input.counterparty,
     description: input.description
@@ -127,15 +127,6 @@ export async function updateTransactionDetails(id: string, payload: unknown) {
   return {
     ok: true
   };
-}
-
-/** Only income and expenses can be split, so a split booking keeps one of those types until its split is removed. */
-async function refuseSplitTypeChange(id: string, type: TransactionType) {
-  const countsByCategory = type === "income" || type === "expense";
-
-  if (!countsByCategory && await isSplit(id)) {
-    throw new ValidationError("Remove the split before changing this transaction to another type.");
-  }
 }
 
 const entryInput = typeInput.extend({
@@ -230,8 +221,6 @@ export async function editManualTransaction(id: string, payload: unknown, now = 
   }
 
   const entry = validateEntry(input, currency, now);
-
-  await refuseSplitTypeChange(id, entry.type);
 
   const rules = prepareRules(await listRules());
   const categoryFor = (text: RuleText) => ruleAssignment(text, rules);

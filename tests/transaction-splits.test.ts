@@ -402,3 +402,36 @@ test("automatic transfer pairing leaves a split booking as it is", async context
   assert.equal(row?.counterpart, null);
   assert.equal(row?.split?.parts.length, 2);
 });
+
+test("parts whose sum leaves the safe integer range are rejected instead of rounding to the booking's amount", async context => {
+  const db = await seed(context);
+
+  await db.insert(schema.transactions).values({
+    id: "cent",
+    account_id: "checking",
+    provider_reference: "bank:cent",
+    booking_date: "2026-01-20",
+    amount_minor: 1,
+    currency: "EUR",
+    counterparty: "Example interest",
+    type: "income"
+  });
+
+  // In floating point 9007199254740991 + 2 rounds to 9007199254740992, so these parts would appear to add up to 1 instead of 2.
+  await assert.rejects(splitTransaction("cent", {
+    parts: [{
+      amount: "90071992547409.91",
+      category_id: null,
+      note: ""
+    }, {
+      amount: "0.02",
+      category_id: null,
+      note: ""
+    }, {
+      amount: "-90071992547409.91",
+      category_id: null,
+      note: ""
+    }]
+  }), error => error instanceof ValidationError && /add up to €0\.02 instead of €0\.01/.test(error.message));
+  assert.equal((await db.select().from(schema.transactionSplits)).length, 0);
+});
