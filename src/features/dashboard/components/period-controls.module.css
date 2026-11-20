@@ -45,10 +45,6 @@
   border-color: var(--green);
   color: var(--green-text);
 }
-/* The overview has no period; its kicker and the optional currency choice share one row at every width, so the choice appearing never moves the page. */
-.overview-bar {
-  min-height: 44px;
-}
 @media (--laptop) {
   .period-bar > div:first-child {
     flex-direction: column;
@@ -62,14 +58,6 @@
     flex-direction: column;
     gap: var(--space-3);
     margin-bottom: var(--space-4);
-  }
-  .period-bar.overview-bar {
-    align-items: center;
-    flex-direction: row;
-  }
-  .overview-bar > select {
-    min-height: 44px;
-    font-size: var(--text-md);
   }
   .period-controls {
     position: relative;

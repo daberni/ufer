@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test, type TestContext } from "node:test";
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { JSDOM } from "jsdom";
-import { viewQuery, periodScope, viewHref, withQueryChanges } from "../src/client/app-location";
+import { allTransactionsHref, recentTransactionsQuery, viewQuery, periodScope, viewHref, withQueryChanges } from "../src/client/app-location";
 import { allMonthsPeriod, currentMonth, monthPeriod, serializePeriod } from "../src/lib/period";
 import { dashboardFilters } from "../src/server/http/dashboard-filters";
 import { commitDelay, useSearchDraft } from "../src/features/transactions/use-search-draft";
@@ -50,6 +50,16 @@ test("the overview always reports on the current month and keeps the selected pe
   assert.equal(serializePeriod(viewQuery("/", scope, params).period), currentMonth().toString());
   assert.equal(serializePeriod(viewQuery("/transactions", scope, params).period), "2026-03");
   assert.equal(viewHref("transactions", scope), "/transactions?period=2026-03&currency=USD");
+});
+
+test("the overview's recent transactions cover all months in the selected currency, and View all continues them", () => {
+  const params = new URLSearchParams("period=2026-03&currency=USD");
+  const scope = periodScope(params);
+  const recent = recentTransactionsQuery(viewQuery("/", scope, params));
+
+  assert.equal(serializePeriod(recent.period), "all");
+  assert.equal(recent.currency, "USD");
+  assert.equal(allTransactionsHref(scope), "/transactions?period=all&currency=USD");
 });
 
 test("views without a period link back to the period the user selected", () => {

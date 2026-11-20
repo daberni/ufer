@@ -5,19 +5,14 @@ import ui from "../../../components/ui/primitives.module.css";
 import { clsx } from "clsx";
 import styles from "./period-controls.module.css";
 import { CalendarRange, Check, ChevronLeft, ChevronRight } from "lucide-react";
-import { Temporal } from "temporal-polyfill";
-import { describeDate, periodLabel } from "@/lib/date-format";
-import { useDisplayTimeZone } from "@/components/ui/use-display-time-zone";
-import { lastSyncLabel } from "@/features/banking/sync-run-presentation";
+import { periodLabel } from "@/lib/date-format";
 import { allMonthsPeriod, currentMonthPeriod, monthPeriod } from "@/lib/period";
-import { selectPeriod, setCurrency, useCurrency, usePeriod } from "@/client/use-app-url";
+import { selectPeriod, usePeriod } from "@/client/use-app-url";
 import { showsCurrencySelect } from "@/features/accounts/queries";
-import { Select } from "@/components/ui/select";
+import { CurrencyChoice } from "@/features/accounts/components/currency-choice";
 import { MonthPicker } from "@/features/dashboard/components/month-picker";
 import { shownStatus, valueMask } from "@/components/ui/result-presentation";
-import { InlineFailure } from "@/components/ui/area-placeholder";
 import type { Area } from "@/components/ui/use-area-result";
-import type { SyncRun } from "@/features/banking/types";
 import { useLocale } from "@/client/locale-provider";
 import { formatCount } from "@/lib/locale";
 
@@ -27,9 +22,6 @@ type DisplayCurrencies = {
 };
 
 type Props = (DisplayCurrencies & {
-  view: "overview";
-  latestSync: Area<SyncRun | undefined>;
-}) | (DisplayCurrencies & {
   view: "transactions";
   /** Matches for the selected filters. */
   transactionCount: Area<number>;
@@ -43,41 +35,15 @@ export function PeriodControls(props: Props) {
   const currencies = props.view === "account" ? [] : props.currencies.data ?? [];
 
   return (
-    <div className={clsx(styles["period-bar"], props.view === "overview" && styles["overview-bar"])}>
+    <div className={styles["period-bar"]}>
       <div>
-        {props.view === "overview" ? <OverviewKicker latestSync={props.latestSync} /> : <TransactionCount count={props.transactionCount} />}
+        <TransactionCount count={props.transactionCount} />
       </div>
-      {props.view === "overview" ? (
-        <CurrencySelect currencies={currencies} />
-      ) : (
-        <div className={clsx(styles["period-controls"], !showsCurrencySelect(currencies) && styles["without-currency"])}>
-          <CurrencySelect currencies={currencies} />
-          <PeriodSelect />
-        </div>
-      )}
+      <div className={clsx(styles["period-controls"], !showsCurrencySelect(currencies) && styles["without-currency"])}>
+        <CurrencyChoice currencies={currencies} />
+        <PeriodSelect />
+      </div>
     </div>
-  );
-}
-
-/** Choosing a currency picks which accounts' figures are shown, without conversion; with one currency in use there is nothing to choose. */
-function CurrencySelect({ currencies }: {
-  currencies: string[];
-}) {
-  const currency = useCurrency();
-
-  if (!showsCurrencySelect(currencies)) {
-    return null;
-  }
-
-  return (
-    <Select
-      variant="bare"
-      aria-label="Accounts shown by currency"
-      value={currency}
-      onChange={event => setCurrency(event.target.value)}
-    >
-      {currencies.map(value => <option key={value} value={value}>{`${value} accounts`}</option>)}
-    </Select>
   );
 }
 
@@ -128,41 +94,6 @@ function PeriodSelect() {
       </button>
     </>
   );
-}
-
-function OverviewKicker({ latestSync }: {
-  latestSync: Area<SyncRun | undefined>;
-}) {
-  const timeZone = useDisplayTimeZone();
-
-  return (
-    <>
-      <span className={ui["section-kicker"]}>NET WORTH & CASH FLOW</span>
-      <LatestSync latestSync={latestSync} timeZone={timeZone} />
-    </>
-  );
-}
-
-function LatestSync({
-  latestSync,
-  timeZone
-}: {
-  latestSync: Area<SyncRun | undefined>;
-  timeZone: string;
-}) {
-  const locale = useLocale();
-
-  if (latestSync.status === "pending") {
-    if (latestSync.failure) {
-      return <InlineFailure className={ui["subtle"]} failure={latestSync.failure} subject="The last sync" />;
-    }
-
-    return <span className={clsx(ui["subtle"], valueMask("loading"))}>Last sync: today · successful</span>;
-  }
-
-  const run = latestSync.data;
-
-  return <span className={ui["subtle"]} title={run ? describeDate(Temporal.Instant.from(run.started_at).toZonedDateTimeISO(timeZone), locale).title : undefined}>{lastSyncLabel(run, timeZone, locale)}</span>;
 }
 
 function TransactionCount({ count }: {

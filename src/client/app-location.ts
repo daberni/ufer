@@ -1,5 +1,5 @@
 import { isTransactionType, type TransactionType } from "@/features/transactions/transaction-types";
-import { currentMonth, currentMonthPeriod, parsePeriod, serializePeriod, type Period } from "@/lib/period";
+import { allMonthsPeriod, currentMonth, currentMonthPeriod, parsePeriod, serializePeriod, type Period } from "@/lib/period";
 import { parsePage } from "@/lib/pagination";
 import { parseCurrencyCode } from "@/lib/money";
 
@@ -142,6 +142,23 @@ export function viewQuery(pathname: string, scope: string, params: SearchParams)
     syncRun: listParams.get("syncRun") || "",
     page: parsePage(pageParams.get("page"))
   };
+}
+
+/** The overview's recent transactions: the latest bookings of every month in the selected currency. */
+export function recentTransactionsQuery(query: ViewQuery): ViewQuery {
+  return {
+    ...query,
+    period: allMonthsPeriod,
+    page: 1
+  };
+}
+
+/** The whole transaction list behind the overview's recent transactions: all months in the current currency. */
+export function allTransactionsHref(scope: string) {
+  return withQueryChanges(viewPaths.transactions, scope, {
+    period: allMonthsPeriod,
+    page: 1
+  });
 }
 
 export function viewHref(view: Section, scope: string) {
