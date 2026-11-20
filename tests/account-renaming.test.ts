@@ -18,6 +18,7 @@ const account: Account = {
   currency: "EUR",
   balance_minor: 12000,
   balance_date: "2026-01-01",
+  last_booking_date: null,
   provider: "enable_banking",
   requisition_id: "connection",
   last_synced_at: null,
