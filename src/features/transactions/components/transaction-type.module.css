@@ -110,10 +110,16 @@
 
 .facts {
   display: grid;
-  gap: var(--space-1);
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "amount type"
+    "meta type";
+  align-items: center;
+  gap: var(--space-1) var(--space-4);
   margin: calc(var(--space-2) * -1) 0 var(--space-6);
 }
 .facts-amount {
+  grid-area: amount;
   font-size: var(--text-3xl);
   font-weight: 500;
   letter-spacing: -0.8px;
@@ -124,28 +130,35 @@
   color: var(--green-text);
 }
 .facts-meta {
+  grid-area: meta;
   font-size: var(--text-sm);
   color: var(--muted);
   overflow-wrap: anywhere;
 }
+/* Overrides the vertical margins the form gives its labels; the type sits beside the amount it describes. */
+.facts .type-control {
+  grid-area: type;
+  margin: 0;
+  min-width: 10rem;
+}
 
-/* Two columns of fields; anything that is not a field spans both. */
 .fields {
+  display: grid;
+  gap: var(--space-4);
+}
+/* Overrides the vertical margins the form gives its labels and hints; the grid gap spaces the fields. */
+.fields.fields > *,
+.fields.fields label {
+  margin: 0;
+}
+/* Two related fields side by side, such as a transfer's target account and the booking it pairs with. */
+.pair {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: var(--space-4) var(--space-6);
   align-items: start;
 }
-.fields > * {
-  grid-column: 1 / -1;
-}
-.fields > label,
-.fields > .cell {
-  grid-column: auto;
-}
-/* Overrides the vertical margins the form gives its labels and hints; the grid gap spaces the fields. */
-.fields.fields > *,
-.fields.fields label {
+.pair.pair > * {
   margin: 0;
 }
 .cell {
@@ -160,6 +173,10 @@
 .cell > :not(button) {
   align-self: stretch;
 }
+/* The cell's gap spaces its hint. */
+.cell.cell > p {
+  margin: 0;
+}
 .actions {
   display: flex;
   flex-wrap: wrap;
@@ -173,7 +190,16 @@
 }
 
 @media (--mobile) {
-  .fields {
+  .facts {
+    grid-template-areas:
+      "amount type"
+      "meta meta";
+    align-items: end;
+  }
+  .facts .type-control {
+    min-width: 8.5rem;
+  }
+  .pair {
     grid-template-columns: minmax(0, 1fr);
   }
   .actions {

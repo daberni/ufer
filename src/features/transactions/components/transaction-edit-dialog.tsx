@@ -130,8 +130,6 @@ export function TransactionEditDialog({
   close
 }: Props) {
   const [step, setStep] = useState<Step>("edit");
-  const subject = transaction.counterparty || transaction.description || transactionTypeLabels[transaction.type];
-  const date = describeDate(Temporal.PlainDate.from(transaction.booking_date)).label;
 
   return (
     <Dialog
@@ -140,10 +138,7 @@ export function TransactionEditDialog({
       wide={step === "edit"}
       onClose={close}
     >
-      <div className={styles["facts"]}>
-        <span className={clsx(styles["facts-amount"], transaction.amount_minor > 0 && styles["incoming"])}>{signedMoney(transaction.amount_minor, transaction.currency)}</span>
-        <span className={styles["facts-meta"]}>{[subject, date, transaction.account_name].join(" · ")}</span>
-      </div>
+      {step !== "edit" && <TransactionFacts transaction={transaction} />}
       {step === "delete" && <DeleteConfirmation transaction={transaction} close={close} cancel={() => setStep("edit")} />}
       {step === "hide" && <HideConfirmation transaction={transaction} close={close} cancel={() => setStep("edit")} />}
       {step === "edit" && (
@@ -155,6 +150,26 @@ export function TransactionEditDialog({
         />
       )}
     </Dialog>
+  );
+}
+
+/** The amount, prominently, with payee, date and account; the edit form places the type beside the amount, since it describes the amount. */
+function TransactionFacts({
+  transaction,
+  children
+}: {
+  transaction: Transaction;
+  children?: ReactNode;
+}) {
+  const subject = transaction.counterparty || transaction.description || transactionTypeLabels[transaction.type];
+  const date = describeDate(Temporal.PlainDate.from(transaction.booking_date)).label;
+
+  return (
+    <div className={styles["facts"]}>
+      <span className={clsx(styles["facts-amount"], transaction.amount_minor > 0 && styles["incoming"])}>{signedMoney(transaction.amount_minor, transaction.currency)}</span>
+      {children}
+      <span className={styles["facts-meta"]}>{[subject, date, transaction.account_name].join(" · ")}</span>
+    </div>
   );
 }
 
@@ -411,6 +426,25 @@ function TransactionEditForm({
         void saveAll(details);
       }}
     >
+      <TransactionFacts transaction={transaction}>
+        <label className={styles["type-control"]}>
+          Type
+          <Select
+            name="type"
+            value={type}
+            onChange={event => {
+              const value = event.target.value;
+
+              if (isTransactionType(value)) {
+                setType(value);
+                setTypeChosen(true);
+              }
+            }}
+          >
+            {available.map(option => <option key={option} value={option}>{transactionTypeLabels[option]}</option>)}
+          </Select>
+        </label>
+      </TransactionFacts>
       <div className={styles["fields"]}>
         {transaction.hidden && <ShowAgain transaction={transaction} close={close} />}
         {imported && <ImportedTextFields transaction={transaction} />}
@@ -428,23 +462,15 @@ function TransactionEditForm({
             }}
           />
         )}
-        <label>
-          Type
-          <Select
-            name="type"
-            value={type}
-            onChange={event => {
-              const value = event.target.value;
-
-              if (isTransactionType(value)) {
-                setType(value);
-                setTypeChosen(true);
-              }
-            }}
-          >
-            {available.map(option => <option key={option} value={option}>{transactionTypeLabels[option]}</option>)}
-          </Select>
-        </label>
+        {!transfer && transaction.counterpart && <p className={ui["form-hint"]}>{leaveTransferHint(transaction)}</p>}
+        {linkable && (
+          <TransferFields
+            transaction={transaction}
+            options={options}
+            target={target}
+            onTarget={setTarget}
+          />
+        )}
         {!splitOpen && (
           <div className={styles["cell"]}>
             <label htmlFor={categoryFieldId}>Category</label>
@@ -491,15 +517,6 @@ function TransactionEditForm({
               setSplitOpen(false);
               setSplitFocus("trigger");
             }}
-          />
-        )}
-        {!transfer && transaction.counterpart && <p className={ui["form-hint"]}>{leaveTransferHint(transaction)}</p>}
-        {linkable && (
-          <TransferFields
-            transaction={transaction}
-            options={options}
-            target={target}
-            onTarget={setTarget}
           />
         )}
       </div>
@@ -619,7 +636,7 @@ function OverridableText({
   const [overridden, setOverridden] = useState(initial.trim() !== source.trim());
 
   return (
-    <div className={clsx(styles["overridable"], styles["cell"])}>
+    <div className={styles["overridable"]}>
       {children({
         defaultValue: initial,
         inputRef: input,
@@ -754,7 +771,30 @@ function TransferFields({
   const accounts = options.data.accounts;
 
   return (
-    <>
+    <div className={styles["pair"]}>
+      <div className={styles["cell"]}>
+        <label htmlFor={targetId}>
+          Target account
+          <Select
+            id={targetId}
+            name="target"
+            value={selectValue(target)}
+            onChange={event => {
+              const value = event.target.value;
+
+              onTarget(value.startsWith("account:") ? {
+                kind: "account",
+                accountId: value.slice("account:".length)
+              } : noTarget);
+            }}
+          >
+            <option value="">None (account not tracked in Ufer)</option>
+            {target.kind === "booking" && <option value={selectValue(target)}>{`${target.booking.account_name} (selected booking)`}</option>}
+            {accounts.map(account => <option key={account.id} value={`account:${account.id}`}>{account.name}</option>)}
+          </Select>
+        </label>
+        <p className={ui["form-hint"]} role="status">{targetSummary(transaction, target, accounts)}</p>
+      </div>
       {suggestions.length > 0 && (
         <fieldset className={styles["suggestions"]} aria-describedby={`${suggestionsId}-hint`}>
           <legend>Bookings on other accounts</legend>
@@ -776,27 +816,6 @@ function TransferFields({
           ))}
         </fieldset>
       )}
-      <label htmlFor={targetId}>
-        Target account
-        <Select
-          id={targetId}
-          name="target"
-          value={selectValue(target)}
-          onChange={event => {
-            const value = event.target.value;
-
-            onTarget(value.startsWith("account:") ? {
-              kind: "account",
-              accountId: value.slice("account:".length)
-            } : noTarget);
-          }}
-        >
-          <option value="">None (account not tracked in Ufer)</option>
-          {target.kind === "booking" && <option value={selectValue(target)}>{`${target.booking.account_name} (selected booking)`}</option>}
-          {accounts.map(account => <option key={account.id} value={`account:${account.id}`}>{account.name}</option>)}
-        </Select>
-      </label>
-      <p className={ui["form-hint"]} role="status">{targetSummary(transaction, target, accounts)}</p>
-    </>
+    </div>
   );
 }

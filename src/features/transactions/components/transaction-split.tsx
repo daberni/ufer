@@ -56,7 +56,7 @@ export function SplitTag({
   );
 }
 
-function statusText(state: DraftState, currency: string) {
+function statusText(state: DraftState, currency: string, restCategory: string | null) {
   const remaining = money(Math.abs(state.remaining), currency);
 
   switch (state.status) {
@@ -69,7 +69,8 @@ function statusText(state: DraftState, currency: string) {
     case "single":
       return "Lower an amount to split off the rest.";
     default:
-      return state.remaining > 0 ? `${remaining} remaining` : "Fully assigned";
+      // The rest part covers whatever the entered parts leave, so the booking is fully assigned either way.
+      return state.remaining > 0 && restCategory === null ? "Fully assigned · choose a category for the rest" : "Fully assigned";
   }
 }
 
@@ -99,7 +100,9 @@ export function SplitEditor({
 }) {
   const statusId = useId();
   const total = Math.abs(transaction.amount_minor);
-  const fill = total === 0 ? 0 : Math.min(100, Math.max(0, state.assigned / total * 100));
+  // The rest part counts as assigned while it covers the gap.
+  const assigned = state.assigned + Math.max(state.remaining, 0);
+  const fill = total === 0 ? 0 : Math.min(100, Math.max(0, assigned / total * 100));
   const problem = state.status === "invalid" || state.status === "incomplete" || state.status === "over";
 
   function update(key: number, change: Partial<DraftPart>) {
@@ -132,11 +135,11 @@ export function SplitEditor({
       <div className={styles["meter-row"]}>
         <div className={styles["meter-text"]}>
           <span>
-            Assigned <strong>{money(state.assigned, transaction.currency)}</strong> of {money(total, transaction.currency)}
+            Assigned <strong>{money(assigned, transaction.currency)}</strong> of {money(total, transaction.currency)}
           </span>
           <span id={statusId} className={clsx(styles["status"], problem && styles["problem"])} role="status">
             {problem && <CircleAlert size={14} aria-hidden="true" />}
-            {statusText(state, transaction.currency)}
+            {statusText(state, transaction.currency, draft.remainder.categoryId)}
           </span>
         </div>
         <span className={clsx(styles["meter"], state.status === "over" && styles["over"])} aria-hidden="true">

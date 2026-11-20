@@ -95,7 +95,8 @@ test("lowering a part proposes the rest as a remaining part, and Save stores the
       value: "240"
     }
   });
-  assert.ok(screen.getByText("€110.00 remaining"));
+  assert.ok(screen.getByText("€110.00"));
+  assert.ok(screen.getByText("Fully assigned · choose a category for the rest"));
   assert.ok(screen.getByRole("combobox", {
     name: "Category of part 2"
   }));
@@ -117,7 +118,7 @@ test("lowering a part proposes the rest as a remaining part, and Save stores the
       value: "100"
     }
   });
-  assert.ok(screen.getByText("€10.00 remaining"));
+  assert.ok(screen.getByText("€10.00"));
   assert.equal(save().disabled, false);
 
   act(() => {
