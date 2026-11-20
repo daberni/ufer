@@ -458,7 +458,7 @@ test("a keyword matching only the payee override decides the booking when rules 
   const db = await isolatedDatabase(context);
   const id = await overriddenBooking(db);
 
-  await createRule(energyRule);
+  await createRule(energyRule, "en");
   await applyRulesToUncorrectedTransactions();
 
   assert.equal((await row(db, id))?.category_id, "home");
@@ -494,7 +494,7 @@ test("a keyword matching only the payee override counts toward and adopts manual
     ...energyRule,
     id: preview.id,
     adopt_manual: true
-  });
+  }, "en");
   const adopted = await row(db, id);
 
   assert.deepEqual([adopted?.category_id, adopted?.category_source], ["home", "rule"]);
@@ -518,7 +518,7 @@ test("a rule created from a manually categorized booking adopts it when only its
   await createRule({
     ...energyRule,
     source_transaction_id: id
-  });
+  }, "en");
 
   assert.equal((await row(db, id))?.category_source, "rule");
 });
@@ -532,12 +532,12 @@ test("the source text still decides when an override does not match, and the fir
     pattern: "EXAMPLE POWER",
     mode: "keyword",
     category_id: "leisure"
-  });
+  }, "en");
   await applyRulesToUncorrectedTransactions();
   assert.equal((await row(db, id))?.category_id, "leisure");
 
   // The source-text rule comes first, so the later override rule does not decide.
-  await createRule(energyRule);
+  await createRule(energyRule, "en");
   await applyRulesToUncorrectedTransactions();
   assert.equal((await row(db, id))?.category_id, "leisure");
 
@@ -546,7 +546,7 @@ test("the source text still decides when an override does not match, and the fir
     name: "Energy first",
     category_id: "groceries",
     priority: 0
-  });
+  }, "en");
   await applyRulesToUncorrectedTransactions();
   assert.equal((await row(db, id))?.category_id, "groceries");
 });

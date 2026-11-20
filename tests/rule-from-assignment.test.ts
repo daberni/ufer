@@ -175,7 +175,7 @@ async function seedBookings(context: TestContext) {
     category_id: "transport",
     priority: 10,
     enabled: true
-  });
+  }, "en");
 
   return db;
 }
@@ -258,7 +258,7 @@ test("a rule applied to existing transactions categorizes only the uncategorized
     category_id: "groceries",
     priority: 100,
     apply_to_uncategorized: true
-  }), {
+  }, "en"), {
     ok: true,
     categorized: 3
   });
@@ -286,7 +286,7 @@ test("a rule created without applying it leaves existing transactions unchanged"
     mode: "keyword",
     category_id: "groceries",
     priority: 100
-  }), {
+  }, "en"), {
     ok: true,
     categorized: 0
   });
@@ -305,7 +305,7 @@ test("preview, creation and later matching use the same live ID tie-break", asyn
     category_id: "leisure",
     priority: 100,
     enabled: true
-  });
+  }, "en");
   const preview = await previewRule({
     pattern: "Example Market",
     mode: "keyword",
@@ -328,7 +328,7 @@ test("preview, creation and later matching use the same live ID tie-break", asyn
     category_id: "groceries",
     priority: 100,
     apply_to_uncategorized: true
-  }), {
+  }, "en"), {
     ok: true,
     categorized: preview.uncategorized
   });
@@ -377,7 +377,7 @@ test("rule creation does not categorize a transaction whose payee changed before
     category_id: "groceries",
     priority: 100,
     apply_to_uncategorized: true
-  });
+  }, "en");
 
   assert.equal((await categories(db))["uncategorized-payee"], "none/rule");
   assert.equal(result.categorized, 2);
@@ -394,13 +394,13 @@ test("applying a newly created higher-priority rule preserves already categorize
     apply_to_uncategorized: true
   };
 
-  await createRule(input);
+  await createRule(input, "en");
   const before = await categories(db);
   const result = await createRule({
     ...input,
     category_id: "home",
     priority: 1
-  });
+  }, "en");
 
   assert.equal((await categories(db))["uncategorized-payee"], before["uncategorized-payee"]);
   assert.equal((await categories(db))["categorized-by-rule"], before["categorized-by-rule"]);
@@ -420,7 +420,7 @@ test("failed assignment selection rolls back the new rule without changing trans
     category_id: "groceries",
     priority: 100,
     enabled: true
-  }, {
+  }, "en", {
     uncategorized: () => {
       throw failure;
     }
@@ -448,7 +448,7 @@ test("equal-priority rules retain the live ID tie-break regardless of insertion 
       mode: "keyword",
       priority: 100,
       enabled: true
-    });
+    }, "en");
   }
 
   await applyRulesToUncorrectedTransactions();
@@ -471,7 +471,7 @@ test("a preview does not count equal-priority matches won by a lower existing ru
     category_id: "leisure",
     priority: 100,
     enabled: true
-  });
+  }, "en");
   const preview = await previewRule({
     pattern: "Market",
     mode: "keyword",
@@ -488,7 +488,7 @@ test("a preview does not count equal-priority matches won by a lower existing ru
     category_id: "groceries",
     priority: 100,
     apply_to_uncategorized: true
-  }), {
+  }, "en"), {
     ok: true,
     categorized: 0
   });

@@ -19,7 +19,7 @@ test("net flow is income minus expenses and the savings rate divides it by incom
     net: 45000,
     savingsRate: 0.18
   });
-  assert.equal(formatSavingsRate(netFlow(250000, 205000).savingsRate), "18%");
+  assert.equal(formatSavingsRate(netFlow(250000, 205000).savingsRate, "en"), "18%");
 });
 
 test("expenses above income give a negative net and a negative savings rate", () => {
@@ -27,7 +27,7 @@ test("expenses above income give a negative net and a negative savings rate", ()
 
   assert.equal(flow.net, -50000);
   assert.equal(flow.savingsRate, -0.25);
-  assert.equal(formatSavingsRate(flow.savingsRate), "-25%");
+  assert.equal(formatSavingsRate(flow.savingsRate, "en"), "-25%");
 });
 
 test("without income there is no savings rate, even when money was spent", () => {
@@ -36,7 +36,7 @@ test("without income there is no savings rate, even when money was spent", () =>
     savingsRate: null
   });
   assert.equal(netFlow(0, 0).savingsRate, null);
-  assert.equal(formatSavingsRate(null), "–");
+  assert.equal(formatSavingsRate(null, "en"), "–");
 });
 
 test("the visible months' rate sums their minor units before dividing, so months are weighted by income", () => {
@@ -67,11 +67,11 @@ test("a selected month carries that month's totals, and an unknown month selects
 });
 
 test("a savings rate that rounds to zero shows 0% without a sign", () => {
-  assert.equal(formatSavingsRate(-0.001), "0%");
-  assert.equal(formatSavingsRate(0.004), "0%");
-  assert.equal(formatSavingsRate(-0.004), "0%");
-  assert.equal(formatSavingsRate(-0.005), "-1%");
-  assert.equal(formatSavingsRate(-0.006), "-1%");
+  assert.equal(formatSavingsRate(-0.001, "en"), "0%");
+  assert.equal(formatSavingsRate(0.004, "en"), "0%");
+  assert.equal(formatSavingsRate(-0.004, "en"), "0%");
+  assert.equal(formatSavingsRate(-0.005, "en"), "-1%");
+  assert.equal(formatSavingsRate(-0.006, "en"), "-1%");
 });
 
 test("panel columns reserve the most rows any month or the period needs, at least one", () => {

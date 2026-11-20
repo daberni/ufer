@@ -3,22 +3,20 @@
 import { useState } from "react";
 import { clsx } from "clsx";
 import ui from "../../../components/ui/primitives.module.css";
-import { formatLocale, formatLocaleChoices, formatLocalePreferenceKey, parseFormatLocalePreference, storedFormatLocalePreference, type FormatLocalePreference } from "@/lib/locale";
+import { useFormatLocale } from "@/client/format-locale-provider";
+import { formatLocaleChoices, formatLocaleCookie, formatLocaleCookieName, parseFormatLocalePreference, type FormatLocalePreference } from "@/lib/locale";
 import styles from "./format-locale-choice.module.css";
 
-/** Stores the preference and reloads, so every formatted value renders again in the new locale. */
+/** Stores the preference and reloads, so the server renders every formatted value again in the new locale. */
 function chooseFormatLocalePreference(preference: FormatLocalePreference) {
-  try {
-    if (preference === "browser") {
-      localStorage.removeItem(formatLocalePreferenceKey);
-    } else {
-      localStorage.setItem(formatLocalePreferenceKey, preference);
-    }
-  } catch {
-    return;
-  }
-
+  document.cookie = formatLocaleCookie(preference, location.protocol === "https:");
   location.reload();
+}
+
+function storedPreference() {
+  const stored = document.cookie.split("; ").find(entry => entry.startsWith(`${formatLocaleCookieName}=`));
+
+  return parseFormatLocalePreference(stored?.slice(formatLocaleCookieName.length + 1));
 }
 
 function sample(locale: string) {
@@ -38,8 +36,9 @@ function sample(locale: string) {
 
 /** Browser default or one of a few locales for amounts, numbers and dates in this browser; currencies stay per account. */
 export function FormatLocaleChoice() {
-  // Mounted only inside the account dialog in the browser, where storage and the browser's languages are available.
-  const [preference] = useState(storedFormatLocalePreference);
+  const locale = useFormatLocale();
+  // Mounted only inside the account dialog in the browser, where the cookie is readable.
+  const [preference] = useState(storedPreference);
 
   return (
     <div className={clsx(ui["form"], styles["format-locale-choice"])}>
@@ -51,7 +50,7 @@ export function FormatLocaleChoice() {
           ))}
         </select>
       </label>
-      <p className={ui["form-hint"]}>{`For example ${sample(formatLocale())}. Saved in this browser; changing it reloads the page.`}</p>
+      <p className={ui["form-hint"]}>{`For example ${sample(locale)}. Saved in this browser; changing it reloads the page.`}</p>
     </div>
   );
 }

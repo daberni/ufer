@@ -21,6 +21,7 @@ import { useAccountHref } from "@/client/use-app-url";
 import { AreaPlaceholder } from "@/components/ui/area-placeholder";
 import { shownStatus, valueMask } from "@/components/ui/result-presentation";
 import type { Area } from "@/components/ui/use-area-result";
+import { useFormatLocale } from "@/client/format-locale-provider";
 
 type Props = {
   accounts: Area<Account[]>;
@@ -157,6 +158,7 @@ function AccountCards({
 function AccountCard({ account }: {
   account: Account
 }) {
+  const locale = useFormatLocale();
   const accountHref = useAccountHref();
   const Icon = accountIcon(account.kind);
 
@@ -172,7 +174,7 @@ function AccountCard({ account }: {
         <Link className={styles["account-link"]} href={accountHref(account.id)}>{account.name}</Link>
       </h2>
       <p className={ui["muted"]}>{account.institution}</p>
-      <strong className={styles["account-detail-balance"]}>{account.balance_minor === null ? "—" : money(account.balance_minor, account.currency)}</strong>
+      <strong className={styles["account-detail-balance"]}>{account.balance_minor === null ? "—" : money(account.balance_minor, account.currency, locale)}</strong>
       <div className={styles["account-detail-meta"]}>
         <span>Balance <DateValue value={account.balance_date} fallback="not recorded yet" /></span>
         <span>{accountSourceLabel(account)}</span>

@@ -15,6 +15,7 @@ import { today } from "@/lib/time";
 import { useArchiveAccount, useRestoreAccount } from "@/features/accounts/mutations";
 import { activeAccounts, useAccounts } from "@/features/accounts/queries";
 import type { Account } from "@/features/accounts/types";
+import { useFormatLocale } from "@/client/format-locale-provider";
 
 /** Archiving needs a balance of 0; a remaining balance opens a dialog that closes a manual account or explains why a bank account cannot be closed. */
 export function AccountArchiveAction({ account }: {
@@ -110,10 +111,12 @@ function BankBalanceNotice({
   account: Account;
   close: () => void
 }) {
+  const locale = useFormatLocale();
+
   return (
     <div className={ui["form"]}>
       <p className={ui["form-description"]}>
-        {account.name} · {money(account.balance_minor ?? 0, account.currency)}
+        {account.name} · {money(account.balance_minor ?? 0, account.currency, locale)}
       </p>
       <p>An account can only be archived with a balance of 0. This account's balance comes from the bank, so Ufer cannot book it away. Archive it once the bank reports a balance of 0.</p>
       <button type="button" className={clsx(ui["button"], ui["full-width"])} onClick={close}>Cancel</button>
@@ -128,6 +131,7 @@ function CloseAccountForm({
   account: Account;
   close: () => void
 }) {
+  const locale = useFormatLocale();
   const {
     error,
     pending,
@@ -150,9 +154,9 @@ function CloseAccountForm({
       }))}
     >
       <p className={ui["form-description"]}>
-        {account.name} · {money(remaining, account.currency)}
+        {account.name} · {money(remaining, account.currency, locale)}
       </p>
-      <p>An account can only be archived with a balance of 0. Ufer books the remaining {money(remaining, account.currency)} away, then archives the account.</p>
+      <p>An account can only be archived with a balance of 0. Ufer books the remaining {money(remaining, account.currency, locale)} away, then archives the account.</p>
       <label>
         Book the balance as
         <Select name="transfer_account_id" defaultValue="">

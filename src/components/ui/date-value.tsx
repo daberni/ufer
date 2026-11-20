@@ -3,6 +3,7 @@
 import { Temporal } from "temporal-polyfill";
 import { describeDate } from "@/lib/date-format";
 import { useDisplayTimeZone } from "./use-display-time-zone";
+import { useFormatLocale } from "@/client/format-locale-provider";
 
 type DisplayProps = {
   value: string | null;
@@ -14,20 +15,23 @@ export function DateValue({
   value,
   fallback = "—"
 }: DisplayProps) {
+  const locale = useFormatLocale();
+
   if (!value) {
     return <>{fallback}</>;
   }
 
-  const display = describeDate(Temporal.PlainDate.from(value));
+  const display = describeDate(Temporal.PlainDate.from(value), locale);
 
   return <time dateTime={display.dateTime} title={display.title}>{display.label}</time>;
 }
 
-// A calendar day written out in full, for example a document's last update; formatted in the browser so it follows the browser's locale.
+// A calendar day written out in full, for example a document's last update, in the request's format locale.
 export function FullDateValue({ value }: {
   value: string
 }) {
-  const display = describeDate(Temporal.PlainDate.from(value));
+  const locale = useFormatLocale();
+  const display = describeDate(Temporal.PlainDate.from(value), locale);
 
   return <time dateTime={display.dateTime}>{display.title}</time>;
 }
@@ -38,12 +42,13 @@ export function TimestampValue({
   fallback = "—"
 }: DisplayProps) {
   const timeZone = useDisplayTimeZone();
+  const locale = useFormatLocale();
 
   if (!value) {
     return <>{fallback}</>;
   }
 
-  const display = describeDate(Temporal.Instant.from(value).toZonedDateTimeISO(timeZone));
+  const display = describeDate(Temporal.Instant.from(value).toZonedDateTimeISO(timeZone), locale);
 
   return <time dateTime={display.dateTime} title={display.title}>{display.label}</time>;
 }

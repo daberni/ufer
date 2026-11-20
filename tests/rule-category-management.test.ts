@@ -410,7 +410,7 @@ test("a new rule is stored with its previewed ID, so it decides exactly the coun
     name: "Cafe first",
     category_id: "home",
     apply_to_uncategorized: true
-  });
+  }, "en");
 
   assert.ok((await storedRules(db)).some(rule => rule.id === preview.id));
   assert.equal(await categoryOf(db, "uncategorized-cafe"), "home");
@@ -419,13 +419,13 @@ test("a new rule is stored with its previewed ID, so it decides exactly the coun
     id: preview.id,
     name: "Duplicate",
     category_id: "home"
-  }), (error: unknown) => error instanceof HttpError && error.status === 409);
+  }, "en"), (error: unknown) => error instanceof HttpError && error.status === 409);
   await assert.rejects(createRule({
     ...draft,
     id: "not-a-uuid",
     name: "Invalid",
     category_id: "home"
-  }), z.ZodError);
+  }, "en"), z.ZodError);
 });
 
 test("without a priority, a new rule goes to the end of the list and an edited rule keeps its position", async context => {
@@ -439,7 +439,7 @@ test("without a priority, a new rule goes to the end of the list and an edited r
     pattern: "BAKERY",
     mode: "keyword",
     category_id: "groceries"
-  });
+  }, "en");
   await updateRuleDetails("rule-cafe", {
     name: "Cafe and bistro",
     pattern: "CAFE",
@@ -477,7 +477,7 @@ test("appending after a rule at the highest priority renumbers the stored order 
     pattern: "CAFE",
     mode: "keyword",
     category_id: "home"
-  });
+  }, "en");
 
   const rules = await listRules();
 
@@ -515,7 +515,7 @@ test("creating a rule, with or without a priority, is rejected once 1,000 rules 
     pattern: "EXTRA",
     mode: "keyword",
     category_id: "groceries"
-  }), (error: unknown) => error instanceof HttpError && error.status === 409 && error.message === "Ufer supports at most 1,000 rules. Delete a rule before creating another.");
+  }, "en"), (error: unknown) => error instanceof HttpError && error.status === 409 && error.message === "Ufer supports at most 1,000 rules. Delete a rule before creating another.");
   await assert.rejects(createRule({
     name: "One too many at a priority",
     pattern: "EXTRA",
@@ -523,7 +523,7 @@ test("creating a rule, with or without a priority, is rejected once 1,000 rules 
     category_id: "groceries",
     priority: 5,
     apply_to_uncategorized: true
-  }), (error: unknown) => error instanceof HttpError && error.status === 409);
+  }, "en"), (error: unknown) => error instanceof HttpError && error.status === 409);
   assert.equal((await storedRules(db)).length, 1000);
 });
 

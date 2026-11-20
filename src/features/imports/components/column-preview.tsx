@@ -11,6 +11,7 @@ import { rowCount } from "@/features/imports/import-plan";
 import { problemProps } from "./field-problem";
 import type { ImportDraft } from "./use-import-draft";
 import { formatCount } from "@/lib/locale";
+import { useFormatLocale } from "@/client/format-locale-provider";
 
 const roles: [keyof CsvMapping, string][] = [
   ["date", "Date"],
@@ -38,6 +39,7 @@ export function ColumnPreview({
   draft: ImportDraft;
   reviewing: boolean;
 }) {
+  const locale = useFormatLocale();
   const issues = useRowIssues(draft);
   const table = draft.table;
 
@@ -56,7 +58,7 @@ export function ColumnPreview({
     <section className={clsx(ui["panel"], styles["section"])} aria-labelledby="import-columns">
       <div className={styles["heading"]}>
         <h2 id="import-columns">{reviewing ? "Rows to review" : "Columns"}</h2>
-        <p className={ui["form-hint"]}>{reviewing ? `${formatCount(reviewCount)} rows need attention${reviewCount > maxReviewRows ? `; the first ${maxReviewRows} are shown` : ""}.` : "Choose what each column means. Columns you leave on Ignore are not imported."}</p>
+        <p className={ui["form-hint"]}>{reviewing ? `${formatCount(reviewCount, locale)} rows need attention${reviewCount > maxReviewRows ? `; the first ${maxReviewRows} are shown` : ""}.` : "Choose what each column means. Columns you leave on Ignore are not imported."}</p>
       </div>
       {draft.problem && <p id="import-columns-problem" className={styles["problem"]}>{draft.problem}</p>}
       <div
@@ -102,7 +104,7 @@ export function ColumnPreview({
           </tbody>
         </table>
       </div>
-      {!reviewing && table.rows.length > previewRows && <p className={ui["form-hint"]}>Showing the first {previewRows} of {rowCount(table.rows.length)}.{draft.prepared?.skipped ? " Rows of skipped accounts are dimmed." : ""}</p>}
+      {!reviewing && table.rows.length > previewRows && <p className={ui["form-hint"]}>Showing the first {previewRows} of {rowCount(table.rows.length, locale)}.{draft.prepared?.skipped ? " Rows of skipped accounts are dimmed." : ""}</p>}
     </section>
   );
 }

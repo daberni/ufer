@@ -27,15 +27,15 @@ type RuleCandidate = Pick<Transaction, "id" | "counterparty" | "description" | "
 export type SelectRuleAssignments = (rules: Rule[], entries: RuleCandidate[]) => string[];
 
 /**
- * Rejects adding rules beyond the limit, inside the caller's write transaction, so concurrent creations cannot exceed it.
+ * Rejects adding rules beyond the limit, inside the caller's write transaction, so concurrent creations cannot exceed it. The locale formats the limit in the message.
  */
-export async function requireRuleCapacity(tx: DatabaseTransaction, added: number) {
+export async function requireRuleCapacity(tx: DatabaseTransaction, added: number, locale: string) {
   const stored = await tx.select({
     total: count()
   }).from(categorizationRules).get();
 
   if ((stored?.total ?? 0) + added > maximumRules) {
-    throw new HttpError(409, `Ufer supports at most ${formatCount(maximumRules)} rules. Delete a rule before creating another.`);
+    throw new HttpError(409, `Ufer supports at most ${formatCount(maximumRules, locale)} rules. Delete a rule before creating another.`);
   }
 }
 
@@ -110,8 +110,8 @@ async function adoptSourceTransaction(tx: DatabaseTransaction, rule: NewRule, ru
   }).where(scope);
 }
 
-async function storeRule(tx: DatabaseTransaction, rule: NewRule, assignments: RuleCreationAssignments = {}) {
-  await requireRuleCapacity(tx, 1);
+async function storeRule(tx: DatabaseTransaction, rule: NewRule, locale: string, assignments: RuleCreationAssignments = {}) {
+  await requireRuleCapacity(tx, 1, locale);
   await tx.insert(categorizationRules).values({
     ...rule,
     enabled: rule.enabled ? 1 : 0
@@ -169,17 +169,17 @@ async function storeRule(tx: DatabaseTransaction, rule: NewRule, assignments: Ru
 }
 
 /** Reads the matching inputs and stores the rule and its optional assignments in one write transaction. */
-export async function insertRule(rule: NewRule, assignments?: RuleCreationAssignments) {
+export async function insertRule(rule: NewRule, locale: string, assignments?: RuleCreationAssignments) {
   const db = await database();
 
-  return db.transaction(tx => storeRule(tx, rule, assignments));
+  return db.transaction(tx => storeRule(tx, rule, locale, assignments));
 }
 
 /**
  * Stores a rule after every stored rule, with its optional assignments, in one write transaction. When the next priority would leave the allowed range, the stored
  * rules are first renumbered in their current matching order, which keeps their order and leaves room at the end.
  */
-export async function appendRule(rule: Omit<NewRule, "priority">, assignments?: RuleCreationAssignments) {
+export async function appendRule(rule: Omit<NewRule, "priority">, locale: string, assignments?: RuleCreationAssignments) {
   const db = await database();
 
   return db.transaction(async tx => {
@@ -188,7 +188,7 @@ export async function appendRule(rule: Omit<NewRule, "priority">, assignments?: 
       priority: categorizationRules.priority
     }).from(categorizationRules).orderBy(asc(categorizationRules.priority), asc(categorizationRules.id));
 
-    await requireRuleCapacity(tx, 1);
+    await requireRuleCapacity(tx, 1, locale);
 
     let priority = nextPriority(stored);
 
@@ -207,7 +207,7 @@ export async function appendRule(rule: Omit<NewRule, "priority">, assignments?: 
     return storeRule(tx, {
       ...rule,
       priority
-    }, assignments);
+    }, locale, assignments);
   });
 }
 

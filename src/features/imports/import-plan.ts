@@ -53,8 +53,8 @@ type AccountOption = {
   currency: string;
 };
 
-export function rowCount(count: number) {
-  return `${formatCount(count)} ${count === 1 ? "row" : "rows"}`;
+export function rowCount(count: number, locale: string) {
+  return `${formatCount(count, locale)} ${count === 1 ? "row" : "rows"}`;
 }
 
 /** Distinct source account values with their row counts, in file order; without an account column all rows share the empty source. */

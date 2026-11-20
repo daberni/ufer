@@ -1,5 +1,5 @@
 import { ValidationError } from "./errors";
-import { cachedFormat, fallbackLocale } from "./locale";
+import { cachedFormat, defaultFormatLocale } from "./locale";
 
 // Pinned minor units of the currencies stored so far; HUF keeps 2 although the runtime formats it with 0.
 const pinnedExponents: Record<string, number> = {
@@ -33,7 +33,7 @@ export function currencyExponent(currency: string) {
     return undefined;
   }
 
-  return new Intl.NumberFormat(fallbackLocale, {
+  return new Intl.NumberFormat(defaultFormatLocale, {
     style: "currency",
     currency
   }).resolvedOptions().maximumFractionDigits;
@@ -78,11 +78,11 @@ export function minorUnits(value: string, currency = "EUR"): number {
 
 const moneyFormats = new Map<string, Intl.NumberFormat>();
 
-function moneyFormat(currency: string, signed: boolean) {
-  return cachedFormat(moneyFormats, `${currency}:${signed}`, locale => {
+function moneyFormat(locale: string, currency: string, signed: boolean) {
+  return cachedFormat(moneyFormats, locale, `${currency}:${signed}`, supported => {
     const exponent = currencyExponent(currency) ?? 2;
 
-    return new Intl.NumberFormat(locale, {
+    return new Intl.NumberFormat(supported, {
       style: "currency",
       currency,
       minimumFractionDigits: exponent,
@@ -92,14 +92,14 @@ function moneyFormat(currency: string, signed: boolean) {
   });
 }
 
-/** Minor units in the formatting locale's standard currency format, for example -123456 EUR as "-€1,234.56" in English. */
-export function money(value: number, currency = "EUR") {
-  return moneyFormat(currency, false).format(value / 10 ** (currencyExponent(currency) ?? 2));
+/** Minor units in the locale's standard currency format, for example -123456 EUR as "-€1,234.56" in English. */
+export function money(value: number, currency: string, locale: string) {
+  return moneyFormat(locale, currency, false).format(value / 10 ** (currencyExponent(currency) ?? 2));
 }
 
 /** Like money, but positive amounts also carry a plus sign, for example "+€12.50"; zero stays unsigned. */
-export function signedMoney(value: number, currency = "EUR") {
-  return moneyFormat(currency, true).format(value / 10 ** (currencyExponent(currency) ?? 2));
+export function signedMoney(value: number, currency: string, locale: string) {
+  return moneyFormat(locale, currency, true).format(value / 10 ** (currencyExponent(currency) ?? 2));
 }
 
 /** Minor units as a plain decimal string for an amount field, for example -1250 EUR as "-12.50". */

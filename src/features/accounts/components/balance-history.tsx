@@ -12,6 +12,7 @@ import { AreaPlaceholder } from "@/components/ui/area-placeholder";
 import { areaProps } from "@/components/ui/result-presentation";
 import type { Area, AreaResult } from "@/components/ui/use-area-result";
 import type { BalanceHistory, BalancePoint } from "@/features/accounts/types";
+import { useFormatLocale } from "@/client/format-locale-provider";
 
 // The table starts with the latest balances; the chart already shows the whole history.
 const initialRows = 5;
@@ -19,12 +20,14 @@ const initialRows = 5;
 export function BalanceHistoryPanel({ history }: {
   history: Area<BalanceHistory>
 }) {
+  const locale = useFormatLocale();
+
   return (
     <section className={clsx(ui["panel"], styles["history"])}>
       <div className={ui["card-heading"]}>
         <h2>Balance history</h2>
         {history.status === "pending" && <span className={clsx(ui["subtle"], styles["range"], ui["skeleton"])} aria-hidden="true">Since 12 Jan 2025</span>}
-        {history.status !== "pending" && history.data.balances.length > 0 && <span className={clsx(ui["subtle"], styles["range"])} title={describeBalanceDate(history.data.balances[0].date).title}>Since {describeBalanceDate(history.data.balances[0].date).label}</span>}
+        {history.status !== "pending" && history.data.balances.length > 0 && <span className={clsx(ui["subtle"], styles["range"])} title={describeBalanceDate(history.data.balances[0].date, locale).title}>Since {describeBalanceDate(history.data.balances[0].date, locale).label}</span>}
       </div>
       {history.status === "pending" ? (
         <AreaPlaceholder area={history} subject="The balance history">
@@ -62,6 +65,7 @@ function BalanceTable({
   balances: BalancePoint[];
   currency: string;
 }) {
+  const locale = useFormatLocale();
   const [expanded, setExpanded] = useState(false);
   const newestFirst = balances.toReversed();
   const shown = expanded ? newestFirst : newestFirst.slice(0, initialRows);
@@ -85,10 +89,10 @@ function BalanceTable({
           {shown.map(balance => (
             <tr key={balance.date}>
               <th scope="row">
-                <time dateTime={balance.date} title={describeBalanceDate(balance.date).title}>{describeBalanceDate(balance.date).label}</time>
+                <time dateTime={balance.date} title={describeBalanceDate(balance.date, locale).title}>{describeBalanceDate(balance.date, locale).label}</time>
               </th>
               <td>{describeBalanceSource(balance)}</td>
-              <td className={styles["amount"]}>{money(balance.amount_minor, currency)}</td>
+              <td className={styles["amount"]}>{money(balance.amount_minor, currency, locale)}</td>
             </tr>
           ))}
         </tbody>

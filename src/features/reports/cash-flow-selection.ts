@@ -89,17 +89,17 @@ export function selectedCashFlow(data: CashFlow, month: string | null): CashFlow
 }
 
 /** Whether a rate is shown with a minus sign; a rate that rounds to zero is not. */
-export function isNegativeRate(rate: number | null) {
-  return rate !== null && isNegativePercent(rate);
+export function isNegativeRate(rate: number | null, locale: string) {
+  return rate !== null && isNegativePercent(rate, locale);
 }
 
 /** "18%", "-25%", or an en dash when there is no rate. */
-export function formatSavingsRate(rate: number | null) {
+export function formatSavingsRate(rate: number | null, locale: string) {
   if (rate === null) {
     return "–";
   }
 
-  return formatPercent(rate);
+  return formatPercent(rate, locale);
 }
 
 /**

@@ -85,11 +85,11 @@ test("only recorded observations are listed or counted while calculated days rem
   fireEvent.keyDown(plot, {
     key: "ArrowRight"
   });
-  assert.match(plot.getAttribute("aria-valuetext") || "", /2 Jan 2026.*101\.00.*Estimated/);
+  assert.match(plot.getAttribute("aria-valuetext") || "", /Jan 2, 2026.*101\.00.*Estimated/);
   fireEvent.keyDown(plot, {
     key: "End"
   });
-  assert.match(plot.getAttribute("aria-valuetext") || "", /12 Jan 2026/);
+  assert.match(plot.getAttribute("aria-valuetext") || "", /Jan 12, 2026/);
   const beforeShortcut = plot.getAttribute("aria-valuetext");
 
   assert.equal(fireEvent.keyDown(plot, {
@@ -110,17 +110,17 @@ test("hovering a step shows the balance effective there rather than the next obs
     pointerType: "mouse",
     clientX: 219
   });
-  assert.match(plot.getAttribute("aria-valuetext") || "", /1 Jan 2026.*100\.00.*Bank sync · Closing available/);
+  assert.match(plot.getAttribute("aria-valuetext") || "", /Jan 1, 2026.*100\.00.*Bank sync · Closing available/);
   fireEvent.pointerMove(plot, {
     pointerType: "mouse",
     clientX: 220
   });
-  assert.match(plot.getAttribute("aria-valuetext") || "", /4 Jan 2026.*120\.00.*Estimated/);
+  assert.match(plot.getAttribute("aria-valuetext") || "", /Jan 4, 2026.*120\.00.*Estimated/);
   fireEvent.pointerMove(plot, {
     pointerType: "mouse",
     clientX: 600
   });
-  assert.match(plot.getAttribute("aria-valuetext") || "", /11 Jan 2026.*90\.00/);
+  assert.match(plot.getAttribute("aria-valuetext") || "", /Jan 11, 2026.*90\.00/);
 });
 
 test("touch selection persists after release, follows a scrub, and dismisses outside or on Escape", async context => {
@@ -144,7 +144,7 @@ test("touch selection persists after release, follows a scrub, and dismisses out
     pointerType: "touch"
   });
   assert.equal(plot.getAttribute("data-active"), "");
-  assert.match(plot.getAttribute("aria-valuetext") || "", /4 Jan 2026/);
+  assert.match(plot.getAttribute("aria-valuetext") || "", /Jan 4, 2026/);
   fireEvent.pointerDown(document.body, {
     pointerType: "touch"
   });
@@ -176,5 +176,5 @@ test("ledger-only history has an interactive chart without an empty recorded-bal
   fireEvent.keyDown(plot, {
     key: "Home"
   });
-  assert.match(plot.getAttribute("aria-valuetext") || "", /1 Jan 2026.*100\.00.*Estimated/);
+  assert.match(plot.getAttribute("aria-valuetext") || "", /Jan 1, 2026.*100\.00.*Estimated/);
 });

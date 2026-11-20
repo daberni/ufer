@@ -11,6 +11,7 @@ import type { KeyboardEvent } from "react";
 import { Temporal } from "temporal-polyfill";
 import { currentMonth } from "@/lib/period";
 import { describeMonth } from "@/lib/date-format";
+import { useFormatLocale } from "@/client/format-locale-provider";
 
 type Props = {
   label: string;
@@ -27,6 +28,7 @@ export function MonthPicker({
   selected,
   onSelect
 }: Props) {
+  const locale = useFormatLocale();
   const [open, setOpen] = useState(false);
   const [year, setYear] = useState(0);
   const [focusedMonth, setFocusedMonth] = useState(1);
@@ -165,7 +167,7 @@ export function MonthPicker({
               const display = describeMonth(Temporal.PlainYearMonth.from({
                 year,
                 month
-              }));
+              }), locale);
 
               return (
                 <button

@@ -10,6 +10,7 @@ import { creatableName, matchOptions, searchableSelectKeyAction, searchableSelec
 import { popoverMaxWidth, popoverPlacement, visibleArea } from "./popover-placement";
 import { useDismiss } from "./use-dismiss";
 import { formatCount } from "@/lib/locale";
+import { useFormatLocale } from "@/client/format-locale-provider";
 
 export type SearchableSelectOption<Value> = {
   key: string;
@@ -99,6 +100,7 @@ export function SearchableSelect<Value>({
   const popupRef = useRef<HTMLDivElement>(null);
   const listboxRef = useRef<HTMLUListElement>(null);
   const listboxId = useId();
+  const locale = useFormatLocale();
   const selected = options.find(option => Object.is(option.value, value));
   // The selected option's label lists every option again, so another one can be picked without clearing the field first.
   const matches = notice ? [] : match(options, query === selected?.label ? "" : query);
@@ -110,7 +112,7 @@ export function SearchableSelect<Value>({
   const active = Math.min(activeIndex, optionCount - 1);
   const createLabel = `Create ${noun.one} “${createName}”`;
   const optionId = (index: number) => `${listboxId}-option-${index}`;
-  const countText = (count: number) => (count === 1 ? `1 ${noun.one}` : `${formatCount(count)} ${noun.other}`);
+  const countText = (count: number) => (count === 1 ? `1 ${noun.one}` : `${formatCount(count, locale)} ${noun.other}`);
   const truncated = matches.length > shown.length;
   const listLabel = `${noun.other.charAt(0).toLocaleUpperCase()}${noun.other.slice(1)}`;
   // A selection shown as the placeholder hint (an empty field reading "Uncategorized") keeps its icon like one shown as text.

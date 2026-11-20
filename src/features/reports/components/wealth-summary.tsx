@@ -14,6 +14,7 @@ import type { NetWorth } from "@/features/accounts/types";
 import { Temporal } from "temporal-polyfill";
 import { describeMonth } from "@/lib/date-format";
 import type { NetWorthHistory, NetWorthPoint } from "@/features/reports/net-worth-series";
+import { useFormatLocale } from "@/client/format-locale-provider";
 
 type Props = {
   /** Whether any account uses the display currency; assumed while the accounts load, so the masked figure keeps its place. */
@@ -28,6 +29,7 @@ export function WealthSummary({
   netWorthArea,
   historyArea
 }: Props) {
+  const locale = useFormatLocale();
   const selectedCurrency = useCurrency();
   const netWorth = withPlaceholder(netWorthArea, () => ({
     currency: selectedCurrency,
@@ -42,7 +44,7 @@ export function WealthSummary({
   const netWorthValue = valueMask(netWorth.status);
   const currency = summary.currency;
   const points = historyArea.status === "ready" && historyArea.data.currency === currency ? historyArea.data.points : [];
-  const change = netWorth.status === "ready" && hasAccounts ? historyChange(points) : null;
+  const change = netWorth.status === "ready" && hasAccounts ? historyChange(points, locale) : null;
 
   return (
     <section className={styles["wealth-card"]} aria-busy={netWorth.status === "loading"}>
@@ -56,8 +58,8 @@ export function WealthSummary({
         <span className={clsx(styles["small-tag"], netWorthValue)}>{currency}</span>
       </div>
       <div className={styles["headline"]}>
-        <div className={clsx(styles["wealth-number"], netWorthValue)}>{hasAccounts ? money(summary.netWorth, currency) : "—"}</div>
-        {change && <span className={styles["change"]}>{change.amount > 0 ? "+" : ""}{money(change.amount, currency)} since {change.since}</span>}
+        <div className={clsx(styles["wealth-number"], netWorthValue)}>{hasAccounts ? money(summary.netWorth, currency, locale) : "—"}</div>
+        {change && <span className={styles["change"]}>{change.amount > 0 ? "+" : ""}{money(change.amount, currency, locale)} since {change.since}</span>}
       </div>
       {summary.unvalued > 0 && <p>{summary.unvalued} without a balance</p>}
       <div className={clsx(styles["allocation-bar"], netWorthValue)} aria-hidden="true">
@@ -80,21 +82,21 @@ export function WealthSummary({
       <div className={styles["wealth-allocation"]}>
         <span>
           <i className={clsx(styles["legend-dot"], ui["liquid"])} />
-          Cash<strong className={netWorthValue}>{money(summary.liquidity, currency)}</strong>
+          Cash<strong className={netWorthValue}>{money(summary.liquidity, currency, locale)}</strong>
         </span>
         <span>
           <i className={clsx(styles["legend-dot"], styles["invested"])} />
-          Investments<strong className={netWorthValue}>{money(summary.investments, currency)}</strong>
+          Investments<strong className={netWorthValue}>{money(summary.investments, currency, locale)}</strong>
         </span>
         <span>
           <i className={clsx(styles["legend-dot"], ui["property"])} />
-          Property<strong className={netWorthValue}>{money(summary.property, currency)}</strong>
+          Property<strong className={netWorthValue}>{money(summary.property, currency, locale)}</strong>
         </span>
       </div>
       {/* Before the first results the loans line is laid out too, so a card with loans keeps its height when they arrive. */}
       {(summary.liabilities !== 0 || netWorthArea.status === "pending") && (
         <div className={styles["liabilities"]}>
-          Loans <span className={netWorthValue}>{money(summary.liabilities, currency)}</span>
+          Loans <span className={netWorthValue}>{money(summary.liabilities, currency, locale)}</span>
         </div>
       )}
       {hasAccounts && <HistoryCurve points={points} />}
@@ -103,7 +105,7 @@ export function WealthSummary({
   );
 }
 
-function historyChange(points: NetWorthPoint[]) {
+function historyChange(points: NetWorthPoint[], locale: string) {
   const first = points[0];
   const last = points.at(-1);
 
@@ -115,7 +117,7 @@ function historyChange(points: NetWorthPoint[]) {
 
   return {
     amount: last.amount_minor - first.amount_minor,
-    since: `${describeMonth(month).label} ${month.year}`
+    since: `${describeMonth(month, locale).label} ${month.year}`
   };
 }
 

@@ -13,6 +13,7 @@ import { TransactionTypeIcon, transferDirection } from "@/features/transactions/
 import { TransactionEditDialog } from "@/features/transactions/components/transaction-edit-dialog";
 import type { Category } from "@/features/categorization/types";
 import { editLocked, type Transaction } from "@/features/transactions/types";
+import { useFormatLocale } from "@/client/format-locale-provider";
 
 type Props = {
   categories: Category[];
@@ -44,7 +45,7 @@ function TableHeader() {
 }
 
 /** The original amount of a foreign-currency booking; the direction is already shown by the booked amount. */
-function originalAmount(transaction: Transaction) {
+function originalAmount(transaction: Transaction, locale: string) {
   const instructed = transaction.instructed_amount_minor;
   const currency = transaction.instructed_currency;
 
@@ -52,7 +53,7 @@ function originalAmount(transaction: Transaction) {
     return null;
   }
 
-  return `${money(Math.abs(instructed), currency)} original`;
+  return `${money(Math.abs(instructed), currency, locale)} original`;
 }
 
 function TransactionRow({
@@ -62,9 +63,10 @@ function TransactionRow({
   categories: Category[];
   transaction: Transaction;
 }) {
+  const locale = useFormatLocale();
   const [editing, setEditing] = useState(false);
   const incoming = transaction.amount_minor > 0;
-  const original = originalAmount(transaction);
+  const original = originalAmount(transaction, locale);
   const subject = transaction.counterparty || transaction.description || transactionTypeLabels[transaction.type];
   // Without a payee the description is already the title, so it is not repeated below.
   const showsDescription = Boolean(transaction.counterparty) || !transaction.description;
@@ -122,7 +124,7 @@ function TransactionRow({
         <DateValue value={transaction.booking_date} />
       </td>
       <td role="cell" className={clsx(styles["amount"], incoming && ui["positive"])}>
-        {signedMoney(transaction.amount_minor, transaction.currency)}
+        {signedMoney(transaction.amount_minor, transaction.currency, locale)}
         {original && <span className={styles["original-amount"]}>{original}</span>}
         {transaction.hidden && <span className={styles["hidden-tag"]}>Hidden</span>}
       </td>

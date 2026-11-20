@@ -5,6 +5,7 @@ import ui from "../../../components/ui/primitives.module.css";
 import { useId, useState } from "react";
 import styles from "./manual-adoption-option.module.css";
 import { formatCount } from "@/lib/locale";
+import { useFormatLocale } from "@/client/format-locale-provider";
 
 /** The manual assignments a previewed rule decides; null while no current count is known. */
 export type ManualMatches = {
@@ -17,8 +18,8 @@ export function adoptByDefault(matches: ManualMatches) {
   return matches !== null && matches.count > 0 && matches.sameCategory === matches.count;
 }
 
-function transactionCount(count: number) {
-  return count === 1 ? "1 manually categorized transaction" : `${formatCount(count)} manually categorized transactions`;
+function transactionCount(count: number, locale: string) {
+  return count === 1 ? "1 manually categorized transaction" : `${formatCount(count, locale)} manually categorized transactions`;
 }
 
 /**
@@ -41,6 +42,7 @@ export function ManualAdoptionOption({
 }: {
   adoption: ReturnType<typeof useManualAdoption>;
 }) {
+  const locale = useFormatLocale();
   const hintId = useId();
   const {
     matches,
@@ -57,7 +59,7 @@ export function ManualAdoptionOption({
   let hint = single ? "It already has this rule's category." : "They already have this rule's category.";
 
   if (differing > 0) {
-    hint = single ? "It has a different category, which the rule would replace." : `${formatCount(differing)} of them ${differing === 1 ? "has" : "have"} a different category, which the rule would replace.`;
+    hint = single ? "It has a different category, which the rule would replace." : `${formatCount(differing, locale)} of them ${differing === 1 ? "has" : "have"} a different category, which the rule would replace.`;
   }
 
 
@@ -70,7 +72,7 @@ export function ManualAdoptionOption({
           aria-describedby={hintId}
           onChange={event => setChecked(event.target.checked)}
         />
-        Also let this rule decide {transactionCount(matches.count)}
+        Also let this rule decide {transactionCount(matches.count, locale)}
       </label>
       <p id={hintId} className={ui["form-hint"]}>{hint} {single ? "Otherwise it stays manual." : "Otherwise they stay manual."}</p>
     </>

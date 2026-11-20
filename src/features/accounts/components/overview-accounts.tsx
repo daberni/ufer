@@ -20,6 +20,7 @@ import { useAccountHref, useChangeView } from "@/client/use-app-url";
 import { AreaPlaceholder } from "@/components/ui/area-placeholder";
 import { shownStatus, valueMask } from "@/components/ui/result-presentation";
 import type { Area, PendingArea } from "@/components/ui/use-area-result";
+import { useFormatLocale } from "@/client/format-locale-provider";
 
 type Props = {
   /** Accounts in the display currency. */
@@ -90,6 +91,7 @@ function largestAccounts(accounts: Account[]) {
 function AccountStrip({ currencyAccounts }: {
   currencyAccounts: Account[]
 }) {
+  const locale = useFormatLocale();
   const [dialog, setDialog] = useState<OpenDialog | null>(null);
   const closeDialog = () => setDialog(null);
   const accountHref = useAccountHref();
@@ -106,7 +108,7 @@ function AccountStrip({ currencyAccounts }: {
               <Icon size={21} />
             </span>
             <span className={styles["account-tile-name"]}>{account.name}</span>
-            <strong>{account.balance_minor === null ? "—" : money(account.balance_minor, account.currency)}</strong>
+            <strong>{account.balance_minor === null ? "—" : money(account.balance_minor, account.currency, locale)}</strong>
             <span className={styles["account-tile-meta"]}>
               <span className={styles["account-tile-kind"]}>{kinds[account.kind]} · {account.institution}</span>
               <AccountSourceIndicator account={account} />

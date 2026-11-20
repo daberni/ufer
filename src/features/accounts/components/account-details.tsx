@@ -22,6 +22,7 @@ import { bankConnectionsHref } from "@/features/banking/connections-location";
 import type { Area } from "@/components/ui/use-area-result";
 import type { Account, BalanceHistory } from "@/features/accounts/types";
 import type { Connection } from "@/features/banking/types";
+import { useFormatLocale } from "@/client/format-locale-provider";
 
 /** Where an account's details return to: the list they were opened from. */
 export type BackLink = {
@@ -102,6 +103,7 @@ function AccountSummary({
   account: Account;
   connections: Connection[];
 }) {
+  const locale = useFormatLocale();
   const [connection, setConnection] = useState<Connection | null>(null);
   const [updatingBalance, setUpdatingBalance] = useState(false);
   const closeDialog = () => setConnection(null);
@@ -123,7 +125,7 @@ function AccountSummary({
       <h2 id={headingId} className={styles["heading"]}>Balance</h2>
       <p className={ui["muted"]}>{account.institution} · {account.currency}</p>
       <div className={styles["balance-row"]}>
-        <strong className={styles["balance"]}>{account.balance_minor === null ? "—" : money(account.balance_minor, account.currency)}</strong>
+        <strong className={styles["balance"]}>{account.balance_minor === null ? "—" : money(account.balance_minor, account.currency, locale)}</strong>
         {balanceEditable && (
           <button
             className={clsx(ui["icon-button"], styles["balance-edit"])}

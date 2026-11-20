@@ -17,6 +17,7 @@ import type { RulePreviewDraft } from "@/features/categorization/types";
 import { CategoryPicker } from "./category-picker";
 import { ManualAdoptionOption, useManualAdoption } from "./manual-adoption-option";
 import { formatCount } from "@/lib/locale";
+import { useFormatLocale } from "@/client/format-locale-provider";
 
 type Props = {
   /** The transaction whose category was chosen manually; the proposed pattern comes from it, and it becomes rule-assigned when the new rule decides its category. */
@@ -56,8 +57,8 @@ function previewDraft(pattern: string, categoryId: string, sourceTransactionId: 
   };
 }
 
-function transactionCount(count: number) {
-  return count === 1 ? "1 other transaction" : `${formatCount(count)} other transactions`;
+function transactionCount(count: number, locale: string) {
+  return count === 1 ? "1 other transaction" : `${formatCount(count, locale)} other transactions`;
 }
 
 function RuleFromAssignmentForm({
@@ -68,6 +69,7 @@ function RuleFromAssignmentForm({
   close,
   onCreated
 }: Props) {
+  const locale = useFormatLocale();
   const categories = useCategories();
   const {
     error,
@@ -107,7 +109,7 @@ function RuleFromAssignmentForm({
   } else if (previewReady && preview.data?.matched === 0) {
     previewText = "Would not categorize any other transactions yet.";
   } else if (previewReady && preview.data) {
-    previewText = `Would categorize ${transactionCount(preview.data.matched)}; ${formatCount(preview.data.uncategorized)} of them ${preview.data.uncategorized === 1 ? "is" : "are"} uncategorized.`;
+    previewText = `Would categorize ${transactionCount(preview.data.matched, locale)}; ${formatCount(preview.data.uncategorized, locale)} of them ${preview.data.uncategorized === 1 ? "is" : "are"} uncategorized.`;
   }
 
   return (

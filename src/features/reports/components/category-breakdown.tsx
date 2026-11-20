@@ -19,6 +19,7 @@ import { areaProps, valueMask } from "@/components/ui/result-presentation";
 import { useCurrency, useMonthTransactionsHref, usePeriod, useViewHref } from "@/client/use-app-url";
 import type { Area } from "@/components/ui/use-area-result";
 import type { CashFlow } from "@/features/reports/types";
+import { useFormatLocale } from "@/client/format-locale-provider";
 
 type Props = {
   cashFlow: Area<CashFlow>;
@@ -41,6 +42,7 @@ export function CategoryBreakdown({
   selection,
   id
 }: Props) {
+  const locale = useFormatLocale();
   const selectedPeriod = usePeriod();
   const selectedCurrency = useCurrency();
   const pending = cashFlow.status === "pending";
@@ -51,7 +53,7 @@ export function CategoryBreakdown({
   const monthTransactionsHref = useMonthTransactionsHref();
   const transactionsHref = selection ? monthTransactionsHref(selection.month) : viewHref("transactions");
   const summary = selection ?? (pending ? emptySummary : periodCashFlow(cashFlow.data));
-  const context = selection ? describeMonth(Temporal.PlainYearMonth.from(selection.month)).title : periodLabel(period);
+  const context = selection ? describeMonth(Temporal.PlainYearMonth.from(selection.month), locale).title : periodLabel(period, locale);
   const emptyNote = selection ? "this month" : "in this period";
   const shownPeriod = selection ? monthPeriod(Temporal.PlainYearMonth.from(selection.month)) : period;
   const reserved = pending ? {
@@ -71,10 +73,10 @@ export function CategoryBreakdown({
       <div className={clsx(ui["subtle"], styles["summary"])}>
         <span className={pending ? "" : mask}>{context}</span>
         <span>
-          Net <strong className={clsx(summary.net < 0 && styles["negative"], mask)}>{money(summary.net, currency)}</strong>
+          Net <strong className={clsx(summary.net < 0 && styles["negative"], mask)}>{money(summary.net, currency, locale)}</strong>
         </span>
         <span>
-          Savings rate <strong className={clsx(isNegativeRate(summary.savingsRate) && styles["negative"], mask)}>{formatSavingsRate(summary.savingsRate)}</strong>
+          Savings rate <strong className={clsx(isNegativeRate(summary.savingsRate, locale) && styles["negative"], mask)}>{formatSavingsRate(summary.savingsRate, locale)}</strong>
         </span>
       </div>
       {pending ? (
@@ -150,11 +152,13 @@ function FlowColumn({
   rowLink: (group: CategoryGroup) => CategoryRowLink | null;
   empty: string;
 }) {
+  const locale = useFormatLocale();
+
   return (
     <div className={styles["column"]}>
       <h3 className={styles["column-heading"]}>
         {label}
-        <strong>{money(total, currency)}</strong>
+        <strong>{money(total, currency, locale)}</strong>
       </h3>
       <div className={styles["rows-frame"]}>
         {/* Invisible rows reserve the column's height, so the panel stays still as selections with fewer categories come and go. */}

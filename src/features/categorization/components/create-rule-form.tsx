@@ -1,6 +1,7 @@
 "use client";
 
 import ui from "../../../components/ui/primitives.module.css";
+import { useFormatLocale } from "@/client/format-locale-provider";
 
 import { clsx } from "clsx";
 import { useEffect, useId, useMemo, useState } from "react";
@@ -63,12 +64,13 @@ function sameDraft(first: RulePreviewDraft | null, second: RulePreviewDraft | nu
   return first !== null && second !== null && first.pattern === second.pattern && first.mode === second.mode && first.ruleId === second.ruleId && first.categoryId === second.categoryId;
 }
 
-function transactionCount(count: number) {
-  return count === 1 ? "1 transaction" : `${formatCount(count)} transactions`;
+function transactionCount(count: number, locale: string) {
+  return count === 1 ? "1 transaction" : `${formatCount(count, locale)} transactions`;
 }
 
 /** What the drafted rule would decide when rules are applied; nothing changes before that. The draft must keep its identity while its fields are unchanged. */
 function useRuleImpact(draft: RulePreviewDraft | null) {
+  const locale = useFormatLocale();
   const [previewed, setPreviewed] = useState(draft);
 
   useEffect(() => {
@@ -137,7 +139,7 @@ function useRuleImpact(draft: RulePreviewDraft | null) {
     pending: false,
     previewId,
     manual,
-    text: `Would decide ${transactionCount(preview.data.matched)} without a manual category when rules are applied; ${formatCount(preview.data.uncategorized)} of them ${preview.data.uncategorized === 1 ? "is" : "are"} uncategorized now.`
+    text: `Would decide ${transactionCount(preview.data.matched, locale)} without a manual category when rules are applied; ${formatCount(preview.data.uncategorized, locale)} of them ${preview.data.uncategorized === 1 ? "is" : "are"} uncategorized now.`
   };
 }
 

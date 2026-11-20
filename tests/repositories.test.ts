@@ -300,7 +300,7 @@ test("category corrections retain environment isolation, manual exclusions survi
     category_id: "groceries",
     priority: 10,
     enabled: true
-  });
+  }, "en");
   await db.insert(schema.transactions).values([{
     id: "automatic-entry",
     account_id: "local",
@@ -380,7 +380,7 @@ test("applying rules reports only transactions whose category changed", async co
     category_id: "groceries",
     priority: 10,
     enabled: true
-  });
+  }, "en");
 
   assert.deepEqual(await applyRulesToUncorrectedTransactions(), {
     updated: 1
@@ -402,7 +402,7 @@ test("rule toggling answers 404 for unknown ids and invalid patterns are validat
     mode: "regex",
     category_id: "groceries",
     priority: 1
-  }), ValidationError);
+  }, "en"), ValidationError);
 });
 
 test("bank authorization uses real SQL defaults and preserves unique callback state", async context => {
@@ -559,7 +559,7 @@ test("category edits keep transaction assignments and rules attached and reject 
     category_id: "groceries",
     priority: 10,
     enabled: true
-  });
+  }, "en");
   await db.insert(schema.transactions).values({
     id: "assigned-entry",
     account_id: "local",

@@ -8,14 +8,15 @@ import { money } from "@/lib/money";
 import { CategoryLabel, type DisplayCategory, type NeutralCategory } from "@/features/categorization/components/category-label";
 import { categoryBarColor, neutralChipColor, themedColor } from "@/features/categorization/category-colors";
 import type { CategoryGroup } from "@/features/reports/category-groups";
+import { useFormatLocale } from "@/client/format-locale-provider";
 
 /** The rows as one sentence for an accessible description, e.g. "Groceries €120.00 (40%), Rent €180.00 (60%)". */
-export function describeCategoryGroups(groups: CategoryGroup[], currency: string) {
+export function describeCategoryGroups(groups: CategoryGroup[], currency: string, locale: string) {
   if (!groups.length) {
     return "None.";
   }
 
-  return groups.map(group => `${group.name} ${money(group.amount, currency)} (${formatPercent(group.share)})`).join(", ");
+  return groups.map(group => `${group.name} ${money(group.amount, currency, locale)} (${formatPercent(group.share, locale)})`).join(", ");
 }
 
 function groupCategory(group: CategoryGroup): DisplayCategory | NeutralCategory {
@@ -51,6 +52,8 @@ export function CategoryRows({
   rowLink,
   className
 }: Props) {
+  const locale = useFormatLocale();
+
   return (
     <div className={clsx(styles["rows"], className)}>
       {groups.map(group => {
@@ -60,7 +63,7 @@ export function CategoryRows({
             <span className={styles["category"]}>
               <CategoryLabel category={groupCategory(group)} />
             </span>
-            <strong>{money(group.amount, currency)}</strong>
+            <strong>{money(group.amount, currency, locale)}</strong>
             <div>
               <i
                 style={{

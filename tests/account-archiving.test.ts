@@ -329,7 +329,7 @@ test("categories of bookings on an archived account change neither manually nor 
     mode: "keyword",
     category_id: "groceries",
     adopt_manual: true
-  });
+  }, "en");
   await updateRuleDetails("shop-rule", {
     name: "Synthetic shop",
     pattern: "Synthetic shop",
