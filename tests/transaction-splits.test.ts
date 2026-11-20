@@ -13,6 +13,7 @@ import { upsertTransactions } from "../src/features/transactions/server/transact
 import { readAccountCashFlow, readCashFlow } from "../src/features/reports/server/cash-flow-query";
 import { readTransactionPage } from "../src/features/transactions/server/transaction-list-query";
 import { pairTransfersInEnvironment } from "../src/features/transactions/server/transfer-repository";
+import { replaceSplit } from "../src/features/transactions/server/split-repository";
 import { listAccounts } from "../src/features/accounts/server/account-queries";
 import { applyRulesToUncorrectedTransactions, categoryUsage, createRule, deleteCategory, previewRule } from "../src/features/categorization/server/categorization-service";
 import { insertRule } from "../src/features/categorization/server/rule-repository";
@@ -558,4 +559,22 @@ test("categorizing a split booking of another environment is not found rather th
   await assert.rejects(updateTransactionCategory("market", {
     category_id: "groceries"
   }), error => error instanceof HttpError && error.status === 404);
+});
+
+test("a split whose category was deleted after the request's check is rejected as invalid and keeps the earlier parts", async context => {
+  const db = await seed(context);
+
+  await splitTransaction("market", marketSplit());
+
+  // The service already checked the category; it is gone by the time the write transaction runs.
+  await assert.rejects(replaceSplit("market", () => [{
+    amount: -7000,
+    categoryId: "deleted-meanwhile",
+    note: ""
+  }, {
+    amount: -3000,
+    categoryId: "leisure",
+    note: ""
+  }]), error => error instanceof ValidationError);
+  assert.deepEqual((await db.select().from(schema.transactionSplits).where(eq(schema.transactionSplits.transaction_id, "market"))).map(part => part.category_id).sort(), ["groceries", "leisure"]);
 });

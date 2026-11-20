@@ -2,7 +2,8 @@ import { randomUUID } from "node:crypto";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 import { environment } from "@/features/banking/server/environment";
-import { accounts, categorizationRules, transactionSplits, transactions } from "@/server/database/schema";
+import { accounts, categories, categorizationRules, transactionSplits, transactions } from "@/server/database/schema";
+import { ValidationError } from "@/lib/errors";
 import type { Rule, RuleAssignment, RuleText } from "@/lib/rules";
 import type { TransactionType } from "@/features/transactions/transaction-types";
 import type { SplitPart } from "@/features/transactions/types";
@@ -68,6 +69,18 @@ export async function replaceSplit(id: string, decide: (subject: SplitSubject) =
     await assertWritableAccount(tx, subject.account_id);
 
     const parts = decide(subject);
+    const categoryIds = [...new Set(parts.map(part => part.categoryId).filter(categoryId => categoryId !== null))];
+
+    // The service checked the categories before this transaction; one deleted since then must not fail the insert on its foreign key.
+    if (categoryIds.length > 0) {
+      const found = await tx.select({
+        id: categories.id
+      }).from(categories).where(inArray(categories.id, categoryIds));
+
+      if (found.length !== categoryIds.length) {
+        throw new ValidationError("Category does not exist.");
+      }
+    }
 
     await tx.delete(transactionSplits).where(eq(transactionSplits.transaction_id, id));
     await tx.insert(transactionSplits).values(parts.map((part, position) => ({
