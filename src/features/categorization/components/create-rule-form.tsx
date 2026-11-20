@@ -288,7 +288,7 @@ function RuleTypeFields({
           </label>
         )}
       </div>
-      {type === "transfer" && <p className={ui["form-hint"]}>Links each matching booking with its opposite booking on the chosen account; on a manual account, the counterpart is created when none exists.</p>}
+      {type === "transfer" && <p className={ui["form-hint"]}>Links matching bookings to this account.</p>}
     </>
   );
 }
