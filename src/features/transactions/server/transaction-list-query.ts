@@ -13,6 +13,8 @@ import type { TransactionType } from "@/features/transactions/transaction-types"
 import { createdCounterpartPrefix, manualEntryPrefix } from "@/features/transactions/server/transfer-repository";
 import { listRules } from "@/features/categorization/server/rule-repository";
 import { prepareRules, ruleAssignment, type PreparedRule } from "@/lib/rules";
+import type { SplitPart, TransactionSplit } from "@/features/transactions/types";
+import { readSplitParts } from "@/features/transactions/server/split-repository";
 
 // Mirrors `enteredInUfer` for a booking and its account in the list's SQL.
 function enteredColumn(booking: string, account: string) {
@@ -46,6 +48,26 @@ function automaticAssignment(row: Record<string, unknown>, rules: PreparedRule[]
   return {
     category_id: assignment.categoryId,
     rule_id: assignment.ruleId
+  };
+}
+
+/** Matches what reports count as uncategorized: an unsplit booking without a category, a split with an uncategorized part, or a split whose parts no longer add up to the booking. */
+const uncategorizedCondition = `t.category_id IS NULL AND (
+  NOT EXISTS (SELECT 1 FROM transaction_splits s WHERE s.transaction_id=t.id)
+  OR EXISTS (SELECT 1 FROM transaction_splits s WHERE s.transaction_id=t.id AND s.category_id IS NULL)
+  OR (SELECT SUM(s.amount_minor) FROM transaction_splits s WHERE s.transaction_id=t.id)<>t.amount_minor
+)`;
+
+function splitOf(parts: SplitPart[] | undefined, amount: number): TransactionSplit | null {
+  if (!parts) {
+    return null;
+  }
+
+  const total = parts.reduce((sum, part) => sum + part.amount_minor, 0);
+
+  return {
+    parts,
+    balanced: total === amount
   };
 }
 
@@ -119,10 +141,10 @@ export async function readTransactionPage(filters: DashboardFilters) {
   }
 
   if (filters.categoryId === "uncategorized") {
-    where.push("t.category_id IS NULL");
+    where.push(uncategorizedCondition);
   } else if (filters.categoryId) {
-    where.push("t.category_id=?");
-    args.push(filters.categoryId);
+    where.push("(t.category_id=? OR EXISTS (SELECT 1 FROM transaction_splits s WHERE s.transaction_id=t.id AND s.category_id=?))");
+    args.push(filters.categoryId, filters.categoryId);
   }
 
   if (filters.type) {
@@ -158,6 +180,7 @@ export async function readTransactionPage(filters: DashboardFilters) {
   const [transactions, count] = await Promise.all([transactionsQuery, countQuery]);
   const hasManualRows = transactions.rows.some(row => row.category_source === "manual");
   const rules = hasManualRows ? prepareRules(await listRules()) : null;
+  const splits = await readSplitParts(transactions.rows.map(row => String(row.id)));
 
   return {
     period: periodToJson(filters.period),
@@ -181,7 +204,8 @@ export async function readTransactionPage(filters: DashboardFilters) {
       category_id: row.category_id === null ? null : String(row.category_id),
       category_source: String(row.category_source),
       category_rule_id: row.category_rule_id === null ? null : String(row.category_rule_id),
-      automatic_assignment: automaticAssignment(row, rules),
+      automatic_assignment: splits.has(String(row.id)) ? null : automaticAssignment(row, rules),
+      split: splitOf(splits.get(String(row.id)), Number(row.amount_minor)),
       type: row.type as TransactionType,
       type_source: row.type_source === "manual" ? "manual" as const : "auto" as const,
       manual_account: Boolean(row.manual_account),

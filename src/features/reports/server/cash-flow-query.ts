@@ -14,12 +14,31 @@ type SqlCondition = {
 const bookingMonth = "substr(t.booking_date,1,7)";
 
 /**
- * Transactions that count toward cash flow and spending in a date range: visible income and expenses of this environment and currency. Transfers, opening balances, adjustments and hidden bookings never count, whatever their category. Every cash-flow figure reads through this one definition so totals, breakdowns and the trend agree.
+ * The amounts reports count, one row per booking or part: an unsplit booking with its category, each part of a split booking with the part's category, and, when a split booking's amount changed after splitting, the difference as an uncategorized row. Every booking thus counts exactly once with its full amount, and balances keep reading the bookings themselves.
+ */
+const countedLines = `(
+  SELECT t.account_id,t.currency,t.booking_date,t.type,t.suppressed_at,t.category_id,t.amount_minor
+  FROM transactions t
+  WHERE NOT EXISTS (SELECT 1 FROM transaction_splits s WHERE s.transaction_id=t.id)
+  UNION ALL
+  SELECT t.account_id,t.currency,t.booking_date,t.type,t.suppressed_at,s.category_id,s.amount_minor
+  FROM transaction_splits s
+  JOIN transactions t ON t.id=s.transaction_id
+  UNION ALL
+  SELECT t.account_id,t.currency,t.booking_date,t.type,t.suppressed_at,NULL,t.amount_minor-SUM(s.amount_minor)
+  FROM transaction_splits s
+  JOIN transactions t ON t.id=s.transaction_id
+  GROUP BY t.id
+  HAVING SUM(s.amount_minor)<>t.amount_minor
+)`;
+
+/**
+ * Transactions that count toward cash flow and spending in a date range: visible income and expenses of this environment and currency. Transfers, opening balances, adjustments and hidden bookings never count, whatever their category. A split booking counts as its parts. Every cash-flow figure reads through this one definition so totals, breakdowns and the trend agree.
  */
 function countedTransactions(currency: string, range: SqlCondition): SqlCondition {
   return {
     sql: `
-      FROM transactions t
+      FROM ${countedLines} t
       JOIN accounts a ON a.id=t.account_id
       LEFT JOIN categories c ON c.id=t.category_id
       WHERE a.environment=?

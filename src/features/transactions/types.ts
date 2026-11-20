@@ -2,6 +2,21 @@ import type { PeriodJson } from "@/lib/period";
 import type { SyncRun } from "@/features/banking/types";
 import type { TransactionType } from "./transaction-types";
 
+/** One part of a split booking, signed like the booking's amount and in its currency. */
+export type SplitPart = {
+  id: string;
+  amount_minor: number;
+  category_id: string | null;
+  note: string;
+};
+
+/** How a booking is divided into category parts; reports count the parts instead of the booking. */
+export type TransactionSplit = {
+  parts: SplitPart[];
+  /** False once the booking's amount changed after splitting, for example through a sync; reports count the difference as uncategorized until the split is corrected. */
+  balanced: boolean;
+};
+
 export type Transaction = {
   id: string;
   booking_date: string;
@@ -27,6 +42,8 @@ export type Transaction = {
     category_id: string | null;
     rule_id: string | null;
   } | null;
+  /** The parts of a split booking; null for a booking that is not split. */
+  split: TransactionSplit | null;
   type: TransactionType;
   type_source: "auto" | "manual";
   account_id: string;

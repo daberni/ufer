@@ -642,10 +642,12 @@ test("the manual account upgrade turns balance history into transactions without
     const transactionsBefore = await originalTransactions(client, transactionColumns);
     const balancesBefore = (await client.execute("SELECT id,balance_minor FROM accounts ORDER BY id")).rows.map(row => [row.id, row.balance_minor]);
 
-    // The current cash-flow query reads the hidden-booking column of a later changeset; it exists only while the previous result is read.
+    // The current cash-flow query reads the hidden-booking column and the split table of later changesets; they exist only while the previous result is read.
     await client.execute("ALTER TABLE transactions ADD COLUMN suppressed_at TEXT");
+    await client.execute("CREATE TABLE transaction_splits(transaction_id TEXT,category_id TEXT,amount_minor INTEGER)");
     const flowsBefore = await Promise.all(months.map(month => readCashFlow(monthPeriod(Temporal.PlainYearMonth.from(month)), "EUR")));
 
+    await client.execute("DROP TABLE transaction_splits");
     await client.execute("ALTER TABLE transactions DROP COLUMN suppressed_at");
 
     await assert.rejects(initializeDatabase(client), /migrations are pending/);
@@ -1069,8 +1071,8 @@ test("import template migration adds an empty template table and leaves every ex
   const journal = JSON.parse(readFileSync("drizzle/sqlite/meta/_journal.json", "utf8"));
 
   journal.entries = journal.entries.filter((entry: {
-    tag: string
-  }) => entry.tag !== "0013_import_templates");
+    idx: number
+  }) => entry.idx < 13);
   mkdirSync(join(directory, "meta"));
 
   for (const entry of journal.entries) {
@@ -1085,7 +1087,8 @@ test("import template migration adds an empty template table and leaves every ex
       "INSERT INTO accounts(id,environment,name,institution,kind) VALUES('cash','SANDBOX','Synthetic cash','Example institution','savings')",
       "INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,type) VALUES('fee','cash','csv:1','2026-01-03',-200,'EUR','expense')"
     ], "write");
-    const objects = "SELECT type,name,sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' AND name NOT LIKE '__drizzle%' AND name NOT LIKE 'import_templates%' ORDER BY name";
+    // Migrating also applies the later split changeset, whose table and indexes are checked by its own test.
+    const objects = "SELECT type,name,sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' AND name NOT LIKE '__drizzle%' AND name NOT LIKE 'import_templates%' AND name NOT LIKE 'transaction_splits%' ORDER BY name";
     const before = (await client.execute(objects)).rows;
     const transactionsBefore = (await client.execute("SELECT * FROM transactions")).rows;
 
@@ -1099,6 +1102,65 @@ test("import template migration adds an empty template table and leaves every ex
     await client.execute("INSERT INTO import_templates(id,name,name_key,header_key,definition,created_at,updated_at) VALUES('a','Bank','bank','[\"Date\"]','{}','2026-01-01T00:00:00Z','2026-01-01T00:00:00Z')");
     await assert.rejects(client.execute("INSERT INTO import_templates(id,name,name_key,header_key,definition,created_at,updated_at) VALUES('b','BANK','bank','[\"Other\"]','{}','2026-01-01T00:00:00Z','2026-01-01T00:00:00Z')"), /UNIQUE/);
     await assert.rejects(client.execute("INSERT INTO import_templates(id,name,name_key,header_key,definition,created_at,updated_at) VALUES('c','Other','other','[\"Date\"]','{}','2026-01-01T00:00:00Z','2026-01-01T00:00:00Z')"), /UNIQUE/);
+  } finally {
+    client.close();
+    rmSync(directory, {
+      recursive: true,
+      force: true
+    });
+  }
+});
+
+test("split migration keeps every booking unchanged and removes parts with their booking", async () => {
+  const client = createClient({
+    url: ":memory:"
+  });
+  const directory = mkdtempSync(join(tmpdir(), "ufer-splits-"));
+  const journal = JSON.parse(readFileSync("drizzle/sqlite/meta/_journal.json", "utf8"));
+
+  journal.entries = journal.entries.filter((entry: {
+    idx: number
+  }) => entry.idx < 14);
+  mkdirSync(join(directory, "meta"));
+
+  for (const entry of journal.entries) {
+    cpSync(`drizzle/sqlite/${entry.tag}.sql`, join(directory, `${entry.tag}.sql`));
+  }
+
+  writeFileSync(join(directory, "meta/_journal.json"), JSON.stringify(journal));
+
+  try {
+    await migrateDatabase(client, directory);
+    await client.batch([
+      "INSERT INTO accounts(id,environment,name,institution,kind) VALUES('checking','SANDBOX','Synthetic checking','Example institution','checking')",
+      "INSERT INTO categories(id,name,color) VALUES('temporary','Temporary category','#123456')",
+      "INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,counterparty,category_id,category_source,type) VALUES('market','checking','bank:1','2026-01-02',-500,'EUR','Example Market','groceries','rule','expense')",
+      "INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,counterparty,category_id,category_source,type) VALUES('bakery','checking','bank:2','2026-01-03',-700,'EUR','Example Bakery','leisure','manual','expense')"
+    ], "write");
+    const before = (await client.execute("SELECT * FROM transactions ORDER BY id")).rows;
+
+    await assert.rejects(initializeDatabase(client), /migrations are pending/);
+    await migrateDatabase(client);
+    await migrateDatabase(client);
+
+    assert.deepEqual((await client.execute("SELECT * FROM transactions ORDER BY id")).rows, before);
+    assert.equal((await client.execute("SELECT COUNT(*) AS n FROM transaction_splits")).rows[0].n, 0);
+
+    await client.execute("PRAGMA foreign_keys = ON");
+    await client.batch([
+      "INSERT INTO transaction_splits(id,transaction_id,position,amount_minor,category_id) VALUES('part-1','market',0,-300,'groceries')",
+      "INSERT INTO transaction_splits(id,transaction_id,position,amount_minor,category_id) VALUES('part-2','market',1,-200,'temporary')",
+      "INSERT INTO transaction_splits(id,transaction_id,position,amount_minor,category_id) VALUES('part-3','bakery',0,-700,'leisure')"
+    ], "write");
+    await assert.rejects(client.execute("INSERT INTO transaction_splits(id,transaction_id,position,amount_minor) VALUES('zero','bakery',1,0)"), /CHECK constraint/);
+    await assert.rejects(client.execute("INSERT INTO transaction_splits(id,transaction_id,position,amount_minor) VALUES('orphan','missing',0,-100)"), /FOREIGN KEY/);
+
+    await client.execute("DELETE FROM categories WHERE id='temporary'");
+    assert.equal((await client.execute("SELECT category_id FROM transaction_splits WHERE id='part-2'")).rows[0].category_id, null);
+
+    await client.execute("DELETE FROM transactions WHERE id='market'");
+    assert.deepEqual((await client.execute("SELECT id FROM transaction_splits")).rows.map(row => row.id), ["part-3"]);
+    assert.equal((await client.execute("PRAGMA foreign_key_check")).rows.length, 0);
   } finally {
     client.close();
     rmSync(directory, {
