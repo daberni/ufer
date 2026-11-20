@@ -130,14 +130,25 @@ export async function removeSplit(id: string, assign: (rules: Rule[], text: Rule
   });
 }
 
-/** Removes a booking's parts inside the caller's write transaction and returns it to the category and rule the stored rules assign its text; an automatic, unlinked income or expense follows its current sign again. A booking without parts is unchanged. */
+/** Removes a booking's parts inside the caller's write transaction and returns it to the category and rule the stored rules assign its text; an automatic, unlinked income or expense follows its current sign again. Resolves to whether the booking was split. */
 export async function dissolveSplit(tx: DatabaseTransaction, id: string, assign: (rules: Rule[], text: RuleText) => RuleAssignment) {
   const removed = await tx.delete(transactionSplits).where(eq(transactionSplits.transaction_id, id));
 
   if (removed.rowsAffected === 0) {
-    return;
+    return false;
   }
 
+  await assignRuleCategory(tx, id, assign);
+  // Syncs keep a split booking's type, so an automatic, unlinked one follows its current amount again. Deliveries' transfer signal is not stored, so only the sign is reconciled.
+  await tx.update(transactions).set({
+    type: sql`CASE WHEN ${transactions.amount_minor}>0 THEN 'income' ELSE 'expense' END`
+  }).where(and(eq(transactions.id, id), eq(transactions.type_source, "auto"), isNull(transactions.transfer_id), inArray(transactions.type, ["income", "expense"])));
+
+  return true;
+}
+
+/** Assigns the category and rule the stored rules decide for the booking's current text, including its overrides. */
+export async function assignRuleCategory(tx: DatabaseTransaction, id: string, assign: (rules: Rule[], text: RuleText) => RuleAssignment) {
   const text = await tx.select({
     counterparty: transactions.counterparty,
     description: transactions.description,
@@ -155,10 +166,6 @@ export async function dissolveSplit(tx: DatabaseTransaction, id: string, assign:
     category_source: "rule",
     category_rule_id: assignment.ruleId
   }).where(eq(transactions.id, id));
-  // Syncs keep a split booking's type, so an automatic, unlinked one follows its current amount again. Deliveries' transfer signal is not stored, so only the sign is reconciled.
-  await tx.update(transactions).set({
-    type: sql`CASE WHEN ${transactions.amount_minor}>0 THEN 'income' ELSE 'expense' END`
-  }).where(and(eq(transactions.id, id), eq(transactions.type_source, "auto"), isNull(transactions.transfer_id), inArray(transactions.type, ["income", "expense"])));
 }
 
 /** Whether saving this type would leave a split booking with a type that is not split: only income and expenses count by category. Read inside the write that saves the type. */

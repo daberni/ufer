@@ -640,3 +640,31 @@ test("saving details that remove a split is one write: a refused type keeps the 
   assert.equal((await marketRow())?.type, "transfer");
   assert.equal((await marketRow())?.split, null);
 });
+
+test("removing a split together with a new payee assigns the rule category of the payee as saved", async context => {
+  await seed(context);
+  await insertRule({
+    id: "bakery-rule",
+    name: "Bakery",
+    pattern: "Corner Bakery",
+    mode: "keyword",
+    category_id: "leisure",
+    priority: 1,
+    enabled: true
+  });
+  await splitTransaction("market", marketSplit());
+
+  await updateTransactionDetails("market", {
+    type: "expense",
+    counterparty: "Corner Bakery",
+    remove_split: true
+  });
+
+  const row = await marketRow();
+
+  assert.equal(row?.split, null);
+  assert.equal(row?.counterparty, "Corner Bakery");
+  assert.equal(row?.category_id, "leisure");
+  assert.equal(row?.category_source, "rule");
+  assert.equal(row?.category_rule_id, "bakery-rule");
+});

@@ -6,7 +6,7 @@ import { accounts, categorizationRules, transactions } from "@/server/database/s
 import type { Rule, RuleAssignment, RuleText } from "@/lib/rules";
 import { derivedTransactionType, type TransactionType } from "@/features/transactions/transaction-types";
 import { refusable, type ManualEntryResult } from "./manual-transaction-repository";
-import { dissolveSplit, dropSplitsOnCurrencyChange, notSplit, splitRefusesType } from "./split-repository";
+import { assignRuleCategory, dissolveSplit, dropSplitsOnCurrencyChange, notSplit, splitRefusesType } from "./split-repository";
 import type { CategorizedEntry, Entry, ProviderDetails } from "./transaction-entry";
 import { applyTransactionType, dissolveLink, enteredInUfer, findSubject, followImportedCorrections, releaseOutdatedLinks, touchesArchivedAccount, type TransferTarget } from "./transfer-repository";
 
@@ -208,9 +208,7 @@ export async function saveTransactionDetails(
     }
 
     // Removing the split in the same write transaction lets it take a type a split booking refuses; a refused save keeps the split.
-    if (dropSplit) {
-      await dissolveSplit(tx, id, dropSplit);
-    }
+    const dissolved = dropSplit ? await dissolveSplit(tx, id, dropSplit) : false;
 
     if (await splitRefusesType(tx, id, type)) {
       return "split";
@@ -234,6 +232,11 @@ export async function saveTransactionDetails(
         counterparty_override: overrideOf(text.counterparty, subject.counterparty),
         description_override: overrideOf(text.description, subject.description)
       }).where(eq(transactions.id, id));
+    }
+
+    // The rules decide the former split's category from the text as saved here, overrides included.
+    if (dropSplit && dissolved) {
+      await assignRuleCategory(tx, id, dropSplit);
     }
 
     return applyTransactionType(tx, id, type, target);
