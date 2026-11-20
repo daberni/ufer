@@ -69,15 +69,29 @@ export function periodLabel(period: Period, locale: string) {
   return period.kind === "all" ? "All months" : describeMonth(period.month, locale).title;
 }
 
-/** Labels a month range such as the cash-flow trend window, e.g. "Jun – Nov 2026" or "Dec 2025 – May 2026". */
+// Month and year are formatted together, so the locale decides their order, spacing and numerals.
+function monthFormat(locale: string) {
+  return new Intl.DateTimeFormat(locale, {
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC"
+  });
+}
+
+function monthStart(month: Temporal.PlainYearMonth) {
+  return new Date(Date.UTC(month.year, month.month - 1, 1));
+}
+
+/** A short month with its year, e.g. "Dec 2025" in English. */
+export function shortMonthWithYear(month: Temporal.PlainYearMonth, locale: string) {
+  return monthFormat(locale).format(monthStart(month));
+}
+
+/** Labels a month range such as the cash-flow trend window, e.g. "Jun – Nov 2026" or "Dec 2025 – May 2026" in English; the locale collapses a shared year. */
 export function monthRangeLabel(months: Temporal.PlainYearMonth[], locale: string) {
   if (!months.length) {
     return "";
   }
 
-  const first = months[0];
-  const last = months[months.length - 1];
-  const start = first.year === last.year ? describeMonth(first, locale).label : `${describeMonth(first, locale).label} ${first.year}`;
-
-  return `${start} – ${describeMonth(last, locale).label} ${last.year}`;
+  return monthFormat(locale).formatRange(monthStart(months[0]), monthStart(months[months.length - 1]));
 }

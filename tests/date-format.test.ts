@@ -1,8 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { Temporal } from "temporal-polyfill";
-import { describeDate, describeMonth, monthRangeLabel } from "../src/lib/date-format";
+import { describeDate, describeMonth, monthRangeLabel, shortMonthWithYear } from "../src/lib/date-format";
 import { productTimeZone } from "../src/lib/time";
+
+// CLDR separates month ranges with thin spaces around the en dash.
 
 const yearReference = Temporal.Instant.from("2026-06-15T12:00:00Z");
 
@@ -42,8 +44,8 @@ test("month names do not depend on the machine time zone", () => {
     label: "Mar",
     title: "March 2026"
   });
-  assert.equal(monthRangeLabel(["2026-06", "2026-11"].map(month => Temporal.PlainYearMonth.from(month)), "en-GB"), "Jun – Nov 2026");
-  assert.equal(monthRangeLabel(["2025-12", "2026-05"].map(month => Temporal.PlainYearMonth.from(month)), "en-GB"), "Dec 2025 – May 2026");
+  assert.equal(monthRangeLabel(["2026-06", "2026-11"].map(month => Temporal.PlainYearMonth.from(month)), "en-GB"), "Jun\u2009–\u2009Nov 2026");
+  assert.equal(monthRangeLabel(["2025-12", "2026-05"].map(month => Temporal.PlainYearMonth.from(month)), "en-GB"), "Dec 2025\u2009–\u2009May 2026");
 });
 
 
@@ -63,4 +65,16 @@ test("current-year comparison follows the product calendar for days and the disp
   assert.equal(describeDate(beforeViennaMidnight.toZonedDateTimeISO("Europe/Vienna"), "en-GB", newYearBoundary).label, "31 Dec 2026");
   assert.equal(describeDate(beforeViennaMidnight.toZonedDateTimeISO("America/New_York"), "en-GB", newYearBoundary).label, "31 Dec");
   assert.equal(describeDate(nextNewYorkMorning.toZonedDateTimeISO("America/New_York"), "en-GB", newYearBoundary).label, "1 Jan 2027");
+});
+
+test("months with their year follow the locale's order and punctuation instead of appending the ISO year", () => {
+  const june = Temporal.PlainYearMonth.from("2026-06");
+  const november = Temporal.PlainYearMonth.from("2026-11");
+  const december = Temporal.PlainYearMonth.from("2025-12");
+
+  assert.equal(shortMonthWithYear(december, "de-AT"), "Dez. 2025");
+  assert.equal(shortMonthWithYear(december, "ja"), "2025年12月");
+  assert.equal(monthRangeLabel([june, november], "de-AT"), "Juni–Nov. 2026");
+  assert.equal(monthRangeLabel([december, june], "de-AT"), "Dez. 2025\u2009–\u2009Juni 2026");
+  assert.doesNotMatch(monthRangeLabel([december, june], "ja"), /12月 2025/);
 });

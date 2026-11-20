@@ -5,14 +5,14 @@ import ui from "../../../components/ui/primitives.module.css";
 import { clsx } from "clsx";
 import styles from "./wealth-summary.module.css";
 import { Wallet } from "lucide-react";
-import { money } from "@/lib/money";
+import { money, signedMoney } from "@/lib/money";
 import { valueMask, withPlaceholder } from "@/components/ui/result-presentation";
 import { FailureCover } from "@/components/ui/area-placeholder";
 import { useCurrency } from "@/client/use-app-url";
 import type { Area } from "@/components/ui/use-area-result";
 import type { NetWorth } from "@/features/accounts/types";
 import { Temporal } from "temporal-polyfill";
-import { describeMonth } from "@/lib/date-format";
+import { shortMonthWithYear } from "@/lib/date-format";
 import type { NetWorthHistory, NetWorthPoint } from "@/features/reports/net-worth-series";
 import { useFormatLocale } from "@/client/format-locale-provider";
 
@@ -59,7 +59,7 @@ export function WealthSummary({
       </div>
       <div className={styles["headline"]}>
         <div className={clsx(styles["wealth-number"], netWorthValue)}>{hasAccounts ? money(summary.netWorth, currency, locale) : "—"}</div>
-        {change && <span className={styles["change"]}>{change.amount > 0 ? "+" : ""}{money(change.amount, currency, locale)} since {change.since}</span>}
+        {change && <span className={styles["change"]}>{signedMoney(change.amount, currency, locale)} since {change.since}</span>}
       </div>
       {summary.unvalued > 0 && <p>{summary.unvalued} without a balance</p>}
       <div className={clsx(styles["allocation-bar"], netWorthValue)} aria-hidden="true">
@@ -117,7 +117,7 @@ function historyChange(points: NetWorthPoint[], locale: string) {
 
   return {
     amount: last.amount_minor - first.amount_minor,
-    since: `${describeMonth(month, locale).label} ${month.year}`
+    since: shortMonthWithYear(month, locale)
   };
 }
 
