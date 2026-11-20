@@ -3,9 +3,10 @@ import { and, asc, eq, isNull, lte, sql } from "drizzle-orm";
 import { TransactionRollbackError } from "drizzle-orm/errors";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 import { transactions } from "@/server/database/schema";
+import { assertWritableAccount } from "@/features/accounts/server/writable-account";
 import type { TransactionType } from "@/features/transactions/transaction-types";
 import type { RuleAssignment, RuleText } from "@/lib/rules";
-import { applyTransactionType, createdCounterpartPrefix, dissolveLink, enteredInUfer, enteredPair, findCounterpart, findSubject, manualEntryPrefix, type TransferTarget, type TypeChangeResult } from "./transfer-repository";
+import { applyTransactionType, createdCounterpartPrefix, dissolveLink, enteredInUfer, enteredPair, findCounterpart, findSubject, manualEntryPrefix, touchesArchivedAccount, type TransferTarget, type TypeChangeResult } from "./transfer-repository";
 
 /** The fields a person enters for a booking on a manual account. */
 export type ManualEntry = {
@@ -79,13 +80,20 @@ async function insertEntry(tx: DatabaseTransaction, id: string, entry: NewManual
   await tx.insert(transactions).values(manualEntryValues(id, entry));
 }
 
+/** Enters a booking within the caller's transaction and, for a transfer, creates or links its other side; the caller rolls back unless the result is "saved". */
+export async function bookManualEntry(tx: DatabaseTransaction, id: string, entry: NewManualEntry) {
+  await insertEntry(tx, id, entry);
+
+  return applyTransactionType(tx, id, entry.type, entry.target);
+}
+
 /** Enters a booking on a manual account and, for a transfer, creates or links its other side in the same transaction. */
 export async function createManualTransaction(entry: NewManualEntry) {
   const id = randomUUID();
   const result = await refusable(async tx => {
-    await insertEntry(tx, id, entry);
+    await assertWritableAccount(tx, entry.accountId);
 
-    return applyTransactionType(tx, id, entry.type, entry.target);
+    return bookManualEntry(tx, id, entry);
   });
 
   return {
@@ -111,6 +119,10 @@ export async function updateManualTransaction(id: string, entry: ManualEntry, ca
 
     if (!subject) {
       return "not_found";
+    }
+
+    if (await touchesArchivedAccount(tx, subject)) {
+      return "archived_account";
     }
 
     if (!enteredInUfer(subject)) {
@@ -207,6 +219,10 @@ export async function deleteManualTransaction(id: string) {
 
     if (!subject) {
       return "not_found";
+    }
+
+    if (await touchesArchivedAccount(tx, subject)) {
+      return "archived_account";
     }
 
     if (!enteredInUfer(subject)) {

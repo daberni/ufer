@@ -47,6 +47,13 @@
   padding-top: var(--space-4);
   margin: var(--space-4) 0 0;
 }
+.archived {
+  margin-top: var(--space-6);
+}
+.archived > summary {
+  margin-bottom: var(--space-4);
+  cursor: pointer;
+}
 @media (--laptop) {
   .accounts-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));

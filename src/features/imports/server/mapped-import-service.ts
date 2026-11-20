@@ -184,6 +184,15 @@ export async function importMappedRows(payload: unknown, now = Temporal.Now.inst
   };
 }
 
+// Archived accounts are read-only until restored, including an account this import created earlier.
+function requireActiveTarget(account: {
+  archived_at: string | null
+} | undefined) {
+  if (account?.archived_at) {
+    throw new HttpError(409, "This account is archived. Restore the account first.");
+  }
+}
+
 async function resolveTargets(importId: string, inputs: z.infer<typeof target>[], confirm: boolean) {
   const targets = new Map<string, Target>();
 
@@ -191,6 +200,8 @@ async function resolveTargets(importId: string, inputs: z.infer<typeof target>[]
     if (input.new_account) {
       const id = importAccountId(importId, input.source);
       const persisted = await findImportTarget(id);
+
+      requireActiveTarget(persisted);
       const opening = input.new_account.opening ? openingBalance(importAccountId(importId, `${input.source}|opening|${input.new_account.opening.kind}`), input.new_account.opening, input.new_account.currency) : null;
 
       // An earlier confirmed batch of this import created the account; its stored configuration is authoritative.
@@ -217,6 +228,8 @@ async function resolveTargets(importId: string, inputs: z.infer<typeof target>[]
     if (!account) {
       throw new HttpError(404, "Target account not found.");
     }
+
+    requireActiveTarget(account);
 
     targets.set(input.source, {
       accountId: account.id,

@@ -8,7 +8,7 @@ import { clsx } from "clsx";
 import Link from "next/link";
 import { useId, useState } from "react";
 import styles from "./account-details.module.css";
-import { ArrowLeft, ArrowRight, RefreshCw } from "lucide-react";
+import { ArrowLeft, ArrowRight, Pencil, RefreshCw } from "lucide-react";
 import { accountIcon, accountSourceLabel, accountSyncLabel, kinds } from "@/features/accounts/account-presentation";
 import { DateValue, TimestampValue } from "@/components/ui/date-value";
 import { Empty } from "@/components/ui/empty-state";
@@ -16,6 +16,8 @@ import { AreaPlaceholder } from "@/components/ui/area-placeholder";
 import { money } from "@/lib/money";
 import { BankConnectionDialog } from "@/features/banking/components/bank-connection-form";
 import { BalanceHistoryPanel } from "./balance-history";
+import { AccountArchiveAction } from "./account-archive-action";
+import { ValuationDialog } from "./valuation-form";
 import { bankConnectionsHref } from "@/features/banking/connections-location";
 import type { Area } from "@/components/ui/use-area-result";
 import type { Account, BalanceHistory } from "@/features/accounts/types";
@@ -101,7 +103,11 @@ function AccountSummary({
   connections: Connection[];
 }) {
   const [connection, setConnection] = useState<Connection | null>(null);
+  const [updatingBalance, setUpdatingBalance] = useState(false);
   const closeDialog = () => setConnection(null);
+  const archived = account.archived_at !== null;
+  // A synced account's balance comes from its bank; an archived account is read-only until it is restored.
+  const balanceEditable = account.provider === "manual" && !archived;
   const headingId = useId();
   const Icon = accountIcon(account.kind);
 
@@ -113,9 +119,22 @@ function AccountSummary({
         </span>
         <span className={ui["pill"]}>{kinds[account.kind] ?? account.kind}</span>
       </div>
+      {archived && <p className={clsx(ui["notice"], styles["archived"])}>This account is archived. It is hidden from the account lists and pickers and is not synced; its history still counts in reports.</p>}
       <h2 id={headingId} className={styles["heading"]}>Balance</h2>
       <p className={ui["muted"]}>{account.institution} · {account.currency}</p>
-      <strong className={styles["balance"]}>{account.balance_minor === null ? "—" : money(account.balance_minor, account.currency)}</strong>
+      <div className={styles["balance-row"]}>
+        <strong className={styles["balance"]}>{account.balance_minor === null ? "—" : money(account.balance_minor, account.currency)}</strong>
+        {balanceEditable && (
+          <button
+            className={clsx(ui["icon-button"], styles["balance-edit"])}
+            aria-label={`Update balance of ${account.name}`}
+            title="Update balance"
+            onClick={() => setUpdatingBalance(true)}
+          >
+            <Pencil size={18} aria-hidden="true" />
+          </button>
+        )}
+      </div>
       <dl className={styles["facts"]}>
         <div>
           <dt>Balance date</dt>
@@ -141,7 +160,11 @@ function AccountSummary({
           reconnect={setConnection}
         />
       )}
+      <div className={styles["actions"]}>
+        <AccountArchiveAction account={account} />
+      </div>
       {connection && <BankConnectionDialog connection={connection} close={closeDialog} />}
+      {updatingBalance && <ValuationDialog selectedAccount={account} close={() => setUpdatingBalance(false)} />}
     </section>
   );
 }
@@ -210,9 +233,11 @@ function AccountSummarySkeleton() {
       <p>
         <span className={ui["skeleton"]}>Example bank · EUR</span>
       </p>
-      <strong className={styles["balance"]}>
-        <span className={ui["skeleton"]}>€0,000.00</span>
-      </strong>
+      <div className={styles["balance-row"]}>
+        <strong className={styles["balance"]}>
+          <span className={ui["skeleton"]}>€0,000.00</span>
+        </strong>
+      </div>
       <div className={styles["facts"]}>
         <span className={ui["skeleton"]}>Balance date 12 Jan 2025</span>
         <span className={ui["skeleton"]}>Source Bank sync</span>

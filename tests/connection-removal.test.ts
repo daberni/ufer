@@ -16,7 +16,7 @@ import { saveSessionAccounts } from "../src/features/banking/server/bank-account
 import { listSyncAccounts } from "../src/features/banking/server/sync-repository";
 import { syncAccounts } from "../src/features/banking/server/sync-service";
 import { listConnections } from "../src/features/banking/server/banking-queries";
-import { listAccounts } from "../src/features/accounts/server/account-queries";
+import { listAccounts, readNetWorth } from "../src/features/accounts/server/account-queries";
 
 const providerKey = generateKeyPairSync("rsa", {
   modulusLength: 2048
@@ -144,7 +144,8 @@ test("removing a bank connection keeps accounts and history, deletes its credent
   });
 
   assert.deepEqual(await removeBankConnection("removed"), {
-    retainedAccounts: 1
+    retainedAccounts: 1,
+    notArchived: []
   });
   assert.deepEqual(requests, [{
     method: "DELETE",
@@ -191,6 +192,142 @@ test("removing a bank connection keeps accounts and history, deletes its credent
   assert.equal((await db.select().from(schema.accounts)).length, 2);
   assert.equal((await db.select().from(schema.accounts).where(eq(schema.accounts.id, "removed-account")).get())?.requisition_id, "renewed");
   assert.equal((await db.select().from(schema.requisitions).where(eq(schema.requisitions.id, "removed")).get())?.status, "REMOVED");
+});
+
+test("disconnecting a bank archives only its accounts with a balance of 0 and names the ones that stay active", async context => {
+  const {
+    db,
+    requests
+  } = await bankingDatabase(context, () => Response.json({
+    message: "OK"
+  }));
+
+  await insertLinkedConnection(db, "archived-bank", "archived-account");
+  await insertLinkedConnection(db, "other-bank", "other-account");
+  await db.update(schema.accounts).set({
+    balance_minor: 0
+  }).where(eq(schema.accounts.id, "archived-account"));
+  await db.insert(schema.accounts).values({
+    id: "unsettled-account",
+    environment: "SANDBOX",
+    name: "Synthetic unsettled account",
+    institution: "Example institution",
+    kind: "checking",
+    provider: "enable_banking",
+    provider_uid: "uid-unsettled-account",
+    requisition_id: "archived-bank",
+    balance_minor: 4200,
+    balance_date: "2000-01-31"
+  });
+  await db.insert(schema.transactions).values({
+    id: "archived-history",
+    account_id: "archived-account",
+    provider_reference: "bank:synthetic-archived-history",
+    booking_date: "2000-01-10",
+    amount_minor: -500,
+    currency: "EUR",
+    type: "expense",
+    counterparty: "Example payee"
+  });
+  const netWorthBefore = await readNetWorth("EUR");
+
+  assert.deepEqual(await removeBankConnection("archived-bank", {
+    archiveAccounts: true
+  }), {
+    retainedAccounts: 2,
+    notArchived: ["Synthetic unsettled account"]
+  });
+  assert.deepEqual(requests, [{
+    method: "DELETE",
+    path: "/sessions/session-archived-bank"
+  }]);
+
+  const accountsAfter = await listAccounts();
+  const archived = accountsAfter.find(account => account.id === "archived-account");
+
+  assert.ok(archived?.archived_at);
+  assert.equal(archived.requisition_id, null);
+  assert.equal(archived.balance_minor, 0);
+  assert.equal(accountsAfter.find(account => account.id === "unsettled-account")?.archived_at, null);
+  assert.equal(accountsAfter.find(account => account.id === "unsettled-account")?.requisition_id, null);
+  assert.equal(accountsAfter.find(account => account.id === "other-account")?.archived_at, null);
+  assert.equal((await db.select().from(schema.transactions)).length, 1);
+  assert.deepEqual(await readNetWorth("EUR"), netWorthBefore);
+  assert.deepEqual((await listSyncAccounts(db, "SANDBOX")).map(item => item.id), ["other-account"]);
+});
+
+test("sync skips an archived account of a linked connection and resumes it once restored", async context => {
+  const {
+    db,
+    requests
+  } = await bankingDatabase(context, request => {
+    if (request.path === "/application") {
+      return Response.json({
+        environment: "SANDBOX",
+        redirect_urls: []
+      });
+    }
+
+    if (request.path.endsWith("/balances")) {
+      return Response.json({
+        balances: [{
+          balance_type: "CLBD",
+          balance_amount: {
+            amount: "200.00",
+            currency: "EUR"
+          },
+          reference_date: "2000-02-01"
+        }]
+      });
+    }
+
+    const uid = request.path.split("/")[2];
+
+    return Response.json({
+      transactions: [{
+        entry_reference: `booking-${uid}`,
+        transaction_amount: {
+          amount: "5.00",
+          currency: "EUR"
+        },
+        credit_debit_indicator: "DBIT",
+        status: "BOOK",
+        booking_date: "2000-01-15"
+      }],
+      continuation_key: null
+    });
+  });
+
+  await insertLinkedConnection(db, "shared", "active-account");
+  await db.insert(schema.accounts).values({
+    id: "archived-account",
+    environment: "SANDBOX",
+    name: "Synthetic archived account",
+    institution: "Example institution",
+    kind: "checking",
+    provider: "enable_banking",
+    provider_uid: "uid-archived-account",
+    requisition_id: "shared",
+    balance_minor: 12345,
+    balance_date: "2000-01-31",
+    archived_at: "2000-02-01T00:00:00.000Z"
+  });
+  const archivedBefore = await db.select().from(schema.accounts).where(eq(schema.accounts.id, "archived-account")).get();
+
+  assert.equal((await syncAccounts()).status, "SUCCESS");
+  assert.equal(requests.some(request => request.path.includes("uid-archived-account")), false);
+  assert.ok(requests.some(request => request.path.includes("uid-active-account")));
+  assert.deepEqual(await db.select().from(schema.accounts).where(eq(schema.accounts.id, "archived-account")).get(), archivedBefore);
+  assert.deepEqual((await db.select().from(schema.transactions)).map(booking => booking.account_id), ["active-account"]);
+  assert.equal((await db.select().from(schema.balanceSnapshots).where(eq(schema.balanceSnapshots.account_id, "archived-account"))).length, 0);
+
+  await db.update(schema.accounts).set({
+    archived_at: null
+  }).where(eq(schema.accounts.id, "archived-account"));
+  assert.equal((await syncAccounts()).status, "SUCCESS");
+  assert.ok(requests.some(request => request.path.includes("uid-archived-account")));
+  assert.equal((await db.select().from(schema.transactions).where(eq(schema.transactions.account_id, "archived-account"))).length, 1);
+  assert.equal((await db.select().from(schema.accounts).where(eq(schema.accounts.id, "archived-account")).get())?.balance_minor, 20000);
 });
 
 test("a failed revocation leaves the connection intact for an explicit retry, without background retries", async context => {
@@ -254,7 +391,8 @@ test("a failed revocation leaves the connection intact for an explicit retry, wi
 
   providerAvailable = true;
   assert.deepEqual(await removeBankConnection("unrevoked"), {
-    retainedAccounts: 1
+    retainedAccounts: 1,
+    notArchived: []
   });
   assert.equal(requests.filter(request => request.method === "DELETE").length, 2);
   const removed = await db.select().from(schema.requisitions).where(eq(schema.requisitions.id, "unrevoked")).get();
@@ -285,7 +423,8 @@ test("a session the provider reports as ended counts as revoked and its stored I
     await insertLinkedConnection(db, id, `${id}-account`);
 
     assert.deepEqual(await removeBankConnection(id), {
-      retainedAccounts: 1
+      retainedAccounts: 1,
+      notArchived: []
     }, ended[0]);
     assert.equal((await db.select().from(schema.requisitions).where(eq(schema.requisitions.id, id)).get())?.session_cipher, null, ended[0]);
   }
@@ -352,7 +491,8 @@ test("a connection removed while its callback is mapping accounts is never linke
   assert.equal((await db.select().from(schema.requisitions).get())?.status, "EXCHANGING");
 
   assert.deepEqual(await removeBankConnection("overlap"), {
-    retainedAccounts: 0
+    retainedAccounts: 0,
+    notArchived: []
   });
   assert.deepEqual(requests, [{
     method: "DELETE",
@@ -432,7 +572,8 @@ test("a callback completing after removal preflight keeps its new session until 
   assert.deepEqual(requests, []);
 
   assert.deepEqual(await removeBankConnection("pending-overlap"), {
-    retainedAccounts: 1
+    retainedAccounts: 1,
+    notArchived: []
   });
   assert.deepEqual(requests, [{
     method: "DELETE",
@@ -452,7 +593,8 @@ test("a provider session revocation answered without a body counts as revoked", 
   await insertLinkedConnection(db, "no-body", "no-body-account");
 
   assert.deepEqual(await removeBankConnection("no-body"), {
-    retainedAccounts: 1
+    retainedAccounts: 1,
+    notArchived: []
   });
 });
 

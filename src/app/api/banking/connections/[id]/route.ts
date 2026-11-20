@@ -1,5 +1,6 @@
 import { respond } from "@/server/http/respond";
 import { removeBankConnection } from "@/features/banking/server/connection-service";
+import { ValidationError } from "@/lib/errors";
 
 export const runtime = "nodejs";
 
@@ -16,7 +17,14 @@ type Context = {
 export async function DELETE(request: Request, context: Context) {
   return respond(request, async () => {
     const { id } = await context.params;
+    const retainedAccounts = new URL(request.url).searchParams.get("accounts") ?? "keep";
 
-    return removeBankConnection(id);
+    if (retainedAccounts !== "keep" && retainedAccounts !== "archive") {
+      throw new ValidationError("Choose whether to keep or archive the connection's accounts.");
+    }
+
+    return removeBankConnection(id, {
+      archiveAccounts: retainedAccounts === "archive"
+    });
   });
 }

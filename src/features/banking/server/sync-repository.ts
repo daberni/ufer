@@ -1,6 +1,6 @@
 import { adoptImportedRows } from "@/features/imports/server/mapped-import-repository";
 import { randomUUID } from "node:crypto";
-import { and, count, eq, getTableColumns, like, ne, sql, type SQLWrapper } from "drizzle-orm";
+import { and, count, eq, getTableColumns, isNull, like, ne, sql, type SQLWrapper } from "drizzle-orm";
 import type { Database } from "@/server/database/connection";
 import { timestamp } from "@/lib/time";
 import { accounts, balanceSnapshots, requisitions, syncRuns, transactions } from "@/server/database/schema";
@@ -34,13 +34,14 @@ export const linkedTransactionCount = sql<number>`(SELECT COUNT(*) FROM ${transa
   startedAt: syncRuns.started_at
 })})`;
 
+/** Linked bank accounts to sync; archived accounts are skipped until restored, when the sync window covers what they missed. */
 export async function listSyncAccounts(db: Database, environment: string) {
   return db.select({
     ...getTableColumns(accounts),
     connection_id: requisitions.id,
     valid_until: requisitions.valid_until,
     connection_status: requisitions.status
-  }).from(accounts).innerJoin(requisitions, eq(requisitions.id, accounts.requisition_id)).where(and(eq(accounts.environment, environment), eq(accounts.provider, "enable_banking"), ne(requisitions.status, "REMOVED")));
+  }).from(accounts).innerJoin(requisitions, eq(requisitions.id, accounts.requisition_id)).where(and(eq(accounts.environment, environment), eq(accounts.provider, "enable_banking"), isNull(accounts.archived_at), ne(requisitions.status, "REMOVED")));
 }
 
 export async function startSyncRun(db: Database, environment: string, id: string, started: string) {
