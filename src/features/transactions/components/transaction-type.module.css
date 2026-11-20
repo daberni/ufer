@@ -80,6 +80,11 @@
 .overridable {
   display: grid;
   gap: var(--space-1);
+  /* The grid keeps its label's margins from collapsing; the group carries the form's field gap instead. */
+  margin: var(--space-4) 0;
+}
+.overridable > label {
+  margin: 0;
 }
 .source-text {
   display: flex;
