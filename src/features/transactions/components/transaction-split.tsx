@@ -230,7 +230,7 @@ export function SplitForm({
         }
       }}
     >
-      <p className={ui["form-hint"]}>Each part counts in reports with its own category. Enter amounts in the booking&apos;s direction; a negative part goes the other way.</p>
+      <p className={ui["form-hint"]}>Parts must add up to the booking.</p>
       <ol className={styles["editor"]}>
         {parts.map((part, index) => (
           <SplitPartFields
@@ -275,7 +275,6 @@ export function SplitForm({
           Remove split
         </button>
       )}
-      {transaction.split && <p className={ui["form-hint"]}>Removing the split returns the transaction to automatic categorization.</p>}
     </form>
   );
 }
@@ -299,63 +298,58 @@ function SplitPartFields({
   onChange: (change: Partial<DraftPart>) => void;
   onRemove: () => void;
 }) {
-  const categoryId = useId();
+  const fieldId = useId();
   const position = index + 1;
 
   return (
     <li className={styles["part"]}>
-      <div className={styles["part-header"]}>
-        <span className={styles["part-number"]}>Part {position}</span>
-        <button
-          type="button"
-          className={styles["remove"]}
-          disabled={!removable}
-          aria-label={`Remove part ${position}`}
-          onClick={onRemove}
-        >
-          <X size={16} />
-        </button>
-      </div>
-      <div className={styles["part-fields"]}>
-        <label>
-          Amount
-          <input
-            required
-            inputMode="decimal"
-            pattern="[+\-]?[0-9]+([.][0-9]+)?"
-            placeholder="0.00"
-            value={part.amount}
-            aria-invalid={invalid || undefined}
-            aria-describedby={statusId}
-            onChange={event => onChange({
-              amount: event.target.value
-            })}
-          />
-        </label>
-        <div className={ui["field"]}>
-          <label htmlFor={categoryId}>Category</label>
-          <CategoryPicker
-            id={categoryId}
-            categories={categories}
-            value={part.categoryId}
-            includeUncategorized
-            onChange={value => onChange({
-              categoryId: value
-            })}
-          />
-        </div>
-      </div>
-      <label>
-        Note
-        <input
-          maxLength={200}
-          placeholder="Optional"
-          value={part.note}
-          onChange={event => onChange({
-            note: event.target.value
+      <label htmlFor={`${fieldId}-amount`} className={ui["visually-hidden"]}>{`Amount of part ${position}`}</label>
+      <input
+        id={`${fieldId}-amount`}
+        className={styles["amount"]}
+        required
+        inputMode="decimal"
+        pattern="[+\-]?[0-9]+([.][0-9]+)?"
+        placeholder="0.00"
+        value={part.amount}
+        aria-invalid={invalid || undefined}
+        aria-describedby={statusId}
+        onChange={event => onChange({
+          amount: event.target.value
+        })}
+      />
+      <div className={styles["category"]}>
+        <label htmlFor={`${fieldId}-category`} className={ui["visually-hidden"]}>{`Category of part ${position}`}</label>
+        <CategoryPicker
+          id={`${fieldId}-category`}
+          categories={categories}
+          value={part.categoryId}
+          includeUncategorized
+          onChange={value => onChange({
+            categoryId: value
           })}
         />
-      </label>
+      </div>
+      <label htmlFor={`${fieldId}-note`} className={ui["visually-hidden"]}>{`Note of part ${position}`}</label>
+      <input
+        id={`${fieldId}-note`}
+        className={styles["note"]}
+        maxLength={200}
+        placeholder="Note"
+        value={part.note}
+        onChange={event => onChange({
+          note: event.target.value
+        })}
+      />
+      <button
+        type="button"
+        className={styles["remove"]}
+        disabled={!removable}
+        aria-label={`Remove part ${position}`}
+        onClick={onRemove}
+      >
+        <X size={16} />
+      </button>
     </li>
   );
 }

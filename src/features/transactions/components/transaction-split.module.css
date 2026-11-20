@@ -77,30 +77,33 @@
 .editor {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-2);
   margin: 0;
   padding: 0;
   list-style: none;
 }
 .part {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 6rem minmax(0, 3fr) minmax(0, 2fr) 36px;
+  grid-template-areas: "amount category note remove";
   gap: var(--space-2);
-  padding: var(--space-3);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-}
-.part-header {
-  display: flex;
   align-items: center;
-  justify-content: space-between;
 }
-.part-number {
+.amount {
+  grid-area: amount;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.category {
+  grid-area: category;
+  min-width: 0;
+}
+.note {
+  grid-area: note;
   font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--ink-soft);
 }
 .remove {
+  grid-area: remove;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -119,12 +122,6 @@
 .remove:disabled {
   visibility: hidden;
 }
-.part-fields {
-  display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
-  gap: var(--space-3);
-  align-items: end;
-}
 .remaining {
   margin: 0;
   font-size: var(--text-sm);
@@ -136,8 +133,13 @@
 }
 
 @media (--mobile) {
-  .part-fields {
-    grid-template-columns: minmax(0, 1fr);
+  .part {
+    grid-template-columns: 6rem minmax(0, 1fr) 44px;
+    grid-template-areas:
+      "amount category remove"
+      "note note note";
+    padding-bottom: var(--space-2);
+    border-bottom: 1px solid var(--border-subtle);
   }
   .remove {
     width: 44px;

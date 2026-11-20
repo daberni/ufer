@@ -16,9 +16,9 @@ export const createdCounterpartPrefix = "transfer:";
 /** Bookings entered in Ufer on a manual account (manual transactions, opening balances and adjustments) carry their own id in this reference. */
 export const manualEntryPrefix = "manual:";
 
-// Bookings automatic pairing may link: visible, unlinked, never linked or unlinked by a person, and either a transfer or a type nobody corrected.
+// Bookings automatic pairing may link: visible, unlinked, not split, never linked or unlinked by a person, and either a transfer or a type nobody corrected.
 function pairable(alias: string) {
-  return sql.raw(`${alias}.suppressed_at IS NULL AND ${alias}.transfer_id IS NULL AND ${alias}.transfer_source='auto' AND ${alias}.amount_minor<>0 AND (${alias}.type='transfer' OR (${alias}.type_source='auto' AND ${alias}.type IN ('income','expense')))`);
+  return sql.raw(`${alias}.suppressed_at IS NULL AND ${alias}.transfer_id IS NULL AND ${alias}.transfer_source='auto' AND ${alias}.amount_minor<>0 AND NOT EXISTS (SELECT 1 FROM transaction_splits s WHERE s.transaction_id=${alias}.id) AND (${alias}.type='transfer' OR (${alias}.type_source='auto' AND ${alias}.type IN ('income','expense')))`);
 }
 
 function windowStart(days: number) {

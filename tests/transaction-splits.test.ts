@@ -11,6 +11,7 @@ import { updateTransactionCategory, updateTransactionDetails } from "../src/feat
 import { upsertTransactions } from "../src/features/transactions/server/transaction-repository";
 import { readAccountCashFlow, readCashFlow } from "../src/features/reports/server/cash-flow-query";
 import { readTransactionPage } from "../src/features/transactions/server/transaction-list-query";
+import { pairTransfersInEnvironment } from "../src/features/transactions/server/transfer-repository";
 import { listAccounts } from "../src/features/accounts/server/account-queries";
 import { applyRulesToUncorrectedTransactions, categoryUsage, createRule, previewRule } from "../src/features/categorization/server/categorization-service";
 import { insertRule } from "../src/features/categorization/server/rule-repository";
@@ -369,4 +370,35 @@ test("a new rule adopting manual assignments leaves split bookings alone, and ca
   assert.equal(row?.category_id, null);
   assert.equal(row?.category_source, "manual");
   assert.equal((await categoryUsage("leisure")).transactions, 1);
+});
+
+test("automatic transfer pairing leaves a split booking as it is", async context => {
+  const db = await seed(context);
+
+  await db.insert(schema.accounts).values({
+    id: "savings",
+    environment: "SANDBOX",
+    name: "Synthetic savings",
+    institution: "Example institution",
+    kind: "savings",
+    provider: "enablebanking"
+  });
+  await db.insert(schema.transactions).values({
+    id: "savings-in",
+    account_id: "savings",
+    provider_reference: "bank:savings-in",
+    booking_date: "2026-01-10",
+    amount_minor: 10000,
+    currency: "EUR",
+    counterparty: "Own checking",
+    type: "transfer"
+  });
+  await splitTransaction("market", marketSplit());
+  await pairTransfersInEnvironment("SANDBOX");
+
+  const row = await marketRow();
+
+  assert.equal(row?.type, "expense");
+  assert.equal(row?.counterpart, null);
+  assert.equal(row?.split?.parts.length, 2);
 });

@@ -77,7 +77,7 @@ test("a split is entered in the booking's direction and can be saved only once i
   }));
 
   const amounts = () => screen.getAllByRole("textbox", {
-    name: "Amount"
+    name: /^Amount of part/
   }) as HTMLInputElement[];
   const saveSplit = () => screen.getByRole("button", {
     name: "Save split"
