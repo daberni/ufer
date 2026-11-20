@@ -77,7 +77,7 @@ export function ColumnPreview({
                   <Select
                     variant="compact"
                     className={clsx(styles["role"], roleOf(index) && styles["assigned"])}
-                    aria-label={`Role of column ${column || index + 1}`}
+                    aria-label={`Role of column ${column || formatCount(index + 1, locale)}`}
                     {...index === 0 ? problemProps(draft.problem ? {
                       message: draft.problem
                     } : null, "import-columns-problem") : {}}
@@ -88,7 +88,7 @@ export function ColumnPreview({
                     <option value="">Ignore</option>
                     {roles.map(([field, label]) => <option key={field} value={field}>{label}</option>)}
                   </Select>
-                  <span className={styles["original"]}>{column || `Column ${index + 1}`}</span>
+                  <span className={styles["original"]}>{column || `Column ${formatCount(index + 1, locale)}`}</span>
                 </th>
               ))}
             </tr>

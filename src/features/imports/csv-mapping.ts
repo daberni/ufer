@@ -629,7 +629,7 @@ export function mapRows(rows: string[][], mapping: CsvMapping, settings: CsvSett
     if (amount === null) {
       const scientific = [mapping.amount, mapping.debit, mapping.credit].some(column => /\d[eE][+-]?\d/.test(cell(column)));
 
-      failure(scientific ? "Scientific notation is not supported; export amounts as plain numbers." : "The amount is missing or not a number with at most 15 digits and 6 decimal places.");
+      failure(scientific ? "Scientific notation is not supported; export amounts as plain numbers." : `The amount is missing or not a number with at most ${formatCount(15, locale)} digits and ${formatCount(6, locale)} decimal places.`);
 
       return;
     }

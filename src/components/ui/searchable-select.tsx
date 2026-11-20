@@ -454,7 +454,7 @@ export function SearchableSelect<Value>({
           )}
         </ul>
         {message && <p className={styles["message"]}>{message}</p>}
-        {!message && truncated && <p className={styles["message"]}>Showing the first {shown.length} of {countText(matches.length)}. Type to narrow the list.</p>}
+        {!message && truncated && <p className={styles["message"]}>Showing the first {formatCount(shown.length, locale)} of {countText(matches.length)}. Type to narrow the list.</p>}
         {footer}
       </div>
       <div className={ui["visually-hidden"]} role="status">

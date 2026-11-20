@@ -13,6 +13,8 @@ import { createManualTransaction, deleteManualTransaction, findEntryCurrency, up
 import { returnTransactionToRules, saveTransactionDetails, setTransactionCategory, setTransactionHidden } from "./transaction-repository";
 import { manualLinkDays } from "./transfer-pairing";
 import { readTransferOptions, type TransferTarget } from "./transfer-repository";
+import { formatCount } from "@/lib/locale";
+import { currentFormatLocale } from "@/server/http/request-locale";
 
 // A category ID or null sets the category manually; automatic returns the transaction to the rules.
 const categoryChoice = z.union([z.object({
@@ -67,12 +69,11 @@ const detailsInput = typeInput.extend({
   description: z.string().trim().max(2000).optional()
 });
 
-const typeFailures: Record<Exclude<ManualEntryResult, "saved" | "not_found" | "hidden" | "archived_account">, string> = {
+const typeFailures: Record<Exclude<ManualEntryResult, "saved" | "not_found" | "hidden" | "archived_account" | "not_a_candidate">, string> = {
   manual_account_only: "Opening balances and adjustments are only available for manual accounts.",
   counterpart_not_found: "The selected booking does not exist.",
   account_not_found: "Choose one of your manual accounts.",
   same_account: "A transfer moves money between two different accounts.",
-  not_a_candidate: `Link a booking with the opposite amount in the same currency on another account, at most ${manualLinkDays} days apart.`,
   currency_mismatch: "The manual account must use the booking's currency.",
   zero_amount: "A booking without an amount cannot be a transfer to another account.",
   created_counterpart: "Ufer created this booking for the transfer of its linked booking. Change where the transfer goes on that booking, or remove this one.",
@@ -81,7 +82,7 @@ const typeFailures: Record<Exclude<ManualEntryResult, "saved" | "not_found" | "h
   entered: "This transaction was entered in Ufer. Edit or delete it instead."
 };
 
-function requireSaved(result: ManualEntryResult) {
+async function requireSaved(result: ManualEntryResult) {
   if (result === "not_found") {
     throw new HttpError(404, "Transaction not found.");
   }
@@ -92,6 +93,10 @@ function requireSaved(result: ManualEntryResult) {
 
   if (result === "hidden") {
     throw new HttpError(409, "This transaction is hidden. Show it before linking it with another booking.");
+  }
+
+  if (result === "not_a_candidate") {
+    throw new ValidationError(`Link a booking with the opposite amount in the same currency on another account, at most ${formatCount(manualLinkDays, await currentFormatLocale())} days apart.`);
   }
 
   if (result !== "saved") {
@@ -119,7 +124,7 @@ export async function updateTransactionDetails(id: string, payload: unknown) {
     throw new ValidationError("Only a transfer has a target account.");
   }
 
-  requireSaved(await saveTransactionDetails(id, input.type, target(input.transfer), {
+  await requireSaved(await saveTransactionDetails(id, input.type, target(input.transfer), {
     counterparty: input.counterparty,
     description: input.description
   }));
@@ -199,7 +204,7 @@ export async function enterManualTransaction(accountId: string, payload: unknown
     categoryRuleId: assignment.categoryRuleId
   });
 
-  requireSaved(result);
+  await requireSaved(result);
 
   return {
     id
@@ -219,7 +224,7 @@ export async function editManualTransaction(id: string, payload: unknown, now = 
   const rules = prepareRules(await listRules());
   const categoryFor = (text: RuleText) => ruleAssignment(text, rules);
 
-  requireSaved(await updateManualTransaction(id, entry, categoryFor));
+  await requireSaved(await updateManualTransaction(id, entry, categoryFor));
 
   return {
     ok: true
@@ -227,7 +232,7 @@ export async function editManualTransaction(id: string, payload: unknown, now = 
 }
 
 export async function removeManualTransaction(id: string) {
-  requireSaved(await deleteManualTransaction(id));
+  await requireSaved(await deleteManualTransaction(id));
 
   return {
     ok: true
@@ -236,7 +241,7 @@ export async function removeManualTransaction(id: string) {
 
 /** Hides an imported booking from balances and reports, or shows it again; later syncs and imports keep it hidden. */
 export async function hideTransaction(id: string, hidden: boolean, now = Temporal.Now.instant()) {
-  requireSaved(await setTransactionHidden(id, hidden, now.toString()));
+  await requireSaved(await setTransactionHidden(id, hidden, now.toString()));
 
   return {
     hidden

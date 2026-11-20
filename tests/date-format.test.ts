@@ -96,3 +96,9 @@ test("dates are always Gregorian, also in locales with another default calendar,
   assert.equal(formatYear(2026, "fa-IR"), "۲۰۲۶");
   assert.equal(formatYear(2026, "th-TH"), "2026");
 });
+
+test("years below 100 are not shifted into the 1900s", () => {
+  assert.equal(formatYear(99, "en"), "99");
+  assert.equal(shortMonthWithYear(Temporal.PlainYearMonth.from("0099-03"), "en"), "Mar 99");
+  assert.equal(monthRangeLabel([Temporal.PlainYearMonth.from("0099-03"), Temporal.PlainYearMonth.from("0099-05")], "en"), "Mar\u2009–\u2009May 99");
+});

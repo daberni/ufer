@@ -133,7 +133,7 @@ function completedStatus(result: ActionResult<SyncOutcome>, locale: string): Syn
   return {
     ...idleStatus,
     phase: "synced",
-    resultLabel: inserted ? `${inserted} new` : "Up to date",
+    resultLabel: inserted ? `${formatCount(inserted, locale)} new` : "Up to date",
     politeAnnouncement: inserted ? `Sync complete: ${transactions}.` : "Sync complete: everything is up to date."
   };
 }

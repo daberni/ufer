@@ -87,8 +87,17 @@ function monthFormat(locale: string) {
   });
 }
 
+// Date.UTC maps years 0–99 to 1900–1999, so the year is set separately.
+function utcDate(year: number, monthIndex: number, day: number) {
+  const date = new Date(0);
+
+  date.setUTCFullYear(year, monthIndex, day);
+
+  return date;
+}
+
 function monthStart(month: Temporal.PlainYearMonth) {
-  return new Date(Date.UTC(month.year, month.month - 1, 1));
+  return utcDate(month.year, month.month - 1, 1);
 }
 
 /** A calendar year in the locale's numerals and style, e.g. "2026" in English or "2026年" in Japanese. */
@@ -97,7 +106,7 @@ export function formatYear(year: number, locale: string) {
     calendar: "gregory",
     year: "numeric",
     timeZone: "UTC"
-  }).format(new Date(Date.UTC(year, 0, 1)));
+  }).format(utcDate(year, 0, 1));
 }
 
 /** A short month with its year, e.g. "Dec 2025" in English. */

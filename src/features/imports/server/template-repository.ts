@@ -4,6 +4,8 @@ import { HttpError } from "@/lib/errors";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 import { importTemplates } from "@/server/database/schema";
 import { headerKey, type CsvTemplate } from "../csv-mapping";
+import { formatCount } from "@/lib/locale";
+import { currentFormatLocale } from "@/server/http/request-locale";
 
 /** Saved templates are few hand-made layouts; the bound keeps the list a page section. */
 export const maximumTemplates = 100;
@@ -33,7 +35,7 @@ export async function insertTemplate(id: string, name: string, definition: Templ
     }).from(importTemplates).get();
 
     if ((stored?.total ?? 0) >= maximumTemplates) {
-      throw new HttpError(409, `Ufer keeps at most ${maximumTemplates} templates. Delete one before saving another.`);
+      throw new HttpError(409, `Ufer keeps at most ${formatCount(maximumTemplates, await currentFormatLocale())} templates. Delete one before saving another.`);
     }
 
     await requireUnique(tx, name, definition.header, null);

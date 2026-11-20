@@ -831,7 +831,7 @@ test("the closing date cannot precede the account's last booking", async context
       balance_minor: 50000
     }
   }), {
-    message: "Choose a date on or after the last booking (2026-01-02)."
+    message: "Choose a date on or after the last booking (Jan 2, 2026)."
   });
   assert.deepEqual(await db.select().from(schema.transactions), bookingsBefore);
   assert.equal((await listAccounts()).find(account => account.id === "open")?.archived_at, null);

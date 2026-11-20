@@ -9,6 +9,7 @@ import { builtInTemplates, decodeCsv, detectDateFormat, detectDecimal, detectDel
 import { categoryValues, importKey, prepareImport, resolveCategories, resolveTargets, sourceAccounts, templateChoices, type CategorySelection, type TargetChoice } from "@/features/imports/import-plan";
 import { useImportTemplates } from "@/features/imports/template-queries";
 import { useLocale } from "@/client/locale-provider";
+import { formatCount } from "@/lib/locale";
 
 /** Large multi-year exports are read in the browser and sent as mapped rows in batches, so only the browser's memory bounds the file. */
 const maxFileBytes = 25_000_000;
@@ -106,7 +107,7 @@ export function useImportDraft() {
     }
 
     if (selected.size > maxFileBytes) {
-      setFileError("The file cannot exceed 25 MB.");
+      setFileError(`The file cannot exceed ${formatCount(25, locale)} MB.`);
 
       return;
     }

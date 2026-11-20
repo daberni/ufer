@@ -8,6 +8,9 @@ import { ValidationError } from "@/lib/errors";
 import type { AccountKind } from "../account-kinds";
 import type { ManualAccountInput } from "./account-schema";
 import { assertWritableAccount } from "./writable-account";
+import { dateWithYear } from "@/lib/date-format";
+import { currentFormatLocale } from "@/server/http/request-locale";
+import { Temporal } from "temporal-polyfill";
 
 export async function findManualAccount(id: string) {
   const db = await database();
@@ -144,7 +147,7 @@ export async function closeAndArchiveManualAccount(account: {
 
       // A closing before the last booking would leave activity after the account reached 0.
       if (total?.latest && date < total.latest) {
-        throw new ValidationError(`Choose a date on or after the last booking (${total.latest}).`);
+        throw new ValidationError(`Choose a date on or after the last booking (${dateWithYear(Temporal.PlainDate.from(total.latest), await currentFormatLocale())}).`);
       }
 
       const result = await bookManualEntry(tx, randomUUID(), {
