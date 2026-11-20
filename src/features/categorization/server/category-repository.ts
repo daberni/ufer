@@ -1,4 +1,4 @@
-import { count, eq, inArray, sql } from "drizzle-orm";
+import { count, eq, inArray, or, sql } from "drizzle-orm";
 import type { InStatement } from "@libsql/client";
 import { sameCategoryName } from "@/lib/category-name";
 import type { CategoryIconKey } from "@/features/categorization/category-icons";
@@ -85,7 +85,9 @@ export async function readCategoryUsage(id: string): Promise<CategoryUsage | nul
     db.select({
       total: count(),
       manual: sql<number>`COALESCE(SUM(${transactions.category_source}='manual'),0)`
-    }).from(transactions).where(eq(transactions.category_id, id)).get(),
+    }).from(transactions).where(or(eq(transactions.category_id, id), inArray(transactions.id, db.select({
+      id: transactionSplits.transaction_id
+    }).from(transactionSplits).where(eq(transactionSplits.category_id, id))))).get(),
     db.select({
       total: count()
     }).from(categorizationRules).where(eq(categorizationRules.category_id, id)).get()

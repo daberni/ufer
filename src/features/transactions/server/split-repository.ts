@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, notExists } from "drizzle-orm";
 import { database } from "@/server/database/connection";
 import { environment } from "@/features/banking/server/environment";
 import { accounts, categorizationRules, transactionSplits, transactions } from "@/server/database/schema";
@@ -20,6 +20,13 @@ export type SplitPartValues = {
   categoryId: string | null;
   note: string;
 };
+
+/** Condition for bookings that are not split; rules never categorize a split booking, whose categories are its parts. */
+export function notSplit(db: Pick<Awaited<ReturnType<typeof database>>, "select">) {
+  return notExists(db.select({
+    id: transactionSplits.id
+  }).from(transactionSplits).where(eq(transactionSplits.transaction_id, transactions.id)));
+}
 
 async function scopedTransaction(id: string) {
   const db = await database();

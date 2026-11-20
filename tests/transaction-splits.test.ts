@@ -12,7 +12,7 @@ import { upsertTransactions } from "../src/features/transactions/server/transact
 import { readAccountCashFlow, readCashFlow } from "../src/features/reports/server/cash-flow-query";
 import { readTransactionPage } from "../src/features/transactions/server/transaction-list-query";
 import { listAccounts } from "../src/features/accounts/server/account-queries";
-import { applyRulesToUncorrectedTransactions } from "../src/features/categorization/server/categorization-service";
+import { applyRulesToUncorrectedTransactions, categoryUsage, createRule, previewRule } from "../src/features/categorization/server/categorization-service";
 import { insertRule } from "../src/features/categorization/server/rule-repository";
 import { dashboardFilters } from "../src/server/http/dashboard-filters";
 import { HttpError, ValidationError } from "../src/lib/errors";
@@ -341,4 +341,32 @@ test("a sync that changes a split booking's amount keeps the split, flags it and
     }]
   });
   assert.equal((await marketRow())?.split?.balanced, true);
+});
+
+test("a new rule adopting manual assignments leaves split bookings alone, and category usage counts bookings split into it", async context => {
+  await seed(context);
+  await splitTransaction("market", marketSplit());
+
+  const created = await previewRule({
+    pattern: "Example Market",
+    mode: "keyword",
+    priority: 100,
+    category_id: "groceries"
+  });
+
+  await createRule({
+    id: created.id,
+    name: "Market",
+    pattern: "Example Market",
+    mode: "keyword",
+    category_id: "groceries",
+    priority: 100,
+    adopt_manual: true
+  });
+
+  const row = await marketRow();
+
+  assert.equal(row?.category_id, null);
+  assert.equal(row?.category_source, "manual");
+  assert.equal((await categoryUsage("leisure")).transactions, 1);
 });
