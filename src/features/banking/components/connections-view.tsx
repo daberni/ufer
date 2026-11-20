@@ -21,6 +21,8 @@ import { useSyncRunHref } from "@/client/use-app-url";
 import { recentSyncRuns } from "@/features/banking/sync-run-presentation";
 import { AreaPlaceholder } from "@/components/ui/area-placeholder";
 import type { Area } from "@/components/ui/use-area-result";
+import { useLocale } from "@/client/locale-provider";
+import { formatCount } from "@/lib/locale";
 
 type Props = {
   banking: BankingConfiguration;
@@ -259,7 +261,8 @@ function SyncRunTransactions({
   href: (id: string) => string;
   run: SyncRun;
 }) {
-  const label = (count: number) => `${count} new ${count === 1 ? "transaction" : "transactions"}`;
+  const locale = useLocale();
+  const label = (count: number) => `${formatCount(count, locale)} new ${count === 1 ? "transaction" : "transactions"}`;
 
   if (run.linked_count > 0) {
     return <Link className={styles["transactions-link"]} href={href(run.id)}>{label(run.linked_count)}</Link>;

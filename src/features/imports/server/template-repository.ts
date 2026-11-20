@@ -22,6 +22,13 @@ export async function listTemplates(): Promise<CsvTemplate[]> {
   }));
 }
 
+/** Refuses a template beyond the limit; the service words the refusal for the request after the transaction has rolled back. */
+export class TemplateLimitReached extends Error {
+  constructor(readonly maximum: number) {
+    super("The template limit is reached.");
+  }
+}
+
 /** Stores a new template; another template for the same header or with the same name is a conflict. */
 export async function insertTemplate(id: string, name: string, definition: TemplateDefinition) {
   const db = await database();
@@ -33,7 +40,7 @@ export async function insertTemplate(id: string, name: string, definition: Templ
     }).from(importTemplates).get();
 
     if ((stored?.total ?? 0) >= maximumTemplates) {
-      throw new HttpError(409, `Ufer keeps at most ${maximumTemplates} templates. Delete one before saving another.`);
+      throw new TemplateLimitReached(maximumTemplates);
     }
 
     await requireUnique(tx, name, definition.header, null);

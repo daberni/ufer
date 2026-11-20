@@ -14,6 +14,8 @@ import { useAccounts } from "@/features/accounts/queries";
 import { InlineFailure } from "@/components/ui/area-placeholder";
 import { useAreaResult, type Area } from "@/components/ui/use-area-result";
 import { Dialog } from "@/components/ui/dialog";
+import { useLocale } from "@/client/locale-provider";
+import { formatCount } from "@/lib/locale";
 
 type Props = DialogFormProps & {
   selectedConnection: Connection;
@@ -102,6 +104,8 @@ function RetainedAccounts({
   accounts: Area<Account[]>;
   connection: Connection;
 }) {
+  const locale = useLocale();
+
   if (accounts.status === "pending" && accounts.failure) {
     return <InlineFailure failure={accounts.failure} subject="The linked accounts" />;
   }
@@ -119,7 +123,7 @@ function RetainedAccounts({
 
   return (
     <>
-      <strong>{linkedAccounts.length} linked account(s) stay in Ufer</strong> with their balances, transaction history and categories.
+      <strong>{`${formatCount(linkedAccounts.length, locale)} linked account(s) stay in Ufer`}</strong> with their balances, transaction history and categories.
     </>
   );
 }

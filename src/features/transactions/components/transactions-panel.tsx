@@ -25,6 +25,8 @@ import type { Account } from "@/features/accounts/types";
 import type { Category } from "@/features/categorization/types";
 import { transactionTypes, transactionTypeLabels } from "@/features/transactions/transaction-types";
 import type { TransactionPage } from "@/features/transactions/types";
+import { useLocale } from "@/client/locale-provider";
+import { formatCount } from "@/lib/locale";
 
 type Props = {
   categories: Area<Category[]>;
@@ -149,6 +151,7 @@ function TransactionPages({
   categories: Category[];
   list: AreaResult<TransactionPage>;
 }) {
+  const locale = useLocale();
   const {
     transactionCount,
     transactions
@@ -166,7 +169,7 @@ function TransactionPages({
       {view !== "overview" && transactionCount > transactionPageSize && (
         <div className={styles["pagination"]}>
           <span className={valueMask(list.status)}>
-            {(page - 1) * transactionPageSize + 1}–{Math.min(page * transactionPageSize, transactionCount)} of {transactionCount}
+            {`${formatCount((page - 1) * transactionPageSize + 1, locale)}–${formatCount(Math.min(page * transactionPageSize, transactionCount), locale)} of ${formatCount(transactionCount, locale)}`}
           </span>
           <button className={clsx(styles["button"], ui["small"])} disabled={page === 1} onClick={() => setPage(page - 1)}>
             Previous

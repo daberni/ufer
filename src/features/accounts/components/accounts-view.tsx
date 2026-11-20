@@ -21,6 +21,8 @@ import { useAccountHref } from "@/client/use-app-url";
 import { AreaPlaceholder } from "@/components/ui/area-placeholder";
 import { shownStatus, valueMask } from "@/components/ui/result-presentation";
 import type { Area } from "@/components/ui/use-area-result";
+import { useLocale } from "@/client/locale-provider";
+import { formatCount } from "@/lib/locale";
 
 type Props = {
   accounts: Area<Account[]>;
@@ -37,6 +39,7 @@ const skeletonAccounts = 3;
 export function AccountsView({
   accounts
 }: Props) {
+  const locale = useLocale();
   const [dialog, setDialog] = useState<OpenDialog | null>(null);
   const closeDialog = () => setDialog(null);
   const addAccount = () => setDialog({
@@ -47,7 +50,7 @@ export function AccountsView({
   return (
     <>
       <div className={contextStyles["context-row"]}>
-        <span className={clsx(contextStyles["label"], ui["section-kicker"], valueMask(shownStatus(accounts)))}>{shownAccounts.length} ACCOUNTS & ASSETS</span>
+        <span className={clsx(contextStyles["label"], ui["section-kicker"], valueMask(shownStatus(accounts)))}>{`${formatCount(shownAccounts.length, locale)} ACCOUNTS & ASSETS`}</span>
         <div className={clsx(contextStyles["actions"], ui["button-group"])}>
           <button className={ui["button"]} onClick={addAccount}>
             <Plus size={15} />
@@ -118,6 +121,7 @@ function AccountCards({
   accounts: Account[];
   addAccount: () => void;
 }) {
+  const locale = useLocale();
   const shown = activeAccounts(accounts);
   const archived = accounts.filter(account => account.archived_at !== null);
 
@@ -144,7 +148,7 @@ function AccountCards({
       )}
       {archived.length > 0 && (
         <details className={styles["archived"]}>
-          <summary className={ui["text-button"]}>Archived accounts ({archived.length})</summary>
+          <summary className={ui["text-button"]}>{`Archived accounts (${formatCount(archived.length, locale)})`}</summary>
           <div className={styles["accounts-grid"]}>
             {archived.map(account => <AccountCard account={account} key={account.id} />)}
           </div>
@@ -157,6 +161,7 @@ function AccountCards({
 function AccountCard({ account }: {
   account: Account
 }) {
+  const locale = useLocale();
   const accountHref = useAccountHref();
   const Icon = accountIcon(account.kind);
 
@@ -172,7 +177,7 @@ function AccountCard({ account }: {
         <Link className={styles["account-link"]} href={accountHref(account.id)}>{account.name}</Link>
       </h2>
       <p className={ui["muted"]}>{account.institution}</p>
-      <strong className={styles["account-detail-balance"]}>{account.balance_minor === null ? "—" : money(account.balance_minor, account.currency)}</strong>
+      <strong className={styles["account-detail-balance"]}>{account.balance_minor === null ? "—" : money(account.balance_minor, account.currency, locale)}</strong>
       <div className={styles["account-detail-meta"]}>
         <span>Balance <DateValue value={account.balance_date} fallback="not recorded yet" /></span>
         <span>{accountSourceLabel(account)}</span>

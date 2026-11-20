@@ -7,6 +7,8 @@ import { RuleFromAssignmentDialog } from "@/features/categorization/components/r
 import { RuleDialog } from "@/features/categorization/components/create-rule-form";
 import { useRules } from "@/features/categorization/queries";
 import type { Rule } from "@/features/categorization/types";
+import { formatCount } from "@/lib/locale";
+import { useLocale } from "@/client/locale-provider";
 
 type RuleDraft = {
   transactionId: string;
@@ -25,12 +27,12 @@ type RuleActions = {
   clearAnnouncement: () => void;
 };
 
-function createdText(categorized: number) {
+function createdText(categorized: number, locale: string) {
   if (categorized === 0) {
     return "Rule created.";
   }
 
-  return `Rule created; ${categorized.toLocaleString("en")} ${categorized === 1 ? "transaction" : "transactions"} categorized.`;
+  return `Rule created; ${formatCount(categorized, locale)} ${categorized === 1 ? "transaction" : "transactions"} categorized.`;
 }
 
 const RuleContext = createContext<RuleActions | null>(null);
@@ -53,6 +55,7 @@ export function TransactionRuleProvider({
   children?: ReactNode;
   fallbackFocus: RefObject<HTMLElement | null>;
 }) {
+  const locale = useLocale();
   const [draft, setDraft] = useState<RuleDraft | null>(null);
   const [editedRule, setEditedRule] = useState<Rule | null>(null);
   const [announcement, setAnnouncement] = useState("");
@@ -133,7 +136,7 @@ export function TransactionRuleProvider({
           description={draft.description}
           categoryId={draft.categoryId}
           close={() => setDraft(null)}
-          onCreated={categorized => setAnnouncement(createdText(categorized))}
+          onCreated={categorized => setAnnouncement(createdText(categorized, locale))}
         />
       )}
       {editedRule && <RuleDialog rule={editedRule} close={() => setEditedRule(null)} />}

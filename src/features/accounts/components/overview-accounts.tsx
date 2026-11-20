@@ -21,6 +21,8 @@ import { useAccountHref, useChangeView } from "@/client/use-app-url";
 import { AreaPlaceholder } from "@/components/ui/area-placeholder";
 import { shownStatus, valueMask } from "@/components/ui/result-presentation";
 import type { Area, PendingArea } from "@/components/ui/use-area-result";
+import { useLocale } from "@/client/locale-provider";
+import { formatCount } from "@/lib/locale";
 
 type Props = {
   /** Accounts in the display currency. */
@@ -43,13 +45,14 @@ const placeholderAccount = {
 };
 
 export function OverviewAccounts({ currencyAccounts }: Props) {
+  const locale = useLocale();
   const changeView = useChangeView();
 
   return (
     <section className={styles["accounts-section"]}>
       <div className={styles["section-heading"]}>
         <h2>
-          Your accounts <span className={clsx(styles["count-badge"], valueMask(shownStatus(currencyAccounts)))}>{currencyAccounts.data?.length ?? 0}</span>
+          Your accounts <span className={clsx(styles["count-badge"], valueMask(shownStatus(currencyAccounts)))}>{formatCount(currencyAccounts.data?.length ?? 0, locale)}</span>
         </h2>
         <button className={ui["text-button"]} onClick={() => changeView("accounts")}>
           Manage all <ArrowRight size={15} />
@@ -95,6 +98,7 @@ function AccountStripSkeleton({ area }: {
 function AccountStrip({ currencyAccounts }: {
   currencyAccounts: Account[]
 }) {
+  const locale = useLocale();
   const [dialog, setDialog] = useState<OpenDialog | null>(null);
   const closeDialog = () => setDialog(null);
   const accountHref = useAccountHref();
@@ -111,7 +115,7 @@ function AccountStrip({ currencyAccounts }: {
               <Icon size={21} />
             </span>
             <span className={styles["account-tile-name"]}>{account.name}</span>
-            <strong>{account.balance_minor === null ? "—" : money(account.balance_minor, account.currency)}</strong>
+            <strong>{account.balance_minor === null ? "—" : money(account.balance_minor, account.currency, locale)}</strong>
             <span className={styles["account-tile-meta"]}>
               <span className={styles["account-tile-kind"]}>{kinds[account.kind]} · {account.institution}</span>
               <AccountSourceIndicator account={account} />

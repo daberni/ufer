@@ -10,6 +10,8 @@ import { toFailure } from "@/client/api";
 import { FormError } from "@/components/ui/form-error";
 import { maxTemplateNameLength, templateLabel, type CsvTemplate } from "@/features/imports/csv-mapping";
 import { useChangeTemplate, useDeleteTemplate, useDuplicateTemplate } from "@/features/imports/template-queries";
+import { useLocale } from "@/client/locale-provider";
+import { formatCount } from "@/lib/locale";
 
 /** Built-in and saved templates with their recognized columns. Saved ones can be renamed or deleted; built-in ones can be duplicated into an editable saved copy. */
 export function TemplateList({
@@ -61,6 +63,7 @@ function TemplateItem({
   const [confirming, setConfirming] = useState(false);
   const [name, setName] = useState(template.name);
   const failure = change.error ?? remove.error ?? duplicate.error;
+  const locale = useLocale();
   const remembered = Object.keys(template.accounts).length + Object.keys(template.categories).length;
 
   function rename(event: React.FormEvent) {
@@ -105,7 +108,7 @@ function TemplateItem({
         <div className={styles["details"]}>
           <strong>{templateLabel(template)}</strong>
           <span className={styles["columns"]} title={template.header.join(", ")}>{template.header.join(", ")}</span>
-          {remembered > 0 && <span>{remembered === 1 ? "1 remembered choice" : `${remembered} remembered choices`}</span>}
+          {remembered > 0 && <span>{`${formatCount(remembered, locale)} ${remembered === 1 ? "remembered choice" : "remembered choices"}`}</span>}
         </div>
       )}
       {template.builtIn && (

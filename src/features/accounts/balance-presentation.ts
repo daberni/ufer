@@ -9,12 +9,12 @@ export const balanceSourceLabels: Record<BalancePoint["source"], string> = {
   transactions: "Estimated"
 };
 
-export function describeBalanceDate(date: string) {
+export function describeBalanceDate(date: string, locale: string) {
   const day = Temporal.PlainDate.from(date);
 
   return {
-    ...describeDate(day),
-    label: dateWithYear(day)
+    ...describeDate(day, locale),
+    label: dateWithYear(day, locale)
   };
 }
 
