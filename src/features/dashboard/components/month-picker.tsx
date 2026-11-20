@@ -10,7 +10,8 @@ import { useDismiss } from "@/components/ui/use-dismiss";
 import type { KeyboardEvent } from "react";
 import { Temporal } from "temporal-polyfill";
 import { currentMonth } from "@/lib/period";
-import { describeMonth } from "@/lib/date-format";
+import { describeMonth, formatYear } from "@/lib/date-format";
+import { useLocale } from "@/client/locale-provider";
 
 type Props = {
   label: string;
@@ -27,6 +28,7 @@ export function MonthPicker({
   selected,
   onSelect
 }: Props) {
+  const locale = useLocale();
   const [open, setOpen] = useState(false);
   const [year, setYear] = useState(0);
   const [focusedMonth, setFocusedMonth] = useState(1);
@@ -139,7 +141,7 @@ export function MonthPicker({
             >
               <ChevronLeft size={17} />
             </button>
-            <span className={styles["year"]} aria-live="polite">{year}</span>
+            <span className={styles["year"]} aria-live="polite">{formatYear(year, locale)}</span>
             <button
               type="button"
               className={ui["icon-button"]}
@@ -153,7 +155,7 @@ export function MonthPicker({
             className={styles["grid"]}
             ref={gridRef}
             role="group"
-            aria-label={`Months of ${year}`}
+            aria-label={`Months of ${formatYear(year, locale)}`}
             onKeyDown={handleGridKeyDown}
           >
             {Array.from({
@@ -165,7 +167,7 @@ export function MonthPicker({
               const display = describeMonth(Temporal.PlainYearMonth.from({
                 year,
                 month
-              }));
+              }), locale);
 
               return (
                 <button

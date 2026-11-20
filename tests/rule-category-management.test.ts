@@ -13,7 +13,7 @@ import { categorize, prepareRules } from "../src/lib/rules";
 import { monthPeriod } from "../src/lib/period";
 import { applyRulesToUncorrectedTransactions, categoryUsage, createRule, updateRuleDetails, deleteCategory, deleteRule, previewRule, reorderRules } from "../src/features/categorization/server/categorization-service";
 import { listRuleSummaries } from "../src/features/categorization/server/categorization-queries";
-import { listRules } from "../src/features/categorization/server/rule-repository";
+import { RuleLimitReached, appendRule, listRules } from "../src/features/categorization/server/rule-repository";
 import { readCashFlow } from "../src/features/reports/server/cash-flow-query";
 import { orderedPriorities } from "../src/features/categorization/rule-order";
 
@@ -516,6 +516,15 @@ test("creating a rule, with or without a priority, is rejected once 1,000 rules 
     mode: "keyword",
     category_id: "groceries"
   }), (error: unknown) => error instanceof HttpError && error.status === 409 && error.message === "Ufer supports at most 1,000 rules. Delete a rule before creating another.");
+  // The repository only reports the refusal; the service words it in the request's locale after the transaction rolled back.
+  await assert.rejects(appendRule({
+    id: "repository-extra",
+    name: "Repository extra",
+    pattern: "EXTRA",
+    mode: "keyword",
+    category_id: "groceries",
+    enabled: true
+  }), (error: unknown) => error instanceof RuleLimitReached && error.maximum === 1000);
   await assert.rejects(createRule({
     name: "One too many at a priority",
     pattern: "EXTRA",

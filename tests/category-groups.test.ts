@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { groupByCategory, categoryRowLimit } from "../src/features/reports/category-groups";
+import { groupByCategory, categoryRowLimit, displayName } from "../src/features/reports/category-groups";
 import type { CategoryAmount } from "../src/features/reports/types";
 
 function category(id: string, amount: number): CategoryAmount {
@@ -44,7 +44,8 @@ test("beyond five categories the four largest keep their rows and the rest are c
   assert.equal(groups.length, categoryRowLimit);
   assert.deepEqual(groups.slice(0, -1).map(group => group.amount), [70, 60, 50, 40]);
   assert.equal(remainder?.key, "remainder");
-  assert.equal(remainder?.name, "+3 more");
+  assert.equal(remainder && displayName(remainder, "en"), "+3 more");
+  assert.equal(remainder && displayName(remainder, "ar-EG"), "+٣ more");
   assert.equal(remainder?.amount, 60);
   assert.equal(total(groups), total(items));
   assert.ok(Math.abs(groups.reduce((sum, group) => sum + group.share, 0) - 1) < 1e-9);
@@ -56,7 +57,7 @@ test("uncategorized spending keeps its own row even when it is the smallest", ()
 
   assert.equal(groups.length, categoryRowLimit);
   assert.deepEqual(groups.map(group => group.key), ["1", "3", "5", "uncategorized", "remainder"]);
-  assert.equal(groups.at(-1)?.name, "+3 more");
+  assert.equal(displayName(groups.at(-1)!, "en"), "+3 more");
   assert.equal(groups.at(-1)?.amount, 60);
   assert.equal(total(groups), total(items));
 });

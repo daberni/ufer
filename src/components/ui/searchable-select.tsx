@@ -9,6 +9,8 @@ import type { KeyboardEvent, ReactNode } from "react";
 import { creatableName, matchOptions, searchableSelectKeyAction, searchableSelectToggleKeyAction, shownOptionLimit, type SearchableSelectAction } from "./searchable-select-behavior";
 import { popoverMaxWidth, popoverPlacement, visibleArea } from "./popover-placement";
 import { useDismiss } from "./use-dismiss";
+import { formatCount } from "@/lib/locale";
+import { useLocale } from "@/client/locale-provider";
 
 export type SearchableSelectOption<Value> = {
   key: string;
@@ -19,6 +21,8 @@ export type SearchableSelectOption<Value> = {
   color?: string;
   /** Shown after the label and read with it, such as a status badge. */
   description?: ReactNode;
+  /** A muted second line below the label, read with it, such as an example of the option. */
+  detail?: ReactNode;
 };
 
 export type SearchableSelectAppearance = "default" | "inline";
@@ -98,6 +102,7 @@ export function SearchableSelect<Value>({
   const popupRef = useRef<HTMLDivElement>(null);
   const listboxRef = useRef<HTMLUListElement>(null);
   const listboxId = useId();
+  const locale = useLocale();
   const selected = options.find(option => Object.is(option.value, value));
   // The selected option's label lists every option again, so another one can be picked without clearing the field first.
   const matches = notice ? [] : match(options, query === selected?.label ? "" : query);
@@ -109,7 +114,7 @@ export function SearchableSelect<Value>({
   const active = Math.min(activeIndex, optionCount - 1);
   const createLabel = `Create ${noun.one} “${createName}”`;
   const optionId = (index: number) => `${listboxId}-option-${index}`;
-  const countText = (count: number) => (count === 1 ? `1 ${noun.one}` : `${count.toLocaleString("en")} ${noun.other}`);
+  const countText = (count: number) => `${formatCount(count, locale)} ${count === 1 ? noun.one : noun.other}`;
   const truncated = matches.length > shown.length;
   const listLabel = `${noun.other.charAt(0).toLocaleUpperCase()}${noun.other.slice(1)}`;
   // A selection shown as the placeholder hint (an empty field reading "Uncategorized") keeps its icon like one shown as text.
@@ -128,7 +133,7 @@ export function SearchableSelect<Value>({
   if (open && !matches.length) {
     announcement = message || noMatchText;
   } else if (open) {
-    announcement = message || (truncated ? `${countText(matches.length)}, showing the first ${shown.length}` : countText(matches.length));
+    announcement = message || (truncated ? `${countText(matches.length)}, showing the first ${formatCount(shown.length, locale)}` : countText(matches.length));
   }
 
   if (open && createName) {
@@ -138,7 +143,7 @@ export function SearchableSelect<Value>({
   const activeLabel = active === createIndex ? createLabel : shown[active]?.label;
 
   if (open && toggleFocused && activeLabel) {
-    announcement = `${activeLabel}${active === selectedIndex ? ", selected" : ""}, ${active + 1} of ${optionCount}`;
+    announcement = `${activeLabel}${active === selectedIndex ? ", selected" : ""}, ${formatCount(active + 1, locale)} of ${formatCount(optionCount, locale)}`;
   }
 
   const place = useCallback(() => {
@@ -425,7 +430,10 @@ export function SearchableSelect<Value>({
               onClick={() => choose(index)}
             >
               {option.icon}
-              <span className={styles["label"]}>{option.label}</span>
+              <span className={styles["label"]}>
+                {option.label}
+                {option.detail && <span className={styles["detail"]}>{option.detail}</span>}
+              </span>
               {option.description}
               {index === selectedIndex && <Check className={styles["check"]} aria-hidden="true" strokeWidth={2.4} />}
             </li>
@@ -446,7 +454,7 @@ export function SearchableSelect<Value>({
           )}
         </ul>
         {message && <p className={styles["message"]}>{message}</p>}
-        {!message && truncated && <p className={styles["message"]}>Showing the first {shown.length} of {countText(matches.length)}. Type to narrow the list.</p>}
+        {!message && truncated && <p className={styles["message"]}>Showing the first {formatCount(shown.length, locale)} of {countText(matches.length)}. Type to narrow the list.</p>}
         {footer}
       </div>
       <div className={ui["visually-hidden"]} role="status">

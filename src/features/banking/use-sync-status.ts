@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { settle, type ActionResult } from "@/client/settle";
 import { useSync, type SyncFailure, type SyncOutcome } from "./mutations";
+import { useLocale } from "@/client/locale-provider";
+import { formatCount } from "@/lib/locale";
 
 // A sync that did not fully succeed stays reported until it is dismissed or a later sync succeeds.
 export type SyncProblem = {
@@ -35,6 +37,7 @@ const idleStatus: SyncStatus = {
 
 // The sync button presents its own state; other dashboard actions never change it.
 export function useSyncStatus() {
+  const locale = useLocale();
   const syncMutation = useSync();
 
   const [status, setStatus] = useState<SyncStatus>(idleStatus);
@@ -73,7 +76,7 @@ export function useSyncStatus() {
     const result = await settle(syncMutation.mutateAsync());
 
     running.current = false;
-    setStatus(completedStatus(result));
+    setStatus(completedStatus(result, locale));
   }
 
   function dismissProblem() {
@@ -91,7 +94,7 @@ export function useSyncStatus() {
   };
 }
 
-function completedStatus(result: ActionResult<SyncOutcome>): SyncStatus {
+function completedStatus(result: ActionResult<SyncOutcome>, locale: string): SyncStatus {
   if (!result.ok) {
     return {
       ...idleStatus,
@@ -110,10 +113,10 @@ function completedStatus(result: ActionResult<SyncOutcome>): SyncStatus {
     inserted,
     failures
   } = result.value;
-  const transactions = `${inserted} new ${inserted === 1 ? "transaction" : "transactions"}`;
+  const transactions = `${formatCount(inserted, locale)} new ${inserted === 1 ? "transaction" : "transactions"}`;
 
   if (failures.length) {
-    const failedAccounts = `${failures.length} ${failures.length === 1 ? "account" : "accounts"} failed`;
+    const failedAccounts = `${formatCount(failures.length, locale)} ${failures.length === 1 ? "account" : "accounts"} failed`;
 
     return {
       ...idleStatus,
@@ -130,7 +133,7 @@ function completedStatus(result: ActionResult<SyncOutcome>): SyncStatus {
   return {
     ...idleStatus,
     phase: "synced",
-    resultLabel: inserted ? `${inserted} new` : "Up to date",
+    resultLabel: inserted ? `${formatCount(inserted, locale)} new` : "Up to date",
     politeAnnouncement: inserted ? `Sync complete: ${transactions}.` : "Sync complete: everything is up to date."
   };
 }

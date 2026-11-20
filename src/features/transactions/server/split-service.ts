@@ -5,6 +5,7 @@ import { prepareRules, ruleAssignment } from "@/lib/rules";
 import { categoryExists } from "@/features/categorization/server/category-repository";
 import { maximumSplitParts, partAmountSupported } from "@/features/transactions/split-limits";
 import { removeSplit, replaceSplit, type SplitPartValues, type SplitSubject } from "./split-repository";
+import { currentFormatLocale } from "@/server/http/request-locale";
 
 const splitInput = z.object({
   parts: z.array(z.object({
@@ -22,7 +23,7 @@ function splittable(type: SplitSubject["type"]) {
 }
 
 /** Parses the parts in the booking's currency and checks that they add up to its amount exactly. */
-function validParts(subject: SplitSubject, parts: PartInput[]): SplitPartValues[] {
+function validParts(subject: SplitSubject, parts: PartInput[], locale: string): SplitPartValues[] {
   if (!splittable(subject.type)) {
     throw new ValidationError("Only income and expenses can be split.");
   }
@@ -44,7 +45,7 @@ function validParts(subject: SplitSubject, parts: PartInput[]): SplitPartValues[
   const total = values.reduce((sum, part) => sum + part.amount, 0);
 
   if (total !== subject.amount_minor) {
-    throw new ValidationError(`The parts add up to ${money(total, subject.currency)} instead of ${money(subject.amount_minor, subject.currency)}.`);
+    throw new ValidationError(`The parts add up to ${money(total, subject.currency, locale)} instead of ${money(subject.amount_minor, subject.currency, locale)}.`);
   }
 
   return values;
@@ -66,7 +67,8 @@ export async function splitTransaction(id: string, payload: unknown) {
     }
   }
 
-  const parts = await replaceSplit(id, subject => validParts(subject, input.parts));
+  const locale = await currentFormatLocale();
+  const parts = await replaceSplit(id, subject => validParts(subject, input.parts, locale));
 
   if (!parts) {
     throw new HttpError(404, "Transaction not found.");

@@ -2,6 +2,7 @@ import { categoryNameKey } from "@/lib/category-name";
 import { categoryTags, currencyAllows, maxAccountNameLength, parseAmount, splitCurrency, type CsvTemplate, type DecimalSeparator, type MappedRow } from "./csv-mapping";
 import type { AccountKind } from "@/features/accounts/account-kinds";
 import type { CategoryChoice, ImportTarget } from "./mutations";
+import { formatCount } from "@/lib/locale";
 
 /** What the person chose for one source account's rows. */
 export type TargetChoice = {
@@ -52,8 +53,8 @@ type AccountOption = {
   currency: string;
 };
 
-export function rowCount(count: number) {
-  return `${count.toLocaleString("en")} ${count === 1 ? "row" : "rows"}`;
+export function rowCount(count: number, locale: string) {
+  return `${formatCount(count, locale)} ${count === 1 ? "row" : "rows"}`;
 }
 
 /** Distinct source account values with their row counts, in file order; without an account column all rows share the empty source. */
@@ -173,7 +174,7 @@ export type ImportProblem = AccountProblem | {
 };
 
 /** Turns the page's choices into the import request: skipped sources drop their rows, and a new account's opening balance is dated on its first row. */
-export function prepareImport(rows: MappedRow[], choices: ReadonlyMap<string, TargetChoice>, accounts: AccountOption[], selections: ReadonlyMap<string, CategorySelection>, decimal: DecimalSeparator): PreparedImport {
+export function prepareImport(rows: MappedRow[], choices: ReadonlyMap<string, TargetChoice>, accounts: AccountOption[], selections: ReadonlyMap<string, CategorySelection>, decimal: DecimalSeparator, locale: string): PreparedImport {
   const targets: ImportTarget[] = [];
   const problems: ImportProblem[] = [];
   const kept = rows.filter(row => choices.get(row.source)?.kind !== "skip");
@@ -225,7 +226,7 @@ export function prepareImport(rows: MappedRow[], choices: ReadonlyMap<string, Ta
     }
 
     if (name.length > maxAccountNameLength) {
-      problem("name", `Use at most ${maxAccountNameLength} characters.`);
+      problem("name", `Use at most ${formatCount(maxAccountNameLength, locale)} characters.`);
     }
 
     if (!/^[A-Z]{3}$/.test(choice.currency)) {

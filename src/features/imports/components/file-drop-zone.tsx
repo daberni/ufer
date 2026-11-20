@@ -4,6 +4,8 @@ import { clsx } from "clsx";
 import { useId, useRef, useState } from "react";
 import { FileUp } from "lucide-react";
 import styles from "./file-drop-zone.module.css";
+import { useLocale } from "@/client/locale-provider";
+import { formatCount } from "@/lib/locale";
 
 /** A dashed drop area that also opens the file chooser by click or keyboard. */
 export function FileDropZone({
@@ -16,6 +18,7 @@ export function FileDropZone({
   const input = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const hintId = useId();
+  const locale = useLocale();
 
   return (
     <div
@@ -47,7 +50,7 @@ export function FileDropZone({
           choose a file
         </button>
       </p>
-      <p id={hintId} className={styles["hint"]}>CSV or TXT, up to 25 MB</p>
+      <p id={hintId} className={styles["hint"]}>{`CSV or TXT, up to ${formatCount(25, locale)} MB`}</p>
       <input
         ref={input}
         className={styles["input"]}

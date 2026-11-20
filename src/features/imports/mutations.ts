@@ -6,6 +6,8 @@ import { invalidate } from "@/client/invalidate";
 import { queryKeys } from "@/client/query-keys";
 import type { AccountKind } from "@/features/accounts/account-kinds";
 import { assignOccurrences, batchRows, duplicateIdErrors, pruneConsumed, type ConsumedBooking, type MappedRow, type RowError } from "./csv-mapping";
+import { useLocale } from "@/client/locale-provider";
+import { formatCount } from "@/lib/locale";
 
 type BalanceImport = {
   accountId: string;
@@ -19,6 +21,7 @@ const affectedKeys = [queryKeys.accounts(), queryKeys.reports.netWorth(), queryK
 
 export function useBalanceImport() {
   const queryClient = useQueryClient();
+  const locale = useLocale();
 
   return useMutation({
     mutationFn: async ({
@@ -26,7 +29,7 @@ export function useBalanceImport() {
       file
     }: BalanceImport) => {
       if (file.size > maxBalanceFileSize) {
-        throw new Error("The file cannot exceed 1 MB.");
+        throw new Error(`The file cannot exceed ${formatCount(1, locale)} MB.`);
       }
 
       return api("imports/balances", {

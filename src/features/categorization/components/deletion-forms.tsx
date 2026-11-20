@@ -14,6 +14,8 @@ import { useDeleteCategory, useDeleteRule } from "@/features/categorization/muta
 import { useCategories, useCategoryUsage } from "@/features/categorization/queries";
 import type { Category, CategoryUsage, Rule } from "@/features/categorization/types";
 import { CategoryPicker } from "./category-picker";
+import { formatCount } from "@/lib/locale";
+import { useLocale } from "@/client/locale-provider";
 
 /** Opens the deletion step of an edit dialog. */
 export function DeleteButton({
@@ -100,8 +102,8 @@ export function RuleDeleteConfirmation({
   );
 }
 
-function count(value: number, singular: string, plural: string) {
-  return `${value.toLocaleString("en")} ${value === 1 ? singular : plural}`;
+function count(value: number, singular: string, plural: string, locale: string) {
+  return `${formatCount(value, locale)} ${value === 1 ? singular : plural}`;
 }
 
 type Outcome = "reassign" | "uncategorize";
@@ -202,6 +204,8 @@ function UsageSummary({
 }: {
   usage: CategoryUsage | null;
 }) {
+  const locale = useLocale();
+
   if (!usage) {
     return (
       <p className={styles["usage"]}>
@@ -211,11 +215,11 @@ function UsageSummary({
     );
   }
 
-  const manual = usage.manual_transactions > 0 ? ` (${count(usage.manual_transactions, "manual assignment", "manual assignments")})` : "";
+  const manual = usage.manual_transactions > 0 ? ` (${count(usage.manual_transactions, "manual assignment", "manual assignments", locale)})` : "";
 
   return (
     <p className={styles["usage"]}>
-      Used by <strong>{count(usage.transactions, "transaction", "transactions")}</strong>{manual} and <strong>{count(usage.rules, "rule", "rules")}</strong>.
+      Used by <strong>{count(usage.transactions, "transaction", "transactions", locale)}</strong>{manual} and <strong>{count(usage.rules, "rule", "rules", locale)}</strong>.
     </p>
   );
 }

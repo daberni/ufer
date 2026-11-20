@@ -9,7 +9,9 @@ import { newCategoryColor, type ColoredCategory } from "@/features/categorizatio
 import { activeAccountExists } from "@/features/accounts/server/account-repository";
 import { derivedTransactionType, ruleTransactionTypes } from "@/features/transactions/transaction-types";
 import { categoryExists, deleteCategory as deleteStoredCategory, insertCategory, readCategoryUsage, updateCategory, type CategoryDetails, type CategoryWriteResult } from "./category-repository";
-import { appendRule, deleteRule as deleteStoredRule, findManualAssignments, findRuleTypeableTransactions, findUncorrectedTransactions, insertRule, listRules, saveRuleAssignments, saveRuleOrder, saveRuleTypes, setRuleEnabled, updateRule, type ManualAdoption, type RuleCreationAssignments, type SelectRuleAssignments } from "./rule-repository";
+import { RuleLimitReached, appendRule, deleteRule as deleteStoredRule, findManualAssignments, findRuleTypeableTransactions, findUncorrectedTransactions, insertRule, listRules, saveRuleAssignments, saveRuleOrder, saveRuleTypes, setRuleEnabled, updateRule, type ManualAdoption, type NewRule, type RuleCreationAssignments, type SelectRuleAssignments } from "./rule-repository";
+import { formatCount } from "@/lib/locale";
+import { currentFormatLocale } from "@/server/http/request-locale";
 
 const ruleMatching = {
   pattern: z.string().min(1).max(500),
@@ -137,6 +139,21 @@ export async function previewRule(payload: unknown) {
   };
 }
 
+async function storeNewRule(rule: Omit<NewRule, "priority">, priority: number | undefined, assignments: RuleCreationAssignments) {
+  try {
+    return priority === undefined ? await appendRule(rule, assignments) : await insertRule({
+      ...rule,
+      priority
+    }, assignments);
+  } catch (error) {
+    if (error instanceof RuleLimitReached) {
+      throw new HttpError(409, `Ufer supports at most ${formatCount(error.maximum, await currentFormatLocale())} rules. Delete a rule before creating another.`);
+    }
+
+    throw error;
+  }
+}
+
 export async function createRule(payload: unknown) {
   const {
     apply_to_uncategorized: applyToUncategorized,
@@ -179,10 +196,7 @@ export async function createRule(payload: unknown) {
       excludedTransactionId: sourceTransactionId
     } : undefined
   };
-  const categorized = priority === undefined ? await appendRule(rule, assignments) : await insertRule({
-    ...rule,
-    priority
-  }, assignments);
+  const categorized = await storeNewRule(rule, priority, assignments);
 
   return {
     ok: true,

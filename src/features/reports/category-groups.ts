@@ -1,9 +1,13 @@
+import { formatCount } from "@/lib/locale";
 import type { CategoryAmount } from "./types";
 
 /** A row of a breakdown by category: one category, uncategorized transactions, or the remaining categories combined. */
 export type CategoryGroup = {
   key: string;
+  /** The category name; empty for the combined row, which displayName labels with its count. */
   name: string;
+  /** How many categories the combined row holds; 0 for every other row. */
+  combined: number;
   color: string;
   icon: string | null;
   amount: number;
@@ -34,6 +38,7 @@ function rowOf(item: CategoryAmount): Row {
   return {
     key: item.categoryId ?? "uncategorized",
     name: item.name,
+    combined: 0,
     color: item.color,
     icon: item.icon,
     amount: item.amount
@@ -43,11 +48,17 @@ function rowOf(item: CategoryAmount): Row {
 function remainderOf(items: CategoryAmount[]): Row {
   return {
     key: "remainder",
-    name: `+${items.length} more`,
+    name: "",
+    combined: items.length,
     color: remainderColor,
     icon: null,
     amount: items.reduce((sum, item) => sum + item.amount, 0)
   };
+}
+
+/** The row's label, such as a category name or "+3 more" with the count in the locale's numerals. */
+export function displayName(group: Pick<CategoryGroup, "name" | "combined">, locale: string) {
+  return group.combined ? `+${formatCount(group.combined, locale)} more` : group.name;
 }
 
 /** Shares of the rows actually shown: positive rows divide their own sum, so the visible bars always add up to the whole; negative rows have none. */

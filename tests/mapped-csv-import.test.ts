@@ -122,7 +122,7 @@ test("parses German semicolon exports with decimal commas and a Windows-1252 enc
     decimal: detectDecimal(rows.map(row => row[3])),
     dateFormat: detectDateFormat(rows.map(row => row[0]))
   };
-  const result = mapRows(rows, suggestMapping(header), settings);
+  const result = mapRows(rows, suggestMapping(header), settings, "en");
 
   assert.deepEqual(settings, {
     encoding: "windows-1252",
@@ -146,7 +146,7 @@ test("reads UTF-8 with a byte order mark, debit and credit columns, and reports 
     delimiter: ",",
     decimal: ".",
     dateFormat: "YYYY-MM-DD"
-  });
+  }, "en");
 
   assert.equal(decoded.encoding, "utf-8");
   assert.equal(header[0], "Date");
@@ -186,7 +186,7 @@ test("identical rows in one file stay distinct through their occurrence", () => 
     delimiter: ",",
     decimal: ".",
     dateFormat: "YYYY-MM-DD"
-  });
+  }, "en");
 
   assert.deepEqual(assignOccurrences(result.rows, () => "account").map(row => row.occurrence), [0, 1]);
 });
@@ -529,7 +529,7 @@ test("occurrences count rows with equal canonical amounts and normalized texts",
     delimiter: ",",
     decimal: ".",
     dateFormat: "YYYY-MM-DD"
-  });
+  }, "en");
 
   assert.deepEqual(assignOccurrences(result.rows, () => "account").map(row => row.occurrence), [0, 1]);
 });
@@ -747,7 +747,7 @@ test("amounts accept currency symbols and codes but reject other letters", () =>
     delimiter: ",",
     decimal: ".",
     dateFormat: "YYYY-MM-DD"
-  });
+  }, "en");
 
   assert.deepEqual(result.rows.map(row => [row.line, row.currency]), [[2, "USD"]]);
   assert.deepEqual(result.errors.map(error => error.line), [3, 4]);
@@ -821,9 +821,9 @@ const isoSettings: CsvSettings = {
 test("occurrences count per target account, independent of order and other accounts in the export", () => {
   const rows = [["2024-01-01", "-5.00", "Coffee", "Card"], ["2024-01-01", "-5.00", "Coffee", "Wallet"], ["2024-01-01", "-5.00", "Coffee", "Wallet"]];
   const target = (source: string) => source;
-  const full = assignOccurrences(mapRows(rows, plainMapping, isoSettings).rows, target);
-  const reordered = assignOccurrences(mapRows([rows[2], rows[0], rows[1]], plainMapping, isoSettings).rows, target);
-  const walletOnly = assignOccurrences(mapRows([rows[1], rows[2]], plainMapping, isoSettings).rows, target);
+  const full = assignOccurrences(mapRows(rows, plainMapping, isoSettings, "en").rows, target);
+  const reordered = assignOccurrences(mapRows([rows[2], rows[0], rows[1]], plainMapping, isoSettings, "en").rows, target);
+  const walletOnly = assignOccurrences(mapRows([rows[1], rows[2]], plainMapping, isoSettings, "en").rows, target);
   const occurrences = (items: ImportRow[], source: string) => items.filter(row => row.source === source).map(row => row.occurrence).sort();
 
   assert.deepEqual(occurrences(full, "Wallet"), [0, 1]);
@@ -840,7 +840,7 @@ test("debit and credit columns with conflicting currencies are row errors", () =
     credit: 4,
     currency: 5
   };
-  const result = mapRows([["2024-01-01", "5 USD", "Shop", "", "1 EUR", ""], ["2024-01-02", "5 EUR", "Shop", "", "", "USD"], ["2024-01-03", "5 EUR", "Shop", "", "1 EUR", "EUR"]], mapping, isoSettings);
+  const result = mapRows([["2024-01-01", "5 USD", "Shop", "", "1 EUR", ""], ["2024-01-02", "5 EUR", "Shop", "", "", "USD"], ["2024-01-03", "5 EUR", "Shop", "", "1 EUR", "EUR"]], mapping, isoSettings, "en");
 
   assert.deepEqual(result.errors.map(error => error.line), [2, 3]);
   assert.deepEqual(result.rows.map(row => [row.amount, row.currency]), [["-4", "EUR"]]);
@@ -892,7 +892,7 @@ test("debit and credit combine exactly, including large values and both columns 
     debit: 1,
     credit: 4
   };
-  const result = mapRows([["2024-01-01", "0.1", "A", "", "0.2"], ["2024-01-02", "", "B", "", "123456789012345.67"], ["2024-01-03", "-10.005", "C", "", ""], ["2024-01-04", "", "D", "", ""], ["2024-01-05", "0", "E", "", ""]], mapping, isoSettings);
+  const result = mapRows([["2024-01-01", "0.1", "A", "", "0.2"], ["2024-01-02", "", "B", "", "123456789012345.67"], ["2024-01-03", "-10.005", "C", "", ""], ["2024-01-04", "", "D", "", ""], ["2024-01-05", "0", "E", "", ""]], mapping, isoSettings, "en");
 
   assert.deepEqual(result.rows.map(row => row.amount), ["0.1", "123456789012345.67", "-10.005", "0"]);
   assert.deepEqual(result.errors.map(error => error.line), [5]);
@@ -933,7 +933,7 @@ test("CSV records keep quoted delimiters, line breaks and quotes, and report phy
     account: null,
     id: null,
     type: null
-  }, isoSettings, records.slice(1).map(record => record.line));
+  }, isoSettings, "en", records.slice(1).map(record => record.line));
 
   assert.deepEqual(result.rows.map(row => row.line), [2, 4, 6, 7]);
 });
@@ -944,7 +944,7 @@ test("references stay stable when the export reorders rows", async context => {
   const rows = [["2024-01-01", "-5.00", "Coffee", ""], ["2024-01-02", "-7.00", "Bakery", ""], ["2024-01-01", "-5.00", "Coffee", ""]];
   const run = async (order: string[][], confirm: boolean) => importMappedRows({
     import_id: importId,
-    rows: assignOccurrences(mapRows(order, plainMapping, isoSettings).rows, () => account.id),
+    rows: assignOccurrences(mapRows(order, plainMapping, isoSettings, "en").rows, () => account.id),
     targets: [{
       source: "",
       account_id: account.id
@@ -961,7 +961,7 @@ test("references stay stable when the export reorders rows", async context => {
 });
 
 test("scientific notation is a row error that explains the likely spreadsheet export", () => {
-  const result = mapRows([["2024-01-01", "1.5E+03", "Shop", ""]], plainMapping, isoSettings);
+  const result = mapRows([["2024-01-01", "1.5E+03", "Shop", ""]], plainMapping, isoSettings, "en");
 
   assert.match(result.errors[0]?.message ?? "", /Scientific notation is not supported/);
 });
@@ -1119,7 +1119,7 @@ test("an ambiguous currency symbol is rejected for an account outside its curren
     delimiter: ",",
     decimal: ".",
     dateFormat: "YYYY-MM-DD"
-  });
+  }, "en");
   const checked = await importMappedRows({
     import_id: importId,
     rows: assignOccurrences(result.rows, () => "account"),
@@ -1254,7 +1254,7 @@ test("a mapped but empty ID cell is a row error", () => {
     delimiter: ",",
     decimal: ".",
     dateFormat: "YYYY-MM-DD"
-  });
+  }, "en");
 
   assert.deepEqual(result.errors.map(error => error.line), [2]);
   assert.deepEqual(result.rows.map(row => row.id), ["tx-9"]);
@@ -1378,7 +1378,7 @@ test("skipped source accounts leave their rows out, and a new account's opening 
   }], ["Old card", {
     kind: "skip"
   }]]);
-  const prepared = prepareImport(rows, choices, [], new Map(), ",");
+  const prepared = prepareImport(rows, choices, [], new Map(), ",", "en");
 
   assert.deepEqual(prepared.rows.map(row => row.line), [2, 3]);
   assert.equal(prepared.skipped, 1);
@@ -1404,7 +1404,7 @@ test("an unchosen source and an unreadable balance block the check", () => {
     currency: "EUR",
     balanceKind: "start",
     balance: "twelve"
-  }]]), [], new Map(), ".");
+  }]]), [], new Map(), ".", "en");
 
   assert.deepEqual(prepared.problems.map(problem => [problem.field === "category" ? problem.value : problem.source, problem.field]), [["Wallet", "balance"], ["Card", "target"]]);
 });
@@ -1456,7 +1456,7 @@ test("an unset category value blocks the check until a choice is made, and only 
     name: "Wallet",
     currency: "EUR"
   }];
-  const blocked = prepareImport(rows, target, accounts, selections, ".");
+  const blocked = prepareImport(rows, target, accounts, selections, ".", "en");
 
   assert.deepEqual(blocked.problems, [{
     value: "Hobby",
@@ -1469,7 +1469,7 @@ test("an unset category value blocks the check until a choice is made, and only 
     action: "create"
   });
 
-  const ready = prepareImport(rows, target, accounts, selections, ".");
+  const ready = prepareImport(rows, target, accounts, selections, ".", "en");
 
   assert.deepEqual(ready.problems, []);
   assert.deepEqual(ready.categories.map(choice => [choice.value, choice.action, choice.categoryId]), [["Hobby", "create", undefined], ["synthetic FOOD", "existing", "synthetic-food"]]);
@@ -1486,7 +1486,7 @@ test("a new account's balance stated in another currency blocks the check", () =
     currency: "EUR",
     balanceKind: "current",
     balance
-  }]]), [], new Map(), ".").problems.map(problem => problem.message);
+  }]]), [], new Map(), ".", "en").problems.map(problem => problem.message);
 
   assert.deepEqual(prepare("USD 1000"), ["Enter the balance in EUR."]);
   assert.deepEqual(prepare("$1000"), ["Enter the balance in EUR."]);
@@ -1507,7 +1507,7 @@ test("long account values are row errors instead of merging into one source", ()
     delimiter: ",",
     decimal: ".",
     dateFormat: "YYYY-MM-DD"
-  });
+  }, "en");
 
   assert.deepEqual(result.errors.map(error => error.line), [2, 3]);
   assert.deepEqual(result.rows.map(row => row.source), ["Short account"]);
@@ -1555,7 +1555,7 @@ test("long category values are row errors instead of merging into one choice", (
     delimiter: ",",
     decimal: ".",
     dateFormat: "YYYY-MM-DD"
-  });
+  }, "en");
 
   assert.deepEqual(result.errors.map(error => error.line), [2, 3]);
   assert.deepEqual(result.rows.map(row => row.category), ["Food"]);
@@ -1570,11 +1570,11 @@ test("a check stops applying when a preselected target changes after an account 
     name: "Wallet",
     currency: "EUR"
   });
-  const before = prepareImport(rows, new Map([["Wallet", defaultTargetChoice("Wallet", [account("synthetic-1")])]]), [account("synthetic-1")], new Map(), ".");
-  const after = prepareImport(rows, new Map([["Wallet", defaultTargetChoice("Wallet", [account("synthetic-2")])]]), [account("synthetic-2")], new Map(), ".");
+  const before = prepareImport(rows, new Map([["Wallet", defaultTargetChoice("Wallet", [account("synthetic-1")])]]), [account("synthetic-1")], new Map(), ".", "en");
+  const after = prepareImport(rows, new Map([["Wallet", defaultTargetChoice("Wallet", [account("synthetic-2")])]]), [account("synthetic-2")], new Map(), ".", "en");
 
   assert.notEqual(importKey(before), importKey(after));
-  assert.equal(importKey(before), importKey(prepareImport(rows, new Map([["Wallet", defaultTargetChoice("Wallet", [account("synthetic-1")])]]), [account("synthetic-1")], new Map(), ".")));
+  assert.equal(importKey(before), importKey(prepareImport(rows, new Map([["Wallet", defaultTargetChoice("Wallet", [account("synthetic-1")])]]), [account("synthetic-1")], new Map(), ".", "en")));
 });
 
 test("a new account name over the server's limit is shortened in the prefill and reported when typed", () => {
@@ -1585,7 +1585,7 @@ test("a new account name over the server's limit is shortened in the prefill and
   })];
 
   assert.equal(prefill.kind === "new" ? prefill.name.length : 0, 100);
-  assert.deepEqual(prepareImport(rows, new Map([[source, prefill]]), [], new Map(), ".").problems, []);
+  assert.deepEqual(prepareImport(rows, new Map([[source, prefill]]), [], new Map(), ".", "en").problems, []);
   assert.equal(prepareImport(rows, new Map<string, TargetChoice>([[source, {
     ...newAccountChoice(source),
     kind: "new",
@@ -1594,7 +1594,7 @@ test("a new account name over the server's limit is shortened in the prefill and
     currency: "EUR",
     balanceKind: "current",
     balance: ""
-  }]]), [], new Map(), ".").problems.length, 1);
+  }]]), [], new Map(), ".", "en").problems.length, 1);
 });
 
 test("a delimiter that breaks the file's quoting reads as no table instead of throwing", () => {
@@ -1722,7 +1722,7 @@ test("a new account from an import gets the type the person chose", async contex
     balance: "500.00"
   }]]);
 
-  assert.deepEqual(prepareImport([mappedRow(2, "2024-05-01", "-10.00", "Shop")], loanChoice, [], new Map(), ".").problems.map(problem => problem.field), ["balance"]);
+  assert.deepEqual(prepareImport([mappedRow(2, "2024-05-01", "-10.00", "Shop")], loanChoice, [], new Map(), ".", "en").problems.map(problem => problem.field), ["balance"]);
   await assert.rejects(importMappedRows({
     import_id: "00000000-0000-4000-8000-000000000215",
     rows: [mappedRow(2, "2024-05-01", "-10.00", "Shop")],

@@ -3,32 +3,29 @@ import ui from "../../../components/ui/primitives.module.css";
 import styles from "./category-rows.module.css";
 import Link from "next/link";
 import { clsx } from "clsx";
+import { formatPercent } from "@/lib/locale";
 import { money } from "@/lib/money";
 import { CategoryLabel, type DisplayCategory, type NeutralCategory } from "@/features/categorization/components/category-label";
 import { categoryBarColor, neutralChipColor, themedColor } from "@/features/categorization/category-colors";
-import type { CategoryGroup } from "@/features/reports/category-groups";
-
-const shareFormat = new Intl.NumberFormat("en-GB", {
-  style: "percent",
-  maximumFractionDigits: 0
-});
+import { displayName, type CategoryGroup } from "@/features/reports/category-groups";
+import { useLocale } from "@/client/locale-provider";
 
 /** The rows as one sentence for an accessible description, e.g. "Groceries €120.00 (40%), Rent €180.00 (60%)". */
-export function describeCategoryGroups(groups: CategoryGroup[], currency: string) {
+export function describeCategoryGroups(groups: CategoryGroup[], currency: string, locale: string) {
   if (!groups.length) {
     return "None.";
   }
 
-  return groups.map(group => `${group.name} ${money(group.amount, currency)} (${shareFormat.format(group.share)})`).join(", ");
+  return groups.map(group => `${displayName(group, locale)} ${money(group.amount, currency, locale)} (${formatPercent(group.share, locale)})`).join(", ");
 }
 
-function groupCategory(group: CategoryGroup): DisplayCategory | NeutralCategory {
+function groupCategory(group: CategoryGroup, locale: string): DisplayCategory | NeutralCategory {
   if (group.key === "uncategorized") {
     return "uncategorized";
   }
 
   return {
-    name: group.name,
+    name: displayName(group, locale),
     color: group.color,
     icon: group.icon
   };
@@ -55,6 +52,8 @@ export function CategoryRows({
   rowLink,
   className
 }: Props) {
+  const locale = useLocale();
+
   return (
     <div className={clsx(styles["rows"], className)}>
       {groups.map(group => {
@@ -62,9 +61,9 @@ export function CategoryRows({
         const content = (
           <>
             <span className={styles["category"]}>
-              <CategoryLabel category={groupCategory(group)} />
+              <CategoryLabel category={groupCategory(group, locale)} />
             </span>
-            <strong>{money(group.amount, currency)}</strong>
+            <strong>{money(group.amount, currency, locale)}</strong>
             <div>
               <i
                 style={{

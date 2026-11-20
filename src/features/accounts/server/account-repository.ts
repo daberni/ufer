@@ -4,7 +4,6 @@ import { database, type Database } from "@/server/database/connection";
 import { accounts, transactions } from "@/server/database/schema";
 import { environment } from "@/features/banking/server/environment";
 import { bookManualEntry, recordManualBalance, type ManualEntryResult } from "@/features/transactions/server/manual-transaction-repository";
-import { ValidationError } from "@/lib/errors";
 import type { AccountKind } from "../account-kinds";
 import type { ManualAccountInput } from "./account-schema";
 import { assertWritableAccount } from "./writable-account";
@@ -125,6 +124,13 @@ export async function saveAccountName(id: string, name: string) {
 
 export type ClosingResult = ManualEntryResult | "balance_changed";
 
+/** Refuses a closing date before the account's last booking; the service words the refusal for the request. */
+export class ClosingBeforeLastBooking extends Error {
+  constructor(readonly lastBooking: string) {
+    super("The closing date precedes the last booking.");
+  }
+}
+
 class ClosingRefused extends TransactionRollbackError {
   constructor(readonly result: ClosingResult) {
     super();
@@ -154,7 +160,7 @@ export async function closeAndArchiveManualAccount(account: {
 
       // A closing before the last booking would leave activity after the account reached 0.
       if (total?.latest && date < total.latest) {
-        throw new ValidationError(`Choose a date on or after the last booking (${total.latest}).`);
+        throw new ClosingBeforeLastBooking(total.latest);
       }
 
       const result = await bookManualEntry(tx, randomUUID(), {

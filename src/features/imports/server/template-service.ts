@@ -2,7 +2,9 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { HttpError } from "@/lib/errors";
 import { builtInTemplates, dateFormats, emptyMapping, maxCategoryChoicesPerRequest, maxCategoryLength, maxColumnNameLength, maxSourceLength, maxTargetsPerRequest, maxTemplateColumns, maxTemplateNameLength, type CsvMapping } from "../csv-mapping";
-import { deleteTemplate, insertTemplate, listTemplates, updateTemplate, type TemplateDefinition } from "./template-repository";
+import { deleteTemplate, TemplateLimitReached, insertTemplate, listTemplates, updateTemplate, type TemplateDefinition } from "./template-repository";
+import { formatCount } from "@/lib/locale";
+import { currentFormatLocale } from "@/server/http/request-locale";
 
 const name = z.string().trim().min(1).max(maxTemplateNameLength);
 
@@ -85,7 +87,15 @@ export async function createTemplate(payload: unknown) {
   } = templateInput.parse(payload);
   const id = randomUUID();
 
-  await insertTemplate(id, templateName, rest as TemplateDefinition);
+  try {
+    await insertTemplate(id, templateName, rest as TemplateDefinition);
+  } catch (error) {
+    if (error instanceof TemplateLimitReached) {
+      throw new HttpError(409, `Ufer keeps at most ${formatCount(error.maximum, await currentFormatLocale())} templates. Delete one before saving another.`);
+    }
+
+    throw error;
+  }
 
   return {
     id

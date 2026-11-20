@@ -9,6 +9,8 @@ import { FormError } from "@/components/ui/form-error";
 import { toFailure } from "@/client/api";
 import { useRowIssues } from "./column-preview";
 import type { ImportDraft } from "./use-import-draft";
+import { formatCount } from "@/lib/locale";
+import { useLocale } from "@/client/locale-provider";
 
 /** The import's counts, the review filter and the one primary action: check the rows, then import them. */
 export function ImportSummaryBar({
@@ -20,6 +22,7 @@ export function ImportSummaryBar({
   reviewing: boolean;
   onReview: (reviewing: boolean) => void;
 }) {
+  const locale = useLocale();
   const issues = useRowIssues(draft);
   const {
     summary,
@@ -46,11 +49,11 @@ export function ImportSummaryBar({
         {counts.map(([label, value, tone]) => (
           <div key={label} className={clsx(styles["count"], tone && value ? styles[tone] : undefined)}>
             <dt>{label}</dt>
-            <dd>{value === null ? "–" : value.toLocaleString("en")}</dd>
+            <dd>{value === null ? "–" : formatCount(value, locale)}</dd>
           </div>
         ))}
       </dl>
-      {prepared && prepared.skipped > 0 && <p className={ui["form-hint"]}>{prepared.skipped.toLocaleString("en")} rows of skipped accounts are left out.</p>}
+      {prepared && prepared.skipped > 0 && <p className={ui["form-hint"]}>{formatCount(prepared.skipped, locale)} rows of skipped accounts are left out.</p>}
       {summary && summary.createdCategories.length > 0 && <p className={ui["form-hint"]}>New categories: {summary.createdCategories.join(", ")}.</p>}
       <FormError failure={mutation.error ? toFailure(mutation.error) : null} />
       <div className={styles["actions"]}>
@@ -62,7 +65,7 @@ export function ImportSummaryBar({
             onClick={() => onReview(!reviewing)}
           >
             {reviewing ? <X size={15} /> : <ListFilter size={15} />}
-            {reviewing ? "Show all rows" : `Review rows (${issues.size.toLocaleString("en")})`}
+            {reviewing ? "Show all rows" : `Review rows (${formatCount(issues.size, locale)})`}
           </button>
         )}
         {summary ? (
@@ -72,7 +75,7 @@ export function ImportSummaryBar({
             disabled={pending || summary.newRows === 0}
             onClick={() => draft.run(true)}
           >
-            {pending ? "Importing …" : `Import ${summary.newRows.toLocaleString("en")}`}
+            {pending ? "Importing …" : `Import ${formatCount(summary.newRows, locale)}`}
             <ArrowDownToLine size={16} />
           </button>
         ) : (
@@ -82,7 +85,7 @@ export function ImportSummaryBar({
             disabled={pending || !ready}
             onClick={() => draft.run(false)}
           >
-            {pending ? "Checking …" : `Check ${(prepared?.rows.length ?? 0).toLocaleString("en")} rows`}
+            {pending ? "Checking …" : `Check ${formatCount(prepared?.rows.length ?? 0, locale)} rows`}
             <SearchCheck size={16} />
           </button>
         )}

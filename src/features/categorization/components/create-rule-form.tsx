@@ -1,6 +1,7 @@
 "use client";
 
 import ui from "../../../components/ui/primitives.module.css";
+import { useLocale } from "@/client/locale-provider";
 
 import { clsx } from "clsx";
 import { useEffect, useId, useMemo, useState } from "react";
@@ -19,6 +20,7 @@ import { Dialog } from "@/components/ui/dialog";
 import type { Rule, RulePreviewDraft } from "@/features/categorization/types";
 import { DeleteButton, RuleDeleteConfirmation } from "./deletion-forms";
 import { ManualAdoptionOption, useManualAdoption, type ManualMatches } from "./manual-adoption-option";
+import { formatCount } from "@/lib/locale";
 
 type RuleFormProps = DialogFormProps & {
   rule?: Rule | null;
@@ -64,12 +66,13 @@ function sameDraft(first: RulePreviewDraft | null, second: RulePreviewDraft | nu
   return first !== null && second !== null && first.pattern === second.pattern && first.mode === second.mode && first.ruleId === second.ruleId && first.categoryId === second.categoryId;
 }
 
-function transactionCount(count: number) {
-  return count === 1 ? "1 transaction" : `${count.toLocaleString("en")} transactions`;
+function transactionCount(count: number, locale: string) {
+  return `${formatCount(count, locale)} ${count === 1 ? "transaction" : "transactions"}`;
 }
 
 /** What the drafted rule would decide when rules are applied; nothing changes before that. The draft must keep its identity while its fields are unchanged. */
 function useRuleImpact(draft: RulePreviewDraft | null) {
+  const locale = useLocale();
   const [previewed, setPreviewed] = useState(draft);
 
   useEffect(() => {
@@ -138,7 +141,7 @@ function useRuleImpact(draft: RulePreviewDraft | null) {
     pending: false,
     previewId,
     manual,
-    text: `Would decide ${transactionCount(preview.data.matched)} without a manual category when rules are applied; ${preview.data.uncategorized.toLocaleString("en")} of them ${preview.data.uncategorized === 1 ? "is" : "are"} uncategorized now.`
+    text: `Would decide ${transactionCount(preview.data.matched, locale)} without a manual category when rules are applied; ${formatCount(preview.data.uncategorized, locale)} of them ${preview.data.uncategorized === 1 ? "is" : "are"} uncategorized now.`
   };
 }
 

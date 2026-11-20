@@ -8,10 +8,13 @@ import { HttpError, ValidationError } from "@/lib/errors";
 import { minorUnits } from "@/lib/money";
 import { timestamp, today } from "@/lib/time";
 import { accountEditInput, accountInput, archiveInput, valuationInput } from "./account-schema";
-import { archiveSettledAccount, closeAndArchiveManualAccount, findManualAccount, insertManualAccount, saveAccountArchived, saveAccountKind, saveAccountName, saveManualValuation, type ClosingResult } from "./account-repository";
+import { ClosingBeforeLastBooking, archiveSettledAccount, closeAndArchiveManualAccount, findManualAccount, insertManualAccount, saveAccountArchived, saveAccountKind, saveAccountName, saveManualValuation, type ClosingResult } from "./account-repository";
 import { findAccountWithBalance } from "./account-queries";
 import { archivedAccountMessage } from "./writable-account";
 import type { AccountKind } from "../account-kinds";
+import { currentFormatLocale } from "@/server/http/request-locale";
+import { formatCount } from "@/lib/locale";
+import { dateWithYear } from "@/lib/date-format";
 
 export async function createManualAccount(payload: unknown, now = Temporal.Now.instant()) {
   const input = accountInput.parse(payload);
@@ -58,7 +61,10 @@ export async function updateAccount(accountId: string, payload: unknown) {
   const result = accountEditInput.safeParse(payload);
 
   if (!result.success) {
-    throw new ValidationError(result.error.issues.some(issue => issue.path[0] === "kind") ? "Choose a valid account type." : "Enter an account name between 1 and 100 characters.");
+    const locale = await currentFormatLocale();
+    const message = result.error.issues.some(issue => issue.path[0] === "kind") ? "Choose a valid account type." : `Enter an account name between ${formatCount(1, locale)} and ${formatCount(100, locale)} characters.`;
+
+    throw new ValidationError(message);
   }
 
   const input = result.data;
@@ -157,7 +163,7 @@ export async function archiveAccount(accountId: string, payload: unknown, now = 
   }
 
   validateBalanceDate(input.closing.date, now);
-  const result = await closeAndArchiveManualAccount(account, input.closing.balance_minor, input.closing.date, input.closing.transfer_account_id, timestamp(now));
+  const result = await closeAccount(account, input.closing, timestamp(now));
 
   if (result === "balance_changed") {
     throw new HttpError(409, closingFailures.balance_changed!);
@@ -170,6 +176,22 @@ export async function archiveAccount(accountId: string, payload: unknown, now = 
   return {
     ok: true
   };
+}
+
+async function closeAccount(account: Parameters<typeof closeAndArchiveManualAccount>[0], closing: {
+  balance_minor: number;
+  date: string;
+  transfer_account_id: string | null;
+}, archivedAt: string) {
+  try {
+    return await closeAndArchiveManualAccount(account, closing.balance_minor, closing.date, closing.transfer_account_id, archivedAt);
+  } catch (error) {
+    if (error instanceof ClosingBeforeLastBooking) {
+      throw new ValidationError(`Choose a date on or after the last booking (${dateWithYear(Temporal.PlainDate.from(error.lastBooking), await currentFormatLocale())}).`);
+    }
+
+    throw error;
+  }
 }
 
 // A bank sync may be writing a new balance; archiving waits until it has finished.

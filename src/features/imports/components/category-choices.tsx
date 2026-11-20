@@ -10,6 +10,7 @@ import { rowCount, type CategorySelection, type CategoryValue, type ImportProble
 import { FieldProblem, problemProps } from "./field-problem";
 import type { Category } from "@/features/categorization/types";
 import type { ImportDraft } from "./use-import-draft";
+import { useLocale } from "@/client/locale-provider";
 
 /** The category column's distinct values, each mapped to an existing category, a new one, or the rules. */
 export function CategoryChoices({
@@ -53,6 +54,7 @@ function CategoryRow({
   problem: ImportProblem | undefined;
   onChange: (selection: CategorySelection) => void;
 }) {
+  const locale = useLocale();
   const selectId = useId();
   let current = "";
 
@@ -84,7 +86,7 @@ function CategoryRow({
       <label htmlFor={selectId} className={styles["label"]}>
         <strong>{value.value}</strong>
         <span>
-          {rowCount(value.rows)}
+          {rowCount(value.rows, locale)}
           {value.multiTag && <span className={styles["several"]}>Several tags</span>}
         </span>
       </label>
