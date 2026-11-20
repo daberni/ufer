@@ -24,6 +24,8 @@ const transaction: Transaction = {
   account_id: "synthetic-account",
   category_id: "groceries",
   category_source: "rule",
+  category_rule_id: null,
+  automatic_assignment: null,
   type: "expense",
   type_source: "auto",
   manual_account: false,
@@ -263,21 +265,27 @@ test("a settled category assignment refreshes an open rule preview and invalidat
   const draft = {
     pattern: "Example Market",
     mode: "keyword" as const,
-    ruleId: null
+    ruleId: null,
+    categoryId: null
   };
   const inactiveDraft = {
     pattern: "Example Bakery",
     mode: "keyword" as const,
-    ruleId: null
+    ruleId: null,
+    categoryId: null
   };
 
   queryClient.setQueryData(queryKeys.rulePreview(draft), {
     matched: 2,
-    uncategorized: 2
+    uncategorized: 2,
+    manual: 0,
+    manual_same_category: 0
   });
   queryClient.setQueryData(queryKeys.rulePreview(inactiveDraft), {
     matched: 3,
-    uncategorized: 3
+    uncategorized: 3,
+    manual: 0,
+    manual_same_category: 0
   });
   queryClient.setQueryData(queryKeys.accounts(), []);
   queryClient.setQueryData(queryKeys.categories(), []);
@@ -291,7 +299,9 @@ test("a settled category assignment refreshes an open rule preview and invalidat
   await wait(0);
   await respond(requests("rules/preview")[0], Response.json({
     matched: 2,
-    uncategorized: 2
+    uncategorized: 2,
+    manual: 0,
+    manual_same_category: 0
   }));
   act(() => hook.result.current.row.change("leisure"));
   await wait(0);
@@ -303,10 +313,35 @@ test("a settled category assignment refreshes an open rule preview and invalidat
   assert.equal(queryClient.getQueryState(queryKeys.categories())?.isInvalidated, false);
   await respond(requests("rules/preview")[1], Response.json({
     matched: 1,
-    uncategorized: 1
+    uncategorized: 1,
+    manual: 0,
+    manual_same_category: 0
   }));
   assert.deepEqual(hook.result.current.preview.data, {
     matched: 1,
-    uncategorized: 1
+    uncategorized: 1,
+    manual: 0,
+    manual_same_category: 0
   });
+});
+
+test("a saved category is not reported as failed while other transaction queries, such as transfer options, are cached", async context => {
+  const {
+    pending,
+    queryClient
+  } = browser(context);
+
+  seed(queryClient);
+  queryClient.setQueryData(queryKeys.transactions.transfer(transaction.id), {
+    bookings: [],
+    accounts: []
+  });
+  const { result } = renderRow(queryClient);
+
+  act(() => result.current.row.change("leisure"));
+  await wait(0);
+  await respond(patches(pending)[0], assignment("leisure"));
+
+  assert.equal(result.current.row.status?.kind, "saved");
+  assert.equal(result.current.stored.category_id, "leisure");
 });

@@ -67,11 +67,12 @@
   grid-area: 1 / 1;
   min-width: 0;
 }
-/* Opacity also hides the skeleton shapes, which stay visible inside a hidden parent. Stacked columns take only their own rows; the reserved height only keeps side-by-side columns still between months. */
+/* Opacity also hides the skeleton shapes, which stay visible inside a hidden parent; they must not catch presses meant for the row links underneath. Stacked columns take only their own rows; the reserved height only keeps side-by-side columns still between months. */
 .reserved-rows {
   display: none;
   visibility: hidden;
   opacity: 0;
+  pointer-events: none;
 }
 @container (width >= 340px) {
   .reserved-rows {

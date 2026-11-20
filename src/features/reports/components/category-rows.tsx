@@ -1,6 +1,7 @@
 import ui from "../../../components/ui/primitives.module.css";
 
 import styles from "./category-rows.module.css";
+import Link from "next/link";
 import { clsx } from "clsx";
 import { money } from "@/lib/money";
 import { CategoryLabel, type DisplayCategory, type NeutralCategory } from "@/features/categorization/components/category-label";
@@ -33,9 +34,17 @@ function groupCategory(group: CategoryGroup): DisplayCategory | NeutralCategory 
   };
 }
 
+/** Where a row leads and how a screen reader names that link. */
+export type CategoryRowLink = {
+  href: string;
+  label: string;
+};
+
 type Props = {
   groups: CategoryGroup[];
   currency: string;
+  /** The transactions behind a row; rows without one stay plain. */
+  rowLink?: (group: CategoryGroup) => CategoryRowLink | null;
   className?: string;
 };
 
@@ -43,26 +52,45 @@ type Props = {
 export function CategoryRows({
   groups,
   currency,
+  rowLink,
   className
 }: Props) {
   return (
     <div className={clsx(styles["rows"], className)}>
-      {groups.map(group => (
-        <div className={styles["row"]} key={group.key}>
-          <span className={styles["category"]}>
-            <CategoryLabel category={groupCategory(group)} />
-          </span>
-          <strong>{money(group.amount, currency)}</strong>
-          <div>
-            <i
-              style={{
-                width: `${group.share * 100}%`,
-                background: themedColor(scheme => categoryBarColor(group.color, scheme))
-              }}
-            />
-          </div>
-        </div>
-      ))}
+      {groups.map(group => {
+        const link = rowLink?.(group) ?? null;
+        const content = (
+          <>
+            <span className={styles["category"]}>
+              <CategoryLabel category={groupCategory(group)} />
+            </span>
+            <strong>{money(group.amount, currency)}</strong>
+            <div>
+              <i
+                style={{
+                  width: `${group.share * 100}%`,
+                  background: themedColor(scheme => categoryBarColor(group.color, scheme))
+                }}
+              />
+            </div>
+          </>
+        );
+
+        if (!link) {
+          return <div className={styles["row"]} key={group.key}>{content}</div>;
+        }
+
+        return (
+          <Link
+            className={clsx(styles["row"], styles["link"])}
+            key={group.key}
+            href={link.href}
+            aria-label={link.label}
+          >
+            {content}
+          </Link>
+        );
+      })}
     </div>
   );
 }

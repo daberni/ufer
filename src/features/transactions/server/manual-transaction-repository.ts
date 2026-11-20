@@ -4,6 +4,7 @@ import { TransactionRollbackError } from "drizzle-orm/errors";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 import { transactions } from "@/server/database/schema";
 import type { TransactionType } from "@/features/transactions/transaction-types";
+import type { RuleAssignment, RuleText } from "@/lib/rules";
 import { applyTransactionType, createdCounterpartPrefix, dissolveLink, enteredInUfer, enteredPair, findCounterpart, findSubject, manualEntryPrefix, type TransferTarget, type TypeChangeResult } from "./transfer-repository";
 
 /** The fields a person enters for a booking on a manual account. */
@@ -22,6 +23,7 @@ export type NewManualEntry = ManualEntry & {
   currency: string;
   categoryId: string | null;
   categorySource: "rule" | "manual";
+  categoryRuleId: string | null;
 };
 
 export type ManualEntryResult = TypeChangeResult | "not_entered" | "follows_import" | "entered" | "hidden";
@@ -67,6 +69,7 @@ function manualEntryValues(id: string, entry: NewManualEntry): typeof transactio
     description: entry.description,
     category_id: entry.categoryId,
     category_source: entry.categorySource,
+    category_rule_id: entry.categoryRuleId,
     type: entry.type,
     type_source: "manual"
   };
@@ -102,7 +105,7 @@ export async function findEntryCurrency(id: string) {
  * Saves an entered booking's date, amount, payee, description and type together.
  * The other side of an entered pair mirrors the date, the opposite amount and the description; a booking linked with an imported booking keeps that booking's date and amount.
  */
-export async function updateManualTransaction(id: string, entry: ManualEntry, categoryFor: (counterparty: string, description: string) => string | null) {
+export async function updateManualTransaction(id: string, entry: ManualEntry, categoryFor: (text: RuleText) => RuleAssignment) {
   return refusable(async tx => {
     const subject = await findSubject(tx, id);
 
@@ -174,19 +177,24 @@ export async function updateManualTransaction(id: string, entry: ManualEntry, ca
 }
 
 /** Rechecks final mirrored fields under the edit's write lock; explicit manual assignments, including null, stay untouched. */
-async function reapplyRuleCategory(tx: DatabaseTransaction, id: string, categoryFor: (counterparty: string, description: string) => string | null) {
+async function reapplyRuleCategory(tx: DatabaseTransaction, id: string, categoryFor: (text: RuleText) => RuleAssignment) {
   const automatic = and(eq(transactions.id, id), eq(transactions.category_source, "rule"));
   const booking = await tx.select({
     counterparty: transactions.counterparty,
-    description: transactions.description
+    description: transactions.description,
+    counterparty_override: transactions.counterparty_override,
+    description_override: transactions.description_override
   }).from(transactions).where(automatic).get();
 
   if (!booking) {
     return;
   }
 
+  const assignment = categoryFor(booking);
+
   await tx.update(transactions).set({
-    category_id: categoryFor(booking.counterparty, booking.description)
+    category_id: assignment.categoryId,
+    category_rule_id: assignment.ruleId
   }).where(automatic);
 }
 
@@ -249,6 +257,7 @@ export async function recordManualBalance(tx: DatabaseTransaction, account: {
     description: "",
     categoryId: null,
     categorySource: "manual",
+    categoryRuleId: null,
     type
   });
 
@@ -299,6 +308,7 @@ export async function recordManualBalances(tx: DatabaseTransaction, account: {
       description: "",
       categoryId: null,
       categorySource: "manual",
+      categoryRuleId: null,
       type: hasTransactions ? "adjustment" : "opening_balance"
     }));
     previousAdjustments += difference;

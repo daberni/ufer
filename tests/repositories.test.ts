@@ -331,7 +331,8 @@ test("category corrections retain environment isolation, manual exclusions survi
   assert.deepEqual(await setTransactionCategory("local-entry", null), {
     id: "local-entry",
     category_id: null,
-    category_source: "manual"
+    category_source: "manual",
+    category_rule_id: null
   });
 
   await applyRulesToUncorrectedTransactions();
@@ -659,6 +660,19 @@ test("category icons persist through create and edit and only accept the curated
     icon: "travel"
   });
   assert.equal(await categoryIcon("Dining out"), "travel");
+
+  // Keys added to the curated set are accepted alongside the original ones.
+  await createCategory({
+    name: "Pet food",
+    icon: "pets"
+  });
+  assert.equal(await categoryIcon("Pet food"), "pets");
+  await updateCategoryDetails(String(dining?.id), {
+    name: "Dining out",
+    color: "#123456",
+    icon: "coffee"
+  });
+  assert.equal(await categoryIcon("Dining out"), "coffee");
 
   await updateCategoryDetails(String(dining?.id), {
     name: "Dining out",

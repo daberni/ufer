@@ -20,6 +20,13 @@ export type Transaction = {
   account_name: string;
   category_id: string | null;
   category_source: string;
+  /** The rule that assigned a rule-sourced category; null when it is not recorded, for example for assignments made before Ufer recorded it or by a deleted rule. */
+  category_rule_id: string | null;
+  /** For a manual assignment, the category and deciding rule that returning it to automatic categorization would produce now; null for a rule-assigned category. */
+  automatic_assignment: {
+    category_id: string | null;
+    rule_id: string | null;
+  } | null;
   type: TransactionType;
   type_source: "auto" | "manual";
   account_id: string;

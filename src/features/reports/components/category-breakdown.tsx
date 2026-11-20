@@ -8,11 +8,12 @@ import { clsx } from "clsx";
 import { Temporal } from "temporal-polyfill";
 import styles from "./category-breakdown.module.css";
 import { describeMonth, periodLabel } from "@/lib/date-format";
-import { periodFromJson } from "@/lib/period";
+import { monthPeriod, periodFromJson, type Period } from "@/lib/period";
 import { money } from "@/lib/money";
 import { categoryRowLimit, type CategoryGroup } from "@/features/reports/category-groups";
 import { formatSavingsRate, isNegativeRate, periodCashFlow, reservedCategoryRows, type CashFlowSelection, type CashFlowSummary } from "@/features/reports/cash-flow-selection";
-import { CategoryRows, CategoryRowsSkeleton } from "@/features/reports/components/category-rows";
+import { CategoryRows, CategoryRowsSkeleton, type CategoryRowLink } from "@/features/reports/components/category-rows";
+import { categoryTransactionsHref } from "@/client/app-location";
 import { AreaPlaceholder } from "@/components/ui/area-placeholder";
 import { areaProps, valueMask } from "@/components/ui/result-presentation";
 import { useCurrency, useMonthTransactionsHref, usePeriod, useViewHref } from "@/client/use-app-url";
@@ -52,6 +53,7 @@ export function CategoryBreakdown({
   const summary = selection ?? (pending ? emptySummary : periodCashFlow(cashFlow.data));
   const context = selection ? describeMonth(Temporal.PlainYearMonth.from(selection.month)).title : periodLabel(period);
   const emptyNote = selection ? "this month" : "in this period";
+  const shownPeriod = selection ? monthPeriod(Temporal.PlainYearMonth.from(selection.month)) : period;
   const reserved = pending ? {
     income: categoryRowLimit,
     expenses: categoryRowLimit
@@ -90,6 +92,7 @@ export function CategoryBreakdown({
             groups={summary.incomeGroups}
             reservedRows={reserved.income}
             currency={currency}
+            rowLink={categoryRowLink(shownPeriod, currency, "income", context)}
             empty={`No income ${emptyNote}.`}
           />
           <FlowColumn
@@ -98,6 +101,7 @@ export function CategoryBreakdown({
             groups={summary.expenseGroups}
             reservedRows={reserved.expenses}
             currency={currency}
+            rowLink={categoryRowLink(shownPeriod, currency, "expense", context)}
             empty={`No expenses ${emptyNote}.`}
           />
         </div>
@@ -106,12 +110,36 @@ export function CategoryBreakdown({
   );
 }
 
+/**
+ * Each category row opens its income or expense transactions in the shown month or period and currency. The combined "+N more" row stays plain: the list filters one category at a time, and the period's whole list is already linked from the panel.
+ */
+export function categoryRowLink(period: Period, currency: string, type: "income" | "expense", context: string) {
+  const flow = type === "income" ? "income" : "expenses";
+
+  return (group: CategoryGroup): CategoryRowLink | null => {
+    if (group.key === "remainder") {
+      return null;
+    }
+
+    return {
+      href: categoryTransactionsHref({
+        period,
+        currency,
+        category: group.key,
+        type
+      }),
+      label: `View ${flow} in ${group.name}, ${context}`
+    };
+  };
+}
+
 function FlowColumn({
   label,
   total,
   groups,
   reservedRows,
   currency,
+  rowLink,
   empty
 }: {
   label: string;
@@ -119,6 +147,7 @@ function FlowColumn({
   groups: CategoryGroup[];
   reservedRows: number;
   currency: string;
+  rowLink: (group: CategoryGroup) => CategoryRowLink | null;
   empty: string;
 }) {
   return (
@@ -133,7 +162,7 @@ function FlowColumn({
           <CategoryRowsSkeleton rows={reservedRows} />
         </div>
         <div className={styles["shown-rows"]}>
-          {groups.length ? <CategoryRows groups={groups} currency={currency} /> : <p className={ui["subtle"]}>{empty}</p>}
+          {groups.length ? <CategoryRows groups={groups} currency={currency} rowLink={rowLink} /> : <p className={ui["subtle"]}>{empty}</p>}
         </div>
       </div>
     </div>

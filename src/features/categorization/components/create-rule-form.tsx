@@ -16,6 +16,7 @@ import { CategoryDialog } from "./category-form";
 import { Dialog } from "@/components/ui/dialog";
 import type { Rule, RulePreviewDraft } from "@/features/categorization/types";
 import { DeleteButton, RuleDeleteConfirmation } from "./deletion-forms";
+import { ManualAdoptionOption, useManualAdoption, type ManualMatches } from "./manual-adoption-option";
 
 type RuleFormProps = DialogFormProps & {
   rule?: Rule | null;
@@ -44,7 +45,7 @@ const previewDelay = 300;
 
 type Mode = RulePreviewDraft["mode"];
 
-function previewDraft(pattern: string, mode: Mode, ruleId: string | null): RulePreviewDraft | null {
+function previewDraft(pattern: string, mode: Mode, ruleId: string | null, categoryId: string | null): RulePreviewDraft | null {
   if (!pattern.trim()) {
     return null;
   }
@@ -52,12 +53,13 @@ function previewDraft(pattern: string, mode: Mode, ruleId: string | null): RuleP
   return {
     pattern,
     mode,
-    ruleId
+    ruleId,
+    categoryId
   };
 }
 
 function sameDraft(first: RulePreviewDraft | null, second: RulePreviewDraft | null) {
-  return first !== null && second !== null && first.pattern === second.pattern && first.mode === second.mode && first.ruleId === second.ruleId;
+  return first !== null && second !== null && first.pattern === second.pattern && first.mode === second.mode && first.ruleId === second.ruleId && first.categoryId === second.categoryId;
 }
 
 function transactionCount(count: number) {
@@ -82,6 +84,7 @@ function useRuleImpact(draft: RulePreviewDraft | null) {
     return {
       pending: false,
       previewId: null,
+      manual: null,
       text: "Enter a pattern to see which transactions the rule would decide."
     };
   }
@@ -90,6 +93,7 @@ function useRuleImpact(draft: RulePreviewDraft | null) {
     return {
       pending: false,
       previewId: null,
+      manual: null,
       text: `The preview is unavailable: ${toFailure(preview.error).message}`
     };
   }
@@ -98,17 +102,23 @@ function useRuleImpact(draft: RulePreviewDraft | null) {
     return {
       pending: true,
       previewId: null,
+      manual: null,
       text: "Counting matching transactions …"
     };
   }
 
   // The counted ID breaks equal-priority ties, so a new rule is stored with exactly this ID.
   const previewId = preview.data.id;
+  const manual: ManualMatches = {
+    count: preview.data.manual,
+    sameCategory: preview.data.manual_same_category
+  };
 
   if (!preview.data.enabled) {
     return {
       pending: false,
       previewId,
+      manual,
       text: "This rule is disabled, so it decides no transactions until you enable it in the list."
     };
   }
@@ -117,6 +127,7 @@ function useRuleImpact(draft: RulePreviewDraft | null) {
     return {
       pending: false,
       previewId,
+      manual,
       text: "Would not decide any transactions yet."
     };
   }
@@ -124,6 +135,7 @@ function useRuleImpact(draft: RulePreviewDraft | null) {
   return {
     pending: false,
     previewId,
+    manual,
     text: `Would decide ${transactionCount(preview.data.matched)} without a manual category when rules are applied; ${preview.data.uncategorized.toLocaleString("en")} of them ${preview.data.uncategorized === 1 ? "is" : "are"} uncategorized now.`
   };
 }
@@ -150,8 +162,9 @@ function RuleForm({
   const [pattern, setPattern] = useState(rule?.pattern ?? "");
   const [mode, setMode] = useState<Mode>(rule?.mode === "regex" ? "regex" : "keyword");
   const ruleId = rule?.id ?? null;
-  const draft = useMemo(() => previewDraft(pattern, mode, ruleId), [pattern, mode, ruleId]);
+  const draft = useMemo(() => previewDraft(pattern, mode, ruleId, categoryId), [pattern, mode, ruleId, categoryId]);
   const impact = useRuleImpact(draft);
+  const adoption = useManualAdoption(impact.manual);
 
   return (
     <form
@@ -166,6 +179,7 @@ function RuleForm({
 
         submit(event, data => ({
           ...Object.fromEntries(data),
+          adopt_manual: adoption.checked,
           ...(rule ? {} : {
             id: previewId
           })
@@ -222,7 +236,8 @@ function RuleForm({
       {addingCategory && <CategoryDialog close={() => setAddingCategory(false)} onSaved={setChosenCategoryId} />}
       <p className={ui["form-hint"]}>Matches the payee and description without case sensitivity. The first matching rule in the list wins; new rules are added at the end.</p>
       <p className={ui["form-hint"]} role="status" aria-busy={impact.pending}>{impact.text}</p>
-      <p className={ui["form-hint"]}>Existing transactions stay unchanged until you apply the rules. Manual assignments are never changed.</p>
+      <ManualAdoptionOption adoption={adoption} />
+      <p className={ui["form-hint"]}>{adoption.checked ? "Saving also lets this rule decide the chosen manual assignments; other transactions stay unchanged until you apply the rules." : "Existing transactions stay unchanged until you apply the rules. Manual assignments are never changed."}</p>
       <FormError failure={error} />
       <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={pending || !categorySelected || (!rule && !impact.previewId)}>
         {rule ? "Save changes" : "Create rule"} <Sparkles size={16} />

@@ -15,9 +15,11 @@ import { useCategories, useRulePreview } from "@/features/categorization/queries
 import { proposeRulePattern } from "@/features/categorization/rule-pattern";
 import type { RulePreviewDraft } from "@/features/categorization/types";
 import { CategoryPicker } from "./category-picker";
+import { ManualAdoptionOption, useManualAdoption } from "./manual-adoption-option";
 
 type Props = {
-  /** The transaction whose category was just chosen; the proposed pattern comes from it. */
+  /** The transaction whose category was chosen manually; the proposed pattern comes from it, and it becomes rule-assigned when the new rule decides its category. */
+  transactionId: string;
   counterparty: string;
   description: string;
   categoryId: string;
@@ -37,7 +39,7 @@ export function RuleFromAssignmentDialog(props: Props) {
   );
 }
 
-function previewDraft(pattern: string): RulePreviewDraft | null {
+function previewDraft(pattern: string, categoryId: string, sourceTransactionId: string): RulePreviewDraft | null {
   const trimmed = pattern.trim();
 
   if (!trimmed) {
@@ -47,7 +49,9 @@ function previewDraft(pattern: string): RulePreviewDraft | null {
   return {
     pattern: trimmed,
     mode: "keyword",
-    ruleId: null
+    ruleId: null,
+    categoryId,
+    sourceTransactionId
   };
 }
 
@@ -56,6 +60,7 @@ function transactionCount(count: number) {
 }
 
 function RuleFromAssignmentForm({
+  transactionId,
   counterparty,
   description,
   categoryId: assignedCategoryId,
@@ -74,19 +79,23 @@ function RuleFromAssignmentForm({
   const [pattern, setPattern] = useState(() => proposeRulePattern(counterparty, description));
   const [categoryId, setCategoryId] = useState(assignedCategoryId);
   const [applyToUncategorized, setApplyToUncategorized] = useState(true);
-  const [previewed, setPreviewed] = useState(() => previewDraft(pattern));
+  const [previewed, setPreviewed] = useState(() => previewDraft(pattern, categoryId, transactionId));
 
   useEffect(() => {
-    const timer = setTimeout(() => setPreviewed(previewDraft(pattern)), previewDelay);
+    const timer = setTimeout(() => setPreviewed(previewDraft(pattern, categoryId, transactionId)), previewDelay);
 
     return () => clearTimeout(timer);
-  }, [pattern]);
+  }, [pattern, categoryId, transactionId]);
 
-  const draft = previewDraft(pattern);
+  const draft = previewDraft(pattern, categoryId, transactionId);
   const preview = useRulePreview(previewed);
-  const matchesCurrentDraft = draft !== null && draft.pattern === previewed?.pattern;
+  const matchesCurrentDraft = draft !== null && draft.pattern === previewed?.pattern && draft.categoryId === previewed.categoryId;
   const previewReady = matchesCurrentDraft && preview.isSuccess && !preview.isFetching && !preview.isPlaceholderData;
   const previewPending = draft !== null && (!matchesCurrentDraft || preview.isFetching);
+  const adoption = useManualAdoption(previewReady && preview.data ? {
+    count: preview.data.manual,
+    sameCategory: preview.data.manual_same_category
+  } : null);
 
   let previewText = "Enter a pattern to see what the rule would categorize.";
 
@@ -120,13 +129,15 @@ function RuleFromAssignmentForm({
             pattern: keyword,
             mode: "keyword",
             category_id: categoryId,
-            apply_to_uncategorized: applyToUncategorized
+            apply_to_uncategorized: applyToUncategorized,
+            adopt_manual: adoption.checked,
+            source_transaction_id: transactionId
           };
         }, created => onCreated(created.categorized));
       }}
       className={ui["form"]}
     >
-      <p className={ui["form-description"]}>Categorize transactions like “{counterparty || description}” automatically. The first matching rule wins; manual assignments are never changed.</p>
+      <p className={ui["form-description"]}>Categorize transactions like “{counterparty || description}” automatically. The first matching rule wins. This transaction follows the rule when the rule decides its category; other manual assignments only follow it when you choose so below.</p>
       <div className={ui["field"]}>
         <label htmlFor={patternFieldId}>Matching pattern</label>
         <input
@@ -158,6 +169,7 @@ function RuleFromAssignmentForm({
         />
         Categorize the uncategorized matches now
       </label>
+      <ManualAdoptionOption adoption={adoption} />
       <p className={ui["form-hint"]}>The rule is added at the end of your rules; reorder it in the rule list. Other matches follow the rule when rules are applied.</p>
       <FormError failure={error} />
       <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={pending || !categories.data || !previewReady || !preview.data?.id}>

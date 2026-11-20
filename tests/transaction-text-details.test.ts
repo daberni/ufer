@@ -26,6 +26,8 @@ const booking: Transaction = {
   account_name: "Synthetic checking",
   category_id: null,
   category_source: "rule",
+  category_rule_id: null,
+  automatic_assignment: null,
   type: "expense",
   type_source: "auto",
   account_id: "checking",
@@ -111,3 +113,18 @@ for (const example of [
     assert.equal(screen.queryByRole("dialog"), null);
   });
 }
+
+test("a description without a payee is the row's title and is not repeated as its description line", async context => {
+  const {
+    screen,
+    details
+  } = await showBooking(context, {
+    ...booking,
+    counterparty: "",
+    description: "Standing order rent"
+  });
+  const visible = screen.getAllByText("Standing order rent").filter(element => !details.contains(element));
+
+  assert.equal(visible.length, 1);
+  assert.ok(visible[0]!.closest("button"), "The description takes the payee's place as the editable title.");
+});

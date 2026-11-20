@@ -20,4 +20,6 @@ export type Entry = {
 
 export type CategorizedEntry = Entry & {
   categoryId: string | null;
+  /** The rule that decided `categoryId`; null when no rule matched or the category was not assigned by a rule. */
+  categoryRuleId: string | null;
 };

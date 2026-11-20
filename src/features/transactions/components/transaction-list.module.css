@@ -101,6 +101,18 @@
   align-items: center;
   column-gap: var(--space-3);
 }
+/* A title without a description line is centred over both lines; invisible spacers keep both lines, so the row stays as tall as the others. */
+.title-only .name {
+  grid-row: 1 / span 2;
+}
+.name-spacer {
+  grid-area: name;
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+.spacer {
+  visibility: hidden;
+}
 .transaction-icon {
   grid-area: icon;
   width: 32px;
@@ -123,19 +135,21 @@
   font-weight: 500;
   display: block;
 }
+/* Shrunk to the text and raised above the row's edit overlay, so full-text tooltips appear only over the text. */
 .name-preview,
 .description {
+  position: relative;
+  z-index: var(--layer-raised);
   display: -webkit-box;
+  width: fit-content;
+  max-width: 100%;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   overflow: hidden;
   white-space: normal;
   overflow-wrap: anywhere;
 }
-/* Above the row's edit overlay, so the pointer reaches the full-description tooltip. */
 .description {
-  position: relative;
-  z-index: var(--layer-raised);
   grid-area: description;
   font-size: var(--text-sm);
   color: var(--muted);
@@ -162,9 +176,6 @@
   color: var(--ink-soft);
 }
 .no-details {
-  display: none;
-}
-.category-label {
   display: none;
 }
 .account {
@@ -290,7 +301,8 @@
   .name-preview {
     display: block;
   }
-  .description {
+  .description,
+  .spacer {
     display: none;
   }
   .name {
@@ -356,10 +368,6 @@
     margin-top: var(--space-2);
     padding-top: var(--space-3);
     border-top: 1px solid var(--border);
-  }
-  .category-label {
-    display: inline;
-    color: var(--ink-soft);
   }
 }
 

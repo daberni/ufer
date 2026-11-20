@@ -7,7 +7,7 @@ import { invalidate } from "@/client/invalidate";
 import { queryKeys } from "@/client/query-keys";
 import type { Transaction, TransactionPage } from "@/features/transactions/types";
 
-export type CategoryAssignment = Pick<Transaction, "id" | "category_id" | "category_source">;
+export type CategoryAssignment = Pick<Transaction, "id" | "category_id" | "category_source" | "category_rule_id">;
 
 export type CategorizationStatus = {
   kind: "saving";
@@ -20,16 +20,21 @@ export type CategorizationStatus = {
 
 const savedIndicatorDuration = 2000;
 
+/** Returns a manual assignment to automatic categorization instead of choosing a category. */
+const automaticChoice: unique symbol = Symbol("automatic choice");
+
+type CategoryChoice = string | null | typeof automaticChoice;
+
 const categoryMutations = ["transactions", "category"] as const;
 
 function categoryMutationKey(transactionId: string) {
   return [...categoryMutations, transactionId] as const;
 }
 
-// Stores the server's assignment in every cached list page that contains the transaction.
+// Stores the server's assignment in every cached list page that contains the transaction; other transaction queries, such as transfer options, have a different shape.
 function storeAssignment(queryClient: QueryClient, assignment: CategoryAssignment) {
   queryClient.setQueriesData<TransactionPage>({
-    queryKey: queryKeys.transactions.all()
+    queryKey: queryKeys.transactions.lists()
   }, page => {
     if (!page?.transactions.some(transaction => transaction.id === assignment.id)) {
       return page;
@@ -40,7 +45,8 @@ function storeAssignment(queryClient: QueryClient, assignment: CategoryAssignmen
       transactions: page.transactions.map(transaction => transaction.id === assignment.id ? {
         ...transaction,
         category_id: assignment.category_id,
-        category_source: assignment.category_source
+        category_source: assignment.category_source,
+        category_rule_id: assignment.category_rule_id
       } : transaction)
     };
   });
@@ -59,8 +65,11 @@ export function useTransactionCategory(transaction: Transaction) {
     scope: {
       id: `transaction-category:${transaction.id}`
     },
-    mutationFn: (categoryId: string | null) => api<CategoryAssignment>(`transactions/${encodeURIComponent(transaction.id)}`, {
-      category_id: categoryId
+    // The server decides an automatic category from the stored rules.
+    mutationFn: (choice: CategoryChoice) => api<CategoryAssignment>(`transactions/${encodeURIComponent(transaction.id)}`, choice === automaticChoice ? {
+      automatic: true
+    } : {
+      category_id: choice
     }, "PATCH"),
     onSuccess: assignment => storeAssignment(queryClient, assignment),
     onSettled: () => {
@@ -83,7 +92,7 @@ export function useTransactionCategory(transaction: Transaction) {
     select: change => ({
       id: change.mutationId,
       status: change.state.status,
-      categoryId: change.state.variables as string | null,
+      choice: change.state.variables as CategoryChoice,
       error: change.state.error
     })
   });
@@ -103,10 +112,17 @@ export function useTransactionCategory(transaction: Transaction) {
     return () => clearTimeout(timer);
   }, [savedChange]);
 
+  // While a return to automatic is saved, the row shows the category the rules were last known to assign.
+  const pendingCategoryId = pending?.choice === automaticChoice ? transaction.automatic_assignment?.category_id ?? null : pending?.choice;
+
   return {
-    categoryId: pending ? pending.categoryId : transaction.category_id,
+    categoryId: pending ? pendingCategoryId ?? null : transaction.category_id,
+    pendingAutomatic: pending?.choice === automaticChoice,
     status: categorizationStatus(pending !== undefined, latest, savedChange !== undefined && savedChange !== expiredSave),
-    change: (categoryId: string | null) => mutation.mutate(categoryId)
+    change: (categoryId: string | null) => mutation.mutate(categoryId),
+    returnToAutomatic: () => mutation.mutate(automaticChoice),
+    /** Saves a category like change, settling once stored; for a form that closes only after its save. */
+    assign: (categoryId: string | null) => mutation.mutateAsync(categoryId)
   };
 }
 

@@ -2,10 +2,11 @@ import { randomUUID } from "node:crypto";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 import { environment } from "@/features/banking/server/environment";
-import { accounts, transactions } from "@/server/database/schema";
+import { accounts, categorizationRules, transactions } from "@/server/database/schema";
+import type { Rule, RuleAssignment, RuleText } from "@/lib/rules";
 import { derivedTransactionType, type TransactionType } from "@/features/transactions/transaction-types";
 import { refusable, type ManualEntryResult } from "./manual-transaction-repository";
-import type { CategorizedEntry, ProviderDetails } from "./transaction-entry";
+import type { CategorizedEntry, Entry, ProviderDetails } from "./transaction-entry";
 import { applyTransactionType, dissolveLink, enteredInUfer, findSubject, followImportedCorrections, releaseOutdatedLinks, type TransferTarget } from "./transfer-repository";
 
 function providerColumns(provider: ProviderDetails = {}) {
@@ -14,6 +15,35 @@ function providerColumns(provider: ProviderDetails = {}) {
     instructed_currency: provider.instructedCurrency ?? null,
     provider_payload: provider.payload ?? null
   };
+}
+
+// Bounds the bound parameters of each override lookup for both local SQLite and remote libSQL deployments.
+const overrideChunkSize = 500;
+
+/** Attaches the stored payee and description overrides of the rows these entries update, so rules decide them on the person's text too. */
+export async function withStoredOverrides<Delivered extends Entry>(tx: DatabaseTransaction, accountId: string, entries: Delivered[]) {
+  const overrides = new Map<string, Pick<RuleText, "counterparty_override" | "description_override">>();
+
+  for (let offset = 0; offset < entries.length; offset += overrideChunkSize) {
+    const references = entries.slice(offset, offset + overrideChunkSize).map(entry => entry.reference);
+    const rows = await tx.select({
+      reference: transactions.provider_reference,
+      counterparty_override: transactions.counterparty_override,
+      description_override: transactions.description_override
+    }).from(transactions).where(and(eq(transactions.account_id, accountId), inArray(transactions.provider_reference, references), sql`(${transactions.counterparty_override} IS NOT NULL OR ${transactions.description_override} IS NOT NULL)`));
+
+    for (const row of rows) {
+      overrides.set(String(row.reference), {
+        counterparty_override: row.counterparty_override,
+        description_override: row.description_override
+      });
+    }
+  }
+
+  return entries.map(entry => ({
+    ...entry,
+    ...overrides.get(entry.reference)
+  }));
 }
 
 /**
@@ -39,6 +69,7 @@ export async function upsertTransactions(tx: DatabaseTransaction, accountId: str
       counterparty: entry.counterparty,
       description: entry.description,
       category_id: entry.categoryId,
+      category_rule_id: entry.categoryRuleId,
       type: derivedTransactionType(entry.amount, entry.transfer),
       created_at: createdAt,
       ...providerColumns(entry.provider)
@@ -56,6 +87,7 @@ export async function upsertTransactions(tx: DatabaseTransaction, accountId: str
         instructed_currency: sql`excluded.instructed_currency`,
         provider_payload: sql`excluded.provider_payload`,
         category_id: sql`CASE WHEN ${transactions.category_source}='manual' THEN ${transactions.category_id} ELSE excluded.category_id END`,
+        category_rule_id: sql`CASE WHEN ${transactions.category_source}='manual' THEN NULL ELSE excluded.category_rule_id END`,
         type: sql`CASE WHEN ${transactions.type_source}='manual' OR ${transactions.transfer_id} IS NOT NULL OR ${transactions.type}='transfer' THEN ${transactions.type} ELSE excluded.type END`
       }
     });
@@ -70,14 +102,56 @@ export async function setTransactionCategory(id: string, categoryId: string | nu
   const scope = and(eq(transactions.id, id), inArray(transactions.account_id, scopedAccounts));
   const [assignment] = await db.update(transactions).set({
     category_id: categoryId,
-    category_source: "manual"
+    category_source: "manual",
+    category_rule_id: null
   }).where(scope).returning({
     id: transactions.id,
     category_id: transactions.category_id,
-    category_source: transactions.category_source
+    category_source: transactions.category_source,
+    category_rule_id: transactions.category_rule_id
   });
 
   return assignment;
+}
+
+/**
+ * Returns a manual assignment to automatic categorization: the category and assigning rule come from the transaction's source and overridden text, as applying rules would assign them.
+ * The rules and the transaction are read in the write transaction that stores the result. Resolves to undefined for a transaction outside the current environment.
+ */
+export async function returnTransactionToRules(id: string, assign: (rules: Rule[], text: RuleText) => RuleAssignment) {
+  const db = await database();
+  const scopedAccounts = db.select({
+    id: accounts.id
+  }).from(accounts).where(eq(accounts.environment, environment()));
+  const scope = and(eq(transactions.id, id), inArray(transactions.account_id, scopedAccounts));
+
+  return db.transaction(async tx => {
+    const found = await tx.select({
+      counterparty: transactions.counterparty,
+      description: transactions.description,
+      counterparty_override: transactions.counterparty_override,
+      description_override: transactions.description_override
+    }).from(transactions).where(scope).get();
+
+    if (!found) {
+      return undefined;
+    }
+
+    const rules = await tx.select().from(categorizationRules);
+    const assignment = assign(rules, found);
+    const [saved] = await tx.update(transactions).set({
+      category_id: assignment.categoryId,
+      category_source: "rule",
+      category_rule_id: assignment.ruleId
+    }).where(scope).returning({
+      id: transactions.id,
+      category_id: transactions.category_id,
+      category_source: transactions.category_source,
+      category_rule_id: transactions.category_rule_id
+    });
+
+    return saved;
+  });
 }
 
 /** A person's payee and description for an imported booking; undefined keeps a field's current text. */

@@ -54,6 +54,40 @@
   width: 100%;
   background: transparent;
 }
+/* The ring surrounds the whole field, magnifier and clear button included, like the searchable select. */
+.search-field:has(input:focus-visible) {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+}
+.search-field input:focus-visible {
+  outline: none;
+}
+.clear-search {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  margin-right: calc(-1 * var(--space-1));
+  border-radius: var(--radius-md);
+  color: var(--muted);
+}
+.clear-search:hover {
+  color: var(--ink);
+  background: var(--surface-muted);
+}
+.clear-search:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: -2px;
+}
+@media (any-pointer: coarse) {
+  .clear-search {
+    width: 44px;
+    height: 44px;
+    margin-block: -8px;
+  }
+}
 .pagination {
   display: flex;
   align-items: center;

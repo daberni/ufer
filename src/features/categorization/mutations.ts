@@ -44,14 +44,16 @@ export type CreatedRule = {
   categorized: number;
 };
 
-/** Creates a rule; applying it to uncategorized transactions also changes lists and spending. */
+/** Creates a rule from a manual assignment, which may hand the source transaction to the rule; applying it to uncategorized transactions also changes spending. */
 export function useCreateRuleFromAssignment() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (rule: Record<string, unknown>) => api<CreatedRule>("rules", rule),
     onSettled: (_result, _error, rule) => {
-      const affected = rule.apply_to_uncategorized === true ? [queryKeys.rules(), queryKeys.transactions.all(), queryKeys.reports.cashFlow()] : [queryKeys.rules()];
+      // The source transaction can become rule-assigned; applying and adopting manual assignments also change categories and spending.
+      const changesCategories = rule.apply_to_uncategorized === true || rule.adopt_manual === true;
+      const affected = changesCategories ? [queryKeys.rules(), queryKeys.transactions.all(), queryKeys.reports.cashFlow()] : [queryKeys.rules(), queryKeys.transactions.all()];
 
       return invalidate(queryClient, affected);
     }
@@ -63,7 +65,12 @@ export function useSaveRule(rule?: Rule | null) {
 
   return useMutation({
     mutationFn: (details: Record<string, unknown>) => rule ? api(`rules/${encodeURIComponent(rule.id)}`, details, "PUT") : api("rules", details),
-    onSettled: () => invalidate(queryClient, [queryKeys.rules()])
+    onSettled: (_result, _error, details) => {
+      // Transaction rows show what returning to automatic categorization would assign; adopted manual assignments also change spending.
+      const affected = details.adopt_manual === true ? [queryKeys.rules(), queryKeys.transactions.all(), queryKeys.reports.cashFlow()] : [queryKeys.rules(), queryKeys.transactions.lists()];
+
+      return invalidate(queryClient, affected);
+    }
   });
 }
 
@@ -77,7 +84,7 @@ export function useToggleRule() {
     mutationFn: (rule: Rule) => api(`rules/${encodeURIComponent(rule.id)}`, {
       enabled: !rule.enabled
     }, "PATCH"),
-    onSettled: () => invalidate(queryClient, [queryKeys.rules()])
+    onSettled: () => invalidate(queryClient, [queryKeys.rules(), queryKeys.transactions.lists()])
   });
 }
 
@@ -105,13 +112,13 @@ export function useApplyRules() {
   });
 }
 
-/** Deleting a rule keeps the categories it assigned, so only the rule list changes. */
+/** Deleting a rule keeps the categories it assigned but clears their reference to it, so transactions show the rule as no longer recorded. */
 export function useDeleteRule(rule: Rule) {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: () => api(`rules/${encodeURIComponent(rule.id)}`, undefined, "DELETE"),
-    onSettled: () => invalidate(queryClient, [queryKeys.rules()])
+    onSettled: () => invalidate(queryClient, [queryKeys.rules(), queryKeys.transactions.all()])
   });
 }
 
@@ -165,7 +172,7 @@ export function useReorderRules() {
     }
 
     if (!laterOrderPending()) {
-      await invalidate(queryClient, [queryKeys.rules()]);
+      await invalidate(queryClient, [queryKeys.rules(), queryKeys.transactions.lists()]);
     }
   }
 
