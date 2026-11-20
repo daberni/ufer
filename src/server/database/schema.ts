@@ -52,7 +52,9 @@ export const accounts = sqliteTable("accounts", {
   balance_minor: integer("balance_minor"),
   balance_date: text("balance_date"),
   last_synced_at: text("last_synced_at"),
-  sync_error: text("sync_error")
+  sync_error: text("sync_error"),
+  // Set while the account is archived: hidden from the account lists and pickers, but its history and report contributions remain.
+  archived_at: text("archived_at")
 }, table => [
   unique("accounts_environment_provider_uid_unique").on(table.environment, table.provider_uid),
   check("accounts_kind", sql`${table.kind} IN ('checking','savings','investment','loan','property','credit_card')`)

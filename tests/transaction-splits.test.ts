@@ -511,3 +511,16 @@ test("a split booking keeps its type through a sync and cannot become another bo
   assert.equal(row?.type, "expense");
   assert.equal(row?.counterpart, null);
 });
+
+test("a booking on an archived account can neither be split nor unsplit", async context => {
+  const db = await seed(context);
+
+  await splitTransaction("market", marketSplit());
+  await db.update(schema.accounts).set({
+    archived_at: "2026-09-30T00:00:00Z"
+  }).where(eq(schema.accounts.id, "checking"));
+
+  await assert.rejects(splitTransaction("market", marketSplit()), error => error instanceof HttpError && error.status === 409);
+  await assert.rejects(unsplitTransaction("market"), error => error instanceof HttpError && error.status === 409);
+  assert.equal((await db.select().from(schema.transactionSplits).where(eq(schema.transactionSplits.transaction_id, "market"))).length, 2);
+});

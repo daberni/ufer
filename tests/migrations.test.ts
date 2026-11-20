@@ -981,9 +981,9 @@ test("category-rule migration keeps every booking unchanged and leaves existing 
   const directory = mkdtempSync(join(tmpdir(), "ufer-category-rule-"));
   const journal = JSON.parse(readFileSync("drizzle/sqlite/meta/_journal.json", "utf8"));
 
-  journal.entries = journal.entries.slice(0, journal.entries.findIndex((entry: {
-    tag: string
-  }) => entry.tag === "0011_transaction_category_rule"));
+  journal.entries = journal.entries.filter((entry: {
+    idx: number
+  }) => entry.idx < 11);
   mkdirSync(join(directory, "meta"));
 
   for (const entry of journal.entries) {
@@ -1020,6 +1020,49 @@ test("category-rule migration keeps every booking unchanged and leaves existing 
   }
 });
 
+test("account-archiving migration keeps every account visible and unchanged", async () => {
+  const client = createClient({
+    url: ":memory:"
+  });
+  const directory = mkdtempSync(join(tmpdir(), "ufer-account-archiving-"));
+  const journal = JSON.parse(readFileSync("drizzle/sqlite/meta/_journal.json", "utf8"));
+
+  journal.entries = journal.entries.filter((entry: {
+    idx: number
+  }) => entry.idx < 12);
+  mkdirSync(join(directory, "meta"));
+
+  for (const entry of journal.entries) {
+    cpSync(`drizzle/sqlite/${entry.tag}.sql`, join(directory, `${entry.tag}.sql`));
+  }
+
+  writeFileSync(join(directory, "meta/_journal.json"), JSON.stringify(journal));
+
+  try {
+    await migrateDatabase(client, directory);
+    await client.execute("INSERT INTO accounts(id,environment,name,institution,kind,provider,provider_uid,balance_minor,balance_date) VALUES('bank','SANDBOX','Synthetic bank','Example bank','checking','enable_banking','stable-provider-id',12345,'2026-01-01')");
+    await client.execute("INSERT INTO accounts(id,environment,name,institution,kind) VALUES('manual','SANDBOX','Synthetic cash','Example bank','savings')");
+    await client.execute("INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,type,type_source) VALUES('opening','manual','manual:opening','2026-01-01',5000,'EUR','opening_balance','manual')");
+    const columns = await columnList(client, "accounts");
+    const before = (await client.execute(`SELECT ${columns} FROM accounts ORDER BY id`)).rows;
+    const bookings = (await client.execute("SELECT * FROM transactions ORDER BY id")).rows;
+
+    await assert.rejects(initializeDatabase(client), /migrations are pending/);
+    await migrateDatabase(client);
+    await migrateDatabase(client);
+    assert.deepEqual((await client.execute(`SELECT ${columns} FROM accounts ORDER BY id`)).rows, before);
+    assert.deepEqual((await client.execute("SELECT archived_at FROM accounts")).rows.map(row => row.archived_at), [null, null]);
+    assert.deepEqual((await client.execute("SELECT * FROM transactions ORDER BY id")).rows, bookings);
+    assert.equal((await client.execute("PRAGMA foreign_key_check")).rows.length, 0);
+  } finally {
+    client.close();
+    rmSync(directory, {
+      recursive: true,
+      force: true
+    });
+  }
+});
+
 test("split migration keeps every booking unchanged and removes parts with their booking", async () => {
   const client = createClient({
     url: ":memory:"
@@ -1028,8 +1071,8 @@ test("split migration keeps every booking unchanged and removes parts with their
   const journal = JSON.parse(readFileSync("drizzle/sqlite/meta/_journal.json", "utf8"));
 
   journal.entries = journal.entries.filter((entry: {
-    tag: string
-  }) => entry.tag !== "0015_transaction_splits");
+    idx: number
+  }) => entry.idx < 13);
   mkdirSync(join(directory, "meta"));
 
   for (const entry of journal.entries) {

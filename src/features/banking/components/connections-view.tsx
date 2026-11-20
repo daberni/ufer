@@ -11,7 +11,9 @@ import { TimestampValue } from "@/components/ui/date-value";
 import { Empty } from "@/components/ui/empty-state";
 import { BridgeIllustration } from "@/components/branding/illustrations";
 import { bankConnectionsSectionId } from "@/features/banking/connections-location";
-import type { BankingConfiguration, Connection, SyncRun } from "@/features/banking/types";
+import type { BankingConfiguration, Connection, ConnectionRemoval, SyncRun } from "@/features/banking/types";
+import { ActionFeedback } from "@/components/ui/action-feedback";
+import { useActionFeedback } from "@/components/ui/use-action-feedback";
 import { useState } from "react";
 import { BankConnectionDialog } from "./bank-connection-form";
 import { RemoveConnectionDialog } from "./remove-connection-form";
@@ -53,6 +55,15 @@ export function ConnectionsSection({
     connection
   });
   const sandbox = banking.environment === "SANDBOX";
+  const removalFeedback = useActionFeedback();
+  const reportRemoval = (removal: ConnectionRemoval) => {
+    if (removal.notArchived.length) {
+      removalFeedback.report({
+        tone: "problem",
+        messages: [`Not archived because their balance is not 0: ${removal.notArchived.join(", ")}. They stay active.`]
+      });
+    }
+  };
 
   return (
     <section id={bankConnectionsSectionId} aria-labelledby="bank-connections-heading" className={styles["connections-section"]}>
@@ -88,7 +99,13 @@ export function ConnectionsSection({
       </section>
       <SyncHistory syncRuns={syncRuns} />
       {dialog?.kind === "bank" && <BankConnectionDialog connection={dialog.connection} close={closeDialog} />}
-      {dialog?.kind === "removeConnection" && <RemoveConnectionDialog selectedConnection={dialog.connection} close={closeDialog} />}
+      {dialog?.kind === "removeConnection" && <RemoveConnectionDialog selectedConnection={dialog.connection} close={closeDialog} onRemoved={reportRemoval} />}
+      <ActionFeedback
+        feedback={removalFeedback.feedback}
+        dismissLabel="Dismiss message"
+        onDismiss={removalFeedback.dismiss}
+        placement="overlay"
+      />
     </section>
   );
 }

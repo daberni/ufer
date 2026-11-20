@@ -23,6 +23,7 @@ const outgoing: Transaction = {
   hidden: false,
   account_name: "Synthetic checking",
   account_id: "synthetic-checking",
+  account_archived: false,
   category_id: null,
   category_source: "rule",
   category_rule_id: null,
@@ -34,7 +35,8 @@ const outgoing: Transaction = {
   entered: false,
   follows_import: false,
   created_counterpart: false,
-  counterpart: null
+  counterpart: null,
+  counterpart_archived: false
 };
 
 async function renderDialog(context: TestContext, transaction: Transaction) {

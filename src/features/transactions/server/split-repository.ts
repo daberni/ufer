@@ -6,6 +6,7 @@ import { accounts, categorizationRules, transactionSplits, transactions } from "
 import type { Rule, RuleAssignment, RuleText } from "@/lib/rules";
 import type { TransactionType } from "@/features/transactions/transaction-types";
 import type { SplitPart } from "@/features/transactions/types";
+import { assertWritableAccount } from "@/features/accounts/server/writable-account";
 import type { Entry } from "./transaction-entry";
 
 /** The booking a split divides, as the split's validation needs it. */
@@ -44,7 +45,7 @@ async function scopedTransaction(id: string) {
 
 /**
  * Replaces a booking's parts with the ones `decide` returns for the booking as stored in the same write transaction, so the sum is checked against its current amount. A split booking's own category is cleared and marked manual, so rules leave it alone.
- * Resolves to undefined for a booking outside the current environment; an error thrown by `decide` stores nothing.
+ * Resolves to undefined for a booking outside the current environment; a booking on an archived account or an error thrown by `decide` stores nothing.
  */
 export async function replaceSplit(id: string, decide: (subject: SplitSubject) => SplitPartValues[]) {
   const {
@@ -54,6 +55,7 @@ export async function replaceSplit(id: string, decide: (subject: SplitSubject) =
 
   return db.transaction(async tx => {
     const subject = await tx.select({
+      account_id: transactions.account_id,
       amount_minor: transactions.amount_minor,
       currency: transactions.currency,
       type: transactions.type
@@ -62,6 +64,8 @@ export async function replaceSplit(id: string, decide: (subject: SplitSubject) =
     if (!subject) {
       return undefined;
     }
+
+    await assertWritableAccount(tx, subject.account_id);
 
     const parts = decide(subject);
 
@@ -86,7 +90,7 @@ export async function replaceSplit(id: string, decide: (subject: SplitSubject) =
 
 /**
  * Removes a booking's parts and returns it to automatic categorization, with the category and rule the stored rules assign its text. A booking without parts keeps its category.
- * Resolves to undefined for a booking outside the current environment.
+ * Resolves to undefined for a booking outside the current environment; a booking on an archived account is refused.
  */
 export async function removeSplit(id: string, assign: (rules: Rule[], text: RuleText) => RuleAssignment) {
   const {
@@ -96,6 +100,7 @@ export async function removeSplit(id: string, assign: (rules: Rule[], text: Rule
 
   return db.transaction(async tx => {
     const found = await tx.select({
+      account_id: transactions.account_id,
       counterparty: transactions.counterparty,
       description: transactions.description,
       counterparty_override: transactions.counterparty_override,
@@ -105,6 +110,8 @@ export async function removeSplit(id: string, assign: (rules: Rule[], text: Rule
     if (!found) {
       return undefined;
     }
+
+    await assertWritableAccount(tx, found.account_id);
 
     const removed = await tx.delete(transactionSplits).where(eq(transactionSplits.transaction_id, id));
 

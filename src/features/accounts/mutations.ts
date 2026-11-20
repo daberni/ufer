@@ -35,3 +35,33 @@ export function useRenameAccount(accountId: string) {
     onSettled: () => invalidate(queryClient, [queryKeys.accounts(), queryKeys.transactions.all()])
   });
 }
+
+export type ArchiveRequest = {
+  closing?: {
+    date: string;
+    balance_minor: number;
+    transfer_account_id: string | null;
+  };
+};
+
+// Closing an account books its remaining balance, which feeds the same views as a balance update and the cash-flow reports.
+const archiveKeys = [...balanceKeys, queryKeys.reports.cashFlow()];
+
+export function useArchiveAccount(accountId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (body: ArchiveRequest) => api(`accounts/${encodeURIComponent(accountId)}/archive`, body, "PUT"),
+    onSettled: () => invalidate(queryClient, archiveKeys)
+  });
+}
+
+export function useRestoreAccount(accountId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => api(`accounts/${encodeURIComponent(accountId)}/archive`, undefined, "DELETE"),
+    // Listed transactions carry whether their account is archived.
+    onSettled: () => invalidate(queryClient, [queryKeys.accounts(), queryKeys.transactions.all()])
+  });
+}

@@ -13,7 +13,7 @@ import { TransactionTypeIcon, transferDirection } from "@/features/transactions/
 import { TransactionEditDialog } from "@/features/transactions/components/transaction-edit-dialog";
 import { SplitTag } from "@/features/transactions/components/transaction-split";
 import type { Category } from "@/features/categorization/types";
-import type { Transaction } from "@/features/transactions/types";
+import { editLocked, type Transaction } from "@/features/transactions/types";
 
 type Props = {
   categories: Category[];
@@ -76,14 +76,19 @@ function TransactionRow({
         <div className={clsx(styles["transaction-name"], !showsDescription && styles["title-only"])}>
           <span className={clsx(styles["transaction-icon"], incoming && styles["incoming"])}><TransactionTypeIcon type={transaction.type} /></span>
           <strong className={styles["name"]}>
-            <button
-              className={styles["edit-transaction"]}
-              type="button"
-              onClick={() => setEditing(true)}
-              aria-label={`Edit transaction: ${subject}`}
-            >
+            {editLocked(transaction) ? (
+              // Archived accounts are read-only until restored, so their bookings and bookings linked to them offer no edit dialog.
               <span className={styles["name-preview"]} title={subject}>{subject}</span>
-            </button>
+            ) : (
+              <button
+                className={styles["edit-transaction"]}
+                type="button"
+                onClick={() => setEditing(true)}
+                aria-label={`Edit transaction: ${subject}`}
+              >
+                <span className={styles["name-preview"]} title={subject}>{subject}</span>
+              </button>
+            )}
           </strong>
           {showsDescription ? (
             <span className={styles["description"]} title={transaction.description}>{transaction.description || "No description"}</span>
@@ -105,7 +110,7 @@ function TransactionRow({
             </details>
           ) : <span className={styles["no-details"]}>No description</span>}
         </div>
-        {editing && <TransactionEditDialog transaction={transaction} close={() => setEditing(false)} />}
+        {editing && !editLocked(transaction) && <TransactionEditDialog transaction={transaction} close={() => setEditing(false)} />}
       </th>
       <td role="cell" className={styles["category"]}>
         {transaction.split ? <SplitTag transaction={transaction} split={transaction.split} /> : <TransactionCategory categories={categories} transaction={transaction} />}
