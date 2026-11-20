@@ -78,7 +78,9 @@ function CategoryForm({
   const [icon, setIcon] = useState<CategoryIconKey | "">(isCategoryIcon(savedIcon) ? savedIcon : "");
   const existing = useCategories().data ?? [];
   const others = existing.filter(other => other.id !== category?.id);
-  const [fallbackColor] = useState(() => randomCategoryColor(existing.map(other => other.color)));
+  // One random draw per dialog, applied to the loaded categories, so the fallback stays stable but follows the categories once they arrive.
+  const [draw] = useState(Math.random);
+  const fallbackColor = randomCategoryColor(existing.map(other => other.color), () => draw);
   const [chosenColor, setChosenColor] = useState<string | null>(category?.color ?? null);
   const similarColor = suggestCategoryColor(name, icon || null, others);
   // A new category follows what similar categories use until a color is chosen, otherwise a rarely used palette color.

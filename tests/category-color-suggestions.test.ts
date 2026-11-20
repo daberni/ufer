@@ -263,3 +263,27 @@ test("a custom similar color appears as an extra highlighted swatch, a new categ
     hidden: true
   }).getAttribute("aria-checked"), "true");
 });
+
+test("a new category's fallback color follows the categories that load after the dialog opened", async context => {
+  const environment = browser(context);
+  const prototype = window.HTMLDialogElement.prototype;
+
+  prototype.showModal = function (this: HTMLDialogElement) {
+    this.setAttribute("open", "");
+  };
+
+  prototype.close = function (this: HTMLDialogElement) {
+    this.removeAttribute("open");
+  };
+
+  const { CategoryDialog } = await import("../src/features/categorization/components/category-form");
+  const screen = render(withQueryClient(environment.queryClient, createElement(CategoryDialog, {
+    close: () => undefined
+  })));
+  const used = palette.filter(color => color !== teal).map((color, index) => category(`seed-${index}`, `Seed ${index}`, null, color));
+
+  await wait(0);
+  await respond(environment.requests("categories")[0], Response.json(used));
+
+  assert.equal((screen.container.ownerDocument.querySelector("input[name='color']") as HTMLInputElement).value, teal);
+});
