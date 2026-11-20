@@ -25,13 +25,12 @@ const categoryChoice = z.union([z.object({
 /** Sets a transaction's category manually, or returns it to automatic categorization with the category and rule that the stored rules decide. */
 export async function updateTransactionCategory(id: string, payload: unknown) {
   const choice = categoryChoice.parse(payload);
+  const assignment = "automatic" in choice ? await automaticCategory(id) : await manualCategory(id, choice.category_id);
 
-  // A split booking's categories are its parts; removing the split returns it to the rules.
-  if (await isSplit(id)) {
+  // The write skips split bookings, whose categories are their parts; removing the split returns one to the rules.
+  if (!assignment && await isSplit(id)) {
     throw new HttpError(409, "This transaction is split. Change its parts or remove the split instead.");
   }
-
-  const assignment = "automatic" in choice ? await automaticCategory(id) : await manualCategory(id, choice.category_id);
 
   if (!assignment) {
     throw new HttpError(404, "Transaction not found.");

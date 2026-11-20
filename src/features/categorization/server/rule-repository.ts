@@ -57,7 +57,7 @@ export type ManualAdoption = {
 
 /** Returns the selected manual assignments to automatic categorization with the rule's category and a reference to the rule. */
 async function adoptManualAssignments(tx: DatabaseTransaction, rule: Pick<Rule, "id" | "category_id">, rules: Rule[], adoption: ManualAdoption) {
-  const scope = and(eq(accounts.environment, environment()), eq(transactions.category_source, "manual"), notSplit(tx));
+  const scope = and(eq(accounts.environment, environment()), eq(transactions.category_source, "manual"), notSplit);
   const candidates = await tx.select({
     id: transactions.id,
     counterparty: transactions.counterparty,
@@ -246,7 +246,7 @@ export async function setRuleEnabled(id: string, enabled: boolean) {
 /** Manually categorized transactions with the text rules match. */
 export async function findManualAssignments() {
   const db = await database();
-  const scope = and(eq(accounts.environment, environment()), eq(transactions.category_source, "manual"), notSplit(db));
+  const scope = and(eq(accounts.environment, environment()), eq(transactions.category_source, "manual"), notSplit);
 
   return db.select({
     id: transactions.id,

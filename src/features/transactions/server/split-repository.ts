@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, asc, eq, inArray, notExists } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 import { environment } from "@/features/banking/server/environment";
 import { accounts, categorizationRules, transactionSplits, transactions } from "@/server/database/schema";
@@ -21,12 +21,13 @@ export type SplitPartValues = {
   note: string;
 };
 
-/** Condition for bookings that are not split; rules never categorize a split booking, whose categories are its parts. */
-export function notSplit(db: Pick<Awaited<ReturnType<typeof database>>, "select">) {
-  return notExists(db.select({
-    id: transactionSplits.id
-  }).from(transactionSplits).where(eq(transactionSplits.transaction_id, transactions.id)));
+/** SQL for bookings whose alias is not split. Every write that categorizes, retypes or links a booking requires it in its own statement or transaction: a split booking's categories are its parts and it stays income or expense. */
+export function notSplitSql(alias: string) {
+  return `NOT EXISTS (SELECT 1 FROM transaction_splits s WHERE s.transaction_id=${alias}.id)`;
 }
+
+/** The same guard for typed queries on `transactions`. */
+export const notSplit = sql`NOT EXISTS (SELECT 1 FROM transaction_splits s WHERE s.transaction_id=${transactions.id})`;
 
 async function scopedTransaction(id: string) {
   const db = await database();

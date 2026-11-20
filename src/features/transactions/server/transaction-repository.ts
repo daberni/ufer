@@ -6,7 +6,7 @@ import { accounts, categorizationRules, transactions } from "@/server/database/s
 import type { Rule, RuleAssignment, RuleText } from "@/lib/rules";
 import { derivedTransactionType, type TransactionType } from "@/features/transactions/transaction-types";
 import { refusable, type ManualEntryResult } from "./manual-transaction-repository";
-import { splitRefusesType } from "./split-repository";
+import { notSplit, splitRefusesType } from "./split-repository";
 import type { CategorizedEntry, Entry, ProviderDetails } from "./transaction-entry";
 import { applyTransactionType, dissolveLink, enteredInUfer, findSubject, followImportedCorrections, releaseOutdatedLinks, type TransferTarget } from "./transfer-repository";
 
@@ -50,7 +50,7 @@ export async function withStoredOverrides<Delivered extends Entry>(tx: DatabaseT
 /**
  * Inserts new entries and updates existing ones. `createdAt` replaces the database clock only for inserted rows; updates keep the original `created_at`.
  * Updates replace the provider data with the latest delivery for every row; only rule-sourced categories are recalculated. Payee and description overrides and hidden state are separate columns, so a delivery never undoes them.
- * The type is recalculated only while nobody corrected it, the booking is not linked and it is not a transfer: no source reports that a booking is not a transfer, so a delivery without a transfer signal never downgrades one. A booking entered in Ufer follows the corrected date and amount of the imported booking it is linked with; other links whose corrected amount or currency no longer pairs are released first.
+ * The type is recalculated only while nobody corrected it, the booking is not linked and it is not a transfer: no source reports that a booking is not a transfer, so a delivery without a transfer signal never downgrades one. A split booking keeps its type. A booking entered in Ufer follows the corrected date and amount of the imported booking it is linked with; other links whose corrected amount or currency no longer pairs are released first.
  */
 export async function upsertTransactions(tx: DatabaseTransaction, accountId: string, entries: CategorizedEntry[], createdAt?: string) {
   // Bound statement parameters for both local SQLite and remote libSQL deployments.
@@ -89,7 +89,7 @@ export async function upsertTransactions(tx: DatabaseTransaction, accountId: str
         provider_payload: sql`excluded.provider_payload`,
         category_id: sql`CASE WHEN ${transactions.category_source}='manual' THEN ${transactions.category_id} ELSE excluded.category_id END`,
         category_rule_id: sql`CASE WHEN ${transactions.category_source}='manual' THEN NULL ELSE excluded.category_rule_id END`,
-        type: sql`CASE WHEN ${transactions.type_source}='manual' OR ${transactions.transfer_id} IS NOT NULL OR ${transactions.type}='transfer' THEN ${transactions.type} ELSE excluded.type END`
+        type: sql`CASE WHEN ${transactions.type_source}='manual' OR ${transactions.transfer_id} IS NOT NULL OR ${transactions.type}='transfer' OR NOT ${notSplit} THEN ${transactions.type} ELSE excluded.type END`
       }
     });
   }
@@ -100,7 +100,7 @@ export async function setTransactionCategory(id: string, categoryId: string | nu
   const scopedAccounts = db.select({
     id: accounts.id
   }).from(accounts).where(eq(accounts.environment, environment()));
-  const scope = and(eq(transactions.id, id), inArray(transactions.account_id, scopedAccounts));
+  const scope = and(eq(transactions.id, id), inArray(transactions.account_id, scopedAccounts), notSplit);
   const [assignment] = await db.update(transactions).set({
     category_id: categoryId,
     category_source: "manual",
@@ -124,7 +124,7 @@ export async function returnTransactionToRules(id: string, assign: (rules: Rule[
   const scopedAccounts = db.select({
     id: accounts.id
   }).from(accounts).where(eq(accounts.environment, environment()));
-  const scope = and(eq(transactions.id, id), inArray(transactions.account_id, scopedAccounts));
+  const scope = and(eq(transactions.id, id), inArray(transactions.account_id, scopedAccounts), notSplit);
 
   return db.transaction(async tx => {
     const found = await tx.select({

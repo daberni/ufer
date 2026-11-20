@@ -7,7 +7,7 @@ import { initializeDatabase } from "../src/server/database/migrations";
 import * as schema from "../src/server/database/schema";
 import type { Database } from "../src/server/database/connection";
 import { splitTransaction, unsplitTransaction } from "../src/features/transactions/server/split-service";
-import { updateTransactionCategory, updateTransactionDetails } from "../src/features/transactions/server/transaction-service";
+import { transferOptions, updateTransactionCategory, updateTransactionDetails } from "../src/features/transactions/server/transaction-service";
 import { upsertTransactions } from "../src/features/transactions/server/transaction-repository";
 import { readAccountCashFlow, readCashFlow } from "../src/features/reports/server/cash-flow-query";
 import { readTransactionPage } from "../src/features/transactions/server/transaction-list-query";
@@ -434,4 +434,56 @@ test("parts whose sum leaves the safe integer range are rejected instead of roun
     }]
   }), error => error instanceof ValidationError && /add up to €0\.02 instead of €0\.01/.test(error.message));
   assert.equal((await db.select().from(schema.transactionSplits)).length, 0);
+});
+
+test("a split booking keeps its type through a sync and cannot become another booking's transfer counterpart", async context => {
+  const db = await seed(context);
+
+  await db.insert(schema.accounts).values({
+    id: "savings",
+    environment: "SANDBOX",
+    name: "Synthetic savings",
+    institution: "Example institution",
+    kind: "savings",
+    provider: "enablebanking"
+  });
+  await db.insert(schema.transactions).values({
+    id: "savings-in",
+    account_id: "savings",
+    provider_reference: "bank:savings-in",
+    booking_date: "2026-01-10",
+    amount_minor: 10000,
+    currency: "EUR",
+    counterparty: "Example deposit",
+    type: "income"
+  });
+  await splitTransaction("market", marketSplit());
+  await db.transaction(tx => upsertTransactions(tx, "checking", [{
+    reference: "bank:market",
+    date: "2026-01-10",
+    amount: -10000,
+    currency: "EUR",
+    counterparty: "Example Market",
+    description: "",
+    transfer: true,
+    categoryId: null,
+    categoryRuleId: null
+  }]));
+
+  assert.equal((await marketRow())?.type, "expense");
+
+  const options = await transferOptions("savings-in");
+
+  assert.deepEqual(options.candidates.map(candidate => candidate.id), []);
+  await assert.rejects(updateTransactionDetails("savings-in", {
+    type: "transfer",
+    transfer: {
+      counterpart_id: "market"
+    }
+  }), ValidationError);
+
+  const row = await marketRow();
+
+  assert.equal(row?.type, "expense");
+  assert.equal(row?.counterpart, null);
 });
