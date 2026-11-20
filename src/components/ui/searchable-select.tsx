@@ -112,7 +112,7 @@ export function SearchableSelect<Value>({
   const active = Math.min(activeIndex, optionCount - 1);
   const createLabel = `Create ${noun.one} “${createName}”`;
   const optionId = (index: number) => `${listboxId}-option-${index}`;
-  const countText = (count: number) => (count === 1 ? `1 ${noun.one}` : `${formatCount(count, locale)} ${noun.other}`);
+  const countText = (count: number) => `${formatCount(count, locale)} ${count === 1 ? noun.one : noun.other}`;
   const truncated = matches.length > shown.length;
   const listLabel = `${noun.other.charAt(0).toLocaleUpperCase()}${noun.other.slice(1)}`;
   // A selection shown as the placeholder hint (an empty field reading "Uncategorized") keeps its icon like one shown as text.
