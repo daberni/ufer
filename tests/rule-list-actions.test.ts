@@ -239,7 +239,12 @@ test("a rule can set the transfer type and its account, which the form sends wit
   queryClient.setQueryData(queryKeys.categories(), categories);
   queryClient.setQueryData(queryKeys.accounts(), [{
     id: "synthetic-savings",
-    name: "Synthetic savings"
+    name: "Synthetic savings",
+    archived_at: null
+  }, {
+    id: "synthetic-closed",
+    name: "Synthetic closed",
+    archived_at: "2026-09-01T00:00:00.000Z"
   }]);
   const { RuleDialog } = await import("../src/features/categorization/components/create-rule-form");
   const screen = render(withQueryClient(queryClient, createElement(RuleDialog, {
@@ -271,6 +276,9 @@ test("a rule can set the transfer type and its account, which the form sends wit
       value: "transfer"
     }
   }));
+  assert.equal(screen.queryByRole("option", {
+    name: "Synthetic closed"
+  }), null);
   act(() => fireEvent.change(screen.getByRole("combobox", {
     name: "Account"
   }), {

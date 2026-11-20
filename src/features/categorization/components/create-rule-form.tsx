@@ -8,7 +8,7 @@ import { Sparkles } from "lucide-react";
 import { useDialogSubmit, type DialogFormProps } from "@/components/ui/use-dialog-submit";
 import { useSaveRule } from "@/features/categorization/mutations";
 import { useCategories, useRulePreview } from "@/features/categorization/queries";
-import { useAccounts } from "@/features/accounts/queries";
+import { activeAccounts, useAccounts } from "@/features/accounts/queries";
 import { ruleTransactionTypes, transactionTypeLabels, type RuleTransactionType } from "@/features/transactions/transaction-types";
 import { toFailure } from "@/client/api";
 import { FormError } from "@/components/ui/form-error";
@@ -283,7 +283,7 @@ function RuleTypeFields({
             Account
             <Select name="transfer_account_id" value={chosenAccountId} onChange={event => setChosenAccountId(event.target.value)}>
               <option value="">Any or untracked account</option>
-              {accounts.data?.map(account => <option key={account.id} value={account.id}>{account.name}</option>)}
+              {activeAccounts(accounts.data ?? []).map(account => <option key={account.id} value={account.id}>{account.name}</option>)}
             </Select>
           </label>
         )}

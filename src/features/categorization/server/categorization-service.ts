@@ -6,7 +6,7 @@ import { normalizeCategoryName } from "@/lib/category-name";
 import { maximumRules, nextPriority, orderedPriorities } from "@/features/categorization/rule-order";
 import { isCategoryIcon } from "@/features/categorization/category-icons";
 import { defaultCategoryColor } from "@/features/categorization/category-colors";
-import { accountExists } from "@/features/accounts/server/account-repository";
+import { activeAccountExists } from "@/features/accounts/server/account-repository";
 import { derivedTransactionType, ruleTransactionTypes } from "@/features/transactions/transaction-types";
 import { categoryExists, deleteCategory as deleteStoredCategory, insertCategory, readCategoryUsage, updateCategory, type CategoryDetails, type CategoryWriteResult } from "./category-repository";
 import { appendRule, deleteRule as deleteStoredRule, findManualAssignments, findRuleTypeableTransactions, findUncorrectedTransactions, insertRule, listRules, saveRuleAssignments, saveRuleOrder, saveRuleTypes, setRuleEnabled, updateRule, type ManualAdoption, type RuleCreationAssignments, type SelectRuleAssignments } from "./rule-repository";
@@ -63,8 +63,8 @@ async function validateRuleType(input: {
     throw new ValidationError("Only a transfer rule can name an account.");
   }
 
-  if (!(await accountExists(input.transfer_account_id))) {
-    throw new ValidationError("Choose one of your accounts for the transfer.");
+  if (!(await activeAccountExists(input.transfer_account_id))) {
+    throw new ValidationError("Choose one of your active accounts for the transfer.");
   }
 }
 

@@ -330,7 +330,7 @@ export async function findRuleTypeableTransactions() {
     description: transactions.description,
     counterparty_override: transactions.counterparty_override,
     description_override: transactions.description_override
-  }).from(transactions).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(and(eq(accounts.environment, environment()), ruleTypeable));
+  }).from(transactions).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(and(eq(accounts.environment, environment()), isNull(accounts.archived_at), ruleTypeable));
 }
 
 /** Stores rule-decided types on bookings nobody corrected or linked meanwhile, then pairs transfers so rule-set transfers link to, or create, their counterparts in the same write transaction. */
@@ -338,11 +338,16 @@ export async function saveRuleTypes(entries: Pick<Transaction, "id" | "type" | "
   const db = await database();
 
   await db.transaction(async tx => {
+    // An account archived after the candidates were read stays read-only.
+    const activeAccounts = tx.select({
+      id: accounts.id
+    }).from(accounts).where(isNull(accounts.archived_at));
+
     for (const entry of entries) {
       await tx.update(transactions).set({
         type: entry.type,
         type_rule_id: entry.type_rule_id
-      }).where(and(eq(transactions.id, entry.id), ruleTypeable));
+      }).where(and(eq(transactions.id, entry.id), ruleTypeable, inArray(transactions.account_id, activeAccounts)));
     }
 
     await pairTransfers(tx, environment());

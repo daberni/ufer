@@ -9,7 +9,7 @@ import { initializeDatabase } from "../src/server/database/migrations";
 import * as schema from "../src/server/database/schema";
 import { saveAccountSync } from "../src/features/banking/server/account-sync-service";
 import { applyRulesToUncorrectedTransactions, createRule, deleteRule, updateRuleDetails } from "../src/features/categorization/server/categorization-service";
-import { listRules } from "../src/features/categorization/server/rule-repository";
+import { listRules, saveRuleTypes } from "../src/features/categorization/server/rule-repository";
 import { importMappedRows } from "../src/features/imports/server/mapped-import-service";
 import { pairTransfersInEnvironment } from "../src/features/transactions/server/transfer-repository";
 import { updateTransactionDetails } from "../src/features/transactions/server/transaction-service";
@@ -406,4 +406,64 @@ test("a rule names a transfer account only for transfers, and only one of the wo
   });
 
   assert.deepEqual([saved.transaction_type, saved.transfer_account_id], ["transfer", "savings"]);
+});
+
+test("a transfer rule cannot name an archived account", async context => {
+  const db = await isolatedDatabase(context);
+
+  await db.update(schema.accounts).set({
+    archived_at: "2026-09-01T00:00:00.000Z"
+  }).where(eq(schema.accounts.id, "savings"));
+
+  await assert.rejects(rule({
+    pattern: "SAVINGS PLAN",
+    transaction_type: "transfer",
+    transfer_account_id: "savings"
+  }), ValidationError);
+});
+
+test("a rule's transfer creates no counterpart on a manual account archived after the rule was saved", async context => {
+  const db = await isolatedDatabase(context);
+
+  await rule({
+    pattern: "CASH WITHDRAWAL",
+    transaction_type: "transfer",
+    transfer_account_id: "cash"
+  });
+  await db.update(schema.accounts).set({
+    archived_at: "2026-09-01T00:00:00.000Z"
+  }).where(eq(schema.accounts.id, "cash"));
+  await sync(db, "checking", [entry("atm", "2026-09-05", -10000, "Cash withdrawal")]);
+  await applyRulesToUncorrectedTransactions();
+
+  const withdrawal = await stored(db, "bank:atm");
+
+  assert.equal((await db.select().from(schema.transactions).where(eq(schema.transactions.account_id, "cash"))).length, 0);
+  assert.deepEqual([withdrawal.type, withdrawal.transfer_id], ["transfer", null]);
+});
+
+test("applying rule types leaves bookings on archived accounts unchanged, also when the account is archived after they were read", async context => {
+  const db = await isolatedDatabase(context);
+
+  await sync(db, "checking", [entry("refund", "2026-09-10", 1500, "Refund desk")]);
+  const refund = await rule({
+    pattern: "REFUND DESK",
+    transaction_type: "expense"
+  });
+  const booking = await stored(db, "bank:refund");
+
+  await db.update(schema.accounts).set({
+    archived_at: "2026-09-20T00:00:00.000Z"
+  }).where(eq(schema.accounts.id, "checking"));
+
+  assert.equal((await applyRulesToUncorrectedTransactions()).retyped, 0);
+  await saveRuleTypes([{
+    id: booking.id,
+    type: "expense",
+    type_rule_id: refund.id
+  }]);
+
+  const unchanged = await stored(db, "bank:refund");
+
+  assert.deepEqual([unchanged.type, unchanged.type_rule_id], ["income", null]);
 });

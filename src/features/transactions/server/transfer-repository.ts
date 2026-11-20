@@ -107,6 +107,8 @@ async function createRuleCounterparts(tx: DatabaseTransaction, bankingEnvironmen
     WHERE own.environment=${bankingEnvironment}
     AND target.environment=${bankingEnvironment}
     AND target.provider='manual'
+    AND target.archived_at IS NULL
+    AND own.archived_at IS NULL
     AND target.id<>booking.account_id
     AND target.currency=booking.currency
     AND rule.transaction_type='transfer'
