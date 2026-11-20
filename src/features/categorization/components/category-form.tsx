@@ -78,10 +78,13 @@ function CategoryForm({
   const [icon, setIcon] = useState<CategoryIconKey | "">(isCategoryIcon(savedIcon) ? savedIcon : "");
   const existing = useCategories().data ?? [];
   const others = existing.filter(other => other.id !== category?.id);
-  // A new category starts with a rarely used color, so new categories do not all look alike.
-  const [color, setColor] = useState(() => category?.color ?? randomCategoryColor(existing.map(other => other.color)));
+  const [fallbackColor] = useState(() => randomCategoryColor(existing.map(other => other.color)));
+  const [chosenColor, setChosenColor] = useState<string | null>(category?.color ?? null);
   const similarColor = suggestCategoryColor(name, icon || null, others);
-  const suggested = similarColor?.toLowerCase() === color.toLowerCase() ? null : similarColor;
+  // A new category follows what similar categories use until a color is chosen, otherwise a rarely used palette color.
+  const color = chosenColor ?? similarColor ?? fallbackColor;
+  const following = chosenColor === null && similarColor !== null;
+  const suggested = following || similarColor?.toLowerCase() !== color.toLowerCase() ? similarColor : null;
   const [openPanel, setOpenPanel] = useState<OpenPanel>(null);
 
   function panelToggle(panel: Exclude<OpenPanel, null>) {
@@ -129,7 +132,7 @@ function CategoryForm({
         <CategoryColorField
           color={color}
           suggested={suggested}
-          onChange={setColor}
+          onChange={setChosenColor}
           open={openPanel === "color"}
           onOpenChange={panelToggle("color")}
         />

@@ -42,7 +42,12 @@ export function CategoryColorField({
   const [draft, setDraft] = useState(hex);
   const [shownHex, setShownHex] = useState(hex);
   const [invalid, setInvalid] = useState(false);
-  const checkedIndex = suggestedCategoryColors.findIndex(suggestion => suggestion.value === hex);
+  // A suggestion outside the palette, such as a custom color of similar categories, joins the palette as one more swatch.
+  const swatches = suggested && !suggestedCategoryColors.some(swatch => swatch.value === suggested) ? [...suggestedCategoryColors, {
+    name: "Similar categories",
+    value: suggested
+  }] : suggestedCategoryColors;
+  const checkedIndex = swatches.findIndex(suggestion => suggestion.value === hex);
   const {
     fieldRef,
     anchorRef,
@@ -52,7 +57,8 @@ export function CategoryColorField({
   } = usePickerPanel({
     open,
     onOpenChange,
-    initialFocus: () => swatchesRef.current?.querySelector<HTMLElement>("[tabindex='0']")
+    // Opened from the hex text, the panel leaves focus in the text so typing continues.
+    initialFocus: () => document.activeElement === inputRef.current ? null : swatchesRef.current?.querySelector<HTMLElement>("[tabindex='0']")
   });
 
   // A color chosen elsewhere, such as a swatch, replaces the text unless the text already means that color.
@@ -101,7 +107,7 @@ export function CategoryColorField({
     }
 
     event.preventDefault();
-    onChange(suggestedCategoryColors[next].value);
+    onChange(swatches[next].value);
     options[next].focus();
   }
 
@@ -139,6 +145,7 @@ export function CategoryColorField({
               onChange(parsed);
             }
           }}
+          onFocus={() => onOpenChange(true)}
           onBlur={apply}
           onInvalid={() => setInvalid(true)}
           onKeyDown={handleInputKeyDown}
@@ -146,7 +153,7 @@ export function CategoryColorField({
         <button
           ref={triggerRef}
           type="button"
-          className={styles["toggle"]}
+          className={clsx(styles["toggle"], suggested && styles["sparkling"])}
           aria-label="Suggested colors"
           aria-expanded={open}
           aria-controls={`${id}-panel`}
@@ -171,7 +178,7 @@ export function CategoryColorField({
             role="radiogroup"
             aria-label="Suggested colors"
           >
-            {suggestedCategoryColors.map((suggestion, index) => {
+            {swatches.map((suggestion, index) => {
               const checked = index === checkedIndex;
               const isSuggestion = suggestion.value === suggested;
               const label = isSuggestion ? `${suggestion.name} (suggested)` : suggestion.name;

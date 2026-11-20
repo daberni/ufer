@@ -5,8 +5,8 @@ import { decidingRule, prepareRules, ruleAssignment, validatePattern, type Rule,
 import { normalizeCategoryName } from "@/lib/category-name";
 import { maximumRules, nextPriority, orderedPriorities } from "@/features/categorization/rule-order";
 import { isCategoryIcon } from "@/features/categorization/category-icons";
-import { randomCategoryColor } from "@/features/categorization/category-color-suggestions";
-import { categoryExists, listCategoryColors, deleteCategory as deleteStoredCategory, insertCategory, readCategoryUsage, updateCategory, type CategoryDetails, type CategoryWriteResult } from "./category-repository";
+import { newCategoryColor } from "@/features/categorization/category-color-suggestions";
+import { categoryExists, listCategoryAppearances, deleteCategory as deleteStoredCategory, insertCategory, readCategoryUsage, updateCategory, type CategoryDetails, type CategoryWriteResult } from "./category-repository";
 import { appendRule, deleteRule as deleteStoredRule, findManualAssignments, findUncorrectedTransactions, insertRule, listRules, saveRuleAssignments, saveRuleOrder, setRuleEnabled, updateRule, type ManualAdoption, type RuleCreationAssignments, type SelectRuleAssignments } from "./rule-repository";
 
 const ruleMatching = {
@@ -280,7 +280,7 @@ export async function createCategory(payload: unknown) {
     color: categoryColor.optional(),
     icon: categoryIcon.default(null)
   }).parse(payload);
-  const color = input.color ?? randomCategoryColor(await listCategoryColors());
+  const color = input.color ?? newCategoryColor(input.name, input.icon || null, await listCategoryAppearances());
 
   const id = randomUUID();
 

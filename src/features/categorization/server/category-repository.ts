@@ -52,14 +52,16 @@ async function writeUniquelyNamed(existingId: string | null, name: string, state
   }
 }
 
-/** The stored colors of all categories, for picking a rarely used one. */
-export async function listCategoryColors() {
+/** Name, color and icon of every category, for choosing a new category's color. */
+export async function listCategoryAppearances() {
   const db = await database();
-  const rows = await db.select({
-    color: categories.color
-  }).from(categories);
 
-  return rows.map(row => row.color);
+  return db.select({
+    id: categories.id,
+    name: categories.name,
+    color: categories.color,
+    icon: categories.icon
+  }).from(categories);
 }
 
 export async function insertCategory(id: string, details: CategoryDetails) {

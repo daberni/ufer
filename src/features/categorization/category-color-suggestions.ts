@@ -23,19 +23,17 @@ function iconGroup(icon: string | null) {
   return isCategoryIcon(icon) ? categoryIcons[icon].group : null;
 }
 
-const paletteValues = new Set(suggestedCategoryColors.map(color => color.value));
-
-// Only palette colors count, because the suggestion is shown on a palette swatch.
 function mostCommonColor(colors: string[]) {
-  const palette = colors.map(color => color.toUpperCase()).filter(color => paletteValues.has(color));
-
-  if (palette.length === 0) {
+  if (colors.length === 0) {
     return null;
   }
 
   const counts = new Map<string, number>();
 
-  for (const key of palette) {
+  for (const color of colors) {
+    const key = color.toUpperCase();
+
+
     counts.set(key, (counts.get(key) ?? 0) + 1);
   }
 
@@ -60,11 +58,10 @@ function prefixSiblings(name: string, others: ColoredCategory[]) {
 
 /**
  * The color similar categories use: the most common color of categories sharing the name's prefix, otherwise of categories whose icon is in the same area.
- * Null when no other category is similar or none of them uses a palette color. `others` must not contain the category being edited.
+ * Palette and custom colors count alike, as uppercase #RRGGBB. Null when no other category is similar. `others` must not contain the category being edited.
  */
 export function suggestCategoryColor(name: string, icon: string | null, others: ColoredCategory[]) {
   const siblings = prefixSiblings(name.trim(), others);
-
   const siblingColor = mostCommonColor(siblings.map(other => other.color));
 
   if (siblingColor) {
@@ -94,4 +91,9 @@ export function randomCategoryColor(usedColors: string[], random: () => number =
   const candidates = [...counts].filter(([, count]) => count === fewest).map(([value]) => value);
 
   return candidates[Math.floor(random() * candidates.length)];
+}
+
+/** The color of a new category: what similar categories use, otherwise a random least used palette color. */
+export function newCategoryColor(name: string, icon: string | null, existing: ColoredCategory[], random: () => number = Math.random) {
+  return suggestCategoryColor(name, icon, existing) ?? randomCategoryColor(existing.map(category => category.color), random);
 }
