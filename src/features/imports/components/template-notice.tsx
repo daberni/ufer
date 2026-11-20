@@ -19,7 +19,10 @@ export function TemplateNotice({
     inputsLocked
   } = draft;
 
-  if (template) {
+  // A saved template that matches takes precedence over an applied built-in, which can apply first while saved templates still load.
+  const savedOverridesBuiltIn = Boolean(template?.builtIn && offeredTemplate && !offeredTemplate.builtIn);
+
+  if (template && !savedOverridesBuiltIn) {
     const remembered = Object.keys(template.accounts).length + Object.keys(template.categories).length > 0;
 
     return (
