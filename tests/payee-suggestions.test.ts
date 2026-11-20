@@ -35,6 +35,14 @@ test("suggestions match the start of the payee or of its words, ignoring case an
   assert.deepEqual(suggestPayees(usages, "  "), []);
 });
 
+test("suggestions match words after any punctuation in a payee", () => {
+  const usages = [usage("SQ *MARKET STALL 0412", 1), usage("Shop#Corner_Kiosk", 1)];
+
+  assert.deepEqual(suggestPayees(usages, "market"), ["SQ *MARKET STALL 0412"]);
+  assert.deepEqual(suggestPayees(usages, "0412"), ["SQ *MARKET STALL 0412"]);
+  assert.deepEqual(suggestPayees(usages, "corner kiosk"), ["Shop#Corner_Kiosk"]);
+});
+
 test("suggestions rank frequent payees first, then recent ones, and leave out the exact typed text", () => {
   const usages = [usage("Bakery old", 2, "2025-01-01"), usage("Bakery new", 2, "2026-03-01"), usage("Bakery", 1, "2026-05-01"), usage("Bakery frequent", 9, "2024-01-01")];
 

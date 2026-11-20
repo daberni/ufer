@@ -17,7 +17,7 @@ function searchText(text: string) {
 /** Whether every typed word starts the payee or one of its words, ignoring case and accents. */
 function matchesPayee(payee: string, terms: readonly string[]) {
   const text = searchText(payee);
-  const words = text.split(/[\s\-.,/&()]+/);
+  const words = text.split(/[^\p{L}\p{N}]+/u);
 
   return terms.every(term => text.startsWith(term) || words.some(word => word.startsWith(term)));
 }
