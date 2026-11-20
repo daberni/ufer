@@ -16,12 +16,13 @@ import { useCategories } from "@/features/categorization/queries";
 import { describeDate } from "@/lib/date-format";
 import { decimalAmount, money } from "@/lib/money";
 import { isTransactionType, manualAccountTypes, transactionTypeLabels, transactionTypes, type TransactionType } from "@/features/transactions/transaction-types";
-import { useDeleteTransaction, useHideTransaction, useSaveTransaction, type EntryEdit, type TransactionEdit } from "@/features/transactions/mutations";
+import { useDeleteTransaction, useHideTransaction, useRemoveSplit, useSaveSplit, useSaveTransaction, type EntryEdit, type TransactionEdit } from "@/features/transactions/mutations";
 import { useTransferOptions } from "@/features/transactions/queries";
 import { useTransactionCategory } from "@/features/transactions/use-transaction-category";
 import type { Transaction, TransferBooking, TransferOptions } from "@/features/transactions/types";
 import { EntryFields, suggestedType } from "./entry-fields";
-import { SplitForm, SplitSummary, splittable } from "./transaction-split";
+import { draftEdits, draftState, initialDraft } from "@/features/transactions/split-draft";
+import { SplitEditor } from "./transaction-split";
 
 type Props = {
   transaction: Transaction;
@@ -111,13 +112,12 @@ function transferEdit(target: Target): TransactionEdit["transfer"] {
   } : null;
 }
 
-type Step = "edit" | "delete" | "hide" | "split";
+type Step = "edit" | "delete" | "hide";
 
 const stepTitles: Record<Step, string> = {
   edit: "Edit transaction",
   delete: "Delete transaction",
-  hide: "Hide transaction",
-  split: "Split transaction"
+  hide: "Hide transaction"
 };
 
 /**
@@ -129,22 +129,27 @@ export function TransactionEditDialog({
 }: Props) {
   const [step, setStep] = useState<Step>("edit");
   const subject = transaction.counterparty || transaction.description || transactionTypeLabels[transaction.type];
+  const date = describeDate(Temporal.PlainDate.from(transaction.booking_date)).label;
 
   return (
-    <Dialog eyebrow="TRANSACTION" title={stepTitles[step]} onClose={close}>
-      <p className={ui["form-description"]}>
-        {subject} · {transaction.account_name} · {signedMoney(transaction.amount_minor, transaction.currency)}
-      </p>
+    <Dialog
+      eyebrow="TRANSACTION"
+      title={stepTitles[step]}
+      wide={step === "edit"}
+      onClose={close}
+    >
+      <div className={styles["facts"]}>
+        <span className={clsx(styles["facts-amount"], transaction.amount_minor > 0 && styles["incoming"])}>{signedMoney(transaction.amount_minor, transaction.currency)}</span>
+        <span className={styles["facts-meta"]}>{[subject, date, transaction.account_name].join(" · ")}</span>
+      </div>
       {step === "delete" && <DeleteConfirmation transaction={transaction} close={close} cancel={() => setStep("edit")} />}
       {step === "hide" && <HideConfirmation transaction={transaction} close={close} cancel={() => setStep("edit")} />}
-      {step === "split" && <SplitForm transaction={transaction} close={close} />}
       {step === "edit" && (
         <TransactionEditForm
           transaction={transaction}
           close={close}
           onDelete={() => setStep("delete")}
           onHide={() => setStep("hide")}
-          onSplit={() => setStep("split")}
         />
       )}
     </Dialog>
@@ -302,23 +307,29 @@ function TransactionEditForm({
   transaction,
   close,
   onDelete,
-  onHide,
-  onSplit
+  onHide
 }: Props & {
   onDelete: () => void;
   onHide: () => void;
-  onSplit: () => void;
 }) {
   const save = useSaveTransaction(transaction.id);
+  const saveSplit = useSaveSplit(transaction.id);
+  const removeSplit = useRemoveSplit(transaction.id);
   const categories = useCategories();
   const categoryFieldId = useId();
   const assignment = useTransactionCategory(transaction);
   // A row change still being saved is the category the dialog starts from, so saving does not revert it.
   const [initialCategory] = useState(assignment.categoryId);
   const [category, setCategory] = useState(initialCategory);
-  const [categoryFailure, setCategoryFailure] = useState<Failure | null>(null);
-  const pending = save.isPending || assignment.status?.kind === "saving";
-  const error = save.error ? toFailure(save.error) : categoryFailure;
+  const [followFailure, setFollowFailure] = useState<Failure | null>(null);
+  const pending = save.isPending || saveSplit.isPending || removeSplit.isPending || assignment.status?.kind === "saving";
+  const error = save.error ? toFailure(save.error) : followFailure;
+  const [splitOpen, setSplitOpen] = useState(transaction.split !== null);
+  // Which control takes focus after the person opens or closes the split section, since the control they used disappears.
+  const [splitFocus, setSplitFocus] = useState<"editor" | "trigger" | null>(null);
+  const [draft, setDraft] = useState(() => initialDraft(transaction, initialCategory));
+  const split = draftState(draft, transaction);
+  const splitBlocked = splitOpen && (split.status === "invalid" || split.status === "incomplete" || split.status === "over");
   const [type, setType] = useState<TransactionType>(transaction.type);
   const [typeChosen, setTypeChosen] = useState(false);
   const [chosenTarget, setTarget] = useState<Target>();
@@ -330,14 +341,15 @@ function TransactionEditForm({
   const options = useTransferOptions(transaction.id, linkable);
   const target = chosenTarget ?? storedTarget(transaction, options.data);
   // A split booking stays income or expense, since only those count by category; the stored type stays listed.
-  const typeAllowed = (option: TransactionType) => transaction.split === null || option === "income" || option === "expense";
+  const typeAllowed = (option: TransactionType) => !splitOpen || option === "income" || option === "expense";
+  const canSplit = type === "income" || type === "expense";
   const available = transactionTypes.filter(option => option === transaction.type || (typeAllowed(option) && (transaction.manual_account || !manualAccountTypes.includes(option))));
   // Without loaded options, saving a transfer could drop a link the form cannot show.
   const targetUnknown = linkable && options.status !== "success";
 
   // The details are saved first, so a rejected edit stores nothing; a category that fails afterwards keeps the dialog open, and saving again repeats both idempotent writes.
   // Awaited promises rather than per-call callbacks, so the category is still saved when the details' refresh removes the row and this dialog.
-  async function saveAll(details: TransactionEdit | EntryEdit, categoryChanged: boolean) {
+  async function saveAll(details: TransactionEdit | EntryEdit) {
     try {
       await save.mutateAsync(details);
     } catch {
@@ -345,17 +357,34 @@ function TransactionEditForm({
       return;
     }
 
-    if (categoryChanged) {
-      try {
-        await assignment.assign(category);
-      } catch (failure) {
-        setCategoryFailure(toFailure(failure));
+    try {
+      await saveCategories();
+    } catch (failure) {
+      setFollowFailure(toFailure(failure));
 
-        return;
-      }
+      return;
     }
 
     close();
+  }
+
+  // A split with a single part is a plain category; closing the split section removes a stored split. Categories are compared with the stored ones, not the ones the dialog started from: a row change that was pending at opening and then failed is assigned again.
+  async function saveCategories() {
+    if (splitOpen && split.status === "ready") {
+      await saveSplit.mutateAsync(draftEdits(draft, transaction));
+
+      return;
+    }
+
+    const chosen = splitOpen ? draft.parts[0]?.categoryId ?? null : category;
+
+    if (transaction.split) {
+      await removeSplit.mutateAsync();
+    }
+
+    if (chosen !== transaction.category_id || (transaction.split && splitOpen)) {
+      await assignment.assign(chosen);
+    }
   }
 
   return (
@@ -371,49 +400,51 @@ function TransactionEditForm({
           type
         };
         const details = detailsEdit(edit, new FormData(event.currentTarget), transaction, imported);
-        // Compared with the stored category, not the one the dialog started from: a row change that was pending at opening and then failed is assigned again.
-        const categoryChanged = category !== transaction.category_id;
 
-        setCategoryFailure(null);
-        void saveAll(details, categoryChanged);
+        if (splitBlocked) {
+          return;
+        }
+
+        setFollowFailure(null);
+        void saveAll(details);
       }}
     >
-      {transaction.hidden && <ShowAgain transaction={transaction} close={close} />}
-      {imported && <ImportedTextFields transaction={transaction} />}
-      {transaction.entered && (
-        <EntryFields
-          defaults={entryDefaults(transaction)}
-          payee={!(transfer && (target.kind === "account" || targetUnknown))}
-          followedAccount={transaction.follows_import ? transaction.counterpart?.account_name : undefined}
-          onAmount={amount => {
-            const suggested = suggestedType(amount);
+      <div className={styles["fields"]}>
+        {transaction.hidden && <ShowAgain transaction={transaction} close={close} />}
+        {imported && <ImportedTextFields transaction={transaction} />}
+        {transaction.entered && (
+          <EntryFields
+            defaults={entryDefaults(transaction)}
+            payee={!(transfer && (target.kind === "account" || targetUnknown))}
+            followedAccount={transaction.follows_import ? transaction.counterpart?.account_name : undefined}
+            onAmount={amount => {
+              const suggested = suggestedType(amount);
 
-            if (!typeChosen && suggested && (type === "income" || type === "expense")) {
-              setType(suggested);
-            }
-          }}
-        />
-      )}
-      <label>
-        Type
-        <Select
-          name="type"
-          value={type}
-          onChange={event => {
-            const value = event.target.value;
+              if (!typeChosen && suggested && (type === "income" || type === "expense")) {
+                setType(suggested);
+              }
+            }}
+          />
+        )}
+        <label>
+          Type
+          <Select
+            name="type"
+            value={type}
+            onChange={event => {
+              const value = event.target.value;
 
-            if (isTransactionType(value)) {
-              setType(value);
-              setTypeChosen(true);
-            }
-          }}
-        >
-          {available.map(option => <option key={option} value={option}>{transactionTypeLabels[option]}</option>)}
-        </Select>
-      </label>
-      {transaction.split ? <SplitSummary transaction={transaction} split={transaction.split} onEdit={onSplit} /> : (
-        <>
-          <div className={ui["field"]}>
+              if (isTransactionType(value)) {
+                setType(value);
+                setTypeChosen(true);
+              }
+            }}
+          >
+            {available.map(option => <option key={option} value={option}>{transactionTypeLabels[option]}</option>)}
+          </Select>
+        </label>
+        {!splitOpen && (
+          <div className={styles["cell"]}>
             <label htmlFor={categoryFieldId}>Category</label>
             <CategoryPicker
               id={categoryFieldId}
@@ -422,56 +453,82 @@ function TransactionEditForm({
               includeUncategorized
               onChange={setCategory}
             />
+            {category !== null && category === initialCategory && category === transaction.category_id && transaction.category_source === "rule" && <span>Assigned by a rule.</span>}
+            {canSplit && (
+              <button
+                ref={element => {
+                  if (element && splitFocus === "trigger") {
+                    element.focus();
+                  }
+                }}
+                type="button"
+                className={ui["text-button"]}
+                disabled={pending}
+                onClick={() => {
+                  setDraft(initialDraft(transaction, category));
+                  setSplitOpen(true);
+                  setSplitFocus("editor");
+                }}
+              >
+                <Split size={14} aria-hidden="true" />
+                Split into categories
+              </button>
+            )}
           </div>
-          {category !== null && category === initialCategory && category === transaction.category_id && transaction.category_source === "rule" && <p className={ui["form-hint"]}>Assigned by a rule.</p>}
-        </>
-      )}
-      {!transfer && transaction.counterpart && <p className={ui["form-hint"]}>{leaveTransferHint(transaction)}</p>}
-      {linkable && (
-        <TransferFields
-          transaction={transaction}
-          options={options}
-          target={target}
-          onTarget={setTarget}
-        />
-      )}
+        )}
+        {splitOpen && (
+          <SplitEditor
+            transaction={transaction}
+            categories={categories.data ?? []}
+            draft={draft}
+            state={split}
+            disabled={pending}
+            focusFirst={splitFocus === "editor"}
+            onDraft={setDraft}
+            onClose={() => {
+              setSplitOpen(false);
+              setSplitFocus("trigger");
+            }}
+          />
+        )}
+        {!transfer && transaction.counterpart && <p className={ui["form-hint"]}>{leaveTransferHint(transaction)}</p>}
+        {linkable && (
+          <TransferFields
+            transaction={transaction}
+            options={options}
+            target={target}
+            onTarget={setTarget}
+          />
+        )}
+      </div>
       <FormError failure={error} />
-      <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={pending || targetUnknown}>
-        Save <Check size={16} />
-      </button>
-      {!transaction.split && splittable(transaction) && (
-        <button
-          type="button"
-          className={clsx(ui["button"], ui["full-width"])}
-          disabled={pending}
-          onClick={onSplit}
-        >
-          <Split size={15} />
-          Split into categories
+      <div className={styles["actions"]}>
+        <button className={clsx(ui["button"], ui["primary"])} disabled={pending || targetUnknown || splitBlocked}>
+          Save <Check size={16} />
         </button>
-      )}
-      {transaction.entered && (
-        <button
-          type="button"
-          className={clsx(ui["button"], ui["full-width"], styles["delete"])}
-          disabled={pending}
-          onClick={onDelete}
-        >
-          <Trash2 size={15} />
-          Delete transaction
-        </button>
-      )}
-      {imported && !transaction.hidden && (
-        <button
-          type="button"
-          className={clsx(ui["button"], ui["full-width"])}
-          disabled={pending}
-          onClick={onHide}
-        >
-          <EyeOff size={15} />
-          Hide transaction
-        </button>
-      )}
+        {transaction.entered && (
+          <button
+            type="button"
+            className={clsx(ui["button"], styles["delete"])}
+            disabled={pending}
+            onClick={onDelete}
+          >
+            <Trash2 size={15} />
+            Delete transaction
+          </button>
+        )}
+        {imported && !transaction.hidden && (
+          <button
+            type="button"
+            className={ui["button"]}
+            disabled={pending}
+            onClick={onHide}
+          >
+            <EyeOff size={15} />
+            Hide transaction
+          </button>
+        )}
+      </div>
     </form>
   );
 }
@@ -542,7 +599,7 @@ function OverridableText({
   const [overridden, setOverridden] = useState(initial.trim() !== source.trim());
 
   return (
-    <div className={styles["overridable"]}>
+    <div className={clsx(styles["overridable"], styles["cell"])}>
       <label>
         {label}
         <input

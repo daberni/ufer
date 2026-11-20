@@ -2,27 +2,19 @@
 
 import ui from "../../../components/ui/primitives.module.css";
 
-import { useId, useState } from "react";
+import { useId, type ReactNode } from "react";
 import { clsx } from "clsx";
-import { Check, CircleAlert, Plus, Split, X } from "lucide-react";
+import { CircleAlert, Plus, Split, X } from "lucide-react";
 import styles from "./transaction-split.module.css";
-import { toFailure } from "@/client/api";
-import { FormError } from "@/components/ui/form-error";
 import { CategoryPicker } from "@/features/categorization/components/category-picker";
-import { useCategories } from "@/features/categorization/queries";
 import type { Category } from "@/features/categorization/types";
-import { decimalAmount, minorUnits, money } from "@/lib/money";
-import { useRemoveSplit, useSaveSplit, type SplitPartEdit } from "@/features/transactions/mutations";
+import { money } from "@/lib/money";
 import type { Transaction, TransactionSplit } from "@/features/transactions/types";
-import { maximumSplitParts, partAmountSupported } from "@/features/transactions/split-limits";
+import type { DraftPart, DraftState, SplitDraft } from "@/features/transactions/split-draft";
 
 /** Whether a booking of this type can be split; only income and expenses count by category. */
 export function splittable(transaction: Transaction) {
   return transaction.type === "income" || transaction.type === "expense";
-}
-
-function categoryName(categories: readonly Category[], categoryId: string | null) {
-  return categories.find(category => category.id === categoryId)?.name ?? "Uncategorized";
 }
 
 /** For example "Split · 3 categories"; the number of distinct categories, counting uncategorized parts as one. */
@@ -64,293 +56,240 @@ export function SplitTag({
   );
 }
 
-/** A split booking's parts in the edit dialog, in place of its category. */
-export function SplitSummary({
-  transaction,
-  split,
-  onEdit
-}: {
-  transaction: Transaction;
-  split: TransactionSplit;
-  onEdit: () => void;
-}) {
-  const categories = useCategories();
-  const list = categories.data ?? [];
+function statusText(state: DraftState, currency: string) {
+  const remaining = money(Math.abs(state.remaining), currency);
 
-  return (
-    <div className={styles["summary"]}>
-      <p className={styles["summary-title"]}>{splitLabel(split)}</p>
-      <ul className={styles["parts"]}>
-        {split.parts.map(part => (
-          <li key={part.id} className={styles["part-line"]}>
-            <span className={styles["part-name"]}>
-              {categoryName(list, part.category_id)}
-              {part.note && <span className={styles["part-note"]}>{part.note}</span>}
-            </span>
-            <span className={styles["part-amount"]}>{money(part.amount_minor, transaction.currency)}</span>
-          </li>
-        ))}
-      </ul>
-      {!split.balanced && (
-        <p className={styles["warning"]} role="status">
-          <CircleAlert size={16} aria-hidden="true" />
-          {unbalancedNote(transaction, split)}
-        </p>
-      )}
-      <button type="button" className={clsx(ui["button"], ui["full-width"])} onClick={onEdit}>
-        <Split size={15} />
-        Edit split
-      </button>
-    </div>
-  );
-}
-
-type DraftPart = {
-  key: number;
-  amount: string;
-  categoryId: string | null;
-  note: string;
-};
-
-/** Part amounts are entered in the booking's direction: positive for an expense's spending or an income's receipt, negative for a part going the other way. */
-function direction(transaction: Transaction) {
-  return transaction.amount_minor < 0 ? -1 : 1;
-}
-
-function initialParts(transaction: Transaction): DraftPart[] {
-  const sign = direction(transaction);
-
-  if (transaction.split) {
-    return transaction.split.parts.map((part, index) => ({
-      key: index,
-      amount: decimalAmount(part.amount_minor * sign, transaction.currency),
-      categoryId: part.category_id,
-      note: part.note
-    }));
+  switch (state.status) {
+    case "invalid":
+      return "Check the highlighted amount.";
+    case "incomplete":
+      return "Enter an amount for every part.";
+    case "over":
+      return `${remaining} more than the total`;
+    case "single":
+      return "Lower an amount to split off the rest.";
+    default:
+      return state.remaining > 0 ? `${remaining} remaining` : "Fully assigned";
   }
-
-  return [{
-    key: 0,
-    amount: decimalAmount(transaction.amount_minor * sign, transaction.currency),
-    categoryId: transaction.category_id,
-    note: ""
-  }, {
-    key: 1,
-    amount: "",
-    categoryId: null,
-    note: ""
-  }];
-}
-
-/** A part's signed minor units, or null while its amount is empty, invalid, zero or beyond the supported range. */
-function partAmount(part: DraftPart, transaction: Transaction) {
-  try {
-    const amount = minorUnits(part.amount, transaction.currency) * direction(transaction);
-
-    return amount === 0 || !partAmountSupported(amount) ? null : amount;
-  } catch {
-    return null;
-  }
-}
-
-function remainingStatus(remaining: number, currency: string) {
-  if (remaining === 0) {
-    return "Balanced";
-  }
-
-  const amount = money(Math.abs(remaining), currency);
-
-  return remaining > 0 ? `${amount} left to assign` : `${amount} too much`;
 }
 
 /**
- * Divides a booking into at least two parts, each with an amount, a category and an optional note. The parts must add up exactly to the booking's amount; the remaining amount updates as amounts change and Save stays disabled until it is zero.
+ * Edits a booking's split inside the transaction dialog. The entered parts are amounts in the booking's direction; whatever they leave of the total is proposed as a remaining part whose amount follows them, so only its category is chosen.
+ * The summary compares the assigned amount with the total and carries every validation message.
  */
-export function SplitForm({
+export function SplitEditor({
   transaction,
-  close
+  categories,
+  draft,
+  state,
+  disabled,
+  focusFirst,
+  onDraft,
+  onClose
 }: {
   transaction: Transaction;
-  close: () => void;
+  categories: Category[];
+  draft: SplitDraft;
+  state: DraftState;
+  disabled: boolean;
+  /** Moves focus to the first amount when the person opened the section, whose trigger then disappears. */
+  focusFirst: boolean;
+  onDraft: (draft: SplitDraft) => void;
+  onClose: () => void;
 }) {
-  const categories = useCategories();
-  const save = useSaveSplit(transaction.id);
-  const remove = useRemoveSplit(transaction.id);
   const statusId = useId();
-  const [parts, setParts] = useState(() => initialParts(transaction));
-  const [nextKey, setNextKey] = useState(parts.length);
-  const sign = direction(transaction);
-  const amounts = parts.map(part => partAmount(part, transaction));
-  const complete = amounts.every(amount => amount !== null);
-  // Remaining in the booking's direction, so a positive value is still to be assigned.
-  const remaining = (transaction.amount_minor - amounts.reduce<number>((sum, amount) => sum + (amount ?? 0), 0)) * sign;
-  const pending = save.isPending || remove.isPending;
-  const balanced = complete && remaining === 0 && parts.length >= 2;
-  const error = save.error ?? remove.error;
-  const failure = error ? toFailure(error) : null;
+  const total = Math.abs(transaction.amount_minor);
+  const fill = total === 0 ? 0 : Math.min(100, Math.max(0, state.assigned / total * 100));
+  const problem = state.status === "invalid" || state.status === "incomplete" || state.status === "over";
 
   function update(key: number, change: Partial<DraftPart>) {
-    setParts(current => current.map(part => part.key === key ? {
-      ...part,
-      ...change
-    } : part));
-  }
-
-  function addPart() {
-    const amount = remaining > 0 ? decimalAmount(remaining, transaction.currency) : "";
-
-    setParts(current => [...current, {
-      key: nextKey,
-      amount,
-      categoryId: null,
-      note: ""
-    }]);
-    setNextKey(nextKey + 1);
-  }
-
-  function submit() {
-    const edits: SplitPartEdit[] = parts.map((part, index) => ({
-      amount: decimalAmount(amounts[index] ?? 0, transaction.currency),
-      category_id: part.categoryId,
-      note: part.note
-    }));
-
-    save.mutate(edits, {
-      onSuccess: close
+    onDraft({
+      ...draft,
+      parts: draft.parts.map(part => part.key === key ? {
+        ...part,
+        ...change
+      } : part)
     });
   }
 
   return (
-    <form
-      className={ui["form"]}
-      onSubmit={event => {
-        event.preventDefault();
-
-        if (balanced) {
-          submit();
-        }
-      }}
-    >
-      <p className={ui["form-hint"]}>Parts must add up to the booking.</p>
+    <section className={styles["section"]} aria-label="Split">
+      <div className={styles["section-head"]}>
+        <h3 className={styles["section-title"]}>
+          <Split size={15} aria-hidden="true" />
+          Split
+        </h3>
+        <button
+          type="button"
+          className={clsx(ui["text-button"], styles["close"])}
+          disabled={disabled}
+          onClick={onClose}
+        >
+          <X size={14} aria-hidden="true" />
+          {transaction.split ? "Remove split" : "Cancel split"}
+        </button>
+      </div>
+      <div className={styles["meter-row"]}>
+        <div className={styles["meter-text"]}>
+          <span>
+            Assigned <strong>{money(state.assigned, transaction.currency)}</strong> of {money(total, transaction.currency)}
+          </span>
+          <span id={statusId} className={clsx(styles["status"], problem && styles["problem"])} role="status">
+            {problem && <CircleAlert size={14} aria-hidden="true" />}
+            {statusText(state, transaction.currency)}
+          </span>
+        </div>
+        <span className={clsx(styles["meter"], state.status === "over" && styles["over"])} aria-hidden="true">
+          <span
+            style={{
+              width: `${fill}%`
+            }}
+          />
+        </span>
+      </div>
       <ol className={styles["editor"]}>
-        {parts.map((part, index) => (
+        {draft.parts.map((part, index) => (
           <SplitPartFields
             key={part.key}
-            index={index}
-            part={part}
-            invalid={part.amount.trim() !== "" && amounts[index] === null}
-            categories={categories.data ?? []}
-            removable={parts.length > 2}
+            position={index + 1}
+            categories={categories}
+            categoryId={part.categoryId}
+            note={part.note}
             statusId={statusId}
-            onChange={change => update(part.key, change)}
-            onRemove={() => setParts(current => current.filter(item => item.key !== part.key))}
+            amount={(
+              <input
+                className={styles["amount"]}
+                aria-label={`Amount of part ${index + 1}`}
+                autoFocus={focusFirst && index === 0}
+                inputMode="decimal"
+                placeholder="0.00"
+                value={part.amount}
+                aria-invalid={state.amounts[index] === null && part.amount.trim() !== "" || undefined}
+                aria-describedby={statusId}
+                onChange={event => update(part.key, {
+                  amount: event.target.value
+                })}
+              />
+            )}
+            onCategory={categoryId => update(part.key, {
+              categoryId
+            })}
+            onNote={note => update(part.key, {
+              note
+            })}
+            onRemove={draft.parts.length > 1 ? () => onDraft({
+              ...draft,
+              parts: draft.parts.filter(item => item.key !== part.key)
+            }) : undefined}
           />
         ))}
+        {state.remaining > 0 && (
+          <SplitPartFields
+            position={draft.parts.length + 1}
+            categories={categories}
+            categoryId={draft.remainder.categoryId}
+            note={draft.remainder.note}
+            statusId={statusId}
+            amount={(
+              <span className={styles["rest"]}>
+                <span className={styles["rest-label"]}>Rest</span>
+                {money(state.remaining, transaction.currency)}
+              </span>
+            )}
+            onCategory={categoryId => onDraft({
+              ...draft,
+              remainder: {
+                ...draft.remainder,
+                categoryId
+              }
+            })}
+            onNote={note => onDraft({
+              ...draft,
+              remainder: {
+                ...draft.remainder,
+                note
+              }
+            })}
+          />
+        )}
       </ol>
       <button
         type="button"
-        className={clsx(ui["button"], ui["full-width"])}
-        disabled={pending || parts.length >= maximumSplitParts}
-        onClick={addPart}
+        className={ui["text-button"]}
+        disabled={disabled || !state.canAdd}
+        onClick={() => onDraft({
+          ...draft,
+          parts: [...draft.parts, {
+            key: draft.nextKey,
+            amount: "",
+            categoryId: null,
+            note: ""
+          }],
+          nextKey: draft.nextKey + 1
+        })}
       >
-        <Plus size={15} />
+        <Plus size={14} aria-hidden="true" />
         Add part
       </button>
-      <p id={statusId} className={clsx(styles["remaining"], remaining === 0 && complete && styles["balanced"])} role="status">
-        {complete ? remainingStatus(remaining, transaction.currency) : "Enter an amount for every part."}
-      </p>
-      <FormError failure={failure} />
-      <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={pending || !balanced}>
-        Save split <Check size={16} />
-      </button>
-      {transaction.split && (
-        <button
-          type="button"
-          className={clsx(ui["button"], ui["full-width"])}
-          disabled={pending}
-          onClick={() => remove.mutate(undefined, {
-            onSuccess: close
-          })}
-        >
-          <X size={15} />
-          Remove split
-        </button>
-      )}
-    </form>
+    </section>
   );
 }
 
 function SplitPartFields({
-  index,
-  part,
-  invalid,
+  position,
+  amount,
   categories,
-  removable,
+  categoryId,
+  note,
   statusId,
-  onChange,
+  onCategory,
+  onNote,
   onRemove
 }: {
-  index: number;
-  part: DraftPart;
-  invalid: boolean;
+  position: number;
+  amount: ReactNode;
   categories: Category[];
-  removable: boolean;
+  categoryId: string | null;
+  note: string;
   statusId: string;
-  onChange: (change: Partial<DraftPart>) => void;
-  onRemove: () => void;
+  onCategory: (categoryId: string | null) => void;
+  onNote: (note: string) => void;
+  onRemove?: () => void;
 }) {
   const fieldId = useId();
-  const position = index + 1;
 
   return (
     <li className={styles["part"]}>
-      <label htmlFor={`${fieldId}-amount`} className={ui["visually-hidden"]}>{`Amount of part ${position}`}</label>
-      <input
-        id={`${fieldId}-amount`}
-        className={styles["amount"]}
-        required
-        inputMode="decimal"
-        pattern="[+\-]?[0-9]+([.][0-9]+)?"
-        placeholder="0.00"
-        value={part.amount}
-        aria-invalid={invalid || undefined}
-        aria-describedby={statusId}
-        onChange={event => onChange({
-          amount: event.target.value
-        })}
-      />
+      {amount}
       <div className={styles["category"]}>
         <label htmlFor={`${fieldId}-category`} className={ui["visually-hidden"]}>{`Category of part ${position}`}</label>
         <CategoryPicker
           id={`${fieldId}-category`}
           categories={categories}
-          value={part.categoryId}
+          value={categoryId}
           includeUncategorized
-          onChange={value => onChange({
-            categoryId: value
-          })}
+          onChange={onCategory}
         />
       </div>
-      <label htmlFor={`${fieldId}-note`} className={ui["visually-hidden"]}>{`Note of part ${position}`}</label>
       <input
-        id={`${fieldId}-note`}
         className={styles["note"]}
+        aria-label={`Note of part ${position}`}
+        aria-describedby={statusId}
         maxLength={200}
         placeholder="Note"
-        value={part.note}
-        onChange={event => onChange({
-          note: event.target.value
-        })}
+        value={note}
+        onChange={event => onNote(event.target.value)}
       />
-      <button
-        type="button"
-        className={styles["remove"]}
-        disabled={!removable}
-        aria-label={`Remove part ${position}`}
-        onClick={onRemove}
-      >
-        <X size={16} />
-      </button>
+      {onRemove ? (
+        <button
+          type="button"
+          className={styles["remove"]}
+          aria-label={`Remove part ${position}`}
+          onClick={onRemove}
+        >
+          <X size={16} />
+        </button>
+      ) : <span className={styles["remove-placeholder"]} />}
     </li>
   );
 }

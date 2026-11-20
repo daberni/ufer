@@ -3,6 +3,7 @@
 import ui from "./primitives.module.css";
 
 import styles from "./dialog.module.css";
+import { clsx } from "clsx";
 import { X } from "lucide-react";
 import { useEffect, useId, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
@@ -12,6 +13,8 @@ type Props = {
   /** A small line above the title. */
   eyebrow?: string;
   closeLabel?: string;
+  /** A wider dialog for forms that lay their fields out in columns. */
+  wide?: boolean;
   /** Called when the person dismisses the dialog; the opener then stops rendering it. */
   onClose: () => void;
   children: ReactNode;
@@ -26,6 +29,7 @@ export function Dialog({
   title,
   eyebrow,
   closeLabel = "Close dialog",
+  wide = false,
   onClose,
   children
 }: Props) {
@@ -68,7 +72,7 @@ export function Dialog({
     <dialog
       ref={dialogRef}
       aria-labelledby={titleId}
-      className={styles["modal"]}
+      className={clsx(styles["modal"], wide && styles["wide"])}
       // React events bubble through portals; a submit inside must not reach a form around the opener.
       onSubmit={event => event.stopPropagation()}
       onPointerDown={event => {

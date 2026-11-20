@@ -16,62 +16,78 @@
   color: var(--gold-text);
 }
 
-.summary {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-.summary-title {
-  margin: 0;
-  font-size: var(--text-sm);
-  color: var(--muted);
-}
-.parts {
-  margin: 0;
-  padding: 0;
-  list-style: none;
+.section {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
+  background: var(--surface);
 }
-.part-line {
+.section-head {
   display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
-  padding: var(--space-2) var(--space-3);
-  font-size: var(--text-sm);
 }
-.part-line + .part-line {
-  border-top: 1px solid var(--border-subtle);
-}
-.part-name {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-.part-note {
-  color: var(--muted);
-}
-.part-amount {
-  flex-shrink: 0;
-  font-variant-numeric: tabular-nums;
-}
-.warning {
-  display: flex;
-  align-items: flex-start;
+.section-title {
+  display: inline-flex;
+  align-items: center;
   gap: var(--space-2);
   margin: 0;
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--gold-border);
-  border-radius: var(--radius-md);
-  background: var(--gold-soft);
-  color: var(--gold-text);
   font-size: var(--text-sm);
-  line-height: 1.5;
+  font-weight: 600;
+  color: var(--ink);
 }
-.warning svg {
+.close {
+  color: var(--muted);
+}
+.meter-row {
+  display: grid;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.meter-text {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-3);
+}
+.meter-row strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+.meter {
+  display: block;
+  height: 6px;
+  border-radius: var(--radius-sm);
+  background: var(--soft);
+  overflow: hidden;
+}
+.meter > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--green);
+}
+.meter.over > span {
+  background: var(--danger);
+}
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--green-text);
+}
+.status.problem {
+  color: var(--danger-text);
+}
+.status svg {
   flex-shrink: 0;
-  margin-top: 2px;
 }
 
 .editor {
@@ -84,26 +100,44 @@
 }
 .part {
   display: grid;
-  grid-template-columns: 6rem minmax(0, 3fr) minmax(0, 2fr) 36px;
+  grid-template-columns: 7rem minmax(0, 3fr) minmax(0, 2fr) 36px;
   grid-template-areas: "amount category note remove";
   gap: var(--space-2);
   align-items: center;
 }
-.amount {
+/* The dialog form stretches every input; the grid sizes these. */
+.part .amount {
   grid-area: amount;
   text-align: right;
   font-variant-numeric: tabular-nums;
+}
+.rest {
+  grid-area: amount;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: 0 var(--space-3);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+.rest-label {
+  font-size: var(--text-xs);
+  color: var(--muted);
 }
 .category {
   grid-area: category;
   min-width: 0;
 }
-.note {
+.part .note {
   grid-area: note;
-  font-size: var(--text-sm);
+}
+.remove,
+.remove-placeholder {
+  grid-area: remove;
 }
 .remove {
-  grid-area: remove;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -115,31 +149,26 @@
   color: var(--muted);
   cursor: pointer;
 }
-.remove:hover:not(:disabled) {
+.remove:hover {
   background: var(--soft);
   color: var(--danger-text);
 }
-.remove:disabled {
-  visibility: hidden;
-}
-.remaining {
-  margin: 0;
-  font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--gold-text);
-}
-.remaining.balanced {
-  color: var(--green-text);
-}
 
 @media (--mobile) {
+  .section {
+    padding: var(--space-3);
+  }
   .part {
-    grid-template-columns: 6rem minmax(0, 1fr) 44px;
+    grid-template-columns: 6.5rem minmax(0, 1fr) 44px;
     grid-template-areas:
-      "amount category remove"
-      "note note note";
+      "category category remove"
+      "amount note note";
     padding-bottom: var(--space-2);
     border-bottom: 1px solid var(--border-subtle);
+  }
+  .part:last-child {
+    padding-bottom: 0;
+    border-bottom: 0;
   }
   .remove {
     width: 44px;

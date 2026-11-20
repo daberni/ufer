@@ -1,5 +1,7 @@
 .suggestions {
-  margin: var(--space-4) 0;
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
   padding: 0;
   border: 0;
   min-width: 0;
@@ -79,9 +81,8 @@
 
 .overridable {
   display: grid;
+  align-content: start;
   gap: var(--space-1);
-  /* The grid keeps its label's margins from collapsing; the group carries the form's field gap instead. */
-  margin: var(--space-4) 0;
 }
 .overridable > label {
   margin: 0;
@@ -105,4 +106,84 @@
   font: inherit;
   text-decoration: underline;
   cursor: pointer;
+}
+
+.facts {
+  display: grid;
+  gap: var(--space-1);
+  margin: calc(var(--space-2) * -1) 0 var(--space-6);
+}
+.facts-amount {
+  font-size: var(--text-3xl);
+  font-weight: 500;
+  letter-spacing: -0.8px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+.facts-amount.incoming {
+  color: var(--green-text);
+}
+.facts-meta {
+  font-size: var(--text-sm);
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+/* Two columns of fields; anything that is not a field spans both. */
+.fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-4) var(--space-6);
+  align-items: start;
+}
+.fields > * {
+  grid-column: 1 / -1;
+}
+.fields > label,
+.fields > .cell {
+  grid-column: auto;
+}
+/* Overrides the vertical margins the form gives its labels and hints; the grid gap spaces the fields. */
+.fields.fields > *,
+.fields.fields label {
+  margin: 0;
+}
+.cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  min-width: 0;
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+.cell > :not(button) {
+  align-self: stretch;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-6);
+}
+.actions > :first-child {
+  order: 1;
+  margin-left: auto;
+  min-width: 9rem;
+}
+
+@media (--mobile) {
+  .fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .actions {
+    flex-direction: column;
+  }
+  .actions > * {
+    width: 100%;
+  }
+  .actions > :first-child {
+    order: 0;
+    margin-left: 0;
+  }
 }

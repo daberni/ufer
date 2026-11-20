@@ -67,7 +67,7 @@ async function renderDialog(context: TestContext, transaction: Transaction) {
   };
 }
 
-test("a split is entered in the booking's direction and can be saved only once its parts add up to the booking", async context => {
+test("lowering a part proposes the rest as a remaining part, and Save stores the details first, then the split", async context => {
   const {
     requests,
     screen,
@@ -78,39 +78,55 @@ test("a split is entered in the booking's direction and can be saved only once i
     name: "Split into categories"
   }));
 
-  const amounts = () => screen.getAllByRole("textbox", {
-    name: /^Amount of part/
-  }) as HTMLInputElement[];
-  const saveSplit = () => screen.getByRole("button", {
-    name: "Save split"
+  const amount = (position: number) => screen.getByRole("textbox", {
+    name: `Amount of part ${position}`
+  }) as HTMLInputElement;
+  const save = () => screen.getByRole("button", {
+    name: "Save"
   }) as HTMLButtonElement;
 
-  assert.deepEqual(amounts().map(input => input.value), ["350.00", ""]);
-  assert.equal(saveSplit().disabled, true);
+  assert.equal(amount(1).value, "350.00");
+  assert.equal(screen.queryByRole("combobox", {
+    name: "Category of part 2"
+  }), null);
 
-  fireEvent.change(amounts()[1], {
-    target: {
-      value: "100"
-    }
-  });
-  assert.equal(saveSplit().disabled, true);
-  assert.ok(screen.getByText("€100.00 too much"));
-
-  fireEvent.change(amounts()[0], {
+  fireEvent.change(amount(1), {
     target: {
       value: "240"
     }
   });
+  assert.ok(screen.getByText("€110.00 remaining"));
+  assert.ok(screen.getByRole("combobox", {
+    name: "Category of part 2"
+  }));
+
   fireEvent.click(screen.getByRole("button", {
     name: "Add part"
   }));
-  assert.equal(amounts()[2].value, "10.00");
-  assert.ok(screen.getByText("Balanced"));
-  assert.equal(saveSplit().disabled, false);
-
-  await act(async () => {
-    fireEvent.click(saveSplit());
+  assert.equal(save().disabled, true);
+  fireEvent.change(amount(2), {
+    target: {
+      value: "200"
+    }
   });
+  assert.ok(screen.getByText("€90.00 more than the total"));
+  assert.equal(save().disabled, true);
+
+  fireEvent.change(amount(2), {
+    target: {
+      value: "100"
+    }
+  });
+  assert.ok(screen.getByText("€10.00 remaining"));
+  assert.equal(save().disabled, false);
+
+  act(() => {
+    fireEvent.click(save());
+  });
+  await wait(0);
+  assert.equal(requests("transactions/out/split").length, 0);
+  await respond(requests("transactions/out/details")[0], Response.json({}));
+  await wait(0);
 
   const request = requests("transactions/out/split")[0];
 
@@ -132,5 +148,85 @@ test("a split is entered in the booking's direction and can be saved only once i
   await respond(request, Response.json({
     ok: true
   }));
+  await wait(0);
+  assert.deepEqual(closed, [true]);
+});
+
+test("cancelling a split returns to the category, and a split that was not changed into parts saves no split", async context => {
+  const {
+    requests,
+    screen
+  } = await renderDialog(context, outgoing);
+
+  fireEvent.click(screen.getByRole("button", {
+    name: "Split into categories"
+  }));
+  fireEvent.click(screen.getByRole("button", {
+    name: "Cancel split"
+  }));
+  assert.ok(screen.getByRole("button", {
+    name: "Split into categories"
+  }));
+
+  fireEvent.click(screen.getByRole("button", {
+    name: "Split into categories"
+  }));
+  act(() => {
+    fireEvent.click(screen.getByRole("button", {
+      name: "Save"
+    }));
+  });
+  await wait(0);
+  await respond(requests("transactions/out/details")[0], Response.json({}));
+  await wait(0);
+  assert.equal(requests("transactions/out/split").length, 0);
+});
+
+test("removing a stored split deletes it after the details and returns to the category picker", async context => {
+  const {
+    requests,
+    screen,
+    closed
+  } = await renderDialog(context, {
+    ...outgoing,
+    category_source: "manual",
+    split: {
+      parts: [{
+        id: "part-1",
+        amount_minor: -20000,
+        category_id: null,
+        note: ""
+      }, {
+        id: "part-2",
+        amount_minor: -15000,
+        category_id: null,
+        note: ""
+      }],
+      balanced: true
+    }
+  });
+
+  fireEvent.click(screen.getByRole("button", {
+    name: "Remove split"
+  }));
+  assert.ok(screen.getByRole("button", {
+    name: "Split into categories"
+  }));
+  act(() => {
+    fireEvent.click(screen.getByRole("button", {
+      name: "Save"
+    }));
+  });
+  await wait(0);
+  await respond(requests("transactions/out/details")[0], Response.json({}));
+  await wait(0);
+
+  const removal = requests("transactions/out/split")[0];
+
+  assert.equal(removal?.method, "DELETE");
+  await respond(removal, Response.json({
+    ok: true
+  }));
+  await wait(0);
   assert.deepEqual(closed, [true]);
 });
