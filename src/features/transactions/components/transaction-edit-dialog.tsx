@@ -15,7 +15,7 @@ import { Select } from "@/components/ui/select";
 import { CategoryPicker } from "@/features/categorization/components/category-picker";
 import { useCategories } from "@/features/categorization/queries";
 import { describeDate } from "@/lib/date-format";
-import { decimalAmount, money } from "@/lib/money";
+import { decimalAmount, minorUnits, money } from "@/lib/money";
 import { isTransactionType, manualAccountTypes, transactionTypeLabels, transactionTypes, type TransactionType } from "@/features/transactions/transaction-types";
 import { useDeleteTransaction, useHideTransaction, useRemoveSplit, useSaveSplit, useSaveTransaction, type EntryEdit, type TransactionEdit } from "@/features/transactions/mutations";
 import { useTransferOptions } from "@/features/transactions/queries";
@@ -313,6 +313,17 @@ function DeleteConfirmation({
   );
 }
 
+/** An entered amount in signed minor units, or null while it is empty, zero or not a valid amount. */
+function parsedAmount(amount: string, currency: string) {
+  try {
+    const value = minorUnits(amount, currency);
+
+    return value === 0 ? null : value;
+  } catch {
+    return null;
+  }
+}
+
 function entryDefaults(transaction: Transaction) {
   return {
     booking_date: transaction.booking_date,
@@ -346,8 +357,14 @@ function TransactionEditForm({
   const [splitOpen, setSplitOpen] = useState(transaction.split !== null);
   // Which control takes focus after the person opens or closes the split section, since the control they used disappears.
   const [splitFocus, setSplitFocus] = useState<"editor" | "trigger" | null>(null);
+  // The amount being saved: a booking entered in Ufer can change it in this dialog, and its split must add up to the new amount.
+  const [liveAmount, setLiveAmount] = useState(transaction.amount_minor);
+  const splitBasis = {
+    ...transaction,
+    amount_minor: liveAmount
+  };
   const [draft, setDraft] = useState(() => initialDraft(transaction, initialCategory));
-  const split = draftState(draft, transaction);
+  const split = draftState(draft, splitBasis);
   const splitBlocked = splitOpen && (split.status === "invalid" || split.status === "under" || split.status === "over");
   const [type, setType] = useState<TransactionType>(transaction.type);
   const [typeChosen, setTypeChosen] = useState(false);
@@ -366,9 +383,17 @@ function TransactionEditForm({
   // Without loaded options, saving a transfer could drop a link the form cannot show.
   const targetUnknown = linkable && options.status !== "success";
 
-  // The details are saved first, so a rejected edit stores nothing; a category that fails afterwards keeps the dialog open, and saving again repeats both idempotent writes.
-  // Awaited promises rather than per-call callbacks, so the category is still saved when the details' refresh removes the row and this dialog.
+  // Awaited promises rather than per-call callbacks, so later steps still run when the details' refresh removes the row and this dialog. A failed step keeps the dialog open, and saving again repeats the idempotent writes.
+  // Each step runs only after the previous one succeeded. A stored split is removed before a type it does not allow is saved, since the server refuses that type for a split booking; otherwise it is removed after the details, so a rejected edit leaves the split in place.
   async function saveAll(details: TransactionEdit | EntryEdit) {
+    const keepsSplit = splitOpen && split.status === "ready";
+    const removesSplit = transaction.split !== null && !keepsSplit;
+    const removesFirst = removesSplit && type !== "income" && type !== "expense";
+
+    if (removesFirst && !await attempt(() => removeSplit.mutateAsync())) {
+      return;
+    }
+
     try {
       await save.mutateAsync(details);
     } catch {
@@ -376,30 +401,35 @@ function TransactionEditForm({
       return;
     }
 
+    if (await attempt(() => saveCategories(keepsSplit, removesSplit && !removesFirst))) {
+      close();
+    }
+  }
+
+  async function attempt(step: () => Promise<unknown>) {
     try {
-      await saveCategories();
+      await step();
+
+      return true;
     } catch (failure) {
       setFollowFailure(toFailure(failure));
 
-      return;
+      return false;
     }
-
-    close();
   }
 
-  // A split with a single part is a plain category; closing the split section removes a stored split. Categories are compared with the stored ones, not the ones the dialog started from: a row change that was pending at opening and then failed is assigned again.
-  async function saveCategories() {
-    if (splitOpen && split.status === "ready") {
-      await saveSplit.mutateAsync(draftEdits(draft, transaction));
+  // A split with a single counted part is a plain category; parts with an amount of 0 are ignored. Categories are compared with the stored ones, not the ones the dialog started from: a row change that was pending at opening and then failed is assigned again.
+  async function saveCategories(keepsSplit: boolean, removesSplit: boolean) {
+    if (keepsSplit) {
+      await saveSplit.mutateAsync(draftEdits(draft, splitBasis));
 
       return;
     }
 
-    // A single counted part is the booking's category; parts with an amount of 0 are ignored.
     const counted = draft.parts.find((_, index) => split.amounts[index] !== 0);
     const chosen = splitOpen ? counted?.categoryId ?? null : category;
 
-    if (transaction.split) {
+    if (removesSplit) {
       await removeSplit.mutateAsync();
     }
 
@@ -407,6 +437,7 @@ function TransactionEditForm({
       await assignment.assign(chosen);
     }
   }
+
 
   return (
     <form
@@ -457,6 +488,12 @@ function TransactionEditForm({
             payee={!(transfer && (target.kind === "account" || targetUnknown))}
             followedAccount={transaction.follows_import ? transaction.counterpart?.account_name : undefined}
             onAmount={amount => {
+              const parsed = parsedAmount(amount, transaction.currency);
+
+              if (parsed !== null) {
+                setLiveAmount(parsed);
+              }
+
               const suggested = suggestedType(amount);
 
               if (!typeChosen && suggested && (type === "income" || type === "expense")) {
@@ -496,7 +533,7 @@ function TransactionEditForm({
                 className={ui["text-button"]}
                 disabled={pending}
                 onClick={() => {
-                  setDraft(initialDraft(transaction, category));
+                  setDraft(initialDraft(splitBasis, category));
                   setSplitOpen(true);
                   setSplitFocus("editor");
                 }}
@@ -509,7 +546,7 @@ function TransactionEditForm({
         )}
         {splitOpen && (
           <SplitEditor
-            transaction={transaction}
+            transaction={splitBasis}
             categories={categories.data ?? []}
             draft={draft}
             state={split}

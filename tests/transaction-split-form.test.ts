@@ -236,3 +236,113 @@ test("removing a stored split deletes it after the details and returns to the ca
   await wait(0);
   assert.deepEqual(closed, [true]);
 });
+
+test("a split of a booking entered in Ufer follows the amount being edited in the same dialog", async context => {
+  const {
+    screen
+  } = await renderDialog(context, {
+    ...outgoing,
+    entered: true,
+    manual_account: true
+  });
+  const amount = (position: number) => screen.getByRole("textbox", {
+    name: `Amount of part ${position}`
+  }) as HTMLInputElement;
+
+  fireEvent.change(screen.getByRole("textbox", {
+    name: "Amount"
+  }), {
+    target: {
+      value: "-400.00"
+    }
+  });
+  fireEvent.click(screen.getByRole("button", {
+    name: "Split into categories"
+  }));
+  assert.equal(amount(1).value, "400.00");
+
+  fireEvent.change(amount(1), {
+    target: {
+      value: "300"
+    }
+  });
+  fireEvent.click(screen.getByRole("button", {
+    name: "Add part"
+  }));
+  assert.equal(amount(2).value, "100.00");
+  assert.ok(screen.getByText("Fully assigned"));
+
+  fireEvent.change(screen.getByRole("textbox", {
+    name: "Amount"
+  }), {
+    target: {
+      value: "-450.00"
+    }
+  });
+  assert.ok(screen.getByText("€50.00 still to assign"));
+  assert.equal((screen.getByRole("button", {
+    name: "Save"
+  }) as HTMLButtonElement).disabled, true);
+});
+
+test("removing a stored split and choosing a type it does not allow removes the split before saving the type", async context => {
+  const {
+    requests,
+    screen,
+    closed
+  } = await renderDialog(context, {
+    ...outgoing,
+    manual_account: true,
+    split: {
+      parts: [{
+        id: "part-1",
+        amount_minor: -20000,
+        category_id: null,
+        note: ""
+      }, {
+        id: "part-2",
+        amount_minor: -15000,
+        category_id: null,
+        note: ""
+      }],
+      balanced: true
+    }
+  });
+
+  fireEvent.click(screen.getByRole("button", {
+    name: "Remove split"
+  }));
+  fireEvent.change(screen.getByRole("combobox", {
+    name: "Type"
+  }), {
+    target: {
+      value: "adjustment"
+    }
+  });
+  act(() => {
+    fireEvent.click(screen.getByRole("button", {
+      name: "Save"
+    }));
+  });
+  await wait(0);
+
+  assert.equal(requests("transactions/out/details").length, 0);
+
+  const removal = requests("transactions/out/split")[0];
+
+  assert.equal(removal?.method, "DELETE");
+  await respond(removal, Response.json({
+    ok: true
+  }));
+  await wait(0);
+
+  const details = requests("transactions/out/details")[0];
+
+  assert.equal((details?.body as {
+    type: string
+  }).type, "adjustment");
+  await respond(details, Response.json({}));
+  await wait(0);
+  assert.equal(requests("transactions/out/split").length, 1);
+  assert.deepEqual(closed, [true]);
+});
