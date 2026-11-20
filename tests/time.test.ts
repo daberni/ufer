@@ -37,6 +37,7 @@ function bankAccount(id: string, validUntil: string | null): Account {
     currency: "EUR",
     balance_minor: 0,
     balance_date: "2026-11-01",
+    last_booking_date: null,
     provider: "enable_banking",
     requisition_id: "connection",
     sync_error: null,
