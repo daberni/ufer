@@ -48,7 +48,6 @@ export function usePayeeSuggestions(query: string) {
     queryFn: ({ signal }) => apiQuery<PayeeSuggestions>("transactions/payees", {
       query: text
     }, signal),
-    enabled: text !== "",
-    placeholderData: keepPreviousData
+    enabled: text !== ""
   });
 }

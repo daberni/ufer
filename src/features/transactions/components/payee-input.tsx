@@ -41,7 +41,8 @@ export function PayeeInput({
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const suggestions = usePayeeSuggestions(open ? requested : "");
-  const shown = open && requested.trim() ? suggestions.data?.payees ?? [] : [];
+  // Suggestions only show for the text in the field, so results for earlier text cannot overwrite newer typing.
+  const shown = open && query === requested ? suggestions.data?.payees ?? [] : [];
   const expanded = shown.length > 0;
   const active = Math.min(activeIndex, shown.length - 1);
   const optionId = (index: number) => `${listboxId}-option-${index}`;

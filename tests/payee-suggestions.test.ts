@@ -263,3 +263,31 @@ test("a pointer picks a suggestion and Escape closes the list without clearing t
   assert.equal(field.value, "Corner Bakery");
   assert.equal(field.getAttribute("aria-expanded"), "false");
 });
+
+test("suggestions for earlier text disappear as soon as the text changes, until those for the new text arrive", async context => {
+  const {
+    field,
+    requests,
+    screen
+  } = await renderPayeeInput(context);
+
+  type(field, "cor");
+  await wait(300);
+  await respond(requests("transactions/payees")[0], Response.json({
+    payees: ["Corner Bakery"]
+  }));
+  assert.equal(options(screen).length, 1);
+
+  type(field, "bak");
+  assert.equal(field.getAttribute("aria-expanded"), "false");
+  press(field, "ArrowDown");
+  press(field, "Enter");
+  assert.equal(field.value, "bak");
+
+  await wait(300);
+  assert.equal(field.getAttribute("aria-expanded"), "false");
+  await respond(requests("transactions/payees")[1], Response.json({
+    payees: ["Bakery Example"]
+  }));
+  assert.deepEqual(options(screen).map(option => option.textContent), ["Bakery Example"]);
+});
