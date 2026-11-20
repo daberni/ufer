@@ -14,6 +14,7 @@ import type { Category } from "@/features/categorization/types";
 import { decimalAmount, minorUnits, money } from "@/lib/money";
 import { useRemoveSplit, useSaveSplit, type SplitPartEdit } from "@/features/transactions/mutations";
 import type { Transaction, TransactionSplit } from "@/features/transactions/types";
+import { partAmountSupported } from "@/features/transactions/split-limits";
 
 /** Whether a booking of this type can be split; only income and expenses count by category. */
 export function splittable(transaction: Transaction) {
@@ -141,12 +142,12 @@ function initialParts(transaction: Transaction): DraftPart[] {
   }];
 }
 
-/** A part's signed minor units, or null while its amount is empty, invalid or zero. */
+/** A part's signed minor units, or null while its amount is empty, invalid, zero or beyond the supported range. */
 function partAmount(part: DraftPart, transaction: Transaction) {
   try {
     const amount = minorUnits(part.amount, transaction.currency) * direction(transaction);
 
-    return amount === 0 ? null : amount;
+    return amount === 0 || !partAmountSupported(amount) ? null : amount;
   } catch {
     return null;
   }

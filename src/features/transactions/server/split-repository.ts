@@ -6,6 +6,7 @@ import { accounts, categorizationRules, transactionSplits, transactions } from "
 import type { Rule, RuleAssignment, RuleText } from "@/lib/rules";
 import type { TransactionType } from "@/features/transactions/transaction-types";
 import type { SplitPart } from "@/features/transactions/types";
+import type { Entry } from "./transaction-entry";
 
 /** The booking a split divides, as the split's validation needs it. */
 export type SplitSubject = {
@@ -171,4 +172,27 @@ export async function readSplitParts(transactionIds: string[]) {
   }
 
   return parts;
+}
+
+/**
+ * Removes the split of every booking among these entries whose delivered currency differs from the stored one, since its parts are amounts in the old currency. The bookings return to automatic categorization, so the same write assigns their rule category.
+ */
+export async function dropSplitsOnCurrencyChange(tx: DatabaseTransaction, accountId: string, entries: Pick<Entry, "reference" | "currency">[]) {
+  const delivered = new Map(entries.map(entry => [entry.reference, entry.currency]));
+  const stored = await tx.select({
+    id: transactions.id,
+    reference: transactions.provider_reference,
+    currency: transactions.currency
+  }).from(transactions).where(and(eq(transactions.account_id, accountId), inArray(transactions.provider_reference, [...delivered.keys()]), sql`NOT ${notSplit}`));
+  const changed = stored.filter(row => delivered.get(row.reference) !== row.currency).map(row => row.id);
+
+  if (changed.length === 0) {
+    return;
+  }
+
+  await tx.delete(transactionSplits).where(inArray(transactionSplits.transaction_id, changed));
+  await tx.update(transactions).set({
+    category_source: "rule",
+    category_rule_id: null
+  }).where(inArray(transactions.id, changed));
 }

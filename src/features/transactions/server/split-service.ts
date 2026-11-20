@@ -3,10 +3,8 @@ import { HttpError, ValidationError } from "@/lib/errors";
 import { minorUnits, money } from "@/lib/money";
 import { prepareRules, ruleAssignment } from "@/lib/rules";
 import { categoryExists } from "@/features/categorization/server/category-repository";
+import { maximumSplitParts, partAmountSupported } from "@/features/transactions/split-limits";
 import { removeSplit, replaceSplit, type SplitPartValues, type SplitSubject } from "./split-repository";
-
-/** The most parts one booking can be split into. */
-export const maximumSplitParts = 50;
 
 const splitInput = z.object({
   parts: z.array(z.object({
@@ -39,13 +37,14 @@ function validParts(subject: SplitSubject, parts: PartInput[]): SplitPartValues[
     throw new ValidationError("Every part needs an amount.");
   }
 
-  // Each part is a safe integer, but their sum may not be; a sum beyond the safe range cannot equal the booking's amount.
-  const total = values.reduce((sum, part) => sum + BigInt(part.amount), 0n);
+  if (values.some(part => !partAmountSupported(part.amount))) {
+    throw new ValidationError("A part exceeds the supported amount.");
+  }
 
-  if (total !== BigInt(subject.amount_minor)) {
-    const shown = Number.isSafeInteger(Number(total)) ? money(Number(total), subject.currency) : "more than the supported range";
+  const total = values.reduce((sum, part) => sum + part.amount, 0);
 
-    throw new ValidationError(`The parts add up to ${shown} instead of ${money(subject.amount_minor, subject.currency)}.`);
+  if (total !== subject.amount_minor) {
+    throw new ValidationError(`The parts add up to ${money(total, subject.currency)} instead of ${money(subject.amount_minor, subject.currency)}.`);
   }
 
   return values;

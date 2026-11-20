@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test, type TestContext } from "node:test";
 import { createClient } from "@libsql/client";
+import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/libsql";
 import { Temporal } from "temporal-polyfill";
 import { initializeDatabase } from "../src/server/database/migrations";
@@ -403,7 +404,7 @@ test("automatic transfer pairing leaves a split booking as it is", async context
   assert.equal(row?.split?.parts.length, 2);
 });
 
-test("parts whose sum leaves the safe integer range are rejected instead of rounding to the booking's amount", async context => {
+test("a part beyond the supported amount is rejected, so the parts always add up exactly", async context => {
   const db = await seed(context);
 
   await db.insert(schema.transactions).values({
@@ -417,7 +418,7 @@ test("parts whose sum leaves the safe integer range are rejected instead of roun
     type: "income"
   });
 
-  // In floating point 9007199254740991 + 2 rounds to 9007199254740992, so these parts would appear to add up to 1 instead of 2.
+  // In floating point 9007199254740991 + 2 rounds to 9007199254740992, so unbounded parts could appear to add up to the booking.
   await assert.rejects(splitTransaction("cent", {
     parts: [{
       amount: "90071992547409.91",
@@ -432,8 +433,31 @@ test("parts whose sum leaves the safe integer range are rejected instead of roun
       category_id: null,
       note: ""
     }]
-  }), error => error instanceof ValidationError && /add up to €0\.02 instead of €0\.01/.test(error.message));
+  }), error => error instanceof ValidationError && /exceeds the supported amount/.test(error.message));
   assert.equal((await db.select().from(schema.transactionSplits)).length, 0);
+});
+
+test("a sync that changes a split booking's currency removes the split and returns it to its rules", async context => {
+  const db = await seed(context);
+
+  await splitTransaction("market", marketSplit());
+  await db.transaction(tx => upsertTransactions(tx, "checking", [{
+    reference: "bank:market",
+    date: "2026-01-10",
+    amount: -10000,
+    currency: "USD",
+    counterparty: "Example Market",
+    description: "",
+    categoryId: "groceries",
+    categoryRuleId: null
+  }]));
+
+  const [stored] = await db.select().from(schema.transactions).where(eq(schema.transactions.id, "market"));
+
+  assert.equal((await db.select().from(schema.transactionSplits)).length, 0);
+  assert.equal(stored.currency, "USD");
+  assert.equal(stored.category_id, "groceries");
+  assert.equal(stored.category_source, "rule");
 });
 
 test("a split booking keeps its type through a sync and cannot become another booking's transfer counterpart", async context => {
