@@ -169,12 +169,10 @@ test("a saved mapping reproduces the roles, format and still existing choices on
   const selections = new Map<string, CategorySelection>([
     ["Lebensmittel", {
       action: "existing",
-      categoryId: "groceries",
-      chosen: false
+      categoryId: "groceries"
     }],
     ["Neu", {
-      action: "create",
-      chosen: false
+      action: "create"
     }]
   ]);
   const choices = rememberedChoices(targets, selections);
@@ -216,8 +214,7 @@ test("a saved mapping reproduces the roles, format and still existing choices on
   }]]);
   assert.deepEqual([...applied.selections], [["Lebensmittel", {
     action: "existing",
-    categoryId: "groceries",
-    chosen: true
+    categoryId: "groceries"
   }]]);
 });
 
@@ -380,6 +377,9 @@ test("remembered choices apply once accounts and categories load, and never over
   assert.deepEqual(resolveTargets(["Example Card"], new Map(), notLoaded.targets, []).get("Example Card"), {
     kind: "unset"
   });
+  assert.deepEqual(resolveCategories([value], new Map(), notLoaded.selections).get(value.value), {
+    action: "unset"
+  });
 
   const loaded = templateChoices(template, [{
     id: "card",
@@ -393,7 +393,10 @@ test("remembered choices apply once accounts and categories load, and never over
     kind: "existing",
     accountId: "card"
   });
-  assert.equal(resolveCategories([value], new Map(), loaded.selections).get(value.value)?.categoryId, "dining");
+  assert.deepEqual(resolveCategories([value], new Map(), loaded.selections).get(value.value), {
+    action: "existing",
+    categoryId: "dining"
+  });
 
   const chosen = new Map<string, TargetChoice>([["Example Card", {
     kind: "skip"

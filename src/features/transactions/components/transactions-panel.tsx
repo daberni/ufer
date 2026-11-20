@@ -4,9 +4,9 @@ import ui from "../../../components/ui/primitives.module.css";
 
 import { clsx } from "clsx";
 import Link from "next/link";
-import { useRef, useState, type ReactNode } from "react";
+import { useRef, useState, type MouseEvent, type ReactNode } from "react";
 import styles from "./transactions-panel.module.css";
-import { ArrowDownToLine, ArrowRight, Plus, Search, SlidersHorizontal } from "lucide-react";
+import { ArrowDownToLine, ArrowRight, Plus, Search, SlidersHorizontal, X } from "lucide-react";
 import { Empty } from "@/components/ui/empty-state";
 import { TransactionRuleProvider } from "./transaction-rule-provider";
 import { TransactionList, TransactionListSkeleton } from "@/features/transactions/components/transaction-list";
@@ -242,16 +242,39 @@ function TransactionFilters({
 // Keystrokes change only this field's draft; the list follows once the committed search reaches the URL.
 function TransactionSearch() {
   const [searchDraft, setSearchDraft] = useSearchDraft(useSearchFilter(), setSearch);
+  const input = useRef<HTMLInputElement>(null);
+
+  // Pointer presses on the field's padding or magnifier focus the input, as its label did.
+  function focusInput(event: MouseEvent<HTMLDivElement>) {
+    if (!(event.target instanceof Element) || !event.target.closest("button, input")) {
+      input.current?.focus();
+    }
+  }
 
   return (
-    <label className={styles["search-field"]}>
-      <Search size={16} />
+    // A plain wrapper, since the clear button must not sit inside the input's label; the input has its own accessible name.
+    <div className={styles["search-field"]} onClick={focusInput}>
+      <Search size={16} aria-hidden="true" />
       <input
+        ref={input}
         aria-label="Search transactions"
         placeholder="Payee or description …"
         value={searchDraft}
         onChange={event => setSearchDraft(event.target.value)}
       />
-    </label>
+      {searchDraft && (
+        <button
+          type="button"
+          className={styles["clear-search"]}
+          aria-label="Clear search"
+          onClick={() => {
+            setSearchDraft("");
+            input.current?.focus();
+          }}
+        >
+          <X size={16} aria-hidden="true" />
+        </button>
+      )}
+    </div>
   );
 }

@@ -6,7 +6,7 @@ import { useAreaResult } from "@/components/ui/use-area-result";
 import { useCategories } from "@/features/categorization/queries";
 import { useMappedImport, type MappedImportSummary } from "@/features/imports/mutations";
 import { builtInTemplates, decodeCsv, detectDateFormat, detectDecimal, detectDelimiter, mapRows, mappingProblem, matchTemplate, parseCsv, importIdFor, readCsvTable, suggestMapping, templateMapping, templateSettings, type CsvMapping, type CsvSettings, type CsvTemplate } from "@/features/imports/csv-mapping";
-import { categoryValues, importKey, needsCategoryReview, prepareImport, resolveCategories, resolveTargets, sourceAccounts, templateChoices, type CategorySelection, type TargetChoice } from "@/features/imports/import-plan";
+import { categoryValues, importKey, prepareImport, resolveCategories, resolveTargets, sourceAccounts, templateChoices, type CategorySelection, type TargetChoice } from "@/features/imports/import-plan";
 import { useImportTemplates } from "@/features/imports/template-queries";
 
 /** Large multi-year exports are read in the browser and sent as mapped rows in batches, so only the browser's memory bounds the file. */
@@ -59,7 +59,7 @@ export function useImportDraft() {
   // Remembered choices follow the option lists, so a template applied before accounts or categories loaded still restores them.
   const remembered = useMemo(() => template ? templateChoices(template, accountOptions, categories.data ?? []) : null, [template, accountOptions, categories.data]);
   const resolvedTargets = useMemo(() => resolveTargets(sources.map(({ source }) => source), targetChoices, remembered?.targets ?? new Map(), accountOptions), [sources, targetChoices, remembered, accountOptions]);
-  // Skipped accounts' rows neither count toward category values nor need review.
+  // Skipped accounts' rows neither count toward category values nor need a category choice.
   const keptRows = useMemo(() => mapped?.rows.filter(row => resolvedTargets.get(row.source)?.kind !== "skip") ?? [], [mapped, resolvedTargets]);
   const values = useMemo(() => categoryValues(keptRows, categories.data ?? []), [keptRows, categories.data]);
   const resolvedCategories = useMemo(() => resolveCategories(values, categoryChoices, remembered?.selections ?? new Map()), [values, categoryChoices, remembered]);
@@ -67,7 +67,6 @@ export function useImportDraft() {
   const preparedKey = useMemo(() => prepared ? importKey(prepared) : null, [prepared]);
   // A refetched account list can change a preselected target; the check then no longer describes what Import would save.
   const summary = checked && checked.key === preparedKey ? checked.summary : null;
-  const reviewLines = useMemo(() => new Set(prepared?.rows.filter(row => needsCategoryReview(row, resolvedCategories)).map(row => row.line) ?? []), [prepared, resolvedCategories]);
   const inputsLocked = configurationLocked || mutation.isPending;
   // Saved templates can arrive after the file was read; a match is then offered instead of applied silently.
   const matchingTemplate = useMemo(() => table ? matchTemplate(table.header, templateList) : null, [table, templateList]);
@@ -324,7 +323,6 @@ export function useImportDraft() {
     targets: resolvedTargets,
     categoryValues: values,
     categories: resolvedCategories,
-    reviewLines,
     keptRows,
     summary,
     imported,

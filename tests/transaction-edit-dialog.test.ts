@@ -25,6 +25,7 @@ const outgoing: Transaction = {
   category_id: null,
   category_source: "rule",
   category_rule_id: null,
+  automatic_assignment: null,
   type: "expense",
   type_source: "auto",
   manual_account: false,
@@ -61,10 +62,11 @@ async function renderDialog(context: TestContext, transaction: Transaction) {
     this.removeAttribute("open");
   };
 
+  const closed: boolean[] = [];
   const { TransactionEditDialog } = await import("../src/features/transactions/components/transaction-edit-dialog");
   const screen = render(withQueryClient(browserEnvironment.queryClient, createElement(TransactionEditDialog, {
     transaction,
-    close: () => {}
+    close: () => closed.push(true)
   })));
 
   await wait(0);
@@ -72,6 +74,7 @@ async function renderDialog(context: TestContext, transaction: Transaction) {
   return {
     ...browserEnvironment,
     screen,
+    closed,
     save: () => screen.getByRole("button", {
       name: "Save"
     }) as HTMLButtonElement,
@@ -166,7 +169,7 @@ test("choosing a suggestion sets the target account, and a manual account or non
   });
 
   assert.equal(target().value, "booking:candidate");
-  assert.match(screen.getByRole("status").textContent ?? "", /links this booking with Synthetic savings/);
+  assert.ok(screen.getByText(/Linked with Synthetic savings/));
 
   act(() => {
     fireEvent.change(target(), {
@@ -177,7 +180,7 @@ test("choosing a suggestion sets the target account, and a manual account or non
   });
 
   assert.equal(suggestion().checked, false);
-  assert.match(screen.getByRole("status").textContent ?? "", /other side on Synthetic flat/);
+  assert.ok(screen.getByText(/other side on Synthetic flat/));
 
   act(() => {
     fireEvent.click(save());
@@ -411,7 +414,7 @@ test("a booking Ufer created on a manual account offers only removing it, withou
     }]
   } satisfies TransferOptions));
 
-  assert.ok(screen.getByText(/Ufer created this booking for the transfer of Synthetic checking/));
+  assert.ok(screen.getByText(/Created for the transfer of Synthetic checking/));
   assert.equal(screen.queryByRole("radio"), null);
   assert.equal(screen.queryByRole("combobox", {
     name: "Target account"
@@ -423,7 +426,7 @@ test("a booking Ufer created on a manual account offers only removing it, withou
     }));
   });
 
-  assert.match(screen.getByRole("status").textContent ?? "", /Save removes this booking/);
+  assert.ok(screen.getByText(/Save removes this booking/));
 
   act(() => {
     fireEvent.click(save());
@@ -541,4 +544,142 @@ test("an entered booking linked with an imported booking keeps that booking's da
   assert.ok(screen.getByRole("button", {
     name: "Delete transaction"
   }));
+});
+
+type Requests = Awaited<ReturnType<typeof renderDialog>>["requests"];
+
+async function chooseCategory(screen: ReturnType<typeof render>, requests: Requests, name: string) {
+  await respond(requests("categories")[0], Response.json([{
+    id: "groceries",
+    name: "Groceries",
+    color: "#638777",
+    icon: null
+  }]));
+
+  const field = screen.getByRole("combobox", {
+    name: "Category"
+  });
+
+  act(() => {
+    fireEvent.click(field);
+  });
+  // jsdom has no Popover API, so the opened list may count as hidden there.
+  act(() => {
+    fireEvent.click(screen.getByRole("option", {
+      name,
+      hidden: true
+    }));
+  });
+}
+
+function categoryPatches(requests: Requests) {
+  return requests("transactions/out").filter(request => request.method === "PATCH");
+}
+
+test("saving a changed category assigns it once after the details, then closes", async context => {
+  const {
+    closed,
+    requests,
+    save,
+    screen
+  } = await renderDialog(context, outgoing);
+
+  await chooseCategory(screen, requests, "Groceries");
+  act(() => {
+    fireEvent.click(save());
+  });
+  await wait(0);
+
+  assert.equal(categoryPatches(requests).length, 0);
+  await respond(requests("transactions/out/details")[0], Response.json({}));
+  await wait(0);
+
+  const patches = categoryPatches(requests);
+
+  assert.equal(patches.length, 1);
+  assert.deepEqual(patches[0].body, {
+    category_id: "groceries"
+  });
+  assert.equal(closed.length, 0);
+
+  await respond(patches[0], Response.json({
+    id: "out",
+    category_id: "groceries",
+    category_source: "manual",
+    category_rule_id: null
+  }));
+  await wait(0);
+
+  assert.equal(closed.length, 1);
+});
+
+test("saving an unchanged category sends no assignment", async context => {
+  const {
+    closed,
+    requests,
+    save
+  } = await renderDialog(context, outgoing);
+
+  act(() => {
+    fireEvent.click(save());
+  });
+  await wait(0);
+  await respond(requests("transactions/out/details")[0], Response.json({}));
+  await wait(0);
+
+  assert.equal(categoryPatches(requests).length, 0);
+  assert.equal(closed.length, 1);
+});
+
+test("a failed category assignment keeps the dialog open with its error", async context => {
+  const {
+    closed,
+    requests,
+    save,
+    screen
+  } = await renderDialog(context, outgoing);
+
+  await chooseCategory(screen, requests, "Groceries");
+  act(() => {
+    fireEvent.click(save());
+  });
+  await wait(0);
+  await respond(requests("transactions/out/details")[0], Response.json({}));
+  await wait(0);
+  await respond(categoryPatches(requests)[0], Response.json({
+    title: "Category not found.",
+    status: 422,
+    detail: "Category not found."
+  }, {
+    status: 422,
+    headers: {
+      "content-type": "application/problem+json"
+    }
+  }));
+  await wait(0);
+
+  assert.equal(closed.length, 0);
+  assert.ok(screen.getByText(/Category not found/));
+  assert.equal(save().disabled, false);
+});
+
+test("a changed category is still assigned when the details' refresh removes the dialog", async context => {
+  const {
+    requests,
+    save,
+    screen
+  } = await renderDialog(context, outgoing);
+
+  await chooseCategory(screen, requests, "Groceries");
+  act(() => {
+    fireEvent.click(save());
+  });
+  await wait(0);
+
+  // The refreshed list no longer contains the row, which unmounts its dialog.
+  screen.unmount();
+  await respond(requests("transactions/out/details")[0], Response.json({}));
+  await wait(0);
+
+  assert.equal(categoryPatches(requests).length, 1);
 });

@@ -43,6 +43,7 @@ function booking(id: string, counterparty: string): Transaction {
     category_id: null,
     category_source: "rule",
     category_rule_id: null,
+    automatic_assignment: null,
     type: "expense",
     type_source: "auto",
     manual_account: false,
@@ -152,7 +153,9 @@ test("an explicit category action keeps its draft when another row finishes savi
   assert.equal(preview?.url.search, "");
   assert.deepEqual(preview?.body, {
     pattern: "Example Market",
-    mode: "keyword"
+    mode: "keyword",
+    category_id: "groceries",
+    source_transaction_id: "market-entry"
   });
   const pattern = screen.getByRole("textbox", {
     name: "Matching pattern"
@@ -210,7 +213,9 @@ test("rule creation is announced quietly and a later failed assignment reports i
   await respond(requests("rules/preview").at(-1), Response.json({
     id: previewId,
     matched: 2,
-    uncategorized: 2
+    uncategorized: 2,
+    manual: 0,
+    manual_same_category: 0
   }));
   act(() => fireEvent.submit(screen.getByRole("textbox", {
     name: "Matching pattern"
@@ -227,7 +232,9 @@ test("rule creation is announced quietly and a later failed assignment reports i
     await respond(preview, Response.json({
       id: previewId,
       matched: 0,
-      uncategorized: 0
+      uncategorized: 0,
+      manual: 0,
+      manual_same_category: 0
     }));
   }
 
@@ -363,7 +370,9 @@ test("rule creation waits for the current pattern preview, including debounce an
   await respond(requests("rules/preview").at(-1), Response.json({
     id: previewId,
     matched: 2,
-    uncategorized: 2
+    uncategorized: 2,
+    manual: 0,
+    manual_same_category: 0
   }));
   assert.equal(create().disabled, false);
 
@@ -381,7 +390,9 @@ test("rule creation waits for the current pattern preview, including debounce an
   await respond(requests("rules/preview").at(-1), Response.json({
     id: previewId,
     matched: 8,
-    uncategorized: 5
+    uncategorized: 5,
+    manual: 0,
+    manual_same_category: 0
   }));
   assert.equal(create().disabled, false);
 
@@ -411,7 +422,9 @@ test("rule creation waits for the current pattern preview, including debounce an
   await respond(requests("rules/preview").at(-1), Response.json({
     id: previewId,
     matched: 3,
-    uncategorized: 1
+    uncategorized: 1,
+    manual: 0,
+    manual_same_category: 0
   }));
   assert.equal(create().disabled, false);
   act(() => fireEvent.submit(form));
@@ -425,6 +438,7 @@ test("rule creation waits for the current pattern preview, including debounce an
     mode: "keyword",
     category_id: "groceries",
     apply_to_uncategorized: true,
+    adopt_manual: false,
     source_transaction_id: "draft-entry"
   });
 });
@@ -503,7 +517,9 @@ test("an explicitly opened draft survives removal of its filtered source row and
   await respond(requests("rules/preview").at(-1), Response.json({
     id: previewId,
     matched: 2,
-    uncategorized: 2
+    uncategorized: 2,
+    manual: 0,
+    manual_same_category: 0
   }));
   act(() => fireEvent.change(screen.getByRole("textbox", {
     name: "Matching pattern"
@@ -516,7 +532,9 @@ test("an explicitly opened draft survives removal of its filtered source row and
   await respond(requests("rules/preview").at(-1), Response.json({
     id: previewId,
     matched: 3,
-    uncategorized: 3
+    uncategorized: 3,
+    manual: 0,
+    manual_same_category: 0
   }));
 
   screen.rerender(panel(false));
@@ -542,6 +560,7 @@ test("an explicitly opened draft survives removal of its filtered source row and
     mode: "keyword",
     category_id: "groceries",
     apply_to_uncategorized: true,
+    adopt_manual: false,
     source_transaction_id: "filtered-entry"
   });
   await respond(created, Response.json({
@@ -555,7 +574,9 @@ test("an explicitly opened draft survives removal of its filtered source row and
     await respond(preview, Response.json({
       id: previewId,
       matched: 0,
-      uncategorized: 0
+      uncategorized: 0,
+      manual: 0,
+      manual_same_category: 0
     }));
   }
 
@@ -627,3 +648,93 @@ test("a rule-assigned category opens its recorded rule, and an unrecorded one st
 
   assert.equal((dialog.querySelector("input[name='name']") as HTMLInputElement | null)?.value, "Markets");
 });
+
+// Saving a rule replaces the row's create-rule action with the rule indicator, before or after the dialog has closed.
+for (const refreshed of ["before", "after"] as const) {
+  test(`focus returns to the row's category field, not the panel heading, when the refreshed row arrives ${refreshed} the rule dialog closes`, async context => {
+    const {
+      queryClient,
+      requests
+    } = browser(context);
+
+    modalDialogs();
+    const headingRef = createRef<HTMLHeadingElement>();
+    const withRules = await transactionRuleScope(queryClient, headingRef);
+    const { TransactionCategory } = await import("../src/features/transactions/components/transaction-category");
+    const manual = {
+      ...booking("source-entry", "Example Market"),
+      category_id: "groceries",
+      category_source: "manual" as const
+    };
+    const ruleAssigned = {
+      ...manual,
+      category_source: "rule" as const
+    };
+    const panel = (transaction: Transaction) => withRules(createElement(Fragment, null, createElement("h2", {
+      ref: headingRef,
+      tabIndex: -1
+    }, "Transactions"), createElement(TransactionCategory, {
+      categories,
+      transaction
+    })));
+    const screen = render(panel(manual));
+    const action = screen.getByRole("button", {
+      name: "Create rule for Example Market"
+    });
+
+    act(() => {
+      action.focus();
+      fireEvent.click(action);
+    });
+    await wait(0);
+    await respond(requests("categories")[0], Response.json(categories));
+    await respond(requests("rules/preview").at(-1), Response.json({
+      id: previewId,
+      matched: 1,
+      uncategorized: 0,
+      manual: 0,
+      manual_same_category: 0
+    }));
+    act(() => fireEvent.submit(screen.getByRole("textbox", {
+      name: "Matching pattern"
+    }).closest("form")!));
+    await wait(0);
+    await respond(requests("rules").find(request => request.method === "POST"), Response.json({
+      ok: true,
+      categorized: 0
+    }, {
+      status: 201
+    }));
+
+    if (refreshed === "before") {
+      screen.rerender(panel(ruleAssigned));
+    }
+
+    for (const preview of requests("rules/preview").slice(1)) {
+      await respond(preview, Response.json({
+        id: previewId,
+        matched: 0,
+        uncategorized: 0,
+        manual: 0,
+        manual_same_category: 0
+      }));
+    }
+
+    for (const list of requests("rules").filter(request => request.method === "GET")) {
+      await respond(list, Response.json([]));
+    }
+
+    assert.equal(screen.queryAllByRole("dialog").length, 0);
+
+    if (refreshed === "after") {
+      screen.rerender(panel(ruleAssigned));
+    }
+
+    const field = screen.getByRole("combobox", {
+      name: "Category for Example Market"
+    });
+
+    // Comparing elements directly would print whole jsdom nodes on failure; the focused text says where focus went instead.
+    assert.equal(document.activeElement === field ? "category field" : document.activeElement?.textContent || document.activeElement?.tagName, "category field");
+  });
+}
