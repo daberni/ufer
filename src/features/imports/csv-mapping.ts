@@ -36,17 +36,112 @@ export type CsvMapping = {
   account: number | null;
   /** A transaction ID from the export; when mapped, it identifies the row on reimport instead of its content. */
   id: number | null;
+  /** A transaction type column; rows marked as a transfer import as transfers, every other row's type follows its amount. */
+  type: number | null;
 };
 
-/** A source-specific layout, such as a later built-in Buxfer export, recognized by its header row and mapped by column name. */
+/** A source-specific layout, recognized by its exact header row and mapped by column name. Saved templates also remember account and category choices by source value. */
 export type CsvTemplate = {
   id: string;
   name: string;
-  settings: Partial<CsvSettings>;
-  columns: Partial<Record<keyof CsvMapping, string>>;
+  builtIn: boolean;
+  /** The header row the template recognizes, compared cell by cell after trimming. */
+  header: string[];
+  settings: Partial<Pick<CsvSettings, "decimal" | "dateFormat">>;
+  /** Column positions in `header`; positions rather than names keep repeated header names apart. */
+  columns: Partial<Record<keyof CsvMapping, number>>;
+  /** Existing account IDs by source account label. */
+  accounts: Record<string, string>;
+  /** Existing category IDs by category value. */
+  categories: Record<string, string>;
 };
 
-export const builtInTemplates: CsvTemplate[] = [];
+/** Longest header and template name the saved templates accept; the server applies the same limits. */
+export const maxTemplateColumns = 200;
+
+export const maxTemplateNameLength = 100;
+
+export const maxColumnNameLength = 200;
+
+/**
+ * Buxfer's transaction export. `Tags` holds the categories, possibly several separated by commas; `Type` marks transfers, which the automatic rule pairs after the import, and `Status`, `Memo` and `IOU` stay unmapped; amounts are already signed. Buxfer shortens long descriptions with "...", which duplicate matching tolerates because a shortened text is contained in the full one.
+ */
+export const buxferTemplate: CsvTemplate = {
+  id: "builtin:buxfer",
+  name: "Buxfer export",
+  builtIn: true,
+  header: ["ID", "Date", "Description", "Currency", "Amount", "Type", "Tags", "Account", "Status", "Memo", "IOU"],
+  settings: {
+    decimal: ".",
+    dateFormat: "YYYY-MM-DD"
+  },
+  columns: {
+    id: 0,
+    date: 1,
+    description: 2,
+    currency: 3,
+    amount: 4,
+    type: 5,
+    category: 6,
+    account: 7
+  },
+  accounts: {},
+  categories: {}
+};
+
+export const builtInTemplates: CsvTemplate[] = [buxferTemplate];
+
+/** A comparable form of a header row: trimmed cells, order preserved. */
+export function headerKey(header: string[]) {
+  return JSON.stringify(header.map(column => column.trim()));
+}
+
+/** The first template in `templates` for a header; lists put saved templates before built-in ones, so a person can override a built-in layout. */
+export function matchTemplate(header: string[], templates: CsvTemplate[]): CsvTemplate | null {
+  const key = headerKey(header);
+
+  return templates.find(template => headerKey(template.header) === key) ?? null;
+}
+
+/** The format a template applies: the file's current encoding and delimiter, which the person may have corrected and which decide how the header was read, with the template's date and decimal format over the detected ones. */
+export function templateSettings(template: Pick<CsvTemplate, "settings">, detected: CsvSettings, current: CsvSettings | null): CsvSettings {
+  return {
+    ...detected,
+    encoding: current?.encoding ?? detected.encoding,
+    delimiter: current?.delimiter ?? detected.delimiter,
+    ...template.settings
+  };
+}
+
+/** A template's name as listed, marking the ones defined in code. */
+export function templateLabel(template: Pick<CsvTemplate, "name" | "builtIn">) {
+  return template.builtIn ? `${template.name} (built-in)` : template.name;
+}
+
+/** A template that recreates a mapping on files with the same header: column positions, the format, and the given account and category choices. */
+export function templateFromMapping(name: string, header: string[], mapping: CsvMapping, settings: CsvSettings, accounts: Record<string, string>, categories: Record<string, string>): Omit<CsvTemplate, "id" | "builtIn"> {
+  const columns: CsvTemplate["columns"] = {};
+
+  for (const field of Object.keys(mapping) as (keyof CsvMapping)[]) {
+    const column = mapping[field];
+
+    if (column !== null && header[column] !== undefined) {
+      columns[field] = column;
+    }
+  }
+
+  return {
+    name: name.trim(),
+    header: header.map(column => column.trim()),
+    settings: {
+      decimal: settings.decimal,
+      dateFormat: settings.dateFormat
+    },
+    columns,
+    accounts,
+    categories
+  };
+}
 
 /** A mapped row as sent to the server: the date is ISO, the amount a signed decimal with a point. */
 export type MappedRow = {
@@ -61,6 +156,8 @@ export type MappedRow = {
   source: string;
   /** The export's transaction ID; null without an ID column. */
   id: string | null;
+  /** The type column marks the row as a transfer, which automatic pairing then links to its counterpart. */
+  transfer: boolean;
 };
 
 /** A mapped row with its occurrence: how many rows for the same target account with the same date, amount and normalized texts precede it, counting only rows whose currency the target accepts. It keeps genuine repeats distinct, and identical rows get the same set of references however the export orders them or which other accounts it contains. */
@@ -115,7 +212,8 @@ export const emptyMapping: CsvMapping = {
   currency: null,
   category: null,
   account: null,
-  id: null
+  id: null,
+  type: null
 };
 
 /** Decodes file bytes: a UTF-8 BOM or valid UTF-8 means UTF-8, anything else is read as Windows-1252, the usual encoding of legacy bank exports. */
@@ -431,7 +529,8 @@ export function detectDecimal(samples: string[]): DecimalSeparator {
   return filled.some(sample => /,\d{1,2}\)?-?$/.test(sample.trim())) ? "," : ".";
 }
 
-const headerHints: Record<keyof CsvMapping, RegExp> = {
+// A generic "Type" column is never guessed: banks use "Transfer" for external payments, and an internal transfer drops out of cash flow. Templates map it explicitly.
+const headerHints: Record<Exclude<keyof CsvMapping, "type">, RegExp> = {
   date: /^(booking ?date|date|buchungsdatum|datum|buchungstag|transaction date)$/i,
   amount: /^(amount|betrag|value|amount \(\w+\))$/i,
   debit: /^(debit|soll|withdrawal|outflow|ausgang)$/i,
@@ -450,7 +549,7 @@ export function suggestMapping(header: string[]): CsvMapping {
     ...emptyMapping
   };
 
-  for (const field of Object.keys(headerHints) as (keyof CsvMapping)[]) {
+  for (const field of Object.keys(headerHints) as (keyof typeof headerHints)[]) {
     const index = header.findIndex(column => headerHints[field].test(column.trim()));
 
     mapping[field] = index >= 0 ? index : null;
@@ -465,16 +564,14 @@ export function suggestMapping(header: string[]): CsvMapping {
   return mapping;
 }
 
-/** Applies a template's column names to a header; columns the header lacks stay unmapped. */
+/** Applies a template's column positions to a header it matches; positions outside the header stay unmapped. */
 export function templateMapping(template: CsvTemplate, header: string[]): CsvMapping {
   const mapping = {
     ...emptyMapping
   };
 
-  for (const [field, column] of Object.entries(template.columns) as [keyof CsvMapping, string][]) {
-    const index = header.indexOf(column);
-
-    mapping[field] = index >= 0 ? index : null;
+  for (const [field, column] of Object.entries(template.columns) as [keyof CsvMapping, number][]) {
+    mapping[field] = column < header.length ? column : null;
   }
 
   return mapping;
@@ -584,7 +681,8 @@ export function mapRows(rows: string[][], mapping: CsvMapping, settings: CsvSett
       description: cell(mapping.description).slice(0, 2000),
       category: category || null,
       source,
-      id: mapping.id === null ? null : id
+      id: mapping.id === null ? null : id,
+      transfer: isTransferMarker(cell(mapping.type))
     });
   });
 
@@ -592,6 +690,11 @@ export function mapRows(rows: string[][], mapping: CsvMapping, settings: CsvSett
     rows: mapped,
     errors
   };
+}
+
+/** Type values that mark a transfer, such as Buxfer's "Transfer"; other values leave the type to the amount. */
+export function isTransferMarker(value: string) {
+  return /^(transfer|umbuchung|übertrag)$/i.test(value.trim());
 }
 
 /** Numbers identical rows per target account; `targetOf` resolves a row's source account to its target and `currencyOf` to that target's currency, when known. */

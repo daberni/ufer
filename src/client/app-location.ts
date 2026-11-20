@@ -153,6 +153,23 @@ export function accountHref(id: string, scope: string) {
   return scope ? `${accountPath(id)}?${scope}` : accountPath(id);
 }
 
+/** The transactions behind one row of a breakdown by category: a category ID or "uncategorized", income or expenses, in the breakdown's period and currency. */
+export type CategoryTransactions = {
+  period: Period;
+  currency: string;
+  category: string;
+  type: "income" | "expense";
+};
+
+export function categoryTransactionsHref(filter: CategoryTransactions) {
+  return withQueryChanges(viewPaths.transactions, "", {
+    period: filter.period,
+    currency: filter.currency,
+    category: filter.category,
+    type: filter.type
+  });
+}
+
 /** Applies query changes to a URL; default values are omitted so plain view URLs stay plain. */
 export function withQueryChanges(pathname: string, search: string, changes: ViewQueryChanges) {
   const params = new URLSearchParams(search);

@@ -21,6 +21,18 @@ export const valuationInput = z.object({
 export type ManualAccountInput = z.infer<typeof accountInput>;
 
 
-export const accountRenameInput = z.object({
-  name: z.string().trim().min(1).max(100)
+/** The type is optional so a bank-synced account, which keeps its bank's type, is edited by name alone. */
+export const accountEditInput = z.object({
+  name: z.string().trim().min(1).max(100),
+  kind: z.enum(accountKinds).optional()
 });
+
+/** Archiving optionally closes a manual account first by booking its remaining balance away on a date. */
+export const archiveInput = z.object({
+  closing: z.object({
+    date: balanceDate,
+    /** The balance in minor units the user confirmed; a different current balance refuses the closing. */
+    balance_minor: z.number().int(),
+    transfer_account_id: z.string().min(1).nullable().default(null)
+  }).optional()
+}).default({});

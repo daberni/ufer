@@ -5,6 +5,7 @@ import { apiGet } from "@/client/api";
 import { queryKeys } from "@/client/query-keys";
 import { serializePeriod, type Period } from "@/lib/period";
 import type { AccountCashFlow, CashFlow } from "./types";
+import type { NetWorthHistory } from "./net-worth-series";
 
 export function useCashFlow(period: Period, currency: string) {
   const filters = {
@@ -29,6 +30,16 @@ export function useAccountCashFlow(accountId: string, period: Period) {
     queryKey: queryKeys.reports.accountCashFlowFor(filters),
     queryFn: ({ signal }) => apiGet<AccountCashFlow>(`accounts/${encodeURIComponent(accountId)}/cash-flow`, {
       period: filters.period
+    }, signal),
+    placeholderData: keepPreviousData
+  });
+}
+
+export function useNetWorthHistory(currency: string) {
+  return useQuery({
+    queryKey: queryKeys.reports.netWorthHistoryIn(currency),
+    queryFn: ({ signal }) => apiGet<NetWorthHistory>("reports/net-worth/history", {
+      currency
     }, signal),
     placeholderData: keepPreviousData
   });

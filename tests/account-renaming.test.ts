@@ -22,7 +22,8 @@ const account: Account = {
   requisition_id: "connection",
   last_synced_at: null,
   valid_until: null,
-  sync_error: null
+  sync_error: null,
+  archived_at: null
 };
 
 test("renaming a bank account targets its encoded ID, keeps failures in the dialog and refreshes cached account and transaction labels", async context => {
@@ -45,7 +46,7 @@ test("renaming a bank account targets its encoded ID, keeps failures in the dial
   })));
 
   act(() => fireEvent.click(screen.getByRole("button", {
-    name: "Rename account: My bank account"
+    name: "Edit account: My bank account"
   })));
   const dialog = within(screen.getByRole("dialog"));
 
@@ -58,7 +59,7 @@ test("renaming a bank account targets its encoded ID, keeps failures in the dial
       }
     });
     fireEvent.submit(dialog.getByRole("button", {
-      name: "Save name"
+      name: "Save"
     }).closest("form")!);
   });
   await wait(0);
@@ -80,7 +81,7 @@ test("renaming a bank account targets its encoded ID, keeps failures in the dial
     name: "Account name"
   }) as HTMLInputElement).value, "Household");
   act(() => fireEvent.submit(dialog.getByRole("button", {
-    name: "Save name"
+    name: "Save"
   }).closest("form")!));
   await wait(0);
   await respond(environment.requests("accounts/bank%2Fselected")[1], Response.json({

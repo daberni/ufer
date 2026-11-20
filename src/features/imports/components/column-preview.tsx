@@ -21,7 +21,8 @@ const roles: [keyof CsvMapping, string][] = [
   ["currency", "Currency"],
   ["category", "Category"],
   ["account", "Account"],
-  ["id", "ID"]
+  ["id", "ID"],
+  ["type", "Type"]
 ];
 
 const previewRows = 8;
@@ -105,18 +106,15 @@ export function ColumnPreview({
   );
 }
 
-/** Why each line needs attention: errors first, then the check's duplicate findings, then category review. */
+/** Why each line needs attention: errors first, then the check's duplicate findings. */
 export function useRowIssues(draft: ImportDraft) {
   const {
     mapped,
-    summary,
-    reviewLines,
-    prepared
+    summary
   } = draft;
 
   return useMemo(() => {
     const issues = new Map<number, string>();
-    const keptLines = new Set(prepared?.rows.map(row => row.line) ?? []);
     const add = (line: number, reason: string) => {
       if (!issues.has(line)) {
         issues.set(line, reason);
@@ -138,12 +136,6 @@ export function useRowIssues(draft: ImportDraft) {
       add(line, "Possible duplicate: several bookings in Ufer could match. It will be imported.");
     }
 
-    for (const line of reviewLines) {
-      if (keptLines.has(line)) {
-        add(line, "Several tags: choose a category for this value, or rules categorize it.");
-      }
-    }
-
     return issues;
-  }, [mapped, summary, reviewLines, prepared]);
+  }, [mapped, summary]);
 }

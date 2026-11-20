@@ -4,6 +4,8 @@ import { and, between, eq, inArray, like, ne, notInArray, sql } from "drizzle-or
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 import { accounts, categories, transactions } from "@/server/database/schema";
 import { environment } from "@/features/banking/server/environment";
+import type { AccountKind } from "@/features/accounts/account-kinds";
+import { assertWritableAccount } from "@/features/accounts/server/writable-account";
 import { manualEntryPrefix } from "@/features/transactions/server/transfer-repository";
 import { insertCategory } from "@/features/categorization/server/category-repository";
 import { defaultCategoryColor } from "@/features/categorization/category-colors";
@@ -25,10 +27,13 @@ export type MappedEntry = {
   categorySource: "rule" | "manual";
   /** The rule that decided a rule-sourced category. */
   categoryRuleId: string | null;
+  /** Marked as a transfer by the file; saved with an automatic transfer type so pairing can link it. */
+  transfer: boolean;
 };
 
 export type NewImportAccount = {
   name: string;
+  kind: AccountKind;
   currency: string;
 };
 
@@ -69,8 +74,10 @@ export async function findImportTarget(id: string) {
   return db.select({
     id: accounts.id,
     name: accounts.name,
+    kind: accounts.kind,
     currency: accounts.currency,
-    provider: accounts.provider
+    provider: accounts.provider,
+    archived_at: accounts.archived_at
   }).from(accounts).where(and(eq(accounts.id, id), eq(accounts.environment, environment()))).get();
 }
 
@@ -176,11 +183,12 @@ export async function saveMappedEntries(accountId: string, entries: MappedEntry[
         environment: environment(),
         name: newAccount.name,
         institution: "CSV import",
-        kind: "checking",
+        kind: newAccount.kind,
         currency: newAccount.currency
       }).onConflictDoNothing();
     }
 
+    await assertWritableAccount(tx, accountId);
     const found = await classify(tx, accountId, entries, consumed);
     const fresh = entries.filter((_entry, index) => !found.duplicates.has(index));
     let inserted = 0;
@@ -199,7 +207,7 @@ export async function saveMappedEntries(accountId: string, entries: MappedEntry[
         category_id: entry.categoryId,
         category_source: entry.categorySource,
         category_rule_id: entry.categoryRuleId,
-        type: derivedTransactionType(entry.amount)
+        type: entry.transfer ? "transfer" as const : derivedTransactionType(entry.amount)
       }));
       const rows = await tx.insert(transactions).values(values).onConflictDoNothing({
         target: [transactions.account_id, transactions.provider_reference]

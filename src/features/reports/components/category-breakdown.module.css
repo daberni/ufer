@@ -10,16 +10,6 @@
   gap: var(--space-1) var(--space-4);
   margin-top: var(--space-4);
 }
-/* The link has its own line in the phone layout, so figures of different lengths never move it and change the panel's height. */
-.summary > .transactions-link {
-  display: none;
-  flex-basis: 100%;
-}
-@media (--mobile) {
-  .summary > .transactions-link {
-    display: inline-flex;
-  }
-}
 .link-icon {
   flex-shrink: 0;
   color: var(--muted);
@@ -77,10 +67,17 @@
   grid-area: 1 / 1;
   min-width: 0;
 }
-/* Opacity also hides the skeleton shapes, which stay visible inside a hidden parent. */
+/* Opacity also hides the skeleton shapes, which stay visible inside a hidden parent; they must not catch presses meant for the row links underneath. Stacked columns take only their own rows; the reserved height only keeps side-by-side columns still between months. */
 .reserved-rows {
+  display: none;
   visibility: hidden;
   opacity: 0;
+  pointer-events: none;
+}
+@container (width >= 340px) {
+  .reserved-rows {
+    display: block;
+  }
 }
 /* Heading and context stay on one line for every selection, so the panel's height never depends on the title's length. */
 .panel .heading {

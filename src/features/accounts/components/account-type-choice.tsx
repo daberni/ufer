@@ -12,17 +12,19 @@ import type { AccountKind } from "../account-kinds";
 type Props = {
   selected: AccountKind | null;
   onSelect: (kind: AccountKind) => void;
+  legend?: string;
 };
 
 export function AccountTypeChoice({
   selected,
-  onSelect
+  onSelect,
+  legend = "What do you want to add?"
 }: Props) {
   const id = useId();
 
   return (
     <fieldset className={styles["type-choice"]}>
-      <legend className={styles["choice-legend"]}>What do you want to add?</legend>
+      <legend className={styles["choice-legend"]}>{legend}</legend>
       {accountTypeGroups.map(group => (
         <fieldset className={styles["type-group"]} key={group.id}>
           <legend className={styles["group-legend"]}>
