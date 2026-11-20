@@ -1,7 +1,7 @@
 "use client";
 
 import { clsx } from "clsx";
-import { Search } from "lucide-react";
+import { Search, X } from "lucide-react";
 import { useId, useRef, useState, type KeyboardEvent } from "react";
 import styles from "./picker-field.module.css";
 import { categoryIconGroups, categoryIconKeys, categoryIcons, matchesCategoryIconSearch, type CategoryIconGroup, type CategoryIconKey } from "@/features/categorization/category-icons";
@@ -35,6 +35,7 @@ export function CategoryIconField({
 }: Props) {
   const id = useId();
   const optionsRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
   const [search, setSearch] = useState("");
   const {
     fieldRef,
@@ -177,6 +178,7 @@ export function CategoryIconField({
             <label className={styles["search"]}>
               <Search size={16} aria-hidden="true" />
               <input
+                ref={searchRef}
                 type="search"
                 placeholder="Search icons"
                 aria-label="Search icons"
@@ -186,6 +188,19 @@ export function CategoryIconField({
                 onChange={event => setSearch(event.target.value)}
                 onKeyDown={handleSearchKeyDown}
               />
+              {search !== "" && (
+                <button
+                  type="button"
+                  className={styles["clear-search"]}
+                  aria-label="Clear search"
+                  onClick={() => {
+                    setSearch("");
+                    searchRef.current?.focus();
+                  }}
+                >
+                  <X size={16} aria-hidden="true" />
+                </button>
+              )}
             </label>
             <div
               ref={optionsRef}

@@ -139,17 +139,52 @@
 .swatch[aria-checked="true"] {
   box-shadow: inset 0 0 0 2px var(--ink);
 }
+/* One framed field around the magnifier, the text and the clear button; the frame carries the focus ring. */
 .popover .search {
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-1);
   margin: 0 0 var(--space-3);
+  padding: 0 var(--space-1) 0 var(--space-3);
+  min-height: 42px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
   color: var(--muted);
+}
+.popover .search:has(input:focus-visible) {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
 }
 .search input {
   flex: 1;
   min-width: 0;
+  min-height: 0;
+  padding: var(--space-2) var(--space-1);
+  border: 0;
+  background: transparent;
+}
+.search input:focus-visible {
+  outline: none;
+}
+/* The browser's own clear control is replaced by a button with a touch-sized target. */
+.search input::-webkit-search-cancel-button {
+  appearance: none;
+}
+.clear-search {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  cursor: pointer;
+}
+.clear-search:hover {
+  background: var(--soft);
+  color: var(--ink);
 }
 .icon-options {
   display: flex;
@@ -207,7 +242,8 @@
   .icon-trigger {
     height: 44px;
   }
-  .toggle {
+  .toggle,
+  .clear-search {
     width: 44px;
     height: 44px;
   }
