@@ -21,7 +21,7 @@ export type NewRule = Omit<Rule, "enabled"> & {
 // Bounds the bound parameters of each update for both local SQLite and remote libSQL deployments.
 const assignmentChunkSize = 500;
 
-type RuleCandidate = Pick<Transaction, "id" | "counterparty" | "description">;
+type RuleCandidate = Pick<Transaction, "id" | "counterparty" | "description" | "counterparty_override" | "description_override">;
 
 export type SelectRuleAssignments = (rules: Rule[], entries: RuleCandidate[]) => string[];
 
@@ -60,7 +60,9 @@ async function adoptManualAssignments(tx: DatabaseTransaction, rule: Pick<Rule, 
   const candidates = await tx.select({
     id: transactions.id,
     counterparty: transactions.counterparty,
-    description: transactions.description
+    description: transactions.description,
+    counterparty_override: transactions.counterparty_override,
+    description_override: transactions.description_override
   }).from(transactions).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(scope);
   const eligible = candidates.filter(candidate => candidate.id !== adoption.excludedTransactionId);
   const ids = adoption.select(rules, eligible);
@@ -92,7 +94,9 @@ async function adoptSourceTransaction(tx: DatabaseTransaction, rule: NewRule, ru
   const candidates = await tx.select({
     id: transactions.id,
     counterparty: transactions.counterparty,
-    description: transactions.description
+    description: transactions.description,
+    counterparty_override: transactions.counterparty_override,
+    description_override: transactions.description_override
   }).from(transactions).where(scope);
 
   if (source.select(rules, candidates).length === 0) {
@@ -140,7 +144,9 @@ async function storeRule(tx: DatabaseTransaction, rule: NewRule, assignments: Ru
   const candidates = await tx.select({
     id: transactions.id,
     counterparty: transactions.counterparty,
-    description: transactions.description
+    description: transactions.description,
+    counterparty_override: transactions.counterparty_override,
+    description_override: transactions.description_override
   }).from(transactions).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(scope);
   const ids = selectAssignments(rules, candidates);
   let categorized = 0;
@@ -245,7 +251,9 @@ export async function findManualAssignments() {
     id: transactions.id,
     category_id: transactions.category_id,
     counterparty: transactions.counterparty,
-    description: transactions.description
+    description: transactions.description,
+    counterparty_override: transactions.counterparty_override,
+    description_override: transactions.description_override
   }).from(transactions).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(scope);
 }
 
@@ -258,7 +266,9 @@ export async function findUncorrectedTransactions() {
     category_id: transactions.category_id,
     category_rule_id: transactions.category_rule_id,
     counterparty: transactions.counterparty,
-    description: transactions.description
+    description: transactions.description,
+    counterparty_override: transactions.counterparty_override,
+    description_override: transactions.description_override
   }).from(transactions).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(scope);
 }
 

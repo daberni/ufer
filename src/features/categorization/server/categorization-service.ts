@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { HttpError, ValidationError } from "@/lib/errors";
 import { z } from "zod";
-import { decidingRule, prepareRules, ruleAssignment, validatePattern, type Rule } from "@/lib/rules";
+import { decidingRule, prepareRules, ruleAssignment, validatePattern, type Rule, type RuleText } from "@/lib/rules";
 import { normalizeCategoryName } from "@/lib/category-name";
 import { maximumRules, nextPriority, orderedPriorities } from "@/features/categorization/rule-order";
 import { isCategoryIcon } from "@/features/categorization/category-icons";
@@ -41,10 +41,8 @@ const rulePreviewInput = z.object({
   source_transaction_id: z.string().min(1).optional()
 });
 
-type RuleCandidate = {
+type RuleCandidate = RuleText & {
   id: string;
-  counterparty: string;
-  description: string;
 };
 
 /** The entries this rule decides, using the same persisted-ID tie-break as future matching. A stored rule with the same ID is replaced by the draft. */
@@ -52,7 +50,7 @@ function decidedBy<Entry extends RuleCandidate>(rule: Rule, storedRules: Rule[],
   const others = storedRules.filter(stored => stored.id !== rule.id);
   const rules = prepareRules([...others, rule]);
 
-  return entries.filter(entry => decidingRule(entry.counterparty, entry.description, rules)?.id === rule.id);
+  return entries.filter(entry => decidingRule(entry, rules)?.id === rule.id);
 }
 
 /** Selects the candidates the stored rule with this ID decides; used inside the write transaction that adopts them. */
@@ -60,7 +58,7 @@ function decidedByStoredRule(ruleId: string): SelectRuleAssignments {
   return (storedRules, entries) => {
     const rules = prepareRules(storedRules);
 
-    return entries.filter(entry => decidingRule(entry.counterparty, entry.description, rules)?.id === ruleId).map(entry => entry.id);
+    return entries.filter(entry => decidingRule(entry, rules)?.id === ruleId).map(entry => entry.id);
   };
 }
 
@@ -356,7 +354,7 @@ export async function applyRulesToUncorrectedTransactions() {
   const entries = await findUncorrectedTransactions();
   let recategorized = 0;
   const changes = entries.flatMap(entry => {
-    const assignment = ruleAssignment(entry.counterparty, entry.description, rules);
+    const assignment = ruleAssignment(entry, rules);
     const categoryChanged = assignment.categoryId !== entry.category_id;
 
     if (!categoryChanged && assignment.ruleId === entry.category_rule_id) {

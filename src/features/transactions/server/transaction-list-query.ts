@@ -30,13 +30,18 @@ function entryState(row: Record<string, unknown>) {
   };
 }
 
-/** What the rules would assign a manually categorized row, which it can return to; null for a rule-assigned row. Rules match the source's text. */
+/** What the rules would assign a manually categorized row, which it can return to; null for a rule-assigned row. Rules match the source text and the text with the overrides applied. */
 function automaticAssignment(row: Record<string, unknown>, rules: PreparedRule[] | null) {
   if (row.category_source !== "manual" || !rules) {
     return null;
   }
 
-  const assignment = ruleAssignment(String(row.source_counterparty), String(row.source_description), rules);
+  const assignment = ruleAssignment({
+    counterparty: String(row.source_counterparty),
+    description: String(row.source_description),
+    counterparty_override: row.counterparty_override == null ? null : String(row.counterparty_override),
+    description_override: row.description_override == null ? null : String(row.description_override)
+  }, rules);
 
   return {
     category_id: assignment.categoryId,
@@ -129,7 +134,7 @@ export async function readTransactionPage(filters: DashboardFilters) {
   // Banks report dates without a time, so bookings within a day are ordered by payee and description; empty payees come last.
   const transactionsQuery = client.execute({
     sql: `
-      SELECT t.id,t.booking_date,t.amount_minor,t.currency,t.instructed_amount_minor,t.instructed_currency,COALESCE(t.counterparty_override,t.counterparty) AS counterparty,COALESCE(t.description_override,t.description) AS description,t.counterparty AS source_counterparty,t.description AS source_description,t.suppressed_at IS NOT NULL AS hidden,a.name AS account_name,t.account_id,t.category_id,t.category_source,t.category_rule_id,t.type,t.type_source,a.provider='manual' AS manual_account,t.provider_reference LIKE ? AS created_counterpart,${enteredColumn("t", "a")} AS entered,${enteredColumn("p", "pa")} AS counterpart_entered,p.id AS counterpart_id,pa.name AS counterpart_account_name,p.booking_date AS counterpart_booking_date
+      SELECT t.id,t.booking_date,t.amount_minor,t.currency,t.instructed_amount_minor,t.instructed_currency,COALESCE(t.counterparty_override,t.counterparty) AS counterparty,COALESCE(t.description_override,t.description) AS description,t.counterparty AS source_counterparty,t.description AS source_description,t.counterparty_override,t.description_override,t.suppressed_at IS NOT NULL AS hidden,a.name AS account_name,t.account_id,t.category_id,t.category_source,t.category_rule_id,t.type,t.type_source,a.provider='manual' AS manual_account,t.provider_reference LIKE ? AS created_counterpart,${enteredColumn("t", "a")} AS entered,${enteredColumn("p", "pa")} AS counterpart_entered,p.id AS counterpart_id,pa.name AS counterpart_account_name,p.booking_date AS counterpart_booking_date
       FROM transactions t
       JOIN accounts a ON a.id=t.account_id
       LEFT JOIN transactions p ON p.transfer_id=t.transfer_id AND p.id<>t.id
