@@ -37,6 +37,7 @@ export function PayeeInput({
 }: Props) {
   const input = useRef<HTMLInputElement>(null);
   const popupRef = useRef<HTMLDivElement>(null);
+  const listboxRef = useRef<HTMLUListElement>(null);
   const listboxId = useId();
   const [query, setQuery] = useState(defaultValue);
   // The text suggestions were last requested for; it follows typing once typing pauses.
@@ -59,6 +60,14 @@ export function PayeeInput({
 
     return () => clearTimeout(timer);
   }, [query, requested]);
+
+  useEffect(() => {
+    if (expanded) {
+      listboxRef.current?.querySelector("[data-active]")?.scrollIntoView({
+        block: "nearest"
+      });
+    }
+  }, [expanded, active]);
 
   useAnchoredPopover({
     open: expanded,
@@ -161,6 +170,7 @@ export function PayeeInput({
       </label>
       <div ref={popupRef} className={styles["popup"]} popover="manual">
         <ul
+          ref={listboxRef}
           id={listboxId}
           className={styles["listbox"]}
           role="listbox"

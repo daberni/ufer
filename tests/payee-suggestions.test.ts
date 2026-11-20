@@ -291,3 +291,24 @@ test("suggestions for earlier text disappear as soon as the text changes, until 
   }));
   assert.deepEqual(options(screen).map(option => option.textContent), ["Bakery Example"]);
 });
+
+test("the highlighted suggestion scrolls into view in a scrolling list", async context => {
+  const {
+    field,
+    requests
+  } = await renderPayeeInput(context);
+  const scrolled: (string | null)[] = [];
+
+  window.HTMLElement.prototype.scrollIntoView = function (this: HTMLElement) {
+    scrolled.push(this.textContent);
+  };
+
+  type(field, "shop");
+  await wait(300);
+  await respond(requests("transactions/payees")[0], Response.json({
+    payees: ["Shop A", "Shop B", "Shop C"]
+  }));
+
+  press(field, "ArrowUp");
+  assert.equal(scrolled.at(-1), "Shop C");
+});
