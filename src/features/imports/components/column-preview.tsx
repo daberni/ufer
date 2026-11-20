@@ -10,6 +10,7 @@ import type { CsvMapping } from "@/features/imports/csv-mapping";
 import { rowCount } from "@/features/imports/import-plan";
 import { problemProps } from "./field-problem";
 import type { ImportDraft } from "./use-import-draft";
+import { formatCount } from "@/lib/locale";
 
 const roles: [keyof CsvMapping, string][] = [
   ["date", "Date"],
@@ -54,7 +55,7 @@ export function ColumnPreview({
     <section className={clsx(ui["panel"], styles["section"])} aria-labelledby="import-columns">
       <div className={styles["heading"]}>
         <h2 id="import-columns">{reviewing ? "Rows to review" : "Columns"}</h2>
-        <p className={ui["form-hint"]}>{reviewing ? `${reviewCount.toLocaleString("en")} rows need attention${reviewCount > maxReviewRows ? `; the first ${maxReviewRows} are shown` : ""}.` : "Choose what each column means. Columns you leave on Ignore are not imported."}</p>
+        <p className={ui["form-hint"]}>{reviewing ? `${formatCount(reviewCount)} rows need attention${reviewCount > maxReviewRows ? `; the first ${maxReviewRows} are shown` : ""}.` : "Choose what each column means. Columns you leave on Ignore are not imported."}</p>
       </div>
       {draft.problem && <p id="import-columns-problem" className={styles["problem"]}>{draft.problem}</p>}
       <div

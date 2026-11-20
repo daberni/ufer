@@ -4,6 +4,7 @@ import ui from "../../../components/ui/primitives.module.css";
 
 import { useId, useState } from "react";
 import styles from "./manual-adoption-option.module.css";
+import { formatCount } from "@/lib/locale";
 
 /** The manual assignments a previewed rule decides; null while no current count is known. */
 export type ManualMatches = {
@@ -17,7 +18,7 @@ export function adoptByDefault(matches: ManualMatches) {
 }
 
 function transactionCount(count: number) {
-  return count === 1 ? "1 manually categorized transaction" : `${count.toLocaleString("en")} manually categorized transactions`;
+  return count === 1 ? "1 manually categorized transaction" : `${formatCount(count)} manually categorized transactions`;
 }
 
 /**
@@ -56,7 +57,7 @@ export function ManualAdoptionOption({
   let hint = single ? "It already has this rule's category." : "They already have this rule's category.";
 
   if (differing > 0) {
-    hint = single ? "It has a different category, which the rule would replace." : `${differing.toLocaleString("en")} of them ${differing === 1 ? "has" : "have"} a different category, which the rule would replace.`;
+    hint = single ? "It has a different category, which the rule would replace." : `${formatCount(differing)} of them ${differing === 1 ? "has" : "have"} a different category, which the rule would replace.`;
   }
 
 

@@ -14,6 +14,7 @@ import { useDeleteCategory, useDeleteRule } from "@/features/categorization/muta
 import { useCategories, useCategoryUsage } from "@/features/categorization/queries";
 import type { Category, CategoryUsage, Rule } from "@/features/categorization/types";
 import { CategoryPicker } from "./category-picker";
+import { formatCount } from "@/lib/locale";
 
 /** Opens the deletion step of an edit dialog. */
 export function DeleteButton({
@@ -101,7 +102,7 @@ export function RuleDeleteConfirmation({
 }
 
 function count(value: number, singular: string, plural: string) {
-  return `${value.toLocaleString("en")} ${value === 1 ? singular : plural}`;
+  return `${formatCount(value)} ${value === 1 ? singular : plural}`;
 }
 
 type Outcome = "reassign" | "uncategorize";

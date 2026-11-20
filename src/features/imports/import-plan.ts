@@ -1,6 +1,7 @@
 import { categoryNameKey } from "@/lib/category-name";
 import { categoryTags, currencyAllows, maxAccountNameLength, parseAmount, splitCurrency, type DecimalSeparator, type MappedRow } from "./csv-mapping";
 import type { CategoryChoice, ImportTarget } from "./mutations";
+import { formatCount } from "@/lib/locale";
 
 /** What the person chose for one source account's rows. */
 export type TargetChoice = {
@@ -48,7 +49,7 @@ type AccountOption = {
 };
 
 export function rowCount(count: number) {
-  return `${count.toLocaleString("en")} ${count === 1 ? "row" : "rows"}`;
+  return `${formatCount(count)} ${count === 1 ? "row" : "rows"}`;
 }
 
 /** Distinct source account values with their row counts, in file order; without an account column all rows share the empty source. */

@@ -9,6 +9,7 @@ import type { KeyboardEvent, ReactNode } from "react";
 import { creatableName, matchOptions, searchableSelectKeyAction, searchableSelectToggleKeyAction, shownOptionLimit, type SearchableSelectAction } from "./searchable-select-behavior";
 import { popoverMaxWidth, popoverPlacement, visibleArea } from "./popover-placement";
 import { useDismiss } from "./use-dismiss";
+import { formatCount } from "@/lib/locale";
 
 export type SearchableSelectOption<Value> = {
   key: string;
@@ -109,7 +110,7 @@ export function SearchableSelect<Value>({
   const active = Math.min(activeIndex, optionCount - 1);
   const createLabel = `Create ${noun.one} “${createName}”`;
   const optionId = (index: number) => `${listboxId}-option-${index}`;
-  const countText = (count: number) => (count === 1 ? `1 ${noun.one}` : `${count.toLocaleString("en")} ${noun.other}`);
+  const countText = (count: number) => (count === 1 ? `1 ${noun.one}` : `${formatCount(count)} ${noun.other}`);
   const truncated = matches.length > shown.length;
   const listLabel = `${noun.other.charAt(0).toLocaleUpperCase()}${noun.other.slice(1)}`;
   // A selection shown as the placeholder hint (an empty field reading "Uncategorized") keeps its icon like one shown as text.

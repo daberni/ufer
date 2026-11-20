@@ -16,6 +16,7 @@ import { CategoryChoices } from "./category-choices";
 import { ImportSummaryBar } from "./import-summary-bar";
 import { useImportDraft } from "./use-import-draft";
 import { takeImportFile } from "@/features/imports/pending-import-file";
+import { formatCount } from "@/lib/locale";
 
 /** The full-page CSV import: file, accounts, columns and categories, then a check and the import. */
 export function CsvImportPage() {
@@ -38,7 +39,7 @@ export function CsvImportPage() {
       <div className={styles["page"]}>
         <section className={clsx(ui["panel"], styles["done"])} aria-labelledby="import-done">
           <CircleCheck size={32} aria-hidden="true" />
-          <h2 id="import-done">{draft.imported.newRows.toLocaleString("en")} {draft.imported.newRows === 1 ? "transaction" : "transactions"} imported</h2>
+          <h2 id="import-done">{formatCount(draft.imported.newRows)} {draft.imported.newRows === 1 ? "transaction" : "transactions"} imported</h2>
           <p className={ui["form-hint"]}>Rules categorized the rows without a chosen category. Importing the same file again skips the rows it already holds.</p>
           <div className={ui["button-group"]}>
             <Link className={clsx(ui["button"], ui["primary"])} href={viewPaths.transactions}>

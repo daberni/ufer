@@ -1,4 +1,5 @@
 import { ValidationError } from "./errors";
+import { appLocale } from "./locale";
 
 // Pinned minor units of the currencies stored so far; HUF keeps 2 although the runtime formats it with 0.
 const pinnedExponents: Record<string, number> = {
@@ -32,7 +33,7 @@ export function currencyExponent(currency: string) {
     return undefined;
   }
 
-  return new Intl.NumberFormat("en", {
+  return new Intl.NumberFormat(appLocale, {
     style: "currency",
     currency
   }).resolvedOptions().maximumFractionDigits;
@@ -75,12 +76,36 @@ export function minorUnits(value: string, currency = "EUR"): number {
   return result;
 }
 
+const moneyFormats = new Map<string, Intl.NumberFormat>();
+
+function moneyFormat(currency: string, signed: boolean) {
+  const key = `${currency}:${signed}`;
+  let format = moneyFormats.get(key);
+
+  if (!format) {
+    const exponent = currencyExponent(currency) ?? 2;
+
+    format = new Intl.NumberFormat(appLocale, {
+      style: "currency",
+      currency,
+      minimumFractionDigits: exponent,
+      maximumFractionDigits: exponent,
+      signDisplay: signed ? "exceptZero" : "auto"
+    });
+    moneyFormats.set(key, format);
+  }
+
+  return format;
+}
+
+/** Minor units in the application locale's standard currency format, for example -123456 EUR as "-€1,234.56". */
 export function money(value: number, currency = "EUR") {
-  return new Intl.NumberFormat("en-GB", {
-    style: "currency",
-    currency,
-    maximumFractionDigits: currencyExponent(currency) ?? 2
-  }).format(value / 10 ** (currencyExponent(currency) ?? 2));
+  return moneyFormat(currency, false).format(value / 10 ** (currencyExponent(currency) ?? 2));
+}
+
+/** Like money, but positive amounts also carry a plus sign, for example "+€12.50"; zero stays unsigned. */
+export function signedMoney(value: number, currency = "EUR") {
+  return moneyFormat(currency, true).format(value / 10 ** (currencyExponent(currency) ?? 2));
 }
 
 /** Minor units as a plain decimal string for an amount field, for example -1250 EUR as "-12.50". */

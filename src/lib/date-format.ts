@@ -1,9 +1,7 @@
 import { Temporal } from "temporal-polyfill";
 import type { Period } from "./period";
+import { appLocale } from "./locale";
 import { today } from "./time";
-
-// Central place for date display so a locale can be introduced in one spot.
-const displayLocale = "en-GB";
 
 export type DateDisplay = {
   dateTime: string;
@@ -16,7 +14,7 @@ export type DateDisplay = {
 export function describeDate(value: Temporal.PlainDate | Temporal.ZonedDateTime, now = Temporal.Now.instant()): DateDisplay {
   // Calendar dates follow the product year; timestamps compare years in the same zone used to display them.
   const currentYear = value instanceof Temporal.PlainDate ? today(now).year : now.toZonedDateTimeISO(value.timeZoneId).year;
-  const label = value.toLocaleString(displayLocale, {
+  const label = value.toLocaleString(appLocale, {
     day: "numeric",
     month: "short",
     year: value.year === currentYear ? undefined : "numeric"
@@ -26,7 +24,7 @@ export function describeDate(value: Temporal.PlainDate | Temporal.ZonedDateTime,
     return {
       dateTime: value.toString(),
       label,
-      title: value.toLocaleString(displayLocale, {
+      title: value.toLocaleString(appLocale, {
         dateStyle: "full"
       })
     };
@@ -35,7 +33,7 @@ export function describeDate(value: Temporal.PlainDate | Temporal.ZonedDateTime,
   return {
     dateTime: value.toInstant().toString(),
     label,
-    title: value.toLocaleString(displayLocale, {
+    title: value.toLocaleString(appLocale, {
       dateStyle: "long",
       timeStyle: "long"
     })
@@ -44,7 +42,7 @@ export function describeDate(value: Temporal.PlainDate | Temporal.ZonedDateTime,
 
 /** A calendar day with its year, for values that may lie in another year, such as a balance history. */
 export function dateWithYear(value: Temporal.PlainDate) {
-  return value.toLocaleString(displayLocale, {
+  return value.toLocaleString(appLocale, {
     day: "numeric",
     month: "short",
     year: "numeric"
@@ -58,10 +56,10 @@ export function describeMonth(month: Temporal.PlainYearMonth) {
   });
 
   return {
-    label: firstDay.toLocaleString(displayLocale, {
+    label: firstDay.toLocaleString(appLocale, {
       month: "short"
     }),
-    title: firstDay.toLocaleString(displayLocale, {
+    title: firstDay.toLocaleString(appLocale, {
       month: "long",
       year: "numeric"
     })

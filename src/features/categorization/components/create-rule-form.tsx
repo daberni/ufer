@@ -17,6 +17,7 @@ import { Dialog } from "@/components/ui/dialog";
 import type { Rule, RulePreviewDraft } from "@/features/categorization/types";
 import { DeleteButton, RuleDeleteConfirmation } from "./deletion-forms";
 import { ManualAdoptionOption, useManualAdoption, type ManualMatches } from "./manual-adoption-option";
+import { formatCount } from "@/lib/locale";
 
 type RuleFormProps = DialogFormProps & {
   rule?: Rule | null;
@@ -63,7 +64,7 @@ function sameDraft(first: RulePreviewDraft | null, second: RulePreviewDraft | nu
 }
 
 function transactionCount(count: number) {
-  return count === 1 ? "1 transaction" : `${count.toLocaleString("en")} transactions`;
+  return count === 1 ? "1 transaction" : `${formatCount(count)} transactions`;
 }
 
 /** What the drafted rule would decide when rules are applied; nothing changes before that. The draft must keep its identity while its fields are unchanged. */
@@ -136,7 +137,7 @@ function useRuleImpact(draft: RulePreviewDraft | null) {
     pending: false,
     previewId,
     manual,
-    text: `Would decide ${transactionCount(preview.data.matched)} without a manual category when rules are applied; ${preview.data.uncategorized.toLocaleString("en")} of them ${preview.data.uncategorized === 1 ? "is" : "are"} uncategorized now.`
+    text: `Would decide ${transactionCount(preview.data.matched)} without a manual category when rules are applied; ${formatCount(preview.data.uncategorized)} of them ${preview.data.uncategorized === 1 ? "is" : "are"} uncategorized now.`
   };
 }
 

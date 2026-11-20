@@ -7,6 +7,7 @@ import Link from "next/link";
 import styles from "./wealth-summary.module.css";
 import { ArrowDownLeft, ArrowUpRight, ChevronRight, Wallet } from "lucide-react";
 import { periodLabel } from "@/lib/date-format";
+import { formatPercent } from "@/lib/locale";
 import { currentMonth, periodFromJson, periodToJson } from "@/lib/period";
 import { money } from "@/lib/money";
 import { valueMask, withPlaceholder } from "@/components/ui/result-presentation";
@@ -23,11 +24,6 @@ type Props = {
   cashFlowArea: Area<CashFlow>;
 };
 
-const percent = new Intl.NumberFormat("en", {
-  style: "percent",
-  maximumFractionDigits: 0
-});
-
 /** Refunds and missing income need an explanation instead of a misleading spending percentage. */
 function spendingShareText(income: number, expenses: number) {
   if (expenses <= 0) {
@@ -38,7 +34,7 @@ function spendingShareText(income: number, expenses: number) {
     return "No income to compare spending with";
   }
 
-  return `Spent ${percent.format(expenses / income)} of income`;
+  return `Spent ${formatPercent(expenses / income)} of income`;
 }
 
 export function WealthSummary({

@@ -6,6 +6,7 @@ import type { Rule } from "@/lib/rules";
 import { highestPriority, maximumRules, nextPriority, orderedPriorities } from "@/features/categorization/rule-order";
 import type { Transaction } from "@/server/database/models";
 import { accounts, categorizationRules, transactions } from "@/server/database/schema";
+import { formatCount } from "@/lib/locale";
 
 /** Rules in matching order: priority first, then their persisted ID. */
 export async function listRules() {
@@ -34,7 +35,7 @@ export async function requireRuleCapacity(tx: DatabaseTransaction, added: number
   }).from(categorizationRules).get();
 
   if ((stored?.total ?? 0) + added > maximumRules) {
-    throw new HttpError(409, `Ufer supports at most ${maximumRules.toLocaleString("en")} rules. Delete a rule before creating another.`);
+    throw new HttpError(409, `Ufer supports at most ${formatCount(maximumRules)} rules. Delete a rule before creating another.`);
   }
 }
 

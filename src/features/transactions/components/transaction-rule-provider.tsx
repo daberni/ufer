@@ -7,6 +7,7 @@ import { RuleFromAssignmentDialog } from "@/features/categorization/components/r
 import { RuleDialog } from "@/features/categorization/components/create-rule-form";
 import { useRules } from "@/features/categorization/queries";
 import type { Rule } from "@/features/categorization/types";
+import { formatCount } from "@/lib/locale";
 
 type RuleDraft = {
   transactionId: string;
@@ -30,7 +31,7 @@ function createdText(categorized: number) {
     return "Rule created.";
   }
 
-  return `Rule created; ${categorized.toLocaleString("en")} ${categorized === 1 ? "transaction" : "transactions"} categorized.`;
+  return `Rule created; ${formatCount(categorized)} ${categorized === 1 ? "transaction" : "transactions"} categorized.`;
 }
 
 const RuleContext = createContext<RuleActions | null>(null);

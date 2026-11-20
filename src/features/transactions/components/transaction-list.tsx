@@ -6,7 +6,7 @@ import { clsx } from "clsx";
 import styles from "./transaction-list.module.css";
 import { useState } from "react";
 import { DateValue } from "@/components/ui/date-value";
-import { money } from "@/lib/money";
+import { money, signedMoney } from "@/lib/money";
 import { TransactionCategory, TransactionCategorySkeleton } from "@/features/transactions/components/transaction-category";
 import { transactionTypeLabels } from "@/features/transactions/transaction-types";
 import { TransactionTypeIcon, transferDirection } from "@/features/transactions/components/transaction-type";
@@ -117,8 +117,7 @@ function TransactionRow({
         <DateValue value={transaction.booking_date} />
       </td>
       <td role="cell" className={clsx(styles["amount"], incoming && ui["positive"])}>
-        {incoming ? "+" : ""}
-        {money(transaction.amount_minor, transaction.currency)}
+        {signedMoney(transaction.amount_minor, transaction.currency)}
         {original && <span className={styles["original-amount"]}>{original}</span>}
         {transaction.hidden && <span className={styles["hidden-tag"]}>Hidden</span>}
       </td>

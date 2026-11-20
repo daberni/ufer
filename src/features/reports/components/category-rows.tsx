@@ -2,15 +2,11 @@ import ui from "../../../components/ui/primitives.module.css";
 
 import styles from "./category-rows.module.css";
 import { clsx } from "clsx";
+import { formatPercent } from "@/lib/locale";
 import { money } from "@/lib/money";
 import { CategoryLabel, type DisplayCategory, type NeutralCategory } from "@/features/categorization/components/category-label";
 import { categoryBarColor, neutralChipColor, themedColor } from "@/features/categorization/category-colors";
 import type { CategoryGroup } from "@/features/reports/category-groups";
-
-const shareFormat = new Intl.NumberFormat("en-GB", {
-  style: "percent",
-  maximumFractionDigits: 0
-});
 
 /** The rows as one sentence for an accessible description, e.g. "Groceries €120.00 (40%), Rent €180.00 (60%)". */
 export function describeCategoryGroups(groups: CategoryGroup[], currency: string) {
@@ -18,7 +14,7 @@ export function describeCategoryGroups(groups: CategoryGroup[], currency: string
     return "None.";
   }
 
-  return groups.map(group => `${group.name} ${money(group.amount, currency)} (${shareFormat.format(group.share)})`).join(", ");
+  return groups.map(group => `${group.name} ${money(group.amount, currency)} (${formatPercent(group.share)})`).join(", ");
 }
 
 function groupCategory(group: CategoryGroup): DisplayCategory | NeutralCategory {

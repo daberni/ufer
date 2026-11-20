@@ -14,7 +14,7 @@ import { Select } from "@/components/ui/select";
 import { CategoryPicker } from "@/features/categorization/components/category-picker";
 import { useCategories } from "@/features/categorization/queries";
 import { describeDate } from "@/lib/date-format";
-import { decimalAmount, money } from "@/lib/money";
+import { decimalAmount, signedMoney } from "@/lib/money";
 import { isTransactionType, manualAccountTypes, transactionTypeLabels, transactionTypes, type TransactionType } from "@/features/transactions/transaction-types";
 import { useDeleteTransaction, useHideTransaction, useSaveTransaction, type EntryEdit, type TransactionEdit } from "@/features/transactions/mutations";
 import { useTransferOptions } from "@/features/transactions/queries";
@@ -41,10 +41,6 @@ type Target = {
 const noTarget: Target = {
   kind: "none"
 };
-
-function signedMoney(amount: number, currency: string) {
-  return `${amount > 0 ? "+" : ""}${money(amount, currency)}`;
-}
 
 function bookingLabel(booking: TransferBooking) {
   const date = describeDate(Temporal.PlainDate.from(booking.booking_date)).label;
