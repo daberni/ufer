@@ -102,7 +102,8 @@ function CategoryRow({
             {categories.map(category => <option key={category.id} value={`existing:${category.id}`}>{category.name}</option>)}
           </optgroup>
           {!value.matchId && <option value="create">Create “{value.value}”</option>}
-          <option value="rules">Use rules</option>
+          {/* The server stores the rules choice of a part as uncategorized, since rules leave split bookings alone. */}
+          <option value="rules">{value.splitOnly ? "Leave uncategorized" : "Use rules"}</option>
         </Select>
         <FieldProblem problem={problem} id={`${selectId}-problem`} />
       </div>

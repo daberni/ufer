@@ -372,6 +372,7 @@ test("remembered choices apply once accounts and categories load, and never over
     value: "Dining,Travel",
     rows: 1,
     multiTag: true,
+    splitOnly: false,
     matchId: null
   };
   const notLoaded = templateChoices(template, [], []);

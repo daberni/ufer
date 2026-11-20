@@ -135,11 +135,12 @@ test("the category review lists each part's name instead of the tag list", () =>
   assert.deepEqual(errors, []);
   assert.deepEqual(rows.map(row => row.category), [null, null, null, "Groceries"]);
   assert.match(rows[2].splitNote ?? "", /add up to/);
-  assert.deepEqual(categoryValues(rows, []).map(value => [value.value, value.rows, value.multiTag]), [
-    ["Groceries", 2, false],
-    ["Car", 1, false],
-    ["Car / Fuel", 1, false],
-    ["Cash", 1, false]
+  // Rules never categorize parts, so values used only by parts are not offered to the rules.
+  assert.deepEqual(categoryValues(rows, []).map(value => [value.value, value.rows, value.multiTag, value.splitOnly]), [
+    ["Groceries", 2, false, false],
+    ["Car", 1, false, true],
+    ["Car / Fuel", 1, false, true],
+    ["Cash", 1, false, true]
   ]);
 });
 
