@@ -130,7 +130,7 @@ test("a new rule applied to uncategorized bookings records itself", async contex
     mode: "keyword",
     category_id: "groceries",
     apply_to_uncategorized: true
-  }, "en");
+  });
   const created = (await listRules()).find(rule => rule.name === "Bakeries");
 
   assert.equal(result.categorized, 1);
@@ -223,7 +223,7 @@ async function createRuleFrom(sourceTransactionId: string, pattern: string, cate
     mode: "keyword",
     category_id: categoryId,
     source_transaction_id: sourceTransactionId
-  }, "en");
+  });
   const created = (await listRules()).find(rule => rule.name === pattern);
 
   return {

@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { acceptedLanguages, defaultFormatLocale, formatCount, formatPercent, isNegativePercent, parseFormatLocalePreference, resolveFormatLocale } from "../src/lib/locale";
 import { money, signedMoney } from "../src/lib/money";
+import { formatLocaleOptions, formatLocaleSample } from "../src/features/appearance/format-locale-options";
+import { currentFormatLocale } from "../src/server/http/request-locale";
 
 // These cases use en-GB; CLDR separates a letter currency code from the number with a no-break space.
 test("amounts use the application locale's standard currency format with the minus before the symbol", () => {
@@ -83,4 +85,29 @@ test("request-controlled private-use and unknown subtags collapse to the runtime
   assert.deepEqual([...resolved], ["en"]);
   assert.equal(resolveFormatLocale("browser", "de-AT-x-anything"), "de-AT");
   assert.equal(resolveFormatLocale("browser", "en-u-co-unknown"), "en");
+});
+
+test("a stored preference is canonicalized, and an unusable one follows the browser", () => {
+  assert.equal(parseFormatLocalePreference("de-AT-x-private"), "de-AT");
+  assert.equal(parseFormatLocalePreference("!!"), "browser");
+  assert.equal(parseFormatLocalePreference("browser"), "browser");
+});
+
+test("the format list offers each supported locale once with its own name, including the browser's languages", () => {
+  const options = formatLocaleOptions(["de-AT", "de-AT-x-private", "!!", "en-PH"]);
+  const locales = options.map(option => option.locale);
+
+  assert.equal(new Set(locales).size, locales.length);
+  assert.ok(locales.includes("en-PH"));
+  assert.ok(!locales.includes("!!"));
+  assert.deepEqual(options.find(option => option.locale === "de-AT"), {
+    locale: "de-AT",
+    name: "Deutsch (Österreich)",
+    englishName: "German (Austria)"
+  });
+  assert.equal(formatLocaleSample("de-AT"), "-€ 1.234,56 · 20. Nov. 2026");
+});
+
+test("server code outside a request formats with the default locale", async () => {
+  assert.equal(await currentFormatLocale(), "en");
 });

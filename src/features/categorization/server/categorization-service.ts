@@ -110,8 +110,7 @@ export async function previewRule(payload: unknown) {
   };
 }
 
-/** Creates a rule; the locale formats numbers in messages for this request. */
-export async function createRule(payload: unknown, locale: string) {
+export async function createRule(payload: unknown) {
   const {
     apply_to_uncategorized: applyToUncategorized,
     source_transaction_id: sourceTransactionId,
@@ -151,10 +150,10 @@ export async function createRule(payload: unknown, locale: string) {
       excludedTransactionId: sourceTransactionId
     } : undefined
   };
-  const categorized = priority === undefined ? await appendRule(rule, locale, assignments) : await insertRule({
+  const categorized = priority === undefined ? await appendRule(rule, assignments) : await insertRule({
     ...rule,
     priority
-  }, locale, assignments);
+  }, assignments);
 
   return {
     ok: true,

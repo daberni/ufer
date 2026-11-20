@@ -125,7 +125,7 @@ async function seed(context: TestContext) {
     category_id: "transport",
     priority: 10,
     enabled: true
-  }, "en");
+  });
 
   return db;
 }
@@ -152,7 +152,7 @@ test("returning a manual assignment to automatic stores what applying the rules 
     category_id: "groceries",
     priority: 100,
     enabled: true
-  }, "en");
+  });
 
   assert.deepEqual(await updateTransactionCategory("manual-different", {
     automatic: true
@@ -234,7 +234,7 @@ test("a new rule takes over only the chosen manual assignments it decides and re
     mode: "keyword",
     category_id: "groceries",
     priority: 200
-  }, "en");
+  });
   assert.deepEqual(await assignments(db), before);
 
   const created = await previewRule({
@@ -252,7 +252,7 @@ test("a new rule takes over only the chosen manual assignments it decides and re
     category_id: "groceries",
     priority: 100,
     adopt_manual: true
-  }, "en");
+  });
 
   const after = await assignments(db);
 
@@ -276,7 +276,7 @@ test("saving an edited rule can take over the manual assignments it decides", as
     category_id: "transport",
     priority: 100,
     enabled: true
-  }, "en");
+  });
   await updateRuleDetails("market-rule", {
     name: "Market",
     pattern: "Central",

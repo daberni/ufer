@@ -1,6 +1,5 @@
 import { respond } from "@/server/http/respond";
 import { readJson } from "@/server/http/request-body";
-import { requestFormatLocale } from "@/server/http/request-locale";
 import { createRule } from "@/features/categorization/server/categorization-service";
 import { listRuleSummaries } from "@/features/categorization/server/categorization-queries";
 
@@ -15,7 +14,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  return respond(request, async () => createRule(await readJson(request), await requestFormatLocale()), {
+  return respond(request, async () => createRule(await readJson(request)), {
     status: 201
   });
 }

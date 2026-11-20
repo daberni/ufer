@@ -1,11 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { clsx } from "clsx";
 import ui from "../../../components/ui/primitives.module.css";
 import { useFormatLocale } from "@/client/format-locale-provider";
-import { formatLocaleChoices, formatLocaleCookie, formatLocaleCookieName, parseFormatLocalePreference, type FormatLocalePreference } from "@/lib/locale";
+import { SearchableSelect, type SearchableSelectOption } from "@/components/ui/searchable-select";
+import { matchOptions } from "@/components/ui/searchable-select-behavior";
+import { formatLocaleCookie, formatLocaleCookieName, parseFormatLocalePreference, type FormatLocalePreference } from "@/lib/locale";
+import { formatLocaleOptions, formatLocaleSample } from "@/features/appearance/format-locale-options";
 import styles from "./format-locale-choice.module.css";
+
+const browserDefaultLabel = "Browser default";
+
+const localeNoun = {
+  one: "format",
+  other: "formats"
+};
 
 /** Stores the preference and reloads, so the server renders every formatted value again in the new locale. */
 function chooseFormatLocalePreference(preference: FormatLocalePreference) {
@@ -19,38 +29,66 @@ function storedPreference() {
   return parseFormatLocalePreference(stored?.slice(formatLocaleCookieName.length + 1));
 }
 
-function sample(locale: string) {
-  const amount = new Intl.NumberFormat(locale, {
-    style: "currency",
-    currency: "EUR"
-  }).format(-1234.56);
-  const date = new Date(Date.UTC(2026, 10, 20)).toLocaleDateString(locale, {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    timeZone: "UTC"
-  });
+type LocaleOption = SearchableSelectOption<FormatLocalePreference> & {
+  /** Native and English names and the tag, so either language or the code finds a format. */
+  searchLabel: string;
+};
 
-  return `${amount} · ${date}`;
+function localeOptions(currentLocale: string): LocaleOption[] {
+  const browserDefault: LocaleOption = {
+    key: "browser",
+    value: "browser",
+    label: browserDefaultLabel,
+    description: formatLocaleSample(currentLocale),
+    searchLabel: browserDefaultLabel
+  };
+  const locales = formatLocaleOptions(navigator.languages).map(option => ({
+    key: option.locale,
+    value: option.locale,
+    label: option.name,
+    description: formatLocaleSample(option.locale),
+    searchLabel: `${option.name} ${option.englishName} ${option.locale}`
+  }));
+
+  return [browserDefault, ...locales];
 }
 
-/** Browser default or one of a few locales for amounts, numbers and dates in this browser; currencies stay per account. */
+function matchLocales(options: readonly SearchableSelectOption<FormatLocalePreference>[], query: string) {
+  const searchable = (options as readonly LocaleOption[]).map(option => ({
+    option,
+    label: option.searchLabel
+  }));
+
+  return matchOptions(searchable, query).map(match => match.option);
+}
+
+/** Browser default or any locale the browser can format, for amounts, numbers and dates in this browser; currencies stay per account. */
 export function FormatLocaleChoice() {
   const locale = useFormatLocale();
-  // Mounted only inside the account dialog in the browser, where the cookie is readable.
+  const fieldId = useId();
+  // Mounted only inside the account dialog in the browser, where the cookie and the browser's languages are readable.
   const [preference] = useState(storedPreference);
+  const options = useMemo(() => localeOptions(locale), [locale]);
+  const selected = options.find(option => option.value === preference);
+  const [query, setQuery] = useState(selected?.label ?? browserDefaultLabel);
 
   return (
     <div className={clsx(ui["form"], styles["format-locale-choice"])}>
-      <label>
-        Number and date format
-        <select value={preference} onChange={event => chooseFormatLocalePreference(parseFormatLocalePreference(event.target.value))}>
-          {formatLocaleChoices.map(choice => (
-            <option key={choice.value} value={choice.value}>{choice.label}</option>
-          ))}
-        </select>
-      </label>
-      <p className={ui["form-hint"]}>{`For example ${sample(locale)}. Saved in this browser; changing it reloads the page.`}</p>
+      <div className={ui["field"]}>
+        <label htmlFor={fieldId}>Number and date format</label>
+        <SearchableSelect
+          id={fieldId}
+          options={options}
+          value={selected?.value}
+          onChange={chooseFormatLocalePreference}
+          query={query}
+          onQueryChange={setQuery}
+          match={matchLocales}
+          noun={localeNoun}
+          placeholder="Search languages and regions"
+        />
+      </div>
+      <p className={ui["form-hint"]}>{`For example ${formatLocaleSample(locale)}. Saved in this browser; changing it reloads the page.`}</p>
     </div>
   );
 }

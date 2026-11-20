@@ -424,7 +424,7 @@ test("CSV categories map by name, rules categorize the rest, and existing catego
     category_id: "synthetic-travel",
     priority: 100,
     enabled: true
-  }, "en");
+  });
   await db.insert(schema.transactions).values({
     id: "earlier",
     account_id: account.id,

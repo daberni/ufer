@@ -1,25 +1,8 @@
 /** Formats amounts, numbers and dates when the request names no language the runtime can format. */
 export const defaultFormatLocale = "en";
 
-/** Locales offered as an explicit number format; "browser" follows the languages the browser sends with each request. */
-export const formatLocaleChoices = [{
-  value: "browser",
-  label: "Browser default"
-}, {
-  value: "en-GB",
-  label: "English (UK)"
-}, {
-  value: "en-US",
-  label: "English (US)"
-}, {
-  value: "de-AT",
-  label: "Deutsch (Österreich)"
-}, {
-  value: "de-DE",
-  label: "Deutsch (Deutschland)"
-}] as const;
-
-export type FormatLocalePreference = (typeof formatLocaleChoices)[number]["value"];
+/** "browser" follows the languages the browser sends with each request; any other value is a locale tag chosen explicitly. */
+export type FormatLocalePreference = "browser" | (string & {});
 
 /** Remembers an explicit number and date format per browser; the server reads it with every request, so server and browser format alike. */
 export const formatLocaleCookieName = "ufer-format-locale";
@@ -27,9 +10,13 @@ export const formatLocaleCookieName = "ufer-format-locale";
 // A manual choice lasts a year and is renewed whenever it changes.
 const cookieMaxAgeSeconds = 60 * 60 * 24 * 365;
 
-/** Reads a stored preference; a missing or unknown value follows the browser. */
+/** Reads a stored preference; a missing value or a tag the runtime cannot format follows the browser. */
 export function parseFormatLocalePreference(value: string | null | undefined): FormatLocalePreference {
-  return formatLocaleChoices.find(choice => choice.value === value)?.value ?? "browser";
+  if (!value || value === "browser") {
+    return "browser";
+  }
+
+  return supportedLocale(value) ?? "browser";
 }
 
 /** A document.cookie assignment that stores the preference. Choosing the browser default deletes the cookie. */
@@ -81,8 +68,11 @@ export function resolveFormatLocale(preference: FormatLocalePreference, acceptLa
   return defaultFormatLocale;
 }
 
-// The formatter's resolved locale drops private-use subtags, variants and extensions it ignores, so the request-controlled header yields only the runtime's finite set of locales, which also bounds the formatter caches.
-function supportedLocale(tag: string) {
+/**
+ * The runtime's canonical locale for a tag, or undefined when it cannot format it. The resolved locale drops private-use subtags, variants and ignored extensions,
+ * so request-controlled tags yield only the runtime's finite set of locales, which also bounds the formatter caches.
+ */
+export function supportedLocale(tag: string) {
   try {
     if (!Intl.NumberFormat.supportedLocalesOf(tag).length) {
       return undefined;

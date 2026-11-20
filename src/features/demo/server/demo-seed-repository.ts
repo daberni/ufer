@@ -8,7 +8,6 @@ import { createTransferCounterpart, pairTransfers } from "@/features/transaction
 import type { CategorizedEntry } from "@/features/transactions/server/transaction-entry";
 import type { CategorizationRule, Category } from "@/server/database/models";
 import { requireRuleCapacity } from "@/features/categorization/server/rule-repository";
-import { defaultFormatLocale } from "@/lib/locale";
 import { demoIdPrefix, type DemoAccountDefinition, type DemoCategory } from "./demo-catalog";
 import type { DemoCreatedCounterpart, DemoSnapshot } from "./demo-dataset";
 
@@ -127,8 +126,7 @@ export async function replaceDemoRows(rows: DemoSeedRows, verify: (target: DemoS
     await upsertCategories(tx, rows.categories);
 
     if (rows.rules.length) {
-      // The demo seed also runs from a script without a request, so its limit message uses the default locale.
-      await requireRuleCapacity(tx, rows.rules.length, defaultFormatLocale);
+      await requireRuleCapacity(tx, rows.rules.length);
       await tx.insert(categorizationRules).values(rows.rules);
     }
 
