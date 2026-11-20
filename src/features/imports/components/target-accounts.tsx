@@ -13,6 +13,7 @@ import { accountKinds, type AccountKind } from "@/features/accounts/account-kind
 import { kinds } from "@/features/accounts/account-presentation";
 import type { Account } from "@/features/accounts/types";
 import type { ImportDraft } from "./use-import-draft";
+import { useLocale } from "@/client/locale-provider";
 
 /** One account picker for the whole file, or one per value of the mapped account column. */
 export function TargetAccounts({
@@ -77,6 +78,7 @@ function TargetRow({
   problems: AccountProblem[];
   onChange: (choice: TargetChoice) => void;
 }) {
+  const locale = useLocale();
   const selectId = useId();
   const targetProblem = problems.find(problem => problem.field === "target");
   const manual = accounts.filter(account => account.provider === "manual");
@@ -114,7 +116,7 @@ function TargetRow({
         {perSource ? (
           <label htmlFor={selectId} className={styles["source"]}>
             <strong>{source || "No account value"}</strong>
-            <span>{rowCount(rows)}</span>
+            <span>{rowCount(rows, locale)}</span>
           </label>
         ) : (
           <label htmlFor={selectId} className={ui["visually-hidden"]}>Target account</label>

@@ -13,6 +13,7 @@ import { FailureCover } from "@/components/ui/area-placeholder";
 import { usePeriod } from "@/client/use-app-url";
 import type { Area } from "@/components/ui/use-area-result";
 import type { AccountCashFlow } from "@/features/reports/types";
+import { useLocale } from "@/client/locale-provider";
 
 type Props = {
   cashFlow: Area<AccountCashFlow>;
@@ -25,6 +26,7 @@ export function AccountCashFlowSummary({
   cashFlow: area,
   currency
 }: Props) {
+  const locale = useLocale();
   const selectedPeriod = usePeriod();
   const cashFlow = withPlaceholder(area, () => ({
     period: periodToJson(selectedPeriod),
@@ -42,7 +44,7 @@ export function AccountCashFlowSummary({
     <section className={clsx(ui["panel"], styles["cash-flow"])} aria-busy={cashFlow.status === "loading"}>
       <div className={ui["card-heading"]}>
         <h2>Cash flow</h2>
-        <span className={clsx(ui["subtle"], mask)}>{periodLabel(periodFromJson(flows.period))}</span>
+        <span className={clsx(ui["subtle"], mask)}>{periodLabel(periodFromJson(flows.period), locale)}</span>
       </div>
       <dl className={styles["flows"]}>
         <div>
@@ -52,7 +54,7 @@ export function AccountCashFlowSummary({
             </span>
             Income
           </dt>
-          <dd className={clsx(ui["positive"], mask)}>{money(flows.income, flows.currency)}</dd>
+          <dd className={clsx(ui["positive"], mask)}>{money(flows.income, flows.currency, locale)}</dd>
         </div>
         <div>
           <dt>
@@ -61,7 +63,7 @@ export function AccountCashFlowSummary({
             </span>
             Spending
           </dt>
-          <dd className={mask}>{money(flows.expenses, flows.currency)}</dd>
+          <dd className={mask}>{money(flows.expenses, flows.currency, locale)}</dd>
         </div>
         <div>
           <dt>
@@ -71,8 +73,8 @@ export function AccountCashFlowSummary({
             Transfers
           </dt>
           <dd className={mask}>
-            {money(transfers, flows.currency)}
-            <small>{`In ${money(flows.transfersIn, flows.currency)} · Out ${money(flows.transfersOut, flows.currency)}`}</small>
+            {money(transfers, flows.currency, locale)}
+            <small>{`In ${money(flows.transfersIn, flows.currency, locale)} · Out ${money(flows.transfersOut, flows.currency, locale)}`}</small>
           </dd>
         </div>
       </dl>

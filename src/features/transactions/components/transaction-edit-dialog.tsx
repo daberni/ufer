@@ -15,7 +15,7 @@ import { Select } from "@/components/ui/select";
 import { CategoryPicker } from "@/features/categorization/components/category-picker";
 import { useCategories } from "@/features/categorization/queries";
 import { describeDate } from "@/lib/date-format";
-import { decimalAmount, minorUnits, money } from "@/lib/money";
+import { decimalAmount, minorUnits, signedMoney } from "@/lib/money";
 import { isTransactionType, manualAccountTypes, transactionTypeLabels, transactionTypes, type TransactionType } from "@/features/transactions/transaction-types";
 import { useDeleteTransaction, useHideTransaction, useSaveSplit, useSaveTransaction, type EntryEdit, type TransactionEdit } from "@/features/transactions/mutations";
 import { useTransferOptions } from "@/features/transactions/queries";
@@ -25,6 +25,7 @@ import { EntryFields, suggestedType } from "./entry-fields";
 import { draftEdits, draftState, initialDraft } from "@/features/transactions/split-draft";
 import { SplitEditor } from "./transaction-split";
 import { PayeeInput } from "./payee-input";
+import { useLocale } from "@/client/locale-provider";
 
 type Props = {
   transaction: Transaction;
@@ -46,15 +47,11 @@ const noTarget: Target = {
   kind: "none"
 };
 
-function signedMoney(amount: number, currency: string) {
-  return `${amount > 0 ? "+" : ""}${money(amount, currency)}`;
-}
-
-function bookingLabel(booking: TransferBooking) {
-  const date = describeDate(Temporal.PlainDate.from(booking.booking_date)).label;
+function bookingLabel(booking: TransferBooking, locale: string) {
+  const date = describeDate(Temporal.PlainDate.from(booking.booking_date), locale).label;
   const payee = booking.counterparty || booking.description;
 
-  return [booking.account_name, date, signedMoney(booking.amount_minor, booking.currency), payee].filter(Boolean).join(" · ");
+  return [booking.account_name, date, signedMoney(booking.amount_minor, booking.currency, locale), payee].filter(Boolean).join(" · ");
 }
 
 /** Whether the linked booking is chosen through its manual account: a counterpart Ufer created there, or the other side of a pair entered in Ufer. */
@@ -161,13 +158,14 @@ function TransactionFacts({
   transaction: Transaction;
   children?: ReactNode;
 }) {
+  const locale = useLocale();
   const subject = transaction.counterparty || transaction.description || transactionTypeLabels[transaction.type];
-  const date = describeDate(Temporal.PlainDate.from(transaction.booking_date)).label;
+  const date = describeDate(Temporal.PlainDate.from(transaction.booking_date), locale).label;
 
   return (
     <div className={styles["facts"]}>
       <div className={styles["facts-line"]}>
-        <span className={clsx(styles["facts-amount"], transaction.amount_minor > 0 && styles["incoming"])}>{signedMoney(transaction.amount_minor, transaction.currency)}</span>
+        <span className={clsx(styles["facts-amount"], transaction.amount_minor > 0 && styles["incoming"])}>{signedMoney(transaction.amount_minor, transaction.currency, locale)}</span>
         {children}
       </div>
       <span className={styles["facts-meta"]}>{[subject, date, transaction.account_name].join(" · ")}</span>
@@ -736,11 +734,12 @@ function CreatedCounterpartFields({
   target: Target;
   onTarget: (target: Target) => void;
 }) {
+  const locale = useLocale();
   const remove = target.kind === "none";
 
   return (
     <div className={styles["created"]}>
-      <p className={ui["form-hint"]}>Created for the transfer of {bookingLabel(source)}.</p>
+      <p className={ui["form-hint"]}>Created for the transfer of {bookingLabel(source, locale)}.</p>
       <label className={styles["remove-option"]}>
         <input
           type="checkbox"
@@ -758,11 +757,11 @@ function CreatedCounterpartFields({
   );
 }
 
-function targetSummary(transaction: Transaction, target: Target, accounts: TransferOptions["accounts"]) {
+function targetSummary(transaction: Transaction, target: Target, accounts: TransferOptions["accounts"], locale: string) {
   const direction = transaction.amount_minor < 0 ? "to" : "from";
 
   if (target.kind === "booking") {
-    return `Linked with ${bookingLabel(target.booking)}.`;
+    return `Linked with ${bookingLabel(target.booking, locale)}.`;
   }
 
   if (target.kind === "account") {
@@ -785,6 +784,7 @@ function TransferFields({
   target: Target;
   onTarget: (target: Target) => void;
 }) {
+  const locale = useLocale();
   const suggestionsId = useId();
   const targetId = useId();
 
@@ -829,7 +829,7 @@ function TransferFields({
             {accounts.map(account => <option key={account.id} value={`account:${account.id}`}>{account.name}</option>)}
           </Select>
         </label>
-        <p className={ui["form-hint"]} role="status">{targetSummary(transaction, target, accounts)}</p>
+        <p className={ui["form-hint"]} role="status">{targetSummary(transaction, target, accounts, locale)}</p>
       </div>
       {suggestions.length > 0 && (
         <fieldset className={styles["suggestions"]} aria-describedby={`${suggestionsId}-hint`}>
@@ -847,7 +847,7 @@ function TransferFields({
                   booking
                 })}
               />
-              <span>{bookingLabel(booking)}</span>
+              <span>{bookingLabel(booking, locale)}</span>
             </label>
           ))}
         </fieldset>

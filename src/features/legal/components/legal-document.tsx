@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { Temporal } from "temporal-polyfill";
 import { BrandIcon } from "@/components/branding/brand-icon";
-import { describeDate } from "@/lib/date-format";
+import { FullDateValue } from "@/components/ui/date-value";
 import { LegalLinks } from "./legal-links";
 import { SourceCodeNotice } from "./source-code-notice";
 import styles from "./legal-document.module.css";
@@ -20,7 +19,6 @@ export function LegalDocument({
   lastUpdated,
   children
 }: Props) {
-  const updated = describeDate(Temporal.PlainDate.from(lastUpdated));
 
   return (
     <div className={styles["legal-page"]}>
@@ -34,7 +32,7 @@ export function LegalDocument({
       <main className={styles["document"]}>
         <h1>{title}</h1>
         <p className={styles["updated"]}>
-          Last updated: <time dateTime={updated.dateTime}>{updated.title}</time>
+          Last updated: <FullDateValue value={lastUpdated} />
         </p>
         {children}
       </main>

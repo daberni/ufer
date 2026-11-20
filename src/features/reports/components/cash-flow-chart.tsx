@@ -22,6 +22,7 @@ import type { Area, AreaResult, PendingArea } from "@/components/ui/use-area-res
 import type { CashFlow } from "@/features/reports/types";
 import { barSpan, cashFlowScale, scaleOffset, type CashFlowScale } from "@/features/reports/cash-flow-scale";
 import { edgeNet, hasCashFlowToDraw, formatSavingsRate, isNegativeRate, netFlow, trendCashFlow, type CashFlowSelection } from "@/features/reports/cash-flow-selection";
+import { useLocale } from "@/client/locale-provider";
 
 type Props = {
   cashFlow: Area<CashFlow>;
@@ -53,6 +54,7 @@ export function CashFlowChart({
   detailsId,
   onSelectionHidden
 }: Props) {
+  const locale = useLocale();
   const period = usePeriod();
   const plotRef = useRef<HTMLDivElement>(null);
   const monthCount = useChartMonthCount(plotRef);
@@ -68,7 +70,7 @@ export function CashFlowChart({
     <section className={clsx(ui["panel"], styles["chart-panel"])}>
       <div className={clsx(ui["card-heading"], styles["heading"])}>
         <h2>Income & expenses</h2>
-        <span className={clsx(ui["subtle"], rangeMask)}>{monthRangeLabel(months)}</span>
+        <span className={clsx(ui["subtle"], rangeMask)}>{monthRangeLabel(months, locale)}</span>
       </div>
       <div className={styles["chart-legend"]}>
         <span>
@@ -84,7 +86,7 @@ export function CashFlowChart({
           Net
         </span>
         <span className={styles["savings-rate"]}>
-          Savings rate <strong className={clsx(isNegativeRate(visibleRate) && styles["negative"], rateMask)}>{formatSavingsRate(visibleRate)}</strong>
+          Savings rate <strong className={clsx(isNegativeRate(visibleRate, locale) && styles["negative"], rateMask)}>{formatSavingsRate(visibleRate, locale)}</strong>
         </span>
       </div>
       <div className={styles["plot"]} ref={plotRef}>
@@ -243,6 +245,7 @@ function ChartSkeleton({
   area: PendingArea;
   months: Temporal.PlainYearMonth[];
 }) {
+  const locale = useLocale();
   const scale = {
     zero: 0.5,
     extent: 2
@@ -263,7 +266,7 @@ function ChartSkeleton({
                 <span className={clsx(styles["bar"], ui["skeleton"])} style={barPosition("income", income, scale)} />
                 <span className={clsx(styles["bar"], ui["skeleton"])} style={barPosition("expenses", expenses, scale)} />
               </span>
-              <span className={styles["month-label"]}>{describeMonth(month).label}</span>
+              <span className={styles["month-label"]}>{describeMonth(month, locale).label}</span>
             </div>
           );
         })}
@@ -283,6 +286,7 @@ function ChartPlot({
   cashFlow: AreaResult<CashFlow>;
   months: Temporal.PlainYearMonth[];
 }) {
+  const locale = useLocale();
   const descriptionPrefix = useId();
   const chartRef = useDevicePixelRatioProperty();
   const clipPrefix = useId();
@@ -296,7 +300,7 @@ function ChartPlot({
   const leftEdgeNet = edgeNet(cashFlow.data, trend.length);
   const scale = cashFlowScale(trend, leftEdgeNet === null ? [] : [leftEdgeNet]);
   const chartMonths: ChartMonth[] = trend.map((item, index) => {
-    const display = describeMonth(months[index]);
+    const display = describeMonth(months[index], locale);
 
     return {
       month: item.month,
@@ -336,7 +340,7 @@ function ChartPlot({
         {...areaProps(cashFlow.status, styles["bar-chart"])}
         ref={chartRef}
         role="group"
-        aria-label={`Monthly income, expenses and net, ${monthRangeLabel(months)}`}
+        aria-label={`Monthly income, expenses and net, ${monthRangeLabel(months, locale)}`}
         data-active={activeMonth ? "" : undefined}
       >
         {/* The selected month's column is highlighted behind the net area, so the area stays continuous across all months. */}
@@ -382,14 +386,14 @@ function ChartPlot({
         {chartMonths.map(item => {
           const active = item === activeMonth;
           const descriptionId = `${descriptionPrefix}-${item.month}`;
-          const description = `Income by category: ${describeCategoryGroups(item.incomeGroups, currency)} Spending by category: ${describeCategoryGroups(item.expenseGroups, currency)}`;
+          const description = `Income by category: ${describeCategoryGroups(item.incomeGroups, currency, locale)} Spending by category: ${describeCategoryGroups(item.expenseGroups, currency, locale)}`;
 
           return (
             <button
               type="button"
               className={styles["month"]}
               key={item.month}
-              aria-label={`${item.title}: income ${money(item.income, currency)}, expenses ${money(item.expenses, currency)}, net ${money(item.net, currency)}, savings rate ${formatSavingsRate(item.savingsRate)}`}
+              aria-label={`${item.title}: income ${money(item.income, currency, locale)}, expenses ${money(item.expenses, currency, locale)}, net ${money(item.net, currency, locale)}, savings rate ${formatSavingsRate(item.savingsRate, locale)}`}
               aria-describedby={descriptionId}
               aria-controls={detailsId}
               data-active={active ? "" : undefined}

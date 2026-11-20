@@ -7,6 +7,8 @@ import Link from "next/link";
 import styles from "./app-sidebar.module.css";
 import { ShieldCheck, type LucideIcon } from "lucide-react";
 import { BrandIcon } from "@/components/branding/brand-icon";
+import { useLocale } from "@/client/locale-provider";
+import { formatCount } from "@/lib/locale";
 
 export type SidebarLink = {
   id: string;
@@ -31,6 +33,8 @@ export function AppSidebar({
   homeHref,
   links
 }: Props) {
+  const locale = useLocale();
+
   return (
     <aside className={styles["sidebar"]}>
       <Link className={styles["brand"]} href={homeHref}>
@@ -64,7 +68,7 @@ export function AppSidebar({
             <span className={styles["nav-mobile-label"]} aria-hidden="true">
               {item.mobileLabel}
             </span>
-            {item.count > 0 && <span className={styles["nav-count"]}>{item.count}</span>}
+            {item.count > 0 && <span className={styles["nav-count"]}>{formatCount(item.count, locale)}</span>}
           </Link>
         ))}
       </nav>

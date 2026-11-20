@@ -5,7 +5,7 @@ import ui from "../../../components/ui/primitives.module.css";
 import { clsx } from "clsx";
 import styles from "./wealth-summary.module.css";
 import { Wallet } from "lucide-react";
-import { money } from "@/lib/money";
+import { money, signedMoney } from "@/lib/money";
 import { valueMask, withPlaceholder } from "@/components/ui/result-presentation";
 import { FailureCover } from "@/components/ui/area-placeholder";
 import { useCurrency } from "@/client/use-app-url";
@@ -13,8 +13,10 @@ import type { Area } from "@/components/ui/use-area-result";
 import type { NetWorth } from "@/features/accounts/types";
 import { Temporal } from "temporal-polyfill";
 import { netWorthBars } from "@/features/reports/net-worth-bars";
-import { describeMonth } from "@/lib/date-format";
+import { shortMonthWithYear } from "@/lib/date-format";
 import type { NetWorthHistory, NetWorthPoint } from "@/features/reports/net-worth-series";
+import { useLocale } from "@/client/locale-provider";
+import { formatCount } from "@/lib/locale";
 
 type Props = {
   /** Whether any account uses the display currency; assumed while the accounts load, so the masked figure keeps its place. */
@@ -29,6 +31,7 @@ export function WealthSummary({
   netWorthArea,
   historyArea
 }: Props) {
+  const locale = useLocale();
   const selectedCurrency = useCurrency();
   const netWorth = withPlaceholder(netWorthArea, () => ({
     currency: selectedCurrency,
@@ -46,7 +49,7 @@ export function WealthSummary({
   const historyReady = historyArea.status === "ready" && historyArea.data.currency === currency;
   const points = historyReady ? historyArea.data.points : [];
   const historyPending = !historyReady || netWorth.status !== "ready";
-  const change = netWorth.status === "ready" && hasAccounts ? historyChange(points) : null;
+  const change = netWorth.status === "ready" && hasAccounts ? historyChange(points, locale) : null;
 
   return (
     <section className={styles["wealth-card"]} aria-busy={netWorth.status === "loading"}>
@@ -60,12 +63,12 @@ export function WealthSummary({
         <span className={clsx(styles["small-tag"], netWorthValue)}>{currency}</span>
       </div>
       <div className={styles["headline"]}>
-        <div className={clsx(styles["wealth-number"], netWorthValue)}>{hasAccounts ? money(summary.netWorth, currency) : "—"}</div>
-        {change && <span className={styles["change"]}>{change.amount > 0 ? "+" : ""}{money(change.amount, currency)} since {change.since}</span>}
+        <div className={clsx(styles["wealth-number"], netWorthValue)}>{hasAccounts ? money(summary.netWorth, currency, locale) : "—"}</div>
+        {change && <span className={styles["change"]}>{signedMoney(change.amount, currency, locale)} since {change.since}</span>}
         {/* Holds the change's place, which wraps below the figure on a phone, until the history arrives. */}
         {!change && hasAccounts && historyPending && <span className={clsx(styles["change"], ui["skeleton"])}>+€0,000.00 since Jan 2026</span>}
       </div>
-      {summary.unvalued > 0 && <p>{summary.unvalued} without a balance</p>}
+      {summary.unvalued > 0 && <p>{formatCount(summary.unvalued, locale)} without a balance</p>}
       {/* Assets and loans share one scale; the loan track is always laid out, so the card's height does not depend on having loans. */}
       <div className={clsx(styles["bars"], netWorthValue)} aria-hidden="true">
         <div className={styles["bar-track"]}>
@@ -107,19 +110,19 @@ export function WealthSummary({
       <div className={styles["wealth-allocation"]}>
         <span>
           <i className={clsx(styles["legend-dot"], ui["liquid"])} />
-          Cash<strong className={netWorthValue}>{money(summary.liquidity, currency)}</strong>
+          Cash<strong className={netWorthValue}>{money(summary.liquidity, currency, locale)}</strong>
         </span>
         <span>
           <i className={clsx(styles["legend-dot"], styles["invested"])} />
-          Investments<strong className={netWorthValue}>{money(summary.investments, currency)}</strong>
+          Investments<strong className={netWorthValue}>{money(summary.investments, currency, locale)}</strong>
         </span>
         <span>
           <i className={clsx(styles["legend-dot"], ui["property"])} />
-          Property<strong className={netWorthValue}>{money(summary.property, currency)}</strong>
+          Property<strong className={netWorthValue}>{money(summary.property, currency, locale)}</strong>
         </span>
         <span>
           <i className={clsx(styles["legend-dot"], styles["loans"])} />
-          Loans<strong className={netWorthValue}>{summary.liabilities === 0 && netWorth.status === "ready" ? "—" : money(summary.liabilities, currency)}</strong>
+          Loans<strong className={netWorthValue}>{summary.liabilities === 0 && netWorth.status === "ready" ? "—" : money(summary.liabilities, currency, locale)}</strong>
         </span>
       </div>
       {/* The curve's place is held until the history for the shown currency arrives, so the card and the accounts panel beside it keep their height. */}
@@ -129,7 +132,7 @@ export function WealthSummary({
   );
 }
 
-function historyChange(points: NetWorthPoint[]) {
+function historyChange(points: NetWorthPoint[], locale: string) {
   const first = points[0];
   const last = points.at(-1);
 
@@ -141,7 +144,7 @@ function historyChange(points: NetWorthPoint[]) {
 
   return {
     amount: last.amount_minor - first.amount_minor,
-    since: `${describeMonth(month).label} ${month.year}`
+    since: shortMonthWithYear(month, locale)
   };
 }
 

@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { themeAttribute, themeViewport } from "@/features/appearance/theme-preference";
 import { requestThemePreference } from "@/features/appearance/server/request-theme";
+import { LocaleProvider } from "@/client/locale-provider";
+import { currentFormatLocale, currentRequestLanguages } from "@/server/http/request-locale";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -26,7 +28,7 @@ export async function generateViewport(): Promise<Viewport> {
 export default async function RootLayout({ children }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const preference = await requestThemePreference();
+  const [preference, formatLocale, requestLanguages] = await Promise.all([requestThemePreference(), currentFormatLocale(), currentRequestLanguages()]);
 
-  return <html lang="en" data-theme={themeAttribute(preference)}><body>{children}</body></html>;
+  return <html lang="en" data-theme={themeAttribute(preference)}><body><LocaleProvider locale={formatLocale} requestLanguages={requestLanguages}>{children}</LocaleProvider></body></html>;
 }
