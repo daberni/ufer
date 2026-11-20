@@ -58,6 +58,7 @@
 }
 .plot {
   position: relative;
+  container-type: inline-size;
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
@@ -76,6 +77,37 @@
   display: flex;
   min-height: 180px;
   position: relative;
+}
+/* The skeleton shows as many of the latest months as chartMonthCount: one month per 52px, at least 6 and at most all 12. */
+@container (width < 364px) {
+  .skeleton-months > .month:nth-child(-n + 7) {
+    display: none;
+  }
+}
+@container (width < 416px) {
+  .skeleton-months > .month:nth-child(-n + 6) {
+    display: none;
+  }
+}
+@container (width < 468px) {
+  .skeleton-months > .month:nth-child(-n + 5) {
+    display: none;
+  }
+}
+@container (width < 520px) {
+  .skeleton-months > .month:nth-child(-n + 4) {
+    display: none;
+  }
+}
+@container (width < 572px) {
+  .skeleton-months > .month:nth-child(-n + 3) {
+    display: none;
+  }
+}
+@container (width < 624px) {
+  .skeleton-months > .month:nth-child(-n + 2) {
+    display: none;
+  }
 }
 /* The bar area above the month labels, shared by the zero line, the net line and each column's bars. */
 .plot-area {

@@ -64,6 +64,7 @@
   --chart-liquid: light-dark(#567d53, #86b383);
   --chart-invested: light-dark(#b0be8e, #a3b47f);
   --chart-property: light-dark(#cfbd8d, #cdb47d);
+  --chart-loans: light-dark(#b67a6c, #d39888);
   --chart-track: light-dark(#eef1e9, #26332c);
   --wealth-surface: light-dark(#edf2e2, #1b2a21);
   --wealth-highlight: light-dark(#f2f5ec, #21322a);

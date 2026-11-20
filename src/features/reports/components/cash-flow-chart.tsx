@@ -88,7 +88,7 @@ export function CashFlowChart({
         </span>
       </div>
       <div className={styles["plot"]} ref={plotRef}>
-        {cashFlow.status === "pending" ? <ChartSkeleton area={cashFlow} months={months} /> : (
+        {cashFlow.status === "pending" ? <ChartSkeleton area={cashFlow} months={trend} /> : (
           <ChartPlot
             cashFlow={cashFlow}
             months={months}
@@ -244,7 +244,8 @@ function ChartSkeleton({
 
   return (
     <AreaPlaceholder area={area} subject="Income and expenses">
-      <div className={styles["bar-chart"]}>
+      {/* The skeleton lays out every trend month and its stylesheet shows the ones that fit, so it matches the loaded chart before the page's script measures the width. */}
+      <div className={clsx(styles["bar-chart"], styles["skeleton-months"])}>
         <ZeroLine scale={scale} />
         {months.map((month, index) => {
           const [income, expenses] = skeletonFlows[index % skeletonFlows.length];
