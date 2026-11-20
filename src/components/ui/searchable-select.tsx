@@ -109,7 +109,8 @@ export function SearchableSelect<Value>({
   const countText = (count: number) => (count === 1 ? `1 ${noun.one}` : `${count.toLocaleString("en")} ${noun.other}`);
   const truncated = matches.length > shown.length;
   const listLabel = `${noun.other.charAt(0).toLocaleUpperCase()}${noun.other.slice(1)}`;
-  const showsSelected = selected !== undefined && query === selected.label;
+  // A selection shown as the placeholder hint (an empty field reading "Uncategorized") keeps its icon like one shown as text.
+  const showsSelected = selected !== undefined && (query === selected.label || (query === "" && placeholder === selected.label));
 
   const noMatchText = `No ${noun.one} matches “${query.trim()}”.`;
   let message = notice;
