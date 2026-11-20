@@ -50,6 +50,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Have each issue agent drive its task through verification and opening or updating its reviewable PR within its authorization. The coordinator checks the published result and keeps independent tickets moving while PRs wait for review. Stack only changes with a real dependency.
 - When conflicting priorities materially change what should ship next, identify the tradeoff and ask for that decision while unrelated work continues.
 - Reuse suitable worktrees and keep feature implementation out of the main checkout. Create new worktrees outside the project through the host's managed worktree tool when one is available.
+- After a PR is merged, clean up locally: stop its demo servers, remove its worktree and local branch once they hold no unpublished work, and delete its throwaway demo databases and credential files. Keep production backups and anything still used by open PRs.
 - Do not have agents edit the same files concurrently. Sharing a worktree requires explicit file ownership and coordination before changing a shared contract or staging another agent's work.
 - Parallelize independent work, but bound test concurrency and serialize expensive checks when the host is under load. Keep recoverable logs and persistent sessions; do not start duplicate runs or change a checkout's sources while its verification is running.
 
