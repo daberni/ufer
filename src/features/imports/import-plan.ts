@@ -1,5 +1,6 @@
 import { categoryNameKey } from "@/lib/category-name";
 import { categoryTags, currencyAllows, maxAccountNameLength, parseAmount, splitCurrency, type DecimalSeparator, type MappedRow } from "./csv-mapping";
+import type { AccountKind } from "@/features/accounts/account-kinds";
 import type { CategoryChoice, ImportTarget } from "./mutations";
 
 /** What the person chose for one source account's rows. */
@@ -11,6 +12,7 @@ export type TargetChoice = {
 } | {
   kind: "new";
   name: string;
+  accountKind: AccountKind;
   currency: string;
   /** Today's balance, or the balance before the file's first row. */
   balanceKind: "current" | "start";
@@ -98,6 +100,7 @@ export function newAccountChoice(source: string): TargetChoice {
   return {
     kind: "new",
     name: source.slice(0, maxAccountNameLength),
+    accountKind: "checking",
     currency: "EUR",
     balanceKind: "current",
     balance: ""
@@ -233,6 +236,10 @@ export function prepareImport(rows: MappedRow[], choices: ReadonlyMap<string, Ta
       problem("balance", "Enter the balance as a number.");
     }
 
+    if (choice.accountKind === "loan" && balance !== null && Number(balance) > 0) {
+      problem("balance", "Enter outstanding debt as a negative balance.");
+    }
+
     const balanceCurrency = splitCurrency(choice.balance.trim()).currency;
 
     // The amount is stored in the account currency, so a balance stated in another currency must not be relabelled.
@@ -248,6 +255,7 @@ export function prepareImport(rows: MappedRow[], choices: ReadonlyMap<string, Ta
       currency: choice.currency,
       newAccount: {
         name,
+        kind: choice.accountKind,
         opening: balance !== null && firstDate ? {
           kind: choice.balanceKind,
           amount: balance,
