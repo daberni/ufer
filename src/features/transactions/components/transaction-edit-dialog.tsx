@@ -363,7 +363,8 @@ function TransactionEditForm({
           type
         };
         const details = detailsEdit(edit, new FormData(event.currentTarget), transaction, imported);
-        const categoryChanged = category !== initialCategory;
+        // Compared with the stored category, not the one the dialog started from: a row change that was pending at opening and then failed is assigned again.
+        const categoryChanged = category !== transaction.category_id;
 
         setCategoryFailure(null);
         void saveAll(details, categoryChanged);
