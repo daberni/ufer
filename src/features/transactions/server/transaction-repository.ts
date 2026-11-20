@@ -94,8 +94,8 @@ export async function upsertTransactions(tx: DatabaseTransaction, accountId: str
         category_id: sql`CASE WHEN ${transactions.category_source}='manual' THEN ${transactions.category_id} ELSE excluded.category_id END`,
         category_rule_id: sql`CASE WHEN ${transactions.category_source}='manual' THEN NULL ELSE excluded.category_rule_id END`,
         type: sql`CASE WHEN ${keepsType} THEN ${transactions.type} ELSE excluded.type END`,
-        // A kept type keeps its signal; a type taken from this delivery takes the delivery's signal, as the derived type does.
-        transfer_detected: sql`CASE WHEN ${keepsType} THEN max(${transactions.transfer_detected},excluded.transfer_detected) ELSE excluded.transfer_detected END`,
+        // A kept or rule-set type keeps an earlier transfer signal for when the rule stops deciding; a type derived from this delivery takes the delivery's signal.
+        transfer_detected: sql`CASE WHEN ${keepsType} OR excluded.type_rule_id IS NOT NULL THEN max(${transactions.transfer_detected},excluded.transfer_detected) ELSE excluded.transfer_detected END`,
         type_rule_id: sql`CASE WHEN ${keepsType} THEN ${transactions.type_rule_id} ELSE excluded.type_rule_id END`
       }
     });

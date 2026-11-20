@@ -560,3 +560,66 @@ test("a rule without a type that takes over a manual assignment returns a bank-r
 
   assert.deepEqual([adopted.type, adopted.type_rule_id], ["transfer", null]);
 });
+
+test("a reported transfer released by a rule without a type pairs with its counterpart", async context => {
+  const db = await isolatedDatabase(context);
+
+  await sync(db, "checking", [{
+    ...entry("sweep", "2026-09-12", -2500, "Account sweep"),
+    transfer: true
+  }]);
+  const earlier = await rule({
+    pattern: "ACCOUNT SWEEP",
+    transaction_type: "expense",
+    apply_to_uncategorized: true
+  });
+
+  await sync(db, "savings", [entry("deposit", "2026-09-12", 2500, "Deposit from checking")]);
+  assert.equal((await stored(db, "bank:sweep")).transfer_id, null);
+  await db.update(schema.transactions).set({
+    category_source: "manual",
+    category_rule_id: null
+  }).where(eq(schema.transactions.provider_reference, "bank:sweep"));
+  await db.update(schema.categorizationRules).set({
+    pattern: "UNRELATED"
+  }).where(eq(schema.categorizationRules.id, earlier.id));
+
+  await rule({
+    pattern: "ACCOUNT SWEEP",
+    adopt_manual: true
+  });
+
+  const [sweep, deposit] = [await stored(db, "bank:sweep"), await stored(db, "bank:deposit")];
+
+  assert.equal(sweep.type, "transfer");
+  assert.ok(sweep.transfer_id);
+  assert.equal(deposit.transfer_id, sweep.transfer_id);
+});
+
+test("a sync without a transfer signal keeps the earlier signal while a rule decides the type", async context => {
+  const db = await isolatedDatabase(context);
+
+  await sync(db, "checking", [{
+    ...entry("sweep", "2026-09-12", -2500, "Account sweep"),
+    transfer: true
+  }]);
+  const sweep = await rule({
+    pattern: "ACCOUNT SWEEP",
+    transaction_type: "expense"
+  });
+
+  await applyRulesToUncorrectedTransactions();
+  await sync(db, "checking", [entry("sweep", "2026-09-12", -2500, "Account sweep")]);
+  assert.equal((await stored(db, "bank:sweep")).type, "expense");
+
+  await updateRuleDetails(sweep.id, {
+    name: sweep.name,
+    pattern: sweep.pattern,
+    mode: sweep.mode,
+    category_id: sweep.category_id,
+    transaction_type: ""
+  });
+  await applyRulesToUncorrectedTransactions();
+
+  assert.equal((await stored(db, "bank:sweep")).type, "transfer");
+});

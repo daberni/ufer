@@ -101,6 +101,9 @@ async function applyRuleType(tx: DatabaseTransaction, rule: Pick<Rule, "id" | "t
       }).where(and(inArray(transactions.id, ids.slice(offset, offset + assignmentChunkSize)), ruleTypeable, isNotNull(transactions.type_rule_id)));
     }
 
+    // A booking released to a reported transfer can now pair.
+    await pairTransfers(tx, environment());
+
     return;
   }
 
