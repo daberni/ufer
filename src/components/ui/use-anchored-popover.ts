@@ -9,6 +9,10 @@ type Options = {
   anchorRef: RefObject<HTMLElement | null>;
   /** An element with popover="manual" and position: fixed. */
   popupRef: RefObject<HTMLElement | null>;
+  /** Makes the popover at least as wide as its control, as for a list of the control's values. */
+  matchAnchorWidth?: boolean;
+  /** Opens below the control whenever this much height fits there, scrolling the rest, instead of flipping above for a taller popover. */
+  belowFrom?: number;
 };
 
 /**
@@ -18,7 +22,9 @@ type Options = {
 export function useAnchoredPopover({
   open,
   anchorRef,
-  popupRef
+  popupRef,
+  matchAnchorWidth = false,
+  belowFrom
 }: Options) {
   const place = useCallback(() => {
     const anchor = anchorRef.current;
@@ -29,19 +35,25 @@ export function useAnchoredPopover({
     }
 
     const visible = visibleArea();
+    const anchorBox = anchor.getBoundingClientRect();
+
+    if (matchAnchorWidth) {
+      popup.style.minWidth = `${anchorBox.width}px`;
+    }
 
     popup.style.maxWidth = `${popoverMaxWidth(visible)}px`;
     popup.style.maxHeight = "";
 
-    const placement = popoverPlacement(anchor.getBoundingClientRect(), {
+    const height = belowFrom === undefined ? popup.offsetHeight : Math.min(popup.offsetHeight, belowFrom);
+    const placement = popoverPlacement(anchorBox, {
       width: popup.offsetWidth,
-      height: popup.offsetHeight
+      height
     }, visible);
 
     popup.style.top = `${placement.top}px`;
     popup.style.left = `${placement.left}px`;
     popup.style.maxHeight = `${placement.maxHeight}px`;
-  }, [anchorRef, popupRef]);
+  }, [anchorRef, popupRef, matchAnchorWidth, belowFrom]);
 
   useLayoutEffect(() => {
     const popup = popupRef.current;

@@ -1,12 +1,15 @@
 "use client";
 
-import styles from "./payee-input.module.css";
-import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import styles from "../../../components/ui/searchable-select.module.css";
+import { useEffect, useId, useRef, useState } from "react";
 import type { KeyboardEvent, RefObject } from "react";
 import { useAnchoredPopover } from "@/components/ui/use-anchored-popover";
 import { useDismiss } from "@/components/ui/use-dismiss";
 import { usePayeeSuggestions } from "@/features/transactions/queries";
 import { commitDelay } from "@/features/transactions/use-search-draft";
+
+// Three suggestions below the field beat flipping the list over the dialog's heading; the rest scroll.
+const suggestionsBelowFrom = 140;
 
 type Props = {
   label: string;
@@ -57,16 +60,12 @@ export function PayeeInput({
     return () => clearTimeout(timer);
   }, [query, requested]);
 
-  useLayoutEffect(() => {
-    if (expanded && input.current && popupRef.current) {
-      popupRef.current.style.minWidth = `${input.current.offsetWidth}px`;
-    }
-  });
-
   useAnchoredPopover({
     open: expanded,
     anchorRef: input,
-    popupRef
+    popupRef,
+    matchAnchorWidth: true,
+    belowFrom: suggestionsBelowFrom
   });
 
   // Touch browsers keep the field focused when a tap lands on something that cannot take focus, so blurring alone does not close the list.
@@ -179,7 +178,7 @@ export function PayeeInput({
               data-active={index === active ? "" : undefined}
               onClick={() => pick(payee)}
             >
-              {payee}
+              <span className={styles["label"]}>{payee}</span>
             </li>
           ))}
         </ul>
