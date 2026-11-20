@@ -27,12 +27,15 @@ export function useSaveValuation(accountId: string) {
 }
 
 
-export function useRenameAccount(accountId: string) {
+// Listed transactions carry their account's name; the type decides how an account counts toward net worth and cash flow.
+const editKeys = [queryKeys.accounts(), queryKeys.transactions.all(), queryKeys.reports.netWorth(), queryKeys.reports.cashFlow()];
+
+export function useEditAccount(accountId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (body: Record<string, FormDataEntryValue>) => api(`accounts/${encodeURIComponent(accountId)}`, body, "PATCH"),
-    onSettled: () => invalidate(queryClient, [queryKeys.accounts(), queryKeys.transactions.all()])
+    onSettled: () => invalidate(queryClient, editKeys)
   });
 }
 

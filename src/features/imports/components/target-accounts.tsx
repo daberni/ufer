@@ -9,6 +9,8 @@ import { Select } from "@/components/ui/select";
 import { InlineFailure } from "@/components/ui/area-placeholder";
 import { accountLabel, newAccountChoice, rowCount, type ImportProblem, type TargetChoice } from "@/features/imports/import-plan";
 import { FieldProblem, problemProps } from "./field-problem";
+import { accountKinds, type AccountKind } from "@/features/accounts/account-kinds";
+import { kinds } from "@/features/accounts/account-presentation";
 import type { Account } from "@/features/accounts/types";
 import type { ImportDraft } from "./use-import-draft";
 
@@ -192,6 +194,17 @@ function NewAccountFields({
           })}
         />
         <FieldProblem problem={currencyProblem} id={`${balanceName}-currency`} />
+      </label>
+      <label className={styles["account-type"]}>
+        Account type
+        <Select
+          value={choice.accountKind}
+          onChange={event => change({
+            accountKind: event.target.value as AccountKind
+          })}
+        >
+          {accountKinds.map(kind => <option key={kind} value={kind}>{kinds[kind]}</option>)}
+        </Select>
       </label>
       <fieldset className={styles["balance"]}>
         <legend>Balance</legend>

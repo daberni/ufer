@@ -9,6 +9,7 @@ import { listRules } from "@/features/categorization/server/rule-repository";
 import { categorizeEntries } from "@/features/transactions/server/categorize-entries";
 import { pairTransfersInEnvironment } from "@/features/transactions/server/transfer-repository";
 import { environment } from "@/features/banking/server/environment";
+import { accountKinds } from "@/features/accounts/account-kinds";
 import { currencyAllows, maxCategoryChoicesPerRequest, maxTargetsPerRequest, maxAccountNameLength, maxCategoryLength, maxIdLength, maxSourceLength, normalizeText, type RowError } from "../csv-mapping";
 import { duplicateDateToleranceDays, mappedReferencePrefix, type DuplicateReason } from "./duplicate-matching";
 import { checkMappedEntries, createImportCategory, findImportOpening, findImportTarget, listCategoryNames, saveMappedEntries, type MappedEntry, type NewImportAccount, type OpeningBalance } from "./mapped-import-repository";
@@ -41,6 +42,7 @@ const target = z.object({
   account_id: z.string().optional(),
   new_account: z.object({
     name: z.string().trim().min(1).max(maxAccountNameLength),
+    kind: z.enum(accountKinds),
     currency: z.string().regex(/^[A-Z]{3}$/),
     opening: opening.optional()
   }).optional()
@@ -215,6 +217,7 @@ async function resolveTargets(importId: string, inputs: z.infer<typeof target>[]
         currency: input.new_account.currency,
         newAccount: persisted ? null : {
           name: input.new_account.name,
+          kind: input.new_account.kind,
           currency: input.new_account.currency
         },
         opening
