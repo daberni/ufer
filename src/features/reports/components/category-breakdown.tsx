@@ -63,20 +63,19 @@ export function CategoryBreakdown({
     <section className={clsx(ui["panel"], styles["panel"])} id={id}>
       <div className={clsx(ui["card-heading"], styles["heading"])}>
         <h2>By category</h2>
-        <span className={clsx(ui["subtle"], pending ? "" : mask)}>{context}</span>
+        <Link className={ui["text-button"]} href={transactionsHref} aria-label={`View transactions, ${context}`}>
+          View transactions
+          <ChevronRight className={styles["link-icon"]} size={16} />
+        </Link>
       </div>
       <div className={clsx(ui["subtle"], styles["summary"])}>
+        <span className={pending ? "" : mask}>{context}</span>
         <span>
           Net <strong className={clsx(summary.net < 0 && styles["negative"], mask)}>{money(summary.net, currency)}</strong>
         </span>
         <span>
           Savings rate <strong className={clsx(isNegativeRate(summary.savingsRate) && styles["negative"], mask)}>{formatSavingsRate(summary.savingsRate)}</strong>
         </span>
-        {/* Only the phone layout shows the link: a tap there first selects a month, while elsewhere clicking the month opens its transactions. */}
-        <Link className={clsx(ui["text-button"], styles["transactions-link"])} href={transactionsHref} aria-label={`View transactions, ${context}`}>
-          View transactions
-          <ChevronRight className={styles["link-icon"]} size={16} />
-        </Link>
       </div>
       {pending ? (
         <AreaPlaceholder area={cashFlow} subject="Income and spending by category">

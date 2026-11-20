@@ -267,7 +267,7 @@ test("an imported booking sends only the changed payee, and restoring the bank's
   } = await renderDialog(context, overridden);
 
   act(() => {
-    fireEvent.change(screen.getByRole("textbox", {
+    fireEvent.change(screen.getByRole("combobox", {
       name: "Payee"
     }), {
       target: {
@@ -368,7 +368,7 @@ test("a counterpart Ufer created on a manual account offers neither text overrid
     created_counterpart: true
   });
 
-  assert.equal(screen.queryByRole("textbox", {
+  assert.equal(screen.queryByRole("combobox", {
     name: "Payee"
   }), null);
   assert.equal(screen.queryByRole("button", {
@@ -489,7 +489,7 @@ test("one side of a transfer entered between manual accounts edits the pair: the
   assert.equal(screen.queryByRole("checkbox", {
     name: "Remove this booking"
   }), null);
-  assert.equal(screen.queryByRole("textbox", {
+  assert.equal(screen.queryByRole("combobox", {
     name: "Payee"
   }), null);
   assert.equal(target().value, "account:cash");

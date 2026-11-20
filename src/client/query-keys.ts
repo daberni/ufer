@@ -38,11 +38,17 @@ export const queryKeys = {
     all: () => ["transactions"] as const,
     lists: () => ["transactions", "list"] as const,
     list: (filters: TransactionListFilters) => ["transactions", "list", filters] as const,
-    transfer: (id: string) => ["transactions", "transfer", id] as const
+    transfer: (id: string) => ["transactions", "transfer", id] as const,
+    // Below the transactions prefix, so saved payees appear in later suggestions.
+    payees: (query: string) => ["transactions", "payees", query] as const
   },
   reports: {
     netWorth: () => ["reports", "net-worth"] as const,
     netWorthIn: (currency: string) => ["reports", "net-worth", {
+      currency
+    }] as const,
+    // Below the net-worth prefix, so every balance write also refreshes the curve.
+    netWorthHistoryIn: (currency: string) => ["reports", "net-worth", "history", {
       currency
     }] as const,
     cashFlow: () => ["reports", "cash-flow"] as const,

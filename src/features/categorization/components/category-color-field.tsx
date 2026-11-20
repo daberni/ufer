@@ -1,5 +1,7 @@
 "use client";
 
+import sparkle from "../../../components/ui/sparkle.module.css";
+
 import { clsx } from "clsx";
 import { Palette } from "lucide-react";
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
@@ -10,6 +12,10 @@ import { usePickerPanel } from "./use-picker-panel";
 
 type Props = {
   color: string;
+  /** Shown instead of the color while it is not known yet, such as "Loading…"; the field then submits no color, so the server chooses one. */
+  unknownLabel?: string | null;
+  /** The palette color similar categories use, highlighted in the palette. */
+  suggested?: string | null;
   onChange: (color: string) => void;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -28,18 +34,26 @@ function swatchColor(color: string) {
 /** A hex text field with a toggle for a popover of suggested colors. */
 export function CategoryColorField({
   color,
+  unknownLabel = null,
+  suggested = null,
   onChange,
   open,
   onOpenChange
 }: Props) {
   const id = useId();
+  const loading = unknownLabel !== null;
   const swatchesRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const hex = formatHexColor(color);
   const [draft, setDraft] = useState(hex);
   const [shownHex, setShownHex] = useState(hex);
   const [invalid, setInvalid] = useState(false);
-  const checkedIndex = suggestedCategoryColors.findIndex(suggestion => suggestion.value === hex);
+  // A suggestion outside the palette, such as a custom color of similar categories, joins the palette as one more swatch.
+  const swatches = suggested && !suggestedCategoryColors.some(swatch => swatch.value === suggested) ? [...suggestedCategoryColors, {
+    name: "Similar categories",
+    value: suggested
+  }] : suggestedCategoryColors;
+  const checkedIndex = swatches.findIndex(suggestion => suggestion.value === hex);
   const {
     fieldRef,
     anchorRef,
@@ -49,7 +63,8 @@ export function CategoryColorField({
   } = usePickerPanel({
     open,
     onOpenChange,
-    initialFocus: () => swatchesRef.current?.querySelector<HTMLElement>("[tabindex='0']")
+    // Opened from the hex text, the panel leaves focus in the text so typing continues.
+    initialFocus: () => document.activeElement === inputRef.current ? null : swatchesRef.current?.querySelector<HTMLElement>("[tabindex='0']")
   });
 
   // A color chosen elsewhere, such as a swatch, replaces the text unless the text already means that color.
@@ -78,7 +93,11 @@ export function CategoryColorField({
 
     setInvalid(false);
     setDraft(parsed);
-    onChange(parsed);
+
+    // Leaving the text unchanged is not a choice, so a new category keeps following its suggestion.
+    if (parsed !== hex) {
+      onChange(parsed);
+    }
   }
 
   function handleInputKeyDown(event: KeyboardEvent<HTMLInputElement>) {
@@ -98,27 +117,29 @@ export function CategoryColorField({
     }
 
     event.preventDefault();
-    onChange(suggestedCategoryColors[next].value);
+    onChange(swatches[next].value);
     options[next].focus();
   }
 
   return (
     <div ref={fieldRef} className={styles["field"]} onKeyDown={handleFieldKeyDown}>
-      <input type="hidden" name="color" value={color} />
+      {!loading && <input type="hidden" name="color" value={color} />}
       <label className={styles["field-label"]} htmlFor={`${id}-hex`}>Color</label>
       <div ref={anchorRef} className={clsx(styles["control"], invalid && styles["invalid"])}>
         <span
           className={styles["color-dot"]}
           aria-hidden="true"
           style={{
-            background: swatchColor(color)
+            background: loading ? "transparent" : swatchColor(color)
           }}
         />
         <input
           ref={inputRef}
           id={`${id}-hex`}
           className={styles["hex-input"]}
-          value={draft}
+          value={loading ? "" : draft}
+          placeholder={unknownLabel ?? undefined}
+          disabled={loading}
           spellCheck={false}
           autoComplete="off"
           autoCapitalize="characters"
@@ -136,6 +157,7 @@ export function CategoryColorField({
               onChange(parsed);
             }
           }}
+          onFocus={() => onOpenChange(true)}
           onBlur={apply}
           onInvalid={() => setInvalid(true)}
           onKeyDown={handleInputKeyDown}
@@ -143,10 +165,11 @@ export function CategoryColorField({
         <button
           ref={triggerRef}
           type="button"
-          className={styles["toggle"]}
+          className={clsx(styles["toggle"], suggested && sparkle["sparkle-outline"])}
           aria-label="Suggested colors"
           aria-expanded={open}
           aria-controls={`${id}-panel`}
+          disabled={loading}
           onClick={() => onOpenChange(!open)}
         >
           <Palette size={16} aria-hidden="true" />
@@ -168,8 +191,10 @@ export function CategoryColorField({
             role="radiogroup"
             aria-label="Suggested colors"
           >
-            {suggestedCategoryColors.map((suggestion, index) => {
+            {swatches.map((suggestion, index) => {
               const checked = index === checkedIndex;
+              const isSuggestion = suggestion.value === suggested;
+              const label = isSuggestion ? `${suggestion.name} (suggested)` : suggestion.name;
               const focusable = checked || (checkedIndex === -1 && index === 0);
 
               return (
@@ -178,15 +203,15 @@ export function CategoryColorField({
                   type="button"
                   role="radio"
                   aria-checked={checked}
-                  aria-label={suggestion.name}
-                  title={`${suggestion.name} ${suggestion.value}`}
+                  aria-label={label}
+                  title={`${label} ${suggestion.value}`}
                   tabIndex={focusable ? 0 : -1}
                   className={styles["swatch"]}
                   onClick={() => onChange(suggestion.value)}
                   onKeyDown={event => handleSwatchKeyDown(event, index)}
                 >
                   <span
-                    className={styles["swatch-color"]}
+                    className={clsx(styles["swatch-color"], isSuggestion && sparkle["sparkle"])}
                     style={{
                       background: swatchColor(suggestion.value)
                     }}
