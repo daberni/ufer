@@ -453,6 +453,44 @@ type Matches = {
   sameCategory: number;
 } | null;
 
+test("a manually categorized row's list opens at the Automatic option rather than the selected category", async context => {
+  const harness = browser(context);
+
+  harness.queryClient.setQueryData(queryKeys.rules(), [marketRule]);
+  const { TransactionRuleProvider } = await import("../src/features/transactions/components/transaction-rule-provider");
+  const { TransactionCategory } = await import("../src/features/transactions/components/transaction-category");
+  const row = (transaction: Transaction) => withQueryClient(harness.queryClient, createElement(TransactionRuleProvider, {
+    fallbackFocus: createRef<HTMLElement>()
+  }, createElement(TransactionCategory, {
+    categories,
+    transaction
+  })));
+  const activeOption = (screen: ReturnType<typeof render>) => {
+    const field = screen.getByRole("combobox", {
+      name: "Category for Example Market"
+    });
+
+    act(() => {
+      fireEvent.click(field);
+    });
+
+    return screen.baseElement.querySelector("[role=option][data-active]")?.textContent;
+  };
+  const manual = render(row(booking({})));
+
+  assert.equal(activeOption(manual), "Automatic · Groceries via rule “Market”");
+  manual.unmount();
+
+  const automatic = render(row(booking({
+    category_id: "leisure",
+    category_source: "rule",
+    category_rule_id: "market-rule",
+    automatic_assignment: null
+  })));
+
+  assert.equal(activeOption(automatic), "Leisure");
+});
+
 async function renderAdoption(matches: Matches) {
   const {
     ManualAdoptionOption,

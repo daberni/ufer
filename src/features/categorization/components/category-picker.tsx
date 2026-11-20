@@ -213,6 +213,8 @@ export function CategoryPicker({
         aria-describedby={describedBy}
         // A filter offers existing categories only.
         onCreate={includeAll ? undefined : setNewCategoryName}
+        // The option to return to automatic categorization comes first and stays in view when the list opens.
+        openAtFirst={automaticOption !== undefined}
         className={size === "compact" ? styles["compact"] : undefined}
         adornment={status && <span className={styles["adornment"]}>{status}</span>}
         endAdornment={assignment && assignmentSource && (
