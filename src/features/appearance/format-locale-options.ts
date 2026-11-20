@@ -1,4 +1,4 @@
-import { supportedLocale } from "@/lib/locale";
+import { defaultFormatLocale, supportedLocale } from "@/lib/locale";
 
 // Regional formats people commonly choose; the request's own languages are offered as well. Tags the runtime cannot format are left out.
 const candidateLocales = [
@@ -29,11 +29,16 @@ function displayName(locale: string, inLocale: string) {
   }
 }
 
+/** The locale "Browser default" selects: the request's first formattable language, otherwise the default. It ignores any explicit choice. */
+export function browserDefaultLocale(requestLanguages: readonly string[]) {
+  return requestLanguages[0] ?? defaultFormatLocale;
+}
+
 /**
  * Every candidate and request language the runtime can format, once each. The request's languages come first in the browser's order of preference;
- * the rest follow alphabetically by their own name.
+ * the rest, including a saved choice that is neither, follow alphabetically by their own name.
  */
-export function formatLocaleOptions(requestLanguages: readonly string[]): FormatLocaleOption[] {
+export function formatLocaleOptions(requestLanguages: readonly string[], savedLocale?: string): FormatLocaleOption[] {
   const preferred: string[] = [];
 
   for (const tag of requestLanguages) {
@@ -46,7 +51,8 @@ export function formatLocaleOptions(requestLanguages: readonly string[]): Format
 
   const others = new Set<string>();
 
-  for (const tag of candidateLocales) {
+  // A saved choice stays listed even when it is no longer a candidate, so the field shows what applies.
+  for (const tag of savedLocale ? [savedLocale, ...candidateLocales] : candidateLocales) {
     const locale = supportedLocale(tag);
 
     if (locale && !preferred.includes(locale)) {

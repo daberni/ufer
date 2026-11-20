@@ -3,7 +3,7 @@ import test from "node:test";
 import { defaultFormatLocale, formatCount, formatPercent, isNegativePercent, parseFormatLocalePreference } from "../src/lib/locale";
 import { negotiateFormatLocale, requestedLanguages } from "../src/server/http/accept-language";
 import { money, signedMoney } from "../src/lib/money";
-import { formatLocaleExample, formatLocaleOptions } from "../src/features/appearance/format-locale-options";
+import { browserDefaultLocale, formatLocaleExample, formatLocaleOptions } from "../src/features/appearance/format-locale-options";
 import { currentFormatLocale } from "../src/server/http/request-locale";
 
 // These cases use en-GB; CLDR separates a letter currency code from the number with a no-break space.
@@ -124,4 +124,18 @@ test("hour-cycle and numbering extensions with values Intl applies are kept; cal
   assert.equal(negotiateFormatLocale("browser", "en-u-nu-arab"), "en-u-nu-arab");
   assert.equal(negotiateFormatLocale("browser", "en-u-ca-unknown-nu-bogus"), "en");
   assert.equal(negotiateFormatLocale("browser", "en-x-foo"), "en");
+});
+
+test("Browser default previews the request's first language, never the saved explicit choice", () => {
+  assert.equal(browserDefaultLocale(["de-AT", "en-US"]), "de-AT");
+  assert.equal(browserDefaultLocale([]), "en");
+});
+
+test("a saved locale stays listed even when neither the request nor the candidates include it", () => {
+  const withoutSaved = formatLocaleOptions(["de-AT"]).map(option => option.locale);
+  const withSaved = formatLocaleOptions(["de-AT"], "en-PH").map(option => option.locale);
+
+  assert.ok(!withoutSaved.includes("en-PH"));
+  assert.ok(withSaved.includes("en-PH"));
+  assert.equal(withSaved[0], "de-AT");
 });

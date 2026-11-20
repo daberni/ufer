@@ -3,11 +3,11 @@
 import { useId, useMemo, useState } from "react";
 import { clsx } from "clsx";
 import ui from "../../../components/ui/primitives.module.css";
-import { useLocale, useRequestLanguages } from "@/client/locale-provider";
+import { useRequestLanguages } from "@/client/locale-provider";
 import { SearchableSelect, type SearchableSelectOption } from "@/components/ui/searchable-select";
 import { matchOptions } from "@/components/ui/searchable-select-behavior";
 import { localeCookie, localeCookieName, parseFormatLocalePreference, type FormatLocalePreference } from "@/lib/locale";
-import { formatLocaleExample, formatLocaleOptions } from "@/features/appearance/format-locale-options";
+import { browserDefaultLocale, formatLocaleExample, formatLocaleOptions } from "@/features/appearance/format-locale-options";
 import styles from "./format-locale-choice.module.css";
 
 const browserDefaultLabel = "Browser default";
@@ -67,9 +67,11 @@ function localeOption(value: FormatLocalePreference, locale: string, label: stri
   };
 }
 
-function localeOptions(currentLocale: string, requestLanguages: readonly string[]): LocaleOption[] {
-  const browserDefault = localeOption("browser", currentLocale, browserDefaultLabel, browserDefaultLabel);
-  const locales = formatLocaleOptions(requestLanguages).map(option => localeOption(option.locale, option.locale, option.name, `${option.name} ${option.englishName} ${option.locale}`));
+/** Browser default previews what the request's languages select, not the explicit choice that currently applies. */
+function localeOptions(preference: FormatLocalePreference, requestLanguages: readonly string[]): LocaleOption[] {
+  const browserDefault = localeOption("browser", browserDefaultLocale(requestLanguages), browserDefaultLabel, browserDefaultLabel);
+  const savedLocale = preference === "browser" ? undefined : preference;
+  const locales = formatLocaleOptions(requestLanguages, savedLocale).map(option => localeOption(option.locale, option.locale, option.name, `${option.name} ${option.englishName} ${option.locale}`));
 
   return [browserDefault, ...locales];
 }
@@ -85,12 +87,11 @@ function matchLocales(options: readonly SearchableSelectOption<FormatLocalePrefe
 
 /** Browser default or any locale the browser can format, for amounts, numbers and dates in this browser; currencies stay per account. */
 export function FormatLocaleChoice() {
-  const locale = useLocale();
   const requestLanguages = useRequestLanguages();
   const fieldId = useId();
   // Mounted only inside the account dialog in the browser, where the cookie is readable.
   const [preference] = useState(storedPreference);
-  const options = useMemo(() => localeOptions(locale, requestLanguages), [locale, requestLanguages]);
+  const options = useMemo(() => localeOptions(preference, requestLanguages), [preference, requestLanguages]);
   const selected = options.find(option => option.value === preference);
   const [query, setQuery] = useState(selected?.label ?? browserDefaultLabel);
 
