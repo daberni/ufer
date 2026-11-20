@@ -2,13 +2,29 @@
 .panel {
   container-type: inline-size;
 }
-/* The figures sit on the same row as the chart's legend and savings rate. */
-.summary {
+/* Title and period share the first row like the chart's title and month range; net and savings rate use the chart's legend row, with the rate at its end in a fixed width. */
+/* In a narrow panel the period wraps below the title instead of truncating it; the period is known before the figures, so loading never changes the wrap. */
+.title {
   display: flex;
+  flex: 1 1 auto;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: var(--space-1) var(--space-4);
-  margin-top: var(--space-4);
+  gap: 0 var(--space-3);
+  min-width: 0;
+}
+.heading > a {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.title > span {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.summary {
+  composes: chart-legend from "./cash-flow-chart.module.css";
+}
+.savings-rate {
+  composes: savings-rate from "./cash-flow-chart.module.css";
 }
 .link-icon {
   flex-shrink: 0;
