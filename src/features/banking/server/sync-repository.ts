@@ -4,8 +4,8 @@ import { and, count, eq, getTableColumns, isNull, like, ne, sql, type SQLWrapper
 import type { Database } from "@/server/database/connection";
 import { timestamp } from "@/lib/time";
 import { accounts, balanceSnapshots, requisitions, syncRuns, transactions } from "@/server/database/schema";
-import { upsertTransactions } from "@/features/transactions/server/transaction-repository";
-import type { CategorizedEntry } from "@/features/transactions/server/transaction-entry";
+import { upsertTransactions, withStoredOverrides } from "@/features/transactions/server/transaction-repository";
+import type { CategorizedEntry, Entry } from "@/features/transactions/server/transaction-entry";
 
 /** What identifies a sync run's transactions: values for one run, or `sync_runs` columns for a correlated query. */
 export type SyncRunIdentity = {
@@ -86,14 +86,16 @@ export async function recordAccountSyncError(db: Database, id: string, environme
   }).where(and(eq(accounts.id, id), eq(accounts.environment, environment)));
 }
 
-/** Stores one account's sync result and returns how many of its transactions this run inserted. */
+/** Stores one account's sync result and returns how many of its transactions this run inserted. Entries are categorized in the write transaction, with the overrides stored for the rows they update. */
 export async function saveSyncedAccount(db: Database, run: SyncRunStart, accountId: string, balance: {
   amount: number;
   bank_balance_type: string;
   date: string
-}, entries: CategorizedEntry[]) {
+}, entries: Entry[], categorize: (entries: Awaited<ReturnType<typeof withStoredOverrides<Entry>>>) => CategorizedEntry[]) {
   return db.transaction(async tx => {
-    await upsertTransactions(tx, accountId, await adoptImportedRows(tx, accountId, entries), run.startedAt);
+    const categorized = categorize(await withStoredOverrides(tx, accountId, entries));
+
+    await upsertTransactions(tx, accountId, await adoptImportedRows(tx, accountId, categorized), run.startedAt);
     await tx.update(accounts).set({
       balance_minor: balance.amount,
       balance_date: balance.date,

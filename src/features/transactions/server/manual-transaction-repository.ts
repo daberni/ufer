@@ -5,7 +5,7 @@ import { database, type DatabaseTransaction } from "@/server/database/connection
 import { transactions } from "@/server/database/schema";
 import { assertWritableAccount } from "@/features/accounts/server/writable-account";
 import type { TransactionType } from "@/features/transactions/transaction-types";
-import type { RuleAssignment } from "@/lib/rules";
+import type { RuleAssignment, RuleText } from "@/lib/rules";
 import { applyTransactionType, createdCounterpartPrefix, dissolveLink, enteredInUfer, enteredPair, findCounterpart, findSubject, manualEntryPrefix, touchesArchivedAccount, type TransferTarget, type TypeChangeResult } from "./transfer-repository";
 
 /** The fields a person enters for a booking on a manual account. */
@@ -113,7 +113,7 @@ export async function findEntryCurrency(id: string) {
  * Saves an entered booking's date, amount, payee, description and type together.
  * The other side of an entered pair mirrors the date, the opposite amount and the description; a booking linked with an imported booking keeps that booking's date and amount.
  */
-export async function updateManualTransaction(id: string, entry: ManualEntry, categoryFor: (counterparty: string, description: string) => RuleAssignment) {
+export async function updateManualTransaction(id: string, entry: ManualEntry, categoryFor: (text: RuleText) => RuleAssignment) {
   return refusable(async tx => {
     const subject = await findSubject(tx, id);
 
@@ -189,18 +189,20 @@ export async function updateManualTransaction(id: string, entry: ManualEntry, ca
 }
 
 /** Rechecks final mirrored fields under the edit's write lock; explicit manual assignments, including null, stay untouched. */
-async function reapplyRuleCategory(tx: DatabaseTransaction, id: string, categoryFor: (counterparty: string, description: string) => RuleAssignment) {
+async function reapplyRuleCategory(tx: DatabaseTransaction, id: string, categoryFor: (text: RuleText) => RuleAssignment) {
   const automatic = and(eq(transactions.id, id), eq(transactions.category_source, "rule"));
   const booking = await tx.select({
     counterparty: transactions.counterparty,
-    description: transactions.description
+    description: transactions.description,
+    counterparty_override: transactions.counterparty_override,
+    description_override: transactions.description_override
   }).from(transactions).where(automatic).get();
 
   if (!booking) {
     return;
   }
 
-  const assignment = categoryFor(booking.counterparty, booking.description);
+  const assignment = categoryFor(booking);
 
   await tx.update(transactions).set({
     category_id: assignment.categoryId,

@@ -19,7 +19,7 @@ import { ValidationError } from "../src/lib/errors";
 import { listAccounts, readBalanceHistory, readNetWorth } from "../src/features/accounts/server/account-queries";
 import { archiveAccount, restoreAccount, updateManualValuation } from "../src/features/accounts/server/account-service";
 import { editManualTransaction, enterManualTransaction, hideTransaction, removeManualTransaction, transferOptions, updateTransactionCategory, updateTransactionDetails } from "../src/features/transactions/server/transaction-service";
-import { applyRulesToUncorrectedTransactions, deleteCategory } from "../src/features/categorization/server/categorization-service";
+import { applyRulesToUncorrectedTransactions, createRule, deleteCategory, updateRuleDetails } from "../src/features/categorization/server/categorization-service";
 import { saveRuleAssignments } from "../src/features/categorization/server/rule-repository";
 import { pairTransfersInEnvironment } from "../src/features/transactions/server/transfer-repository";
 import { acquireLease } from "../src/server/jobs/lease-repository";
@@ -279,7 +279,7 @@ test("bookings on an archived account cannot be edited, deleted or linked, and a
 test("categories of bookings on an archived account change neither manually nor by applying rules", async context => {
   const db = await seededDatabase(context);
 
-  await db.insert(schema.transactions).values({
+  await db.insert(schema.transactions).values([{
     id: "shop",
     account_id: "closed",
     provider_reference: "manual:shop",
@@ -288,7 +288,17 @@ test("categories of bookings on an archived account change neither manually nor 
     currency: "EUR",
     counterparty: "Synthetic shop",
     type: "expense"
-  });
+  }, {
+    id: "manual-shop",
+    account_id: "closed",
+    provider_reference: "manual:manual-shop",
+    booking_date: "2026-01-08",
+    amount_minor: 0,
+    currency: "EUR",
+    counterparty: "Synthetic shop",
+    type: "expense",
+    category_source: "manual"
+  }]);
   await db.insert(schema.categorizationRules).values({
     id: "shop-rule",
     name: "Synthetic shop",
@@ -305,7 +315,28 @@ test("categories of bookings on an archived account change neither manually nor 
     status: 409,
     message: "This account is archived. Restore the account first."
   });
+  await assert.rejects(updateTransactionCategory("manual-shop", {
+    automatic: true
+  }), {
+    status: 409,
+    message: "This account is archived. Restore the account first."
+  });
   await applyRulesToUncorrectedTransactions();
+  // Rules handed manual assignments neither adopt bookings on an archived account when created nor when edited.
+  await createRule({
+    name: "Synthetic shop again",
+    pattern: "Synthetic shop",
+    mode: "keyword",
+    category_id: "groceries",
+    adopt_manual: true
+  });
+  await updateRuleDetails("shop-rule", {
+    name: "Synthetic shop",
+    pattern: "Synthetic shop",
+    mode: "keyword",
+    category_id: "groceries",
+    adopt_manual: true
+  });
   assert.deepEqual(await db.select().from(schema.transactions), bookingsBefore);
 
   // Assignments computed before the account was archived are not written afterwards.

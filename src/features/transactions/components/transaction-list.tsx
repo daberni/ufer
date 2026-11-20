@@ -66,11 +66,13 @@ function TransactionRow({
   const incoming = transaction.amount_minor > 0;
   const original = originalAmount(transaction);
   const subject = transaction.counterparty || transaction.description || transactionTypeLabels[transaction.type];
+  // Without a payee the description is already the title, so it is not repeated below.
+  const showsDescription = Boolean(transaction.counterparty) || !transaction.description;
 
   return (
     <tr role="row" className={clsx(styles["row"], transaction.hidden && styles["hidden"])}>
       <th role="rowheader" scope="row" className={styles["payee"]}>
-        <div className={styles["transaction-name"]}>
+        <div className={clsx(styles["transaction-name"], !showsDescription && styles["title-only"])}>
           <span className={clsx(styles["transaction-icon"], incoming && styles["incoming"])}><TransactionTypeIcon type={transaction.type} /></span>
           <strong className={styles["name"]}>
             {editLocked(transaction) ? (
@@ -87,7 +89,14 @@ function TransactionRow({
               </button>
             )}
           </strong>
-          <span className={styles["description"]} title={transaction.description}>{transaction.description || "No description"}</span>
+          {showsDescription ? (
+            <span className={styles["description"]} title={transaction.description}>{transaction.description || "No description"}</span>
+          ) : (
+            <>
+              <span className={clsx(styles["name-spacer"], styles["spacer"])} aria-hidden="true">&nbsp;</span>
+              <span className={clsx(styles["description"], styles["spacer"])} aria-hidden="true">&nbsp;</span>
+            </>
+          )}
           {transaction.counterparty || transaction.description ? (
             <details className={styles["transaction-details"]}>
               <summary aria-label={`Details for ${subject}`}>Details</summary>

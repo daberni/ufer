@@ -40,6 +40,12 @@ export function useRulePreview(draft: RulePreviewDraft | null) {
       mode: draft.mode,
       ...(draft.ruleId === null ? {} : {
         rule_id: draft.ruleId
+      }),
+      ...(draft.categoryId === null ? {} : {
+        category_id: draft.categoryId
+      }),
+      ...(draft.sourceTransactionId === undefined ? {} : {
+        source_transaction_id: draft.sourceTransactionId
       })
     }, signal) : skipToken,
     // Assignments change the count, so an open preview never reuses an earlier one.

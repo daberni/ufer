@@ -43,6 +43,7 @@ function booking(id: string, counterparty: string): Transaction {
     category_id: null,
     category_source: "rule",
     category_rule_id: null,
+    automatic_assignment: null,
     type: "expense",
     type_source: "auto",
     manual_account: false,
@@ -154,7 +155,9 @@ test("an explicit category action keeps its draft when another row finishes savi
   assert.equal(preview?.url.search, "");
   assert.deepEqual(preview?.body, {
     pattern: "Example Market",
-    mode: "keyword"
+    mode: "keyword",
+    category_id: "groceries",
+    source_transaction_id: "market-entry"
   });
   const pattern = screen.getByRole("textbox", {
     name: "Matching pattern"
@@ -212,7 +215,9 @@ test("rule creation is announced quietly and a later failed assignment reports i
   await respond(requests("rules/preview").at(-1), Response.json({
     id: previewId,
     matched: 2,
-    uncategorized: 2
+    uncategorized: 2,
+    manual: 0,
+    manual_same_category: 0
   }));
   act(() => fireEvent.submit(screen.getByRole("textbox", {
     name: "Matching pattern"
@@ -229,7 +234,9 @@ test("rule creation is announced quietly and a later failed assignment reports i
     await respond(preview, Response.json({
       id: previewId,
       matched: 0,
-      uncategorized: 0
+      uncategorized: 0,
+      manual: 0,
+      manual_same_category: 0
     }));
   }
 
@@ -365,7 +372,9 @@ test("rule creation waits for the current pattern preview, including debounce an
   await respond(requests("rules/preview").at(-1), Response.json({
     id: previewId,
     matched: 2,
-    uncategorized: 2
+    uncategorized: 2,
+    manual: 0,
+    manual_same_category: 0
   }));
   assert.equal(create().disabled, false);
 
@@ -383,7 +392,9 @@ test("rule creation waits for the current pattern preview, including debounce an
   await respond(requests("rules/preview").at(-1), Response.json({
     id: previewId,
     matched: 8,
-    uncategorized: 5
+    uncategorized: 5,
+    manual: 0,
+    manual_same_category: 0
   }));
   assert.equal(create().disabled, false);
 
@@ -413,7 +424,9 @@ test("rule creation waits for the current pattern preview, including debounce an
   await respond(requests("rules/preview").at(-1), Response.json({
     id: previewId,
     matched: 3,
-    uncategorized: 1
+    uncategorized: 1,
+    manual: 0,
+    manual_same_category: 0
   }));
   assert.equal(create().disabled, false);
   act(() => fireEvent.submit(form));
@@ -427,6 +440,7 @@ test("rule creation waits for the current pattern preview, including debounce an
     mode: "keyword",
     category_id: "groceries",
     apply_to_uncategorized: true,
+    adopt_manual: false,
     source_transaction_id: "draft-entry"
   });
 });
@@ -505,7 +519,9 @@ test("an explicitly opened draft survives removal of its filtered source row and
   await respond(requests("rules/preview").at(-1), Response.json({
     id: previewId,
     matched: 2,
-    uncategorized: 2
+    uncategorized: 2,
+    manual: 0,
+    manual_same_category: 0
   }));
   act(() => fireEvent.change(screen.getByRole("textbox", {
     name: "Matching pattern"
@@ -518,7 +534,9 @@ test("an explicitly opened draft survives removal of its filtered source row and
   await respond(requests("rules/preview").at(-1), Response.json({
     id: previewId,
     matched: 3,
-    uncategorized: 3
+    uncategorized: 3,
+    manual: 0,
+    manual_same_category: 0
   }));
 
   screen.rerender(panel(false));
@@ -544,6 +562,7 @@ test("an explicitly opened draft survives removal of its filtered source row and
     mode: "keyword",
     category_id: "groceries",
     apply_to_uncategorized: true,
+    adopt_manual: false,
     source_transaction_id: "filtered-entry"
   });
   await respond(created, Response.json({
@@ -557,7 +576,9 @@ test("an explicitly opened draft survives removal of its filtered source row and
     await respond(preview, Response.json({
       id: previewId,
       matched: 0,
-      uncategorized: 0
+      uncategorized: 0,
+      manual: 0,
+      manual_same_category: 0
     }));
   }
 

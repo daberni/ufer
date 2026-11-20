@@ -100,6 +100,7 @@ test("a manual entry starts with Automatic and can return to it after an explici
   assert.equal(entry.category.value, "");
   assert.equal(entry.category.placeholder, "Uncategorized");
   assert.match(accessibleDescription(entry.category), /\bUncategorized\b/);
+  assert.ok(entry.category.parentElement?.querySelector(".selected-icon"), "The Uncategorized hint keeps its icon in the field.");
   entry.choose("Automatic");
   assert.equal(entry.category.value, "Automatic");
   assert.equal(Object.hasOwn(await entry.submit(), "category_id"), false);

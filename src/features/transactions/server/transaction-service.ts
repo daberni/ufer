@@ -2,7 +2,7 @@ import { Temporal } from "temporal-polyfill";
 import { HttpError, ValidationError } from "@/lib/errors";
 import { z } from "zod";
 import { minorUnits } from "@/lib/money";
-import { prepareRules, ruleAssignment } from "@/lib/rules";
+import { prepareRules, ruleAssignment, type RuleText } from "@/lib/rules";
 import { today, validDate } from "@/lib/time";
 import { requireWritableManualAccount } from "@/features/accounts/server/account-service";
 import { categoryExists } from "@/features/categorization/server/category-repository";
@@ -10,22 +10,21 @@ import { listRules } from "@/features/categorization/server/rule-repository";
 import { transactionTypes } from "@/features/transactions/transaction-types";
 import { categorizeEntries } from "./categorize-entries";
 import { createManualTransaction, deleteManualTransaction, findEntryCurrency, updateManualTransaction, type ManualEntryResult } from "./manual-transaction-repository";
-import { saveTransactionDetails, setTransactionCategory, setTransactionHidden } from "./transaction-repository";
+import { returnTransactionToRules, saveTransactionDetails, setTransactionCategory, setTransactionHidden } from "./transaction-repository";
 import { manualLinkDays } from "./transfer-pairing";
 import { readTransferOptions, type TransferTarget } from "./transfer-repository";
 
+// A category ID or null sets the category manually; automatic returns the transaction to the rules.
+const categoryChoice = z.union([z.object({
+  category_id: z.string().min(1).nullable()
+}).strict(), z.object({
+  automatic: z.literal(true)
+}).strict()]);
+
+/** Sets a transaction's category manually, or returns it to automatic categorization with the category and rule that the stored rules decide. */
 export async function updateTransactionCategory(id: string, payload: unknown) {
-  const {
-    category_id: categoryId
-  } = z.object({
-    category_id: z.string().min(1).nullable()
-  }).parse(payload);
-
-  if (categoryId && !(await categoryExists(categoryId))) {
-    throw new ValidationError("Category does not exist.");
-  }
-
-  const assignment = await setTransactionCategory(id, categoryId);
+  const choice = categoryChoice.parse(payload);
+  const assignment = "automatic" in choice ? await automaticCategory(id) : await manualCategory(id, choice.category_id);
 
   if (assignment === "archived_account") {
     throw new HttpError(409, "This account is archived. Restore the account first.");
@@ -36,6 +35,18 @@ export async function updateTransactionCategory(id: string, payload: unknown) {
   }
 
   return assignment;
+}
+
+function automaticCategory(id: string) {
+  return returnTransactionToRules(id, (storedRules, text) => ruleAssignment(text, prepareRules(storedRules)));
+}
+
+async function manualCategory(id: string, categoryId: string | null) {
+  if (categoryId && !(await categoryExists(categoryId))) {
+    throw new ValidationError("Category does not exist.");
+  }
+
+  return setTransactionCategory(id, categoryId);
 }
 
 // Omitted keeps a transfer's current link; null means no counterpart.
@@ -206,7 +217,7 @@ export async function editManualTransaction(id: string, payload: unknown, now = 
 
   const entry = validateEntry(input, currency, now);
   const rules = prepareRules(await listRules());
-  const categoryFor = (counterparty: string, description: string) => ruleAssignment(counterparty, description, rules);
+  const categoryFor = (text: RuleText) => ruleAssignment(text, rules);
 
   requireSaved(await updateManualTransaction(id, entry, categoryFor));
 

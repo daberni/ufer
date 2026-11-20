@@ -57,6 +57,7 @@ const transaction: Transaction = {
   category_id: "groceries",
   category_source: "rule",
   category_rule_id: null,
+  automatic_assignment: null,
   type: "expense",
   type_source: "auto",
   manual_account: false,

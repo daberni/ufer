@@ -1,13 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { HttpError, ValidationError } from "@/lib/errors";
 import { z } from "zod";
-import { decidingRule, prepareRules, ruleAssignment, validatePattern, type Rule } from "@/lib/rules";
+import { decidingRule, prepareRules, ruleAssignment, validatePattern, type Rule, type RuleText } from "@/lib/rules";
 import { normalizeCategoryName } from "@/lib/category-name";
 import { maximumRules, nextPriority, orderedPriorities } from "@/features/categorization/rule-order";
 import { isCategoryIcon } from "@/features/categorization/category-icons";
 import { defaultCategoryColor } from "@/features/categorization/category-colors";
 import { categoryExists, deleteCategory as deleteStoredCategory, insertCategory, readCategoryUsage, updateCategory, type CategoryDetails, type CategoryWriteResult } from "./category-repository";
-import { appendRule, deleteRule as deleteStoredRule, findUncorrectedTransactions, insertRule, listRules, saveRuleAssignments, saveRuleOrder, setRuleEnabled, updateRule, type RuleCreationAssignments, type SelectRuleAssignments } from "./rule-repository";
+import { appendRule, deleteRule as deleteStoredRule, findManualAssignments, findUncorrectedTransactions, insertRule, listRules, saveRuleAssignments, saveRuleOrder, setRuleEnabled, updateRule, type ManualAdoption, type RuleCreationAssignments, type SelectRuleAssignments } from "./rule-repository";
 
 const ruleMatching = {
   pattern: z.string().min(1).max(500),
@@ -26,32 +26,51 @@ const ruleInput = z.object({
   // Gives the rule's category to the transactions it decides that are still uncategorized; other matches change when rules are applied.
   apply_to_uncategorized: z.boolean().default(false),
   // The manually categorized transaction the rule is created from; it becomes rule-assigned when the new rule decides its category.
-  source_transaction_id: z.string().min(1).optional()
+  source_transaction_id: z.string().min(1).optional(),
+  // Also returns the other manually categorized transactions the rule decides to automatic categorization, with the rule's category.
+  adopt_manual: z.boolean().default(false)
 });
 
 const rulePreviewInput = z.object({
   ...ruleMatching,
   // An edited rule is counted in place of its stored version.
-  rule_id: z.string().min(1).optional()
+  rule_id: z.string().min(1).optional(),
+  // Counts the manual assignments the rule decides that already have this category.
+  category_id: z.string().min(1).optional(),
+  // The transaction a rule is created from is adopted on its own terms, so it is not counted among the other manual assignments.
+  source_transaction_id: z.string().min(1).optional()
 });
 
-/**
- * Transactions without a manual assignment decided by this rule, using the same persisted-ID tie-break as future matching. A stored rule with the same ID is replaced by the draft.
- */
-async function transactionsDecidedBy(rule: Rule) {
-  const others = (await listRules()).filter(stored => stored.id !== rule.id);
-  const rules = prepareRules([...others, rule]);
-  const entries = await findUncorrectedTransactions();
+type RuleCandidate = RuleText & {
+  id: string;
+};
 
-  return entries.filter(entry => decidingRule(entry.counterparty, entry.description, rules)?.id === rule.id);
+/** The entries this rule decides, using the same persisted-ID tie-break as future matching. A stored rule with the same ID is replaced by the draft. */
+function decidedBy<Entry extends RuleCandidate>(rule: Rule, storedRules: Rule[], entries: Entry[]) {
+  const others = storedRules.filter(stored => stored.id !== rule.id);
+  const rules = prepareRules([...others, rule]);
+
+  return entries.filter(entry => decidingRule(entry, rules)?.id === rule.id);
+}
+
+/** Selects the candidates the stored rule with this ID decides; used inside the write transaction that adopts them. */
+function decidedByStoredRule(ruleId: string): SelectRuleAssignments {
+  return (storedRules, entries) => {
+    const rules = prepareRules(storedRules);
+
+    return entries.filter(entry => decidingRule(entry, rules)?.id === ruleId).map(entry => entry.id);
+  };
 }
 
 /**
- * Counts the transactions a new rule, or an edited rule in its stored enabled state, would categorize, without storing it. A disabled rule decides nothing. Manual assignments are never counted.
+ * Counts the transactions a new rule, or an edited rule in its stored enabled state, would categorize, without storing it. A disabled rule decides nothing. Manual
+ * assignments are counted separately: they only follow the rule when a person chooses to return them to automatic categorization.
  */
 export async function previewRule(payload: unknown) {
   const {
     rule_id: ruleId,
+    category_id: categoryId,
+    source_transaction_id: sourceTransactionId,
     ...input
   } = rulePreviewInput.parse(payload);
 
@@ -68,20 +87,26 @@ export async function previewRule(payload: unknown) {
   const id = ruleId ?? randomUUID();
   // A new rule without a priority is counted after every stored rule, where appending places it.
   const priority = input.priority ?? stored?.priority ?? nextPriority(await listRules());
-  const decided = enabled ? await transactionsDecidedBy({
+  const draft: Rule = {
     ...input,
     priority,
     id,
     name: "",
-    category_id: "",
+    category_id: categoryId ?? "",
     enabled
-  }) : [];
+  };
+  const storedRules = await listRules();
+  const decided = enabled ? decidedBy(draft, storedRules, await findUncorrectedTransactions()) : [];
+  const manualAssignments = enabled ? (await findManualAssignments()).filter(entry => entry.id !== sourceTransactionId) : [];
+  const decidedManual = decidedBy(draft, storedRules, manualAssignments);
 
   return {
     id,
     enabled: Boolean(enabled),
     matched: decided.length,
-    uncategorized: decided.filter(entry => entry.category_id === null).length
+    uncategorized: decided.filter(entry => entry.category_id === null).length,
+    manual: decidedManual.length,
+    manual_same_category: decidedManual.filter(entry => categoryId !== undefined && entry.category_id === categoryId).length
   };
 }
 
@@ -89,6 +114,7 @@ export async function createRule(payload: unknown) {
   const {
     apply_to_uncategorized: applyToUncategorized,
     source_transaction_id: sourceTransactionId,
+    adopt_manual: adoptManual,
     id: previewId,
     ...input
   } = ruleInput.parse(payload);
@@ -112,17 +138,17 @@ export async function createRule(payload: unknown) {
     ...details,
     id: previewId ?? randomUUID()
   };
-  const decidedByRule: SelectRuleAssignments = (storedRules, entries) => {
-    const rules = prepareRules(storedRules);
-
-    return entries.filter(entry => decidingRule(entry.counterparty, entry.description, rules)?.id === rule.id).map(entry => entry.id);
-  };
+  const decidedByRule = decidedByStoredRule(rule.id);
   const assignments: RuleCreationAssignments = {
     uncategorized: applyToUncategorized ? decidedByRule : undefined,
     source: sourceTransactionId === undefined ? undefined : {
       transactionId: sourceTransactionId,
       select: decidedByRule
-    }
+    },
+    manual: adoptManual ? {
+      select: decidedByRule,
+      excludedTransactionId: sourceTransactionId
+    } : undefined
   };
   const categorized = priority === undefined ? await appendRule(rule, assignments) : await insertRule({
     ...rule,
@@ -135,9 +161,12 @@ export async function createRule(payload: unknown) {
   };
 }
 
-/** Editing the matching details never changes enabled state or existing transaction assignments. */
+/** Editing the matching details never changes enabled state; existing assignments only change for the manual assignments a person chose to hand to the rule. */
 export async function updateRuleDetails(id: string, payload: unknown) {
-  const input = ruleInput.omit({
+  const {
+    adopt_manual: adoptManual,
+    ...input
+  } = ruleInput.omit({
     id: true,
     enabled: true,
     apply_to_uncategorized: true,
@@ -150,7 +179,11 @@ export async function updateRuleDetails(id: string, payload: unknown) {
     throw new ValidationError("Category does not exist.");
   }
 
-  if (!(await updateRule(id, input))) {
+  const manual: ManualAdoption | undefined = adoptManual ? {
+    select: decidedByStoredRule(id)
+  } : undefined;
+
+  if (!(await updateRule(id, input, manual))) {
     throw new HttpError(404, "Rule not found.");
   }
 
@@ -321,7 +354,7 @@ export async function applyRulesToUncorrectedTransactions() {
   const entries = await findUncorrectedTransactions();
   let recategorized = 0;
   const changes = entries.flatMap(entry => {
-    const assignment = ruleAssignment(entry.counterparty, entry.description, rules);
+    const assignment = ruleAssignment(entry, rules);
     const categoryChanged = assignment.categoryId !== entry.category_id;
 
     if (!categoryChanged && assignment.ruleId === entry.category_rule_id) {

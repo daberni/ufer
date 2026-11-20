@@ -57,19 +57,20 @@
   cursor: wait;
   opacity: 0.5;
 }
-/* Creating a rule is a secondary action, so it appears while pointing at or focused in the field; touch devices without hover always show it. A pending save keeps it hidden until it is revealed. */
+/* Creating a rule is a secondary action: like the field's dropdown indicator, it appears while the transaction row is hovered or the field is focused. Touch devices without hover always show it. The rule indicator, also a button once its rule is known, always shows. */
 @media (hover: hover) {
-  .assignment-action,
-  .assignment-action:disabled {
-    opacity: 0;
+  .assignment-action[data-assignment-source="manual"] {
+    opacity: var(--inline-select-indicator-opacity, 0);
     transition: opacity 120ms ease;
   }
-  .picker:hover .assignment-action,
-  .picker:focus-within .assignment-action {
+  .picker:focus-within .assignment-action[data-assignment-source="manual"] {
     opacity: 1;
   }
-  .picker:hover .assignment-action:disabled,
-  .picker:focus-within .assignment-action:disabled {
+  .assignment-action[data-assignment-source="manual"]:disabled {
+    opacity: calc(var(--inline-select-indicator-opacity, 0) * 0.5);
+  }
+  .picker:focus-within
+    .assignment-action[data-assignment-source="manual"]:disabled {
     opacity: 0.5;
   }
 }

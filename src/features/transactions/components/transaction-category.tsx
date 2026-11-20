@@ -6,7 +6,7 @@ import { useId } from "react";
 import { clsx } from "clsx";
 import styles from "./transaction-category.module.css";
 import { Check, CircleAlert, LoaderCircle } from "lucide-react";
-import type { Category } from "@/features/categorization/types";
+import type { Category, Rule } from "@/features/categorization/types";
 import type { Transaction } from "@/features/transactions/types";
 import { TraceId } from "@/components/ui/trace-id";
 import { CategoryPicker } from "@/features/categorization/components/category-picker";
@@ -19,6 +19,19 @@ type Props = {
   categories: Category[];
   transaction: Transaction;
 };
+
+/** Names what returning to automatic categorization assigns, for example: Automatic · Groceries via rule “Market”. */
+export function automaticLabel(assignment: NonNullable<Transaction["automatic_assignment"]>, categories: readonly Category[], rule: Rule | undefined) {
+  const category = categories.find(candidate => candidate.id === assignment.category_id);
+
+  if (!category) {
+    return "Automatic · Uncategorized";
+  }
+
+  const source = rule ? `via rule “${rule.name}”` : "via a rule";
+
+  return `Automatic · ${category.name} ${source}`;
+}
 
 export function TransactionCategory({
   categories,
@@ -53,8 +66,10 @@ function EditableTransactionCategory({
   const fieldId = useId();
   const {
     categoryId,
+    pendingAutomatic,
     status,
-    change
+    change,
+    returnToAutomatic
   } = useTransactionCategory(transaction);
   const rules = useTransactionRules();
   const failure = status?.kind === "failed" ? `Category not saved: ${status.failure.message}` : "";
@@ -63,8 +78,9 @@ function EditableTransactionCategory({
     saved: "Category saved.",
     failed: failure
   };
-  // A pending choice is a manual assignment before the server confirms it.
-  const manual = status?.kind === "saving" || transaction.category_source === "manual";
+  // A pending choice is a manual assignment before the server confirms it, unless it returns the transaction to the rules.
+  const manual = pendingAutomatic ? false : status?.kind === "saving" || transaction.category_source === "manual";
+  const automatic = transaction.category_source === "manual" && !pendingAutomatic ? transaction.automatic_assignment : null;
   const assignmentSource = manual ? "manual" : "rule";
   const announcement = status ? announcements[status.kind] : "";
   // A rule deleted since, or one not yet loaded, leaves the indicator informational.
@@ -80,6 +96,13 @@ function EditableTransactionCategory({
         categories={categories}
         value={categoryId}
         includeUncategorized
+        automaticOption={automatic ? {
+          label: automaticLabel(automatic, categories, rules.findRule(automatic.rule_id)),
+          choose: () => {
+            rules.clearAnnouncement();
+            returnToAutomatic();
+          }
+        } : undefined}
         assignment={{
           source: categoryId === null ? null : assignmentSource,
           actionLabel: `Create rule for ${transaction.counterparty || transaction.description || transactionTypeLabels[transaction.type]}`,
