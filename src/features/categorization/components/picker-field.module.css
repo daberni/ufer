@@ -1,0 +1,203 @@
+/* A field places its label, trigger and panel directly in the surrounding two-column grid: labels in the first row, triggers in the second and an open panel across the full third row, so it opens below both triggers. */
+.field {
+  display: contents;
+}
+.field-label {
+  grid-row: 1;
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+.trigger {
+  grid-row: 2;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  min-height: 42px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+.trigger:hover {
+  border-color: var(--border-strong);
+}
+.trigger[aria-expanded="true"] {
+  border-color: var(--green);
+  box-shadow: inset 0 0 0 1px var(--green);
+}
+.trigger-value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.color-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+}
+.icon-preview {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+}
+
+.panel {
+  grid-row: 3;
+  grid-column: 1 / -1;
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-muted);
+  container-type: inline-size;
+}
+.panel-heading,
+.group-heading {
+  display: block;
+  margin-bottom: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+.swatches {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+@container (width < 300px) {
+  .swatches {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+.swatch {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+  max-height: 44px;
+  border-radius: 50%;
+  cursor: pointer;
+}
+.swatch-color {
+  width: 75%;
+  height: 75%;
+  border-radius: 50%;
+}
+.swatch[aria-checked="true"] {
+  box-shadow: inset 0 0 0 2px var(--ink);
+}
+.hex-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+.hex-label {
+  color: var(--muted);
+}
+.hex-row .hex-input {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  text-transform: uppercase;
+}
+.hex-row .hex-input.invalid {
+  border-color: var(--danger);
+}
+.copy-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+}
+.copy-button:hover {
+  background: var(--soft);
+}
+.hex-error {
+  grid-column: 2 / -1;
+  color: var(--danger-text);
+  font-size: var(--text-sm);
+}
+.field .search {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-3);
+  color: var(--muted);
+}
+.icon-options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-height: 288px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.icon-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
+  gap: var(--space-1);
+}
+.icon-option {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  cursor: pointer;
+}
+.icon-option:hover {
+  border-color: var(--border-strong);
+}
+.icon-option[aria-selected="true"] {
+  border-color: var(--green);
+  background: var(--soft);
+  box-shadow: inset 0 0 0 1px var(--green);
+}
+/* The same dot a category chip shows when its category has no icon. */
+.no-icon {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+.empty {
+  color: var(--muted);
+}
+@media (--mobile) {
+  .field-label {
+    font-size: var(--text-md);
+  }
+}
+/* Touch pointers keep 44px targets at every width. */
+@media (any-pointer: coarse) {
+  .trigger,
+  .copy-button {
+    min-height: 44px;
+  }
+  .copy-button {
+    width: 44px;
+  }
+  .icon-grid {
+    grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
+  }
+  .icon-option {
+    height: 44px;
+  }
+  .swatch {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}

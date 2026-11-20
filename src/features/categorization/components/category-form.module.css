@@ -3,44 +3,10 @@
   min-width: 0;
   margin-bottom: var(--space-1);
 }
-.color-field {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-}
-
-/* One rounded swatch in the input frame instead of the browser's nested swatch borders. */
-.color-field .color-input {
-  appearance: none;
-  width: 64px;
-  height: 42px;
-  padding: var(--space-1);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface);
-  cursor: pointer;
-}
-.color-input::-webkit-color-swatch-wrapper {
-  padding: 0;
-}
-.color-input::-webkit-color-swatch {
-  border: 0;
-  border-radius: var(--radius-sm);
-}
-.color-input::-moz-color-swatch {
-  border: 0;
-  border-radius: var(--radius-sm);
-}
-.color-field code {
-  font-size: var(--text-sm);
-  color: var(--ink);
-}
-@media (--mobile) {
-  .color-field .color-input {
-    width: 72px;
-    height: 48px;
-  }
-  .color-field code {
-    font-size: var(--text-md);
-  }
+/* Color and icon fields side by side; an open panel takes the full row below them. */
+.appearance {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-2) var(--space-3);
+  margin: var(--space-4) 0;
 }

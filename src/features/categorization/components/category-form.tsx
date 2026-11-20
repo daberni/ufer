@@ -5,13 +5,15 @@ import ui from "../../../components/ui/primitives.module.css";
 import { clsx } from "clsx";
 import { useState } from "react";
 import styles from "./category-form.module.css";
+import { defaultCategoryColor } from "@/features/categorization/category-colors";
 import { isCategoryIcon, type CategoryIconKey } from "@/features/categorization/category-icons";
 import type { Category } from "@/features/categorization/types";
 import { useDialogSubmit, type DialogFormProps } from "@/components/ui/use-dialog-submit";
 import { useSaveCategory } from "@/features/categorization/mutations";
 import { FormError } from "@/components/ui/form-error";
 import { CategoryLabel } from "./category-label";
-import { CategoryIconPicker } from "./category-icon-picker";
+import { CategoryColorField } from "./category-color-field";
+import { CategoryIconField } from "./category-icon-field";
 import { Dialog } from "@/components/ui/dialog";
 import { CategoryDeleteForm, DeleteButton } from "./deletion-forms";
 
@@ -23,7 +25,7 @@ type Props = DialogFormProps & {
   onSaved?: (categoryId: string) => void;
 };
 
-const defaultColor = "#638777";
+type OpenPanel = "color" | "icon" | null;
 
 /** Adds a category, or edits the given one. */
 export function CategoryDialog({
@@ -71,9 +73,20 @@ function CategoryForm({
     submit
   } = useDialogSubmit(useSaveCategory(category), close);
   const [name, setName] = useState(category?.name ?? initialName);
-  const [color, setColor] = useState(category?.color ?? defaultColor);
+  const [color, setColor] = useState(category?.color ?? defaultCategoryColor);
   const savedIcon = category?.icon;
   const [icon, setIcon] = useState<CategoryIconKey | "">(isCategoryIcon(savedIcon) ? savedIcon : "");
+  const [openPanel, setOpenPanel] = useState<OpenPanel>(null);
+
+  function panelToggle(panel: Exclude<OpenPanel, null>) {
+    return (open: boolean) => setOpenPanel(current => {
+      if (open) {
+        return panel;
+      }
+
+      return current === panel ? null : current;
+    });
+  }
 
   return (
     <form
@@ -99,21 +112,21 @@ function CategoryForm({
           onChange={event => setName(event.target.value)}
         />
       </label>
-      <label>
-        Color
-        <span className={styles["color-field"]}>
-          <input
-            className={styles["color-input"]}
-            name="color"
-            type="color"
-            required
-            value={color}
-            onChange={event => setColor(event.target.value)}
-          />
-          <code aria-hidden="true">{color}</code>
-        </span>
-      </label>
-      <CategoryIconPicker color={color} icon={icon} onChange={setIcon} />
+      <div className={styles["appearance"]}>
+        <CategoryColorField
+          color={color}
+          onChange={setColor}
+          open={openPanel === "color"}
+          onOpenChange={panelToggle("color")}
+        />
+        <CategoryIconField
+          color={color}
+          icon={icon}
+          onChange={setIcon}
+          open={openPanel === "icon"}
+          onOpenChange={panelToggle("icon")}
+        />
+      </div>
       <FormError failure={error} />
       <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={pending}>
         Save category
