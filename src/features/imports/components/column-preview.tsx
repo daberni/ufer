@@ -104,7 +104,7 @@ export function ColumnPreview({
           </tbody>
         </table>
       </div>
-      {!reviewing && table.rows.length > previewRows && <p className={ui["form-hint"]}>Showing the first {previewRows} of {rowCount(table.rows.length, locale)}.{draft.prepared?.skipped ? " Rows of skipped accounts are dimmed." : ""}</p>}
+      {!reviewing && table.rows.length > previewRows && <p className={ui["form-hint"]}>Showing the first {formatCount(previewRows, locale)} of {rowCount(table.rows.length, locale)}.{draft.prepared?.skipped ? " Rows of skipped accounts are dimmed." : ""}</p>}
     </section>
   );
 }

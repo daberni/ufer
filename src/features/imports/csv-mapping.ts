@@ -669,7 +669,7 @@ export function mapRows(rows: string[][], mapping: CsvMapping, settings: CsvSett
     }
 
     if (id.length > maxIdLength) {
-      failure(`The ID is longer than ${maxIdLength} characters.`);
+      failure(`The ID is longer than ${formatCount(maxIdLength, locale)} characters.`);
 
       return;
     }
