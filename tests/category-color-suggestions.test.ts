@@ -321,3 +321,17 @@ test("a category without a prefix group or an icon keeps its color", () => {
   assert.equal(suggestion.suggested, "#D08A4F");
   assert.equal(suggestion.changed, false);
 });
+
+test("a group of another area sharing a color does not make two groups of one area collide", () => {
+  const suggested = suggestionsById([
+    category("a1", "Auto / Fuel", "fuel"),
+    category("a2", "Auto / Tolls", "tolls"),
+    category("m1", "Media / Streaming", "subscriptions"),
+    category("m2", "Media / Music", "subscriptions"),
+    category("t1", "Truck / Fuel", "fuel"),
+    category("t2", "Truck / Parking", "parking")
+  ]);
+
+  assert.equal(suggested.a1, ocean);
+  assert.notEqual(suggested.t1, suggested.a1);
+});

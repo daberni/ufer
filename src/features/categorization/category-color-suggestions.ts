@@ -72,7 +72,7 @@ export function categoryPrefix(name: string) {
   const separator = name.indexOf(prefixSeparator);
   const prefix = separator === -1 ? name : name.slice(0, separator);
 
-  return prefix.trim().toLocaleLowerCase();
+  return prefix.trim().toLowerCase();
 }
 
 /** Whether a color is one of the curated palette colors, ignoring case. */
@@ -118,7 +118,7 @@ export function suggestNewCategoryColor(name: string, icon: string | null, exist
 
 function groupFamily(members: ColoredCategory[], prefix: string): PaletteName[] {
   // The category named like the prefix ("Car") decides first, then the most common family among the members' icons.
-  const head = members.find(category => category.name.trim().toLocaleLowerCase() === prefix);
+  const head = members.find(category => category.name.trim().toLowerCase() === prefix);
   const headFamily = head ? iconFamily(head.icon) : null;
 
   if (headFamily) {
@@ -167,14 +167,17 @@ export function suggestCategoryColors(categories: ColoredCategory[]): CategoryCo
   }
 
   const groupColors = new Map<string, string>();
-  const usedByGroups = new Set<string>();
+  // Distinctness is tracked per family, so a group of another area sharing a color cannot push two groups of one area onto the same color.
+  const usedByFamily = new Map<string, Set<PaletteName>>();
   const prefixGroups = [...groups].filter(([, members]) => members.length > 1).sort(([first], [second]) => first.localeCompare(second));
 
   for (const [prefix, members] of prefixGroups) {
     const family = groupFamily(members, prefix);
-    const available = family.find(name => !usedByGroups.has(name)) ?? family[0];
+    const used = usedByFamily.get(family.join()) ?? new Set<PaletteName>();
+    const available = family.find(name => !used.has(name)) ?? family[0];
 
-    usedByGroups.add(available);
+    used.add(available);
+    usedByFamily.set(family.join(), used);
     groupColors.set(prefix, paletteValue(available));
   }
 
