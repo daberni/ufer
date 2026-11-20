@@ -25,6 +25,7 @@ const transfer: Transaction = {
   category_id: null,
   category_source: "rule",
   category_rule_id: null,
+  automatic_assignment: null,
   type: "transfer",
   type_source: "auto",
   account_id: "checking",

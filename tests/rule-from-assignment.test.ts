@@ -210,7 +210,9 @@ test("a rule preview counts the transactions the new rule would decide, without 
     priority: 100
   }), {
     matched: 4,
-    uncategorized: 3
+    uncategorized: 3,
+    manual: 2,
+    manual_same_category: 0
   });
   assert.deepEqual(await previewCounts({
     pattern: "Example Market",
@@ -218,7 +220,9 @@ test("a rule preview counts the transactions the new rule would decide, without 
     priority: 5
   }), {
     matched: 5,
-    uncategorized: 4
+    uncategorized: 4,
+    manual: 2,
+    manual_same_category: 0
   });
   assert.deepEqual(await previewCounts({
     pattern: "No such payee",
@@ -226,7 +230,9 @@ test("a rule preview counts the transactions the new rule would decide, without 
     priority: 100
   }), {
     matched: 0,
-    uncategorized: 0
+    uncategorized: 0,
+    manual: 0,
+    manual_same_category: 0
   });
   await assert.rejects(previewRule({
     pattern: "   ",
