@@ -166,8 +166,10 @@ function TransactionFacts({
 
   return (
     <div className={styles["facts"]}>
-      <span className={clsx(styles["facts-amount"], transaction.amount_minor > 0 && styles["incoming"])}>{signedMoney(transaction.amount_minor, transaction.currency)}</span>
-      {children}
+      <div className={styles["facts-line"]}>
+        <span className={clsx(styles["facts-amount"], transaction.amount_minor > 0 && styles["incoming"])}>{signedMoney(transaction.amount_minor, transaction.currency)}</span>
+        {children}
+      </div>
       <span className={styles["facts-meta"]}>{[subject, date, transaction.account_name].join(" · ")}</span>
     </div>
   );
@@ -427,23 +429,22 @@ function TransactionEditForm({
       }}
     >
       <TransactionFacts transaction={transaction}>
-        <label className={styles["type-control"]}>
-          Type
-          <Select
-            name="type"
-            value={type}
-            onChange={event => {
-              const value = event.target.value;
+        <Select
+          className={styles["type-control"]}
+          aria-label="Type"
+          name="type"
+          value={type}
+          onChange={event => {
+            const value = event.target.value;
 
-              if (isTransactionType(value)) {
-                setType(value);
-                setTypeChosen(true);
-              }
-            }}
-          >
-            {available.map(option => <option key={option} value={option}>{transactionTypeLabels[option]}</option>)}
-          </Select>
-        </label>
+            if (isTransactionType(value)) {
+              setType(value);
+              setTypeChosen(true);
+            }
+          }}
+        >
+          {available.map(option => <option key={option} value={option}>{transactionTypeLabels[option]}</option>)}
+        </Select>
       </TransactionFacts>
       <div className={styles["fields"]}>
         {transaction.hidden && <ShowAgain transaction={transaction} close={close} />}
