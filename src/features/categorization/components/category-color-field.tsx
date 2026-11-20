@@ -17,6 +17,8 @@ type Props = {
 
 const copiedFeedbackMs = 1500;
 
+const invalidHexMessage = "Enter a color like #1D9E75";
+
 function isFullHex(input: string) {
   return input.trim().replace(/^#/, "").length === 6;
 }
@@ -142,6 +144,7 @@ function HexInput({
   const [shownHex, setShownHex] = useState(hex);
   const [invalid, setInvalid] = useState(false);
   const [copied, setCopied] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // A color chosen elsewhere, such as a swatch, replaces the text unless the text already means that color.
   if (hex !== shownHex) {
@@ -152,6 +155,11 @@ function HexInput({
       setInvalid(false);
     }
   }
+
+  // While the text is not a color, the category form cannot be submitted with the previous color.
+  useEffect(() => {
+    inputRef.current?.setCustomValidity(parseHexColor(draft) ? "" : invalidHexMessage);
+  }, [draft]);
 
   useEffect(() => {
     if (!copied) {
@@ -198,6 +206,7 @@ function HexInput({
     <div className={styles["hex-row"]}>
       <label className={styles["hex-label"]} htmlFor={`${id}-hex`}>Hex</label>
       <input
+        ref={inputRef}
         id={`${id}-hex`}
         className={clsx(styles["hex-input"], invalid && styles["invalid"])}
         value={draft}
@@ -219,6 +228,7 @@ function HexInput({
           }
         }}
         onBlur={apply}
+        onInvalid={() => setInvalid(true)}
         onKeyDown={handleKeyDown}
       />
       <button
@@ -230,7 +240,7 @@ function HexInput({
       >
         {copied ? <Check size={16} aria-hidden="true" /> : <Copy size={16} aria-hidden="true" />}
       </button>
-      {invalid && <p id={`${id}-error`} className={styles["hex-error"]} role="alert">Enter a color like #1D9E75</p>}
+      {invalid && <p id={`${id}-error`} className={styles["hex-error"]} role="alert">{invalidHexMessage}</p>}
     </div>
   );
 }

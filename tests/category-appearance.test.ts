@@ -146,3 +146,44 @@ test("the color panel applies a valid typed hex color, keeps the last color on i
   assert.equal(screen.queryByLabelText("Hex"), null);
   assert.equal(document.activeElement, trigger);
 });
+
+test("an invalid hex text blocks submitting the category form until it is corrected", async context => {
+  browser(context);
+
+  const { CategoryColorField } = await import("../src/features/categorization/components/category-color-field");
+  const screen = render(createElement("form", null, createElement(CategoryColorField, {
+    color: "#638777",
+    onChange: () => undefined,
+    open: true,
+    onOpenChange: () => undefined
+  })));
+  const form = screen.container.querySelector("form") as HTMLFormElement;
+  const hex = screen.getByLabelText("Hex") as HTMLInputElement;
+
+  act(() => {
+    fireEvent.change(hex, {
+      target: {
+        value: "#12"
+      }
+    });
+  });
+
+  let valid = true;
+
+  act(() => {
+    valid = form.checkValidity();
+  });
+
+  assert.equal(valid, false);
+  assert.equal(screen.getByRole("alert").textContent, "Enter a color like #1D9E75");
+
+  act(() => {
+    fireEvent.change(hex, {
+      target: {
+        value: "#123"
+      }
+    });
+  });
+
+  assert.equal(form.checkValidity(), true);
+});

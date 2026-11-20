@@ -196,8 +196,10 @@
   .icon-option {
     height: 44px;
   }
+  .swatches {
+    grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
+  }
   .swatch {
-    min-width: 44px;
     min-height: 44px;
   }
 }
