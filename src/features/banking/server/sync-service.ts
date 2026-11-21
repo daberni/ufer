@@ -2,7 +2,6 @@ import { randomUUID } from "node:crypto";
 import { Temporal } from "temporal-polyfill";
 import { HttpError } from "@/lib/errors";
 import { timestamp, today } from "@/lib/time";
-import { database } from "@/server/database/connection";
 import { acquireLease, releaseLease, renewLease } from "@/server/jobs/lease-repository";
 import { listRules } from "@/features/categorization/server/rule-repository";
 import { fetchBalances, fetchTransactions, sessionEnded, verifyApplication } from "./enable-banking-client";
@@ -40,11 +39,10 @@ function authorizationExpired(validUntil: string, now: Temporal.Instant) {
 }
 
 export async function syncAccounts() {
-  const db = await database();
   // The run id also owns the sync lease.
   const runId = randomUUID();
 
-  if (!(await acquireLease(db, syncLeaseName, runId))) {
+  if (!(await acquireLease(syncLeaseName, runId))) {
     throw new HttpError(409, "A sync is already running.");
   }
 
@@ -60,8 +58,8 @@ export async function syncAccounts() {
       startedAt: timestamp()
     };
 
-    await startSyncRun(db, runId, run.startedAt);
-    const accounts = await listSyncAccounts(db);
+    await startSyncRun(runId, run.startedAt);
+    const accounts = await listSyncAccounts();
 
     if (accounts.length) {
       await verifyApplication();
@@ -71,7 +69,7 @@ export async function syncAccounts() {
     const ownIbans = new Set(accounts.map(account => (account.iban || "").replace(/\s/g, "")).filter(Boolean));
     const dateFrom = syncWindowStart().toString();
     const heartbeat = async () => {
-      if (!(await renewLease(db, syncLeaseName, runId))) {
+      if (!(await renewLease(syncLeaseName, runId))) {
         throw new SyncLeaseLost();
       }
     };
@@ -81,7 +79,7 @@ export async function syncAccounts() {
         await heartbeat();
 
         if (account.connection_status !== "LINKED" || !account.valid_until || authorizationExpired(account.valid_until, Temporal.Now.instant())) {
-          await expireConnection(db, account.connection_id);
+          await expireConnection(account.connection_id);
 
           throw new ReconnectRequired("Bank authorization has expired. Reconnect the bank.");
         }
@@ -95,7 +93,7 @@ export async function syncAccounts() {
         const entries = normalizeTransactions(transactions, ownIbans);
 
         await heartbeat();
-        inserted += await saveAccountSync(db, run, account.id, account.currency, balances, entries, rules);
+        inserted += await saveAccountSync(run, account.id, account.currency, balances, entries, rules);
       } catch (error) {
         if (error instanceof SyncLeaseLost) {
           throw error;
@@ -104,10 +102,10 @@ export async function syncAccounts() {
         const message = error instanceof HttpError ? error.message : "Sync could not be completed.";
         const sessionExpired = sessionEnded(error);
 
-        await recordAccountSyncError(db, account.id, message);
+        await recordAccountSyncError(account.id, message);
 
         if (sessionExpired) {
-          await expireEndedSession(db, account.connection_id);
+          await expireEndedSession(account.connection_id);
         }
 
         failures.push({
@@ -128,7 +126,7 @@ export async function syncAccounts() {
 
     const failureLog = failures.map(failure => `${failure.account}: ${failure.message}`).join("\n");
 
-    await finishSyncRun(db, runId, status, failureLog || null);
+    await finishSyncRun(runId, status, failureLog || null);
 
     return {
       inserted,
@@ -138,13 +136,13 @@ export async function syncAccounts() {
     };
   } catch (error) {
     if (error instanceof SyncLeaseLost) {
-      await interruptSyncRun(db, runId, "The sync lost its lease and stopped.");
+      await interruptSyncRun(runId, "The sync lost its lease and stopped.");
     } else {
-      await finishSyncRun(db, runId, "FAILED", "Sync interrupted.");
+      await finishSyncRun(runId, "FAILED", "Sync interrupted.");
     }
 
     throw error;
   } finally {
-    await releaseLease(db, syncLeaseName, runId);
+    await releaseLease(syncLeaseName, runId);
   }
 }

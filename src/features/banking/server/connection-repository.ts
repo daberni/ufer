@@ -1,6 +1,6 @@
 import { and, eq, gt, isNull, ne, sql } from "drizzle-orm";
 import { Temporal } from "temporal-polyfill";
-import { database, type Database } from "@/server/database/connection";
+import { database } from "@/server/database/connection";
 import type { AuthContext } from "@/features/auth/server/session";
 import { accounts, requisitions } from "@/server/database/schema";
 import { timestamp } from "@/lib/time";
@@ -50,7 +50,9 @@ function pendingAuthorization(stateHash: string, browserHash: string, actor: Aut
   return and(eq(requisitions.workspace_id, actor.workspaceId), eq(requisitions.initiated_by_user_id, actor.userId), eq(requisitions.auth_session_id, actor.sessionId), eq(requisitions.state_hash, stateHash), eq(requisitions.browser_hash, browserHash), isNull(requisitions.used_at), gt(requisitions.state_expires_at, now), eq(requisitions.status, "PENDING"));
 }
 
-export async function consumeAuthorization(db: Database, stateHash: string, browserHash: string, actor: AuthContext) {
+export async function consumeAuthorization(stateHash: string, browserHash: string, actor: AuthContext) {
+  const db = await database();
+
   const now = timestamp();
 
   return db.update(requisitions).set({
@@ -59,7 +61,9 @@ export async function consumeAuthorization(db: Database, stateHash: string, brow
   }).where(pendingAuthorization(stateHash, browserHash, actor, now)).returning().get();
 }
 
-export async function cancelPendingAuthorization(db: Database, stateHash: string, browserHash: string, actor: AuthContext) {
+export async function cancelPendingAuthorization(stateHash: string, browserHash: string, actor: AuthContext) {
+  const db = await database();
+
   const now = timestamp();
 
   await db.update(requisitions).set({
@@ -69,14 +73,18 @@ export async function cancelPendingAuthorization(db: Database, stateHash: string
   }).where(pendingAuthorization(stateHash, browserHash, actor, now));
 }
 
-export async function clearRevokedSession(db: Database, id: string, sessionCipher: string) {
+export async function clearRevokedSession(id: string, sessionCipher: string) {
+  const db = await database();
+
   await db.update(requisitions).set({
     session_cipher: null
   }).where(and(eq(requisitions.id, id), eq(requisitions.session_cipher, sessionCipher)));
 }
 
 // The connection stays EXCHANGING until its accounts are mapped, so removal cannot interleave between the two steps.
-export async function saveBankSession(db: Database, id: string, ciphertext: string, validUntil: string | null) {
+export async function saveBankSession(id: string, ciphertext: string, validUntil: string | null) {
+  const db = await database();
+
   const saved = await db.update(requisitions).set({
     session_cipher: ciphertext,
     valid_until: validUntil,
@@ -88,27 +96,35 @@ export async function saveBankSession(db: Database, id: string, ciphertext: stri
   return saved.length === 1;
 }
 
-export async function expireConnection(db: Database, id: string) {
+export async function expireConnection(id: string) {
+  const db = await database();
+
   await db.update(requisitions).set({
     status: "EXPIRED"
   }).where(eq(requisitions.id, id));
 }
 
 /** Expires a connection whose session the provider reports as ended; that session needs no revocation, so its ID is deleted. */
-export async function expireEndedSession(db: Database, id: string) {
+export async function expireEndedSession(id: string) {
+  const db = await database();
+
   await db.update(requisitions).set({
     status: "EXPIRED",
     session_cipher: null
   }).where(eq(requisitions.id, id));
 }
 
-export async function recordEmptyConnection(db: Database, id: string) {
+export async function recordEmptyConnection(id: string) {
+  const db = await database();
+
   await db.update(requisitions).set({
     error: "No accounts were authorized. Link the accounts in the provider control panel first, then reconnect."
   }).where(and(eq(requisitions.id, id), ne(requisitions.status, "REMOVED")));
 }
 
-export async function recordConnectionFailure(db: Database, id: string, error: string) {
+export async function recordConnectionFailure(id: string, error: string) {
+  const db = await database();
+
   await db.update(requisitions).set({
     status: "ERROR",
     error
@@ -116,7 +132,9 @@ export async function recordConnectionFailure(db: Database, id: string, error: s
 }
 
 /** Reads the removal preconditions without changing a connection while the user waits for provider revocation. */
-export async function prepareConnectionRemoval(db: Database, id: string, exchangeCutoff: Temporal.Instant) {
+export async function prepareConnectionRemoval(id: string, exchangeCutoff: Temporal.Instant) {
+  const db = await database();
+
   const scope = and(eq(requisitions.id, id), ne(requisitions.status, "REMOVED"));
   const connection = await db.select().from(requisitions).where(scope).get();
 
@@ -141,14 +159,18 @@ export async function prepareConnectionRemoval(db: Database, id: string, exchang
 }
 
 /** A callback's one-shot cleanup failed: keep the credential and make the explicit removal action discoverable. */
-export async function recordRevocationFailure(db: Database, id: string) {
+export async function recordRevocationFailure(id: string) {
+  const db = await database();
+
   await db.update(requisitions).set({
     error: "The bank authorization could not be revoked. Remove this connection to retry."
   }).where(and(eq(requisitions.id, id), ne(requisitions.status, "REMOVED")));
 }
 
 // Accounts are detached only after confirmed provider revocation, preserving their history and reconnect mapping; a given archive time also archives those whose balance is 0.
-export async function removeConnection(db: Database, id: string, exchangeCutoff: Temporal.Instant, expectedSessionCipher: string | null, archivedAt: string | null = null): Promise<ConnectionRemoval> {
+export async function removeConnection(id: string, exchangeCutoff: Temporal.Instant, expectedSessionCipher: string | null, archivedAt: string | null = null): Promise<ConnectionRemoval> {
+  const db = await database();
+
   return db.transaction(async tx => {
     const scope = and(eq(requisitions.id, id), ne(requisitions.status, "REMOVED"));
     const connection = await tx.select({

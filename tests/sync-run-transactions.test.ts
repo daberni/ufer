@@ -93,9 +93,9 @@ test("a sync stamps only the rows it inserts with its start, and its count match
     `INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,created_at,type) VALUES('csv','bank','csv:file-1','2026-03-01',-100,'EUR','${first.startedAt}','expense')`
   ], "write");
 
-  await startSyncRun(db, "first", first.startedAt);
-  assert.equal(await saveAccountSync(db, first, "bank", "EUR", balances, [entry("earlier", -900), entry("one"), entry("two")], []), 2);
-  await finishSyncRun(db, "first", "SUCCESS", null);
+  await startSyncRun("first", first.startedAt);
+  assert.equal(await saveAccountSync(first, "bank", "EUR", balances, [entry("earlier", -900), entry("one"), entry("two")], []), 2);
+  await finishSyncRun("first", "SUCCESS", null);
 
   assert.equal(await createdAt(db, "earlier"), "2026-02-01T09:30:00.123Z");
   assert.equal((await db.$client.execute("SELECT amount_minor FROM transactions WHERE id='earlier'")).rows[0].amount_minor, -900);
@@ -110,14 +110,14 @@ test("a sync stamps only the rows it inserts with its start, and its count match
     startedAt: "2026-03-10T09:15:00.000Z"
   };
 
-  await startSyncRun(db, "stalled", stalled.startedAt);
-  assert.equal(await saveAccountSync(db, stalled, "bank", "EUR", balances, [entry("one"), entry("three")], []), 1);
-  await startSyncRun(db, "takeover", takeover.startedAt);
+  await startSyncRun("stalled", stalled.startedAt);
+  assert.equal(await saveAccountSync(stalled, "bank", "EUR", balances, [entry("one"), entry("three")], []), 1);
+  await startSyncRun("takeover", takeover.startedAt);
   assert.equal(await insertedCount(db, "stalled"), 1);
-  assert.equal(await saveAccountSync(db, stalled, "bank", "EUR", balances, [entry("four")], []), 2);
-  assert.equal(await saveAccountSync(db, takeover, "bank", "EUR", balances, [entry("one"), entry("three"), entry("four"), entry("five")], []), 1);
-  await finishSyncRun(db, "takeover", "SUCCESS", null);
-  await finishSyncRun(db, "stalled", "FAILED", "Sync interrupted.");
+  assert.equal(await saveAccountSync(stalled, "bank", "EUR", balances, [entry("four")], []), 2);
+  assert.equal(await saveAccountSync(takeover, "bank", "EUR", balances, [entry("one"), entry("three"), entry("four"), entry("five")], []), 1);
+  await finishSyncRun("takeover", "SUCCESS", null);
+  await finishSyncRun("stalled", "FAILED", "Sync interrupted.");
 
   assert.equal(await createdAt(db, "four"), stalled.startedAt);
   assert.equal(await createdAt(db, "five"), takeover.startedAt);
@@ -137,9 +137,9 @@ test("sync history reports linked rows, so runs recorded before stamping and emp
     "INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,created_at,type) VALUES('legacy-row','bank','bank:legacy','2026-03-01',-100,'EUR','2026-03-01T08:00:02.481Z','expense')",
     "INSERT INTO sync_runs(id,started_at,finished_at,status,inserted_count) VALUES('empty','2026-03-05T08:00:00.000Z','2026-03-05T08:00:05.000Z','SUCCESS',0)"
   ], "write");
-  await startSyncRun(db, "linked", linked.startedAt);
-  await saveAccountSync(db, linked, "bank", "EUR", balances, [entry("legacy"), entry("new")], []);
-  await finishSyncRun(db, "linked", "SUCCESS", null);
+  await startSyncRun("linked", linked.startedAt);
+  await saveAccountSync(linked, "bank", "EUR", balances, [entry("legacy"), entry("new")], []);
+  await finishSyncRun("linked", "SUCCESS", null);
 
   const runs = Object.fromEntries((await listRecentSyncRuns()).map(run => [run.id, {
     inserted: run.inserted_count,

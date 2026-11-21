@@ -1,12 +1,14 @@
 import { randomUUID } from "node:crypto";
 import { and, eq, inArray, ne, notExists } from "drizzle-orm";
 import { HttpError } from "@/lib/errors";
-import type { Database } from "@/server/database/connection";
+import { database } from "@/server/database/connection";
 import { accountIdentifiers, accounts, requisitions } from "@/server/database/schema";
 import type { BankAccount } from "./enable-banking-client";
 
 // Maps the authorized accounts and links the connection in one transaction; a connection removed meanwhile is never linked.
-export async function saveSessionAccounts(db: Database, requisitionId: string, institution: string, validUntil: string, bankAccounts: BankAccount[]) {
+export async function saveSessionAccounts(requisitionId: string, institution: string, validUntil: string, bankAccounts: BankAccount[]) {
+  const db = await database();
+
   return db.transaction(async tx => {
     const displacedConnections = new Set<string>();
 

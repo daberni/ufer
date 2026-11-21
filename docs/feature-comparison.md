@@ -1,6 +1,6 @@
 # Feature comparison and development status
 
-Updated: **2026-11-17** · Working product name: **Ufer** · Version: `0.1.0`
+Updated: **2026-11-21** · Working product name: **Ufer** · Version: `0.2.0`
 
 This document tracks implemented capabilities, limitations, and accepted priorities. The [functional review](functional-review.md) explains workflows, release boundaries, source evidence, practical checks, and the build-versus-adopt conclusion. Architecture and commercial requirements are in [product-direction.md](product-direction.md). No personal account inventory is included.
 
@@ -12,7 +12,7 @@ Actual is a strong candidate for budgeting and everyday bookkeeping; Sure is the
 
 | Product / reviewed release | Focus | Deployment / license |
 | --- | --- | --- |
-| Ufer `0.1.0` | Aggregation, cash flow, rules, manual valuations; early MVP | Docker/NAS configuration; verified Vercel sandbox deployment on Node 26; SQLite/libSQL; AGPL-3.0-or-later |
+| Ufer `0.2.0` | Aggregation, cash flow, rules, splits, CSV imports, manual valuations; early MVP | Docker/NAS configuration; verified Vercel sandbox deployment on Node 26; SQLite/libSQL; AGPL-3.0-or-later |
 | [Buxfer](https://www.buxfer.com/features/) · hosted, no public release pin | Broad personal finance, budgets, forecasts, investments | Hosted subscription; capabilities depend on plan |
 | [Actual Budget 26.11.0](https://github.com/actualbudget/actual/releases/tag/v26.11.0) | Budgeting, transaction management, reports, local-first use | Self-hosted Node server; [MIT](https://github.com/actualbudget/actual/blob/master/LICENSE.txt) |
 | [Firefly III 6.7.9](https://github.com/firefly-iii/firefly-iii/releases/tag/v6.7.9) + [Importer 2.3.5](https://github.com/firefly-iii/data-importer/releases/tag/v2.3.5) | Double-entry bookkeeping, rules, budgets, recurring entries | PHP application, database, optional companion importer and cron; AGPLv3 |

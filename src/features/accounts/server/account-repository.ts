@@ -67,7 +67,13 @@ export async function saveManualValuation(account: {
 const currentBalance = sql`(CASE WHEN ${accounts.provider}='manual' THEN COALESCE((SELECT SUM(t.amount_minor) FROM transactions t WHERE t.account_id=accounts.id AND t.suppressed_at IS NULL),0) ELSE ${accounts.balance_minor} END)`;
 
 /** Archives an active account only if its balance is exactly 0 at the moment of the update; returns whether it was archived. */
-export async function archiveSettledAccount(executor: Pick<Database, "update">, id: string, archivedAt: string) {
+export async function archiveSettledAccount(id: string, archivedAt: string) {
+  const db = await database();
+
+  return archiveIfSettled(db, id, archivedAt);
+}
+
+async function archiveIfSettled(executor: Pick<Database, "update">, id: string, archivedAt: string) {
   const updated = await executor.update(accounts).set({
     archived_at: archivedAt
   }).where(and(eq(accounts.id, id), isNull(accounts.archived_at), sql`${currentBalance}=0`)).returning({
@@ -182,7 +188,7 @@ export async function closeAndArchiveManualAccount(account: {
       }
 
       // A concurrent booking leaves a balance other than 0, which refuses the closing and rolls back its booking.
-      if (!await archiveSettledAccount(tx, account.id, archivedAt)) {
+      if (!await archiveIfSettled(tx, account.id, archivedAt)) {
         throw new ClosingRefused("balance_changed");
       }
 

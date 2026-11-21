@@ -159,7 +159,7 @@ test("removing a bank connection keeps accounts and history, deletes its credent
   assert.equal(account?.sync_error, null);
   assert.equal((await db.select().from(schema.transactions)).length, 1);
   assert.equal((await db.select().from(schema.balanceSnapshots)).length, 1);
-  assert.deepEqual((await listSyncAccounts(db)).map(item => item.id), ["kept-account"]);
+  assert.deepEqual((await listSyncAccounts()).map(item => item.id), ["kept-account"]);
 
   assert.deepEqual((await listConnections()).map(item => item.id), ["kept"]);
   assert.equal((await listAccounts()).length, 2);
@@ -180,7 +180,7 @@ test("removing a bank connection keeps accounts and history, deletes its credent
     status: "EXCHANGING",
     valid_until: "2099-01-01T00:00:00Z"
   });
-  await saveSessionAccounts(db, "renewed", "Example institution", "2099-01-01T00:00:00Z", [{
+  await saveSessionAccounts("renewed", "Example institution", "2099-01-01T00:00:00Z", [{
     uid: "renewed-uid",
     identification_hash: "hash-removed-account",
     currency: "EUR"
@@ -248,7 +248,7 @@ test("disconnecting a bank archives only its accounts with a balance of 0 and na
   assert.equal(accountsAfter.find(account => account.id === "other-account")?.archived_at, null);
   assert.equal((await db.select().from(schema.transactions)).length, 1);
   assert.deepEqual(await readNetWorth("EUR"), netWorthBefore);
-  assert.deepEqual((await listSyncAccounts(db)).map(item => item.id), ["other-account"]);
+  assert.deepEqual((await listSyncAccounts()).map(item => item.id), ["other-account"]);
 });
 
 test("sync skips an archived account of a linked connection and resumes it once restored", async context => {
@@ -444,7 +444,7 @@ test("removal does not interfere with a running sync or an authorization callbac
     status: "EXCHANGING",
     used_at: new Date().toISOString()
   });
-  assert.equal(await acquireLease(db, "sync", "synthetic-sync"), true);
+  assert.equal(await acquireLease("sync", "synthetic-sync"), true);
 
   await assert.rejects(removeBankConnection("syncing"), {
     status: 409
@@ -479,7 +479,7 @@ test("a connection removed while its callback is mapping accounts is never linke
   });
 
   // Callback step 1: the session is stored, but the connection is not linked before its accounts are mapped.
-  assert.equal(await saveBankSession(db, "overlap", encrypt("session-overlap"), "2099-01-01T00:00:00Z"), true);
+  assert.equal(await saveBankSession("overlap", encrypt("session-overlap"), "2099-01-01T00:00:00Z"), true);
   assert.equal((await db.select().from(schema.requisitions).get())?.status, "EXCHANGING");
 
   assert.deepEqual(await removeBankConnection("overlap"), {
@@ -492,15 +492,15 @@ test("a connection removed while its callback is mapping accounts is never linke
   }]);
 
   // Callback step 2 and its failure handling run after the removal.
-  await assert.rejects(saveSessionAccounts(db, "overlap", "Example institution", "2099-01-01T00:00:00Z", [{
+  await assert.rejects(saveSessionAccounts("overlap", "Example institution", "2099-01-01T00:00:00Z", [{
     uid: "overlap-uid",
     identification_hash: "overlap-hash",
     currency: "EUR"
   }]), {
     status: 409
   });
-  await recordConnectionFailure(db, "overlap", "The bank connection was removed during authorization.");
-  assert.equal(await saveBankSession(db, "overlap", encrypt("session-late"), "2099-01-01T00:00:00Z"), false);
+  await recordConnectionFailure("overlap", "The bank connection was removed during authorization.");
+  assert.equal(await saveBankSession("overlap", encrypt("session-late"), "2099-01-01T00:00:00Z"), false);
 
   const connection = await db.select().from(schema.requisitions).get();
 
@@ -539,8 +539,8 @@ test("a callback completing after removal preflight keeps its new session until 
         status: "EXCHANGING",
         used_at: new Date().toISOString()
       }).where(eq(schema.requisitions.id, "pending-overlap"));
-      assert.equal(await saveBankSession(db, "pending-overlap", createdSessionCipher, "2099-01-01T00:00:00Z"), true);
-      await saveSessionAccounts(db, "pending-overlap", "Example institution", "2099-01-01T00:00:00Z", [{
+      assert.equal(await saveBankSession("pending-overlap", createdSessionCipher, "2099-01-01T00:00:00Z"), true);
+      await saveSessionAccounts("pending-overlap", "Example institution", "2099-01-01T00:00:00Z", [{
         uid: "new-uid",
         identification_hash: "new-hash",
         currency: "EUR"
