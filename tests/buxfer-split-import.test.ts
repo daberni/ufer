@@ -10,7 +10,7 @@ import * as schema from "../src/server/database/schema";
 import { insertRule } from "../src/features/categorization/server/rule-repository";
 import { importMappedRows } from "../src/features/imports/server/mapped-import-service";
 import { categoryValues } from "../src/features/imports/import-plan";
-import { assignOccurrences, buxferTemplate, mapRows, parseCsv, tagSplit, templateMapping, withSplitTags, type CsvSettings, type MappedRow } from "../src/features/imports/csv-mapping";
+import { assignOccurrences, buxferTemplate, mapRows, parseCsv, readsSplitTags, suggestMapping, tagSplit, templateMapping, withSplitTags, type CsvSettings, type MappedRow } from "../src/features/imports/csv-mapping";
 
 const now = Temporal.Instant.from("2026-06-30T12:00:00Z");
 const importId = "00000000-0000-4000-8000-000000000247";
@@ -74,7 +74,7 @@ async function isolatedDatabase(context: TestContext) {
 function mappedBuxferRows(csv = buxferCsv) {
   const [header, ...rows] = parseCsv(csv, ",");
 
-  return mapRows(rows, templateMapping(buxferTemplate, header), settings, "en");
+  return mapRows(rows, templateMapping(buxferTemplate, header), settings, "en", undefined, readsSplitTags(buxferTemplate));
 }
 
 function payload(rows: MappedRow[], confirm: boolean, categories: object[] = []) {
@@ -241,4 +241,20 @@ test("a transfer row with amount-bearing tags is not split and keeps its tags in
 
   assert.deepEqual(errors, []);
   assert.deepEqual([rows[0].parts, rows[0].category, rows[0].description, rows[0].transfer], [null, null, "To savings · Split: Car 5, Cash 5", true]);
+});
+
+test("only Buxfer's layout reads tags as splits; other files keep colon values as plain categories", () => {
+  const [header, ...rows] = parseCsv(["Date,Payee,Amount,Category", "2026-01-10,Contractor,-10,Phase:5,Project:5", "2026-01-11,Contractor,-20,Project:2026"].join("\n").replace("Phase:5,Project:5", "\"Phase:5,Project:5\""), ",");
+  const mapped = mapRows(rows, suggestMapping(header), settings, "en");
+
+  assert.deepEqual(mapped.rows.map(row => [row.category, row.parts, row.description]), [
+    ["Phase:5,Project:5", null, ""],
+    ["Project:2026", null, ""]
+  ]);
+  assert.equal(readsSplitTags(null), false);
+  assert.equal(readsSplitTags({
+    ...buxferTemplate,
+    id: "saved",
+    builtIn: false
+  }), true);
 });

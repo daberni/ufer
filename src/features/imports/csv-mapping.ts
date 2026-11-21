@@ -98,6 +98,11 @@ export function headerKey(header: string[]) {
   return JSON.stringify(header.map(column => column.trim()));
 }
 
+/** Whether an applied template maps Buxfer's export, whose tags carry split amounts: the built-in template or a saved one for the same header. */
+export function readsSplitTags(template: CsvTemplate | null) {
+  return template !== null && headerKey(template.header) === headerKey(buxferTemplate.header);
+}
+
 /** The first template in `templates` for a header; lists put saved templates before built-in ones, so a person can override a built-in layout. */
 export function matchTemplate(header: string[], templates: CsvTemplate[]): CsvTemplate | null {
   const key = headerKey(header);
@@ -615,8 +620,8 @@ export function mappingProblem(mapping: CsvMapping) {
 }
 
 /** Turns data rows (without the header) into mapped rows and row-level errors. `lines` gives each row's physical line in the file; without it, rows count from line 2. */
-/** Maps CSV rows; the locale formats numbers in row problems. */
-export function mapRows(rows: string[][], mapping: CsvMapping, settings: CsvSettings, locale: string, lines?: number[]) {
+/** Maps CSV rows; the locale formats numbers in row problems. `splitTags` reads Buxfer's amount-bearing tags as splits; other files keep every category cell as a plain value, since `Project:2026` there is just a name. */
+export function mapRows(rows: string[][], mapping: CsvMapping, settings: CsvSettings, locale: string, lines?: number[], splitTags = false) {
   const mapped: MappedRow[] = [];
   const errors: RowError[] = [];
 
@@ -665,7 +670,7 @@ export function mapRows(rows: string[][], mapping: CsvMapping, settings: CsvSett
     // The category value identifies its choice, so it is never shortened: two long values must not merge.
     const tags = cell(mapping.category);
     const transfer = isTransferMarker(cell(mapping.type));
-    const tagged = tagSplit(tags, amount);
+    const tagged = splitTags ? tagSplit(tags, amount) : null;
     // Only income and expenses are split. Tags that do not form a valid split import the row unsplit, keeping the tags in its description.
     const split = tagged && "parts" in tagged && !transfer ? tagged : null;
     const category = tagged ? "" : tags;
