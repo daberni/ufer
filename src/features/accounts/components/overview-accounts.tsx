@@ -123,7 +123,8 @@ function AccountStrip({ currencyAccounts }: {
             <strong>{account.balance_minor === null ? "—" : money(account.balance_minor, account.currency, locale)}</strong>
             <span className={styles["account-tile-meta"]}>
               <span className={styles["account-tile-kind"]}>{kinds[account.kind] ?? account.kind}</span>
-              <span className={styles["account-tile-separator"]} aria-hidden="true">·</span>
+              {/* A manual account's status starts with its own dot, so a separator would repeat it. */}
+              {account.provider !== "manual" && <span className={styles["account-tile-separator"]} aria-hidden="true">·</span>}
               <AccountSourceStatus account={account} />
             </span>
             <span className={styles["account-tile-date"]}>
