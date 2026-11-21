@@ -136,7 +136,8 @@ function UnsettledAccounts({
   accounts: Area<Account[]>;
   connection: Connection;
 }) {
-  const unsettled = accounts.data?.filter(account => account.requisition_id === connection.id && account.balance_minor !== 0) ?? [];
+  // An account without bookings has a balance of 0 and is archived like the server does.
+  const unsettled = accounts.data?.filter(account => account.requisition_id === connection.id && (account.balance_minor ?? 0) !== 0) ?? [];
 
   if (!unsettled.length) {
     return null;
