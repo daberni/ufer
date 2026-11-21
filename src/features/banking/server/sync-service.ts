@@ -2,7 +2,8 @@ import { randomUUID } from "node:crypto";
 import { Temporal } from "temporal-polyfill";
 import { HttpError } from "@/lib/errors";
 import { timestamp, today } from "@/lib/time";
-import { acquireLease, releaseLease, renewLease } from "@/server/jobs/lease-repository";
+import { renewLease } from "@/server/jobs/lease-repository";
+import { syncLease, withLease } from "@/server/jobs/lease";
 import { listRules } from "@/features/categorization/server/rule-repository";
 import { fetchBalances, fetchTransactions, sessionEnded, verifyApplication } from "./enable-banking-client";
 import { normalizeTransactions } from "./bank-data";
@@ -25,8 +26,6 @@ class SyncLeaseLost extends HttpError {
   }
 }
 
-export const syncLeaseName = "sync";
-
 /** First booking date requested from the bank: 89 calendar days before today in the product zone. */
 export function syncWindowStart(now = Temporal.Now.instant()) {
   return today(now).subtract({
@@ -40,12 +39,10 @@ function authorizationExpired(validUntil: string, now: Temporal.Instant) {
 
 export async function syncAccounts() {
   // The run id also owns the sync lease.
-  const runId = randomUUID();
+  return withLease(syncLease, "A sync is already running.", runSync, randomUUID());
+}
 
-  if (!(await acquireLease(syncLeaseName, runId))) {
-    throw new HttpError(409, "A sync is already running.");
-  }
-
+async function runSync(runId: string) {
   let inserted = 0;
   const failures: {
     account: string;
@@ -69,7 +66,7 @@ export async function syncAccounts() {
     const ownIbans = new Set(accounts.map(account => (account.iban || "").replace(/\s/g, "")).filter(Boolean));
     const dateFrom = syncWindowStart().toString();
     const heartbeat = async () => {
-      if (!(await renewLease(syncLeaseName, runId))) {
+      if (!(await renewLease(syncLease, runId))) {
         throw new SyncLeaseLost();
       }
     };
@@ -142,7 +139,5 @@ export async function syncAccounts() {
     }
 
     throw error;
-  } finally {
-    await releaseLease(syncLeaseName, runId);
   }
 }

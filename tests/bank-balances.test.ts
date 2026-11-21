@@ -18,7 +18,7 @@ import { monthPeriod } from "../src/lib/period";
 import { HttpError } from "../src/lib/errors";
 import { editManualTransaction, hideTransaction, updateTransactionDetails } from "../src/features/transactions/server/transaction-service";
 import { acquireLease, releaseLease } from "../src/server/jobs/lease-repository";
-import { syncLeaseName } from "../src/features/banking/server/sync-service";
+import { syncLease } from "../src/server/jobs/lease";
 import { importMappedRows } from "../src/features/imports/server/mapped-import-service";
 
 type Globals = {
@@ -295,7 +295,7 @@ test("a bank-linked account's opening balance and adjustments are edited as entr
   }), /keep their type/);
 
   // A running sync may move the opening balance, so an edit waits for it.
-  await acquireLease(syncLeaseName, "synthetic-sync");
+  await acquireLease(syncLease, "synthetic-sync");
   await assert.rejects(editManualTransaction(opening.id, {
     booking_date: "2026-09-09",
     amount: "1040.00",
@@ -303,7 +303,7 @@ test("a bank-linked account's opening balance and adjustments are edited as entr
     description: "",
     type: "opening_balance"
   }, Temporal.Instant.from("2026-10-01T12:00:00Z")), /sync is running/);
-  await releaseLease(syncLeaseName, "synthetic-sync");
+  await releaseLease(syncLease, "synthetic-sync");
 
   await editManualTransaction(opening.id, {
     booking_date: "2026-09-09",

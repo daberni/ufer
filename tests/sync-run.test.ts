@@ -8,7 +8,8 @@ import type { Database } from "../src/server/database/connection";
 import { initializeDatabase } from "../src/server/database/migrations";
 import * as schema from "../src/server/database/schema";
 import { encrypt } from "../src/server/security/secret-box";
-import { syncAccounts, syncLeaseName } from "../src/features/banking/server/sync-service";
+import { syncAccounts } from "../src/features/banking/server/sync-service";
+import { syncLease } from "../src/server/jobs/lease";
 
 const providerKey = generateKeyPairSync("rsa", {
   modulusLength: 2048
@@ -94,7 +95,7 @@ test("a sync that lost its lease aborts without touching accounts or the competi
     // A competing run takes over the lease and marks this run interrupted while the first account syncs.
     await database.update(schema.leases).set({
       owner: "competing-run"
-    }).where(eq(schema.leases.name, syncLeaseName));
+    }).where(eq(schema.leases.name, syncLease));
     await database.update(schema.syncRuns).set({
       status: "INTERRUPTED",
       error: "The previous sync was interrupted."
@@ -159,7 +160,7 @@ test("a sync whose lease was taken by another operation records itself as interr
     // Connection removal takes the expired lease without starting a sync run.
     await database.update(schema.leases).set({
       owner: "connection-removal"
-    }).where(eq(schema.leases.name, syncLeaseName));
+    }).where(eq(schema.leases.name, syncLease));
 
     return Response.json({
       balances: [],
