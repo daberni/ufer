@@ -5,7 +5,7 @@ import { api } from "@/client/api";
 import { invalidate } from "@/client/invalidate";
 import { queryKeys } from "@/client/query-keys";
 import type { AccountKind } from "@/features/accounts/account-kinds";
-import { assignOccurrences, batchRows, duplicateIdErrors, pruneConsumed, type ConsumedBooking, type MappedRow, type RowError } from "./csv-mapping";
+import { assignOccurrences, batchRows, duplicateIdErrors, pruneConsumed, rowCategoryValues, type ConsumedBooking, type MappedRow, type RowError } from "./csv-mapping";
 import { useLocale } from "@/client/locale-provider";
 import { formatCount } from "@/lib/locale";
 
@@ -166,7 +166,7 @@ export function useMappedImport() {
           import_id: importId,
           rows: batch,
           targets: resolved.filter(target => batch.some(row => row.source === target.source)),
-          categories: categoryChoices.filter(choice => batch.some(row => row.category === choice.value)),
+          categories: categoryChoices.filter(choice => batch.some(row => rowCategoryValues(row).includes(choice.value))),
           consumed: pruneConsumed(consumed, batch[0].date),
           confirm,
           final: index === batches.length - 1

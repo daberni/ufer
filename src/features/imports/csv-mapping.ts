@@ -1,6 +1,7 @@
 import { parse } from "csv-parse/browser/esm/sync";
 import { Temporal } from "temporal-polyfill";
 import { formatCount } from "@/lib/locale";
+import { maximumSplitParts } from "@/features/transactions/split-limits";
 
 // Reads arbitrary transaction CSV exports in the browser and maps their columns to import rows. Shared with the server, so it must stay free of server-only imports.
 
@@ -97,6 +98,11 @@ export function headerKey(header: string[]) {
   return JSON.stringify(header.map(column => column.trim()));
 }
 
+/** Whether an applied template maps Buxfer's export, whose tags carry split amounts: the built-in template or a saved one for the same header. */
+export function readsSplitTags(template: CsvTemplate | null) {
+  return template !== null && headerKey(template.header) === headerKey(buxferTemplate.header);
+}
+
 /** The first template in `templates` for a header; lists put saved templates before built-in ones, so a person can override a built-in layout. */
 export function matchTemplate(header: string[], templates: CsvTemplate[]): CsvTemplate | null {
   const key = headerKey(header);
@@ -159,6 +165,16 @@ export type MappedRow = {
   id: string | null;
   /** The type column marks the row as a transfer, which automatic pairing then links to its counterpart. */
   transfer: boolean;
+  /** The parts of a split from amount-bearing tags such as Buxfer's `Fuel:45.52,Groceries:5.88`, signed like the row; null for an unsplit row. A split row has no `category`. */
+  parts: SplitPartRow[] | null;
+  /** The original tag text of a split row, appended to the description if the server cannot take the split. */
+  tags: string | null;
+};
+
+/** One part of a split row: its category value and signed decimal amount with a point. */
+export type SplitPartRow = {
+  category: string;
+  amount: string;
 };
 
 /** A mapped row with its occurrence: how many rows for the same target account with the same date, amount and normalized texts precede it, counting only rows whose currency the target accepts. It keeps genuine repeats distinct, and identical rows get the same set of references however the export orders them or which other accounts it contains. */
@@ -604,8 +620,8 @@ export function mappingProblem(mapping: CsvMapping) {
 }
 
 /** Turns data rows (without the header) into mapped rows and row-level errors. `lines` gives each row's physical line in the file; without it, rows count from line 2. */
-/** Maps CSV rows; the locale formats numbers in row problems. */
-export function mapRows(rows: string[][], mapping: CsvMapping, settings: CsvSettings, locale: string, lines?: number[]) {
+/** Maps CSV rows; the locale formats numbers in row problems. `splitTags` reads Buxfer's amount-bearing tags as splits; other files keep every category cell as a plain value, since `Project:2026` there is just a name. */
+export function mapRows(rows: string[][], mapping: CsvMapping, settings: CsvSettings, locale: string, lines?: number[], splitTags = false) {
   const mapped: MappedRow[] = [];
   const errors: RowError[] = [];
 
@@ -652,7 +668,13 @@ export function mapRows(rows: string[][], mapping: CsvMapping, settings: CsvSett
     }
 
     // The category value identifies its choice, so it is never shortened: two long values must not merge.
-    const category = cell(mapping.category);
+    const tags = cell(mapping.category);
+    const transfer = isTransferMarker(cell(mapping.type));
+    const tagged = splitTags ? tagSplit(tags, amount) : null;
+    // Only income and expenses are split. Tags that do not form a valid split import the row unsplit, keeping the tags in its description.
+    const split = tagged && "parts" in tagged && !transfer ? tagged : null;
+    const category = tagged ? "" : tags;
+    const description = tagged && !split ? withSplitTags(cell(mapping.description), tags) : cell(mapping.description);
 
     if (category.length > maxCategoryLength) {
       failure(`The category is longer than ${formatCount(maxCategoryLength, locale)} characters.`);
@@ -680,11 +702,13 @@ export function mapRows(rows: string[][], mapping: CsvMapping, settings: CsvSett
       amount,
       currency,
       payee: cell(mapping.payee).slice(0, 500),
-      description: cell(mapping.description).slice(0, 2000),
+      description: description.slice(0, 2000),
       category: category || null,
       source,
       id: mapping.id === null ? null : id,
-      transfer: isTransferMarker(cell(mapping.type))
+      transfer,
+      parts: split ? split.parts : null,
+      tags: split ? tags : null
     });
   });
 
@@ -747,6 +771,90 @@ export function duplicateIdErrors(rows: MappedRow[], targetOf: (source: string) 
 /** The tags in a category cell; exports such as Buxfer list several tags separated by commas. */
 export function categoryTags(value: string) {
   return value.split(",").map(tag => tag.trim()).filter(Boolean);
+}
+
+/** Appends tags that carry amounts but form no valid split to a description, so nothing from the export is lost: `… · Split: Car / Fuel 45.52, Groceries 5.88`. */
+export function withSplitTags(description: string, tags: string) {
+  const listed = categoryTags(tags).map(tag => {
+    const match = amountTag.exec(tag);
+
+    return match ? `${match[1].trim()} ${match[2]}` : tag;
+  }).join(", ");
+  const text = `Split: ${listed}`;
+
+  return description ? `${description} · ${text}` : text;
+}
+
+// A tag ending in a colon and a plain decimal, such as `Car / Fuel:45.52`; the name may contain colons itself.
+const amountTag = /^(.+?)\s*:\s*(-?\d{1,15}(?:\.\d{1,6})?)$/;
+
+/**
+ * Reads tags that carry amounts, as Buxfer exports a split transaction, into parts signed like the row: a tag's amount counts in the row's direction, a negative one against it.
+ * Null when no tag carries an amount, so the cell is an ordinary category value. Otherwise either the parts, which add up exactly to the row's amount, or why they form no valid split.
+ */
+export function tagSplit(value: string, amount: string): {
+  parts: SplitPartRow[];
+} | {
+  problem: string;
+} | null {
+  const tags = categoryTags(value);
+  const matches = tags.map(tag => amountTag.exec(tag));
+
+  if (!matches.some(Boolean)) {
+    return null;
+  }
+
+  const unsplit = (reason: string) => ({
+    problem: reason
+  });
+
+  if (matches.some(match => !match)) {
+    return unsplit("A tag has no amount.");
+  }
+
+  if (tags.length < 2) {
+    return unsplit("A split needs at least two tags with amounts.");
+  }
+
+  if (tags.length > maximumSplitParts) {
+    return unsplit(`A split has at most ${maximumSplitParts} parts.`);
+  }
+
+  const outgoing = amount.startsWith("-");
+  const parts = matches.map(match => ({
+    category: match![1].trim(),
+    amount: outgoing ? negate(match![2]) : match![2]
+  }));
+
+  if (parts.some(part => part.category.length > maxCategoryLength)) {
+    return unsplit(`A tag is longer than ${maxCategoryLength} characters.`);
+  }
+
+  const scale = Math.max(fractionDigits(amount), ...parts.map(part => fractionDigits(part.amount)));
+
+  if (parts.some(part => signedScaled(part.amount, scale) === 0n)) {
+    return unsplit("A tag has an amount of 0.");
+  }
+
+  const total = parts.reduce((sum, part) => sum + signedScaled(part.amount, scale), 0n);
+
+  if (total !== signedScaled(amount, scale)) {
+    return unsplit(`The tag amounts add up to ${formatScaled(total, scale)} instead of ${formatScaled(signedScaled(amount, scale), scale)}.`);
+  }
+
+  return {
+    parts
+  };
+}
+
+function negate(amount: string) {
+  return amount.startsWith("-") ? amount.slice(1) : `-${amount}`;
+}
+
+function signedScaled(amount: string, scale: number) {
+  const value = absoluteScaled(amount, scale);
+
+  return amount.startsWith("-") ? -value : value;
 }
 
 /** Lowercase Unicode letters and digits separated by single spaces; punctuation, symbols and diacritics are dropped. */
@@ -832,6 +940,15 @@ function fractionDigits(value: string) {
   return value.split(".")[1]?.length ?? 0;
 }
 
+/** The category values a row needs choices for: its category, or the categories of its split parts. */
+export function rowCategoryValues(row: Pick<MappedRow, "category" | "parts">) {
+  if (row.parts) {
+    return [...new Set(row.parts.map(part => part.category))];
+  }
+
+  return row.category === null ? [] : [row.category];
+}
+
 /** Splits mapped rows into request batches that stay well below hosted request body limits. */
 export function batchRows(rows: ImportRow[], maxBytes = 1_000_000, maxRows = 2000, maxSources = maxTargetsPerRequest, maxCategories = maxCategoryChoicesPerRequest) {
   const batches: ImportRow[][] = [];
@@ -845,7 +962,9 @@ export function batchRows(rows: ImportRow[], maxBytes = 1_000_000, maxRows = 200
     // Each batch sends only the targets of its own rows, so it may hold at most as many source accounts as a request accepts targets.
     const tooManySources = !sources.has(row.source) && sources.size >= maxSources;
     // Likewise for the category choices of its rows' category values.
-    const tooManyCategories = row.category !== null && !categories.has(row.category) && categories.size >= maxCategories;
+    const values = rowCategoryValues(row);
+    const added = values.filter(value => !categories.has(value)).length;
+    const tooManyCategories = added > 0 && categories.size + added > maxCategories;
 
     if (current.length > 0 && (size + rowSize > maxBytes || current.length >= maxRows || tooManySources || tooManyCategories)) {
       batches.push(current);
@@ -858,8 +977,8 @@ export function batchRows(rows: ImportRow[], maxBytes = 1_000_000, maxRows = 200
     current.push(row);
     sources.add(row.source);
 
-    if (row.category !== null) {
-      categories.add(row.category);
+    for (const value of values) {
+      categories.add(value);
     }
 
     size += rowSize;

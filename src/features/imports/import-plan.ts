@@ -1,5 +1,5 @@
 import { categoryNameKey } from "@/lib/category-name";
-import { categoryTags, currencyAllows, maxAccountNameLength, parseAmount, splitCurrency, type CsvTemplate, type DecimalSeparator, type MappedRow } from "./csv-mapping";
+import { categoryTags, currencyAllows, rowCategoryValues, maxAccountNameLength, parseAmount, splitCurrency, type CsvTemplate, type DecimalSeparator, type MappedRow } from "./csv-mapping";
 import type { AccountKind } from "@/features/accounts/account-kinds";
 import type { CategoryChoice, ImportTarget } from "./mutations";
 import { formatCount } from "@/lib/locale";
@@ -33,6 +33,8 @@ export type CategoryValue = {
   rows: number;
   /** Several tags, such as a Buxfer tag list; the import does not guess one of them. */
   multiTag: boolean;
+  /** Only split parts use the value; rules do not categorize split bookings, so it can only go to a category or stay uncategorized. */
+  splitOnly: boolean;
   /** An existing category with the same name. */
   matchId: string | null;
 };
@@ -114,11 +116,17 @@ export function categoryValues(rows: MappedRow[], categories: {
   name: string;
 }[]): CategoryValue[] {
   const counts = new Map<string, number>();
+  const whole = new Set<string>();
   const byName = new Map(categories.map(category => [categoryNameKey(category.name), category.id]));
 
+  // A split row counts once for each of its parts' category values, which are mapped like any other value.
   for (const row of rows) {
+    for (const value of rowCategoryValues(row)) {
+      counts.set(value, (counts.get(value) ?? 0) + 1);
+    }
+
     if (row.category) {
-      counts.set(row.category, (counts.get(row.category) ?? 0) + 1);
+      whole.add(row.category);
     }
   }
 
@@ -126,6 +134,7 @@ export function categoryValues(rows: MappedRow[], categories: {
     value,
     rows: count,
     multiTag: categoryTags(value).length > 1,
+    splitOnly: !whole.has(value),
     matchId: byName.get(categoryNameKey(value)) ?? null
   })).sort((left, right) => right.rows - left.rows || left.value.localeCompare(right.value));
 }

@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Temporal } from "temporal-polyfill";
 import { and, between, eq, inArray, like, ne, notInArray, sql } from "drizzle-orm";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
-import { accounts, categories, transactions } from "@/server/database/schema";
+import { accounts, categories, transactionSplits, transactions } from "@/server/database/schema";
 import { environment } from "@/features/banking/server/environment";
 import type { AccountKind } from "@/features/accounts/account-kinds";
 import { assertWritableAccount } from "@/features/accounts/server/writable-account";
@@ -13,6 +13,7 @@ import { suggestCategoryIcon } from "@/features/categorization/category-icons";
 import { sameCategoryName } from "@/lib/category-name";
 import { derivedTransactionType, type RuleTransactionType } from "@/features/transactions/transaction-types";
 import type { CategorizedEntry } from "@/features/transactions/server/transaction-entry";
+import type { SplitPartValues } from "@/features/transactions/server/split-repository";
 import { duplicateDateToleranceDays, findDuplicates, mappedReferencePrefix, matchBooking, type ExistingBooking } from "./duplicate-matching";
 
 const referenceChunkSize = 500;
@@ -34,6 +35,8 @@ export type MappedEntry = {
   typeTransferAccountId: string | null;
   /** Marked as a transfer by the file; saved with an automatic transfer type so pairing can link it. */
   transfer: boolean;
+  /** The parts of a split booking, saved with it; the booking itself then has no category. */
+  parts: SplitPartValues[] | null;
 };
 
 export type NewImportAccount = {
@@ -223,10 +226,12 @@ export async function saveMappedEntries(accountId: string, entries: MappedEntry[
       const rows = await tx.insert(transactions).values(values).onConflictDoNothing({
         target: [transactions.account_id, transactions.provider_reference]
       }).returning({
-        id: transactions.id
+        id: transactions.id,
+        reference: transactions.provider_reference
       });
 
       inserted += rows.length;
+      await saveImportedParts(tx, rows, fresh);
     }
 
     if (opening) {
@@ -238,6 +243,27 @@ export async function saveMappedEntries(accountId: string, entries: MappedEntry[
       inserted
     };
   });
+}
+
+/** Saves the parts of the split bookings just inserted; a booking that already existed keeps whatever split it has, so importing again adds no parts. */
+async function saveImportedParts(tx: DatabaseTransaction, inserted: {
+  id: string;
+  reference: string;
+}[], entries: MappedEntry[]) {
+  const partsByReference = new Map(entries.flatMap(entry => entry.parts ? [[entry.reference, entry.parts] as const] : []));
+  const values = inserted.flatMap(row => (partsByReference.get(row.reference) ?? []).map((part, position) => ({
+    id: randomUUID(),
+    transaction_id: row.id,
+    position,
+    amount_minor: part.amount,
+    category_id: part.categoryId,
+    note: part.note
+  })));
+
+  // Bound statement parameters like the bookings themselves.
+  for (let offset = 0; offset < values.length; offset += 100) {
+    await tx.insert(transactionSplits).values(values.slice(offset, offset + 100));
+  }
 }
 
 /**
