@@ -14,6 +14,7 @@ const leaveGrace = 150;
 export type TooltipTriggerProps = {
   ref: (element: HTMLElement | null) => void;
   "aria-describedby"?: string;
+  tabIndex?: number;
   onPointerEnter: (event: PointerEvent) => void;
   onPointerLeave: (event: PointerEvent) => void;
   onPointerDown: (event: PointerEvent) => void;
@@ -44,6 +45,8 @@ function isTruncated(element: HTMLElement) {
 function tapActivates(element: HTMLElement) {
   return element.closest("button, a[href], input, select, textarea, label, [role='button']") !== null;
 }
+
+const focusable = "button, a[href], input, select, textarea, summary, [tabindex]";
 
 /** One pending show or hide and whether the last press was a long press, kept outside rendering. */
 function usePressTimer() {
@@ -83,9 +86,54 @@ export function Tooltip({
   // A long press shows the tooltip; the browser's context menu and the click that may follow do not act on the trigger.
   const press = usePressTimer();
 
+  // Truncated text outside any control becomes a focus stop of its own, so keyboard users can reach the full text.
+  const [ownFocusStop, setOwnFocusStop] = useState(false);
+  const showRef = useRef(show);
+
   useLayoutEffect(() => {
     triggerRef.current = triggerElement;
-  }, [triggerElement]);
+    showRef.current = show;
+  });
+
+  useEffect(() => {
+    const focusOwner = triggerElement?.parentElement?.closest<HTMLElement>(focusable);
+
+    if (!triggerElement) {
+      return;
+    }
+
+    // Text inside a link or button cannot take focus itself; its control's keyboard focus shows the tooltip instead.
+    if (focusOwner) {
+      const showOnVisibleFocus = () => {
+        if (focusOwner.matches(":focus-visible")) {
+          showRef.current();
+        }
+      };
+      const hideOnBlur = () => setOpen(false);
+
+      focusOwner.addEventListener("focus", showOnVisibleFocus);
+      focusOwner.addEventListener("blur", hideOnBlur);
+
+      return () => {
+        focusOwner.removeEventListener("focus", showOnVisibleFocus);
+        focusOwner.removeEventListener("blur", hideOnBlur);
+      };
+    }
+
+    if (!onlyWhenTruncated || triggerElement.matches(focusable)) {
+      return;
+    }
+
+    const measure = () => setOwnFocusStop(isTruncated(triggerElement));
+
+    measure();
+    window.addEventListener("resize", measure);
+
+    return () => {
+      window.removeEventListener("resize", measure);
+      setOwnFocusStop(false);
+    };
+  }, [triggerElement, onlyWhenTruncated]);
 
   useAnchoredPopover({
     open,
@@ -117,6 +165,7 @@ export function Tooltip({
   const trigger: TooltipTriggerProps = {
     ref: setTriggerElement,
     "aria-describedby": describes && text ? id : undefined,
+    tabIndex: ownFocusStop ? 0 : undefined,
     onPointerEnter: event => {
       if (event.pointerType === "mouse") {
         press.schedule(show, hoverDelay);
