@@ -53,10 +53,33 @@
   position: relative;
   z-index: var(--layer-raised);
 }
-.since {
+/* The changes sit in the space beneath their figures without taking any, so showing them never changes the card's height. */
+.headline-delta {
+  position: absolute;
+  top: 100%;
+  left: 0;
   font-size: var(--text-sm);
-  color: var(--ink-soft);
+  color: var(--muted);
   white-space: nowrap;
+}
+.delta {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  font-size: var(--text-xs);
+  font-weight: 400;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.gain {
+  color: var(--green-text);
+}
+.loss {
+  color: var(--danger-text);
+}
+.concealed {
+  visibility: hidden;
 }
 .history-area {
   fill: color-mix(in srgb, var(--chart-invested) 10%, transparent);
@@ -194,6 +217,7 @@
   color: var(--muted);
 }
 .wealth-allocation strong {
+  position: relative;
   grid-column: 2;
   font-size: var(--text-sm);
   color: var(--ink-soft);
@@ -247,6 +271,11 @@
     gap: var(--space-4);
   }
   .wealth-allocation strong {
+    position: relative;
     overflow-wrap: anywhere;
   }
+}
+.headline-delta .delta {
+  position: static;
+  font-size: inherit;
 }

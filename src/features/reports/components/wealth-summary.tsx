@@ -65,8 +65,16 @@ export function WealthSummary({
   } = useCurveActivation();
   const shownChange = active ? change : null;
   const since = change ? shortMonthWithYear(Temporal.PlainYearMonth.from(change.since), locale) : "";
-  // While the curve is active, each figure shows its change over the curve's period instead of its current amount.
-  const figure = (amount: number, changed: number | undefined) => shownChange && changed !== undefined ? signedMoney(changed, currency, locale) : money(amount, currency, locale);
+  // While the curve is active, each figure gets its change over the curve's period beneath it; the line's space is always reserved, so nothing moves.
+  const delta = (changed: number | undefined) => {
+    const amount = changed ?? 0;
+
+    return (
+      <span className={clsx(styles["delta"], amount > 0 && styles["gain"], amount < 0 && styles["loss"], !shownChange && styles["concealed"])} aria-hidden="true">
+        {change ? signedMoney(amount, currency, locale) : "\u00a0"}
+      </span>
+    );
+  };
 
   return (
     <section className={styles["wealth-card"]} aria-busy={netWorth.status === "loading"}>
@@ -80,8 +88,12 @@ export function WealthSummary({
         {showsCurrencySelect(currencies) ? <CurrencyChoice compact className={styles["currency-choice"]} currencies={currencies} /> : <span className={clsx(styles["small-tag"], netWorthValue)}>{currency}</span>}
       </div>
       <div className={styles["headline"]}>
-        <div className={clsx(styles["wealth-number"], netWorthValue)}>{hasAccounts ? figure(summary.netWorth, shownChange?.amount_minor) : "—"}</div>
-        {shownChange && <span className={styles["since"]}>since {since}</span>}
+        <div className={clsx(styles["wealth-number"], netWorthValue)}>{hasAccounts ? money(summary.netWorth, currency, locale) : "—"}</div>
+        {hasAccounts && (
+          <span className={clsx(styles["headline-delta"], !shownChange && styles["concealed"])} aria-hidden="true">
+            {delta(change?.amount_minor)} {change ? `since ${since}` : ""}
+          </span>
+        )}
       </div>
       {summary.unvalued > 0 && <p>{formatCount(summary.unvalued, locale)} without a balance</p>}
       {/* Assets and loans share one scale; the loan track is always laid out, so the card's height does not depend on having loans. */}
@@ -125,19 +137,27 @@ export function WealthSummary({
       <div className={styles["wealth-allocation"]}>
         <span>
           <i className={clsx(styles["legend-dot"], ui["liquid"])} />
-          Cash<strong className={netWorthValue}>{figure(summary.liquidity, shownChange?.categories.liquidity)}</strong>
+          Cash<strong className={netWorthValue}>{money(summary.liquidity, currency, locale)}
+            {delta(change?.categories.liquidity)}
+          </strong>
         </span>
         <span>
           <i className={clsx(styles["legend-dot"], styles["invested"])} />
-          Investments<strong className={netWorthValue}>{figure(summary.investments, shownChange?.categories.investments)}</strong>
+          Investments<strong className={netWorthValue}>{money(summary.investments, currency, locale)}
+            {delta(change?.categories.investments)}
+          </strong>
         </span>
         <span>
           <i className={clsx(styles["legend-dot"], ui["property"])} />
-          Property<strong className={netWorthValue}>{figure(summary.property, shownChange?.categories.property)}</strong>
+          Property<strong className={netWorthValue}>{money(summary.property, currency, locale)}
+            {delta(change?.categories.property)}
+          </strong>
         </span>
         <span>
           <i className={clsx(styles["legend-dot"], styles["loans"])} />
-          Loans<strong className={netWorthValue}>{summary.liabilities === 0 && !shownChange && netWorth.status === "ready" ? "—" : figure(summary.liabilities, shownChange?.categories.liabilities)}</strong>
+          Loans<strong className={netWorthValue}>{summary.liabilities === 0 && netWorth.status === "ready" ? "—" : money(summary.liabilities, currency, locale)}
+            {delta(change?.categories.liabilities)}
+          </strong>
         </span>
       </div>
       {/* The curve's place is held until the history for the shown currency arrives, so the card and the accounts panel beside it keep their height. */}
