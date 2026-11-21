@@ -1,6 +1,6 @@
 # CSV import
 
-This guide describes importing transaction history and balance series from CSV files. Bank synchronization and data handling are described in [banking](banking.md).
+This guide describes importing transaction history from CSV files. Bank synchronization and data handling are described in [banking](banking.md).
 
 ## Mapping
 
@@ -30,11 +30,4 @@ After a confirmed import the mapping can be saved as a named template, or, when 
 
 ## Balance series
 
-Manual accounts import a balance series from their details page (Import balances):
-
-```csv
-date;balance;currency
-2026-01-15;1000.00;EUR
-```
-
-Rows are recorded oldest first. Each books an adjustment for the difference to the account's balance at the end of its date (an opening balance if the account has no transactions yet); a balance the account already has books nothing, so importing the same file again changes nothing. Later transactions keep their effect, so an older balance does not replace the current one.
+The fixed-schema balance series import (`date,balance,currency`) was retired ([#282](https://github.com/daberni/ufer/issues/282)): balances are derived from transactions, so a balance on a past date is recorded with Update balance on the account, and transaction history comes through the mapped import. Opening balances and adjustments booked by earlier balance imports stay unchanged.

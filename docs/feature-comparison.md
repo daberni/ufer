@@ -120,6 +120,7 @@ An item is checked only when its acceptance criterion is met and evidence is rec
   - [x] Buxfer detection and split import
   - [ ] OFX, QIF and CAMT.053 ([#14](https://github.com/daberni/ufer/issues/14))
   - [x] Content matching against earlier CSV imports of other files
+  - [x] One CSV reader: the fixed-schema balance import is retired; balances derive from transactions and Update balance ([#282](https://github.com/daberni/ufer/issues/282))
   - [ ] Remaining duplicate detection gaps ([#228](https://github.com/daberni/ufer/issues/228))
 - [ ] **E-03 · Backup and restore**
   - [x] Offline backup verification and synthetic restore rehearsal

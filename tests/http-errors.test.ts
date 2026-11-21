@@ -6,7 +6,6 @@ import { api, errorStatus, failureMessage, failureTraceId, toFailure } from "../
 import { requireAuthResult } from "../src/features/auth/client";
 import { HttpError } from "../src/lib/errors";
 import { minorUnits } from "../src/lib/money";
-import { parseBalancesCsv } from "../src/lib/import";
 import { normalizeTransactions, selectedBalance } from "../src/features/banking/server/bank-data";
 import type { BankTransaction } from "../src/features/banking/server/enable-banking-client";
 import { respond } from "../src/server/http/respond";
@@ -21,9 +20,9 @@ const publicAccess = {
   access: "public"
 } as const;
 
-test("an invalid amount is user validation in CSV but a provider failure in bank data", async context => {
+test("an invalid amount is user validation in input but a provider failure in bank data", async context => {
   context.mock.method(console, "warn", () => {});
-  const csv = await respond(request, async () => parseBalancesCsv("date,balance,currency\n2020-01-01,0.005,EUR", "EUR", "en"), publicAccess);
+  const input = await respond(request, async () => minorUnits("0.005", "EUR"), publicAccess);
   const bank = await respond(request, async () => selectedBalance([{
     balance_type: "CLBD",
     balance_amount: {
@@ -31,11 +30,11 @@ test("an invalid amount is user validation in CSV but a provider failure in bank
       currency: "EUR"
     }
   }], "EUR"), publicAccess);
-  const csvProblem = await csv.json();
+  const inputProblem = await input.json();
   const bankProblem = await bank.json();
 
-  assert.equal(csv.status, 422);
-  assert.equal(csvProblem.detail, "CSV row 2: The amount has too many decimal places.");
+  assert.equal(input.status, 422);
+  assert.equal(inputProblem.detail, "The amount has too many decimal places.");
   assert.equal(bank.status, 502);
   assert.equal(bankProblem.status, 502);
   assert.match(bankProblem.detail, /bank/i);
@@ -370,7 +369,7 @@ test("readJson rejects a declared oversized body before parsing and accepts a 1 
   const body = (size: number) => JSON.stringify({
     csv: "a".repeat(size)
   });
-  const post = (payload: string, length = String(payload.length)) => new Request("http://localhost/api/imports/balances", {
+  const post = (payload: string, length = String(payload.length)) => new Request("http://localhost/api/imports/mapped", {
     method: "POST",
     headers: {
       "content-type": "application/json",
@@ -400,7 +399,7 @@ test("readJson counts the bytes it receives when a streamed body declares no len
       }
     }
   });
-  const request = new Request("http://localhost/api/imports/balances", {
+  const request = new Request("http://localhost/api/imports/mapped", {
     method: "POST",
     headers: {
       "content-type": "application/json"
