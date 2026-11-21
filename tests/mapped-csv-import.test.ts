@@ -1509,6 +1509,24 @@ test("an unset category value blocks the check until a choice is made, and only 
   assert.deepEqual(ready.problems, []);
   assert.deepEqual(ready.categories.map(choice => [choice.value, choice.action, choice.categoryId]), [["Hobby", "create", undefined], ["synthetic FOOD", "existing", "synthetic-food"]]);
   assert.equal(ready.categories[0].newCategory?.name, "Hobbies");
+
+  // A new category's name over the category limit is an inline problem instead of a rejected check.
+  selections.set("Hobby", {
+    action: "create",
+    category: {
+      name: "H".repeat(101),
+      color: "#638777",
+      icon: null
+    }
+  });
+
+  const tooLong = prepareImport(rows, target, accounts, selections, ".", "en");
+
+  assert.deepEqual(tooLong.problems, [{
+    value: "Hobby",
+    field: "category",
+    message: "Use at most 100 characters for the new category."
+  }]);
 });
 
 test("a new account's balance stated in another currency blocks the check", () => {

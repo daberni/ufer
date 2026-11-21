@@ -1,5 +1,5 @@
 import { categoryNameKey } from "@/lib/category-name";
-import { categoryTags, currencyAllows, rowCategoryValues, maxAccountNameLength, parseAmount, splitCurrency, type CsvTemplate, type DecimalSeparator, type MappedRow } from "./csv-mapping";
+import { categoryTags, currencyAllows, rowCategoryValues, maxAccountNameLength, maxCategoryLength, parseAmount, splitCurrency, type CsvTemplate, type DecimalSeparator, type MappedRow } from "./csv-mapping";
 import type { AccountKind } from "@/features/accounts/account-kinds";
 import type { CategoryChoice, ImportTarget } from "./mutations";
 import { formatCount } from "@/lib/locale";
@@ -288,6 +288,17 @@ export function prepareImport(rows: MappedRow[], choices: ReadonlyMap<string, Ta
         value,
         field: "category",
         message: "Choose a category."
+      });
+
+      continue;
+    }
+
+    // A new category's name is typed in the picker, which has no length limit of its own.
+    if (selection.action === "create" && selection.category.name.trim().length > maxCategoryLength) {
+      problems.push({
+        value,
+        field: "category",
+        message: `Use at most ${formatCount(maxCategoryLength, locale)} characters for the new category.`
       });
 
       continue;
