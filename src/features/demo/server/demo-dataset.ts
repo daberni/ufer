@@ -19,6 +19,8 @@ export type DemoAccountData = DemoAccountDefinition & {
   valuations: DemoSnapshot[];
   /** The balance at the end of the last synced day; bank-connected accounts report it as their latest bank balance. */
   reported: DemoSnapshot;
+  /** The start of the recorded sync run that fetched a booking, by reference. */
+  importedAt: Record<string, string>;
 };
 
 /** A booking divided into category parts that add up to its amount, as a person does in the split dialog. */
@@ -237,6 +239,9 @@ class Ledger {
 
   readonly splits: DemoSplit[] = [];
 
+  /** The start of the sync run that fetched a bank booking, by reference; older bookings arrived before the recorded history. */
+  readonly importedAt = new Map<string, string>();
+
   readonly openings = {
     ...openingBalances
   };
@@ -272,7 +277,9 @@ class Ledger {
     }
 
     this.sequence += 1;
-    const reference = `${demoReferencePrefix}${String(this.sequence).padStart(5, "0")}`;
+    // Bank-connected bookings carry a bank reference, so recent syncs can show the bookings they fetched.
+    const prefix = demoAccounts[account].bank ? `bank:${demoReferencePrefix}` : demoReferencePrefix;
+    const reference = `${prefix}${String(this.sequence).padStart(5, "0")}`;
 
     this.entries[account].push({
       reference,
@@ -917,7 +924,12 @@ function accountData(ledger: Ledger, key: DemoAccountKey, valuations: DemoSnapsh
     reported: {
       date: reportedDate.toString(),
       amount: ledger.balanceAt(key, reportedDate)
-    }
+    },
+    importedAt: Object.fromEntries(ledger.entries[key].flatMap(entry => {
+      const importedAt = ledger.importedAt.get(entry.reference);
+
+      return importedAt ? [[entry.reference, importedAt]] : [];
+    }))
   };
 }
 
@@ -956,9 +968,8 @@ function connectionData(runDate: PlainDate) {
 function syncRunHistory(ledger: Ledger, random: DemoRandom): DemoSyncRun[] {
   const bankAccounts = (Object.keys(demoAccounts) as DemoAccountKey[]).filter(key => demoAccounts[key].bank);
   const runs: DemoSyncRun[] = [];
-
-  const bookedOn = (key: DemoAccountKey, date: PlainDate) => ledger.entries[key].filter(entry => entry.date === date.toString()).length;
-  let missed = 0;
+  const bookedOn = (key: DemoAccountKey, date: PlainDate) => ledger.entries[key].filter(entry => entry.date === date.toString());
+  let missed: Entry[] = [];
 
   for (let daysAgo = 14; daysAgo >= 1; daysAgo--) {
     const date = ledger.runDate.subtract({
@@ -968,18 +979,23 @@ function syncRunHistory(ledger: Ledger, random: DemoRandom): DemoSyncRun[] {
       days: 1
     });
     const failed = daysAgo === 4;
-    const insertedCount = bankAccounts.filter(key => !failed || key !== "onlineChecking").reduce((total, key) => total + bookedOn(key, booked), missed);
-
-    // The next run fetches what the failed run missed.
-    missed = failed ? bookedOn("onlineChecking", booked) : 0;
     const minute = random.integer(0, 4);
+    const startedAt = syncInstant(date, minute);
+    // Each run fetches the previous day's bookings; the run after the failed one also fetches what it missed.
+    const fetched = [...missed, ...bankAccounts.filter(key => !failed || key !== "onlineChecking").flatMap(key => bookedOn(key, booked))];
+
+    missed = failed ? bookedOn("onlineChecking", booked) : [];
+
+    for (const entry of fetched) {
+      ledger.importedAt.set(entry.reference, startedAt);
+    }
 
     runs.push({
       id: `demo-sync-run-${date.toString()}`,
-      startedAt: syncInstant(date, minute),
+      startedAt,
       finishedAt: syncInstant(date, minute + 1),
       status: failed ? "PARTIAL" : "SUCCESS",
-      insertedCount,
+      insertedCount: fetched.length,
       error: failed ? `${demoAccounts.onlineChecking.name}: The bank did not respond in time. Try again later.` : null
     });
   }
