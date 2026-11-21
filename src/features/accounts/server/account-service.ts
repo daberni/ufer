@@ -1,7 +1,5 @@
-import { randomUUID } from "node:crypto";
 import { Temporal } from "temporal-polyfill";
-import { acquireLease, releaseLease } from "@/server/jobs/lease-repository";
-import { syncLeaseName } from "@/features/banking/server/sync-service";
+import { syncLease, withLease } from "@/server/jobs/lease";
 import { HttpError, ValidationError } from "@/lib/errors";
 import { minorUnits } from "@/lib/money";
 import { timestamp, today } from "@/lib/time";
@@ -53,19 +51,11 @@ export async function reconcileBankBalance(accountId: string) {
     throw new HttpError(409, archivedAccountMessage);
   }
 
-  const owner = randomUUID();
-
-  if (!(await acquireLease(syncLeaseName, owner))) {
-    throw new HttpError(409, "A sync is running. Reconcile the balance after it has finished.");
-  }
-
-  try {
+  await withLease(syncLease, "A sync is running. Reconcile the balance after it has finished.", async () => {
     if (!await reconcileWithReportedBalance(account)) {
       throw new HttpError(409, "The bank has not reported a booked balance to compare with yet.");
     }
-  } finally {
-    await releaseLease(syncLeaseName, owner);
-  }
+  });
 
   return {
     ok: true
@@ -233,17 +223,7 @@ async function archiveSettled(account: {
 
 /** Runs a change to a bank account while no sync can write to it. */
 async function whileNoSync<Result>(action: string, change: () => Promise<Result>) {
-  const owner = randomUUID();
-
-  if (!(await acquireLease(syncLeaseName, owner))) {
-    throw new HttpError(409, `A sync is running. ${action} after it has finished.`);
-  }
-
-  try {
-    return await change();
-  } finally {
-    await releaseLease(syncLeaseName, owner);
-  }
+  return withLease(syncLease, `A sync is running. ${action} after it has finished.`, change);
 }
 
 /** Makes a bank account whose connection was removed a manual account that keeps its history and its last bank balance; balance updates, entries and type changes then work as for any manual account. */

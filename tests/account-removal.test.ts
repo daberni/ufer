@@ -22,7 +22,7 @@ import { pairAllTransfers } from "../src/features/transactions/server/transfer-r
 import { deleteUnlinkedAccount } from "../src/features/accounts/server/account-repository";
 import { updateRule } from "../src/features/categorization/server/rule-repository";
 import { createRule, updateRuleDetails } from "../src/features/categorization/server/categorization-service";
-import { syncLeaseName } from "../src/features/banking/server/sync-service";
+import { syncLease } from "../src/server/jobs/lease";
 import type { Account } from "../src/features/accounts/types";
 import { browser, wait, withQueryClient } from "./fixtures/browser";
 import { stubCssModules } from "./fixtures/css-modules";
@@ -320,7 +320,7 @@ test("a bank account with an active connection, a manual account or an unknown a
 test("converting waits for a running sync", async context => {
   const db = await seededDatabase(context);
 
-  await acquireLease(syncLeaseName, "sync");
+  await acquireLease(syncLease, "sync");
   await assert.rejects(convertToManualAccount("detached"), {
     status: 409,
     message: "A sync is running. Convert the account after it has finished."
