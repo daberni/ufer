@@ -3,6 +3,7 @@ import { Temporal } from "temporal-polyfill";
 import { TimestampValue } from "@/components/ui/date-value";
 import { accountSource } from "@/features/accounts/account-presentation";
 import type { Account } from "@/features/accounts/types";
+import ui from "../../../components/ui/primitives.module.css";
 import styles from "./account-source-status.module.css";
 
 type Props = {
@@ -44,6 +45,7 @@ export function AccountSourceStatus({
   return (
     <span className={styles["status"]}>
       <span className={styles["label"]}>{label}</span>
+      <span className={ui["visually-hidden"]}>, </span>
       <span className={clsx(styles["state"], state.kind === "attention" && styles["problem"], state.kind === "error" && styles["failed"])} title={state.kind === "error" ? account.sync_error ?? undefined : undefined}>
         {dot}
         <span>{state.kind === "synced" ? <SyncedLabel at={state.at} withDate={withDate} /> : stateLabels[state.kind]}</span>
