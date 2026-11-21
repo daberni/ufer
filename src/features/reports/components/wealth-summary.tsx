@@ -1,5 +1,6 @@
 "use client";
 
+import { useId } from "react";
 import ui from "../../../components/ui/primitives.module.css";
 
 import { clsx } from "clsx";
@@ -16,7 +17,8 @@ import type { NetWorth } from "@/features/accounts/types";
 import { Temporal } from "temporal-polyfill";
 import { netWorthBars } from "@/features/reports/net-worth-bars";
 import { shortMonthWithYear } from "@/lib/date-format";
-import type { NetWorthHistory, NetWorthPoint } from "@/features/reports/net-worth-series";
+import { netWorthChange, type NetWorthChange, type NetWorthHistory, type NetWorthPoint } from "@/features/reports/net-worth-series";
+import { useCurveActivation } from "@/features/reports/use-curve-activation";
 import { useLocale } from "@/client/locale-provider";
 import { formatCount } from "@/lib/locale";
 import { cssPercent } from "@/lib/percent";
@@ -38,6 +40,7 @@ export function WealthSummary({
   historyArea
 }: Props) {
   const locale = useLocale();
+  const changesId = useId();
   const selectedCurrency = useCurrency();
   const netWorth = withPlaceholder(netWorthArea, () => ({
     currency: selectedCurrency,
@@ -55,7 +58,15 @@ export function WealthSummary({
   const historyReady = historyArea.status === "ready" && historyArea.data.currency === currency;
   const points = historyReady ? historyArea.data.points : [];
   const historyPending = !historyReady || netWorth.status !== "ready";
-  const change = netWorth.status === "ready" && hasAccounts ? historyChange(points, locale) : null;
+  const change = netWorth.status === "ready" && hasAccounts ? netWorthChange(points) : null;
+  const {
+    active,
+    curveProps
+  } = useCurveActivation();
+  const shownChange = active ? change : null;
+  const since = change ? shortMonthWithYear(Temporal.PlainYearMonth.from(change.since), locale) : "";
+  // While the curve is active, each figure shows its change over the curve's period instead of its current amount.
+  const figure = (amount: number, changed: number | undefined) => shownChange && changed !== undefined ? signedMoney(changed, currency, locale) : money(amount, currency, locale);
 
   return (
     <section className={styles["wealth-card"]} aria-busy={netWorth.status === "loading"}>
@@ -69,10 +80,8 @@ export function WealthSummary({
         {showsCurrencySelect(currencies) ? <CurrencyChoice compact className={styles["currency-choice"]} currencies={currencies} /> : <span className={clsx(styles["small-tag"], netWorthValue)}>{currency}</span>}
       </div>
       <div className={styles["headline"]}>
-        <div className={clsx(styles["wealth-number"], netWorthValue)}>{hasAccounts ? money(summary.netWorth, currency, locale) : "—"}</div>
-        {change && <span className={styles["change"]}>{signedMoney(change.amount, currency, locale)} since {change.since}</span>}
-        {/* Holds the change's place, which wraps below the figure on a phone, until the history arrives. */}
-        {!change && hasAccounts && historyPending && <span className={clsx(styles["change"], ui["skeleton"])}>+€0,000.00 since Jan 2026</span>}
+        <div className={clsx(styles["wealth-number"], netWorthValue)}>{hasAccounts ? figure(summary.netWorth, shownChange?.amount_minor) : "—"}</div>
+        {shownChange && <span className={styles["since"]}>since {since}</span>}
       </div>
       {summary.unvalued > 0 && <p>{formatCount(summary.unvalued, locale)} without a balance</p>}
       {/* Assets and loans share one scale; the loan track is always laid out, so the card's height does not depend on having loans. */}
@@ -116,63 +125,72 @@ export function WealthSummary({
       <div className={styles["wealth-allocation"]}>
         <span>
           <i className={clsx(styles["legend-dot"], ui["liquid"])} />
-          Cash<strong className={netWorthValue}>{money(summary.liquidity, currency, locale)}</strong>
+          Cash<strong className={netWorthValue}>{figure(summary.liquidity, shownChange?.categories.liquidity)}</strong>
         </span>
         <span>
           <i className={clsx(styles["legend-dot"], styles["invested"])} />
-          Investments<strong className={netWorthValue}>{money(summary.investments, currency, locale)}</strong>
+          Investments<strong className={netWorthValue}>{figure(summary.investments, shownChange?.categories.investments)}</strong>
         </span>
         <span>
           <i className={clsx(styles["legend-dot"], ui["property"])} />
-          Property<strong className={netWorthValue}>{money(summary.property, currency, locale)}</strong>
+          Property<strong className={netWorthValue}>{figure(summary.property, shownChange?.categories.property)}</strong>
         </span>
         <span>
           <i className={clsx(styles["legend-dot"], styles["loans"])} />
-          Loans<strong className={netWorthValue}>{summary.liabilities === 0 && netWorth.status === "ready" ? "—" : money(summary.liabilities, currency, locale)}</strong>
+          Loans<strong className={netWorthValue}>{summary.liabilities === 0 && !shownChange && netWorth.status === "ready" ? "—" : figure(summary.liabilities, shownChange?.categories.liabilities)}</strong>
         </span>
       </div>
       {/* The curve's place is held until the history for the shown currency arrives, so the card and the accounts panel beside it keep their height. */}
-      {hasAccounts && (historyReady ? <HistoryCurve points={points} /> : <div className={styles["history-curve"]} aria-hidden="true" />)}
+      {hasAccounts && (historyPending ? <div className={styles["history-curve"]} aria-hidden="true" /> : change && (
+        <button
+          type="button"
+          className={styles["history-curve"]}
+          aria-label={`Show changes since ${since}`}
+          aria-describedby={changesId}
+          {...curveProps}
+        >
+          <HistoryCurve points={points} active={active} />
+        </button>
+      ))}
+      <span id={changesId} className={ui["visually-hidden"]} aria-live="polite">{shownChange && changeAnnouncement(shownChange, since, currency, locale)}</span>
       {netWorthArea.status === "pending" && netWorthArea.failure && <FailureCover failure={netWorthArea.failure} subject="Your net worth" />}
     </section>
   );
 }
 
-function historyChange(points: NetWorthPoint[], locale: string) {
-  const first = points[0];
-  const last = points.at(-1);
+function changeAnnouncement(change: NetWorthChange, since: string, currency: string, locale: string) {
+  const amount = (value: number) => signedMoney(value, currency, locale);
 
-  if (!first || !last || first === last || first.amount_minor === last.amount_minor) {
-    return null;
-  }
-
-  const month = Temporal.PlainDate.from(first.date).toPlainYearMonth();
-
-  return {
-    amount: last.amount_minor - first.amount_minor,
-    since: shortMonthWithYear(month, locale)
-  };
+  return `Since ${since}: net worth ${amount(change.amount_minor)}, cash ${amount(change.categories.liquidity)}, investments ${amount(change.categories.investments)}, property ${amount(change.categories.property)}, loans ${amount(change.categories.liabilities)}.`;
 }
 
-/** A decorative area curve of the past year; the figure above stays the information. */
-function HistoryCurve({ points }: {
-  points: NetWorthPoint[]
+const curveHeight = 40;
+const curveTop = 2;
+const curveBase = curveHeight * 0.8;
+
+/** An area curve of the past year; activating it shows the changes over that year in the figures above. */
+function HistoryCurve({
+  points,
+  active
+}: {
+  points: NetWorthPoint[];
+  active: boolean;
 }) {
   if (points.length < 2) {
     return null;
   }
 
   const amounts = points.map(point => point.amount_minor);
-  const low = Math.min(...amounts);
-  const range = Math.max(...amounts) - low;
-  // A flat year sits low in the card instead of filling it.
-  const y = (amount: number) => range ? 40 - (amount - low) / range * 34 : 34;
+  const high = Math.max(...amounts);
+  const range = high - Math.min(...amounts);
+  // Min–max scale between a small top margin and a base fifth of the height, so the area never touches the bottom edge; a flat year rests on that base.
+  const y = (amount: number) => range ? curveTop + (high - amount) / range * (curveBase - curveTop) : curveBase;
   const x = (index: number) => index / (points.length - 1) * 100;
   const line = points.map((point, index) => `${index ? "L" : "M"}${x(index)},${y(point.amount_minor)}`).join(" ");
 
   return (
     <svg
-      className={styles["history-curve"]}
+      className={clsx(styles["curve"], active && styles["active"])}
       viewBox="0 0 100 40"
       preserveAspectRatio="none"
       aria-hidden="true"

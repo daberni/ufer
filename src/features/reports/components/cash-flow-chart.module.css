@@ -19,6 +19,19 @@
 .chart-panel .heading {
   align-items: baseline;
 }
+/* Title and period share the left of the first row, keeping its right free for a link; in a narrow panel the period wraps below the title instead of truncating it. The period is known before the figures, so loading never changes the wrap. */
+.title {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--space-3);
+  min-width: 0;
+}
+.title > span {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
 .chart-legend {
   display: flex;
   flex-wrap: wrap;
