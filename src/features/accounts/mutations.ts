@@ -69,3 +69,27 @@ export function useRestoreAccount(accountId: string) {
     onSettled: () => invalidate(queryClient, [queryKeys.accounts(), queryKeys.transactions.all()])
   });
 }
+
+// The conversion books the last bank balance, which feeds the account list, net worth, the transaction lists and their cash-flow totals.
+export function useConvertToManualAccount(accountId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => api(`accounts/${encodeURIComponent(accountId)}/manual`, undefined, "PUT"),
+    onSettled: () => invalidate(queryClient, archiveKeys)
+  });
+}
+
+/** `onDeleted` runs before the refresh, which would otherwise unmount the deleted account's view and its dialog first. */
+export function useDeleteAccount(accountId: string, onDeleted: () => void) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (body: {
+      name: string
+    }) => api(`accounts/${encodeURIComponent(accountId)}`, body, "DELETE"),
+    onSuccess: onDeleted,
+    // Deleting removes bookings from every list and report, unlinks transfers on other accounts and clears rules' transfer targets.
+    onSettled: () => invalidate(queryClient, editKeys)
+  });
+}

@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
-import { and, eq, isNull, sql, TransactionRollbackError } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, isNull, ne, sql, TransactionRollbackError } from "drizzle-orm";
 import { database, type Database } from "@/server/database/connection";
-import { accounts, transactions } from "@/server/database/schema";
+import { accountIdentifiers, accounts, balanceSnapshots, categorizationRules, transactions } from "@/server/database/schema";
+import { createdCounterpartPrefix, manualEntryPrefix } from "@/features/transactions/server/transfer-repository";
 import { bookManualEntry, recordManualBalance, type ManualEntryResult } from "@/features/transactions/server/manual-transaction-repository";
 import type { AccountKind } from "../account-kinds";
 import type { ManualAccountInput } from "./account-schema";
@@ -201,4 +202,132 @@ export async function closeAndArchiveManualAccount(account: {
 
     throw error;
   }
+}
+
+/**
+ * Turns a bank account whose connection was removed into a manual account in one transaction. The last bank balance stays the account's balance through an opening balance, or an adjustment on the later of its date and the latest booking.
+ * The bank identity is dropped, so a later connection to the same bank creates a new account instead of syncing into a manual one. Returns whether the account was converted.
+ */
+export async function convertDetachedAccount(id: string) {
+  const db = await database();
+
+  return db.transaction(async tx => {
+    const detached = and(eq(accounts.id, id), eq(accounts.provider, "enable_banking"), isNull(accounts.requisition_id));
+    const account = await tx.select({
+      id: accounts.id,
+      currency: accounts.currency,
+      balance_minor: accounts.balance_minor,
+      balance_date: accounts.balance_date
+    }).from(accounts).where(detached).get();
+
+    if (!account) {
+      return false;
+    }
+
+    // The balance history keeps the last bank balance as an observation, as it showed it while the account was synced.
+    if (account.balance_minor !== null && account.balance_date !== null) {
+      // A manual balance is the sum of all bookings, so the difference is booked no earlier than the latest booking; bookings after the bank balance date would otherwise change it.
+      const latest = await tx.select({
+        date: sql<string | null>`MAX(${transactions.booking_date})`
+      }).from(transactions).where(and(eq(transactions.account_id, id), isNull(transactions.suppressed_at))).get();
+      const correctionDate = latest?.date && latest.date > account.balance_date ? latest.date : account.balance_date;
+
+      await recordManualBalance(tx, account, correctionDate, account.balance_minor);
+      await tx.insert(balanceSnapshots).values({
+        id: randomUUID(),
+        account_id: id,
+        observed_at: account.balance_date,
+        amount_minor: account.balance_minor,
+        source: "sync"
+      }).onConflictDoNothing();
+
+      // The correction after later bookings is the balance on that date too; the history anchors there instead of adding it on top of the earlier bank balance.
+      if (correctionDate !== account.balance_date) {
+        await tx.insert(balanceSnapshots).values({
+          id: randomUUID(),
+          account_id: id,
+          observed_at: correctionDate,
+          amount_minor: account.balance_minor,
+          source: "manual"
+        }).onConflictDoUpdate({
+          target: [balanceSnapshots.account_id, balanceSnapshots.observed_at],
+          set: {
+            amount_minor: account.balance_minor,
+            source: "manual"
+          }
+        });
+      }
+    }
+
+    await tx.delete(accountIdentifiers).where(eq(accountIdentifiers.account_id, id));
+    await tx.update(accounts).set({
+      provider: "manual",
+      provider_uid: null,
+      balance_minor: null,
+      balance_date: null,
+      last_synced_at: null,
+      sync_error: null
+    }).where(detached);
+
+    return true;
+  });
+}
+
+const removedAccountPrefix = "removed:";
+
+/**
+ * Deletes an account that is not linked to a bank connection, with its bookings, their splits, balance observations and bank identifiers, in one transaction.
+ * A linked booking on another account stays with its amount as a transfer without a counterpart; one Ufer created for a deleted booking becomes an ordinary manual entry.
+ * Rules and automatic types that named the account as transfer target keep their transfer type with a target that matches no account, so pairing never links them. Returns whether the account was deleted.
+ */
+export async function deleteUnlinkedAccount(id: string, confirmedName: string) {
+  const db = await database();
+
+  return db.transaction(async tx => {
+    const unlinked = and(eq(accounts.id, id), eq(accounts.name, confirmedName), isNull(accounts.requisition_id));
+    const account = await tx.select({
+      id: accounts.id
+    }).from(accounts).where(unlinked).get();
+
+    if (!account) {
+      return false;
+    }
+
+    const own = tx.select({
+      transfer_id: transactions.transfer_id
+    }).from(transactions).where(and(eq(transactions.account_id, id), isNotNull(transactions.transfer_id)));
+    const counterparts = await tx.select({
+      id: transactions.id,
+      provider_reference: transactions.provider_reference
+    }).from(transactions).where(and(ne(transactions.account_id, id), inArray(transactions.transfer_id, own)));
+
+    for (const counterpart of counterparts) {
+      const created = counterpart.provider_reference.startsWith(createdCounterpartPrefix);
+
+      await tx.update(transactions).set({
+        provider_reference: created ? `${manualEntryPrefix}${counterpart.id}` : counterpart.provider_reference,
+        transfer_id: null,
+        transfer_source: "manual",
+        type_source: "manual",
+        type_rule_id: null,
+        type_transfer_account_id: null
+      }).where(eq(transactions.id, counterpart.id));
+    }
+
+    // A target that resolves to no account keeps these bookings and rules from pairing with any account; no target would allow every account.
+    const removedTarget = `${removedAccountPrefix}${id}`;
+
+    await tx.update(transactions).set({
+      type_transfer_account_id: removedTarget
+    }).where(eq(transactions.type_transfer_account_id, id));
+    await tx.update(categorizationRules).set({
+      transfer_account_id: removedTarget
+    }).where(eq(categorizationRules.transfer_account_id, id));
+    await tx.delete(transactions).where(eq(transactions.account_id, id));
+    await tx.delete(balanceSnapshots).where(eq(balanceSnapshots.account_id, id));
+    await tx.delete(accountIdentifiers).where(eq(accountIdentifiers.account_id, id));
+    await tx.delete(accounts).where(unlinked);
+
+    return true;
+  });
 }
