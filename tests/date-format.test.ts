@@ -111,4 +111,5 @@ test("month ranges use plain spaces so server and browser ICU versions render th
   assert.equal(monthRangeLabel(acrossYears, "en-US"), "Dec 2025 – May 2026");
   assert.equal(monthRangeLabel(sameYear, "de-AT"), "Juni–Nov. 2026");
   assert.equal(monthRangeLabel(acrossYears, "de-AT"), "Dez. 2025 – Mai 2026");
+  assert.equal(monthRangeLabel(acrossYears, "ru"), "дек. 2025 г. – май 2026 г.");
 });
