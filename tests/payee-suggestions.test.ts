@@ -91,7 +91,6 @@ async function seedPayees(context: TestContext) {
   await db.insert(schema.accounts).values([{
     id: "sandbox-checking",
     name: "Synthetic checking",
-    institution: "Example institution",
     kind: "checking"
   }]);
 

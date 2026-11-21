@@ -104,11 +104,13 @@ export function defaultTargetChoice(source: string, accounts: AccountOption[]): 
 
 /** An account's option label; accounts sharing a name also show their institution and the end of their ID, so the options stay distinguishable. */
 export function accountLabel(account: AccountOption & {
-  institution: string;
+  institution: string | null;
 }, accounts: AccountOption[]) {
   const shared = accounts.filter(other => categoryNameKey(other.name) === categoryNameKey(account.name)).length > 1;
 
-  return shared ? `${account.name} (${account.currency} · ${account.institution} · …${account.id.slice(-4)})` : `${account.name} (${account.currency})`;
+  const details = shared ? [account.currency, account.institution, `…${account.id.slice(-4)}`] : [account.currency];
+
+  return `${account.name} (${details.filter(Boolean).join(" · ")})`;
 }
 
 /** A new account named after the source value, shortened to the longest allowed name; the person sees and can edit the prefill. */

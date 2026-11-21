@@ -67,28 +67,23 @@ async function seededDatabase(context: TestContext) {
   await db.insert(schema.accounts).values([{
     id: "closed",
     name: "Synthetic closed account",
-    institution: "Example institution",
     kind: "checking"
   }, {
     id: "open",
     name: "Synthetic open account",
-    institution: "Example institution",
     kind: "savings"
   }, {
     id: "target",
     name: "Synthetic target account",
-    institution: "Example institution",
     kind: "checking"
   }, {
     id: "dollars",
     name: "Synthetic dollar account",
-    institution: "Example institution",
     kind: "checking",
     currency: "USD"
   }, {
     id: "bank",
     name: "Synthetic bank account",
-    institution: "Example institution",
     kind: "checking",
     provider: "enable_banking",
     provider_uid: "uid-bank"

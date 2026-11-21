@@ -38,7 +38,7 @@ export async function listAccounts() {
     id: accounts.id,
     name: accounts.name,
     provider_name: accounts.provider_name,
-    institution: accounts.institution,
+    institution: requisitions.bank_name,
     kind: accounts.kind,
     currency: accounts.currency,
     balance_minor: balance,

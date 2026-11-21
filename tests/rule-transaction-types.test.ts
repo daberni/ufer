@@ -49,25 +49,21 @@ async function isolatedDatabase(context: TestContext) {
   await db.insert(schema.accounts).values([{
     id: "checking",
     name: "Synthetic checking",
-    institution: "Example bank",
     kind: "checking",
     provider: "enable_banking"
   }, {
     id: "savings",
     name: "Synthetic savings",
-    institution: "Example bank",
     kind: "savings",
     provider: "enable_banking"
   }, {
     id: "deposit",
     name: "Synthetic deposit",
-    institution: "Example bank",
     kind: "savings",
     provider: "enable_banking"
   }, {
     id: "cash",
     name: "Synthetic cash",
-    institution: "Wallet",
     kind: "checking"
   }]);
 

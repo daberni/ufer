@@ -92,12 +92,10 @@ async function seedBookings(context: TestContext) {
   await db.insert(schema.accounts).values([{
     id: "checking",
     name: "Synthetic checking",
-    institution: "Example institution",
     kind: "checking"
   }, {
     id: "elsewhere",
     name: "Synthetic archived account",
-    institution: "Example institution",
     kind: "checking",
     archived_at: "2000-01-01T00:00:00.000Z"
   }]);

@@ -71,7 +71,6 @@ async function syncDatabase(context: TestContext, provider: (db: Database, path:
     await db.insert(schema.accounts).values({
       id,
       name: `Synthetic ${id}`,
-      institution: "Example institution",
       kind: "checking",
       provider: "enable_banking",
       provider_uid: `uid-${id}`,

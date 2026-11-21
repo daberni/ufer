@@ -31,14 +31,14 @@ async function legacyDatabase(transform: (sql: string) => string = sql => sql) {
   return client;
 }
 
-// Later changesets add columns and changeset 0016 drops the banking environment, so upgrade tests compare only the columns that exist both before and after the upgrade. Changeset 0018 renames booking_date to date; its own test covers the dates.
+// Later changesets add columns, changeset 0016 drops the banking environment and 0019 the account institution, so upgrade tests compare only the columns that exist both before and after the upgrade. Changeset 0018 renames booking_date to date; its own test covers the dates.
 async function columnList(client: Client, table: string) {
   const columns = await client.execute({
     sql: "SELECT name FROM pragma_table_info(?)",
     args: [table]
   });
 
-  return columns.rows.map(row => String(row.name)).filter(name => name !== "environment" && name !== "booking_date" && name !== "date").join(",");
+  return columns.rows.map(row => String(row.name)).filter(name => name !== "environment" && name !== "booking_date" && name !== "date" && name !== "institution").join(",");
 }
 
 /** Account columns without the stored balance, which changesets 0007 and 0017 move into opening-balance transactions. */
@@ -51,7 +51,7 @@ const currentBalance = "COALESCE(balance_minor,(SELECT SUM(t.amount_minor) FROM 
 
 /** Accounts with their current balance; comparable across every upgrade. */
 async function accountState(client: Client) {
-  return (await client.execute(`SELECT id,name,institution,kind,currency,provider,provider_uid,requisition_id,iban,last_synced_at,sync_error,${currentBalance} FROM accounts ORDER BY id`)).rows;
+  return (await client.execute(`SELECT id,name,kind,currency,provider,provider_uid,requisition_id,iban,last_synced_at,sync_error,${currentBalance} FROM accounts ORDER BY id`)).rows;
 }
 
 /** Transactions that existed before changesets 0007 and 0017 booked stored balances as transactions. */
@@ -1331,7 +1331,7 @@ test("environment migration drops the per-row banking environment and keeps ever
     await client.execute("PRAGMA foreign_keys = ON");
     assert.equal((await client.execute("PRAGMA foreign_key_check")).rows.length, 0);
     // Provider identities are unique on their own, and transactions still reference accounts.
-    await assert.rejects(client.execute("INSERT INTO accounts(id,name,institution,kind,provider,provider_uid) VALUES('duplicate','Duplicate','Example institution','checking','enable_banking','synthetic-uid')"), /UNIQUE constraint/);
+    await assert.rejects(client.execute("INSERT INTO accounts(id,name,kind,provider,provider_uid) VALUES('duplicate','Duplicate','checking','enable_banking','synthetic-uid')"), /UNIQUE constraint/);
     await assert.rejects(client.execute("INSERT INTO account_identifiers(identification_hash,account_id) VALUES('synthetic-hash','cash')"), /UNIQUE constraint|PRIMARY KEY/);
     await assert.rejects(client.execute("INSERT INTO transactions(id,account_id,provider_reference,date,amount_minor,currency,type) VALUES('orphan','missing','bank:2','2026-01-30',-500,'EUR','expense')"), /FOREIGN KEY/);
     await assert.rejects(client.execute("DELETE FROM accounts WHERE id='bank'"), /FOREIGN KEY/);

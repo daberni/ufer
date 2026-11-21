@@ -60,7 +60,6 @@ async function insertSandboxBankAccount(db: Database) {
   await db.insert(schema.accounts).values({
     id: "sandbox-account",
     name: "Sandbox checking",
-    institution: "Example sandbox bank",
     kind: "checking",
     provider: "enable_banking",
     provider_uid: "sandbox-uid",
@@ -85,7 +84,6 @@ async function insertManualAccount(db: Database, id: string) {
   await db.insert(schema.accounts).values({
     id,
     name: "Reviewer asset",
-    institution: "Example institution",
     kind: "property"
   });
   await db.insert(schema.transactions).values({

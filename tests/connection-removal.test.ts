@@ -97,7 +97,6 @@ async function insertLinkedConnection(db: Database, id: string, accountId: strin
   await db.insert(schema.accounts).values({
     id: accountId,
     name: "Synthetic account",
-    institution: "Example institution",
     kind: "checking",
     provider: "enable_banking",
     provider_uid: `uid-${accountId}`,
@@ -203,7 +202,6 @@ test("disconnecting a bank archives only its accounts with a balance of 0 and na
   await db.insert(schema.accounts).values({
     id: "unsettled-account",
     name: "Synthetic unsettled account",
-    institution: "Example institution",
     kind: "checking",
     provider: "enable_banking",
     provider_uid: "uid-unsettled-account",
@@ -309,7 +307,6 @@ test("sync skips an archived account of a linked connection and resumes it once 
   await db.insert(schema.accounts).values({
     id: "archived-account",
     name: "Synthetic archived account",
-    institution: "Example institution",
     kind: "checking",
     provider: "enable_banking",
     provider_uid: "uid-archived-account",

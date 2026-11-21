@@ -56,14 +56,12 @@ async function seed(context: TestContext) {
   await db.insert(schema.accounts).values([{
     id: "checking",
     name: "Synthetic checking",
-    institution: "Example institution",
     kind: "checking",
     provider: "enablebanking",
     balance_minor: 100000
   }, {
     id: "yen",
     name: "Synthetic yen account",
-    institution: "Example institution",
     kind: "checking",
     currency: "JPY",
     provider: "enablebanking"
@@ -381,7 +379,6 @@ test("automatic transfer pairing leaves a split booking as it is", async context
   await db.insert(schema.accounts).values({
     id: "savings",
     name: "Synthetic savings",
-    institution: "Example institution",
     kind: "savings",
     provider: "enablebanking"
   });
@@ -470,7 +467,6 @@ test("a split booking keeps its type through a sync and cannot become another bo
   await db.insert(schema.accounts).values({
     id: "savings",
     name: "Synthetic savings",
-    institution: "Example institution",
     kind: "savings",
     provider: "enablebanking"
   });

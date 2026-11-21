@@ -58,13 +58,11 @@ async function isolatedDatabase(context: TestContext) {
   await db.insert(schema.accounts).values([{
     id: "checking",
     name: "Synthetic checking",
-    institution: "Example bank",
     kind: "checking",
     provider: "enable_banking"
   }, {
     id: "savings",
     name: "Synthetic savings",
-    institution: "Example bank",
     kind: "savings",
     provider: "enable_banking"
   }]);
@@ -189,7 +187,6 @@ test("saving only a type stores no override, and a transaction entered in Ufer i
 
   const { id: cash } = await createManualAccount({
     name: "Synthetic cash",
-    institution: "Example institution",
     kind: "savings",
     currency: "EUR",
     balance: "100.00",
@@ -243,7 +240,6 @@ test("a hidden CSV booking leaves the manual account balance, and importing the 
   const db = await isolatedDatabase(context);
   const { id: cash } = await createManualAccount({
     name: "Synthetic cash",
-    institution: "Example institution",
     kind: "savings",
     currency: "EUR",
     balance: "100.00",

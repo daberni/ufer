@@ -120,7 +120,6 @@ test("a consistent WAL backup restores credentials, manual corrections and bank 
   await db.insert(schema.accounts).values({
     id: "checking",
     name: "Synthetic checking",
-    institution: "Example bank",
     kind: "checking",
     provider: "enable_banking",
     provider_uid: "synthetic-bank-account",
@@ -331,7 +330,6 @@ test("verification rejects a WAL-backed file whose committed rows are absent fro
   await db.insert(schema.accounts).values({
     id: "wal-only",
     name: "Synthetic WAL account",
-    institution: "Example bank",
     kind: "checking"
   });
   assert.ok(statSync(`${file}-wal`).size > 0);

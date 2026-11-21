@@ -57,7 +57,6 @@ async function isolatedDatabase(context: TestContext, queries?: string[]) {
   await db.insert(schema.accounts).values({
     id: "checking",
     name: "Synthetic checking",
-    institution: "Example bank",
     kind: "checking",
     provider: "enable_banking"
   });
@@ -68,7 +67,6 @@ async function isolatedDatabase(context: TestContext, queries?: string[]) {
 async function manualAccount(name: string, balance: string, date = "2026-09-01") {
   const { id } = await createManualAccount({
     name,
-    institution: "Example institution",
     kind: "savings",
     currency: "EUR",
     balance,

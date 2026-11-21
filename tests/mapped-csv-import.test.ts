@@ -97,7 +97,6 @@ async function manualAccount(name: string) {
   await db.insert(schema.accounts).values({
     id,
     name,
-    institution: "Example institution",
     kind: "checking"
   });
 
@@ -110,7 +109,6 @@ async function insertBankAccount(db: Database) {
   await db.insert(schema.accounts).values({
     id: "synthetic-bank-account",
     name: "Synthetic bank account",
-    institution: "Example bank",
     kind: "checking",
     provider: "enablebanking",
     balance_minor: 123_456,
@@ -307,6 +305,7 @@ test("new accounts are created once per import, on confirmation, across batches 
 
   assert.equal(accounts.length, 1);
   assert.equal(accounts[0].name, "Closed account");
+  assert.equal((await listAccounts())[0].institution, null);
   assert.equal((await db.select().from(schema.transactions)).length, 2);
 
   // Accounts created before changeset 0016 were derived with the banking environment, so resuming such an import must find the same account.
