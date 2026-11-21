@@ -15,7 +15,7 @@ import { syncLease, withLease } from "@/server/jobs/lease";
 import { accountKinds } from "@/features/accounts/account-kinds";
 import { validateLiability } from "@/features/accounts/server/account-service";
 import { currencyAllows } from "../csv-values";
-import { withSplitTags, maxAccountNameLength, maxCategoryLength, maxIdLength, maxSourceLength, type RowError } from "../import-rows";
+import { importTypes, withSplitTags, maxAccountNameLength, maxCategoryLength, maxIdLength, maxSourceLength, type RowError } from "../import-rows";
 import { maxCategoryChoicesPerRequest, maxConsumedPerRequest, maxTargetsPerRequest } from "../import-batches";
 import { mappedReferencePrefix } from "@/lib/booking-references";
 import { duplicateDateToleranceDays } from "@/lib/booking-matching";
@@ -37,7 +37,7 @@ const row = z.object({
   source: z.string().max(maxSourceLength),
   occurrence: z.number().int().min(0),
   id: z.string().max(maxIdLength).nullable().default(null),
-  transfer: z.boolean().default(false),
+  type: z.enum(importTypes).nullable().default(null),
   hidden: z.boolean().default(false),
   parts: z.array(z.object({
     category: z.string().max(maxCategoryLength),
@@ -199,7 +199,7 @@ async function checkAndImport(input: z.infer<typeof mappedImportInput>, now: Tem
         ruleType: null,
         typeRuleId: null,
         typeTransferAccountId: null,
-        transfer: item.transfer,
+        fileType: item.type,
         hiddenAt: item.hidden ? now.toString() : null,
         parts
       }
@@ -470,7 +470,7 @@ async function resolveCategories(choices: z.infer<typeof categoryChoice>[]) {
 function splitParts(item: z.infer<typeof row>, amount: number, currency: string, resolveCategory: (value: string) => string | null): SplitPartValues[] | null {
   const parts = item.parts ?? [];
 
-  if (item.transfer || item.hidden) {
+  if (item.type === "transfer" || item.hidden) {
     return null;
   }
 
