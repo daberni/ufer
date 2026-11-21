@@ -266,7 +266,7 @@ export async function deleteAccount(accountId: string, payload: unknown) {
     throw new HttpError(409, "Disconnect the bank before deleting this account; a sync would otherwise restore it.");
   }
 
-  const deleted = account.provider === "manual" ? await deleteUnlinkedAccount(accountId) : await whileNoSync("Delete the account", () => deleteUnlinkedAccount(accountId));
+  const deleted = account.provider === "manual" ? await deleteUnlinkedAccount(accountId, input.name) : await whileNoSync("Delete the account", () => deleteUnlinkedAccount(accountId, input.name));
 
   if (!deleted) {
     throw new HttpError(409, "The account changed meanwhile. Review it and try again.");

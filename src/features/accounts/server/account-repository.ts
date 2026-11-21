@@ -280,11 +280,11 @@ const removedAccountPrefix = "removed:";
  * A linked booking on another account stays with its amount as a transfer without a counterpart; one Ufer created for a deleted booking becomes an ordinary manual entry.
  * Rules and automatic types that named the account as transfer target keep their transfer type with a target that matches no account, so pairing never links them. Returns whether the account was deleted.
  */
-export async function deleteUnlinkedAccount(id: string) {
+export async function deleteUnlinkedAccount(id: string, confirmedName: string) {
   const db = await database();
 
   return db.transaction(async tx => {
-    const unlinked = and(eq(accounts.id, id), isNull(accounts.requisition_id));
+    const unlinked = and(eq(accounts.id, id), eq(accounts.name, confirmedName), isNull(accounts.requisition_id));
     const account = await tx.select({
       id: accounts.id
     }).from(accounts).where(unlinked).get();

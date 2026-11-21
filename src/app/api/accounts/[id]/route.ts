@@ -17,6 +17,8 @@ export async function PATCH(request: Request, context: Context) {
     const { id } = await context.params;
 
     return updateAccount(id, await readJson(request));
+  }, {
+    access: "session"
   });
 }
 
@@ -25,5 +27,7 @@ export async function DELETE(request: Request, context: Context) {
     const { id } = await context.params;
 
     return deleteAccount(id, await readJson(request));
+  }, {
+    access: "session"
   });
 }

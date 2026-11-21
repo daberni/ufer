@@ -19,6 +19,7 @@ import { listAccounts, readBalanceHistory, readNetWorth } from "../src/features/
 import { convertToManualAccount, deleteAccount, updateAccount, updateManualValuation } from "../src/features/accounts/server/account-service";
 import { readAccountCashFlow, readCashFlow } from "../src/features/reports/server/cash-flow-query";
 import { pairAllTransfers } from "../src/features/transactions/server/transfer-repository";
+import { deleteUnlinkedAccount } from "../src/features/accounts/server/account-repository";
 import { createRule, updateRuleDetails } from "../src/features/categorization/server/categorization-service";
 import { syncLeaseName } from "../src/features/banking/server/sync-service";
 import type { Account } from "../src/features/accounts/types";
@@ -536,6 +537,17 @@ async function renderDetails(context: TestContext, account: Account) {
     screen
   };
 }
+
+test("a deletion confirmed with the name read before a rename keeps the renamed account", async context => {
+  const db = await seededDatabase(context);
+
+  await updateAccount("wallet", {
+    name: "Renamed wallet"
+  });
+
+  assert.equal(await deleteUnlinkedAccount("wallet", "Synthetic wallet"), false);
+  assert.equal((await db.select().from(schema.accounts).where(eq(schema.accounts.id, "wallet")).get())?.name, "Renamed wallet");
+});
 
 test("deleting an account sends no request until its exact name is typed", async context => {
   const {
