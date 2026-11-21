@@ -17,6 +17,8 @@ import { readCashFlow } from "../src/features/reports/server/cash-flow-query";
 import { monthPeriod } from "../src/lib/period";
 import { HttpError } from "../src/lib/errors";
 import { editManualTransaction, hideTransaction, updateTransactionDetails } from "../src/features/transactions/server/transaction-service";
+import { acquireLease, releaseLease } from "../src/server/jobs/lease-repository";
+import { syncLeaseName } from "../src/features/banking/server/sync-service";
 import { importMappedRows } from "../src/features/imports/server/mapped-import-service";
 
 type Globals = {
@@ -292,6 +294,17 @@ test("a bank-linked account's opening balance and adjustments are edited as entr
     type: "adjustment"
   }), /keep their type/);
 
+  // A running sync may move the opening balance, so an edit waits for it.
+  await acquireLease(syncLeaseName, "synthetic-sync");
+  await assert.rejects(editManualTransaction(opening.id, {
+    booking_date: "2026-09-09",
+    amount: "1040.00",
+    counterparty: "",
+    description: "",
+    type: "opening_balance"
+  }, Temporal.Instant.from("2026-10-01T12:00:00Z")), /sync is running/);
+  await releaseLease(syncLeaseName, "synthetic-sync");
+
   await editManualTransaction(opening.id, {
     booking_date: "2026-09-09",
     amount: "1040.00",
@@ -304,6 +317,41 @@ test("a bank-linked account's opening balance and adjustments are edited as entr
 
   assert.equal(account.balance_minor, 101000);
   assert.equal(account.reported_difference_minor, -1000);
+});
+
+test("a booked previous closing balance is preferred over an available balance", async context => {
+  const db = await freshDatabase(context);
+
+  await saveAccountSync({
+    startedAt: "2026-09-30T08:00:00.000Z"
+  }, "checking", "EUR", [{
+    balance_type: "CLAV",
+    balance_amount: {
+      amount: "3000.00",
+      currency: "EUR"
+    },
+    reference_date: "2026-09-30"
+  }, {
+    balance_type: "PRCD",
+    balance_amount: {
+      amount: "1000.00",
+      currency: "EUR"
+    },
+    reference_date: "2026-09-29"
+  }], firstBookings.map(booking => ({
+    reference: booking.reference,
+    date: booking.date,
+    amount: booking.amount,
+    currency: "EUR",
+    counterparty: "Example counterparty",
+    description: `Synthetic ${booking.reference}`
+  })), []);
+
+  assert.deepEqual(await openingBalances(db), [{
+    date: "2026-09-09",
+    amount: 103000
+  }]);
+  assert.equal((await checking()).reported_difference_minor, 0);
 });
 
 test("an available balance on the first sync books no opening balance until a booked balance arrives", async context => {

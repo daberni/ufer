@@ -1,4 +1,7 @@
+import { randomUUID } from "node:crypto";
 import { Temporal } from "temporal-polyfill";
+import { acquireLease, releaseLease } from "@/server/jobs/lease-repository";
+import { syncLeaseName } from "@/features/banking/server/sync-service";
 import { HttpError, ValidationError } from "@/lib/errors";
 import { z } from "zod";
 import { minorUnits } from "@/lib/money";
@@ -9,7 +12,7 @@ import { categoryExists } from "@/features/categorization/server/category-reposi
 import { listRules } from "@/features/categorization/server/rule-repository";
 import { transactionTypes } from "@/features/transactions/transaction-types";
 import { categorizeEntries } from "./categorize-entries";
-import { createManualTransaction, deleteManualTransaction, findEntryCurrency, updateManualTransaction, type ManualEntryResult } from "./manual-transaction-repository";
+import { createManualTransaction, deleteManualTransaction, findEntryAccount, updateManualTransaction, type ManualEntryResult } from "./manual-transaction-repository";
 import { returnTransactionToRules, saveTransactionDetails, setTransactionCategory, setTransactionHidden } from "./transaction-repository";
 import { isSplit, type SplitChange } from "./split-repository";
 import { splitDecision, splitInput } from "./split-service";
@@ -250,26 +253,48 @@ export async function enterManualTransaction(accountId: string, payload: unknown
 /** Saves the date, amount, payee, description and type of a transaction entered in Ufer. */
 export async function editManualTransaction(id: string, payload: unknown, now = Temporal.Now.instant()) {
   const input = entryInput.parse(payload);
-  const currency = await findEntryCurrency(id);
+  const account = await findEntryAccount(id);
 
-  if (!currency) {
+  if (!account) {
     throw new HttpError(404, "Transaction not found.");
   }
 
-  const entry = validateEntry(input, currency, now);
+  const entry = validateEntry(input, account.currency, now);
 
   const rules = prepareRules(await listRules());
   const categoryFor = (text: RuleText) => ruleAssignment(text, rules);
+  const change = await splitChange(input);
 
-  await requireSaved(await updateManualTransaction(id, entry, categoryFor, await splitChange(input)));
+  await requireSaved(await withBankSyncLease(account.bankLinked, () => updateManualTransaction(id, entry, categoryFor, change)));
 
   return {
     ok: true
   };
 }
 
+/** A sync moves a bank-linked account's opening balance, so changing its opening balance or adjustments waits for a running sync instead of overwriting that move. */
+async function withBankSyncLease(bankLinked: boolean, write: () => Promise<ManualEntryResult>) {
+  if (!bankLinked) {
+    return write();
+  }
+
+  const owner = randomUUID();
+
+  if (!(await acquireLease(syncLeaseName, owner))) {
+    throw new HttpError(409, "A sync is running. Change the booking after it has finished.");
+  }
+
+  try {
+    return await write();
+  } finally {
+    await releaseLease(syncLeaseName, owner);
+  }
+}
+
 export async function removeManualTransaction(id: string) {
-  await requireSaved(await deleteManualTransaction(id));
+  const account = await findEntryAccount(id);
+
+  await requireSaved(await withBankSyncLease(account?.bankLinked ?? false, () => deleteManualTransaction(id)));
 
   return {
     ok: true

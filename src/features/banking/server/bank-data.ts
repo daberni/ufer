@@ -53,7 +53,8 @@ export function normalizeTransactions(transactions: BankTransaction[], ownIbans:
 }
 
 export function selectedBalance(balances: Balance[], currency: string) {
-  for (const type of ["CLBD", "ITBD", "CLAV", "ITAV", "PRCD", "XPCD"]) {
+  // Booked balances come first, since only booked money anchors and is compared with an account's bookings.
+  for (const type of ["CLBD", "ITBD", "PRCD", "CLAV", "ITAV", "XPCD"]) {
     const balance = balances.find(item => item.balance_type === type && item.balance_amount.currency === currency);
 
     if (balance) {
