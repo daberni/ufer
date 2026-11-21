@@ -100,7 +100,7 @@ Keep scheduling separate from the banking provider. Use concurrency control, ide
 | Manual transactions | Support creating, editing, and deleting entries. Define reconciliation with subsequent imports rather than relying only on display text. |
 | Deleted imported entries | Preserve a suppression/tombstone rule so a later sync does not silently recreate a deliberately deleted entry. |
 
-Raw provider transactions and original amounts are stored for synced bookings, and overrides are stored separately from source values. CSV imports are not yet linked to an import run, and the UI does not show a complete source trail. Schema changes require explicit migrations.
+Original amounts and parsed provider fields are stored for synced bookings, and the raw provider transaction is kept when its serialized form is at most 64 KiB (larger payloads keep only the parsed fields); and overrides are stored separately from source values. CSV imports are not yet linked to an import run, and the UI does not show a complete source trail. Schema changes require explicit migrations.
 
 **Implemented:** split bookings allocate an original booking across categories; the parts sum exactly to the booking amount and count once in cash flow and spending. Buxfer split rows import as split bookings. Defined behavior for refunds and transfers within splits remains open.
 
