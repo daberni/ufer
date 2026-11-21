@@ -120,5 +120,12 @@ export function monthRangeLabel(months: Temporal.PlainYearMonth[], locale: strin
     return "";
   }
 
-  return monthFormat(locale).formatRange(monthStart(months[0]), monthStart(months[months.length - 1]));
+  const range = monthFormat(locale).formatRange(monthStart(months[0]), monthStart(months[months.length - 1]));
+
+  return withPlainSpaces(range);
+}
+
+// ICU versions disagree on range spacing (Node uses thin spaces, Chrome plain ones), so server and browser renders would not hydrate identically.
+function withPlainSpaces(value: string) {
+  return value.replace(/[\u00A0\u2009\u202F]/g, " ");
 }
