@@ -63,6 +63,10 @@ test("keyboard focus shows the changes until focus leaves or Escape", async cont
     key: "Escape"
   });
   assert.equal(curve.textContent, "amounts");
+
+  // Enter or Space on the still-focused button arrives as a click without a pointer.
+  fireEvent.click(curve);
+  assert.equal(curve.textContent, "changes");
 });
 
 test("a tap toggles the changes and a press outside restores the amounts", async context => {

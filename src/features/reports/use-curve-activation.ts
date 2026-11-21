@@ -51,11 +51,14 @@ export function useCurveActivation() {
       setTapped(false);
     },
     onClick() {
-      const touch = pointerType.current !== null && pointerType.current !== "mouse";
+      const input = pointerType.current;
 
       pointerType.current = null;
 
-      if (touch) {
+      // Enter or Space on the focused curve shows the changes again after Escape hid them.
+      if (input === null) {
+        setFocused(true);
+      } else if (input !== "mouse") {
         setTapped(current => !current);
       }
     }
