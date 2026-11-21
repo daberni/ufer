@@ -32,6 +32,7 @@ const row = z.object({
   occurrence: z.number().int().min(0),
   id: z.string().max(maxIdLength).nullable().default(null),
   transfer: z.boolean().default(false),
+  hidden: z.boolean().default(false),
   parts: z.array(z.object({
     category: z.string().max(maxCategoryLength),
     amount: z.string().max(30)
@@ -183,6 +184,7 @@ export async function importMappedRows(payload: unknown, now = Temporal.Now.inst
         typeRuleId: null,
         typeTransferAccountId: null,
         transfer: item.transfer,
+        hiddenAt: item.hidden ? now.toString() : null,
         parts
       }
     });
@@ -458,7 +460,7 @@ async function resolveCategories(choices: z.infer<typeof categoryChoice>[], conf
 function splitParts(item: z.infer<typeof row>, amount: number, currency: string, resolveCategory: (value: string) => string | null): SplitPartValues[] | null {
   const parts = item.parts ?? [];
 
-  if (item.transfer) {
+  if (item.transfer || item.hidden) {
     return null;
   }
 
