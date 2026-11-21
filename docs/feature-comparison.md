@@ -29,7 +29,7 @@ How Ufer compares with established personal finance tools, and what is still pla
 | ↳ Connect, reauthorize, remove | ✅ | ✅[²](#fn-2) | ✅[³](#fn-3) | ✅[⁶](#fn-6) | ✅[⁵](#fn-5) |
 | ↳ No user-supplied provider credentials | ◐[⁷](#fn-7) | ✅[²](#fn-2) | ◐[³](#fn-3) | ◐[⁶](#fn-6) | ◐[⁵](#fn-5) |
 | ↳ Sync with all browsers closed | ✅[⁸](#fn-8) | ✅[²](#fn-2) | ◐[⁹](#fn-9) | ✅[⁴](#fn-4) | ✅[¹⁰](#fn-10) |
-| ↳ Verified with production banks | ◐[¹¹](#fn-11) | ❔ | ❔ | ❔ | ❔ |
+| ↳ Verified with production banks | ✅[¹¹](#fn-11) | ❔ | ❔ | ❔ | ❔ |
 | **Accounts and wealth** | | | | | |
 | Cash, card, investment, property and loan accounts | ✅ | ✅[¹²](#fn-12) | ✅[¹³](#fn-13) | ✅[¹⁴](#fn-14) | ✅[¹⁵](#fn-15) |
 | ↳ Manual assets and liabilities | ✅[¹⁶](#fn-16) | ✅[²](#fn-2) | ✅[¹³](#fn-13) | ✅[¹⁴](#fn-14) | ✅[¹⁵](#fn-15) |
@@ -89,7 +89,7 @@ How Ufer compares with established personal finance tools, and what is still pla
 
 Low resource use is a Ufer goal, not a measured advantage; no comparative performance or security benchmark was run. Actual 26.11.0 was started locally with its demo data, Sure's stable source was inspected, and Firefly III and Buxfer were assessed from official sources. Sure's rolling documentation is a draft and can lead its stable release. Provider directories do not prove that a particular bank works.
 
-**Verification limits.** Not yet verified: repeat syncs over time with production banks, the first unattended scheduled sync on each host, physical phones, Safari and real bank-app redirects, large histories, NAS operation, restoring from a backup, PostgreSQL and multi-tenant hosting.
+**Verification limits.** Not yet verified: the first unattended scheduled sync on the Docker host, physical phones, Safari and real bank-app redirects, large histories, NAS operation, restoring from a backup, PostgreSQL and multi-tenant hosting.
 
 **Positioning.** Ufer currently offers less than the established alternatives; bank sync, editable imports and historical wealth exist elsewhere, and Sure also covers securities. Ufer targets everyday users with automatic bank sync, one view across institutions, simple onboarding and useful default reports; imports serve history and portability. The decision to continue Ufer rather than fork Sure is recorded in [ADR 001](adr/decisions/001-continue-ufer.md).
 
@@ -111,11 +111,11 @@ An item is checked only when its acceptance criterion is met and evidence is rec
 
 ### Reliability and data
 
-- [ ] **E-01 · Live bank acceptance**
+- [x] **E-01 · Live bank acceptance**
   - [x] Production consent and first sync with two institutions
   - [x] Provider data validation, session revocation and per-client sign-in limits
   - [x] Reauthorization with a production institution (2026-11-21)
-  - [ ] Repeat syncs and the unattended daily sync over time ([#267](https://github.com/daberni/ufer/issues/267))
+  - [x] Repeat syncs and the unattended daily sync over time ([#267](https://github.com/daberni/ufer/issues/267))
 - [ ] **E-02 · Configurable CSV**
   - [x] Preview, column mapping, account and category choices, saved templates
   - [x] Buxfer detection and split import
@@ -203,7 +203,7 @@ An item is checked only when its acceptance criterion is met and evidence is rec
 8. <a id="fn-8"></a>Docker includes a daily scheduler; Vercel runs a protected daily cron.
 9. <a id="fn-9"></a>[Actual API](https://actualbudget.org/docs/api/reference/): the built-in sync interval needs an open app; `runBankSync` allows an external scheduled job.
 10. <a id="fn-10"></a>[Sure scheduler](https://github.com/we-promise/sure/blob/v0.7.6-hotfix.1/config/initializers/sidekiq.rb)
-11. <a id="fn-11"></a>Consent, a first sync and reauthorization with production institutions work; repeat syncs and the unattended daily sync are being verified ([#267](https://github.com/daberni/ufer/issues/267)).
+11. <a id="fn-11"></a>Consent, repeat and unattended daily syncs and reauthorization work with production institutions ([#267](https://github.com/daberni/ufer/issues/267)).
 12. <a id="fn-12"></a>[Buxfer features](https://www.buxfer.com/features/)
 13. <a id="fn-13"></a>[Actual reports](https://actualbudget.org/docs/reports/): configurable dashboards, off-budget accounts, experimental forecasts and Monte Carlo.
 14. <a id="fn-14"></a>[Firefly III features](https://github.com/firefly-iii/firefly-iii#features): asset and liability bookkeeping, categories and tags, savings goals.
