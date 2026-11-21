@@ -42,7 +42,7 @@ How Ufer compares with established personal finance tools, and what is still pla
 | Manual transactions | ✅[³¹](#fn-31) | ✅[¹¹](#fn-11) | ✅[⁹](#fn-9) | ✅[³²](#fn-32) | ✅[³⁰](#fn-30) |
 | Edit imported transactions | ◐[³³](#fn-33) | ✅[¹¹](#fn-11) | ✅[⁹](#fn-9) | ✅[³²](#fn-32) | ✅[³⁰](#fn-30) |
 | ↳ Hide imported transactions | ✅ | ❌[²⁰](#fn-20) | ❌[³⁴](#fn-34) | ❔ | ✅[³⁵](#fn-35) |
-| ↳ Corrections survive resync | ✅ | ✅[²⁰](#fn-20) | ◐[³⁶](#fn-36) | ◐[³⁷](#fn-37) | ✅[³⁵](#fn-35) |
+| ↳ Corrections survive resync | ✅ | ✅[²⁰](#fn-20) | ◐[³⁶](#fn-36) | ✅[³⁷](#fn-37) | ✅[³⁵](#fn-35) |
 | Split transactions | ✅ | ✅[³⁸](#fn-38) | ✅[³⁹](#fn-39) | ✅[³²](#fn-32) | ✅[³⁰](#fn-30) |
 | Transfers between own accounts | ✅[⁴⁰](#fn-40) | ✅[⁴¹](#fn-41) | ✅[⁴²](#fn-42) | ✅[⁴³](#fn-43) | ✅[¹⁹](#fn-19) |
 | Payee suggestions | ✅ | ❌[²⁰](#fn-20) | ✅[⁴⁴](#fn-44) | ✅[⁴⁵](#fn-45) | ✅[¹⁹](#fn-19) |
