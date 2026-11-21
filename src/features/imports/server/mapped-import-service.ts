@@ -84,7 +84,7 @@ const mappedImportInput = z.object({
   import_id: z.uuid(),
   rows: z.array(row).min(1).max(maxRowsPerRequest),
   targets: z.array(target).min(1).max(maxTargetsPerRequest),
-  /** Existing bookings that earlier batches of this import matched as duplicates. */
+  /** Bookings that earlier batches of this import matched as duplicates or saved. */
   consumed: z.array(matchedBooking).max(20_000).default([]),
   categories: z.array(categoryChoice).max(maxCategoryChoicesPerRequest).default([]),
   confirm: z.boolean(),
@@ -109,9 +109,9 @@ export type MappedImportResult = {
   confirmed: boolean;
   /** Rows that are new, or with `confirmed` were saved. */
   newRows: number;
-  /** Lines with several possible existing bookings in the date window; they import unless the person removes them. */
+  /** Lines that may duplicate an existing booking without a unique match; they import unless the person removes them. */
   possibleDuplicates: number[];
-  /** Existing bookings this batch matched; the next batch passes them as `consumed`. */
+  /** Bookings this batch matched or, when confirmed, saved; the next batch passes them as `consumed`. */
   matched: z.infer<typeof matchedBooking>[];
   duplicates: {
     line: number;

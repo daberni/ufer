@@ -9,7 +9,7 @@ import * as schema from "../src/server/database/schema";
 import { HttpError } from "../src/lib/errors";
 import { builtInTemplates, buxferTemplate, decodeCsv, detectDelimiter, mapRows, matchTemplate, parseCsv, suggestMapping, templateFromMapping, templateLabel, templateMapping, templateSettings, type CsvSettings, type CsvTemplate } from "../src/features/imports/csv-mapping";
 import { categoryValues, rememberedChoices, resolveCategories, resolveTargets, sourceAccounts, templateChoices, type CategorySelection, type TargetChoice } from "../src/features/imports/import-plan";
-import { textsMatch } from "../src/features/imports/server/duplicate-matching";
+import { prepareBooking, textsMatch } from "../src/features/imports/server/duplicate-matching";
 import { importMappedRows } from "../src/features/imports/server/mapped-import-service";
 import { assignOccurrences } from "../src/features/imports/csv-mapping";
 import { uniqueWrite } from "../src/features/imports/server/template-repository";
@@ -114,13 +114,17 @@ test("a shortened Buxfer description still matches the full bank booking", () =>
   } = readBuxfer();
   const truncated = mapRows(rows, templateMapping(template!, header), settings, "en").rows[5];
 
-  assert.equal(textsMatch({
+  assert.equal(textsMatch(prepareBooking({
+    date: truncated.date,
+    amount: 0,
     counterparty: truncated.payee,
     description: truncated.description
-  }, {
+  }), prepareBooking({
+    date: truncated.date,
+    amount: 0,
     counterparty: "Example Hardware Store",
     description: "Example Hardware Store Purchase Number 1234567"
-  }), true);
+  })), true);
 });
 
 test("only an exact header matches a template, and a saved template wins over the built-in one", () => {

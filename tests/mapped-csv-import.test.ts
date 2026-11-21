@@ -199,7 +199,8 @@ test("duplicate matching tolerates date shifts and text variants but consumes ea
     date: "2024-01-03",
     amount: -1250,
     counterparty: "BILLA DANKT 1234",
-    description: "Card payment"
+    description: "Card payment",
+    transfer: false
   }];
   const candidate = (date: string, amount: number, counterparty: string) => ({
     reference: `csv:${date}:${counterparty}`,
@@ -373,6 +374,92 @@ test("an existing booking matched by one batch is not matched again by the next"
   assert.equal(second.newRows, 1);
 });
 
+test("rows of an earlier import from another source match by content, with date shifts and possible duplicates for uncertain rows", async context => {
+  const db = await isolatedDatabase(context);
+  const account = await manualAccount("Card");
+  const importFile = (id: string, rows: ImportRow[], confirm: boolean) => importMappedRows({
+    import_id: id,
+    rows,
+    targets: [{
+      source: "",
+      account_id: account.id
+    }],
+    confirm
+  }, now);
+  const first = await importFile(importId, [
+    mappedRow(2, "2024-04-02", "-12.50", "Example Grocer"),
+    mappedRow(3, "2024-04-05", "-30.00", "Example Fuel Station"),
+    mappedRow(4, "2024-04-10", "-8.00", "Example Bakery"),
+    mappedRow(5, "2024-04-20", "-15.00", "Example Cinema"),
+    mappedRow(6, "2024-04-24", "-15.00", "Example Cinema"),
+    mappedRow(7, "2024-04-28", "-40.00", "Example Bookshop")
+  ], true);
+  const second = [
+    mappedRow(2, "2024-04-02", "-12.50", "Example Grocer", {
+      description: "Card payment"
+    }),
+    mappedRow(3, "2024-04-07", "-30.00", "EXAMPLE FUEL STATION 4711", {
+      description: "Card payment"
+    }),
+    mappedRow(4, "2024-04-10", "-8.00", "Corner shop"),
+    mappedRow(5, "2024-04-22", "-15.00", "Example Cinema"),
+    mappedRow(6, "2024-05-01", "-40.00", "Stationery")
+  ];
+  const check = await importFile("00000000-0000-4000-8000-000000000228", second, false);
+  const confirmed = await importFile("00000000-0000-4000-8000-000000000228", second, true);
+
+  assert.equal(first.newRows, 6);
+
+  for (const result of [check, confirmed]) {
+    // Identical and shifted rows are recognized; a differing text on the same date and two equal window candidates are only possible duplicates.
+    assert.deepEqual(result.duplicates, [{
+      line: 2,
+      reason: "existing_booking"
+    }, {
+      line: 3,
+      reason: "existing_booking"
+    }]);
+    assert.deepEqual(result.possibleDuplicates, [4, 5]);
+    assert.equal(result.newRows, 3);
+  }
+
+  assert.equal((await db.select().from(schema.transactions)).length, 9);
+});
+
+test("a card statement's settlement is a possible duplicate of the linked transfer already on the card account", async context => {
+  const db = await isolatedDatabase(context);
+  const card = await manualAccount("Card");
+
+  await db.insert(schema.transactions).values({
+    id: "transfer-card-side",
+    account_id: card.id,
+    provider_reference: "manual:transfer-card-side",
+    booking_date: "2024-06-03",
+    amount_minor: 45_000,
+    currency: "EUR",
+    counterparty: "Transfer from checking",
+    description: "",
+    type: "transfer",
+    transfer_id: "synthetic-transfer"
+  });
+
+  const result = await importMappedRows({
+    import_id: importId,
+    rows: [mappedRow(2, "2024-06-05", "450.00", "Einzug aus letzter Abrechnung"), mappedRow(3, "2024-06-05", "450.00", "Refund", {
+      date: "2024-06-20"
+    })],
+    targets: [{
+      source: "",
+      account_id: card.id
+    }],
+    confirm: false
+  }, now);
+
+  assert.deepEqual(result.duplicates, []);
+  assert.deepEqual(result.possibleDuplicates, [2]);
+  assert.equal(result.newRows, 2);
+});
+
 test("imports into a bank-linked account skip synced bookings and leave the bank balance unchanged", async context => {
   const db = await isolatedDatabase(context);
 
@@ -505,7 +592,8 @@ test("text matching keeps Unicode letters, and texts without letters or digits n
     date: "2024-01-01",
     amount: -100,
     counterparty,
-    description: ""
+    description: "",
+    transfer: false
   });
   const candidate = (counterparty: string) => ({
     ...booking(counterparty),
@@ -547,7 +635,8 @@ test("a same-date booking wins; several window candidates are only possible dupl
     date,
     amount: -700,
     counterparty: "Bakery",
-    description: ""
+    description: "",
+    transfer: false
   });
   const candidate = {
     reference: "csv:m:1",
