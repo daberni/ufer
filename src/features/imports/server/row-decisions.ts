@@ -73,7 +73,12 @@ export function planRows(entries: MappedEntry[], found: Found, decisions: Readon
     const candidates = found.candidatesOf.get(index);
 
     if (!candidates) {
-      inserts.push(index);
+      // A row decided at the check whose booking changed meanwhile never turns an update into a new booking.
+      if (decision?.action === "update") {
+        undecided.push(index);
+      } else if (decision?.action !== "skip") {
+        inserts.push(index);
+      }
 
       return;
     }

@@ -174,7 +174,7 @@ test("a reimport updates matched bookings' source fields and keeps overrides, ma
     }),
     row(4, "2024-05-04", "-12.00", "City Pharmacy", {
       id: "export-3",
-      type: "expense"
+      type: "transfer"
     }),
     row(5, "2024-05-05", "-50.00", "Savings plan", {
       id: "export-4",
@@ -208,7 +208,7 @@ test("a reimport updates matched bookings' source fields and keeps overrides, ma
 
   assert.deepEqual([updatedShop?.counterparty, updatedShop?.description, updatedShop?.description_override, updatedShop?.category_id, updatedShop?.category_source], ["Corner Shop Ltd", "Card payment", "Weekly groceries", "synthetic-food", "manual"]);
   assert.deepEqual([updatedHardware?.type, updatedHardware?.type_source], ["income", "manual"]);
-  assert.equal(updatedPharmacy?.counterparty, "City Pharmacy");
+  assert.deepEqual([updatedPharmacy?.counterparty, updatedPharmacy?.type], ["City Pharmacy", "expense"], "a split booking stays an expense");
   assert.equal((await db.select().from(schema.transactionSplits).where(eq(schema.transactionSplits.transaction_id, pharmacy.id))).length, 2);
   assert.deepEqual([updatedSavings?.counterparty, updatedSavings?.type, updatedSavings?.transfer_id], ["Savings plan", "transfer", "synthetic-link"]);
 });
@@ -413,4 +413,16 @@ test("the review's totals follow the decisions and leave a possible duplicate un
     unchanged: 0,
     undecided: 0
   });
+});
+
+test("an update decided for a row that no longer matches anything is not inserted", async context => {
+  const db = await isolatedDatabase(context);
+  const result = await importRows(reimport, [row(2, "2024-04-22", "-15.00", "Example Cinema")], true, [{
+    line: 2,
+    action: "update",
+    reference: "csv:m:removed-meanwhile"
+  }]);
+
+  assert.deepEqual([result.newRows, result.undecided], [0, [2]]);
+  assert.equal((await db.select().from(schema.transactions)).length, 0);
 });

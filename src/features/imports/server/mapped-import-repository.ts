@@ -20,8 +20,8 @@ const referenceChunkSize = 500;
 
 const isTransfer = sql<boolean>`(${transactions.type} = 'transfer' OR ${transactions.transfer_id} IS NOT NULL)`.mapWith(value => Boolean(value));
 
-/** A type a person or rule set, a linked transfer's or a balance booking's: an update from the file leaves it. */
-const typeLocked = sql<boolean>`(${transactions.type_source} = 'manual' OR ${transactions.type_rule_id} IS NOT NULL OR ${transactions.transfer_id} IS NOT NULL OR ${transactions.type} IN ('opening_balance','adjustment'))`.mapWith(value => Boolean(value));
+/** A type a person or rule set, a linked transfer's, a balance booking's or a split booking's, which stays income or expense: an update from the file leaves it. */
+const typeLocked = sql<boolean>`(${transactions.type_source} = 'manual' OR ${transactions.type_rule_id} IS NOT NULL OR ${transactions.transfer_id} IS NOT NULL OR ${transactions.type} IN ('opening_balance','adjustment') OR EXISTS (SELECT 1 FROM ${transactionSplits} WHERE ${transactionSplits.transaction_id} = ${transactions.id}))`.mapWith(value => Boolean(value));
 
 /** The columns duplicate matching and the review compare. */
 const storedBooking = {
