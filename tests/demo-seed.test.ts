@@ -12,6 +12,7 @@ import { buildDemoDataset } from "../src/features/demo/server/demo-dataset";
 import { DemoSeedRefusal, seedDemoData } from "../src/features/demo/server/demo-seed-service";
 import { listAccounts } from "../src/features/accounts/server/account-queries";
 import { pairAllTransfers } from "../src/features/transactions/server/transfer-pairing-repository";
+import { listSyncAccounts } from "../src/features/banking/server/sync-repository";
 
 const firstRun = Temporal.PlainDate.from("2026-11-16");
 const secondRun = Temporal.PlainDate.from("2026-12-01");
@@ -109,7 +110,8 @@ async function foreignRows(db: Database) {
     transactions: await db.select().from(schema.transactions).where(not(like(schema.transactions.account_id, "demo-%"))),
     snapshots: await db.select().from(schema.balanceSnapshots).where(not(like(schema.balanceSnapshots.account_id, "demo-%"))),
     rules: await db.select().from(schema.categorizationRules).where(not(like(schema.categorizationRules.id, "demo-%"))),
-    requisitions: await db.select().from(schema.requisitions),
+    requisitions: await db.select().from(schema.requisitions).where(not(like(schema.requisitions.id, "demo-%"))),
+    syncRuns: await db.select().from(schema.syncRuns).where(not(like(schema.syncRuns.id, "demo-%"))),
     users: await db.select().from(schema.authUsers)
   };
 }
@@ -171,15 +173,21 @@ test("re-running the demo seed replaces only demo rows and keeps bank-connected 
   assert.equal(after.transactions.find(row => row.id === "sandbox-transaction")?.category_id, "demo-travel");
   assert.equal(summary.transactions, expected + balanceBookings.length);
   assert.equal(seeded.length, expected + balanceBookings.length);
-  assert.equal(balanceBookings.filter(row => row.type === "opening_balance").length, 6);
+  assert.equal(balanceBookings.filter(row => row.type === "opening_balance").length, 10);
   // Counterparts the seed creates on a manual account carry their source booking in the reference, as when a person creates them; balances are booked as a person enters them.
   assert.ok(seeded.every(row => ["demo:", "transfer:", "manual:"].some(prefix => row.provider_reference.startsWith(prefix))));
-  assert.equal(demoAccounts.length, 6);
+  assert.equal(demoAccounts.length, 10);
   // Market values end on their last valuation; every other balance follows from the transactions.
   assert.equal(balances.get("demo-investment"), lastValuation("demo-investment"));
   assert.equal(balances.get("demo-property"), lastValuation("demo-property"));
-  assert.ok(demoAccounts.every(account => account.balance_minor === null && typeof balances.get(account.id) === "number"));
-  assert.ok(demoAccounts.every(account => account.provider === "manual"));
+  assert.equal(balances.get("demo-car"), lastValuation("demo-car"));
+  const manualAccounts = demoAccounts.filter(account => account.provider === "manual");
+  const bankAccounts = demoAccounts.filter(account => account.provider === "enable_banking");
+
+  assert.deepEqual(bankAccounts.map(account => account.id).sort(), ["demo-checking", "demo-credit-card", "demo-joint", "demo-online-checking", "demo-savings"]);
+  assert.ok(manualAccounts.every(account => account.balance_minor === null && typeof balances.get(account.id) === "number"));
+  // A simulated connection reports the balance the transactions add up to, as after a sync that matched.
+  assert.ok(bankAccounts.every(account => account.requisition_id?.startsWith("demo-connection-") && account.last_synced_at !== null && account.balance_minor === balances.get(account.id)));
   // A category someone created with the same name is reused instead of adding a conflicting demo category.
   assert.equal(diningRule?.category_id, "reviewer-dining");
   assert.equal(await db.select().from(schema.categories).where(eq(schema.categories.id, "demo-dining")).get(), undefined);
@@ -258,7 +266,7 @@ test("the dataset is reproducible for a run date, its rules categorize all but a
   assert.ok(created.every(row => row.account_id === "demo-loan" && row.amount_minor > 0 && row.transfer_id !== null));
   assert.equal(createdSources.length, created.length);
   assert.ok(untracked.length >= 12);
-  assert.ok(untracked.every(row => row.counterparty === "Joint household account"));
+  assert.ok(untracked.every(row => row.counterparty === "Junior savings account"));
   assert.ok(transfers.every(row => row.category_id === null));
 });
 
@@ -302,4 +310,41 @@ test("re-seeding keeps a person's rule-set transfer to a removed demo account un
 
   assert.equal(booking?.type_transfer_account_id, "removed:demo-checking");
   assert.equal(booking?.transfer_id, null);
+});
+
+test("simulated bank connections show a sync history and splits but are never synced", async context => {
+  const db = await isolatedDatabase(context);
+
+  await insertSandboxBankAccount(db);
+  await db.update(schema.requisitions).set({
+    status: "LINKED"
+  }).where(eq(schema.requisitions.id, "sandbox-connection"));
+  await seedDemoData({
+    confirmed: true,
+    runDate: firstRun
+  });
+  await seedDemoData({
+    confirmed: true,
+    runDate: secondRun
+  });
+
+  const connections = await db.select().from(schema.requisitions).where(like(schema.requisitions.id, "demo-%"));
+  const runs = await db.select().from(schema.syncRuns).where(like(schema.syncRuns.id, "demo-%"));
+  const splits = await db.select().from(schema.transactionSplits).innerJoin(schema.transactions, eq(schema.transactions.id, schema.transactionSplits.transaction_id));
+  const splitBookings = new Map<string, number>();
+
+  for (const row of splits) {
+    splitBookings.set(row.transactions.id, (splitBookings.get(row.transactions.id) ?? 0) + row.transaction_splits.amount_minor);
+  }
+
+  assert.equal(connections.length, 3);
+  assert.ok(connections.every(connection => connection.status === "LINKED" && connection.session_cipher === null));
+  // Re-seeding replaces the history instead of adding to it; one run failed for a single account and the next succeeded.
+  assert.equal(runs.length, 14);
+  assert.deepEqual(runs.filter(run => run.status !== "SUCCESS").map(run => run.status), ["PARTIAL"]);
+  assert.equal(splitBookings.size, 3);
+  assert.ok(splits.every(row => row.transactions.category_id === null && row.transaction_splits.category_id !== null));
+  assert.ok([...splitBookings].every(([id, total]) => splits.find(row => row.transactions.id === id)?.transactions.amount_minor === total));
+  // A sync never requests demo accounts from a provider; a real sandbox connection stays syncable.
+  assert.deepEqual((await listSyncAccounts()).map(account => account.id), ["sandbox-account"]);
 });

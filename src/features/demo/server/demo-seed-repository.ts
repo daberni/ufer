@@ -1,17 +1,18 @@
-import { and, count, inArray, isNotNull, like, ne, not, notInArray, sql } from "drizzle-orm";
+import { and, count, eq, inArray, isNotNull, like, ne, not, notInArray, sql } from "drizzle-orm";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
-import { accounts, categories, categorizationRules, transactions } from "@/server/database/schema";
+import { accounts, balanceSnapshots, categories, categorizationRules, requisitions, syncRuns, transactions } from "@/server/database/schema";
 import { upsertTransactions } from "@/features/transactions/server/transaction-repository";
 import { recordManualBalance } from "@/features/transactions/server/manual-transaction-repository";
 import { manualAccountTypes } from "@/lib/transaction-types";
 import { createTransferCounterpart } from "@/features/transactions/server/transfer-link-repository";
 import { pairTransfers } from "@/features/transactions/server/transfer-pairing-repository";
+import { writeSplit } from "@/features/transactions/server/split-repository";
 import type { CategorizedEntry } from "@/features/transactions/server/transaction-entry";
 import type { Category } from "@/server/database/models";
 import type { Rule } from "@/lib/rules";
 import { requireRuleCapacity } from "@/features/categorization/server/rule-repository";
-import { demoIdPrefix, type DemoAccountDefinition, type DemoCategory } from "./demo-catalog";
-import type { DemoCreatedCounterpart, DemoSnapshot } from "./demo-dataset";
+import { demoConnections, demoIdPrefix, type DemoAccountDefinition, type DemoCategory } from "./demo-catalog";
+import type { DemoConnectionData, DemoCreatedCounterpart, DemoSnapshot, DemoSplit, DemoSyncRun } from "./demo-dataset";
 
 /** What the guard inspects before demo rows are replaced. */
 export type DemoSeedTarget = {
@@ -22,6 +23,7 @@ export type DemoAccountRows = DemoAccountDefinition & {
   opening: DemoSnapshot;
   entries: CategorizedEntry[];
   valuations: DemoSnapshot[];
+  closing: DemoSnapshot;
 };
 
 export type DemoSeedRows = {
@@ -29,6 +31,10 @@ export type DemoSeedRows = {
   rules: Rule[];
   accounts: DemoAccountRows[];
   createdCounterparts: DemoCreatedCounterpart[];
+  splits: DemoSplit[];
+  connections: DemoConnectionData[];
+  syncRuns: DemoSyncRun[];
+  lastSyncedAt: string;
 };
 
 const demoRows = `${demoIdPrefix}%`;
@@ -67,7 +73,10 @@ async function deleteDemoRows(tx: DatabaseTransaction) {
     transfer_id: null
   }).where(and(not(like(transactions.account_id, demoRows)), inArray(transactions.transfer_id, demoTransfers)));
   await tx.delete(transactions).where(like(transactions.account_id, demoRows));
+  await tx.delete(balanceSnapshots).where(like(balanceSnapshots.account_id, demoRows));
   await tx.delete(accounts).where(like(accounts.id, demoRows));
+  await tx.delete(requisitions).where(like(requisitions.id, demoRows));
+  await tx.delete(syncRuns).where(like(syncRuns.id, demoRows));
   await tx.delete(categorizationRules).where(like(categorizationRules.id, demoRows));
   // A person's transfer rule that names a removed demo account keeps its transfer type without a counterpart account.
   await tx.update(categorizationRules).set({
@@ -93,17 +102,71 @@ async function upsertCategories(tx: DatabaseTransaction, rows: DemoCategory[]) {
   }
 }
 
-async function insertAccount(tx: DatabaseTransaction, account: DemoAccountRows) {
+/**
+ * Simulated connections are linked but hold no provider session, so removing one revokes nothing; sync skips demo accounts, so none is ever requested from a provider.
+ */
+async function insertConnections(tx: DatabaseTransaction, rows: DemoConnectionData[]) {
+  for (const connection of rows) {
+    await tx.insert(requisitions).values({
+      id: connection.id,
+      bank_name: connection.bankName,
+      bank_country: "AT",
+      status: "LINKED",
+      valid_until: connection.validUntil,
+      created_at: connection.grantedAt
+    });
+  }
+}
+
+async function insertAccount(tx: DatabaseTransaction, account: DemoAccountRows, lastSyncedAt: string) {
+  const bank = account.bank;
+
   await tx.insert(accounts).values({
     id: account.id,
     name: account.name,
     institution: account.institution,
     kind: account.kind,
     currency: "EUR",
-    provider: "manual"
+    provider: bank ? "enable_banking" : "manual",
+    provider_name: bank ? account.name : null,
+    provider_uid: bank ? `${account.id}-uid` : null,
+    requisition_id: bank ? demoConnections[bank.connection].id : null,
+    iban: bank?.iban ?? null,
+    balance_minor: bank ? account.closing.amount : null,
+    balance_date: bank ? account.closing.date : null,
+    last_synced_at: bank ? lastSyncedAt : null
   });
   await recordManualBalance(tx, demoAccount(account), account.opening.date, account.opening.amount);
   await upsertTransactions(tx, account.id, account.entries);
+
+  if (bank) {
+    await tx.insert(balanceSnapshots).values({
+      id: `${account.id}-balance`,
+      account_id: account.id,
+      observed_at: account.closing.date,
+      amount_minor: account.closing.amount,
+      bank_balance_type: "CLBD",
+      source: "sync"
+    });
+  }
+}
+
+async function insertSplits(tx: DatabaseTransaction, splits: DemoSplit[]) {
+  for (const split of splits) {
+    const booking = await tx.select({
+      id: transactions.id
+    }).from(transactions).where(and(eq(transactions.account_id, split.accountId), eq(transactions.provider_reference, split.reference))).get();
+
+    if (!booking) {
+      throw new Error("A demo split refers to a booking the seed did not store.");
+    }
+
+    await writeSplit(tx, booking.id, () => split.parts.map(part => ({
+      amount: part.amount,
+      categoryId: part.categoryId,
+      note: part.note
+    })));
+  }
 }
 
 function demoAccount(account: DemoAccountRows) {
@@ -130,9 +193,21 @@ export async function replaceDemoRows(rows: DemoSeedRows, verify: (target: DemoS
       await tx.insert(categorizationRules).values(rows.rules);
     }
 
+    await insertConnections(tx, rows.connections);
+
     for (const account of rows.accounts) {
-      await insertAccount(tx, account);
+      await insertAccount(tx, account, rows.lastSyncedAt);
     }
+
+    await insertSplits(tx, rows.splits);
+    await tx.insert(syncRuns).values(rows.syncRuns.map(run => ({
+      id: run.id,
+      started_at: run.startedAt,
+      finished_at: run.finishedAt,
+      status: run.status,
+      inserted_count: run.insertedCount,
+      error: run.error
+    })));
 
     for (const counterpart of rows.createdCounterparts) {
       await createTransferCounterpart(tx, counterpart.sourceAccountId, counterpart.sourceReference, counterpart.accountId);

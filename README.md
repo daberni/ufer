@@ -6,6 +6,10 @@ Ufer brings your accounts, spending and assets into one clear overview. See wher
 
 Designed for everyday use on desktop and smartphone, Ufer aims to make managing money feel simple and approachable.
 
+![The Ufer overview with net worth, accounts, monthly income and expenses and spending by category](docs/screenshots/overview-desktop.webp)
+
+<sub>All screenshots show the synthetic [demo dataset](docs/setup.md#demo-data); names, banks and amounts are invented.</sub>
+
 ## A clearer picture of your money
 
 - **See the whole picture.** View account balances and net worth, with cash and investments shown separately.
@@ -13,6 +17,25 @@ Designed for everyday use on desktop and smartphone, Ufer aims to make managing 
 - **Find any transaction.** Search and filter transactions across your accounts in one place.
 - **Keep spending organized.** Categorize transactions with your own rules and correct categories when needed.
 - **Include more than bank accounts.** Track other assets with manual valuations and import history into manual accounts using CSV files.
+
+## In pictures
+
+| | |
+|---|---|
+| **Transactions across all accounts** — search, filter, categories, transfers and splits.<br>![Transaction list](docs/screenshots/transactions-desktop.webp) | **Accounts and assets** — bank accounts, cash, investments, property and loans with their balances.<br>![Accounts and assets](docs/screenshots/accounts-desktop.webp) |
+| **Account details** — balance history and the account's monthly cash flow.<br>![Account details](docs/screenshots/account-details-desktop.webp) | **Categories and rules** — ordered rules categorize new transactions automatically.<br>![Categories and rules](docs/screenshots/rules-desktop.webp) |
+| **Bank connections** — authorization status and recent sync runs.<br>![Bank connections](docs/screenshots/connections-desktop.webp) | **Dark mode** — follows the system or a manual choice.<br>![Overview in dark mode](docs/screenshots/overview-desktop-dark.webp) |
+
+On a phone, the same views adapt to a single column with bottom navigation:
+
+<p>
+  <img src="docs/screenshots/overview-phone.webp" alt="Overview on a phone" width="24%">
+  <img src="docs/screenshots/transactions-phone.webp" alt="Transactions on a phone" width="24%">
+  <img src="docs/screenshots/accounts-phone.webp" alt="Accounts on a phone" width="24%">
+  <img src="docs/screenshots/rules-phone.webp" alt="Rules on a phone" width="24%">
+</p>
+
+Regenerate the screenshots with `npm run screenshots`; see [setup](docs/setup.md#screenshots).
 
 ## Connect your banks
 
