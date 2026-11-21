@@ -7,7 +7,13 @@ const { window } = new JSDOM("<!doctype html><html><body></body></html>");
 
 Object.assign(globalThis, {
   window,
-  document: window.document
+  document: window.document,
+  // jsdom lays nothing out, so no element ever changes size.
+  ResizeObserver: class {
+    observe() {}
+
+    disconnect() {}
+  }
 });
 
 after(() => window.close());

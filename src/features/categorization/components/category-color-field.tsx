@@ -181,8 +181,6 @@ export function CategoryColorField({
         id={`${id}-panel`}
         className={styles["popover"]}
         popover="manual"
-        role="group"
-        aria-label="Suggested colors"
       >
         {open && (
           <div

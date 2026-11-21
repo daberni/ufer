@@ -70,7 +70,7 @@ export function CategoryIconField({
   const focusableChoice = visibleChoices.includes(icon) ? icon : visibleChoices[0];
 
   function options() {
-    return [...(optionsRef.current?.querySelectorAll<HTMLElement>("[role='option']") ?? [])];
+    return [...(optionsRef.current?.querySelectorAll<HTMLElement>("[data-icon-option]") ?? [])];
   }
 
   function choose(choice: IconChoice) {
@@ -118,8 +118,9 @@ export function CategoryIconField({
       <button
         key={`${shortcut ? "top-" : ""}${choice || "none"}`}
         type="button"
-        role="option"
-        aria-selected={choice === icon}
+        // The grid is a set of buttons rather than a listbox, so the search field keeps plain text editing; only the real entry shows the current icon.
+        aria-current={choice === icon && !shortcut ? "true" : undefined}
+        data-icon-option=""
         aria-label={label}
         title={label}
         tabIndex={choice === focusableChoice && !shortcut ? 0 : -1}
@@ -219,7 +220,7 @@ export function CategoryIconField({
               ref={optionsRef}
               id={`${id}-options`}
               className={styles["icon-options"]}
-              role="listbox"
+              role="group"
               aria-label="Icons"
             >
               {searching ? (

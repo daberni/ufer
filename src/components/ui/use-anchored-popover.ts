@@ -11,6 +11,8 @@ type Options = {
   popupRef: RefObject<HTMLElement | null>;
   /** Makes the popover at least as wide as its control, as for a list of the control's values. */
   matchAnchorWidth?: boolean;
+  /** Caps the width below the visible area's, as for a short text that should wrap. */
+  maxWidth?: number;
 };
 
 /**
@@ -21,7 +23,8 @@ export function useAnchoredPopover({
   open,
   anchorRef,
   popupRef,
-  matchAnchorWidth = false
+  matchAnchorWidth = false,
+  maxWidth = Infinity
 }: Options) {
   const place = useCallback(() => {
     const anchor = anchorRef.current;
@@ -38,7 +41,7 @@ export function useAnchoredPopover({
       popup.style.minWidth = `${anchorBox.width}px`;
     }
 
-    popup.style.maxWidth = `${popoverMaxWidth(visible)}px`;
+    popup.style.maxWidth = `${Math.min(popoverMaxWidth(visible), maxWidth)}px`;
     popup.style.maxHeight = "";
 
     const placement = popoverPlacement(anchorBox, {
@@ -49,7 +52,7 @@ export function useAnchoredPopover({
     popup.style.top = `${placement.top}px`;
     popup.style.left = `${placement.left}px`;
     popup.style.maxHeight = `${placement.maxHeight}px`;
-  }, [anchorRef, popupRef, matchAnchorWidth]);
+  }, [anchorRef, popupRef, matchAnchorWidth, maxWidth]);
 
   useLayoutEffect(() => {
     const popup = popupRef.current;

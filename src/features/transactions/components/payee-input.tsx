@@ -1,9 +1,10 @@
 "use client";
 
 import styles from "../../../components/ui/searchable-select.module.css";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent, RefObject } from "react";
 import { useAnchoredPopover } from "@/components/ui/use-anchored-popover";
+import { useComboboxOptions } from "@/components/ui/use-combobox-options";
 import { useDismiss } from "@/components/ui/use-dismiss";
 import { usePayeeSuggestions } from "@/features/transactions/queries";
 import { commitDelay } from "@/features/transactions/use-search-draft";
@@ -35,18 +36,45 @@ export function PayeeInput({
   const input = useRef<HTMLInputElement>(null);
   const popupRef = useRef<HTMLDivElement>(null);
   const listboxRef = useRef<HTMLUListElement>(null);
-  const listboxId = useId();
   const [query, setQuery] = useState(defaultValue);
   // The text suggestions were last requested for; it follows typing once typing pauses.
   const [requested, setRequested] = useState(defaultValue);
   const [open, setOpen] = useState(false);
-  const [activeIndex, setActiveIndex] = useState(-1);
   const suggestions = usePayeeSuggestions(open ? requested : "");
   // Suggestions only show for the text in the field, so results for earlier text cannot overwrite newer typing.
   const shown = open && query === requested ? suggestions.data?.payees ?? [] : [];
   const expanded = shown.length > 0;
-  const active = Math.min(activeIndex, shown.length - 1);
-  const optionId = (index: number) => `${listboxId}-option-${index}`;
+  // The suggestions last shown for the current text, so keys that reopen a closed list start on them, such as ArrowDown after Escape.
+  const [knownCount, setKnownCount] = useState(0);
+
+  // An arrow key that opened the list before any suggestions were known waits for them: ArrowDown highlights the first, ArrowUp the last.
+  const [awaitedHighlight, setAwaitedHighlight] = useState<"first" | "last" | null>(null);
+
+  if (expanded && shown.length !== knownCount) {
+    setKnownCount(shown.length);
+  }
+
+  const {
+    listboxId,
+    optionId,
+    active,
+    setActiveIndex,
+    activeDescendant,
+    handleKeyDown
+  } = useComboboxOptions({
+    open: expanded,
+    optionCount: expanded ? shown.length : knownCount,
+    listboxRef,
+    freeText: true,
+    onOpen: () => setOpen(true),
+    onSelect: index => pick(shown[index]),
+    onClose: close
+  });
+
+  if (awaitedHighlight && expanded) {
+    setAwaitedHighlight(null);
+    setActiveIndex(awaitedHighlight === "first" ? 0 : shown.length - 1);
+  }
 
   useEffect(() => {
     if (query === requested) {
@@ -57,14 +85,6 @@ export function PayeeInput({
 
     return () => clearTimeout(timer);
   }, [query, requested]);
-
-  useEffect(() => {
-    if (expanded) {
-      listboxRef.current?.querySelector("[data-active]")?.scrollIntoView({
-        block: "nearest"
-      });
-    }
-  }, [expanded, active]);
 
   useAnchoredPopover({
     open: expanded,
@@ -82,7 +102,27 @@ export function PayeeInput({
 
   function close() {
     setOpen(false);
+    setAwaitedHighlight(null);
     setActiveIndex(-1);
+  }
+
+  function handleFieldKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    // Escape cancels a list still waiting for its suggestions, as it closes a shown one.
+    if (awaitedHighlight && event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      close();
+
+      return;
+    }
+
+    const awaitsSuggestions = !expanded && knownCount === 0;
+
+    handleKeyDown(event);
+
+    if (awaitsSuggestions && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
+      setAwaitedHighlight(event.key === "ArrowDown" ? "first" : "last");
+    }
   }
 
   function pick(payee: string) {
@@ -94,41 +134,6 @@ export function PayeeInput({
     setRequested(payee);
     close();
     onValueChange?.(payee);
-  }
-
-  function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
-    if (!expanded) {
-      return;
-    }
-
-    const handled = ["ArrowDown", "ArrowUp", "Escape"].includes(event.key) || (event.key === "Enter" && active >= 0);
-
-    if (!handled) {
-      if (event.key === "Tab") {
-        close();
-      }
-
-      return;
-    }
-
-    // These keys must not move the caret, submit the form or close a surrounding dialog.
-    event.preventDefault();
-    event.stopPropagation();
-
-    switch (event.key) {
-      case "ArrowDown":
-        setActiveIndex(active + 1 < shown.length ? active + 1 : 0);
-        break;
-      case "ArrowUp":
-        setActiveIndex(active > 0 ? active - 1 : shown.length - 1);
-        break;
-      case "Enter":
-        pick(shown[active]);
-        break;
-      case "Escape":
-        close();
-        break;
-    }
   }
 
   return (
@@ -152,16 +157,18 @@ export function PayeeInput({
           aria-autocomplete="list"
           aria-expanded={expanded}
           aria-controls={listboxId}
-          aria-activedescendant={expanded && active >= 0 ? optionId(active) : undefined}
+          aria-activedescendant={activeDescendant}
           aria-describedby={ariaDescribedBy}
           onChange={event => {
             setQuery(event.target.value);
+            setKnownCount(0);
+            setAwaitedHighlight(null);
             setOpen(true);
             setActiveIndex(-1);
             onValueChange?.(event.target.value);
           }}
           onBlur={close}
-          onKeyDown={handleKeyDown}
+          onKeyDown={handleFieldKeyDown}
         />
       </label>
       <div ref={popupRef} className={styles["popup"]} popover="manual">

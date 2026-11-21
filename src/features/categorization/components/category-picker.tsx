@@ -9,6 +9,7 @@ import { useId, useState, type ReactNode } from "react";
 import { SearchableSelect, type SearchableSelectOption, type SearchableSelectAppearance } from "@/components/ui/searchable-select";
 import { CategoryGlyph, categoryLabel, categoryNameColor, type DisplayCategory, type NeutralCategory } from "./category-label";
 import { CategoryDialog } from "./category-form";
+import { Tooltip } from "@/components/ui/tooltip";
 
 export type PickerCategory = DisplayCategory & {
   id: string;
@@ -236,46 +237,59 @@ export function CategoryPicker({
         adornment={status && <span className={styles["adornment"]}>{status}</span>}
         endAdornment={assignment && assignmentSource && (
           <span className={styles["assignment-slot"]}>
+            {/* The hint is already the buttons' description, so the tooltips only show it. */}
             {assignmentSource === "manual" && (
-              <button
-                type="button"
-                className={styles["assignment-action"]}
-                data-assignment-source="manual"
-                aria-label={assignment.actionLabel}
-                aria-describedby={assignmentHintId}
-                aria-haspopup="dialog"
-                title={`${assignmentHint}. ${assignment.actionLabel}.`}
-                disabled={assignment.disabled}
-                onClick={assignment.createRule}
-              >
-                <Zap className={clsx(styles["assignment-icon"], styles["manual"])} aria-hidden="true" />
-                <Plus className={styles["assignment-badge"]} aria-hidden="true" />
-              </button>
+              <Tooltip text={`${assignmentHint}. ${assignment.actionLabel}.`} describes={false}>
+                {trigger => (
+                  <button
+                    {...trigger}
+                    type="button"
+                    className={styles["assignment-action"]}
+                    data-assignment-source="manual"
+                    aria-label={assignment.actionLabel}
+                    aria-describedby={assignmentHintId}
+                    aria-haspopup="dialog"
+                    disabled={assignment.disabled}
+                    onClick={assignment.createRule}
+                  >
+                    <Zap className={clsx(styles["assignment-icon"], styles["manual"])} aria-hidden="true" />
+                    <Plus className={styles["assignment-badge"]} aria-hidden="true" />
+                  </button>
+                )}
+              </Tooltip>
             )}
             {assigningRule && (
-              <button
-                type="button"
-                className={styles["assignment-action"]}
-                data-assignment-source="rule"
-                aria-label={assigningRule.label}
-                aria-describedby={assignmentHintId}
-                aria-haspopup="dialog"
-                title={`${assignmentHint}. ${assigningRule.label}.`}
-                disabled={assignment.disabled}
-                onClick={assigningRule.open}
-              >
-                <Zap className={clsx(styles["assignment-icon"], styles["rule"])} aria-hidden="true" />
-              </button>
+              <Tooltip text={`${assignmentHint}. ${assigningRule.label}.`} describes={false}>
+                {trigger => (
+                  <button
+                    {...trigger}
+                    type="button"
+                    className={styles["assignment-action"]}
+                    data-assignment-source="rule"
+                    aria-label={assigningRule.label}
+                    aria-describedby={assignmentHintId}
+                    aria-haspopup="dialog"
+                    disabled={assignment.disabled}
+                    onClick={assigningRule.open}
+                  >
+                    <Zap className={clsx(styles["assignment-icon"], styles["rule"])} aria-hidden="true" />
+                  </button>
+                )}
+              </Tooltip>
             )}
             {assignmentSource === "rule" && !assigningRule && (
-              <span
-                className={styles["assignment-indicator"]}
-                data-assignment-source="rule"
-                title={assignmentHint}
-                aria-hidden="true"
-              >
-                <Zap className={clsx(styles["assignment-icon"], styles["rule"])} />
-              </span>
+              <Tooltip text={assignmentHint ?? ""} describes={false}>
+                {trigger => (
+                  <span
+                    {...trigger}
+                    className={styles["assignment-indicator"]}
+                    data-assignment-source="rule"
+                    aria-hidden="true"
+                  >
+                    <Zap className={clsx(styles["assignment-icon"], styles["rule"])} />
+                  </span>
+                )}
+              </Tooltip>
             )}
           </span>
         )}
