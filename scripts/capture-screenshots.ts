@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess } from "node:child_process";
-import { randomBytes } from "node:crypto";
+import { generateKeyPairSync, randomBytes, randomUUID } from "node:crypto";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -243,6 +243,28 @@ async function captureAll(browser: Browser, storageState: Awaited<ReturnType<typ
   }
 }
 
+/**
+ * The server shows the demo as a configured production installation, without the sandbox marker and the missing-configuration notice.
+ * Its application ID and key are throwaway values no provider knows; the captured views make no provider request, because sync skips demo accounts and the bank directory loads only when the connect dialog opens.
+ */
+function productionLookingEnvironment(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  const {
+    privateKey
+  } = generateKeyPairSync("rsa", {
+    modulusLength: 2048
+  });
+
+  return {
+    ...env,
+    ENABLE_BANKING_ENVIRONMENT: "PRODUCTION",
+    ENABLE_BANKING_APP_ID: randomUUID(),
+    ENABLE_BANKING_PRIVATE_KEY: privateKey.export({
+      type: "pkcs8",
+      format: "pem"
+    }).toString()
+  };
+}
+
 async function main() {
   mkdirSync(outputDirectory, {
     recursive: true
@@ -279,7 +301,7 @@ async function main() {
     }));
 
     server = spawn("npx", ["next", "dev", "--hostname", "127.0.0.1", "--port", String(port)], {
-      env,
+      env: productionLookingEnvironment(env),
       stdio: ["ignore", "ignore", "inherit"],
       detached: true
     });
