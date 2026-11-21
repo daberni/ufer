@@ -19,8 +19,8 @@ export type MappedRow = {
   source: string;
   /** The export's transaction ID; null without an ID column. */
   id: string | null;
-  /** The type column marks the row as a transfer, which automatic pairing then links to its counterpart. */
-  transfer: boolean;
+  /** The type the type column's value maps to; null keeps the type that follows the amount. A transfer is linked to its counterpart by automatic pairing; an expense with a positive amount is a refund. */
+  type: ImportType | null;
   /** Imported as a hidden booking that counts toward no balance, report or pairing, for a type the conventions hide. */
   hidden: boolean;
   /** The parts of a split from amount-bearing tags such as Buxfer's `Fuel:45.52,Groceries:5.88`, signed like the row; null for an unsplit row. A split row has no `category`. */
@@ -63,18 +63,58 @@ export type RowConventions = {
   amountTags: boolean;
   /** Lowercase type values that import hidden, such as investment trades before holdings are tracked. */
   hiddenTypes: string[];
-  /** Lowercase type values that mark a transfer; every other row's type follows its amount. */
-  transferTypes: string[];
 };
 
 export const defaultConventions: RowConventions = {
   amountTags: false,
-  hiddenTypes: [],
-  transferTypes: ["transfer", "umbuchung", "übertrag"]
+  hiddenTypes: []
 };
 
+/** The types a type column value can map to. */
+export const importTypes = ["expense", "income", "transfer"] as const;
+
+export type ImportType = typeof importTypes[number];
+
+/** Types by lowercase type column value; values without an entry keep the type that follows the amount. */
+export type TypeValues = Record<string, ImportType>;
+
+/** Type values recognized without a template: only transfers, since a generic export rarely names other types consistently. */
+export const defaultTypeValues: TypeValues = {
+  transfer: "transfer",
+  umbuchung: "transfer",
+  "übertrag": "transfer"
+};
+
+/** The lowercase key a type column value is mapped by. */
+export function typeValueKey(value: string) {
+  return value.trim().toLowerCase();
+}
+
+/** The distinct type column values of the rows, in order of first appearance, without empty values. */
+export function typeColumnValues(rows: string[][], column: number | null) {
+  if (column === null) {
+    return [];
+  }
+
+  const values = new Map<string, string>();
+
+  for (const row of rows) {
+    const value = (row[column] ?? "").trim();
+    const key = typeValueKey(value);
+
+    if (key && !values.has(key)) {
+      values.set(key, value);
+    }
+  }
+
+  return [...values].map(([key, label]) => ({
+    key,
+    label
+  }));
+}
+
 /** Turns data rows (without the header) into mapped rows and row-level errors; the locale formats numbers in row problems. `lines` gives each row's physical line in the file; without it, rows count from line 2. */
-export function mapRows(rows: string[][], mapping: CsvMapping, settings: CsvSettings, locale: string, lines?: number[], conventions = defaultConventions) {
+export function mapRows(rows: string[][], mapping: CsvMapping, settings: CsvSettings, locale: string, lines?: number[], conventions = defaultConventions, typeValues = defaultTypeValues) {
   const mapped: MappedRow[] = [];
   const errors: RowError[] = [];
 
@@ -122,9 +162,10 @@ export function mapRows(rows: string[][], mapping: CsvMapping, settings: CsvSett
 
     // The category value identifies its choice, so it is never shortened: two long values must not merge.
     const tags = cell(mapping.category);
-    const type = cell(mapping.type).toLowerCase();
-    const transfer = conventions.transferTypes.includes(type);
-    const hidden = conventions.hiddenTypes.includes(type);
+    const typeValue = typeValueKey(cell(mapping.type));
+    const hidden = conventions.hiddenTypes.includes(typeValue);
+    const type = !hidden && Object.hasOwn(typeValues, typeValue) ? typeValues[typeValue] : null;
+    const transfer = type === "transfer";
     const tagged = conventions.amountTags ? tagSplit(tags, amount) : null;
     // Only income and expenses are split. Tags that do not form a valid split import the row unsplit, keeping the tags in its description.
     const split = tagged && "parts" in tagged && !transfer && !hidden ? tagged : null;
@@ -161,7 +202,7 @@ export function mapRows(rows: string[][], mapping: CsvMapping, settings: CsvSett
       category: category || null,
       source,
       id: mapping.id === null ? null : id,
-      transfer,
+      type,
       hidden,
       parts: split ? split.parts : null,
       tags: split ? tags : null

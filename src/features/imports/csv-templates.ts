@@ -1,5 +1,5 @@
 import { emptyMapping, type CsvMapping, type CsvSettings } from "./csv-mapping";
-import { defaultConventions, type RowConventions } from "./import-rows";
+import { defaultConventions, defaultTypeValues, type RowConventions, type TypeValues } from "./import-rows";
 
 // Source-specific layouts: built-in formats defined in code and the shape of saved templates.
 
@@ -17,6 +17,8 @@ export type CsvTemplate = {
   accounts: Record<string, string>;
   /** Existing category IDs by category value. */
   categories: Record<string, string>;
+  /** Types by lowercase type column value. Saved before type values were remembered, a template has none and takes those of the built-in template for its header. */
+  types?: TypeValues;
   /** Row conventions of a built-in format; saved templates are not stored with them and take them from the built-in template for their header. */
   conventions?: RowConventions;
 };
@@ -29,7 +31,7 @@ export const maxTemplateNameLength = 100;
 export const maxColumnNameLength = 200;
 
 /**
- * Buxfer's transaction export. `Tags` holds the categories, possibly several separated by commas; `Type` marks transfers, which the automatic rule pairs after the import, and `Status`, `Memo` and `IOU` stay unmapped. Amounts are signed except for `Investment purchase`, which Buxfer exports as a positive amount. Until Ufer tracks holdings, a settlement account stands for its cash plus securities at cost, so purchases and sales import hidden with their exported amount and text; capital gains and losses count as ordinary bookings. Buxfer shortens long descriptions with "...", which duplicate matching tolerates because a shortened text is contained in the full one.
+ * Buxfer's transaction export. `Tags` holds the categories, possibly several separated by commas; `Type` states expenses, income, refunds (expenses with a positive amount) and transfers, which the automatic rule pairs after the import, and `Status`, `Memo` and `IOU` stay unmapped. Amounts are signed except for `Investment purchase`, which Buxfer exports as a positive amount. Until Ufer tracks holdings, a settlement account stands for its cash plus securities at cost, so purchases and sales import hidden with their exported amount and text; capital gains and losses count as ordinary bookings. Buxfer shortens long descriptions with "...", which duplicate matching tolerates because a shortened text is contained in the full one.
  */
 export const buxferTemplate: CsvTemplate = {
   id: "builtin:buxfer",
@@ -52,6 +54,12 @@ export const buxferTemplate: CsvTemplate = {
   },
   accounts: {},
   categories: {},
+  types: {
+    expense: "expense",
+    refund: "expense",
+    income: "income",
+    transfer: "transfer"
+  },
   conventions: {
     ...defaultConventions,
     amountTags: true,
@@ -77,6 +85,17 @@ export function templateConventions(template: CsvTemplate | null): RowConvention
   return template.conventions ?? builtIn?.conventions ?? defaultConventions;
 }
 
+/** The type values an applied template maps: its own, those of the built-in template for the same header, or the defaults. */
+export function templateTypeValues(template: CsvTemplate | null): TypeValues {
+  if (template === null) {
+    return defaultTypeValues;
+  }
+
+  const builtIn = builtInTemplates.find(candidate => headerKey(candidate.header) === headerKey(template.header));
+
+  return template.types ?? builtIn?.types ?? defaultTypeValues;
+}
+
 /** The first template in `templates` for a header; lists put saved templates before built-in ones, so a person can override a built-in layout. */
 export function matchTemplate(header: string[], templates: CsvTemplate[]): CsvTemplate | null {
   const key = headerKey(header);
@@ -99,8 +118,8 @@ export function templateLabel(template: Pick<CsvTemplate, "name" | "builtIn">) {
   return template.builtIn ? `${template.name} (built-in)` : template.name;
 }
 
-/** A template that recreates a mapping on files with the same header: column positions, the format, and the given account and category choices. */
-export function templateFromMapping(name: string, header: string[], mapping: CsvMapping, settings: CsvSettings, accounts: Record<string, string>, categories: Record<string, string>): Omit<CsvTemplate, "id" | "builtIn"> {
+/** A template that recreates a mapping on files with the same header: column positions, the format, and the given account, category and type value choices. */
+export function templateFromMapping(name: string, header: string[], mapping: CsvMapping, settings: CsvSettings, accounts: Record<string, string>, categories: Record<string, string>, types: TypeValues): Omit<CsvTemplate, "id" | "builtIn"> {
   const columns: CsvTemplate["columns"] = {};
 
   for (const field of Object.keys(mapping) as (keyof CsvMapping)[]) {
@@ -120,7 +139,8 @@ export function templateFromMapping(name: string, header: string[], mapping: Csv
     },
     columns,
     accounts,
-    categories
+    categories,
+    types
   };
 }
 

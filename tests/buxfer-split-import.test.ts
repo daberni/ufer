@@ -14,7 +14,7 @@ import { monthPeriod } from "../src/lib/period";
 import { importMappedRows } from "../src/features/imports/server/mapped-import-service";
 import { categoryValues } from "../src/features/imports/import-plan";
 import { assignOccurrences, mapRows, tagSplit, withSplitTags, type MappedRow } from "../src/features/imports/import-rows";
-import { buxferTemplate, templateConventions, templateMapping } from "../src/features/imports/csv-templates";
+import { buxferTemplate, templateConventions, templateMapping, templateTypeValues } from "../src/features/imports/csv-templates";
 import { parseCsv } from "../src/features/imports/csv-reading";
 import { suggestMapping, type CsvSettings } from "../src/features/imports/csv-mapping";
 
@@ -79,7 +79,7 @@ async function isolatedDatabase(context: TestContext) {
 function mappedBuxferRows(csv = buxferCsv) {
   const [header, ...rows] = parseCsv(csv, ",");
 
-  return mapRows(rows, templateMapping(buxferTemplate, header), settings, "en", undefined, templateConventions(buxferTemplate));
+  return mapRows(rows, templateMapping(buxferTemplate, header), settings, "en", undefined, templateConventions(buxferTemplate), templateTypeValues(buxferTemplate));
 }
 
 function payload(rows: MappedRow[], confirm: boolean, categories: object[] = []) {
@@ -221,7 +221,7 @@ test("tags the server cannot take as a split import an unsplit booking that keep
   // The second row reaches the server as a transfer, which is never split.
   const sent = rows.map(row => row.line === 3 ? {
     ...row,
-    transfer: true
+    type: "transfer" as const
   } : row);
   const result = await importMappedRows(payload(sent, true), now);
   const bookings = await db.select().from(schema.transactions).where(eq(schema.transactions.account_id, "synthetic-checking")).orderBy(asc(schema.transactions.booking_date));
@@ -245,7 +245,7 @@ test("a transfer row with amount-bearing tags is not split and keeps its tags in
   ].join("\n"));
 
   assert.deepEqual(errors, []);
-  assert.deepEqual([rows[0].parts, rows[0].category, rows[0].description, rows[0].transfer], [null, null, "To savings · Split: Car 5, Cash 5", true]);
+  assert.deepEqual([rows[0].parts, rows[0].category, rows[0].description, rows[0].type], [null, null, "To savings · Split: Car 5, Cash 5", "transfer"]);
 });
 
 test("only Buxfer's layout reads tags as splits; other files keep colon values as plain categories", () => {
@@ -302,6 +302,64 @@ test("Buxfer investment trades import hidden with their exported amount while ga
   const again = await importMappedRows(payload(mapped.rows, true), now);
 
   assert.equal(again.newRows, 0);
+});
+
+test("Buxfer type values decide the type: refunds are expenses with positive amounts, unknown values follow the amount", async context => {
+  const db = await isolatedDatabase(context);
+  const csv = [
+    "ID,Date,Description,Currency,Amount,Type,Tags,Account,Status,Memo,IOU",
+    "21,2026-03-02,\"Shoe shop\",EUR,-80,Expense,\"Clothing\",\"Checking\",Cleared,\" \"",
+    "22,2026-03-05,\"Shoe shop return\",EUR,30,Refund,\"Clothing\",\"Checking\",Cleared,\" \"",
+    "23,2026-03-06,\"Salary\",EUR,1500,Income,\"\",\"Checking\",Cleared,\" \"",
+    "24,2026-03-07,\"To savings\",EUR,-200,Transfer,\"\",\"Checking\",Cleared,\" \"",
+    "25,2026-03-08,\"Interest\",EUR,2,Dividend,\"\",\"Checking\",Cleared,\" \"",
+    "26,2026-03-09,\"Fee\",EUR,-1,,\"\",\"Checking\",Cleared,\" \""
+  ].join("\n");
+  const mapped = mappedBuxferRows(csv);
+
+  assert.deepEqual(mapped.errors, []);
+  assert.deepEqual(mapped.rows.map(row => row.type), ["expense", "expense", "income", "transfer", null, null]);
+
+  const result = await importMappedRows(payload(mapped.rows, true, [{
+    value: "Clothing",
+    action: "create",
+    name: "Clothing"
+  }]), now);
+  const bookings = await db.select().from(schema.transactions).orderBy(asc(schema.transactions.booking_date));
+
+  assert.deepEqual(result.errors, []);
+  assert.deepEqual(bookings.map(booking => [booking.description, booking.amount_minor, booking.type, booking.transfer_detected]), [
+    ["Shoe shop", -8000, "expense", 0],
+    ["Shoe shop return", 3000, "expense", 0],
+    ["Salary", 150000, "income", 0],
+    ["To savings", -20000, "transfer", 1],
+    ["Interest", 200, "income", 0],
+    ["Fee", -100, "expense", 0]
+  ]);
+
+  // The refund reduces spending instead of counting as income.
+  const flow = await readAccountCashFlow("synthetic-checking", monthPeriod(Temporal.PlainYearMonth.from("2026-03")));
+
+  assert.deepEqual([flow.income, flow.expenses], [150200, 8000 - 3000 + 100]);
+});
+
+test("type values of a template replace the defaults, and a saved template without them takes the built-in template's", () => {
+  const [header, ...rows] = parseCsv(["Date,Payee,Amount,Kind", "2026-01-10,Shop,5,Gutschrift", "2026-01-11,Savings,-5,Transfer"].join("\n"), ",");
+  const mapping = {
+    ...suggestMapping(header),
+    type: 3
+  };
+
+  assert.deepEqual(mapRows(rows, mapping, settings, "en").rows.map(row => row.type), [null, "transfer"]);
+  assert.deepEqual(mapRows(rows, mapping, settings, "en", undefined, undefined, {
+    gutschrift: "expense"
+  }).rows.map(row => row.type), ["expense", null]);
+  assert.deepEqual(templateTypeValues({
+    ...buxferTemplate,
+    id: "saved",
+    builtIn: false,
+    types: undefined
+  }), buxferTemplate.types);
 });
 
 test("only the Buxfer template hides investment trades", () => {

@@ -38,7 +38,7 @@ export function SaveTemplate({
     accounts: {},
     categories: {}
   };
-  const template = templateFromMapping(name, draft.table.header, draft.mapping, draft.settings, choices.accounts, choices.categories);
+  const template = templateFromMapping(name, draft.table.header, draft.mapping, draft.settings, choices.accounts, choices.categories, draft.typeValues);
 
   if (done) {
     return (
@@ -60,7 +60,8 @@ export function SaveTemplate({
           settings: template.settings,
           columns: template.columns,
           accounts: template.accounts,
-          categories: template.categories
+          categories: template.categories,
+          types: template.types
         }
       }, {
         onSuccess: () => setDone(`Template “${saved.name}” updated.`)
