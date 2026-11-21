@@ -95,3 +95,46 @@ test("a truncated label inside decorative content stays out of the tab order", a
 
   assert.equal(screen.getByTestId("label").getAttribute("tabindex"), null);
 });
+
+test("a label that becomes truncated with a new text becomes a focus stop, and leaves the tab order when it fits again", async context => {
+  browser(context);
+  const prototype = window.HTMLElement.prototype;
+  let textWidth = 100;
+
+  // jsdom has no layout, so the text width follows the label's current text.
+  Object.defineProperty(prototype, "scrollWidth", {
+    configurable: true,
+    get: () => textWidth
+  });
+  Object.defineProperty(prototype, "clientWidth", {
+    configurable: true,
+    value: 100
+  });
+  context.after(() => {
+    Reflect.deleteProperty(prototype, "scrollWidth");
+    Reflect.deleteProperty(prototype, "clientWidth");
+  });
+  const { Tooltip } = await import("../src/components/ui/tooltip");
+  const tooltip = (text: string) => createElement(Tooltip, {
+    text,
+    describes: false,
+    onlyWhenTruncated: true,
+    children: trigger => createElement("span", {
+      ...trigger,
+      "data-testid": "label"
+    }, text)
+  });
+  const screen = render(tooltip("Groceries"));
+
+  assert.equal(screen.getByTestId("label").getAttribute("tabindex"), null);
+
+  textWidth = 200;
+  screen.rerender(tooltip(fullName));
+
+  assert.equal(screen.getByTestId("label").getAttribute("tabindex"), "0");
+
+  textWidth = 100;
+  screen.rerender(tooltip("Groceries"));
+
+  assert.equal(screen.getByTestId("label").getAttribute("tabindex"), null);
+});

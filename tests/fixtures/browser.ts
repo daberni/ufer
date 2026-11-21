@@ -32,6 +32,12 @@ export function browser(context: TestContext, url = "http://localhost/") {
     navigator: dom.window.navigator,
     HTMLElement: dom.window.HTMLElement,
     FormData: dom.window.FormData,
+    // jsdom lays nothing out, so no element ever changes size.
+    ResizeObserver: class {
+      observe() {}
+
+      disconnect() {}
+    },
     IS_REACT_ACT_ENVIRONMENT: true
   };
   const originalProperties = new Map(Object.keys(globals).map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));

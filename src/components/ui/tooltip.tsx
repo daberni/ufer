@@ -8,6 +8,7 @@ import { useDismiss } from "./use-dismiss";
 
 const hoverDelay = 400;
 const longPressDelay = 500;
+const maxWidth = 320;
 // Lets the pointer cross from the trigger into the tooltip, so a long text can be scrolled.
 const leaveGrace = 150;
 
@@ -128,20 +129,23 @@ export function Tooltip({
     }
 
     const measure = () => setOwnFocusStop(isTruncated(triggerElement));
+    const observer = new ResizeObserver(measure);
 
+    // The observer reports size changes of the trigger; a new text of the same size is measured when it renders.
     measure();
-    window.addEventListener("resize", measure);
+    observer.observe(triggerElement);
 
     return () => {
-      window.removeEventListener("resize", measure);
+      observer.disconnect();
       setOwnFocusStop(false);
     };
-  }, [triggerElement, onlyWhenTruncated]);
+  }, [triggerElement, onlyWhenTruncated, text]);
 
   useAnchoredPopover({
     open,
     anchorRef: triggerRef,
-    popupRef
+    popupRef,
+    maxWidth
   });
 
   useDismiss({
