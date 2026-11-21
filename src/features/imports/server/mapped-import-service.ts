@@ -14,10 +14,13 @@ import { environment } from "@/server/environment";
 import { syncLease, withLease } from "@/server/jobs/lease";
 import { accountKinds } from "@/features/accounts/account-kinds";
 import { validateLiability } from "@/features/accounts/server/account-service";
-import { currencyAllows, normalizeText } from "../csv-values";
+import { currencyAllows } from "../csv-values";
 import { withSplitTags, maxAccountNameLength, maxCategoryLength, maxIdLength, maxSourceLength, type RowError } from "../import-rows";
 import { maxCategoryChoicesPerRequest, maxConsumedPerRequest, maxTargetsPerRequest } from "../import-batches";
-import { duplicateDateToleranceDays, mappedReferencePrefix, type DuplicateReason } from "./duplicate-matching";
+import { mappedReferencePrefix } from "@/lib/booking-references";
+import { duplicateDateToleranceDays } from "@/lib/booking-matching";
+import { normalizeText } from "@/lib/text";
+import type { DuplicateReason } from "./duplicate-matching";
 import type { SplitPartValues } from "@/features/transactions/server/split-repository";
 import { checkMappedEntries, findImportOpening, findImportTarget, listCategoryNames, saveMappedBatch, type MappedEntry, type NewImportAccount, type NewImportCategory, type OpeningBalance } from "./mapped-import-repository";
 

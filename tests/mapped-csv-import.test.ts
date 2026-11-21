@@ -26,7 +26,8 @@ import { syncLease, withLease } from "../src/server/jobs/lease";
 import { accountLabel, categoryValues, defaultCategorySelection, defaultTargetChoice, importKey, newAccountChoice, prepareImport, type TargetChoice } from "../src/features/imports/import-plan";
 import { assignOccurrences, duplicateIdErrors, mapRows, type ImportRow } from "../src/features/imports/import-rows";
 import { batchRows, maxCategoryChoicesPerRequest, maxConsumedPerRequest, maxImportRequestBytes, withConsumed, importIdFor, maxTargetsPerRequest, pruneConsumed } from "../src/features/imports/import-batches";
-import { currencyAllows, normalizeText, detectDateFormat, detectDecimal, parseAmount, parseDate, type DateFormat } from "../src/features/imports/csv-values";
+import { normalizeText } from "../src/lib/text";
+import { currencyAllows, detectDateFormat, detectDecimal, parseAmount, parseDate, type DateFormat } from "../src/features/imports/csv-values";
 import { readCsvTable, parseCsvRecords, decodeCsv, detectDelimiter, parseCsv } from "../src/features/imports/csv-reading";
 import { emptyMapping, mappingProblem, suggestMapping, type CsvSettings } from "../src/features/imports/csv-mapping";
 

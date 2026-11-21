@@ -1,7 +1,8 @@
 import { formatCount } from "@/lib/locale";
+import { normalizeText } from "@/lib/text";
 import { maximumSplitParts } from "@/features/transactions/split-limits";
 import type { CsvMapping, CsvSettings } from "./csv-mapping";
-import { absoluteScaled, affixCurrency, ambiguousSymbols, canonicalAmount, currencyAllows, formatScaled, fractionDigits, negate, normalizeText, parseAmount, parseDate, signedScaled, splitCurrency, type DecimalSeparator } from "./csv-values";
+import { absoluteScaled, affixCurrency, ambiguousSymbols, canonicalAmount, currencyAllows, formatScaled, fractionDigits, negate, parseAmount, parseDate, signedScaled, splitCurrency, type DecimalSeparator } from "./csv-values";
 
 // Maps parsed CSV rows to import rows by a column mapping and the export's row conventions.
 

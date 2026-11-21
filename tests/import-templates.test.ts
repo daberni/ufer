@@ -12,7 +12,7 @@ import { decodeCsv, detectDelimiter, parseCsv } from "../src/features/imports/cs
 import { mapRows } from "../src/features/imports/import-rows";
 import { suggestMapping, type CsvSettings } from "../src/features/imports/csv-mapping";
 import { categoryValues, rememberedChoices, resolveCategories, resolveTargets, sourceAccounts, templateChoices, type CategorySelection, type TargetChoice } from "../src/features/imports/import-plan";
-import { prepareBooking, textsMatch } from "../src/features/imports/server/duplicate-matching";
+import { prepareBooking, textsMatch } from "../src/lib/booking-matching";
 import { importMappedRows } from "../src/features/imports/server/mapped-import-service";
 import { assignOccurrences } from "../src/features/imports/import-rows";
 import { uniqueWrite } from "../src/features/imports/server/template-repository";

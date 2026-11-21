@@ -1,9 +1,7 @@
+import { duplicateDateToleranceDays } from "@/lib/booking-matching";
 import { rowCategoryValues, type ImportRow } from "./import-rows";
 
 // Splits import rows into request batches and bounds the duplicate state carried between them.
-
-/** Days a booking date may differ between duplicates: banks and exports disagree between booking and value date, and weekends shift bookings by up to three days. */
-export const duplicateDateToleranceDays = 3;
 
 /** Most targets one import request accepts; the server applies the same limit. */
 export const maxTargetsPerRequest = 100;
