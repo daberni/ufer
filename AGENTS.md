@@ -33,6 +33,24 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Use checked-in SQL changesets and the documented [migration workflow](docs/database-migrations.md). Never edit applied changesets or automatically upgrade an existing database at web startup. Existing-schema/data migrations need explicit authorization.
 - [Architecture](docs/architecture.md) and [YAML-frontmatter decisions](docs/adr/README.md) distinguish implemented behavior from proposed workspace/identity/SSO models. The application remains single-workspace until scoped authentication, persistence, jobs and cross-workspace checks are implemented.
 
+## Coding standards
+
+These rules add to [docs/code-style.md](docs/code-style.md) and [HTTP errors](docs/http-errors.md).
+
+- Every API route runs through `respond()` with an explicit access mode; a route outside it (such as a redirecting callback) calls `requireAuth` itself and documents why.
+- Money is integer minor units parsed through the shared money helpers; no floating-point arithmetic on amounts and no sums across currencies.
+- Calendar dates are validated `YYYY-MM-DD` strings; "today" and period boundaries come from `src/lib/time.ts`, never `new Date()` in server logic.
+- A write that depends on read state (split sums, writable account, link eligibility) performs that read inside the same transaction.
+- Repository reads and writes of financial rows are scoped to the current banking environment through the account.
+- Provider data is upserted by account and provider reference; user intent (manual category or type, overrides, hidden state, splits, links) lives in separate fields a sync never overwrites.
+- Jobs that mutate shared financial state hold the named job lease; conflicting user operations acquire the same lease.
+- Every cash-flow figure derives from the single counted-lines definition; extend it instead of writing a parallel query.
+- Provider secrets and bank sessions are stored only through the secret box and one-time values only as hashes; secrets never appear in API projections, logs or Problem Details.
+- New browser features or external origins update the CSP and Permissions-Policy in `next.config.ts` in the same change.
+- Prefer Drizzle `sql` fragments; string-built SQL may interpolate only compile-time constants.
+- Risky domain logic (money parsing, split and transfer invariants, sync idempotency, authentication and callback binding) has behavior tests against a real SQLite database.
+- Keep modules focused: split large components into sections and hooks and large modules by responsibility instead of growing single files.
+
 ## Task intake and backlog
 
 - GitHub Issues are the product backlog; use issues and pull requests without adding a GitHub Project unless the user requests one.
