@@ -32,16 +32,24 @@ type Props = (DisplayCurrencies & {
 
 export function PeriodControls(props: Props) {
   const currencies = props.view === "account" ? [] : props.currencies.data ?? [];
+  const controls = (
+    <div className={clsx(styles["period-controls"], !showsCurrencySelect(currencies) && styles["without-currency"])}>
+      <CurrencyChoice currencies={currencies} />
+      <PeriodSelect />
+    </div>
+  );
+
+  // The transactions section heading holds the controls in its row; an account's details give them a row with the count.
+  if (props.view === "transactions") {
+    return controls;
+  }
 
   return (
     <div className={styles["period-bar"]}>
       <div>
-        {props.view === "account" && <TransactionCount count={props.transactionCount} />}
+        <TransactionCount count={props.transactionCount} />
       </div>
-      <div className={clsx(styles["period-controls"], !showsCurrencySelect(currencies) && styles["without-currency"])}>
-        <CurrencyChoice currencies={currencies} />
-        <PeriodSelect />
-      </div>
+      {controls}
     </div>
   );
 }

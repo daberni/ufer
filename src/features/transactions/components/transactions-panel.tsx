@@ -40,8 +40,10 @@ type Props = {
   view: "overview";
 } | {
   view: "transactions";
-  /** The period or sync-run scope, shown between the section heading and the list. */
-  scope: ReactNode;
+  /** The period selection, shown in the section heading's row. */
+  periodControls: ReactNode;
+  /** A selected sync run, shown between the section heading and the list. */
+  scope?: ReactNode;
   /** Accounts offered as a filter. */
   filterAccounts: Area<Account[]>;
 } | {
@@ -91,7 +93,12 @@ export function TransactionsPanel(props: Props) {
   return (
     <>
       {props.view === "transactions" && (
-        <SectionHeading title="Transactions" count={mapArea(list, data => data.transactionCount)} headingRef={headingRef}>
+        <SectionHeading
+          controls={props.periodControls}
+          count={mapArea(list, data => data.transactionCount)}
+          headingRef={headingRef}
+          title="Transactions"
+        >
           {manualAccounts.length > 0 && (
             <button className={ui["button"]} onClick={() => setEntryOpen(true)}>
               <Plus size={15} />

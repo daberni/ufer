@@ -11,6 +11,13 @@
   align-items: center;
   gap: var(--space-2);
 }
+.trailing {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-4);
+}
 .actions {
   position: relative;
   justify-content: flex-end;
@@ -19,6 +26,16 @@
   .section-heading {
     flex-wrap: wrap;
     gap: var(--space-3);
+  }
+  .trailing {
+    flex-basis: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-3);
+  }
+  /* The controls follow the actions on phones. */
+  .controls {
+    order: 1;
   }
   /* The actions take their own full-width row of equal buttons. */
   .actions {

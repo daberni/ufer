@@ -87,15 +87,14 @@ export function TransactionsPage() {
       filterAccounts={query.syncRun ? mapArea(accounts, activeAccounts) : mapArea(groups, data => data.currencyAccounts)}
       list={list}
       page={list.page}
-      scope={query.syncRun ? (
+      periodControls={query.syncRun ? null : <PeriodControls currencies={mapArea(groups, data => data.currencies)} view="transactions" />}
+      scope={query.syncRun && (
         <SyncRunScope
           clear={() => setSyncRun("")}
           found={runFound}
           run={selectedRun}
           transactionCount={transactionCount}
         />
-      ) : (
-        <PeriodControls currencies={mapArea(groups, data => data.currencies)} view="transactions" />
       )}
       view="transactions"
     />

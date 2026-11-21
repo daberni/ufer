@@ -16,6 +16,8 @@ type Props = {
   count: Area<number>;
   /** The section's actions; they share the heading's row and wrap below it on phones. */
   children?: ReactNode;
+  /** Controls that scope the section, such as its period; they sit before the actions and take their own row on phones. */
+  controls?: ReactNode;
   /** Makes the heading a focus target, for example after the focused row disappears. */
   headingRef?: Ref<HTMLHeadingElement>;
 };
@@ -24,6 +26,7 @@ export function SectionHeading({
   title,
   count,
   children,
+  controls,
   headingRef
 }: Props) {
   const locale = useLocale();
@@ -34,7 +37,12 @@ export function SectionHeading({
         {`${title} `}
         <span className={clsx(ui["count-badge"], valueMask(shownStatus(count)))}>{formatCount(count.data ?? 0, locale)}</span>
       </h2>
-      {children && <div className={clsx(ui["button-group"], styles["actions"])}>{children}</div>}
+      {(controls || children) && (
+        <div className={styles["trailing"]}>
+          {controls && <div className={styles["controls"]}>{controls}</div>}
+          {children && <div className={clsx(ui["button-group"], styles["actions"])}>{children}</div>}
+        </div>
+      )}
     </div>
   );
 }
