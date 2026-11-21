@@ -19,7 +19,8 @@
     "format:styles": "prettier --write \"src/**/*.css\"",
     "check:styles": "stylelint \"src/**/*.css\" && prettier --check \"src/**/*.css\"",
     "user:create": "tsx scripts/manage-users.ts create",
-    "user:reset-password": "tsx scripts/manage-users.ts reset-password"
+    "user:reset-password": "tsx scripts/manage-users.ts reset-password",
+    "icons:generate": "tsx scripts/generate-app-icons.ts"
   },
   "engines": {
     "node": "26.x"
@@ -68,6 +69,7 @@
     "jsdom": "^31.0.1",
     "postcss-custom-media": "^12.0.3",
     "prettier": "^3.10.1",
+    "sharp": "^0.35.5",
     "stylelint": "^18.0.0",
     "stylelint-config-recommended": "^19.0.0",
     "stylelint-declaration-strict-value": "^1.13.0",

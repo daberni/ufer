@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { themeAttribute, themeViewport } from "@/features/appearance/theme-preference";
 import { requestThemePreference } from "@/features/appearance/server/request-theme";
+import { appDescription } from "@/components/branding/app-identity";
 import { LocaleProvider } from "@/client/locale-provider";
 import { currentFormatLocale, currentRequestLanguages } from "@/server/http/request-locale";
 import "./globals.css";
@@ -10,7 +11,7 @@ export const metadata: Metadata = {
     default: "Ufer · Your finances, in perspective",
     template: "%s · Ufer"
   },
-  description: "Your personal dashboard for accounts, transactions, and net worth."
+  description: appDescription
 };
 
 export async function generateViewport(): Promise<Viewport> {
