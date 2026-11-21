@@ -162,8 +162,6 @@ export type MappedRow = {
   transfer: boolean;
   /** The parts of a split from amount-bearing tags such as Buxfer's `Fuel:45.52,Groceries:5.88`, signed like the row; null for an unsplit row. A split row has no `category`. */
   parts: SplitPartRow[] | null;
-  /** Why amount-bearing tags could not split the row; such a row is imported unsplit and uncategorized. */
-  splitNote: string | null;
 };
 
 /** One part of a split row: its category value and signed decimal amount with a point. */
@@ -665,7 +663,21 @@ export function mapRows(rows: string[][], mapping: CsvMapping, settings: CsvSett
     // The category value identifies its choice, so it is never shortened: two long values must not merge.
     const tags = cell(mapping.category);
     const split = tagSplit(tags, amount);
+    const transfer = isTransferMarker(cell(mapping.type));
     const category = split ? "" : tags;
+
+    // Split tags must describe the whole booking; a row they do not is skipped, so the person fixes it in the source.
+    if (split && "problem" in split) {
+      failure(split.problem);
+
+      return;
+    }
+
+    if (split && transfer) {
+      failure(transferSplitProblem);
+
+      return;
+    }
 
     if (category.length > maxCategoryLength) {
       failure(`The category is longer than ${formatCount(maxCategoryLength, locale)} characters.`);
@@ -697,9 +709,8 @@ export function mapRows(rows: string[][], mapping: CsvMapping, settings: CsvSett
       category: category || null,
       source,
       id: mapping.id === null ? null : id,
-      transfer: isTransferMarker(cell(mapping.type)),
-      parts: split && "parts" in split ? split.parts : null,
-      splitNote: split && "note" in split ? split.note : null
+      transfer,
+      parts: split ? split.parts : null
     });
   });
 
@@ -764,17 +775,25 @@ export function categoryTags(value: string) {
   return value.split(",").map(tag => tag.trim()).filter(Boolean);
 }
 
+/** Why amount-bearing tags cannot split a row; the import skips the row so the person can fix its tags in the source. */
+export function splitProblem(reason: string) {
+  return `${reason} Split tags must add up to the amount; the row is skipped.`;
+}
+
+/** Only income and expenses are split. */
+export const transferSplitProblem = splitProblem("A transfer cannot be split.");
+
 // A tag ending in a colon and a plain decimal, such as `Car / Fuel:45.52`; the name may contain colons itself.
 const amountTag = /^(.+?)\s*:\s*(-?\d{1,15}(?:\.\d{1,6})?)$/;
 
 /**
  * Reads tags that carry amounts, as Buxfer exports a split transaction, into parts signed like the row: a tag's amount counts in the row's direction, a negative one against it.
- * Null when no tag carries an amount, so the cell is an ordinary category value. Otherwise either the parts, which add up exactly to the row's amount, or a note why the row is imported unsplit and uncategorized.
+ * Null when no tag carries an amount, so the cell is an ordinary category value. Otherwise either the parts, which add up exactly to the row's amount, or the problem that makes the import skip the row.
  */
 export function tagSplit(value: string, amount: string): {
   parts: SplitPartRow[];
 } | {
-  note: string;
+  problem: string;
 } | null {
   const tags = categoryTags(value);
   const matches = tags.map(tag => amountTag.exec(tag));
@@ -784,7 +803,7 @@ export function tagSplit(value: string, amount: string): {
   }
 
   const unsplit = (reason: string) => ({
-    note: `${reason} The row is imported unsplit and uncategorized.`
+    problem: splitProblem(reason)
   });
 
   if (matches.some(match => !match)) {

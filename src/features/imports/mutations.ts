@@ -77,8 +77,6 @@ export type MappedImportSummary = {
   }[];
   possibleDuplicates: number[];
   errors: RowError[];
-  /** Rows with amount-bearing tags that are imported unsplit and uncategorized, with the reason. */
-  splitNotes: RowError[];
   unknownCategories: string[];
   createdCategories: string[];
   toleranceDays: number;
@@ -135,7 +133,6 @@ export function useMappedImport() {
         duplicates: [],
         possibleDuplicates: [],
         errors: [...rowErrors],
-        splitNotes: [],
         unknownCategories: [],
         createdCategories: [],
         toleranceDays: 0
@@ -180,14 +177,12 @@ export function useMappedImport() {
         summary.duplicates.push(...result.duplicates);
         summary.possibleDuplicates.push(...result.possibleDuplicates);
         summary.errors.push(...result.errors);
-        summary.splitNotes.push(...result.splitNotes);
         summary.unknownCategories = [...new Set([...summary.unknownCategories, ...result.unknownCategories])].sort();
         summary.createdCategories = [...new Set([...summary.createdCategories, ...result.createdCategories])].sort();
         summary.toleranceDays = result.toleranceDays;
       }
 
       summary.errors.sort((left, right) => left.line - right.line);
-      summary.splitNotes.sort((left, right) => left.line - right.line);
       summary.duplicates.sort((left, right) => left.line - right.line);
       summary.possibleDuplicates.sort((left, right) => left - right);
 
