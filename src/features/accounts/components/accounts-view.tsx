@@ -1,5 +1,6 @@
 "use client";
 
+import { Tooltip } from "@/components/ui/tooltip";
 import ui from "../../../components/ui/primitives.module.css";
 import accountStyles from "./account-presentation.module.css";
 import contextStyles from "./account-context.module.css";
@@ -168,8 +169,12 @@ function AccountCard({ account }: {
         <span className={clsx(accountStyles["account-logo"], accountStyles[account.kind])}>
           <Icon size={23} />
         </span>
-        <h2>
-          <Link className={styles["account-link"]} href={accountHref(account.id)}>{account.name}</Link>
+        <h2 className={styles["card-name"]}>
+          <Link className={styles["account-link"]} href={accountHref(account.id)}>
+            <Tooltip text={account.name} describes={false} onlyWhenTruncated>
+              {trigger => <span {...trigger} className={styles["card-name-text"]}>{account.name}</span>}
+            </Tooltip>
+          </Link>
         </h2>
         <span className={ui["pill"]}>{kinds[account.kind] ?? account.kind}</span>
       </div>

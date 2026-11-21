@@ -109,7 +109,7 @@ test("a healthy bank account shows its type, institution with its sync date, wit
   assert.ok(panel.getByText("Example bank"));
   assert.match(screen.getByRole("region", {
     name: "Account summary"
-  }).textContent ?? "", /Example bank·Synced Nov 20/);
+  }).textContent ?? "", /Example bankSynced Nov 20/);
   assert.deepEqual(notices(screen), []);
   assert.equal(panel.queryByText(/Enable Banking/), null);
   assert.equal(panel.queryByRole("button", {

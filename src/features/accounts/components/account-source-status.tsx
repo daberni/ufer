@@ -44,7 +44,6 @@ export function AccountSourceStatus({
   return (
     <span className={styles["status"]}>
       <span className={styles["label"]}>{label}</span>
-      <span className={styles["separator"]} aria-hidden="true">·</span>
       <span className={clsx(styles["state"], state.kind === "attention" && styles["problem"], state.kind === "error" && styles["failed"])} title={state.kind === "error" ? account.sync_error ?? undefined : undefined}>
         {dot}
         <span>{state.kind === "synced" ? <SyncedLabel at={state.at} withDate={withDate} /> : stateLabels[state.kind]}</span>
