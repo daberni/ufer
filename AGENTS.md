@@ -37,9 +37,9 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 These rules add to [docs/code-style.md](docs/code-style.md) and [HTTP errors](docs/http-errors.md).
 
-- Every API route runs through `respond()` with an explicit access mode; a route outside it (such as a redirecting callback) calls `requireAuth` itself and documents why.
+- Every API route runs through `respond()` with an explicit access mode; a route outside it (such as a redirecting callback) calls `requireAuth` itself and documents why. Exceptions: the Better Auth handler (`/api/auth`), which must accept unauthenticated sign-in, and the JSON-404 fallback.
 - Money is integer minor units parsed through the shared money helpers; no floating-point arithmetic on amounts and no sums across currencies.
-- Calendar dates are validated `YYYY-MM-DD` strings; "today" and period boundaries come from `src/lib/time.ts`, never `new Date()` in server logic.
+- Calendar dates are validated `YYYY-MM-DD` strings; "today" comes from `src/lib/time.ts`, periods from `src/lib/period.ts` and SQL date boundaries from `src/features/transactions/server/period-condition.ts`, never `new Date()` in server logic.
 - A write that depends on read state (split sums, writable account, link eligibility) performs that read inside the same transaction.
 - Repository reads and writes of financial rows are scoped to the current banking environment through the account.
 - Provider data is upserted by account and provider reference; user intent (manual category or type, overrides, hidden state, splits, links) lives in separate fields a sync never overwrites.
