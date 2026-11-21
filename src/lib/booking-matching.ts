@@ -96,7 +96,7 @@ export function matchBooking<T extends Booking>(candidate: PreparedBooking<Booki
   const sharing = fits.filter(index => sameDay(prepared.bookings[index], candidate));
 
   // Bookings on the very same date are interchangeable, so the first one matches; a date shared only through a bank booking date may belong to either booking.
-  if (sharing.length > 1 && sharing.some(index => bookingDays(prepared.bookings[index]).length > 1 || bookingDays(candidate).length > 1)) {
+  if (sharing.length > 1 && sharing.some(index => prepared.bookings[index].date !== candidate.date)) {
     return "ambiguous";
   }
 

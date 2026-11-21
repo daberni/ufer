@@ -365,3 +365,58 @@ test("a repeated bank reference with another booking date stops the import", () 
     booking_date: "2026-11-03"
   }], new Set()), /different transactions/);
 });
+
+test("repeated purchases on one value date match stored bookings one by one, whatever their bank booking dates", () => {
+  const candidate = prepareBooking({
+    date: "2026-10-31",
+    amount: -4200,
+    counterparty: "Example Market",
+    description: ""
+  });
+  const bookings = prepareBookings([{
+    date: "2026-10-31",
+    bookingDate: "2026-11-02",
+    amount: -4200,
+    counterparty: "Example Market",
+    description: ""
+  }, {
+    date: "2026-10-31",
+    bookingDate: "2026-11-03",
+    amount: -4200,
+    counterparty: "Example Market",
+    description: ""
+  }]);
+
+  assert.equal(matchBooking(candidate, bookings, () => true), 0);
+  assert.equal(matchBooking(candidate, bookings, index => index !== 0), 1);
+});
+
+test("a booking valued before the opening balance but booked after its report does not reduce it", async context => {
+  await freshDatabase(context);
+
+  await syncBookings([{
+    ...cardPayment,
+    entry_reference: "earlier",
+    booking_date: "2026-10-28",
+    value_date: "2026-10-28",
+    transaction_amount: {
+      amount: "10.00",
+      currency: "EUR"
+    }
+  }], {
+    amount: "1000.00",
+    date: "2026-11-01"
+  });
+  await syncBookings([{
+    ...cardPayment,
+    value_date: "2026-10-25"
+  }], {
+    amount: "958.00",
+    date: "2026-11-02"
+  });
+
+  const account = (await listAccounts()).find(item => item.id === "checking");
+
+  assert.equal(account?.balance_minor, 95800);
+  assert.equal(account?.reported_difference_minor, 0);
+});
