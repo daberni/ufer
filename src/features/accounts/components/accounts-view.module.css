@@ -22,6 +22,19 @@
   outline: var(--focus-ring);
   outline-offset: 2px;
 }
+/* A long account name stays on one line and shows in full in a tooltip, so card headers keep one height. */
+.card-name {
+  flex: 1;
+  min-width: 0;
+}
+.card-name .account-link {
+  display: block;
+  min-width: 0;
+}
+.card-name-text {
+  composes: truncate from "../../../components/ui/primitives.module.css";
+  display: block;
+}
 /* Icon and chosen name side by side, the type pill at the end; the same order as list rows and the details summary. */
 .card-header {
   display: flex;
