@@ -47,15 +47,19 @@ export function describeDate(value: Temporal.PlainDate | Temporal.ZonedDateTime,
 /** A timestamp labelled with its day and minute, so several events on one day stay distinguishable. */
 export function describeDateTime(value: Temporal.ZonedDateTime, locale: string, now = Temporal.Now.instant()): DateDisplay {
   const display = describeDate(value, locale, now);
-  const time = value.toLocaleString(locale, {
-    calendar: "gregory",
-    hour: "numeric",
-    minute: "2-digit"
-  });
+  const currentYear = now.toZonedDateTimeISO(value.timeZoneId).year;
 
+  // One locale-aware call keeps the locale's own order and punctuation between date and time.
   return {
     ...display,
-    label: `${display.label}, ${time}`
+    label: value.toLocaleString(locale, {
+      calendar: "gregory",
+      day: "numeric",
+      month: "short",
+      year: value.year === currentYear ? undefined : "numeric",
+      hour: "numeric",
+      minute: "2-digit"
+    })
   };
 }
 

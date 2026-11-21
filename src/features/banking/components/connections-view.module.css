@@ -117,7 +117,7 @@
   color: var(--green-text);
 }
 .sync-status.partial {
-  color: var(--status-warning);
+  color: var(--status-warning-text);
 }
 .sync-status.failed {
   color: var(--danger);
