@@ -17,6 +17,8 @@ import type { NetWorth } from "@/features/accounts/types";
 import { Temporal } from "temporal-polyfill";
 import { netWorthBars } from "@/features/reports/net-worth-bars";
 import { shortMonthWithYear } from "@/lib/date-format";
+import { SignedArea } from "@/components/ui/signed-area";
+import { valueScale } from "@/lib/value-scale";
 import { netWorthChange, type NetWorthChange, type NetWorthHistory, type NetWorthPoint } from "@/features/reports/net-worth-series";
 import { useCurveActivation } from "@/features/reports/use-curve-activation";
 import { useLocale } from "@/client/locale-provider";
@@ -201,13 +203,14 @@ function HistoryCurve({
     return null;
   }
 
-  const amounts = points.map(point => point.amount_minor);
-  const high = Math.max(...amounts);
-  const range = high - Math.min(...amounts);
   // Min–max scale between a small top margin and a base fifth of the height, so the area never touches the bottom edge; a flat year rests on that base.
-  const y = (amount: number) => range ? curveTop + (high - amount) / range * (curveBase - curveTop) : curveBase;
+  const scale = valueScale(points.map(point => point.amount_minor), {
+    top: curveTop,
+    base: curveBase,
+    flat: curveBase
+  });
   const x = (index: number) => index / (points.length - 1) * 100;
-  const line = points.map((point, index) => `${index ? "L" : "M"}${x(index)},${y(point.amount_minor)}`).join(" ");
+  const line = points.map((point, index) => `${index ? "L" : "M"}${x(index)},${scale.y(point.amount_minor)}`).join(" ");
 
   return (
     <svg
@@ -217,8 +220,16 @@ function HistoryCurve({
       aria-hidden="true"
       focusable="false"
     >
-      <path className={styles["history-area"]} d={`${line} L100,40 L0,40 Z`} />
-      <path className={styles["history-line"]} d={line} vectorEffect="non-scaling-stroke" />
+      <SignedArea
+        line={line}
+        height={curveHeight}
+        zero={scale.zero}
+        areaClassName={styles["history-area"]}
+        lineClassName={styles["history-line"]}
+        positiveClassName={styles["positive"]}
+        negativeClassName={styles["negative"]}
+        zeroClassName={styles["zero"]}
+      />
     </svg>
   );
 }

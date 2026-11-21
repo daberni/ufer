@@ -4,6 +4,7 @@ import ui from "../../../components/ui/primitives.module.css";
 
 import { useId, useMemo } from "react";
 import { clsx } from "clsx";
+import { SignedArea } from "@/components/ui/signed-area";
 import { money } from "@/lib/money";
 import { plotBalances } from "@/features/accounts/balance-chart";
 import { describeBalanceSource, describeBalanceDate } from "@/features/accounts/balance-presentation";
@@ -40,7 +41,6 @@ export function BalanceHistoryChart({
   const amount = money(balance.amount_minor, currency, locale);
   const activePoint = activeIndex === null ? null : chart.points[activeIndex];
   const line = useMemo(() => chart.points.map((point, index) => index ? `H${point.x} V${point.y}` : `M${point.x} ${point.y}`).join(" "), [chart]);
-  const area = `${line} L100 100 L0 100 Z`;
 
   return (
     <figure className={styles["chart"]}>
@@ -74,8 +74,16 @@ export function BalanceHistoryChart({
           aria-hidden="true"
           focusable="false"
         >
-          <path className={styles["area"]} d={area} />
-          <path className={styles["line"]} d={line} vectorEffect="non-scaling-stroke" />
+          <SignedArea
+            line={line}
+            height={100}
+            zero={chart.zero}
+            areaClassName={styles["area"]}
+            lineClassName={styles["line"]}
+            positiveClassName={styles["positive"]}
+            negativeClassName={styles["negative"]}
+            zeroClassName={styles["zero"]}
+          />
         </svg>
         {activePoint && (
           <span
@@ -87,6 +95,7 @@ export function BalanceHistoryChart({
           >
             <i
               className={styles["point"]}
+              data-negative={balance.amount_minor < 0 && chart.zero !== null ? "" : undefined}
               style={{
                 top: `${activePoint.y}%`
               }}
