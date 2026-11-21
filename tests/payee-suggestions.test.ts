@@ -313,6 +313,40 @@ test("ArrowDown in a prefilled field highlights the first suggestion once it arr
   assert.deepEqual(submitted, []);
 });
 
+test("ArrowUp in a prefilled field highlights the last suggestion once it arrives", async context => {
+  const {
+    field,
+    requests,
+    screen
+  } = await renderPayeeInput(context, "cor");
+
+  press(field, "ArrowUp");
+  await respond(requests("transactions/payees")[0], Response.json({
+    payees: ["Corner Bakery", "Corner Shop"]
+  }));
+
+  assert.equal(field.getAttribute("aria-activedescendant"), options(screen)[1].id);
+
+  press(field, "Enter");
+  assert.equal(field.value, "Corner Shop");
+});
+
+test("Escape while suggestions are still loading keeps the list closed when they arrive", async context => {
+  const {
+    field,
+    requests
+  } = await renderPayeeInput(context, "cor");
+
+  press(field, "ArrowDown");
+  press(field, "Escape");
+  await respond(requests("transactions/payees")[0], Response.json({
+    payees: ["Corner Bakery", "Corner Shop"]
+  }));
+
+  assert.equal(field.getAttribute("aria-expanded"), "false");
+  assert.equal(field.value, "cor");
+});
+
 test("a pointer picks a suggestion and Escape closes the list without clearing the text", async context => {
   const {
     field,

@@ -2,7 +2,7 @@
 
 import styles from "../../../components/ui/searchable-select.module.css";
 import { useEffect, useRef, useState } from "react";
-import type { RefObject } from "react";
+import type { KeyboardEvent, RefObject } from "react";
 import { useAnchoredPopover } from "@/components/ui/use-anchored-popover";
 import { useComboboxOptions } from "@/components/ui/use-combobox-options";
 import { useDismiss } from "@/components/ui/use-dismiss";
@@ -47,8 +47,8 @@ export function PayeeInput({
   // The suggestions last shown for the current text, so keys that reopen a closed list start on them, such as ArrowDown after Escape.
   const [knownCount, setKnownCount] = useState(0);
 
-  // A key that opened the list before any suggestions were known highlights the first one once they arrive, so Enter picks it.
-  const [highlightOnArrival, setHighlightOnArrival] = useState(false);
+  // An arrow key that opened the list before any suggestions were known waits for them: ArrowDown highlights the first, ArrowUp the last.
+  const [awaitedHighlight, setAwaitedHighlight] = useState<"first" | "last" | null>(null);
 
   if (expanded && shown.length !== knownCount) {
     setKnownCount(shown.length);
@@ -66,17 +66,14 @@ export function PayeeInput({
     optionCount: expanded ? shown.length : knownCount,
     listboxRef,
     freeText: true,
-    onOpen: () => {
-      setOpen(true);
-      setHighlightOnArrival(knownCount === 0);
-    },
+    onOpen: () => setOpen(true),
     onSelect: index => pick(shown[index]),
     onClose: close
   });
 
-  if (highlightOnArrival && expanded) {
-    setHighlightOnArrival(false);
-    setActiveIndex(0);
+  if (awaitedHighlight && expanded) {
+    setAwaitedHighlight(null);
+    setActiveIndex(awaitedHighlight === "first" ? 0 : shown.length - 1);
   }
 
   useEffect(() => {
@@ -105,8 +102,27 @@ export function PayeeInput({
 
   function close() {
     setOpen(false);
-    setHighlightOnArrival(false);
+    setAwaitedHighlight(null);
     setActiveIndex(-1);
+  }
+
+  function handleFieldKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    // Escape cancels a list still waiting for its suggestions, as it closes a shown one.
+    if (awaitedHighlight && event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      close();
+
+      return;
+    }
+
+    const awaitsSuggestions = !expanded && knownCount === 0;
+
+    handleKeyDown(event);
+
+    if (awaitsSuggestions && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
+      setAwaitedHighlight(event.key === "ArrowDown" ? "first" : "last");
+    }
   }
 
   function pick(payee: string) {
@@ -146,13 +162,13 @@ export function PayeeInput({
           onChange={event => {
             setQuery(event.target.value);
             setKnownCount(0);
-            setHighlightOnArrival(false);
+            setAwaitedHighlight(null);
             setOpen(true);
             setActiveIndex(-1);
             onValueChange?.(event.target.value);
           }}
           onBlur={close}
-          onKeyDown={handleKeyDown}
+          onKeyDown={handleFieldKeyDown}
         />
       </label>
       <div ref={popupRef} className={styles["popup"]} popover="manual">
