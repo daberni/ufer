@@ -13,7 +13,7 @@ import { findCounterpart, findSubject } from "./transfer-subjects";
 const referenceChunkSize = 500;
 
 /**
- * Lets a bank delivery take over rows a mapped CSV import saved for the same bookings, matched by the import's duplicate rule. The row gets the bank reference, so the following upsert updates it with the provider data instead of inserting a duplicate; the returned entries carry the row's category, so it survives that upsert.
+ * Lets a bank delivery take over rows a mapped CSV import saved for the same bookings, matched by the import's duplicate rule. The row gets the bank reference, so the following upsert updates it with the provider data instead of inserting a duplicate; the returned entries carry the row's category, so it survives that upsert, and an income or expense type the file stated against the amount's direction (a refund), unless a rule decides the delivery's type.
  */
 export async function adoptImportedRows(tx: DatabaseTransaction, accountId: string, entries: CategorizedEntry[]) {
   if (entries.length === 0) {
@@ -29,7 +29,10 @@ export async function adoptImportedRows(tx: DatabaseTransaction, accountId: stri
     counterparty: transactions.counterparty,
     description: transactions.description,
     categoryId: transactions.category_id,
-    categoryRuleId: transactions.category_rule_id
+    categoryRuleId: transactions.category_rule_id,
+    type: transactions.type,
+    typeSource: transactions.type_source,
+    typeRuleId: transactions.type_rule_id
   }).from(transactions).where(and(eq(transactions.account_id, accountId), like(transactions.provider_reference, `${mappedReferencePrefix}%`), between(transactions.booking_date, window.from, window.to)));
 
   if (imported.length === 0) {
@@ -73,11 +76,30 @@ export async function adoptImportedRows(tx: DatabaseTransaction, accountId: stri
     adopted.push({
       ...entry,
       categoryId: row.categoryId,
-      categoryRuleId: row.categoryRuleId
+      categoryRuleId: row.categoryRuleId,
+      ...(entry.ruleType === null && statedType(row) ? {
+        ruleType: statedType(row)
+      } : {})
     });
   }
 
   return adopted;
+}
+
+/** The income or expense type a CSV file stated against the amount's direction, such as a refund; null when the type is derived, set by a rule or corrected by a person, whose corrections the upsert keeps anyway. */
+function statedType(row: {
+  amount: number;
+  type: string;
+  typeSource: string;
+  typeRuleId: string | null;
+}) {
+  const stated = row.type === "income" || row.type === "expense";
+
+  if (!stated || row.typeSource !== "auto" || row.typeRuleId !== null || row.type === derivedTransactionType(row.amount)) {
+    return null;
+  }
+
+  return row.type as "income" | "expense";
 }
 
 /**

@@ -1,4 +1,5 @@
 import { keepBankOpeningBalanceFirst } from "@/features/accounts/server/opening-balance-repository";
+import type { ImportType } from "../import-rows";
 import { randomUUID } from "node:crypto";
 import { and, between, eq, inArray, ne, notInArray, sql } from "drizzle-orm";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
@@ -33,8 +34,8 @@ export type MappedEntry = {
   ruleType: RuleTransactionType | null;
   typeRuleId: string | null;
   typeTransferAccountId: string | null;
-  /** Marked as a transfer by the file; saved with an automatic transfer type so pairing can link it. */
-  transfer: boolean;
+  /** The type the file's type column states; null derives it from the amount. A transfer is saved as detected so pairing can link it, and an expense with a positive amount is a refund. */
+  fileType: ImportType | null;
   /** When set, the booking is saved hidden: stored for duplicate matching but excluded from balances, reports and pairing. */
   hiddenAt: string | null;
   /** The parts of a split booking, saved with it; the booking itself then has no category. */
@@ -316,11 +317,11 @@ async function saveAccountRows(tx: DatabaseTransaction, {
       category_id: entry.categoryId,
       category_source: entry.categorySource,
       category_rule_id: entry.categoryRuleId,
-      // A rule's type wins over the file's transfer marker, as on syncs; the marker restores Transfer when the rule stops deciding.
-      type: entry.ruleType ?? derivedTransactionType(entry.amount, entry.transfer),
+      // A rule's type wins over the file's type, as on syncs; a transfer marker restores Transfer when the rule stops deciding.
+      type: entry.ruleType ?? entry.fileType ?? derivedTransactionType(entry.amount),
       type_rule_id: entry.typeRuleId,
       type_transfer_account_id: entry.typeTransferAccountId,
-      transfer_detected: entry.transfer ? 1 : 0,
+      transfer_detected: entry.fileType === "transfer" ? 1 : 0,
       // A row hidden by the import shares its creation time, which tells it apart from a booking a person hid later.
       ...(entry.hiddenAt ? {
         created_at: entry.hiddenAt,

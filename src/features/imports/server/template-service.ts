@@ -1,11 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { HttpError } from "@/lib/errors";
-import { builtInTemplates, maxColumnNameLength, maxTemplateColumns, maxTemplateNameLength } from "../csv-templates";
+import { builtInTemplates, templateTypeValues, maxColumnNameLength, maxTemplateColumns, maxTemplateNameLength } from "../csv-templates";
 import { dateFormats } from "../csv-values";
 import { emptyMapping, type CsvMapping } from "../csv-mapping";
 import { maxCategoryChoicesPerRequest, maxTargetsPerRequest } from "../import-batches";
-import { maxCategoryLength, maxSourceLength } from "../import-rows";
+import { importTypes, maxCategoryLength, maxSourceLength } from "../import-rows";
 import { deleteTemplate, TemplateLimitReached, insertTemplate, listTemplates, updateTemplate, type TemplateDefinition } from "./template-repository";
 import { formatCount } from "@/lib/locale";
 import { currentFormatLocale } from "@/server/http/request-locale";
@@ -13,6 +13,10 @@ import { currentFormatLocale } from "@/server/http/request-locale";
 const name = z.string().trim().min(1).max(maxTemplateNameLength);
 
 const column = z.string().trim().max(maxColumnNameLength);
+
+const maxTypeValueLength = 100;
+
+const maxTypeValues = 100;
 
 const fields = Object.keys(emptyMapping) as [keyof CsvMapping, ...(keyof CsvMapping)[]];
 
@@ -24,7 +28,9 @@ const definitionFields = {
   }).strict(),
   columns: z.partialRecord(z.enum(fields), z.number().int().min(0).max(maxTemplateColumns - 1)),
   accounts: z.record(z.string().max(maxSourceLength), z.string().min(1).max(100)).refine(accounts => Object.keys(accounts).length <= maxTargetsPerRequest, "Too many account choices."),
-  categories: z.record(z.string().max(maxCategoryLength), z.string().min(1).max(100)).refine(categories => Object.keys(categories).length <= maxCategoryChoicesPerRequest, "Too many category choices.")
+  categories: z.record(z.string().max(maxCategoryLength), z.string().min(1).max(100)).refine(categories => Object.keys(categories).length <= maxCategoryChoicesPerRequest, "Too many category choices."),
+  // Keys are lowercase type values, as the import looks them up.
+  types: z.record(z.string().trim().toLowerCase().min(1).max(maxTypeValueLength), z.enum(importTypes)).refine(types => Object.keys(types).length <= maxTypeValues, "Too many type values.").optional()
 };
 
 type DefinitionShape = {
@@ -80,7 +86,8 @@ export async function duplicateTemplate(id: string, payload: unknown) {
     settings: source.settings,
     columns: source.columns,
     accounts: source.accounts,
-    categories: source.categories
+    categories: source.categories,
+    types: templateTypeValues(source)
   });
 }
 

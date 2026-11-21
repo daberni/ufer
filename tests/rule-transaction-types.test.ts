@@ -671,7 +671,7 @@ test("a rule's type wins over a CSV row's transfer marker on import and when app
       source: "",
       occurrence: 0,
       id: "sweep",
-      transfer: true
+      type: "transfer"
     }],
     targets: [{
       source: "",
