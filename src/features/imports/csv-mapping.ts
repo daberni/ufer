@@ -162,6 +162,8 @@ export type MappedRow = {
   transfer: boolean;
   /** The parts of a split from amount-bearing tags such as Buxfer's `Fuel:45.52,Groceries:5.88`, signed like the row; null for an unsplit row. A split row has no `category`. */
   parts: SplitPartRow[] | null;
+  /** The original tag text of a split row, appended to the description if the server cannot take the split. */
+  tags: string | null;
 };
 
 /** One part of a split row: its category value and signed decimal amount with a point. */
@@ -662,22 +664,12 @@ export function mapRows(rows: string[][], mapping: CsvMapping, settings: CsvSett
 
     // The category value identifies its choice, so it is never shortened: two long values must not merge.
     const tags = cell(mapping.category);
-    const split = tagSplit(tags, amount);
     const transfer = isTransferMarker(cell(mapping.type));
-    const category = split ? "" : tags;
-
-    // Split tags must describe the whole booking; a row they do not is skipped, so the person fixes it in the source.
-    if (split && "problem" in split) {
-      failure(split.problem);
-
-      return;
-    }
-
-    if (split && transfer) {
-      failure(transferSplitProblem);
-
-      return;
-    }
+    const tagged = tagSplit(tags, amount);
+    // Only income and expenses are split. Tags that do not form a valid split import the row unsplit, keeping the tags in its description.
+    const split = tagged && "parts" in tagged && !transfer ? tagged : null;
+    const category = tagged ? "" : tags;
+    const description = tagged && !split ? withSplitTags(cell(mapping.description), tags) : cell(mapping.description);
 
     if (category.length > maxCategoryLength) {
       failure(`The category is longer than ${formatCount(maxCategoryLength, locale)} characters.`);
@@ -705,12 +697,13 @@ export function mapRows(rows: string[][], mapping: CsvMapping, settings: CsvSett
       amount,
       currency,
       payee: cell(mapping.payee).slice(0, 500),
-      description: cell(mapping.description).slice(0, 2000),
+      description: description.slice(0, 2000),
       category: category || null,
       source,
       id: mapping.id === null ? null : id,
       transfer,
-      parts: split ? split.parts : null
+      parts: split ? split.parts : null,
+      tags: split ? tags : null
     });
   });
 
@@ -775,20 +768,24 @@ export function categoryTags(value: string) {
   return value.split(",").map(tag => tag.trim()).filter(Boolean);
 }
 
-/** Why amount-bearing tags cannot split a row; the import skips the row so the person can fix its tags in the source. */
-export function splitProblem(reason: string) {
-  return `${reason} Split tags must add up to the amount; the row is skipped.`;
-}
+/** Appends tags that carry amounts but form no valid split to a description, so nothing from the export is lost: `… · Split: Car / Fuel 45.52, Groceries 5.88`. */
+export function withSplitTags(description: string, tags: string) {
+  const listed = categoryTags(tags).map(tag => {
+    const match = amountTag.exec(tag);
 
-/** Only income and expenses are split. */
-export const transferSplitProblem = splitProblem("A transfer cannot be split.");
+    return match ? `${match[1].trim()} ${match[2]}` : tag;
+  }).join(", ");
+  const text = `Split: ${listed}`;
+
+  return description ? `${description} · ${text}` : text;
+}
 
 // A tag ending in a colon and a plain decimal, such as `Car / Fuel:45.52`; the name may contain colons itself.
 const amountTag = /^(.+?)\s*:\s*(-?\d{1,15}(?:\.\d{1,6})?)$/;
 
 /**
  * Reads tags that carry amounts, as Buxfer exports a split transaction, into parts signed like the row: a tag's amount counts in the row's direction, a negative one against it.
- * Null when no tag carries an amount, so the cell is an ordinary category value. Otherwise either the parts, which add up exactly to the row's amount, or the problem that makes the import skip the row.
+ * Null when no tag carries an amount, so the cell is an ordinary category value. Otherwise either the parts, which add up exactly to the row's amount, or why they form no valid split.
  */
 export function tagSplit(value: string, amount: string): {
   parts: SplitPartRow[];
@@ -803,7 +800,7 @@ export function tagSplit(value: string, amount: string): {
   }
 
   const unsplit = (reason: string) => ({
-    problem: splitProblem(reason)
+    problem: reason
   });
 
   if (matches.some(match => !match)) {

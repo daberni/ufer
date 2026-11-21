@@ -10,7 +10,7 @@ import * as schema from "../src/server/database/schema";
 import { insertRule } from "../src/features/categorization/server/rule-repository";
 import { importMappedRows } from "../src/features/imports/server/mapped-import-service";
 import { categoryValues } from "../src/features/imports/import-plan";
-import { assignOccurrences, buxferTemplate, mapRows, parseCsv, tagSplit, templateMapping, type CsvSettings, type MappedRow } from "../src/features/imports/csv-mapping";
+import { assignOccurrences, buxferTemplate, mapRows, parseCsv, tagSplit, templateMapping, withSplitTags, type CsvSettings, type MappedRow } from "../src/features/imports/csv-mapping";
 
 const now = Temporal.Instant.from("2026-06-30T12:00:00Z");
 const importId = "00000000-0000-4000-8000-000000000247";
@@ -113,7 +113,7 @@ test("amount-bearing tags become parts signed like the row, with decimals and wh
   assert.equal(tagSplit("", "-10"), null);
 });
 
-test("tags that cannot split the row explain why it is skipped", () => {
+test("tags that cannot split the row are recognized", () => {
   assert.match(problemOf(tagSplit("Car:45.52,Groceries", "-45.52")), /A tag has no amount/);
   assert.match(problemOf(tagSplit("Car:10", "-10")), /at least two tags/);
   assert.match(problemOf(tagSplit("Groceries:15,Car:6", "-20")), /add up to -21 instead of -20/);
@@ -132,10 +132,11 @@ test("the category review lists each part's name instead of the tag list", () =>
     errors
   } = mappedBuxferRows();
 
-  // The row whose tags do not add up is skipped with its reason, so the person fixes it in the source.
-  assert.deepEqual(errors.map(error => error.line), [4]);
-  assert.match(errors[0].message, /add up to -21 instead of -20.*skipped/);
-  assert.deepEqual(rows.map(row => row.category), [null, null, "Groceries"]);
+  // Tags that do not add up import the row unsplit and keep the original tags in its description.
+  assert.deepEqual(errors, []);
+  assert.deepEqual(rows.map(row => row.category), [null, null, null, "Groceries"]);
+  assert.deepEqual([rows[2].parts, rows[2].description], [null, "Market · Split: Groceries 15, Car 6"]);
+  assert.equal(withSplitTags("", "Health:10, Groceries"), "Split: Health 10, Groceries");
   // Rules never categorize parts, so values used only by parts are not offered to the rules.
   assert.deepEqual(categoryValues(rows, []).map(value => [value.value, value.rows, value.multiTag, value.splitOnly]), [
     ["Groceries", 2, false, false],
@@ -145,7 +146,7 @@ test("the category review lists each part's name instead of the tag list", () =>
   ]);
 });
 
-test("split rows import as split bookings, and re-importing adds neither bookings nor parts", async context => {
+test("valid splits import as split bookings, invalid ones as rule-categorized bookings, and re-importing changes nothing", async context => {
   const db = await isolatedDatabase(context);
   const {
     rows
@@ -155,7 +156,7 @@ test("split rows import as split bookings, and re-importing adds neither booking
     action: "create"
   }));
 
-  // A rule that would categorize and retype every row must leave split bookings alone.
+  // A rule that categorizes and retypes every row must leave split bookings alone and decide the invalid split like any booking.
   await db.insert(schema.categories).values({
     id: "synthetic-misc",
     name: "Miscellaneous",
@@ -176,12 +177,12 @@ test("split rows import as split bookings, and re-importing adds neither booking
   const checked = await importMappedRows(payload(rows, false, choices), now);
 
   assert.deepEqual(checked.errors, []);
-  assert.equal(checked.newRows, 3);
+  assert.equal(checked.newRows, 4);
 
   const confirmed = await importMappedRows(payload(rows, true, choices), now);
   const again = await importMappedRows(payload(rows, true, choices), now);
 
-  assert.equal(confirmed.newRows, 3);
+  assert.equal(confirmed.newRows, 4);
   assert.equal(again.newRows, 0);
 
   const bookings = await db.select().from(schema.transactions).orderBy(asc(schema.transactions.booking_date));
@@ -189,49 +190,55 @@ test("split rows import as split bookings, and re-importing adds neither booking
   const categories = new Map((await db.select().from(schema.categories)).map(category => [category.id, category.name]));
   const partsOf = (id: string) => parts.filter(part => part.transaction_id === id).map(part => [categories.get(part.category_id ?? ""), part.amount_minor]);
 
-  assert.equal(bookings.length, 3);
+  assert.equal(bookings.length, 4);
   assert.equal(parts.length, 4);
   assert.deepEqual(partsOf(bookings[0].id), [["Car / Fuel", -4552], ["Groceries", -588]]);
   assert.deepEqual(partsOf(bookings[1].id), [["Car", -7000], ["Cash", -10000]]);
   assert.deepEqual([bookings[0].category_id, bookings[0].category_source, bookings[0].type], [null, "manual", "expense"]);
-  assert.equal(categories.get(bookings[2].category_id ?? ""), "Groceries");
+  assert.deepEqual([bookings[2].description, bookings[2].category_id, bookings[2].category_source, bookings[2].category_rule_id, bookings[2].type], ["Market · Split: Groceries 15, Car 6", "synthetic-misc", "rule", "synthetic-rule-all", "transfer"]);
+  assert.deepEqual(partsOf(bookings[2].id), []);
+  assert.equal(categories.get(bookings[3].category_id ?? ""), "Groceries");
 });
 
-test("the server skips a row whose tag amounts the account currency cannot hold", async context => {
+test("tags the server cannot take as a split import an unsplit booking that keeps them in its description", async context => {
   const db = await isolatedDatabase(context);
+  const header = "ID,Date,Description,Currency,Amount,Type,Tags,Account,Status,Memo,IOU";
   const {
     rows
   } = mappedBuxferRows([
-    "ID,Date,Description,Currency,Amount,Type,Tags,Account,Status,Memo,IOU",
-    "9,2026-01-10,\"Shop\",EUR,-10,Expense,\"Car:9.995,Cash:0.005\",\"Checking\",Cleared,\" \""
+    header,
+    "9,2026-01-10,\"Shop\",EUR,-10,Expense,\"Car:9.995,Cash:0.005\",\"Checking\",Cleared,\" \"",
+    "10,2026-01-11,\"To savings\",EUR,-10,Expense,\"Car:5,Cash:5\",\"Checking\",Cleared,\" \""
   ].join("\n"));
 
-  assert.deepEqual(rows[0].parts?.length, 2);
+  assert.deepEqual(rows.map(row => row.parts?.length), [2, 2]);
 
-  const result = await importMappedRows(payload(rows, true), now);
-  const [booking] = await db.select().from(schema.transactions).where(eq(schema.transactions.account_id, "synthetic-checking"));
-
-  assert.deepEqual(result.errors.map(error => error.line), [2]);
-  assert.equal(result.newRows, 0);
-  assert.equal(booking, undefined);
-});
-
-test("a transfer row with amount-bearing tags is skipped, also when only the server sees it", async context => {
-  await isolatedDatabase(context);
-  const transferRow = "9,2026-01-10,\"To savings\",EUR,-10,Transfer,\"Car:5,Cash:5\",\"Checking\",Cleared,\" \"";
-  const header = "ID,Date,Description,Currency,Amount,Type,Tags,Account,Status,Memo,IOU";
-  const mapped = mappedBuxferRows([header, transferRow].join("\n"));
-
-  assert.match(mapped.errors[0]?.message ?? "", /transfer cannot be split/);
-
-  const {
-    rows
-  } = mappedBuxferRows([header, transferRow.replace("Transfer", "Expense")].join("\n"));
-  const result = await importMappedRows(payload(rows.map(row => ({
+  // The second row reaches the server as a transfer, which is never split.
+  const sent = rows.map(row => row.line === 3 ? {
     ...row,
     transfer: true
-  })), false), now);
+  } : row);
+  const result = await importMappedRows(payload(sent, true), now);
+  const bookings = await db.select().from(schema.transactions).where(eq(schema.transactions.account_id, "synthetic-checking")).orderBy(asc(schema.transactions.booking_date));
 
-  assert.match(result.errors[0]?.message ?? "", /transfer cannot be split/);
-  assert.equal(result.newRows, 0);
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.newRows, 2);
+  assert.equal((await db.select().from(schema.transactionSplits)).length, 0);
+  assert.deepEqual(bookings.map(booking => [booking.description, booking.category_source, booking.type]), [
+    ["Shop · Split: Car 9.995, Cash 0.005", "rule", "expense"],
+    ["To savings · Split: Car 5, Cash 5", "rule", "transfer"]
+  ]);
+});
+
+test("a transfer row with amount-bearing tags is not split and keeps its tags in the description", () => {
+  const {
+    rows,
+    errors
+  } = mappedBuxferRows([
+    "ID,Date,Description,Currency,Amount,Type,Tags,Account,Status,Memo,IOU",
+    "9,2026-01-10,\"To savings\",EUR,-10,Transfer,\"Car:5,Cash:5\",\"Checking\",Cleared,\" \""
+  ].join("\n"));
+
+  assert.deepEqual(errors, []);
+  assert.deepEqual([rows[0].parts, rows[0].category, rows[0].description, rows[0].transfer], [null, null, "To savings · Split: Car 5, Cash 5", true]);
 });

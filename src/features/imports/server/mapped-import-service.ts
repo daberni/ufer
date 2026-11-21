@@ -12,7 +12,7 @@ import { pairTransfersInEnvironment } from "@/features/transactions/server/trans
 import { environment } from "@/features/banking/server/environment";
 import { accountKinds } from "@/features/accounts/account-kinds";
 import { validateLiability } from "@/features/accounts/server/account-service";
-import { currencyAllows, splitProblem, transferSplitProblem, maxCategoryChoicesPerRequest, maxTargetsPerRequest, maxAccountNameLength, maxCategoryLength, maxIdLength, maxSourceLength, normalizeText, type RowError } from "../csv-mapping";
+import { currencyAllows, withSplitTags, maxCategoryChoicesPerRequest, maxTargetsPerRequest, maxAccountNameLength, maxCategoryLength, maxIdLength, maxSourceLength, normalizeText, type RowError } from "../csv-mapping";
 import { duplicateDateToleranceDays, mappedReferencePrefix, type DuplicateReason } from "./duplicate-matching";
 import type { SplitPartValues } from "@/features/transactions/server/split-repository";
 import { checkMappedEntries, createImportCategory, findImportOpening, findImportTarget, listCategoryNames, saveMappedEntries, type MappedEntry, type NewImportAccount, type OpeningBalance } from "./mapped-import-repository";
@@ -34,7 +34,8 @@ const row = z.object({
   parts: z.array(z.object({
     category: z.string().max(maxCategoryLength),
     amount: z.string().max(30)
-  })).max(maximumSplitParts).nullable().default(null)
+  })).max(maximumSplitParts).nullable().default(null),
+  tags: z.string().max(10_000).nullable().default(null)
 });
 
 /** The balance a new account should have: today's balance, or its balance before the file's first row. The difference to the imported rows is booked as an opening balance on `date`. */
@@ -151,18 +152,9 @@ export async function importMappedRows(payload: unknown, now = Temporal.Now.inst
       return category;
     };
     const amount = minorUnits(item.amount, destination.currency);
-    const split = item.parts ? splitParts(item, amount, destination.currency, resolveCategory) : null;
-
-    if (typeof split === "string") {
-      errors.push({
-        line: item.line,
-        message: split
-      });
-
-      continue;
-    }
-
-    const parts = split;
+    const parts = item.parts ? splitParts(item, amount, destination.currency, resolveCategory) : null;
+    // Tags the server cannot take as a split leave an ordinary booking that keeps them in its description.
+    const description = item.parts && !parts ? withSplitTags(item.description, item.tags ?? "").slice(0, 2000) : item.description;
     const categoryId = item.category && !parts ? resolveCategory(item.category) : null;
 
     planned.push({
@@ -174,7 +166,7 @@ export async function importMappedRows(payload: unknown, now = Temporal.Now.inst
         amount,
         currency: destination.currency,
         counterparty: item.payee,
-        description: item.description,
+        description,
         categoryId,
         // A split booking's categories are its parts, which rules leave alone.
         categorySource: categoryId || parts ? "manual" : "rule",
@@ -439,18 +431,17 @@ async function resolveCategories(choices: z.infer<typeof categoryChoice>[], conf
 
 /**
  * The parts of a split row in the account's minor units, checked like a split saved in the edit dialog: they must add up exactly to the booking's amount. Only income and expenses are split.
- * A string says why the row is skipped instead.
+ * Null when they cannot, so the row imports unsplit.
  */
-function splitParts(item: z.infer<typeof row>, amount: number, currency: string, resolveCategory: (value: string) => string | null): SplitPartValues[] | string {
-  const unsplit = splitProblem;
+function splitParts(item: z.infer<typeof row>, amount: number, currency: string, resolveCategory: (value: string) => string | null): SplitPartValues[] | null {
   const parts = item.parts ?? [];
 
   if (item.transfer) {
-    return transferSplitProblem;
+    return null;
   }
 
   if (parts.length < 2) {
-    return unsplit("A split needs at least two tags with amounts.");
+    return null;
   }
 
   const amounts: number[] = [];
@@ -460,7 +451,7 @@ function splitParts(item: z.infer<typeof row>, amount: number, currency: string,
       amounts.push(minorUnits(part.amount, currency));
     } catch (error) {
       if (error instanceof ValidationError) {
-        return unsplit(`The tag amount ${part.amount} does not fit ${currency}.`);
+        return null;
       }
 
       throw error;
@@ -468,11 +459,11 @@ function splitParts(item: z.infer<typeof row>, amount: number, currency: string,
   }
 
   if (amounts.some(value => value === 0 || !partAmountSupported(value))) {
-    return unsplit("A tag amount is 0 or too large.");
+    return null;
   }
 
   if (amounts.reduce((sum, value) => sum + value, 0) !== amount) {
-    return unsplit("The tag amounts do not add up to the amount.");
+    return null;
   }
 
   return parts.map((part, index) => ({

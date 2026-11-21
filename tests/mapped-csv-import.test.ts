@@ -70,6 +70,7 @@ function mappedRow(line: number, date: string, amount: string, payee: string, ex
     id: null,
     transfer: false,
     parts: null,
+    tags: null,
     ...extra
   };
 }
@@ -1023,7 +1024,8 @@ test("a row the target rejects for its currency does not shift the occurrences o
     source: "",
     id: null,
     transfer: false,
-    parts: null
+    parts: null,
+    tags: null
   };
   const rows = assignOccurrences([{
     ...row,
