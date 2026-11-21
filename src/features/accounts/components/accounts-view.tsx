@@ -8,14 +8,14 @@ import { clsx } from "clsx";
 import Link from "next/link";
 import styles from "./accounts-view.module.css";
 import { Link2, Plus, TriangleAlert } from "lucide-react";
-import { accountIcon, accountSourceLabel, kinds } from "@/features/accounts/account-presentation";
-import { DateValue } from "@/components/ui/date-value";
+import { accountIcon, kinds } from "@/features/accounts/account-presentation";
 import { money } from "@/lib/money";
 import { Empty } from "@/components/ui/empty-state";
 import type { Account } from "@/features/accounts/types";
 import { activeAccounts } from "@/features/accounts/queries";
 import { useState } from "react";
 import { BankConnectionDialog } from "@/features/banking/components/bank-connection-form";
+import { AccountSourceStatus } from "./account-source-status";
 import { CreateAccountDialog } from "./create-account-form";
 import { setArchivedAccountsOpen, useAccountHref, useArchivedAccountsOpen } from "@/client/use-app-url";
 import { AreaPlaceholder } from "@/components/ui/area-placeholder";
@@ -90,22 +90,18 @@ function AccountCardsSkeleton() {
         length: skeletonAccounts
       }, (_, index) => (
         <div className={clsx(ui["panel"], styles["account-detail"])} key={index}>
-          <div className={ui["card-heading"]}>
+          <div className={styles["card-header"]}>
             <span className={clsx(accountStyles["account-logo"], ui["skeleton"])} />
+            <h2>
+              <span className={ui["skeleton"]}>Everyday account</span>
+            </h2>
             <span className={clsx(ui["pill"], ui["skeleton"])}>Bank account</span>
           </div>
-          <h2>
-            <span className={ui["skeleton"]}>Everyday account</span>
-          </h2>
-          <p>
-            <span className={ui["skeleton"]}>Example bank</span>
-          </p>
           <strong className={styles["account-detail-balance"]}>
             <span className={ui["skeleton"]}>€0,000.00</span>
           </strong>
           <div className={styles["account-detail-meta"]}>
-            <span className={ui["skeleton"]}>Balance 12 Jan 2025</span>
-            <span className={ui["skeleton"]}>Bank sync</span>
+            <span className={ui["skeleton"]}>Example bank · Synced 12 Jan</span>
           </div>
         </div>
       ))}
@@ -168,20 +164,18 @@ function AccountCard({ account }: {
 
   return (
     <section className={clsx(ui["panel"], styles["account-detail"])}>
-      <div className={ui["card-heading"]}>
+      <div className={styles["card-header"]}>
         <span className={clsx(accountStyles["account-logo"], accountStyles[account.kind])}>
           <Icon size={23} />
         </span>
-        <span className={ui["pill"]}>{account.archived_at ? "Archived" : kinds[account.kind]}</span>
+        <h2>
+          <Link className={styles["account-link"]} href={accountHref(account.id)}>{account.name}</Link>
+        </h2>
+        <span className={ui["pill"]}>{kinds[account.kind] ?? account.kind}</span>
       </div>
-      <h2>
-        <Link className={styles["account-link"]} href={accountHref(account.id)}>{account.name}</Link>
-      </h2>
-      <p className={ui["muted"]}>{account.institution}</p>
       <strong className={styles["account-detail-balance"]}>{account.balance_minor === null ? "—" : money(account.balance_minor, account.currency, locale)}</strong>
       <div className={styles["account-detail-meta"]}>
-        <span>Balance <DateValue value={account.balance_date} fallback="not recorded yet" /></span>
-        <span>{accountSourceLabel(account)}</span>
+        <AccountSourceStatus account={account} withDate />
       </div>
       {account.reported_difference_minor !== null && account.reported_difference_minor !== 0 && (
         <p className={styles["mismatch"]}>
@@ -189,7 +183,6 @@ function AccountCard({ account }: {
           Differs from bank by {money(account.reported_difference_minor, account.currency, locale)}
         </p>
       )}
-      {account.sync_error && <p className={ui["error-text"]}>{account.sync_error}</p>}
     </section>
   );
 }

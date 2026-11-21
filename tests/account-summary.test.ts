@@ -98,22 +98,27 @@ function notices(screen: ReturnType<typeof render>) {
   return noticeElements(screen).map(notice => notice.textContent);
 }
 
-test("a healthy bank account shows its institution, type, balance and one status line, with editing and reconnecting, not the connections list, in the menu", async context => {
+test("a healthy bank account shows its name, type, institution with its sync date, with editing and reconnecting, not the connections list, in the menu", async context => {
   const screen = await renderSummary(context, healthy);
   const panel = within(screen.getByRole("region", {
     name: "Account summary"
   }));
 
-  assert.equal(panel.queryByText("Synthetic checking"), null);
-  assert.ok(panel.getByText("Example bank · Current account"));
-  assert.ok(panel.getByText(/Synced/));
+  assert.ok(panel.getByRole("heading", {
+    name: "Synthetic checking"
+  }));
+  assert.ok(panel.getByText("Current account"));
+  assert.ok(panel.getByText("Example bank"));
+  assert.match(screen.getByRole("region", {
+    name: "Account summary"
+  }).textContent ?? "", /Example bank·Synced Nov 20/);
   assert.deepEqual(notices(screen), []);
   assert.equal(panel.queryByText(/Enable Banking/), null);
   assert.equal(panel.queryByRole("button", {
     name: /Reconnect/
   }), null);
   assert.ok(await menuItem(screen, "Edit account"));
-  assert.ok(await menuItem(screen, "Reconnect Example bank"));
+  assert.ok(await menuItem(screen, "Reconnect"));
   assert.equal(await queryMenuItem(screen, "Manage bank connections"), null);
 });
 
@@ -130,7 +135,23 @@ test("an expired authorization shows one notice whose one action reconnects, and
   assert.match(notice.textContent ?? "", /authorization expired/);
   assert.deepEqual(within(notice).getAllByRole("button").map(button => button.textContent), ["Reconnect bank"]);
   assert.equal(screen.queryByText(/Synced/), null);
-  assert.equal(await queryMenuItem(screen, "Reconnect Example bank"), null);
+  assert.ok(screen.getByText("Needs attention"));
+  assert.equal(await queryMenuItem(screen, "Reconnect"), null);
+});
+
+test("a manual account shows Manual as its source, never the import origin stored as its institution", async context => {
+  const screen = await renderSummary(context, {
+    ...healthy,
+    provider: "manual",
+    institution: "CSV import",
+    requisition_id: null,
+    last_synced_at: null,
+    valid_until: null
+  });
+
+  assert.ok(screen.getByText("Manual"));
+  assert.equal(screen.queryByText(/CSV import/), null);
+  assert.equal(screen.queryByText(/Synced/), null);
 });
 
 test("a bank balance that differs from the bookings shows one notice whose one action books the adjustment", async context => {
@@ -158,5 +179,5 @@ test("an archived account shows a one-line archive hint instead of a notice and 
   assert.match(screen.getByText(/hidden from lists, still counted in reports/).textContent ?? "", /^Archived on .+ · hidden from lists, still counted in reports$/);
   assert.equal(screen.queryByText(/Synced/), null);
   assert.ok(await menuItem(screen, "Restore account"));
-  assert.equal(await queryMenuItem(screen, "Reconnect Example bank"), null);
+  assert.equal(await queryMenuItem(screen, "Reconnect"), null);
 });

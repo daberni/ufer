@@ -7,6 +7,16 @@
   align-items: center;
   gap: var(--space-3);
 }
+.title {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.name {
+  font-size: var(--text-md);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
 .meta {
   min-width: 0;
   color: var(--muted);
@@ -44,15 +54,8 @@
   color: var(--muted);
   font-size: var(--text-sm);
 }
-.status > [aria-hidden="true"] {
-  transform: translateY(-1px);
-}
-.status-parts {
-  display: grid;
-  gap: var(--space-1);
-}
-.idle {
-  background: var(--muted);
+.status > svg {
+  transform: translateY(1px);
 }
 .notice {
   align-items: flex-start;

@@ -10,19 +10,18 @@ import { Archive, Pencil } from "lucide-react";
 import { Temporal } from "temporal-polyfill";
 import { useLocale } from "@/client/locale-provider";
 import { TimestampValue } from "@/components/ui/date-value";
-import { useDisplayTimeZone } from "@/components/ui/use-display-time-zone";
-import { shortMonthWithYear } from "@/lib/date-format";
 import { money } from "@/lib/money";
 import { accountIcon, accountProblem, kinds } from "@/features/accounts/account-presentation";
 import { BankConnectionDialog } from "@/features/banking/components/bank-connection-form";
 import type { Account } from "@/features/accounts/types";
 import type { Connection } from "@/features/banking/types";
 import { BalanceMismatchNotice, ProblemNotice } from "./account-notices";
+import { AccountSourceStatus } from "./account-source-status";
 import { ValuationDialog } from "./valuation-form";
 
 /**
- * An account's institution, type, balance and at most one notice: the archive notice, a problem that stops syncing, or a bank balance that differs from the bookings,
- * in that order. A healthy bank account shows one status line instead; its name and actions live in the page heading.
+ * An account's name, type, balance, source and at most one notice: the archive notice, a problem that stops syncing, or a bank balance that differs from the bookings,
+ * in that order. Its actions live in the page heading.
  */
 export function AccountSummary({
   account,
@@ -49,7 +48,10 @@ export function AccountSummary({
         <span className={clsx(accountStyles["account-logo"], accountStyles[account.kind])}>
           <Icon size={23} aria-hidden="true" />
         </span>
-        <p className={styles["meta"]}>{account.institution} · {kinds[account.kind] ?? account.kind}</p>
+        <div className={styles["title"]}>
+          <h2 className={styles["name"]}>{account.name}</h2>
+          <p className={styles["meta"]}>{kinds[account.kind] ?? account.kind}</p>
+        </div>
       </div>
       <div className={styles["balance-row"]}>
         <strong className={styles["balance"]}>{account.balance_minor === null ? "—" : money(account.balance_minor, account.currency, locale)}</strong>
@@ -64,7 +66,9 @@ export function AccountSummary({
           </button>
         )}
       </div>
-      {account.provider !== "manual" && !archived && !problem && <SyncStatus account={account} />}
+      <p className={styles["status"]}>
+        <AccountSourceStatus account={account} withDate />
+      </p>
       {account.archived_at && <ArchivedHint archivedAt={account.archived_at} />}
       {problem && <ProblemNotice problem={problem} connection={connection} reconnect={() => connection && setReconnecting(connection)} />}
       {mismatch && <BalanceMismatchNotice account={account} difference={difference} />}
@@ -86,34 +90,15 @@ function ArchivedHint({ archivedAt }: {
   );
 }
 
-/** One line for a healthy bank account: when it last synced and how long its authorization lasts. */
-function SyncStatus({ account }: {
-  account: Account
-}) {
-  const locale = useLocale();
-  const timeZone = useDisplayTimeZone();
-  const connected = account.requisition_id !== null;
-  const authorizedUntil = connected && account.valid_until ? shortMonthWithYear(Temporal.PlainYearMonth.from(Temporal.Instant.from(account.valid_until).toZonedDateTimeISO(timeZone).toPlainDate()), locale) : null;
-  const synced = account.last_synced_at !== null;
-
-  return (
-    <p className={styles["status"]}>
-      <span className={clsx(ui["status-dot"], !(connected && synced) && styles["idle"])} aria-hidden="true" />
-      {/* Two short lines instead of one that wraps unpredictably in the narrow summary column. */}
-      <span className={styles["status-parts"]}>
-        <span>{synced ? <>Synced <TimestampValue value={account.last_synced_at} /></> : "Not synced yet"}</span>
-        {connected ? authorizedUntil && <span>Authorized until {authorizedUntil}</span> : <span>No bank connection</span>}
-      </span>
-    </p>
-  );
-}
-
 export function AccountSummarySkeleton() {
   return (
     <section className={clsx(ui["panel"], styles["summary"])}>
       <div className={styles["header"]}>
         <span className={clsx(accountStyles["account-logo"], ui["skeleton"])} />
-        <span className={clsx(styles["meta"], ui["skeleton"])}>Example bank · Current account</span>
+        <div className={styles["title"]}>
+          <span className={clsx(styles["name"], ui["skeleton"])}>Everyday account</span>
+          <span className={clsx(styles["meta"], ui["skeleton"])}>Current account</span>
+        </div>
       </div>
       <div className={styles["balance-row"]}>
         <strong className={styles["balance"]}>
@@ -121,7 +106,7 @@ export function AccountSummarySkeleton() {
         </strong>
       </div>
       <p className={styles["status"]}>
-        <span className={ui["skeleton"]}>Synced 12 Jan</span>
+        <span className={ui["skeleton"]}>Example bank · Synced 12 Jan</span>
       </p>
     </section>
   );
