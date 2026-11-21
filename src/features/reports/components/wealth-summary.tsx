@@ -166,6 +166,7 @@ export function WealthSummary({
           type="button"
           className={styles["history-curve"]}
           aria-label={`Show changes since ${since}`}
+          aria-pressed={active}
           aria-describedby={changesId}
           {...curveProps}
         >
