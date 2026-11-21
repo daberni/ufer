@@ -30,13 +30,16 @@
   background: none;
   color: inherit;
   cursor: default;
+  position: relative;
 }
 .history-curve:focus-visible {
   outline: var(--focus-ring);
   outline-offset: -3px;
 }
+/* Fills the space the card leaves; its own aspect ratio must not size the card. */
 .curve {
-  display: block;
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
 }
