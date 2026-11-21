@@ -94,9 +94,9 @@ export function PayeeInput({
   });
 
   // Touch browsers keep the field focused when a tap lands on something that cannot take focus, so blurring alone does not close the list.
-  // A list still waiting for its suggestions is dismissed like a shown one, so it cannot open after the user moved on.
+  // While the list is open, shown or still waiting for its suggestions, the field owns outside presses, so it cannot open after the user moved on.
   useDismiss({
-    active: expanded || awaitedHighlight !== null,
+    active: open,
     inside: [input, popupRef],
     onDismiss: close
   });
@@ -108,8 +108,8 @@ export function PayeeInput({
   }
 
   function handleFieldKeyDown(event: KeyboardEvent<HTMLInputElement>) {
-    // Escape cancels a list still waiting for its suggestions, as it closes a shown one.
-    if (awaitedHighlight && event.key === "Escape") {
+    // Escape cancels a list still waiting for its suggestions, as it closes a shown one, and does not reach a surrounding dialog.
+    if (open && !expanded && event.key === "Escape") {
       event.preventDefault();
       event.stopPropagation();
       close();

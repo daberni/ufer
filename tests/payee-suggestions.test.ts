@@ -376,6 +376,36 @@ test("Alt+ArrowDown in a prefilled field opens the suggestions without highlight
   assert.equal(field.getAttribute("aria-activedescendant"), null);
 });
 
+test("Escape after Alt+ArrowDown cancels the loading suggestions without reaching a surrounding dialog", async context => {
+  const {
+    field,
+    requests
+  } = await renderPayeeInput(context, "cor");
+  const escapes: string[] = [];
+  const recordEscape = (event: KeyboardEvent) => {
+    if (event.key === "Escape") {
+      escapes.push("document");
+    }
+  };
+
+  document.addEventListener("keydown", recordEscape);
+  context.after(() => document.removeEventListener("keydown", recordEscape));
+
+  act(() => {
+    fireEvent.keyDown(field, {
+      key: "ArrowDown",
+      altKey: true
+    });
+  });
+  press(field, "Escape");
+  await respond(requests("transactions/payees")[0], Response.json({
+    payees: ["Corner Bakery", "Corner Shop"]
+  }));
+
+  assert.deepEqual(escapes, []);
+  assert.equal(field.getAttribute("aria-expanded"), "false");
+});
+
 test("a pointer picks a suggestion and Escape closes the list without clearing the text", async context => {
   const {
     field,
