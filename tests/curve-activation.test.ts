@@ -110,3 +110,20 @@ test("a mouse press released elsewhere does not swallow the next keyboard focus"
   act(() => curve.focus());
   assert.equal(curve.textContent, "changes");
 });
+
+test("a key press after a canceled mouse press on the focused curve reopens the changes", async context => {
+  const { curve } = await showCurve(context);
+
+  act(() => curve.focus());
+  fireEvent.keyDown(curve.ownerDocument, {
+    key: "Escape"
+  });
+  fireEvent.pointerDown(curve, {
+    pointerType: "mouse"
+  });
+  fireEvent.keyDown(curve, {
+    key: "Enter"
+  });
+  fireEvent.click(curve);
+  assert.equal(curve.textContent, "changes");
+});

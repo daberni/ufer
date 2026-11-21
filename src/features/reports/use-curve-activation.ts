@@ -39,6 +39,10 @@ export function useCurveActivation() {
     onPointerDown(event: PointerEvent) {
       pointerType.current = event.pointerType;
     },
+    // Enter or Space follow a key press; a mouse press released outside, which never clicked, must not claim that click.
+    onKeyDown() {
+      pointerType.current = null;
+    },
     onFocus(event: FocusEvent<HTMLElement>) {
       const mousePress = pointerType.current === "mouse";
 
