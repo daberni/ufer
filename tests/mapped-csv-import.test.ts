@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { z } from "zod";
 import { test, type TestContext } from "node:test";
 import { Temporal } from "temporal-polyfill";
@@ -296,6 +297,11 @@ test("new accounts are created once per import, on confirmation, across batches 
   assert.equal(accounts.length, 1);
   assert.equal(accounts[0].name, "Closed account");
   assert.equal((await db.select().from(schema.transactions)).length, 2);
+
+  // Accounts created before changeset 0016 were derived with the banking environment, so resuming such an import must find the same account.
+  const hex = createHash("sha256").update(`${process.env.ENABLE_BANKING_ENVIRONMENT || "SANDBOX"}|${importId}|`).digest("hex");
+
+  assert.equal(accounts[0].id, `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`);
 });
 
 test("a later batch never treats rows saved by an earlier batch of the file as duplicates, so check and confirm agree", async context => {
