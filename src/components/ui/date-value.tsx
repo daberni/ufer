@@ -1,7 +1,7 @@
 "use client";
 
 import { Temporal } from "temporal-polyfill";
-import { describeDate } from "@/lib/date-format";
+import { describeDate, describeDateTime } from "@/lib/date-format";
 import { useDisplayTimeZone } from "./use-display-time-zone";
 import { useLocale } from "@/client/locale-provider";
 
@@ -49,6 +49,23 @@ export function TimestampValue({
   }
 
   const display = describeDate(Temporal.Instant.from(value).toZonedDateTimeISO(timeZone), locale);
+
+  return <time dateTime={display.dateTime} title={display.title}>{display.label}</time>;
+}
+
+// An instant whose time of day matters, such as one of several sync runs on the same day.
+export function DateTimeValue({
+  value,
+  fallback = "—"
+}: DisplayProps) {
+  const timeZone = useDisplayTimeZone();
+  const locale = useLocale();
+
+  if (!value) {
+    return <>{fallback}</>;
+  }
+
+  const display = describeDateTime(Temporal.Instant.from(value).toZonedDateTimeISO(timeZone), locale);
 
   return <time dateTime={display.dateTime} title={display.title}>{display.label}</time>;
 }

@@ -6,9 +6,10 @@ import accountStyles from "../../accounts/components/account-presentation.module
 import { clsx } from "clsx";
 import Link from "next/link";
 import styles from "./connections-view.module.css";
-import { Landmark, Link2, Plus, ShieldCheck, Trash2 } from "lucide-react";
-import { TimestampValue } from "@/components/ui/date-value";
+import { CircleAlert, CircleCheck, CircleX, Landmark, Link2, LoaderCircle, Plus, ShieldCheck, Trash2 } from "lucide-react";
+import { DateTimeValue, TimestampValue } from "@/components/ui/date-value";
 import { Empty } from "@/components/ui/empty-state";
+import { Tooltip } from "@/components/ui/tooltip";
 import { BridgeIllustration } from "@/components/branding/illustrations";
 import { bankConnectionsSectionId } from "@/features/banking/connections-location";
 import type { BankingConfiguration, Connection, ConnectionRemoval, SyncRun } from "@/features/banking/types";
@@ -18,7 +19,7 @@ import { useState } from "react";
 import { BankConnectionDialog } from "./bank-connection-form";
 import { RemoveConnectionDialog } from "./remove-connection-form";
 import { useSyncRunHref } from "@/client/use-app-url";
-import { recentSyncRuns } from "@/features/banking/sync-run-presentation";
+import { recentSyncRuns, syncRunProblems, syncRunTone, type SyncRunTone } from "@/features/banking/sync-run-presentation";
 import { AreaPlaceholder } from "@/components/ui/area-placeholder";
 import type { Area } from "@/components/ui/use-area-result";
 import { useLocale } from "@/client/locale-provider";
@@ -130,14 +131,13 @@ function SyncHistory({ syncRuns }: {
         <AreaPlaceholder area={syncRuns} subject="Recent syncs">
           <SyncRowsSkeleton />
         </AreaPlaceholder>
-      ) : syncRuns.data.map(run => (
-        <div className={styles["sync-row"]} key={run.id}>
-          <span><TimestampValue value={run.started_at} /></span>
-          <span className={styles["pill"]}>{run.status}</span>
-          <SyncRunTransactions href={syncRunHref} run={run} />
-          {run.error && <p className={ui["error-text"]}>{run.error}</p>}
-        </div>
-      ))}
+      ) : (
+        <ul className={styles["sync-table"]}>
+          {syncRuns.data.map(run => (
+            <SyncRunRow href={syncRunHref} key={run.id} run={run} />
+          ))}
+        </ul>
+      )}
     </section>
   );
 }
@@ -242,15 +242,84 @@ function ConnectionRowsSkeleton() {
 }
 
 function SyncRowsSkeleton() {
-  return Array.from({
-    length: recentSyncRuns
-  }, (_, index) => (
-    <div className={styles["sync-row"]} key={index}>
-      <span className={ui["skeleton"]}>12 Jan 2025, 10:00</span>
-      <span className={clsx(styles["pill"], ui["skeleton"])}>SUCCESS</span>
-      <span className={ui["skeleton"]}>12 new transactions</span>
-    </div>
-  ));
+  return (
+    <ul className={styles["sync-table"]}>
+      {Array.from({
+        length: recentSyncRuns
+      }, (_, index) => (
+        <li className={styles["sync-row"]} key={index}>
+          <span className={ui["skeleton"]}>12 Jan, 10:00</span>
+          <span className={clsx(styles["sync-status"], ui["skeleton"])} />
+          <span className={ui["skeleton"]}>12 new transactions</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+const syncStatusIndicators: Record<SyncRunTone, {
+  label: string;
+  Icon: typeof CircleCheck
+}> = {
+  success: {
+    label: "Successful",
+    Icon: CircleCheck
+  },
+  partial: {
+    label: "Partial",
+    Icon: CircleAlert
+  },
+  failed: {
+    label: "Failed",
+    Icon: CircleX
+  },
+  running: {
+    label: "Running",
+    Icon: LoaderCircle
+  }
+};
+
+/** One run in aligned columns: time, status indicator, result, and its problems beneath the result. */
+function SyncRunRow({
+  href,
+  run
+}: {
+  href: (runId: string) => string;
+  run: SyncRun;
+}) {
+  const tone = syncRunTone(run.status);
+  const {
+    label,
+    Icon
+  } = syncStatusIndicators[tone];
+  const problems = syncRunProblems(run.error);
+  const imported = run.linked_count > 0 || run.inserted_count > 0;
+  // Problems take the result's place; "No new transactions" only reports a successful run.
+  const showResult = imported || tone === "success";
+
+  return (
+    <li className={styles["sync-row"]}>
+      <span className={styles["sync-time"]}><DateTimeValue value={run.started_at} /></span>
+      <Tooltip text={label} describes={false}>
+        {trigger => (
+          <span {...trigger} className={clsx(styles["sync-status"], styles[tone])}>
+            <Icon aria-hidden size={16} />
+            <span className={ui["visually-hidden"]}>{label}</span>
+          </span>
+        )}
+      </Tooltip>
+      {showResult && (
+        <span className={styles["sync-result"]}>
+          <SyncRunTransactions href={href} run={run} />
+        </span>
+      )}
+      {problems.length > 0 && (
+        <ul className={clsx(styles["sync-problems"], showResult && styles["below-result"])}>
+          {problems.map((problem, index) => <li key={index}>{problem}</li>)}
+        </ul>
+      )}
+    </li>
+  );
 }
 
 /** Links a run to the transactions it imported; runs recorded before syncs stamped their transactions cannot be traced. */

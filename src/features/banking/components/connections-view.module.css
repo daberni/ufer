@@ -43,8 +43,13 @@
   padding: var(--space-4) 0;
   border-bottom: 1px solid var(--border);
 }
+/* The panel already provides the outer inset, so the first and last rows drop their own. */
+.connection-row:first-child {
+  padding-top: 0;
+}
 .connection-row:last-child {
   border-bottom: 0;
+  padding-bottom: 0;
 }
 .connection-row > div {
   flex: 1;
@@ -59,7 +64,7 @@
   font-weight: 500;
 }
 .connection-row p {
-  margin-top: var(--space-2);
+  margin-top: var(--space-1);
   line-height: 1.7;
 }
 .connection-detail {
@@ -69,28 +74,70 @@
 .sync-history {
   margin-top: var(--space-6);
 }
+/* Rows share the list's columns through subgrid, so status and result stay aligned whatever the content. */
+.sync-table {
+  display: grid;
+  grid-template-columns: max-content var(--space-6) minmax(0, 1fr);
+  column-gap: var(--space-4);
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  list-style: none;
+}
 .sync-row {
-  display: flex;
-  gap: var(--space-4);
-  align-items: center;
-  flex-wrap: wrap;
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  row-gap: var(--space-2);
+  align-items: start;
+  line-height: 1.6;
   font-size: var(--text-sm);
   padding: var(--space-4) 0;
   border-bottom: 1px solid var(--border);
   color: var(--muted);
 }
+.sync-row:first-child {
+  padding-top: 0;
+}
 .sync-row:last-child {
   border: 0;
+  padding-bottom: 0;
+}
+.sync-time {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.sync-status {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  width: var(--space-6);
+  height: 1.6em;
+}
+.sync-status.success {
+  color: var(--green-text);
+}
+.sync-status.partial {
+  color: var(--status-warning-text);
+}
+.sync-status.failed {
+  color: var(--danger);
+}
+.sync-result {
+  min-width: 0;
 }
 .transactions-link {
   color: var(--green-text);
   text-decoration: underline;
   text-underline-offset: 3px;
 }
-.sync-row p {
-  width: 100%;
-  white-space: pre-line;
-  line-height: 1.7;
+.sync-problems {
+  grid-column: 3;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--danger);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
 }
 @media (--laptop) {
   .connection-row {
@@ -132,7 +179,10 @@
   .connection-info strong {
     font-size: var(--text-md);
   }
-  .sync-row {
-    gap: var(--space-3);
+  .sync-table {
+    column-gap: var(--space-3);
+  }
+  .sync-problems.below-result {
+    grid-column: 2 / -1;
   }
 }

@@ -43,6 +43,7 @@
   --on-danger: light-dark(#ffffff, #1a0f0d);
   --status-positive: light-dark(#8da776, #8fb67a);
   --status-warning: light-dark(#c5a365, #d1b170);
+  --status-warning-text: light-dark(#8a6a2a, #d1b170);
   --focus-ring: 3px solid light-dark(#5f9473, #93b69f);
 
   /* The navigation stays dark green in both themes, so its text colors do not change. */
