@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, asc, eq, isNull, lte, sql } from "drizzle-orm";
+import { and, eq, isNull, lte, sql } from "drizzle-orm";
 import { TransactionRollbackError } from "drizzle-orm/errors";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 import { transactions } from "@/server/database/schema";
@@ -305,63 +305,4 @@ export async function recordManualBalance(tx: DatabaseTransaction, account: {
   });
 
   return type;
-}
-
-
-/** Plans chronological balance corrections from one ledger read, then inserts bounded batches within the caller's write transaction. */
-export async function recordManualBalances(tx: DatabaseTransaction, account: {
-  id: string;
-  currency: string;
-}, balances: {
-  date: string;
-  amount: number;
-}[]) {
-  if (!balances.length) {
-    return;
-  }
-
-  const ledger = await tx.select({
-    date: transactions.booking_date,
-    amount: sql<number>`SUM(${transactions.amount_minor})`.mapWith(Number)
-  }).from(transactions).where(and(eq(transactions.account_id, account.id), isNull(transactions.suppressed_at))).groupBy(transactions.booking_date).orderBy(asc(transactions.booking_date));
-  const values: (typeof transactions.$inferInsert)[] = [];
-  let ledgerIndex = 0;
-  let bookedBalance = 0;
-  let previousAdjustments = 0;
-  let hasTransactions = ledger.length > 0;
-
-  for (const balance of balances) {
-    while (ledgerIndex < ledger.length && ledger[ledgerIndex].date <= balance.date) {
-      bookedBalance += ledger[ledgerIndex].amount;
-      ledgerIndex++;
-    }
-
-    const difference = balance.amount - bookedBalance - previousAdjustments;
-
-    if (hasTransactions && difference === 0) {
-      continue;
-    }
-
-    values.push(manualEntryValues(randomUUID(), {
-      accountId: account.id,
-      date: balance.date,
-      amount: difference,
-      currency: account.currency,
-      counterparty: "",
-      description: "",
-      categoryId: null,
-      categorySource: "manual",
-      categoryRuleId: null,
-      type: hasTransactions ? "adjustment" : "opening_balance"
-    }));
-    previousAdjustments += difference;
-    hasTransactions = true;
-  }
-
-  // Fifty rows keep each multi-value statement below SQLite/libSQL parameter limits.
-  const batchSize = 50;
-
-  for (let offset = 0; offset < values.length; offset += batchSize) {
-    await tx.insert(transactions).values(values.slice(offset, offset + batchSize));
-  }
 }

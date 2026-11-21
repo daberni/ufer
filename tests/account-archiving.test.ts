@@ -25,7 +25,6 @@ import { pairAllTransfers } from "../src/features/transactions/server/transfer-r
 import { acquireLease } from "../src/server/jobs/lease-repository";
 import { removeConnection } from "../src/features/banking/server/connection-repository";
 import { queryKeys } from "../src/client/query-keys";
-import { importValuations } from "../src/features/imports/server/import-service";
 import { readAccountCashFlow, readCashFlow } from "../src/features/reports/server/cash-flow-query";
 import { accountGroups, showsCurrencySelect } from "../src/features/accounts/queries";
 import { showsSync } from "../src/features/dashboard/sync-visibility";
@@ -201,10 +200,6 @@ test("an archived account rejects balance updates, manual entries and CSV import
     amount: "-5.00",
     booking_date: "2026-01-10",
     type: "expense"
-  }), archived);
-  await assert.rejects(importValuations({
-    account_id: "closed",
-    csv: "date,balance,currency\n2026-01-10,10.00,EUR"
   }), archived);
   assert.deepEqual(await db.select().from(schema.transactions), bookingsBefore);
 
@@ -617,15 +612,7 @@ test("an account archived after the request's check but before the write receive
     balance: "10.00",
     date: "2026-01-10"
   }), archived);
-  await db.update(schema.accounts).set({
-    archived_at: null
-  }).where(eq(schema.accounts.id, "open"));
-  archiveNext = true;
-  await assert.rejects(importValuations({
-    account_id: "open",
-    csv: "date,balance,currency\n2026-01-10,10.00,EUR"
-  }), archived);
-  assert.equal(interleaved, 3);
+  assert.equal(interleaved, 2);
   assert.deepEqual(await db.select().from(schema.transactions), bookingsBefore);
 });
 

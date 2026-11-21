@@ -7,40 +7,9 @@ import { queryKeys } from "@/client/query-keys";
 import type { NewImportCategory } from "./import-plan";
 import type { AccountKind } from "@/features/accounts/account-kinds";
 import { assignOccurrences, batchRows, duplicateIdErrors, rowCategoryValues, withConsumed, type ConsumedBooking, type MappedRow, type RowError } from "./csv-mapping";
-import { useLocale } from "@/client/locale-provider";
-import { formatCount } from "@/lib/locale";
 
-type BalanceImport = {
-  accountId: string;
-  file: File;
-};
-
-const maxBalanceFileSize = 1_000_000;
-
-// Imported balances book opening balances and adjustments on a manual account, which change its balance.
+// Confirmed rows and opening balances change account balances.
 const affectedKeys = [queryKeys.accounts(), queryKeys.reports.netWorth(), queryKeys.transactions.all(), queryKeys.reports.cashFlow()];
-
-export function useBalanceImport() {
-  const queryClient = useQueryClient();
-  const locale = useLocale();
-
-  return useMutation({
-    mutationFn: async ({
-      accountId,
-      file
-    }: BalanceImport) => {
-      if (file.size > maxBalanceFileSize) {
-        throw new Error(`The file cannot exceed ${formatCount(1, locale)} MB.`);
-      }
-
-      return api("imports/balances", {
-        account_id: accountId,
-        csv: await file.text()
-      });
-    },
-    onSettled: () => invalidate(queryClient, affectedKeys)
-  });
-}
 
 /** Where one source account's rows go: an existing account, or a manual account created on confirmation (`accountId` null). */
 export type ImportTarget = {
