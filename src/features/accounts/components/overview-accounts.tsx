@@ -8,7 +8,7 @@ import Link from "next/link";
 import styles from "./overview-accounts.module.css";
 import { ArrowRight, Landmark, Plus } from "lucide-react";
 import { accountIcon, kinds } from "@/features/accounts/account-presentation";
-import { AccountSourceIndicator } from "./account-source-indicator";
+import { AccountSourceStatus } from "./account-source-status";
 import { DateValue } from "@/components/ui/date-value";
 import { useBankingConfiguration } from "@/features/banking/banking-configuration";
 import { money } from "@/lib/money";
@@ -40,8 +40,12 @@ const shownRows = 3;
 
 const placeholderAccount = {
   provider: "manual",
+  institution: "",
   requisition_id: null,
-  sync_error: null
+  last_synced_at: null,
+  valid_until: null,
+  sync_error: null,
+  archived_at: null
 };
 
 export function OverviewAccounts({ currencyAccounts }: Props) {
@@ -82,8 +86,9 @@ function AccountStripSkeleton({ area }: {
               <span className={ui["skeleton"]}>€0,000.00</span>
             </strong>
             <span className={clsx(styles["account-tile-meta"], ui["skeleton"])}>
-              <span className={ui["truncate"]}>Bank account · Bank</span>
-              <AccountSourceIndicator account={placeholderAccount} />
+              <span className={styles["account-tile-kind"]}>Bank account</span>
+              <span className={styles["account-tile-separator"]} aria-hidden="true">·</span>
+              <AccountSourceStatus account={placeholderAccount} />
             </span>
             <span className={styles["account-tile-date"]}>
               <span className={ui["skeleton"]}>Today</span>
@@ -117,8 +122,9 @@ function AccountStrip({ currencyAccounts }: {
             <span className={styles["account-tile-name"]}>{account.name}</span>
             <strong>{account.balance_minor === null ? "—" : money(account.balance_minor, account.currency, locale)}</strong>
             <span className={styles["account-tile-meta"]}>
-              <span className={ui["truncate"]}>{kinds[account.kind]} · {account.institution}</span>
-              <AccountSourceIndicator account={account} />
+              <span className={styles["account-tile-kind"]}>{kinds[account.kind] ?? account.kind}</span>
+              <span className={styles["account-tile-separator"]} aria-hidden="true">·</span>
+              <AccountSourceStatus account={account} />
             </span>
             <span className={styles["account-tile-date"]}>
               <DateValue value={account.balance_date} fallback="No balance yet" />

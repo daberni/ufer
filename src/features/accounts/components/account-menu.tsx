@@ -48,7 +48,7 @@ export function AccountMenu({ account }: {
         </MenuItem>
         {offersReconnect && (
           <MenuItem icon={<RefreshCw size={15} aria-hidden="true" />} onSelect={() => setDialog("reconnect")}>
-            Reconnect {connection.bank_name}
+            Reconnect
           </MenuItem>
         )}
         {bankLinked && !connection && (

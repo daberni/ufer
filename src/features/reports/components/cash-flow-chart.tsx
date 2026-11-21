@@ -70,8 +70,10 @@ export function CashFlowChart({
   return (
     <section className={clsx(ui["panel"], styles["chart-panel"])}>
       <div className={clsx(ui["card-heading"], styles["heading"])}>
-        <h2>Income & expenses</h2>
-        <span className={clsx(ui["subtle"], rangeMask)}>{monthRangeLabel(months, locale)}</span>
+        <div className={styles["title"]}>
+          <h2>Income & expenses</h2>
+          <span className={clsx(ui["subtle"], rangeMask)}>{monthRangeLabel(months, locale)}</span>
+        </div>
       </div>
       <div className={styles["chart-legend"]}>
         <span>

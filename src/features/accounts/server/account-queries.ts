@@ -5,6 +5,7 @@ import { accounts, balanceSnapshots, requisitions, transactions } from "@/server
 import { HttpError } from "@/lib/errors";
 import { productTimeZone, today } from "@/lib/time";
 import { dailyBalances } from "@/features/accounts/daily-balances";
+import { netWorthCategories, netWorthCategory, type NetWorthCategory } from "@/features/accounts/net-worth-categories";
 import type { BalanceHistory, BalancePoint } from "@/features/accounts/types";
 
 // Every account's balance is the sum of its visible transactions, dated with its newest one.
@@ -54,26 +55,45 @@ export async function listAccounts() {
   }).from(accounts).leftJoin(requisitions, eq(requisitions.id, accounts.requisition_id)).orderBy(kindOrder, asc(accounts.name));
 }
 
-/** Account kinds that count toward net worth. */
-export const netWorthKinds = ["checking", "savings", "investment", "property", "credit_card", "loan"];
-
 /** One account with its current balance, as listed. */
 export async function findAccountWithBalance(id: string) {
   return (await listAccounts()).find(account => account.id === id);
 }
 
+function categoryTotals(accountsInCurrency: {
+  kind: string;
+  balance_minor: number | null
+}[]) {
+  const totals: Record<NetWorthCategory, number> = {
+    liquidity: 0,
+    investments: 0,
+    property: 0,
+    liabilities: 0
+  };
+
+  for (const account of accountsInCurrency) {
+    const category = netWorthCategory(account.kind);
+
+    if (category) {
+      totals[category] += account.balance_minor ?? 0;
+    }
+  }
+
+  return totals;
+}
+
 /** Net worth and its composition from the latest known balances of the accounts in one currency; it does not depend on a period. Archived accounts still count, so archiving never changes a report. */
 export async function readNetWorth(currency: string) {
   const relevant = (await listAccounts()).filter(account => account.currency === currency);
-  const sum = (kinds: string[]) => relevant.filter(account => kinds.includes(account.kind)).reduce((total, account) => total + (account.balance_minor ?? 0), 0);
+  const totals = categoryTotals(relevant);
 
   return {
     currency,
-    netWorth: sum(netWorthKinds),
-    liquidity: sum(["checking", "savings", "credit_card"]),
-    investments: sum(["investment"]),
-    property: sum(["property"]),
-    liabilities: sum(["loan"]),
+    netWorth: netWorthCategories.reduce((total, category) => total + totals[category], 0),
+    liquidity: totals.liquidity,
+    investments: totals.investments,
+    property: totals.property,
+    liabilities: totals.liabilities,
     unvalued: relevant.filter(account => account.balance_minor === null).length
   };
 }
