@@ -392,6 +392,14 @@ test("rows of an earlier import from another source match by content, with date 
       source: "",
       account_id: account.id
     }],
+    // The person creates both possible duplicates as new bookings.
+    decisions: [{
+      line: 4,
+      action: "create"
+    }, {
+      line: 5,
+      action: "create"
+    }],
     confirm
   }, now);
   const first = await importFile(importId, [
@@ -535,7 +543,9 @@ test("a card statement's settlement is a possible duplicate of the linked transf
 
   assert.deepEqual(result.duplicates, []);
   assert.deepEqual(result.possibleDuplicates, [2]);
-  assert.equal(result.newRows, 2);
+  assert.deepEqual(result.undecided, [2]);
+  // The possible duplicate waits for a decision; only the unrelated row counts as new.
+  assert.equal(result.newRows, 1);
 });
 
 test("imports into a bank-linked account skip synced bookings and leave the bank balance unchanged", async context => {

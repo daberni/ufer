@@ -122,7 +122,8 @@ An item is checked only when its acceptance criterion is met and evidence is rec
   - [ ] OFX, QIF and CAMT.053 ([#14](https://github.com/daberni/ufer/issues/14))
   - [x] Content matching against earlier CSV imports of other files
   - [x] One CSV reader: the fixed-schema balance import is retired; balances derive from transactions and Update balance ([#282](https://github.com/daberni/ufer/issues/282))
-  - [ ] Remaining duplicate detection gaps ([#228](https://github.com/daberni/ufer/issues/228))
+  - [x] Reimports update matched bookings' payee, description and type; possible duplicates wait for a per-row or bulk decision ([#284](https://github.com/daberni/ufer/issues/284))
+  - [ ] Resolving an existing duplicate from the transaction ([#228](https://github.com/daberni/ufer/issues/228))
 - [ ] **E-03 · Backup and restore**
   - [x] Offline backup verification and synthetic restore rehearsal
   - [ ] Automated backups and a restore drill on a fresh instance ([#84](https://github.com/daberni/ufer/issues/84))
@@ -233,7 +234,7 @@ An item is checked only when its acceptance criterion is met and evidence is rec
 38. <a id="fn-38"></a>[Firefly III rules](https://github.com/firefly-iii/docs/blob/main/docs/docs/how-to/firefly-iii/features/rules.md): grouped rules with multiple actions.
 39. <a id="fn-39"></a>[Buxfer upload](https://www.buxfer.com/help/upload): CSV and Excel; mapping profiles unverified.
 40. <a id="fn-40"></a>[Sure CSV imports](https://docs.sure.am/guides/app-features/csv-imports): mapping, preview, reusable setup; the import account selector lists manual accounts, and CSV rows are not deduplicated against bank-feed imports.
-41. <a id="fn-41"></a>Rows match earlier imports by export ID or content and existing bookings by amount, date and text; later bank syncs adopt matching imported rows. Remaining gaps are tracked in [#228](https://github.com/daberni/ufer/issues/228).
+41. <a id="fn-41"></a>Rows match earlier imports by export ID or content and existing bookings by amount, date and text; later bank syncs adopt matching imported rows. A reimport updates matched bookings' source fields and asks per row for possible duplicates. Resolving a duplicate already stored is tracked in [#228](https://github.com/daberni/ufer/issues/228).
 42. <a id="fn-42"></a>Monthly chart with income, expenses, net and per-month category breakdowns; transfers are excluded.
 43. <a id="fn-43"></a>[Sure dashboard source](https://github.com/we-promise/sure/blob/v0.7.6-hotfix.1/app/controllers/pages_controller.rb): reorder, show or hide and resize predefined widgets; runtime not tested.
 44. <a id="fn-44"></a>[Sure recurring transactions](https://docs.sure.am/features/recurring-transactions)

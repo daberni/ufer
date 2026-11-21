@@ -1,0 +1,146 @@
+import { sourceChanges, type ExistingMatch, type RowDecision, type RowMatch, type SourceField } from "../reimport-decisions";
+import type { ExistingBooking, findDuplicates } from "./duplicate-matching";
+import type { MappedEntry } from "./mapped-import-repository";
+
+/** A booking an imported row may match, with what the review compares and an update may change. */
+export type StoredBooking = ExistingBooking & {
+  type: string;
+  typeLocked: boolean;
+  payeeOverridden: boolean;
+  descriptionOverridden: boolean;
+};
+
+export type Decision = {
+  action: RowDecision;
+  reference?: string;
+};
+
+type Found = ReturnType<typeof findDuplicates<StoredBooking>>;
+
+export type RowUpdate = {
+  index: number;
+  reference: string;
+  changes: SourceField[];
+};
+
+/**
+ * What each classified row does: new rows are inserted; a confident match updates its booking's source fields unless the person skips it or, for a content match, creates it anyway; a possible duplicate does only what the person decided and is otherwise left out as `undecided`.
+ * One booking takes the update of at most one row; an update without changes writes nothing.
+ */
+export function planRows(entries: MappedEntry[], found: Found, decisions: ReadonlyMap<number, Decision>) {
+  const inserts: number[] = [];
+  const updates: RowUpdate[] = [];
+  const undecided: number[] = [];
+  /** Bookings a possible duplicate updates, which later batches treat as matched. */
+  const adopted: Pick<StoredBooking, "reference" | "date">[] = [];
+  const claimed = new Set<string>();
+  const update = (index: number, booking: StoredBooking) => {
+    if (claimed.has(booking.reference)) {
+      return false;
+    }
+
+    claimed.add(booking.reference);
+    const changes = sourceChanges(booking, entries[index]);
+
+    if (changes.length > 0) {
+      updates.push({
+        index,
+        reference: booking.reference,
+        changes
+      });
+    }
+
+    return true;
+  };
+
+  entries.forEach((_entry, index) => {
+    const decision = decisions.get(index);
+    const reason = found.duplicates.get(index);
+    const booking = found.matches.get(index);
+
+    if (reason && booking) {
+      const action = decision?.action ?? "update";
+
+      if (action === "create" && reason === "existing_booking") {
+        inserts.push(index);
+      } else if (action === "update") {
+        update(index, booking);
+      }
+
+      return;
+    }
+
+    const candidates = found.candidatesOf.get(index);
+
+    if (!candidates) {
+      inserts.push(index);
+
+      return;
+    }
+
+    if (decision?.action === "create") {
+      inserts.push(index);
+
+      return;
+    }
+
+    if (decision?.action === "skip") {
+      return;
+    }
+
+    const chosen = decision ? candidates.find(candidate => candidate.reference === (decision.reference ?? candidates[0]?.reference)) : undefined;
+
+    // An update whose booking is gone or already taken by another row waits for a new decision, like a row without one.
+    if (!chosen || !update(index, chosen)) {
+      undecided.push(index);
+
+      return;
+    }
+
+    adopted.push({
+      reference: chosen.reference,
+      date: chosen.date
+    });
+  });
+
+  return {
+    inserts,
+    updates,
+    undecided,
+    adopted
+  };
+}
+
+/** The review's view of each matched or possibly duplicate row, by index. */
+export function describeMatches(entries: MappedEntry[], found: Found) {
+  const described = new Map<number, Omit<RowMatch, "line">>();
+  const existingMatch = (index: number, booking: StoredBooking): ExistingMatch => ({
+    reference: booking.reference,
+    date: booking.date,
+    amount: booking.amount,
+    payee: booking.counterparty,
+    description: booking.description,
+    type: booking.type,
+    payeeOverridden: booking.payeeOverridden,
+    descriptionOverridden: booking.descriptionOverridden,
+    changes: sourceChanges(booking, entries[index])
+  });
+
+  for (const [index, booking] of found.matches) {
+    described.set(index, {
+      kind: "match",
+      reason: found.duplicates.get(index) ?? null,
+      candidates: [existingMatch(index, booking)]
+    });
+  }
+
+  for (const [index, candidates] of found.candidatesOf) {
+    described.set(index, {
+      kind: "possible",
+      reason: null,
+      candidates: candidates.map(booking => existingMatch(index, booking))
+    });
+  }
+
+  return described;
+}

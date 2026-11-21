@@ -13,6 +13,7 @@ import { mappingProblem, suggestMapping, type CsvMapping, type CsvSettings } fro
 import { importIdFor } from "@/features/imports/import-batches";
 import { categoryValues, importKey, prepareImport, resolveCategories, resolveTargets, sourceAccounts, templateChoices, type CategorySelection, type TargetChoice } from "@/features/imports/import-plan";
 import { useImportTemplates } from "@/features/imports/template-queries";
+import { decisionTotals, effectiveDecision, type DecisionInput } from "@/features/imports/reimport-decisions";
 import { useLocale } from "@/client/locale-provider";
 import { formatCount } from "@/lib/locale";
 
@@ -48,6 +49,8 @@ export function useImportDraft() {
     key: string;
   } | null>(null);
   const [imported, setImported] = useState<MappedImportSummary | null>(null);
+  // Decisions for the checked rows' matches by line; a new check starts from the defaults again.
+  const [decisions, setDecisions] = useState<Map<number, DecisionInput>>(new Map());
   const [importId, setImportId] = useState(() => crypto.randomUUID());
   const [configurationLocked, setConfigurationLocked] = useState(false);
   const latestSelection = useRef(0);
@@ -80,6 +83,7 @@ export function useImportDraft() {
   const preparedKey = useMemo(() => prepared ? importKey(prepared) : null, [prepared]);
   // A refetched account list can change a preselected target; the check then no longer describes what Import would save.
   const summary = checked && checked.key === preparedKey ? checked.summary : null;
+  const totals = useMemo(() => summary ? decisionTotals(summary.matches, decisions) : null, [summary, decisions]);
   const inputsLocked = configurationLocked || mutation.isPending;
   // Saved templates can arrive after the file was read; a match is then offered instead of applied silently.
   const matchingTemplate = useMemo(() => table ? matchTemplate(table.header, templateList) : null, [table, templateList]);
@@ -98,6 +102,7 @@ export function useImportDraft() {
     setTargetChoices(new Map());
     setCategoryChoices(new Map());
     setTypeChoices(new Map());
+    setDecisions(new Map());
     setImportId(crypto.randomUUID());
     setConfigurationLocked(false);
     mutation.reset();
@@ -282,6 +287,25 @@ export function useImportDraft() {
     setCategoryChoices(current => new Map(current).set(value, selection));
   }
 
+  /** Sets the decision for the given lines; bulk actions pass every line of one kind. */
+  function decide(lines: number[], action: DecisionInput["action"], reference?: string) {
+    setDecisions(current => {
+      const next = new Map(current);
+
+      for (const line of lines) {
+        next.set(line, {
+          line,
+          action,
+          ...(reference === undefined ? {} : {
+            reference
+          })
+        });
+      }
+
+      return next;
+    });
+  }
+
   function chooseType(value: string, type: ImportType | null) {
     setChecked(null);
     setTypeChoices(current => new Map(current).set(value, type));
@@ -306,7 +330,20 @@ export function useImportDraft() {
       return;
     }
 
+    // Possible duplicates need a decision first; pressing Import leads to the first one.
+    if (confirm && totals && totals.undecided > 0) {
+      revealFirstProblem();
+
+      return;
+    }
+
     const key = importKey(prepared);
+    // Confirming sends every applied decision, so the server does exactly what the review shows.
+    const applied = confirm && summary ? summary.matches.flatMap(match => {
+      const decision = effectiveDecision(match, decisions.get(match.line));
+
+      return decision ? [decision] : [];
+    }) : [];
 
     mutation.mutate({
       importId,
@@ -314,6 +351,7 @@ export function useImportDraft() {
       rowErrors: mapped.errors,
       targets: prepared.targets,
       categories: prepared.categories,
+      decisions: applied,
       confirm,
       onConfirmStart: () => setConfigurationLocked(true)
     }, {
@@ -322,6 +360,7 @@ export function useImportDraft() {
           setConfigurationLocked(false);
           setImported(result);
         } else {
+          setDecisions(new Map());
           setChecked({
             summary: result,
             key
@@ -360,6 +399,9 @@ export function useImportDraft() {
     categories: resolvedCategories,
     keptRows,
     summary,
+    totals,
+    decisions,
+    decide,
     imported,
     accounts: accountOptions,
     accountsReady: accounts.status !== "pending",

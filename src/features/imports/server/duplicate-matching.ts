@@ -1,4 +1,5 @@
-import { matchBooking, sameDay, prepareBooking, prepareBookings, sameAmountInWindow, type Booking, type PreparedBooking, type PreparedBookings } from "@/lib/booking-matching";
+import type { DuplicateReason } from "../reimport-decisions";
+import { bookingDistance, matchBooking, sameDay, textsMatch, prepareBooking, prepareBookings, sameAmountInWindow, type Booking, type PreparedBooking, type PreparedBookings } from "@/lib/booking-matching";
 
 export type ImportCandidate = {
   reference: string;
@@ -19,32 +20,36 @@ export type ExistingBooking = {
   transfer: boolean;
 };
 
-export type DuplicateReason = "already_imported" | "existing_booking";
 
 /**
  * Finds the imported rows an account already contains. A row is a duplicate when the account has a booking with the same reference, or otherwise a booking `matchBooking` finds, whatever source saved it, including an earlier import of another file.
- * Rows with several matching bookings in the date window, or with a booking of the same amount that only the date or a transfer suggests, are returned as `possible` duplicates and still import.
+ * Rows with several matching bookings in the date window, or with a booking of the same amount that only the date or a transfer suggests, are returned as `possible` duplicates with their candidate bookings; the person decides what they do.
  * Each existing booking absorbs at most one row. `consumed` lists the bookings earlier batches of this import matched or saved, so a batch never mistakes rows of its own file for duplicates, genuine repeats beyond the existing ones still import and a check reports what confirming saves.
  */
-export function findDuplicates(candidates: ImportCandidate[], existing: ExistingBooking[], consumed: ReadonlySet<string> = new Set()) {
+export function findDuplicates<T extends ExistingBooking>(candidates: ImportCandidate[], existing: T[], consumed: ReadonlySet<string> = new Set()) {
   const duplicates = new Map<number, DuplicateReason>();
   const matched: Pick<ExistingBooking, "reference" | "date">[] = [];
   const possible: number[] = [];
-  const references = new Map(existing.map(booking => [booking.reference, booking.date]));
+  /** The booking each duplicate row matched. */
+  const matches = new Map<number, T>();
+  /** The bookings each possible duplicate may record, in order of preference. */
+  const candidatesOf = new Map<number, T[]>();
+  const references = new Map(existing.map(booking => [booking.reference, booking]));
   const candidateReferences = new Set(candidates.map(candidate => candidate.reference));
   const available = prepareBookings(existing.filter(booking => !consumed.has(booking.reference) && !candidateReferences.has(booking.reference)));
   const used = new Set<number>();
   const isFree = (index: number) => !used.has(index);
 
   candidates.forEach((candidate, index) => {
-    const importedDate = references.get(candidate.reference);
+    const imported = references.get(candidate.reference);
 
-    if (importedDate !== undefined) {
+    if (imported !== undefined) {
       duplicates.set(index, "already_imported");
+      matches.set(index, imported);
       // A retried import passes its earlier rows back as consumed too, so they never absorb a neighbouring row of a later batch by content.
       matched.push({
         reference: candidate.reference,
-        date: importedDate
+        date: imported.date
       });
 
       return;
@@ -55,8 +60,10 @@ export function findDuplicates(candidates: ImportCandidate[], existing: Existing
 
     if (match === "ambiguous" || (match < 0 && hasWeakMatch(prepared, available, isFree))) {
       possible.push(index);
+      candidatesOf.set(index, possibleCandidates(prepared, available, isFree));
     } else if (match >= 0) {
       used.add(match);
+      matches.set(index, available.bookings[match]);
       matched.push({
         reference: available.bookings[match].reference,
         date: available.bookings[match].date
@@ -68,12 +75,25 @@ export function findDuplicates(candidates: ImportCandidate[], existing: Existing
   return {
     duplicates,
     matched,
-    possible
+    possible,
+    matches,
+    candidatesOf
   };
 }
 
+/** The bookings a possible duplicate may record: same amount within the window, matching text and closer dates first. */
+function possibleCandidates<T extends ExistingBooking>(candidate: PreparedBooking<Booking>, prepared: PreparedBookings<T>, available: (index: number) => boolean) {
+  const rank = (index: number) => {
+    const booking = prepared.bookings[index];
+
+    return (textsMatch(booking, candidate) ? 0 : 100) + bookingDistance(booking, candidate);
+  };
+
+  return sameAmountInWindow(candidate, prepared, available).toSorted((left, right) => rank(left) - rank(right)).map(index => prepared.bookings[index]);
+}
+
 /** A booking of the same amount whose text differs, on the same date or recorded as a transfer within the window: too uncertain to skip the row, worth a look in the review. */
-function hasWeakMatch(candidate: PreparedBooking<Booking>, prepared: PreparedBookings<ExistingBooking>, available: (index: number) => boolean) {
+function hasWeakMatch<T extends ExistingBooking>(candidate: PreparedBooking<Booking>, prepared: PreparedBookings<T>, available: (index: number) => boolean) {
   return sameAmountInWindow(candidate, prepared, available).some(index => {
     const booking = prepared.bookings[index];
 
