@@ -42,8 +42,9 @@ export function matchOptions<Option extends {
     .map(match => match.option);
 }
 
+// Folds case independently of the browser's locale, like category names on the server, so a create option never duplicates an existing label.
 function sameLabel(left: string, right: string) {
-  return left.trim().normalize("NFC").toLocaleLowerCase() === right.trim().normalize("NFC").toLocaleLowerCase();
+  return left.trim().normalize("NFC").toLocaleLowerCase("und") === right.trim().normalize("NFC").toLocaleLowerCase("und");
 }
 
 /** The name a create option would use: the typed text, unless it is empty or an option already has that label, ignoring case. */
