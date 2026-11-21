@@ -9,7 +9,7 @@ import { pairTransfers } from "@/features/transactions/server/transfer-pairing-r
 import { writeSplit } from "@/features/transactions/server/split-repository";
 import type { CategorizedEntry } from "@/features/transactions/server/transaction-entry";
 import type { Category } from "@/server/database/models";
-import type { Rule } from "@/lib/rules";
+import type { Rule } from "@/features/categorization/server/rule-assignment";
 import { requireRuleCapacity } from "@/features/categorization/server/rule-repository";
 import { demoConnections, demoIdPrefix, type DemoAccountDefinition, type DemoCategory } from "./demo-catalog";
 import type { DemoConnectionData, DemoCreatedCounterpart, DemoSnapshot, DemoSplit, DemoSyncRun } from "./demo-dataset";

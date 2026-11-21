@@ -9,7 +9,7 @@ import type { Database } from "../src/server/database/connection";
 import { initializeDatabase } from "../src/server/database/migrations";
 import * as schema from "../src/server/database/schema";
 import { HttpError, ValidationError } from "../src/lib/errors";
-import { categorize, prepareRules } from "../src/lib/rules";
+import { categorize, prepareRules } from "../src/features/categorization/server/rule-assignment";
 import { monthPeriod } from "../src/lib/period";
 import { applyRulesToUncorrectedTransactions, categoryUsage, createRule, updateRuleDetails, deleteCategory, deleteRule, previewRule, reorderRules } from "../src/features/categorization/server/categorization-service";
 import { listRuleSummaries } from "../src/features/categorization/server/categorization-queries";

@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { HttpError, ValidationError } from "@/lib/errors";
 import { z } from "zod";
-import { decidingRule, prepareRules, ruleAssignment, validatePattern, type PreparedRule, type Rule, type RuleText } from "@/lib/rules";
+import { decidingRule, prepareRules, ruleAssignment, validatePattern, type PreparedRule, type Rule, type RuleText } from "@/features/categorization/server/rule-assignment";
 import { normalizeCategoryName } from "@/lib/category-name";
 import { maximumRules, nextPriority, orderedPriorities } from "@/features/categorization/rule-order";
 import { isCategoryIcon } from "@/features/categorization/category-icons";

@@ -5,7 +5,7 @@ import { database, type DatabaseTransaction } from "@/server/database/connection
 import { transactions } from "@/server/database/schema";
 import { assertWritableAccount } from "@/features/accounts/server/writable-account";
 import type { TransactionType } from "@/lib/transaction-types";
-import type { RuleAssignment, RuleText } from "@/lib/rules";
+import type { RuleAssignment, RuleText } from "@/features/categorization/server/rule-assignment";
 import { createdCounterpartPrefix, manualEntryPrefix } from "@/lib/booking-references";
 import { applyTransactionType } from "./transaction-type-change";
 import { dissolveLink } from "./transfer-link-repository";

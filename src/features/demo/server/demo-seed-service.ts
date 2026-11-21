@@ -1,9 +1,9 @@
 import type { Temporal } from "temporal-polyfill";
 import { sameCategoryName } from "@/lib/category-name";
-import type { Rule } from "@/lib/rules";
+import type { Rule } from "@/features/categorization/server/rule-assignment";
 import { today } from "@/lib/time";
 import { environment } from "@/server/environment";
-import { categorizeEntries } from "@/features/transactions/server/categorize-entries";
+import { categorizeEntries } from "@/features/categorization/server/rule-assignment";
 import { demoCategories, demoRules } from "./demo-catalog";
 import { buildDemoDataset } from "./demo-dataset";
 import { countDemoRows, listForeignCategories, replaceDemoRows, type DemoSeedTarget } from "./demo-seed-repository";

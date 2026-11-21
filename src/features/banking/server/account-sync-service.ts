@@ -1,6 +1,6 @@
 import { HttpError } from "@/lib/errors";
-import type { Rule } from "@/lib/rules";
-import { categorizeEntries } from "@/features/transactions/server/categorize-entries";
+import type { Rule } from "@/features/categorization/server/rule-assignment";
+import { categorizeEntries } from "@/features/categorization/server/rule-assignment";
 import type { Entry } from "@/features/transactions/server/transaction-entry";
 import { selectedBalance } from "./bank-data";
 import { saveSyncedAccount, type SyncRunStart } from "./sync-repository";

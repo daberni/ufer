@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { HttpError, ValidationError } from "@/lib/errors";
 import { minorUnits, money } from "@/lib/money";
-import { prepareRules, ruleAssignment } from "@/lib/rules";
+import { assignRules } from "@/features/categorization/server/rule-assignment";
 import { categoryExists } from "@/features/categorization/server/category-repository";
 import { maximumSplitParts, partAmountSupported } from "@/features/transactions/split-limits";
 import { removeSplit, replaceSplit, type SplitPartValues, type SplitSubject } from "./split-repository";
@@ -89,7 +89,7 @@ export async function splitTransaction(id: string, payload: unknown) {
 
 /** Removes a booking's split; the booking returns to the category its rules assign. */
 export async function unsplitTransaction(id: string) {
-  const result = await removeSplit(id, (storedRules, text) => ruleAssignment(text, prepareRules(storedRules)));
+  const result = await removeSplit(id, assignRules);
 
   if (!result) {
     throw new HttpError(404, "Transaction not found.");

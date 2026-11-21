@@ -1,6 +1,6 @@
 import { and, count, eq, inArray, isNotNull, isNull, asc, sql } from "drizzle-orm";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
-import type { Rule } from "@/lib/rules";
+import type { Rule } from "@/features/categorization/server/rule-assignment";
 import { highestPriority, maximumRules, nextPriority, orderedPriorities } from "@/features/categorization/rule-order";
 import type { Transaction } from "@/server/database/models";
 import { accounts, categorizationRules, transactions } from "@/server/database/schema";

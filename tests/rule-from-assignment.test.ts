@@ -6,7 +6,7 @@ import { drizzle } from "drizzle-orm/libsql";
 import { initializeDatabase } from "../src/server/database/migrations";
 import * as schema from "../src/server/database/schema";
 import type { Database } from "../src/server/database/connection";
-import { categorize, prepareRules } from "../src/lib/rules";
+import { categorize, prepareRules } from "../src/features/categorization/server/rule-assignment";
 import { ValidationError } from "../src/lib/errors";
 import { proposeRulePattern, proposedPatternLength } from "../src/features/categorization/rule-pattern";
 import { listRuleSummaries } from "../src/features/categorization/server/categorization-queries";

@@ -3,7 +3,7 @@ import { and, asc, eq, inArray, isNull, sql, type AnyColumn } from "drizzle-orm"
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 import { accounts, categories, categorizationRules, transactionSplits, transactions } from "@/server/database/schema";
 import { ValidationError } from "@/lib/errors";
-import type { Rule, RuleAssignment, RuleText } from "@/lib/rules";
+import type { Rule, RuleAssignment, RuleText } from "@/features/categorization/server/rule-assignment";
 import type { TransactionType } from "@/lib/transaction-types";
 import type { SplitPart } from "@/features/transactions/types";
 import type { Entry } from "./transaction-entry";

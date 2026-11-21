@@ -11,7 +11,7 @@ import { saveAccountSync } from "../src/features/banking/server/account-sync-ser
 import { dashboardFilters } from "../src/server/http/dashboard-filters";
 import { readTransactionPage } from "../src/features/transactions/server/transaction-list-query";
 import type { BankTransaction } from "../src/features/banking/server/enable-banking-client";
-import type { Rule } from "../src/lib/rules";
+import type { Rule } from "../src/features/categorization/server/rule-assignment";
 
 const basic: BankTransaction = {
   entry_reference: "synthetic-1",

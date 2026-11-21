@@ -1,6 +1,5 @@
 import { RE2JS, RE2JSSyntaxException } from "re2js";
 import { ValidationError } from "@/lib/errors";
-// eslint-disable-next-line boundaries/dependencies -- known violation tracked in daberni/ufer#285
 import type { CategorizationRule } from "@/server/database/models";
 import type { RuleTransactionType } from "@/lib/transaction-types";
 
@@ -113,4 +112,40 @@ export function ruleAssignment(text: RuleText, rules: PreparedRule[]): RuleAssig
 
 export function categorize(text: RuleText, rules: PreparedRule[]) {
   return ruleAssignment(text, rules).categoryId;
+}
+
+/** Prepares the stored rules and decides one transaction's assignment; callers persist the result. */
+export function assignRules(rules: Rule[], text: RuleText): RuleAssignment {
+  return ruleAssignment(text, prepareRules(rules));
+}
+
+/** How a booking records its rule assignment: the category with its deciding rule, and the type with the rule that set it and that rule's transfer account. */
+export type EntryRuleAssignment = {
+  categoryId: string | null;
+  /** The rule that decided `categoryId`; null when no rule matched or the category was not assigned by a rule. */
+  categoryRuleId: string | null;
+  /** The type the deciding rule sets; null leaves the automatic type. */
+  ruleType: RuleTransactionType | null;
+  /** The rule that sets `ruleType`; null when it is null. */
+  typeRuleId: string | null;
+  /** The transfer account of the rule that sets `ruleType`; pairing uses it rather than the rule's current account. */
+  typeTransferAccountId: string | null;
+};
+
+/** Assigns each entry the category and any type of the first matching rule; an entry carries the stored overrides of the row it updates. Categories describe purpose only; a detected transfer is categorized like any other booking and keeps its type separately. */
+export function categorizeEntries<Categorized extends RuleText>(entries: Categorized[], rules: Rule[]): (Categorized & EntryRuleAssignment)[] {
+  const prepared = prepareRules(rules);
+
+  return entries.map(entry => {
+    const assignment = ruleAssignment(entry, prepared);
+
+    return {
+      ...entry,
+      categoryId: assignment.categoryId,
+      categoryRuleId: assignment.ruleId,
+      ruleType: assignment.type,
+      typeRuleId: assignment.type ? assignment.ruleId : null,
+      typeTransferAccountId: assignment.transferAccountId
+    };
+  });
 }
