@@ -1,15 +1,23 @@
 import { randomUUID } from "node:crypto";
-import { and, asc, eq, inArray, isNotNull, isNull, ne, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull, isNull, ne, sql, type AnyColumn } from "drizzle-orm";
+import { alias } from "drizzle-orm/sqlite-core";
 import { database, type Database, type DatabaseTransaction } from "@/server/database/connection";
 import { environment } from "@/features/banking/server/environment";
 import { accounts, transactions } from "@/server/database/schema";
 import { derivedTransactionType, manualAccountTypes, type TransactionType } from "@/features/transactions/transaction-types";
 import type { TransferBooking, TransferOptions } from "@/features/transactions/types";
 import type { CategorizedEntry } from "./transaction-entry";
-import { notSplit, notSplitSql } from "./split-repository";
+import { notSplit, notSplitBooking } from "./split-repository";
 import { automaticPairingDays, manualLinkDays, unambiguousPairs, type PairingCandidate } from "./transfer-pairing";
 
 type Executor = Database | DatabaseTransaction;
+
+type Booking = Record<"id" | "account_id" | "amount_minor" | "suppressed_at" | "transfer_id" | "transfer_source" | "type" | "type_source" | "type_rule_id" | "type_transfer_account_id", AnyColumn>;
+
+const anchor = alias(transactions, "anchor");
+const other = alias(transactions, "other");
+const candidate = alias(transactions, "candidate");
+const booking = alias(transactions, "booking");
 
 /** Counterparts created on a manual account carry the source booking's id in this reference; unlinking removes them again. */
 export const createdCounterpartPrefix = "transfer:";
@@ -18,13 +26,13 @@ export const createdCounterpartPrefix = "transfer:";
 export const manualEntryPrefix = "manual:";
 
 // Bookings automatic pairing may link: visible, unlinked, not split, never linked or unlinked by a person, and either a transfer or an income or expense that neither a person nor a rule set.
-function pairable(alias: string) {
-  return sql.raw(`${alias}.suppressed_at IS NULL AND ${alias}.transfer_id IS NULL AND ${alias}.transfer_source='auto' AND ${alias}.amount_minor<>0 AND ${notSplitSql(alias)} AND (${alias}.type='transfer' OR (${alias}.type_source='auto' AND ${alias}.type_rule_id IS NULL AND ${alias}.type IN ('income','expense')))`);
+function pairable(booking: Booking) {
+  return sql`${booking.suppressed_at} IS NULL AND ${booking.transfer_id} IS NULL AND ${booking.transfer_source}='auto' AND ${booking.amount_minor}<>0 AND ${notSplitBooking(booking)} AND (${booking.type}='transfer' OR (${booking.type_source}='auto' AND ${booking.type_rule_id} IS NULL AND ${booking.type} IN ('income','expense')))`;
 }
 
 // A booking whose rule names the transfer's account pairs only with a booking on that account. A rule naming the booking's own account, as for the other leg of the same transfer, does not constrain it.
-function allowedByRule(alias: string, otherAlias: string) {
-  return sql.raw(`(${alias}.type_transfer_account_id IS NULL OR ${alias}.type_transfer_account_id=${alias}.account_id OR ${alias}.type_transfer_account_id=${otherAlias}.account_id)`);
+function allowedByRule(booking: Booking, other: Booking) {
+  return sql`(${booking.type_transfer_account_id} IS NULL OR ${booking.type_transfer_account_id}=${booking.account_id} OR ${booking.type_transfer_account_id}=${other.account_id})`;
 }
 
 function windowStart(days: number) {
@@ -59,11 +67,11 @@ export async function pairTransfers(executor: DatabaseTransaction, bankingEnviro
     AND anchor_account.archived_at IS NULL
     AND other_account.archived_at IS NULL
     AND anchor.type='transfer'
-    AND ${pairable("anchor")}
-    AND ${pairable("other")}
+    AND ${pairable(anchor)}
+    AND ${pairable(other)}
     AND (other.type<>'transfer' OR anchor.amount_minor<0)
-    AND ${allowedByRule("anchor", "other")}
-    AND ${allowedByRule("other", "anchor")}
+    AND ${allowedByRule(anchor, other)}
+    AND ${allowedByRule(other, anchor)}
   `);
   const candidates: PairingCandidate[] = rows.map(row => Number(row.anchor_amount) < 0 ? {
     outgoingId: String(row.anchor_id),
@@ -123,8 +131,8 @@ async function createRuleCounterparts(tx: DatabaseTransaction, bankingEnvironmen
       AND candidate.booking_date BETWEEN date(booking.booking_date,${windowStart(automaticPairingDays)}) AND date(booking.booking_date,${windowEnd(automaticPairingDays)})
       AND candidate.amount_minor=-booking.amount_minor
       AND candidate.currency=booking.currency
-      AND ${pairable("candidate")}
-      AND ${allowedByRule("candidate", "booking")}
+      AND ${pairable(candidate)}
+      AND ${allowedByRule(candidate, booking)}
     )
   `);
 
