@@ -44,6 +44,9 @@ export function PayeeInput({
   // Suggestions only show for the text in the field, so results for earlier text cannot overwrite newer typing.
   const shown = open && query === requested ? suggestions.data?.payees ?? [] : [];
   const expanded = shown.length > 0;
+  // A requested list stays open while its suggestions load or show; one that settled empty or failed shows nothing and leaves keys to the page.
+  const loading = query !== requested || suggestions.isFetching;
+  const listOpen = open && (loading || expanded);
   // The suggestions last shown for the current text, so keys that reopen a closed list start on them, such as ArrowDown after Escape.
   const [knownCount, setKnownCount] = useState(0);
 
@@ -63,7 +66,7 @@ export function PayeeInput({
     handleKeyDown
   } = useComboboxOptions({
     // A list that was asked to open counts as open for every key while its suggestions load, so Escape, Alt+ArrowUp and Tab close it.
-    open,
+    open: listOpen,
     optionCount: expanded ? shown.length : knownCount,
     listboxRef,
     freeText: true,
@@ -97,7 +100,7 @@ export function PayeeInput({
   // Touch browsers keep the field focused when a tap lands on something that cannot take focus, so blurring alone does not close the list.
   // While the list is open, shown or still waiting for its suggestions, the field owns outside presses, so it cannot open after the user moved on.
   useDismiss({
-    active: open,
+    active: listOpen,
     inside: [input, popupRef],
     onDismiss: close
   });

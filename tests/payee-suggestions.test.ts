@@ -426,6 +426,37 @@ test("Alt+ArrowUp while suggestions are still loading closes the list", async co
   assert.equal(field.getAttribute("aria-expanded"), "false");
 });
 
+for (const [outcome, response] of [["no suggestions", () => Response.json({
+  payees: []
+})], ["an error", () => Response.json({
+  title: "Server error"
+}, {
+  status: 500
+})]] as const) {
+  test(`Escape after a request that settled with ${outcome} reaches the surrounding dialog`, async context => {
+    const {
+      field,
+      requests
+    } = await renderPayeeInput(context, "zzz");
+    const escapes: string[] = [];
+    const recordEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        escapes.push("document");
+      }
+    };
+
+    document.addEventListener("keydown", recordEscape);
+    context.after(() => document.removeEventListener("keydown", recordEscape));
+
+    press(field, "ArrowDown");
+    await respond(requests("transactions/payees")[0], response());
+    press(field, "Escape");
+
+    assert.deepEqual(escapes, ["document"]);
+    assert.equal(field.getAttribute("aria-expanded"), "false");
+  });
+}
+
 test("a pointer picks a suggestion and Escape closes the list without clearing the text", async context => {
   const {
     field,
