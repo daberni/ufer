@@ -32,10 +32,7 @@ export function SectionHeading({
     <div className={styles["section-heading"]}>
       <h2 ref={headingRef} tabIndex={headingRef ? -1 : undefined}>
         {`${title} `}
-        <span className={styles["count"]}>
-          {"· "}
-          <span className={valueMask(shownStatus(count))}>{formatCount(count.data ?? 0, locale)}</span>
-        </span>
+        <span className={clsx(ui["count-badge"], valueMask(shownStatus(count)))}>{formatCount(count.data ?? 0, locale)}</span>
       </h2>
       {children && <div className={clsx(ui["button-group"], styles["actions"])}>{children}</div>}
     </div>

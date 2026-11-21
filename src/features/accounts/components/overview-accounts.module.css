@@ -12,23 +12,6 @@
 .accounts-section > .section-heading {
   margin-top: 0;
 }
-.count-badge {
-  background: var(--soft-strong);
-  color: var(--ink-soft);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  min-width: 1.5rem;
-  height: 1.5rem;
-  padding: 0 var(--space-1);
-  line-height: 1;
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: normal;
-  border-radius: var(--radius-sm);
-  font-size: var(--text-xs);
-}
 /* Compact two-line rows beside the net-worth card: name and balance, then type, institution, source and balance date. The type and institution truncate rather than wrap, so every row, and its skeleton, has the same height. */
 .account-strip {
   display: flex;

@@ -81,8 +81,13 @@ export function TransactionsPage() {
   const runEmptyState = <SyncRunEmpty filtered={Boolean(query.search || query.account || query.category || query.type)} found={runFound} run={selectedRun} />;
 
   return (
-    <>
-      {query.syncRun ? (
+    <TransactionsPanel
+      categories={categories}
+      emptyState={query.syncRun ? runEmptyState : undefined}
+      filterAccounts={query.syncRun ? mapArea(accounts, activeAccounts) : mapArea(groups, data => data.currencyAccounts)}
+      list={list}
+      page={list.page}
+      scope={query.syncRun ? (
         <SyncRunScope
           clear={() => setSyncRun("")}
           found={runFound}
@@ -92,15 +97,8 @@ export function TransactionsPage() {
       ) : (
         <PeriodControls currencies={mapArea(groups, data => data.currencies)} view="transactions" />
       )}
-      <TransactionsPanel
-        categories={categories}
-        emptyState={query.syncRun ? runEmptyState : undefined}
-        filterAccounts={query.syncRun ? mapArea(accounts, activeAccounts) : mapArea(groups, data => data.currencyAccounts)}
-        list={list}
-        page={list.page}
-        view="transactions"
-      />
-    </>
+      view="transactions"
+    />
   );
 }
 

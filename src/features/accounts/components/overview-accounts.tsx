@@ -52,7 +52,7 @@ export function OverviewAccounts({ currencyAccounts }: Props) {
     <section className={styles["accounts-section"]}>
       <div className={styles["section-heading"]}>
         <h2>
-          Your accounts <span className={clsx(styles["count-badge"], valueMask(shownStatus(currencyAccounts)))}>{formatCount(currencyAccounts.data?.length ?? 0, locale)}</span>
+          Your accounts <span className={clsx(ui["count-badge"], valueMask(shownStatus(currencyAccounts)))}>{formatCount(currencyAccounts.data?.length ?? 0, locale)}</span>
         </h2>
         <button className={ui["text-button"]} onClick={() => changeView("accounts")}>
           Manage all <ArrowRight size={15} />

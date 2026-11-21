@@ -40,6 +40,8 @@ type Props = {
   view: "overview";
 } | {
   view: "transactions";
+  /** The period or sync-run scope, shown between the section heading and the list. */
+  scope: ReactNode;
   /** Accounts offered as a filter. */
   filterAccounts: Area<Account[]>;
 } | {
@@ -102,6 +104,7 @@ export function TransactionsPanel(props: Props) {
           </button>
         </SectionHeading>
       )}
+      {props.view === "transactions" && props.scope}
       <section className={clsx(ui["panel"], styles["transaction-panel"], props.view === "transactions" && styles["below-heading"])} aria-label={props.view === "transactions" ? "Transactions" : undefined}>
         {props.view !== "transactions" && (
           <div className={styles["card-heading"]}>
