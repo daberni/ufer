@@ -72,7 +72,7 @@ async function insertSandboxBankAccount(db: Database) {
     id: "sandbox-transaction",
     account_id: "sandbox-account",
     provider_reference: "bank:sandbox-reference",
-    booking_date: "2026-11-01",
+    date: "2026-11-01",
     amount_minor: -1999,
     currency: "EUR",
     type: "expense",
@@ -92,7 +92,7 @@ async function insertManualAccount(db: Database, id: string) {
     id: `${id}-opening`,
     account_id: id,
     provider_reference: `manual:${id}-opening`,
-    booking_date: "2026-10-01",
+    date: "2026-10-01",
     amount_minor: 1000000,
     currency: "EUR",
     type: "opening_balance",
@@ -148,7 +148,7 @@ test("re-running the demo seed replaces only demo rows and keeps bank-connected 
     id: "reviewer-import-on-demo-account",
     account_id: "demo-checking",
     provider_reference: "csv:reviewer",
-    booking_date: "2026-11-10",
+    date: "2026-11-10",
     amount_minor: -500,
     currency: "EUR",
     type: "expense"
@@ -187,14 +187,14 @@ test("re-running the demo seed replaces only demo rows and keeps bank-connected 
   assert.deepEqual(bankAccounts.map(account => account.id).sort(), ["demo-checking", "demo-credit-card", "demo-joint", "demo-online-checking", "demo-savings"]);
   assert.ok(manualAccounts.every(account => account.balance_minor === null && typeof balances.get(account.id) === "number"));
   const snapshots = await db.select().from(schema.balanceSnapshots).where(like(schema.balanceSnapshots.account_id, "demo-%"));
-  const bookedThrough = (id: string, date: string) => seeded.filter(row => row.account_id === id && row.booking_date <= date).reduce((total, row) => total + row.amount_minor, 0);
+  const bookedThrough = (id: string, date: string) => seeded.filter(row => row.account_id === id && (row.booking_date ?? row.date) <= date).reduce((total, row) => total + row.amount_minor, 0);
 
   // A simulated connection reports the balance its bookings add up to through the last synced day, the day before the run; the deprecated balance columns stay empty.
   assert.ok(bankAccounts.every(account => account.requisition_id?.startsWith("demo-connection-") && account.balance_minor === null));
   assert.equal(snapshots.length, bankAccounts.length);
   assert.ok(snapshots.every(row => row.observed_at === "2026-11-30" && row.amount_minor === bookedThrough(row.account_id, row.observed_at)));
   // No bank booking is newer than the last sync, and the latest sync run lies before the run date, so it is never in the future.
-  assert.ok(seeded.every(row => !bankAccounts.some(account => account.id === row.account_id) || row.booking_date < "2026-12-01"));
+  assert.ok(seeded.every(row => !bankAccounts.some(account => account.id === row.account_id) || (row.booking_date ?? row.date) < "2026-12-01"));
   assert.ok(bankAccounts.every(account => account.last_synced_at !== null && account.last_synced_at < "2026-12-01"));
   // A category someone created with the same name is reused instead of adding a conflicting demo category.
   assert.equal(diningRule?.category_id, "reviewer-dining");
@@ -229,7 +229,7 @@ test("the guard refuses missing confirmation, production banking and real-lookin
     id: "own-transaction",
     account_id: "own-checking",
     provider_reference: "csv:own",
-    booking_date: "2026-11-02",
+    date: "2026-11-02",
     amount_minor: -4200,
     currency: "EUR",
     type: "expense"
@@ -251,7 +251,7 @@ test("the dataset is reproducible for a run date, its rules categorize all but a
     runDate: firstRun
   });
   const rows = await demoTransactions(db);
-  const dates = rows.map(row => row.booking_date).sort();
+  const dates = rows.map(row => row.date).sort();
   const transfers = rows.filter(row => row.type === "transfer");
   const untracked = transfers.filter(row => row.transfer_id === null);
   const linkedTransfers = transfers.filter(row => row.transfer_id !== null);
@@ -292,7 +292,7 @@ test("re-seeding keeps a person's rule-set transfer to a removed demo account un
     id: "rule-transfer",
     account_id: "sandbox-account",
     provider_reference: "bank:rule-transfer",
-    booking_date: "2025-01-10",
+    date: "2025-01-10",
     amount_minor: -7000,
     currency: "EUR",
     type: "transfer",
@@ -307,7 +307,7 @@ test("re-seeding keeps a person's rule-set transfer to a removed demo account un
     id: "other-side",
     account_id: "reviewer-asset",
     provider_reference: "manual:other-side",
-    booking_date: "2025-01-10",
+    date: "2025-01-10",
     amount_minor: 7000,
     currency: "EUR",
     type: "income"

@@ -31,14 +31,14 @@ async function legacyDatabase(transform: (sql: string) => string = sql => sql) {
   return client;
 }
 
-// Later changesets add columns and changeset 0016 drops the banking environment, so upgrade tests compare only the columns that exist both before and after the upgrade.
+// Later changesets add columns and changeset 0016 drops the banking environment, so upgrade tests compare only the columns that exist both before and after the upgrade. Changeset 0018 renames booking_date to date; its own test covers the dates.
 async function columnList(client: Client, table: string) {
   const columns = await client.execute({
     sql: "SELECT name FROM pragma_table_info(?)",
     args: [table]
   });
 
-  return columns.rows.map(row => String(row.name)).filter(name => name !== "environment").join(",");
+  return columns.rows.map(row => String(row.name)).filter(name => name !== "environment" && name !== "booking_date" && name !== "date").join(",");
 }
 
 /** Account columns without the stored balance, which changesets 0007 and 0017 move into opening-balance transactions. */
@@ -659,13 +659,15 @@ test("the manual account upgrade turns balance history into transactions without
     const transactionsBefore = await originalTransactions(client, transactionColumns);
     const balancesBefore = (await client.execute("SELECT id,balance_minor FROM accounts ORDER BY id")).rows.map(row => [row.id, row.balance_minor]);
 
-    // The current cash-flow query reads the hidden-booking column and the split table of later changesets; they exist only while the previous result is read.
+    // The current cash-flow query reads the hidden-booking column and the split table of later changesets and the date column changeset 0018 renames; they exist only while the previous result is read.
     await client.execute("ALTER TABLE transactions ADD COLUMN suppressed_at TEXT");
+    await client.execute("ALTER TABLE transactions RENAME COLUMN booking_date TO date");
     await client.execute("CREATE TABLE transaction_splits(transaction_id TEXT,category_id TEXT,amount_minor INTEGER)");
     const flowsBefore = await Promise.all(months.map(month => readCashFlow(monthPeriod(Temporal.PlainYearMonth.from(month)), "EUR")));
 
     await client.execute("DROP TABLE transaction_splits");
     await client.execute("ALTER TABLE transactions DROP COLUMN suppressed_at");
+    await client.execute("ALTER TABLE transactions RENAME COLUMN date TO booking_date");
 
     await assert.rejects(initializeDatabase(client), /migrations are pending/);
     await migrateDatabase(client);
@@ -685,17 +687,17 @@ test("the manual account upgrade turns balance history into transactions without
     // The balance at the end of every snapshot date is that snapshot.
     for (const [id, account, date, amount] of snapshots) {
       const onDate = await client.execute({
-        sql: "SELECT SUM(amount_minor) AS balance FROM transactions WHERE account_id=? AND booking_date<=?",
+        sql: "SELECT SUM(amount_minor) AS balance FROM transactions WHERE account_id=? AND date<=?",
         args: [account, date]
       });
 
       assert.equal(onDate.rows[0].balance, amount, id);
     }
 
-    const booked = await client.execute("SELECT account_id,booking_date,type,amount_minor,type_source,category_source,provider_reference='manual:' || id AS entered FROM transactions WHERE type IN ('opening_balance','adjustment') ORDER BY account_id,booking_date");
+    const booked = await client.execute("SELECT account_id,date,type,amount_minor,type_source,category_source,provider_reference='manual:' || id AS entered FROM transactions WHERE type IN ('opening_balance','adjustment') ORDER BY account_id,date");
 
     // An unchanged valuation books nothing; the booking after the newest cash snapshot is balanced on its date.
-    assert.deepEqual(booked.rows.map(row => [row.account_id, row.booking_date, row.type, row.amount_minor]), [
+    assert.deepEqual(booked.rows.map(row => [row.account_id, row.date, row.type, row.amount_minor]), [
       ["bank", "2026-08-31", "opening_balance", 12345 - 207000],
       ["cash", "2026-09-01", "opening_balance", 10000],
       ["cash", "2026-09-10", "adjustment", 1000],
@@ -1305,9 +1307,11 @@ test("environment migration drops the per-row banking environment and keeps ever
       accounts: await accountColumns(client),
       account_identifiers: await columnList(client, "account_identifiers"),
       requisitions: await columnList(client, "requisitions"),
-      sync_runs: await columnList(client, "sync_runs")
+      sync_runs: await columnList(client, "sync_runs"),
+      transactions: await columnList(client, "transactions"),
+      balance_snapshots: await columnList(client, "balance_snapshots")
     };
-    const snapshot = async () => Object.fromEntries(await Promise.all([...Object.entries(columns), ["transactions", await columnList(client, "transactions")], ["balance_snapshots", await columnList(client, "balance_snapshots")]].map(async ([table, list]) => [table, (await client.execute(`SELECT ${list} FROM ${table} ${table === "transactions" ? withoutBankOpenings : ""} ORDER BY rowid`)).rows])));
+    const snapshot = async () => Object.fromEntries(await Promise.all(Object.entries(columns).map(async ([table, list]) => [table, (await client.execute(`SELECT ${list} FROM ${table} ${table === "transactions" ? withoutBankOpenings : ""} ORDER BY rowid`)).rows])));
     const before = await snapshot();
 
     await assert.rejects(initializeDatabase(client), /migrations are pending/);
@@ -1329,7 +1333,7 @@ test("environment migration drops the per-row banking environment and keeps ever
     // Provider identities are unique on their own, and transactions still reference accounts.
     await assert.rejects(client.execute("INSERT INTO accounts(id,name,institution,kind,provider,provider_uid) VALUES('duplicate','Duplicate','Example institution','checking','enable_banking','synthetic-uid')"), /UNIQUE constraint/);
     await assert.rejects(client.execute("INSERT INTO account_identifiers(identification_hash,account_id) VALUES('synthetic-hash','cash')"), /UNIQUE constraint|PRIMARY KEY/);
-    await assert.rejects(client.execute("INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,type) VALUES('orphan','missing','bank:2','2026-01-30',-500,'EUR','expense')"), /FOREIGN KEY/);
+    await assert.rejects(client.execute("INSERT INTO transactions(id,account_id,provider_reference,date,amount_minor,currency,type) VALUES('orphan','missing','bank:2','2026-01-30',-500,'EUR','expense')"), /FOREIGN KEY/);
     await assert.rejects(client.execute("DELETE FROM accounts WHERE id='bank'"), /FOREIGN KEY/);
   } finally {
     client.close();

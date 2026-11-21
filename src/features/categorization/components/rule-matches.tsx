@@ -72,7 +72,7 @@ export function RuleMatches({
       <summary className={styles["matches-summary"]}>{matchSummary(matches, adoptManual, locale)}</summary>
       <ul className={styles["match-list"]}>
         {matches.transactions.map(transaction => {
-          const date = describeDate(Temporal.PlainDate.from(transaction.booking_date), locale);
+          const date = describeDate(Temporal.PlainDate.from(transaction.date), locale);
           const category = categories.find(candidate => candidate.id === transaction.category_id);
           const outcome = outcomeOf(transaction, categoryId, adoptManual);
           const ruleCategory = categories.find(candidate => candidate.id === categoryId);

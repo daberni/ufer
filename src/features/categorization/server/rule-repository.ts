@@ -328,7 +328,7 @@ export async function findManualAssignments() {
 
   return db.select({
     id: transactions.id,
-    booking_date: transactions.booking_date,
+    date: transactions.date,
     category_id: transactions.category_id,
     counterparty: transactions.counterparty,
     description: transactions.description,
@@ -344,7 +344,7 @@ export async function findUncorrectedTransactions() {
 
   return db.select({
     id: transactions.id,
-    booking_date: transactions.booking_date,
+    date: transactions.date,
     category_id: transactions.category_id,
     category_rule_id: transactions.category_rule_id,
     counterparty: transactions.counterparty,
@@ -364,14 +364,14 @@ export async function findPreviewedTransactions(ids: string[]) {
 
   return db.select({
     id: transactions.id,
-    booking_date: transactions.booking_date,
+    date: transactions.date,
     amount_minor: transactions.amount_minor,
     currency: transactions.currency,
     payee: sql<string>`coalesce(${transactions.counterparty_override}, ${transactions.counterparty})`,
     description: sql<string>`coalesce(${transactions.description_override}, ${transactions.description})`,
     category_id: transactions.category_id,
     category_source: transactions.category_source
-  }).from(transactions).where(inArray(transactions.id, ids)).orderBy(sql`${transactions.booking_date} desc`, asc(transactions.id));
+  }).from(transactions).where(inArray(transactions.id, ids)).orderBy(sql`${transactions.date} desc`, asc(transactions.id));
 }
 
 export type PreviewedTransaction = Awaited<ReturnType<typeof findPreviewedTransactions>>[number];

@@ -57,7 +57,7 @@ export async function createCounterpart(tx: DatabaseTransaction, subject: Subjec
     id: counterpartId,
     account_id: accountId,
     provider_reference: `${createdCounterpartPrefix}${subject.id}`,
-    booking_date: subject.booking_date,
+    date: subject.date,
     amount_minor: -subject.amount_minor,
     currency: subject.currency,
     counterparty: subject.account_name,
@@ -158,7 +158,7 @@ export async function dissolveLink(tx: DatabaseTransaction, subject: Subject, co
 /** The entered leg of a pair with an imported booking takes the imported booking's date. */
 export async function alignEnteredLeg(tx: DatabaseTransaction, entered: Subject, imported: Subject) {
   await tx.update(transactions).set({
-    booking_date: imported.booking_date
+    date: imported.date
   }).where(eq(transactions.id, entered.id));
 }
 
@@ -170,6 +170,6 @@ export async function alignEnteredPair(tx: DatabaseTransaction, subject: Subject
   await tx.update(transactions).set({
     counterparty: subject.account_name,
     description: subject.description,
-    booking_date: subject.booking_date
+    date: subject.date
   }).where(eq(transactions.id, counterpart.id));
 }
