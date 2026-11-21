@@ -5,7 +5,7 @@ import { transactions } from "@/server/database/schema";
 import type { Rule, RuleAssignment, RuleText } from "@/lib/rules";
 import { derivedTransactionType, type TransactionType } from "@/features/transactions/transaction-types";
 import { refusable, type ManualEntryResult } from "./manual-transaction-repository";
-import { assignRuleDecision, dissolveSplit, dropSplitsOnCurrencyChange, notSplit, splitRefusesType } from "./split-repository";
+import { assignRuleDecision, dissolveSplit, dropSplitsOnCurrencyChange, notSplit, splitRefusesType, writeSplit, type SplitChange } from "./split-repository";
 import type { CategorizedEntry, Entry, ProviderDetails } from "./transaction-entry";
 import { applyTransactionType, dissolveLink, enteredInUfer, findSubject, followImportedCorrections, pairTransfers, releaseOutdatedLinks, touchesArchivedAccount, type TransferTarget } from "./transfer-repository";
 
@@ -178,7 +178,7 @@ export async function saveTransactionDetails(
   type: TransactionType,
   target: TransferTarget | undefined,
   text: TextOverrides,
-  dropSplit?: (rules: Rule[], text: RuleText) => RuleAssignment
+  splitChange?: SplitChange
 ): Promise<ManualEntryResult> {
   return refusable(async tx => {
     const subject = await findSubject(tx, id);
@@ -192,6 +192,7 @@ export async function saveTransactionDetails(
     const frozen = await touchesArchivedAccount(tx, subject);
 
     // Removing the split in the same write transaction lets it take a type a split booking refuses; a refused save keeps the split.
+    const dropSplit = splitChange && "remove" in splitChange ? splitChange.remove : undefined;
     const dissolved = dropSplit ? await dissolveSplit(tx, id, dropSplit) : false;
 
     if (await splitRefusesType(tx, id, type)) {
@@ -223,11 +224,13 @@ export async function saveTransactionDetails(
       await assignRuleDecision(tx, id, dropSplit);
     }
 
-    if (frozen && keepsType) {
-      return "saved";
+    const result = frozen && keepsType ? "saved" : await applyTransactionType(tx, id, type, target);
+
+    if (result === "saved" && splitChange && "replace" in splitChange) {
+      await writeSplit(tx, id, splitChange.replace);
     }
 
-    return applyTransactionType(tx, id, type, target);
+    return result;
   });
 }
 

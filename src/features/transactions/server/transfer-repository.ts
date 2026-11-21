@@ -170,8 +170,9 @@ export type Subject = NonNullable<Awaited<ReturnType<typeof findSubject>>>;
 function linkCandidate(subject: Subject) {
   const inWindow = sql`${transactions.booking_date} BETWEEN date(${subject.booking_date},${windowStart(manualLinkDays)}) AND date(${subject.booking_date},${windowEnd(manualLinkDays)})`;
 
-  // Linking a booking on an archived account only changes its type; a booking entered there would follow the link's date, so it is no candidate.
-  const unfrozen = sql`(${accounts.archived_at} IS NULL OR NOT (${accounts.provider}='manual' AND (${transactions.provider_reference} LIKE ${`${manualEntryPrefix}%`} OR ${transactions.provider_reference} LIKE ${`${createdCounterpartPrefix}%`})))`;
+  // A link involving an archived account only changes types; a booking entered in Ufer would follow the link's date, so it is no candidate then.
+  const entered = sql`(${accounts.provider}='manual' AND (${transactions.provider_reference} LIKE ${`${manualEntryPrefix}%`} OR ${transactions.provider_reference} LIKE ${`${createdCounterpartPrefix}%`}))`;
+  const unfrozen = subject.account_archived_at !== null ? sql`NOT ${entered}` : sql`(${accounts.archived_at} IS NULL OR NOT ${entered})`;
 
   return and(unfrozen, ne(transactions.account_id, subject.account_id), eq(transactions.amount_minor, -subject.amount_minor), eq(transactions.currency, subject.currency), sql`${transactions.transfer_id} IS NULL`, sql`${transactions.suppressed_at} IS NULL`, sql`${transactions.amount_minor}<>0`, notSplit, inWindow);
 }
@@ -611,7 +612,14 @@ async function relinksWithoutBalanceChange(tx: DatabaseTransaction, subject: Sub
     return counterpart !== undefined;
   }
 
-  return target !== undefined && "counterpartId" in target;
+  if (target === undefined || !("counterpartId" in target)) {
+    return false;
+  }
+
+  // An entered booking follows the imported booking it is linked with, so its date would change.
+  const chosen = await findSubject(tx, target.counterpartId);
+
+  return chosen !== undefined && !enteredInUfer(chosen);
 }
 
 async function changeType(tx: DatabaseTransaction, id: string, type: TransactionType, target?: TransferTarget): Promise<TypeChangeResult> {

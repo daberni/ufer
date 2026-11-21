@@ -52,21 +52,28 @@ const rulePreviewInput = z.object({
   source_transaction_id: z.string().min(1).optional()
 });
 
-/** Rejects a counterpart account for a rule that sets no transfer, and an account that is not one of the workspace's own. */
-async function validateRuleType(input: {
+/**
+ * Rejects a counterpart account for a rule that sets no transfer, and an account that is not one of the workspace's own.
+ * An edited rule may keep its stored target unchanged, such as the marker of a deleted account, which matches no account.
+ */
+type TransferTarget = {
   transaction_type: Rule["transaction_type"];
   transfer_account_id: Rule["transfer_account_id"];
-}) {
-  if (!input.transfer_account_id) {
-    return;
-  }
+};
 
-  if (input.transaction_type !== "transfer") {
+const inactiveTargetMessage = "Choose one of your active accounts for the transfer.";
+
+function validateTransferTarget(input: TransferTarget) {
+  if (input.transfer_account_id && input.transaction_type !== "transfer") {
     throw new ValidationError("Only a transfer rule can name an account.");
   }
+}
 
-  if (!(await activeAccountExists(input.transfer_account_id))) {
-    throw new ValidationError("Choose one of your active accounts for the transfer.");
+async function validateRuleType(input: TransferTarget) {
+  validateTransferTarget(input);
+
+  if (input.transfer_account_id && !(await activeAccountExists(input.transfer_account_id))) {
+    throw new ValidationError(inactiveTargetMessage);
   }
 }
 
@@ -222,14 +229,20 @@ export async function updateRuleDetails(id: string, payload: unknown) {
     throw new ValidationError("Category does not exist.");
   }
 
-  await validateRuleType(input);
+  validateTransferTarget(input);
 
   const manual: ManualAdoption | undefined = adoptManual ? {
     select: decidedByStoredRule(id)
   } : undefined;
 
-  if (!(await updateRule(id, input, manual))) {
+  const result = await updateRule(id, input, manual);
+
+  if (result === "not_found") {
     throw new HttpError(404, "Rule not found.");
+  }
+
+  if (result === "inactive_target") {
+    throw new ValidationError(inactiveTargetMessage);
   }
 
   return {

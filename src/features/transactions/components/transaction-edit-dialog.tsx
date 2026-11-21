@@ -17,7 +17,7 @@ import { useCategories } from "@/features/categorization/queries";
 import { describeDate } from "@/lib/date-format";
 import { decimalAmount, minorUnits, signedMoney } from "@/lib/money";
 import { derivedTransactionType, isTransactionType, manualAccountTypes, transactionTypeLabels, transactionTypes, type TransactionType } from "@/features/transactions/transaction-types";
-import { useDeleteTransaction, useHideTransaction, useSaveSplit, useSaveTransaction, type EntryEdit, type TransactionEdit } from "@/features/transactions/mutations";
+import { useDeleteTransaction, useHideTransaction, useSaveTransaction, type EntryEdit, type TransactionEdit } from "@/features/transactions/mutations";
 import { useTransferOptions } from "@/features/transactions/queries";
 import { useTransactionCategory } from "@/features/transactions/use-transaction-category";
 import { bookkeepingFrozen, type Transaction, type TransferBooking, type TransferOptions } from "@/features/transactions/types";
@@ -341,7 +341,6 @@ function TransactionEditForm({
   onHide: () => void;
 }) {
   const save = useSaveTransaction(transaction.id);
-  const saveSplit = useSaveSplit(transaction.id);
   const categories = useCategories();
   const categoryFieldId = useId();
   const assignment = useTransactionCategory(transaction);
@@ -349,7 +348,9 @@ function TransactionEditForm({
   const [initialCategory] = useState(assignment.categoryId);
   const [category, setCategory] = useState(initialCategory);
   const [followFailure, setFollowFailure] = useState<Failure | null>(null);
-  const pending = save.isPending || saveSplit.isPending || assignment.status?.kind === "saving";
+  // Held from Save until every step settles, so no second save can start between the details and the category.
+  const [saving, setSaving] = useState(false);
+  const pending = saving || save.isPending || assignment.status?.kind === "saving";
   const error = save.error ? toFailure(save.error) : followFailure;
   const [splitOpen, setSplitOpen] = useState(transaction.split !== null);
   // Which control takes focus after the person opens or closes the split section, since the control they used disappears.
@@ -388,47 +389,51 @@ function TransactionEditForm({
   // Without loaded options, saving a transfer could drop a link the form cannot show.
   const targetUnknown = linkable && options.status !== "success";
 
-  // Awaited promises rather than per-call callbacks, so later steps still run when the details' refresh removes the row and this dialog. A failed step keeps the dialog open, and saving again repeats the idempotent writes.
-  // The details are saved first, removing a stored split in the same server write, so a refused edit keeps the split; the split's parts or the category follow once the details are stored.
+  // Awaited promises rather than per-call callbacks, so the category step still runs when the details' refresh removes the row and this dialog. A failed step keeps the dialog open, and saving again repeats the idempotent writes.
+  // The details and the split are one server write, so a changed amount and its parts are stored together or not at all; a plain category follows once they are stored.
   async function saveAll(details: TransactionEdit | EntryEdit) {
     const keepsSplit = splitOpen && split.status === "ready";
     const removesSplit = transaction.split !== null && !keepsSplit;
+    let splitEdit: Pick<TransactionEdit, "split" | "remove_split"> = {};
+
+    if (keepsSplit) {
+      splitEdit = {
+        split: {
+          parts: draftEdits(draft, splitBasis)
+        }
+      };
+    } else if (removesSplit) {
+      splitEdit = {
+        remove_split: true
+      };
+    }
 
     try {
-      await save.mutateAsync(removesSplit ? {
+      await save.mutateAsync({
         ...details,
-        remove_split: true
-      } : details);
+        ...splitEdit
+      });
     } catch {
       // The details mutation's error is shown from its state.
       return;
     }
 
-    if (await attempt(() => saveCategories(keepsSplit))) {
-      close();
-    }
-  }
-
-  async function attempt(step: () => Promise<unknown>) {
-    try {
-      await step();
-
-      return true;
-    } catch (failure) {
-      setFollowFailure(toFailure(failure));
-
-      return false;
-    }
-  }
-
-  // A split with a single counted part is a plain category; parts with an amount of 0 are ignored. Categories are compared with the stored ones, not the ones the dialog started from: a row change that was pending at opening and then failed is assigned again.
-  async function saveCategories(keepsSplit: boolean) {
     if (keepsSplit) {
-      await saveSplit.mutateAsync(draftEdits(draft, splitBasis));
+      close();
 
       return;
     }
 
+    try {
+      await saveCategory();
+      close();
+    } catch (failure) {
+      setFollowFailure(toFailure(failure));
+    }
+  }
+
+  // A split with a single counted part is a plain category; parts with an amount of 0 are ignored. Categories are compared with the stored ones, not the ones the dialog started from: a row change that was pending at opening and then failed is assigned again.
+  async function saveCategory() {
     const counted = draft.parts.find((_, index) => split.amounts[index] !== 0);
     const chosen = splitOpen ? counted?.categoryId ?? null : category;
 
@@ -454,12 +459,13 @@ function TransactionEditForm({
         };
         const details = detailsEdit(edit, new FormData(event.currentTarget), transaction, imported, editsEntry);
 
-        if (splitBlocked) {
+        if (splitBlocked || pending) {
           return;
         }
 
         setFollowFailure(null);
-        void saveAll(details);
+        setSaving(true);
+        void saveAll(details).finally(() => setSaving(false));
       }}
     >
       {/* Every control waits while the save runs, since the request carries the values as they were when Save was pressed. */}

@@ -9,6 +9,13 @@ import type { SplitPart } from "@/features/transactions/types";
 import type { Entry } from "./transaction-entry";
 import { pairTransfers } from "./transfer-repository";
 
+/** A split change saved in the same write as a booking's details: remove the parts and return the booking to its rules, or replace them with the parts the decision validates against the booking as saved. */
+export type SplitChange = {
+  remove: (rules: Rule[], text: RuleText) => RuleAssignment;
+} | {
+  replace: (subject: SplitSubject) => SplitPartValues[];
+};
+
 /** The booking a split divides, as the split's validation needs it. */
 export type SplitSubject = {
   amount_minor: number;
@@ -57,47 +64,77 @@ export async function replaceSplit(id: string, decide: (subject: SplitSubject) =
 
   return db.transaction(async tx => {
     const subject = await tx.select({
-      account_id: transactions.account_id,
-      amount_minor: transactions.amount_minor,
-      currency: transactions.currency,
-      type: transactions.type
+      account_id: transactions.account_id
     }).from(transactions).where(scope).get();
 
     if (!subject) {
       return undefined;
     }
 
-    const parts = decide(subject);
-    const categoryIds = [...new Set(parts.map(part => part.categoryId).filter(categoryId => categoryId !== null))];
-
-    // The service checked the categories before this transaction; one deleted since then must not fail the insert on its foreign key.
-    if (categoryIds.length > 0) {
-      const found = await tx.select({
-        id: categories.id
-      }).from(categories).where(inArray(categories.id, categoryIds));
-
-      if (found.length !== categoryIds.length) {
-        throw new ValidationError("Category does not exist.");
-      }
-    }
-
-    await tx.delete(transactionSplits).where(eq(transactionSplits.transaction_id, id));
-    await tx.insert(transactionSplits).values(parts.map((part, position) => ({
-      id: randomUUID(),
-      transaction_id: id,
-      position,
-      amount_minor: part.amount,
-      category_id: part.categoryId,
-      note: part.note
-    })));
-    await tx.update(transactions).set({
-      category_id: null,
-      category_source: "manual",
-      category_rule_id: null
-    }).where(eq(transactions.id, id));
-
-    return parts;
+    return writeSplit(tx, id, decide);
   });
+}
+
+/** Replaces a booking's parts inside the caller's write transaction with the ones `decide` returns for the booking as stored there; an error thrown by `decide` rolls the write back. */
+export async function writeSplit(tx: DatabaseTransaction, id: string, decide: (subject: SplitSubject) => SplitPartValues[]) {
+  const subject = await tx.select({
+    amount_minor: transactions.amount_minor,
+    currency: transactions.currency,
+    type: transactions.type
+  }).from(transactions).where(eq(transactions.id, id)).get();
+
+  if (!subject) {
+    throw new Error("The booking to split was not found in its write transaction.");
+  }
+
+  const parts = decide(subject);
+  const categoryIds = [...new Set(parts.map(part => part.categoryId).filter(categoryId => categoryId !== null))];
+
+  // The service checked the categories before this transaction; one deleted since then must not fail the insert on its foreign key.
+  if (categoryIds.length > 0) {
+    const found = await tx.select({
+      id: categories.id
+    }).from(categories).where(inArray(categories.id, categoryIds));
+
+    if (found.length !== categoryIds.length) {
+      throw new ValidationError("Category does not exist.");
+    }
+  }
+
+  await tx.delete(transactionSplits).where(eq(transactionSplits.transaction_id, id));
+  await tx.insert(transactionSplits).values(parts.map((part, position) => ({
+    id: randomUUID(),
+    transaction_id: id,
+    position,
+    amount_minor: part.amount,
+    category_id: part.categoryId,
+    note: part.note
+  })));
+  await tx.update(transactions).set({
+    category_id: null,
+    category_source: "manual",
+    category_rule_id: null
+  }).where(eq(transactions.id, id));
+
+  return parts;
+}
+
+/** Whether a split booking's parts still add up to its amount; a booking without parts matches. Read inside the write that changes the amount. */
+export async function splitMatchesAmount(tx: DatabaseTransaction, id: string) {
+  const split = await tx.select({
+    count: sql<number>`COUNT(*)`.mapWith(Number),
+    total: sql<number>`COALESCE(SUM(${transactionSplits.amount_minor}),0)`.mapWith(Number)
+  }).from(transactionSplits).where(eq(transactionSplits.transaction_id, id)).get();
+
+  if (!split || split.count === 0) {
+    return true;
+  }
+
+  const booking = await tx.select({
+    amount_minor: transactions.amount_minor
+  }).from(transactions).where(eq(transactions.id, id)).get();
+
+  return booking?.amount_minor === split.total;
 }
 
 /**

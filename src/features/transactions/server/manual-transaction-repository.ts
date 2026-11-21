@@ -5,9 +5,9 @@ import { database, type DatabaseTransaction } from "@/server/database/connection
 import { transactions } from "@/server/database/schema";
 import { assertWritableAccount } from "@/features/accounts/server/writable-account";
 import type { TransactionType } from "@/features/transactions/transaction-types";
-import type { Rule, RuleAssignment, RuleText } from "@/lib/rules";
+import type { RuleAssignment, RuleText } from "@/lib/rules";
 import { applyTransactionType, createdCounterpartPrefix, dissolveLink, enteredInUfer, enteredPair, findCounterpart, findSubject, manualEntryPrefix, touchesArchivedAccount, type TransferTarget, type TypeChangeResult } from "./transfer-repository";
-import { dissolveSplit, splitRefusesType } from "./split-repository";
+import { dissolveSplit, splitMatchesAmount, splitRefusesType, writeSplit, type SplitChange } from "./split-repository";
 
 /** The fields a person enters for a booking on a manual account. */
 export type ManualEntry = {
@@ -28,7 +28,7 @@ export type NewManualEntry = ManualEntry & {
   categoryRuleId: string | null;
 };
 
-export type ManualEntryResult = TypeChangeResult | "not_entered" | "follows_import" | "entered" | "hidden" | "split";
+export type ManualEntryResult = TypeChangeResult | "not_entered" | "follows_import" | "entered" | "hidden" | "split" | "split_mismatch";
 
 /** Thrown inside a write transaction to roll it back and report why a change was refused. */
 class Refused extends TransactionRollbackError {
@@ -118,7 +118,7 @@ export async function updateManualTransaction(
   id: string,
   entry: ManualEntry,
   categoryFor: (text: RuleText) => RuleAssignment,
-  dropSplit?: (rules: Rule[], text: RuleText) => RuleAssignment
+  splitChange?: SplitChange
 ) {
   return refusable(async tx => {
     const subject = await findSubject(tx, id);
@@ -136,8 +136,8 @@ export async function updateManualTransaction(
     }
 
     // Removing the split in the same write transaction lets it take a type a split booking refuses; a refused save keeps the split.
-    if (dropSplit) {
-      await dissolveSplit(tx, id, dropSplit);
+    if (splitChange && "remove" in splitChange) {
+      await dissolveSplit(tx, id, splitChange.remove);
     }
 
     if (await splitRefusesType(tx, id, entry.type)) {
@@ -197,6 +197,13 @@ export async function updateManualTransaction(
 
     if (saved && other && enteredPair(saved, other)) {
       await reapplyRuleCategory(tx, other.id, categoryFor);
+    }
+
+    // New parts are validated against the amount saved above; kept parts must still add up to it.
+    if (splitChange && "replace" in splitChange) {
+      await writeSplit(tx, id, splitChange.replace);
+    } else if (!(await splitMatchesAmount(tx, id))) {
+      return "split_mismatch";
     }
 
     return "saved";

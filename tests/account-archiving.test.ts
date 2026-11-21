@@ -437,6 +437,15 @@ test("an imported booking on an archived account links with and unlinks from exi
     currency: "EUR",
     type: "income"
   });
+  await db.insert(schema.transactions).values({
+    id: "entered-payment",
+    account_id: "open",
+    provider_reference: "manual:entered-payment",
+    booking_date: "2026-01-09",
+    amount_minor: 1500,
+    currency: "EUR",
+    type: "income"
+  });
   const balancesBefore = await balances();
   const archived = {
     status: 409,
@@ -444,7 +453,17 @@ test("an imported booking on an archived account links with and unlinks from exi
   };
   const linked = async () => (await db.select().from(schema.transactions).where(eq(schema.transactions.id, "shop")).get())?.transfer_id;
 
+  const enteredBefore = await db.select().from(schema.transactions).where(eq(schema.transactions.id, "entered-payment")).get();
+
+  // An entered booking on an active account would follow the imported booking's date, so it is neither offered nor accepted.
   assert.deepEqual((await transferOptions("shop")).candidates.map(candidate => candidate.id), ["card-payment"]);
+  await assert.rejects(updateTransactionDetails("shop", {
+    type: "transfer",
+    transfer: {
+      counterpart_id: "entered-payment"
+    }
+  }), archived);
+  assert.deepEqual(await db.select().from(schema.transactions).where(eq(schema.transactions.id, "entered-payment")).get(), enteredBefore);
   await assert.rejects(updateTransactionDetails("shop", {
     type: "transfer",
     transfer: {
@@ -472,7 +491,7 @@ test("an imported booking on an archived account links with and unlinks from exi
   });
   assert.equal(await linked(), null);
   assert.equal((await db.select().from(schema.transactions).where(eq(schema.transactions.id, "card-payment")).get())?.type, "income");
-  assert.equal((await db.select().from(schema.transactions)).length, 8);
+  assert.equal((await db.select().from(schema.transactions)).length, 9);
   assert.deepEqual(await balances(), balancesBefore);
 });
 

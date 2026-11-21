@@ -36,3 +36,8 @@ export const archiveInput = z.object({
     transfer_account_id: z.string().min(1).nullable().default(null)
   }).optional()
 }).default({});
+
+/** Deleting repeats the account's exact name, so an accidental request cannot remove an account. */
+export const accountDeletionInput = z.object({
+  name: z.string()
+});
