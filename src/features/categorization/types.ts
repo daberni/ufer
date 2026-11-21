@@ -33,6 +33,8 @@ export type RulePreview = {
   enabled: boolean;
   matched: number;
   uncategorized: number;
+  /** Matched transactions that already have the previewed category. */
+  matched_same_category: number;
   /** Manually categorized transactions the rule decides, other than the one a rule is created from. */
   manual: number;
   /** Those of them that already have the previewed category. */

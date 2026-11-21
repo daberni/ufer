@@ -168,6 +168,7 @@ export async function previewRule(payload: unknown) {
     enabled: Boolean(enabled),
     matched: decided.length,
     uncategorized: decided.filter(entry => entry.category_id === null).length,
+    matched_same_category: decided.filter(entry => categoryId !== undefined && entry.category_id === categoryId).length,
     manual: decidedManual.length,
     manual_same_category: decidedManual.filter(entry => categoryId !== undefined && entry.category_id === categoryId).length,
     transactions: transactions.map(previewedTransaction)

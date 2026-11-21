@@ -247,6 +247,7 @@ test("previewing an edit counts the edited rule in place of its stored version",
     enabled: true,
     matched: 0,
     uncategorized: 0,
+    matched_same_category: 0,
     manual: 0,
     manual_same_category: 0,
     transactions: []
@@ -267,6 +268,7 @@ test("previewing an edit counts the edited rule in place of its stored version",
     enabled: true,
     matched: 2,
     uncategorized: 1,
+    matched_same_category: 0,
     manual: 1,
     manual_same_category: 0
   });
@@ -438,6 +440,7 @@ test("an edit preview of a disabled rule decides nothing, as applying the saved 
     enabled: false,
     matched: 0,
     uncategorized: 0,
+    matched_same_category: 0,
     manual: 0,
     manual_same_category: 0,
     transactions: []

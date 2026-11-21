@@ -116,6 +116,8 @@ function useRuleImpact(fields: RulePreviewDraft) {
 
   const matches: RuleMatchList = {
     total,
+    changing: preview.data.matched - preview.data.matched_same_category,
+    manualDiffering: preview.data.manual - preview.data.manual_same_category,
     transactions: preview.data.transactions
   };
 
@@ -231,7 +233,6 @@ function RuleForm({
       <div className={styles["impact"]}>
         {impact.matches ? (
           <RuleMatches
-            summary={impact.text}
             matches={impact.matches}
             categories={categories.data ?? []}
             categoryId={categoryId}

@@ -109,9 +109,16 @@ form .section p {
 }
 .match-category {
   grid-area: category;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
   min-width: 0;
 }
+.arrow {
+  color: var(--muted);
+}
 .outcome-changes,
+.outcome-overrides,
 .outcome-same,
 .outcome-manual {
   grid-area: outcome;
@@ -120,6 +127,10 @@ form .section p {
 }
 .outcome-changes {
   color: var(--gold-text);
+  font-weight: 700;
+}
+.outcome-overrides {
+  color: var(--danger-text);
   font-weight: 700;
 }
 .outcome-same,
