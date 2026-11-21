@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { test, type TestContext } from "node:test";
 import { createClient } from "@libsql/client";
 import { drizzle } from "drizzle-orm/libsql";
+import { focusManager } from "@tanstack/react-query";
 import { act, fireEvent, render, type RenderResult } from "@testing-library/react";
 import { createElement } from "react";
 import { initializeDatabase } from "../src/server/database/migrations";
@@ -150,7 +151,7 @@ function options(screen: RenderResult) {
   });
 }
 
-async function renderPayeeInput(context: TestContext) {
+async function renderPayeeInput(context: TestContext, defaultValue?: string) {
   const environment = browser(context);
 
   // jsdom has no popover API; showing and hiding the list is layout only, and role queries treat its content as hidden.
@@ -171,7 +172,8 @@ async function renderPayeeInput(context: TestContext) {
   }, createElement(PayeeInput, {
     label: "Payee",
     name: "counterparty",
-    maxLength: 500
+    maxLength: 500,
+    defaultValue
   }))));
   const field = screen.getByRole("combobox", {
     name: "Payee"
@@ -232,6 +234,277 @@ test("typing asks for suggestions in the request body once typing pauses, and En
   assert.deepEqual(submitted, ["Corner Shop Vienna"]);
 });
 
+test("Enter with suggestions shown but none highlighted closes the list and lets the form submit the typed text", async context => {
+  const {
+    field,
+    requests
+  } = await renderPayeeInput(context);
+
+  type(field, "cor");
+  await wait(300);
+  await respond(requests("transactions/payees")[0], Response.json({
+    payees: ["Corner Bakery"]
+  }));
+  assert.equal(field.getAttribute("aria-expanded"), "true");
+
+  let notPrevented = false;
+
+  act(() => {
+    notPrevented = fireEvent.keyDown(field, {
+      key: "Enter"
+    });
+  });
+
+  // An unprevented Enter is what makes the browser submit the surrounding form.
+  assert.equal(notPrevented, true);
+  assert.equal(field.getAttribute("aria-expanded"), "false");
+  assert.equal(field.value, "cor");
+});
+
+test("ArrowDown after Escape reopens the suggestions on the first one, and Enter picks it", async context => {
+  const {
+    field,
+    requests,
+    screen
+  } = await renderPayeeInput(context);
+
+  type(field, "cor");
+  await wait(300);
+  await respond(requests("transactions/payees")[0], Response.json({
+    payees: ["Corner Bakery", "Corner Shop"]
+  }));
+
+  press(field, "Escape");
+  assert.equal(field.getAttribute("aria-expanded"), "false");
+
+  press(field, "ArrowDown");
+  assert.equal(field.getAttribute("aria-expanded"), "true");
+  assert.equal(field.getAttribute("aria-activedescendant"), options(screen)[0].id);
+
+  press(field, "Enter");
+  assert.equal(field.value, "Corner Bakery");
+});
+
+test("ArrowDown in a prefilled field highlights the first suggestion once it arrives, and Enter picks it instead of submitting", async context => {
+  const {
+    field,
+    requests,
+    screen,
+    submitted
+  } = await renderPayeeInput(context, "cor");
+
+  press(field, "ArrowDown");
+  await respond(requests("transactions/payees")[0], Response.json({
+    payees: ["Corner Bakery", "Corner Shop"]
+  }));
+
+  assert.equal(field.getAttribute("aria-expanded"), "true");
+  assert.equal(field.getAttribute("aria-activedescendant"), options(screen)[0].id);
+
+  press(field, "Enter");
+  assert.equal(field.value, "Corner Bakery");
+  assert.deepEqual(submitted, []);
+});
+
+test("ArrowUp in a prefilled field highlights the last suggestion once it arrives", async context => {
+  const {
+    field,
+    requests,
+    screen
+  } = await renderPayeeInput(context, "cor");
+
+  press(field, "ArrowUp");
+  await respond(requests("transactions/payees")[0], Response.json({
+    payees: ["Corner Bakery", "Corner Shop"]
+  }));
+
+  assert.equal(field.getAttribute("aria-activedescendant"), options(screen)[1].id);
+
+  press(field, "Enter");
+  assert.equal(field.value, "Corner Shop");
+});
+
+test("Escape while suggestions are still loading keeps the list closed when they arrive", async context => {
+  const {
+    field,
+    requests
+  } = await renderPayeeInput(context, "cor");
+
+  press(field, "ArrowDown");
+  press(field, "Escape");
+  await respond(requests("transactions/payees")[0], Response.json({
+    payees: ["Corner Bakery", "Corner Shop"]
+  }));
+
+  assert.equal(field.getAttribute("aria-expanded"), "false");
+  assert.equal(field.value, "cor");
+});
+
+test("a press outside while suggestions are still loading keeps the list closed when they arrive", async context => {
+  const {
+    field,
+    requests
+  } = await renderPayeeInput(context, "cor");
+
+  press(field, "ArrowDown");
+  act(() => {
+    fireEvent.pointerDown(document.body);
+  });
+  await respond(requests("transactions/payees")[0], Response.json({
+    payees: ["Corner Bakery", "Corner Shop"]
+  }));
+
+  assert.equal(field.getAttribute("aria-expanded"), "false");
+});
+
+test("Alt+ArrowDown in a prefilled field opens the suggestions without highlighting one", async context => {
+  const {
+    field,
+    requests
+  } = await renderPayeeInput(context, "cor");
+
+  act(() => {
+    fireEvent.keyDown(field, {
+      key: "ArrowDown",
+      altKey: true
+    });
+  });
+  await respond(requests("transactions/payees")[0], Response.json({
+    payees: ["Corner Bakery", "Corner Shop"]
+  }));
+
+  assert.equal(field.getAttribute("aria-expanded"), "true");
+  assert.equal(field.getAttribute("aria-activedescendant"), null);
+});
+
+test("Escape after Alt+ArrowDown cancels the loading suggestions without reaching a surrounding dialog", async context => {
+  const {
+    field,
+    requests
+  } = await renderPayeeInput(context, "cor");
+  const escapes: string[] = [];
+  const recordEscape = (event: KeyboardEvent) => {
+    if (event.key === "Escape") {
+      escapes.push("document");
+    }
+  };
+
+  document.addEventListener("keydown", recordEscape);
+  context.after(() => document.removeEventListener("keydown", recordEscape));
+
+  act(() => {
+    fireEvent.keyDown(field, {
+      key: "ArrowDown",
+      altKey: true
+    });
+  });
+  press(field, "Escape");
+  await respond(requests("transactions/payees")[0], Response.json({
+    payees: ["Corner Bakery", "Corner Shop"]
+  }));
+
+  assert.deepEqual(escapes, []);
+  assert.equal(field.getAttribute("aria-expanded"), "false");
+});
+
+test("Alt+ArrowUp while suggestions are still loading closes the list", async context => {
+  const {
+    field,
+    requests
+  } = await renderPayeeInput(context, "cor");
+
+  press(field, "ArrowDown");
+  act(() => {
+    fireEvent.keyDown(field, {
+      key: "ArrowUp",
+      altKey: true
+    });
+  });
+  await respond(requests("transactions/payees")[0], Response.json({
+    payees: ["Corner Bakery", "Corner Shop"]
+  }));
+
+  assert.equal(field.getAttribute("aria-expanded"), "false");
+});
+
+for (const [outcome, response] of [["no suggestions", () => Response.json({
+  payees: []
+})], ["an error", () => Response.json({
+  title: "Server error"
+}, {
+  status: 500
+})]] as const) {
+  test(`Escape after a request that settled with ${outcome} reaches the surrounding dialog`, async context => {
+    const {
+      field,
+      requests
+    } = await renderPayeeInput(context, "zzz");
+    const escapes: string[] = [];
+    const recordEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        escapes.push("document");
+      }
+    };
+
+    document.addEventListener("keydown", recordEscape);
+    context.after(() => document.removeEventListener("keydown", recordEscape));
+
+    press(field, "ArrowDown");
+    await respond(requests("transactions/payees")[0], response());
+    press(field, "Escape");
+
+    assert.deepEqual(escapes, ["document"]);
+    assert.equal(field.getAttribute("aria-expanded"), "false");
+  });
+}
+
+test("a failed request closes the list, so regaining window focus does not ask again or show suggestions unasked", async context => {
+  const {
+    field,
+    requests
+  } = await renderPayeeInput(context, "cor");
+
+  press(field, "ArrowDown");
+  await respond(requests("transactions/payees")[0], Response.json({
+    title: "Server error"
+  }, {
+    status: 500
+  }));
+
+  act(() => {
+    focusManager.setFocused(false);
+    focusManager.setFocused(true);
+  });
+  context.after(() => focusManager.setFocused(undefined));
+  await wait(10);
+
+  assert.equal(requests("transactions/payees").length, 1);
+  assert.equal(field.getAttribute("aria-expanded"), "false");
+});
+
+test("ArrowDown after a failed request asks for the suggestions again", async context => {
+  const {
+    field,
+    requests,
+    screen
+  } = await renderPayeeInput(context, "cor");
+
+  press(field, "ArrowDown");
+  await respond(requests("transactions/payees")[0], Response.json({
+    title: "Server error"
+  }, {
+    status: 500
+  }));
+
+  press(field, "ArrowDown");
+  await respond(requests("transactions/payees")[1], Response.json({
+    payees: ["Corner Bakery", "Corner Shop"]
+  }));
+
+  assert.equal(field.getAttribute("aria-expanded"), "true");
+  assert.equal(field.getAttribute("aria-activedescendant"), options(screen)[0].id);
+});
+
 test("a pointer picks a suggestion and Escape closes the list without clearing the text", async context => {
   const {
     field,
@@ -280,9 +553,6 @@ test("suggestions for earlier text disappear as soon as the text changes, until 
 
   type(field, "bak");
   assert.equal(field.getAttribute("aria-expanded"), "false");
-  press(field, "ArrowDown");
-  press(field, "Enter");
-  assert.equal(field.value, "bak");
 
   await wait(300);
   assert.equal(field.getAttribute("aria-expanded"), "false");
@@ -290,6 +560,25 @@ test("suggestions for earlier text disappear as soon as the text changes, until 
     payees: ["Bakery Example"]
   }));
   assert.deepEqual(options(screen).map(option => option.textContent), ["Bakery Example"]);
+});
+
+test("Enter while suggestions are still loading submits the typed text and cancels the list", async context => {
+  const {
+    field,
+    requests,
+    submitted
+  } = await renderPayeeInput(context);
+
+  type(field, "bak");
+  press(field, "Enter");
+  act(() => {
+    field.form?.requestSubmit();
+  });
+  await wait(300);
+
+  assert.deepEqual(submitted, ["bak"]);
+  assert.equal(field.getAttribute("aria-expanded"), "false");
+  assert.equal(requests("transactions/payees").length, 0);
 });
 
 test("the highlighted suggestion scrolls into view in a scrolling list", async context => {

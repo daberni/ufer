@@ -14,17 +14,19 @@
   background: var(--soft);
 }
 .popover {
-  position: absolute;
-  top: calc(100% + var(--space-2));
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: var(--layer-popover);
+  position: fixed;
+  inset: auto;
+  margin: 0;
   width: min(280px, calc(100vw - 32px));
   padding: var(--space-3);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--surface-raised);
+  color: var(--ink);
   box-shadow: var(--shadow-lg);
+  /* Short viewports, such as a phone in landscape, leave less height than the month grid needs. */
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .year-bar {
   display: flex;
@@ -60,16 +62,6 @@
   background: var(--green-strong);
 }
 @media (--mobile) {
-  /* The trigger is an off-center grid cell, so the popover anchors to the positioned period controls instead. */
-  .root {
-    position: static;
-  }
-  .popover {
-    left: 0;
-    right: 0;
-    width: auto;
-    transform: none;
-  }
   .trigger {
     width: 100%;
     min-height: 44px;

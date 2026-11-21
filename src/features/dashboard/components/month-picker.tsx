@@ -6,6 +6,7 @@ import styles from "./month-picker.module.css";
 import clsx from "clsx";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
+import { useAnchoredPopover } from "@/components/ui/use-anchored-popover";
 import { useDismiss } from "@/components/ui/use-dismiss";
 import type { KeyboardEvent } from "react";
 import { Temporal } from "temporal-polyfill";
@@ -34,13 +35,15 @@ export function MonthPicker({
   const [focusedMonth, setFocusedMonth] = useState(1);
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const popupRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   const dialogId = useId();
+  const yearId = useId();
   const now = currentMonth();
 
   useDismiss({
     active: open,
-    inside: [rootRef],
+    inside: [rootRef, popupRef],
     onDismiss: dismissal => {
       setOpen(false);
 
@@ -48,6 +51,13 @@ export function MonthPicker({
         triggerRef.current?.focus();
       }
     }
+  });
+
+  // The popover joins the top layer like the other popups, so a scrolling header or a dialog cannot clip it.
+  useAnchoredPopover({
+    open,
+    anchorRef: triggerRef,
+    popupRef
   });
 
   useEffect(() => {
@@ -125,68 +135,73 @@ export function MonthPicker({
       >
         {label}
       </button>
-      {open && (
-        <div
-          id={dialogId}
-          className={styles["popover"]}
-          role="dialog"
-          aria-label="Choose a month"
-        >
-          <div className={styles["year-bar"]}>
-            <button
-              type="button"
-              className={ui["icon-button"]}
-              aria-label="Previous year"
-              onClick={() => setYear(year - 1)}
+      <div
+        ref={popupRef}
+        id={dialogId}
+        className={styles["popover"]}
+        popover="manual"
+        role="dialog"
+        aria-label="Choose a month"
+      >
+        {open && (
+          <>
+            <div className={styles["year-bar"]}>
+              <button
+                type="button"
+                className={ui["icon-button"]}
+                aria-label="Previous year"
+                onClick={() => setYear(year - 1)}
+              >
+                <ChevronLeft size={17} />
+              </button>
+              {/* The only announcement of a year change; the months are labelled by it instead of repeating the year. */}
+              <span id={yearId} className={styles["year"]} aria-live="polite">{formatYear(year, locale)}</span>
+              <button
+                type="button"
+                className={ui["icon-button"]}
+                aria-label="Next year"
+                onClick={() => setYear(year + 1)}
+              >
+                <ChevronRight size={17} />
+              </button>
+            </div>
+            <div
+              className={styles["grid"]}
+              ref={gridRef}
+              role="group"
+              aria-labelledby={yearId}
+              onKeyDown={handleGridKeyDown}
             >
-              <ChevronLeft size={17} />
-            </button>
-            <span className={styles["year"]} aria-live="polite">{formatYear(year, locale)}</span>
-            <button
-              type="button"
-              className={ui["icon-button"]}
-              aria-label="Next year"
-              onClick={() => setYear(year + 1)}
-            >
-              <ChevronRight size={17} />
-            </button>
-          </div>
-          <div
-            className={styles["grid"]}
-            ref={gridRef}
-            role="group"
-            aria-label={`Months of ${formatYear(year, locale)}`}
-            onKeyDown={handleGridKeyDown}
-          >
-            {Array.from({
-              length: monthCount
-            }, (_, index) => {
-              const month = index + 1;
-              const isSelected = selected?.year === year && selected.month === month;
-              const isCurrent = now.year === year && now.month === month;
-              const display = describeMonth(Temporal.PlainYearMonth.from({
-                year,
-                month
-              }), locale);
+              {Array.from({
+                length: monthCount
+              }, (_, index) => {
+                const month = index + 1;
+                const isSelected = selected?.year === year && selected.month === month;
+                const isCurrent = now.year === year && now.month === month;
+                const display = describeMonth(Temporal.PlainYearMonth.from({
+                  year,
+                  month
+                }), locale);
 
-              return (
-                <button
-                  key={month}
-                  type="button"
-                  data-month={month}
-                  tabIndex={month === focusedMonth ? 0 : -1}
-                  className={clsx(styles["month"], isSelected && styles["selected"], isCurrent && styles["current"])}
-                  aria-pressed={isSelected}
-                  aria-current={isCurrent ? "date" : undefined}
-                  onClick={() => choose(month)}
-                >
-                  {display.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
+                return (
+                  <button
+                    key={month}
+                    type="button"
+                    data-month={month}
+                    tabIndex={month === focusedMonth ? 0 : -1}
+                    className={clsx(styles["month"], isSelected && styles["selected"], isCurrent && styles["current"])}
+                    aria-pressed={isSelected}
+                    aria-current={isCurrent ? "date" : undefined}
+                    onClick={() => choose(month)}
+                  >
+                    {display.label}
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }
