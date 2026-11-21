@@ -10,7 +10,7 @@ import * as schema from "../src/server/database/schema";
 import { insertRule } from "../src/features/categorization/server/rule-repository";
 import { importMappedRows } from "../src/features/imports/server/mapped-import-service";
 import { categoryValues } from "../src/features/imports/import-plan";
-import { assignOccurrences, buxferTemplate, mapRows, parseCsv, readsSplitTags, suggestMapping, tagSplit, templateMapping, withSplitTags, type CsvSettings, type MappedRow } from "../src/features/imports/csv-mapping";
+import { assignOccurrences, buxferTemplate, mapRows, parseCsv, readsBuxferExport, suggestMapping, tagSplit, templateMapping, withSplitTags, type CsvSettings, type MappedRow } from "../src/features/imports/csv-mapping";
 
 const now = Temporal.Instant.from("2026-06-30T12:00:00Z");
 const importId = "00000000-0000-4000-8000-000000000247";
@@ -73,7 +73,7 @@ async function isolatedDatabase(context: TestContext) {
 function mappedBuxferRows(csv = buxferCsv) {
   const [header, ...rows] = parseCsv(csv, ",");
 
-  return mapRows(rows, templateMapping(buxferTemplate, header), settings, "en", undefined, readsSplitTags(buxferTemplate));
+  return mapRows(rows, templateMapping(buxferTemplate, header), settings, "en", undefined, readsBuxferExport(buxferTemplate));
 }
 
 function payload(rows: MappedRow[], confirm: boolean, categories: object[] = []) {
@@ -250,10 +250,52 @@ test("only Buxfer's layout reads tags as splits; other files keep colon values a
     ["Phase:5,Project:5", null, ""],
     ["Project:2026", null, ""]
   ]);
-  assert.equal(readsSplitTags(null), false);
-  assert.equal(readsSplitTags({
+  assert.equal(readsBuxferExport(null), false);
+  assert.equal(readsBuxferExport({
     ...buxferTemplate,
     id: "saved",
     builtIn: false
   }), true);
+});
+
+test("Buxfer investment purchases import as outflows while other types keep their sign", async context => {
+  const db = await isolatedDatabase(context);
+  const csv = [
+    "ID,Date,Description,Currency,Amount,Type,Tags,Account,Status,Memo,IOU",
+    "11,2026-02-02,\"Buy index fund\",EUR,1250.5,Investment purchase,\"\",\"Checking\",Cleared,\" \"",
+    "12,2026-02-03,\"Sell index fund\",EUR,300,Investment sale,\"\",\"Checking\",Cleared,\" \"",
+    "13,2026-02-04,\"Salary\",EUR,2000,Income,\"\",\"Checking\",Cleared,\" \"",
+    "14,2026-02-05,\"Bakery\",EUR,-4.2,Expense,\"\",\"Checking\",Cleared,\" \""
+  ].join("\n");
+  const mapped = mappedBuxferRows(csv);
+
+  assert.deepEqual(mapped.errors, []);
+  assert.deepEqual(mapped.rows.map(row => row.amount), ["-1250.5", "300", "2000", "-4.2"]);
+
+  const result = await importMappedRows(payload(mapped.rows, true), now);
+  const bookings = await db.select().from(schema.transactions).orderBy(asc(schema.transactions.booking_date));
+
+  assert.deepEqual(result.errors, []);
+  assert.deepEqual(bookings.map(booking => [booking.description, booking.amount_minor]), [
+    ["Buy index fund", -125050],
+    ["Sell index fund", 30000],
+    ["Salary", 200000],
+    ["Bakery", -420]
+  ]);
+});
+
+test("only the Buxfer template reads an investment purchase as an outflow", () => {
+  const header = ["Date", "Amount", "Description", "Type"];
+  const mapping = templateMapping({
+    ...buxferTemplate,
+    header,
+    columns: {
+      date: 0,
+      amount: 1,
+      description: 2,
+      type: 3
+    }
+  }, header);
+
+  assert.equal(mapRows([["2026-02-02", "100", "Fund", "Investment purchase"]], mapping, settings, "en").rows[0].amount, "100");
 });
