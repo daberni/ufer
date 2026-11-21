@@ -1319,3 +1319,41 @@ test("environment migration drops the per-row banking environment and keeps ever
     });
   }
 });
+
+test("environment migration refuses a database holding rows from more than one environment", async () => {
+  const client = createClient({
+    url: ":memory:"
+  });
+  const directory = mkdtempSync(join(tmpdir(), "ufer-environment-mixed-"));
+  const journal = JSON.parse(readFileSync("drizzle/sqlite/meta/_journal.json", "utf8"));
+
+  journal.entries = journal.entries.slice(0, journal.entries.findIndex((entry: {
+    tag: string
+  }) => entry.tag === "0016_drop_banking_environment"));
+  mkdirSync(join(directory, "meta"));
+
+  for (const entry of journal.entries) {
+    cpSync(`drizzle/sqlite/${entry.tag}.sql`, join(directory, `${entry.tag}.sql`));
+  }
+
+  writeFileSync(join(directory, "meta/_journal.json"), JSON.stringify(journal));
+
+  try {
+    await migrateDatabase(client, directory);
+    await client.batch([
+      "INSERT INTO accounts(id,environment,name,institution,kind,currency) VALUES('sandbox','SANDBOX','Synthetic sandbox','Example institution','checking','EUR')",
+      "INSERT INTO accounts(id,environment,name,institution,kind,currency) VALUES('production','PRODUCTION','Synthetic production','Example institution','checking','EUR')"
+    ], "write");
+    const before = (await client.execute("SELECT id,environment FROM accounts ORDER BY rowid")).rows;
+
+    await assert.rejects(migrateDatabase(client), /CHECK constraint/);
+
+    assert.deepEqual((await client.execute("SELECT id,environment FROM accounts ORDER BY rowid")).rows, before);
+  } finally {
+    client.close();
+    rmSync(directory, {
+      recursive: true,
+      force: true
+    });
+  }
+});

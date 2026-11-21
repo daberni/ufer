@@ -1,6 +1,19 @@
 -- Each database serves exactly one banking environment, so the per-row environment columns are dropped and provider identities are unique on their own. Every row and value is kept.
 -- The unique constraint and primary key that include environment can only change by rebuilding accounts and account_identifiers; the migrator runs with foreign keys off, and the rebuilt accounts table keeps its name and IDs, so references from transactions, balance snapshots and identifiers stay valid.
 -- A database holding the same provider account or identifier in both environments violates the new constraints and the whole changeset rolls back.
+-- Dropping the column erases the only discriminator between environments, so a database holding rows from more than one environment is refused and the changeset rolls back.
+CREATE TEMP TABLE `environment_guard` (environments INTEGER NOT NULL CHECK(environments <= 1));
+--> statement-breakpoint
+INSERT INTO `environment_guard`(environments)
+SELECT COUNT(DISTINCT environment) FROM (
+  SELECT environment FROM requisitions
+  UNION SELECT environment FROM accounts
+  UNION SELECT environment FROM account_identifiers
+  UNION SELECT environment FROM sync_runs
+);
+--> statement-breakpoint
+DROP TABLE `environment_guard`;
+--> statement-breakpoint
 CREATE TABLE `accounts_new` (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
