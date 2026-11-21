@@ -304,8 +304,8 @@ test("new accounts are created once per import, on confirmation, across batches 
   assert.equal(accounts[0].name, "Closed account");
   assert.equal((await db.select().from(schema.transactions)).length, 2);
 
-  // The ID depends only on the import and its source, so every batch and retry of one import finds the same account.
-  const hex = createHash("sha256").update(`${importId}|`).digest("hex");
+  // Accounts created before changeset 0016 were derived with the banking environment, so resuming such an import must find the same account.
+  const hex = createHash("sha256").update(`${process.env.ENABLE_BANKING_ENVIRONMENT || "SANDBOX"}|${importId}|`).digest("hex");
 
   assert.equal(accounts[0].id, `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`);
 });

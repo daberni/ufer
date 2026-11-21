@@ -10,6 +10,7 @@ import { isCategoryIcon } from "@/features/categorization/category-icons";
 import { listRules } from "@/features/categorization/server/rule-repository";
 import { categorizeEntries } from "@/features/transactions/server/categorize-entries";
 import { pairAllTransfers } from "@/features/transactions/server/transfer-pairing-repository";
+import { environment } from "@/server/environment";
 import { syncLease, withLease } from "@/server/jobs/lease";
 import { accountKinds } from "@/features/accounts/account-kinds";
 import { validateLiability } from "@/features/accounts/server/account-service";
@@ -311,9 +312,9 @@ async function sameOpening(importId: string, source: string, accountId: string, 
   return stored.id === opening.id && stored.date === opening.date && statedAmount === opening.amount;
 }
 
-/** A stable account ID per import and source account, so every batch and retry of one import targets the same new account. */
+/** A stable account ID per import and source account, so every batch and retry of one import targets the same new account. The configured banking environment stays in the hash because IDs persisted before changeset 0016 were derived with it. */
 function importAccountId(importId: string, source: string) {
-  const hex = createHash("sha256").update(`${importId}|${source}`).digest("hex");
+  const hex = createHash("sha256").update(`${environment()}|${importId}|${source}`).digest("hex");
 
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
 }
