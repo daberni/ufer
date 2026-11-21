@@ -1,11 +1,84 @@
-import { and, eq, inArray, isNotNull, ne } from "drizzle-orm";
+import { and, between, eq, inArray, isNotNull, like, ne } from "drizzle-orm";
 import type { DatabaseTransaction } from "@/server/database/connection";
 import { transactions } from "@/server/database/schema";
-import { createdCounterpartPrefix } from "@/lib/booking-references";
+import { createdCounterpartPrefix, mappedReferencePrefix } from "@/lib/booking-references";
+import { matchBooking, matchingWindow, prepareBooking, prepareBookings } from "@/lib/booking-matching";
 import { derivedTransactionType } from "@/lib/transaction-types";
 import type { CategorizedEntry } from "./transaction-entry";
 import { createdCounterpart, enteredInUfer } from "./transfer-rules";
 import { findCounterpart, findSubject } from "./transfer-subjects";
+
+// Reconciles delivered bookings, from a bank sync or a CSV import, with the bookings an account already stores before they are written.
+
+const referenceChunkSize = 500;
+
+/**
+ * Lets a bank delivery take over rows a mapped CSV import saved for the same bookings, matched by the import's duplicate rule. The row gets the bank reference, so the following upsert updates it with the provider data instead of inserting a duplicate; the returned entries carry the row's category, so it survives that upsert.
+ */
+export async function adoptImportedRows(tx: DatabaseTransaction, accountId: string, entries: CategorizedEntry[]) {
+  if (entries.length === 0) {
+    return entries;
+  }
+
+  const window = matchingWindow(entries.map(entry => entry.date).sort());
+  const imported = await tx.select({
+    id: transactions.id,
+    reference: transactions.provider_reference,
+    date: transactions.booking_date,
+    amount: transactions.amount_minor,
+    counterparty: transactions.counterparty,
+    description: transactions.description,
+    categoryId: transactions.category_id,
+    categoryRuleId: transactions.category_rule_id
+  }).from(transactions).where(and(eq(transactions.account_id, accountId), like(transactions.provider_reference, `${mappedReferencePrefix}%`), between(transactions.booking_date, window.from, window.to)));
+
+  if (imported.length === 0) {
+    return entries;
+  }
+
+  const knownReferences = new Set<string | null>();
+
+  // One bound parameter per reference; chunks stay below SQLite's variable limit for large syncs.
+  for (let offset = 0; offset < entries.length; offset += referenceChunkSize) {
+    const references = entries.slice(offset, offset + referenceChunkSize).map(entry => entry.reference);
+    const known = await tx.select({
+      reference: transactions.provider_reference
+    }).from(transactions).where(and(eq(transactions.account_id, accountId), inArray(transactions.provider_reference, references)));
+
+    for (const row of known) {
+      knownReferences.add(row.reference);
+    }
+  }
+
+  const prepared = prepareBookings(imported);
+  const used = new Set<string>();
+  const adopted: CategorizedEntry[] = [];
+
+  for (const entry of entries) {
+    const match = knownReferences.has(entry.reference) ? -1 : matchBooking(prepareBooking(entry), prepared, index => !used.has(imported[index].id));
+    // An ambiguous match inserts the bank booking rather than guessing which imported row it replaces.
+    const row = typeof match === "number" && match >= 0 ? imported[match] : undefined;
+
+    if (!row) {
+      adopted.push(entry);
+      continue;
+    }
+
+    used.add(row.id);
+    // A repeated bank entry must not adopt a second imported row under the same reference.
+    knownReferences.add(entry.reference);
+    await tx.update(transactions).set({
+      provider_reference: entry.reference
+    }).where(eq(transactions.id, row.id));
+    adopted.push({
+      ...entry,
+      categoryId: row.categoryId,
+      categoryRuleId: row.categoryRuleId
+    });
+  }
+
+  return adopted;
+}
 
 /**
  * Lets a booking entered in Ufer follow the imported booking it is linked with; runs before the corrected values are written.

@@ -7,7 +7,7 @@ import { derivedTransactionType, type TransactionType } from "@/lib/transaction-
 import { refusable, type ManualEntryResult } from "./manual-transaction-repository";
 import { assignRuleDecision, dissolveSplit, dropSplitsOnCurrencyChange, notSplit, splitRefusesType, writeSplit, type SplitChange } from "./split-repository";
 import type { CategorizedEntry, Entry, ProviderDetails } from "./transaction-entry";
-import { followImportedCorrections, releaseOutdatedLinks } from "./imported-transfer-corrections";
+import { followImportedCorrections, releaseOutdatedLinks } from "./booking-ingestion";
 import { applyTransactionType } from "./transaction-type-change";
 import { dissolveLink } from "./transfer-link-repository";
 import { pairTransfers } from "./transfer-pairing-repository";

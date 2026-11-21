@@ -5,3 +5,6 @@ export const createdCounterpartPrefix = "transfer:";
 
 /** Bookings entered in Ufer on a manual account (manual transactions, opening balances and adjustments) carry their own id in this reference. */
 export const manualEntryPrefix = "manual:";
+
+/** The mapped CSV import derives these references from row content or an export ID; a bank delivery adopts such rows under its own reference. */
+export const mappedReferencePrefix = "csv:m:";

@@ -212,11 +212,6 @@ export function detectDecimal(samples: string[]): DecimalSeparator {
   return filled.some(sample => /,\d{1,2}\)?-?$/.test(sample.trim())) ? "," : ".";
 }
 
-/** Lowercase Unicode letters and digits separated by single spaces; punctuation, symbols and diacritics are dropped. */
-export function normalizeText(value: string) {
-  return value.normalize("NFKD").replace(/\p{M}/gu, "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
-}
-
 // Equal values in minor units have equal canonical forms: "2.5" and "2.50" both become "2.5".
 export function canonicalAmount(amount: string) {
   return amount.includes(".") ? amount.replace(/0+$/, "").replace(/\.$/, "") : amount;
