@@ -17,8 +17,8 @@ export type DemoAccountData = DemoAccountDefinition & {
   entries: Entry[];
   /** Market values recorded with Update balance; each books the difference to the transactions as an adjustment. */
   valuations: DemoSnapshot[];
-  /** The balance on the run date; bank-connected accounts report it as their latest bank balance. */
-  closing: DemoSnapshot;
+  /** The balance at the end of the last synced day; bank-connected accounts report it as their latest bank balance. */
+  reported: DemoSnapshot;
 };
 
 /** A booking divided into category parts that add up to its amount, as a person does in the split dialog. */
@@ -889,7 +889,10 @@ function carSnapshots(firstDate: PlainDate, runDate: PlainDate) {
 }
 
 function accountData(ledger: Ledger, key: DemoAccountKey, valuations: DemoSnapshot[] = []): DemoAccountData {
-  const lastValuation = valuations.at(-1);
+  // The last sync ran on the day before the run date, so the bank reported the balance through that day.
+  const reportedDate = ledger.runDate.subtract({
+    days: 1
+  });
 
   return {
     ...demoAccounts[key],
@@ -899,9 +902,9 @@ function accountData(ledger: Ledger, key: DemoAccountKey, valuations: DemoSnapsh
     },
     entries: ledger.entries[key],
     valuations,
-    closing: {
-      date: ledger.runDate.toString(),
-      amount: lastValuation ? lastValuation.amount + ledger.balanceAt(key, ledger.runDate) - ledger.balanceAt(key, Temporal.PlainDate.from(lastValuation.date)) : ledger.balanceAt(key, ledger.runDate)
+    reported: {
+      date: reportedDate.toString(),
+      amount: ledger.balanceAt(key, reportedDate)
     }
   };
 }

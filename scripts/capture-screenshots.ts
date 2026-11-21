@@ -316,9 +316,13 @@ async function main() {
   } finally {
     await browser?.close();
 
-    if (server?.pid) {
-      // The dev server spawns workers; stop the whole process group.
-      process.kill(-server.pid, "SIGTERM");
+    // The dev server spawns workers; stop the whole process group unless it has already exited.
+    if (server?.pid && server.exitCode === null) {
+      try {
+        process.kill(-server.pid, "SIGTERM");
+      } catch (error) {
+        console.warn(`Could not stop the development server: ${error instanceof Error ? error.message : error}`);
+      }
     }
 
     rmSync(workDirectory, {

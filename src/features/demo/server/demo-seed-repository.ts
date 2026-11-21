@@ -23,7 +23,7 @@ export type DemoAccountRows = DemoAccountDefinition & {
   opening: DemoSnapshot;
   entries: CategorizedEntry[];
   valuations: DemoSnapshot[];
-  closing: DemoSnapshot;
+  reported: DemoSnapshot;
 };
 
 export type DemoSeedRows = {
@@ -141,8 +141,8 @@ async function insertAccount(tx: DatabaseTransaction, account: DemoAccountRows, 
     await tx.insert(balanceSnapshots).values({
       id: `${account.id}-balance`,
       account_id: account.id,
-      observed_at: account.closing.date,
-      amount_minor: account.closing.amount,
+      observed_at: account.reported.date,
+      amount_minor: account.reported.amount,
       bank_balance_type: "CLBD",
       source: "sync"
     });
