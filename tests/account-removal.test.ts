@@ -18,7 +18,7 @@ import { acquireLease } from "../src/server/jobs/lease-repository";
 import { listAccounts, readBalanceHistory, readNetWorth } from "../src/features/accounts/server/account-queries";
 import { convertToManualAccount, deleteAccount, updateAccount, updateManualValuation } from "../src/features/accounts/server/account-service";
 import { readAccountCashFlow, readCashFlow } from "../src/features/reports/server/cash-flow-query";
-import { pairAllTransfers } from "../src/features/transactions/server/transfer-repository";
+import { pairAllTransfers } from "../src/features/transactions/server/transfer-pairing-repository";
 import { deleteUnlinkedAccount } from "../src/features/accounts/server/account-repository";
 import { updateRule } from "../src/features/categorization/server/rule-repository";
 import { createRule, updateRuleDetails } from "../src/features/categorization/server/categorization-service";

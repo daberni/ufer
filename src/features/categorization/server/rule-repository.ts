@@ -4,7 +4,9 @@ import type { Rule } from "@/lib/rules";
 import { highestPriority, maximumRules, nextPriority, orderedPriorities } from "@/features/categorization/rule-order";
 import type { Transaction } from "@/server/database/models";
 import { accounts, categorizationRules, transactions } from "@/server/database/schema";
-import { pairTransfers } from "@/features/transactions/server/transfer-repository";
+// eslint-disable-next-line boundaries/dependencies -- known violation tracked in daberni/ufer#285
+import { pairTransfers } from "@/features/transactions/server/transfer-pairing-repository";
+// eslint-disable-next-line boundaries/dependencies -- known violation tracked in daberni/ufer#285
 import { notSplit } from "@/features/transactions/server/split-repository";
 
 /** Rules in matching order: priority first, then their persisted ID. */

@@ -23,7 +23,7 @@ import { AreaPlaceholder } from "@/components/ui/area-placeholder";
 import { pendingTogether, type Area, type AreaResult } from "@/components/ui/use-area-result";
 import type { Account } from "@/features/accounts/types";
 import type { Category } from "@/features/categorization/types";
-import { transactionTypes, transactionTypeLabels } from "@/features/transactions/transaction-types";
+import { transactionTypes, transactionTypeLabels } from "@/lib/transaction-types";
 import type { TransactionPage } from "@/features/transactions/types";
 import { useLocale } from "@/client/locale-provider";
 import { formatCount } from "@/lib/locale";

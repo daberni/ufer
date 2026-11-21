@@ -4,7 +4,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/client/api";
 import { invalidate } from "@/client/invalidate";
 import { queryKeys } from "@/client/query-keys";
-import type { TransactionType } from "@/features/transactions/transaction-types";
+import type { TransactionType } from "@/lib/transaction-types";
 
 /** Where a transfer goes: an existing booking, a manual account on which its counterpart is created, or null for no counterpart. */
 export type TransferTarget = {

@@ -4,6 +4,7 @@ import babelParser from "@babel/eslint-parser";
 import stylistic from "@stylistic/eslint-plugin";
 import reactHooks from "eslint-plugin-react-hooks";
 import next from "@next/eslint-plugin-next";
+import boundaries from "eslint-plugin-boundaries";
 
 const browserImports = {
   group: ["node:*", "@libsql/client", "drizzle-orm", "drizzle-orm/**", "**/server/**", "@/server/**", "@/lib/import"],
@@ -15,6 +16,35 @@ const dashboardImports = {
   group: ["@/features/dashboard", "@/features/dashboard/**", "**/dashboard", "**/dashboard/**"],
   message: "Only the dashboard routes import the dashboard; move shared code to the owning feature, src/client, src/components or src/lib."
 };
+
+// Server layers of #285: each layer may import the layers below it, never one above it, so feature server modules form no cycle.
+const serverLayers = [
+  ["banking", "imports", "demo", "reports"],
+  ["transactions"],
+  ["categorization"],
+  ["accounts"]
+];
+const sharedServerElements = ["auth-server", "appearance-server", "legal-server"];
+
+const featureServerElements = ["auth", "appearance", "legal", ...serverLayers.flat()].map(feature => ({
+  type: `${feature}-server`,
+  pattern: `src/features/${feature}/server`
+}));
+
+const layerPolicies = serverLayers.flatMap((layer, index) => layer.map(feature => ({
+  from: {
+    element: {
+      type: `${feature}-server`
+    }
+  },
+  allow: {
+    to: {
+      element: {
+        types: [`${feature}-server`, ...serverLayers.slice(index + 1).flat().map(lower => `${lower}-server`), ...sharedServerElements, "server", "lib"]
+      }
+    }
+  }
+})));
 
 export default [{
   ignores: [".claude/**", "node_modules/**", ".next/**", "data/**", "drizzle/meta/**", "next-env.d.ts"]
@@ -201,6 +231,70 @@ export default [{
     "no-restricted-syntax": ["error", {
       selector: "MemberExpression[property.name='$client']",
       message: "Raw client access belongs in repositories, read projections or database infrastructure."
+    }]
+  }
+}, {
+  files: ["src/**/*.{ts,tsx}"],
+  plugins: {
+    boundaries
+  },
+  settings: {
+    "import/resolver": {
+      typescript: {
+        alwaysTryTypes: true
+      }
+    },
+    "boundaries/elements": [...featureServerElements, {
+      type: "server",
+      pattern: "src/server"
+    }, {
+      type: "lib",
+      pattern: "src/lib"
+    }]
+  },
+  rules: {
+    "boundaries/dependencies": ["error", {
+      default: "disallow",
+      policies: [...layerPolicies, ...sharedServerElements.map(type => ({
+        from: {
+          element: {
+            type
+          }
+        },
+        allow: {
+          to: {
+            element: {
+              types: [...sharedServerElements, "server", "lib"]
+            }
+          }
+        }
+      })), {
+        from: {
+          element: {
+            type: "server"
+          }
+        },
+        allow: {
+          to: {
+            element: {
+              types: ["server", "lib"]
+            }
+          }
+        }
+      }, {
+        from: {
+          element: {
+            type: "lib"
+          }
+        },
+        allow: {
+          to: {
+            element: {
+              type: "lib"
+            }
+          }
+        }
+      }]
     }]
   }
 }];

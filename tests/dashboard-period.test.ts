@@ -11,7 +11,7 @@ import { dashboardFilters } from "../src/server/http/dashboard-filters";
 import { readCashFlow } from "../src/features/reports/server/cash-flow-query";
 import { periodCondition } from "../src/features/transactions/server/period-condition";
 import { readTransactionPage } from "../src/features/transactions/server/transaction-list-query";
-import { derivedTransactionType } from "../src/features/transactions/transaction-types";
+import { derivedTransactionType } from "../src/lib/transaction-types";
 
 // Temporal values have no enumerable fields, so compare periods through their serialized form.
 function serialized(period: Period | null) {

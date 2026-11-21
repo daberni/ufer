@@ -8,7 +8,7 @@ import { useState } from "react";
 import { DateValue } from "@/components/ui/date-value";
 import { money, signedMoney } from "@/lib/money";
 import { TransactionCategory, TransactionCategorySkeleton } from "@/features/transactions/components/transaction-category";
-import { transactionTypeLabels } from "@/features/transactions/transaction-types";
+import { transactionTypeLabels } from "@/lib/transaction-types";
 import { TransactionTypeIcon, transferDirection } from "@/features/transactions/components/transaction-type";
 import { TransactionEditDialog } from "@/features/transactions/components/transaction-edit-dialog";
 import { SplitTag } from "@/features/transactions/components/transaction-split";

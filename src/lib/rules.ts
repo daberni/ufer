@@ -1,7 +1,8 @@
 import { RE2JS, RE2JSSyntaxException } from "re2js";
 import { ValidationError } from "@/lib/errors";
+// eslint-disable-next-line boundaries/dependencies -- known violation tracked in daberni/ufer#285
 import type { CategorizationRule } from "@/server/database/models";
-import type { RuleTransactionType } from "@/features/transactions/transaction-types";
+import type { RuleTransactionType } from "@/lib/transaction-types";
 
 /** A stored rule; a rule without a type may omit the type fields. */
 export type Rule = Omit<CategorizationRule, "transaction_type" | "transfer_account_id"> & Partial<Pick<CategorizationRule, "transaction_type" | "transfer_account_id">>;

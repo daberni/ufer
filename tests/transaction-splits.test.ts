@@ -12,7 +12,7 @@ import { transferOptions, updateTransactionCategory, updateTransactionDetails } 
 import { upsertTransactions } from "../src/features/transactions/server/transaction-repository";
 import { readAccountCashFlow, readCashFlow } from "../src/features/reports/server/cash-flow-query";
 import { readTransactionPage } from "../src/features/transactions/server/transaction-list-query";
-import { pairAllTransfers } from "../src/features/transactions/server/transfer-repository";
+import { pairAllTransfers } from "../src/features/transactions/server/transfer-pairing-repository";
 import { replaceSplit } from "../src/features/transactions/server/split-repository";
 import { listAccounts } from "../src/features/accounts/server/account-queries";
 import { applyRulesToUncorrectedTransactions, categoryUsage, createRule, deleteCategory, previewRule } from "../src/features/categorization/server/categorization-service";

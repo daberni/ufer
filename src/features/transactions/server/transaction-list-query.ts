@@ -1,15 +1,17 @@
 import { eq } from "drizzle-orm";
 import { database, type Database } from "@/server/database/connection";
 import { accounts, transactions } from "@/server/database/schema";
+// eslint-disable-next-line boundaries/dependencies -- known violation tracked in daberni/ufer#285
 import { findSyncRun } from "@/features/banking/server/banking-queries";
+// eslint-disable-next-line boundaries/dependencies -- known violation tracked in daberni/ufer#285
 import { syncRunTransactions } from "@/features/banking/server/sync-repository";
 import { periodToJson } from "@/lib/period";
 import { transactionPageSize } from "@/lib/pagination";
 import { periodCondition } from "@/features/transactions/server/period-condition";
 import { searchCondition } from "@/features/transactions/server/search-condition";
 import type { DashboardFilters } from "@/server/http/dashboard-filters";
-import type { TransactionType } from "@/features/transactions/transaction-types";
-import { createdCounterpartPrefix, manualEntryPrefix } from "@/features/transactions/server/transfer-repository";
+import type { TransactionType } from "@/lib/transaction-types";
+import { createdCounterpartPrefix, manualEntryPrefix } from "@/lib/booking-references";
 import { listRules } from "@/features/categorization/server/rule-repository";
 import { prepareRules, ruleAssignment, type PreparedRule } from "@/lib/rules";
 import type { SplitPart, TransactionSplit } from "@/features/transactions/types";

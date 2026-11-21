@@ -12,7 +12,7 @@ import { TraceId } from "@/components/ui/trace-id";
 import { CategoryPicker } from "@/features/categorization/components/category-picker";
 import { useTransactionCategory } from "@/features/transactions/use-transaction-category";
 import { useTransactionRules } from "./transaction-rule-provider";
-import { transactionTypeLabels } from "@/features/transactions/transaction-types";
+import { transactionTypeLabels } from "@/lib/transaction-types";
 
 type Props = {
   categories: Category[];

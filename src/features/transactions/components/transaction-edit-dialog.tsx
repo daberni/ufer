@@ -16,7 +16,7 @@ import { CategoryPicker } from "@/features/categorization/components/category-pi
 import { useCategories } from "@/features/categorization/queries";
 import { describeDate } from "@/lib/date-format";
 import { decimalAmount, minorUnits, signedMoney } from "@/lib/money";
-import { derivedTransactionType, isTransactionType, manualAccountTypes, transactionTypeLabels, transactionTypes, type TransactionType } from "@/features/transactions/transaction-types";
+import { derivedTransactionType, isTransactionType, manualAccountTypes, transactionTypeLabels, transactionTypes, type TransactionType } from "@/lib/transaction-types";
 import { useDeleteTransaction, useHideTransaction, useSaveTransaction, type EntryEdit, type TransactionEdit } from "@/features/transactions/mutations";
 import { useTransferOptions } from "@/features/transactions/queries";
 import { useTransactionCategory } from "@/features/transactions/use-transaction-category";

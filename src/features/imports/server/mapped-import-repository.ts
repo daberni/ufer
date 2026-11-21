@@ -6,11 +6,11 @@ import { database, type DatabaseTransaction } from "@/server/database/connection
 import { accounts, categories, transactionSplits, transactions } from "@/server/database/schema";
 import type { AccountKind } from "@/features/accounts/account-kinds";
 import { assertWritableAccount } from "@/features/accounts/server/writable-account";
-import { manualEntryPrefix } from "@/features/transactions/server/transfer-repository";
+import { manualEntryPrefix } from "@/lib/booking-references";
 import { newCategoryColor } from "@/features/categorization/category-color-suggestions";
 import { suggestCategoryIcon, type CategoryIconKey } from "@/features/categorization/category-icons";
 import { sameCategoryName } from "@/lib/category-name";
-import { derivedTransactionType, type RuleTransactionType } from "@/features/transactions/transaction-types";
+import { derivedTransactionType, type RuleTransactionType } from "@/lib/transaction-types";
 import type { CategorizedEntry } from "@/features/transactions/server/transaction-entry";
 import type { SplitPartValues } from "@/features/transactions/server/split-repository";
 import { duplicateDateToleranceDays, findDuplicates, mappedReferencePrefix, matchBooking, prepareBooking, prepareBookings, type ExistingBooking } from "./duplicate-matching";

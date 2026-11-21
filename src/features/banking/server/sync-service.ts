@@ -10,7 +10,7 @@ import { normalizeTransactions } from "./bank-data";
 import { saveAccountSync } from "./account-sync-service";
 import { finishSyncRun, interruptSyncRun, listSyncAccounts, recordAccountSyncError, startSyncRun } from "./sync-repository";
 import { expireConnection, expireEndedSession } from "./connection-repository";
-import { pairAllTransfers } from "@/features/transactions/server/transfer-repository";
+import { pairAllTransfers } from "@/features/transactions/server/transfer-pairing-repository";
 
 // Only a new bank authorization resolves this failure; rate limits and provider data errors do not.
 class ReconnectRequired extends HttpError {

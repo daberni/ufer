@@ -9,7 +9,8 @@ import { today, validDate } from "@/lib/time";
 import { isCategoryIcon } from "@/features/categorization/category-icons";
 import { listRules } from "@/features/categorization/server/rule-repository";
 import { categorizeEntries } from "@/features/transactions/server/categorize-entries";
-import { pairAllTransfers } from "@/features/transactions/server/transfer-repository";
+import { pairAllTransfers } from "@/features/transactions/server/transfer-pairing-repository";
+// eslint-disable-next-line boundaries/dependencies -- known violation tracked in daberni/ufer#285
 import { environment } from "@/features/banking/server/environment";
 import { syncLease, withLease } from "@/server/jobs/lease";
 import { accountKinds } from "@/features/accounts/account-kinds";

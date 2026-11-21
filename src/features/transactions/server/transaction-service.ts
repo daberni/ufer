@@ -8,14 +8,15 @@ import { today, validDate } from "@/lib/time";
 import { requireWritableManualAccount } from "@/features/accounts/server/account-service";
 import { categoryExists } from "@/features/categorization/server/category-repository";
 import { listRules } from "@/features/categorization/server/rule-repository";
-import { transactionTypes } from "@/features/transactions/transaction-types";
+import { transactionTypes } from "@/lib/transaction-types";
 import { categorizeEntries } from "./categorize-entries";
 import { createManualTransaction, deleteManualTransaction, findEntryAccount, updateManualTransaction, type ManualEntryResult } from "./manual-transaction-repository";
 import { returnTransactionToRules, saveTransactionDetails, setTransactionCategory, setTransactionHidden } from "./transaction-repository";
 import { isSplit, type SplitChange } from "./split-repository";
 import { splitDecision, splitInput } from "./split-service";
 import { manualLinkDays } from "./transfer-pairing";
-import { readTransferOptions, type TransferTarget } from "./transfer-repository";
+import { readTransferOptions } from "./transfer-subjects";
+import type { TransferTarget } from "./type-change-decision";
 import { formatCount } from "@/lib/locale";
 import { currentFormatLocale } from "@/server/http/request-locale";
 

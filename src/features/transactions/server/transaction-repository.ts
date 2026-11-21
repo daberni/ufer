@@ -3,11 +3,17 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 import { transactions } from "@/server/database/schema";
 import type { Rule, RuleAssignment, RuleText } from "@/lib/rules";
-import { derivedTransactionType, type TransactionType } from "@/features/transactions/transaction-types";
+import { derivedTransactionType, type TransactionType } from "@/lib/transaction-types";
 import { refusable, type ManualEntryResult } from "./manual-transaction-repository";
 import { assignRuleDecision, dissolveSplit, dropSplitsOnCurrencyChange, notSplit, splitRefusesType, writeSplit, type SplitChange } from "./split-repository";
 import type { CategorizedEntry, Entry, ProviderDetails } from "./transaction-entry";
-import { applyTransactionType, dissolveLink, enteredInUfer, findSubject, followImportedCorrections, pairTransfers, releaseOutdatedLinks, touchesArchivedAccount, type TransferTarget } from "./transfer-repository";
+import { followImportedCorrections, releaseOutdatedLinks } from "./imported-transfer-corrections";
+import { applyTransactionType } from "./transaction-type-change";
+import { dissolveLink } from "./transfer-link-repository";
+import { pairTransfers } from "./transfer-pairing-repository";
+import { enteredInUfer } from "./transfer-rules";
+import { findSubject, touchesArchivedAccount } from "./transfer-subjects";
+import type { TransferTarget } from "./type-change-decision";
 
 function providerColumns(provider: ProviderDetails = {}) {
   return {

@@ -7,7 +7,7 @@ import { maximumRules, nextPriority, orderedPriorities } from "@/features/catego
 import { isCategoryIcon } from "@/features/categorization/category-icons";
 import { newCategoryColor, type ColoredCategory } from "@/features/categorization/category-color-suggestions";
 import { activeAccountExists } from "@/features/accounts/server/account-repository";
-import { derivedTransactionType, ruleTransactionTypes } from "@/features/transactions/transaction-types";
+import { derivedTransactionType, ruleTransactionTypes } from "@/lib/transaction-types";
 import { categoryExists, deleteCategory as deleteStoredCategory, insertCategory, readCategoryUsage, updateCategory, type CategoryDetails, type CategoryWriteResult } from "./category-repository";
 import { RuleLimitReached, appendRule, deleteRule as deleteStoredRule, findManualAssignments, findRuleTypeableTransactions, findUncorrectedTransactions, insertRule, listRules, saveRuleAssignments, saveRuleOrder, saveRuleTypes, setRuleEnabled, updateRule, type ManualAdoption, type NewRule, type RuleCreationAssignments, type SelectRuleAssignments } from "./rule-repository";
 import { formatCount } from "@/lib/locale";

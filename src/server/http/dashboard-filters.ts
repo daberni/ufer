@@ -1,4 +1,4 @@
-import { isTransactionType } from "@/features/transactions/transaction-types";
+import { isTransactionType } from "@/lib/transaction-types";
 import { HttpError } from "@/lib/errors";
 import { parseCurrencyCode } from "@/lib/money";
 import { currentMonthPeriod, parsePeriod } from "@/lib/period";
