@@ -2036,3 +2036,43 @@ test("a category chosen for creation is created only when a saved row uses it", 
   assert.deepEqual(result.createdCategories, []);
   assert.equal((await db.select().from(schema.categories)).filter(category => category.name === "Synthetic hobbies").length, 0);
 });
+
+test("a category another request creates after the choices are resolved is used but not listed as created", async context => {
+  const db = await isolatedDatabase(context);
+  const account = await manualAccount("Concurrent history");
+  const execute = db.$client.execute.bind(db.$client);
+  let interleaved = false;
+
+  context.mock.method(db.$client, "execute", async (statement: InStatement, args?: InArgs) => {
+    const result = typeof statement === "string" ? await execute(statement, args) : await execute(statement);
+    const text = typeof statement === "string" ? statement : statement.sql;
+
+    if (!interleaved && /^select /i.test(text) && text.includes('from "categories"')) {
+      interleaved = true;
+      await execute("INSERT INTO categories(id,name,color) VALUES ('synthetic-concurrent','synthetic HOBBIES','#123456')");
+    }
+
+    return result;
+  });
+
+  const result = await importMappedRows({
+    import_id: importId,
+    rows: [mappedRow(2, "2024-06-01", "-1.00", "A", {
+      category: "Hobby"
+    })],
+    targets: [{
+      source: "",
+      account_id: account.id
+    }],
+    categories: [{
+      value: "Hobby",
+      action: "create",
+      name: "Synthetic hobbies"
+    }],
+    confirm: true
+  }, now);
+
+  assert.ok(interleaved);
+  assert.deepEqual(result.createdCategories, []);
+  assert.equal((await db.select().from(schema.transactions)).find(booking => booking.counterparty === "A")?.category_id, "synthetic-concurrent");
+});

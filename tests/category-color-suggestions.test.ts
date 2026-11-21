@@ -106,10 +106,10 @@ async function isolatedDatabase(context: TestContext) {
 async function importCategory(name: string) {
   const db = await database();
 
-  return db.transaction(tx => createImportCategory(tx, {
+  return db.transaction(async tx => (await createImportCategory(tx, {
     id: randomUUID(),
     name
-  }));
+  })).id);
 }
 
 async function colorsOf(db: Database, prefix: string) {

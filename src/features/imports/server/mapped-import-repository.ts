@@ -65,7 +65,7 @@ export type NewImportCategory = {
 
 /**
  * Creates a category for an import within the caller's write transaction, or returns the category that already has an equivalent name.
- * Resolves to the category's ID and whether it was created.
+ * Resolves to the category's ID and whether this call inserted it.
  */
 export async function createImportCategory(tx: DatabaseTransaction, category: NewImportCategory) {
   const existing = await tx.select({
@@ -77,7 +77,10 @@ export async function createImportCategory(tx: DatabaseTransaction, category: Ne
   const match = existing.find(item => sameCategoryName(item.name, category.name));
 
   if (match) {
-    return match.id;
+    return {
+      id: match.id,
+      created: false
+    };
   }
 
   const icon = category.shown ? category.shown.icon : suggestCategoryIcon(category.name);
@@ -89,7 +92,10 @@ export async function createImportCategory(tx: DatabaseTransaction, category: Ne
     icon
   });
 
-  return category.id;
+  return {
+    id: category.id,
+    created: true
+  };
 }
 
 /** A manual or bank-linked account of the current banking environment. */
@@ -223,8 +229,14 @@ export async function saveMappedBatch(accountRows: MappedAccountRows[], newCateg
           continue;
         }
 
-        resolved.set(category.id, await createImportCategory(tx, category));
-        createdCategories.push(category.name);
+        const result = await createImportCategory(tx, category);
+
+        resolved.set(category.id, result.id);
+
+        // A category another request created meanwhile is used, not reported as new.
+        if (result.created) {
+          createdCategories.push(category.name);
+        }
       }
 
       const categoryOf = (id: string | null) => id === null ? null : resolved.get(id) ?? id;
