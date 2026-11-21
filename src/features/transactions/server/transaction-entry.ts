@@ -14,7 +14,7 @@ export type Entry = {
   /** The date the booking counts on; for a bank booking its value date. */
   date: string;
   /** The bank's own booking date, kept for reconciliation with reported balances and duplicate matching; absent for other sources. */
-  bankBookingDate?: string | null;
+  bookingDate?: string | null;
   amount: number;
   currency: string;
   counterparty: string;

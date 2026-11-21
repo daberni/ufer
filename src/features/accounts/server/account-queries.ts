@@ -21,7 +21,7 @@ const reportedBalanceDate = sql<string | null>`(SELECT ${balanceSnapshots.observ
 const comparableTypes = sql.join(comparableBankBalanceTypes.map(type => sql`${type}`), sql`,`);
 // Bookings through the reported date, and all bookings: a bank may date a weekend booking on the next business day while its same-day balance already contains it.
 // The bank's balance follows its own booking dates, not the value dates bookings count on.
-const bookedThroughReport = sql`COALESCE((SELECT SUM(t.amount_minor) FROM ${transactions} t WHERE t.account_id=${accounts.id} AND t.suppressed_at IS NULL AND COALESCE(t.bank_booking_date,t.date)<=${balanceSnapshots.observed_at}),0)`;
+const bookedThroughReport = sql`COALESCE((SELECT SUM(t.amount_minor) FROM ${transactions} t WHERE t.account_id=${accounts.id} AND t.suppressed_at IS NULL AND COALESCE(t.booking_date,t.date)<=${balanceSnapshots.observed_at}),0)`;
 const bookedInTotal = sql`COALESCE((SELECT SUM(t.amount_minor) FROM ${transactions} t WHERE t.account_id=${accounts.id} AND t.suppressed_at IS NULL),0)`;
 // Reported minus calculated balance at the end of the reported date, 0 when the report matches either reading; NULL when the newest report is not a booked balance.
 const reportedDifference = sql<number | null>`(SELECT CASE WHEN ${balanceSnapshots.amount_minor}=${bookedInTotal} THEN 0 ELSE ${balanceSnapshots.amount_minor}-${bookedThroughReport} END FROM ${balanceSnapshots} WHERE ${balanceSnapshots.id}=${latestReport} AND ${balanceSnapshots.bank_balance_type} IN (${comparableTypes}))`;

@@ -145,13 +145,13 @@ export async function findImportOpening(accountId: string, ids: string[]) {
 /** Bookings that imported rows could duplicate, hidden ones included so a later import does not add them again; balance corrections are never imported rows. */
 function bookingsBetween(executor: Executor, accountId: string, from: string, to: string): Promise<ExistingBooking[]> {
   // A bank booking may match on its value date or on the bank's booking date.
-  const inWindow = or(between(transactions.date, from, to), between(transactions.bank_booking_date, from, to));
+  const inWindow = or(between(transactions.date, from, to), between(transactions.booking_date, from, to));
   const scope = and(eq(transactions.account_id, accountId), inWindow, notInArray(transactions.type, ["opening_balance", "adjustment"]));
 
   return executor.select({
     reference: transactions.provider_reference,
     date: transactions.date,
-    bankBookingDate: transactions.bank_booking_date,
+    bookingDate: transactions.booking_date,
     amount: transactions.amount_minor,
     counterparty: transactions.counterparty,
     description: transactions.description,
@@ -190,7 +190,7 @@ async function bookingsWithReferences(executor: Executor, accountId: string, ref
     found.push(...await executor.select({
       reference: transactions.provider_reference,
       date: transactions.date,
-      bankBookingDate: transactions.bank_booking_date,
+      bookingDate: transactions.booking_date,
       amount: transactions.amount_minor,
       counterparty: transactions.counterparty,
       description: transactions.description,

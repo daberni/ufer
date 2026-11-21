@@ -46,7 +46,6 @@ const rule = {
 const transaction: Transaction = {
   id: "synthetic-entry",
   date: "2000-01-10",
-  bank_booking_date: null,
   amount_minor: -1250,
   currency: "EUR",
   instructed_amount_minor: null,

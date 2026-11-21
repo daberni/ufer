@@ -96,7 +96,7 @@ async function storedDates(db: Database) {
   return db.select({
     reference: schema.transactions.provider_reference,
     date: schema.transactions.date,
-    bankDate: schema.transactions.bank_booking_date
+    bankDate: schema.transactions.booking_date
   }).from(schema.transactions).where(eq(schema.transactions.type, "expense"));
 }
 
@@ -104,7 +104,7 @@ test("a bank booking counts on its value date and keeps the bank's booking date"
   const [entry] = normalizeTransactions([cardPayment], new Set());
 
   assert.equal(entry.date, "2026-10-31");
-  assert.equal(entry.bankBookingDate, "2026-11-02");
+  assert.equal(entry.bookingDate, "2026-11-02");
 
   const [withoutValueDate] = normalizeTransactions([{
     ...cardPayment,
@@ -112,7 +112,7 @@ test("a bank booking counts on its value date and keeps the bank's booking date"
   }], new Set());
 
   assert.equal(withoutValueDate.date, "2026-11-02");
-  assert.equal(withoutValueDate.bankBookingDate, "2026-11-02");
+  assert.equal(withoutValueDate.bookingDate, "2026-11-02");
 
   const [malformedBookingDate] = normalizeTransactions([{
     ...cardPayment,
@@ -120,7 +120,7 @@ test("a bank booking counts on its value date and keeps the bank's booking date"
   }], new Set());
 
   assert.equal(malformedBookingDate.date, "2026-10-31");
-  assert.equal(malformedBookingDate.bankBookingDate, null);
+  assert.equal(malformedBookingDate.bookingDate, null);
   assert.throws(() => normalizeTransactions([{
     ...cardPayment,
     booking_date: null,
@@ -314,7 +314,7 @@ test("the value-date upgrade keeps every row and the next sync moves a redeliver
   await migrateDatabase(client);
 
   assert.deepEqual((await client.execute(rows)).rows, before);
-  assert.deepEqual((await client.execute("SELECT id,date,bank_booking_date FROM transactions ORDER BY id")).rows.map(row => [row.id, row.date, row.bank_booking_date]), [
+  assert.deepEqual((await client.execute("SELECT id,date,booking_date FROM transactions ORDER BY id")).rows.map(row => [row.id, row.date, row.booking_date]), [
     ["card", "2026-11-02", null],
     ["opening", "2026-10-20", null]
   ]);
@@ -343,13 +343,13 @@ test("a date shared only through a bank booking date with several bookings is am
   });
   const bookings = prepareBookings([{
     date: "2026-10-31",
-    bankBookingDate: "2026-11-02",
+    bookingDate: "2026-11-02",
     amount: -4200,
     counterparty: "Example Market",
     description: ""
   }, {
     date: "2026-11-02",
-    bankBookingDate: "2026-11-04",
+    bookingDate: "2026-11-04",
     amount: -4200,
     counterparty: "Example Market",
     description: ""

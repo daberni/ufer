@@ -12,7 +12,6 @@ stubCssModules();
 const transfer: Transaction = {
   id: "transfer-row",
   date: "2026-09-02",
-  bank_booking_date: null,
   amount_minor: -35000,
   currency: "EUR",
   instructed_amount_minor: null,

@@ -28,7 +28,7 @@ export function normalizeTransactions(transactions: BankTransaction[], ownIbans:
     const entry: Entry = {
       reference: `bank:${item.entry_reference}`,
       date: dates.date,
-      bankBookingDate: dates.bankBookingDate,
+      bookingDate: dates.bookingDate,
       amount: debit ? -absolute : absolute,
       currency: item.transaction_amount.currency,
       counterparty,
@@ -36,7 +36,7 @@ export function normalizeTransactions(transactions: BankTransaction[], ownIbans:
       transfer: Boolean(counterIban && ownIbans.has(counterIban)),
       provider: providerDetails(item, debit)
     };
-    const signature = JSON.stringify([entry.date, entry.bankBookingDate, entry.amount, entry.currency, entry.counterparty, entry.description]);
+    const signature = JSON.stringify([entry.date, entry.bookingDate, entry.amount, entry.currency, entry.counterparty, entry.description]);
     const previous = references.get(entry.reference);
 
     if (previous && previous !== signature) {
@@ -64,7 +64,7 @@ export function bookingDates(item: Pick<BankTransaction, "booking_date" | "value
 
   return {
     date,
-    bankBookingDate: booked
+    bookingDate: booked
   };
 }
 

@@ -7,19 +7,19 @@ import { normalizeText } from "./text";
 export const duplicateDateToleranceDays = 3;
 
 /** Every date a booking is recorded on: its date and, for a bank booking, the bank's booking date. */
-export function bookingDays(booking: Pick<Booking, "date" | "bankBookingDate">) {
-  return booking.bankBookingDate && booking.bankBookingDate !== booking.date ? [booking.date, booking.bankBookingDate] : [booking.date];
+export function bookingDays(booking: Pick<Booking, "date" | "bookingDate">) {
+  return booking.bookingDate && booking.bookingDate !== booking.date ? [booking.date, booking.bookingDate] : [booking.date];
 }
 
 /** Whether two bookings share any recorded date. */
-export function sameDay(left: Pick<Booking, "date" | "bankBookingDate">, right: Pick<Booking, "date" | "bankBookingDate">) {
+export function sameDay(left: Pick<Booking, "date" | "bookingDate">, right: Pick<Booking, "date" | "bookingDate">) {
   const rightDays = bookingDays(right);
 
   return bookingDays(left).some(day => rightDays.includes(day));
 }
 
 /** The fewest days between any recorded dates of two bookings. */
-export function bookingDistance(left: Pick<Booking, "date" | "bankBookingDate">, right: Pick<Booking, "date" | "bankBookingDate">) {
+export function bookingDistance(left: Pick<Booking, "date" | "bookingDate">, right: Pick<Booking, "date" | "bookingDate">) {
   const rightDays = bookingDays(right);
 
   return Math.min(...bookingDays(left).flatMap(day => rightDays.map(other => dayDistance(day, other))));
@@ -43,7 +43,7 @@ function shiftDays(date: string, days: number) {
 export type Booking = {
   date: string;
   /** A bank booking's own booking date next to its value date in `date`; other sources may record either date, so both count. */
-  bankBookingDate?: string | null;
+  bookingDate?: string | null;
   amount: number;
   counterparty: string;
   description: string;

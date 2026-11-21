@@ -11,7 +11,7 @@ export type ImportCandidate = {
 export type ExistingBooking = {
   reference: string;
   date: string;
-  bankBookingDate?: string | null;
+  bookingDate?: string | null;
   amount: number;
   counterparty: string;
   description: string;

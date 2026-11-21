@@ -92,7 +92,7 @@ export const transactions = sqliteTable("transactions", {
   // The date the booking counts on everywhere; for a bank booking its value date.
   date: text("date").notNull(),
   // The bank's own booking date of a synced booking, which may be a few days after its value date; null for other sources. Balance reconciliation and duplicate matching use it.
-  bank_booking_date: text("bank_booking_date"),
+  booking_date: text("booking_date"),
   amount_minor: integer("amount_minor").notNull(),
   currency: text("currency").notNull(),
   counterparty: text("counterparty").notNull().default(""),
