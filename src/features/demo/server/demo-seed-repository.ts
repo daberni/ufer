@@ -132,8 +132,6 @@ async function insertAccount(tx: DatabaseTransaction, account: DemoAccountRows, 
     provider_uid: bank ? `${account.id}-uid` : null,
     requisition_id: bank ? demoConnections[bank.connection].id : null,
     iban: bank?.iban ?? null,
-    balance_minor: bank ? account.closing.amount : null,
-    balance_date: bank ? account.closing.date : null,
     last_synced_at: bank ? lastSyncedAt : null
   });
   await recordManualBalance(tx, demoAccount(account), account.opening.date, account.opening.amount);

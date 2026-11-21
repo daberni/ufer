@@ -937,7 +937,7 @@ function connectionData(runDate: PlainDate) {
   });
 }
 
-/** Two weeks of daily scheduled syncs; one run could not reach a bank and the next run caught up. */
+/** Two weeks of daily scheduled syncs ending yesterday, so no run lies in the future whenever the seed runs; one run could not reach a bank and the next run caught up. */
 function syncRunHistory(ledger: Ledger, random: DemoRandom): DemoSyncRun[] {
   const bankAccounts = (Object.keys(demoAccounts) as DemoAccountKey[]).filter(key => demoAccounts[key].bank);
   const runs: DemoSyncRun[] = [];
@@ -945,7 +945,7 @@ function syncRunHistory(ledger: Ledger, random: DemoRandom): DemoSyncRun[] {
   const bookedOn = (key: DemoAccountKey, date: PlainDate) => ledger.entries[key].filter(entry => entry.date === date.toString()).length;
   let missed = 0;
 
-  for (let daysAgo = 13; daysAgo >= 0; daysAgo--) {
+  for (let daysAgo = 14; daysAgo >= 1; daysAgo--) {
     const date = ledger.runDate.subtract({
       days: daysAgo
     });
