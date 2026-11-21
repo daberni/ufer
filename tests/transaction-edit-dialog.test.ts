@@ -95,7 +95,8 @@ test("a linked transfer cannot be saved before its target is known, and saving u
     counterpart: {
       id: "in",
       account_name: "Synthetic savings",
-      booking_date: "2026-09-02"
+      booking_date: "2026-09-02",
+      entered: false
     }
   };
   const {
@@ -397,7 +398,8 @@ test("a booking Ufer created on a manual account offers only removing it, withou
     counterpart: {
       id: "source",
       account_name: "Synthetic checking",
-      booking_date: "2026-09-02"
+      booking_date: "2026-09-02",
+      entered: false
     }
   };
   const {
@@ -459,7 +461,8 @@ test("one side of a transfer entered between manual accounts edits the pair: the
     counterpart: {
       id: "source",
       account_name: "Synthetic cash",
-      booking_date: "2026-09-02"
+      booking_date: "2026-09-02",
+      entered: true
     }
   };
   const {
@@ -537,7 +540,8 @@ test("an entered booking linked with an imported booking keeps that booking's da
     counterpart: {
       id: "bank",
       account_name: "Synthetic checking",
-      booking_date: "2026-09-02"
+      booking_date: "2026-09-02",
+      entered: false
     }
   });
 
@@ -714,4 +718,124 @@ test("a split booking offers only income and expense as its type, also on a manu
   }) as HTMLSelectElement;
 
   assert.deepEqual([...type.options].map(option => option.value), ["income", "expense"]);
+});
+
+test("an imported booking on an archived manual account edits its payee, offers no hiding and sends no link it keeps", async context => {
+  const {
+    requests,
+    save,
+    screen
+  } = await renderDialog(context, {
+    ...outgoing,
+    manual_account: true,
+    account_archived: true
+  });
+
+  assert.ok(screen.getByText(/Synthetic checking is archived/));
+  assert.equal(screen.queryByRole("button", {
+    name: "Hide transaction"
+  }), null);
+
+  act(() => {
+    fireEvent.change(screen.getByRole("combobox", {
+      name: "Payee"
+    }), {
+      target: {
+        value: "Example landlord"
+      }
+    });
+  });
+  act(() => {
+    fireEvent.click(save());
+  });
+  await wait(0);
+
+  assert.deepEqual(requests("transactions/out/details")[0]?.body, {
+    type: "expense",
+    counterparty: "Example landlord"
+  });
+});
+
+test("an entered booking on an archived account offers neither entry fields nor deletion", async context => {
+  const entered = await renderDialog(context, {
+    ...outgoing,
+    manual_account: true,
+    account_archived: true,
+    entered: true
+  });
+
+  assert.equal(entered.screen.queryByRole("button", {
+    name: "Delete transaction"
+  }), null);
+  assert.equal((entered.screen.getByRole("combobox", {
+    name: "Type"
+  }) as HTMLSelectElement).disabled, true);
+  assert.equal(entered.screen.queryByRole("textbox", {
+    name: "Amount"
+  }), null);
+});
+
+test("an unlinked booking on an archived bank account can still be hidden", async context => {
+  const bank = await renderDialog(context, {
+    ...outgoing,
+    account_archived: true
+  });
+
+  assert.ok(bank.screen.getByRole("button", {
+    name: "Hide transaction"
+  }));
+});
+
+test("an imported booking on an archived account links only with an existing booking and offers no account for a new counterpart", async context => {
+  const {
+    requests,
+    save,
+    screen,
+    target
+  } = await renderDialog(context, {
+    ...outgoing,
+    manual_account: true,
+    account_archived: true
+  });
+  const type = screen.getByRole("combobox", {
+    name: "Type"
+  }) as HTMLSelectElement;
+
+  assert.deepEqual([...type.options].map(option => option.value), ["expense", "transfer"]);
+  act(() => {
+    fireEvent.change(type, {
+      target: {
+        value: "transfer"
+      }
+    });
+  });
+  await wait(0);
+  await respond(requests("transactions/out/transfer")[0], Response.json({
+    counterpart: null,
+    candidates: [booking("candidate", "Synthetic savings")],
+    accounts: [{
+      id: "flat",
+      name: "Synthetic flat"
+    }]
+  } satisfies TransferOptions));
+
+  assert.deepEqual([...target().options].map(option => option.value), [""]);
+  assert.equal(save().disabled, true);
+
+  act(() => {
+    fireEvent.click(screen.getByRole("radio", {
+      name: /Synthetic savings/
+    }));
+  });
+  act(() => {
+    fireEvent.click(save());
+  });
+  await wait(0);
+
+  assert.deepEqual(requests("transactions/out/details")[0]?.body, {
+    type: "transfer",
+    transfer: {
+      counterpart_id: "candidate"
+    }
+  });
 });
