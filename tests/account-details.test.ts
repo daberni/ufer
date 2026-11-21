@@ -153,19 +153,13 @@ test("an account without transactions in the period has zero flows, while unknow
   await assertNotFound(readAccountCashFlow("unknown", january));
 });
 
-test("an account's daily balances use only its own currency and preserve the known closing balance", async context => {
+test("an account's daily balances use only its own currency and run from 0 the day before its first booking", async context => {
   await seededDatabase(context);
 
   const history = await readBalanceHistory("checking");
 
   assert.equal(history.currency, "EUR");
-  assert.deepEqual(history.balances.slice(0, 6), [
-    {
-      date: "2025-12-31",
-      amount_minor: 0,
-      source: "manual",
-      bank_balance_type: null
-    },
+  assert.deepEqual(history.balances.slice(0, 5), [
     {
       date: "2026-01-01",
       amount_minor: 0,
@@ -201,7 +195,7 @@ test("an account's daily balances use only its own currency and preserve the kno
   assert.deepEqual(history.balances.find(balance => balance.date === "2026-02-01"), {
     date: "2026-02-01",
     amount_minor: 205300,
-    source: "sync",
+    source: "transactions",
     bank_balance_type: null
   });
   await assertNotFound(readBalanceHistory("unknown"));
@@ -261,20 +255,6 @@ test("an account's details path selects its transactions, keeps the period and b
 });
 
 
-test("market-valued assets keep their actual valuations instead of inferring returns from cash bookings", async context => {
-  const db = await seededDatabase(context);
-
-  await db.update(schema.accounts).set({
-    kind: "investment"
-  }).where(eq(schema.accounts.id, "checking"));
-  const history = await readBalanceHistory("checking");
-
-  assert.deepEqual(history.balances.map(balance => [balance.date, balance.amount_minor]), [
-    ["2025-12-31", 0],
-    ["2026-02-01", 205300]
-  ]);
-});
-
 test("stale synced balances stop at known coverage rather than extrapolating to today", async context => {
   const db = await seededDatabase(context);
 
@@ -287,61 +267,40 @@ test("stale synced balances stop at known coverage rather than extrapolating to 
   assert.equal(history.balances.at(-1)?.date, "2026-02-01");
 });
 
-test("partial cash imports without a balance reference do not imply a zero opening balance", async context => {
+test("a sync anchors the daily balances at the reported balance and keeps its bank classification on the snapshot", async context => {
   const db = await seededDatabase(context);
-
-  await db.delete(schema.balanceSnapshots).where(eq(schema.balanceSnapshots.account_id, "checking"));
-  const history = await readBalanceHistory("checking");
-
-  assert.deepEqual(history.balances, []);
-});
-
-
-test("a CSV balance keeps its recorded provenance when the current account balance has the same date", async context => {
-  const db = await seededDatabase(context);
-
-  await db.update(schema.balanceSnapshots).set({
-    source: "csv",
-    bank_balance_type: null
-  }).where(eq(schema.balanceSnapshots.id, "snapshot-2"));
-  await db.update(schema.accounts).set({
-    balance_minor: 205300,
-    balance_date: "2026-02-01"
-  }).where(eq(schema.accounts.id, "checking"));
-  const history = await readBalanceHistory("checking");
-
-  assert.equal(history.balances.find(balance => balance.date === "2026-02-01")?.source, "csv");
-});
-
-
-test("bank balance classification survives resync while derived days and older observations remain unknown", async context => {
-  await seededDatabase(context);
   const run = {
     startedAt: "2026-02-01T12:00:00.000Z"
   };
 
-  for (const type of ["CLAV", "CLBD"]) {
+  // Only bookings in the account's own currency count toward its balance.
+  await db.delete(schema.transactions).where(eq(schema.transactions.currency, "USD"));
+
+  // A booked balance anchors the opening balance; a later available balance keeps it.
+  for (const type of ["CLBD", "CLAV"]) {
     await saveAccountSync(run, "checking", "EUR", [{
       balance_type: type,
       balance_amount: {
-        amount: "2053.00",
+        amount: "2100.00",
         currency: "EUR"
       },
       reference_date: "2026-02-01"
     }], [], []);
     const history = await readBalanceHistory("checking");
+    const snapshots = await db.select().from(schema.balanceSnapshots).where(eq(schema.balanceSnapshots.account_id, "checking"));
 
     assert.deepEqual(history.balances.find(balance => balance.date === "2026-02-01"), {
       date: "2026-02-01",
-      amount_minor: 205300,
-      source: "sync",
-      bank_balance_type: type
-    });
-    assert.deepEqual(history.balances.find(balance => balance.date === "2026-01-31"), {
-      date: "2026-01-31",
-      amount_minor: 206000,
+      amount_minor: 210000,
       source: "transactions",
       bank_balance_type: null
     });
+    assert.equal(history.balances.find(balance => balance.date === "2026-01-31")?.amount_minor, 210700);
+    assert.equal(snapshots.find(snapshot => snapshot.source === "sync" && snapshot.amount_minor === 210000)?.bank_balance_type, type);
   }
+
+  const openings = await db.select().from(schema.transactions).where(eq(schema.transactions.type, "opening_balance"));
+
+  assert.equal(openings.length, 1);
+  assert.equal(openings[0].amount_minor, 210000 - 205300);
 });

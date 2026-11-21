@@ -1,3 +1,4 @@
+import { keepBankOpeningBalanceFirst } from "@/features/accounts/server/opening-balance-repository";
 import { randomUUID } from "node:crypto";
 import { Temporal } from "temporal-polyfill";
 import { and, between, eq, inArray, like, ne, notInArray, sql } from "drizzle-orm";
@@ -273,7 +274,7 @@ export async function saveMappedBatch(accountRows: MappedAccountRows[], newCateg
 
 /**
  * Classifies rows exactly like `checkMappedEntries`, but inside the write transaction, and inserts the new ones, so a bank sync between check and confirmation cannot cause duplicates and both report the same result on unchanged data.
- * A row whose reference the account already holds is left untouched, so confirming again changes nothing and existing categories survive. Inserting bookings never writes a bank-linked account's provider balance.
+ * A row whose reference the account already holds is left untouched, so confirming again changes nothing and existing categories survive. Older bookings imported into a bank-linked account move its opening balance before them.
  */
 async function saveAccountRows(tx: DatabaseTransaction, {
   accountId,
@@ -300,6 +301,7 @@ async function saveAccountRows(tx: DatabaseTransaction, {
   // Later batches of this import pass the saved rows back as consumed, so rows of the same file never match each other by content.
   const saved: typeof found.matched = [];
   let inserted = 0;
+  const insertedIds: string[] = [];
 
   // Bound statement parameters for both local SQLite and remote libSQL deployments.
   for (let offset = 0; offset < fresh.length; offset += 50) {
@@ -334,12 +336,16 @@ async function saveAccountRows(tx: DatabaseTransaction, {
     });
 
     inserted += rows.length;
+    insertedIds.push(...rows.map(row => row.id));
     saved.push(...rows.map(row => ({
       reference: row.reference,
       date: dates.get(row.reference) ?? ""
     })));
     await saveImportedParts(tx, rows, fresh);
   }
+
+  // Older history imported into a bank-linked account was part of its opening balance.
+  await keepBankOpeningBalanceFirst(tx, accountId, insertedIds.length ? inArray(transactions.id, insertedIds) : undefined);
 
   if (opening) {
     await saveOpeningBalance(tx, accountId, newAccount?.currency ?? entries[0]?.currency ?? "", opening);

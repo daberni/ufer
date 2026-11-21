@@ -6,7 +6,7 @@ import { HttpError, ValidationError } from "@/lib/errors";
 import { minorUnits } from "@/lib/money";
 import { timestamp, today } from "@/lib/time";
 import { accountDeletionInput, accountEditInput, accountInput, archiveInput, valuationInput } from "./account-schema";
-import { ClosingBeforeLastBooking, archiveSettledAccount, closeAndArchiveManualAccount, convertDetachedAccount, deleteUnlinkedAccount, findManualAccount, insertManualAccount, saveAccountArchived, saveAccountKind, saveAccountName, saveManualValuation, type ClosingResult } from "./account-repository";
+import { ClosingBeforeLastBooking, archiveSettledAccount, closeAndArchiveManualAccount, convertDetachedAccount, deleteUnlinkedAccount, findManualAccount, insertManualAccount, reconcileWithReportedBalance, saveAccountArchived, saveAccountKind, saveAccountName, saveManualValuation, type ClosingResult } from "./account-repository";
 import { findAccountWithBalance } from "./account-queries";
 import { archivedAccountMessage } from "./writable-account";
 import type { AccountKind } from "../account-kinds";
@@ -35,6 +35,37 @@ export async function updateManualValuation(accountId: string, payload: unknown,
   validateBalanceDate(input.date, now);
 
   await saveManualValuation(account, amount, input.date);
+
+  return {
+    ok: true
+  };
+}
+
+/** Books an adjustment so a bank-linked account's balance matches the newest booked balance its bank reported. A sync may be writing a new report, so this waits for it to finish. */
+export async function reconcileBankBalance(accountId: string) {
+  const account = await findAccountWithBalance(accountId);
+
+  if (!account || account.provider === "manual") {
+    throw new HttpError(404, "Bank account not found.");
+  }
+
+  if (account.archived_at !== null) {
+    throw new HttpError(409, archivedAccountMessage);
+  }
+
+  const owner = randomUUID();
+
+  if (!(await acquireLease(syncLeaseName, owner))) {
+    throw new HttpError(409, "A sync is running. Reconcile the balance after it has finished.");
+  }
+
+  try {
+    if (!await reconcileWithReportedBalance(account)) {
+      throw new HttpError(409, "The bank has not reported a booked balance to compare with yet.");
+    }
+  } finally {
+    await releaseLease(syncLeaseName, owner);
+  }
 
   return {
     ok: true
@@ -128,12 +159,8 @@ export async function archiveAccount(accountId: string, payload: unknown, now = 
     };
   }
 
-  // A manual account's balance is the sum of its bookings, so it is 0 without any; only a provider balance can be unknown.
-  const balance = account.provider === "manual" ? account.balance_minor ?? 0 : account.balance_minor;
-
-  if (balance === null) {
-    throw new HttpError(409, "No balance is known yet. An account can only be archived with a balance of 0.");
-  }
+  // The balance is the sum of the bookings, so it is 0 without any.
+  const balance = account.balance_minor ?? 0;
 
   // A closing confirms the balance the user saw; any other current balance needs a new confirmation.
   const confirmedOther = input.closing !== undefined && input.closing.balance_minor !== balance;

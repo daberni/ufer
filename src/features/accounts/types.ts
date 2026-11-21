@@ -9,6 +9,11 @@ export type Account = {
   balance_date: string | null;
   /** The newest visible booking date; null without transactions. */
   last_booking_date: string | null;
+  /** The newest balance a bank reported for this account and its date; null for manual accounts and before the first sync. */
+  reported_balance_minor: number | null;
+  reported_balance_date: string | null;
+  /** Reported minus calculated balance at the end of the reported date; null when the newest report is not a booked balance. */
+  reported_difference_minor: number | null;
   provider: string;
   requisition_id: string | null;
   last_synced_at: string | null;

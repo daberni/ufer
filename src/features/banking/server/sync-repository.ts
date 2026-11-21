@@ -1,3 +1,5 @@
+import { anchorOpeningBalance, keepBankOpeningBalanceFirst } from "@/features/accounts/server/opening-balance-repository";
+import { comparableBankBalanceTypes } from "@/features/accounts/server/account-queries";
 import { adoptImportedRows } from "@/features/imports/server/mapped-import-repository";
 import { randomUUID } from "node:crypto";
 import { and, count, eq, getTableColumns, isNull, like, ne, sql, type SQLWrapper } from "drizzle-orm";
@@ -85,7 +87,7 @@ export async function recordAccountSyncError(id: string, error: string) {
   }).where(eq(accounts.id, id));
 }
 
-/** Stores one account's sync result and returns how many of its transactions this run inserted. Entries are categorized in the write transaction, with the overrides stored for the rows they update. */
+/** Stores one account's sync result, keeps its opening balance in front of its bookings and records the reported balance for comparison; returns how many of its transactions this run inserted. Entries are categorized in the write transaction, with the overrides stored for the rows they update. */
 export async function saveSyncedAccount(run: SyncRunStart, accountId: string, balance: {
   amount: number;
   bank_balance_type: string;
@@ -97,9 +99,15 @@ export async function saveSyncedAccount(run: SyncRunStart, accountId: string, ba
     const categorized = categorize(await withStoredOverrides(tx, accountId, entries));
 
     await upsertTransactions(tx, accountId, await adoptImportedRows(tx, accountId, categorized), run.startedAt);
+
+    // Only booked money anchors the opening balance; available or expected balances may include credit lines and pending items.
+    if (comparableBankBalanceTypes.includes(balance.bank_balance_type)) {
+      await anchorOpeningBalance(tx, accountId, balance, syncRunTransactions(run.startedAt));
+    } else {
+      await keepBankOpeningBalanceFirst(tx, accountId, syncRunTransactions(run.startedAt));
+    }
+
     await tx.update(accounts).set({
-      balance_minor: balance.amount,
-      balance_date: balance.date,
       last_synced_at: timestamp(),
       sync_error: null
     }).where(eq(accounts.id, accountId));

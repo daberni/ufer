@@ -18,7 +18,7 @@ A manual account (cash, savings, investment, property, loan) was a series of dat
 
 | Concern | Decision |
 | --- | --- |
-| Balance | A manual account's balance is the sum of all its transactions: the opening balance, income, expenses, transfers and adjustments. Its balance date is its newest booking date; an account without transactions has no balance. Synced accounts keep their provider balance and balance snapshots |
+| Balance | A manual account's balance is the sum of all its transactions: the opening balance, income, expenses, transfers and adjustments. Its balance date is its newest booking date; an account without transactions has no balance. Synced accounts keep their provider balance and balance snapshots (superseded for synced accounts by [ADR 010](010-bank-account-balances-from-transactions.md)) |
 | Entering transactions | Manual accounts accept transactions entered in Ufer (date, signed amount, payee, description, category, type; a transfer optionally names another manual account). Without a chosen category the categorization rules choose one. Such bookings carry the reference `manual:<id>` and can be edited and deleted |
 | Opening balance | Creating a manual account books its starting balance as an `opening_balance` transaction on the balance date |
 | Update balance | Entering a balance for a date books an `adjustment` for the difference between it and the balance at the end of that date, so later transactions keep their effect; for today this is the difference to the current balance. An account without transactions gets an opening balance instead; no difference books nothing. Revaluations without money moving are recorded this way |

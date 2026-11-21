@@ -104,10 +104,15 @@ export async function createManualTransaction(entry: NewManualEntry) {
 }
 
 /** The currency of a booking entered in Ufer; undefined for an unknown booking. */
-export async function findEntryCurrency(id: string) {
+/** The currency of a booking and whether its account is bank-linked, whose syncs also write its opening balance. */
+export async function findEntryAccount(id: string) {
   const db = await database();
+  const subject = await findSubject(db, id);
 
-  return (await findSubject(db, id))?.currency;
+  return subject ? {
+    currency: subject.currency,
+    bankLinked: subject.account_provider !== "manual"
+  } : undefined;
 }
 
 /**

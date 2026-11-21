@@ -775,15 +775,15 @@ test("an entered booking on an archived account offers neither entry fields nor 
   }), null);
 });
 
-test("an unlinked booking on an archived bank account can still be hidden", async context => {
+test("an unlinked booking on an archived bank account cannot be hidden, since it counts toward the balance", async context => {
   const bank = await renderDialog(context, {
     ...outgoing,
     account_archived: true
   });
 
-  assert.ok(bank.screen.getByRole("button", {
+  assert.equal(bank.screen.queryByRole("button", {
     name: "Hide transaction"
-  }));
+  }), null);
 });
 
 test("an imported booking on an archived account links only with an existing booking and offers no account for a new counterpart", async context => {

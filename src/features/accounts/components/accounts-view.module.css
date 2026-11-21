@@ -37,6 +37,14 @@
   display: block;
   margin-top: var(--space-6);
 }
+.mismatch {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-3) 0 0;
+  color: var(--gold-text);
+  font-size: var(--text-sm);
+}
 .account-detail-meta {
   display: flex;
   justify-content: space-between;

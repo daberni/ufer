@@ -17,7 +17,7 @@ import { readSplitParts } from "@/features/transactions/server/split-repository"
 
 // Mirrors `enteredInUfer` for a booking and its account in the list's SQL.
 function enteredColumn(booking: string, account: string) {
-  return `(${account}.provider='manual' AND (${booking}.provider_reference LIKE '${manualEntryPrefix}%' OR ${booking}.provider_reference LIKE '${createdCounterpartPrefix}%'))`;
+  return `((${account}.provider='manual' AND (${booking}.provider_reference LIKE '${manualEntryPrefix}%' OR ${booking}.provider_reference LIKE '${createdCounterpartPrefix}%')) OR (${account}.provider<>'manual' AND ${booking}.provider_reference LIKE '${manualEntryPrefix}%' AND ${booking}.type IN ('opening_balance','adjustment')))`;
 }
 
 /** Whether a listed booking was entered in Ufer and, if so, whether it follows a linked imported booking. A counterpart created for an imported booking is not editable as an entry. */

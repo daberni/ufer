@@ -377,13 +377,16 @@ function TransactionEditForm({
   const linkable = transfer && !transaction.hidden && relinkable;
   const editsEntry = transaction.entered && !frozen;
   // On an archived account only a bank booking without a link can be hidden: a manual account's balance sums its shown bookings, and hiding ends a link.
-  const hideable = imported && (!frozen || (!transaction.manual_account && !transaction.counterpart));
+  const hideable = imported && !frozen;
   const options = useTransferOptions(transaction.id, linkable);
   const target = chosenTarget ?? storedTarget(transaction, options.data);
   // A split booking stays income or expense, since only those count by category; the stored type stays listed.
   const typeAllowed = (option: TransactionType) => !splitOpen || option === "income" || option === "expense";
   const canSplit = type === "income" || type === "expense";
-  const available = frozen ? frozenTypes(transaction, relinkable) : transactionTypes.filter(option => option === transaction.type || (typeAllowed(option) && (transaction.manual_account || !manualAccountTypes.includes(option))));
+  // A bank-linked account's opening balance or adjustment keeps its type.
+  const balanceRow = !transaction.manual_account && manualAccountTypes.includes(transaction.type);
+  const editableTypes = balanceRow ? [transaction.type] : transactionTypes.filter(option => option === transaction.type || (typeAllowed(option) && (transaction.manual_account || !manualAccountTypes.includes(option))));
+  const available = frozen ? frozenTypes(transaction, relinkable) : editableTypes;
   // A frozen booking becomes a transfer only by linking an existing booking.
   const linkMissing = frozen && transfer && transaction.type !== "transfer" && target.kind !== "booking";
   // Without loaded options, saving a transfer could drop a link the form cannot show.

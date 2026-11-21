@@ -91,9 +91,7 @@ async function seededDatabase(context: TestContext) {
     institution: "Example institution",
     kind: "checking",
     provider: "enable_banking",
-    provider_uid: "uid-bank",
-    balance_minor: 7000,
-    balance_date: "2026-01-31"
+    provider_uid: "uid-bank"
   }]);
   await db.insert(schema.transactions).values([{
     id: "opening",
@@ -136,6 +134,14 @@ async function seededDatabase(context: TestContext) {
     amount_minor: -346000,
     currency: "EUR",
     type: "adjustment"
+  }, {
+    id: "bank-opening",
+    account_id: "bank",
+    provider_reference: "manual:bank-opening",
+    booking_date: "2026-01-31",
+    amount_minor: 7000,
+    currency: "EUR",
+    type: "opening_balance"
   }]);
 
   return db;
@@ -491,7 +497,7 @@ test("an imported booking on an archived account links with and unlinks from exi
   });
   assert.equal(await linked(), null);
   assert.equal((await db.select().from(schema.transactions).where(eq(schema.transactions.id, "card-payment")).get())?.type, "income");
-  assert.equal((await db.select().from(schema.transactions)).length, 9);
+  assert.equal((await db.select().from(schema.transactions)).length, 10);
   assert.deepEqual(await balances(), balancesBefore);
 });
 
@@ -666,11 +672,9 @@ test("an archived account's bookings keep their type, link and, where it counts 
   }), ValidationError);
   assert.deepEqual(await balances(), balancesBefore);
 
-  // A bank account's balance is the bank's, so its unlinked bookings can be hidden and shown again.
-  await hideTransaction("bank-fee", true);
-  assert.ok((await db.select().from(schema.transactions).where(eq(schema.transactions.id, "bank-fee")).get())?.suppressed_at);
-  assert.equal((await readCashFlow(allMonthsPeriod, "EUR")).expenseBreakdown.reduce((sum, item) => sum + item.amount, 0), 5500);
-  await hideTransaction("bank-fee", false);
+  // A bank account's balance is the sum of its shown bookings too, so their visibility is frozen as well.
+  await assert.rejects(hideTransaction("bank-fee", true), archived);
+  assert.equal((await db.select().from(schema.transactions).where(eq(schema.transactions.id, "bank-fee")).get())?.suppressed_at, null);
   assert.deepEqual(await balances(), balancesBefore);
 });
 
@@ -774,9 +778,7 @@ test("archiving an account whose balance is not 0 is refused without changes", a
   assert.deepEqual(await db.select().from(schema.transactions), bookingsBefore);
   assert.equal((await listAccounts()).filter(account => account.archived_at).length, 0);
 
-  await db.update(schema.accounts).set({
-    balance_minor: 0
-  }).where(eq(schema.accounts.id, "bank"));
+  await db.delete(schema.transactions).where(eq(schema.transactions.account_id, "bank"));
   await archiveAccount("bank", {});
   assert.ok((await listAccounts()).find(account => account.id === "bank")?.archived_at);
 });
@@ -927,9 +929,7 @@ test("a booking written between the balance check and the archive update keeps t
 test("a bank account with a balance of 0 is not archived while a sync holds the lease", async context => {
   const db = await seededDatabase(context);
 
-  await db.update(schema.accounts).set({
-    balance_minor: 0
-  }).where(eq(schema.accounts.id, "bank"));
+  await db.delete(schema.transactions).where(eq(schema.transactions.account_id, "bank"));
   assert.equal(await acquireLease("sync", "synthetic-sync"), true);
   await assert.rejects(archiveAccount("bank", {}), {
     status: 409,
@@ -938,23 +938,14 @@ test("a bank account with a balance of 0 is not archived while a sync holds the 
   assert.equal((await listAccounts()).find(account => account.id === "bank")?.archived_at, null);
 });
 
-test("a manual account without bookings has a balance of 0, while an unknown bank balance keeps the account active when archiving or disconnecting", async context => {
+test("accounts without bookings have a balance of 0 and are archived directly or when their bank is disconnected", async context => {
   const db = await seededDatabase(context);
-  const unknown = {
-    status: 409,
-    message: "No balance is known yet. An account can only be archived with a balance of 0."
-  };
 
-  // A manual account without bookings and a bank account without a reported balance.
+  // A manual and a bank-linked account without any booking.
   await db.delete(schema.transactions).where(eq(schema.transactions.account_id, "target"));
-  await db.update(schema.accounts).set({
-    balance_minor: null,
-    balance_date: null
-  }).where(eq(schema.accounts.id, "bank"));
+  await db.delete(schema.transactions).where(eq(schema.transactions.account_id, "bank"));
   await archiveAccount("target", {});
   assert.ok((await listAccounts()).find(account => account.id === "target")?.archived_at);
-  await restoreAccount("target");
-  await assert.rejects(archiveAccount("bank", {}), unknown);
 
   await db.insert(schema.requisitions).values({
     id: "connection",
@@ -970,9 +961,12 @@ test("a manual account without bookings has a balance of 0, while an unknown ban
   assert.deepEqual(removal, {
     outcome: "removed",
     retainedAccounts: 1,
-    notArchived: ["Synthetic bank account"]
+    notArchived: []
   });
-  assert.equal((await listAccounts()).filter(account => account.archived_at).length, 0);
+  const bank = (await listAccounts()).find(account => account.id === "bank");
+
+  assert.equal(bank?.balance_minor ?? 0, 0);
+  assert.ok(bank?.archived_at);
 });
 
 test("the closing date cannot precede the account's last booking", async context => {
@@ -1103,6 +1097,9 @@ const manualAccount: Account = {
   balance_minor: 10000,
   balance_date: "2026-09-01",
   last_booking_date: null,
+  reported_balance_minor: null,
+  reported_balance_date: null,
+  reported_difference_minor: null,
   provider: "manual",
   requisition_id: null,
   last_synced_at: null,
@@ -1242,7 +1239,7 @@ test("a bank-linked account with a remaining balance explains why it cannot be a
   })));
   const dialog = within(screen.getByRole("dialog"));
 
-  assert.ok(dialog.getByText(/balance comes from the bank/));
+  assert.ok(dialog.getByText(/follows its bank bookings/));
   assert.deepEqual(dialog.getAllByRole("button").map(button => button.textContent).filter(text => text !== ""), ["Cancel"]);
   assert.equal(requests("accounts/manual%2Fcash/archive").length, 0);
 });
@@ -1262,26 +1259,6 @@ test("a manual account without bookings is archived directly", async context => 
   await wait(0);
   assert.equal(screen.queryByRole("dialog"), null);
   assert.equal(requests("accounts/manual%2Fcash/archive")[0].method, "PUT");
-});
-
-test("a bank account without a known balance explains that it cannot be archived yet", async context => {
-  const {
-    screen,
-    requests
-  } = await renderDetails(context, {
-    ...manualAccount,
-    provider: "enable_banking",
-    balance_minor: null
-  });
-
-  act(() => fireEvent.click(screen.getByRole("button", {
-    name: "Archive account"
-  })));
-  const dialog = within(screen.getByRole("dialog"));
-
-  assert.ok(dialog.getByText(/No balance known yet/));
-  assert.deepEqual(dialog.getAllByRole("button").map(button => button.textContent).filter(text => text !== ""), ["Cancel"]);
-  assert.equal(requests("accounts/manual%2Fcash/archive").length, 0);
 });
 
 test("an archived account offers restore and no balance update", async context => {

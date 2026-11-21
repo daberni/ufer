@@ -7,6 +7,7 @@ import { join } from "node:path";
 import { backup, DatabaseSync } from "node:sqlite";
 import { test, type TestContext } from "node:test";
 import { createClient } from "@libsql/client";
+import { ne } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/libsql";
 import { initializeDatabase } from "../src/server/database/migrations";
 import { verifyLocalBackup } from "../src/server/database/backup-verification";
@@ -17,6 +18,7 @@ import { provisionUser } from "../src/features/auth/server/provision-user";
 import { handleAuthentication } from "../src/features/auth/server/auth-handler";
 import { requireAuth } from "../src/features/auth/server/session";
 import { syncAccounts } from "../src/features/banking/server/sync-service";
+import { listAccounts } from "../src/features/accounts/server/account-queries";
 
 function fingerprint(file: string) {
   return createHash("sha256").update(readFileSync(file)).digest("hex");
@@ -122,9 +124,7 @@ test("a consistent WAL backup restores credentials, manual corrections and bank 
     kind: "checking",
     provider: "enable_banking",
     provider_uid: "synthetic-bank-account",
-    requisition_id: "bank",
-    balance_minor: 12000,
-    balance_date: "2026-01-01"
+    requisition_id: "bank"
   });
   await db.insert(schema.transactions).values({
     id: "corrected",
@@ -241,9 +241,10 @@ test("a consistent WAL backup restores credentials, manual corrections and bank 
 
   assert.equal((await syncAccounts()).status, "SUCCESS");
   assert.ok(requests.includes("/accounts/synthetic-bank-account/balances"));
-  assert.equal((await restored.select().from(schema.accounts).get())?.balance_minor, 13000);
-  assert.deepEqual(await restored.select().from(schema.transactions), before);
-  assert.equal((await db.select().from(schema.accounts).get())?.balance_minor, 12000);
+  // The sync anchors the restored account at the reported balance with an opening balance; the source database stays unchanged.
+  assert.equal((await listAccounts()).find(account => account.id === "checking")?.balance_minor, 13000);
+  assert.deepEqual(await restored.select().from(schema.transactions).where(ne(schema.transactions.type, "opening_balance")), before);
+  assert.deepEqual(await db.select().from(schema.transactions), before);
 });
 
 test("local verification leaves bank keys unchecked unless requested and rejects a mismatched key without changing data", async context => {

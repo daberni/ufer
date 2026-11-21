@@ -41,7 +41,12 @@ async function columnList(client: Client, table: string) {
   return columns.rows.map(row => String(row.name)).filter(name => name !== "environment").join(",");
 }
 
-// Changeset 0007 moves a manual account's balance from the stored column into its transactions, so a balance is read from whichever holds it.
+/** Account columns without the stored balance, which changesets 0007 and 0017 move into opening-balance transactions. */
+async function accountColumns(client: Client) {
+  return (await columnList(client, "accounts")).split(",").filter(name => name !== "balance_minor" && name !== "balance_date").join(",");
+}
+
+// Changesets 0007 (manual) and 0017 (bank-linked) move an account's balance from the stored column into its transactions, so a balance is read from whichever holds it.
 const currentBalance = "COALESCE(balance_minor,(SELECT SUM(t.amount_minor) FROM transactions t WHERE t.account_id=accounts.id)) AS balance";
 
 /** Accounts with their current balance; comparable across every upgrade. */
@@ -49,9 +54,19 @@ async function accountState(client: Client) {
   return (await client.execute(`SELECT id,name,institution,kind,currency,provider,provider_uid,requisition_id,iban,last_synced_at,sync_error,${currentBalance} FROM accounts ORDER BY id`)).rows;
 }
 
-/** Transactions that existed before changeset 0007 booked manual balances as transactions. */
+/** Transactions that existed before changesets 0007 and 0017 booked stored balances as transactions. */
 async function originalTransactions(client: Client, columns: string) {
   return (await client.execute(`SELECT ${columns} FROM transactions WHERE provider_reference NOT LIKE 'manual:%' ORDER BY id`)).rows;
+}
+
+// Changeset 0017 books a bank-linked account's stored balance as an opening-balance transaction; the other bookings stay unchanged.
+const withoutBankOpenings = "WHERE NOT (type='opening_balance' AND account_id IN (SELECT id FROM accounts WHERE provider<>'manual'))";
+
+async function balanceOf(client: Client, accountId: string) {
+  return (await client.execute({
+    sql: `SELECT ${currentBalance} FROM accounts WHERE id=?`,
+    args: [accountId]
+  })).rows[0].balance;
 }
 
 async function assertFinancialData(client: Client) {
@@ -288,7 +303,7 @@ test("the auth upgrade preserves financial history and linked credentials while 
       "INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,category_id,category_source) VALUES('entry','asset','original-reference','2026-11-15',-2500,'EUR','groceries','manual')",
       "INSERT INTO balance_snapshots(id,account_id,observed_at,amount_minor,source) VALUES('snapshot','asset','2026-11-15',12345,'sync')"
     ], "write");
-    const financialColumns = await columnList(client, "accounts");
+    const financialColumns = await accountColumns(client);
     const financialBefore = await client.execute(`SELECT ${financialColumns} FROM accounts`);
     const transactionColumns = await columnList(client, "transactions");
     const transactionsBefore = await client.execute(`SELECT ${transactionColumns} FROM transactions`);
@@ -299,7 +314,8 @@ test("the auth upgrade preserves financial history and linked credentials while 
     await migrateDatabase(client);
 
     assert.deepEqual((await client.execute(`SELECT ${financialColumns} FROM accounts`)).rows, financialBefore.rows);
-    assert.deepEqual((await client.execute(`SELECT ${transactionColumns} FROM transactions`)).rows, transactionsBefore.rows.map(row => ({
+    assert.equal(await balanceOf(client, "asset"), 12345);
+    assert.deepEqual((await client.execute(`SELECT ${transactionColumns} FROM transactions WHERE provider_reference NOT LIKE 'manual:%'`)).rows, transactionsBefore.rows.map(row => ({
       ...row,
       category_id: row.category_id === "transfer" ? null : row.category_id
     })));
@@ -680,6 +696,7 @@ test("the manual account upgrade turns balance history into transactions without
 
     // An unchanged valuation books nothing; the booking after the newest cash snapshot is balanced on its date.
     assert.deepEqual(booked.rows.map(row => [row.account_id, row.booking_date, row.type, row.amount_minor]), [
+      ["bank", "2026-08-31", "opening_balance", 12345 - 207000],
       ["cash", "2026-09-01", "opening_balance", 10000],
       ["cash", "2026-09-10", "adjustment", 1000],
       ["cash", "2026-09-20", "adjustment", -2500],
@@ -690,8 +707,7 @@ test("the manual account upgrade turns balance history into transactions without
     ]);
     assert.ok(booked.rows.every(row => row.type_source === "manual" && row.category_source === "manual" && row.entered === 1));
     assert.deepEqual((await client.execute("SELECT id FROM balance_snapshots")).rows.map(row => row.id), ["bank-1"]);
-    assert.equal((await client.execute("SELECT COUNT(*) AS count FROM accounts WHERE provider='manual' AND (balance_minor IS NOT NULL OR balance_date IS NOT NULL)")).rows[0].count, 0);
-    assert.deepEqual((await client.execute("SELECT balance_minor,balance_date FROM accounts WHERE id='bank'")).rows.map(row => [row.balance_minor, row.balance_date]), [[12345, "2026-09-30"]]);
+    assert.equal((await client.execute("SELECT COUNT(*) AS count FROM accounts WHERE balance_minor IS NOT NULL OR balance_date IS NOT NULL")).rows[0].count, 0);
     assert.equal(accountsAfter.find(account => account.id === "unvalued")?.balance_minor, null);
     assert.equal((await client.execute("PRAGMA foreign_key_check")).rows.length, 0);
   } finally {
@@ -912,13 +928,14 @@ test("provider-name migration keeps existing custom names and identities without
   try {
     await migrateDatabase(client, directory);
     await client.execute("INSERT INTO accounts(id,environment,name,institution,kind,provider,provider_uid,balance_minor,balance_date) VALUES('named','SANDBOX','Custom name','Example bank','checking','enable_banking','stable-provider-id',12345,'2026-01-01')");
-    const columns = await columnList(client, "accounts");
+    const columns = await accountColumns(client);
     const before = (await client.execute(`SELECT ${columns} FROM accounts`)).rows;
 
     await assert.rejects(initializeDatabase(client), /migrations are pending/);
     await migrateDatabase(client);
     await migrateDatabase(client);
     assert.deepEqual((await client.execute(`SELECT ${columns} FROM accounts`)).rows, before);
+    assert.equal(await balanceOf(client, "named"), 12345);
     assert.equal((await client.execute("SELECT provider_name FROM accounts")).rows[0].provider_name, null);
     assert.equal((await client.execute("PRAGMA foreign_key_check")).rows.length, 0);
   } finally {
@@ -964,8 +981,9 @@ test("transaction override migration keeps every booking unchanged and leaves bo
     await migrateDatabase(client);
     await migrateDatabase(client);
 
-    assert.deepEqual((await client.execute(`SELECT ${columns} FROM transactions ORDER BY id`)).rows, before);
-    assert.deepEqual((await client.execute("SELECT counterparty_override,description_override,suppressed_at FROM transactions")).rows.flatMap(row => [row.counterparty_override, row.description_override, row.suppressed_at]), Array(9).fill(null));
+    assert.deepEqual((await client.execute(`SELECT ${columns} FROM transactions ${withoutBankOpenings} ORDER BY id`)).rows, before);
+    assert.equal(await balanceOf(client, "bank"), 12345);
+    assert.deepEqual((await client.execute("SELECT counterparty_override,description_override,suppressed_at FROM transactions")).rows.flatMap(row => [row.counterparty_override, row.description_override, row.suppressed_at]), Array(12).fill(null));
     assert.equal((await client.execute("PRAGMA foreign_key_check")).rows.length, 0);
   } finally {
     client.close();
@@ -1045,7 +1063,7 @@ test("account-archiving migration keeps every account visible and unchanged", as
     await client.execute("INSERT INTO accounts(id,environment,name,institution,kind,provider,provider_uid,balance_minor,balance_date) VALUES('bank','SANDBOX','Synthetic bank','Example bank','checking','enable_banking','stable-provider-id',12345,'2026-01-01')");
     await client.execute("INSERT INTO accounts(id,environment,name,institution,kind) VALUES('manual','SANDBOX','Synthetic cash','Example bank','savings')");
     await client.execute("INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,type,type_source) VALUES('opening','manual','manual:opening','2026-01-01',5000,'EUR','opening_balance','manual')");
-    const columns = await columnList(client, "accounts");
+    const columns = await accountColumns(client);
     const before = (await client.execute(`SELECT ${columns} FROM accounts ORDER BY id`)).rows;
     const bookingColumns = await columnList(client, "transactions");
     const bookings = (await client.execute(`SELECT ${bookingColumns} FROM transactions ORDER BY id`)).rows;
@@ -1055,7 +1073,8 @@ test("account-archiving migration keeps every account visible and unchanged", as
     await migrateDatabase(client);
     assert.deepEqual((await client.execute(`SELECT ${columns} FROM accounts ORDER BY id`)).rows, before);
     assert.deepEqual((await client.execute("SELECT archived_at FROM accounts")).rows.map(row => row.archived_at), [null, null]);
-    assert.deepEqual((await client.execute(`SELECT ${bookingColumns} FROM transactions ORDER BY id`)).rows, bookings);
+    assert.deepEqual((await client.execute(`SELECT ${bookingColumns} FROM transactions ${withoutBankOpenings} ORDER BY id`)).rows, bookings);
+    assert.equal(await balanceOf(client, "bank"), 12345);
     assert.equal((await client.execute("PRAGMA foreign_key_check")).rows.length, 0);
   } finally {
     client.close();
@@ -1283,12 +1302,12 @@ test("environment migration drops the per-row banking environment and keeps ever
       "INSERT INTO balance_snapshots(id,account_id,observed_at,amount_minor,source) VALUES('snapshot','bank','2026-01-31',12345,'sync')"
     ], "write");
     const columns = {
-      accounts: await columnList(client, "accounts"),
+      accounts: await accountColumns(client),
       account_identifiers: await columnList(client, "account_identifiers"),
       requisitions: await columnList(client, "requisitions"),
       sync_runs: await columnList(client, "sync_runs")
     };
-    const snapshot = async () => Object.fromEntries(await Promise.all([...Object.entries(columns), ["transactions", await columnList(client, "transactions")], ["balance_snapshots", await columnList(client, "balance_snapshots")]].map(async ([table, list]) => [table, (await client.execute(`SELECT ${list} FROM ${table} ORDER BY rowid`)).rows])));
+    const snapshot = async () => Object.fromEntries(await Promise.all([...Object.entries(columns), ["transactions", await columnList(client, "transactions")], ["balance_snapshots", await columnList(client, "balance_snapshots")]].map(async ([table, list]) => [table, (await client.execute(`SELECT ${list} FROM ${table} ${table === "transactions" ? withoutBankOpenings : ""} ORDER BY rowid`)).rows])));
     const before = await snapshot();
 
     await assert.rejects(initializeDatabase(client), /migrations are pending/);
@@ -1296,6 +1315,7 @@ test("environment migration drops the per-row banking environment and keeps ever
     await migrateDatabase(client);
 
     assert.deepEqual(await snapshot(), before);
+    assert.equal(await balanceOf(client, "bank"), 12345);
 
     for (const table of ["accounts", "account_identifiers", "requisitions", "sync_runs"]) {
       assert.equal((await client.execute({

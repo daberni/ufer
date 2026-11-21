@@ -7,10 +7,19 @@ import { productTimeZone, today } from "@/lib/time";
 import { dailyBalances } from "@/features/accounts/daily-balances";
 import type { BalanceHistory, BalancePoint } from "@/features/accounts/types";
 
-// A manual account's balance is the sum of its visible transactions, dated with the newest one; a synced account keeps its provider balance.
-const manual = sql`${accounts.provider}='manual'`;
-const balance = sql<number | null>`CASE WHEN ${manual} THEN (SELECT SUM(${transactions.amount_minor}) FROM ${transactions} WHERE ${transactions.account_id}=${accounts.id} AND ${transactions.suppressed_at} IS NULL) ELSE ${accounts.balance_minor} END`;
-const balanceDate = sql<string | null>`CASE WHEN ${manual} THEN (SELECT MAX(${transactions.booking_date}) FROM ${transactions} WHERE ${transactions.account_id}=${accounts.id} AND ${transactions.suppressed_at} IS NULL) ELSE ${accounts.balance_date} END`;
+// Every account's balance is the sum of its visible transactions, dated with its newest one.
+const balance = sql<number | null>`(SELECT SUM(${transactions.amount_minor}) FROM ${transactions} WHERE ${transactions.account_id}=${accounts.id} AND ${transactions.suppressed_at} IS NULL)`;
+
+/** Balance types that report booked money; available balances include credit lines and pending items, so they are never compared with bookings. */
+export const comparableBankBalanceTypes = ["CLBD", "ITBD", "PRCD"];
+
+// The newest balance the bank reported to a still bank-linked account, kept for comparison with the calculated balance.
+const latestReport = sql`(SELECT s.id FROM ${balanceSnapshots} s WHERE s.account_id=${accounts.id} AND ${accounts.provider}<>'manual' AND s.source='sync' ORDER BY s.observed_at DESC LIMIT 1)`;
+const reportedBalance = sql<number | null>`(SELECT ${balanceSnapshots.amount_minor} FROM ${balanceSnapshots} WHERE ${balanceSnapshots.id}=${latestReport})`;
+const reportedBalanceDate = sql<string | null>`(SELECT ${balanceSnapshots.observed_at} FROM ${balanceSnapshots} WHERE ${balanceSnapshots.id}=${latestReport})`;
+const comparableTypes = sql.join(comparableBankBalanceTypes.map(type => sql`${type}`), sql`,`);
+// Reported minus calculated balance at the end of the reported date; NULL when the newest report is not a booked balance.
+const reportedDifference = sql<number | null>`(SELECT ${balanceSnapshots.amount_minor}-COALESCE((SELECT SUM(t.amount_minor) FROM ${transactions} t WHERE t.account_id=${accounts.id} AND t.suppressed_at IS NULL AND t.booking_date<=${balanceSnapshots.observed_at}),0) FROM ${balanceSnapshots} WHERE ${balanceSnapshots.id}=${latestReport} AND ${balanceSnapshots.bank_balance_type} IN (${comparableTypes}))`;
 
 const lastBookingDate = sql<string | null>`(SELECT MAX(${transactions.booking_date}) FROM ${transactions} WHERE ${transactions.account_id}=${accounts.id} AND ${transactions.suppressed_at} IS NULL)`;
 
@@ -28,8 +37,11 @@ export async function listAccounts() {
     kind: accounts.kind,
     currency: accounts.currency,
     balance_minor: balance,
-    balance_date: balanceDate,
+    balance_date: lastBookingDate,
     last_booking_date: lastBookingDate,
+    reported_balance_minor: reportedBalance,
+    reported_balance_date: reportedBalanceDate,
+    reported_difference_minor: reportedDifference,
     provider: accounts.provider,
     requisition_id: accounts.requisition_id,
     last_synced_at: accounts.last_synced_at,
@@ -63,15 +75,12 @@ export async function readNetWorth(currency: string) {
   };
 }
 
-/** Daily estimates between recorded cash-account balances, or recorded asset valuations. */
+/** An account's running balance from its transactions, ending at the last sync coverage for a bank-linked account. */
 export async function readBalanceHistory(accountId: string): Promise<BalanceHistory> {
   const db = await database();
   const account = await db.select({
     currency: accounts.currency,
-    kind: accounts.kind,
     last_synced_at: accounts.last_synced_at,
-    balance_minor: accounts.balance_minor,
-    balance_date: accounts.balance_date,
     provider: accounts.provider
   }).from(accounts).where(eq(accounts.id, accountId)).get();
 
@@ -79,64 +88,38 @@ export async function readBalanceHistory(accountId: string): Promise<BalanceHist
     throw new HttpError(404, "Account not found.");
   }
 
-  const balances = await db.select({
-    date: balanceSnapshots.observed_at,
-    amount_minor: balanceSnapshots.amount_minor,
-    source: balanceSnapshots.source,
-    bank_balance_type: balanceSnapshots.bank_balance_type
-  }).from(balanceSnapshots).where(eq(balanceSnapshots.account_id, accountId)).orderBy(asc(balanceSnapshots.observed_at));
-
   const currentDate = today().toString();
   const bookings = await db.select({
     date: transactions.booking_date,
-    amount_minor: sql<number>`SUM(${transactions.amount_minor})`.mapWith(Number),
-    opening: sql<number>`MAX(CASE WHEN ${transactions.type}='opening_balance' THEN 1 ELSE 0 END)`.mapWith(Number)
+    amount_minor: sql<number>`SUM(${transactions.amount_minor})`.mapWith(Number)
   }).from(transactions).where(and(eq(transactions.account_id, accountId), eq(transactions.currency, account.currency), sql`${transactions.suppressed_at} IS NULL`, sql`${transactions.booking_date} <= ${currentDate}`)).groupBy(transactions.booking_date).orderBy(asc(transactions.booking_date));
-  const providerSources = {
-    enable_banking: "sync",
-    csv: "csv",
-    manual: "manual"
-  } as const;
-  const source = providerSources[account.provider as keyof typeof providerSources] ?? "manual";
-  const observations: BalancePoint[] = balances.filter(balance => balance.date <= currentDate);
 
-  const currentBalanceIsObserved = observations.some(observation => observation.date === account.balance_date);
-
-  if (account.balance_minor !== null && account.balance_date && account.balance_date <= currentDate && !currentBalanceIsObserved) {
-    observations.push({
-      date: account.balance_date,
-      amount_minor: account.balance_minor,
-      source,
-      bank_balance_type: null
-    });
+  if (!bookings.length) {
+    return {
+      currency: account.currency,
+      balances: []
+    };
   }
 
-  observations.sort((left, right) => left.date.localeCompare(right.date));
-  const latest = observations.at(-1);
-  const opening = bookings.find(booking => booking.opening);
-  const openingReference = opening ? {
+  // The balance is the sum of all bookings, so it is 0 the day before the first one.
+  const start: BalancePoint = {
     date: Temporal.PlainDate.from(bookings[0].date).subtract({
       days: 1
     }).toString(),
     amount_minor: 0,
-    source: "transactions" as const,
+    source: "transactions",
     bank_balance_type: null
-  } : undefined;
-  const cashAccount = ["checking", "savings", "credit_card"].includes(account.kind);
-  const explicitLedger = account.provider === "manual" && openingReference && observations.length === 0;
-  const references = observations.slice();
-
-  if (!references.length && openingReference) {
-    references.push(openingReference);
-  }
-
+  };
+  const latestReport = await db.select({
+    date: sql<string | null>`MAX(${balanceSnapshots.observed_at})`
+  }).from(balanceSnapshots).where(eq(balanceSnapshots.account_id, accountId)).get();
   const lastSyncDate = account.last_synced_at ? Temporal.Instant.from(account.last_synced_at).toZonedDateTimeISO(productTimeZone).toPlainDate().toString() : undefined;
   // A successful sync bounds coverage; stale bank data must not become a series of seemingly current daily balances.
-  const lastCoverage = [latest?.date, bookings.at(-1)?.date, lastSyncDate].filter((date): date is string => Boolean(date)).sort().at(-1) ?? currentDate;
+  const lastCoverage = [latestReport?.date, bookings.at(-1)?.date, lastSyncDate].filter((date): date is string => Boolean(date)).sort().at(-1) ?? currentDate;
   const endDate = account.provider === "enable_banking" && lastCoverage < currentDate ? lastCoverage : currentDate;
 
   return {
     currency: account.currency,
-    balances: bookings.length && references.length && (cashAccount || explicitLedger) ? dailyBalances(bookings, references, endDate) : balances
+    balances: dailyBalances(bookings, [start], endDate)
   };
 }

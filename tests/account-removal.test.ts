@@ -87,8 +87,6 @@ async function seededDatabase(context: TestContext) {
     kind: "checking",
     provider: "enable_banking",
     provider_uid: "uid-detached",
-    balance_minor: 120000,
-    balance_date: "2026-02-28",
     last_synced_at: "2026-02-28T10:00:00Z"
   }, {
     id: "linked-bank",
@@ -97,22 +95,44 @@ async function seededDatabase(context: TestContext) {
     kind: "checking",
     provider: "enable_banking",
     provider_uid: "uid-linked",
-    requisition_id: "linked",
-    balance_minor: 5000,
-    balance_date: "2026-02-28"
+    requisition_id: "linked"
   }]);
   await db.insert(schema.accountIdentifiers).values({
     identification_hash: "hash-detached",
     account_id: "detached"
   });
-  await db.insert(schema.balanceSnapshots).values({
+  await db.insert(schema.balanceSnapshots).values([{
     id: "detached-january",
     account_id: "detached",
     observed_at: "2026-01-31",
     amount_minor: 100000,
     source: "sync"
-  });
+  }, {
+    id: "detached-february",
+    account_id: "detached",
+    observed_at: "2026-02-28",
+    amount_minor: 120000,
+    bank_balance_type: "CLBD",
+    source: "sync"
+  }]);
+  // Each bank account's first sync booked the opening balance: the reported balance minus the bookings it received.
   await db.insert(schema.transactions).values([{
+    id: "detached-opening",
+    account_id: "detached",
+    provider_reference: "manual:detached-opening",
+    booking_date: "2026-01-04",
+    amount_minor: 34000,
+    currency: "EUR",
+    type: "opening_balance"
+  }, {
+    id: "linked-opening",
+    account_id: "linked-bank",
+    provider_reference: "manual:linked-opening",
+    booking_date: "2026-01-01",
+    amount_minor: 5000,
+    currency: "EUR",
+    type: "opening_balance"
+  }, {
     id: "cash-opening",
     account_id: "cash",
     provider_reference: "manual:cash-opening",
@@ -216,7 +236,7 @@ async function reports(accountId: string) {
   };
 }
 
-test("converting a disconnected bank account keeps its last bank balance, history and every report, and makes it a manual account", async context => {
+test("converting a disconnected bank account keeps its balance, history and every report, and makes it a manual account", async context => {
   const db = await seededDatabase(context);
   const before = await reports("detached");
   const listedBefore = (await listAccounts()).find(account => account.id === "detached");
@@ -228,15 +248,13 @@ test("converting a disconnected bank account keeps its last bank balance, histor
   const converted = (await listAccounts()).find(account => account.id === "detached");
 
   assert.equal(converted?.provider, "manual");
-  assert.equal(converted?.balance_minor, listedBefore?.balance_minor);
-  assert.equal(converted?.balance_date, "2026-02-28");
+  assert.equal(listedBefore?.balance_minor, 120000);
+  assert.equal(converted?.balance_minor, 120000);
+  assert.equal(converted?.reported_balance_minor, null);
+  assert.equal(converted?.reported_difference_minor, null);
   assert.deepEqual(await reports("detached"), before);
 
-  // Bookings 86000 up to the balance date, bank balance 120000: the difference is booked on that date.
-  const adjustment = await db.select().from(schema.transactions).where(eq(schema.transactions.booking_date, "2026-02-28")).get();
-
-  assert.equal(adjustment?.type, "adjustment");
-  assert.equal(adjustment?.amount_minor, 34000);
+  // The balance already is the sum of its bookings, so converting books nothing.
   assert.equal((await db.select().from(schema.transactions).where(eq(schema.transactions.account_id, "detached"))).length, 3);
   assert.equal((await db.select().from(schema.balanceSnapshots).where(eq(schema.balanceSnapshots.account_id, "detached"))).length, 2);
   assert.deepEqual(await db.select().from(schema.accountIdentifiers).where(eq(schema.accountIdentifiers.account_id, "detached")), []);
@@ -258,7 +276,7 @@ test("converting a disconnected bank account keeps its last bank balance, histor
   assert.equal(updated?.kind, "savings");
 });
 
-test("converting keeps the bank balance when bookings are dated after the bank balance date", async context => {
+test("converting books nothing when bookings are dated after the last reported bank balance", async context => {
   const db = await seededDatabase(context);
 
   await db.insert(schema.transactions).values({
@@ -275,13 +293,11 @@ test("converting keeps the bank balance when bookings are dated after the bank b
   await convertToManualAccount("detached");
 
   const converted = (await listAccounts()).find(account => account.id === "detached");
-  const adjustment = await db.select().from(schema.transactions).where(eq(schema.transactions.type, "adjustment")).get();
 
-  assert.equal(converted?.balance_minor, 120000);
+  assert.equal(converted?.balance_minor, 130000);
   assert.deepEqual(await readNetWorth("EUR"), netWorthBefore);
-  assert.equal(adjustment?.booking_date, "2026-03-02");
-  assert.equal(adjustment?.amount_minor, 24000);
-  assert.equal((await readBalanceHistory("detached")).balances.at(-1)?.amount_minor, 120000);
+  assert.equal(await db.select().from(schema.transactions).where(eq(schema.transactions.type, "adjustment")).get(), undefined);
+  assert.equal((await readBalanceHistory("detached")).balances.at(-1)?.amount_minor, 130000);
 });
 
 test("a bank account with an active connection, a manual account or an unknown account is not converted", async context => {
@@ -500,6 +516,9 @@ const detachedAccount: Account = {
   balance_minor: 120000,
   balance_date: "2026-02-28",
   last_booking_date: "2026-01-25",
+  reported_balance_minor: null,
+  reported_balance_date: null,
+  reported_difference_minor: null,
   provider: "enable_banking",
   requisition_id: null,
   last_synced_at: null,

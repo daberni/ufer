@@ -66,7 +66,7 @@ function ConvertForm({
     pending,
     submit
   } = useDialogSubmit(useConvertToManualAccount(account.id), close);
-  const balance = account.balance_minor === null ? "No bank balance is known, so the balance becomes the sum of the account's bookings." : `The last bank balance of ${money(account.balance_minor, account.currency, locale)} stays the account's balance; Ufer books any difference to its bookings as an adjustment.`;
+  const balance = `The balance of ${money(account.balance_minor ?? 0, account.currency, locale)} stays: it is the sum of the account's bookings, and nothing is booked.`;
 
   return (
     <form className={ui["form"]} onSubmit={event => submit(event, () => undefined)}>

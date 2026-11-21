@@ -5,7 +5,7 @@ import { api } from "@/client/api";
 import { invalidate } from "@/client/invalidate";
 import { queryKeys } from "@/client/query-keys";
 
-// A manual account's balance is booked as transactions, which feed the account list, the net worth in every currency and the transaction lists.
+// Balances are booked as transactions, which feed the account list, the net worth in every currency and the transaction lists.
 const balanceKeys = [queryKeys.accounts(), queryKeys.reports.netWorth(), queryKeys.transactions.all()];
 
 export function useCreateAccount() {
@@ -70,7 +70,7 @@ export function useRestoreAccount(accountId: string) {
   });
 }
 
-// The conversion books the last bank balance, which feeds the account list, net worth, the transaction lists and their cash-flow totals.
+// The conversion changes how the account is listed and which actions its bookings offer.
 export function useConvertToManualAccount(accountId: string) {
   const queryClient = useQueryClient();
 
@@ -91,5 +91,14 @@ export function useDeleteAccount(accountId: string, onDeleted: () => void) {
     onSuccess: onDeleted,
     // Deleting removes bookings from every list and report, unlinks transfers on other accounts and clears rules' transfer targets.
     onSettled: () => invalidate(queryClient, editKeys)
+  });
+}
+
+export function useReconcileBalance(accountId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => api(`accounts/${encodeURIComponent(accountId)}/reconcile`, {}),
+    onSettled: () => invalidate(queryClient, balanceKeys)
   });
 }

@@ -8,6 +8,7 @@ All notable changes to Ufer are documented here. Versions follow [Semantic Versi
 
 - Disconnected bank accounts can be converted to manual accounts or deleted permanently ([#264](https://github.com/daberni/ufer/pull/264)).
 - Bookings on archived accounts can still be categorized, split and edited ([#272](https://github.com/daberni/ufer/pull/272)).
+- Bank-linked accounts derive their balance, history and net worth from their transactions; a difference to the reported bank balance is shown and resolved with an adjustment. Changeset 0017 converts existing accounts without changing any balance ([#275](https://github.com/daberni/ufer/pull/275)).
 
 ### Transactions and imports
 

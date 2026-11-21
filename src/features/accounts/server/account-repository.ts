@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, eq, inArray, isNotNull, isNull, ne, sql, TransactionRollbackError } from "drizzle-orm";
+import { and, eq, inArray, desc, isNotNull, isNull, ne, sql, TransactionRollbackError } from "drizzle-orm";
 import { database, type Database } from "@/server/database/connection";
 import { accountIdentifiers, accounts, balanceSnapshots, categorizationRules, transactions } from "@/server/database/schema";
 import { createdCounterpartPrefix, manualEntryPrefix } from "@/features/transactions/server/transfer-repository";
@@ -7,6 +7,7 @@ import { bookManualEntry, recordManualBalance, type ManualEntryResult } from "@/
 import type { AccountKind } from "../account-kinds";
 import type { ManualAccountInput } from "./account-schema";
 import { assertWritableAccount } from "./writable-account";
+import { comparableBankBalanceTypes } from "./account-queries";
 
 export async function findManualAccount(id: string) {
   const db = await database();
@@ -63,9 +64,45 @@ export async function saveManualValuation(account: {
   });
 }
 
+/**
+ * Books an adjustment so a bank-linked account's calculated balance matches the newest booked balance its bank reported, at that balance's date.
+ * Returns false when the newest report is not a booked balance; a matching balance books nothing.
+ */
+export async function reconcileWithReportedBalance(account: {
+  id: string;
+  currency: string;
+}) {
+  const db = await database();
 
-// The current balance in one statement with the update, as listed: a manual account's sum of visible (not hidden) bookings (0 without any), otherwise the provider balance, whose NULL (unknown) never equals 0.
-const currentBalance = sql`(CASE WHEN ${accounts.provider}='manual' THEN COALESCE((SELECT SUM(t.amount_minor) FROM transactions t WHERE t.account_id=accounts.id AND t.suppressed_at IS NULL),0) ELSE ${accounts.balance_minor} END)`;
+  return db.transaction(async tx => {
+    await assertWritableAccount(tx, account.id);
+    // A concurrent conversion may have made it a manual account, whose bank snapshots no longer count.
+    const linked = await tx.select({
+      id: accounts.id
+    }).from(accounts).where(and(eq(accounts.id, account.id), ne(accounts.provider, "manual"))).get();
+
+    if (!linked) {
+      return false;
+    }
+
+    const reported = await tx.select({
+      date: balanceSnapshots.observed_at,
+      amount: balanceSnapshots.amount_minor,
+      type: balanceSnapshots.bank_balance_type
+    }).from(balanceSnapshots).where(and(eq(balanceSnapshots.account_id, account.id), eq(balanceSnapshots.source, "sync"))).orderBy(desc(balanceSnapshots.observed_at)).get();
+
+    if (!reported?.type || !comparableBankBalanceTypes.includes(reported.type)) {
+      return false;
+    }
+
+    await recordManualBalance(tx, account, reported.date, reported.amount);
+
+    return true;
+  });
+}
+
+// The current balance in one statement with the update, as listed: the sum of visible (not hidden) bookings, 0 without any.
+const currentBalance = sql`COALESCE((SELECT SUM(t.amount_minor) FROM transactions t WHERE t.account_id=accounts.id AND t.suppressed_at IS NULL),0)`;
 
 /** Archives an active account only if its balance is exactly 0 at the moment of the update; returns whether it was archived. */
 export async function archiveSettledAccount(id: string, archivedAt: string) {
@@ -214,57 +251,18 @@ export async function convertDetachedAccount(id: string) {
   return db.transaction(async tx => {
     const detached = and(eq(accounts.id, id), eq(accounts.provider, "enable_banking"), isNull(accounts.requisition_id));
     const account = await tx.select({
-      id: accounts.id,
-      currency: accounts.currency,
-      balance_minor: accounts.balance_minor,
-      balance_date: accounts.balance_date
+      id: accounts.id
     }).from(accounts).where(detached).get();
 
     if (!account) {
       return false;
     }
 
-    // The balance history keeps the last bank balance as an observation, as it showed it while the account was synced.
-    if (account.balance_minor !== null && account.balance_date !== null) {
-      // A manual balance is the sum of all bookings, so the difference is booked no earlier than the latest booking; bookings after the bank balance date would otherwise change it.
-      const latest = await tx.select({
-        date: sql<string | null>`MAX(${transactions.booking_date})`
-      }).from(transactions).where(and(eq(transactions.account_id, id), isNull(transactions.suppressed_at))).get();
-      const correctionDate = latest?.date && latest.date > account.balance_date ? latest.date : account.balance_date;
-
-      await recordManualBalance(tx, account, correctionDate, account.balance_minor);
-      await tx.insert(balanceSnapshots).values({
-        id: randomUUID(),
-        account_id: id,
-        observed_at: account.balance_date,
-        amount_minor: account.balance_minor,
-        source: "sync"
-      }).onConflictDoNothing();
-
-      // The correction after later bookings is the balance on that date too; the history anchors there instead of adding it on top of the earlier bank balance.
-      if (correctionDate !== account.balance_date) {
-        await tx.insert(balanceSnapshots).values({
-          id: randomUUID(),
-          account_id: id,
-          observed_at: correctionDate,
-          amount_minor: account.balance_minor,
-          source: "manual"
-        }).onConflictDoUpdate({
-          target: [balanceSnapshots.account_id, balanceSnapshots.observed_at],
-          set: {
-            amount_minor: account.balance_minor,
-            source: "manual"
-          }
-        });
-      }
-    }
-
+    // The balance is already the sum of the bookings, including the opening balance its first sync booked; reported bank balances stay as history.
     await tx.delete(accountIdentifiers).where(eq(accountIdentifiers.account_id, id));
     await tx.update(accounts).set({
       provider: "manual",
       provider_uid: null,
-      balance_minor: null,
-      balance_date: null,
       last_synced_at: null,
       sync_error: null
     }).where(detached);

@@ -206,7 +206,7 @@ An item is checked only when its acceptance criterion is met and evidence is rec
 13. <a id="fn-13"></a>[Actual reports](https://actualbudget.org/docs/reports/): configurable dashboards, off-budget accounts, experimental forecasts and Monte Carlo.
 14. <a id="fn-14"></a>[Firefly III features](https://github.com/firefly-iii/firefly-iii#features): asset and liability bookkeeping, categories and tags, savings goals.
 15. <a id="fn-15"></a>[Sure documentation](https://docs.sure.am/): wealth history, asset and debt accounts, goals.
-16. <a id="fn-16"></a>The balance is the sum of the account's transactions; updating the balance books an adjustment.
+16. <a id="fn-16"></a>Every account's balance is the sum of its transactions; updating the balance books an adjustment, and a bank-linked account's difference to its reported booked balance is shown with a one-click adjustment.
 17. <a id="fn-17"></a>[Firefly III reports](https://github.com/firefly-iii/docs/blob/main/docs/docs/how-to/firefly-iii/finances/reports.md): configurable reports; free widget layout and an exact net-worth chart unverified.
 18. <a id="fn-18"></a>The overview shows a twelve-month net-worth curve without axes or missing-data states; a full chart is planned ([#87](https://github.com/daberni/ufer/issues/87)).
 19. <a id="fn-19"></a>Separate totals per currency; no conversion. Foreign-currency bank payments show their original amount.

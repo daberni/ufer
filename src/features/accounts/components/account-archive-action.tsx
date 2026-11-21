@@ -45,8 +45,8 @@ function ArchiveButton({ account }: {
 }) {
   const archive = useArchiveAccount(account.id);
   const [closing, setClosing] = useState(false);
-  // A manual account without bookings has a balance of 0; only a bank balance can be unknown.
-  const settled = account.balance_minor === 0 || (account.provider === "manual" && account.balance_minor === null);
+  // An account without bookings has a balance of 0.
+  const settled = (account.balance_minor ?? 0) === 0;
 
   return (
     <>
@@ -81,27 +81,7 @@ function ArchiveDialogContent({
   account: Account;
   close: () => void
 }) {
-  if (account.provider !== "manual" && account.balance_minor === null) {
-    return <UnknownBalanceNotice account={account} close={close} />;
-  }
-
   return account.provider === "manual" ? <CloseAccountForm account={account} close={close} /> : <BankBalanceNotice account={account} close={close} />;
-}
-
-function UnknownBalanceNotice({
-  account,
-  close
-}: {
-  account: Account;
-  close: () => void
-}) {
-  return (
-    <div className={ui["form"]}>
-      <p className={ui["form-description"]}>{account.name}</p>
-      <p>No balance known yet. An account can only be archived with a balance of 0.</p>
-      <button type="button" className={clsx(ui["button"], ui["full-width"])} onClick={close}>Cancel</button>
-    </div>
-  );
 }
 
 function BankBalanceNotice({
@@ -118,7 +98,7 @@ function BankBalanceNotice({
       <p className={ui["form-description"]}>
         {account.name} · {money(account.balance_minor ?? 0, account.currency, locale)}
       </p>
-      <p>An account can only be archived with a balance of 0. This account's balance comes from the bank, so Ufer cannot book it away. Archive it once the bank reports a balance of 0.</p>
+      <p>An account can only be archived with a balance of 0. This account's balance follows its bank bookings, so Ufer cannot book it away. Archive it once its bookings bring the balance to 0.</p>
       <button type="button" className={clsx(ui["button"], ui["full-width"])} onClick={close}>Cancel</button>
     </div>
   );

@@ -8,7 +8,7 @@ import { clsx } from "clsx";
 import Link from "next/link";
 import { useId, useState } from "react";
 import styles from "./account-details.module.css";
-import { ArrowLeft, ArrowRight, Pencil, RefreshCw } from "lucide-react";
+import { ArrowLeft, ArrowRight, Pencil, RefreshCw, TriangleAlert } from "lucide-react";
 import { accountIcon, accountSourceLabel, accountSyncLabel, kinds } from "@/features/accounts/account-presentation";
 import { DateValue, TimestampValue } from "@/components/ui/date-value";
 import { Empty } from "@/components/ui/empty-state";
@@ -19,6 +19,9 @@ import { BalanceHistoryPanel } from "./balance-history";
 import { AccountArchiveAction } from "./account-archive-action";
 import { AccountRemovalActions } from "./account-removal-actions";
 import { ValuationDialog } from "./valuation-form";
+import { useReconcileBalance } from "@/features/accounts/mutations";
+import { toFailure } from "@/client/api";
+import { FormError } from "@/components/ui/form-error";
 import { bankConnectionsHref } from "@/features/banking/connections-location";
 import type { Area } from "@/components/ui/use-area-result";
 import type { Account, BalanceHistory } from "@/features/accounts/types";
@@ -109,7 +112,7 @@ function AccountSummary({
   const [updatingBalance, setUpdatingBalance] = useState(false);
   const closeDialog = () => setConnection(null);
   const archived = account.archived_at !== null;
-  // A synced account's balance comes from its bank; an archived account is read-only until it is restored.
+  // A synced account's balance follows its bank bookings and is corrected by reconciling; an archived account is read-only until it is restored.
   const balanceEditable = account.provider === "manual" && !archived;
   const headingId = useId();
   const Icon = accountIcon(account.kind);
@@ -156,6 +159,7 @@ function AccountSummary({
         {account.provider !== "manual" && <SyncFacts account={account} />}
       </dl>
       {account.sync_error && <p className={ui["error-text"]}>{account.sync_error}</p>}
+      {account.reported_difference_minor !== null && account.reported_difference_minor !== 0 && <BalanceMismatch account={account} difference={account.reported_difference_minor} />}
       {account.provider !== "manual" && (
         <ConnectionActions
           account={account}
@@ -173,11 +177,54 @@ function AccountSummary({
   );
 }
 
+function BalanceMismatch({
+  account,
+  difference
+}: {
+  account: Account;
+  difference: number;
+}) {
+  const locale = useLocale();
+  const reconcile = useReconcileBalance(account.id);
+  const reported = account.reported_balance_minor ?? 0;
+
+  return (
+    <div className={clsx(ui["notice"], ui["warning"], styles["mismatch"])} role="status">
+      <TriangleAlert size={18} aria-hidden="true" />
+      <div className={styles["mismatch-body"]}>
+        <p>
+          The bank reports {money(reported, account.currency, locale)} on <DateValue value={account.reported_balance_date} />; the bookings in Ufer add up to {money(reported - difference, account.currency, locale)}. Difference: {money(difference, account.currency, locale)}.
+        </p>
+        {account.archived_at === null && (
+          <button
+            type="button"
+            className={ui["button"]}
+            disabled={reconcile.isPending}
+            onClick={() => reconcile.mutate()}
+          >
+            Book adjustment
+          </button>
+        )}
+        <FormError failure={reconcile.error ? toFailure(reconcile.error) : null} />
+      </div>
+    </div>
+  );
+}
+
 function SyncFacts({ account }: {
   account: Account
 }) {
+  const locale = useLocale();
+
   return (
     <>
+      <div>
+        <dt>Bank balance</dt>
+        <dd>
+          {account.reported_balance_minor === null ? "Not reported yet" : money(account.reported_balance_minor, account.currency, locale)}
+          {account.reported_balance_date && <> · <DateValue value={account.reported_balance_date} fallback="" /></>}
+        </dd>
+      </div>
       <div>
         <dt>Sync</dt>
         <dd>
