@@ -132,3 +132,15 @@ test("a create option is named after the trimmed search unless it is empty or an
   assert.equal(creatableName(options, "CAFÉ"), "");
   assert.equal(creatableName(options, "   "), "");
 });
+
+test("search and create options fold case like the server's category names, whatever the browser's locale", context => {
+  const lower = String.prototype.toLocaleLowerCase;
+
+  // Emulates a Turkish default locale, where "I" folds to a dotless "ı".
+  context.mock.method(String.prototype, "toLocaleLowerCase", function (this: string, locales?: Intl.LocalesArgument) {
+    return lower.call(this, locales ?? "tr");
+  });
+
+  assert.equal(creatableName(labelled("I"), "i"), "");
+  assert.deepEqual(matchOptions(labelled("I"), "i").map(option => option.label), ["I"]);
+});

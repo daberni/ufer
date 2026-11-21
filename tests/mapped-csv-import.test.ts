@@ -1309,14 +1309,27 @@ for (const [kind, amount, expected] of [["current", "100.00", 13000], ["start", 
   });
 }
 
-test("category choices assign existing categories, create missing ones on confirmation, and leave rule rows to the rules", async context => {
+test("category choices assign existing categories, create new ones only on confirmation, and leave uncategorized rows to the rules", async context => {
   const db = await isolatedDatabase(context);
   const account = await manualAccount("Categorized history");
 
-  await db.insert(schema.categories).values({
+  await db.insert(schema.categories).values([{
     id: "synthetic-food",
     name: "Synthetic food",
     color: "#00aa00"
+  }, {
+    id: "synthetic-travel",
+    name: "Synthetic travel",
+    color: "#0000aa"
+  }]);
+  await insertRule({
+    id: "synthetic-rule-railway",
+    name: "Railway",
+    pattern: "railway",
+    mode: "keyword",
+    category_id: "synthetic-travel",
+    priority: 100,
+    enabled: true
   });
 
   const payload = {
@@ -1325,23 +1338,33 @@ test("category choices assign existing categories, create missing ones on confir
       category: "Lebensmittel"
     }), mappedRow(3, "2024-06-02", "-2.00", "B", {
       category: "Hobby"
-    }), mappedRow(4, "2024-06-03", "-3.00", "C", {
+    }), mappedRow(4, "2024-06-03", "-3.00", "Synthetic railway", {
       category: "Food, Travel"
+    }), mappedRow(5, "2024-06-04", "-4.00", "D", {
+      category: "Model kits"
     })],
     targets: [{
       source: "",
       account_id: account.id
     }],
+    // A new category may be named differently from the value, and several values may share it.
     categories: [{
       value: "Lebensmittel",
       action: "existing",
       category_id: "synthetic-food"
     }, {
       value: "Hobby",
-      action: "create"
+      action: "create",
+      name: "Hobbies",
+      color: "#A46AA0",
+      icon: "hobbies"
+    }, {
+      value: "Model kits",
+      action: "create",
+      name: "hobbies"
     }, {
       value: "Food, Travel",
-      action: "rules"
+      action: "uncategorized"
     }]
   };
   const before = (await db.select().from(schema.categories)).length;
@@ -1350,7 +1373,7 @@ test("category choices assign existing categories, create missing ones on confir
     confirm: false
   }, now);
 
-  assert.deepEqual([checked.createdCategories, checked.unknownCategories], [["Hobby"], []]);
+  assert.deepEqual([checked.createdCategories, checked.unknownCategories], [["Hobbies"], []]);
   assert.equal((await db.select().from(schema.categories)).length, before);
 
   await importMappedRows({
@@ -1358,11 +1381,13 @@ test("category choices assign existing categories, create missing ones on confir
     confirm: true
   }, now);
 
-  const hobby = (await db.select().from(schema.categories)).find(category => category.name === "Hobby");
+  const hobbies = (await db.select().from(schema.categories)).filter(category => category.name === "Hobbies");
   const assigned = new Map((await db.select().from(schema.transactions)).map(booking => [booking.counterparty, booking.category_id]));
 
-  assert.ok(hobby);
-  assert.deepEqual([assigned.get("A"), assigned.get("B"), assigned.get("C")], ["synthetic-food", hobby.id, null]);
+  assert.equal(hobbies.length, 1);
+  // The new category keeps the icon and color shown while it was pending.
+  assert.deepEqual([hobbies[0].icon, hobbies[0].color], ["hobbies", "#a46aa0"]);
+  assert.deepEqual([assigned.get("A"), assigned.get("B"), assigned.get("D"), assigned.get("Synthetic railway")], ["synthetic-food", hobbies[0].id, hobbies[0].id, "synthetic-travel"]);
 });
 
 test("skipped source accounts leave their rows out, and a new account's opening balance is dated on its first row", () => {
@@ -1471,13 +1496,37 @@ test("an unset category value blocks the check until a choice is made, and only 
   assert.deepEqual(blocked.categories.map(choice => choice.value), ["synthetic FOOD"]);
 
   selections.set("Hobby", {
-    action: "create"
+    action: "create",
+    category: {
+      name: "Hobbies",
+      color: "#638777",
+      icon: null
+    }
   });
 
   const ready = prepareImport(rows, target, accounts, selections, ".", "en");
 
   assert.deepEqual(ready.problems, []);
   assert.deepEqual(ready.categories.map(choice => [choice.value, choice.action, choice.categoryId]), [["Hobby", "create", undefined], ["synthetic FOOD", "existing", "synthetic-food"]]);
+  assert.equal(ready.categories[0].newCategory?.name, "Hobbies");
+
+  // A new category's name over the category limit is an inline problem instead of a rejected check.
+  selections.set("Hobby", {
+    action: "create",
+    category: {
+      name: "H".repeat(101),
+      color: "#638777",
+      icon: null
+    }
+  });
+
+  const tooLong = prepareImport(rows, target, accounts, selections, ".", "en");
+
+  assert.deepEqual(tooLong.problems, [{
+    value: "Hobby",
+    field: "category",
+    message: "Use at most 100 characters for the new category."
+  }]);
 });
 
 test("a new account's balance stated in another currency blocks the check", () => {

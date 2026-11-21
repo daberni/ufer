@@ -72,6 +72,11 @@ type Props = ValueProps & {
   appearance?: SearchableSelectAppearance;
   /** Save feedback inside the field, before the dropdown toggle and source indicator. */
   status?: ReactNode;
+  /**
+   * Decides what creating a category from a search does, given the searched name. Without it the picker opens the category dialog, which creates the category at once and selects it.
+   * A call site that defers creation, such as an import that creates categories only on confirmation, records the name itself.
+   */
+  onCreate?: (name: string) => void;
   /** Submits the chosen category ID with a surrounding form. */
   name?: string;
   id?: string;
@@ -145,6 +150,7 @@ export function CategoryPicker({
   includeUncategorized = false,
   assignment,
   automaticOption,
+  onCreate,
   size = "regular",
   appearance = "default",
   status,
@@ -187,6 +193,17 @@ export function CategoryPicker({
     }
   }
 
+  function create(name: string) {
+    if (!onCreate) {
+      setNewCategoryName(name);
+
+      return;
+    }
+
+    setSearch(null);
+    onCreate(name);
+  }
+
   return (
     <div
       className={clsx(styles["picker"], className)}
@@ -212,7 +229,7 @@ export function CategoryPicker({
         aria-invalid={ariaInvalid}
         aria-describedby={describedBy}
         // A filter offers existing categories only.
-        onCreate={includeAll ? undefined : setNewCategoryName}
+        onCreate={includeAll ? undefined : create}
         // The option to return to automatic categorization comes first and stays in view when the list opens.
         openAtFirst={automaticOption !== undefined}
         className={size === "compact" ? styles["compact"] : undefined}

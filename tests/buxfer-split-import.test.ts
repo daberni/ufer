@@ -137,12 +137,11 @@ test("the category review lists each part's name instead of the tag list", () =>
   assert.deepEqual(rows.map(row => row.category), [null, null, null, "Groceries"]);
   assert.deepEqual([rows[2].parts, rows[2].description], [null, "Market · Split: Groceries 15, Car 6"]);
   assert.equal(withSplitTags("", "Health:10, Groceries"), "Split: Health 10, Groceries");
-  // Rules never categorize parts, so values used only by parts are not offered to the rules.
-  assert.deepEqual(categoryValues(rows, []).map(value => [value.value, value.rows, value.multiTag, value.splitOnly]), [
-    ["Groceries", 2, false, false],
-    ["Car", 1, false, true],
-    ["Car / Fuel", 1, false, true],
-    ["Cash", 1, false, true]
+  assert.deepEqual(categoryValues(rows, []).map(value => [value.value, value.rows, value.multiTag]), [
+    ["Groceries", 2, false],
+    ["Car", 1, false],
+    ["Car / Fuel", 1, false],
+    ["Cash", 1, false]
   ]);
 });
 
@@ -153,7 +152,8 @@ test("valid splits import as split bookings, invalid ones as rule-categorized bo
   } = mappedBuxferRows();
   const choices = ["Car / Fuel", "Groceries", "Car", "Cash"].map(value => ({
     value,
-    action: "create"
+    action: "create",
+    name: value
   }));
 
   // A rule that categorizes and retypes every row must leave split bookings alone and decide the invalid split like any booking.
