@@ -20,7 +20,7 @@ import { listAccounts, readBalanceHistory, readNetWorth } from "../src/features/
 import { archiveAccount, restoreAccount, updateManualValuation } from "../src/features/accounts/server/account-service";
 import { editManualTransaction, enterManualTransaction, hideTransaction, removeManualTransaction, transferOptions, updateTransactionCategory, updateTransactionDetails } from "../src/features/transactions/server/transaction-service";
 import { applyRulesToUncorrectedTransactions, createRule, deleteCategory, updateRuleDetails } from "../src/features/categorization/server/categorization-service";
-import { saveRuleAssignments } from "../src/features/categorization/server/rule-repository";
+import { splitTransaction, unsplitTransaction } from "../src/features/transactions/server/split-service";
 import { pairAllTransfers } from "../src/features/transactions/server/transfer-repository";
 import { acquireLease } from "../src/server/jobs/lease-repository";
 import { removeConnection } from "../src/features/banking/server/connection-repository";
@@ -245,12 +245,14 @@ test("bookings on an archived account cannot be edited, deleted or linked, and a
     }
   }), archived);
   assert.deepEqual(await candidates(), []);
-  // The list offers no entry editing or deletion for bookings on the archived account.
+  // The list keeps the entry state and marks the account archived, which freezes entry editing and deletion in the dialog.
   const page = await readTransactionPage(dashboardFilters(new URLSearchParams({
     period: "2026-01"
   })));
+  const salary = page.transactions.find(item => item.id === "salary");
 
-  assert.equal(page.transactions.find(item => item.id === "salary")?.entered, false);
+  assert.equal(salary?.entered, true);
+  assert.equal(salary?.account_archived, true);
   assert.equal(page.transactions.find(item => item.id === "refund")?.entered, true);
   await assert.rejects(updateTransactionDetails("refund", {
     type: "transfer",
@@ -265,80 +267,161 @@ test("bookings on an archived account cannot be edited, deleted or linked, and a
   assert.equal((await db.select().from(schema.transactions)).length, bookingsBefore.length - 1);
 });
 
-test("categories of bookings on an archived account change neither manually nor by applying rules", async context => {
-  const db = await seededDatabase(context);
-
+async function archivedImports(db: Database) {
+  // Two imported bookings that cancel out, so the account can be archived at a balance of 0.
   await db.insert(schema.transactions).values([{
     id: "shop",
     account_id: "closed",
-    provider_reference: "manual:shop",
+    provider_reference: "csv:shop",
     booking_date: "2026-01-07",
-    amount_minor: 0,
+    amount_minor: -1500,
     currency: "EUR",
     counterparty: "Synthetic shop",
     type: "expense"
   }, {
-    id: "manual-shop",
+    id: "shop-refund",
     account_id: "closed",
-    provider_reference: "manual:manual-shop",
+    provider_reference: "csv:shop-refund",
     booking_date: "2026-01-08",
-    amount_minor: 0,
+    amount_minor: 1500,
     currency: "EUR",
-    counterparty: "Synthetic shop",
-    type: "expense",
+    counterparty: "Synthetic shop refund",
+    type: "income",
+    category_id: "leisure",
     category_source: "manual"
   }]);
+  await archiveAccount("closed", {});
+}
+
+async function balances() {
+  return {
+    accounts: (await listAccounts()).map(account => [account.id, account.balance_minor]),
+    netWorth: await readNetWorth("EUR"),
+    history: await readBalanceHistory("closed")
+  };
+}
+
+function typesOf(rows: (typeof schema.transactions.$inferSelect)[]) {
+  return rows.map(row => [row.id, row.type, row.type_source, row.type_rule_id, row.transfer_id, row.suppressed_at, row.amount_minor, row.booking_date]);
+}
+
+test("categories, splits and payee and description overrides of an archived account's bookings change and reach the reports, while balances stay", async context => {
+  const db = await seededDatabase(context);
+
+  await archivedImports(db);
+  const balancesBefore = await balances();
+  const typesBefore = typesOf(await db.select().from(schema.transactions));
+
+  assert.equal((await updateTransactionCategory("shop", {
+    category_id: "groceries"
+  }))?.category_id, "groceries");
+  assert.equal((await readCashFlow(allMonthsPeriod, "EUR")).expenseBreakdown.find(item => item.categoryId === "groceries")?.amount, 5500);
+
+  await updateTransactionDetails("shop", {
+    type: "expense",
+    counterparty: "Synthetic corner shop",
+    description: "Synthetic snacks"
+  });
+  const listed = (await readTransactionPage(dashboardFilters(new URLSearchParams({
+    period: "2026-01"
+  })))).transactions.find(item => item.id === "shop");
+
+  assert.equal(listed?.counterparty, "Synthetic corner shop");
+  assert.equal(listed?.description, "Synthetic snacks");
+
+  await splitTransaction("shop", {
+    parts: [{
+      amount: "-10.00",
+      category_id: "groceries",
+      note: ""
+    }, {
+      amount: "-5.00",
+      category_id: "leisure",
+      note: ""
+    }]
+  });
+  assert.equal((await readCashFlow(allMonthsPeriod, "EUR")).expenseBreakdown.find(item => item.categoryId === "leisure")?.amount, 500);
+  await unsplitTransaction("shop");
+  assert.equal((await db.select().from(schema.transactionSplits)).length, 0);
+
+  // Returning a manual category to the rules assigns only the category.
+  await db.insert(schema.categorizationRules).values({
+    id: "refund-rule",
+    name: "Synthetic refund",
+    pattern: "Synthetic shop refund",
+    mode: "keyword",
+    category_id: "groceries",
+    transaction_type: "transfer"
+  });
+  assert.equal((await updateTransactionCategory("shop-refund", {
+    automatic: true
+  }))?.category_rule_id, "refund-rule");
+
+  assert.deepEqual(await balances(), balancesBefore);
+  assert.deepEqual(typesOf(await db.select().from(schema.transactions)), typesBefore);
+});
+
+test("rules categorize bookings on an archived account when applied, created or edited, without changing their type", async context => {
+  const db = await seededDatabase(context);
+
+  await archivedImports(db);
+  await db.update(schema.transactions).set({
+    category_id: null,
+    category_source: "rule"
+  }).where(eq(schema.transactions.id, "shop-refund"));
   await db.insert(schema.categorizationRules).values({
     id: "shop-rule",
     name: "Synthetic shop",
     pattern: "Synthetic shop",
     mode: "keyword",
-    category_id: "groceries"
-  });
-  await archiveAccount("closed", {});
-  const bookingsBefore = await db.select().from(schema.transactions);
-
-  await assert.rejects(updateTransactionCategory("groceries", {
-    category_id: null
-  }), {
-    status: 409,
-    message: "This account is archived. Restore the account first."
-  });
-  await assert.rejects(updateTransactionCategory("manual-shop", {
-    automatic: true
-  }), {
-    status: 409,
-    message: "This account is archived. Restore the account first."
-  });
-  await applyRulesToUncorrectedTransactions();
-  // Rules handed manual assignments neither adopt bookings on an archived account when created nor when edited.
-  await createRule({
-    name: "Synthetic shop again",
-    pattern: "Synthetic shop",
-    mode: "keyword",
     category_id: "groceries",
-    adopt_manual: true
+    transaction_type: "transfer"
   });
+  const balancesBefore = await balances();
+  const typesBefore = typesOf(await db.select().from(schema.transactions));
+  const category = async (id: string) => {
+    const row = await db.select().from(schema.transactions).where(eq(schema.transactions.id, id)).get();
+
+    return `${row?.category_id ?? "none"}/${row?.category_source}/${row?.category_rule_id ?? "none"}`;
+  };
+
+  await applyRulesToUncorrectedTransactions();
+  assert.equal(await category("shop"), "groceries/rule/shop-rule");
+
+  assert.equal(await category("shop-refund"), "groceries/rule/shop-rule");
+
+  // Creating a rule applies it to uncategorized bookings and adopts chosen manual ones on archived accounts too.
+  await db.update(schema.transactions).set({
+    category_id: null,
+    category_rule_id: null
+  }).where(eq(schema.transactions.id, "shop-refund"));
+  await db.update(schema.transactions).set({
+    category_id: "leisure",
+    category_source: "manual",
+    category_rule_id: null
+  }).where(eq(schema.transactions.id, "shop"));
+  await createRule({
+    name: "Synthetic refund",
+    pattern: "Synthetic shop refund",
+    mode: "keyword",
+    category_id: "leisure",
+    priority: 1,
+    transaction_type: "transfer",
+    apply_to_uncategorized: true
+  });
+  assert.match(await category("shop-refund"), /^leisure\/rule\/[0-9a-f-]{36}$/);
   await updateRuleDetails("shop-rule", {
     name: "Synthetic shop",
     pattern: "Synthetic shop",
     mode: "keyword",
     category_id: "groceries",
+    transaction_type: "transfer",
     adopt_manual: true
   });
-  assert.deepEqual(await db.select().from(schema.transactions), bookingsBefore);
+  assert.equal(await category("shop"), "groceries/rule/shop-rule");
 
-  // Assignments computed before the account was archived are not written afterwards.
-  await saveRuleAssignments([{
-    id: "shop",
-    category_id: "groceries",
-    category_rule_id: null
-  }]);
-  assert.deepEqual(await db.select().from(schema.transactions), bookingsBefore);
-
-  await restoreAccount("closed");
-  await applyRulesToUncorrectedTransactions();
-  assert.equal((await db.select().from(schema.transactions).where(eq(schema.transactions.id, "shop")).get())?.category_id, "groceries");
+  assert.deepEqual(await balances(), balancesBefore);
+  assert.deepEqual(typesOf(await db.select().from(schema.transactions)), typesBefore);
 });
 
 test("automatic pairing never links a booking on an archived account", async context => {
@@ -419,31 +502,6 @@ test("changing a booking linked to a counterpart on an archived account is refus
   assert.deepEqual(await db.select().from(schema.transactions), bookingsBefore);
 });
 
-test("a booking on an archived account shows its category as a label instead of a picker", async context => {
-  browser(context);
-  const { TransactionCategory } = await import("../src/features/transactions/components/transaction-category");
-  const screen = render(createElement(TransactionCategory, {
-    categories: [{
-      id: "groceries",
-      name: "Groceries",
-      color: "#3f8f5a",
-      icon: null
-    }] as never,
-    transaction: {
-      id: "archived-booking",
-      category_id: "groceries",
-      counterparty: "Example payee",
-      description: "",
-      type: "expense",
-      account_archived: true
-    } as never
-  }));
-
-  assert.ok(screen.getByText("Groceries"));
-  assert.equal(screen.queryByRole("combobox"), null);
-  assert.equal(screen.queryAllByRole("button").length, 0);
-});
-
 test("an account archived after the request's check but before the write receives no entry or balance", async context => {
   const db = await seededDatabase(context);
   const execute = db.$client.execute.bind(db.$client);
@@ -494,32 +552,55 @@ test("an account archived after the request's check but before the write receive
   assert.deepEqual(await db.select().from(schema.transactions), bookingsBefore);
 });
 
-test("imported bookings on an archived account take no payee override and cannot be hidden", async context => {
+test("an archived account's bookings keep their type, link and, where it counts toward a balance, their visibility", async context => {
   const db = await seededDatabase(context);
 
+  await archivedImports(db);
   await db.insert(schema.transactions).values({
-    id: "imported-zero",
-    account_id: "closed",
-    provider_reference: "csv:imported-zero",
+    id: "bank-fee",
+    account_id: "bank",
+    provider_reference: "bank:fee",
     booking_date: "2026-01-09",
-    amount_minor: 0,
+    amount_minor: -300,
     currency: "EUR",
-    counterparty: "Example payee",
+    counterparty: "Example bank",
     type: "expense"
   });
-  await archiveAccount("closed", {});
-  const bookingsBefore = await db.select().from(schema.transactions);
+  await db.update(schema.accounts).set({
+    archived_at: "2026-02-01T00:00:00.000Z"
+  }).where(eq(schema.accounts.id, "bank"));
+  const balancesBefore = await balances();
   const archived = {
     status: 409,
     message: "This account is archived. Restore the account first."
   };
 
-  await assert.rejects(updateTransactionDetails("imported-zero", {
-    type: "expense",
-    counterparty: "Changed payee"
+  await assert.rejects(updateTransactionDetails("shop", {
+    type: "income"
   }), archived);
-  await assert.rejects(hideTransaction("imported-zero", true), archived);
-  assert.deepEqual(await db.select().from(schema.transactions), bookingsBefore);
+  await assert.rejects(updateTransactionDetails("shop", {
+    type: "transfer",
+    transfer: {
+      account_id: "target"
+    }
+  }), archived);
+  // A manual account's balance sums its shown bookings, so hiding one would change it.
+  await assert.rejects(hideTransaction("shop", true), archived);
+  await assert.rejects(splitTransaction("salary", {
+    parts: [{
+      amount: "1.00",
+      category_id: null,
+      note: ""
+    }]
+  }), ValidationError);
+  assert.deepEqual(await balances(), balancesBefore);
+
+  // A bank account's balance is the bank's, so its unlinked bookings can be hidden and shown again.
+  await hideTransaction("bank-fee", true);
+  assert.ok((await db.select().from(schema.transactions).where(eq(schema.transactions.id, "bank-fee")).get())?.suppressed_at);
+  assert.equal((await readCashFlow(allMonthsPeriod, "EUR")).expenseBreakdown.reduce((sum, item) => sum + item.amount, 0), 5500);
+  await hideTransaction("bank-fee", false);
+  assert.deepEqual(await balances(), balancesBefore);
 });
 
 test("archiving uses the displayed balance, which leaves hidden bookings out", async context => {

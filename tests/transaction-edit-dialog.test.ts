@@ -715,3 +715,69 @@ test("a split booking offers only income and expense as its type, also on a manu
 
   assert.deepEqual([...type.options].map(option => option.value), ["income", "expense"]);
 });
+
+test("an imported booking on an archived manual account edits its payee but keeps its type and offers no hiding", async context => {
+  const {
+    requests,
+    save,
+    screen
+  } = await renderDialog(context, {
+    ...outgoing,
+    manual_account: true,
+    account_archived: true
+  });
+
+  assert.equal((screen.getByRole("combobox", {
+    name: "Type"
+  }) as HTMLSelectElement).disabled, true);
+  assert.ok(screen.getByText(/Synthetic checking is archived/));
+  assert.equal(screen.queryByRole("button", {
+    name: "Hide transaction"
+  }), null);
+
+  act(() => {
+    fireEvent.change(screen.getByRole("combobox", {
+      name: "Payee"
+    }), {
+      target: {
+        value: "Example landlord"
+      }
+    });
+  });
+  act(() => {
+    fireEvent.click(save());
+  });
+  await wait(0);
+
+  assert.deepEqual(requests("transactions/out/details")[0]?.body, {
+    type: "expense",
+    counterparty: "Example landlord"
+  });
+});
+
+test("an entered booking on an archived account offers neither entry fields nor deletion", async context => {
+  const entered = await renderDialog(context, {
+    ...outgoing,
+    manual_account: true,
+    account_archived: true,
+    entered: true
+  });
+
+  assert.equal(entered.screen.queryByRole("button", {
+    name: "Delete transaction"
+  }), null);
+  assert.equal(entered.screen.queryByRole("textbox", {
+    name: "Amount"
+  }), null);
+});
+
+test("an unlinked booking on an archived bank account can still be hidden", async context => {
+  const bank = await renderDialog(context, {
+    ...outgoing,
+    account_archived: true
+  });
+
+  assert.ok(bank.screen.getByRole("button", {
+    name: "Hide transaction"
+  }));
+});

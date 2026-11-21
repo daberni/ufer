@@ -20,10 +20,10 @@ function enteredColumn(booking: string, account: string) {
   return `(${account}.provider='manual' AND (${booking}.provider_reference LIKE '${manualEntryPrefix}%' OR ${booking}.provider_reference LIKE '${createdCounterpartPrefix}%'))`;
 }
 
-/** Whether a listed booking was entered in Ufer and, if so, whether it follows a linked imported booking. A counterpart created for an imported booking is not editable as an entry, and neither is a booking on an archived account. */
+/** Whether a listed booking was entered in Ufer and, if so, whether it follows a linked imported booking. A counterpart created for an imported booking is not editable as an entry. */
 function entryState(row: Record<string, unknown>) {
   const linkedToImport = row.counterpart_id !== null && !row.counterpart_entered;
-  const entered = Boolean(row.entered) && !row.account_archived && !row.counterpart_archived && !(Boolean(row.created_counterpart) && linkedToImport);
+  const entered = Boolean(row.entered) && !(Boolean(row.created_counterpart) && linkedToImport);
 
   return {
     entered,

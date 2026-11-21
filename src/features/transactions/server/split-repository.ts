@@ -6,7 +6,6 @@ import { ValidationError } from "@/lib/errors";
 import type { Rule, RuleAssignment, RuleText } from "@/lib/rules";
 import type { TransactionType } from "@/features/transactions/transaction-types";
 import type { SplitPart } from "@/features/transactions/types";
-import { assertWritableAccount } from "@/features/accounts/server/writable-account";
 import type { Entry } from "./transaction-entry";
 import { pairTransfers } from "./transfer-repository";
 
@@ -48,7 +47,7 @@ async function scopedTransaction(id: string) {
 
 /**
  * Replaces a booking's parts with the ones `decide` returns for the booking as stored in the same write transaction, so the sum is checked against its current amount. A split booking's own category is cleared and marked manual, so rules leave it alone.
- * Resolves to undefined for an unknown booking; a booking on an archived account or an error thrown by `decide` stores nothing.
+ * Resolves to undefined for an unknown booking; an error thrown by `decide` stores nothing. Archiving freezes balances, not categories, so bookings on archived accounts can be split.
  */
 export async function replaceSplit(id: string, decide: (subject: SplitSubject) => SplitPartValues[]) {
   const {
@@ -67,8 +66,6 @@ export async function replaceSplit(id: string, decide: (subject: SplitSubject) =
     if (!subject) {
       return undefined;
     }
-
-    await assertWritableAccount(tx, subject.account_id);
 
     const parts = decide(subject);
     const categoryIds = [...new Set(parts.map(part => part.categoryId).filter(categoryId => categoryId !== null))];
@@ -105,7 +102,7 @@ export async function replaceSplit(id: string, decide: (subject: SplitSubject) =
 
 /**
  * Removes a booking's parts and returns it to automatic categorization, with the category and rule the stored rules assign its text, and an automatic type to the one its current sign gives. A booking without parts keeps its category and type.
- * Resolves to undefined for an unknown booking; a booking on an archived account is refused.
+ * Resolves to undefined for an unknown booking; a booking on an archived account keeps its type.
  */
 export async function removeSplit(id: string, assign: (rules: Rule[], text: RuleText) => RuleAssignment) {
   const {
@@ -121,8 +118,6 @@ export async function removeSplit(id: string, assign: (rules: Rule[], text: Rule
     if (!found) {
       return undefined;
     }
-
-    await assertWritableAccount(tx, found.account_id);
 
     if (await dissolveSplit(tx, id, assign)) {
       // A rule may have made the former split a transfer, which links to, or creates, its counterpart like any rule-set transfer.
@@ -170,7 +165,11 @@ export async function assignRuleDecision(tx: DatabaseTransaction, id: string, as
     category_rule_id: assignment.ruleId
   }).where(eq(transactions.id, id));
 
-  const automatic = and(eq(transactions.id, id), eq(transactions.type_source, "auto"), isNull(transactions.transfer_id), notSplit);
+  // Archiving freezes the type, so a booking on an archived account takes only the category.
+  const activeAccounts = tx.select({
+    id: accounts.id
+  }).from(accounts).where(isNull(accounts.archived_at));
+  const automatic = and(eq(transactions.id, id), eq(transactions.type_source, "auto"), isNull(transactions.transfer_id), notSplit, inArray(transactions.account_id, activeAccounts));
 
   if (assignment.type) {
     await tx.update(transactions).set({

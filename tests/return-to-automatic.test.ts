@@ -11,7 +11,6 @@ import type { Database } from "../src/server/database/connection";
 import { insertRule } from "../src/features/categorization/server/rule-repository";
 import { applyRulesToUncorrectedTransactions, createRule, previewRule, updateRuleDetails } from "../src/features/categorization/server/categorization-service";
 import { updateTransactionCategory } from "../src/features/transactions/server/transaction-service";
-import { HttpError } from "../src/lib/errors";
 import { queryKeys } from "../src/client/query-keys";
 import type { Category, Rule } from "../src/features/categorization/types";
 import type { Transaction } from "../src/features/transactions/types";
@@ -190,10 +189,15 @@ test("returning a manual assignment to automatic stores what applying the rules 
   }
 
   assert.equal(applied["manual-same"], "groceries/manual/none");
-  await assert.rejects(updateTransactionCategory("manual-elsewhere", {
+  // Archiving freezes balances, not categories, so a booking on an archived account returns to the rules too.
+  assert.deepEqual(await updateTransactionCategory("manual-elsewhere", {
     automatic: true
-  }), (error: unknown) => error instanceof HttpError && error.status === 409);
-  assert.equal((await assignments(db))["manual-elsewhere"], "leisure/manual/none");
+  }), {
+    id: "manual-elsewhere",
+    category_id: "groceries",
+    category_source: "rule",
+    category_rule_id: "market-rule"
+  });
 });
 
 test("a rule preview counts the manual assignments it decides and those that already have its category", async context => {
@@ -207,7 +211,7 @@ test("a rule preview counts the manual assignments it decides and those that alr
   });
 
   assert.equal(preview.matched, 1);
-  assert.equal(preview.manual, 2);
+  assert.equal(preview.manual, 3);
   assert.equal(preview.manual_same_category, 1);
 
   // The transaction a rule is created from is adopted on its own terms and not counted again.
@@ -219,7 +223,7 @@ test("a rule preview counts the manual assignments it decides and those that alr
     source_transaction_id: "manual-same"
   });
 
-  assert.equal(fromSource.manual, 1);
+  assert.equal(fromSource.manual, 2);
   assert.equal(fromSource.manual_same_category, 0);
 });
 
@@ -259,7 +263,7 @@ test("a new rule takes over only the chosen manual assignments it decides and re
   assert.equal(after["manual-different"], `groceries/rule/${created.id}`);
   assert.equal(after["manual-express"], "leisure/manual/none");
   assert.equal(after["manual-unmatched"], "leisure/manual/none");
-  assert.equal(after["manual-elsewhere"], "leisure/manual/none");
+  assert.equal(after["manual-elsewhere"], `groceries/rule/${created.id}`);
   // Adopting manual assignments does not apply the rule to automatic transactions.
   assert.equal(after.automatic, before.automatic);
 });
