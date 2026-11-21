@@ -804,6 +804,45 @@ test("a later bank sync adopts the matching CSV-imported row with its category i
   ]);
 });
 
+test("a later bank sync adopting a CSV refund keeps it an expense", async context => {
+  const db = await isolatedDatabase(context);
+
+  await insertBankAccount(db);
+  await importMappedRows({
+    import_id: importId,
+    rows: [{
+      ...mappedRow(2, "2024-06-05", "30.00", "Shoe shop"),
+      type: "expense"
+    }],
+    targets: [{
+      source: "",
+      account_id: "synthetic-bank-account"
+    }],
+    confirm: true
+  }, now);
+  await startSyncRun("adopt-refund", "2026-06-30T08:00:00.000Z");
+  await saveAccountSync({
+    startedAt: "2026-06-30T08:00:00.000Z"
+  }, "synthetic-bank-account", "EUR", [{
+    balance_type: "CLBD",
+    balance_amount: {
+      amount: "30.00",
+      currency: "EUR"
+    },
+    reference_date: "2026-06-29"
+  }], [{
+    reference: "bank:refund",
+    date: "2024-06-05",
+    amount: 3000,
+    currency: "EUR",
+    counterparty: "SHOE SHOP",
+    description: "Refund"
+  }], []);
+  const rows = await db.select().from(schema.transactions).where(ne(schema.transactions.type, "opening_balance"));
+
+  assert.deepEqual(rows.map(row => [row.provider_reference, row.amount_minor, row.type, row.type_rule_id]), [["bank:refund", 3000, "expense", null]]);
+});
+
 test("consumed matches stay bounded for files with more than 20,000 matched bookings", async context => {
   await isolatedDatabase(context);
 
