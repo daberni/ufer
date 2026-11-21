@@ -56,7 +56,7 @@ export function TargetAccounts({
           />
         ))}
       </fieldset>
-      {draft.targets.size > 0 && [...draft.targets.values()].some(choice => choice.kind === "existing" && draft.accounts.find(account => account.id === choice.accountId)?.provider !== "manual") && <p className={ui["form-hint"]}>Rows imported into a bank-linked account appear in its history; its balance stays the one the bank reports.</p>}
+      {draft.targets.size > 0 && [...draft.targets.values()].some(choice => choice.kind === "existing" && draft.accounts.find(account => account.id === choice.accountId)?.provider !== "manual") && <p className={ui["form-hint"]}>Rows imported into a bank-linked account dated before its opening balance extend its history without changing its balance; later rows change the balance and show up as a difference to the bank balance.</p>}
     </section>
   );
 }

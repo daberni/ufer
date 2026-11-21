@@ -13,9 +13,11 @@ import { sameCategoryName } from "@/lib/category-name";
 import { derivedTransactionType, type RuleTransactionType } from "@/features/transactions/transaction-types";
 import type { CategorizedEntry } from "@/features/transactions/server/transaction-entry";
 import type { SplitPartValues } from "@/features/transactions/server/split-repository";
-import { duplicateDateToleranceDays, findDuplicates, mappedReferencePrefix, matchBooking, type ExistingBooking } from "./duplicate-matching";
+import { duplicateDateToleranceDays, findDuplicates, mappedReferencePrefix, matchBooking, prepareBooking, prepareBookings, type ExistingBooking } from "./duplicate-matching";
 
 const referenceChunkSize = 500;
+
+const isTransfer = sql<boolean>`(${transactions.type} = 'transfer' OR ${transactions.transfer_id} IS NOT NULL)`.mapWith(value => Boolean(value));
 
 export type MappedEntry = {
   reference: string;
@@ -150,7 +152,8 @@ function bookingsBetween(executor: Executor, accountId: string, from: string, to
     date: transactions.booking_date,
     amount: transactions.amount_minor,
     counterparty: transactions.counterparty,
-    description: transactions.description
+    description: transactions.description,
+    transfer: isTransfer
   }).from(transactions).where(scope);
 }
 
@@ -187,7 +190,8 @@ async function bookingsWithReferences(executor: Executor, accountId: string, ref
       date: transactions.booking_date,
       amount: transactions.amount_minor,
       counterparty: transactions.counterparty,
-      description: transactions.description
+      description: transactions.description,
+      transfer: isTransfer
     }).from(transactions).where(and(eq(transactions.account_id, accountId), inArray(transactions.provider_reference, chunk))));
   }
 
@@ -293,6 +297,9 @@ async function saveAccountRows(tx: DatabaseTransaction, {
   await assertWritableAccount(tx, accountId);
   const found = await classify(tx, accountId, entries, consumed);
   const fresh = await ensureCategories(entries.filter((_entry, index) => !found.duplicates.has(index)));
+  const dates = new Map(fresh.map(entry => [entry.reference, entry.date]));
+  // Later batches of this import pass the saved rows back as consumed, so rows of the same file never match each other by content.
+  const saved: typeof found.matched = [];
   let inserted = 0;
   const insertedIds: string[] = [];
 
@@ -330,6 +337,10 @@ async function saveAccountRows(tx: DatabaseTransaction, {
 
     inserted += rows.length;
     insertedIds.push(...rows.map(row => row.id));
+    saved.push(...rows.map(row => ({
+      reference: row.reference,
+      date: dates.get(row.reference) ?? ""
+    })));
     await saveImportedParts(tx, rows, fresh);
   }
 
@@ -342,6 +353,7 @@ async function saveAccountRows(tx: DatabaseTransaction, {
 
   return {
     ...found,
+    matched: [...found.matched, ...saved],
     inserted
   };
 }
@@ -405,11 +417,12 @@ export async function adoptImportedRows(tx: DatabaseTransaction, accountId: stri
     }
   }
 
+  const prepared = prepareBookings(imported);
   const used = new Set<string>();
   const adopted: CategorizedEntry[] = [];
 
   for (const entry of entries) {
-    const match = knownReferences.has(entry.reference) ? -1 : matchBooking(entry, imported, index => !used.has(imported[index].id));
+    const match = knownReferences.has(entry.reference) ? -1 : matchBooking(prepareBooking(entry), prepared, index => !used.has(imported[index].id));
     // An ambiguous match inserts the bank booking rather than guessing which imported row it replaces.
     const row = typeof match === "number" && match >= 0 ? imported[match] : undefined;
 

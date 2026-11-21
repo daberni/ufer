@@ -16,24 +16,29 @@ export type ExistingBooking = {
   amount: number;
   counterparty: string;
   description: string;
+  /** Whether the booking is a transfer between own accounts; each side's source names it differently, so its text rarely matches. */
+  transfer: boolean;
 };
 
 export type DuplicateReason = "already_imported" | "existing_booking";
 
-/** Prefix of references the mapped CSV import derives from row content; such rows match later imports only by reference. */
+/** Prefix of references the mapped CSV import derives from row content or an export ID. */
 export const mappedReferencePrefix = "csv:m:";
 
 /**
- * Finds the imported rows an account already contains. A row is a duplicate when the account has a booking with the same reference, or otherwise a booking `matchBooking` finds; rows with several bookings in the date window are returned as `possible` duplicates and still import.
- * Rows saved by a mapped import never match by content, so a batch never mistakes rows of the same file saved by an earlier batch for duplicates. Each existing booking absorbs at most one row, including rows of earlier batches listed in `consumed`, so genuine repeats beyond the existing ones still import and a check reports what confirming saves.
+ * Finds the imported rows an account already contains. A row is a duplicate when the account has a booking with the same reference, or otherwise a booking `matchBooking` finds, whatever source saved it, including an earlier import of another file.
+ * Rows with several matching bookings in the date window, or with a booking of the same amount that only the date or a transfer suggests, are returned as `possible` duplicates and still import.
+ * Each existing booking absorbs at most one row. `consumed` lists the bookings earlier batches of this import matched or saved, so a batch never mistakes rows of its own file for duplicates, genuine repeats beyond the existing ones still import and a check reports what confirming saves.
  */
 export function findDuplicates(candidates: ImportCandidate[], existing: ExistingBooking[], consumed: ReadonlySet<string> = new Set()) {
   const duplicates = new Map<number, DuplicateReason>();
   const matched: Pick<ExistingBooking, "reference" | "date">[] = [];
   const possible: number[] = [];
   const references = new Set(existing.map(booking => booking.reference));
-  const available = existing.filter(booking => !booking.reference.startsWith(mappedReferencePrefix) && !consumed.has(booking.reference) && !candidates.some(candidate => candidate.reference === booking.reference));
+  const candidateReferences = new Set(candidates.map(candidate => candidate.reference));
+  const available = prepareBookings(existing.filter(booking => !consumed.has(booking.reference) && !candidateReferences.has(booking.reference)));
   const used = new Set<number>();
+  const isFree = (index: number) => !used.has(index);
 
   candidates.forEach((candidate, index) => {
     if (references.has(candidate.reference)) {
@@ -42,15 +47,16 @@ export function findDuplicates(candidates: ImportCandidate[], existing: Existing
       return;
     }
 
-    const match = matchBooking(candidate, available, bookingIndex => !used.has(bookingIndex));
+    const prepared = prepareBooking(candidate);
+    const match = matchBooking(prepared, available, isFree);
 
-    if (match === "ambiguous") {
+    if (match === "ambiguous" || (match < 0 && hasWeakMatch(prepared, available, isFree))) {
       possible.push(index);
     } else if (match >= 0) {
       used.add(match);
       matched.push({
-        reference: available[match].reference,
-        date: available[match].date
+        reference: available.bookings[match].reference,
+        date: available.bookings[match].date
       });
       duplicates.set(index, "existing_booking");
     }
@@ -65,13 +71,51 @@ export function findDuplicates(candidates: ImportCandidate[], existing: Existing
 
 type Booking = Pick<ExistingBooking, "date" | "amount" | "counterparty" | "description">;
 
+type PreparedBooking<T extends Booking> = T & {
+  text: string;
+  words: Set<string>;
+};
+
+/** Bookings with their normalized texts, indexed by amount, so matching a file compares only bookings of the same amount and normalizes each text once. */
+export type PreparedBookings<T extends Booking> = {
+  bookings: PreparedBooking<T>[];
+  byAmount: Map<number, number[]>;
+};
+
+export function prepareBookings<T extends Booking>(bookings: T[]): PreparedBookings<T> {
+  const prepared = bookings.map(prepareBooking);
+  const byAmount = new Map<number, number[]>();
+
+  prepared.forEach((booking, index) => {
+    const indices = byAmount.get(booking.amount) ?? [];
+
+    indices.push(index);
+    byAmount.set(booking.amount, indices);
+  });
+
+  return {
+    bookings: prepared,
+    byAmount
+  };
+}
+
+export function prepareBooking<T extends Booking>(booking: T): PreparedBooking<T> {
+  const text = normalizeText(`${booking.counterparty} ${booking.description}`);
+
+  return {
+    ...booking,
+    text,
+    words: new Set(text.split(" ").filter(word => word.length >= 4))
+  };
+}
+
 /**
  * The booking that records the same movement as `candidate`: exactly the same amount and matching text, on the same booking date, or else the only such booking at most `duplicateDateToleranceDays` apart.
  * Several bookings within the window are "ambiguous" and match none; -1 means no match.
  */
-export function matchBooking(candidate: Booking, bookings: Booking[], available: (index: number) => boolean): number | "ambiguous" {
-  const fits = bookings.flatMap((booking, index) => available(index) && booking.amount === candidate.amount && dayDistance(booking.date, candidate.date) <= duplicateDateToleranceDays && textsMatch(booking, candidate) ? [index] : []);
-  const sameDate = fits.find(index => bookings[index].date === candidate.date);
+export function matchBooking<T extends Booking>(candidate: PreparedBooking<Booking>, prepared: PreparedBookings<T>, available: (index: number) => boolean): number | "ambiguous" {
+  const fits = sameAmountInWindow(candidate, prepared, available).filter(index => textsMatch(prepared.bookings[index], candidate));
+  const sameDate = fits.find(index => prepared.bookings[index].date === candidate.date);
 
   if (sameDate !== undefined) {
     return sameDate;
@@ -84,21 +128,37 @@ export function matchBooking(candidate: Booking, bookings: Booking[], available:
   return fits[0] ?? -1;
 }
 
-export function textsMatch(left: Pick<ExistingBooking, "counterparty" | "description">, right: Pick<ExistingBooking, "counterparty" | "description">) {
-  const leftText = normalizeText(`${left.counterparty} ${left.description}`);
-  const rightText = normalizeText(`${right.counterparty} ${right.description}`);
+/** A booking of the same amount whose text differs, on the same date or recorded as a transfer within the window: too uncertain to skip the row, worth a look in the review. */
+function hasWeakMatch(candidate: PreparedBooking<Booking>, prepared: PreparedBookings<ExistingBooking>, available: (index: number) => boolean) {
+  return sameAmountInWindow(candidate, prepared, available).some(index => {
+    const booking = prepared.bookings[index];
 
-  if (!leftText || !rightText) {
+    return booking.date === candidate.date || booking.transfer;
+  });
+}
+
+function sameAmountInWindow<T extends Booking>(candidate: Booking, prepared: PreparedBookings<T>, available: (index: number) => boolean) {
+  const indices = prepared.byAmount.get(candidate.amount) ?? [];
+
+  return indices.filter(index => available(index) && dayDistance(prepared.bookings[index].date, candidate.date) <= duplicateDateToleranceDays);
+}
+
+export function textsMatch(left: Pick<PreparedBooking<Booking>, "text" | "words">, right: Pick<PreparedBooking<Booking>, "text" | "words">) {
+  if (!left.text || !right.text) {
     return false;
   }
 
-  if (leftText.includes(rightText) || rightText.includes(leftText)) {
+  if (left.text.includes(right.text) || right.text.includes(left.text)) {
     return true;
   }
 
-  const leftWords = new Set(leftText.split(" ").filter(word => word.length >= 4));
+  for (const word of right.words) {
+    if (left.words.has(word)) {
+      return true;
+    }
+  }
 
-  return rightText.split(" ").some(word => word.length >= 4 && leftWords.has(word));
+  return false;
 }
 
 export function dayDistance(left: string, right: string) {
