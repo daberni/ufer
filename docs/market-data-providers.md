@@ -1,6 +1,6 @@
 # Market data providers for security prices
 
-Research notes for valuing securities holdings (stocks, ETFs and mutual funds, mostly on European venues, identified by ISIN) with daily end-of-day prices. Nothing here is implemented yet; this document records the evaluation so the decision can be revisited. Facts were read from the providers' official pages on 2026-11-21 and are linked inline; items marked **unverified** could not be confirmed from public pages.
+Research notes for valuing securities holdings (stocks, ETFs and mutual funds, mostly on European venues, identified by ISIN) with daily end-of-day prices. Nothing here is implemented yet; this document records the evaluation so the decision can be revisited. Facts were read from the providers' official pages on 2026-11-21 and are linked inline; items marked **unverified** could not be confirmed from public pages. EODHD lists its prices in euros on its pricing pages.
 
 Ufer needs two kinds of use, which providers license differently:
 
@@ -42,7 +42,7 @@ Not suitable:
 
 - Yahoo Finance via unofficial access (for example yfinance): the [terms](https://legal.yahoo.com/us/en/yahoo/terms/otos/index.html) prohibit automated collection and building databases without permission, and commercial reuse.
 - Stooq: the site returned an empty page; access and terms are **unverified**.
-- Wiener Börse: public prices are 15 minutes delayed; data feeds are institutional only, without public prices ([feeds](https://www.wienerborse.at/en/market-data/market-data-sales/market-data-feeds/)).
+- Wiener Börse: a free [daily statistics CSV](https://www.wienerborse.at/en/market-data/statistics/daily-statistics/daily-statistics-download/) is published around 18:00 CET per trading day, but it covers only the equity market segments (no ETFs or funds), its columns are not documented, and the [disclaimer](https://www.wienerborse.at/rechtliches/disclaimer/) states "Eine automatisierte Abfrage ist nicht gestattet" and requires consent to use its database works. Data feeds are institutional only ([feeds](https://www.wienerborse.at/en/market-data/market-data-sales/market-data-feeds/)).
 
 ## Personal use
 
