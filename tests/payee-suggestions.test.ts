@@ -356,6 +356,26 @@ test("a press outside while suggestions are still loading keeps the list closed 
   assert.equal(field.getAttribute("aria-expanded"), "false");
 });
 
+test("Alt+ArrowDown in a prefilled field opens the suggestions without highlighting one", async context => {
+  const {
+    field,
+    requests
+  } = await renderPayeeInput(context, "cor");
+
+  act(() => {
+    fireEvent.keyDown(field, {
+      key: "ArrowDown",
+      altKey: true
+    });
+  });
+  await respond(requests("transactions/payees")[0], Response.json({
+    payees: ["Corner Bakery", "Corner Shop"]
+  }));
+
+  assert.equal(field.getAttribute("aria-expanded"), "true");
+  assert.equal(field.getAttribute("aria-activedescendant"), null);
+});
+
 test("a pointer picks a suggestion and Escape closes the list without clearing the text", async context => {
   const {
     field,

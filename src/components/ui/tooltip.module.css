@@ -14,7 +14,14 @@
   line-height: 1.4;
   text-align: left;
   white-space: normal;
-  /* Very long texts scroll within the height the anchored placement leaves. */
-  overflow-y: auto;
-  overscroll-behavior: contain;
+  overflow: hidden;
+  /* Presses pass through to the page; the tooltip only shows text. */
+  pointer-events: none;
+}
+/* Long texts end with an ellipsis; their full text is in the transaction dialog or the rule editor. */
+.text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 8;
+  overflow: hidden;
 }

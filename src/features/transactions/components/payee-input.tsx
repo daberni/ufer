@@ -121,7 +121,8 @@ export function PayeeInput({
 
     handleKeyDown(event);
 
-    if (awaitsSuggestions && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
+    // Alt+ArrowDown opens the list without a highlight, so only plain arrows wait for one.
+    if (awaitsSuggestions && !event.altKey && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
       setAwaitedHighlight(event.key === "ArrowDown" ? "first" : "last");
     }
   }

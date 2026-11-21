@@ -197,30 +197,3 @@ test("a long press on a control whose text fits opens no tooltip and keeps the c
   }).textContent, "");
   assert.deepEqual(clicks, ["edit"]);
 });
-
-test("a press inside an open tooltip does not activate the control around its trigger", async context => {
-  const {
-    screen,
-    clicks
-  } = await labelInButton(context, true);
-  const label = screen.getByTestId("label");
-
-  fireEvent.pointerDown(label, {
-    pointerType: "touch"
-  });
-  await wait(600);
-  fireEvent.pointerUp(label, {
-    pointerType: "touch"
-  });
-  fireEvent.click(label);
-
-  const tooltip = screen.getByRole("tooltip", {
-    hidden: true
-  });
-
-  assert.equal(tooltip.textContent, fullName);
-
-  fireEvent.click(tooltip);
-
-  assert.deepEqual(clicks, []);
-});
