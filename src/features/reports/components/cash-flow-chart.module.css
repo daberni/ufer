@@ -207,6 +207,10 @@
 .month[data-active] .month-label {
   color: var(--ink);
 }
+.month[data-current] .month-label {
+  color: var(--ink);
+  font-weight: 600;
+}
 .chart-empty-note {
   text-align: center;
   font-size: var(--text-sm);

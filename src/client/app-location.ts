@@ -1,5 +1,5 @@
 import { isTransactionType, type TransactionType } from "@/features/transactions/transaction-types";
-import { currentMonth, currentMonthPeriod, parsePeriod, serializePeriod, type Period } from "@/lib/period";
+import { allMonthsPeriod, currentMonth, currentMonthPeriod, parsePeriod, serializePeriod, type Period } from "@/lib/period";
 import { parsePage } from "@/lib/pagination";
 import { parseCurrencyCode } from "@/lib/money";
 
@@ -124,7 +124,7 @@ function currencyOrDefault(value: string | null) {
   return value && parseCurrencyCode(value) || defaultCurrency;
 }
 
-/** The data query for the view at a path: the shared period scope plus, on the transaction list, its own filters, and on an account's details that account and the page. */
+/** The data query for the view at a path: the shared period scope (the overview always shows the current month and keeps the scope only for its links) plus, on the transaction list, its own filters, and on an account's details that account and the page. */
 export function viewQuery(pathname: string, scope: string, params: SearchParams): ViewQuery {
   const view = viewFromPathname(pathname);
   const scoped = new URLSearchParams(scope);
@@ -133,7 +133,7 @@ export function viewQuery(pathname: string, scope: string, params: SearchParams)
   const pageParams = view === "account" ? params : listParams;
 
   return {
-    period: parsePeriod(scoped.get("period") || "") || currentMonthPeriod(),
+    period: view === "overview" ? currentMonthPeriod() : parsePeriod(scoped.get("period") || "") || currentMonthPeriod(),
     currency: currencyOrDefault(scoped.get("currency")),
     search: listParams.get("search") || "",
     account: view === "account" ? accountIdFromPathname(pathname) : listParams.get("account") || "",
@@ -142,6 +142,23 @@ export function viewQuery(pathname: string, scope: string, params: SearchParams)
     syncRun: listParams.get("syncRun") || "",
     page: parsePage(pageParams.get("page"))
   };
+}
+
+/** The overview's recent transactions: the latest bookings of every month in the selected currency. */
+export function recentTransactionsQuery(query: ViewQuery): ViewQuery {
+  return {
+    ...query,
+    period: allMonthsPeriod,
+    page: 1
+  };
+}
+
+/** The whole transaction list behind the overview's recent transactions: all months in the current currency. */
+export function allTransactionsHref(scope: string) {
+  return withQueryChanges(viewPaths.transactions, scope, {
+    period: allMonthsPeriod,
+    page: 1
+  });
 }
 
 export function viewHref(view: Section, scope: string) {

@@ -46,7 +46,8 @@ export function accountGroups(accounts: Account[], currency: string, now = Tempo
   const expiresSoon = (validUntil: string) => Temporal.Instant.compare(Temporal.Instant.from(validUntil), warningThreshold) < 0;
 
   return {
-    currencies: [...new Set(["EUR", ...accounts.map(account => account.currency)])],
+    // The selected currency stays offered when no account uses it, so a bookmarked currency can still be switched away from.
+    currencies: [...new Set([...accounts.map(account => account.currency), currency])].sort(),
     currencyAccounts: activeAccounts(accounts).filter(account => account.currency === currency),
     // Reports include archived accounts, so their presence decides whether a currency has figures to show.
     reportedAccounts: accounts.filter(account => account.currency === currency),
@@ -54,4 +55,9 @@ export function accountGroups(accounts: Account[], currency: string, now = Tempo
     bankAccounts,
     expiring: bankAccounts.filter(account => account.valid_until && expiresSoon(account.valid_until))
   };
+}
+
+/** A currency choice is offered only when there is more than one currency to choose from. */
+export function showsCurrencySelect(currencies: string[]) {
+  return currencies.length > 1;
 }

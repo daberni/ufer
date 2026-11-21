@@ -27,7 +27,7 @@ import { removeConnection } from "../src/features/banking/server/connection-repo
 import { queryKeys } from "../src/client/query-keys";
 import { importValuations } from "../src/features/imports/server/import-service";
 import { readAccountCashFlow, readCashFlow } from "../src/features/reports/server/cash-flow-query";
-import { accountGroups } from "../src/features/accounts/queries";
+import { accountGroups, showsCurrencySelect } from "../src/features/accounts/queries";
 import { showsSync } from "../src/features/dashboard/sync-visibility";
 import type { Account } from "../src/features/accounts/types";
 import { browser, respond, wait, withQueryClient } from "./fixtures/browser";
@@ -587,6 +587,20 @@ test("deleting a category also reassigns bookings on archived accounts, leaving 
     replacement_id: "replacement"
   });
   assert.equal((await db.select().from(schema.transactions).where(eq(schema.transactions.id, "groceries")).get())?.category_id, "replacement");
+});
+
+test("a currency choice is offered only when accounts use several currencies or none uses the selected one", () => {
+  const currenciesFor = (currencies: string[], selected: string) => accountGroups(currencies.map(currency => ({
+    ...manualAccount,
+    currency
+  })), selected).currencies;
+
+  assert.deepEqual(currenciesFor(["USD", "USD"], "USD"), ["USD"]);
+  assert.equal(showsCurrencySelect(currenciesFor(["USD"], "USD")), false);
+  assert.equal(showsCurrencySelect(currenciesFor([], "EUR")), false);
+  assert.deepEqual(currenciesFor(["USD"], "EUR"), ["EUR", "USD"]);
+  assert.deepEqual(currenciesFor(["USD", "EUR", "CHF"], "EUR"), ["CHF", "EUR", "USD"]);
+  assert.equal(showsCurrencySelect(currenciesFor(["USD", "EUR"], "EUR")), true);
 });
 
 test("a currency whose accounts are all archived still reports its figures on the overview", () => {

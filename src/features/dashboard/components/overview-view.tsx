@@ -11,6 +11,8 @@ import type { NetWorthHistory } from "@/features/reports/net-worth-series";
 
 type Props = {
   currencyAccounts: Area<Account[]>;
+  /** The currencies in use and the selected one, for the net-worth card's currency choice. */
+  currencies: Area<string[]>;
   /** Whether any account in the currency, archived ones included, contributes to the reports. */
   hasReportedAccounts: boolean;
   netWorth: Area<NetWorth>;
@@ -20,6 +22,7 @@ type Props = {
 
 export function OverviewView({
   currencyAccounts,
+  currencies,
   hasReportedAccounts,
   netWorth,
   netWorthHistory,
@@ -28,7 +31,12 @@ export function OverviewView({
   return (
     <>
       <div className={styles["wealth-overview"]}>
-        <WealthSummary hasAccounts={hasReportedAccounts} historyArea={netWorthHistory} netWorthArea={netWorth} />
+        <WealthSummary
+          currencies={currencies.data ?? []}
+          hasAccounts={hasReportedAccounts}
+          historyArea={netWorthHistory}
+          netWorthArea={netWorth}
+        />
         <OverviewAccounts currencyAccounts={currencyAccounts} />
       </div>
       <CashFlowInsights cashFlow={cashFlow} />

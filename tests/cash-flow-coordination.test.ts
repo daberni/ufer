@@ -81,6 +81,10 @@ async function showReports(context: TestContext, data: CashFlow = cashFlow) {
   });
   const { OverviewView } = await import("../src/features/dashboard/components/overview-view");
   const props = {
+    currencies: {
+      status: "ready" as const,
+      data: ["EUR"]
+    },
     hasReportedAccounts: false,
     currencyAccounts: {
       status: "ready" as const,
@@ -232,15 +236,9 @@ test("touch selection survives interaction with the adjacent panel and clears ou
   assert.ok(within(screen.panel()).getByText("Food"));
 });
 
-test("keyboard focus follows the month and period or currency changes clear the selection", async context => {
+test("keyboard focus follows the month and a currency change clears the selection", async context => {
   const screen = await showReports(context);
 
-  fireEvent.focus(screen.getByRole("button", {
-    name: /June 2026:/
-  }));
-  assert.ok(within(screen.panel()).getByText("Rent"));
-  screen.changeScope("/?period=2026-08");
-  assert.ok(within(screen.panel()).getByText("Food"));
   fireEvent.focus(screen.getByRole("button", {
     name: /June 2026:/
   }));

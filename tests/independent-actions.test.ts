@@ -191,6 +191,12 @@ test("an action in flight leaves the controls of every other action unchanged", 
     inserted: 0,
     failures: []
   }));
+
+  // The sync settles once the refreshed data, the button's own last-sync description included, has loaded.
+  for (const request of requests("sync/runs")) {
+    await respond(request, Response.json([]));
+  }
+
   assert.equal(controls().sync.getAttribute("aria-label"), "Synced: Up to date");
   assert.equal(controls().sync.getAttribute("aria-busy"), "false");
   assert.equal(controls().sync.hasAttribute("aria-disabled"), false);

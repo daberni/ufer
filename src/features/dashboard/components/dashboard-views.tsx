@@ -24,7 +24,7 @@ import { useBankingConfiguration } from "@/features/banking/banking-configuratio
 import { useConnections, useSyncRuns } from "@/features/banking/queries";
 import { useTransactionListView } from "@/features/transactions/use-transaction-list-view";
 import type { TransactionPage } from "@/features/transactions/types";
-import type { ViewQuery } from "@/client/app-location";
+import { recentTransactionsQuery, type ViewQuery } from "@/client/app-location";
 import type { Account } from "@/features/accounts/types";
 import type { AccountCashFlow } from "@/features/reports/types";
 import type { Category } from "@/features/categorization/types";
@@ -37,20 +37,19 @@ export function OverviewPage() {
   const query = useViewQuery();
   const accounts = useAreaResult(useAccounts());
   const categories = useAreaResult(useCategories());
-  const syncRuns = useAreaResult(useSyncRuns());
   const netWorth = useAreaResult(useNetWorth(query.currency));
   const netWorthHistory = useAreaResult(useNetWorthHistory(query.currency));
   const cashFlow = useAreaResult(useCashFlow(query.period, query.currency));
-  const list = useTransactionListView(query, replacePage);
+  const list = useTransactionListView(recentTransactionsQuery(query), replacePage);
   const groups = mapArea(accounts, data => accountGroups(data, query.currency));
   const currencyAccounts = mapArea(groups, data => data.currencyAccounts);
   const hasReportedAccounts = groups.status === "pending" || groups.data.reportedAccounts.length > 0;
 
   return (
     <>
-      <PeriodControls currencies={mapArea(groups, data => data.currencies)} latestSync={mapArea(syncRuns, runs => runs[0])} view="overview" />
       <OverviewView
         cashFlow={cashFlow}
+        currencies={mapArea(groups, data => data.currencies)}
         currencyAccounts={currencyAccounts}
         hasReportedAccounts={hasReportedAccounts}
         netWorth={netWorth}

@@ -9,6 +9,8 @@ import { money, signedMoney } from "@/lib/money";
 import { valueMask, withPlaceholder } from "@/components/ui/result-presentation";
 import { FailureCover } from "@/components/ui/area-placeholder";
 import { useCurrency } from "@/client/use-app-url";
+import { showsCurrencySelect } from "@/features/accounts/queries";
+import { CurrencyChoice } from "@/features/accounts/components/currency-choice";
 import type { Area } from "@/components/ui/use-area-result";
 import type { NetWorth } from "@/features/accounts/types";
 import { Temporal } from "temporal-polyfill";
@@ -19,6 +21,8 @@ import { useLocale } from "@/client/locale-provider";
 import { formatCount } from "@/lib/locale";
 
 type Props = {
+  /** The currencies in use and the selected one; with several, the currency badge becomes the choice of accounts shown. */
+  currencies: string[];
   /** Whether any account uses the display currency; assumed while the accounts load, so the masked figure keeps its place. */
   hasAccounts: boolean;
   netWorthArea: Area<NetWorth>;
@@ -27,6 +31,7 @@ type Props = {
 
 /** Net worth and its composition; the period's income, expenses, net and savings rate belong to the cash-flow panels below. */
 export function WealthSummary({
+  currencies,
   hasAccounts,
   netWorthArea,
   historyArea
@@ -60,7 +65,7 @@ export function WealthSummary({
           </span>
           Net worth
         </span>
-        <span className={clsx(styles["small-tag"], netWorthValue)}>{currency}</span>
+        {showsCurrencySelect(currencies) ? <CurrencyChoice compact className={styles["currency-choice"]} currencies={currencies} /> : <span className={clsx(styles["small-tag"], netWorthValue)}>{currency}</span>}
       </div>
       <div className={styles["headline"]}>
         <div className={clsx(styles["wealth-number"], netWorthValue)}>{hasAccounts ? money(summary.netWorth, currency, locale) : "—"}</div>

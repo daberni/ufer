@@ -13,7 +13,7 @@ import { TransactionList, TransactionListSkeleton } from "@/features/transaction
 import { ManualTransactionDialog } from "@/features/transactions/components/manual-transaction-dialog";
 import { activeAccounts, useAccounts } from "@/features/accounts/queries";
 import { CsvFileDialog } from "@/features/imports/components/csv-file-dialog";
-import { setAccountFilter, setCategoryFilter, setTypeFilter, setPage, setSearch, useAccountFilter, useCategoryFilter, useTypeFilter, useChangeView, useSearchFilter } from "@/client/use-app-url";
+import { setAccountFilter, setCategoryFilter, setTypeFilter, setPage, setSearch, useAccountFilter, useCategoryFilter, useTypeFilter, useAllTransactionsHref, useSearchFilter } from "@/client/use-app-url";
 import { Select } from "@/components/ui/select";
 import { anyCategory, CategoryPicker, type CategoryPickerValue } from "@/features/categorization/components/category-picker";
 import { useSearchDraft } from "@/features/transactions/use-search-draft";
@@ -47,7 +47,7 @@ type Props = {
   filterHref: string;
 });
 
-const recentTransactions = 5;
+const recentTransactions = 10;
 
 // The URL filter uses "" for all categories and "uncategorized" for transactions without one.
 function categoryPickerValue(filter: string): CategoryPickerValue {
@@ -83,7 +83,7 @@ export function TransactionsPanel(props: Props) {
   const headingRef = useRef<HTMLHeadingElement>(null);
   const [entryOpen, setEntryOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
-  const changeView = useChangeView();
+  const allTransactionsHref = useAllTransactionsHref();
   const manualAccounts = activeAccounts(useAccounts().data ?? []).filter(account => account.provider === "manual");
 
   return (
@@ -91,9 +91,10 @@ export function TransactionsPanel(props: Props) {
       <div className={styles["card-heading"]}>
         <h2 ref={headingRef} tabIndex={-1}>{headings[view]}</h2>
         {props.view === "overview" && (
-          <button className={ui["text-button"]} onClick={() => changeView("transactions")}>
+          // The overview lists the latest bookings of every month, so the full list continues them over all months.
+          <Link className={ui["text-button"]} href={allTransactionsHref}>
             View all <ArrowRight size={15} />
-          </button>
+          </Link>
         )}
         {props.view === "transactions" && (
           <div className={styles["heading-actions"]}>

@@ -261,7 +261,7 @@ function ChartSkeleton({
           const [income, expenses] = skeletonFlows[index % skeletonFlows.length];
 
           return (
-            <div className={styles["month"]} key={month.toString()}>
+            <div className={styles["month"]} key={month.toString()} data-current={month.equals(currentMonth()) ? "" : undefined}>
               <span className={styles["bars"]}>
                 <span className={clsx(styles["bar"], ui["skeleton"])} style={barPosition("income", income, scale)} />
                 <span className={clsx(styles["bar"], ui["skeleton"])} style={barPosition("expenses", expenses, scale)} />
@@ -314,6 +314,7 @@ function ChartPlot({
     };
   });
   const activeMonth = chartMonths.find(item => item.month === selection?.month);
+  const thisMonth = currentMonth().toString();
   const selectionHidden = selection !== null && activeMonth === undefined;
 
   useEffect(() => {
@@ -393,10 +394,11 @@ function ChartPlot({
               type="button"
               className={styles["month"]}
               key={item.month}
-              aria-label={`${item.title}: income ${money(item.income, currency, locale)}, expenses ${money(item.expenses, currency, locale)}, net ${money(item.net, currency, locale)}, savings rate ${formatSavingsRate(item.savingsRate, locale)}`}
+              aria-label={`${item.title}${item.month === thisMonth ? " (this month)" : ""}: income ${money(item.income, currency, locale)}, expenses ${money(item.expenses, currency, locale)}, net ${money(item.net, currency, locale)}, savings rate ${formatSavingsRate(item.savingsRate, locale)}`}
               aria-describedby={descriptionId}
               aria-controls={detailsId}
               data-active={active ? "" : undefined}
+              data-current={item.month === thisMonth ? "" : undefined}
               {...targetProps(item.month, () => router.push(monthTransactionsHref(item.month)))}
             >
               <span className={styles["bars"]}>

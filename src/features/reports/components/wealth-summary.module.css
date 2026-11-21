@@ -96,6 +96,15 @@
   border-radius: var(--radius-sm);
   padding: var(--space-1) var(--space-2);
 }
+/* The badge's frame and height, so turning it into a choice moves nothing. */
+.currency-choice {
+  min-height: 0;
+  padding-block: var(--space-1);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  line-height: inherit;
+}
 .wealth-number {
   font-size: var(--text-4xl);
   font-weight: 500;

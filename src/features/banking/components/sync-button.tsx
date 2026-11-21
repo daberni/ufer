@@ -11,6 +11,10 @@ import { useDismiss } from "@/components/ui/use-dismiss";
 import { SyncProblemDetails } from "@/features/banking/components/sync-problem-details";
 import { useSyncStatus, type SyncPhase, type SyncProblem } from "@/features/banking/use-sync-status";
 import type { Account } from "@/features/accounts/types";
+import { useSyncRuns } from "@/features/banking/queries";
+import { lastSyncLabel } from "@/features/banking/sync-run-presentation";
+import { useDisplayTimeZone } from "@/components/ui/use-display-time-zone";
+import { useLocale } from "@/client/locale-provider";
 
 type Props = {
   bankAccounts: Account[];
@@ -44,6 +48,10 @@ export function SyncButton({
   const badge = useRef<HTMLButtonElement>(null);
 
   const detailsId = useId();
+
+  const lastSyncId = useId();
+
+  const lastSync = useLastSyncLabel();
 
   const syncing = phase === "syncing";
 
@@ -89,7 +97,7 @@ export function SyncButton({
   }
 
   return (
-    <div ref={container} className={styles["sync"]}>
+    <div ref={container} className={styles["sync"]} title={lastSync}>
       <button
         ref={syncButton}
         type="button"
@@ -98,6 +106,7 @@ export function SyncButton({
         aria-disabled={syncing || undefined}
         aria-busy={syncing}
         aria-label={accessibleName(phase, visibleLabel, problem)}
+        aria-describedby={lastSync ? lastSyncId : undefined}
         onClick={startSync}
       >
         <span className={styles["layers"]}>
@@ -130,9 +139,19 @@ export function SyncButton({
           onOpenConnections={openConnections}
         />
       )}
+      {lastSync && <span id={lastSyncId} hidden>{lastSync}</span>}
       <LiveAnnouncements polite={politeAnnouncement} assertive={assertiveAnnouncement} />
     </div>
   );
+}
+
+// The latest run's time and outcome, shown as the button's tooltip and description; empty until the runs load.
+function useLastSyncLabel() {
+  const locale = useLocale();
+  const timeZone = useDisplayTimeZone();
+  const runs = useSyncRuns();
+
+  return runs.data ? lastSyncLabel(runs.data[0], timeZone, locale) : undefined;
 }
 
 function LayerIcon({

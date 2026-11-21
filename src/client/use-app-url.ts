@@ -3,7 +3,7 @@
 import { useCallback, useMemo } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useAppStore, useAppStoreApi } from "./app-store";
-import { accountHref, viewQuery, isPeriodAware, periodScope, viewFromPathname, viewHref, viewPaths, withQueryChanges, type Section, type ViewQuery, type ViewQueryChanges, type View } from "./app-location";
+import { accountHref, allTransactionsHref, viewQuery, isPeriodAware, periodScope, viewFromPathname, viewHref, viewPaths, withQueryChanges, type Section, type ViewQuery, type ViewQueryChanges, type View } from "./app-location";
 import { monthPeriod, type Period } from "@/lib/period";
 import { Temporal } from "temporal-polyfill";
 
@@ -105,6 +105,13 @@ export function useMonthTransactionsHref() {
     period: monthPeriod(Temporal.PlainYearMonth.from(month)),
     page: 1
   }), [scope]);
+}
+
+/** The transactions view over all months in the current currency. */
+export function useAllTransactionsHref() {
+  const scope = usePeriodScope();
+
+  return useMemo(() => allTransactionsHref(scope), [scope]);
 }
 
 /** A run's transactions; the period stays in the URL so clearing the run returns to it. */
