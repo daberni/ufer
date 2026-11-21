@@ -4,7 +4,7 @@
 export const shownOptionLimit = 100;
 
 function searchText(text: string) {
-  return text.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLocaleLowerCase();
+  return text.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLocaleLowerCase("und");
 }
 
 function matchRank(label: string, terms: readonly string[]) {

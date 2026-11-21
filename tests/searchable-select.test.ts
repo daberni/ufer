@@ -133,7 +133,7 @@ test("a create option is named after the trimmed search unless it is empty or an
   assert.equal(creatableName(options, "   "), "");
 });
 
-test("a create option compares labels like the server's category names, whatever the browser's locale", context => {
+test("search and create options fold case like the server's category names, whatever the browser's locale", context => {
   const lower = String.prototype.toLocaleLowerCase;
 
   // Emulates a Turkish default locale, where "I" folds to a dotless "ı".
@@ -142,4 +142,5 @@ test("a create option compares labels like the server's category names, whatever
   });
 
   assert.equal(creatableName(labelled("I"), "i"), "");
+  assert.deepEqual(matchOptions(labelled("I"), "i").map(option => option.label), ["I"]);
 });
