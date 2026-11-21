@@ -46,7 +46,9 @@ export function useCurveActivation() {
         setFocused(true);
       }
     },
+    // A mouse press released elsewhere never clicks; its pointer type must not outlive the focus.
     onBlur() {
+      pointerType.current = null;
       setFocused(false);
       setTapped(false);
     },

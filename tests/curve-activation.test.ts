@@ -96,3 +96,17 @@ test("a tap toggles the changes and a press outside restores the amounts", async
   });
   assert.equal(curve.textContent, "amounts");
 });
+
+test("a mouse press released elsewhere does not swallow the next keyboard focus", async context => {
+  const { curve } = await showCurve(context);
+
+  fireEvent.pointerDown(curve, {
+    pointerType: "mouse"
+  });
+  act(() => curve.focus());
+  act(() => curve.blur());
+
+  // jsdom treats every focus as visible; a browser does the same for keyboard focus.
+  act(() => curve.focus());
+  assert.equal(curve.textContent, "changes");
+});

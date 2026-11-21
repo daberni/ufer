@@ -163,10 +163,11 @@
   line-height: 1.1;
   font-variant-numeric: tabular-nums;
 }
+/* Leaves room for the headline's change line, which overlays the space beneath the figure. */
 .wealth-card > p {
   font-size: var(--text-sm);
   color: var(--muted);
-  margin-top: var(--space-3);
+  margin-top: var(--space-6);
   line-height: 1.5;
 }
 .bars {
