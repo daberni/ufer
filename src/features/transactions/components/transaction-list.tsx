@@ -122,7 +122,7 @@ function TransactionRow({
         {transaction.type === "transfer" && <span className={styles["counterpart"]}>{transferDirection(transaction)}</span>}
       </td>
       <td role="cell" className={styles["date"]}>
-        <DateValue value={transaction.booking_date} />
+        <DateValue value={transaction.date} />
       </td>
       <td role="cell" className={clsx(styles["amount"], incoming && ui["positive"])}>
         {signedMoney(transaction.amount_minor, transaction.currency, locale)}

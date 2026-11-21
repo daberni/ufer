@@ -127,6 +127,13 @@
       "when": 1795600000000,
       "tag": "0017_bank_account_balances_from_transactions",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1795700000000,
+      "tag": "0018_transaction_value_dates",
+      "breakpoints": true
     }
   ]
 }

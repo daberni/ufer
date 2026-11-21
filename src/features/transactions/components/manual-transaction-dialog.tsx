@@ -62,7 +62,7 @@ function ManualTransactionForm({
 
   function entry(data: FormData): NewEntry {
     const fields = {
-      booking_date: String(data.get("booking_date")),
+      date: String(data.get("date")),
       amount: String(data.get("amount")),
       counterparty: String(data.get("counterparty") ?? ""),
       description: String(data.get("description") ?? ""),

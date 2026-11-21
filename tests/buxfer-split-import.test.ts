@@ -190,7 +190,7 @@ test("valid splits import as split bookings, invalid ones as rule-categorized bo
   assert.equal(confirmed.newRows, 4);
   assert.equal(again.newRows, 0);
 
-  const bookings = await db.select().from(schema.transactions).orderBy(asc(schema.transactions.booking_date));
+  const bookings = await db.select().from(schema.transactions).orderBy(asc(schema.transactions.date));
   const parts = await db.select().from(schema.transactionSplits).orderBy(asc(schema.transactionSplits.transaction_id), asc(schema.transactionSplits.position));
   const categories = new Map((await db.select().from(schema.categories)).map(category => [category.id, category.name]));
   const partsOf = (id: string) => parts.filter(part => part.transaction_id === id).map(part => [categories.get(part.category_id ?? ""), part.amount_minor]);
@@ -224,7 +224,7 @@ test("tags the server cannot take as a split import an unsplit booking that keep
     type: "transfer" as const
   } : row);
   const result = await importMappedRows(payload(sent, true), now);
-  const bookings = await db.select().from(schema.transactions).where(eq(schema.transactions.account_id, "synthetic-checking")).orderBy(asc(schema.transactions.booking_date));
+  const bookings = await db.select().from(schema.transactions).where(eq(schema.transactions.account_id, "synthetic-checking")).orderBy(asc(schema.transactions.date));
 
   assert.deepEqual(result.errors, []);
   assert.equal(result.newRows, 2);
@@ -282,7 +282,7 @@ test("Buxfer investment trades import hidden with their exported amount while ga
   assert.deepEqual(mapped.rows.map(row => [row.amount, row.hidden]), [["1250.5", true], ["300", true], ["40", false], ["2000", false], ["-4.2", false]]);
 
   const result = await importMappedRows(payload(mapped.rows, true), now);
-  const bookings = await db.select().from(schema.transactions).orderBy(asc(schema.transactions.booking_date), asc(schema.transactions.amount_minor));
+  const bookings = await db.select().from(schema.transactions).orderBy(asc(schema.transactions.date), asc(schema.transactions.amount_minor));
   const balance = (await listAccounts()).find(account => account.id === "synthetic-checking")?.balance_minor;
 
   assert.deepEqual(result.errors, []);
@@ -325,7 +325,7 @@ test("Buxfer type values decide the type: refunds are expenses with positive amo
     action: "create",
     name: "Clothing"
   }]), now);
-  const bookings = await db.select().from(schema.transactions).orderBy(asc(schema.transactions.booking_date));
+  const bookings = await db.select().from(schema.transactions).orderBy(asc(schema.transactions.date));
 
   assert.deepEqual(result.errors, []);
   assert.deepEqual(bookings.map(booking => [booking.description, booking.amount_minor, booking.type, booking.transfer_detected]), [

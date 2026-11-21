@@ -208,7 +208,7 @@ test("synced bookings get a type by direction and detected transfers, and cash f
     id: "refund",
     account_id: "checking",
     provider_reference: "csv:refund",
-    booking_date: "2026-09-05",
+    date: "2026-09-05",
     amount_minor: 1500,
     currency: "EUR",
     category_id: "groceries",
@@ -322,7 +322,7 @@ test("a transfer to a manual account creates its counterpart there, and unlinkin
 
   assert.ok(created);
   assert.equal(created.amount_minor, 2500000);
-  assert.equal(created.booking_date, "2026-09-15");
+  assert.equal(created.date, "2026-09-15");
   assert.equal(created.transfer_id, (await stored(db, "deposit")).transfer_id);
 
   const page = await readTransactionPage(dashboardFilters(new URLSearchParams("period=2026-09&currency=EUR")));
@@ -650,7 +650,7 @@ test("type filtering uses booking types, combines with list filters and paginate
     id: `filter-${type}`,
     account_id: "property",
     provider_reference: `filter-${type}`,
-    booking_date: "2026-09-15",
+    date: "2026-09-15",
     amount_minor: 1000,
     currency: "EUR",
     counterparty: "Synthetic matching payee",
@@ -663,7 +663,7 @@ test("type filtering uses booking types, combines with list filters and paginate
     id: `expense-${index}`,
     account_id: "checking",
     provider_reference: `expense-${index}`,
-    booking_date: "2026-09-10",
+    date: "2026-09-10",
     amount_minor: -100,
     currency: "EUR",
     type: "expense" as const

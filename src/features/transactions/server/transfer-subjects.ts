@@ -13,7 +13,7 @@ export const subjectColumns = {
   account_provider: accounts.provider,
   account_archived_at: accounts.archived_at,
   provider_reference: transactions.provider_reference,
-  booking_date: transactions.booking_date,
+  date: transactions.date,
   amount_minor: transactions.amount_minor,
   currency: transactions.currency,
   counterparty: transactions.counterparty,
@@ -66,7 +66,7 @@ function transferBooking(booking: Subject): TransferBooking {
     id: booking.id,
     account_id: booking.account_id,
     account_name: booking.account_name,
-    booking_date: booking.booking_date,
+    date: booking.date,
     amount_minor: booking.amount_minor,
     currency: booking.currency,
     counterparty: booking.counterparty,
@@ -87,8 +87,8 @@ export async function readTransferOptions(id: string): Promise<TransferOptions |
 
   const counterpart = await findCounterpart(db, subject);
 
-  const distance = sql`abs(julianday(${transactions.booking_date})-julianday(${subject.booking_date}))`;
-  const candidates = await db.select(subjectColumns).from(transactions).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(linkCandidate(subject)).orderBy(distance, asc(transactions.booking_date), asc(transactions.id)).limit(20);
+  const distance = sql`abs(julianday(${transactions.date})-julianday(${subject.date}))`;
+  const candidates = await db.select(subjectColumns).from(transactions).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(linkCandidate(subject)).orderBy(distance, asc(transactions.date), asc(transactions.id)).limit(20);
   const manualAccounts = subject.amount_minor === 0 ? [] : await db.select({
     id: accounts.id,
     name: accounts.name

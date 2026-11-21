@@ -1,7 +1,7 @@
 import type { Period } from "@/lib/period";
 
 /**
- * SQL condition on `t.booking_date` for a period. Transaction lists, counts, cash flow and spending all use it so their results describe the same range.
+ * SQL condition on `t.date` for a period. Transaction lists, counts, cash flow and spending all use it so their results describe the same range.
  * A month is a half-open date range rather than a month expression, so the booking-date indexes apply.
  */
 export function periodCondition(period: Period) {
@@ -17,7 +17,7 @@ export function periodCondition(period: Period) {
   };
 
   return {
-    sql: "t.booking_date>=? AND t.booking_date<?",
+    sql: "t.date>=? AND t.date<?",
     args: [period.month.toPlainDate(firstDay).toString(), period.month.add({
       months: 1
     }).toPlainDate(firstDay).toString()]

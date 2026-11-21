@@ -48,7 +48,7 @@ const noTarget: Target = {
 };
 
 function bookingLabel(booking: TransferBooking, locale: string) {
-  const date = describeDate(Temporal.PlainDate.from(booking.booking_date), locale).label;
+  const date = describeDate(Temporal.PlainDate.from(booking.date), locale).label;
   const payee = booking.counterparty || booking.description;
 
   return [booking.account_name, date, signedMoney(booking.amount_minor, booking.currency, locale), payee].filter(Boolean).join(" · ");
@@ -160,7 +160,7 @@ function TransactionFacts({
 }) {
   const locale = useLocale();
   const subject = transaction.counterparty || transaction.description || transactionTypeLabels[transaction.type];
-  const date = describeDate(Temporal.PlainDate.from(transaction.booking_date), locale).label;
+  const date = describeDate(Temporal.PlainDate.from(transaction.date), locale).label;
 
   return (
     <div className={styles["facts"]}>
@@ -324,7 +324,7 @@ function parsedAmount(amount: string, currency: string) {
 
 function entryDefaults(transaction: Transaction) {
   return {
-    booking_date: transaction.booking_date,
+    date: transaction.date,
     amount: decimalAmount(transaction.amount_minor, transaction.currency),
     counterparty: transaction.counterparty,
     description: transaction.description
@@ -747,7 +747,7 @@ function OverridableText({
 function entryEdit(edit: TransactionEdit, data: FormData): EntryEdit {
   return {
     ...edit,
-    booking_date: String(data.get("booking_date")),
+    date: String(data.get("date")),
     amount: String(data.get("amount")),
     counterparty: String(data.get("counterparty") ?? ""),
     description: String(data.get("description") ?? "")
@@ -834,7 +834,7 @@ function BookingChoice({ booking }: {
   booking: TransferBooking
 }) {
   const locale = useLocale();
-  const date = describeDate(Temporal.PlainDate.from(booking.booking_date), locale).label;
+  const date = describeDate(Temporal.PlainDate.from(booking.date), locale).label;
   const details = [date, booking.counterparty, booking.description].filter(Boolean).join(" · ");
 
   return (

@@ -28,7 +28,7 @@ export function allowedByRule(booking: Booking, other: Booking) {
 
 /** Bookings a person can link with `subject`: unlinked, not split, the exact opposite amount in the same currency, on another active account, within the manual link window. The dialog offers only these and linking accepts only these. */
 export function linkCandidate(subject: Subject) {
-  const inWindow = sql`${transactions.booking_date} BETWEEN date(${subject.booking_date},${windowStart(manualLinkDays)}) AND date(${subject.booking_date},${windowEnd(manualLinkDays)})`;
+  const inWindow = sql`${transactions.date} BETWEEN date(${subject.date},${windowStart(manualLinkDays)}) AND date(${subject.date},${windowEnd(manualLinkDays)})`;
 
   // A link involving an archived account only changes types; a booking entered in Ufer would follow the link's date, so it is no candidate then.
   const entered = sql`(${accounts.provider}='manual' AND (${transactions.provider_reference} LIKE ${`${manualEntryPrefix}%`} OR ${transactions.provider_reference} LIKE ${`${createdCounterpartPrefix}%`}))`;
