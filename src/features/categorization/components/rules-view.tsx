@@ -28,6 +28,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { reorderInstructions, useRuleReorder, verticalOnly } from "./use-rule-reorder";
 import { useLocale } from "@/client/locale-provider";
 import { formatCount } from "@/lib/locale";
+import { Tooltip } from "@/components/ui/tooltip";
 
 type Props = {
   categories: Area<Category[]>;
@@ -185,20 +186,24 @@ function CategoryGrid({
     <ul className={styles["category-grid"]}>
       {categories.map(category => (
         <li key={category.id}>
-          <button
-            className={styles["category-tile"]}
-            type="button"
-            aria-label={`Edit category ${category.name}`}
-            title={category.name}
-            style={{
-              color: categoryNameColor(category)
-            }}
-            onClick={() => editCategory(category)}
-          >
-            <CategoryGlyph category={category} />
-            <span className={styles["category-name"]}>{category.name}</span>
-            <Pencil className={styles["edit-hint"]} aria-hidden="true" size={16} />
-          </button>
+          <Tooltip text={category.name} describes={false} onlyWhenTruncated>
+            {trigger => (
+              <button
+                {...trigger}
+                className={styles["category-tile"]}
+                type="button"
+                aria-label={`Edit category ${category.name}`}
+                style={{
+                  color: categoryNameColor(category)
+                }}
+                onClick={() => editCategory(category)}
+              >
+                <CategoryGlyph category={category} />
+                <span className={styles["category-name"]}>{category.name}</span>
+                <Pencil className={styles["edit-hint"]} aria-hidden="true" size={16} />
+              </button>
+            )}
+          </Tooltip>
         </li>
       ))}
     </ul>
@@ -363,18 +368,24 @@ function RuleTypeLabel({
 }: {
   rule: Rule;
 }) {
-  if (!rule.transaction_type) {
+  const type = rule.transaction_type;
+
+  if (!type) {
     return null;
   }
 
-  const label = transactionTypeLabels[rule.transaction_type];
+  const label = transactionTypeLabels[type];
   const text = rule.transfer_account_name ? `${label} · ${rule.transfer_account_name}` : label;
 
   return (
-    <span className={styles["rule-type"]} title={`Sets type: ${text}`}>
-      <TransactionTypeIcon type={rule.transaction_type} />
-      <span>{text}</span>
-    </span>
+    <Tooltip text={`Sets type: ${text}`}>
+      {trigger => (
+        <span {...trigger} className={styles["rule-type"]}>
+          <TransactionTypeIcon type={type} />
+          <span>{text}</span>
+        </span>
+      )}
+    </Tooltip>
   );
 }
 
@@ -422,19 +433,25 @@ function RuleRowContent({
 }: Pick<RuleRowProps, "rule" | "toggling" | "toggleRule" | "editRule">) {
   return (
     <>
-      <button
-        className={styles["rule-name"]}
-        type="button"
-        title={`${rule.name}: ${rule.pattern}`}
-        aria-label={`Edit rule ${rule.name}`}
-        onClick={() => editRule(rule)}
-      >
-        <strong>{rule.name}</strong>
-        <Pencil className={styles["edit-hint"]} aria-hidden="true" size={16} />
-      </button>
+      <Tooltip text={`${rule.name}: ${rule.pattern}`}>
+        {trigger => (
+          <button
+            {...trigger}
+            className={styles["rule-name"]}
+            type="button"
+            aria-label={`Edit rule ${rule.name}`}
+            onClick={() => editRule(rule)}
+          >
+            <strong>{rule.name}</strong>
+            <Pencil className={styles["edit-hint"]} aria-hidden="true" size={16} />
+          </button>
+        )}
+      </Tooltip>
       <div className={styles["rule-pattern"]}>
         <span className={styles["rule-label"]}>{rule.mode === "keyword" ? "Keyword" : "Regex"}</span>
-        <code title={rule.pattern}>{rule.pattern}</code>
+        <Tooltip text={rule.pattern} describes={false} onlyWhenTruncated>
+          {trigger => <code {...trigger}>{rule.pattern}</code>}
+        </Tooltip>
       </div>
       <div className={styles["rule-details"]}>
         <span className={styles["rule-category"]}>

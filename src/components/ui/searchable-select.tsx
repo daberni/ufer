@@ -4,10 +4,11 @@ import ui from "./primitives.module.css";
 import styles from "./searchable-select.module.css";
 import { Check, ChevronDown, Plus } from "lucide-react";
 import { clsx } from "clsx";
-import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
-import { creatableName, matchOptions, searchableSelectKeyAction, searchableSelectToggleKeyAction, shownOptionLimit, type SearchableSelectAction } from "./searchable-select-behavior";
-import { popoverMaxWidth, popoverPlacement, visibleArea } from "./popover-placement";
+import { creatableName, matchOptions, searchableSelectToggleKeyAction, shownOptionLimit } from "./searchable-select-behavior";
+import { useAnchoredPopover } from "./use-anchored-popover";
+import { useComboboxOptions } from "./use-combobox-options";
 import { useDismiss } from "./use-dismiss";
 import { formatCount } from "@/lib/locale";
 import { useLocale } from "@/client/locale-provider";
@@ -91,7 +92,6 @@ export function SearchableSelect<Value>({
   "aria-describedby": ariaDescribedBy
 }: Props<Value>) {
   const [open, setOpen] = useState(false);
-  const [activeIndex, setActiveIndex] = useState(-1);
   // While the toggle button has focus, the field's active descendant is not read, so the highlighted option is announced instead.
   const [toggleFocused, setToggleFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -101,7 +101,6 @@ export function SearchableSelect<Value>({
   const controlRef = useRef<HTMLDivElement>(null);
   const popupRef = useRef<HTMLDivElement>(null);
   const listboxRef = useRef<HTMLUListElement>(null);
-  const listboxId = useId();
   const locale = useLocale();
   const selected = options.find(option => Object.is(option.value, value));
   // The selected option's label lists every option again, so another one can be picked without clearing the field first.
@@ -111,9 +110,27 @@ export function SearchableSelect<Value>({
   const createName = onCreate && !notice ? creatableName(options, query) : "";
   const createIndex = createName ? shown.length : -1;
   const optionCount = shown.length + (createName ? 1 : 0);
-  const active = Math.min(activeIndex, optionCount - 1);
+  const openingIndex = openAtFirst ? 0 : Math.max(selectedIndex, 0);
+  const {
+    listboxId,
+    optionId,
+    active,
+    setActiveIndex,
+    activeDescendant,
+    keyState,
+    apply,
+    handleKeyDown
+  } = useComboboxOptions({
+    open,
+    optionCount,
+    // Keys that open the list start where opening by pointer does.
+    selectedIndex: openAtFirst ? -1 : selectedIndex,
+    listboxRef,
+    onOpen: () => setOpen(true),
+    onSelect: choose,
+    onClose: () => setOpen(false)
+  });
   const createLabel = `Create ${noun.one} “${createName}”`;
-  const optionId = (index: number) => `${listboxId}-option-${index}`;
   const countText = (count: number) => `${formatCount(count, locale)} ${count === 1 ? noun.one : noun.other}`;
   const truncated = matches.length > shown.length;
   const listLabel = `${noun.other.charAt(0).toLocaleUpperCase()}${noun.other.slice(1)}`;
@@ -146,82 +163,13 @@ export function SearchableSelect<Value>({
     announcement = `${activeLabel}${active === selectedIndex ? ", selected" : ""}, ${formatCount(active + 1, locale)} of ${formatCount(optionCount, locale)}`;
   }
 
-  const place = useCallback(() => {
-    const control = controlRef.current;
-    const popup = popupRef.current;
-
-    if (!control || !popup) {
-      return;
-    }
-
-    const anchor = control.getBoundingClientRect();
-    const visible = visibleArea();
-
-    popup.style.minWidth = `${anchor.width}px`;
-    popup.style.maxWidth = `${popoverMaxWidth(visible)}px`;
-    popup.style.maxHeight = "";
-
-    const placement = popoverPlacement(anchor, {
-      width: popup.offsetWidth,
-      height: popup.offsetHeight
-    }, visible);
-
-    popup.style.top = `${placement.top}px`;
-    popup.style.left = `${placement.left}px`;
-    popup.style.maxHeight = `${placement.maxHeight}px`;
-  }, []);
-
   // The list joins the top layer, so it neither grows a surrounding dialog nor gets clipped by it or by a scrolling table.
-  useLayoutEffect(() => {
-    const popup = popupRef.current;
-
-    if (!popup?.showPopover) {
-      return;
-    }
-
-    const showing = popup.matches(":popover-open");
-
-    if (!open) {
-      if (showing) {
-        popup.hidePopover();
-      }
-
-      return;
-    }
-
-    if (!showing) {
-      popup.showPopover();
-    }
-
-    place();
-  }, [open, place, shown.length, message, createName]);
-
-  // It follows the field while a dialog or the page scrolls and while an on-screen keyboard changes the visible area.
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-
-    function placeUnlessListScrolled(event: Event) {
-      if (event.target !== listboxRef.current) {
-        place();
-      }
-    }
-
-    const viewport = window.visualViewport;
-
-    document.addEventListener("scroll", placeUnlessListScrolled, true);
-    window.addEventListener("resize", place);
-    viewport?.addEventListener("resize", place);
-    viewport?.addEventListener("scroll", place);
-
-    return () => {
-      document.removeEventListener("scroll", placeUnlessListScrolled, true);
-      window.removeEventListener("resize", place);
-      viewport?.removeEventListener("resize", place);
-      viewport?.removeEventListener("scroll", place);
-    };
-  }, [open, place]);
+  useAnchoredPopover({
+    open,
+    anchorRef: controlRef,
+    popupRef,
+    matchAnchorWidth: true
+  });
 
   // Touch browsers keep the field focused when a tap lands on something that cannot take focus, so blurring alone does not close the list.
   useDismiss({
@@ -229,14 +177,6 @@ export function SearchableSelect<Value>({
     inside: [controlRef, popupRef],
     onDismiss: () => setOpen(false)
   });
-
-  useEffect(() => {
-    if (open) {
-      listboxRef.current?.querySelector("[data-active]")?.scrollIntoView({
-        block: "nearest"
-      });
-    }
-  }, [open, active]);
 
   function openAt(index: number) {
     setActiveIndex(index);
@@ -279,19 +219,6 @@ export function SearchableSelect<Value>({
     }
   }
 
-  const openingIndex = openAtFirst ? 0 : Math.max(selectedIndex, 0);
-  const keyState = {
-    open,
-    activeIndex: active,
-    // Keys that open the list start where opening by pointer does.
-    selectedIndex: openAtFirst ? -1 : selectedIndex,
-    optionCount
-  };
-
-  function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
-    apply(event, searchableSelectKeyAction(event, keyState));
-  }
-
   function handleToggleKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
     const action = searchableSelectToggleKeyAction(event, keyState);
 
@@ -304,34 +231,6 @@ export function SearchableSelect<Value>({
     }
 
     apply(event, action);
-  }
-
-  function apply(event: KeyboardEvent, action: SearchableSelectAction) {
-    if (action.type === "none") {
-      return;
-    }
-
-    // Tab still moves focus; the other handled keys must not move the caret, click the button, submit the form or close a surrounding dialog.
-    if (event.key !== "Tab") {
-      event.preventDefault();
-    }
-
-    event.stopPropagation();
-
-    switch (action.type) {
-      case "open":
-        openAt(action.activeIndex);
-        break;
-      case "move":
-        setActiveIndex(action.activeIndex);
-        break;
-      case "select":
-        choose(active);
-        break;
-      case "close":
-        setOpen(false);
-        break;
-    }
   }
 
   return (
@@ -359,7 +258,7 @@ export function SearchableSelect<Value>({
           aria-autocomplete="list"
           aria-expanded={open}
           aria-controls={listboxId}
-          aria-activedescendant={open && active >= 0 ? optionId(active) : undefined}
+          aria-activedescendant={activeDescendant}
           aria-busy={busy}
           aria-label={ariaLabel}
           aria-invalid={ariaInvalid}

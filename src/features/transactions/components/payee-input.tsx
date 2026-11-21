@@ -1,9 +1,10 @@
 "use client";
 
 import styles from "../../../components/ui/searchable-select.module.css";
-import { useEffect, useId, useRef, useState } from "react";
-import type { KeyboardEvent, RefObject } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { RefObject } from "react";
 import { useAnchoredPopover } from "@/components/ui/use-anchored-popover";
+import { useComboboxOptions } from "@/components/ui/use-combobox-options";
 import { useDismiss } from "@/components/ui/use-dismiss";
 import { usePayeeSuggestions } from "@/features/transactions/queries";
 import { commitDelay } from "@/features/transactions/use-search-draft";
@@ -35,18 +36,29 @@ export function PayeeInput({
   const input = useRef<HTMLInputElement>(null);
   const popupRef = useRef<HTMLDivElement>(null);
   const listboxRef = useRef<HTMLUListElement>(null);
-  const listboxId = useId();
   const [query, setQuery] = useState(defaultValue);
   // The text suggestions were last requested for; it follows typing once typing pauses.
   const [requested, setRequested] = useState(defaultValue);
   const [open, setOpen] = useState(false);
-  const [activeIndex, setActiveIndex] = useState(-1);
   const suggestions = usePayeeSuggestions(open ? requested : "");
   // Suggestions only show for the text in the field, so results for earlier text cannot overwrite newer typing.
   const shown = open && query === requested ? suggestions.data?.payees ?? [] : [];
   const expanded = shown.length > 0;
-  const active = Math.min(activeIndex, shown.length - 1);
-  const optionId = (index: number) => `${listboxId}-option-${index}`;
+  const {
+    listboxId,
+    optionId,
+    active,
+    setActiveIndex,
+    activeDescendant,
+    handleKeyDown
+  } = useComboboxOptions({
+    open: expanded,
+    optionCount: shown.length,
+    listboxRef,
+    onOpen: () => setOpen(true),
+    onSelect: index => pick(shown[index]),
+    onClose: close
+  });
 
   useEffect(() => {
     if (query === requested) {
@@ -57,14 +69,6 @@ export function PayeeInput({
 
     return () => clearTimeout(timer);
   }, [query, requested]);
-
-  useEffect(() => {
-    if (expanded) {
-      listboxRef.current?.querySelector("[data-active]")?.scrollIntoView({
-        block: "nearest"
-      });
-    }
-  }, [expanded, active]);
 
   useAnchoredPopover({
     open: expanded,
@@ -96,41 +100,6 @@ export function PayeeInput({
     onValueChange?.(payee);
   }
 
-  function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
-    if (!expanded) {
-      return;
-    }
-
-    const handled = ["ArrowDown", "ArrowUp", "Escape"].includes(event.key) || (event.key === "Enter" && active >= 0);
-
-    if (!handled) {
-      if (event.key === "Tab") {
-        close();
-      }
-
-      return;
-    }
-
-    // These keys must not move the caret, submit the form or close a surrounding dialog.
-    event.preventDefault();
-    event.stopPropagation();
-
-    switch (event.key) {
-      case "ArrowDown":
-        setActiveIndex(active + 1 < shown.length ? active + 1 : 0);
-        break;
-      case "ArrowUp":
-        setActiveIndex(active > 0 ? active - 1 : shown.length - 1);
-        break;
-      case "Enter":
-        pick(shown[active]);
-        break;
-      case "Escape":
-        close();
-        break;
-    }
-  }
-
   return (
     <>
       <label>
@@ -152,7 +121,7 @@ export function PayeeInput({
           aria-autocomplete="list"
           aria-expanded={expanded}
           aria-controls={listboxId}
-          aria-activedescendant={expanded && active >= 0 ? optionId(active) : undefined}
+          aria-activedescendant={activeDescendant}
           aria-describedby={ariaDescribedBy}
           onChange={event => {
             setQuery(event.target.value);
