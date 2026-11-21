@@ -6,7 +6,7 @@ import { username } from "better-auth/plugins";
 import { HttpError } from "@/lib/errors";
 import { database, type Database, type DatabaseTransaction } from "@/server/database/connection";
 import { allowedOrigins, applicationOrigin } from "@/server/http/origin";
-import { authAccounts, authRateLimits, authSessions, authUsers, authVerifications } from "./auth-schema";
+import { authAccounts, authRateLimits, authSessions, authUsers, authVerifications } from "@/server/database/auth-schema";
 
 type AuthOptions = {
   enrollment?: boolean;

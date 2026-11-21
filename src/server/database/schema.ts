@@ -1,6 +1,5 @@
 import { desc, sql } from "drizzle-orm";
-// eslint-disable-next-line boundaries/dependencies -- known violation tracked in daberni/ufer#285
-import { authSessions, authUsers, workspaces } from "@/features/auth/server/auth-schema";
+import { authSessions, authUsers, workspaces } from "./auth-schema";
 import { check, index, integer, sqliteTable, text, unique, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { ruleTransactionTypes, transactionTypes } from "@/lib/transaction-types";
 
@@ -207,5 +206,4 @@ export const importTemplates = sqliteTable("import_templates", {
   uniqueIndex("import_templates_name_key").on(table.name_key)
 ]);
 
-// eslint-disable-next-line boundaries/dependencies -- known violation tracked in daberni/ufer#285
-export { authUsers, authSessions, authAccounts, authVerifications, authRateLimits, workspaces, memberships } from "@/features/auth/server/auth-schema";
+export { authUsers, authSessions, authAccounts, authVerifications, authRateLimits, workspaces, memberships } from "./auth-schema";
