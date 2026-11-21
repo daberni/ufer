@@ -8,6 +8,7 @@ import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/libsql";
 import type { Database } from "../src/server/database/connection";
 import { initializeDatabase } from "../src/server/database/migrations";
+import { maxRequestBodyBytes } from "../src/server/http/request-body";
 import * as schema from "../src/server/database/schema";
 import { listAccounts } from "../src/features/accounts/server/account-queries";
 import { archiveAccount, restoreAccount } from "../src/features/accounts/server/account-service";
@@ -459,18 +460,27 @@ test("a retried import reserves its earlier rows, so a neighbouring row of a lat
   assert.equal((await db.select().from(schema.transactions)).length, 2);
 });
 
-test("consumed matches stay within the request limit when a file holds more rows in the window than a request accepts", () => {
+test("consumed matches stay within the request body limit when a file holds more rows in the window than a request can carry", () => {
   const consumed = Array.from({
     length: maxConsumedPerRequest + 5
   }, (_value, index) => ({
-    account_id: "synthetic-account",
-    reference: `csv:m:${index}`,
+    account_id: "00000000-0000-4000-8000-000000000001",
+    reference: `csv:m:${index.toString(16).padStart(32, "0")}`,
     date: index < 5 ? "2024-04-01" : "2024-04-02"
   }));
   const pruned = pruneConsumed(consumed, "2024-04-02");
+  const rows = Array.from({
+    length: 2000
+  }, (_value, index) => mappedRow(index + 2, "2024-04-02", "-1.00", "x".repeat(400)));
+  const body = JSON.stringify({
+    import_id: importId,
+    rows: batchRows(rows)[0],
+    consumed: pruned
+  });
 
-  assert.equal(pruned.length, maxConsumedPerRequest);
+  assert.ok(pruned.length > 0);
   assert.ok(pruned.every(booking => booking.date === "2024-04-02"));
+  assert.ok(new TextEncoder().encode(body).length < maxRequestBodyBytes);
 });
 
 test("a card statement's settlement is a possible duplicate of the linked transfer already on the card account", async context => {

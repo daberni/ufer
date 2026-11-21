@@ -1010,13 +1010,29 @@ export type ConsumedBooking = {
 /** At most as many consumed bookings as a request accepts. */
 export const maxConsumedPerRequest = 20_000;
 
+/** Serialized size the consumed bookings may take; with a row batch of at most 1 MB the request stays below the 2 MiB body limit. */
+export const maxConsumedBytes = 800_000;
+
 /**
  * Drops matches that no row of a batch starting at `earliestDate` can reach; with date-sorted batches this keeps the list bounded however large the file is.
- * A file with more rows inside that window than a request accepts keeps the latest ones, so the import still completes; only the dropped rows could then absorb a neighbouring row by content.
+ * A file with more rows inside that window than a request can carry keeps the latest ones, so the import still completes; only the dropped rows could then absorb a neighbouring row by content.
  */
 export function pruneConsumed(consumed: ConsumedBooking[], earliestDate: string) {
   const reach = new Date(Date.parse(`${earliestDate}T00:00:00Z`) - duplicateDateToleranceDays * 86_400_000).toISOString().slice(0, 10);
-  const reachable = consumed.filter(booking => booking.date >= reach);
+  const latestFirst = consumed.filter(booking => booking.date >= reach).toSorted((left, right) => right.date.localeCompare(left.date));
+  const kept: ConsumedBooking[] = [];
+  let size = 2;
 
-  return reachable.length > maxConsumedPerRequest ? reachable.toSorted((left, right) => left.date.localeCompare(right.date)).slice(-maxConsumedPerRequest) : reachable;
+  for (const booking of latestFirst) {
+    size += new TextEncoder().encode(JSON.stringify(booking)).length + 1;
+
+    if (size > maxConsumedBytes || kept.length >= maxConsumedPerRequest) {
+      break;
+    }
+
+    kept.push(booking);
+  }
+
+  return kept.reverse();
 }
+
