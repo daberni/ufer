@@ -6,6 +6,25 @@ import { normalizeText } from "./text";
 /** Days a booking date may differ between duplicates: banks and exports disagree between booking and value date, and weekends shift bookings by up to three days. */
 export const duplicateDateToleranceDays = 3;
 
+/** Every date a booking is recorded on: its date and, for a bank booking, the bank's booking date. */
+export function bookingDays(booking: Pick<Booking, "date" | "bankBookingDate">) {
+  return booking.bankBookingDate && booking.bankBookingDate !== booking.date ? [booking.date, booking.bankBookingDate] : [booking.date];
+}
+
+/** Whether two bookings share any recorded date. */
+export function sameDay(left: Pick<Booking, "date" | "bankBookingDate">, right: Pick<Booking, "date" | "bankBookingDate">) {
+  const rightDays = bookingDays(right);
+
+  return bookingDays(left).some(day => rightDays.includes(day));
+}
+
+/** The fewest days between any recorded dates of two bookings. */
+export function bookingDistance(left: Pick<Booking, "date" | "bankBookingDate">, right: Pick<Booking, "date" | "bankBookingDate">) {
+  const rightDays = bookingDays(right);
+
+  return Math.min(...bookingDays(left).flatMap(day => rightDays.map(other => dayDistance(day, other))));
+}
+
 /** The booking dates that may hold a match for any of these dates, which must be sorted and not empty. */
 export function matchingWindow(sortedDates: string[]) {
   return {
@@ -23,6 +42,8 @@ function shiftDays(date: string, days: number) {
 /** The fields that identify one movement across sources. */
 export type Booking = {
   date: string;
+  /** A bank booking's own booking date next to its value date in `date`; other sources may record either date, so both count. */
+  bankBookingDate?: string | null;
   amount: number;
   counterparty: string;
   description: string;
@@ -67,12 +88,12 @@ export function prepareBooking<T extends Booking>(booking: T): PreparedBooking<T
 }
 
 /**
- * The booking that records the same movement as `candidate`: exactly the same amount and matching text, on the same booking date, or else the only such booking at most `duplicateDateToleranceDays` apart.
+ * The booking that records the same movement as `candidate`: exactly the same amount and matching text, sharing a recorded date (see `bookingDays`), or else the only such booking at most `duplicateDateToleranceDays` apart.
  * Several bookings within the window are "ambiguous" and match none; -1 means no match.
  */
 export function matchBooking<T extends Booking>(candidate: PreparedBooking<Booking>, prepared: PreparedBookings<T>, available: (index: number) => boolean): number | "ambiguous" {
   const fits = sameAmountInWindow(candidate, prepared, available).filter(index => textsMatch(prepared.bookings[index], candidate));
-  const sameDate = fits.find(index => prepared.bookings[index].date === candidate.date);
+  const sameDate = fits.find(index => sameDay(prepared.bookings[index], candidate));
 
   if (sameDate !== undefined) {
     return sameDate;
@@ -88,7 +109,7 @@ export function matchBooking<T extends Booking>(candidate: PreparedBooking<Booki
 export function sameAmountInWindow<T extends Booking>(candidate: Booking, prepared: PreparedBookings<T>, available: (index: number) => boolean) {
   const indices = prepared.byAmount.get(candidate.amount) ?? [];
 
-  return indices.filter(index => available(index) && dayDistance(prepared.bookings[index].date, candidate.date) <= duplicateDateToleranceDays);
+  return indices.filter(index => available(index) && bookingDistance(prepared.bookings[index], candidate) <= duplicateDateToleranceDays);
 }
 
 export function textsMatch(left: Pick<PreparedBooking<Booking>, "text" | "words">, right: Pick<PreparedBooking<Booking>, "text" | "words">) {

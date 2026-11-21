@@ -1305,9 +1305,11 @@ test("environment migration drops the per-row banking environment and keeps ever
       accounts: await accountColumns(client),
       account_identifiers: await columnList(client, "account_identifiers"),
       requisitions: await columnList(client, "requisitions"),
-      sync_runs: await columnList(client, "sync_runs")
+      sync_runs: await columnList(client, "sync_runs"),
+      transactions: await columnList(client, "transactions"),
+      balance_snapshots: await columnList(client, "balance_snapshots")
     };
-    const snapshot = async () => Object.fromEntries(await Promise.all([...Object.entries(columns), ["transactions", await columnList(client, "transactions")], ["balance_snapshots", await columnList(client, "balance_snapshots")]].map(async ([table, list]) => [table, (await client.execute(`SELECT ${list} FROM ${table} ${table === "transactions" ? withoutBankOpenings : ""} ORDER BY rowid`)).rows])));
+    const snapshot = async () => Object.fromEntries(await Promise.all(Object.entries(columns).map(async ([table, list]) => [table, (await client.execute(`SELECT ${list} FROM ${table} ${table === "transactions" ? withoutBankOpenings : ""} ORDER BY rowid`)).rows])));
     const before = await snapshot();
 
     await assert.rejects(initializeDatabase(client), /migrations are pending/);

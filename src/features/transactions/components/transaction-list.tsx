@@ -69,6 +69,8 @@ function TransactionRow({
   const [editing, setEditing] = useState(false);
   const incoming = transaction.amount_minor > 0;
   const original = originalAmount(transaction, locale);
+  // The list shows the value date; the bank's later booking date helps to reconcile with a statement.
+  const bankBooked = transaction.bank_booking_date !== transaction.booking_date ? transaction.bank_booking_date : null;
   const subject = transaction.counterparty || transaction.description || transactionTypeLabels[transaction.type];
   // Without a payee the description is already the title, so it is not repeated below.
   const showsDescription = Boolean(transaction.counterparty) || !transaction.description;
@@ -100,7 +102,7 @@ function TransactionRow({
               <span className={clsx(styles["description"], styles["spacer"])} aria-hidden="true">&nbsp;</span>
             </>
           )}
-          {transaction.counterparty || transaction.description ? (
+          {transaction.counterparty || transaction.description || bankBooked ? (
             <details className={styles["transaction-details"]}>
               <summary aria-label={`Details for ${subject}`}>Details</summary>
               <dl>
@@ -108,6 +110,12 @@ function TransactionRow({
                 <dd>{transaction.counterparty || "Not provided"}</dd>
                 <dt>Description</dt>
                 <dd>{transaction.description || "No description"}</dd>
+                {bankBooked && (
+                  <>
+                    <dt>Booked by bank</dt>
+                    <dd><DateValue value={bankBooked} /></dd>
+                  </>
+                )}
               </dl>
             </details>
           ) : <span className={styles["no-details"]}>No description</span>}

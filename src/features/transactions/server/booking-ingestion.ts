@@ -2,7 +2,7 @@ import { and, between, eq, inArray, isNotNull, like, ne } from "drizzle-orm";
 import type { DatabaseTransaction } from "@/server/database/connection";
 import { transactions } from "@/server/database/schema";
 import { createdCounterpartPrefix, mappedReferencePrefix } from "@/lib/booking-references";
-import { matchBooking, matchingWindow, prepareBooking, prepareBookings } from "@/lib/booking-matching";
+import { bookingDays, matchBooking, matchingWindow, prepareBooking, prepareBookings } from "@/lib/booking-matching";
 import { derivedTransactionType } from "@/lib/transaction-types";
 import type { CategorizedEntry } from "./transaction-entry";
 import { createdCounterpart, enteredInUfer } from "./transfer-rules";
@@ -20,7 +20,7 @@ export async function adoptImportedRows(tx: DatabaseTransaction, accountId: stri
     return entries;
   }
 
-  const window = matchingWindow(entries.map(entry => entry.date).sort());
+  const window = matchingWindow(entries.flatMap(bookingDays).sort());
   const imported = await tx.select({
     id: transactions.id,
     reference: transactions.provider_reference,

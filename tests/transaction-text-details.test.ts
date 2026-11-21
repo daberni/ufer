@@ -14,6 +14,7 @@ const fullDescription = "Card purchase from a synthetic merchant\nReference AT00
 const booking: Transaction = {
   id: "readable-booking",
   booking_date: "2026-09-02",
+  bank_booking_date: null,
   amount_minor: -1250,
   currency: "EUR",
   instructed_amount_minor: null,

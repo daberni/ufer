@@ -74,6 +74,7 @@ export async function upsertTransactions(tx: DatabaseTransaction, accountId: str
       account_id: accountId,
       provider_reference: entry.reference,
       booking_date: entry.date,
+      bank_booking_date: entry.bankBookingDate ?? null,
       amount_minor: entry.amount,
       currency: entry.currency,
       counterparty: entry.counterparty,
@@ -92,6 +93,7 @@ export async function upsertTransactions(tx: DatabaseTransaction, accountId: str
       target: [transactions.account_id, transactions.provider_reference],
       set: {
         booking_date: sql`excluded.booking_date`,
+        bank_booking_date: sql`excluded.bank_booking_date`,
         amount_minor: sql`excluded.amount_minor`,
         currency: sql`excluded.currency`,
         counterparty: sql`excluded.counterparty`,

@@ -479,7 +479,10 @@ test("the bank balance upgrade keeps every current balance and net worth and boo
 
   assert.deepEqual(accountsAfter.map(account => [account.id, account.balance_minor]).sort(), balancesBefore.sort());
   assert.equal((await readNetWorth("EUR")).netWorth, balancesBefore.reduce((total, [, balance]) => total + Number(balance ?? 0), 0));
-  assert.deepEqual((await client.execute("SELECT * FROM transactions WHERE type<>'opening_balance' OR account_id='cash' ORDER BY id")).rows, transactionsBefore);
+  // Later changesets add columns, so only the columns that existed before the upgrade are compared.
+  const columnsBefore = Object.keys(transactionsBefore[0]).join(",");
+
+  assert.deepEqual((await client.execute(`SELECT ${columnsBefore} FROM transactions WHERE type<>'opening_balance' OR account_id='cash' ORDER BY id`)).rows, transactionsBefore);
 
   const openings = await client.execute("SELECT account_id,booking_date,amount_minor,provider_reference='manual:' || id AS entered FROM transactions WHERE type='opening_balance' AND account_id<>'cash' ORDER BY account_id");
 

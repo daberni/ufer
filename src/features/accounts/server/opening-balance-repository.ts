@@ -85,7 +85,8 @@ async function bookOpeningBalance(tx: DatabaseTransaction, accountId: string, re
 
   const booked = await tx.select({
     oldest: sql<string | null>`MIN(${transactions.booking_date})`,
-    throughDate: sql<number>`COALESCE(SUM(CASE WHEN ${lte(transactions.booking_date, reported.date)} THEN ${transactions.amount_minor} ELSE 0 END),0)`.mapWith(Number)
+    // The reported balance contains what the bank booked through its date, by the bank's booking date rather than the value date.
+    throughDate: sql<number>`COALESCE(SUM(CASE WHEN COALESCE(${transactions.bank_booking_date},${transactions.booking_date})<=${reported.date} THEN ${transactions.amount_minor} ELSE 0 END),0)`.mapWith(Number)
   }).from(transactions).where(and(eq(transactions.account_id, accountId), isNull(transactions.suppressed_at))).get();
   const beforeBookings = booked?.oldest ? dayBefore(booked.oldest) : reported.date;
   const id = randomUUID();

@@ -1,6 +1,6 @@
 import { keepBankOpeningBalanceFirst } from "@/features/accounts/server/opening-balance-repository";
 import { randomUUID } from "node:crypto";
-import { and, between, eq, inArray, ne, notInArray, sql } from "drizzle-orm";
+import { and, between, eq, inArray, ne, notInArray, or, sql } from "drizzle-orm";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 import { accounts, categories, transactionSplits, transactions } from "@/server/database/schema";
 import type { AccountKind } from "@/features/accounts/account-kinds";
@@ -144,11 +144,14 @@ export async function findImportOpening(accountId: string, ids: string[]) {
 
 /** Bookings that imported rows could duplicate, hidden ones included so a later import does not add them again; balance corrections are never imported rows. */
 function bookingsBetween(executor: Executor, accountId: string, from: string, to: string): Promise<ExistingBooking[]> {
-  const scope = and(eq(transactions.account_id, accountId), between(transactions.booking_date, from, to), notInArray(transactions.type, ["opening_balance", "adjustment"]));
+  // A bank booking may match on its value date or on the bank's booking date.
+  const inWindow = or(between(transactions.booking_date, from, to), between(transactions.bank_booking_date, from, to));
+  const scope = and(eq(transactions.account_id, accountId), inWindow, notInArray(transactions.type, ["opening_balance", "adjustment"]));
 
   return executor.select({
     reference: transactions.provider_reference,
     date: transactions.booking_date,
+    bankBookingDate: transactions.bank_booking_date,
     amount: transactions.amount_minor,
     counterparty: transactions.counterparty,
     description: transactions.description,
@@ -187,6 +190,7 @@ async function bookingsWithReferences(executor: Executor, accountId: string, ref
     found.push(...await executor.select({
       reference: transactions.provider_reference,
       date: transactions.booking_date,
+      bankBookingDate: transactions.bank_booking_date,
       amount: transactions.amount_minor,
       counterparty: transactions.counterparty,
       description: transactions.description,

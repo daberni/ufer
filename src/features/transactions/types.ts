@@ -19,7 +19,10 @@ export type TransactionSplit = {
 
 export type Transaction = {
   id: string;
+  /** The date the booking counts on; for a bank booking its value date. */
   booking_date: string;
+  /** The bank's own booking date of a synced booking; null for other sources. */
+  bank_booking_date: string | null;
   amount_minor: number;
   currency: string;
   /** The original amount of a foreign-currency booking, when the bank provides it. */
