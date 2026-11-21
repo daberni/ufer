@@ -16,7 +16,7 @@ Ufer needs two kinds of use, which providers license differently:
 
 ## Key findings
 
-- Every provider counts requests **per security**. Batch or bulk endpoints save round trips, not quota (EODHD bulk costs 100 calls plus one per security; Marketstack and Twelve Data charge one unit per symbol).
+- Most providers count requests **per security**; Marketstack and Twelve Data batch endpoints save round trips, not quota. EODHD's whole-exchange bulk download is the exception: a flat 100 calls for every security on one exchange (paid plans only), while its symbol-filtered form costs 100 plus one per security. With more than about 100 securities on one exchange, the whole-exchange download is cheaper.
 - The trading venue shown by a broker is only where its displayed price comes from. Holdings are held independently of the venue, so any liquid EUR listing (for example XETRA) is a valid valuation source. Prices from venues trading into the evening (Lang & Schwarz, gettex) can differ from the XETRA close by roughly a percent on volatile days.
 - Mutual fund values usually lag one day because the fund's price is published the following day.
 - Storing the chosen provider symbol per security (for example `VWCE.XETRA`) keeps daily updates at one request per security; ISIN search is only needed when a security is added.
@@ -26,7 +26,7 @@ Ufer needs two kinds of use, which providers license differently:
 
 | Provider | Counting | EU / Vienna | Mutual funds | ISIN |
 |---|---|---|---|---|
-| [EODHD](https://eodhd.com/list-of-stock-markets) | 1 call per security; bulk 100 + 1 per security ([bulk](https://eodhd.com/financial-apis/bulk-api-eod-splits-dividends)) | XETRA, Frankfurt and other German venues, Vienna `VI`; not Lang & Schwarz, gettex or Tradegate | European funds under the virtual exchange `EUFUND` ([EUFUND](https://eodhd.com/exchange/EUFUND)) | Search by ISIN on all plans ([search](https://eodhd.com/financial-apis/search-api-for-stocks-etfs-mutual-funds)) |
+| [EODHD](https://eodhd.com/list-of-stock-markets) | 1 call per security; whole-exchange bulk a flat 100 calls, symbol-filtered bulk 100 + 1 per security, paid plans only ([bulk](https://eodhd.com/financial-apis/bulk-api-eod-splits-dividends)) | XETRA, Frankfurt and other German venues, Vienna `VI`; not Lang & Schwarz, gettex or Tradegate | European funds under the virtual exchange `EUFUND` ([EUFUND](https://eodhd.com/exchange/EUFUND)) | Search by ISIN on all plans ([search](https://eodhd.com/financial-apis/search-api-for-stocks-etfs-mutual-funds)) |
 | [Tiingo](https://www.tiingo.com/documentation/end-of-day) | Per request | "Global Securities"; European and Vienna coverage **unverified** | ETFs and mutual funds listed, European funds **unverified** | **Unverified** |
 | [Twelve Data](https://twelvedata.com/exchanges) | 1 credit per symbol; `/batch` charges the sum ([batch](https://twelvedata.com/docs/advanced/batch-requests)) | Vienna listed (Pro or higher); global EOD equities from Grow | **Unverified** | `isin` parameter on all plans ([time series](https://twelvedata.com/docs/market-data/time-series)) |
 | [Marketstack](https://marketstack.com/faq) | 1 request per symbol, up to 100 symbols per call | European and Vienna coverage **unverified** | **Unverified** | **Unverified** |
@@ -66,9 +66,9 @@ Assessment:
 - **Twelve Data** needs the Pro plan ($99/month) for Vienna.
 - **Marketstack's** free plan covers only about three securities with daily updates, and its European coverage is unverified.
 
-None of the providers explicitly addresses self-hosted or open-source software where each user brings a personal key. The personal terms as written fit a single person using their own key for their own holdings; confirm in writing before relying on it.
+Tiingo's [Developer Program](https://www.tiingo.com/documentation/appendix/developers) explicitly covers software where each user supplies their own Tiingo token: no permission is needed, but Tiingo asks to be notified, requires clear attribution as the data source, forbids redistribution, programmatic logins and tracking of users' API metadata. The other providers do not address this model; their personal terms as written fit a single person using their own key for their own holdings, which should be confirmed in writing before relying on it.
 
-**Recommendation:** EODHD, free plan for current prices, €19.99 plan when longer history is needed for backfilling past purchases. Fallback: Tiingo, if its coverage includes the required European listings.
+**Recommendation:** EODHD, free plan for current prices, €19.99 plan when longer history is needed for backfilling past purchases. Fallback: Tiingo, whose Developer Program licenses the bring-your-own-key model, if its coverage includes the required European listings.
 
 ## Commercial use
 
@@ -101,13 +101,13 @@ Assessment:
 
 ## Product implications
 
-1. Store the provider symbol per security after an ISIN search, and request one price per security per day.
+1. Store the provider symbol per security after an ISIN search, and request one price per security per day; with EODHD on a paid plan, switch to one whole-exchange bulk download per exchange once that is cheaper.
 2. Keep the provider behind a replaceable interface and its key per instance, so personal instances use their owner's key and a hosted service can use a commercially licensed account.
 3. Load historical prices from the date of a past purchase when a holding is created; this needs a plan with enough history (EODHD €19.99 for personal use).
 
 ## Open questions
 
-- Whether EODHD and Marketstack permit a self-hosted open-source app where each user brings a personal key.
+- Whether EODHD and Marketstack permit a self-hosted open-source app where each user brings a personal key (Tiingo does, via its Developer Program).
 - What EODHD's Enterprise "Data services agreement" and custom agreements cost and allow for display to end users; whether `EUFUND` is part of the commercial plans; the price of additional seats.
 - Marketstack's definition of commercial use, display, caching and attribution terms.
 - European coverage and ISIN support for Tiingo and Marketstack; the three free markets on Twelve Data and its European fund coverage; Financial Modeling Prep in general.
