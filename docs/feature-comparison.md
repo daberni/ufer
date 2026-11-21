@@ -55,7 +55,7 @@ How Ufer compares with established personal finance tools, and what is still pla
 | ↳ Create a rule from a transaction | ✅ | ✅[⁴¹](#fn-41) | ✅[⁵⁰](#fn-50) | ✅[¹⁸](#fn-18) | ✅[⁵¹](#fn-51) |
 | **Imports** | | | | | |
 | CSV import with mapping and preview | ✅ | ◐[⁵²](#fn-52) | ✅[²⁸](#fn-28) | ✅[⁴](#fn-4) | ✅[⁵³](#fn-53) |
-| ↳ Saved import templates | ✅ | ◐[²⁰](#fn-20) | ✅[⁵⁴](#fn-54) | ✅[⁴](#fn-4) | ✅[⁵³](#fn-53) |
+| ↳ Saved import templates | ✅ | ◐[²⁰](#fn-20) | ◐[⁵⁴](#fn-54) | ✅[⁴](#fn-4) | ✅[⁵³](#fn-53) |
 | OFX or QFX | ❌[⁵⁵](#fn-55) | ✅[⁵⁶](#fn-56) | ✅[²⁸](#fn-28) | ❌[⁵⁷](#fn-57) | ❌[⁵⁸](#fn-58) |
 | QIF | ❌[⁵⁵](#fn-55) | ✅[⁵⁶](#fn-56) | ✅[²⁸](#fn-28) | ❌[⁵⁷](#fn-57) | ✅[⁵⁸](#fn-58) |
 | CAMT.053 | ❌[⁵⁵](#fn-55) | ❔[⁵⁶](#fn-56) | ✅[²⁸](#fn-28) | ✅[⁵⁷](#fn-57) | ❌[⁵⁸](#fn-58) |
@@ -246,7 +246,7 @@ An item is checked only when its acceptance criterion is met and evidence is rec
 51. <a id="fn-51"></a>[Sure rules controller](https://github.com/we-promise/sure/blob/v0.7.6-hotfix.1/app/controllers/rules_controller.rb) prefills a rule from a transaction; the [transfer action](https://github.com/we-promise/sure/blob/v0.7.6-hotfix.1/app/models/rule/action_executor/set_as_transfer_or_payment.rb) links a target account, no generic type action.
 52. <a id="fn-52"></a>[Buxfer upload](https://www.buxfer.com/help/upload): CSV and Excel; mapping profiles unverified.
 53. <a id="fn-53"></a>[Sure CSV imports](https://docs.sure.am/guides/app-features/csv-imports): mapping, preview, reusable setup; the import account selector lists manual accounts, and CSV rows are not deduplicated against bank-feed imports.
-54. <a id="fn-54"></a>[Actual import dialog source](https://github.com/actualbudget/actual/blob/v26.11.0/packages/desktop-client/src/components/modals/ImportTransactionsModal/ImportTransactionsModal.tsx): column mappings and date formats are remembered per account.
+54. <a id="fn-54"></a>[Actual import dialog source](https://github.com/actualbudget/actual/blob/v26.11.0/packages/desktop-client/src/components/modals/ImportTransactionsModal/ImportTransactionsModal.tsx): the last column mapping and date format are remembered per account; no named templates.
 55. <a id="fn-55"></a>Planned ([#14](https://github.com/daberni/ufer/issues/14)); CSV is the only file format today.
 56. <a id="fn-56"></a>[Buxfer upload formats](https://www.buxfer.com/features/upload/): OFX, QIF, CSV and Excel; CAMT is not listed.
 57. <a id="fn-57"></a>[Firefly III importer file formats](https://github.com/firefly-iii/docs/blob/main/docs/docs/how-to/data-importer/import/file.md): CSV and CAMT.053; no OFX or QIF.
