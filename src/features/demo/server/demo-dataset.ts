@@ -258,9 +258,16 @@ class Ledger {
     return isBetween(date, this.firstDate, this.runDate);
   }
 
-  /** Books an entry and returns its reference; dates outside the history and zero amounts are skipped. */
+  /** Bank-connected accounts end on the day before the run date, the last day a recorded sync fetched. */
+  bookable(account: DemoAccountKey, date: PlainDate) {
+    const afterLastSync = Boolean(demoAccounts[account].bank) && Temporal.PlainDate.compare(date, this.runDate) >= 0;
+
+    return this.covers(date) && !afterLastSync;
+  }
+
+  /** Books an entry and returns its reference; dates outside the history, after the last sync and zero amounts are skipped. */
   book(account: DemoAccountKey, date: PlainDate, amount: number, counterparty: string, description: string, transfer = false, provider?: ProviderDetails) {
-    if (!this.covers(date) || amount === 0) {
+    if (!this.bookable(account, date) || amount === 0) {
       return undefined;
     }
 
@@ -283,6 +290,11 @@ class Ledger {
 
   /** Books both sides of a transfer between own accounts; the seed links them as one transfer, which keeps them out of income and expenses. */
   transfer(from: DemoAccountKey, to: DemoAccountKey, date: PlainDate, amount: number, description: string) {
+    // Both sides or neither: a bank side after the last sync would leave the other side without its counterpart.
+    if (!this.bookable(from, date) || !this.bookable(to, date)) {
+      return;
+    }
+
     this.book(from, date, -amount, demoAccounts[to].name, description, true);
     this.book(to, date, amount, demoAccounts[from].name, description, true);
   }
