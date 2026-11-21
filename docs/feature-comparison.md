@@ -149,7 +149,7 @@ An item is checked only when its acceptance criterion is met and evidence is rec
   - [x] Bank connections: connect, reconnect, remove
   - [ ] Account-scoped rules ([#243](https://github.com/daberni/ufer/issues/243))
 - [ ] **K-03 · Securities** ([#266](https://github.com/daberni/ufer/issues/266))
-  - [x] Market-data provider evaluated ([#269](https://github.com/daberni/ufer/pull/269))
+  - [x] Market-data provider evaluated ([market data providers](market-data-providers.md))
   - [ ] Brokerage accounts with holdings, buys and sells
   - [ ] Daily valuations in net worth and its history
 - [ ] **K-04 · Planning:** budgets, recurring entries and forecasts; planning model to be agreed first
