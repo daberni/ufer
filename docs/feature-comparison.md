@@ -1,238 +1,260 @@
-# Feature comparison and development status
+# Feature comparison
 
-Updated: **2026-11-21** · Working product name: **Ufer** · Version: `0.2.0`
+Updated: **2026-11-21** · Ufer `0.2.0` · Working product name: **Ufer**
 
-This document tracks implemented capabilities, limitations, and accepted priorities. The [functional review](functional-review.md) explains workflows, release boundaries, source evidence, practical checks, and the build-versus-adopt conclusion. Architecture and commercial requirements are in [product-direction.md](product-direction.md). No personal account inventory is included.
+How Ufer compares with established personal finance tools, and what is still planned. Details and evidence are in the footnotes; workflows and release pins in the [functional review](functional-review.md), and priorities in the [roadmap](product-direction.md#roadmap). No personal account inventory is included.
 
-## Positioning and build-versus-adopt
-
-**Ufer currently has substantially less functionality than all four established alternatives.** Bank sync, mobile access, editable imported transactions, configurable imports, and historical wealth are already available elsewhere. Sure also covers holdings, trades, market prices, and preservation of manual corrections. This combination is not an established gap in the market.
-
-Actual is a strong candidate for budgeting and everyday bookkeeping; Sure is the closest documented match for an integrated money-and-investments dashboard. Firefly III offers extensive bookkeeping and automation, without a dedicated securities engine. Buxfer remains a broad hosted reference. These are fit assessments, not completed acceptance tests. Ufer targets everyday users through automatic bank synchronization, a consolidated view across institutions, simple hosted onboarding, useful report defaults and optional dashboard customization. File imports/exports support history, unsupported sources and portability; they are not the primary everyday workflow. Basic tagging and budgets alone are not the proposed reason to subscribe. That is a usability direction to validate, rather than a claim that existing financial functionality is missing.
-
-| Product / reviewed release | Focus | Deployment / license |
-| --- | --- | --- |
-| Ufer `0.2.0` | Aggregation, cash flow, rules, splits, CSV imports, manual valuations; early MVP | Docker/NAS configuration; verified Vercel sandbox deployment on Node 26; SQLite/libSQL; AGPL-3.0-or-later |
-| [Buxfer](https://www.buxfer.com/features/) · hosted, no public release pin | Broad personal finance, budgets, forecasts, investments | Hosted subscription; capabilities depend on plan |
-| [Actual Budget 26.11.0](https://github.com/actualbudget/actual/releases/tag/v26.11.0) | Budgeting, transaction management, reports, local-first use | Self-hosted Node server; [MIT](https://github.com/actualbudget/actual/blob/master/LICENSE.txt) |
-| [Firefly III 6.7.9](https://github.com/firefly-iii/firefly-iii/releases/tag/v6.7.9) + [Importer 2.3.5](https://github.com/firefly-iii/data-importer/releases/tag/v2.3.5) | Double-entry bookkeeping, rules, budgets, recurring entries | PHP application, database, optional companion importer and cron; AGPLv3 |
-| [Sure 0.7.6-hotfix.1](https://github.com/we-promise/sure/releases/tag/v0.7.6-hotfix.1) | Wealth, transactions, securities, category budgets | Rails web/worker, PostgreSQL, Redis; AGPLv3 |
-
-Low resource use is a Ufer goal, not a measured advantage. No comparative CPU/RAM, performance, or security benchmark was conducted. NAS deployment is plausible for the self-hosted alternatives; their normal persistent-server stacks are not drop-in Vercel deployments.
-
-## Status and evidence
-
-| Status | Meaning for every product |
+| Legend | |
 | --- | --- |
-| **Yes** | Implemented or officially documented; the stated scope and evidence limits apply |
-| **Partial** | A subset exists; the missing operation is stated |
-| **No** | Not implemented in Ufer, or explicitly unsupported in a cited source |
-| **Experimental / Preview** | The source labels the feature accordingly |
-| **Unverified** | The reviewed evidence does not establish the exact capability; this does not mean absent |
+| ✅ | Supported |
+| ◐ | Partial (see footnote) |
+| ❌ | Not supported |
+| 🧪 | Experimental or preview |
+| ❔ | Not assessed or not established by the reviewed sources |
 
-Status is separate from verification: **runtime-observed**, **source-inspected**, **documented**, and **not tested** are distinct. Actual 26.11.0 was started locally and its synthetic demo inspected. Sure's stable schema/models and scheduler were inspected; its local launch failed during image retrieval because of a host credential-helper error. Firefly III and Buxfer were assessed through official sources, not fresh live-bank tests.
-
-Sure's rolling documentation is explicitly marked **draft** and can lead its stable release. Its documentation-derived cells are not promises that every described detail shipped in the pinned image. The [review evidence](functional-review.md#verification-record) states what was pinned or observed. No provider directory or advertised broker integration counts as successful institution acceptance.
-
-**Product decision:** continue Ufer in Node/React; no Sure fork. See [ADR 001](adr/decisions/001-continue-ufer.md). The current source implements individual users and memberships in one constrained financial workspace. The [architecture](architecture.md) still proposes full customer separation and SSO; these are not implemented.
+| Product | Reviewed release | Deployment · license |
+| --- | --- | --- |
+| **Ufer** | `0.2.0` | Self-hosted (Docker/NAS) or Vercel + libSQL · AGPL-3.0-or-later |
+| [Buxfer](https://www.buxfer.com/features/) | hosted, unpinned | Hosted subscription · proprietary |
+| [Actual Budget](https://github.com/actualbudget/actual/releases/tag/v26.11.0) | 26.11.0 | Self-hosted Node server · MIT |
+| [Firefly III](https://github.com/firefly-iii/firefly-iii/releases/tag/v6.7.9) | 6.7.9 + Importer 2.3.5 | PHP app, database, importer, cron · AGPLv3 |
+| [Sure](https://github.com/we-promise/sure/releases/tag/v0.7.6-hotfix.1) | 0.7.6-hotfix.1 | Rails, PostgreSQL, Redis · AGPLv3 |
 
 ## Feature matrix
 
-### Aggregation and everyday transactions
+| Feature | Ufer | Buxfer | Actual | Firefly III | Sure |
+| --- | :---: | :---: | :---: | :---: | :---: |
+| **Banking and sync** | | | | | |
+| Bank balances and transactions | ✅[¹](#fn-1) | ✅[²](#fn-2) | ✅🧪[³](#fn-3) | ✅[⁴](#fn-4) | ✅[⁵](#fn-5) |
+| ↳ Connect, reauthorize, remove | ✅ | ✅[²](#fn-2) | ✅[³](#fn-3) | ✅[⁶](#fn-6) | ✅[⁵](#fn-5) |
+| ↳ No user-supplied provider credentials | ◐[⁷](#fn-7) | ✅[²](#fn-2) | ◐[³](#fn-3) | ◐[⁶](#fn-6) | ◐[⁵](#fn-5) |
+| ↳ Sync with all browsers closed | ✅[⁸](#fn-8) | ✅[²](#fn-2) | ◐[⁹](#fn-9) | ✅[⁴](#fn-4) | ✅[¹⁰](#fn-10) |
+| ↳ Verified with production banks | ◐[¹¹](#fn-11) | ❔ | ❔ | ❔ | ❔ |
+| **Accounts and wealth** | | | | | |
+| Cash, card, investment, property and loan accounts | ✅ | ✅[¹²](#fn-12) | ✅[¹³](#fn-13) | ✅[¹⁴](#fn-14) | ✅[¹⁵](#fn-15) |
+| ↳ Manual assets and liabilities | ✅[¹⁶](#fn-16) | ✅[²](#fn-2) | ✅[¹³](#fn-13) | ✅[¹⁴](#fn-14) | ✅[¹⁵](#fn-15) |
+| ↳ Rename, archive, convert, delete | ✅ | ❔ | ❔ | ❔ | ❔ |
+| ↳ Per-account balance history | ✅ | ❔ | ❔ | ❔ | ❔ |
+| Net worth | ✅ | ✅[¹²](#fn-12) | ✅[¹³](#fn-13) | ✅[¹⁷](#fn-17) | ✅[¹⁵](#fn-15) |
+| ↳ Historical net-worth chart | ◐[¹⁸](#fn-18) | ✅[¹²](#fn-12) | ✅[¹³](#fn-13) | ◐[¹⁷](#fn-17) | ✅[¹⁵](#fn-15) |
+| Multiple currencies | ◐[¹⁹](#fn-19) | ✅[¹²](#fn-12) | ❌[²⁰](#fn-20) | ✅[²¹](#fn-21) | ✅[²²](#fn-22) |
+| **Transactions** | | | | | |
+| Search and filters | ✅ | ✅[¹²](#fn-12) | ✅[²³](#fn-23) | ✅[²⁴](#fn-24) | ✅[²⁵](#fn-25) |
+| Manual transactions | ✅[²⁶](#fn-26) | ✅[¹²](#fn-12) | ✅[⁹](#fn-9) | ✅[²⁷](#fn-27) | ✅[²⁵](#fn-25) |
+| Edit imported transactions | ◐[²⁸](#fn-28) | ✅[¹²](#fn-12) | ✅[⁹](#fn-9) | ✅[²⁷](#fn-27) | ✅[²⁵](#fn-25) |
+| ↳ Hide imported transactions | ✅ | ❔ | ❔ | ❔ | ❔ |
+| ↳ Corrections survive resync | ✅ | ❔ | ❔ | ❔ | ✅[²⁹](#fn-29) |
+| Split transactions | ✅ | ✅[³⁰](#fn-30) | ✅[³¹](#fn-31) | ✅[²⁷](#fn-27) | ✅[²⁵](#fn-25) |
+| Transfers between own accounts | ✅[³²](#fn-32) | ❔ | ❔ | ❔ | ❔ |
+| Payee suggestions | ✅ | ❔ | ❔ | ❔ | ❔ |
+| Source provenance | ◐[³³](#fn-33) | ◐[²](#fn-2) | ◐[²³](#fn-23) | ◐[³⁴](#fn-34) | ✅[²⁹](#fn-29) |
+| **Categorization** | | | | | |
+| Categories with color and icon | ✅ | ❔ | ❔ | ❔ | ❔ |
+| ↳ Category hierarchy or tags | ❌ | ✅[¹²](#fn-12) | ✅[⁹](#fn-9) | ◐[¹⁴](#fn-14) | ✅[³⁵](#fn-35) |
+| Automatic categorization rules | ✅[³⁶](#fn-36) | ✅[¹²](#fn-12) | ✅[³⁷](#fn-37) | ✅[³⁸](#fn-38) | ✅[²⁵](#fn-25) |
+| ↳ Rules set type and transfer account | ✅ | ❔ | ❔ | ✅[³⁸](#fn-38) | ❔ |
+| ↳ Create a rule from a transaction | ✅ | ❔ | ✅[³⁷](#fn-37) | ❔ | ❔ |
+| **Imports** | | | | | |
+| CSV import with mapping and preview | ✅ | ◐[³⁹](#fn-39) | ✅[²³](#fn-23) | ✅[⁴](#fn-4) | ✅[⁴⁰](#fn-40) |
+| ↳ Saved import templates | ✅ | ❔ | ❔ | ✅[⁴](#fn-4) | ✅[⁴⁰](#fn-40) |
+| ↳ Buxfer export detection | ✅ | — | ❔ | ❔ | ❔ |
+| OFX, QIF or CAMT.053 | ❌ | ❔ | ❔ | ❔ | ❔ |
+| Duplicate detection on reimport | ◐[⁴¹](#fn-41) | ✅[²](#fn-2) | ✅[²³](#fn-23) | ✅[³⁴](#fn-34) | ◐[⁴⁰](#fn-40) |
+| **Reports** | | | | | |
+| Monthly income and spending | ✅[⁴²](#fn-42) | ✅[¹²](#fn-12) | ✅[¹³](#fn-13) | ✅[¹⁷](#fn-17) | ✅[¹⁵](#fn-15) |
+| ↳ Spending by category | ✅ | ✅[¹²](#fn-12) | ✅[¹³](#fn-13) | ✅[¹⁷](#fn-17) | ✅[¹⁵](#fn-15) |
+| ↳ Savings rate | ✅ | ❔ | ❔ | ❔ | ❔ |
+| Customizable dashboards | ❌ | ❔ | ✅[¹³](#fn-13) | ◐[¹⁷](#fn-17) | ✅[⁴³](#fn-43) |
+| Cash-flow forecasts | ❌ | ✅[¹²](#fn-12) | 🧪[¹³](#fn-13) | ❔ | ◐[⁴⁴](#fn-44) |
+| **Planning** | | | | | |
+| Budgets | ❌ | ✅[¹²](#fn-12) | ✅[⁴⁵](#fn-45) | ✅[⁴⁶](#fn-46) | ✅[³⁵](#fn-35) |
+| Recurring transactions and bills | ❌ | ✅[¹²](#fn-12) | ✅[⁴⁷](#fn-47) | ✅[⁴⁸](#fn-48) | ✅[⁴⁴](#fn-44) |
+| Long-term planning | ❌ | ✅[¹²](#fn-12) | ✅🧪[¹³](#fn-13) | ◐[¹⁴](#fn-14) | ◐[¹⁵](#fn-15) |
+| **Investments** | | | | | |
+| Investment account value | ✅ | ✅[⁴⁹](#fn-49) | ✅[¹³](#fn-13) | ◐[⁵⁰](#fn-50) | ✅[⁵¹](#fn-51) |
+| Securities, holdings and trades | ❌[⁵²](#fn-52) | ✅[⁴⁹](#fn-49) | ❔ | ❌[⁵⁰](#fn-50) | ✅[⁵¹](#fn-51) |
+| ↳ Instrument identity (ISIN, venue) | ❌ | ❔ | ❔ | ❌[⁵⁰](#fn-50) | ✅[²⁹](#fn-29) |
+| ↳ Market prices and performance | ❌ | ✅[⁴⁹](#fn-49) | ❔ | ❌[⁵⁰](#fn-50) | ✅[²²](#fn-22) |
+| **Platform** | | | | | |
+| Self-hosting | ✅ | ❌ | ✅ | ✅ | ✅ |
+| ↳ Serverless hosting (Vercel) | ✅ | — | ❌ | ❌ | ❌ |
+| Phone-friendly web app | ✅[⁵³](#fn-53) | ✅[¹²](#fn-12) | ✅[⁵⁴](#fn-54) | ◐ | ✅[⁵⁵](#fn-55) |
+| ↳ Installable web app | ✅ | ❔ | ❔ | ❔ | ❔ |
+| Dark mode | ✅ | ❔ | ❔ | ❔ | ❔ |
+| Multiple users | ◐[⁵⁶](#fn-56) | ✅[¹²](#fn-12) | ✅[⁵⁷](#fn-57) | ❔ | ✅[⁵⁸](#fn-58) |
+| ↳ Single sign-on | ❌ | ❔ | ✅[⁵⁷](#fn-57) | ❔ | ❔ |
+| Local-first or end-to-end encryption | ❌ | ❔ | ✅[⁵⁹](#fn-59) | ❔ | ❔ |
+| Export and restore | ◐[⁶⁰](#fn-60) | ✅[¹²](#fn-12) | ✅[⁶¹](#fn-61) | ◐[⁶²](#fn-62) | ✅[⁶³](#fn-63) |
+| Open source | ✅ | ❌ | ✅ | ✅ | ✅ |
 
-| Capability | Ufer | Buxfer | Actual Budget | Firefly III | Sure |
-| --- | --- | --- | --- | --- | --- |
-| Bank balances and transactions | **Yes:** Enable Banking; booked only; the raw provider transaction is stored with every booking up to 64 KiB of JSON (larger records keep only their parsed fields), and the original amount and currency of a foreign-currency payment as their own fields when the bank sends them, covered by behavior tests with synthetic payloads | **Yes** [B2] | **Yes:** several providers; Enable Banking experimental [A1] | **Yes:** companion importer [F2] | **Yes:** Enable Banking and others [S1] |
-| Connect, reauthorize and remove | **Yes:** bank connections and recent syncs are the final section of Accounts & assets; authorization notices, account management and callback results link directly to it; desktop/phone navigation, keyboard, touch and browser history checked locally with synthetic data. Sandbox connect/reauthorize verified; removal keeps account history; reauthorization attempts to revoke newly replaced provider sessions once, and removal failures leave the connection intact for an explicit retry, covered by synthetic tests with a mocked provider; live banks open | **Yes** [B2] | **Yes:** provider setup [A1] | **Yes:** importer setup [F4] | **Yes:** session/reconnect workflow [S1] |
-| Bank linking without user-supplied provider credentials | **Partial:** operator environment setup; sandbox consent flow, no managed service | **Yes:** hosted linking [B2] | **Partial:** provider setup before consent [A1] | **Partial:** importer/provider configuration [F4] | **Partial:** reviewed self-hosted UI asks for application credentials before consent [S1] |
-| Sync with browsers closed | **Yes:** scheduler configured; target hosting not accepted | **Yes:** provider-dependent [B2] | **Yes via external API job:** built-in interval requires open app [A12] | **Yes via importer CLI/API + scheduler** [F2] | **Yes:** worker scheduler in stable source [S8] |
-| Balances, income and spending | **Yes:** separate currency totals; the monthly chart (six to twelve months of a twelve-month trend, depending on the available width) draws income bars up and expense bars down (in distinct green and terracotta tones) from a shared zero line on one scale whose bounds include every signed flow and net, so refunds exceeding spending draw a reversed expense bar inside the plot; when both bars of a month extend to the same side of the zero line they are drawn side by side, and a bar is only split into category segments (separated by one-device-pixel hairlines like the zero line, with heights proportional to the amounts) when all of its categories are positive, so a bar with a negative total or with negative entries (corrections, net refunds) stays a single colour when its month is selected, with the monthly net (income minus expenses) as a subtle area behind the bars (a muted income tone above the zero line, a muted expense tone below, a thin outline; drawn above the selected column's highlight so it stays continuous, starting at the plot's left edge halfway towards the previous month's net (a hidden trend month, or the month before the trend, which the API returns as totals only and which counts toward nothing else) and ending at the last month; a point marks only the hovered or selected month; the zero line is a muted one-device-pixel hairline drawn above the bars, the highlight and the area, identical in every state), and shows the savings rate (net divided by income) of exactly the visible months next to the legend. Clicking a month column or pressing Enter/Space on it opens the transactions of that month (`/transactions?period=YYYY-MM`, keeping the currency); hovering, focusing or tapping anywhere in a month's full-height column selects that month (on touch the first tap selects and a second tap on the selected month opens its transactions), splits both of its bars by category and shows its income and expense categories side by side (each up to five rows, four categories and a combined "+N more" remainder) with the month's net and savings rate in the existing adjacent category panel; without a selection the panel shows the selected period the same way. A negative net and negative savings rates are shown in the danger colour. The panel header links to the transactions of the selected month or period at every width. Periods or months without income show "–" instead of a rate, the rate is negative when expenses exceed income, and a rate rounding to zero shows "0%". Only transactions of type income and expense count, so transfers, opening balances and adjustments are excluded whatever their category; a refund typed as an expense reduces spending, and a category whose corrections or refunds exceed its amount keeps a signed row without a bar, so the rows always sum to the total; uncategorized transactions keep their own row. When the two columns sit side by side, each reserves the most rows any trend month or the period needs (at most five), so selections never resize the panel; stacked columns in panels narrower than 340 px take only their own rows; below 900 px the panel sits under the chart, and in narrow panels the two columns stack. Mouse hover ends as soon as the pointer leaves the month column, a tapped or keyboard-focused month survives moving into the panel, Escape/outside presses and keyboard departure clear it, and period/currency changes restore the default period view. Each category row links to the transactions filtered by that category, type, period and currency ([#236](https://github.com/daberni/ufer/pull/236)); only the persistent touch-selection reset remains open in [#161](https://github.com/daberni/ufer/issues/161). Agreement with each month's totals and income/spending breakdowns, net and savings-rate computation (including months without income and negative rates) and month-level input/dismissal behavior are covered by behavior tests; browser checks used synthetic data at 375, 800, 1280 and 1600 px in light and dark with mouse, keyboard and touch emulation. Each account has a details view at `/accounts/<id>` with its current balance, balance history (interactive chart and recorded observations), income, spending and transfers for the selected period and its transactions; the per-account flows and history are covered by behavior tests and the view was checked in Chrome with synthetic manual and synced accounts at 375 px and desktop width in light and dark | **Yes** [B1] | **Yes:** reports [A3] | **Yes:** reports [F8] | **Yes:** wealth/cash-flow views [S9] |
-| Transfers between own accounts | **Yes:** a transfer is a transaction type, independent of its category. Two bookings of one transfer are linked, shown with each other's account and corrected together; a transfer to an untracked account needs no counterpart; marking a booking as a transfer to a manual account creates the counterpart there. Sync, CSV import and the demo seed pair bookings automatically (opposite amounts, same currency, two own accounts, at most 3 days apart, only with exactly one candidate). The demo seed shows all three cases. A transfer whose two sides were both entered in Ufer on manual accounts is edited, moved to another manual account or removed from either side; a side linked with a synced or imported booking follows that booking. Manual account balances include these bookings. Behavior tests cover pairing, ambiguity, currency and window limits, corrections across resync, the edit dialog's targets and editing manual transfer pairs from either side | **Unverified:** not assessed | **Unverified:** not assessed | **Unverified:** not assessed | **Unverified:** not assessed |
-| Search and filters | **Yes:** text, ignoring letter case including umlauts and ß/ss but not accents, account, category and transaction type (income, expense, transfer, opening balance or adjustment); month or all months, kept when moving to an account's details and back; paginated; kept in the page address, so Back/Forward, reload and links restore them, while the list request sends them in a POST body so search text stays out of API request URLs; only the areas a filter affects show loading placeholders, and a failed load offers Retry | **Yes** [B1] | **Yes:** transaction filters [A5] | **Yes:** transaction search [F14] | **Yes:** transaction filters [S2] |
-| Categorization and rule management | **Partial:** rules create/edit/toggle/apply, and an explicit dashed-lightning action on manually categorized transactions to create a keyword rule (the solid rule-source indicator opens the rule that assigned the category, which syncs, imports and rule application record; earlier assignments and those of deleted rules stay informational; no automatic prompt; proposed from the source's payee or description rather than a person's override, with a count of what it would categorize and an option to categorize the matching uncategorized transactions; the source transaction becomes rule-assigned when the new rule decides its category); a manually categorized transaction's category picker offers "Automatic", labeled with what the rules would assign, which the server applies and records with the deciding rule; category create/edit (name, an icon-only field showing the icon in the category color and a color field whose hex text accepts typed or pasted values with or without # in any letter case, normalizes them to uppercase #RRGGBB and blocks saving with an inline error while invalid; each opens a popover anchored to its field above the dialog, one at a time, closing on Escape or an outside press and returning focus; the color popover offers 16 suggested colors that read as solid marks in light and dark (arrow-key radio group with color names); focusing the hex text opens the color popover while focus stays in the text; in the category dialog, the color most used by similar categories (sharing the name prefix before " / ", otherwise an icon of the same area; palette and custom colors alike, a custom one shown as an extra swatch) and the icon whose label or keywords match a word of the name (the part after " / " first) carry the shared sparkle highlight (steady glow, twinkling stars; static with reduced motion), the suggested icon also appears next to "No icon" at the top of the picker, their picker triggers show a glowing halo behind the icon, and either applies with one click; nothing is highlighted when nothing matches; a new category follows both suggestions until a color or icon is chosen, its color field waits for the categories to load, and without similar categories it gets a random palette color among the least used ones, as do categories auto-created by an import, which also get the icon their name suggests (suggestions, fallback, loading and import creation covered by behavior tests; checked at desktop and 375 px in light and dark with synthetic data); the icon popover's search field (one focus ring around the magnifier, text and a clear button shown while it has text) searches 118 grouped finance and household icons by word starts in label, group and keywords, with labeled, keyboard-navigable options, a no-icon option and 44px touch targets on coarse pointers; previously stored icon keys stay valid; hex parsing, the palette's contrast, legacy icon keys and the color field's input, invalid-save blocking and Escape handling are covered by behavior tests). The rule editor counts the transactions without a manual category the edited rule would decide before saving, and separately the manually categorized transactions it decides, which it takes over (with its category and a reference to the rule) only when "Also let this rule decide N manually categorized transactions" is chosen; the option is preselected only when all of them already have the rule's category. A rule can also set the transaction type (income, expense or transfer) and, for a transfer, the own account on its other side; syncs, CSV imports, applying rules and a rule's application to uncategorized transactions or to manual assignments it takes over set it unless a person corrected the type or linked the transfer, the editor shows "Set by a rule." and the rule list shows the type and account (behavior tests for sync, import, apply, manual corrections, linking and created counterparts). A rule decides a transaction when it matches the source's payee and description or, for a booking with a payee or description override, the text with the overrides applied; syncs, applying rules, previews, adoption and "Automatic" all match both texts in rule order (behavior tests). Editing an override does not by itself recategorize the booking. Rules are deleted from their editor and reordered in the list by dragging a handle (mouse, pen or touch; the dragged row follows the pointer and the others make room) or with the keyboard (Space or Enter to pick up, arrow keys, Space or Enter to drop, Escape to cancel), built on dnd-kit with screen-reader announcements; a failed save restores the previous order with an inline error. The list order is the matching order: priorities are stored internally and no longer shown or edited, and new rules are added at the end. Neither reordering nor deleting recategorizes transactions until rules are applied. Deleting a category moves its transactions and rules to another category or leaves the transactions uncategorized and deletes its rules; manual assignments stay manual. Behavior tests cover order persistence and matching, recording and clearing the assigning rule, deletion effects and the spending breakdown afterwards; checked in Chrome with synthetic data at desktop and 375 px (touch emulation), light and dark | **Yes** [B1] | **Yes:** editable rules and payee learning [A4] | **Yes:** grouped rules and multiple actions [F6] | **Yes:** conditions, order, stop-processing [S2] |
-| Full transaction text | **Yes:** two-line desktop previews and an expandable, labelled payee/description on desktop and phones; keyboard and touch accessible, with long references wrapping within the row | Not separately assessed | Not separately assessed | Not separately assessed | Not separately assessed |
-| Manual entries and full field editing | **Partial:** no date or amount changes for imported or synced bookings. The category is chosen from a searchable select that also creates a category missing from the list; a change shows immediately per row, saves in order per transaction and reverts with an inline error on failure. The type (income, expense, transfer; opening balance and adjustment on manual accounts) and a transfer's target are edited in one dialog per row with a single Save: a suggested booking on another account, a manual account on which the counterpart is created, or none; corrections survive resync and imports (behavior tests; checked in Chrome with synthetic data at 375 px and desktop). Manual accounts accept new transactions (date, amount, payee, description, category, type and, for a transfer, the other manual account) from Accounts & assets and the transactions view; these can be edited and deleted in the same dialog. Imported and synced bookings keep their source identity, date and amount; their payee and description can be overridden in the same dialog, which shows the source's original text and restores it, and overrides survive later syncs and imports. Imported and synced bookings can also be hidden instead of deleted: they stay listed and marked, count toward no balance, cash flow, spending or transfer pairing, later syncs and imports keep them hidden, and they can be shown again (behavior tests; the override, hiding and hidden states were checked in Chrome with synthetic data at desktop in dark mode and 375 px in light mode). Payee fields of manual entries and the payee override suggest existing payees while typing: matched by word start ignoring case and accents, ranked by frequency then recency and limited to eight; free text stays possible and picking a suggestion only fills the field (keyboard, pointer and touch; behavior tests for matching, ranking, the limit, override precedence and the field; checked in Chrome with synthetic data at desktop and 375 px, light and dark) | **Yes** [B1] | **Yes:** register/API [A12] | **Yes:** create/edit/delete [F5] | **Yes:** single/bulk editing [S2] |
-| Split transactions | **Yes:** an income or expense booking (imported, synced or entered) is split in a section of its edit dialog into at least two parts, each with an amount, a category and an optional note; Add part starts a new part with the amount still to assign, parts with an amount of 0 are ignored, and a summary compares the assigned amount with the total and shows what is missing, over or invalid while Save waits. The dialog's single Save stores the details and the split; cancelling the section returns to the category. Balances keep the booking; cash flow, spending and category breakdowns count the parts instead, exactly once, and the transaction list shows the booking as split and finds it under each part's category. Rules leave split bookings alone; removing the split returns the booking to automatic categorization. When a sync or edit later changes the booking's amount, the split stays, is flagged in the list and dialog, and reports count the difference as uncategorized until it is corrected. Transfers, opening balances and adjustments are not split (behavior tests). CSV imports split rows whose tags carry amounts, such as Buxfer's split transactions, and import rows whose tags form no valid split as ordinary bookings with the tags appended to the description (behavior tests; checked locally with synthetic data) | **Yes:** allocated tags [B4] | **Yes:** parent/children [A6] | **Yes:** split journals [F5] | **Yes:** split groups [S2] |
-| Configurable CSV imports | **Partial:** import page with a drop zone, detected and adjustable format, column roles in the preview header, an optional ID column, per-account targets (existing, new manual account with a chosen account type and an opening balance, or skipped), category choices per value with the standard category picker (an existing category of the same name is preselected; other values, including multi-tag ones, start unset and block the check until an existing category, a new category created only on confirmation, or Uncategorized, which leaves unsplit rows to the rules, is chosen), and a check with a review filter before saving (behavior tests; checked locally with synthetic data at desktop and 375 px, light and dark); a built-in Buxfer template applied by header detection, and saved per-source templates with optional remembered account and category choices, listed, renamed and deleted on the page (behavior tests; checked locally with synthetic data); OFX/QIF/CAMT not yet | **Partial evidence:** CSV/Excel yes; mapping profiles unverified [B5] | **Yes:** field/date/delimiter options [A5] | **Yes:** importer mapping/configuration [F2] | **Yes:** mapping, preview, reusable setup [S3] |
-| Reimport reconciliation / deduplication | **Partial:** account references; CSV rows match earlier imports by their export ID or content, and existing bookings by amount, date within 3 days and text (behavior tests) | **Yes:** matching workflow [B2] | **Yes:** IDs and fallback matching [A5] | **Yes:** import hashes/external IDs [F9] | **Partial:** provider identities; CSV/feed overlap not guaranteed [S1], [S3], [S7] |
-| Provenance and manual edits across resync | **Partial:** source reference; sync history links each run to the transactions it inserted (runs before this link are not traceable); no CSV batch trail; payee and description overrides are stored separately from the source's text, which later syncs keep refreshing, and hidden bookings record when they were hidden (behavior tests); no override history and no date or amount overrides | **Partial evidence:** sync source/matching; full field history unverified [B2] | **Partial evidence:** imported identity/matching; full source-versus-override audit unverified [A5] | **Partial:** import tags/hash; field-level protection unverified [F9], [F10] | **Yes:** source IDs and manual field locks; full audit requirement not accepted [S2], [S7] |
-| Light and dark theme | **Yes:** follows the operating system by default; System/Light/Dark choice in account settings, remembered per browser and applied by the server before the first paint; checked in Chrome with synthetic data (color-scheme emulation, manual choice, reload, sign-in, 375 px) | **Unverified:** not assessed | **Unverified:** not assessed | **Unverified:** not assessed | **Unverified:** not assessed |
-| Mobile access | **Yes:** responsive UI; emulation checked | **Yes:** mobile access [B1] | **Yes:** mobile web; physical phone not tested [A13] | **Partial evidence:** web access; phone workflows not tested | **Yes:** web/mobile clients; native feature parity unverified [S10] |
+Low resource use is a Ufer goal, not a measured advantage; no comparative performance or security benchmark was run. Actual 26.11.0 was started locally with its demo data, Sure's stable source was inspected, and Firefly III and Buxfer were assessed from official sources. Sure's rolling documentation is a draft and can lead its stable release. Provider directories do not prove that a particular bank works.
 
-### Planning, investments, and data control
+**Verification limits.** Not yet verified: repeat syncs and reauthorization with production banks, the first unattended scheduled sync on each host, physical phones, Safari and real bank-app redirects, large histories, NAS operation, restoring from a backup, PostgreSQL and multi-tenant hosting.
 
-| Capability | Ufer | Buxfer | Actual Budget | Firefly III | Sure |
-| --- | --- | --- | --- | --- | --- |
-| Category budgets and rollover | **No** | **Yes:** budgets [B1] | **Yes:** envelope/tracking model [A7] | **Yes:** period limits and auto-budget variants [F7] | **Yes:** category limits; positive-surplus rollover [S4] |
-| Recurring entries / bills | **No** | **Yes:** reminders [B1] | **Yes:** schedules [A8] | **Yes:** recurring entries; cron needed [F11] | **Yes:** recurring transactions [S11] |
-| Cash-flow forecasts | **No:** historical charts only | **Yes** [B1] | **Experimental:** balance forecast [A3] | **Unverified:** no equivalent assessed end to end | **Partial evidence:** bill/budget planning; equivalent forecast unverified [S11] |
-| Long-term planning | **No** | **Yes:** planning [B1] | **Yes:** crossover; Monte Carlo experimental [A3] | **Partial:** savings goals/piggy banks, not equivalent retirement simulation [F1] | **Partial:** goals; equivalent retirement simulation unverified [S9] |
-| Customizable report dashboards / widgets | **No:** fixed dashboard; widget editor planned | **Unverified:** exact layout editing | **Yes:** multiple configurable dashboards and report widgets; drag/resize not separately tested [A3] | **Partial:** configurable reports; free widget layout unverified [F8] | **Yes, source-inspected:** predefined dashboard widgets can be reordered, shown/hidden and sized with presets; runtime not tested [S14] |
-| Investment account total value | **Yes:** manual/CSV balance | **Yes** [B3] | **Yes:** off-budget balance in net worth [A3] | **Partial:** asset balance, no securities engine [F3] | **Yes:** holdings and balances [S5] |
-| Securities, quantities and trades | **No:** required | **Yes:** documented portfolio functionality; broker acceptance unverified [B3] | **Unverified:** no native holdings/trade ledger established | **No:** dedicated tracking unsupported [F3] | **Yes:** securities, holdings, trades, cost basis [S5], [S7] |
-| Instrument identity and venue | **No:** flexible identifier + venue combinations required | **Unverified:** exact ISIN/venue workflow | **Unverified:** no equivalent module established | **No:** no securities module [F3] | **Yes:** ticker + MIC; alternative identifiers can be evaluated [S7] |
-| Market prices and performance | **No** | **Yes:** advertised prices/gains/allocation [B3] | **Unverified:** simulations are not holding valuation | **No:** dedicated portfolio engine [F3] | **Yes:** quote providers/cost basis; calculation acceptance not tested [S5], [S6] |
-| Historical net worth | **Partial:** synced balance snapshots and manual accounts' transactions; the overview's decorative twelve-month net-worth curve, without axes or missing-data states | **Yes:** documented/existing capability [B1] | **Yes:** net-worth reports [A3] | **Partial evidence:** balance-history reports; exact net-worth chart unverified [F8] | **Yes:** wealth history [S9] |
-| Manual assets and liabilities | **Yes:** the balance is the sum of the account's transactions: an opening balance (optionally on a past date), entered or imported transactions, transfers and adjustments; Update balance (the pen beside the balance in the account details, with a 44px touch target) and CSV balance imports book the difference to the balance on their date as an adjustment (behavior and migration tests) | **Yes** [B2] | **Yes:** off-budget accounts [A3] | **Yes:** asset/liability bookkeeping [F1] | **Yes:** asset/debt accounts [S9] |
-| Native multi-currency and FX | **Partial:** separate totals; no conversion; the transaction list shows the original amount and currency of a foreign-currency bank booking when the bank provides it | **Yes** [B1] | **No:** native model unsupported; experimental workaround [A9] | **Yes:** currencies; rate setup not tested [F12] | **Yes:** currencies and market-data FX [S6] |
-| Tags and category hierarchy | **No:** one flat category | **Yes** [B1] | **Yes:** category groups and tags [A12] | **Partial:** categories/tags; nesting not established [F1] | **Yes:** categories/subcategories and tags [S2], [S4] |
-| Sharing and permissions | **Partial:** individual users in one shared workspace; operator enrollment and active membership checks; no separate customer workspaces or fine-grained permissions; hosted cutover pending | **Yes:** access control/IOUs [B1] | **Yes:** OIDC, Basic/Admin and budget access [A14] | **Unverified:** exact collaboration/access model | **Yes:** account-level sharing permissions [S12] |
-| Local-first / financial-data E2EE | **No:** bank-session encryption only | **Unverified:** no equivalent established | **Yes:** local-first; optional budget E2EE excludes bank tokens [A11] | **Unverified:** no equivalent established | **Unverified:** no equivalent established |
-| Export and restore | **No UI:** manual database/key backup | **Yes:** API/backups [B1] | **Yes:** budget export and restore workflow [A10], [A15] | **Partial:** CSV/API exports; full restore requires database backup [F13] | **Yes:** data export; stable release includes instance backup/restore [S3], [S13] |
+**Positioning.** Ufer currently offers less than the established alternatives; bank sync, editable imports and historical wealth exist elsewhere, and Sure also covers securities. Ufer targets everyday users with automatic bank sync, one view across institutions, simple onboarding and useful default reports; imports serve history and portability. The decision to continue Ufer rather than fork Sure is recorded in [ADR 001](adr/decisions/001-continue-ufer.md).
 
-**Ufer management gaps:** deletion of accounts from removed bank connections remains open. Account archiving (only at a balance of 0; a manual account can be closed by booking its remaining balance as an adjustment or transfer) and restoring are implemented: archived accounts are hidden from the account lists, the overview and account pickers and are not synced, while their history and every report stay unchanged. Removing a bank connection retains the detached accounts and their history and can archive them in the same step. Verified with behavior tests and locally with synthetic data; the account-archiving changeset has not been applied to a hosted database. Imported and synced bookings take payee and description overrides and can be hidden; overriding their date or amount remains a product requirement; splitting transactions is implemented. Planned work does not count as a capability.
+## Bank providers
 
-## Bank providers and the separate importer
-
-| Product | Documented integrations relevant to this review |
+| Product | Documented integrations |
 | --- | --- |
-| Ufer | Enable Banking only; sandbox authorization and repeat sync checked |
-| [Buxfer](https://www.buxfer.com/features/sync/) | Yodlee and Salt Edge; provider presence does not establish every institution works |
-| [Actual Budget](https://actualbudget.org/docs/advanced/bank-sync/) | Enable Banking (Europe, experimental), GoCardless (Europe, no new accounts), SimpleFIN (North America), Akahu (New Zealand), Pluggy (Brazil) |
-| [Firefly III Data Importer](https://github.com/firefly-iii/data-importer) | Companion application for files and bank-provider imports; [Enable Banking tutorial](https://github.com/firefly-iii/docs/blob/main/docs/docs/tutorials/data-importer/eb.md) |
-| [Sure](https://docs.sure.am/providers/enable-banking) | Enable Banking; rolling docs also list providers such as SimpleFIN, Plaid and Akahu; exact stable support and regional eligibility must be checked per adapter |
+| Ufer | Enable Banking |
+| Buxfer | Yodlee and Salt Edge |
+| Actual Budget | Enable Banking (experimental), GoCardless (no new accounts), SimpleFIN, Akahu, Pluggy |
+| Firefly III | Separate Data Importer for files and providers, including Enable Banking |
+| Sure | Enable Banking, SimpleFIN, Plaid, Akahu and others; stable support varies per adapter |
 
-Firefly III's **Data Importer** is a separate component/container. It fetches bank data or reads files, then writes into the finance application through its API. It needs provider credentials, import configuration and a scheduled trigger; installing Firefly III core alone does not configure automatic bank imports.
-
-Actual 26.11.0's built-in interval sync runs while the app is open. Its [Node API](https://actualbudget.org/docs/api/reference/#runbanksync) exposes `runBankSync`, allowing an external scheduled process without an open browser. That is extra deployment configuration, not an inherently missing capability. Sure's pinned worker initializer registers automatic sync and market-data schedulers [S8].
-
-All products still depend on provider eligibility, institution endpoints, consent, and available history. Sure's current Enable Banking guide lists a limitation for decoupled/separate-device authorization [S1]; treat the actual bank's redirect/SCA path as an acceptance criterion. Restricted personal provider access is not a commercial multi-customer agreement; see [commercial requirements](product-direction.md#free-self-hosting-and-paid-managed-hosting).
-
-## Current implementation and evidence
-
-| Area | Implementation / verification boundary |
-| --- | --- |
-| UI | [Dashboard composition](../src/features/dashboard/dashboard.tsx), [view routes](../src/app/%28dashboard%29/layout.tsx) with [URL state](../src/client/app-location.ts) for browser history and deep links, [server state](adr/decisions/006-client-server-state.md) through per-area TanStack queries and per-action mutations, [component styles](../src/features/dashboard/dashboard.module.css), [global base](../src/app/globals.css), [viewport](../src/app/layout.tsx): responsive cards and forms; desktop table retained; [Ufer identity](branding/README.md) integrated into sidebar, login, footer and Next.js browser/touch metadata |
-| Domain data | [HTTP boundary](../src/server/http/respond.ts), [changesets](../drizzle/sqlite/0000_initial_schema.sql), [storage](../src/features/transactions/server/transaction-repository.ts), [amounts](../src/lib/money.ts): integer minor units, account-scoped references and manual category preservation; [Problem Details](http-errors.md) with correlated trace IDs, user validation (422) and rejected provider data (502) |
-| Banking | [Provider client](../src/features/banking/server/enable-banking-client.ts), [sync service](../src/features/banking/server/sync-service.ts), [sync repository](../src/features/banking/server/sync-repository.ts), [callback](../src/app/api/banking/callback/route.ts), [connection removal](../src/features/banking/server/connection-service.ts): sandbox authorization completed, booked transactions persisted and repeat sync checked without additional duplicates; services no longer execute SQL. The original amount is validated at the [bank-data boundary](../src/features/banking/server/provider-details.ts) and dropped without stopping the import when malformed; each sync refreshes it and the raw transaction, from which later features can derive further fields; verified with synthetic payloads, not yet against a sandbox or production bank. Provider responses are validated with schemas at the provider client; mismatching responses are 502 provider failures and nothing from them is stored. Connection removal revokes the provider session before detaching accounts and deleting its credential; a failed call leaves the connection intact for an explicit retry. A reauthorization callback attempts to revoke its newly superseded or unmappable sessions once; failures remain visible for removal by the user, without background revocation retries. Verified with synthetic tests and a mocked provider, not against the Enable Banking sandbox |
-| Imports / rules | [Mapped import](../src/features/imports/csv-mapping.ts) and its [page](../src/features/imports/components/csv-import-page.tsx) (browser-side parsing, batched requests, manual or bank-linked targets), the fixed-schema [balance CSV](../src/lib/import.ts) with 1 MB/10,000-row limits, [rules](../src/lib/rules.ts): RE2/keyword matching against the source's payee and description and, where present, the text with a person's overrides applied; payee and description overrides and hiding are the only overrides of imported rows. Transactions links to the import page; a manual account's details offer Import balances. Accounts & assets offers bank connection and manual creation. |
-| Protection | [User sessions and membership guard](../src/features/auth/server/session.ts), [library configuration](../src/features/auth/server/auth.ts), [HTTP boundary](../src/server/http/respond.ts), [bank-secret encryption](../src/server/security/secret-box.ts): Better Auth username/password, revocable database sessions ending after 24 hours without use, server-enforced revocation of other sessions on password change, explicit singleton-workspace membership and operator enrollment, jose provider JWTs, origin checks, a fixed same-origin [Content-Security-Policy](security.md#browser-security-headers) with Permissions-Policy and HSTS headers, JSON API bodies capped at 2 MiB while they are read, persistent sign-in limits and encrypted bank sessions; hosted auth migration is pending approval; no independent-customer isolation, 2FA, SSO, email recovery or financial-data E2EE |
-| Deployment | [Compose](../compose.yaml), [Dockerfile](../Dockerfile), [scheduler](../scripts/scheduler.mjs), [Vercel config](../vercel.json), [deployment guide](vercel-deployment.md): production servers refuse to start without an HTTPS `APP_URL` (Docker therefore runs behind an HTTPS reverse proxy; covered by behavior tests and a local `next start`, not yet verified on the hosted deployment); Node 26 container build/runtime and Vercel production HTTP/sandbox sync accepted; daily Vercel cron is enabled and its authenticated endpoint checked; actual NAS operation and the first future unattended invocation remain open |
-| Database lifecycle | [Schema](../src/server/database/schema.ts), [inferred models](../src/server/database/models.ts), [shared connection](../src/server/database/connection.ts), [migrations](../src/server/database/migrations.ts): typed Drizzle queries and remaining raw SQL share a libSQL client; versioned SQL, checksum/history checks, fresh initialization and explicit legacy adoption; existing user database not migrated |
-| Behavior checks | [Finance tests](../tests/finance.test.ts), [migration tests](../tests/migrations.test.ts), [repository tests](../tests/repositories.test.ts), [session tests](../tests/session.test.ts), [dashboard lifecycle tests](../tests/dashboard-lifecycle.test.ts), [categorization tests](../tests/transaction-categorization.test.ts), [independent action tests](../tests/independent-actions.test.ts), [dashboard period tests](../tests/dashboard-period.test.ts), [connection removal tests](../tests/connection-removal.test.ts), [transaction type tests](../tests/transaction-types.test.ts), [manual transaction tests](../tests/manual-transactions.test.ts) and [HTTP tests](../tests/http-errors.test.ts) cover money/imports, identity matching, session/JWT integrity, atomic writes/rollback, pending upgrades, logout races, current-filter refreshes, per-area loading and failure states, serialized per-row categorization, transaction types and transfer pairing, independent action states, consistent period results and Problem Details/error privacy; [CI](../.github/workflows/ci.yml) runs lint, style checks, type checking, tests and build |
-| Legal pages | [Privacy notice](../src/features/legal/components/privacy-notice.tsx), [terms of use](../src/features/legal/components/terms-of-use.tsx), [deployment configuration](../src/features/legal/server/legal-configuration.ts): public `/privacy` and `/terms` pages without sign-in, linked from sign-in and the dashboard footer; operator identity/contact and hosting/database providers come from validated environment variables, and unconfigured installations say so. The texts have not been legally reviewed; operator details and data processors are configured on the hosted deployment |
-| Responsive checks | After the component/CSS refactor, all five views checked in Chrome emulation at 320, 360, 390, 430, 768, 844 and desktop 1440 pixels; no page overflow; forms usable at 400-pixel height |
-| Themes | [Color tokens](../src/app/globals.css) define both palettes; [theme preference](../src/features/appearance/theme-preference.ts) and the [root layout](../src/app/layout.tsx) render the chosen theme from a cookie; [category colors](../src/features/categorization/category-colors.ts) derive tints and readable text per theme without changing stored colors (behavior tests). An automated contrast pass over all five views, the former CSV dialog and the category popover found no text below 4.5:1 in either theme; text on gradients and disabled controls was not measured. Physical devices and Safari/Firefox not checked |
-| HTTP checks | Standalone synthetic checks cover authentication/origin checks, account/category/rule creation, repeated imports, corrections and valuations. Hosted checks additionally verify HTTPS sessions, Turso persistence, Mock ASPSP callback/account sync and a repeat sync with zero inserts. Production banking: authorization and a first sync with two production institutions (2026-11-16); repeat sync and reauthorization remain unverified |
-| Not verified | Repeat sync and reauthorization with production institutions, physical phones/Safari and real bank-app redirects, large histories, first future unattended cron invocation, actual NAS operation, restore from backup, PostgreSQL, multi-tenant SaaS |
-
-No account inventory or personal bank acceptance results are maintained in this repository. Use synthetic fixtures for examples and privately managed operational records for real deployments.
+All products depend on provider eligibility, bank endpoints, consent and available history. Restricted personal provider access is not a commercial multi-customer agreement; see [commercial requirements](product-direction.md#free-self-hosting-and-paid-managed-hosting).
 
 ## Tracked work
 
-Check an item only when its acceptance criterion is met and evidence is recorded. Requirements are distinct from completed implementation. The following priorities incorporate the product review.
+An item is checked only when its acceptance criterion is met and evidence is recorded. Priorities are in the [roadmap](product-direction.md#roadmap).
 
-### Existing foundation
+### Reliability and data
 
-- [x] **BASE-01** Accounts, latest net worth, the current month's cash flow and the twelve-month trend on the overview, cash flow for a selected month or all months on an account's details, with currency isolation; a currency choice appears only when accounts use several currencies.
-- [x] **BASE-02** End-to-end Enable Banking sandbox connection and repeat-sync deduplication check.
-- [x] **BASE-03** Keyword/RE2 categorization, priorities and preserved manual category changes.
-- [x] **BASE-04** Manual valuations (booked as adjustments) and the documented fixed-schema balance CSV import.
-- [x] **BASE-05** Responsive smartphone UI verified in Chrome emulation; physical device checks remain open.
+- [ ] **E-01 · Live bank acceptance**
+  - [x] Production consent and first sync with two institutions
+  - [x] Provider data validation, session revocation and per-client sign-in limits
+  - [ ] Repeat syncs, reauthorization and the unattended daily sync over time ([#267](https://github.com/daberni/ufer/issues/267))
+- [ ] **E-02 · Configurable CSV**
+  - [x] Preview, column mapping, account and category choices, saved templates
+  - [x] Buxfer detection and split import
+  - [ ] OFX, QIF and CAMT.053 ([#14](https://github.com/daberni/ufer/issues/14))
+  - [x] Content matching against earlier CSV imports of other files
+  - [ ] Remaining duplicate detection gaps ([#228](https://github.com/daberni/ufer/issues/228))
+- [ ] **E-03 · Backup and restore**
+  - [x] Offline backup verification and synthetic restore rehearsal
+  - [ ] Automated backups and a restore drill on a fresh instance ([#84](https://github.com/daberni/ufer/issues/84))
+- [ ] **E-04 · PostgreSQL adapter**
+  - [x] Versioned SQLite/libSQL migrations
+  - [ ] Provider-independent repositories and a verified PostgreSQL adapter
+- [ ] **E-05 · Unattended deployment**
+  - [x] Docker scheduler and protected Vercel cron
+  - [ ] Verified first unattended run per host, visible failures, real phones and bank-app redirects
 
-### Required reliability and data workflows
+### Product capabilities
 
-- [ ] **E-01 · Live bank acceptance:** automatic bank sync is essential to the main user journey; verify consent, balances, booked transactions, repeat sync and reauthorization with supported production institutions; publish only generic compatibility results with authorization. Since 2026-11-16 the hosted deployment uses a production Enable Banking application in restricted mode (the operator's own linked accounts): two production institutions are connected and their first sync imported booked transactions and balances; the privacy-notice and terms pages are configured. Repeat sync, reauthorization and the unattended daily sync remain open, as does deployment of the security prerequisite [#69](https://github.com/daberni/ufer/issues/69) (provider data validation and session revocation are implemented and covered by behavior tests with a mocked provider, not yet run against a production institution). Per-client authentication rate limits ([#68](https://github.com/daberni/ufer/issues/68)) are implemented and covered by behavior tests; their behavior on the hosted deployment is not yet verified. Storing raw provider transactions and original amounts ([#91](https://github.com/daberni/ufer/issues/91)) is implemented and covered by behavior tests with synthetic payloads; it has not run against a production institution, and the hosted database needs changeset 0003 before that version is deployed.
-- [ ] **E-02 · Configurable CSV:** selectable formats and fields, preview, reusable profiles, stable reference mapping, overlap reconciliation and a visible import report. Supporting history/unsupported sources and portability is the role of CSV, not the main daily workflow. A dedicated Buxfer migration assistant is not a priority.
-- [ ] **E-03 · Backup / restore:** restore database and keys on a fresh instance, verify results, then provide consistent automated backups. Mainly an infrastructure task; tracked in [#84](https://github.com/daberni/ufer/issues/84).
-- [ ] **E-04 · Provider-aware persistence:** complete provider-independent domain repositories and a verified PostgreSQL adapter with equivalent behavior. Versioned SQLite/libSQL SQL changesets and explicit legacy adoption are implemented; PostgreSQL is not supported yet.
-- [ ] **E-05 · Unattended deployment:** include and verify daily sync for each supported host, visible failures/recovery, real mobile keyboards and bank-app redirects; no browser needs to stay open.
+- [ ] **K-01 · Editing, provenance and splits**
+  - [x] Manual transactions on manual accounts
+  - [x] Transaction types and linked transfers
+  - [x] Payee and description overrides, hiding imported bookings
+  - [x] Split transactions
+  - [x] Sync runs linked to the bookings they inserted
+  - [ ] CSV import runs linked to their bookings
+  - [ ] Date and amount overrides for imported bookings ([#246](https://github.com/daberni/ufer/issues/246))
+- [ ] **K-02 · Complete management**
+  - [x] Rules: create, edit with preview, toggle, reorder, delete, apply
+  - [x] Categories: create, edit, delete with reassignment
+  - [x] Accounts: rename, change type, archive, convert detached bank accounts, delete
+  - [x] Bookings on archived accounts stay categorizable ([#271](https://github.com/daberni/ufer/issues/271))
+  - [x] Bank connections: connect, reconnect, remove
+  - [ ] Account-scoped rules ([#243](https://github.com/daberni/ufer/issues/243))
+- [ ] **K-03 · Securities** ([#266](https://github.com/daberni/ufer/issues/266))
+  - [x] Market-data provider evaluated ([#269](https://github.com/daberni/ufer/pull/269))
+  - [ ] Brokerage accounts with holdings, buys and sells
+  - [ ] Daily valuations in net worth and its history
+- [ ] **K-04 · Planning:** budgets, recurring entries and forecasts; planning model to be agreed first
+- [ ] **K-05 · Historical wealth**
+  - [x] Per-account balance history
+  - [x] Overview net-worth curve for the last year
+  - [ ] Full net-worth chart with missing-data states ([#87](https://github.com/daberni/ufer/issues/87))
 
-### Required product capabilities
+### Usability and reports
 
-- [ ] **K-01 · Editing, provenance and splits:** manual create/edit/delete; immutable source identity, per-import run linkage and explicit overrides; suppression of deleted imports; split allocations sum exactly to the original and are never double counted. (Sync runs are linked to the transactions they inserted, and the history opens them as a filtered list, covered by behavior tests; CSV import runs are not linked yet.) Manual editing, suppression and splits are tracked in [#85](https://github.com/daberni/ufer/issues/85); transaction types separate from categories and linked transfers are implemented ([#38](https://github.com/daberni/ufer/issues/38)); manual transactions on manual accounts can be created, edited and deleted ([#138](https://github.com/daberni/ufer/issues/138)); imported and synced bookings take payee and description overrides that survive re-syncs and imports while the source keeps identity, date and amount, and can be hidden so later syncs and imports keep them out of balances, reports and transfer pairing (behavior tests; [#85](https://github.com/daberni/ufer/issues/85)); split allocations that sum exactly to the booking and count once in cash flow and spending are implemented with behavior tests ([#85](https://github.com/daberni/ufer/issues/85)); date overrides for imported bookings remain open.
-- [ ] **K-02 · Complete management:** rules and categories are complete (rule creation, editing with an impact preview, toggling, deletion, drag-and-drop and keyboard ordering ([#160](https://github.com/daberni/ufer/issues/160)) and explicit application are implemented; category deletion with reassignment or uncategorizing is implemented; category name, color and optional icon editing is implemented and covered by behavior tests. Plain colored category icons and names are shared by rules, category management, spending breakdowns and form previews. Categories appear first in a compact, responsive tile grid; every dropdown remains a separate interactive selection); archiving and restoring accounts at a balance of 0 (archived bookings keep categories, splits, text overrides and rule application editable, [#271](https://github.com/daberni/ufer/issues/271)) and disconnecting a bank while keeping its accounts visible or archived are implemented and covered by behavior tests, pending the hosted rollout of their changeset; renaming manual and bank-linked accounts is implemented in the account-detail heading, whose edit dialog also changes the type of manual and imported accounts (a loan only with a balance that is not positive; bank-synced and archived accounts keep their type; behavior tests, [#215](https://github.com/daberni/ufer/issues/215)); reconnects preserve custom names and retain a separate provider label. A bank account whose connection was removed can be converted to a manual account that keeps its history and last bank balance, and accounts without a bank connection can be deleted after typing their name: their bookings, splits and balance history are removed from all reports, linked bookings on other accounts stay as transfers without a counterpart and rules naming the account keep the transfer type without a target (behavior tests, [#86](https://github.com/daberni/ufer/issues/86)). Tracked in [#83](https://github.com/daberni/ufer/issues/83) (rename accounts), [#86](https://github.com/daberni/ufer/issues/86) (rules, categories, archiving, disconnecting), [#65](https://github.com/daberni/ufer/issues/65) (bank connections within accounts), [#79](https://github.com/daberni/ufer/issues/79) (rules from the category picker) and [#160](https://github.com/daberni/ufer/issues/160) (drag-and-drop rule ordering). Creating a rule from a category assignment ([#79](https://github.com/daberni/ufer/issues/79)) is implemented and covered by behavior tests.
-- [ ] **K-03 · Securities:** compatible identifiers such as ticker + venue/MIC or ISIN + listing information, quote currency, exact holdings, trades and separate settlement cash; manual prices first, later explicit market-data adapters with timestamps/licensing and predictable resync behavior.
-- [ ] **K-04 · Planning:** category budgets/limits, recurring entries, reminders and forecasting; agree on the planning model before implementation.
-- [ ] **K-05 · Historical wealth:** net-worth and portfolio charts from dated snapshots/valuations and current balances, clearly distinguishing missing observations, price updates and optional FX conversion. Each account's balance history is shown in its details view. Across accounts, the overview draws a decorative curve of month-end net worth over the last year with the change since its start; each account counts from its first known balance, and missing observations are not marked. A full net-worth chart is tracked in [#87](https://github.com/daberni/ufer/issues/87).
-
-### Everyday usability and reports
-
-- [ ] **UX-01 · Simple onboarding:** a guided hosted bank-connect and authorization flow that reaches a useful automatically populated overview without database, provider-key, rule-language or budgeting-method setup; ordinary users must not register provider apps, enter IDs/secrets/tokens, upload keys or configure callbacks; provider selection belongs behind bank selection where feasible. File import is secondary for history/unsupported sources, and provider eligibility remains a service prerequisite.
-- [ ] **UX-02 · Useful report defaults:** ready-made cash-flow, spending, category, balance, wealth-history and investment summaries with understandable labels, dates, sources, and missing-data states; a custom report builder is optional. Per-month category breakdowns of income and expenses, the monthly net and the savings rate in the cash-flow chart are implemented; the overview shows each cash-flow figure once (period income, expenses, net and savings rate in the category panel, the visible months' savings rate in the chart) while the wealth summary shows net worth, its composition and a decorative twelve-month net-worth curve with its change; category trends across months beyond the twelve-month window and wealth/investment summaries remain open.
-- [ ] **UX-03 · Optional widget editing:** add/remove, reposition and resize widgets using a mobile-OS-style edit mode; useful default layout, touch/keyboard alternatives, responsive reflow, saved layouts and reset-to-default without changing financial data.
-- [ ] **UX-04 · Responsive loading:** views appear quickly on a cold start and with a remote database: the session is resolved on the server, the app frame renders at once, each area loads independently with skeletons, and requests avoid avoidable round trips. Measurements and fixes are tracked in [#82](https://github.com/daberni/ufer/issues/82) and [#74](https://github.com/daberni/ufer/issues/74).
-- [ ] **UX-05 · Localization:** the interface is available in the supported languages with matching date, number and currency formats; code and documentation stay in English. Tracked in [#21](https://github.com/daberni/ufer/issues/21).
-- [x] **UX-06 · Dark mode:** light and dark palettes through semantic tokens, operating-system default with a per-browser System/Light/Dark choice, no light flash on load or after sign-in. Tracked in [#94](https://github.com/daberni/ufer/issues/94).
+- [ ] **UX-01 · Simple onboarding:** guided hosted bank connection without provider setup by users
+- [ ] **UX-02 · Useful report defaults**
+  - [x] Monthly cash flow, category breakdowns, net and savings rate
+  - [x] Net worth with composition
+  - [ ] Long-term category trends and wealth or investment summaries ([#249](https://github.com/daberni/ufer/issues/249))
+- [ ] **UX-03 · Optional widget editing**
+- [x] **UX-04 · Responsive loading:** server-resolved session, immediate app frame, per-area loading
+- [ ] **UX-05 · Localization** ([#21](https://github.com/daberni/ufer/issues/21))
+  - [x] Amounts, numbers and dates in the browser's locale
+  - [ ] Translated interface
+- [x] **UX-06 · Dark mode**
+- [x] **UX-07 · Installable web app**
 
 ### Before an open-source or managed release
 
-- [x] **OSS-01a · License and notices:** the project is licensed under AGPL-3.0-or-later ([LICENSE](../LICENSE), README, `package.json`); contributions require the [contributor license agreement](../CLA.md), accepted through CLA Assistant (to be connected before the first outside contribution is merged); the sign-in screen and dashboard footer name the license and link the source code; third-party artwork is listed in the [branding notes](branding/README.md#third-party-artwork). The license grants no trademark rights to the Ufer name or icon.
-  - [ ] **Third-party notices:** generate notices for the production dependency tree (including the LGPL libvips binaries bundled with sharp) from the lockfile. Required before publishing a prebuilt image or running the managed service; not needed for users who build from source.
-- [ ] **OSS-01b · Commercial provider eligibility:** an Enable Banking commercial agreement (KYB, AISP or partner setup, pricing and minimum invoice) is required before any hosted offering, including a free hosted tier; market-data redistribution and commercial-use rights must be checked once a provider is selected. Free self-hosting plus paid managed hosting is the intended model, not an implemented offering; one synced account free with more paid is an unvalidated hosted-tier candidate, including its billing unit and provider costs.
-- [ ] **OSS-02 · Publication privacy:** scan the exact Git tree and history for secrets and real financial data; exclude local environment files, keys, databases, exports, host paths and personal account inventories. Initial content is prepared with generic English examples.
-- [ ] **OSS-03 · Fresh setup and demo:** verify instructions from a fresh checkout, supply synthetic demo data without bank credentials, and document supported Node/container configurations. `npm run demo:seed` now writes an 18-month synthetic dataset without bank credentials ([setup](setup.md#demo-data)); verification from a fresh checkout and the container configurations remain open.
-- [ ] **OSS-04 · Contribution and security process:** [contribution guidelines](../CONTRIBUTING.md) and the CLA exist; connect CLA Assistant before the first outside contribution is merged; maintain automated checks and dependency review. The [security policy](../SECURITY.md) directs reports to GitHub's private vulnerability reporting. A white-box security assessment on 2026-11-16 found no critical or high issue; its findings are tracked in [#68](https://github.com/daberni/ufer/issues/68) to [#73](https://github.com/daberni/ufer/issues/73), and [#72](https://github.com/daberni/ufer/issues/72) covers CI pinning and dependency review.
-- [ ] **OSS-05 · Managed-hosting readiness:** tenant isolation, identity/authorization, durable scheduled jobs, operational secrets, backups/monitoring, billing and data lifecycle; verify upgrades and obtain explicit approval for a public release.
+- [ ] **OSS-01 · License and provider terms**
+  - [x] AGPL-3.0-or-later, CLA and source link on every screen
+  - [ ] Third-party notices for prebuilt images or the managed service
+  - [ ] Commercial Enable Banking agreement and market-data rights
+- [ ] **OSS-02 · Publication privacy:** scan the tree and history for secrets and real financial data
+- [ ] **OSS-03 · Fresh setup and demo**
+  - [x] Synthetic demo data (`npm run demo:seed`)
+  - [ ] Verified setup from a fresh checkout and container configurations
+- [ ] **OSS-04 · Contribution and security process**
+  - [x] Contribution guidelines, CLA and security policy
+  - [x] Security assessment findings tracked
+  - [ ] CLA Assistant connected
+- [ ] **OSS-05 · Managed-hosting readiness:** tenant isolation, enforced roles, durable jobs, backups and monitoring, billing
 
-## Sources and maintenance
+## Footnotes
 
-Primary sources checked on 2026-11-15. The [functional review](functional-review.md) records release pins, workflow implications, and the limited practical checks. Rolling docs can lead stable releases; alpha releases are not counted as stable capabilities. No pricing, institution counts, personal compatibility results, or performance benchmarks justify the conclusion.
+1. <a id="fn-1"></a>Enable Banking; booked transactions only. The raw provider transaction (up to 64 KiB) and the original amount of foreign-currency payments are stored.
+2. <a id="fn-2"></a>[Buxfer sync](https://www.buxfer.com/features/sync/)
+3. <a id="fn-3"></a>[Actual bank sync](https://actualbudget.org/docs/advanced/bank-sync/): several providers; provider setup before consent; Enable Banking experimental.
+4. <a id="fn-4"></a>[Firefly III Data Importer](https://github.com/firefly-iii/data-importer): separate component; needs provider credentials, import configuration and a scheduled trigger.
+5. <a id="fn-5"></a>[Sure Enable Banking](https://docs.sure.am/providers/enable-banking): reconnect workflow; the self-hosted UI asks for application credentials before consent.
+6. <a id="fn-6"></a>[Enable Banking with the Firefly III importer](https://github.com/firefly-iii/docs/blob/main/docs/docs/tutorials/data-importer/eb.md)
+7. <a id="fn-7"></a>The operator configures the provider once; users only authorize at their bank. No managed connection service yet.
+8. <a id="fn-8"></a>Docker includes a daily scheduler; Vercel runs a protected daily cron.
+9. <a id="fn-9"></a>[Actual API](https://actualbudget.org/docs/api/reference/): the built-in sync interval needs an open app; `runBankSync` allows an external scheduled job.
+10. <a id="fn-10"></a>[Sure scheduler](https://github.com/we-promise/sure/blob/v0.7.6-hotfix.1/config/initializers/sidekiq.rb)
+11. <a id="fn-11"></a>Consent and a first sync with two production institutions work; repeat syncs, reauthorization and the unattended daily sync are being verified ([#267](https://github.com/daberni/ufer/issues/267)).
+12. <a id="fn-12"></a>[Buxfer features](https://www.buxfer.com/features/)
+13. <a id="fn-13"></a>[Actual reports](https://actualbudget.org/docs/reports/): configurable dashboards, off-budget accounts, experimental forecasts and Monte Carlo.
+14. <a id="fn-14"></a>[Firefly III features](https://github.com/firefly-iii/firefly-iii#features): asset and liability bookkeeping, categories and tags, savings goals.
+15. <a id="fn-15"></a>[Sure documentation](https://docs.sure.am/): wealth history, asset and debt accounts, goals.
+16. <a id="fn-16"></a>The balance is the sum of the account's transactions; updating the balance books an adjustment.
+17. <a id="fn-17"></a>[Firefly III reports](https://github.com/firefly-iii/docs/blob/main/docs/docs/how-to/firefly-iii/finances/reports.md): configurable reports; free widget layout and an exact net-worth chart unverified.
+18. <a id="fn-18"></a>The overview shows a twelve-month net-worth curve without axes or missing-data states; a full chart is planned ([#87](https://github.com/daberni/ufer/issues/87)).
+19. <a id="fn-19"></a>Separate totals per currency; no conversion. Foreign-currency bank payments show their original amount.
+20. <a id="fn-20"></a>[Actual multi-currency](https://actualbudget.org/docs/budgeting/multi-currency/): unsupported natively; experimental workaround.
+21. <a id="fn-21"></a>[Firefly III currencies](https://github.com/firefly-iii/docs/blob/main/docs/docs/how-to/firefly-iii/features/currencies.md)
+22. <a id="fn-22"></a>[Sure market data](https://docs.sure.am/providers/market-data): quote providers and FX.
+23. <a id="fn-23"></a>[Actual importing](https://actualbudget.org/docs/transactions/importing/): field, date and delimiter options; IDs and fallback matching.
+24. <a id="fn-24"></a>[Firefly III search](https://github.com/firefly-iii/docs/blob/main/docs/docs/how-to/firefly-iii/features/search.md)
+25. <a id="fn-25"></a>[Sure transactions](https://docs.sure.am/guides/app-features/transactions): editing, splits, filters, rules with order and stop-processing.
+26. <a id="fn-26"></a>On manual accounts.
+27. <a id="fn-27"></a>[Firefly III transactions](https://github.com/firefly-iii/docs/blob/main/docs/docs/how-to/firefly-iii/finances/transactions.md): create, edit, delete, split journals.
+28. <a id="fn-28"></a>Category, type, transfer link, payee and description can be changed; date and amount of imported or synced bookings cannot ([#246](https://github.com/daberni/ufer/issues/246)).
+29. <a id="fn-29"></a>[Sure schema](https://github.com/we-promise/sure/blob/v0.7.6-hotfix.1/db/schema.rb): source IDs, manual field locks, ticker and MIC.
+30. <a id="fn-30"></a>[Buxfer split transactions](https://buxfer.zendesk.com/hc/en-us/articles/360015881833-Can-I-split-a-single-transaction-across-multiple-tags)
+31. <a id="fn-31"></a>[Actual split transactions](https://actualbudget.org/docs/transactions/split-transactions/)
+32. <a id="fn-32"></a>Transfers are a transaction type; sync and imports pair opposite bookings on two own accounts automatically.
+33. <a id="fn-33"></a>Source reference and sync-run linkage; CSV import runs and an override history are not recorded.
+34. <a id="fn-34"></a>[Firefly III duplicate detection](https://github.com/firefly-iii/docs/blob/main/docs/docs/references/data-importer/duplicate-detection.md): import hashes and external IDs.
+35. <a id="fn-35"></a>[Sure budgets](https://docs.sure.am/guides/app-features/budgets): category limits, subcategories.
+36. <a id="fn-36"></a>Keyword and regular-expression rules on payee and description, in list order, with an impact preview.
+37. <a id="fn-37"></a>[Actual rules](https://actualbudget.org/docs/budgeting/rules/): editable rules and payee learning.
+38. <a id="fn-38"></a>[Firefly III rules](https://github.com/firefly-iii/docs/blob/main/docs/docs/how-to/firefly-iii/features/rules.md): grouped rules with multiple actions.
+39. <a id="fn-39"></a>[Buxfer upload](https://www.buxfer.com/help/upload): CSV and Excel; mapping profiles unverified.
+40. <a id="fn-40"></a>[Sure CSV imports](https://docs.sure.am/guides/app-features/csv-imports): mapping, preview, reusable setup; CSV and feed overlap not guaranteed.
+41. <a id="fn-41"></a>Rows match earlier imports by export ID or content and existing bookings by amount, date and text; later bank syncs adopt matching imported rows. Remaining gaps are tracked in [#228](https://github.com/daberni/ufer/issues/228).
+42. <a id="fn-42"></a>Monthly chart with income, expenses, net and per-month category breakdowns; transfers are excluded.
+43. <a id="fn-43"></a>[Sure dashboard source](https://github.com/we-promise/sure/blob/v0.7.6-hotfix.1/app/controllers/pages_controller.rb): reorder, show or hide and resize predefined widgets; runtime not tested.
+44. <a id="fn-44"></a>[Sure recurring transactions](https://docs.sure.am/features/recurring-transactions)
+45. <a id="fn-45"></a>[Actual envelope budgeting](https://actualbudget.org/docs/getting-started/envelope-budgeting/)
+46. <a id="fn-46"></a>[Firefly III budgets](https://github.com/firefly-iii/docs/blob/main/docs/docs/how-to/firefly-iii/finances/budgets.md)
+47. <a id="fn-47"></a>[Actual schedules](https://actualbudget.org/docs/schedules/)
+48. <a id="fn-48"></a>[Firefly III recurring transactions](https://github.com/firefly-iii/docs/blob/main/docs/docs/how-to/firefly-iii/finances/recurring.md): needs cron.
+49. <a id="fn-49"></a>[Buxfer investments](https://www.buxfer.com/features/investments/)
+50. <a id="fn-50"></a>[Firefly III discussion](https://github.com/orgs/firefly-iii/discussions/10190): no dedicated securities tracking.
+51. <a id="fn-51"></a>[Sure investment accounts](https://docs.sure.am/guides/key-concepts/investment-accounts)
+52. <a id="fn-52"></a>Planned as the next major topic ([#266](https://github.com/daberni/ufer/issues/266)).
+53. <a id="fn-53"></a>Checked in browser emulation; physical phones not yet tested.
+54. <a id="fn-54"></a>[Actual 26.11.0 release](https://actualbudget.org/blog/release-26.11.0/); physical phones not tested.
+55. <a id="fn-55"></a>[Sure clients](https://docs.sure.am/guides/key-concepts/clients)
+56. <a id="fn-56"></a>Individual users with their own sign-in in one shared workspace; no separate customer workspaces or role-based permissions.
+57. <a id="fn-57"></a>[Actual multi-user](https://actualbudget.org/docs/config/multi-user/): OIDC, roles and budget access.
+58. <a id="fn-58"></a>[Sure family sharing](https://docs.sure.am/guides/app-features/family-sharing)
+59. <a id="fn-59"></a>[Actual sync](https://actualbudget.org/docs/getting-started/sync/): local-first, optional end-to-end encryption excluding bank tokens.
+60. <a id="fn-60"></a>Manual database and key backup with an offline verifier; no export in the app ([#84](https://github.com/daberni/ufer/issues/84)).
+61. <a id="fn-61"></a>[Actual backup](https://actualbudget.org/docs/backup-restore/backup/) and [restore](https://actualbudget.org/docs/backup-restore/restore/)
+62. <a id="fn-62"></a>[Firefly III export](https://github.com/firefly-iii/docs/blob/main/docs/docs/tutorials/firefly-iii/exporting-data.md): CSV and API; full restore needs a database backup.
+63. <a id="fn-63"></a>[Sure 0.7.6-hotfix.1](https://github.com/we-promise/sure/releases/tag/v0.7.6-hotfix.1): instance backup and restore.
 
-Update status, limitation, evidence and date when a capability changes. Check a tracked item only after its acceptance criterion is met. Repository examples must remain synthetic and English.
+## Maintenance
 
-[B1]: https://www.buxfer.com/features/
-[B2]: https://www.buxfer.com/features/sync/
-[B3]: https://www.buxfer.com/features/investments/
-[B4]: https://buxfer.zendesk.com/hc/en-us/articles/360015881833-Can-I-split-a-single-transaction-across-multiple-tags
-[B5]: https://www.buxfer.com/help/upload
-[A1]: https://actualbudget.org/docs/advanced/bank-sync/
-[A3]: https://actualbudget.org/docs/reports/
-[A4]: https://actualbudget.org/docs/budgeting/rules/
-[A5]: https://actualbudget.org/docs/transactions/importing/
-[A6]: https://actualbudget.org/docs/transactions/split-transactions/
-[A7]: https://actualbudget.org/docs/getting-started/envelope-budgeting/
-[A8]: https://actualbudget.org/docs/schedules/
-[A9]: https://actualbudget.org/docs/budgeting/multi-currency/
-[A10]: https://actualbudget.org/docs/backup-restore/backup/
-[A15]: https://actualbudget.org/docs/backup-restore/restore/
-[A11]: https://actualbudget.org/docs/getting-started/sync/
-[A12]: https://actualbudget.org/docs/api/reference/
-[A13]: https://actualbudget.org/blog/release-26.11.0/
-[A14]: https://actualbudget.org/docs/config/multi-user/
-[F1]: https://github.com/firefly-iii/firefly-iii#features
-[F2]: https://github.com/firefly-iii/data-importer
-[F3]: https://github.com/orgs/firefly-iii/discussions/10190
-[F4]: https://github.com/firefly-iii/docs/blob/main/docs/docs/tutorials/data-importer/eb.md
-[F5]: https://github.com/firefly-iii/docs/blob/main/docs/docs/how-to/firefly-iii/finances/transactions.md
-[F6]: https://github.com/firefly-iii/docs/blob/main/docs/docs/how-to/firefly-iii/features/rules.md
-[F7]: https://github.com/firefly-iii/docs/blob/main/docs/docs/how-to/firefly-iii/finances/budgets.md
-[F8]: https://github.com/firefly-iii/docs/blob/main/docs/docs/how-to/firefly-iii/finances/reports.md
-[F9]: https://github.com/firefly-iii/docs/blob/main/docs/docs/references/data-importer/duplicate-detection.md
-[F10]: https://github.com/firefly-iii/docs/blob/main/docs/docs/how-to/data-importer/advanced/custom-import-tag.md
-[F11]: https://github.com/firefly-iii/docs/blob/main/docs/docs/how-to/firefly-iii/finances/recurring.md
-[F12]: https://github.com/firefly-iii/docs/blob/main/docs/docs/how-to/firefly-iii/features/currencies.md
-[F14]: https://github.com/firefly-iii/docs/blob/main/docs/docs/how-to/firefly-iii/features/search.md
-[F13]: https://github.com/firefly-iii/docs/blob/main/docs/docs/tutorials/firefly-iii/exporting-data.md
-[S1]: https://docs.sure.am/providers/enable-banking
-[S2]: https://docs.sure.am/guides/app-features/transactions
-[S3]: https://docs.sure.am/guides/app-features/csv-imports
-[S4]: https://docs.sure.am/guides/app-features/budgets
-[S5]: https://docs.sure.am/guides/key-concepts/investment-accounts
-[S6]: https://docs.sure.am/providers/market-data
-[S7]: https://github.com/we-promise/sure/blob/v0.7.6-hotfix.1/db/schema.rb
-[S8]: https://github.com/we-promise/sure/blob/v0.7.6-hotfix.1/config/initializers/sidekiq.rb
-[S9]: https://docs.sure.am/
-[S10]: https://docs.sure.am/guides/key-concepts/clients
-[S11]: https://docs.sure.am/features/recurring-transactions
-[S12]: https://docs.sure.am/guides/app-features/family-sharing
-[S13]: https://github.com/we-promise/sure/releases/tag/v0.7.6-hotfix.1
-[S14]: https://github.com/we-promise/sure/blob/v0.7.6-hotfix.1/app/controllers/pages_controller.rb
-
-User management is tracked in [issue #25](https://github.com/daberni/ufer/issues/25). The current source implements explicit operator enrollment, username/password sign-in, session/password lifecycle and active membership of one installation workspace. The [rollout](user-management.md#migration-and-rollout) is not yet applied to existing databases or the hosted installation.
-
-
-Account balance history: cash accounts with booked transactions show daily estimates between recorded observations, preserving the original values and source on every recorded date. New bank observations retain their provider balance classification; historical observations without it remain unclassified and display only “Bank sync”. Reconstructed days are labelled Estimated and never inherit closing/available/interim classification. Changeset 0008 is applied on the shared Preview database and Production. The table lists recorded observations only; calculated values remain available in the interactive step chart through hover, touch and keyboard navigation. Days without bookings carry the preceding closing balance. The latest 3,660 days retain daily samples; older stretches retain every booking and observation date without materializing unchanged days. Explicit opening-balance transactions can anchor manual accounts at zero before their first booking; partial imports without any balance reference do not imply zero. Accounts without transactions and market-valued assets retain their recorded valuation history unless an explicit opening/adjustment ledger defines their values. Stale synced histories stop at the latest known sync, observation or booking date. The chart uses horizontal steps and vertical changes, and was checked with synthetic data at desktop and 375 px width.
-
-Transaction list update: the existing type icon identifies income, expenses, transfers, opening balances and adjustments without a separate Type column. A row-wide edit button supports pointer and keyboard use while category and description controls remain independent. Transfers show the counterpart account below their account name. A separate, unapplied data migration retires only an untouched seeded Transfer category. Edited seed categories, manual category assignments, user-created rules and edited demo rules retain their category and dependent data; custom categories remain supported.
-
-Rule edits reuse the creation form with saved values. Updating a rule preserves its identity, enabled state and position; the rule list order determines matching order. Edits do not recategorize existing transactions automatically; the existing Apply rules action remains explicit.
-
-
-Category-management refinement: categories use a compact, responsive tile grid with wider columns, single-line names and whole-tile edit actions; rule rows use contained full-row hover and edit actions, with compact mobile switches whose touch targets remain larger than their visible tracks. The rule editor shows the name, then the matching mode with its pattern; it has no priority field. Transaction categories use inline controls: idle icon/name labels reveal field chrome on row hover, keyboard focus or an open/error state without moving the layout; direct touch selection remains available. Row whitespace opens the transaction editor while category fields and their feedback stay independent.
-
-Backup/restore verification: an explicit read-only local SQLite artifact verifier checks integrity, references, migration history and table counts, with an opt-in bank-session decryption check. A synthetic WAL backup/fresh-restore rehearsal covers sign-in, manual corrections and a mocked bank sync. Hosted export/PITR recovery, independent automated backups and retention remain open in [#84](https://github.com/daberni/ufer/issues/84); see the [runbook](backup-and-restore.md).
-
-
-Account renaming: display names are editable for manual and bank-linked accounts, trimmed to 1–100 characters, with duplicates allowed. Bank labels remain separate and visible in details; names survive sync and reconnect. Changeset 0009 is applied to the shared Preview database and to Production with this release.
-Visible date years: shared calendar-day and timestamp labels show the year when it differs from the current display year, so historical transactions, sync history and future authorization expiries remain readable without hover. Calendar dates use the product-zone year; timestamps use their display-zone year, including New Year boundaries. Current-year dates stay compact, and full titles/machine-readable dates remain unchanged. This addresses the date-year slice of [#112](https://github.com/daberni/ufer/issues/112); its broader copy/accessibility work remains open.
+Primary sources were checked on 2026-11-15. Update a row and its footnote when a capability changes, check a tracked item only after its acceptance criterion is met, and keep repository examples synthetic and English.
