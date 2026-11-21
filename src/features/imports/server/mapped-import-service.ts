@@ -32,6 +32,7 @@ const row = z.object({
   occurrence: z.number().int().min(0),
   id: z.string().max(maxIdLength).nullable().default(null),
   transfer: z.boolean().default(false),
+  hidden: z.boolean().default(false),
   parts: z.array(z.object({
     category: z.string().max(maxCategoryLength),
     amount: z.string().max(30)
@@ -83,7 +84,7 @@ const mappedImportInput = z.object({
   import_id: z.uuid(),
   rows: z.array(row).min(1).max(maxRowsPerRequest),
   targets: z.array(target).min(1).max(maxTargetsPerRequest),
-  /** Existing bookings that earlier batches of this import matched as duplicates. */
+  /** Bookings that earlier batches of this import matched as duplicates or saved. */
   consumed: z.array(matchedBooking).max(20_000).default([]),
   categories: z.array(categoryChoice).max(maxCategoryChoicesPerRequest).default([]),
   confirm: z.boolean(),
@@ -108,9 +109,9 @@ export type MappedImportResult = {
   confirmed: boolean;
   /** Rows that are new, or with `confirmed` were saved. */
   newRows: number;
-  /** Lines with several possible existing bookings in the date window; they import unless the person removes them. */
+  /** Lines that may duplicate an existing booking without a unique match; they import unless the person removes them. */
   possibleDuplicates: number[];
-  /** Existing bookings this batch matched; the next batch passes them as `consumed`. */
+  /** Bookings this batch matched or, when confirmed, saved; the next batch passes them as `consumed`. */
   matched: z.infer<typeof matchedBooking>[];
   duplicates: {
     line: number;
@@ -183,6 +184,7 @@ export async function importMappedRows(payload: unknown, now = Temporal.Now.inst
         typeRuleId: null,
         typeTransferAccountId: null,
         transfer: item.transfer,
+        hiddenAt: item.hidden ? now.toString() : null,
         parts
       }
     });
@@ -452,7 +454,7 @@ async function resolveCategories(choices: z.infer<typeof categoryChoice>[]) {
 function splitParts(item: z.infer<typeof row>, amount: number, currency: string, resolveCategory: (value: string) => string | null): SplitPartValues[] | null {
   const parts = item.parts ?? [];
 
-  if (item.transfer) {
+  if (item.transfer || item.hidden) {
     return null;
   }
 

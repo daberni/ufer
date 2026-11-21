@@ -136,7 +136,7 @@ export function useRowIssues(draft: ImportDraft) {
     }
 
     for (const line of summary?.possibleDuplicates ?? []) {
-      add(line, "Possible duplicate: several bookings in Ufer could match. It will be imported.");
+      add(line, "Possible duplicate of a booking already in Ufer. It will be imported.");
     }
 
     return issues;

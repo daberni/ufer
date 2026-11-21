@@ -51,9 +51,9 @@ export type Transaction = {
   account_id: string;
   /** Whether the booking belongs to a manual account, which also allows the opening balance and adjustment types. */
   manual_account: boolean;
-  /** Whether the booking's account is archived, which keeps the booking read-only. */
+  /** Whether the booking's account is archived, which freezes its type, link and entry but not its categories, payee, description or, on a bank account, its visibility. */
   account_archived: boolean;
-  /** Whether the linked counterpart's account is archived; changes to this booking would change that counterpart, so only its category stays editable. */
+  /** Whether the linked counterpart's account is archived; changes to this booking's type or link would change that counterpart, so they stay frozen. */
   counterpart_archived: boolean;
   /** Whether the booking was entered in Ufer on a manual account, so its date, amount, payee and description can be edited and the booking deleted. A counterpart created for an imported booking is not. */
   entered: boolean;
@@ -66,6 +66,8 @@ export type Transaction = {
     id: string;
     account_name: string;
     booking_date: string;
+    /** Whether the counterpart was entered in Ufer or created by it on a manual account. */
+    entered: boolean;
   } | null;
 };
 
@@ -112,7 +114,7 @@ export type PayeeSuggestions = {
   payees: string[];
 };
 
-/** Whether the edit dialog is unavailable: every change of type, link, entry or deletion is refused while either side's account is archived. */
-export function editLocked(transaction: Pick<Transaction, "account_archived" | "counterpart_archived">) {
+/** Whether the booking's bookkeeping is frozen: every change of type, link, entry or deletion is refused while either side's account is archived; categories and texts stay editable. */
+export function bookkeepingFrozen(transaction: Pick<Transaction, "account_archived" | "counterpart_archived">) {
   return transaction.account_archived || transaction.counterpart_archived;
 }

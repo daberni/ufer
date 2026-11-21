@@ -8,9 +8,12 @@ import type { Database } from "../src/server/database/connection";
 import { initializeDatabase } from "../src/server/database/migrations";
 import * as schema from "../src/server/database/schema";
 import { insertRule } from "../src/features/categorization/server/rule-repository";
+import { listAccounts } from "../src/features/accounts/server/account-queries";
+import { readAccountCashFlow } from "../src/features/reports/server/cash-flow-query";
+import { monthPeriod } from "../src/lib/period";
 import { importMappedRows } from "../src/features/imports/server/mapped-import-service";
 import { categoryValues } from "../src/features/imports/import-plan";
-import { assignOccurrences, buxferTemplate, mapRows, parseCsv, readsSplitTags, suggestMapping, tagSplit, templateMapping, withSplitTags, type CsvSettings, type MappedRow } from "../src/features/imports/csv-mapping";
+import { assignOccurrences, buxferTemplate, mapRows, parseCsv, readsBuxferExport, suggestMapping, tagSplit, templateMapping, withSplitTags, type CsvSettings, type MappedRow } from "../src/features/imports/csv-mapping";
 
 const now = Temporal.Instant.from("2026-06-30T12:00:00Z");
 const importId = "00000000-0000-4000-8000-000000000247";
@@ -73,7 +76,7 @@ async function isolatedDatabase(context: TestContext) {
 function mappedBuxferRows(csv = buxferCsv) {
   const [header, ...rows] = parseCsv(csv, ",");
 
-  return mapRows(rows, templateMapping(buxferTemplate, header), settings, "en", undefined, readsSplitTags(buxferTemplate));
+  return mapRows(rows, templateMapping(buxferTemplate, header), settings, "en", undefined, readsBuxferExport(buxferTemplate));
 }
 
 function payload(rows: MappedRow[], confirm: boolean, categories: object[] = []) {
@@ -250,10 +253,104 @@ test("only Buxfer's layout reads tags as splits; other files keep colon values a
     ["Phase:5,Project:5", null, ""],
     ["Project:2026", null, ""]
   ]);
-  assert.equal(readsSplitTags(null), false);
-  assert.equal(readsSplitTags({
+  assert.equal(readsBuxferExport(null), false);
+  assert.equal(readsBuxferExport({
     ...buxferTemplate,
     id: "saved",
     builtIn: false
   }), true);
+});
+
+test("Buxfer investment trades import hidden with their exported amount while gains and other types count", async context => {
+  const db = await isolatedDatabase(context);
+  const csv = [
+    "ID,Date,Description,Currency,Amount,Type,Tags,Account,Status,Memo,IOU",
+    "11,2026-02-02,\"Buy index fund\",EUR,1250.5,Investment purchase,\"\",\"Checking\",Cleared,\" \"",
+    "12,2026-02-03,\"Sell index fund\",EUR,300,Investment sale,\"\",\"Checking\",Cleared,\" \"",
+    "13,2026-02-03,\"Index fund gain\",EUR,40,Capital gain,\"\",\"Checking\",Cleared,\" \"",
+    "14,2026-02-04,\"Salary\",EUR,2000,Income,\"\",\"Checking\",Cleared,\" \"",
+    "15,2026-02-05,\"Bakery\",EUR,-4.2,Expense,\"\",\"Checking\",Cleared,\" \""
+  ].join("\n");
+  const mapped = mappedBuxferRows(csv);
+
+  assert.deepEqual(mapped.errors, []);
+  assert.deepEqual(mapped.rows.map(row => [row.amount, row.hidden]), [["1250.5", true], ["300", true], ["40", false], ["2000", false], ["-4.2", false]]);
+
+  const result = await importMappedRows(payload(mapped.rows, true), now);
+  const bookings = await db.select().from(schema.transactions).orderBy(asc(schema.transactions.booking_date), asc(schema.transactions.amount_minor));
+  const balance = (await listAccounts()).find(account => account.id === "synthetic-checking")?.balance_minor;
+
+  assert.deepEqual(result.errors, []);
+  assert.deepEqual(bookings.map(booking => [booking.description, booking.amount_minor, booking.suppressed_at !== null]), [
+    ["Buy index fund", 125050, true],
+    ["Index fund gain", 4000, false],
+    ["Sell index fund", 30000, true],
+    ["Salary", 200000, false],
+    ["Bakery", -420, false]
+  ]);
+  assert.equal(balance, 4000 + 200000 - 420);
+
+  const flow = await readAccountCashFlow("synthetic-checking", monthPeriod(Temporal.PlainYearMonth.from("2026-02")));
+
+  assert.deepEqual([flow.income, flow.expenses], [204000, 420]);
+
+  const again = await importMappedRows(payload(mapped.rows, true), now);
+
+  assert.equal(again.newRows, 0);
+});
+
+test("only the Buxfer template hides investment trades", () => {
+  const header = ["Date", "Amount", "Description", "Type"];
+  const mapping = templateMapping({
+    ...buxferTemplate,
+    header,
+    columns: {
+      date: 0,
+      amount: 1,
+      description: 2,
+      type: 3
+    }
+  }, header);
+  const row = mapRows([["2026-02-02", "100", "Fund", "Investment purchase"]], mapping, settings, "en").rows[0];
+
+  assert.equal(row.amount, "100");
+  assert.equal(row.hidden, false);
+});
+
+test("a new account's current balance from a Buxfer file leaves hidden trades out and survives a resume", async context => {
+  await isolatedDatabase(context);
+  const csv = [
+    "ID,Date,Description,Currency,Amount,Type,Tags,Account,Status,Memo,IOU",
+    "21,2026-02-02,\"Buy index fund\",EUR,500,Investment purchase,\"\",\"Brokerage\",Cleared,\" \"",
+    "22,2026-02-03,\"Index fund gain\",EUR,20,Capital gain,\"\",\"Brokerage\",Cleared,\" \""
+  ].join("\n");
+  const rows = mappedBuxferRows(csv).rows;
+  const request = {
+    import_id: importId,
+    rows: assignOccurrences(rows, () => "new"),
+    targets: [{
+      source: "Brokerage",
+      new_account: {
+        name: "Synthetic brokerage",
+        kind: "checking",
+        currency: "EUR",
+        opening: {
+          kind: "current" as const,
+          amount: "1000.00",
+          date: "2026-02-01"
+        }
+      }
+    }],
+    confirm: true
+  };
+  const balance = async () => (await listAccounts()).find(account => account.name === "Synthetic brokerage")?.balance_minor;
+
+  assert.deepEqual((await importMappedRows(request, now)).errors, []);
+  assert.equal(await balance(), 100000);
+
+  const resumed = await importMappedRows(request, now);
+
+  assert.deepEqual(resumed.errors, []);
+  assert.equal(resumed.newRows, 0);
+  assert.equal(await balance(), 100000);
 });

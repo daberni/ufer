@@ -12,9 +12,11 @@ import { sameCategoryName } from "@/lib/category-name";
 import { derivedTransactionType, type RuleTransactionType } from "@/features/transactions/transaction-types";
 import type { CategorizedEntry } from "@/features/transactions/server/transaction-entry";
 import type { SplitPartValues } from "@/features/transactions/server/split-repository";
-import { duplicateDateToleranceDays, findDuplicates, mappedReferencePrefix, matchBooking, type ExistingBooking } from "./duplicate-matching";
+import { duplicateDateToleranceDays, findDuplicates, mappedReferencePrefix, matchBooking, prepareBooking, prepareBookings, type ExistingBooking } from "./duplicate-matching";
 
 const referenceChunkSize = 500;
+
+const isTransfer = sql<boolean>`(${transactions.type} = 'transfer' OR ${transactions.transfer_id} IS NOT NULL)`.mapWith(value => Boolean(value));
 
 export type MappedEntry = {
   reference: string;
@@ -33,6 +35,8 @@ export type MappedEntry = {
   typeTransferAccountId: string | null;
   /** Marked as a transfer by the file; saved with an automatic transfer type so pairing can link it. */
   transfer: boolean;
+  /** When set, the booking is saved hidden: stored for duplicate matching but excluded from balances, reports and pairing. */
+  hiddenAt: string | null;
   /** The parts of a split booking, saved with it; the booking itself then has no category. */
   parts: SplitPartValues[] | null;
 };
@@ -111,6 +115,9 @@ export async function findImportTarget(id: string) {
   }).from(accounts).where(eq(accounts.id, id)).get();
 }
 
+/** Rows that decide a new import account's opening balance: all but those the import itself saved hidden, which the shown balance never includes. */
+const countedTowardOpening = sql`(${transactions.suppressed_at} IS NULL OR ${transactions.suppressed_at}<>${transactions.created_at})`;
+
 /** The opening balance an import booked on its new account under one of the given IDs, with the sum of the account's other transactions. */
 export async function findImportOpening(accountId: string, ids: string[]) {
   const db = await database();
@@ -124,10 +131,10 @@ export async function findImportOpening(accountId: string, ids: string[]) {
     return null;
   }
 
-  // Hidden rows count here too: this sum identifies the import's stated balance, not the balance shown.
+  // Rows a person hid later count here too: this sum identifies the import's stated balance, which they did not change. Rows hidden by the import never counted toward it.
   const others = await db.select({
     total: sql<number>`COALESCE(SUM(${transactions.amount_minor}),0)`.mapWith(Number)
-  }).from(transactions).where(and(eq(transactions.account_id, accountId), ne(transactions.id, opening.id))).get();
+  }).from(transactions).where(and(eq(transactions.account_id, accountId), ne(transactions.id, opening.id), countedTowardOpening)).get();
 
   return {
     ...opening,
@@ -144,7 +151,8 @@ function bookingsBetween(executor: Executor, accountId: string, from: string, to
     date: transactions.booking_date,
     amount: transactions.amount_minor,
     counterparty: transactions.counterparty,
-    description: transactions.description
+    description: transactions.description,
+    transfer: isTransfer
   }).from(transactions).where(scope);
 }
 
@@ -181,7 +189,8 @@ async function bookingsWithReferences(executor: Executor, accountId: string, ref
       date: transactions.booking_date,
       amount: transactions.amount_minor,
       counterparty: transactions.counterparty,
-      description: transactions.description
+      description: transactions.description,
+      transfer: isTransfer
     }).from(transactions).where(and(eq(transactions.account_id, accountId), inArray(transactions.provider_reference, chunk))));
   }
 
@@ -287,6 +296,9 @@ async function saveAccountRows(tx: DatabaseTransaction, {
   await assertWritableAccount(tx, accountId);
   const found = await classify(tx, accountId, entries, consumed);
   const fresh = await ensureCategories(entries.filter((_entry, index) => !found.duplicates.has(index)));
+  const dates = new Map(fresh.map(entry => [entry.reference, entry.date]));
+  // Later batches of this import pass the saved rows back as consumed, so rows of the same file never match each other by content.
+  const saved: typeof found.matched = [];
   let inserted = 0;
 
   // Bound statement parameters for both local SQLite and remote libSQL deployments.
@@ -307,7 +319,12 @@ async function saveAccountRows(tx: DatabaseTransaction, {
       type: entry.ruleType ?? derivedTransactionType(entry.amount, entry.transfer),
       type_rule_id: entry.typeRuleId,
       type_transfer_account_id: entry.typeTransferAccountId,
-      transfer_detected: entry.transfer ? 1 : 0
+      transfer_detected: entry.transfer ? 1 : 0,
+      // A row hidden by the import shares its creation time, which tells it apart from a booking a person hid later.
+      ...(entry.hiddenAt ? {
+        created_at: entry.hiddenAt,
+        suppressed_at: entry.hiddenAt
+      } : {})
     }));
     const rows = await tx.insert(transactions).values(values).onConflictDoNothing({
       target: [transactions.account_id, transactions.provider_reference]
@@ -317,6 +334,10 @@ async function saveAccountRows(tx: DatabaseTransaction, {
     });
 
     inserted += rows.length;
+    saved.push(...rows.map(row => ({
+      reference: row.reference,
+      date: dates.get(row.reference) ?? ""
+    })));
     await saveImportedParts(tx, rows, fresh);
   }
 
@@ -326,6 +347,7 @@ async function saveAccountRows(tx: DatabaseTransaction, {
 
   return {
     ...found,
+    matched: [...found.matched, ...saved],
     inserted
   };
 }
@@ -389,11 +411,12 @@ export async function adoptImportedRows(tx: DatabaseTransaction, accountId: stri
     }
   }
 
+  const prepared = prepareBookings(imported);
   const used = new Set<string>();
   const adopted: CategorizedEntry[] = [];
 
   for (const entry of entries) {
-    const match = knownReferences.has(entry.reference) ? -1 : matchBooking(entry, imported, index => !used.has(imported[index].id));
+    const match = knownReferences.has(entry.reference) ? -1 : matchBooking(prepareBooking(entry), prepared, index => !used.has(imported[index].id));
     // An ambiguous match inserts the bank booking rather than guessing which imported row it replaces.
     const row = typeof match === "number" && match >= 0 ? imported[match] : undefined;
 
@@ -422,7 +445,7 @@ export async function adoptImportedRows(tx: DatabaseTransaction, accountId: stri
 async function saveOpeningBalance(tx: DatabaseTransaction, accountId: string, currency: string, opening: OpeningBalance) {
   const others = await tx.select({
     total: sql<number>`COALESCE(SUM(${transactions.amount_minor}),0)`.mapWith(Number)
-  }).from(transactions).where(and(eq(transactions.account_id, accountId), ne(transactions.id, opening.id))).get();
+  }).from(transactions).where(and(eq(transactions.account_id, accountId), ne(transactions.id, opening.id), countedTowardOpening)).get();
   const amount = opening.kind === "current" ? opening.amount - (others?.total ?? 0) : opening.amount;
   const account = await tx.select({
     currency: accounts.currency
