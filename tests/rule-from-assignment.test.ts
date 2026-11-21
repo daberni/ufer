@@ -158,7 +158,7 @@ async function seedBookings(context: TestContext) {
   await db.insert(schema.transactions).values(bookings.map((booking, index) => ({
     account_id: "checking",
     provider_reference: `synthetic-${index}`,
-    booking_date: "2000-01-10",
+    date: "2000-01-10",
     amount_minor: -1000,
     type: booking.id === "transfer" ? "transfer" as const : "expense" as const,
     currency: "EUR",

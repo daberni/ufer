@@ -155,7 +155,7 @@ test("a payee and description override survives a resync that changes the bank's
 
   assert.deepEqual([shown.counterparty, shown.description, shown.source_counterparty, shown.source_description], ["Example Market", "Weekly groceries", "EXAMPLE MARKET GMBH", "CARD 4711 CORRECTED"]);
   // The bank keeps the identity, date and amount.
-  assert.deepEqual([shown.booking_date, shown.amount_minor], ["2026-09-04", -1300]);
+  assert.deepEqual([shown.date, shown.amount_minor], ["2026-09-04", -1300]);
   assert.equal((await listed("weekly groceries")).length, 1);
   assert.equal((await listed("4711 corrected")).length, 0);
 
@@ -194,7 +194,7 @@ test("saving only a type stores no override, and a transaction entered in Ufer i
   }, now);
   const { id } = await enterManualTransaction(cash, {
     type: "expense",
-    booking_date: "2026-09-05",
+    date: "2026-09-05",
     amount: "-5.00",
     counterparty: "Example kiosk"
   }, now);

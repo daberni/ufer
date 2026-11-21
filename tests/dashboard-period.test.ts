@@ -92,7 +92,7 @@ async function seededDatabase(context: TestContext) {
     id: "december-income",
     account_id: "checking",
     provider_reference: "synthetic-1",
-    booking_date: "2025-12-15",
+    date: "2025-12-15",
     amount_minor: 100000,
     currency: "EUR",
     type: "income",
@@ -101,7 +101,7 @@ async function seededDatabase(context: TestContext) {
     id: "january-start",
     account_id: "checking",
     provider_reference: "synthetic-2",
-    booking_date: "2026-01-01",
+    date: "2026-01-01",
     amount_minor: -30000,
     currency: "EUR",
     type: "expense",
@@ -110,7 +110,7 @@ async function seededDatabase(context: TestContext) {
     id: "january-end",
     account_id: "checking",
     provider_reference: "synthetic-3",
-    booking_date: "2026-01-31",
+    date: "2026-01-31",
     amount_minor: -20000,
     currency: "EUR",
     type: "expense",
@@ -119,7 +119,7 @@ async function seededDatabase(context: TestContext) {
     id: "february-start",
     account_id: "checking",
     provider_reference: "synthetic-4",
-    booking_date: "2026-02-01",
+    date: "2026-02-01",
     amount_minor: -5000,
     currency: "EUR",
     type: "expense",
@@ -215,7 +215,7 @@ test("a December period includes its last day and ends before the next year's fi
     id: "november-end",
     account_id: "checking",
     provider_reference: "synthetic-5",
-    booking_date: "2025-11-30",
+    date: "2025-11-30",
     amount_minor: -700,
     currency: "EUR",
     type: "expense"
@@ -223,7 +223,7 @@ test("a December period includes its last day and ends before the next year's fi
     id: "december-end",
     account_id: "checking",
     provider_reference: "synthetic-6",
-    booking_date: "2025-12-31",
+    date: "2025-12-31",
     amount_minor: -900,
     currency: "EUR",
     type: "expense"
@@ -246,7 +246,7 @@ test("a month period filters booking dates through the booking-date index", asyn
     args: inPeriod.args
   });
 
-  assert.match(plan.rows.map(row => String(row.detail)).join("\n"), /USING (COVERING )?INDEX transactions_\w+ \(.*booking_date>\? AND booking_date<\?\)/);
+  assert.match(plan.rows.map(row => String(row.detail)).join("\n"), /USING (COVERING )?INDEX transactions_\w+ \(.*date>\? AND date<\?\)/);
 });
 
 async function seedCashFlowHistory(context: TestContext) {
@@ -285,7 +285,7 @@ async function seedCashFlowHistory(context: TestContext) {
     id: `history-${index}`,
     account_id: "checking",
     provider_reference: `synthetic-history-${index}`,
-    booking_date: bookingDate,
+    date: bookingDate,
     amount_minor: amount,
     currency,
     category_id: categoryId === "transfer" ? null : categoryId,
@@ -352,7 +352,7 @@ test("bookings of the same day are listed alphabetically by payee, with empty pa
     id: "z-row",
     account_id: "checking",
     provider_reference: "same-day-1",
-    booking_date: "2026-03-10",
+    date: "2026-03-10",
     amount_minor: -100,
     currency: "EUR",
     type: "expense",
@@ -363,7 +363,7 @@ test("bookings of the same day are listed alphabetically by payee, with empty pa
     id: "a-row",
     account_id: "checking",
     provider_reference: "same-day-2",
-    booking_date: "2026-03-10",
+    date: "2026-03-10",
     amount_minor: -200,
     currency: "EUR",
     type: "expense",
@@ -373,7 +373,7 @@ test("bookings of the same day are listed alphabetically by payee, with empty pa
     id: "m-row",
     account_id: "checking",
     provider_reference: "same-day-3",
-    booking_date: "2026-03-10",
+    date: "2026-03-10",
     amount_minor: -300,
     currency: "EUR",
     type: "expense",
@@ -403,7 +403,7 @@ test("breakdowns keep net-negative categories as signed rows, so they sum to the
     id: `signed-${id}`,
     account_id: "checking",
     provider_reference: `synthetic-signed-${id}`,
-    booking_date: "2026-03-10",
+    date: "2026-03-10",
     amount_minor: amount,
     currency: "EUR",
     category_id: categoryId,

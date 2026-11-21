@@ -200,7 +200,7 @@ export async function closeAndArchiveManualAccount(account: {
     return await db.transaction(async tx => {
       const total = await tx.select({
         amount: sql<number>`COALESCE(SUM(${transactions.amount_minor}),0)`.mapWith(Number),
-        latest: sql<string | null>`MAX(${transactions.booking_date})`
+        latest: sql<string | null>`MAX(${transactions.date})`
       }).from(transactions).where(and(eq(transactions.account_id, account.id), isNull(transactions.suppressed_at))).get();
 
       if ((total?.amount ?? 0) !== expectedBalance) {

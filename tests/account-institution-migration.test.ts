@@ -6,9 +6,9 @@ import { test } from "node:test";
 import { createClient } from "@libsql/client";
 import { migrateDatabase } from "../src/server/database/migrations";
 
-const changeset = "0018_drop_account_institution";
+const changeset = "0019_drop_account_institution";
 
-test("changeset 0018 drops the account institution and keeps every account and its connection", async context => {
+test("changeset 0019 drops the account institution and keeps every account and its connection", async context => {
   const directory = mkdtempSync(join(tmpdir(), "ufer-before-account-institution-"));
   const journal = JSON.parse(readFileSync("drizzle/sqlite/meta/_journal.json", "utf8"));
   const previousEntries = journal.entries.slice(0, journal.entries.findIndex((entry: {

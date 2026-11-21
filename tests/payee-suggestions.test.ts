@@ -106,7 +106,7 @@ async function seedPayees(context: TestContext) {
     id: `booking-${index}`,
     account_id,
     provider_reference: `synthetic-${index}`,
-    booking_date: `2026-01-1${index}`,
+    date: `2026-01-1${index}`,
     amount_minor: -1000,
     currency: "EUR",
     type: "expense" as const,

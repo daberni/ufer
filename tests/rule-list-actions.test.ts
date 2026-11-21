@@ -122,7 +122,7 @@ test("a rule cannot be created without a category, and the form offers to add on
     manual_same_category: 0,
     transactions: [{
       id: "synthetic-market",
-      booking_date: "2000-01-10",
+      date: "2000-01-10",
       amount_minor: -1250,
       currency: "EUR",
       payee: "Example Market",
@@ -188,7 +188,7 @@ test("the match list shows manual assignments as unchanged until the rule may de
     manual_same_category: 0,
     transactions: [{
       id: "synthetic-automatic",
-      booking_date: "2000-01-11",
+      date: "2000-01-11",
       amount_minor: -900,
       currency: "EUR",
       payee: "Example Market North",
@@ -197,7 +197,7 @@ test("the match list shows manual assignments as unchanged until the rule may de
       manual: false
     }, {
       id: "synthetic-manual",
-      booking_date: "2000-01-10",
+      date: "2000-01-10",
       amount_minor: -1250,
       currency: "EUR",
       payee: "Example Market South",

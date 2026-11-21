@@ -8,7 +8,7 @@ import type { TransactionType } from "@/lib/transaction-types";
 
 /** The values an entry form starts with; the amount as a signed decimal. */
 export type EntryDefaults = {
-  booking_date: string;
+  date: string;
   amount: string;
   counterparty: string;
   description: string;
@@ -50,11 +50,11 @@ export function EntryFields({
         <label>
           Date
           <input
-            name="booking_date"
+            name="date"
             type="date"
             required
             readOnly={locked}
-            defaultValue={defaults?.booking_date ?? latestDate}
+            defaultValue={defaults?.date ?? latestDate}
             max={latestDate}
           />
         </label>

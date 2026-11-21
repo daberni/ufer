@@ -66,7 +66,7 @@ async function ruleDatabase(context: TestContext) {
     id: `booking-${source}`,
     account_id: "checking",
     provider_reference: `synthetic-${source}`,
-    booking_date: "2026-01-01",
+    date: "2026-01-01",
     amount_minor: -1000,
     currency: "EUR",
     counterparty: "Example Store",

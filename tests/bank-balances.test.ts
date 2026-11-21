@@ -100,7 +100,7 @@ async function checking() {
 
 async function openingBalances(db: Database) {
   return db.select({
-    date: schema.transactions.booking_date,
+    date: schema.transactions.date,
     amount: schema.transactions.amount_minor
   }).from(schema.transactions).where(and(eq(schema.transactions.account_id, "checking"), eq(schema.transactions.type, "opening_balance")));
 }
@@ -209,7 +209,7 @@ test("a difference to the reported booked balance is shown and an adjustment on 
   await reconcileBankBalance("checking");
 
   const adjustments = await db.select({
-    date: schema.transactions.booking_date,
+    date: schema.transactions.date,
     amount: schema.transactions.amount_minor
   }).from(schema.transactions).where(eq(schema.transactions.type, "adjustment"));
 
@@ -246,7 +246,7 @@ test("an available balance is never compared with the bookings and cannot be rec
   await assert.rejects(reconcileBankBalance("checking"), (error: unknown) => error instanceof HttpError && error.status === 409);
 });
 
-test("a redelivered booking whose date moves before the opening balance is not absorbed again", async context => {
+test("a redelivered booking whose date moves before the opening balance moves it without being absorbed again", async context => {
   const db = await freshDatabase(context);
 
   await sync({
@@ -263,7 +263,7 @@ test("a redelivered booking whose date moves before the opening balance is not a
   }, firstBookings[1]]);
 
   assert.deepEqual(await openingBalances(db), [{
-    date: "2026-09-09",
+    date: "2026-08-31",
     amount: 103000
   }]);
   assert.equal((await checking()).balance_minor, 100000);
@@ -296,7 +296,7 @@ test("a bank-linked account's opening balance and adjustments are edited as entr
   // A running sync may move the opening balance, so an edit waits for it.
   await acquireLease(syncLease, "synthetic-sync");
   await assert.rejects(editManualTransaction(opening.id, {
-    booking_date: "2026-09-09",
+    date: "2026-09-09",
     amount: "1040.00",
     counterparty: "",
     description: "",
@@ -305,7 +305,7 @@ test("a bank-linked account's opening balance and adjustments are edited as entr
   await releaseLease(syncLease, "synthetic-sync");
 
   await editManualTransaction(opening.id, {
-    booking_date: "2026-09-09",
+    date: "2026-09-09",
     amount: "1040.00",
     counterparty: "",
     description: "Corrected opening balance",
@@ -478,11 +478,14 @@ test("the bank balance upgrade keeps every current balance and net worth and boo
 
   assert.deepEqual(accountsAfter.map(account => [account.id, account.balance_minor]).sort(), balancesBefore.sort());
   assert.equal((await readNetWorth("EUR")).netWorth, balancesBefore.reduce((total, [, balance]) => total + Number(balance ?? 0), 0));
-  assert.deepEqual((await client.execute("SELECT * FROM transactions WHERE type<>'opening_balance' OR account_id='cash' ORDER BY id")).rows, transactionsBefore);
+  // Later changesets add columns and changeset 0018 renames booking_date to date, so only the columns that existed before the upgrade are compared, under their old names.
+  const columnsBefore = Object.keys(transactionsBefore[0]).map(column => column === "booking_date" ? "date AS booking_date" : column).join(",");
 
-  const openings = await client.execute("SELECT account_id,booking_date,amount_minor,provider_reference='manual:' || id AS entered FROM transactions WHERE type='opening_balance' AND account_id<>'cash' ORDER BY account_id");
+  assert.deepEqual((await client.execute(`SELECT ${columnsBefore} FROM transactions WHERE type<>'opening_balance' OR account_id='cash' ORDER BY id`)).rows, transactionsBefore);
 
-  assert.deepEqual(openings.rows.map(row => [row.account_id, row.booking_date, row.amount_minor, row.entered]), [
+  const openings = await client.execute("SELECT account_id,date,amount_minor,provider_reference='manual:' || id AS entered FROM transactions WHERE type='opening_balance' AND account_id<>'cash' ORDER BY account_id");
+
+  assert.deepEqual(openings.rows.map(row => [row.account_id, row.date, row.amount_minor, row.entered]), [
     ["card", "2026-09-19", -20000, 1],
     ["checking", "2026-08-31", -110000, 1]
   ]);

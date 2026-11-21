@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, asc, eq, isNull, lte, ne, sql, type SQL } from "drizzle-orm";
+import { and, asc, eq, isNull, lt, lte, ne, sql, type SQL } from "drizzle-orm";
 import { Temporal } from "temporal-polyfill";
 import type { DatabaseTransaction } from "@/server/database/connection";
 import { accounts, transactions } from "@/server/database/schema";
@@ -20,15 +20,15 @@ function dayBefore(date: string) {
 /**
  * Keeps a bank-linked account's opening balance in front of its bookings, inside the caller's write transaction.
  * Without an opening balance, the reported balance books one for the difference to the visible bookings through its date, dated before the oldest booking.
- * Bookings that arrive dated on or before an existing opening balance were part of it: they reduce it by their sum and it moves before them, so the current balance stays the same.
- * `arrived` selects the rows this write inserted; a redelivered booking whose date moved before the opening balance was already counted and is not absorbed again.
+ * Bookings that arrive dated, and booked by the bank, on or before an existing opening balance were part of it: they reduce it by their sum and it moves before them, so the current balance stays the same.
+ * `arrived` selects the rows this write inserted; a redelivered booking whose date moved before the opening balance was already counted: the opening balance moves before it without absorbing it again.
  */
 export async function anchorOpeningBalance(tx: DatabaseTransaction, accountId: string, reported: ReportedBalance, arrived: SQL | undefined) {
   const opening = await tx.select({
     id: transactions.id,
-    date: transactions.booking_date,
+    date: transactions.date,
     amount: transactions.amount_minor
-  }).from(transactions).where(and(eq(transactions.account_id, accountId), eq(transactions.type, "opening_balance"))).orderBy(asc(transactions.booking_date)).get();
+  }).from(transactions).where(and(eq(transactions.account_id, accountId), eq(transactions.type, "opening_balance"))).orderBy(asc(transactions.date)).get();
 
   if (!opening) {
     await bookOpeningBalance(tx, accountId, reported);
@@ -43,9 +43,9 @@ export async function anchorOpeningBalance(tx: DatabaseTransaction, accountId: s
 export async function keepBankOpeningBalanceFirst(tx: DatabaseTransaction, accountId: string, arrived: SQL | undefined) {
   const opening = await tx.select({
     id: transactions.id,
-    date: transactions.booking_date,
+    date: transactions.date,
     amount: transactions.amount_minor
-  }).from(transactions).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(and(eq(transactions.account_id, accountId), eq(transactions.type, "opening_balance"), ne(accounts.provider, "manual"))).orderBy(asc(transactions.booking_date)).get();
+  }).from(transactions).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(and(eq(transactions.account_id, accountId), eq(transactions.type, "opening_balance"), ne(accounts.provider, "manual"))).orderBy(asc(transactions.date)).get();
 
   if (opening) {
     await moveBefore(tx, accountId, opening, arrived);
@@ -57,19 +57,21 @@ async function moveBefore(tx: DatabaseTransaction, accountId: string, opening: {
   date: string;
   amount: number;
 }, arrived: SQL | undefined) {
-  if (!arrived) {
-    return;
-  }
+  const absorbed = arrived ? await tx.select({
+    oldest: sql<string | null>`MIN(${transactions.date})`,
+    // The opening balance contains only what the bank had booked by then; a booking valued earlier but booked later moves it without reducing it.
+    visible: sql<number>`COALESCE(SUM(CASE WHEN ${transactions.suppressed_at} IS NULL AND COALESCE(${transactions.booking_date},${transactions.date})<=${opening.date} THEN ${transactions.amount_minor} ELSE 0 END),0)`.mapWith(Number)
+  }).from(transactions).where(and(eq(transactions.account_id, accountId), ne(transactions.id, opening.id), lte(transactions.date, opening.date), arrived)).get() : undefined;
+  // A stored booking a redelivery re-dated before the opening balance was already part of it: the opening balance moves before it without changing its amount.
+  const redated = await tx.select({
+    oldest: sql<string | null>`MIN(${transactions.date})`
+  }).from(transactions).where(and(eq(transactions.account_id, accountId), ne(transactions.id, opening.id), lt(transactions.date, opening.date))).get();
+  const oldest = [absorbed?.oldest, redated?.oldest].filter((date): date is string => Boolean(date)).sort()[0];
 
-  const earlier = await tx.select({
-    oldest: sql<string | null>`MIN(${transactions.booking_date})`,
-    visible: sql<number>`COALESCE(SUM(CASE WHEN ${transactions.suppressed_at} IS NULL THEN ${transactions.amount_minor} ELSE 0 END),0)`.mapWith(Number)
-  }).from(transactions).where(and(eq(transactions.account_id, accountId), ne(transactions.id, opening.id), lte(transactions.booking_date, opening.date), arrived)).get();
-
-  if (earlier?.oldest) {
+  if (oldest) {
     await tx.update(transactions).set({
-      booking_date: dayBefore(earlier.oldest),
-      amount_minor: opening.amount - earlier.visible
+      date: dayBefore(oldest),
+      amount_minor: opening.amount - (absorbed?.visible ?? 0)
     }).where(eq(transactions.id, opening.id));
   }
 }
@@ -84,8 +86,9 @@ async function bookOpeningBalance(tx: DatabaseTransaction, accountId: string, re
   }
 
   const booked = await tx.select({
-    oldest: sql<string | null>`MIN(${transactions.booking_date})`,
-    throughDate: sql<number>`COALESCE(SUM(CASE WHEN ${lte(transactions.booking_date, reported.date)} THEN ${transactions.amount_minor} ELSE 0 END),0)`.mapWith(Number)
+    oldest: sql<string | null>`MIN(${transactions.date})`,
+    // The reported balance contains what the bank booked through its date, by the bank's booking date rather than the value date.
+    throughDate: sql<number>`COALESCE(SUM(CASE WHEN COALESCE(${transactions.booking_date},${transactions.date})<=${reported.date} THEN ${transactions.amount_minor} ELSE 0 END),0)`.mapWith(Number)
   }).from(transactions).where(and(eq(transactions.account_id, accountId), isNull(transactions.suppressed_at))).get();
   const beforeBookings = booked?.oldest ? dayBefore(booked.oldest) : reported.date;
   const id = randomUUID();
@@ -94,7 +97,7 @@ async function bookOpeningBalance(tx: DatabaseTransaction, accountId: string, re
     id,
     account_id: accountId,
     provider_reference: `${manualEntryPrefix}${id}`,
-    booking_date: beforeBookings < reported.date ? beforeBookings : reported.date,
+    date: beforeBookings < reported.date ? beforeBookings : reported.date,
     amount_minor: reported.amount - (booked?.throughDate ?? 0),
     currency: account.currency,
     counterparty: "",

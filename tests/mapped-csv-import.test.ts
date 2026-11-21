@@ -357,7 +357,7 @@ test("an existing booking matched by one batch is not matched again by the next"
     id: "synced-1",
     account_id: "synthetic-bank-account",
     provider_reference: "bank:synced-1",
-    booking_date: "2024-05-03",
+    date: "2024-05-03",
     amount_minor: -500,
     currency: "EUR",
     counterparty: "Coffee bar",
@@ -512,7 +512,7 @@ test("a card statement's settlement is a possible duplicate of the linked transf
     id: "transfer-card-side",
     account_id: card.id,
     provider_reference: "manual:transfer-card-side",
-    booking_date: "2024-06-03",
+    date: "2024-06-03",
     amount_minor: 45_000,
     currency: "EUR",
     counterparty: "Transfer from checking",
@@ -546,7 +546,7 @@ test("imports into a bank-linked account skip synced bookings and leave the bank
     id: "bank-opening",
     account_id: "synthetic-bank-account",
     provider_reference: "manual:bank-opening",
-    booking_date: "2024-05-02",
+    date: "2024-05-02",
     amount_minor: 128_055,
     currency: "EUR",
     counterparty: "",
@@ -556,7 +556,7 @@ test("imports into a bank-linked account skip synced bookings and leave the bank
     id: "synced-1",
     account_id: "synthetic-bank-account",
     provider_reference: "bank:synced-1",
-    booking_date: "2024-05-03",
+    date: "2024-05-03",
     amount_minor: -4599,
     currency: "EUR",
     counterparty: "Example Grocer GmbH",
@@ -586,7 +586,7 @@ test("imports into a bank-linked account skip synced bookings and leave the bank
   assert.equal((await db.select().from(schema.transactions)).length, 3);
   assert.equal(account?.balance_minor, 123_456);
   assert.equal(opening?.amount_minor, 130_055);
-  assert.equal(opening?.booking_date, "2024-03-31");
+  assert.equal(opening?.date, "2024-03-31");
 });
 
 test("CSV categories map by name, rules categorize the rest, and existing categories are never overwritten", async context => {
@@ -615,7 +615,7 @@ test("CSV categories map by name, rules categorize the rest, and existing catego
     id: "earlier",
     account_id: account.id,
     provider_reference: "manual:earlier",
-    booking_date: "2024-02-01",
+    date: "2024-02-01",
     amount_minor: -800,
     currency: "EUR",
     counterparty: "Corner shop",
@@ -640,7 +640,7 @@ test("CSV categories map by name, rules categorize the rest, and existing catego
     }],
     confirm: true
   }, now);
-  const rows = await db.select().from(schema.transactions).where(eq(schema.transactions.account_id, account.id)).orderBy(schema.transactions.booking_date);
+  const rows = await db.select().from(schema.transactions).where(eq(schema.transactions.account_id, account.id)).orderBy(schema.transactions.date);
 
   assert.deepEqual(result.unknownCategories, ["Unknown things"]);
   assert.deepEqual(rows.map(row => [row.counterparty, row.category_id, row.category_source]), [
@@ -793,7 +793,7 @@ test("a later bank sync adopts the matching CSV-imported row with its category i
     counterparty: "Pharmacy",
     description: ""
   }], []);
-  const rows = await db.select().from(schema.transactions).where(ne(schema.transactions.type, "opening_balance")).orderBy(schema.transactions.booking_date);
+  const rows = await db.select().from(schema.transactions).where(ne(schema.transactions.type, "opening_balance")).orderBy(schema.transactions.date);
 
   assert.equal(inserted, 1);
   assert.deepEqual(rows.map(row => [row.provider_reference.startsWith("csv:") ? "csv" : row.provider_reference, row.counterparty, row.category_id]), [
@@ -881,7 +881,7 @@ test("saving rechecks duplicates in its write transaction, so bookings synced af
     id: "synced-late",
     account_id: "synthetic-bank-account",
     provider_reference: "bank:late",
-    booking_date: "2024-07-01",
+    date: "2024-07-01",
     amount_minor: -2500,
     currency: "EUR",
     counterparty: "Example Hardware",
@@ -927,7 +927,7 @@ test("check and confirm agree when a duplicate row consumes a booking a later ro
     id: "synced-cafe",
     account_id: "synthetic-bank-account",
     provider_reference: "bank:cafe",
-    booking_date: "2024-08-02",
+    date: "2024-08-02",
     amount_minor: -1000,
     currency: "EUR",
     counterparty: "Example Cafe",
@@ -1535,7 +1535,7 @@ for (const [kind, amount, expected] of [["current", "100.00", 13000], ["start", 
     const openings = bookings.filter(booking => booking.type === "opening_balance");
 
     assert.equal(bookings.length, 3);
-    assert.deepEqual(openings.map(booking => [booking.booking_date, booking.amount_minor]), [["2024-05-01", expected]]);
+    assert.deepEqual(openings.map(booking => [booking.date, booking.amount_minor]), [["2024-05-01", expected]]);
     assert.equal((await listAccounts()).find(item => item.name === "Imported wallet")?.balance_minor, expected - 3000);
   });
 }

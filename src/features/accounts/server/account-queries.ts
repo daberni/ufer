@@ -20,12 +20,13 @@ const reportedBalance = sql<number | null>`(SELECT ${balanceSnapshots.amount_min
 const reportedBalanceDate = sql<string | null>`(SELECT ${balanceSnapshots.observed_at} FROM ${balanceSnapshots} WHERE ${balanceSnapshots.id}=${latestReport})`;
 const comparableTypes = sql.join(comparableBankBalanceTypes.map(type => sql`${type}`), sql`,`);
 // Bookings through the reported date, and all bookings: a bank may date a weekend booking on the next business day while its same-day balance already contains it.
-const bookedThroughReport = sql`COALESCE((SELECT SUM(t.amount_minor) FROM ${transactions} t WHERE t.account_id=${accounts.id} AND t.suppressed_at IS NULL AND t.booking_date<=${balanceSnapshots.observed_at}),0)`;
+// The bank's balance follows its own booking dates, not the value dates bookings count on.
+const bookedThroughReport = sql`COALESCE((SELECT SUM(t.amount_minor) FROM ${transactions} t WHERE t.account_id=${accounts.id} AND t.suppressed_at IS NULL AND COALESCE(t.booking_date,t.date)<=${balanceSnapshots.observed_at}),0)`;
 const bookedInTotal = sql`COALESCE((SELECT SUM(t.amount_minor) FROM ${transactions} t WHERE t.account_id=${accounts.id} AND t.suppressed_at IS NULL),0)`;
 // Reported minus calculated balance at the end of the reported date, 0 when the report matches either reading; NULL when the newest report is not a booked balance.
 const reportedDifference = sql<number | null>`(SELECT CASE WHEN ${balanceSnapshots.amount_minor}=${bookedInTotal} THEN 0 ELSE ${balanceSnapshots.amount_minor}-${bookedThroughReport} END FROM ${balanceSnapshots} WHERE ${balanceSnapshots.id}=${latestReport} AND ${balanceSnapshots.bank_balance_type} IN (${comparableTypes}))`;
 
-const lastBookingDate = sql<string | null>`(SELECT MAX(${transactions.booking_date}) FROM ${transactions} WHERE ${transactions.account_id}=${accounts.id} AND ${transactions.suppressed_at} IS NULL)`;
+const lastBookingDate = sql<string | null>`(SELECT MAX(${transactions.date}) FROM ${transactions} WHERE ${transactions.account_id}=${accounts.id} AND ${transactions.suppressed_at} IS NULL)`;
 
 const kindOrder = sql`CASE ${accounts.kind} WHEN 'checking' THEN 0 WHEN 'savings' THEN 1 WHEN 'investment' THEN 2 ELSE 3 END`;
 
@@ -113,9 +114,9 @@ export async function readBalanceHistory(accountId: string): Promise<BalanceHist
 
   const currentDate = today().toString();
   const bookings = await db.select({
-    date: transactions.booking_date,
+    date: transactions.date,
     amount_minor: sql<number>`SUM(${transactions.amount_minor})`.mapWith(Number)
-  }).from(transactions).where(and(eq(transactions.account_id, accountId), eq(transactions.currency, account.currency), sql`${transactions.suppressed_at} IS NULL`, sql`${transactions.booking_date} <= ${currentDate}`)).groupBy(transactions.booking_date).orderBy(asc(transactions.booking_date));
+  }).from(transactions).where(and(eq(transactions.account_id, accountId), eq(transactions.currency, account.currency), sql`${transactions.suppressed_at} IS NULL`, sql`${transactions.date} <= ${currentDate}`)).groupBy(transactions.date).orderBy(asc(transactions.date));
 
   if (!bookings.length) {
     return {

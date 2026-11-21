@@ -65,7 +65,7 @@ async function seedSearchableTransactions(context: TestContext) {
     id,
     account_id: "checking",
     provider_reference: `synthetic-${index}`,
-    booking_date: "2026-01-15",
+    date: "2026-01-15",
     amount_minor: -1000,
     currency: "EUR",
     type: "expense" as const,

@@ -28,7 +28,7 @@ const categories: Category[] = [{
 function booking(id: string, counterparty: string): Transaction {
   return {
     id,
-    booking_date: "2000-01-10",
+    date: "2000-01-10",
     amount_minor: -1250,
     currency: "EUR",
     instructed_amount_minor: null,

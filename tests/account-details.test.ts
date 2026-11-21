@@ -78,7 +78,7 @@ async function seededDatabase(context: TestContext) {
     id: `entry-${index}`,
     account_id: accountId,
     provider_reference: `synthetic-${index}`,
-    booking_date: bookingDate,
+    date: bookingDate,
     amount_minor: amount,
     currency,
     category_id: categoryId === "transfer" ? null : categoryId,

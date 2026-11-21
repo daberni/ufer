@@ -11,7 +11,7 @@ stubCssModules();
 
 const transfer: Transaction = {
   id: "transfer-row",
-  booking_date: "2026-09-02",
+  date: "2026-09-02",
   amount_minor: -35000,
   currency: "EUR",
   instructed_amount_minor: null,
@@ -40,7 +40,7 @@ const transfer: Transaction = {
   counterpart: {
     id: "other",
     account_name: "Synthetic savings",
-    booking_date: "2026-09-02",
+    date: "2026-09-02",
     entered: false
   }
 };

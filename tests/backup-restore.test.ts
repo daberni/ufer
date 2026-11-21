@@ -129,7 +129,7 @@ test("a consistent WAL backup restores credentials, manual corrections and bank 
     id: "corrected",
     account_id: "checking",
     provider_reference: "bank:existing",
-    booking_date: "2026-01-01",
+    date: "2026-01-01",
     amount_minor: -500,
     currency: "EUR",
     category_id: "groceries",

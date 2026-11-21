@@ -69,7 +69,7 @@ function manualEntryValues(id: string, entry: NewManualEntry): typeof transactio
     id,
     account_id: entry.accountId,
     provider_reference: `${manualEntryPrefix}${id}`,
-    booking_date: entry.date,
+    date: entry.date,
     amount_minor: entry.amount,
     currency: entry.currency,
     counterparty: entry.counterparty,
@@ -162,7 +162,7 @@ export async function updateManualTransaction(
         return "not_entered";
       }
 
-      if (entry.date !== subject.booking_date || entry.amount !== subject.amount_minor) {
+      if (entry.date !== subject.date || entry.amount !== subject.amount_minor) {
         return "follows_import";
       }
     }
@@ -172,7 +172,7 @@ export async function updateManualTransaction(
     }
 
     const fields = {
-      booking_date: entry.date,
+      date: entry.date,
       amount_minor: entry.amount,
       counterparty: entry.counterparty,
       description: entry.description
@@ -185,7 +185,7 @@ export async function updateManualTransaction(
       }).where(eq(transactions.id, pairedWith.id));
       await tx.update(transactions).set(fields).where(eq(transactions.id, subject.id));
       await tx.update(transactions).set({
-        booking_date: entry.date,
+        date: entry.date,
         amount_minor: -entry.amount,
         description: entry.description,
         transfer_id: subject.transfer_id
@@ -285,7 +285,7 @@ export async function recordManualBalance(tx: DatabaseTransaction, account: {
 }, date: string, amount: number): Promise<"opening_balance" | "adjustment" | null> {
   const booked = await tx.select({
     count: sql<number>`COUNT(*)`,
-    onDate: sql<number>`COALESCE(SUM(CASE WHEN ${lte(transactions.booking_date, date)} THEN ${transactions.amount_minor} ELSE 0 END),0)`
+    onDate: sql<number>`COALESCE(SUM(CASE WHEN ${lte(transactions.date, date)} THEN ${transactions.amount_minor} ELSE 0 END),0)`
   }).from(transactions).where(and(eq(transactions.account_id, account.id), isNull(transactions.suppressed_at))).get();
   const opening = Number(booked?.count ?? 0) === 0;
   const difference = amount - Number(booked?.onDate ?? 0);
