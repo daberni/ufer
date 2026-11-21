@@ -70,6 +70,7 @@ function mappedRow(line: number, date: string, amount: string, payee: string, ex
     occurrence: 0,
     id: null,
     transfer: false,
+    hidden: false,
     parts: null,
     tags: null,
     ...extra
@@ -703,6 +704,7 @@ test("saving rechecks duplicates in its write transaction, so bookings synced af
       typeRuleId: null,
       typeTransferAccountId: null,
       transfer: false,
+      hiddenAt: null,
       parts: null
     }]
   }], []);
@@ -1046,6 +1048,7 @@ test("a row the target rejects for its currency does not shift the occurrences o
     source: "",
     id: null,
     transfer: false,
+    hidden: false,
     parts: null,
     tags: null
   };
