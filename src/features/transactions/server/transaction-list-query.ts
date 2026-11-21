@@ -13,7 +13,7 @@ import type { DashboardFilters } from "@/server/http/dashboard-filters";
 import type { TransactionType } from "@/lib/transaction-types";
 import { createdCounterpartPrefix, manualEntryPrefix } from "@/lib/booking-references";
 import { listRules } from "@/features/categorization/server/rule-repository";
-import { prepareRules, ruleAssignment, type PreparedRule } from "@/lib/rules";
+import { prepareRules, ruleAssignment, type PreparedRule } from "@/features/categorization/server/rule-assignment";
 import type { SplitPart, TransactionSplit } from "@/features/transactions/types";
 import { readSplitParts } from "@/features/transactions/server/split-repository";
 

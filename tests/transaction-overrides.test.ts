@@ -15,7 +15,7 @@ import { importMappedRows } from "../src/features/imports/server/mapped-import-s
 import { readCashFlow } from "../src/features/reports/server/cash-flow-query";
 import { enterManualTransaction, hideTransaction, updateTransactionCategory, updateTransactionDetails } from "../src/features/transactions/server/transaction-service";
 import { listRules } from "../src/features/categorization/server/rule-repository";
-import type { Rule } from "../src/lib/rules";
+import type { Rule } from "../src/features/categorization/server/rule-assignment";
 import { applyRulesToUncorrectedTransactions, createRule, previewRule } from "../src/features/categorization/server/categorization-service";
 import { pairAllTransfers } from "../src/features/transactions/server/transfer-pairing-repository";
 import { readTransactionPage } from "../src/features/transactions/server/transaction-list-query";

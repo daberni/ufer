@@ -8,7 +8,7 @@ import { maximumSplitParts, partAmountSupported } from "@/features/transactions/
 import { today, validDate } from "@/lib/time";
 import { isCategoryIcon } from "@/features/categorization/category-icons";
 import { listRules } from "@/features/categorization/server/rule-repository";
-import { categorizeEntries } from "@/features/transactions/server/categorize-entries";
+import { categorizeEntries } from "@/features/categorization/server/rule-assignment";
 import { pairAllTransfers } from "@/features/transactions/server/transfer-pairing-repository";
 import { environment } from "@/server/environment";
 import { syncLease, withLease } from "@/server/jobs/lease";

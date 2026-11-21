@@ -8,7 +8,7 @@ import { initializeDatabase } from "../src/server/database/migrations";
 import * as schema from "../src/server/database/schema";
 import { applyRulesToUncorrectedTransactions, createRule, deleteCategory, deleteRule } from "../src/features/categorization/server/categorization-service";
 import { listRules } from "../src/features/categorization/server/rule-repository";
-import { categorizeEntries } from "../src/features/transactions/server/categorize-entries";
+import { categorizeEntries } from "../src/features/categorization/server/rule-assignment";
 import { upsertTransactions } from "../src/features/transactions/server/transaction-repository";
 import { updateTransactionCategory } from "../src/features/transactions/server/transaction-service";
 

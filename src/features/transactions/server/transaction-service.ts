@@ -3,13 +3,12 @@ import { syncLease, withLease } from "@/server/jobs/lease";
 import { HttpError, ValidationError } from "@/lib/errors";
 import { z } from "zod";
 import { minorUnits } from "@/lib/money";
-import { prepareRules, ruleAssignment, type Rule, type RuleText } from "@/lib/rules";
+import { assignRules, categorizeEntries, prepareRules, ruleAssignment, type RuleText } from "@/features/categorization/server/rule-assignment";
 import { today, validDate } from "@/lib/time";
 import { requireWritableManualAccount } from "@/features/accounts/server/account-service";
 import { categoryExists } from "@/features/categorization/server/category-repository";
 import { listRules } from "@/features/categorization/server/rule-repository";
 import { transactionTypes } from "@/lib/transaction-types";
-import { categorizeEntries } from "./categorize-entries";
 import { createManualTransaction, deleteManualTransaction, findEntryAccount, updateManualTransaction, type ManualEntryResult } from "./manual-transaction-repository";
 import { returnTransactionToRules, saveTransactionDetails, setTransactionCategory, setTransactionHidden } from "./transaction-repository";
 import { isSplit, type SplitChange } from "./split-repository";
@@ -45,7 +44,7 @@ export async function updateTransactionCategory(id: string, payload: unknown) {
 }
 
 function automaticCategory(id: string) {
-  return returnTransactionToRules(id, (storedRules, text) => ruleAssignment(text, prepareRules(storedRules)));
+  return returnTransactionToRules(id, assignRules);
 }
 
 async function manualCategory(id: string, categoryId: string | null) {
@@ -78,7 +77,7 @@ async function splitChange(input: z.infer<typeof typeInput>): Promise<SplitChang
 
   if (input.remove_split) {
     return {
-      remove: (storedRules: Rule[], text: RuleText) => ruleAssignment(text, prepareRules(storedRules))
+      remove: assignRules
     };
   }
 

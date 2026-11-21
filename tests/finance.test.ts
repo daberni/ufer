@@ -9,7 +9,7 @@ import { Temporal } from "temporal-polyfill";
 import { minorUnits } from "../src/lib/money";
 import { validDate } from "../src/lib/time";
 import { ValidationError } from "../src/lib/errors";
-import { categorize, prepareRules, validatePattern, type Rule } from "../src/lib/rules";
+import { categorize, prepareRules, validatePattern, type Rule } from "../src/features/categorization/server/rule-assignment";
 import { acquireLease, releaseLease } from "../src/server/jobs/lease-repository";
 import { normalizeTransactions } from "../src/features/banking/server/bank-data";
 import { saveAccountSync } from "../src/features/banking/server/account-sync-service";
