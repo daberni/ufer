@@ -94,10 +94,11 @@ export function PayeeInput({
   });
 
   // Touch browsers keep the field focused when a tap lands on something that cannot take focus, so blurring alone does not close the list.
+  // A list still waiting for its suggestions is dismissed like a shown one, so it cannot open after the user moved on.
   useDismiss({
-    active: expanded,
+    active: expanded || awaitedHighlight !== null,
     inside: [input, popupRef],
-    onDismiss: () => setOpen(false)
+    onDismiss: close
   });
 
   function close() {
