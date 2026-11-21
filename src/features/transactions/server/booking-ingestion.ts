@@ -2,7 +2,7 @@ import { and, between, eq, inArray, isNotNull, like, ne } from "drizzle-orm";
 import type { DatabaseTransaction } from "@/server/database/connection";
 import { transactions } from "@/server/database/schema";
 import { createdCounterpartPrefix, mappedReferencePrefix } from "@/lib/booking-references";
-import { matchBooking, matchingWindow, prepareBooking, prepareBookings } from "@/lib/booking-matching";
+import { bookingDays, matchBooking, matchingWindow, prepareBooking, prepareBookings } from "@/lib/booking-matching";
 import { derivedTransactionType } from "@/lib/transaction-types";
 import type { CategorizedEntry } from "./transaction-entry";
 import { createdCounterpart, enteredInUfer } from "./transfer-rules";
@@ -20,11 +20,11 @@ export async function adoptImportedRows(tx: DatabaseTransaction, accountId: stri
     return entries;
   }
 
-  const window = matchingWindow(entries.map(entry => entry.date).sort());
+  const window = matchingWindow(entries.flatMap(bookingDays).sort());
   const imported = await tx.select({
     id: transactions.id,
     reference: transactions.provider_reference,
-    date: transactions.booking_date,
+    date: transactions.date,
     amount: transactions.amount_minor,
     counterparty: transactions.counterparty,
     description: transactions.description,
@@ -33,7 +33,7 @@ export async function adoptImportedRows(tx: DatabaseTransaction, accountId: stri
     type: transactions.type,
     typeSource: transactions.type_source,
     typeRuleId: transactions.type_rule_id
-  }).from(transactions).where(and(eq(transactions.account_id, accountId), like(transactions.provider_reference, `${mappedReferencePrefix}%`), between(transactions.booking_date, window.from, window.to)));
+  }).from(transactions).where(and(eq(transactions.account_id, accountId), like(transactions.provider_reference, `${mappedReferencePrefix}%`), between(transactions.date, window.from, window.to)));
 
   if (imported.length === 0) {
     return entries;
@@ -132,7 +132,7 @@ export async function followImportedCorrections(tx: DatabaseTransaction, account
 
     if (keepsLink) {
       await tx.update(transactions).set({
-        booking_date: delivery.date,
+        date: delivery.date,
         amount_minor: -delivery.amount
       }).where(eq(transactions.id, counterpart.id));
     } else if (sameCurrency && !createdCounterpart(counterpart)) {
@@ -140,12 +140,12 @@ export async function followImportedCorrections(tx: DatabaseTransaction, account
       await tx.update(transactions).set({
         transfer_id: null,
         transfer_source: "manual",
-        booking_date: delivery.date,
+        date: delivery.date,
         amount_minor: -delivery.amount
       }).where(eq(transactions.id, counterpart.id));
     } else {
       await tx.update(transactions).set({
-        booking_date: delivery.date
+        date: delivery.date
       }).where(eq(transactions.id, counterpart.id));
     }
   }

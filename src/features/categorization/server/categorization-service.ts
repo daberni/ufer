@@ -103,17 +103,17 @@ const previewListLimit = 50;
 
 type Dated = {
   id: string;
-  booking_date: string;
+  date: string;
 };
 
 function byNewest(first: Dated, second: Dated) {
-  return second.booking_date.localeCompare(first.booking_date) || first.id.localeCompare(second.id);
+  return second.date.localeCompare(first.date) || first.id.localeCompare(second.id);
 }
 
 function previewedTransaction(transaction: PreviewedTransaction) {
   return {
     id: transaction.id,
-    booking_date: transaction.booking_date,
+    date: transaction.date,
     amount_minor: transaction.amount_minor,
     currency: transaction.currency,
     payee: transaction.payee,

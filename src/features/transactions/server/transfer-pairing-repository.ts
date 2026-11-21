@@ -27,7 +27,7 @@ export async function pairTransfers(executor: DatabaseTransaction) {
     SELECT anchor.id AS anchor_id,anchor.amount_minor AS anchor_amount,other.id AS other_id
     FROM transactions anchor
     JOIN accounts anchor_account ON anchor_account.id=anchor.account_id
-    JOIN transactions other ON other.booking_date BETWEEN date(anchor.booking_date,${windowStart(automaticPairingDays)}) AND date(anchor.booking_date,${windowEnd(automaticPairingDays)})
+    JOIN transactions other ON other.date BETWEEN date(anchor.date,${windowStart(automaticPairingDays)}) AND date(anchor.date,${windowEnd(automaticPairingDays)})
       AND other.amount_minor=-anchor.amount_minor
       AND other.currency=anchor.currency
       AND other.account_id<>anchor.account_id
@@ -94,7 +94,7 @@ async function createRuleCounterparts(tx: DatabaseTransaction) {
     AND NOT EXISTS (
       SELECT 1 FROM transactions candidate
       WHERE candidate.account_id=target.id
-      AND candidate.booking_date BETWEEN date(booking.booking_date,${windowStart(automaticPairingDays)}) AND date(booking.booking_date,${windowEnd(automaticPairingDays)})
+      AND candidate.date BETWEEN date(booking.date,${windowStart(automaticPairingDays)}) AND date(booking.date,${windowEnd(automaticPairingDays)})
       AND candidate.amount_minor=-booking.amount_minor
       AND candidate.currency=booking.currency
       AND ${pairable(candidate)}

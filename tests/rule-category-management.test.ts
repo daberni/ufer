@@ -122,7 +122,7 @@ async function managementDatabase(context: TestContext) {
     ...booking,
     account_id: "checking",
     provider_reference: `synthetic-${booking.id}`,
-    booking_date: "2026-01-10",
+    date: "2026-01-10",
     amount_minor: -1000,
     currency: "EUR",
     type: "expense" as const
@@ -378,7 +378,7 @@ test("a preview lists the newest transactions it counts, marking manual assignme
     id: `extra-${String(index).padStart(2, "0")}`,
     account_id: "checking",
     provider_reference: `synthetic-extra-${index}`,
-    booking_date: `2026-02-${String(1 + (index % 28)).padStart(2, "0")}`,
+    date: `2026-02-${String(1 + (index % 28)).padStart(2, "0")}`,
     amount_minor: -500,
     currency: "EUR",
     counterparty: "Harbour Cafe",
@@ -400,7 +400,7 @@ test("a preview lists the newest transactions it counts, marking manual assignme
   // More matches than the bound: the newest 50 are listed, the counts cover all.
   assert.equal(small.matched + small.manual, 63);
   assert.equal(small.transactions.length, 50);
-  assert.ok(small.transactions.every((transaction, index, all) => index === 0 || all[index - 1].booking_date >= transaction.booking_date));
+  assert.ok(small.transactions.every((transaction, index, all) => index === 0 || all[index - 1].date >= transaction.date));
   assert.ok(listedRule.length <= small.matched);
 
   const exact = await previewRule({
@@ -416,7 +416,7 @@ test("a preview lists the newest transactions it counts, marking manual assignme
   assert.equal(exact.transactions.filter(transaction => !transaction.manual && transaction.category_id === null).length, exact.uncategorized);
   assert.deepEqual(exact.transactions.find(transaction => transaction.manual), {
     id: "market-manual",
-    booking_date: "2026-01-10",
+    date: "2026-01-10",
     amount_minor: -1000,
     currency: "EUR",
     payee: "Corner Market Cafe",

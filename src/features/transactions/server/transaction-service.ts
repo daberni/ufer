@@ -167,7 +167,7 @@ export async function updateTransactionDetails(id: string, payload: unknown) {
 }
 
 const entryInput = typeInput.extend({
-  booking_date: z.string().refine(validDate),
+  date: z.string().refine(validDate),
   amount: z.string().max(30),
   counterparty: z.string().trim().max(500).default(""),
   description: z.string().trim().max(2000).default("")
@@ -188,12 +188,12 @@ function validateEntry(input: z.infer<typeof entryInput> | z.infer<typeof newEnt
     throw new ValidationError("Only a transfer has a target account.");
   }
 
-  if (Temporal.PlainDate.compare(Temporal.PlainDate.from(input.booking_date), today(now)) > 0) {
+  if (Temporal.PlainDate.compare(Temporal.PlainDate.from(input.date), today(now)) > 0) {
     throw new ValidationError("The booking date cannot be in the future.");
   }
 
   return {
-    date: input.booking_date,
+    date: input.date,
     amount: minorUnits(input.amount, currency),
     counterparty: input.counterparty,
     description: input.description,

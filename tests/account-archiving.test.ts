@@ -97,7 +97,7 @@ async function seededDatabase(context: TestContext) {
     id: "opening",
     account_id: "closed",
     provider_reference: "manual:opening",
-    booking_date: "2026-01-01",
+    date: "2026-01-01",
     amount_minor: 100000,
     currency: "EUR",
     type: "opening_balance"
@@ -105,7 +105,7 @@ async function seededDatabase(context: TestContext) {
     id: "salary",
     account_id: "closed",
     provider_reference: "manual:salary",
-    booking_date: "2026-01-05",
+    date: "2026-01-05",
     amount_minor: 250000,
     currency: "EUR",
     type: "income"
@@ -113,7 +113,7 @@ async function seededDatabase(context: TestContext) {
     id: "groceries",
     account_id: "closed",
     provider_reference: "manual:groceries",
-    booking_date: "2026-01-06",
+    date: "2026-01-06",
     amount_minor: -4000,
     currency: "EUR",
     category_id: "groceries",
@@ -122,7 +122,7 @@ async function seededDatabase(context: TestContext) {
     id: "savings",
     account_id: "open",
     provider_reference: "manual:savings",
-    booking_date: "2026-01-02",
+    date: "2026-01-02",
     amount_minor: 50000,
     currency: "EUR",
     type: "opening_balance"
@@ -130,7 +130,7 @@ async function seededDatabase(context: TestContext) {
     id: "settled",
     account_id: "closed",
     provider_reference: "manual:settled",
-    booking_date: "2026-01-20",
+    date: "2026-01-20",
     amount_minor: -346000,
     currency: "EUR",
     type: "adjustment"
@@ -138,7 +138,7 @@ async function seededDatabase(context: TestContext) {
     id: "bank-opening",
     account_id: "bank",
     provider_reference: "manual:bank-opening",
-    booking_date: "2026-01-31",
+    date: "2026-01-31",
     amount_minor: 7000,
     currency: "EUR",
     type: "opening_balance"
@@ -199,7 +199,7 @@ test("an archived account rejects balance updates, manual entries and CSV import
   }), archived);
   await assert.rejects(enterManualTransaction("closed", {
     amount: "-5.00",
-    booking_date: "2026-01-10",
+    date: "2026-01-10",
     type: "expense"
   }), archived);
   assert.deepEqual(await db.select().from(schema.transactions), bookingsBefore);
@@ -219,7 +219,7 @@ test("bookings on an archived account cannot be edited, deleted or linked, and a
     id: "refund",
     account_id: "target",
     provider_reference: "manual:refund",
-    booking_date: "2026-01-06",
+    date: "2026-01-06",
     amount_minor: 4000,
     currency: "EUR",
     type: "income"
@@ -236,7 +236,7 @@ test("bookings on an archived account cannot be edited, deleted or linked, and a
 
   await assert.rejects(editManualTransaction("salary", {
     type: "income",
-    booking_date: "2026-01-05",
+    date: "2026-01-05",
     amount: "1.00"
   }), archived);
   await assert.rejects(removeManualTransaction("salary"), archived);
@@ -275,7 +275,7 @@ async function archivedImports(db: Database) {
     id: "shop",
     account_id: "closed",
     provider_reference: "csv:shop",
-    booking_date: "2026-01-07",
+    date: "2026-01-07",
     amount_minor: -1500,
     currency: "EUR",
     counterparty: "Synthetic shop",
@@ -284,7 +284,7 @@ async function archivedImports(db: Database) {
     id: "shop-refund",
     account_id: "closed",
     provider_reference: "csv:shop-refund",
-    booking_date: "2026-01-08",
+    date: "2026-01-08",
     amount_minor: 1500,
     currency: "EUR",
     counterparty: "Synthetic shop refund",
@@ -304,7 +304,7 @@ async function balances() {
 }
 
 function typesOf(rows: (typeof schema.transactions.$inferSelect)[]) {
-  return rows.map(row => [row.id, row.type, row.type_source, row.type_rule_id, row.transfer_id, row.suppressed_at, row.amount_minor, row.booking_date]);
+  return rows.map(row => [row.id, row.type, row.type_source, row.type_rule_id, row.transfer_id, row.suppressed_at, row.amount_minor, row.date]);
 }
 
 test("categories, splits and payee and description overrides of an archived account's bookings change and reach the reports, while balances stay", async context => {
@@ -434,7 +434,7 @@ test("an imported booking on an archived account links with and unlinks from exi
     id: "card-payment",
     account_id: "target",
     provider_reference: "csv:card-payment",
-    booking_date: "2026-01-08",
+    date: "2026-01-08",
     amount_minor: 1500,
     currency: "EUR",
     type: "income"
@@ -443,7 +443,7 @@ test("an imported booking on an archived account links with and unlinks from exi
     id: "entered-payment",
     account_id: "open",
     provider_reference: "manual:entered-payment",
-    booking_date: "2026-01-09",
+    date: "2026-01-09",
     amount_minor: 1500,
     currency: "EUR",
     type: "income"
@@ -504,7 +504,7 @@ test("automatic pairing never links a booking on an archived account", async con
     id: "outgoing",
     account_id: "closed",
     provider_reference: "csv:outgoing",
-    booking_date: "2026-01-08",
+    date: "2026-01-08",
     amount_minor: -2500,
     currency: "EUR",
     type: "transfer"
@@ -512,7 +512,7 @@ test("automatic pairing never links a booking on an archived account", async con
     id: "incoming",
     account_id: "target",
     provider_reference: "csv:incoming",
-    booking_date: "2026-01-08",
+    date: "2026-01-08",
     amount_minor: 2500,
     currency: "EUR",
     type: "income"
@@ -539,7 +539,7 @@ test("changing a booking linked to a counterpart on an archived account is refus
     id: "imported",
     account_id: "bank",
     provider_reference: "bank:imported",
-    booking_date: "2026-01-08",
+    date: "2026-01-08",
     amount_minor: -2500,
     currency: "EUR",
     type: "expense"
@@ -602,7 +602,7 @@ test("an account archived after the request's check but before the write receive
   archiveNext = true;
   await assert.rejects(enterManualTransaction("open", {
     amount: "-5.00",
-    booking_date: "2026-01-10",
+    date: "2026-01-10",
     type: "expense"
   }), archived);
   await db.update(schema.accounts).set({
@@ -625,7 +625,7 @@ test("an archived account's bookings keep their type, link and, where it counts 
     id: "bank-fee",
     account_id: "bank",
     provider_reference: "bank:fee",
-    booking_date: "2026-01-09",
+    date: "2026-01-09",
     amount_minor: -300,
     currency: "EUR",
     counterparty: "Example bank",
@@ -673,7 +673,7 @@ test("archiving uses the displayed balance, which leaves hidden bookings out", a
     id: "hidden-target",
     account_id: "target",
     provider_reference: "csv:hidden-target",
-    booking_date: "2026-01-04",
+    date: "2026-01-04",
     amount_minor: 900,
     currency: "EUR",
     type: "income",
@@ -682,7 +682,7 @@ test("archiving uses the displayed balance, which leaves hidden bookings out", a
     id: "hidden-open",
     account_id: "open",
     provider_reference: "csv:hidden-open",
-    booking_date: "2026-01-04",
+    date: "2026-01-04",
     amount_minor: 900,
     currency: "EUR",
     type: "income",
@@ -787,7 +787,7 @@ test("closing a manual account books its balance away as an adjustment on the ch
   assert.ok(open?.archived_at);
   assert.equal(open.balance_minor, 0);
   assert.equal(closing?.amount_minor, -50000);
-  assert.equal(closing?.booking_date, "2026-01-15");
+  assert.equal(closing?.date, "2026-01-15");
   assert.deepEqual(await readCashFlow(allMonthsPeriod, "EUR"), cashFlowBefore);
 });
 
@@ -803,7 +803,7 @@ test("closing refuses a balance that changed after the user saw it, also between
     id: "arrived",
     account_id: "open",
     provider_reference: "manual:arrived",
-    booking_date: "2026-01-20",
+    date: "2026-01-20",
     amount_minor: 700,
     currency: "EUR",
     type: "income"
@@ -828,7 +828,7 @@ test("closing refuses a balance that changed after the user saw it, also between
 
     if (!interleaved && /^select /i.test(text) && text.includes('from "accounts"')) {
       interleaved = true;
-      await execute("INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,type,type_source) VALUES('late','open','manual:late','2026-01-21',300,'EUR','income','manual')");
+      await execute("INSERT INTO transactions(id,account_id,provider_reference,date,amount_minor,currency,type,type_source) VALUES('late','open','manual:late','2026-01-21',300,'EUR','income','manual')");
     }
 
     return result;
@@ -901,7 +901,7 @@ test("a booking written between the balance check and the archive update keeps t
 
     if (!interleaved && /^select /i.test(text) && text.includes('from "accounts"')) {
       interleaved = true;
-      await execute("INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,type,type_source) VALUES('late','closed','manual:late','2026-01-21',700,'EUR','income','manual')");
+      await execute("INSERT INTO transactions(id,account_id,provider_reference,date,amount_minor,currency,type,type_source) VALUES('late','closed','manual:late','2026-01-21',700,'EUR','income','manual')");
     }
 
     return result;

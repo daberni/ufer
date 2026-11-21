@@ -1,4 +1,4 @@
-import { matchBooking, prepareBooking, prepareBookings, sameAmountInWindow, type Booking, type PreparedBooking, type PreparedBookings } from "@/lib/booking-matching";
+import { matchBooking, sameDay, prepareBooking, prepareBookings, sameAmountInWindow, type Booking, type PreparedBooking, type PreparedBookings } from "@/lib/booking-matching";
 
 export type ImportCandidate = {
   reference: string;
@@ -11,6 +11,7 @@ export type ImportCandidate = {
 export type ExistingBooking = {
   reference: string;
   date: string;
+  bookingDate?: string | null;
   amount: number;
   counterparty: string;
   description: string;
@@ -76,6 +77,6 @@ function hasWeakMatch(candidate: PreparedBooking<Booking>, prepared: PreparedBoo
   return sameAmountInWindow(candidate, prepared, available).some(index => {
     const booking = prepared.bookings[index];
 
-    return booking.date === candidate.date || booking.transfer;
+    return sameDay(booking, candidate) || booking.transfer;
   });
 }
