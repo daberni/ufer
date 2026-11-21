@@ -1,0 +1,139 @@
+/* Condition and result sit in their own sections; the gaps alone space the fields, so the shared form margins are reset. */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+form.form > *,
+form .section label,
+form .section p {
+  margin: 0;
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+  margin: 0;
+  padding: var(--space-4) 0 0;
+  border: 0;
+  border-top: 1px solid var(--border-subtle);
+}
+.section-title {
+  float: left;
+  width: 100%;
+  padding: 0;
+  color: var(--ink);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.pattern {
+  display: block;
+  field-sizing: content;
+  resize: none;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+}
+.regex {
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
+}
+.hint {
+  font-size: var(--text-xs);
+  line-height: 1.5;
+}
+.impact {
+  min-height: 1.7em;
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+}
+.impact-text {
+  line-height: 1.7;
+}
+.matches-summary {
+  cursor: pointer;
+  line-height: 1.7;
+  color: var(--ink);
+}
+.matches-summary:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+.match-list {
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style: none;
+  max-height: 320px;
+  overflow-y: auto;
+  border-top: 1px solid var(--border-subtle);
+}
+.match {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "date payee amount"
+    "category category outcome";
+  column-gap: var(--space-3);
+  row-gap: var(--space-1);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: var(--text-sm);
+}
+.match-date {
+  grid-area: date;
+  color: var(--muted);
+}
+.match-payee {
+  grid-area: payee;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ink);
+}
+.match-amount {
+  grid-area: amount;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+.match-category {
+  grid-area: category;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.arrow {
+  color: var(--muted);
+}
+.outcome-changes,
+.outcome-overrides,
+.outcome-same,
+.outcome-manual {
+  grid-area: outcome;
+  justify-self: end;
+  font-size: var(--text-xs);
+}
+.outcome-changes {
+  color: var(--gold-text);
+  font-weight: 700;
+}
+.outcome-overrides {
+  color: var(--danger-text);
+  font-weight: 700;
+}
+.outcome-same,
+.outcome-manual {
+  color: var(--muted);
+}

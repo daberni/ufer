@@ -303,7 +303,8 @@ input:where(
     [type="reset"],
     [type="image"]
   )
-) {
+),
+textarea {
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--ink);
@@ -311,7 +312,8 @@ input:where(
   padding: var(--space-2) var(--space-3);
   min-height: 42px;
 }
-input::placeholder {
+input::placeholder,
+textarea::placeholder {
   color: var(--placeholder);
 }
 svg {

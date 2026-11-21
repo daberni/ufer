@@ -117,9 +117,24 @@ test("a rule cannot be created without a category, and the form offers to add on
     enabled: true,
     matched: 2,
     uncategorized: 1,
+    matched_same_category: 0,
     manual: 0,
-    manual_same_category: 0
+    manual_same_category: 0,
+    transactions: [{
+      id: "synthetic-market",
+      booking_date: "2000-01-10",
+      amount_minor: -1250,
+      currency: "EUR",
+      payee: "Example Market",
+      description: "",
+      category_id: null,
+      manual: false
+    }]
   }));
+
+  // The count is the collapsed list's summary.
+  assert.equal(screen.getByText("Example Market").closest("details")?.querySelector("summary")?.textContent, "Matches 2 transactions, 2 would change");
+  assert.ok(screen.getByText("Example Market"));
 
   assert.equal(create().disabled, true);
   assert.ok(screen.getByRole("button", {
@@ -128,6 +143,89 @@ test("a rule cannot be created without a category, and the form offers to add on
   act(() => fireEvent.submit(create().closest("form")!));
   await wait(0);
   assert.equal(requests("rules").filter(request => request.method === "POST").length, 0);
+});
+
+test("the match list shows manual assignments as unchanged until the rule may decide them, then as overridden", async context => {
+  const {
+    queryClient,
+    requests
+  } = browser(context);
+  const categories: Category[] = [{
+    id: "groceries",
+    name: "Groceries",
+    color: "#638777",
+    icon: null
+  }, {
+    id: "leisure",
+    name: "Leisure",
+    color: "#cb8577",
+    icon: null
+  }];
+
+  modalDialogs();
+  queryClient.setQueryData(queryKeys.categories(), categories);
+  const { RuleDialog } = await import("../src/features/categorization/components/create-rule-form");
+  const screen = render(withQueryClient(queryClient, createElement(RuleDialog, {
+    rule: null,
+    close: () => {}
+  })));
+
+  act(() => fireEvent.change(screen.getByRole("textbox", {
+    name: "Matching pattern"
+  }), {
+    target: {
+      value: "MARKET"
+    }
+  }));
+  await wait(350);
+  await respond(requests("rules/preview").at(-1), Response.json({
+    id: previewId,
+    enabled: true,
+    matched: 1,
+    uncategorized: 1,
+    matched_same_category: 0,
+    manual: 1,
+    manual_same_category: 0,
+    transactions: [{
+      id: "synthetic-automatic",
+      booking_date: "2000-01-11",
+      amount_minor: -900,
+      currency: "EUR",
+      payee: "Example Market North",
+      description: "",
+      category_id: null,
+      manual: false
+    }, {
+      id: "synthetic-manual",
+      booking_date: "2000-01-10",
+      amount_minor: -1250,
+      currency: "EUR",
+      payee: "Example Market South",
+      description: "",
+      category_id: "leisure",
+      manual: true
+    }]
+  }));
+
+  const row = (payee: string) => screen.getByText(payee).closest("li")!;
+  const summary = () => screen.getByText("Example Market North").closest("details")?.querySelector("summary")?.textContent;
+
+  assert.equal(summary(), "Matches 2 transactions, 1 would change");
+  assert.match(row("Example Market South").textContent ?? "", /Leisure.*Manual, unchanged/);
+  assert.doesNotMatch(row("Example Market South").textContent ?? "", /Groceries/);
+  assert.match(row("Example Market North").textContent ?? "", /Uncategorized.*Groceries.*Would change/);
+
+  const adopt = screen.getByRole("checkbox", {
+    name: /Also let this rule decide 1 manually categorized transaction/
+  });
+
+  act(() => fireEvent.click(adopt));
+  assert.equal(summary(), "Matches 2 transactions, 2 would change");
+  assert.match(row("Example Market South").textContent ?? "", /Leisure.*Groceries.*Overrides manual/);
+
+  act(() => fireEvent.click(adopt));
+  assert.equal(summary(), "Matches 2 transactions, 1 would change");
+  assert.match(row("Example Market South").textContent ?? "", /Manual, unchanged/);
 });
 
 test("a rejected order restores the earlier list and then reloads the stored one, including rules changed elsewhere", async context => {
@@ -292,8 +390,10 @@ test("a rule can set the transfer type and its account, which the form sends wit
     enabled: true,
     matched: 1,
     uncategorized: 1,
+    matched_same_category: 0,
     manual: 0,
-    manual_same_category: 0
+    manual_same_category: 0,
+    transactions: []
   }));
 
   const create = screen.getByRole("button", {

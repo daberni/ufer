@@ -193,6 +193,7 @@ async function previewCounts(payload: unknown) {
   const {
     id,
     enabled,
+    transactions: _transactions,
     ...counts
   } = await previewRule(payload);
 
@@ -213,6 +214,7 @@ test("a rule preview counts the transactions the new rule would decide, without 
   }), {
     matched: 5,
     uncategorized: 4,
+    matched_same_category: 0,
     manual: 2,
     manual_same_category: 0
   });
@@ -223,6 +225,7 @@ test("a rule preview counts the transactions the new rule would decide, without 
   }), {
     matched: 6,
     uncategorized: 5,
+    matched_same_category: 0,
     manual: 2,
     manual_same_category: 0
   });
@@ -233,6 +236,7 @@ test("a rule preview counts the transactions the new rule would decide, without 
   }), {
     matched: 0,
     uncategorized: 0,
+    matched_same_category: 0,
     manual: 0,
     manual_same_category: 0
   });
