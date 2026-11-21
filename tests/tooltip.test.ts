@@ -197,3 +197,25 @@ test("a long press on a control whose text fits opens no tooltip and keeps the c
   }).textContent, "");
   assert.deepEqual(clicks, ["edit"]);
 });
+
+test("plain text with an always-shown tooltip outside any control is a focus stop that shows the tooltip on keyboard focus", async context => {
+  browser(context);
+  const { Tooltip } = await import("../src/components/ui/tooltip");
+  const screen = render(createElement(Tooltip, {
+    text: "Sets type: Transfer",
+    children: trigger => createElement("span", {
+      ...trigger,
+      "data-testid": "label"
+    }, "Transfer")
+  }));
+  const trigger = screen.getByTestId("label");
+
+  assert.equal(trigger.getAttribute("tabindex"), "0");
+
+  context.mock.method(trigger, "matches", (selector: string) => selector === ":focus-visible");
+  await act(async () => trigger.focus());
+
+  assert.equal(screen.getByRole("tooltip", {
+    hidden: true
+  }).textContent, "Sets type: Transfer");
+});

@@ -85,7 +85,7 @@ export function Tooltip({
   // A long press shows the tooltip; the browser's context menu and the click that may follow do not act on the trigger.
   const press = usePressTimer();
 
-  // Truncated text outside any control becomes a focus stop of its own, so keyboard users can reach the full text.
+  // Text outside any control becomes a focus stop of its own, so keyboard users can reach its tooltip.
   const [ownFocusStop, setOwnFocusStop] = useState(false);
   const showRef = useRef(show);
 
@@ -122,11 +122,12 @@ export function Tooltip({
     // Decorative copies, such as previews and drag images, stay out of the tab order.
     const decorative = triggerElement.closest("[aria-hidden='true'], [inert]") !== null;
 
-    if (!onlyWhenTruncated || decorative || triggerElement.matches(focusable)) {
+    if (decorative || triggerElement.matches(focusable)) {
       return;
     }
 
-    const measure = () => setOwnFocusStop(isTruncated(triggerElement));
+    // Plain text outside any control is a focus stop whenever its tooltip can show.
+    const measure = () => setOwnFocusStop(Boolean(text) && (!onlyWhenTruncated || isTruncated(triggerElement)));
     const observer = new ResizeObserver(measure);
 
     // The observer reports size changes of the trigger; a new text of the same size is measured when it renders.
