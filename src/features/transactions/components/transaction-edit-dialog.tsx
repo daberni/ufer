@@ -802,22 +802,53 @@ function CreatedCounterpartFields({
   );
 }
 
-function targetSummary(transaction: Transaction, target: Target, accounts: TransferOptions["accounts"], locale: string) {
-  const direction = transaction.amount_minor < 0 ? "to" : "from";
+/** The manual accounts offered for a counterpart: those a new one may be created on, plus the account of a counterpart chosen through its account. */
+function counterpartAccounts(transaction: Transaction, options: TransferOptions, frozen: boolean) {
+  const accounts = frozen ? [] : options.accounts;
+  const stored = options.counterpart;
 
-  if (target.kind === "booking") {
-    return `Linked with ${bookingLabel(target.booking, locale)}.`;
+  if (!stored || !linkedThroughAccount(transaction, stored) || accounts.some(account => account.id === stored.account_id)) {
+    return accounts;
   }
 
-  if (target.kind === "account") {
-    const account = accounts.find(item => item.id === target.accountId);
-
-    return `Books the other side on ${account?.name ?? "the manual account"}.`;
-  }
-
-  return `Transfer ${direction} an untracked account.`;
+  return [{
+    id: stored.account_id,
+    name: stored.account_name
+  }, ...accounts];
 }
 
+/** The account the counterpart select shows: the chosen one, else the stored one, else the first. */
+function shownAccount(target: Target, stored: Target, accounts: TransferOptions["accounts"]) {
+  if (target.kind === "account") {
+    return target.accountId;
+  }
+
+  if (stored.kind === "account") {
+    return stored.accountId;
+  }
+
+  return accounts[0]?.id ?? "";
+}
+
+function BookingChoice({ booking }: {
+  booking: TransferBooking
+}) {
+  const locale = useLocale();
+  const date = describeDate(Temporal.PlainDate.from(booking.booking_date), locale).label;
+  const details = [date, booking.counterparty, booking.description].filter(Boolean).join(" · ");
+
+  return (
+    <span className={styles["choice-body"]}>
+      <span className={styles["choice-head"]}>
+        <span className={styles["choice-title"]}>{booking.account_name}</span>
+        <span className={styles["choice-amount"]}>{signedMoney(booking.amount_minor, booking.currency, locale)}</span>
+      </span>
+      <span className={styles["choice-text"]}>{details}</span>
+    </span>
+  );
+}
+
+/** One stacked radio group: matching bookings on other accounts, a counterpart on each manual account, or no counterpart. */
 function TransferFields({
   transaction,
   options,
@@ -832,9 +863,8 @@ function TransferFields({
   /** Whether either account is archived, so no counterpart may be created on a manual account. */
   frozen: boolean;
 }) {
-  const locale = useLocale();
-  const suggestionsId = useId();
-  const targetId = useId();
+  const hintId = useId();
+  const accountChoiceId = useId();
 
   if (options.status === "pending") {
     return <p className={ui["form-hint"]} role="status">Loading suggestions …</p>;
@@ -852,54 +882,71 @@ function TransferFields({
   }
 
   const suggestions = suggestionsOf(transaction, options.data);
-  const accounts = frozen ? [] : options.data.accounts;
+  const stored = storedTarget(transaction, options.data);
+  const accounts = counterpartAccounts(transaction, options.data, frozen);
+  const direction = transaction.amount_minor < 0 ? "to" : "from";
+  const accountId = shownAccount(target, stored, accounts);
 
   return (
-    <div className={styles["pair"]}>
-      <div className={styles["cell"]}>
-        <label htmlFor={targetId}>
-          Target account
-          <Select
-            id={targetId}
-            name="target"
-            value={selectValue(target)}
-            onChange={event => {
-              const value = event.target.value;
-
-              onTarget(value.startsWith("account:") ? {
-                kind: "account",
-                accountId: value.slice("account:".length)
-              } : noTarget);
-            }}
-          >
-            <option value="">None (account not tracked in Ufer)</option>
-            {target.kind === "booking" && <option value={selectValue(target)}>{`${target.booking.account_name} (selected booking)`}</option>}
-            {accounts.map(account => <option key={account.id} value={`account:${account.id}`}>{account.name}</option>)}
-          </Select>
+    <fieldset className={styles["choices"]} aria-describedby={suggestions.length > 0 ? hintId : undefined}>
+      <legend>Counterpart</legend>
+      {suggestions.length > 0 && <p id={hintId} className={styles["choices-hint"]}>Bookings with the opposite amount within two weeks, or a new counterpart.</p>}
+      {suggestions.map(booking => (
+        <label key={booking.id} className={styles["choice"]}>
+          <input
+            type="radio"
+            name="counterpart"
+            value={`booking:${booking.id}`}
+            checked={target.kind === "booking" && target.booking.id === booking.id}
+            onChange={() => onTarget({
+              kind: "booking",
+              booking
+            })}
+          />
+          <BookingChoice booking={booking} />
         </label>
-        <p className={ui["form-hint"]} role="status">{targetSummary(transaction, target, accounts, locale)}</p>
-      </div>
-      {suggestions.length > 0 && (
-        <fieldset className={styles["suggestions"]} aria-describedby={`${suggestionsId}-hint`}>
-          <legend>Bookings on other accounts</legend>
-          <p id={`${suggestionsId}-hint`} className={styles["suggestions-hint"]}>Opposite amount within two weeks.</p>
-          {suggestions.map(booking => (
-            <label key={booking.id} className={styles["suggestion"]}>
-              <input
-                type="radio"
-                name="counterpart"
-                value={booking.id}
-                checked={target.kind === "booking" && target.booking.id === booking.id}
-                onChange={() => onTarget({
-                  kind: "booking",
-                  booking
-                })}
-              />
-              <span>{bookingLabel(booking, locale)}</span>
-            </label>
-          ))}
-        </fieldset>
+      ))}
+      {accounts.length > 0 && (
+        <div className={styles["choice"]}>
+          <input
+            id={accountChoiceId}
+            type="radio"
+            name="counterpart"
+            value="account"
+            checked={target.kind === "account"}
+            onChange={() => onTarget({
+              kind: "account",
+              accountId: accountId
+            })}
+          />
+          <span className={styles["choice-body"]}>
+            <label htmlFor={accountChoiceId} className={styles["choice-title"]}>{stored.kind === "account" ? "Counterpart on" : "Create a counterpart on"}</label>
+            <Select
+              aria-label="Manual account"
+              value={accountId}
+              onChange={event => onTarget({
+                kind: "account",
+                accountId: event.target.value
+              })}
+            >
+              {accounts.map(account => <option key={account.id} value={account.id}>{account.name}</option>)}
+            </Select>
+          </span>
+        </div>
       )}
-    </div>
+      <label className={styles["choice"]}>
+        <input
+          type="radio"
+          name="counterpart"
+          value=""
+          checked={target.kind === "none"}
+          onChange={() => onTarget(noTarget)}
+        />
+        <span className={styles["choice-body"]}>
+          <span className={styles["choice-title"]}>No counterpart</span>
+          <span className={styles["choice-meta"]}>{`Transfer ${direction} an account not tracked in Ufer.`}</span>
+        </span>
+      </label>
+    </fieldset>
   );
 }

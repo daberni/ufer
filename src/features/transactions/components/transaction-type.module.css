@@ -1,4 +1,4 @@
-.suggestions {
+.choices {
   display: grid;
   gap: var(--space-2);
   margin: 0;
@@ -6,40 +6,82 @@
   border: 0;
   min-width: 0;
 }
-.suggestions legend {
+.choices legend {
   padding: 0;
   font-size: var(--text-sm);
   color: var(--muted);
 }
-.suggestions-hint {
-  margin: var(--space-1) 0 var(--space-2);
+.choices-hint {
+  margin: var(--space-1) 0 0;
   font-size: var(--text-sm);
   color: var(--muted);
   line-height: 1.6;
 }
 /* Overrides the column layout the form gives its labels. */
-.suggestions .suggestion {
+.choices .choice {
+  display: flex;
   flex-direction: row;
   align-items: flex-start;
   gap: var(--space-3);
-  margin: var(--space-2) 0 0;
+  margin: 0;
+  min-height: 44px;
   padding: var(--space-3);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   color: var(--ink);
   line-height: 1.5;
-  overflow-wrap: anywhere;
   cursor: pointer;
 }
-.suggestions .suggestion:has(:checked) {
+.choices .choice:has(> input:checked) {
   border-color: var(--green);
   background: var(--soft);
 }
+.choices .choice:has(> input:focus-visible) {
+  outline: 2px solid var(--green);
+  outline-offset: 2px;
+}
 /* The form's full-width rule for inputs must not stretch the radio. */
-.suggestions .suggestion input {
+.choices .choice > input {
   flex-shrink: 0;
   width: auto;
+  height: auto;
+  min-height: 0;
   margin-top: 3px;
+}
+/* The account select sits in the choice card, which is not itself a label. */
+.choices .choice-title {
+  margin: 0;
+  color: var(--ink);
+  cursor: pointer;
+}
+.choice-body {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+  flex: 1;
+}
+.choice-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0 var(--space-3);
+}
+.choice-title {
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.choice-amount {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.choice-meta {
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+.choice-text {
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+  overflow-wrap: anywhere;
 }
 
 /* Overrides the column layout and full-width inputs the form gives its labels. */
@@ -156,16 +198,6 @@
 .fields.fields label {
   margin: 0;
 }
-/* Two related fields side by side, such as a transfer's target account and the booking it pairs with. */
-.pair {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: var(--space-4) var(--space-6);
-  align-items: start;
-}
-.pair.pair > * {
-  margin: 0;
-}
 .cell {
   display: flex;
   flex-direction: column;
@@ -195,9 +227,6 @@
 }
 
 @media (--mobile) {
-  .pair {
-    grid-template-columns: minmax(0, 1fr);
-  }
   .actions {
     flex-direction: column;
   }
