@@ -134,13 +134,13 @@ Repository content must describe a generic product. Do not include personal inst
 
 ## Roadmap
 
-Open work in priority order. Items without an issue are not yet specified.
+Open work grouped by phase, in priority order. Budgets and forecasting have lower priority than reliable insights and brokerage accounts.
 
-1. **Backups:** restore-tested, automated backups of the database and keys ([#84](https://github.com/daberni/ufer/issues/84), high priority, being designed).
-2. **Data quality:** reconcile bank-linked balances with booked transactions ([#183](https://github.com/daberni/ufer/issues/183)), detect duplicates across bank sync and CSV imports ([#228](https://github.com/daberni/ufer/issues/228)), and let rules apply only to a chosen account ([#243](https://github.com/daberni/ufer/issues/243)).
-3. **Product:** an insights page with configurable reports ([#249](https://github.com/daberni/ufer/issues/249)) and application localization ([#21](https://github.com/daberni/ufer/issues/21)).
-4. **User management (later):** owner and member roles exist, but routes do not yet enforce different rights; role enforcement has no issue yet.
-5. **Securities price automation (later):** automatic price updates for securities; a provider (EODHD) is under evaluation and no issue exists yet.
+1. **Reliable operation and trustworthy figures:** restore-tested, automated backups ([#84](https://github.com/daberni/ufer/issues/84)); verified unattended production bank sync, repeat sync and reauthorization ([#267](https://github.com/daberni/ufer/issues/267)); reconciling bank-linked balances with booked transactions ([#183](https://github.com/daberni/ufer/issues/183)); duplicate detection across bank sync and CSV imports ([#228](https://github.com/daberni/ufer/issues/228)); account-scoped rules ([#243](https://github.com/daberni/ufer/issues/243)).
+2. **Wealth and securities (next major topic):** brokerage accounts with a settlement account, buy and sell transactions creating holdings with cost, quantity, date and fees, daily valuations from a market-data provider (EODHD evaluated) that are not transactions but flow into net worth and its history ([#266](https://github.com/daberni/ufer/issues/266), [#87](https://github.com/daberni/ufer/issues/87)).
+3. **Insights:** an insights page with configurable reports ([#249](https://github.com/daberni/ufer/issues/249)).
+4. **Planning (lower priority):** budgets, recurring entries and forecasting (feature comparison K-04).
+5. **Platform (last):** user management with enforced roles (owner and member exist, but routes do not enforce different rights), localization ([#21](https://github.com/daberni/ufer/issues/21)), PostgreSQL and multi-tenant hosting. A hosted service is a medium-term goal.
 
 In progress: dropping the per-row banking environment column ([#76](https://github.com/daberni/ufer/issues/76)), completing management of rules, categories, accounts and bank links ([#86](https://github.com/daberni/ufer/issues/86)). JSX accessibility linting ([#111](https://github.com/daberni/ufer/issues/111)) waits for an ESLint 10-compatible `eslint-plugin-jsx-a11y` release.
 
