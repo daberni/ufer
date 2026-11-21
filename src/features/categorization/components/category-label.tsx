@@ -1,3 +1,4 @@
+import ui from "../../../components/ui/primitives.module.css";
 import styles from "./category-label.module.css";
 import { clsx } from "clsx";
 import { CircleDashed, Shapes, SlidersHorizontal } from "lucide-react";
@@ -85,7 +86,7 @@ export function CategoryLabel({
           }}
         >
           <CategoryGlyph category={category} />
-          <span className={styles["name"]}>{categoryLabel(category)}</span>
+          <span className={ui["truncate"]}>{categoryLabel(category)}</span>
         </span>
       )}
     </Tooltip>

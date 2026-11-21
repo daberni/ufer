@@ -4,11 +4,12 @@ import ui from "../../../components/ui/primitives.module.css";
 import { useLocale } from "@/client/locale-provider";
 
 import { clsx } from "clsx";
-import { useEffect, useId, useMemo, useState } from "react";
+import { useId, useState } from "react";
 import { Sparkles } from "lucide-react";
 import { useDialogSubmit, type DialogFormProps } from "@/components/ui/use-dialog-submit";
 import { useSaveRule } from "@/features/categorization/mutations";
-import { useCategories, useRulePreview } from "@/features/categorization/queries";
+import { useCategories } from "@/features/categorization/queries";
+import { useRulePreviewDraft } from "@/features/categorization/use-rule-preview-draft";
 import { activeAccounts, useAccounts } from "@/features/accounts/queries";
 import { ruleTransactionTypes, transactionTypeLabels, type RuleTransactionType } from "@/features/transactions/transaction-types";
 import { toFailure } from "@/client/api";
@@ -20,7 +21,7 @@ import { Dialog } from "@/components/ui/dialog";
 import type { Rule, RulePreviewDraft } from "@/features/categorization/types";
 import { DeleteButton, RuleDeleteConfirmation } from "./deletion-forms";
 import { ManualAdoptionOption, useManualAdoption, type ManualMatches } from "./manual-adoption-option";
-import { formatCount } from "@/lib/locale";
+import { formatCount, formatCountLabel } from "@/lib/locale";
 
 type RuleFormProps = DialogFormProps & {
   rule?: Rule | null;
@@ -44,45 +45,16 @@ export function RuleDialog({
   );
 }
 
-// Counting waits for typing to pause.
-const previewDelay = 300;
-
 type Mode = RulePreviewDraft["mode"];
 
-function previewDraft(pattern: string, mode: Mode, ruleId: string | null, categoryId: string | null): RulePreviewDraft | null {
-  if (!pattern.trim()) {
-    return null;
-  }
-
-  return {
-    pattern,
-    mode,
-    ruleId,
-    categoryId
-  };
-}
-
-function sameDraft(first: RulePreviewDraft | null, second: RulePreviewDraft | null) {
-  return first !== null && second !== null && first.pattern === second.pattern && first.mode === second.mode && first.ruleId === second.ruleId && first.categoryId === second.categoryId;
-}
-
-function transactionCount(count: number, locale: string) {
-  return `${formatCount(count, locale)} ${count === 1 ? "transaction" : "transactions"}`;
-}
-
-/** What the drafted rule would decide when rules are applied; nothing changes before that. The draft must keep its identity while its fields are unchanged. */
-function useRuleImpact(draft: RulePreviewDraft | null) {
+/** What the drafted rule would decide when rules are applied; nothing changes before that. */
+function useRuleImpact(fields: RulePreviewDraft) {
   const locale = useLocale();
-  const [previewed, setPreviewed] = useState(draft);
-
-  useEffect(() => {
-    const timer = setTimeout(() => setPreviewed(draft), previewDelay);
-
-    return () => clearTimeout(timer);
-  }, [draft]);
-
-  const preview = useRulePreview(previewed);
-  const current = sameDraft(draft, previewed);
+  const {
+    draft,
+    preview,
+    current
+  } = useRulePreviewDraft(fields);
   const pending = draft !== null && (!current || preview.isFetching);
 
   if (draft === null) {
@@ -141,7 +113,7 @@ function useRuleImpact(draft: RulePreviewDraft | null) {
     pending: false,
     previewId,
     manual,
-    text: `Would decide ${transactionCount(preview.data.matched, locale)} without a manual category when rules are applied; ${formatCount(preview.data.uncategorized, locale)} of them ${preview.data.uncategorized === 1 ? "is" : "are"} uncategorized now.`
+    text: `Would decide ${formatCountLabel(preview.data.matched, "transaction", "transactions", locale)} without a manual category when rules are applied; ${formatCount(preview.data.uncategorized, locale)} of them ${preview.data.uncategorized === 1 ? "is" : "are"} uncategorized now.`
   };
 }
 
@@ -168,8 +140,12 @@ function RuleForm({
   const [mode, setMode] = useState<Mode>(rule?.mode === "regex" ? "regex" : "keyword");
   const [type, setType] = useState<RuleTransactionType | "">(rule?.transaction_type ?? "");
   const ruleId = rule?.id ?? null;
-  const draft = useMemo(() => previewDraft(pattern, mode, ruleId, categoryId), [pattern, mode, ruleId, categoryId]);
-  const impact = useRuleImpact(draft);
+  const impact = useRuleImpact({
+    pattern,
+    mode,
+    ruleId,
+    categoryId
+  });
   const adoption = useManualAdoption(impact.manual);
 
   return (

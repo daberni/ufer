@@ -58,12 +58,6 @@
   flex: none;
   line-height: inherit;
 }
-.message-text {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 @media (--mobile) {
   /* The field fills the card's line; a failure takes its own lines under it, since the card has no spacing to overlay. */
   .category {

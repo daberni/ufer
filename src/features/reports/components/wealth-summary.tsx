@@ -19,6 +19,7 @@ import { shortMonthWithYear } from "@/lib/date-format";
 import type { NetWorthHistory, NetWorthPoint } from "@/features/reports/net-worth-series";
 import { useLocale } from "@/client/locale-provider";
 import { formatCount } from "@/lib/locale";
+import { cssPercent } from "@/lib/percent";
 
 type Props = {
   /** The currencies in use and the selected one; with several, the currency badge becomes the choice of accounts shown. */
@@ -80,7 +81,7 @@ export function WealthSummary({
           <span
             className={styles["bar-fill"]}
             style={{
-              width: percent(bars.assets)
+              width: cssPercent(bars.assets)
             }}
           >
             <span
@@ -107,7 +108,7 @@ export function WealthSummary({
           <span
             className={clsx(styles["bar-fill"], styles["loan-segment"])}
             style={{
-              width: percent(bars.loans)
+              width: cssPercent(bars.loans)
             }}
           />
         </div>
@@ -181,8 +182,4 @@ function HistoryCurve({ points }: {
       <path className={styles["history-line"]} d={line} vectorEffect="non-scaling-stroke" />
     </svg>
   );
-}
-
-function percent(share: number) {
-  return `${share * 100}%`;
 }

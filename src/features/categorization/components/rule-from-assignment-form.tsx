@@ -4,19 +4,19 @@ import ui from "../../../components/ui/primitives.module.css";
 
 import { clsx } from "clsx";
 import styles from "./rule-from-assignment-form.module.css";
-import { useEffect, useId, useState } from "react";
+import { useId, useState } from "react";
 import { Sparkles } from "lucide-react";
 import { toFailure } from "@/client/api";
 import { Dialog } from "@/components/ui/dialog";
 import { FormError } from "@/components/ui/form-error";
 import { useDialogSubmit } from "@/components/ui/use-dialog-submit";
 import { useCreateRuleFromAssignment } from "@/features/categorization/mutations";
-import { useCategories, useRulePreview } from "@/features/categorization/queries";
+import { useCategories } from "@/features/categorization/queries";
+import { useRulePreviewDraft } from "@/features/categorization/use-rule-preview-draft";
 import { proposeRulePattern } from "@/features/categorization/rule-pattern";
-import type { RulePreviewDraft } from "@/features/categorization/types";
 import { CategoryPicker } from "./category-picker";
 import { ManualAdoptionOption, useManualAdoption } from "./manual-adoption-option";
-import { formatCount } from "@/lib/locale";
+import { formatCount, formatCountLabel } from "@/lib/locale";
 import { useLocale } from "@/client/locale-provider";
 
 type Props = {
@@ -30,35 +30,12 @@ type Props = {
   onCreated: (categorized: number) => void;
 };
 
-// Counting waits for typing to pause.
-const previewDelay = 300;
-
 export function RuleFromAssignmentDialog(props: Props) {
   return (
     <Dialog eyebrow="YOUR FINANCES" title="Create rule" onClose={props.close}>
       <RuleFromAssignmentForm {...props} />
     </Dialog>
   );
-}
-
-function previewDraft(pattern: string, categoryId: string, sourceTransactionId: string): RulePreviewDraft | null {
-  const trimmed = pattern.trim();
-
-  if (!trimmed) {
-    return null;
-  }
-
-  return {
-    pattern: trimmed,
-    mode: "keyword",
-    ruleId: null,
-    categoryId,
-    sourceTransactionId
-  };
-}
-
-function transactionCount(count: number, locale: string) {
-  return `${formatCount(count, locale)} ${count === 1 ? "other transaction" : "other transactions"}`;
 }
 
 function RuleFromAssignmentForm({
@@ -82,17 +59,17 @@ function RuleFromAssignmentForm({
   const [pattern, setPattern] = useState(() => proposeRulePattern(counterparty, description));
   const [categoryId, setCategoryId] = useState(assignedCategoryId);
   const [applyToUncategorized, setApplyToUncategorized] = useState(true);
-  const [previewed, setPreviewed] = useState(() => previewDraft(pattern, categoryId, transactionId));
-
-  useEffect(() => {
-    const timer = setTimeout(() => setPreviewed(previewDraft(pattern, categoryId, transactionId)), previewDelay);
-
-    return () => clearTimeout(timer);
-  }, [pattern, categoryId, transactionId]);
-
-  const draft = previewDraft(pattern, categoryId, transactionId);
-  const preview = useRulePreview(previewed);
-  const matchesCurrentDraft = draft !== null && draft.pattern === previewed?.pattern && draft.categoryId === previewed.categoryId;
+  const {
+    draft,
+    preview,
+    current: matchesCurrentDraft
+  } = useRulePreviewDraft({
+    pattern: pattern.trim(),
+    mode: "keyword",
+    ruleId: null,
+    categoryId,
+    sourceTransactionId: transactionId
+  });
   const previewReady = matchesCurrentDraft && preview.isSuccess && !preview.isFetching && !preview.isPlaceholderData;
   const previewPending = draft !== null && (!matchesCurrentDraft || preview.isFetching);
   const adoption = useManualAdoption(previewReady && preview.data ? {
@@ -109,7 +86,7 @@ function RuleFromAssignmentForm({
   } else if (previewReady && preview.data?.matched === 0) {
     previewText = "Would not categorize any other transactions yet.";
   } else if (previewReady && preview.data) {
-    previewText = `Would categorize ${transactionCount(preview.data.matched, locale)}; ${formatCount(preview.data.uncategorized, locale)} of them ${preview.data.uncategorized === 1 ? "is" : "are"} uncategorized.`;
+    previewText = `Would categorize ${formatCountLabel(preview.data.matched, "other transaction", "other transactions", locale)}; ${formatCount(preview.data.uncategorized, locale)} of them ${preview.data.uncategorized === 1 ? "is" : "are"} uncategorized.`;
   }
 
   return (
@@ -164,7 +141,7 @@ function RuleFromAssignmentForm({
         />
       </div>
       <p className={clsx(ui["form-hint"], styles["preview"])} role="status" aria-busy={previewPending}>{previewText}</p>
-      <label className={styles["apply"]}>
+      <label className={ui["check-option"]}>
         <input
           type="checkbox"
           checked={applyToUncategorized}
