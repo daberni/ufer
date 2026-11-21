@@ -95,6 +95,9 @@ export async function findImportTarget(id: string) {
   }).from(accounts).where(eq(accounts.id, id)).get();
 }
 
+/** Rows that decide a new import account's opening balance: all but those the import itself saved hidden, which the shown balance never includes. */
+const countedTowardOpening = sql`(${transactions.suppressed_at} IS NULL OR ${transactions.suppressed_at}<>${transactions.created_at})`;
+
 /** The opening balance an import booked on its new account under one of the given IDs, with the sum of the account's other transactions. */
 export async function findImportOpening(accountId: string, ids: string[]) {
   const db = await database();
@@ -108,10 +111,10 @@ export async function findImportOpening(accountId: string, ids: string[]) {
     return null;
   }
 
-  // Hidden rows count here too: this sum identifies the import's stated balance, not the balance shown.
+  // Rows a person hid later count here too: this sum identifies the import's stated balance, which they did not change. Rows hidden by the import never counted toward it.
   const others = await db.select({
     total: sql<number>`COALESCE(SUM(${transactions.amount_minor}),0)`.mapWith(Number)
-  }).from(transactions).where(and(eq(transactions.account_id, accountId), ne(transactions.id, opening.id))).get();
+  }).from(transactions).where(and(eq(transactions.account_id, accountId), ne(transactions.id, opening.id), countedTowardOpening)).get();
 
   return {
     ...opening,
@@ -225,7 +228,11 @@ export async function saveMappedEntries(accountId: string, entries: MappedEntry[
         type_rule_id: entry.typeRuleId,
         type_transfer_account_id: entry.typeTransferAccountId,
         transfer_detected: entry.transfer ? 1 : 0,
-        suppressed_at: entry.hiddenAt
+        // A row hidden by the import shares its creation time, which tells it apart from a booking a person hid later.
+        ...(entry.hiddenAt ? {
+          created_at: entry.hiddenAt,
+          suppressed_at: entry.hiddenAt
+        } : {})
       }));
       const rows = await tx.insert(transactions).values(values).onConflictDoNothing({
         target: [transactions.account_id, transactions.provider_reference]
@@ -341,7 +348,7 @@ export async function adoptImportedRows(tx: DatabaseTransaction, accountId: stri
 async function saveOpeningBalance(tx: DatabaseTransaction, accountId: string, currency: string, opening: OpeningBalance) {
   const others = await tx.select({
     total: sql<number>`COALESCE(SUM(${transactions.amount_minor}),0)`.mapWith(Number)
-  }).from(transactions).where(and(eq(transactions.account_id, accountId), ne(transactions.id, opening.id))).get();
+  }).from(transactions).where(and(eq(transactions.account_id, accountId), ne(transactions.id, opening.id), countedTowardOpening)).get();
   const amount = opening.kind === "current" ? opening.amount - (others?.total ?? 0) : opening.amount;
   const account = await tx.select({
     currency: accounts.currency

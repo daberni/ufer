@@ -316,3 +316,41 @@ test("only the Buxfer template hides investment trades", () => {
   assert.equal(row.amount, "100");
   assert.equal(row.hidden, false);
 });
+
+test("a new account's current balance from a Buxfer file leaves hidden trades out and survives a resume", async context => {
+  await isolatedDatabase(context);
+  const csv = [
+    "ID,Date,Description,Currency,Amount,Type,Tags,Account,Status,Memo,IOU",
+    "21,2026-02-02,\"Buy index fund\",EUR,500,Investment purchase,\"\",\"Brokerage\",Cleared,\" \"",
+    "22,2026-02-03,\"Index fund gain\",EUR,20,Capital gain,\"\",\"Brokerage\",Cleared,\" \""
+  ].join("\n");
+  const rows = mappedBuxferRows(csv).rows;
+  const request = {
+    import_id: importId,
+    rows: assignOccurrences(rows, () => "new"),
+    targets: [{
+      source: "Brokerage",
+      new_account: {
+        name: "Synthetic brokerage",
+        kind: "checking",
+        currency: "EUR",
+        opening: {
+          kind: "current" as const,
+          amount: "1000.00",
+          date: "2026-02-01"
+        }
+      }
+    }],
+    confirm: true
+  };
+  const balance = async () => (await listAccounts()).find(account => account.name === "Synthetic brokerage")?.balance_minor;
+
+  assert.deepEqual((await importMappedRows(request, now)).errors, []);
+  assert.equal(await balance(), 100000);
+
+  const resumed = await importMappedRows(request, now);
+
+  assert.deepEqual(resumed.errors, []);
+  assert.equal(resumed.newRows, 0);
+  assert.equal(await balance(), 100000);
+});
