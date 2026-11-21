@@ -1007,9 +1007,16 @@ export type ConsumedBooking = {
   date: string;
 };
 
-/** Drops matches that no row of a batch starting at `earliestDate` can reach; with date-sorted batches this keeps the list bounded however large the file is. */
+/** At most as many consumed bookings as a request accepts. */
+export const maxConsumedPerRequest = 20_000;
+
+/**
+ * Drops matches that no row of a batch starting at `earliestDate` can reach; with date-sorted batches this keeps the list bounded however large the file is.
+ * A file with more rows inside that window than a request accepts keeps the latest ones, so the import still completes; only the dropped rows could then absorb a neighbouring row by content.
+ */
 export function pruneConsumed(consumed: ConsumedBooking[], earliestDate: string) {
   const reach = new Date(Date.parse(`${earliestDate}T00:00:00Z`) - duplicateDateToleranceDays * 86_400_000).toISOString().slice(0, 10);
+  const reachable = consumed.filter(booking => booking.date >= reach);
 
-  return consumed.filter(booking => booking.date >= reach);
+  return reachable.length > maxConsumedPerRequest ? reachable.toSorted((left, right) => left.date.localeCompare(right.date)).slice(-maxConsumedPerRequest) : reachable;
 }
