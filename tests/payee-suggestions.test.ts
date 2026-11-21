@@ -267,6 +267,30 @@ test("Enter with suggestions shown but none highlighted closes the list and lets
   assert.equal(field.value, "cor");
 });
 
+test("ArrowDown after Escape reopens the suggestions on the first one, and Enter picks it", async context => {
+  const {
+    field,
+    requests,
+    screen
+  } = await renderPayeeInput(context);
+
+  type(field, "cor");
+  await wait(300);
+  await respond(requests("transactions/payees")[0], Response.json({
+    payees: ["Corner Bakery", "Corner Shop"]
+  }));
+
+  press(field, "Escape");
+  assert.equal(field.getAttribute("aria-expanded"), "false");
+
+  press(field, "ArrowDown");
+  assert.equal(field.getAttribute("aria-expanded"), "true");
+  assert.equal(field.getAttribute("aria-activedescendant"), options(screen)[0].id);
+
+  press(field, "Enter");
+  assert.equal(field.value, "Corner Bakery");
+});
+
 test("a pointer picks a suggestion and Escape closes the list without clearing the text", async context => {
   const {
     field,

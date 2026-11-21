@@ -33,8 +33,9 @@ type Props = {
   children: (trigger: TooltipTriggerProps) => ReactNode;
 };
 
+// Covers an ellipsis on one line and a line clamp, which cuts text off vertically.
 function isTruncated(element: HTMLElement) {
-  return [element, ...element.querySelectorAll<HTMLElement>("*")].some(node => node.scrollWidth > node.clientWidth + 1);
+  return [element, ...element.querySelectorAll<HTMLElement>("*")].some(node => node.scrollWidth > node.clientWidth + 1 || node.scrollHeight > node.clientHeight + 1);
 }
 
 // A tap on a control activates it, so only text that does nothing else shows its tooltip on a tap; controls show it on a long press.

@@ -44,6 +44,13 @@ export function PayeeInput({
   // Suggestions only show for the text in the field, so results for earlier text cannot overwrite newer typing.
   const shown = open && query === requested ? suggestions.data?.payees ?? [] : [];
   const expanded = shown.length > 0;
+  // The suggestions last shown for the current text, so keys that reopen a closed list start on them, such as ArrowDown after Escape.
+  const [knownCount, setKnownCount] = useState(0);
+
+  if (expanded && shown.length !== knownCount) {
+    setKnownCount(shown.length);
+  }
+
   const {
     listboxId,
     optionId,
@@ -53,7 +60,7 @@ export function PayeeInput({
     handleKeyDown
   } = useComboboxOptions({
     open: expanded,
-    optionCount: shown.length,
+    optionCount: expanded ? shown.length : knownCount,
     listboxRef,
     freeText: true,
     onOpen: () => setOpen(true),
@@ -126,6 +133,7 @@ export function PayeeInput({
           aria-describedby={ariaDescribedBy}
           onChange={event => {
             setQuery(event.target.value);
+            setKnownCount(0);
             setOpen(true);
             setActiveIndex(-1);
             onValueChange?.(event.target.value);
