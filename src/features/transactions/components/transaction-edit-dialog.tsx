@@ -383,7 +383,9 @@ function TransactionEditForm({
   // A split booking stays income or expense, since only those count by category; the stored type stays listed.
   const typeAllowed = (option: TransactionType) => !splitOpen || option === "income" || option === "expense";
   const canSplit = type === "income" || type === "expense";
-  const available = frozen ? frozenTypes(transaction, relinkable) : transactionTypes.filter(option => option === transaction.type || (typeAllowed(option) && (transaction.manual_account || !manualAccountTypes.includes(option))));
+  // A bank-linked account's opening balance or adjustment keeps its type.
+  const balanceRow = !transaction.manual_account && manualAccountTypes.includes(transaction.type);
+  const available = frozen ? frozenTypes(transaction, relinkable) : balanceRow ? [transaction.type] : transactionTypes.filter(option => option === transaction.type || (typeAllowed(option) && (transaction.manual_account || !manualAccountTypes.includes(option))));
   // A frozen booking becomes a transfer only by linking an existing booking.
   const linkMissing = frozen && transfer && transaction.type !== "transfer" && target.kind !== "booking";
   // Without loaded options, saving a transfer could drop a link the form cannot show.

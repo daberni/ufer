@@ -96,7 +96,7 @@ const detailsInput = typeInput.extend({
 });
 
 const typeFailures: Record<Exclude<ManualEntryResult, "saved" | "not_found" | "hidden" | "archived_account" | "not_a_candidate">, string> = {
-  manual_account_only: "Opening balances and adjustments are only available for manual accounts.",
+  manual_account_only: "On a bank-linked account, opening balances and adjustments keep their type and other bookings cannot become one.",
   counterpart_not_found: "The selected booking does not exist.",
   account_not_found: "Choose one of your manual accounts.",
   same_account: "A transfer moves money between two different accounts.",

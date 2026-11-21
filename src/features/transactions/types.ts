@@ -55,7 +55,7 @@ export type Transaction = {
   account_archived: boolean;
   /** Whether the linked counterpart's account is archived; changes to this booking's type or link would change that counterpart, so they stay frozen. */
   counterpart_archived: boolean;
-  /** Whether the booking was entered in Ufer on a manual account, so its date, amount, payee and description can be edited and the booking deleted. A counterpart created for an imported booking is not. */
+  /** Whether the booking was entered in Ufer, so its date, amount, payee and description can be edited and the booking deleted: on a manual account, or a bank-linked account's opening balance or adjustment. A counterpart created for an imported booking is not. */
   entered: boolean;
   /** Whether an entered booking is linked with an imported booking, whose date and amount it follows. */
   follows_import: boolean;

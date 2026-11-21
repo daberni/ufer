@@ -204,11 +204,15 @@ function createdCounterpart(booking: Subject) {
   return booking.provider_reference.startsWith(createdCounterpartPrefix);
 }
 
-/** Whether a booking was entered in Ufer rather than imported from a bank or a CSV file: a manual entry or a created counterpart on a manual account. */
-export function enteredInUfer(booking: Pick<Subject, "account_provider" | "provider_reference">) {
+/** Whether a booking was entered in Ufer rather than imported from a bank or a CSV file: a manual entry or a created counterpart on a manual account, or a bank-linked account's opening balance or adjustment. */
+export function enteredInUfer(booking: Pick<Subject, "account_provider" | "provider_reference" | "type">) {
   const reference = booking.provider_reference;
 
-  return booking.account_provider === "manual" && (reference.startsWith(manualEntryPrefix) || reference.startsWith(createdCounterpartPrefix));
+  if (booking.account_provider !== "manual") {
+    return reference.startsWith(manualEntryPrefix) && manualAccountTypes.includes(booking.type);
+  }
+
+  return reference.startsWith(manualEntryPrefix) || reference.startsWith(createdCounterpartPrefix);
 }
 
 /**
@@ -634,7 +638,8 @@ async function changeType(tx: DatabaseTransaction, id: string, type: Transaction
     return "archived_account";
   }
 
-  if (manualAccountTypes.includes(type) && subject.account_provider !== "manual") {
+  // On a bank-linked account, the opening balance and adjustments keep their type and no booking becomes one, so syncs keep exactly one opening balance.
+  if (subject.account_provider !== "manual" && type !== subject.type && (manualAccountTypes.includes(type) || manualAccountTypes.includes(subject.type))) {
     return "manual_account_only";
   }
 

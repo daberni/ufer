@@ -16,6 +16,7 @@ import { saveAccountSync } from "../src/features/banking/server/account-sync-ser
 import { readCashFlow } from "../src/features/reports/server/cash-flow-query";
 import { monthPeriod } from "../src/lib/period";
 import { HttpError } from "../src/lib/errors";
+import { editManualTransaction, hideTransaction, updateTransactionDetails } from "../src/features/transactions/server/transaction-service";
 import { importMappedRows } from "../src/features/imports/server/mapped-import-service";
 
 type Globals = {
@@ -266,6 +267,43 @@ test("a redelivered booking whose date moves before the opening balance is not a
   }]);
   assert.equal((await checking()).balance_minor, 100000);
   assert.equal((await checking()).reported_difference_minor, 0);
+});
+
+test("a bank-linked account's opening balance and adjustments are edited as entries, never hidden or retyped", async context => {
+  const db = await freshDatabase(context);
+
+  await sync({
+    amount: "1000.00",
+    date: "2026-09-30"
+  }, firstBookings);
+
+  const opening = await db.select().from(schema.transactions).where(eq(schema.transactions.type, "opening_balance")).get();
+
+  assert.ok(opening);
+  await assert.rejects(hideTransaction(opening.id, true), /entered in Ufer/);
+  await assert.rejects(updateTransactionDetails(opening.id, {
+    type: "income"
+  }), /keep their type/);
+
+  const rent = await db.select().from(schema.transactions).where(eq(schema.transactions.provider_reference, "bank:rent")).get();
+
+  assert.ok(rent);
+  await assert.rejects(updateTransactionDetails(rent.id, {
+    type: "adjustment"
+  }), /keep their type/);
+
+  await editManualTransaction(opening.id, {
+    booking_date: "2026-09-09",
+    amount: "1040.00",
+    counterparty: "",
+    description: "Corrected opening balance",
+    type: "opening_balance"
+  }, Temporal.Instant.from("2026-10-01T12:00:00Z"));
+
+  const account = await checking();
+
+  assert.equal(account.balance_minor, 101000);
+  assert.equal(account.reported_difference_minor, -1000);
 });
 
 test("an available balance on the first sync books no opening balance until a booked balance arrives", async context => {
