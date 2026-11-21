@@ -8,6 +8,9 @@ import type { Database } from "../src/server/database/connection";
 import { initializeDatabase } from "../src/server/database/migrations";
 import * as schema from "../src/server/database/schema";
 import { insertRule } from "../src/features/categorization/server/rule-repository";
+import { listAccounts } from "../src/features/accounts/server/account-queries";
+import { readAccountCashFlow } from "../src/features/reports/server/cash-flow-query";
+import { monthPeriod } from "../src/lib/period";
 import { importMappedRows } from "../src/features/imports/server/mapped-import-service";
 import { categoryValues } from "../src/features/imports/import-plan";
 import { assignOccurrences, buxferTemplate, mapRows, parseCsv, readsBuxferExport, suggestMapping, tagSplit, templateMapping, withSplitTags, type CsvSettings, type MappedRow } from "../src/features/imports/csv-mapping";
@@ -258,33 +261,45 @@ test("only Buxfer's layout reads tags as splits; other files keep colon values a
   }), true);
 });
 
-test("Buxfer investment purchases import as outflows while other types keep their sign", async context => {
+test("Buxfer investment trades import hidden with their exported amount while gains and other types count", async context => {
   const db = await isolatedDatabase(context);
   const csv = [
     "ID,Date,Description,Currency,Amount,Type,Tags,Account,Status,Memo,IOU",
     "11,2026-02-02,\"Buy index fund\",EUR,1250.5,Investment purchase,\"\",\"Checking\",Cleared,\" \"",
     "12,2026-02-03,\"Sell index fund\",EUR,300,Investment sale,\"\",\"Checking\",Cleared,\" \"",
-    "13,2026-02-04,\"Salary\",EUR,2000,Income,\"\",\"Checking\",Cleared,\" \"",
-    "14,2026-02-05,\"Bakery\",EUR,-4.2,Expense,\"\",\"Checking\",Cleared,\" \""
+    "13,2026-02-03,\"Index fund gain\",EUR,40,Capital gain,\"\",\"Checking\",Cleared,\" \"",
+    "14,2026-02-04,\"Salary\",EUR,2000,Income,\"\",\"Checking\",Cleared,\" \"",
+    "15,2026-02-05,\"Bakery\",EUR,-4.2,Expense,\"\",\"Checking\",Cleared,\" \""
   ].join("\n");
   const mapped = mappedBuxferRows(csv);
 
   assert.deepEqual(mapped.errors, []);
-  assert.deepEqual(mapped.rows.map(row => row.amount), ["-1250.5", "300", "2000", "-4.2"]);
+  assert.deepEqual(mapped.rows.map(row => [row.amount, row.hidden]), [["1250.5", true], ["300", true], ["40", false], ["2000", false], ["-4.2", false]]);
 
   const result = await importMappedRows(payload(mapped.rows, true), now);
-  const bookings = await db.select().from(schema.transactions).orderBy(asc(schema.transactions.booking_date));
+  const bookings = await db.select().from(schema.transactions).orderBy(asc(schema.transactions.booking_date), asc(schema.transactions.amount_minor));
+  const balance = (await listAccounts()).find(account => account.id === "synthetic-checking")?.balance_minor;
 
   assert.deepEqual(result.errors, []);
-  assert.deepEqual(bookings.map(booking => [booking.description, booking.amount_minor]), [
-    ["Buy index fund", -125050],
-    ["Sell index fund", 30000],
-    ["Salary", 200000],
-    ["Bakery", -420]
+  assert.deepEqual(bookings.map(booking => [booking.description, booking.amount_minor, booking.suppressed_at !== null]), [
+    ["Buy index fund", 125050, true],
+    ["Index fund gain", 4000, false],
+    ["Sell index fund", 30000, true],
+    ["Salary", 200000, false],
+    ["Bakery", -420, false]
   ]);
+  assert.equal(balance, 4000 + 200000 - 420);
+
+  const flow = await readAccountCashFlow("synthetic-checking", monthPeriod(Temporal.PlainYearMonth.from("2026-02")));
+
+  assert.deepEqual([flow.income, flow.expenses], [204000, 420]);
+
+  const again = await importMappedRows(payload(mapped.rows, true), now);
+
+  assert.equal(again.newRows, 0);
 });
 
-test("only the Buxfer template reads an investment purchase as an outflow", () => {
+test("only the Buxfer template hides investment trades", () => {
   const header = ["Date", "Amount", "Description", "Type"];
   const mapping = templateMapping({
     ...buxferTemplate,
@@ -296,6 +311,8 @@ test("only the Buxfer template reads an investment purchase as an outflow", () =
       type: 3
     }
   }, header);
+  const row = mapRows([["2026-02-02", "100", "Fund", "Investment purchase"]], mapping, settings, "en").rows[0];
 
-  assert.equal(mapRows([["2026-02-02", "100", "Fund", "Investment purchase"]], mapping, settings, "en").rows[0].amount, "100");
+  assert.equal(row.amount, "100");
+  assert.equal(row.hidden, false);
 });

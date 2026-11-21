@@ -66,7 +66,7 @@ export const maxTemplateNameLength = 100;
 export const maxColumnNameLength = 200;
 
 /**
- * Buxfer's transaction export. `Tags` holds the categories, possibly several separated by commas; `Type` marks transfers, which the automatic rule pairs after the import, and `Status`, `Memo` and `IOU` stay unmapped. Amounts are signed except for `Investment purchase`, which Buxfer exports as a positive amount although it leaves the settlement account. Buxfer shortens long descriptions with "...", which duplicate matching tolerates because a shortened text is contained in the full one.
+ * Buxfer's transaction export. `Tags` holds the categories, possibly several separated by commas; `Type` marks transfers, which the automatic rule pairs after the import, and `Status`, `Memo` and `IOU` stay unmapped. Amounts are signed except for `Investment purchase`, which Buxfer exports as a positive amount. Until Ufer tracks holdings, a settlement account stands for its cash plus securities at cost, so purchases and sales import hidden with their exported amount and text; capital gains and losses count as ordinary bookings. Buxfer shortens long descriptions with "...", which duplicate matching tolerates because a shortened text is contained in the full one.
  */
 export const buxferTemplate: CsvTemplate = {
   id: "builtin:buxfer",
@@ -98,7 +98,7 @@ export function headerKey(header: string[]) {
   return JSON.stringify(header.map(column => column.trim()));
 }
 
-/** Whether an applied template maps Buxfer's export, whose tags carry split amounts and whose investment purchases are unsigned: the built-in template or a saved one for the same header. */
+/** Whether an applied template maps Buxfer's export, whose tags carry split amounts and whose investment trades import hidden: the built-in template or a saved one for the same header. */
 export function readsBuxferExport(template: CsvTemplate | null) {
   return template !== null && headerKey(template.header) === headerKey(buxferTemplate.header);
 }
@@ -165,6 +165,8 @@ export type MappedRow = {
   id: string | null;
   /** The type column marks the row as a transfer, which automatic pairing then links to its counterpart. */
   transfer: boolean;
+  /** Imported as a hidden booking that counts toward no balance, report or pairing, such as a Buxfer investment trade before holdings are tracked. */
+  hidden: boolean;
   /** The parts of a split from amount-bearing tags such as Buxfer's `Fuel:45.52,Groceries:5.88`, signed like the row; null for an unsplit row. A split row has no `category`. */
   parts: SplitPartRow[] | null;
   /** The original tag text of a split row, appended to the description if the server cannot take the split. */
@@ -620,7 +622,7 @@ export function mappingProblem(mapping: CsvMapping) {
 }
 
 /** Turns data rows (without the header) into mapped rows and row-level errors. `lines` gives each row's physical line in the file; without it, rows count from line 2. */
-/** Maps CSV rows; the locale formats numbers in row problems. `buxferExport` applies Buxfer's conventions: amount-bearing tags are splits and investment purchases are outflows. Other files keep every category cell as a plain value, since `Project:2026` there is just a name, and every amount as signed. */
+/** Maps CSV rows; the locale formats numbers in row problems. `buxferExport` applies Buxfer's conventions: amount-bearing tags are splits and investment purchases and sales import hidden. Other files keep every category cell as a plain value, since `Project:2026` there is just a name. */
 export function mapRows(rows: string[][], mapping: CsvMapping, settings: CsvSettings, locale: string, lines?: number[], buxferExport = false) {
   const mapped: MappedRow[] = [];
   const errors: RowError[] = [];
@@ -640,9 +642,9 @@ export function mapRows(rows: string[][], mapping: CsvMapping, settings: CsvSett
       return;
     }
 
-    const parsedAmount = rowAmount(cell, mapping, settings.decimal);
+    const amount = rowAmount(cell, mapping, settings.decimal);
 
-    if (parsedAmount === null) {
+    if (amount === null) {
       const scientific = [mapping.amount, mapping.debit, mapping.credit].some(column => /\d[eE][+-]?\d/.test(cell(column)));
 
       failure(scientific ? "Scientific notation is not supported; export amounts as plain numbers." : `The amount is missing or not a number with at most ${formatCount(15, locale)} digits and ${formatCount(6, locale)} decimal places.`);
@@ -650,7 +652,6 @@ export function mapRows(rows: string[][], mapping: CsvMapping, settings: CsvSett
       return;
     }
 
-    const amount = buxferExport && isBuxferPurchase(cell(mapping.type)) ? asOutflow(parsedAmount) : parsedAmount;
     const currency = rowCurrency(cell, mapping);
 
     if (typeof currency === "object" && currency !== null) {
@@ -671,9 +672,10 @@ export function mapRows(rows: string[][], mapping: CsvMapping, settings: CsvSett
     // The category value identifies its choice, so it is never shortened: two long values must not merge.
     const tags = cell(mapping.category);
     const transfer = isTransferMarker(cell(mapping.type));
+    const hidden = buxferExport && isBuxferTrade(cell(mapping.type));
     const tagged = buxferExport ? tagSplit(tags, amount) : null;
     // Only income and expenses are split. Tags that do not form a valid split import the row unsplit, keeping the tags in its description.
-    const split = tagged && "parts" in tagged && !transfer ? tagged : null;
+    const split = tagged && "parts" in tagged && !transfer && !hidden ? tagged : null;
     const category = tagged ? "" : tags;
     const description = tagged && !split ? withSplitTags(cell(mapping.description), tags) : cell(mapping.description);
 
@@ -708,6 +710,7 @@ export function mapRows(rows: string[][], mapping: CsvMapping, settings: CsvSett
       source,
       id: mapping.id === null ? null : id,
       transfer,
+      hidden,
       parts: split ? split.parts : null,
       tags: split ? tags : null
     });
@@ -724,13 +727,9 @@ export function isTransferMarker(value: string) {
   return /^(transfer|umbuchung|übertrag)$/i.test(value.trim());
 }
 
-/** Buxfer's type for buying securities, exported as a positive amount although the purchase leaves the settlement account. */
-function isBuxferPurchase(type: string) {
-  return /^investment purchase$/i.test(type.trim());
-}
-
-function asOutflow(amount: string) {
-  return amount.startsWith("-") || /^0(\.0*)?$/.test(amount) ? amount : `-${amount}`;
+/** Buxfer's types for buying and selling securities, which move value between cash and holdings within the settlement account. */
+function isBuxferTrade(type: string) {
+  return /^investment (purchase|sale)$/i.test(type.trim());
 }
 
 /** Numbers identical rows per target account; `targetOf` resolves a row's source account to its target and `currencyOf` to that target's currency, when known. */

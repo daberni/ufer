@@ -34,6 +34,8 @@ export type MappedEntry = {
   typeTransferAccountId: string | null;
   /** Marked as a transfer by the file; saved with an automatic transfer type so pairing can link it. */
   transfer: boolean;
+  /** When set, the booking is saved hidden: stored for duplicate matching but excluded from balances, reports and pairing. */
+  hiddenAt: string | null;
   /** The parts of a split booking, saved with it; the booking itself then has no category. */
   parts: SplitPartValues[] | null;
 };
@@ -222,7 +224,8 @@ export async function saveMappedEntries(accountId: string, entries: MappedEntry[
         type: entry.ruleType ?? derivedTransactionType(entry.amount, entry.transfer),
         type_rule_id: entry.typeRuleId,
         type_transfer_account_id: entry.typeTransferAccountId,
-        transfer_detected: entry.transfer ? 1 : 0
+        transfer_detected: entry.transfer ? 1 : 0,
+        suppressed_at: entry.hiddenAt
       }));
       const rows = await tx.insert(transactions).values(values).onConflictDoNothing({
         target: [transactions.account_id, transactions.provider_reference]
