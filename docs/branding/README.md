@@ -15,9 +15,11 @@ List any artwork from third parties here with its source and license.
 | [Canonical SVG](../../src/components/branding/ufer-icon.svg) | Editable vector master: filled paths and rounded background, no embedded raster |
 | [Browser icon](../../src/app/icon.svg) | Same artwork, discovered through Next.js metadata |
 | [Apple touch icon](../../src/app/apple-icon.png) | Opaque 180 × 180 PNG rendered from the SVG for platform masking |
+| [Web app manifest](../../src/app/manifest.ts) | Install metadata served at `/manifest.webmanifest`, listing the browser SVG and the PNG exports below |
+| [Manifest PNG icons](../../public/icons/) | 192 and 512 px exports plus a 512 px maskable variant with the mark inside the 80 % safe zone |
 | [BrandIcon](../../src/components/branding/brand-icon.tsx) | Shared application rendering; decorative instances use empty alternative text |
 
-Edit the canonical SVG, copy the artwork to the browser icon and regenerate the Apple export when the mark changes. Keep the filled interior opaque; transparency is limited to the outside of the rounded silhouette. The small statically imported SVG uses unoptimized rendering to avoid an image-cache write on read-only deployments.
+Edit the canonical SVG, copy the artwork to the browser icon and regenerate the Apple export and the manifest icons when the mark changes. Keep the filled interior opaque; transparency is limited to the outside of the rounded silhouette. The small statically imported SVG uses unoptimized rendering to avoid an image-cache write on read-only deployments.
 
 ## Palette and use
 
