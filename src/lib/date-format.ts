@@ -44,6 +44,21 @@ export function describeDate(value: Temporal.PlainDate | Temporal.ZonedDateTime,
   };
 }
 
+/** A timestamp labelled with its day and minute, so several events on one day stay distinguishable. */
+export function describeDateTime(value: Temporal.ZonedDateTime, locale: string, now = Temporal.Now.instant()): DateDisplay {
+  const display = describeDate(value, locale, now);
+  const time = value.toLocaleString(locale, {
+    calendar: "gregory",
+    hour: "numeric",
+    minute: "2-digit"
+  });
+
+  return {
+    ...display,
+    label: `${display.label}, ${time}`
+  };
+}
+
 /** A calendar day with its year, for values that may lie in another year, such as a balance history. */
 export function dateWithYear(value: Temporal.PlainDate, locale: string) {
   return value.toLocaleString(locale, {
