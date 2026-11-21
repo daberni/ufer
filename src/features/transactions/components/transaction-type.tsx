@@ -1,5 +1,5 @@
 import { ArrowDownLeft, ArrowUpRight, ArrowLeftRight, CircleEqual, Flag } from "lucide-react";
-import { transactionTypeLabels, type TransactionType } from "@/features/transactions/transaction-types";
+import { transactionTypeLabels, type TransactionType } from "@/lib/transaction-types";
 import type { Transaction } from "@/features/transactions/types";
 
 /** Where a transfer goes to or comes from, including an account not tracked in Ufer. */

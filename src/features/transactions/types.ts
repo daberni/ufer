@@ -1,6 +1,6 @@
 import type { PeriodJson } from "@/lib/period";
 import type { SyncRun } from "@/features/banking/types";
-import type { TransactionType } from "./transaction-types";
+import type { TransactionType } from "@/lib/transaction-types";
 
 /** One part of a split booking, signed like the booking's amount and in its currency. */
 export type SplitPart = {

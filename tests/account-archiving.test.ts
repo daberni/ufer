@@ -21,7 +21,7 @@ import { archiveAccount, restoreAccount, updateManualValuation } from "../src/fe
 import { editManualTransaction, enterManualTransaction, hideTransaction, removeManualTransaction, transferOptions, updateTransactionCategory, updateTransactionDetails } from "../src/features/transactions/server/transaction-service";
 import { applyRulesToUncorrectedTransactions, createRule, deleteCategory, updateRuleDetails } from "../src/features/categorization/server/categorization-service";
 import { splitTransaction, unsplitTransaction } from "../src/features/transactions/server/split-service";
-import { pairAllTransfers } from "../src/features/transactions/server/transfer-repository";
+import { pairAllTransfers } from "../src/features/transactions/server/transfer-pairing-repository";
 import { acquireLease } from "../src/server/jobs/lease-repository";
 import { removeConnection } from "../src/features/banking/server/connection-repository";
 import { queryKeys } from "../src/client/query-keys";

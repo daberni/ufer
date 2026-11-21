@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
-import { memberships } from "./auth-schema";
+import { memberships } from "@/server/database/auth-schema";
 
 export const installationWorkspaceId = "personal";
 

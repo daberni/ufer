@@ -14,7 +14,7 @@ import { saveAccountSync } from "../src/features/banking/server/account-sync-ser
 import { readCashFlow } from "../src/features/reports/server/cash-flow-query";
 import { editManualTransaction, enterManualTransaction, removeManualTransaction, updateTransactionCategory, updateTransactionDetails } from "../src/features/transactions/server/transaction-service";
 import { splitTransaction } from "../src/features/transactions/server/split-service";
-import { pairAllTransfers } from "../src/features/transactions/server/transfer-repository";
+import { pairAllTransfers } from "../src/features/transactions/server/transfer-pairing-repository";
 import { readTransactionPage } from "../src/features/transactions/server/transaction-list-query";
 import { dashboardFilters } from "../src/server/http/dashboard-filters";
 import { monthPeriod } from "../src/lib/period";

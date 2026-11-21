@@ -2,7 +2,7 @@ import type { Temporal } from "temporal-polyfill";
 import { sameCategoryName } from "@/lib/category-name";
 import type { Rule } from "@/lib/rules";
 import { today } from "@/lib/time";
-import { environment } from "@/features/banking/server/environment";
+import { environment } from "@/server/environment";
 import { categorizeEntries } from "@/features/transactions/server/categorize-entries";
 import { demoCategories, demoRules } from "./demo-catalog";
 import { buildDemoDataset } from "./demo-dataset";

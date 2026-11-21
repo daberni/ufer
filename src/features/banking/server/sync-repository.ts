@@ -1,5 +1,6 @@
 import { anchorOpeningBalance, keepBankOpeningBalanceFirst } from "@/features/accounts/server/opening-balance-repository";
 import { comparableBankBalanceTypes } from "@/features/accounts/server/account-queries";
+// eslint-disable-next-line boundaries/dependencies -- known violation tracked in daberni/ufer#285
 import { adoptImportedRows } from "@/features/imports/server/mapped-import-repository";
 import { randomUUID } from "node:crypto";
 import { and, count, eq, getTableColumns, isNull, like, ne, sql, type SQLWrapper } from "drizzle-orm";

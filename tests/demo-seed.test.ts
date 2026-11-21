@@ -11,7 +11,7 @@ import * as schema from "../src/server/database/schema";
 import { buildDemoDataset } from "../src/features/demo/server/demo-dataset";
 import { DemoSeedRefusal, seedDemoData } from "../src/features/demo/server/demo-seed-service";
 import { listAccounts } from "../src/features/accounts/server/account-queries";
-import { pairAllTransfers } from "../src/features/transactions/server/transfer-repository";
+import { pairAllTransfers } from "../src/features/transactions/server/transfer-pairing-repository";
 
 const firstRun = Temporal.PlainDate.from("2026-11-16");
 const secondRun = Temporal.PlainDate.from("2026-12-01");

@@ -4,10 +4,10 @@ import { database, type DatabaseTransaction } from "@/server/database/connection
 import { accounts, categories, categorizationRules, transactionSplits, transactions } from "@/server/database/schema";
 import { ValidationError } from "@/lib/errors";
 import type { Rule, RuleAssignment, RuleText } from "@/lib/rules";
-import type { TransactionType } from "@/features/transactions/transaction-types";
+import type { TransactionType } from "@/lib/transaction-types";
 import type { SplitPart } from "@/features/transactions/types";
 import type { Entry } from "./transaction-entry";
-import { pairTransfers } from "./transfer-repository";
+import { pairTransfers } from "./transfer-pairing-repository";
 
 /** A split change saved in the same write as a booking's details: remove the parts and return the booking to its rules, or replace them with the parts the decision validates against the booking as saved. */
 export type SplitChange = {

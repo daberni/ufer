@@ -4,9 +4,14 @@ import { TransactionRollbackError } from "drizzle-orm/errors";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 import { transactions } from "@/server/database/schema";
 import { assertWritableAccount } from "@/features/accounts/server/writable-account";
-import type { TransactionType } from "@/features/transactions/transaction-types";
+import type { TransactionType } from "@/lib/transaction-types";
 import type { RuleAssignment, RuleText } from "@/lib/rules";
-import { applyTransactionType, createdCounterpartPrefix, dissolveLink, enteredInUfer, enteredPair, findCounterpart, findSubject, manualEntryPrefix, touchesArchivedAccount, type TransferTarget, type TypeChangeResult } from "./transfer-repository";
+import { createdCounterpartPrefix, manualEntryPrefix } from "@/lib/booking-references";
+import { applyTransactionType } from "./transaction-type-change";
+import { dissolveLink } from "./transfer-link-repository";
+import { enteredInUfer, enteredPair } from "./transfer-rules";
+import { findCounterpart, findSubject, touchesArchivedAccount } from "./transfer-subjects";
+import type { TransferTarget, TypeChangeResult } from "./type-change-decision";
 import { dissolveSplit, splitMatchesAmount, splitRefusesType, writeSplit, type SplitChange } from "./split-repository";
 
 /** The fields a person enters for a booking on a manual account. */

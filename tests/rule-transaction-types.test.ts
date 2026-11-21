@@ -11,7 +11,7 @@ import { saveAccountSync } from "../src/features/banking/server/account-sync-ser
 import { applyRulesToUncorrectedTransactions, createRule, deleteRule, updateRuleDetails } from "../src/features/categorization/server/categorization-service";
 import { listRules, saveRuleTypes } from "../src/features/categorization/server/rule-repository";
 import { importMappedRows } from "../src/features/imports/server/mapped-import-service";
-import { pairAllTransfers } from "../src/features/transactions/server/transfer-repository";
+import { pairAllTransfers } from "../src/features/transactions/server/transfer-pairing-repository";
 import { updateTransactionCategory, updateTransactionDetails } from "../src/features/transactions/server/transaction-service";
 import { unsplitTransaction } from "../src/features/transactions/server/split-service";
 import { ValidationError } from "../src/lib/errors";

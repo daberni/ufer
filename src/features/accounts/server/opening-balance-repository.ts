@@ -3,7 +3,7 @@ import { and, asc, eq, isNull, lte, ne, sql, type SQL } from "drizzle-orm";
 import { Temporal } from "temporal-polyfill";
 import type { DatabaseTransaction } from "@/server/database/connection";
 import { accounts, transactions } from "@/server/database/schema";
-import { manualEntryPrefix } from "@/features/transactions/server/transfer-repository";
+import { manualEntryPrefix } from "@/lib/booking-references";
 
 /** A balance the bank reported for the end of a date. */
 export type ReportedBalance = {

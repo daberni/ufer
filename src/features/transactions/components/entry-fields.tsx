@@ -4,7 +4,7 @@ import ui from "../../../components/ui/primitives.module.css";
 
 import { PayeeInput } from "./payee-input";
 import { today } from "@/lib/time";
-import type { TransactionType } from "@/features/transactions/transaction-types";
+import type { TransactionType } from "@/lib/transaction-types";
 
 /** The values an entry form starts with; the amount as a signed decimal. */
 export type EntryDefaults = {

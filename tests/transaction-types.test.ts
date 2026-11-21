@@ -9,7 +9,7 @@ import type { Database } from "../src/server/database/connection";
 import { initializeDatabase } from "../src/server/database/migrations";
 import * as schema from "../src/server/database/schema";
 import { saveAccountSync } from "../src/features/banking/server/account-sync-service";
-import { pairAllTransfers } from "../src/features/transactions/server/transfer-repository";
+import { pairAllTransfers } from "../src/features/transactions/server/transfer-pairing-repository";
 import { unambiguousPairs } from "../src/features/transactions/server/transfer-pairing";
 import { transferOptions, updateTransactionDetails } from "../src/features/transactions/server/transaction-service";
 import { importMappedRows } from "../src/features/imports/server/mapped-import-service";

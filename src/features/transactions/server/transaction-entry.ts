@@ -1,5 +1,5 @@
 /** Optional data a bank provider delivered with a transaction; each field is absent when the bank did not send it or sent it malformed. */
-import type { RuleTransactionType } from "@/features/transactions/transaction-types";
+import type { RuleTransactionType } from "@/lib/transaction-types";
 
 export type ProviderDetails = {
   /** Signed like the entry amount, in minor units of instructedCurrency. */

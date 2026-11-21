@@ -11,7 +11,7 @@ import { useSaveRule } from "@/features/categorization/mutations";
 import { useCategories } from "@/features/categorization/queries";
 import { useRulePreviewDraft } from "@/features/categorization/use-rule-preview-draft";
 import { activeAccounts, useAccounts } from "@/features/accounts/queries";
-import { ruleTransactionTypes, transactionTypeLabels, type RuleTransactionType } from "@/features/transactions/transaction-types";
+import { ruleTransactionTypes, transactionTypeLabels, type RuleTransactionType } from "@/lib/transaction-types";
 import { toFailure } from "@/client/api";
 import { FormError } from "@/components/ui/form-error";
 import { Select } from "@/components/ui/select";

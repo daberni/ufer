@@ -2,7 +2,8 @@ import { randomUUID } from "node:crypto";
 import { and, eq, inArray, desc, isNotNull, isNull, ne, sql, TransactionRollbackError } from "drizzle-orm";
 import { database, type Database } from "@/server/database/connection";
 import { accountIdentifiers, accounts, balanceSnapshots, categorizationRules, transactions } from "@/server/database/schema";
-import { createdCounterpartPrefix, manualEntryPrefix } from "@/features/transactions/server/transfer-repository";
+import { createdCounterpartPrefix, manualEntryPrefix } from "@/lib/booking-references";
+// eslint-disable-next-line boundaries/dependencies -- known violation tracked in daberni/ufer#285
 import { bookManualEntry, recordManualBalance, type ManualEntryResult } from "@/features/transactions/server/manual-transaction-repository";
 import type { AccountKind } from "../account-kinds";
 import type { ManualAccountInput } from "./account-schema";

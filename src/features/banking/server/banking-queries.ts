@@ -1,7 +1,7 @@
 import { desc, eq, ne, sql } from "drizzle-orm";
 import { database } from "@/server/database/connection";
 import { requisitions, syncRuns } from "@/server/database/schema";
-import { environment } from "./environment";
+import { environment } from "@/server/environment";
 import { linkedTransactionCount } from "./sync-repository";
 import { bankingConfigured } from "./enable-banking-client";
 import { timestamp } from "@/lib/time";

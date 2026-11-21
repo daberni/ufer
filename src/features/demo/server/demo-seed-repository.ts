@@ -3,8 +3,9 @@ import { database, type DatabaseTransaction } from "@/server/database/connection
 import { accounts, categories, categorizationRules, transactions } from "@/server/database/schema";
 import { upsertTransactions } from "@/features/transactions/server/transaction-repository";
 import { recordManualBalance } from "@/features/transactions/server/manual-transaction-repository";
-import { manualAccountTypes } from "@/features/transactions/transaction-types";
-import { createTransferCounterpart, pairTransfers } from "@/features/transactions/server/transfer-repository";
+import { manualAccountTypes } from "@/lib/transaction-types";
+import { createTransferCounterpart } from "@/features/transactions/server/transfer-link-repository";
+import { pairTransfers } from "@/features/transactions/server/transfer-pairing-repository";
 import type { CategorizedEntry } from "@/features/transactions/server/transaction-entry";
 import type { Category } from "@/server/database/models";
 import type { Rule } from "@/lib/rules";

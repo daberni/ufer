@@ -1,4 +1,4 @@
-import type { RuleTransactionType } from "@/features/transactions/transaction-types";
+import type { RuleTransactionType } from "@/lib/transaction-types";
 
 export type Category = {
   id: string;

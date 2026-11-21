@@ -19,7 +19,7 @@ import { neutralChipColor } from "@/features/categorization/category-colors";
 import { useState } from "react";
 import { CategoryGlyph, CategoryLabel, categoryNameColor } from "./category-label";
 import { TransactionTypeIcon } from "@/features/transactions/components/transaction-type";
-import { transactionTypeLabels } from "@/features/transactions/transaction-types";
+import { transactionTypeLabels } from "@/lib/transaction-types";
 import { CategoryDialog } from "./category-form";
 import { RuleDialog } from "./create-rule-form";
 import { closestCenter, DndContext, DragOverlay } from "@dnd-kit/core";
