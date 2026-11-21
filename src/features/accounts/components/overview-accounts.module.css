@@ -29,7 +29,7 @@
   border-radius: var(--radius-sm);
   font-size: var(--text-xs);
 }
-/* Compact two-line rows beside the net-worth card: name and balance, then type, institution, source and balance date. The type and institution truncate rather than wrap, so every row, and its skeleton, has the same height. */
+/* Compact two-line rows beside the net-worth card: name and balance, then type, source and balance date. The type and institution truncate rather than wrap, so every row, and its skeleton, has the same height. */
 .account-strip {
   display: flex;
   flex-direction: column;
@@ -75,6 +75,18 @@
   min-width: 0;
   font-size: var(--text-xs);
   color: var(--muted);
+}
+.account-tile-kind {
+  composes: truncate from "../../../components/ui/primitives.module.css";
+  flex: 0 1 auto;
+  min-width: 3em;
+}
+/* A narrow row keeps the source and its sync state; the type is on the account's card and details. */
+@container (width < 480px) {
+  .account-tile-kind,
+  .account-tile-separator {
+    display: none;
+  }
 }
 .account-tile-date {
   grid-area: date;

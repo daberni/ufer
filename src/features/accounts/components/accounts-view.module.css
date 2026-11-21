@@ -22,13 +22,20 @@
   outline: var(--focus-ring);
   outline-offset: 2px;
 }
-.account-detail h2 {
-  margin-top: var(--space-4);
-  font-size: var(--text-md);
+/* Icon and chosen name side by side, the type pill at the end; the same order as list rows and the details summary. */
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
 }
-.account-detail > p {
-  font-size: var(--text-sm);
-  margin-top: var(--space-2);
+.card-header h2 {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--text-md);
+  overflow-wrap: anywhere;
+}
+.card-header > :last-child {
+  flex-shrink: 0;
 }
 .account-detail-balance {
   font-size: var(--text-3xl);
@@ -47,8 +54,7 @@
 }
 .account-detail-meta {
   display: flex;
-  justify-content: space-between;
-  gap: var(--space-3);
+  min-width: 0;
   font-size: var(--text-sm);
   color: var(--muted);
   border-top: 1px solid var(--border);
@@ -71,12 +77,6 @@
   .accounts-grid {
     grid-template-columns: minmax(0, 1fr);
   }
-  .account-detail h2 {
-    font-size: var(--text-lg);
-    overflow-wrap: anywhere;
-  }
-  .account-detail > p,
-  .account-detail-meta,
   .account-detail-balance {
     overflow-wrap: anywhere;
   }

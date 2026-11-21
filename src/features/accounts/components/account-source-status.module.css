@@ -1,0 +1,41 @@
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  color: var(--muted);
+  font-size: inherit;
+}
+.label {
+  composes: truncate from "../../../components/ui/primitives.module.css";
+  min-width: 0;
+}
+.separator,
+.state {
+  flex-shrink: 0;
+}
+.state {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  white-space: nowrap;
+}
+.problem {
+  color: var(--gold-text);
+}
+.dot {
+  composes: status-dot from "../../../components/ui/primitives.module.css";
+  background: var(--muted);
+}
+.synced {
+  background: var(--status-positive);
+}
+.attention {
+  background: var(--gold);
+}
+.error {
+  background: var(--danger);
+}
+.failed {
+  color: var(--danger-text);
+}
