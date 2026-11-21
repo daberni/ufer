@@ -27,7 +27,7 @@ function truncatedText(context: TestContext) {
   });
 }
 
-async function label(context: TestContext, inLink: boolean) {
+async function label(context: TestContext, container?: "link" | "hidden") {
   browser(context);
   truncatedText(context);
   const { Tooltip } = await import("../src/components/ui/tooltip");
@@ -41,13 +41,23 @@ async function label(context: TestContext, inLink: boolean) {
     }, fullName)
   });
 
-  return render(inLink ? createElement("a", {
-    href: "/reports"
-  }, tooltip) : tooltip);
+  if (container === "link") {
+    return render(createElement("a", {
+      href: "/reports"
+    }, tooltip));
+  }
+
+  if (container === "hidden") {
+    return render(createElement("div", {
+      "aria-hidden": "true"
+    }, tooltip));
+  }
+
+  return render(tooltip);
 }
 
 test("a truncated label outside any control becomes a focus stop that shows its full text on keyboard focus", async context => {
-  const screen = await label(context, false);
+  const screen = await label(context);
   const trigger = screen.getByTestId("label");
 
   assert.equal(trigger.getAttribute("tabindex"), "0");
@@ -61,7 +71,7 @@ test("a truncated label outside any control becomes a focus stop that shows its 
 });
 
 test("a truncated label inside a link shows its full text when the link receives keyboard focus", async context => {
-  const screen = await label(context, true);
+  const screen = await label(context, "link");
   const link = screen.getByRole("link");
 
   assert.equal(screen.getByTestId("label").getAttribute("tabindex"), null);
@@ -78,4 +88,10 @@ test("a truncated label inside a link shows its full text when the link receives
   assert.equal(screen.getByRole("tooltip", {
     hidden: true
   }).textContent, "");
+});
+
+test("a truncated label inside decorative content stays out of the tab order", async context => {
+  const screen = await label(context, "hidden");
+
+  assert.equal(screen.getByTestId("label").getAttribute("tabindex"), null);
 });

@@ -120,7 +120,10 @@ export function Tooltip({
       };
     }
 
-    if (!onlyWhenTruncated || triggerElement.matches(focusable)) {
+    // Decorative copies, such as previews and drag images, stay out of the tab order.
+    const decorative = triggerElement.closest("[aria-hidden='true'], [inert]") !== null;
+
+    if (!onlyWhenTruncated || decorative || triggerElement.matches(focusable)) {
       return;
     }
 
