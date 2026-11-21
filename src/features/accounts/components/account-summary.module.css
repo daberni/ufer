@@ -47,6 +47,10 @@
 .status > [aria-hidden="true"] {
   transform: translateY(-1px);
 }
+.status-parts {
+  display: grid;
+  gap: var(--space-1);
+}
 .idle {
   background: var(--muted);
 }

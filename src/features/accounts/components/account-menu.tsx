@@ -19,8 +19,8 @@ import { EditAccountDialog } from "./edit-account-dialog";
 type Dialog = "edit" | "reconnect" | "close" | "convert" | "delete" | null;
 
 /**
- * The account's actions beside its page heading. Reconnecting appears here only while the summary shows no problem notice that offers it; converting and
- * deleting apply only to accounts without a bank connection, and archiving needs a balance of 0 or a closing. Switching accounts remounts it.
+ * The account's actions beside its page heading. Reconnecting appears only while no problem notice offers it, and the bank connections link only for an
+ * account without a known connection. Converting and deleting need an account without a connection; archiving needs a balance of 0 or a closing.
  */
 export function AccountMenu({ account }: {
   account: Account
@@ -51,7 +51,7 @@ export function AccountMenu({ account }: {
             Reconnect {connection.bank_name}
           </MenuItem>
         )}
-        {bankLinked && (
+        {bankLinked && !connection && (
           <MenuLink icon={<ArrowRight size={15} aria-hidden="true" />} href={bankConnectionsHref}>
             Manage bank connections
           </MenuLink>

@@ -98,7 +98,7 @@ function notices(screen: ReturnType<typeof render>) {
   return noticeElements(screen).map(notice => notice.textContent);
 }
 
-test("a healthy bank account shows its institution, type, balance and one status line, with editing and reconnecting in the menu", async context => {
+test("a healthy bank account shows its institution, type, balance and one status line, with editing and reconnecting, not the connections list, in the menu", async context => {
   const screen = await renderSummary(context, healthy);
   const panel = within(screen.getByRole("region", {
     name: "Account summary"
@@ -114,7 +114,7 @@ test("a healthy bank account shows its institution, type, balance and one status
   }), null);
   assert.ok(await menuItem(screen, "Edit account"));
   assert.ok(await menuItem(screen, "Reconnect Example bank"));
-  assert.ok(await menuItem(screen, "Manage bank connections"));
+  assert.equal(await queryMenuItem(screen, "Manage bank connections"), null);
 });
 
 test("an expired authorization shows one notice whose one action reconnects, and hides a mismatch and the menu entry", async context => {

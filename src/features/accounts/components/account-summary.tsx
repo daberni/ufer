@@ -99,9 +99,10 @@ function SyncStatus({ account }: {
   return (
     <p className={styles["status"]}>
       <span className={clsx(ui["status-dot"], !(connected && synced) && styles["idle"])} aria-hidden="true" />
-      <span>
-        {synced ? <>Synced <TimestampValue value={account.last_synced_at} /></> : "Not synced yet"}
-        {connected ? authorizedUntil && <> · authorized until {authorizedUntil}</> : " · no bank connection"}
+      {/* Two short lines instead of one that wraps unpredictably in the narrow summary column. */}
+      <span className={styles["status-parts"]}>
+        <span>{synced ? <>Synced <TimestampValue value={account.last_synced_at} /></> : "Not synced yet"}</span>
+        {connected ? authorizedUntil && <span>Authorized until {authorizedUntil}</span> : <span>No bank connection</span>}
       </span>
     </p>
   );
@@ -120,7 +121,7 @@ export function AccountSummarySkeleton() {
         </strong>
       </div>
       <p className={styles["status"]}>
-        <span className={ui["skeleton"]}>Synced 12 Jan · authorized until May 2027</span>
+        <span className={ui["skeleton"]}>Synced 12 Jan</span>
       </p>
     </section>
   );
