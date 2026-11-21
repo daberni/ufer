@@ -2,7 +2,6 @@ import type { AuthContext } from "@/features/auth/server/session";
 import { HttpError } from "@/lib/errors";
 import { encrypt } from "@/server/security/secret-box";
 import { hash } from "@/server/security/tokens";
-import { database } from "@/server/database/connection";
 import { cancelPendingAuthorization, clearRevokedSession, consumeAuthorization, recordConnectionFailure, recordEmptyConnection, recordRevocationFailure, saveBankSession } from "./connection-repository";
 import { saveSessionAccounts } from "./bank-account-repository";
 import { createSession, validateBankSession } from "./enable-banking-client";
@@ -10,9 +9,8 @@ import { environment } from "./environment";
 import { revokeSession } from "./session-revocation";
 
 export async function completeAuthorization(state: string, browserSecret: string, code: string, actor: AuthContext) {
-  const db = await database();
   const env = environment();
-  const connection = await consumeAuthorization(db, env, hash(state), hash(browserSecret), actor);
+  const connection = await consumeAuthorization(env, hash(state), hash(browserSecret), actor);
 
   if (!connection) {
     throw new HttpError(400, "The bank callback has expired, has already been used, or belongs to another browser.");
@@ -32,7 +30,7 @@ export async function completeAuthorization(state: string, browserSecret: string
 
     // Retain the once-only credential before validating details, so a malformed response still leaves the session to revoke.
     const sessionCipher = encrypt(envelope.session_id);
-    const sessionSaved = await saveBankSession(db, connection.id, sessionCipher, null);
+    const sessionSaved = await saveBankSession(connection.id, sessionCipher, null);
 
     if (!sessionSaved) {
       throw new HttpError(409, "The bank connection was removed during authorization.");
@@ -48,10 +46,10 @@ export async function completeAuthorization(state: string, browserSecret: string
       throw new HttpError(502, "The bank callback does not match the requested connection.");
     }
 
-    releasedSessions = await saveSessionAccounts(db, env, connection.id, connection.bank_name, session.access.valid_until, session.accounts);
+    releasedSessions = await saveSessionAccounts(env, connection.id, connection.bank_name, session.access.valid_until, session.accounts);
 
     if (!session.accounts.length) {
-      await recordEmptyConnection(db, connection.id);
+      await recordEmptyConnection(connection.id);
     }
 
     return {
@@ -62,7 +60,7 @@ export async function completeAuthorization(state: string, browserSecret: string
       releasedSessions.push(storedSession);
     }
 
-    await recordConnectionFailure(db, connection.id, error instanceof HttpError ? error.message : "Bank connection failed.");
+    await recordConnectionFailure(connection.id, error instanceof HttpError ? error.message : "Bank connection failed.");
 
     throw error;
   } finally {
@@ -73,9 +71,9 @@ export async function completeAuthorization(state: string, browserSecret: string
       }
 
       if (await revokeSession(session.session_cipher)) {
-        await clearRevokedSession(db, session.id, session.session_cipher);
+        await clearRevokedSession(session.id, session.session_cipher);
       } else {
-        await recordRevocationFailure(db, session.id);
+        await recordRevocationFailure(session.id);
       }
     }
   }
@@ -83,7 +81,5 @@ export async function completeAuthorization(state: string, browserSecret: string
 
 /** Consumes the state of an authorization the user cancelled at the bank, so its callback cannot be used afterwards. */
 export async function cancelAuthorization(state: string, browserSecret: string, actor: AuthContext) {
-  const db = await database();
-
-  await cancelPendingAuthorization(db, environment(), hash(state), hash(browserSecret), actor);
+  await cancelPendingAuthorization(environment(), hash(state), hash(browserSecret), actor);
 }

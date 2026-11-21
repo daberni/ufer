@@ -1,6 +1,6 @@
 import { test, type TestContext } from "node:test";
 import assert from "node:assert/strict";
-import { createClient } from "@libsql/client";
+import { createClient, type Client } from "@libsql/client";
 import { initializeDatabase } from "../src/server/database/migrations";
 import { drizzle } from "drizzle-orm/libsql";
 import * as schema from "../src/server/database/schema";
@@ -43,6 +43,21 @@ const rules: Rule[] = [{
   priority: 10,
   enabled: 1
 }];
+
+// Repositories resolve the shared connection, so each test installs its own in-memory database there.
+function useDatabase(context: TestContext, client: Client) {
+  const globals = globalThis as unknown as {
+    budgetDb?: Promise<Database>;
+  };
+  const previousDb = globals.budgetDb;
+
+  context.after(() => {
+    globals.budgetDb = previousDb;
+  });
+  globals.budgetDb = Promise.resolve(drizzle(client, {
+    schema
+  }));
+}
 
 function syncRun(startedAt: string) {
   return {
@@ -337,13 +352,12 @@ test("CSV balances dated today in Vienna are accepted before UTC reaches that da
 test("CSV balance amount errors name the row", () => {
   assert.throws(() => parseBalancesCsv("date,balance,currency\n2026-11-11,1,EUR\n2026-11-12,1.234,EUR", "EUR", "en"), /CSV row 3: .*decimal/);
 });
-test("repeated sync preserves manual category corrections including deliberately uncategorized", async () => {
+test("repeated sync preserves manual category corrections including deliberately uncategorized", async context => {
   const client = await initializeDatabase(createClient({
     url: ":memory:"
   }));
-  const db = drizzle(client, {
-    schema
-  });
+
+  useDatabase(context, client);
 
   try {
     await client.execute("INSERT INTO accounts(id,environment,name,institution,kind,currency) VALUES('a','SANDBOX','Test','Test Bank','checking','EUR')");
@@ -357,15 +371,15 @@ test("repeated sync preserves manual category corrections including deliberately
     }];
     const entries = normalizeTransactions([bankTransaction], new Set());
 
-    assert.equal(await saveAccountSync(db, syncRun("2026-11-12T08:00:00.000Z"), "a", "EUR", balances, entries, rules), 1);
+    assert.equal(await saveAccountSync(syncRun("2026-11-12T08:00:00.000Z"), "a", "EUR", balances, entries, rules), 1);
     await client.execute("UPDATE transactions SET category_id='leisure',category_source='manual'");
-    assert.equal(await saveAccountSync(db, syncRun("2026-11-12T09:00:00.000Z"), "a", "EUR", balances, entries, rules), 0);
+    assert.equal(await saveAccountSync(syncRun("2026-11-12T09:00:00.000Z"), "a", "EUR", balances, entries, rules), 0);
     assert.equal((await client.execute("SELECT category_id FROM transactions")).rows[0].category_id, "leisure");
     await client.execute("UPDATE transactions SET category_id=NULL,category_source='manual'");
-    await saveAccountSync(db, syncRun("2026-11-12T10:00:00.000Z"), "a", "EUR", balances, entries, rules);
+    await saveAccountSync(syncRun("2026-11-12T10:00:00.000Z"), "a", "EUR", balances, entries, rules);
     assert.equal((await client.execute("SELECT category_id FROM transactions")).rows[0].category_id, null);
     assert.equal((await client.execute("SELECT COUNT(*) AS n FROM balance_snapshots")).rows[0].n, 1);
-    await assert.rejects(saveAccountSync(db, syncRun("2026-11-12T11:00:00.000Z"), "a", "EUR", balances, [{
+    await assert.rejects(saveAccountSync(syncRun("2026-11-12T11:00:00.000Z"), "a", "EUR", balances, [{
       ...entries[0],
       currency: "USD"
     }], rules));
@@ -374,24 +388,23 @@ test("repeated sync preserves manual category corrections including deliberately
     client.close();
   }
 });
-test("reauthorization matches alternative identification hashes while sandbox and production remain isolated", async () => {
+test("reauthorization matches alternative identification hashes while sandbox and production remain isolated", async context => {
   const client = await initializeDatabase(createClient({
     url: ":memory:"
   }));
-  const db = drizzle(client, {
-    schema
-  });
+
+  useDatabase(context, client);
 
   try {
     await client.batch(["INSERT INTO requisitions(id,environment,bank_name,bank_country,status) VALUES('old','SANDBOX','Test','AT','EXCHANGING')", "INSERT INTO requisitions(id,environment,bank_name,bank_country,status) VALUES('new','SANDBOX','Test','AT','EXCHANGING')", "INSERT INTO requisitions(id,environment,bank_name,bank_country,status) VALUES('prod','PRODUCTION','Test','AT','EXCHANGING')"], "write");
-    await saveSessionAccounts(db, "SANDBOX", "old", "Test", "2099-01-01T00:00:00Z", [{
+    await saveSessionAccounts("SANDBOX", "old", "Test", "2099-01-01T00:00:00Z", [{
       uid: "uid-old",
       identification_hash: "iban-hash",
       currency: "EUR"
     }]);
     const initial = (await client.execute("SELECT id FROM accounts")).rows[0].id;
 
-    await saveSessionAccounts(db, "SANDBOX", "new", "Test", "2099-01-01T00:00:00Z", [{
+    await saveSessionAccounts("SANDBOX", "new", "Test", "2099-01-01T00:00:00Z", [{
       uid: "uid-new",
       identification_hash: "new-hash",
       identification_hashes: ["iban-hash"],
@@ -400,7 +413,7 @@ test("reauthorization matches alternative identification hashes while sandbox an
     assert.equal((await client.execute("SELECT id FROM accounts")).rows[0].id, initial);
     assert.equal((await client.execute("SELECT provider_uid FROM accounts")).rows[0].provider_uid, "uid-new");
     assert.equal((await client.execute("SELECT status FROM requisitions WHERE id='old'")).rows[0].status, "SUPERSEDED");
-    await saveSessionAccounts(db, "PRODUCTION", "prod", "Test", "2099-01-01T00:00:00Z", [{
+    await saveSessionAccounts("PRODUCTION", "prod", "Test", "2099-01-01T00:00:00Z", [{
       uid: "uid-prod",
       identification_hash: "iban-hash",
       currency: "EUR"
@@ -410,22 +423,21 @@ test("reauthorization matches alternative identification hashes while sandbox an
     client.close();
   }
 });
-test("a second sync cannot acquire an active lease and a previous owner cannot release its replacement", async () => {
+test("a second sync cannot acquire an active lease and a previous owner cannot release its replacement", async context => {
   const client = await initializeDatabase(createClient({
     url: ":memory:"
   }));
-  const db = drizzle(client, {
-    schema
-  });
+
+  useDatabase(context, client);
 
   try {
     const now = Temporal.Instant.from("2026-11-12T00:00:00Z");
 
-    assert.equal(await acquireLease(db, "sync", "first", now), true);
+    assert.equal(await acquireLease("sync", "first", now), true);
     assert.equal((await client.execute("SELECT expires_at FROM leases")).rows[0].expires_at, "2026-11-12T00:12:00.000Z");
-    assert.equal(await acquireLease(db, "sync", "second", Temporal.Instant.from("2026-11-12T00:11:59.999Z")), false);
-    assert.equal(await acquireLease(db, "sync", "second", Temporal.Instant.from("2026-11-12T00:13:00Z")), true);
-    await releaseLease(db, "sync", "first");
+    assert.equal(await acquireLease("sync", "second", Temporal.Instant.from("2026-11-12T00:11:59.999Z")), false);
+    assert.equal(await acquireLease("sync", "second", Temporal.Instant.from("2026-11-12T00:13:00Z")), true);
+    await releaseLease("sync", "first");
     assert.equal((await client.execute("SELECT owner FROM leases")).rows[0].owner, "second");
   } finally {
     client.close();
