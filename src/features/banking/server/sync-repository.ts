@@ -102,9 +102,9 @@ export async function saveSyncedAccount(run: SyncRunStart, accountId: string, ba
 
     // Only booked money anchors the opening balance; available or expected balances may include credit lines and pending items.
     if (comparableBankBalanceTypes.includes(balance.bank_balance_type)) {
-      await anchorOpeningBalance(tx, accountId, balance);
+      await anchorOpeningBalance(tx, accountId, balance, syncRunTransactions(run.startedAt));
     } else {
-      await keepBankOpeningBalanceFirst(tx, accountId);
+      await keepBankOpeningBalanceFirst(tx, accountId, syncRunTransactions(run.startedAt));
     }
 
     await tx.update(accounts).set({

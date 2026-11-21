@@ -76,6 +76,15 @@ export async function reconcileWithReportedBalance(account: {
 
   return db.transaction(async tx => {
     await assertWritableAccount(tx, account.id);
+    // A concurrent conversion may have made it a manual account, whose bank snapshots no longer count.
+    const linked = await tx.select({
+      id: accounts.id
+    }).from(accounts).where(and(eq(accounts.id, account.id), ne(accounts.provider, "manual"))).get();
+
+    if (!linked) {
+      return false;
+    }
+
     const reported = await tx.select({
       date: balanceSnapshots.observed_at,
       amount: balanceSnapshots.amount_minor,

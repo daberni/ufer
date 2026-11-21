@@ -289,6 +289,7 @@ async function saveAccountRows(tx: DatabaseTransaction, {
   const found = await classify(tx, accountId, entries, consumed);
   const fresh = await ensureCategories(entries.filter((_entry, index) => !found.duplicates.has(index)));
   let inserted = 0;
+  const insertedIds: string[] = [];
 
   // Bound statement parameters for both local SQLite and remote libSQL deployments.
   for (let offset = 0; offset < fresh.length; offset += 50) {
@@ -318,11 +319,12 @@ async function saveAccountRows(tx: DatabaseTransaction, {
     });
 
     inserted += rows.length;
+    insertedIds.push(...rows.map(row => row.id));
     await saveImportedParts(tx, rows, fresh);
   }
 
   // Older history imported into a bank-linked account was part of its opening balance.
-  await keepBankOpeningBalanceFirst(tx, accountId);
+  await keepBankOpeningBalanceFirst(tx, accountId, insertedIds.length ? inArray(transactions.id, insertedIds) : undefined);
 
   if (opening) {
     await saveOpeningBalance(tx, accountId, newAccount?.currency ?? entries[0]?.currency ?? "", opening);

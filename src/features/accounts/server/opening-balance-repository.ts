@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, asc, eq, isNull, lte, ne, sql } from "drizzle-orm";
+import { and, asc, eq, isNull, lte, ne, sql, type SQL } from "drizzle-orm";
 import { Temporal } from "temporal-polyfill";
 import type { DatabaseTransaction } from "@/server/database/connection";
 import { accounts, transactions } from "@/server/database/schema";
@@ -21,8 +21,9 @@ function dayBefore(date: string) {
  * Keeps a bank-linked account's opening balance in front of its bookings, inside the caller's write transaction.
  * Without an opening balance, the reported balance books one for the difference to the visible bookings through its date, dated before the oldest booking.
  * Bookings that arrive dated on or before an existing opening balance were part of it: they reduce it by their sum and it moves before them, so the current balance stays the same.
+ * `arrived` selects the rows this write inserted; a redelivered booking whose date moved before the opening balance was already counted and is not absorbed again.
  */
-export async function anchorOpeningBalance(tx: DatabaseTransaction, accountId: string, reported: ReportedBalance) {
+export async function anchorOpeningBalance(tx: DatabaseTransaction, accountId: string, reported: ReportedBalance, arrived: SQL | undefined) {
   const opening = await tx.select({
     id: transactions.id,
     date: transactions.booking_date,
@@ -35,11 +36,11 @@ export async function anchorOpeningBalance(tx: DatabaseTransaction, accountId: s
     return;
   }
 
-  await moveBefore(tx, accountId, opening);
+  await moveBefore(tx, accountId, opening, arrived);
 }
 
 /** Keeps a bank-linked account's opening balance in front of bookings imported from a file, inside the caller's write transaction; manual accounts and accounts without an opening balance are left as they are. */
-export async function keepBankOpeningBalanceFirst(tx: DatabaseTransaction, accountId: string) {
+export async function keepBankOpeningBalanceFirst(tx: DatabaseTransaction, accountId: string, arrived: SQL | undefined) {
   const opening = await tx.select({
     id: transactions.id,
     date: transactions.booking_date,
@@ -47,7 +48,7 @@ export async function keepBankOpeningBalanceFirst(tx: DatabaseTransaction, accou
   }).from(transactions).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(and(eq(transactions.account_id, accountId), eq(transactions.type, "opening_balance"), ne(accounts.provider, "manual"))).orderBy(asc(transactions.booking_date)).get();
 
   if (opening) {
-    await moveBefore(tx, accountId, opening);
+    await moveBefore(tx, accountId, opening, arrived);
   }
 }
 
@@ -55,11 +56,15 @@ async function moveBefore(tx: DatabaseTransaction, accountId: string, opening: {
   id: string;
   date: string;
   amount: number;
-}) {
+}, arrived: SQL | undefined) {
+  if (!arrived) {
+    return;
+  }
+
   const earlier = await tx.select({
     oldest: sql<string | null>`MIN(${transactions.booking_date})`,
     visible: sql<number>`COALESCE(SUM(CASE WHEN ${transactions.suppressed_at} IS NULL THEN ${transactions.amount_minor} ELSE 0 END),0)`.mapWith(Number)
-  }).from(transactions).where(and(eq(transactions.account_id, accountId), ne(transactions.id, opening.id), lte(transactions.booking_date, opening.date))).get();
+  }).from(transactions).where(and(eq(transactions.account_id, accountId), ne(transactions.id, opening.id), lte(transactions.booking_date, opening.date), arrived)).get();
 
   if (earlier?.oldest) {
     await tx.update(transactions).set({
