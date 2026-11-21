@@ -1,6 +1,5 @@
 import { and, count, eq, inArray, isNotNull, isNull, asc, sql } from "drizzle-orm";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
-import { environment } from "@/features/banking/server/environment";
 import type { Rule } from "@/lib/rules";
 import { highestPriority, maximumRules, nextPriority, orderedPriorities } from "@/features/categorization/rule-order";
 import type { Transaction } from "@/server/database/models";
@@ -68,7 +67,7 @@ export type ManualAdoption = {
 
 /** Returns the selected manual assignments to automatic categorization with the rule's category and a reference to the rule; resolves to the selected IDs. */
 async function adoptManualAssignments(tx: DatabaseTransaction, rule: Pick<Rule, "id" | "category_id">, rules: Rule[], adoption: ManualAdoption) {
-  const scope = and(eq(accounts.environment, environment()), isNull(accounts.archived_at), eq(transactions.category_source, "manual"), notSplit);
+  const scope = and(isNull(accounts.archived_at), eq(transactions.category_source, "manual"), notSplit);
   const candidates = await tx.select({
     id: transactions.id,
     counterparty: transactions.counterparty,
@@ -111,7 +110,7 @@ async function applyRuleType(tx: DatabaseTransaction, rule: Pick<Rule, "id" | "t
     }
 
     // A booking released to a reported transfer can now pair.
-    await pairTransfers(tx, environment());
+    await pairTransfers(tx);
 
     return;
   }
@@ -124,7 +123,7 @@ async function applyRuleType(tx: DatabaseTransaction, rule: Pick<Rule, "id" | "t
     }).where(and(inArray(transactions.id, ids.slice(offset, offset + assignmentChunkSize)), ruleTypeable));
   }
 
-  await pairTransfers(tx, environment());
+  await pairTransfers(tx);
 }
 
 function readRules(tx: DatabaseTransaction) {
@@ -135,7 +134,7 @@ function readRules(tx: DatabaseTransaction) {
 async function adoptSourceTransaction(tx: DatabaseTransaction, rule: NewRule, rules: Rule[], source: NonNullable<RuleCreationAssignments["source"]>) {
   const scope = and(eq(transactions.id, source.transactionId), eq(transactions.category_source, "manual"), eq(transactions.category_id, rule.category_id), inArray(transactions.account_id, tx.select({
     id: accounts.id
-  }).from(accounts).where(and(eq(accounts.environment, environment()), isNull(accounts.archived_at)))));
+  }).from(accounts).where(isNull(accounts.archived_at))));
   const candidates = await tx.select({
     id: transactions.id,
     counterparty: transactions.counterparty,
@@ -185,7 +184,7 @@ async function storeRule(tx: DatabaseTransaction, rule: NewRule, assignments: Ru
   }
 
   // Bookings on archived accounts are read-only, so rules never recategorize them.
-  const scope = and(eq(accounts.environment, environment()), isNull(accounts.archived_at), eq(transactions.category_source, "rule"), isNull(transactions.category_id));
+  const scope = and(isNull(accounts.archived_at), eq(transactions.category_source, "rule"), isNull(transactions.category_id));
   const candidates = await tx.select({
     id: transactions.id,
     counterparty: transactions.counterparty,
@@ -300,7 +299,7 @@ export async function setRuleEnabled(id: string, enabled: boolean) {
 /** Manually categorized transactions with the text rules match. */
 export async function findManualAssignments() {
   const db = await database();
-  const scope = and(eq(accounts.environment, environment()), isNull(accounts.archived_at), eq(transactions.category_source, "manual"), notSplit);
+  const scope = and(isNull(accounts.archived_at), eq(transactions.category_source, "manual"), notSplit);
 
   return db.select({
     id: transactions.id,
@@ -315,7 +314,7 @@ export async function findManualAssignments() {
 export async function findUncorrectedTransactions() {
   const db = await database();
   // Bookings on archived accounts are read-only, so applying rules leaves them unchanged.
-  const scope = and(eq(accounts.environment, environment()), isNull(accounts.archived_at), eq(transactions.category_source, "rule"));
+  const scope = and(isNull(accounts.archived_at), eq(transactions.category_source, "rule"));
 
   return db.select({
     id: transactions.id,
@@ -360,7 +359,7 @@ export async function findRuleTypeableTransactions() {
     description: transactions.description,
     counterparty_override: transactions.counterparty_override,
     description_override: transactions.description_override
-  }).from(transactions).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(and(eq(accounts.environment, environment()), isNull(accounts.archived_at), ruleTypeable));
+  }).from(transactions).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(and(isNull(accounts.archived_at), ruleTypeable));
 }
 
 /** Stores rule-decided types on bookings nobody corrected or linked meanwhile, then pairs transfers so rule-set transfers link to, or create, their counterparts in the same write transaction. */
@@ -381,7 +380,7 @@ export async function saveRuleTypes(entries: Pick<Transaction, "id" | "type" | "
       }).where(and(eq(transactions.id, entry.id), ruleTypeable, inArray(transactions.account_id, activeAccounts)));
     }
 
-    await pairTransfers(tx, environment());
+    await pairTransfers(tx);
   });
 }
 

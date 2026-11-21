@@ -89,14 +89,7 @@ async function seedPayees(context: TestContext) {
   process.env.ENABLE_BANKING_ENVIRONMENT = "SANDBOX";
   await db.insert(schema.accounts).values([{
     id: "sandbox-checking",
-    environment: "SANDBOX",
     name: "Synthetic checking",
-    institution: "Example institution",
-    kind: "checking"
-  }, {
-    id: "production-checking",
-    environment: "PRODUCTION",
-    name: "Other checking",
     institution: "Example institution",
     kind: "checking"
   }]);
@@ -106,8 +99,7 @@ async function seedPayees(context: TestContext) {
     ["sandbox-checking", "CORNER BAKERY 0816", "Corner Bakery", null],
     ["sandbox-checking", "Corner Bakery", null, null],
     ["sandbox-checking", "Corner Bakery Hidden", null, "2026-02-01T00:00:00Z"],
-    ["sandbox-checking", "Corner Shop", null, null],
-    ["production-checking", "Corner Production Store", null, null]
+    ["sandbox-checking", "Corner Shop", null, null]
   ];
 
   await db.insert(schema.transactions).values(bookings.map(([account_id, counterparty, counterparty_override, suppressed_at], index) => ({
@@ -124,7 +116,7 @@ async function seedPayees(context: TestContext) {
   })));
 }
 
-test("suggestions use the payee override over the source's payee and stay in the current environment", async context => {
+test("suggestions use the payee override over the source's payee and skip hidden bookings", async context => {
   await seedPayees(context);
 
   const suggestions = await readPayeeSuggestions({

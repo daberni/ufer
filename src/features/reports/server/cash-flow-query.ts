@@ -1,6 +1,5 @@
 import type { InValue } from "@libsql/client";
 import { database } from "@/server/database/connection";
-import { environment } from "@/features/banking/server/environment";
 import { currentMonth, periodToJson, trendMonths, type Period } from "@/lib/period";
 import { HttpError } from "@/lib/errors";
 import type { AccountCashFlow, CategoryAmount } from "@/features/reports/types";
@@ -33,7 +32,7 @@ const countedLines = `(
 )`;
 
 /**
- * Transactions that count toward cash flow and spending in a date range: visible income and expenses of this environment and currency. Transfers, opening balances, adjustments and hidden bookings never count, whatever their category. A split booking counts as its parts. Every cash-flow figure reads through this one definition so totals, breakdowns and the trend agree.
+ * Transactions that count toward cash flow and spending in a date range: visible income and expenses in one currency. Transfers, opening balances, adjustments and hidden bookings never count, whatever their category. A split booking counts as its parts. Every cash-flow figure reads through this one definition so totals, breakdowns and the trend agree.
  */
 function countedTransactions(currency: string, range: SqlCondition): SqlCondition {
   return {
@@ -41,13 +40,12 @@ function countedTransactions(currency: string, range: SqlCondition): SqlConditio
       FROM ${countedLines} t
       JOIN accounts a ON a.id=t.account_id
       LEFT JOIN categories c ON c.id=t.category_id
-      WHERE a.environment=?
-      AND t.currency=?
+      WHERE t.currency=?
       AND ${range.sql}
       AND t.type IN ('income','expense')
       AND t.suppressed_at IS NULL
     `,
-    args: [environment(), currency, ...range.args]
+    args: [currency, ...range.args]
   };
 }
 
@@ -196,10 +194,9 @@ export async function readAccountCashFlow(accountId: string, period: Period): Pr
       FROM accounts a
       LEFT JOIN transactions t ON t.account_id=a.id AND t.currency=a.currency AND t.suppressed_at IS NULL AND ${inPeriod.sql}
       WHERE a.id=?
-      AND a.environment=?
       GROUP BY a.id
     `,
-    args: [...inPeriod.args, accountId, environment()]
+    args: [...inPeriod.args, accountId]
   });
   const row = result.rows[0];
 

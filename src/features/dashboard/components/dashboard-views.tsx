@@ -134,7 +134,7 @@ export function RulesPage() {
   );
 }
 
-// The URL holds the account; the list of accounts says whether it exists in this banking environment.
+// The URL holds the account; the list of accounts says whether it exists.
 function selectedAccount(accounts: Area<Account[]>, id: string): Area<Account> | null {
   if (accounts.status === "pending") {
     return accounts;

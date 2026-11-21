@@ -3,7 +3,6 @@ import { Temporal } from "temporal-polyfill";
 import { and, between, eq, inArray, like, ne, notInArray, sql } from "drizzle-orm";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 import { accounts, categories, transactionSplits, transactions } from "@/server/database/schema";
-import { environment } from "@/features/banking/server/environment";
 import type { AccountKind } from "@/features/accounts/account-kinds";
 import { assertWritableAccount } from "@/features/accounts/server/writable-account";
 import { manualEntryPrefix } from "@/features/transactions/server/transfer-repository";
@@ -98,7 +97,7 @@ export async function createImportCategory(tx: DatabaseTransaction, category: Ne
   };
 }
 
-/** A manual or bank-linked account of the current banking environment. */
+/** A manual or bank-linked account. */
 export async function findImportTarget(id: string) {
   const db = await database();
 
@@ -109,7 +108,7 @@ export async function findImportTarget(id: string) {
     currency: accounts.currency,
     provider: accounts.provider,
     archived_at: accounts.archived_at
-  }).from(accounts).where(and(eq(accounts.id, id), eq(accounts.environment, environment()))).get();
+  }).from(accounts).where(eq(accounts.id, id)).get();
 }
 
 /** The opening balance an import booked on its new account under one of the given IDs, with the sum of the account's other transactions. */
@@ -278,7 +277,6 @@ async function saveAccountRows(tx: DatabaseTransaction, {
     // The ID is stable per import and source account, so a retried or later batch reuses the account. Its balance is the sum of its transactions, including any opening balance.
     await tx.insert(accounts).values({
       id: accountId,
-      environment: environment(),
       name: newAccount.name,
       institution: "CSV import",
       kind: newAccount.kind,

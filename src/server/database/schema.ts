@@ -1,6 +1,6 @@
 import { desc, sql } from "drizzle-orm";
 import { authSessions, authUsers, workspaces } from "@/features/auth/server/auth-schema";
-import { check, index, integer, primaryKey, sqliteTable, text, unique, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { check, index, integer, sqliteTable, text, unique, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { ruleTransactionTypes, transactionTypes } from "@/features/transactions/transaction-types";
 
 export const categories = sqliteTable("categories", {
@@ -12,7 +12,6 @@ export const categories = sqliteTable("categories", {
 
 export const requisitions = sqliteTable("requisitions", {
   id: text("id").primaryKey(),
-  environment: text("environment").notNull(),
   workspace_id: text("workspace_id").references(() => workspaces.id),
   initiated_by_user_id: text("initiated_by_user_id").references(() => authUsers.id, {
     onDelete: "set null"
@@ -36,7 +35,6 @@ export const requisitions = sqliteTable("requisitions", {
 
 export const accounts = sqliteTable("accounts", {
   id: text("id").primaryKey(),
-  environment: text("environment").notNull(),
   name: text("name").notNull(),
   provider_name: text("provider_name"),
   institution: text("institution").notNull(),
@@ -45,7 +43,7 @@ export const accounts = sqliteTable("accounts", {
   }).notNull(),
   currency: text("currency").notNull().default("EUR"),
   provider: text("provider").notNull().default("manual"),
-  provider_uid: text("provider_uid"),
+  provider_uid: text("provider_uid").unique(),
   requisition_id: text("requisition_id").references(() => requisitions.id),
   iban: text("iban"),
   // The provider balance of a synced account; a manual account's balance is the sum of its transactions and this stays NULL.
@@ -56,17 +54,13 @@ export const accounts = sqliteTable("accounts", {
   // Set while the account is archived: hidden from the account lists and pickers, but its history and report contributions remain.
   archived_at: text("archived_at")
 }, table => [
-  unique("accounts_environment_provider_uid_unique").on(table.environment, table.provider_uid),
   check("accounts_kind", sql`${table.kind} IN ('checking','savings','investment','loan','property','credit_card')`)
 ]);
 
 export const accountIdentifiers = sqliteTable("account_identifiers", {
-  environment: text("environment").notNull(),
-  identification_hash: text("identification_hash").notNull(),
+  identification_hash: text("identification_hash").primaryKey(),
   account_id: text("account_id").notNull().references(() => accounts.id)
-}, table => [primaryKey({
-  columns: [table.environment, table.identification_hash]
-})]);
+});
 
 export const categorizationRules = sqliteTable("categorization_rules", {
   id: text("id").primaryKey(),
@@ -185,7 +179,6 @@ export const balanceSnapshots = sqliteTable("balance_snapshots", {
 
 export const syncRuns = sqliteTable("sync_runs", {
   id: text("id").primaryKey(),
-  environment: text("environment").notNull(),
   started_at: text("started_at").notNull(),
   finished_at: text("finished_at"),
   status: text("status").notNull(),

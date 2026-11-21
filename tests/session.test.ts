@@ -574,7 +574,6 @@ test("account renaming requires a session and trusted origin and answers invalid
   await provisionUser(owner);
   await db.insert(schema.accounts).values({
     id: "rename-route",
-    environment: "SANDBOX",
     name: "Original",
     institution: "Example",
     kind: "checking"

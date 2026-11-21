@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { z } from "zod";
 import { test, type TestContext } from "node:test";
 import { Temporal } from "temporal-polyfill";
@@ -85,7 +86,6 @@ async function manualAccount(name: string) {
 
   await db.insert(schema.accounts).values({
     id,
-    environment: "SANDBOX",
     name,
     institution: "Example institution",
     kind: "checking"
@@ -99,7 +99,6 @@ async function manualAccount(name: string) {
 async function insertBankAccount(db: Database) {
   await db.insert(schema.accounts).values({
     id: "synthetic-bank-account",
-    environment: "SANDBOX",
     name: "Synthetic bank account",
     institution: "Example bank",
     kind: "checking",
@@ -298,6 +297,11 @@ test("new accounts are created once per import, on confirmation, across batches 
   assert.equal(accounts.length, 1);
   assert.equal(accounts[0].name, "Closed account");
   assert.equal((await db.select().from(schema.transactions)).length, 2);
+
+  // Accounts created before changeset 0016 were derived with the banking environment, so resuming such an import must find the same account.
+  const hex = createHash("sha256").update(`${process.env.ENABLE_BANKING_ENVIRONMENT || "SANDBOX"}|${importId}|`).digest("hex");
+
+  assert.equal(accounts[0].id, `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`);
 });
 
 test("a later batch never treats rows saved by an earlier batch of the file as duplicates, so check and confirm agree", async context => {
@@ -581,10 +585,9 @@ test("a later bank sync adopts the matching CSV-imported row with its category i
     }],
     confirm: true
   }, now);
-  await startSyncRun("SANDBOX", "adopt", "2026-06-30T08:00:00.000Z");
+  await startSyncRun("adopt", "2026-06-30T08:00:00.000Z");
 
   const inserted = await saveAccountSync({
-    environment: "SANDBOX",
     startedAt: "2026-06-30T08:00:00.000Z"
   }, "synthetic-bank-account", "EUR", [{
     balance_type: "CLBD",
@@ -990,7 +993,7 @@ test("a bank entry repeated in one response adopts only one CSV-imported row", a
     }],
     confirm: true
   }, now);
-  await startSyncRun("SANDBOX", "repeat", "2026-06-30T08:00:00.000Z");
+  await startSyncRun("repeat", "2026-06-30T08:00:00.000Z");
 
   const booking = {
     reference: "bank:bistro",
@@ -1002,7 +1005,6 @@ test("a bank entry repeated in one response adopts only one CSV-imported row", a
   };
 
   await saveAccountSync({
-    environment: "SANDBOX",
     startedAt: "2026-06-30T08:00:00.000Z"
   }, "synthetic-bank-account", "EUR", [{
     balance_type: "CLBD",
@@ -1796,33 +1798,6 @@ test("a new account from an import gets the type the person chose", async contex
     }],
     confirm: true
   }, now));
-});
-
-test("the same file imported as a new account in two banking environments creates one account in each", async context => {
-  const db = await isolatedDatabase(context);
-  const payload = {
-    import_id: importId,
-    rows: [mappedRow(2, "2024-05-01", "-10.00", "Shop")],
-    targets: [{
-      source: "",
-      new_account: {
-        name: "Imported wallet",
-        kind: "checking",
-        currency: "EUR"
-      }
-    }],
-    confirm: true
-  };
-
-  await importMappedRows(payload, now);
-  process.env.ENABLE_BANKING_ENVIRONMENT = "PRODUCTION";
-  await importMappedRows(payload, now);
-
-  const accounts = await db.select().from(schema.accounts);
-  const bookings = await db.select().from(schema.transactions);
-
-  assert.deepEqual(accounts.map(account => account.environment).sort(), ["PRODUCTION", "SANDBOX"]);
-  assert.equal(new Set(bookings.map(booking => booking.account_id)).size, 2);
 });
 
 test("a resumed import must state the opening balance its new account already has", async context => {

@@ -11,7 +11,7 @@ import { saveAccountSync } from "../src/features/banking/server/account-sync-ser
 import { applyRulesToUncorrectedTransactions, createRule, deleteRule, updateRuleDetails } from "../src/features/categorization/server/categorization-service";
 import { listRules, saveRuleTypes } from "../src/features/categorization/server/rule-repository";
 import { importMappedRows } from "../src/features/imports/server/mapped-import-service";
-import { pairTransfersInEnvironment } from "../src/features/transactions/server/transfer-repository";
+import { pairAllTransfers } from "../src/features/transactions/server/transfer-repository";
 import { updateTransactionCategory, updateTransactionDetails } from "../src/features/transactions/server/transaction-service";
 import { unsplitTransaction } from "../src/features/transactions/server/split-service";
 import { ValidationError } from "../src/lib/errors";
@@ -48,28 +48,24 @@ async function isolatedDatabase(context: TestContext) {
   process.env.ENABLE_BANKING_ENVIRONMENT = "SANDBOX";
   await db.insert(schema.accounts).values([{
     id: "checking",
-    environment: "SANDBOX",
     name: "Synthetic checking",
     institution: "Example bank",
     kind: "checking",
     provider: "enable_banking"
   }, {
     id: "savings",
-    environment: "SANDBOX",
     name: "Synthetic savings",
     institution: "Example bank",
     kind: "savings",
     provider: "enable_banking"
   }, {
     id: "deposit",
-    environment: "SANDBOX",
     name: "Synthetic deposit",
     institution: "Example bank",
     kind: "savings",
     provider: "enable_banking"
   }, {
     id: "cash",
-    environment: "SANDBOX",
     name: "Synthetic cash",
     institution: "Wallet",
     kind: "checking"
@@ -84,7 +80,6 @@ let runCounter = 0;
 async function sync(accountId: string, entries: Entry[]) {
   runCounter += 1;
   const run = {
-    environment: "SANDBOX",
     startedAt: `2026-09-30T09:00:${String(runCounter % 60).padStart(2, "0")}.000Z`
   };
   const balances = [{
@@ -97,7 +92,7 @@ async function sync(accountId: string, entries: Entry[]) {
   }];
 
   await saveAccountSync(run, accountId, "EUR", balances, entries, await listRules());
-  await pairTransfersInEnvironment("SANDBOX");
+  await pairAllTransfers();
 }
 
 function entry(reference: string, date: string, amount: number, counterparty: string): Entry {

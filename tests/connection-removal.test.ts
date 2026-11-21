@@ -88,7 +88,6 @@ async function bankingDatabase(context: TestContext, providerResponse: (request:
 async function insertLinkedConnection(db: Database, id: string, accountId: string) {
   await db.insert(schema.requisitions).values({
     id,
-    environment: "SANDBOX",
     bank_name: "Example institution",
     bank_country: "AT",
     status: "LINKED",
@@ -97,7 +96,6 @@ async function insertLinkedConnection(db: Database, id: string, accountId: strin
   });
   await db.insert(schema.accounts).values({
     id: accountId,
-    environment: "SANDBOX",
     name: "Synthetic account",
     institution: "Example institution",
     kind: "checking",
@@ -109,7 +107,6 @@ async function insertLinkedConnection(db: Database, id: string, accountId: strin
     sync_error: "Synthetic earlier failure."
   });
   await db.insert(schema.accountIdentifiers).values({
-    environment: "SANDBOX",
     identification_hash: `hash-${accountId}`,
     account_id: accountId
   });
@@ -162,7 +159,7 @@ test("removing a bank connection keeps accounts and history, deletes its credent
   assert.equal(account?.sync_error, null);
   assert.equal((await db.select().from(schema.transactions)).length, 1);
   assert.equal((await db.select().from(schema.balanceSnapshots)).length, 1);
-  assert.deepEqual((await listSyncAccounts("SANDBOX")).map(item => item.id), ["kept-account"]);
+  assert.deepEqual((await listSyncAccounts()).map(item => item.id), ["kept-account"]);
 
   assert.deepEqual((await listConnections()).map(item => item.id), ["kept"]);
   assert.equal((await listAccounts()).length, 2);
@@ -178,13 +175,12 @@ test("removing a bank connection keeps accounts and history, deletes its credent
   // A later authorization of the same bank continues the retained account instead of duplicating it.
   await db.insert(schema.requisitions).values({
     id: "renewed",
-    environment: "SANDBOX",
     bank_name: "Example institution",
     bank_country: "AT",
     status: "EXCHANGING",
     valid_until: "2099-01-01T00:00:00Z"
   });
-  await saveSessionAccounts("SANDBOX", "renewed", "Example institution", "2099-01-01T00:00:00Z", [{
+  await saveSessionAccounts("renewed", "Example institution", "2099-01-01T00:00:00Z", [{
     uid: "renewed-uid",
     identification_hash: "hash-removed-account",
     currency: "EUR"
@@ -209,7 +205,6 @@ test("disconnecting a bank archives only its accounts with a balance of 0 and na
   }).where(eq(schema.accounts.id, "archived-account"));
   await db.insert(schema.accounts).values({
     id: "unsettled-account",
-    environment: "SANDBOX",
     name: "Synthetic unsettled account",
     institution: "Example institution",
     kind: "checking",
@@ -253,7 +248,7 @@ test("disconnecting a bank archives only its accounts with a balance of 0 and na
   assert.equal(accountsAfter.find(account => account.id === "other-account")?.archived_at, null);
   assert.equal((await db.select().from(schema.transactions)).length, 1);
   assert.deepEqual(await readNetWorth("EUR"), netWorthBefore);
-  assert.deepEqual((await listSyncAccounts("SANDBOX")).map(item => item.id), ["other-account"]);
+  assert.deepEqual((await listSyncAccounts()).map(item => item.id), ["other-account"]);
 });
 
 test("sync skips an archived account of a linked connection and resumes it once restored", async context => {
@@ -301,7 +296,6 @@ test("sync skips an archived account of a linked connection and resumes it once 
   await insertLinkedConnection(db, "shared", "active-account");
   await db.insert(schema.accounts).values({
     id: "archived-account",
-    environment: "SANDBOX",
     name: "Synthetic archived account",
     institution: "Example institution",
     kind: "checking",
@@ -445,13 +439,12 @@ test("removal does not interfere with a running sync or an authorization callbac
   await insertLinkedConnection(db, "syncing", "syncing-account");
   await db.insert(schema.requisitions).values({
     id: "exchanging",
-    environment: "SANDBOX",
     bank_name: "Example institution",
     bank_country: "AT",
     status: "EXCHANGING",
     used_at: new Date().toISOString()
   });
-  assert.equal(await acquireLease("sync:SANDBOX", "synthetic-sync"), true);
+  assert.equal(await acquireLease("sync", "synthetic-sync"), true);
 
   await assert.rejects(removeBankConnection("syncing"), {
     status: 409
@@ -479,7 +472,6 @@ test("a connection removed while its callback is mapping accounts is never linke
 
   await db.insert(schema.requisitions).values({
     id: "overlap",
-    environment: "SANDBOX",
     bank_name: "Example institution",
     bank_country: "AT",
     status: "EXCHANGING",
@@ -500,7 +492,7 @@ test("a connection removed while its callback is mapping accounts is never linke
   }]);
 
   // Callback step 2 and its failure handling run after the removal.
-  await assert.rejects(saveSessionAccounts("SANDBOX", "overlap", "Example institution", "2099-01-01T00:00:00Z", [{
+  await assert.rejects(saveSessionAccounts("overlap", "Example institution", "2099-01-01T00:00:00Z", [{
     uid: "overlap-uid",
     identification_hash: "overlap-hash",
     currency: "EUR"
@@ -528,7 +520,6 @@ test("a callback completing after removal preflight keeps its new session until 
 
   await db.insert(schema.requisitions).values({
     id: "pending-overlap",
-    environment: "SANDBOX",
     bank_name: "Example institution",
     bank_country: "AT",
     status: "PENDING"
@@ -549,7 +540,7 @@ test("a callback completing after removal preflight keeps its new session until 
         used_at: new Date().toISOString()
       }).where(eq(schema.requisitions.id, "pending-overlap"));
       assert.equal(await saveBankSession("pending-overlap", createdSessionCipher, "2099-01-01T00:00:00Z"), true);
-      await saveSessionAccounts("SANDBOX", "pending-overlap", "Example institution", "2099-01-01T00:00:00Z", [{
+      await saveSessionAccounts("pending-overlap", "Example institution", "2099-01-01T00:00:00Z", [{
         uid: "new-uid",
         identification_hash: "new-hash",
         currency: "EUR"

@@ -5,12 +5,10 @@ import { hash } from "@/server/security/tokens";
 import { cancelPendingAuthorization, clearRevokedSession, consumeAuthorization, recordConnectionFailure, recordEmptyConnection, recordRevocationFailure, saveBankSession } from "./connection-repository";
 import { saveSessionAccounts } from "./bank-account-repository";
 import { createSession, validateBankSession } from "./enable-banking-client";
-import { environment } from "./environment";
 import { revokeSession } from "./session-revocation";
 
 export async function completeAuthorization(state: string, browserSecret: string, code: string, actor: AuthContext) {
-  const env = environment();
-  const connection = await consumeAuthorization(env, hash(state), hash(browserSecret), actor);
+  const connection = await consumeAuthorization(hash(state), hash(browserSecret), actor);
 
   if (!connection) {
     throw new HttpError(400, "The bank callback has expired, has already been used, or belongs to another browser.");
@@ -46,7 +44,7 @@ export async function completeAuthorization(state: string, browserSecret: string
       throw new HttpError(502, "The bank callback does not match the requested connection.");
     }
 
-    releasedSessions = await saveSessionAccounts(env, connection.id, connection.bank_name, session.access.valid_until, session.accounts);
+    releasedSessions = await saveSessionAccounts(connection.id, connection.bank_name, session.access.valid_until, session.accounts);
 
     if (!session.accounts.length) {
       await recordEmptyConnection(connection.id);
@@ -81,5 +79,5 @@ export async function completeAuthorization(state: string, browserSecret: string
 
 /** Consumes the state of an authorization the user cancelled at the bank, so its callback cannot be used afterwards. */
 export async function cancelAuthorization(state: string, browserSecret: string, actor: AuthContext) {
-  await cancelPendingAuthorization(environment(), hash(state), hash(browserSecret), actor);
+  await cancelPendingAuthorization(hash(state), hash(browserSecret), actor);
 }

@@ -51,16 +51,15 @@ async function seed(context: TestContext) {
   process.env.ENABLE_BANKING_ENVIRONMENT = "SANDBOX";
   await db.insert(schema.accounts).values([{
     id: "checking",
-    environment: "SANDBOX",
     name: "Synthetic checking",
     institution: "Example institution",
     kind: "checking"
   }, {
     id: "elsewhere",
-    environment: "PRODUCTION",
-    name: "Synthetic account in another environment",
+    name: "Synthetic archived account",
     institution: "Example institution",
-    kind: "checking"
+    kind: "checking",
+    archived_at: "2000-01-01T00:00:00.000Z"
   }]);
 
   const bookings: {
@@ -193,7 +192,7 @@ test("returning a manual assignment to automatic stores what applying the rules 
   assert.equal(applied["manual-same"], "groceries/manual/none");
   await assert.rejects(updateTransactionCategory("manual-elsewhere", {
     automatic: true
-  }), (error: unknown) => error instanceof HttpError && error.status === 404);
+  }), (error: unknown) => error instanceof HttpError && error.status === 409);
   assert.equal((await assignments(db))["manual-elsewhere"], "leisure/manual/none");
 });
 
