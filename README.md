@@ -33,8 +33,11 @@ See [setup and self-hosting](docs/setup.md) for installation instructions, or th
 - [Feature comparison](docs/feature-comparison.md) — current capabilities and development priorities.
 - [Product direction](docs/product-direction.md) — the experience Ufer is working toward.
 - [Backlog](https://github.com/daberni/ufer/issues) — reported problems and requested improvements.
-- [Banking and imports](docs/banking-and-imports.md) — connection behavior, data handling and import formats.
+- [Banking](docs/banking.md) — connection behavior and data handling.
+- [CSV import](docs/csv-import.md) — importing transaction history and balances.
 - [Architecture](docs/architecture.md) — technical structure and decisions for contributors.
+- [Changelog](CHANGELOG.md) — released and upcoming changes.
+- [Branding](docs/branding/README.md) — name, icon and visual identity.
 - [Contributing](CONTRIBUTING.md) — how to propose changes and the checks to run.
 
 Repository documentation and code are maintained in English.

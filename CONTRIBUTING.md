@@ -17,6 +17,7 @@ Thank you for helping improve Ufer. Contributions are accepted only from contrib
 4. Run all checks; they must pass, as they do in CI:
 
    ```sh
+   npm audit --omit=dev --audit-level=high
    npm run lint
    npm run check:styles
    npm run check

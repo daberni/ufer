@@ -12,7 +12,7 @@ adr:
 
 ## Context
 
-Ufer needs the same understandable ownership model for self-hosting and hosting, future SSO, operator-managed bank credentials and strong isolation between customers. The current shared-password/environment model does not provide this.
+Ufer needs the same understandable ownership model for self-hosting and hosting, future SSO, operator-managed bank credentials and strong isolation between customers. The current singleton-workspace model does not isolate customers.
 
 ## Decision
 
@@ -28,4 +28,4 @@ Review the detailed model and permission matrix before implementation. Test swap
 
 ## Notes
 
-[Detailed architecture and ER diagram](../../architecture.md), [banking product journey](../../product-direction.md#bank-connection-experience-and-credential-ownership).
+[Detailed target architecture and ER diagram](../../architecture-target.md), [banking product journey](../../product-direction.md#bank-connection-experience-and-credential-ownership).

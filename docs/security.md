@@ -1,6 +1,6 @@
 # Security boundaries and maintained libraries
 
-The working-tree implementation uses Better Auth for individual username/password authentication and jose for Enable Banking application JWTs. The hosted installation remains on its previous login until an explicitly approved migration and rollout. See [user management](user-management.md) for configuration, enrollment, access limits and rollout effects.
+Ufer uses Better Auth for individual username/password authentication and jose for Enable Banking application JWTs. See [user management](user-management.md) for configuration, enrollment and access limits.
 
 ## User authentication and financial authorization
 
@@ -38,9 +38,9 @@ Trade-off: per-client counting stops one client from locking every user out of s
 
 The [provider client](../src/features/banking/server/enable-banking-client.ts) uses jose's SignJWT for RS256, issuer/audience claims, application key ID and a five-minute expiry. Node's key parser handles standard RSA PEM input; Ufer does not assemble or sign base64 JWT segments itself. Bank consent is browser-bound and single-use, additionally bound to the initiating user, exact live authentication session and active workspace membership; a successful bank callback does not sign a user into Ufer.
 
-Provider responses are validated with zod schemas at the provider client before any value is used or stored; see [bank data validation](banking-and-imports.md). The API authenticates Ufer by JWT and the response by TLS; there is no response signature, so this validation protects against unexpected shapes, not tampering. Rejections log only the failing field paths and issue codes, never provider values.
+Provider responses are validated with zod schemas at the provider client before any value is used or stored; see [bank data validation](banking.md). The API authenticates Ufer by JWT and the response by TLS; there is no response signature, so this validation protects against unexpected shapes, not tampering. Rejections log only the failing field paths and issue codes, never provider values.
 
-The [secret-box module](../src/server/security/secret-box.ts) is a small adapter over Node's standard AES-256-GCM implementation with an explicit 16-byte authentication tag length. Its IV/tag/ciphertext serialization is already persisted in bank connections. This change preserves that format and DATA_ENCRYPTION_KEY; changing it would require an explicit data migration. An immutable synthetic ciphertext fixture checks that stored values remain readable, and a modified authentication tag is rejected. Do not introduce a second encryption format or copy secrets into session cookies.
+The [secret-box module](../src/server/security/secret-box.ts) is a small adapter over Node's standard AES-256-GCM implementation with an explicit 16-byte authentication tag length. Its IV/tag/ciphertext serialization is already persisted in bank connections. The format and DATA_ENCRYPTION_KEY are kept; changing it would require an explicit data migration. An immutable synthetic ciphertext fixture checks that stored values remain readable, and a modified authentication tag is rejected. Do not introduce a second encryption format or copy secrets into session cookies.
 
 ### Rotating DATA_ENCRYPTION_KEY
 
@@ -72,6 +72,10 @@ Scheduler bearer checks and one-time-token digests live in shared job/security i
 Trade-off: an injected inline script would run. A per-request nonce policy would block it, but needs a proxy on every page request, development exceptions and replacements for Next.js pages that inline unnonced styles. Ufer renders no untrusted HTML (React escapes all output and there is no `dangerouslySetInnerHTML`), so the fixed policy keeps the origin, framing, plugin and form restrictions at a fraction of the complexity. Revisit this if untrusted HTML is ever rendered.
 
 The other headers are a Permissions-Policy that disables browser features Ufer does not use, `Strict-Transport-Security: max-age=31536000` (browsers ignore it over plain HTTP; no `includeSubDomains`, because self-hosted installations do not own their parent domain; no preload) and `poweredByHeader: false`, alongside `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer` and `Cache-Control: no-store`.
+
+## Dependencies and supply chain
+
+CI rejects high/critical advisories in production dependencies and runs lint, stylesheet checks, type checking, behavior tests, and a production build without real banking credentials. GitHub Actions use version tags. Dependabot checks npm and Actions weekly and waits until ordinary releases are at least seven days old, grouping production dependencies, development dependencies and Actions separately. [Security updates](https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference#cooldown) bypass this cooldown and the weekly version-update schedule; they are not grouped with routine updates. Updates still require review and passing CI and are not automatically merged. Dependabot cannot identify an arbitrary non-security hotfix from its version number; urgent fixes can be updated manually without waiting for the routine schedule.
 
 ## Ownership and verification
 

@@ -1,5 +1,7 @@
 # Functional review: Ufer and existing personal-finance tools
 
+> Snapshot of 2026-11-15. It describes Ufer as it was then; see the [feature comparison](feature-comparison.md) for the current state.
+
 Reviewed: **2026-11-15**. This is a workflow and evidence review, not a completed migration trial or a comparative performance benchmark. See the [feature matrix](feature-comparison.md) for tracked implementation status and [product direction](product-direction.md) for accepted requirements.
 
 ## Assessment

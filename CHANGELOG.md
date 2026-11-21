@@ -2,6 +2,23 @@
 
 All notable changes to Ufer are documented here. Versions follow [Semantic Versioning](https://semver.org/); each release is tagged with its plain version (for example `0.1.0`) on `main`.
 
+## [Unreleased]
+
+### Accounts
+
+- Disconnected bank accounts can be converted to manual accounts or deleted permanently ([#264](https://github.com/daberni/ufer/pull/264)).
+- Bookings on archived accounts can still be categorized, split and edited ([#272](https://github.com/daberni/ufer/pull/272)).
+
+### Transactions and imports
+
+- Split saves and mapped CSV import batches are saved atomically ([#265](https://github.com/daberni/ufer/pull/265)).
+- Buxfer investment purchases and sales are imported as hidden bookings ([#270](https://github.com/daberni/ufer/pull/270)).
+- CSV rows are matched against earlier imports of other files ([#273](https://github.com/daberni/ufer/pull/273)).
+
+### Operations
+
+- Each database serves one banking environment; changeset 0016 drops the per-row environment column ([#263](https://github.com/daberni/ufer/pull/263)).
+
 ## [0.2.0] - 2026-11-21
 
 ### Transactions
@@ -75,5 +92,6 @@ First release of Ufer, a self-hosted personal finance overview for one household
 - Deployment on Vercel with a Turso (libSQL) database, versioned SQL migrations, Docker and Compose for self-hosting.
 - Preview deployments for pull requests with a shared synthetic demo dataset (`npm run demo:seed`) and a sandbox bank connection.
 
+[Unreleased]: https://github.com/daberni/ufer/compare/0.2.0...main
 [0.2.0]: https://github.com/daberni/ufer/releases/tag/0.2.0
 [0.1.0]: https://github.com/daberni/ufer/releases/tag/0.1.0
