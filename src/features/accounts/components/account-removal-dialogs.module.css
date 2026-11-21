@@ -1,6 +1,3 @@
-.delete {
-  color: var(--danger-text);
-}
 .danger {
   composes: button from "../../../components/ui/primitives.module.css";
   background: var(--danger);

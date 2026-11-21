@@ -30,6 +30,7 @@ import { accountGroups, showsCurrencySelect } from "../src/features/accounts/que
 import { showsSync } from "../src/features/dashboard/sync-visibility";
 import type { Account } from "../src/features/accounts/types";
 import { browser, respond, wait, withQueryClient } from "./fixtures/browser";
+import { chooseMenuItem } from "./fixtures/action-menu";
 import { stubCssModules } from "./fixtures/css-modules";
 
 stubCssModules();
@@ -1165,9 +1166,7 @@ test("a bank-synced account with a balance of 0 is archived directly and offers 
   assert.equal(bank.screen.queryByRole("button", {
     name: /Update balance/
   }), null);
-  act(() => fireEvent.click(bank.screen.getByRole("button", {
-    name: "Archive account"
-  })));
+  await chooseMenuItem(bank.screen, "Archive account");
   await wait(0);
   assert.equal(bank.requests("accounts/manual%2Fcash/archive")[0].method, "PUT");
 });
@@ -1177,11 +1176,9 @@ test("a manual account with a remaining balance is closed through a dialog that 
     screen,
     requests
   } = await renderDetails(context, manualAccount);
-  const openDialog = () => act(() => fireEvent.click(screen.getByRole("button", {
-    name: "Archive account"
-  })));
+  const openDialog = () => chooseMenuItem(screen, "Archive account");
 
-  openDialog();
+  await openDialog();
   act(() => fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", {
     name: "Cancel"
   })));
@@ -1189,7 +1186,7 @@ test("a manual account with a remaining balance is closed through a dialog that 
   assert.equal(screen.queryByRole("dialog"), null);
   assert.equal(requests("accounts/manual%2Fcash/archive").length, 0);
 
-  openDialog();
+  await openDialog();
   const dialog = within(screen.getByRole("dialog"));
 
   act(() => {
@@ -1221,9 +1218,7 @@ test("a bank-linked account with a remaining balance explains why it cannot be a
     provider: "enable_banking"
   });
 
-  act(() => fireEvent.click(screen.getByRole("button", {
-    name: "Archive account"
-  })));
+  await chooseMenuItem(screen, "Archive account");
   const dialog = within(screen.getByRole("dialog"));
 
   assert.ok(dialog.getByText(/follows its bank bookings/));
@@ -1240,9 +1235,7 @@ test("a manual account without bookings is archived directly", async context => 
     balance_minor: null
   });
 
-  act(() => fireEvent.click(screen.getByRole("button", {
-    name: "Archive account"
-  })));
+  await chooseMenuItem(screen, "Archive account");
   await wait(0);
   assert.equal(screen.queryByRole("dialog"), null);
   assert.equal(requests("accounts/manual%2Fcash/archive")[0].method, "PUT");
@@ -1259,9 +1252,7 @@ test("an archived account offers restore and no balance update", async context =
   assert.equal(archived.screen.queryByRole("button", {
     name: /Update balance/
   }), null);
-  act(() => fireEvent.click(archived.screen.getByRole("button", {
-    name: "Restore account"
-  })));
+  await chooseMenuItem(archived.screen, "Restore account");
   await wait(0);
   const [restore] = archived.requests("accounts/manual%2Fcash/archive");
 

@@ -95,7 +95,14 @@ export async function reconcileWithReportedBalance(account: {
       return false;
     }
 
-    await recordManualBalance(tx, account, reported.date, reported.amount);
+    // The report may already contain bookings dated after it, as the shown difference allows; then nothing is off.
+    const total = await tx.select({
+      amount: sql<number>`COALESCE(SUM(${transactions.amount_minor}),0)`.mapWith(Number)
+    }).from(transactions).where(and(eq(transactions.account_id, account.id), isNull(transactions.suppressed_at))).get();
+
+    if (total?.amount !== reported.amount) {
+      await recordManualBalance(tx, account, reported.date, reported.amount);
+    }
 
     return true;
   });

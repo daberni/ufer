@@ -18,8 +18,11 @@ const latestReport = sql`(SELECT s.id FROM ${balanceSnapshots} s WHERE s.account
 const reportedBalance = sql<number | null>`(SELECT ${balanceSnapshots.amount_minor} FROM ${balanceSnapshots} WHERE ${balanceSnapshots.id}=${latestReport})`;
 const reportedBalanceDate = sql<string | null>`(SELECT ${balanceSnapshots.observed_at} FROM ${balanceSnapshots} WHERE ${balanceSnapshots.id}=${latestReport})`;
 const comparableTypes = sql.join(comparableBankBalanceTypes.map(type => sql`${type}`), sql`,`);
-// Reported minus calculated balance at the end of the reported date; NULL when the newest report is not a booked balance.
-const reportedDifference = sql<number | null>`(SELECT ${balanceSnapshots.amount_minor}-COALESCE((SELECT SUM(t.amount_minor) FROM ${transactions} t WHERE t.account_id=${accounts.id} AND t.suppressed_at IS NULL AND t.booking_date<=${balanceSnapshots.observed_at}),0) FROM ${balanceSnapshots} WHERE ${balanceSnapshots.id}=${latestReport} AND ${balanceSnapshots.bank_balance_type} IN (${comparableTypes}))`;
+// Bookings through the reported date, and all bookings: a bank may date a weekend booking on the next business day while its same-day balance already contains it.
+const bookedThroughReport = sql`COALESCE((SELECT SUM(t.amount_minor) FROM ${transactions} t WHERE t.account_id=${accounts.id} AND t.suppressed_at IS NULL AND t.booking_date<=${balanceSnapshots.observed_at}),0)`;
+const bookedInTotal = sql`COALESCE((SELECT SUM(t.amount_minor) FROM ${transactions} t WHERE t.account_id=${accounts.id} AND t.suppressed_at IS NULL),0)`;
+// Reported minus calculated balance at the end of the reported date, 0 when the report matches either reading; NULL when the newest report is not a booked balance.
+const reportedDifference = sql<number | null>`(SELECT CASE WHEN ${balanceSnapshots.amount_minor}=${bookedInTotal} THEN 0 ELSE ${balanceSnapshots.amount_minor}-${bookedThroughReport} END FROM ${balanceSnapshots} WHERE ${balanceSnapshots.id}=${latestReport} AND ${balanceSnapshots.bank_balance_type} IN (${comparableTypes}))`;
 
 const lastBookingDate = sql<string | null>`(SELECT MAX(${transactions.booking_date}) FROM ${transactions} WHERE ${transactions.account_id}=${accounts.id} AND ${transactions.suppressed_at} IS NULL)`;
 

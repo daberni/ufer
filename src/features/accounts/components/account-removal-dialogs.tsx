@@ -1,7 +1,7 @@
 "use client";
 
 import ui from "../../../components/ui/primitives.module.css";
-import styles from "./account-removal-actions.module.css";
+import styles from "./account-removal-dialogs.module.css";
 
 import { useState } from "react";
 import { clsx } from "clsx";
@@ -16,40 +16,33 @@ import { money } from "@/lib/money";
 import { useConvertToManualAccount, useDeleteAccount } from "@/features/accounts/mutations";
 import type { Account } from "@/features/accounts/types";
 
-/** Converting and deleting apply only to accounts without a bank connection; a linked bank account is disconnected first. */
-export function AccountRemovalActions({ account }: {
-  account: Account
+/** Converting applies only to a bank account without a connection; its bookings and history stay. */
+export function ConvertAccountDialog({
+  account,
+  close
+}: {
+  account: Account;
+  close: () => void
 }) {
-  const [dialog, setDialog] = useState<"convert" | "delete" | null>(null);
-  const close = () => setDialog(null);
-
-  if (account.requisition_id !== null) {
-    return null;
-  }
-
   return (
-    <>
-      {account.provider !== "manual" && (
-        <button className={ui["button"]} onClick={() => setDialog("convert")}>
-          <PenLine size={15} />
-          Convert to manual account
-        </button>
-      )}
-      <button className={clsx(ui["button"], styles["delete"])} onClick={() => setDialog("delete")}>
-        <Trash2 size={15} />
-        Delete account
-      </button>
-      {dialog === "convert" && (
-        <Dialog eyebrow="YOUR FINANCES" title="Convert to manual account" onClose={close}>
-          <ConvertForm account={account} close={close} />
-        </Dialog>
-      )}
-      {dialog === "delete" && (
-        <Dialog eyebrow="YOUR FINANCES" title="Delete account" onClose={close}>
-          <DeleteForm account={account} close={close} />
-        </Dialog>
-      )}
-    </>
+    <Dialog eyebrow="YOUR FINANCES" title="Convert to manual account" onClose={close}>
+      <ConvertForm account={account} close={close} />
+    </Dialog>
+  );
+}
+
+/** Deleting applies only to accounts without a bank connection and is confirmed with the account's exact name. */
+export function DeleteAccountDialog({
+  account,
+  close
+}: {
+  account: Account;
+  close: () => void
+}) {
+  return (
+    <Dialog eyebrow="YOUR FINANCES" title="Delete account" onClose={close}>
+      <DeleteForm account={account} close={close} />
+    </Dialog>
   );
 }
 

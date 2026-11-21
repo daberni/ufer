@@ -1,0 +1,89 @@
+.summary {
+  display: flex;
+  flex-direction: column;
+}
+.header {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+.identity {
+  display: grid;
+  flex: 1;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.name {
+  font-size: var(--text-lg);
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+.meta {
+  color: var(--muted);
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+}
+.balance-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-6);
+}
+.balance-edit {
+  flex-shrink: 0;
+}
+@media (pointer: coarse) {
+  .balance-edit {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+.balance {
+  display: block;
+  min-width: 0;
+  font-size: var(--text-3xl);
+  font-weight: 500;
+  letter-spacing: -0.8px;
+  overflow-wrap: anywhere;
+}
+.status {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+.status > [aria-hidden="true"] {
+  transform: translateY(-1px);
+}
+.idle {
+  background: var(--muted);
+}
+.notice {
+  align-items: flex-start;
+  margin: var(--space-4) 0 0;
+}
+.notice > svg {
+  flex: none;
+  margin-top: var(--space-1);
+}
+.notice-body {
+  display: grid;
+  gap: var(--space-3);
+  justify-items: start;
+}
+.notice-body p {
+  margin: 0;
+}
+/* A long bank name wraps inside the narrow summary column instead of overflowing it. */
+.notice-body > :is(button, a) {
+  max-width: 100%;
+  white-space: normal;
+  text-align: left;
+}
+@media (--mobile) {
+  .notice-body > :is(button, a) {
+    width: 100%;
+  }
+}

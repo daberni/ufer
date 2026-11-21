@@ -25,6 +25,7 @@ import { createRule, updateRuleDetails } from "../src/features/categorization/se
 import { syncLease } from "../src/server/jobs/lease";
 import type { Account } from "../src/features/accounts/types";
 import { browser, wait, withQueryClient } from "./fixtures/browser";
+import { chooseMenuItem, menuItem, queryMenuItem } from "./fixtures/action-menu";
 import { stubCssModules } from "./fixtures/css-modules";
 
 stubCssModules();
@@ -599,9 +600,7 @@ test("deleting an account sends no request until its exact name is typed", async
     requests
   } = await renderDetails(context, detachedAccount);
 
-  act(() => fireEvent.click(screen.getByRole("button", {
-    name: "Delete account"
-  })));
+  await chooseMenuItem(screen, "Delete account");
   const dialog = within(screen.getByRole("dialog"));
   const typeName = (value: string) => act(() => fireEvent.change(dialog.getByLabelText("Type the account name to confirm"), {
     target: {
@@ -636,18 +635,14 @@ test("a disconnected bank account offers conversion, which converts it after con
     requests
   } = await renderDetails(context, detachedAccount);
 
-  act(() => fireEvent.click(screen.getByRole("button", {
-    name: "Convert to manual account"
-  })));
+  await chooseMenuItem(screen, "Convert to manual account");
   assert.deepEqual(requests("accounts/bank%2Fold/manual"), []);
   act(() => fireEvent.submit(within(screen.getByRole("dialog")).getByRole("button", {
     name: "Convert"
   })));
   await wait(0);
   assert.equal(requests("accounts/bank%2Fold/manual")[0].method, "PUT");
-  assert.ok(screen.getByRole("button", {
-    name: "Delete account"
-  }));
+  assert.ok(await menuItem(screen, "Delete account"));
 });
 
 test("a manual account offers deletion but no conversion", async context => {
@@ -656,12 +651,8 @@ test("a manual account offers deletion but no conversion", async context => {
     provider: "manual"
   });
 
-  assert.equal(screen.queryByRole("button", {
-    name: "Convert to manual account"
-  }), null);
-  assert.ok(screen.getByRole("button", {
-    name: "Delete account"
-  }));
+  assert.equal(await queryMenuItem(screen, "Convert to manual account"), null);
+  assert.ok(await menuItem(screen, "Delete account"));
 });
 
 test("a bank account with an active connection offers neither deletion nor conversion", async context => {
@@ -670,10 +661,6 @@ test("a bank account with an active connection offers neither deletion nor conve
     requisition_id: "linked"
   });
 
-  assert.equal(screen.queryByRole("button", {
-    name: "Delete account"
-  }), null);
-  assert.equal(screen.queryByRole("button", {
-    name: "Convert to manual account"
-  }), null);
+  assert.equal(await queryMenuItem(screen, "Delete account"), null);
+  assert.equal(await queryMenuItem(screen, "Convert to manual account"), null);
 });
