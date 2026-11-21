@@ -789,7 +789,7 @@ test("a bank account with a balance of 0 is not archived while a sync holds the 
   await db.update(schema.accounts).set({
     balance_minor: 0
   }).where(eq(schema.accounts.id, "bank"));
-  assert.equal(await acquireLease(db, "sync:SANDBOX", "synthetic-sync"), true);
+  assert.equal(await acquireLease("sync:SANDBOX", "synthetic-sync"), true);
   await assert.rejects(archiveAccount("bank", {}), {
     status: 409,
     message: "A sync is running. Archive the account after it has finished."
@@ -825,7 +825,7 @@ test("a manual account without bookings has a balance of 0, while an unknown ban
   await db.update(schema.accounts).set({
     requisition_id: "connection"
   }).where(eq(schema.accounts.id, "bank"));
-  const removal = await removeConnection(db, "SANDBOX", "connection", Temporal.Now.instant(), null, "2026-11-01T00:00:00.000Z");
+  const removal = await removeConnection("SANDBOX", "connection", Temporal.Now.instant(), null, "2026-11-01T00:00:00.000Z");
 
   assert.deepEqual(removal, {
     outcome: "removed",

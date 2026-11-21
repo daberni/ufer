@@ -581,9 +581,9 @@ test("a later bank sync adopts the matching CSV-imported row with its category i
     }],
     confirm: true
   }, now);
-  await startSyncRun(db, "SANDBOX", "adopt", "2026-06-30T08:00:00.000Z");
+  await startSyncRun("SANDBOX", "adopt", "2026-06-30T08:00:00.000Z");
 
-  const inserted = await saveAccountSync(db, {
+  const inserted = await saveAccountSync({
     environment: "SANDBOX",
     startedAt: "2026-06-30T08:00:00.000Z"
   }, "synthetic-bank-account", "EUR", [{
@@ -984,7 +984,7 @@ test("a bank entry repeated in one response adopts only one CSV-imported row", a
     }],
     confirm: true
   }, now);
-  await startSyncRun(db, "SANDBOX", "repeat", "2026-06-30T08:00:00.000Z");
+  await startSyncRun("SANDBOX", "repeat", "2026-06-30T08:00:00.000Z");
 
   const booking = {
     reference: "bank:bistro",
@@ -995,7 +995,7 @@ test("a bank entry repeated in one response adopts only one CSV-imported row", a
     description: ""
   };
 
-  await saveAccountSync(db, {
+  await saveAccountSync({
     environment: "SANDBOX",
     startedAt: "2026-06-30T08:00:00.000Z"
   }, "synthetic-bank-account", "EUR", [{

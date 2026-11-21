@@ -1,7 +1,7 @@
 import { adoptImportedRows } from "@/features/imports/server/mapped-import-repository";
 import { randomUUID } from "node:crypto";
 import { and, count, eq, getTableColumns, isNull, like, ne, sql, type SQLWrapper } from "drizzle-orm";
-import type { Database } from "@/server/database/connection";
+import { database } from "@/server/database/connection";
 import { timestamp } from "@/lib/time";
 import { accounts, balanceSnapshots, requisitions, syncRuns, transactions } from "@/server/database/schema";
 import { upsertTransactions, withStoredOverrides } from "@/features/transactions/server/transaction-repository";
@@ -35,7 +35,9 @@ export const linkedTransactionCount = sql<number>`(SELECT COUNT(*) FROM ${transa
 })})`;
 
 /** Linked bank accounts to sync; archived accounts are skipped until restored, when the sync window covers what they missed. */
-export async function listSyncAccounts(db: Database, environment: string) {
+export async function listSyncAccounts(environment: string) {
+  const db = await database();
+
   return db.select({
     ...getTableColumns(accounts),
     connection_id: requisitions.id,
@@ -44,7 +46,9 @@ export async function listSyncAccounts(db: Database, environment: string) {
   }).from(accounts).innerJoin(requisitions, eq(requisitions.id, accounts.requisition_id)).where(and(eq(accounts.environment, environment), eq(accounts.provider, "enable_banking"), isNull(accounts.archived_at), ne(requisitions.status, "REMOVED")));
 }
 
-export async function startSyncRun(db: Database, environment: string, id: string, started: string) {
+export async function startSyncRun(environment: string, id: string, started: string) {
+  const db = await database();
+
   await db.transaction(async tx => {
     await tx.update(syncRuns).set({
       status: "INTERRUPTED",
@@ -61,7 +65,9 @@ export async function startSyncRun(db: Database, environment: string, id: string
   });
 }
 
-export async function finishSyncRun(db: Database, id: string, status: "PARTIAL" | "SUCCESS" | "FAILED", error: string | null) {
+export async function finishSyncRun(id: string, status: "PARTIAL" | "SUCCESS" | "FAILED", error: string | null) {
+  const db = await database();
+
   await db.update(syncRuns).set({
     status,
     finished_at: timestamp(),
@@ -71,7 +77,9 @@ export async function finishSyncRun(db: Database, id: string, status: "PARTIAL" 
 }
 
 /** Marks a run interrupted unless a competing sync already finalized it. */
-export async function interruptSyncRun(db: Database, id: string, error: string) {
+export async function interruptSyncRun(id: string, error: string) {
+  const db = await database();
+
   await db.update(syncRuns).set({
     status: "INTERRUPTED",
     finished_at: timestamp(),
@@ -80,18 +88,22 @@ export async function interruptSyncRun(db: Database, id: string, error: string) 
   }).where(and(eq(syncRuns.id, id), eq(syncRuns.status, "RUNNING")));
 }
 
-export async function recordAccountSyncError(db: Database, id: string, environment: string, error: string) {
+export async function recordAccountSyncError(id: string, environment: string, error: string) {
+  const db = await database();
+
   await db.update(accounts).set({
     sync_error: error
   }).where(and(eq(accounts.id, id), eq(accounts.environment, environment)));
 }
 
 /** Stores one account's sync result and returns how many of its transactions this run inserted. Entries are categorized in the write transaction, with the overrides stored for the rows they update. */
-export async function saveSyncedAccount(db: Database, run: SyncRunStart, accountId: string, balance: {
+export async function saveSyncedAccount(run: SyncRunStart, accountId: string, balance: {
   amount: number;
   bank_balance_type: string;
   date: string
 }, entries: Entry[], categorize: (entries: Awaited<ReturnType<typeof withStoredOverrides<Entry>>>) => CategorizedEntry[]) {
+  const db = await database();
+
   return db.transaction(async tx => {
     const categorized = categorize(await withStoredOverrides(tx, accountId, entries));
 
