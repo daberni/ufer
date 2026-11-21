@@ -1,6 +1,6 @@
 import { Temporal } from "temporal-polyfill";
 import type { Entry, ProviderDetails } from "@/features/transactions/server/transaction-entry";
-import { demoAccounts, demoReferencePrefix, type DemoAccountDefinition, type DemoAccountKey } from "./demo-catalog";
+import { demoAccounts, demoConnections, demoReferencePrefix, type DemoAccountDefinition, type DemoAccountKey, type DemoConnectionKey } from "./demo-catalog";
 import { DemoRandom } from "./demo-random";
 
 /** Length of the generated history; it always ends on the run date. */
@@ -17,6 +17,37 @@ export type DemoAccountData = DemoAccountDefinition & {
   entries: Entry[];
   /** Market values recorded with Update balance; each books the difference to the transactions as an adjustment. */
   valuations: DemoSnapshot[];
+  /** The balance at the end of the last synced day; bank-connected accounts report it as their latest bank balance. */
+  reported: DemoSnapshot;
+};
+
+/** A booking divided into category parts that add up to its amount, as a person does in the split dialog. */
+export type DemoSplit = {
+  accountId: string;
+  reference: string;
+  parts: {
+    amount: number;
+    categoryId: string;
+    note: string;
+  }[];
+};
+
+/** A simulated bank connection with the times it was granted and expires. */
+export type DemoConnectionData = {
+  id: string;
+  bankName: string;
+  grantedAt: string;
+  validUntil: string;
+};
+
+/** A recorded sync run; the seed writes the history only and never runs a sync. */
+export type DemoSyncRun = {
+  id: string;
+  startedAt: string;
+  finishedAt: string;
+  status: "SUCCESS" | "PARTIAL";
+  insertedCount: number;
+  error: string | null;
 };
 
 /** A transfer whose counterpart the seed creates on a manual account, as a person does in the edit dialog. */
@@ -31,6 +62,11 @@ export type DemoDataset = {
   runDate: string;
   accounts: DemoAccountData[];
   createdCounterparts: DemoCreatedCounterpart[];
+  splits: DemoSplit[];
+  connections: DemoConnectionData[];
+  syncRuns: DemoSyncRun[];
+  /** When the connected accounts were last synced: the latest recorded run. */
+  lastSyncedAt: string;
 };
 
 type PlainDate = Temporal.PlainDate;
@@ -40,10 +76,14 @@ type PlainYearMonth = Temporal.PlainYearMonth;
 // Balances in minor units on the first day of the history; the checking balance is derived from its cash flow.
 const openingBalances: Record<DemoAccountKey, number> = {
   checking: 0,
+  onlineChecking: 0,
+  joint: 0,
+  cash: 0,
   savings: 980000,
   creditCard: 0,
   investment: 1840000,
   property: 26800000,
+  car: 2150000,
   loan: -17240000
 };
 
@@ -184,12 +224,18 @@ function isBetween(date: PlainDate, first: PlainDate, last: PlainDate) {
 class Ledger {
   readonly entries: Record<DemoAccountKey, Entry[]> = {
     checking: [],
+    onlineChecking: [],
+    joint: [],
+    cash: [],
     savings: [],
     creditCard: [],
     investment: [],
     property: [],
+    car: [],
     loan: []
   };
+
+  readonly splits: DemoSplit[] = [];
 
   readonly openings = {
     ...openingBalances
@@ -212,9 +258,16 @@ class Ledger {
     return isBetween(date, this.firstDate, this.runDate);
   }
 
-  /** Books an entry and returns its reference; dates outside the history and zero amounts are skipped. */
+  /** Bank-connected accounts end on the day before the run date, the last day a recorded sync fetched. */
+  bookable(account: DemoAccountKey, date: PlainDate) {
+    const afterLastSync = Boolean(demoAccounts[account].bank) && Temporal.PlainDate.compare(date, this.runDate) >= 0;
+
+    return this.covers(date) && !afterLastSync;
+  }
+
+  /** Books an entry and returns its reference; dates outside the history, after the last sync and zero amounts are skipped. */
   book(account: DemoAccountKey, date: PlainDate, amount: number, counterparty: string, description: string, transfer = false, provider?: ProviderDetails) {
-    if (!this.covers(date) || amount === 0) {
+    if (!this.bookable(account, date) || amount === 0) {
       return undefined;
     }
 
@@ -237,6 +290,11 @@ class Ledger {
 
   /** Books both sides of a transfer between own accounts; the seed links them as one transfer, which keeps them out of income and expenses. */
   transfer(from: DemoAccountKey, to: DemoAccountKey, date: PlainDate, amount: number, description: string) {
+    // Both sides or neither: a bank side after the last sync would leave the other side without its counterpart.
+    if (!this.bookable(from, date) || !this.bookable(to, date)) {
+      return;
+    }
+
     this.book(from, date, -amount, demoAccounts[to].name, description, true);
     this.book(to, date, amount, demoAccounts[from].name, description, true);
   }
@@ -252,6 +310,20 @@ class Ledger {
         reference,
         date: date.toString(),
         amount
+      });
+    }
+  }
+
+  /** Books an expense divided into category parts; the booking's amount is the sum of its parts. */
+  bookSplit(account: DemoAccountKey, date: PlainDate, counterparty: string, description: string, parts: DemoSplit["parts"]) {
+    const amount = parts.reduce((total, part) => total + part.amount, 0);
+    const reference = this.book(account, date, amount, counterparty, description);
+
+    if (reference) {
+      this.splits.push({
+        accountId: demoAccounts[account].id,
+        reference,
+        parts
       });
     }
   }
@@ -278,8 +350,9 @@ function bookIncome({
   runMonth
 }: MonthContext) {
   const raise = latestMonthOfYear(3, runMonth);
-  const salary = Temporal.PlainYearMonth.compare(month, raise) >= 0 ? 392875 : 381240;
-  const payday = lastBusinessDay(month);
+  const salary = Temporal.PlainYearMonth.compare(month, raise) >= 0 ? 429875 : 418240;
+  // Paid at the start of the month it covers, so the current month on the overview already includes it.
+  const payday = businessDay(dayOf(month, 1));
   const rentDay = businessDay(dayOf(month, random.chance(0.08) ? 9 : 3));
 
   ledger.book("checking", payday, salary, "Alder & Finch Engineering Ltd", `Salary ${monthLabel(month)}`);
@@ -327,9 +400,10 @@ function bookContracts({
   ledger.book("checking", businessDay(dayOf(month, 1)), -4280, "Guardian Mutual", "Supplementary health insurance");
   ledger.book("checking", businessDay(dayOf(month, 1)), -3650, "City Transit", "Annual pass, monthly instalment");
   ledger.book("checking", businessDay(dayOf(month, 3)), -3990, "Peak Form Gym", "Membership fee");
-  ledger.book("checking", businessDay(dayOf(month, 8)), -3990, "Fibrenet Broadband", "Internet 250 Mbit/s");
+  ledger.book("joint", businessDay(dayOf(month, 8)), -3990, "Fibrenet Broadband", "Internet 250 Mbit/s");
   ledger.book("checking", businessDay(dayOf(month, 10)), -1500, "Community Food Bank", "Monthly donation");
-  ledger.book("checking", businessDay(dayOf(month, 15)), -8400, "Brightline Energy", "Electricity instalment, customer 40-1187");
+  ledger.book("joint", businessDay(dayOf(month, 15)), -8400, "Brightline Energy", "Electricity instalment, customer 40-1187");
+  ledger.book("checking", businessDay(dayOf(month, 1)), -4870, "Shieldwell Insurance", "Car insurance, policy KFZ-7310");
   ledger.book("checking", businessDay(dayOf(month, 20)), -1990, "Lumen Mobile", "Mobile plan");
   ledger.book("creditCard", dayOf(month, 7), -streamingPrice, "Streamflix", "Streaming subscription");
   ledger.book("creditCard", dayOf(month, 12), -1099, "Tunewave Music", "Music subscription");
@@ -383,6 +457,10 @@ function bookYearlyItems({
       break;
     case 9:
       ledger.book("checking", businessDay(dayOf(month, 1)), -8900, "Shieldwell Insurance", "Personal liability insurance");
+      ledger.book("checking", dayOf(month, 18), -41860, "Autocare Garage", "Annual car service and inspection");
+      break;
+    case 12:
+      ledger.book("onlineChecking", dayOf(month, 6), -10340, "Motorway Vignette Shop", `Annual motorway vignette ${month.year + 1}`);
       break;
     case 10:
       ledger.book("checking", dayOf(month, 14), -9500, "Smilewell Dental Practice", "Check-up and cleaning");
@@ -396,8 +474,11 @@ function bookSavings({
 }: MonthContext) {
   ledger.transfer("checking", "savings", businessDay(dayOf(month, 2)), 35000, "Standing order, emergency fund");
   ledger.transfer("checking", "investment", businessDay(dayOf(month, 5)), 30000, "Savings plan, Global Equity ETF");
+  ledger.transfer("checking", "joint", businessDay(dayOf(month, 1)), 66000, "Household budget contribution");
+  ledger.transfer("checking", "onlineChecking", businessDay(dayOf(month, 2)), 26000, "Monthly allowance");
   // A transfer to an account not tracked in Ufer: it has no counterpart.
-  ledger.book("checking", businessDay(dayOf(month, 15)), -25000, "Joint household account", "Household budget contribution", true);
+  ledger.book("checking", businessDay(dayOf(month, 3)), -5000, "Junior savings account", "Children's savings plan", true);
+  ledger.transfer("checking", "cash", businessDay(dayOf(month, 9)), month.month === 12 ? 12000 : 8000, "ATM withdrawal, Linden Street branch");
 
   if (month.month % 3 === 0) {
     ledger.book("investment", businessDay(dayOf(month, 15)), 3800 + month.month * 270, "Northwind Brokerage", "Dividend distribution, Global Equity ETF");
@@ -511,23 +592,23 @@ function bookDay(ledger: Ledger, random: DemoRandom, day: PlainDate) {
   const festive = december && day.day >= 14 ? 1.35 : 1;
 
   if (weekday === 6) {
-    ledger.book("checking", day, -Math.round(random.amount(52, 104) * festive), "Greenleaf Market", "Debit card purchase");
+    ledger.book("joint", day, -Math.round(random.amount(52, 104) * festive), "Greenleaf Market", "Debit card purchase");
 
     if (random.chance(0.45)) {
-      ledger.book("checking", day, -random.amount(11, 29), "Linden Farmers Market", "Debit card purchase");
+      ledger.book("cash", day, -random.amount(11, 29), "Linden Farmers Market", "Cash payment");
     }
   }
 
   if ((weekday === 2 || weekday === 4) && random.chance(0.75)) {
-    ledger.book("checking", day, -Math.round(random.amount(8.5, 36) * festive), "Daily Basket", "Debit card purchase");
+    ledger.book("joint", day, -Math.round(random.amount(8.5, 36) * festive), "Daily Basket", "Debit card purchase");
   }
 
   if (weekend && random.chance(0.5)) {
-    ledger.book("checking", day, -random.amount(3.8, 11.5), "Golden Crust Bakery", "Debit card purchase");
+    ledger.book("cash", day, -random.amount(3.8, 11.5), "Golden Crust Bakery", "Cash payment");
   }
 
   if (!weekend && random.chance(0.3)) {
-    ledger.book("checking", day, -random.amount(6.4, 9.8), "Staff canteen", "Lunch");
+    ledger.book("onlineChecking", day, -random.amount(6.4, 9.8), "Staff canteen", "Lunch");
   }
 
   if (random.chance(weekday >= 5 && weekday <= 6 ? 0.35 : 0.08)) {
@@ -551,11 +632,11 @@ function bookDay(ledger: Ledger, random: DemoRandom, day: PlainDate) {
   }
 
   if (random.chance(weekend ? 0.1 : 0.03)) {
-    ledger.book("checking", day, -random.amount(11.5, 26), "Riverside Cinema", "Debit card purchase");
+    ledger.book("onlineChecking", day, -random.amount(11.5, 26), "Riverside Cinema", "Debit card purchase");
   }
 
   if (random.chance(0.03)) {
-    ledger.book("checking", day, -random.amount(9, 34), "Old Town Bookshop", "Debit card purchase");
+    ledger.book("onlineChecking", day, -random.amount(9, 34), "Old Town Bookshop", "Debit card purchase");
   }
 
   if (random.chance(0.012)) {
@@ -567,11 +648,15 @@ function bookDay(ledger: Ledger, random: DemoRandom, day: PlainDate) {
   }
 
   if (day.month >= 6 && day.month <= 8 && weekend && random.chance(0.5)) {
-    ledger.book("checking", day, -550, "Lido Summer Pool", "Day ticket");
+    ledger.book("cash", day, -550, "Lido Summer Pool", "Day ticket");
   }
 
   if (random.chance(0.04)) {
     ledger.book("checking", day, -random.amount(4.9, 28.6), "Linden Pharmacy", "Debit card purchase");
+  }
+
+  if (random.chance(0.09)) {
+    ledger.book("onlineChecking", day, -random.amount(48, 74), "Fuelstop Service Station", "Debit card purchase");
   }
 
   if (random.chance(0.07)) {
@@ -606,7 +691,7 @@ function bookDay(ledger: Ledger, random: DemoRandom, day: PlainDate) {
   const marketSeason = (day.month === 11 && day.day >= 20) || (december && day.day <= 23);
 
   if (marketSeason && weekday >= 5 && random.chance(0.3)) {
-    ledger.book("checking", day, -random.amount(6, 28), "Winter Market Stalls", "Debit card purchase");
+    ledger.book("cash", day, -random.amount(6, 28), "Winter Market Stalls", "Cash payment");
   }
 }
 
@@ -627,6 +712,33 @@ function bookOneOffs(ledger: Ledger, runMonth: PlainYearMonth) {
   ledger.book("checking", monthsAgo(3, 6), -68000, "Smilewell Dental Practice", "Dental crown");
   ledger.transferToManual("savings", "loan", businessDay(monthsAgo(8, 16)), 400000, "Special repayment, loan 7741");
   ledger.transferToManual("checking", "loan", businessDay(monthsAgo(2, 16)), 150000, "Special repayment, loan 7741");
+  ledger.bookSplit("checking", monthsAgo(1, 13), "Hometown Department Store", "Debit card purchase", [{
+    amount: -12950,
+    categoryId: "demo-shopping",
+    note: "Winter coat"
+  }, {
+    amount: -5690,
+    categoryId: "demo-gifts",
+    note: "Birthday present"
+  }]);
+  ledger.bookSplit("creditCard", monthsAgo(4, 9), "Parcelbay Marketplace", `Order ${400000 + runMonth.month * 1371}`, [{
+    amount: -16490,
+    categoryId: "demo-shopping",
+    note: "Headphones"
+  }, {
+    amount: -7890,
+    categoryId: "home",
+    note: "Pans and kitchen scale"
+  }]);
+  ledger.bookSplit("joint", monthsAgo(6, 20), "Greenleaf Market", "Debit card purchase", [{
+    amount: -14210,
+    categoryId: "groceries",
+    note: "Weekly shop"
+  }, {
+    amount: -7250,
+    categoryId: "demo-gifts",
+    note: "Gift hamper for the neighbours"
+  }]);
 }
 
 function bookUnmatched(ledger: Ledger) {
@@ -667,13 +779,24 @@ function bookBalanceDependent(ledger: Ledger, firstMonth: PlainYearMonth, runMon
   }
 }
 
-/** Lowest balance the everyday account may reach on any day; its opening balance is chosen to keep this cushion. */
-const checkingCushion = 120000;
+/** Lowest balance each spending account may reach on any day; its opening balance is chosen to keep this cushion. */
+const spendingCushions: Partial<Record<DemoAccountKey, number>> = {
+  checking: 120000,
+  onlineChecking: 18000,
+  joint: 25000,
+  cash: 3000
+};
 
-function chooseCheckingOpening(ledger: Ledger) {
+function chooseSpendingOpenings(ledger: Ledger) {
+  for (const [account, cushion] of Object.entries(spendingCushions) as [DemoAccountKey, number][]) {
+    ledger.openings[account] = openingWithCushion(ledger.entries[account], cushion);
+  }
+}
+
+function openingWithCushion(entries: Entry[], cushion: number) {
   const dailyChanges = new Map<string, number>();
 
-  for (const entry of ledger.entries.checking) {
+  for (const entry of entries) {
     dailyChanges.set(entry.date, (dailyChanges.get(entry.date) ?? 0) + entry.amount);
   }
 
@@ -685,7 +808,7 @@ function chooseCheckingOpening(ledger: Ledger) {
     lowest = Math.min(lowest, running);
   }
 
-  ledger.openings.checking = Math.ceil((checkingCushion - lowest) / 10000) * 10000;
+  return Math.ceil((cushion - lowest) / 10000) * 10000;
 }
 
 function monthEnds(firstMonth: PlainYearMonth, runDate: PlainDate) {
@@ -755,7 +878,34 @@ function propertySnapshots(random: DemoRandom, firstDate: PlainDate, runDate: Pl
   return snapshots;
 }
 
+/** Quarterly car valuations that lose value as the car ages. */
+function carSnapshots(firstDate: PlainDate, runDate: PlainDate) {
+  const snapshots: DemoSnapshot[] = [];
+  let value = openingBalances.car;
+
+  for (let date = dayOf(firstDate.toPlainYearMonth(), 1); Temporal.PlainDate.compare(date, runDate) <= 0; date = date.add({
+    months: 1
+  })) {
+    if (date.month % 3 !== 1 || Temporal.PlainDate.compare(date, firstDate) <= 0) {
+      continue;
+    }
+
+    value = Math.round(value * 0.965 / 5000) * 5000;
+    snapshots.push({
+      date: date.toString(),
+      amount: value
+    });
+  }
+
+  return snapshots;
+}
+
 function accountData(ledger: Ledger, key: DemoAccountKey, valuations: DemoSnapshot[] = []): DemoAccountData {
+  // The last sync ran on the day before the run date, so the bank reported the balance through that day.
+  const reportedDate = ledger.runDate.subtract({
+    days: 1
+  });
+
   return {
     ...demoAccounts[key],
     opening: {
@@ -763,8 +913,78 @@ function accountData(ledger: Ledger, key: DemoAccountKey, valuations: DemoSnapsh
       amount: ledger.openings[key]
     },
     entries: ledger.entries[key],
-    valuations
+    valuations,
+    reported: {
+      date: reportedDate.toString(),
+      amount: ledger.balanceAt(key, reportedDate)
+    }
   };
+}
+
+/** Morning instant of a date in UTC, the time scheduled syncs run. */
+function syncInstant(date: PlainDate, minute: number) {
+  return Temporal.PlainDateTime.from({
+    year: date.year,
+    month: date.month,
+    day: date.day,
+    hour: 5,
+    minute
+  }).toZonedDateTime("UTC").toInstant().toString({
+    fractionalSecondDigits: 3
+  });
+}
+
+function connectionData(runDate: PlainDate) {
+  return (Object.keys(demoConnections) as DemoConnectionKey[]).map(key => {
+    const connection = demoConnections[key];
+    const granted = runDate.subtract({
+      days: connection.grantedDaysAgo
+    });
+
+    return {
+      id: connection.id,
+      bankName: connection.bankName,
+      grantedAt: syncInstant(granted, 0),
+      validUntil: syncInstant(granted.add({
+        days: 180
+      }), 0)
+    };
+  });
+}
+
+/** Two weeks of daily scheduled syncs ending yesterday, so no run lies in the future whenever the seed runs; one run could not reach a bank and the next run caught up. */
+function syncRunHistory(ledger: Ledger, random: DemoRandom): DemoSyncRun[] {
+  const bankAccounts = (Object.keys(demoAccounts) as DemoAccountKey[]).filter(key => demoAccounts[key].bank);
+  const runs: DemoSyncRun[] = [];
+
+  const bookedOn = (key: DemoAccountKey, date: PlainDate) => ledger.entries[key].filter(entry => entry.date === date.toString()).length;
+  let missed = 0;
+
+  for (let daysAgo = 14; daysAgo >= 1; daysAgo--) {
+    const date = ledger.runDate.subtract({
+      days: daysAgo
+    });
+    const booked = date.subtract({
+      days: 1
+    });
+    const failed = daysAgo === 4;
+    const insertedCount = bankAccounts.filter(key => !failed || key !== "onlineChecking").reduce((total, key) => total + bookedOn(key, booked), missed);
+
+    // The next run fetches what the failed run missed.
+    missed = failed ? bookedOn("onlineChecking", booked) : 0;
+    const minute = random.integer(0, 4);
+
+    runs.push({
+      id: `demo-sync-run-${date.toString()}`,
+      startedAt: syncInstant(date, minute),
+      finishedAt: syncInstant(date, minute + 1),
+      status: failed ? "PARTIAL" : "SUCCESS",
+      insertedCount,
+      error: failed ? `${demoAccounts.onlineChecking.name}: The bank did not respond in time. Try again later.` : null
+    });
+  }
+
+  return runs;
 }
 
 /** Builds the complete synthetic history ending on the run date; the same run date always produces the same dataset. */
@@ -811,25 +1031,34 @@ export function buildDemoDataset(runDate: PlainDate): DemoDataset {
   bookOneOffs(ledger, runMonth);
   bookUnmatched(ledger);
   bookBalanceDependent(ledger, firstMonth, runMonth);
-  chooseCheckingOpening(ledger);
+  chooseSpendingOpenings(ledger);
 
   const dates = monthEnds(firstMonth, runDate);
+  const syncRuns = syncRunHistory(ledger, random);
 
   return {
     firstDate: firstDate.toString(),
     runDate: runDate.toString(),
     accounts: [
       accountData(ledger, "checking"),
+      accountData(ledger, "onlineChecking"),
+      accountData(ledger, "joint"),
+      accountData(ledger, "cash"),
       accountData(ledger, "savings"),
       accountData(ledger, "creditCard"),
       accountData(ledger, "investment", investmentSnapshots(ledger, random, dates)),
       accountData(ledger, "property", propertySnapshots(random, firstDate, runDate)),
+      accountData(ledger, "car", carSnapshots(firstDate, runDate)),
       accountData(ledger, "loan")
     ],
     createdCounterparts: ledger.createdCounterparts.map(item => ({
       sourceAccountId: demoAccounts[item.from].id,
       sourceReference: item.reference,
       accountId: demoAccounts[item.to].id
-    }))
+    })),
+    splits: ledger.splits,
+    connections: connectionData(runDate),
+    syncRuns,
+    lastSyncedAt: syncRuns.at(-1)?.finishedAt ?? syncInstant(runDate, 0)
   };
 }

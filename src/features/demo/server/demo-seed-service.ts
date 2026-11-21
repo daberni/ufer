@@ -78,7 +78,17 @@ export async function seedDemoData(options: DemoSeedOptions) {
     categories: categories.created,
     rules,
     accounts,
-    createdCounterparts: dataset.createdCounterparts
+    createdCounterparts: dataset.createdCounterparts,
+    splits: dataset.splits.map(split => ({
+      ...split,
+      parts: split.parts.map(part => ({
+        ...part,
+        categoryId: categories.categoryId(part.categoryId)
+      }))
+    })),
+    connections: dataset.connections,
+    syncRuns: dataset.syncRuns,
+    lastSyncedAt: dataset.lastSyncedAt
   }, assertDemoTarget);
 
   return {
