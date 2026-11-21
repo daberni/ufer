@@ -4,13 +4,12 @@ import { HttpError } from "@/lib/errors";
 import { timestamp, today } from "@/lib/time";
 import { acquireLease, releaseLease, renewLease } from "@/server/jobs/lease-repository";
 import { listRules } from "@/features/categorization/server/rule-repository";
-import { environment } from "./environment";
 import { fetchBalances, fetchTransactions, sessionEnded, verifyApplication } from "./enable-banking-client";
 import { normalizeTransactions } from "./bank-data";
 import { saveAccountSync } from "./account-sync-service";
 import { finishSyncRun, interruptSyncRun, listSyncAccounts, recordAccountSyncError, startSyncRun } from "./sync-repository";
 import { expireConnection, expireEndedSession } from "./connection-repository";
-import { pairTransfersInEnvironment } from "@/features/transactions/server/transfer-repository";
+import { pairAllTransfers } from "@/features/transactions/server/transfer-repository";
 
 // Only a new bank authorization resolves this failure; rate limits and provider data errors do not.
 class ReconnectRequired extends HttpError {
@@ -26,9 +25,7 @@ class SyncLeaseLost extends HttpError {
   }
 }
 
-export function syncLeaseName(environment: string) {
-  return `sync:${environment}`;
-}
+export const syncLeaseName = "sync";
 
 /** First booking date requested from the bank: 89 calendar days before today in the product zone. */
 export function syncWindowStart(now = Temporal.Now.instant()) {
@@ -42,12 +39,10 @@ function authorizationExpired(validUntil: string, now: Temporal.Instant) {
 }
 
 export async function syncAccounts() {
-  const env = environment();
   // The run id also owns the sync lease.
   const runId = randomUUID();
-  const leaseName = syncLeaseName(env);
 
-  if (!(await acquireLease(leaseName, runId))) {
+  if (!(await acquireLease(syncLeaseName, runId))) {
     throw new HttpError(409, "A sync is already running.");
   }
 
@@ -60,12 +55,11 @@ export async function syncAccounts() {
 
   try {
     const run = {
-      environment: env,
       startedAt: timestamp()
     };
 
-    await startSyncRun(env, runId, run.startedAt);
-    const accounts = await listSyncAccounts(env);
+    await startSyncRun(runId, run.startedAt);
+    const accounts = await listSyncAccounts();
 
     if (accounts.length) {
       await verifyApplication();
@@ -75,7 +69,7 @@ export async function syncAccounts() {
     const ownIbans = new Set(accounts.map(account => (account.iban || "").replace(/\s/g, "")).filter(Boolean));
     const dateFrom = syncWindowStart().toString();
     const heartbeat = async () => {
-      if (!(await renewLease(leaseName, runId))) {
+      if (!(await renewLease(syncLeaseName, runId))) {
         throw new SyncLeaseLost();
       }
     };
@@ -108,7 +102,7 @@ export async function syncAccounts() {
         const message = error instanceof HttpError ? error.message : "Sync could not be completed.";
         const sessionExpired = sessionEnded(error);
 
-        await recordAccountSyncError(account.id, env, message);
+        await recordAccountSyncError(account.id, message);
 
         if (sessionExpired) {
           await expireEndedSession(account.connection_id);
@@ -124,7 +118,7 @@ export async function syncAccounts() {
 
     // Both bookings of a transfer between two synced accounts exist only once every account is stored.
     await heartbeat();
-    await pairTransfersInEnvironment(env);
+    await pairAllTransfers();
 
     const allFailed = accounts.length > 0 && failures.length === accounts.length;
     const partialStatus = failures.length ? "PARTIAL" : "SUCCESS";
@@ -149,6 +143,6 @@ export async function syncAccounts() {
 
     throw error;
   } finally {
-    await releaseLease(leaseName, runId);
+    await releaseLease(syncLeaseName, runId);
   }
 }

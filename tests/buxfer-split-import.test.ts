@@ -62,7 +62,6 @@ async function isolatedDatabase(context: TestContext) {
 
   await db.insert(schema.accounts).values({
     id: "synthetic-checking",
-    environment: "SANDBOX",
     name: "Checking",
     institution: "Example institution",
     kind: "checking"

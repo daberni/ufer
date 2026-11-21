@@ -18,7 +18,7 @@ import { acquireLease } from "../src/server/jobs/lease-repository";
 import { listAccounts, readBalanceHistory, readNetWorth } from "../src/features/accounts/server/account-queries";
 import { convertToManualAccount, deleteAccount, updateAccount, updateManualValuation } from "../src/features/accounts/server/account-service";
 import { readAccountCashFlow, readCashFlow } from "../src/features/reports/server/cash-flow-query";
-import { pairTransfersInEnvironment } from "../src/features/transactions/server/transfer-repository";
+import { pairAllTransfers } from "../src/features/transactions/server/transfer-repository";
 import { createRule, updateRuleDetails } from "../src/features/categorization/server/categorization-service";
 import { syncLeaseName } from "../src/features/banking/server/sync-service";
 import type { Account } from "../src/features/accounts/types";
@@ -63,7 +63,6 @@ async function seededDatabase(context: TestContext) {
   });
   await db.insert(schema.requisitions).values({
     id: "linked",
-    environment: "SANDBOX",
     bank_name: "Example institution",
     bank_country: "AT",
     status: "LINKED",
@@ -71,19 +70,16 @@ async function seededDatabase(context: TestContext) {
   });
   await db.insert(schema.accounts).values([{
     id: "cash",
-    environment: "SANDBOX",
     name: "Synthetic cash",
     institution: "Example institution",
     kind: "checking"
   }, {
     id: "wallet",
-    environment: "SANDBOX",
     name: "Synthetic wallet",
     institution: "Example institution",
     kind: "checking"
   }, {
     id: "detached",
-    environment: "SANDBOX",
     name: "Synthetic detached account",
     institution: "Example institution",
     kind: "checking",
@@ -94,7 +90,6 @@ async function seededDatabase(context: TestContext) {
     last_synced_at: "2026-02-28T10:00:00Z"
   }, {
     id: "linked-bank",
-    environment: "SANDBOX",
     name: "Synthetic linked account",
     institution: "Example institution",
     kind: "checking",
@@ -105,7 +100,6 @@ async function seededDatabase(context: TestContext) {
     balance_date: "2026-02-28"
   }]);
   await db.insert(schema.accountIdentifiers).values({
-    environment: "SANDBOX",
     identification_hash: "hash-detached",
     account_id: "detached"
   });
@@ -308,7 +302,7 @@ test("a bank account with an active connection, a manual account or an unknown a
 test("converting waits for a running sync", async context => {
   const db = await seededDatabase(context);
 
-  await acquireLease(syncLeaseName("SANDBOX"), "sync");
+  await acquireLease(syncLeaseName, "sync");
   await assert.rejects(convertToManualAccount("detached"), {
     status: 409,
     message: "A sync is running. Convert the account after it has finished."
@@ -390,7 +384,7 @@ test("a rule-typed transfer to a deleted account is not paired with an opposite 
   await deleteAccount("cash", {
     name: "Synthetic cash"
   });
-  await pairTransfersInEnvironment("SANDBOX");
+  await pairAllTransfers();
 
   assert.equal((await db.select().from(schema.transactions).where(eq(schema.transactions.id, "bank-to-cash-later")).get())?.transfer_id, null);
   assert.equal((await db.select().from(schema.transactions).where(eq(schema.transactions.id, "wallet-income")).get())?.transfer_id, null);

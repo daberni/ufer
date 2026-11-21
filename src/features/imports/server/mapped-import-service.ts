@@ -9,7 +9,7 @@ import { today, validDate } from "@/lib/time";
 import { isCategoryIcon } from "@/features/categorization/category-icons";
 import { listRules } from "@/features/categorization/server/rule-repository";
 import { categorizeEntries } from "@/features/transactions/server/categorize-entries";
-import { pairTransfersInEnvironment } from "@/features/transactions/server/transfer-repository";
+import { pairAllTransfers } from "@/features/transactions/server/transfer-repository";
 import { environment } from "@/features/banking/server/environment";
 import { accountKinds } from "@/features/accounts/account-kinds";
 import { validateLiability } from "@/features/accounts/server/account-service";
@@ -198,7 +198,7 @@ export async function importMappedRows(payload: unknown, now = Temporal.Now.inst
 
   // Pairing sees every account this import touched at once, so a transfer with candidates in two of them stays ambiguous.
   if (input.confirm && input.final) {
-    await pairTransfersInEnvironment(environment());
+    await pairAllTransfers();
   }
 
   return {
@@ -298,7 +298,7 @@ async function sameOpening(importId: string, source: string, accountId: string, 
   return stored.id === opening.id && stored.date === opening.date && statedAmount === opening.amount;
 }
 
-/** A stable account ID per banking environment, import and source account, so every batch and retry of one import targets the same new account, and the same file imported in another environment gets its own. */
+/** A stable account ID per import and source account, so every batch and retry of one import targets the same new account. The configured banking environment stays in the hash because IDs persisted before changeset 0016 were derived with it. */
 function importAccountId(importId: string, source: string) {
   const hex = createHash("sha256").update(`${environment()}|${importId}|${source}`).digest("hex");
 

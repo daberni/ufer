@@ -3,7 +3,6 @@ import { and, eq, inArray, isNotNull, isNull, ne, sql, TransactionRollbackError 
 import { database, type Database } from "@/server/database/connection";
 import { accountIdentifiers, accounts, balanceSnapshots, categorizationRules, transactions } from "@/server/database/schema";
 import { createdCounterpartPrefix, manualEntryPrefix } from "@/features/transactions/server/transfer-repository";
-import { environment } from "@/features/banking/server/environment";
 import { bookManualEntry, recordManualBalance, type ManualEntryResult } from "@/features/transactions/server/manual-transaction-repository";
 import type { AccountKind } from "../account-kinds";
 import type { ManualAccountInput } from "./account-schema";
@@ -11,17 +10,17 @@ import { assertWritableAccount } from "./writable-account";
 
 export async function findManualAccount(id: string) {
   const db = await database();
-  const scope = and(eq(accounts.id, id), eq(accounts.environment, environment()), eq(accounts.provider, "manual"));
+  const scope = and(eq(accounts.id, id), eq(accounts.provider, "manual"));
 
   return db.select().from(accounts).where(scope).get();
 }
 
-/** Whether an own, not archived account with this ID exists in the current environment. */
+/** Whether an own, not archived account with this ID exists. */
 export async function activeAccountExists(id: string) {
   const db = await database();
   const found = await db.select({
     id: accounts.id
-  }).from(accounts).where(and(eq(accounts.id, id), eq(accounts.environment, environment()), isNull(accounts.archived_at))).get();
+  }).from(accounts).where(and(eq(accounts.id, id), isNull(accounts.archived_at))).get();
 
   return found !== undefined;
 }
@@ -34,7 +33,6 @@ export async function insertManualAccount(input: ManualAccountInput, amount: num
   await db.transaction(async tx => {
     await tx.insert(accounts).values({
       id,
-      environment: environment(),
       name: input.name,
       institution: input.institution,
       kind: input.kind,
@@ -79,7 +77,7 @@ export async function archiveSettledAccount(id: string, archivedAt: string) {
 async function archiveIfSettled(executor: Pick<Database, "update">, id: string, archivedAt: string) {
   const updated = await executor.update(accounts).set({
     archived_at: archivedAt
-  }).where(and(eq(accounts.id, id), eq(accounts.environment, environment()), isNull(accounts.archived_at), sql`${currentBalance}=0`)).returning({
+  }).where(and(eq(accounts.id, id), isNull(accounts.archived_at), sql`${currentBalance}=0`)).returning({
     id: accounts.id
   });
 
@@ -92,7 +90,7 @@ export async function saveAccountArchived(id: string, archivedAt: string | null)
 
   const updated = await db.update(accounts).set({
     archived_at: archivedAt
-  }).where(and(eq(accounts.id, id), eq(accounts.environment, environment()))).returning({
+  }).where(eq(accounts.id, id)).returning({
     id: accounts.id
   });
 
@@ -109,7 +107,7 @@ export async function saveAccountKind(id: string, kind: AccountKind) {
 
   const updated = await db.update(accounts).set({
     kind
-  }).where(and(eq(accounts.id, id), eq(accounts.environment, environment()), eq(accounts.provider, "manual"), isNull(accounts.archived_at), fitsBalance)).returning({
+  }).where(and(eq(accounts.id, id), eq(accounts.provider, "manual"), isNull(accounts.archived_at), fitsBalance)).returning({
     id: accounts.id
   });
 
@@ -122,7 +120,7 @@ export async function saveAccountName(id: string, name: string) {
 
   const updated = await db.update(accounts).set({
     name
-  }).where(and(eq(accounts.id, id), eq(accounts.environment, environment()))).returning({
+  }).where(eq(accounts.id, id)).returning({
     id: accounts.id
   });
 
@@ -214,7 +212,7 @@ export async function convertDetachedAccount(id: string) {
   const db = await database();
 
   return db.transaction(async tx => {
-    const detached = and(eq(accounts.id, id), eq(accounts.environment, environment()), eq(accounts.provider, "enable_banking"), isNull(accounts.requisition_id));
+    const detached = and(eq(accounts.id, id), eq(accounts.provider, "enable_banking"), isNull(accounts.requisition_id));
     const account = await tx.select({
       id: accounts.id,
       currency: accounts.currency,
@@ -286,7 +284,7 @@ export async function deleteUnlinkedAccount(id: string) {
   const db = await database();
 
   return db.transaction(async tx => {
-    const unlinked = and(eq(accounts.id, id), eq(accounts.environment, environment()), isNull(accounts.requisition_id));
+    const unlinked = and(eq(accounts.id, id), isNull(accounts.requisition_id));
     const account = await tx.select({
       id: accounts.id
     }).from(accounts).where(unlinked).get();

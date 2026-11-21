@@ -12,7 +12,7 @@ import { transferOptions, updateTransactionCategory, updateTransactionDetails } 
 import { upsertTransactions } from "../src/features/transactions/server/transaction-repository";
 import { readAccountCashFlow, readCashFlow } from "../src/features/reports/server/cash-flow-query";
 import { readTransactionPage } from "../src/features/transactions/server/transaction-list-query";
-import { pairTransfersInEnvironment } from "../src/features/transactions/server/transfer-repository";
+import { pairAllTransfers } from "../src/features/transactions/server/transfer-repository";
 import { replaceSplit } from "../src/features/transactions/server/split-repository";
 import { listAccounts } from "../src/features/accounts/server/account-queries";
 import { applyRulesToUncorrectedTransactions, categoryUsage, createRule, deleteCategory, previewRule } from "../src/features/categorization/server/categorization-service";
@@ -55,7 +55,6 @@ async function seed(context: TestContext) {
   process.env.ENABLE_BANKING_ENVIRONMENT = "SANDBOX";
   await db.insert(schema.accounts).values([{
     id: "checking",
-    environment: "SANDBOX",
     name: "Synthetic checking",
     institution: "Example institution",
     kind: "checking",
@@ -63,7 +62,6 @@ async function seed(context: TestContext) {
     balance_minor: 100000
   }, {
     id: "yen",
-    environment: "SANDBOX",
     name: "Synthetic yen account",
     institution: "Example institution",
     kind: "checking",
@@ -382,7 +380,6 @@ test("automatic transfer pairing leaves a split booking as it is", async context
 
   await db.insert(schema.accounts).values({
     id: "savings",
-    environment: "SANDBOX",
     name: "Synthetic savings",
     institution: "Example institution",
     kind: "savings",
@@ -399,7 +396,7 @@ test("automatic transfer pairing leaves a split booking as it is", async context
     type: "transfer"
   });
   await splitTransaction("market", marketSplit());
-  await pairTransfersInEnvironment("SANDBOX");
+  await pairAllTransfers();
 
   const row = await marketRow();
 
@@ -472,7 +469,6 @@ test("a split booking keeps its type through a sync and cannot become another bo
 
   await db.insert(schema.accounts).values({
     id: "savings",
-    environment: "SANDBOX",
     name: "Synthetic savings",
     institution: "Example institution",
     kind: "savings",
@@ -558,16 +554,6 @@ test("deleting a category reports each booking whose parts it held once, as its 
   assert.equal(usage.transactions, 1);
   assert.equal(deleted.transactions, usage.transactions);
   assert.deepEqual((await db.select().from(schema.transactionSplits).where(eq(schema.transactionSplits.transaction_id, "market"))).map(part => part.category_id), [null, null]);
-});
-
-test("categorizing a split booking of another environment is not found rather than refused as split", async context => {
-  await seed(context);
-  await splitTransaction("market", marketSplit());
-  process.env.ENABLE_BANKING_ENVIRONMENT = "PRODUCTION";
-
-  await assert.rejects(updateTransactionCategory("market", {
-    category_id: "groceries"
-  }), error => error instanceof HttpError && error.status === 404);
 });
 
 test("a split whose category was deleted after the request's check is rejected as invalid and keeps the earlier parts", async context => {

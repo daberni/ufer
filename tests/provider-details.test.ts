@@ -194,7 +194,6 @@ const rules: Rule[] = [{
 
 function syncRun(startedAt: string) {
   return {
-    environment: "SANDBOX",
     startedAt
   };
 }
@@ -215,7 +214,7 @@ async function storedDetails(db: Database) {
 test("a resync refreshes the original amount and raw JSON of rule-sourced and manual rows without changing manual categories", async context => {
   const db = await isolatedDatabase(context);
 
-  await db.$client.execute("INSERT INTO accounts(id,environment,name,institution,kind,currency) VALUES('a','SANDBOX','Synthetic checking','Example Bank','checking','EUR')");
+  await db.$client.execute("INSERT INTO accounts(id,name,institution,kind,currency) VALUES('a','Synthetic checking','Example Bank','checking','EUR')");
   const first = normalizeTransactions([delivered, {
     ...basic,
     entry_reference: "synthetic-2"
@@ -269,7 +268,7 @@ test("a resync refreshes the original amount and raw JSON of rule-sourced and ma
 test("the transaction list returns the original amount and currency only for bookings that carry one", async context => {
   const db = await isolatedDatabase(context);
 
-  await db.$client.execute("INSERT INTO accounts(id,environment,name,institution,kind,currency) VALUES('a','SANDBOX','Synthetic checking','Example Bank','checking','EUR')");
+  await db.$client.execute("INSERT INTO accounts(id,name,institution,kind,currency) VALUES('a','Synthetic checking','Example Bank','checking','EUR')");
   await saveAccountSync(syncRun("2026-11-12T08:00:00.000Z"), "a", "EUR", balances, normalizeTransactions([foreign, {
     ...basic,
     entry_reference: "synthetic-2"

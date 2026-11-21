@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { environment } from "@/features/banking/server/environment";
 import { readPayeeUsage, type PayeeUsage } from "./payee-repository";
 import type { PayeeSuggestions } from "@/features/transactions/types";
 
@@ -42,7 +41,7 @@ export function suggestPayees(usages: readonly PayeeUsage[], query: string, limi
     .map(usage => usage.payee);
 }
 
-/** Existing payees of the current environment that match the typed payee. */
+/** Existing payees that match the typed payee. */
 export async function readPayeeSuggestions(payload: unknown): Promise<PayeeSuggestions> {
   const { query } = suggestionInput.parse(payload);
 
@@ -52,7 +51,7 @@ export async function readPayeeSuggestions(payload: unknown): Promise<PayeeSugge
     };
   }
 
-  const usages = await readPayeeUsage(environment());
+  const usages = await readPayeeUsage();
 
   return {
     payees: suggestPayees(usages, query)

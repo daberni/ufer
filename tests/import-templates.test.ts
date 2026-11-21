@@ -468,7 +468,6 @@ test("Buxfer transfers import as transfers, and automatic pairing links both sid
   for (const [id, name] of [["checking", "Example Checking"], ["card", "Example Card"]]) {
     await db.insert(schema.accounts).values({
       id,
-      environment: "SANDBOX",
       name,
       institution: "Example institution",
       kind: "checking"

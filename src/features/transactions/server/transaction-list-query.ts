@@ -1,7 +1,6 @@
 import { eq } from "drizzle-orm";
 import { database, type Database } from "@/server/database/connection";
 import { accounts, transactions } from "@/server/database/schema";
-import { environment } from "@/features/banking/server/environment";
 import { findSyncRun } from "@/features/banking/server/banking-queries";
 import { syncRunTransactions } from "@/features/banking/server/sync-repository";
 import { periodToJson } from "@/lib/period";
@@ -80,10 +79,7 @@ function listScope(db: Database, filters: DashboardFilters, syncRun: FoundSyncRu
   if (syncRun) {
     const inserted = db.select({
       id: transactions.id
-    }).from(transactions).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(syncRunTransactions({
-      environment: environment(),
-      startedAt: syncRun.started_at
-    })).toSQL();
+    }).from(transactions).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(syncRunTransactions(syncRun.started_at)).toSQL();
 
     return {
       sql: [`t.id IN (${inserted.sql})`],
@@ -99,7 +95,7 @@ function listScope(db: Database, filters: DashboardFilters, syncRun: FoundSyncRu
   };
 }
 
-// Null without a run filter, and for a run that does not exist in the current banking environment.
+// Null without a run filter, and for an unknown run.
 async function selectedSyncRun(id: string) {
   if (!id) {
     return null;
@@ -125,8 +121,8 @@ export async function readTransactionPage(filters: DashboardFilters) {
   const db = await database();
   const client = db.$client;
   const scope = listScope(db, filters, syncRun);
-  const where = ["a.environment=?", ...scope.sql];
-  const args: (string | number)[] = [environment(), ...scope.args];
+  const where = [...scope.sql];
+  const args: (string | number)[] = [...scope.args];
 
   if (filters.search) {
     const matchesSearch = searchCondition(filters.search);

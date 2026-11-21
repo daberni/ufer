@@ -25,7 +25,7 @@ export function SyncRunScope({
   transactionCount
 }: {
   clear: () => void;
-  /** False once the response confirmed that the run does not exist in this environment. */
+  /** False once the response confirmed that the run does not exist. */
   found: boolean;
   /** The selected run; null while its response is still loading or when it was not found. */
   run: SelectedRun;
@@ -88,7 +88,7 @@ export function SyncRunEmpty({
   run: SelectedRun;
 }) {
   if (!run) {
-    return !found && <Empty title="Sync not found" illustration={null}>The link may be outdated, or the sync belongs to another banking environment.</Empty>;
+    return !found && <Empty title="Sync not found" illustration={null}>The link may be outdated.</Empty>;
   }
 
   if (filtered) {
