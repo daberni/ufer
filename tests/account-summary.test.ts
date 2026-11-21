@@ -98,15 +98,13 @@ function notices(screen: ReturnType<typeof render>) {
   return noticeElements(screen).map(notice => notice.textContent);
 }
 
-test("a healthy bank account shows its name, type, institution with its sync date, with editing and reconnecting, not the connections list, in the menu", async context => {
+test("a healthy bank account shows its type, institution with its sync date, with editing and reconnecting, not the connections list, in the menu", async context => {
   const screen = await renderSummary(context, healthy);
   const panel = within(screen.getByRole("region", {
     name: "Account summary"
   }));
 
-  assert.ok(panel.getByRole("heading", {
-    name: "Synthetic checking"
-  }));
+  assert.equal(panel.queryByText("Synthetic checking"), null);
   assert.ok(panel.getByText("Current account"));
   assert.ok(panel.getByText("Example bank"));
   assert.match(screen.getByRole("region", {

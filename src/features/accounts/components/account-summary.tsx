@@ -20,8 +20,8 @@ import { AccountSourceStatus } from "./account-source-status";
 import { ValuationDialog } from "./valuation-form";
 
 /**
- * An account's name, type, balance, source and at most one notice: the archive notice, a problem that stops syncing, or a bank balance that differs from the bookings,
- * in that order. Its actions live in the page heading.
+ * An account's type, balance, source and at most one notice: the archive notice, a problem that stops syncing, or a bank balance that differs from the bookings,
+ * in that order. Its name and actions live in the page heading.
  */
 export function AccountSummary({
   account,
@@ -48,10 +48,7 @@ export function AccountSummary({
         <span className={clsx(accountStyles["account-logo"], accountStyles[account.kind])}>
           <Icon size={23} aria-hidden="true" />
         </span>
-        <div className={styles["title"]}>
-          <h2 className={styles["name"]}>{account.name}</h2>
-          <p className={styles["meta"]}>{kinds[account.kind] ?? account.kind}</p>
-        </div>
+        <p className={styles["meta"]}>{kinds[account.kind] ?? account.kind}</p>
       </div>
       <div className={styles["balance-row"]}>
         <strong className={styles["balance"]}>{account.balance_minor === null ? "—" : money(account.balance_minor, account.currency, locale)}</strong>
@@ -95,10 +92,7 @@ export function AccountSummarySkeleton() {
     <section className={clsx(ui["panel"], styles["summary"])}>
       <div className={styles["header"]}>
         <span className={clsx(accountStyles["account-logo"], ui["skeleton"])} />
-        <div className={styles["title"]}>
-          <span className={clsx(styles["name"], ui["skeleton"])}>Everyday account</span>
-          <span className={clsx(styles["meta"], ui["skeleton"])}>Current account</span>
-        </div>
+        <span className={clsx(styles["meta"], ui["skeleton"])}>Current account</span>
       </div>
       <div className={styles["balance-row"]}>
         <strong className={styles["balance"]}>
