@@ -15,5 +15,7 @@
   line-height: 1.4;
   text-align: left;
   white-space: normal;
-  pointer-events: none;
+  /* Very long texts scroll within the height the anchored placement leaves. */
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }

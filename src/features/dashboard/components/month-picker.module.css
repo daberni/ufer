@@ -24,6 +24,9 @@
   background: var(--surface-raised);
   color: var(--ink);
   box-shadow: var(--shadow-lg);
+  /* Short viewports, such as a phone in landscape, leave less height than the month grid needs. */
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .year-bar {
   display: flex;

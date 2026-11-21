@@ -8,6 +8,8 @@ import { useDismiss } from "./use-dismiss";
 
 const hoverDelay = 400;
 const longPressDelay = 500;
+// Lets the pointer cross from the trigger into the tooltip, so a long text can be scrolled.
+const leaveGrace = 150;
 
 export type TooltipTriggerProps = {
   ref: (element: HTMLElement | null) => void;
@@ -93,7 +95,7 @@ export function Tooltip({
 
   useDismiss({
     active: open,
-    inside: [triggerRef],
+    inside: [triggerRef, popupRef],
     onDismiss: () => setOpen(false)
   });
 
@@ -122,7 +124,7 @@ export function Tooltip({
     },
     onPointerLeave: event => {
       if (event.pointerType === "mouse") {
-        hide();
+        press.schedule(hide, leaveGrace);
       }
     },
     onPointerDown: event => {
@@ -176,6 +178,12 @@ export function Tooltip({
         className={styles["tooltip"]}
         popover="manual"
         role="tooltip"
+        onPointerEnter={press.cancel}
+        onPointerLeave={event => {
+          if (event.pointerType === "mouse") {
+            hide();
+          }
+        }}
       >
         {/* A description stays in the document for assistive technology; a visual-only copy of visible text joins it only while shown. */}
         {(open || describes) && text}
