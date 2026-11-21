@@ -11,7 +11,7 @@ function booking(overrides: Partial<Subject> = {}): Subject {
     account_provider: "enable_banking",
     account_archived_at: null,
     provider_reference: "bank-1",
-    booking_date: "2026-03-01",
+    date: "2026-03-01",
     amount_minor: -5000,
     currency: "EUR",
     counterparty: "Savings",

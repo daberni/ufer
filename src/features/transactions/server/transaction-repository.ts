@@ -73,7 +73,8 @@ export async function upsertTransactions(tx: DatabaseTransaction, accountId: str
       id: randomUUID(),
       account_id: accountId,
       provider_reference: entry.reference,
-      booking_date: entry.date,
+      date: entry.date,
+      booking_date: entry.bookingDate ?? null,
       amount_minor: entry.amount,
       currency: entry.currency,
       counterparty: entry.counterparty,
@@ -91,6 +92,7 @@ export async function upsertTransactions(tx: DatabaseTransaction, accountId: str
     await tx.insert(transactions).values(values).onConflictDoUpdate({
       target: [transactions.account_id, transactions.provider_reference],
       set: {
+        date: sql`excluded.date`,
         booking_date: sql`excluded.booking_date`,
         amount_minor: sql`excluded.amount_minor`,
         currency: sql`excluded.currency`,

@@ -9,11 +9,7 @@ export function normalizeTransactions(transactions: BankTransaction[], ownIbans:
   const references = new Map<string, string>();
 
   return transactions.filter(item => item.status === "BOOK").map(item => {
-    const date = item.booking_date || item.value_date || "";
-
-    if (!validDate(date)) {
-      throw new HttpError(502, "A booked bank transaction is missing a valid booking date.");
-    }
+    const dates = bookingDates(item);
 
     // transaction_id is not guaranteed unique by Enable Banking. Never silently merge unrelated payments.
     if (!item.entry_reference) {
@@ -31,7 +27,8 @@ export function normalizeTransactions(transactions: BankTransaction[], ownIbans:
     const counterIban = (debit ? item.creditor_account?.iban : item.debtor_account?.iban)?.replace(/\s/g, "");
     const entry: Entry = {
       reference: `bank:${item.entry_reference}`,
-      date,
+      date: dates.date,
+      bookingDate: dates.bookingDate,
       amount: debit ? -absolute : absolute,
       currency: item.transaction_amount.currency,
       counterparty,
@@ -39,7 +36,7 @@ export function normalizeTransactions(transactions: BankTransaction[], ownIbans:
       transfer: Boolean(counterIban && ownIbans.has(counterIban)),
       provider: providerDetails(item, debit)
     };
-    const signature = JSON.stringify([entry.date, entry.amount, entry.currency, entry.counterparty, entry.description]);
+    const signature = JSON.stringify([entry.date, entry.bookingDate, entry.amount, entry.currency, entry.counterparty, entry.description]);
     const previous = references.get(entry.reference);
 
     if (previous && previous !== signature) {
@@ -50,6 +47,25 @@ export function normalizeTransactions(transactions: BankTransaction[], ownIbans:
 
     return entry;
   });
+}
+
+/**
+ * The date a bank booking counts on and the bank's own booking date. The value date is when the money moved, for a card payment the purchase date; the bank books it up to a few days later.
+ * A missing or malformed value date falls back to the booking date.
+ */
+export function bookingDates(item: Pick<BankTransaction, "booking_date" | "value_date">) {
+  const booked = item.booking_date && validDate(item.booking_date) ? item.booking_date : null;
+  const valued = item.value_date && validDate(item.value_date) ? item.value_date : null;
+  const date = valued ?? booked;
+
+  if (!date) {
+    throw new HttpError(502, "A booked bank transaction is missing a valid booking or value date.");
+  }
+
+  return {
+    date,
+    bookingDate: booked
+  };
 }
 
 export function selectedBalance(balances: Balance[], currency: string) {

@@ -73,7 +73,7 @@ async function insertBooking(db: Database, id: string, counterparty: string) {
     id,
     account_id: "checking",
     provider_reference: `synthetic-${id}`,
-    booking_date: "2026-01-01",
+    date: "2026-01-01",
     amount_minor: -1000,
     currency: "EUR",
     counterparty,

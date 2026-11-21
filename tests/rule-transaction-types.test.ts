@@ -209,7 +209,7 @@ test("a rule's transfer to a manual account creates the counterpart exactly once
   const counterparts = await db.select().from(schema.transactions).where(eq(schema.transactions.account_id, "cash"));
 
   assert.equal(counterparts.length, 1);
-  assert.deepEqual([counterparts[0].amount_minor, counterparts[0].booking_date, counterparts[0].transfer_id], [10000, "2026-09-05", withdrawal.transfer_id]);
+  assert.deepEqual([counterparts[0].amount_minor, counterparts[0].date, counterparts[0].transfer_id], [10000, "2026-09-05", withdrawal.transfer_id]);
   assert.deepEqual([withdrawal.type, withdrawal.type_source, withdrawal.transfer_source], ["transfer", "auto", "auto"]);
 });
 
@@ -716,7 +716,7 @@ test("a rule's transfer creates no counterpart on a manual account that already 
     id: "cash-in-1",
     account_id: "cash",
     provider_reference: "manual:cash-in-1",
-    booking_date: "2026-09-05",
+    date: "2026-09-05",
     amount_minor: 10000,
     currency: "EUR",
     type: "income"
@@ -724,7 +724,7 @@ test("a rule's transfer creates no counterpart on a manual account that already 
     id: "cash-in-2",
     account_id: "cash",
     provider_reference: "manual:cash-in-2",
-    booking_date: "2026-09-06",
+    date: "2026-09-06",
     amount_minor: 10000,
     currency: "EUR",
     type: "income"
@@ -882,7 +882,7 @@ test("both legs of a transfer matching the same rule pair when one leg is on the
     id: "cash-leg",
     account_id: "cash",
     provider_reference: "manual:cash-leg",
-    booking_date: "2026-09-05",
+    date: "2026-09-05",
     amount_minor: 10000,
     currency: "EUR",
     counterparty: "Cash transfer",

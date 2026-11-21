@@ -10,21 +10,21 @@ type SqlCondition = {
   args: InValue[];
 };
 
-const bookingMonth = "substr(t.booking_date,1,7)";
+const bookingMonth = "substr(t.date,1,7)";
 
 /**
  * The amounts reports count, one row per booking or part: an unsplit booking with its category, each part of a split booking with the part's category, and, when a split booking's amount changed after splitting, the difference as an uncategorized row. Every booking thus counts exactly once with its full amount, and balances keep reading the bookings themselves.
  */
 const countedLines = `(
-  SELECT t.account_id,t.currency,t.booking_date,t.type,t.suppressed_at,t.category_id,t.amount_minor
+  SELECT t.account_id,t.currency,t.date,t.type,t.suppressed_at,t.category_id,t.amount_minor
   FROM transactions t
   WHERE NOT EXISTS (SELECT 1 FROM transaction_splits s WHERE s.transaction_id=t.id)
   UNION ALL
-  SELECT t.account_id,t.currency,t.booking_date,t.type,t.suppressed_at,s.category_id,s.amount_minor
+  SELECT t.account_id,t.currency,t.date,t.type,t.suppressed_at,s.category_id,s.amount_minor
   FROM transaction_splits s
   JOIN transactions t ON t.id=s.transaction_id
   UNION ALL
-  SELECT t.account_id,t.currency,t.booking_date,t.type,t.suppressed_at,NULL,t.amount_minor-SUM(s.amount_minor)
+  SELECT t.account_id,t.currency,t.date,t.type,t.suppressed_at,NULL,t.amount_minor-SUM(s.amount_minor)
   FROM transaction_splits s
   JOIN transactions t ON t.id=s.transaction_id
   GROUP BY t.id
@@ -130,7 +130,7 @@ export async function readCashFlow(period: Period, currency: string) {
   }).toPlainDate(firstDay).toString();
   const inPeriod = countedTransactions(currency, periodCondition(period));
   const inTrend = countedTransactions(currency, {
-    sql: "t.booking_date>=? AND t.booking_date<?",
+    sql: "t.date>=? AND t.date<?",
     args: [trendStart, trendEnd]
   });
   const totalsQuery = client.execute({
@@ -143,7 +143,7 @@ export async function readCashFlow(period: Period, currency: string) {
   const incomeBreakdownQuery = client.execute(flowByCategory(inPeriod, "income", false));
   const expenseBreakdownQuery = client.execute(flowByCategory(inPeriod, "expenses", false));
   const totalsByMonth = countedTransactions(currency, {
-    sql: "t.booking_date>=? AND t.booking_date<?",
+    sql: "t.date>=? AND t.date<?",
     args: [leadStart, trendEnd]
   });
   const trendQuery = client.execute({

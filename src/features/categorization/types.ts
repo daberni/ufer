@@ -45,7 +45,7 @@ export type RulePreview = {
 
 export type RulePreviewTransaction = {
   id: string;
-  booking_date: string;
+  date: string;
   amount_minor: number;
   currency: string;
   payee: string;
