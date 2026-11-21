@@ -10,7 +10,6 @@ import type { Category, Rule } from "@/features/categorization/types";
 import type { Transaction } from "@/features/transactions/types";
 import { TraceId } from "@/components/ui/trace-id";
 import { CategoryPicker } from "@/features/categorization/components/category-picker";
-import { CategoryLabel } from "@/features/categorization/components/category-label";
 import { useTransactionCategory } from "@/features/transactions/use-transaction-category";
 import { useTransactionRules } from "./transaction-rule-provider";
 import { transactionTypeLabels } from "@/features/transactions/transaction-types";
@@ -34,31 +33,6 @@ export function automaticLabel(assignment: NonNullable<Transaction["automatic_as
 }
 
 export function TransactionCategory({
-  categories,
-  transaction
-}: Props) {
-  if (transaction.account_archived) {
-    return <ArchivedTransactionCategory categories={categories} transaction={transaction} />;
-  }
-
-  return <EditableTransactionCategory categories={categories} transaction={transaction} />;
-}
-
-// A booking on an archived account is read-only, so its category is shown as a label.
-function ArchivedTransactionCategory({
-  categories,
-  transaction
-}: Props) {
-  const category = categories.find(item => item.id === transaction.category_id);
-
-  return (
-    <div className={styles["category"]}>
-      <CategoryLabel className={styles["picker"]} category={category ?? "uncategorized"} />
-    </div>
-  );
-}
-
-function EditableTransactionCategory({
   categories,
   transaction
 }: Props) {

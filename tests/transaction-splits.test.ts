@@ -518,17 +518,31 @@ test("a split booking keeps its type through a sync and cannot become another bo
   assert.equal(row?.counterpart, null);
 });
 
-test("a booking on an archived account can neither be split nor unsplit", async context => {
+test("a booking on an archived account can be split and unsplit, and keeps its type when the rules take it back", async context => {
   const db = await seed(context);
 
-  await splitTransaction("market", marketSplit());
   await db.update(schema.accounts).set({
     archived_at: "2026-09-30T00:00:00Z"
   }).where(eq(schema.accounts.id, "checking"));
+  await db.insert(schema.categorizationRules).values({
+    id: "market-rule",
+    name: "Example Market",
+    pattern: "Example Market",
+    mode: "keyword",
+    category_id: "groceries",
+    transaction_type: "transfer"
+  });
 
-  await assert.rejects(splitTransaction("market", marketSplit()), error => error instanceof HttpError && error.status === 409);
-  await assert.rejects(unsplitTransaction("market"), error => error instanceof HttpError && error.status === 409);
+  await splitTransaction("market", marketSplit());
   assert.equal((await db.select().from(schema.transactionSplits).where(eq(schema.transactionSplits.transaction_id, "market"))).length, 2);
+
+  await unsplitTransaction("market");
+  const market = await db.select().from(schema.transactions).where(eq(schema.transactions.id, "market")).get();
+
+  assert.equal((await db.select().from(schema.transactionSplits).where(eq(schema.transactionSplits.transaction_id, "market"))).length, 0);
+  assert.equal(market?.category_rule_id, "market-rule");
+  assert.equal(market?.type, "expense");
+  assert.equal(market?.transfer_id, null);
 });
 
 test("deleting a category reports each booking whose parts it held once, as its usage does", async context => {
