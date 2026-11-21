@@ -43,7 +43,7 @@ How Ufer compares with established personal finance tools, and what is still pla
 | Manual transactions | ✅[²⁶](#fn-26) | ✅[¹²](#fn-12) | ✅[⁹](#fn-9) | ✅[²⁷](#fn-27) | ✅[²⁵](#fn-25) |
 | Edit imported transactions | ◐[²⁸](#fn-28) | ✅[¹²](#fn-12) | ✅[⁹](#fn-9) | ✅[²⁷](#fn-27) | ✅[²⁵](#fn-25) |
 | ↳ Hide imported transactions | ✅ | ❔ | ❌[⁶⁹](#fn-69) | ❔ | ✅[²⁹](#fn-29) |
-| ↳ Corrections survive resync | ✅ | ❔ | ✅[⁷⁰](#fn-70) | ◐[³⁴](#fn-34) | ✅[²⁹](#fn-29) |
+| ↳ Corrections survive resync | ✅ | ❔ | ◐[⁷⁰](#fn-70) | ◐[³⁴](#fn-34) | ✅[²⁹](#fn-29) |
 | Split transactions | ✅ | ✅[³⁰](#fn-30) | ✅[³¹](#fn-31) | ✅[²⁷](#fn-27) | ✅[²⁵](#fn-25) |
 | Transfers between own accounts | ✅[³²](#fn-32) | ✅[⁶⁵](#fn-65) | ✅[⁷¹](#fn-71) | ✅[³⁸](#fn-38) | ✅[⁸⁵](#fn-85) |
 | Payee suggestions | ✅ | ❔ | ✅[⁷²](#fn-72) | ✅[⁷⁷](#fn-77) | ✅[⁸⁵](#fn-85) |
@@ -262,7 +262,7 @@ An item is checked only when its acceptance criterion is met and evidence is rec
 67. <a id="fn-67"></a>[Actual accounts](https://github.com/actualbudget/actual/blob/v26.11.0/packages/docs/docs/accounts/index.md): rename, close, reopen and delete; off-budget is chosen at creation, switching an existing account is not documented.
 68. <a id="fn-68"></a>[Actual account tour](https://github.com/actualbudget/actual/blob/v26.11.0/packages/docs/docs/tour/accounts.md): running balance in the ledger; a balance graph only in the [experimental sidebar](https://github.com/actualbudget/actual/blob/v26.11.0/packages/docs/docs/experimental/redesigned-sidebar.md).
 69. <a id="fn-69"></a>[Actual 26.11.0 schema](https://github.com/actualbudget/actual/blob/v26.11.0/packages/loot-core/src/server/aql/schema/index.ts): no hidden field on transactions and no color or icon on categories.
-70. <a id="fn-70"></a>[Actual bank sync source](https://github.com/actualbudget/actual/blob/v26.11.0/packages/loot-core/src/server/accounts/sync.ts): matched bookings keep the existing payee, category and notes.
+70. <a id="fn-70"></a>[Actual bank sync source](https://github.com/actualbudget/actual/blob/v26.11.0/packages/loot-core/src/server/accounts/sync.ts): matched bookings keep a non-empty payee, category and notes; a cleared value can be refilled from the synced booking.
 71. <a id="fn-71"></a>[Actual transfers](https://github.com/actualbudget/actual/blob/v26.11.0/packages/docs/docs/transactions/transfers.md)
 72. <a id="fn-72"></a>[Actual payees](https://github.com/actualbudget/actual/blob/v26.11.0/packages/docs/docs/transactions/payees.md): suggestions with favorites and category learning.
 73. <a id="fn-73"></a>[Actual import dialog source](https://github.com/actualbudget/actual/blob/v26.11.0/packages/desktop-client/src/components/modals/ImportTransactionsModal/ImportTransactionsModal.tsx): column mappings and date formats are remembered per account.
