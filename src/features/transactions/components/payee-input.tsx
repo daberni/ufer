@@ -55,6 +55,7 @@ export function PayeeInput({
     open: expanded,
     optionCount: shown.length,
     listboxRef,
+    freeText: true,
     onOpen: () => setOpen(true),
     onSelect: index => pick(shown[index]),
     onClose: close

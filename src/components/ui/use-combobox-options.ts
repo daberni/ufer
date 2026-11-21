@@ -10,6 +10,8 @@ type Options = {
   /** The option the list opens on by keyboard, -1 when there is none. */
   selectedIndex?: number;
   listboxRef: RefObject<HTMLElement | null>;
+  /** The field's text is the value, so Enter without a highlighted option closes the list and still submits the form. */
+  freeText?: boolean;
   onOpen: () => void;
   onSelect: (index: number) => void;
   onClose: () => void;
@@ -24,6 +26,7 @@ export function useComboboxOptions({
   optionCount,
   selectedIndex = -1,
   listboxRef,
+  freeText = false,
   onOpen,
   onSelect,
   onClose
@@ -77,6 +80,14 @@ export function useComboboxOptions({
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLElement>) {
+    const submitsText = freeText && open && event.key === "Enter" && active < 0;
+
+    if (submitsText) {
+      onClose();
+
+      return;
+    }
+
     apply(event, searchableSelectKeyAction(event, keyState));
   }
 

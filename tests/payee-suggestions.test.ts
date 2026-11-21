@@ -240,6 +240,33 @@ test("typing asks for suggestions in the request body once typing pauses, and En
   assert.deepEqual(submitted, ["Corner Shop Vienna"]);
 });
 
+test("Enter with suggestions shown but none highlighted closes the list and lets the form submit the typed text", async context => {
+  const {
+    field,
+    requests
+  } = await renderPayeeInput(context);
+
+  type(field, "cor");
+  await wait(300);
+  await respond(requests("transactions/payees")[0], Response.json({
+    payees: ["Corner Bakery"]
+  }));
+  assert.equal(field.getAttribute("aria-expanded"), "true");
+
+  let notPrevented = false;
+
+  act(() => {
+    notPrevented = fireEvent.keyDown(field, {
+      key: "Enter"
+    });
+  });
+
+  // An unprevented Enter is what makes the browser submit the surrounding form.
+  assert.equal(notPrevented, true);
+  assert.equal(field.getAttribute("aria-expanded"), "false");
+  assert.equal(field.value, "cor");
+});
+
 test("a pointer picks a suggestion and Escape closes the list without clearing the text", async context => {
   const {
     field,
