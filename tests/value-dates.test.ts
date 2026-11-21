@@ -420,3 +420,32 @@ test("a booking valued before the opening balance but booked after its report do
   assert.equal(account?.balance_minor, 95800);
   assert.equal(account?.reported_difference_minor, 0);
 });
+
+test("a redelivered booking re-dated before the opening balance moves it without changing the balance", async context => {
+  const db = await freshDatabase(context);
+  // The first delivery dates the payment on its booking date, as rows stored before value dates were; the opening balance sits just before it.
+  const legacy = {
+    ...cardPayment,
+    value_date: "2026-11-02"
+  };
+
+  await syncBookings([legacy], {
+    amount: "958.00",
+    date: "2026-11-02"
+  });
+  await syncBookings([cardPayment], {
+    amount: "958.00",
+    date: "2026-11-03"
+  });
+
+  const opening = await db.select({
+    date: schema.transactions.date,
+    amount: schema.transactions.amount_minor
+  }).from(schema.transactions).where(eq(schema.transactions.type, "opening_balance"));
+
+  assert.deepEqual(opening, [{
+    date: "2026-10-30",
+    amount: 100000
+  }]);
+  assert.equal((await listAccounts()).find(item => item.id === "checking")?.balance_minor, 95800);
+});

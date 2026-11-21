@@ -247,7 +247,7 @@ test("an available balance is never compared with the bookings and cannot be rec
   await assert.rejects(reconcileBankBalance("checking"), (error: unknown) => error instanceof HttpError && error.status === 409);
 });
 
-test("a redelivered booking whose date moves before the opening balance is not absorbed again", async context => {
+test("a redelivered booking whose date moves before the opening balance moves it without being absorbed again", async context => {
   const db = await freshDatabase(context);
 
   await sync({
@@ -264,7 +264,7 @@ test("a redelivered booking whose date moves before the opening balance is not a
   }, firstBookings[1]]);
 
   assert.deepEqual(await openingBalances(db), [{
-    date: "2026-09-09",
+    date: "2026-08-31",
     amount: 103000
   }]);
   assert.equal((await checking()).balance_minor, 100000);
