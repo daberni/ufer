@@ -338,9 +338,6 @@ button.category-tile:focus-visible {
     grid-row: 1;
   }
 }
-.rule-actions {
-  position: relative;
-}
 /* Skeleton stand-ins with the size of the icons and switch they replace; the skeleton text elements keep their real typography. */
 .icon-placeholder {
   display: block;

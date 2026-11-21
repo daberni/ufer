@@ -90,7 +90,7 @@ export function TransactionsPage() {
           transactionCount={transactionCount}
         />
       ) : (
-        <PeriodControls currencies={mapArea(groups, data => data.currencies)} transactionCount={transactionCount} view="transactions" />
+        <PeriodControls currencies={mapArea(groups, data => data.currencies)} view="transactions" />
       )}
       <TransactionsPanel
         categories={categories}

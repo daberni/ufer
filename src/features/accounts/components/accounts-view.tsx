@@ -2,7 +2,6 @@
 
 import ui from "../../../components/ui/primitives.module.css";
 import accountStyles from "./account-presentation.module.css";
-import contextStyles from "./account-context.module.css";
 
 import { clsx } from "clsx";
 import Link from "next/link";
@@ -19,8 +18,8 @@ import { BankConnectionDialog } from "@/features/banking/components/bank-connect
 import { CreateAccountDialog } from "./create-account-form";
 import { setArchivedAccountsOpen, useAccountHref, useArchivedAccountsOpen } from "@/client/use-app-url";
 import { AreaPlaceholder } from "@/components/ui/area-placeholder";
-import { shownStatus, valueMask } from "@/components/ui/result-presentation";
-import type { Area } from "@/components/ui/use-area-result";
+import { mapArea, type Area } from "@/components/ui/use-area-result";
+import { SectionHeading } from "@/components/ui/section-heading";
 import { useLocale } from "@/client/locale-provider";
 import { formatCount } from "@/lib/locale";
 
@@ -39,34 +38,29 @@ const skeletonAccounts = 3;
 export function AccountsView({
   accounts
 }: Props) {
-  const locale = useLocale();
   const [dialog, setDialog] = useState<OpenDialog | null>(null);
   const closeDialog = () => setDialog(null);
   const addAccount = () => setDialog({
     kind: "account"
   });
-  const shownAccounts = accounts.data ? activeAccounts(accounts.data) : [];
 
   return (
     <>
-      <div className={contextStyles["context-row"]}>
-        <span className={clsx(contextStyles["label"], ui["section-kicker"], valueMask(shownStatus(accounts)))}>{`${formatCount(shownAccounts.length, locale)} ACCOUNTS & ASSETS`}</span>
-        <div className={clsx(contextStyles["actions"], ui["button-group"])}>
-          <button className={ui["button"]} onClick={addAccount}>
-            <Plus size={15} />
-            Add account
-          </button>
-          <button
-            className={clsx(ui["button"], ui["primary"])}
-            onClick={() => setDialog({
-              kind: "bank"
-            })}
-          >
-            <Link2 size={15} />
-            Connect bank
-          </button>
-        </div>
-      </div>
+      <SectionHeading title="Accounts & assets" count={mapArea(accounts, data => activeAccounts(data).length)}>
+        <button className={ui["button"]} onClick={addAccount}>
+          <Plus size={15} />
+          Add account
+        </button>
+        <button
+          className={clsx(ui["button"], ui["primary"])}
+          onClick={() => setDialog({
+            kind: "bank"
+          })}
+        >
+          <Link2 size={15} />
+          Connect bank
+        </button>
+      </SectionHeading>
       {accounts.status === "pending" ? (
         <AreaPlaceholder area={accounts} subject="Your accounts">
           <AccountCardsSkeleton />

@@ -20,11 +20,12 @@ import { useSearchDraft } from "@/features/transactions/use-search-draft";
 import { transactionPageSize } from "@/lib/pagination";
 import { areaProps, valueMask } from "@/components/ui/result-presentation";
 import { AreaPlaceholder } from "@/components/ui/area-placeholder";
-import { pendingTogether, type Area, type AreaResult } from "@/components/ui/use-area-result";
+import { mapArea, pendingTogether, type Area, type AreaResult } from "@/components/ui/use-area-result";
 import type { Account } from "@/features/accounts/types";
 import type { Category } from "@/features/categorization/types";
 import { transactionTypes, transactionTypeLabels } from "@/lib/transaction-types";
 import type { TransactionPage } from "@/features/transactions/types";
+import { SectionHeading } from "@/components/ui/section-heading";
 import { useLocale } from "@/client/locale-provider";
 import { formatCount } from "@/lib/locale";
 
@@ -66,9 +67,8 @@ function categoryFilterValue(value: CategoryPickerValue) {
   return value ?? "uncategorized";
 }
 
-const headings: Record<Props["view"], string> = {
+const headings: Record<Exclude<Props["view"], "transactions">, string> = {
   overview: "Recent transactions",
-  transactions: "All transactions",
   account: "Transactions"
 };
 
@@ -87,58 +87,59 @@ export function TransactionsPanel(props: Props) {
   const manualAccounts = activeAccounts(useAccounts().data ?? []).filter(account => account.provider === "manual");
 
   return (
-    <section className={clsx(ui["panel"], styles["transaction-panel"])}>
-      <div className={styles["card-heading"]}>
-        <h2 ref={headingRef} tabIndex={-1}>{headings[view]}</h2>
-        {props.view === "overview" && (
-          // The overview lists the latest bookings of every month, so the full list continues them over all months.
-          <Link className={ui["text-button"]} href={allTransactionsHref}>
-            View all <ArrowRight size={15} />
-          </Link>
-        )}
-        {props.view === "transactions" && (
-          <div className={styles["heading-actions"]}>
-            {manualAccounts.length > 0 && (
-              <button
-                className={clsx(styles["button"], ui["small"])}
-                onClick={() => setEntryOpen(true)}
-              >
-                <Plus size={14} />
-                Add transaction
-              </button>
-            )}
-            <button className={clsx(styles["button"], ui["small"])} onClick={() => setImportOpen(true)}>
-              <ArrowDownToLine size={14} />
-              Import CSV
+    <>
+      {props.view === "transactions" && (
+        <SectionHeading title="Transactions" count={mapArea(list, data => data.transactionCount)} headingRef={headingRef}>
+          {manualAccounts.length > 0 && (
+            <button className={ui["button"]} onClick={() => setEntryOpen(true)}>
+              <Plus size={15} />
+              Add transaction
             </button>
+          )}
+          <button className={ui["button"]} onClick={() => setImportOpen(true)}>
+            <ArrowDownToLine size={15} />
+            Import CSV
+          </button>
+        </SectionHeading>
+      )}
+      <section className={clsx(ui["panel"], styles["transaction-panel"], props.view === "transactions" && styles["below-heading"])} aria-label={props.view === "transactions" ? "Transactions" : undefined}>
+        {props.view !== "transactions" && (
+          <div className={styles["card-heading"]}>
+            <h2 ref={headingRef} tabIndex={-1}>{headings[props.view]}</h2>
+            {props.view === "overview" && (
+              // The overview lists the latest bookings of every month, so the full list continues them over all months.
+              <Link className={ui["text-button"]} href={allTransactionsHref}>
+                View all <ArrowRight size={15} />
+              </Link>
+            )}
+            {props.view === "account" && (
+              <Link className={ui["text-button"]} href={props.filterHref}>
+                <SlidersHorizontal size={14} />
+                Search and filter
+              </Link>
+            )}
           </div>
         )}
-        {props.view === "account" && (
-          <Link className={ui["text-button"]} href={props.filterHref}>
-            <SlidersHorizontal size={14} />
-            Search and filter
-          </Link>
-        )}
-      </div>
-      {props.view === "transactions" && <TransactionFilters categories={categories.data ?? []} filterAccounts={props.filterAccounts.data ?? []} />}
-      <TransactionRuleProvider fallbackFocus={headingRef}>
-        {list.status === "pending" || categories.status === "pending" ? (
-          <AreaPlaceholder area={pendingTogether(list, categories)} subject="Your transactions">
-            {view === "overview" ? <TransactionListSkeleton rows={recentTransactions} /> : <TransactionPageSkeleton />}
-          </AreaPlaceholder>
-        ) : (
-          <TransactionPages
-            categories={categories.data}
-            emptyState={emptyState}
-            list={list}
-            page={page}
-            view={view}
-          />
-        )}
-      </TransactionRuleProvider>
-      {importOpen && <CsvFileDialog close={() => setImportOpen(false)} />}
-      {entryOpen && <ManualTransactionDialog accounts={manualAccounts} close={() => setEntryOpen(false)} />}
-    </section>
+        {props.view === "transactions" && <TransactionFilters categories={categories.data ?? []} filterAccounts={props.filterAccounts.data ?? []} />}
+        <TransactionRuleProvider fallbackFocus={headingRef}>
+          {list.status === "pending" || categories.status === "pending" ? (
+            <AreaPlaceholder area={pendingTogether(list, categories)} subject="Your transactions">
+              {view === "overview" ? <TransactionListSkeleton rows={recentTransactions} /> : <TransactionPageSkeleton />}
+            </AreaPlaceholder>
+          ) : (
+            <TransactionPages
+              categories={categories.data}
+              emptyState={emptyState}
+              list={list}
+              page={page}
+              view={view}
+            />
+          )}
+        </TransactionRuleProvider>
+        {importOpen && <CsvFileDialog close={() => setImportOpen(false)} />}
+        {entryOpen && <ManualTransactionDialog accounts={manualAccounts} close={() => setEntryOpen(false)} />}
+      </section>
+    </>
   );
 }
 
