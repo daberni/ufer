@@ -287,7 +287,7 @@ async function saveAccountRows(tx: DatabaseTransaction, {
     await tx.insert(accounts).values({
       id: accountId,
       name: newAccount.name,
-      institution: "CSV import",
+      institution: "",
       kind: newAccount.kind,
       currency: newAccount.currency
     }).onConflictDoNothing();

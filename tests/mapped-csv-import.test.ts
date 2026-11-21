@@ -307,6 +307,7 @@ test("new accounts are created once per import, on confirmation, across batches 
 
   assert.equal(accounts.length, 1);
   assert.equal(accounts[0].name, "Closed account");
+  assert.equal(accounts[0].institution, "");
   assert.equal((await db.select().from(schema.transactions)).length, 2);
 
   // Accounts created before changeset 0016 were derived with the banking environment, so resuming such an import must find the same account.
