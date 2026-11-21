@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { test, type TestContext } from "node:test";
 import { Temporal } from "temporal-polyfill";
 import { createClient } from "@libsql/client";
-import { eq } from "drizzle-orm";
+import { eq, ne } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/libsql";
 import type { Database } from "../src/server/database/connection";
 import { initializeDatabase } from "../src/server/database/migrations";
@@ -169,7 +169,7 @@ test("a payee and description override survives a resync that changes the bank's
 
   assert.equal(stored.counterparty_override, null);
   assert.equal(stored.description_override, "Weekly groceries");
-  assert.equal(await db.$count(schema.transactions), 1);
+  assert.equal(await db.$count(schema.transactions, ne(schema.transactions.type, "opening_balance")), 1);
 });
 
 test("saving only a type stores no override, and a transaction entered in Ufer is not given one", async context => {
@@ -229,10 +229,11 @@ test("a hidden synced booking stays hidden across resyncs and counts toward no c
   await hideTransaction(duplicate.id, true, now);
   await sync("checking", delivery);
 
-  assert.equal(await db.$count(schema.transactions), 2);
+  assert.equal(await db.$count(schema.transactions, ne(schema.transactions.type, "opening_balance")), 2);
   assert.equal((await byReference(db, "bank:duplicate")).suppressed_at, now.toString());
   assert.equal(await expenses(), 1250);
-  assert.deepEqual((await listed()).map(item => item.hidden).sort(), [false, true]);
+  // The listing also holds the opening balance the first sync booked.
+  assert.deepEqual((await listed()).map(item => item.hidden).sort(), [false, false, true]);
 
   await hideTransaction(duplicate.id, false, now);
   assert.equal(await expenses(), 2500);
@@ -421,7 +422,7 @@ test("a file row matching a hidden, overridden synced booking by the bank's text
     confirm: true
   }, now);
 
-  assert.equal(await db.$count(schema.transactions), 1);
+  assert.equal(await db.$count(schema.transactions, ne(schema.transactions.type, "opening_balance")), 1);
   assert.equal(await expenses(), 0);
 });
 

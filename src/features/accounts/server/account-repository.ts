@@ -1,11 +1,12 @@
 import { randomUUID } from "node:crypto";
-import { and, eq, isNull, sql, TransactionRollbackError } from "drizzle-orm";
+import { and, desc, eq, isNull, sql, TransactionRollbackError } from "drizzle-orm";
 import { database, type Database } from "@/server/database/connection";
-import { accounts, transactions } from "@/server/database/schema";
+import { accounts, balanceSnapshots, transactions } from "@/server/database/schema";
 import { bookManualEntry, recordManualBalance, type ManualEntryResult } from "@/features/transactions/server/manual-transaction-repository";
 import type { AccountKind } from "../account-kinds";
 import type { ManualAccountInput } from "./account-schema";
 import { assertWritableAccount } from "./writable-account";
+import { comparableBankBalanceTypes } from "./account-queries";
 
 export async function findManualAccount(id: string) {
   const db = await database();
@@ -62,9 +63,36 @@ export async function saveManualValuation(account: {
   });
 }
 
+/**
+ * Books an adjustment so a bank-linked account's calculated balance matches the newest booked balance its bank reported, at that balance's date.
+ * Returns false when the newest report is not a booked balance; a matching balance books nothing.
+ */
+export async function reconcileWithReportedBalance(account: {
+  id: string;
+  currency: string;
+}) {
+  const db = await database();
 
-// The current balance in one statement with the update, as listed: a manual account's sum of visible (not hidden) bookings (0 without any), otherwise the provider balance, whose NULL (unknown) never equals 0.
-const currentBalance = sql`(CASE WHEN ${accounts.provider}='manual' THEN COALESCE((SELECT SUM(t.amount_minor) FROM transactions t WHERE t.account_id=accounts.id AND t.suppressed_at IS NULL),0) ELSE ${accounts.balance_minor} END)`;
+  return db.transaction(async tx => {
+    await assertWritableAccount(tx, account.id);
+    const reported = await tx.select({
+      date: balanceSnapshots.observed_at,
+      amount: balanceSnapshots.amount_minor,
+      type: balanceSnapshots.bank_balance_type
+    }).from(balanceSnapshots).where(and(eq(balanceSnapshots.account_id, account.id), eq(balanceSnapshots.source, "sync"))).orderBy(desc(balanceSnapshots.observed_at)).get();
+
+    if (!reported?.type || !comparableBankBalanceTypes.includes(reported.type)) {
+      return false;
+    }
+
+    await recordManualBalance(tx, account, reported.date, reported.amount);
+
+    return true;
+  });
+}
+
+// The current balance in one statement with the update, as listed: the sum of visible (not hidden) bookings, 0 without any.
+const currentBalance = sql`COALESCE((SELECT SUM(t.amount_minor) FROM transactions t WHERE t.account_id=accounts.id AND t.suppressed_at IS NULL),0)`;
 
 /** Archives an active account only if its balance is exactly 0 at the moment of the update; returns whether it was archived. */
 export async function archiveSettledAccount(id: string, archivedAt: string) {

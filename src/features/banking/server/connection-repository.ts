@@ -208,8 +208,8 @@ export async function removeConnection(id: string, exchangeCutoff: Temporal.Inst
       throw new HttpError(409, "The bank connection changed during removal. Try again.");
     }
 
-    // An unknown (NULL) balance is not 0, so such an account stays active.
-    const zeroBalance = sql`${accounts.balance_minor}=0`;
+    // The balance is the sum of the visible bookings, 0 without any.
+    const zeroBalance = sql`COALESCE((SELECT SUM(t.amount_minor) FROM transactions t WHERE t.account_id=${accounts.id} AND t.suppressed_at IS NULL),0)=0`;
     const detached = await tx.update(accounts).set({
       requisition_id: null,
       sync_error: null,

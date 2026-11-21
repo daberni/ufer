@@ -4,7 +4,7 @@ import { z } from "zod";
 import { test, type TestContext } from "node:test";
 import { Temporal } from "temporal-polyfill";
 import { createClient, type InArgs, type InStatement } from "@libsql/client";
-import { eq } from "drizzle-orm";
+import { eq, ne } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/libsql";
 import type { Database } from "../src/server/database/connection";
 import { initializeDatabase } from "../src/server/database/migrations";
@@ -376,7 +376,17 @@ test("imports into a bank-linked account skip synced bookings and leave the bank
   const db = await isolatedDatabase(context);
 
   await insertBankAccount(db);
-  await db.insert(schema.transactions).values({
+  await db.insert(schema.transactions).values([{
+    id: "bank-opening",
+    account_id: "synthetic-bank-account",
+    provider_reference: "manual:bank-opening",
+    booking_date: "2024-05-02",
+    amount_minor: 128_055,
+    currency: "EUR",
+    counterparty: "",
+    description: "",
+    type: "opening_balance"
+  }, {
     id: "synced-1",
     account_id: "synthetic-bank-account",
     provider_reference: "bank:synced-1",
@@ -386,7 +396,7 @@ test("imports into a bank-linked account skip synced bookings and leave the bank
     counterparty: "Example Grocer GmbH",
     description: "Card payment",
     type: "expense"
-  });
+  }]);
 
   const result = await importMappedRows({
     import_id: importId,
@@ -404,9 +414,13 @@ test("imports into a bank-linked account skip synced bookings and leave the bank
     line: 2,
     reason: "existing_booking"
   }]);
-  assert.equal((await db.select().from(schema.transactions)).length, 2);
+  // The older row was part of the opening balance, which shrinks and moves before it.
+  const opening = await db.select().from(schema.transactions).where(eq(schema.transactions.id, "bank-opening")).get();
+
+  assert.equal((await db.select().from(schema.transactions)).length, 3);
   assert.equal(account?.balance_minor, 123_456);
-  assert.equal(account?.balance_date, "2026-06-29");
+  assert.equal(opening?.amount_minor, 130_055);
+  assert.equal(opening?.booking_date, "2024-03-31");
 });
 
 test("CSV categories map by name, rules categorize the rest, and existing categories are never overwritten", async context => {
@@ -611,7 +625,7 @@ test("a later bank sync adopts the matching CSV-imported row with its category i
     counterparty: "Pharmacy",
     description: ""
   }], []);
-  const rows = await db.select().from(schema.transactions).orderBy(schema.transactions.booking_date);
+  const rows = await db.select().from(schema.transactions).where(ne(schema.transactions.type, "opening_balance")).orderBy(schema.transactions.booking_date);
 
   assert.equal(inserted, 1);
   assert.deepEqual(rows.map(row => [row.provider_reference.startsWith("csv:") ? "csv" : row.provider_reference, row.counterparty, row.category_id]), [
@@ -1010,7 +1024,7 @@ test("a bank entry repeated in one response adopts only one CSV-imported row", a
   }], [booking, {
     ...booking
   }], []);
-  const rows = await db.select().from(schema.transactions);
+  const rows = await db.select().from(schema.transactions).where(ne(schema.transactions.type, "opening_balance"));
 
   assert.deepEqual(rows.map(row => row.provider_reference.startsWith("csv:") ? "csv" : row.provider_reference).sort(), ["bank:bistro", "csv"]);
 });

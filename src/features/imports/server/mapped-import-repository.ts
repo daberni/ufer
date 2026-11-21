@@ -1,3 +1,4 @@
+import { keepBankOpeningBalanceFirst } from "@/features/accounts/server/opening-balance-repository";
 import { randomUUID } from "node:crypto";
 import { Temporal } from "temporal-polyfill";
 import { and, between, eq, inArray, like, ne, notInArray, sql } from "drizzle-orm";
@@ -234,6 +235,9 @@ export async function saveMappedEntries(accountId: string, entries: MappedEntry[
       inserted += rows.length;
       await saveImportedParts(tx, rows, fresh);
     }
+
+    // Older history imported into a bank-linked account was part of its opening balance.
+    await keepBankOpeningBalanceFirst(tx, accountId);
 
     if (opening) {
       await saveOpeningBalance(tx, accountId, newAccount?.currency ?? entries[0]?.currency ?? "", opening);

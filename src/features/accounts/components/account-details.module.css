@@ -97,3 +97,19 @@
     flex: 1 1 100%;
   }
 }
+.mismatch {
+  align-items: flex-start;
+  margin: var(--space-4) 0 0;
+}
+.mismatch > svg {
+  flex: none;
+  margin-top: var(--space-1);
+}
+.mismatch-body {
+  display: grid;
+  gap: var(--space-3);
+  justify-items: start;
+}
+.mismatch-body p {
+  margin: 0;
+}

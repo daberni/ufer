@@ -1,3 +1,4 @@
+import { anchorOpeningBalance } from "@/features/accounts/server/opening-balance-repository";
 import { adoptImportedRows } from "@/features/imports/server/mapped-import-repository";
 import { randomUUID } from "node:crypto";
 import { and, count, eq, getTableColumns, isNull, like, ne, sql, type SQLWrapper } from "drizzle-orm";
@@ -85,7 +86,7 @@ export async function recordAccountSyncError(id: string, error: string) {
   }).where(eq(accounts.id, id));
 }
 
-/** Stores one account's sync result and returns how many of its transactions this run inserted. Entries are categorized in the write transaction, with the overrides stored for the rows they update. */
+/** Stores one account's sync result, keeps its opening balance in front of its bookings and records the reported balance for comparison; returns how many of its transactions this run inserted. Entries are categorized in the write transaction, with the overrides stored for the rows they update. */
 export async function saveSyncedAccount(run: SyncRunStart, accountId: string, balance: {
   amount: number;
   bank_balance_type: string;
@@ -97,9 +98,8 @@ export async function saveSyncedAccount(run: SyncRunStart, accountId: string, ba
     const categorized = categorize(await withStoredOverrides(tx, accountId, entries));
 
     await upsertTransactions(tx, accountId, await adoptImportedRows(tx, accountId, categorized), run.startedAt);
+    await anchorOpeningBalance(tx, accountId, balance);
     await tx.update(accounts).set({
-      balance_minor: balance.amount,
-      balance_date: balance.date,
       last_synced_at: timestamp(),
       sync_error: null
     }).where(eq(accounts.id, accountId));

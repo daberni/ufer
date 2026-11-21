@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { generateKeyPairSync } from "node:crypto";
 import { test, type TestContext } from "node:test";
 import { createClient, type InArgs, type InStatement } from "@libsql/client";
-import { eq } from "drizzle-orm";
+import { eq, ne } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/libsql";
 import type { Database } from "../src/server/database/connection";
 import { initializeDatabase } from "../src/server/database/migrations";
@@ -200,9 +200,6 @@ test("disconnecting a bank archives only its accounts with a balance of 0 and na
 
   await insertLinkedConnection(db, "archived-bank", "archived-account");
   await insertLinkedConnection(db, "other-bank", "other-account");
-  await db.update(schema.accounts).set({
-    balance_minor: 0
-  }).where(eq(schema.accounts.id, "archived-account"));
   await db.insert(schema.accounts).values({
     id: "unsettled-account",
     name: "Synthetic unsettled account",
@@ -210,11 +207,26 @@ test("disconnecting a bank archives only its accounts with a balance of 0 and na
     kind: "checking",
     provider: "enable_banking",
     provider_uid: "uid-unsettled-account",
-    requisition_id: "archived-bank",
-    balance_minor: 4200,
-    balance_date: "2000-01-31"
+    requisition_id: "archived-bank"
   });
-  await db.insert(schema.transactions).values({
+  // The archived account's bookings sum to 0; the unsettled account keeps a balance.
+  await db.insert(schema.transactions).values([{
+    id: "archived-opening",
+    account_id: "archived-account",
+    provider_reference: "manual:archived-opening",
+    booking_date: "2000-01-09",
+    amount_minor: 500,
+    currency: "EUR",
+    type: "opening_balance"
+  }, {
+    id: "unsettled-opening",
+    account_id: "unsettled-account",
+    provider_reference: "manual:unsettled-opening",
+    booking_date: "2000-01-09",
+    amount_minor: 4200,
+    currency: "EUR",
+    type: "opening_balance"
+  }, {
     id: "archived-history",
     account_id: "archived-account",
     provider_reference: "bank:synthetic-archived-history",
@@ -223,7 +235,7 @@ test("disconnecting a bank archives only its accounts with a balance of 0 and na
     currency: "EUR",
     type: "expense",
     counterparty: "Example payee"
-  });
+  }]);
   const netWorthBefore = await readNetWorth("EUR");
 
   assert.deepEqual(await removeBankConnection("archived-bank", {
@@ -246,7 +258,7 @@ test("disconnecting a bank archives only its accounts with a balance of 0 and na
   assert.equal(accountsAfter.find(account => account.id === "unsettled-account")?.archived_at, null);
   assert.equal(accountsAfter.find(account => account.id === "unsettled-account")?.requisition_id, null);
   assert.equal(accountsAfter.find(account => account.id === "other-account")?.archived_at, null);
-  assert.equal((await db.select().from(schema.transactions)).length, 1);
+  assert.equal((await db.select().from(schema.transactions)).length, 3);
   assert.deepEqual(await readNetWorth("EUR"), netWorthBefore);
   assert.deepEqual((await listSyncAccounts()).map(item => item.id), ["other-account"]);
 });
@@ -302,8 +314,6 @@ test("sync skips an archived account of a linked connection and resumes it once 
     provider: "enable_banking",
     provider_uid: "uid-archived-account",
     requisition_id: "shared",
-    balance_minor: 12345,
-    balance_date: "2000-01-31",
     archived_at: "2000-02-01T00:00:00.000Z"
   });
   const archivedBefore = await db.select().from(schema.accounts).where(eq(schema.accounts.id, "archived-account")).get();
@@ -312,7 +322,7 @@ test("sync skips an archived account of a linked connection and resumes it once 
   assert.equal(requests.some(request => request.path.includes("uid-archived-account")), false);
   assert.ok(requests.some(request => request.path.includes("uid-active-account")));
   assert.deepEqual(await db.select().from(schema.accounts).where(eq(schema.accounts.id, "archived-account")).get(), archivedBefore);
-  assert.deepEqual((await db.select().from(schema.transactions)).map(booking => booking.account_id), ["active-account"]);
+  assert.deepEqual((await db.select().from(schema.transactions).where(ne(schema.transactions.type, "opening_balance"))).map(booking => booking.account_id), ["active-account"]);
   assert.equal((await db.select().from(schema.balanceSnapshots).where(eq(schema.balanceSnapshots.account_id, "archived-account"))).length, 0);
 
   await db.update(schema.accounts).set({
@@ -320,8 +330,9 @@ test("sync skips an archived account of a linked connection and resumes it once 
   }).where(eq(schema.accounts.id, "archived-account"));
   assert.equal((await syncAccounts()).status, "SUCCESS");
   assert.ok(requests.some(request => request.path.includes("uid-archived-account")));
-  assert.equal((await db.select().from(schema.transactions).where(eq(schema.transactions.account_id, "archived-account"))).length, 1);
-  assert.equal((await db.select().from(schema.accounts).where(eq(schema.accounts.id, "archived-account")).get())?.balance_minor, 20000);
+  // The resumed sync books the bank booking and an opening balance that brings the account to the reported balance.
+  assert.equal((await db.select().from(schema.transactions).where(eq(schema.transactions.account_id, "archived-account"))).length, 2);
+  assert.equal((await listAccounts()).find(account => account.id === "archived-account")?.balance_minor, 20000);
 });
 
 test("a failed revocation leaves the connection intact for an explicit retry, without background retries", async context => {

@@ -199,7 +199,7 @@ function syncRun(startedAt: string) {
 }
 
 async function storedDetails(db: Database) {
-  const rows = await db.$client.execute("SELECT provider_reference,category_id,category_source,instructed_amount_minor,instructed_currency,provider_payload FROM transactions ORDER BY provider_reference");
+  const rows = await db.$client.execute("SELECT provider_reference,category_id,category_source,instructed_amount_minor,instructed_currency,provider_payload FROM transactions WHERE type<>'opening_balance' ORDER BY provider_reference");
 
   return rows.rows.map(row => ({
     reference: row.provider_reference,
@@ -278,7 +278,8 @@ test("the transaction list returns the original amount and currency only for boo
   })));
   const originals = page.transactions.map(transaction => [transaction.instructed_amount_minor, transaction.instructed_currency]);
 
-  assert.deepEqual(originals.sort(), [[null, null], [-1340, "USD"]]);
+  // The opening balance the sync booked carries no original amount either.
+  assert.deepEqual(originals.sort(), [[null, null], [null, null], [-1340, "USD"]]);
 });
 
 test("an original amount in a currency outside the pinned list is kept", () => {

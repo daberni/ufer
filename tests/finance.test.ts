@@ -371,18 +371,18 @@ test("repeated sync preserves manual category corrections including deliberately
     const entries = normalizeTransactions([bankTransaction], new Set());
 
     assert.equal(await saveAccountSync(syncRun("2026-11-12T08:00:00.000Z"), "a", "EUR", balances, entries, rules), 1);
-    await client.execute("UPDATE transactions SET category_id='leisure',category_source='manual'");
+    await client.execute("UPDATE transactions SET category_id='leisure',category_source='manual' WHERE type<>'opening_balance'");
     assert.equal(await saveAccountSync(syncRun("2026-11-12T09:00:00.000Z"), "a", "EUR", balances, entries, rules), 0);
-    assert.equal((await client.execute("SELECT category_id FROM transactions")).rows[0].category_id, "leisure");
-    await client.execute("UPDATE transactions SET category_id=NULL,category_source='manual'");
+    assert.equal((await client.execute("SELECT category_id FROM transactions WHERE type<>'opening_balance'")).rows[0].category_id, "leisure");
+    await client.execute("UPDATE transactions SET category_id=NULL,category_source='manual' WHERE type<>'opening_balance'");
     await saveAccountSync(syncRun("2026-11-12T10:00:00.000Z"), "a", "EUR", balances, entries, rules);
-    assert.equal((await client.execute("SELECT category_id FROM transactions")).rows[0].category_id, null);
+    assert.equal((await client.execute("SELECT category_id FROM transactions WHERE type<>'opening_balance'")).rows[0].category_id, null);
     assert.equal((await client.execute("SELECT COUNT(*) AS n FROM balance_snapshots")).rows[0].n, 1);
     await assert.rejects(saveAccountSync(syncRun("2026-11-12T11:00:00.000Z"), "a", "EUR", balances, [{
       ...entries[0],
       currency: "USD"
     }], rules));
-    assert.equal((await client.execute("SELECT COUNT(*) AS n FROM transactions")).rows[0].n, 1);
+    assert.equal((await client.execute("SELECT COUNT(*) AS n FROM transactions WHERE type<>'opening_balance'")).rows[0].n, 1);
   } finally {
     client.close();
   }

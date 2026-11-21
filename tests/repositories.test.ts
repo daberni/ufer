@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { test, type TestContext } from "node:test";
 import { Temporal } from "temporal-polyfill";
 import { createClient } from "@libsql/client";
-import { eq } from "drizzle-orm";
+import { eq, ne } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/libsql";
 import { database, type Database } from "../src/server/database/connection";
 import { initializeDatabase } from "../src/server/database/migrations";
@@ -458,11 +458,12 @@ test("multi-chunk sync remains idempotent and rolls back every chunk when a late
     reference: "bank:broken"
   });
   await assert.rejects(saveAccountSync(syncRun("2000-01-10T10:00:00.000Z"), "bulk-account", "EUR", balances, changed, []));
-  const stored = await db.select().from(schema.transactions);
+  // The first sync also booked the account's opening balance.
+  const stored = await db.select().from(schema.transactions).where(ne(schema.transactions.type, "opening_balance"));
 
   assert.equal(stored.length, 125);
   assert.ok(stored.every(entry => entry.amount_minor === -100));
-  assert.equal((await findManualAccount("bulk-account"))?.balance_minor, 11111);
+  assert.equal((await listAccounts()).find(account => account.id === "bulk-account")?.balance_minor, 11111);
   assert.equal((await db.select().from(schema.balanceSnapshots)).length, 1);
 });
 

@@ -7,7 +7,7 @@ import contextStyles from "./account-context.module.css";
 import { clsx } from "clsx";
 import Link from "next/link";
 import styles from "./accounts-view.module.css";
-import { Link2, Plus } from "lucide-react";
+import { Link2, Plus, TriangleAlert } from "lucide-react";
 import { accountIcon, accountSourceLabel, kinds } from "@/features/accounts/account-presentation";
 import { DateValue } from "@/components/ui/date-value";
 import { money } from "@/lib/money";
@@ -182,6 +182,12 @@ function AccountCard({ account }: {
         <span>Balance <DateValue value={account.balance_date} fallback="not recorded yet" /></span>
         <span>{accountSourceLabel(account)}</span>
       </div>
+      {account.reported_difference_minor !== null && account.reported_difference_minor !== 0 && (
+        <p className={styles["mismatch"]}>
+          <TriangleAlert size={15} aria-hidden="true" />
+          Differs from bank by {money(account.reported_difference_minor, account.currency, locale)}
+        </p>
+      )}
       {account.sync_error && <p className={ui["error-text"]}>{account.sync_error}</p>}
     </section>
   );
