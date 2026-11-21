@@ -88,7 +88,10 @@ export function TransactionsPanel(props: Props) {
   const [entryOpen, setEntryOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const allTransactionsHref = useAllTransactionsHref();
-  const manualAccounts = activeAccounts(useAccounts().data ?? []).filter(account => account.provider === "manual");
+  const accounts = useAccounts();
+  const manualAccounts = activeAccounts(accounts.data ?? []).filter(account => account.provider === "manual");
+  // Keep the button in place while accounts load, so the heading does not shift when they arrive.
+  const offerEntry = accounts.isPending || manualAccounts.length > 0;
 
   return (
     <>
@@ -99,8 +102,8 @@ export function TransactionsPanel(props: Props) {
           headingRef={headingRef}
           title="Transactions"
         >
-          {manualAccounts.length > 0 && (
-            <button className={ui["button"]} onClick={() => setEntryOpen(true)}>
+          {offerEntry && (
+            <button className={ui["button"]} disabled={manualAccounts.length === 0} onClick={() => setEntryOpen(true)}>
               <Plus size={15} />
               Add transaction
             </button>
