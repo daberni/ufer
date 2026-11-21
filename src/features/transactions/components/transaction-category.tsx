@@ -118,7 +118,7 @@ export function TransactionCategory({
       </span>
       {failure && (
         <span id={messageId} className={styles["message"]} title={failure}>
-          <span className={ui["truncate"]}>{failure}</span>
+          <span className={styles["message-text"]}>{failure}</span>
           <TraceId id={status?.kind === "failed" ? status.failure.traceId : undefined} />
         </span>
       )}

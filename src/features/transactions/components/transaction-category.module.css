@@ -54,6 +54,9 @@
   white-space: nowrap;
   color: var(--danger);
 }
+.message-text {
+  composes: truncate from "../../../components/ui/primitives.module.css";
+}
 .message > :not(.message-text) {
   flex: none;
   line-height: inherit;
