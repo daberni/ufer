@@ -142,7 +142,7 @@ Open work in priority order. Items without an issue are not yet specified.
 4. **User management (later):** owner and member roles exist, but routes do not yet enforce different rights; role enforcement has no issue yet.
 5. **Securities price automation (later):** automatic price updates for securities; a provider (EODHD) is under evaluation and no issue exists yet.
 
-In progress as pull requests: dropping the per-row banking environment column ([#76](https://github.com/daberni/ufer/issues/76)), completing management of rules, categories, accounts and bank links ([#86](https://github.com/daberni/ufer/issues/86)), and React hooks, accessibility and stylesheet linting ([#111](https://github.com/daberni/ufer/issues/111)).
+In progress: dropping the per-row banking environment column ([#76](https://github.com/daberni/ufer/issues/76)), completing management of rules, categories, accounts and bank links ([#86](https://github.com/daberni/ufer/issues/86)). JSX accessibility linting ([#111](https://github.com/daberni/ufer/issues/111)) waits for an ESLint 10-compatible `eslint-plugin-jsx-a11y` release.
 
 ## Decisions still open
 
