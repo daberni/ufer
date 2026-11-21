@@ -672,11 +672,9 @@ test("an archived account's bookings keep their type, link and, where it counts 
   }), ValidationError);
   assert.deepEqual(await balances(), balancesBefore);
 
-  // A bank account's balance is the bank's, so its unlinked bookings can be hidden and shown again.
-  await hideTransaction("bank-fee", true);
-  assert.ok((await db.select().from(schema.transactions).where(eq(schema.transactions.id, "bank-fee")).get())?.suppressed_at);
-  assert.equal((await readCashFlow(allMonthsPeriod, "EUR")).expenseBreakdown.reduce((sum, item) => sum + item.amount, 0), 5500);
-  await hideTransaction("bank-fee", false);
+  // A bank account's balance is the sum of its shown bookings too, so their visibility is frozen as well.
+  await assert.rejects(hideTransaction("bank-fee", true), archived);
+  assert.equal((await db.select().from(schema.transactions).where(eq(schema.transactions.id, "bank-fee")).get())?.suppressed_at, null);
   assert.deepEqual(await balances(), balancesBefore);
 });
 

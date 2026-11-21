@@ -377,7 +377,7 @@ function TransactionEditForm({
   const linkable = transfer && !transaction.hidden && relinkable;
   const editsEntry = transaction.entered && !frozen;
   // On an archived account only a bank booking without a link can be hidden: a manual account's balance sums its shown bookings, and hiding ends a link.
-  const hideable = imported && (!frozen || (!transaction.manual_account && !transaction.counterpart));
+  const hideable = imported && !frozen;
   const options = useTransferOptions(transaction.id, linkable);
   const target = chosenTarget ?? storedTarget(transaction, options.data);
   // A split booking stays income or expense, since only those count by category; the stored type stays listed.

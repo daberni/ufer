@@ -254,8 +254,8 @@ export async function setTransactionHidden(id: string, hidden: boolean, at: stri
       return "not_found";
     }
 
-    // On an archived account hiding may not change a balance: a manual account's balance sums its shown bookings, and hiding a linked booking ends the link.
-    if (await touchesArchivedAccount(tx, subject) && (subject.account_provider === "manual" || subject.transfer_id)) {
+    // On an archived account hiding may not change a balance: every balance sums its shown bookings, and hiding a linked booking ends the link.
+    if (await touchesArchivedAccount(tx, subject)) {
       return "archived_account";
     }
 
