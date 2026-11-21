@@ -7,7 +7,8 @@ import { maximumSplitParts, partAmountSupported } from "@/features/transactions/
 import { removeSplit, replaceSplit, type SplitPartValues, type SplitSubject } from "./split-repository";
 import { currentFormatLocale } from "@/server/http/request-locale";
 
-const splitInput = z.object({
+/** The parts a person enters for a split, also accepted together with a booking's details. */
+export const splitInput = z.object({
   parts: z.array(z.object({
     amount: z.string().max(30),
     category_id: z.string().min(1).nullable(),
@@ -15,7 +16,9 @@ const splitInput = z.object({
   }).strict()).max(maximumSplitParts)
 }).strict();
 
-type PartInput = z.infer<typeof splitInput>["parts"][number];
+export type SplitInput = z.infer<typeof splitInput>;
+
+type PartInput = SplitInput["parts"][number];
 
 /** Only income and expenses count by category; transfers, opening balances and adjustments are not split. */
 function splittable(type: SplitSubject["type"]) {
@@ -51,10 +54,8 @@ function validParts(subject: SplitSubject, parts: PartInput[], locale: string): 
   return values;
 }
 
-/** Splits a booking into at least two category parts that add up exactly to its amount, replacing any earlier split. */
-export async function splitTransaction(id: string, payload: unknown) {
-  const input = splitInput.parse(payload);
-
+/** Checks what can be checked before the write and returns the decision that validates the parts against the booking as stored in that write. */
+export async function splitDecision(input: SplitInput) {
   if (input.parts.length < 2) {
     throw new ValidationError("A split needs at least two parts.");
   }
@@ -68,7 +69,14 @@ export async function splitTransaction(id: string, payload: unknown) {
   }
 
   const locale = await currentFormatLocale();
-  const parts = await replaceSplit(id, subject => validParts(subject, input.parts, locale));
+
+  return (subject: SplitSubject) => validParts(subject, input.parts, locale);
+}
+
+/** Splits a booking into at least two category parts that add up exactly to its amount, replacing any earlier split. */
+export async function splitTransaction(id: string, payload: unknown) {
+  const input = splitInput.parse(payload);
+  const parts = await replaceSplit(id, await splitDecision(input));
 
   if (!parts) {
     throw new HttpError(404, "Transaction not found.");

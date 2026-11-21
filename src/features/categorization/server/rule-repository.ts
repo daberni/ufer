@@ -262,12 +262,23 @@ export async function appendRule(rule: Omit<NewRule, "priority">, assignments?: 
 export async function updateRule(id: string, details: Pick<Rule, "name" | "pattern" | "mode" | "category_id" | "transaction_type" | "transfer_account_id"> & Partial<Pick<Rule, "priority">>, manual?: ManualAdoption) {
   const db = await database();
 
-  return db.transaction(async tx => {
-    const result = await tx.update(categorizationRules).set(details).where(eq(categorizationRules.id, id));
+  return db.transaction(async (tx): Promise<RuleUpdateResult> => {
+    const stored = await tx.select({
+      transfer_account_id: categorizationRules.transfer_account_id
+    }).from(categorizationRules).where(eq(categorizationRules.id, id)).get();
 
-    if (result.rowsAffected === 0) {
-      return false;
+    if (!stored) {
+      return "not_found";
     }
+
+    // A rule may keep a target that was archived or deleted meanwhile; a new target must be an active account.
+    const target = details.transfer_account_id;
+
+    if (target && target !== stored.transfer_account_id && !(await activeAccount(tx, target))) {
+      return "inactive_target";
+    }
+
+    await tx.update(categorizationRules).set(details).where(eq(categorizationRules.id, id));
 
     if (manual) {
       const adopted = await adoptManualAssignments(tx, {
@@ -282,8 +293,18 @@ export async function updateRule(id: string, details: Pick<Rule, "name" | "patte
       }, adopted);
     }
 
-    return true;
+    return "saved";
   });
+}
+
+export type RuleUpdateResult = "saved" | "not_found" | "inactive_target";
+
+async function activeAccount(tx: DatabaseTransaction, id: string) {
+  const found = await tx.select({
+    id: accounts.id
+  }).from(accounts).where(and(eq(accounts.id, id), isNull(accounts.archived_at))).get();
+
+  return found !== undefined;
 }
 
 export async function setRuleEnabled(id: string, enabled: boolean) {
