@@ -6,22 +6,8 @@
   min-height: calc(2 * 1.7em);
   color: var(--ink-soft);
 }
-/* Lays the checkbox beside its text instead of the form's stacked label and text-field sizing. */
-form label.apply {
-  flex-direction: row;
-  align-items: center;
-  cursor: pointer;
-}
-.apply > input[type="checkbox"] {
-  width: auto;
-  min-height: 0;
-  accent-color: var(--green);
-}
 @media (--mobile) {
   .hint {
     font-size: var(--text-sm);
-  }
-  form label.apply {
-    min-height: 44px;
   }
 }

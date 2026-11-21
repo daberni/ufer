@@ -1,6 +1,6 @@
 "use client";
 
-import styles from "./live-announcements.module.css";
+import ui from "./primitives.module.css";
 
 type Props = {
   polite: string;
@@ -14,10 +14,10 @@ export function LiveAnnouncements({
 }: Props) {
   return (
     <>
-      <div className={styles["announcer"]} role="status">
+      <div className={ui["visually-hidden"]} role="status">
         {polite}
       </div>
-      <div className={styles["announcer"]} role="alert">
+      <div className={ui["visually-hidden"]} role="alert">
         {assertive}
       </div>
     </>

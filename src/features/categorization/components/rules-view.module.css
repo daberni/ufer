@@ -272,11 +272,8 @@ button.category-tile:focus-visible {
   background: var(--surface-muted);
 }
 .category-name {
-  min-width: 0;
+  composes: truncate from "../../../components/ui/primitives.module.css";
   font-weight: 500;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 .edit-hint {
   flex-shrink: 0;

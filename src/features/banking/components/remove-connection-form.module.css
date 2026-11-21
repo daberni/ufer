@@ -11,32 +11,12 @@
 .effects strong {
   font-weight: 500;
 }
-/* Lays the checkbox beside its text instead of the form's stacked label and text-field sizing. */
+/* Outranks the form's label size, which the shared check option keeps. */
 form label.archive {
-  flex-direction: row;
-  align-items: center;
-  cursor: pointer;
   font-size: var(--text-sm);
-}
-.archive > input[type="checkbox"] {
-  width: auto;
-  min-height: 0;
-  accent-color: var(--green);
-}
-.danger {
-  composes: button from "../../../components/ui/primitives.module.css";
-  background: var(--danger);
-  border-color: var(--danger);
-  color: var(--on-danger);
-}
-.danger:not(:disabled):hover {
-  background: var(--danger-strong);
 }
 @media (--mobile) {
   .effects {
     font-size: var(--text-md);
-  }
-  form label.archive {
-    min-height: 44px;
   }
 }

@@ -33,7 +33,7 @@ function TableHeader() {
         <col className={styles["date-column"]} />
         <col className={styles["amount-column"]} />
       </colgroup>
-      <thead role="rowgroup" className={styles["header"]}>
+      <thead role="rowgroup" className={clsx(styles["header"], ui["visually-hidden-mobile"])}>
         <tr role="row">
           <th role="columnheader" scope="col">Payee / description</th>
           <th role="columnheader" scope="col">Category</th>

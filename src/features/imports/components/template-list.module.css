@@ -37,11 +37,6 @@
   color: var(--ink);
   font-size: var(--text-md);
 }
-.columns {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 .rename {
   display: flex;
   flex: 1;

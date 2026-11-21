@@ -23,6 +23,7 @@ import type { CashFlow } from "@/features/reports/types";
 import { barSpan, cashFlowScale, scaleOffset, type CashFlowScale } from "@/features/reports/cash-flow-scale";
 import { edgeNet, hasCashFlowToDraw, formatSavingsRate, isNegativeRate, netFlow, trendCashFlow, type CashFlowSelection } from "@/features/reports/cash-flow-selection";
 import { useLocale } from "@/client/locale-provider";
+import { cssPercent } from "@/lib/percent";
 
 type Props = {
   cashFlow: Area<CashFlow>;
@@ -128,10 +129,6 @@ function useChartMonthCount(plotRef: RefObject<HTMLDivElement | null>) {
   return count;
 }
 
-function percent(value: number) {
-  return `${value * 100}%`;
-}
-
 /** A flow's bar from the zero line: income upward and expenses downward, each reversed when its amount is negative. */
 function signedAmount(flow: Flow, amount: number) {
   return flow === "income" ? amount : -amount;
@@ -144,14 +141,14 @@ function barPosition(flow: Flow, amount: number, scale: CashFlowScale): CSSPrope
 
   if (signed > 0) {
     return {
-      bottom: percent(1 - scale.zero),
-      height: percent(span.height)
+      bottom: cssPercent(1 - scale.zero),
+      height: cssPercent(span.height)
     };
   }
 
   return {
-    top: percent(scale.zero),
-    height: percent(span.height)
+    top: cssPercent(scale.zero),
+    height: cssPercent(span.height)
   };
 }
 
@@ -179,7 +176,7 @@ function Hairline({ fraction }: {
       ref={lineRef}
       aria-hidden="true"
       style={{
-        top: percent(fraction)
+        top: cssPercent(fraction)
       }}
     />
   );
@@ -350,8 +347,8 @@ function ChartPlot({
             className={styles["column-highlight"]}
             aria-hidden="true"
             style={{
-              left: percent(chartMonths.indexOf(activeMonth) / chartMonths.length),
-              width: percent(1 / chartMonths.length)
+              left: cssPercent(chartMonths.indexOf(activeMonth) / chartMonths.length),
+              width: cssPercent(1 / chartMonths.length)
             }}
           />
         )}
@@ -420,7 +417,7 @@ function ChartPlot({
                   <span
                     className={styles["net-point"]}
                     style={{
-                      top: percent(scaleOffset(item.net, scale))
+                      top: cssPercent(scaleOffset(item.net, scale))
                     }}
                   />
                 )}
@@ -491,7 +488,7 @@ function FlowBar({
         <span
           key={group.key}
           style={{
-            height: percent(group.share),
+            height: cssPercent(group.share),
             background: themedColor(scheme => categoryBarColor(group.color, scheme))
           }}
         />

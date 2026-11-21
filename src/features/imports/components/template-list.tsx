@@ -107,7 +107,7 @@ function TemplateItem({
       ) : (
         <div className={styles["details"]}>
           <strong>{templateLabel(template)}</strong>
-          <span className={styles["columns"]} title={template.header.join(", ")}>{template.header.join(", ")}</span>
+          <span className={ui["truncate"]} title={template.header.join(", ")}>{template.header.join(", ")}</span>
           {remembered > 0 && <span>{`${formatCount(remembered, locale)} ${remembered === 1 ? "remembered choice" : "remembered choices"}`}</span>}
         </div>
       )}

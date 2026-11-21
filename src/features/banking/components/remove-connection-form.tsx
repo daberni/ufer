@@ -1,5 +1,6 @@
 "use client";
 
+import { clsx } from "clsx";
 import ui from "../../../components/ui/primitives.module.css";
 
 import { useState } from "react";
@@ -67,7 +68,7 @@ function RemoveConnectionForm({
         <li>Ufer revokes the bank authorization before removing the connection. If that fails, the connection stays and you can try again.</li>
         <li>Connecting the same bank again later continues the kept accounts instead of creating duplicates.</li>
       </ul>
-      <label className={styles["archive"]}>
+      <label className={clsx(ui["check-option"], styles["archive"])}>
         <input
           name="archive_accounts"
           type="checkbox"
@@ -88,7 +89,7 @@ function RemoveConnectionForm({
           Cancel
         </button>
         {/* Removal waits until the dialog can say how many accounts it keeps. */}
-        <button className={styles["danger"]} disabled={pending || accounts.status === "pending"}>
+        <button className={ui["danger-button"]} disabled={pending || accounts.status === "pending"}>
           <Trash2 size={15} />
           Remove connection
         </button>

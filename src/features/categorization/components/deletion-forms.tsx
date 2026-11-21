@@ -14,7 +14,7 @@ import { useDeleteCategory, useDeleteRule } from "@/features/categorization/muta
 import { useCategories, useCategoryUsage } from "@/features/categorization/queries";
 import type { Category, CategoryUsage, Rule } from "@/features/categorization/types";
 import { CategoryPicker } from "./category-picker";
-import { formatCount } from "@/lib/locale";
+import { formatCountLabel } from "@/lib/locale";
 import { useLocale } from "@/client/locale-provider";
 
 /** Opens the deletion step of an edit dialog. */
@@ -61,7 +61,7 @@ function ConfirmActions({
       >
         Cancel
       </button>
-      <button className={styles["danger"]} disabled={pending || disabled}>
+      <button className={ui["danger-button"]} disabled={pending || disabled}>
         <Trash2 size={15} />
         {label}
       </button>
@@ -100,10 +100,6 @@ export function RuleDeleteConfirmation({
       <ConfirmActions pending={remove.isPending} cancel={cancel} label="Delete rule" />
     </form>
   );
-}
-
-function count(value: number, singular: string, plural: string, locale: string) {
-  return `${formatCount(value, locale)} ${value === 1 ? singular : plural}`;
 }
 
 type Outcome = "reassign" | "uncategorize";
@@ -215,11 +211,11 @@ function UsageSummary({
     );
   }
 
-  const manual = usage.manual_transactions > 0 ? ` (${count(usage.manual_transactions, "manual assignment", "manual assignments", locale)})` : "";
+  const manual = usage.manual_transactions > 0 ? ` (${formatCountLabel(usage.manual_transactions, "manual assignment", "manual assignments", locale)})` : "";
 
   return (
     <p className={styles["usage"]}>
-      Used by <strong>{count(usage.transactions, "transaction", "transactions", locale)}</strong>{manual} and <strong>{count(usage.rules, "rule", "rules", locale)}</strong>.
+      Used by <strong>{formatCountLabel(usage.transactions, "transaction", "transactions", locale)}</strong>{manual} and <strong>{formatCountLabel(usage.rules, "rule", "rules", locale)}</strong>.
     </p>
   );
 }

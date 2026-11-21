@@ -3,8 +3,7 @@
 import ui from "../../../components/ui/primitives.module.css";
 
 import { useId, useState } from "react";
-import styles from "./manual-adoption-option.module.css";
-import { formatCount } from "@/lib/locale";
+import { formatCount, formatCountLabel } from "@/lib/locale";
 import { useLocale } from "@/client/locale-provider";
 
 /** The manual assignments a previewed rule decides; null while no current count is known. */
@@ -16,10 +15,6 @@ export type ManualMatches = {
 /** Preselected only when every manual assignment the rule decides already has the rule's category, so the rule would not change what a person chose. */
 export function adoptByDefault(matches: ManualMatches) {
   return matches !== null && matches.count > 0 && matches.sameCategory === matches.count;
-}
-
-function transactionCount(count: number, locale: string) {
-  return `${formatCount(count, locale)} ${count === 1 ? "manually categorized transaction" : "manually categorized transactions"}`;
 }
 
 /**
@@ -65,14 +60,14 @@ export function ManualAdoptionOption({
 
   return (
     <>
-      <label className={styles["option"]}>
+      <label className={ui["check-option"]}>
         <input
           type="checkbox"
           checked={checked}
           aria-describedby={hintId}
           onChange={event => setChecked(event.target.checked)}
         />
-        Also let this rule decide {transactionCount(matches.count, locale)}
+        Also let this rule decide {formatCountLabel(matches.count, "manually categorized transaction", "manually categorized transactions", locale)}
       </label>
       <p id={hintId} className={ui["form-hint"]}>{hint} {single ? "Otherwise it stays manual." : "Otherwise they stay manual."}</p>
     </>

@@ -208,15 +208,6 @@
     min-width: 0;
     white-space: normal;
   }
-  /* Visually hidden, so each cell keeps its column header for assistive technology. */
-  .header {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
   .table > tbody {
     display: grid;
     gap: var(--space-3);
