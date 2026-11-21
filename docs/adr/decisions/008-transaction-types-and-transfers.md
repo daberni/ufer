@@ -59,6 +59,6 @@ The changeset that introduces these columns turns transactions in a category fla
 ## Notes
 
 - [Architecture: transaction types and transfers](../../architecture.md#transaction-types-and-transfers)
-- [Transaction types changeset](../../database-migrations.md#transaction-types-changeset)
-- [Rule transaction types changeset](../../database-migrations.md#rule-transaction-types-changeset) and [rule type tests](../../../tests/rule-transaction-types.test.ts) for the 2026-11-20 amendment
+- [Transaction types changeset](../../database-migrations.md#changesets)
+- [Rule transaction types changeset](../../database-migrations.md#changesets) and [rule type tests](../../../tests/rule-transaction-types.test.ts) for the 2026-11-20 amendment
 - Splits, budgets and investment valuation remain separate work.

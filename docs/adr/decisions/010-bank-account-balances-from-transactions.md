@@ -41,5 +41,5 @@ Changeset 0017 converts existing bank-linked accounts: one opening balance per a
 
 ## Notes
 
-- [Bank balance changeset](../../database-migrations.md#bank-account-balances-changeset)
+- [Changeset 0017](../../database-migrations.md)
 - Amends the synced-account rows of [ADR 009](009-manual-account-balances-from-transactions.md)

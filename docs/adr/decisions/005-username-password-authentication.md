@@ -33,3 +33,5 @@ Exercise real enrollment/sign-in, concurrent ownership claims, duplicate credent
 ## Notes
 
 This replaces the installation-session portion of [ADR 004](004-security-libraries.md); jose and persisted bank-secret encryption remain unchanged. See [user management](../../user-management.md), [security boundaries](../../security.md) and the still-proposed [multi-customer architecture](XXX-workspaces-identity-and-banking.md).
+
+Rolled out to production 2026-11-16.

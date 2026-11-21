@@ -32,4 +32,6 @@ Verify HTTPS cookie attributes, HTTP fallback, real library round trips, tamperi
 
 [Security boundaries](../../security.md), [iron-session](https://github.com/vvo/iron-session), [jose](https://github.com/panva/jose), [Next.js authentication guide](https://nextjs.org/docs/app/guides/authentication).
 
-The installation-session portion is superseded in current source by [ADR 005](005-username-password-authentication.md). The provider JWT and stored-secret decisions remain in effect. Hosted rollout is separately approved.
+The installation-session portion is superseded in current source by [ADR 005](005-username-password-authentication.md). The provider JWT and stored-secret decisions remain in effect.
+
+Rolled out to production 2026-11-16.

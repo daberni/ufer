@@ -2,7 +2,7 @@
 
 Ufer uses Next.js, React, TypeScript and SQLite/libSQL. It can run locally, in Docker on a NAS, or on Vercel with a persistent external database.
 
-This guide covers development, deployment and verification. See [banking and imports](banking-and-imports.md) for synchronization behavior, data handling and CSV formats. Architecture, contribution conventions and schema maintenance are covered in [architecture](architecture.md), [code style](code-style.md), [decision records](adr/README.md) and [database migrations](database-migrations.md).
+This guide covers development, deployment and verification. See [banking](banking.md) for synchronization behavior and data handling and [CSV import](csv-import.md) for file formats. Architecture, contribution conventions and schema maintenance are covered in [architecture](architecture.md), [code style](code-style.md), [decision records](adr/README.md) and [database migrations](database-migrations.md).
 
 ## Run locally
 
@@ -12,7 +12,7 @@ This guide covers development, deployment and verification. See [banking and imp
 4. Provision the installation owner using the operator-only [user enrollment](user-management.md#operator-enrollment), then run `npm run dev` and open [localhost:3000](http://localhost:3000). Keep the same hostname and browser throughout bank authorization.
 5. Open Bank connections, authorize a sandbox institution, then select Sync to retrieve balances and booked transactions.
 
-The development server binds to loopback. Username/password sign-in and `BETTER_AUTH_SECRET` are required in every environment. Existing installations need the reviewed [authentication migration](user-management.md#migration-and-rollout) before starting this version. `APP_URL` must match the browser origin because write requests validate their origin. A production server (Docker, or `NODE_ENV=production`) refuses to start unless `APP_URL` is an HTTPS origin, so serve Docker installations through an HTTPS reverse proxy.
+The development server binds to loopback. Username/password sign-in and `BETTER_AUTH_SECRET` are required in every environment. `APP_URL` must match the browser origin because write requests validate their origin. A production server (Docker, or `NODE_ENV=production`) refuses to start unless `APP_URL` is an HTTPS origin, so serve Docker installations through an HTTPS reverse proxy.
 
 JSON API request bodies above 2 MiB are rejected with 413 while they are read; CSV imports allow 1 MB of CSV text. Other request size limits come from the hosting layer: Vercel caps bodies at 4.5 MB, and a reverse proxy sets its own limit (nginx defaults to 1 MB; raise `client_max_body_size` to `2m` for full-size CSV imports).
 
@@ -46,7 +46,7 @@ Use persistent external libSQL through `DATABASE_URL=libsql://…` and `DATABASE
 
 Set `BETTER_AUTH_SECRET`, `DATA_ENCRYPTION_KEY`, `CRON_SECRET`, the banking application ID, and `ENABLE_BANKING_PRIVATE_KEY` as hosting secrets. Use a PEM value rather than a local key path. Set the application and callback URLs to the deployment origin. Provision individual users through the [operator enrollment workflow](user-management.md#operator-enrollment). This version serves one shared financial workspace; it does not implement multi-customer SaaS isolation.
 
-`vercel.json` configures a daily 05:00 UTC cron call authenticated with `CRON_SECRET`. The route has `maxDuration=300`; provider latency and many accounts can exceed platform runtime limits. Vercel runtime, HTTPS authentication, the sandbox callback/sync and the authenticated cron endpoint have been verified. The enabled schedule runs at 05:00 UTC; its first future unattended invocation and actual NAS operation remain unverified. See the [deployment guide](vercel-deployment.md) for configuration, cost boundaries and acceptance evidence. Unattended synchronization is a required capability on every supported hosting platform.
+`vercel.json` configures a daily 05:00 UTC cron call authenticated with `CRON_SECRET`. The route has `maxDuration=300`; provider latency and many accounts can exceed platform runtime limits. An observed unattended scheduled sync and NAS operation remain unverified ([#267](https://github.com/daberni/ufer/issues/267)). See the [deployment guide](vercel-deployment.md) for configuration, cost boundaries and acceptance evidence. Unattended synchronization is a required capability on every supported hosting platform.
 
 ## Privacy notice and terms
 
@@ -74,20 +74,11 @@ The texts carry a last-updated date maintained in their components; change it to
 
 Small screens use labeled bottom navigation, transaction cards with expandable descriptions, and scrollable bottom-sheet forms. Larger touch targets, 16-pixel form text, and safe-area spacing support smartphone use. Desktop retains tables and a sidebar.
 
-All five views were checked in Chrome emulation at widths from 320 to 844 pixels and desktop at 1440 pixels. Physical devices, Safari, on-screen keyboards, and bank-app redirects remain to be verified. Offline support and an installable PWA are not implemented.
+All five views were checked in Chrome emulation at widths from 320 to 844 pixels and desktop at 1440 pixels. Physical devices, Safari, on-screen keyboards, and bank-app redirects remain to be verified. A web app manifest makes Ufer installable; offline support is not implemented.
 
 ## Checks
 
-```sh
-npm audit --omit=dev --audit-level=high
-npm run lint
-npm run check:styles
-npm run check
-npm test
-npm run build
-```
-
-The behavior tests cover exact amounts, accounting month boundaries, rule precedence, demo-seed scope and guard, booked versus pending transactions, provider identifiers, CSV validation, repeat imports, manual categories, reconnects, leases, authentication throttling, library-managed enrollment, membership access, cookie integrity/expiry and session revocation, jose provider signatures, persisted bank-secret integrity, pagination, and browser-bound single-use callbacks. CI rejects high/critical advisories in production dependencies and runs lint, stylesheet checks, type checking, behavior tests, and a production build without real banking credentials. GitHub Actions use version tags. Dependabot checks npm and Actions weekly and waits until ordinary releases are at least seven days old, grouping production dependencies, development dependencies and Actions separately. [Security updates](https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference#cooldown) bypass this cooldown and the weekly version-update schedule; they are not grouped with routine updates. Updates still require review and passing CI and are not automatically merged. Dependabot cannot identify an arbitrary non-security hotfix from its version number; urgent fixes can be updated manually without waiting for the routine schedule. See [security boundaries](security.md) for the current single-installation scope and future identity requirements.
+Run the checks listed in [contributing](../CONTRIBUTING.md#making-a-change) before submitting a change.
 
 ## Parallel checkouts
 
