@@ -36,6 +36,6 @@ A bank balance observation retains the selected provider `balance_type` alongsid
 
 ### Account display names
 
-Open an account's details and select its heading to rename it, for both manual and bank-linked accounts. Names are trimmed and must contain 1–100 characters. Duplicate display names are allowed: immutable account IDs and provider identifiers distinguish accounts. Renaming changes no bank identity, connection, balance or transaction. Account lists and transaction labels refresh after saving.
+Open an account's details and choose Edit account in the “…” menu beside its heading to rename it, for both manual and bank-linked accounts. Names are trimmed and must contain 1–100 characters. Duplicate display names are allowed: immutable account IDs and provider identifiers distinguish accounts. Renaming changes no bank identity, connection, balance or transaction. Account lists and transaction labels refresh after saving.
 
-A bank-supplied account name or product remains visible in the details as “Bank account name” when known. A reconnect may refresh that provider label but preserves the custom display name. Existing installations have no recoverable separate provider label until the bank supplies it during a later authorization; no historical name is inferred.
+A bank-supplied account name or product that differs from the display name is shown in the Edit account dialog as “Name at the bank” when known. A reconnect may refresh that provider label but preserves the custom display name. Existing installations have no recoverable separate provider label until the bank supplies it during a later authorization; no historical name is inferred.

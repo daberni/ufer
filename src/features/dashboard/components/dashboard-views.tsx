@@ -12,6 +12,7 @@ import { ConnectionsSection } from "@/features/banking/components/connections-vi
 import { AccountDetails, AccountNotFound, type BackLink } from "@/features/accounts/components/account-details";
 import { CsvImportPage } from "@/features/imports/components/csv-import-page";
 import { AccountCashFlowSummary } from "@/features/reports/components/account-cash-flow";
+import { withArchivedAccountsOpen } from "@/client/app-location";
 import { replacePage, setSyncRun, useAccountTransactionsHref, useViewHref, useViewQuery } from "@/client/use-app-url";
 import { useAppStore } from "@/client/app-store";
 import { mapArea, useAreaResult, type Area } from "@/components/ui/use-area-result";
@@ -162,8 +163,10 @@ export function AccountPage() {
   const history = useAreaResult(useBalanceHistory(query.account));
   const cashFlow = useAreaResult(useAccountCashFlow(query.account, query.period));
   const account = selectedAccount(accounts, query.account);
+  const archivedOpen = useAppStore(state => state.archivedAccountsOpen);
+  const listHref = viewHref(listView);
   const back: BackLink = {
-    href: viewHref(listView),
+    href: listView === "accounts" && archivedOpen ? withArchivedAccountsOpen(listHref) : listHref,
     label: navigation.find(item => item.id === listView)!.label
   };
 

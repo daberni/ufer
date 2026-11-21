@@ -56,6 +56,7 @@ function EditAccountForm({
           autoFocus
         />
       </label>
+      {account.provider_name && account.provider_name !== account.name && <p className={ui["form-hint"]}>Name at the bank: {account.provider_name}</p>}
       {typeEditable ? <AccountTypeChoice selected={kind} onSelect={setKind} legend="Account type" /> : <AccountTypeNote account={account} />}
       <FormError failure={error} />
       <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={pending}>

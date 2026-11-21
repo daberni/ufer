@@ -236,6 +236,15 @@ export function archivedAccountsOpen(params: SearchParams) {
   return params.get("archived") === archivedOpenValue;
 }
 
+/** An accounts list URL that shows its archived section, so returning from an archived account restores it. */
+export function withArchivedAccountsOpen(href: string) {
+  const [pathname, search = ""] = href.split("?");
+
+  return withQueryChanges(pathname, search, {
+    archived: true
+  });
+}
+
 function isCurrentMonth(period: Period) {
   return period.kind === "month" && period.month.equals(currentMonth());
 }

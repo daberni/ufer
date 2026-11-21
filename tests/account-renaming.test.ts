@@ -55,6 +55,8 @@ test("renaming a bank account targets its encoded ID, keeps failures in the dial
 
   const dialog = within(screen.getByRole("dialog"));
 
+  assert.ok(dialog.getByText("Name at the bank: Original bank label"));
+
   act(() => {
     fireEvent.change(dialog.getByRole("textbox", {
       name: "Account name"

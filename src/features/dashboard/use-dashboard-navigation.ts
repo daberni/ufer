@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import type { Feedback } from "@/components/ui/use-action-feedback";
 import { callbackFailureMessage, parseCallbackResult, type CallbackResult } from "@/features/banking/callback-result";
 import { useAppStoreApi } from "@/client/app-store";
-import { usePeriodScope, useView } from "@/client/use-app-url";
+import { useArchivedAccountsOpen, usePeriodScope, useView } from "@/client/use-app-url";
 import { isAccountList, isPeriodAware } from "@/client/app-location";
 
 /**
@@ -17,6 +17,7 @@ export function useDashboardNavigation() {
   const view = useView();
   const scope = usePeriodScope();
   const store = useAppStoreApi();
+  const archivedOpen = useArchivedAccountsOpen();
 
   useEffect(() => {
     store.getState().enterView(pathname);
@@ -33,6 +34,12 @@ export function useDashboardNavigation() {
       store.getState().rememberAccountList(view);
     }
   }, [store, view]);
+
+  useEffect(() => {
+    if (view === "accounts") {
+      store.getState().rememberArchivedAccountsOpen(archivedOpen);
+    }
+  }, [store, view, archivedOpen]);
 
   // The bank callback returns to the accounts connections section with its result, which is shown once and removed from the URL.
   useEffect(() => {
