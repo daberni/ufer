@@ -47,6 +47,9 @@ export function PayeeInput({
   // The suggestions last shown for the current text, so keys that reopen a closed list start on them, such as ArrowDown after Escape.
   const [knownCount, setKnownCount] = useState(0);
 
+  // A key that opened the list before any suggestions were known highlights the first one once they arrive, so Enter picks it.
+  const [highlightOnArrival, setHighlightOnArrival] = useState(false);
+
   if (expanded && shown.length !== knownCount) {
     setKnownCount(shown.length);
   }
@@ -63,10 +66,18 @@ export function PayeeInput({
     optionCount: expanded ? shown.length : knownCount,
     listboxRef,
     freeText: true,
-    onOpen: () => setOpen(true),
+    onOpen: () => {
+      setOpen(true);
+      setHighlightOnArrival(knownCount === 0);
+    },
     onSelect: index => pick(shown[index]),
     onClose: close
   });
+
+  if (highlightOnArrival && expanded) {
+    setHighlightOnArrival(false);
+    setActiveIndex(0);
+  }
 
   useEffect(() => {
     if (query === requested) {
@@ -94,6 +105,7 @@ export function PayeeInput({
 
   function close() {
     setOpen(false);
+    setHighlightOnArrival(false);
     setActiveIndex(-1);
   }
 
@@ -134,6 +146,7 @@ export function PayeeInput({
           onChange={event => {
             setQuery(event.target.value);
             setKnownCount(0);
+            setHighlightOnArrival(false);
             setOpen(true);
             setActiveIndex(-1);
             onValueChange?.(event.target.value);

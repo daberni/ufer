@@ -158,7 +158,7 @@ function options(screen: RenderResult) {
   });
 }
 
-async function renderPayeeInput(context: TestContext) {
+async function renderPayeeInput(context: TestContext, defaultValue?: string) {
   const environment = browser(context);
 
   // jsdom has no popover API; showing and hiding the list is layout only, and role queries treat its content as hidden.
@@ -179,7 +179,8 @@ async function renderPayeeInput(context: TestContext) {
   }, createElement(PayeeInput, {
     label: "Payee",
     name: "counterparty",
-    maxLength: 500
+    maxLength: 500,
+    defaultValue
   }))));
   const field = screen.getByRole("combobox", {
     name: "Payee"
@@ -289,6 +290,27 @@ test("ArrowDown after Escape reopens the suggestions on the first one, and Enter
 
   press(field, "Enter");
   assert.equal(field.value, "Corner Bakery");
+});
+
+test("ArrowDown in a prefilled field highlights the first suggestion once it arrives, and Enter picks it instead of submitting", async context => {
+  const {
+    field,
+    requests,
+    screen,
+    submitted
+  } = await renderPayeeInput(context, "cor");
+
+  press(field, "ArrowDown");
+  await respond(requests("transactions/payees")[0], Response.json({
+    payees: ["Corner Bakery", "Corner Shop"]
+  }));
+
+  assert.equal(field.getAttribute("aria-expanded"), "true");
+  assert.equal(field.getAttribute("aria-activedescendant"), options(screen)[0].id);
+
+  press(field, "Enter");
+  assert.equal(field.value, "Corner Bakery");
+  assert.deepEqual(submitted, []);
 });
 
 test("a pointer picks a suggestion and Escape closes the list without clearing the text", async context => {
