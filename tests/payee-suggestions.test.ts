@@ -457,6 +457,29 @@ for (const [outcome, response] of [["no suggestions", () => Response.json({
   });
 }
 
+test("ArrowDown after a failed request asks for the suggestions again", async context => {
+  const {
+    field,
+    requests,
+    screen
+  } = await renderPayeeInput(context, "cor");
+
+  press(field, "ArrowDown");
+  await respond(requests("transactions/payees")[0], Response.json({
+    title: "Server error"
+  }, {
+    status: 500
+  }));
+
+  press(field, "ArrowDown");
+  await respond(requests("transactions/payees")[1], Response.json({
+    payees: ["Corner Bakery", "Corner Shop"]
+  }));
+
+  assert.equal(field.getAttribute("aria-expanded"), "true");
+  assert.equal(field.getAttribute("aria-activedescendant"), options(screen)[0].id);
+});
+
 test("a pointer picks a suggestion and Escape closes the list without clearing the text", async context => {
   const {
     field,

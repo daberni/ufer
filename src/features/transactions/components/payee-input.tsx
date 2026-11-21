@@ -70,7 +70,14 @@ export function PayeeInput({
     optionCount: expanded ? shown.length : knownCount,
     listboxRef,
     freeText: true,
-    onOpen: () => setOpen(true),
+    onOpen: () => {
+      setOpen(true);
+
+      // A failed request stays failed in the cache, so reopening the list asks again.
+      if (suggestions.isError) {
+        void suggestions.refetch();
+      }
+    },
     onSelect: index => pick(shown[index]),
     onClose: close
   });
