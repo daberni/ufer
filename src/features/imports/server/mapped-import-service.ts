@@ -11,6 +11,7 @@ import { listRules } from "@/features/categorization/server/rule-repository";
 import { categorizeEntries } from "@/features/transactions/server/categorize-entries";
 import { pairAllTransfers } from "@/features/transactions/server/transfer-repository";
 import { environment } from "@/features/banking/server/environment";
+import { syncLease, withLease } from "@/server/jobs/lease";
 import { accountKinds } from "@/features/accounts/account-kinds";
 import { validateLiability } from "@/features/accounts/server/account-service";
 import { currencyAllows, withSplitTags, maxCategoryChoicesPerRequest, maxConsumedPerRequest, maxTargetsPerRequest, maxAccountNameLength, maxCategoryLength, maxIdLength, maxSourceLength, normalizeText, type RowError } from "../csv-mapping";
@@ -128,6 +129,16 @@ export type MappedImportResult = {
 /** Checks one batch of mapped rows against their target accounts and, when confirmed, saves the new ones. Nothing persists without confirmation. */
 export async function importMappedRows(payload: unknown, now = Temporal.Now.instant()): Promise<MappedImportResult> {
   const input = mappedImportInput.parse(payload);
+
+  // A confirmed import writes and pairs the bookings a sync adopts and links, so it waits for a running sync.
+  if (input.confirm) {
+    return withLease(syncLease, "A sync is running. Import the file after it has finished.", () => checkAndImport(input, now));
+  }
+
+  return checkAndImport(input, now);
+}
+
+async function checkAndImport(input: z.infer<typeof mappedImportInput>, now: Temporal.Instant): Promise<MappedImportResult> {
   const targets = await resolveTargets(input.import_id, input.targets, input.confirm);
   const errors: RowError[] = [];
   const planned: PlannedRow[] = [];

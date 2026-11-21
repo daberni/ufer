@@ -1,11 +1,9 @@
-import { randomUUID } from "node:crypto";
 import { Temporal } from "temporal-polyfill";
 import { HttpError } from "@/lib/errors";
 import { timestamp } from "@/lib/time";
-import { acquireLease, releaseLease } from "@/server/jobs/lease-repository";
+import { syncLease, withLease } from "@/server/jobs/lease";
 import { prepareConnectionRemoval, removeConnection } from "./connection-repository";
 import { revokeSession } from "./session-revocation";
-import { syncLeaseName } from "./sync-service";
 
 // A callback that consumed its state shortly before may still be exchanging the code and must not be removed underneath it.
 const authorizationExchangeWindow = Temporal.Duration.from({
@@ -18,13 +16,7 @@ export async function removeBankConnection(id: string, options: {
 } = {
   archiveAccounts: false
 }) {
-  const owner = randomUUID();
-
-  if (!(await acquireLease(syncLeaseName, owner))) {
-    throw new HttpError(409, "A sync is running. Remove the connection after it has finished.");
-  }
-
-  try {
+  return withLease(syncLease, "A sync is running. Remove the connection after it has finished.", async () => {
     const exchangeCutoff = Temporal.Now.instant().subtract(authorizationExchangeWindow);
     const prepared = await prepareConnectionRemoval(id, exchangeCutoff);
 
@@ -55,7 +47,5 @@ export async function removeBankConnection(id: string, options: {
       retainedAccounts: removal.retainedAccounts,
       notArchived: removal.notArchived
     };
-  } finally {
-    await releaseLease(syncLeaseName, owner);
-  }
+  });
 }

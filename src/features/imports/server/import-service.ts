@@ -2,6 +2,7 @@ import { z } from "zod";
 import { parseBalancesCsv } from "@/lib/import";
 import { currentFormatLocale } from "@/server/http/request-locale";
 import { requireWritableManualAccount, validateLiability } from "@/features/accounts/server/account-service";
+import { syncLease, withLease } from "@/server/jobs/lease";
 import { saveImportedValuations } from "./import-repository";
 
 const importInput = z.object({
@@ -18,7 +19,7 @@ export async function importValuations(payload: unknown) {
     validateLiability(account.kind, entry.amount);
   }
 
-  await saveImportedValuations(account, entries);
+  await withLease(syncLease, "A sync is running. Import the file after it has finished.", () => saveImportedValuations(account, entries));
 
   return {
     processed: entries.length,

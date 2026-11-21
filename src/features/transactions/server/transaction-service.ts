@@ -1,7 +1,5 @@
-import { randomUUID } from "node:crypto";
 import { Temporal } from "temporal-polyfill";
-import { acquireLease, releaseLease } from "@/server/jobs/lease-repository";
-import { syncLeaseName } from "@/features/banking/server/sync-service";
+import { syncLease, withLease } from "@/server/jobs/lease";
 import { HttpError, ValidationError } from "@/lib/errors";
 import { z } from "zod";
 import { minorUnits } from "@/lib/money";
@@ -278,17 +276,7 @@ async function withBankSyncLease(bankLinked: boolean, write: () => Promise<Manua
     return write();
   }
 
-  const owner = randomUUID();
-
-  if (!(await acquireLease(syncLeaseName, owner))) {
-    throw new HttpError(409, "A sync is running. Change the booking after it has finished.");
-  }
-
-  try {
-    return await write();
-  } finally {
-    await releaseLease(syncLeaseName, owner);
-  }
+  return withLease(syncLease, "A sync is running. Change the booking after it has finished.", write);
 }
 
 export async function removeManualTransaction(id: string) {

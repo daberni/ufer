@@ -14,12 +14,15 @@ import { listAccounts } from "../src/features/accounts/server/account-queries";
 import { archiveAccount, restoreAccount } from "../src/features/accounts/server/account-service";
 import { insertRule } from "../src/features/categorization/server/rule-repository";
 import { saveMappedBatch } from "../src/features/imports/server/mapped-import-repository";
-import { ValidationError } from "../src/lib/errors";
+import { HttpError, ValidationError } from "../src/lib/errors";
 import { importMappedRows } from "../src/features/imports/server/mapped-import-service";
 import { hideTransaction } from "../src/features/transactions/server/transaction-service";
 import { findDuplicates } from "../src/features/imports/server/duplicate-matching";
 import { saveAccountSync } from "../src/features/banking/server/account-sync-service";
 import { startSyncRun } from "../src/features/banking/server/sync-repository";
+import { syncAccounts } from "../src/features/banking/server/sync-service";
+import { acquireLease } from "../src/server/jobs/lease-repository";
+import { syncLease, withLease } from "../src/server/jobs/lease";
 import { accountLabel, categoryValues, defaultCategorySelection, defaultTargetChoice, importKey, newAccountChoice, prepareImport, type TargetChoice } from "../src/features/imports/import-plan";
 import { assignOccurrences, batchRows, currencyAllows, maxCategoryChoicesPerRequest, maxConsumedPerRequest, maxImportRequestBytes, withConsumed, duplicateIdErrors, importIdFor, maxTargetsPerRequest, readCsvTable, emptyMapping, mappingProblem, normalizeText, parseCsvRecords, pruneConsumed, decodeCsv, detectDateFormat, detectDecimal, detectDelimiter, mapRows, parseAmount, parseCsv, parseDate, suggestMapping, type CsvSettings, type DateFormat, type ImportRow } from "../src/features/imports/csv-mapping";
 
@@ -2227,4 +2230,71 @@ test("a category another request creates after the choices are resolved is used 
   assert.ok(interleaved);
   assert.deepEqual(result.createdCategories, []);
   assert.equal((await db.select().from(schema.transactions)).find(booking => booking.counterparty === "A")?.category_id, "synthetic-concurrent");
+});
+
+test("a confirmed import is refused while a sync holds the lease and writes nothing; checking still works", async context => {
+  const db = await isolatedDatabase(context);
+  const account = await manualAccount("Leased account");
+  const payload = {
+    import_id: importId,
+    rows: [mappedRow(2, "2024-01-01", "-10.00", "Shop")],
+    targets: [{
+      source: "",
+      account_id: account.id
+    }]
+  };
+
+  assert.equal(await acquireLease(syncLease, "synthetic-sync"), true);
+
+  const checked = await importMappedRows({
+    ...payload,
+    confirm: false
+  }, now);
+
+  assert.equal(checked.newRows, 1);
+  await assert.rejects(importMappedRows({
+    ...payload,
+    confirm: true
+  }, now), (error: unknown) => error instanceof HttpError && error.status === 409);
+  assert.equal((await db.select().from(schema.transactions)).length, 0);
+  assert.deepEqual((await db.select().from(schema.leases)).map(lease => lease.owner), ["synthetic-sync"]);
+});
+
+test("a sync is refused while an import holds the lease and starts no run", async context => {
+  const db = await isolatedDatabase(context);
+
+  await withLease(syncLease, "A sync is running. Import the file after it has finished.", async () => {
+    await assert.rejects(syncAccounts(), (error: unknown) => error instanceof HttpError && error.status === 409);
+  });
+
+  assert.equal((await db.select().from(schema.syncRuns)).length, 0);
+  assert.equal((await db.select().from(schema.leases)).length, 0);
+});
+
+test("a confirmed import that fails releases the sync lease, so the next import proceeds", async context => {
+  const db = await isolatedDatabase(context);
+  const account = await manualAccount("Archived target");
+  const payload = {
+    import_id: importId,
+    rows: [mappedRow(2, "2024-01-01", "-10.00", "Shop")],
+    targets: [{
+      source: "",
+      account_id: account.id
+    }],
+    confirm: true
+  };
+
+  await db.update(schema.accounts).set({
+    archived_at: now.toString()
+  }).where(eq(schema.accounts.id, account.id));
+
+  await assert.rejects(importMappedRows(payload, now), (error: unknown) => error instanceof HttpError && error.status === 409);
+  assert.equal((await db.select().from(schema.leases)).length, 0);
+
+  await db.update(schema.accounts).set({
+    archived_at: null
+  }).where(eq(schema.accounts.id, account.id));
+
+  assert.equal((await importMappedRows(payload, now)).newRows, 1);
+  assert.equal((await db.select().from(schema.leases)).length, 0);
 });
