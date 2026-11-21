@@ -137,6 +137,17 @@ test("an expired authorization shows one notice whose one action reconnects, and
   assert.equal(await queryMenuItem(screen, "Reconnect"), null);
 });
 
+test("a connected bank account before its first sync stays neutral instead of showing the synced dot", async context => {
+  const screen = await renderSummary(context, {
+    ...healthy,
+    last_synced_at: null
+  });
+  const state = screen.getByText("Not synced yet").parentElement;
+
+  assert.equal(state?.querySelector(".synced"), null);
+  assert.ok(state?.querySelector(".pending"));
+});
+
 test("a manual account shows Manual as its source, never the import origin stored as its institution", async context => {
   const screen = await renderSummary(context, {
     ...healthy,

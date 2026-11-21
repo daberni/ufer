@@ -68,9 +68,9 @@ export type AccountSource = {
   label: string;
   state: {
     kind: "synced";
-    at: string | null;
+    at: string;
   } | {
-    kind: "attention" | "error" | "archived" | "manual";
+    kind: "pending" | "attention" | "error" | "archived" | "manual";
   };
 };
 
@@ -121,6 +121,16 @@ export function accountSource(account: {
       label,
       state: {
         kind: "attention"
+      }
+    };
+  }
+
+  // A connected account before its first sync has nothing to vouch for yet, so it stays neutral.
+  if (account.last_synced_at === null) {
+    return {
+      label,
+      state: {
+        kind: "pending"
       }
     };
   }

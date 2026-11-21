@@ -12,6 +12,7 @@ type Props = {
 };
 
 const stateLabels = {
+  pending: "Not synced yet",
   attention: "Needs attention",
   error: "Sync error",
   archived: "Archived"
@@ -56,12 +57,8 @@ function SyncedLabel({
   at,
   withDate
 }: {
-  at: string | null;
+  at: string;
   withDate: boolean;
 }) {
-  if (at === null) {
-    return <>Not synced yet</>;
-  }
-
   return withDate ? <>Synced <TimestampValue value={at} /></> : <>Synced</>;
 }
