@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { test, type TestContext } from "node:test";
 import { createClient } from "@libsql/client";
 import { drizzle } from "drizzle-orm/libsql";
+import { focusManager } from "@tanstack/react-query";
 import { act, fireEvent, render, type RenderResult } from "@testing-library/react";
 import { createElement } from "react";
 import { initializeDatabase } from "../src/server/database/migrations";
@@ -456,6 +457,30 @@ for (const [outcome, response] of [["no suggestions", () => Response.json({
     assert.equal(field.getAttribute("aria-expanded"), "false");
   });
 }
+
+test("a failed request closes the list, so regaining window focus does not ask again or show suggestions unasked", async context => {
+  const {
+    field,
+    requests
+  } = await renderPayeeInput(context, "cor");
+
+  press(field, "ArrowDown");
+  await respond(requests("transactions/payees")[0], Response.json({
+    title: "Server error"
+  }, {
+    status: 500
+  }));
+
+  act(() => {
+    focusManager.setFocused(false);
+    focusManager.setFocused(true);
+  });
+  context.after(() => focusManager.setFocused(undefined));
+  await wait(10);
+
+  assert.equal(requests("transactions/payees").length, 1);
+  assert.equal(field.getAttribute("aria-expanded"), "false");
+});
 
 test("ArrowDown after a failed request asks for the suggestions again", async context => {
   const {

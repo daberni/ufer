@@ -53,6 +53,12 @@ export function PayeeInput({
   // An arrow key that opened the list before any suggestions were known waits for them: ArrowDown highlights the first, ArrowUp the last.
   const [awaitedHighlight, setAwaitedHighlight] = useState<"first" | "last" | null>(null);
 
+  // A request that settled empty or failed closes the list, so a later refetch, such as on window focus, cannot show it unasked; a key reopens it.
+  if (open && !listOpen) {
+    setOpen(false);
+    setAwaitedHighlight(null);
+  }
+
   if (expanded && shown.length !== knownCount) {
     setKnownCount(shown.length);
   }
@@ -70,14 +76,7 @@ export function PayeeInput({
     optionCount: expanded ? shown.length : knownCount,
     listboxRef,
     freeText: true,
-    onOpen: () => {
-      setOpen(true);
-
-      // A failed request stays failed in the cache, so reopening the list asks again.
-      if (suggestions.isError) {
-        void suggestions.refetch();
-      }
-    },
+    onOpen: () => setOpen(true),
     onSelect: index => pick(shown[index]),
     onClose: close
   });
