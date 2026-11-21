@@ -1283,7 +1283,9 @@ test("the accounts view lists archived accounts apart and does not count them", 
     }
   })));
 
-  assert.ok(screen.getByText("1 ACCOUNTS & ASSETS"));
+  assert.ok(screen.getByRole("heading", {
+    name: "Accounts & assets 1"
+  }));
   const archivedSection = screen.getByText("Archived accounts (1)").closest("details")!;
 
   assert.ok(within(archivedSection as HTMLElement).getByRole("link", {

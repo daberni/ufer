@@ -14,7 +14,8 @@ import { settle } from "@/client/settle";
 import { useAppStore } from "@/client/app-store";
 import { useApplyRules, useSavingRuleOrder, useToggleRule, useTogglingRules } from "@/features/categorization/mutations";
 import { AreaPlaceholder } from "@/components/ui/area-placeholder";
-import type { Area } from "@/components/ui/use-area-result";
+import { mapArea, type Area } from "@/components/ui/use-area-result";
+import { SectionHeading } from "@/components/ui/section-heading";
 import { neutralChipColor } from "@/features/categorization/category-colors";
 import { useState } from "react";
 import { CategoryGlyph, CategoryLabel, categoryNameColor } from "./category-label";
@@ -90,8 +91,7 @@ export function RulesView({
 
   return (
     <>
-      <div className={ui["section-heading"]}>
-        <h2>Your categories</h2>
+      <SectionHeading title="Categories" count={mapArea(categories, data => data.length)}>
         <button
           className={clsx(ui["button"], ui["primary"])}
           onClick={() => setDialog({
@@ -102,7 +102,7 @@ export function RulesView({
           <Plus size={16} />
           Add category
         </button>
-      </div>
+      </SectionHeading>
       <section className={styles["category-panel"]} aria-label="Your categories">
         {categories.status === "pending" ? (
           <AreaPlaceholder area={categories} subject="Your categories">
@@ -118,36 +118,33 @@ export function RulesView({
           />
         )}
       </section>
-      <div className={ui["section-heading"]}>
-        <h2>Your rules</h2>
-        <div className={clsx(ui["button-group"], styles["rule-actions"])}>
-          <button
-            className={ui["button"]}
-            disabled={apply.isPending || savingOrder}
-            aria-busy={apply.isPending || savingOrder}
-            onClick={applyRules}
-          >
-            <Sparkles size={15} />
-            {savingOrder ? "Saving order …" : "Apply rules"}
-          </button>
-          <button
-            className={ui["button"]}
-            onClick={() => setDialog({
-              kind: "rule",
-              rule: null
-            })}
-          >
-            <Plus size={15} />
-            Create rule
-          </button>
-          <ActionFeedback
-            feedback={applyFeedback.feedback}
-            dismissLabel="Dismiss rules status"
-            onDismiss={applyFeedback.dismiss}
-            placement="anchored"
-          />
-        </div>
-      </div>
+      <SectionHeading title="Rules" count={mapArea(rules, data => data.length)}>
+        <button
+          className={ui["button"]}
+          disabled={apply.isPending || savingOrder}
+          aria-busy={apply.isPending || savingOrder}
+          onClick={applyRules}
+        >
+          <Sparkles size={15} />
+          {savingOrder ? "Saving order …" : "Apply rules"}
+        </button>
+        <button
+          className={ui["button"]}
+          onClick={() => setDialog({
+            kind: "rule",
+            rule: null
+          })}
+        >
+          <Plus size={15} />
+          Create rule
+        </button>
+        <ActionFeedback
+          feedback={applyFeedback.feedback}
+          dismissLabel="Dismiss rules status"
+          onDismiss={applyFeedback.dismiss}
+          placement="anchored"
+        />
+      </SectionHeading>
       <section className={clsx(ui["panel"], styles["rule-panel"])} aria-label="Your rules">
         {rules.status === "pending" ? (
           <AreaPlaceholder area={rules} subject="Your rules">

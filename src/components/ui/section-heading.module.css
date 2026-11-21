@@ -1,0 +1,52 @@
+.section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  min-height: 44px;
+  margin: var(--space-6) 0 var(--space-4);
+}
+.section-heading h2 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.trailing {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-4);
+}
+.actions {
+  position: relative;
+  justify-content: flex-end;
+}
+@media (--mobile) {
+  .section-heading {
+    flex-wrap: wrap;
+    gap: var(--space-3);
+  }
+  .trailing {
+    flex-basis: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-3);
+  }
+  /* The controls follow the actions on phones. */
+  .controls {
+    order: 1;
+  }
+  /* The actions take their own full-width row of equal buttons. */
+  .actions {
+    display: grid;
+    grid-auto-columns: minmax(0, 1fr);
+    grid-auto-flow: column;
+    flex-basis: 100%;
+  }
+  .actions > button {
+    min-width: 0;
+    padding-inline: var(--space-2);
+    white-space: nowrap;
+  }
+}

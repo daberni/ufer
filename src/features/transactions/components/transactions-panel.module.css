@@ -12,11 +12,9 @@
 .transaction-panel > .card-heading {
   padding: 0 var(--space-6) var(--space-4);
 }
-.heading-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: var(--space-2);
+/* The section heading above the card already separates it from the page header. */
+.below-heading {
+  margin-top: 0;
 }
 .filters {
   display: flex;
@@ -103,13 +101,6 @@
   .transaction-panel > .card-heading {
     padding: 0 var(--space-4) var(--space-4);
     align-items: center;
-  }
-  /* The heading's actions take their own full-width row of equal buttons. */
-  .heading-actions {
-    display: grid;
-    grid-auto-columns: minmax(0, 1fr);
-    grid-auto-flow: column;
-    flex-basis: 100%;
   }
   .filters {
     padding: 0 var(--space-4) var(--space-4);
