@@ -88,7 +88,7 @@ test("a sync stamps only the rows it inserts with its start, and its count match
   };
 
   await db.$client.batch([
-    "INSERT INTO accounts(id,name,institution,kind) VALUES('bank','Synthetic account','Example institution','checking')",
+    "INSERT INTO accounts(id,name,kind) VALUES('bank','Synthetic account','checking')",
     "INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,created_at,type) VALUES('earlier','bank','bank:earlier','2026-02-01',-100,'EUR','2026-02-01T09:30:00.123Z','expense')",
     `INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,created_at,type) VALUES('csv','bank','csv:file-1','2026-03-01',-100,'EUR','${first.startedAt}','expense')`
   ], "write");
@@ -132,7 +132,7 @@ test("sync history reports linked rows, so runs recorded before stamping and emp
   };
 
   await db.$client.batch([
-    "INSERT INTO accounts(id,name,institution,kind) VALUES('bank','Synthetic account','Example institution','checking')",
+    "INSERT INTO accounts(id,name,kind) VALUES('bank','Synthetic account','checking')",
     "INSERT INTO sync_runs(id,started_at,finished_at,status,inserted_count) VALUES('legacy','2026-03-01T08:00:00.000Z','2026-03-01T08:00:05.000Z','SUCCESS',3)",
     "INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,created_at,type) VALUES('legacy-row','bank','bank:legacy','2026-03-01',-100,'EUR','2026-03-01T08:00:02.481Z','expense')",
     "INSERT INTO sync_runs(id,started_at,finished_at,status,inserted_count) VALUES('empty','2026-03-05T08:00:00.000Z','2026-03-05T08:00:05.000Z','SUCCESS',0)"
@@ -167,8 +167,8 @@ test("the run filter lists exactly the run's rows across months and currencies",
   const started = "2026-03-10T08:00:00.000Z";
 
   await db.$client.batch([
-    "INSERT INTO accounts(id,name,institution,kind,currency) VALUES('eur','Synthetic euro account','Example institution','checking','EUR')",
-    "INSERT INTO accounts(id,name,institution,kind,currency) VALUES('usd','Synthetic dollar account','Example institution','checking','USD')",
+    "INSERT INTO accounts(id,name,kind,currency) VALUES('eur','Synthetic euro account','checking','EUR')",
+    "INSERT INTO accounts(id,name,kind,currency) VALUES('usd','Synthetic dollar account','checking','USD')",
     `INSERT INTO sync_runs(id,started_at,status,inserted_count) VALUES('run','${started}','SUCCESS',3)`,
     `INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,counterparty,created_at,type) VALUES('january','eur','bank:1','2026-01-05',-100,'EUR','Grocer','${started}','expense')`,
     `INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,counterparty,created_at,type) VALUES('march','eur','bank:2','2026-03-05',-100,'EUR','Bakery','${started}','expense')`,

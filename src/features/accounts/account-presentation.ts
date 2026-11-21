@@ -76,7 +76,7 @@ export type AccountSource = {
 
 export function accountSource(account: {
   provider: string;
-  institution: string;
+  institution: string | null;
   requisition_id: string | null;
   last_synced_at: string | null;
   valid_until: string | null;
@@ -84,7 +84,7 @@ export function accountSource(account: {
   archived_at: string | null
 }, now: Temporal.Instant): AccountSource {
   const manual = account.provider === "manual";
-  const label = manual ? "Manual" : account.institution;
+  const label = manual ? "Manual" : account.institution ?? "Bank";
 
   if (account.archived_at) {
     return {

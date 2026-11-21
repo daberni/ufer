@@ -52,26 +52,22 @@ async function isolatedDatabase(context: TestContext) {
   await db.insert(schema.accounts).values([{
     id: "checking",
     name: "Synthetic checking",
-    institution: "Example bank",
     kind: "checking",
     provider: "enable_banking"
   }, {
     id: "savings",
     name: "Synthetic savings",
-    institution: "Example bank",
     kind: "savings",
     provider: "enable_banking"
   }, {
     id: "dollars",
     name: "Synthetic dollars",
-    institution: "Example bank",
     kind: "checking",
     currency: "USD",
     provider: "enable_banking"
   }, {
     id: "property",
     name: "Synthetic flat",
-    institution: "Land register",
     kind: "property"
   }]);
 
@@ -360,7 +356,6 @@ test("a CSV import pairs its bookings with an unpaired transfer of a synced acco
   await db.insert(schema.accounts).values({
     id: "cash",
     name: "Synthetic cash",
-    institution: "Wallet",
     kind: "savings"
   });
   await sync("checking", [entry("withdrawal", "2026-09-01", -20000, true)]);
@@ -381,7 +376,6 @@ for (const [accounts, paired] of [[["cash", "wallet"], false], [["cash"], true]]
       await db.insert(schema.accounts).values({
         id,
         name: `Synthetic ${id}`,
-        institution: "Wallet",
         kind: "savings"
       });
     }
@@ -545,7 +539,6 @@ test("choosing no counterpart marks the transfer as manually unlinked, so neithe
   await db.insert(schema.accounts).values({
     id: "cash",
     name: "Synthetic cash",
-    institution: "Wallet",
     kind: "savings"
   });
   // Neither booking is a transfer yet, so nothing pairs them before the person decides.

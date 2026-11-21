@@ -60,7 +60,6 @@ export async function saveSessionAccounts(requisitionId: string, institution: st
           id,
           name: providerName || institution,
           provider_name: providerName,
-          institution,
           kind: "checking",
           currency: account.currency,
           provider: "enable_banking",

@@ -74,17 +74,14 @@ async function seededDatabase(context: TestContext) {
   await db.insert(schema.accounts).values([{
     id: "cash",
     name: "Synthetic cash",
-    institution: "Example institution",
     kind: "checking"
   }, {
     id: "wallet",
     name: "Synthetic wallet",
-    institution: "Example institution",
     kind: "checking"
   }, {
     id: "detached",
     name: "Synthetic detached account",
-    institution: "Example institution",
     kind: "checking",
     provider: "enable_banking",
     provider_uid: "uid-detached",
@@ -92,7 +89,6 @@ async function seededDatabase(context: TestContext) {
   }, {
     id: "linked-bank",
     name: "Synthetic linked account",
-    institution: "Example institution",
     kind: "checking",
     provider: "enable_banking",
     provider_uid: "uid-linked",

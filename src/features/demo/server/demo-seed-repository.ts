@@ -97,7 +97,6 @@ async function insertAccount(tx: DatabaseTransaction, account: DemoAccountRows) 
   await tx.insert(accounts).values({
     id: account.id,
     name: account.name,
-    institution: account.institution,
     kind: account.kind,
     currency: "EUR",
     provider: "manual"

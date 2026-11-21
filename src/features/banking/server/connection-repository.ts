@@ -210,8 +210,8 @@ export async function removeConnection(id: string, exchangeCutoff: Temporal.Inst
 
     // The balance is the sum of the visible bookings, 0 without any.
     const zeroBalance = sql`COALESCE((SELECT SUM(t.amount_minor) FROM transactions t WHERE t.account_id=${accounts.id} AND t.suppressed_at IS NULL),0)=0`;
+    // Accounts keep the removed connection, which still names their bank; a removed connection no longer links them.
     const detached = await tx.update(accounts).set({
-      requisition_id: null,
       sync_error: null,
       ...(archivedAt ? {
         archived_at: sql`CASE WHEN ${zeroBalance} THEN COALESCE(${accounts.archived_at},${archivedAt}) ELSE ${accounts.archived_at} END`

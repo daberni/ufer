@@ -61,7 +61,6 @@ async function attributionDatabase(context: TestContext) {
   await db.insert(schema.accounts).values({
     id: "checking",
     name: "Synthetic checking",
-    institution: "Example institution",
     kind: "checking"
   });
 

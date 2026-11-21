@@ -80,7 +80,6 @@ test("account creation books exact money as the opening balance on the shared co
   const db = await isolatedDatabase(context);
   const created = await createManualAccount({
     name: "Synthetic savings",
-    institution: "Example institution",
     kind: "savings",
     currency: "EUR",
     balance: "123.45",
@@ -109,7 +108,6 @@ test("a new account's balance date starts its history, defaults to today in Vien
   const viennaAfterMidnight = Temporal.Instant.from("2026-03-01T23:30:00Z");
   const property = {
     name: "Synthetic property",
-    institution: "Example institution",
     kind: "property",
     currency: "EUR",
     balance: "250000.00"
@@ -137,7 +135,6 @@ test("invalid provider currencies and identities return provider failures withou
   await db.insert(schema.accounts).values({
     id: "synthetic-bank-account",
     name: "Synthetic account",
-    institution: "Example institution",
     kind: "checking",
     balance_minor: 10000
   });
@@ -172,7 +169,6 @@ test("a failed opening balance rolls back account creation instead of leaving a 
 
   await assert.rejects(createManualAccount({
     name: "Synthetic asset",
-    institution: "Example institution",
     kind: "investment",
     currency: "EUR",
     balance: "10.00"
@@ -185,7 +181,6 @@ test("updating a balance books the difference to the balance on its date, so lat
   const db = await isolatedDatabase(context);
   const created = await createManualAccount({
     name: "Synthetic asset",
-    institution: "Example institution",
     kind: "investment",
     currency: "EUR",
     balance: "200.00",
@@ -232,7 +227,6 @@ test("a valuation dated today in Vienna is accepted before UTC reaches that day,
   const viennaAfterMidnight = Temporal.Instant.from("2026-03-01T23:30:00Z");
   const created = await createManualAccount({
     name: "Synthetic asset",
-    institution: "Example institution",
     kind: "investment",
     currency: "EUR",
     balance: "200.00",
@@ -261,7 +255,6 @@ test("unknown records are not found, manual exclusions survive rule application 
   await db.insert(schema.accounts).values([{
     id: "local",
     name: "Synthetic local account",
-    institution: "Example institution",
     kind: "checking"
   }]);
   await db.insert(schema.transactions).values([{
@@ -336,7 +329,6 @@ test("applying rules reports only transactions whose category changed", async co
   await db.insert(schema.accounts).values({
     id: "local",
     name: "Synthetic local account",
-    institution: "Example institution",
     kind: "checking"
   });
   await db.insert(schema.transactions).values(["one", "two", "three"].map((id, index) => ({
@@ -415,7 +407,6 @@ test("multi-chunk sync remains idempotent and rolls back every chunk when a late
   await db.insert(schema.accounts).values({
     id: "bulk-account",
     name: "Synthetic account",
-    institution: "Example institution",
     kind: "checking"
   });
   const entries: Entry[] = Array.from({
@@ -486,7 +477,6 @@ test("ambiguous reauthorization rolls back earlier account mappings and added al
     await db.insert(schema.accounts).values({
       id,
       name: "Synthetic account",
-      institution: "Example institution",
       kind: "checking",
       provider: "enable_banking",
       provider_uid: `old-${id}`,
@@ -523,7 +513,6 @@ test("category edits keep transaction assignments and rules attached and reject 
   await db.insert(schema.accounts).values({
     id: "local",
     name: "Synthetic local account",
-    institution: "Example institution",
     kind: "checking"
   });
   await insertRule({
@@ -691,14 +680,12 @@ test("renaming changes only the account display name, allows duplicates and reje
     {
       id: "manual-name",
       name: "Before",
-      institution: "Example",
       kind: "checking"
     },
     {
       id: "bank-name",
       name: "Bank supplied",
       provider_name: "Bank supplied",
-      institution: "Bank",
       kind: "checking",
       provider: "enable_banking",
       provider_uid: "stable-provider-id",
@@ -752,14 +739,12 @@ test("a manual or imported account changes its type when its balance fits, while
   const now = Temporal.Instant.from("2026-06-30T12:00:00Z");
   const { id: card } = await createManualAccount({
     name: "Card statement",
-    institution: "CSV import",
     kind: "checking",
     currency: "EUR",
     balance: "-350.00"
   }, now);
   const { id: wallet } = await createManualAccount({
     name: "Wallet",
-    institution: "Cash",
     kind: "checking",
     currency: "EUR",
     balance: "80.00"
@@ -768,7 +753,6 @@ test("a manual or imported account changes its type when its balance fits, while
   await db.insert(schema.accounts).values([{
     id: "synced-type",
     name: "Bank account",
-    institution: "Example",
     kind: "checking",
     currency: "EUR",
     provider: "enable_banking",
@@ -776,7 +760,6 @@ test("a manual or imported account changes its type when its balance fits, while
   }, {
     id: "archived-type",
     name: "Old account",
-    institution: "Example",
     kind: "checking",
     currency: "EUR",
     archived_at: "2026-01-01T00:00:00Z"

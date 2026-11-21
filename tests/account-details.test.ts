@@ -49,12 +49,10 @@ async function seededDatabase(context: TestContext) {
   await db.insert(schema.accounts).values([{
     id: "checking",
     name: "Synthetic checking",
-    institution: "Example institution",
     kind: "checking"
   }, {
     id: "savings",
     name: "Synthetic savings",
-    institution: "Example institution",
     kind: "savings"
   }]);
 

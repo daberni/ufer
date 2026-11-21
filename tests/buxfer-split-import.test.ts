@@ -69,7 +69,6 @@ async function isolatedDatabase(context: TestContext) {
   await db.insert(schema.accounts).values({
     id: "synthetic-checking",
     name: "Checking",
-    institution: "Example institution",
     kind: "checking"
   });
 

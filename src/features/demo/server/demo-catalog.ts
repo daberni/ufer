@@ -12,7 +12,6 @@ export type DemoAccountKey = "checking" | "savings" | "creditCard" | "investment
 export type DemoAccountDefinition = {
   id: string;
   name: string;
-  institution: string;
   kind: AccountKind;
 };
 
@@ -20,37 +19,31 @@ export const demoAccounts: Record<DemoAccountKey, DemoAccountDefinition> = {
   checking: {
     id: "demo-checking",
     name: "Everyday account",
-    institution: "Riverside Bank",
     kind: "checking"
   },
   savings: {
     id: "demo-savings",
     name: "Emergency fund",
-    institution: "Riverside Bank",
     kind: "savings"
   },
   creditCard: {
     id: "demo-credit-card",
     name: "Travel credit card",
-    institution: "Harbor Card Services",
     kind: "credit_card"
   },
   investment: {
     id: "demo-investment",
     name: "ETF portfolio",
-    institution: "Northwind Brokerage",
     kind: "investment"
   },
   property: {
     id: "demo-property",
     name: "Rental flat, Linden Street",
-    institution: "Own valuation",
     kind: "property"
   },
   loan: {
     id: "demo-loan",
     name: "Mortgage, rental flat",
-    institution: "Riverside Bank",
     kind: "loan"
   }
 };

@@ -52,7 +52,6 @@ async function freshDatabase(context: TestContext) {
   await db.insert(schema.accounts).values({
     id: "checking",
     name: "Synthetic checking",
-    institution: "Example bank",
     kind: "checking",
     provider: "enable_banking"
   });

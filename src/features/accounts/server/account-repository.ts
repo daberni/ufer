@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { and, eq, inArray, desc, isNotNull, isNull, ne, sql, TransactionRollbackError } from "drizzle-orm";
 import { database, type Database } from "@/server/database/connection";
-import { accountIdentifiers, accounts, balanceSnapshots, categorizationRules, transactions } from "@/server/database/schema";
+import { accountIdentifiers, accounts, balanceSnapshots, categorizationRules, requisitions, transactions } from "@/server/database/schema";
 import { createdCounterpartPrefix, manualEntryPrefix } from "@/lib/booking-references";
 // eslint-disable-next-line boundaries/dependencies -- known violation tracked in daberni/ufer#285
 import { bookManualEntry, recordManualBalance, type ManualEntryResult } from "@/features/transactions/server/manual-transaction-repository";
@@ -36,7 +36,6 @@ export async function insertManualAccount(input: ManualAccountInput, amount: num
     await tx.insert(accounts).values({
       id,
       name: input.name,
-      institution: input.institution,
       kind: input.kind,
       currency: input.currency
     });
@@ -249,6 +248,9 @@ export async function closeAndArchiveManualAccount(account: {
   }
 }
 
+/** An account keeps its removed connection for the bank name, so only a connection that is not removed links it. */
+const withoutConnection = sql`NOT EXISTS (SELECT 1 FROM ${requisitions} WHERE ${requisitions.id}=${accounts.requisition_id} AND ${requisitions.status}<>'REMOVED')`;
+
 /**
  * Turns a bank account whose connection was removed into a manual account in one transaction. The last bank balance stays the account's balance through an opening balance, or an adjustment on the later of its date and the latest booking.
  * The bank identity is dropped, so a later connection to the same bank creates a new account instead of syncing into a manual one. Returns whether the account was converted.
@@ -257,7 +259,7 @@ export async function convertDetachedAccount(id: string) {
   const db = await database();
 
   return db.transaction(async tx => {
-    const detached = and(eq(accounts.id, id), eq(accounts.provider, "enable_banking"), isNull(accounts.requisition_id));
+    const detached = and(eq(accounts.id, id), eq(accounts.provider, "enable_banking"), withoutConnection);
     const account = await tx.select({
       id: accounts.id
     }).from(accounts).where(detached).get();
@@ -271,6 +273,7 @@ export async function convertDetachedAccount(id: string) {
     await tx.update(accounts).set({
       provider: "manual",
       provider_uid: null,
+      requisition_id: null,
       last_synced_at: null,
       sync_error: null
     }).where(detached);
@@ -290,7 +293,7 @@ export async function deleteUnlinkedAccount(id: string, confirmedName: string) {
   const db = await database();
 
   return db.transaction(async tx => {
-    const unlinked = and(eq(accounts.id, id), eq(accounts.name, confirmedName), isNull(accounts.requisition_id));
+    const unlinked = and(eq(accounts.id, id), eq(accounts.name, confirmedName), withoutConnection);
     const account = await tx.select({
       id: accounts.id
     }).from(accounts).where(unlinked).get();

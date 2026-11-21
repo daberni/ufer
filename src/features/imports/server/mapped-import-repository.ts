@@ -287,7 +287,6 @@ async function saveAccountRows(tx: DatabaseTransaction, {
     await tx.insert(accounts).values({
       id: accountId,
       name: newAccount.name,
-      institution: "",
       kind: newAccount.kind,
       currency: newAccount.currency
     }).onConflictDoNothing();
