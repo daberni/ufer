@@ -82,9 +82,13 @@ async function renderDialog(context: TestContext, transaction: Transaction) {
     save: () => screen.getByRole("button", {
       name: "Save"
     }) as HTMLButtonElement,
-    target: () => screen.getByRole("combobox", {
-      name: "Target account"
-    }) as HTMLSelectElement
+    choice: (name: string | RegExp) => screen.getByRole("radio", {
+      name
+    }) as HTMLInputElement,
+    manualAccount: () => screen.getByRole("combobox", {
+      name: "Manual account"
+    }) as HTMLSelectElement,
+    choices: () => (screen.queryAllByRole("radio") as HTMLInputElement[]).map(radio => radio.value)
   };
 }
 
@@ -102,8 +106,8 @@ test("a linked transfer cannot be saved before its target is known, and saving u
   const {
     requests,
     save,
-    screen,
-    target
+    choice,
+    choices
   } = await renderDialog(context, linked);
 
   assert.equal(save().disabled, true);
@@ -114,10 +118,8 @@ test("a linked transfer cannot be saved before its target is known, and saving u
   } satisfies TransferOptions));
 
   assert.equal(save().disabled, false);
-  assert.equal((screen.getByRole("radio", {
-    name: /Synthetic savings/
-  }) as HTMLInputElement).checked, true);
-  assert.equal(target().selectedOptions[0].textContent, "Synthetic savings (selected booking)");
+  assert.equal(choice(/Synthetic savings/).checked, true);
+  assert.deepEqual(choices(), ["booking:in", ""]);
 
   act(() => {
     fireEvent.click(save());
@@ -132,12 +134,13 @@ test("a linked transfer cannot be saved before its target is known, and saving u
   });
 });
 
-test("choosing a suggestion sets the target account, and a manual account or none replaces the suggestion", async context => {
+test("one stacked list offers the suggestions, a counterpart per manual account and no counterpart; linking a suggestion sends it", async context => {
   const {
     requests,
     save,
     screen,
-    target
+    choice,
+    choices
   } = await renderDialog(context, outgoing);
 
   assert.equal(requests("transactions/out/transfer").length, 0);
@@ -160,32 +163,61 @@ test("choosing a suggestion sets the target account, and a manual account or non
     }]
   } satisfies TransferOptions));
 
-  const suggestion = () => screen.getByRole("radio", {
-    name: /Synthetic savings/
-  }) as HTMLInputElement;
-
   assert.ok(screen.getByRole("group", {
-    name: "Bookings on other accounts"
+    name: "Counterpart"
   }));
-  assert.equal(target().value, "");
+  assert.equal(screen.queryByRole("combobox", {
+    name: "Target account"
+  }), null);
+  assert.deepEqual(choices(), ["booking:candidate", "account", ""]);
+  assert.equal(choice(/^No counterpart/).checked, true);
 
   act(() => {
-    fireEvent.click(suggestion());
+    fireEvent.click(choice(/Synthetic savings/));
   });
 
-  assert.equal(target().value, "booking:candidate");
-  assert.ok(screen.getByText(/Linked with Synthetic savings/));
+  assert.equal(choice(/^No counterpart/).checked, false);
+  assert.equal(screen.queryByText(/Linked with/), null);
 
   act(() => {
-    fireEvent.change(target(), {
-      target: {
-        value: "account:flat"
-      }
-    });
+    fireEvent.click(save());
+  });
+  await wait(0);
+
+  assert.deepEqual(requests("transactions/out/details")[0]?.body, {
+    type: "transfer",
+    transfer: {
+      counterpart_id: "candidate"
+    }
+  });
+});
+
+test("choosing to create a counterpart on a manual account replaces a chosen suggestion and sends the account", async context => {
+  const {
+    requests,
+    save,
+    choice
+  } = await renderDialog(context, {
+    ...outgoing,
+    type: "transfer"
   });
 
-  assert.equal(suggestion().checked, false);
-  assert.ok(screen.getByText(/other side on Synthetic flat/));
+  await respond(requests("transactions/out/transfer")[0], Response.json({
+    counterpart: null,
+    candidates: [booking("candidate", "Synthetic savings")],
+    accounts: [{
+      id: "flat",
+      name: "Synthetic flat"
+    }]
+  } satisfies TransferOptions));
+  act(() => {
+    fireEvent.click(choice(/Synthetic savings/));
+  });
+  act(() => {
+    fireEvent.click(choice("Create a counterpart on"));
+  });
+
+  assert.equal(choice(/Synthetic savings/).checked, false);
 
   act(() => {
     fireEvent.click(save());
@@ -200,12 +232,11 @@ test("choosing a suggestion sets the target account, and a manual account or non
   });
 });
 
-test("a transfer without a target account is saved without a counterpart", async context => {
+test("choosing no counterpart saves the transfer without a counterpart", async context => {
   const {
     requests,
     save,
-    screen,
-    target
+    choice
   } = await renderDialog(context, {
     ...outgoing,
     type: "transfer"
@@ -217,16 +248,10 @@ test("a transfer without a target account is saved without a counterpart", async
     accounts: []
   } satisfies TransferOptions));
   act(() => {
-    fireEvent.click(screen.getByRole("radio", {
-      name: /Synthetic savings/
-    }));
+    fireEvent.click(choice(/Synthetic savings/));
   });
   act(() => {
-    fireEvent.change(target(), {
-      target: {
-        value: ""
-      }
-    });
+    fireEvent.click(choice(/^No counterpart/));
   });
   act(() => {
     fireEvent.click(save());
@@ -342,9 +367,7 @@ test("a hidden booking offers no transfer targets and saves a transfer without a
   await wait(0);
 
   assert.equal(requests("transactions/out/transfer").length, 0);
-  assert.equal(screen.queryByRole("combobox", {
-    name: "Target account"
-  }), null);
+  assert.equal(screen.queryByRole("radio"), null);
   act(() => {
     fireEvent.click(save());
   });
@@ -422,9 +445,6 @@ test("a booking Ufer created on a manual account offers only removing it, withou
 
   assert.ok(screen.getByText(/Created for the transfer of Synthetic checking/));
   assert.equal(screen.queryByRole("radio"), null);
-  assert.equal(screen.queryByRole("combobox", {
-    name: "Target account"
-  }), null);
 
   act(() => {
     fireEvent.click(screen.getByRole("checkbox", {
@@ -469,7 +489,9 @@ test("one side of a transfer entered between manual accounts edits the pair: the
     requests,
     save,
     screen,
-    target
+    choice,
+    choices,
+    manualAccount
   } = await renderDialog(context, created);
 
   await respond(requests("transactions/created/transfer")[0], Response.json({
@@ -496,7 +518,9 @@ test("one side of a transfer entered between manual accounts edits the pair: the
   assert.equal(screen.queryByRole("combobox", {
     name: "Payee"
   }), null);
-  assert.equal(target().value, "account:cash");
+  assert.deepEqual(choices(), ["account", ""]);
+  assert.equal(choice("Counterpart on").checked, true);
+  assert.equal(manualAccount().value, "cash");
 
   act(() => {
     fireEvent.change(screen.getByRole("textbox", {
@@ -506,9 +530,11 @@ test("one side of a transfer entered between manual accounts edits the pair: the
         value: "250.00"
       }
     });
-    fireEvent.change(target(), {
+  });
+  act(() => {
+    fireEvent.change(manualAccount(), {
       target: {
-        value: "account:broker"
+        value: "broker"
       }
     });
   });
@@ -791,7 +817,7 @@ test("an imported booking on an archived account links only with an existing boo
     requests,
     save,
     screen,
-    target
+    choices
   } = await renderDialog(context, {
     ...outgoing,
     manual_account: true,
@@ -819,7 +845,7 @@ test("an imported booking on an archived account links only with an existing boo
     }]
   } satisfies TransferOptions));
 
-  assert.deepEqual([...target().options].map(option => option.value), [""]);
+  assert.deepEqual(choices(), ["booking:candidate", ""]);
   assert.equal(save().disabled, true);
 
   act(() => {
