@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { Temporal } from "temporal-polyfill";
 import { acquireLease, releaseLease } from "@/server/jobs/lease-repository";
-import { environment } from "@/features/banking/server/environment";
 import { syncLeaseName } from "@/features/banking/server/sync-service";
 import { HttpError, ValidationError } from "@/lib/errors";
 import { minorUnits } from "@/lib/money";
@@ -203,16 +202,15 @@ async function archiveSettled(account: {
   }
 
   const owner = randomUUID();
-  const leaseName = syncLeaseName(environment());
 
-  if (!(await acquireLease(leaseName, owner))) {
+  if (!(await acquireLease(syncLeaseName, owner))) {
     throw new HttpError(409, "A sync is running. Archive the account after it has finished.");
   }
 
   try {
     return await archiveSettledAccount(account.id, timestamp());
   } finally {
-    await releaseLease(leaseName, owner);
+    await releaseLease(syncLeaseName, owner);
   }
 }
 

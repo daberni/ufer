@@ -2,7 +2,6 @@ import { Temporal } from "temporal-polyfill";
 import { and, asc, eq, sql } from "drizzle-orm";
 import { database } from "@/server/database/connection";
 import { accounts, balanceSnapshots, requisitions, transactions } from "@/server/database/schema";
-import { environment } from "@/features/banking/server/environment";
 import { HttpError } from "@/lib/errors";
 import { productTimeZone, today } from "@/lib/time";
 import { dailyBalances } from "@/features/accounts/daily-balances";
@@ -17,7 +16,7 @@ const lastBookingDate = sql<string | null>`(SELECT MAX(${transactions.booking_da
 
 const kindOrder = sql`CASE ${accounts.kind} WHEN 'checking' THEN 0 WHEN 'savings' THEN 1 WHEN 'investment' THEN 2 ELSE 3 END`;
 
-/** Accounts of the current banking environment with their current balance and, for bank accounts, the authorization expiry. */
+/** Accounts with their current balance and, for bank accounts, the authorization expiry. */
 export async function listAccounts() {
   const db = await database();
 
@@ -37,13 +36,13 @@ export async function listAccounts() {
     valid_until: requisitions.valid_until,
     sync_error: accounts.sync_error,
     archived_at: accounts.archived_at
-  }).from(accounts).leftJoin(requisitions, eq(requisitions.id, accounts.requisition_id)).where(eq(accounts.environment, environment())).orderBy(kindOrder, asc(accounts.name));
+  }).from(accounts).leftJoin(requisitions, eq(requisitions.id, accounts.requisition_id)).orderBy(kindOrder, asc(accounts.name));
 }
 
 /** Account kinds that count toward net worth. */
 export const netWorthKinds = ["checking", "savings", "investment", "property", "credit_card", "loan"];
 
-/** One account of the current banking environment with its current balance, as listed. */
+/** One account with its current balance, as listed. */
 export async function findAccountWithBalance(id: string) {
   return (await listAccounts()).find(account => account.id === id);
 }
@@ -64,7 +63,7 @@ export async function readNetWorth(currency: string) {
   };
 }
 
-/** Daily estimates between recorded cash-account balances, or recorded asset valuations, scoped to the current banking environment. */
+/** Daily estimates between recorded cash-account balances, or recorded asset valuations. */
 export async function readBalanceHistory(accountId: string): Promise<BalanceHistory> {
   const db = await database();
   const account = await db.select({
@@ -74,7 +73,7 @@ export async function readBalanceHistory(accountId: string): Promise<BalanceHist
     balance_minor: accounts.balance_minor,
     balance_date: accounts.balance_date,
     provider: accounts.provider
-  }).from(accounts).where(and(eq(accounts.id, accountId), eq(accounts.environment, environment()))).get();
+  }).from(accounts).where(eq(accounts.id, accountId)).get();
 
   if (!account) {
     throw new HttpError(404, "Account not found.");

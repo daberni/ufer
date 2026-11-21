@@ -1,6 +1,6 @@
 import { and, count, inArray, isNotNull, like, ne, not, notInArray, sql } from "drizzle-orm";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
-import { accounts, categories, categorizationRules, requisitions, transactions } from "@/server/database/schema";
+import { accounts, categories, categorizationRules, transactions } from "@/server/database/schema";
 import { upsertTransactions } from "@/features/transactions/server/transaction-repository";
 import { recordManualBalance } from "@/features/transactions/server/manual-transaction-repository";
 import { manualAccountTypes } from "@/features/transactions/transaction-types";
@@ -14,7 +14,6 @@ import type { DemoCreatedCounterpart, DemoSnapshot } from "./demo-dataset";
 
 /** What the guard inspects before demo rows are replaced. */
 export type DemoSeedTarget = {
-  otherEnvironmentRows: number;
   foreignManualTransactions: number;
 };
 
@@ -25,7 +24,6 @@ export type DemoAccountRows = DemoAccountDefinition & {
 };
 
 export type DemoSeedRows = {
-  environment: string;
   categories: DemoCategory[];
   rules: Rule[];
   accounts: DemoAccountRows[];
@@ -44,13 +42,7 @@ export async function listForeignCategories(): Promise<Pick<Category, "id" | "na
   }).from(categories).where(not(like(categories.id, demoRows)));
 }
 
-async function inspectTarget(tx: DatabaseTransaction, environment: string): Promise<DemoSeedTarget> {
-  const otherAccounts = await tx.select({
-    count: count()
-  }).from(accounts).where(ne(accounts.environment, environment)).get();
-  const otherRequisitions = await tx.select({
-    count: count()
-  }).from(requisitions).where(ne(requisitions.environment, environment)).get();
+async function inspectTarget(tx: DatabaseTransaction): Promise<DemoSeedTarget> {
   // Bank-connected sandbox accounts may coexist with the demo; manual and CSV accounts hold data someone entered. Their opening balances and adjustments only record balances and do not count.
   const foreignManualAccounts = tx.select({
     id: accounts.id
@@ -60,7 +52,6 @@ async function inspectTarget(tx: DatabaseTransaction, environment: string): Prom
   }).from(transactions).where(and(inArray(transactions.account_id, foreignManualAccounts), notInArray(transactions.type, [...manualAccountTypes]))).get();
 
   return {
-    otherEnvironmentRows: (otherAccounts?.count ?? 0) + (otherRequisitions?.count ?? 0),
     foreignManualTransactions: manualTransactions?.count ?? 0
   };
 }
@@ -101,10 +92,9 @@ async function upsertCategories(tx: DatabaseTransaction, rows: DemoCategory[]) {
   }
 }
 
-async function insertAccount(tx: DatabaseTransaction, environment: string, account: DemoAccountRows) {
+async function insertAccount(tx: DatabaseTransaction, account: DemoAccountRows) {
   await tx.insert(accounts).values({
     id: account.id,
-    environment,
     name: account.name,
     institution: account.institution,
     kind: account.kind,
@@ -129,7 +119,7 @@ export async function replaceDemoRows(rows: DemoSeedRows, verify: (target: DemoS
   const db = await database();
 
   await db.transaction(async tx => {
-    verify(await inspectTarget(tx, rows.environment));
+    verify(await inspectTarget(tx));
 
     await deleteDemoRows(tx);
     await upsertCategories(tx, rows.categories);
@@ -140,14 +130,14 @@ export async function replaceDemoRows(rows: DemoSeedRows, verify: (target: DemoS
     }
 
     for (const account of rows.accounts) {
-      await insertAccount(tx, rows.environment, account);
+      await insertAccount(tx, account);
     }
 
     for (const counterpart of rows.createdCounterparts) {
       await createTransferCounterpart(tx, counterpart.sourceAccountId, counterpart.sourceReference, counterpart.accountId);
     }
 
-    await pairTransfers(tx, rows.environment);
+    await pairTransfers(tx);
 
     // Valuations follow every transaction, including created counterparts, as when a person updates a balance.
     for (const account of rows.accounts) {

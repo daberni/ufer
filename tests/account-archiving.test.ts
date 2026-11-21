@@ -21,7 +21,7 @@ import { archiveAccount, restoreAccount, updateManualValuation } from "../src/fe
 import { editManualTransaction, enterManualTransaction, hideTransaction, removeManualTransaction, transferOptions, updateTransactionCategory, updateTransactionDetails } from "../src/features/transactions/server/transaction-service";
 import { applyRulesToUncorrectedTransactions, createRule, deleteCategory, updateRuleDetails } from "../src/features/categorization/server/categorization-service";
 import { saveRuleAssignments } from "../src/features/categorization/server/rule-repository";
-import { pairTransfersInEnvironment } from "../src/features/transactions/server/transfer-repository";
+import { pairAllTransfers } from "../src/features/transactions/server/transfer-repository";
 import { acquireLease } from "../src/server/jobs/lease-repository";
 import { removeConnection } from "../src/features/banking/server/connection-repository";
 import { queryKeys } from "../src/client/query-keys";
@@ -66,32 +66,27 @@ async function seededDatabase(context: TestContext) {
   process.env.ENABLE_BANKING_ENVIRONMENT = "SANDBOX";
   await db.insert(schema.accounts).values([{
     id: "closed",
-    environment: "SANDBOX",
     name: "Synthetic closed account",
     institution: "Example institution",
     kind: "checking"
   }, {
     id: "open",
-    environment: "SANDBOX",
     name: "Synthetic open account",
     institution: "Example institution",
     kind: "savings"
   }, {
     id: "target",
-    environment: "SANDBOX",
     name: "Synthetic target account",
     institution: "Example institution",
     kind: "checking"
   }, {
     id: "dollars",
-    environment: "SANDBOX",
     name: "Synthetic dollar account",
     institution: "Example institution",
     kind: "checking",
     currency: "USD"
   }, {
     id: "bank",
-    environment: "SANDBOX",
     name: "Synthetic bank account",
     institution: "Example institution",
     kind: "checking",
@@ -99,12 +94,6 @@ async function seededDatabase(context: TestContext) {
     provider_uid: "uid-bank",
     balance_minor: 7000,
     balance_date: "2026-01-31"
-  }, {
-    id: "other-environment",
-    environment: "PRODUCTION",
-    name: "Synthetic production account",
-    institution: "Example institution",
-    kind: "checking"
   }]);
   await db.insert(schema.transactions).values([{
     id: "opening",
@@ -380,11 +369,11 @@ test("automatic pairing never links a booking on an archived account", async con
   });
   const bookingsBefore = await db.select().from(schema.transactions);
 
-  assert.equal(await pairTransfersInEnvironment("SANDBOX"), 0);
+  assert.equal(await pairAllTransfers(), 0);
   assert.deepEqual(await db.select().from(schema.transactions), bookingsBefore);
 
   await restoreAccount("closed");
-  assert.equal(await pairTransfersInEnvironment("SANDBOX"), 1);
+  assert.equal(await pairAllTransfers(), 1);
 });
 
 test("changing a booking linked to a counterpart on an archived account is refused before the counterpart changes", async context => {
@@ -789,7 +778,7 @@ test("a bank account with a balance of 0 is not archived while a sync holds the 
   await db.update(schema.accounts).set({
     balance_minor: 0
   }).where(eq(schema.accounts.id, "bank"));
-  assert.equal(await acquireLease("sync:SANDBOX", "synthetic-sync"), true);
+  assert.equal(await acquireLease("sync", "synthetic-sync"), true);
   await assert.rejects(archiveAccount("bank", {}), {
     status: 409,
     message: "A sync is running. Archive the account after it has finished."
@@ -817,7 +806,6 @@ test("a manual account without bookings has a balance of 0, while an unknown ban
 
   await db.insert(schema.requisitions).values({
     id: "connection",
-    environment: "SANDBOX",
     bank_name: "Example institution",
     bank_country: "AT",
     status: "LINKED"
@@ -825,7 +813,7 @@ test("a manual account without bookings has a balance of 0, while an unknown ban
   await db.update(schema.accounts).set({
     requisition_id: "connection"
   }).where(eq(schema.accounts.id, "bank"));
-  const removal = await removeConnection("SANDBOX", "connection", Temporal.Now.instant(), null, "2026-11-01T00:00:00.000Z");
+  const removal = await removeConnection("connection", Temporal.Now.instant(), null, "2026-11-01T00:00:00.000Z");
 
   assert.deepEqual(removal, {
     outcome: "removed",
@@ -901,13 +889,10 @@ test("the sync control and reminders cover only active, connected bank accounts"
   }], "EUR").bankAccounts.map(account => account.id), ["connected-bank"]);
 });
 
-test("archiving an unknown account or one of another banking environment is not found", async context => {
+test("archiving an unknown account is not found", async context => {
   await seededDatabase(context);
 
   await assert.rejects(archiveAccount("unknown", {}), {
-    status: 404
-  });
-  await assert.rejects(archiveAccount("other-environment", {}), {
     status: 404
   });
 });

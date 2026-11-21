@@ -73,7 +73,7 @@ function BackNavigation({ back }: {
   );
 }
 
-/** Shown for an id that is unknown, removed or belongs to another banking environment. */
+/** Shown for an id that is unknown or removed. */
 export function AccountNotFound({ back }: {
   back: BackLink
 }) {

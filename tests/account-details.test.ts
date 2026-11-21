@@ -48,22 +48,14 @@ async function seededDatabase(context: TestContext) {
   process.env.ENABLE_BANKING_ENVIRONMENT = "SANDBOX";
   await db.insert(schema.accounts).values([{
     id: "checking",
-    environment: "SANDBOX",
     name: "Synthetic checking",
     institution: "Example institution",
     kind: "checking"
   }, {
     id: "savings",
-    environment: "SANDBOX",
     name: "Synthetic savings",
     institution: "Example institution",
     kind: "savings"
-  }, {
-    id: "production-checking",
-    environment: "PRODUCTION",
-    name: "Synthetic production checking",
-    institution: "Example institution",
-    kind: "checking"
   }]);
 
   const entries: [string, string, string, number, string | null][] = [
@@ -73,8 +65,7 @@ async function seededDatabase(context: TestContext) {
     ["checking", "2026-01-12", "EUR", 10000, "transfer"],
     ["checking", "2026-01-20", "USD", -9900, "groceries"],
     ["checking", "2026-02-01", "EUR", -700, null],
-    ["savings", "2026-01-10", "EUR", 50000, "transfer"],
-    ["production-checking", "2026-01-03", "EUR", 70000, null]
+    ["savings", "2026-01-10", "EUR", 50000, "transfer"]
   ];
 
   const entryType = (amount: number, categoryId: string | null): typeof schema.transactions.$inferInsert.type => {
@@ -153,14 +144,13 @@ test("an account's cash flow counts its own transactions in its currency and rep
   });
 });
 
-test("an account without transactions in the period has zero flows, while unknown accounts and other environments are not found", async context => {
+test("an account without transactions in the period has zero flows, while unknown accounts are not found", async context => {
   await seededDatabase(context);
   const december = monthPeriod(Temporal.PlainYearMonth.from("2025-12"));
   const empty = await readAccountCashFlow("checking", december);
 
   assert.deepEqual([empty.income, empty.expenses, empty.transfersIn, empty.transfersOut], [0, 0, 0, 0]);
   await assertNotFound(readAccountCashFlow("unknown", january));
-  await assertNotFound(readAccountCashFlow("production-checking", january));
 });
 
 test("an account's daily balances use only its own currency and preserve the known closing balance", async context => {
@@ -215,7 +205,6 @@ test("an account's daily balances use only its own currency and preserve the kno
     bank_balance_type: null
   });
   await assertNotFound(readBalanceHistory("unknown"));
-  await assertNotFound(readBalanceHistory("production-checking"));
 });
 
 test("balances are spaced by date, and a flat or single balance stays inside the plot", () => {
@@ -328,7 +317,6 @@ test("a CSV balance keeps its recorded provenance when the current account balan
 test("bank balance classification survives resync while derived days and older observations remain unknown", async context => {
   await seededDatabase(context);
   const run = {
-    environment: "SANDBOX",
     startedAt: "2026-02-01T12:00:00.000Z"
   };
 
