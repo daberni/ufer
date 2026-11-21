@@ -68,7 +68,7 @@ async function renderDialog(context: TestContext, transaction: Transaction) {
   };
 }
 
-test("a part short of the total blocks Save until Add part fills in the rest, and Save stores the details first, then the split", async context => {
+test("a part short of the total blocks Save until Add part fills in the rest, and Save stores the details and the split in one request", async context => {
   const {
     requests,
     screen,
@@ -131,13 +131,12 @@ test("a part short of the total blocks Save until Add part fills in the rest, an
     fireEvent.click(save());
   });
   await wait(0);
-  assert.equal(requests("transactions/out/split").length, 0);
-  await respond(requests("transactions/out/details")[0], Response.json({}));
-  await wait(0);
 
-  const request = requests("transactions/out/split")[0];
+  const request = requests("transactions/out/details")[0];
 
-  assert.deepEqual(request?.body, {
+  assert.deepEqual((request?.body as {
+    split?: unknown;
+  } | undefined)?.split, {
     parts: [{
       amount: "-240.00",
       category_id: null,
@@ -152,10 +151,13 @@ test("a part short of the total blocks Save until Add part fills in the rest, an
       note: ""
     }]
   });
+  // Save stays disabled until the one request settles.
+  assert.equal(save().disabled, true);
   await respond(request, Response.json({
     ok: true
   }));
   await wait(0);
+  assert.equal(requests("transactions/out/split").length, 0);
   assert.deepEqual(closed, [true]);
 });
 

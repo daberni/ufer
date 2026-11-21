@@ -13,6 +13,7 @@ import { saveAccountSync } from "../src/features/banking/server/account-sync-ser
 import { importValuations } from "../src/features/imports/server/import-service";
 import { readCashFlow } from "../src/features/reports/server/cash-flow-query";
 import { editManualTransaction, enterManualTransaction, removeManualTransaction, updateTransactionCategory, updateTransactionDetails } from "../src/features/transactions/server/transaction-service";
+import { splitTransaction } from "../src/features/transactions/server/split-service";
 import { pairTransfersInEnvironment } from "../src/features/transactions/server/transfer-repository";
 import { readTransactionPage } from "../src/features/transactions/server/transaction-list-query";
 import { dashboardFilters } from "../src/server/http/dashboard-filters";
@@ -934,4 +935,56 @@ test("new manual bookings distinguish automatic categorization from an explicit 
     counterparty: "Salary adjustment"
   });
   assert.deepEqual([(await row(db, uncategorized.id))?.category_id, (await row(db, uncategorized.id))?.category_source], [null, "manual"]);
+});
+
+function splitParts(...amounts: string[]) {
+  return {
+    parts: amounts.map(amount => ({
+      amount,
+      category_id: null,
+      note: ""
+    }))
+  };
+}
+
+async function amountAndParts(db: Database, id: string) {
+  const parts = await db.select().from(schema.transactionSplits).where(eq(schema.transactionSplits.transaction_id, id)).orderBy(schema.transactionSplits.position);
+
+  return [(await row(db, id))?.amount_minor, parts.map(part => part.amount_minor)];
+}
+
+test("a changed amount and its split are saved in one write, and an amount that no longer matches kept parts is refused", async context => {
+  const db = await isolatedDatabase(context);
+  const cash = await manualAccount("Synthetic cash", "100.00");
+  const { id } = await enter(cash, {
+    booking_date: "2026-09-05",
+    amount: "-100.00",
+    counterparty: "Example market",
+    type: "expense"
+  });
+  const details = {
+    booking_date: "2026-09-05",
+    amount: "-120.00",
+    counterparty: "Example market",
+    type: "expense"
+  };
+
+  await splitTransaction(id, splitParts("-70.00", "-30.00"));
+
+  // Changing only the amount would leave parts that add up to the old one.
+  await assert.rejects(edit(id, details), ValidationError);
+  assert.deepEqual(await amountAndParts(db, id), [-10000, [-7000, -3000]]);
+
+  // Parts that do not add up to the new amount roll the amount back with them.
+  await assert.rejects(edit(id, {
+    ...details,
+    split: splitParts("-70.00", "-30.00")
+  }), ValidationError);
+  assert.deepEqual(await amountAndParts(db, id), [-10000, [-7000, -3000]]);
+
+  await edit(id, {
+    ...details,
+    split: splitParts("-90.00", "-30.00")
+  });
+  assert.deepEqual(await amountAndParts(db, id), [-12000, [-9000, -3000]]);
 });

@@ -11,7 +11,8 @@ import { transactionTypes } from "@/features/transactions/transaction-types";
 import { categorizeEntries } from "./categorize-entries";
 import { createManualTransaction, deleteManualTransaction, findEntryCurrency, updateManualTransaction, type ManualEntryResult } from "./manual-transaction-repository";
 import { returnTransactionToRules, saveTransactionDetails, setTransactionCategory, setTransactionHidden } from "./transaction-repository";
-import { isSplit } from "./split-repository";
+import { isSplit, type SplitChange } from "./split-repository";
+import { splitDecision, splitInput } from "./split-service";
 import { manualLinkDays } from "./transfer-pairing";
 import { readTransferOptions, type TransferTarget } from "./transfer-repository";
 import { formatCount } from "@/lib/locale";
@@ -64,15 +65,32 @@ const transferTarget = z.union([z.object({
   account_id: z.string().min(1)
 }).strict()]).nullable();
 
-// remove_split removes a split in the same write as the details, so the booking can take a type a split refuses and a rejected save keeps the split.
+// remove_split removes a split and split replaces its parts in the same write as the details, so a rejected save keeps the split and the parts always match the saved amount.
 const typeInput = z.object({
   type: z.enum(transactionTypes),
   transfer: transferTarget.optional(),
-  remove_split: z.literal(true).optional()
+  remove_split: z.literal(true).optional(),
+  split: splitInput.optional()
 });
 
-function splitRemoval(input: z.infer<typeof typeInput>) {
-  return input.remove_split ? (storedRules: Rule[], text: RuleText) => ruleAssignment(text, prepareRules(storedRules)) : undefined;
+async function splitChange(input: z.infer<typeof typeInput>): Promise<SplitChange | undefined> {
+  if (input.remove_split && input.split) {
+    throw new ValidationError("Either remove the split or save its parts.");
+  }
+
+  if (input.remove_split) {
+    return {
+      remove: (storedRules: Rule[], text: RuleText) => ruleAssignment(text, prepareRules(storedRules))
+    };
+  }
+
+  if (input.split) {
+    return {
+      replace: await splitDecision(input.split)
+    };
+  }
+
+  return undefined;
 }
 
 // Omitted text keeps a booking's current payee or description.
@@ -92,7 +110,8 @@ const typeFailures: Record<Exclude<ManualEntryResult, "saved" | "not_found" | "h
   not_entered: "Only transactions entered in Ufer on a manual account can be edited or deleted this way.",
   follows_import: "This booking is linked with an imported booking and keeps its date and amount. Unlink it to change them.",
   entered: "This transaction was entered in Ufer. Edit or delete it instead.",
-  split: "Remove the split before changing this transaction to another type."
+  split: "Remove the split before changing this transaction to another type.",
+  split_mismatch: "The split no longer adds up to the new amount. Adjust its parts or remove the split."
 };
 
 async function requireSaved(result: ManualEntryResult) {
@@ -142,7 +161,7 @@ export async function updateTransactionDetails(id: string, payload: unknown) {
     description: input.description
   };
 
-  await requireSaved(await saveTransactionDetails(id, input.type, target(input.transfer), text, splitRemoval(input)));
+  await requireSaved(await saveTransactionDetails(id, input.type, target(input.transfer), text, await splitChange(input)));
 
   return {
     ok: true
@@ -240,7 +259,7 @@ export async function editManualTransaction(id: string, payload: unknown, now = 
   const rules = prepareRules(await listRules());
   const categoryFor = (text: RuleText) => ruleAssignment(text, rules);
 
-  await requireSaved(await updateManualTransaction(id, entry, categoryFor, splitRemoval(input)));
+  await requireSaved(await updateManualTransaction(id, entry, categoryFor, await splitChange(input)));
 
   return {
     ok: true

@@ -11,7 +11,7 @@ import * as schema from "../src/server/database/schema";
 import { listAccounts } from "../src/features/accounts/server/account-queries";
 import { archiveAccount, restoreAccount } from "../src/features/accounts/server/account-service";
 import { insertRule } from "../src/features/categorization/server/rule-repository";
-import { saveMappedEntries } from "../src/features/imports/server/mapped-import-repository";
+import { saveMappedBatch } from "../src/features/imports/server/mapped-import-repository";
 import { ValidationError } from "../src/lib/errors";
 import { importMappedRows } from "../src/features/imports/server/mapped-import-service";
 import { hideTransaction } from "../src/features/transactions/server/transaction-service";
@@ -666,23 +666,29 @@ test("saving rechecks duplicates in its write transaction, so bookings synced af
   });
 
   const {
-    inserted
-  } = await saveMappedEntries("synthetic-bank-account", [{
-    reference: "csv:m:late",
-    date: "2024-07-01",
-    amount: -2500,
-    currency: "EUR",
-    counterparty: "EXAMPLE HARDWARE STORE",
-    description: "",
-    categoryId: null,
-    categorySource: "rule",
-    categoryRuleId: null,
-    ruleType: null,
-    typeRuleId: null,
-    typeTransferAccountId: null,
-    transfer: false,
-    parts: null
-  }], null);
+    results: [{
+      inserted
+    }]
+  } = await saveMappedBatch([{
+    accountId: "synthetic-bank-account",
+    newAccount: null,
+    entries: [{
+      reference: "csv:m:late",
+      date: "2024-07-01",
+      amount: -2500,
+      currency: "EUR",
+      counterparty: "EXAMPLE HARDWARE STORE",
+      description: "",
+      categoryId: null,
+      categorySource: "rule",
+      categoryRuleId: null,
+      ruleType: null,
+      typeRuleId: null,
+      typeTransferAccountId: null,
+      transfer: false,
+      parts: null
+    }]
+  }], []);
 
   assert.equal(inserted, 0);
   assert.equal((await db.select().from(schema.transactions)).length, 1);
@@ -1968,4 +1974,65 @@ test("an account archived after the target check receives no imported rows", asy
   });
   assert.ok(interleaved);
   assert.equal((await db.select().from(schema.transactions)).length, 0);
+});
+
+test("a confirmed batch spanning several accounts saves nothing when a later account fails", async context => {
+  const db = await isolatedDatabase(context);
+  const first = await manualAccount("First history");
+  const second = await manualAccount("Second history");
+
+  // Fails the second account's insert, after the first account's rows and the new category were written.
+  await db.$client.execute(`CREATE TRIGGER synthetic_failure BEFORE INSERT ON transactions WHEN NEW.account_id='${second.id}' BEGIN SELECT RAISE(ABORT, 'Synthetic failure'); END`);
+
+  await assert.rejects(importMappedRows({
+    import_id: importId,
+    rows: [mappedRow(2, "2024-06-01", "-1.00", "A", {
+      source: "First",
+      category: "Hobby"
+    }), mappedRow(3, "2024-06-02", "-2.00", "B", {
+      source: "Second"
+    })],
+    targets: [{
+      source: "First",
+      account_id: first.id
+    }, {
+      source: "Second",
+      account_id: second.id
+    }],
+    categories: [{
+      value: "Hobby",
+      action: "create",
+      name: "Synthetic hobbies"
+    }],
+    confirm: true
+  }, now));
+
+  assert.equal((await db.select().from(schema.transactions)).length, 0);
+  assert.equal((await db.select().from(schema.categories)).filter(category => category.name === "Synthetic hobbies").length, 0);
+});
+
+test("a category chosen for creation is created only when a saved row uses it", async context => {
+  const db = await isolatedDatabase(context);
+  const account = await manualAccount("Rejected history");
+  const result = await importMappedRows({
+    import_id: importId,
+    // A future date makes the only row that uses the new category invalid.
+    rows: [mappedRow(2, "2027-01-01", "-1.00", "A", {
+      category: "Hobby"
+    }), mappedRow(3, "2024-06-02", "-2.00", "B")],
+    targets: [{
+      source: "",
+      account_id: account.id
+    }],
+    categories: [{
+      value: "Hobby",
+      action: "create",
+      name: "Synthetic hobbies"
+    }],
+    confirm: true
+  }, now);
+
+  assert.equal(result.newRows, 1);
+  assert.deepEqual(result.createdCategories, []);
+  assert.equal((await db.select().from(schema.categories)).filter(category => category.name === "Synthetic hobbies").length, 0);
 });

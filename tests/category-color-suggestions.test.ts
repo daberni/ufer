@@ -13,6 +13,8 @@ import { suggestedCategoryColors } from "../src/features/categorization/category
 import { suggestCategoryIcon } from "../src/features/categorization/category-icons";
 import { createCategory } from "../src/features/categorization/server/categorization-service";
 import { insertCategory } from "../src/features/categorization/server/category-repository";
+import { randomUUID } from "node:crypto";
+import { database } from "../src/server/database/connection";
 import { createImportCategory } from "../src/features/imports/server/mapped-import-repository";
 import { browser, respond, wait, withQueryClient } from "./fixtures/browser";
 import { stubCssModules } from "./fixtures/css-modules";
@@ -101,6 +103,15 @@ async function isolatedDatabase(context: TestContext) {
   return db;
 }
 
+async function importCategory(name: string) {
+  const db = await database();
+
+  return db.transaction(tx => createImportCategory(tx, {
+    id: randomUUID(),
+    name
+  }));
+}
+
 async function colorsOf(db: Database, prefix: string) {
   const rows = await db.select().from(schema.categories);
 
@@ -164,7 +175,7 @@ test("a category created by an import takes the palette color no other category 
     icon: null
   })));
 
-  await createImportCategory("Imported");
+  await importCategory("Imported");
   assert.deepEqual(await colorsOf(db, "Imported"), [teal]);
 
   // A similar category's color wins over the unused palette color, custom or not.
@@ -174,7 +185,7 @@ test("a category created by an import takes the palette color no other category 
     color: "#123456",
     icon: null
   });
-  await createImportCategory("Car / Wash");
+  await importCategory("Car / Wash");
   await createCategory({
     name: "Car / Parking"
   });
@@ -184,8 +195,8 @@ test("a category created by an import takes the palette color no other category 
 test("a category created by an import gets the icon its name suggests", async context => {
   const db = await isolatedDatabase(context);
 
-  await createImportCategory("Imported / Groceries");
-  await createImportCategory("Xyzzy");
+  await importCategory("Imported / Groceries");
+  await importCategory("Xyzzy");
 
   const rows = await db.select().from(schema.categories);
   const iconOf = (name: string) => rows.find(row => row.name === name)?.icon;
