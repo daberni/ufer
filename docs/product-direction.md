@@ -102,7 +102,7 @@ Keep scheduling separate from the banking provider. Use concurrency control, ide
 
 Original amounts and parsed provider fields are stored for synced bookings, and the raw provider transaction is kept when its serialized form is at most 64 KiB (larger payloads keep only the parsed fields). Overrides are stored separately from source values. CSV imports are not yet linked to an import run, and the UI does not show a complete source trail. Schema changes require explicit migrations.
 
-**Implemented:** split bookings allocate an original booking across categories; the parts sum exactly to the booking amount and count once in cash flow and spending. Buxfer split rows import as split bookings. Defined behavior for refunds and transfers within splits remains open.
+**Implemented:** split bookings allocate an original booking across categories; the parts sum exactly to the booking amount and count once in cash flow and spending. Buxfer split rows import as split bookings. Only income and expenses can be split; transfers, opening balances and adjustments cannot. A part going the other way, such as a refunded item, is allowed as long as the parts sum to the booking.
 
 ## Import configuration
 
