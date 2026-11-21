@@ -522,3 +522,58 @@ test("the bank balance upgrade keeps every current balance and net worth and boo
   assert.equal(openingsAfterSync.length, 1);
   assert.equal((await listAccounts()).find(account => account.id === "checking")?.reported_difference_minor, 0);
 });
+
+test("a booking dated after the bank balance date does not create a difference", async context => {
+  await freshDatabase(context);
+
+  await sync({
+    amount: "1000.00",
+    date: "2026-11-20"
+  }, firstBookings);
+  await sync({
+    amount: "950.00",
+    date: "2026-11-21"
+  }, [...firstBookings, {
+    reference: "bank:groceries",
+    date: "2026-11-21",
+    amount: -5000
+  }, {
+    reference: "bank:scheduled-transfer",
+    date: "2026-11-23",
+    amount: -5000
+  }]);
+
+  const account = await checking();
+
+  assert.equal(account.balance_minor, 90000);
+  assert.equal(account.reported_balance_minor, 95000);
+  assert.equal(account.reported_balance_date, "2026-11-21");
+  assert.equal(account.reported_difference_minor, 0);
+});
+
+test("a bank balance that already contains a booking dated after it shows no difference and books no adjustment", async context => {
+  const db = await freshDatabase(context);
+
+  await sync({
+    amount: "1000.00",
+    date: "2026-11-20"
+  }, firstBookings);
+  // A Saturday balance that already contains a card payment the bank dates on the next business day.
+  await sync({
+    amount: "950.00",
+    date: "2026-11-21"
+  }, [...firstBookings, {
+    reference: "bank:weekend-card-payment",
+    date: "2026-11-23",
+    amount: -5000
+  }]);
+
+  const account = await checking();
+
+  assert.equal(account.balance_minor, 95000);
+  assert.equal(account.reported_difference_minor, 0);
+
+  await reconcileBankBalance("checking");
+
+  assert.deepEqual(await db.select().from(schema.transactions).where(eq(schema.transactions.type, "adjustment")), []);
+});

@@ -2,65 +2,21 @@
 
 import ui from "../../../components/ui/primitives.module.css";
 
-import { useState } from "react";
 import { clsx } from "clsx";
-import { Archive, ArchiveRestore } from "lucide-react";
-import { toFailure } from "@/client/api";
+import { Archive } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { FormError } from "@/components/ui/form-error";
 import { Select } from "@/components/ui/select";
 import { useDialogSubmit } from "@/components/ui/use-dialog-submit";
 import { money } from "@/lib/money";
 import { today } from "@/lib/time";
-import { useArchiveAccount, useRestoreAccount } from "@/features/accounts/mutations";
+import { useArchiveAccount } from "@/features/accounts/mutations";
 import { activeAccounts, useAccounts } from "@/features/accounts/queries";
 import type { Account } from "@/features/accounts/types";
 import { useLocale } from "@/client/locale-provider";
 
-/** Archiving needs a balance of 0; a remaining balance opens a dialog that closes a manual account or explains why a bank account cannot be closed. */
-export function AccountArchiveAction({ account }: {
-  account: Account
-}) {
-  return account.archived_at === null ? <ArchiveButton account={account} /> : <RestoreButton account={account} />;
-}
-
-function RestoreButton({ account }: {
-  account: Account
-}) {
-  const restore = useRestoreAccount(account.id);
-
-  return (
-    <>
-      <button className={ui["button"]} disabled={restore.isPending} onClick={() => restore.mutate()}>
-        <ArchiveRestore size={15} />
-        Restore account
-      </button>
-      <FormError failure={restore.error ? toFailure(restore.error) : null} />
-    </>
-  );
-}
-
-function ArchiveButton({ account }: {
-  account: Account
-}) {
-  const archive = useArchiveAccount(account.id);
-  const [closing, setClosing] = useState(false);
-  // An account without bookings has a balance of 0.
-  const settled = (account.balance_minor ?? 0) === 0;
-
-  return (
-    <>
-      <button className={ui["button"]} disabled={archive.isPending} onClick={() => settled ? archive.mutate({}) : setClosing(true)}>
-        <Archive size={15} />
-        Archive account
-      </button>
-      <FormError failure={archive.error && !closing ? toFailure(archive.error) : null} />
-      {closing && <CloseAccountDialog account={account} close={() => setClosing(false)} />}
-    </>
-  );
-}
-
-function CloseAccountDialog({
+/** Archiving a remaining balance: closes a manual account onto another account or an adjustment, or explains why a bank account cannot be closed. */
+export function CloseAccountDialog({
   account,
   close
 }: {

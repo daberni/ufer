@@ -4,7 +4,7 @@ import { createClient, type InArgs, type InStatement } from "@libsql/client";
 import { act, fireEvent, render, within } from "@testing-library/react";
 import { and, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/libsql";
-import { createElement, type ReactNode } from "react";
+import { createElement, Fragment, type ReactNode } from "react";
 import { AppRouterContext, type AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import { PathnameContext, SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime";
 import { AppStoreProvider } from "../src/client/app-store";
@@ -30,6 +30,7 @@ import { accountGroups, showsCurrencySelect } from "../src/features/accounts/que
 import { showsSync } from "../src/features/dashboard/sync-visibility";
 import type { Account } from "../src/features/accounts/types";
 import { browser, respond, wait, withQueryClient } from "./fixtures/browser";
+import { chooseMenuItem } from "./fixtures/action-menu";
 import { stubCssModules } from "./fixtures/css-modules";
 
 stubCssModules();
@@ -1098,7 +1099,10 @@ const manualAccount: Account = {
 async function renderDetails(context: TestContext, account: Account) {
   const environment = routedBrowser(context);
   const { AccountDetails } = await import("../src/features/accounts/components/account-details");
-  const screen = render(environment.routed(createElement(AccountDetails, {
+  const { AccountMenu } = await import("../src/features/accounts/components/account-menu");
+  const screen = render(environment.routed(createElement(Fragment, null, createElement(AccountMenu, {
+    account
+  }), createElement(AccountDetails, {
     account: {
       data: account,
       status: "ready"
@@ -1118,7 +1122,7 @@ async function renderDetails(context: TestContext, account: Account) {
       },
       status: "ready"
     }
-  })));
+  }))));
 
   return {
     ...environment,
@@ -1165,9 +1169,7 @@ test("a bank-synced account with a balance of 0 is archived directly and offers 
   assert.equal(bank.screen.queryByRole("button", {
     name: /Update balance/
   }), null);
-  act(() => fireEvent.click(bank.screen.getByRole("button", {
-    name: "Archive account"
-  })));
+  await chooseMenuItem(bank.screen, "Archive account");
   await wait(0);
   assert.equal(bank.requests("accounts/manual%2Fcash/archive")[0].method, "PUT");
 });
@@ -1177,11 +1179,9 @@ test("a manual account with a remaining balance is closed through a dialog that 
     screen,
     requests
   } = await renderDetails(context, manualAccount);
-  const openDialog = () => act(() => fireEvent.click(screen.getByRole("button", {
-    name: "Archive account"
-  })));
+  const openDialog = () => chooseMenuItem(screen, "Archive account");
 
-  openDialog();
+  await openDialog();
   act(() => fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", {
     name: "Cancel"
   })));
@@ -1189,7 +1189,7 @@ test("a manual account with a remaining balance is closed through a dialog that 
   assert.equal(screen.queryByRole("dialog"), null);
   assert.equal(requests("accounts/manual%2Fcash/archive").length, 0);
 
-  openDialog();
+  await openDialog();
   const dialog = within(screen.getByRole("dialog"));
 
   act(() => {
@@ -1221,9 +1221,7 @@ test("a bank-linked account with a remaining balance explains why it cannot be a
     provider: "enable_banking"
   });
 
-  act(() => fireEvent.click(screen.getByRole("button", {
-    name: "Archive account"
-  })));
+  await chooseMenuItem(screen, "Archive account");
   const dialog = within(screen.getByRole("dialog"));
 
   assert.ok(dialog.getByText(/follows its bank bookings/));
@@ -1240,9 +1238,7 @@ test("a manual account without bookings is archived directly", async context => 
     balance_minor: null
   });
 
-  act(() => fireEvent.click(screen.getByRole("button", {
-    name: "Archive account"
-  })));
+  await chooseMenuItem(screen, "Archive account");
   await wait(0);
   assert.equal(screen.queryByRole("dialog"), null);
   assert.equal(requests("accounts/manual%2Fcash/archive")[0].method, "PUT");
@@ -1259,9 +1255,7 @@ test("an archived account offers restore and no balance update", async context =
   assert.equal(archived.screen.queryByRole("button", {
     name: /Update balance/
   }), null);
-  act(() => fireEvent.click(archived.screen.getByRole("button", {
-    name: "Restore account"
-  })));
+  await chooseMenuItem(archived.screen, "Restore account");
   await wait(0);
   const [restore] = archived.requests("accounts/manual%2Fcash/archive");
 
@@ -1298,4 +1292,42 @@ test("the accounts view lists archived accounts apart and does not count them", 
   assert.equal(within(archivedSection as HTMLElement).queryByRole("link", {
     name: "Synthetic cash"
   }), null);
+});
+
+test("the archived accounts section stays open through the URL, which toggling replaces without a history entry", async context => {
+  const environment = routedBrowser(context);
+
+  window.history.replaceState(null, "", "/accounts?archived=open");
+  const { AccountsView } = await import("../src/features/accounts/components/accounts-view");
+  const historyLength = window.history.length;
+  const screen = render(environment.routed(createElement(AccountsView, {
+    accounts: {
+      data: [manualAccount, {
+        ...manualAccount,
+        id: "archived",
+        name: "Synthetic archived",
+        archived_at: Temporal.Now.instant().toString()
+      }],
+      status: "ready"
+    }
+  })));
+  const section = screen.getByText("Archived accounts (1)").closest("details")!;
+
+  assert.equal(section.open, true);
+
+  act(() => {
+    section.open = false;
+    fireEvent(section, new window.Event("toggle"));
+  });
+
+  assert.equal(window.location.search, "");
+  assert.equal(window.history.length, historyLength);
+
+  act(() => {
+    section.open = true;
+    fireEvent(section, new window.Event("toggle"));
+  });
+
+  assert.equal(window.location.search, "?archived=open");
+  assert.equal(window.history.length, historyLength);
 });

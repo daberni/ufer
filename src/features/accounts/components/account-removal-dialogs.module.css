@@ -1,6 +1,3 @@
-.delete {
-  color: var(--danger-text);
-}
 .effects {
   display: grid;
   gap: var(--space-3);

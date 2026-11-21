@@ -21,6 +21,8 @@ export type AppState = {
   periodScope: string;
   /** The list visited last among those that open an account's details; its Back link returns there. */
   accountList: AccountList;
+  /** Whether the accounts list showed its archived section when last visited; its Back link restores it. */
+  archivedAccountsOpen: boolean;
 };
 
 export type AppActions = {
@@ -30,6 +32,7 @@ export type AppActions = {
   enterView: (pathname: string) => void;
   rememberPeriodScope: (scope: string) => void;
   rememberAccountList: (view: AccountList) => void;
+  rememberArchivedAccountsOpen: (open: boolean) => void;
   lock: () => void;
   unlock: () => void;
 };
@@ -43,6 +46,7 @@ export function createAppStore(locked: boolean, currentPathname = () => window.l
     locked,
     periodScope: "",
     accountList: "accounts",
+    archivedAccountsOpen: false,
     reportFeedback: feedback => set({
       feedback: {
         value: feedback,
@@ -60,6 +64,9 @@ export function createAppStore(locked: boolean, currentPathname = () => window.l
     }),
     rememberAccountList: view => set({
       accountList: view
+    }),
+    rememberArchivedAccountsOpen: open => set({
+      archivedAccountsOpen: open
     }),
     lock: () => set({
       locked: true,

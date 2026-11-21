@@ -1,3 +1,4 @@
+import { Temporal } from "temporal-polyfill";
 import { Building2, ChartNoAxesCombined, CreditCard, HandCoins, Landmark, PiggyBank } from "lucide-react";
 
 export const kinds: Record<string, string> = {
@@ -26,26 +27,37 @@ export function accountIcon(kind: string) {
   }
 }
 
-export function accountSyncLabel(account: {
+/** A problem that stops a bank account from syncing and needs the user, such as reconnecting; archived accounts are not synced, so they have none. */
+export type AccountProblem = {
+  kind: "expired";
+  since: string;
+} | {
+  kind: "sync_error";
+  message: string;
+};
+
+export function accountProblem(account: {
   provider: string;
   requisition_id: string | null;
+  valid_until: string | null;
   sync_error: string | null;
   archived_at: string | null
-}) {
-  if (account.provider === "manual") {
-    return "Manual";
+}, now: Temporal.Instant): AccountProblem | null {
+  if (account.provider === "manual" || account.archived_at || !account.requisition_id) {
+    return null;
   }
 
-  // Archived accounts keep their connection but are skipped by syncs until restored.
-  if (account.archived_at) {
-    return "Archived · not synced";
+  if (account.valid_until && Temporal.Instant.compare(Temporal.Instant.from(account.valid_until), now) <= 0) {
+    return {
+      kind: "expired",
+      since: account.valid_until
+    };
   }
 
-  if (!account.requisition_id) {
-    return "Not synced";
-  }
-
-  return account.sync_error ? "Check sync" : "Bank-Sync";
+  return account.sync_error ? {
+    kind: "sync_error",
+    message: account.sync_error
+  } : null;
 }
 
 export function accountSourceLabel(account: {

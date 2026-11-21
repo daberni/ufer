@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { clsx } from "clsx";
-import { Check, Pencil } from "lucide-react";
+import { Check } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { FormError } from "@/components/ui/form-error";
 import { useDialogSubmit } from "@/components/ui/use-dialog-submit";
@@ -10,29 +10,11 @@ import { kinds } from "@/features/accounts/account-presentation";
 import { useEditAccount } from "@/features/accounts/mutations";
 import type { Account } from "@/features/accounts/types";
 import ui from "../../../components/ui/primitives.module.css";
-import styles from "./editable-account-name.module.css";
 import { AccountTypeChoice } from "./account-type-choice";
 import type { AccountKind } from "../account-kinds";
 
-/** The account's page heading is also its edit action; switching accounts closes the dialog. */
-export function EditableAccountName({ account }: {
-  account: Account
-}) {
-  const [editing, setEditing] = useState(false);
-  const close = () => setEditing(false);
-
-  return (
-    <>
-      <button className={styles["name"]} aria-label={`Edit account: ${account.name}`} onClick={() => setEditing(true)}>
-        <span>{account.name}</span>
-        <Pencil className={styles["hint"]} size={18} aria-hidden="true" />
-      </button>
-      {editing && <EditAccountDialog account={account} close={close} />}
-    </>
-  );
-}
-
-function EditAccountDialog({
+/** Renames an account and, for an active manual account, changes its type; switching accounts closes it. */
+export function EditAccountDialog({
   account,
   close
 }: {
@@ -74,6 +56,7 @@ function EditAccountForm({
           autoFocus
         />
       </label>
+      {account.provider_name && account.provider_name !== account.name && <p className={ui["form-hint"]}>Name at the bank: {account.provider_name}</p>}
       {typeEditable ? <AccountTypeChoice selected={kind} onSelect={setKind} legend="Account type" /> : <AccountTypeNote account={account} />}
       <FormError failure={error} />
       <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={pending}>
