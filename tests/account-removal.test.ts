@@ -261,6 +261,31 @@ test("converting a disconnected bank account keeps its last bank balance, histor
   assert.equal(updated?.kind, "savings");
 });
 
+test("converting keeps the bank balance when bookings are dated after the bank balance date", async context => {
+  const db = await seededDatabase(context);
+
+  await db.insert(schema.transactions).values({
+    id: "bank-later",
+    account_id: "detached",
+    provider_reference: "bank-ref-later",
+    booking_date: "2026-03-02",
+    amount_minor: 10000,
+    currency: "EUR",
+    type: "income"
+  });
+  const netWorthBefore = await readNetWorth("EUR");
+
+  await convertToManualAccount("detached");
+
+  const converted = (await listAccounts()).find(account => account.id === "detached");
+  const adjustment = await db.select().from(schema.transactions).where(eq(schema.transactions.type, "adjustment")).get();
+
+  assert.equal(converted?.balance_minor, 120000);
+  assert.deepEqual(await readNetWorth("EUR"), netWorthBefore);
+  assert.equal(adjustment?.booking_date, "2026-03-02");
+  assert.equal(adjustment?.amount_minor, 24000);
+});
+
 test("a bank account with an active connection, a manual account or an unknown account is not converted", async context => {
   const db = await seededDatabase(context);
   const accountsBefore = await db.select().from(schema.accounts);

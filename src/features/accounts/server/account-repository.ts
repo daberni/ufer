@@ -201,7 +201,7 @@ export async function closeAndArchiveManualAccount(account: {
 }
 
 /**
- * Turns a bank account whose connection was removed into a manual account in one transaction. The last bank balance stays the account's balance through an opening balance or an adjustment on its date.
+ * Turns a bank account whose connection was removed into a manual account in one transaction. The last bank balance stays the account's balance through an opening balance, or an adjustment on the later of its date and the latest booking.
  * The bank identity is dropped, so a later connection to the same bank creates a new account instead of syncing into a manual one. Returns whether the account was converted.
  */
 export async function convertDetachedAccount(executor: Database, id: string) {
@@ -220,7 +220,13 @@ export async function convertDetachedAccount(executor: Database, id: string) {
 
     // The balance history keeps the last bank balance as an observation, as it showed it while the account was synced.
     if (account.balance_minor !== null && account.balance_date !== null) {
-      await recordManualBalance(tx, account, account.balance_date, account.balance_minor);
+      // A manual balance is the sum of all bookings, so the difference is booked no earlier than the latest booking; bookings after the bank balance date would otherwise change it.
+      const latest = await tx.select({
+        date: sql<string | null>`MAX(${transactions.booking_date})`
+      }).from(transactions).where(and(eq(transactions.account_id, id), isNull(transactions.suppressed_at))).get();
+      const correctionDate = latest?.date && latest.date > account.balance_date ? latest.date : account.balance_date;
+
+      await recordManualBalance(tx, account, correctionDate, account.balance_minor);
       await tx.insert(balanceSnapshots).values({
         id: randomUUID(),
         account_id: id,
