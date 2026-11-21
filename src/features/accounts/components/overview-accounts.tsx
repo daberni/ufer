@@ -82,7 +82,7 @@ function AccountStripSkeleton({ area }: {
               <span className={ui["skeleton"]}>€0,000.00</span>
             </strong>
             <span className={clsx(styles["account-tile-meta"], ui["skeleton"])}>
-              <span className={styles["account-tile-kind"]}>Bank account · Bank</span>
+              <span className={ui["truncate"]}>Bank account · Bank</span>
               <AccountSourceIndicator account={placeholderAccount} />
             </span>
             <span className={styles["account-tile-date"]}>
@@ -117,7 +117,7 @@ function AccountStrip({ currencyAccounts }: {
             <span className={styles["account-tile-name"]}>{account.name}</span>
             <strong>{account.balance_minor === null ? "—" : money(account.balance_minor, account.currency, locale)}</strong>
             <span className={styles["account-tile-meta"]}>
-              <span className={styles["account-tile-kind"]}>{kinds[account.kind]} · {account.institution}</span>
+              <span className={ui["truncate"]}>{kinds[account.kind]} · {account.institution}</span>
               <AccountSourceIndicator account={account} />
             </span>
             <span className={styles["account-tile-date"]}>

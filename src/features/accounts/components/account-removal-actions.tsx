@@ -153,7 +153,7 @@ function DeleteForm({
           disabled={pending}
           onClick={close}
         >Cancel</button>
-        <button className={styles["danger"]} disabled={pending}>
+        <button className={ui["danger-button"]} disabled={pending}>
           <Trash2 size={15} />
           Delete permanently
         </button>

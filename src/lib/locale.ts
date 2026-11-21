@@ -81,6 +81,11 @@ export function formatCount(value: number, locale: string) {
   return cachedFormat(numberFormats, locale, "count", supported => new Intl.NumberFormat(supported)).format(value);
 }
 
+/** A formatted count with its singular or plural noun, for example "1 row" or "1,024 rows". */
+export function formatCountLabel(count: number, singular: string, plural: string, locale: string) {
+  return `${formatCount(count, locale)} ${count === 1 ? singular : plural}`;
+}
+
 /** Whether a ratio is shown with a minus sign; some locales write U+2212 instead of "-", and a ratio that rounds to zero has none. */
 export function isNegativePercent(ratio: number, locale: string) {
   return percentFormat(locale).formatToParts(ratio).some(part => part.type === "minusSign");

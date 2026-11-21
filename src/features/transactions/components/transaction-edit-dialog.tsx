@@ -302,7 +302,7 @@ function DeleteConfirmation({
         >
           Cancel
         </button>
-        <button className={styles["danger"]} disabled={remove.isPending}>
+        <button className={ui["danger-button"]} disabled={remove.isPending}>
           <Trash2 size={15} />
           Delete
         </button>

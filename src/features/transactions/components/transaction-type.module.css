@@ -58,15 +58,6 @@
 .delete {
   color: var(--danger-text);
 }
-.danger {
-  composes: button from "../../../components/ui/primitives.module.css";
-  background: var(--danger);
-  border-color: var(--danger);
-  color: var(--on-danger);
-}
-.danger:not(:disabled):hover {
-  background: var(--danger-strong);
-}
 
 .hidden-note {
   display: grid;
