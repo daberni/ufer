@@ -158,10 +158,12 @@ export function Tooltip({
     press.cancel();
 
     if (!text || !triggerElement || (onlyWhenTruncated && !isTruncated(triggerElement))) {
-      return;
+      return false;
     }
 
     setOpen(true);
+
+    return true;
   }
 
   function hide() {
@@ -187,10 +189,8 @@ export function Tooltip({
       press.setLongPressed(false);
 
       if (event.pointerType !== "mouse") {
-        press.schedule(() => {
-          press.setLongPressed(true);
-          show();
-        }, longPressDelay);
+        // Only a long press that opened the tooltip swallows the click that follows; otherwise the control still acts.
+        press.schedule(() => press.setLongPressed(show()), longPressDelay);
       }
     },
     onPointerUp: press.cancel,
@@ -235,6 +235,11 @@ export function Tooltip({
         popover="manual"
         role="tooltip"
         onPointerEnter={press.cancel}
+        // The tooltip sits inside its trigger's link or button, so a press on it must neither follow the link nor reach the control's handler.
+        onClick={event => {
+          event.preventDefault();
+          event.stopPropagation();
+        }}
         onPointerLeave={event => {
           if (event.pointerType === "mouse") {
             hide();

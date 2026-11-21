@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test, type TestContext } from "node:test";
-import { act, render } from "@testing-library/react";
+import { act, fireEvent, render } from "@testing-library/react";
 import { createElement } from "react";
-import { browser } from "./fixtures/browser";
+import { browser, wait } from "./fixtures/browser";
 import { stubCssModules } from "./fixtures/css-modules";
 
 stubCssModules();
@@ -137,4 +137,90 @@ test("a label that becomes truncated with a new text becomes a focus stop, and l
   screen.rerender(tooltip("Groceries"));
 
   assert.equal(screen.getByTestId("label").getAttribute("tabindex"), null);
+});
+
+async function labelInButton(context: TestContext, truncated: boolean) {
+  browser(context);
+  const prototype = window.HTMLElement.prototype;
+
+  Object.defineProperty(prototype, "scrollWidth", {
+    configurable: true,
+    value: truncated ? 200 : 100
+  });
+  Object.defineProperty(prototype, "clientWidth", {
+    configurable: true,
+    value: 100
+  });
+  context.after(() => {
+    Reflect.deleteProperty(prototype, "scrollWidth");
+    Reflect.deleteProperty(prototype, "clientWidth");
+  });
+  const { Tooltip } = await import("../src/components/ui/tooltip");
+  const clicks: string[] = [];
+  const screen = render(createElement("button", {
+    type: "button",
+    onClick: () => clicks.push("edit")
+  }, createElement(Tooltip, {
+    text: fullName,
+    describes: false,
+    onlyWhenTruncated: true,
+    children: trigger => createElement("span", {
+      ...trigger,
+      "data-testid": "label"
+    }, fullName)
+  })));
+
+  return {
+    screen,
+    clicks
+  };
+}
+
+test("a long press on a control whose text fits opens no tooltip and keeps the control's click", async context => {
+  const {
+    screen,
+    clicks
+  } = await labelInButton(context, false);
+  const label = screen.getByTestId("label");
+
+  fireEvent.pointerDown(label, {
+    pointerType: "touch"
+  });
+  await wait(600);
+  fireEvent.pointerUp(label, {
+    pointerType: "touch"
+  });
+  fireEvent.click(label);
+
+  assert.equal(screen.getByRole("tooltip", {
+    hidden: true
+  }).textContent, "");
+  assert.deepEqual(clicks, ["edit"]);
+});
+
+test("a press inside an open tooltip does not activate the control around its trigger", async context => {
+  const {
+    screen,
+    clicks
+  } = await labelInButton(context, true);
+  const label = screen.getByTestId("label");
+
+  fireEvent.pointerDown(label, {
+    pointerType: "touch"
+  });
+  await wait(600);
+  fireEvent.pointerUp(label, {
+    pointerType: "touch"
+  });
+  fireEvent.click(label);
+
+  const tooltip = screen.getByRole("tooltip", {
+    hidden: true
+  });
+
+  assert.equal(tooltip.textContent, fullName);
+
+  fireEvent.click(tooltip);
+
+  assert.deepEqual(clicks, []);
 });
