@@ -1,6 +1,6 @@
 # Product and architecture direction
 
-Updated: 2026-11-15. Ufer is the current working product name. This document records requirements and design direction; proposed capabilities are not presented as implemented.
+Updated: 2026-11-21. Ufer is the current working product name. This document records requirements and design direction; proposed capabilities are not presented as implemented.
 
 ## Why build when alternatives already synchronize banks?
 
@@ -90,7 +90,7 @@ Keep scheduling separate from the banking provider. Use concurrency control, ide
 
 ## Transaction editing and provenance
 
-Only category editing exists today because the initial MVP implemented that operation first. Imported data is not inherently uneditable.
+**Implemented:** transaction types separate from categories with linked transfers, manual transactions on manual accounts (create, edit, delete), payee and description overrides on imported and synced bookings that survive later syncs and imports, hiding imported bookings so later syncs and imports keep them out of balances and reports, and split bookings across categories. Sync runs are linked to the transactions they inserted. **Remaining:** per-run linkage for CSV imports, a complete source trail in the UI, and a decision on date or amount overrides for imported bookings ([#246](https://github.com/daberni/ufer/issues/246)).
 
 | Requirement | Intended behavior |
 | --- | --- |
@@ -100,17 +100,17 @@ Only category editing exists today because the initial MVP implemented that oper
 | Manual transactions | Support creating, editing, and deleting entries. Define reconciliation with subsequent imports rather than relying only on display text. |
 | Deleted imported entries | Preserve a suppression/tombstone rule so a later sync does not silently recreate a deliberately deleted entry. |
 
-The current schema has account/provider links and prefixed provider references. It does not yet link each transaction to a specific import run, preserve complete original-versus-override values, or expose a complete source trail in the UI. Schema changes require explicit migrations.
+Original amounts and parsed provider fields are stored for synced bookings, and the raw provider transaction is kept when its serialized form is at most 64 KiB (larger payloads keep only the parsed fields). Overrides are stored separately from source values. CSV imports are not yet linked to an import run, and the UI does not show a complete source trail. Schema changes require explicit migrations.
 
-Split transactions are required: allocate an original booking across categories without changing its economic total. Children must sum exactly to the parent amount in the original currency. Reports must count the amount once, manual allocations must survive resync, and refunds/transfers need defined behavior.
+**Implemented:** split bookings allocate an original booking across categories; the parts sum exactly to the booking amount and count once in cash flow and spending. Buxfer split rows import as split bookings. Only income and expenses can be split; transfers, opening balances and adjustments cannot. A part going the other way, such as a refunded item, is allowed as long as the parts sum to the booking.
 
 ## Import configuration
 
 Imports support historical backfill, unsupported sources and migration; exports support portability. Manual CSV import/export is not the intended primary workflow or a replacement for reliable automatic bank synchronization.
 
-Build a general CSV import workflow with a preview, selectable delimiter/encoding/date/amount conventions, account and field mapping, stable ID selection, reusable profiles, validation, and a visible import result. Detect collisions within a file and define how overlapping bank/CSV imports reconcile.
+**Implemented:** a CSV import page with a preview, detected and editable delimiter, encoding, date and decimal conventions, column roles chosen in the preview, a stable ID column, per-source account mapping (existing, new manual or skipped), category mapping with the category picker, a pre-import summary, and saved mapping templates. Buxfer exports are detected with a built-in mapping, including split rows.
 
-A dedicated Buxfer parser or migration assistant is not a priority. Historical exports should use the general configurable CSV workflow. PDF support remains a separate future decision, not a prerequisite.
+**Remaining:** standard bank formats such as OFX/QIF and CAMT.053 ([#14](https://github.com/daberni/ufer/issues/14)) and duplicate detection between bank sync and CSV imports ([#228](https://github.com/daberni/ufer/issues/228)). PDF support remains a separate future decision, not a prerequisite.
 
 ## Securities and valuations
 
@@ -132,6 +132,18 @@ Maintain documentation, code comments, UI copy, API messages, and synthetic exam
 
 Repository content must describe a generic product. Do not include personal institution lists, account inventories, real balances, IBANs, application identifiers, local user paths, private keys, financial exports, or screenshots of real data. Generic financial concepts and supported data types belong to the application model and are not a statement about its owner's finances.
 
+## Roadmap
+
+Open work grouped by phase, in priority order. Budgets and forecasting have lower priority than reliable insights and brokerage accounts.
+
+1. **Reliable operation and trustworthy figures:** restore-tested, automated backups ([#84](https://github.com/daberni/ufer/issues/84)); verified unattended production bank sync, repeat sync and reauthorization ([#267](https://github.com/daberni/ufer/issues/267)); reconciling bank-linked balances with booked transactions ([#183](https://github.com/daberni/ufer/issues/183)); duplicate detection across bank sync and CSV imports ([#228](https://github.com/daberni/ufer/issues/228)); account-scoped rules ([#243](https://github.com/daberni/ufer/issues/243)).
+2. **Wealth and securities (next major topic):** brokerage accounts with a settlement account, buy and sell transactions creating holdings with cost, quantity, date and fees, daily valuations from a market-data provider (EODHD evaluated) that are not transactions but flow into net worth and its history ([#266](https://github.com/daberni/ufer/issues/266), [#87](https://github.com/daberni/ufer/issues/87)).
+3. **Insights:** an insights page with configurable reports ([#249](https://github.com/daberni/ufer/issues/249)).
+4. **Planning (lower priority):** budgets, recurring entries and forecasting (feature comparison K-04).
+5. **Platform (last):** user management with enforced roles (owner and member exist, but routes do not enforce different rights), localization ([#21](https://github.com/daberni/ufer/issues/21)), PostgreSQL and multi-tenant hosting. A hosted service is a medium-term goal.
+
+In progress: dropping the per-row banking environment column ([#76](https://github.com/daberni/ufer/issues/76)), completing management of rules, categories, accounts and bank links ([#86](https://github.com/daberni/ufer/issues/86)). JSX accessibility linting ([#111](https://github.com/daberni/ufer/issues/111)) waits for an ESLint 10-compatible `eslint-plugin-jsx-a11y` release.
+
 ## Decisions still open
 
-Commercial banking agreement, market-data provider, SaaS pricing/free-tier eligibility and billing unit, and detailed PostgreSQL adapter implementation are not settled. The accepted functional priorities are tracked in the [feature comparison](feature-comparison.md#tracked-work).
+Commercial banking agreement, market-data provider (EODHD under evaluation), SaaS pricing/free-tier eligibility and billing unit, and detailed PostgreSQL adapter implementation are not settled. The accepted functional priorities are tracked in the [feature comparison](feature-comparison.md#tracked-work).
