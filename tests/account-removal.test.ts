@@ -20,6 +20,7 @@ import { convertToManualAccount, deleteAccount, updateAccount, updateManualValua
 import { readAccountCashFlow, readCashFlow } from "../src/features/reports/server/cash-flow-query";
 import { pairAllTransfers } from "../src/features/transactions/server/transfer-repository";
 import { deleteUnlinkedAccount } from "../src/features/accounts/server/account-repository";
+import { updateRule } from "../src/features/categorization/server/rule-repository";
 import { createRule, updateRuleDetails } from "../src/features/categorization/server/categorization-service";
 import { syncLeaseName } from "../src/features/banking/server/sync-service";
 import type { Account } from "../src/features/accounts/types";
@@ -415,6 +416,30 @@ test("a rule whose transfer account was deleted can still be edited and keeps it
     ...details,
     name: "Synthetic new rule"
   }), new ValidationError("Choose one of your active accounts for the transfer."));
+});
+
+test("a rule edit keeps a removed transfer target only while the stored rule still names it", async context => {
+  const db = await seededDatabase(context);
+
+  await deleteAccount("cash", {
+    name: "Synthetic cash"
+  });
+  const details = {
+    name: "Synthetic cash withdrawals",
+    pattern: "CASH ATM",
+    mode: "keyword" as const,
+    category_id: "synthetic-rent",
+    transaction_type: "transfer" as const,
+    transfer_account_id: "wallet"
+  };
+
+  // Another edit retargets the rule after this one read the removed target.
+  assert.equal(await updateRule("rule-to-cash", details), "saved");
+  assert.equal(await updateRule("rule-to-cash", {
+    ...details,
+    transfer_account_id: "removed:cash"
+  }), "inactive_target");
+  assert.equal((await db.select().from(schema.categorizationRules).where(eq(schema.categorizationRules.id, "rule-to-cash")).get())?.transfer_account_id, "wallet");
 });
 
 test("deleting a disconnected bank account removes its balance history and bank identifiers", async context => {
