@@ -15,6 +15,7 @@ import { SplitTag } from "@/features/transactions/components/transaction-split";
 import type { Category } from "@/features/categorization/types";
 import type { Transaction } from "@/features/transactions/types";
 import { useLocale } from "@/client/locale-provider";
+import { Tooltip } from "@/components/ui/tooltip";
 
 type Props = {
   categories: Category[];
@@ -84,11 +85,15 @@ function TransactionRow({
               onClick={() => setEditing(true)}
               aria-label={`Edit transaction: ${subject}`}
             >
-              <span className={styles["name-preview"]} title={subject}>{subject}</span>
+              <Tooltip text={subject} describes={false} onlyWhenTruncated>
+                {trigger => <span {...trigger} className={styles["name-preview"]}>{subject}</span>}
+              </Tooltip>
             </button>
           </strong>
           {showsDescription ? (
-            <span className={styles["description"]} title={transaction.description}>{transaction.description || "No description"}</span>
+            <Tooltip text={transaction.description} describes={false} onlyWhenTruncated>
+              {trigger => <span {...trigger} className={styles["description"]}>{transaction.description || "No description"}</span>}
+            </Tooltip>
           ) : (
             <>
               <span className={clsx(styles["name-spacer"], styles["spacer"])} aria-hidden="true">&nbsp;</span>

@@ -107,6 +107,22 @@ test("an open list moves within its options, picks with Enter and closes with Es
   });
 });
 
+test("an open list without a highlighted option starts at its first option moving down and at its last moving up", () => {
+  const unhighlighted = {
+    ...open,
+    activeIndex: -1
+  };
+
+  assert.deepEqual(searchableSelectKeyAction(key("ArrowDown"), unhighlighted), {
+    type: "move",
+    activeIndex: 0
+  });
+  assert.deepEqual(searchableSelectKeyAction(key("ArrowUp"), unhighlighted), {
+    type: "move",
+    activeIndex: 3
+  });
+});
+
 test("Enter without a highlighted option closes the list instead of submitting the form", () => {
   assert.deepEqual(searchableSelectKeyAction(key("Enter"), {
     ...open,

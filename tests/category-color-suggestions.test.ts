@@ -423,18 +423,16 @@ test("a new category waits for the categories before showing a color and follows
     }));
   });
   // The suggestion appears twice: next to "No icon" at the top and in its group.
-  const suggestedOptions = screen.getAllByRole("option", {
+  const suggestedOptions = screen.getAllByRole("button", {
     name: "Groceries (suggested)",
     hidden: true
   });
-  const allOptions = screen.getAllByRole("option", {
-    hidden: true
-  });
+  const allOptions = [...screen.container.ownerDocument.querySelectorAll("[data-icon-option]")];
 
   assert.equal(suggestedOptions.length, 2);
   assert.equal(allOptions.indexOf(suggestedOptions[0]), 1);
   act(() => {
-    fireEvent.click(screen.getByRole("option", {
+    fireEvent.click(screen.getByRole("button", {
       name: "Bakery",
       hidden: true
     }));
@@ -513,7 +511,7 @@ test("opening the icon picker focuses the suggested icon's shortcut at the top w
     open: false
   }));
   // Selectors instead of role queries: role queries over the whole icon catalog are very slow in the DOM test environment.
-  const options = () => [...screen.container.ownerDocument.querySelectorAll("[role='option']")];
+  const options = () => [...screen.container.ownerDocument.querySelectorAll("[data-icon-option]")];
   const lastFocused = () => focusRequests[focusRequests.length - 1];
 
   act(() => {

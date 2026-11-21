@@ -153,6 +153,14 @@ function openAction(input: SearchableSelectKey, state: SearchableSelectState): S
     return none;
   }
 
+  // An open list without a highlighted option, such as suggestions that appeared while typing, starts from its end when moving up.
+  if (state.activeIndex < 0 && input.key === "ArrowUp") {
+    return {
+      type: "move",
+      activeIndex: state.optionCount - 1
+    };
+  }
+
   return {
     type: "move",
     activeIndex: Math.min(Math.max(move(state.activeIndex), 0), state.optionCount - 1)

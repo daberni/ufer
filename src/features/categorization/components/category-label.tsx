@@ -4,6 +4,7 @@ import { CircleDashed, Shapes, SlidersHorizontal } from "lucide-react";
 import { isCategoryIcon } from "@/features/categorization/category-icons";
 import { categoryTextColor, neutralChipColor, themedColor } from "@/features/categorization/category-colors";
 import { categoryIconComponents } from "./category-icon-components";
+import { Tooltip } from "@/components/ui/tooltip";
 
 export type DisplayCategory = {
   name: string;
@@ -74,15 +75,19 @@ export function CategoryLabel({
   className
 }: Props) {
   return (
-    <span
-      className={clsx(styles["label"], className)}
-      title={categoryLabel(category)}
-      style={{
-        color: categoryNameColor(category)
-      }}
-    >
-      <CategoryGlyph category={category} />
-      <span className={styles["name"]}>{categoryLabel(category)}</span>
-    </span>
+    <Tooltip text={categoryLabel(category)} describes={false} onlyWhenTruncated>
+      {trigger => (
+        <span
+          {...trigger}
+          className={clsx(styles["label"], className)}
+          style={{
+            color: categoryNameColor(category)
+          }}
+        >
+          <CategoryGlyph category={category} />
+          <span className={styles["name"]}>{categoryLabel(category)}</span>
+        </span>
+      )}
+    </Tooltip>
   );
 }
