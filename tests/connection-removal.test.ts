@@ -153,9 +153,7 @@ test("removing a bank connection keeps accounts and history, deletes its credent
 
   assert.equal(connection?.status, "REMOVED");
   assert.equal(connection?.session_cipher, null);
-  // The account keeps its removed connection, which names its bank, but is no longer linked to it.
-  assert.equal(account?.requisition_id, "removed");
-  assert.deepEqual((await listAccounts()).filter(listed => listed.id === "removed-account").map(listed => [listed.requisition_id, listed.institution]), [[null, "Example institution"]]);
+  assert.equal(account?.requisition_id, null);
   assert.equal(account?.balance_minor, 12345);
   assert.equal(account?.sync_error, null);
   assert.equal((await db.select().from(schema.transactions)).length, 1);
@@ -403,7 +401,7 @@ test("a failed revocation leaves the connection intact for an explicit retry, wi
 
   assert.equal(removed?.status, "REMOVED");
   assert.equal(removed?.session_cipher, null);
-  assert.equal((await db.select().from(schema.accounts).where(eq(schema.accounts.id, "unrevoked-account")).get())?.requisition_id, "unrevoked");
+  assert.equal((await db.select().from(schema.accounts).where(eq(schema.accounts.id, "unrevoked-account")).get())?.requisition_id, null);
 });
 
 test("a session the provider reports as ended counts as revoked and its stored ID is deleted", async context => {
@@ -581,8 +579,7 @@ test("a callback completing after removal preflight keeps its new session until 
     path: "/sessions/session-created-during-removal"
   }]);
   assert.equal((await db.select().from(schema.requisitions).where(eq(schema.requisitions.id, "pending-overlap")).get())?.session_cipher, null);
-  assert.equal((await db.select().from(schema.accounts).get())?.requisition_id, "pending-overlap");
-  assert.equal((await listAccounts())[0].requisition_id, null);
+  assert.equal((await db.select().from(schema.accounts).get())?.requisition_id, null);
 });
 
 test("a provider session revocation answered without a body counts as revoked", async context => {

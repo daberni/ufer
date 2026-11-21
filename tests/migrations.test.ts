@@ -31,9 +31,6 @@ async function legacyDatabase(transform: (sql: string) => string = sql => sql) {
   return client;
 }
 
-// Changeset 0018 links detached bank accounts to a removed connection, so only a connection that is not removed counts as linked.
-const activeConnection = "CASE WHEN (SELECT r.status FROM requisitions r WHERE r.id=accounts.requisition_id)='REMOVED' THEN NULL ELSE requisition_id END AS requisition_id";
-
 // Later changesets add columns, changeset 0016 drops the banking environment and 0018 the account institution, so upgrade tests compare only the columns that exist both before and after the upgrade.
 async function columnList(client: Client, table: string) {
   const columns = await client.execute({
@@ -41,9 +38,7 @@ async function columnList(client: Client, table: string) {
     args: [table]
   });
 
-  const names = columns.rows.map(row => String(row.name)).filter(name => name !== "environment" && name !== "institution");
-
-  return names.map(name => table === "accounts" && name === "requisition_id" ? activeConnection : name).join(",");
+  return columns.rows.map(row => String(row.name)).filter(name => name !== "environment" && name !== "institution").join(",");
 }
 
 /** Account columns without the stored balance, which changesets 0007 and 0017 move into opening-balance transactions. */
@@ -56,7 +51,7 @@ const currentBalance = "COALESCE(balance_minor,(SELECT SUM(t.amount_minor) FROM 
 
 /** Accounts with their current balance; comparable across every upgrade. */
 async function accountState(client: Client) {
-  return (await client.execute(`SELECT id,name,kind,currency,provider,provider_uid,${activeConnection},iban,last_synced_at,sync_error,${currentBalance} FROM accounts ORDER BY id`)).rows;
+  return (await client.execute(`SELECT id,name,kind,currency,provider,provider_uid,requisition_id,iban,last_synced_at,sync_error,${currentBalance} FROM accounts ORDER BY id`)).rows;
 }
 
 /** Transactions that existed before changesets 0007 and 0017 booked stored balances as transactions. */

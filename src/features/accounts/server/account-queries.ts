@@ -29,8 +29,6 @@ const lastBookingDate = sql<string | null>`(SELECT MAX(${transactions.booking_da
 
 const kindOrder = sql`CASE ${accounts.kind} WHEN 'checking' THEN 0 WHEN 'savings' THEN 1 WHEN 'investment' THEN 2 ELSE 3 END`;
 
-const connectionId = sql<string | null>`CASE WHEN ${requisitions.status}='REMOVED' THEN NULL ELSE ${accounts.requisition_id} END`;
-
 /** Accounts with their current balance and, for bank accounts, the authorization expiry. */
 export async function listAccounts() {
   const db = await database();
@@ -49,8 +47,7 @@ export async function listAccounts() {
     reported_balance_date: reportedBalanceDate,
     reported_difference_minor: reportedDifference,
     provider: accounts.provider,
-    // An account keeps its removed connection for the bank name; only a connection that is not removed links it.
-    requisition_id: connectionId,
+    requisition_id: accounts.requisition_id,
     last_synced_at: accounts.last_synced_at,
     valid_until: requisitions.valid_until,
     sync_error: accounts.sync_error,
