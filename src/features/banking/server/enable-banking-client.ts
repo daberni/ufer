@@ -5,7 +5,7 @@ import { SignJWT } from "jose";
 import { Temporal } from "temporal-polyfill";
 import { z } from "zod";
 import { timestamp, validDate } from "@/lib/time";
-import { environment } from "./environment";
+import { environment } from "@/server/environment";
 
 // Fields Ufer reads, persists or shows are checked here; a response that does not match them is rejected as a provider failure.
 const providerTextLength = 500;
