@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { Temporal } from "temporal-polyfill";
 import { z } from "zod";
 import { categoryNameKey, normalizeCategoryName } from "@/lib/category-name";
@@ -16,7 +16,7 @@ import { validateLiability } from "@/features/accounts/server/account-service";
 import { currencyAllows, withSplitTags, maxCategoryChoicesPerRequest, maxTargetsPerRequest, maxAccountNameLength, maxCategoryLength, maxIdLength, maxSourceLength, normalizeText, type RowError } from "../csv-mapping";
 import { duplicateDateToleranceDays, mappedReferencePrefix, type DuplicateReason } from "./duplicate-matching";
 import type { SplitPartValues } from "@/features/transactions/server/split-repository";
-import { checkMappedEntries, createImportCategory, findImportOpening, findImportTarget, listCategoryNames, saveMappedEntries, type MappedEntry, type NewImportAccount, type OpeningBalance } from "./mapped-import-repository";
+import { checkMappedEntries, findImportOpening, findImportTarget, listCategoryNames, saveMappedBatch, type MappedEntry, type NewImportAccount, type NewImportCategory, type OpeningBalance } from "./mapped-import-repository";
 
 export const maxRowsPerRequest = 2000;
 
@@ -130,7 +130,7 @@ export async function importMappedRows(payload: unknown, now = Temporal.Now.inst
   const targets = await resolveTargets(input.import_id, input.targets, input.confirm);
   const errors: RowError[] = [];
   const planned: PlannedRow[] = [];
-  const categories = await resolveCategories(input.categories, input.confirm);
+  const categories = await resolveCategories(input.categories);
   const unknownCategories = new Set<string>();
   const latestDate = today(now);
   const repeatedIds = repeatedIdLines(input.rows, targets);
@@ -193,8 +193,9 @@ export async function importMappedRows(payload: unknown, now = Temporal.Now.inst
     duplicates,
     matched,
     possible,
-    newRows
-  } = await classifyAndSave(planned, targets, input.consumed, input.confirm);
+    newRows,
+    createdCategories
+  } = await classifyAndSave(planned, targets, input.consumed, input.confirm, categories.created);
 
   // Pairing sees every account this import touched at once, so a transfer with candidates in two of them stays ambiguous.
   if (input.confirm && input.final) {
@@ -212,7 +213,7 @@ export async function importMappedRows(payload: unknown, now = Temporal.Now.inst
     })).sort((left, right) => left.line - right.line),
     errors,
     unknownCategories: [...unknownCategories].sort(),
-    createdCategories: categories.created,
+    createdCategories,
     toleranceDays: duplicateDateToleranceDays
   };
 }
@@ -370,17 +371,16 @@ function openingBalance(id: string, input: z.infer<typeof opening>, currency: st
 }
 
 /**
- * Resolves category choices once per batch. "create" choices reuse a category whose name matches and otherwise create one on confirmation; checking only reports them.
+ * Resolves category choices once per batch. "create" choices reuse a category whose name matches; otherwise rows refer to a new category that the confirmed save creates in its transaction when a saved row uses it.
  * Values without a choice match existing categories by name, and unmatched ones are reported as unknown.
  */
-async function resolveCategories(choices: z.infer<typeof categoryChoice>[], confirm: boolean) {
+async function resolveCategories(choices: z.infer<typeof categoryChoice>[]) {
   const existing = await listCategoryNames();
   const byName = new Map(existing.map(category => [categoryNameKey(category.name), category.id]));
   const byId = new Set(existing.map(category => category.id));
   const chosen = new Map<string, string | null>();
-  const created: string[] = [];
-  // Names a check reports as created, so several values mapped to one new category list it once.
-  const pending = new Set<string>();
+  // Several values mapped to one new category share it.
+  const created = new Map<string, NewImportCategory>();
 
   for (const choice of choices) {
     if (choice.action === "uncategorized") {
@@ -409,7 +409,8 @@ async function resolveCategories(choices: z.infer<typeof categoryChoice>[], conf
       throw new ValidationError("Choose one of the available category icons.");
     }
 
-    const match = byName.get(categoryNameKey(name));
+    const key = categoryNameKey(name);
+    const match = byName.get(key);
 
     if (match) {
       chosen.set(choice.value, match);
@@ -417,36 +418,29 @@ async function resolveCategories(choices: z.infer<typeof categoryChoice>[], conf
       continue;
     }
 
-    if (!confirm) {
-      if (!pending.has(categoryNameKey(name))) {
-        pending.add(categoryNameKey(name));
-        created.push(name);
+    const category = created.get(key) ?? {
+      id: randomUUID(),
+      name,
+      shown: choice.color === undefined ? undefined : {
+        color: choice.color,
+        icon: choice.icon && isCategoryIcon(choice.icon) ? choice.icon : null
       }
+    };
 
-      chosen.set(choice.value, null);
-
-      continue;
-    }
-
-    const id = await createImportCategory(name, choice.color === undefined ? undefined : {
-      color: choice.color,
-      icon: choice.icon && isCategoryIcon(choice.icon) ? choice.icon : null
-    });
-
-    created.push(name);
-
-    byName.set(categoryNameKey(name), id);
-    chosen.set(choice.value, id);
+    created.set(key, category);
+    chosen.set(choice.value, category.id);
   }
 
   return {
-    created,
+    created: [...created.values()],
     resolve(value: string): string | null | "unknown" {
       if (chosen.has(value)) {
         return chosen.get(value) ?? null;
       }
 
-      return byName.get(categoryNameKey(value)) ?? "unknown";
+      const key = categoryNameKey(value);
+
+      return byName.get(key) ?? created.get(key)?.id ?? "unknown";
     }
   };
 }
@@ -502,20 +496,43 @@ function importReference(date: string, amount: number, payee: string, descriptio
   return `${mappedReferencePrefix}${createHash("sha256").update(content).digest("hex").slice(0, 32)}`;
 }
 
-async function classifyAndSave(planned: PlannedRow[], targets: Map<string, Target>, consumed: z.infer<typeof matchedBooking>[], confirm: boolean) {
+async function classifyAndSave(planned: PlannedRow[], targets: Map<string, Target>, consumed: z.infer<typeof matchedBooking>[], confirm: boolean, newCategories: NewImportCategory[]) {
   const duplicates = new Map<number, DuplicateReason>();
   const matched: z.infer<typeof matchedBooking>[] = [];
   const possible: number[] = [];
   const rules = confirm ? await listRules() : [];
   const newAccounts = new Map([...targets.values()].flatMap(target => target.accountId && target.newAccount ? [[target.accountId, target.newAccount] as const] : []));
   const openings = new Map([...targets.values()].flatMap(target => target.accountId && target.opening ? [[target.accountId, target.opening] as const] : []));
+  const accountIds = [...new Set(planned.flatMap(item => item.accountId ? [item.accountId] : []))];
+  const rowsOf = new Map(accountIds.map(accountId => [accountId, planned.filter(item => item.accountId === accountId)]));
+  const absorbedOf = (accountId: string) => new Set(consumed.filter(item => item.account_id === accountId).map(item => item.reference));
   let newRows = planned.filter(item => item.accountId === null).length;
+  let createdCategories = newCategories.map(category => category.name);
+  let results: Awaited<ReturnType<typeof checkMappedEntries>>[];
 
-  for (const accountId of new Set(planned.flatMap(item => item.accountId ? [item.accountId] : []))) {
-    const rows = planned.filter(item => item.accountId === accountId);
-    const entries = rows.map(item => item.entry);
-    const absorbed = new Set(consumed.filter(item => item.account_id === accountId).map(item => item.reference));
-    const result = confirm ? await saveMappedEntries(accountId, categorized(entries, rules), newAccounts.get(accountId) ?? null, absorbed, openings.get(accountId) ?? null) : await checkMappedEntries(accountId, entries, absorbed);
+  if (confirm) {
+    // One transaction for every account of the batch, so a failure saves none of them.
+    const saved = await saveMappedBatch(accountIds.map(accountId => ({
+      accountId,
+      entries: categorized((rowsOf.get(accountId) ?? []).map(item => item.entry), rules),
+      newAccount: newAccounts.get(accountId) ?? null,
+      consumed: absorbedOf(accountId),
+      opening: openings.get(accountId) ?? null
+    })), newCategories);
+
+    results = saved.results;
+    createdCategories = saved.createdCategories;
+  } else {
+    results = [];
+
+    for (const accountId of accountIds) {
+      results.push(await checkMappedEntries(accountId, (rowsOf.get(accountId) ?? []).map(item => item.entry), absorbedOf(accountId)));
+    }
+  }
+
+  accountIds.forEach((accountId, position) => {
+    const rows = rowsOf.get(accountId) ?? [];
+    const result = results[position];
 
     for (const [index, reason] of result.duplicates) {
       duplicates.set(rows[index].line, reason);
@@ -527,13 +544,14 @@ async function classifyAndSave(planned: PlannedRow[], targets: Map<string, Targe
       ...booking
     })));
     newRows += result.inserted;
-  }
+  });
 
   return {
     duplicates,
     matched,
     possible,
-    newRows
+    newRows,
+    createdCategories
   };
 }
 

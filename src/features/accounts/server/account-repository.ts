@@ -1,7 +1,8 @@
 import { randomUUID } from "node:crypto";
-import { and, desc, eq, isNull, sql, TransactionRollbackError } from "drizzle-orm";
+import { and, eq, inArray, desc, isNotNull, isNull, ne, sql, TransactionRollbackError } from "drizzle-orm";
 import { database, type Database } from "@/server/database/connection";
-import { accounts, balanceSnapshots, transactions } from "@/server/database/schema";
+import { accountIdentifiers, accounts, balanceSnapshots, categorizationRules, transactions } from "@/server/database/schema";
+import { createdCounterpartPrefix, manualEntryPrefix } from "@/features/transactions/server/transfer-repository";
 import { bookManualEntry, recordManualBalance, type ManualEntryResult } from "@/features/transactions/server/manual-transaction-repository";
 import type { AccountKind } from "../account-kinds";
 import type { ManualAccountInput } from "./account-schema";
@@ -229,4 +230,93 @@ export async function closeAndArchiveManualAccount(account: {
 
     throw error;
   }
+}
+
+/**
+ * Turns a bank account whose connection was removed into a manual account in one transaction. The last bank balance stays the account's balance through an opening balance, or an adjustment on the later of its date and the latest booking.
+ * The bank identity is dropped, so a later connection to the same bank creates a new account instead of syncing into a manual one. Returns whether the account was converted.
+ */
+export async function convertDetachedAccount(id: string) {
+  const db = await database();
+
+  return db.transaction(async tx => {
+    const detached = and(eq(accounts.id, id), eq(accounts.provider, "enable_banking"), isNull(accounts.requisition_id));
+    const account = await tx.select({
+      id: accounts.id
+    }).from(accounts).where(detached).get();
+
+    if (!account) {
+      return false;
+    }
+
+    // The balance is already the sum of the bookings, including the opening balance its first sync booked; reported bank balances stay as history.
+    await tx.delete(accountIdentifiers).where(eq(accountIdentifiers.account_id, id));
+    await tx.update(accounts).set({
+      provider: "manual",
+      provider_uid: null,
+      last_synced_at: null,
+      sync_error: null
+    }).where(detached);
+
+    return true;
+  });
+}
+
+const removedAccountPrefix = "removed:";
+
+/**
+ * Deletes an account that is not linked to a bank connection, with its bookings, their splits, balance observations and bank identifiers, in one transaction.
+ * A linked booking on another account stays with its amount as a transfer without a counterpart; one Ufer created for a deleted booking becomes an ordinary manual entry.
+ * Rules and automatic types that named the account as transfer target keep their transfer type with a target that matches no account, so pairing never links them. Returns whether the account was deleted.
+ */
+export async function deleteUnlinkedAccount(id: string, confirmedName: string) {
+  const db = await database();
+
+  return db.transaction(async tx => {
+    const unlinked = and(eq(accounts.id, id), eq(accounts.name, confirmedName), isNull(accounts.requisition_id));
+    const account = await tx.select({
+      id: accounts.id
+    }).from(accounts).where(unlinked).get();
+
+    if (!account) {
+      return false;
+    }
+
+    const own = tx.select({
+      transfer_id: transactions.transfer_id
+    }).from(transactions).where(and(eq(transactions.account_id, id), isNotNull(transactions.transfer_id)));
+    const counterparts = await tx.select({
+      id: transactions.id,
+      provider_reference: transactions.provider_reference
+    }).from(transactions).where(and(ne(transactions.account_id, id), inArray(transactions.transfer_id, own)));
+
+    for (const counterpart of counterparts) {
+      const created = counterpart.provider_reference.startsWith(createdCounterpartPrefix);
+
+      await tx.update(transactions).set({
+        provider_reference: created ? `${manualEntryPrefix}${counterpart.id}` : counterpart.provider_reference,
+        transfer_id: null,
+        transfer_source: "manual",
+        type_source: "manual",
+        type_rule_id: null,
+        type_transfer_account_id: null
+      }).where(eq(transactions.id, counterpart.id));
+    }
+
+    // A target that resolves to no account keeps these bookings and rules from pairing with any account; no target would allow every account.
+    const removedTarget = `${removedAccountPrefix}${id}`;
+
+    await tx.update(transactions).set({
+      type_transfer_account_id: removedTarget
+    }).where(eq(transactions.type_transfer_account_id, id));
+    await tx.update(categorizationRules).set({
+      transfer_account_id: removedTarget
+    }).where(eq(categorizationRules.transfer_account_id, id));
+    await tx.delete(transactions).where(eq(transactions.account_id, id));
+    await tx.delete(balanceSnapshots).where(eq(balanceSnapshots.account_id, id));
+    await tx.delete(accountIdentifiers).where(eq(accountIdentifiers.account_id, id));
+    await tx.delete(accounts).where(unlinked);
+
+    return true;
+  });
 }

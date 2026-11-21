@@ -5,8 +5,8 @@ import { syncLeaseName } from "@/features/banking/server/sync-service";
 import { HttpError, ValidationError } from "@/lib/errors";
 import { minorUnits } from "@/lib/money";
 import { timestamp, today } from "@/lib/time";
-import { accountEditInput, accountInput, archiveInput, valuationInput } from "./account-schema";
-import { ClosingBeforeLastBooking, archiveSettledAccount, closeAndArchiveManualAccount, findManualAccount, insertManualAccount, reconcileWithReportedBalance, saveAccountArchived, saveAccountKind, saveAccountName, saveManualValuation, type ClosingResult } from "./account-repository";
+import { accountDeletionInput, accountEditInput, accountInput, archiveInput, valuationInput } from "./account-schema";
+import { ClosingBeforeLastBooking, archiveSettledAccount, closeAndArchiveManualAccount, convertDetachedAccount, deleteUnlinkedAccount, findManualAccount, insertManualAccount, reconcileWithReportedBalance, saveAccountArchived, saveAccountKind, saveAccountName, saveManualValuation, type ClosingResult } from "./account-repository";
 import { findAccountWithBalance } from "./account-queries";
 import { archivedAccountMessage } from "./writable-account";
 import type { AccountKind } from "../account-kinds";
@@ -228,17 +228,80 @@ async function archiveSettled(account: {
     return archiveSettledAccount(account.id, timestamp());
   }
 
+  return whileNoSync("Archive the account", () => archiveSettledAccount(account.id, timestamp()));
+}
+
+/** Runs a change to a bank account while no sync can write to it. */
+async function whileNoSync<Result>(action: string, change: () => Promise<Result>) {
   const owner = randomUUID();
 
   if (!(await acquireLease(syncLeaseName, owner))) {
-    throw new HttpError(409, "A sync is running. Archive the account after it has finished.");
+    throw new HttpError(409, `A sync is running. ${action} after it has finished.`);
   }
 
   try {
-    return await archiveSettledAccount(account.id, timestamp());
+    return await change();
   } finally {
     await releaseLease(syncLeaseName, owner);
   }
+}
+
+/** Makes a bank account whose connection was removed a manual account that keeps its history and its last bank balance; balance updates, entries and type changes then work as for any manual account. */
+export async function convertToManualAccount(accountId: string) {
+  const account = await findAccountWithBalance(accountId);
+
+  if (!account) {
+    throw new HttpError(404, "Account not found.");
+  }
+
+  if (account.provider === "manual") {
+    return {
+      ok: true
+    };
+  }
+
+  if (account.requisition_id !== null) {
+    throw new HttpError(409, "Disconnect the bank before converting this account to a manual account.");
+  }
+
+  if (!await whileNoSync("Convert the account", () => convertDetachedAccount(accountId))) {
+    throw new HttpError(409, "The account changed meanwhile. Review it and try again.");
+  }
+
+  return {
+    ok: true
+  };
+}
+
+/**
+ * Permanently deletes an account that is not linked to a bank, with its bookings and balance history; the request repeats the account's name as confirmation.
+ * Reports then leave the account out, while linked bookings on other accounts keep their amounts as transfers without a counterpart.
+ */
+export async function deleteAccount(accountId: string, payload: unknown) {
+  const input = accountDeletionInput.parse(payload);
+  const account = await findAccountWithBalance(accountId);
+
+  if (!account) {
+    throw new HttpError(404, "Account not found.");
+  }
+
+  if (input.name !== account.name) {
+    throw new ValidationError("Enter the account's name to confirm the deletion.");
+  }
+
+  if (account.requisition_id !== null) {
+    throw new HttpError(409, "Disconnect the bank before deleting this account; a sync would otherwise restore it.");
+  }
+
+  const deleted = account.provider === "manual" ? await deleteUnlinkedAccount(accountId, input.name) : await whileNoSync("Delete the account", () => deleteUnlinkedAccount(accountId, input.name));
+
+  if (!deleted) {
+    throw new HttpError(409, "The account changed meanwhile. Review it and try again.");
+  }
+
+  return {
+    ok: true
+  };
 }
 
 /** Shows an archived account again with its unchanged history. */

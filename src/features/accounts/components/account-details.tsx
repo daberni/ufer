@@ -17,6 +17,7 @@ import { money } from "@/lib/money";
 import { BankConnectionDialog } from "@/features/banking/components/bank-connection-form";
 import { BalanceHistoryPanel } from "./balance-history";
 import { AccountArchiveAction } from "./account-archive-action";
+import { AccountRemovalActions } from "./account-removal-actions";
 import { ValuationDialog } from "./valuation-form";
 import { useReconcileBalance } from "@/features/accounts/mutations";
 import { toFailure } from "@/client/api";
@@ -168,6 +169,7 @@ function AccountSummary({
       )}
       <div className={styles["actions"]}>
         <AccountArchiveAction account={account} />
+        <AccountRemovalActions account={account} />
       </div>
       {connection && <BankConnectionDialog connection={connection} close={closeDialog} />}
       {updatingBalance && <ValuationDialog selectedAccount={account} close={() => setUpdatingBalance(false)} />}

@@ -13,8 +13,8 @@ const balance = sql<number | null>`(SELECT SUM(${transactions.amount_minor}) FRO
 /** Balance types that report booked money; available balances include credit lines and pending items, so they are never compared with bookings. */
 export const comparableBankBalanceTypes = ["CLBD", "ITBD", "PRCD"];
 
-// The newest balance the bank reported, kept for comparison with the calculated balance.
-const latestReport = sql`(SELECT s.id FROM ${balanceSnapshots} s WHERE s.account_id=${accounts.id} AND s.source='sync' ORDER BY s.observed_at DESC LIMIT 1)`;
+// The newest balance the bank reported to a still bank-linked account, kept for comparison with the calculated balance.
+const latestReport = sql`(SELECT s.id FROM ${balanceSnapshots} s WHERE s.account_id=${accounts.id} AND ${accounts.provider}<>'manual' AND s.source='sync' ORDER BY s.observed_at DESC LIMIT 1)`;
 const reportedBalance = sql<number | null>`(SELECT ${balanceSnapshots.amount_minor} FROM ${balanceSnapshots} WHERE ${balanceSnapshots.id}=${latestReport})`;
 const reportedBalanceDate = sql<string | null>`(SELECT ${balanceSnapshots.observed_at} FROM ${balanceSnapshots} WHERE ${balanceSnapshots.id}=${latestReport})`;
 const comparableTypes = sql.join(comparableBankBalanceTypes.map(type => sql`${type}`), sql`,`);
