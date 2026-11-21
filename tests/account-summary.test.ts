@@ -128,7 +128,7 @@ test("an expired authorization shows one notice whose one action reconnects, and
 
   assert.equal(others.length, 0);
   assert.match(notice.textContent ?? "", /authorization expired/);
-  assert.deepEqual(within(notice).getAllByRole("button").map(button => button.textContent), ["Reconnect Example bank"]);
+  assert.deepEqual(within(notice).getAllByRole("button").map(button => button.textContent), ["Reconnect bank"]);
   assert.equal(screen.queryByText(/Synced/), null);
   assert.equal(await queryMenuItem(screen, "Reconnect Example bank"), null);
 });

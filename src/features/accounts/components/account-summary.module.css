@@ -69,6 +69,7 @@
 /* A long bank name wraps inside the narrow summary column instead of overflowing it. */
 .notice-body > :is(button, a) {
   max-width: 100%;
+  color: var(--ink);
   white-space: normal;
   text-align: left;
 }

@@ -81,7 +81,7 @@
     line-height: 1.7;
   }
 }
-/* An account's primary action stretches on phones while its "…" menu keeps its size beside it. */
+/* The "…" menu sits before the primary action, which stretches on phones while the menu keeps its size. */
 .account-actions {
   display: flex;
   align-items: center;

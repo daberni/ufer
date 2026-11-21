@@ -119,6 +119,7 @@ function DashboardShell({ children }: {
           <PageHeading heading={selectedAccount ? selectedAccount.name : heading} description={description}>
             {selectedAccount ? (
               <div className={styles["account-actions"]}>
+                <AccountMenu key={selectedAccount.id} account={selectedAccount} />
                 {selectedAccount.provider === "manual" && !selectedAccount.archived_at && (
                   <AccountDetailActions
                     key={selectedAccount.id}
@@ -127,7 +128,6 @@ function DashboardShell({ children }: {
                   />
                 )}
                 {showSync && <SyncButton bankAccounts={bankAccounts} showConnections={() => router.push(bankConnectionsHref)} />}
-                <AccountMenu key={selectedAccount.id} account={selectedAccount} />
               </div>
             ) : showSync && <SyncButton bankAccounts={bankAccounts} showConnections={() => router.push(bankConnectionsHref)} />}
           </PageHeading>

@@ -39,12 +39,12 @@ export function ProblemNotice({
           )}
         </p>
         {connection ? (
-          <button type="button" className={clsx(ui["button"], ui["primary"])} onClick={reconnect}>
+          <button type="button" className={ui["button"]} onClick={reconnect}>
             <RefreshCw size={15} aria-hidden="true" />
-            Reconnect {connection.bank_name}
+            Reconnect bank
           </button>
         ) : (
-          <Link className={clsx(ui["button"], ui["primary"])} href={bankConnectionsHref}>
+          <Link className={ui["button"]} href={bankConnectionsHref}>
             Manage bank connections <ArrowRight size={15} aria-hidden="true" />
           </Link>
         )}
