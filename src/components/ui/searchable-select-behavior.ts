@@ -1,11 +1,9 @@
+import { searchText } from "@/lib/text";
+
 // Matching and keyboard rules of the searchable select, following the ARIA APG editable combobox with list autocomplete.
 
 /** Long lists are cut off at this many shown options; the user narrows them by typing. */
 export const shownOptionLimit = 100;
-
-function searchText(text: string) {
-  return text.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLocaleLowerCase("und");
-}
 
 function matchRank(label: string, terms: readonly string[]) {
   if (!terms.every(term => label.includes(term))) {

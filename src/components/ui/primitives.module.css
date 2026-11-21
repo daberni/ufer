@@ -48,6 +48,16 @@
   padding: var(--space-1) var(--space-3);
   min-height: 36px;
 }
+/* A destructive confirmation, such as deleting a rule or removing a connection. */
+.danger-button {
+  composes: button;
+  background: var(--danger);
+  border-color: var(--danger);
+  color: var(--on-danger);
+}
+.danger-button:not(:disabled):hover {
+  background: var(--danger-strong);
+}
 .button-group {
   display: flex;
   gap: var(--space-2);
@@ -179,6 +189,24 @@
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
+}
+/* Cuts single-line text off with an ellipsis instead of widening its flex or grid track. */
+.truncate {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Lays a checkbox beside its text instead of the form's stacked label and text-field sizing. */
+form label.check-option {
+  flex-direction: row;
+  align-items: center;
+  cursor: pointer;
+}
+.check-option > input[type="checkbox"] {
+  width: auto;
+  min-height: 0;
+  accent-color: var(--green);
 }
 .trace-id {
   display: block;
@@ -318,6 +346,18 @@
   }
 }
 @media (--mobile) {
+  /* Hidden on phones only, for example table headers that cells repeat there; assistive technology still reads it. */
+  .visually-hidden-mobile {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  form label.check-option {
+    min-height: 44px;
+  }
   .eyebrow {
     letter-spacing: 1.3px;
   }
