@@ -2,9 +2,6 @@ import type { MetadataRoute } from "next";
 import { appDescription, appName } from "@/components/branding/app-identity";
 import { browserColor } from "@/features/appearance/theme-preference";
 
-// The light theme's --bg in globals.css; the manifest has no media queries, so it uses the light default that the system theme starts from.
-const lightBackground = "#f6f7f4";
-
 export default function manifest(): MetadataRoute.Manifest {
   return {
     id: "/",
@@ -14,7 +11,8 @@ export default function manifest(): MetadataRoute.Manifest {
     start_url: "/",
     scope: "/",
     display: "standalone",
-    background_color: lightBackground,
+    // A manifest cannot vary by color scheme, so the splash screen uses the brand color of the browser bars instead of a light page background that flashes in dark mode.
+    background_color: browserColor("light"),
     theme_color: browserColor("light"),
     lang: "en",
     dir: "ltr",

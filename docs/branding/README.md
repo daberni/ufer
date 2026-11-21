@@ -25,7 +25,7 @@ Edit the canonical SVG, copy the artwork to the browser icon and regenerate the 
 
 | Color | Value | Use |
 | --- | --- | --- |
-| Forest | `#233e31` | Icon background and dark brand surfaces |
+| Forest | `#233e31` | Icon background, dark brand surfaces and the web app manifest's theme and splash background colors |
 | Sage | `#d9e8a9` | Icon mark and light accents |
 
 These colors reflect the interface and riverbank design intent; no universal psychological effect is claimed. Use actual contrast checks and do not communicate gains, losses or warnings through color alone. Account-type icons express account semantics rather than substituting for the Ufer mark.
