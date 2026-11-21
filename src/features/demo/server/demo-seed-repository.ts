@@ -24,6 +24,7 @@ export type DemoAccountRows = DemoAccountDefinition & {
   entries: CategorizedEntry[];
   valuations: DemoSnapshot[];
   reported: DemoSnapshot;
+  importedAt: Record<string, string>;
 };
 
 export type DemoSeedRows = {
@@ -135,7 +136,12 @@ async function insertAccount(tx: DatabaseTransaction, account: DemoAccountRows, 
     last_synced_at: bank ? lastSyncedAt : null
   });
   await recordManualBalance(tx, demoAccount(account), account.opening.date, account.opening.amount);
-  await upsertTransactions(tx, account.id, account.entries);
+  await upsertTransactions(tx, account.id, account.entries.filter(entry => !account.importedAt[entry.reference]));
+
+  // A sync stamps the rows it inserts with its start; recent syncs find their bookings by it.
+  for (const importedAt of new Set(Object.values(account.importedAt))) {
+    await upsertTransactions(tx, account.id, account.entries.filter(entry => account.importedAt[entry.reference] === importedAt), importedAt);
+  }
 
   if (bank) {
     await tx.insert(balanceSnapshots).values({

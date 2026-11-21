@@ -4,7 +4,7 @@ import type { CategoryIconKey } from "@/features/categorization/category-icons";
 /** Every row the demo seed owns has an ID with this prefix; re-running the seed replaces exactly these rows. */
 export const demoIdPrefix = "demo-";
 
-/** Provider reference prefix of seeded transactions, distinct from bank (`bank:`) and CSV references. */
+/** Provider reference prefix of seeded transactions; on simulated bank accounts it follows the bank prefix (`bank:demo:`), as synced bookings carry `bank:`. */
 export const demoReferencePrefix = "demo:";
 
 export type DemoAccountKey = "checking" | "onlineChecking" | "joint" | "cash" | "savings" | "creditCard" | "investment" | "property" | "car" | "loan";

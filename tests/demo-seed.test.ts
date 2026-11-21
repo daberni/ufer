@@ -12,7 +12,7 @@ import { buildDemoDataset } from "../src/features/demo/server/demo-dataset";
 import { DemoSeedRefusal, seedDemoData } from "../src/features/demo/server/demo-seed-service";
 import { listAccounts } from "../src/features/accounts/server/account-queries";
 import { pairAllTransfers } from "../src/features/transactions/server/transfer-pairing-repository";
-import { listSyncAccounts } from "../src/features/banking/server/sync-repository";
+import { linkedTransactionCount, listSyncAccounts } from "../src/features/banking/server/sync-repository";
 
 const firstRun = Temporal.PlainDate.from("2026-11-16");
 const secondRun = Temporal.PlainDate.from("2026-12-01");
@@ -175,7 +175,7 @@ test("re-running the demo seed replaces only demo rows and keeps bank-connected 
   assert.equal(seeded.length, expected + balanceBookings.length);
   assert.equal(balanceBookings.filter(row => row.type === "opening_balance").length, 10);
   // Counterparts the seed creates on a manual account carry their source booking in the reference, as when a person creates them; balances are booked as a person enters them.
-  assert.ok(seeded.every(row => ["demo:", "transfer:", "manual:"].some(prefix => row.provider_reference.startsWith(prefix))));
+  assert.ok(seeded.every(row => ["demo:", "bank:demo:", "transfer:", "manual:"].some(prefix => row.provider_reference.startsWith(prefix))));
   assert.equal(demoAccounts.length, 10);
   // Market values end on their last valuation; every other balance follows from the transactions.
   assert.equal(balances.get("demo-investment"), lastValuation("demo-investment"));
@@ -350,6 +350,14 @@ test("simulated bank connections show a sync history and splits but are never sy
   // Re-seeding replaces the history instead of adding to it; one run failed for a single account and the next succeeded.
   assert.equal(runs.length, 14);
   assert.deepEqual(runs.filter(run => run.status !== "SUCCESS").map(run => run.status), ["PARTIAL"]);
+  // Every run shows the bookings it fetched, as a real sync stamps them.
+  const linked = await db.select({
+    started_at: schema.syncRuns.started_at,
+    linked: linkedTransactionCount
+  }).from(schema.syncRuns).where(like(schema.syncRuns.id, "demo-%"));
+
+  assert.ok(runs.every(run => linked.find(row => row.started_at === run.started_at)?.linked === run.inserted_count));
+  assert.ok(runs.reduce((total, run) => total + run.inserted_count, 0) > 0);
   assert.equal(splitBookings.size, 3);
   assert.ok(splits.every(row => row.transactions.category_id === null && row.transaction_splits.category_id !== null));
   assert.ok([...splitBookings].every(([id, total]) => splits.find(row => row.transactions.id === id)?.transactions.amount_minor === total));
