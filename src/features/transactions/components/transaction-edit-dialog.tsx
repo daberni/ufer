@@ -385,7 +385,8 @@ function TransactionEditForm({
   const canSplit = type === "income" || type === "expense";
   // A bank-linked account's opening balance or adjustment keeps its type.
   const balanceRow = !transaction.manual_account && manualAccountTypes.includes(transaction.type);
-  const available = frozen ? frozenTypes(transaction, relinkable) : balanceRow ? [transaction.type] : transactionTypes.filter(option => option === transaction.type || (typeAllowed(option) && (transaction.manual_account || !manualAccountTypes.includes(option))));
+  const editableTypes = balanceRow ? [transaction.type] : transactionTypes.filter(option => option === transaction.type || (typeAllowed(option) && (transaction.manual_account || !manualAccountTypes.includes(option))));
+  const available = frozen ? frozenTypes(transaction, relinkable) : editableTypes;
   // A frozen booking becomes a transfer only by linking an existing booking.
   const linkMissing = frozen && transfer && transaction.type !== "transfer" && target.kind !== "booking";
   // Without loaded options, saving a transfer could drop a link the form cannot show.
