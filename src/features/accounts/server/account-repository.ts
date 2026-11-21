@@ -244,10 +244,12 @@ export async function convertDetachedAccount(executor: Database, id: string) {
   });
 }
 
+const removedAccountPrefix = "removed:";
+
 /**
  * Deletes an account that is not linked to a bank connection, with its bookings, their splits, balance observations and bank identifiers, in one transaction.
  * A linked booking on another account stays with its amount as a transfer without a counterpart; one Ufer created for a deleted booking becomes an ordinary manual entry.
- * Rules and automatic types that named the account as transfer target keep their transfer type without a counterpart account. Returns whether the account was deleted.
+ * Rules and automatic types that named the account as transfer target keep their transfer type with a target that matches no account, so pairing never links them. Returns whether the account was deleted.
  */
 export async function deleteUnlinkedAccount(executor: Database, id: string) {
   return executor.transaction(async tx => {
@@ -281,11 +283,14 @@ export async function deleteUnlinkedAccount(executor: Database, id: string) {
       }).where(eq(transactions.id, counterpart.id));
     }
 
+    // A target that resolves to no account keeps these bookings and rules from pairing with any account; no target would allow every account.
+    const removedTarget = `${removedAccountPrefix}${id}`;
+
     await tx.update(transactions).set({
-      type_transfer_account_id: null
+      type_transfer_account_id: removedTarget
     }).where(eq(transactions.type_transfer_account_id, id));
     await tx.update(categorizationRules).set({
-      transfer_account_id: null
+      transfer_account_id: removedTarget
     }).where(eq(categorizationRules.transfer_account_id, id));
     await tx.delete(transactions).where(eq(transactions.account_id, id));
     await tx.delete(balanceSnapshots).where(eq(balanceSnapshots.account_id, id));
