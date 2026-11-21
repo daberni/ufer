@@ -182,7 +182,7 @@
   .sync-table {
     column-gap: var(--space-3);
   }
-  .sync-problems {
+  .sync-problems.below-result {
     grid-column: 2 / -1;
   }
 }

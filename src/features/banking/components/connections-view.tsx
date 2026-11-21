@@ -292,6 +292,9 @@ function SyncRunRow({
     Icon
   } = syncStatusIndicators[tone];
   const problems = syncRunProblems(run.error);
+  const imported = run.linked_count > 0 || run.inserted_count > 0;
+  // Problems take the result's place; "No new transactions" only reports a successful run.
+  const showResult = imported || tone === "success";
 
   return (
     <li className={styles["sync-row"]}>
@@ -300,11 +303,13 @@ function SyncRunRow({
         <Icon aria-hidden size={16} />
         <span className={ui["visually-hidden"]}>{label}</span>
       </span>
-      <span className={styles["sync-result"]}>
-        <SyncRunTransactions href={href} run={run} />
-      </span>
+      {showResult && (
+        <span className={styles["sync-result"]}>
+          <SyncRunTransactions href={href} run={run} />
+        </span>
+      )}
       {problems.length > 0 && (
-        <ul className={styles["sync-problems"]}>
+        <ul className={clsx(styles["sync-problems"], showResult && styles["below-result"])}>
           {problems.map((problem, index) => <li key={index}>{problem}</li>)}
         </ul>
       )}
