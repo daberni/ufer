@@ -1,6 +1,7 @@
 "use client";
 
 import ui from "../../../components/ui/primitives.module.css";
+import styles from "./rule-form.module.css";
 import { useLocale } from "@/client/locale-provider";
 
 import { clsx } from "clsx";
@@ -21,7 +22,8 @@ import { Dialog } from "@/components/ui/dialog";
 import type { Rule, RulePreviewDraft } from "@/features/categorization/types";
 import { DeleteButton, RuleDeleteConfirmation } from "./deletion-forms";
 import { ManualAdoptionOption, useManualAdoption, type ManualMatches } from "./manual-adoption-option";
-import { formatCount, formatCountLabel } from "@/lib/locale";
+import { formatCountLabel } from "@/lib/locale";
+import { RuleMatches, type RuleMatchList } from "./rule-matches";
 
 type RuleFormProps = DialogFormProps & {
   rule?: Rule | null;
@@ -56,31 +58,32 @@ function useRuleImpact(fields: RulePreviewDraft) {
     current
   } = useRulePreviewDraft(fields);
   const pending = draft !== null && (!current || preview.isFetching);
+  const empty = {
+    pending: false,
+    previewId: null,
+    manual: null,
+    matches: null
+  };
 
   if (draft === null) {
     return {
-      pending: false,
-      previewId: null,
-      manual: null,
-      text: "Enter a pattern to see which transactions the rule would decide."
+      ...empty,
+      text: "Enter a pattern to see the matching transactions."
     };
   }
 
   if (current && preview.isError) {
     return {
-      pending: false,
-      previewId: null,
-      manual: null,
+      ...empty,
       text: `The preview is unavailable: ${toFailure(preview.error).message}`
     };
   }
 
   if (pending || !preview.data || preview.isPlaceholderData) {
     return {
+      ...empty,
       pending: true,
-      previewId: null,
-      manual: null,
-      text: "Counting matching transactions …"
+      text: "Finding matching transactions …"
     };
   }
 
@@ -93,27 +96,35 @@ function useRuleImpact(fields: RulePreviewDraft) {
 
   if (!preview.data.enabled) {
     return {
-      pending: false,
+      ...empty,
       previewId,
       manual,
-      text: "This rule is disabled, so it decides no transactions until you enable it in the list."
+      text: "This rule is disabled, so it matches no transactions until you enable it in the list."
     };
   }
 
-  if (preview.data.matched === 0) {
+  const total = preview.data.matched + preview.data.manual;
+
+  if (total === 0) {
     return {
-      pending: false,
+      ...empty,
       previewId,
       manual,
-      text: "Would not decide any transactions yet."
+      text: "Matches no transactions yet."
     };
   }
+
+  const matches: RuleMatchList = {
+    total,
+    transactions: preview.data.transactions
+  };
 
   return {
     pending: false,
     previewId,
     manual,
-    text: `Would decide ${formatCountLabel(preview.data.matched, "transaction", "transactions", locale)} without a manual category when rules are applied; ${formatCount(preview.data.uncategorized, locale)} of them ${preview.data.uncategorized === 1 ? "is" : "are"} uncategorized now.`
+    matches,
+    text: `Matches ${formatCountLabel(total, "transaction", "transactions", locale)}`
   };
 }
 
@@ -167,7 +178,7 @@ function RuleForm({
           })
         }));
       }}
-      className={ui["form"]}
+      className={clsx(ui["form"], styles["form"])}
     >
       <label>
         Rule name
@@ -179,7 +190,8 @@ function RuleForm({
           maxLength={100}
         />
       </label>
-      <div className={ui["form-grid"]}>
+      <fieldset className={styles["section"]}>
+        <legend className={styles["section-title"]}>When</legend>
         <label>
           Match type
           <Select name="mode" value={mode} onChange={event => setMode(event.target.value === "regex" ? "regex" : "keyword")}>
@@ -187,51 +199,95 @@ function RuleForm({
             <option value="regex">Regular expression (RE2)</option>
           </Select>
         </label>
-        <label>
-          Matching pattern
-          <input
-            name="pattern"
-            value={pattern}
-            onChange={event => setPattern(event.target.value)}
-            required
-            placeholder="e.g. MARKET"
-            maxLength={500}
+        <PatternField pattern={pattern} mode={mode} onChange={setPattern} />
+      </fieldset>
+      <fieldset className={styles["section"]}>
+        <legend className={styles["section-title"]}>Then</legend>
+        <div className={styles["field"]}>
+          <label htmlFor={categoryFieldId}>Category</label>
+          <CategoryPicker
+            id={categoryFieldId}
+            name="category_id"
+            categories={categories.data ?? []}
+            value={categoryId}
+            onChange={setChosenCategoryId}
           />
-        </label>
-      </div>
-      <div className={ui["field"]}>
-        <label htmlFor={categoryFieldId}>Category</label>
-        <CategoryPicker
-          id={categoryFieldId}
-          name="category_id"
-          categories={categories.data ?? []}
-          value={categoryId}
-          onChange={setChosenCategoryId}
+          {noCategories && (
+            <p className={ui["form-hint"]}>
+              A rule needs a category, and none exist yet.{" "}
+              <button className={ui["text-button"]} type="button" onClick={() => setAddingCategory(true)}>Add a category</button>
+            </p>
+          )}
+        </div>
+        <RuleTypeFields
+          type={type}
+          onTypeChange={setType}
+          accountId={rule?.transfer_account_id ?? ""}
+          accountName={rule?.transfer_account_name ?? null}
         />
-        {noCategories && (
-          <p className={ui["form-hint"]}>
-            A rule needs a category, and none exist yet.{" "}
-            <button className={ui["text-button"]} type="button" onClick={() => setAddingCategory(true)}>Add a category</button>
-          </p>
-        )}
-      </div>
-      <RuleTypeFields
-        type={type}
-        onTypeChange={setType}
-        accountId={rule?.transfer_account_id ?? ""}
-        accountName={rule?.transfer_account_name ?? null}
-      />
+      </fieldset>
       {addingCategory && <CategoryDialog close={() => setAddingCategory(false)} onSaved={setChosenCategoryId} />}
-      <p className={ui["form-hint"]}>Matches the payee and description without case sensitivity. The first matching rule in the list wins; new rules are added at the end.</p>
-      <p className={ui["form-hint"]} role="status" aria-busy={impact.pending}>{impact.text}</p>
+      <p className={ui["visually-hidden"]} role="status" aria-busy={impact.pending}>{impact.text}</p>
+      <div className={styles["impact"]}>
+        {impact.matches ? (
+          <RuleMatches
+            summary={impact.text}
+            matches={impact.matches}
+            categories={categories.data ?? []}
+            categoryId={categoryId}
+            adoptManual={adoption.checked}
+          />
+        ) : <p className={styles["impact-text"]}>{impact.text}</p>}
+      </div>
       <ManualAdoptionOption adoption={adoption} />
-      <p className={ui["form-hint"]}>{adoption.checked ? "Saving also lets this rule decide the chosen manual assignments; other transactions stay unchanged until you apply the rules." : "Existing transactions stay unchanged until you apply the rules. Manual assignments are never changed."}</p>
       <FormError failure={error} />
       <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={pending || !categorySelected || (!rule && !impact.previewId)}>
         {rule ? "Save changes" : "Create rule"} <Sparkles size={16} />
       </button>
       {rule && <DeleteButton label="Delete rule" disabled={pending} onClick={onDelete} />}
     </form>
+  );
+}
+
+/** The full-width pattern, which wraps instead of scrolling so a long regular expression stays readable; patterns are a single line, so Enter submits. */
+function PatternField({
+  pattern,
+  mode,
+  onChange
+}: {
+  pattern: string;
+  mode: Mode;
+  onChange: (pattern: string) => void;
+}) {
+  const fieldId = useId();
+  const hintId = useId();
+
+  return (
+    <div className={styles["field"]}>
+      <label htmlFor={fieldId}>Matching pattern</label>
+      <textarea
+        id={fieldId}
+        name="pattern"
+        className={clsx(styles["pattern"], mode === "regex" && styles["regex"])}
+        value={pattern}
+        onChange={event => onChange(event.target.value.replace(/[\r\n]+/g, ""))}
+        onKeyDown={event => {
+          if (event.key === "Enter" && !event.nativeEvent.isComposing) {
+            event.preventDefault();
+            event.currentTarget.form?.requestSubmit();
+          }
+        }}
+        required
+        rows={1}
+        spellCheck={false}
+        autoCapitalize="off"
+        autoCorrect="off"
+        aria-describedby={hintId}
+        placeholder={mode === "regex" ? "e.g. ^MARKET\\b" : "e.g. MARKET"}
+        maxLength={500}
+      />
+      <span id={hintId} className={styles["hint"]}>Matches payee and description, ignoring case. The first matching rule wins.</span>
+    </div>
   );
 }
 

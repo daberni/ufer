@@ -118,8 +118,22 @@ test("a rule cannot be created without a category, and the form offers to add on
     matched: 2,
     uncategorized: 1,
     manual: 0,
-    manual_same_category: 0
+    manual_same_category: 0,
+    transactions: [{
+      id: "synthetic-market",
+      booking_date: "2000-01-10",
+      amount_minor: -1250,
+      currency: "EUR",
+      payee: "Example Market",
+      description: "",
+      category_id: null,
+      manual: false
+    }]
   }));
+
+  // The count is the collapsed list's summary.
+  assert.equal(screen.getByText("Example Market").closest("details")?.querySelector("summary")?.textContent, "Matches 2 transactions");
+  assert.ok(screen.getByText("Example Market"));
 
   assert.equal(create().disabled, true);
   assert.ok(screen.getByRole("button", {
@@ -293,7 +307,8 @@ test("a rule can set the transfer type and its account, which the form sends wit
     matched: 1,
     uncategorized: 1,
     manual: 0,
-    manual_same_category: 0
+    manual_same_category: 0,
+    transactions: []
   }));
 
   const create = screen.getByRole("button", {

@@ -9,7 +9,7 @@ import { newCategoryColor, type ColoredCategory } from "@/features/categorizatio
 import { activeAccountExists } from "@/features/accounts/server/account-repository";
 import { derivedTransactionType, ruleTransactionTypes } from "@/lib/transaction-types";
 import { categoryExists, deleteCategory as deleteStoredCategory, insertCategory, readCategoryUsage, updateCategory, type CategoryDetails, type CategoryWriteResult } from "./category-repository";
-import { RuleLimitReached, appendRule, deleteRule as deleteStoredRule, findManualAssignments, findRuleTypeableTransactions, findUncorrectedTransactions, insertRule, listRules, saveRuleAssignments, saveRuleOrder, saveRuleTypes, setRuleEnabled, updateRule, type ManualAdoption, type NewRule, type RuleCreationAssignments, type SelectRuleAssignments } from "./rule-repository";
+import { RuleLimitReached, appendRule, deleteRule as deleteStoredRule, findManualAssignments, findPreviewedTransactions, findRuleTypeableTransactions, findUncorrectedTransactions, insertRule, listRules, saveRuleAssignments, saveRuleOrder, saveRuleTypes, setRuleEnabled, updateRule, type ManualAdoption, type NewRule, type PreviewedTransaction, type RuleCreationAssignments, type SelectRuleAssignments } from "./rule-repository";
 import { formatCount } from "@/lib/locale";
 import { currentFormatLocale } from "@/server/http/request-locale";
 
@@ -98,6 +98,31 @@ function decidedByStoredRule(ruleId: string): SelectRuleAssignments {
   };
 }
 
+// The preview lists the newest decided bookings; the counts cover all of them.
+const previewListLimit = 50;
+
+type Dated = {
+  id: string;
+  booking_date: string;
+};
+
+function byNewest(first: Dated, second: Dated) {
+  return second.booking_date.localeCompare(first.booking_date) || first.id.localeCompare(second.id);
+}
+
+function previewedTransaction(transaction: PreviewedTransaction) {
+  return {
+    id: transaction.id,
+    booking_date: transaction.booking_date,
+    amount_minor: transaction.amount_minor,
+    currency: transaction.currency,
+    payee: transaction.payee,
+    description: transaction.description,
+    category_id: transaction.category_id,
+    manual: transaction.category_source === "manual"
+  };
+}
+
 /**
  * Counts the transactions a new rule, or an edited rule in its stored enabled state, would categorize, without storing it. A disabled rule decides nothing. Manual
  * assignments are counted separately: they only follow the rule when a person chooses to return them to automatic categorization.
@@ -135,6 +160,8 @@ export async function previewRule(payload: unknown) {
   const decided = enabled ? decidedBy(draft, storedRules, await findUncorrectedTransactions()) : [];
   const manualAssignments = enabled ? (await findManualAssignments()).filter(entry => entry.id !== sourceTransactionId) : [];
   const decidedManual = decidedBy(draft, storedRules, manualAssignments);
+  const listed = [...decided, ...decidedManual].sort(byNewest).slice(0, previewListLimit);
+  const transactions = await findPreviewedTransactions(listed.map(entry => entry.id));
 
   return {
     id,
@@ -142,7 +169,8 @@ export async function previewRule(payload: unknown) {
     matched: decided.length,
     uncategorized: decided.filter(entry => entry.category_id === null).length,
     manual: decidedManual.length,
-    manual_same_category: decidedManual.filter(entry => categoryId !== undefined && entry.category_id === categoryId).length
+    manual_same_category: decidedManual.filter(entry => categoryId !== undefined && entry.category_id === categoryId).length,
+    transactions: transactions.map(previewedTransaction)
   };
 }
 

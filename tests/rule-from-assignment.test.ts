@@ -193,6 +193,7 @@ async function previewCounts(payload: unknown) {
   const {
     id,
     enabled,
+    transactions: _transactions,
     ...counts
   } = await previewRule(payload);
 

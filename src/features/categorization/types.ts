@@ -37,6 +37,20 @@ export type RulePreview = {
   manual: number;
   /** Those of them that already have the previewed category. */
   manual_same_category: number;
+  /** The newest of the matched and manual transactions, at most 50; the counts cover all of them. */
+  transactions: RulePreviewTransaction[];
+};
+
+export type RulePreviewTransaction = {
+  id: string;
+  booking_date: string;
+  amount_minor: number;
+  currency: string;
+  payee: string;
+  description: string;
+  category_id: string | null;
+  /** A manual assignment, which only follows the rule when a person chooses to adopt it. */
+  manual: boolean;
 };
 
 export type RulePreviewDraft = {

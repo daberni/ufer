@@ -248,14 +248,21 @@ test("previewing an edit counts the edited rule in place of its stored version",
     matched: 0,
     uncategorized: 0,
     manual: 0,
-    manual_same_category: 0
+    manual_same_category: 0,
+    transactions: []
   });
-  assert.deepEqual(await previewRule({
+  const {
+    transactions: listed,
+    ...counts
+  } = await previewRule({
     pattern: "cafe\\b",
     mode: "regex",
     priority: 1,
     rule_id: "rule-market"
-  }), {
+  });
+
+  assert.deepEqual(listed.map(transaction => transaction.id), ["market-manual", "market-rule", "uncategorized-cafe"]);
+  assert.deepEqual(counts, {
     id: "rule-market",
     enabled: true,
     matched: 2,
@@ -361,6 +368,62 @@ test("invalid category deletions change nothing", async context => {
   assert.ok(await db.select().from(schema.categories).where(eq(schema.categories.id, "groceries")).get());
 });
 
+test("a preview lists the newest transactions it counts, marking manual assignments", async context => {
+  const db = await managementDatabase(context);
+  const extra = Array.from({
+    length: 60
+  }, (_, index) => ({
+    id: `extra-${String(index).padStart(2, "0")}`,
+    account_id: "checking",
+    provider_reference: `synthetic-extra-${index}`,
+    booking_date: `2026-02-${String(1 + (index % 28)).padStart(2, "0")}`,
+    amount_minor: -500,
+    currency: "EUR",
+    counterparty: "Harbour Cafe",
+    category_id: null,
+    category_source: "rule" as const,
+    type: "expense" as const
+  }));
+
+  await db.insert(schema.transactions).values(extra);
+
+  const small = await previewRule({
+    pattern: "cafe\\b",
+    mode: "regex",
+    priority: 1,
+    category_id: "groceries"
+  });
+  const listedRule = small.transactions.filter(transaction => !transaction.manual);
+
+  // More matches than the bound: the newest 50 are listed, the counts cover all.
+  assert.equal(small.matched + small.manual, 63);
+  assert.equal(small.transactions.length, 50);
+  assert.ok(small.transactions.every((transaction, index, all) => index === 0 || all[index - 1].booking_date >= transaction.booking_date));
+  assert.ok(listedRule.length <= small.matched);
+
+  const exact = await previewRule({
+    pattern: "corner market",
+    mode: "keyword",
+    priority: 1,
+    category_id: "groceries"
+  });
+
+  assert.equal(exact.transactions.length, exact.matched + exact.manual);
+  assert.equal(exact.transactions.filter(transaction => transaction.manual).length, exact.manual);
+  assert.equal(exact.transactions.filter(transaction => transaction.manual && transaction.category_id === "groceries").length, exact.manual_same_category);
+  assert.equal(exact.transactions.filter(transaction => !transaction.manual && transaction.category_id === null).length, exact.uncategorized);
+  assert.deepEqual(exact.transactions.find(transaction => transaction.manual), {
+    id: "market-manual",
+    booking_date: "2026-01-10",
+    amount_minor: -1000,
+    currency: "EUR",
+    payee: "Corner Market Cafe",
+    description: "",
+    category_id: "groceries",
+    manual: true
+  });
+});
+
 test("an edit preview of a disabled rule decides nothing, as applying the saved edit would", async context => {
   const db = await managementDatabase(context);
   const draft = {
@@ -376,7 +439,8 @@ test("an edit preview of a disabled rule decides nothing, as applying the saved 
     matched: 0,
     uncategorized: 0,
     manual: 0,
-    manual_same_category: 0
+    manual_same_category: 0,
+    transactions: []
   });
 
   // Applying after the saved edit agrees: the disabled rule leaves the cinema booking with its previous category.
