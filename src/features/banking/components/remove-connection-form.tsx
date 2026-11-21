@@ -63,7 +63,7 @@ function RemoveConnectionForm({
         <li>
           <RetainedAccounts accounts={accounts} connection={selectedConnection} />
         </li>
-        <li>These accounts are no longer synced, including scheduled syncs. Their balances stay at the last synced value.</li>
+        <li>These accounts are no longer synced, including scheduled syncs. Each balance remains the sum of the account's bookings.</li>
         <li>Ufer revokes the bank authorization before removing the connection. If that fails, the connection stays and you can try again.</li>
         <li>Connecting the same bank again later continues the kept accounts instead of creating duplicates.</li>
       </ul>
