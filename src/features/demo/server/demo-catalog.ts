@@ -7,29 +7,97 @@ export const demoIdPrefix = "demo-";
 /** Provider reference prefix of seeded transactions, distinct from bank (`bank:`) and CSV references. */
 export const demoReferencePrefix = "demo:";
 
-export type DemoAccountKey = "checking" | "savings" | "creditCard" | "investment" | "property" | "loan";
+export type DemoAccountKey = "checking" | "onlineChecking" | "joint" | "cash" | "savings" | "creditCard" | "investment" | "property" | "car" | "loan";
+
+export type DemoConnectionKey = "riverside" | "meadow" | "harbor";
+
+/** A simulated bank connection: shown as linked, but never synced, so the seed never contacts a provider. */
+export type DemoConnection = {
+  id: string;
+  bankName: string;
+  /** Days before the run date on which the authorization was granted; it stays valid for 180 days. */
+  grantedDaysAgo: number;
+};
+
+export const demoConnections: Record<DemoConnectionKey, DemoConnection> = {
+  riverside: {
+    id: "demo-connection-riverside",
+    bankName: "Riverside Bank",
+    grantedDaysAgo: 64
+  },
+  meadow: {
+    id: "demo-connection-meadow",
+    bankName: "Meadow Direct Bank",
+    grantedDaysAgo: 23
+  },
+  harbor: {
+    id: "demo-connection-harbor",
+    bankName: "Harbor Card Services",
+    grantedDaysAgo: 112
+  }
+};
 
 export type DemoAccountDefinition = {
   id: string;
   name: string;
   kind: AccountKind;
+  /** Bank-connected accounts carry a simulated connection and an invented IBAN with a valid check digit. */
+  bank?: {
+    connection: DemoConnectionKey;
+    iban: string;
+  };
 };
 
 export const demoAccounts: Record<DemoAccountKey, DemoAccountDefinition> = {
   checking: {
     id: "demo-checking",
     name: "Everyday account",
+    kind: "checking",
+    bank: {
+      connection: "riverside",
+      iban: "AT510001040217730501"
+    }
+  },
+  onlineChecking: {
+    id: "demo-online-checking",
+    name: "Online current account",
+    kind: "checking",
+    bank: {
+      connection: "meadow",
+      iban: "AT160002081450962210"
+    }
+  },
+  joint: {
+    id: "demo-joint",
+    name: "Joint household account",
+    kind: "checking",
+    bank: {
+      connection: "riverside",
+      iban: "AT500001040217730519"
+    }
+  },
+  cash: {
+    id: "demo-cash",
+    name: "Cash wallet",
     kind: "checking"
   },
   savings: {
     id: "demo-savings",
     name: "Emergency fund",
-    kind: "savings"
+    kind: "savings",
+    bank: {
+      connection: "riverside",
+      iban: "AT280001040217730527"
+    }
   },
   creditCard: {
     id: "demo-credit-card",
     name: "Travel credit card",
-    kind: "credit_card"
+    kind: "credit_card",
+    bank: {
+      connection: "harbor",
+      iban: "AT020003050093318840"
+    }
   },
   investment: {
     id: "demo-investment",
@@ -39,6 +107,11 @@ export const demoAccounts: Record<DemoAccountKey, DemoAccountDefinition> = {
   property: {
     id: "demo-property",
     name: "Rental flat, Linden Street",
+    kind: "property"
+  },
+  car: {
+    id: "demo-car",
+    name: "Family car",
     kind: "property"
   },
   loan: {
@@ -207,8 +280,8 @@ export const demoRules: DemoRule[] = [{
   enabled: true
 }, {
   id: "demo-rule-transport",
-  name: "Public transport and mobility",
-  pattern: "City Transit|National Rail|ShareDrive|Bike Hub|CityCab",
+  name: "Car, public transport and mobility",
+  pattern: "City Transit|National Rail|ShareDrive|Bike Hub|CityCab|Fuelstop|Motorway Vignette|Autocare Garage",
   mode: "regex",
   categoryId: "transport",
   priority: 52,

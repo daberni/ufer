@@ -190,7 +190,7 @@ test("a saved mapping reproduces the roles, format and still existing choices on
     }]
   ]);
   const choices = rememberedChoices(targets, selections);
-  const template = templateFromMapping(" Bank export ", header, mapping, settings, choices.accounts, choices.categories);
+  const template = templateFromMapping(" Bank export ", header, mapping, settings, choices.accounts, choices.categories, {});
 
   assert.equal(template.name, "Bank export");
   assert.deepEqual(template.settings, {
@@ -357,7 +357,7 @@ test("a repeated header name keeps its role on the same occurrence", () => {
       delimiter: ",",
       decimal: ".",
       dateFormat: "YYYY-MM-DD"
-    }, {}, {}),
+    }, {}, {}, {}),
     id: "two",
     builtIn: false
   };
@@ -474,7 +474,7 @@ test("Buxfer transfers import as transfers, and automatic pairing links both sid
   } = readBuxfer();
   const mapped = mapRows(rows, templateMapping(template!, header), settings, "en").rows;
 
-  assert.deepEqual(mapped.map(row => row.transfer), [false, false, false, true, true, false]);
+  assert.deepEqual(mapped.map(row => row.type === "transfer"), [false, false, false, true, true, false]);
 
   for (const [id, name] of [["checking", "Example Checking"], ["card", "Example Card"]]) {
     await db.insert(schema.accounts).values({

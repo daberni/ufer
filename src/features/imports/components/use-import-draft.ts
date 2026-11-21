@@ -5,10 +5,10 @@ import { activeAccounts, useAccounts } from "@/features/accounts/queries";
 import { useAreaResult } from "@/components/ui/use-area-result";
 import { useCategories } from "@/features/categorization/queries";
 import { useMappedImport, type MappedImportSummary } from "@/features/imports/mutations";
-import { builtInTemplates, matchTemplate, templateConventions, templateMapping, templateSettings, type CsvTemplate } from "@/features/imports/csv-templates";
+import { builtInTemplates, matchTemplate, templateConventions, templateMapping, templateSettings, templateTypeValues, type CsvTemplate } from "@/features/imports/csv-templates";
 import { decodeCsv, detectDelimiter, parseCsv, readCsvTable } from "@/features/imports/csv-reading";
 import { detectDateFormat, detectDecimal } from "@/features/imports/csv-values";
-import { mapRows } from "@/features/imports/import-rows";
+import { mapRows, typeColumnValues, type ImportType, type TypeValues } from "@/features/imports/import-rows";
 import { mappingProblem, suggestMapping, type CsvMapping, type CsvSettings } from "@/features/imports/csv-mapping";
 import { importIdFor } from "@/features/imports/import-batches";
 import { categoryValues, importKey, prepareImport, resolveCategories, resolveTargets, sourceAccounts, templateChoices, type CategorySelection, type TargetChoice } from "@/features/imports/import-plan";
@@ -41,6 +41,8 @@ export function useImportDraft() {
   const [mapping, setMapping] = useState<CsvMapping | null>(null);
   const [targetChoices, setTargetChoices] = useState<Map<string, TargetChoice>>(new Map());
   const [categoryChoices, setCategoryChoices] = useState<Map<string, CategorySelection>>(new Map());
+  // Type choices by lowercase type value over the template's or default type values; null keeps the type that follows the amount.
+  const [typeChoices, setTypeChoices] = useState<Map<string, ImportType | null>>(new Map());
   const [checked, setChecked] = useState<{
     summary: MappedImportSummary;
     key: string;
@@ -63,7 +65,9 @@ export function useImportDraft() {
   // Without a stored mapping (a new file, delimiter or encoding), the suggestion for the current header applies.
   const effectiveMapping = useMemo(() => mapping ?? (table ? suggestMapping(table.header) : null), [mapping, table]);
   const problem = effectiveMapping ? mappingProblem(effectiveMapping) : null;
-  const mapped = useMemo(() => table && effectiveMapping && !mappingProblem(effectiveMapping) && settings ? mapRows(table.rows, effectiveMapping, settings, locale, table.lines, templateConventions(template)) : null, [table, effectiveMapping, settings, locale, template]);
+  const typeValues = useMemo(() => withTypeChoices(templateTypeValues(template), typeChoices), [template, typeChoices]);
+  const typeOptions = useMemo(() => table && effectiveMapping ? typeColumnValues(table.rows, effectiveMapping.type) : [], [table, effectiveMapping]);
+  const mapped = useMemo(() => table && effectiveMapping && !mappingProblem(effectiveMapping) && settings ? mapRows(table.rows, effectiveMapping, settings, locale, table.lines, templateConventions(template), typeValues) : null, [table, effectiveMapping, settings, locale, template, typeValues]);
   const sources = useMemo(() => sourceAccounts(mapped?.rows ?? []), [mapped]);
   // Remembered choices follow the option lists, so a template applied before accounts or categories loaded still restores them.
   const remembered = useMemo(() => template ? templateChoices(template, accountOptions, categories.data ?? []) : null, [template, accountOptions, categories.data]);
@@ -93,6 +97,7 @@ export function useImportDraft() {
     setMapping(null);
     setTargetChoices(new Map());
     setCategoryChoices(new Map());
+    setTypeChoices(new Map());
     setImportId(crypto.randomUUID());
     setConfigurationLocked(false);
     mutation.reset();
@@ -193,6 +198,7 @@ export function useImportDraft() {
     setMapping(templateMapping(chosen, header));
     setTargetChoices(new Map());
     setCategoryChoices(new Map());
+    setTypeChoices(new Map());
   }
 
   /** Lets go of a deleted template: its remembered choices stay as explicit choices, so the draft keeps what it showed, and a later save creates a new template. */
@@ -206,6 +212,12 @@ export function useImportDraft() {
       setCategoryChoices(current => new Map([...remembered.selections, ...current]));
     }
 
+    const keptTypes = Object.keys({
+      ...templateTypeValues(null),
+      ...typeValues
+    }).map(value => [value, typeValues[value] ?? null] as const);
+
+    setTypeChoices(new Map(keptTypes));
     setTemplate(null);
   }
 
@@ -222,6 +234,7 @@ export function useImportDraft() {
     setMapping(table ? suggestMapping(table.header) : null);
     setTargetChoices(new Map());
     setCategoryChoices(new Map());
+    setTypeChoices(new Map());
   }
 
   function updateSettings(change: Partial<CsvSettings>) {
@@ -267,6 +280,11 @@ export function useImportDraft() {
   function chooseCategory(value: string, selection: CategorySelection) {
     setChecked(null);
     setCategoryChoices(current => new Map(current).set(value, selection));
+  }
+
+  function chooseType(value: string, type: ImportType | null) {
+    setChecked(null);
+    setTypeChoices(current => new Map(current).set(value, type));
   }
 
   /** Starts over with an empty page after an import. */
@@ -321,6 +339,10 @@ export function useImportDraft() {
     table,
     mapping: effectiveMapping,
     template,
+    typeValues,
+    typeOptions,
+    hiddenTypeValues: templateConventions(template).hiddenTypes,
+    chooseType,
     // A match that is not applied, because it was switched off or arrived after the file was read.
     offeredTemplate: matchingTemplate && matchingTemplate.id !== template?.id ? matchingTemplate : null,
     templateDismissed,
@@ -443,4 +465,21 @@ function useNavigationGuard(active: boolean) {
       }
     };
   }, [active]);
+}
+
+/** Type values with the person's choices applied; a null choice removes the value's type. */
+function withTypeChoices(base: TypeValues, choices: Map<string, ImportType | null>): TypeValues {
+  const values = {
+    ...base
+  };
+
+  for (const [value, type] of choices) {
+    if (type === null) {
+      delete values[value];
+    } else {
+      values[value] = type;
+    }
+  }
+
+  return values;
 }

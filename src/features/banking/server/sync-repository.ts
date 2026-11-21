@@ -2,7 +2,7 @@ import { anchorOpeningBalance, keepBankOpeningBalanceFirst } from "@/features/ac
 import { comparableBankBalanceTypes } from "@/features/accounts/server/account-queries";
 import { adoptImportedRows } from "@/features/transactions/server/booking-ingestion";
 import { randomUUID } from "node:crypto";
-import { and, count, eq, getTableColumns, isNull, like, ne, sql, type SQLWrapper } from "drizzle-orm";
+import { and, count, eq, getTableColumns, isNull, like, ne, notLike, sql, type SQLWrapper } from "drizzle-orm";
 import { database } from "@/server/database/connection";
 import { timestamp } from "@/lib/time";
 import { accounts, balanceSnapshots, requisitions, syncRuns, transactions } from "@/server/database/schema";
@@ -26,6 +26,9 @@ export function syncRunTransactions(startedAt: string | SQLWrapper) {
 /** Number of transactions a `sync_runs` row inserted. Run counts are derived from it, so the history never reports rows the run cannot show. */
 export const linkedTransactionCount = sql<number>`(SELECT COUNT(*) FROM ${transactions} INNER JOIN ${accounts} ON ${eq(accounts.id, transactions.account_id)} WHERE ${syncRunTransactions(syncRuns.started_at)})`;
 
+/** Demo accounts simulate bank connections and must never be requested from a provider. */
+const demoAccountIds = "demo-%";
+
 /** Linked bank accounts to sync; archived accounts are skipped until restored, when the sync window covers what they missed. */
 export async function listSyncAccounts() {
   const db = await database();
@@ -35,7 +38,7 @@ export async function listSyncAccounts() {
     connection_id: requisitions.id,
     valid_until: requisitions.valid_until,
     connection_status: requisitions.status
-  }).from(accounts).innerJoin(requisitions, eq(requisitions.id, accounts.requisition_id)).where(and(eq(accounts.provider, "enable_banking"), isNull(accounts.archived_at), ne(requisitions.status, "REMOVED")));
+  }).from(accounts).innerJoin(requisitions, eq(requisitions.id, accounts.requisition_id)).where(and(eq(accounts.provider, "enable_banking"), isNull(accounts.archived_at), ne(requisitions.status, "REMOVED"), notLike(accounts.id, demoAccountIds)));
 }
 
 export async function startSyncRun(id: string, started: string) {

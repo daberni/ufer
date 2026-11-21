@@ -13,6 +13,7 @@ import { FileCard } from "./file-card";
 import { TargetAccounts } from "./target-accounts";
 import { ColumnPreview } from "./column-preview";
 import { CategoryChoices } from "./category-choices";
+import { TypeChoices } from "./type-choices";
 import { ImportSummaryBar } from "./import-summary-bar";
 import { SaveTemplate } from "./save-template";
 import { TemplateList } from "./template-list";
@@ -77,6 +78,7 @@ export function CsvImportPage() {
         <>
           <TargetAccounts draft={draft} />
           <ColumnPreview draft={draft} reviewing={reviewing} />
+          {draft.typeOptions.length > 0 && <TypeChoices draft={draft} />}
           {draft.categoryValues.length > 0 && <CategoryChoices draft={draft} />}
           <ImportSummaryBar
             draft={draft}
