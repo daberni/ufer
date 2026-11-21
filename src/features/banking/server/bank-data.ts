@@ -36,7 +36,7 @@ export function normalizeTransactions(transactions: BankTransaction[], ownIbans:
       transfer: Boolean(counterIban && ownIbans.has(counterIban)),
       provider: providerDetails(item, debit)
     };
-    const signature = JSON.stringify([entry.date, entry.amount, entry.currency, entry.counterparty, entry.description]);
+    const signature = JSON.stringify([entry.date, entry.bankBookingDate, entry.amount, entry.currency, entry.counterparty, entry.description]);
     const previous = references.get(entry.reference);
 
     if (previous && previous !== signature) {

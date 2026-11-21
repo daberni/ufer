@@ -93,10 +93,15 @@ export function prepareBooking<T extends Booking>(booking: T): PreparedBooking<T
  */
 export function matchBooking<T extends Booking>(candidate: PreparedBooking<Booking>, prepared: PreparedBookings<T>, available: (index: number) => boolean): number | "ambiguous" {
   const fits = sameAmountInWindow(candidate, prepared, available).filter(index => textsMatch(prepared.bookings[index], candidate));
-  const sameDate = fits.find(index => sameDay(prepared.bookings[index], candidate));
+  const sharing = fits.filter(index => sameDay(prepared.bookings[index], candidate));
 
-  if (sameDate !== undefined) {
-    return sameDate;
+  // Bookings on the very same date are interchangeable, so the first one matches; a date shared only through a bank booking date may belong to either booking.
+  if (sharing.length > 1 && sharing.some(index => bookingDays(prepared.bookings[index]).length > 1 || bookingDays(candidate).length > 1)) {
+    return "ambiguous";
+  }
+
+  if (sharing.length > 0) {
+    return sharing[0];
   }
 
   if (fits.length > 1) {

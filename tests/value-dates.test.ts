@@ -18,6 +18,7 @@ import { importMappedRows } from "../src/features/imports/server/mapped-import-s
 import { readCashFlow } from "../src/features/reports/server/cash-flow-query";
 import { editManualTransaction } from "../src/features/transactions/server/transaction-service";
 import { monthPeriod } from "../src/lib/period";
+import { matchBooking, prepareBooking, prepareBookings } from "../src/lib/booking-matching";
 
 type Globals = {
   budgetDb?: Promise<Database>
@@ -298,68 +299,69 @@ async function databaseBefore0018(context: TestContext) {
   return client;
 }
 
-function payload(bookingDate: string | null, valueDate: string | null) {
-  return JSON.stringify({
-    entry_reference: "synthetic",
-    status: "BOOK",
-    booking_date: bookingDate,
-    value_date: valueDate
-  });
-}
-
-test("the value-date upgrade backfills bank bookings from their payload and keeps every balance", async context => {
+test("the value-date upgrade keeps every row and the next sync moves a redelivered booking to its value date", async context => {
   const client = await databaseBefore0018(context);
 
   await client.batch([
     "INSERT INTO accounts(id,name,institution,kind,provider,provider_uid) VALUES('checking','Synthetic checking','Example bank','checking','enable_banking','synthetic-1')",
-    "INSERT INTO accounts(id,name,institution,kind) VALUES('cash','Synthetic cash','Example institution','savings')",
-    "INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,type) VALUES('opening','checking','manual:opening','2026-10-30',100000,'EUR','opening_balance')",
-    {
-      sql: "INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,type,provider_payload) VALUES('card','checking','bank:card','2026-11-02',-4200,'EUR','expense',?)",
-      args: [payload("2026-11-02", "2026-10-28")]
-    },
-    {
-      sql: "INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,type,provider_payload) VALUES('same','checking','bank:same','2026-11-05',-1000,'EUR','expense',?)",
-      args: [payload("2026-11-05", "2026-11-05")]
-    },
-    {
-      sql: "INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,type,provider_payload) VALUES('no-value','checking','bank:no-value','2026-11-06',-500,'EUR','expense',?)",
-      args: [payload("2026-11-06", null)]
-    },
-    {
-      sql: "INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,type,provider_payload) VALUES('bad-value','checking','bank:bad-value','2026-11-07',-300,'EUR','expense',?)",
-      args: [payload("2026-11-07", "07.11.2026")]
-    },
-    "INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,type) VALUES('no-payload','checking','bank:no-payload','2026-11-08',-200,'EUR','expense')",
-    {
-      sql: "INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,type,transfer_id,provider_payload) VALUES('to-cash','checking','bank:to-cash','2026-11-04',-2000,'EUR','transfer','pair',?)",
-      args: [payload("2026-11-04", "2026-11-03")]
-    },
-    "INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,type,transfer_id) VALUES('from-bank','cash','transfer:to-cash','2026-11-04',2000,'EUR','transfer','pair')",
-    // A CSV row carries no bank payload and keeps its date.
-    "INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,type) VALUES('csv','checking','csv:m:synthetic','2026-11-09',-100,'EUR','expense')"
+    "INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,type) VALUES('opening','checking','manual:opening','2026-10-20',100000,'EUR','opening_balance')",
+    "INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,counterparty,description,type) VALUES('card','checking','bank:card-1','2026-11-02',-4200,'EUR','Example Market','Card payment Example Market 31.10. 16:33','expense')"
   ], "write");
 
-  const balances = "SELECT account_id,SUM(amount_minor) AS balance FROM transactions GROUP BY account_id ORDER BY account_id";
-  const balancesBefore = (await client.execute(balances)).rows;
+  const rows = "SELECT id,amount_minor FROM transactions ORDER BY id";
+  const before = (await client.execute(rows)).rows;
 
   await migrateDatabase(client);
 
-  assert.deepEqual((await client.execute(balances)).rows, balancesBefore);
-
-  const rows = (await client.execute("SELECT id,date,bank_booking_date FROM transactions ORDER BY id")).rows.map(row => [row.id, row.date, row.bank_booking_date]);
-
-  assert.deepEqual(rows, [
-    ["bad-value", "2026-11-07", "2026-11-07"],
-    ["card", "2026-10-28", "2026-11-02"],
-    ["csv", "2026-11-09", null],
-    // The entered counterpart follows the bank booking's new date.
-    ["from-bank", "2026-11-03", null],
-    ["no-payload", "2026-11-08", null],
-    ["no-value", "2026-11-06", "2026-11-06"],
-    // The opening balance moves in front of the payment whose value date moved before it.
-    ["opening", "2026-10-27", null],
-    ["same", "2026-11-05", "2026-11-05"],
-    ["to-cash", "2026-11-03", "2026-11-04"]
+  assert.deepEqual((await client.execute(rows)).rows, before);
+  assert.deepEqual((await client.execute("SELECT id,date,bank_booking_date FROM transactions ORDER BY id")).rows.map(row => [row.id, row.date, row.bank_booking_date]), [
+    ["card", "2026-11-02", null],
+    ["opening", "2026-10-20", null]
   ]);
+
+  const db = useDatabase(context, client);
+
+  await syncBookings([cardPayment], {
+    amount: "958.00",
+    date: "2026-11-03"
+  });
+
+  assert.deepEqual(await storedDates(db), [{
+    reference: "bank:card-1",
+    date: "2026-10-31",
+    bankDate: "2026-11-02"
+  }]);
+  assert.equal((await listAccounts()).find(item => item.id === "checking")?.balance_minor, 95800);
+});
+
+test("a date shared only through a bank booking date with several bookings is ambiguous", () => {
+  const candidate = prepareBooking({
+    date: "2026-11-02",
+    amount: -4200,
+    counterparty: "Example Market",
+    description: ""
+  });
+  const bookings = prepareBookings([{
+    date: "2026-10-31",
+    bankBookingDate: "2026-11-02",
+    amount: -4200,
+    counterparty: "Example Market",
+    description: ""
+  }, {
+    date: "2026-11-02",
+    bankBookingDate: "2026-11-04",
+    amount: -4200,
+    counterparty: "Example Market",
+    description: ""
+  }]);
+
+  assert.equal(matchBooking(candidate, bookings, () => true), "ambiguous");
+  assert.equal(matchBooking(candidate, prepareBookings([bookings.bookings[0]]), () => true), 0);
+});
+
+test("a repeated bank reference with another booking date stops the import", () => {
+  assert.throws(() => normalizeTransactions([cardPayment, {
+    ...cardPayment,
+    booking_date: "2026-11-03"
+  }], new Set()), /different transactions/);
 });
