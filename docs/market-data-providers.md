@@ -27,7 +27,7 @@ Ufer needs two kinds of use, which providers license differently:
 | Provider | Counting | EU / Vienna | Mutual funds | ISIN |
 |---|---|---|---|---|
 | [EODHD](https://eodhd.com/list-of-stock-markets) | 1 call per security; whole-exchange bulk a flat 100 calls, symbol-filtered bulk 100 + 1 per security, paid plans only ([bulk](https://eodhd.com/financial-apis/bulk-api-eod-splits-dividends)) | XETRA, Frankfurt and other German venues, Vienna `VI`; not Lang & Schwarz, gettex or Tradegate | European funds under the virtual exchange `EUFUND` ([EUFUND](https://eodhd.com/exchange/EUFUND)) | Search by ISIN on all plans ([search](https://eodhd.com/financial-apis/search-api-for-stocks-etfs-mutual-funds)) |
-| [Tiingo](https://www.tiingo.com/documentation/end-of-day) | Per request | "Global Securities"; European and Vienna coverage **unverified** | ETFs and mutual funds listed, European funds **unverified** | **Unverified** |
+| [Tiingo](https://www.tiingo.com/products/end-of-day-stock-price-data) | Per request | Not supported: EOD covers US and Chinese exchanges only | US mutual funds only | **Unverified** |
 | [Twelve Data](https://twelvedata.com/exchanges) | 1 credit per symbol; `/batch` charges the sum ([batch](https://twelvedata.com/docs/advanced/batch-requests)) | Vienna listed (Pro or higher); global EOD equities from Grow | **Unverified** | `isin` parameter on all plans ([time series](https://twelvedata.com/docs/market-data/time-series)) |
 | [Marketstack](https://marketstack.com/faq) | 1 request per symbol, up to 100 symbols per call | European and Vienna coverage **unverified** | **Unverified** | **Unverified** |
 | Financial Modeling Prep | **Unverified** (documentation returned HTTP 403) | **Unverified** | **Unverified** | **Unverified** |
@@ -62,13 +62,13 @@ Each instance uses its owner's provider account; Ufer itself never redistributes
 Assessment:
 
 - **EODHD** is the only provider whose public pages confirm German venues, Vienna, European funds and ISIN search on the free plan. A manual test with a free key returned EUR prices for six ETFs on XETRA and two non-ETF funds under `EUFUND` within the daily quota. Failed requests also count against the quota, and fund values are aggregated from several sources (acceptable for approximate values).
-- **Tiingo** has generous limits, but its coverage of European listings is unverified.
+- **Tiingo** has generous limits and a bring-your-own-key program, but its EOD feed covers only US and Chinese exchanges, so it cannot supply the required European listings.
 - **Twelve Data** needs the Pro plan ($99/month) for Vienna.
 - **Marketstack's** free plan covers only about three securities with daily updates, and its European coverage is unverified.
 
 Tiingo's [Developer Program](https://www.tiingo.com/documentation/appendix/developers) explicitly covers software where each user supplies their own Tiingo token: no permission is needed, but Tiingo asks to be notified, requires clear attribution as the data source, forbids redistribution, programmatic logins and tracking of users' API metadata. The other providers do not address this model; their personal terms as written fit a single person using their own key for their own holdings, which should be confirmed in writing before relying on it.
 
-**Recommendation:** EODHD, free plan for current prices, €19.99 plan when longer history is needed for backfilling past purchases. Fallback: Tiingo, whose Developer Program licenses the bring-your-own-key model, if its coverage includes the required European listings.
+**Recommendation:** EODHD, free plan for current prices, €19.99 plan when longer history is needed for backfilling past purchases. Fallback: Twelve Data Pro ($99/month, Vienna included, ISIN lookup), if its European fund coverage holds up; Tiingo does not cover European exchanges.
 
 ## Commercial use
 
@@ -81,7 +81,8 @@ The operator's provider account supplies prices that other people see, directly 
 | EODHD | Custom | From €399/month on request | By individual agreement |
 | [Tiingo](https://www.tiingo.com/about/pricing) | Power, internal commercial | $50/month | Not allowed ("Internal Use Only"); redistribution via sales |
 | [Twelve Data](https://twelvedata.com/pricing-business) | Venture | $149/month, 610 credits/minute | "External display data access" |
-| Twelve Data | Enterprise | Custom | "External distribution market data" |
+| Twelve Data | Enterprise | From $1,099/month | "External distribution market data" |
+| Twelve Data | Enterprise+ | Custom | "White-labeling data access" |
 | [Marketstack](https://marketstack.com/pricing) | Basic and above | From $9.99/month | "Commercial Use" is not defined; display, caching and attribution terms are not public. The APILayer subscription agreement could not be fully read (**unverified**) |
 
 Further constraints:
@@ -110,4 +111,4 @@ Assessment:
 - Whether EODHD and Marketstack permit a self-hosted open-source app where each user brings a personal key (Tiingo does, via its Developer Program).
 - What EODHD's Enterprise "Data services agreement" and custom agreements cost and allow for display to end users; whether `EUFUND` is part of the commercial plans; the price of additional seats.
 - Marketstack's definition of commercial use, display, caching and attribution terms.
-- European coverage and ISIN support for Tiingo and Marketstack; the three free markets on Twelve Data and its European fund coverage; Financial Modeling Prep in general.
+- European coverage and ISIN support for Marketstack; the three free markets on Twelve Data and its European fund coverage; Financial Modeling Prep in general.
