@@ -221,7 +221,7 @@ test("a resync refreshes the original amount and raw JSON of rule-sourced and ma
     entry_reference: "synthetic-2"
   }], new Set());
 
-  await saveAccountSync(db, syncRun("2026-11-12T08:00:00.000Z"), "a", "EUR", balances, first, rules);
+  await saveAccountSync(syncRun("2026-11-12T08:00:00.000Z"), "a", "EUR", balances, first, rules);
   assert.deepEqual(await storedDetails(db), [{
     reference: "bank:synthetic-1",
     category: "groceries",
@@ -248,7 +248,7 @@ test("a resync refreshes the original amount and raw JSON of rule-sourced and ma
     merchant_category_code: "5999"
   } as BankTransaction], new Set());
 
-  await saveAccountSync(db, syncRun("2026-11-13T08:00:00.000Z"), "a", "EUR", balances, second, rules);
+  await saveAccountSync(syncRun("2026-11-13T08:00:00.000Z"), "a", "EUR", balances, second, rules);
   assert.deepEqual(await storedDetails(db), [{
     reference: "bank:synthetic-1",
     category: "leisure",
@@ -270,7 +270,7 @@ test("the transaction list returns the original amount and currency only for boo
   const db = await isolatedDatabase(context);
 
   await db.$client.execute("INSERT INTO accounts(id,environment,name,institution,kind,currency) VALUES('a','SANDBOX','Synthetic checking','Example Bank','checking','EUR')");
-  await saveAccountSync(db, syncRun("2026-11-12T08:00:00.000Z"), "a", "EUR", balances, normalizeTransactions([foreign, {
+  await saveAccountSync(syncRun("2026-11-12T08:00:00.000Z"), "a", "EUR", balances, normalizeTransactions([foreign, {
     ...basic,
     entry_reference: "synthetic-2"
   }], new Set()), rules);

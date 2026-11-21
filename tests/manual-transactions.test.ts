@@ -112,7 +112,7 @@ async function transferLeg(db: Database, accountId: string) {
 
 /** A synced booking on the checking account, as a sync stores it. */
 async function syncBooking(db: Database, reference: string, date: string, amount: number) {
-  await saveAccountSync(db, {
+  await saveAccountSync({
     environment: "SANDBOX",
     startedAt: `${date}T08:00:00.000Z`
   }, "checking", "EUR", [{

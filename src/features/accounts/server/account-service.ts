@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
 import { Temporal } from "temporal-polyfill";
-import { database, type Database } from "@/server/database/connection";
 import { acquireLease, releaseLease } from "@/server/jobs/lease-repository";
 import { environment } from "@/features/banking/server/environment";
 import { syncLeaseName } from "@/features/banking/server/sync-service";
@@ -199,28 +198,26 @@ async function archiveSettled(account: {
   id: string;
   provider: string
 }) {
-  const db = await database();
-
   if (account.provider === "manual") {
-    return archiveSettledAccount(db, account.id, timestamp());
+    return archiveSettledAccount(account.id, timestamp());
   }
 
-  return whileNoSync(db, "Archive the account", () => archiveSettledAccount(db, account.id, timestamp()));
+  return whileNoSync("Archive the account", () => archiveSettledAccount(account.id, timestamp()));
 }
 
 /** Runs a change to a bank account while no sync can write to it. */
-async function whileNoSync<Result>(db: Database, action: string, change: () => Promise<Result>) {
+async function whileNoSync<Result>(action: string, change: () => Promise<Result>) {
   const owner = randomUUID();
   const leaseName = syncLeaseName(environment());
 
-  if (!(await acquireLease(db, leaseName, owner))) {
+  if (!(await acquireLease(leaseName, owner))) {
     throw new HttpError(409, `A sync is running. ${action} after it has finished.`);
   }
 
   try {
     return await change();
   } finally {
-    await releaseLease(db, leaseName, owner);
+    await releaseLease(leaseName, owner);
   }
 }
 
@@ -242,9 +239,7 @@ export async function convertToManualAccount(accountId: string) {
     throw new HttpError(409, "Disconnect the bank before converting this account to a manual account.");
   }
 
-  const db = await database();
-
-  if (!await whileNoSync(db, "Convert the account", () => convertDetachedAccount(db, accountId))) {
+  if (!await whileNoSync("Convert the account", () => convertDetachedAccount(accountId))) {
     throw new HttpError(409, "The account changed meanwhile. Review it and try again.");
   }
 
@@ -273,8 +268,7 @@ export async function deleteAccount(accountId: string, payload: unknown) {
     throw new HttpError(409, "Disconnect the bank before deleting this account; a sync would otherwise restore it.");
   }
 
-  const db = await database();
-  const deleted = account.provider === "manual" ? await deleteUnlinkedAccount(db, accountId) : await whileNoSync(db, "Delete the account", () => deleteUnlinkedAccount(db, accountId));
+  const deleted = account.provider === "manual" ? await deleteUnlinkedAccount(accountId) : await whileNoSync("Delete the account", () => deleteUnlinkedAccount(accountId));
 
   if (!deleted) {
     throw new HttpError(409, "The account changed meanwhile. Review it and try again.");

@@ -2,6 +2,37 @@
 
 All notable changes to Ufer are documented here. Versions follow [Semantic Versioning](https://semver.org/); each release is tagged with its plain version (for example `0.1.0`) on `main`.
 
+## [0.2.0] - 2026-11-21
+
+### Transactions
+
+- Split a transaction into category parts, override or hide imported transactions, record manual transactions, and edit the category, payee and description in the transaction dialog with payee suggestions.
+- Transaction types (including transfers between own accounts) with a type filter; the rule that assigned a category is recorded and can be opened.
+
+### Categories and rules
+
+- Rules can match payee and description overrides and set transaction types and transfer accounts; rules can be reordered, deleted and created from a transaction row, and manual assignments can return to automatic categorization.
+- Color and icon picker panels with a curated icon set and color suggestions from similar categories; categories can be deleted.
+
+### Accounts
+
+- Account details with daily balance history, renaming, changing the account type, archiving (also on bank disconnect) and editing balances.
+- The overview shows the most recently booked accounts with stable loading layouts and simplified period and currency controls.
+
+### Imports
+
+- CSV import page with column roles, account and category mapping, saved mapping templates, Buxfer export detection and Buxfer split transactions imported as split bookings.
+
+### Reports and interface
+
+- Monthly cash flow with mirrored bars, a net line and the savings rate; category panel rows link to their transactions and highlight with the chart.
+- Dark theme with a System, Light or Dark choice, amounts and dates in the browser's locale, a web app manifest for installation, and a shared dialog, popover and searchable select.
+
+### Security and operations
+
+- Content-Security-Policy and security headers, per-client authentication rate limits, server-side session revocation on password change and a security policy.
+- Validated Enable Banking responses, more robust syncs, verified offline backups and preview deployments only for labelled pull requests.
+
 ## [0.1.0] - 2026-11-16
 
 First release of Ufer, a self-hosted personal finance overview for one household.
@@ -44,4 +75,5 @@ First release of Ufer, a self-hosted personal finance overview for one household
 - Deployment on Vercel with a Turso (libSQL) database, versioned SQL migrations, Docker and Compose for self-hosting.
 - Preview deployments for pull requests with a shared synthetic demo dataset (`npm run demo:seed`) and a sandbox bank connection.
 
+[0.2.0]: https://github.com/daberni/ufer/releases/tag/0.2.0
 [0.1.0]: https://github.com/daberni/ufer/releases/tag/0.1.0

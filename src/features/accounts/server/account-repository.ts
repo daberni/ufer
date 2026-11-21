@@ -70,7 +70,13 @@ export async function saveManualValuation(account: {
 const currentBalance = sql`(CASE WHEN ${accounts.provider}='manual' THEN COALESCE((SELECT SUM(t.amount_minor) FROM transactions t WHERE t.account_id=accounts.id AND t.suppressed_at IS NULL),0) ELSE ${accounts.balance_minor} END)`;
 
 /** Archives an active account only if its balance is exactly 0 at the moment of the update; returns whether it was archived. */
-export async function archiveSettledAccount(executor: Pick<Database, "update">, id: string, archivedAt: string) {
+export async function archiveSettledAccount(id: string, archivedAt: string) {
+  const db = await database();
+
+  return archiveIfSettled(db, id, archivedAt);
+}
+
+async function archiveIfSettled(executor: Pick<Database, "update">, id: string, archivedAt: string) {
   const updated = await executor.update(accounts).set({
     archived_at: archivedAt
   }).where(and(eq(accounts.id, id), eq(accounts.environment, environment()), isNull(accounts.archived_at), sql`${currentBalance}=0`)).returning({
@@ -185,7 +191,7 @@ export async function closeAndArchiveManualAccount(account: {
       }
 
       // A concurrent booking leaves a balance other than 0, which refuses the closing and rolls back its booking.
-      if (!await archiveSettledAccount(tx, account.id, archivedAt)) {
+      if (!await archiveIfSettled(tx, account.id, archivedAt)) {
         throw new ClosingRefused("balance_changed");
       }
 
@@ -204,8 +210,10 @@ export async function closeAndArchiveManualAccount(account: {
  * Turns a bank account whose connection was removed into a manual account in one transaction. The last bank balance stays the account's balance through an opening balance, or an adjustment on the later of its date and the latest booking.
  * The bank identity is dropped, so a later connection to the same bank creates a new account instead of syncing into a manual one. Returns whether the account was converted.
  */
-export async function convertDetachedAccount(executor: Database, id: string) {
-  return executor.transaction(async tx => {
+export async function convertDetachedAccount(id: string) {
+  const db = await database();
+
+  return db.transaction(async tx => {
     const detached = and(eq(accounts.id, id), eq(accounts.environment, environment()), eq(accounts.provider, "enable_banking"), isNull(accounts.requisition_id));
     const account = await tx.select({
       id: accounts.id,
@@ -274,8 +282,10 @@ const removedAccountPrefix = "removed:";
  * A linked booking on another account stays with its amount as a transfer without a counterpart; one Ufer created for a deleted booking becomes an ordinary manual entry.
  * Rules and automatic types that named the account as transfer target keep their transfer type with a target that matches no account, so pairing never links them. Returns whether the account was deleted.
  */
-export async function deleteUnlinkedAccount(executor: Database, id: string) {
-  return executor.transaction(async tx => {
+export async function deleteUnlinkedAccount(id: string) {
+  const db = await database();
+
+  return db.transaction(async tx => {
     const unlinked = and(eq(accounts.id, id), eq(accounts.environment, environment()), isNull(accounts.requisition_id));
     const account = await tx.select({
       id: accounts.id

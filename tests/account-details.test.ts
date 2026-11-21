@@ -326,14 +326,14 @@ test("a CSV balance keeps its recorded provenance when the current account balan
 
 
 test("bank balance classification survives resync while derived days and older observations remain unknown", async context => {
-  const db = await seededDatabase(context);
+  await seededDatabase(context);
   const run = {
     environment: "SANDBOX",
     startedAt: "2026-02-01T12:00:00.000Z"
   };
 
   for (const type of ["CLAV", "CLBD"]) {
-    await saveAccountSync(db, run, "checking", "EUR", [{
+    await saveAccountSync(run, "checking", "EUR", [{
       balance_type: type,
       balance_amount: {
         amount: "2053.00",

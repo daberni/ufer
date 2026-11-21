@@ -308,7 +308,7 @@ test("a bank account with an active connection, a manual account or an unknown a
 test("converting waits for a running sync", async context => {
   const db = await seededDatabase(context);
 
-  await acquireLease(db, syncLeaseName("SANDBOX"), "sync");
+  await acquireLease(syncLeaseName("SANDBOX"), "sync");
   await assert.rejects(convertToManualAccount("detached"), {
     status: 409,
     message: "A sync is running. Convert the account after it has finished."
