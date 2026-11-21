@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, apiGet } from "@/client/api";
 import { invalidate } from "@/client/invalidate";
 import { queryKeys } from "@/client/query-keys";
-import type { CsvTemplate } from "./csv-mapping";
+import type { CsvTemplate } from "./csv-templates";
 
 export type TemplateInput = Omit<CsvTemplate, "id" | "builtIn">;
 

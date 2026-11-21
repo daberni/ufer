@@ -1,5 +1,7 @@
 import { categoryNameKey } from "@/lib/category-name";
-import { categoryTags, currencyAllows, rowCategoryValues, maxAccountNameLength, maxCategoryLength, parseAmount, splitCurrency, type CsvTemplate, type DecimalSeparator, type MappedRow } from "./csv-mapping";
+import { categoryTags, rowCategoryValues, maxAccountNameLength, maxCategoryLength, type MappedRow } from "./import-rows";
+import { currencyAllows, parseAmount, splitCurrency, type DecimalSeparator } from "./csv-values";
+import type { CsvTemplate } from "./csv-templates";
 import type { AccountKind } from "@/features/accounts/account-kinds";
 import type { CategoryChoice, ImportTarget } from "./mutations";
 import { formatCount } from "@/lib/locale";

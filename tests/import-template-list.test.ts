@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { act, fireEvent, render } from "@testing-library/react";
 import { createElement } from "react";
-import type { CsvTemplate } from "../src/features/imports/csv-mapping";
+import type { CsvTemplate } from "../src/features/imports/csv-templates";
 import { browser, respond, wait, withQueryClient } from "./fixtures/browser";
 import { stubCssModules } from "./fixtures/css-modules";
 import { queryKeys } from "../src/client/query-keys";

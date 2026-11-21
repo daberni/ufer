@@ -7,11 +7,14 @@ import type { Database } from "../src/server/database/connection";
 import { initializeDatabase } from "../src/server/database/migrations";
 import * as schema from "../src/server/database/schema";
 import { HttpError } from "../src/lib/errors";
-import { builtInTemplates, buxferTemplate, decodeCsv, detectDelimiter, mapRows, matchTemplate, parseCsv, suggestMapping, templateFromMapping, templateLabel, templateMapping, templateSettings, type CsvSettings, type CsvTemplate } from "../src/features/imports/csv-mapping";
+import { builtInTemplates, buxferTemplate, matchTemplate, templateFromMapping, templateConventions, templateLabel, templateMapping, templateSettings, type CsvTemplate } from "../src/features/imports/csv-templates";
+import { decodeCsv, detectDelimiter, parseCsv } from "../src/features/imports/csv-reading";
+import { mapRows } from "../src/features/imports/import-rows";
+import { suggestMapping, type CsvSettings } from "../src/features/imports/csv-mapping";
 import { categoryValues, rememberedChoices, resolveCategories, resolveTargets, sourceAccounts, templateChoices, type CategorySelection, type TargetChoice } from "../src/features/imports/import-plan";
 import { prepareBooking, textsMatch } from "../src/features/imports/server/duplicate-matching";
 import { importMappedRows } from "../src/features/imports/server/mapped-import-service";
-import { assignOccurrences } from "../src/features/imports/csv-mapping";
+import { assignOccurrences } from "../src/features/imports/import-rows";
 import { uniqueWrite } from "../src/features/imports/server/template-repository";
 import { changeTemplate, createTemplate, duplicateTemplate, readTemplates, removeTemplate } from "../src/features/imports/server/template-service";
 
@@ -440,13 +443,17 @@ test("the built-in Buxfer template is listed after saved ones, cannot be renamed
     ...templates[0],
     id: undefined,
     name: undefined,
-    builtIn: undefined
+    builtIn: undefined,
+    conventions: undefined
   }, {
     ...buxferTemplate,
     id: undefined,
     name: undefined,
-    builtIn: undefined
+    builtIn: undefined,
+    conventions: undefined
   });
+  // The copy is stored without conventions and keeps Buxfer's through its header.
+  assert.deepEqual(templateConventions(templates[0]), buxferTemplate.conventions);
   // The editable copy now wins for Buxfer files.
   assert.equal(matchTemplate(buxferTemplate.header, templates)?.id, id);
   await changeTemplate(id, {
