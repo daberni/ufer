@@ -91,16 +91,15 @@ async function seedBookings(context: TestContext) {
   process.env.ENABLE_BANKING_ENVIRONMENT = "SANDBOX";
   await db.insert(schema.accounts).values([{
     id: "checking",
-    environment: "SANDBOX",
     name: "Synthetic checking",
     institution: "Example institution",
     kind: "checking"
   }, {
     id: "elsewhere",
-    environment: "PRODUCTION",
-    name: "Synthetic account in another environment",
+    name: "Synthetic archived account",
     institution: "Example institution",
-    kind: "checking"
+    kind: "checking",
+    archived_at: "2000-01-01T00:00:00.000Z"
   }]);
 
   const bookings: {
@@ -152,7 +151,7 @@ async function seedBookings(context: TestContext) {
       counterparty: "Other payee"
     },
     {
-      id: "other-environment",
+      id: "archived-account",
       counterparty: "Example Market",
       account_id: "elsewhere"
     }

@@ -17,7 +17,7 @@ import { enterManualTransaction, hideTransaction, updateTransactionCategory, upd
 import { listRules } from "../src/features/categorization/server/rule-repository";
 import type { Rule } from "../src/lib/rules";
 import { applyRulesToUncorrectedTransactions, createRule, previewRule } from "../src/features/categorization/server/categorization-service";
-import { pairTransfersInEnvironment } from "../src/features/transactions/server/transfer-repository";
+import { pairAllTransfers } from "../src/features/transactions/server/transfer-repository";
 import { readTransactionPage } from "../src/features/transactions/server/transaction-list-query";
 import { dashboardFilters } from "../src/server/http/dashboard-filters";
 import { monthPeriod } from "../src/lib/period";
@@ -57,14 +57,12 @@ async function isolatedDatabase(context: TestContext) {
   process.env.ENABLE_BANKING_ENVIRONMENT = "SANDBOX";
   await db.insert(schema.accounts).values([{
     id: "checking",
-    environment: "SANDBOX",
     name: "Synthetic checking",
     institution: "Example bank",
     kind: "checking",
     provider: "enable_banking"
   }, {
     id: "savings",
-    environment: "SANDBOX",
     name: "Synthetic savings",
     institution: "Example bank",
     kind: "savings",
@@ -83,9 +81,8 @@ type Booking = {
 };
 
 /** Stores one sync delivery of bookings on a synced account. */
-async function sync(db: Database, accountId: string, bookings: Booking[], rules: Rule[] = []) {
-  await saveAccountSync(db, {
-    environment: "SANDBOX",
+async function sync(accountId: string, bookings: Booking[], rules: Rule[] = []) {
+  await saveAccountSync({
     startedAt: "2026-09-30T08:00:00.000Z"
   }, accountId, "EUR", [{
     balance_type: "CLBD",
@@ -134,7 +131,7 @@ async function expenses() {
 test("a payee and description override survives a resync that changes the bank's text, and restoring the bank's text follows the bank again", async context => {
   const db = await isolatedDatabase(context);
 
-  await sync(db, "checking", [{
+  await sync("checking", [{
     reference: "bank:1",
     date: "2026-09-03",
     amount: -1250,
@@ -148,7 +145,7 @@ test("a payee and description override survives a resync that changes the bank's
     counterparty: "Example Market",
     description: "Weekly groceries"
   });
-  await sync(db, "checking", [{
+  await sync("checking", [{
     reference: "bank:1",
     date: "2026-09-04",
     amount: -1300,
@@ -178,7 +175,7 @@ test("a payee and description override survives a resync that changes the bank's
 test("saving only a type stores no override, and a transaction entered in Ufer is not given one", async context => {
   const db = await isolatedDatabase(context);
 
-  await sync(db, "checking", [{
+  await sync("checking", [{
     reference: "bank:1",
     date: "2026-09-03",
     amount: -1250
@@ -224,13 +221,13 @@ test("a hidden synced booking stays hidden across resyncs and counts toward no c
     amount: -1250
   }];
 
-  await sync(db, "checking", delivery);
+  await sync("checking", delivery);
   assert.equal(await expenses(), 2500);
 
   const duplicate = await byReference(db, "bank:duplicate");
 
   await hideTransaction(duplicate.id, true, now);
-  await sync(db, "checking", delivery);
+  await sync("checking", delivery);
 
   assert.equal(await db.$count(schema.transactions), 2);
   assert.equal((await byReference(db, "bank:duplicate")).suppressed_at, now.toString());
@@ -295,12 +292,12 @@ test("a hidden CSV booking leaves the manual account balance, and importing the 
 test("hiding a linked transfer releases its counterpart, and automatic pairing never links a hidden booking", async context => {
   const db = await isolatedDatabase(context);
 
-  await sync(db, "checking", [{
+  await sync("checking", [{
     reference: "bank:out",
     date: "2026-09-03",
     amount: -5000
   }]);
-  await sync(db, "savings", [{
+  await sync("savings", [{
     reference: "bank:in",
     date: "2026-09-03",
     amount: 5000
@@ -328,18 +325,18 @@ test("hiding a linked transfer releases its counterpart, and automatic pairing n
     type: "transfer",
     transfer_source: "auto"
   });
-  assert.equal(await pairTransfersInEnvironment("SANDBOX"), 0);
+  assert.equal(await pairAllTransfers(), 0);
 });
 
 test("a hidden booking cannot be linked with another booking until it is shown again", async context => {
   const db = await isolatedDatabase(context);
 
-  await sync(db, "checking", [{
+  await sync("checking", [{
     reference: "bank:out",
     date: "2026-09-03",
     amount: -5000
   }]);
-  await sync(db, "savings", [{
+  await sync("savings", [{
     reference: "bank:in",
     date: "2026-09-03",
     amount: 5000
@@ -366,7 +363,7 @@ test("a hidden booking cannot be linked with another booking until it is shown a
 test("untouched source text with surrounding spaces stores no override", async context => {
   const db = await isolatedDatabase(context);
 
-  await sync(db, "checking", [{
+  await sync("checking", [{
     reference: "bank:1",
     date: "2026-09-03",
     amount: -1250,
@@ -389,7 +386,7 @@ test("untouched source text with surrounding spaces stores no override", async c
 test("a file row matching a hidden, overridden synced booking by the bank's text is a duplicate and does not bring it back", async context => {
   const db = await isolatedDatabase(context);
 
-  await sync(db, "checking", [{
+  await sync("checking", [{
     reference: "bank:1",
     date: "2026-09-03",
     amount: -1250,
@@ -430,7 +427,7 @@ test("a file row matching a hidden, overridden synced booking by the bank's text
 
 /** A synced booking whose bank text carries no payee, with a person's payee override that names it. */
 async function overriddenBooking(db: Database, reference = "bank:energy") {
-  await sync(db, "checking", [{
+  await sync("checking", [{
     reference,
     date: "2026-09-05",
     amount: -4200,
@@ -463,7 +460,7 @@ test("a keyword matching only the payee override decides the booking when rules 
 
   assert.equal((await row(db, id))?.category_id, "home");
 
-  await sync(db, "checking", [{
+  await sync("checking", [{
     reference: "bank:energy",
     date: "2026-09-05",
     amount: -4200,

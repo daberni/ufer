@@ -59,7 +59,6 @@ async function syncDatabase(context: TestContext, provider: (db: Database, path:
 
   await db.insert(schema.requisitions).values({
     id: "connection",
-    environment: "SANDBOX",
     bank_name: "Example institution",
     bank_country: "AT",
     status: "LINKED",
@@ -70,7 +69,6 @@ async function syncDatabase(context: TestContext, provider: (db: Database, path:
   for (const id of ["first", "second"]) {
     await db.insert(schema.accounts).values({
       id,
-      environment: "SANDBOX",
       name: `Synthetic ${id}`,
       institution: "Example institution",
       kind: "checking",
@@ -96,7 +94,7 @@ test("a sync that lost its lease aborts without touching accounts or the competi
     // A competing run takes over the lease and marks this run interrupted while the first account syncs.
     await database.update(schema.leases).set({
       owner: "competing-run"
-    }).where(eq(schema.leases.name, syncLeaseName("SANDBOX")));
+    }).where(eq(schema.leases.name, syncLeaseName));
     await database.update(schema.syncRuns).set({
       status: "INTERRUPTED",
       error: "The previous sync was interrupted."
@@ -161,7 +159,7 @@ test("a sync whose lease was taken by another operation records itself as interr
     // Connection removal takes the expired lease without starting a sync run.
     await database.update(schema.leases).set({
       owner: "connection-removal"
-    }).where(eq(schema.leases.name, syncLeaseName("SANDBOX")));
+    }).where(eq(schema.leases.name, syncLeaseName));
 
     return Response.json({
       balances: [],

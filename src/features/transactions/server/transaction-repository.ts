@@ -1,12 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
-import { environment } from "@/features/banking/server/environment";
 import { accounts, transactions } from "@/server/database/schema";
 import type { Rule, RuleAssignment, RuleText } from "@/lib/rules";
 import { derivedTransactionType, type TransactionType } from "@/features/transactions/transaction-types";
 import { refusable, type ManualEntryResult } from "./manual-transaction-repository";
-import { assignRuleDecision, dissolveSplit, dropSplitsOnCurrencyChange, notSplit, splitRefusesType } from "./split-repository";
+import { assignRuleDecision, dissolveSplit, dropSplitsOnCurrencyChange, notSplit, splitRefusesType, writeSplit, type SplitChange } from "./split-repository";
 import type { CategorizedEntry, Entry, ProviderDetails } from "./transaction-entry";
 import { applyTransactionType, dissolveLink, enteredInUfer, findSubject, followImportedCorrections, pairTransfers, releaseOutdatedLinks, touchesArchivedAccount, type TransferTarget } from "./transfer-repository";
 
@@ -111,7 +110,7 @@ export async function setTransactionCategory(id: string, categoryId: string | nu
   const db = await database();
   const owner = await db.select({
     archived_at: accounts.archived_at
-  }).from(transactions).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(and(eq(transactions.id, id), eq(accounts.environment, environment()))).get();
+  }).from(transactions).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(eq(transactions.id, id)).get();
 
   if (owner?.archived_at) {
     return "archived_account" as const;
@@ -119,7 +118,7 @@ export async function setTransactionCategory(id: string, categoryId: string | nu
 
   const scopedAccounts = db.select({
     id: accounts.id
-  }).from(accounts).where(and(eq(accounts.environment, environment()), isNull(accounts.archived_at)));
+  }).from(accounts).where(isNull(accounts.archived_at));
   const scope = and(eq(transactions.id, id), inArray(transactions.account_id, scopedAccounts), notSplit);
   const [assignment] = await db.update(transactions).set({
     category_id: categoryId,
@@ -137,13 +136,13 @@ export async function setTransactionCategory(id: string, categoryId: string | nu
 
 /**
  * Returns a manual assignment to automatic categorization: the category, assigning rule and, for an automatic, unlinked booking, the rule's type and transfer account come from the transaction's source and overridden text, as applying rules would assign them.
- * The rules and the transaction are read in the write transaction that stores the result. Resolves to undefined for a transaction outside the current environment; a booking on an archived account is refused because it is read-only.
+ * The rules and the transaction are read in the write transaction that stores the result. Resolves to undefined for an unknown transaction; a booking on an archived account is refused because it is read-only.
  */
 export async function returnTransactionToRules(id: string, assign: (rules: Rule[], text: RuleText) => RuleAssignment) {
   const db = await database();
   const writableAccounts = db.select({
     id: accounts.id
-  }).from(accounts).where(and(eq(accounts.environment, environment()), isNull(accounts.archived_at)));
+  }).from(accounts).where(isNull(accounts.archived_at));
 
   return db.transaction(async tx => {
     const found = await tx.select({
@@ -152,7 +151,7 @@ export async function returnTransactionToRules(id: string, assign: (rules: Rule[
       description: transactions.description,
       counterparty_override: transactions.counterparty_override,
       description_override: transactions.description_override
-    }).from(transactions).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(and(eq(transactions.id, id), eq(accounts.environment, environment()))).get();
+    }).from(transactions).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(eq(transactions.id, id)).get();
 
     if (!found) {
       return undefined;
@@ -173,7 +172,7 @@ export async function returnTransactionToRules(id: string, assign: (rules: Rule[
 
     // The same decision as applying rules: category, and for an automatic, unlinked booking the rule's type and transfer account, then pairing.
     await assignRuleDecision(tx, id, assign);
-    await pairTransfers(tx, environment());
+    await pairTransfers(tx);
 
     return tx.select({
       id: transactions.id,
@@ -209,7 +208,7 @@ export async function saveTransactionDetails(
   type: TransactionType,
   target: TransferTarget | undefined,
   text: TextOverrides,
-  dropSplit?: (rules: Rule[], text: RuleText) => RuleAssignment
+  splitChange?: SplitChange
 ): Promise<ManualEntryResult> {
   return refusable(async tx => {
     const subject = await findSubject(tx, id);
@@ -223,6 +222,7 @@ export async function saveTransactionDetails(
     }
 
     // Removing the split in the same write transaction lets it take a type a split booking refuses; a refused save keeps the split.
+    const dropSplit = splitChange && "remove" in splitChange ? splitChange.remove : undefined;
     const dissolved = dropSplit ? await dissolveSplit(tx, id, dropSplit) : false;
 
     if (await splitRefusesType(tx, id, type)) {
@@ -254,7 +254,13 @@ export async function saveTransactionDetails(
       await assignRuleDecision(tx, id, dropSplit);
     }
 
-    return applyTransactionType(tx, id, type, target);
+    const result = await applyTransactionType(tx, id, type, target);
+
+    if (result === "saved" && splitChange && "replace" in splitChange) {
+      await writeSplit(tx, id, splitChange.replace);
+    }
+
+    return result;
   });
 }
 

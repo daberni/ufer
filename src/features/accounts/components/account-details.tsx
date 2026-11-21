@@ -17,6 +17,7 @@ import { money } from "@/lib/money";
 import { BankConnectionDialog } from "@/features/banking/components/bank-connection-form";
 import { BalanceHistoryPanel } from "./balance-history";
 import { AccountArchiveAction } from "./account-archive-action";
+import { AccountRemovalActions } from "./account-removal-actions";
 import { ValuationDialog } from "./valuation-form";
 import { bankConnectionsHref } from "@/features/banking/connections-location";
 import type { Area } from "@/components/ui/use-area-result";
@@ -73,7 +74,7 @@ function BackNavigation({ back }: {
   );
 }
 
-/** Shown for an id that is unknown, removed or belongs to another banking environment. */
+/** Shown for an id that is unknown or removed. */
 export function AccountNotFound({ back }: {
   back: BackLink
 }) {
@@ -164,6 +165,7 @@ function AccountSummary({
       )}
       <div className={styles["actions"]}>
         <AccountArchiveAction account={account} />
+        <AccountRemovalActions account={account} />
       </div>
       {connection && <BankConnectionDialog connection={connection} close={closeDialog} />}
       {updatingBalance && <ValuationDialog selectedAccount={account} close={() => setUpdatingBalance(false)} />}

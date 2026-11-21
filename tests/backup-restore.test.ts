@@ -109,7 +109,6 @@ test("a consistent WAL backup restores credentials, manual corrections and bank 
   await client.execute("PRAGMA journal_mode=WAL");
   await db.insert(schema.requisitions).values({
     id: "bank",
-    environment: "SANDBOX",
     bank_name: "Example bank",
     bank_country: "AT",
     status: "LINKED",
@@ -118,7 +117,6 @@ test("a consistent WAL backup restores credentials, manual corrections and bank 
   });
   await db.insert(schema.accounts).values({
     id: "checking",
-    environment: "SANDBOX",
     name: "Synthetic checking",
     institution: "Example bank",
     kind: "checking",
@@ -260,7 +258,6 @@ test("local verification leaves bank keys unchecked unless requested and rejects
   });
   await db.insert(schema.requisitions).values({
     id: "encrypted",
-    environment: "SANDBOX",
     bank_name: "Example bank",
     bank_country: "AT",
     session_cipher: encrypt("synthetic-session")
@@ -332,7 +329,6 @@ test("verification rejects a WAL-backed file whose committed rows are absent fro
   await client.execute("PRAGMA wal_autocheckpoint=0");
   await db.insert(schema.accounts).values({
     id: "wal-only",
-    environment: "SANDBOX",
     name: "Synthetic WAL account",
     institution: "Example bank",
     kind: "checking"

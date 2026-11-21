@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { z } from "zod";
 import { test, type TestContext } from "node:test";
 import { Temporal } from "temporal-polyfill";
@@ -11,7 +12,7 @@ import * as schema from "../src/server/database/schema";
 import { listAccounts } from "../src/features/accounts/server/account-queries";
 import { archiveAccount, restoreAccount } from "../src/features/accounts/server/account-service";
 import { insertRule } from "../src/features/categorization/server/rule-repository";
-import { saveMappedEntries } from "../src/features/imports/server/mapped-import-repository";
+import { saveMappedBatch } from "../src/features/imports/server/mapped-import-repository";
 import { ValidationError } from "../src/lib/errors";
 import { importMappedRows } from "../src/features/imports/server/mapped-import-service";
 import { hideTransaction } from "../src/features/transactions/server/transaction-service";
@@ -85,7 +86,6 @@ async function manualAccount(name: string) {
 
   await db.insert(schema.accounts).values({
     id,
-    environment: "SANDBOX",
     name,
     institution: "Example institution",
     kind: "checking"
@@ -99,7 +99,6 @@ async function manualAccount(name: string) {
 async function insertBankAccount(db: Database) {
   await db.insert(schema.accounts).values({
     id: "synthetic-bank-account",
-    environment: "SANDBOX",
     name: "Synthetic bank account",
     institution: "Example bank",
     kind: "checking",
@@ -298,6 +297,11 @@ test("new accounts are created once per import, on confirmation, across batches 
   assert.equal(accounts.length, 1);
   assert.equal(accounts[0].name, "Closed account");
   assert.equal((await db.select().from(schema.transactions)).length, 2);
+
+  // Accounts created before changeset 0016 were derived with the banking environment, so resuming such an import must find the same account.
+  const hex = createHash("sha256").update(`${process.env.ENABLE_BANKING_ENVIRONMENT || "SANDBOX"}|${importId}|`).digest("hex");
+
+  assert.equal(accounts[0].id, `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`);
 });
 
 test("a later batch never treats rows saved by an earlier batch of the file as duplicates, so check and confirm agree", async context => {
@@ -581,10 +585,9 @@ test("a later bank sync adopts the matching CSV-imported row with its category i
     }],
     confirm: true
   }, now);
-  await startSyncRun(db, "SANDBOX", "adopt", "2026-06-30T08:00:00.000Z");
+  await startSyncRun("adopt", "2026-06-30T08:00:00.000Z");
 
-  const inserted = await saveAccountSync(db, {
-    environment: "SANDBOX",
+  const inserted = await saveAccountSync({
     startedAt: "2026-06-30T08:00:00.000Z"
   }, "synthetic-bank-account", "EUR", [{
     balance_type: "CLBD",
@@ -666,23 +669,29 @@ test("saving rechecks duplicates in its write transaction, so bookings synced af
   });
 
   const {
-    inserted
-  } = await saveMappedEntries("synthetic-bank-account", [{
-    reference: "csv:m:late",
-    date: "2024-07-01",
-    amount: -2500,
-    currency: "EUR",
-    counterparty: "EXAMPLE HARDWARE STORE",
-    description: "",
-    categoryId: null,
-    categorySource: "rule",
-    categoryRuleId: null,
-    ruleType: null,
-    typeRuleId: null,
-    typeTransferAccountId: null,
-    transfer: false,
-    parts: null
-  }], null);
+    results: [{
+      inserted
+    }]
+  } = await saveMappedBatch([{
+    accountId: "synthetic-bank-account",
+    newAccount: null,
+    entries: [{
+      reference: "csv:m:late",
+      date: "2024-07-01",
+      amount: -2500,
+      currency: "EUR",
+      counterparty: "EXAMPLE HARDWARE STORE",
+      description: "",
+      categoryId: null,
+      categorySource: "rule",
+      categoryRuleId: null,
+      ruleType: null,
+      typeRuleId: null,
+      typeTransferAccountId: null,
+      transfer: false,
+      parts: null
+    }]
+  }], []);
 
   assert.equal(inserted, 0);
   assert.equal((await db.select().from(schema.transactions)).length, 1);
@@ -984,7 +993,7 @@ test("a bank entry repeated in one response adopts only one CSV-imported row", a
     }],
     confirm: true
   }, now);
-  await startSyncRun(db, "SANDBOX", "repeat", "2026-06-30T08:00:00.000Z");
+  await startSyncRun("repeat", "2026-06-30T08:00:00.000Z");
 
   const booking = {
     reference: "bank:bistro",
@@ -995,8 +1004,7 @@ test("a bank entry repeated in one response adopts only one CSV-imported row", a
     description: ""
   };
 
-  await saveAccountSync(db, {
-    environment: "SANDBOX",
+  await saveAccountSync({
     startedAt: "2026-06-30T08:00:00.000Z"
   }, "synthetic-bank-account", "EUR", [{
     balance_type: "CLBD",
@@ -1792,33 +1800,6 @@ test("a new account from an import gets the type the person chose", async contex
   }, now));
 });
 
-test("the same file imported as a new account in two banking environments creates one account in each", async context => {
-  const db = await isolatedDatabase(context);
-  const payload = {
-    import_id: importId,
-    rows: [mappedRow(2, "2024-05-01", "-10.00", "Shop")],
-    targets: [{
-      source: "",
-      new_account: {
-        name: "Imported wallet",
-        kind: "checking",
-        currency: "EUR"
-      }
-    }],
-    confirm: true
-  };
-
-  await importMappedRows(payload, now);
-  process.env.ENABLE_BANKING_ENVIRONMENT = "PRODUCTION";
-  await importMappedRows(payload, now);
-
-  const accounts = await db.select().from(schema.accounts);
-  const bookings = await db.select().from(schema.transactions);
-
-  assert.deepEqual(accounts.map(account => account.environment).sort(), ["PRODUCTION", "SANDBOX"]);
-  assert.equal(new Set(bookings.map(booking => booking.account_id)).size, 2);
-});
-
 test("a resumed import must state the opening balance its new account already has", async context => {
   await isolatedDatabase(context);
   const withOpening = (kind: "current" | "start", amount: string) => ({
@@ -1968,4 +1949,105 @@ test("an account archived after the target check receives no imported rows", asy
   });
   assert.ok(interleaved);
   assert.equal((await db.select().from(schema.transactions)).length, 0);
+});
+
+test("a confirmed batch spanning several accounts saves nothing when a later account fails", async context => {
+  const db = await isolatedDatabase(context);
+  const first = await manualAccount("First history");
+  const second = await manualAccount("Second history");
+
+  // Fails the second account's insert, after the first account's rows and the new category were written.
+  await db.$client.execute(`CREATE TRIGGER synthetic_failure BEFORE INSERT ON transactions WHEN NEW.account_id='${second.id}' BEGIN SELECT RAISE(ABORT, 'Synthetic failure'); END`);
+
+  await assert.rejects(importMappedRows({
+    import_id: importId,
+    rows: [mappedRow(2, "2024-06-01", "-1.00", "A", {
+      source: "First",
+      category: "Hobby"
+    }), mappedRow(3, "2024-06-02", "-2.00", "B", {
+      source: "Second"
+    })],
+    targets: [{
+      source: "First",
+      account_id: first.id
+    }, {
+      source: "Second",
+      account_id: second.id
+    }],
+    categories: [{
+      value: "Hobby",
+      action: "create",
+      name: "Synthetic hobbies"
+    }],
+    confirm: true
+  }, now));
+
+  assert.equal((await db.select().from(schema.transactions)).length, 0);
+  assert.equal((await db.select().from(schema.categories)).filter(category => category.name === "Synthetic hobbies").length, 0);
+});
+
+test("a category chosen for creation is created only when a saved row uses it", async context => {
+  const db = await isolatedDatabase(context);
+  const account = await manualAccount("Rejected history");
+  const result = await importMappedRows({
+    import_id: importId,
+    // A future date makes the only row that uses the new category invalid.
+    rows: [mappedRow(2, "2027-01-01", "-1.00", "A", {
+      category: "Hobby"
+    }), mappedRow(3, "2024-06-02", "-2.00", "B")],
+    targets: [{
+      source: "",
+      account_id: account.id
+    }],
+    categories: [{
+      value: "Hobby",
+      action: "create",
+      name: "Synthetic hobbies"
+    }],
+    confirm: true
+  }, now);
+
+  assert.equal(result.newRows, 1);
+  assert.deepEqual(result.createdCategories, []);
+  assert.equal((await db.select().from(schema.categories)).filter(category => category.name === "Synthetic hobbies").length, 0);
+});
+
+test("a category another request creates after the choices are resolved is used but not listed as created", async context => {
+  const db = await isolatedDatabase(context);
+  const account = await manualAccount("Concurrent history");
+  const execute = db.$client.execute.bind(db.$client);
+  let interleaved = false;
+
+  context.mock.method(db.$client, "execute", async (statement: InStatement, args?: InArgs) => {
+    const result = typeof statement === "string" ? await execute(statement, args) : await execute(statement);
+    const text = typeof statement === "string" ? statement : statement.sql;
+
+    if (!interleaved && /^select /i.test(text) && text.includes('from "categories"')) {
+      interleaved = true;
+      await execute("INSERT INTO categories(id,name,color) VALUES ('synthetic-concurrent','synthetic HOBBIES','#123456')");
+    }
+
+    return result;
+  });
+
+  const result = await importMappedRows({
+    import_id: importId,
+    rows: [mappedRow(2, "2024-06-01", "-1.00", "A", {
+      category: "Hobby"
+    })],
+    targets: [{
+      source: "",
+      account_id: account.id
+    }],
+    categories: [{
+      value: "Hobby",
+      action: "create",
+      name: "Synthetic hobbies"
+    }],
+    confirm: true
+  }, now);
+
+  assert.ok(interleaved);
+  assert.deepEqual(result.createdCategories, []);
+  assert.equal((await db.select().from(schema.transactions)).find(booking => booking.counterparty === "A")?.category_id, "synthetic-concurrent");
 });

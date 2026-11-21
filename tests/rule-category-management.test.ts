@@ -114,7 +114,6 @@ async function managementDatabase(context: TestContext) {
   ]);
   await db.insert(schema.accounts).values({
     id: "checking",
-    environment: "SANDBOX",
     name: "Synthetic checking",
     institution: "Example institution",
     kind: "checking"

@@ -66,7 +66,7 @@ The positioning is therefore a simple, continuously maintained overview of money
 | Financial correctness | Exact amounts and quantities, idempotent imports, atomic splits, and manual override preservation must behave the same on both engines |
 | Validation | Run consequential repository behavior tests against both providers before marking PostgreSQL supported |
 
-PostgreSQL is a reasonable target for managed hosting, but a database switch alone does not create a SaaS product. Tenant isolation and authorization must exist at every data access boundary. Current sandbox/production isolation separates provider environments; it is not tenant isolation. Versioned SQLite/libSQL SQL changesets are implemented; no existing user database was upgraded by the refactor. PostgreSQL remains unimplemented. See the [migration workflow](database-migrations.md).
+PostgreSQL is a reasonable target for managed hosting, but a database switch alone does not create a SaaS product. Tenant isolation and authorization must exist at every data access boundary. Each database serves one provider environment (sandbox or production); that separation is not tenant isolation. Versioned SQLite/libSQL SQL changesets are implemented; no existing user database was upgraded by the refactor. PostgreSQL remains unimplemented. See the [migration workflow](database-migrations.md).
 
 ## Free self-hosting and paid managed hosting
 

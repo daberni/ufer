@@ -375,7 +375,9 @@ function RuleTypeLabel({
   }
 
   const label = transactionTypeLabels[type];
-  const text = rule.transfer_account_name ? `${label} · ${rule.transfer_account_name}` : label;
+  // A target without a name belongs to a deleted account.
+  const accountName = rule.transfer_account_id ? rule.transfer_account_name ?? "Deleted account" : null;
+  const text = accountName ? `${label} · ${accountName}` : label;
 
   return (
     <Tooltip text={`Sets type: ${text}`}>

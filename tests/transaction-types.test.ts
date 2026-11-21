@@ -9,7 +9,7 @@ import type { Database } from "../src/server/database/connection";
 import { initializeDatabase } from "../src/server/database/migrations";
 import * as schema from "../src/server/database/schema";
 import { saveAccountSync } from "../src/features/banking/server/account-sync-service";
-import { pairTransfersInEnvironment } from "../src/features/transactions/server/transfer-repository";
+import { pairAllTransfers } from "../src/features/transactions/server/transfer-repository";
 import { unambiguousPairs } from "../src/features/transactions/server/transfer-pairing";
 import { transferOptions, updateTransactionDetails } from "../src/features/transactions/server/transaction-service";
 import { importMappedRows } from "../src/features/imports/server/mapped-import-service";
@@ -51,21 +51,18 @@ async function isolatedDatabase(context: TestContext) {
   process.env.ENABLE_BANKING_ENVIRONMENT = "SANDBOX";
   await db.insert(schema.accounts).values([{
     id: "checking",
-    environment: "SANDBOX",
     name: "Synthetic checking",
     institution: "Example bank",
     kind: "checking",
     provider: "enable_banking"
   }, {
     id: "savings",
-    environment: "SANDBOX",
     name: "Synthetic savings",
     institution: "Example bank",
     kind: "savings",
     provider: "enable_banking"
   }, {
     id: "dollars",
-    environment: "SANDBOX",
     name: "Synthetic dollars",
     institution: "Example bank",
     kind: "checking",
@@ -73,7 +70,6 @@ async function isolatedDatabase(context: TestContext) {
     provider: "enable_banking"
   }, {
     id: "property",
-    environment: "SANDBOX",
     name: "Synthetic flat",
     institution: "Land register",
     kind: "property"
@@ -97,10 +93,9 @@ function saveTransfer(id: string, transfer: {
 let runCounter = 0;
 
 /** Stores one account's bank delivery and then pairs transfers, as a sync does once every account is stored. */
-async function sync(db: Database, accountId: string, entries: Entry[], currency = "EUR") {
+async function sync(accountId: string, entries: Entry[], currency = "EUR") {
   runCounter += 1;
   const run = {
-    environment: "SANDBOX",
     startedAt: `2026-09-30T08:00:${String(runCounter % 60).padStart(2, "0")}.000Z`
   };
   const balances = [{
@@ -112,8 +107,8 @@ async function sync(db: Database, accountId: string, entries: Entry[], currency 
     reference_date: "2026-09-30"
   }];
 
-  await saveAccountSync(db, run, accountId, currency, balances, entries, []);
-  await pairTransfersInEnvironment("SANDBOX");
+  await saveAccountSync(run, accountId, currency, balances, entries, []);
+  await pairAllTransfers();
 }
 
 function entry(reference: string, date: string, amount: number, transfer = false, currency = "EUR"): Entry {
@@ -201,8 +196,8 @@ test("only bookings whose two sides each have exactly one candidate are paired",
 test("synced bookings get a type by direction and detected transfers, and cash flow counts only income and expenses", async context => {
   const db = await isolatedDatabase(context);
 
-  await sync(db, "checking", [entry("salary", "2026-09-01", 300000), entry("market", "2026-09-02", -4500), entry("to-savings", "2026-09-03", -50000, true)]);
-  await sync(db, "savings", [entry("from-checking", "2026-09-03", 50000, true)]);
+  await sync("checking", [entry("salary", "2026-09-01", 300000), entry("market", "2026-09-02", -4500), entry("to-savings", "2026-09-03", -50000, true)]);
+  await sync("savings", [entry("from-checking", "2026-09-03", 50000, true)]);
 
   assert.equal((await stored(db, "salary")).type, "income");
   assert.equal((await stored(db, "market")).type, "expense");
@@ -233,7 +228,7 @@ test("synced bookings get a type by direction and detected transfers, and cash f
 test("automatic pairing needs opposite amounts in one currency on two accounts within three days and exactly one candidate", async context => {
   const db = await isolatedDatabase(context);
 
-  await sync(db, "checking", [
+  await sync("checking", [
     entry("single", "2026-09-01", -10000, true),
     entry("ambiguous", "2026-09-10", -20000, true),
     entry("late", "2026-09-20", -30000, true),
@@ -241,13 +236,13 @@ test("automatic pairing needs opposite amounts in one currency on two accounts w
     entry("same-account-out", "2026-09-26", -5000, true),
     entry("same-account-in", "2026-09-26", 5000)
   ]);
-  await sync(db, "savings", [
+  await sync("savings", [
     entry("single-in", "2026-09-04", 10000),
     entry("ambiguous-in-1", "2026-09-10", 20000, true),
     entry("ambiguous-in-2", "2026-09-11", 20000),
     entry("late-in", "2026-09-24", 30000, true)
   ]);
-  await sync(db, "dollars", [entry("currency-in", "2026-09-25", 40000, true, "USD")], "USD");
+  await sync("dollars", [entry("currency-in", "2026-09-25", 40000, true, "USD")], "USD");
 
   // An income nobody corrected becomes the transfer's incoming side when it is the only match.
   assert.ok(await linked(db, "single", "single-in"));
@@ -266,8 +261,8 @@ test("manual types, links and unlinks survive resync and later pairing", async c
   const checking = [entry("paired-out", "2026-09-01", -10000, true), entry("refund", "2026-09-02", 2500), entry("relinked-out", "2026-09-10", -7000, true)];
   const savings = [entry("paired-in", "2026-09-01", 10000, true), entry("relinked-in-1", "2026-09-10", 7000), entry("relinked-in-2", "2026-09-11", 7000)];
 
-  await sync(db, "checking", checking);
-  await sync(db, "savings", savings);
+  await sync("checking", checking);
+  await sync("savings", savings);
   assert.ok(await linked(db, "paired-out", "paired-in"));
   assert.equal((await stored(db, "relinked-out")).transfer_id, null);
 
@@ -279,8 +274,8 @@ test("manual types, links and unlinks survive resync and later pairing", async c
     counterpart_id: (await stored(db, "relinked-in-2")).id
   });
 
-  await sync(db, "checking", checking);
-  await sync(db, "savings", savings);
+  await sync("checking", checking);
+  await sync("savings", savings);
 
   assert.equal((await stored(db, "paired-out")).transfer_id, null);
   assert.equal((await stored(db, "paired-out")).type, "transfer");
@@ -293,8 +288,8 @@ test("manual types, links and unlinks survive resync and later pairing", async c
 test("leaving the transfer type corrects both linked bookings together", async context => {
   const db = await isolatedDatabase(context);
 
-  await sync(db, "checking", [entry("out", "2026-09-01", -10000, true)]);
-  await sync(db, "savings", [entry("in", "2026-09-01", 10000, true)]);
+  await sync("checking", [entry("out", "2026-09-01", -10000, true)]);
+  await sync("savings", [entry("in", "2026-09-01", 10000, true)]);
   await updateTransactionDetails((await stored(db, "out")).id, {
     type: "expense"
   });
@@ -308,7 +303,7 @@ test("leaving the transfer type corrects both linked bookings together", async c
 test("a transfer to a manual account creates its counterpart there, and unlinking removes it again", async context => {
   const db = await isolatedDatabase(context);
 
-  await sync(db, "checking", [entry("deposit", "2026-09-15", -2500000)]);
+  await sync("checking", [entry("deposit", "2026-09-15", -2500000)]);
   const deposit = await stored(db, "deposit");
   const options = await transferOptions(deposit.id);
 
@@ -350,7 +345,7 @@ test("a transfer to a manual account creates its counterpart there, and unlinkin
 test("opening balances and adjustments are refused for bank-synced bookings", async context => {
   const db = await isolatedDatabase(context);
 
-  await sync(db, "checking", [entry("synced", "2026-09-01", -100)]);
+  await sync("checking", [entry("synced", "2026-09-01", -100)]);
   await assert.rejects(updateTransactionDetails((await stored(db, "synced")).id, {
     type: "adjustment"
   }), ValidationError);
@@ -364,12 +359,11 @@ test("a CSV import pairs its bookings with an unpaired transfer of a synced acco
 
   await db.insert(schema.accounts).values({
     id: "cash",
-    environment: "SANDBOX",
     name: "Synthetic cash",
     institution: "Wallet",
     kind: "savings"
   });
-  await sync(db, "checking", [entry("withdrawal", "2026-09-01", -20000, true)]);
+  await sync("checking", [entry("withdrawal", "2026-09-01", -20000, true)]);
   await importCashRow("2026-09-02", "200.00");
 
   const cash = await db.select().from(schema.transactions).where(eq(schema.transactions.account_id, "cash")).get();
@@ -386,14 +380,13 @@ for (const [accounts, paired] of [[["cash", "wallet"], false], [["cash"], true]]
     for (const id of ["cash", "wallet"]) {
       await db.insert(schema.accounts).values({
         id,
-        environment: "SANDBOX",
         name: `Synthetic ${id}`,
         institution: "Wallet",
         kind: "savings"
       });
     }
 
-    await sync(db, "checking", [entry("withdrawal", "2026-09-01", -20000, true)]);
+    await sync("checking", [entry("withdrawal", "2026-09-01", -20000, true)]);
 
     for (const [index, account] of accounts.entries()) {
       await importMappedRows({
@@ -449,8 +442,7 @@ test("detected transfers are categorized by rules like any other booking and the
     description: "Standing order"
   };
 
-  await saveAccountSync(db, {
-    environment: "SANDBOX",
+  await saveAccountSync({
     startedAt: "2026-09-30T09:00:00.000Z"
   }, "checking", "EUR", balances, [standingOrder, entry("unmatched", "2026-09-03", -20000, true), entry("market", "2026-09-04", -4500)], rules);
 
@@ -466,7 +458,7 @@ test("detected transfers are categorized by rules like any other booking and the
 test("leaving the transfer type on a booking Ufer created on a manual account removes it and corrects its source", async context => {
   const db = await isolatedDatabase(context);
 
-  await sync(db, "checking", [entry("deposit", "2026-09-15", -2500000)]);
+  await sync("checking", [entry("deposit", "2026-09-15", -2500000)]);
   await saveTransfer((await stored(db, "deposit")).id, {
     account_id: "property"
   });
@@ -486,9 +478,9 @@ test("leaving the transfer type on a booking Ufer created on a manual account re
 test("linking accepts only the bookings the dialog offers: the exact opposite amount in the same currency within 14 days", async context => {
   const db = await isolatedDatabase(context);
 
-  await sync(db, "checking", [entry("out", "2026-09-01", -10000)]);
-  await sync(db, "savings", [entry("smaller", "2026-09-02", 9999), entry("late", "2026-09-16", 10000), entry("in-window", "2026-09-15", 10000)]);
-  await sync(db, "dollars", [entry("dollars", "2026-09-02", 10000, false, "USD")], "USD");
+  await sync("checking", [entry("out", "2026-09-01", -10000)]);
+  await sync("savings", [entry("smaller", "2026-09-02", 9999), entry("late", "2026-09-16", 10000), entry("in-window", "2026-09-15", 10000)]);
+  await sync("dollars", [entry("dollars", "2026-09-02", 10000, false, "USD")], "USD");
   const out = (await stored(db, "out")).id;
 
   for (const reference of ["dollars", "smaller", "late"]) {
@@ -509,8 +501,8 @@ test("one save moves a transfer between a booking, a manual account and no count
   const db = await isolatedDatabase(context);
   const createdOnFlat = async () => db.select().from(schema.transactions).where(eq(schema.transactions.account_id, "property"));
 
-  await sync(db, "checking", [entry("out", "2026-09-01", -10000, true)]);
-  await sync(db, "savings", [entry("in", "2026-09-01", 10000, true)]);
+  await sync("checking", [entry("out", "2026-09-01", -10000, true)]);
+  await sync("savings", [entry("in", "2026-09-01", 10000, true)]);
   const out = (await stored(db, "out")).id;
 
   assert.ok(await linked(db, "out", "in"));
@@ -552,14 +544,13 @@ test("choosing no counterpart marks the transfer as manually unlinked, so neithe
 
   await db.insert(schema.accounts).values({
     id: "cash",
-    environment: "SANDBOX",
     name: "Synthetic cash",
     institution: "Wallet",
     kind: "savings"
   });
   // Neither booking is a transfer yet, so nothing pairs them before the person decides.
-  await sync(db, "checking", [entry("out", "2026-09-01", -10000)]);
-  await sync(db, "savings", [entry("in", "2026-09-02", 10000)]);
+  await sync("checking", [entry("out", "2026-09-01", -10000)]);
+  await sync("savings", [entry("in", "2026-09-02", 10000)]);
   await saveTransfer((await stored(db, "out")).id, null);
 
   const out = await stored(db, "out");
@@ -567,8 +558,8 @@ test("choosing no counterpart marks the transfer as manually unlinked, so neithe
   assert.deepEqual([out.type, out.transfer_id, out.transfer_source], ["transfer", null, "manual"]);
   assert.equal((await stored(db, "in")).transfer_id, null);
 
-  await sync(db, "checking", [entry("out", "2026-09-01", -10000)]);
-  await sync(db, "savings", [entry("in", "2026-09-02", 10000)]);
+  await sync("checking", [entry("out", "2026-09-01", -10000)]);
+  await sync("savings", [entry("in", "2026-09-02", 10000)]);
   await importCashRow("2026-09-01", "100.00");
 
   assert.equal((await stored(db, "out")).transfer_id, null);
@@ -579,7 +570,7 @@ test("a booking Ufer created on a manual account keeps its source link or is rem
   const db = await isolatedDatabase(context);
   const onFlat = async () => db.select().from(schema.transactions).where(eq(schema.transactions.account_id, "property"));
 
-  await sync(db, "checking", [entry("deposit", "2026-09-15", -2500000), entry("other-out", "2026-09-16", -2500000)]);
+  await sync("checking", [entry("deposit", "2026-09-15", -2500000), entry("other-out", "2026-09-16", -2500000)]);
   await saveTransfer((await stored(db, "deposit")).id, {
     account_id: "property"
   });
@@ -610,11 +601,11 @@ test("a booking Ufer created on a manual account keeps its source link or is rem
 test("a redelivered booking whose sign changed releases its link instead of failing the sync", async context => {
   const db = await isolatedDatabase(context);
 
-  await sync(db, "checking", [entry("out", "2026-09-01", -10000, true)]);
-  await sync(db, "savings", [entry("in", "2026-09-01", 10000, true)]);
+  await sync("checking", [entry("out", "2026-09-01", -10000, true)]);
+  await sync("savings", [entry("in", "2026-09-01", 10000, true)]);
   assert.ok(await linked(db, "out", "in"));
 
-  await sync(db, "checking", [entry("out", "2026-09-01", 10000)]);
+  await sync("checking", [entry("out", "2026-09-01", 10000)]);
 
   const [out, incoming] = [await stored(db, "out"), await stored(db, "in")];
 
@@ -625,14 +616,14 @@ test("a redelivered booking whose sign changed releases its link instead of fail
 test("a redelivered amount that no longer matches releases a link between imported bookings, and a counterpart created on a manual account follows it", async context => {
   const db = await isolatedDatabase(context);
 
-  await sync(db, "checking", [entry("out", "2026-09-01", -10000, true), entry("deposit", "2026-09-15", -2500000)]);
-  await sync(db, "savings", [entry("in", "2026-09-01", 10000, true)]);
+  await sync("checking", [entry("out", "2026-09-01", -10000, true), entry("deposit", "2026-09-15", -2500000)]);
+  await sync("savings", [entry("in", "2026-09-01", 10000, true)]);
   await saveTransfer((await stored(db, "deposit")).id, {
     account_id: "property"
   });
   assert.ok(await linked(db, "out", "in"));
 
-  await sync(db, "checking", [entry("out", "2026-09-01", -9000, true), entry("deposit", "2026-09-15", -2400000)]);
+  await sync("checking", [entry("out", "2026-09-01", -9000, true), entry("deposit", "2026-09-15", -2400000)]);
 
   assert.equal((await stored(db, "out")).transfer_id, null);
   assert.equal((await stored(db, "in")).transfer_id, null);
@@ -643,10 +634,10 @@ test("a redelivered amount that no longer matches releases a link between import
   assert.equal((await stored(db, "deposit")).type, "transfer");
 
   // An unchanged redelivery keeps a link.
-  await sync(db, "checking", [entry("out", "2026-09-01", -10000, true)]);
-  await sync(db, "savings", [entry("in", "2026-09-01", 10000, true)]);
+  await sync("checking", [entry("out", "2026-09-01", -10000, true)]);
+  await sync("savings", [entry("in", "2026-09-01", 10000, true)]);
   assert.ok(await linked(db, "out", "in"));
-  await sync(db, "checking", [entry("out", "2026-09-01", -10000, true)]);
+  await sync("checking", [entry("out", "2026-09-01", -10000, true)]);
   assert.ok(await linked(db, "out", "in"));
 });
 

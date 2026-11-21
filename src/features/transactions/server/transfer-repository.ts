@@ -1,15 +1,22 @@
 import { randomUUID } from "node:crypto";
-import { and, asc, eq, inArray, isNotNull, isNull, ne, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull, isNull, ne, sql, type AnyColumn } from "drizzle-orm";
+import { alias } from "drizzle-orm/sqlite-core";
 import { database, type Database, type DatabaseTransaction } from "@/server/database/connection";
-import { environment } from "@/features/banking/server/environment";
 import { accounts, transactions } from "@/server/database/schema";
 import { derivedTransactionType, manualAccountTypes, type TransactionType } from "@/features/transactions/transaction-types";
 import type { TransferBooking, TransferOptions } from "@/features/transactions/types";
 import type { CategorizedEntry } from "./transaction-entry";
-import { notSplit, notSplitSql } from "./split-repository";
+import { notSplit, notSplitBooking } from "./split-repository";
 import { automaticPairingDays, manualLinkDays, unambiguousPairs, type PairingCandidate } from "./transfer-pairing";
 
 type Executor = Database | DatabaseTransaction;
+
+type Booking = Record<"id" | "account_id" | "amount_minor" | "suppressed_at" | "transfer_id" | "transfer_source" | "type" | "type_source" | "type_rule_id" | "type_transfer_account_id", AnyColumn>;
+
+const anchor = alias(transactions, "anchor");
+const other = alias(transactions, "other");
+const candidate = alias(transactions, "candidate");
+const booking = alias(transactions, "booking");
 
 /** Counterparts created on a manual account carry the source booking's id in this reference; unlinking removes them again. */
 export const createdCounterpartPrefix = "transfer:";
@@ -18,13 +25,13 @@ export const createdCounterpartPrefix = "transfer:";
 export const manualEntryPrefix = "manual:";
 
 // Bookings automatic pairing may link: visible, unlinked, not split, never linked or unlinked by a person, and either a transfer or an income or expense that neither a person nor a rule set.
-function pairable(alias: string) {
-  return sql.raw(`${alias}.suppressed_at IS NULL AND ${alias}.transfer_id IS NULL AND ${alias}.transfer_source='auto' AND ${alias}.amount_minor<>0 AND ${notSplitSql(alias)} AND (${alias}.type='transfer' OR (${alias}.type_source='auto' AND ${alias}.type_rule_id IS NULL AND ${alias}.type IN ('income','expense')))`);
+function pairable(booking: Booking) {
+  return sql`${booking.suppressed_at} IS NULL AND ${booking.transfer_id} IS NULL AND ${booking.transfer_source}='auto' AND ${booking.amount_minor}<>0 AND ${notSplitBooking(booking)} AND (${booking.type}='transfer' OR (${booking.type_source}='auto' AND ${booking.type_rule_id} IS NULL AND ${booking.type} IN ('income','expense')))`;
 }
 
 // A booking whose rule names the transfer's account pairs only with a booking on that account. A rule naming the booking's own account, as for the other leg of the same transfer, does not constrain it.
-function allowedByRule(alias: string, otherAlias: string) {
-  return sql.raw(`(${alias}.type_transfer_account_id IS NULL OR ${alias}.type_transfer_account_id=${alias}.account_id OR ${alias}.type_transfer_account_id=${otherAlias}.account_id)`);
+function allowedByRule(booking: Booking, other: Booking) {
+  return sql`(${booking.type_transfer_account_id} IS NULL OR ${booking.type_transfer_account_id}=${booking.account_id} OR ${booking.type_transfer_account_id}=${other.account_id})`;
 }
 
 function windowStart(days: number) {
@@ -36,10 +43,10 @@ function windowEnd(days: number) {
 }
 
 /**
- * Links the bookings of transfers between own accounts that match unambiguously: opposite amounts in the same currency on two accounts of this environment, at most three days apart, with at least one side already a transfer.
+ * Links the bookings of transfers between own accounts that match unambiguously: opposite amounts in the same currency on two own accounts, at most three days apart, with at least one side already a transfer.
  * Bookings with more than one candidate stay unpaired. Returns the number of transfers linked.
  */
-export async function pairTransfers(executor: DatabaseTransaction, bankingEnvironment: string) {
+export async function pairTransfers(executor: DatabaseTransaction) {
   // The anchor is a transfer; a transfer on the other side is reported once, from its outgoing booking.
   const rows = await executor.all<{
     anchor_id: string;
@@ -54,16 +61,14 @@ export async function pairTransfers(executor: DatabaseTransaction, bankingEnviro
       AND other.currency=anchor.currency
       AND other.account_id<>anchor.account_id
     JOIN accounts other_account ON other_account.id=other.account_id
-    WHERE anchor_account.environment=${bankingEnvironment}
-    AND other_account.environment=${bankingEnvironment}
-    AND anchor_account.archived_at IS NULL
+    WHERE anchor_account.archived_at IS NULL
     AND other_account.archived_at IS NULL
     AND anchor.type='transfer'
-    AND ${pairable("anchor")}
-    AND ${pairable("other")}
+    AND ${pairable(anchor)}
+    AND ${pairable(other)}
     AND (other.type<>'transfer' OR anchor.amount_minor<0)
-    AND ${allowedByRule("anchor", "other")}
-    AND ${allowedByRule("other", "anchor")}
+    AND ${allowedByRule(anchor, other)}
+    AND ${allowedByRule(other, anchor)}
   `);
   const candidates: PairingCandidate[] = rows.map(row => Number(row.anchor_amount) < 0 ? {
     outgoingId: String(row.anchor_id),
@@ -86,7 +91,7 @@ export async function pairTransfers(executor: DatabaseTransaction, bankingEnviro
     await executor.run(sql`UPDATE transactions SET type='transfer',transfer_id=CASE id ${sql.join(cases, sql` `)} END WHERE id IN (${sql.join(ids.map(id => sql`${id}`), sql`,`)})`);
   }
 
-  await createRuleCounterparts(executor, bankingEnvironment);
+  await createRuleCounterparts(executor);
 
   return pairs.length;
 }
@@ -95,7 +100,7 @@ export async function pairTransfers(executor: DatabaseTransaction, bankingEnviro
  * Creates the counterpart of each unlinked transfer whose rule names a manual account, as a person does in the edit dialog, and links both automatically. Runs after pairing, so a booking already on that account is linked instead; while a booking there could still pair, for example when pairing found it ambiguous, none is created.
  * The counterpart's reference carries its source's id, so a booking never receives a second created counterpart.
  */
-async function createRuleCounterparts(tx: DatabaseTransaction, bankingEnvironment: string) {
+async function createRuleCounterparts(tx: DatabaseTransaction) {
   const targets = await tx.all<{
     id: string;
     account_id: string;
@@ -104,9 +109,7 @@ async function createRuleCounterparts(tx: DatabaseTransaction, bankingEnvironmen
     FROM transactions booking
     JOIN accounts own ON own.id=booking.account_id
     JOIN accounts target ON target.id=booking.type_transfer_account_id
-    WHERE own.environment=${bankingEnvironment}
-    AND target.environment=${bankingEnvironment}
-    AND target.provider='manual'
+    WHERE target.provider='manual'
     AND target.archived_at IS NULL
     AND own.archived_at IS NULL
     AND target.id<>booking.account_id
@@ -123,8 +126,8 @@ async function createRuleCounterparts(tx: DatabaseTransaction, bankingEnvironmen
       AND candidate.booking_date BETWEEN date(booking.booking_date,${windowStart(automaticPairingDays)}) AND date(booking.booking_date,${windowEnd(automaticPairingDays)})
       AND candidate.amount_minor=-booking.amount_minor
       AND candidate.currency=booking.currency
-      AND ${pairable("candidate")}
-      AND ${allowedByRule("candidate", "booking")}
+      AND ${pairable(candidate)}
+      AND ${allowedByRule(candidate, booking)}
     )
   `);
 
@@ -137,11 +140,11 @@ async function createRuleCounterparts(tx: DatabaseTransaction, bankingEnvironmen
   }
 }
 
-/** Pairs transfers across this environment in one transaction, for example after a sync has stored every account. */
-export async function pairTransfersInEnvironment(bankingEnvironment: string) {
+/** Pairs transfers across every account in one transaction, for example after a sync has stored every account. */
+export async function pairAllTransfers() {
   const db = await database();
 
-  return db.transaction(tx => pairTransfers(tx, bankingEnvironment));
+  return db.transaction(tx => pairTransfers(tx));
 }
 
 const subjectColumns = {
@@ -163,15 +166,15 @@ const subjectColumns = {
 
 export type Subject = NonNullable<Awaited<ReturnType<typeof findSubject>>>;
 
-/** Bookings a person can link with `subject`: unlinked, not split, the exact opposite amount in the same currency, on another active account of this environment, within the manual link window. The dialog offers only these and linking accepts only these. */
+/** Bookings a person can link with `subject`: unlinked, not split, the exact opposite amount in the same currency, on another active account, within the manual link window. The dialog offers only these and linking accepts only these. */
 function linkCandidate(subject: Subject) {
   const inWindow = sql`${transactions.booking_date} BETWEEN date(${subject.booking_date},${windowStart(manualLinkDays)}) AND date(${subject.booking_date},${windowEnd(manualLinkDays)})`;
 
-  return and(eq(accounts.environment, environment()), isNull(accounts.archived_at), ne(transactions.account_id, subject.account_id), eq(transactions.amount_minor, -subject.amount_minor), eq(transactions.currency, subject.currency), sql`${transactions.transfer_id} IS NULL`, sql`${transactions.suppressed_at} IS NULL`, sql`${transactions.amount_minor}<>0`, notSplit, inWindow);
+  return and(isNull(accounts.archived_at), ne(transactions.account_id, subject.account_id), eq(transactions.amount_minor, -subject.amount_minor), eq(transactions.currency, subject.currency), sql`${transactions.transfer_id} IS NULL`, sql`${transactions.suppressed_at} IS NULL`, sql`${transactions.amount_minor}<>0`, notSplit, inWindow);
 }
 
 export async function findSubject(executor: Executor, id: string) {
-  return executor.select(subjectColumns).from(transactions).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(and(eq(transactions.id, id), eq(accounts.environment, environment()))).get();
+  return executor.select(subjectColumns).from(transactions).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(eq(transactions.id, id)).get();
 }
 
 // Changing a linked booking can rewrite, unlink or delete its counterpart, so a link to an archived account keeps both sides read-only.
@@ -294,7 +297,7 @@ async function findManualTarget(tx: DatabaseTransaction, accountId: string) {
     id: accounts.id,
     name: accounts.name,
     currency: accounts.currency
-  }).from(accounts).where(and(eq(accounts.id, accountId), eq(accounts.environment, environment()), eq(accounts.provider, "manual"), isNull(accounts.archived_at))).get();
+  }).from(accounts).where(and(eq(accounts.id, accountId), eq(accounts.provider, "manual"), isNull(accounts.archived_at))).get();
 }
 
 /**
@@ -623,7 +626,7 @@ async function changeType(tx: DatabaseTransaction, id: string, type: Transaction
 
     // Only a booking nobody linked or unlinked is paired automatically; pairing skips manual link decisions.
     if (!subject.transfer_id) {
-      await pairTransfers(tx, environment());
+      await pairTransfers(tx);
     }
 
     return "saved";
@@ -687,7 +690,7 @@ export async function readTransferOptions(id: string): Promise<TransferOptions |
   const manualAccounts = subject.amount_minor === 0 ? [] : await db.select({
     id: accounts.id,
     name: accounts.name
-  }).from(accounts).where(and(eq(accounts.environment, environment()), eq(accounts.provider, "manual"), isNull(accounts.archived_at), eq(accounts.currency, subject.currency), ne(accounts.id, subject.account_id))).orderBy(asc(accounts.name));
+  }).from(accounts).where(and(eq(accounts.provider, "manual"), isNull(accounts.archived_at), eq(accounts.currency, subject.currency), ne(accounts.id, subject.account_id))).orderBy(asc(accounts.name));
 
   return {
     counterpart: counterpart ? transferBooking(counterpart) : null,

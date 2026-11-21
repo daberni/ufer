@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, sql, type AnyColumn } from "drizzle-orm";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
-import { environment } from "@/features/banking/server/environment";
 import { accounts, categories, categorizationRules, transactionSplits, transactions } from "@/server/database/schema";
 import { ValidationError } from "@/lib/errors";
 import type { Rule, RuleAssignment, RuleText } from "@/lib/rules";
@@ -10,6 +9,13 @@ import type { SplitPart } from "@/features/transactions/types";
 import { assertWritableAccount } from "@/features/accounts/server/writable-account";
 import type { Entry } from "./transaction-entry";
 import { pairTransfers } from "./transfer-repository";
+
+/** A split change saved in the same write as a booking's details: remove the parts and return the booking to its rules, or replace them with the parts the decision validates against the booking as saved. */
+export type SplitChange = {
+  remove: (rules: Rule[], text: RuleText) => RuleAssignment;
+} | {
+  replace: (subject: SplitSubject) => SplitPartValues[];
+};
 
 /** The booking a split divides, as the split's validation needs it. */
 export type SplitSubject = {
@@ -25,19 +31,21 @@ export type SplitPartValues = {
   note: string;
 };
 
-/** SQL for bookings whose alias is not split. Every write that categorizes, retypes or links a booking requires it in its own statement or transaction: a split booking's categories are its parts and it stays income or expense. */
-export function notSplitSql(alias: string) {
-  return `NOT EXISTS (SELECT 1 FROM transaction_splits s WHERE s.transaction_id=${alias}.id)`;
+/** Condition for a booking that is not split, on `transactions` or an alias of it. Every write that categorizes, retypes or links a booking requires it in its own statement or transaction: a split booking's categories are its parts and it stays income or expense. */
+export function notSplitBooking(booking: {
+  id: AnyColumn
+}) {
+  return sql`NOT EXISTS (SELECT 1 FROM ${transactionSplits} WHERE ${transactionSplits.transaction_id}=${booking.id})`;
 }
 
-/** The same guard for typed queries on `transactions`. */
-export const notSplit = sql`NOT EXISTS (SELECT 1 FROM transaction_splits s WHERE s.transaction_id=${transactions.id})`;
+/** The guard for queries on `transactions` itself. */
+export const notSplit = notSplitBooking(transactions);
 
 async function scopedTransaction(id: string) {
   const db = await database();
   const scopedAccounts = db.select({
     id: accounts.id
-  }).from(accounts).where(eq(accounts.environment, environment()));
+  }).from(accounts);
 
   return {
     db,
@@ -47,7 +55,7 @@ async function scopedTransaction(id: string) {
 
 /**
  * Replaces a booking's parts with the ones `decide` returns for the booking as stored in the same write transaction, so the sum is checked against its current amount. A split booking's own category is cleared and marked manual, so rules leave it alone.
- * Resolves to undefined for a booking outside the current environment; a booking on an archived account or an error thrown by `decide` stores nothing.
+ * Resolves to undefined for an unknown booking; a booking on an archived account or an error thrown by `decide` stores nothing.
  */
 export async function replaceSplit(id: string, decide: (subject: SplitSubject) => SplitPartValues[]) {
   const {
@@ -57,10 +65,7 @@ export async function replaceSplit(id: string, decide: (subject: SplitSubject) =
 
   return db.transaction(async tx => {
     const subject = await tx.select({
-      account_id: transactions.account_id,
-      amount_minor: transactions.amount_minor,
-      currency: transactions.currency,
-      type: transactions.type
+      account_id: transactions.account_id
     }).from(transactions).where(scope).get();
 
     if (!subject) {
@@ -69,42 +74,75 @@ export async function replaceSplit(id: string, decide: (subject: SplitSubject) =
 
     await assertWritableAccount(tx, subject.account_id);
 
-    const parts = decide(subject);
-    const categoryIds = [...new Set(parts.map(part => part.categoryId).filter(categoryId => categoryId !== null))];
-
-    // The service checked the categories before this transaction; one deleted since then must not fail the insert on its foreign key.
-    if (categoryIds.length > 0) {
-      const found = await tx.select({
-        id: categories.id
-      }).from(categories).where(inArray(categories.id, categoryIds));
-
-      if (found.length !== categoryIds.length) {
-        throw new ValidationError("Category does not exist.");
-      }
-    }
-
-    await tx.delete(transactionSplits).where(eq(transactionSplits.transaction_id, id));
-    await tx.insert(transactionSplits).values(parts.map((part, position) => ({
-      id: randomUUID(),
-      transaction_id: id,
-      position,
-      amount_minor: part.amount,
-      category_id: part.categoryId,
-      note: part.note
-    })));
-    await tx.update(transactions).set({
-      category_id: null,
-      category_source: "manual",
-      category_rule_id: null
-    }).where(eq(transactions.id, id));
-
-    return parts;
+    return writeSplit(tx, id, decide);
   });
+}
+
+/** Replaces a booking's parts inside the caller's write transaction with the ones `decide` returns for the booking as stored there; an error thrown by `decide` rolls the write back. */
+export async function writeSplit(tx: DatabaseTransaction, id: string, decide: (subject: SplitSubject) => SplitPartValues[]) {
+  const subject = await tx.select({
+    amount_minor: transactions.amount_minor,
+    currency: transactions.currency,
+    type: transactions.type
+  }).from(transactions).where(eq(transactions.id, id)).get();
+
+  if (!subject) {
+    throw new Error("The booking to split was not found in its write transaction.");
+  }
+
+  const parts = decide(subject);
+  const categoryIds = [...new Set(parts.map(part => part.categoryId).filter(categoryId => categoryId !== null))];
+
+  // The service checked the categories before this transaction; one deleted since then must not fail the insert on its foreign key.
+  if (categoryIds.length > 0) {
+    const found = await tx.select({
+      id: categories.id
+    }).from(categories).where(inArray(categories.id, categoryIds));
+
+    if (found.length !== categoryIds.length) {
+      throw new ValidationError("Category does not exist.");
+    }
+  }
+
+  await tx.delete(transactionSplits).where(eq(transactionSplits.transaction_id, id));
+  await tx.insert(transactionSplits).values(parts.map((part, position) => ({
+    id: randomUUID(),
+    transaction_id: id,
+    position,
+    amount_minor: part.amount,
+    category_id: part.categoryId,
+    note: part.note
+  })));
+  await tx.update(transactions).set({
+    category_id: null,
+    category_source: "manual",
+    category_rule_id: null
+  }).where(eq(transactions.id, id));
+
+  return parts;
+}
+
+/** Whether a split booking's parts still add up to its amount; a booking without parts matches. Read inside the write that changes the amount. */
+export async function splitMatchesAmount(tx: DatabaseTransaction, id: string) {
+  const split = await tx.select({
+    count: sql<number>`COUNT(*)`.mapWith(Number),
+    total: sql<number>`COALESCE(SUM(${transactionSplits.amount_minor}),0)`.mapWith(Number)
+  }).from(transactionSplits).where(eq(transactionSplits.transaction_id, id)).get();
+
+  if (!split || split.count === 0) {
+    return true;
+  }
+
+  const booking = await tx.select({
+    amount_minor: transactions.amount_minor
+  }).from(transactions).where(eq(transactions.id, id)).get();
+
+  return booking?.amount_minor === split.total;
 }
 
 /**
  * Removes a booking's parts and returns it to automatic categorization, with the category and rule the stored rules assign its text, and an automatic type to the one its current sign gives. A booking without parts keeps its category and type.
- * Resolves to undefined for a booking outside the current environment; a booking on an archived account is refused.
+ * Resolves to undefined for an unknown booking; a booking on an archived account is refused.
  */
 export async function removeSplit(id: string, assign: (rules: Rule[], text: RuleText) => RuleAssignment) {
   const {
@@ -125,7 +163,7 @@ export async function removeSplit(id: string, assign: (rules: Rule[], text: Rule
 
     if (await dissolveSplit(tx, id, assign)) {
       // A rule may have made the former split a transfer, which links to, or creates, its counterpart like any rule-set transfer.
-      await pairTransfers(tx, environment());
+      await pairTransfers(tx);
     }
 
     return {
@@ -196,17 +234,17 @@ export async function splitRefusesType(tx: DatabaseTransaction, id: string, type
 
   const part = await tx.select({
     id: transactionSplits.id
-  }).from(transactionSplits).innerJoin(transactions, eq(transactions.id, transactionSplits.transaction_id)).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(and(eq(transactionSplits.transaction_id, id), eq(accounts.environment, environment()))).limit(1).get();
+  }).from(transactionSplits).innerJoin(transactions, eq(transactions.id, transactionSplits.transaction_id)).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(eq(transactionSplits.transaction_id, id)).limit(1).get();
 
   return part !== undefined;
 }
 
-/** Whether a booking of the current environment is split into parts. */
+/** Whether a booking is split into parts. */
 export async function isSplit(id: string) {
   const db = await database();
   const part = await db.select({
     id: transactionSplits.id
-  }).from(transactionSplits).innerJoin(transactions, eq(transactions.id, transactionSplits.transaction_id)).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(and(eq(transactionSplits.transaction_id, id), eq(accounts.environment, environment()))).limit(1).get();
+  }).from(transactionSplits).innerJoin(transactions, eq(transactions.id, transactionSplits.transaction_id)).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(eq(transactionSplits.transaction_id, id)).limit(1).get();
 
   return part !== undefined;
 }

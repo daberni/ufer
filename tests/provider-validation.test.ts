@@ -104,7 +104,6 @@ async function providerDatabase(context: TestContext) {
 async function insertPendingAuthorization(db: Database, actor: AuthContext, id: string) {
   await db.insert(schema.requisitions).values({
     id,
-    environment: "SANDBOX",
     workspace_id: actor.workspaceId,
     initiated_by_user_id: actor.userId,
     auth_session_id: actor.sessionId,
@@ -123,7 +122,6 @@ function authorize(id: string, actor: AuthContext) {
 async function insertLinkedConnection(db: Database, id: string, accountId: string) {
   await db.insert(schema.requisitions).values({
     id,
-    environment: "SANDBOX",
     bank_name: "Example institution",
     bank_country: "AT",
     status: "LINKED",
@@ -132,7 +130,6 @@ async function insertLinkedConnection(db: Database, id: string, accountId: strin
   });
   await db.insert(schema.accounts).values({
     id: accountId,
-    environment: "SANDBOX",
     name: "Synthetic account",
     institution: "Example institution",
     kind: "checking",
@@ -141,7 +138,6 @@ async function insertLinkedConnection(db: Database, id: string, accountId: strin
     requisition_id: id
   });
   await db.insert(schema.accountIdentifiers).values({
-    environment: "SANDBOX",
     identification_hash: `hash-${accountId}`,
     account_id: accountId
   });
@@ -374,7 +370,6 @@ test("malformed balances or transactions fail the account's sync without writing
   await insertLinkedConnection(db, "linked", "dated");
   await db.insert(schema.accounts).values({
     id: "partial",
-    environment: "SANDBOX",
     name: "Partial account",
     institution: "Example institution",
     kind: "checking",
