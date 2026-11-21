@@ -69,7 +69,7 @@ The guard refuses databases with non-sandbox banking data or transactions on man
 4. Verify the HTTPS origin, session-cookie attributes, login/logout, protected API responses, persisted data across deployments and server-only error handling. Check bank authorization and callback registration separately before claiming bank synchronization acceptance.
 5. Inspect the scheduled trigger and exercise its authenticated endpoint. The configured cron runs daily at 05:00 UTC; that is 06:00 Vienna in winter and 07:00 in summer. An endpoint check does not prove a future unattended scheduled run.
 
-The current source uses Better Auth username/password identities and active membership of one installation workspace. Before deploying it to an existing installation, separately approve and follow the [authentication migration and enrollment workflow](user-management.md#migration-and-rollout). The hosted installation completed that rollout. This version is not a multi-customer service.
+Ufer uses Better Auth username/password identities and active membership of one installation workspace; it is not a multi-customer service.
 
 ## Request timing
 
@@ -77,12 +77,11 @@ API routes handled through the shared `respond()` boundary answer with a `Server
 
 ## Verification status
 
-Verified on 2026-11-15: Vercel production is Ready on Node 26 with functions in Frankfurt and the approved Turso Starter database initialized from the existing baseline. Login/logout, Secure/HttpOnly/SameSite session attributes, origin rejection, protected Problem Details responses and remote persistence passed. Both hosted and local bank callbacks are registered. A Mock ASPSP sandbox connection contains one account and two test transactions; a repeat sync inserted zero additional transactions.
+Production runs on Vercel (Node 26, functions in Frankfurt) with a Turso database migrated through changeset 0016, username/password identities and one enrolled owner. ENABLE_BANKING_ENVIRONMENT is PRODUCTION with a restricted-mode Enable Banking application; two production institutions are connected and synced. Session-cookie attributes, origin rejection, protected Problem Details responses, remote persistence and the bearer-protected cron endpoint were verified. The production project deploys from the repository's main branch. The shared preview database holds the demo dataset and a sandbox connection.
 
-Verified on 2026-11-16: the shared preview database holds the demo dataset and a Mock ASPSP sandbox connection authorized from a local instance; a manual sync from a preview deployment succeeded.
+Open items:
 
-Vercel records an enabled daily 05:00 UTC cron definition, and its bearer-protected endpoint completed an authenticated sync. The first future unattended scheduled invocation has not been observed. No local financial data was imported. Real-bank coverage, physical-device flows, NAS operation, backup restoration and multi-customer isolation remain separate acceptance work.
-
-The production project is connected to the private repository's main branch. Approved pushes to that branch trigger deployment of the matching runtime and deployment configuration.
-
-Verified on 2026-11-16: production runs the current source with username/password identities; the obsolete APP_PASSWORD and SESSION_SECRET variables are removed. Sandbox data and test users were deleted before the switch, and one owner account was enrolled. ENABLE_BANKING_ENVIRONMENT is PRODUCTION with a production Enable Banking application in restricted mode; its private key is stored as a sensitive Production variable and in the operator password manager. The privacy and terms pages show the configured operator and data processors. Two production institutions are connected and their first sync succeeded; the unattended daily sync, repeat syncs and reauthorization with production banks have not been observed yet.
+- An observed unattended scheduled sync, repeat syncs and reauthorization with production banks ([#267](https://github.com/daberni/ufer/issues/267)).
+- A database restore trial and automated backups ([#84](https://github.com/daberni/ufer/issues/84)).
+- Production deployment from version tags and staging from main ([#90](https://github.com/daberni/ufer/issues/90)).
+- Physical-device flows, NAS operation and multi-customer isolation remain separate acceptance work.

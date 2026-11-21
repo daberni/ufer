@@ -28,4 +28,4 @@ Keep the feature comparison honest about implemented versus required behavior. P
 
 ## Notes
 
-[Architecture](../../architecture.md), [functional comparison](../../functional-review.md), [product direction](../../product-direction.md).
+[Architecture](../../architecture.md), [feature comparison](../../feature-comparison.md), [product direction](../../product-direction.md).

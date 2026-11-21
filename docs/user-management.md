@@ -1,6 +1,6 @@
 # Username/password user management
 
-Implemented in source for [issue #25](https://github.com/daberni/ufer/issues/25); deployment and migration of existing installations require separate approval. The hosted installation has not been changed by this implementation.
+Implemented for [issue #25](https://github.com/daberni/ufer/issues/25) and running in production since 2026-11-16.
 
 ## Authentication and access
 
@@ -22,7 +22,7 @@ A valid identity alone grants no financial access. Each financial HTTP request r
 | workspaces | The existing installation's financial workspace |
 | memberships | Explicit user/workspace access, owner/member role and active flag |
 
-The workspace ID is constrained to personal in the database. Financial repositories still serve this one installation; this change does not establish row-level isolation for several independent customers. The constraint deliberately prevents provisioning a second customer into globally queried financial data. Additional users are members of the same shared finances. Multi-customer SaaS needs the full [workspace architecture](architecture.md#data-access-invariants) and two-customer access tests before removing this restriction.
+The workspace ID is constrained to personal in the database. Financial repositories still serve this one installation; this change does not establish row-level isolation for several independent customers. The constraint deliberately prevents provisioning a second customer into globally queried financial data. Additional users are members of the same shared finances. Multi-customer SaaS needs the full [workspace architecture](architecture-target.md#data-access-invariants) and two-customer access tests before removing this restriction.
 
 ## Operator enrollment
 
@@ -52,22 +52,10 @@ If a user forgets their password, the operator can run `npm run user:reset-passw
 
 ## HTTP and abuse boundaries
 
-The maintained React client talks to the library handler at /api/auth/[...all]. Origin validation applies to writes. Authentication errors use Ufer Problem Details with a trace ID while preserving the library's message/code as extensions; the real client protocol is tested. Library logs are disabled to avoid emitting database parameters or credentials; the HTTP boundary emits sanitized diagnostics.
-
-[Rate limiting](https://better-auth.com/docs/concepts/rate-limit) uses database storage across instances. Sign-in and password changes allow ten requests in a fifteen-minute window. Counters are kept per client when `TRUSTED_CLIENT_IP_HEADER` names a header that the platform or reverse proxy overwrites with the client address, such as `x-forwarded-for` on Vercel. Without it, all clients share a counter per endpoint. Other forwarded headers are ignored. See [authentication rate limits](security.md#authentication-rate-limits) for the rule and its trade-off. Operator enrollment uses the server API and is protected by operator access rather than the HTTP limiter.
+The maintained React client talks to the library handler at /api/auth/[...all]. Library logs are disabled to avoid emitting database parameters or credentials. Origin checks, error responses and rate limits are described in [security boundaries](security.md#user-authentication-and-financial-authorization) and [authentication rate limits](security.md#authentication-rate-limits). Operator enrollment uses the server API and is protected by operator access rather than the HTTP limiter.
 
 Bank authorization attempts are bound to the initiating user, exact authentication session, workspace and browser secret. The callback verifies a live session and active membership before consuming state. Another session, even for the same user, cannot complete that attempt. Logging out, password rotation or membership removal therefore prevents the old flow from completing. Scheduled sync remains operator-authenticated and serves the one installation workspace.
 
 ## Migration and rollout
 
-[0001_username_password_authentication.sql](../drizzle/sqlite/0001_username_password_authentication.sql) creates seven identity/access tables and three lookup indexes, inserts the existing installation workspace, adds user/session/workspace bindings to bank authorization records, and backfills their workspace. Existing pending/exchanging bank flows are invalidated and must be restarted. The obsolete login_attempts table is removed; the library owns the new rate-limit table. Existing financial IDs, categories, corrections, balances and linked encrypted bank sessions are preserved.
-
-The added bank workspace column remains nullable at the physical SQLite level to allow a forward migration without rebuilding the referenced connection table. Migration backfills existing rows and new authorization writes always supply the workspace. Callback matching requires an exact non-null workspace/user/session match.
-
-1. Review the changeset and obtain approval for the target database. Back up the database and DATA_ENCRYPTION_KEY using the [migration workflow](database-migrations.md).
-2. Stop application writes and scheduled work, then apply the approved migration once. Startup refuses to upgrade an existing database automatically.
-3. Configure a new BETTER_AUTH_SECRET and provision the owner explicitly through secure operator tooling. Keep the banking credentials and DATA_ENCRYPTION_KEY unchanged.
-4. Deploy the matching application and verify username login, workspace access, password/session lifecycle and a fresh bank flow. Old installation cookies are not accepted. Re-enable scheduled work after acceptance.
-5. Remove obsolete APP_PASSWORD and SESSION_SECRET from deployment configuration only after the cutover is accepted. Restore from the reviewed backup if rollback is needed; never edit applied migration history.
-
-Tests use only disposable synthetic databases. Live migration, production authentication, email recovery, physical-device acceptance and independent-customer isolation are not established by these checks.
+[0001_username_password_authentication.sql](../drizzle/sqlite/0001_username_password_authentication.sql) introduced the identity/access tables and the installation workspace, bound bank authorization records to user, session and workspace, invalidated pending bank flows and dropped the obsolete login counter while preserving financial data. It was rolled out to production on 2026-11-16; APP_PASSWORD and SESSION_SECRET are no longer used. New installations receive it through the normal [migration workflow](database-migrations.md).

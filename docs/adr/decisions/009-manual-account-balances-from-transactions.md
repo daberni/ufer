@@ -48,5 +48,5 @@ Changeset 0007 converts existing data without changing any current balance: for 
 
 ## Notes
 
-- [Manual account changeset](../../database-migrations.md#manual-account-transactions-changeset)
+- [Manual account changeset](../../database-migrations.md#changesets)
 - [Architecture: transaction types and transfers](../../architecture.md#transaction-types-and-transfers)

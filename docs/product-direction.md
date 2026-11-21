@@ -4,7 +4,7 @@ Updated: 2026-11-21. Ufer is the current working product name. This document rec
 
 ## Why build when alternatives already synchronize banks?
 
-The [functional review](functional-review.md) and [feature matrix](feature-comparison.md) show that Ufer currently has substantially less functionality than the established alternatives. [Actual](https://actualbudget.org/docs/advanced/bank-sync/) and [Firefly III](https://github.com/firefly-iii/docs/blob/main/docs/docs/tutorials/data-importer/eb.md) already cover bank imports. [Sure](https://docs.sure.am/guides/key-concepts/investment-accounts) combines banking, transaction management, investments, and budgets. Manual correction protection, configurable imports, and wealth history are not unique proposed Ufer features.
+The [feature comparison](feature-comparison.md) shows that Ufer currently has substantially less functionality than the established alternatives. [Actual](https://actualbudget.org/docs/advanced/bank-sync/) and [Firefly III](https://github.com/firefly-iii/docs/blob/main/docs/docs/tutorials/data-importer/eb.md) already cover bank imports. [Sure](https://docs.sure.am/guides/key-concepts/investment-accounts) combines banking, transaction management, investments, and budgets. Manual correction protection, configurable imports, and wealth history are not unique proposed Ufer features.
 
 The proposed Ufer workflow starts with automatic bank synchronization and a focused mobile overview across institutions, with explicit provenance, supporting imports, and securities identified by compatible instrument and venue identifiers. This is a preference and a set of requirements, not an established unmet need. Sure's ticker-and-MIC identification fits the accepted direction; a dedicated ISIN field is not an adoption prerequisite. Actual's off-budget balances and retirement simulations do not establish a holdings-and-trades engine.
 
@@ -127,6 +127,16 @@ No market-data provider is selected. Price availability, venue coverage, redistr
 Maintain documentation, code comments, UI copy, API messages, and synthetic examples in English. Preserve existing user-entered data; translating source defaults is not permission to rewrite a user's stored categories or transactions.
 
 Repository content must describe a generic product. Do not include personal institution lists, account inventories, real balances, IBANs, application identifiers, local user paths, private keys, financial exports, or screenshots of real data. Generic financial concepts and supported data types belong to the application model and are not a statement about its owner's finances.
+
+## Acceptance scenarios
+
+Use the same synthetic data for these end-to-end checks; they are pending, not completed tests.
+
+- [ ] **First use and phone:** reach a useful overview, find a transaction, change its category and the report period without configuration; touch, keyboard, narrow layout and the bank redirect return work.
+- [ ] **Imports and corrections:** import overlapping history, sync again, keep a manual correction and a split, delete or hide an imported entry and confirm it does not return; counts and totals reconcile.
+- [ ] **Investments:** identify one instrument and listing, record a buy with fees and a sell, keep settlement cash separate, update a price and verify holdings, currency and wealth history without double counting.
+- [ ] **Reports:** answer common spending and wealth questions with the defaults and change the dashboard layout.
+- [ ] **Unattended operation and restore:** with all browsers closed the scheduler syncs and reports failures and reconnects; a backup restores to a fresh instance with matching balances and metadata.
 
 ## Roadmap
 
