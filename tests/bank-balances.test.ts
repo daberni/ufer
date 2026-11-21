@@ -244,6 +244,30 @@ test("an available balance is never compared with the bookings and cannot be rec
   await assert.rejects(reconcileBankBalance("checking"), (error: unknown) => error instanceof HttpError && error.status === 409);
 });
 
+test("an available balance on the first sync books no opening balance until a booked balance arrives", async context => {
+  const db = await freshDatabase(context);
+
+  await sync({
+    amount: "3000.00",
+    date: "2026-09-30",
+    type: "CLAV"
+  }, firstBookings);
+
+  assert.deepEqual(await openingBalances(db), []);
+  assert.equal((await checking()).balance_minor, -3000);
+
+  await sync({
+    amount: "1000.00",
+    date: "2026-10-01"
+  }, firstBookings);
+
+  assert.deepEqual(await openingBalances(db), [{
+    date: "2026-09-09",
+    amount: 103000
+  }]);
+  assert.equal((await checking()).balance_minor, 100000);
+});
+
 test("history imported from a file before the opening balance extends the history without changing the balance", async context => {
   const db = await freshDatabase(context);
 

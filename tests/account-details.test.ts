@@ -276,7 +276,8 @@ test("a sync anchors the daily balances at the reported balance and keeps its ba
   // Only bookings in the account's own currency count toward its balance.
   await db.delete(schema.transactions).where(eq(schema.transactions.currency, "USD"));
 
-  for (const type of ["CLAV", "CLBD"]) {
+  // A booked balance anchors the opening balance; a later available balance keeps it.
+  for (const type of ["CLBD", "CLAV"]) {
     await saveAccountSync(run, "checking", "EUR", [{
       balance_type: type,
       balance_amount: {

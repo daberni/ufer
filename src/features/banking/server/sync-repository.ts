@@ -1,4 +1,5 @@
-import { anchorOpeningBalance } from "@/features/accounts/server/opening-balance-repository";
+import { anchorOpeningBalance, keepBankOpeningBalanceFirst } from "@/features/accounts/server/opening-balance-repository";
+import { comparableBankBalanceTypes } from "@/features/accounts/server/account-queries";
 import { adoptImportedRows } from "@/features/imports/server/mapped-import-repository";
 import { randomUUID } from "node:crypto";
 import { and, count, eq, getTableColumns, isNull, like, ne, sql, type SQLWrapper } from "drizzle-orm";
@@ -98,7 +99,14 @@ export async function saveSyncedAccount(run: SyncRunStart, accountId: string, ba
     const categorized = categorize(await withStoredOverrides(tx, accountId, entries));
 
     await upsertTransactions(tx, accountId, await adoptImportedRows(tx, accountId, categorized), run.startedAt);
-    await anchorOpeningBalance(tx, accountId, balance);
+
+    // Only booked money anchors the opening balance; available or expected balances may include credit lines and pending items.
+    if (comparableBankBalanceTypes.includes(balance.bank_balance_type)) {
+      await anchorOpeningBalance(tx, accountId, balance);
+    } else {
+      await keepBankOpeningBalanceFirst(tx, accountId);
+    }
+
     await tx.update(accounts).set({
       last_synced_at: timestamp(),
       sync_error: null
