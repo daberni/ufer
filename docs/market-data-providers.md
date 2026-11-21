@@ -20,7 +20,7 @@ Ufer needs two kinds of use, which providers license differently:
 - The trading venue shown by a broker is only where its displayed price comes from. Holdings are held independently of the venue, so any liquid EUR listing (for example XETRA) is a valid valuation source. Prices from venues trading into the evening (Lang & Schwarz, gettex) can differ from the XETRA close by roughly a percent on volatile days.
 - Mutual fund values usually lag one day because the fund's price is published the following day.
 - Storing the chosen provider symbol per security (for example `VWCE.XETRA`) keeps daily updates at one request per security; ISIN search is only needed when a security is added.
-- Personal plans everywhere forbid sharing an account, displaying data to other people and redistributing it. Displaying prices or derived values to other people is what separates commercial use from personal use, and it is the expensive part.
+- The personal plans of EODHD, Tiingo and Twelve Data forbid sharing an account, displaying data to other people and redistributing it; Marketstack's display terms are not public (**unverified**). Displaying prices or derived values to other people is what separates commercial use from personal use, and it is the expensive part.
 
 ## Data coverage
 
