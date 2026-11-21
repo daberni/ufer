@@ -34,15 +34,22 @@ export function findDuplicates(candidates: ImportCandidate[], existing: Existing
   const duplicates = new Map<number, DuplicateReason>();
   const matched: Pick<ExistingBooking, "reference" | "date">[] = [];
   const possible: number[] = [];
-  const references = new Set(existing.map(booking => booking.reference));
+  const references = new Map(existing.map(booking => [booking.reference, booking.date]));
   const candidateReferences = new Set(candidates.map(candidate => candidate.reference));
   const available = prepareBookings(existing.filter(booking => !consumed.has(booking.reference) && !candidateReferences.has(booking.reference)));
   const used = new Set<number>();
   const isFree = (index: number) => !used.has(index);
 
   candidates.forEach((candidate, index) => {
-    if (references.has(candidate.reference)) {
+    const importedDate = references.get(candidate.reference);
+
+    if (importedDate !== undefined) {
       duplicates.set(index, "already_imported");
+      // A retried import passes its earlier rows back as consumed too, so they never absorb a neighbouring row of a later batch by content.
+      matched.push({
+        reference: candidate.reference,
+        date: importedDate
+      });
 
       return;
     }

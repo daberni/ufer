@@ -8,6 +8,7 @@ import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/libsql";
 import type { Database } from "../src/server/database/connection";
 import { initializeDatabase } from "../src/server/database/migrations";
+import { maxRequestBodyBytes } from "../src/server/http/request-body";
 import * as schema from "../src/server/database/schema";
 import { listAccounts } from "../src/features/accounts/server/account-queries";
 import { archiveAccount, restoreAccount } from "../src/features/accounts/server/account-service";
@@ -20,7 +21,7 @@ import { findDuplicates } from "../src/features/imports/server/duplicate-matchin
 import { saveAccountSync } from "../src/features/banking/server/account-sync-service";
 import { startSyncRun } from "../src/features/banking/server/sync-repository";
 import { accountLabel, categoryValues, defaultCategorySelection, defaultTargetChoice, importKey, newAccountChoice, prepareImport, type TargetChoice } from "../src/features/imports/import-plan";
-import { assignOccurrences, batchRows, currencyAllows, maxCategoryChoicesPerRequest, duplicateIdErrors, importIdFor, maxTargetsPerRequest, readCsvTable, emptyMapping, mappingProblem, normalizeText, parseCsvRecords, pruneConsumed, decodeCsv, detectDateFormat, detectDecimal, detectDelimiter, mapRows, parseAmount, parseCsv, parseDate, suggestMapping, type CsvSettings, type DateFormat, type ImportRow } from "../src/features/imports/csv-mapping";
+import { assignOccurrences, batchRows, currencyAllows, maxCategoryChoicesPerRequest, maxConsumedPerRequest, maxImportRequestBytes, withConsumed, duplicateIdErrors, importIdFor, maxTargetsPerRequest, readCsvTable, emptyMapping, mappingProblem, normalizeText, parseCsvRecords, pruneConsumed, decodeCsv, detectDateFormat, detectDecimal, detectDelimiter, mapRows, parseAmount, parseCsv, parseDate, suggestMapping, type CsvSettings, type DateFormat, type ImportRow } from "../src/features/imports/csv-mapping";
 
 const now = Temporal.Instant.from("2026-06-30T12:00:00Z");
 
@@ -426,6 +427,76 @@ test("rows of an earlier import from another source match by content, with date 
   assert.equal((await db.select().from(schema.transactions)).length, 9);
 });
 
+test("a retried import reserves its earlier rows, so a neighbouring row of a later batch is not taken for a duplicate", async context => {
+  const db = await isolatedDatabase(context);
+  const account = await manualAccount("Subscriptions");
+  const batches = [[mappedRow(2, "2024-04-01", "-9.99", "Streaming service")], [mappedRow(3, "2024-04-02", "-9.99", "Streaming service")]];
+  const run = async (count: number) => {
+    let consumed: unknown[] = [];
+    let newRows = 0;
+
+    for (const rows of batches.slice(0, count)) {
+      const result = await importMappedRows({
+        import_id: importId,
+        rows,
+        targets: [{
+          source: "",
+          account_id: account.id
+        }],
+        consumed,
+        confirm: true
+      }, now);
+
+      consumed = [...consumed, ...result.matched];
+      newRows += result.newRows;
+    }
+
+    return newRows;
+  };
+
+  // The first attempt stops after its first batch; the retry starts over without that attempt's consumed state.
+  assert.equal(await run(1), 1);
+  assert.equal(await run(2), 1);
+  assert.equal((await db.select().from(schema.transactions)).length, 2);
+});
+
+test("consumed matches fill only what a batch of multi-byte text leaves of the request body limit", () => {
+  const consumed = Array.from({
+    length: maxConsumedPerRequest + 5
+  }, (_value, index) => ({
+    account_id: "00000000-0000-4000-8000-000000000001",
+    reference: `csv:m:${index.toString(16).padStart(32, "0")}`,
+    date: "2024-04-02"
+  }));
+  const rows = Array.from({
+    length: 2000
+  }, (_value, index) => mappedRow(index + 2, "2024-04-02", "-1.00", "店".repeat(500), {
+    description: "説明".repeat(1000)
+  }));
+  const body = JSON.stringify(withConsumed({
+    import_id: importId,
+    rows: batchRows(rows)[0],
+    confirm: true
+  }, consumed, "2024-04-02"));
+
+  assert.equal(maxImportRequestBytes, maxRequestBodyBytes);
+  assert.ok(new TextEncoder().encode(body).length <= maxRequestBodyBytes);
+});
+
+test("pruning keeps the most recently added consumed matches of the same date", () => {
+  const consumed = Array.from({
+    length: 10
+  }, (_value, index) => ({
+    account_id: "synthetic-account",
+    reference: `csv:m:${index}`,
+    date: "2024-04-02"
+  }));
+  const entrySize = JSON.stringify(consumed[0]).length + 1;
+  const pruned = pruneConsumed(consumed, "2024-04-02", 2 + entrySize * 3);
+
+  assert.deepEqual(pruned.map(booking => booking.reference), ["csv:m:7", "csv:m:8", "csv:m:9"]);
+});
+
 test("a card statement's settlement is a possible duplicate of the linked transfer already on the card account", async context => {
   const db = await isolatedDatabase(context);
   const card = await manualAccount("Card");
@@ -724,7 +795,7 @@ test("consumed matches stay bounded for files with more than 20,000 matched book
     date: new Date(start + index * 86_400_000).toISOString().slice(0, 10)
   }));
   const lastDate = consumed[consumed.length - 1].date;
-  const pruned = pruneConsumed(consumed, lastDate);
+  const pruned = pruneConsumed(consumed, lastDate, maxRequestBodyBytes);
   const result = await importMappedRows({
     import_id: importId,
     rows: [mappedRow(2, lastDate, "-1.00", "Shop")],

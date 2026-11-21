@@ -6,7 +6,7 @@ import { invalidate } from "@/client/invalidate";
 import { queryKeys } from "@/client/query-keys";
 import type { NewImportCategory } from "./import-plan";
 import type { AccountKind } from "@/features/accounts/account-kinds";
-import { assignOccurrences, batchRows, duplicateIdErrors, pruneConsumed, rowCategoryValues, type ConsumedBooking, type MappedRow, type RowError } from "./csv-mapping";
+import { assignOccurrences, batchRows, duplicateIdErrors, rowCategoryValues, withConsumed, type ConsumedBooking, type MappedRow, type RowError } from "./csv-mapping";
 import { useLocale } from "@/client/locale-provider";
 import { formatCount } from "@/lib/locale";
 
@@ -164,17 +164,17 @@ export function useMappedImport() {
       const batches = batchRows(numbered.sort((left, right) => left.date.localeCompare(right.date)));
 
       for (const [index, batch] of batches.entries()) {
-        const result = await api<MappedImportSummary & {
-          matched: ConsumedBooking[];
-        }>("imports/mapped", {
+        const request = {
           import_id: importId,
           rows: batch,
           targets: resolved.filter(target => batch.some(row => row.source === target.source)),
           categories: categoryChoices.filter(choice => batch.some(row => rowCategoryValues(row).includes(choice.value))),
-          consumed: pruneConsumed(consumed, batch[0].date),
           confirm,
           final: index === batches.length - 1
-        });
+        };
+        const result = await api<MappedImportSummary & {
+          matched: ConsumedBooking[];
+        }>("imports/mapped", withConsumed(request, consumed, batch[0].date));
 
         consumed = [...consumed, ...result.matched];
         summary.newRows += result.newRows;

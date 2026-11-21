@@ -1007,9 +1007,50 @@ export type ConsumedBooking = {
   date: string;
 };
 
-/** Drops matches that no row of a batch starting at `earliestDate` can reach; with date-sorted batches this keeps the list bounded however large the file is. */
-export function pruneConsumed(consumed: ConsumedBooking[], earliestDate: string) {
-  const reach = new Date(Date.parse(`${earliestDate}T00:00:00Z`) - duplicateDateToleranceDays * 86_400_000).toISOString().slice(0, 10);
+/** At most as many consumed bookings as a request accepts. */
+export const maxConsumedPerRequest = 20_000;
 
-  return consumed.filter(booking => booking.date >= reach);
+/** Largest request body the import endpoint accepts, the server's body limit. */
+export const maxImportRequestBytes = 2 * 1024 * 1024;
+
+function utf8Length(value: string) {
+  return new TextEncoder().encode(value).length;
 }
+
+/** Room for the `consumed` key and its separators in the request body. */
+const consumedKeyAllowance = 64;
+
+/** Adds the consumed matches to an import request, with what the request's measured UTF-8 size leaves of the body limit. */
+export function withConsumed<T extends object>(request: T, consumed: ConsumedBooking[], earliestDate: string) {
+  const budget = maxImportRequestBytes - utf8Length(JSON.stringify(request)) - consumedKeyAllowance;
+
+  return {
+    ...request,
+    consumed: pruneConsumed(consumed, earliestDate, budget)
+  };
+}
+
+/**
+ * Drops matches that no row of a batch starting at `earliestDate` can reach; with date-sorted batches this keeps the list bounded however large the file is.
+ * The list takes at most `maxBytes` serialized and `maxConsumedPerRequest` entries; beyond that it keeps the latest, by date and then by when they were added, so the import still completes and only the dropped rows could absorb a neighbouring row by content.
+ */
+export function pruneConsumed(consumed: ConsumedBooking[], earliestDate: string, maxBytes: number) {
+  const reach = new Date(Date.parse(`${earliestDate}T00:00:00Z`) - duplicateDateToleranceDays * 86_400_000).toISOString().slice(0, 10);
+  // Reversing before the stable sort puts the most recently added of equal dates first.
+  const latestFirst = consumed.filter(booking => booking.date >= reach).toReversed().toSorted((left, right) => right.date.localeCompare(left.date));
+  const kept: ConsumedBooking[] = [];
+  let size = 2;
+
+  for (const booking of latestFirst) {
+    size += utf8Length(JSON.stringify(booking)) + 1;
+
+    if (size > maxBytes || kept.length >= maxConsumedPerRequest) {
+      break;
+    }
+
+    kept.push(booking);
+  }
+
+  return kept.reverse();
+}
+

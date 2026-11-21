@@ -13,7 +13,7 @@ import { pairAllTransfers } from "@/features/transactions/server/transfer-reposi
 import { environment } from "@/features/banking/server/environment";
 import { accountKinds } from "@/features/accounts/account-kinds";
 import { validateLiability } from "@/features/accounts/server/account-service";
-import { currencyAllows, withSplitTags, maxCategoryChoicesPerRequest, maxTargetsPerRequest, maxAccountNameLength, maxCategoryLength, maxIdLength, maxSourceLength, normalizeText, type RowError } from "../csv-mapping";
+import { currencyAllows, withSplitTags, maxCategoryChoicesPerRequest, maxConsumedPerRequest, maxTargetsPerRequest, maxAccountNameLength, maxCategoryLength, maxIdLength, maxSourceLength, normalizeText, type RowError } from "../csv-mapping";
 import { duplicateDateToleranceDays, mappedReferencePrefix, type DuplicateReason } from "./duplicate-matching";
 import type { SplitPartValues } from "@/features/transactions/server/split-repository";
 import { checkMappedEntries, findImportOpening, findImportTarget, listCategoryNames, saveMappedBatch, type MappedEntry, type NewImportAccount, type NewImportCategory, type OpeningBalance } from "./mapped-import-repository";
@@ -85,7 +85,7 @@ const mappedImportInput = z.object({
   rows: z.array(row).min(1).max(maxRowsPerRequest),
   targets: z.array(target).min(1).max(maxTargetsPerRequest),
   /** Bookings that earlier batches of this import matched as duplicates or saved. */
-  consumed: z.array(matchedBooking).max(20_000).default([]),
+  consumed: z.array(matchedBooking).max(maxConsumedPerRequest).default([]),
   categories: z.array(categoryChoice).max(maxCategoryChoicesPerRequest).default([]),
   confirm: z.boolean(),
   /** Marks the last batch of a confirmed import; transfers are paired only then, so the order of batches and accounts cannot decide an ambiguous link. */
