@@ -6,6 +6,7 @@ import { HttpError, ValidationError } from "@/lib/errors";
 import { minorUnits } from "@/lib/money";
 import { maximumSplitParts, partAmountSupported } from "@/features/transactions/split-limits";
 import { today, validDate } from "@/lib/time";
+import { isCategoryIcon } from "@/features/categorization/category-icons";
 import { listRules } from "@/features/categorization/server/rule-repository";
 import { categorizeEntries } from "@/features/transactions/server/categorize-entries";
 import { pairTransfersInEnvironment } from "@/features/transactions/server/transfer-repository";
@@ -57,11 +58,18 @@ const target = z.object({
   }).optional()
 }).refine(value => (value.account_id === undefined) !== (value.new_account === undefined));
 
-/** How the rows' category cells map to categories: an existing category, one created on confirmation, or the rules. Values without a choice match existing categories by name. */
+/**
+ * How the rows' category cells map to categories: an existing category, one created on confirmation, or uncategorized, which leaves unsplit rows to the rules.
+ * Values without a choice match existing categories by name.
+ */
 const categoryChoice = z.object({
   value: z.string().max(maxCategoryLength),
-  action: z.enum(["existing", "create", "rules"]),
-  category_id: z.string().optional()
+  action: z.enum(["existing", "create", "uncategorized"]),
+  category_id: z.string().optional(),
+  /** The category a "create" choice creates, with the icon and color the person saw; without them it gets the ones suggested for the name. */
+  name: z.string().max(maxCategoryLength).optional(),
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/).transform(value => value.toLowerCase()).optional(),
+  icon: z.string().nullable().optional()
 });
 
 const matchedBooking = z.object({
@@ -371,9 +379,11 @@ async function resolveCategories(choices: z.infer<typeof categoryChoice>[], conf
   const byId = new Set(existing.map(category => category.id));
   const chosen = new Map<string, string | null>();
   const created: string[] = [];
+  // Names a check reports as created, so several values mapped to one new category list it once.
+  const pending = new Set<string>();
 
   for (const choice of choices) {
-    if (choice.action === "rules") {
+    if (choice.action === "uncategorized") {
       chosen.set(choice.value, null);
 
       continue;
@@ -389,10 +399,14 @@ async function resolveCategories(choices: z.infer<typeof categoryChoice>[], conf
       continue;
     }
 
-    const name = normalizeCategoryName(choice.value);
+    const name = normalizeCategoryName(choice.name ?? "");
 
     if (!name) {
       throw new ValidationError("A category name cannot be empty.");
+    }
+
+    if (choice.icon && !isCategoryIcon(choice.icon)) {
+      throw new ValidationError("Choose one of the available category icons.");
     }
 
     const match = byName.get(categoryNameKey(name));
@@ -403,15 +417,23 @@ async function resolveCategories(choices: z.infer<typeof categoryChoice>[], conf
       continue;
     }
 
-    created.push(name);
-
     if (!confirm) {
+      if (!pending.has(categoryNameKey(name))) {
+        pending.add(categoryNameKey(name));
+        created.push(name);
+      }
+
       chosen.set(choice.value, null);
 
       continue;
     }
 
-    const id = await createImportCategory(name);
+    const id = await createImportCategory(name, choice.color === undefined ? undefined : {
+      color: choice.color,
+      icon: choice.icon && isCategoryIcon(choice.icon) ? choice.icon : null
+    });
+
+    created.push(name);
 
     byName.set(categoryNameKey(name), id);
     chosen.set(choice.value, id);

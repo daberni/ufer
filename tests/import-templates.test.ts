@@ -174,7 +174,12 @@ test("a saved mapping reproduces the roles, format and still existing choices on
       categoryId: "groceries"
     }],
     ["Neu", {
-      action: "create"
+      action: "create",
+      category: {
+        name: "Neu",
+        color: "#638777",
+        icon: null
+      }
     }]
   ]);
   const choices = rememberedChoices(targets, selections);
@@ -372,7 +377,6 @@ test("remembered choices apply once accounts and categories load, and never over
     value: "Dining,Travel",
     rows: 1,
     multiTag: true,
-    splitOnly: false,
     matchId: null
   };
   const notLoaded = templateChoices(template, [], []);

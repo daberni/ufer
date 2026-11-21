@@ -5,24 +5,51 @@ import ui from "../../../components/ui/primitives.module.css";
 import { clsx } from "clsx";
 import { useId } from "react";
 import styles from "./category-choices.module.css";
-import { Select } from "@/components/ui/select";
-import { rowCount, type CategorySelection, type CategoryValue, type ImportProblem } from "@/features/imports/import-plan";
+import { rowCount, type CategorySelection, type CategoryValue, type ImportProblem, type NewImportCategory } from "@/features/imports/import-plan";
 import { FieldProblem, problemProps } from "./field-problem";
+import { CategoryPicker, type PickerCategory } from "@/features/categorization/components/category-picker";
+import { newCategoryColor } from "@/features/categorization/category-color-suggestions";
+import { suggestCategoryIcon } from "@/features/categorization/category-icons";
+import { categoryNameKey } from "@/lib/category-name";
 import type { Category } from "@/features/categorization/types";
 import type { ImportDraft } from "./use-import-draft";
 import { useLocale } from "@/client/locale-provider";
 
-/** The category column's distinct values, each mapped to an existing category, a new one, or the rules. */
+// Categories the import creates on confirmation are offered under IDs no stored category uses.
+function pendingId(name: string) {
+  return `pending:${categoryNameKey(name)}`;
+}
+
+/** The distinct categories chosen for creation, offered to every value like existing ones. */
+function pendingCategories(selections: ReadonlyMap<string, CategorySelection>) {
+  const pending = new Map<string, PickerCategory>();
+
+  for (const selection of selections.values()) {
+    if (selection.action === "create") {
+      pending.set(pendingId(selection.category.name), {
+        ...selection.category,
+        id: pendingId(selection.category.name)
+      });
+    }
+  }
+
+  return [...pending.values()];
+}
+
+/** The category column's distinct values, each mapped to an existing category, a category created on confirmation, or uncategorized. */
 export function CategoryChoices({
   draft
 }: {
   draft: ImportDraft;
 }) {
+  const pending = pendingCategories(draft.categories);
+  const options = [...draft.categoryOptions, ...pending];
+
   return (
     <section className={clsx(ui["panel"], styles["section"])} aria-labelledby="import-categories">
       <div>
         <h2 id="import-categories">Categories</h2>
-        <p className={ui["form-hint"]}>Each value without a category of the same name goes to an existing category, a new one, or the rules. Values with several tags are not guessed; tags with amounts split their row, and each tag is listed here.</p>
+        <p className={ui["form-hint"]}>Each value without a category of the same name goes to an existing category, a new one created when you import, or stays uncategorized so rules can categorize it. Values with several tags are not guessed; tags with amounts split their row, and each tag is listed here.</p>
       </div>
       <fieldset className={styles["values"]} disabled={draft.inputsLocked}>
         <legend className={ui["visually-hidden"]}>Category for each value</legend>
@@ -31,7 +58,9 @@ export function CategoryChoices({
             key={value.value}
             value={value}
             selection={draft.categories.get(value.value)}
-            categories={draft.categoryOptions}
+            existing={draft.categoryOptions}
+            pending={pending}
+            options={options}
             problem={draft.prepared?.problems.find(problem => problem.field === "category" && problem.value === value.value)}
             onChange={selection => draft.chooseCategory(value.value, selection)}
           />
@@ -44,69 +73,97 @@ export function CategoryChoices({
 function CategoryRow({
   value,
   selection,
-  categories,
+  existing,
+  pending,
+  options,
   problem,
   onChange
 }: {
   value: CategoryValue;
   selection: CategorySelection | undefined;
-  categories: Category[];
+  existing: Category[];
+  pending: PickerCategory[];
+  options: PickerCategory[];
   problem: ImportProblem | undefined;
   onChange: (selection: CategorySelection) => void;
 }) {
   const locale = useLocale();
-  const selectId = useId();
-  let current = "";
+  const pickerId = useId();
+  // An unset value matches no option, so the field starts empty and asks for a choice.
+  let current: string | null = "";
 
   if (selection?.action === "existing") {
-    current = `existing:${selection.categoryId}`;
-  } else if (selection?.action === "create" || selection?.action === "rules") {
-    current = selection.action;
+    current = selection.categoryId;
+  } else if (selection?.action === "create") {
+    current = pendingId(selection.category.name);
+  } else if (selection?.action === "uncategorized") {
+    current = null;
   }
 
-  function select(next: string) {
-    if (next.startsWith("existing:")) {
+  function choose(categoryId: string | null) {
+    const chosenPending = pending.find(category => category.id === categoryId);
+
+    if (categoryId === null) {
       onChange({
-        action: "existing",
-        categoryId: next.slice("existing:".length)
+        action: "uncategorized"
       });
-    } else if (next === "create" || next === "rules") {
+    } else if (chosenPending) {
       onChange({
-        action: next
+        action: "create",
+        category: newCategory(chosenPending)
       });
     } else {
       onChange({
-        action: "unset"
+        action: "existing",
+        categoryId
       });
     }
   }
 
+  // Creating from a search only records the category; the import creates it on confirmation with the same suggested icon and color.
+  function create(name: string) {
+    const icon = suggestCategoryIcon(name);
+
+    onChange({
+      action: "create",
+      category: {
+        name,
+        icon,
+        color: newCategoryColor(name, icon, [...existing, ...pending])
+      }
+    });
+  }
+
   return (
     <div className={clsx(styles["value"], problem && styles["incomplete"])}>
-      <label htmlFor={selectId} className={styles["label"]}>
+      <label htmlFor={pickerId} className={styles["label"]}>
         <strong>{value.value}</strong>
         <span>
           {rowCount(value.rows, locale)}
           {value.multiTag && <span className={styles["several"]}>Several tags</span>}
+          {selection?.action === "create" && <span className={styles["new"]}>New category</span>}
         </span>
       </label>
       <div className={styles["control"]}>
-        <Select
-          id={selectId}
+        <CategoryPicker
+          id={pickerId}
+          categories={options}
+          includeUncategorized
           value={current}
-          {...problemProps(problem, `${selectId}-problem`)}
-          onChange={event => select(event.target.value)}
-        >
-          <option value="">Choose a category</option>
-          <optgroup label="Existing categories">
-            {categories.map(category => <option key={category.id} value={`existing:${category.id}`}>{category.name}</option>)}
-          </optgroup>
-          {!value.matchId && <option value="create">Create “{value.value}”</option>}
-          {/* The server stores the rules choice of a part as uncategorized, since rules leave split bookings alone. */}
-          <option value="rules">{value.splitOnly ? "Leave uncategorized" : "Use rules"}</option>
-        </Select>
-        <FieldProblem problem={problem} id={`${selectId}-problem`} />
+          onChange={choose}
+          onCreate={create}
+          {...problemProps(problem, `${pickerId}-problem`)}
+        />
+        <FieldProblem problem={problem} id={`${pickerId}-problem`} />
       </div>
     </div>
   );
+}
+
+function newCategory(category: PickerCategory): NewImportCategory {
+  return {
+    name: category.name,
+    color: category.color,
+    icon: category.icon
+  };
 }

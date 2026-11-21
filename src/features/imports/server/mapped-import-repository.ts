@@ -9,7 +9,7 @@ import { assertWritableAccount } from "@/features/accounts/server/writable-accou
 import { manualEntryPrefix } from "@/features/transactions/server/transfer-repository";
 import { insertCategory } from "@/features/categorization/server/category-repository";
 import { newCategoryColor } from "@/features/categorization/category-color-suggestions";
-import { suggestCategoryIcon } from "@/features/categorization/category-icons";
+import { suggestCategoryIcon, type CategoryIconKey } from "@/features/categorization/category-icons";
 import { sameCategoryName } from "@/lib/category-name";
 import { derivedTransactionType, type RuleTransactionType } from "@/features/transactions/transaction-types";
 import type { CategorizedEntry } from "@/features/transactions/server/transaction-entry";
@@ -54,13 +54,16 @@ export type OpeningBalance = {
 };
 
 /** Creates a category for an import, or returns the one that took the name concurrently. */
-export async function createImportCategory(name: string) {
+export async function createImportCategory(name: string, shown?: {
+  color: string;
+  icon: CategoryIconKey | null;
+}) {
   const id = randomUUID();
-  // Imported categories get the icon and color the category dialog would suggest for the name.
-  const icon = suggestCategoryIcon(name);
+  // Without the icon and color the person saw, imported categories get the ones the category dialog would suggest for the name.
+  const icon = shown ? shown.icon : suggestCategoryIcon(name);
   const result = await insertCategory(id, {
     name,
-    color: existing => newCategoryColor(name, icon, existing),
+    color: shown?.color ?? (existing => newCategoryColor(name, icon, existing)),
     icon
   });
 

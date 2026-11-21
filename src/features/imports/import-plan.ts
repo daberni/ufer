@@ -33,20 +33,31 @@ export type CategoryValue = {
   rows: number;
   /** Several tags, such as a Buxfer tag list; the import does not guess one of them. */
   multiTag: boolean;
-  /** Only split parts use the value; rules do not categorize split bookings, so it can only go to a category or stay uncategorized. */
-  splitOnly: boolean;
   /** An existing category with the same name. */
   matchId: string | null;
 };
 
-/** What the person chose for one category value; an unset value blocks the check like an unset account. */
+/** A category the import creates on confirmation, with the suggested icon and color it is shown with while pending and created with. */
+export type NewImportCategory = {
+  name: string;
+  color: string;
+  icon: string | null;
+};
+
+/**
+ * What the person chose for one category value; an unset value blocks the check like an unset account.
+ * Uncategorized rows are imported without a category, so rules may categorize unsplit ones like any uncategorized booking.
+ */
 export type CategorySelection = {
   action: "unset";
 } | {
   action: "existing";
   categoryId: string;
 } | {
-  action: "create" | "rules";
+  action: "create";
+  category: NewImportCategory;
+} | {
+  action: "uncategorized";
 };
 
 type AccountOption = {
@@ -116,7 +127,6 @@ export function categoryValues(rows: MappedRow[], categories: {
   name: string;
 }[]): CategoryValue[] {
   const counts = new Map<string, number>();
-  const whole = new Set<string>();
   const byName = new Map(categories.map(category => [categoryNameKey(category.name), category.id]));
 
   // A split row counts once for each of its parts' category values, which are mapped like any other value.
@@ -124,17 +134,12 @@ export function categoryValues(rows: MappedRow[], categories: {
     for (const value of rowCategoryValues(row)) {
       counts.set(value, (counts.get(value) ?? 0) + 1);
     }
-
-    if (row.category) {
-      whole.add(row.category);
-    }
   }
 
   return [...counts].map(([value, count]) => ({
     value,
     rows: count,
     multiTag: categoryTags(value).length > 1,
-    splitOnly: !whole.has(value),
     matchId: byName.get(categoryNameKey(value)) ?? null
   })).sort((left, right) => right.rows - left.rows || left.value.localeCompare(right.value));
 }
@@ -291,7 +296,8 @@ export function prepareImport(rows: MappedRow[], choices: ReadonlyMap<string, Ta
     categories.push({
       value,
       action: selection.action,
-      categoryId: selection.action === "existing" ? selection.categoryId : undefined
+      categoryId: selection.action === "existing" ? selection.categoryId : undefined,
+      newCategory: selection.action === "create" ? selection.category : undefined
     });
   }
 

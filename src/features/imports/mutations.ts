@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/client/api";
 import { invalidate } from "@/client/invalidate";
 import { queryKeys } from "@/client/query-keys";
+import type { NewImportCategory } from "./import-plan";
 import type { AccountKind } from "@/features/accounts/account-kinds";
 import { assignOccurrences, batchRows, duplicateIdErrors, pruneConsumed, rowCategoryValues, type ConsumedBooking, type MappedRow, type RowError } from "./csv-mapping";
 import { useLocale } from "@/client/locale-provider";
@@ -61,11 +62,13 @@ export type OpeningBalanceInput = {
   date: string;
 };
 
-/** How the rows' category values map: an existing category, a category created on confirmation, or the rules. */
+/** How the rows' category values map: an existing category, a category created on confirmation, or uncategorized. */
 export type CategoryChoice = {
   value: string;
-  action: "existing" | "create" | "rules";
+  action: "existing" | "create" | "uncategorized";
   categoryId?: string;
+  /** A category created on confirmation, with the icon and color shown for it. */
+  newCategory?: NewImportCategory;
 };
 
 export type MappedImportSummary = {
@@ -125,7 +128,8 @@ export function useMappedImport() {
       const categoryChoices = categories.map(choice => ({
         value: choice.value,
         action: choice.action,
-        category_id: choice.categoryId
+        category_id: choice.categoryId,
+        ...choice.newCategory
       }));
       const summary: MappedImportSummary = {
         confirmed: confirm,
