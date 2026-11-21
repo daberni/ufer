@@ -88,7 +88,7 @@ export type CategoryUsage = {
   rules: number;
 };
 
-/** Everything that references a category, across all provider environments, since categories are shared by them. */
+/** Everything that references a category. */
 export async function readCategoryUsage(id: string): Promise<CategoryUsage | null> {
   const db = await database();
 

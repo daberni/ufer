@@ -18,13 +18,9 @@ export type DemoSeedOptions = {
 
 /**
  * The demo replaces only its own rows, but it must never mix with real records:
- * the configured banking environment and every stored account or connection must be SANDBOX, and manual or CSV accounts the seed did not create must not hold transactions.
+ * the configured banking environment must be SANDBOX, and manual or CSV accounts the seed did not create must not hold transactions.
  */
 function assertDemoTarget(target: DemoSeedTarget) {
-  if (target.otherEnvironmentRows > 0) {
-    throw new DemoSeedRefusal(`Refusing to seed: the database contains ${target.otherEnvironmentRows} accounts or bank connections outside the SANDBOX banking environment.`);
-  }
-
   if (target.foreignManualTransactions > 0) {
     throw new DemoSeedRefusal(`Refusing to seed: the database contains ${target.foreignManualTransactions} transactions on manual or CSV accounts that the demo seed did not create.`);
   }
@@ -62,7 +58,6 @@ export function assertDemoSeedRequest(options: DemoSeedOptions) {
 export async function seedDemoData(options: DemoSeedOptions) {
   assertDemoSeedRequest(options);
 
-  const bankingEnvironment = environment();
   const dataset = buildDemoDataset(options.runDate ?? today());
   const categories = await resolveCategories();
   const rules: Rule[] = demoRules.map(rule => ({
@@ -80,7 +75,6 @@ export async function seedDemoData(options: DemoSeedOptions) {
   }));
 
   await replaceDemoRows({
-    environment: bankingEnvironment,
     categories: categories.created,
     rules,
     accounts,

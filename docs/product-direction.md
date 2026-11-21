@@ -66,7 +66,7 @@ The positioning is therefore a simple, continuously maintained overview of money
 | Financial correctness | Exact amounts and quantities, idempotent imports, atomic splits, and manual override preservation must behave the same on both engines |
 | Validation | Run consequential repository behavior tests against both providers before marking PostgreSQL supported |
 
-PostgreSQL is a reasonable target for managed hosting, but a database switch alone does not create a SaaS product. Tenant isolation and authorization must exist at every data access boundary. Current sandbox/production isolation separates provider environments; it is not tenant isolation. Versioned SQLite/libSQL SQL changesets are implemented; no existing user database was upgraded by the refactor. PostgreSQL remains unimplemented. See the [migration workflow](database-migrations.md).
+PostgreSQL is a reasonable target for managed hosting, but a database switch alone does not create a SaaS product. Tenant isolation and authorization must exist at every data access boundary. Each database serves one provider environment (sandbox or production); that separation is not tenant isolation. Versioned SQLite/libSQL SQL changesets are implemented; no existing user database was upgraded by the refactor. PostgreSQL remains unimplemented. See the [migration workflow](database-migrations.md).
 
 ## Free self-hosting and paid managed hosting
 
@@ -142,7 +142,7 @@ Open work grouped by phase, in priority order. Budgets and forecasting have lowe
 4. **Planning (lower priority):** budgets, recurring entries and forecasting (feature comparison K-04).
 5. **Platform (last):** user management with enforced roles (owner and member exist, but routes do not enforce different rights), localization ([#21](https://github.com/daberni/ufer/issues/21)), PostgreSQL and multi-tenant hosting. A hosted service is a medium-term goal.
 
-In progress: dropping the per-row banking environment column ([#76](https://github.com/daberni/ufer/issues/76)), completing management of rules, categories, accounts and bank links ([#86](https://github.com/daberni/ufer/issues/86)). JSX accessibility linting ([#111](https://github.com/daberni/ufer/issues/111)) waits for an ESLint 10-compatible `eslint-plugin-jsx-a11y` release.
+JSX accessibility linting ([#111](https://github.com/daberni/ufer/issues/111)) waits for an ESLint 10-compatible `eslint-plugin-jsx-a11y` release.
 
 ## Decisions still open
 

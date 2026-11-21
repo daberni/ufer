@@ -1,4 +1,4 @@
-import { and, desc, eq, ne, sql } from "drizzle-orm";
+import { desc, eq, ne, sql } from "drizzle-orm";
 import { database } from "@/server/database/connection";
 import { requisitions, syncRuns } from "@/server/database/schema";
 import { environment } from "./environment";
@@ -28,7 +28,7 @@ export async function listConnections() {
     status,
     valid_until: requisitions.valid_until,
     error: requisitions.error
-  }).from(requisitions).where(and(eq(requisitions.environment, environment()), ne(requisitions.status, "REMOVED"))).orderBy(desc(requisitions.created_at)).limit(20);
+  }).from(requisitions).where(ne(requisitions.status, "REMOVED")).orderBy(desc(requisitions.created_at)).limit(20);
 }
 
 export async function listRecentSyncRuns() {
@@ -42,10 +42,10 @@ export async function listRecentSyncRuns() {
     // Runs recorded before syncs stamped their rows report inserted rows without any links.
     linked_count: linkedTransactionCount,
     error: syncRuns.error
-  }).from(syncRuns).where(eq(syncRuns.environment, environment())).orderBy(desc(syncRuns.started_at)).limit(recentSyncRuns);
+  }).from(syncRuns).orderBy(desc(syncRuns.started_at)).limit(recentSyncRuns);
 }
 
-/** A sync run of the current banking environment; undefined for unknown runs and runs of another environment. */
+/** A sync run; undefined for unknown runs. */
 export async function findSyncRun(id: string) {
   const db = await database();
 
@@ -54,5 +54,5 @@ export async function findSyncRun(id: string) {
     started_at: syncRuns.started_at,
     status: syncRuns.status,
     inserted_count: syncRuns.inserted_count
-  }).from(syncRuns).where(and(eq(syncRuns.id, id), eq(syncRuns.environment, environment()))).get();
+  }).from(syncRuns).where(eq(syncRuns.id, id)).get();
 }

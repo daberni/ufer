@@ -33,6 +33,24 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Use checked-in SQL changesets and the documented [migration workflow](docs/database-migrations.md). Never edit applied changesets or automatically upgrade an existing database at web startup. Existing-schema/data migrations need explicit authorization.
 - [Architecture](docs/architecture.md) and [YAML-frontmatter decisions](docs/adr/README.md) distinguish implemented behavior from proposed workspace/identity/SSO models. The application remains single-workspace until scoped authentication, persistence, jobs and cross-workspace checks are implemented.
 
+## Coding standards
+
+These rules add to [docs/code-style.md](docs/code-style.md) and [HTTP errors](docs/http-errors.md).
+
+- Every API route runs through `respond()` with an explicit access mode; a route outside it (such as a redirecting callback) calls `requireAuth` itself and documents why. Exceptions: the Better Auth handler (`/api/auth`), which must accept unauthenticated sign-in, and the JSON-404 fallback.
+- Money is integer minor units parsed through the shared money helpers; no floating-point arithmetic on amounts and no sums across currencies.
+- Calendar dates are validated `YYYY-MM-DD` strings; "today" comes from `src/lib/time.ts`, periods from `src/lib/period.ts` and SQL date boundaries from `src/features/transactions/server/period-condition.ts`, never `new Date()` in server logic.
+- A write that depends on read state (split sums, writable account, link eligibility) performs that read inside the same transaction.
+- Repository reads and writes of financial rows are scoped to the current banking environment through the account.
+- Provider data is upserted by account and provider reference; user intent (manual category or type, overrides, hidden state, splits, links) lives in separate fields a sync never overwrites.
+- Jobs that mutate shared financial state hold the named job lease; conflicting user operations acquire the same lease.
+- Every cash-flow figure derives from the single counted-lines definition; extend it instead of writing a parallel query.
+- Provider secrets and bank sessions are stored only through the secret box and one-time values only as hashes; secrets never appear in API projections, logs or Problem Details.
+- New browser features or external origins update the CSP and Permissions-Policy in `next.config.ts` in the same change.
+- Prefer Drizzle `sql` fragments; string-built SQL may interpolate only compile-time constants.
+- Risky domain logic (money parsing, split and transfer invariants, sync idempotency, authentication and callback binding) has behavior tests against a real SQLite database.
+- Keep modules focused: split large components into sections and hooks and large modules by responsibility instead of growing single files.
+
 ## Task intake and backlog
 
 - GitHub Issues are the product backlog; use issues and pull requests without adding a GitHub Project unless the user requests one.
@@ -43,7 +61,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 ## Agent coordination
 
-- Delegate each independently scoped issue to a dedicated subagent. Give it a clear scope, worktree, owned files, dependencies and expected checks; related follow-up feedback can stay with that issue's agent.
+- Implement each independently scoped issue in its own fresh linked session (not a subagent) with its own worktree, so the coordinating session stays focused. Give it a clear scope, owned files, dependencies, expected checks and the authorization limits; send related follow-up feedback to that session and expect its reports back in the coordinating session. Short read-only analyses and reviews may still use subagents.
 - The coordinating agent owns architecture, shared contracts, integration and the final user-facing status. A subagent finishing does not by itself mean the change is committed, published or ready for review.
 - Continue active issue and PR work through implementation, verification, publication and stack follow-up. Track delegated work through handoff and act on its result. Proactively select the next actionable task from the existing Ufer backlog and PR stack based on priority, dependencies and user feedback. Start it within the authorized scope and delegate concrete issue work to its subagent. When a task is blocked, pick independent work instead of waiting for a new assignment. If user input is required, say exactly what is blocked and what decision or action is needed, and continue independent work.
 - Run as many independently scoped issue agents as the host allows and the work justifies. Match model and reasoning effort to task complexity where supported. Check for concurrent work by other sessions before assigning a ticket or reusing a branch.
@@ -59,8 +77,9 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Keep commits and PRs focused on coherent issue-sized packages. Describe the concrete package before committing and reference its GitHub issue when one exists; use closing keywords only when the whole issue is resolved.
 - Squash merges set their message explicitly (`gh pr merge --squash --subject … --body …`): the subject is the PR title with its number; the body states what the commit changes in two to five short lines (behavior, migrations, closed issues), without branch history, review rounds or check results, and ends with one deduplicated block of `Co-Authored-By` trailers.
 - Routine commits, explicit feature-branch pushes and PR updates within the approved scope have standing authorization. Do not repeatedly ask for approval for those actions. This does not authorize unrelated features, remote changes to the default branch, production deployment, new cloud resources, destructive actions or execution of database migrations. An already-authorized, schema-compatible preview pipeline may run on routine PR updates without another approval round.
-- Direct local commits on main require an explicit user instruction. Never infer permission to publish main or merge into it from approval of a PR update or a local main commit. For Ufer, Bernhard’s `approved` label authorizes a squash merge into remote main and its normal deployment. This narrow exception overrides the general ban on remote default-branch changes only for that merge. It does not authorize direct pushes or production database migrations.
+- Direct local commits on main require an explicit user instruction. Documentation-only changes (no code, configuration or migrations) are the standing exception: commit them locally on main without a PR, and Bernhard pushes main himself. Never infer permission to publish main or merge into it from approval of a PR update or a local main commit. For Ufer, Bernhard’s `approved` label authorizes a squash merge into remote main and its normal deployment. This narrow exception overrides the general ban on remote default-branch changes only for that merge. It does not authorize direct pushes or production database migrations.
 - Use the chat heartbeat as a short wake-up between active turns. Check delegated handoffs and PR changes, continue actionable work, and stay quiet when nothing changed. Send brief progress updates during active work, focused on results and blockers.
+- On every turn, PR event and heartbeat, first read the labels of all open PRs (`gh pr list -R daberni/ufer --label approved`) before other PR work; an `approved` label must never wait for the user to mention it.
 - The PR watcher checks `approved` labels, current head and base, required CI, unresolved threads, required previews and rollout prerequisites. Merge approved stacks from the bottom up. After each merge, retarget and reverify the next PR before merging. Report blockers and read back successful merges. Preserve published history while integrating stacks; do not force-push or rewrite published commits without separate explicit permission.
 - Preserve pre-existing staged and unstaged work. Never stash, reset, discard or commit another task's changes as a shortcut. Stage only the intended package and verify the staged diff, including conflict resolutions, before committing.
 - Every push names both source and destination: `git push origin <branch>:refs/heads/<branch>`. Prefer an atomic push for a coordinated stack update. Verify each resulting remote SHA and the PR's base, head and remaining feature diff after publication. Only local main may track origin/main.

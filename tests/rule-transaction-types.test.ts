@@ -11,7 +11,7 @@ import { saveAccountSync } from "../src/features/banking/server/account-sync-ser
 import { applyRulesToUncorrectedTransactions, createRule, deleteRule, updateRuleDetails } from "../src/features/categorization/server/categorization-service";
 import { listRules, saveRuleTypes } from "../src/features/categorization/server/rule-repository";
 import { importMappedRows } from "../src/features/imports/server/mapped-import-service";
-import { pairTransfersInEnvironment } from "../src/features/transactions/server/transfer-repository";
+import { pairAllTransfers } from "../src/features/transactions/server/transfer-repository";
 import { updateTransactionCategory, updateTransactionDetails } from "../src/features/transactions/server/transaction-service";
 import { unsplitTransaction } from "../src/features/transactions/server/split-service";
 import { ValidationError } from "../src/lib/errors";
@@ -48,28 +48,24 @@ async function isolatedDatabase(context: TestContext) {
   process.env.ENABLE_BANKING_ENVIRONMENT = "SANDBOX";
   await db.insert(schema.accounts).values([{
     id: "checking",
-    environment: "SANDBOX",
     name: "Synthetic checking",
     institution: "Example bank",
     kind: "checking",
     provider: "enable_banking"
   }, {
     id: "savings",
-    environment: "SANDBOX",
     name: "Synthetic savings",
     institution: "Example bank",
     kind: "savings",
     provider: "enable_banking"
   }, {
     id: "deposit",
-    environment: "SANDBOX",
     name: "Synthetic deposit",
     institution: "Example bank",
     kind: "savings",
     provider: "enable_banking"
   }, {
     id: "cash",
-    environment: "SANDBOX",
     name: "Synthetic cash",
     institution: "Wallet",
     kind: "checking"
@@ -81,10 +77,9 @@ async function isolatedDatabase(context: TestContext) {
 let runCounter = 0;
 
 /** Stores one account's bank delivery with the stored rules and then pairs transfers, as a sync does once every account is stored. */
-async function sync(db: Database, accountId: string, entries: Entry[]) {
+async function sync(accountId: string, entries: Entry[]) {
   runCounter += 1;
   const run = {
-    environment: "SANDBOX",
     startedAt: `2026-09-30T09:00:${String(runCounter % 60).padStart(2, "0")}.000Z`
   };
   const balances = [{
@@ -96,8 +91,8 @@ async function sync(db: Database, accountId: string, entries: Entry[]) {
     reference_date: "2026-09-30"
   }];
 
-  await saveAccountSync(db, run, accountId, "EUR", balances, entries, await listRules());
-  await pairTransfersInEnvironment("SANDBOX");
+  await saveAccountSync(run, accountId, "EUR", balances, entries, await listRules());
+  await pairAllTransfers();
 }
 
 function entry(reference: string, date: string, amount: number, counterparty: string): Entry {
@@ -147,7 +142,7 @@ test("a sync gives matching bookings the rule's type and records the rule; other
     transaction_type: "expense"
   });
 
-  await sync(db, "checking", [entry("refund", "2026-09-10", 1500, "Refund desk"), entry("salary", "2026-09-11", 300000, "Example employer")]);
+  await sync("checking", [entry("refund", "2026-09-10", 1500, "Refund desk"), entry("salary", "2026-09-11", 300000, "Example employer")]);
 
   const ruled = await stored(db, "bank:refund");
   const other = await stored(db, "bank:salary");
@@ -163,11 +158,11 @@ test("a manual type correction survives later syncs and applying rules", async c
     pattern: "REFUND DESK",
     transaction_type: "expense"
   });
-  await sync(db, "checking", [entry("refund", "2026-09-10", 1500, "Refund desk")]);
+  await sync("checking", [entry("refund", "2026-09-10", 1500, "Refund desk")]);
   await updateTransactionDetails((await stored(db, "bank:refund")).id, {
     type: "income"
   });
-  await sync(db, "checking", [entry("refund", "2026-09-10", 1500, "Refund desk")]);
+  await sync("checking", [entry("refund", "2026-09-10", 1500, "Refund desk")]);
   await applyRulesToUncorrectedTransactions();
 
   const corrected = await stored(db, "bank:refund");
@@ -184,9 +179,9 @@ test("a rule's transfer account decides which of several opposite bookings the t
     transfer_account_id: "savings"
   });
   // Opposite bookings on two own accounts would otherwise leave the transfer ambiguous and unpaired.
-  await sync(db, "savings", [entry("savings-in", "2026-09-02", 20000, "Synthetic checking")]);
-  await sync(db, "deposit", [entry("deposit-in", "2026-09-02", 20000, "Synthetic checking")]);
-  await sync(db, "checking", [entry("plan", "2026-09-01", -20000, "Savings plan")]);
+  await sync("savings", [entry("savings-in", "2026-09-02", 20000, "Synthetic checking")]);
+  await sync("deposit", [entry("deposit-in", "2026-09-02", 20000, "Synthetic checking")]);
+  await sync("checking", [entry("plan", "2026-09-01", -20000, "Savings plan")]);
 
   const plan = await stored(db, "bank:plan");
   const savings = await stored(db, "bank:savings-in");
@@ -206,8 +201,8 @@ test("a rule's transfer to a manual account creates the counterpart exactly once
     transaction_type: "transfer",
     transfer_account_id: "cash"
   });
-  await sync(db, "checking", [entry("atm", "2026-09-05", -10000, "Cash withdrawal")]);
-  await sync(db, "checking", [entry("atm", "2026-09-05", -10000, "Cash withdrawal")]);
+  await sync("checking", [entry("atm", "2026-09-05", -10000, "Cash withdrawal")]);
+  await sync("checking", [entry("atm", "2026-09-05", -10000, "Cash withdrawal")]);
   await applyRulesToUncorrectedTransactions();
 
   const withdrawal = await stored(db, "bank:atm");
@@ -246,7 +241,7 @@ test("a rule's transfer to a manual account links a booking already there instea
     }],
     confirm: true
   });
-  await sync(db, "checking", [entry("atm", "2026-09-05", -10000, "Cash withdrawal")]);
+  await sync("checking", [entry("atm", "2026-09-05", -10000, "Cash withdrawal")]);
 
   const withdrawal = await stored(db, "bank:atm");
   const cash = await db.select().from(schema.transactions).where(eq(schema.transactions.account_id, "cash"));
@@ -306,7 +301,7 @@ test("a CSV import gives rows the rule's type, also rows whose category came fro
 test("applying rules sets rule types on existing bookings and returns them to the derived type when the rule stops setting one", async context => {
   const db = await isolatedDatabase(context);
 
-  await sync(db, "checking", [entry("refund", "2026-09-10", 1500, "Refund desk")]);
+  await sync("checking", [entry("refund", "2026-09-10", 1500, "Refund desk")]);
   const refund = await rule({
     pattern: "REFUND DESK",
     transaction_type: "expense"
@@ -336,7 +331,7 @@ test("applying rules sets rule types on existing bookings and returns them to th
 test("creating a rule that applies to uncategorized bookings also sets its type on them", async context => {
   const db = await isolatedDatabase(context);
 
-  await sync(db, "checking", [entry("refund", "2026-09-10", 1500, "Refund desk")]);
+  await sync("checking", [entry("refund", "2026-09-10", 1500, "Refund desk")]);
   const refund = await rule({
     pattern: "REFUND DESK",
     transaction_type: "expense",
@@ -351,7 +346,7 @@ test("creating a rule that applies to uncategorized bookings also sets its type 
 test("a rule that takes over manual category assignments also sets its type on them", async context => {
   const db = await isolatedDatabase(context);
 
-  await sync(db, "checking", [entry("refund", "2026-09-10", 1500, "Refund desk")]);
+  await sync("checking", [entry("refund", "2026-09-10", 1500, "Refund desk")]);
   await db.update(schema.transactions).set({
     category_id: "groceries",
     category_source: "manual"
@@ -374,7 +369,7 @@ test("deleting a rule keeps the types it set without a reference to the rule", a
     transaction_type: "expense"
   });
 
-  await sync(db, "checking", [entry("refund", "2026-09-10", 1500, "Refund desk")]);
+  await sync("checking", [entry("refund", "2026-09-10", 1500, "Refund desk")]);
   await deleteRule(refund.id);
 
   const booking = await stored(db, "bank:refund");
@@ -434,7 +429,7 @@ test("a rule's transfer creates no counterpart on a manual account archived afte
   await db.update(schema.accounts).set({
     archived_at: "2026-09-01T00:00:00.000Z"
   }).where(eq(schema.accounts.id, "cash"));
-  await sync(db, "checking", [entry("atm", "2026-09-05", -10000, "Cash withdrawal")]);
+  await sync("checking", [entry("atm", "2026-09-05", -10000, "Cash withdrawal")]);
   await applyRulesToUncorrectedTransactions();
 
   const withdrawal = await stored(db, "bank:atm");
@@ -446,7 +441,7 @@ test("a rule's transfer creates no counterpart on a manual account archived afte
 test("applying rule types leaves bookings on archived accounts unchanged, also when the account is archived after they were read", async context => {
   const db = await isolatedDatabase(context);
 
-  await sync(db, "checking", [entry("refund", "2026-09-10", 1500, "Refund desk")]);
+  await sync("checking", [entry("refund", "2026-09-10", 1500, "Refund desk")]);
   const refund = await rule({
     pattern: "REFUND DESK",
     transaction_type: "expense"
@@ -473,7 +468,7 @@ test("applying rule types leaves bookings on archived accounts unchanged, also w
 test("a rule without a type that takes over a manual assignment returns an earlier rule's type to the derived type", async context => {
   const db = await isolatedDatabase(context);
 
-  await sync(db, "checking", [entry("refund", "2026-09-10", 1500, "Refund desk")]);
+  await sync("checking", [entry("refund", "2026-09-10", 1500, "Refund desk")]);
   const earlier = await rule({
     pattern: "REFUND DESK",
     transaction_type: "expense",
@@ -503,7 +498,7 @@ test("a rule without a type that takes over a manual assignment returns an earli
 test("a bank-reported transfer returns to Transfer when the rule that overrode its type stops setting one", async context => {
   const db = await isolatedDatabase(context);
 
-  await sync(db, "checking", [{
+  await sync("checking", [{
     ...entry("sweep", "2026-09-12", -2500, "Account sweep"),
     transfer: true
   }]);
@@ -534,7 +529,7 @@ test("a bank-reported transfer returns to Transfer when the rule that overrode i
 test("a rule without a type that takes over a manual assignment returns a bank-reported transfer to Transfer", async context => {
   const db = await isolatedDatabase(context);
 
-  await sync(db, "checking", [{
+  await sync("checking", [{
     ...entry("sweep", "2026-09-12", -2500, "Account sweep"),
     transfer: true
   }]);
@@ -566,7 +561,7 @@ test("a rule without a type that takes over a manual assignment returns a bank-r
 test("a reported transfer released by a rule without a type pairs with its counterpart", async context => {
   const db = await isolatedDatabase(context);
 
-  await sync(db, "checking", [{
+  await sync("checking", [{
     ...entry("sweep", "2026-09-12", -2500, "Account sweep"),
     transfer: true
   }]);
@@ -576,7 +571,7 @@ test("a reported transfer released by a rule without a type pairs with its count
     apply_to_uncategorized: true
   });
 
-  await sync(db, "savings", [entry("deposit", "2026-09-12", 2500, "Deposit from checking")]);
+  await sync("savings", [entry("deposit", "2026-09-12", 2500, "Deposit from checking")]);
   assert.equal((await stored(db, "bank:sweep")).transfer_id, null);
   await db.update(schema.transactions).set({
     category_source: "manual",
@@ -601,7 +596,7 @@ test("a reported transfer released by a rule without a type pairs with its count
 test("a sync without a transfer signal keeps the earlier signal while a rule decides the type", async context => {
   const db = await isolatedDatabase(context);
 
-  await sync(db, "checking", [{
+  await sync("checking", [{
     ...entry("sweep", "2026-09-12", -2500, "Account sweep"),
     transfer: true
   }]);
@@ -611,7 +606,7 @@ test("a sync without a transfer signal keeps the earlier signal while a rule dec
   });
 
   await applyRulesToUncorrectedTransactions();
-  await sync(db, "checking", [entry("sweep", "2026-09-12", -2500, "Account sweep")]);
+  await sync("checking", [entry("sweep", "2026-09-12", -2500, "Account sweep")]);
   assert.equal((await stored(db, "bank:sweep")).type, "expense");
 
   await updateRuleDetails(sweep.id, {
@@ -635,7 +630,7 @@ test("pairing uses the transfer account a rule applied, not one edited into the 
     transfer_account_id: "savings"
   });
 
-  await sync(db, "checking", [entry("plan", "2026-09-01", -20000, "Savings plan")]);
+  await sync("checking", [entry("plan", "2026-09-01", -20000, "Savings plan")]);
   assert.equal((await stored(db, "bank:plan")).type_transfer_account_id, "savings");
   // Editing the rule without applying it leaves the booking's target unchanged.
   await updateRuleDetails(plan.id, {
@@ -646,8 +641,8 @@ test("pairing uses the transfer account a rule applied, not one edited into the 
     transaction_type: "transfer",
     transfer_account_id: "deposit"
   });
-  await sync(db, "deposit", [entry("deposit-in", "2026-09-02", 20000, "Synthetic checking")]);
-  await sync(db, "savings", [entry("savings-in", "2026-09-02", 20000, "Synthetic checking")]);
+  await sync("deposit", [entry("deposit-in", "2026-09-02", 20000, "Synthetic checking")]);
+  await sync("savings", [entry("savings-in", "2026-09-02", 20000, "Synthetic checking")]);
 
   const [booking, savings, deposit] = [await stored(db, "bank:plan"), await stored(db, "bank:savings-in"), await stored(db, "bank:deposit-in")];
 
@@ -734,7 +729,7 @@ test("a rule's transfer creates no counterpart on a manual account that already 
     currency: "EUR",
     type: "income"
   }]);
-  await sync(db, "checking", [entry("atm", "2026-09-05", -10000, "Cash withdrawal")]);
+  await sync("checking", [entry("atm", "2026-09-05", -10000, "Cash withdrawal")]);
 
   const withdrawal = await stored(db, "bank:atm");
   const onCash = await db.select().from(schema.transactions).where(eq(schema.transactions.account_id, "cash"));
@@ -747,7 +742,7 @@ test("a rule's transfer creates no counterpart on a manual account that already 
 test("rules never set the type of a split booking, on syncs or when applying rules", async context => {
   const db = await isolatedDatabase(context);
 
-  await sync(db, "checking", [entry("market", "2026-09-10", -5000, "Example market")]);
+  await sync("checking", [entry("market", "2026-09-10", -5000, "Example market")]);
   const booking = await stored(db, "bank:market");
 
   await db.insert(schema.transactionSplits).values([{
@@ -770,7 +765,7 @@ test("rules never set the type of a split booking, on syncs or when applying rul
   });
 
   assert.equal((await applyRulesToUncorrectedTransactions()).retyped, 0);
-  await sync(db, "checking", [entry("market", "2026-09-10", -5000, "Example market")]);
+  await sync("checking", [entry("market", "2026-09-10", -5000, "Example market")]);
 
   const split = await stored(db, "bank:market");
   const onCash = await db.select().from(schema.transactions).where(eq(schema.transactions.account_id, "cash"));
@@ -798,7 +793,7 @@ async function splitInTwo(db: Database, id: string, amount: number) {
 test("removing a split gives a refund its matching rule's Expense type and records the rule", async context => {
   const db = await isolatedDatabase(context);
 
-  await sync(db, "checking", [entry("refund", "2026-09-10", 1500, "Refund desk")]);
+  await sync("checking", [entry("refund", "2026-09-10", 1500, "Refund desk")]);
   const booking = await stored(db, "bank:refund");
 
   await splitInTwo(db, booking.id, 1500);
@@ -817,12 +812,12 @@ test("removing a split gives a refund its matching rule's Expense type and recor
 test("removing a split applies a Transfer rule's account and pairs the booking with its counterpart", async context => {
   const db = await isolatedDatabase(context);
 
-  await sync(db, "checking", [entry("plan", "2026-09-01", -20000, "Savings plan")]);
+  await sync("checking", [entry("plan", "2026-09-01", -20000, "Savings plan")]);
   const booking = await stored(db, "bank:plan");
 
   await splitInTwo(db, booking.id, -20000);
-  await sync(db, "savings", [entry("savings-in", "2026-09-02", 20000, "Synthetic checking")]);
-  await sync(db, "deposit", [entry("deposit-in", "2026-09-02", 20000, "Synthetic checking")]);
+  await sync("savings", [entry("savings-in", "2026-09-02", 20000, "Synthetic checking")]);
+  await sync("deposit", [entry("deposit-in", "2026-09-02", 20000, "Synthetic checking")]);
   await rule({
     pattern: "SAVINGS PLAN",
     transaction_type: "transfer",
@@ -842,7 +837,7 @@ test("removing a split applies a Transfer rule's account and pairs the booking w
 test("returning a booking to automatic categorization applies the deciding rule's type and transfer account and pairs it", async context => {
   const db = await isolatedDatabase(context);
 
-  await sync(db, "checking", [entry("plan", "2026-09-01", -20000, "Savings plan")]);
+  await sync("checking", [entry("plan", "2026-09-01", -20000, "Savings plan")]);
   const earlier = await rule({
     pattern: "SAVINGS PLAN",
     transaction_type: "expense",
@@ -863,7 +858,7 @@ test("returning a booking to automatic categorization applies the deciding rule'
     transfer_account_id: "savings"
   });
 
-  await sync(db, "savings", [entry("savings-in", "2026-09-02", 20000, "Synthetic checking")]);
+  await sync("savings", [entry("savings-in", "2026-09-02", 20000, "Synthetic checking")]);
   await updateTransactionCategory(booking.id, {
     automatic: true
   });
@@ -894,7 +889,7 @@ test("both legs of a transfer matching the same rule pair when one leg is on the
     type: "income"
   });
   await applyRulesToUncorrectedTransactions();
-  await sync(db, "checking", [entry("atm", "2026-09-05", -10000, "Cash transfer")]);
+  await sync("checking", [entry("atm", "2026-09-05", -10000, "Cash transfer")]);
 
   const [checkingLeg, cashLeg] = [await stored(db, "bank:atm"), await stored(db, "manual:cash-leg")];
   const onCash = await db.select().from(schema.transactions).where(eq(schema.transactions.account_id, "cash"));
