@@ -6,7 +6,8 @@ import { invalidate } from "@/client/invalidate";
 import { queryKeys } from "@/client/query-keys";
 import type { NewImportCategory } from "./import-plan";
 import type { AccountKind } from "@/features/accounts/account-kinds";
-import { assignOccurrences, batchRows, duplicateIdErrors, rowCategoryValues, withConsumed, type ConsumedBooking, type MappedRow, type RowError } from "./csv-mapping";
+import { assignOccurrences, duplicateIdErrors, rowCategoryValues, type MappedRow, type RowError } from "./import-rows";
+import { batchRows, withConsumed, type ConsumedBooking } from "./import-batches";
 
 // Confirmed rows and opening balances change account balances.
 const affectedKeys = [queryKeys.accounts(), queryKeys.reports.netWorth(), queryKeys.transactions.all(), queryKeys.reports.cashFlow()];

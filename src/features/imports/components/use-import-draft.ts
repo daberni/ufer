@@ -5,7 +5,12 @@ import { activeAccounts, useAccounts } from "@/features/accounts/queries";
 import { useAreaResult } from "@/components/ui/use-area-result";
 import { useCategories } from "@/features/categorization/queries";
 import { useMappedImport, type MappedImportSummary } from "@/features/imports/mutations";
-import { builtInTemplates, decodeCsv, detectDateFormat, detectDecimal, detectDelimiter, mapRows, mappingProblem, matchTemplate, parseCsv, readsBuxferExport, importIdFor, readCsvTable, suggestMapping, templateMapping, templateSettings, type CsvMapping, type CsvSettings, type CsvTemplate } from "@/features/imports/csv-mapping";
+import { builtInTemplates, matchTemplate, templateConventions, templateMapping, templateSettings, type CsvTemplate } from "@/features/imports/csv-templates";
+import { decodeCsv, detectDelimiter, parseCsv, readCsvTable } from "@/features/imports/csv-reading";
+import { detectDateFormat, detectDecimal } from "@/features/imports/csv-values";
+import { mapRows } from "@/features/imports/import-rows";
+import { mappingProblem, suggestMapping, type CsvMapping, type CsvSettings } from "@/features/imports/csv-mapping";
+import { importIdFor } from "@/features/imports/import-batches";
 import { categoryValues, importKey, prepareImport, resolveCategories, resolveTargets, sourceAccounts, templateChoices, type CategorySelection, type TargetChoice } from "@/features/imports/import-plan";
 import { useImportTemplates } from "@/features/imports/template-queries";
 import { useLocale } from "@/client/locale-provider";
@@ -58,7 +63,7 @@ export function useImportDraft() {
   // Without a stored mapping (a new file, delimiter or encoding), the suggestion for the current header applies.
   const effectiveMapping = useMemo(() => mapping ?? (table ? suggestMapping(table.header) : null), [mapping, table]);
   const problem = effectiveMapping ? mappingProblem(effectiveMapping) : null;
-  const mapped = useMemo(() => table && effectiveMapping && !mappingProblem(effectiveMapping) && settings ? mapRows(table.rows, effectiveMapping, settings, locale, table.lines, readsBuxferExport(template)) : null, [table, effectiveMapping, settings, locale, template]);
+  const mapped = useMemo(() => table && effectiveMapping && !mappingProblem(effectiveMapping) && settings ? mapRows(table.rows, effectiveMapping, settings, locale, table.lines, templateConventions(template)) : null, [table, effectiveMapping, settings, locale, template]);
   const sources = useMemo(() => sourceAccounts(mapped?.rows ?? []), [mapped]);
   // Remembered choices follow the option lists, so a template applied before accounts or categories loaded still restores them.
   const remembered = useMemo(() => template ? templateChoices(template, accountOptions, categories.data ?? []) : null, [template, accountOptions, categories.data]);

@@ -3,7 +3,7 @@ import { categoryNameKey } from "@/lib/category-name";
 import { HttpError } from "@/lib/errors";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 import { importTemplates } from "@/server/database/schema";
-import { headerKey, type CsvTemplate } from "../csv-mapping";
+import { headerKey, type CsvTemplate } from "../csv-templates";
 
 /** Saved templates are few hand-made layouts; the bound keeps the list a page section. */
 export const maximumTemplates = 100;

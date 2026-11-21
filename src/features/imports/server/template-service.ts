@@ -1,7 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { HttpError } from "@/lib/errors";
-import { builtInTemplates, dateFormats, emptyMapping, maxCategoryChoicesPerRequest, maxCategoryLength, maxColumnNameLength, maxSourceLength, maxTargetsPerRequest, maxTemplateColumns, maxTemplateNameLength, type CsvMapping } from "../csv-mapping";
+import { builtInTemplates, maxColumnNameLength, maxTemplateColumns, maxTemplateNameLength } from "../csv-templates";
+import { dateFormats } from "../csv-values";
+import { emptyMapping, type CsvMapping } from "../csv-mapping";
+import { maxCategoryChoicesPerRequest, maxTargetsPerRequest } from "../import-batches";
+import { maxCategoryLength, maxSourceLength } from "../import-rows";
 import { deleteTemplate, TemplateLimitReached, insertTemplate, listTemplates, updateTemplate, type TemplateDefinition } from "./template-repository";
 import { formatCount } from "@/lib/locale";
 import { currentFormatLocale } from "@/server/http/request-locale";

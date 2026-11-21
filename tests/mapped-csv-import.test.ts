@@ -24,7 +24,11 @@ import { syncAccounts } from "../src/features/banking/server/sync-service";
 import { acquireLease } from "../src/server/jobs/lease-repository";
 import { syncLease, withLease } from "../src/server/jobs/lease";
 import { accountLabel, categoryValues, defaultCategorySelection, defaultTargetChoice, importKey, newAccountChoice, prepareImport, type TargetChoice } from "../src/features/imports/import-plan";
-import { assignOccurrences, batchRows, currencyAllows, maxCategoryChoicesPerRequest, maxConsumedPerRequest, maxImportRequestBytes, withConsumed, duplicateIdErrors, importIdFor, maxTargetsPerRequest, readCsvTable, emptyMapping, mappingProblem, normalizeText, parseCsvRecords, pruneConsumed, decodeCsv, detectDateFormat, detectDecimal, detectDelimiter, mapRows, parseAmount, parseCsv, parseDate, suggestMapping, type CsvSettings, type DateFormat, type ImportRow } from "../src/features/imports/csv-mapping";
+import { assignOccurrences, duplicateIdErrors, mapRows, type ImportRow } from "../src/features/imports/import-rows";
+import { batchRows, maxCategoryChoicesPerRequest, maxConsumedPerRequest, maxImportRequestBytes, withConsumed, importIdFor, maxTargetsPerRequest, pruneConsumed } from "../src/features/imports/import-batches";
+import { currencyAllows, normalizeText, detectDateFormat, detectDecimal, parseAmount, parseDate, type DateFormat } from "../src/features/imports/csv-values";
+import { readCsvTable, parseCsvRecords, decodeCsv, detectDelimiter, parseCsv } from "../src/features/imports/csv-reading";
+import { emptyMapping, mappingProblem, suggestMapping, type CsvSettings } from "../src/features/imports/csv-mapping";
 
 const now = Temporal.Instant.from("2026-06-30T12:00:00Z");
 

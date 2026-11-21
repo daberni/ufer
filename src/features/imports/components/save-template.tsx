@@ -8,7 +8,7 @@ import { Check } from "lucide-react";
 import styles from "./save-template.module.css";
 import { toFailure } from "@/client/api";
 import { FormError } from "@/components/ui/form-error";
-import { maxTemplateNameLength, templateFromMapping } from "@/features/imports/csv-mapping";
+import { maxTemplateNameLength, templateFromMapping } from "@/features/imports/csv-templates";
 import { rememberedChoices } from "@/features/imports/import-plan";
 import { useChangeTemplate, useSaveTemplate } from "@/features/imports/template-queries";
 import type { ImportDraft } from "./use-import-draft";

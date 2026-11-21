@@ -13,7 +13,10 @@ import { readAccountCashFlow } from "../src/features/reports/server/cash-flow-qu
 import { monthPeriod } from "../src/lib/period";
 import { importMappedRows } from "../src/features/imports/server/mapped-import-service";
 import { categoryValues } from "../src/features/imports/import-plan";
-import { assignOccurrences, buxferTemplate, mapRows, parseCsv, readsBuxferExport, suggestMapping, tagSplit, templateMapping, withSplitTags, type CsvSettings, type MappedRow } from "../src/features/imports/csv-mapping";
+import { assignOccurrences, mapRows, tagSplit, withSplitTags, type MappedRow } from "../src/features/imports/import-rows";
+import { buxferTemplate, templateConventions, templateMapping } from "../src/features/imports/csv-templates";
+import { parseCsv } from "../src/features/imports/csv-reading";
+import { suggestMapping, type CsvSettings } from "../src/features/imports/csv-mapping";
 
 const now = Temporal.Instant.from("2026-06-30T12:00:00Z");
 const importId = "00000000-0000-4000-8000-000000000247";
@@ -76,7 +79,7 @@ async function isolatedDatabase(context: TestContext) {
 function mappedBuxferRows(csv = buxferCsv) {
   const [header, ...rows] = parseCsv(csv, ",");
 
-  return mapRows(rows, templateMapping(buxferTemplate, header), settings, "en", undefined, readsBuxferExport(buxferTemplate));
+  return mapRows(rows, templateMapping(buxferTemplate, header), settings, "en", undefined, templateConventions(buxferTemplate));
 }
 
 function payload(rows: MappedRow[], confirm: boolean, categories: object[] = []) {
@@ -253,12 +256,14 @@ test("only Buxfer's layout reads tags as splits; other files keep colon values a
     ["Phase:5,Project:5", null, ""],
     ["Project:2026", null, ""]
   ]);
-  assert.equal(readsBuxferExport(null), false);
-  assert.equal(readsBuxferExport({
+  assert.equal(templateConventions(null).amountTags, false);
+  // Saved templates are stored without conventions and take them from the built-in template for their header.
+  assert.equal(templateConventions({
     ...buxferTemplate,
     id: "saved",
-    builtIn: false
-  }), true);
+    builtIn: false,
+    conventions: undefined
+  }).amountTags, true);
 });
 
 test("Buxfer investment trades import hidden with their exported amount while gains and other types count", async context => {

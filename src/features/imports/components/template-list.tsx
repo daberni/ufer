@@ -8,7 +8,7 @@ import { Copy, Pencil, Trash2 } from "lucide-react";
 import styles from "./template-list.module.css";
 import { toFailure } from "@/client/api";
 import { FormError } from "@/components/ui/form-error";
-import { maxTemplateNameLength, templateLabel, type CsvTemplate } from "@/features/imports/csv-mapping";
+import { maxTemplateNameLength, templateLabel, type CsvTemplate } from "@/features/imports/csv-templates";
 import { useChangeTemplate, useDeleteTemplate, useDuplicateTemplate } from "@/features/imports/template-queries";
 import { useLocale } from "@/client/locale-provider";
 import { formatCount } from "@/lib/locale";
