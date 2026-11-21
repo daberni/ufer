@@ -19,6 +19,7 @@ import { listAccounts, readBalanceHistory, readNetWorth } from "../src/features/
 import { convertToManualAccount, deleteAccount, updateAccount, updateManualValuation } from "../src/features/accounts/server/account-service";
 import { readAccountCashFlow, readCashFlow } from "../src/features/reports/server/cash-flow-query";
 import { pairTransfersInEnvironment } from "../src/features/transactions/server/transfer-repository";
+import { createRule, updateRuleDetails } from "../src/features/categorization/server/categorization-service";
 import { syncLeaseName } from "../src/features/banking/server/sync-service";
 import type { Account } from "../src/features/accounts/types";
 import { browser, wait, withQueryClient } from "./fixtures/browser";
@@ -284,6 +285,7 @@ test("converting keeps the bank balance when bookings are dated after the bank b
   assert.deepEqual(await readNetWorth("EUR"), netWorthBefore);
   assert.equal(adjustment?.booking_date, "2026-03-02");
   assert.equal(adjustment?.amount_minor, 24000);
+  assert.equal((await readBalanceHistory("detached")).balances.at(-1)?.amount_minor, 120000);
 });
 
 test("a bank account with an active connection, a manual account or an unknown account is not converted", async context => {
@@ -392,6 +394,32 @@ test("a rule-typed transfer to a deleted account is not paired with an opposite 
 
   assert.equal((await db.select().from(schema.transactions).where(eq(schema.transactions.id, "bank-to-cash-later")).get())?.transfer_id, null);
   assert.equal((await db.select().from(schema.transactions).where(eq(schema.transactions.id, "wallet-income")).get())?.transfer_id, null);
+});
+
+test("a rule whose transfer account was deleted can still be edited and keeps its target, while no rule can newly name that target", async context => {
+  const db = await seededDatabase(context);
+
+  await deleteAccount("cash", {
+    name: "Synthetic cash"
+  });
+  const details = {
+    name: "Synthetic cash withdrawals",
+    pattern: "CASH ATM",
+    mode: "keyword",
+    category_id: "synthetic-rent",
+    transaction_type: "transfer",
+    transfer_account_id: "removed:cash"
+  };
+
+  await updateRuleDetails("rule-to-cash", details);
+  const rule = await db.select().from(schema.categorizationRules).where(eq(schema.categorizationRules.id, "rule-to-cash")).get();
+
+  assert.equal(rule?.pattern, "CASH ATM");
+  assert.equal(rule?.transfer_account_id, "removed:cash");
+  await assert.rejects(createRule({
+    ...details,
+    name: "Synthetic new rule"
+  }), new ValidationError("Choose one of your active accounts for the transfer."));
 });
 
 test("deleting a disconnected bank account removes its balance history and bank identifiers", async context => {

@@ -296,7 +296,7 @@ function RuleTypeFields({
             Account
             <Select name="transfer_account_id" value={chosenAccountId} onChange={event => setChosenAccountId(event.target.value)}>
               <option value="">Any or untracked account</option>
-              {storedMissing && <option value={accountId}>{accountName ?? accountId}</option>}
+              {storedMissing && <option value={accountId}>{accountName ?? "Deleted account"}</option>}
               {options.map(account => <option key={account.id} value={account.id}>{account.name}</option>)}
             </Select>
           </label>

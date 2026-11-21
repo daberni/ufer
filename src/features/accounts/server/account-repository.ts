@@ -234,6 +234,23 @@ export async function convertDetachedAccount(executor: Database, id: string) {
         amount_minor: account.balance_minor,
         source: "sync"
       }).onConflictDoNothing();
+
+      // The correction after later bookings is the balance on that date too; the history anchors there instead of adding it on top of the earlier bank balance.
+      if (correctionDate !== account.balance_date) {
+        await tx.insert(balanceSnapshots).values({
+          id: randomUUID(),
+          account_id: id,
+          observed_at: correctionDate,
+          amount_minor: account.balance_minor,
+          source: "manual"
+        }).onConflictDoUpdate({
+          target: [balanceSnapshots.account_id, balanceSnapshots.observed_at],
+          set: {
+            amount_minor: account.balance_minor,
+            source: "manual"
+          }
+        });
+      }
     }
 
     await tx.delete(accountIdentifiers).where(eq(accountIdentifiers.account_id, id));

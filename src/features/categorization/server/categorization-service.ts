@@ -52,17 +52,24 @@ const rulePreviewInput = z.object({
   source_transaction_id: z.string().min(1).optional()
 });
 
-/** Rejects a counterpart account for a rule that sets no transfer, and an account that is not one of the workspace's own. */
+/**
+ * Rejects a counterpart account for a rule that sets no transfer, and an account that is not one of the workspace's own.
+ * An edited rule may keep its stored target unchanged, such as the marker of a deleted account, which matches no account.
+ */
 async function validateRuleType(input: {
   transaction_type: Rule["transaction_type"];
   transfer_account_id: Rule["transfer_account_id"];
-}) {
+}, storedTarget: string | null = null) {
   if (!input.transfer_account_id) {
     return;
   }
 
   if (input.transaction_type !== "transfer") {
     throw new ValidationError("Only a transfer rule can name an account.");
+  }
+
+  if (input.transfer_account_id === storedTarget) {
+    return;
   }
 
   if (!(await activeAccountExists(input.transfer_account_id))) {
@@ -222,7 +229,9 @@ export async function updateRuleDetails(id: string, payload: unknown) {
     throw new ValidationError("Category does not exist.");
   }
 
-  await validateRuleType(input);
+  const stored = (await listRules()).find(rule => rule.id === id);
+
+  await validateRuleType(input, stored?.transfer_account_id ?? null);
 
   const manual: ManualAdoption | undefined = adoptManual ? {
     select: decidedByStoredRule(id)
