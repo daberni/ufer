@@ -170,11 +170,13 @@ function AccountCard({ account }: {
           <Icon size={23} />
         </span>
         <h2 className={styles["card-name"]}>
-          <Link className={styles["account-link"]} href={accountHref(account.id)}>
-            <Tooltip text={account.name} describes={false} onlyWhenTruncated>
-              {trigger => <span {...trigger} className={styles["card-name-text"]}>{account.name}</span>}
-            </Tooltip>
-          </Link>
+          <Tooltip text={account.name} describes={false} onlyWhenTruncated>
+            {trigger => (
+              <Link {...trigger} className={styles["account-link"]} href={accountHref(account.id)}>
+                <span className={styles["card-name-text"]}>{account.name}</span>
+              </Link>
+            )}
+          </Tooltip>
         </h2>
         <span className={ui["pill"]}>{kinds[account.kind] ?? account.kind}</span>
       </div>
