@@ -213,7 +213,8 @@ export async function readTransactionPage(filters: DashboardFilters) {
       counterpart: row.counterpart_id === null ? null : {
         id: String(row.counterpart_id),
         account_name: String(row.counterpart_account_name),
-        booking_date: String(row.counterpart_booking_date)
+        booking_date: String(row.counterpart_booking_date),
+        entered: Boolean(row.counterpart_entered)
       }
     }))
   };

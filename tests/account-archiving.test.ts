@@ -424,6 +424,58 @@ test("rules categorize bookings on an archived account when applied, created or 
   assert.deepEqual(typesOf(await db.select().from(schema.transactions)), typesBefore);
 });
 
+test("an imported booking on an archived account links with and unlinks from existing bookings, but no counterpart is created", async context => {
+  const db = await seededDatabase(context);
+
+  await archivedImports(db);
+  await db.insert(schema.transactions).values({
+    id: "card-payment",
+    account_id: "target",
+    provider_reference: "csv:card-payment",
+    booking_date: "2026-01-08",
+    amount_minor: 1500,
+    currency: "EUR",
+    type: "income"
+  });
+  const balancesBefore = await balances();
+  const archived = {
+    status: 409,
+    message: "This account is archived. Restore the account first."
+  };
+  const linked = async () => (await db.select().from(schema.transactions).where(eq(schema.transactions.id, "shop")).get())?.transfer_id;
+
+  assert.deepEqual((await transferOptions("shop")).candidates.map(candidate => candidate.id), ["card-payment"]);
+  await assert.rejects(updateTransactionDetails("shop", {
+    type: "transfer",
+    transfer: {
+      account_id: "open"
+    }
+  }), archived);
+  await assert.rejects(updateTransactionDetails("shop", {
+    type: "transfer"
+  }), archived);
+
+  await updateTransactionDetails("shop", {
+    type: "transfer",
+    transfer: {
+      counterpart_id: "card-payment"
+    }
+  });
+  assert.ok(await linked());
+  assert.equal((await db.select().from(schema.transactions).where(eq(schema.transactions.id, "card-payment")).get())?.type, "transfer");
+
+  await assert.rejects(updateTransactionDetails("shop", {
+    type: "income"
+  }), archived);
+  await updateTransactionDetails("shop", {
+    type: "expense"
+  });
+  assert.equal(await linked(), null);
+  assert.equal((await db.select().from(schema.transactions).where(eq(schema.transactions.id, "card-payment")).get())?.type, "income");
+  assert.equal((await db.select().from(schema.transactions)).length, 8);
+  assert.deepEqual(await balances(), balancesBefore);
+});
+
 test("automatic pairing never links a booking on an archived account", async context => {
   const db = await seededDatabase(context);
 

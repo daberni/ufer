@@ -40,7 +40,8 @@ const transfer: Transaction = {
   counterpart: {
     id: "other",
     account_name: "Synthetic savings",
-    booking_date: "2026-09-02"
+    booking_date: "2026-09-02",
+    entered: false
   }
 };
 

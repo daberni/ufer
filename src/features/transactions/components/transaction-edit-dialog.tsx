@@ -16,7 +16,7 @@ import { CategoryPicker } from "@/features/categorization/components/category-pi
 import { useCategories } from "@/features/categorization/queries";
 import { describeDate } from "@/lib/date-format";
 import { decimalAmount, minorUnits, signedMoney } from "@/lib/money";
-import { isTransactionType, manualAccountTypes, transactionTypeLabels, transactionTypes, type TransactionType } from "@/features/transactions/transaction-types";
+import { derivedTransactionType, isTransactionType, manualAccountTypes, transactionTypeLabels, transactionTypes, type TransactionType } from "@/features/transactions/transaction-types";
 import { useDeleteTransaction, useHideTransaction, useSaveSplit, useSaveTransaction, type EntryEdit, type TransactionEdit } from "@/features/transactions/mutations";
 import { useTransferOptions } from "@/features/transactions/queries";
 import { useTransactionCategory } from "@/features/transactions/use-transaction-category";
@@ -367,12 +367,13 @@ function TransactionEditForm({
   const [typeChosen, setTypeChosen] = useState(false);
   const [chosenTarget, setTarget] = useState<Target>();
   const transfer = type === "transfer";
-  // Archiving freezes the type, link and entry, which can change balances; categories, payee and description stay editable.
+  // Archiving freezes balances: categories, payee and description stay editable, and imported bookings can still be linked with existing ones.
   const frozen = bookkeepingFrozen(transaction);
-  // A hidden booking is not linked; it can be a transfer to an untracked account until it is shown again.
-  const linkable = transfer && !transaction.hidden && !frozen;
   // Imported from a bank or file: not entered in Ufer and not a counterpart Ufer created, which the server treats as entered.
   const imported = !transaction.entered && !transaction.created_counterpart;
+  const relinkable = !frozen || (imported && !transaction.counterpart?.entered);
+  // A hidden booking is not linked; it can be a transfer to an untracked account until it is shown again.
+  const linkable = transfer && !transaction.hidden && relinkable;
   const editsEntry = transaction.entered && !frozen;
   // On an archived account only a bank booking without a link can be hidden: a manual account's balance sums its shown bookings, and hiding ends a link.
   const hideable = imported && (!frozen || (!transaction.manual_account && !transaction.counterpart));
@@ -381,7 +382,9 @@ function TransactionEditForm({
   // A split booking stays income or expense, since only those count by category; the stored type stays listed.
   const typeAllowed = (option: TransactionType) => !splitOpen || option === "income" || option === "expense";
   const canSplit = type === "income" || type === "expense";
-  const available = transactionTypes.filter(option => option === transaction.type || (!frozen && typeAllowed(option) && (transaction.manual_account || !manualAccountTypes.includes(option))));
+  const available = frozen ? frozenTypes(transaction, relinkable) : transactionTypes.filter(option => option === transaction.type || (typeAllowed(option) && (transaction.manual_account || !manualAccountTypes.includes(option))));
+  // A frozen booking becomes a transfer only by linking an existing booking.
+  const linkMissing = frozen && transfer && transaction.type !== "transfer" && target.kind !== "booking";
   // Without loaded options, saving a transfer could drop a link the form cannot show.
   const targetUnknown = linkable && options.status !== "success";
 
@@ -441,7 +444,9 @@ function TransactionEditForm({
       onSubmit={event => {
         event.preventDefault();
 
-        const edit: TransactionEdit = linkable ? {
+        // A frozen booking sends its link only when it changes, since keeping it is not a link change.
+        const keepsLink = frozen && type === transaction.type && selectValue(target) === selectValue(storedTarget(transaction, options.data));
+        const edit: TransactionEdit = linkable && !keepsLink ? {
           type,
           transfer: transferEdit(target)
         } : {
@@ -465,7 +470,7 @@ function TransactionEditForm({
             aria-label="Type"
             name="type"
             value={type}
-            disabled={frozen}
+            disabled={available.length < 2}
             onChange={event => {
               const value = event.target.value;
 
@@ -510,6 +515,7 @@ function TransactionEditForm({
               options={options}
               target={target}
               onTarget={setTarget}
+              frozen={frozen}
             />
           )}
           {!splitOpen && (
@@ -563,7 +569,7 @@ function TransactionEditForm({
         </div>
         <FormError failure={error} />
         <div className={styles["actions"]}>
-          <button className={clsx(ui["button"], ui["primary"])} disabled={pending || targetUnknown || splitBlocked}>
+          <button className={clsx(ui["button"], ui["primary"])} disabled={pending || targetUnknown || splitBlocked || linkMissing}>
             Save <Check size={16} />
           </button>
           {editsEntry && (
@@ -594,11 +600,26 @@ function TransactionEditForm({
   );
 }
 
-/** Why the type, link and entry are fixed: the booking's own account or its counterpart's is archived. */
+/** The types a frozen booking can take: its own, and for an imported booking a link with an existing booking or the end of its link. */
+function frozenTypes(transaction: Transaction, relinkable: boolean): TransactionType[] {
+  if (!relinkable) {
+    return [transaction.type];
+  }
+
+  if (transaction.type !== "transfer") {
+    return [transaction.type, "transfer"];
+  }
+
+  const derived = derivedTransactionType(transaction.amount_minor);
+
+  return transaction.counterpart && derived !== "transfer" ? ["transfer", derived] : ["transfer"];
+}
+
+/** Why the balance is fixed: the booking's own account or its counterpart's is archived. */
 function frozenHint(transaction: Transaction) {
   const archived = transaction.account_archived ? transaction.account_name : transaction.counterpart?.account_name ?? "the linked account";
 
-  return `${archived} is archived, so this booking keeps its type, amount, date and transfer link. Its category, split, payee and description can still change.`;
+  return `${archived} is archived, so this booking keeps its amount, date and balance effect. Its category, split, payee and description can still change, and an imported booking can be linked with an existing booking or unlinked.`;
 }
 
 function detailsEdit(edit: TransactionEdit, data: FormData, transaction: Transaction, imported: boolean, editsEntry: boolean): TransactionEdit | EntryEdit {
@@ -792,12 +813,15 @@ function TransferFields({
   transaction,
   options,
   target,
-  onTarget
+  onTarget,
+  frozen
 }: {
   transaction: Transaction;
   options: ReturnType<typeof useTransferOptions>;
   target: Target;
   onTarget: (target: Target) => void;
+  /** Whether either account is archived, so no counterpart may be created on a manual account. */
+  frozen: boolean;
 }) {
   const locale = useLocale();
   const suggestionsId = useId();
@@ -819,7 +843,7 @@ function TransferFields({
   }
 
   const suggestions = suggestionsOf(transaction, options.data);
-  const accounts = options.data.accounts;
+  const accounts = frozen ? [] : options.data.accounts;
 
   return (
     <div className={styles["pair"]}>

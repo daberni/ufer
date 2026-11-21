@@ -66,6 +66,8 @@ export type Transaction = {
     id: string;
     account_name: string;
     booking_date: string;
+    /** Whether the counterpart was entered in Ufer or created by it on a manual account. */
+    entered: boolean;
   } | null;
 };
 

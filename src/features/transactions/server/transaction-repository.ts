@@ -187,12 +187,9 @@ export async function saveTransactionDetails(
       return "not_found";
     }
 
+    // Archiving freezes balances, not the payee, description or categories; `applyTransactionType` allows only balance-neutral link changes.
+    const keepsType = type === subject.type && target === undefined;
     const frozen = await touchesArchivedAccount(tx, subject);
-
-    // Archiving freezes the type and transfer link, which can change balances, but not the payee, description or categories.
-    if (frozen && (type !== subject.type || target !== undefined)) {
-      return "archived_account";
-    }
 
     // Removing the split in the same write transaction lets it take a type a split booking refuses; a refused save keeps the split.
     const dissolved = dropSplit ? await dissolveSplit(tx, id, dropSplit) : false;
@@ -226,7 +223,7 @@ export async function saveTransactionDetails(
       await assignRuleDecision(tx, id, dropSplit);
     }
 
-    if (frozen) {
+    if (frozen && keepsType) {
       return "saved";
     }
 

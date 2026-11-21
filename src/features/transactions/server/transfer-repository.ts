@@ -170,7 +170,10 @@ export type Subject = NonNullable<Awaited<ReturnType<typeof findSubject>>>;
 function linkCandidate(subject: Subject) {
   const inWindow = sql`${transactions.booking_date} BETWEEN date(${subject.booking_date},${windowStart(manualLinkDays)}) AND date(${subject.booking_date},${windowEnd(manualLinkDays)})`;
 
-  return and(isNull(accounts.archived_at), ne(transactions.account_id, subject.account_id), eq(transactions.amount_minor, -subject.amount_minor), eq(transactions.currency, subject.currency), sql`${transactions.transfer_id} IS NULL`, sql`${transactions.suppressed_at} IS NULL`, sql`${transactions.amount_minor}<>0`, notSplit, inWindow);
+  // Linking a booking on an archived account only changes its type; a booking entered there would follow the link's date, so it is no candidate.
+  const unfrozen = sql`(${accounts.archived_at} IS NULL OR NOT (${accounts.provider}='manual' AND (${transactions.provider_reference} LIKE ${`${manualEntryPrefix}%`} OR ${transactions.provider_reference} LIKE ${`${createdCounterpartPrefix}%`})))`;
+
+  return and(unfrozen, ne(transactions.account_id, subject.account_id), eq(transactions.amount_minor, -subject.amount_minor), eq(transactions.currency, subject.currency), sql`${transactions.transfer_id} IS NULL`, sql`${transactions.suppressed_at} IS NULL`, sql`${transactions.amount_minor}<>0`, notSplit, inWindow);
 }
 
 export async function findSubject(executor: Executor, id: string) {
@@ -586,6 +589,31 @@ export async function applyTransactionType(tx: DatabaseTransaction, id: string, 
   return result;
 }
 
+/**
+ * Whether a type change only links or unlinks existing bookings: no booking is created, deleted or moved and no date or amount follows the link. Linking chooses an existing candidate; unlinking returns to the sign's type or keeps a transfer without counterpart.
+ */
+async function relinksWithoutBalanceChange(tx: DatabaseTransaction, subject: Subject, type: TransactionType, target: TransferTarget | undefined) {
+  if (enteredInUfer(subject)) {
+    return false;
+  }
+
+  const counterpart = await findCounterpart(tx, subject);
+
+  if (counterpart && enteredInUfer(counterpart)) {
+    return false;
+  }
+
+  if (type !== "transfer") {
+    return counterpart !== undefined && type === derivedTransactionType(subject.amount_minor);
+  }
+
+  if (target === null) {
+    return counterpart !== undefined;
+  }
+
+  return target !== undefined && "counterpartId" in target;
+}
+
 async function changeType(tx: DatabaseTransaction, id: string, type: TransactionType, target?: TransferTarget): Promise<TypeChangeResult> {
   const subject = await findSubject(tx, id);
 
@@ -593,8 +621,8 @@ async function changeType(tx: DatabaseTransaction, id: string, type: Transaction
     return "not_found";
   }
 
-  // Bookings on an archived account are read-only until it is restored; this also covers linking it.
-  if (await touchesArchivedAccount(tx, subject)) {
+  // Archiving freezes balances: only links between existing imported bookings may change while either side's account is archived.
+  if (await touchesArchivedAccount(tx, subject) && !(await relinksWithoutBalanceChange(tx, subject, type, target))) {
     return "archived_account";
   }
 
