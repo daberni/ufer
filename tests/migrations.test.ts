@@ -31,14 +31,14 @@ async function legacyDatabase(transform: (sql: string) => string = sql => sql) {
   return client;
 }
 
-// Later changesets add columns, so upgrade tests compare only the columns that existed before the upgrade.
+// Later changesets add columns and changeset 0016 drops the banking environment, so upgrade tests compare only the columns that exist both before and after the upgrade.
 async function columnList(client: Client, table: string) {
   const columns = await client.execute({
     sql: "SELECT name FROM pragma_table_info(?)",
     args: [table]
   });
 
-  return columns.rows.map(row => String(row.name)).join(",");
+  return columns.rows.map(row => String(row.name)).filter(name => name !== "environment").join(",");
 }
 
 // Changeset 0007 moves a manual account's balance from the stored column into its transactions, so a balance is read from whichever holds it.
@@ -46,7 +46,7 @@ const currentBalance = "COALESCE(balance_minor,(SELECT SUM(t.amount_minor) FROM 
 
 /** Accounts with their current balance; comparable across every upgrade. */
 async function accountState(client: Client) {
-  return (await client.execute(`SELECT id,environment,name,institution,kind,currency,provider,provider_uid,requisition_id,iban,last_synced_at,sync_error,${currentBalance} FROM accounts ORDER BY id`)).rows;
+  return (await client.execute(`SELECT id,name,institution,kind,currency,provider,provider_uid,requisition_id,iban,last_synced_at,sync_error,${currentBalance} FROM accounts ORDER BY id`)).rows;
 }
 
 /** Transactions that existed before changeset 0007 booked manual balances as transactions. */
@@ -451,7 +451,7 @@ test("the provider data upgrade keeps existing transactions unchanged and leaves
 
 // Cash flow as computed before transaction types: every booking except those in a category flagged as a transfer, split by direction.
 async function cashFlowBeforeTypes(client: Client, month: string) {
-  const counted = "FROM transactions t JOIN accounts a ON a.id=t.account_id LEFT JOIN categories c ON c.id=t.category_id WHERE a.environment='SANDBOX' AND t.currency='EUR' AND substr(t.booking_date,1,7)=? AND COALESCE(c.is_transfer,0)=0";
+  const counted = "FROM transactions t JOIN accounts a ON a.id=t.account_id LEFT JOIN categories c ON c.id=t.category_id WHERE t.currency='EUR' AND substr(t.booking_date,1,7)=? AND COALESCE(c.is_transfer,0)=0";
   const totals = await client.execute({
     sql: `SELECT COALESCE(SUM(CASE WHEN t.amount_minor>0 THEN t.amount_minor ELSE 0 END),0) AS income,COALESCE(SUM(CASE WHEN t.amount_minor<0 THEN -t.amount_minor ELSE 0 END),0) AS expenses ${counted}`,
     args: [month]
@@ -1242,6 +1242,75 @@ test("split migration keeps every booking unchanged and removes parts with their
     await client.execute("DELETE FROM transactions WHERE id='market'");
     assert.deepEqual((await client.execute("SELECT id FROM transaction_splits")).rows.map(row => row.id), ["part-3"]);
     assert.equal((await client.execute("PRAGMA foreign_key_check")).rows.length, 0);
+  } finally {
+    client.close();
+    rmSync(directory, {
+      recursive: true,
+      force: true
+    });
+  }
+});
+
+test("environment migration drops the per-row banking environment and keeps every account, identifier, connection and run", async () => {
+  const client = createClient({
+    url: ":memory:"
+  });
+  const directory = mkdtempSync(join(tmpdir(), "ufer-environment-"));
+  const journal = JSON.parse(readFileSync("drizzle/sqlite/meta/_journal.json", "utf8"));
+
+  // Earlier changesets only, so the upgrade starts from the schema just before this one.
+  journal.entries = journal.entries.slice(0, journal.entries.findIndex((entry: {
+    tag: string
+  }) => entry.tag === "0016_drop_banking_environment"));
+  mkdirSync(join(directory, "meta"));
+
+  for (const entry of journal.entries) {
+    cpSync(`drizzle/sqlite/${entry.tag}.sql`, join(directory, `${entry.tag}.sql`));
+  }
+
+  writeFileSync(join(directory, "meta/_journal.json"), JSON.stringify(journal));
+
+  try {
+    await migrateDatabase(client, directory);
+    await client.batch([
+      "INSERT INTO requisitions(id,environment,bank_name,bank_country,status,session_cipher,valid_until) VALUES('linked','PRODUCTION','Example institution','AT','LINKED','synthetic-ciphertext','2099-01-01')",
+      "INSERT INTO accounts(id,environment,name,provider_name,institution,kind,currency,provider,provider_uid,requisition_id,iban,balance_minor,balance_date,last_synced_at,sync_error,archived_at) VALUES('bank','PRODUCTION','Everyday','Synthetic checking','Example institution','checking','EUR','enable_banking','synthetic-uid','linked','synthetic-iban',12345,'2026-01-31','2026-02-01T08:00:00.000Z',NULL,NULL)",
+      "INSERT INTO accounts(id,environment,name,institution,kind,currency,archived_at) VALUES('cash','PRODUCTION','Synthetic cash','Example institution','savings','USD','2026-01-15T00:00:00.000Z')",
+      "INSERT INTO account_identifiers(environment,identification_hash,account_id) VALUES('PRODUCTION','synthetic-hash','bank')",
+      "INSERT INTO sync_runs(id,environment,started_at,finished_at,status,inserted_count) VALUES('run','PRODUCTION','2026-02-01T08:00:00.000Z','2026-02-01T08:00:05.000Z','SUCCESS',1)",
+      "INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,created_at,type) VALUES('booking','bank','bank:1','2026-01-30',-500,'EUR','2026-02-01T08:00:00.000Z','expense')",
+      "INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,type) VALUES('opening','cash','manual:opening','2026-01-01',7000,'USD','opening_balance')",
+      "INSERT INTO balance_snapshots(id,account_id,observed_at,amount_minor,source) VALUES('snapshot','bank','2026-01-31',12345,'sync')"
+    ], "write");
+    const columns = {
+      accounts: await columnList(client, "accounts"),
+      account_identifiers: await columnList(client, "account_identifiers"),
+      requisitions: await columnList(client, "requisitions"),
+      sync_runs: await columnList(client, "sync_runs")
+    };
+    const snapshot = async () => Object.fromEntries(await Promise.all([...Object.entries(columns), ["transactions", await columnList(client, "transactions")], ["balance_snapshots", await columnList(client, "balance_snapshots")]].map(async ([table, list]) => [table, (await client.execute(`SELECT ${list} FROM ${table} ORDER BY rowid`)).rows])));
+    const before = await snapshot();
+
+    await assert.rejects(initializeDatabase(client), /migrations are pending/);
+    await migrateDatabase(client);
+    await migrateDatabase(client);
+
+    assert.deepEqual(await snapshot(), before);
+
+    for (const table of ["accounts", "account_identifiers", "requisitions", "sync_runs"]) {
+      assert.equal((await client.execute({
+        sql: "SELECT COUNT(*) AS n FROM pragma_table_info(?) WHERE name='environment'",
+        args: [table]
+      })).rows[0].n, 0, table);
+    }
+
+    await client.execute("PRAGMA foreign_keys = ON");
+    assert.equal((await client.execute("PRAGMA foreign_key_check")).rows.length, 0);
+    // Provider identities are unique on their own, and transactions still reference accounts.
+    await assert.rejects(client.execute("INSERT INTO accounts(id,name,institution,kind,provider,provider_uid) VALUES('duplicate','Duplicate','Example institution','checking','enable_banking','synthetic-uid')"), /UNIQUE constraint/);
+    await assert.rejects(client.execute("INSERT INTO account_identifiers(identification_hash,account_id) VALUES('synthetic-hash','cash')"), /UNIQUE constraint|PRIMARY KEY/);
+    await assert.rejects(client.execute("INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,type) VALUES('orphan','missing','bank:2','2026-01-30',-500,'EUR','expense')"), /FOREIGN KEY/);
+    await assert.rejects(client.execute("DELETE FROM accounts WHERE id='bank'"), /FOREIGN KEY/);
   } finally {
     client.close();
     rmSync(directory, {

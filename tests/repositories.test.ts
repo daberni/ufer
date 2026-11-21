@@ -57,7 +57,6 @@ async function isolatedDatabase(context: TestContext) {
 
 function syncRun(startedAt: string) {
   return {
-    environment: "SANDBOX",
     startedAt
   };
 }
@@ -137,7 +136,6 @@ test("invalid provider currencies and identities return provider failures withou
 
   await db.insert(schema.accounts).values({
     id: "synthetic-bank-account",
-    environment: "SANDBOX",
     name: "Synthetic account",
     institution: "Example institution",
     kind: "checking",
@@ -153,7 +151,7 @@ test("invalid provider currencies and identities return provider failures withou
   }], []), {
     status: 502
   });
-  await assert.rejects(saveSessionAccounts(db, "SANDBOX", "unused-connection", "Example institution", "2099-01-01T00:00:00Z", [{
+  await assert.rejects(saveSessionAccounts(db, "unused-connection", "Example institution", "2099-01-01T00:00:00Z", [{
     uid: "synthetic-uid",
     identification_hash: "",
     currency: "EUR"
@@ -257,19 +255,12 @@ test("a valuation dated today in Vienna is accepted before UTC reaches that day,
   assert.equal((await db.select().from(schema.transactions)).length, 2);
 });
 
-test("category corrections retain environment isolation, manual exclusions survive rule application and transfers are categorized by rules", async context => {
+test("unknown records are not found, manual exclusions survive rule application and transfers are categorized by rules", async context => {
   const db = await isolatedDatabase(context);
 
   await db.insert(schema.accounts).values([{
     id: "local",
-    environment: "SANDBOX",
     name: "Synthetic local account",
-    institution: "Example institution",
-    kind: "checking"
-  }, {
-    id: "other",
-    environment: "PRODUCTION",
-    name: "Synthetic other account",
     institution: "Example institution",
     kind: "checking"
   }]);
@@ -279,15 +270,6 @@ test("category corrections retain environment isolation, manual exclusions survi
     provider_reference: "synthetic-1",
     booking_date: "2000-01-10",
     amount_minor: -100,
-    currency: "EUR",
-    type: "expense",
-    counterparty: "Supermarket"
-  }, {
-    id: "other-entry",
-    account_id: "other",
-    provider_reference: "synthetic-2",
-    booking_date: "2000-01-10",
-    amount_minor: -200,
     currency: "EUR",
     type: "expense",
     counterparty: "Supermarket"
@@ -322,12 +304,12 @@ test("category corrections retain environment isolation, manual exclusions survi
     category_id: null
   }]);
 
-  assert.equal(await findManualAccount("other"), undefined);
-  await assert.rejects(updateManualValuation("other", {
+  assert.equal(await findManualAccount("unknown"), undefined);
+  await assert.rejects(updateManualValuation("unknown", {
     balance: "1.00",
     date: "2000-01-10"
   }));
-  assert.equal(await setTransactionCategory("other-entry", "groceries"), undefined);
+  assert.equal(await setTransactionCategory("unknown-entry", "groceries"), undefined);
   assert.deepEqual(await setTransactionCategory("local-entry", null), {
     id: "local-entry",
     category_id: null,
@@ -337,12 +319,9 @@ test("category corrections retain environment isolation, manual exclusions survi
 
   await applyRulesToUncorrectedTransactions();
   const corrected = await db.select().from(schema.transactions).where(eq(schema.transactions.id, "local-entry")).get();
-  const other = await db.select().from(schema.transactions).where(eq(schema.transactions.id, "other-entry")).get();
 
   assert.equal(corrected?.category_id, null);
   assert.equal(corrected?.category_source, "manual");
-  assert.equal(other?.category_id, null);
-  assert.equal(other?.category_source, "rule");
   assert.equal((await db.select().from(schema.transactions).where(eq(schema.transactions.id, "automatic-entry")).get())?.category_id, "groceries");
   // A rule-assigned category on a transfer is recalculated like any other; the type stays a transfer.
   const transfer = await db.select().from(schema.transactions).where(eq(schema.transactions.id, "transfer-entry")).get();
@@ -356,7 +335,6 @@ test("applying rules reports only transactions whose category changed", async co
 
   await db.insert(schema.accounts).values({
     id: "local",
-    environment: "SANDBOX",
     name: "Synthetic local account",
     institution: "Example institution",
     kind: "checking"
@@ -436,7 +414,6 @@ test("multi-chunk sync remains idempotent and rolls back every chunk when a late
 
   await db.insert(schema.accounts).values({
     id: "bulk-account",
-    environment: "SANDBOX",
     name: "Synthetic account",
     institution: "Example institution",
     kind: "checking"
@@ -494,13 +471,11 @@ test("ambiguous reauthorization rolls back earlier account mappings and added al
 
   await db.insert(schema.requisitions).values([{
     id: "old",
-    environment: "SANDBOX",
     bank_name: "Example institution",
     bank_country: "AT",
     status: "LINKED"
   }, {
     id: "new",
-    environment: "SANDBOX",
     bank_name: "Example institution",
     bank_country: "AT",
     status: "LINKED"
@@ -509,7 +484,6 @@ test("ambiguous reauthorization rolls back earlier account mappings and added al
   for (const id of ["first", "second", "third"]) {
     await db.insert(schema.accounts).values({
       id,
-      environment: "SANDBOX",
       name: "Synthetic account",
       institution: "Example institution",
       kind: "checking",
@@ -518,13 +492,12 @@ test("ambiguous reauthorization rolls back earlier account mappings and added al
       requisition_id: "old"
     });
     await db.insert(schema.accountIdentifiers).values({
-      environment: "SANDBOX",
       identification_hash: `hash-${id}`,
       account_id: id
     });
   }
 
-  await assert.rejects(saveSessionAccounts(db, "SANDBOX", "new", "Example institution", "2099-01-01T00:00:00Z", [{
+  await assert.rejects(saveSessionAccounts(db, "new", "Example institution", "2099-01-01T00:00:00Z", [{
     uid: "new-first",
     identification_hash: "hash-first",
     identification_hashes: ["new-alias"],
@@ -548,7 +521,6 @@ test("category edits keep transaction assignments and rules attached and reject 
 
   await db.insert(schema.accounts).values({
     id: "local",
-    environment: "SANDBOX",
     name: "Synthetic local account",
     institution: "Example institution",
     kind: "checking"
@@ -711,20 +683,18 @@ test("category icons persist through create and edit and only accept the curated
 });
 
 
-test("renaming changes only the account display name, allows duplicates and rejects invalid or out-of-environment writes", async context => {
+test("renaming changes only the account display name, allows duplicates and rejects invalid or unknown writes", async context => {
   const db = await isolatedDatabase(context);
 
   await db.insert(schema.accounts).values([
     {
       id: "manual-name",
-      environment: "SANDBOX",
       name: "Before",
       institution: "Example",
       kind: "checking"
     },
     {
       id: "bank-name",
-      environment: "SANDBOX",
       name: "Bank supplied",
       provider_name: "Bank supplied",
       institution: "Bank",
@@ -734,13 +704,6 @@ test("renaming changes only the account display name, allows duplicates and reje
       iban: "synthetic-iban",
       balance_minor: 12345,
       balance_date: "2026-01-01"
-    },
-    {
-      id: "foreign-name",
-      environment: "PRODUCTION",
-      name: "Other environment",
-      institution: "Example",
-      kind: "checking"
     }
   ]);
   await db.insert(schema.transactions).values({
@@ -775,17 +738,11 @@ test("renaming changes only the account display name, allows duplicates and reje
     }), ValidationError);
   }
 
-  await assert.rejects(updateAccount("foreign-name", {
-    name: "Not allowed"
-  }), {
-    status: 404
-  });
   await assert.rejects(updateAccount("missing", {
     name: "Not allowed"
   }), {
     status: 404
   });
-  assert.equal((await db.select().from(schema.accounts).where(eq(schema.accounts.id, "foreign-name")).get())?.name, "Other environment");
   assert.equal((await listAccounts()).filter(account => account.name === "Everyday account").length, 2);
 });
 
@@ -809,7 +766,6 @@ test("a manual or imported account changes its type when its balance fits, while
 
   await db.insert(schema.accounts).values([{
     id: "synced-type",
-    environment: "SANDBOX",
     name: "Bank account",
     institution: "Example",
     kind: "checking",
@@ -818,7 +774,6 @@ test("a manual or imported account changes its type when its balance fits, while
     balance_minor: -500
   }, {
     id: "archived-type",
-    environment: "SANDBOX",
     name: "Old account",
     institution: "Example",
     kind: "checking",
@@ -879,18 +834,16 @@ test("sync and reconnect retain a custom account name while refreshing the separ
 
   await db.insert(schema.requisitions).values([{
     id: "first-name",
-    environment: "SANDBOX",
     bank_name: "Bank",
     bank_country: "AT",
     status: "EXCHANGING"
   }, {
     id: "renewed-name",
-    environment: "SANDBOX",
     bank_name: "Bank",
     bank_country: "AT",
     status: "EXCHANGING"
   }]);
-  await saveSessionAccounts(db, "SANDBOX", "first-name", "Bank", "2099-01-01T00:00:00Z", [{
+  await saveSessionAccounts(db, "first-name", "Bank", "2099-01-01T00:00:00Z", [{
     uid: "old-uid",
     identification_hash: "stable-name-hash",
     currency: "EUR",
@@ -911,7 +864,7 @@ test("sync and reconnect retain a custom account name while refreshing the separ
     reference_date: "2026-01-01"
   }], [], []);
   assert.equal((await listAccounts())[0].name, "My household account");
-  await saveSessionAccounts(db, "SANDBOX", "renewed-name", "Bank", "2099-01-01T00:00:00Z", [{
+  await saveSessionAccounts(db, "renewed-name", "Bank", "2099-01-01T00:00:00Z", [{
     uid: "renewed-uid",
     identification_hash: "stable-name-hash",
     currency: "EUR",

@@ -13,7 +13,7 @@ import { saveAccountSync } from "../src/features/banking/server/account-sync-ser
 import { importValuations } from "../src/features/imports/server/import-service";
 import { readCashFlow } from "../src/features/reports/server/cash-flow-query";
 import { editManualTransaction, enterManualTransaction, removeManualTransaction, updateTransactionCategory, updateTransactionDetails } from "../src/features/transactions/server/transaction-service";
-import { pairTransfersInEnvironment } from "../src/features/transactions/server/transfer-repository";
+import { pairAllTransfers } from "../src/features/transactions/server/transfer-repository";
 import { readTransactionPage } from "../src/features/transactions/server/transaction-list-query";
 import { dashboardFilters } from "../src/server/http/dashboard-filters";
 import { monthPeriod } from "../src/lib/period";
@@ -55,7 +55,6 @@ async function isolatedDatabase(context: TestContext, queries?: string[]) {
   process.env.ENABLE_BANKING_ENVIRONMENT = "SANDBOX";
   await db.insert(schema.accounts).values({
     id: "checking",
-    environment: "SANDBOX",
     name: "Synthetic checking",
     institution: "Example bank",
     kind: "checking",
@@ -113,7 +112,6 @@ async function transferLeg(db: Database, accountId: string) {
 /** A synced booking on the checking account, as a sync stores it. */
 async function syncBooking(db: Database, reference: string, date: string, amount: number) {
   await saveAccountSync(db, {
-    environment: "SANDBOX",
     startedAt: `${date}T08:00:00.000Z`
   }, "checking", "EUR", [{
     balance_type: "CLBD",
@@ -562,7 +560,7 @@ test("a bank sync leaves a direction-changing correction unlinked after automati
   async function deliver(amount: number) {
     const booking = await syncBooking(db, "direction-change", "2026-09-10", amount);
 
-    await pairTransfersInEnvironment("SANDBOX");
+    await pairAllTransfers();
 
     return booking;
   }
@@ -894,7 +892,6 @@ test("a zero balance import establishes an empty manual ledger without redundant
 
   await db.insert(schema.accounts).values({
     id: "empty-manual",
-    environment: "SANDBOX",
     name: "Synthetic empty account",
     institution: "Example institution",
     kind: "savings",

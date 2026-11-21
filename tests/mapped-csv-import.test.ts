@@ -85,7 +85,6 @@ async function manualAccount(name: string) {
 
   await db.insert(schema.accounts).values({
     id,
-    environment: "SANDBOX",
     name,
     institution: "Example institution",
     kind: "checking"
@@ -99,7 +98,6 @@ async function manualAccount(name: string) {
 async function insertBankAccount(db: Database) {
   await db.insert(schema.accounts).values({
     id: "synthetic-bank-account",
-    environment: "SANDBOX",
     name: "Synthetic bank account",
     institution: "Example bank",
     kind: "checking",
@@ -581,10 +579,9 @@ test("a later bank sync adopts the matching CSV-imported row with its category i
     }],
     confirm: true
   }, now);
-  await startSyncRun(db, "SANDBOX", "adopt", "2026-06-30T08:00:00.000Z");
+  await startSyncRun(db, "adopt", "2026-06-30T08:00:00.000Z");
 
   const inserted = await saveAccountSync(db, {
-    environment: "SANDBOX",
     startedAt: "2026-06-30T08:00:00.000Z"
   }, "synthetic-bank-account", "EUR", [{
     balance_type: "CLBD",
@@ -984,7 +981,7 @@ test("a bank entry repeated in one response adopts only one CSV-imported row", a
     }],
     confirm: true
   }, now);
-  await startSyncRun(db, "SANDBOX", "repeat", "2026-06-30T08:00:00.000Z");
+  await startSyncRun(db, "repeat", "2026-06-30T08:00:00.000Z");
 
   const booking = {
     reference: "bank:bistro",
@@ -996,7 +993,6 @@ test("a bank entry repeated in one response adopts only one CSV-imported row", a
   };
 
   await saveAccountSync(db, {
-    environment: "SANDBOX",
     startedAt: "2026-06-30T08:00:00.000Z"
   }, "synthetic-bank-account", "EUR", [{
     balance_type: "CLBD",
@@ -1790,33 +1786,6 @@ test("a new account from an import gets the type the person chose", async contex
     }],
     confirm: true
   }, now));
-});
-
-test("the same file imported as a new account in two banking environments creates one account in each", async context => {
-  const db = await isolatedDatabase(context);
-  const payload = {
-    import_id: importId,
-    rows: [mappedRow(2, "2024-05-01", "-10.00", "Shop")],
-    targets: [{
-      source: "",
-      new_account: {
-        name: "Imported wallet",
-        kind: "checking",
-        currency: "EUR"
-      }
-    }],
-    confirm: true
-  };
-
-  await importMappedRows(payload, now);
-  process.env.ENABLE_BANKING_ENVIRONMENT = "PRODUCTION";
-  await importMappedRows(payload, now);
-
-  const accounts = await db.select().from(schema.accounts);
-  const bookings = await db.select().from(schema.transactions);
-
-  assert.deepEqual(accounts.map(account => account.environment).sort(), ["PRODUCTION", "SANDBOX"]);
-  assert.equal(new Set(bookings.map(booking => booking.account_id)).size, 2);
 });
 
 test("a resumed import must state the opening balance its new account already has", async context => {

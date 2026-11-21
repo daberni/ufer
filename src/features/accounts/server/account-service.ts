@@ -2,7 +2,6 @@ import { randomUUID } from "node:crypto";
 import { Temporal } from "temporal-polyfill";
 import { database } from "@/server/database/connection";
 import { acquireLease, releaseLease } from "@/server/jobs/lease-repository";
-import { environment } from "@/features/banking/server/environment";
 import { syncLeaseName } from "@/features/banking/server/sync-service";
 import { HttpError, ValidationError } from "@/lib/errors";
 import { minorUnits } from "@/lib/money";
@@ -205,16 +204,15 @@ async function archiveSettled(account: {
 
   const db = await database();
   const owner = randomUUID();
-  const leaseName = syncLeaseName(environment());
 
-  if (!(await acquireLease(db, leaseName, owner))) {
+  if (!(await acquireLease(db, syncLeaseName, owner))) {
     throw new HttpError(409, "A sync is running. Archive the account after it has finished.");
   }
 
   try {
     return await archiveSettledAccount(db, account.id, timestamp());
   } finally {
-    await releaseLease(db, leaseName, owner);
+    await releaseLease(db, syncLeaseName, owner);
   }
 }
 

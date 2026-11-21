@@ -58,7 +58,6 @@ async function seedSearchableTransactions(context: TestContext) {
   process.env.ENABLE_BANKING_ENVIRONMENT = "SANDBOX";
   await db.insert(schema.accounts).values({
     id: "checking",
-    environment: "SANDBOX",
     name: "Synthetic checking",
     institution: "Example institution",
     kind: "checking"

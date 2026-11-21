@@ -2,7 +2,6 @@ import { randomUUID } from "node:crypto";
 import { and, eq, isNull, sql, TransactionRollbackError } from "drizzle-orm";
 import { database, type Database } from "@/server/database/connection";
 import { accounts, transactions } from "@/server/database/schema";
-import { environment } from "@/features/banking/server/environment";
 import { bookManualEntry, recordManualBalance, type ManualEntryResult } from "@/features/transactions/server/manual-transaction-repository";
 import type { AccountKind } from "../account-kinds";
 import type { ManualAccountInput } from "./account-schema";
@@ -10,17 +9,17 @@ import { assertWritableAccount } from "./writable-account";
 
 export async function findManualAccount(id: string) {
   const db = await database();
-  const scope = and(eq(accounts.id, id), eq(accounts.environment, environment()), eq(accounts.provider, "manual"));
+  const scope = and(eq(accounts.id, id), eq(accounts.provider, "manual"));
 
   return db.select().from(accounts).where(scope).get();
 }
 
-/** Whether an own, not archived account with this ID exists in the current environment. */
+/** Whether an own, not archived account with this ID exists. */
 export async function activeAccountExists(id: string) {
   const db = await database();
   const found = await db.select({
     id: accounts.id
-  }).from(accounts).where(and(eq(accounts.id, id), eq(accounts.environment, environment()), isNull(accounts.archived_at))).get();
+  }).from(accounts).where(and(eq(accounts.id, id), isNull(accounts.archived_at))).get();
 
   return found !== undefined;
 }
@@ -33,7 +32,6 @@ export async function insertManualAccount(input: ManualAccountInput, amount: num
   await db.transaction(async tx => {
     await tx.insert(accounts).values({
       id,
-      environment: environment(),
       name: input.name,
       institution: input.institution,
       kind: input.kind,
@@ -72,7 +70,7 @@ const currentBalance = sql`(CASE WHEN ${accounts.provider}='manual' THEN COALESC
 export async function archiveSettledAccount(executor: Pick<Database, "update">, id: string, archivedAt: string) {
   const updated = await executor.update(accounts).set({
     archived_at: archivedAt
-  }).where(and(eq(accounts.id, id), eq(accounts.environment, environment()), isNull(accounts.archived_at), sql`${currentBalance}=0`)).returning({
+  }).where(and(eq(accounts.id, id), isNull(accounts.archived_at), sql`${currentBalance}=0`)).returning({
     id: accounts.id
   });
 
@@ -85,7 +83,7 @@ export async function saveAccountArchived(id: string, archivedAt: string | null)
 
   const updated = await db.update(accounts).set({
     archived_at: archivedAt
-  }).where(and(eq(accounts.id, id), eq(accounts.environment, environment()))).returning({
+  }).where(eq(accounts.id, id)).returning({
     id: accounts.id
   });
 
@@ -102,7 +100,7 @@ export async function saveAccountKind(id: string, kind: AccountKind) {
 
   const updated = await db.update(accounts).set({
     kind
-  }).where(and(eq(accounts.id, id), eq(accounts.environment, environment()), eq(accounts.provider, "manual"), isNull(accounts.archived_at), fitsBalance)).returning({
+  }).where(and(eq(accounts.id, id), eq(accounts.provider, "manual"), isNull(accounts.archived_at), fitsBalance)).returning({
     id: accounts.id
   });
 
@@ -115,7 +113,7 @@ export async function saveAccountName(id: string, name: string) {
 
   const updated = await db.update(accounts).set({
     name
-  }).where(and(eq(accounts.id, id), eq(accounts.environment, environment()))).returning({
+  }).where(eq(accounts.id, id)).returning({
     id: accounts.id
   });
 

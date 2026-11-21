@@ -9,7 +9,7 @@ import type { Database } from "../src/server/database/connection";
 import { initializeDatabase } from "../src/server/database/migrations";
 import * as schema from "../src/server/database/schema";
 import { saveAccountSync } from "../src/features/banking/server/account-sync-service";
-import { pairTransfersInEnvironment } from "../src/features/transactions/server/transfer-repository";
+import { pairAllTransfers } from "../src/features/transactions/server/transfer-repository";
 import { unambiguousPairs } from "../src/features/transactions/server/transfer-pairing";
 import { transferOptions, updateTransactionDetails } from "../src/features/transactions/server/transaction-service";
 import { importMappedRows } from "../src/features/imports/server/mapped-import-service";
@@ -51,21 +51,18 @@ async function isolatedDatabase(context: TestContext) {
   process.env.ENABLE_BANKING_ENVIRONMENT = "SANDBOX";
   await db.insert(schema.accounts).values([{
     id: "checking",
-    environment: "SANDBOX",
     name: "Synthetic checking",
     institution: "Example bank",
     kind: "checking",
     provider: "enable_banking"
   }, {
     id: "savings",
-    environment: "SANDBOX",
     name: "Synthetic savings",
     institution: "Example bank",
     kind: "savings",
     provider: "enable_banking"
   }, {
     id: "dollars",
-    environment: "SANDBOX",
     name: "Synthetic dollars",
     institution: "Example bank",
     kind: "checking",
@@ -73,7 +70,6 @@ async function isolatedDatabase(context: TestContext) {
     provider: "enable_banking"
   }, {
     id: "property",
-    environment: "SANDBOX",
     name: "Synthetic flat",
     institution: "Land register",
     kind: "property"
@@ -100,7 +96,6 @@ let runCounter = 0;
 async function sync(db: Database, accountId: string, entries: Entry[], currency = "EUR") {
   runCounter += 1;
   const run = {
-    environment: "SANDBOX",
     startedAt: `2026-09-30T08:00:${String(runCounter % 60).padStart(2, "0")}.000Z`
   };
   const balances = [{
@@ -113,7 +108,7 @@ async function sync(db: Database, accountId: string, entries: Entry[], currency 
   }];
 
   await saveAccountSync(db, run, accountId, currency, balances, entries, []);
-  await pairTransfersInEnvironment("SANDBOX");
+  await pairAllTransfers();
 }
 
 function entry(reference: string, date: string, amount: number, transfer = false, currency = "EUR"): Entry {
@@ -364,7 +359,6 @@ test("a CSV import pairs its bookings with an unpaired transfer of a synced acco
 
   await db.insert(schema.accounts).values({
     id: "cash",
-    environment: "SANDBOX",
     name: "Synthetic cash",
     institution: "Wallet",
     kind: "savings"
@@ -386,7 +380,6 @@ for (const [accounts, paired] of [[["cash", "wallet"], false], [["cash"], true]]
     for (const id of ["cash", "wallet"]) {
       await db.insert(schema.accounts).values({
         id,
-        environment: "SANDBOX",
         name: `Synthetic ${id}`,
         institution: "Wallet",
         kind: "savings"
@@ -450,7 +443,6 @@ test("detected transfers are categorized by rules like any other booking and the
   };
 
   await saveAccountSync(db, {
-    environment: "SANDBOX",
     startedAt: "2026-09-30T09:00:00.000Z"
   }, "checking", "EUR", balances, [standingOrder, entry("unmatched", "2026-09-03", -20000, true), entry("market", "2026-09-04", -4500)], rules);
 
@@ -552,7 +544,6 @@ test("choosing no counterpart marks the transfer as manually unlinked, so neithe
 
   await db.insert(schema.accounts).values({
     id: "cash",
-    environment: "SANDBOX",
     name: "Synthetic cash",
     institution: "Wallet",
     kind: "savings"

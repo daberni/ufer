@@ -46,7 +46,6 @@ const rules: Rule[] = [{
 
 function syncRun(startedAt: string) {
   return {
-    environment: "SANDBOX",
     startedAt
   };
 }
@@ -346,7 +345,7 @@ test("repeated sync preserves manual category corrections including deliberately
   });
 
   try {
-    await client.execute("INSERT INTO accounts(id,environment,name,institution,kind,currency) VALUES('a','SANDBOX','Test','Test Bank','checking','EUR')");
+    await client.execute("INSERT INTO accounts(id,name,institution,kind,currency) VALUES('a','Test','Test Bank','checking','EUR')");
     const balances = [{
       balance_type: "CLBD",
       balance_amount: {
@@ -374,7 +373,7 @@ test("repeated sync preserves manual category corrections including deliberately
     client.close();
   }
 });
-test("reauthorization matches alternative identification hashes while sandbox and production remain isolated", async () => {
+test("reauthorization matches alternative identification hashes", async () => {
   const client = await initializeDatabase(createClient({
     url: ":memory:"
   }));
@@ -383,15 +382,15 @@ test("reauthorization matches alternative identification hashes while sandbox an
   });
 
   try {
-    await client.batch(["INSERT INTO requisitions(id,environment,bank_name,bank_country,status) VALUES('old','SANDBOX','Test','AT','EXCHANGING')", "INSERT INTO requisitions(id,environment,bank_name,bank_country,status) VALUES('new','SANDBOX','Test','AT','EXCHANGING')", "INSERT INTO requisitions(id,environment,bank_name,bank_country,status) VALUES('prod','PRODUCTION','Test','AT','EXCHANGING')"], "write");
-    await saveSessionAccounts(db, "SANDBOX", "old", "Test", "2099-01-01T00:00:00Z", [{
+    await client.batch(["INSERT INTO requisitions(id,bank_name,bank_country,status) VALUES('old','Test','AT','EXCHANGING')", "INSERT INTO requisitions(id,bank_name,bank_country,status) VALUES('new','Test','AT','EXCHANGING')"], "write");
+    await saveSessionAccounts(db, "old", "Test", "2099-01-01T00:00:00Z", [{
       uid: "uid-old",
       identification_hash: "iban-hash",
       currency: "EUR"
     }]);
     const initial = (await client.execute("SELECT id FROM accounts")).rows[0].id;
 
-    await saveSessionAccounts(db, "SANDBOX", "new", "Test", "2099-01-01T00:00:00Z", [{
+    await saveSessionAccounts(db, "new", "Test", "2099-01-01T00:00:00Z", [{
       uid: "uid-new",
       identification_hash: "new-hash",
       identification_hashes: ["iban-hash"],
@@ -400,12 +399,7 @@ test("reauthorization matches alternative identification hashes while sandbox an
     assert.equal((await client.execute("SELECT id FROM accounts")).rows[0].id, initial);
     assert.equal((await client.execute("SELECT provider_uid FROM accounts")).rows[0].provider_uid, "uid-new");
     assert.equal((await client.execute("SELECT status FROM requisitions WHERE id='old'")).rows[0].status, "SUPERSEDED");
-    await saveSessionAccounts(db, "PRODUCTION", "prod", "Test", "2099-01-01T00:00:00Z", [{
-      uid: "uid-prod",
-      identification_hash: "iban-hash",
-      currency: "EUR"
-    }]);
-    assert.equal((await client.execute("SELECT COUNT(*) AS n FROM accounts")).rows[0].n, 2);
+    assert.equal((await client.execute("SELECT COUNT(*) AS n FROM accounts")).rows[0].n, 1);
   } finally {
     client.close();
   }
@@ -552,7 +546,7 @@ test("bank callbacks are browser-bound, single-use and persist encrypted session
     const actor = await seedActor(await globals.budgetDb);
 
     await client.execute({
-      sql: "INSERT INTO requisitions(id,environment,bank_name,bank_country,state_hash,browser_hash,state_expires_at,workspace_id,initiated_by_user_id,auth_session_id) VALUES('flow','SANDBOX','Mock','AT',?,?,?,'personal','bank-user','bank-session')",
+      sql: "INSERT INTO requisitions(id,bank_name,bank_country,state_hash,browser_hash,state_expires_at,workspace_id,initiated_by_user_id,auth_session_id) VALUES('flow','Mock','AT',?,?,?,'personal','bank-user','bank-session')",
       args: [hash("state"), hash("browser"), "2099-01-01T00:00:00Z"]
     });
     await assert.rejects(completeAuthorization("state", "wrong-browser", "code", actor), /another browser/);
@@ -612,8 +606,8 @@ test("sync refuses mismatching application environments before fetching financia
   };
 
   try {
-    await client.execute("INSERT INTO requisitions(id,environment,bank_name,bank_country,status,valid_until) VALUES('flow','SANDBOX','Mock','AT','LINKED','2099-01-01T00:00:00Z')");
-    await client.execute("INSERT INTO accounts(id,environment,name,institution,kind,provider,provider_uid,requisition_id) VALUES('a','SANDBOX','Test','Mock','checking','enable_banking','uid','flow')");
+    await client.execute("INSERT INTO requisitions(id,bank_name,bank_country,status,valid_until) VALUES('flow','Mock','AT','LINKED','2099-01-01T00:00:00Z')");
+    await client.execute("INSERT INTO accounts(id,name,institution,kind,provider,provider_uid,requisition_id) VALUES('a','Test','Mock','checking','enable_banking','uid','flow')");
     await assert.rejects(syncAccounts(), /application environment/);
     assert.deepEqual(requests, ["/application"]);
     assert.equal((await client.execute("SELECT COUNT(*) AS n FROM leases")).rows[0].n, 0);
@@ -667,10 +661,10 @@ test("sync offers reconnecting only for failures that a new bank authorization r
   };
 
   try {
-    await client.execute("INSERT INTO requisitions(id,environment,bank_name,bank_country,status,valid_until) VALUES('current','SANDBOX','Mock','AT','LINKED','2099-01-01T00:00:00Z')");
-    await client.execute("INSERT INTO requisitions(id,environment,bank_name,bank_country,status,valid_until) VALUES('lapsed','SANDBOX','Mock','AT','LINKED','2000-01-01T00:00:00Z')");
-    await client.execute("INSERT INTO accounts(id,environment,name,institution,kind,provider,provider_uid,requisition_id) VALUES('limited','SANDBOX','Limited','Mock','checking','enable_banking','uid-limited','current')");
-    await client.execute("INSERT INTO accounts(id,environment,name,institution,kind,provider,provider_uid,requisition_id) VALUES('expired','SANDBOX','Expired','Mock','checking','enable_banking','uid-expired','lapsed')");
+    await client.execute("INSERT INTO requisitions(id,bank_name,bank_country,status,valid_until) VALUES('current','Mock','AT','LINKED','2099-01-01T00:00:00Z')");
+    await client.execute("INSERT INTO requisitions(id,bank_name,bank_country,status,valid_until) VALUES('lapsed','Mock','AT','LINKED','2000-01-01T00:00:00Z')");
+    await client.execute("INSERT INTO accounts(id,name,institution,kind,provider,provider_uid,requisition_id) VALUES('limited','Limited','Mock','checking','enable_banking','uid-limited','current')");
+    await client.execute("INSERT INTO accounts(id,name,institution,kind,provider,provider_uid,requisition_id) VALUES('expired','Expired','Mock','checking','enable_banking','uid-expired','lapsed')");
 
     const result = await syncAccounts();
     const reconnectByAccount = Object.fromEntries(result.failures.map(failure => [failure.account, failure.reconnect]));

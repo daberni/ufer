@@ -85,7 +85,6 @@ async function seededDatabase(context: TestContext) {
   process.env.ENABLE_BANKING_ENVIRONMENT = "SANDBOX";
   await db.insert(schema.accounts).values({
     id: "checking",
-    environment: "SANDBOX",
     name: "Synthetic checking",
     institution: "Example institution",
     kind: "checking"
@@ -244,8 +243,8 @@ test("a month period filters booking dates through the booking-date index", asyn
   const db = await seededDatabase(context);
   const inPeriod = periodCondition(monthPeriod(Temporal.PlainYearMonth.from("2026-01")));
   const plan = await db.$client.execute({
-    sql: `EXPLAIN QUERY PLAN SELECT COUNT(*) FROM transactions t JOIN accounts a ON a.id=t.account_id WHERE a.environment=? AND ${inPeriod.sql}`,
-    args: ["SANDBOX", ...inPeriod.args]
+    sql: `EXPLAIN QUERY PLAN SELECT COUNT(*) FROM transactions t JOIN accounts a ON a.id=t.account_id WHERE ${inPeriod.sql}`,
+    args: inPeriod.args
   });
 
   assert.match(plan.rows.map(row => String(row.detail)).join("\n"), /USING (COVERING )?INDEX transactions_\w+ \(.*booking_date>\? AND booking_date<\?\)/);

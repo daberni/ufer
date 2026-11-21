@@ -17,7 +17,7 @@ import { enterManualTransaction, hideTransaction, updateTransactionCategory, upd
 import { listRules } from "../src/features/categorization/server/rule-repository";
 import type { Rule } from "../src/lib/rules";
 import { applyRulesToUncorrectedTransactions, createRule, previewRule } from "../src/features/categorization/server/categorization-service";
-import { pairTransfersInEnvironment } from "../src/features/transactions/server/transfer-repository";
+import { pairAllTransfers } from "../src/features/transactions/server/transfer-repository";
 import { readTransactionPage } from "../src/features/transactions/server/transaction-list-query";
 import { dashboardFilters } from "../src/server/http/dashboard-filters";
 import { monthPeriod } from "../src/lib/period";
@@ -57,14 +57,12 @@ async function isolatedDatabase(context: TestContext) {
   process.env.ENABLE_BANKING_ENVIRONMENT = "SANDBOX";
   await db.insert(schema.accounts).values([{
     id: "checking",
-    environment: "SANDBOX",
     name: "Synthetic checking",
     institution: "Example bank",
     kind: "checking",
     provider: "enable_banking"
   }, {
     id: "savings",
-    environment: "SANDBOX",
     name: "Synthetic savings",
     institution: "Example bank",
     kind: "savings",
@@ -85,7 +83,6 @@ type Booking = {
 /** Stores one sync delivery of bookings on a synced account. */
 async function sync(db: Database, accountId: string, bookings: Booking[], rules: Rule[] = []) {
   await saveAccountSync(db, {
-    environment: "SANDBOX",
     startedAt: "2026-09-30T08:00:00.000Z"
   }, accountId, "EUR", [{
     balance_type: "CLBD",
@@ -328,7 +325,7 @@ test("hiding a linked transfer releases its counterpart, and automatic pairing n
     type: "transfer",
     transfer_source: "auto"
   });
-  assert.equal(await pairTransfersInEnvironment("SANDBOX"), 0);
+  assert.equal(await pairAllTransfers(), 0);
 });
 
 test("a hidden booking cannot be linked with another booking until it is shown again", async context => {

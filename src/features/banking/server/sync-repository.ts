@@ -7,54 +7,43 @@ import { accounts, balanceSnapshots, requisitions, syncRuns, transactions } from
 import { upsertTransactions, withStoredOverrides } from "@/features/transactions/server/transaction-repository";
 import type { CategorizedEntry, Entry } from "@/features/transactions/server/transaction-entry";
 
-/** What identifies a sync run's transactions: values for one run, or `sync_runs` columns for a correlated query. */
-export type SyncRunIdentity = {
-  environment: string | SQLWrapper;
-  startedAt: string | SQLWrapper;
-};
-
-/** The run a sync writes for: its banking environment and start timestamp. */
+/** The run a sync writes for: its start timestamp. */
 export type SyncRunStart = {
-  environment: string;
   startedAt: string;
 };
 
 /**
  * Condition on `transactions` joined with `accounts` that selects the rows a sync run inserted.
- * A sync stores its run's `started_at` as `created_at` on the bank rows it inserts, and updates keep the original value, so for bank rows `created_at` is the start of the importing sync run. The sync lease serializes runs per environment, so no two runs share a start.
+ * A sync stores its run's `started_at` as `created_at` on the bank rows it inserts, and updates keep the original value, so for bank rows `created_at` is the start of the importing sync run. The sync lease serializes runs, so no two runs share a start.
  * Rows stored before runs stamped them carry the database clock and match no run; they are deliberately not attributed by time window.
  */
-export function syncRunTransactions(run: SyncRunIdentity) {
-  return and(eq(accounts.environment, run.environment), eq(transactions.created_at, run.startedAt), like(transactions.provider_reference, "bank:%"));
+export function syncRunTransactions(startedAt: string | SQLWrapper) {
+  return and(eq(transactions.created_at, startedAt), like(transactions.provider_reference, "bank:%"));
 }
 
 /** Number of transactions a `sync_runs` row inserted. Run counts are derived from it, so the history never reports rows the run cannot show. */
-export const linkedTransactionCount = sql<number>`(SELECT COUNT(*) FROM ${transactions} INNER JOIN ${accounts} ON ${eq(accounts.id, transactions.account_id)} WHERE ${syncRunTransactions({
-  environment: syncRuns.environment,
-  startedAt: syncRuns.started_at
-})})`;
+export const linkedTransactionCount = sql<number>`(SELECT COUNT(*) FROM ${transactions} INNER JOIN ${accounts} ON ${eq(accounts.id, transactions.account_id)} WHERE ${syncRunTransactions(syncRuns.started_at)})`;
 
 /** Linked bank accounts to sync; archived accounts are skipped until restored, when the sync window covers what they missed. */
-export async function listSyncAccounts(db: Database, environment: string) {
+export async function listSyncAccounts(db: Database) {
   return db.select({
     ...getTableColumns(accounts),
     connection_id: requisitions.id,
     valid_until: requisitions.valid_until,
     connection_status: requisitions.status
-  }).from(accounts).innerJoin(requisitions, eq(requisitions.id, accounts.requisition_id)).where(and(eq(accounts.environment, environment), eq(accounts.provider, "enable_banking"), isNull(accounts.archived_at), ne(requisitions.status, "REMOVED")));
+  }).from(accounts).innerJoin(requisitions, eq(requisitions.id, accounts.requisition_id)).where(and(eq(accounts.provider, "enable_banking"), isNull(accounts.archived_at), ne(requisitions.status, "REMOVED")));
 }
 
-export async function startSyncRun(db: Database, environment: string, id: string, started: string) {
+export async function startSyncRun(db: Database, id: string, started: string) {
   await db.transaction(async tx => {
     await tx.update(syncRuns).set({
       status: "INTERRUPTED",
       finished_at: started,
       inserted_count: linkedTransactionCount,
       error: "The previous sync was interrupted."
-    }).where(and(eq(syncRuns.environment, environment), eq(syncRuns.status, "RUNNING")));
+    }).where(eq(syncRuns.status, "RUNNING"));
     await tx.insert(syncRuns).values({
       id,
-      environment,
       started_at: started,
       status: "RUNNING"
     });
@@ -80,10 +69,10 @@ export async function interruptSyncRun(db: Database, id: string, error: string) 
   }).where(and(eq(syncRuns.id, id), eq(syncRuns.status, "RUNNING")));
 }
 
-export async function recordAccountSyncError(db: Database, id: string, environment: string, error: string) {
+export async function recordAccountSyncError(db: Database, id: string, error: string) {
   await db.update(accounts).set({
     sync_error: error
-  }).where(and(eq(accounts.id, id), eq(accounts.environment, environment)));
+  }).where(eq(accounts.id, id));
 }
 
 /** Stores one account's sync result and returns how many of its transactions this run inserted. Entries are categorized in the write transaction, with the overrides stored for the rows they update. */
@@ -119,7 +108,7 @@ export async function saveSyncedAccount(db: Database, run: SyncRunStart, account
     });
     const inserted = await tx.select({
       count: count()
-    }).from(transactions).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(and(eq(transactions.account_id, accountId), syncRunTransactions(run))).get();
+    }).from(transactions).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(and(eq(transactions.account_id, accountId), syncRunTransactions(run.startedAt))).get();
 
     return inserted?.count ?? 0;
   });

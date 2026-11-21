@@ -11,7 +11,7 @@ import * as schema from "../src/server/database/schema";
 import { buildDemoDataset } from "../src/features/demo/server/demo-dataset";
 import { DemoSeedRefusal, seedDemoData } from "../src/features/demo/server/demo-seed-service";
 import { listAccounts } from "../src/features/accounts/server/account-queries";
-import { pairTransfersInEnvironment } from "../src/features/transactions/server/transfer-repository";
+import { pairAllTransfers } from "../src/features/transactions/server/transfer-repository";
 
 const firstRun = Temporal.PlainDate.from("2026-11-16");
 const secondRun = Temporal.PlainDate.from("2026-12-01");
@@ -52,14 +52,12 @@ async function isolatedDatabase(context: TestContext) {
 async function insertSandboxBankAccount(db: Database) {
   await db.insert(schema.requisitions).values({
     id: "sandbox-connection",
-    environment: "SANDBOX",
     bank_name: "Example sandbox bank",
     bank_country: "AT",
     status: "AUTHORIZED"
   });
   await db.insert(schema.accounts).values({
     id: "sandbox-account",
-    environment: "SANDBOX",
     name: "Sandbox checking",
     institution: "Example sandbox bank",
     kind: "checking",
@@ -85,7 +83,6 @@ async function insertSandboxBankAccount(db: Database) {
 async function insertManualAccount(db: Database, id: string) {
   await db.insert(schema.accounts).values({
     id,
-    environment: "SANDBOX",
     name: "Reviewer asset",
     institution: "Example institution",
     kind: "property"
@@ -182,7 +179,7 @@ test("re-running the demo seed replaces only demo rows and keeps bank-connected 
   assert.equal(balances.get("demo-investment"), lastValuation("demo-investment"));
   assert.equal(balances.get("demo-property"), lastValuation("demo-property"));
   assert.ok(demoAccounts.every(account => account.balance_minor === null && typeof balances.get(account.id) === "number"));
-  assert.ok(demoAccounts.every(account => account.environment === "SANDBOX" && account.provider === "manual"));
+  assert.ok(demoAccounts.every(account => account.provider === "manual"));
   // A category someone created with the same name is reused instead of adding a conflicting demo category.
   assert.equal(diningRule?.category_id, "reviewer-dining");
   assert.equal(await db.select().from(schema.categories).where(eq(schema.categories.id, "demo-dining")).get(), undefined);
@@ -225,22 +222,6 @@ test("the guard refuses missing confirmation, production banking and real-lookin
     confirmed: true,
     runDate: secondRun
   }), /1 transactions on manual or CSV accounts/);
-  assert.deepEqual(await demoTransactions(db), seeded);
-
-  await db.delete(schema.transactions).where(eq(schema.transactions.id, "own-transaction"));
-  await db.insert(schema.accounts).values({
-    id: "production-account",
-    environment: "PRODUCTION",
-    name: "Real checking",
-    institution: "Example bank",
-    kind: "checking",
-    provider: "enable_banking",
-    provider_uid: "production-uid"
-  });
-  await assert.rejects(seedDemoData({
-    confirmed: true,
-    runDate: secondRun
-  }), /outside the SANDBOX banking environment/);
   assert.deepEqual(await demoTransactions(db), seeded);
 });
 
@@ -315,7 +296,7 @@ test("re-seeding keeps a person's rule-set transfer to a removed demo account un
     currency: "EUR",
     type: "income"
   });
-  await pairTransfersInEnvironment("SANDBOX");
+  await pairAllTransfers();
 
   const booking = await db.select().from(schema.transactions).where(eq(schema.transactions.id, "rule-transfer")).get();
 
