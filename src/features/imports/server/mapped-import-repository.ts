@@ -6,7 +6,6 @@ import { accounts, categories, transactionSplits, transactions } from "@/server/
 import type { AccountKind } from "@/features/accounts/account-kinds";
 import { assertWritableAccount } from "@/features/accounts/server/writable-account";
 import { manualEntryPrefix } from "@/features/transactions/server/transfer-repository";
-import { insertCategory } from "@/features/categorization/server/category-repository";
 import { newCategoryColor } from "@/features/categorization/category-color-suggestions";
 import { suggestCategoryIcon, type CategoryIconKey } from "@/features/categorization/category-icons";
 import { sameCategoryName } from "@/lib/category-name";
@@ -52,31 +51,50 @@ export type OpeningBalance = {
   date: string;
 };
 
-/** Creates a category for an import, or returns the one that took the name concurrently. */
-export async function createImportCategory(name: string, shown?: {
-  color: string;
-  icon: CategoryIconKey | null;
-}) {
-  const id = randomUUID();
-  // Without the icon and color the person saw, imported categories get the ones the category dialog would suggest for the name.
-  const icon = shown ? shown.icon : suggestCategoryIcon(name);
-  const result = await insertCategory(id, {
-    name,
-    color: shown?.color ?? (existing => newCategoryColor(name, icon, existing)),
+/** A category a "create" choice asks for; rows refer to it by `id` until the save creates it. */
+export type NewImportCategory = {
+  id: string;
+  name: string;
+  /** The icon and color the person saw; without them the category gets the ones the category dialog would suggest for the name. */
+  shown?: {
+    color: string;
+    icon: CategoryIconKey | null;
+  };
+};
+
+/**
+ * Creates a category for an import within the caller's write transaction, or returns the category that already has an equivalent name.
+ * Resolves to the category's ID and whether this call inserted it.
+ */
+export async function createImportCategory(tx: DatabaseTransaction, category: NewImportCategory) {
+  const existing = await tx.select({
+    id: categories.id,
+    name: categories.name,
+    color: categories.color,
+    icon: categories.icon
+  }).from(categories);
+  const match = existing.find(item => sameCategoryName(item.name, category.name));
+
+  if (match) {
+    return {
+      id: match.id,
+      created: false
+    };
+  }
+
+  const icon = category.shown ? category.shown.icon : suggestCategoryIcon(category.name);
+
+  await tx.insert(categories).values({
+    id: category.id,
+    name: category.name,
+    color: category.shown?.color ?? newCategoryColor(category.name, icon, existing),
     icon
   });
 
-  if (result === "saved") {
-    return id;
-  }
-
-  const existing = (await listCategoryNames()).find(category => sameCategoryName(category.name, name));
-
-  if (!existing) {
-    throw new Error("The imported category could not be created.");
-  }
-
-  return existing.id;
+  return {
+    id: category.id,
+    created: true
+  };
 }
 
 /** A manual or bank-linked account. */
@@ -180,70 +198,136 @@ export async function checkMappedEntries(accountId: string, entries: MappedEntry
   };
 }
 
+/** The rows of one target account in a confirmed batch. */
+export type MappedAccountRows = {
+  accountId: string;
+  entries: MappedEntry[];
+  newAccount: NewImportAccount | null;
+  consumed?: ReadonlySet<string>;
+  opening?: OpeningBalance | null;
+};
+
+/**
+ * Saves a confirmed batch for all its target accounts in one write transaction, so a failure leaves none of its accounts, bookings or categories behind.
+ * New categories are created in the same transaction, and only when a saved row uses one. Results are in the order of `accounts`.
+ */
+export async function saveMappedBatch(accountRows: MappedAccountRows[], newCategories: NewImportCategory[]) {
+  const db = await database();
+
+  return db.transaction(async tx => {
+    const pending = new Map(newCategories.map(category => [category.id, category]));
+    const resolved = new Map<string, string>();
+    const createdCategories: string[] = [];
+    const ensureCategories = async (entries: MappedEntry[]) => {
+      const used = entries.flatMap(entry => [entry.categoryId, ...(entry.parts ?? []).map(part => part.categoryId)]);
+
+      for (const id of new Set(used)) {
+        const category = id === null ? undefined : pending.get(id);
+
+        if (!category || resolved.has(category.id)) {
+          continue;
+        }
+
+        const result = await createImportCategory(tx, category);
+
+        resolved.set(category.id, result.id);
+
+        // A category another request created meanwhile is used, not reported as new.
+        if (result.created) {
+          createdCategories.push(category.name);
+        }
+      }
+
+      const categoryOf = (id: string | null) => id === null ? null : resolved.get(id) ?? id;
+
+      return entries.map(entry => ({
+        ...entry,
+        categoryId: categoryOf(entry.categoryId),
+        parts: entry.parts?.map(part => ({
+          ...part,
+          categoryId: categoryOf(part.categoryId)
+        })) ?? null
+      }));
+    };
+    const results = [];
+
+    for (const rows of accountRows) {
+      results.push(await saveAccountRows(tx, rows, ensureCategories));
+    }
+
+    return {
+      results,
+      createdCategories
+    };
+  });
+}
+
 /**
  * Classifies rows exactly like `checkMappedEntries`, but inside the write transaction, and inserts the new ones, so a bank sync between check and confirmation cannot cause duplicates and both report the same result on unchanged data.
  * A row whose reference the account already holds is left untouched, so confirming again changes nothing and existing categories survive. Inserting bookings never writes a bank-linked account's provider balance.
  */
-export async function saveMappedEntries(accountId: string, entries: MappedEntry[], newAccount: NewImportAccount | null, consumed: ReadonlySet<string> = new Set(), opening: OpeningBalance | null = null) {
-  const db = await database();
+async function saveAccountRows(tx: DatabaseTransaction, {
+  accountId,
+  entries,
+  newAccount,
+  consumed = new Set(),
+  opening = null
+}: MappedAccountRows, ensureCategories: (entries: MappedEntry[]) => Promise<MappedEntry[]>) {
+  if (newAccount) {
+    // The ID is stable per import and source account, so a retried or later batch reuses the account. Its balance is the sum of its transactions, including any opening balance.
+    await tx.insert(accounts).values({
+      id: accountId,
+      name: newAccount.name,
+      institution: "CSV import",
+      kind: newAccount.kind,
+      currency: newAccount.currency
+    }).onConflictDoNothing();
+  }
 
-  return db.transaction(async tx => {
-    if (newAccount) {
-      // The ID is stable per import and source account, so a retried or later batch reuses the account. Its balance is the sum of its transactions, including any opening balance.
-      await tx.insert(accounts).values({
-        id: accountId,
-        name: newAccount.name,
-        institution: "CSV import",
-        kind: newAccount.kind,
-        currency: newAccount.currency
-      }).onConflictDoNothing();
-    }
+  await assertWritableAccount(tx, accountId);
+  const found = await classify(tx, accountId, entries, consumed);
+  const fresh = await ensureCategories(entries.filter((_entry, index) => !found.duplicates.has(index)));
+  let inserted = 0;
 
-    await assertWritableAccount(tx, accountId);
-    const found = await classify(tx, accountId, entries, consumed);
-    const fresh = entries.filter((_entry, index) => !found.duplicates.has(index));
-    let inserted = 0;
+  // Bound statement parameters for both local SQLite and remote libSQL deployments.
+  for (let offset = 0; offset < fresh.length; offset += 50) {
+    const values = fresh.slice(offset, offset + 50).map(entry => ({
+      id: randomUUID(),
+      account_id: accountId,
+      provider_reference: entry.reference,
+      booking_date: entry.date,
+      amount_minor: entry.amount,
+      currency: entry.currency,
+      counterparty: entry.counterparty,
+      description: entry.description,
+      category_id: entry.categoryId,
+      category_source: entry.categorySource,
+      category_rule_id: entry.categoryRuleId,
+      // A rule's type wins over the file's transfer marker, as on syncs; the marker restores Transfer when the rule stops deciding.
+      type: entry.ruleType ?? derivedTransactionType(entry.amount, entry.transfer),
+      type_rule_id: entry.typeRuleId,
+      type_transfer_account_id: entry.typeTransferAccountId,
+      transfer_detected: entry.transfer ? 1 : 0
+    }));
+    const rows = await tx.insert(transactions).values(values).onConflictDoNothing({
+      target: [transactions.account_id, transactions.provider_reference]
+    }).returning({
+      id: transactions.id,
+      reference: transactions.provider_reference
+    });
 
-    // Bound statement parameters for both local SQLite and remote libSQL deployments.
-    for (let offset = 0; offset < fresh.length; offset += 50) {
-      const values = fresh.slice(offset, offset + 50).map(entry => ({
-        id: randomUUID(),
-        account_id: accountId,
-        provider_reference: entry.reference,
-        booking_date: entry.date,
-        amount_minor: entry.amount,
-        currency: entry.currency,
-        counterparty: entry.counterparty,
-        description: entry.description,
-        category_id: entry.categoryId,
-        category_source: entry.categorySource,
-        category_rule_id: entry.categoryRuleId,
-        // A rule's type wins over the file's transfer marker, as on syncs; the marker restores Transfer when the rule stops deciding.
-        type: entry.ruleType ?? derivedTransactionType(entry.amount, entry.transfer),
-        type_rule_id: entry.typeRuleId,
-        type_transfer_account_id: entry.typeTransferAccountId,
-        transfer_detected: entry.transfer ? 1 : 0
-      }));
-      const rows = await tx.insert(transactions).values(values).onConflictDoNothing({
-        target: [transactions.account_id, transactions.provider_reference]
-      }).returning({
-        id: transactions.id,
-        reference: transactions.provider_reference
-      });
+    inserted += rows.length;
+    await saveImportedParts(tx, rows, fresh);
+  }
 
-      inserted += rows.length;
-      await saveImportedParts(tx, rows, fresh);
-    }
+  if (opening) {
+    await saveOpeningBalance(tx, accountId, newAccount?.currency ?? entries[0]?.currency ?? "", opening);
+  }
 
-    if (opening) {
-      await saveOpeningBalance(tx, accountId, newAccount?.currency ?? entries[0]?.currency ?? "", opening);
-    }
-
-    return {
-      ...found,
-      inserted
-    };
-  });
+  return {
+    ...found,
+    inserted
+  };
 }
 
 /** Saves the parts of the split bookings just inserted; a booking that already existed keeps whatever split it has, so importing again adds no parts. */
