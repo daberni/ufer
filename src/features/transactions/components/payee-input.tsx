@@ -62,7 +62,8 @@ export function PayeeInput({
     activeDescendant,
     handleKeyDown
   } = useComboboxOptions({
-    open: expanded,
+    // A list that was asked to open counts as open for every key while its suggestions load, so Escape, Alt+ArrowUp and Tab close it.
+    open,
     optionCount: expanded ? shown.length : knownCount,
     listboxRef,
     freeText: true,
@@ -108,15 +109,6 @@ export function PayeeInput({
   }
 
   function handleFieldKeyDown(event: KeyboardEvent<HTMLInputElement>) {
-    // Escape cancels a list still waiting for its suggestions, as it closes a shown one, and does not reach a surrounding dialog.
-    if (open && !expanded && event.key === "Escape") {
-      event.preventDefault();
-      event.stopPropagation();
-      close();
-
-      return;
-    }
-
     const awaitsSuggestions = !expanded && knownCount === 0;
 
     handleKeyDown(event);

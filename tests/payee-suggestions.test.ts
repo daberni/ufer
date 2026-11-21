@@ -406,6 +406,26 @@ test("Escape after Alt+ArrowDown cancels the loading suggestions without reachin
   assert.equal(field.getAttribute("aria-expanded"), "false");
 });
 
+test("Alt+ArrowUp while suggestions are still loading closes the list", async context => {
+  const {
+    field,
+    requests
+  } = await renderPayeeInput(context, "cor");
+
+  press(field, "ArrowDown");
+  act(() => {
+    fireEvent.keyDown(field, {
+      key: "ArrowUp",
+      altKey: true
+    });
+  });
+  await respond(requests("transactions/payees")[0], Response.json({
+    payees: ["Corner Bakery", "Corner Shop"]
+  }));
+
+  assert.equal(field.getAttribute("aria-expanded"), "false");
+});
+
 test("a pointer picks a suggestion and Escape closes the list without clearing the text", async context => {
   const {
     field,
@@ -454,9 +474,6 @@ test("suggestions for earlier text disappear as soon as the text changes, until 
 
   type(field, "bak");
   assert.equal(field.getAttribute("aria-expanded"), "false");
-  press(field, "ArrowDown");
-  press(field, "Enter");
-  assert.equal(field.value, "bak");
 
   await wait(300);
   assert.equal(field.getAttribute("aria-expanded"), "false");
@@ -464,6 +481,25 @@ test("suggestions for earlier text disappear as soon as the text changes, until 
     payees: ["Bakery Example"]
   }));
   assert.deepEqual(options(screen).map(option => option.textContent), ["Bakery Example"]);
+});
+
+test("Enter while suggestions are still loading submits the typed text and cancels the list", async context => {
+  const {
+    field,
+    requests,
+    submitted
+  } = await renderPayeeInput(context);
+
+  type(field, "bak");
+  press(field, "Enter");
+  act(() => {
+    field.form?.requestSubmit();
+  });
+  await wait(300);
+
+  assert.deepEqual(submitted, ["bak"]);
+  assert.equal(field.getAttribute("aria-expanded"), "false");
+  assert.equal(requests("transactions/payees").length, 0);
 });
 
 test("the highlighted suggestion scrolls into view in a scrolling list", async context => {
