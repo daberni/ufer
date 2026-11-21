@@ -9,6 +9,7 @@ import styles from "./connections-view.module.css";
 import { CircleAlert, CircleCheck, CircleX, Landmark, Link2, LoaderCircle, Plus, ShieldCheck, Trash2 } from "lucide-react";
 import { DateTimeValue, TimestampValue } from "@/components/ui/date-value";
 import { Empty } from "@/components/ui/empty-state";
+import { Tooltip } from "@/components/ui/tooltip";
 import { BridgeIllustration } from "@/components/branding/illustrations";
 import { bankConnectionsSectionId } from "@/features/banking/connections-location";
 import type { BankingConfiguration, Connection, ConnectionRemoval, SyncRun } from "@/features/banking/types";
@@ -299,10 +300,14 @@ function SyncRunRow({
   return (
     <li className={styles["sync-row"]}>
       <span className={styles["sync-time"]}><DateTimeValue value={run.started_at} /></span>
-      <span className={clsx(styles["sync-status"], styles[tone])} title={label}>
-        <Icon aria-hidden size={16} />
-        <span className={ui["visually-hidden"]}>{label}</span>
-      </span>
+      <Tooltip text={label} describes={false}>
+        {trigger => (
+          <span {...trigger} className={clsx(styles["sync-status"], styles[tone])}>
+            <Icon aria-hidden size={16} />
+            <span className={ui["visually-hidden"]}>{label}</span>
+          </span>
+        )}
+      </Tooltip>
       {showResult && (
         <span className={styles["sync-result"]}>
           <SyncRunTransactions href={href} run={run} />
