@@ -110,7 +110,7 @@ Imports support historical backfill, unsupported sources and migration; exports 
 
 **Implemented:** a CSV import page with a preview, detected and editable delimiter, encoding, date and decimal conventions, column roles chosen in the preview, a stable ID column, per-source account mapping (existing, new manual or skipped), category mapping with the category picker, a pre-import summary, and saved mapping templates. Buxfer exports are detected with a built-in mapping, including split rows.
 
-**Remaining:** standard bank formats such as OFX/QIF and CAMT.053 ([#14](https://github.com/daberni/ufer/issues/14)) and duplicate detection between bank sync and CSV imports ([#228](https://github.com/daberni/ufer/issues/228)). PDF support remains a separate future decision, not a prerequisite.
+**Remaining:** standard bank formats such as OFX/QIF and CAMT.053 ([#14](https://github.com/daberni/ufer/issues/14)) and the remaining duplicate detection gaps ([#228](https://github.com/daberni/ufer/issues/228)). CSV rows are already matched against existing bookings by amount, date and text and reported or skipped, and later bank syncs adopt matching CSV-imported rows; still open are content matching against earlier CSV-imported rows, larger date tolerances and resolving an existing duplicate from the transaction. PDF support remains a separate future decision, not a prerequisite.
 
 ## Securities and valuations
 
@@ -136,7 +136,7 @@ Repository content must describe a generic product. Do not include personal inst
 
 Open work grouped by phase, in priority order. Budgets and forecasting have lower priority than reliable insights and brokerage accounts.
 
-1. **Reliable operation and trustworthy figures:** restore-tested, automated backups ([#84](https://github.com/daberni/ufer/issues/84)); verified unattended production bank sync, repeat sync and reauthorization ([#267](https://github.com/daberni/ufer/issues/267)); reconciling bank-linked balances with booked transactions ([#183](https://github.com/daberni/ufer/issues/183)); duplicate detection across bank sync and CSV imports ([#228](https://github.com/daberni/ufer/issues/228)); account-scoped rules ([#243](https://github.com/daberni/ufer/issues/243)).
+1. **Reliable operation and trustworthy figures:** restore-tested, automated backups ([#84](https://github.com/daberni/ufer/issues/84)); verified unattended production bank sync, repeat sync and reauthorization ([#267](https://github.com/daberni/ufer/issues/267)); reconciling bank-linked balances with booked transactions ([#183](https://github.com/daberni/ufer/issues/183)); remaining duplicate detection gaps ([#228](https://github.com/daberni/ufer/issues/228)); account-scoped rules ([#243](https://github.com/daberni/ufer/issues/243)).
 2. **Wealth and securities (next major topic):** brokerage accounts with a settlement account, buy and sell transactions creating holdings with cost, quantity, date and fees, daily valuations from a market-data provider (EODHD evaluated) that are not transactions but flow into net worth and its history ([#266](https://github.com/daberni/ufer/issues/266), [#87](https://github.com/daberni/ufer/issues/87)).
 3. **Insights:** an insights page with configurable reports ([#249](https://github.com/daberni/ufer/issues/249)).
 4. **Planning (lower priority):** budgets, recurring entries and forecasting (feature comparison K-04).
