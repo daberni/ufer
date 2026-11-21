@@ -2,7 +2,7 @@
 
 Updated: **2026-11-21** · Ufer `0.2.0` · Working product name: **Ufer**
 
-How Ufer compares with established personal finance tools, and what is still planned. Details and evidence are in the footnotes; workflows and release pins in the [functional review](functional-review.md), and priorities in the [roadmap](product-direction.md#roadmap). No personal account inventory is included.
+How Ufer compares with established personal finance tools, and what is still planned. Details and evidence are in the footnotes, and priorities in the [roadmap](product-direction.md#roadmap). No personal account inventory is included.
 
 | Legend | |
 | --- | --- |
@@ -217,7 +217,7 @@ An item is checked only when its acceptance criterion is met and evidence is rec
 24. <a id="fn-24"></a>[Firefly III search](https://github.com/firefly-iii/docs/blob/main/docs/docs/how-to/firefly-iii/features/search.md)
 25. <a id="fn-25"></a>[Sure transactions](https://docs.sure.am/guides/app-features/transactions): editing, splits, filters, rules with order and stop-processing.
 26. <a id="fn-26"></a>On manual accounts.
-27. <a id="fn-27"></a>[Firefly III transactions](https://github.com/firefly-iii/docs/blob/main/docs/docs/how-to/firefly-iii/finances/transactions.md): create, edit, delete, split journals.
+27. <a id="fn-27"></a>[Firefly III transactions](https://github.com/firefly-iii/docs/blob/main/docs/docs/how-to/firefly-iii/finances/transactions.md): create, edit, delete, split journals; a split withdrawal keeps one source asset account and a split deposit one destination account.
 28. <a id="fn-28"></a>Category, type, transfer link, payee and description can be changed; date and amount of imported or synced bookings cannot ([#246](https://github.com/daberni/ufer/issues/246)).
 29. <a id="fn-29"></a>[Sure schema](https://github.com/we-promise/sure/blob/v0.7.6-hotfix.1/db/schema.rb): source IDs, manual field locks, ticker and MIC.
 30. <a id="fn-30"></a>[Buxfer split transactions](https://buxfer.zendesk.com/hc/en-us/articles/360015881833-Can-I-split-a-single-transaction-across-multiple-tags)
@@ -225,18 +225,18 @@ An item is checked only when its acceptance criterion is met and evidence is rec
 32. <a id="fn-32"></a>Transfers are a transaction type; sync and imports pair opposite bookings on two own accounts automatically.
 33. <a id="fn-33"></a>Source reference and sync-run linkage; CSV import runs and an override history are not recorded.
 34. <a id="fn-34"></a>[Firefly III duplicate detection](https://github.com/firefly-iii/docs/blob/main/docs/docs/references/data-importer/duplicate-detection.md): import hashes and external IDs.
-35. <a id="fn-35"></a>[Sure budgets](https://docs.sure.am/guides/app-features/budgets): category limits, subcategories.
+35. <a id="fn-35"></a>[Sure budgets](https://docs.sure.am/guides/app-features/budgets): category limits, subcategories; only positive surplus rolls over, so overspending does not reduce the next period; personal budgets are a preview.
 36. <a id="fn-36"></a>Keyword and regular-expression rules on payee and description, in list order, with an impact preview.
 37. <a id="fn-37"></a>[Actual rules](https://actualbudget.org/docs/budgeting/rules/): editable rules and payee learning.
 38. <a id="fn-38"></a>[Firefly III rules](https://github.com/firefly-iii/docs/blob/main/docs/docs/how-to/firefly-iii/features/rules.md): grouped rules with multiple actions.
 39. <a id="fn-39"></a>[Buxfer upload](https://www.buxfer.com/help/upload): CSV and Excel; mapping profiles unverified.
-40. <a id="fn-40"></a>[Sure CSV imports](https://docs.sure.am/guides/app-features/csv-imports): mapping, preview, reusable setup; CSV and feed overlap not guaranteed.
+40. <a id="fn-40"></a>[Sure CSV imports](https://docs.sure.am/guides/app-features/csv-imports): mapping, preview, reusable setup; the import account selector lists manual accounts, and CSV rows are not deduplicated against bank-feed imports.
 41. <a id="fn-41"></a>Rows match earlier imports by export ID or content and existing bookings by amount, date and text; later bank syncs adopt matching imported rows. Remaining gaps are tracked in [#228](https://github.com/daberni/ufer/issues/228).
 42. <a id="fn-42"></a>Monthly chart with income, expenses, net and per-month category breakdowns; transfers are excluded.
 43. <a id="fn-43"></a>[Sure dashboard source](https://github.com/we-promise/sure/blob/v0.7.6-hotfix.1/app/controllers/pages_controller.rb): reorder, show or hide and resize predefined widgets; runtime not tested.
 44. <a id="fn-44"></a>[Sure recurring transactions](https://docs.sure.am/features/recurring-transactions)
-45. <a id="fn-45"></a>[Actual envelope budgeting](https://actualbudget.org/docs/getting-started/envelope-budgeting/)
-46. <a id="fn-46"></a>[Firefly III budgets](https://github.com/firefly-iii/docs/blob/main/docs/docs/how-to/firefly-iii/finances/budgets.md)
+45. <a id="fn-45"></a>[Actual envelope budgeting](https://actualbudget.org/docs/getting-started/envelope-budgeting/): envelope and tracking modes.
+46. <a id="fn-46"></a>[Firefly III budgets](https://github.com/firefly-iii/docs/blob/main/docs/docs/how-to/firefly-iii/finances/budgets.md): period budgets with auto-budgets that reset or accumulate; needs cron.
 47. <a id="fn-47"></a>[Actual schedules](https://actualbudget.org/docs/schedules/)
 48. <a id="fn-48"></a>[Firefly III recurring transactions](https://github.com/firefly-iii/docs/blob/main/docs/docs/how-to/firefly-iii/finances/recurring.md): needs cron.
 49. <a id="fn-49"></a>[Buxfer investments](https://www.buxfer.com/features/investments/)
