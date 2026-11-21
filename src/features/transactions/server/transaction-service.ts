@@ -30,10 +30,6 @@ export async function updateTransactionCategory(id: string, payload: unknown) {
   const choice = categoryChoice.parse(payload);
   const assignment = "automatic" in choice ? await automaticCategory(id) : await manualCategory(id, choice.category_id);
 
-  if (assignment === "archived_account") {
-    throw new HttpError(409, "This account is archived. Restore the account first.");
-  }
-
   // The write skips split bookings, whose categories are their parts; removing the split returns one to the rules.
   if (!assignment && await isSplit(id)) {
     throw new HttpError(409, "This transaction is split. Change its parts or remove the split instead.");

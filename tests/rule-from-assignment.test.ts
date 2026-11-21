@@ -211,8 +211,8 @@ test("a rule preview counts the transactions the new rule would decide, without 
     mode: "keyword",
     priority: 100
   }), {
-    matched: 4,
-    uncategorized: 3,
+    matched: 5,
+    uncategorized: 4,
     manual: 2,
     manual_same_category: 0
   });
@@ -221,8 +221,8 @@ test("a rule preview counts the transactions the new rule would decide, without 
     mode: "keyword",
     priority: 5
   }), {
-    matched: 5,
-    uncategorized: 4,
+    matched: 6,
+    uncategorized: 5,
     manual: 2,
     manual_same_category: 0
   });
@@ -259,14 +259,16 @@ test("a rule applied to existing transactions categorizes only the uncategorized
     apply_to_uncategorized: true
   }), {
     ok: true,
-    categorized: 3
+    categorized: 4
   });
 
+  // Archiving freezes balances, not categories, so a booking on an archived account is categorized too.
   assert.deepEqual(await categories(db), {
     ...before,
     "uncategorized-payee": "groceries/rule",
     "uncategorized-description": "groceries/rule",
-    "transfer": "groceries/rule"
+    "transfer": "groceries/rule",
+    "archived-account": "groceries/rule"
   });
 
   const stored = await db.select().from(schema.categorizationRules).where(eq(schema.categorizationRules.name, "Example Market")).get();
@@ -316,8 +318,8 @@ test("preview, creation and later matching use the same live ID tie-break", asyn
     matched: preview.matched,
     uncategorized: preview.uncategorized
   }, {
-    matched: 4,
-    uncategorized: 3
+    matched: 5,
+    uncategorized: 4
   });
   assert.deepEqual(await createRule({
     id: preview.id,
@@ -379,7 +381,7 @@ test("rule creation does not categorize a transaction whose payee changed before
   });
 
   assert.equal((await categories(db))["uncategorized-payee"], "none/rule");
-  assert.equal(result.categorized, 2);
+  assert.equal(result.categorized, 3);
 });
 
 test("applying a newly created higher-priority rule preserves already categorized transactions", async context => {

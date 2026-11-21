@@ -67,14 +67,14 @@ export type ManualAdoption = {
 
 /** Returns the selected manual assignments to automatic categorization with the rule's category and a reference to the rule; resolves to the selected IDs. */
 async function adoptManualAssignments(tx: DatabaseTransaction, rule: Pick<Rule, "id" | "category_id">, rules: Rule[], adoption: ManualAdoption) {
-  const scope = and(isNull(accounts.archived_at), eq(transactions.category_source, "manual"), notSplit);
+  const scope = and(eq(transactions.category_source, "manual"), notSplit);
   const candidates = await tx.select({
     id: transactions.id,
     counterparty: transactions.counterparty,
     description: transactions.description,
     counterparty_override: transactions.counterparty_override,
     description_override: transactions.description_override
-  }).from(transactions).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(scope);
+  }).from(transactions).where(scope);
   const eligible = candidates.filter(candidate => candidate.id !== adoption.excludedTransactionId);
   const ids = adoption.select(rules, eligible);
 
@@ -91,8 +91,15 @@ async function adoptManualAssignments(tx: DatabaseTransaction, rule: Pick<Rule, 
   return ids;
 }
 
+// Archiving freezes bookkeeping but not categorization, so rules categorize bookings on archived accounts without changing their type.
+function activeAccounts(tx: DatabaseTransaction) {
+  return tx.select({
+    id: accounts.id
+  }).from(accounts).where(isNull(accounts.archived_at));
+}
+
 /**
- * Sets the rule's type on the bookings it was just given, unless a person or a link decided their type, then pairs transfers so they link to, or create, their counterparts.
+ * Sets the rule's type on the bookings it was just given, unless a person or a link decided their type or their account is archived, then pairs transfers so they link to, or create, their counterparts.
  * A rule without a type returns a type an earlier rule set to the derived type, as applying rules does; a booking reported as a transfer returns to Transfer.
  */
 async function applyRuleType(tx: DatabaseTransaction, rule: Pick<Rule, "id" | "transaction_type" | "transfer_account_id">, ids: string[]) {
@@ -106,7 +113,7 @@ async function applyRuleType(tx: DatabaseTransaction, rule: Pick<Rule, "id" | "t
         type: sql`CASE WHEN ${transactions.transfer_detected}=1 THEN 'transfer' WHEN ${transactions.amount_minor}>0 THEN 'income' ELSE 'expense' END`,
         type_rule_id: null,
         type_transfer_account_id: null
-      }).where(and(inArray(transactions.id, ids.slice(offset, offset + assignmentChunkSize)), ruleTypeable, isNotNull(transactions.type_rule_id)));
+      }).where(and(inArray(transactions.id, ids.slice(offset, offset + assignmentChunkSize)), ruleTypeable, isNotNull(transactions.type_rule_id), inArray(transactions.account_id, activeAccounts(tx))));
     }
 
     // A booking released to a reported transfer can now pair.
@@ -120,7 +127,7 @@ async function applyRuleType(tx: DatabaseTransaction, rule: Pick<Rule, "id" | "t
       type: rule.transaction_type,
       type_rule_id: rule.id,
       type_transfer_account_id: rule.transaction_type === "transfer" ? rule.transfer_account_id ?? null : null
-    }).where(and(inArray(transactions.id, ids.slice(offset, offset + assignmentChunkSize)), ruleTypeable));
+    }).where(and(inArray(transactions.id, ids.slice(offset, offset + assignmentChunkSize)), ruleTypeable, inArray(transactions.account_id, activeAccounts(tx))));
   }
 
   await pairTransfers(tx);
@@ -132,9 +139,7 @@ function readRules(tx: DatabaseTransaction) {
 
 /** Hands the transaction a rule was created from to that rule when the selector confirms the rule decides its manual category; resolves to the adopted IDs. */
 async function adoptSourceTransaction(tx: DatabaseTransaction, rule: NewRule, rules: Rule[], source: NonNullable<RuleCreationAssignments["source"]>) {
-  const scope = and(eq(transactions.id, source.transactionId), eq(transactions.category_source, "manual"), eq(transactions.category_id, rule.category_id), inArray(transactions.account_id, tx.select({
-    id: accounts.id
-  }).from(accounts).where(isNull(accounts.archived_at))));
+  const scope = and(eq(transactions.id, source.transactionId), eq(transactions.category_source, "manual"), eq(transactions.category_id, rule.category_id));
   const candidates = await tx.select({
     id: transactions.id,
     counterparty: transactions.counterparty,
@@ -183,15 +188,14 @@ async function storeRule(tx: DatabaseTransaction, rule: NewRule, assignments: Ru
     return 0;
   }
 
-  // Bookings on archived accounts are read-only, so rules never recategorize them.
-  const scope = and(isNull(accounts.archived_at), eq(transactions.category_source, "rule"), isNull(transactions.category_id));
+  const scope = and(eq(transactions.category_source, "rule"), isNull(transactions.category_id));
   const candidates = await tx.select({
     id: transactions.id,
     counterparty: transactions.counterparty,
     description: transactions.description,
     counterparty_override: transactions.counterparty_override,
     description_override: transactions.description_override
-  }).from(transactions).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(scope);
+  }).from(transactions).where(scope);
   const ids = selectAssignments(rules, candidates);
   let categorized = 0;
 
@@ -200,9 +204,7 @@ async function storeRule(tx: DatabaseTransaction, rule: NewRule, assignments: Ru
     const result = await tx.update(transactions).set({
       category_id: rule.category_id,
       category_rule_id: rule.id
-    }).where(and(inArray(transactions.id, chunk), inArray(transactions.account_id, tx.select({
-      id: accounts.id
-    }).from(accounts).where(isNull(accounts.archived_at)))));
+    }).where(inArray(transactions.id, chunk));
 
     categorized += result.rowsAffected;
   }
@@ -320,7 +322,7 @@ export async function setRuleEnabled(id: string, enabled: boolean) {
 /** Manually categorized transactions with the text rules match. */
 export async function findManualAssignments() {
   const db = await database();
-  const scope = and(isNull(accounts.archived_at), eq(transactions.category_source, "manual"), notSplit);
+  const scope = and(eq(transactions.category_source, "manual"), notSplit);
 
   return db.select({
     id: transactions.id,
@@ -329,13 +331,13 @@ export async function findManualAssignments() {
     description: transactions.description,
     counterparty_override: transactions.counterparty_override,
     description_override: transactions.description_override
-  }).from(transactions).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(scope);
+  }).from(transactions).where(scope);
 }
 
+/** Rule-categorized bookings, archived accounts included, since archiving does not freeze categories. */
 export async function findUncorrectedTransactions() {
   const db = await database();
-  // Bookings on archived accounts are read-only, so applying rules leaves them unchanged.
-  const scope = and(isNull(accounts.archived_at), eq(transactions.category_source, "rule"));
+  const scope = eq(transactions.category_source, "rule");
 
   return db.select({
     id: transactions.id,
@@ -345,19 +347,15 @@ export async function findUncorrectedTransactions() {
     description: transactions.description,
     counterparty_override: transactions.counterparty_override,
     description_override: transactions.description_override
-  }).from(transactions).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(scope);
+  }).from(transactions).where(scope);
 }
 
 export async function saveRuleAssignments(entries: Pick<Transaction, "id" | "category_id" | "category_rule_id">[]) {
   const db = await database();
-  // An account archived after the candidates were read stays read-only.
-  const activeAccounts = db.select({
-    id: accounts.id
-  }).from(accounts).where(isNull(accounts.archived_at));
   const [first, ...rest] = entries.map(entry => db.update(transactions).set({
     category_id: entry.category_id,
     category_rule_id: entry.category_rule_id
-  }).where(and(eq(transactions.id, entry.id), eq(transactions.category_source, "rule"), inArray(transactions.account_id, activeAccounts))));
+  }).where(and(eq(transactions.id, entry.id), eq(transactions.category_source, "rule"))));
 
   if (first) {
     await db.batch([first, ...rest]);
@@ -388,17 +386,13 @@ export async function saveRuleTypes(entries: Pick<Transaction, "id" | "type" | "
   const db = await database();
 
   await db.transaction(async tx => {
-    // An account archived after the candidates were read stays read-only.
-    const activeAccounts = tx.select({
-      id: accounts.id
-    }).from(accounts).where(isNull(accounts.archived_at));
-
+    // An account archived after the candidates were read keeps its types.
     for (const entry of entries) {
       await tx.update(transactions).set({
         type: entry.type,
         type_rule_id: entry.type_rule_id,
         type_transfer_account_id: entry.type_transfer_account_id
-      }).where(and(eq(transactions.id, entry.id), ruleTypeable, inArray(transactions.account_id, activeAccounts)));
+      }).where(and(eq(transactions.id, entry.id), ruleTypeable, inArray(transactions.account_id, activeAccounts(tx))));
     }
 
     await pairTransfers(tx);

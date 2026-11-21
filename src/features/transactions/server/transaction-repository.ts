@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { and, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
-import { accounts, transactions } from "@/server/database/schema";
+import { transactions } from "@/server/database/schema";
 import type { Rule, RuleAssignment, RuleText } from "@/lib/rules";
 import { derivedTransactionType, type TransactionType } from "@/features/transactions/transaction-types";
 import { refusable, type ManualEntryResult } from "./manual-transaction-repository";
@@ -105,21 +105,10 @@ export async function upsertTransactions(tx: DatabaseTransaction, accountId: str
   }
 }
 
-/** Assigns a category manually; a booking on an archived account is refused because it is read-only. */
+/** Assigns a category manually; archiving freezes balances but not categories, so bookings on archived accounts take one too. */
 export async function setTransactionCategory(id: string, categoryId: string | null) {
   const db = await database();
-  const owner = await db.select({
-    archived_at: accounts.archived_at
-  }).from(transactions).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(eq(transactions.id, id)).get();
-
-  if (owner?.archived_at) {
-    return "archived_account" as const;
-  }
-
-  const scopedAccounts = db.select({
-    id: accounts.id
-  }).from(accounts).where(isNull(accounts.archived_at));
-  const scope = and(eq(transactions.id, id), inArray(transactions.account_id, scopedAccounts), notSplit);
+  const scope = and(eq(transactions.id, id), notSplit);
   const [assignment] = await db.update(transactions).set({
     category_id: categoryId,
     category_source: "manual",
@@ -136,35 +125,16 @@ export async function setTransactionCategory(id: string, categoryId: string | nu
 
 /**
  * Returns a manual assignment to automatic categorization: the category, assigning rule and, for an automatic, unlinked booking, the rule's type and transfer account come from the transaction's source and overridden text, as applying rules would assign them.
- * The rules and the transaction are read in the write transaction that stores the result. Resolves to undefined for an unknown transaction; a booking on an archived account is refused because it is read-only.
+ * The rules and the transaction are read in the write transaction that stores the result. Resolves to undefined for an unknown transaction; a booking on an archived account takes only the category, since its type stays frozen.
  */
 export async function returnTransactionToRules(id: string, assign: (rules: Rule[], text: RuleText) => RuleAssignment) {
   const db = await database();
-  const writableAccounts = db.select({
-    id: accounts.id
-  }).from(accounts).where(isNull(accounts.archived_at));
 
   return db.transaction(async tx => {
-    const found = await tx.select({
-      archived_at: accounts.archived_at,
-      counterparty: transactions.counterparty,
-      description: transactions.description,
-      counterparty_override: transactions.counterparty_override,
-      description_override: transactions.description_override
-    }).from(transactions).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(eq(transactions.id, id)).get();
-
-    if (!found) {
-      return undefined;
-    }
-
-    if (found.archived_at) {
-      return "archived_account" as const;
-    }
-
     // A split booking keeps its categories in its parts.
     const returnable = await tx.select({
       id: transactions.id
-    }).from(transactions).where(and(eq(transactions.id, id), inArray(transactions.account_id, writableAccounts), notSplit)).get();
+    }).from(transactions).where(and(eq(transactions.id, id), notSplit)).get();
 
     if (!returnable) {
       return undefined;
@@ -217,9 +187,9 @@ export async function saveTransactionDetails(
       return "not_found";
     }
 
-    if (await touchesArchivedAccount(tx, subject)) {
-      return "archived_account";
-    }
+    // Archiving freezes balances, not the payee, description or categories; `applyTransactionType` allows only balance-neutral link changes.
+    const keepsType = type === subject.type && target === undefined;
+    const frozen = await touchesArchivedAccount(tx, subject);
 
     // Removing the split in the same write transaction lets it take a type a split booking refuses; a refused save keeps the split.
     const dropSplit = splitChange && "remove" in splitChange ? splitChange.remove : undefined;
@@ -254,7 +224,7 @@ export async function saveTransactionDetails(
       await assignRuleDecision(tx, id, dropSplit);
     }
 
-    const result = await applyTransactionType(tx, id, type, target);
+    const result = frozen && keepsType ? "saved" : await applyTransactionType(tx, id, type, target);
 
     if (result === "saved" && splitChange && "replace" in splitChange) {
       await writeSplit(tx, id, splitChange.replace);
@@ -284,7 +254,8 @@ export async function setTransactionHidden(id: string, hidden: boolean, at: stri
       return "not_found";
     }
 
-    if (await touchesArchivedAccount(tx, subject)) {
+    // On an archived account hiding may not change a balance: a manual account's balance sums its shown bookings, and hiding a linked booking ends the link.
+    if (await touchesArchivedAccount(tx, subject) && (subject.account_provider === "manual" || subject.transfer_id)) {
       return "archived_account";
     }
 
