@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
 import { test, type TestContext } from "node:test";
 import { render, within } from "@testing-library/react";
-import { createElement } from "react";
+import { createElement, Fragment } from "react";
 import { AppRouterContext, type AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import { PathnameContext, SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime";
 import { Temporal } from "temporal-polyfill";
 import { AppStoreProvider } from "../src/client/app-store";
+import { queryKeys } from "../src/client/query-keys";
 import type { Account } from "../src/features/accounts/types";
 import type { Connection } from "../src/features/banking/types";
 import { browser, withQueryClient } from "./fixtures/browser";
@@ -67,6 +68,9 @@ async function renderSummary(context: TestContext, account: Account) {
     Reflect.deleteProperty(globalThis, "self");
   });
   const { AccountSummary } = await import("../src/features/accounts/components/account-summary");
+  const { AccountMenu } = await import("../src/features/accounts/components/account-menu");
+
+  environment.queryClient.setQueryData(queryKeys.banking.connections(), [connection]);
   const screen = render(withQueryClient(environment.queryClient, createElement(AppStoreProvider, {
     locked: false
   }, createElement(AppRouterContext, {
@@ -75,10 +79,12 @@ async function renderSummary(context: TestContext, account: Account) {
     value: window.location.pathname
   }, createElement(SearchParamsContext, {
     value: new URLSearchParams()
-  }, createElement(AccountSummary, {
+  }, createElement(Fragment, null, createElement(AccountMenu, {
+    account
+  }), createElement(AccountSummary, {
     account,
     connections: [connection]
-  })))))));
+  }))))))));
 
   return screen;
 }
@@ -92,13 +98,13 @@ function notices(screen: ReturnType<typeof render>) {
   return noticeElements(screen).map(notice => notice.textContent);
 }
 
-test("a healthy bank account shows its name, balance and one status line, with reconnecting in the menu", async context => {
+test("a healthy bank account shows its institution, type, balance and one status line, with editing and reconnecting in the menu", async context => {
   const screen = await renderSummary(context, healthy);
-  const panel = within(screen.container);
-
-  assert.ok(panel.getByRole("heading", {
-    name: "Synthetic checking"
+  const panel = within(screen.getByRole("region", {
+    name: "Account summary"
   }));
+
+  assert.equal(panel.queryByText("Synthetic checking"), null);
   assert.ok(panel.getByText("Example bank · Current account"));
   assert.ok(panel.getByText(/Synced/));
   assert.deepEqual(notices(screen), []);
@@ -106,6 +112,7 @@ test("a healthy bank account shows its name, balance and one status line, with r
   assert.equal(panel.queryByRole("button", {
     name: /Reconnect/
   }), null);
+  assert.ok(await menuItem(screen, "Edit account"));
   assert.ok(await menuItem(screen, "Reconnect Example bank"));
   assert.ok(await menuItem(screen, "Manage bank connections"));
 });

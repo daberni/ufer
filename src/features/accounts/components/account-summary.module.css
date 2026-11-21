@@ -4,21 +4,11 @@
 }
 .header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: var(--space-3);
 }
-.identity {
-  display: grid;
-  flex: 1;
-  gap: var(--space-1);
-  min-width: 0;
-}
-.name {
-  font-size: var(--text-lg);
-  line-height: 1.3;
-  overflow-wrap: anywhere;
-}
 .meta {
+  min-width: 0;
   color: var(--muted);
   font-size: var(--text-sm);
   overflow-wrap: anywhere;

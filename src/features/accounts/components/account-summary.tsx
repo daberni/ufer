@@ -5,28 +5,24 @@ import accountStyles from "./account-presentation.module.css";
 import styles from "./account-summary.module.css";
 
 import { clsx } from "clsx";
-import { useId, useState } from "react";
+import { useState } from "react";
 import { Archive, Pencil } from "lucide-react";
 import { Temporal } from "temporal-polyfill";
-import { toFailure } from "@/client/api";
 import { useLocale } from "@/client/locale-provider";
 import { TimestampValue } from "@/components/ui/date-value";
-import { FormError } from "@/components/ui/form-error";
 import { useDisplayTimeZone } from "@/components/ui/use-display-time-zone";
 import { shortMonthWithYear } from "@/lib/date-format";
 import { money } from "@/lib/money";
 import { accountIcon, accountProblem, kinds } from "@/features/accounts/account-presentation";
-import { useArchiveAccount, useRestoreAccount } from "@/features/accounts/mutations";
 import { BankConnectionDialog } from "@/features/banking/components/bank-connection-form";
 import type { Account } from "@/features/accounts/types";
 import type { Connection } from "@/features/banking/types";
-import { AccountMenu } from "./account-menu";
 import { BalanceMismatchNotice, ProblemNotice } from "./account-notices";
 import { ValuationDialog } from "./valuation-form";
 
 /**
- * An account's name, balance and at most one notice: the archive notice, a problem that stops syncing, or a bank balance that differs from the bookings,
- * in that order. A healthy bank account shows one status line instead; rare actions live in the menu.
+ * An account's institution, type, balance and at most one notice: the archive notice, a problem that stops syncing, or a bank balance that differs from the bookings,
+ * in that order. A healthy bank account shows one status line instead; its name and actions live in the page heading.
  */
 export function AccountSummary({
   account,
@@ -38,9 +34,6 @@ export function AccountSummary({
   const locale = useLocale();
   const [reconnecting, setReconnecting] = useState<Connection | null>(null);
   const [updatingBalance, setUpdatingBalance] = useState(false);
-  const archive = useArchiveAccount(account.id);
-  const restore = useRestoreAccount(account.id);
-  const headingId = useId();
   const Icon = accountIcon(account.kind);
   const archived = account.archived_at !== null;
   // A synced account's balance follows its bank bookings and is corrected by reconciling; an archived account is read-only until it is restored.
@@ -49,27 +42,14 @@ export function AccountSummary({
   const problem = accountProblem(account, Temporal.Now.instant());
   const difference = account.reported_difference_minor ?? 0;
   const mismatch = !archived && !problem && difference !== 0;
-  const failure = archive.error ?? restore.error;
 
   return (
-    <section className={clsx(ui["panel"], styles["summary"])} aria-labelledby={headingId}>
+    <section className={clsx(ui["panel"], styles["summary"])} aria-label="Account summary">
       <div className={styles["header"]}>
         <span className={clsx(accountStyles["account-logo"], accountStyles[account.kind])}>
           <Icon size={23} aria-hidden="true" />
         </span>
-        <div className={styles["identity"]}>
-          <h2 id={headingId} className={styles["name"]}>{account.name}</h2>
-          <p className={styles["meta"]}>{account.institution} · {kinds[account.kind] ?? account.kind}</p>
-        </div>
-        <AccountMenu
-          account={account}
-          archive={archive}
-          restore={restore}
-          reconnect={connection && !archived && !problem ? {
-            connection,
-            open: () => setReconnecting(connection)
-          } : null}
-        />
+        <p className={styles["meta"]}>{account.institution} · {kinds[account.kind] ?? account.kind}</p>
       </div>
       <div className={styles["balance-row"]}>
         <strong className={styles["balance"]}>{account.balance_minor === null ? "—" : money(account.balance_minor, account.currency, locale)}</strong>
@@ -85,7 +65,6 @@ export function AccountSummary({
         )}
       </div>
       {account.provider !== "manual" && !archived && !problem && <SyncStatus account={account} />}
-      <FormError failure={failure ? toFailure(failure) : null} />
       {account.archived_at && <ArchivedHint archivedAt={account.archived_at} />}
       {problem && <ProblemNotice problem={problem} connection={connection} reconnect={() => connection && setReconnecting(connection)} />}
       {mismatch && <BalanceMismatchNotice account={account} difference={difference} />}
@@ -133,10 +112,7 @@ export function AccountSummarySkeleton() {
     <section className={clsx(ui["panel"], styles["summary"])}>
       <div className={styles["header"]}>
         <span className={clsx(accountStyles["account-logo"], ui["skeleton"])} />
-        <div className={styles["identity"]}>
-          <span className={clsx(styles["name"], ui["skeleton"])}>Example account</span>
-          <span className={clsx(styles["meta"], ui["skeleton"])}>Example bank · Current account</span>
-        </div>
+        <span className={clsx(styles["meta"], ui["skeleton"])}>Example bank · Current account</span>
       </div>
       <div className={styles["balance-row"]}>
         <strong className={styles["balance"]}>

@@ -4,7 +4,7 @@ import { createClient, type InArgs, type InStatement } from "@libsql/client";
 import { act, fireEvent, render, within } from "@testing-library/react";
 import { and, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/libsql";
-import { createElement, type ReactNode } from "react";
+import { createElement, Fragment, type ReactNode } from "react";
 import { AppRouterContext, type AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import { PathnameContext, SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime";
 import { AppStoreProvider } from "../src/client/app-store";
@@ -1099,7 +1099,10 @@ const manualAccount: Account = {
 async function renderDetails(context: TestContext, account: Account) {
   const environment = routedBrowser(context);
   const { AccountDetails } = await import("../src/features/accounts/components/account-details");
-  const screen = render(environment.routed(createElement(AccountDetails, {
+  const { AccountMenu } = await import("../src/features/accounts/components/account-menu");
+  const screen = render(environment.routed(createElement(Fragment, null, createElement(AccountMenu, {
+    account
+  }), createElement(AccountDetails, {
     account: {
       data: account,
       status: "ready"
@@ -1119,7 +1122,7 @@ async function renderDetails(context: TestContext, account: Account) {
       },
       status: "ready"
     }
-  })));
+  }))));
 
   return {
     ...environment,

@@ -30,10 +30,13 @@ type ItemProps = {
 /** A "…" button that opens a menu of rarely used actions; arrow keys, Home and End move between them and Escape or a press outside closes it. */
 export function ActionMenu({
   label,
+  appearance = "icon",
   children
 }: {
   /** The button's accessible name, such as "Actions for Synthetic checking". */
   label: string;
+  /** "button" matches the height and border of neighbouring buttons, as beside a page heading's primary action. */
+  appearance?: "icon" | "button";
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -117,7 +120,7 @@ export function ActionMenu({
       <button
         ref={triggerRef}
         type="button"
-        className={clsx(ui["icon-button"], styles["trigger"])}
+        className={clsx(appearance === "button" ? ui["button"] : ui["icon-button"], styles["trigger"], styles[appearance])}
         aria-label={label}
         aria-haspopup="menu"
         aria-expanded={open}

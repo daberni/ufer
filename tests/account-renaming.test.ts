@@ -41,17 +41,18 @@ test("renaming a bank account targets its encoded ID, keeps failures in the dial
     this.removeAttribute("open");
   };
 
-  const { EditableAccountName } = await import("../src/features/accounts/components/editable-account-name");
+  const { EditAccountDialog } = await import("../src/features/accounts/components/edit-account-dialog");
+  let closed = false;
 
   environment.queryClient.setQueryData(queryKeys.accounts(), [account]);
   environment.queryClient.setQueryData(queryKeys.transactions.all(), []);
-  const screen = render(withQueryClient(environment.queryClient, createElement(EditableAccountName, {
-    account
+  const screen = render(withQueryClient(environment.queryClient, createElement(EditAccountDialog, {
+    account,
+    close: () => {
+      closed = true;
+    }
   })));
 
-  act(() => fireEvent.click(screen.getByRole("button", {
-    name: "Edit account: My bank account"
-  })));
   const dialog = within(screen.getByRole("dialog"));
 
   act(() => {
@@ -91,7 +92,7 @@ test("renaming a bank account targets its encoded ID, keeps failures in the dial
   await respond(environment.requests("accounts/bank%2Fselected")[1], Response.json({
     ok: true
   }));
-  assert.equal(screen.queryByRole("dialog"), null);
+  assert.equal(closed, true);
   assert.equal(environment.queryClient.getQueryState(queryKeys.accounts())?.isInvalidated, true);
   assert.equal(environment.queryClient.getQueryState(queryKeys.transactions.all())?.isInvalidated, true);
 });

@@ -18,7 +18,7 @@ import { PageHeading } from "@/components/layout/page-heading";
 import { LoginForm } from "@/features/auth/components/login-form";
 import { LegalLinks } from "@/features/legal/components/legal-links";
 import { SourceCodeNotice } from "@/features/legal/components/source-code-notice";
-import { EditableAccountName } from "@/features/accounts/components/editable-account-name";
+import { AccountMenu } from "@/features/accounts/components/account-menu";
 import { AccountDetailActions } from "@/features/accounts/components/account-detail-actions";
 import { accountGroups, activeAccounts, useAccounts } from "@/features/accounts/queries";
 import { showsSync } from "./sync-visibility";
@@ -116,15 +116,20 @@ function DashboardShell({ children }: {
       <div className={styles["main-shell"]}>
         <AppHeader environment={environment} title={nav.label} />
         <main className={styles["content"]}>
-          <PageHeading heading={selectedAccount ? <EditableAccountName key={selectedAccount.id} account={selectedAccount} /> : heading} description={description}>
-            {selectedAccount?.provider === "manual" && !selectedAccount.archived_at && (
-              <AccountDetailActions
-                key={selectedAccount.id}
-                account={selectedAccount}
-                manualAccounts={activeAccounts(accounts.data ?? []).filter(account => account.provider === "manual")}
-              />
-            )}
-            {showSync && <SyncButton bankAccounts={bankAccounts} showConnections={() => router.push(bankConnectionsHref)} />}
+          <PageHeading heading={selectedAccount ? selectedAccount.name : heading} description={description}>
+            {selectedAccount ? (
+              <div className={styles["account-actions"]}>
+                {selectedAccount.provider === "manual" && !selectedAccount.archived_at && (
+                  <AccountDetailActions
+                    key={selectedAccount.id}
+                    account={selectedAccount}
+                    manualAccounts={activeAccounts(accounts.data ?? []).filter(account => account.provider === "manual")}
+                  />
+                )}
+                {showSync && <SyncButton bankAccounts={bankAccounts} showConnections={() => router.push(bankConnectionsHref)} />}
+                <AccountMenu key={selectedAccount.id} account={selectedAccount} />
+              </div>
+            ) : showSync && <SyncButton bankAccounts={bankAccounts} showConnections={() => router.push(bankConnectionsHref)} />}
           </PageHeading>
           <LoadErrorNotice failure={loadError.failure} retry={loadError.retry} />
           {environment === "SANDBOX" && (
