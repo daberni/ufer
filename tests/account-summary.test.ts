@@ -140,7 +140,7 @@ test("a bank balance that differs from the bookings shows one notice whose one a
   assert.match(within(notice).getByRole("button").textContent ?? "", /^Book .*50.* adjustment$/);
 });
 
-test("an archived account shows only the archive notice and offers restoring in the menu", async context => {
+test("an archived account shows a one-line archive hint instead of a notice and offers restoring in the menu", async context => {
   const screen = await renderSummary(context, {
     ...healthy,
     reported_difference_minor: -5000,
@@ -148,7 +148,7 @@ test("an archived account shows only the archive notice and offers restoring in 
   });
 
   assert.deepEqual(notices(screen), []);
-  assert.ok(screen.getByText(/This account is archived/));
+  assert.match(screen.getByText(/hidden from lists, still counted in reports/).textContent ?? "", /^Archived on .+ · hidden from lists, still counted in reports$/);
   assert.equal(screen.queryByText(/Synced/), null);
   assert.ok(await menuItem(screen, "Restore account"));
   assert.equal(await queryMenuItem(screen, "Reconnect Example bank"), null);

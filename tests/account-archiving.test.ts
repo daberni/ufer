@@ -1290,3 +1290,41 @@ test("the accounts view lists archived accounts apart and does not count them", 
     name: "Synthetic cash"
   }), null);
 });
+
+test("the archived accounts section stays open through the URL, which toggling replaces without a history entry", async context => {
+  const environment = routedBrowser(context);
+
+  window.history.replaceState(null, "", "/accounts?archived=open");
+  const { AccountsView } = await import("../src/features/accounts/components/accounts-view");
+  const historyLength = window.history.length;
+  const screen = render(environment.routed(createElement(AccountsView, {
+    accounts: {
+      data: [manualAccount, {
+        ...manualAccount,
+        id: "archived",
+        name: "Synthetic archived",
+        archived_at: Temporal.Now.instant().toString()
+      }],
+      status: "ready"
+    }
+  })));
+  const section = screen.getByText("Archived accounts (1)").closest("details")!;
+
+  assert.equal(section.open, true);
+
+  act(() => {
+    section.open = false;
+    fireEvent(section, new window.Event("toggle"));
+  });
+
+  assert.equal(window.location.search, "");
+  assert.equal(window.history.length, historyLength);
+
+  act(() => {
+    section.open = true;
+    fireEvent(section, new window.Event("toggle"));
+  });
+
+  assert.equal(window.location.search, "?archived=open");
+  assert.equal(window.history.length, historyLength);
+});

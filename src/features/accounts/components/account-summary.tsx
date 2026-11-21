@@ -6,7 +6,7 @@ import styles from "./account-summary.module.css";
 
 import { clsx } from "clsx";
 import { useId, useState } from "react";
-import { Pencil } from "lucide-react";
+import { Archive, Pencil } from "lucide-react";
 import { Temporal } from "temporal-polyfill";
 import { toFailure } from "@/client/api";
 import { useLocale } from "@/client/locale-provider";
@@ -86,12 +86,24 @@ export function AccountSummary({
       </div>
       {account.provider !== "manual" && !archived && !problem && <SyncStatus account={account} />}
       <FormError failure={failure ? toFailure(failure) : null} />
-      {archived && <p className={clsx(ui["notice"], styles["notice"])}>This account is archived. It is hidden from the account lists and pickers and is not synced; its history still counts in reports.</p>}
+      {account.archived_at && <ArchivedHint archivedAt={account.archived_at} />}
       {problem && <ProblemNotice problem={problem} connection={connection} reconnect={() => connection && setReconnecting(connection)} />}
       {mismatch && <BalanceMismatchNotice account={account} difference={difference} />}
       {reconnecting && <BankConnectionDialog connection={reconnecting} close={() => setReconnecting(null)} />}
       {updatingBalance && <ValuationDialog selectedAccount={account} close={() => setUpdatingBalance(false)} />}
     </section>
+  );
+}
+
+/** A quiet line instead of a notice: archiving is a deliberate state, not a problem; restoring lives in the menu. */
+function ArchivedHint({ archivedAt }: {
+  archivedAt: string
+}) {
+  return (
+    <p className={styles["status"]}>
+      <Archive size={14} aria-hidden="true" />
+      <span>Archived on <TimestampValue value={archivedAt} /> · hidden from lists, still counted in reports</span>
+    </p>
   );
 }
 

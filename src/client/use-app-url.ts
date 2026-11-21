@@ -3,7 +3,7 @@
 import { useCallback, useMemo } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useAppStore, useAppStoreApi } from "./app-store";
-import { accountHref, allTransactionsHref, viewQuery, isPeriodAware, periodScope, viewFromPathname, viewHref, viewPaths, withQueryChanges, type Section, type ViewQuery, type ViewQueryChanges, type View } from "./app-location";
+import { accountHref, allTransactionsHref, archivedAccountsOpen, viewQuery, isPeriodAware, periodScope, viewFromPathname, viewHref, viewPaths, withQueryChanges, type Section, type ViewQuery, type ViewQueryChanges, type View } from "./app-location";
 import { monthPeriod, type Period } from "@/lib/period";
 import { Temporal } from "temporal-polyfill";
 
@@ -211,5 +211,16 @@ export function setPage(page: number) {
 export function replacePage(page: number) {
   updateQuery({
     page
+  }, "replace");
+}
+
+export function useArchivedAccountsOpen() {
+  return archivedAccountsOpen(useSearchParams());
+}
+
+/** Opening or closing the archived accounts replaces the history entry, so Back leaves the accounts view instead of toggling the section. */
+export function setArchivedAccountsOpen(open: boolean) {
+  updateQuery({
+    archived: open
   }, "replace");
 }

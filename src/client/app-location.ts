@@ -42,6 +42,8 @@ export type ViewQueryChanges = {
   type?: string;
   syncRun?: string;
   page?: number;
+  /** Whether the accounts view shows its archived accounts. */
+  archived?: boolean;
 };
 
 type SearchParams = Pick<URLSearchParams, "get" | "toString">;
@@ -210,6 +212,10 @@ export function withQueryChanges(pathname: string, search: string, changes: View
     values.page = changes.page > 1 ? String(changes.page) : "";
   }
 
+  if (changes.archived !== undefined) {
+    values.archived = changes.archived ? archivedOpenValue : "";
+  }
+
   for (const [key, value] of Object.entries(values)) {
     if (value) {
       params.set(key, value);
@@ -221,6 +227,13 @@ export function withQueryChanges(pathname: string, search: string, changes: View
   const query = params.toString();
 
   return query ? `${pathname}?${query}` : pathname;
+}
+
+const archivedOpenValue = "open";
+
+/** The accounts view keeps its archived section open in the URL, so returning from an archived account's details restores it. */
+export function archivedAccountsOpen(params: SearchParams) {
+  return params.get("archived") === archivedOpenValue;
 }
 
 function isCurrentMonth(period: Period) {

@@ -17,7 +17,7 @@ import { activeAccounts } from "@/features/accounts/queries";
 import { useState } from "react";
 import { BankConnectionDialog } from "@/features/banking/components/bank-connection-form";
 import { CreateAccountDialog } from "./create-account-form";
-import { useAccountHref } from "@/client/use-app-url";
+import { setArchivedAccountsOpen, useAccountHref, useArchivedAccountsOpen } from "@/client/use-app-url";
 import { AreaPlaceholder } from "@/components/ui/area-placeholder";
 import { shownStatus, valueMask } from "@/components/ui/result-presentation";
 import type { Area } from "@/components/ui/use-area-result";
@@ -124,6 +124,7 @@ function AccountCards({
   const locale = useLocale();
   const shown = activeAccounts(accounts);
   const archived = accounts.filter(account => account.archived_at !== null);
+  const archivedOpen = useArchivedAccountsOpen();
 
   return (
     <>
@@ -147,7 +148,7 @@ function AccountCards({
         </section>
       )}
       {archived.length > 0 && (
-        <details className={styles["archived"]}>
+        <details className={styles["archived"]} open={archivedOpen} onToggle={event => setArchivedAccountsOpen(event.currentTarget.open)}>
           <summary className={ui["text-button"]}>{`Archived accounts (${formatCount(archived.length, locale)})`}</summary>
           <div className={styles["accounts-grid"]}>
             {archived.map(account => <AccountCard account={account} key={account.id} />)}
