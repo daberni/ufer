@@ -175,11 +175,17 @@ const entryInput = typeInput.extend({
   description: z.string().trim().max(2000).default("")
 });
 
-const newEntryInput = entryInput.extend({
-  category_id: z.string().min(1).nullable().optional()
+// A new booking has no parts yet; splitting it is a separate save, so a sent split is rejected rather than silently dropped.
+const newEntryInput = entryInput.omit({
+  split: true,
+  remove_split: true
+}).extend({
+  category_id: z.string().min(1).nullable().optional(),
+  split: z.never().optional(),
+  remove_split: z.never().optional()
 });
 
-function validateEntry(input: z.infer<typeof entryInput>, currency: string, now: Temporal.Instant) {
+function validateEntry(input: z.infer<typeof entryInput> | z.infer<typeof newEntryInput>, currency: string, now: Temporal.Instant) {
   if (input.type !== "transfer" && input.transfer) {
     throw new ValidationError("Only a transfer has a target account.");
   }

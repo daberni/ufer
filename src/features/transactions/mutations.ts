@@ -35,7 +35,7 @@ export type EntryEdit = TransactionEdit & {
   description: string;
 };
 
-export type NewEntry = EntryEdit & {
+export type NewEntry = Omit<EntryEdit, "split" | "remove_split"> & {
   /** Omitted applies rules; null deliberately leaves the booking uncategorized. */
   category_id?: string | null;
 };
