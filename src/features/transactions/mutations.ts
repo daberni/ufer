@@ -29,7 +29,7 @@ export type TransactionEdit = {
 
 /** The date, amount, payee and description of a booking entered in Ufer, saved together with its type. */
 export type EntryEdit = TransactionEdit & {
-  booking_date: string;
+  date: string;
   amount: string;
   counterparty: string;
   description: string;
@@ -49,7 +49,7 @@ export function useSaveTransaction(id: string) {
   const path = `transactions/${encodeURIComponent(id)}`;
 
   return useMutation({
-    mutationFn: (edit: TransactionEdit | EntryEdit) => "booking_date" in edit ? api(path, edit, "PUT") : api(`${path}/details`, edit, "PUT"),
+    mutationFn: (edit: TransactionEdit | EntryEdit) => "date" in edit ? api(path, edit, "PUT") : api(`${path}/details`, edit, "PUT"),
     onSettled: () => invalidate(queryClient, editKeys)
   });
 }

@@ -123,7 +123,7 @@ export async function findImportOpening(accountId: string, ids: string[]) {
   const db = await database();
   const opening = await db.select({
     id: transactions.id,
-    date: transactions.booking_date,
+    date: transactions.date,
     amount: transactions.amount_minor
   }).from(transactions).where(and(eq(transactions.account_id, accountId), inArray(transactions.id, ids))).get();
 
@@ -145,12 +145,12 @@ export async function findImportOpening(accountId: string, ids: string[]) {
 /** Bookings that imported rows could duplicate, hidden ones included so a later import does not add them again; balance corrections are never imported rows. */
 function bookingsBetween(executor: Executor, accountId: string, from: string, to: string): Promise<ExistingBooking[]> {
   // A bank booking may match on its value date or on the bank's booking date.
-  const inWindow = or(between(transactions.booking_date, from, to), between(transactions.bank_booking_date, from, to));
+  const inWindow = or(between(transactions.date, from, to), between(transactions.bank_booking_date, from, to));
   const scope = and(eq(transactions.account_id, accountId), inWindow, notInArray(transactions.type, ["opening_balance", "adjustment"]));
 
   return executor.select({
     reference: transactions.provider_reference,
-    date: transactions.booking_date,
+    date: transactions.date,
     bankBookingDate: transactions.bank_booking_date,
     amount: transactions.amount_minor,
     counterparty: transactions.counterparty,
@@ -189,7 +189,7 @@ async function bookingsWithReferences(executor: Executor, accountId: string, ref
 
     found.push(...await executor.select({
       reference: transactions.provider_reference,
-      date: transactions.booking_date,
+      date: transactions.date,
       bankBookingDate: transactions.bank_booking_date,
       amount: transactions.amount_minor,
       counterparty: transactions.counterparty,
@@ -312,7 +312,7 @@ async function saveAccountRows(tx: DatabaseTransaction, {
       id: randomUUID(),
       account_id: accountId,
       provider_reference: entry.reference,
-      booking_date: entry.date,
+      date: entry.date,
       amount_minor: entry.amount,
       currency: entry.currency,
       counterparty: entry.counterparty,
@@ -396,7 +396,7 @@ async function saveOpeningBalance(tx: DatabaseTransaction, accountId: string, cu
     id: opening.id,
     account_id: accountId,
     provider_reference: `${manualEntryPrefix}${opening.id}`,
-    booking_date: opening.date,
+    date: opening.date,
     amount_minor: amount,
     currency: account?.currency ?? currency,
     counterparty: "",
@@ -408,7 +408,7 @@ async function saveOpeningBalance(tx: DatabaseTransaction, accountId: string, cu
   }).onConflictDoUpdate({
     target: transactions.id,
     set: {
-      booking_date: opening.date,
+      date: opening.date,
       amount_minor: amount
     }
   });

@@ -70,7 +70,7 @@ function TransactionRow({
   const incoming = transaction.amount_minor > 0;
   const original = originalAmount(transaction, locale);
   // The list shows the value date; the bank's later booking date helps to reconcile with a statement.
-  const bankBooked = transaction.bank_booking_date !== transaction.booking_date ? transaction.bank_booking_date : null;
+  const bankBooked = transaction.bank_booking_date !== transaction.date ? transaction.bank_booking_date : null;
   const subject = transaction.counterparty || transaction.description || transactionTypeLabels[transaction.type];
   // Without a payee the description is already the title, so it is not repeated below.
   const showsDescription = Boolean(transaction.counterparty) || !transaction.description;
@@ -130,7 +130,7 @@ function TransactionRow({
         {transaction.type === "transfer" && <span className={styles["counterpart"]}>{transferDirection(transaction)}</span>}
       </td>
       <td role="cell" className={styles["date"]}>
-        <DateValue value={transaction.booking_date} />
+        <DateValue value={transaction.date} />
       </td>
       <td role="cell" className={clsx(styles["amount"], incoming && ui["positive"])}>
         {signedMoney(transaction.amount_minor, transaction.currency, locale)}

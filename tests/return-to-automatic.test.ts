@@ -109,7 +109,7 @@ async function seed(context: TestContext) {
   await db.insert(schema.transactions).values(bookings.map((booking, index) => ({
     account_id: "checking",
     provider_reference: `synthetic-${index}`,
-    booking_date: "2000-01-10",
+    date: "2000-01-10",
     amount_minor: -1000,
     type: "expense" as const,
     currency: "EUR",
@@ -333,7 +333,7 @@ const marketRule: Rule = {
 function booking(overrides: Partial<Transaction>): Transaction {
   return {
     id: "market-entry",
-    booking_date: "2000-01-10",
+    date: "2000-01-10",
     bank_booking_date: null,
     amount_minor: -1250,
     currency: "EUR",

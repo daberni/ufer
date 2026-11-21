@@ -11,9 +11,9 @@ export type PayeeUsage = {
 export async function readPayeeUsage(): Promise<PayeeUsage[]> {
   const db = await database();
   const result = await db.$client.execute(`
-      SELECT payee,COUNT(*) AS uses,MAX(booking_date) AS last_booking_date
+      SELECT payee,COUNT(*) AS uses,MAX(date) AS last_booking_date
       FROM (
-        SELECT TRIM(COALESCE(t.counterparty_override,t.counterparty)) AS payee,t.booking_date
+        SELECT TRIM(COALESCE(t.counterparty_override,t.counterparty)) AS payee,t.date
         FROM transactions t
         WHERE t.suppressed_at IS NULL
       )

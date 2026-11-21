@@ -11,7 +11,7 @@ stubCssModules();
 
 const outgoing: Transaction = {
   id: "out",
-  booking_date: "2026-09-02",
+  date: "2026-09-02",
   bank_booking_date: null,
   amount_minor: -35000,
   currency: "EUR",

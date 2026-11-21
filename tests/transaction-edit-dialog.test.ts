@@ -10,7 +10,7 @@ stubCssModules();
 
 const outgoing: Transaction = {
   id: "out",
-  booking_date: "2026-09-02",
+  date: "2026-09-02",
   bank_booking_date: null,
   amount_minor: -35000,
   currency: "EUR",
@@ -45,7 +45,7 @@ function booking(id: string, accountName: string): TransferBooking {
     id,
     account_id: `${id}-account`,
     account_name: accountName,
-    booking_date: "2026-09-02",
+    date: "2026-09-02",
     amount_minor: 35000,
     currency: "EUR",
     counterparty: "Synthetic checking",
@@ -100,7 +100,7 @@ test("a linked transfer cannot be saved before its target is known, and saving u
     counterpart: {
       id: "in",
       account_name: "Synthetic savings",
-      booking_date: "2026-09-02",
+      date: "2026-09-02",
       entered: false
     }
   };
@@ -422,7 +422,7 @@ test("a booking Ufer created on a manual account offers only removing it, withou
     counterpart: {
       id: "source",
       account_name: "Synthetic checking",
-      booking_date: "2026-09-02",
+      date: "2026-09-02",
       entered: false
     }
   };
@@ -482,7 +482,7 @@ test("one side of a transfer entered between manual accounts edits the pair: the
     counterpart: {
       id: "source",
       account_name: "Synthetic cash",
-      booking_date: "2026-09-02",
+      date: "2026-09-02",
       entered: true
     }
   };
@@ -549,7 +549,7 @@ test("one side of a transfer entered between manual accounts edits the pair: the
     transfer: {
       account_id: "broker"
     },
-    booking_date: "2026-09-02",
+    date: "2026-09-02",
     amount: "250.00",
     counterparty: "",
     description: "Monthly saving"
@@ -567,7 +567,7 @@ test("an entered booking linked with an imported booking keeps that booking's da
     counterpart: {
       id: "bank",
       account_name: "Synthetic checking",
-      booking_date: "2026-09-02",
+      date: "2026-09-02",
       entered: false
     }
   });

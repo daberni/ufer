@@ -26,9 +26,9 @@ function dayBefore(date: string) {
 export async function anchorOpeningBalance(tx: DatabaseTransaction, accountId: string, reported: ReportedBalance, arrived: SQL | undefined) {
   const opening = await tx.select({
     id: transactions.id,
-    date: transactions.booking_date,
+    date: transactions.date,
     amount: transactions.amount_minor
-  }).from(transactions).where(and(eq(transactions.account_id, accountId), eq(transactions.type, "opening_balance"))).orderBy(asc(transactions.booking_date)).get();
+  }).from(transactions).where(and(eq(transactions.account_id, accountId), eq(transactions.type, "opening_balance"))).orderBy(asc(transactions.date)).get();
 
   if (!opening) {
     await bookOpeningBalance(tx, accountId, reported);
@@ -43,9 +43,9 @@ export async function anchorOpeningBalance(tx: DatabaseTransaction, accountId: s
 export async function keepBankOpeningBalanceFirst(tx: DatabaseTransaction, accountId: string, arrived: SQL | undefined) {
   const opening = await tx.select({
     id: transactions.id,
-    date: transactions.booking_date,
+    date: transactions.date,
     amount: transactions.amount_minor
-  }).from(transactions).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(and(eq(transactions.account_id, accountId), eq(transactions.type, "opening_balance"), ne(accounts.provider, "manual"))).orderBy(asc(transactions.booking_date)).get();
+  }).from(transactions).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(and(eq(transactions.account_id, accountId), eq(transactions.type, "opening_balance"), ne(accounts.provider, "manual"))).orderBy(asc(transactions.date)).get();
 
   if (opening) {
     await moveBefore(tx, accountId, opening, arrived);
@@ -62,13 +62,13 @@ async function moveBefore(tx: DatabaseTransaction, accountId: string, opening: {
   }
 
   const earlier = await tx.select({
-    oldest: sql<string | null>`MIN(${transactions.booking_date})`,
+    oldest: sql<string | null>`MIN(${transactions.date})`,
     visible: sql<number>`COALESCE(SUM(CASE WHEN ${transactions.suppressed_at} IS NULL THEN ${transactions.amount_minor} ELSE 0 END),0)`.mapWith(Number)
-  }).from(transactions).where(and(eq(transactions.account_id, accountId), ne(transactions.id, opening.id), lte(transactions.booking_date, opening.date), arrived)).get();
+  }).from(transactions).where(and(eq(transactions.account_id, accountId), ne(transactions.id, opening.id), lte(transactions.date, opening.date), arrived)).get();
 
   if (earlier?.oldest) {
     await tx.update(transactions).set({
-      booking_date: dayBefore(earlier.oldest),
+      date: dayBefore(earlier.oldest),
       amount_minor: opening.amount - earlier.visible
     }).where(eq(transactions.id, opening.id));
   }
@@ -84,9 +84,9 @@ async function bookOpeningBalance(tx: DatabaseTransaction, accountId: string, re
   }
 
   const booked = await tx.select({
-    oldest: sql<string | null>`MIN(${transactions.booking_date})`,
+    oldest: sql<string | null>`MIN(${transactions.date})`,
     // The reported balance contains what the bank booked through its date, by the bank's booking date rather than the value date.
-    throughDate: sql<number>`COALESCE(SUM(CASE WHEN COALESCE(${transactions.bank_booking_date},${transactions.booking_date})<=${reported.date} THEN ${transactions.amount_minor} ELSE 0 END),0)`.mapWith(Number)
+    throughDate: sql<number>`COALESCE(SUM(CASE WHEN COALESCE(${transactions.bank_booking_date},${transactions.date})<=${reported.date} THEN ${transactions.amount_minor} ELSE 0 END),0)`.mapWith(Number)
   }).from(transactions).where(and(eq(transactions.account_id, accountId), isNull(transactions.suppressed_at))).get();
   const beforeBookings = booked?.oldest ? dayBefore(booked.oldest) : reported.date;
   const id = randomUUID();
@@ -95,7 +95,7 @@ async function bookOpeningBalance(tx: DatabaseTransaction, accountId: string, re
     id,
     account_id: accountId,
     provider_reference: `${manualEntryPrefix}${id}`,
-    booking_date: beforeBookings < reported.date ? beforeBookings : reported.date,
+    date: beforeBookings < reported.date ? beforeBookings : reported.date,
     amount_minor: reported.amount - (booked?.throughDate ?? 0),
     currency: account.currency,
     counterparty: "",

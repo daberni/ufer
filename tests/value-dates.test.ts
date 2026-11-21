@@ -94,7 +94,7 @@ async function syncBookings(transactions: BankTransaction[], balance: {
 async function storedDates(db: Database) {
   return db.select({
     reference: schema.transactions.provider_reference,
-    date: schema.transactions.booking_date,
+    date: schema.transactions.date,
     bankDate: schema.transactions.bank_booking_date
   }).from(schema.transactions).where(eq(schema.transactions.type, "expense"));
 }
@@ -182,7 +182,7 @@ test("the date of a synced booking stays the bank's: an edit is refused and a re
 
   await assert.rejects(editManualTransaction(stored.id, {
     type: "expense",
-    booking_date: "2026-11-05",
+    date: "2026-11-05",
     amount: "-42.00",
     counterparty: "Example Market",
     description: ""
@@ -347,7 +347,7 @@ test("the value-date upgrade backfills bank bookings from their payload and keep
 
   assert.deepEqual((await client.execute(balances)).rows, balancesBefore);
 
-  const rows = (await client.execute("SELECT id,booking_date,bank_booking_date FROM transactions ORDER BY id")).rows.map(row => [row.id, row.booking_date, row.bank_booking_date]);
+  const rows = (await client.execute("SELECT id,date,bank_booking_date FROM transactions ORDER BY id")).rows.map(row => [row.id, row.date, row.bank_booking_date]);
 
   assert.deepEqual(rows, [
     ["bad-value", "2026-11-07", "2026-11-07"],

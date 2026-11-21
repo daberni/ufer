@@ -20,7 +20,7 @@ export type TransactionSplit = {
 export type Transaction = {
   id: string;
   /** The date the booking counts on; for a bank booking its value date. */
-  booking_date: string;
+  date: string;
   /** The bank's own booking date of a synced booking; null for other sources. */
   bank_booking_date: string | null;
   amount_minor: number;
@@ -68,7 +68,7 @@ export type Transaction = {
   counterpart: {
     id: string;
     account_name: string;
-    booking_date: string;
+    date: string;
     /** Whether the counterpart was entered in Ufer or created by it on a manual account. */
     entered: boolean;
   } | null;
@@ -79,7 +79,7 @@ export type TransferBooking = {
   id: string;
   account_id: string;
   account_name: string;
-  booking_date: string;
+  date: string;
   amount_minor: number;
   currency: string;
   counterparty: string;

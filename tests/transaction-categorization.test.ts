@@ -10,7 +10,7 @@ import { browser, respond, wait, withQueryClient, type PendingRequest } from "./
 
 const transaction: Transaction = {
   id: "synthetic-entry",
-  booking_date: "2000-01-10",
+  date: "2000-01-10",
   bank_booking_date: null,
   amount_minor: -1250,
   currency: "EUR",

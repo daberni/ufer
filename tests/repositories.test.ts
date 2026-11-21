@@ -71,9 +71,9 @@ async function manualBalance(accountId: string) {
 }
 
 async function balanceBookings(db: Database, accountId: string) {
-  const rows = await db.select().from(schema.transactions).where(eq(schema.transactions.account_id, accountId)).orderBy(schema.transactions.booking_date);
+  const rows = await db.select().from(schema.transactions).where(eq(schema.transactions.account_id, accountId)).orderBy(schema.transactions.date);
 
-  return rows.map(row => [row.booking_date, row.type, row.amount_minor]);
+  return rows.map(row => [row.date, row.type, row.amount_minor]);
 }
 
 test("account creation books exact money as the opening balance on the shared connection", async context => {
@@ -193,7 +193,7 @@ test("updating a balance books the difference to the balance on its date, so lat
   });
 
   await enterManualTransaction(created.id, {
-    booking_date: "2000-02-01",
+    date: "2000-02-01",
     amount: "50.00",
     type: "transfer",
     transfer: null
@@ -268,7 +268,7 @@ test("unknown records are not found, manual exclusions survive rule application 
     id: "local-entry",
     account_id: "local",
     provider_reference: "synthetic-1",
-    booking_date: "2000-01-10",
+    date: "2000-01-10",
     amount_minor: -100,
     currency: "EUR",
     type: "expense",
@@ -287,7 +287,7 @@ test("unknown records are not found, manual exclusions survive rule application 
     id: "automatic-entry",
     account_id: "local",
     provider_reference: "synthetic-3",
-    booking_date: "2000-01-10",
+    date: "2000-01-10",
     amount_minor: -300,
     currency: "EUR",
     type: "expense",
@@ -296,7 +296,7 @@ test("unknown records are not found, manual exclusions survive rule application 
     id: "transfer-entry",
     account_id: "local",
     provider_reference: "synthetic-4",
-    booking_date: "2000-01-10",
+    date: "2000-01-10",
     amount_minor: -400,
     currency: "EUR",
     type: "transfer",
@@ -343,7 +343,7 @@ test("applying rules reports only transactions whose category changed", async co
     id,
     account_id: "local",
     provider_reference: `synthetic-${id}`,
-    booking_date: "2000-01-10",
+    date: "2000-01-10",
     amount_minor: -100,
     currency: "EUR",
     type: "expense" as const,
@@ -539,7 +539,7 @@ test("category edits keep transaction assignments and rules attached and reject 
     id: "assigned-entry",
     account_id: "local",
     provider_reference: "synthetic-1",
-    booking_date: "2000-01-10",
+    date: "2000-01-10",
     amount_minor: -100,
     currency: "EUR",
     type: "expense",
@@ -711,7 +711,7 @@ test("renaming changes only the account display name, allows duplicates and reje
     id: "preserved-booking",
     account_id: "bank-name",
     provider_reference: "bank:stable",
-    booking_date: "2026-01-01",
+    date: "2026-01-01",
     amount_minor: 1200,
     currency: "EUR",
     type: "income"

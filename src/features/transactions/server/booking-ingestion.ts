@@ -24,13 +24,13 @@ export async function adoptImportedRows(tx: DatabaseTransaction, accountId: stri
   const imported = await tx.select({
     id: transactions.id,
     reference: transactions.provider_reference,
-    date: transactions.booking_date,
+    date: transactions.date,
     amount: transactions.amount_minor,
     counterparty: transactions.counterparty,
     description: transactions.description,
     categoryId: transactions.category_id,
     categoryRuleId: transactions.category_rule_id
-  }).from(transactions).where(and(eq(transactions.account_id, accountId), like(transactions.provider_reference, `${mappedReferencePrefix}%`), between(transactions.booking_date, window.from, window.to)));
+  }).from(transactions).where(and(eq(transactions.account_id, accountId), like(transactions.provider_reference, `${mappedReferencePrefix}%`), between(transactions.date, window.from, window.to)));
 
   if (imported.length === 0) {
     return entries;
@@ -110,7 +110,7 @@ export async function followImportedCorrections(tx: DatabaseTransaction, account
 
     if (keepsLink) {
       await tx.update(transactions).set({
-        booking_date: delivery.date,
+        date: delivery.date,
         amount_minor: -delivery.amount
       }).where(eq(transactions.id, counterpart.id));
     } else if (sameCurrency && !createdCounterpart(counterpart)) {
@@ -118,12 +118,12 @@ export async function followImportedCorrections(tx: DatabaseTransaction, account
       await tx.update(transactions).set({
         transfer_id: null,
         transfer_source: "manual",
-        booking_date: delivery.date,
+        date: delivery.date,
         amount_minor: -delivery.amount
       }).where(eq(transactions.id, counterpart.id));
     } else {
       await tx.update(transactions).set({
-        booking_date: delivery.date
+        date: delivery.date
       }).where(eq(transactions.id, counterpart.id));
     }
   }

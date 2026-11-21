@@ -96,9 +96,9 @@ async function row(db: Database, id: string) {
 
 /** The bookings of an account as [date, type, amount, counterparty, description], oldest first. */
 async function bookings(db: Database, accountId: string) {
-  const rows = await db.select().from(schema.transactions).where(eq(schema.transactions.account_id, accountId)).orderBy(schema.transactions.booking_date, schema.transactions.amount_minor);
+  const rows = await db.select().from(schema.transactions).where(eq(schema.transactions.account_id, accountId)).orderBy(schema.transactions.date, schema.transactions.amount_minor);
 
-  return rows.map(item => [item.booking_date, item.type, item.amount_minor, item.counterparty, item.description]);
+  return rows.map(item => [item.date, item.type, item.amount_minor, item.counterparty, item.description]);
 }
 
 async function transferLeg(db: Database, accountId: string) {
@@ -143,7 +143,7 @@ test("a manual account's balance is its opening balance plus every transaction, 
   const purchase = await syncBooking(db, "purchase", "2026-09-10", -40000);
 
   await enter(cash, {
-    booking_date: "2026-09-05",
+    date: "2026-09-05",
     amount: "-12.50",
     counterparty: "Example bakery",
     type: "expense"
@@ -177,17 +177,17 @@ test("opening balances, adjustments and transfers stay out of income and spendin
   const savings = await manualAccount("Synthetic savings", "0.00");
 
   await enter(cash, {
-    booking_date: "2026-09-05",
+    date: "2026-09-05",
     amount: "-30.00",
     type: "expense"
   });
   await enter(cash, {
-    booking_date: "2026-09-06",
+    date: "2026-09-06",
     amount: "15.00",
     type: "income"
   });
   await enter(cash, {
-    booking_date: "2026-09-07",
+    date: "2026-09-07",
     amount: "-200.00",
     type: "transfer",
     transfer: {
@@ -215,14 +215,14 @@ test("an entered transaction can be edited and deleted; imported bookings and fu
   const db = await isolatedDatabase(context);
   const cash = await manualAccount("Synthetic cash", "100.00");
   const { id } = await enter(cash, {
-    booking_date: "2026-09-05",
+    date: "2026-09-05",
     amount: "-12.50",
     counterparty: "Example bakery",
     type: "expense"
   });
 
   await edit(id, {
-    booking_date: "2026-09-06",
+    date: "2026-09-06",
     amount: "-20.00",
     counterparty: "Example cafe",
     description: "Breakfast",
@@ -235,7 +235,7 @@ test("an entered transaction can be edited and deleted; imported bookings and fu
   assert.equal(await balanceOf(cash), 8000);
 
   await assert.rejects(edit(id, {
-    booking_date: "2026-11-01",
+    date: "2026-11-01",
     amount: "-20.00",
     type: "expense"
   }), ValidationError);
@@ -243,7 +243,7 @@ test("an entered transaction can be edited and deleted; imported bookings and fu
   const synced = await syncBooking(db, "groceries", "2026-09-08", -4500);
 
   await assert.rejects(edit(synced.id, {
-    booking_date: "2026-09-08",
+    date: "2026-09-08",
     amount: "-1.00",
     type: "expense"
   }), ValidationError);
@@ -261,7 +261,7 @@ test("a new booking sent with split parts is refused instead of being saved unsp
   const cash = await manualAccount("Synthetic cash", "100.00");
 
   await assert.rejects(enter(cash, {
-    booking_date: "2026-09-05",
+    date: "2026-09-05",
     amount: "-12.50",
     counterparty: "Example bakery",
     type: "expense",
@@ -285,7 +285,7 @@ test("a transfer between two manual accounts is edited from either side and the 
   const cash = await manualAccount("Synthetic cash", "1000.00");
   const savings = await manualAccount("Synthetic savings", "0.00");
   const { id } = await enter(cash, {
-    booking_date: "2026-09-07",
+    date: "2026-09-07",
     amount: "-200.00",
     counterparty: "Ignored for a transfer between own accounts",
     description: "Monthly saving",
@@ -296,12 +296,12 @@ test("a transfer between two manual accounts is edited from either side and the 
   });
   const created = await transferLeg(db, savings);
 
-  assert.deepEqual([created.amount_minor, created.counterparty, created.description, created.booking_date], [20000, "Synthetic cash", "Monthly saving", "2026-09-07"]);
+  assert.deepEqual([created.amount_minor, created.counterparty, created.description, created.date], [20000, "Synthetic cash", "Monthly saving", "2026-09-07"]);
   assert.equal((await row(db, id))?.counterparty, "Synthetic savings");
 
   // From the source side: date, amount and description reach the other side.
   await edit(id, {
-    booking_date: "2026-09-08",
+    date: "2026-09-08",
     amount: "-250.00",
     description: "Saving September",
     type: "transfer",
@@ -311,7 +311,7 @@ test("a transfer between two manual accounts is edited from either side and the 
   });
   // From the created side, including a change of direction, which the unique transfer-side index allows only once both sides are updated.
   await edit(created.id, {
-    booking_date: "2026-09-09",
+    date: "2026-09-09",
     amount: "-50.00",
     description: "Back to cash",
     type: "transfer",
@@ -345,7 +345,7 @@ test("changing the other account from either side moves the other side of a manu
   const savings = await manualAccount("Synthetic savings", "0.00");
   const broker = await manualAccount("Synthetic broker", "0.00");
   const { id } = await enter(cash, {
-    booking_date: "2026-09-07",
+    date: "2026-09-07",
     amount: "-200.00",
     type: "transfer",
     transfer: {
@@ -369,7 +369,7 @@ test("changing the other account from either side moves the other side of a manu
 
   // From the moved side the source moves from the cash account to savings; the booking keeps its identity.
   await edit(moved.id, {
-    booking_date: "2026-09-07",
+    date: "2026-09-07",
     amount: "200.00",
     type: "transfer",
     transfer: {
@@ -388,7 +388,7 @@ test("changing the other account from either side moves the other side of a manu
   assert.equal(moved.id, created.id);
 
   await assert.rejects(edit(moved.id, {
-    booking_date: "2026-09-07",
+    date: "2026-09-07",
     amount: "200.00",
     type: "transfer",
     transfer: {
@@ -404,7 +404,7 @@ test("removing a manual transfer from either side removes both sides; leaving it
 
   async function transfer() {
     const { id } = await enter(cash, {
-      booking_date: "2026-09-07",
+      date: "2026-09-07",
       amount: "-200.00",
       type: "transfer",
       transfer: {
@@ -450,7 +450,7 @@ test("removing a manual transfer from either side removes both sides; leaving it
   const fourth = await transfer();
 
   await edit(fourth.source, {
-    booking_date: "2026-09-07",
+    date: "2026-09-07",
     amount: "-200.00",
     type: "expense"
   });
@@ -465,7 +465,7 @@ test("an entered booking linked with a synced booking follows its date and amoun
   const cash = await manualAccount("Synthetic cash", "0.00");
   const withdrawal = await syncBooking(db, "withdrawal", "2026-09-10", -10000);
   const { id } = await enter(cash, {
-    booking_date: "2026-09-10",
+    date: "2026-09-10",
     amount: "100.00",
     type: "transfer",
     transfer: {
@@ -475,12 +475,12 @@ test("an entered booking linked with a synced booking follows its date and amoun
 
   assert.equal((await row(db, id))?.transfer_id, (await row(db, withdrawal.id))?.transfer_id);
   await assert.rejects(edit(id, {
-    booking_date: "2026-09-10",
+    date: "2026-09-10",
     amount: "90.00",
     type: "transfer"
   }), /keeps its date and amount/);
   await edit(id, {
-    booking_date: "2026-09-10",
+    date: "2026-09-10",
     amount: "100.00",
     counterparty: "Cash machine",
     description: "Withdrawal",
@@ -504,7 +504,7 @@ test("an entered booking linked with a synced booking follows its date and amoun
   const created = await transferLeg(db, cash);
 
   await assert.rejects(edit(created.id, {
-    booking_date: "2026-09-12",
+    date: "2026-09-12",
     amount: "50.00",
     type: "transfer"
   }), /entered in Ufer/);
@@ -523,7 +523,7 @@ test("an entered booking follows corrections of the imported booking it is linke
   const cash = await manualAccount("Synthetic cash", "0.00");
   const withdrawal = await syncBooking(db, "withdrawal", "2026-09-10", -10000);
   const { id } = await enter(cash, {
-    booking_date: "2026-09-10",
+    date: "2026-09-10",
     amount: "100.00",
     type: "transfer",
     transfer: {
@@ -533,7 +533,7 @@ test("an entered booking follows corrections of the imported booking it is linke
 
   // The bank corrects only the date: the entered side moves with it and stays linked.
   await syncBooking(db, "withdrawal", "2026-09-11", -10000);
-  assert.deepEqual([(await row(db, id))?.booking_date, (await row(db, id))?.amount_minor], ["2026-09-11", 10000]);
+  assert.deepEqual([(await row(db, id))?.date, (await row(db, id))?.amount_minor], ["2026-09-11", 10000]);
   assert.equal((await row(db, id))?.transfer_id, (await row(db, withdrawal.id))?.transfer_id);
 
   // The bank corrects the amount: the entered side mirrors it, so the cash balance follows.
@@ -561,7 +561,7 @@ test("a bank sync leaves a direction-changing correction unlinked after automati
 
   const imported = await deliver(-10000);
   const entered = await enter(cash, {
-    booking_date: "2026-09-10",
+    date: "2026-09-10",
     amount: "100.00",
     type: "transfer",
     transfer: {
@@ -598,7 +598,7 @@ test("a counterpart created for a synced booking follows its corrections and is 
   const created = await transferLeg(db, cash);
 
   await syncBooking(db, "deposit", "2026-09-13", -6000);
-  assert.deepEqual([(await row(db, created.id))?.booking_date, (await row(db, created.id))?.amount_minor], ["2026-09-13", 6000]);
+  assert.deepEqual([(await row(db, created.id))?.date, (await row(db, created.id))?.amount_minor], ["2026-09-13", 6000]);
   assert.equal(await balanceOf(cash), 6000);
 
   await syncBooking(db, "deposit", "2026-09-13", 6000);
@@ -611,13 +611,13 @@ test("linking two entered bookings gives the counterpart the subject's date", as
   const cash = await manualAccount("Synthetic cash", "1000.00");
   const savings = await manualAccount("Synthetic savings", "0.00");
   const outgoing = await enter(cash, {
-    booking_date: "2026-09-07",
+    date: "2026-09-07",
     amount: "-200.00",
     type: "transfer",
     transfer: null
   });
   const incoming = await enter(savings, {
-    booking_date: "2026-09-12",
+    date: "2026-09-12",
     amount: "200.00",
     description: "Saving",
     type: "transfer",
@@ -634,7 +634,7 @@ test("linking two entered bookings gives the counterpart the subject's date", as
   const linked = await row(db, incoming.id);
 
   assert.equal(linked?.transfer_id, (await row(db, outgoing.id))?.transfer_id);
-  assert.deepEqual([linked?.booking_date, linked?.counterparty], ["2026-09-07", "Synthetic cash"]);
+  assert.deepEqual([linked?.date, linked?.counterparty], ["2026-09-07", "Synthetic cash"]);
 });
 
 
@@ -664,7 +664,7 @@ test("editing a rule-categorized manual booking reapplies current rules and clea
 
   await categorizationRules(db);
   const { id } = await enter(cash, {
-    booking_date: "2026-09-05",
+    date: "2026-09-05",
     amount: "-12.50",
     counterparty: "Market",
     type: "expense"
@@ -673,7 +673,7 @@ test("editing a rule-categorized manual booking reapplies current rules and clea
 
   assert.equal(original?.category_id, "groceries");
   await edit(id, {
-    booking_date: "2026-09-05",
+    date: "2026-09-05",
     amount: "-12.50",
     counterparty: "Salary adjustment",
     type: "expense"
@@ -681,7 +681,7 @@ test("editing a rule-categorized manual booking reapplies current rules and clea
   assert.deepEqual([(await row(db, id))?.category_id, (await row(db, id))?.category_source], ["income", "rule"]);
 
   await edit(id, {
-    booking_date: "2026-09-05",
+    date: "2026-09-05",
     amount: "-12.50",
     description: "Unmatched purchase",
     type: "expense"
@@ -702,7 +702,7 @@ test("editing a manual booking preserves explicit categories, including Uncatego
 
   for (const categoryId of ["groceries", null]) {
     const { id } = await enter(cash, {
-      booking_date: "2026-09-05",
+      date: "2026-09-05",
       amount: "-12.50",
       counterparty: "Market",
       type: "expense"
@@ -712,7 +712,7 @@ test("editing a manual booking preserves explicit categories, including Uncatego
       category_id: categoryId
     });
     await edit(id, {
-      booking_date: "2026-09-06",
+      date: "2026-09-06",
       amount: "-10.00",
       description: "Salary adjustment",
       type: "expense"
@@ -730,13 +730,13 @@ test("editing an entered transfer recategorizes both rule-sourced legs from thei
 
   await categorizationRules(db);
   const outgoing = await enter(cash, {
-    booking_date: "2026-09-05",
+    date: "2026-09-05",
     amount: "-12.50",
     description: "Market",
     type: "transfer"
   });
   const incoming = await enter(savings, {
-    booking_date: "2026-09-05",
+    date: "2026-09-05",
     amount: "12.50",
     description: "Market",
     type: "transfer"
@@ -749,7 +749,7 @@ test("editing an entered transfer recategorizes both rule-sourced legs from thei
     }
   });
   await edit(outgoing.id, {
-    booking_date: "2026-09-06",
+    date: "2026-09-06",
     amount: "-15.00",
     counterparty: "Market",
     description: "Salary adjustment",
@@ -771,7 +771,7 @@ for (const initiatingSide of ["entered", "imported"] as const) {
     const cash = await manualAccount("Synthetic cash", "0.00");
     const imported = await syncBooking(db, "withdrawal", "2026-09-10", -10000);
     const { id } = await enter(cash, {
-      booking_date: "2026-09-12",
+      date: "2026-09-12",
       amount: "100.00",
       counterparty: "Cash machine",
       description: "Entered withdrawal",
@@ -790,11 +790,11 @@ for (const initiatingSide of ["entered", "imported"] as const) {
     const saved = await row(db, id);
     const source = await row(db, imported.id);
 
-    assert.equal(saved?.booking_date, imported.booking_date);
+    assert.equal(saved?.date, imported.date);
     assert.equal(saved?.amount_minor, -imported.amount_minor);
     assert.equal(saved?.description, "Entered withdrawal");
     assert.equal(saved?.transfer_id, source?.transfer_id);
-    assert.equal(source?.booking_date, imported.booking_date);
+    assert.equal(source?.date, imported.date);
     assert.equal(source?.counterparty, imported.counterparty);
     assert.equal(source?.description, imported.description);
     assert.equal(source?.provider_reference, imported.provider_reference);
@@ -815,7 +815,7 @@ test("new manual bookings distinguish automatic categorization from an explicit 
 
   await categorizationRules(db);
   const input = {
-    booking_date: "2026-09-05",
+    date: "2026-09-05",
     amount: "-12.50",
     counterparty: "Market",
     type: "expense"
@@ -856,13 +856,13 @@ test("a changed amount and its split are saved in one write, and an amount that 
   const db = await isolatedDatabase(context);
   const cash = await manualAccount("Synthetic cash", "100.00");
   const { id } = await enter(cash, {
-    booking_date: "2026-09-05",
+    date: "2026-09-05",
     amount: "-100.00",
     counterparty: "Example market",
     type: "expense"
   });
   const details = {
-    booking_date: "2026-09-05",
+    date: "2026-09-05",
     amount: "-120.00",
     counterparty: "Example market",
     type: "expense"
