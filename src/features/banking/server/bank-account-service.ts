@@ -39,14 +39,14 @@ export async function saveSessionAccounts(requisitionId: string, institution: st
 
     for (const [index, {
       account,
-      hashes,
-      matches
+      hashes
     }] of identified.entries()) {
+      // Matches are read again per account so that identifiers saved for an earlier account of this callback count.
       const mapping: AccountMapping = index === targetIndex ? {
         existing: true,
         accountId: targetAccountId as string,
         displaced: null
-      } : decideAccountMapping(matches, requisitionId);
+      } : decideAccountMapping(await findIdentifierMatches(tx, hashes), requisitionId);
       let accountId: string;
 
       if (mapping.existing) {

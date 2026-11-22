@@ -408,3 +408,19 @@ test("an account an authorization was started from stays deletable, and that aut
   assert.deepEqual(requests.map(request => request.method), ["POST", "DELETE"]);
   assert.equal((await db.select().from(schema.accounts)).length, 0);
 });
+
+test("bank accounts of one callback that share an identifier map to one account, as before targeted connections", async context => {
+  const {
+    db,
+    actor
+  } = await connectDatabase(context, () => [bankAccount("first", {
+    identification_hash: "shared"
+  }), bankAccount("second", {
+    identification_hash: "shared"
+  })]);
+
+  await startAuthorization(db, actor, "plain", null);
+  await completeAuthorization("state-plain", "browser-plain", "code", actor);
+
+  assert.equal((await db.select().from(schema.accounts)).length, 1);
+});
