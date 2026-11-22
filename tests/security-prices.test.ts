@@ -348,6 +348,13 @@ test("the EODHD adapter maps responses, sends the token only as a query paramete
     "/api/splits/BAD.XETRA": [{
       date: "2026-02-30",
       split: "2/1"
+    }],
+    "/api/splits/TWICE.XETRA": [{
+      date: "2026-03-02",
+      split: "2/1"
+    }, {
+      date: "2026-03-02",
+      split: "1/2"
     }]
   };
   const provider = eodhdProvider("secret-token", async input => {
@@ -378,6 +385,7 @@ test("the EODHD adapter maps responses, sends the token only as a query paramete
   assert.deepEqual([urls[1].searchParams.get("from"), urls[1].searchParams.get("to"), urls[1].searchParams.get("api_token")], ["2026-10-13", "2026-10-14", "secret-token"]);
   await assert.rejects(provider.dailyCloses("BAD.XETRA", "2026-10-13", "2026-10-14"), MarketDataError);
   await assert.rejects(provider.splits("BAD.XETRA", "2026-01-01", "2026-10-14"), MarketDataError);
+  await assert.rejects(provider.splits("TWICE.XETRA", "2026-01-01", "2026-10-14"), /two splits on the same date/);
   await assert.rejects(provider.splits("SYN.XETRA", "2026-01-01", "2026-10-14"), (error: unknown) => error instanceof MarketDataError && error.message === "The price provider rejected the API key." && !error.message.includes("secret"));
 });
 
@@ -698,4 +706,17 @@ test("a split recheck requested by a trade during an update survives that update
 
   await updatePrices(now, concurrent.provider);
   assert.equal((await securityRow(db, "etf"))?.price_checked_at, null);
+});
+
+test("an update past its deadline starts no further security", async context => {
+  await isolatedDatabase(context);
+  const {
+    provider,
+    requests
+  } = fakeProvider({});
+
+  assert.equal((await updatePrices(now, provider, Temporal.Now.instant().subtract({
+    seconds: 1
+  }))).status, "interrupted");
+  assert.deepEqual(requests, []);
 });

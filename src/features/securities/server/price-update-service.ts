@@ -131,7 +131,7 @@ function firstDate(security: {
 }
 
 export type PriceUpdateResult = {
-  /** "interrupted": another run took over the lease, which then finishes the update. */
+  /** "interrupted": the deadline passed or another run took over the lease; the remaining securities lead the next run. */
   status: "not_configured" | "updated" | "running" | "interrupted";
   securities: number;
   failed: number;
@@ -143,7 +143,7 @@ export type PriceUpdateResult = {
  * Fetches the daily closes each security with a provider symbol is missing, from the day after its newest stored price through today; on the weekly check day also its splits since its first trade.
  * Recent closes are fetched again so corrections replace them. A failure is stored on its security and does not stop the others. Without a key it does nothing.
  */
-export async function updatePrices(now = Temporal.Now.instant(), provider: MarketDataProvider | null = configuredProvider()): Promise<PriceUpdateResult> {
+export async function updatePrices(now = Temporal.Now.instant(), provider: MarketDataProvider | null = configuredProvider(), deadline?: Temporal.Instant): Promise<PriceUpdateResult> {
   if (!provider) {
     return {
       status: "not_configured",
@@ -167,6 +167,12 @@ export async function updatePrices(now = Temporal.Now.instant(), provider: Marke
 
       for (const security of priced) {
         // A long update renews its lease before each security and stops once another run has taken it over.
+        // Past the caller's deadline no new security is started, so the run ends inside its time budget and the rest leads the next run.
+        if (deadline && Temporal.Instant.compare(Temporal.Now.instant(), deadline) >= 0) {
+          interrupted = true;
+          break;
+        }
+
         if (!(await renewLease(marketDataLease, owner))) {
           interrupted = true;
           break;

@@ -129,6 +129,11 @@ export function eodhdProvider(token: string, request: typeof fetch = fetch): Mar
         to
       }, splitsResponse);
 
+      // Two ratios on one date cannot both be stored, so such a response is rejected rather than half applied.
+      if (new Set(splits.map(split => split.date)).size !== splits.length) {
+        throw new MarketDataError("The price provider reported two splits on the same date.");
+      }
+
       return splits.map(split => parseSplitRatio(split.date, split.split));
     }
   };
