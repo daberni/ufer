@@ -8,44 +8,32 @@ All notable changes to Ufer are documented here. Versions follow [Semantic Versi
 
 ### Accounts
 
-- Disconnected bank accounts can be converted to manual accounts or deleted permanently ([#264](https://github.com/daberni/ufer/pull/264)).
-- Bookings on archived accounts can still be categorized, split and edited ([#272](https://github.com/daberni/ufer/pull/272)).
-- Bank-linked accounts derive their balance, history and net worth from their transactions; a difference to the reported bank balance is shown and resolved with an adjustment. Changeset 0017 converts existing accounts without changing any balance ([#275](https://github.com/daberni/ufer/pull/275)).
-- The balance history of a synced account shows reported bank balances and their daily difference to the calculated balance, marking where a difference starts ([#341](https://github.com/daberni/ufer/pull/341)).
-- A manual account, including one created by a CSV import, can be connected to a bank account; matching bookings are adopted instead of duplicated, and removing a connection leaves manual accounts. Changeset 0021 adds the target account to bank authorizations ([#344](https://github.com/daberni/ufer/pull/344)).
-- The account institution is replaced by the connection's bank name; changeset 0019 drops the column ([#317](https://github.com/daberni/ufer/pull/317)).
-- Account source and sync status look the same in every account view, and the account panel compares the bank balance on its own date ([#301](https://github.com/daberni/ufer/pull/301), [#295](https://github.com/daberni/ufer/pull/295)).
+- Connect an existing manual account, including one created by a CSV import, to its bank; bookings you already have are kept instead of duplicated, and a removed connection leaves ordinary manual accounts.
+- Bank-linked balances, history and net worth are calculated from the bookings; a difference to the balance the bank reports is shown, day by day in the balance history, and can be resolved with an adjustment.
+- Disconnected bank accounts can be kept as manual accounts or deleted, and bookings on archived accounts can still be categorized and edited.
+- One consistent source and sync status across all account views.
 
 ### Transactions and imports
 
-- Bank bookings count on their value date, and the bank booking date is kept separately; changeset 0018 renames the counted date ([#318](https://github.com/daberni/ufer/pull/318)).
-- Split saves and mapped CSV import batches are saved atomically ([#265](https://github.com/daberni/ufer/pull/265)).
-- Buxfer investment purchases and sales are imported as hidden bookings ([#270](https://github.com/daberni/ufer/pull/270)).
-- CSV rows are matched against earlier imports of other files; already-imported rows are reserved and consumed matches capped ([#273](https://github.com/daberni/ufer/pull/273), [#276](https://github.com/daberni/ufer/pull/276)).
-- Reimported CSV rows can update matched bookings, and possible duplicates are decided per row ([#326](https://github.com/daberni/ufer/pull/326)).
-- A CSV type column maps to expense, income and transfer types ([#319](https://github.com/daberni/ufer/pull/319)).
-- CSV-imported account IDs no longer depend on the banking environment; re-importing a file imported before this release creates a new account ([#335](https://github.com/daberni/ufer/pull/335)).
-- A transfer's counterpart is chosen from one stacked list ([#293](https://github.com/daberni/ufer/pull/293)).
+- Bank bookings count on the day the money actually moved (value date), so card payments land on the purchase day.
+- CSV imports recognize bookings from earlier imports and bank syncs, can update matched bookings, and let you decide per row about possible duplicates.
+- CSV type columns map to expenses, income and transfers; Buxfer investment trades are imported as hidden bookings.
+- Choose a transfer's counterpart from one list.
 
 ### Categories and rules
 
-- Rules can apply only to bookings on a chosen account; changeset 0020 adds the condition ([#331](https://github.com/daberni/ufer/pull/331)).
-- The rule editor separates condition and result and lists the bookings a rule matches ([#304](https://github.com/daberni/ufer/pull/304)).
+- Rules can be limited to one account, and the rule editor shows the bookings a rule matches.
 
 ### Interface
 
-- On phones, Sync and page actions sit beside the page title as an icon button and a "…" menu, and Sync is gone from the categories page ([#340](https://github.com/daberni/ufer/pull/340)).
-- Tab bar taps on phones no longer add history entries, so Back does not step through earlier tabs ([#342](https://github.com/daberni/ufer/pull/342)).
-- The footer shows the app name and claim on one row and the legal links on a second ([#337](https://github.com/daberni/ufer/pull/337)).
-- Readable sync statuses, plural wording, a labelled main navigation and clearer accessible names ([#339](https://github.com/daberni/ufer/pull/339)).
-- Charts crossing zero draw a zero line with green and red areas, net-worth changes show on hover, list pages share one heading with counts, and recent syncs are an aligned table ([#308](https://github.com/daberni/ufer/pull/308), [#298](https://github.com/daberni/ufer/pull/298), [#303](https://github.com/daberni/ufer/pull/303), [#296](https://github.com/daberni/ufer/pull/296)).
+- More room on phones: Sync and page actions sit beside the page title, and tab bar navigation no longer fills the back history.
+- Charts crossing zero show gains and losses in green and red, the net-worth chart shows changes on hover, and list pages share one heading with counts.
+- Readable sync statuses, clearer labels for screen readers and a two-row footer.
 
-### Operations
+### Setup and operations
 
-- Each database serves one banking environment; changeset 0016 drops the per-row environment column ([#263](https://github.com/daberni/ufer/pull/263)).
-- A synthetic demo household seeds screenshots and local trials; the README shows the feature set ([#320](https://github.com/daberni/ufer/pull/320), [#323](https://github.com/daberni/ufer/pull/323)).
-- The newcomer setup path works from a fresh clone, including the Compose port setting ([#336](https://github.com/daberni/ufer/pull/336)).
-- Feature server boundaries are enforced by lint, and the sync lease is held during CSV imports ([#289](https://github.com/daberni/ufer/pull/289), [#287](https://github.com/daberni/ufer/pull/287)).
+- A demo household for trying Ufer out, with README screenshots of the feature set.
+- The setup guide works from a fresh clone, including Docker Compose.
 
 ## [0.2.0] - 2026-11-21
 
