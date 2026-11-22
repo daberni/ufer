@@ -71,7 +71,7 @@ const coverageToleranceDays = 7;
 /**
  * Whether splits before the provider's history may be missing. A security's first update fetches closes and checks splits from the same start, so its oldest stored close marks how far back its splits were checked;
  * only a first trade before both that point and the provider's history leaves a gap. Tracking a security since its first trade therefore stays complete after a year.
- * Known limitation: if the first split check keeps failing for a year, a later success covers only the recent year and this proxy no longer flags the gap; the split error shows throughout those failures.
+ * Known limitation: the seven-day tolerance can reach across the history boundary for a first trade just before it, and if the first split check keeps failing for a year, a later success covers only the recent year and this proxy no longer flags the gap; the split error shows throughout those failures.
  */
 export function splitsUncovered(security: {
   first_trade: string | null;
@@ -212,14 +212,17 @@ export async function updatePrices(now = Temporal.Now.instant(), provider: Marke
             incomplete += 1;
           }
 
-          await savePriceCheck(security.id, checkedAt, unchecked ? `Splits before ${historyStart} cannot be checked with the price provider's history; quantities may be wrong if one occurred.` : null);
+          await savePriceCheck(security.id, checkedAt, unchecked ? `Splits before ${historyStart} cannot be checked with the price provider's history; quantities may be wrong if one occurred.` : null, security.price_checked_at);
         } catch (error) {
           if (!(error instanceof MarketDataError)) {
             throw error;
           }
 
           failed += 1;
-          await savePriceCheck(security.id, checkedAt, error.message);
+          // A split check still pending from an earlier failure stays pending when this run fails before reaching it.
+          const pendingSplits = security.price_error?.startsWith(splitErrorPrefix) && !error.message.startsWith(splitErrorPrefix);
+
+          await savePriceCheck(security.id, checkedAt, pendingSplits ? `${splitErrorPrefix}${error.message}` : error.message, security.price_checked_at);
         }
       }
 
