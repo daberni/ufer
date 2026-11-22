@@ -363,6 +363,8 @@ test("OFX empty SGML leaves keep later fields, foreign amounts round exactly, an
 
   assert.equal(ofxTransaction("<CURRENCY><CURRATE>2</CURRENCY>").errors.length, 1);
   assert.equal(ofxTransaction("<MEMO><![CDATA[Coffee & <lunch>]]></MEMO>").rows[0].description, "Coffee & <lunch>");
+  assert.equal(ofxTransaction("</STMTTRN><!-- <STMTTRN><DTPOSTED>20260302<TRNAMT>-99<FITID>X</STMTTRN> --><STMTTRN><DTPOSTED>20260303<TRNAMT>-1<FITID>2").rows.length, 2);
+  assert.deepEqual(read(camt.replace("<Ntry>", "<!-- <Ntry></Ntry> -->\n<Ntry>")).rows.map(row => row.line).slice(0, 2), [9, 21]);
   assert.equal(ofxTransaction("<CURRENCY><CURRATE>1<CURSYM>GBP</CURRENCY>").rows[0].description, "GBP 10.00");
 
   const multiTarget = read("!Type:Bank\nD01.03.2026\nT-10,00\nS[Savings]\n$-5,00\nS[Brokerage]\n$-5,00\n^\nD02.03.2026\nT-10,00\nS[Savings]\n$-4,00\nS[Savings]\n$-6,00\n^\n");

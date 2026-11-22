@@ -256,7 +256,10 @@ function elementPositions(text: string) {
   const details: number[] = [];
   const tag = /<(?:[A-Za-z_][\w.-]*:)?(Ntry|TxDtls)[\s>]/g;
 
-  for (const match of text.matchAll(tag)) {
+  // Commented-out entries are not part of the document, so they must not shift the positions.
+  const uncommented = text.replace(/<!--[\s\S]*?-->/g, comment => comment.replace(/[^\n]/g, " "));
+
+  for (const match of uncommented.matchAll(tag)) {
     (match[1] === "Ntry" ? entries : details).push(match.index);
   }
 
