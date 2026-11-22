@@ -12,6 +12,7 @@ import type { AuthContext } from "../src/server/security/session";
 import { completeAuthorization } from "../src/features/banking/server/authorization-service";
 import { connectBank } from "../src/features/banking/server/connect-bank";
 import { removeBankConnection } from "../src/features/banking/server/connection-service";
+import { deleteAccount } from "../src/features/accounts/server/account-service";
 import { saveAccountSync } from "../src/features/banking/server/account-sync-service";
 import { startSyncRun } from "../src/features/banking/server/sync-repository";
 import { decideTargetBankAccount, type IdentifiedBankAccount } from "../src/features/banking/server/bank-account-mapping";
@@ -372,4 +373,21 @@ test("the connected bank account is the one the target's identifiers name, else 
   }, [identified("first", null), identified("second", "AT000000000000000002")]), {
     status: 422
   });
+});
+
+test("an account an authorization was started from stays deletable, and that authorization forgets it", async context => {
+  const {
+    db,
+    actor
+  } = await connectDatabase(context, () => [bankAccount("checking")]);
+
+  await insertManualAccount(db);
+  await startAuthorization(db, actor, "abandoned", "imported");
+
+  await deleteAccount("imported", {
+    name: "Synthetic CSV account"
+  });
+
+  assert.equal((await db.select().from(schema.accounts)).length, 0);
+  assert.equal((await db.select().from(schema.requisitions).where(eq(schema.requisitions.id, "abandoned")).get())?.target_account_id, null);
 });

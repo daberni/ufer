@@ -32,7 +32,9 @@ export const requisitions = sqliteTable("requisitions", {
   error: text("error"),
   created_at: text("created_at").notNull().default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ','now'))`),
   // The manual account an authorization started from; its callback connects that account instead of creating one.
-  target_account_id: text("target_account_id").references((): AnySQLiteColumn => accounts.id)
+  target_account_id: text("target_account_id").references((): AnySQLiteColumn => accounts.id, {
+    onDelete: "set null"
+  })
 });
 
 export const accounts = sqliteTable("accounts", {
