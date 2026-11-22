@@ -370,6 +370,7 @@ test("OFX empty SGML leaves keep later fields, foreign amounts round exactly, an
   const multiTarget = read("!Type:Bank\nD01.03.2026\nT-10,00\nS[Savings]\n$-5,00\nS[Brokerage]\n$-5,00\n^\nD02.03.2026\nT-10,00\nS[Savings]\n$-4,00\nS[Savings]\n$-6,00\n^\n");
 
   assert.deepEqual(multiTarget.rows.map(row => row.type), [null, "transfer"]);
+  assert.equal(read("!Type:Bank\nD01.03.2026\nT-10,00\nS[Savings]\n$-4,00\nS[Savings]\n$-5,00\n^\n").rows[0].type, null);
 
   const noDirection = read(camt.replace("<CdtDbtInd>CRDT</CdtDbtInd>", "<CdtDbtInd>XXXX</CdtDbtInd>"));
 

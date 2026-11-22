@@ -132,7 +132,7 @@ export function readQif(text: string, locale: string): StatementFile {
       source: record.source,
       id: null,
       // Pairing links a transfer to one booking of its full amount, so only a split moving everything to one account is a transfer.
-      type: transfer || singleSplitTarget(record) ? "transfer" : null,
+      type: transfer || (singleSplitTarget(record) && splits !== null && amount !== null && splitsReconcile(splits, amount)) ? "transfer" : null,
       parts,
       // Kept for the server, which appends the split text when it cannot take the split.
       tags: parts && splits ? splitText(splits, amount).slice("Split: ".length) : null
@@ -218,6 +218,18 @@ function splitLines(record: QifRecord, decimal: "." | ","): QifSplitLine[] | nul
   }
 
   return lines.length > 0 ? lines : null;
+}
+
+/** Whether every split amount is readable and they add up exactly to the row's amount. */
+function splitsReconcile(lines: QifSplitLine[], amount: string) {
+  if (lines.some(line => line.amount === null)) {
+    return false;
+  }
+
+  const scale = Math.max(fractionDigits(amount), ...lines.map(line => fractionDigits(line.amount!)));
+  const total = lines.reduce((sum, line) => sum + signedScaled(line.amount!, scale), 0n);
+
+  return total === signedScaled(amount, scale);
 }
 
 /** The parts of a valid split, which add up exactly to the row's amount; null when the split lines form none. */
