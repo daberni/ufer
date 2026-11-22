@@ -16,7 +16,7 @@ import { CategoryPicker } from "@/features/categorization/components/category-pi
 import { useCategories } from "@/features/categorization/queries";
 import { describeDate } from "@/lib/date-format";
 import { decimalAmount, minorUnits, signedMoney } from "@/lib/money";
-import { derivedTransactionType, isTransactionType, manualAccountTypes, transactionTypeLabels, transactionTypes, type TransactionType } from "@/lib/transaction-types";
+import { derivedTransactionType, entryTransactionTypes, isTransactionType, manualAccountTypes, transactionTypeLabels, type TransactionType } from "@/lib/transaction-types";
 import { useDeleteTransaction, useHideTransaction, useSaveTransaction, type EntryEdit, type TransactionEdit } from "@/features/transactions/mutations";
 import { useTransferOptions } from "@/features/transactions/queries";
 import { useTransactionCategory } from "@/features/transactions/use-transaction-category";
@@ -385,7 +385,7 @@ function TransactionEditForm({
   const canSplit = type === "income" || type === "expense";
   // A bank-linked account's opening balance or adjustment keeps its type.
   const balanceRow = !transaction.manual_account && manualAccountTypes.includes(transaction.type);
-  const editableTypes = balanceRow ? [transaction.type] : transactionTypes.filter(option => option === transaction.type || (typeAllowed(option) && (transaction.manual_account || !manualAccountTypes.includes(option))));
+  const editableTypes = balanceRow ? [transaction.type] : entryTransactionTypes.filter(option => option === transaction.type || (typeAllowed(option) && (transaction.manual_account || !manualAccountTypes.includes(option))));
   const available = frozen ? frozenTypes(transaction, relinkable) : editableTypes;
   // A frozen booking becomes a transfer only by linking an existing booking.
   const linkMissing = frozen && transfer && transaction.type !== "transfer" && target.kind !== "booking";

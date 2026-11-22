@@ -8,7 +8,7 @@ import { today, validDate } from "@/lib/time";
 import { requireWritableManualAccount } from "./booking-accounts";
 import { categoryExists } from "@/features/categorization/server/category-repository";
 import { listRules } from "@/features/categorization/server/rule-repository";
-import { transactionTypes } from "@/lib/transaction-types";
+import { entryTransactionTypes } from "@/lib/transaction-types";
 import { createManualTransaction, deleteManualTransaction, findEntryAccount, updateManualTransaction, type ManualEntryResult } from "./manual-transaction-repository";
 import { returnTransactionToRules, saveTransactionDetails, setTransactionCategory, setTransactionHidden } from "./transaction-repository";
 import { isSplit, type SplitChange } from "./split-repository";
@@ -64,7 +64,7 @@ const transferTarget = z.union([z.object({
 
 // remove_split removes a split and split replaces its parts in the same write as the details, so a rejected save keeps the split and the parts always match the saved amount.
 const typeInput = z.object({
-  type: z.enum(transactionTypes),
+  type: z.enum(entryTransactionTypes),
   transfer: transferTarget.optional(),
   remove_split: z.literal(true).optional(),
   split: splitInput.optional()

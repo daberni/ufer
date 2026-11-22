@@ -5,7 +5,7 @@ export const netWorthCategories: NetWorthCategory[] = ["liquidity", "investments
 
 const categoryKinds: Record<NetWorthCategory, string[]> = {
   liquidity: ["checking", "savings", "credit_card"],
-  investments: ["investment"],
+  investments: ["investment", "brokerage"],
   property: ["property"],
   liabilities: ["loan"]
 };
