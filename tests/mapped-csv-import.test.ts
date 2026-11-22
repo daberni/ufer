@@ -308,11 +308,15 @@ test("new accounts are created once per import, on confirmation, across batches 
   assert.equal((await listAccounts())[0].institution, null);
   assert.equal((await db.select().from(schema.transactions)).length, 2);
 
-  // Accounts created before changeset 0016 were derived with the banking environment, so resuming such an import must find the same account.
-  const hex = createHash("sha256").update(`${process.env.ENABLE_BANKING_ENVIRONMENT || "SANDBOX"}|${importId}|`).digest("hex");
-
-  assert.equal(accounts[0].id, `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`);
+  // New import accounts derive their ID from the import and source only, independent of the banking environment.
+  assert.equal(accounts[0].id, hashedId(`${importId}|`));
 });
+
+function hashedId(content: string) {
+  const hex = createHash("sha256").update(content).digest("hex");
+
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
+}
 
 test("a later batch never treats rows saved by an earlier batch of the file as duplicates, so check and confirm agree", async context => {
   const db = await isolatedDatabase(context);
