@@ -9,7 +9,7 @@ import { assertWritableAccount } from "@/features/accounts/server/writable-accou
 import { manualEntryPrefix } from "@/lib/booking-references";
 import { newCategoryColor } from "@/features/categorization/category-color-suggestions";
 import { suggestCategoryIcon, type CategoryIconKey } from "@/features/categorization/category-icons";
-import { sameCategoryName } from "@/lib/category-name";
+import { createCategory } from "@/features/categorization/server/category-repository";
 import { derivedTransactionType, type RuleTransactionType } from "@/lib/transaction-types";
 import type { SplitPartValues } from "@/features/transactions/server/split-repository";
 import { matchingWindow } from "@/lib/booking-matching";
@@ -72,34 +72,15 @@ export type NewImportCategory = {
  * Resolves to the category's ID and whether this call inserted it.
  */
 export async function createImportCategory(tx: DatabaseTransaction, category: NewImportCategory) {
-  const existing = await tx.select({
-    id: categories.id,
-    name: categories.name,
-    color: categories.color,
-    icon: categories.icon
-  }).from(categories);
-  const match = existing.find(item => sameCategoryName(item.name, category.name));
-
-  if (match) {
-    return {
-      id: match.id,
-      created: false
-    };
-  }
-
   const icon = category.shown ? category.shown.icon : suggestCategoryIcon(category.name);
+  const shownColor = category.shown?.color;
 
-  await tx.insert(categories).values({
+  return createCategory(tx, {
     id: category.id,
     name: category.name,
-    color: category.shown?.color ?? newCategoryColor(category.name, icon, existing),
-    icon
+    icon,
+    color: shownColor ?? (existing => newCategoryColor(category.name, icon, existing))
   });
-
-  return {
-    id: category.id,
-    created: true
-  };
 }
 
 /** A manual or bank-linked account. */
