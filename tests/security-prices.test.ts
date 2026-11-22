@@ -720,3 +720,29 @@ test("an update past its deadline starts no further security", async context => 
   }))).status, "interrupted");
   assert.deepEqual(requests, []);
 });
+
+test("splits reported outside the requested interval are ignored", async context => {
+  const db = await isolatedDatabase(context);
+
+  await db.insert(schema.accounts).values({
+    id: "depot",
+    name: "Synthetic depot",
+    kind: "brokerage"
+  });
+  await db.insert(schema.securityTrades).values({
+    id: "trade",
+    account_id: "depot",
+    security_id: "etf",
+    date: "2026-06-01",
+    side: "buy",
+    sequence: 1,
+    quantity_micros: 1_000_000,
+    price_micros: 50_000_000,
+    gross_minor: 50_00
+  });
+
+  await updatePrices(etfSplitDay, fakeProvider({}, {
+    "SYN.XETRA": ["2026-01-05 3.000000/1.000000", "2026-09-01 2.000000/1.000000"]
+  }).provider);
+  assert.deepEqual((await db.select().from(schema.securitySplits)).map(split => split.date), ["2026-09-01"]);
+});

@@ -194,9 +194,11 @@ export async function updatePrices(now = Temporal.Now.instant(), provider: Marke
 
           if (checksSplits(security, date) && security.first_trade) {
             const splitsFrom = security.first_trade < historyStart ? historyStart : security.first_trade;
-            const splits = await provider.splits(symbol, splitsFrom, date.toString()).catch((error: unknown) => {
+            const reported = await provider.splits(symbol, splitsFrom, date.toString()).catch((error: unknown) => {
               throw error instanceof MarketDataError ? new MarketDataError(`${splitErrorPrefix}${error.message}`) : error;
             });
+            // Only splits inside the requested interval replace stored ones; others outside it could collide with stored rows the check would count twice.
+            const splits = reported.filter(split => split.date >= splitsFrom && split.date <= date.toString());
 
             // Trades validate sales against the stored splits under the sync lease, so splits are written under it too.
             const stored = await withLease(syncLease, "busy", () => saveSplitsIfConsistent(security.id, {
