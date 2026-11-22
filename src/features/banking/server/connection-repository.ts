@@ -1,7 +1,7 @@
 import { and, eq, gt, isNull, ne, sql } from "drizzle-orm";
 import { Temporal } from "temporal-polyfill";
 import { database } from "@/server/database/connection";
-import type { AuthContext } from "@/features/auth/server/session";
+import type { AuthContext } from "@/server/security/session";
 import { accounts, requisitions } from "@/server/database/schema";
 import { timestamp } from "@/lib/time";
 import { HttpError } from "@/lib/errors";

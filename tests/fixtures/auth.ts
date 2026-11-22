@@ -1,5 +1,5 @@
 import type { Database } from "../../src/server/database/connection";
-import type { AuthContext } from "../../src/features/auth/server/session";
+import type { AuthContext } from "../../src/server/security/session";
 import { authUsers, authSessions, memberships } from "../../src/server/database/auth-schema";
 
 export async function seedActor(db: Database): Promise<AuthContext> {

@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { HttpError } from "@/lib/errors";
 import { database } from "@/server/database/connection";
-import { createAuth } from "./auth";
-import { addMembership, ownerExists } from "./membership-repository";
+import { createAuth } from "@/server/security/auth";
+import { addMembership, ownerExists } from "@/server/security/membership-repository";
 
 const enrollment = z.object({
   username: z.string().min(3).max(30).regex(/^[a-zA-Z0-9_.]+$/),

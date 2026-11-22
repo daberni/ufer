@@ -1,7 +1,7 @@
 import { HttpError } from "@/lib/errors";
 import { problemResponse } from "@/server/http/problem-response";
 import { requireOrigin } from "@/server/http/origin";
-import { authentication } from "./auth";
+import { authentication } from "@/server/security/auth";
 
 const endpoints = new Map([
   ["/sign-in/username", "POST"],

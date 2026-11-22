@@ -2,8 +2,7 @@ import { HttpError } from "@/lib/errors";
 import { STATUS_CODES } from "node:http";
 import { NextResponse } from "next/server";
 import { cronAuthorized } from "@/server/jobs/authorization";
-// eslint-disable-next-line boundaries/dependencies -- known violation tracked in daberni/ufer#285
-import { requireAuth, type AuthContext } from "@/features/auth/server/session";
+import { requireAuth, type AuthContext } from "@/server/security/session";
 import { requireOrigin } from "./origin";
 import { problemResponse } from "./problem-response";
 import { measurePhase, measureRequest } from "./server-timing";

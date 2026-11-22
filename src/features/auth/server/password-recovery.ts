@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { ValidationError } from "@/lib/errors";
 import { database } from "@/server/database/connection";
-import { createAuth } from "./auth";
+import { createAuth } from "@/server/security/auth";
 
 const recovery = z.object({
   email: z.email(),

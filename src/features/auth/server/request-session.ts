@@ -1,5 +1,5 @@
 import { headers } from "next/headers";
-import { hasWorkspaceAccess } from "./session";
+import { hasWorkspaceAccess } from "@/server/security/session";
 
 /**
  * Whether this request has dashboard access: `true` and `false` are confirmed, `undefined` means the session could not be checked. The dashboard then starts signed in without server data: its requests report the problem per area, and a rejected session still locks it.
