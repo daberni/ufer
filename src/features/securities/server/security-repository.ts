@@ -297,6 +297,7 @@ export async function findSecurityListing(id: string) {
 export async function saveSecurityListing(id: string, listing: {
   provider: string | null;
   provider_symbol: string | null;
+  venue: string | null;
 }) {
   const db = await database();
 

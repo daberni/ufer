@@ -575,6 +575,9 @@ test("a rejected trade named by a new ISIN leaves no security behind", async con
 test("changing a security's listing drops the old listing's prices and refuses a symbol another security uses", async context => {
   const db = await isolatedDatabase(context);
 
+  await db.update(schema.securities).set({
+    venue: "XETRA"
+  }).where(eq(schema.securities.id, "etf"));
   await db.insert(schema.securityPrices).values({
     security_id: "etf",
     date: "2026-10-12",
@@ -597,6 +600,9 @@ test("changing a security's listing drops the old listing's prices and refuses a
     provider_symbol: "SYN.F"
   });
   assert.deepEqual([(await securityRow(db, "etf"))?.provider_symbol, (await pricesOf(db, "etf")).length], ["SYN.F", 0]);
+
+  // A typed symbol has no known venue, and neither has no listing.
+  assert.equal((await securityRow(db, "etf"))?.venue, null);
 
   await updateSecurityListing("etf", {
     provider_symbol: null

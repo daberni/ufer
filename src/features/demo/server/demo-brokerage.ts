@@ -16,22 +16,19 @@ export const demoBrokerage = {
 
 type DemoSecurity = {
   id: string;
-  isin: string;
   name: string;
   start: number;
   drift: number;
 };
 
-// Synthetic ISINs with valid check digits under the XS prefix; no real instrument is meant.
+// Made-up securities without ISINs; no real instrument is meant.
 const securities: DemoSecurity[] = [{
   id: "demo-security-world",
-  isin: "XS0000000017",
   name: "Global Equity ETF (synthetic)",
   start: 92,
   drift: 0.0035
 }, {
   id: "demo-security-bonds",
-  isin: "XS0000000009",
   name: "Euro Bond Fund (synthetic)",
   start: 48,
   drift: 0.0006
@@ -141,7 +138,6 @@ export function buildDemoBrokerage(runDate: Temporal.PlainDate): DemoBrokerageRo
     openingMinor: 10_000_00,
     securities: securities.map(security => ({
       id: security.id,
-      isin: security.isin,
       name: security.name
     })),
     prices,

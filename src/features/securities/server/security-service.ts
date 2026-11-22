@@ -81,19 +81,18 @@ export async function updateSecurityListing(id: string, payload: unknown, provid
     throw new HttpError(404, "Security not found.");
   }
 
-  // A listing quoted in another currency would value the holding without conversion; a typed symbol the provider does not list for this ISIN stays the person's choice.
-  if (input.provider_symbol && security.isin) {
-    const listed = (await searchProviderListings(security.isin, provider)).find(listing => listing.symbol === input.provider_symbol);
+  // A listing quoted in another currency would value the holding without conversion; a typed symbol the provider does not list for this ISIN stays the person's choice and has no known venue.
+  const listed = input.provider_symbol && security.isin ? (await searchProviderListings(security.isin, provider)).find(listing => listing.symbol === input.provider_symbol) : undefined;
 
-    if (listed && listed.currency.toUpperCase() !== security.currency) {
-      throw new ValidationError(`This listing is quoted in ${listed.currency}; choose one in ${security.currency}.`);
-    }
+  if (listed && listed.currency.toUpperCase() !== security.currency) {
+    throw new ValidationError(`This listing is quoted in ${listed.currency}; choose one in ${security.currency}.`);
   }
 
   // A running price update may be fetching the old listing; changing it waits, so no old closes land after the switch.
   const saved = await withLease(marketDataLease, "A price update is running. Change the listing after it has finished.", () => saveSecurityListing(id, {
     provider: input.provider_symbol ? "eodhd" : null,
-    provider_symbol: input.provider_symbol
+    provider_symbol: input.provider_symbol,
+    venue: listed?.exchange ?? null
   }));
 
   if (!saved) {
