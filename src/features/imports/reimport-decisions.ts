@@ -18,9 +18,9 @@ export type ExistingMatch = {
   payee: string;
   description: string;
   type: string;
-  /** A person's payee or description shown instead of the source text; an update changes the source text below it. */
-  payeeOverridden: boolean;
-  descriptionOverridden: boolean;
+  /** A person's payee or description, shown instead of the source text; an update changes the source text below it. */
+  payeeOverride: string | null;
+  descriptionOverride: string | null;
   /** The fields updating from this row changes. */
   changes: SourceField[];
 };

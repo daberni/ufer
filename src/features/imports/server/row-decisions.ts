@@ -7,8 +7,8 @@ export type StoredBooking = ExistingBooking & {
   id: string;
   type: string;
   typeLocked: boolean;
-  payeeOverridden: boolean;
-  descriptionOverridden: boolean;
+  payeeOverride: string | null;
+  descriptionOverride: string | null;
 };
 
 export type Decision = {
@@ -147,8 +147,8 @@ export function describeMatches(entries: MappedEntry[], found: Found) {
     payee: shortened(booking.counterparty),
     description: shortened(booking.description),
     type: booking.type,
-    payeeOverridden: booking.payeeOverridden,
-    descriptionOverridden: booking.descriptionOverridden,
+    payeeOverride: booking.payeeOverride === null ? null : shortened(booking.payeeOverride),
+    descriptionOverride: booking.descriptionOverride === null ? null : shortened(booking.descriptionOverride),
     changes: sourceChanges(booking, entries[index])
   });
 

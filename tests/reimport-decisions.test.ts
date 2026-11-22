@@ -192,7 +192,7 @@ test("a reimport updates matched bookings' source fields and keeps overrides, ma
     [4, "match", ["payee"]],
     [5, "match", ["payee"]]
   ]);
-  assert.equal(check.matches[0].candidates[0].descriptionOverridden, true);
+  assert.equal(check.matches[0].candidates[0].descriptionOverride, "Weekly groceries");
   assert.equal((await booking(db, "Corner Shop")).description, "", "checking writes nothing");
 
   const confirmed = await importRows(reimport, corrected, true);
@@ -369,8 +369,8 @@ test("the review's totals follow the decisions and leave a possible duplicate un
     payee: "Example Cinema",
     description: "",
     type: "expense",
-    payeeOverridden: false,
-    descriptionOverridden: false,
+    payeeOverride: null,
+    descriptionOverride: null,
     changes
   });
   const matches: RowMatch[] = [{

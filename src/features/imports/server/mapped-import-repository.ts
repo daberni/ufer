@@ -35,8 +35,8 @@ const storedBooking = {
   transfer: isTransfer,
   type: transactions.type,
   typeLocked,
-  payeeOverridden: sql<boolean>`(${transactions.counterparty_override} IS NOT NULL)`.mapWith(value => Boolean(value)),
-  descriptionOverridden: sql<boolean>`(${transactions.description_override} IS NOT NULL)`.mapWith(value => Boolean(value))
+  payeeOverride: transactions.counterparty_override,
+  descriptionOverride: transactions.description_override
 };
 
 export type MappedEntry = {

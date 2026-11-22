@@ -187,8 +187,8 @@ function MatchItem({
   const fields: [string, SourceField | null, React.ReactNode, React.ReactNode][] = [
     ["Date", null, <DateValue key="date" value={row?.date ?? null} />, <DateValue key="date" value={candidate.date} />],
     ["Amount", null, row ? fileAmount(row.amount, currency, locale) : "", money(candidate.amount, currency, locale)],
-    ["Payee", "payee", row?.payee ?? "", withOverride(candidate.payee, candidate.payeeOverridden)],
-    ["Description", "description", match.description, withOverride(candidate.description, candidate.descriptionOverridden)],
+    ["Payee", "payee", row?.payee ?? "", withOverride(candidate.payee, candidate.payeeOverride)],
+    ["Description", "description", match.description, withOverride(candidate.description, candidate.descriptionOverride)],
     ["Type", "type", row?.type ? typeLabel(row.type) : "Not stated", typeLabel(candidate.type)]
   ];
 
@@ -294,8 +294,9 @@ function fileAmount(value: string, currency: string, locale: string) {
   }
 }
 
-function withOverride(value: string, overridden: boolean) {
-  return overridden ? `${value || "—"} (your edit is shown instead)` : value;
+/** The booking as the person knows it: their edit, with the source text an update changes below it. */
+function withOverride(value: string, override: string | null) {
+  return override === null ? value : `${override || "—"} (your edit; source: ${value || "—"})`;
 }
 
 function typeLabel(type: string) {
@@ -304,5 +305,5 @@ function typeLabel(type: string) {
 
 /** Numbered, so candidates whose shown texts are equal stay distinguishable; the comparison above shows the chosen one. */
 function candidateLabel(candidate: ExistingMatch, position: number, count: number, currency: string, locale: string) {
-  return [`${position + 1} of ${count}`, candidate.date, money(candidate.amount, currency, locale), candidate.payee || candidate.description].filter(Boolean).join(" · ");
+  return [`${position + 1} of ${count}`, candidate.date, money(candidate.amount, currency, locale), candidate.payeeOverride || candidate.payee || candidate.description].filter(Boolean).join(" · ");
 }
