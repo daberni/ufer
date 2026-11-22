@@ -267,7 +267,10 @@ function accountLabel(account: unknown) {
   const issuer = textOf(child(other, "Issr"));
 
   // Optional parts carry their label, so identifications that omit different parts never read alike.
-  return [textOf(child(other, "Id")), schemeName && `scheme ${schemeName}`, issuer && `issuer ${issuer}`].filter(Boolean).join(" · ");
+  // The `ID` prefix keeps another identification apart from an IBAN with the same text.
+  const otherId = textOf(child(other, "Id"));
+
+  return [otherId && `ID ${otherId}`, schemeName && `scheme ${schemeName}`, issuer && `issuer ${issuer}`].filter(Boolean).join(" · ");
 }
 
 /** Character offsets of entry and transaction-detail start tags in document order, so rows point at their line in the file. */

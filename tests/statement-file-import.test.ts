@@ -386,7 +386,11 @@ test("OFX empty SGML leaves keep later fields, foreign amounts round exactly, an
   const other = (id: string, scheme: string) => `<Acct><Id><Othr><Id>${id}</Id><SchmeNm><Cd>${scheme}</Cd></SchmeNm><Issr>Synthetic Bank</Issr></Othr></Id><Ccy>EUR</Ccy></Acct>`;
   const schemes = read(camt.replace(/<Acct>[\s\S]*?<\/Acct>/, other("123", "BBAN")).replace(/<Acct><Id><IBAN>DE89[\s\S]*?<\/Acct>/, other("123", "CUID")));
 
-  assert.deepEqual([...new Set(schemes.rows.map(row => row.source))], ["123 · scheme BBAN · issuer Synthetic Bank", "123 · scheme CUID · issuer Synthetic Bank"]);
+  assert.deepEqual([...new Set(schemes.rows.map(row => row.source))], ["ID 123 · scheme BBAN · issuer Synthetic Bank", "ID 123 · scheme CUID · issuer Synthetic Bank"]);
+
+  const ibanLike = read(camt.replace(/<Acct><Id><IBAN>DE89[\s\S]*?<\/Acct>/, other("AT61 1904 3002 3457 3201", "").replace("<SchmeNm><Cd></Cd></SchmeNm><Issr>Synthetic Bank</Issr>", "").replace("<Ccy>EUR</Ccy>", "<Ccy>USD</Ccy>")));
+
+  assert.deepEqual([...new Set(ibanLike.rows.map(row => row.source))], ["AT61 1904 3002 3457 3201", "ID AT61 1904 3002 3457 3201"]);
 
   const multiCurrency = read(camt.replace("DE89370400440532013000", "AT611904300234573201"));
 
