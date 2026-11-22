@@ -12,7 +12,7 @@ import { encrypt } from "../src/server/security/secret-box";
 import { recordConnectionFailure, saveBankSession } from "../src/features/banking/server/connection-repository";
 import { verifyApplication } from "../src/features/banking/server/enable-banking-client";
 import { removeBankConnection } from "../src/features/banking/server/connection-service";
-import { saveSessionAccounts } from "../src/features/banking/server/bank-account-repository";
+import { saveSessionAccounts } from "../src/features/banking/server/bank-account-service";
 import { listSyncAccounts } from "../src/features/banking/server/sync-repository";
 import { syncAccounts } from "../src/features/banking/server/sync-service";
 import { listConnections } from "../src/features/banking/server/banking-queries";

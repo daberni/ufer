@@ -19,7 +19,7 @@ import { createCategory, updateCategoryDetails } from "../src/features/categoriz
 import { applyRulesToUncorrectedTransactions, createRule, updateRuleEnabled } from "../src/features/transactions/server/rule-application-service";
 import { insertAuthorization } from "../src/features/banking/server/connection-repository";
 import { saveAccountSync } from "../src/features/banking/server/account-sync-service";
-import { saveSessionAccounts } from "../src/features/banking/server/bank-account-repository";
+import { saveSessionAccounts } from "../src/features/banking/server/bank-account-service";
 import type { Entry } from "../src/features/transactions/server/transaction-entry";
 import { respond } from "../src/server/http/respond";
 

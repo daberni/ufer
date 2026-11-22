@@ -22,7 +22,9 @@ import { duplicateDateToleranceDays } from "@/lib/booking-matching";
 import { normalizeText } from "@/lib/text";
 import { rowDecisions, type DuplicateReason, type MatchedBooking, type SentRowMatch } from "../reimport-decisions";
 import type { SplitPartValues } from "@/features/transactions/server/split-repository";
-import { checkMappedEntries, findImportOpening, findImportTarget, listCategoryNames, saveMappedBatch, type MappedEntry, type NewImportAccount, type NewImportCategory, type OpeningBalance } from "./mapped-import-repository";
+import { findImportOpening, findImportTarget, listCategoryNames, type MappedEntry, type NewImportAccount, type NewImportCategory, type OpeningBalance } from "./mapped-import-repository";
+import { checkMappedEntries, saveMappedBatch } from "./mapped-batch-service";
+import { sameOpening } from "./opening-balance-decisions";
 
 export const maxRowsPerRequest = 2000;
 
@@ -287,7 +289,7 @@ async function resolveTargets(importId: string, inputs: z.infer<typeof target>[]
       }
 
       // An earlier confirmed batch of this import created the account; its stored configuration is authoritative.
-      if (persisted && (persisted.currency !== input.new_account.currency || persisted.name !== input.new_account.name || persisted.kind !== input.new_account.kind || !await sameOpening(importId, input.source, persisted.id, opening))) {
+      if (persisted && (persisted.currency !== input.new_account.currency || persisted.name !== input.new_account.name || persisted.kind !== input.new_account.kind || !await storedOpeningMatches(importId, input.source, persisted.id, opening))) {
         throw new ValidationError(`The account “${persisted.name}” (${persisted.currency}) was already created by this import; keep its name, type, currency and balance.`);
       }
 
@@ -325,21 +327,12 @@ async function resolveTargets(importId: string, inputs: z.infer<typeof target>[]
   return targets;
 }
 
-/**
- * Whether a resumed import states the opening balance the account already has: the same kind (part of the booking's ID), date and amount.
- * A `current` balance is compared as the account's balance, its opening booking plus every other transaction.
- */
-async function sameOpening(importId: string, source: string, accountId: string, opening: OpeningBalance | null) {
+/** Whether a resumed import states the opening balance its account already has. */
+async function storedOpeningMatches(importId: string, source: string, accountId: string, opening: OpeningBalance | null) {
   const kinds = ["current", "start"] as const;
   const stored = await findImportOpening(accountId, kinds.map(kind => importAccountId(importId, `${source}|opening|${kind}`)));
 
-  if (!opening || !stored) {
-    return !opening && !stored;
-  }
-
-  const statedAmount = opening.kind === "current" ? stored.amount + stored.others : stored.amount;
-
-  return stored.id === opening.id && stored.date === opening.date && statedAmount === opening.amount;
+  return sameOpening(stored, opening);
 }
 
 /** A stable account ID per import and source account, so every batch and retry of one import targets the same new account. The configured banking environment stays in the hash because IDs persisted before changeset 0016 were derived with it. */

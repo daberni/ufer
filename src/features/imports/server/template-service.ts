@@ -6,7 +6,9 @@ import { dateFormats } from "../csv-values";
 import { emptyMapping, type CsvMapping } from "../csv-mapping";
 import { maxCategoryChoicesPerRequest, maxTargetsPerRequest } from "../import-batches";
 import { importTypes, maxCategoryLength, maxSourceLength } from "../import-rows";
-import { deleteTemplate, TemplateLimitReached, insertTemplate, listTemplates, updateTemplate, type TemplateDefinition } from "./template-repository";
+import { countTemplates, deleteTemplate, findTemplate, findTemplateConflicts, insertTemplate, listTemplates, updateTemplate, type TemplateDefinition } from "./template-repository";
+import { requireTemplateCapacity, requireUniqueTemplate, TemplateLimitReached } from "./template-decisions";
+import { withTransaction } from "@/server/database/transaction";
 import { formatCount } from "@/lib/locale";
 import { currentFormatLocale } from "@/server/http/request-locale";
 
@@ -99,7 +101,14 @@ export async function createTemplate(payload: unknown) {
   const id = randomUUID();
 
   try {
-    await insertTemplate(id, templateName, rest as TemplateDefinition);
+    await withTransaction(async tx => {
+      const templateDefinition = rest as TemplateDefinition;
+      const conflicts = await findTemplateConflicts(tx, templateName, templateDefinition.header);
+
+      requireTemplateCapacity(await countTemplates(tx));
+      requireUniqueTemplate(templateName, conflicts.sameName, conflicts.sameHeader, null);
+      await insertTemplate(tx, id, templateName, templateDefinition);
+    });
   } catch (error) {
     if (error instanceof TemplateLimitReached) {
       throw new HttpError(409, `Ufer keeps at most ${formatCount(error.maximum, await currentFormatLocale())} templates. Delete one before saving another.`);
@@ -122,10 +131,24 @@ export async function changeTemplate(id: string, payload: unknown) {
     definition: definition.optional()
   }).strict().parse(payload);
 
-  if (!(await updateTemplate(id, {
-    name: input.name,
-    definition: input.definition as TemplateDefinition | undefined
-  }))) {
+  const found = await withTransaction(async tx => {
+    const current = await findTemplate(tx, id);
+
+    if (!current) {
+      return false;
+    }
+
+    const templateName = input.name ?? current.name;
+    const templateDefinition = (input.definition as TemplateDefinition | undefined) ?? JSON.parse(current.definition) as TemplateDefinition;
+    const conflicts = await findTemplateConflicts(tx, templateName, templateDefinition.header);
+
+    requireUniqueTemplate(templateName, conflicts.sameName, conflicts.sameHeader, id);
+    await updateTemplate(tx, id, templateName, templateDefinition);
+
+    return true;
+  });
+
+  if (!found) {
     throw new HttpError(404, "Template not found.");
   }
 

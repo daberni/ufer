@@ -3,7 +3,7 @@ import { HttpError } from "@/lib/errors";
 import { encrypt } from "@/server/security/secret-box";
 import { hash } from "@/server/security/tokens";
 import { cancelPendingAuthorization, clearRevokedSession, consumeAuthorization, recordConnectionFailure, recordEmptyConnection, recordRevocationFailure, saveBankSession } from "./connection-repository";
-import { saveSessionAccounts } from "./bank-account-repository";
+import { saveSessionAccounts } from "./bank-account-service";
 import { createSession, validateBankSession } from "./enable-banking-client";
 import { revokeSession } from "./session-revocation";
 

@@ -13,7 +13,7 @@ import { categorize, prepareRules, validatePattern, type Rule } from "../src/fea
 import { acquireLease, releaseLease } from "../src/server/jobs/lease-repository";
 import { normalizeTransactions } from "../src/features/banking/server/bank-data";
 import { saveAccountSync } from "../src/features/banking/server/account-sync-service";
-import { saveSessionAccounts } from "../src/features/banking/server/bank-account-repository";
+import { saveSessionAccounts } from "../src/features/banking/server/bank-account-service";
 import { encrypt, decrypt } from "../src/server/security/secret-box";
 import { hash } from "../src/server/security/tokens";
 import { requireOrigin } from "../src/server/http/origin";
