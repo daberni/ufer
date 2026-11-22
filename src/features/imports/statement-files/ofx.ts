@@ -98,7 +98,7 @@ function ofxDate(value: string) {
 
 /** An amount times a rate in the account currency's minor units, rounded half away from zero with exact integers; null without a valid rate. */
 function convert(amount: string | null, rate: string, currency: string) {
-  if (amount === null || !/^\d{1,9}(?:\.\d{1,10})?$/.test(rate) || !/[1-9]/.test(rate)) {
+  if (amount === null || !/^[A-Z]{3}$/.test(currency) || !/^\d{1,9}(?:\.\d{1,10})?$/.test(rate) || !/[1-9]/.test(rate)) {
     return null;
   }
 

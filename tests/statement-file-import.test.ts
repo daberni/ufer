@@ -330,6 +330,11 @@ test("OFX empty SGML leaves keep later fields, foreign amounts round exactly, an
 
   assert.deepEqual(ofx.rows.map(row => [row.amount, row.currency, row.payee, row.description, row.id]), [["-3.02", "EUR", "", "Payment · JPY 1.005", "E-1"]]);
 
+  const toSavings = read("!Type:Bank\nD01.03.2026\nT-30,00\nS[Savings]\n$-20,00\nSFood\n$-10,00\n^\nD02.03.2026\nT-5,00\nS[Savings]\n$-5,00\n^\n");
+
+  assert.deepEqual(toSavings.rows.map(row => [row.parts, row.category, row.type, row.description]), [[null, null, null, "Split: [Savings] 20.00, Food 10.00"], [null, null, "transfer", "Split: [Savings] 5.00"]]);
+  assert.deepEqual(read("OFXHEADER:100\n\n<OFX><BANKMSGSRSV1><STMTTRNRS><STMTRS><CURDEF>EURO<BANKACCTFROM><ACCTID>A</BANKACCTFROM><BANKTRANLIST><STMTTRN><DTPOSTED>20260301<TRNAMT>-1<FITID>1<CURRENCY><CURRATE>2<CURSYM>USD</CURRENCY></STMTTRN></BANKTRANLIST></STMTRS></STMTTRNRS></BANKMSGSRSV1></OFX>").errors.length, 1);
+
   const shared = read("OFXHEADER:100\n\n<OFX><BANKMSGSRSV1><STMTTRNRS><STMTRS><CURDEF>EUR<BANKACCTFROM><BANKID>B1<ACCTID>42</BANKACCTFROM><BANKTRANLIST><STMTTRN><DTPOSTED>20260301<TRNAMT>-1<FITID>1</STMTTRN></BANKTRANLIST></STMTRS></STMTTRNRS></BANKMSGSRSV1><CREDITCARDMSGSRSV1><CCSTMTTRNRS><CCSTMTRS><CURDEF>EUR<CCACCTFROM><ACCTID>42</CCACCTFROM><BANKTRANLIST><STMTTRN><DTPOSTED>20260301<TRNAMT>-2<FITID>1</STMTTRN></BANKTRANLIST></CCSTMTRS></CCSTMTTRNRS></CREDITCARDMSGSRSV1></OFX>");
 
   assert.deepEqual(shared.rows.map(row => row.source), ["B1 · 42", "Card · 42"]);

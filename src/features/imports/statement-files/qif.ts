@@ -111,7 +111,10 @@ export function readQif(text: string, locale: string): StatementFile {
     // `[Account]` names a transfer to another account in Quicken, not a category.
     const transfer = /^\[.*\]$/.test(category);
     const splits = splitTags(record, decimal, amount);
-    const split = splits && amount !== null && !transfer ? tagSplit(splits, amount) : null;
+    // A split part that moves money to another account (`S[Savings]`) has no place in a categorized split; the row stays unsplit and keeps the split text.
+    const splitTargets = record.fields.filter(([field]) => field === "S").map(([, text]) => /^\[.*\]$/.test(text.split("/")[0].trim()));
+    const splitTransfer = splitTargets.some(Boolean);
+    const split = splits && amount !== null && !transfer && !splitTransfer ? tagSplit(splits, amount) : null;
     const parts = split && "parts" in split ? split.parts : null;
     // Split memos have no place on a split part, so they join the description.
     const splitMemos = record.fields.filter(([field, text]) => field === "E" && text).map(([, text]) => cleanText(text));
@@ -128,7 +131,7 @@ export function readQif(text: string, locale: string): StatementFile {
       category: transfer || splits ? null : category || null,
       source: record.source,
       id: null,
-      type: transfer ? "transfer" : null,
+      type: transfer || (splitTargets.length > 0 && splitTargets.every(Boolean)) ? "transfer" : null,
       parts,
       tags: parts ? splits : null
     });
