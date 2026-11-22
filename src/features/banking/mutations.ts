@@ -38,6 +38,7 @@ export function useConnectBank() {
     mutationFn: (bank: {
       bank: string;
       country: string;
+      accountId?: string;
     }) => api<{
       url: string;
     }>("banking/connect", bank),

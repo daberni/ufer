@@ -1,6 +1,6 @@
 import { desc, sql } from "drizzle-orm";
 import { authSessions, authUsers, workspaces } from "./auth-schema";
-import { check, index, integer, sqliteTable, text, unique, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { type AnySQLiteColumn, check, index, integer, sqliteTable, text, unique, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { ruleTransactionTypes, transactionTypes } from "@/lib/transaction-types";
 
 export const categories = sqliteTable("categories", {
@@ -30,7 +30,9 @@ export const requisitions = sqliteTable("requisitions", {
   valid_until: text("valid_until"),
   status: text("status").notNull().default("PENDING"),
   error: text("error"),
-  created_at: text("created_at").notNull().default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ','now'))`)
+  created_at: text("created_at").notNull().default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ','now'))`),
+  // The manual account an authorization started from; its callback connects that account instead of creating one.
+  target_account_id: text("target_account_id").references((): AnySQLiteColumn => accounts.id)
 });
 
 export const accounts = sqliteTable("accounts", {

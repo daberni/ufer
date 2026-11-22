@@ -148,7 +148,7 @@ An item is checked only when its acceptance criterion is met and evidence is rec
 - [ ] **K-02 · Complete management**
   - [x] Rules: create, edit with preview, toggle, reorder, delete, apply
   - [x] Categories: create, edit, delete with reassignment
-  - [x] Accounts: rename, change type, archive, convert detached bank accounts, delete
+  - [x] Accounts: rename, change type, archive, connect a manual account to a bank, delete
   - [x] Bookings on archived accounts stay categorizable ([#271](https://github.com/daberni/ufer/issues/271))
   - [x] Bank connections: connect, reconnect, remove
   - [x] Account-scoped rules ([#243](https://github.com/daberni/ufer/issues/243))

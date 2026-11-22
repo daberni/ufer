@@ -24,8 +24,18 @@ export type AuthorizationRecord = {
   stateHash: string;
   browserHash: string;
   authorizationId: string;
+  targetAccountId: string | null;
   actor: AuthContext;
 };
+
+/** A manual account that is neither archived nor linked, which an authorization may connect. */
+export async function findConnectableAccount(id: string) {
+  const db = await database();
+
+  return db.select({
+    id: accounts.id
+  }).from(accounts).where(and(eq(accounts.id, id), eq(accounts.provider, "manual"), isNull(accounts.requisition_id), isNull(accounts.archived_at))).get();
+}
 
 export async function insertAuthorization(record: AuthorizationRecord) {
   const db = await database();
@@ -42,7 +52,8 @@ export async function insertAuthorization(record: AuthorizationRecord) {
     state_expires_at: timestamp(Temporal.Now.instant().add({
       minutes: 15
     })),
-    authorization_id: record.authorizationId
+    authorization_id: record.authorizationId,
+    target_account_id: record.targetAccountId
   });
 }
 
@@ -167,7 +178,7 @@ export async function recordRevocationFailure(id: string) {
   }).where(and(eq(requisitions.id, id), ne(requisitions.status, "REMOVED")));
 }
 
-// Accounts are detached only after confirmed provider revocation, preserving their history and reconnect mapping; a given archive time also archives those whose balance is 0.
+// Accounts become manual accounts only after confirmed provider revocation, keeping their history and bank identifiers for a later connection; a given archive time also archives those whose balance is 0.
 export async function removeConnection(id: string, exchangeCutoff: Temporal.Instant, expectedSessionCipher: string | null, archivedAt: string | null = null): Promise<ConnectionRemoval> {
   const db = await database();
 
@@ -211,6 +222,8 @@ export async function removeConnection(id: string, exchangeCutoff: Temporal.Inst
     // The balance is the sum of the visible bookings, 0 without any.
     const zeroBalance = sql`COALESCE((SELECT SUM(t.amount_minor) FROM transactions t WHERE t.account_id=${accounts.id} AND t.suppressed_at IS NULL),0)=0`;
     const detached = await tx.update(accounts).set({
+      provider: "manual",
+      provider_uid: null,
       requisition_id: null,
       sync_error: null,
       ...(archivedAt ? {

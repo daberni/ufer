@@ -429,7 +429,8 @@ test("the provider data upgrade keeps existing transactions unchanged and leaves
   try {
     await migrateDatabase(client, directory);
     await client.batch([
-      "INSERT INTO accounts(id,environment,name,institution,kind,balance_minor,provider,provider_uid) VALUES('bank','SANDBOX','Synthetic checking','Example institution','checking',12345,'enable_banking','synthetic-uid')",
+      "INSERT INTO requisitions(id,environment,bank_name,bank_country,status,session_cipher,valid_until) VALUES('linked','SANDBOX','Example bank','AT','LINKED','synthetic-ciphertext','2099-01-01')",
+      "INSERT INTO accounts(id,environment,name,institution,kind,balance_minor,provider,provider_uid,requisition_id) VALUES('bank','SANDBOX','Synthetic checking','Example institution','checking',12345,'enable_banking','synthetic-uid','linked')",
       "INSERT INTO accounts(id,environment,name,institution,kind,balance_minor) VALUES('manual','SANDBOX','Synthetic savings','Example institution','savings',50000)",
       "INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,counterparty,description,category_id,category_source,created_at) VALUES('synced','bank','bank:synthetic-1','2026-11-15',-2500,'EUR','Example Market','Synthetic purchase','groceries','rule','2026-11-15T08:00:00.000Z')",
       "INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,category_id,category_source,created_at) VALUES('corrected','bank','bank:synthetic-2','2026-11-14',-900,'EUR','leisure','manual','2026-11-15T08:00:00.000Z')",
@@ -929,7 +930,8 @@ test("provider-name migration keeps existing custom names and identities without
 
   try {
     await migrateDatabase(client, directory);
-    await client.execute("INSERT INTO accounts(id,environment,name,institution,kind,provider,provider_uid,balance_minor,balance_date) VALUES('named','SANDBOX','Custom name','Example bank','checking','enable_banking','stable-provider-id',12345,'2026-01-01')");
+    await client.execute("INSERT INTO requisitions(id,environment,bank_name,bank_country,status,session_cipher,valid_until) VALUES('linked','SANDBOX','Example bank','AT','LINKED','synthetic-ciphertext','2099-01-01')");
+    await client.execute("INSERT INTO accounts(id,environment,name,institution,kind,provider,provider_uid,requisition_id,balance_minor,balance_date) VALUES('named','SANDBOX','Custom name','Example bank','checking','enable_banking','stable-provider-id','linked',12345,'2026-01-01')");
     const columns = await accountColumns(client);
     const before = (await client.execute(`SELECT ${columns} FROM accounts`)).rows;
 
@@ -970,7 +972,8 @@ test("transaction override migration keeps every booking unchanged and leaves bo
   try {
     await migrateDatabase(client, directory);
     await client.batch([
-      "INSERT INTO accounts(id,environment,name,institution,kind,provider,provider_uid,balance_minor,balance_date) VALUES('bank','SANDBOX','Synthetic checking','Example bank','checking','enable_banking','synthetic-uid',12345,'2026-01-02')",
+      "INSERT INTO requisitions(id,environment,bank_name,bank_country,status,session_cipher,valid_until) VALUES('linked','SANDBOX','Example bank','AT','LINKED','synthetic-ciphertext','2099-01-01')",
+      "INSERT INTO accounts(id,environment,name,institution,kind,provider,provider_uid,requisition_id,balance_minor,balance_date) VALUES('bank','SANDBOX','Synthetic checking','Example bank','checking','enable_banking','synthetic-uid','linked',12345,'2026-01-02')",
       "INSERT INTO accounts(id,environment,name,institution,kind) VALUES('cash','SANDBOX','Synthetic cash','Example institution','savings')",
       "INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,counterparty,description,category_source,type,type_source,transfer_id,transfer_source) VALUES('out','bank','bank:1','2026-01-02',-500,'EUR','Example payee','Synthetic transfer','manual','transfer','manual','link','manual')",
       "INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,type,type_source,transfer_id,transfer_source) VALUES('in','cash','transfer:out','2026-01-02',500,'EUR','transfer','manual','link','manual')",
@@ -1062,7 +1065,8 @@ test("account-archiving migration keeps every account visible and unchanged", as
 
   try {
     await migrateDatabase(client, directory);
-    await client.execute("INSERT INTO accounts(id,environment,name,institution,kind,provider,provider_uid,balance_minor,balance_date) VALUES('bank','SANDBOX','Synthetic bank','Example bank','checking','enable_banking','stable-provider-id',12345,'2026-01-01')");
+    await client.execute("INSERT INTO requisitions(id,environment,bank_name,bank_country,status,session_cipher,valid_until) VALUES('linked','SANDBOX','Example bank','AT','LINKED','synthetic-ciphertext','2099-01-01')");
+    await client.execute("INSERT INTO accounts(id,environment,name,institution,kind,provider,provider_uid,requisition_id,balance_minor,balance_date) VALUES('bank','SANDBOX','Synthetic bank','Example bank','checking','enable_banking','stable-provider-id','linked',12345,'2026-01-01')");
     await client.execute("INSERT INTO accounts(id,environment,name,institution,kind) VALUES('manual','SANDBOX','Synthetic cash','Example bank','savings')");
     await client.execute("INSERT INTO transactions(id,account_id,provider_reference,booking_date,amount_minor,currency,type,type_source) VALUES('opening','manual','manual:opening','2026-01-01',5000,'EUR','opening_balance','manual')");
     const columns = await accountColumns(client);

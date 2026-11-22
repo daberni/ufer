@@ -10,6 +10,7 @@ import { useConnectBank } from "@/features/banking/mutations";
 import { bankCountries } from "@/features/banking/bank-selection";
 import { useBankDirectory } from "@/features/banking/use-bank-directory";
 import type { Bank, Connection } from "@/features/banking/types";
+import type { Account } from "@/features/accounts/types";
 import { FormError } from "@/components/ui/form-error";
 import { TraceId } from "@/components/ui/trace-id";
 import { SearchableSelect, type SearchableSelectOption } from "@/components/ui/searchable-select";
@@ -20,6 +21,8 @@ import { useBankingConfiguration } from "@/features/banking/banking-configuratio
 type Props = DialogFormProps & {
   /** The connection to reauthorize; null connects a new bank. */
   connection: Connection | null;
+  /** The manual account to connect to one of the authorized bank accounts. */
+  account?: Pick<Account, "id" | "name">;
 };
 
 const bankNoun = {
@@ -66,18 +69,20 @@ function directoryStatus(directory: Pick<ReturnType<typeof useBankDirectory>, "b
 
 export function BankConnectionDialog({
   close,
-  connection
+  connection,
+  account
 }: Props) {
   return (
-    <Dialog eyebrow="YOUR FINANCES" title="Connect bank" onClose={close}>
-      <BankConnectionForm close={close} connection={connection} />
+    <Dialog eyebrow="YOUR FINANCES" title={account ? "Connect to bank" : "Connect bank"} onClose={close}>
+      <BankConnectionForm close={close} connection={connection} account={account} />
     </Dialog>
   );
 }
 
 function BankConnectionForm({
   close,
-  connection
+  connection,
+  account
 }: Props) {
   const { environment } = useBankingConfiguration();
   const directory = useBankDirectory(connection);
@@ -94,11 +99,15 @@ function BankConnectionForm({
     <form
       onSubmit={event => submit(event, () => ({
         bank: directory.bankName,
-        country: directory.country
+        country: directory.country,
+        ...(account ? {
+          accountId: account.id
+        } : {})
       }))}
       className={ui["form"]}
     >
       <p className={ui["form-description"]}>{environment === "SANDBOX" ? "You are connecting a test bank. Use only its test credentials." : "After selecting a bank, authorize read-only access with your bank."}</p>
+      {account && <p className={ui["form-hint"]}>Authorize only the bank account that {account.name} records. Its bookings stay, and bank bookings that match rows imported from a file take those rows over instead of being added twice.</p>}
       <label>
         Country
         <Select value={directory.country} onChange={event => directory.setCountry(event.target.value)}>

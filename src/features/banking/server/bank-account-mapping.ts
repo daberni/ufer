@@ -56,3 +56,56 @@ export function decideAccountMapping(matches: IdentifierMatch[], requisitionId: 
     displaced: match.requisition_id && match.requisition_id !== requisitionId ? match.requisition_id : null
   };
 }
+
+/** The manual account an authorization was started from. */
+export type ConnectTarget = {
+  id: string;
+  currency: string;
+  iban: string | null;
+};
+
+/** An authorized bank account with the existing accounts its identifiers match. */
+export type IdentifiedBankAccount = {
+  account: MappableBankAccount;
+  matches: IdentifierMatch[];
+};
+
+function compactIban(iban: string | null | undefined) {
+  return (iban || "").replace(/\s/g, "").toUpperCase();
+}
+
+/**
+ * The index of the authorized bank account the target account connects to: the one its identifiers already name, else the only one in its currency that no other account owns, preferring an equal IBAN.
+ * No candidate or several stop the connection, since guessing could sync another account's bookings into it.
+ */
+export function decideTargetBankAccount(target: ConnectTarget, bankAccounts: IdentifiedBankAccount[]) {
+  const identified = bankAccounts.findIndex(item => item.matches.some(match => match.account_id === target.id));
+
+  if (identified >= 0) {
+    return identified;
+  }
+
+  const targetIban = compactIban(target.iban);
+  const free = bankAccounts.flatMap((item, index) => {
+    const available = item.matches.length === 0 && item.account.currency === target.currency;
+    const bankIban = compactIban(item.account.account_id?.iban);
+    const ibanConflict = Boolean(targetIban && bankIban && targetIban !== bankIban);
+
+    return available && !ibanConflict ? [{
+      index,
+      sameIban: Boolean(targetIban && bankIban === targetIban)
+    }] : [];
+  });
+  const sameIban = free.filter(item => item.sameIban);
+  const candidates = sameIban.length ? sameIban : free;
+
+  if (candidates.length === 1) {
+    return candidates[0].index;
+  }
+
+  if (!candidates.length) {
+    throw new HttpError(422, "No authorized bank account can be this account: none has its currency and IBAN without already belonging to another account.");
+  }
+
+  throw new HttpError(422, "Several authorized bank accounts could be this account. Connect again and authorize only this account at the bank.");
+}

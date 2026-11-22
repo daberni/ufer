@@ -153,7 +153,7 @@ test("removing a bank connection keeps accounts and history, deletes its credent
 
   assert.equal(connection?.status, "REMOVED");
   assert.equal(connection?.session_cipher, null);
-  assert.equal(account?.requisition_id, null);
+  assert.deepEqual([account?.provider, account?.provider_uid, account?.requisition_id], ["manual", null, null]);
   assert.equal(account?.balance_minor, 12345);
   assert.equal(account?.sync_error, null);
   assert.equal((await db.select().from(schema.transactions)).length, 1);
@@ -171,7 +171,7 @@ test("removing a bank connection keeps accounts and history, deletes its credent
   });
   assert.equal(requests.length, 1);
 
-  // A later authorization of the same bank continues the retained account instead of duplicating it.
+  // A later authorization of the same bank connects the retained manual account by its identifiers instead of duplicating it.
   await db.insert(schema.requisitions).values({
     id: "renewed",
     bank_name: "Example institution",
@@ -185,7 +185,9 @@ test("removing a bank connection keeps accounts and history, deletes its credent
     currency: "EUR"
   }]);
   assert.equal((await db.select().from(schema.accounts)).length, 2);
-  assert.equal((await db.select().from(schema.accounts).where(eq(schema.accounts.id, "removed-account")).get())?.requisition_id, "renewed");
+  const renewed = await db.select().from(schema.accounts).where(eq(schema.accounts.id, "removed-account")).get();
+
+  assert.deepEqual([renewed?.provider, renewed?.provider_uid, renewed?.requisition_id], ["enable_banking", "renewed-uid", "renewed"]);
   assert.equal((await db.select().from(schema.requisitions).where(eq(schema.requisitions.id, "removed")).get())?.status, "REMOVED");
 });
 

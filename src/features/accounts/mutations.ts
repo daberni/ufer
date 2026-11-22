@@ -70,16 +70,6 @@ export function useRestoreAccount(accountId: string) {
   });
 }
 
-// The conversion changes how the account is listed and which actions its bookings offer.
-export function useConvertToManualAccount(accountId: string) {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: () => api(`accounts/${encodeURIComponent(accountId)}/manual`, undefined, "PUT"),
-    onSettled: () => invalidate(queryClient, archiveKeys)
-  });
-}
-
 /** `onDeleted` runs before the refresh, which would otherwise unmount the deleted account's view and its dialog first. */
 export function useDeleteAccount(accountId: string, onDeleted: () => void) {
   const queryClient = useQueryClient();

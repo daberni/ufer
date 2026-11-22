@@ -387,6 +387,7 @@ test("bank authorization uses real SQL defaults and preserves unique callback st
     stateHash: "synthetic-state-hash",
     browserHash: "synthetic-browser-hash",
     authorizationId: "synthetic-authorization",
+    targetAccountId: null,
     actor: await seedActor(db)
   };
 
