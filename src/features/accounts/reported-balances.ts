@@ -1,3 +1,4 @@
+import { Temporal } from "temporal-polyfill";
 import type { DailyBooking } from "./daily-balances";
 import type { ReportedBalance } from "./types";
 
@@ -9,9 +10,13 @@ export type BookedReport = {
 
 /**
  * Compares each booked balance a bank reported with the balance calculated from bookings through the end of its date, oldest first.
- * A report that already contains bookings dated up to the next report (a weekend booking the bank dates on the next business day) shows no difference.
+ * A report that already contains bookings the bank dates on one of the next few days (a weekend or holiday booking dated on the next business day) shows no difference.
+ * The newest report may contain any later booking, as in the account summary.
  * A difference starts on the first report where it differs from the previous report's difference, so an adjustment can be booked on that date.
  */
+// Covers a booking made on a Friday before a public holiday Monday and dated on Tuesday.
+const bookingDateDelayDays = 3;
+
 export function reportedBalanceDifferences(reports: BookedReport[], bookings: DailyBooking[]): ReportedBalance[] {
   const ordered = reports.toSorted((left, right) => left.date.localeCompare(right.date));
   const bookedThrough = (date: string | undefined) => bookings.filter(booking => date === undefined || booking.date <= date).reduce((total, booking) => total + booking.amount_minor, 0);
@@ -20,7 +25,12 @@ export function reportedBalanceDifferences(reports: BookedReport[], bookings: Da
 
   for (const [index, report] of ordered.entries()) {
     const calculated = bookedThrough(report.date);
-    const matchesLaterBookings = report.amount_minor === bookedThrough(ordered[index + 1]?.date);
+    const nextReport = ordered[index + 1]?.date;
+    const delayed = Temporal.PlainDate.from(report.date).add({
+      days: bookingDateDelayDays
+    }).toString();
+    const toleranceEnd = nextReport === undefined ? undefined : [delayed, nextReport].sort()[0];
+    const matchesLaterBookings = report.amount_minor === bookedThrough(toleranceEnd);
     const difference = matchesLaterBookings ? 0 : report.amount_minor - calculated;
 
     differences.push({

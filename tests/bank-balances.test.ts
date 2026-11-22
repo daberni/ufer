@@ -274,6 +274,44 @@ test("the balance history compares each reported booked balance with the calcula
   assert.deepEqual((await readBalanceHistory("cash")).reported, []);
 });
 
+test("a historical report only absorbs bookings the bank dates within a few days after it", async context => {
+  await freshDatabase(context);
+
+  await sync({
+    amount: "1000.00",
+    date: "2026-09-30"
+  }, firstBookings);
+  await sync({
+    amount: "960.00",
+    date: "2026-10-03"
+  }, [...firstBookings, {
+    reference: "bank:weekend-card-payment",
+    date: "2026-10-05",
+    amount: -5000
+  }]);
+  await sync({
+    amount: "960.00",
+    date: "2026-10-12"
+  }, [...firstBookings, {
+    reference: "bank:weekend-card-payment",
+    date: "2026-10-05",
+    amount: -5000
+  }, {
+    reference: "bank:late-refund",
+    date: "2026-10-09",
+    amount: 1000
+  }]);
+
+  const differences = (await readBalanceHistory("checking")).reported.map(report => [report.date, report.difference_minor, report.difference_started]);
+
+  // The 3 October report of 960 equals the balance only after the 9 October refund, which lies beyond the booking-date delay, so the difference remains.
+  assert.deepEqual(differences, [
+    ["2026-09-30", 0, false],
+    ["2026-10-03", -4000, true],
+    ["2026-10-12", 0, false]
+  ]);
+});
+
 test("an available balance is never compared with the bookings and cannot be reconciled", async context => {
   await freshDatabase(context);
 
