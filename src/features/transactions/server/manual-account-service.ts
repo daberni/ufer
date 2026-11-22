@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { Temporal } from "temporal-polyfill";
 import { syncLease, withLease } from "@/server/jobs/lease";
-import { refuse, withRefusableTransaction, withTransaction } from "@/server/database/transaction";
+import { refuse, withAccountBookingTransaction, withRefusableAccountBookingTransaction } from "./account-booking-repository";
 import { currentFormatLocale } from "@/server/http/request-locale";
 import { HttpError, ValidationError } from "@/lib/errors";
 import { minorUnits } from "@/lib/money";
@@ -26,7 +26,7 @@ export async function createManualAccount(payload: unknown, now = Temporal.Now.i
 
   const id = randomUUID();
 
-  await withTransaction(async tx => {
+  await withAccountBookingTransaction(async tx => {
     await insertManualAccount(tx, id, input);
     await recordManualBalance(tx, {
       id,
@@ -49,7 +49,7 @@ export async function updateManualValuation(accountId: string, payload: unknown,
   validateLiability(account.kind, amount);
   validateBalanceDate(input.date, now);
 
-  await withTransaction(async tx => {
+  await withAccountBookingTransaction(async tx => {
     await assertWritableAccount(tx, account.id);
     await recordManualBalance(tx, account, input.date, amount);
   });
@@ -72,7 +72,7 @@ export async function reconcileBankBalance(accountId: string) {
   }
 
   await withLease(syncLease, "A sync is running. Reconcile the balance after it has finished.", async () => {
-    const reconciled = await withTransaction(async tx => {
+    const reconciled = await withAccountBookingTransaction(async tx => {
       await assertWritableAccount(tx, account.id);
       const reported = await readLatestReportedBalance(tx, account.id);
       // The report may already contain bookings dated after it, as the shown difference allows; then nothing is off.
@@ -197,7 +197,7 @@ async function closeAndArchiveManualAccount(account: {
   id: string;
   currency: string;
 }, expectedBalance: number, date: string, transferAccountId: string | null, archivedAt: string): Promise<ClosingResult> {
-  return withRefusableTransaction<ClosingResult>(async tx => {
+  return withRefusableAccountBookingTransaction<ClosingResult>(async tx => {
     const decision = decideClosing(await readBookedTotal(tx, account.id), expectedBalance, date, transferAccountId !== null);
 
     if (decision.refused === "balance_changed") {
