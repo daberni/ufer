@@ -199,7 +199,7 @@ test("OFX 1.x SGML reads Windows-1252 text, entities, both signs, decimal commas
   assert.deepEqual(summary(statement.rows), [
     [14, "000111222", "2026-03-05", "-12.34", "EUR", "Café Zentral", "Frühstück & Kaffee", "F-1"],
     [15, "000111222", "2026-03-04", "100.00", "EUR", "Synthetic Refund Ltd", "", "F-2"],
-    [21, "XXXX4242", "2026-03-07", "-5.5", "GBP", "Bookshop", "", "F-1"]
+    [21, "XXXX4242", "2026-03-07", "-6.05", "EUR", "Bookshop", "GBP 5.5", "F-1"]
   ]);
   assert.deepEqual(statement.errors.map(error => error.line), [16]);
   // FITIDs are unique per account, so the same ID on the card account is no conflict.
@@ -323,6 +323,16 @@ test("CAMT batch details split only when they reconcile with the entry, across s
   assert.deepEqual(batch(read(entry(`<NtryDtls>${detail("10.00")}</NtryDtls><NtryDtls>${detail("20.00")}</NtryDtls>`)).rows), [["-10.00", "Club 10.00", "BATCH-7/1"], ["-20.00", "Club 20.00", "BATCH-7/2"]]);
   assert.deepEqual(batch(read(entry(`<NtryDtls>${detail("10.00")}${detail("25.00")}</NtryDtls>`)).rows), [["-30.00", "", "BATCH-7"]]);
   assert.deepEqual(batch(read(entry(`<NtryDtls>${detail("10.00", "USD")}${detail("20.00")}</NtryDtls>`)).rows), [["-30.00", "", "BATCH-7"]]);
+});
+
+test("OFX empty SGML leaves keep later fields, foreign amounts round exactly, and QIF split classes are dropped", () => {
+  const ofx = read("OFXHEADER:100\n\n<OFX><BANKMSGSRSV1><STMTTRNRS><STMTRS><CURDEF>EUR<BANKACCTFROM><ACCTID>A1</BANKACCTFROM><BANKTRANLIST>\n<STMTTRN><DTPOSTED>20260301<TRNAMT>-1.005<NAME><MEMO>Payment<FITID>E-1<CURRENCY><CURRATE>3<CURSYM>JPY</CURRENCY></STMTTRN>\n</BANKTRANLIST></STMTRS></STMTTRNRS></BANKMSGSRSV1></OFX>");
+
+  assert.deepEqual(ofx.rows.map(row => [row.amount, row.currency, row.payee, row.description, row.id]), [["-3.02", "EUR", "", "Payment · JPY 1.005", "E-1"]]);
+
+  const qifSplit = read("!Type:Bank\nD01.03.2026\nT-3,00\nSFood/Household\n$-1,00\nSCar/Work\n$-2,00\n^\n");
+
+  assert.deepEqual(qifSplit.rows[0].parts?.map(part => part.category), ["Food", "Car"]);
 });
 
 test("CSV and other text are not taken for statements", () => {

@@ -170,7 +170,7 @@ function splitTags(record: QifRecord, decimal: "." | ",", amount: string | null)
 
   for (const [field, text] of record.fields) {
     if (field === "S") {
-      category = text;
+      category = text.split("/")[0].trim();
     } else if (field === "$" && category !== null) {
       const partAmount = parseAmount(text, decimal);
       // Split tags count in the row's direction, so an outgoing row's negative parts become positive tag amounts. An unreadable amount stays as written, so the row imports unsplit with the split text kept in its description.

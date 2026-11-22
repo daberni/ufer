@@ -1,4 +1,4 @@
-import { parseAmount } from "../csv-values";
+import { formatScaled, fractionDigits, parseAmount, signedScaled } from "../csv-values";
 import { cleanText, isoDate, lineAt, StatementFileError, StatementRows, type StatementFile } from "./statement-rows";
 
 // Reads OFX and QFX bank and credit-card statements, both SGML (1.x, closing tags optional) and XML (2.x), into mapped rows.
@@ -55,18 +55,22 @@ export function readOfx(text: string, locale: string): StatementFile {
     const source = leaf(find(statement.children, account), "ACCTID");
 
     for (const transaction of all(find(statement.children, "BANKTRANLIST"), "STMTTRN")) {
-      // A transaction in another currency than the statement names it in its own aggregate.
-      const ownCurrency = leaf(find(transaction.children, "CURRENCY"), "CURSYM").toUpperCase();
+      // A transaction in another currency states its amount in that currency with the rate to the statement's; the row keeps the account's currency and notes the original amount.
+      const foreign = find(transaction.children, "CURRENCY");
+      const trnamt = ofxAmount(leaf(transaction, "TRNAMT"));
+      const ownCurrency = leaf(foreign, "CURSYM").toUpperCase();
+      const converted = foreign && currency && ownCurrency !== currency ? convert(trnamt, leaf(foreign, "CURRATE"), currency) : trnamt;
+      const note = converted !== trnamt && trnamt !== null ? `${ownCurrency} ${trnamt.replace("-", "")}` : "";
       const payee = leaf(transaction, "NAME") || leaf(find(transaction.children, "PAYEE"), "NAME");
 
       rows.add({
         line: transaction.line,
         // The date the person made the transaction, as bank syncs count bookings, else the posting date.
         date: ofxDate(leaf(transaction, "DTUSER") || leaf(transaction, "DTPOSTED")),
-        amount: ofxAmount(leaf(transaction, "TRNAMT")),
-        currency: ownCurrency || currency,
+        amount: converted,
+        currency,
         payee: cleanText(payee),
-        description: cleanText(leaf(transaction, "MEMO")),
+        description: [cleanText(leaf(transaction, "MEMO")), note].filter(Boolean).join(" · "),
         category: null,
         source,
         id: leaf(transaction, "FITID") || null
@@ -86,6 +90,32 @@ function ofxDate(value: string) {
   const match = /^(\d{4})(\d{2})(\d{2})/.exec(value);
 
   return match ? isoDate(Number(match[1]), Number(match[2]), Number(match[3])) : null;
+}
+
+/** An amount times a rate in the account currency's minor units, rounded half away from zero with exact integers; null without a valid rate. */
+function convert(amount: string | null, rate: string, currency: string) {
+  if (amount === null || !/^\d{1,9}(?:\.\d{1,10})?$/.test(rate) || !/[1-9]/.test(rate)) {
+    return null;
+  }
+
+  const digits = new Intl.NumberFormat("en", {
+    style: "currency",
+    currency
+  }).resolvedOptions().maximumFractionDigits ?? 2;
+  const amountScale = fractionDigits(amount);
+  const rateScale = fractionDigits(rate);
+  const product = signedScaled(amount, amountScale) * signedScaled(rate, rateScale);
+  const excess = amountScale + rateScale - digits;
+
+  if (excess <= 0) {
+    return formatScaled(product * 10n ** BigInt(-excess), digits);
+  }
+
+  const divisor = 10n ** BigInt(excess);
+  const magnitude = product < 0n ? -product : product;
+  const rounded = (magnitude + divisor / 2n) / divisor;
+
+  return formatScaled(product < 0n ? -rounded : rounded, digits);
 }
 
 /** OFX amounts are signed decimals with a point; some banks write a decimal comma, never with grouping. */
@@ -128,6 +158,23 @@ function decodeEntities(value: string) {
 
     return entities[name.toLowerCase()] ?? whole;
   });
+}
+
+// Aggregates the reader relies on; an empty element of another name is an aggregate only when it is closed later.
+const aggregates = new Set(["OFX", "SIGNONMSGSRSV1", "SONRS", "STATUS", "FI", "BANKMSGSRSV1", "STMTTRNRS", "STMTRS", "BANKACCTFROM", "BANKACCTTO", "BANKTRANLIST", "STMTTRN", "PAYEE", "CURRENCY", "ORIGCURRENCY", "LEDGERBAL", "AVAILBAL", "CREDITCARDMSGSRSV1", "CCSTMTTRNRS", "CCSTMTRS", "CCACCTFROM", "CCACCTTO", "INVSTMTMSGSRSV1"]);
+
+const leaves = new Set(["NAME", "MEMO", "TRNAMT", "FITID", "DTPOSTED", "DTUSER", "TRNTYPE", "CURDEF", "ACCTID", "BANKID", "ACCTTYPE", "CURSYM", "CURRATE", "CHECKNUM", "REFNUM", "SIC", "PAYEEID"]);
+
+function opensAggregate(name: string, text: string, from: number) {
+  if (aggregates.has(name)) {
+    return true;
+  }
+
+  if (leaves.has(name)) {
+    return false;
+  }
+
+  return new RegExp(`</${name}\\s*>`, "i").test(text.slice(from));
 }
 
 /**
@@ -180,7 +227,7 @@ function parseOfx(text: string): Element {
 
     stack[stack.length - 1].children.push(element);
 
-    if (!value) {
+    if (!value && opensAggregate(name, text, tag.lastIndex)) {
       stack.push(element);
     }
   }
