@@ -1,5 +1,5 @@
 import { XMLParser, XMLValidator } from "fast-xml-parser";
-import { negate, parseAmount } from "../csv-values";
+import { fractionDigits, negate, parseAmount, signedScaled } from "../csv-values";
 import { cleanText, isoDate, lineAt, StatementFileError, StatementRows, type StatementFile } from "./statement-rows";
 
 // Reads ISO 20022 bank-to-customer statements (camt.053, any version) into mapped rows: one row per booked entry, or per transaction of a batch entry whose transactions carry their own amounts.
@@ -58,7 +58,7 @@ export function readCamt053(text: string, locale: string): StatementFile {
 
     for (const entry of list(statement, "Ntry")) {
       const entryLine = lineAt(text, positions.entries[entryIndex++] ?? 0, lines);
-      const details = list(child(entry, "NtryDtls"), "TxDtls");
+      const details = list(entry, "NtryDtls").flatMap(group => list(group, "TxDtls"));
       const detailLines = details.map(() => lineAt(text, positions.details[detailIndex++] ?? 0, lines));
 
       if (!booked(entry)) {
@@ -68,18 +68,20 @@ export function readCamt053(text: string, locale: string): StatementFile {
       const date = entryDate(entry);
       const entryCredit = textOf(child(entry, "CdtDbtInd")) === "CRDT";
       const entryReference = textOf(child(entry, "AcctSvcrRef")) || textOf(child(entry, "NtryRef"));
-      // A batch entry lists its transactions with their own amounts; each becomes a row, so none is lost in a sum.
-      const split = details.length > 1 && details.every(detail => amountNode(detail) !== null);
+      // A batch entry lists its transactions with their own amounts; each becomes a row only when they add up exactly to the booked entry in its currency, so the balance stays the bank's.
+      const entryAmount = amountOf(child(entry, "Amt"), entryCredit, accountCurrency);
+      const detailAmounts = details.map(detail => amountOf(amountNode(detail), detailCredit(detail, entryCredit), accountCurrency));
+      const split = details.length > 1 && reconciles(entryAmount, detailAmounts);
 
       if (split) {
         details.forEach((detail, index) => {
-          const credit = textOf(child(detail, "CdtDbtInd")) ? textOf(child(detail, "CdtDbtInd")) === "CRDT" : entryCredit;
+          const credit = detailCredit(detail, entryCredit);
           const reference = textOf(child(child(detail, "Refs"), "AcctSvcrRef"));
 
           rows.add({
             line: detailLines[index],
             date,
-            ...amountOf(amountNode(detail), credit, accountCurrency),
+            ...detailAmounts[index],
             payee: counterparty(detail, credit),
             description: remittance(detail) || cleanText(textOf(child(detail, "AddtlTxInf"))),
             category: null,
@@ -91,13 +93,14 @@ export function readCamt053(text: string, locale: string): StatementFile {
         continue;
       }
 
-      const detail = details[0] ?? {};
+      // Unsplit batch details describe several parties, so only a single detail names the entry's.
+      const detail = details.length === 1 ? details[0] : {};
       const reference = details.length === 1 ? textOf(child(child(detail, "Refs"), "AcctSvcrRef")) : "";
 
       rows.add({
         line: entryLine,
         date,
-        ...amountOf(child(entry, "Amt"), entryCredit, accountCurrency),
+        ...entryAmount,
         payee: counterparty(detail, entryCredit),
         description: remittance(detail) || cleanText(textOf(child(detail, "AddtlTxInf"))) || cleanText(textOf(child(entry, "AddtlNtryInf"))),
         category: null,
@@ -166,6 +169,26 @@ function entryDate(entry: Node) {
 /** A transaction's own amount: the plain amount, or the amount in the account's currency of its amount details. */
 function amountNode(detail: Node): unknown {
   return child(detail, "Amt") ?? child(child(child(detail, "AmtDtls"), "TxAmt"), "Amt") ?? null;
+}
+
+function detailCredit(detail: Node, entryCredit: boolean) {
+  const indicator = textOf(child(detail, "CdtDbtInd"));
+
+  return indicator ? indicator === "CRDT" : entryCredit;
+}
+
+type Amount = ReturnType<typeof amountOf>;
+
+/** Whether transaction amounts, all in the entry's currency, add up exactly to the entry's amount. */
+function reconciles(entry: Amount, details: Amount[]) {
+  if (entry.amount === null || details.some(detail => detail.amount === null || detail.currency !== entry.currency)) {
+    return false;
+  }
+
+  const scale = Math.max(fractionDigits(entry.amount), ...details.map(detail => fractionDigits(detail.amount!)));
+  const total = details.reduce((sum, detail) => sum + signedScaled(detail.amount!, scale), 0n);
+
+  return total === signedScaled(entry.amount, scale);
 }
 
 function amountOf(node: unknown, credit: boolean, accountCurrency: string | null) {

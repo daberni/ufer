@@ -309,6 +309,22 @@ test("QIF two-digit years take the most recent century that is not in the future
   assert.deepEqual(statement.rows.map(row => [row.date, row.description, row.parts]), [["1993-12-31", "", null], ["2026-01-05", "Split: Food:oops, Car 14.48", null]]);
 });
 
+test("QIF transfers and categories drop a class suffix", () => {
+  const statement = read("!Type:Bank\nD01.03.2026\nT-10,00\nL[Savings]/Household\n^\nD02.03.2026\nT-5,00\nLFood/Household\n^\n");
+
+  assert.deepEqual(statement.rows.map(row => [row.type, row.category]), [["transfer", null], [null, "Food"]]);
+});
+
+test("CAMT batch details split only when they reconcile with the entry, across several NtryDtls", () => {
+  const entry = (details: string) => camt.replace(/<Ntry>\s*<Amt Ccy="EUR">30\.00<\/Amt>[\s\S]*?<\/Ntry>/, `<Ntry><Amt Ccy="EUR">30.00</Amt><CdtDbtInd>DBIT</CdtDbtInd><Sts><Cd>BOOK</Cd></Sts><BookgDt><Dt>2026-03-04</Dt></BookgDt><AcctSvcrRef>BATCH-7</AcctSvcrRef>${details}</Ntry>`);
+  const batch = (rows: StatementFile["rows"]) => rows.filter(row => row.date === "2026-03-04").map(row => [row.amount, row.payee, row.id]);
+  const detail = (amount: string, currency = "EUR") => `<TxDtls><Amt Ccy="${currency}">${amount}</Amt><RltdPties><Cdtr><Pty><Nm>Club ${amount}</Nm></Pty></Cdtr></RltdPties></TxDtls>`;
+
+  assert.deepEqual(batch(read(entry(`<NtryDtls>${detail("10.00")}</NtryDtls><NtryDtls>${detail("20.00")}</NtryDtls>`)).rows), [["-10.00", "Club 10.00", "BATCH-7/1"], ["-20.00", "Club 20.00", "BATCH-7/2"]]);
+  assert.deepEqual(batch(read(entry(`<NtryDtls>${detail("10.00")}${detail("25.00")}</NtryDtls>`)).rows), [["-30.00", "", "BATCH-7"]]);
+  assert.deepEqual(batch(read(entry(`<NtryDtls>${detail("10.00", "USD")}${detail("20.00")}</NtryDtls>`)).rows), [["-30.00", "", "BATCH-7"]]);
+});
+
 test("CSV and other text are not taken for statements", () => {
   assert.equal(readStatementFile(new TextEncoder().encode("Date,Amount\n2026-01-01,1.00\n"), "en"), null);
   assert.equal(readStatementFile(new TextEncoder().encode("<?xml version=\"1.0\"?><Other/>"), "en"), null);

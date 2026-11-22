@@ -106,7 +106,8 @@ export function readQif(text: string, locale: string): StatementFile {
 
   records.forEach((record, index) => {
     const amount = parseAmount(value(record, "T") || value(record, "U"), decimal);
-    const category = value(record, "L");
+    // A `/class` suffix tags the transaction with a class, which Ufer has no counterpart for.
+    const category = value(record, "L").split("/")[0].trim();
     // `[Account]` names a transfer to another account in Quicken, not a category.
     const transfer = /^\[.*\]$/.test(category);
     const splits = splitTags(record, decimal, amount);
