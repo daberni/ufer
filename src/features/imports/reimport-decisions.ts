@@ -121,7 +121,8 @@ export function decisionTotals(matches: RowMatch[], chosen: ReadonlyMap<number, 
   // Like the import, one booking takes the update of one row; a possible duplicate whose booking another row updates waits for a new decision.
   const claimed = new Set<string>();
 
-  for (const match of matches) {
+  // Confident matches claim their bookings first, as on import.
+  for (const match of matches.toSorted((left, right) => Number(left.kind === "possible") - Number(right.kind === "possible"))) {
     const decision = effectiveDecision(match, chosen.get(match.line));
     const candidate = decision?.action === "update" ? decisionCandidate(match, decision) : undefined;
     const key = candidate ? `${match.accountId}\u0000${candidate.reference}` : "";

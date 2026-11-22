@@ -467,3 +467,26 @@ test("a possible duplicate offers at most five candidates, the closest first", a
   assert.equal(check.matches[0].candidates.length, 5);
   assert.ok(["2024-04-19", "2024-04-21"].includes(check.matches[0].candidates[0].date));
 });
+
+test("a confident match keeps its booking when an earlier possible duplicate chose the same one", async context => {
+  const db = await isolatedDatabase(context);
+
+  await importRows(firstImport, [row(2, "2024-04-20", "-15.00", "Example Cinema"), row(3, "2024-04-24", "-15.00", "Example Cinema")], true);
+
+  const rows = [row(2, "2024-04-22", "-15.00", "Example Cinema", {
+    description: "Possible"
+  }), row(3, "2024-04-24", "-15.00", "Example Cinema", {
+    description: "Confident"
+  })];
+  const check = await importRows(reimport, rows, false);
+  const later = check.matches.find(match => match.line === 2)?.candidates.find(candidate => candidate.date === "2024-04-24");
+  const result = await importRows(reimport, rows, true, [{
+    line: 2,
+    action: "update",
+    reference: later?.reference
+  }]);
+  const stored = await db.select().from(schema.transactions).orderBy(schema.transactions.date);
+
+  assert.deepEqual([result.updatedRows, result.undecided], [1, [2]]);
+  assert.deepEqual(stored.map(item => item.description), ["", "Confident"]);
+});

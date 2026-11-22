@@ -53,7 +53,10 @@ export function planRows(entries: MappedEntry[], found: Found, decisions: Readon
     return true;
   };
 
-  entries.forEach((_entry, index) => {
+  // Confident matches claim their bookings before possible duplicates, so a possible duplicate never takes a booking from a confident match, whatever the row order.
+  const order = entries.map((_entry, index) => index).toSorted((left, right) => Number(!found.duplicates.has(left)) - Number(!found.duplicates.has(right)));
+
+  order.forEach(index => {
     const decision = decisions.get(index);
     const reason = found.duplicates.get(index);
     const booking = found.matches.get(index);
@@ -110,6 +113,8 @@ export function planRows(entries: MappedEntry[], found: Found, decisions: Readon
       date: chosen.date
     });
   });
+
+  inserts.sort((left, right) => left - right);
 
   return {
     inserts,
