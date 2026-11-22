@@ -282,3 +282,12 @@ export async function readAccountSplits(accountId: string) {
     denominator: securitySplits.denominator
   }).from(securitySplits).innerJoin(securityTrades, eq(securityTrades.security_id, securitySplits.security_id)).where(eq(securityTrades.account_id, accountId));
 }
+
+/** The securities an account has traded. */
+export async function readTradedSecurityIds(tx: DatabaseTransaction, accountId: string) {
+  const rows = await tx.selectDistinct({
+    security_id: securityTrades.security_id
+  }).from(securityTrades).where(eq(securityTrades.account_id, accountId));
+
+  return rows.map(row => row.security_id);
+}

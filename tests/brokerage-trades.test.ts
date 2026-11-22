@@ -7,7 +7,7 @@ import { drizzle } from "drizzle-orm/libsql";
 import type { Database } from "../src/server/database/connection";
 import { initializeDatabase } from "../src/server/database/migrations";
 import * as schema from "../src/server/database/schema";
-import { createManualAccount, deleteAccount } from "../src/features/accounts/server/account-service";
+import { archiveAccount, createManualAccount, deleteAccount } from "../src/features/accounts/server/account-service";
 import { listAccounts } from "../src/features/accounts/server/account-queries";
 import { saveAccountSync } from "../src/features/banking/server/account-sync-service";
 import { readCashFlow } from "../src/features/reports/server/cash-flow-query";
@@ -559,4 +559,35 @@ test("cash amounts beyond the exact integer range and unsupported currencies are
     name: "Synthetic unknown",
     currency: "ZZZ"
   }));
+});
+
+test("a brokerage account is archived only once it holds no securities", async context => {
+  const db = await isolatedDatabase(context);
+  const cash = await settlementAccount();
+  const account = await depot();
+  const etf = await security();
+  const settlement = {
+    account_id: cash
+  };
+
+  await trade(account, {
+    security_id: etf,
+    date: "2026-09-10",
+    side: "buy",
+    quantity: "2",
+    price: "10",
+    settlement
+  });
+  await rejectsWith(archiveAccount(account, {}, now), 409);
+
+  await trade(account, {
+    security_id: etf,
+    date: "2026-09-20",
+    side: "sell",
+    quantity: "2",
+    price: "11",
+    settlement
+  });
+  await archiveAccount(account, {}, now);
+  assert.ok((await db.select().from(schema.accounts).where(eq(schema.accounts.id, account)).get())?.archived_at);
 });

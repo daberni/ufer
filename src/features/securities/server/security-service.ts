@@ -10,8 +10,8 @@ import { amountMinor, positionOn, type PositionTrade } from "../holdings";
 import { parseMicros } from "../quantities";
 import { settlementRefusal, settlementWindowDays, tradeCashAmount, type SettlementRefusal } from "../trade-decisions";
 import { brokerageAccountInput, securityInput, settlementCandidatesQuery, tradeInput } from "./security-schema";
-import { deleteTrade, findBrokerageAccount, findSecurity, findSettlementAccount, findSettlementBooking, findTrade, insertBrokerageAccount, insertSecurity, insertSettlementEntry, insertTrade, listSecurities, markSettlementBooking, nextTradeSequence, readAccountSplits, readAccountTrades, readPositionTrades, readSettlementCandidates, readSplits, withSecurityTransaction } from "./security-repository";
-import { database } from "@/server/database/connection";
+import { deleteTrade, findBrokerageAccount, findSecurity, findSettlementAccount, findSettlementBooking, findTrade, insertBrokerageAccount, insertSecurity, insertSettlementEntry, insertTrade, listSecurities, markSettlementBooking, nextTradeSequence, readAccountSplits, readAccountTrades, readPositionTrades, readSettlementCandidates, readSplits, readTradedSecurityIds, withSecurityTransaction } from "./security-repository";
+import { database, type DatabaseTransaction } from "@/server/database/connection";
 
 /** Replays every trade so a sale never exceeds what was held at that point, now or after a change. */
 const replayEnd = "9999-12-31";
@@ -288,4 +288,15 @@ export async function settlementCandidates(accountId: string, query: URLSearchPa
   const account = await requireBrokerageAccount(accountId);
 
   return readSettlementCandidates(account.currency, input.amount_minor, input.date);
+}
+
+/** Whether the brokerage account still holds any security; read inside the caller's write transaction, since a trade may be recorded meanwhile. */
+export async function holdsSecurities(tx: DatabaseTransaction, accountId: string) {
+  for (const securityId of await readTradedSecurityIds(tx, accountId)) {
+    if (positionOn(await readPositionTrades(tx, accountId, securityId), await readSplits(tx, securityId), replayEnd).quantity_micros > 0) {
+      return true;
+    }
+  }
+
+  return false;
 }
