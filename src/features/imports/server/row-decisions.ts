@@ -63,6 +63,9 @@ export function planRows(entries: MappedEntry[], found: Found, decisions: Readon
 
       if (action === "create" && reason === "existing_booking") {
         inserts.push(index);
+      } else if (action === "update" && decision?.reference !== undefined && decision.reference !== booking.reference) {
+        // The person chose another booking at the check; never update a different one.
+        undecided.push(index);
       } else if (action === "update") {
         update(index, booking);
       }
@@ -118,7 +121,7 @@ export function planRows(entries: MappedEntry[], found: Found, decisions: Readon
 
 /** The review's view of each matched or possibly duplicate row, by index. */
 export function describeMatches(entries: MappedEntry[], found: Found) {
-  const described = new Map<number, Omit<RowMatch, "line">>();
+  const described = new Map<number, Omit<RowMatch, "line" | "accountId">>();
   const existingMatch = (index: number, booking: StoredBooking): ExistingMatch => ({
     reference: booking.reference,
     date: booking.date,

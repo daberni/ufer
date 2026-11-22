@@ -366,16 +366,19 @@ test("the review's totals follow the decisions and leave a possible duplicate un
   });
   const matches: RowMatch[] = [{
     line: 2,
+    accountId: "x",
     kind: "match",
     reason: "already_imported",
     candidates: [existing("a", ["payee"])]
   }, {
     line: 3,
+    accountId: "x",
     kind: "match",
     reason: "existing_booking",
     candidates: [existing("b", [])]
   }, {
     line: 4,
+    accountId: "x",
     kind: "possible",
     reason: null,
     candidates: [existing("a", ["description"]), existing("c", ["description"])]
@@ -413,6 +416,31 @@ test("the review's totals follow the decisions and leave a possible duplicate un
     unchanged: 0,
     undecided: 0
   });
+  // The same reference on another account is a different booking.
+  assert.equal(decisionTotals([matches[0], {
+    ...matches[2],
+    accountId: "y"
+  }], new Map([[4, {
+    line: 4,
+    action: "update" as const
+  }]])).undecided, 0);
+});
+
+test("an update of a chosen booking is not redirected to another booking that now matches", async context => {
+  const db = await isolatedDatabase(context);
+
+  await importRows(firstImport, [row(2, "2024-04-20", "-15.00", "Example Cinema")], true);
+
+  const result = await importRows(reimport, [row(2, "2024-04-21", "-15.00", "Example Cinema", {
+    description: "Changed"
+  })], true, [{
+    line: 2,
+    action: "update",
+    reference: "csv:m:deleted-meanwhile"
+  }]);
+
+  assert.deepEqual([result.updatedRows, result.undecided], [0, [2]]);
+  assert.equal((await db.select().from(schema.transactions)).at(0)?.description, "");
 });
 
 test("an update decided for a row that no longer matches anything is not inserted", async context => {

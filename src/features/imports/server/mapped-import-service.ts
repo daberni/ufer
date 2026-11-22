@@ -599,7 +599,8 @@ async function classifyAndSave(planned: PlannedRow[], targets: Map<string, Targe
     for (const [index, match] of result.matches) {
       matches.push({
         line: rows[index].line,
-        ...match
+        ...match,
+        accountId
       });
     }
 

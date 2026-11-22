@@ -29,6 +29,8 @@ export type DuplicateReason = "already_imported" | "existing_booking";
 /** A row that matches a booking (`match`, updated unless the person decides otherwise) or may duplicate one (`possible`, which waits for a decision). */
 export type RowMatch = {
   line: number;
+  /** The target account; references are unique only per account. */
+  accountId: string;
   kind: "match" | "possible";
   /** Why a `match` matched: the same reference as an earlier import, or the content of another booking. */
   reason: DuplicateReason | null;
@@ -122,10 +124,11 @@ export function decisionTotals(matches: RowMatch[], chosen: ReadonlyMap<number, 
   for (const match of matches) {
     const decision = effectiveDecision(match, chosen.get(match.line));
     const candidate = decision?.action === "update" ? decisionCandidate(match, decision) : undefined;
-    const taken = candidate ? claimed.has(candidate.reference) : false;
+    const key = candidate ? `${match.accountId}\u0000${candidate.reference}` : "";
+    const taken = candidate ? claimed.has(key) : false;
 
     if (candidate) {
-      claimed.add(candidate.reference);
+      claimed.add(key);
     }
 
     if (!decision || (taken && match.kind === "possible")) {
