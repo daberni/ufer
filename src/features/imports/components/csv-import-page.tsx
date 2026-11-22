@@ -15,6 +15,7 @@ import { ColumnPreview } from "./column-preview";
 import { CategoryChoices } from "./category-choices";
 import { TypeChoices } from "./type-choices";
 import { ImportSummaryBar } from "./import-summary-bar";
+import { MatchReview } from "./match-review";
 import { SaveTemplate } from "./save-template";
 import { TemplateList } from "./template-list";
 import { TemplateNotice } from "./template-notice";
@@ -46,7 +47,9 @@ export function CsvImportPage() {
         <section className={clsx(ui["panel"], styles["done"])} aria-labelledby="import-done">
           <CircleCheck size={32} aria-hidden="true" />
           <h2 id="import-done">{formatCount(draft.imported.newRows, locale)} {draft.imported.newRows === 1 ? "transaction" : "transactions"} imported</h2>
-          <p className={ui["form-hint"]}>Rules categorized the rows without a chosen category. Importing the same file again skips the rows it already holds.</p>
+          {draft.imported.updatedRows > 0 && <p>{formatCount(draft.imported.updatedRows, locale)} existing {draft.imported.updatedRows === 1 ? "booking" : "bookings"} updated from the file.</p>}
+          {draft.imported.undecided.length > 0 && <p className={ui["form-hint"]}>{formatCount(draft.imported.undecided.length, locale)} possible {draft.imported.undecided.length === 1 ? "duplicate was" : "duplicates were"} left out because the booking chosen for the update changed or was taken by another row.</p>}
+          <p className={ui["form-hint"]}>Rules categorized the rows without a chosen category. Importing the same file again updates the bookings it already holds from the file.</p>
           <div className={ui["button-group"]}>
             <Link className={clsx(ui["button"], ui["primary"])} href={viewPaths.transactions}>
               View transactions <ArrowRight size={16} />
@@ -80,6 +83,7 @@ export function CsvImportPage() {
           <ColumnPreview draft={draft} reviewing={reviewing} />
           {draft.typeOptions.length > 0 && <TypeChoices draft={draft} />}
           {draft.categoryValues.length > 0 && <CategoryChoices draft={draft} />}
+          <MatchReview draft={draft} />
           <ImportSummaryBar
             draft={draft}
             reviewing={reviewing}

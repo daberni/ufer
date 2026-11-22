@@ -71,3 +71,8 @@
     flex: 1;
   }
 }
+.bar > .blocked {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--gold-text);
+}

@@ -225,6 +225,7 @@ export async function updateManualTransaction(
 async function reapplyRuleCategory(tx: DatabaseTransaction, id: string, categoryFor: (text: RuleText) => RuleAssignment) {
   const automatic = and(eq(transactions.id, id), eq(transactions.category_source, "rule"));
   const booking = await tx.select({
+    account_id: transactions.account_id,
     counterparty: transactions.counterparty,
     description: transactions.description,
     counterparty_override: transactions.counterparty_override,

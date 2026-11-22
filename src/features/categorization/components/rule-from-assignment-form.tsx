@@ -66,6 +66,7 @@ function RuleFromAssignmentForm({
   } = useRulePreviewDraft({
     pattern: pattern.trim(),
     mode: "keyword",
+    accountId: null,
     ruleId: null,
     categoryId,
     sourceTransactionId: transactionId

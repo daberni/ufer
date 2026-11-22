@@ -284,14 +284,17 @@ test("booking dates must be real calendar dates in exactly YYYY-MM-DD form", () 
 });
 test("rule priority and disabled rules follow explicit precedence", () => {
   assert.equal(categorize({
+    account_id: "checking",
     counterparty: "MARKET",
     description: "Rent"
   }, prepareRules(rules)), "home");
   assert.equal(categorize({
+    account_id: "checking",
     counterparty: "market",
     description: "Groceries"
   }, prepareRules(rules)), "groceries");
   assert.equal(categorize({
+    account_id: "checking",
     counterparty: "MARKET",
     description: "Rent"
   }, prepareRules(rules.map(rule => ({

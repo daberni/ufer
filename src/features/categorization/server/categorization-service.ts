@@ -33,6 +33,8 @@ const ruleInput = z.object({
   // An empty form value or null leaves the automatic type; a transfer may name the own account on its other side.
   transaction_type: z.preprocess(emptyAsNull, z.enum(ruleTransactionTypes).nullable().default(null)),
   transfer_account_id: z.preprocess(emptyAsNull, z.string().min(1).max(200).nullable().default(null)),
+  // Limits the rule to the bookings of one account; empty or null matches every account.
+  account_id: z.preprocess(emptyAsNull, z.string().min(1).max(200).nullable().default(null)),
   enabled: z.boolean().default(true),
   // Gives the rule's category to the transactions it decides that are still uncategorized; other matches change when rules are applied.
   apply_to_uncategorized: z.boolean().default(false),
@@ -44,6 +46,8 @@ const ruleInput = z.object({
 
 const rulePreviewInput = z.object({
   ...ruleMatching,
+  // Counts only the bookings of this account, as the rule's account condition will.
+  account_id: z.preprocess(emptyAsNull, z.string().min(1).max(200).nullable().default(null)),
   // An edited rule is counted in place of its stored version.
   rule_id: z.string().min(1).optional(),
   // Counts the manual assignments the rule decides that already have this category.
@@ -62,6 +66,7 @@ type TransferTarget = {
 };
 
 const inactiveTargetMessage = "Choose one of your active accounts for the transfer.";
+const inactiveConditionMessage = "Choose one of your active accounts for the rule.";
 
 function validateTransferTarget(input: TransferTarget) {
   if (input.transfer_account_id && input.transaction_type !== "transfer") {
@@ -94,6 +99,10 @@ export async function parseRuleCreation(payload: unknown) {
   }
 
   await validateRuleType(input);
+
+  if (input.account_id && !(await activeAccountExists(input.account_id))) {
+    throw new ValidationError(inactiveConditionMessage);
+  }
 
   // A previewed ID decides equal-priority ties exactly as counted, so it must not belong to another rule.
   if (previewId !== undefined && (await listRules()).some(rule => rule.id === previewId)) {
@@ -145,6 +154,10 @@ export async function parseRuleUpdate(payload: unknown) {
 
 export function inactiveTargetError() {
   return new ValidationError(inactiveTargetMessage);
+}
+
+export function inactiveConditionError() {
+  return new ValidationError(inactiveConditionMessage);
 }
 
 /** Words the rule limit for the request after the write transaction rolled back. */

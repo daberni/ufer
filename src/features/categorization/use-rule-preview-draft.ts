@@ -8,7 +8,7 @@ import type { RulePreviewDraft } from "@/features/categorization/types";
 const previewDelay = 300;
 
 function sameDraft(first: RulePreviewDraft | null, second: RulePreviewDraft | null) {
-  return first !== null && second !== null && first.pattern === second.pattern && first.mode === second.mode && first.ruleId === second.ruleId && first.categoryId === second.categoryId && first.sourceTransactionId === second.sourceTransactionId;
+  return first !== null && second !== null && first.pattern === second.pattern && first.mode === second.mode && first.accountId === second.accountId && first.ruleId === second.ruleId && first.categoryId === second.categoryId && first.sourceTransactionId === second.sourceTransactionId;
 }
 
 /**
@@ -18,6 +18,7 @@ function sameDraft(first: RulePreviewDraft | null, second: RulePreviewDraft | nu
 export function useRulePreviewDraft({
   pattern,
   mode,
+  accountId,
   ruleId,
   categoryId,
   sourceTransactionId
@@ -30,13 +31,14 @@ export function useRulePreviewDraft({
     return {
       pattern,
       mode,
+      accountId,
       ruleId,
       categoryId,
       ...(sourceTransactionId === undefined ? {} : {
         sourceTransactionId
       })
     };
-  }, [pattern, mode, ruleId, categoryId, sourceTransactionId]);
+  }, [pattern, mode, accountId, ruleId, categoryId, sourceTransactionId]);
   const [previewed, setPreviewed] = useState(draft);
 
   useEffect(() => {

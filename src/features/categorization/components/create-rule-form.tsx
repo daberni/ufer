@@ -152,10 +152,12 @@ function RuleForm({
   const [pattern, setPattern] = useState(rule?.pattern ?? "");
   const [mode, setMode] = useState<Mode>(rule?.mode === "regex" ? "regex" : "keyword");
   const [type, setType] = useState<RuleTransactionType | "">(rule?.transaction_type ?? "");
+  const [accountId, setAccountId] = useState(rule?.account_id ?? "");
   const ruleId = rule?.id ?? null;
   const impact = useRuleImpact({
     pattern,
     mode,
+    accountId: accountId || null,
     ruleId,
     categoryId
   });
@@ -202,6 +204,12 @@ function RuleForm({
           </Select>
         </label>
         <PatternField pattern={pattern} mode={mode} onChange={setPattern} />
+        <AccountConditionField
+          value={accountId}
+          onChange={setAccountId}
+          storedId={rule?.account_id ?? ""}
+          storedName={rule?.account_name ?? null}
+        />
       </fieldset>
       <fieldset className={styles["section"]}>
         <legend className={styles["section-title"]}>Then</legend>
@@ -289,6 +297,34 @@ function PatternField({
       />
       <span id={hintId} className={styles["hint"]}>Matches payee and description, ignoring case. The first matching rule wins.</span>
     </div>
+  );
+}
+
+/** The optional account whose bookings alone the rule matches. A stored account that was archived or deleted stays selectable until it is changed. */
+function AccountConditionField({
+  value,
+  onChange,
+  storedId,
+  storedName
+}: {
+  value: string;
+  onChange: (accountId: string) => void;
+  storedId: string;
+  storedName: string | null;
+}) {
+  const accounts = useAccounts();
+  const options = activeAccounts(accounts.data ?? []);
+  const storedMissing = storedId !== "" && !options.some(account => account.id === storedId);
+
+  return (
+    <label>
+      Only for account
+      <Select name="account_id" value={value} onChange={event => onChange(event.target.value)}>
+        <option value="">Any account</option>
+        {storedMissing && <option value={storedId}>{storedName ?? "Deleted account"}</option>}
+        {options.map(account => <option key={account.id} value={account.id}>{account.name}</option>)}
+      </Select>
+    </label>
   );
 }
 

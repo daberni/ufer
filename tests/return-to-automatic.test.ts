@@ -325,7 +325,9 @@ const marketRule: Rule = {
   category_icon: null,
   transaction_type: null,
   transfer_account_id: null,
-  transfer_account_name: null
+  transfer_account_name: null,
+  account_id: null,
+  account_name: null
 };
 
 function booking(overrides: Partial<Transaction>): Transaction {

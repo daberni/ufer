@@ -1,5 +1,5 @@
 import { derivedTransactionType, type TransactionType } from "@/lib/transaction-types";
-import { decidingRule, prepareRules, ruleAssignment, type PreparedRule, type Rule, type RuleText } from "@/features/categorization/server/rule-assignment";
+import { counterpartAccount, decidingRule, prepareRules, ruleAssignment, type PreparedRule, type Rule, type RuleText } from "@/features/categorization/server/rule-assignment";
 
 type RuleCandidate = RuleText & {
   id: string;
@@ -120,7 +120,7 @@ export function decideRuleTypeChanges(entries: RuleTypeable[], rules: PreparedRu
  * The types a rule sets on bookings it was just given. A rule with a type sets it with a reference to itself; a rule without a type returns a type an earlier rule set
  * to the derived type, as applying rules does, and leaves other bookings unchanged.
  */
-export function decideAdoptedTypes(rule: Pick<Rule, "id" | "transaction_type" | "transfer_account_id">, entries: Pick<RuleTypeable, "id" | "amount_minor" | "type_rule_id" | "transfer_detected">[]): Omit<RuleTypeChange, "changed">[] {
+export function decideAdoptedTypes(rule: Pick<Rule, "id" | "transaction_type" | "transfer_account_id">, entries: Pick<RuleTypeable, "id" | "account_id" | "amount_minor" | "type_rule_id" | "transfer_detected">[]): Omit<RuleTypeChange, "changed">[] {
   const type = rule.transaction_type;
 
   if (!type) {
@@ -136,6 +136,6 @@ export function decideAdoptedTypes(rule: Pick<Rule, "id" | "transaction_type" | 
     id: entry.id,
     type,
     type_rule_id: rule.id,
-    type_transfer_account_id: type === "transfer" ? rule.transfer_account_id ?? null : null
+    type_transfer_account_id: type === "transfer" ? counterpartAccount(rule.transfer_account_id, entry.account_id) : null
   }));
 }
