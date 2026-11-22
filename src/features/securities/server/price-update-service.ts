@@ -172,6 +172,23 @@ export async function searchListings(query: URLSearchParams, provider: MarketDat
   }
 }
 
+/** The configured provider's listings for an ISIN; none without a key or when the provider fails, since a security is valid without a price source. */
+export async function searchProviderListings(isin: string, provider: MarketDataProvider | null = configuredProvider()) {
+  if (!provider) {
+    return [];
+  }
+
+  try {
+    return await provider.searchByIsin(isin);
+  } catch (error) {
+    if (error instanceof MarketDataError) {
+      return [];
+    }
+
+    throw error;
+  }
+}
+
 /** Whether a price source is configured, shown with the securities so a missing price is explained. */
 export function priceSourceStatus(provider: MarketDataProvider | null = configuredProvider()) {
   return {

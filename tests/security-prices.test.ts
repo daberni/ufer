@@ -8,7 +8,7 @@ import type { Database } from "../src/server/database/connection";
 import { initializeDatabase } from "../src/server/database/migrations";
 import * as schema from "../src/server/database/schema";
 import { closeMicros, marketDataLease, searchListings, updatePrices } from "../src/features/securities/server/price-update-service";
-import { readSecurities } from "../src/features/securities/server/security-service";
+import { readSecurities, resolveSecurity, updateSecurityListing } from "../src/features/securities/server/security-service";
 import { eodhdProvider, parseSplitRatio } from "../src/features/securities/server/market-data/eodhd-provider";
 import { MarketDataError, type MarketDataProvider, type ProviderClose } from "../src/features/securities/server/market-data/market-data-provider";
 import { acquireLease } from "../src/server/jobs/lease-repository";
@@ -141,7 +141,7 @@ test("without a price source the update does nothing and the securities say so",
     message: "No price source configured."
   });
   await assert.rejects(searchListings(new URLSearchParams({
-    isin: "XS0000000001"
+    isin: "XS0000000009"
   }), null), error => error instanceof HttpError && error.status === 409);
 });
 
@@ -321,12 +321,12 @@ test("closes convert to micro-units through their decimal text and invalid ones 
 test("the EODHD adapter maps responses, sends the token only as a query parameter and keeps it out of errors", async () => {
   const urls: URL[] = [];
   const responses: Record<string, unknown> = {
-    "/api/search/XS0000000001": [{
+    "/api/search/XS0000000009": [{
       Code: "SYN",
       Exchange: "XETRA",
       Name: "Synthetic World ETF",
       Currency: "EUR",
-      ISIN: "XS0000000001"
+      ISIN: "XS0000000009"
     }],
     "/api/eod/SYN.XETRA": [{
       date: "2026-10-13",
@@ -356,12 +356,12 @@ test("the EODHD adapter maps responses, sends the token only as a query paramete
     return Response.json(responses[url.pathname]);
   });
 
-  assert.deepEqual(await provider.searchByIsin("XS0000000001"), [{
+  assert.deepEqual(await provider.searchByIsin("XS0000000009"), [{
     symbol: "SYN.XETRA",
     name: "Synthetic World ETF",
     exchange: "XETRA",
     currency: "EUR",
-    isin: "XS0000000001"
+    isin: "XS0000000009"
   }]);
   assert.deepEqual(await provider.dailyCloses("SYN.XETRA", "2026-10-13", "2026-10-14"), [{
     date: "2026-10-13",
@@ -399,4 +399,110 @@ test("a security first traded before the provider's one-year split history is ch
   assert.equal(result.incomplete, 1);
   assert.deepEqual(weekly.requests.filter(request => request.kind === "splits").map(request => request.from), ["2025-10-19"]);
   assert.match((await securityRow(db, "etf"))?.price_error ?? "", /Splits before 2025-10-19 cannot be checked/);
+});
+
+test("resolving an ISIN creates the security once, priced with the preferred listing in the trade currency", async context => {
+  const db = await isolatedDatabase(context);
+  const searched: string[] = [];
+  const provider: MarketDataProvider = {
+    ...fakeProvider({}).provider,
+    async searchByIsin(isin) {
+      searched.push(isin);
+
+      return [{
+        symbol: "WLD.LSE",
+        name: "Synthetic World (London)",
+        exchange: "LSE",
+        currency: "GBP",
+        isin
+      }, {
+        symbol: "WLD.F",
+        name: "Synthetic World",
+        exchange: "F",
+        currency: "EUR",
+        isin
+      }, {
+        symbol: "WLD.XETRA",
+        name: "Synthetic World",
+        exchange: "XETRA",
+        currency: "EUR",
+        isin
+      }];
+    }
+  };
+
+  const first = await resolveSecurity({
+    isin: "us0378331005",
+    currency: "EUR"
+  }, provider);
+  const again = await resolveSecurity({
+    isin: "US0378331005",
+    currency: "EUR"
+  }, provider);
+
+  assert.deepEqual([first.created, first.provider_symbol, again.created, again.id], [true, "WLD.XETRA", false, first.id]);
+  assert.deepEqual(searched, ["US0378331005"]);
+  assert.deepEqual(await db.select({
+    name: schema.securities.name,
+    venue: schema.securities.venue
+  }).from(schema.securities).where(eq(schema.securities.id, first.id)).get(), {
+    name: "Synthetic World",
+    venue: "XETRA"
+  });
+  await assert.rejects(resolveSecurity({
+    isin: "US0378331006",
+    currency: "EUR"
+  }, provider));
+});
+
+test("without a key or a listing in the trade currency the security is still created without a price source", async context => {
+  const db = await isolatedDatabase(context);
+  const withoutKey = await resolveSecurity({
+    isin: "IE00B4L5Y983",
+    currency: "EUR",
+    name: "Synthetic fund"
+  }, null);
+  const dollarsOnly = await resolveSecurity({
+    isin: "US0378331005",
+    currency: "EUR"
+  }, {
+    ...fakeProvider({}).provider,
+    searchByIsin: async isin => [{
+      symbol: "WLD.US",
+      name: "Synthetic World",
+      exchange: "US",
+      currency: "USD",
+      isin
+    }]
+  });
+
+  assert.deepEqual([withoutKey.provider_symbol, dollarsOnly.provider_symbol], [null, null]);
+  assert.equal((await securityRow(db, withoutKey.id))?.name, "Synthetic fund");
+  assert.equal((await securityRow(db, dollarsOnly.id))?.name, "US0378331005");
+});
+
+test("changing a security's listing drops the old listing's prices and refuses a symbol another security uses", async context => {
+  const db = await isolatedDatabase(context);
+
+  await db.insert(schema.securityPrices).values({
+    security_id: "etf",
+    date: "2026-10-12",
+    close_micros: 100_000_000,
+    source: "eodhd",
+    fetched_at: "2026-10-12T06:00:00.000Z"
+  });
+  await assert.rejects(updateSecurityListing("etf", {
+    provider_symbol: "SYNF.EUFUND"
+  }), error => error instanceof HttpError && error.status === 409);
+  assert.equal((await pricesOf(db, "etf")).length, 1);
+
+  await updateSecurityListing("etf", {
+    provider_symbol: "SYN.F"
+  });
+  assert.deepEqual([(await securityRow(db, "etf"))?.provider_symbol, (await pricesOf(db, "etf")).length], ["SYN.F", 0]);
+
+  await updateSecurityListing("etf", {
+    provider_symbol: null
+  });
+  assert.deepEqual([(await securityRow(db, "etf"))?.provider, (await securityRow(db, "etf"))?.provider_symbol], [null, null]);
 });

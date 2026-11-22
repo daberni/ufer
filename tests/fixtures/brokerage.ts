@@ -83,7 +83,7 @@ export async function security(currency = "EUR", symbol: string | null = "SYN.XE
   const { id } = await createSecurity({
     name: "Synthetic World ETF",
     currency,
-    isin: "XS0000000001",
+    isin: "XS0000000009",
     provider_symbol: symbol
   });
 

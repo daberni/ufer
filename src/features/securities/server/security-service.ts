@@ -8,12 +8,15 @@ import { refuse } from "@/server/database/transaction";
 import { archivedAccountMessage } from "@/features/transactions/server/booking-accounts";
 import { amountMinor, positionOn, type PositionTrade } from "../holdings";
 import { parseMicros } from "../quantities";
-import { priceSourceStatus } from "./price-update-service";
+import { priceSourceStatus, searchProviderListings } from "./price-update-service";
+import { chooseListing } from "../listing-choice";
+import { configuredProvider } from "./market-data/eodhd-provider";
+import type { MarketDataProvider } from "./market-data/market-data-provider";
 import { valueHoldings } from "../valuation";
 import { readHoldingInputs } from "./valuation-repository";
 import { settlementRefusal, settlementWindowDays, tradeCashAmount, type SettlementRefusal } from "../trade-decisions";
-import { brokerageAccountInput, securityInput, settlementCandidatesQuery, tradeInput } from "./security-schema";
-import { deleteTrade, findBrokerageAccount, findSecurity, findSettlementAccount, findSettlementBooking, findTrade, insertBrokerageAccount, insertSecurity, insertSettlementEntry, insertTrade, listSecurities, markSettlementBooking, nextTradeSequence, readAccountTrades, readPositionTrades, readSettlementCandidates, readSplits, readTradedSecurityIds, withSecurityTransaction } from "./security-repository";
+import { brokerageAccountInput, listingInput, resolveSecurityInput, securityInput, settlementCandidatesQuery, tradeInput } from "./security-schema";
+import { deleteTrade, findBrokerageAccount, findSecurity, findSettlementAccount, findSettlementBooking, findTrade, insertBrokerageAccount, insertSecurity, insertSettlementEntry, insertTrade, listSecurities, markSettlementBooking, nextTradeSequence, readAccountTrades, readPositionTrades, readSettlementCandidates, readSplits, readTradedSecurityIds, withSecurityTransaction, findSecurityByIsin, findSecurityListing, saveSecurityListing } from "./security-repository";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 
 /** Replays every trade so a sale never exceeds what was held at that point, now or after a change. */
@@ -51,6 +54,76 @@ export async function createSecurity(payload: unknown) {
 
   return {
     id
+  };
+}
+
+/**
+ * The security for an ISIN in the trade's currency, created when it is new. Its price listing is chosen automatically from the provider's listings (ADR 012 amendment); without a key or a listing in that currency it is still valid and has no price source.
+ */
+export async function resolveSecurity(payload: unknown, provider: MarketDataProvider | null = configuredProvider()) {
+  const input = resolveSecurityInput.parse(payload);
+  const existing = await findSecurityByIsin(input.isin, input.currency);
+
+  if (existing) {
+    return {
+      id: existing.id,
+      created: false,
+      provider_symbol: existing.provider_symbol
+    };
+  }
+
+  const listing = chooseListing(await searchProviderListings(input.isin, provider), input.currency);
+  const id = randomUUID();
+  const saved = await insertSecurity({
+    id,
+    isin: input.isin,
+    name: input.name ?? listing?.name ?? input.isin,
+    currency: input.currency,
+    provider: listing ? "eodhd" : null,
+    provider_symbol: listing?.symbol ?? null,
+    venue: listing?.exchange ?? null
+  });
+
+  // Another security already uses that listing, for example the same ISIN entered with a typed symbol; this one then goes without a price source.
+  if (!saved) {
+    await insertSecurity({
+      id,
+      isin: input.isin,
+      name: input.name ?? listing?.name ?? input.isin,
+      currency: input.currency,
+      provider: null,
+      provider_symbol: null,
+      venue: null
+    });
+  }
+
+  return {
+    id,
+    created: true,
+    provider_symbol: saved ? listing?.symbol ?? null : null
+  };
+}
+
+/** Changes the listing a security is priced with, or removes it; a small edit outside the trade flow. */
+export async function updateSecurityListing(id: string, payload: unknown) {
+  const input = listingInput.parse(payload);
+  const security = await findSecurityListing(id);
+
+  if (!security) {
+    throw new HttpError(404, "Security not found.");
+  }
+
+  const saved = await saveSecurityListing(id, {
+    provider: input.provider_symbol ? "eodhd" : null,
+    provider_symbol: input.provider_symbol
+  });
+
+  if (!saved) {
+    throw new HttpError(409, "Another security already uses this listing.");
+  }
+
+  return {
+    ok: true
   };
 }
 

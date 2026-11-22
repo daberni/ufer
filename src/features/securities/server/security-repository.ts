@@ -1,7 +1,7 @@
 import { and, asc, eq, isNull, max, ne, sql } from "drizzle-orm";
 import { database, type Database, type DatabaseTransaction } from "@/server/database/connection";
 import { withRefusableTransaction } from "@/server/database/transaction";
-import { accounts, securities, securitySplits, securityTrades, transactions } from "@/server/database/schema";
+import { accounts, securities, securityPrices, securitySplits, securityTrades, transactions } from "@/server/database/schema";
 import { manualEntryPrefix } from "@/lib/booking-references";
 import { derivedTransactionType } from "@/lib/transaction-types";
 import { bookableAccount } from "@/features/transactions/server/booking-accounts";
@@ -279,4 +279,56 @@ export async function readTradedSecurityIds(tx: DatabaseTransaction, accountId: 
   }).from(securityTrades).where(eq(securityTrades.account_id, accountId));
 
   return rows.map(row => row.security_id);
+}
+
+/** The security already recorded for an ISIN in a currency, if any. */
+export async function findSecurityByIsin(isin: string, currency: string) {
+  const db = await database();
+
+  return db.select({
+    id: securities.id,
+    name: securities.name,
+    provider_symbol: securities.provider_symbol
+  }).from(securities).where(and(eq(securities.isin, isin), eq(securities.currency, currency))).orderBy(asc(securities.created_at)).get();
+}
+
+export async function findSecurityListing(id: string) {
+  const db = await database();
+
+  return db.select({
+    id: securities.id,
+    isin: securities.isin,
+    currency: securities.currency,
+    provider: securities.provider,
+    provider_symbol: securities.provider_symbol
+  }).from(securities).where(eq(securities.id, id)).get();
+}
+
+/** Switches the listing a security is priced with; its stored prices came from the old listing and are removed, so the next update fetches the new listing's. False when another security already uses the symbol. */
+export async function saveSecurityListing(id: string, listing: {
+  provider: string | null;
+  provider_symbol: string | null;
+}) {
+  const db = await database();
+
+  return db.transaction(async tx => {
+    if (listing.provider_symbol) {
+      const taken = await tx.select({
+        id: securities.id
+      }).from(securities).where(and(eq(securities.provider_symbol, listing.provider_symbol), ne(securities.id, id))).get();
+
+      if (taken) {
+        return false;
+      }
+    }
+
+    await tx.delete(securityPrices).where(eq(securityPrices.security_id, id));
+    await tx.update(securities).set({
+      ...listing,
+      price_checked_at: null,
+      price_error: null
+    }).where(eq(securities.id, id));
+
+    return true;
+  });
 }

@@ -88,9 +88,9 @@ test("a partial sale keeps the moving-average cost of the rest and realizes its 
   } = await readBrokerageTrades(account, now);
 
   assert.deepEqual(trades.map(item => item.sequence), [1, 2, 3]);
-  // No price is stored yet, so the holding is listed without a value.
+  // No price is stored yet, so the holding counts at its cost basis and is marked missing.
   assert.deepEqual(valuation, {
-    value_minor: 0,
+    value_minor: 1657_50,
     missing: 1,
     stale: 0,
     holdings: [{
@@ -100,7 +100,7 @@ test("a partial sale keeps the moving-average cost of the rest and realizes its 
       cost_minor: 1657_50,
       realized_minor: 700_00 - 4_00 - 552_50,
       status: "missing",
-      value_minor: null,
+      value_minor: 1657_50,
       price: null
     }]
   });

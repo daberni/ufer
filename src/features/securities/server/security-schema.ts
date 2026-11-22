@@ -2,13 +2,14 @@ import { z } from "zod";
 import { validDate } from "@/lib/time";
 import { currencyExponent } from "@/lib/money";
 import { tradeSides } from "../trade-sides";
+import { validIsin } from "../isin";
 
 const currency = z.string().regex(/^[A-Z]{3}$/).refine(code => currencyExponent(code) !== undefined, "Choose a supported currency.");
 
 export const securityInput = z.object({
   name: z.string().trim().min(1).max(200),
   currency,
-  isin: z.string().trim().toUpperCase().regex(/^[A-Z]{2}[A-Z0-9]{9}[0-9]$/, "Enter a 12-character ISIN.").nullable().default(null),
+  isin: z.string().trim().toUpperCase().refine(validIsin, "Enter a valid ISIN.").nullable().default(null),
   // The market-data provider's symbol for the listing whose closes value the security, for example VWCE.XETRA.
   provider_symbol: z.string().trim().min(1).max(50).nullable().default(null),
   venue: z.string().trim().min(1).max(20).nullable().default(null)
@@ -44,4 +45,15 @@ export const tradeInput = z.object({
 export const settlementCandidatesQuery = z.object({
   date: z.string().refine(validDate),
   amount_minor: z.coerce.number().int().refine(value => value !== 0)
+});
+
+export const resolveSecurityInput = z.object({
+  isin: z.string().trim().toUpperCase().refine(validIsin, "Enter a valid ISIN."),
+  currency,
+  // Used when the provider knows no listing, so the holding still has a readable name.
+  name: z.string().trim().min(1).max(200).optional()
+});
+
+export const listingInput = z.object({
+  provider_symbol: z.string().trim().min(1).max(50).nullable()
 });
