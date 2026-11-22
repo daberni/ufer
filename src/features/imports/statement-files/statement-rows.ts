@@ -150,6 +150,20 @@ export class StatementRows {
   }
 }
 
+/** Rows of one source in several currencies, such as a multi-currency account whose statements omit the account currency, get a source per currency, since an Ufer account holds one currency. */
+export function separateCurrencies(rows: MappedRow[]): MappedRow[] {
+  const currencies = new Map<string, Set<string | null>>();
+
+  for (const row of rows) {
+    currencies.set(row.source, (currencies.get(row.source) ?? new Set()).add(row.currency));
+  }
+
+  return rows.map(row => (currencies.get(row.source)?.size ?? 0) > 1 ? {
+    ...row,
+    source: `${row.source} · ${row.currency ?? "no currency"}`
+  } : row);
+}
+
 /** Collapses runs of whitespace, including line breaks inside a field, to single spaces. */
 export function cleanText(value: string | null | undefined) {
   return (value ?? "").replace(/\s+/g, " ").trim();

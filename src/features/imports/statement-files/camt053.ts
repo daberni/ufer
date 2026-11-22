@@ -1,6 +1,6 @@
 import { XMLParser, XMLValidator } from "fast-xml-parser";
 import { fractionDigits, negate, parseAmount, signedScaled } from "../csv-values";
-import { cleanText, isoDate, lineAt, StatementFileError, StatementRows, type StatementFile } from "./statement-rows";
+import { separateCurrencies, cleanText, isoDate, lineAt, StatementFileError, StatementRows, type StatementFile } from "./statement-rows";
 
 // Reads ISO 20022 bank-to-customer statements (camt.053, any version) into mapped rows: one row per booked entry, or per transaction of a batch entry whose transactions carry their own amounts.
 
@@ -124,9 +124,13 @@ export function readCamt053(text: string, locale: string): StatementFile {
     }
   }
 
+  const result = rows.result();
+
+  // Without an account currency, the entries' currencies tell the ledgers of one account apart.
   return {
     format: "camt053",
-    ...rows.result()
+    rows: separateCurrencies(result.rows),
+    errors: result.errors
   };
 }
 
