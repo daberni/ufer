@@ -17,7 +17,7 @@ export function looksLikeOfx(text: string) {
   // Comments may precede the root element.
   const head = text.slice(0, 4096).replace(/<!--[\s\S]*?-->/g, "");
 
-  return /^\s*OFXHEADER\s*:/.test(head) || /<\?OFX\b/i.test(head) || /^\s*(?:<\?xml[^>]*>\s*)?<OFX\s*>/i.test(head);
+  return /^\s*OFXHEADER\s*:/.test(head) || /<\?OFX\b/i.test(head) || /^\s*(?:<\?xml[^>]*>\s*)?<OFX(?:\s[^>]*)?>/i.test(head);
 }
 
 export function readOfx(text: string, locale: string): StatementFile {
@@ -227,7 +227,7 @@ function parseOfx(raw: string): Element {
 
     return content.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
   });
-  const start = text.search(/<OFX\s*>/i);
+  const start = text.search(/<OFX(?:\s[^>]*)?>/i);
 
   if (start < 0) {
     throw new StatementFileError("The OFX file has no OFX element.");
@@ -244,12 +244,13 @@ function parseOfx(raw: string): Element {
     offset: 0,
     line: 1
   };
-  const tag = /<(\/?)([A-Za-z0-9_.]+)\s*>([^<]*)/g;
+  // XML elements may carry attributes, such as a namespace on the root, and close themselves; a namespace prefix is dropped.
+  const tag = /<(\/?)(?:[A-Za-z_][\w.-]*:)?([A-Za-z0-9_.]+)(\s[^>]*?)?(\/?)>([^<]*)/g;
 
   tag.lastIndex = start;
 
   for (let match = tag.exec(text); match; match = tag.exec(text)) {
-    const [, closing, rawName, rawText] = match;
+    const [, closing, rawName, , selfClosing, rawText] = match;
     const name = rawName.toUpperCase();
     const value = rawText.trim();
 
@@ -273,7 +274,7 @@ function parseOfx(raw: string): Element {
 
     stack[stack.length - 1].children.push(element);
 
-    if (!value && opensAggregate(name, text, tag.lastIndex)) {
+    if (!value && !selfClosing && opensAggregate(name, text, tag.lastIndex)) {
       stack.push(element);
     }
   }
