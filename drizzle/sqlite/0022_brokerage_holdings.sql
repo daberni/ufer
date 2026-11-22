@@ -125,6 +125,8 @@ CREATE TABLE `security_trades` (
   security_id TEXT NOT NULL REFERENCES securities(id),
   date TEXT NOT NULL,
   side TEXT NOT NULL,
+  -- Replay order within the account: moving-average cost depends on whether a same-day sale comes before or after a buy.
+  sequence INTEGER NOT NULL,
   quantity_micros INTEGER NOT NULL,
   price_micros INTEGER NOT NULL,
   gross_minor INTEGER NOT NULL,
@@ -139,5 +141,7 @@ CREATE TABLE `security_trades` (
 CREATE INDEX `security_trades_account` ON `security_trades` (`account_id`,`date`);
 --> statement-breakpoint
 CREATE INDEX `security_trades_security` ON `security_trades` (`security_id`);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `security_trades_sequence` ON `security_trades` (`account_id`,`sequence`);
 --> statement-breakpoint
 CREATE UNIQUE INDEX `security_trades_settlement` ON `security_trades` (`settlement_transaction_id`) WHERE `settlement_transaction_id` IS NOT NULL;

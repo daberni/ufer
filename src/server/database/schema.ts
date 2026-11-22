@@ -275,6 +275,8 @@ export const securityTrades = sqliteTable("security_trades", {
   side: text("side", {
     enum: tradeSides
   }).notNull(),
+  // Replay order within the account: moving-average cost depends on whether a same-day sale comes before or after a buy.
+  sequence: integer("sequence").notNull(),
   quantity_micros: integer("quantity_micros").notNull(),
   price_micros: integer("price_micros").notNull(),
   // The traded amount before fees and taxes.
@@ -288,6 +290,7 @@ export const securityTrades = sqliteTable("security_trades", {
 }, table => [
   index("security_trades_account").on(table.account_id, table.date),
   index("security_trades_security").on(table.security_id),
+  uniqueIndex("security_trades_sequence").on(table.account_id, table.sequence),
   uniqueIndex("security_trades_settlement").on(table.settlement_transaction_id).where(sql`${table.settlement_transaction_id} IS NOT NULL`),
   check("security_trades_side", sql`${table.side} IN ('buy','sell')`),
   check("security_trades_amounts", sql`${table.quantity_micros} > 0 AND ${table.price_micros} > 0 AND ${table.gross_minor} >= 0 AND ${table.fee_minor} >= 0 AND ${table.tax_minor} >= 0`)

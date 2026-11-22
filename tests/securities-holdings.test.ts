@@ -5,10 +5,13 @@ import { ValidationError } from "../src/lib/errors";
 
 const units = (value: number) => value * 1_000_000;
 
+let nextSequence = 1;
+
 function buy(date: string, quantity: number, gross: number, fee = 0): PositionTrade {
   return {
     date,
     side: "buy",
+    sequence: nextSequence++,
     quantity_micros: units(quantity),
     gross_minor: gross,
     fee_minor: fee
@@ -20,6 +23,10 @@ function sell(date: string, quantity: number, gross: number, fee = 0): PositionT
     ...buy(date, quantity, gross, fee),
     side: "sell"
   };
+}
+
+function shuffled<Item>(items: Item[]) {
+  return items.toReversed();
 }
 
 test("buys accumulate quantity and a cost that includes their fees", () => {
@@ -146,4 +153,23 @@ test("a price older than a week is used but marked stale", () => {
     value_minor: 250_00,
     price: prices[0]
   });
+});
+
+test("same-day trades replay in their recorded sequence whatever order they arrive in", () => {
+  const trades = [buy("2026-01-10", 10, 1000_00), sell("2026-02-10", 10, 1100_00), buy("2026-02-10", 10, 1300_00)];
+  const expected = {
+    quantity_micros: units(10),
+    cost_minor: 1300_00,
+    realized_minor: 100_00
+  };
+
+  assert.deepEqual(positionOn(trades, [], "2026-02-10"), expected);
+  assert.deepEqual(positionOn(shuffled(trades), [], "2026-02-10"), expected);
+});
+
+test("a same-day sale recorded before the buy that would cover it is refused regardless of input order", () => {
+  const trades = [sell("2026-01-10", 5, 500_00), buy("2026-01-10", 5, 500_00)];
+
+  assert.throws(() => positionOn(trades, [], "2026-01-10"), ValidationError);
+  assert.throws(() => positionOn(shuffled(trades), [], "2026-01-10"), ValidationError);
 });

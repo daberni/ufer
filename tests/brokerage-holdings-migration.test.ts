@@ -118,7 +118,7 @@ test("changeset 0022 accepts brokerage accounts, trade bookings, securities, pri
     "INSERT INTO securities(id,name,currency) VALUES('fund','Synthetic fund','EUR')",
     "INSERT INTO security_prices(security_id,date,close_micros,source,fetched_at) VALUES('etf','2026-03-02',100250000,'eodhd','2026-03-03T06:00:00Z')",
     "INSERT INTO security_splits(security_id,date,numerator,denominator) VALUES('etf','2026-06-01',2,1)",
-    "INSERT INTO security_trades(id,account_id,security_id,date,side,quantity_micros,price_micros,gross_minor,fee_minor,settlement_transaction_id) VALUES('trade','depot','etf','2026-03-02','buy',10000000,100000000,100000,500,'leg')"
+    "INSERT INTO security_trades(id,account_id,security_id,date,side,sequence,quantity_micros,price_micros,gross_minor,fee_minor,settlement_transaction_id) VALUES('trade','depot','etf','2026-03-02','buy',1,10000000,100000000,100000,500,'leg')"
   ], "write");
 
   const refused = [
@@ -129,10 +129,11 @@ test("changeset 0022 accepts brokerage accounts, trade bookings, securities, pri
     "INSERT INTO security_prices(security_id,date,close_micros,source,fetched_at) VALUES('etf','2026-03-03',0,'eodhd','2026-03-04T06:00:00Z')",
     "INSERT INTO security_prices(security_id,date,close_micros,source,fetched_at) VALUES('etf','2026-03-02',1,'eodhd','2026-03-04T06:00:00Z')",
     "INSERT INTO security_splits(security_id,date,numerator,denominator) VALUES('etf','2026-07-01',0,1)",
-    "INSERT INTO security_trades(id,account_id,security_id,date,side,quantity_micros,price_micros,gross_minor) VALUES('bad','depot','etf','2026-03-02','swap',1,1,1)",
-    "INSERT INTO security_trades(id,account_id,security_id,date,side,quantity_micros,price_micros,gross_minor) VALUES('bad','depot','etf','2026-03-02','buy',0,1,1)",
-    "INSERT INTO security_trades(id,account_id,security_id,date,side,quantity_micros,price_micros,gross_minor) VALUES('bad','depot','missing','2026-03-02','buy',1,1,1)",
-    "INSERT INTO security_trades(id,account_id,security_id,date,side,quantity_micros,price_micros,gross_minor,settlement_transaction_id) VALUES('bad','depot','etf','2026-03-02','buy',1,1,1,'leg')"
+    "INSERT INTO security_trades(id,account_id,security_id,date,side,sequence,quantity_micros,price_micros,gross_minor) VALUES('bad','depot','etf','2026-03-03','sell',1,1,1,1)",
+    "INSERT INTO security_trades(id,account_id,security_id,date,side,sequence,quantity_micros,price_micros,gross_minor) VALUES('bad','depot','etf','2026-03-02','swap',2,1,1,1)",
+    "INSERT INTO security_trades(id,account_id,security_id,date,side,sequence,quantity_micros,price_micros,gross_minor) VALUES('bad','depot','etf','2026-03-02','buy',2,0,1,1)",
+    "INSERT INTO security_trades(id,account_id,security_id,date,side,sequence,quantity_micros,price_micros,gross_minor) VALUES('bad','depot','missing','2026-03-02','buy',2,1,1,1)",
+    "INSERT INTO security_trades(id,account_id,security_id,date,side,sequence,quantity_micros,price_micros,gross_minor,settlement_transaction_id) VALUES('bad','depot','etf','2026-03-02','buy',2,1,1,1,'leg')"
   ];
 
   for (const statement of refused) {

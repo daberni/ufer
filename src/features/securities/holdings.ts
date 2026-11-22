@@ -12,6 +12,8 @@ export const staleAfterDays = 7;
 export type PositionTrade = {
   date: string;
   side: TradeSide;
+  /** The trade's recorded order within its account; it decides the replay order of trades on the same date. */
+  sequence: number;
   quantity_micros: number;
   gross_minor: number;
   fee_minor: number;
@@ -82,7 +84,7 @@ export function amountMinor(quantityMicros: number, priceMicros: number, currenc
 }
 
 /**
- * Replays trades and splits up to and including `date`. A split takes effect at the start of its date, so trades on that date are already in post-split units.
+ * Replays trades and splits up to and including `date` by date, then recorded sequence, whatever order they are passed in. A split takes effect at the start of its date, so trades on that date are already in post-split units.
  * Buys add their gross amount and fees to the cost; a sale removes the average cost of the sold part and realizes its proceeds less fees and that cost. Taxes are cash only.
  */
 export function positionOn(trades: PositionTrade[], splits: PositionSplit[], date: string): Position {
@@ -90,16 +92,18 @@ export function positionOn(trades: PositionTrade[], splits: PositionSplit[], dat
     ...splits.filter(split => split.date <= date).map(split => ({
       date: split.date,
       order: 0,
+      sequence: 0,
       split,
       trade: null
     })),
     ...trades.filter(trade => trade.date <= date).map(trade => ({
       date: trade.date,
       order: 1,
+      sequence: trade.sequence,
       split: null,
       trade
     }))
-  ].toSorted((left, right) => left.date.localeCompare(right.date) || left.order - right.order);
+  ].toSorted((left, right) => left.date.localeCompare(right.date) || left.order - right.order || left.sequence - right.sequence);
   let quantity = 0n;
   let cost = 0n;
   let realized = 0n;
