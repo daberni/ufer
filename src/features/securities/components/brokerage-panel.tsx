@@ -99,7 +99,7 @@ export function BrokeragePanel({ account }: {
                   <button
                     type="button"
                     className={ui["icon-button"]}
-                    aria-label={`Delete ${trade.side === "buy" ? "buy" : "sale"} of ${trade.security_name} on ${trade.date}`}
+                    aria-label={`Delete ${trade.side === "buy" ? "buy" : "sale"} of ${trade.security_name} on ${dateWithYear(Temporal.PlainDate.from(trade.date), locale)}`}
                     title="Delete trade"
                     onClick={() => setDeleting(trade)}
                   >

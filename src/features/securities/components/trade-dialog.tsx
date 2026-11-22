@@ -120,7 +120,12 @@ export function TradeForm({
       {!accountId && (
         <label>
           Brokerage account
-          <Select value={chosenAccountId} onChange={event => setAccountId(event.target.value)} required>
+          <Select
+            value={chosenAccountId}
+            onChange={event => setAccountId(event.target.value)}
+            required
+            autoFocus
+          >
             {brokerageAccounts.map(item => <option key={item.id} value={item.id}>{item.name} ({item.currency})</option>)}
           </Select>
         </label>
@@ -136,8 +141,8 @@ export function TradeForm({
             spellCheck={false}
             maxLength={12}
             pattern="[A-Za-z]{2}[A-Za-z0-9]{9}[0-9]"
-            onInvalid={event => event.currentTarget.setCustomValidity(validIsin(event.currentTarget.value.toUpperCase()) ? "" : "Enter a 12-character ISIN.")}
-            onInput={event => event.currentTarget.setCustomValidity("")}
+            autoFocus={Boolean(accountId)}
+            onInput={event => event.currentTarget.setCustomValidity(isinProblem(event.currentTarget.value))}
           />
         </label>
         <label>
@@ -223,6 +228,17 @@ export function TradeForm({
       </button>
     </form>
   );
+}
+
+/** Why the browser should refuse an ISIN as typed: the full code must carry a matching check digit, so a typo is caught before the trade is sent. */
+function isinProblem(value: string) {
+  const code = value.trim().toUpperCase();
+
+  if (!code || validIsin(code)) {
+    return "";
+  }
+
+  return code.length === 12 ? "This ISIN's check digit does not match; check it for typos." : "Enter a 12-character ISIN.";
 }
 
 /** The signed cash movement the entered values produce, or null while they are incomplete or invalid. */
