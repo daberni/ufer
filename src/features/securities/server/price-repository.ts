@@ -147,6 +147,7 @@ export async function assignListing(securityId: string, listing: {
   provider: string;
   provider_symbol: string;
   venue: string;
+  name: string;
 }) {
   const db = await database();
 
@@ -159,7 +160,13 @@ export async function assignListing(securityId: string, listing: {
       return false;
     }
 
-    await tx.update(securities).set(listing).where(and(eq(securities.id, securityId), isNull(securities.provider_symbol)));
+    // A security still named by its ISIN takes the listing's name; a name the person entered stays.
+    await tx.update(securities).set({
+      provider: listing.provider,
+      provider_symbol: listing.provider_symbol,
+      venue: listing.venue,
+      name: sql`CASE WHEN ${securities.name}=${securities.isin} THEN ${listing.name} ELSE ${securities.name} END`
+    }).where(and(eq(securities.id, securityId), isNull(securities.provider_symbol)));
 
     return true;
   });

@@ -63,7 +63,8 @@ async function resolveListing(security: {
   if (!listing || !(await assignListing(security.id, {
     provider: provider.name,
     provider_symbol: listing.symbol,
-    venue: listing.exchange
+    venue: listing.exchange,
+    name: listing.name
   }))) {
     return null;
   }

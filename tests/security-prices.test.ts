@@ -549,7 +549,7 @@ test("a trade named by ISIN stores its security without searching; the next upda
   await updatePrices(now, provider);
   created = await securitiesWithIsin(db, "US0378331005");
   assert.deepEqual(searched, ["US0378331005"]);
-  assert.deepEqual(created.map(security => [security.provider_symbol, security.venue]), [["WLD.XETRA", "XETRA"]]);
+  assert.deepEqual(created.map(security => [security.name, security.provider_symbol, security.venue]), [["Synthetic World", "WLD.XETRA", "XETRA"]]);
   assert.deepEqual(await pricesOf(db, created[0].id), [["2026-10-13", 101_000_000]]);
 
   // Later updates price it through the chosen listing without searching again.
