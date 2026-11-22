@@ -8,6 +8,7 @@ import type { NewImportCategory } from "./import-plan";
 import type { AccountKind } from "@/features/accounts/account-kinds";
 import { assignOccurrences, duplicateIdErrors, rowCategoryValues, type MappedRow, type RowError } from "./import-rows";
 import { batchRows, withConsumed, type ConsumedBooking } from "./import-batches";
+import { joinMatches, type DecisionInput, type MatchedBooking, type RowMatch, type SentRowMatch } from "./reimport-decisions";
 
 // Confirmed rows and opening balances change account balances.
 const affectedKeys = [queryKeys.accounts(), queryKeys.reports.netWorth(), queryKeys.transactions.all(), queryKeys.reports.cashFlow()];
@@ -43,12 +44,18 @@ export type CategoryChoice = {
 
 export type MappedImportSummary = {
   confirmed: boolean;
+  /** Rows that are new or decided to be created. */
   newRows: number;
+  /** Matched rows whose payee, description or type an update changes. */
+  updatedRows: number;
   duplicates: {
     line: number;
     reason: "already_imported" | "existing_booking";
   }[];
   possibleDuplicates: number[];
+  /** Possible duplicates without a decision, which the import leaves out. */
+  undecided: number[];
+  matches: RowMatch[];
   errors: RowError[];
   unknownCategories: string[];
   createdCategories: string[];
@@ -62,6 +69,8 @@ type MappedImport = {
   rowErrors: RowError[];
   targets: ImportTarget[];
   categories: CategoryChoice[];
+  /** Decisions for matched and possibly duplicate rows, sent with the batch holding each line. */
+  decisions: DecisionInput[];
   confirm: boolean;
   /** Called before the first confirmed batch is sent, since a batch can commit even when its response is lost; from then on the import's file, format, mapping and targets are fixed. */
   onConfirmStart?: () => void;
@@ -78,6 +87,7 @@ export function useMappedImport() {
       rowErrors,
       targets,
       categories,
+      decisions,
       confirm,
       onConfirmStart
     }: MappedImport) => {
@@ -104,8 +114,11 @@ export function useMappedImport() {
       const summary: MappedImportSummary = {
         confirmed: confirm,
         newRows: 0,
+        updatedRows: 0,
         duplicates: [],
         possibleDuplicates: [],
+        undecided: [],
+        matches: [],
         errors: [...rowErrors],
         unknownCategories: [],
         createdCategories: [],
@@ -134,22 +147,29 @@ export function useMappedImport() {
       const batches = batchRows(numbered.sort((left, right) => left.date.localeCompare(right.date)));
 
       for (const [index, batch] of batches.entries()) {
+        const lines = new Set(batch.map(row => row.line));
         const request = {
           import_id: importId,
           rows: batch,
           targets: resolved.filter(target => batch.some(row => row.source === target.source)),
           categories: categoryChoices.filter(choice => batch.some(row => rowCategoryValues(row).includes(choice.value))),
+          decisions: decisions.filter(decision => lines.has(decision.line)),
           confirm,
           final: index === batches.length - 1
         };
-        const result = await api<MappedImportSummary & {
+        const result = await api<Omit<MappedImportSummary, "matches"> & {
           matched: ConsumedBooking[];
+          matches: SentRowMatch[];
+          bookings: Record<string, MatchedBooking>;
         }>("imports/mapped", withConsumed(request, consumed, batch[0].date));
 
         consumed = [...consumed, ...result.matched];
         summary.newRows += result.newRows;
+        summary.updatedRows += result.updatedRows;
         summary.duplicates.push(...result.duplicates);
         summary.possibleDuplicates.push(...result.possibleDuplicates);
+        summary.undecided.push(...result.undecided);
+        summary.matches.push(...joinMatches(result.matches, result.bookings));
         summary.errors.push(...result.errors);
         summary.unknownCategories = [...new Set([...summary.unknownCategories, ...result.unknownCategories])].sort();
         summary.createdCategories = [...new Set([...summary.createdCategories, ...result.createdCategories])].sort();
@@ -159,6 +179,8 @@ export function useMappedImport() {
       summary.errors.sort((left, right) => left.line - right.line);
       summary.duplicates.sort((left, right) => left.line - right.line);
       summary.possibleDuplicates.sort((left, right) => left - right);
+      summary.undecided.sort((left, right) => left - right);
+      summary.matches.sort((left, right) => left.line - right.line);
 
       return summary;
     },

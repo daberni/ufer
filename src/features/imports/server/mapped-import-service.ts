@@ -20,7 +20,7 @@ import { maxCategoryChoicesPerRequest, maxConsumedPerRequest, maxTargetsPerReque
 import { mappedReferencePrefix } from "@/lib/booking-references";
 import { duplicateDateToleranceDays } from "@/lib/booking-matching";
 import { normalizeText } from "@/lib/text";
-import type { DuplicateReason } from "./duplicate-matching";
+import { rowDecisions, type DuplicateReason, type MatchedBooking, type SentRowMatch } from "../reimport-decisions";
 import type { SplitPartValues } from "@/features/transactions/server/split-repository";
 import { checkMappedEntries, findImportOpening, findImportTarget, listCategoryNames, saveMappedBatch, type MappedEntry, type NewImportAccount, type NewImportCategory, type OpeningBalance } from "./mapped-import-repository";
 
@@ -85,6 +85,13 @@ const matchedBooking = z.object({
   date: z.string()
 });
 
+/** A person's decision for a matched or possibly duplicate row; `booking` names the ID of the candidate an update applies to. */
+const decision = z.object({
+  line: z.number().int().min(1),
+  action: z.enum(rowDecisions),
+  booking: z.string().max(100).optional()
+});
+
 const mappedImportInput = z.object({
   /** Identifies one import of one file; batches and retries with the same ID create each new account once. */
   import_id: z.uuid(),
@@ -93,6 +100,8 @@ const mappedImportInput = z.object({
   /** Bookings that earlier batches of this import matched as duplicates or saved. */
   consumed: z.array(matchedBooking).max(maxConsumedPerRequest).default([]),
   categories: z.array(categoryChoice).max(maxCategoryChoicesPerRequest).default([]),
+  /** Decisions for the batch's matched and possibly duplicate rows; a match without one updates, a possible duplicate without one is left out. */
+  decisions: z.array(decision).max(maxRowsPerRequest).default([]),
   confirm: z.boolean(),
   /** Marks the last batch of a confirmed import; transfers are paired only then, so the order of batches and accounts cannot decide an ambiguous link. */
   final: z.boolean().default(true)
@@ -113,10 +122,18 @@ type PlannedRow = {
 
 export type MappedImportResult = {
   confirmed: boolean;
-  /** Rows that are new, or with `confirmed` were saved. */
+  /** Rows that are new or decided to be created, or with `confirmed` were saved. */
   newRows: number;
-  /** Lines that may duplicate an existing booking without a unique match; they import unless the person removes them. */
+  /** Matched rows whose source fields an update changes, or with `confirmed` changed. */
+  updatedRows: number;
+  /** Lines that may duplicate an existing booking without a unique match; only a decision creates or updates them. */
   possibleDuplicates: number[];
+  /** Possible duplicates without a valid decision, which are neither created nor updated. */
+  undecided: number[];
+  /** Every matched or possibly duplicate row with the IDs of the bookings it compares to. */
+  matches: SentRowMatch[];
+  /** The bookings the matches name, each once. */
+  bookings: Record<string, MatchedBooking>;
   /** Bookings this batch matched or, when confirmed, saved; the next batch passes them as `consumed`. */
   matched: z.infer<typeof matchedBooking>[];
   duplicates: {
@@ -212,8 +229,12 @@ async function checkAndImport(input: z.infer<typeof mappedImportInput>, now: Tem
     matched,
     possible,
     newRows,
+    updatedRows,
+    undecided,
+    matches,
+    bookings,
     createdCategories
-  } = await classifyAndSave(planned, targets, input.consumed, input.confirm, categories.created);
+  } = await classifyAndSave(planned, targets, input.consumed, input.decisions, input.confirm, categories.created);
 
   // Pairing sees every account this import touched at once, so a transfer with candidates in two of them stays ambiguous.
   if (input.confirm && input.final) {
@@ -223,8 +244,12 @@ async function checkAndImport(input: z.infer<typeof mappedImportInput>, now: Tem
   return {
     confirmed: input.confirm,
     newRows,
+    updatedRows,
     matched,
     possibleDuplicates: possible.sort((left, right) => left - right),
+    undecided: undecided.sort((left, right) => left - right),
+    matches: matches.sort((left, right) => left.line - right.line),
+    bookings,
     duplicates: [...duplicates].map(([line, reason]) => ({
       line,
       reason
@@ -514,10 +539,23 @@ function importReference(date: string, amount: number, payee: string, descriptio
   return `${mappedReferencePrefix}${createHash("sha256").update(content).digest("hex").slice(0, 32)}`;
 }
 
-async function classifyAndSave(planned: PlannedRow[], targets: Map<string, Target>, consumed: z.infer<typeof matchedBooking>[], confirm: boolean, newCategories: NewImportCategory[]) {
+async function classifyAndSave(planned: PlannedRow[], targets: Map<string, Target>, consumed: z.infer<typeof matchedBooking>[], decisions: z.infer<typeof decision>[], confirm: boolean, newCategories: NewImportCategory[]) {
   const duplicates = new Map<number, DuplicateReason>();
   const matched: z.infer<typeof matchedBooking>[] = [];
   const possible: number[] = [];
+  const undecided: number[] = [];
+  const matches: SentRowMatch[] = [];
+  const bookings: Record<string, MatchedBooking> = {};
+  const decisionOf = new Map(decisions.map(item => [item.line, {
+    action: item.action,
+    booking: item.booking
+  }]));
+  const decisionsOf = (rows: PlannedRow[]) => new Map(rows.flatMap((item, index) => {
+    const chosen = decisionOf.get(item.line);
+
+    return chosen ? [[index, chosen] as const] : [];
+  }));
+  let updatedRows = 0;
   const rules = confirm ? await listRules() : [];
   const newAccounts = new Map([...targets.values()].flatMap(target => target.accountId && target.newAccount ? [[target.accountId, target.newAccount] as const] : []));
   const openings = new Map([...targets.values()].flatMap(target => target.accountId && target.opening ? [[target.accountId, target.opening] as const] : []));
@@ -535,7 +573,8 @@ async function classifyAndSave(planned: PlannedRow[], targets: Map<string, Targe
       entries: categorized((rowsOf.get(accountId) ?? []).map(item => item.entry), rules),
       newAccount: newAccounts.get(accountId) ?? null,
       consumed: absorbedOf(accountId),
-      opening: openings.get(accountId) ?? null
+      opening: openings.get(accountId) ?? null,
+      decisions: decisionsOf(rowsOf.get(accountId) ?? [])
     })), newCategories);
 
     results = saved.results;
@@ -544,7 +583,9 @@ async function classifyAndSave(planned: PlannedRow[], targets: Map<string, Targe
     results = [];
 
     for (const accountId of accountIds) {
-      results.push(await checkMappedEntries(accountId, (rowsOf.get(accountId) ?? []).map(item => item.entry), absorbedOf(accountId)));
+      const rows = rowsOf.get(accountId) ?? [];
+
+      results.push(await checkMappedEntries(accountId, rows.map(item => item.entry), absorbedOf(accountId), decisionsOf(rows)));
     }
   }
 
@@ -557,6 +598,19 @@ async function classifyAndSave(planned: PlannedRow[], targets: Map<string, Targe
     }
 
     possible.push(...result.possible.map(index => rows[index].line));
+    undecided.push(...result.undecided.map(index => rows[index].line));
+    updatedRows += result.updated.length;
+
+    Object.assign(bookings, result.bookings);
+
+    for (const [index, match] of result.matches) {
+      matches.push({
+        line: rows[index].line,
+        ...match,
+        accountId
+      });
+    }
+
     matched.push(...result.matched.map(booking => ({
       account_id: accountId,
       ...booking
@@ -569,6 +623,10 @@ async function classifyAndSave(planned: PlannedRow[], targets: Map<string, Targe
     matched,
     possible,
     newRows,
+    updatedRows,
+    undecided,
+    matches,
+    bookings,
     createdCategories
   };
 }
