@@ -201,7 +201,7 @@ function validateEntry(input: z.infer<typeof entryInput> | z.infer<typeof newEnt
   };
 }
 
-async function automaticAssignment(entry: ReturnType<typeof validateEntry>, currency: string) {
+async function automaticAssignment(entry: ReturnType<typeof validateEntry>, accountId: string, currency: string) {
   const [categorized] = categorizeEntries([{
     reference: "",
     date: entry.date,
@@ -209,7 +209,7 @@ async function automaticAssignment(entry: ReturnType<typeof validateEntry>, curr
     currency,
     counterparty: entry.counterparty,
     description: entry.description
-  }], await listRules());
+  }], await listRules(), accountId);
 
   return categorized;
 }
@@ -225,7 +225,7 @@ export async function enterManualTransaction(accountId: string, payload: unknown
   }
 
   const automatic = input.category_id === undefined;
-  const assignment = automatic ? await automaticAssignment(entry, account.currency) : {
+  const assignment = automatic ? await automaticAssignment(entry, account.id, account.currency) : {
     categoryId: input.category_id ?? null,
     categoryRuleId: null
   };

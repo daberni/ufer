@@ -13,5 +13,5 @@ export async function saveAccountSync(run: SyncRunStart, accountId: string, curr
 
   const balance = selectedBalance(balances, currency);
 
-  return saveSyncedAccount(run, accountId, balance, entries, stored => categorizeEntries(stored, rules));
+  return saveSyncedAccount(run, accountId, balance, entries, stored => categorizeEntries(stored, rules, accountId));
 }

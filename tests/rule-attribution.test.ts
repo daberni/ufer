@@ -148,7 +148,7 @@ test("a delivery records its deciding rule and keeps a manual assignment unattri
     description: ""
   }];
   const deliver = async () => {
-    const categorized = categorizeEntries(entries, await listRules());
+    const categorized = categorizeEntries(entries, await listRules(), "checking");
 
     await db.transaction(tx => upsertTransactions(tx, "checking", categorized));
   };

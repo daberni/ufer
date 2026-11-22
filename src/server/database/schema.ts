@@ -76,7 +76,9 @@ export const categorizationRules = sqliteTable("categorization_rules", {
     enum: ruleTransactionTypes
   }),
   // For a transfer, the own account on the other side. Not a foreign key: removing an account must not fail on a rule, and an unknown account means no counterpart account.
-  transfer_account_id: text("transfer_account_id")
+  transfer_account_id: text("transfer_account_id"),
+  // Limits the rule to the bookings of this account; null matches every account. Not a foreign key, like transfer_account_id; an unknown account matches nothing.
+  account_id: text("account_id")
 }, table => [
   check("categorization_rules_mode", sql`${table.mode} IN ('keyword','regex')`),
   check("categorization_rules_enabled", sql`${table.enabled} IN (0,1)`),

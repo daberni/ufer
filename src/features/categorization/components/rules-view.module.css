@@ -170,7 +170,7 @@ button.rule-name:focus-visible {
   min-width: 0;
   max-width: 100%;
 }
-.rule-type {
+.rule-tag {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
@@ -178,11 +178,11 @@ button.rule-name:focus-visible {
   color: var(--muted);
   white-space: nowrap;
 }
-.rule-type > span {
+.rule-tag > span {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.rule-type > svg {
+.rule-tag > svg {
   flex: none;
 }
 .toggle {

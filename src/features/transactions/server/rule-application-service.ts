@@ -3,7 +3,7 @@ import type { DatabaseTransaction } from "@/server/database/connection";
 import { prepareRules, type Rule } from "@/features/categorization/server/rule-assignment";
 import { decideAdoptedTypes, decideRuleCategoryChanges, decideRuleTypeChanges, decidedBy, decidedByStoredRule, type SelectRuleAssignments } from "@/features/categorization/server/rule-decisions";
 import { RuleLimitReached, appendedPriority, readRules, removeRule, storeRule, storeRuleDetails, storeRuleEnabled, storeRuleOrder, type NewRule, type RuleDetails } from "@/features/categorization/server/rule-repository";
-import { inactiveTargetError, parseRuleCreation, parseRuleEnabled, parseRuleOrder, parseRulePreview, parseRuleUpdate, ruleLimitError } from "@/features/categorization/server/categorization-service";
+import { inactiveConditionError, inactiveTargetError, parseRuleCreation, parseRuleEnabled, parseRuleOrder, parseRulePreview, parseRuleUpdate, ruleLimitError } from "@/features/categorization/server/categorization-service";
 import { adoptManualAssignments, adoptSourceTransaction, categorizeByRule, clearRuleReferences, findManualAssignments, findPreviewedTransactions, findRuleTypeableTransactions, findUncorrectedTransactions, readManualCandidates, readSourceCandidates, readTypeableBookings, readUncategorizedCandidates, storeRuleAssignments, storeRuleTypes, withRuleReader, withRuleTransaction, type PreviewedTransaction } from "./rule-booking-repository";
 
 /** Manual assignments a rule takes over: the selector picks those the rule decides; the excluded transaction is handled separately. */
@@ -181,6 +181,10 @@ export async function updateRuleDetails(id: string, payload: unknown) {
 
   if (result === "inactive_target") {
     throw inactiveTargetError();
+  }
+
+  if (result === "inactive_condition") {
+    throw inactiveConditionError();
   }
 
   return {

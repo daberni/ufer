@@ -78,25 +78,32 @@ export async function appendedPriority(tx: DatabaseTransaction) {
   return renumbered[stored.length];
 }
 
-export type RuleDetails = Pick<Rule, "name" | "pattern" | "mode" | "category_id" | "transaction_type" | "transfer_account_id"> & Partial<Pick<Rule, "priority">>;
+export type RuleDetails = Pick<Rule, "name" | "pattern" | "mode" | "category_id" | "transaction_type" | "transfer_account_id" | "account_id"> & Partial<Pick<Rule, "priority">>;
 
-export type RuleUpdateResult = "saved" | "not_found" | "inactive_target";
+export type RuleUpdateResult = "saved" | "not_found" | "inactive_target" | "inactive_condition";
 
 /** Updates the rule's details; without a priority the rule keeps its position in the matching order. */
 export async function storeRuleDetails(tx: DatabaseTransaction, id: string, details: RuleDetails): Promise<RuleUpdateResult> {
   const stored = await tx.select({
-    transfer_account_id: categorizationRules.transfer_account_id
+    transfer_account_id: categorizationRules.transfer_account_id,
+    account_id: categorizationRules.account_id
   }).from(categorizationRules).where(eq(categorizationRules.id, id)).get();
 
   if (!stored) {
     return "not_found";
   }
 
-  // A rule may keep a target that was archived or deleted meanwhile; a new target must be an active account.
+  // A rule may keep a target or account condition that was archived or deleted meanwhile; a newly chosen account must be active.
   const target = details.transfer_account_id;
 
   if (target && target !== stored.transfer_account_id && !(await activeAccount(tx, target))) {
     return "inactive_target";
+  }
+
+  const condition = details.account_id;
+
+  if (condition && condition !== stored.account_id && !(await activeAccount(tx, condition))) {
+    return "inactive_condition";
   }
 
   await tx.update(categorizationRules).set(details).where(eq(categorizationRules.id, id));

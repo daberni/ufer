@@ -53,6 +53,7 @@ How Ufer compares with established personal finance tools, and what is still pla
 | ↳ Category hierarchy or tags | ❌ | ✅[¹²](#fn-12) | ✅[⁹](#fn-9) | ◐[¹⁴](#fn-14) | ✅[³⁵](#fn-35) |
 | Automatic categorization rules | ✅[³⁶](#fn-36) | ✅[¹²](#fn-12) | ✅[³⁷](#fn-37) | ✅[³⁸](#fn-38) | ✅[²⁵](#fn-25) |
 | ↳ Rules set type and transfer account | ✅ | ❔ | ❔ | ✅[³⁸](#fn-38) | ❔ |
+| ↳ Rules limited to one account | ✅ | ❔ | ❔ | ❔ | ❔ |
 | ↳ Create a rule from a transaction | ✅ | ❔ | ✅[³⁷](#fn-37) | ❔ | ❔ |
 | **Imports** | | | | | |
 | CSV import with mapping and preview | ✅ | ◐[³⁹](#fn-39) | ✅[²³](#fn-23) | ✅[⁴](#fn-4) | ✅[⁴⁰](#fn-40) |
@@ -149,7 +150,7 @@ An item is checked only when its acceptance criterion is met and evidence is rec
   - [x] Accounts: rename, change type, archive, convert detached bank accounts, delete
   - [x] Bookings on archived accounts stay categorizable ([#271](https://github.com/daberni/ufer/issues/271))
   - [x] Bank connections: connect, reconnect, remove
-  - [ ] Account-scoped rules ([#243](https://github.com/daberni/ufer/issues/243))
+  - [x] Account-scoped rules ([#243](https://github.com/daberni/ufer/issues/243))
 - [ ] **K-03 · Securities** ([#266](https://github.com/daberni/ufer/issues/266))
   - [x] Market-data provider evaluated ([market data providers](market-data-providers.md))
   - [ ] Brokerage accounts with holdings, buys and sells

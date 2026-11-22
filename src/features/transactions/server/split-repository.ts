@@ -185,6 +185,7 @@ export async function dissolveSplit(tx: DatabaseTransaction, id: string, assign:
  */
 export async function assignRuleDecision(tx: DatabaseTransaction, id: string, assign: (rules: Rule[], text: RuleText) => RuleAssignment) {
   const text = await tx.select({
+    account_id: transactions.account_id,
     counterparty: transactions.counterparty,
     description: transactions.description,
     counterparty_override: transactions.counterparty_override,
@@ -192,6 +193,7 @@ export async function assignRuleDecision(tx: DatabaseTransaction, id: string, as
   }).from(transactions).where(eq(transactions.id, id)).get();
   const rules = await tx.select().from(categorizationRules);
   const assignment = assign(rules, text ?? {
+    account_id: "",
     counterparty: "",
     description: ""
   });
