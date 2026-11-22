@@ -22,7 +22,8 @@ function account(name: string, last_booking_date: string | null, balance_minor =
     last_synced_at: null,
     valid_until: null,
     sync_error: null,
-    archived_at: null
+    archived_at: null,
+    valuation: null
   };
 }
 

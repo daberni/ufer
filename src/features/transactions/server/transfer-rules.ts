@@ -4,6 +4,7 @@ import { createdCounterpartPrefix, manualEntryPrefix } from "@/lib/booking-refer
 import { manualAccountTypes } from "@/lib/transaction-types";
 import { notSplit, notSplitBooking } from "./split-repository";
 import { manualLinkDays } from "./transfer-pairing";
+import { notTradeLeg } from "./trade-leg-rules";
 import type { Subject } from "./transfer-subjects";
 
 export type Booking = Record<"id" | "account_id" | "amount_minor" | "suppressed_at" | "transfer_id" | "transfer_source" | "type" | "type_source" | "type_rule_id" | "type_transfer_account_id", AnyColumn>;
@@ -34,7 +35,7 @@ export function linkCandidate(subject: Subject) {
   const entered = sql`(${accounts.provider}='manual' AND (${transactions.provider_reference} LIKE ${`${manualEntryPrefix}%`} OR ${transactions.provider_reference} LIKE ${`${createdCounterpartPrefix}%`}))`;
   const unfrozen = subject.account_archived_at !== null ? sql`NOT ${entered}` : sql`(${accounts.archived_at} IS NULL OR NOT ${entered})`;
 
-  return and(unfrozen, ne(transactions.account_id, subject.account_id), eq(transactions.amount_minor, -subject.amount_minor), eq(transactions.currency, subject.currency), sql`${transactions.transfer_id} IS NULL`, sql`${transactions.suppressed_at} IS NULL`, sql`${transactions.amount_minor}<>0`, notSplit, inWindow);
+  return and(unfrozen, ne(transactions.account_id, subject.account_id), eq(transactions.amount_minor, -subject.amount_minor), eq(transactions.currency, subject.currency), sql`${transactions.transfer_id} IS NULL`, sql`${transactions.suppressed_at} IS NULL`, sql`${transactions.amount_minor}<>0`, notSplit, notTradeLeg, inWindow);
 }
 
 /** Whether Ufer created this booking on a manual account as the counterpart of another booking. */

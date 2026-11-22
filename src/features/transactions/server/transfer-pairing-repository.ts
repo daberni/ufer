@@ -81,6 +81,7 @@ async function createRuleCounterparts(tx: DatabaseTransaction) {
     JOIN accounts own ON own.id=booking.account_id
     JOIN accounts target ON target.id=booking.type_transfer_account_id
     WHERE target.provider='manual'
+    AND target.kind<>'brokerage'
     AND target.archived_at IS NULL
     AND own.archived_at IS NULL
     AND target.id<>booking.account_id

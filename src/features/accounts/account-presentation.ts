@@ -5,6 +5,7 @@ export const kinds: Record<string, string> = {
   checking: "Current account",
   savings: "Savings account",
   investment: "Investment account",
+  brokerage: "Brokerage account",
   loan: "Loan",
   property: "Property",
   credit_card: "Credit card"
@@ -15,6 +16,7 @@ export function accountIcon(kind: string) {
     case "property":
       return Building2;
     case "investment":
+    case "brokerage":
       return ChartNoAxesCombined;
     case "credit_card":
       return CreditCard;

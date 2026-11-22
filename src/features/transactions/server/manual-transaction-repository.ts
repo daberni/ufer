@@ -159,6 +159,10 @@ export async function updateManualTransaction(
       return "not_entered";
     }
 
+    if (subject.trade_leg) {
+      return "trade_leg";
+    }
+
     // Removing the split in the same write transaction lets it take a type a split booking refuses; a refused save keeps the split.
     if (splitChange && "remove" in splitChange) {
       await dissolveSplit(tx, id, splitChange.remove);
@@ -276,6 +280,10 @@ export async function deleteManualTransaction(id: string, bankLinked: boolean) {
 
     if (!enteredInUfer(subject)) {
       return "not_entered";
+    }
+
+    if (subject.trade_leg) {
+      return "trade_leg";
     }
 
     const counterpart = await findCounterpart(tx, subject);

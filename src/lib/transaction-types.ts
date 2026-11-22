@@ -1,5 +1,5 @@
-/** What a booking is, independent of its category. Only income and expenses count toward cash flow, spending and trends. */
-export const transactionTypes = ["income", "expense", "transfer", "opening_balance", "adjustment"] as const;
+/** What a booking is, independent of its category. Only income and expenses count toward cash flow, spending and trends; buy and sell are the cash legs of security trades (ADR 012). */
+export const transactionTypes = ["income", "expense", "transfer", "opening_balance", "adjustment", "buy", "sell"] as const;
 
 export type TransactionType = typeof transactionTypes[number];
 
@@ -8,8 +8,16 @@ export const transactionTypeLabels: Record<TransactionType, string> = {
   expense: "Expense",
   transfer: "Transfer",
   opening_balance: "Opening balance",
-  adjustment: "Adjustment"
+  adjustment: "Adjustment",
+  buy: "Buy",
+  sell: "Sell"
 };
+
+/** Types only a security trade sets on its cash leg; a person never chooses them for a booking. */
+export const tradeTransactionTypes: readonly TransactionType[] = ["buy", "sell"];
+
+/** Types a person can enter or correct a booking to. */
+export const entryTransactionTypes = ["income", "expense", "transfer", "opening_balance", "adjustment"] as const satisfies readonly TransactionType[];
 
 /** Types that only describe how a manual account's balance came about; bank-synced bookings never have them. */
 export const manualAccountTypes: readonly TransactionType[] = ["opening_balance", "adjustment"];

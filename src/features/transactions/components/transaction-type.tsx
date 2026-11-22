@@ -1,4 +1,4 @@
-import { ArrowDownLeft, ArrowUpRight, ArrowLeftRight, CircleEqual, Flag } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, ArrowLeftRight, CircleEqual, Flag, TrendingDown, TrendingUp } from "lucide-react";
 import { transactionTypeLabels, type TransactionType } from "@/lib/transaction-types";
 import type { Transaction } from "@/features/transactions/types";
 
@@ -9,12 +9,14 @@ export function transferDirection(transaction: Transaction) {
   return `${towards} ${transaction.counterpart?.account_name ?? "an untracked account"}`;
 }
 
-const typeIcons = {
+const typeIcons: Record<TransactionType, typeof Flag> = {
   income: ArrowDownLeft,
   expense: ArrowUpRight,
   transfer: ArrowLeftRight,
   opening_balance: Flag,
-  adjustment: CircleEqual
+  adjustment: CircleEqual,
+  buy: TrendingUp,
+  sell: TrendingDown
 };
 
 /** The transaction's type, independent of its category and the sign of a refund. */

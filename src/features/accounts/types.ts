@@ -21,6 +21,11 @@ export type Account = {
   sync_error: string | null;
   /** When the account was archived; archived accounts are hidden from lists and pickers but keep counting in reports. */
   archived_at: string | null;
+  /** For a brokerage account with trades, how many holdings have no price on or before today or only an old one; null for every other account. */
+  valuation: {
+    missing: number;
+    stale: number;
+  } | null;
 };
 
 /** Latest known balances in one currency; independent of the selected period. */
@@ -32,13 +37,15 @@ export type NetWorth = {
   property: number;
   liabilities: number;
   unvalued: number;
+  /** Brokerage accounts whose value leaves out a holding without a price or uses an old price. */
+  incompleteValuations: number;
 };
 
 /** A dated balance, recorded by an operator/provider or estimated from booked transactions. */
 export type BalancePoint = {
   date: string;
   amount_minor: number;
-  source: "sync" | "manual" | "csv" | "transactions";
+  source: "transactions" | "valuation";
   bank_balance_type: string | null;
 };
 

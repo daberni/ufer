@@ -51,7 +51,8 @@ export function WealthSummary({
     investments: 0,
     property: 0,
     liabilities: 0,
-    unvalued: 0
+    unvalued: 0,
+    incompleteValuations: 0
   }));
   const summary = netWorth.data;
   const netWorthValue = valueMask(netWorth.status);
@@ -98,6 +99,7 @@ export function WealthSummary({
         )}
       </div>
       {summary.unvalued > 0 && <p>{formatCount(summary.unvalued, locale)} without a balance</p>}
+      {summary.incompleteValuations > 0 && <p>{formatCount(summary.incompleteValuations, locale)} valued with missing or old prices</p>}
       {/* Assets and loans share one scale; the loan track is always laid out, so the card's height does not depend on having loans. */}
       <div className={clsx(styles["bars"], netWorthValue)} aria-hidden="true">
         <div className={styles["bar-track"]}>

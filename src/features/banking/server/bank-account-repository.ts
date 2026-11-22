@@ -1,4 +1,5 @@
 import { and, eq, inArray, isNull, ne, notExists } from "drizzle-orm";
+import { bookableAccount } from "@/features/transactions/server/booking-accounts";
 import type { DatabaseTransaction } from "@/server/database/connection";
 import { accountIdentifiers, accounts, requisitions } from "@/server/database/schema";
 import type { ConnectTarget, IdentifierMatch, MappableBankAccount } from "./bank-account-mapping";
@@ -9,7 +10,7 @@ export async function findConnectTarget(tx: DatabaseTransaction, id: string): Pr
     id: accounts.id,
     currency: accounts.currency,
     iban: accounts.iban
-  }).from(accounts).where(and(eq(accounts.id, id), eq(accounts.provider, "manual"), isNull(accounts.requisition_id), isNull(accounts.archived_at))).get();
+  }).from(accounts).where(and(eq(accounts.id, id), eq(accounts.provider, "manual"), bookableAccount, isNull(accounts.requisition_id), isNull(accounts.archived_at))).get();
 }
 
 /** The existing accounts any of the identifiers belong to, each with its connection. */

@@ -1090,7 +1090,8 @@ const manualAccount: Account = {
   last_synced_at: null,
   valid_until: null,
   sync_error: null,
-  archived_at: null
+  archived_at: null,
+  valuation: null
 };
 
 async function renderDetails(context: TestContext, account: Account) {
