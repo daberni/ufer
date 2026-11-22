@@ -345,6 +345,16 @@ test("OFX empty SGML leaves keep later fields, foreign amounts round exactly, an
   // Entries sharing a physical line are numbered in file order, so every row keeps its own decision.
   assert.deepEqual([oneLine.rows.map(row => row.line), oneLine.errors.map(error => error.line)], [[1, 3], [2]]);
 
+  const missingAmount = read("!Type:Bank\nD01.03.2026\nT-10,00\nSFood\nSCar/Work\n$-4,00\nSHouse\n$-6,00\n^\n");
+
+  assert.deepEqual([missingAmount.rows[0].parts, missingAmount.rows[0].description], [null, "Split: Food, Car 4.00, House 6.00"]);
+
+  const utf16 = new Uint8Array([0xff, 0xfe, ...Array.from(camt.replace("UTF-8", "UTF-16"), character => [character.charCodeAt(0) & 0xff, character.charCodeAt(0) >> 8]).flat()]);
+
+  assert.equal(read(utf16).rows.length, 5);
+  // A single-byte encoding declared in the prolog decodes as declared.
+  assert.equal(read(windows1252(camt.replace("UTF-8", "ISO-8859-1").replace("Synthetic Landlord", "S\u00fcd Landlord"))).rows[0].payee, "S\u00fcd Landlord & Co");
+
   const shared = read("OFXHEADER:100\n\n<OFX><BANKMSGSRSV1><STMTTRNRS><STMTRS><CURDEF>EUR<BANKACCTFROM><BANKID>B1<ACCTID>42</BANKACCTFROM><BANKTRANLIST><STMTTRN><DTPOSTED>20260301<TRNAMT>-1<FITID>1</STMTTRN></BANKTRANLIST></STMTRS></STMTTRNRS></BANKMSGSRSV1><CREDITCARDMSGSRSV1><CCSTMTTRNRS><CCSTMTRS><CURDEF>EUR<CCACCTFROM><ACCTID>42</CCACCTFROM><BANKTRANLIST><STMTTRN><DTPOSTED>20260301<TRNAMT>-2<FITID>1</STMTTRN></BANKTRANLIST></CCSTMTRS></CCSTMTTRNRS></CREDITCARDMSGSRSV1></OFX>");
 
   assert.deepEqual(shared.rows.map(row => row.source), ["B1 · 42", "Card · 42"]);

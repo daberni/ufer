@@ -174,6 +174,11 @@ function splitTags(record: QifRecord, decimal: "." | ",", amount: string | null)
 
   for (const [field, text] of record.fields) {
     if (field === "S") {
+      // A category without its amount stays as a tag without one, which makes the split invalid and keeps its text.
+      if (category !== null) {
+        parts.push(category.replaceAll(",", " "));
+      }
+
       category = text.split("/")[0].trim();
     } else if (field === "$" && category !== null) {
       const partAmount = parseAmount(text, decimal);
@@ -184,6 +189,10 @@ function splitTags(record: QifRecord, decimal: "." | ",", amount: string | null)
       parts.push(`${category.replaceAll(",", " ")}:${tagAmount}`);
       category = null;
     }
+  }
+
+  if (category !== null) {
+    parts.push(category.replaceAll(",", " "));
   }
 
   return parts.length > 0 ? parts.join(",") : null;
