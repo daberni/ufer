@@ -263,7 +263,7 @@ export async function editManualTransaction(id: string, payload: unknown, now = 
   const categoryFor = (text: RuleText) => ruleAssignment(text, rules);
   const change = await splitChange(input);
 
-  await requireSaved(await withBankSyncLease(account.bankLinked, () => updateManualTransaction(id, entry, categoryFor, change)));
+  await requireSaved(await withBankSyncLease(account.bankLinked, () => updateManualTransaction(id, entry, categoryFor, account.bankLinked, change)));
 
   return {
     ok: true
@@ -282,7 +282,7 @@ async function withBankSyncLease(bankLinked: boolean, write: () => Promise<Manua
 export async function removeManualTransaction(id: string) {
   const account = await findEntryAccount(id);
 
-  await requireSaved(await withBankSyncLease(account?.bankLinked ?? false, () => deleteManualTransaction(id)));
+  await requireSaved(await withBankSyncLease(account?.bankLinked ?? false, () => deleteManualTransaction(id, account?.bankLinked ?? false)));
 
   return {
     ok: true

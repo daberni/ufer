@@ -11,7 +11,7 @@ import { hash } from "../src/server/security/tokens";
 import type { AuthContext } from "../src/server/security/session";
 import { completeAuthorization } from "../src/features/banking/server/authorization-service";
 import { connectBank } from "../src/features/banking/server/connect-bank";
-import { createManualTransaction } from "../src/features/transactions/server/manual-transaction-repository";
+import { createManualTransaction, deleteManualTransaction } from "../src/features/transactions/server/manual-transaction-repository";
 import { insertAuthorization } from "../src/features/banking/server/connection-repository";
 import { removeBankConnection } from "../src/features/banking/server/connection-service";
 import { deleteAccount } from "../src/features/accounts/server/account-service";
@@ -511,4 +511,44 @@ test("a targeted callback whose chosen bank account shares an identifier with an
   });
   assert.deepEqual(requests.map(request => request.method), ["POST", "DELETE"]);
   assert.deepEqual((await db.select().from(schema.accounts)).map(row => [row.id, row.provider, row.provider_uid]), [["imported", "manual", null]]);
+});
+
+test("a manual entry change that skipped the sync lease while its account was manual is refused once a connection has linked the account", async context => {
+  const {
+    db
+  } = await connectDatabase(context, () => []);
+
+  await insertManualAccount(db);
+
+  const {
+    id
+  } = await createManualTransaction({
+    accountId: "imported",
+    currency: "EUR",
+    date: "2026-11-01",
+    amount: 5000,
+    counterparty: "",
+    description: "Opening balance",
+    type: "opening_balance",
+    categoryId: null,
+    categorySource: "manual",
+    categoryRuleId: null
+  });
+
+  await db.insert(schema.requisitions).values({
+    id: "linked",
+    bank_name: "Example bank",
+    bank_country: "AT",
+    status: "LINKED"
+  });
+  await db.update(schema.accounts).set({
+    provider: "enable_banking",
+    provider_uid: "uid-checking",
+    requisition_id: "linked"
+  }).where(eq(schema.accounts.id, "imported"));
+
+  await assert.rejects(deleteManualTransaction(id, false), {
+    status: 409
+  });
+  assert.equal((await db.select().from(schema.transactions)).length, 1);
 });

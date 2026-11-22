@@ -3,6 +3,7 @@ import { and, eq, isNull, lte, sql } from "drizzle-orm";
 import { TransactionRollbackError } from "drizzle-orm/errors";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 import { transactions } from "@/server/database/schema";
+import { HttpError } from "@/lib/errors";
 import { assertWritableManualAccount } from "./booking-accounts";
 import type { TransactionType } from "@/lib/transaction-types";
 import type { RuleAssignment, RuleText } from "@/features/categorization/server/rule-assignment";
@@ -125,10 +126,20 @@ export async function findEntryAccount(id: string) {
  * Saves an entered booking's date, amount, payee, description and type together.
  * The other side of an entered pair mirrors the date, the opposite amount and the description; a booking linked with an imported booking keeps that booking's date and amount.
  */
+/** The caller chose whether to hold the sync lease from the account's earlier state; a bank connection linking it since then would let a sync write alongside this change. */
+function assertLinkUnchanged(subject: {
+  account_provider: string
+}, bankLinked: boolean) {
+  if ((subject.account_provider !== "manual") !== bankLinked) {
+    throw new HttpError(409, "This account was connected to a bank meanwhile. Try the change again.");
+  }
+}
+
 export async function updateManualTransaction(
   id: string,
   entry: ManualEntry,
   categoryFor: (text: RuleText) => RuleAssignment,
+  bankLinked: boolean,
   splitChange?: SplitChange
 ) {
   return refusable(async tx => {
@@ -137,6 +148,8 @@ export async function updateManualTransaction(
     if (!subject) {
       return "not_found";
     }
+
+    assertLinkUnchanged(subject, bankLinked);
 
     if (await touchesArchivedAccount(tx, subject)) {
       return "archived_account";
@@ -247,13 +260,15 @@ async function reapplyRuleCategory(tx: DatabaseTransaction, id: string, category
 /**
  * Deletes a booking entered in Ufer. Both sides of an entered pair are one movement and are deleted together; an imported booking it was linked with stays as a transfer without a counterpart.
  */
-export async function deleteManualTransaction(id: string) {
+export async function deleteManualTransaction(id: string, bankLinked: boolean) {
   return refusable(async tx => {
     const subject = await findSubject(tx, id);
 
     if (!subject) {
       return "not_found";
     }
+
+    assertLinkUnchanged(subject, bankLinked);
 
     if (await touchesArchivedAccount(tx, subject)) {
       return "archived_account";
