@@ -136,7 +136,7 @@ export function TransactionEditDialog({
   // The dashboard always holds the account list, so the dialog reads it without starting a request of its own.
   const brokerageAccounts = activeAccounts(useQueryClient().getQueryData<Account[]>(queryKeys.accounts()) ?? []).filter(account => account.kind === "brokerage" && account.currency === transaction.currency);
   // An imported income or expense can be the cash side of a buy or sale on a brokerage account in its currency.
-  const tradeable = !transaction.entered && !transaction.manual_account && !transaction.hidden && (transaction.type === "income" || transaction.type === "expense") && brokerageAccounts.length > 0;
+  const tradeable = !transaction.entered && !transaction.manual_account && !transaction.hidden && !transaction.account_archived && transaction.split === null && (transaction.type === "income" || transaction.type === "expense") && brokerageAccounts.length > 0;
 
   return (
     <Dialog

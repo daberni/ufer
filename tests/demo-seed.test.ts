@@ -374,7 +374,7 @@ test("simulated bank connections show a sync history and splits but are never sy
   assert.deepEqual((await listSyncAccounts()).map(account => account.id), ["sandbox-account"]);
 });
 
-test("re-seeding returns a sandbox booking that settled a demo trade to its own type", async context => {
+test("re-seeding refuses while the demo brokerage holds a trade a person recorded, and keeps it", async context => {
   const db = await isolatedDatabase(context);
 
   await seedActor(db);
@@ -401,12 +401,9 @@ test("re-seeding returns a sandbox booking that settled a demo trade to its own 
     settlement_transaction_id: "sandbox-transaction"
   });
 
-  await seedDemoData({
+  await assert.rejects(seedDemoData({
     confirmed: true,
     runDate: secondRun
-  });
-
-  const booking = await db.select().from(schema.transactions).where(eq(schema.transactions.id, "sandbox-transaction")).get();
-
-  assert.deepEqual([booking?.type, booking?.type_source], ["expense", "auto"]);
+  }), /trades that the demo seed did not create/);
+  assert.ok(await db.select().from(schema.securityTrades).where(eq(schema.securityTrades.id, "person-trade")).get());
 });

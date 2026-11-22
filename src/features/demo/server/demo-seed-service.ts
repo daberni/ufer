@@ -22,6 +22,10 @@ export type DemoSeedOptions = {
  * the configured banking environment must be SANDBOX, and manual or CSV accounts the seed did not create must not hold transactions.
  */
 function assertDemoTarget(target: DemoSeedTarget) {
+  if (target.foreignTrades > 0) {
+    throw new DemoSeedRefusal(`Refusing to seed: the demo brokerage holds ${target.foreignTrades} trades that the demo seed did not create.`);
+  }
+
   if (target.foreignManualTransactions > 0) {
     throw new DemoSeedRefusal(`Refusing to seed: the database contains ${target.foreignManualTransactions} transactions on manual or CSV accounts that the demo seed did not create.`);
   }

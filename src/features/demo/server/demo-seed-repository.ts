@@ -21,6 +21,8 @@ import type { DemoConnectionData, DemoCreatedCounterpart, DemoSnapshot, DemoSpli
 /** What the guard inspects before demo rows are replaced. */
 export type DemoSeedTarget = {
   foreignManualTransactions: number;
+  /** Trades someone recorded on a demo brokerage account; the seed would delete them with its own. */
+  foreignTrades: number;
 };
 
 export type DemoAccountRows = DemoAccountDefinition & {
@@ -45,6 +47,9 @@ export type DemoSeedRows = {
 
 const demoRows = `${demoIdPrefix}%`;
 
+// The seed's own trades; any other trade on a demo account was recorded by a person.
+const demoTradeRows = `${demoIdPrefix}trade-%`;
+
 /** Categories the seed did not create; the seed reuses one of them instead of adding a demo category with the same name. */
 export async function listForeignCategories(): Promise<Pick<Category, "id" | "name">[]> {
   const db = await database();
@@ -64,8 +69,13 @@ async function inspectTarget(tx: DatabaseTransaction): Promise<DemoSeedTarget> {
     count: count()
   }).from(transactions).where(and(inArray(transactions.account_id, foreignManualAccounts), notInArray(transactions.type, [...manualAccountTypes]))).get();
 
+  const foreignTrades = await tx.select({
+    count: count()
+  }).from(securityTrades).where(and(like(securityTrades.account_id, demoRows), not(like(securityTrades.id, demoTradeRows)))).get();
+
   return {
-    foreignManualTransactions: manualTransactions?.count ?? 0
+    foreignManualTransactions: manualTransactions?.count ?? 0,
+    foreignTrades: foreignTrades?.count ?? 0
   };
 }
 
@@ -78,15 +88,6 @@ async function deleteDemoRows(tx: DatabaseTransaction) {
   await tx.update(transactions).set({
     transfer_id: null
   }).where(and(not(like(transactions.account_id, demoRows)), inArray(transactions.transfer_id, demoTransfers)));
-  // A booking on another account that became a demo trade's cash side returns to the type its delivery implies, as when a trade is deleted.
-  const demoSettlements = tx.select({
-    id: securityTrades.settlement_transaction_id
-  }).from(securityTrades).where(like(securityTrades.account_id, demoRows));
-
-  await tx.update(transactions).set({
-    type: sql`CASE WHEN ${transactions.transfer_detected}=1 THEN 'transfer' WHEN ${transactions.amount_minor}>0 THEN 'income' ELSE 'expense' END`,
-    type_source: "auto"
-  }).where(and(not(like(transactions.account_id, demoRows)), inArray(transactions.id, demoSettlements)));
   await tx.delete(securityTrades).where(like(securityTrades.account_id, demoRows));
   await tx.delete(securityPrices).where(like(securityPrices.security_id, demoRows));
   await tx.delete(securitySplits).where(like(securitySplits.security_id, demoRows));
