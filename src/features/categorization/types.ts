@@ -23,6 +23,9 @@ export type Rule = {
   /** For a transfer, the own account on the other side. */
   transfer_account_id: string | null;
   transfer_account_name: string | null;
+  /** The only account whose bookings the rule matches; null matches every account. */
+  account_id: string | null;
+  account_name: string | null;
 };
 
 /** The transactions a rule would categorize, counted without storing it; manual assignments are counted separately, since they only follow a rule when chosen. */
@@ -58,6 +61,8 @@ export type RulePreviewTransaction = {
 export type RulePreviewDraft = {
   pattern: string;
   mode: "keyword" | "regex";
+  /** The account the rule is limited to; null counts every account. */
+  accountId: string | null;
   /** The stored rule an edit replaces; null previews a new rule. */
   ruleId: string | null;
   /** The chosen category, compared with the categories of matching manual assignments; null while none is chosen. */

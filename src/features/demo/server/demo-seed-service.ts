@@ -71,7 +71,7 @@ export async function seedDemoData(options: DemoSeedOptions) {
   }));
   const accounts = dataset.accounts.map(account => ({
     ...account,
-    entries: categorizeEntries(account.entries, rules)
+    entries: categorizeEntries(account.entries, rules, account.id)
   }));
 
   await replaceDemoRows({

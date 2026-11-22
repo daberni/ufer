@@ -4,7 +4,7 @@ import ui from "../../../components/ui/primitives.module.css";
 
 import { clsx } from "clsx";
 import styles from "./rules-view.module.css";
-import { GripVertical, Pencil, Plus, Sparkles } from "lucide-react";
+import { GripVertical, Landmark, Pencil, Plus, Sparkles } from "lucide-react";
 import { ActionFeedback } from "@/components/ui/action-feedback";
 import { Empty } from "@/components/ui/empty-state";
 import { FormError } from "@/components/ui/form-error";
@@ -379,9 +379,34 @@ function RuleTypeLabel({
   return (
     <Tooltip text={`Sets type: ${text}`}>
       {trigger => (
-        <span {...trigger} className={styles["rule-type"]}>
+        <span {...trigger} className={styles["rule-tag"]}>
           <TransactionTypeIcon type={type} />
           <span>{text}</span>
+        </span>
+      )}
+    </Tooltip>
+  );
+}
+
+/** The account a rule is limited to, for example: Only Savings. Nothing for a rule that matches every account. */
+function RuleAccountLabel({
+  rule
+}: {
+  rule: Rule;
+}) {
+  if (!rule.account_id) {
+    return null;
+  }
+
+  // A condition without a name belongs to a deleted account.
+  const accountName = rule.account_name ?? "Deleted account";
+
+  return (
+    <Tooltip text={`Matches only bookings on ${accountName}`}>
+      {trigger => (
+        <span {...trigger} className={styles["rule-tag"]}>
+          <Landmark size={17} aria-hidden="true" />
+          <span>Only {accountName}</span>
         </span>
       )}
     </Tooltip>
@@ -416,6 +441,7 @@ function DraggedRuleRow({
           />
         </span>
         <RuleTypeLabel rule={rule} />
+        <RuleAccountLabel rule={rule} />
       </div>
       <span className={clsx(styles["toggle"], rule.enabled && styles["enabled"])}>
         <span />
@@ -463,6 +489,7 @@ function RuleRowContent({
           />
         </span>
         <RuleTypeLabel rule={rule} />
+        <RuleAccountLabel rule={rule} />
       </div>
       <button
         className={clsx(styles["toggle"], rule.enabled && styles["enabled"])}

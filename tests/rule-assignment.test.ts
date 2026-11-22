@@ -15,6 +15,7 @@ function rule(fields: Partial<Rule> & Pick<Rule, "id" | "pattern" | "category_id
 }
 
 const text = {
+  account_id: "checking",
   counterparty: "City Market",
   description: "Card payment"
 };
@@ -125,9 +126,55 @@ test("entries record the type rule only when the deciding rule sets a type", () 
   }, text, {
     counterparty: "Unknown",
     description: ""
-  }], rules);
+  }], rules, "checking");
 
   assert.deepEqual([salary.categoryRuleId, salary.ruleType, salary.typeRuleId], ["typed", "income", "typed"]);
   assert.deepEqual([market.categoryRuleId, market.ruleType, market.typeRuleId], ["untyped", null, null]);
   assert.deepEqual([unmatched.categoryId, unmatched.categoryRuleId, unmatched.typeRuleId], [null, null, null]);
+});
+
+test("a rule limited to an account decides only that account's bookings, so a later rule decides the others", () => {
+  const rules = [
+    rule({
+      id: "savings-only",
+      pattern: "market",
+      category_id: "savings",
+      priority: 1,
+      account_id: "savings"
+    }),
+    rule({
+      id: "everywhere",
+      pattern: "market",
+      category_id: "groceries",
+      priority: 2
+    })
+  ];
+
+  assert.equal(assignRules(rules, {
+    ...text,
+    account_id: "savings"
+  }).ruleId, "savings-only");
+  assert.equal(assignRules(rules, text).ruleId, "everywhere");
+  assert.deepEqual(categorizeEntries([text], rules, "savings").map(entry => entry.categoryRuleId), ["savings-only"]);
+});
+
+test("a transfer rule naming the booking's own account sets a transfer to any account", () => {
+  const rules = [rule({
+    id: "move",
+    pattern: "market",
+    category_id: "savings",
+    transaction_type: "transfer",
+    transfer_account_id: "savings"
+  })];
+
+  assert.deepEqual(assignRules(rules, {
+    ...text,
+    account_id: "savings"
+  }), {
+    categoryId: "savings",
+    ruleId: "move",
+    type: "transfer",
+    transferAccountId: null
+  });
+  assert.equal(assignRules(rules, text).transferAccountId, "savings");
 });

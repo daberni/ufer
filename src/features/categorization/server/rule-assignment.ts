@@ -3,8 +3,8 @@ import { ValidationError } from "@/lib/errors";
 import type { CategorizationRule } from "@/server/database/models";
 import type { RuleTransactionType } from "@/lib/transaction-types";
 
-/** A stored rule; a rule without a type may omit the type fields. */
-export type Rule = Omit<CategorizationRule, "transaction_type" | "transfer_account_id"> & Partial<Pick<CategorizationRule, "transaction_type" | "transfer_account_id">>;
+/** A stored rule; a rule without a type or account condition may omit those fields. */
+export type Rule = Omit<CategorizationRule, "transaction_type" | "transfer_account_id" | "account_id"> & Partial<Pick<CategorizationRule, "transaction_type" | "transfer_account_id" | "account_id">>;
 
 export type PreparedRule = {
   id: string;
@@ -13,6 +13,8 @@ export type PreparedRule = {
   type: RuleTransactionType | null;
   /** For a transfer rule, the own account on the other side. */
   transferAccountId: string | null;
+  /** The only account whose bookings the rule matches; null matches every account. */
+  accountId: string | null;
   matches: (text: string) => boolean;
 };
 
@@ -49,6 +51,7 @@ export function prepareRules(rules: Rule[]): PreparedRule[] {
         categoryId: rule.category_id,
         type: rule.transaction_type ?? null,
         transferAccountId: rule.transaction_type === "transfer" ? rule.transfer_account_id ?? null : null,
+        accountId: rule.account_id ?? null,
         matches: text => regex.matcher(text).find()
       };
     }
@@ -60,13 +63,15 @@ export function prepareRules(rules: Rule[]): PreparedRule[] {
       categoryId: rule.category_id,
       type: rule.transaction_type ?? null,
       transferAccountId: rule.transaction_type === "transfer" ? rule.transfer_account_id ?? null : null,
+      accountId: rule.account_id ?? null,
       matches: text => text.toLocaleLowerCase("en-GB").includes(keyword)
     };
   });
 }
 
-/** A transaction's text as rules see it: the source text, and a person's payee and description overrides where present. */
+/** A transaction as rules see it: its account, the source text, and a person's payee and description overrides where present. */
 export type RuleText = {
+  account_id: string;
   counterparty: string;
   description: string;
   counterparty_override?: string | null;
@@ -84,11 +89,16 @@ function matchedTexts(text: RuleText) {
   return [source, `${text.counterparty_override ?? text.counterparty} ${text.description_override ?? text.description}`];
 }
 
-/** The rule that decides a transaction's category: the first prepared rule that matches its source text or its overridden text. */
+/** The rule that decides a transaction's category: the first prepared rule for the transaction's account that matches its source text or its overridden text. */
 export function decidingRule(text: RuleText, rules: PreparedRule[]) {
   const texts = matchedTexts(text);
 
-  return rules.find(rule => texts.some(candidate => rule.matches(candidate)));
+  return rules.find(rule => (rule.accountId === null || rule.accountId === text.account_id) && texts.some(candidate => rule.matches(candidate)));
+}
+
+/** A transfer to the booking's own account could never be paired, so it behaves like a transfer to any account. */
+export function counterpartAccount(transferAccountId: string | null | undefined, accountId: string) {
+  return transferAccountId === accountId ? null : transferAccountId ?? null;
 }
 
 /** A rule-sourced category together with the rule that decided it; both are null when no rule matches. The same deciding rule sets the type, or leaves it automatic with a null type. */
@@ -106,7 +116,7 @@ export function ruleAssignment(text: RuleText, rules: PreparedRule[]): RuleAssig
     categoryId: rule?.categoryId ?? null,
     ruleId: rule?.id ?? null,
     type: rule?.type ?? null,
-    transferAccountId: rule?.transferAccountId ?? null
+    transferAccountId: counterpartAccount(rule?.transferAccountId, text.account_id)
   };
 }
 
@@ -132,12 +142,15 @@ export type EntryRuleAssignment = {
   typeTransferAccountId: string | null;
 };
 
-/** Assigns each entry the category and any type of the first matching rule; an entry carries the stored overrides of the row it updates. Categories describe purpose only; a detected transfer is categorized like any other booking and keeps its type separately. */
-export function categorizeEntries<Categorized extends RuleText>(entries: Categorized[], rules: Rule[]): (Categorized & EntryRuleAssignment)[] {
+/** Assigns each entry of one account the category and any type of the first matching rule; an entry carries the stored overrides of the row it updates. Categories describe purpose only; a detected transfer is categorized like any other booking and keeps its type separately. */
+export function categorizeEntries<Categorized extends Omit<RuleText, "account_id">>(entries: Categorized[], rules: Rule[], accountId: string): (Categorized & EntryRuleAssignment)[] {
   const prepared = prepareRules(rules);
 
   return entries.map(entry => {
-    const assignment = ruleAssignment(entry, prepared);
+    const assignment = ruleAssignment({
+      ...entry,
+      account_id: accountId
+    }, prepared);
 
     return {
       ...entry,

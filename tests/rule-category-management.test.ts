@@ -169,6 +169,7 @@ test("reordering stores distinct priorities in list order and keeps every other 
   // A reload reads the same order from storage, and matching follows it.
   assert.deepEqual((await listRules()).map(rule => rule.id), ["rule-cinema", "rule-cafe", "rule-market"]);
   assert.equal(categorize({
+    account_id: "checking",
     counterparty: "Corner Market Cafe",
     description: ""
   }, prepareRules(await listRules())), "leisure");
@@ -553,6 +554,7 @@ test("appending after a rule at the highest priority renumbers the stored order 
   assert.equal(preview.matched, 0);
   // Earlier rules still decide what they decided before.
   assert.equal(categorize({
+    account_id: "checking",
     counterparty: "Harbour Cafe",
     description: ""
   }, prepareRules(rules)), "leisure");

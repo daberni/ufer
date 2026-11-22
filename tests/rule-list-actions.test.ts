@@ -26,7 +26,9 @@ function rule(id: string, priority: number): Rule {
     category_icon: null,
     transaction_type: null,
     transfer_account_id: null,
-    transfer_account_name: null
+    transfer_account_name: null,
+    account_id: null,
+    account_name: null
   };
 }
 
@@ -439,7 +441,9 @@ test("editing a transfer rule keeps its stored account while the account list is
       category_icon: null,
       transaction_type: "transfer",
       transfer_account_id: "synthetic-savings",
-      transfer_account_name: "Synthetic savings"
+      transfer_account_name: "Synthetic savings",
+      account_id: null,
+      account_name: null
     },
     close: () => {}
   })));
@@ -451,4 +455,82 @@ test("editing a transfer rule keeps its stored account while the account list is
   assert.ok(screen.getByRole("option", {
     name: "Synthetic savings"
   }));
+});
+
+test("a rule can be limited to an active account, which the preview counts and the form sends with the rule", async context => {
+  const {
+    queryClient,
+    requests
+  } = browser(context);
+
+  modalDialogs();
+  queryClient.setQueryData(queryKeys.categories(), [{
+    id: "fees",
+    name: "Fees",
+    color: "#638777",
+    icon: null
+  }]);
+  queryClient.setQueryData(queryKeys.accounts(), [{
+    id: "synthetic-savings",
+    name: "Synthetic savings",
+    archived_at: null
+  }, {
+    id: "synthetic-closed",
+    name: "Synthetic closed",
+    archived_at: "2026-09-01T00:00:00.000Z"
+  }]);
+  const { RuleDialog } = await import("../src/features/categorization/components/create-rule-form");
+  const screen = render(withQueryClient(queryClient, createElement(RuleDialog, {
+    rule: null,
+    close: () => {}
+  })));
+  const condition = screen.getByRole("combobox", {
+    name: "Only for account"
+  });
+
+  assert.equal(screen.queryByRole("option", {
+    name: "Synthetic closed"
+  }), null);
+  act(() => fireEvent.change(screen.getByRole("textbox", {
+    name: "Rule name"
+  }), {
+    target: {
+      value: "Savings fees"
+    }
+  }));
+  act(() => fireEvent.change(screen.getByRole("textbox", {
+    name: "Matching pattern"
+  }), {
+    target: {
+      value: "ACCOUNT FEE"
+    }
+  }));
+  act(() => fireEvent.change(condition, {
+    target: {
+      value: "synthetic-savings"
+    }
+  }));
+  await wait(350);
+
+  const preview = requests("rules/preview").at(-1);
+
+  assert.equal((preview?.body as Record<string, unknown> | undefined)?.account_id, "synthetic-savings");
+  await respond(preview, Response.json({
+    id: previewId,
+    enabled: true,
+    matched: 1,
+    uncategorized: 1,
+    matched_same_category: 0,
+    manual: 0,
+    manual_same_category: 0,
+    transactions: []
+  }));
+  act(() => fireEvent.submit((screen.getByRole("button", {
+    name: "Create rule"
+  }) as HTMLButtonElement).closest("form")!));
+  await wait(0);
+
+  const saved = requests("rules").filter(request => request.method === "POST");
+
+  assert.equal((saved[0]?.body as Record<string, unknown> | undefined)?.account_id, "synthetic-savings");
 });

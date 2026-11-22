@@ -40,7 +40,9 @@ const rule = {
   category_icon: null,
   transaction_type: null,
   transfer_account_id: null,
-  transfer_account_name: null
+  transfer_account_name: null,
+  account_id: null,
+  account_name: null
 } satisfies Rule;
 
 const transaction: Transaction = {

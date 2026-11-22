@@ -14,6 +14,7 @@ type Reader = Pick<DatabaseTransaction, "select">;
 
 const ruleText = {
   id: transactions.id,
+  account_id: transactions.account_id,
   counterparty: transactions.counterparty,
   description: transactions.description,
   counterparty_override: transactions.counterparty_override,
@@ -121,6 +122,7 @@ export async function readTypeableBookings(tx: DatabaseTransaction, ids: string[
   for (const chunk of chunks(ids)) {
     found.push(...await tx.select({
       id: transactions.id,
+      account_id: transactions.account_id,
       amount_minor: transactions.amount_minor,
       type_rule_id: transactions.type_rule_id,
       transfer_detected: transactions.transfer_detected
