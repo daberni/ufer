@@ -72,6 +72,27 @@ export function ActionMenu({
     popupRef
   });
 
+  // A phone-only menu loses its trigger when the viewport widens, for example on rotation; it closes instead of floating without an anchor.
+  useEffect(() => {
+    const trigger = triggerRef.current;
+
+    if (!open || !phoneOnly || !trigger) {
+      return;
+    }
+
+    const view = trigger.ownerDocument.defaultView;
+
+    function closeWhenHidden() {
+      if (trigger && view?.getComputedStyle(trigger).display === "none") {
+        setOpen(false);
+      }
+    }
+
+    view?.addEventListener("resize", closeWhenHidden);
+
+    return () => view?.removeEventListener("resize", closeWhenHidden);
+  }, [open, phoneOnly]);
+
   useEffect(() => {
     if (!open) {
       return;
