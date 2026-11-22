@@ -301,6 +301,29 @@ test("a historical report only absorbs bookings the bank dates within a few days
     date: "2026-10-09",
     amount: 1000
   }]);
+  // A Friday balance already contains a card payment the bank dates on Tuesday after a Monday public holiday.
+  const withHolidayPayment = [...firstBookings, {
+    reference: "bank:weekend-card-payment",
+    date: "2026-10-05",
+    amount: -5000
+  }, {
+    reference: "bank:late-refund",
+    date: "2026-10-09",
+    amount: 1000
+  }, {
+    reference: "bank:holiday-card-payment",
+    date: "2026-10-20",
+    amount: -3000
+  }];
+
+  await sync({
+    amount: "930.00",
+    date: "2026-10-16"
+  }, withHolidayPayment);
+  await sync({
+    amount: "930.00",
+    date: "2026-10-23"
+  }, withHolidayPayment);
 
   const differences = (await readBalanceHistory("checking")).reported.map(report => [report.date, report.difference_minor, report.difference_started]);
 
@@ -308,7 +331,9 @@ test("a historical report only absorbs bookings the bank dates within a few days
   assert.deepEqual(differences, [
     ["2026-09-30", 0, false],
     ["2026-10-03", -4000, true],
-    ["2026-10-12", 0, false]
+    ["2026-10-12", 0, false],
+    ["2026-10-16", 0, false],
+    ["2026-10-23", 0, false]
   ]);
 });
 

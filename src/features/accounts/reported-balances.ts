@@ -10,12 +10,12 @@ export type BookedReport = {
 
 /**
  * Compares each booked balance a bank reported with the balance calculated from bookings through the end of its date, oldest first.
- * A report that already contains bookings the bank dates on one of the next few days (a weekend or holiday booking dated on the next business day) shows no difference.
+ * A report that already contains bookings the bank dates up to four days later (a weekend or holiday booking dated on the next business day) shows no difference.
  * The newest report may contain any later booking, as in the account summary.
  * A difference starts on the first report where it differs from the previous report's difference, so an adjustment can be booked on that date.
  */
-// Covers a booking made on a Friday before a public holiday Monday and dated on Tuesday.
-const bookingDateDelayDays = 3;
+// Reaches the Tuesday after a Friday report when Monday is a public holiday.
+const bookingDateDelayDays = 4;
 
 export function reportedBalanceDifferences(reports: BookedReport[], bookings: DailyBooking[]): ReportedBalance[] {
   const ordered = reports.toSorted((left, right) => left.date.localeCompare(right.date));
