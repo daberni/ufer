@@ -12,6 +12,7 @@ import { archivedAccountMessage, assertWritableAccount, assertWritableManualAcco
 import { bookManualEntry, recordManualBalance, type ManualEntryResult } from "@/features/transactions/server/manual-transaction-repository";
 import type { AccountKind } from "../account-kinds";
 import { currentFormatLocale } from "@/server/http/request-locale";
+import { holdsSecurities } from "@/features/securities/server/security-service";
 import { formatCount } from "@/lib/locale";
 import { dateWithYear } from "@/lib/date-format";
 
@@ -292,8 +293,20 @@ async function closeAccount(account: {
 // A bank sync may be writing a new balance; archiving waits until it has finished.
 async function archiveSettled(account: {
   id: string;
+  kind: string;
   provider: string
 }) {
+  // A brokerage account has no bookings; it is settled once it holds no securities. Trades take the sync lease, so archiving waits for them.
+  if (account.kind === "brokerage") {
+    return whileNoSync("Archive the account", () => withAccountTransaction(async tx => {
+      if (await holdsSecurities(tx, account.id)) {
+        throw new HttpError(409, "Sell every holding before archiving the brokerage account.");
+      }
+
+      return archiveIfSettled(tx, account.id, timestamp());
+    }));
+  }
+
   if (account.provider === "manual") {
     // A bank connection may have linked the account since the request's own check.
     return withAccountTransaction(async tx => {

@@ -195,6 +195,10 @@ export async function saveTransactionDetails(
       return "not_found";
     }
 
+    if (subject.trade_leg && (type !== subject.type || target !== undefined)) {
+      return "trade_leg";
+    }
+
     // Archiving freezes balances, not the payee, description or categories; `applyTransactionType` allows only balance-neutral link changes.
     const keepsType = type === subject.type && target === undefined;
     const frozen = await touchesArchivedAccount(tx, subject);
@@ -269,6 +273,10 @@ export async function setTransactionHidden(id: string, hidden: boolean, at: stri
 
     if (enteredInUfer(subject)) {
       return "entered";
+    }
+
+    if (subject.trade_leg) {
+      return "trade_leg";
     }
 
     if (hidden && subject.transfer_id) {

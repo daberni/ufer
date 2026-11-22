@@ -9,7 +9,7 @@ export type TransferTarget = {
   accountId: string;
 } | null;
 
-export type TypeChangeResult = "saved" | "not_found" | "manual_account_only" | "counterpart_not_found" | "same_account" | "not_a_candidate" | "account_not_found" | "currency_mismatch" | "zero_amount" | "created_counterpart" | "archived_account";
+export type TypeChangeResult = "saved" | "not_found" | "manual_account_only" | "counterpart_not_found" | "same_account" | "not_a_candidate" | "account_not_found" | "currency_mismatch" | "zero_amount" | "created_counterpart" | "archived_account" | "trade_leg";
 
 /** The state a type change is decided on. `chosen` is the booking `target.counterpartId` names, if it exists. */
 export type TypeChangeFacts = {

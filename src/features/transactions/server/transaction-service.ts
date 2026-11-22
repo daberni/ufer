@@ -96,7 +96,7 @@ const detailsInput = typeInput.extend({
   description: z.string().trim().max(2000).optional()
 });
 
-const typeFailures: Record<Exclude<ManualEntryResult, "saved" | "not_found" | "hidden" | "archived_account" | "not_a_candidate">, string> = {
+const typeFailures: Record<Exclude<ManualEntryResult, "saved" | "not_found" | "hidden" | "archived_account" | "not_a_candidate" | "trade_leg">, string> = {
   manual_account_only: "On a bank-linked account, opening balances and adjustments keep their type and other bookings cannot become one.",
   counterpart_not_found: "The selected booking does not exist.",
   account_not_found: "Choose one of your manual accounts.",
@@ -118,6 +118,10 @@ async function requireSaved(result: ManualEntryResult) {
 
   if (result === "archived_account") {
     throw new HttpError(409, "This account is archived. Restore the account first.");
+  }
+
+  if (result === "trade_leg") {
+    throw new HttpError(409, "This booking is the cash side of a security trade. Change or delete the trade instead.");
   }
 
   if (result === "hidden") {
