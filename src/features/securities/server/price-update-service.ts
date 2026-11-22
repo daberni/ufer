@@ -65,6 +65,32 @@ export function splitsFitTrades(tradesByAccount: Parameters<typeof positionOn>[0
   }
 }
 
+/** Days a security's first stored close may follow its first trade, for weekends and holidays, without leaving a gap in its checked split history. */
+const coverageToleranceDays = 7;
+
+/**
+ * Whether splits before the provider's history may be missing. A security's first update fetches closes and checks splits from the same start, so its oldest stored close marks how far back its splits were checked;
+ * only a first trade before both that point and the provider's history leaves a gap. Tracking a security since its first trade therefore stays complete after a year.
+ */
+export function splitsUncovered(security: {
+  first_trade: string | null;
+  oldest_price: string | null
+}, historyStart: string) {
+  if (security.first_trade === null || security.first_trade >= historyStart) {
+    return false;
+  }
+
+  if (security.oldest_price === null) {
+    return true;
+  }
+
+  const coveredFrom = Temporal.PlainDate.from(security.oldest_price).subtract({
+    days: coverageToleranceDays
+  }).toString();
+
+  return security.first_trade < coveredFrom;
+}
+
 /** Converts a provider close to micro-units through its decimal text, so no floating-point product is stored. */
 export function closeMicros(close: number) {
   if (!Number.isFinite(close) || close <= 0 || close >= 1e9) {
@@ -176,7 +202,7 @@ export async function updatePrices(now = Temporal.Now.instant(), provider: Marke
           }
 
           // The provider's split history reaches back one year, so an older split would be silently missing from the quantity; the security stays flagged.
-          const unchecked = security.first_trade !== null && security.first_trade < historyStart;
+          const unchecked = splitsUncovered(security, historyStart);
 
           if (unchecked) {
             incomplete += 1;
