@@ -11,9 +11,11 @@ import * as schema from "../src/server/database/schema";
 import { HttpError, ValidationError } from "../src/lib/errors";
 import { categorize, prepareRules } from "../src/features/categorization/server/rule-assignment";
 import { monthPeriod } from "../src/lib/period";
-import { applyRulesToUncorrectedTransactions, categoryUsage, createRule, updateRuleDetails, deleteCategory, deleteRule, previewRule, reorderRules } from "../src/features/categorization/server/categorization-service";
+import { categoryUsage, deleteCategory } from "../src/features/categorization/server/categorization-service";
+import { applyRulesToUncorrectedTransactions, createRule, updateRuleDetails, deleteRule, previewRule, reorderRules } from "../src/features/transactions/server/rule-application-service";
 import { listRuleSummaries } from "../src/features/categorization/server/categorization-queries";
-import { RuleLimitReached, appendRule, listRules } from "../src/features/categorization/server/rule-repository";
+import { RuleLimitReached, listRules } from "../src/features/categorization/server/rule-repository";
+import { appendRule } from "../src/features/transactions/server/rule-application-service";
 import { readCashFlow } from "../src/features/reports/server/cash-flow-query";
 import { orderedPriorities } from "../src/features/categorization/rule-order";
 

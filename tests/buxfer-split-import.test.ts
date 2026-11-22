@@ -7,7 +7,7 @@ import { drizzle } from "drizzle-orm/libsql";
 import type { Database } from "../src/server/database/connection";
 import { initializeDatabase } from "../src/server/database/migrations";
 import * as schema from "../src/server/database/schema";
-import { insertRule } from "../src/features/categorization/server/rule-repository";
+import { insertRule } from "../src/features/transactions/server/rule-application-service";
 import { listAccounts } from "../src/features/accounts/server/account-queries";
 import { readAccountCashFlow } from "../src/features/reports/server/cash-flow-query";
 import { monthPeriod } from "../src/lib/period";

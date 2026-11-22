@@ -20,8 +20,8 @@ import { convertToManualAccount, deleteAccount, updateAccount, updateManualValua
 import { readAccountCashFlow, readCashFlow } from "../src/features/reports/server/cash-flow-query";
 import { pairAllTransfers } from "../src/features/transactions/server/transfer-pairing-repository";
 import { deleteUnlinkedAccount } from "../src/features/accounts/server/account-repository";
-import { updateRule } from "../src/features/categorization/server/rule-repository";
-import { createRule, updateRuleDetails } from "../src/features/categorization/server/categorization-service";
+import { updateRule } from "../src/features/transactions/server/rule-application-service";
+import { createRule, updateRuleDetails } from "../src/features/transactions/server/rule-application-service";
 import { syncLease } from "../src/server/jobs/lease";
 import type { Account } from "../src/features/accounts/types";
 import { browser, wait, withQueryClient } from "./fixtures/browser";

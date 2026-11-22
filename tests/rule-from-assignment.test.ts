@@ -10,8 +10,8 @@ import { categorize, prepareRules } from "../src/features/categorization/server/
 import { ValidationError } from "../src/lib/errors";
 import { proposeRulePattern, proposedPatternLength } from "../src/features/categorization/rule-pattern";
 import { listRuleSummaries } from "../src/features/categorization/server/categorization-queries";
-import { insertRule } from "../src/features/categorization/server/rule-repository";
-import { applyRulesToUncorrectedTransactions, createRule, previewRule } from "../src/features/categorization/server/categorization-service";
+import { insertRule } from "../src/features/transactions/server/rule-application-service";
+import { applyRulesToUncorrectedTransactions, createRule, previewRule } from "../src/features/transactions/server/rule-application-service";
 
 function matchesOwnTransaction(pattern: string, counterparty: string, description: string) {
   const rules = prepareRules([{

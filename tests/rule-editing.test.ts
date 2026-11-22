@@ -8,7 +8,7 @@ import type { Database } from "../src/server/database/connection";
 import { initializeDatabase } from "../src/server/database/migrations";
 import * as schema from "../src/server/database/schema";
 import { HttpError, ValidationError } from "../src/lib/errors";
-import { applyRulesToUncorrectedTransactions, updateRuleDetails, updateRuleEnabled } from "../src/features/categorization/server/categorization-service";
+import { applyRulesToUncorrectedTransactions, updateRuleDetails, updateRuleEnabled } from "../src/features/transactions/server/rule-application-service";
 import { listRuleSummaries } from "../src/features/categorization/server/categorization-queries";
 
 const editedDetails = {
