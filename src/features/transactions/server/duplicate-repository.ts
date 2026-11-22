@@ -23,11 +23,12 @@ const copyColumns = {
   description: sql<string>`COALESCE(${transactions.description_override},${transactions.description})`,
   category_id: transactions.category_id,
   category_source: transactions.category_source,
+  overridden: sql<number>`(${transactions.counterparty_override} IS NOT NULL OR ${transactions.description_override} IS NOT NULL)`,
   suppressed_at: transactions.suppressed_at,
   split: sql<number>`NOT ${notSplit}`
 };
 
-/** One copy of a booking as duplicate resolution compares it: the text as shown, its category and whether it can be hidden. */
+/** One copy of a booking as duplicate resolution compares it: the text as shown, its category and whether it can be removed. */
 export type Copy = NonNullable<Awaited<ReturnType<typeof findCopy>>>;
 
 async function findCopy(executor: Executor, id: string) {
@@ -51,18 +52,23 @@ export async function readDuplicateCandidates(id: string) {
   };
 }
 
-/** Which copy stays, which is hidden, and the category the kept copy takes over; undefined keeps its category. */
+/** Which copy stays, whether the other is deleted or hidden, and the category and text the kept copy takes over; undefined keeps its own. */
 export type DuplicateDecision = {
   kept: Copy;
-  hidden: Copy;
+  removed: Copy;
+  deleted: boolean;
   category: string | null | undefined;
+  text: {
+    counterparty: string;
+    description: string;
+  } | undefined;
 };
 
 export type DuplicateResult = "saved" | "not_found" | "not_a_candidate" | "entered" | "hidden" | "split" | "archived_account";
 
 /**
- * Resolves `id` as a duplicate of `originalId`: `decide` picks the copy that stays, the other is hidden with a record of the kept booking, and the kept booking may take over a manual category.
- * Both copies are read and checked in the write transaction; hiding a linked copy ends its link as hiding it by hand does.
+ * Resolves `id` as a duplicate of `originalId`: `decide` picks the copy that stays. A CSV-imported copy is deleted; a copy a sync would deliver again is hidden with a record of the kept booking. The kept booking may take over a manual category and better text.
+ * Both copies are read and checked in the write transaction; removing a linked copy ends its link as hiding it by hand does.
  */
 export async function resolveDuplicate(id: string, originalId: string, at: string, decide: (subject: Copy, original: Copy) => DuplicateDecision): Promise<DuplicateResult> {
   const db = await database();
@@ -93,29 +99,40 @@ export async function resolveDuplicate(id: string, originalId: string, at: strin
 
     const decision = decide(subject, original);
 
-    // A split copy holds categories in its parts, which hiding it would drop from reports.
-    if (decision.hidden.split) {
+    // A split copy holds categories in its parts, which removing it would drop from reports.
+    if (decision.removed.split) {
       return "split";
     }
 
-    const hidden = await findSubject(tx, decision.hidden.id);
+    const removed = await findSubject(tx, decision.removed.id);
 
-    if (!hidden) {
+    if (!removed) {
       return "not_found";
     }
 
-    if (await touchesArchivedAccount(tx, hidden)) {
+    if (await touchesArchivedAccount(tx, removed)) {
       return "archived_account";
     }
 
-    if (hidden.transfer_id) {
-      await dissolveLink(tx, hidden, booking => derivedTransactionType(booking.amount_minor));
+    if (removed.transfer_id) {
+      await dissolveLink(tx, removed, booking => derivedTransactionType(booking.amount_minor));
     }
 
-    await tx.update(transactions).set({
-      suppressed_at: at,
-      duplicate_of_id: decision.kept.id
-    }).where(eq(transactions.id, decision.hidden.id));
+    if (decision.deleted) {
+      await tx.delete(transactions).where(eq(transactions.id, decision.removed.id));
+    } else {
+      await tx.update(transactions).set({
+        suppressed_at: at,
+        duplicate_of_id: decision.kept.id
+      }).where(eq(transactions.id, decision.removed.id));
+    }
+
+    if (decision.text && !decision.kept.overridden) {
+      await tx.update(transactions).set({
+        counterparty_override: decision.text.counterparty,
+        description_override: decision.text.description
+      }).where(eq(transactions.id, decision.kept.id));
+    }
 
     if (decision.category !== undefined && !decision.kept.split) {
       await tx.update(transactions).set({

@@ -257,3 +257,43 @@ test("showing a resolved duplicate again clears its record and counts it again; 
   assert.equal(await expenses(), 2500);
   assert.equal((await listed()).find(item => item.id === short.id)?.duplicate_of, null);
 });
+
+test("a CSV-imported copy beside a bank copy is deleted, and the bank copy takes over its better text and manual category", async context => {
+  const db = await isolatedDatabase(context);
+
+  await sync("checking", [shortCopy]);
+  const bank = await byReference(db, shortCopy.reference);
+
+  await db.insert(schema.transactions).values({
+    ...bank,
+    id: "csv-copy",
+    provider_reference: "csv:m:synthetic-row",
+    booking_date: null,
+    date: describedCopy.date,
+    counterparty: describedCopy.counterparty,
+    description: describedCopy.description
+  });
+  await updateTransactionCategory("csv-copy", {
+    category_id: "groceries"
+  });
+
+  const offered = await duplicateCandidates("csv-copy");
+
+  assert.deepEqual(offered.candidates.map(candidate => [candidate.id, candidate.keeps_candidate, candidate.deletes_other]), [[bank.id, true, true]]);
+
+  await markDuplicate("csv-copy", {
+    duplicate_of: bank.id
+  }, now);
+
+  assert.equal(await db.select().from(schema.transactions).where(eq(schema.transactions.id, "csv-copy")).get(), undefined);
+
+  await sync("checking", [shortCopy]);
+  const kept = await byReference(db, shortCopy.reference);
+
+  assert.equal(kept.suppressed_at, null);
+  assert.equal(kept.counterparty_override, describedCopy.counterparty);
+  assert.equal(kept.description_override, describedCopy.description);
+  assert.equal(kept.category_id, "groceries");
+  assert.equal(kept.category_source, "manual");
+  assert.equal(await expenses(), 1250);
+});

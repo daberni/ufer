@@ -133,8 +133,10 @@ export type DuplicateCandidate = {
   date: string;
   counterparty: string;
   description: string;
-  /** Whether this booking stays when the other is named its duplicate, because it is better described; otherwise the other booking stays and this one is hidden. */
+  /** Whether this candidate stays when the booking is named its duplicate; otherwise the booking being resolved stays. */
   keeps_candidate: boolean;
+  /** Whether the copy that does not stay is deleted, because it came from a CSV import; otherwise it is hidden and can be shown again. */
+  deletes_other: boolean;
 };
 
 export type DuplicateCandidates = {
