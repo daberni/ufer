@@ -252,7 +252,11 @@ function accountLabel(account: unknown) {
   const other = child(id, "Othr");
   const scheme = child(other, "SchmeNm");
 
-  return [textOf(child(other, "Id")), textOf(child(scheme, "Cd")) || textOf(child(scheme, "Prtry")), textOf(child(other, "Issr"))].filter(Boolean).join(" · ");
+  const schemeName = textOf(child(scheme, "Cd")) || textOf(child(scheme, "Prtry"));
+  const issuer = textOf(child(other, "Issr"));
+
+  // Optional parts carry their label, so identifications that omit different parts never read alike.
+  return [textOf(child(other, "Id")), schemeName && `scheme ${schemeName}`, issuer && `issuer ${issuer}`].filter(Boolean).join(" · ");
 }
 
 /** Character offsets of entry and transaction-detail start tags in document order, so rows point at their line in the file. */

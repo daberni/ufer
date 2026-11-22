@@ -197,8 +197,8 @@ test("OFX 1.x SGML reads Windows-1252 text, entities, both signs, decimal commas
 
   assert.equal(statement.format, "ofx");
   assert.deepEqual(summary(statement.rows), [
-    [14, "12345 · 000111222 · CHECKING", "2026-03-05", "-12.34", "EUR", "Café Zentral", "Frühstück & Kaffee", "F-1"],
-    [15, "12345 · 000111222 · CHECKING", "2026-03-04", "100.00", "EUR", "Synthetic Refund Ltd", "", "F-2"],
+    [14, "Bank 12345 · 000111222 · type CHECKING", "2026-03-05", "-12.34", "EUR", "Café Zentral", "Frühstück & Kaffee", "F-1"],
+    [15, "Bank 12345 · 000111222 · type CHECKING", "2026-03-04", "100.00", "EUR", "Synthetic Refund Ltd", "", "F-2"],
     [21, "Card · XXXX4242", "2026-03-07", "-6.05", "EUR", "Bookshop", "GBP 5.5", "F-1"]
   ]);
   assert.deepEqual(statement.errors.map(error => error.line), [16]);
@@ -219,7 +219,7 @@ test("OFX 2.x XML reads closed elements and refuses investment statements", () =
   </STMTRS></STMTTRNRS></BANKMSGSRSV1>
 </OFX>`);
 
-  assert.deepEqual(summary(statement.rows), [[8, "1 · CH-SYNTH-1 · SAVINGS", "2026-01-31", "0.42", "CHF", "Interest", "", "X1"]]);
+  assert.deepEqual(summary(statement.rows), [[8, "Bank 1 · CH-SYNTH-1 · type SAVINGS", "2026-01-31", "0.42", "CHF", "Interest", "", "X1"]]);
   assert.match(readError("OFXHEADER:100\n\n<OFX><INVSTMTMSGSRSV1></INVSTMTMSGSRSV1></OFX>"), /investment statements are not supported/);
   assert.match(readError("OFXHEADER:100\n\n<OFX><SIGNONMSGSRSV1></SIGNONMSGSRSV1></OFX>"), /no bank or credit card statement/);
 });
@@ -382,15 +382,20 @@ test("OFX empty SGML leaves keep later fields, foreign amounts round exactly, an
   const other = (id: string, scheme: string) => `<Acct><Id><Othr><Id>${id}</Id><SchmeNm><Cd>${scheme}</Cd></SchmeNm><Issr>Synthetic Bank</Issr></Othr></Id><Ccy>EUR</Ccy></Acct>`;
   const schemes = read(camt.replace(/<Acct>[\s\S]*?<\/Acct>/, other("123", "BBAN")).replace(/<Acct><Id><IBAN>DE89[\s\S]*?<\/Acct>/, other("123", "CUID")));
 
-  assert.deepEqual([...new Set(schemes.rows.map(row => row.source))], ["123 · BBAN · Synthetic Bank", "123 · CUID · Synthetic Bank"]);
+  assert.deepEqual([...new Set(schemes.rows.map(row => row.source))], ["123 · scheme BBAN · issuer Synthetic Bank", "123 · scheme CUID · issuer Synthetic Bank"]);
 
   const shared = read("OFXHEADER:100\n\n<OFX><BANKMSGSRSV1><STMTTRNRS><STMTRS><CURDEF>EUR<BANKACCTFROM><BANKID>B1<ACCTID>42</BANKACCTFROM><BANKTRANLIST><STMTTRN><DTPOSTED>20260301<TRNAMT>-1<FITID>1</STMTTRN></BANKTRANLIST></STMTRS></STMTTRNRS></BANKMSGSRSV1><CREDITCARDMSGSRSV1><CCSTMTTRNRS><CCSTMTRS><CURDEF>EUR<CCACCTFROM><ACCTID>42</CCACCTFROM><BANKTRANLIST><STMTTRN><DTPOSTED>20260301<TRNAMT>-2<FITID>1</STMTTRN></BANKTRANLIST></CCSTMTRS></CCSTMTTRNRS></CREDITCARDMSGSRSV1></OFX>");
 
-  assert.deepEqual(shared.rows.map(row => row.source), ["B1 · 42", "Card · 42"]);
+  assert.deepEqual(shared.rows.map(row => row.source), ["Bank B1 · 42", "Card · 42"]);
 
   const branches = read("OFXHEADER:100\n\n<OFX><BANKMSGSRSV1>" + ["N", "S"].map(branch => `<STMTTRNRS><STMTRS><CURDEF>EUR<BANKACCTFROM><BANKID>B1<BRANCHID>${branch}<ACCTID>42<ACCTTYPE>CHECKING</BANKACCTFROM><BANKTRANLIST><STMTTRN><DTPOSTED>20260301<TRNAMT>-1<FITID>1</STMTTRN></BANKTRANLIST></STMTRS></STMTTRNRS>`).join("") + "</BANKMSGSRSV1></OFX>");
 
-  assert.deepEqual(branches.rows.map(row => row.source), ["B1 · N · 42 · CHECKING", "B1 · S · 42 · CHECKING"]);
+  assert.deepEqual(branches.rows.map(row => row.source), ["Bank B1 · branch N · 42 · type CHECKING", "Bank B1 · branch S · 42 · type CHECKING"]);
+
+  // Accounts omitting different optional fields keep distinct sources.
+  const omitted = read("OFXHEADER:100\n\n<OFX><BANKMSGSRSV1>" + ["<BANKID>B<BRANCHID>123<ACCTID>SAVINGS<ACCTTYPE>CHECKING", "<BANKID>B<ACCTID>123<ACCTTYPE>SAVINGS<ACCTKEY>CHECKING"].map(identity => `<STMTTRNRS><STMTRS><CURDEF>EUR<BANKACCTFROM>${identity}</BANKACCTFROM><BANKTRANLIST><STMTTRN><DTPOSTED>20260301<TRNAMT>-1<FITID>1</STMTTRN></BANKTRANLIST></STMTRS></STMTTRNRS>`).join("") + "</BANKMSGSRSV1></OFX>");
+
+  assert.equal(new Set(omitted.rows.map(row => row.source)).size, 2);
 
   const qifSplit = read("!Type:Bank\nD01.03.2026\nT-3,00\nMWeekly\nSFood/Household\nEBread\n$-1,00\nSCar/Work\nEParking\n$-2,00\n^\n");
 

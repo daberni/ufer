@@ -56,10 +56,15 @@ export function readOfx(text: string, locale: string): StatementFile {
     const accountElement = find(statement.children, account);
     const accountId = leaf(accountElement, "ACCTID");
     // A card and a bank account, or accounts at two banks, branches or of two types, may share an account number; the source keeps every identifying field.
-    const bankIdentity = ["BANKID", "BRANCHID"].map(name => leaf(accountElement, name));
-    const accountDetails = ["ACCTTYPE", "ACCTKEY"].map(name => leaf(accountElement, name));
-    const cardIdentity = ["Card", accountId, leaf(accountElement, "ACCTKEY")];
-    const source = (account === "CCACCTFROM" ? cardIdentity : [...bankIdentity, accountId, ...accountDetails]).filter(Boolean).join(" · ");
+    // Optional fields carry their label, so accounts that omit different fields never read alike.
+    const labelled = (label: string, name: string) => {
+      const value = leaf(accountElement, name);
+
+      return value ? `${label} ${value}` : "";
+    };
+    const cardIdentity = ["Card", accountId, labelled("key", "ACCTKEY")];
+    const bankIdentity = [labelled("Bank", "BANKID"), labelled("branch", "BRANCHID"), accountId, labelled("type", "ACCTTYPE"), labelled("key", "ACCTKEY")];
+    const source = (account === "CCACCTFROM" ? cardIdentity : bankIdentity).filter(Boolean).join(" · ");
 
     for (const transaction of all(find(statement.children, "BANKTRANLIST"), "STMTTRN")) {
       // A transaction in another currency states its amount in that currency with the rate to the statement's; the row keeps the account's currency and notes the original amount.
