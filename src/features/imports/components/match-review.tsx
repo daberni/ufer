@@ -3,7 +3,7 @@
 import ui from "../../../components/ui/primitives.module.css";
 
 import { clsx } from "clsx";
-import { useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import styles from "./match-review.module.css";
 import { Select } from "@/components/ui/select";
 import { DateValue } from "@/components/ui/date-value";
@@ -52,6 +52,42 @@ export function MatchReview({
   const [chosenGroup, setGroup] = useState<Group | null>(null);
   const [shown, setShown] = useState(pageSize);
   const group = chosenGroup && groups[chosenGroup].length > 0 ? chosenGroup : available[0];
+  const [handledRequest, setHandledRequest] = useState(draft.undecidedRequest);
+  const [focusTarget, setFocusTarget] = useState<{
+    line: number;
+    request: number;
+  } | null>(null);
+
+  // Import with undecided rows: show the possible duplicates up to the first undecided one, then focus its decision.
+  if (draft.undecidedRequest !== handledRequest) {
+    setHandledRequest(draft.undecidedRequest);
+    const position = groups.possible.findIndex(match => effectiveDecision(match, draft.decisions.get(match.line)) === null);
+    const first = groups.possible[position];
+
+    if (first) {
+      setGroup("possible");
+      setShown(count => Math.max(count, Math.ceil((position + 1) / pageSize) * pageSize));
+      setFocusTarget({
+        line: first.line,
+        request: draft.undecidedRequest
+      });
+    }
+  }
+
+  useEffect(() => {
+    if (!focusTarget) {
+      return;
+    }
+
+    const select = document.querySelector<HTMLElement>(`[data-line="${focusTarget.line}"] select[aria-invalid="true"]`);
+
+    select?.scrollIntoView({
+      block: "center"
+    });
+    select?.focus({
+      preventScroll: true
+    });
+  }, [focusTarget]);
   const rows = useMemo(() => new Map((draft.prepared?.rows ?? []).map(row => [row.line, row])), [draft.prepared]);
 
   if (!summary || !group) {
@@ -156,7 +192,7 @@ function MatchItem({
   ];
 
   return (
-    <li className={clsx(styles["item"], undecided && styles["undecided"])} aria-labelledby={`${id}-title`}>
+    <li className={clsx(styles["item"], undecided && styles["undecided"])} aria-labelledby={`${id}-title`} data-line={match.line}>
       <div className={styles["heading"]}>
         <h3 id={`${id}-title`}>Row {formatCount(match.line, locale)}</h3>
         <span className={ui["pill"]}>{matchLabel(match)}</span>

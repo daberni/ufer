@@ -444,6 +444,8 @@ test("an update of a chosen booking is not redirected to another booking that no
 
   assert.deepEqual([result.updatedRows, result.undecided], [0, [2]]);
   assert.equal((await db.select().from(schema.transactions)).at(0)?.description, "");
+  // The booking stays free for later batches, which receive only what this batch really took.
+  assert.deepEqual(result.matched, []);
 });
 
 test("an update decided for a row that no longer matches anything is not inserted", async context => {

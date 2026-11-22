@@ -51,6 +51,7 @@ export function useImportDraft() {
   const [imported, setImported] = useState<MappedImportSummary | null>(null);
   // Decisions for the checked rows' matches by line; a new check starts from the defaults again.
   const [decisions, setDecisions] = useState<Map<number, DecisionInput>>(new Map());
+  const [undecidedRequest, setUndecidedRequest] = useState(0);
   const [importId, setImportId] = useState(() => crypto.randomUUID());
   const [configurationLocked, setConfigurationLocked] = useState(false);
   const latestSelection = useRef(0);
@@ -330,9 +331,9 @@ export function useImportDraft() {
       return;
     }
 
-    // Possible duplicates need a decision first; pressing Import leads to the first one.
+    // Possible duplicates need a decision first; pressing Import asks the Matches review to show and focus the first one.
     if (confirm && totals && totals.undecided > 0) {
-      revealFirstProblem();
+      setUndecidedRequest(request => request + 1);
 
       return;
     }
@@ -406,6 +407,7 @@ export function useImportDraft() {
     totals,
     decisions,
     decide,
+    undecidedRequest,
     imported,
     accounts: accountOptions,
     accountsReady: accounts.status !== "pending",

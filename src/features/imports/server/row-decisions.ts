@@ -34,6 +34,8 @@ export function planRows(entries: MappedEntry[], found: Found, decisions: Readon
   /** Bookings a possible duplicate updates, which later batches treat as matched. */
   const adopted: Pick<StoredBooking, "reference" | "date">[] = [];
   const claimed = new Set<string>();
+  /** Bookings a confident match found but a stale decision rejected; they are not reported as matched. */
+  const released = new Set<string>();
   const update = (index: number, booking: StoredBooking) => {
     if (claimed.has(booking.reference)) {
       return false;
@@ -67,8 +69,9 @@ export function planRows(entries: MappedEntry[], found: Found, decisions: Readon
       if (action === "create" && reason === "existing_booking") {
         inserts.push(index);
       } else if (action === "update" && decision?.reference !== undefined && decision.reference !== booking.reference) {
-        // The person chose another booking at the check; never update a different one.
+        // The person chose another booking at the check; never update a different one, and leave this one free for other rows and batches.
         undecided.push(index);
+        released.add(booking.reference);
       } else if (action === "update") {
         update(index, booking);
       }
@@ -120,7 +123,8 @@ export function planRows(entries: MappedEntry[], found: Found, decisions: Readon
     inserts,
     updates,
     undecided,
-    adopted
+    adopted,
+    released
   };
 }
 
