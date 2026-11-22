@@ -1,6 +1,6 @@
 import { currencyExponent } from "@/lib/money";
 import { formatScaled, fractionDigits, parseAmount, signedScaled } from "../csv-values";
-import { xmlRootTag, cleanText, isoDate, lineAt, StatementFileError, StatementRows, type StatementFile } from "./statement-rows";
+import { separateCurrencies, xmlRootTag, cleanText, isoDate, lineAt, StatementFileError, StatementRows, type StatementFile } from "./statement-rows";
 
 // Reads OFX and QFX bank and credit-card statements, both SGML (1.x, closing tags optional) and XML (2.x), into mapped rows.
 
@@ -44,19 +44,6 @@ export function readOfx(text: string, locale: string): StatementFile {
   }
 
   const rows = new StatementRows(locale);
-  // One account may report a statement per currency; Ufer accounts hold one currency, so those statements get separate sources.
-  const currenciesBySource = new Map<string, Set<string>>();
-
-  for (const {
-    statement,
-    account
-  } of statements) {
-    if (statement) {
-      const label = accountSource(statement, account);
-
-      currenciesBySource.set(label, (currenciesBySource.get(label) ?? new Set()).add(leaf(statement, "CURDEF").toUpperCase()));
-    }
-  }
 
   for (const {
     statement,
@@ -67,8 +54,7 @@ export function readOfx(text: string, locale: string): StatementFile {
     }
 
     const currency = leaf(statement, "CURDEF").toUpperCase() || null;
-    const label = accountSource(statement, account);
-    const source = (currenciesBySource.get(label)?.size ?? 0) > 1 ? `${label} · ${currency ?? "no currency"}` : label;
+    const source = accountSource(statement, account);
 
     for (const transaction of all(find(statement.children, "BANKTRANLIST"), "STMTTRN")) {
       // A transaction in another currency states its amount in that currency with the rate to the statement's; the row keeps the account's currency and notes the original amount.
@@ -101,9 +87,13 @@ export function readOfx(text: string, locale: string): StatementFile {
     }
   }
 
+  const result = rows.result();
+
+  // One account may report a statement per currency; Ufer accounts hold one currency, so those statements get separate sources.
   return {
     format: "ofx",
-    ...rows.result()
+    rows: separateCurrencies(result.rows),
+    errors: result.errors
   };
 }
 

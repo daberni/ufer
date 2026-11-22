@@ -174,9 +174,33 @@ export function separateCurrencies(rows: MappedRow[]): MappedRow[] {
     currencies.set(row.source, (currencies.get(row.source) ?? new Set()).add(row.currency));
   }
 
+  // A ledger's name must not equal another account's source, so a numbered suffix keeps it apart from an account whose identifier reads the same.
+  const taken = new Set(rows.map(row => row.source));
+  const names = new Map<string, string>();
+  const ledgerName = (row: MappedRow) => {
+    const key = `${row.source}\u0000${row.currency}`;
+    const known = names.get(key);
+
+    if (known !== undefined) {
+      return known;
+    }
+
+    const base = `${row.source} · ${row.currency ?? "no currency"}`;
+    let name = base;
+
+    for (let number = 2; taken.has(name); number++) {
+      name = `${base} (${number})`;
+    }
+
+    taken.add(name);
+    names.set(key, name);
+
+    return name;
+  };
+
   return rows.map(row => (currencies.get(row.source)?.size ?? 0) > 1 ? {
     ...row,
-    source: `${row.source} · ${row.currency ?? "no currency"}`
+    source: ledgerName(row)
   } : row);
 }
 

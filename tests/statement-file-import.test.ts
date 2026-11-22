@@ -410,6 +410,12 @@ test("OFX empty SGML leaves keep later fields, foreign amounts round exactly, an
 
   assert.deepEqual([...new Set(noAccountCurrency.rows.map(row => row.source))], ["AT61 1904 3002 3457 3201 · EUR", "AT61 1904 3002 3457 3201 · USD"]);
 
+  const othr = (id: string) => `<Othr><Id>${id}</Id></Othr>`;
+  const third = `<Stmt><Acct><Id>${othr("X · EUR")}</Id><Ccy>GBP</Ccy></Acct><Ntry><Amt Ccy="GBP">1.00</Amt><CdtDbtInd>CRDT</CdtDbtInd><Sts>BOOK</Sts><BookgDt><Dt>2026-03-07</Dt></BookgDt></Ntry></Stmt></BkToCstmrStmt>`;
+  const ledgerClash = read(camt.replace("<IBAN>AT611904300234573201</IBAN>", othr("X")).replace("<IBAN>DE89370400440532013000</IBAN>", othr("X")).replace("</BkToCstmrStmt>", third));
+
+  assert.deepEqual([...new Set(ledgerClash.rows.map(row => row.source))], ["ID X · EUR (2)", "ID X · USD", "ID X · EUR"]);
+
   const ibanLike = read(camt.replace(/<Acct><Id><IBAN>DE89[\s\S]*?<\/Acct>/, other("AT61 1904 3002 3457 3201", "").replace("<SchmeNm><Cd></Cd></SchmeNm><Issr>Synthetic Bank</Issr>", "").replace("<Ccy>EUR</Ccy>", "<Ccy>USD</Ccy>")));
 
   assert.deepEqual([...new Set(ibanLike.rows.map(row => row.source))], ["AT61 1904 3002 3457 3201", "ID AT61 1904 3002 3457 3201"]);
