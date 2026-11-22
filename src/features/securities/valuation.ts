@@ -11,6 +11,31 @@ export type HoldingInputs = {
   prices: PricePoint[];
 };
 
+/** A trade's date and the date and signed amount of its cash side, which a bank may book days before or after the trade. */
+export type TradeSettlement = {
+  trade_date: string;
+  cash_date: string;
+  amount_minor: number;
+};
+
+/**
+ * Cash a trade has moved on one side but not yet on the other: between the trade and a later cash booking the holding is already counted, so its pending payment (negative for a buy) offsets it; between an earlier cash booking and the trade the holding is not counted yet, so the paid amount stands in for it.
+ * Adding this to the holdings value keeps settlement cash plus holdings unchanged by a trade on every day.
+ */
+export function unsettledCash(settlements: TradeSettlement[], date: string) {
+  let total = 0;
+
+  for (const settlement of settlements) {
+    if (settlement.trade_date <= date && date < settlement.cash_date) {
+      total += settlement.amount_minor;
+    } else if (settlement.cash_date <= date && date < settlement.trade_date) {
+      total -= settlement.amount_minor;
+    }
+  }
+
+  return total;
+}
+
 export type HoldingValue = {
   security_id: string;
   security_name: string;
@@ -51,11 +76,11 @@ export function valueHoldings(holdings: HoldingInputs[], date: string): AccountV
 }
 
 /**
- * The account's value on every date it can change through `endDate`: each trade, split and price date, starting at zero the day before the first trade.
+ * The account's value on every date it can change through `endDate`: each trade, cash booking, split and price date, starting at zero the day before the first of them. Cash a trade has moved on only one side counts as in `unsettledCash`.
  * Values between two points equal the earlier point, so the series never uses a price dated after the day it values.
  */
-export function valuationSeries(holdings: HoldingInputs[], endDate: string) {
-  const tradeDates = holdings.flatMap(holding => holding.trades.map(trade => trade.date)).filter(date => date <= endDate).sort();
+export function valuationSeries(holdings: HoldingInputs[], settlements: TradeSettlement[], endDate: string) {
+  const tradeDates = [...holdings.flatMap(holding => holding.trades.map(trade => trade.date)), ...settlements.map(settlement => settlement.cash_date)].filter(date => date <= endDate).sort();
   const first = tradeDates[0];
 
   if (!first) {
@@ -63,6 +88,14 @@ export function valuationSeries(holdings: HoldingInputs[], endDate: string) {
   }
 
   const changeDates = new Set<string>([first, endDate]);
+
+  for (const settlement of settlements) {
+    for (const date of [settlement.trade_date, settlement.cash_date]) {
+      if (date >= first && date <= endDate) {
+        changeDates.add(date);
+      }
+    }
+  }
 
   for (const holding of holdings) {
     for (const event of [...holding.trades, ...holding.splits, ...holding.prices]) {
@@ -81,6 +114,6 @@ export function valuationSeries(holdings: HoldingInputs[], endDate: string) {
 
   return [start, ...[...changeDates].sort().map(date => ({
     date,
-    amount_minor: valueHoldings(holdings, date).value_minor
+    amount_minor: valueHoldings(holdings, date).value_minor + unsettledCash(settlements, date)
   }))];
 }

@@ -264,7 +264,7 @@ export async function removeTrade(id: string) {
 export async function readBrokerageTrades(accountId: string, now = Temporal.Now.instant()) {
   const account = await requireBrokerageAccount(accountId);
   const trades = await readAccountTrades(accountId);
-  const holdings = (await readHoldingInputs([accountId])).get(accountId) ?? [];
+  const holdings = (await readHoldingInputs([accountId])).get(accountId)?.holdings ?? [];
 
   return {
     account_id: account.id,

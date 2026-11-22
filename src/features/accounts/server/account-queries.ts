@@ -8,7 +8,7 @@ import { dailyBalances } from "@/features/accounts/daily-balances";
 import { reportedBalanceDifferences } from "@/features/accounts/reported-balances";
 import { netWorthCategories, netWorthCategory, type NetWorthCategory } from "@/features/accounts/net-worth-categories";
 import type { BalanceHistory, BalancePoint } from "@/features/accounts/types";
-import { valueHoldings, valuationSeries } from "@/features/securities/valuation";
+import { unsettledCash, valueHoldings, valuationSeries } from "@/features/securities/valuation";
 import { readHoldingInputs } from "@/features/securities/server/valuation-repository";
 
 // Every account's balance is the sum of its visible transactions, dated with its newest one.
@@ -68,9 +68,9 @@ export async function listAccounts(now = Temporal.Now.instant()) {
       };
     }
 
-    const holdings = inputs.get(row.id);
+    const valuationInputs = inputs.get(row.id);
 
-    if (!holdings) {
+    if (!valuationInputs) {
       return {
         ...row,
         balance_minor: null,
@@ -79,11 +79,11 @@ export async function listAccounts(now = Temporal.Now.instant()) {
       };
     }
 
-    const valuation = valueHoldings(holdings, date);
+    const valuation = valueHoldings(valuationInputs.holdings, date);
 
     return {
       ...row,
-      balance_minor: valuation.value_minor,
+      balance_minor: valuation.value_minor + unsettledCash(valuationInputs.settlements, date),
       balance_date: date,
       valuation: {
         missing: valuation.missing,
@@ -154,11 +154,11 @@ export async function readBalanceHistory(accountId: string, now = Temporal.Now.i
   const currentDate = today(now).toString();
 
   if (account.kind === "brokerage") {
-    const holdings = (await readHoldingInputs([accountId])).get(accountId) ?? [];
+    const inputs = (await readHoldingInputs([accountId])).get(accountId);
 
     return {
       currency: account.currency,
-      balances: valuationSeries(holdings, currentDate).map(point => ({
+      balances: valuationSeries(inputs?.holdings ?? [], inputs?.settlements ?? [], currentDate).map(point => ({
         ...point,
         source: "valuation",
         bank_balance_type: null

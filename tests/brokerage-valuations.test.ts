@@ -5,7 +5,7 @@ import type { Database } from "../src/server/database/connection";
 import * as schema from "../src/server/database/schema";
 import { listAccounts, readBalanceHistory, readNetWorth } from "../src/features/accounts/server/account-queries";
 import { readNetWorthHistory } from "../src/features/reports/server/net-worth-history-query";
-import { depot, isolatedDatabase, now, security, settlementAccount, trade } from "./fixtures/brokerage";
+import { depot, isolatedDatabase, now, security, settlementAccount, syncBooking, trade } from "./fixtures/brokerage";
 
 async function price(db: Database, securityId: string, date: string, close: number) {
   await db.insert(schema.securityPrices).values({
@@ -166,4 +166,47 @@ test("a later valuation date picks up a newer price while an earlier one keeps t
 
   assert.equal((await brokerageRow(account, now)).balance_minor, 1100_00);
   assert.equal((await brokerageRow(account, Temporal.Instant.from("2026-11-06T12:00:00Z"))).balance_minor, 1300_00);
+});
+
+test("a trade whose bank booking falls on another day leaves cash plus holdings unchanged on every day", async context => {
+  const db = await isolatedDatabase(context);
+  const account = await depot();
+  const etf = await security();
+  const later = await syncBooking(db, "debit-later", "2026-10-02", -1000_00);
+  const earlier = await syncBooking(db, "credit-earlier", "2026-10-05", 500_00);
+
+  await price(db, etf, "2026-09-29", 100);
+  await trade(account, {
+    security_id: etf,
+    date: "2026-09-30",
+    side: "buy",
+    quantity: "10",
+    price: "100",
+    settlement: {
+      transaction_id: later.id
+    }
+  });
+  await trade(account, {
+    security_id: etf,
+    date: "2026-10-07",
+    side: "sell",
+    quantity: "5",
+    price: "100",
+    settlement: {
+      transaction_id: earlier.id
+    }
+  });
+
+  const { balances } = await readBalanceHistory(account, now);
+
+  assert.deepEqual(balances.map(point => [point.date, point.amount_minor]), [
+    ["2026-09-29", 0],
+    // Bought, but the payment is still to be booked: the holding and the pending payment cancel out.
+    ["2026-09-30", 0],
+    ["2026-10-02", 1000_00],
+    // The sale's proceeds are booked before the sale: they stand in for the half still held.
+    ["2026-10-05", 1000_00 - 500_00],
+    ["2026-10-07", 500_00],
+    ["2026-10-31", 500_00]
+  ]);
 });
