@@ -20,14 +20,14 @@ type ResolvableBooking = DescribedBooking & {
   provider_reference: string;
 };
 
-/** Whether a booking still comes only from a CSV import: no bank delivery has adopted it, so a sync never brings it back once it is deleted. */
+/** Whether a booking still comes only from a CSV import: no bank delivery has adopted it. */
 export function csvImported(booking: Pick<ResolvableBooking, "provider_reference">) {
   return booking.provider_reference.startsWith(mappedReferencePrefix);
 }
 
 /**
- * Which of two copies of one movement stays and what happens to the other. A CSV-imported copy beside a bank copy is deleted, so the bank copy stays.
- * Otherwise the better-described copy stays, on equal descriptions the booking the person named; the other is deleted when it came from a CSV import and hidden when a sync would deliver it again.
+ * Which of two copies of one movement stays; the other is hidden, so a later sync or reimport finds it and leaves it hidden. Beside a bank copy, a CSV-imported copy is the hidden one.
+ * Otherwise the better-described copy stays, on equal descriptions the booking the person named.
  * `subject` is the booking the person resolves; `original` the one they named it a duplicate of.
  */
 export function keptCopy<T extends ResolvableBooking>(subject: T, original: T) {
@@ -38,12 +38,11 @@ export function keptCopy<T extends ResolvableBooking>(subject: T, original: T) {
 
   return {
     kept,
-    removed,
-    deleted: csvImported(removed)
+    removed
   };
 }
 
-/** The removed copy's text when it says more than the kept copy's, so a CSV copy's better description survives deleting it; undefined keeps the kept copy's text. */
+/** The removed copy's text when it says more than the kept copy's, so a CSV copy's better description survives hiding it; undefined keeps the kept copy's text. */
 export function carriedText(kept: DescribedBooking, removed: DescribedBooking) {
   if (descriptionLength(removed) <= descriptionLength(kept)) {
     return undefined;

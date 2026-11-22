@@ -55,11 +55,10 @@ export async function readDuplicateCandidates(id: string) {
   };
 }
 
-/** Which copy stays, whether the other is deleted or hidden, and the category and text the kept copy takes over; undefined keeps its own. */
+/** Which copy stays, which is hidden, and the category, type and text the kept copy takes over; undefined keeps its own. */
 export type DuplicateDecision = {
   kept: Copy;
   removed: Copy;
-  deleted: boolean;
   category: string | null | undefined;
   type: TransactionType | undefined;
   text: {
@@ -71,8 +70,8 @@ export type DuplicateDecision = {
 export type DuplicateResult = "saved" | "not_found" | "not_a_candidate" | "entered" | "hidden" | "split" | "archived_account";
 
 /**
- * Resolves `id` as a duplicate of `originalId`: `decide` picks the copy that stays. A CSV-imported copy is deleted; a copy a sync would deliver again is hidden with a record of the kept booking. The kept booking may take over a manual category and better text.
- * Both copies are read and checked in the write transaction; removing a linked copy ends its link as hiding it by hand does.
+ * Resolves `id` as a duplicate of `originalId`: `decide` picks the copy that stays; the other is hidden with a record of the kept booking, so a later sync or reimport leaves it hidden. The kept booking may take over a manual category and type and better text.
+ * Both copies are read and checked in the write transaction; hiding a linked copy ends its link as hiding it by hand does.
  */
 export async function resolveDuplicate(id: string, originalId: string, at: string, decide: (subject: Copy, original: Copy) => DuplicateDecision): Promise<DuplicateResult> {
   const db = await database();
@@ -103,7 +102,7 @@ export async function resolveDuplicate(id: string, originalId: string, at: strin
 
     const decision = decide(subject, original);
 
-    // A split copy holds categories in its parts, which removing it would drop from reports.
+    // A split copy holds categories in its parts, which hiding it would drop from reports.
     if (decision.removed.split) {
       return "split";
     }
@@ -122,14 +121,10 @@ export async function resolveDuplicate(id: string, originalId: string, at: strin
       await dissolveLink(tx, removed, booking => derivedTransactionType(booking.amount_minor));
     }
 
-    if (decision.deleted) {
-      await tx.delete(transactions).where(eq(transactions.id, decision.removed.id));
-    } else {
-      await tx.update(transactions).set({
-        suppressed_at: at,
-        duplicate_of_id: decision.kept.id
-      }).where(eq(transactions.id, decision.removed.id));
-    }
+    await tx.update(transactions).set({
+      suppressed_at: at,
+      duplicate_of_id: decision.kept.id
+    }).where(eq(transactions.id, decision.removed.id));
 
     if (decision.text && !decision.kept.overridden) {
       await tx.update(transactions).set({

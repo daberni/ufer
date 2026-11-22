@@ -135,9 +135,7 @@ export type DuplicateCandidate = {
   description: string;
   /** Whether this candidate stays when the booking is named its duplicate; otherwise the booking being resolved stays. */
   keeps_candidate: boolean;
-  /** Whether the copy that does not stay is deleted, because it came from a CSV import; otherwise it is hidden and can be shown again. */
-  deletes_other: boolean;
-  /** The account of the booking this candidate is linked with; removing the candidate ends that link. */
+  /** The account of the booking this candidate is linked with; hiding the candidate ends that link. */
   linked_account: string | null;
 };
 

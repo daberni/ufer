@@ -258,7 +258,7 @@ test("showing a resolved duplicate again clears its record and counts it again; 
   assert.equal((await listed()).find(item => item.id === short.id)?.duplicate_of, null);
 });
 
-test("a CSV-imported copy beside a bank copy is deleted, and the bank copy takes over its better text and manual category", async context => {
+test("a CSV-imported copy beside a bank copy is hidden even when better described, and the bank copy takes over its text, manual category and manual type", async context => {
   const db = await isolatedDatabase(context);
 
   await sync("checking", [shortCopy]);
@@ -281,13 +281,16 @@ test("a CSV-imported copy beside a bank copy is deleted, and the bank copy takes
 
   const offered = await duplicateCandidates("csv-copy");
 
-  assert.deepEqual(offered.candidates.map(candidate => [candidate.id, candidate.keeps_candidate, candidate.deletes_other, candidate.linked_account]), [[bank.id, true, true, null]]);
+  assert.deepEqual(offered.candidates.map(candidate => [candidate.id, candidate.keeps_candidate, candidate.linked_account]), [[bank.id, true, null]]);
 
   await markDuplicate("csv-copy", {
     duplicate_of: bank.id
   }, now);
 
-  assert.equal(await db.select().from(schema.transactions).where(eq(schema.transactions.id, "csv-copy")).get(), undefined);
+  const csvCopy = await byReference(db, "csv:m:synthetic-row");
+
+  assert.notEqual(csvCopy.suppressed_at, null);
+  assert.equal(csvCopy.duplicate_of_id, bank.id);
 
   await sync("checking", [shortCopy]);
   const kept = await byReference(db, shortCopy.reference);

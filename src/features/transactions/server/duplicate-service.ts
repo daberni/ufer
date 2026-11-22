@@ -8,7 +8,7 @@ import { carriedCategory, carriedText, carriedType, duplicateSearchDays, keptCop
 import type { DuplicateCandidates } from "@/features/transactions/types";
 import { readDuplicateCandidates, resolveDuplicate, type Copy, type DuplicateResult } from "./duplicate-repository";
 
-/** The bookings a person can name this one a duplicate of, each with which booking would stay and whether the other is deleted. Several candidates are all offered; none is chosen for the person. */
+/** The bookings a person can name this one a duplicate of, each with which booking would stay. Several candidates are all offered; none is chosen for the person. */
 export async function duplicateCandidates(id: string): Promise<DuplicateCandidates> {
   const found = await readDuplicateCandidates(id);
 
@@ -26,7 +26,6 @@ export async function duplicateCandidates(id: string): Promise<DuplicateCandidat
         counterparty: candidate.counterparty,
         description: candidate.description,
         keeps_candidate: outcome.kept === candidate,
-        deletes_other: outcome.deleted,
         linked_account: candidate.linked_account
       };
     })
@@ -40,21 +39,19 @@ const duplicateInput = z.object({
 function decide(subject: Copy, original: Copy) {
   const {
     kept,
-    removed,
-    deleted
+    removed
   } = keptCopy(subject, original);
 
   return {
     kept,
     removed,
-    deleted,
     category: carriedCategory(kept, removed),
     type: carriedType(kept, removed),
     text: carriedText(kept, removed)
   };
 }
 
-/** Resolves a booking as a duplicate of the one a person named: a CSV-imported copy beside a bank copy is deleted, otherwise the better-described copy stays; the other copy is deleted when it came from a CSV import and hidden otherwise. The kept copy takes over a manual category, a manual income or expense type and better text. */
+/** Resolves a booking as a duplicate of the one a person named: beside a bank copy a CSV-imported copy is hidden, otherwise the better-described copy stays and the other is hidden. The kept copy takes over a manual category, a manual income or expense type and better text. */
 export async function markDuplicate(id: string, payload: unknown, now = Temporal.Now.instant()) {
   const input = duplicateInput.parse(payload);
 
@@ -86,7 +83,7 @@ async function requireResolved(result: DuplicateResult) {
   }
 
   if (result === "split") {
-    throw new HttpError(409, "The booking that would be removed is split. Remove its split before resolving the duplicate.");
+    throw new HttpError(409, "The booking that would be hidden is split. Remove its split before resolving the duplicate.");
   }
 
   if (result === "entered") {
