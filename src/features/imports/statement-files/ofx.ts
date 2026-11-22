@@ -52,7 +52,11 @@ export function readOfx(text: string, locale: string): StatementFile {
     }
 
     const currency = leaf(statement, "CURDEF").toUpperCase() || null;
-    const source = leaf(find(statement.children, account), "ACCTID");
+    const accountElement = find(statement.children, account);
+    const accountId = leaf(accountElement, "ACCTID");
+    const bankId = leaf(accountElement, "BANKID");
+    // A card and a bank account, or accounts at two banks, may share an account number; the source keeps them apart.
+    const source = account === "CCACCTFROM" ? `Card · ${accountId}` : [bankId, accountId].filter(Boolean).join(" · ");
 
     for (const transaction of all(find(statement.children, "BANKTRANLIST"), "STMTTRN")) {
       // A transaction in another currency states its amount in that currency with the rate to the statement's; the row keeps the account's currency and notes the original amount.

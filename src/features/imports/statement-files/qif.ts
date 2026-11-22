@@ -113,7 +113,9 @@ export function readQif(text: string, locale: string): StatementFile {
     const splits = splitTags(record, decimal, amount);
     const split = splits && amount !== null && !transfer ? tagSplit(splits, amount) : null;
     const parts = split && "parts" in split ? split.parts : null;
-    const memo = cleanText(value(record, "M"));
+    // Split memos have no place on a split part, so they join the description.
+    const splitMemos = record.fields.filter(([field, text]) => field === "E" && text).map(([, text]) => cleanText(text));
+    const memo = [cleanText(value(record, "M")), ...splitMemos].filter(Boolean).join(" · ");
     const description = splits && !parts ? withSplitTags(memo, splits) : memo;
 
     rows.add({
