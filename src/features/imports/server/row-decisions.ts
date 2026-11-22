@@ -124,6 +124,13 @@ export function planRows(entries: MappedEntry[], found: Found, decisions: Readon
   };
 }
 
+/** Characters of a candidate's payee or description the review shows; changes are computed on the full text, and the cap bounds the check's response when many rows share long candidates. */
+export const shownTextLength = 120;
+
+function shortened(text: string) {
+  return text.length > shownTextLength ? `${text.slice(0, shownTextLength - 1)}…` : text;
+}
+
 /** The review's view of each matched or possibly duplicate row, by index. */
 export function describeMatches(entries: MappedEntry[], found: Found) {
   const described = new Map<number, Omit<RowMatch, "line" | "accountId">>();
@@ -131,8 +138,8 @@ export function describeMatches(entries: MappedEntry[], found: Found) {
     reference: booking.reference,
     date: booking.date,
     amount: booking.amount,
-    payee: booking.counterparty,
-    description: booking.description,
+    payee: shortened(booking.counterparty),
+    description: shortened(booking.description),
     type: booking.type,
     payeeOverridden: booking.payeeOverridden,
     descriptionOverridden: booking.descriptionOverridden,
@@ -141,6 +148,7 @@ export function describeMatches(entries: MappedEntry[], found: Found) {
 
   for (const [index, booking] of found.matches) {
     described.set(index, {
+      description: entries[index].description,
       kind: "match",
       reason: found.duplicates.get(index) ?? null,
       candidates: [existingMatch(index, booking)]
@@ -149,6 +157,7 @@ export function describeMatches(entries: MappedEntry[], found: Found) {
 
   for (const [index, candidates] of found.candidatesOf) {
     described.set(index, {
+      description: entries[index].description,
       kind: "possible",
       reason: null,
       candidates: candidates.map(booking => existingMatch(index, booking))

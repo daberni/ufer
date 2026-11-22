@@ -32,6 +32,8 @@ export type RowMatch = {
   /** The target account; references are unique only per account. */
   accountId: string;
   kind: "match" | "possible";
+  /** The description an update writes, as the server prepared it (a split it cannot take keeps its tags here). */
+  description: string;
   /** Why a `match` matched: the same reference as an earlier import, or the content of another booking. */
   reason: DuplicateReason | null;
   /** The matched booking, or a possible duplicate's candidates with the most likely first. */

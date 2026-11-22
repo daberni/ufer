@@ -151,7 +151,7 @@ function MatchItem({
     ["Date", null, <DateValue key="date" value={row?.date ?? null} />, <DateValue key="date" value={candidate.date} />],
     ["Amount", null, row ? fileAmount(row.amount, currency, locale) : "", money(candidate.amount, currency, locale)],
     ["Payee", "payee", row?.payee ?? "", withOverride(candidate.payee, candidate.payeeOverridden)],
-    ["Description", "description", row?.description ?? "", withOverride(candidate.description, candidate.descriptionOverridden)],
+    ["Description", "description", match.description, withOverride(candidate.description, candidate.descriptionOverridden)],
     ["Type", "type", row?.type ? typeLabel(row.type) : "Not stated", typeLabel(candidate.type)]
   ];
 

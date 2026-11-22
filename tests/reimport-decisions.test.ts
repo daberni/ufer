@@ -367,18 +367,21 @@ test("the review's totals follow the decisions and leave a possible duplicate un
   const matches: RowMatch[] = [{
     line: 2,
     accountId: "x",
+    description: "",
     kind: "match",
     reason: "already_imported",
     candidates: [existing("a", ["payee"])]
   }, {
     line: 3,
     accountId: "x",
+    description: "",
     kind: "match",
     reason: "existing_booking",
     candidates: [existing("b", [])]
   }, {
     line: 4,
     accountId: "x",
+    description: "",
     kind: "possible",
     reason: null,
     candidates: [existing("a", ["description"]), existing("c", ["description"])]
@@ -489,4 +492,19 @@ test("a confident match keeps its booking when an earlier possible duplicate cho
 
   assert.deepEqual([result.updatedRows, result.undecided], [1, [2]]);
   assert.deepEqual(stored.map(item => item.description), ["", "Confident"]);
+});
+
+test("the review shortens long candidate texts but compares the full text", async context => {
+  await isolatedDatabase(context);
+  const long = "Example Cinema ".repeat(20).trim();
+
+  await importRows(firstImport, [row(2, "2024-04-20", "-15.00", long)], true);
+  const check = await importRows(reimport, [row(2, "2024-04-20", "-15.00", long, {
+    description: "Evening"
+  })], false);
+  const candidate = check.matches[0].candidates[0];
+
+  assert.equal(candidate.payee.length, 120);
+  assert.deepEqual(candidate.changes, ["description"]);
+  assert.equal(check.matches[0].description, "Evening");
 });
