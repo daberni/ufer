@@ -7,7 +7,8 @@ import { queryKeys } from "@/client/query-keys";
 import type { TradeSide } from "./trade-sides";
 
 // A trade changes the brokerage value, the settlement account's bookings and balance, and net worth; securities may be created.
-const tradeKeys = [queryKeys.accounts(), queryKeys.transactions.all(), queryKeys.reports.netWorth(), queryKeys.securities.all()];
+// A linked bank booking changes between income or expense and buy or sell, so cash-flow totals change too.
+const tradeKeys = [queryKeys.accounts(), queryKeys.transactions.all(), queryKeys.reports.netWorth(), queryKeys.reports.cashFlow(), queryKeys.securities.all()];
 
 export function useCreateBrokerageAccount() {
   const queryClient = useQueryClient();
