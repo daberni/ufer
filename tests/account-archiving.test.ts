@@ -19,7 +19,8 @@ import { ValidationError } from "../src/lib/errors";
 import { listAccounts, readBalanceHistory, readNetWorth } from "../src/features/accounts/server/account-queries";
 import { archiveAccount, restoreAccount, updateManualValuation } from "../src/features/accounts/server/account-service";
 import { editManualTransaction, enterManualTransaction, hideTransaction, removeManualTransaction, transferOptions, updateTransactionCategory, updateTransactionDetails } from "../src/features/transactions/server/transaction-service";
-import { applyRulesToUncorrectedTransactions, createRule, deleteCategory, updateRuleDetails } from "../src/features/categorization/server/categorization-service";
+import { deleteCategory } from "../src/features/categorization/server/categorization-service";
+import { applyRulesToUncorrectedTransactions, createRule, updateRuleDetails } from "../src/features/transactions/server/rule-application-service";
 import { splitTransaction, unsplitTransaction } from "../src/features/transactions/server/split-service";
 import { pairAllTransfers } from "../src/features/transactions/server/transfer-pairing-repository";
 import { acquireLease } from "../src/server/jobs/lease-repository";
@@ -67,28 +68,23 @@ async function seededDatabase(context: TestContext) {
   await db.insert(schema.accounts).values([{
     id: "closed",
     name: "Synthetic closed account",
-    institution: "Example institution",
     kind: "checking"
   }, {
     id: "open",
     name: "Synthetic open account",
-    institution: "Example institution",
     kind: "savings"
   }, {
     id: "target",
     name: "Synthetic target account",
-    institution: "Example institution",
     kind: "checking"
   }, {
     id: "dollars",
     name: "Synthetic dollar account",
-    institution: "Example institution",
     kind: "checking",
     currency: "USD"
   }, {
     id: "bank",
     name: "Synthetic bank account",
-    institution: "Example institution",
     kind: "checking",
     provider: "enable_banking",
     provider_uid: "uid-bank"

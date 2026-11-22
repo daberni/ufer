@@ -9,7 +9,7 @@ import { Temporal } from "temporal-polyfill";
 import { minorUnits } from "../src/lib/money";
 import { validDate } from "../src/lib/time";
 import { ValidationError } from "../src/lib/errors";
-import { categorize, prepareRules, validatePattern, type Rule } from "../src/lib/rules";
+import { categorize, prepareRules, validatePattern, type Rule } from "../src/features/categorization/server/rule-assignment";
 import { acquireLease, releaseLease } from "../src/server/jobs/lease-repository";
 import { normalizeTransactions } from "../src/features/banking/server/bank-data";
 import { saveAccountSync } from "../src/features/banking/server/account-sync-service";
@@ -344,7 +344,7 @@ test("repeated sync preserves manual category corrections including deliberately
   useDatabase(context, client);
 
   try {
-    await client.execute("INSERT INTO accounts(id,name,institution,kind,currency) VALUES('a','Test','Test Bank','checking','EUR')");
+    await client.execute("INSERT INTO accounts(id,name,kind,currency) VALUES('a','Test','checking','EUR')");
     const balances = [{
       balance_type: "CLBD",
       balance_amount: {
@@ -604,7 +604,7 @@ test("sync refuses mismatching application environments before fetching financia
 
   try {
     await client.execute("INSERT INTO requisitions(id,bank_name,bank_country,status,valid_until) VALUES('flow','Mock','AT','LINKED','2099-01-01T00:00:00Z')");
-    await client.execute("INSERT INTO accounts(id,name,institution,kind,provider,provider_uid,requisition_id) VALUES('a','Test','Mock','checking','enable_banking','uid','flow')");
+    await client.execute("INSERT INTO accounts(id,name,kind,provider,provider_uid,requisition_id) VALUES('a','Test','checking','enable_banking','uid','flow')");
     await assert.rejects(syncAccounts(), /application environment/);
     assert.deepEqual(requests, ["/application"]);
     assert.equal((await client.execute("SELECT COUNT(*) AS n FROM leases")).rows[0].n, 0);
@@ -660,8 +660,8 @@ test("sync offers reconnecting only for failures that a new bank authorization r
   try {
     await client.execute("INSERT INTO requisitions(id,bank_name,bank_country,status,valid_until) VALUES('current','Mock','AT','LINKED','2099-01-01T00:00:00Z')");
     await client.execute("INSERT INTO requisitions(id,bank_name,bank_country,status,valid_until) VALUES('lapsed','Mock','AT','LINKED','2000-01-01T00:00:00Z')");
-    await client.execute("INSERT INTO accounts(id,name,institution,kind,provider,provider_uid,requisition_id) VALUES('limited','Limited','Mock','checking','enable_banking','uid-limited','current')");
-    await client.execute("INSERT INTO accounts(id,name,institution,kind,provider,provider_uid,requisition_id) VALUES('expired','Expired','Mock','checking','enable_banking','uid-expired','lapsed')");
+    await client.execute("INSERT INTO accounts(id,name,kind,provider,provider_uid,requisition_id) VALUES('limited','Limited','checking','enable_banking','uid-limited','current')");
+    await client.execute("INSERT INTO accounts(id,name,kind,provider,provider_uid,requisition_id) VALUES('expired','Expired','checking','enable_banking','uid-expired','lapsed')");
 
     const result = await syncAccounts();
     const reconnectByAccount = Object.fromEntries(result.failures.map(failure => [failure.account, failure.reconnect]));

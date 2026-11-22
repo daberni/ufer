@@ -1,0 +1,136 @@
+.section {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
+  min-width: 0;
+}
+.section h2 {
+  margin: 0;
+  font-size: var(--text-lg);
+}
+.section > div > p {
+  margin: var(--space-1) 0 0;
+}
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.toolbar [aria-pressed="true"] {
+  border-color: var(--green);
+  background-color: color-mix(in srgb, var(--green) 10%, var(--surface));
+  font-weight: 600;
+}
+.toolbar .attention {
+  border-color: var(--gold);
+  color: var(--gold-text);
+}
+.table {
+  overflow: auto;
+  max-height: 32rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+.table:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+.table table {
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: var(--text-sm);
+  min-width: 100%;
+}
+.table th,
+.table td {
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
+  text-align: left;
+  vertical-align: middle;
+  max-width: 18rem;
+  overflow-wrap: break-word;
+}
+.table .nowrap {
+  white-space: nowrap;
+}
+.table thead th {
+  position: sticky;
+  top: 0;
+  z-index: var(--layer-raised);
+  background: var(--surface-raised);
+  border-bottom-color: var(--border);
+  color: var(--muted);
+  font-weight: 500;
+  white-space: nowrap;
+}
+.line {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  width: 1%;
+  white-space: nowrap;
+}
+.table .amount {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.table .decision {
+  width: 1%;
+  white-space: nowrap;
+}
+.decision select {
+  min-width: 8rem;
+  max-width: 16rem;
+}
+.table tr.main td {
+  border-bottom-style: dashed;
+}
+.existing td {
+  color: var(--muted);
+}
+.blocked td:first-child {
+  box-shadow: inset 3px 0 0 var(--gold);
+}
+.decision select[aria-invalid="true"] {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 1px var(--gold);
+}
+.change del {
+  color: var(--muted);
+}
+.change ins {
+  text-decoration: none;
+  font-weight: 600;
+  color: var(--ink);
+  background: color-mix(in srgb, var(--gold) 18%, transparent);
+  border-radius: var(--radius-sm);
+  padding: 0 2px;
+}
+.note {
+  color: var(--muted);
+}
+.warning {
+  display: block;
+  color: var(--gold-text);
+}
+.problem {
+  color: var(--danger-text);
+}
+.more {
+  justify-self: start;
+}
+@media (--mobile) {
+  /* Compact filter and bulk buttons: the table, not the toolbar, should fill the phone screen. */
+  .section .toolbar button {
+    flex: 0 1 auto;
+    width: auto;
+    min-height: 0;
+    padding: var(--space-1) var(--space-2);
+    font-size: var(--text-sm);
+  }
+  .decision select {
+    min-width: 6.5rem;
+    max-width: 9rem;
+  }
+}

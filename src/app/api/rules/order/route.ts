@@ -1,6 +1,6 @@
 import { respond } from "@/server/http/respond";
 import { readJson } from "@/server/http/request-body";
-import { reorderRules } from "@/features/categorization/server/categorization-service";
+import { reorderRules } from "@/features/transactions/server/rule-application-service";
 
 export const runtime = "nodejs";
 

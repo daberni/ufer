@@ -8,8 +8,8 @@ import { createElement, createRef, type ReactNode } from "react";
 import { initializeDatabase } from "../src/server/database/migrations";
 import * as schema from "../src/server/database/schema";
 import type { Database } from "../src/server/database/connection";
-import { insertRule } from "../src/features/categorization/server/rule-repository";
-import { applyRulesToUncorrectedTransactions, createRule, previewRule, updateRuleDetails } from "../src/features/categorization/server/categorization-service";
+import { insertRule } from "../src/features/transactions/server/rule-application-service";
+import { applyRulesToUncorrectedTransactions, createRule, previewRule, updateRuleDetails } from "../src/features/transactions/server/rule-application-service";
 import { updateTransactionCategory } from "../src/features/transactions/server/transaction-service";
 import { queryKeys } from "../src/client/query-keys";
 import type { Category, Rule } from "../src/features/categorization/types";
@@ -51,12 +51,10 @@ async function seed(context: TestContext) {
   await db.insert(schema.accounts).values([{
     id: "checking",
     name: "Synthetic checking",
-    institution: "Example institution",
     kind: "checking"
   }, {
     id: "elsewhere",
     name: "Synthetic archived account",
-    institution: "Example institution",
     kind: "checking",
     archived_at: "2000-01-01T00:00:00.000Z"
   }]);

@@ -15,8 +15,9 @@ import { readTransactionPage } from "../src/features/transactions/server/transac
 import { pairAllTransfers } from "../src/features/transactions/server/transfer-pairing-repository";
 import { replaceSplit } from "../src/features/transactions/server/split-repository";
 import { listAccounts } from "../src/features/accounts/server/account-queries";
-import { applyRulesToUncorrectedTransactions, categoryUsage, createRule, deleteCategory, previewRule } from "../src/features/categorization/server/categorization-service";
-import { insertRule } from "../src/features/categorization/server/rule-repository";
+import { categoryUsage, deleteCategory } from "../src/features/categorization/server/categorization-service";
+import { applyRulesToUncorrectedTransactions, createRule, previewRule } from "../src/features/transactions/server/rule-application-service";
+import { insertRule } from "../src/features/transactions/server/rule-application-service";
 import { dashboardFilters } from "../src/server/http/dashboard-filters";
 import { HttpError, ValidationError } from "../src/lib/errors";
 import { monthPeriod } from "../src/lib/period";
@@ -56,14 +57,12 @@ async function seed(context: TestContext) {
   await db.insert(schema.accounts).values([{
     id: "checking",
     name: "Synthetic checking",
-    institution: "Example institution",
     kind: "checking",
     provider: "enablebanking",
     balance_minor: 100000
   }, {
     id: "yen",
     name: "Synthetic yen account",
-    institution: "Example institution",
     kind: "checking",
     currency: "JPY",
     provider: "enablebanking"
@@ -381,7 +380,6 @@ test("automatic transfer pairing leaves a split booking as it is", async context
   await db.insert(schema.accounts).values({
     id: "savings",
     name: "Synthetic savings",
-    institution: "Example institution",
     kind: "savings",
     provider: "enablebanking"
   });
@@ -470,7 +468,6 @@ test("a split booking keeps its type through a sync and cannot become another bo
   await db.insert(schema.accounts).values({
     id: "savings",
     name: "Synthetic savings",
-    institution: "Example institution",
     kind: "savings",
     provider: "enablebanking"
   });

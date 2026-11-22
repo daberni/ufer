@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, sql, type SQL } from "drizzle-orm";
 import { database, type Database } from "@/server/database/connection";
 import { accounts, transactions } from "@/server/database/schema";
 // eslint-disable-next-line boundaries/dependencies -- known violation tracked in daberni/ufer#285
@@ -13,13 +13,13 @@ import type { DashboardFilters } from "@/server/http/dashboard-filters";
 import type { TransactionType } from "@/lib/transaction-types";
 import { createdCounterpartPrefix, manualEntryPrefix } from "@/lib/booking-references";
 import { listRules } from "@/features/categorization/server/rule-repository";
-import { prepareRules, ruleAssignment, type PreparedRule } from "@/lib/rules";
+import { prepareRules, ruleAssignment, type PreparedRule } from "@/features/categorization/server/rule-assignment";
 import type { SplitPart, TransactionSplit } from "@/features/transactions/types";
 import { readSplitParts } from "@/features/transactions/server/split-repository";
 
 // Mirrors `enteredInUfer` for a booking and its account in the list's SQL.
 function enteredColumn(booking: string, account: string) {
-  return `((${account}.provider='manual' AND (${booking}.provider_reference LIKE '${manualEntryPrefix}%' OR ${booking}.provider_reference LIKE '${createdCounterpartPrefix}%')) OR (${account}.provider<>'manual' AND ${booking}.provider_reference LIKE '${manualEntryPrefix}%' AND ${booking}.type IN ('opening_balance','adjustment')))`;
+  return sql.raw(`((${account}.provider='manual' AND (${booking}.provider_reference LIKE '${manualEntryPrefix}%' OR ${booking}.provider_reference LIKE '${createdCounterpartPrefix}%')) OR (${account}.provider<>'manual' AND ${booking}.provider_reference LIKE '${manualEntryPrefix}%' AND ${booking}.type IN ('opening_balance','adjustment')))`);
 }
 
 /** Whether a listed booking was entered in Ufer and, if so, whether it follows a linked imported booking. A counterpart created for an imported booking is not editable as an entry. */
@@ -53,11 +53,11 @@ function automaticAssignment(row: Record<string, unknown>, rules: PreparedRule[]
 }
 
 /** Matches what reports count as uncategorized: an unsplit booking without a category, a split with an uncategorized part, or a split whose parts no longer add up to the booking. */
-const uncategorizedCondition = `t.category_id IS NULL AND (
+const uncategorizedCondition = sql.raw(`t.category_id IS NULL AND (
   NOT EXISTS (SELECT 1 FROM transaction_splits s WHERE s.transaction_id=t.id)
   OR EXISTS (SELECT 1 FROM transaction_splits s WHERE s.transaction_id=t.id AND s.category_id IS NULL)
   OR (SELECT SUM(s.amount_minor) FROM transaction_splits s WHERE s.transaction_id=t.id)<>t.amount_minor
-)`;
+)`);
 
 function splitOf(parts: SplitPart[] | undefined, amount: number): TransactionSplit | null {
   if (!parts) {
@@ -77,24 +77,16 @@ type FoundSyncRun = NonNullable<Awaited<ReturnType<typeof findSyncRun>>>;
 /**
  * The transactions a list shows before search and filters: those a sync run inserted, in any month and currency, or otherwise the selected period in the display currency.
  */
-function listScope(db: Database, filters: DashboardFilters, syncRun: FoundSyncRun | null) {
+function listScope(db: Database, filters: DashboardFilters, syncRun: FoundSyncRun | null): SQL[] {
   if (syncRun) {
     const inserted = db.select({
       id: transactions.id
-    }).from(transactions).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(syncRunTransactions(syncRun.started_at)).toSQL();
+    }).from(transactions).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(syncRunTransactions(syncRun.started_at));
 
-    return {
-      sql: [`t.id IN (${inserted.sql})`],
-      args: inserted.params as (string | number)[]
-    };
+    return [sql`t.id IN (${inserted})`];
   }
 
-  const inPeriod = periodCondition(filters.period);
-
-  return {
-    sql: ["t.currency=?", inPeriod.sql],
-    args: [filters.currency, ...inPeriod.args]
-  };
+  return [sql`t.currency=${filters.currency}`, periodCondition(filters.period)];
 }
 
 // Null without a run filter, and for an unknown run.
@@ -121,71 +113,56 @@ export async function readTransactionPage(filters: DashboardFilters) {
   }
 
   const db = await database();
-  const client = db.$client;
-  const scope = listScope(db, filters, syncRun);
-  const where = [...scope.sql];
-  const args: (string | number)[] = [...scope.args];
+  const where = listScope(db, filters, syncRun);
 
   if (filters.search) {
-    const matchesSearch = searchCondition(filters.search);
-
-    where.push(matchesSearch.sql);
-    args.push(...matchesSearch.args);
+    where.push(searchCondition(filters.search));
   }
 
   if (filters.accountId) {
-    where.push("a.id=?");
-    args.push(filters.accountId);
+    where.push(sql`a.id=${filters.accountId}`);
   }
 
   if (filters.categoryId === "uncategorized") {
     where.push(uncategorizedCondition);
   } else if (filters.categoryId) {
-    where.push("(t.category_id=? OR EXISTS (SELECT 1 FROM transaction_splits s WHERE s.transaction_id=t.id AND s.category_id=?))");
-    args.push(filters.categoryId, filters.categoryId);
+    where.push(sql`(t.category_id=${filters.categoryId} OR EXISTS (SELECT 1 FROM transaction_splits s WHERE s.transaction_id=t.id AND s.category_id=${filters.categoryId}))`);
   }
 
   if (filters.type) {
-    where.push("t.type=?");
-    args.push(filters.type);
+    where.push(sql`t.type=${filters.type}`);
   }
 
-  const condition = where.join(" AND ");
+  const condition = sql.join(where, sql.raw(" AND "));
   // Banks report dates without a time, so bookings within a day are ordered by payee and description; empty payees come last.
-  const transactionsQuery = client.execute({
-    sql: `
-      SELECT t.id,t.date,t.amount_minor,t.currency,t.instructed_amount_minor,t.instructed_currency,COALESCE(t.counterparty_override,t.counterparty) AS counterparty,COALESCE(t.description_override,t.description) AS description,t.counterparty AS source_counterparty,t.description AS source_description,t.counterparty_override,t.description_override,t.suppressed_at IS NOT NULL AS hidden,a.name AS account_name,t.account_id,t.category_id,t.category_source,t.category_rule_id,t.type,t.type_source,t.type_rule_id,a.provider='manual' AS manual_account,a.archived_at IS NOT NULL AS account_archived,COALESCE(pa.archived_at IS NOT NULL,0) AS counterpart_archived,t.provider_reference LIKE ? AS created_counterpart,${enteredColumn("t", "a")} AS entered,${enteredColumn("p", "pa")} AS counterpart_entered,p.id AS counterpart_id,pa.name AS counterpart_account_name,p.date AS counterpart_booking_date
-      FROM transactions t
-      JOIN accounts a ON a.id=t.account_id
-      LEFT JOIN transactions p ON p.transfer_id=t.transfer_id AND p.id<>t.id
-      LEFT JOIN accounts pa ON pa.id=p.account_id
-      WHERE ${condition}
-      ORDER BY t.date DESC,COALESCE(t.counterparty_override,t.counterparty)='',COALESCE(t.counterparty_override,t.counterparty) COLLATE NOCASE,COALESCE(t.description_override,t.description) COLLATE NOCASE,t.id
-      LIMIT ?
-      OFFSET ?
-    `,
-    args: [`${createdCounterpartPrefix}%`, ...args, transactionPageSize, (filters.page - 1) * transactionPageSize]
-  });
-  const countQuery = client.execute({
-    sql: `
-      SELECT COUNT(*) AS n
-      FROM transactions t
-      JOIN accounts a ON a.id=t.account_id
-      WHERE ${condition}
-    `,
-    args
-  });
+  const transactionsQuery = db.all<Record<string, unknown>>(sql`
+    SELECT t.id,t.date,t.amount_minor,t.currency,t.instructed_amount_minor,t.instructed_currency,COALESCE(t.counterparty_override,t.counterparty) AS counterparty,COALESCE(t.description_override,t.description) AS description,t.counterparty AS source_counterparty,t.description AS source_description,t.counterparty_override,t.description_override,t.suppressed_at IS NOT NULL AS hidden,a.name AS account_name,t.account_id,t.category_id,t.category_source,t.category_rule_id,t.type,t.type_source,t.type_rule_id,a.provider='manual' AS manual_account,a.archived_at IS NOT NULL AS account_archived,COALESCE(pa.archived_at IS NOT NULL,0) AS counterpart_archived,t.provider_reference LIKE ${`${createdCounterpartPrefix}%`} AS created_counterpart,${enteredColumn("t", "a")} AS entered,${enteredColumn("p", "pa")} AS counterpart_entered,p.id AS counterpart_id,pa.name AS counterpart_account_name,p.date AS counterpart_booking_date
+    FROM transactions t
+    JOIN accounts a ON a.id=t.account_id
+    LEFT JOIN transactions p ON p.transfer_id=t.transfer_id AND p.id<>t.id
+    LEFT JOIN accounts pa ON pa.id=p.account_id
+    WHERE ${condition}
+    ORDER BY t.date DESC,COALESCE(t.counterparty_override,t.counterparty)='',COALESCE(t.counterparty_override,t.counterparty) COLLATE NOCASE,COALESCE(t.description_override,t.description) COLLATE NOCASE,t.id
+    LIMIT ${transactionPageSize}
+    OFFSET ${(filters.page - 1) * transactionPageSize}
+  `);
+  const countQuery = db.all<Record<string, unknown>>(sql`
+    SELECT COUNT(*) AS n
+    FROM transactions t
+    JOIN accounts a ON a.id=t.account_id
+    WHERE ${condition}
+  `);
   const [transactions, count] = await Promise.all([transactionsQuery, countQuery]);
-  const hasManualRows = transactions.rows.some(row => row.category_source === "manual");
+  const hasManualRows = transactions.some(row => row.category_source === "manual");
   const rules = hasManualRows ? prepareRules(await listRules()) : null;
-  const splits = await readSplitParts(transactions.rows.map(row => String(row.id)));
+  const splits = await readSplitParts(transactions.map(row => String(row.id)));
 
   return {
     period: periodToJson(filters.period),
     page: filters.page,
     syncRun,
-    transactionCount: Number(count.rows[0].n),
-    transactions: transactions.rows.map(row => ({
+    transactionCount: Number(count[0].n),
+    transactions: transactions.map(row => ({
       id: String(row.id),
       date: String(row.date),
       amount_minor: Number(row.amount_minor),

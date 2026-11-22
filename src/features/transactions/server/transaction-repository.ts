@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 import { transactions } from "@/server/database/schema";
-import type { Rule, RuleAssignment, RuleText } from "@/lib/rules";
+import type { Rule, RuleAssignment, RuleText } from "@/features/categorization/server/rule-assignment";
 import { derivedTransactionType, type TransactionType } from "@/lib/transaction-types";
 import { refusable, type ManualEntryResult } from "./manual-transaction-repository";
 import { assignRuleDecision, dissolveSplit, dropSplitsOnCurrencyChange, notSplit, splitRefusesType, writeSplit, type SplitChange } from "./split-repository";

@@ -1,6 +1,6 @@
 import { respond } from "@/server/http/respond";
 import { readJson } from "@/server/http/request-body";
-import { deleteRule, updateRuleDetails, updateRuleEnabled } from "@/features/categorization/server/categorization-service";
+import { deleteRule, updateRuleDetails, updateRuleEnabled } from "@/features/transactions/server/rule-application-service";
 
 export const runtime = "nodejs";
 

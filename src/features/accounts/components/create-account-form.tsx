@@ -82,15 +82,6 @@ function AccountDetailsFields({
           placeholder={copy.namePlaceholder}
         />
       </label>
-      <label>
-        {copy.institutionLabel}
-        <input
-          name="institution"
-          required
-          maxLength={100}
-          placeholder={copy.institutionPlaceholder}
-        />
-      </label>
       <div className={styles["balance-grid"]}>
         <label>
           {copy.balanceLabel}

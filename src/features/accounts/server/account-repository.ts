@@ -36,7 +36,6 @@ export async function insertManualAccount(input: ManualAccountInput, amount: num
     await tx.insert(accounts).values({
       id,
       name: input.name,
-      institution: input.institution,
       kind: input.kind,
       currency: input.currency
     });

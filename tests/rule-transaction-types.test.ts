@@ -8,8 +8,10 @@ import type { Database } from "../src/server/database/connection";
 import { initializeDatabase } from "../src/server/database/migrations";
 import * as schema from "../src/server/database/schema";
 import { saveAccountSync } from "../src/features/banking/server/account-sync-service";
-import { applyRulesToUncorrectedTransactions, createRule, deleteRule, updateRuleDetails } from "../src/features/categorization/server/categorization-service";
-import { listRules, saveRuleTypes } from "../src/features/categorization/server/rule-repository";
+import { applyRulesToUncorrectedTransactions, createRule, deleteRule, updateRuleDetails } from "../src/features/transactions/server/rule-application-service";
+import { saveRuleTypes } from "../src/features/transactions/server/rule-booking-repository";
+import { listRules } from "../src/features/categorization/server/rule-repository";
+import {} from "../src/features/transactions/server/rule-application-service";
 import { importMappedRows } from "../src/features/imports/server/mapped-import-service";
 import { pairAllTransfers } from "../src/features/transactions/server/transfer-pairing-repository";
 import { updateTransactionCategory, updateTransactionDetails } from "../src/features/transactions/server/transaction-service";
@@ -49,25 +51,21 @@ async function isolatedDatabase(context: TestContext) {
   await db.insert(schema.accounts).values([{
     id: "checking",
     name: "Synthetic checking",
-    institution: "Example bank",
     kind: "checking",
     provider: "enable_banking"
   }, {
     id: "savings",
     name: "Synthetic savings",
-    institution: "Example bank",
     kind: "savings",
     provider: "enable_banking"
   }, {
     id: "deposit",
     name: "Synthetic deposit",
-    institution: "Example bank",
     kind: "savings",
     provider: "enable_banking"
   }, {
     id: "cash",
     name: "Synthetic cash",
-    institution: "Wallet",
     kind: "checking"
   }]);
 

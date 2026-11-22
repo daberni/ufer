@@ -40,7 +40,7 @@ const shownRows = 3;
 
 const placeholderAccount = {
   provider: "manual",
-  institution: "",
+  institution: null,
   requisition_id: null,
   last_synced_at: null,
   valid_until: null,

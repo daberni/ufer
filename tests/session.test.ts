@@ -575,7 +575,6 @@ test("account renaming requires a session and trusted origin and answers invalid
   await db.insert(schema.accounts).values({
     id: "rename-route",
     name: "Original",
-    institution: "Example",
     kind: "checking"
   });
   const renameRequest = (cookie = "", requestedOrigin = origin, name = "Renamed") => new Request(`${origin}/api/accounts/rename-route`, {

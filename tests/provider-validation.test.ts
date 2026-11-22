@@ -131,7 +131,6 @@ async function insertLinkedConnection(db: Database, id: string, accountId: strin
   await db.insert(schema.accounts).values({
     id: accountId,
     name: "Synthetic account",
-    institution: "Example institution",
     kind: "checking",
     provider: "enable_banking",
     provider_uid: `uid-${accountId}`,
@@ -371,7 +370,6 @@ test("malformed balances or transactions fail the account's sync without writing
   await db.insert(schema.accounts).values({
     id: "partial",
     name: "Partial account",
-    institution: "Example institution",
     kind: "checking",
     provider: "enable_banking",
     provider_uid: "uid-partial",

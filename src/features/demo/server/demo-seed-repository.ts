@@ -9,7 +9,8 @@ import { pairTransfers } from "@/features/transactions/server/transfer-pairing-r
 import { writeSplit } from "@/features/transactions/server/split-repository";
 import type { CategorizedEntry } from "@/features/transactions/server/transaction-entry";
 import type { Category } from "@/server/database/models";
-import type { Rule } from "@/lib/rules";
+import type { Rule } from "@/features/categorization/server/rule-assignment";
+import { createCategory } from "@/features/categorization/server/category-repository";
 import { requireRuleCapacity } from "@/features/categorization/server/rule-repository";
 import { demoConnections, demoIdPrefix, type DemoAccountDefinition, type DemoCategory } from "./demo-catalog";
 import type { DemoConnectionData, DemoCreatedCounterpart, DemoSnapshot, DemoSplit, DemoSyncRun } from "./demo-dataset";
@@ -24,6 +25,7 @@ export type DemoAccountRows = DemoAccountDefinition & {
   entries: CategorizedEntry[];
   valuations: DemoSnapshot[];
   reported: DemoSnapshot;
+  importedAt: Record<string, string>;
 };
 
 export type DemoSeedRows = {
@@ -91,14 +93,22 @@ async function deleteDemoRows(tx: DatabaseTransaction) {
 // Demo categories are updated in place because synced sandbox transactions may already reference them.
 async function upsertCategories(tx: DatabaseTransaction, rows: DemoCategory[]) {
   for (const category of rows) {
-    await tx.insert(categories).values(category).onConflictDoUpdate({
-      target: categories.id,
-      set: {
-        name: category.name,
-        color: category.color,
-        icon: category.icon
-      }
-    });
+    const updated = await tx.update(categories).set({
+      name: category.name,
+      color: category.color,
+      icon: category.icon
+    }).where(eq(categories.id, category.id));
+
+    if (updated.rowsAffected > 0) {
+      continue;
+    }
+
+    const result = await createCategory(tx, category);
+
+    // The service already reuses equivalently named categories; one created since then cannot stand in, because the rows reference the fixed demo IDs.
+    if (!result.created) {
+      throw new Error(`A category named like the demo category "${category.name}" was created during the seed.`);
+    }
   }
 }
 
@@ -124,7 +134,6 @@ async function insertAccount(tx: DatabaseTransaction, account: DemoAccountRows, 
   await tx.insert(accounts).values({
     id: account.id,
     name: account.name,
-    institution: account.institution,
     kind: account.kind,
     currency: "EUR",
     provider: bank ? "enable_banking" : "manual",
@@ -135,7 +144,12 @@ async function insertAccount(tx: DatabaseTransaction, account: DemoAccountRows, 
     last_synced_at: bank ? lastSyncedAt : null
   });
   await recordManualBalance(tx, demoAccount(account), account.opening.date, account.opening.amount);
-  await upsertTransactions(tx, account.id, account.entries);
+  await upsertTransactions(tx, account.id, account.entries.filter(entry => !account.importedAt[entry.reference]));
+
+  // A sync stamps the rows it inserts with its start; recent syncs find their bookings by it.
+  for (const importedAt of new Set(Object.values(account.importedAt))) {
+    await upsertTransactions(tx, account.id, account.entries.filter(entry => account.importedAt[entry.reference] === importedAt), importedAt);
+  }
 
   if (bank) {
     await tx.insert(balanceSnapshots).values({

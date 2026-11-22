@@ -12,7 +12,7 @@ import { maxRequestBodyBytes } from "../src/server/http/request-body";
 import * as schema from "../src/server/database/schema";
 import { listAccounts } from "../src/features/accounts/server/account-queries";
 import { archiveAccount, restoreAccount } from "../src/features/accounts/server/account-service";
-import { insertRule } from "../src/features/categorization/server/rule-repository";
+import { insertRule } from "../src/features/transactions/server/rule-application-service";
 import { saveMappedBatch } from "../src/features/imports/server/mapped-import-repository";
 import { HttpError, ValidationError } from "../src/lib/errors";
 import { importMappedRows } from "../src/features/imports/server/mapped-import-service";
@@ -97,7 +97,6 @@ async function manualAccount(name: string) {
   await db.insert(schema.accounts).values({
     id,
     name,
-    institution: "Example institution",
     kind: "checking"
   });
 
@@ -110,7 +109,6 @@ async function insertBankAccount(db: Database) {
   await db.insert(schema.accounts).values({
     id: "synthetic-bank-account",
     name: "Synthetic bank account",
-    institution: "Example bank",
     kind: "checking",
     provider: "enablebanking",
     balance_minor: 123_456,
@@ -307,6 +305,7 @@ test("new accounts are created once per import, on confirmation, across batches 
 
   assert.equal(accounts.length, 1);
   assert.equal(accounts[0].name, "Closed account");
+  assert.equal((await listAccounts())[0].institution, null);
   assert.equal((await db.select().from(schema.transactions)).length, 2);
 
   // Accounts created before changeset 0016 were derived with the banking environment, so resuming such an import must find the same account.
@@ -392,6 +391,14 @@ test("rows of an earlier import from another source match by content, with date 
     targets: [{
       source: "",
       account_id: account.id
+    }],
+    // The person creates both possible duplicates as new bookings.
+    decisions: [{
+      line: 4,
+      action: "create"
+    }, {
+      line: 5,
+      action: "create"
     }],
     confirm
   }, now);
@@ -536,7 +543,9 @@ test("a card statement's settlement is a possible duplicate of the linked transf
 
   assert.deepEqual(result.duplicates, []);
   assert.deepEqual(result.possibleDuplicates, [2]);
-  assert.equal(result.newRows, 2);
+  assert.deepEqual(result.undecided, [2]);
+  // The possible duplicate waits for a decision; only the unrelated row counts as new.
+  assert.equal(result.newRows, 1);
 });
 
 test("imports into a bank-linked account skip synced bookings and leave the bank balance unchanged", async context => {

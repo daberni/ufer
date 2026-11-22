@@ -11,7 +11,7 @@ import { saveAccountSync } from "../src/features/banking/server/account-sync-ser
 import { dashboardFilters } from "../src/server/http/dashboard-filters";
 import { readTransactionPage } from "../src/features/transactions/server/transaction-list-query";
 import type { BankTransaction } from "../src/features/banking/server/enable-banking-client";
-import type { Rule } from "../src/lib/rules";
+import type { Rule } from "../src/features/categorization/server/rule-assignment";
 
 const basic: BankTransaction = {
   entry_reference: "synthetic-1",
@@ -214,7 +214,7 @@ async function storedDetails(db: Database) {
 test("a resync refreshes the original amount and raw JSON of rule-sourced and manual rows without changing manual categories", async context => {
   const db = await isolatedDatabase(context);
 
-  await db.$client.execute("INSERT INTO accounts(id,name,institution,kind,currency) VALUES('a','Synthetic checking','Example Bank','checking','EUR')");
+  await db.$client.execute("INSERT INTO accounts(id,name,kind,currency) VALUES('a','Synthetic checking','checking','EUR')");
   const first = normalizeTransactions([delivered, {
     ...basic,
     entry_reference: "synthetic-2"
@@ -268,7 +268,7 @@ test("a resync refreshes the original amount and raw JSON of rule-sourced and ma
 test("the transaction list returns the original amount and currency only for bookings that carry one", async context => {
   const db = await isolatedDatabase(context);
 
-  await db.$client.execute("INSERT INTO accounts(id,name,institution,kind,currency) VALUES('a','Synthetic checking','Example Bank','checking','EUR')");
+  await db.$client.execute("INSERT INTO accounts(id,name,kind,currency) VALUES('a','Synthetic checking','checking','EUR')");
   await saveAccountSync(syncRun("2026-11-12T08:00:00.000Z"), "a", "EUR", balances, normalizeTransactions([foreign, {
     ...basic,
     entry_reference: "synthetic-2"

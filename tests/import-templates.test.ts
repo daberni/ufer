@@ -480,7 +480,6 @@ test("Buxfer transfers import as transfers, and automatic pairing links both sid
     await db.insert(schema.accounts).values({
       id,
       name,
-      institution: "Example institution",
       kind: "checking"
     });
   }

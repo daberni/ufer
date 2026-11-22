@@ -2,7 +2,7 @@ export type Account = {
   id: string;
   name: string;
   provider_name: string | null;
-  institution: string;
+  institution: string | null;
   kind: string;
   currency: string;
   balance_minor: number | null;

@@ -6,12 +6,12 @@ import { drizzle } from "drizzle-orm/libsql";
 import { initializeDatabase } from "../src/server/database/migrations";
 import * as schema from "../src/server/database/schema";
 import type { Database } from "../src/server/database/connection";
-import { categorize, prepareRules } from "../src/lib/rules";
+import { categorize, prepareRules } from "../src/features/categorization/server/rule-assignment";
 import { ValidationError } from "../src/lib/errors";
 import { proposeRulePattern, proposedPatternLength } from "../src/features/categorization/rule-pattern";
 import { listRuleSummaries } from "../src/features/categorization/server/categorization-queries";
-import { insertRule } from "../src/features/categorization/server/rule-repository";
-import { applyRulesToUncorrectedTransactions, createRule, previewRule } from "../src/features/categorization/server/categorization-service";
+import { insertRule } from "../src/features/transactions/server/rule-application-service";
+import { applyRulesToUncorrectedTransactions, createRule, previewRule } from "../src/features/transactions/server/rule-application-service";
 
 function matchesOwnTransaction(pattern: string, counterparty: string, description: string) {
   const rules = prepareRules([{
@@ -92,12 +92,10 @@ async function seedBookings(context: TestContext) {
   await db.insert(schema.accounts).values([{
     id: "checking",
     name: "Synthetic checking",
-    institution: "Example institution",
     kind: "checking"
   }, {
     id: "elsewhere",
     name: "Synthetic archived account",
-    institution: "Example institution",
     kind: "checking",
     archived_at: "2000-01-01T00:00:00.000Z"
   }]);

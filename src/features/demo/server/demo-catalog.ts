@@ -4,7 +4,7 @@ import type { CategoryIconKey } from "@/features/categorization/category-icons";
 /** Every row the demo seed owns has an ID with this prefix; re-running the seed replaces exactly these rows. */
 export const demoIdPrefix = "demo-";
 
-/** Provider reference prefix of seeded transactions, distinct from bank (`bank:`) and CSV references. */
+/** Provider reference prefix of seeded transactions; on simulated bank accounts it follows the bank prefix (`bank:demo:`), as synced bookings carry `bank:`. */
 export const demoReferencePrefix = "demo:";
 
 export type DemoAccountKey = "checking" | "onlineChecking" | "joint" | "cash" | "savings" | "creditCard" | "investment" | "property" | "car" | "loan";
@@ -40,7 +40,6 @@ export const demoConnections: Record<DemoConnectionKey, DemoConnection> = {
 export type DemoAccountDefinition = {
   id: string;
   name: string;
-  institution: string;
   kind: AccountKind;
   /** Bank-connected accounts carry a simulated connection and an invented IBAN with a valid check digit. */
   bank?: {
@@ -53,7 +52,6 @@ export const demoAccounts: Record<DemoAccountKey, DemoAccountDefinition> = {
   checking: {
     id: "demo-checking",
     name: "Everyday account",
-    institution: "Riverside Bank",
     kind: "checking",
     bank: {
       connection: "riverside",
@@ -63,7 +61,6 @@ export const demoAccounts: Record<DemoAccountKey, DemoAccountDefinition> = {
   onlineChecking: {
     id: "demo-online-checking",
     name: "Online current account",
-    institution: "Meadow Direct Bank",
     kind: "checking",
     bank: {
       connection: "meadow",
@@ -73,7 +70,6 @@ export const demoAccounts: Record<DemoAccountKey, DemoAccountDefinition> = {
   joint: {
     id: "demo-joint",
     name: "Joint household account",
-    institution: "Riverside Bank",
     kind: "checking",
     bank: {
       connection: "riverside",
@@ -83,13 +79,11 @@ export const demoAccounts: Record<DemoAccountKey, DemoAccountDefinition> = {
   cash: {
     id: "demo-cash",
     name: "Cash wallet",
-    institution: "Cash",
     kind: "checking"
   },
   savings: {
     id: "demo-savings",
     name: "Emergency fund",
-    institution: "Riverside Bank",
     kind: "savings",
     bank: {
       connection: "riverside",
@@ -99,7 +93,6 @@ export const demoAccounts: Record<DemoAccountKey, DemoAccountDefinition> = {
   creditCard: {
     id: "demo-credit-card",
     name: "Travel credit card",
-    institution: "Harbor Card Services",
     kind: "credit_card",
     bank: {
       connection: "harbor",
@@ -109,25 +102,21 @@ export const demoAccounts: Record<DemoAccountKey, DemoAccountDefinition> = {
   investment: {
     id: "demo-investment",
     name: "ETF portfolio",
-    institution: "Northwind Brokerage",
     kind: "investment"
   },
   property: {
     id: "demo-property",
     name: "Rental flat, Linden Street",
-    institution: "Own valuation",
     kind: "property"
   },
   car: {
     id: "demo-car",
     name: "Family car",
-    institution: "Own valuation",
     kind: "property"
   },
   loan: {
     id: "demo-loan",
     name: "Mortgage, rental flat",
-    institution: "Riverside Bank",
     kind: "loan"
   }
 };
