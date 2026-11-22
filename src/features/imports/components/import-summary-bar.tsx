@@ -60,7 +60,7 @@ export function ImportSummaryBar({
       </dl>
       {prepared && prepared.skipped > 0 && <p className={ui["form-hint"]}>{formatCount(prepared.skipped, locale)} rows of skipped accounts are left out.</p>}
       {summary && summary.createdCategories.length > 0 && <p className={ui["form-hint"]}>New categories: {summary.createdCategories.join(", ")}.</p>}
-      {undecided > 0 && <p className={styles["blocked"]}>Decide what the {formatCount(undecided, locale)} possible {undecided === 1 ? "duplicate does" : "duplicates do"} under Matches before importing.</p>}
+      {undecided > 0 && <p className={styles["blocked"]}>Decide what the {formatCount(undecided, locale)} possible {undecided === 1 ? "duplicate does" : "duplicates do"} under Rows before importing.</p>}
       <FormError failure={mutation.error ? toFailure(mutation.error) : null} />
       <div className={styles["actions"]}>
         {(issues.size > 0 || reviewing) && (

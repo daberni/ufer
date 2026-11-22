@@ -131,12 +131,12 @@ export function useRowIssues(draft: ImportDraft) {
     // Rows imported before need no attention; a match with another booking may be a false positive.
     for (const duplicate of summary?.duplicates ?? []) {
       if (duplicate.reason === "existing_booking") {
-        add(duplicate.line, "Matches a booking already in Ufer; it updates that booking unless you decide otherwise under Matches.");
+        add(duplicate.line, "Matches a booking already in Ufer; it updates that booking unless you decide otherwise under Rows.");
       }
     }
 
     for (const line of summary?.possibleDuplicates ?? []) {
-      add(line, "Possible duplicate of a booking already in Ufer. Decide under Matches whether it updates, skips or creates a booking.");
+      add(line, "Possible duplicate of a booking already in Ufer. Decide under Rows whether it updates, skips or creates a booking.");
     }
 
     return issues;
