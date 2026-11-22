@@ -357,7 +357,8 @@ export function useImportDraft() {
         return [];
       }
 
-      return [decision.action === "update" ? {
+      // Updates and skips name the reviewed booking, so a booking that changed meanwhile is neither updated nor reserved in its place.
+      return [decision.action !== "create" ? {
         ...decision,
         booking: decisionCandidate(match, decision).id
       } : {

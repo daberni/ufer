@@ -613,3 +613,27 @@ test("a row created as new leaves the booking it matched to the next matching ro
   assert.deepEqual([result.newRows, result.updatedRows], [1, 1]);
   assert.deepEqual(stored.map(item => item.description).toSorted(), ["First visit", "Second visit"]);
 });
+
+test("a skipped row whose reviewed booking disappeared reserves no other booking", async context => {
+  const db = await isolatedDatabase(context);
+
+  await importRows(firstImport, [row(2, "2024-04-20", "-15.00", "Example Cinema"), row(3, "2024-04-22", "-15.00", "Example Cinema")], true);
+
+  const rows = [row(2, "2024-04-20", "-15.00", "Example Cinema"), row(3, "2024-04-22", "-15.00", "Example Cinema", {
+    description: "Second"
+  })];
+  const check = await importRows(reimport, rows, false);
+  const reviewed = check.matches.find(match => match.line === 2)?.candidates[0].id;
+
+  await db.delete(schema.transactions).where(eq(schema.transactions.date, "2024-04-20"));
+
+  const result = await importRows(reimport, rows, true, [{
+    line: 2,
+    action: "skip",
+    booking: reviewed
+  }]);
+  const stored = await db.select().from(schema.transactions);
+
+  assert.deepEqual([result.newRows, result.updatedRows], [0, 1]);
+  assert.deepEqual(stored.map(item => [item.date, item.description]), [["2024-04-22", "Second"]]);
+});

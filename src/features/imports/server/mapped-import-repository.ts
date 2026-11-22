@@ -191,7 +191,7 @@ async function classify(executor: Executor, accountId: string, entries: MappedEn
   const nearbyReferences = new Set(nearby.map(booking => booking.reference));
   const existing = [...nearby, ...sameReference.filter(booking => !nearbyReferences.has(booking.reference))];
 
-  const expected = new Map([...decisions].flatMap(([index, decision]) => decision.action === "update" && decision.booking ? [[index, decision.booking] as const] : []));
+  const expected = new Map([...decisions].flatMap(([index, decision]) => decision.action !== "create" && decision.booking ? [[index, decision.booking] as const] : []));
 
   const created = new Set([...decisions].flatMap(([index, decision]) => decision.action === "create" ? [index] : []));
 
