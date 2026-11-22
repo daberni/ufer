@@ -8,7 +8,7 @@ import type { Database } from "../src/server/database/connection";
 import { initializeDatabase } from "../src/server/database/migrations";
 import * as schema from "../src/server/database/schema";
 import { checksSplits, closeMicros, marketDataLease, searchListings, updatePrices } from "../src/features/securities/server/price-update-service";
-import { readSecurities, recordTrade, updateSecurityListing } from "../src/features/securities/server/security-service";
+import { readSecurities, recordTrade, removeTrade, updateSecurityListing } from "../src/features/securities/server/security-service";
 import { eodhdProvider, parseSplitRatio } from "../src/features/securities/server/market-data/eodhd-provider";
 import { MarketDataError, type MarketDataProvider, type ProviderClose } from "../src/features/securities/server/market-data/market-data-provider";
 import { acquireLease } from "../src/server/jobs/lease-repository";
@@ -1004,4 +1004,40 @@ test("splits reported outside the requested interval are ignored", async context
     "SYN.XETRA": ["2026-01-05 3.000000/1.000000", "2026-09-01 2.000000/1.000000"]
   }).provider);
   assert.deepEqual((await db.select().from(schema.securitySplits)).map(split => split.date), ["2026-09-01"]);
+});
+
+test("deleting a security's last trade removes the security, and an earlier trade keeps a no-listing choice", async context => {
+  const db = await isolatedDatabase(context);
+
+  await tradeAccounts(db);
+  const { id } = await buyByIsin("US0378331005");
+  const [security] = await securitiesWithIsin(db, "US0378331005");
+
+  await updateSecurityListing(security.id, {
+    provider_symbol: null
+  }, null);
+
+  const checkedAt = (await securityRow(db, security.id))?.price_checked_at;
+
+  // A trade before the earliest one asks for a split recheck, which a security without a listing does not need.
+  await recordTrade("depot", {
+    security_id: security.id,
+    date: "2026-10-01",
+    side: "buy",
+    quantity: "1",
+    price: "10",
+    settlement: {
+      account_id: "cash"
+    }
+  }, now);
+  assert.equal((await securityRow(db, security.id))?.price_checked_at, checkedAt);
+
+  const trades = await db.select().from(schema.securityTrades).where(eq(schema.securityTrades.security_id, security.id));
+
+  for (const trade of trades) {
+    await removeTrade(trade.id);
+  }
+
+  assert.ok(trades.some(trade => trade.id === id));
+  assert.deepEqual(await securitiesWithIsin(db, "US0378331005"), []);
 });

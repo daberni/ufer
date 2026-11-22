@@ -54,7 +54,7 @@ adr:
 ## Consequences
 
 - Net worth and its history include holdings at historical prices; manual `investment` accounts keep working.
-- A past-dated buy has no value before the first stored price until history backfill (out of scope) — visible as "missing price".
+- A past-dated buy counts at its cost basis before the first stored price, flagged as missing a market price, until history backfill (out of scope).
 - Realized gains are visible per holding but not in income reports yet.
 - Changeset 0022 rebuilds `accounts` and `transactions` to widen their kind and type constraints and adds four tables; every existing row keeps its values. Applying it to a hosted database is a separate, explicitly approved step.
 

@@ -1,4 +1,4 @@
-import { and, asc, eq, isNull, max, ne, sql } from "drizzle-orm";
+import { and, asc, eq, isNull, max, ne, sql, isNotNull } from "drizzle-orm";
 import { database, type Database, type DatabaseTransaction } from "@/server/database/connection";
 import { withRefusableTransaction } from "@/server/database/transaction";
 import { accounts, securities, securityPrices, securitySplits, securityTrades, transactions } from "@/server/database/schema";
@@ -227,6 +227,17 @@ export async function findTrade(executor: Executor, id: string) {
 export async function deleteTrade(tx: DatabaseTransaction, trade: NonNullable<Awaited<ReturnType<typeof findTrade>>>) {
   await tx.delete(securityTrades).where(eq(securityTrades.id, trade.id));
 
+  // A security without any trade left serves no holding; it goes with its prices and splits, so price updates stop spending requests on it.
+  const remaining = await tx.select({
+    id: securityTrades.id
+  }).from(securityTrades).where(eq(securityTrades.security_id, trade.security_id)).get();
+
+  if (!remaining) {
+    await tx.delete(securityPrices).where(eq(securityPrices.security_id, trade.security_id));
+    await tx.delete(securitySplits).where(eq(securitySplits.security_id, trade.security_id));
+    await tx.delete(securities).where(eq(securities.id, trade.security_id));
+  }
+
   if (!trade.settlement_transaction_id) {
     return;
   }
@@ -384,9 +395,9 @@ export async function isEarliestTrade(tx: DatabaseTransaction, securityId: strin
   return !earlier;
 }
 
-/** Clears the last price check so the next update checks the security's splits again. */
+/** Clears the last price check so the next update checks the security's splits again; a security without a listing has no splits to check and keeps its check time, so a "No price listing" choice stays. */
 export async function markSplitsUnchecked(tx: DatabaseTransaction, securityId: string) {
   await tx.update(securities).set({
     price_checked_at: null
-  }).where(eq(securities.id, securityId));
+  }).where(and(eq(securities.id, securityId), isNotNull(securities.provider_symbol)));
 }
