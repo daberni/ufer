@@ -1,4 +1,4 @@
-import { asc, eq, isNotNull, sql } from "drizzle-orm";
+import { and, asc, eq, isNotNull, sql } from "drizzle-orm";
 import { database } from "@/server/database/connection";
 import { securities, securityPrices, securitySplits, securityTrades } from "@/server/database/schema";
 import type { PositionTrade } from "../holdings";
@@ -55,14 +55,15 @@ export type SplitRow = {
 };
 
 /**
- * Stores reported splits unless `consistent` rejects the resulting split history for the security's trades, grouped by account; the check reads trades and splits in the same transaction. Returns whether the splits were stored.
+ * Replaces the stored splits inside the fetched interval with the reported ones, so a split the provider retracted or redated within it is removed, unless `consistent` rejects the resulting split history for the security's trades, grouped by account.
+ * The check reads trades and splits in the same transaction. Returns whether the splits were stored.
  */
-export async function saveSplitsIfConsistent(securityId: string, splits: SplitRow[], consistent: (trades: PositionTrade[][], splits: SplitRow[]) => boolean) {
-  if (!splits.length) {
-    return true;
-  }
-
+export async function saveSplitsIfConsistent(securityId: string, interval: {
+  from: string;
+  to: string
+}, splits: SplitRow[], consistent: (trades: PositionTrade[][], splits: SplitRow[]) => boolean) {
   const db = await database();
+  const inInterval = (date: string) => date >= interval.from && date <= interval.to;
 
   return db.transaction(async tx => {
     const stored = await tx.select({
@@ -70,7 +71,7 @@ export async function saveSplitsIfConsistent(securityId: string, splits: SplitRo
       numerator: securitySplits.numerator,
       denominator: securitySplits.denominator
     }).from(securitySplits).where(eq(securitySplits.security_id, securityId));
-    const merged = [...stored.filter(split => !splits.some(reported => reported.date === split.date)), ...splits];
+    const merged = [...stored.filter(split => !inInterval(split.date)), ...splits];
     const trades = await tx.select({
       account_id: securityTrades.account_id,
       date: securityTrades.date,
@@ -84,6 +85,12 @@ export async function saveSplitsIfConsistent(securityId: string, splits: SplitRo
 
     if (!consistent(byAccount, merged)) {
       return false;
+    }
+
+    await tx.delete(securitySplits).where(and(eq(securitySplits.security_id, securityId), sql`${securitySplits.date} BETWEEN ${interval.from} AND ${interval.to}`));
+
+    if (!splits.length) {
+      return true;
     }
 
     await tx.insert(securitySplits).values(splits.map(split => ({
