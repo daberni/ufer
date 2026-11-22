@@ -783,3 +783,37 @@ test("a trade before a security's earliest trade makes the next update check its
   await buy("2026-10-05");
   assert.equal((await securityRow(db, "etf"))?.price_checked_at, "2026-10-13T06:00:00.000Z");
 });
+
+test("a security tracked since its first trade stays complete once that trade is over a year old", async context => {
+  const db = await isolatedDatabase(context);
+
+  await db.insert(schema.accounts).values({
+    id: "depot",
+    name: "Synthetic depot",
+    kind: "brokerage"
+  });
+  // First traded on a Saturday; its first stored close is the following Monday, from its first update a year and a half ago.
+  await db.insert(schema.securityTrades).values({
+    id: "trade",
+    account_id: "depot",
+    security_id: "etf",
+    date: "2025-03-01",
+    side: "buy",
+    sequence: 1,
+    quantity_micros: 1_000_000,
+    price_micros: 50_000_000,
+    gross_minor: 50_00
+  });
+  await db.insert(schema.securityPrices).values({
+    security_id: "etf",
+    date: "2025-03-03",
+    close_micros: 50_000_000,
+    source: "eodhd",
+    fetched_at: "2025-03-03T20:00:00.000Z"
+  });
+
+  const result = await updatePrices(etfSplitDay, fakeProvider({}).provider);
+
+  assert.equal(result.incomplete, 0);
+  assert.equal((await securityRow(db, "etf"))?.price_error, null);
+});

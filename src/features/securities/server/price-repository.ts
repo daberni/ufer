@@ -15,6 +15,7 @@ export async function listPricedSecurities() {
     price_error: securities.price_error,
     // Drizzle leaves columns in a single-table select unqualified, so these correlated subqueries name their tables explicitly.
     newest_price: sql<string | null>`(SELECT MAX(p.date) FROM security_prices p WHERE p.security_id=securities.id)`,
+    oldest_price: sql<string | null>`(SELECT MIN(p.date) FROM security_prices p WHERE p.security_id=securities.id)`,
     first_trade: sql<string | null>`(SELECT MIN(t.date) FROM security_trades t WHERE t.security_id=securities.id)`
   // The longest-unchecked securities go first, so one skipped over the provider's daily quota leads the next run.
   }).from(securities).where(isNotNull(securities.provider_symbol)).orderBy(sql`${securities.price_checked_at} IS NOT NULL`, asc(securities.price_checked_at), asc(securities.id));
