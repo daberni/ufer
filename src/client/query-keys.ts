@@ -39,6 +39,7 @@ export const queryKeys = {
     lists: () => ["transactions", "list"] as const,
     list: (filters: TransactionListFilters) => ["transactions", "list", filters] as const,
     transfer: (id: string) => ["transactions", "transfer", id] as const,
+    duplicates: (id: string) => ["transactions", "duplicates", id] as const,
     // Below the transactions prefix, so saved payees appear in later suggestions.
     payees: (query: string) => ["transactions", "payees", query] as const
   },

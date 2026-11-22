@@ -276,7 +276,9 @@ export async function setTransactionHidden(id: string, hidden: boolean, at: stri
     }
 
     await tx.update(transactions).set({
-      suppressed_at: hidden ? at : null
+      suppressed_at: hidden ? at : null,
+      // Hiding is a person's own decision and showing again undoes a duplicate resolution, so neither keeps a recorded duplicate.
+      duplicate_of_id: null
     }).where(eq(transactions.id, id));
 
     return "saved";

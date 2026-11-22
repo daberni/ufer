@@ -129,11 +129,12 @@ export async function readTransactionPage<Run extends ListedSyncRun>(filters: Da
   const condition = sql.join(where, sql.raw(" AND "));
   // Banks report dates without a time, so bookings within a day are ordered by payee and description; empty payees come last.
   const transactionsQuery = db.all<Record<string, unknown>>(sql`
-    SELECT t.id,t.date,t.amount_minor,t.currency,t.instructed_amount_minor,t.instructed_currency,COALESCE(t.counterparty_override,t.counterparty) AS counterparty,COALESCE(t.description_override,t.description) AS description,t.counterparty AS source_counterparty,t.description AS source_description,t.counterparty_override,t.description_override,t.suppressed_at IS NOT NULL AS hidden,a.name AS account_name,t.account_id,t.category_id,t.category_source,t.category_rule_id,t.type,t.type_source,t.type_rule_id,a.provider='manual' AS manual_account,a.archived_at IS NOT NULL AS account_archived,COALESCE(pa.archived_at IS NOT NULL,0) AS counterpart_archived,t.provider_reference LIKE ${`${createdCounterpartPrefix}%`} AS created_counterpart,${enteredColumn("t", "a")} AS entered,${enteredColumn("p", "pa")} AS counterpart_entered,p.id AS counterpart_id,pa.name AS counterpart_account_name,p.date AS counterpart_booking_date
+    SELECT t.id,t.date,t.amount_minor,t.currency,t.instructed_amount_minor,t.instructed_currency,COALESCE(t.counterparty_override,t.counterparty) AS counterparty,COALESCE(t.description_override,t.description) AS description,t.counterparty AS source_counterparty,t.description AS source_description,t.counterparty_override,t.description_override,t.suppressed_at IS NOT NULL AS hidden,a.name AS account_name,t.account_id,t.category_id,t.category_source,t.category_rule_id,t.type,t.type_source,t.type_rule_id,a.provider='manual' AS manual_account,a.archived_at IS NOT NULL AS account_archived,COALESCE(pa.archived_at IS NOT NULL,0) AS counterpart_archived,t.provider_reference LIKE ${`${createdCounterpartPrefix}%`} AS created_counterpart,${enteredColumn("t", "a")} AS entered,${enteredColumn("p", "pa")} AS counterpart_entered,p.id AS counterpart_id,pa.name AS counterpart_account_name,p.date AS counterpart_booking_date,d.id AS duplicate_of_id,d.date AS duplicate_of_date,COALESCE(d.counterparty_override,d.counterparty) AS duplicate_of_counterparty,COALESCE(d.description_override,d.description) AS duplicate_of_description
     FROM transactions t
     JOIN accounts a ON a.id=t.account_id
     LEFT JOIN transactions p ON p.transfer_id=t.transfer_id AND p.id<>t.id
     LEFT JOIN accounts pa ON pa.id=p.account_id
+    LEFT JOIN transactions d ON d.id=t.duplicate_of_id AND t.suppressed_at IS NOT NULL
     WHERE ${condition}
     ORDER BY t.date DESC,COALESCE(t.counterparty_override,t.counterparty)='',COALESCE(t.counterparty_override,t.counterparty) COLLATE NOCASE,COALESCE(t.description_override,t.description) COLLATE NOCASE,t.id
     LIMIT ${transactionPageSize}
@@ -167,6 +168,12 @@ export async function readTransactionPage<Run extends ListedSyncRun>(filters: Da
       source_counterparty: String(row.source_counterparty),
       source_description: String(row.source_description),
       hidden: Boolean(row.hidden),
+      duplicate_of: row.duplicate_of_id === null ? null : {
+        id: String(row.duplicate_of_id),
+        date: String(row.duplicate_of_date),
+        counterparty: String(row.duplicate_of_counterparty),
+        description: String(row.duplicate_of_description)
+      },
       account_name: String(row.account_name),
       account_id: String(row.account_id),
       category_id: row.category_id === null ? null : String(row.category_id),

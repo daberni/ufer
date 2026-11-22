@@ -5,7 +5,7 @@ import { apiGet, apiQuery } from "@/client/api";
 import { queryKeys, type TransactionListFilters } from "@/client/query-keys";
 import { serializePeriod } from "@/lib/period";
 import type { ViewQuery } from "@/client/app-location";
-import type { PayeeSuggestions, TransactionPage, TransferOptions } from "@/features/transactions/types";
+import type { DuplicateCandidates, PayeeSuggestions, TransactionPage, TransferOptions } from "@/features/transactions/types";
 
 export function transactionListFilters(query: ViewQuery): TransactionListFilters {
   return {
@@ -36,6 +36,14 @@ export function useTransferOptions(id: string, enabled: boolean) {
     queryKey: queryKeys.transactions.transfer(id),
     queryFn: ({ signal }) => apiGet<TransferOptions>(`transactions/${encodeURIComponent(id)}/transfer`, undefined, signal),
     enabled
+  });
+}
+
+/** The bookings a person can name this one a duplicate of. */
+export function useDuplicateCandidates(id: string) {
+  return useQuery({
+    queryKey: queryKeys.transactions.duplicates(id),
+    queryFn: ({ signal }) => apiGet<DuplicateCandidates>(`transactions/${encodeURIComponent(id)}/duplicate`, undefined, signal)
   });
 }
 

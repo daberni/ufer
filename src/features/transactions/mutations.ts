@@ -73,6 +73,18 @@ export function useHideTransaction(id: string) {
   });
 }
 
+/** Names this booking a duplicate of another: the better-described copy stays and the other is hidden. */
+export function useMarkDuplicate(id: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (duplicateOf: string) => api(`transactions/${encodeURIComponent(id)}/duplicate`, {
+      duplicate_of: duplicateOf
+    }, "PUT"),
+    onSettled: () => invalidate(queryClient, editKeys)
+  });
+}
+
 export function useEnterTransaction() {
   const queryClient = useQueryClient();
 

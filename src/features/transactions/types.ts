@@ -33,6 +33,13 @@ export type Transaction = {
   source_description: string;
   /** Whether the imported booking is hidden: it stays listed but counts toward no balance or report, and later syncs and imports keep it hidden. */
   hidden: boolean;
+  /** For a booking hidden as a duplicate, the booking a person kept instead; null when it is shown, hidden for another reason or the kept booking no longer exists. */
+  duplicate_of: {
+    id: string;
+    date: string;
+    counterparty: string;
+    description: string;
+  } | null;
   account_name: string;
   category_id: string | null;
   category_source: string;
@@ -119,3 +126,17 @@ export type PayeeSuggestions = {
 export function bookkeepingFrozen(transaction: Pick<Transaction, "account_archived" | "counterpart_archived">) {
   return transaction.account_archived || transaction.counterpart_archived;
 }
+
+/** A booking a person can name another one a duplicate of. */
+export type DuplicateCandidate = {
+  id: string;
+  date: string;
+  counterparty: string;
+  description: string;
+  /** Whether this booking stays when the other is named its duplicate, because it is better described; otherwise the other booking stays and this one is hidden. */
+  keeps_candidate: boolean;
+};
+
+export type DuplicateCandidates = {
+  candidates: DuplicateCandidate[];
+};

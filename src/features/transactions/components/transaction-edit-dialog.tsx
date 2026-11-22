@@ -6,7 +6,7 @@ import { useId, useRef, useState } from "react";
 import type { ReactNode, RefObject } from "react";
 import { clsx } from "clsx";
 import { Temporal } from "temporal-polyfill";
-import { Check, Eye, EyeOff, Split, Trash2 } from "lucide-react";
+import { Check, CopyCheck, Eye, EyeOff, Split, Trash2 } from "lucide-react";
 import styles from "./transaction-type.module.css";
 import { toFailure, type Failure } from "@/client/api";
 import { Dialog } from "@/components/ui/dialog";
@@ -25,6 +25,7 @@ import { EntryFields, suggestedType } from "./entry-fields";
 import { draftEdits, draftState, initialDraft } from "@/features/transactions/split-draft";
 import { SplitEditor } from "./transaction-split";
 import { PayeeInput } from "./payee-input";
+import { DuplicateConfirmation } from "./duplicate-confirmation";
 import { useLocale } from "@/client/locale-provider";
 
 type Props = {
@@ -111,12 +112,13 @@ function transferEdit(target: Target): TransactionEdit["transfer"] {
   } : null;
 }
 
-type Step = "edit" | "delete" | "hide";
+type Step = "edit" | "delete" | "hide" | "duplicate";
 
 const stepTitles: Record<Step, string> = {
   edit: "Edit transaction",
   delete: "Delete transaction",
-  hide: "Hide transaction"
+  hide: "Hide transaction",
+  duplicate: "Resolve duplicate"
 };
 
 /**
@@ -138,12 +140,14 @@ export function TransactionEditDialog({
       {step !== "edit" && <TransactionFacts transaction={transaction} />}
       {step === "delete" && <DeleteConfirmation transaction={transaction} close={close} cancel={() => setStep("edit")} />}
       {step === "hide" && <HideConfirmation transaction={transaction} close={close} cancel={() => setStep("edit")} />}
+      {step === "duplicate" && <DuplicateConfirmation transaction={transaction} close={close} cancel={() => setStep("edit")} />}
       {step === "edit" && (
         <TransactionEditForm
           transaction={transaction}
           close={close}
           onDelete={() => setStep("delete")}
           onHide={() => setStep("hide")}
+          onDuplicate={() => setStep("duplicate")}
         />
       )}
     </Dialog>
@@ -235,10 +239,13 @@ function ShowAgain({
   close: () => void;
 }) {
   const show = useHideTransaction(transaction.id);
+  const locale = useLocale();
+  const original = transaction.duplicate_of;
+  const note = original ? `Hidden as a duplicate of ${[original.counterparty || original.description, describeDate(Temporal.PlainDate.from(original.date), locale).label].filter(Boolean).join(" · ")}; that booking counts instead.` : "Hidden from balances and reports.";
 
   return (
     <div className={styles["hidden-note"]}>
-      <p className={ui["form-hint"]}>Hidden from balances and reports.</p>
+      <p className={ui["form-hint"]}>{note}</p>
       <FormError failure={show.error ? toFailure(show.error) : null} />
       <button
         type="button"
@@ -335,10 +342,12 @@ function TransactionEditForm({
   transaction,
   close,
   onDelete,
-  onHide
+  onHide,
+  onDuplicate
 }: Props & {
   onDelete: () => void;
   onHide: () => void;
+  onDuplicate: () => void;
 }) {
   const save = useSaveTransaction(transaction.id);
   const categories = useCategories();
@@ -601,6 +610,17 @@ function TransactionEditForm({
             >
               <EyeOff size={15} />
               Hide transaction
+            </button>
+          )}
+          {hideable && !transaction.hidden && (
+            <button
+              type="button"
+              className={ui["button"]}
+              disabled={pending}
+              onClick={onDuplicate}
+            >
+              <CopyCheck size={15} />
+              Duplicate of…
             </button>
           )}
         </div>

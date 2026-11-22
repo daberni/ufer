@@ -23,6 +23,7 @@ const booking: Transaction = {
   source_counterparty: fullPayee,
   source_description: fullDescription,
   hidden: false,
+  duplicate_of: null,
   account_name: "Synthetic checking",
   category_id: null,
   category_source: "rule",

@@ -20,6 +20,7 @@ const outgoing: Transaction = {
   source_counterparty: "Synthetic savings",
   source_description: "Standing order",
   hidden: false,
+  duplicate_of: null,
   account_name: "Synthetic checking",
   account_id: "synthetic-checking",
   category_id: null,

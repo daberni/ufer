@@ -57,6 +57,7 @@ const transaction: Transaction = {
   source_counterparty: "Example Market",
   source_description: "Synthetic purchase",
   hidden: false,
+  duplicate_of: null,
   account_name: "Synthetic account",
   account_id: "synthetic-account",
   category_id: "groceries",
