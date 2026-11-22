@@ -81,17 +81,9 @@
     line-height: 1.7;
   }
 }
-/* The "…" menu sits before the primary action, which stretches on phones while the menu keeps its size. */
+/* The "…" menu sits before the primary action; on phones both stay compact at the heading's top-right edge. */
 .account-actions {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-}
-@media (--mobile) {
-  .account-actions > * {
-    flex: 1;
-  }
-  .account-actions > [aria-haspopup="menu"] {
-    flex: none;
-  }
 }

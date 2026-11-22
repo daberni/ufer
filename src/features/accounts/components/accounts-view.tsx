@@ -11,6 +11,7 @@ import { Link2, Plus, TriangleAlert } from "lucide-react";
 import { accountIcon, kinds } from "@/features/accounts/account-presentation";
 import { money } from "@/lib/money";
 import { Empty } from "@/components/ui/empty-state";
+import { ActionMenu, MenuItem } from "@/components/ui/action-menu";
 import type { Account } from "@/features/accounts/types";
 import { activeAccounts } from "@/features/accounts/queries";
 import { useState } from "react";
@@ -44,23 +45,29 @@ export function AccountsView({
   const addAccount = () => setDialog({
     kind: "account"
   });
+  const connectBank = () => setDialog({
+    kind: "bank"
+  });
 
   return (
     <>
       <SectionHeading title="Accounts & assets" count={mapArea(accounts, data => activeAccounts(data).length)}>
-        <button className={ui["button"]} onClick={addAccount}>
+        <button className={clsx(ui["button"], ui["phone-hidden"])} onClick={addAccount}>
           <Plus size={15} />
           Add account
         </button>
-        <button
-          className={clsx(ui["button"], ui["primary"])}
-          onClick={() => setDialog({
-            kind: "bank"
-          })}
-        >
+        <button className={clsx(ui["button"], ui["primary"], ui["phone-hidden"])} onClick={connectBank}>
           <Link2 size={15} />
           Connect bank
         </button>
+        <ActionMenu label="Account actions" appearance="button" phoneOnly>
+          <MenuItem icon={<Plus size={15} aria-hidden="true" />} onSelect={addAccount}>
+            Add account
+          </MenuItem>
+          <MenuItem icon={<Link2 size={15} aria-hidden="true" />} onSelect={connectBank}>
+            Connect bank
+          </MenuItem>
+        </ActionMenu>
       </SectionHeading>
       {accounts.status === "pending" ? (
         <AreaPlaceholder area={accounts} subject="Your accounts">

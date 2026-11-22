@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Temporal } from "temporal-polyfill";
-import { Archive, ArchiveRestore, ArrowRight, PenLine, Pencil, RefreshCw, Trash2 } from "lucide-react";
+import { Archive, ArchiveRestore, ArrowRight, PenLine, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { toFailure } from "@/client/api";
 import { ActionFeedback } from "@/components/ui/action-feedback";
 import { ActionMenu, MenuItem, MenuLink } from "@/components/ui/action-menu";
@@ -22,8 +22,13 @@ type Dialog = "edit" | "reconnect" | "close" | "convert" | "delete" | null;
  * The account's actions beside its page heading. Reconnecting appears only while no problem notice offers it, and the bank connections link only for an
  * account without a known connection. Converting and deleting need an account without a connection; archiving needs a balance of 0 or a closing.
  */
-export function AccountMenu({ account }: {
-  account: Account
+export function AccountMenu({
+  account,
+  addTransaction
+}: {
+  account: Account;
+  /** Offered as the first entry on phones, where the heading shows no separate "Add transaction" button. */
+  addTransaction?: () => void;
 }) {
   const [dialog, setDialog] = useState<Dialog>(null);
   const archive = useArchiveAccount(account.id);
@@ -43,6 +48,11 @@ export function AccountMenu({ account }: {
   return (
     <>
       <ActionMenu label={`Actions for ${account.name}`} appearance="button">
+        {addTransaction && (
+          <MenuItem icon={<Plus size={15} aria-hidden="true" />} phoneOnly onSelect={addTransaction}>
+            Add transaction
+          </MenuItem>
+        )}
         <MenuItem icon={<Pencil size={15} aria-hidden="true" />} onSelect={() => setDialog("edit")}>
           Edit account
         </MenuItem>

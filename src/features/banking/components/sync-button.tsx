@@ -189,8 +189,13 @@ function accessibleName(phase: SyncPhase, visibleLabel: string, problem: SyncPro
     return `Synced: ${visibleLabel}`;
   }
 
+  // Phones show only the icon, so the idle name says what the button covers; it starts with the visible "Sync" for speech input.
   if (phase === "idle" && problem) {
-    return `Sync — ${problem.buttonLabel}`;
+    return `Sync all accounts — ${problem.buttonLabel}`;
+  }
+
+  if (phase === "idle") {
+    return "Sync all accounts";
   }
 
   return visibleLabel;

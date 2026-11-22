@@ -26,6 +26,7 @@ import type { Category } from "@/features/categorization/types";
 import { transactionTypes, transactionTypeLabels } from "@/lib/transaction-types";
 import type { TransactionPage } from "@/features/transactions/types";
 import { SectionHeading } from "@/components/ui/section-heading";
+import { ActionMenu, MenuItem } from "@/components/ui/action-menu";
 import { useLocale } from "@/client/locale-provider";
 import { formatCount } from "@/lib/locale";
 
@@ -100,15 +101,25 @@ export function TransactionsPanel(props: Props) {
           title="Transactions"
         >
           {manualAccounts.length > 0 && (
-            <button className={ui["button"]} onClick={() => setEntryOpen(true)}>
+            <button className={clsx(ui["button"], ui["phone-hidden"])} onClick={() => setEntryOpen(true)}>
               <Plus size={15} />
               Add transaction
             </button>
           )}
-          <button className={ui["button"]} onClick={() => setImportOpen(true)}>
+          <button className={clsx(ui["button"], ui["phone-hidden"])} onClick={() => setImportOpen(true)}>
             <ArrowDownToLine size={15} />
             Import CSV
           </button>
+          <ActionMenu label="Transaction actions" appearance="button" phoneOnly>
+            {manualAccounts.length > 0 && (
+              <MenuItem icon={<Plus size={15} aria-hidden="true" />} onSelect={() => setEntryOpen(true)}>
+                Add transaction
+              </MenuItem>
+            )}
+            <MenuItem icon={<ArrowDownToLine size={15} aria-hidden="true" />} onSelect={() => setImportOpen(true)}>
+              Import CSV
+            </MenuItem>
+          </ActionMenu>
         </SectionHeading>
       )}
       {props.view === "transactions" && props.scope}

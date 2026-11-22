@@ -155,7 +155,7 @@ test("an action in flight leaves the controls of every other action unchanged", 
   assert.equal(requests("transactions/synthetic-entry").length, 1);
   assert.match((controls().category as HTMLInputElement).value, /^Leisure/);
   assert.equal(controls().category.getAttribute("aria-busy"), "true");
-  assert.equal(controls().sync.getAttribute("aria-label"), "Sync");
+  assert.equal(controls().sync.getAttribute("aria-label"), "Sync all accounts");
   assert.equal(controls().sync.getAttribute("aria-busy"), "false");
   assert.equal(controls().sync.hasAttribute("aria-disabled"), false);
   assert.equal(controls().sync.hasAttribute("disabled"), false);

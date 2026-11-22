@@ -7,6 +7,7 @@ import styles from "./rules-view.module.css";
 import { GripVertical, Landmark, Pencil, Plus, Sparkles } from "lucide-react";
 import { ActionFeedback } from "@/components/ui/action-feedback";
 import { Empty } from "@/components/ui/empty-state";
+import { ActionMenu, MenuItem } from "@/components/ui/action-menu";
 import { FormError } from "@/components/ui/form-error";
 import { useActionFeedback } from "@/components/ui/use-action-feedback";
 import type { Category, Rule } from "@/features/categorization/types";
@@ -88,6 +89,11 @@ export function RulesView({
   }
 
   const togglingRules = useTogglingRules();
+  const applyLabel = savingOrder ? "Saving order …" : "Apply rules";
+  const createRule = () => setDialog({
+    kind: "rule",
+    rule: null
+  });
 
   return (
     <>
@@ -120,24 +126,26 @@ export function RulesView({
       </section>
       <SectionHeading title="Rules" count={mapArea(rules, data => data.length)}>
         <button
-          className={ui["button"]}
+          className={clsx(ui["button"], ui["phone-hidden"])}
           disabled={apply.isPending || savingOrder}
           aria-busy={apply.isPending || savingOrder}
           onClick={applyRules}
         >
           <Sparkles size={15} />
-          {savingOrder ? "Saving order …" : "Apply rules"}
+          {applyLabel}
         </button>
-        <button
-          className={ui["button"]}
-          onClick={() => setDialog({
-            kind: "rule",
-            rule: null
-          })}
-        >
+        <button className={clsx(ui["button"], ui["phone-hidden"])} onClick={createRule}>
           <Plus size={15} />
           Create rule
         </button>
+        <ActionMenu label="Rule actions" appearance="button" phoneOnly>
+          <MenuItem icon={<Sparkles size={15} aria-hidden="true" />} disabled={apply.isPending || savingOrder} onSelect={applyRules}>
+            {applyLabel}
+          </MenuItem>
+          <MenuItem icon={<Plus size={15} aria-hidden="true" />} onSelect={createRule}>
+            Create rule
+          </MenuItem>
+        </ActionMenu>
         <ActionFeedback
           feedback={applyFeedback.feedback}
           dismissLabel="Dismiss rules status"

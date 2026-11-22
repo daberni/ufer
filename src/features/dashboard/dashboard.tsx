@@ -18,7 +18,6 @@ import { PageHeading } from "@/components/layout/page-heading";
 import { LoginForm } from "@/features/auth/components/login-form";
 import { LegalLinks } from "@/features/legal/components/legal-links";
 import { SourceCodeNotice } from "@/features/legal/components/source-code-notice";
-import { AccountMenu } from "@/features/accounts/components/account-menu";
 import { AccountDetailActions } from "@/features/accounts/components/account-detail-actions";
 import { accountGroups, activeAccounts, useAccounts } from "@/features/accounts/queries";
 import { showsSync } from "./sync-visibility";
@@ -119,14 +118,11 @@ function DashboardShell({ children }: {
           <PageHeading heading={selectedAccount ? selectedAccount.name : heading} description={description}>
             {selectedAccount ? (
               <div className={styles["account-actions"]}>
-                <AccountMenu key={selectedAccount.id} account={selectedAccount} />
-                {selectedAccount.provider === "manual" && !selectedAccount.archived_at && (
-                  <AccountDetailActions
-                    key={selectedAccount.id}
-                    account={selectedAccount}
-                    manualAccounts={activeAccounts(accounts.data ?? []).filter(account => account.provider === "manual")}
-                  />
-                )}
+                <AccountDetailActions
+                  key={selectedAccount.id}
+                  account={selectedAccount}
+                  manualAccounts={activeAccounts(accounts.data ?? []).filter(account => account.provider === "manual")}
+                />
                 {showSync && <SyncButton bankAccounts={bankAccounts} showConnections={() => router.push(bankConnectionsHref)} />}
               </div>
             ) : showSync && <SyncButton bankAccounts={bankAccounts} showConnections={() => router.push(bankConnectionsHref)} />}

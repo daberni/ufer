@@ -21,6 +21,8 @@ const MenuContext = createContext<MenuContext>({
 
 type ItemProps = {
   icon?: ReactNode;
+  /** Shows the entry only on phones, where it replaces a button the wider layout shows beside the menu. */
+  phoneOnly?: boolean;
   /** Marks an action that removes data. */
   danger?: boolean;
   disabled?: boolean;
@@ -31,12 +33,15 @@ type ItemProps = {
 export function ActionMenu({
   label,
   appearance = "icon",
+  phoneOnly = false,
   children
 }: {
   /** The button's accessible name, such as "Actions for Synthetic checking". */
   label: string;
   /** "button" matches the height and border of neighbouring buttons, as beside a page heading's primary action. */
   appearance?: "icon" | "button";
+  /** Shows the menu only on phones, where it collects actions the wider layout shows as buttons. */
+  phoneOnly?: boolean;
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -120,7 +125,7 @@ export function ActionMenu({
       <button
         ref={triggerRef}
         type="button"
-        className={clsx(appearance === "button" ? ui["button"] : ui["icon-button"], styles["trigger"], styles[appearance])}
+        className={clsx(appearance === "button" ? ui["button"] : ui["icon-button"], styles["trigger"], styles[appearance], phoneOnly && styles["phone-only"])}
         aria-label={label}
         aria-haspopup="menu"
         aria-expanded={open}
@@ -153,13 +158,17 @@ export function ActionMenu({
   );
 }
 
+// Phone-only entries are hidden on wider screens and cannot take focus there.
 function menuItems(menu: HTMLElement | null) {
-  return Array.from(menu?.querySelectorAll<HTMLElement>("[role='menuitem']:not(:disabled)") ?? []);
+  const items = Array.from(menu?.querySelectorAll<HTMLElement>("[role='menuitem']:not(:disabled)") ?? []);
+
+  return items.filter(item => getComputedStyle(item).display !== "none");
 }
 
 /** A menu entry that runs an action after the menu has closed. */
 export function MenuItem({
   icon,
+  phoneOnly = false,
   danger = false,
   disabled = false,
   onSelect,
@@ -174,7 +183,7 @@ export function MenuItem({
       type="button"
       role="menuitem"
       tabIndex={-1}
-      className={clsx(styles["item"], danger && styles["danger"])}
+      className={clsx(styles["item"], danger && styles["danger"], phoneOnly && styles["phone-only"])}
       disabled={disabled}
       onClick={() => {
         close();
@@ -192,7 +201,7 @@ export function MenuLink({
   icon,
   href,
   children
-}: Omit<ItemProps, "danger" | "disabled"> & {
+}: Omit<ItemProps, "danger" | "disabled" | "phoneOnly"> & {
   href: string;
 }) {
   const { close } = useContext(MenuContext);

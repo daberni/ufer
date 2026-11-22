@@ -1,9 +1,9 @@
 import type { View } from "@/client/app-location";
 import type { Account } from "@/features/accounts/types";
 
-/** Whether the page heading offers the sync control: not while importing, and on account details only for an active, connected bank account, since archived and detached accounts are not synced. */
+/** Whether the page heading offers the sync control: not while importing or on categories and rules, which a sync does not change, and on account details only for an active, connected bank account, since archived and detached accounts are not synced. */
 export function showsSync(view: View, selectedAccount: Pick<Account, "provider" | "archived_at" | "requisition_id"> | undefined) {
-  if (view === "import") {
+  if (view === "import" || view === "rules") {
     return false;
   }
 

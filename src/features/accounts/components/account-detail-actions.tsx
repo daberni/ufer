@@ -8,8 +8,12 @@ import { clsx } from "clsx";
 import { Plus } from "lucide-react";
 import { ManualTransactionDialog } from "@/features/transactions/components/manual-transaction-dialog";
 import type { Account } from "@/features/accounts/types";
+import { AccountMenu } from "./account-menu";
 
-/** The selected manual account's actions in the page heading; its balance is updated beside the balance. Changing accounts remounts the toolbar and closes its dialogs. */
+/**
+ * The selected account's actions in the page heading: its "…" menu and, for an active manual account, "Add transaction", which phones offer inside the menu.
+ * Its balance is updated beside the balance. Changing accounts remounts the actions and closes their dialogs.
+ */
 export function AccountDetailActions({
   account,
   manualAccounts
@@ -19,18 +23,19 @@ export function AccountDetailActions({
 }) {
   const [dialog, setDialog] = useState(false);
   const close = () => setDialog(false);
-
-  if (account.provider !== "manual" || account.archived_at !== null) {
-    return null;
-  }
+  const addTransaction = () => setDialog(true);
+  const acceptsEntries = account.provider === "manual" && account.archived_at === null;
 
   return (
-    <div className={clsx(ui["button-group"], styles["actions"])}>
-      <button className={clsx(ui["button"], ui["primary"], styles["button"])} onClick={() => setDialog(true)}>
-        <Plus size={15} />
-        Add transaction
-      </button>
+    <>
+      <AccountMenu account={account} addTransaction={acceptsEntries ? addTransaction : undefined} />
+      {acceptsEntries && (
+        <button className={clsx(ui["button"], ui["primary"], styles["add"])} onClick={addTransaction}>
+          <Plus size={15} />
+          Add transaction
+        </button>
+      )}
       {dialog && <ManualTransactionDialog accounts={manualAccounts} accountId={account.id} close={close} />}
-    </div>
+    </>
   );
 }

@@ -19,11 +19,29 @@
     gap: var(--space-4);
   }
 }
+/* Phones put the actions as compact buttons on the eyebrow's row, so the heading and description keep the full width below. */
 @media (--mobile) {
   .page-heading {
-    flex-direction: column;
-    align-items: stretch;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: var(--space-3);
+    row-gap: 0;
     margin-bottom: var(--space-6);
+  }
+  .page-heading > div:first-child {
+    display: contents;
+  }
+  /* The actions' row already spaces the eyebrow from the heading. */
+  .page-heading > div:first-child > :first-child {
+    margin-bottom: 0;
+  }
+  .page-heading > div:first-child > :not(:first-child) {
+    grid-column: 1 / -1;
+  }
+  .page-heading > :not(:first-child) {
+    grid-row: 1;
+    grid-column: 2;
   }
   .description {
     font-size: var(--text-md);
