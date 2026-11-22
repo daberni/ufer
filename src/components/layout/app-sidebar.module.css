@@ -161,6 +161,16 @@
   .nav-item > span {
     display: none;
   }
+  /* The icon-only and mobile navigation keep the full label as the link's accessible name. */
+  .nav-item > .nav-full-label {
+    display: block;
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
   .sidebar-bottom {
     display: none;
   }
@@ -192,9 +202,6 @@
     box-shadow: 0 -4px 16px var(--shadow-faint);
   }
   .brand {
-    display: none;
-  }
-  .nav-item > .nav-full-label {
     display: none;
   }
   .sidebar nav {

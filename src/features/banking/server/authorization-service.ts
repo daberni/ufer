@@ -44,7 +44,7 @@ export async function completeAuthorization(state: string, browserSecret: string
       throw new HttpError(502, "The bank callback does not match the requested connection.");
     }
 
-    releasedSessions = await saveSessionAccounts(connection.id, connection.bank_name, session.access.valid_until, session.accounts);
+    releasedSessions = await saveSessionAccounts(connection.id, connection.bank_name, session.access.valid_until, session.accounts, connection.target_account_id);
 
     if (!session.accounts.length) {
       await recordEmptyConnection(connection.id);

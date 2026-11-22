@@ -33,7 +33,7 @@ import { useLoadError } from "./use-load-error";
 import { TraceId } from "@/components/ui/trace-id";
 import type { Failure } from "@/client/api";
 import { useLocale } from "@/client/locale-provider";
-import { formatCount } from "@/lib/locale";
+import { formatCountLabel } from "@/lib/locale";
 
 /** The persistent dashboard shell; the current view route renders inside it. */
 export default function Dashboard({ children }: {
@@ -137,7 +137,7 @@ function DashboardShell({ children }: {
           {expiring.length > 0 && (
             <div className={clsx(ui["notice"], ui["warning"])}>
               <Link2 size={17} />
-              {formatCount(expiring.length, locale)} bank authorization(s) are expiring or have expired.
+              {`${formatCountLabel(expiring.length, "bank authorization is", "bank authorizations are", locale)} expiring or expired.`}
               <Link className={ui["text-button"]} href={bankConnectionsHref}>
                 Review authorizations <ArrowRight size={14} />
               </Link>
@@ -176,12 +176,16 @@ function PageFeedback() {
 function DashboardFooter() {
   return (
     <footer className={styles["page-footer"]}>
-      <span>
-        <BrandIcon size={16} /> Ufer
-      </span>
-      <span>A clearer view of your money.</span>
-      <LegalLinks />
-      <SourceCodeNotice />
+      <p className={styles["footer-brand"]}>
+        <span className={styles["footer-name"]}>
+          <BrandIcon size={16} /> Ufer
+        </span>
+        <span>A clearer view of your money.</span>
+      </p>
+      <div className={styles["footer-legal"]}>
+        <LegalLinks />
+        <SourceCodeNotice />
+      </div>
     </footer>
   );
 }

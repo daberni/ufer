@@ -132,36 +132,6 @@ export async function saveAccountName(id: string, name: string) {
   return updated.length === 1;
 }
 
-/**
- * Turns a bank account whose connection was removed into a manual account in one transaction. The last bank balance stays the account's balance through an opening balance, or an adjustment on the later of its date and the latest booking.
- * The bank identity is dropped, so a later connection to the same bank creates a new account instead of syncing into a manual one. Returns whether the account was converted.
- */
-export async function convertDetachedAccount(id: string) {
-  const db = await database();
-
-  return db.transaction(async tx => {
-    const detached = and(eq(accounts.id, id), eq(accounts.provider, "enable_banking"), isNull(accounts.requisition_id));
-    const account = await tx.select({
-      id: accounts.id
-    }).from(accounts).where(detached).get();
-
-    if (!account) {
-      return false;
-    }
-
-    // The balance is already the sum of the bookings, including the opening balance its first sync booked; reported bank balances stay as history.
-    await tx.delete(accountIdentifiers).where(eq(accountIdentifiers.account_id, id));
-    await tx.update(accounts).set({
-      provider: "manual",
-      provider_uid: null,
-      last_synced_at: null,
-      sync_error: null
-    }).where(detached);
-
-    return true;
-  });
-}
-
 const removedAccountPrefix = "removed:";
 
 /**

@@ -5,6 +5,8 @@ import type { AuthContext } from "@/server/security/session";
 import { accounts, requisitions } from "@/server/database/schema";
 import { timestamp } from "@/lib/time";
 import { HttpError } from "@/lib/errors";
+import { withTransaction } from "@/server/database/transaction";
+import { findConnectTarget } from "./bank-account-repository";
 
 export type ConnectionRemoval = {
   outcome: "missing";
@@ -24,25 +26,44 @@ export type AuthorizationRecord = {
   stateHash: string;
   browserHash: string;
   authorizationId: string;
+  targetAccountId: string | null;
   actor: AuthContext;
 };
 
-export async function insertAuthorization(record: AuthorizationRecord) {
+/** A manual account that is neither archived nor linked, which an authorization may connect. */
+export async function findConnectableAccount(id: string) {
   const db = await database();
 
-  await db.insert(requisitions).values({
-    id: record.id,
-    workspace_id: record.actor.workspaceId,
-    initiated_by_user_id: record.actor.userId,
-    auth_session_id: record.actor.sessionId,
-    bank_name: record.bank,
-    bank_country: record.country,
-    state_hash: record.stateHash,
-    browser_hash: record.browserHash,
-    state_expires_at: timestamp(Temporal.Now.instant().add({
-      minutes: 15
-    })),
-    authorization_id: record.authorizationId
+  return db.select({
+    id: accounts.id
+  }).from(accounts).where(and(eq(accounts.id, id), eq(accounts.provider, "manual"), isNull(accounts.requisition_id), isNull(accounts.archived_at))).get();
+}
+
+/** Records the authorization, or returns false when its target account is no longer an active manual account. */
+export async function insertAuthorization(record: AuthorizationRecord) {
+  return withTransaction(async tx => {
+    // The target is read again here because it may have changed while the provider requests ran.
+    if (record.targetAccountId && !(await findConnectTarget(tx, record.targetAccountId))) {
+      return false;
+    }
+
+    await tx.insert(requisitions).values({
+      id: record.id,
+      workspace_id: record.actor.workspaceId,
+      initiated_by_user_id: record.actor.userId,
+      auth_session_id: record.actor.sessionId,
+      bank_name: record.bank,
+      bank_country: record.country,
+      state_hash: record.stateHash,
+      browser_hash: record.browserHash,
+      state_expires_at: timestamp(Temporal.Now.instant().add({
+        minutes: 15
+      })),
+      authorization_id: record.authorizationId,
+      target_account_id: record.targetAccountId
+    });
+
+    return true;
   });
 }
 
@@ -167,7 +188,7 @@ export async function recordRevocationFailure(id: string) {
   }).where(and(eq(requisitions.id, id), ne(requisitions.status, "REMOVED")));
 }
 
-// Accounts are detached only after confirmed provider revocation, preserving their history and reconnect mapping; a given archive time also archives those whose balance is 0.
+// Accounts become manual accounts only after confirmed provider revocation, keeping their history and bank identifiers for a later connection; a given archive time also archives those whose balance is 0.
 export async function removeConnection(id: string, exchangeCutoff: Temporal.Instant, expectedSessionCipher: string | null, archivedAt: string | null = null): Promise<ConnectionRemoval> {
   const db = await database();
 
@@ -211,6 +232,8 @@ export async function removeConnection(id: string, exchangeCutoff: Temporal.Inst
     // The balance is the sum of the visible bookings, 0 without any.
     const zeroBalance = sql`COALESCE((SELECT SUM(t.amount_minor) FROM transactions t WHERE t.account_id=${accounts.id} AND t.suppressed_at IS NULL),0)=0`;
     const detached = await tx.update(accounts).set({
+      provider: "manual",
+      provider_uid: null,
       requisition_id: null,
       sync_error: null,
       ...(archivedAt ? {

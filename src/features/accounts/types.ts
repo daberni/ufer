@@ -42,8 +42,21 @@ export type BalancePoint = {
   bank_balance_type: string | null;
 };
 
-/** An account's dated balances, oldest first. */
+/** A booked balance the bank reported for one day, compared with the balance calculated from bookings through that day. */
+export type ReportedBalance = {
+  date: string;
+  amount_minor: number;
+  bank_balance_type: string | null;
+  calculated_minor: number;
+  /** Reported minus calculated balance. */
+  difference_minor: number;
+  /** True on the first report of a new difference: the date an adjustment belongs to. */
+  difference_started: boolean;
+};
+
+/** An account's dated balances and, for a bank-linked account, its reported booked balances, both oldest first. */
 export type BalanceHistory = {
   currency: string;
   balances: BalancePoint[];
+  reported: ReportedBalance[];
 };
