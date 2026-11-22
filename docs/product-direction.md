@@ -106,7 +106,7 @@ Imports support historical backfill, unsupported sources and migration; exports 
 
 **Implemented:** a CSV import page with a preview, detected and editable delimiter, encoding, date and decimal conventions, column roles chosen in the preview, a stable ID column, per-source account mapping (existing, new manual or skipped), category mapping with the category picker, a pre-import summary, and saved mapping templates. Buxfer exports are detected with a built-in mapping, including split rows.
 
-**Remaining:** standard bank formats such as OFX/QIF and CAMT.053 ([#14](https://github.com/daberni/ufer/issues/14)). CSV rows are matched against existing bookings, including earlier imports of other files, and later bank syncs adopt matching CSV-imported rows; an existing duplicate is resolved by hiding the extra copy ([#228](https://github.com/daberni/ufer/issues/228)). Larger date tolerances for matching are not tracked in an issue. PDF support remains a separate future decision, not a prerequisite.
+CAMT.053, OFX/QFX and QIF statements import without column mapping ([#313](https://github.com/daberni/ufer/issues/313)). **Remaining:** CSV rows are matched against existing bookings, including earlier imports of other files, and later bank syncs adopt matching CSV-imported rows; an existing duplicate is resolved by hiding the extra copy ([#228](https://github.com/daberni/ufer/issues/228)). Larger date tolerances for matching are not tracked in an issue. PDF support remains a separate future decision, not a prerequisite.
 
 ## Securities and valuations
 

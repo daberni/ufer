@@ -22,17 +22,18 @@ export function TargetAccounts({
 }: {
   draft: ImportDraft;
 }) {
-  const perSource = draft.mapping?.account !== null && draft.mapping?.account !== undefined;
+  const perSource = draft.perSource;
   // Without an account column, the single picker shows before the columns are complete.
   const sources = perSource || draft.sources.length > 0 ? draft.sources : [{
     source: "",
-    rows: draft.table?.rows.length ?? 0
+    rows: draft.table?.rows.length ?? 0,
+    currency: null
   }];
 
   return (
     <section className={clsx(ui["panel"], styles["section"])} aria-labelledby="import-accounts">
       <h2 id="import-accounts">{perSource ? "Accounts in the file" : "Import into"}</h2>
-      {perSource && <p className={ui["form-hint"]}>Each account value in the file goes to an existing account, a new manual account, or is skipped.</p>}
+      {perSource && <p className={ui["form-hint"]}>Each account {draft.statement ? "in the statement" : "value in the file"} goes to an existing account, a new manual account, or is skipped.</p>}
       {perSource && !draft.mapped && <p className={ui["form-hint"]}>Choose the date, amount and payee or description columns below to see the accounts.</p>}
       {draft.accountsFailure && <InlineFailure failure={draft.accountsFailure} subject="Your accounts" />}
       {!draft.accountsReady && !draft.accountsFailure && <p className={ui["form-hint"]}>Loading your accounts …</p>}
@@ -41,12 +42,14 @@ export function TargetAccounts({
         <legend className={ui["visually-hidden"]}>Target accounts</legend>
         {sources.map(({
           source,
-          rows
+          rows,
+          currency
         }) => (
           <TargetRow
             key={source}
             source={source}
             rows={rows}
+            currency={currency}
             perSource={perSource}
             choice={draft.targets.get(source) ?? {
               kind: "unset"
@@ -65,6 +68,7 @@ export function TargetAccounts({
 function TargetRow({
   source,
   rows,
+  currency,
   perSource,
   choice,
   accounts,
@@ -73,6 +77,7 @@ function TargetRow({
 }: {
   source: string;
   rows: number;
+  currency: string | null;
   perSource: boolean;
   choice: TargetChoice;
   accounts: Account[];
@@ -94,7 +99,7 @@ function TargetRow({
 
   function select(next: string) {
     if (next === "new") {
-      onChange(newAccountChoice(source));
+      onChange(newAccountChoice(source, currency));
     } else if (next === "skip") {
       onChange({
         kind: "skip"

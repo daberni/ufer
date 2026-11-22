@@ -1,5 +1,6 @@
 "use client";
 
+import { importFileTypes } from "@/features/imports/pending-import-file";
 import { clsx } from "clsx";
 import { useId, useRef, useState } from "react";
 import { FileUp } from "lucide-react";
@@ -50,12 +51,12 @@ export function FileDropZone({
           choose a file
         </button>
       </p>
-      <p id={hintId} className={styles["hint"]}>{`CSV or TXT, up to ${formatCount(25, locale)} MB`}</p>
+      <p id={hintId} className={styles["hint"]}>{`CSV, CAMT.053, OFX, QFX or QIF, up to ${formatCount(25, locale)} MB`}</p>
       <input
         ref={input}
         className={styles["input"]}
         type="file"
-        accept=".csv,.txt,text/csv"
+        accept={importFileTypes}
         tabIndex={-1}
         aria-hidden="true"
         disabled={disabled}
