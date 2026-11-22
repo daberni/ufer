@@ -88,7 +88,8 @@ export function readCamt053(text: string, locale: string): StatementFile {
             description: remittance(detail) || cleanText(textOf(child(detail, "AddtlTxInf"))),
             category: null,
             source,
-            id: reference || (entryReference ? `${entryReference}/${index + 1}` : null)
+            // A position in the batch is no stable identity; without its own reference a transaction is matched by content.
+            id: reference || null
           });
         });
 

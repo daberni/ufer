@@ -143,8 +143,8 @@ test("CAMT.053 reads booked entries with signs, value dates, parties, batch tran
   assert.deepEqual(summary(statement.rows), [
     [8, "AT61 1904 3002 3457 3201", "2026-02-28", "-1234.50", "EUR", "Synthetic Landlord & Co", "Rent March Flat 3", "REF-0001"],
     [20, "AT61 1904 3002 3457 3201", "2026-03-01", "2500.00", "EUR", "Example Employer GmbH", "Salary", "REF-0002"],
-    [44, "AT61 1904 3002 3457 3201", "2026-03-04", "-10.00", "EUR", "Club A", "", "BATCH-7/1"],
-    [45, "AT61 1904 3002 3457 3201", "2026-03-04", "-20.00", "EUR", "Club B", "", "BATCH-7/2"],
+    [44, "AT61 1904 3002 3457 3201", "2026-03-04", "-10.00", "EUR", "Club A", "", null],
+    [45, "AT61 1904 3002 3457 3201", "2026-03-04", "-20.00", "EUR", "Club B", "", null],
     [58, "DE89 3704 0044 0532 0130 00", "2026-03-06", "0.01", "USD", "", "Interest", "N-1"]
   ]);
   assert.deepEqual(statement.errors.map(error => error.line), [48]);
@@ -320,7 +320,7 @@ test("CAMT batch details split only when they reconcile with the entry, across s
   const batch = (rows: StatementFile["rows"]) => rows.filter(row => row.date === "2026-03-04").map(row => [row.amount, row.payee, row.id]);
   const detail = (amount: string, currency = "EUR") => `<TxDtls><Amt Ccy="${currency}">${amount}</Amt><RltdPties><Cdtr><Pty><Nm>Club ${amount}</Nm></Pty></Cdtr></RltdPties></TxDtls>`;
 
-  assert.deepEqual(batch(read(entry(`<NtryDtls>${detail("10.00")}</NtryDtls><NtryDtls>${detail("20.00")}</NtryDtls>`)).rows), [["-10.00", "Club 10.00", "BATCH-7/1"], ["-20.00", "Club 20.00", "BATCH-7/2"]]);
+  assert.deepEqual(batch(read(entry(`<NtryDtls>${detail("10.00")}</NtryDtls><NtryDtls>${detail("20.00")}</NtryDtls>`)).rows), [["-10.00", "Club 10.00", null], ["-20.00", "Club 20.00", null]]);
   assert.deepEqual(batch(read(entry(`<NtryDtls>${detail("10.00")}${detail("25.00")}</NtryDtls>`)).rows), [["-30.00", "", "BATCH-7"]]);
   assert.deepEqual(batch(read(entry(`<NtryDtls>${detail("10.00", "USD")}${detail("20.00")}</NtryDtls>`)).rows), [["-30.00", "", "BATCH-7"]]);
 });
@@ -451,6 +451,23 @@ test("reimporting a CAMT.053 file finds every row by its bank reference and adds
 
   assert.equal(again.newRows, 0);
   assert.deepEqual(again.duplicates.map(duplicate => duplicate.reason), Array(5).fill("already_imported"));
+  assert.equal((await db.select().from(schema.transactions)).length, 5);
+
+  // A later export lists the batch's transactions in another order; without their own references they still match by content.
+  const reordered = read(camt.replace(/(<TxDtls><Amt Ccy="EUR">10\.00<\/Amt>.*?<\/TxDtls>)(\s*)(<TxDtls><Amt Ccy="EUR">20\.00<\/Amt>.*?<\/TxDtls>)/, "$3$2$1"));
+
+  assert.deepEqual(reordered.rows.filter(row => row.date === "2026-03-04").map(row => row.payee), ["Club B", "Club A"]);
+
+  const reorderedAgain = await importStatement(reordered, "00000000-0000-4000-8000-000000000317", [{
+    source: "AT61 1904 3002 3457 3201",
+    account_id: idOf("Synthetic Giro")
+  }, {
+    source: "DE89 3704 0044 0532 0130 00",
+    account_id: idOf("Synthetic Dollar")
+  }]);
+
+  assert.equal(reorderedAgain.newRows, 0);
+  assert.equal(reorderedAgain.updatedRows, 0);
   assert.equal((await db.select().from(schema.transactions)).length, 5);
 });
 
