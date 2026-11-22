@@ -28,7 +28,7 @@ export type ExistingBooking = {
  * Rows with several matching bookings in the date window, or with a booking of the same amount that only the date or a transfer suggests, are returned as `possible` duplicates with their candidate bookings; the person decides what they do.
  * Each existing booking absorbs at most one row. `consumed` lists the bookings earlier batches of this import matched or saved, so a batch never mistakes rows of its own file for duplicates, genuine repeats beyond the existing ones still import and a check reports what confirming saves.
  */
-export function findDuplicates<T extends ExistingBooking>(candidates: ImportCandidate[], existing: T[], consumed: ReadonlySet<string> = new Set(), expected: ReadonlyMap<number, string> = new Map()) {
+export function findDuplicates<T extends ExistingBooking>(candidates: ImportCandidate[], existing: T[], consumed: ReadonlySet<string> = new Set(), expected: ReadonlyMap<number, string> = new Map(), created: ReadonlySet<number> = new Set()) {
   const duplicates = new Map<number, DuplicateReason>();
   const matched: Pick<ExistingBooking, "reference" | "date">[] = [];
   const possible: number[] = [];
@@ -68,6 +68,9 @@ export function findDuplicates<T extends ExistingBooking>(candidates: ImportCand
     } else if (match >= 0 && expected.has(index) && available.bookings[match].id !== expected.get(index)) {
       // The person decided on another booking at the check; this one stays free for the following rows, and the row waits for a new decision.
       stale.push(index);
+    } else if (match >= 0 && created.has(index)) {
+      // A matched row the person creates as a new booking takes no existing booking, which stays free for the following rows.
+      return;
     } else if (match >= 0) {
       used.add(match);
       matches.set(index, available.bookings[match]);

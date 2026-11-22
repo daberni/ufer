@@ -593,3 +593,23 @@ test("an import never rewrites the text of a booking a person entered by hand", 
   assert.deepEqual([result.updatedRows, result.newRows], [0, 0]);
   assert.deepEqual(stored.map(item => [item.counterparty, item.description]), [["Example Cinema", "Typed by a person"]]);
 });
+
+test("a row created as new leaves the booking it matched to the next matching row", async context => {
+  const db = await isolatedDatabase(context);
+
+  await importRows(firstImport, [row(2, "2024-06-01", "-9.00", "Example Bakery")], true);
+
+  const rows = [row(2, "2024-06-01", "-9.00", "Example Bakery", {
+    description: "First visit"
+  }), row(3, "2024-06-01", "-9.00", "Example Bakery", {
+    description: "Second visit"
+  })];
+  const result = await importRows(reimport, rows, true, [{
+    line: 2,
+    action: "create"
+  }]);
+  const stored = await db.select().from(schema.transactions);
+
+  assert.deepEqual([result.newRows, result.updatedRows], [1, 1]);
+  assert.deepEqual(stored.map(item => item.description).toSorted(), ["First visit", "Second visit"]);
+});

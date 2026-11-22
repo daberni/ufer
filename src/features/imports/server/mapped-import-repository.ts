@@ -193,7 +193,9 @@ async function classify(executor: Executor, accountId: string, entries: MappedEn
 
   const expected = new Map([...decisions].flatMap(([index, decision]) => decision.action === "update" && decision.booking ? [[index, decision.booking] as const] : []));
 
-  return findDuplicates(entries, existing, consumed, expected);
+  const created = new Set([...decisions].flatMap(([index, decision]) => decision.action === "create" ? [index] : []));
+
+  return findDuplicates(entries, existing, consumed, expected, created);
 }
 
 async function bookingsWithReferences(executor: Executor, accountId: string, references: string[]) {
