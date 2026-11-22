@@ -5,7 +5,6 @@ import { and, between, eq, inArray, ne, notInArray, or, sql } from "drizzle-orm"
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 import { accounts, categories, transactionSplits, transactions } from "@/server/database/schema";
 import type { AccountKind } from "@/features/accounts/account-kinds";
-import { assertWritableAccount } from "@/features/transactions/server/booking-accounts";
 import { manualEntryPrefix } from "@/lib/booking-references";
 import { newCategoryColor } from "@/features/categorization/category-color-suggestions";
 import { suggestCategoryIcon, type CategoryIconKey } from "@/features/categorization/category-icons";
@@ -13,8 +12,7 @@ import { createCategory } from "@/features/categorization/server/category-reposi
 import { derivedTransactionType, type RuleTransactionType } from "@/lib/transaction-types";
 import type { SplitPartValues } from "@/features/transactions/server/split-repository";
 import { matchingWindow } from "@/lib/booking-matching";
-import { findDuplicates } from "./duplicate-matching";
-import { describeMatches, planRows, type Decision, type StoredBooking } from "./row-decisions";
+import type { StoredBooking } from "./row-decisions";
 
 const referenceChunkSize = 500;
 
@@ -164,19 +162,16 @@ export async function listCategoryNames() {
 
 type Executor = Pick<DatabaseTransaction, "select">;
 
-async function classify(executor: Executor, accountId: string, entries: MappedEntry[], consumed: ReadonlySet<string>, decisions: ReadonlyMap<number, Decision>) {
+/** The account's bookings that rows could duplicate: those near the rows' dates and those with the rows' references, inside `tx` when given. */
+export async function findCandidateBookings(accountId: string, entries: MappedEntry[], tx?: DatabaseTransaction) {
+  const executor: Executor = tx ?? await database();
   const window = entries.length === 0 ? undefined : matchingWindow(entries.map(entry => entry.date).sort());
   const nearby = window ? await bookingsBetween(executor, accountId, window.from, window.to) : [];
   // A row identified by an export ID may have moved further than the window since it was imported; its reference still identifies it.
   const sameReference = await bookingsWithReferences(executor, accountId, entries.map(entry => entry.reference));
   const nearbyReferences = new Set(nearby.map(booking => booking.reference));
-  const existing = [...nearby, ...sameReference.filter(booking => !nearbyReferences.has(booking.reference))];
 
-  const expected = new Map([...decisions].flatMap(([index, decision]) => decision.action !== "create" && decision.booking ? [[index, decision.booking] as const] : []));
-
-  const created = new Set([...decisions].flatMap(([index, decision]) => decision.action === "create" ? [index] : []));
-
-  return findDuplicates(entries, existing, consumed, expected, created);
+  return [...nearby, ...sameReference.filter(booking => !nearbyReferences.has(booking.reference))];
 }
 
 async function bookingsWithReferences(executor: Executor, accountId: string, references: string[]) {
@@ -191,119 +186,24 @@ async function bookingsWithReferences(executor: Executor, accountId: string, ref
   return found;
 }
 
-/** Classifies rows against the account's bookings and plans the person's decisions without writing anything. */
-export async function checkMappedEntries(accountId: string, entries: MappedEntry[], consumed: ReadonlySet<string>, decisions: ReadonlyMap<number, Decision> = new Map()) {
-  const found = await classify(await database(), accountId, entries, consumed, decisions);
-  const plan = planRows(entries, found, decisions);
-
-  return {
-    duplicates: found.duplicates,
-    possible: found.possible,
-    matched: [...found.matched.filter(booking => !plan.released.has(booking.reference)), ...plan.adopted],
-    ...matchesOf(entries, found),
-    undecided: plan.undecided,
-    updated: plan.updates.map(update => update.index),
-    inserted: plan.inserts.length
-  };
+/** Creates a new import account; the ID is stable per import and source account, so a retried or later batch reuses the account. */
+export async function insertImportAccount(tx: DatabaseTransaction, accountId: string, account: NewImportAccount) {
+  await tx.insert(accounts).values({
+    id: accountId,
+    name: account.name,
+    kind: account.kind,
+    currency: account.currency
+  }).onConflictDoNothing();
 }
 
-/** The rows of one target account in a confirmed batch. */
-export type MappedAccountRows = {
-  accountId: string;
-  entries: MappedEntry[];
-  newAccount: NewImportAccount | null;
-  consumed?: ReadonlySet<string>;
-  opening?: OpeningBalance | null;
-  /** The person's decisions for matched and possibly duplicate rows, by index in `entries`. */
-  decisions?: ReadonlyMap<number, Decision>;
-};
-
-/**
- * Saves a confirmed batch for all its target accounts in one write transaction, so a failure leaves none of its accounts, bookings or categories behind.
- * New categories are created in the same transaction, and only when a saved row uses one. Results are in the order of `accounts`.
- */
-export async function saveMappedBatch(accountRows: MappedAccountRows[], newCategories: NewImportCategory[]) {
-  const db = await database();
-
-  return db.transaction(async tx => {
-    const pending = new Map(newCategories.map(category => [category.id, category]));
-    const resolved = new Map<string, string>();
-    const createdCategories: string[] = [];
-    const ensureCategories = async (entries: MappedEntry[]) => {
-      const used = entries.flatMap(entry => [entry.categoryId, ...(entry.parts ?? []).map(part => part.categoryId)]);
-
-      for (const id of new Set(used)) {
-        const category = id === null ? undefined : pending.get(id);
-
-        if (!category || resolved.has(category.id)) {
-          continue;
-        }
-
-        const result = await createImportCategory(tx, category);
-
-        resolved.set(category.id, result.id);
-
-        // A category another request created meanwhile is used, not reported as new.
-        if (result.created) {
-          createdCategories.push(category.name);
-        }
-      }
-
-      const categoryOf = (id: string | null) => id === null ? null : resolved.get(id) ?? id;
-
-      return entries.map(entry => ({
-        ...entry,
-        categoryId: categoryOf(entry.categoryId),
-        parts: entry.parts?.map(part => ({
-          ...part,
-          categoryId: categoryOf(part.categoryId)
-        })) ?? null
-      }));
-    };
-    const results = [];
-
-    for (const rows of accountRows) {
-      results.push(await saveAccountRows(tx, rows, ensureCategories));
-    }
-
-    return {
-      results,
-      createdCategories
-    };
-  });
-}
-
-/**
- * Classifies rows exactly like `checkMappedEntries`, but inside the write transaction, and inserts the new ones, so a bank sync between check and confirmation cannot cause duplicates and both report the same result on unchanged data.
- * Matched rows update only their booking's source fields as the person decided, so confirming again changes nothing and existing categories survive. Older bookings imported into a bank-linked account move its opening balance before them.
- */
-async function saveAccountRows(tx: DatabaseTransaction, {
-  accountId,
-  entries,
-  newAccount,
-  consumed = new Set(),
-  opening = null,
-  decisions = new Map()
-}: MappedAccountRows, ensureCategories: (entries: MappedEntry[]) => Promise<MappedEntry[]>) {
-  if (newAccount) {
-    // The ID is stable per import and source account, so a retried or later batch reuses the account. Its balance is the sum of its transactions, including any opening balance.
-    await tx.insert(accounts).values({
-      id: accountId,
-      name: newAccount.name,
-      kind: newAccount.kind,
-      currency: newAccount.currency
-    }).onConflictDoNothing();
-  }
-
-  await assertWritableAccount(tx, accountId);
-  const found = await classify(tx, accountId, entries, consumed, decisions);
-  const plan = planRows(entries, found, decisions);
-  const fresh = await ensureCategories(plan.inserts.map(index => entries[index]));
+/** Inserts new rows with their split parts; a row whose reference the account already has is skipped. Returns the inserted bookings with their dates. */
+export async function insertEntries(tx: DatabaseTransaction, accountId: string, fresh: MappedEntry[]) {
   const dates = new Map(fresh.map(entry => [entry.reference, entry.date]));
-  // Later batches of this import pass the saved rows back as consumed, so rows of the same file never match each other by content.
-  const saved: typeof found.matched = [];
-  let inserted = 0;
-  const insertedIds: string[] = [];
+  const saved: {
+    id: string;
+    reference: string;
+    date: string;
+  }[] = [];
 
   // Bound statement parameters for both local SQLite and remote libSQL deployments.
   for (let offset = 0; offset < fresh.length; offset += 50) {
@@ -337,51 +237,23 @@ async function saveAccountRows(tx: DatabaseTransaction, {
       reference: transactions.provider_reference
     });
 
-    inserted += rows.length;
-    insertedIds.push(...rows.map(row => row.id));
     saved.push(...rows.map(row => ({
-      reference: row.reference,
+      ...row,
       date: dates.get(row.reference) ?? ""
     })));
     await saveImportedParts(tx, rows, fresh);
   }
 
-  for (const update of plan.updates) {
-    await updateSourceFields(tx, accountId, update.reference, entries[update.index], update.changes.includes("type"));
-  }
-
-  // Older history imported into a bank-linked account was part of its opening balance.
-  await keepBankOpeningBalanceFirst(tx, accountId, insertedIds.length ? inArray(transactions.id, insertedIds) : undefined);
-
-  if (opening) {
-    await saveOpeningBalance(tx, accountId, newAccount?.currency ?? entries[0]?.currency ?? "", opening);
-  }
-
-  return {
-    duplicates: found.duplicates,
-    possible: found.possible,
-    matched: [...found.matched.filter(booking => !plan.released.has(booking.reference)), ...plan.adopted, ...saved],
-    ...matchesOf(entries, found),
-    undecided: plan.undecided,
-    updated: plan.updates.map(update => update.index),
-    inserted
-  };
+  return saved;
 }
 
-function matchesOf(entries: MappedEntry[], found: Parameters<typeof describeMatches>[1]) {
-  const {
-    described,
-    bookings
-  } = describeMatches(entries, found);
-
-  return {
-    matches: described,
-    bookings
-  };
+/** Older history imported into a bank-linked account was part of its opening balance, which moves before the inserted bookings. */
+export async function keepOpeningBeforeImported(tx: DatabaseTransaction, accountId: string, insertedIds: string[]) {
+  await keepBankOpeningBalanceFirst(tx, accountId, insertedIds.length ? inArray(transactions.id, insertedIds) : undefined);
 }
 
 /** Writes a matched row's payee and description, and its type when the file states one the booking may take, onto the source fields; overrides, category, splits and links are separate and stay. */
-async function updateSourceFields(tx: DatabaseTransaction, accountId: string, reference: string, entry: MappedEntry, withType: boolean) {
+export async function updateSourceFields(tx: DatabaseTransaction, accountId: string, reference: string, entry: MappedEntry, withType: boolean) {
   await tx.update(transactions).set({
     counterparty: entry.counterparty,
     description: entry.description,
@@ -413,12 +285,17 @@ async function saveImportedParts(tx: DatabaseTransaction, inserted: {
   }
 }
 
-/** Books or updates a new import account's opening balance. Every confirmed batch recalculates it, so after the last batch a `current` balance equals the account balance today. */
-async function saveOpeningBalance(tx: DatabaseTransaction, accountId: string, currency: string, opening: OpeningBalance) {
+/** The sum of the account's transactions other than its opening balance that decide a new import account's opening balance. */
+export async function readOpeningOthers(tx: DatabaseTransaction, accountId: string, openingId: string) {
   const others = await tx.select({
     total: sql<number>`COALESCE(SUM(${transactions.amount_minor}),0)`.mapWith(Number)
-  }).from(transactions).where(and(eq(transactions.account_id, accountId), ne(transactions.id, opening.id), countedTowardOpening)).get();
-  const amount = opening.kind === "current" ? opening.amount - (others?.total ?? 0) : opening.amount;
+  }).from(transactions).where(and(eq(transactions.account_id, accountId), ne(transactions.id, openingId), countedTowardOpening)).get();
+
+  return others?.total ?? 0;
+}
+
+/** Books or updates a new import account's opening balance with the given amount, in the account's currency when it exists. */
+export async function saveOpeningBalance(tx: DatabaseTransaction, accountId: string, currency: string, opening: OpeningBalance, amount: number) {
   const account = await tx.select({
     currency: accounts.currency
   }).from(accounts).where(eq(accounts.id, accountId)).get();

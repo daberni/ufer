@@ -1,105 +1,89 @@
-import { randomUUID } from "node:crypto";
 import { and, eq, inArray, ne, notExists } from "drizzle-orm";
-import { HttpError } from "@/lib/errors";
-import { database } from "@/server/database/connection";
+import type { DatabaseTransaction } from "@/server/database/connection";
 import { accountIdentifiers, accounts, requisitions } from "@/server/database/schema";
-import type { BankAccount } from "./enable-banking-client";
+import type { IdentifierMatch, MappableBankAccount } from "./bank-account-mapping";
 
-// Maps the authorized accounts and links the connection in one transaction; a connection removed meanwhile is never linked.
-export async function saveSessionAccounts(requisitionId: string, institution: string, validUntil: string, bankAccounts: BankAccount[]) {
-  const db = await database();
+/** The existing accounts any of the identifiers belong to, each with its connection. */
+export async function findIdentifierMatches(tx: DatabaseTransaction, hashes: string[]): Promise<IdentifierMatch[]> {
+  return tx.selectDistinct({
+    account_id: accountIdentifiers.account_id,
+    requisition_id: accounts.requisition_id
+  }).from(accountIdentifiers).innerJoin(accounts, eq(accounts.id, accountIdentifiers.account_id)).where(inArray(accountIdentifiers.identification_hash, hashes));
+}
 
-  return db.transaction(async tx => {
-    const displacedConnections = new Set<string>();
+function providerName(account: MappableBankAccount) {
+  return account.name || account.product || null;
+}
 
-    for (const account of bankAccounts) {
-      if (!account.identification_hash || !account.uid || !account.currency || account.currency === "XXX") {
-        throw new HttpError(502, "Bank account is missing a stable identifier or an unambiguous currency.");
-      }
+/** Links an existing account to the connection and refreshes its provider details; false when its currency differs from the bank's. */
+export async function relinkAccount(tx: DatabaseTransaction, id: string, requisitionId: string, account: MappableBankAccount) {
+  const accountScope = and(eq(accounts.id, id), eq(accounts.currency, account.currency));
+  const name = providerName(account);
+  const iban = account.account_id?.iban;
+  const saved = await tx.update(accounts).set({
+    provider_uid: account.uid,
+    ...(name ? {
+      provider_name: name
+    } : {}),
+    requisition_id: requisitionId,
+    ...(iban ? {
+      iban
+    } : {}),
+    sync_error: null
+  }).where(accountScope).returning({
+    id: accounts.id
+  });
 
-      const hashes = [...new Set([account.identification_hash, ...(account.identification_hashes || [])])];
-      const scope = inArray(accountIdentifiers.identification_hash, hashes);
-      const matches = await tx.selectDistinct({
-        account_id: accountIdentifiers.account_id,
-        requisition_id: accounts.requisition_id
-      }).from(accountIdentifiers).innerJoin(accounts, eq(accounts.id, accountIdentifiers.account_id)).where(scope);
+  return saved.length > 0;
+}
 
-      if (matches.length > 1) {
-        throw new HttpError(409, "Bank identifiers match multiple existing accounts. Check the account mapping.");
-      }
+/** Creates a checking account for a bank account seen for the first time, named after the account or else the institution. */
+export async function insertBankAccount(tx: DatabaseTransaction, id: string, requisitionId: string, institution: string, account: MappableBankAccount) {
+  const name = providerName(account);
 
-      const id = matches[0]?.account_id || randomUUID();
-      const iban = account.account_id?.iban;
-      const providerName = account.name || account.product || null;
+  await tx.insert(accounts).values({
+    id,
+    name: name || institution,
+    provider_name: name,
+    kind: "checking",
+    currency: account.currency,
+    provider: "enable_banking",
+    provider_uid: account.uid,
+    requisition_id: requisitionId,
+    iban: account.account_id?.iban || null
+  });
+}
 
-      if (matches.length) {
-        const accountScope = and(eq(accounts.id, id), eq(accounts.currency, account.currency));
-        const saved = await tx.update(accounts).set({
-          provider_uid: account.uid,
-          ...(providerName ? {
-            provider_name: providerName
-          } : {}),
-          requisition_id: requisitionId,
-          ...(iban ? {
-            iban
-          } : {}),
-          sync_error: null
-        }).where(accountScope).returning({
-          id: accounts.id
-        });
+export async function saveIdentifiers(tx: DatabaseTransaction, accountId: string, hashes: string[]) {
+  await tx.insert(accountIdentifiers).values(hashes.map(identification => ({
+    identification_hash: identification,
+    account_id: accountId
+  }))).onConflictDoNothing();
+}
 
-        if (!saved.length) {
-          throw new HttpError(409, "The account currency has changed; automatic mapping stopped.");
-        }
+/** Marks a connection still being exchanged as linked; false when it was removed meanwhile. */
+export async function markConnectionLinked(tx: DatabaseTransaction, requisitionId: string, validUntil: string) {
+  const linked = await tx.update(requisitions).set({
+    status: "LINKED",
+    valid_until: validUntil
+  }).where(and(eq(requisitions.id, requisitionId), eq(requisitions.status, "EXCHANGING"))).returning({
+    id: requisitions.id
+  });
 
-        if (matches[0].requisition_id && matches[0].requisition_id !== requisitionId) {
-          displacedConnections.add(matches[0].requisition_id);
-        }
-      } else {
-        await tx.insert(accounts).values({
-          id,
-          name: providerName || institution,
-          provider_name: providerName,
-          kind: "checking",
-          currency: account.currency,
-          provider: "enable_banking",
-          provider_uid: account.uid,
-          requisition_id: requisitionId,
-          iban: iban || null
-        });
-      }
+  return linked.length > 0;
+}
 
-      await tx.insert(accountIdentifiers).values(hashes.map(identification => ({
-        identification_hash: identification,
-        account_id: id
-      }))).onConflictDoNothing();
-    }
+/** Supersedes the displaced linked connections that no account links to anymore, returning their sessions to revoke. */
+export async function supersedeEmptyConnections(tx: DatabaseTransaction, displaced: string[], requisitionId: string) {
+  const linkedAccounts = tx.select({
+    id: accounts.id
+  }).from(accounts).where(eq(accounts.requisition_id, requisitions.id));
+  const superseded = and(eq(requisitions.status, "LINKED"), inArray(requisitions.id, displaced), ne(requisitions.id, requisitionId), notExists(linkedAccounts));
 
-    const linked = await tx.update(requisitions).set({
-      status: "LINKED",
-      valid_until: validUntil
-    }).where(and(eq(requisitions.id, requisitionId), eq(requisitions.status, "EXCHANGING"))).returning({
-      id: requisitions.id
-    });
-
-    if (!linked.length) {
-      throw new HttpError(409, "The bank connection was removed during authorization.");
-    }
-
-    if (!displacedConnections.size) {
-      return [];
-    }
-
-    const linkedAccounts = tx.select({
-      id: accounts.id
-    }).from(accounts).where(eq(accounts.requisition_id, requisitions.id));
-    const superseded = and(eq(requisitions.status, "LINKED"), inArray(requisitions.id, [...displacedConnections]), ne(requisitions.id, requisitionId), notExists(linkedAccounts));
-
-    return tx.update(requisitions).set({
-      status: "SUPERSEDED"
-    }).where(superseded).returning({
-      id: requisitions.id,
-      session_cipher: requisitions.session_cipher
-    });
+  return tx.update(requisitions).set({
+    status: "SUPERSEDED"
+  }).where(superseded).returning({
+    id: requisitions.id,
+    session_cipher: requisitions.session_cipher
   });
 }

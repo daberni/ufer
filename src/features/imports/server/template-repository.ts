@@ -5,9 +5,6 @@ import { database, type DatabaseTransaction } from "@/server/database/connection
 import { importTemplates } from "@/server/database/schema";
 import { headerKey, type CsvTemplate } from "../csv-templates";
 
-/** Saved templates are few hand-made layouts; the bound keeps the list a page section. */
-export const maximumTemplates = 100;
-
 export type TemplateDefinition = Omit<CsvTemplate, "id" | "name" | "builtIn">;
 
 export async function listTemplates(): Promise<CsvTemplate[]> {
@@ -22,68 +19,58 @@ export async function listTemplates(): Promise<CsvTemplate[]> {
   }));
 }
 
-/** Refuses a template beyond the limit; the service words the refusal for the request after the transaction has rolled back. */
-export class TemplateLimitReached extends Error {
-  constructor(readonly maximum: number) {
-    super("The template limit is reached.");
-  }
+/** The number of saved templates. */
+export async function countTemplates(tx: DatabaseTransaction) {
+  const stored = await tx.select({
+    total: count()
+  }).from(importTemplates).get();
+
+  return stored?.total ?? 0;
 }
 
-/** Stores a new template; another template for the same header or with the same name is a conflict. */
-export async function insertTemplate(id: string, name: string, definition: TemplateDefinition) {
-  const db = await database();
+export async function findTemplate(tx: DatabaseTransaction, id: string) {
+  return tx.select().from(importTemplates).where(eq(importTemplates.id, id)).get();
+}
+
+/** The saved templates with an equivalent name and with the same header, which a new or changed template would conflict with. */
+export async function findTemplateConflicts(tx: DatabaseTransaction, name: string, header: string[]) {
+  const sameName = await tx.select({
+    id: importTemplates.id,
+    name: importTemplates.name
+  }).from(importTemplates).where(eq(importTemplates.name_key, categoryNameKey(name))).get();
+  const sameHeader = await tx.select({
+    id: importTemplates.id,
+    name: importTemplates.name
+  }).from(importTemplates).where(eq(importTemplates.header_key, headerKey(header))).get();
+
+  return {
+    sameName,
+    sameHeader
+  };
+}
+
+export async function insertTemplate(tx: DatabaseTransaction, id: string, name: string, definition: TemplateDefinition) {
   const now = new Date().toISOString();
 
-  await db.transaction(async tx => {
-    const stored = await tx.select({
-      total: count()
-    }).from(importTemplates).get();
-
-    if ((stored?.total ?? 0) >= maximumTemplates) {
-      throw new TemplateLimitReached(maximumTemplates);
-    }
-
-    await requireUnique(tx, name, definition.header, null);
-    await uniqueWrite(tx.insert(importTemplates).values({
-      id,
-      name,
-      name_key: categoryNameKey(name),
-      header_key: headerKey(definition.header),
-      definition: JSON.stringify(definition),
-      created_at: now,
-      updated_at: now
-    }));
-  });
+  await uniqueWrite(tx.insert(importTemplates).values({
+    id,
+    name,
+    name_key: categoryNameKey(name),
+    header_key: headerKey(definition.header),
+    definition: JSON.stringify(definition),
+    created_at: now,
+    updated_at: now
+  }));
 }
 
-/** Renames a template or replaces its definition; false when it does not exist. */
-export async function updateTemplate(id: string, change: {
-  name?: string;
-  definition?: TemplateDefinition;
-}) {
-  const db = await database();
-
-  return db.transaction(async tx => {
-    const current = await tx.select().from(importTemplates).where(eq(importTemplates.id, id)).get();
-
-    if (!current) {
-      return false;
-    }
-
-    const name = change.name ?? current.name;
-    const definition = change.definition ?? JSON.parse(current.definition) as TemplateDefinition;
-
-    await requireUnique(tx, name, definition.header, id);
-    await uniqueWrite(tx.update(importTemplates).set({
-      name,
-      name_key: categoryNameKey(name),
-      header_key: headerKey(definition.header),
-      definition: JSON.stringify(definition),
-      updated_at: new Date().toISOString()
-    }).where(eq(importTemplates.id, id)));
-
-    return true;
-  });
+export async function updateTemplate(tx: DatabaseTransaction, id: string, name: string, definition: TemplateDefinition) {
+  await uniqueWrite(tx.update(importTemplates).set({
+    name,
+    name_key: categoryNameKey(name),
+    header_key: headerKey(definition.header),
+    definition: JSON.stringify(definition),
+    updated_at: new Date().toISOString()
+  }).where(eq(importTemplates.id, id)));
 }
 
 export async function deleteTemplate(id: string) {
@@ -93,26 +80,6 @@ export async function deleteTemplate(id: string) {
   });
 
   return deleted.length > 0;
-}
-
-// The unique indexes enforce the same; checking first gives the person a message instead of a constraint error.
-async function requireUnique(tx: DatabaseTransaction, name: string, header: string[], ownId: string | null) {
-  const sameName = await tx.select({
-    id: importTemplates.id
-  }).from(importTemplates).where(eq(importTemplates.name_key, categoryNameKey(name))).get();
-
-  if (sameName && sameName.id !== ownId) {
-    throw new HttpError(409, `A template named “${name}” already exists.`);
-  }
-
-  const sameHeader = await tx.select({
-    name: importTemplates.name,
-    id: importTemplates.id
-  }).from(importTemplates).where(eq(importTemplates.header_key, headerKey(header))).get();
-
-  if (sameHeader && sameHeader.id !== ownId) {
-    throw new HttpError(409, `The template “${sameHeader.name}” already covers files with these columns. Update or delete it instead.`);
-  }
 }
 
 /** A concurrent write can pass the check above and still hit a unique index; it gets the same conflict instead of a server error. */
