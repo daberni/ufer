@@ -12,6 +12,7 @@ import { FieldProblem, problemProps } from "./field-problem";
 import { accountKinds, type AccountKind } from "@/features/accounts/account-kinds";
 import { kinds } from "@/features/accounts/account-presentation";
 import type { Account } from "@/features/accounts/types";
+import { bookableManualAccounts } from "@/features/accounts/queries";
 import type { ImportDraft } from "./use-import-draft";
 import { useLocale } from "@/client/locale-provider";
 
@@ -81,7 +82,7 @@ function TargetRow({
   const locale = useLocale();
   const selectId = useId();
   const targetProblem = problems.find(problem => problem.field === "target");
-  const manual = accounts.filter(account => account.provider === "manual");
+  const manual = bookableManualAccounts(accounts);
   const linked = accounts.filter(account => account.provider !== "manual");
   let value = "";
 

@@ -11,7 +11,7 @@ import { useDialogSubmit } from "@/components/ui/use-dialog-submit";
 import { money } from "@/lib/money";
 import { today } from "@/lib/time";
 import { useArchiveAccount } from "@/features/accounts/mutations";
-import { activeAccounts, useAccounts } from "@/features/accounts/queries";
+import { activeAccounts, bookableManualAccounts, useAccounts } from "@/features/accounts/queries";
 import type { Account } from "@/features/accounts/types";
 import { useLocale } from "@/client/locale-provider";
 
@@ -73,7 +73,7 @@ function CloseAccountForm({
     pending,
     submit
   } = useDialogSubmit(useArchiveAccount(account.id), close);
-  const transferAccounts = activeAccounts(useAccounts().data ?? []).filter(other => other.provider === "manual" && other.currency === account.currency && other.id !== account.id);
+  const transferAccounts = bookableManualAccounts(activeAccounts(useAccounts().data ?? [])).filter(other => other.currency === account.currency && other.id !== account.id);
   const latestDate = today().toString();
   // A manual account's balance date is its latest booking; the closing cannot precede it.
   const remaining = account.balance_minor ?? 0;

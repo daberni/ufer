@@ -19,7 +19,7 @@ import { LoginForm } from "@/features/auth/components/login-form";
 import { LegalLinks } from "@/features/legal/components/legal-links";
 import { SourceCodeNotice } from "@/features/legal/components/source-code-notice";
 import { AccountDetailActions } from "@/features/accounts/components/account-detail-actions";
-import { accountGroups, activeAccounts, useAccounts } from "@/features/accounts/queries";
+import { accountGroups, activeAccounts, bookableManualAccounts, useAccounts } from "@/features/accounts/queries";
 import { showsSync } from "./sync-visibility";
 import { useBankingConfiguration } from "@/features/banking/banking-configuration";
 import { SyncButton } from "@/features/banking/components/sync-button";
@@ -121,7 +121,7 @@ function DashboardShell({ children }: {
                 <AccountDetailActions
                   key={selectedAccount.id}
                   account={selectedAccount}
-                  manualAccounts={activeAccounts(accounts.data ?? []).filter(account => account.provider === "manual" && account.kind !== "brokerage")}
+                  manualAccounts={bookableManualAccounts(activeAccounts(accounts.data ?? []))}
                 />
                 {showSync && <SyncButton bankAccounts={bankAccounts} showConnections={() => router.push(bankConnectionsHref)} />}
               </div>

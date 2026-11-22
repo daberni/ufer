@@ -34,6 +34,11 @@ export function useNetWorth(currency: string) {
   });
 }
 
+/** Manual accounts that take bookings: entries, transfers, imports and closings. A brokerage account holds securities instead (ADR 012). */
+export function bookableManualAccounts(accounts: Account[]) {
+  return accounts.filter(account => account.provider === "manual" && account.kind !== "brokerage");
+}
+
 /** Accounts that are not archived, as offered in lists and pickers. */
 export function activeAccounts(accounts: Account[]) {
   return accounts.filter(account => account.archived_at === null);
@@ -52,7 +57,7 @@ export function accountGroups(accounts: Account[], currency: string, now = Tempo
     // Reports include archived accounts, so their presence decides whether a currency has figures to show.
     reportedAccounts: accounts.filter(account => account.currency === currency),
     // Brokerage accounts take no bookings, so they are no manual account for entries or transfers.
-    manualAccounts: activeAccounts(accounts).filter(account => account.provider === "manual" && account.kind !== "brokerage"),
+    manualAccounts: bookableManualAccounts(activeAccounts(accounts)),
     bankAccounts,
     expiring: bankAccounts.filter(account => account.valid_until && expiresSoon(account.valid_until))
   };
