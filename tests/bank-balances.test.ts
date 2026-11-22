@@ -10,6 +10,7 @@ import { Temporal } from "temporal-polyfill";
 import type { Database } from "../src/server/database/connection";
 import { initializeDatabase, migrateDatabase } from "../src/server/database/migrations";
 import * as schema from "../src/server/database/schema";
+import type { ReportedBalance } from "../src/features/accounts/types";
 import { listAccounts, readBalanceHistory, readNetWorth } from "../src/features/accounts/server/account-queries";
 import { reconcileBankBalance } from "../src/features/accounts/server/account-service";
 import { saveAccountSync } from "../src/features/banking/server/account-sync-service";
@@ -222,6 +223,55 @@ test("a difference to the reported booked balance is shown and an adjustment on 
 
   assert.equal(reconciled.balance_minor, 99000);
   assert.equal(reconciled.reported_difference_minor, 0);
+});
+
+test("the balance history compares each reported booked balance with the calculated balance and marks where a difference starts", async context => {
+  const db = await freshDatabase(context);
+
+  await sync({
+    amount: "1000.00",
+    date: "2026-09-30"
+  }, firstBookings);
+  await sync({
+    amount: "1000.00",
+    date: "2026-10-02"
+  }, firstBookings);
+  await sync({
+    amount: "990.00",
+    date: "2026-10-05"
+  }, firstBookings);
+  await sync({
+    amount: "3000.00",
+    date: "2026-10-06",
+    type: "CLAV"
+  }, firstBookings);
+  await sync({
+    amount: "970.00",
+    date: "2026-10-07"
+  }, [...firstBookings, {
+    reference: "bank:groceries",
+    date: "2026-10-07",
+    amount: -2000
+  }]);
+
+  const summarized = (report: ReportedBalance) => [report.date, report.amount_minor, report.calculated_minor, report.difference_minor, report.difference_started];
+
+  // The available balance is left out; the difference starts on 5 October and persists through a later matching booking.
+  assert.deepEqual((await readBalanceHistory("checking")).reported.map(summarized), [
+    ["2026-09-30", 100000, 100000, 0, false],
+    ["2026-10-02", 100000, 100000, 0, false],
+    ["2026-10-05", 99000, 100000, -1000, true],
+    ["2026-10-07", 97000, 98000, -1000, false]
+  ]);
+
+  await db.insert(schema.accounts).values({
+    id: "cash",
+    name: "Synthetic cash",
+    kind: "checking",
+    provider: "manual"
+  });
+
+  assert.deepEqual((await readBalanceHistory("cash")).reported, []);
 });
 
 test("an available balance is never compared with the bookings and cannot be reconciled", async context => {

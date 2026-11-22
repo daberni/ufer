@@ -1,10 +1,11 @@
 import { Temporal } from "temporal-polyfill";
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { database } from "@/server/database/connection";
 import { accounts, balanceSnapshots, requisitions, transactions } from "@/server/database/schema";
 import { HttpError } from "@/lib/errors";
 import { productTimeZone, today } from "@/lib/time";
 import { dailyBalances } from "@/features/accounts/daily-balances";
+import { reportedBalanceDifferences } from "@/features/accounts/reported-balances";
 import { netWorthCategories, netWorthCategory, type NetWorthCategory } from "@/features/accounts/net-worth-categories";
 import type { BalanceHistory, BalancePoint } from "@/features/accounts/types";
 
@@ -118,10 +119,13 @@ export async function readBalanceHistory(accountId: string): Promise<BalanceHist
     amount_minor: sql<number>`SUM(${transactions.amount_minor})`.mapWith(Number)
   }).from(transactions).where(and(eq(transactions.account_id, accountId), eq(transactions.currency, account.currency), sql`${transactions.suppressed_at} IS NULL`, sql`${transactions.date} <= ${currentDate}`)).groupBy(transactions.date).orderBy(asc(transactions.date));
 
+  const reported = await readReportedBalances(accountId, account.provider, account.currency);
+
   if (!bookings.length) {
     return {
       currency: account.currency,
-      balances: []
+      balances: [],
+      reported
     };
   }
 
@@ -144,6 +148,33 @@ export async function readBalanceHistory(accountId: string): Promise<BalanceHist
 
   return {
     currency: account.currency,
-    balances: dailyBalances(bookings, [start], endDate)
+    balances: dailyBalances(bookings, [start], endDate),
+    reported
   };
+}
+
+/** The booked balances a still bank-linked account reported, each compared with its bookings by booking date, which the bank's balance follows. */
+async function readReportedBalances(accountId: string, provider: string, currency: string) {
+  if (provider === "manual") {
+    return [];
+  }
+
+  const db = await database();
+  const reports = await db.select({
+    date: balanceSnapshots.observed_at,
+    amount_minor: balanceSnapshots.amount_minor,
+    bank_balance_type: balanceSnapshots.bank_balance_type
+  }).from(balanceSnapshots).where(and(eq(balanceSnapshots.account_id, accountId), eq(balanceSnapshots.source, "sync"), inArray(balanceSnapshots.bank_balance_type, comparableBankBalanceTypes))).orderBy(asc(balanceSnapshots.observed_at));
+
+  if (!reports.length) {
+    return [];
+  }
+
+  const bookingDate = sql<string>`COALESCE(${transactions.booking_date}, ${transactions.date})`;
+  const bookings = await db.select({
+    date: bookingDate,
+    amount_minor: sql<number>`SUM(${transactions.amount_minor})`.mapWith(Number)
+  }).from(transactions).where(and(eq(transactions.account_id, accountId), eq(transactions.currency, currency), sql`${transactions.suppressed_at} IS NULL`)).groupBy(bookingDate);
+
+  return reportedBalanceDifferences(reports, bookings);
 }
