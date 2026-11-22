@@ -173,3 +173,14 @@ test("a same-day sale recorded before the buy that would cover it is refused reg
   assert.throws(() => positionOn(trades, [], "2026-01-10"), ValidationError);
   assert.throws(() => positionOn(shuffled(trades), [], "2026-01-10"), ValidationError);
 });
+
+test("a fully sold holding is worth exactly zero and current, even with an old price", () => {
+  assert.deepEqual(valueHolding(0, [{
+    date: "2026-01-02",
+    close_micros: 50_000_000
+  }], "EUR", "2026-06-30"), {
+    status: "current",
+    value_minor: 0,
+    price: null
+  });
+});

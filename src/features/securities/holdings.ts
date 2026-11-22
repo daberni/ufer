@@ -156,12 +156,21 @@ export function priceOn(prices: PricePoint[], date: string) {
 
 /** Values a quantity on `date` with the price valid then; without one the value is unknown rather than zero. */
 export function valueHolding(quantityMicros: number, prices: PricePoint[], currency: string, date: string): HoldingValuation {
+  // A position with nothing held is worth exactly zero, however old or missing its price.
+  if (quantityMicros === 0) {
+    return {
+      status: "current",
+      value_minor: 0,
+      price: null
+    };
+  }
+
   const price = priceOn(prices, date);
 
   if (!price) {
     return {
-      status: quantityMicros === 0 ? "current" : "missing",
-      value_minor: quantityMicros === 0 ? 0 : null,
+      status: "missing",
+      value_minor: null,
       price: null
     };
   }
