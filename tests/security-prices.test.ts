@@ -557,6 +557,31 @@ test("a trade named by ISIN stores its security without searching; the next upda
   assert.deepEqual(searched, ["US0378331005"]);
 });
 
+test("choosing no listing for a security not yet looked up keeps the update from picking one", async context => {
+  const db = await isolatedDatabase(context);
+  const searched: string[] = [];
+
+  await tradeAccounts(db);
+  await buyByIsin("US0378331005");
+
+  const [security] = await securitiesWithIsin(db, "US0378331005");
+
+  await updateSecurityListing(security.id, {
+    provider_symbol: null
+  }, null);
+  await updatePrices(now, {
+    ...fakeProvider({}).provider,
+    async searchByIsin(isin) {
+      searched.push(isin);
+
+      return [];
+    }
+  });
+
+  assert.deepEqual(searched, []);
+  assert.notEqual((await securityRow(db, security.id))?.price_checked_at, null);
+});
+
 test("without a listing in its currency a security recorded by ISIN stays unpriced, says so and is not searched again", async context => {
   const db = await isolatedDatabase(context);
   const searched: string[] = [];

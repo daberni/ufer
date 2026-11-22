@@ -78,6 +78,15 @@ async function deleteDemoRows(tx: DatabaseTransaction) {
   await tx.update(transactions).set({
     transfer_id: null
   }).where(and(not(like(transactions.account_id, demoRows)), inArray(transactions.transfer_id, demoTransfers)));
+  // A booking on another account that became a demo trade's cash side returns to the type its delivery implies, as when a trade is deleted.
+  const demoSettlements = tx.select({
+    id: securityTrades.settlement_transaction_id
+  }).from(securityTrades).where(like(securityTrades.account_id, demoRows));
+
+  await tx.update(transactions).set({
+    type: sql`CASE WHEN ${transactions.transfer_detected}=1 THEN 'transfer' WHEN ${transactions.amount_minor}>0 THEN 'income' ELSE 'expense' END`,
+    type_source: "auto"
+  }).where(and(not(like(transactions.account_id, demoRows)), inArray(transactions.id, demoSettlements)));
   await tx.delete(securityTrades).where(like(securityTrades.account_id, demoRows));
   await tx.delete(securityPrices).where(like(securityPrices.security_id, demoRows));
   await tx.delete(securitySplits).where(like(securitySplits.security_id, demoRows));

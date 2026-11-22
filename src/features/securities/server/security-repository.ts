@@ -307,7 +307,7 @@ export async function saveSecurityListing(id: string, listing: {
     }).from(securities).where(eq(securities.id, id)).get();
 
     // Saving the same listing keeps its price history.
-    if (current && current.provider_symbol === listing.provider_symbol) {
+    if (current && listing.provider_symbol !== null && current.provider_symbol === listing.provider_symbol) {
       return true;
     }
 

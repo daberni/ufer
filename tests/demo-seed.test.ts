@@ -373,3 +373,40 @@ test("simulated bank connections show a sync history and splits but are never sy
   // A sync never requests demo accounts from a provider; a real sandbox connection stays syncable.
   assert.deepEqual((await listSyncAccounts()).map(account => account.id), ["sandbox-account"]);
 });
+
+test("re-seeding returns a sandbox booking that settled a demo trade to its own type", async context => {
+  const db = await isolatedDatabase(context);
+
+  await seedActor(db);
+  await insertSandboxBankAccount(db);
+  await seedDemoData({
+    confirmed: true,
+    runDate: firstRun
+  });
+  // A person used the sandbox booking as the cash side of a trade on the demo brokerage.
+  await db.update(schema.transactions).set({
+    type: "buy",
+    type_source: "manual"
+  }).where(eq(schema.transactions.id, "sandbox-transaction"));
+  await db.insert(schema.securityTrades).values({
+    id: "person-trade",
+    account_id: "demo-brokerage",
+    security_id: "demo-security-world",
+    date: "2026-11-01",
+    side: "buy",
+    sequence: 99,
+    quantity_micros: 1_000_000,
+    price_micros: 19_990_000,
+    gross_minor: 19_99,
+    settlement_transaction_id: "sandbox-transaction"
+  });
+
+  await seedDemoData({
+    confirmed: true,
+    runDate: secondRun
+  });
+
+  const booking = await db.select().from(schema.transactions).where(eq(schema.transactions.id, "sandbox-transaction")).get();
+
+  assert.deepEqual([booking?.type, booking?.type_source], ["expense", "auto"]);
+});
