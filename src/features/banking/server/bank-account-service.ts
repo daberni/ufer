@@ -28,6 +28,7 @@ export async function saveSessionAccounts(requisitionId: string, institution: st
     let targetIndex = -1;
 
     if (targetAccountId) {
+      // Matched by ID only: an account recreated from the same import under the same ID is the one the same user meant to connect.
       const target = await findConnectTarget(tx, targetAccountId);
 
       if (!target) {
