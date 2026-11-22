@@ -16,7 +16,7 @@ Designed for everyday use on desktop and smartphone, Ufer aims to make managing 
 - **Understand each month.** See income, expenses and spending by category for your selected month.
 - **Find any transaction.** Search and filter transactions across your accounts in one place.
 - **Keep spending organized.** Categorize transactions with your own rules and correct categories when needed.
-- **Include more than bank accounts.** Track other assets with manual valuations and import history into manual accounts using CSV files.
+- **Include more than bank accounts.** Track other assets with manual valuations and import history into manual accounts from files.
 
 ## In pictures
 
@@ -57,7 +57,7 @@ See [setup and self-hosting](docs/setup.md) for installation instructions, or th
 - [Product direction](docs/product-direction.md) — the experience Ufer is working toward.
 - [Backlog](https://github.com/daberni/ufer/issues) — reported problems and requested improvements.
 - [Banking](docs/banking.md) — connection behavior and data handling.
-- [CSV import](docs/csv-import.md) — importing transaction history and balances.
+- [File import](docs/file-import.md) — importing transaction history from files.
 - [Architecture](docs/architecture.md) — technical structure and decisions for contributors.
 - [Changelog](CHANGELOG.md) — released and upcoming changes.
 - [Branding](docs/branding/README.md) — name, icon and visual identity.

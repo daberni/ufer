@@ -27,7 +27,7 @@ export function TermsOfUse({ configuration }: {
 
       <h2>The service</h2>
       <p>
-        Ufer shows an overview of accounts, balances, transactions and spending. It can retrieve account information from banks through Enable Banking, and you can add manual accounts, valuations and CSV imports. Ufer only reads account information and cannot initiate payments.
+        Ufer shows an overview of accounts, balances, transactions and spending. It can retrieve account information from banks through Enable Banking, and you can add manual accounts, valuations and file imports. Ufer only reads account information and cannot initiate payments.
       </p>
       <p>
         All users of this installation share one financial workspace and can see and change all of its data, including bank data connected by another user.

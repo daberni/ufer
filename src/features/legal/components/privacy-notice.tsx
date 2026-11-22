@@ -61,7 +61,7 @@ export function PrivacyNotice({ configuration }: {
       </p>
       <h3>Data you enter or import</h3>
       <p>
-        Manual accounts and valuations, balances and transactions imported from CSV files into manual accounts, categories, categorization rules and category assignments. Ufer stores the imported rows, not the uploaded file.
+        Manual accounts and valuations, balances and transactions imported from files into manual accounts, categories, categorization rules and category assignments. Ufer stores the imported rows, not the uploaded file.
       </p>
       <h3>What you need to provide</h3>
       <p>

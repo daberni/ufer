@@ -2,7 +2,7 @@
 
 Ufer uses Next.js, React, TypeScript and SQLite/libSQL. It can run locally, in Docker on a NAS, or on Vercel with a persistent external database.
 
-This guide covers development, deployment and verification. See [banking](banking.md) for synchronization behavior and data handling and [CSV import](csv-import.md) for file formats. Architecture, contribution conventions and schema maintenance are covered in [architecture](architecture.md), [code style](code-style.md), [decision records](adr/README.md) and [database migrations](database-migrations.md).
+This guide covers development, deployment and verification. See [banking](banking.md) for synchronization behavior and data handling and [file import](file-import.md) for file formats. Architecture, contribution conventions and schema maintenance are covered in [architecture](architecture.md), [code style](code-style.md), [decision records](adr/README.md) and [database migrations](database-migrations.md).
 
 ## Run locally
 

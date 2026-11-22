@@ -12,7 +12,7 @@ import { TransactionRuleProvider } from "./transaction-rule-provider";
 import { TransactionList, TransactionListSkeleton } from "@/features/transactions/components/transaction-list";
 import { ManualTransactionDialog } from "@/features/transactions/components/manual-transaction-dialog";
 import { activeAccounts, useAccounts } from "@/features/accounts/queries";
-import { CsvFileDialog } from "@/features/imports/components/csv-file-dialog";
+import { ImportFileDialog } from "@/features/imports/components/import-file-dialog";
 import { setAccountFilter, setCategoryFilter, setTypeFilter, setPage, setSearch, useAccountFilter, useCategoryFilter, useTypeFilter, useAllTransactionsHref, useSearchFilter } from "@/client/use-app-url";
 import { Select } from "@/components/ui/select";
 import { anyCategory, CategoryPicker, type CategoryPickerValue } from "@/features/categorization/components/category-picker";
@@ -108,7 +108,7 @@ export function TransactionsPanel(props: Props) {
           )}
           <button className={clsx(ui["button"], ui["phone-hidden"])} onClick={() => setImportOpen(true)}>
             <ArrowDownToLine size={15} />
-            Import CSV
+            Import file
           </button>
           <ActionMenu label="Transaction actions" appearance="button" phoneOnly>
             {manualAccounts.length > 0 && (
@@ -117,7 +117,7 @@ export function TransactionsPanel(props: Props) {
               </MenuItem>
             )}
             <MenuItem icon={<ArrowDownToLine size={15} aria-hidden="true" />} onSelect={() => setImportOpen(true)}>
-              Import CSV
+              Import file
             </MenuItem>
           </ActionMenu>
         </SectionHeading>
@@ -157,7 +157,7 @@ export function TransactionsPanel(props: Props) {
             />
           )}
         </TransactionRuleProvider>
-        {importOpen && <CsvFileDialog close={() => setImportOpen(false)} />}
+        {importOpen && <ImportFileDialog close={() => setImportOpen(false)} />}
         {entryOpen && <ManualTransactionDialog accounts={manualAccounts} close={() => setEntryOpen(false)} />}
       </section>
     </>
@@ -187,7 +187,7 @@ function TransactionPages({
   return (
     <>
       <div {...areaProps(list.status)}>
-        {visibleTransactions.length ? <TransactionList categories={categories} transactions={visibleTransactions} /> : noMatches && (emptyState ?? <Empty title="Your financial history starts here.">Connect a bank account and sync, or import your existing transactions from CSV.</Empty>)}
+        {visibleTransactions.length ? <TransactionList categories={categories} transactions={visibleTransactions} /> : noMatches && (emptyState ?? <Empty title="Your financial history starts here.">Connect a bank account and sync, or import your existing transactions from a file.</Empty>)}
       </div>
       {view !== "overview" && transactionCount > transactionPageSize && (
         <div className={styles["pagination"]}>

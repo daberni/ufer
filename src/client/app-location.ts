@@ -48,7 +48,7 @@ export type ViewQueryChanges = {
 
 type SearchParams = Pick<URLSearchParams, "get" | "toString">;
 
-/** The CSV import page, below the transactions it adds to. */
+/** The file import page, below the transactions it adds to. */
 export const importPath = "/transactions/import";
 
 const defaultCurrency = "EUR";

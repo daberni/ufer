@@ -5,7 +5,7 @@ import type { BalancePoint } from "./types";
 export const balanceSourceLabels: Record<BalancePoint["source"], string> = {
   sync: "Bank sync",
   manual: "Manual",
-  csv: "CSV import",
+  csv: "File import",
   transactions: "Estimated"
 };
 

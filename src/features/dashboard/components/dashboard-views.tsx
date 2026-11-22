@@ -10,7 +10,7 @@ import { AccountsView } from "@/features/accounts/components/accounts-view";
 import { RulesView } from "@/features/categorization/components/rules-view";
 import { ConnectionsSection } from "@/features/banking/components/connections-view";
 import { AccountDetails, AccountNotFound, type BackLink } from "@/features/accounts/components/account-details";
-import { CsvImportPage } from "@/features/imports/components/csv-import-page";
+import { FileImportPage } from "@/features/imports/components/file-import-page";
 import { AccountCashFlowSummary } from "@/features/reports/components/account-cash-flow";
 import { withArchivedAccountsOpen } from "@/client/app-location";
 import { replacePage, setSyncRun, useAccountTransactionsHref, useViewHref, useViewQuery } from "@/client/use-app-url";
@@ -147,7 +147,7 @@ function selectedAccount(accounts: Area<Account[]>, id: string): Area<Account> |
 }
 
 export function ImportPage() {
-  return <CsvImportPage />;
+  return <FileImportPage />;
 }
 
 export function AccountPage() {
