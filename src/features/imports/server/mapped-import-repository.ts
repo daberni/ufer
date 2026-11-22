@@ -25,6 +25,7 @@ const typeLocked = sql<boolean>`(${transactions.type_source} = 'manual' OR ${tra
 
 /** The columns duplicate matching and the review compare. */
 const storedBooking = {
+  id: transactions.id,
   reference: transactions.provider_reference,
   date: transactions.date,
   bookingDate: transactions.booking_date,
@@ -182,7 +183,7 @@ export async function listCategoryNames() {
 
 type Executor = Pick<DatabaseTransaction, "select">;
 
-async function classify(executor: Executor, accountId: string, entries: MappedEntry[], consumed: ReadonlySet<string>) {
+async function classify(executor: Executor, accountId: string, entries: MappedEntry[], consumed: ReadonlySet<string>, decisions: ReadonlyMap<number, Decision>) {
   const window = entries.length === 0 ? undefined : matchingWindow(entries.map(entry => entry.date).sort());
   const nearby = window ? await bookingsBetween(executor, accountId, window.from, window.to) : [];
   // A row identified by an export ID may have moved further than the window since it was imported; its reference still identifies it.
@@ -190,7 +191,9 @@ async function classify(executor: Executor, accountId: string, entries: MappedEn
   const nearbyReferences = new Set(nearby.map(booking => booking.reference));
   const existing = [...nearby, ...sameReference.filter(booking => !nearbyReferences.has(booking.reference))];
 
-  return findDuplicates(entries, existing, consumed);
+  const expected = new Map([...decisions].flatMap(([index, decision]) => decision.action === "update" && decision.booking ? [[index, decision.booking] as const] : []));
+
+  return findDuplicates(entries, existing, consumed, expected);
 }
 
 async function bookingsWithReferences(executor: Executor, accountId: string, references: string[]) {
@@ -207,7 +210,7 @@ async function bookingsWithReferences(executor: Executor, accountId: string, ref
 
 /** Classifies rows against the account's bookings and plans the person's decisions without writing anything. */
 export async function checkMappedEntries(accountId: string, entries: MappedEntry[], consumed: ReadonlySet<string>, decisions: ReadonlyMap<number, Decision> = new Map()) {
-  const found = await classify(await database(), accountId, entries, consumed);
+  const found = await classify(await database(), accountId, entries, consumed, decisions);
   const plan = planRows(entries, found, decisions);
 
   return {
@@ -310,7 +313,7 @@ async function saveAccountRows(tx: DatabaseTransaction, {
   }
 
   await assertWritableAccount(tx, accountId);
-  const found = await classify(tx, accountId, entries, consumed);
+  const found = await classify(tx, accountId, entries, consumed, decisions);
   const plan = planRows(entries, found, decisions);
   const fresh = await ensureCategories(plan.inserts.map(index => entries[index]));
   const dates = new Map(fresh.map(entry => [entry.reference, entry.date]));

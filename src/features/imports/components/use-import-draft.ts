@@ -290,19 +290,19 @@ export function useImportDraft() {
     setCategoryChoices(current => new Map(current).set(value, selection));
   }
 
-  /** Sets the decision for the given lines; without a reference each row keeps the candidate it shows, so a bulk action never switches bookings. */
-  function decide(lines: number[], action: DecisionInput["action"], reference?: string) {
+  /** Sets the decision for the given lines; without a booking each row keeps the candidate it shows, so a bulk action never switches bookings. */
+  function decide(lines: number[], action: DecisionInput["action"], booking?: string) {
     setDecisions(current => {
       const next = new Map(current);
 
       for (const line of lines) {
-        const kept = reference ?? current.get(line)?.reference ?? viewedCandidates.get(line);
+        const kept = booking ?? current.get(line)?.booking ?? viewedCandidates.get(line);
 
         next.set(line, {
           line,
           action,
           ...(kept === undefined ? {} : {
-            reference: kept
+            booking: kept
           })
         });
       }
@@ -312,8 +312,8 @@ export function useImportDraft() {
   }
 
   /** Shows another candidate of an undecided possible duplicate; a later decision applies to it. */
-  function viewCandidate(line: number, reference: string) {
-    setViewedCandidates(current => new Map(current).set(line, reference));
+  function viewCandidate(line: number, booking: string) {
+    setViewedCandidates(current => new Map(current).set(line, booking));
   }
 
   function chooseType(value: string, type: ImportType | null) {
@@ -359,7 +359,7 @@ export function useImportDraft() {
 
       return [decision.action === "update" ? {
         ...decision,
-        reference: decisionCandidate(match, decision).reference
+        booking: decisionCandidate(match, decision).id
       } : {
         line: decision.line,
         action: decision.action

@@ -11,6 +11,8 @@ export type SourceField = "payee" | "description" | "type";
 
 /** An existing booking a row matches, as the review compares it. */
 export type ExistingMatch = {
+  /** The booking's ID, which a decision names; bounded, unlike stored references. */
+  id: string;
   reference: string;
   date: string;
   amount: number;
@@ -40,11 +42,11 @@ export type RowMatch = {
   candidates: ExistingMatch[];
 };
 
-/** A person's decision for one row; `reference` names the candidate an update applies to. */
+/** A person's decision for one row; `booking` names the ID of the candidate an update applies to. */
 export type DecisionInput = {
   line: number;
   action: RowDecision;
-  reference?: string;
+  booking?: string;
 };
 
 /** A confident match updates by default; a possible duplicate has no default. */
@@ -108,7 +110,7 @@ export function effectiveDecision(match: RowMatch, chosen: DecisionInput | undef
 
 /** The booking an update applies to: the chosen candidate, else the most likely one. */
 export function decisionCandidate(match: RowMatch, decision: DecisionInput | null) {
-  return match.candidates.find(candidate => candidate.reference === decision?.reference) ?? match.candidates[0];
+  return match.candidates.find(candidate => candidate.id === decision?.booking) ?? match.candidates[0];
 }
 
 /** What confirming does with the matched and possibly duplicate rows under the current decisions. */
@@ -131,7 +133,7 @@ export function decisionTotals(matches: RowMatch[], chosen: ReadonlyMap<number, 
   for (const match of matches.toSorted((left, right) => Number(left.kind === "possible") - Number(right.kind === "possible"))) {
     const decision = effectiveDecision(match, chosen.get(match.line));
     const candidate = decision?.action === "update" ? decisionCandidate(match, decision) : undefined;
-    const key = candidate ? `${match.accountId}\u0000${candidate.reference}` : "";
+    const key = candidate ? candidate.id : "";
     const taken = candidate ? claimed.has(key) : false;
 
     if (candidate) {

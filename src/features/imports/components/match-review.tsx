@@ -179,7 +179,7 @@ function MatchItem({
   // Before a decision, the person can still look at each candidate.
   const viewed = draft.viewedCandidates.get(match.line);
   const decision = effectiveDecision(match, draft.decisions.get(match.line));
-  const candidate = decision?.reference ? decisionCandidate(match, decision) : match.candidates.find(option => option.reference === viewed) ?? decisionCandidate(match, decision);
+  const candidate = decision?.booking ? decisionCandidate(match, decision) : match.candidates.find(option => option.id === viewed) ?? decisionCandidate(match, decision);
   const conflict = draft.totals?.conflicts.has(match.line) ?? false;
   const undecided = decision === null || conflict;
   const changes = new Set<SourceField>(decision?.action === "update" ? candidate.changes : []);
@@ -227,11 +227,11 @@ function MatchItem({
             <label htmlFor={`${id}-candidate`}>Booking in Ufer</label>
             <Select
               id={`${id}-candidate`}
-              value={candidate.reference}
+              value={candidate.id}
               disabled={draft.inputsLocked}
               onChange={event => decision ? draft.decide([match.line], decision.action, event.target.value) : draft.viewCandidate(match.line, event.target.value)}
             >
-              {match.candidates.map(option => <option key={option.reference} value={option.reference}>{candidateLabel(option, currency, locale)}</option>)}
+              {match.candidates.map(option => <option key={option.id} value={option.id}>{candidateLabel(option, currency, locale)}</option>)}
             </Select>
           </div>
         )}
@@ -243,7 +243,7 @@ function MatchItem({
             aria-invalid={undecided}
             aria-describedby={undecided ? `${id}-hint` : undefined}
             disabled={draft.inputsLocked}
-            onChange={event => draft.decide([match.line], event.target.value as RowDecision, match.kind === "possible" ? candidate.reference : undefined)}
+            onChange={event => draft.decide([match.line], event.target.value as RowDecision, match.kind === "possible" ? candidate.id : undefined)}
           >
             {decision === null && <option value="" disabled>Choose …</option>}
             {allowedDecisions(match).map(action => <option key={action} value={action}>{decisionLabels[action]}</option>)}

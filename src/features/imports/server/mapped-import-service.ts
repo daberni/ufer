@@ -85,12 +85,11 @@ const matchedBooking = z.object({
   date: z.string()
 });
 
-/** A person's decision for a matched or possibly duplicate row; `reference` names the candidate booking an update applies to. */
+/** A person's decision for a matched or possibly duplicate row; `booking` names the ID of the candidate an update applies to. */
 const decision = z.object({
   line: z.number().int().min(1),
   action: z.enum(rowDecisions),
-  // Stored references, such as a bank's entry reference, have no fixed length; the request body limit bounds them.
-  reference: z.string().optional()
+  booking: z.string().max(100).optional()
 });
 
 const mappedImportInput = z.object({
@@ -544,7 +543,7 @@ async function classifyAndSave(planned: PlannedRow[], targets: Map<string, Targe
   const matches: RowMatch[] = [];
   const decisionOf = new Map(decisions.map(item => [item.line, {
     action: item.action,
-    reference: item.reference
+    booking: item.booking
   }]));
   const decisionsOf = (rows: PlannedRow[]) => new Map(rows.flatMap((item, index) => {
     const chosen = decisionOf.get(item.line);

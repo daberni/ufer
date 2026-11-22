@@ -74,7 +74,7 @@ function row(line: number, date: string, amount: string, payee: string, extra: P
 function importRows(importId: string, rows: ImportRow[], confirm: boolean, decisions: {
   line: number;
   action: "update" | "skip" | "create";
-  reference?: string;
+  booking?: string;
 }[] = []) {
   return importMappedRows({
     import_id: importId,
@@ -320,7 +320,7 @@ for (const [decision, expected] of [
     const decisions = decision === "none" ? [] : [{
       line: 2,
       action: decision,
-      reference: later?.reference
+      booking: later?.id
     }];
     const updated = decision === "update" ? [row(2, "2024-04-22", "-15.00", "Cinema Ticket Office")] : rows;
     const result = await importRows(reimport, updated, true, decisions);
@@ -345,7 +345,7 @@ test("an update naming a booking that is no longer a candidate waits for a new d
   const result = await importRows(reimport, [row(2, "2024-04-22", "-15.00", "Cinema Ticket Office")], true, [{
     line: 2,
     action: "update",
-    reference: "csv:m:not-a-candidate"
+    booking: "not-a-candidate"
   }]);
 
   assert.deepEqual(result.undecided, [2]);
@@ -363,6 +363,7 @@ function counts(totals: ReturnType<typeof decisionTotals>) {
 
 test("the review's totals follow the decisions and leave a possible duplicate undecided when its booking is already updated", () => {
   const existing = (reference: string, changes: ExistingMatch["changes"]): ExistingMatch => ({
+    id: reference,
     reference,
     date: "2024-04-20",
     amount: -1500,
@@ -421,17 +422,21 @@ test("the review's totals follow the decisions and leave a possible duplicate un
   }], [4, {
     line: 4,
     action: "update" as const,
-    reference: "c"
+    booking: "c"
   }]]))), {
     created: 1,
     updated: 2,
     unchanged: 0,
     undecided: 0
   });
-  // The same reference on another account is a different booking.
+  // The same reference on another account is a different booking with its own ID.
   assert.equal(decisionTotals([matches[0], {
     ...matches[2],
-    accountId: "y"
+    accountId: "y",
+    candidates: [{
+      ...existing("a", ["description"]),
+      id: "a-on-y"
+    }]
   }], new Map([[4, {
     line: 4,
     action: "update" as const
@@ -453,7 +458,7 @@ test("an update of a chosen booking is not redirected to another booking that no
   })], true, [{
     line: 2,
     action: "update",
-    reference: "csv:m:deleted-meanwhile"
+    booking: "deleted-meanwhile"
   }]);
 
   assert.deepEqual([result.updatedRows, result.undecided], [0, [2]]);
@@ -467,7 +472,7 @@ test("an update decided for a row that no longer matches anything is not inserte
   const result = await importRows(reimport, [row(2, "2024-04-22", "-15.00", "Example Cinema")], true, [{
     line: 2,
     action: "update",
-    reference: "csv:m:removed-meanwhile"
+    booking: "removed-meanwhile"
   }]);
 
   assert.deepEqual([result.newRows, result.undecided], [0, [2]]);
@@ -502,7 +507,7 @@ test("a confident match keeps its booking when an earlier possible duplicate cho
   const result = await importRows(reimport, rows, true, [{
     line: 2,
     action: "update",
-    reference: later?.reference
+    booking: later?.id
   }]);
   const stored = await db.select().from(schema.transactions).orderBy(schema.transactions.date);
 
@@ -523,4 +528,35 @@ test("the review shortens long candidate texts but compares the full text", asyn
   assert.equal(candidate.payee.length, 120);
   assert.deepEqual(candidate.changes, ["description"]);
   assert.equal(check.matches[0].description, "Evening");
+});
+
+test("a row whose decided booking disappeared leaves the booking it now matches to the row that decided on it", async context => {
+  const db = await isolatedDatabase(context);
+
+  await importRows(firstImport, [row(2, "2024-04-20", "-15.00", "Example Cinema"), row(3, "2024-04-22", "-15.00", "Example Cinema")], true);
+
+  const rows = [row(2, "2024-04-20", "-15.00", "Example Cinema", {
+    description: "First"
+  }), row(3, "2024-04-22", "-15.00", "Example Cinema", {
+    description: "Second"
+  })];
+  const check = await importRows(reimport, rows, false);
+  const bookingOf = (line: number) => check.matches.find(match => match.line === line)?.candidates[0].id;
+  const decisions = [{
+    line: 2,
+    action: "update" as const,
+    booking: bookingOf(2)
+  }, {
+    line: 3,
+    action: "update" as const,
+    booking: bookingOf(3)
+  }];
+
+  await db.delete(schema.transactions).where(eq(schema.transactions.date, "2024-04-20"));
+
+  const result = await importRows(reimport, rows, true, decisions);
+  const stored = await db.select().from(schema.transactions);
+
+  assert.deepEqual([result.updatedRows, result.newRows, result.undecided], [1, 0, [2]]);
+  assert.deepEqual(stored.map(item => [item.date, item.description]), [["2024-04-22", "Second"]]);
 });

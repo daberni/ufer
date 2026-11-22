@@ -4,6 +4,7 @@ import type { MappedEntry } from "./mapped-import-repository";
 
 /** A booking an imported row may match, with what the review compares and an update may change. */
 export type StoredBooking = ExistingBooking & {
+  id: string;
   type: string;
   typeLocked: boolean;
   payeeOverridden: boolean;
@@ -12,7 +13,8 @@ export type StoredBooking = ExistingBooking & {
 
 export type Decision = {
   action: RowDecision;
-  reference?: string;
+  /** The ID of the booking an update applies to. */
+  booking?: string;
 };
 
 type Found = ReturnType<typeof findDuplicates<StoredBooking>>;
@@ -68,7 +70,7 @@ export function planRows(entries: MappedEntry[], found: Found, decisions: Readon
 
       if (action === "create" && reason === "existing_booking") {
         inserts.push(index);
-      } else if (action === "update" && decision?.reference !== undefined && decision.reference !== booking.reference) {
+      } else if (action === "update" && decision?.booking !== undefined && decision.booking !== booking.id) {
         // The person chose another booking at the check; never update a different one, and leave this one free for other rows and batches.
         undecided.push(index);
         released.add(booking.reference);
@@ -102,7 +104,7 @@ export function planRows(entries: MappedEntry[], found: Found, decisions: Readon
       return;
     }
 
-    const chosen = decision ? candidates.find(candidate => candidate.reference === (decision.reference ?? candidates[0]?.reference)) : undefined;
+    const chosen = decision ? candidates.find(candidate => candidate.id === (decision.booking ?? candidates[0]?.id)) : undefined;
 
     // An update whose booking is gone or already taken by another row waits for a new decision, like a row without one.
     if (!chosen || !update(index, chosen)) {
@@ -139,6 +141,7 @@ function shortened(text: string) {
 export function describeMatches(entries: MappedEntry[], found: Found) {
   const described = new Map<number, Omit<RowMatch, "line" | "accountId">>();
   const existingMatch = (index: number, booking: StoredBooking): ExistingMatch => ({
+    id: booking.id,
     reference: booking.reference,
     date: booking.date,
     amount: booking.amount,
