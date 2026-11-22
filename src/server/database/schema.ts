@@ -1,7 +1,9 @@
 import { desc, sql } from "drizzle-orm";
 import { authSessions, authUsers, workspaces } from "./auth-schema";
-import { check, index, integer, sqliteTable, text, unique, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { check, index, integer, primaryKey, sqliteTable, text, unique, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { ruleTransactionTypes, transactionTypes } from "@/lib/transaction-types";
+import { storedAccountKinds } from "@/features/accounts/account-kinds";
+import { tradeSides } from "@/features/securities/trade-sides";
 
 export const categories = sqliteTable("categories", {
   id: text("id").primaryKey(),
@@ -41,7 +43,7 @@ export const accounts = sqliteTable("accounts", {
   name: text("name").notNull(),
   provider_name: text("provider_name"),
   kind: text("kind", {
-    enum: ["checking", "savings", "investment", "loan", "property", "credit_card"]
+    enum: storedAccountKinds
   }).notNull(),
   currency: text("currency").notNull().default("EUR"),
   provider: text("provider").notNull().default("manual"),
@@ -56,7 +58,7 @@ export const accounts = sqliteTable("accounts", {
   // Set while the account is archived: hidden from the account lists and pickers, but its history and report contributions remain.
   archived_at: text("archived_at")
 }, table => [
-  check("accounts_kind", sql`${table.kind} IN ('checking','savings','investment','loan','property','credit_card')`)
+  check("accounts_kind", sql`${table.kind} IN ('checking','savings','investment','brokerage','loan','property','credit_card')`)
 ]);
 
 export const accountIdentifiers = sqliteTable("account_identifiers", {
@@ -143,7 +145,7 @@ export const transactions = sqliteTable("transactions", {
   index("transactions_created_at").on(table.created_at),
   uniqueIndex("transactions_transfer_side").on(table.transfer_id, sql`${table.amount_minor} > 0`).where(sql`${table.transfer_id} IS NOT NULL`),
   check("transactions_category_source", sql`${table.category_source} IN ('rule','manual')`),
-  check("transactions_type", sql`${table.type} IN ('income','expense','transfer','opening_balance','adjustment')`),
+  check("transactions_type", sql`${table.type} IN ('income','expense','transfer','opening_balance','adjustment','buy','sell')`),
   check("transactions_transfer_detected", sql`${table.transfer_detected} IN (0,1)`),
   check("transactions_type_source", sql`${table.type_source} IN ('auto','manual')`),
   check("transactions_transfer_source", sql`${table.transfer_source} IN ('auto','manual')`),
@@ -214,3 +216,82 @@ export const importTemplates = sqliteTable("import_templates", {
 ]);
 
 export { authUsers, authSessions, authAccounts, authVerifications, authRateLimits, workspaces, memberships } from "./auth-schema";
+
+/** A security shared by every account holding it; a provider symbol (for example `VWCE.XETRA`) names the listing whose daily closes value it. */
+export const securities = sqliteTable("securities", {
+  id: text("id").primaryKey(),
+  isin: text("isin"),
+  name: text("name").notNull(),
+  currency: text("currency").notNull(),
+  provider: text("provider"),
+  provider_symbol: text("provider_symbol"),
+  venue: text("venue"),
+  // The last price update attempt and its error, so a failed or missing price is visible.
+  price_checked_at: text("price_checked_at"),
+  price_error: text("price_error"),
+  created_at: text("created_at").notNull().default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ','now'))`)
+}, table => [
+  uniqueIndex("securities_provider_symbol").on(table.provider, table.provider_symbol).where(sql`${table.provider} IS NOT NULL`),
+  check("securities_provider", sql`(${table.provider} IS NULL) = (${table.provider_symbol} IS NULL)`)
+]);
+
+/** Daily closing prices in micro-units of the security's currency; provider data, never transactions. */
+export const securityPrices = sqliteTable("security_prices", {
+  security_id: text("security_id").notNull().references(() => securities.id, {
+    onDelete: "cascade"
+  }),
+  date: text("date").notNull(),
+  close_micros: integer("close_micros").notNull(),
+  source: text("source").notNull(),
+  fetched_at: text("fetched_at").notNull()
+}, table => [
+  primaryKey({
+    columns: [table.security_id, table.date]
+  }),
+  check("security_prices_close", sql`${table.close_micros} > 0`)
+]);
+
+/** A split multiplies every quantity held before its date by numerator/denominator. */
+export const securitySplits = sqliteTable("security_splits", {
+  security_id: text("security_id").notNull().references(() => securities.id, {
+    onDelete: "cascade"
+  }),
+  date: text("date").notNull(),
+  numerator: integer("numerator").notNull(),
+  denominator: integer("denominator").notNull()
+}, table => [
+  primaryKey({
+    columns: [table.security_id, table.date]
+  }),
+  check("security_splits_ratio", sql`${table.numerator} > 0 AND ${table.denominator} > 0`)
+]);
+
+/** Buys and sells, the only source of positions on a brokerage account. Quantities and prices in micro-units, money in minor units of the security's currency. */
+export const securityTrades = sqliteTable("security_trades", {
+  id: text("id").primaryKey(),
+  account_id: text("account_id").notNull().references(() => accounts.id),
+  security_id: text("security_id").notNull().references(() => securities.id),
+  date: text("date").notNull(),
+  side: text("side", {
+    enum: tradeSides
+  }).notNull(),
+  // Replay order within the account: moving-average cost depends on whether a same-day sale comes before or after a buy.
+  sequence: integer("sequence").notNull(),
+  quantity_micros: integer("quantity_micros").notNull(),
+  price_micros: integer("price_micros").notNull(),
+  // The traded amount before fees and taxes.
+  gross_minor: integer("gross_minor").notNull(),
+  // Kept apart from gross so a tax view can treat purchase costs differently from the cost basis, which includes them.
+  fee_minor: integer("fee_minor").notNull().default(0),
+  tax_minor: integer("tax_minor").notNull().default(0),
+  // The cash leg on the settlement account; a plain ID maintained together with the trade.
+  settlement_transaction_id: text("settlement_transaction_id"),
+  created_at: text("created_at").notNull().default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ','now'))`)
+}, table => [
+  index("security_trades_account").on(table.account_id, table.date),
+  index("security_trades_security").on(table.security_id),
+  uniqueIndex("security_trades_sequence").on(table.account_id, table.sequence),
+  uniqueIndex("security_trades_settlement").on(table.settlement_transaction_id).where(sql`${table.settlement_transaction_id} IS NOT NULL`),
+  check("security_trades_side", sql`${table.side} IN ('buy','sell')`),
+  check("security_trades_amounts", sql`${table.quantity_micros} > 0 AND ${table.price_micros} > 0 AND ${table.gross_minor} >= 0 AND ${table.fee_minor} >= 0 AND ${table.tax_minor} >= 0`)
+]);

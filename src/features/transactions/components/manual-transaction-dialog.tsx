@@ -11,7 +11,7 @@ import { Select } from "@/components/ui/select";
 import { useDialogSubmit } from "@/components/ui/use-dialog-submit";
 import { automaticCategory, CategoryPicker, type CategoryAssignmentValue } from "@/features/categorization/components/category-picker";
 import { useCategories } from "@/features/categorization/queries";
-import { isTransactionType, transactionTypeLabels, transactionTypes, type TransactionType } from "@/lib/transaction-types";
+import { entryTransactionTypes, isTransactionType, transactionTypeLabels, type TransactionType } from "@/lib/transaction-types";
 import { useEnterTransaction, type NewEntry } from "@/features/transactions/mutations";
 import type { Account } from "@/features/accounts/types";
 import { EntryFields, suggestedType } from "./entry-fields";
@@ -136,7 +136,7 @@ function ManualTransactionForm({
             }
           }}
         >
-          {transactionTypes.map(option => <option key={option} value={option}>{transactionTypeLabels[option]}</option>)}
+          {entryTransactionTypes.map(option => <option key={option} value={option}>{transactionTypeLabels[option]}</option>)}
         </Select>
       </label>
       {transfer && (
