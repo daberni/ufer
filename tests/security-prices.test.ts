@@ -523,6 +523,8 @@ test("a trade named by ISIN creates its security once, priced with the preferred
   await tradeAccounts(db);
   await buyByIsin("us0378331005", provider);
   await buyByIsin("US0378331005", provider);
+  // The second trade reuses the stored security without searching the provider again.
+  assert.deepEqual(searched, ["US0378331005"]);
 
   const created = await securitiesWithIsin(db, "US0378331005");
 

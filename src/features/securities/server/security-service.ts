@@ -16,7 +16,7 @@ import { valueHoldings } from "../valuation";
 import { readHoldingInputs } from "./valuation-repository";
 import { settlementRefusal, settlementWindowDays, tradeCashAmount, type SettlementRefusal } from "../trade-decisions";
 import { brokerageAccountInput, listingInput, securityInput, settlementCandidatesQuery, tradeInput } from "./security-schema";
-import { deleteTrade, findBrokerageAccount, findSecurity, findSettlementAccount, findSettlementBooking, findTrade, insertBrokerageAccount, insertSecurity, insertSettlementEntry, insertTrade, listSecurities, markSettlementBooking, nextTradeSequence, readAccountTrades, readPositionTrades, readSettlementCandidates, readSplits, readTradedSecurityIds, isEarliestTrade, markSplitsUnchecked, withSecurityTransaction, findOrInsertSecurity, findSecurityListing, saveSecurityListing } from "./security-repository";
+import { deleteTrade, findBrokerageAccount, findSecurity, findSettlementAccount, findSettlementBooking, findTrade, insertBrokerageAccount, insertSecurity, insertSettlementEntry, insertTrade, listSecurities, markSettlementBooking, nextTradeSequence, readAccountTrades, readPositionTrades, readSettlementCandidates, readSplits, readTradedSecurityIds, isEarliestTrade, markSplitsUnchecked, withSecurityTransaction, findOrInsertSecurity, findSecurityListing, saveSecurityListing, securityExistsForIsin } from "./security-repository";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 
 /** Replays every trade so a sale never exceeds what was held at that point, now or after a change. */
@@ -158,7 +158,9 @@ export async function recordTrade(accountId: string, payload: unknown, now = Tem
   const price = parseMicros(input.price, "price");
   const id = randomUUID();
   // The listing lookup is a network call, so it runs before the transaction; the security itself is found or created inside it.
-  const newSecurity = input.security ? await securityForIsin(input.security.isin, account.currency, input.security.name, provider) : null;
+  // A security already recorded for the ISIN needs no provider search; the transaction below finds it either way.
+  const known = input.security ? await securityExistsForIsin(input.security.isin, account.currency) : false;
+  const newSecurity = input.security ? await securityForIsin(input.security.isin, account.currency, input.security.name, known ? null : provider) : null;
 
   return withLease(syncLease, tradeLeaseMessage, () => withSecurityTransaction(async tx => {
     const brokerage = await findBrokerageAccount(tx, accountId);

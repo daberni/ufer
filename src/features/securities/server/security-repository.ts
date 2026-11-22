@@ -389,3 +389,13 @@ export async function markSplitsUnchecked(tx: DatabaseTransaction, securityId: s
     price_checked_at: null
   }).where(eq(securities.id, securityId));
 }
+
+/** Whether a security for the ISIN in the currency is already recorded, so a trade can reuse it without searching the provider. */
+export async function securityExistsForIsin(isin: string, currency: string) {
+  const db = await database();
+  const existing = await db.select({
+    id: securities.id
+  }).from(securities).where(and(eq(securities.isin, isin), eq(securities.currency, currency))).get();
+
+  return existing !== undefined;
+}
