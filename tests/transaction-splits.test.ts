@@ -15,8 +15,9 @@ import { readTransactionPage } from "../src/features/transactions/server/transac
 import { pairAllTransfers } from "../src/features/transactions/server/transfer-pairing-repository";
 import { replaceSplit } from "../src/features/transactions/server/split-repository";
 import { listAccounts } from "../src/features/accounts/server/account-queries";
-import { applyRulesToUncorrectedTransactions, categoryUsage, createRule, deleteCategory, previewRule } from "../src/features/categorization/server/categorization-service";
-import { insertRule } from "../src/features/categorization/server/rule-repository";
+import { categoryUsage, deleteCategory } from "../src/features/categorization/server/categorization-service";
+import { applyRulesToUncorrectedTransactions, createRule, previewRule } from "../src/features/transactions/server/rule-application-service";
+import { insertRule } from "../src/features/transactions/server/rule-application-service";
 import { dashboardFilters } from "../src/server/http/dashboard-filters";
 import { HttpError, ValidationError } from "../src/lib/errors";
 import { monthPeriod } from "../src/lib/period";

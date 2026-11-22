@@ -12,7 +12,7 @@ import { maxRequestBodyBytes } from "../src/server/http/request-body";
 import * as schema from "../src/server/database/schema";
 import { listAccounts } from "../src/features/accounts/server/account-queries";
 import { archiveAccount, restoreAccount } from "../src/features/accounts/server/account-service";
-import { insertRule } from "../src/features/categorization/server/rule-repository";
+import { insertRule } from "../src/features/transactions/server/rule-application-service";
 import { saveMappedBatch } from "../src/features/imports/server/mapped-import-repository";
 import { HttpError, ValidationError } from "../src/lib/errors";
 import { importMappedRows } from "../src/features/imports/server/mapped-import-service";

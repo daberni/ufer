@@ -1,6 +1,6 @@
 import { respond } from "@/server/http/respond";
 import { readJson } from "@/server/http/request-body";
-import { previewRule } from "@/features/categorization/server/categorization-service";
+import { previewRule } from "@/features/transactions/server/rule-application-service";
 
 export const runtime = "nodejs";
 

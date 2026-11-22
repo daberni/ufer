@@ -16,7 +16,7 @@ import { readCashFlow } from "../src/features/reports/server/cash-flow-query";
 import { enterManualTransaction, hideTransaction, updateTransactionCategory, updateTransactionDetails } from "../src/features/transactions/server/transaction-service";
 import { listRules } from "../src/features/categorization/server/rule-repository";
 import type { Rule } from "../src/features/categorization/server/rule-assignment";
-import { applyRulesToUncorrectedTransactions, createRule, previewRule } from "../src/features/categorization/server/categorization-service";
+import { applyRulesToUncorrectedTransactions, createRule, previewRule } from "../src/features/transactions/server/rule-application-service";
 import { pairAllTransfers } from "../src/features/transactions/server/transfer-pairing-repository";
 import { readTransactionPage } from "../src/features/transactions/server/transaction-list-query";
 import { dashboardFilters } from "../src/server/http/dashboard-filters";

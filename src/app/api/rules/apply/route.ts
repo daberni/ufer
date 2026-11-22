@@ -1,5 +1,5 @@
 import { respond } from "@/server/http/respond";
-import { applyRulesToUncorrectedTransactions } from "@/features/categorization/server/categorization-service";
+import { applyRulesToUncorrectedTransactions } from "@/features/transactions/server/rule-application-service";
 
 export const runtime = "nodejs";
 

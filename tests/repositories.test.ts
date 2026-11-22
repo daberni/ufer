@@ -13,9 +13,10 @@ import { findManualAccount } from "../src/features/accounts/server/account-repos
 import { listAccounts } from "../src/features/accounts/server/account-queries";
 import { enterManualTransaction } from "../src/features/transactions/server/transaction-service";
 import { setTransactionCategory } from "../src/features/transactions/server/transaction-repository";
-import { insertRule } from "../src/features/categorization/server/rule-repository";
+import { insertRule } from "../src/features/transactions/server/rule-application-service";
 import { HttpError, ValidationError } from "../src/lib/errors";
-import { applyRulesToUncorrectedTransactions, createCategory, createRule, updateRuleEnabled, updateCategoryDetails } from "../src/features/categorization/server/categorization-service";
+import { createCategory, updateCategoryDetails } from "../src/features/categorization/server/categorization-service";
+import { applyRulesToUncorrectedTransactions, createRule, updateRuleEnabled } from "../src/features/transactions/server/rule-application-service";
 import { insertAuthorization } from "../src/features/banking/server/connection-repository";
 import { saveAccountSync } from "../src/features/banking/server/account-sync-service";
 import { saveSessionAccounts } from "../src/features/banking/server/bank-account-repository";
