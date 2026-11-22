@@ -39,34 +39,28 @@ export type TradeRequest = {
   };
 };
 
-/** Finds or creates the security for the ISIN, then records the trade with its cash side. */
+/** Records the trade with its cash side; the security for a new ISIN is created with it. */
 export function useRecordTrade() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (request: TradeRequest) => {
-      const security = await api<{
-        id: string
-      }>("securities/resolve", {
+    // The trade names its security by ISIN; the server finds or creates it in the trade's own transaction.
+    mutationFn: (request: TradeRequest) => api<{
+      id: string
+    }>(`brokerage-accounts/${encodeURIComponent(request.accountId)}/trades`, {
+      security: {
         isin: request.isin,
-        currency: request.currency,
         name: request.name
-      });
-
-      return api<{
-        id: string
-      }>(`brokerage-accounts/${encodeURIComponent(request.accountId)}/trades`, {
-        security_id: security.id,
-        date: request.date,
-        side: request.side,
-        quantity: request.quantity,
-        price: request.price,
-        gross: request.gross,
-        fee: request.fee,
-        tax: request.tax,
-        settlement: request.settlement
-      });
-    },
+      },
+      date: request.date,
+      side: request.side,
+      quantity: request.quantity,
+      price: request.price,
+      gross: request.gross,
+      fee: request.fee,
+      tax: request.tax,
+      settlement: request.settlement
+    }),
     onSettled: () => invalidate(queryClient, tradeKeys)
   });
 }

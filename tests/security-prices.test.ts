@@ -8,11 +8,11 @@ import type { Database } from "../src/server/database/connection";
 import { initializeDatabase } from "../src/server/database/migrations";
 import * as schema from "../src/server/database/schema";
 import { checksSplits, closeMicros, marketDataLease, searchListings, updatePrices } from "../src/features/securities/server/price-update-service";
-import { readSecurities, resolveSecurity, updateSecurityListing } from "../src/features/securities/server/security-service";
+import { readSecurities, recordTrade, updateSecurityListing } from "../src/features/securities/server/security-service";
 import { eodhdProvider, parseSplitRatio } from "../src/features/securities/server/market-data/eodhd-provider";
 import { MarketDataError, type MarketDataProvider, type ProviderClose } from "../src/features/securities/server/market-data/market-data-provider";
 import { acquireLease } from "../src/server/jobs/lease-repository";
-import { insertSecurityForIsin } from "../src/features/securities/server/security-repository";
+import { findOrInsertSecurity } from "../src/features/securities/server/security-repository";
 import { HttpError } from "../src/lib/errors";
 
 // A Wednesday; the security "etf" checks its splits on Tuesdays (its weekday from checksSplits).
@@ -452,7 +452,39 @@ test("split checks spread over the week, and a failed one is retried on the next
   assert.equal((await db.select().from(schema.securitySplits)).length, 1);
 });
 
-test("resolving an ISIN creates the security once, priced with the preferred listing in the trade currency", async context => {
+async function tradeAccounts(db: Database) {
+  await db.insert(schema.accounts).values([{
+    id: "depot",
+    name: "Synthetic depot",
+    kind: "brokerage"
+  }, {
+    id: "cash",
+    name: "Synthetic cash",
+    kind: "checking"
+  }]);
+}
+
+function buyByIsin(isin: string, provider: MarketDataProvider | null, extra: Record<string, unknown> = {}) {
+  return recordTrade("depot", {
+    security: {
+      isin,
+      ...extra
+    },
+    date: "2026-10-13",
+    side: "buy",
+    quantity: "1",
+    price: "10",
+    settlement: {
+      account_id: "cash"
+    }
+  }, now, provider);
+}
+
+async function securitiesWithIsin(db: Database, isin: string) {
+  return db.select().from(schema.securities).where(eq(schema.securities.isin, isin));
+}
+
+test("a trade named by ISIN creates its security once, priced with the preferred listing in the trade currency", async context => {
   const db = await isolatedDatabase(context);
   const searched: string[] = [];
   const provider: MarketDataProvider = {
@@ -482,41 +514,25 @@ test("resolving an ISIN creates the security once, priced with the preferred lis
     }
   };
 
-  const first = await resolveSecurity({
-    isin: "us0378331005",
-    currency: "EUR"
-  }, provider);
-  const again = await resolveSecurity({
-    isin: "US0378331005",
-    currency: "EUR"
-  }, provider);
+  await tradeAccounts(db);
+  await buyByIsin("us0378331005", provider);
+  await buyByIsin("US0378331005", provider);
 
-  assert.deepEqual([first.created, first.provider_symbol, again.created, again.id], [true, "WLD.XETRA", false, first.id]);
-  assert.deepEqual(searched, ["US0378331005"]);
-  assert.deepEqual(await db.select({
-    name: schema.securities.name,
-    venue: schema.securities.venue
-  }).from(schema.securities).where(eq(schema.securities.id, first.id)).get(), {
-    name: "Synthetic World",
-    venue: "XETRA"
-  });
-  await assert.rejects(resolveSecurity({
-    isin: "US0378331006",
-    currency: "EUR"
-  }, provider));
+  const created = await securitiesWithIsin(db, "US0378331005");
+
+  assert.deepEqual(created.map(security => [security.name, security.provider_symbol, security.venue]), [["Synthetic World", "WLD.XETRA", "XETRA"]]);
+  assert.equal((await db.select().from(schema.securityTrades)).filter(trade => trade.security_id === created[0].id).length, 2);
+  await assert.rejects(buyByIsin("US0378331006", provider));
 });
 
-test("without a key or a listing in the trade currency the security is still created without a price source", async context => {
+test("without a key or a listing in the trade currency the security is created without a price source", async context => {
   const db = await isolatedDatabase(context);
-  const withoutKey = await resolveSecurity({
-    isin: "IE00B4L5Y983",
-    currency: "EUR",
+
+  await tradeAccounts(db);
+  await buyByIsin("IE00B4L5Y983", null, {
     name: "Synthetic fund"
-  }, null);
-  const dollarsOnly = await resolveSecurity({
-    isin: "US0378331005",
-    currency: "EUR"
-  }, {
+  });
+  await buyByIsin("US0378331005", {
     ...fakeProvider({}).provider,
     searchByIsin: async isin => [{
       symbol: "WLD.US",
@@ -527,9 +543,27 @@ test("without a key or a listing in the trade currency the security is still cre
     }]
   });
 
-  assert.deepEqual([withoutKey.provider_symbol, dollarsOnly.provider_symbol], [null, null]);
-  assert.equal((await securityRow(db, withoutKey.id))?.name, "Synthetic fund");
-  assert.equal((await securityRow(db, dollarsOnly.id))?.name, "US0378331005");
+  assert.deepEqual((await securitiesWithIsin(db, "IE00B4L5Y983")).map(security => [security.name, security.provider_symbol]), [["Synthetic fund", null]]);
+  assert.deepEqual((await securitiesWithIsin(db, "US0378331005")).map(security => [security.name, security.provider_symbol]), [["US0378331005", null]]);
+});
+
+test("a rejected trade named by a new ISIN leaves no security behind", async context => {
+  const db = await isolatedDatabase(context);
+
+  await tradeAccounts(db);
+  await assert.rejects(recordTrade("depot", {
+    security: {
+      isin: "IE00B4L5Y983"
+    },
+    date: "2026-10-13",
+    side: "sell",
+    quantity: "1",
+    price: "10",
+    settlement: {
+      account_id: "cash"
+    }
+  }, now, null));
+  assert.deepEqual(await securitiesWithIsin(db, "IE00B4L5Y983"), []);
 });
 
 test("changing a security's listing drops the old listing's prices and refuses a symbol another security uses", async context => {
@@ -593,10 +627,10 @@ test("a listing quoted in another currency is refused, and a listing change wait
   assert.equal((await securityRow(db, "etf"))?.provider_symbol, "SYN.XETRA");
 });
 
-test("a resolution that lost a race to another returns the security the other inserted", async context => {
+test("a security inserted meanwhile for the same ISIN is reused instead of adding a second", async context => {
   const db = await isolatedDatabase(context);
 
-  // The other resolution inserted its row after this one found none; the re-check in the insert transaction returns it.
+  // Another trade inserted its security after this one looked; the check inside the transaction returns it.
   await db.insert(schema.securities).values({
     id: "winner",
     isin: "IE00B4L5Y983",
@@ -606,7 +640,7 @@ test("a resolution that lost a race to another returns the security the other in
     provider_symbol: "NEW.XETRA"
   });
 
-  const loser = await insertSecurityForIsin({
+  const reused = await db.transaction(tx => findOrInsertSecurity(tx, {
     id: "loser",
     isin: "IE00B4L5Y983",
     name: "Synthetic New",
@@ -614,14 +648,10 @@ test("a resolution that lost a race to another returns the security the other in
     provider: "eodhd",
     provider_symbol: "NEW.XETRA",
     venue: "XETRA"
-  });
+  }));
 
-  assert.deepEqual(loser, {
-    id: "winner",
-    provider_symbol: "NEW.XETRA",
-    created: false
-  });
-  assert.equal((await db.select().from(schema.securities).where(eq(schema.securities.isin, "IE00B4L5Y983"))).length, 1);
+  assert.deepEqual([reused.id, reused.created], ["winner", false]);
+  assert.equal((await securitiesWithIsin(db, "IE00B4L5Y983")).length, 1);
 });
 
 test("an update that lost its lease to another run stops before the next security", async context => {

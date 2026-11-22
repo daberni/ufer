@@ -30,7 +30,12 @@ const settlement = z.union([z.object({
 }).strict()]);
 
 export const tradeInput = z.object({
-  security_id: z.string().min(1),
+  // An existing security, or an ISIN whose security the trade finds or creates in its own transaction.
+  security_id: z.string().min(1).optional(),
+  security: z.object({
+    isin: z.string().trim().toUpperCase().refine(validIsin, "Enter a valid ISIN."),
+    name: z.string().trim().min(1).max(200).optional()
+  }).optional(),
   date: z.string().refine(validDate),
   side: z.enum(tradeSides),
   quantity: amount,
@@ -40,18 +45,11 @@ export const tradeInput = z.object({
   fee: amount.default("0"),
   tax: amount.default("0"),
   settlement
-});
+}).refine(input => (input.security_id === undefined) !== (input.security === undefined), "Name either a security or an ISIN.");
 
 export const settlementCandidatesQuery = z.object({
   date: z.string().refine(validDate),
   amount_minor: z.coerce.number().int().refine(value => value !== 0)
-});
-
-export const resolveSecurityInput = z.object({
-  isin: z.string().trim().toUpperCase().refine(validIsin, "Enter a valid ISIN."),
-  currency,
-  // Used when the provider knows no listing, so the holding still has a readable name.
-  name: z.string().trim().min(1).max(200).optional()
 });
 
 export const listingInput = z.object({

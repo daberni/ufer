@@ -15,8 +15,8 @@ import type { MarketDataProvider } from "./market-data/market-data-provider";
 import { valueHoldings } from "../valuation";
 import { readHoldingInputs } from "./valuation-repository";
 import { settlementRefusal, settlementWindowDays, tradeCashAmount, type SettlementRefusal } from "../trade-decisions";
-import { brokerageAccountInput, listingInput, resolveSecurityInput, securityInput, settlementCandidatesQuery, tradeInput } from "./security-schema";
-import { deleteTrade, findBrokerageAccount, findSecurity, findSettlementAccount, findSettlementBooking, findTrade, insertBrokerageAccount, insertSecurity, insertSettlementEntry, insertTrade, listSecurities, markSettlementBooking, nextTradeSequence, readAccountTrades, readPositionTrades, readSettlementCandidates, readSplits, readTradedSecurityIds, withSecurityTransaction, findSecurityByIsin, findSecurityListing, insertSecurityForIsin, saveSecurityListing } from "./security-repository";
+import { brokerageAccountInput, listingInput, securityInput, settlementCandidatesQuery, tradeInput } from "./security-schema";
+import { deleteTrade, findBrokerageAccount, findSecurity, findSettlementAccount, findSettlementBooking, findTrade, insertBrokerageAccount, insertSecurity, insertSettlementEntry, insertTrade, listSecurities, markSettlementBooking, nextTradeSequence, readAccountTrades, readPositionTrades, readSettlementCandidates, readSplits, readTradedSecurityIds, withSecurityTransaction, findOrInsertSecurity, findSecurityListing, saveSecurityListing } from "./security-repository";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 
 /** Replays every trade so a sale never exceeds what was held at that point, now or after a change. */
@@ -57,36 +57,18 @@ export async function createSecurity(payload: unknown) {
   };
 }
 
-/**
- * The security for an ISIN in the trade's currency, created when it is new. Its price listing is chosen automatically from the provider's listings (ADR 012 amendment); without a key or a listing in that currency it is still valid and has no price source.
- */
-export async function resolveSecurity(payload: unknown, provider: MarketDataProvider | null = configuredProvider()) {
-  const input = resolveSecurityInput.parse(payload);
-  const existing = await findSecurityByIsin(input.isin, input.currency);
+/** The security a new ISIN would get: its price listing chosen automatically from the provider's listings (ADR 012 amendment); without a key or a listing in that currency it has no price source. */
+async function securityForIsin(isin: string, currency: string, name: string | undefined, provider: MarketDataProvider | null) {
+  const listing = chooseListing(await searchProviderListings(isin, provider), currency);
 
-  if (existing) {
-    return {
-      id: existing.id,
-      created: false,
-      provider_symbol: existing.provider_symbol
-    };
-  }
-
-  const listing = chooseListing(await searchProviderListings(input.isin, provider), input.currency);
-  const resolved = await insertSecurityForIsin({
+  return {
     id: randomUUID(),
-    isin: input.isin,
-    name: input.name ?? listing?.name ?? input.isin,
-    currency: input.currency,
+    isin,
+    name: name ?? listing?.name ?? isin,
+    currency,
     provider: listing ? "eodhd" : null,
     provider_symbol: listing?.symbol ?? null,
     venue: listing?.exchange ?? null
-  });
-
-  return {
-    id: resolved.id,
-    created: resolved.created,
-    provider_symbol: resolved.provider_symbol
   };
 }
 
@@ -161,7 +143,7 @@ function tradeDescription(side: "buy" | "sell", quantity: string, security: stri
  * Records a buy or sale on a brokerage account with its cash side: a new entry on a manual settlement account, or an existing bank booking that becomes the trade's cash side.
  * Holds the sync lease because a bank booking's type changes, and refuses a sale beyond the quantity held at any point.
  */
-export async function recordTrade(accountId: string, payload: unknown, now = Temporal.Now.instant()) {
+export async function recordTrade(accountId: string, payload: unknown, now = Temporal.Now.instant(), provider: MarketDataProvider | null = configuredProvider()) {
   const input = tradeInput.parse(payload);
   const account = await requireBrokerageAccount(accountId);
 
@@ -176,6 +158,8 @@ export async function recordTrade(accountId: string, payload: unknown, now = Tem
   const quantity = parseMicros(input.quantity, "quantity");
   const price = parseMicros(input.price, "price");
   const id = randomUUID();
+  // The listing lookup is a network call, so it runs before the transaction; the security itself is found or created inside it.
+  const newSecurity = input.security ? await securityForIsin(input.security.isin, account.currency, input.security.name, provider) : null;
 
   return withLease(syncLease, tradeLeaseMessage, () => withSecurityTransaction(async tx => {
     const brokerage = await findBrokerageAccount(tx, accountId);
@@ -184,7 +168,7 @@ export async function recordTrade(accountId: string, payload: unknown, now = Tem
       throw new HttpError(409, archivedAccountMessage);
     }
 
-    const security = await findSecurity(tx, input.security_id);
+    const security = newSecurity ? await findOrInsertSecurity(tx, newSecurity) : await findSecurity(tx, input.security_id!);
 
     if (!security) {
       throw new ValidationError("Security does not exist.");
