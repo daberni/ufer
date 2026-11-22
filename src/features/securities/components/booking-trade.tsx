@@ -90,7 +90,7 @@ function TradeSummary({
 }) {
   const locale = useLocale();
   const accountHref = useAccountHref();
-  const frozen = transaction.account_archived;
+  const frozen = transaction.account_archived || trade.account_archived;
 
   return (
     <div className={ui["form"]}>

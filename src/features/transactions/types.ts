@@ -88,6 +88,8 @@ export type BookingTrade = {
   /** The brokerage account holding the trade. */
   account_id: string;
   account_name: string;
+  /** Whether the brokerage account is archived, which freezes its trades. */
+  account_archived: boolean;
 };
 
 /** A booking as shown when linking the two sides of a transfer. */
