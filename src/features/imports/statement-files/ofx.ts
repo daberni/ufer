@@ -17,7 +17,7 @@ export function looksLikeOfx(text: string) {
   // Comments may precede the root element.
   const head = text.slice(0, 4096).replace(/<!--[\s\S]*?-->/g, "");
 
-  return /^\s*OFXHEADER\s*:/.test(head) || /<\?OFX\b/i.test(head) || /^\s*(?:<\?xml[^>]*>\s*)?<OFX>/i.test(head);
+  return /^\s*OFXHEADER\s*:/.test(head) || /<\?OFX\b/i.test(head) || /^\s*(?:<\?xml[^>]*>\s*)?<OFX\s*>/i.test(head);
 }
 
 export function readOfx(text: string, locale: string): StatementFile {
@@ -207,7 +207,7 @@ function parseOfx(raw: string): Element {
 
     return content.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
   });
-  const start = text.search(/<OFX>/i);
+  const start = text.search(/<OFX\s*>/i);
 
   if (start < 0) {
     throw new StatementFileError("The OFX file has no OFX element.");

@@ -51,9 +51,20 @@ export function readCamt053(text: string, locale: string): StatementFile {
   let entryIndex = 0;
   let detailIndex = 0;
 
+  // One account may report a statement per currency; Ufer accounts hold one currency, so those statements get separate sources.
+  const currenciesByAccount = new Map<string, Set<string>>();
+
+  for (const statement of statements) {
+    const label = accountLabel(child(statement, "Acct"));
+
+    currenciesByAccount.set(label, (currenciesByAccount.get(label) ?? new Set()).add(textOf(child(child(statement, "Acct"), "Ccy"))));
+  }
+
   for (const statement of statements) {
     const account = child(statement, "Acct");
-    const source = accountLabel(account);
+    const label = accountLabel(account);
+    const multiCurrency = (currenciesByAccount.get(label)?.size ?? 0) > 1;
+    const source = multiCurrency ? `${label} · ${textOf(child(account, "Ccy")) || "no currency"}` : label;
     const accountCurrency = textOf(child(account, "Ccy")) || null;
 
     for (const entry of list(statement, "Ntry")) {

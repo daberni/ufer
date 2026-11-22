@@ -388,6 +388,11 @@ test("OFX empty SGML leaves keep later fields, foreign amounts round exactly, an
 
   assert.deepEqual([...new Set(schemes.rows.map(row => row.source))], ["123 · scheme BBAN · issuer Synthetic Bank", "123 · scheme CUID · issuer Synthetic Bank"]);
 
+  const multiCurrency = read(camt.replace("DE89370400440532013000", "AT611904300234573201"));
+
+  assert.deepEqual([...new Set(multiCurrency.rows.map(row => row.source))], ["AT61 1904 3002 3457 3201 · EUR", "AT61 1904 3002 3457 3201 · USD"]);
+  assert.equal(read("<?xml version=\"1.0\"?><OFX ><BANKMSGSRSV1><STMTTRNRS><STMTRS><CURDEF>EUR</CURDEF><BANKACCTFROM><ACCTID>W</ACCTID></BANKACCTFROM><BANKTRANLIST><STMTTRN><DTPOSTED>20260301</DTPOSTED><TRNAMT>-1</TRNAMT><FITID>1</FITID></STMTTRN></BANKTRANLIST></STMTRS></STMTTRNRS></BANKMSGSRSV1></OFX>").rows.length, 1);
+
   const shared = read("OFXHEADER:100\n\n<OFX><BANKMSGSRSV1><STMTTRNRS><STMTRS><CURDEF>EUR<BANKACCTFROM><BANKID>B1<ACCTID>42</BANKACCTFROM><BANKTRANLIST><STMTTRN><DTPOSTED>20260301<TRNAMT>-1<FITID>1</STMTTRN></BANKTRANLIST></STMTRS></STMTTRNRS></BANKMSGSRSV1><CREDITCARDMSGSRSV1><CCSTMTTRNRS><CCSTMTRS><CURDEF>EUR<CCACCTFROM><ACCTID>42</CCACCTFROM><BANKTRANLIST><STMTTRN><DTPOSTED>20260301<TRNAMT>-2<FITID>1</STMTTRN></BANKTRANLIST></CCSTMTRS></CCSTMTTRNRS></CREDITCARDMSGSRSV1></OFX>");
 
   assert.deepEqual(shared.rows.map(row => row.source), ["Bank B1 · 42", "Card · 42"]);
