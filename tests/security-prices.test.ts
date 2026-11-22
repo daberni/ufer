@@ -238,6 +238,8 @@ test("a failing security keeps its error visible while the others update", async
     incomplete: 0
   });
   assert.equal((await securityRow(db, "etf"))?.price_error, "The price provider's request limit is reached.");
+  // The failed attempt keeps its older check time, so it leads the next run.
+  assert.equal((await securityRow(db, "etf"))?.price_checked_at, null);
   assert.deepEqual(await pricesOf(db, "fund"), [["2026-10-13", 49_500_000]]);
 
   // A later successful update clears the error.
