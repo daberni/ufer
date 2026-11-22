@@ -109,11 +109,12 @@ export async function saveSplitsIfConsistent(securityId: string, interval: {
 }
 
 /** Records the outcome of a price update so a failed or missing price is visible. */
-export async function savePriceCheck(securityId: string, checkedAt: string, error: string | null) {
+export async function savePriceCheck(securityId: string, checkedAt: string, error: string | null, previousCheckedAt: string | null) {
   const db = await database();
 
+  // A trade dated before the earliest one clears the last check meanwhile so splits are checked again; this run's outcome then does not overwrite that.
   await db.update(securities).set({
     price_checked_at: checkedAt,
     price_error: error
-  }).where(eq(securities.id, securityId));
+  }).where(and(eq(securities.id, securityId), sql`${securities.price_checked_at} IS ${previousCheckedAt}`));
 }

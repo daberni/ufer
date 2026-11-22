@@ -852,3 +852,59 @@ test("a split the provider retracted or redated within the fetched interval is r
   }).provider);
   assert.deepEqual((await db.select().from(schema.securitySplits)).map(split => split.date), ["2026-09-02"]);
 });
+
+test("a pending split retry survives a run whose close request fails first", async context => {
+  const db = await isolatedDatabase(context);
+
+  await db.insert(schema.accounts).values({
+    id: "depot",
+    name: "Synthetic depot",
+    kind: "brokerage"
+  });
+  await db.insert(schema.securityTrades).values({
+    id: "trade",
+    account_id: "depot",
+    security_id: "etf",
+    date: "2026-06-01",
+    side: "buy",
+    sequence: 1,
+    quantity_micros: 1_000_000,
+    price_micros: 50_000_000,
+    gross_minor: 50_00
+  });
+  await db.update(schema.securities).set({
+    price_checked_at: "2026-10-13T06:00:00.000Z",
+    price_error: "Splits: The price provider's request limit is reached."
+  }).where(eq(schema.securities.id, "etf"));
+
+  await updatePrices(now, fakeProvider({
+    "SYN.XETRA": new MarketDataError("The price provider could not be reached.")
+  }).provider);
+  assert.equal((await securityRow(db, "etf"))?.price_error, "Splits: The price provider could not be reached.");
+
+  // The next off-day run still checks the splits.
+  const retry = fakeProvider({});
+
+  await updatePrices(Temporal.Instant.from("2026-10-15T06:00:00Z"), retry.provider);
+  assert.equal(retry.requests.filter(request => request.kind === "splits").length, 1);
+});
+
+test("a split recheck requested by a trade during an update survives that update", async context => {
+  const db = await isolatedDatabase(context);
+  const concurrent = fakeProvider({});
+
+  await db.update(schema.securities).set({
+    price_checked_at: "2026-10-13T06:00:00.000Z"
+  }).where(eq(schema.securities.id, "etf"));
+  // While the update fetches the security, a trade before its earliest one clears the last check.
+  concurrent.provider.dailyCloses = async () => {
+    await db.update(schema.securities).set({
+      price_checked_at: null
+    }).where(eq(schema.securities.id, "etf"));
+
+    return [];
+  };
+
+  await updatePrices(now, concurrent.provider);
+  assert.equal((await securityRow(db, "etf"))?.price_checked_at, null);
+});
