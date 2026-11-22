@@ -10,6 +10,7 @@ import { stubCssModules } from "./fixtures/css-modules";
 stubCssModules();
 
 const transfer: Transaction = {
+  trade: null,
   id: "transfer-row",
   date: "2026-09-02",
   amount_minor: -35000,

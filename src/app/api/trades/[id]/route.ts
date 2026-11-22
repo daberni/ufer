@@ -1,5 +1,6 @@
 import { respond } from "@/server/http/respond";
-import { removeTrade } from "@/features/securities/server/security-service";
+import { readJson } from "@/server/http/request-body";
+import { correctTrade, removeTrade } from "@/features/securities/server/security-service";
 
 export const runtime = "nodejs";
 
@@ -13,6 +14,16 @@ type Context = {
 
 export async function DELETE(request: Request, context: Context) {
   return respond(request, async () => removeTrade((await context.params).id), {
+    access: "session"
+  });
+}
+
+export async function PATCH(request: Request, context: Context) {
+  return respond(request, async () => {
+    const { id } = await context.params;
+
+    return correctTrade(id, await readJson(request));
+  }, {
     access: "session"
   });
 }

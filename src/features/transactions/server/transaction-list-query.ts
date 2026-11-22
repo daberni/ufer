@@ -11,7 +11,7 @@ import type { TransactionType } from "@/lib/transaction-types";
 import { createdCounterpartPrefix, manualEntryPrefix } from "@/lib/booking-references";
 import { listRules } from "@/features/categorization/server/rule-repository";
 import { prepareRules, ruleAssignment, type PreparedRule } from "@/features/categorization/server/rule-assignment";
-import type { SplitPart, TransactionSplit } from "@/features/transactions/types";
+import type { SplitPart, Transaction, TransactionSplit } from "@/features/transactions/types";
 import { readSplitParts } from "@/features/transactions/server/split-repository";
 
 // Mirrors `enteredInUfer` for a booking and its account in the list's SQL.
@@ -127,18 +127,7 @@ export async function readTransactionPage<Run extends ListedSyncRun>(filters: Da
   }
 
   const condition = sql.join(where, sql.raw(" AND "));
-  // Banks report dates without a time, so bookings within a day are ordered by payee and description; empty payees come last.
-  const transactionsQuery = db.all<Record<string, unknown>>(sql`
-    SELECT t.id,t.date,t.amount_minor,t.currency,t.instructed_amount_minor,t.instructed_currency,COALESCE(t.counterparty_override,t.counterparty) AS counterparty,COALESCE(t.description_override,t.description) AS description,t.counterparty AS source_counterparty,t.description AS source_description,t.counterparty_override,t.description_override,t.suppressed_at IS NOT NULL AS hidden,a.name AS account_name,t.account_id,t.category_id,t.category_source,t.category_rule_id,t.type,t.type_source,t.type_rule_id,a.provider='manual' AS manual_account,a.archived_at IS NOT NULL AS account_archived,COALESCE(pa.archived_at IS NOT NULL,0) AS counterpart_archived,t.provider_reference LIKE ${`${createdCounterpartPrefix}%`} AS created_counterpart,${enteredColumn("t", "a")} AS entered,${enteredColumn("p", "pa")} AS counterpart_entered,p.id AS counterpart_id,pa.name AS counterpart_account_name,p.date AS counterpart_booking_date
-    FROM transactions t
-    JOIN accounts a ON a.id=t.account_id
-    LEFT JOIN transactions p ON p.transfer_id=t.transfer_id AND p.id<>t.id
-    LEFT JOIN accounts pa ON pa.id=p.account_id
-    WHERE ${condition}
-    ORDER BY t.date DESC,COALESCE(t.counterparty_override,t.counterparty)='',COALESCE(t.counterparty_override,t.counterparty) COLLATE NOCASE,COALESCE(t.description_override,t.description) COLLATE NOCASE,t.id
-    LIMIT ${transactionPageSize}
-    OFFSET ${(filters.page - 1) * transactionPageSize}
-  `);
+  const transactionsQuery = selectTransactions(db, condition, transactionPageSize, (filters.page - 1) * transactionPageSize);
   const countQuery = db.all<Record<string, unknown>>(sql`
     SELECT COUNT(*) AS n
     FROM transactions t
@@ -146,48 +135,94 @@ export async function readTransactionPage<Run extends ListedSyncRun>(filters: Da
     WHERE ${condition}
   `);
   const [transactions, count] = await Promise.all([transactionsQuery, countQuery]);
-  const hasManualRows = transactions.some(row => row.category_source === "manual");
-  const rules = hasManualRows ? prepareRules(await listRules()) : null;
-  const splits = await readSplitParts(transactions.map(row => String(row.id)));
 
   return {
     period: periodToJson(filters.period),
     page: filters.page,
     syncRun,
     transactionCount: Number(count[0].n),
-    transactions: transactions.map(row => ({
-      id: String(row.id),
-      date: String(row.date),
-      amount_minor: Number(row.amount_minor),
-      currency: String(row.currency),
-      instructed_amount_minor: row.instructed_amount_minor === null ? null : Number(row.instructed_amount_minor),
-      instructed_currency: row.instructed_currency === null ? null : String(row.instructed_currency),
-      counterparty: String(row.counterparty),
-      description: String(row.description),
-      source_counterparty: String(row.source_counterparty),
-      source_description: String(row.source_description),
-      hidden: Boolean(row.hidden),
-      account_name: String(row.account_name),
-      account_id: String(row.account_id),
-      category_id: row.category_id === null ? null : String(row.category_id),
-      category_source: String(row.category_source),
-      category_rule_id: row.category_rule_id === null ? null : String(row.category_rule_id),
-      automatic_assignment: splits.has(String(row.id)) ? null : automaticAssignment(row, rules),
-      split: splitOf(splits.get(String(row.id)), Number(row.amount_minor)),
-      type: row.type as TransactionType,
-      type_source: row.type_source === "manual" ? "manual" as const : "auto" as const,
-      type_rule_id: row.type_rule_id === null ? null : String(row.type_rule_id),
-      manual_account: Boolean(row.manual_account),
-      account_archived: Boolean(row.account_archived),
-      counterpart_archived: Boolean(row.counterpart_archived),
-      created_counterpart: Boolean(row.created_counterpart),
-      ...entryState(row),
-      counterpart: row.counterpart_id === null ? null : {
-        id: String(row.counterpart_id),
-        account_name: String(row.counterpart_account_name),
-        date: String(row.counterpart_booking_date),
-        entered: Boolean(row.counterpart_entered)
-      }
-    }))
+    transactions: await toTransactions(transactions)
   };
+}
+
+// Banks report dates without a time, so bookings within a day are ordered by payee and description; empty payees come last.
+function selectTransactions(db: Awaited<ReturnType<typeof database>>, condition: SQL, limit: number, offset: number) {
+  return db.all<Record<string, unknown>>(sql`
+    SELECT t.id,t.date,t.amount_minor,t.currency,t.instructed_amount_minor,t.instructed_currency,COALESCE(t.counterparty_override,t.counterparty) AS counterparty,COALESCE(t.description_override,t.description) AS description,t.counterparty AS source_counterparty,t.description AS source_description,t.counterparty_override,t.description_override,t.suppressed_at IS NOT NULL AS hidden,a.name AS account_name,t.account_id,t.category_id,t.category_source,t.category_rule_id,t.type,t.type_source,t.type_rule_id,a.provider='manual' AS manual_account,a.archived_at IS NOT NULL AS account_archived,COALESCE(pa.archived_at IS NOT NULL,0) AS counterpart_archived,t.provider_reference LIKE ${`${createdCounterpartPrefix}%`} AS created_counterpart,${enteredColumn("t", "a")} AS entered,${enteredColumn("p", "pa")} AS counterpart_entered,p.id AS counterpart_id,pa.name AS counterpart_account_name,p.date AS counterpart_booking_date,st.id AS trade_id,st.side AS trade_side,st.date AS trade_date,st.quantity_micros AS trade_quantity_micros,st.price_micros AS trade_price_micros,st.gross_minor AS trade_gross_minor,st.fee_minor AS trade_fee_minor,st.tax_minor AS trade_tax_minor,sec.name AS trade_security_name,sec.isin AS trade_security_isin,ba.id AS trade_account_id,ba.name AS trade_account_name
+    FROM transactions t
+    JOIN accounts a ON a.id=t.account_id
+    LEFT JOIN transactions p ON p.transfer_id=t.transfer_id AND p.id<>t.id
+    LEFT JOIN accounts pa ON pa.id=p.account_id
+    LEFT JOIN security_trades st ON st.settlement_transaction_id=t.id
+    LEFT JOIN securities sec ON sec.id=st.security_id
+    LEFT JOIN accounts ba ON ba.id=st.account_id
+    WHERE ${condition}
+    ORDER BY t.date DESC,COALESCE(t.counterparty_override,t.counterparty)='',COALESCE(t.counterparty_override,t.counterparty) COLLATE NOCASE,COALESCE(t.description_override,t.description) COLLATE NOCASE,t.id
+    LIMIT ${limit}
+    OFFSET ${offset}
+  `);
+}
+
+async function toTransactions(rows: Record<string, unknown>[]): Promise<Transaction[]> {
+  const hasManualRows = rows.some(row => row.category_source === "manual");
+  const rules = hasManualRows ? prepareRules(await listRules()) : null;
+  const splits = await readSplitParts(rows.map(row => String(row.id)));
+
+
+  return rows.map(row => ({
+    id: String(row.id),
+    date: String(row.date),
+    amount_minor: Number(row.amount_minor),
+    currency: String(row.currency),
+    instructed_amount_minor: row.instructed_amount_minor === null ? null : Number(row.instructed_amount_minor),
+    instructed_currency: row.instructed_currency === null ? null : String(row.instructed_currency),
+    counterparty: String(row.counterparty),
+    description: String(row.description),
+    source_counterparty: String(row.source_counterparty),
+    source_description: String(row.source_description),
+    hidden: Boolean(row.hidden),
+    account_name: String(row.account_name),
+    account_id: String(row.account_id),
+    category_id: row.category_id === null ? null : String(row.category_id),
+    category_source: String(row.category_source),
+    category_rule_id: row.category_rule_id === null ? null : String(row.category_rule_id),
+    automatic_assignment: splits.has(String(row.id)) ? null : automaticAssignment(row, rules),
+    split: splitOf(splits.get(String(row.id)), Number(row.amount_minor)),
+    type: row.type as TransactionType,
+    type_source: row.type_source === "manual" ? "manual" as const : "auto" as const,
+    type_rule_id: row.type_rule_id === null ? null : String(row.type_rule_id),
+    manual_account: Boolean(row.manual_account),
+    account_archived: Boolean(row.account_archived),
+    counterpart_archived: Boolean(row.counterpart_archived),
+    created_counterpart: Boolean(row.created_counterpart),
+    ...entryState(row),
+    counterpart: row.counterpart_id === null ? null : {
+      id: String(row.counterpart_id),
+      account_name: String(row.counterpart_account_name),
+      date: String(row.counterpart_booking_date),
+      entered: Boolean(row.counterpart_entered)
+    },
+    trade: row.trade_id === null ? null : {
+      id: String(row.trade_id),
+      side: row.trade_side === "sell" ? "sell" as const : "buy" as const,
+      date: String(row.trade_date),
+      quantity_micros: Number(row.trade_quantity_micros),
+      price_micros: Number(row.trade_price_micros),
+      gross_minor: Number(row.trade_gross_minor),
+      fee_minor: Number(row.trade_fee_minor),
+      tax_minor: Number(row.trade_tax_minor),
+      security_name: String(row.trade_security_name),
+      security_isin: row.trade_security_isin === null ? null : String(row.trade_security_isin),
+      account_id: String(row.trade_account_id),
+      account_name: String(row.trade_account_name)
+    }
+  }));
+}
+
+/** One booking as the transaction list shows it, for opening it from elsewhere, such as a brokerage trade; undefined when it does not exist. */
+export async function readTransaction(id: string) {
+  const db = await database();
+  const [transaction] = await toTransactions(await selectTransactions(db, sql`t.id=${id}`, 1, 0));
+
+  return transaction;
 }

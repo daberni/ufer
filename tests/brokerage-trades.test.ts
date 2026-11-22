@@ -7,7 +7,7 @@ import { archiveAccount, deleteAccount } from "../src/features/accounts/server/a
 import { readCashFlow } from "../src/features/reports/server/cash-flow-query";
 import { enterManualTransaction, hideTransaction, removeManualTransaction, updateTransactionDetails } from "../src/features/transactions/server/transaction-service";
 import { tradeCashAmount } from "../src/features/securities/trade-decisions";
-import { createBrokerageAccount, createSecurity, readBrokerageTrades, removeTrade, settlementCandidates } from "../src/features/securities/server/security-service";
+import { correctTrade, createBrokerageAccount, createSecurity, readBrokerageTrades, removeTrade, settlementCandidates } from "../src/features/securities/server/security-service";
 import { monthPeriod } from "../src/lib/period";
 import { HttpError, ValidationError } from "../src/lib/errors";
 import { balanceOf, bookingsOf, depot, isolatedDatabase, now, rejectsWith, security, settlementAccount, syncBooking, trade } from "./fixtures/brokerage";
@@ -473,4 +473,73 @@ test("a brokerage account is archived only once it holds no securities", async c
   });
   await archiveAccount(account, {}, now);
   assert.ok((await db.select().from(schema.accounts).where(eq(schema.accounts.id, account)).get())?.archived_at);
+});
+
+test("correcting a trade moves its own cash entry, keeps a bank booking as the source of truth and refuses an oversell", async context => {
+  const db = await isolatedDatabase(context);
+  const cash = await settlementAccount();
+  const account = await depot();
+  const etf = await security();
+  const { id: entered } = await trade(account, {
+    security_id: etf,
+    date: "2026-09-10",
+    side: "buy",
+    quantity: "10",
+    price: "100",
+    settlement: {
+      account_id: cash
+    }
+  });
+
+  await correctTrade(entered, {
+    date: "2026-09-11",
+    quantity: "8",
+    price: "100",
+    fee: "2"
+  }, now);
+  assert.deepEqual((await bookingsOf(db, cash)).at(-1), ["2026-09-11", "buy", -802_00]);
+
+  const booking = await syncBooking(db, "broker-debit", "2026-09-20", -500_00);
+  const { id: linked } = await trade(account, {
+    security_id: etf,
+    date: "2026-09-20",
+    side: "buy",
+    quantity: "5",
+    price: "100",
+    settlement: {
+      transaction_id: booking.id
+    }
+  });
+
+  await assert.rejects(correctTrade(linked, {
+    date: "2026-09-20",
+    quantity: "5",
+    price: "100",
+    fee: "1"
+  }, now), ValidationError);
+  await correctTrade(linked, {
+    date: "2026-09-19",
+    quantity: "4",
+    price: "125"
+  }, now);
+  assert.deepEqual((await db.select().from(schema.securityTrades).where(eq(schema.securityTrades.id, linked)).get())?.quantity_micros, 4_000_000);
+
+  const { id: sale } = await trade(account, {
+    security_id: etf,
+    date: "2026-10-01",
+    side: "sell",
+    quantity: "12",
+    price: "100",
+    settlement: {
+      account_id: cash
+    }
+  });
+
+  // Reducing the first buy would leave the sale above the quantity held.
+  await assert.rejects(correctTrade(entered, {
+    date: "2026-09-11",
+    quantity: "5",
+    price: "100"
+  }, now), ValidationError);
+  assert.ok(sale);
 });

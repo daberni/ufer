@@ -242,7 +242,7 @@ function isinProblem(value: string) {
 }
 
 /** The signed cash movement the entered values produce, or null while they are incomplete or invalid. */
-function cashPreview(side: TradeSide, quantity: string, price: string, fee: string, tax: string, currency: string) {
+export function cashPreview(side: TradeSide, quantity: string, price: string, fee: string, tax: string, currency: string) {
   try {
     const gross = amountMinor(parseMicros(quantity, "quantity"), parseMicros(price, "price"), currency);
 

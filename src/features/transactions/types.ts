@@ -70,6 +70,24 @@ export type Transaction = {
     /** Whether the counterpart was entered in Ufer or created by it on a manual account. */
     entered: boolean;
   } | null;
+  /** The security trade whose cash side this booking is; the trade is edited or removed from here (ADR 012). */
+  trade: BookingTrade | null;
+};
+
+export type BookingTrade = {
+  id: string;
+  side: "buy" | "sell";
+  date: string;
+  quantity_micros: number;
+  price_micros: number;
+  gross_minor: number;
+  fee_minor: number;
+  tax_minor: number;
+  security_name: string;
+  security_isin: string | null;
+  /** The brokerage account holding the trade. */
+  account_id: string;
+  account_name: string;
 };
 
 /** A booking as shown when linking the two sides of a transfer. */

@@ -12,6 +12,7 @@ stubCssModules();
 const fullPayee = "Synthetic merchant with a long counterparty reference ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 const fullDescription = "Card purchase from a synthetic merchant\nReference AT000000000000000000000000000000000000000000000000000000000000000000";
 const booking: Transaction = {
+  trade: null,
   id: "readable-booking",
   date: "2026-09-02",
   amount_minor: -1250,

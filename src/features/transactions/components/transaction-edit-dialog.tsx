@@ -30,6 +30,7 @@ import { queryKeys } from "@/client/query-keys";
 import { activeAccounts } from "@/features/accounts/queries";
 import type { Account } from "@/features/accounts/types";
 import { TradeForm } from "@/features/securities/components/trade-dialog";
+import { BookingTradePanel } from "@/features/securities/components/booking-trade";
 import { useLocale } from "@/client/locale-provider";
 
 type Props = {
@@ -137,6 +138,15 @@ export function TransactionEditDialog({
   const brokerageAccounts = activeAccounts(useQueryClient().getQueryData<Account[]>(queryKeys.accounts()) ?? []).filter(account => account.kind === "brokerage" && account.currency === transaction.currency);
   // An imported income or expense can be the cash side of a buy or sale on a brokerage account in its currency.
   const tradeable = !transaction.entered && !transaction.manual_account && !transaction.hidden && !transaction.account_archived && transaction.split === null && (transaction.type === "income" || transaction.type === "expense") && brokerageAccounts.length > 0;
+
+  // The cash side of a security trade is changed through its trade (ADR 012), so its dialog shows the trade instead of the booking form.
+  if (transaction.trade) {
+    return (
+      <Dialog eyebrow="TRANSACTION" title={transaction.trade.side === "buy" ? "Buy" : "Sale"} onClose={close}>
+        <BookingTradePanel transaction={transaction} trade={transaction.trade} close={close} />
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog

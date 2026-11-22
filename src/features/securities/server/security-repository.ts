@@ -219,8 +219,31 @@ export async function findTrade(executor: Executor, id: string) {
     id: securityTrades.id,
     account_id: securityTrades.account_id,
     security_id: securityTrades.security_id,
+    side: securityTrades.side,
+    sequence: securityTrades.sequence,
     settlement_transaction_id: securityTrades.settlement_transaction_id
   }).from(securityTrades).where(eq(securityTrades.id, id)).get();
+}
+
+/** Saves a corrected trade; its side, security and cash side stay. */
+export async function saveTradeCorrection(tx: DatabaseTransaction, id: string, correction: {
+  date: string;
+  quantity_micros: number;
+  price_micros: number;
+  gross_minor: number;
+  fee_minor: number;
+  tax_minor: number;
+}) {
+  await tx.update(securityTrades).set(correction).where(eq(securityTrades.id, id));
+}
+
+/** Moves a trade's own cash entry to the corrected date and amount. */
+export async function saveSettlementEntry(tx: DatabaseTransaction, id: string, entry: {
+  date: string;
+  amount_minor: number;
+  description: string;
+}) {
+  await tx.update(transactions).set(entry).where(eq(transactions.id, id));
 }
 
 /** Deletes a trade and releases its cash side: an entry booked for it is removed, a linked bank booking returns to the type its delivery implies. */

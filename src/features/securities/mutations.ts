@@ -86,3 +86,24 @@ export function useSaveListing(securityId: string) {
     onSettled: () => invalidate(queryClient, [queryKeys.securities.all(), queryKeys.accounts(), queryKeys.reports.netWorth()])
   });
 }
+
+export type TradeCorrection = {
+  tradeId: string;
+  date: string;
+  quantity: string;
+  price: string;
+  fee: string;
+  tax: string;
+};
+
+export function useCorrectTrade() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      tradeId,
+      ...correction
+    }: TradeCorrection) => api(`trades/${encodeURIComponent(tradeId)}`, correction, "PATCH"),
+    onSettled: () => invalidate(queryClient, tradeKeys)
+  });
+}

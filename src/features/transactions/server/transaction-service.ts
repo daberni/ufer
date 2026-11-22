@@ -1,4 +1,5 @@
 import { Temporal } from "temporal-polyfill";
+import { readTransaction } from "./transaction-list-query";
 import { syncLease, withLease } from "@/server/jobs/lease";
 import { HttpError, ValidationError } from "@/lib/errors";
 import { z } from "zod";
@@ -310,4 +311,15 @@ export async function transferOptions(id: string) {
   }
 
   return options;
+}
+
+/** One booking as the transaction list shows it, for opening it from elsewhere such as a brokerage trade. */
+export async function readBooking(id: string) {
+  const booking = await readTransaction(id);
+
+  if (!booking) {
+    throw new HttpError(404, "Transaction not found.");
+  }
+
+  return booking;
 }
