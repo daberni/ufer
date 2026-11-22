@@ -382,9 +382,10 @@ test("the connected bank account is the one the target's identifiers name, else 
   });
 });
 
-test("an account an authorization was started from stays deletable, and that authorization forgets it", async context => {
+test("an account an authorization was started from stays deletable, and that authorization then fails instead of connecting every bank account", async context => {
   const {
     db,
+    requests,
     actor
   } = await connectDatabase(context, () => [bankAccount("checking")]);
 
@@ -396,5 +397,14 @@ test("an account an authorization was started from stays deletable, and that aut
   });
 
   assert.equal((await db.select().from(schema.accounts)).length, 0);
-  assert.equal((await db.select().from(schema.requisitions).where(eq(schema.requisitions.id, "abandoned")).get())?.target_account_id, null);
+  await assert.rejects(completeAuthorization("state-abandoned", "browser-abandoned", "code", actor), {
+    status: 422
+  });
+
+  const failed = await db.select().from(schema.requisitions).where(eq(schema.requisitions.id, "abandoned")).get();
+
+  assert.equal(failed?.status, "ERROR");
+  assert.equal(failed?.session_cipher, null);
+  assert.deepEqual(requests.map(request => request.method), ["POST", "DELETE"]);
+  assert.equal((await db.select().from(schema.accounts)).length, 0);
 });
