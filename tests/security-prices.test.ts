@@ -274,7 +274,11 @@ test("splits are checked weekly, on a weekday of their own, from the first trade
     "SYN.XETRA": ["2026-09-01 2.000000/1.000000"]
   });
 
+  // The first update checks splits at once; later runs only on the security's own weekday.
   await updatePrices(now, midweek.provider);
+  assert.equal(midweek.requests.filter(request => request.kind === "splits").length, 1);
+  midweek.requests.length = 0;
+  await updatePrices(Temporal.Instant.from("2026-10-15T06:00:00Z"), midweek.provider);
   assert.equal(midweek.requests.filter(request => request.kind === "splits").length, 0);
 
   const weekly = fakeProvider({}, {
@@ -315,6 +319,7 @@ test("closes convert to micro-units through their decimal text and invalid ones 
   assert.equal(closeMicros(1234.5678919), 1234_567_892);
   assert.throws(() => closeMicros(0), MarketDataError);
   assert.throws(() => closeMicros(Number.NaN), MarketDataError);
+  assert.throws(() => closeMicros(0.0000004), MarketDataError);
   assert.throws(() => parseSplitRatio("2026-01-01", "two/one"), MarketDataError);
   assert.throws(() => parseSplitRatio("2026-01-01", `${"9".repeat(309)}/1`), MarketDataError);
 });
@@ -407,6 +412,7 @@ test("split checks spread over the week, and a failed one is retried on the next
   const days = ["2026-10-12", "2026-10-13", "2026-10-14", "2026-10-15", "2026-10-16", "2026-10-17", "2026-10-18"].map(day => Temporal.PlainDate.from(day));
   const checkDays = (id: string) => days.filter(day => checksSplits({
     id,
+    price_checked_at: "2026-10-01T06:00:00.000Z",
     price_error: null
   }, day)).map(day => day.toString());
 

@@ -24,13 +24,15 @@ const splitErrorPrefix = "Splits: ";
 
 /**
  * Splits cost a request each, so each security checks them once a week, on a weekday derived from its ID: the checks spread over the week and stay within the free plan's 20 requests per day.
- * A security whose last split check failed checks again on the next run.
+ * A security checks on its first update and, after a failed split check, again on the next run.
  */
 export function checksSplits(security: {
   id: string;
+  price_checked_at: string | null;
   price_error: string | null
 }, date: Temporal.PlainDate) {
-  if (security.price_error?.startsWith(splitErrorPrefix)) {
+  // A security's first update checks its splits at once, as does one whose last split check failed.
+  if (security.price_checked_at === null || security.price_error?.startsWith(splitErrorPrefix)) {
     return true;
   }
 
@@ -52,8 +54,14 @@ export function closeMicros(close: number) {
   }
 
   const [whole, fraction] = close.toFixed(6).split(".");
+  const micros = Number(whole) * 1_000_000 + Number(fraction);
 
-  return Number(whole) * 1_000_000 + Number(fraction);
+  // A close below half a micro-unit rounds to zero, which no stored price may be.
+  if (micros <= 0) {
+    throw new MarketDataError("The price provider reported an invalid price.");
+  }
+
+  return micros;
 }
 
 function firstDate(security: {
