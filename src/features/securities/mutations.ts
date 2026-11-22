@@ -87,6 +87,7 @@ export function useSaveListing(securityId: string) {
     mutationFn: (providerSymbol: string | null) => api(`securities/${encodeURIComponent(securityId)}`, {
       provider_symbol: providerSymbol
     }, "PATCH"),
-    onSettled: () => invalidate(queryClient, [queryKeys.securities.all(), queryKeys.accounts()])
+    // A new listing drops the stored prices, which changes valuations, net worth and its history.
+    onSettled: () => invalidate(queryClient, [queryKeys.securities.all(), queryKeys.accounts(), queryKeys.reports.netWorth()])
   });
 }

@@ -312,6 +312,15 @@ export async function saveSecurityListing(id: string, listing: {
   const db = await database();
 
   return db.transaction(async tx => {
+    const current = await tx.select({
+      provider_symbol: securities.provider_symbol
+    }).from(securities).where(eq(securities.id, id)).get();
+
+    // Saving the same listing keeps its price history.
+    if (current && current.provider_symbol === listing.provider_symbol) {
+      return true;
+    }
+
     if (listing.provider_symbol) {
       const taken = await tx.select({
         id: securities.id

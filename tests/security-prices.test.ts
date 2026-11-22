@@ -547,6 +547,12 @@ test("changing a security's listing drops the old listing's prices and refuses a
   }), error => error instanceof HttpError && error.status === 409);
   assert.equal((await pricesOf(db, "etf")).length, 1);
 
+  // Saving the unchanged listing keeps the price history.
+  await updateSecurityListing("etf", {
+    provider_symbol: "SYN.XETRA"
+  });
+  assert.equal((await pricesOf(db, "etf")).length, 1);
+
   await updateSecurityListing("etf", {
     provider_symbol: "SYN.F"
   });
