@@ -39,7 +39,7 @@ export function FileDropZone({
     >
       <FileUp size={28} aria-hidden="true" />
       <p className={styles["title"]}>
-        Drop a CSV file here or{" "}
+        Drop a file here or{" "}
         <button
           type="button"
           className={styles["choose"]}
