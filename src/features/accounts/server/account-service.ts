@@ -1,14 +1,27 @@
 import { Temporal } from "temporal-polyfill";
 import { syncLease, withLease } from "@/server/jobs/lease";
 import { HttpError, ValidationError } from "@/lib/errors";
-import { today } from "@/lib/time";
-import { accountDeletionInput, accountEditInput } from "./account-schema";
-import { convertDetachedAccount, deleteUnlinkedAccount, findManualAccount, saveAccountArchived, saveAccountKind, saveAccountName } from "./account-repository";
+import { minorUnits } from "@/lib/money";
+import { timestamp, today } from "@/lib/time";
+import { accountDeletionInput, accountEditInput, accountInput, archiveInput } from "./account-schema";
+import { archiveSettledAccount, convertDetachedAccount, deleteUnlinkedAccount, findManualAccount, insertManualAccount, saveAccountArchived, saveAccountKind, saveAccountName, type OpeningBalanceBooking } from "./account-repository";
 import { findAccountWithBalance } from "./account-queries";
 import { archivedAccountMessage } from "./writable-account";
 import type { AccountKind } from "../account-kinds";
 import { currentFormatLocale } from "@/server/http/request-locale";
 import { formatCount } from "@/lib/locale";
+
+/** Creates a manual account; `bookOpeningBalance` books its starting balance in the same transaction. */
+export async function createManualAccount(payload: unknown, bookOpeningBalance: OpeningBalanceBooking, now = Temporal.Now.instant()) {
+  const input = accountInput.parse(payload);
+  const amount = minorUnits(input.balance, input.currency);
+  const date = input.date ?? today(now).toString();
+
+  validateLiability(input.kind, amount);
+  validateBalanceDate(date, now);
+
+  return insertManualAccount(input, amount, date, bookOpeningBalance);
+}
 
 export function validateBalanceDate(date: string, now: Temporal.Instant) {
   if (Temporal.PlainDate.compare(Temporal.PlainDate.from(date), today(now)) > 0) {
@@ -73,6 +86,61 @@ async function changeAccountKind(account: {
   if (!await saveAccountKind(account.id, kind)) {
     throw new HttpError(409, "The account changed meanwhile. Review it and try again.");
   }
+}
+
+export const balanceChangedMessage = "The balance changed meanwhile. Review it and try again.";
+
+/** Whether an archive request asks to book a remaining balance away first; that closing books in transactions. */
+export function requestsClosing(payload: unknown) {
+  return archiveInput.parse(payload).closing !== undefined;
+}
+
+/** Archives an account whose balance is 0. Archived accounts are hidden from lists and pickers and keep their history; a remaining balance is closed through a closing booking instead. */
+export async function archiveAccount(accountId: string, payload: unknown) {
+  const input = archiveInput.parse(payload);
+  const account = await findAccountWithBalance(accountId);
+
+  if (!account) {
+    throw new HttpError(404, "Account not found.");
+  }
+
+  if (account.archived_at !== null) {
+    return {
+      ok: true
+    };
+  }
+
+  // The balance is the sum of the bookings, so it is 0 without any.
+  const balance = account.balance_minor ?? 0;
+
+  if (balance !== 0) {
+    throw new HttpError(409, "Bring the balance to 0 before archiving.");
+  }
+
+  // A closing confirms the balance the user saw; any other current balance needs a new confirmation.
+  if (input.closing !== undefined && input.closing.balance_minor !== balance) {
+    throw new HttpError(409, balanceChangedMessage);
+  }
+
+  if (!await archiveSettled(account)) {
+    throw new HttpError(409, balanceChangedMessage);
+  }
+
+  return {
+    ok: true
+  };
+}
+
+// A bank sync may be writing a new balance; archiving waits until it has finished.
+async function archiveSettled(account: {
+  id: string;
+  provider: string;
+}) {
+  if (account.provider === "manual") {
+    return archiveSettledAccount(account.id, timestamp());
+  }
+
+  return whileNoSync("Archive the account", () => archiveSettledAccount(account.id, timestamp()));
 }
 
 /** Runs a change to a bank account while no sync can write to it. */

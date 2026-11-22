@@ -17,8 +17,8 @@ import { readTransactionPage } from "../src/features/transactions/server/transac
 import { dashboardFilters } from "../src/server/http/dashboard-filters";
 import { ValidationError } from "../src/lib/errors";
 import { listAccounts, readBalanceHistory, readNetWorth } from "../src/features/accounts/server/account-queries";
-import { restoreAccount } from "../src/features/accounts/server/account-service";
-import { archiveAccount, updateManualValuation } from "../src/features/transactions/server/manual-account-service";
+import { restoreAccount, archiveAccount } from "../src/features/accounts/server/account-service";
+import { updateManualValuation, closeManualAccount } from "../src/features/transactions/server/manual-account-service";
 import { editManualTransaction, enterManualTransaction, hideTransaction, removeManualTransaction, transferOptions, updateTransactionCategory, updateTransactionDetails } from "../src/features/transactions/server/transaction-service";
 import { deleteCategory } from "../src/features/categorization/server/categorization-service";
 import { applyRulesToUncorrectedTransactions, createRule, updateRuleDetails } from "../src/features/transactions/server/rule-application-service";
@@ -514,7 +514,7 @@ test("automatic pairing never links a booking on an archived account", async con
     currency: "EUR",
     type: "income"
   }]);
-  await archiveAccount("closed", {
+  await closeManualAccount("closed", {
     closing: {
       date: "2026-01-31",
       balance_minor: -2500
@@ -550,7 +550,7 @@ test("changing a booking linked to a counterpart on an archived account is refus
   const counterpart = await db.select().from(schema.transactions).where(eq(schema.transactions.provider_reference, "transfer:imported")).get();
 
   assert.equal(counterpart?.account_id, "closed");
-  await archiveAccount("closed", {
+  await closeManualAccount("closed", {
     closing: {
       date: "2026-01-31",
       balance_minor: 2500
@@ -691,7 +691,7 @@ test("archiving uses the displayed balance, which leaves hidden bookings out", a
   assert.equal(listed.find(account => account.id === "open")?.balance_minor, 50000);
 
   await archiveAccount("target", {});
-  await archiveAccount("open", {
+  await closeManualAccount("open", {
     closing: {
       date: "2026-01-15",
       balance_minor: 50000
@@ -754,7 +754,7 @@ test("archiving an account whose balance is not 0 is refused without changes", a
 
   await assert.rejects(archiveAccount("open", {}), refused);
   // A bank-linked balance comes from the bank and cannot be booked away.
-  await assert.rejects(archiveAccount("bank", {
+  await assert.rejects(closeManualAccount("bank", {
     closing: {
       date: "2026-02-01",
       balance_minor: 7000
@@ -772,7 +772,7 @@ test("closing a manual account books its balance away as an adjustment on the ch
   const db = await seededDatabase(context);
   const cashFlowBefore = await readCashFlow(allMonthsPeriod, "EUR");
 
-  await archiveAccount("open", {
+  await closeManualAccount("open", {
     closing: {
       date: "2026-01-15",
       balance_minor: 50000
@@ -807,7 +807,7 @@ test("closing refuses a balance that changed after the user saw it, also between
   });
   const bookingsBefore = await db.select().from(schema.transactions);
 
-  await assert.rejects(archiveAccount("open", {
+  await assert.rejects(closeManualAccount("open", {
     closing: {
       date: "2026-01-31",
       balance_minor: 50000
@@ -830,7 +830,7 @@ test("closing refuses a balance that changed after the user saw it, also between
 
     return result;
   });
-  await assert.rejects(archiveAccount("open", {
+  await assert.rejects(closeManualAccount("open", {
     closing: {
       date: "2026-01-31",
       balance_minor: 50700
@@ -844,7 +844,7 @@ test("closing refuses a balance that changed after the user saw it, also between
 test("closing a manual account can transfer its balance to another active manual account in the same currency", async context => {
   const db = await seededDatabase(context);
 
-  await archiveAccount("open", {
+  await closeManualAccount("open", {
     closing: {
       date: "2026-01-15",
       balance_minor: 50000,
@@ -868,7 +868,7 @@ test("a closing transfer to an archived, foreign-currency or bank account rolls 
   const bookingsBefore = await db.select().from(schema.transactions);
 
   for (const target of ["closed", "dollars", "bank", "open"]) {
-    await assert.rejects(archiveAccount("open", {
+    await assert.rejects(closeManualAccount("open", {
       closing: {
         date: "2026-01-15",
         balance_minor: 50000,
@@ -877,7 +877,7 @@ test("a closing transfer to an archived, foreign-currency or bank account rolls 
     }), ValidationError, target);
   }
 
-  await assert.rejects(archiveAccount("open", {
+  await assert.rejects(closeManualAccount("open", {
     closing: {
       date: "2999-01-01",
       balance_minor: 50000
@@ -958,7 +958,7 @@ test("the closing date cannot precede the account's last booking", async context
   const db = await seededDatabase(context);
   const bookingsBefore = await db.select().from(schema.transactions);
 
-  await assert.rejects(archiveAccount("open", {
+  await assert.rejects(closeManualAccount("open", {
     closing: {
       date: "2026-01-01",
       balance_minor: 50000
@@ -969,7 +969,7 @@ test("the closing date cannot precede the account's last booking", async context
   assert.deepEqual(await db.select().from(schema.transactions), bookingsBefore);
   assert.equal((await listAccounts()).find(account => account.id === "open")?.archived_at, null);
 
-  await archiveAccount("open", {
+  await closeManualAccount("open", {
     closing: {
       date: "2026-01-02",
       balance_minor: 50000

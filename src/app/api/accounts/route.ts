@@ -1,6 +1,7 @@
 import { respond } from "@/server/http/respond";
 import { readJson } from "@/server/http/request-body";
-import { createManualAccount } from "@/features/transactions/server/manual-account-service";
+import { createManualAccount } from "@/features/accounts/server/account-service";
+import { bookOpeningBalance } from "@/features/transactions/server/manual-account-service";
 import { listAccounts } from "@/features/accounts/server/account-queries";
 
 export const runtime = "nodejs";
@@ -14,7 +15,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  return respond(request, async () => createManualAccount(await readJson(request)), {
+  return respond(request, async () => createManualAccount(await readJson(request), bookOpeningBalance), {
     status: 201
   });
 }

@@ -5,39 +5,18 @@ import { refuse, withAccountBookingTransaction, withRefusableAccountBookingTrans
 import { currentFormatLocale } from "@/server/http/request-locale";
 import { HttpError, ValidationError } from "@/lib/errors";
 import { minorUnits } from "@/lib/money";
-import { timestamp, today } from "@/lib/time";
+import { timestamp } from "@/lib/time";
 import { dateWithYear } from "@/lib/date-format";
-import { accountInput, archiveInput, valuationInput } from "@/features/accounts/server/account-schema";
-import { archiveIfSettled, archiveSettledAccount, insertManualAccount, readBookedTotal, readLatestReportedBalance } from "@/features/accounts/server/account-repository";
+import { archiveInput, valuationInput } from "@/features/accounts/server/account-schema";
+import { archiveIfSettled, readBookedTotal, readLatestReportedBalance, type OpeningBalanceBooking } from "@/features/accounts/server/account-repository";
 import { comparableBankBalanceTypes, findAccountWithBalance } from "@/features/accounts/server/account-queries";
-import { requireWritableManualAccount, validateBalanceDate, validateLiability } from "@/features/accounts/server/account-service";
+import { archiveAccount, balanceChangedMessage, requireWritableManualAccount, validateBalanceDate, validateLiability } from "@/features/accounts/server/account-service";
 import { archivedAccountMessage, assertWritableAccount } from "@/features/accounts/server/writable-account";
 import { decideClosing, decideReconciliation } from "./manual-account-decisions";
 import { bookManualEntry, recordManualBalance, type ManualEntryResult } from "./manual-transaction-repository";
 
-/** Creates a manual account with its starting balance as the opening balance transaction, in one transaction. */
-export async function createManualAccount(payload: unknown, now = Temporal.Now.instant()) {
-  const input = accountInput.parse(payload);
-  const amount = minorUnits(input.balance, input.currency);
-  const date = input.date ?? today(now).toString();
-
-  validateLiability(input.kind, amount);
-  validateBalanceDate(date, now);
-
-  const id = randomUUID();
-
-  await withAccountBookingTransaction(async tx => {
-    await insertManualAccount(tx, id, input);
-    await recordManualBalance(tx, {
-      id,
-      currency: input.currency
-    }, date, amount);
-  });
-
-  return {
-    id
-  };
-}
+/** Books a new manual account's starting balance as its opening balance inside the account's creation transaction. */
+export const bookOpeningBalance: OpeningBalanceBooking = (tx, account, date, amount) => recordManualBalance(tx, account, date, amount);
 
 /** Records a manual account's balance on a date as an opening balance or an adjustment for the difference. */
 export async function updateManualValuation(accountId: string, payload: unknown, now = Temporal.Now.instant()) {
@@ -107,58 +86,30 @@ class ClosingBeforeLastBooking extends Error {
 const closingFailures: Partial<Record<ClosingResult, string>> = {
   account_not_found: "Choose another active manual account to transfer the balance to.",
   same_account: "Choose another account to transfer the balance to.",
-  currency_mismatch: "The transfer account must use the same currency.",
-  balance_changed: "The balance changed meanwhile. Review it and try again."
+  currency_mismatch: "The transfer account must use the same currency."
 };
 
-/** Archives an account whose balance is 0; a manual account can first book its remaining balance away. Archived accounts are hidden from lists and pickers and keep their history. */
-export async function archiveAccount(accountId: string, payload: unknown, now = Temporal.Now.instant()) {
+/** Books a manual account's remaining balance away and archives it in one transaction; an account without a remaining balance, or without a closing, is archived as it is. */
+export async function closeManualAccount(accountId: string, payload: unknown, now = Temporal.Now.instant()) {
   const input = archiveInput.parse(payload);
   const account = await findAccountWithBalance(accountId);
-
-  if (!account) {
-    throw new HttpError(404, "Account not found.");
-  }
-
-  if (account.archived_at !== null) {
-    return {
-      ok: true
-    };
-  }
-
   // The balance is the sum of the bookings, so it is 0 without any.
-  const balance = account.balance_minor ?? 0;
+  const balance = account?.balance_minor ?? 0;
+
+  if (!account || account.archived_at !== null || balance === 0 || !input.closing || account.provider !== "manual") {
+    return archiveAccount(accountId, payload);
+  }
 
   // A closing confirms the balance the user saw; any other current balance needs a new confirmation.
-  const confirmedOther = input.closing !== undefined && input.closing.balance_minor !== balance;
-
-  if (balance === 0) {
-    if (confirmedOther) {
-      throw new HttpError(409, closingFailures.balance_changed!);
-    }
-
-    if (!await archiveSettled(account)) {
-      throw new HttpError(409, closingFailures.balance_changed!);
-    }
-
-    return {
-      ok: true
-    };
-  }
-
-  if (!input.closing || account.provider !== "manual") {
-    throw new HttpError(409, "Bring the balance to 0 before archiving.");
-  }
-
-  if (confirmedOther) {
-    throw new HttpError(409, closingFailures.balance_changed!);
+  if (input.closing.balance_minor !== balance) {
+    throw new HttpError(409, balanceChangedMessage);
   }
 
   validateBalanceDate(input.closing.date, now);
   const result = await closeAccount(account, input.closing, timestamp(now));
 
   if (result === "balance_changed") {
-    throw new HttpError(409, closingFailures.balance_changed!);
+    throw new HttpError(409, balanceChangedMessage);
   }
 
   if (result !== "saved") {
@@ -235,16 +186,4 @@ async function closeAndArchiveManualAccount(account: {
 
     return "saved";
   });
-}
-
-// A bank sync may be writing a new balance; archiving waits until it has finished.
-async function archiveSettled(account: {
-  id: string;
-  provider: string;
-}) {
-  if (account.provider === "manual") {
-    return archiveSettledAccount(account.id, timestamp());
-  }
-
-  return withLease(syncLease, "A sync is running. Archive the account after it has finished.", () => archiveSettledAccount(account.id, timestamp()));
 }

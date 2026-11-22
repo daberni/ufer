@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { and, eq, inArray, desc, isNotNull, isNull, ne, sql } from "drizzle-orm";
 import { database, type Database, type DatabaseTransaction } from "@/server/database/connection";
 import { accountIdentifiers, accounts, balanceSnapshots, categorizationRules, transactions } from "@/server/database/schema";
@@ -22,14 +23,33 @@ export async function activeAccountExists(id: string) {
   return found !== undefined;
 }
 
-/** Inserts a manual account inside the caller's write transaction; its opening balance is booked by the caller. */
-export async function insertManualAccount(tx: DatabaseTransaction, id: string, input: ManualAccountInput) {
-  await tx.insert(accounts).values({
-    id,
-    name: input.name,
-    kind: input.kind,
-    currency: input.currency
+/** Books a new manual account's starting balance inside its creation transaction; the booking belongs to transactions. */
+export type OpeningBalanceBooking = (tx: DatabaseTransaction, account: {
+  id: string;
+  currency: string;
+}, date: string, amount: number) => Promise<unknown>;
+
+/** Creates a manual account and books its starting balance in one transaction. */
+export async function insertManualAccount(input: ManualAccountInput, amount: number, date: string, bookOpeningBalance: OpeningBalanceBooking) {
+  const db = await database();
+  const id = randomUUID();
+
+  await db.transaction(async tx => {
+    await tx.insert(accounts).values({
+      id,
+      name: input.name,
+      kind: input.kind,
+      currency: input.currency
+    });
+    await bookOpeningBalance(tx, {
+      id,
+      currency: input.currency
+    }, date, amount);
   });
+
+  return {
+    id
+  };
 }
 
 /** The sum and latest date of an account's visible bookings, read inside the caller's write transaction. */
