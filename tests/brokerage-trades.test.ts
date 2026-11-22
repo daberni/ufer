@@ -480,3 +480,31 @@ test("trades refuse other currencies, future dates and a missing security", asyn
     provider_symbol: "SYN.XETRA"
   }), HttpError);
 });
+
+test("an account holding a trade's cash side is not deleted, and an archived settlement account keeps its trades", async context => {
+  const db = await isolatedDatabase(context);
+  const cash = await settlementAccount();
+  const account = await depot();
+  const etf = await security();
+  const { id } = await trade(account, {
+    security_id: etf,
+    date: "2026-09-10",
+    side: "buy",
+    quantity: "1",
+    price: "10",
+    settlement: {
+      account_id: cash
+    }
+  });
+
+  await rejectsWith(deleteAccount(cash, {
+    name: "Synthetic settlement"
+  }), 409);
+
+  await db.update(schema.accounts).set({
+    archived_at: "2026-10-01T00:00:00.000Z"
+  }).where(eq(schema.accounts.id, cash));
+  await rejectsWith(removeTrade(id), 409);
+  assert.equal((await db.select().from(schema.securityTrades)).length, 1);
+  assert.equal((await bookingsOf(db, cash)).length, 2);
+});

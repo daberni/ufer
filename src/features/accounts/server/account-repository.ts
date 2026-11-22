@@ -162,6 +162,14 @@ export async function deleteUnlinkedAccount(id: string, confirmedName: string) {
       throw new HttpError(409, "This brokerage account still has trades. Delete its trades first.");
     }
 
+    const settled = await tx.select({
+      id: securityTrades.id
+    }).from(securityTrades).innerJoin(transactions, eq(transactions.id, securityTrades.settlement_transaction_id)).where(eq(transactions.account_id, id)).get();
+
+    if (settled) {
+      throw new HttpError(409, "This account holds the cash side of security trades. Delete those trades first.");
+    }
+
     const own = tx.select({
       transfer_id: transactions.transfer_id
     }).from(transactions).where(and(eq(transactions.account_id, id), isNotNull(transactions.transfer_id)));

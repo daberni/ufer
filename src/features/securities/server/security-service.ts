@@ -240,6 +240,13 @@ export async function removeTrade(id: string) {
       throw new HttpError(409, archivedAccountMessage);
     }
 
+    // Archiving freezes the settlement account's bookings too, so its cash side cannot be removed or retyped.
+    const settlement = trade.settlement_transaction_id ? await findSettlementBooking(tx, trade.settlement_transaction_id) : undefined;
+
+    if (settlement?.account_archived_at) {
+      throw new HttpError(409, archivedAccountMessage);
+    }
+
     const remaining = (await readPositionTrades(tx, trade.account_id, trade.security_id)).filter(other => other.id !== trade.id);
 
     positionOn(remaining, await readSplits(tx, trade.security_id), replayEnd);
