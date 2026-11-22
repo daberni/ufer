@@ -4,6 +4,8 @@ import ui from "../../../components/ui/primitives.module.css";
 import styles from "./brokerage-panel.module.css";
 
 import { useState } from "react";
+import { Temporal } from "temporal-polyfill";
+import { dateWithYear } from "@/lib/date-format";
 import { clsx } from "clsx";
 import { Trash2 } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
@@ -90,9 +92,9 @@ export function BrokeragePanel({ account }: {
               <li key={trade.id} className={styles["row"]}>
                 <div className={styles["main"]}>
                   <strong>{trade.side === "buy" ? "Buy" : "Sell"} · {trade.security_name}</strong>
-                  <span className={styles["meta"]}>{trade.date} · {formatQuantity(trade.quantity_micros, locale)} × {formatPrice(trade.price_micros, trade.currency, locale)}{trade.fee_minor ? ` · fees ${money(trade.fee_minor, trade.currency, locale)}` : ""}{trade.tax_minor ? ` · taxes ${money(trade.tax_minor, trade.currency, locale)}` : ""}</span>
+                  <span className={styles["meta"]}>{dateWithYear(Temporal.PlainDate.from(trade.date), locale)} · {formatQuantity(trade.quantity_micros, locale)} × {formatPrice(trade.price_micros, trade.currency, locale)}{trade.fee_minor ? ` · fees ${money(trade.fee_minor, trade.currency, locale)}` : ""}{trade.tax_minor ? ` · taxes ${money(trade.tax_minor, trade.currency, locale)}` : ""}</span>
                 </div>
-                <span className={styles["amount"]}>{signedMoney(trade.side === "buy" ? trade.gross_minor : -trade.gross_minor, trade.currency, locale)}</span>
+                <span className={styles["amount"]}>{money(trade.gross_minor, trade.currency, locale)}</span>
                 {account.archived_at === null && (
                   <button
                     type="button"
@@ -129,15 +131,15 @@ function HoldingRow({
   changeListing?: (security: Security) => void;
 }) {
   const gain = holding.value_minor - holding.cost_minor;
-  const status = holdingStatus(holding, security);
+  const status = holdingStatus(holding, security, locale);
 
   return (
     <li className={styles["row"]}>
       <div className={styles["main"]}>
         <strong>{holding.security_name}</strong>
         <span className={styles["meta"]}>
-          {formatQuantity(holding.quantity_micros, locale)} shares · cost {money(holding.cost_minor, currency, locale)}
-          {holding.status !== "missing" && ` · gain ${signedMoney(gain, currency, locale)}`}
+          {formatQuantity(holding.quantity_micros, locale)} shares · cost <span className={styles["figure"]}>{money(holding.cost_minor, currency, locale)}</span>
+          {holding.status !== "missing" && <> · gain <span className={styles["figure"]}>{signedMoney(gain, currency, locale)}</span></>}
         </span>
         {status && <span className={clsx(styles["status"], holding.status === "missing" && styles["warning"])}>{status}</span>}
       </div>
@@ -152,12 +154,12 @@ function HoldingRow({
 }
 
 /** Why a holding's value is not a current market price, or which price it uses. */
-function holdingStatus(holding: Holding, security: Security | undefined) {
+function holdingStatus(holding: Holding, security: Security | undefined, locale: string) {
   if (holding.status === "missing") {
     return security?.price_error ? `No price: ${security.price_error} Valued at cost.` : "No price · valued at cost";
   }
 
-  const priced = holding.price ? `Price of ${holding.price.date}${security?.provider_symbol ? ` (${security.provider_symbol})` : ""}` : null;
+  const priced = holding.price ? `Price of ${dateWithYear(Temporal.PlainDate.from(holding.price.date), locale)}${security?.provider_symbol ? ` (${security.provider_symbol})` : ""}` : null;
 
   if (holding.status === "stale") {
     return `${priced} · not updated recently`;
@@ -179,7 +181,7 @@ function DeleteTradeDialog({
     <Dialog eyebrow="BROKERAGE" title="Delete trade" onClose={close}>
       <div className={ui["form"]}>
         <p className={ui["form-description"]}>
-          The {trade.side === "buy" ? "buy" : "sale"} of {trade.security_name} on {trade.date} is removed. A booking entered for its cash is deleted with it; a linked bank booking stays and becomes an ordinary booking again.
+          The {trade.side === "buy" ? "buy" : "sale"} of {trade.security_name} on {dateWithYear(Temporal.PlainDate.from(trade.date), useLocale())} is removed. A booking entered for its cash is deleted with it; a linked bank booking stays and becomes an ordinary booking again.
         </p>
         <FormError failure={remove.error ? toFailure(remove.error) : null} />
         <button

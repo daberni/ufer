@@ -42,6 +42,15 @@ adr:
 | Settlement | Each trade names its cash side: a manual settlement account, where the trade books an entry, or an imported bank booking. A bank-linked settlement account always needs its bank booking, so cash is never booked twice |
 | Brokerage accounts | Take no bookings, balances, transfers, import rows or bank connection, cannot change their kind, and are deleted only after their trades |
 
+### Amendment 2026-11-22: trade entry and unpriced holdings (owner decision)
+
+| Concern | Decision |
+| --- | --- |
+| Trade entry | A trade asks only for ISIN, shares, price, fees, taxes and date. The main flow starts from an imported buy or sale booking on the settlement account: the ISIN is read from its text (ISO 6166 with check digit), and its date and cash amount are taken over, the booking becoming the trade's cash side. The trade is recorded only when its cash amount matches the booking. A manual cash account remains the fallback |
+| Price listing | The listing is an internal, optional detail of the security, chosen automatically when the security is first created from its ISIN: a listing in the trade's currency, preferring XETRA and other liquid venues. There is no listing field in the trade flow; changing the listing is a separate edit on the security, which drops the old listing's prices |
+| No listing | A security without a listing, or without a configured key, is valid and has no daily price |
+| Unpriced holdings | A holding without any price is valued at its cost basis and shown as "no price", instead of counting 0; a holding with only an old price keeps that price and is shown as stale. This replaces "counts 0" in the valuation row above |
+
 ## Consequences
 
 - Net worth and its history include holdings at historical prices; manual `investment` accounts keep working.

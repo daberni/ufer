@@ -8,6 +8,7 @@ import { drizzle } from "drizzle-orm/libsql";
 import type { Database } from "../src/server/database/connection";
 import { initializeDatabase } from "../src/server/database/migrations";
 import * as schema from "../src/server/database/schema";
+import { buildDemoBrokerage } from "../src/features/demo/server/demo-brokerage";
 import { buildDemoDataset } from "../src/features/demo/server/demo-dataset";
 import { DemoSeedRefusal, seedDemoData } from "../src/features/demo/server/demo-seed-service";
 import { listAccounts } from "../src/features/accounts/server/account-queries";
@@ -159,7 +160,9 @@ test("re-running the demo seed replaces only demo rows and keeps bank-connected 
   });
   const after = await foreignRows(db);
   const dataset = buildDemoDataset(secondRun);
-  const expected = dataset.accounts.reduce((total, account) => total + account.entries.length, dataset.createdCounterparts.length);
+  const brokerage = buildDemoBrokerage(secondRun);
+  // The brokerage's trades book their cash on its separate cash account.
+  const expected = dataset.accounts.reduce((total, account) => total + account.entries.length, dataset.createdCounterparts.length) + brokerage.trades.length;
   const seeded = await demoTransactions(db);
   const balanceBookings = seeded.filter(row => row.type === "opening_balance" || row.type === "adjustment");
   const balances = new Map((await listAccounts()).map(account => [account.id, account.balance_minor]));
@@ -171,10 +174,18 @@ test("re-running the demo seed replaces only demo rows and keeps bank-connected 
   assert.equal(after.transactions.find(row => row.id === "sandbox-transaction")?.category_id, "demo-travel");
   assert.equal(summary.transactions, expected + balanceBookings.length);
   assert.equal(seeded.length, expected + balanceBookings.length);
-  assert.equal(balanceBookings.filter(row => row.type === "opening_balance").length, 10);
+  assert.equal(balanceBookings.filter(row => row.type === "opening_balance").length, 11);
   // Counterparts the seed creates on a manual account carry their source booking in the reference, as when a person creates them; balances are booked as a person enters them.
   assert.ok(seeded.every(row => ["demo:", "bank:demo:", "transfer:", "manual:"].some(prefix => row.provider_reference.startsWith(prefix))));
-  assert.equal(demoAccounts.length, 10);
+  assert.equal(demoAccounts.length, 12);
+  // The demo brokerage is valued from its trades and synthetic weekly prices, none missing.
+  const depot = (await listAccounts()).find(account => account.id === "demo-brokerage");
+
+  assert.ok(depot && depot.balance_minor !== null && depot.balance_minor > 0);
+  assert.deepEqual(depot?.valuation, {
+    missing: 0,
+    stale: 0
+  });
   // Market values end on their last valuation; every other balance follows from the transactions.
   assert.equal(balances.get("demo-investment"), lastValuation("demo-investment"));
   assert.equal(balances.get("demo-property"), lastValuation("demo-property"));

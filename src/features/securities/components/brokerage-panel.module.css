@@ -43,6 +43,10 @@
   color: var(--status-warning-text);
 }
 
+.figure {
+  white-space: nowrap;
+}
+
 .amount {
   font-variant-numeric: tabular-nums;
   font-weight: 600;

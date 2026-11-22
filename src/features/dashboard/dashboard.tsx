@@ -81,7 +81,7 @@ function DashboardShell({ children }: {
   let description = nav.description;
 
   if (view === "account") {
-    description = "Balance, transactions and history.";
+    description = selectedAccount?.kind === "brokerage" ? "Holdings, trades and value history." : "Balance, transactions and history.";
   } else if (view === "import") {
     description = "Bring in the history of an account from a bank or app export.";
   } else if (view === "accounts") {

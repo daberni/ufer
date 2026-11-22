@@ -4,6 +4,8 @@ import ui from "../../../components/ui/primitives.module.css";
 import styles from "./trade-dialog.module.css";
 
 import { useState } from "react";
+import { Temporal } from "temporal-polyfill";
+import { dateWithYear } from "@/lib/date-format";
 import { clsx } from "clsx";
 import { Check } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
@@ -111,7 +113,7 @@ export function TradeForm({
     <form className={ui["form"]} onSubmit={event => submit(event, request)}>
       {booking && (
         <p className={ui["form-description"]}>
-          {booking.account_name} · {booking.date} · <strong>{signedMoney(booking.amount_minor, booking.currency, locale)}</strong>
+          {booking.account_name} · {dateWithYear(Temporal.PlainDate.from(booking.date), locale)} · <strong>{signedMoney(booking.amount_minor, booking.currency, locale)}</strong>
           <span className={styles["booking-text"]}>{booking.text}</span>
         </p>
       )}
