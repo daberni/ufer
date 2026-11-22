@@ -15,6 +15,9 @@ const initialDays = 7;
 
 const historyDays = 365;
 
+/** Recently stored closes are fetched again, since the provider may still correct them; the upsert replaces a changed close. */
+const correctionDays = 3;
+
 /** Splits cost a request each, so they are checked once a week to stay within the free plan's 20 requests per day. */
 const splitCheckWeekday = 1;
 
@@ -40,8 +43,8 @@ function firstDate(security: {
   });
 
   if (security.newest_price) {
-    return Temporal.PlainDate.from(security.newest_price).add({
-      days: 1
+    return Temporal.PlainDate.from(security.newest_price).subtract({
+      days: correctionDays
     });
   }
 
@@ -56,18 +59,21 @@ export type PriceUpdateResult = {
   status: "not_configured" | "updated" | "running";
   securities: number;
   failed: number;
+  /** Securities first traded before the provider's split history reaches back, whose earlier splits could not be checked. */
+  incomplete: number;
 };
 
 /**
  * Fetches the daily closes each security with a provider symbol is missing, from the day after its newest stored price through today; on the weekly check day also its splits since its first trade.
- * A failure is stored on its security and does not stop the others. Without a key it does nothing.
+ * Recent closes are fetched again so corrections replace them. A failure is stored on its security and does not stop the others. Without a key it does nothing.
  */
 export async function updatePrices(now = Temporal.Now.instant(), provider: MarketDataProvider | null = configuredProvider()): Promise<PriceUpdateResult> {
   if (!provider) {
     return {
       status: "not_configured",
       securities: 0,
-      failed: 0
+      failed: 0,
+      incomplete: 0
     };
   }
 
@@ -76,6 +82,10 @@ export async function updatePrices(now = Temporal.Now.instant(), provider: Marke
       const date = today(now);
       const checkedAt = timestamp(now);
       let failed = 0;
+      let incomplete = 0;
+      const historyStart = date.subtract({
+        days: historyDays
+      }).toString();
       const priced = (await listPricedSecurities()).filter(security => security.provider === provider.name);
 
       for (const security of priced) {
@@ -94,10 +104,19 @@ export async function updatePrices(now = Temporal.Now.instant(), provider: Marke
           }
 
           if (date.dayOfWeek === splitCheckWeekday && security.first_trade) {
-            await saveSplits(security.id, await provider.splits(symbol, security.first_trade, date.toString()));
+            const splitsFrom = security.first_trade < historyStart ? historyStart : security.first_trade;
+
+            await saveSplits(security.id, await provider.splits(symbol, splitsFrom, date.toString()));
           }
 
-          await savePriceCheck(security.id, checkedAt, null);
+          // The provider's split history reaches back one year, so an older split would be silently missing from the quantity; the security stays flagged.
+          const unchecked = security.first_trade !== null && security.first_trade < historyStart;
+
+          if (unchecked) {
+            incomplete += 1;
+          }
+
+          await savePriceCheck(security.id, checkedAt, unchecked ? `Splits before ${historyStart} cannot be checked with the price provider's history; quantities may be wrong if one occurred.` : null);
         } catch (error) {
           if (!(error instanceof MarketDataError)) {
             throw error;
@@ -111,7 +130,8 @@ export async function updatePrices(now = Temporal.Now.instant(), provider: Marke
       return {
         status: "updated" as const,
         securities: priced.length,
-        failed
+        failed,
+        incomplete
       };
     }, randomUUID());
   } catch (error) {
@@ -120,7 +140,8 @@ export async function updatePrices(now = Temporal.Now.instant(), provider: Marke
       return {
         status: "running",
         securities: 0,
-        failed: 0
+        failed: 0,
+        incomplete: 0
       };
     }
 

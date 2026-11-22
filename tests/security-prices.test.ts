@@ -121,7 +121,8 @@ test("without a price source the update does nothing and the securities say so",
   assert.deepEqual(await updatePrices(now, null), {
     status: "not_configured",
     securities: 0,
-    failed: 0
+    failed: 0,
+    incomplete: 0
   });
   assert.equal((await db.select().from(schema.securityPrices)).length, 0);
   assert.equal((await securityRow(db, "etf"))?.price_checked_at, null);
@@ -144,7 +145,7 @@ test("without a price source the update does nothing and the securities say so",
   }), null), error => error instanceof HttpError && error.status === 409);
 });
 
-test("an update fetches from the day after the newest price, or from the first trade, and stores exact closes", async context => {
+test("an update fetches from shortly before the newest price, or from the first trade, and stores exact closes, refetching recent days for corrections", async context => {
   const db = await isolatedDatabase(context);
 
   await db.insert(schema.securityPrices).values({
@@ -191,12 +192,13 @@ test("an update fetches from the day after the newest price, or from the first t
   assert.deepEqual(await updatePrices(now, provider), {
     status: "updated",
     securities: 2,
-    failed: 0
+    failed: 0,
+    incomplete: 0
   });
   assert.deepEqual(requests, [{
     kind: "closes",
     symbol: "SYN.XETRA",
-    from: "2026-10-13",
+    from: "2026-10-09",
     to: "2026-10-14"
   }, {
     kind: "closes",
@@ -208,12 +210,15 @@ test("an update fetches from the day after the newest price, or from the first t
   assert.deepEqual(await pricesOf(db, "fund"), [["2026-10-02", 49_500_000]]);
   assert.deepEqual([(await securityRow(db, "etf"))?.price_checked_at, (await securityRow(db, "etf"))?.price_error], ["2026-10-14T06:00:00.000Z", null]);
 
-  // Running again the same day asks only for days not stored yet and keeps what is stored.
+  // A later run fetches the last stored days again, so a corrected close replaces the stored one.
   requests.length = 0;
-  await updatePrices(now, provider);
-  assert.deepEqual(requests.map(request => [request.symbol, request.from]), [["SYNF.EUFUND", "2026-10-03"]]);
-  assert.deepEqual(await pricesOf(db, "fund"), [["2026-10-02", 49_500_000]]);
-  assert.deepEqual(await pricesOf(db, "etf"), [["2026-10-12", 100_000_000], ["2026-10-13", 101_370_000], ["2026-10-14", 300_000]]);
+  await updatePrices(now, fakeProvider({
+    "SYN.XETRA": [{
+      date: "2026-10-13",
+      close: 101.4
+    }]
+  }).provider);
+  assert.deepEqual(await pricesOf(db, "etf"), [["2026-10-12", 100_000_000], ["2026-10-13", 101_400_000], ["2026-10-14", 300_000]]);
 });
 
 test("a failing security keeps its error visible while the others update", async context => {
@@ -229,7 +234,8 @@ test("a failing security keeps its error visible while the others update", async
   assert.deepEqual(await updatePrices(now, provider), {
     status: "updated",
     securities: 2,
-    failed: 1
+    failed: 1,
+    incomplete: 0
   });
   assert.equal((await securityRow(db, "etf"))?.price_error, "The price provider's request limit is reached.");
   assert.deepEqual(await pricesOf(db, "fund"), [["2026-10-13", 49_500_000]]);
@@ -297,7 +303,8 @@ test("an update while another holds the lease leaves the work to it", async cont
   assert.deepEqual(await updatePrices(now, provider), {
     status: "running",
     securities: 0,
-    failed: 0
+    failed: 0,
+    incomplete: 0
   });
   assert.equal(requests.length, 0);
 });
@@ -364,4 +371,32 @@ test("the EODHD adapter maps responses, sends the token only as a query paramete
   await assert.rejects(provider.dailyCloses("BAD.XETRA", "2026-10-13", "2026-10-14"), MarketDataError);
   await assert.rejects(provider.splits("BAD.XETRA", "2026-01-01", "2026-10-14"), MarketDataError);
   await assert.rejects(provider.splits("SYN.XETRA", "2026-01-01", "2026-10-14"), (error: unknown) => error instanceof MarketDataError && error.message === "The price provider rejected the API key." && !error.message.includes("secret"));
+});
+
+test("a security first traded before the provider's one-year split history is checked within it and stays flagged", async context => {
+  const db = await isolatedDatabase(context);
+
+  await db.insert(schema.accounts).values({
+    id: "depot",
+    name: "Synthetic depot",
+    kind: "brokerage"
+  });
+  await db.insert(schema.securityTrades).values({
+    id: "old-trade",
+    account_id: "depot",
+    security_id: "etf",
+    date: "2024-03-01",
+    side: "buy",
+    sequence: 1,
+    quantity_micros: 1_000_000,
+    price_micros: 50_000_000,
+    gross_minor: 50_00
+  });
+
+  const weekly = fakeProvider({});
+  const result = await updatePrices(monday, weekly.provider);
+
+  assert.equal(result.incomplete, 1);
+  assert.deepEqual(weekly.requests.filter(request => request.kind === "splits").map(request => request.from), ["2025-10-19"]);
+  assert.match((await securityRow(db, "etf"))?.price_error ?? "", /Splits before 2025-10-19 cannot be checked/);
 });
