@@ -280,3 +280,19 @@ export async function readTradedSecurityIds(tx: DatabaseTransaction, accountId: 
 
   return rows.map(row => row.security_id);
 }
+
+/** Whether no trade of the security, on any account, lies on or before `date`. */
+export async function isEarliestTrade(tx: DatabaseTransaction, securityId: string, date: string) {
+  const earlier = await tx.select({
+    id: securityTrades.id
+  }).from(securityTrades).where(and(eq(securityTrades.security_id, securityId), sql`${securityTrades.date} <= ${date}`)).get();
+
+  return !earlier;
+}
+
+/** Clears the last price check so the next update checks the security's splits again. */
+export async function markSplitsUnchecked(tx: DatabaseTransaction, securityId: string) {
+  await tx.update(securities).set({
+    price_checked_at: null
+  }).where(eq(securities.id, securityId));
+}

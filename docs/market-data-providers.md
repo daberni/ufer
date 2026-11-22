@@ -1,6 +1,6 @@
 # Market data providers for security prices
 
-Research notes for valuing securities holdings (stocks, ETFs and mutual funds, mostly on European venues, identified by ISIN) with daily end-of-day prices. Nothing here is implemented yet; this document records the evaluation so the decision can be revisited. Facts were read from the providers' official pages on 2026-11-21 and are linked inline; items marked **unverified** could not be confirmed from public pages. EODHD lists its prices in euros on its pricing pages.
+Research notes for valuing securities holdings (stocks, ETFs and mutual funds, mostly on European venues, identified by ISIN) with daily end-of-day prices. Ufer implements the recommended EODHD option behind a replaceable provider interface ([ADR 012](adr/decisions/012-brokerage-holdings-and-valuations.md)); this document records the evaluation so the decision can be revisited. Facts were read from the providers' official pages on 2026-11-21 and are linked inline; items marked **unverified** could not be confirmed from public pages. EODHD lists its prices in euros on its pricing pages.
 
 Ufer needs two kinds of use, which providers license differently:
 
