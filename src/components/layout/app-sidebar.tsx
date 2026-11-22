@@ -9,6 +9,7 @@ import { ShieldCheck, type LucideIcon } from "lucide-react";
 import { BrandIcon } from "@/components/branding/brand-icon";
 import { useLocale } from "@/client/locale-provider";
 import { formatCount } from "@/lib/locale";
+import { useTabNavigation } from "@/client/use-tab-navigation";
 
 export type SidebarLink = {
   id: string;
@@ -34,6 +35,7 @@ export function AppSidebar({
   links
 }: Props) {
   const locale = useLocale();
+  const navigateToTab = useTabNavigation();
 
   return (
     <aside className={styles["sidebar"]}>
@@ -62,6 +64,7 @@ export function AppSidebar({
             aria-current={item.current ? "page" : undefined}
             className={clsx(styles["nav-item"], item.current ? styles["active"] : "")}
             href={item.href}
+            onClick={event => navigateToTab(event, item.href)}
           >
             <item.icon size={18} />
             <span className={styles["nav-full-label"]}>{item.label}</span>
