@@ -52,6 +52,7 @@ export function useImportDraft() {
   // Decisions for the checked rows' matches by line; a new check starts from the defaults again.
   const [decisions, setDecisions] = useState<Map<number, DecisionInput>>(new Map());
   const [undecidedRequest, setUndecidedRequest] = useState(0);
+  const [viewedCandidates, setViewedCandidates] = useState<Map<number, string>>(new Map());
   const [importId, setImportId] = useState(() => crypto.randomUUID());
   const [configurationLocked, setConfigurationLocked] = useState(false);
   const latestSelection = useRef(0);
@@ -104,6 +105,7 @@ export function useImportDraft() {
     setCategoryChoices(new Map());
     setTypeChoices(new Map());
     setDecisions(new Map());
+    setViewedCandidates(new Map());
     setImportId(crypto.randomUUID());
     setConfigurationLocked(false);
     mutation.reset();
@@ -288,23 +290,30 @@ export function useImportDraft() {
     setCategoryChoices(current => new Map(current).set(value, selection));
   }
 
-  /** Sets the decision for the given lines; bulk actions pass every line of one kind. */
+  /** Sets the decision for the given lines; without a reference each row keeps the candidate it shows, so a bulk action never switches bookings. */
   function decide(lines: number[], action: DecisionInput["action"], reference?: string) {
     setDecisions(current => {
       const next = new Map(current);
 
       for (const line of lines) {
+        const kept = reference ?? current.get(line)?.reference ?? viewedCandidates.get(line);
+
         next.set(line, {
           line,
           action,
-          ...(reference === undefined ? {} : {
-            reference
+          ...(kept === undefined ? {} : {
+            reference: kept
           })
         });
       }
 
       return next;
     });
+  }
+
+  /** Shows another candidate of an undecided possible duplicate; a later decision applies to it. */
+  function viewCandidate(line: number, reference: string) {
+    setViewedCandidates(current => new Map(current).set(line, reference));
   }
 
   function chooseType(value: string, type: ImportType | null) {
@@ -366,6 +375,7 @@ export function useImportDraft() {
           setImported(result);
         } else {
           setDecisions(new Map());
+          setViewedCandidates(new Map());
           setChecked({
             summary: result,
             key
@@ -408,6 +418,8 @@ export function useImportDraft() {
     decisions,
     decide,
     undecidedRequest,
+    viewedCandidates,
+    viewCandidate,
     imported,
     accounts: accountOptions,
     accountsReady: accounts.status !== "pending",

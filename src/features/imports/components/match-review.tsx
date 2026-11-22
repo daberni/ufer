@@ -177,7 +177,7 @@ function MatchItem({
   const locale = useLocale();
   const id = useId();
   // Before a decision, the person can still look at each candidate.
-  const [viewed, setViewed] = useState<string | undefined>(undefined);
+  const viewed = draft.viewedCandidates.get(match.line);
   const decision = effectiveDecision(match, draft.decisions.get(match.line));
   const candidate = decision?.reference ? decisionCandidate(match, decision) : match.candidates.find(option => option.reference === viewed) ?? decisionCandidate(match, decision);
   const undecided = decision === null;
@@ -228,7 +228,7 @@ function MatchItem({
               id={`${id}-candidate`}
               value={candidate.reference}
               disabled={draft.inputsLocked}
-              onChange={event => decision ? draft.decide([match.line], decision.action, event.target.value) : setViewed(event.target.value)}
+              onChange={event => decision ? draft.decide([match.line], decision.action, event.target.value) : draft.viewCandidate(match.line, event.target.value)}
             >
               {match.candidates.map(option => <option key={option.reference} value={option.reference}>{candidateLabel(option, currency, locale)}</option>)}
             </Select>
