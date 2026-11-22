@@ -72,26 +72,40 @@ export function ActionMenu({
     popupRef
   });
 
-  // A phone-only menu loses its trigger when the viewport widens, for example on rotation; it closes instead of floating without an anchor.
+  // Crossing the phone breakpoint, for example on rotation, can hide the trigger of a phone-only menu or the focused phone-only entry.
   useEffect(() => {
     const trigger = triggerRef.current;
 
-    if (!open || !phoneOnly || !trigger) {
+    if (!open || !trigger) {
       return;
     }
 
     const view = trigger.ownerDocument.defaultView;
 
-    function closeWhenHidden() {
-      if (trigger && view?.getComputedStyle(trigger).display === "none") {
+    function followLayout() {
+      if (!trigger || !view) {
+        return;
+      }
+
+      if (view.getComputedStyle(trigger).display === "none") {
         setOpen(false);
+
+        return;
+      }
+
+      // Browsers move focus from an entry that becomes hidden to the document body.
+      const focused = trigger.ownerDocument.activeElement;
+      const lostFocus = !focused || focused === trigger.ownerDocument.body || (popupRef.current?.contains(focused) && view.getComputedStyle(focused).display === "none");
+
+      if (lostFocus) {
+        menuItems(popupRef.current)[0]?.focus();
       }
     }
 
-    view?.addEventListener("resize", closeWhenHidden);
+    view?.addEventListener("resize", followLayout);
 
-    return () => view?.removeEventListener("resize", closeWhenHidden);
-  }, [open, phoneOnly]);
+    return () => view?.removeEventListener("resize", followLayout);
+  }, [open]);
 
   useEffect(() => {
     if (!open) {
