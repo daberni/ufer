@@ -361,6 +361,7 @@ test("OFX empty SGML leaves keep later fields, foreign amounts round exactly, an
 
   const ofxTransaction = (inner: string) => read(`OFXHEADER:100\n\n<OFX><BANKMSGSRSV1><STMTTRNRS><STMTRS><CURDEF>EUR<BANKACCTFROM><ACCTID>F</BANKACCTFROM><BANKTRANLIST><STMTTRN><DTPOSTED>20260301<TRNAMT>-10.00<FITID>1${inner}</STMTTRN></BANKTRANLIST></STMTRS></STMTTRNRS></BANKMSGSRSV1></OFX>`);
 
+  assert.deepEqual([ofxTransaction("<TRNTYPE>XFER").rows[0].type, ofxTransaction("<TRNTYPE>DEBIT").rows[0].type], ["transfer", null]);
   assert.equal(ofxTransaction("<CURRENCY><CURRATE>2</CURRENCY>").errors.length, 1);
   assert.equal(ofxTransaction("<MEMO><![CDATA[Coffee & <lunch>]]></MEMO>").rows[0].description, "Coffee & <lunch>");
   assert.equal(ofxTransaction("</STMTTRN><!-- <STMTTRN><DTPOSTED>20260302<TRNAMT>-99<FITID>X</STMTTRN> --><STMTTRN><DTPOSTED>20260303<TRNAMT>-1<FITID>2").rows.length, 2);
@@ -515,3 +516,25 @@ test("reimporting a QIF file without IDs finds its rows by content, including id
   assert.equal((await db.select().from(schema.transactionSplits)).length, 2);
 });
 
+
+test("OFX XFER transactions import as transfers and pair across the file's accounts", async context => {
+  const db = await isolatedDatabase(context);
+  const statement = (account: string, amount: string) => `<STMTTRNRS><STMTRS><CURDEF>EUR<BANKACCTFROM><ACCTID>${account}</BANKACCTFROM><BANKTRANLIST><STMTTRN><TRNTYPE>XFER<DTPOSTED>20260301<TRNAMT>${amount}<FITID>T-${account}<NAME>Own transfer</STMTTRN></BANKTRANLIST></STMTRS></STMTTRNRS>`;
+  const file = read(`OFXHEADER:100\n\n<OFX><BANKMSGSRSV1>${statement("A", "-50.00")}${statement("B", "50.00")}</BANKMSGSRSV1></OFX>`);
+  const newAccount = (source: string) => ({
+    source,
+    new_account: {
+      name: `Synthetic ${source}`,
+      kind: "checking",
+      currency: "EUR"
+    }
+  });
+
+  await importStatement(file, "00000000-0000-4000-8000-000000000318", [newAccount("A"), newAccount("B")]);
+
+  const transactions = await db.select().from(schema.transactions);
+
+  assert.deepEqual(transactions.map(row => row.type), ["transfer", "transfer"]);
+  assert.ok(transactions[0].transfer_id);
+  assert.equal(transactions[0].transfer_id, transactions[1].transfer_id);
+});

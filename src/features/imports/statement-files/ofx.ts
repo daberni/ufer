@@ -88,7 +88,9 @@ export function readOfx(text: string, locale: string): StatementFile {
         description: [cleanText(leaf(transaction, "MEMO")), note].filter(Boolean).join(" · "),
         category: null,
         source,
-        id: leaf(transaction, "FITID") || null
+        id: leaf(transaction, "FITID") || null,
+        // XFER is the bank's own transfer type; automatic pairing links it to its counterpart like a CSV transfer.
+        type: leaf(transaction, "TRNTYPE").toUpperCase() === "XFER" ? "transfer" : null
       });
     }
   }
