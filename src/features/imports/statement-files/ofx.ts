@@ -82,6 +82,7 @@ export function readOfx(text: string, locale: string): StatementFile {
       const payee = leaf(transaction, "NAME") || leaf(find(transaction.children, "PAYEE"), "NAME");
 
       rows.add({
+        currencyRequired: true,
         line: transaction.line,
         // The date the person made the transaction, as bank syncs count bookings, else the posting date.
         date: ofxDate(leaf(transaction, "DTUSER") || leaf(transaction, "DTPOSTED")),

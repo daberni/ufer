@@ -92,6 +92,7 @@ export function readCamt053(text: string, locale: string): StatementFile {
           const reference = textOf(child(child(detail, "Refs"), "AcctSvcrRef"));
 
           rows.add({
+            currencyRequired: true,
             line: detailLines[index],
             date,
             ...detailAmounts[index],
@@ -112,6 +113,7 @@ export function readCamt053(text: string, locale: string): StatementFile {
       const reference = details.length === 1 ? textOf(child(child(detail, "Refs"), "AcctSvcrRef")) : "";
 
       rows.add({
+        currencyRequired: true,
         line: entryLine,
         date,
         ...entryAmount,

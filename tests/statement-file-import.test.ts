@@ -361,6 +361,7 @@ test("OFX empty SGML leaves keep later fields, foreign amounts round exactly, an
 
   const ofxTransaction = (inner: string) => read(`OFXHEADER:100\n\n<OFX><BANKMSGSRSV1><STMTTRNRS><STMTRS><CURDEF>EUR<BANKACCTFROM><ACCTID>F</BANKACCTFROM><BANKTRANLIST><STMTTRN><DTPOSTED>20260301<TRNAMT>-10.00<FITID>1${inner}</STMTTRN></BANKTRANLIST></STMTRS></STMTTRNRS></BANKMSGSRSV1></OFX>`);
 
+  assert.deepEqual(read("OFXHEADER:100\n\n<OFX><BANKMSGSRSV1><STMTTRNRS><STMTRS><BANKACCTFROM><ACCTID>N</BANKACCTFROM><BANKTRANLIST><STMTTRN><DTPOSTED>20260301<TRNAMT>-1<FITID>1</STMTTRN></BANKTRANLIST></STMTRS></STMTTRNRS></BANKMSGSRSV1></OFX>").errors.map(error => error.message), ["The statement states no currency for this entry."]);
   assert.deepEqual([ofxTransaction("<TRNTYPE>XFER").rows[0].type, ofxTransaction("<TRNTYPE>DEBIT").rows[0].type], ["transfer", null]);
   assert.equal(ofxTransaction("<CURRENCY><CURRATE>2</CURRENCY>").errors.length, 1);
   assert.equal(ofxTransaction("<MEMO><![CDATA[Coffee & <lunch>]]></MEMO>").rows[0].description, "Coffee & <lunch>");
