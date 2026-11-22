@@ -359,6 +359,19 @@ test("OFX empty SGML leaves keep later fields, foreign amounts round exactly, an
 
   assert.deepEqual(summary(read(prefixed).rows), summary(read(camt).rows));
 
+  const ofxTransaction = (inner: string) => read(`OFXHEADER:100\n\n<OFX><BANKMSGSRSV1><STMTTRNRS><STMTRS><CURDEF>EUR<BANKACCTFROM><ACCTID>F</BANKACCTFROM><BANKTRANLIST><STMTTRN><DTPOSTED>20260301<TRNAMT>-10.00<FITID>1${inner}</STMTTRN></BANKTRANLIST></STMTRS></STMTTRNRS></BANKMSGSRSV1></OFX>`);
+
+  assert.equal(ofxTransaction("<CURRENCY><CURRATE>2</CURRENCY>").errors.length, 1);
+  assert.equal(ofxTransaction("<CURRENCY><CURRATE>1<CURSYM>GBP</CURRENCY>").rows[0].description, "GBP 10.00");
+
+  const multiTarget = read("!Type:Bank\nD01.03.2026\nT-10,00\nS[Savings]\n$-5,00\nS[Brokerage]\n$-5,00\n^\nD02.03.2026\nT-10,00\nS[Savings]\n$-4,00\nS[Savings]\n$-6,00\n^\n");
+
+  assert.deepEqual(multiTarget.rows.map(row => row.type), [null, "transfer"]);
+
+  const noDirection = read(camt.replace("<CdtDbtInd>CRDT</CdtDbtInd>", "<CdtDbtInd>XXXX</CdtDbtInd>"));
+
+  assert.deepEqual([noDirection.rows.length, noDirection.errors.map(error => error.line)], [4, [20, 48]]);
+
   const shared = read("OFXHEADER:100\n\n<OFX><BANKMSGSRSV1><STMTTRNRS><STMTRS><CURDEF>EUR<BANKACCTFROM><BANKID>B1<ACCTID>42</BANKACCTFROM><BANKTRANLIST><STMTTRN><DTPOSTED>20260301<TRNAMT>-1<FITID>1</STMTTRN></BANKTRANLIST></STMTRS></STMTTRNRS></BANKMSGSRSV1><CREDITCARDMSGSRSV1><CCSTMTTRNRS><CCSTMTRS><CURDEF>EUR<CCACCTFROM><ACCTID>42</CCACCTFROM><BANKTRANLIST><STMTTRN><DTPOSTED>20260301<TRNAMT>-2<FITID>1</STMTTRN></BANKTRANLIST></CCSTMTRS></CCSTMTTRNRS></CREDITCARDMSGSRSV1></OFX>");
 
   assert.deepEqual(shared.rows.map(row => row.source), ["B1 · 42", "Card · 42"]);

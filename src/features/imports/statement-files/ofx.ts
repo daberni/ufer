@@ -64,8 +64,10 @@ export function readOfx(text: string, locale: string): StatementFile {
       const foreign = find(transaction.children, "CURRENCY");
       const trnamt = ofxAmount(leaf(transaction, "TRNAMT"));
       const ownCurrency = leaf(foreign, "CURSYM").toUpperCase();
-      const converted = foreign && currency && ownCurrency !== currency ? convert(trnamt, leaf(foreign, "CURRATE"), currency) : trnamt;
-      const note = converted !== trnamt && trnamt !== null ? `${ownCurrency} ${trnamt.replace("-", "")}` : "";
+      const converts = Boolean(foreign) && ownCurrency !== currency;
+      // An unidentified foreign currency cannot be noted or trusted, so its transaction is a row error.
+      const converted = converts ? convertForeign(trnamt, ownCurrency, leaf(foreign, "CURRATE"), currency) : trnamt;
+      const note = converts && converted !== null && trnamt !== null ? `${ownCurrency} ${trnamt.replace("-", "")}` : "";
       const payee = leaf(transaction, "NAME") || leaf(find(transaction.children, "PAYEE"), "NAME");
 
       rows.add({
@@ -94,6 +96,10 @@ function ofxDate(value: string) {
   const match = /^(\d{4})(\d{2})(\d{2})/.exec(value);
 
   return match ? isoDate(Number(match[1]), Number(match[2]), Number(match[3])) : null;
+}
+
+function convertForeign(amount: string | null, foreignCurrency: string, rate: string, currency: string | null) {
+  return currency && /^[A-Z]{3}$/.test(foreignCurrency) ? convert(amount, rate, currency) : null;
 }
 
 /** An amount times a rate in the account currency's minor units, rounded half away from zero with exact integers; null without a valid rate. */

@@ -131,7 +131,8 @@ export function readQif(text: string, locale: string): StatementFile {
       category: transfer || splits ? null : category || null,
       source: record.source,
       id: null,
-      type: transfer || (splitTargets.length > 0 && splitTargets.every(Boolean)) ? "transfer" : null,
+      // Pairing links a transfer to one booking of its full amount, so only a split moving everything to one account is a transfer.
+      type: transfer || singleSplitTarget(record) ? "transfer" : null,
       parts,
       tags: parts ? splits : null
     });
@@ -153,6 +154,12 @@ function qifDateFormat(dates: string[]) {
   }
 
   return detected;
+}
+
+function singleSplitTarget(record: QifRecord) {
+  const targets = record.fields.filter(([field]) => field === "S").map(([, text]) => text.split("/")[0].trim());
+
+  return targets.length > 0 && targets.every(target => /^\[.*\]$/.test(target)) && new Set(targets).size === 1;
 }
 
 /** Quicken writes `1/31'24` or `1/31/2024`, sometimes with spaces; the apostrophe separates a two-digit year. */

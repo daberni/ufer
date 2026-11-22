@@ -66,16 +66,18 @@ export function readCamt053(text: string, locale: string): StatementFile {
       }
 
       const date = entryDate(entry);
-      const entryCredit = textOf(child(entry, "CdtDbtInd")) === "CRDT";
+      // A missing or unknown direction leaves the sign unknown, so the entry becomes a row error instead of a guessed debit.
+      const entryDirection = direction(textOf(child(entry, "CdtDbtInd")));
+      const entryCredit = entryDirection === true;
       const entryReference = textOf(child(entry, "AcctSvcrRef")) || textOf(child(entry, "NtryRef"));
       // A batch entry lists its transactions with their own amounts; each becomes a row only when they add up exactly to the booked entry in its currency, so the balance stays the bank's.
-      const entryAmount = amountOf(child(entry, "Amt"), entryCredit, accountCurrency);
-      const detailAmounts = details.map(detail => amountOf(amountNode(detail), detailCredit(detail, entryCredit), accountCurrency));
+      const entryAmount = amountOf(child(entry, "Amt"), entryDirection, accountCurrency);
+      const detailAmounts = details.map(detail => amountOf(amountNode(detail), detailCredit(detail, entryDirection), accountCurrency));
       const split = details.length > 1 && reconciles(entryAmount, detailAmounts);
 
       if (split) {
         details.forEach((detail, index) => {
-          const credit = detailCredit(detail, entryCredit);
+          const credit = detailCredit(detail, entryDirection) === true;
           const reference = textOf(child(child(detail, "Refs"), "AcctSvcrRef"));
 
           rows.add({
@@ -170,10 +172,19 @@ function amountNode(detail: Node): unknown {
   return child(detail, "Amt") ?? child(child(child(detail, "AmtDtls"), "TxAmt"), "Amt") ?? null;
 }
 
-function detailCredit(detail: Node, entryCredit: boolean) {
+/** True for a credit, false for a debit, null for anything else. */
+function direction(indicator: string) {
+  if (indicator === "CRDT") {
+    return true;
+  }
+
+  return indicator === "DBIT" ? false : null;
+}
+
+function detailCredit(detail: Node, entryDirection: boolean | null) {
   const indicator = textOf(child(detail, "CdtDbtInd"));
 
-  return indicator ? indicator === "CRDT" : entryCredit;
+  return indicator ? direction(indicator) : entryDirection;
 }
 
 type Amount = ReturnType<typeof amountOf>;
@@ -190,14 +201,14 @@ function reconciles(entry: Amount, details: Amount[]) {
   return total === signedScaled(entry.amount, scale);
 }
 
-function amountOf(node: unknown, credit: boolean, accountCurrency: string | null) {
+function amountOf(node: unknown, credit: boolean | null, accountCurrency: string | null) {
   const value = textOf(node);
   const amount = /^\d{1,15}(\.\d{1,6})?$/.test(value) ? parseAmount(value, ".") : null;
   const currency = textOf(child(node, "@Ccy")) || accountCurrency;
-  const signed = amount !== null && !credit ? negate(amount) : amount;
+  const signed = amount !== null && credit === false ? negate(amount) : amount;
 
   return {
-    amount: signed,
+    amount: credit === null ? null : signed,
     currency
   };
 }
