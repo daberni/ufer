@@ -101,7 +101,15 @@ export function readCamt053(text: string, locale: string): StatementFile {
       const detail = details.length === 1 ? details[0] : {};
       const reference = details.length === 1 ? textOf(child(child(detail, "Refs"), "AcctSvcrRef")) : "";
 
+      const invalidDetail = details.some(item => {
+        const indicator = textOf(child(item, "CdtDbtInd"));
+
+        return indicator !== "" && direction(indicator) === null;
+      });
+
       rows.add({
+        // A transaction with an unknown direction leaves the entry's parties and sign in doubt, so it is never read past.
+        problem: invalidDetail ? "A transaction of the entry has an unknown credit/debit indicator." : undefined,
         currencyRequired: true,
         line: entryLine,
         date,

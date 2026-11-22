@@ -380,6 +380,10 @@ test("OFX empty SGML leaves keep later fields, foreign amounts round exactly, an
   assert.deepEqual([read("!Type:Bank\nD01.03.2026\nT-10,00\nMLunch\nSFood\n$-10,00\n^\n").rows[0]].map(row => [row.category, row.parts, row.description]), [["Food", null, "Lunch"]]);
   assert.equal(read("<?xml version=\"1.0\"?>\n<!-- exported -->\n<OFX><BANKMSGSRSV1><STMTTRNRS><STMTRS><CURDEF>EUR<BANKACCTFROM><ACCTID>C</BANKACCTFROM><BANKTRANLIST><STMTTRN><DTPOSTED>20260301<TRNAMT>-1<FITID>1</STMTTRN></BANKTRANLIST></STMTRS></STMTTRNRS></BANKMSGSRSV1></OFX>").rows.length, 1);
 
+  const badDetail = read(camt.replace("<NtryDtls><TxDtls>\n          <RltdPties><Dbtr>", "<NtryDtls><TxDtls>\n          <CdtDbtInd>XXXX</CdtDbtInd><RltdPties><Dbtr>"));
+
+  assert.deepEqual(badDetail.errors.map(error => [error.line, error.message]), [[20, "A transaction of the entry has an unknown credit/debit indicator."], [48, badDetail.errors[1]?.message]]);
+
   const noDirection = read(camt.replace("<CdtDbtInd>CRDT</CdtDbtInd>", "<CdtDbtInd>XXXX</CdtDbtInd>"));
 
   assert.deepEqual([noDirection.rows.length, noDirection.errors.map(error => error.line)], [4, [20, 48]]);
