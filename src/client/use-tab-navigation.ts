@@ -31,7 +31,22 @@ export function useTabNavigation() {
   }, [router]);
 }
 
+// Counts tab taps so that a tap still waiting for its traversal never overrides a later one.
+let latestTap = 0;
+// A tap during a traversal waits for it: the App Router restores the root page on its popstate, which would undo an earlier replace.
+let pendingTraversal: Promise<void> | null = null;
+
 async function navigateToTab(href: string, replace: (href: string) => void) {
+  const tap = ++latestTap;
+
+  while (pendingTraversal) {
+    await pendingTraversal;
+  }
+
+  if (tap !== latestTap) {
+    return;
+  }
+
   const navigation = window.navigation;
   const current = navigation?.currentEntry;
 
@@ -41,15 +56,20 @@ async function navigateToTab(href: string, replace: (href: string) => void) {
     if (root) {
       setTabTraversal(true);
 
+      pendingTraversal = traverseTo(navigation, root.key);
+
       try {
-        await traverseTo(navigation, root.key);
+        await pendingTraversal;
       } finally {
+        pendingTraversal = null;
         setTabTraversal(false);
       }
     }
   }
 
-  replace(href);
+  if (tap === latestTap) {
+    replace(href);
+  }
 }
 
 // Chrome fires popstate only after the traversal's finished promise; replacing earlier lets the App Router's restore of the root page win.
