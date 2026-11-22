@@ -14,7 +14,7 @@ const maxIntegerDigits = 15;
 const maxFractionDigits = 6;
 
 // Two-digit years belong to the most recent century that does not put them in the future.
-function twoDigitYear(value: number) {
+export function twoDigitYear(value: number) {
   const currentYear = new Date().getUTCFullYear();
 
   return 2000 + value > currentYear ? 1900 + value : 2000 + value;

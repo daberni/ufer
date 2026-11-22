@@ -9,6 +9,8 @@ import styles from "./file-card.module.css";
 import { Select } from "@/components/ui/select";
 import { dateFormats } from "@/features/imports/csv-values";
 import type { CsvSettings } from "@/features/imports/csv-mapping";
+import { statementFormatLabels } from "@/features/imports/statement-files";
+import { importFileTypes } from "@/features/imports/pending-import-file";
 import { rowCount } from "@/features/imports/import-plan";
 import type { ImportDraft } from "./use-import-draft";
 import { useLocale } from "@/client/locale-provider";
@@ -31,13 +33,16 @@ export function FileCard({
   const {
     file,
     settings,
+    statement,
     table,
     inputsLocked
   } = draft;
 
-  if (!file || !settings) {
+  if (!file || (!settings && !statement)) {
     return null;
   }
+
+  const rows = statement ? statement.rows.length + statement.errors.length : table?.rows.length;
 
   return (
     <div className={styles["card"]}>
@@ -45,7 +50,7 @@ export function FileCard({
         <FileText size={22} aria-hidden="true" />
         <div className={styles["name"]}>
           <strong>{file.name}</strong>
-          {table && <span>{rowCount(table.rows.length, locale)}</span>}
+          {rows !== undefined && <span>{statement ? `${statementFormatLabels[statement.format]} statement · ` : ""}{rowCount(rows, locale)}</span>}
         </div>
         <button
           type="button"
@@ -60,7 +65,7 @@ export function FileCard({
           ref={input}
           className={styles["input"]}
           type="file"
-          accept=".csv,.txt,text/csv"
+          accept={importFileTypes}
           tabIndex={-1}
           aria-hidden="true"
           onChange={event => {
@@ -69,59 +74,61 @@ export function FileCard({
           }}
         />
       </div>
-      <fieldset className={styles["format"]} disabled={inputsLocked}>
-        <legend className={ui["visually-hidden"]}>File format</legend>
-        <label className={styles["chip"]}>
-          <span>Encoding</span>
-          <Select
-            variant="compact"
-            value={settings.encoding}
-            onChange={event => draft.updateSettings({
-              encoding: event.target.value as CsvSettings["encoding"]
-            })}
-          >
-            <option value="utf-8">UTF-8</option>
-            <option value="windows-1252">Windows-1252</option>
-          </Select>
-        </label>
-        <label className={styles["chip"]}>
-          <span>Delimiter</span>
-          <Select
-            variant="compact"
-            value={settings.delimiter}
-            onChange={event => draft.updateSettings({
-              delimiter: event.target.value as CsvSettings["delimiter"]
-            })}
-          >
-            {Object.entries(delimiterLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-          </Select>
-        </label>
-        <label className={styles["chip"]}>
-          <span>Dates</span>
-          <Select
-            variant="compact"
-            value={settings.dateFormat}
-            onChange={event => draft.updateSettings({
-              dateFormat: event.target.value as CsvSettings["dateFormat"]
-            })}
-          >
-            {dateFormats.map(format => <option key={format} value={format}>{format}</option>)}
-          </Select>
-        </label>
-        <label className={styles["chip"]}>
-          <span>Decimals</span>
-          <Select
-            variant="compact"
-            value={settings.decimal}
-            onChange={event => draft.updateSettings({
-              decimal: event.target.value as CsvSettings["decimal"]
-            })}
-          >
-            <option value=".">1,234.56</option>
-            <option value=",">1.234,56</option>
-          </Select>
-        </label>
-      </fieldset>
+      {settings && (
+        <fieldset className={styles["format"]} disabled={inputsLocked}>
+          <legend className={ui["visually-hidden"]}>File format</legend>
+          <label className={styles["chip"]}>
+            <span>Encoding</span>
+            <Select
+              variant="compact"
+              value={settings.encoding}
+              onChange={event => draft.updateSettings({
+                encoding: event.target.value as CsvSettings["encoding"]
+              })}
+            >
+              <option value="utf-8">UTF-8</option>
+              <option value="windows-1252">Windows-1252</option>
+            </Select>
+          </label>
+          <label className={styles["chip"]}>
+            <span>Delimiter</span>
+            <Select
+              variant="compact"
+              value={settings.delimiter}
+              onChange={event => draft.updateSettings({
+                delimiter: event.target.value as CsvSettings["delimiter"]
+              })}
+            >
+              {Object.entries(delimiterLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            </Select>
+          </label>
+          <label className={styles["chip"]}>
+            <span>Dates</span>
+            <Select
+              variant="compact"
+              value={settings.dateFormat}
+              onChange={event => draft.updateSettings({
+                dateFormat: event.target.value as CsvSettings["dateFormat"]
+              })}
+            >
+              {dateFormats.map(format => <option key={format} value={format}>{format}</option>)}
+            </Select>
+          </label>
+          <label className={styles["chip"]}>
+            <span>Decimals</span>
+            <Select
+              variant="compact"
+              value={settings.decimal}
+              onChange={event => draft.updateSettings({
+                decimal: event.target.value as CsvSettings["decimal"]
+              })}
+            >
+              <option value=".">1,234.56</option>
+              <option value=",">1.234,56</option>
+            </Select>
+          </label>
+        </fieldset>
+      )}
     </div>
   );
 }

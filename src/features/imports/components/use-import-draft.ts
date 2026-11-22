@@ -13,6 +13,8 @@ import { mapRows, typeColumnValues, type ImportType, type TypeValues } from "@/f
 import { mappingProblem, suggestMapping, type CsvMapping, type CsvSettings } from "@/features/imports/csv-mapping";
 import { importIdFor } from "@/features/imports/import-batches";
 import { categoryValues, importKey, prepareImport, resolveCategories, resolveTargets, sourceAccounts, templateChoices, type CategorySelection, type TargetChoice } from "@/features/imports/import-plan";
+import { readStatementFile, type StatementFile } from "@/features/imports/statement-files";
+import type { DecimalSeparator } from "@/features/imports/csv-values";
 import { useImportTemplates } from "@/features/imports/template-queries";
 import { decisionCandidate, decisionTotals, effectiveDecision, type DecisionInput } from "@/features/imports/reimport-decisions";
 import { useLocale } from "@/client/locale-provider";
@@ -34,6 +36,8 @@ export function useImportDraft() {
   const [file, setFile] = useState<LoadedFile | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const [settings, setSettings] = useState<CsvSettings | null>(null);
+  // A structured statement (CAMT.053, OFX, QIF) is read without column mapping; null for a CSV file.
+  const [statement, setStatement] = useState<StatementFile | null>(null);
   // The format detected from the file, restored when a template is switched off.
   const [detected, setDetected] = useState<CsvSettings | null>(null);
   // The template whose mapping is applied; null for a manual mapping.
@@ -73,7 +77,10 @@ export function useImportDraft() {
   const problem = effectiveMapping ? mappingProblem(effectiveMapping) : null;
   const typeValues = useMemo(() => withTypeChoices(templateTypeValues(template), typeChoices), [template, typeChoices]);
   const typeOptions = useMemo(() => table && effectiveMapping ? typeColumnValues(table.rows, effectiveMapping.type) : [], [table, effectiveMapping]);
-  const mapped = useMemo(() => table && effectiveMapping && !mappingProblem(effectiveMapping) && settings ? mapRows(table.rows, effectiveMapping, settings, locale, table.lines, templateConventions(template), typeValues) : null, [table, effectiveMapping, settings, locale, template, typeValues]);
+  const csvMapped = useMemo(() => table && effectiveMapping && !mappingProblem(effectiveMapping) && settings ? mapRows(table.rows, effectiveMapping, settings, locale, table.lines, templateConventions(template), typeValues) : null, [table, effectiveMapping, settings, locale, template, typeValues]);
+  const mapped = statement ?? csvMapped;
+  // A statement has no decimal setting; a new account's balance is typed in the person's locale.
+  const decimal = statement ? localeDecimal(locale) : settings?.decimal ?? null;
   const sources = useMemo(() => sourceAccounts(mapped?.rows ?? []), [mapped]);
   // Remembered choices follow the option lists, so a template applied before accounts or categories loaded still restores them.
   const remembered = useMemo(() => template ? templateChoices(template, accountOptions, categories.data ?? []) : null, [template, accountOptions, categories.data]);
@@ -82,7 +89,7 @@ export function useImportDraft() {
   const keptRows = useMemo(() => mapped?.rows.filter(row => resolvedTargets.get(row.source)?.kind !== "skip") ?? [], [mapped, resolvedTargets]);
   const values = useMemo(() => categoryValues(keptRows, categories.data ?? []), [keptRows, categories.data]);
   const resolvedCategories = useMemo(() => resolveCategories(values, categoryChoices, remembered?.selections ?? new Map()), [values, categoryChoices, remembered]);
-  const prepared = useMemo(() => mapped && settings ? prepareImport(mapped.rows, resolvedTargets, accountOptions, resolvedCategories, settings.decimal, locale) : null, [mapped, settings, resolvedTargets, accountOptions, resolvedCategories, locale]);
+  const prepared = useMemo(() => mapped && decimal ? prepareImport(mapped.rows, resolvedTargets, accountOptions, resolvedCategories, decimal, locale) : null, [mapped, decimal, resolvedTargets, accountOptions, resolvedCategories, locale]);
   const preparedKey = useMemo(() => prepared ? importKey(prepared) : null, [prepared]);
   // A refetched account list can change a preselected target; the check then no longer describes what Import would save.
   const summary = checked && checked.key === preparedKey ? checked.summary : null;
@@ -98,6 +105,7 @@ export function useImportDraft() {
 
   function reset() {
     setSettings(null);
+    setStatement(null);
     setDetected(null);
     setTemplate(null);
     setTemplateDismissed(false);
@@ -151,6 +159,25 @@ export function useImportDraft() {
     const derivedId = await importIdFor(bytes);
 
     if (selection !== latestSelection.current) {
+      return;
+    }
+
+    const read = readStatementFile(bytes, locale);
+
+    if (read && "error" in read) {
+      setFileError(read.error);
+
+      return;
+    }
+
+    if (read) {
+      setImportId(derivedId);
+      setFile({
+        name: selected.name,
+        bytes
+      });
+      setStatement(read);
+
       return;
     }
 
@@ -405,6 +432,9 @@ export function useImportDraft() {
     fileError,
     formatError,
     settings,
+    statement,
+    // A statement names its accounts like a mapped account column does.
+    perSource: statement !== null || (effectiveMapping?.account ?? null) !== null,
     table,
     mapping: effectiveMapping,
     template,
@@ -541,6 +571,13 @@ function useNavigationGuard(active: boolean) {
       }
     };
   }, [active]);
+}
+
+/** The decimal separator the locale writes numbers with. */
+function localeDecimal(locale: string): DecimalSeparator {
+  const separator = new Intl.NumberFormat(locale).formatToParts(1.5).find(part => part.type === "decimal")?.value;
+
+  return separator === "," ? "," : ".";
 }
 
 /** Type values with the person's choices applied; a null choice removes the value's type. */
