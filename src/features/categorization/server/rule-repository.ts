@@ -1,8 +1,8 @@
-import { and, count, eq, isNull, asc } from "drizzle-orm";
+import { count, eq, asc } from "drizzle-orm";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 import type { Rule } from "@/features/categorization/server/rule-assignment";
 import { highestPriority, maximumRules, nextPriority, orderedPriorities } from "@/features/categorization/rule-order";
-import { accounts, categorizationRules } from "@/server/database/schema";
+import { categorizationRules } from "@/server/database/schema";
 
 /** Rules in matching order: priority first, then their persisted ID. */
 export async function listRules() {
@@ -82,8 +82,8 @@ export type RuleDetails = Pick<Rule, "name" | "pattern" | "mode" | "category_id"
 
 export type RuleUpdateResult = "saved" | "not_found" | "inactive_target" | "inactive_condition";
 
-/** Updates the rule's details; without a priority the rule keeps its position in the matching order. */
-export async function storeRuleDetails(tx: DatabaseTransaction, id: string, details: RuleDetails): Promise<RuleUpdateResult> {
+/** Updates the rule's details; without a priority the rule keeps its position in the matching order. `activeAccountIds` are the accounts a rule may newly name, read in the same transaction. */
+export async function storeRuleDetails(tx: DatabaseTransaction, id: string, details: RuleDetails, activeAccountIds: ReadonlySet<string>): Promise<RuleUpdateResult> {
   const stored = await tx.select({
     transfer_account_id: categorizationRules.transfer_account_id,
     account_id: categorizationRules.account_id
@@ -96,27 +96,19 @@ export async function storeRuleDetails(tx: DatabaseTransaction, id: string, deta
   // A rule may keep a target or account condition that was archived or deleted meanwhile; a newly chosen account must be active.
   const target = details.transfer_account_id;
 
-  if (target && target !== stored.transfer_account_id && !(await activeAccount(tx, target))) {
+  if (target && target !== stored.transfer_account_id && !activeAccountIds.has(target)) {
     return "inactive_target";
   }
 
   const condition = details.account_id;
 
-  if (condition && condition !== stored.account_id && !(await activeAccount(tx, condition))) {
+  if (condition && condition !== stored.account_id && !activeAccountIds.has(condition)) {
     return "inactive_condition";
   }
 
   await tx.update(categorizationRules).set(details).where(eq(categorizationRules.id, id));
 
   return "saved";
-}
-
-async function activeAccount(tx: DatabaseTransaction, id: string) {
-  const found = await tx.select({
-    id: accounts.id
-  }).from(accounts).where(and(eq(accounts.id, id), isNull(accounts.archived_at))).get();
-
-  return found !== undefined;
 }
 
 export async function storeRuleEnabled(tx: DatabaseTransaction, id: string, enabled: boolean) {

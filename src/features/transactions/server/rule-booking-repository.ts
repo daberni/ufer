@@ -1,7 +1,8 @@
 import { and, eq, inArray, isNull, asc, sql } from "drizzle-orm";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 import type { Transaction } from "@/server/database/models";
-import { accounts, transactions } from "@/server/database/schema";
+import { transactions } from "@/server/database/schema";
+import { readActiveAccountIds } from "./booking-accounts";
 import { pairTransfers } from "./transfer-pairing-repository";
 import { notSplit } from "./split-repository";
 import { ruleTypeable } from "./rule-typeability";
@@ -43,11 +44,9 @@ export async function withRuleReader<Result>(work: (reader: Reader) => Promise<R
   return work(await database());
 }
 
-// Archiving freezes bookkeeping but not categorization, so rules categorize bookings on archived accounts without changing their type.
-function activeAccounts(tx: DatabaseTransaction) {
-  return tx.select({
-    id: accounts.id
-  }).from(accounts).where(isNull(accounts.archived_at));
+// Archiving freezes bookkeeping but not categorization, so rules categorize bookings on archived accounts without changing their type: type reads and writes take the active accounts the use case read in the same transaction.
+function onActiveAccount(activeAccountIds: string[]) {
+  return inArray(transactions.account_id, activeAccountIds);
 }
 
 const manualScope = and(eq(transactions.category_source, "manual"), notSplit);
@@ -116,7 +115,7 @@ export async function categorizeByRule(tx: DatabaseTransaction, rule: {
 }
 
 /** The given bookings whose type a rule may set, on active accounts. */
-export async function readTypeableBookings(tx: DatabaseTransaction, ids: string[]) {
+export async function readTypeableBookings(tx: DatabaseTransaction, ids: string[], activeAccountIds: string[]) {
   const found = [];
 
   for (const chunk of chunks(ids)) {
@@ -126,7 +125,7 @@ export async function readTypeableBookings(tx: DatabaseTransaction, ids: string[
       amount_minor: transactions.amount_minor,
       type_rule_id: transactions.type_rule_id,
       transfer_detected: transactions.transfer_detected
-    }).from(transactions).where(and(inArray(transactions.id, chunk), ruleTypeable, inArray(transactions.account_id, activeAccounts(tx)))));
+    }).from(transactions).where(and(inArray(transactions.id, chunk), ruleTypeable, onActiveAccount(activeAccountIds))));
   }
 
   return found;
@@ -135,13 +134,13 @@ export async function readTypeableBookings(tx: DatabaseTransaction, ids: string[
 type RuleType = Pick<Transaction, "id" | "type" | "type_rule_id" | "type_transfer_account_id">;
 
 /** Stores rule-decided types on bookings nobody corrected or linked and whose account is active, then pairs transfers so rule-set transfers link to, or create, their counterparts. */
-export async function storeRuleTypes(tx: DatabaseTransaction, entries: RuleType[]) {
+export async function storeRuleTypes(tx: DatabaseTransaction, entries: RuleType[], activeAccountIds: string[]) {
   for (const entry of entries) {
     await tx.update(transactions).set({
       type: entry.type,
       type_rule_id: entry.type_rule_id,
       type_transfer_account_id: entry.type_transfer_account_id
-    }).where(and(eq(transactions.id, entry.id), ruleTypeable, inArray(transactions.account_id, activeAccounts(tx))));
+    }).where(and(eq(transactions.id, entry.id), ruleTypeable, onActiveAccount(activeAccountIds)));
   }
 
   await pairTransfers(tx);
@@ -151,7 +150,7 @@ export async function storeRuleTypes(tx: DatabaseTransaction, entries: RuleType[
 export async function saveRuleTypes(entries: RuleType[]) {
   const db = await database();
 
-  await db.transaction(tx => storeRuleTypes(tx, entries));
+  await db.transaction(async tx => storeRuleTypes(tx, entries, await readActiveAccountIds(tx)));
 }
 
 /** Removes a deleted rule's references; the bookings keep their category and type. */
@@ -216,7 +215,7 @@ export async function storeRuleAssignments(tx: DatabaseTransaction, entries: Pic
 }
 
 /** Bookings whose type rules may set, with the text rules match and the rule that set their current type. */
-export async function findRuleTypeableTransactions(tx: DatabaseTransaction) {
+export async function findRuleTypeableTransactions(tx: DatabaseTransaction, activeAccountIds: string[]) {
   return tx.select({
     ...ruleText,
     amount_minor: transactions.amount_minor,
@@ -224,5 +223,5 @@ export async function findRuleTypeableTransactions(tx: DatabaseTransaction) {
     type_rule_id: transactions.type_rule_id,
     type_transfer_account_id: transactions.type_transfer_account_id,
     transfer_detected: transactions.transfer_detected
-  }).from(transactions).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(and(isNull(accounts.archived_at), ruleTypeable));
+  }).from(transactions).where(and(onActiveAccount(activeAccountIds), ruleTypeable));
 }

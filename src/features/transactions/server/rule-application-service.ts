@@ -5,6 +5,7 @@ import { decideAdoptedTypes, decideRuleCategoryChanges, decideRuleTypeChanges, d
 import { RuleLimitReached, appendedPriority, readRules, removeRule, storeRule, storeRuleDetails, storeRuleEnabled, storeRuleOrder, type NewRule, type RuleDetails } from "@/features/categorization/server/rule-repository";
 import { inactiveConditionError, inactiveTargetError, parseRuleCreation, parseRuleEnabled, parseRuleOrder, parseRulePreview, parseRuleUpdate, ruleLimitError } from "@/features/categorization/server/categorization-service";
 import { adoptManualAssignments, adoptSourceTransaction, categorizeByRule, clearRuleReferences, findManualAssignments, findPreviewedTransactions, findRuleTypeableTransactions, findUncorrectedTransactions, readManualCandidates, readSourceCandidates, readTypeableBookings, readUncategorizedCandidates, storeRuleAssignments, storeRuleTypes, withRuleReader, withRuleTransaction, type PreviewedTransaction } from "./rule-booking-repository";
+import { readActiveAccountIds } from "./booking-accounts";
 
 /** Manual assignments a rule takes over: the selector picks those the rule decides; the excluded transaction is handled separately. */
 export type ManualAdoption = {
@@ -51,7 +52,9 @@ async function applyRuleType(tx: DatabaseTransaction, rule: AssigningRule, ids: 
     return;
   }
 
-  await storeRuleTypes(tx, decideAdoptedTypes(rule, await readTypeableBookings(tx, ids)));
+  const activeAccountIds = await readActiveAccountIds(tx);
+
+  await storeRuleTypes(tx, decideAdoptedTypes(rule, await readTypeableBookings(tx, ids, activeAccountIds)), activeAccountIds);
 }
 
 async function assignNewRule(tx: DatabaseTransaction, rule: NewRule, assignments: RuleCreationAssignments) {
@@ -108,7 +111,7 @@ export async function appendRule(rule: Omit<NewRule, "priority">, assignments: R
 /** Updates the rule's details; chosen manual assignments the updated rule decides are returned to it in the same write transaction. */
 export async function updateRule(id: string, details: RuleDetails, manual?: ManualAdoption) {
   return withRuleTransaction(async tx => {
-    const result = await storeRuleDetails(tx, id, details);
+    const result = await storeRuleDetails(tx, id, details, new Set(await readActiveAccountIds(tx)));
 
     if (result === "saved" && manual) {
       const rule = {
@@ -132,7 +135,7 @@ export async function createRule(payload: unknown) {
     applyToUncategorized,
     sourceTransactionId,
     adoptManual: adopt
-  } = await parseRuleCreation(payload);
+  } = await parseRuleCreation(payload, new Set(await withRuleReader(readActiveAccountIds)));
   const select = decidedByStoredRule(rule.id);
   const assignments: RuleCreationAssignments = {
     uncategorized: applyToUncategorized ? select : undefined,
@@ -305,9 +308,10 @@ export async function applyRulesToUncorrectedTransactions() {
 
     await storeRuleAssignments(tx, categoryChanges);
 
-    const typeChanges = decideRuleTypeChanges(await findRuleTypeableTransactions(tx), rules);
+    const activeAccountIds = await readActiveAccountIds(tx);
+    const typeChanges = decideRuleTypeChanges(await findRuleTypeableTransactions(tx, activeAccountIds), rules);
 
-    await storeRuleTypes(tx, typeChanges);
+    await storeRuleTypes(tx, typeChanges, activeAccountIds);
 
     return {
       updated: categoryChanges.filter(change => change.recategorized).length,

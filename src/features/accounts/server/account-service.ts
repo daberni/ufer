@@ -1,12 +1,15 @@
+import { randomUUID } from "node:crypto";
 import { Temporal } from "temporal-polyfill";
 import { syncLease, withLease } from "@/server/jobs/lease";
 import { HttpError, ValidationError } from "@/lib/errors";
 import { minorUnits } from "@/lib/money";
 import { timestamp, today } from "@/lib/time";
 import { accountDeletionInput, accountEditInput, accountInput, archiveInput, valuationInput } from "./account-schema";
-import { ClosingBeforeLastBooking, archiveSettledAccount, closeAndArchiveManualAccount, convertDetachedAccount, deleteUnlinkedAccount, findManualAccount, insertManualAccount, reconcileWithReportedBalance, saveAccountArchived, saveAccountKind, saveAccountName, saveManualValuation, type ClosingResult } from "./account-repository";
-import { findAccountWithBalance } from "./account-queries";
-import { archivedAccountMessage } from "./writable-account";
+import { archiveIfSettled, archiveSettledAccount, convertDetachedAccount, deleteUnlinkedAccount, findManualAccount, insertManualAccount, readBookedTotal, readLatestReportedBalance, refuse, saveAccountArchived, saveAccountKind, saveAccountName, withAccountTransaction, withRefusableAccountTransaction } from "./account-repository";
+import { decideClosing, decideReconciliation } from "./account-decisions";
+import { comparableBankBalanceTypes, findAccountWithBalance } from "./account-queries";
+import { archivedAccountMessage, assertWritableAccount } from "@/features/transactions/server/booking-accounts";
+import { bookManualEntry, recordManualBalance, type ManualEntryResult } from "@/features/transactions/server/manual-transaction-repository";
 import type { AccountKind } from "../account-kinds";
 import { currentFormatLocale } from "@/server/http/request-locale";
 import { formatCount } from "@/lib/locale";
@@ -20,7 +23,19 @@ export async function createManualAccount(payload: unknown, now = Temporal.Now.i
   validateLiability(input.kind, amount);
   validateBalanceDate(date, now);
 
-  return insertManualAccount(input, amount, date);
+  const id = randomUUID();
+
+  await withAccountTransaction(async tx => {
+    await insertManualAccount(tx, id, input);
+    await recordManualBalance(tx, {
+      id,
+      currency: input.currency
+    }, date, amount);
+  });
+
+  return {
+    id
+  };
 }
 
 export async function updateManualValuation(accountId: string, payload: unknown, now = Temporal.Now.instant()) {
@@ -32,7 +47,10 @@ export async function updateManualValuation(accountId: string, payload: unknown,
   validateLiability(account.kind, amount);
   validateBalanceDate(input.date, now);
 
-  await saveManualValuation(account, amount, input.date);
+  await withAccountTransaction(async tx => {
+    await assertWritableAccount(tx, account.id);
+    await recordManualBalance(tx, account, input.date, amount);
+  });
 
   return {
     ok: true
@@ -52,7 +70,20 @@ export async function reconcileBankBalance(accountId: string) {
   }
 
   await withLease(syncLease, "A sync is running. Reconcile the balance after it has finished.", async () => {
-    if (!await reconcileWithReportedBalance(account)) {
+    const reconciled = await withAccountTransaction(async tx => {
+      await assertWritableAccount(tx, account.id);
+      const reported = await readLatestReportedBalance(tx, account.id);
+      // The report may already contain bookings dated after it, as the shown difference allows; then nothing is off.
+      const decision = decideReconciliation(reported, (await readBookedTotal(tx, account.id)).amount, comparableBankBalanceTypes);
+
+      if (decision === "adjust" && reported) {
+        await recordManualBalance(tx, account, reported.date, reported.amount);
+      }
+
+      return decision !== "not_reported";
+    });
+
+    if (!reconciled) {
       throw new HttpError(409, "The bank has not reported a booked balance to compare with yet.");
     }
   });
@@ -127,6 +158,8 @@ async function changeAccountKind(account: {
   }
 }
 
+type ClosingResult = ManualEntryResult | "balance_changed";
+
 const closingFailures: Partial<Record<ClosingResult, string>> = {
   account_not_found: "Choose another active manual account to transfer the balance to.",
   same_account: "Choose another account to transfer the balance to.",
@@ -193,20 +226,66 @@ export async function archiveAccount(accountId: string, payload: unknown, now = 
   };
 }
 
-async function closeAccount(account: Parameters<typeof closeAndArchiveManualAccount>[0], closing: {
+/**
+ * Books a manual account's remaining balance away on the closing date and archives it in one transaction: as an adjustment, or as a transfer to another active manual account.
+ * The closing carries the balance the user confirmed; a concurrent booking that changed it refuses the closing.
+ */
+async function closeAccount(account: {
+  id: string;
+  currency: string;
+}, closing: {
   balance_minor: number;
   date: string;
   transfer_account_id: string | null;
 }, archivedAt: string) {
-  try {
-    return await closeAndArchiveManualAccount(account, closing.balance_minor, closing.date, closing.transfer_account_id, archivedAt);
-  } catch (error) {
-    if (error instanceof ClosingBeforeLastBooking) {
-      throw new ValidationError(`Choose a date on or after the last booking (${dateWithYear(Temporal.PlainDate.from(error.lastBooking), await currentFormatLocale())}).`);
+  const result = await withRefusableAccountTransaction<ClosingResult | {
+    lastBooking: string;
+  }>(async tx => {
+    const decision = decideClosing(await readBookedTotal(tx, account.id), closing.balance_minor, closing.date, closing.transfer_account_id !== null);
+
+    if (decision.refused === "balance_changed") {
+      return refuse(decision.refused);
     }
 
-    throw error;
+    if (decision.refused === "before_last_booking") {
+      return refuse({
+        lastBooking: decision.lastBooking
+      });
+    }
+
+    const booked = await bookManualEntry(tx, randomUUID(), {
+      accountId: account.id,
+      currency: account.currency,
+      date: closing.date,
+      amount: decision.amount,
+      counterparty: "",
+      description: "Account closed",
+      categoryId: null,
+      categorySource: "manual",
+      categoryRuleId: null,
+      type: decision.type,
+      target: closing.transfer_account_id ? {
+        accountId: closing.transfer_account_id
+      } : undefined
+    });
+
+    if (booked !== "saved") {
+      return refuse(booked);
+    }
+
+    // A concurrent booking leaves a balance other than 0, which refuses the closing and rolls back its booking.
+    if (!await archiveIfSettled(tx, account.id, archivedAt)) {
+      return refuse("balance_changed");
+    }
+
+    return "saved";
+  });
+
+  if (typeof result === "object") {
+    throw new ValidationError(`Choose a date on or after the last booking (${dateWithYear(Temporal.PlainDate.from(result.lastBooking), await currentFormatLocale())}).`);
   }
+
+  return result;
 }
 
 // A bank sync may be writing a new balance; archiving waits until it has finished.
@@ -296,7 +375,7 @@ export async function restoreAccount(accountId: string) {
 }
 
 /** A manual account that accepts new bookings; an archived account is read-only until it is restored. */
-export async function requireWritableManualAccount(accountId: string, notFound: string) {
+async function requireWritableManualAccount(accountId: string, notFound: string) {
   const account = await findManualAccount(accountId);
 
   if (!account) {

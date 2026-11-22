@@ -1,14 +1,10 @@
-import { randomUUID } from "node:crypto";
-import { and, eq, inArray, desc, isNotNull, isNull, ne, sql, TransactionRollbackError } from "drizzle-orm";
-import { database, type Database } from "@/server/database/connection";
+import { and, eq, inArray, desc, isNotNull, isNull, ne, sql } from "drizzle-orm";
+import { database, type Database, type DatabaseTransaction } from "@/server/database/connection";
+import { withRefusableTransaction, withTransaction } from "@/server/database/transaction";
 import { accountIdentifiers, accounts, balanceSnapshots, categorizationRules, transactions } from "@/server/database/schema";
 import { createdCounterpartPrefix, manualEntryPrefix } from "@/lib/booking-references";
-// eslint-disable-next-line boundaries/dependencies -- known violation tracked in daberni/ufer#285
-import { bookManualEntry, recordManualBalance, type ManualEntryResult } from "@/features/transactions/server/manual-transaction-repository";
 import type { AccountKind } from "../account-kinds";
 import type { ManualAccountInput } from "./account-schema";
-import { assertWritableAccount } from "./writable-account";
-import { comparableBankBalanceTypes } from "./account-queries";
 
 export async function findManualAccount(id: string) {
   const db = await database();
@@ -17,95 +13,59 @@ export async function findManualAccount(id: string) {
   return db.select().from(accounts).where(scope).get();
 }
 
-/** Whether an own, not archived account with this ID exists. */
-export async function activeAccountExists(id: string) {
-  const db = await database();
-  const found = await db.select({
-    id: accounts.id
-  }).from(accounts).where(and(eq(accounts.id, id), isNull(accounts.archived_at))).get();
-
-  return found !== undefined;
+/** Runs an account use case in one write transaction; account and booking reads and writes take the provided transaction. */
+export async function withAccountTransaction<Result>(work: (tx: DatabaseTransaction) => Promise<Result>) {
+  return withTransaction(work);
 }
 
-/** Creates a manual account with its starting balance as the opening balance transaction. */
-export async function insertManualAccount(input: ManualAccountInput, amount: number, date: string) {
-  const db = await database();
-  const id = randomUUID();
+/** Runs an account use case like `withAccountTransaction`; a `refuse(result)` inside rolls it back and resolves to that result. */
+export async function withRefusableAccountTransaction<Result>(work: (tx: DatabaseTransaction) => Promise<Result>) {
+  return withRefusableTransaction(work);
+}
 
-  await db.transaction(async tx => {
-    await tx.insert(accounts).values({
-      id,
-      name: input.name,
-      kind: input.kind,
-      currency: input.currency
-    });
-    await recordManualBalance(tx, {
-      id,
-      currency: input.currency
-    }, date, amount);
+export { refuse } from "@/server/database/transaction";
+
+/** Inserts a manual account inside the caller's write transaction, which also books its opening balance. */
+export async function insertManualAccount(tx: DatabaseTransaction, id: string, input: ManualAccountInput) {
+  await tx.insert(accounts).values({
+    id,
+    name: input.name,
+    kind: input.kind,
+    currency: input.currency
   });
+}
+
+/** The sum and latest date of an account's visible bookings, read inside the caller's write transaction. */
+export async function readBookedTotal(tx: DatabaseTransaction, accountId: string) {
+  const total = await tx.select({
+    amount: sql<number>`COALESCE(SUM(${transactions.amount_minor}),0)`.mapWith(Number),
+    latest: sql<string | null>`MAX(${transactions.date})`
+  }).from(transactions).where(and(eq(transactions.account_id, accountId), isNull(transactions.suppressed_at))).get();
 
   return {
-    id
+    amount: total?.amount ?? 0,
+    latest: total?.latest ?? null
   };
 }
 
-/** Records a manual account's balance on a date as an opening balance or an adjustment for the difference. */
-export async function saveManualValuation(account: {
-  id: string;
-  currency: string;
-}, amount: number, date: string) {
-  const db = await database();
+/** The newest balance a bank-linked account's sync reported, read inside the caller's write transaction; null when the account is no longer bank-linked. */
+export async function readLatestReportedBalance(tx: DatabaseTransaction, accountId: string) {
+  // A concurrent conversion may have made it a manual account, whose bank snapshots no longer count.
+  const linked = await tx.select({
+    id: accounts.id
+  }).from(accounts).where(and(eq(accounts.id, accountId), ne(accounts.provider, "manual"))).get();
 
-  return db.transaction(async tx => {
-    await assertWritableAccount(tx, account.id);
+  if (!linked) {
+    return null;
+  }
 
-    return recordManualBalance(tx, account, date, amount);
-  });
-}
+  const reported = await tx.select({
+    date: balanceSnapshots.observed_at,
+    amount: balanceSnapshots.amount_minor,
+    type: balanceSnapshots.bank_balance_type
+  }).from(balanceSnapshots).where(and(eq(balanceSnapshots.account_id, accountId), eq(balanceSnapshots.source, "sync"))).orderBy(desc(balanceSnapshots.observed_at)).get();
 
-/**
- * Books an adjustment so a bank-linked account's calculated balance matches the newest booked balance its bank reported, at that balance's date.
- * Returns false when the newest report is not a booked balance; a matching balance books nothing.
- */
-export async function reconcileWithReportedBalance(account: {
-  id: string;
-  currency: string;
-}) {
-  const db = await database();
-
-  return db.transaction(async tx => {
-    await assertWritableAccount(tx, account.id);
-    // A concurrent conversion may have made it a manual account, whose bank snapshots no longer count.
-    const linked = await tx.select({
-      id: accounts.id
-    }).from(accounts).where(and(eq(accounts.id, account.id), ne(accounts.provider, "manual"))).get();
-
-    if (!linked) {
-      return false;
-    }
-
-    const reported = await tx.select({
-      date: balanceSnapshots.observed_at,
-      amount: balanceSnapshots.amount_minor,
-      type: balanceSnapshots.bank_balance_type
-    }).from(balanceSnapshots).where(and(eq(balanceSnapshots.account_id, account.id), eq(balanceSnapshots.source, "sync"))).orderBy(desc(balanceSnapshots.observed_at)).get();
-
-    if (!reported?.type || !comparableBankBalanceTypes.includes(reported.type)) {
-      return false;
-    }
-
-    // The report may already contain bookings dated after it, as the shown difference allows; then nothing is off.
-    const total = await tx.select({
-      amount: sql<number>`COALESCE(SUM(${transactions.amount_minor}),0)`.mapWith(Number)
-    }).from(transactions).where(and(eq(transactions.account_id, account.id), isNull(transactions.suppressed_at))).get();
-
-    if (total?.amount !== reported.amount) {
-      await recordManualBalance(tx, account, reported.date, reported.amount);
-    }
-
-    return true;
-  });
+  return reported ?? null;
 }
 
 // The current balance in one statement with the update, as listed: the sum of visible (not hidden) bookings, 0 without any.
@@ -118,7 +78,8 @@ export async function archiveSettledAccount(id: string, archivedAt: string) {
   return archiveIfSettled(db, id, archivedAt);
 }
 
-async function archiveIfSettled(executor: Pick<Database, "update">, id: string, archivedAt: string) {
+/** Archives an active account only if its balance is exactly 0 at the moment of the update, inside the caller's transaction when given one; returns whether it was archived. */
+export async function archiveIfSettled(executor: Pick<Database, "update">, id: string, archivedAt: string) {
   const updated = await executor.update(accounts).set({
     archived_at: archivedAt
   }).where(and(eq(accounts.id, id), isNull(accounts.archived_at), sql`${currentBalance}=0`)).returning({
@@ -169,83 +130,6 @@ export async function saveAccountName(id: string, name: string) {
   });
 
   return updated.length === 1;
-}
-
-export type ClosingResult = ManualEntryResult | "balance_changed";
-
-/** Refuses a closing date before the account's last booking; the service words the refusal for the request. */
-export class ClosingBeforeLastBooking extends Error {
-  constructor(readonly lastBooking: string) {
-    super("The closing date precedes the last booking.");
-  }
-}
-
-class ClosingRefused extends TransactionRollbackError {
-  constructor(readonly result: ClosingResult) {
-    super();
-  }
-}
-
-/**
- * Books a manual account's remaining balance away on `date` and archives it in one transaction: as an adjustment, or as a transfer to another active manual account.
- * `expectedBalance` is the balance the user confirmed; a concurrent booking that changed it refuses the closing.
- */
-export async function closeAndArchiveManualAccount(account: {
-  id: string;
-  currency: string;
-}, expectedBalance: number, date: string, transferAccountId: string | null, archivedAt: string): Promise<ClosingResult> {
-  const db = await database();
-
-  try {
-    return await db.transaction(async tx => {
-      const total = await tx.select({
-        amount: sql<number>`COALESCE(SUM(${transactions.amount_minor}),0)`.mapWith(Number),
-        latest: sql<string | null>`MAX(${transactions.date})`
-      }).from(transactions).where(and(eq(transactions.account_id, account.id), isNull(transactions.suppressed_at))).get();
-
-      if ((total?.amount ?? 0) !== expectedBalance) {
-        throw new ClosingRefused("balance_changed");
-      }
-
-      // A closing before the last booking would leave activity after the account reached 0.
-      if (total?.latest && date < total.latest) {
-        throw new ClosingBeforeLastBooking(total.latest);
-      }
-
-      const result = await bookManualEntry(tx, randomUUID(), {
-        accountId: account.id,
-        currency: account.currency,
-        date,
-        amount: -expectedBalance,
-        counterparty: "",
-        description: "Account closed",
-        categoryId: null,
-        categorySource: "manual",
-        categoryRuleId: null,
-        type: transferAccountId ? "transfer" : "adjustment",
-        target: transferAccountId ? {
-          accountId: transferAccountId
-        } : undefined
-      });
-
-      if (result !== "saved") {
-        throw new ClosingRefused(result);
-      }
-
-      // A concurrent booking leaves a balance other than 0, which refuses the closing and rolls back its booking.
-      if (!await archiveIfSettled(tx, account.id, archivedAt)) {
-        throw new ClosingRefused("balance_changed");
-      }
-
-      return "saved" as const;
-    });
-  } catch (error) {
-    if (error instanceof ClosingRefused) {
-      return error.result;
-    }
-
-    throw error;
-  }
 }
 
 /**

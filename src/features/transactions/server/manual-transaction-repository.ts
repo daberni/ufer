@@ -3,7 +3,7 @@ import { and, eq, isNull, lte, sql } from "drizzle-orm";
 import { TransactionRollbackError } from "drizzle-orm/errors";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 import { transactions } from "@/server/database/schema";
-import { assertWritableAccount } from "@/features/accounts/server/writable-account";
+import { assertWritableAccount } from "./booking-accounts";
 import type { TransactionType } from "@/lib/transaction-types";
 import type { RuleAssignment, RuleText } from "@/features/categorization/server/rule-assignment";
 import { createdCounterpartPrefix, manualEntryPrefix } from "@/lib/booking-references";
@@ -12,6 +12,7 @@ import { dissolveLink } from "./transfer-link-repository";
 import { enteredInUfer, enteredPair } from "./transfer-rules";
 import { findCounterpart, findSubject, touchesArchivedAccount } from "./transfer-subjects";
 import type { TransferTarget, TypeChangeResult } from "./type-change-decision";
+import { decideManualBalance } from "./manual-balance-decision";
 import { dissolveSplit, splitMatchesAmount, splitRefusesType, writeSplit, type SplitChange } from "./split-repository";
 
 /** The fields a person enters for a booking on a manual account. */
@@ -288,27 +289,27 @@ export async function recordManualBalance(tx: DatabaseTransaction, account: {
     count: sql<number>`COUNT(*)`,
     onDate: sql<number>`COALESCE(SUM(CASE WHEN ${lte(transactions.date, date)} THEN ${transactions.amount_minor} ELSE 0 END),0)`
   }).from(transactions).where(and(eq(transactions.account_id, account.id), isNull(transactions.suppressed_at))).get();
-  const opening = Number(booked?.count ?? 0) === 0;
-  const difference = amount - Number(booked?.onDate ?? 0);
+  const booking = decideManualBalance({
+    count: Number(booked?.count ?? 0),
+    onDate: Number(booked?.onDate ?? 0)
+  }, amount);
 
-  if (!opening && difference === 0) {
+  if (!booking) {
     return null;
   }
-
-  const type = opening ? "opening_balance" : "adjustment";
 
   await insertEntry(tx, randomUUID(), {
     accountId: account.id,
     date,
-    amount: opening ? amount : difference,
+    amount: booking.amount,
     currency: account.currency,
     counterparty: "",
     description: "",
     categoryId: null,
     categorySource: "manual",
     categoryRuleId: null,
-    type
+    type: booking.type
   });
 
-  return type;
+  return booking.type;
 }
