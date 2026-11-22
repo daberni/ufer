@@ -18,11 +18,12 @@ const dashboardImports = {
 };
 
 // Server layers of #285: each layer may import the layers below it, never one above it, so feature server modules form no cycle.
+// Accounts act on transactions, never the reverse: transactions takes the account facts a booking depends on as values and does not import accounts.
 const serverLayers = [
   ["banking", "imports", "demo", "reports"],
+  ["accounts"],
   ["transactions"],
-  ["categorization"],
-  ["accounts"]
+  ["categorization"]
 ];
 const sharedServerElements = ["auth-server", "appearance-server", "legal-server"];
 

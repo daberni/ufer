@@ -1,6 +1,6 @@
 import { respond } from "@/server/http/respond";
 import { readJson } from "@/server/http/request-body";
-import { updateManualValuation } from "@/features/transactions/server/manual-account-service";
+import { updateManualValuation } from "@/features/accounts/server/account-service";
 import { readBalanceHistory } from "@/features/accounts/server/account-queries";
 
 export const runtime = "nodejs";

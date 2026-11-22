@@ -5,7 +5,7 @@ import { z } from "zod";
 import { minorUnits } from "@/lib/money";
 import { assignRules, categorizeEntries, prepareRules, ruleAssignment, type RuleText } from "@/features/categorization/server/rule-assignment";
 import { today, validDate } from "@/lib/time";
-import { requireWritableManualAccount } from "@/features/accounts/server/account-service";
+import { requireWritableManualAccount } from "./booking-accounts";
 import { categoryExists } from "@/features/categorization/server/category-repository";
 import { listRules } from "@/features/categorization/server/rule-repository";
 import { transactionTypes } from "@/lib/transaction-types";

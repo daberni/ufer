@@ -1,4 +1,4 @@
-import { anchorOpeningBalance, keepBankOpeningBalanceFirst } from "@/features/accounts/server/opening-balance-repository";
+import { anchorOpeningBalance, keepBankOpeningBalanceFirst } from "@/features/transactions/server/opening-balance-repository";
 import { comparableBankBalanceTypes } from "@/features/accounts/server/account-queries";
 import { adoptImportedRows } from "@/features/transactions/server/booking-ingestion";
 import { randomUUID } from "node:crypto";

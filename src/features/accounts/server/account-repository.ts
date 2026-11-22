@@ -1,6 +1,6 @@
-import { randomUUID } from "node:crypto";
 import { and, eq, inArray, desc, isNotNull, isNull, ne, sql } from "drizzle-orm";
 import { database, type Database, type DatabaseTransaction } from "@/server/database/connection";
+import { withRefusableTransaction, withTransaction } from "@/server/database/transaction";
 import { accountIdentifiers, accounts, balanceSnapshots, categorizationRules, transactions } from "@/server/database/schema";
 import { createdCounterpartPrefix, manualEntryPrefix } from "@/lib/booking-references";
 import type { AccountKind } from "../account-kinds";
@@ -13,43 +13,26 @@ export async function findManualAccount(id: string) {
   return db.select().from(accounts).where(scope).get();
 }
 
-/** Whether an own, not archived account with this ID exists. */
-export async function activeAccountExists(id: string) {
-  const db = await database();
-  const found = await db.select({
-    id: accounts.id
-  }).from(accounts).where(and(eq(accounts.id, id), isNull(accounts.archived_at))).get();
-
-  return found !== undefined;
+/** Runs an account use case in one write transaction; account and booking reads and writes take the provided transaction. */
+export async function withAccountTransaction<Result>(work: (tx: DatabaseTransaction) => Promise<Result>) {
+  return withTransaction(work);
 }
 
-/** Books a new manual account's starting balance inside its creation transaction; the booking belongs to transactions. */
-export type OpeningBalanceBooking = (tx: DatabaseTransaction, account: {
-  id: string;
-  currency: string;
-}, date: string, amount: number) => Promise<unknown>;
+/** Runs an account use case like `withAccountTransaction`; a `refuse(result)` inside rolls it back and resolves to that result. */
+export async function withRefusableAccountTransaction<Result>(work: (tx: DatabaseTransaction) => Promise<Result>) {
+  return withRefusableTransaction(work);
+}
 
-/** Creates a manual account and books its starting balance in one transaction. */
-export async function insertManualAccount(input: ManualAccountInput, amount: number, date: string, bookOpeningBalance: OpeningBalanceBooking) {
-  const db = await database();
-  const id = randomUUID();
+export { refuse } from "@/server/database/transaction";
 
-  await db.transaction(async tx => {
-    await tx.insert(accounts).values({
-      id,
-      name: input.name,
-      kind: input.kind,
-      currency: input.currency
-    });
-    await bookOpeningBalance(tx, {
-      id,
-      currency: input.currency
-    }, date, amount);
+/** Inserts a manual account inside the caller's write transaction, which also books its opening balance. */
+export async function insertManualAccount(tx: DatabaseTransaction, id: string, input: ManualAccountInput) {
+  await tx.insert(accounts).values({
+    id,
+    name: input.name,
+    kind: input.kind,
+    currency: input.currency
   });
-
-  return {
-    id
-  };
 }
 
 /** The sum and latest date of an account's visible bookings, read inside the caller's write transaction. */

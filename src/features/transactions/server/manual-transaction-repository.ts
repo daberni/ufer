@@ -3,7 +3,7 @@ import { and, eq, isNull, lte, sql } from "drizzle-orm";
 import { TransactionRollbackError } from "drizzle-orm/errors";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 import { transactions } from "@/server/database/schema";
-import { assertWritableAccount } from "@/features/accounts/server/writable-account";
+import { assertWritableAccount } from "./booking-accounts";
 import type { TransactionType } from "@/lib/transaction-types";
 import type { RuleAssignment, RuleText } from "@/features/categorization/server/rule-assignment";
 import { createdCounterpartPrefix, manualEntryPrefix } from "@/lib/booking-references";
@@ -12,7 +12,7 @@ import { dissolveLink } from "./transfer-link-repository";
 import { enteredInUfer, enteredPair } from "./transfer-rules";
 import { findCounterpart, findSubject, touchesArchivedAccount } from "./transfer-subjects";
 import type { TransferTarget, TypeChangeResult } from "./type-change-decision";
-import { decideManualBalance } from "./manual-account-decisions";
+import { decideManualBalance } from "./manual-balance-decision";
 import { dissolveSplit, splitMatchesAmount, splitRefusesType, writeSplit, type SplitChange } from "./split-repository";
 
 /** The fields a person enters for a booking on a manual account. */

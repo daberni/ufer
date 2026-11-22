@@ -11,7 +11,7 @@ import type { Database } from "../src/server/database/connection";
 import { initializeDatabase, migrateDatabase } from "../src/server/database/migrations";
 import * as schema from "../src/server/database/schema";
 import { listAccounts, readBalanceHistory, readNetWorth } from "../src/features/accounts/server/account-queries";
-import { reconcileBankBalance } from "../src/features/transactions/server/manual-account-service";
+import { reconcileBankBalance } from "../src/features/accounts/server/account-service";
 import { saveAccountSync } from "../src/features/banking/server/account-sync-service";
 import { readCashFlow } from "../src/features/reports/server/cash-flow-query";
 import { monthPeriod } from "../src/lib/period";

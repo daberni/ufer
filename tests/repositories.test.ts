@@ -8,8 +8,7 @@ import { drizzle } from "drizzle-orm/libsql";
 import { database, type Database } from "../src/server/database/connection";
 import { initializeDatabase } from "../src/server/database/migrations";
 import * as schema from "../src/server/database/schema";
-import { updateAccount, createManualAccount } from "../src/features/accounts/server/account-service";
-import { updateManualValuation, bookOpeningBalance } from "../src/features/transactions/server/manual-account-service";
+import { createManualAccount, updateAccount, updateManualValuation } from "../src/features/accounts/server/account-service";
 import { findManualAccount } from "../src/features/accounts/server/account-repository";
 import { listAccounts } from "../src/features/accounts/server/account-queries";
 import { enterManualTransaction } from "../src/features/transactions/server/transaction-service";
@@ -86,7 +85,7 @@ test("account creation books exact money as the opening balance on the shared co
     currency: "EUR",
     balance: "123.45",
     date: "2026-01-02"
-  }, bookOpeningBalance);
+  });
   const raw = await db.$client.execute({
     sql: "SELECT balance_minor,provider FROM accounts WHERE id=?",
     args: [created.id]
@@ -117,8 +116,8 @@ test("a new account's balance date starts its history, defaults to today in Vien
   const dated = await createManualAccount({
     ...property,
     date: "2025-06-30"
-  }, bookOpeningBalance, viennaAfterMidnight);
-  const undated = await createManualAccount(property, bookOpeningBalance, viennaAfterMidnight);
+  }, viennaAfterMidnight);
+  const undated = await createManualAccount(property, viennaAfterMidnight);
 
   assert.deepEqual(await balanceBookings(db, dated.id), [["2025-06-30", "opening_balance", 25000000]]);
   assert.deepEqual(await balanceBookings(db, undated.id), [["2026-03-02", "opening_balance", 25000000]]);
@@ -126,7 +125,7 @@ test("a new account's balance date starts its history, defaults to today in Vien
   await assert.rejects(createManualAccount({
     ...property,
     date: "2026-03-03"
-  }, bookOpeningBalance, viennaAfterMidnight), ValidationError);
+  }, viennaAfterMidnight), ValidationError);
   assert.equal((await db.select().from(schema.accounts)).length, 2);
   assert.equal((await db.select().from(schema.transactions)).length, 2);
 });
@@ -174,7 +173,7 @@ test("a failed opening balance rolls back account creation instead of leaving a 
     kind: "investment",
     currency: "EUR",
     balance: "10.00"
-  }, bookOpeningBalance));
+  }));
   assert.equal((await db.select().from(schema.accounts)).length, 0);
   assert.equal((await db.select().from(schema.transactions)).length, 0);
 });
@@ -187,7 +186,7 @@ test("updating a balance books the difference to the balance on its date, so lat
     currency: "EUR",
     balance: "200.00",
     date: "2000-01-01"
-  }, bookOpeningBalance);
+  });
 
   await enterManualTransaction(created.id, {
     date: "2000-02-01",
@@ -233,7 +232,7 @@ test("a valuation dated today in Vienna is accepted before UTC reaches that day,
     currency: "EUR",
     balance: "200.00",
     date: "2026-02-01"
-  }, bookOpeningBalance, viennaAfterMidnight);
+  }, viennaAfterMidnight);
 
   await updateManualValuation(created.id, {
     balance: "250.00",
@@ -744,13 +743,13 @@ test("a manual or imported account changes its type when its balance fits, while
     kind: "checking",
     currency: "EUR",
     balance: "-350.00"
-  }, bookOpeningBalance, now);
+  }, now);
   const { id: wallet } = await createManualAccount({
     name: "Wallet",
     kind: "checking",
     currency: "EUR",
     balance: "80.00"
-  }, bookOpeningBalance, now);
+  }, now);
 
   await db.insert(schema.accounts).values([{
     id: "synced-type",

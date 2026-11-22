@@ -6,6 +6,7 @@ import { ValidationError } from "@/lib/errors";
 import type { Rule, RuleAssignment, RuleText } from "@/features/categorization/server/rule-assignment";
 import type { TransactionType } from "@/lib/transaction-types";
 import type { SplitPart } from "@/features/transactions/types";
+import { readActiveAccountIds } from "./booking-accounts";
 import type { Entry } from "./transaction-entry";
 import { pairTransfers } from "./transfer-pairing-repository";
 
@@ -205,10 +206,7 @@ export async function assignRuleDecision(tx: DatabaseTransaction, id: string, as
   }).where(eq(transactions.id, id));
 
   // Archiving freezes the type, so a booking on an archived account takes only the category.
-  const activeAccounts = tx.select({
-    id: accounts.id
-  }).from(accounts).where(isNull(accounts.archived_at));
-  const automatic = and(eq(transactions.id, id), eq(transactions.type_source, "auto"), isNull(transactions.transfer_id), notSplit, inArray(transactions.account_id, activeAccounts));
+  const automatic = and(eq(transactions.id, id), eq(transactions.type_source, "auto"), isNull(transactions.transfer_id), notSplit, inArray(transactions.account_id, await readActiveAccountIds(tx)));
 
   if (assignment.type) {
     await tx.update(transactions).set({

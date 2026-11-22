@@ -6,7 +6,6 @@ import { normalizeCategoryName } from "@/lib/category-name";
 import { maximumRules, nextPriority, orderedPriorities } from "@/features/categorization/rule-order";
 import { isCategoryIcon } from "@/features/categorization/category-icons";
 import { newCategoryColor, type ColoredCategory } from "@/features/categorization/category-color-suggestions";
-import { activeAccountExists } from "@/features/accounts/server/account-repository";
 import { ruleTransactionTypes } from "@/lib/transaction-types";
 import { categoryExists, deleteCategory as deleteStoredCategory, insertCategory, readCategoryUsage, updateCategory, type CategoryDetails, type CategoryWriteResult } from "./category-repository";
 import { listRules, type RuleLimitReached } from "./rule-repository";
@@ -74,16 +73,16 @@ function validateTransferTarget(input: TransferTarget) {
   }
 }
 
-async function validateRuleType(input: TransferTarget) {
+function validateRuleType(input: TransferTarget, activeAccountIds: ReadonlySet<string>) {
   validateTransferTarget(input);
 
-  if (input.transfer_account_id && !(await activeAccountExists(input.transfer_account_id))) {
+  if (input.transfer_account_id && !activeAccountIds.has(input.transfer_account_id)) {
     throw new ValidationError(inactiveTargetMessage);
   }
 }
 
-/** A rule creation request after validation: the rule without its position, the optional priority, and the assignments a person chose. */
-export async function parseRuleCreation(payload: unknown) {
+/** A rule creation request after validation: the rule without its position, the optional priority, and the assignments a person chose. `activeAccountIds` are the accounts a rule may name. */
+export async function parseRuleCreation(payload: unknown, activeAccountIds: ReadonlySet<string>) {
   const {
     apply_to_uncategorized: applyToUncategorized,
     source_transaction_id: sourceTransactionId,
@@ -98,9 +97,9 @@ export async function parseRuleCreation(payload: unknown) {
     throw new ValidationError("Category does not exist.");
   }
 
-  await validateRuleType(input);
+  validateRuleType(input, activeAccountIds);
 
-  if (input.account_id && !(await activeAccountExists(input.account_id))) {
+  if (input.account_id && !activeAccountIds.has(input.account_id)) {
     throw new ValidationError(inactiveConditionMessage);
   }
 

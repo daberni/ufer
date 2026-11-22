@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { createManualAccount } from "../src/features/accounts/server/account-service";
 import { randomUUID } from "node:crypto";
 import { test, type TestContext } from "node:test";
 import { Temporal } from "temporal-polyfill";
@@ -9,7 +8,7 @@ import { drizzle } from "drizzle-orm/libsql";
 import type { Database } from "../src/server/database/connection";
 import { initializeDatabase } from "../src/server/database/migrations";
 import * as schema from "../src/server/database/schema";
-import { bookOpeningBalance } from "../src/features/transactions/server/manual-account-service";
+import { createManualAccount } from "../src/features/accounts/server/account-service";
 import { listAccounts } from "../src/features/accounts/server/account-queries";
 import { saveAccountSync } from "../src/features/banking/server/account-sync-service";
 import { importMappedRows } from "../src/features/imports/server/mapped-import-service";
@@ -192,7 +191,7 @@ test("saving only a type stores no override, and a transaction entered in Ufer i
     currency: "EUR",
     balance: "100.00",
     date: "2026-09-01"
-  }, bookOpeningBalance, now);
+  }, now);
   const { id } = await enterManualTransaction(cash, {
     type: "expense",
     date: "2026-09-05",
@@ -245,7 +244,7 @@ test("a hidden CSV booking leaves the manual account balance, and importing the 
     currency: "EUR",
     balance: "100.00",
     date: "2026-09-01"
-  }, bookOpeningBalance, now);
+  }, now);
   const balance = async () => (await listAccounts()).find(account => account.id === cash)?.balance_minor;
   const importFile = (id: string) => importMappedRows({
     import_id: randomUUID(),

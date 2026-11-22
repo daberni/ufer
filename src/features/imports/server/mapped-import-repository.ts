@@ -1,11 +1,11 @@
-import { keepBankOpeningBalanceFirst } from "@/features/accounts/server/opening-balance-repository";
+import { keepBankOpeningBalanceFirst } from "@/features/transactions/server/opening-balance-repository";
 import type { ImportType } from "../import-rows";
 import { randomUUID } from "node:crypto";
 import { and, between, eq, inArray, ne, notInArray, or, sql } from "drizzle-orm";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 import { accounts, categories, transactionSplits, transactions } from "@/server/database/schema";
 import type { AccountKind } from "@/features/accounts/account-kinds";
-import { assertWritableAccount } from "@/features/accounts/server/writable-account";
+import { assertWritableAccount } from "@/features/transactions/server/booking-accounts";
 import { manualEntryPrefix } from "@/lib/booking-references";
 import { newCategoryColor } from "@/features/categorization/category-color-suggestions";
 import { suggestCategoryIcon, type CategoryIconKey } from "@/features/categorization/category-icons";

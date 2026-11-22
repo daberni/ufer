@@ -1,5 +1,5 @@
 import { respond } from "@/server/http/respond";
-import { reconcileBankBalance } from "@/features/transactions/server/manual-account-service";
+import { reconcileBankBalance } from "@/features/accounts/server/account-service";
 
 export const runtime = "nodejs";
 

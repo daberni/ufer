@@ -1,6 +1,5 @@
 import { respond } from "@/server/http/respond";
-import { archiveAccount, requestsClosing, restoreAccount } from "@/features/accounts/server/account-service";
-import { closeManualAccount } from "@/features/transactions/server/manual-account-service";
+import { archiveAccount, restoreAccount } from "@/features/accounts/server/account-service";
 import { readJson } from "@/server/http/request-body";
 
 export const runtime = "nodejs";
@@ -16,9 +15,8 @@ type Context = {
 export async function PUT(request: Request, context: Context) {
   return respond(request, async () => {
     const { id } = await context.params;
-    const payload = await readJson(request);
 
-    return requestsClosing(payload) ? closeManualAccount(id, payload) : archiveAccount(id, payload);
+    return archiveAccount(id, await readJson(request));
   });
 }
 

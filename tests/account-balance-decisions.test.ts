@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { decideClosing, decideManualBalance, decideReconciliation } from "../src/features/transactions/server/manual-account-decisions";
+import { decideClosing, decideReconciliation } from "../src/features/accounts/server/account-decisions";
+import { decideManualBalance } from "../src/features/transactions/server/manual-balance-decision";
 
 test("a balance for an account without bookings becomes its opening balance, even when it is 0", () => {
   assert.deepEqual(decideManualBalance({
