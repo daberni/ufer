@@ -1,9 +1,8 @@
 import { count, eq, inArray, or, sql } from "drizzle-orm";
-import type { InStatement } from "@libsql/client";
 import { sameCategoryName } from "@/lib/category-name";
 import type { CategoryIconKey } from "@/features/categorization/category-icons";
 import type { ColoredCategory } from "@/features/categorization/category-color-suggestions";
-import { database } from "@/server/database/connection";
+import { database, type DatabaseTransaction } from "@/server/database/connection";
 import { categories, categorizationRules, transactionSplits, transactions } from "@/server/database/schema";
 
 export type CategoryDetails = {
@@ -23,62 +22,84 @@ export async function categoryExists(id: string) {
   return Boolean(result);
 }
 
-// The name check and the write share one write-mode transaction, which serializes concurrent writers.
-// The database constraint is case-sensitive and cannot catch case variants of the same name.
-async function writeUniquelyNamed(existingId: string | null, name: string, statement: InStatement | ((existing: ColoredCategory[]) => InStatement)): Promise<CategoryWriteResult> {
-  const db = await database();
-  const transaction = await db.$client.transaction("write");
+type ExistingCategories = ColoredCategory[];
 
-  try {
-    const rows = (await transaction.execute("SELECT id, name, color, icon FROM categories")).rows;
-    const targetMissing = existingId !== null && !rows.some(row => row.id === existingId);
-    const nameTaken = rows.some(row => row.id !== existingId && sameCategoryName(String(row.name), name));
-
-    if (targetMissing || nameTaken) {
-      await transaction.rollback();
-
-      return targetMissing ? "not_found" : "name_taken";
-    }
-
-    const existing = rows.map(row => ({
-      id: String(row.id),
-      name: String(row.name),
-      color: String(row.color),
-      icon: row.icon === null ? null : String(row.icon)
-    }));
-
-    await transaction.execute(typeof statement === "function" ? statement(existing) : statement);
-    await transaction.commit();
-
-    return "saved";
-  } catch (error) {
-    await transaction.rollback();
-
-    throw error;
-  } finally {
-    transaction.close();
-  }
+async function readExistingCategories(tx: DatabaseTransaction): Promise<ExistingCategories> {
+  return tx.select({
+    id: categories.id,
+    name: categories.name,
+    color: categories.color,
+    icon: categories.icon
+  }).from(categories);
 }
 
-export type NewCategoryDetails = Omit<CategoryDetails, "color"> & {
-  /** A color, or a choice made from the existing categories inside the write transaction, so concurrent creates see each other's colors. */
-  color: string | ((existing: ColoredCategory[]) => string);
+export type NewCategory = Omit<CategoryDetails, "color"> & {
+  id: string;
+  /** A color, or a choice made from the existing categories inside the caller's transaction, so concurrent creates see each other's colors. */
+  color: string | ((existing: ExistingCategories) => string);
 };
 
-export async function insertCategory(id: string, details: NewCategoryDetails) {
-  const { color } = details;
+/**
+ * The only way a category is created. Runs inside the caller's write transaction, which serializes concurrent writers, so the name check and the insert see the same rows.
+ * The database constraint is case-sensitive and cannot catch case variants, so an equivalent name resolves to the existing category instead of creating one.
+ * Resolves to the category's ID and whether this call inserted it.
+ */
+export async function createCategory(tx: DatabaseTransaction, category: NewCategory) {
+  const existing = await readExistingCategories(tx);
+  const match = existing.find(item => sameCategoryName(item.name, category.name));
 
-  return writeUniquelyNamed(null, details.name, existing => ({
-    sql: "INSERT INTO categories(id,name,color,icon) VALUES (?,?,?,?)",
-    args: [id, details.name, typeof color === "function" ? color(existing) : color, details.icon]
+  if (match) {
+    return {
+      id: match.id,
+      created: false
+    };
+  }
+
+  await tx.insert(categories).values({
+    id: category.id,
+    name: category.name,
+    color: typeof category.color === "function" ? category.color(existing) : category.color,
+    icon: category.icon
+  });
+
+  return {
+    id: category.id,
+    created: true
+  };
+}
+
+export async function insertCategory(id: string, details: Omit<NewCategory, "id">): Promise<CategoryWriteResult> {
+  const db = await database();
+  const result = await db.transaction(tx => createCategory(tx, {
+    ...details,
+    id
   }));
+
+  return result.created ? "saved" : "name_taken";
 }
 
 // Transactions and rules reference categories by id, so changing the details never touches assignments.
-export async function updateCategory(id: string, details: CategoryDetails) {
-  return writeUniquelyNamed(id, details.name, {
-    sql: "UPDATE categories SET name=?, color=?, icon=? WHERE id=?",
-    args: [details.name, details.color, details.icon, id]
+export async function updateCategory(id: string, details: CategoryDetails): Promise<CategoryWriteResult> {
+  const db = await database();
+
+  return db.transaction(async tx => {
+    const existing = await readExistingCategories(tx);
+
+    if (!existing.some(item => item.id === id)) {
+      return "not_found";
+    }
+
+    if (existing.some(item => item.id !== id && sameCategoryName(item.name, details.name))) {
+      return "name_taken";
+    }
+
+    await tx.update(categories).set({
+      name: details.name,
+      color: details.color,
+      icon: details.icon
+    }).where(eq(categories.id, id));
+
+    return "saved";
   });
 }
 

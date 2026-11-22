@@ -10,6 +10,7 @@ import { writeSplit } from "@/features/transactions/server/split-repository";
 import type { CategorizedEntry } from "@/features/transactions/server/transaction-entry";
 import type { Category } from "@/server/database/models";
 import type { Rule } from "@/features/categorization/server/rule-assignment";
+import { createCategory } from "@/features/categorization/server/category-repository";
 import { requireRuleCapacity } from "@/features/categorization/server/rule-repository";
 import { demoConnections, demoIdPrefix, type DemoAccountDefinition, type DemoCategory } from "./demo-catalog";
 import type { DemoConnectionData, DemoCreatedCounterpart, DemoSnapshot, DemoSplit, DemoSyncRun } from "./demo-dataset";
@@ -92,14 +93,22 @@ async function deleteDemoRows(tx: DatabaseTransaction) {
 // Demo categories are updated in place because synced sandbox transactions may already reference them.
 async function upsertCategories(tx: DatabaseTransaction, rows: DemoCategory[]) {
   for (const category of rows) {
-    await tx.insert(categories).values(category).onConflictDoUpdate({
-      target: categories.id,
-      set: {
-        name: category.name,
-        color: category.color,
-        icon: category.icon
-      }
-    });
+    const updated = await tx.update(categories).set({
+      name: category.name,
+      color: category.color,
+      icon: category.icon
+    }).where(eq(categories.id, category.id));
+
+    if (updated.rowsAffected > 0) {
+      continue;
+    }
+
+    const result = await createCategory(tx, category);
+
+    // The service already reuses equivalently named categories; one created since then cannot stand in, because the rows reference the fixed demo IDs.
+    if (!result.created) {
+      throw new Error(`A category named like the demo category "${category.name}" was created during the seed.`);
+    }
   }
 }
 
