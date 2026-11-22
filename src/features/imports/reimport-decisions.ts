@@ -117,7 +117,11 @@ export function decisionTotals(matches: RowMatch[], chosen: ReadonlyMap<number, 
     created: 0,
     updated: 0,
     unchanged: 0,
-    undecided: 0
+    undecided: 0,
+    /** Lines that block the import: possible duplicates without a decision or whose booking another row already updates. */
+    blocked: new Set<number>(),
+    /** Lines whose chosen booking another row already updates. */
+    conflicts: new Set<number>()
   };
 
   // Like the import, one booking takes the update of one row; a possible duplicate whose booking another row updates waits for a new decision.
@@ -136,6 +140,11 @@ export function decisionTotals(matches: RowMatch[], chosen: ReadonlyMap<number, 
 
     if (!decision || (taken && match.kind === "possible")) {
       totals.undecided += 1;
+      totals.blocked.add(match.line);
+
+      if (decision) {
+        totals.conflicts.add(match.line);
+      }
     } else if (decision.action === "create") {
       totals.created += 1;
     } else if (candidate && !taken && candidate.changes.length > 0) {

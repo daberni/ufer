@@ -61,7 +61,7 @@ export function MatchReview({
   // Import with undecided rows: show the possible duplicates up to the first undecided one, then focus its decision.
   if (draft.undecidedRequest !== handledRequest) {
     setHandledRequest(draft.undecidedRequest);
-    const position = groups.possible.findIndex(match => effectiveDecision(match, draft.decisions.get(match.line)) === null);
+    const position = groups.possible.findIndex(match => draft.totals?.blocked.has(match.line));
     const first = groups.possible[position];
 
     if (first) {
@@ -180,7 +180,8 @@ function MatchItem({
   const viewed = draft.viewedCandidates.get(match.line);
   const decision = effectiveDecision(match, draft.decisions.get(match.line));
   const candidate = decision?.reference ? decisionCandidate(match, decision) : match.candidates.find(option => option.reference === viewed) ?? decisionCandidate(match, decision);
-  const undecided = decision === null;
+  const conflict = draft.totals?.conflicts.has(match.line) ?? false;
+  const undecided = decision === null || conflict;
   const changes = new Set<SourceField>(decision?.action === "update" ? candidate.changes : []);
   const currency = account?.currency ?? "EUR";
   const fields: [string, SourceField | null, React.ReactNode, React.ReactNode][] = [
@@ -244,10 +245,10 @@ function MatchItem({
             disabled={draft.inputsLocked}
             onChange={event => draft.decide([match.line], event.target.value as RowDecision, match.kind === "possible" ? candidate.reference : undefined)}
           >
-            {undecided && <option value="" disabled>Choose …</option>}
+            {decision === null && <option value="" disabled>Choose …</option>}
             {allowedDecisions(match).map(action => <option key={action} value={action}>{decisionLabels[action]}</option>)}
           </Select>
-          {undecided && <p id={`${id}-hint`} className={styles["hint"]}>Choose what this row does before importing.</p>}
+          {undecided && <p id={`${id}-hint`} className={styles["hint"]}>{conflict ? "Another row already updates this booking. Choose another booking or decision." : "Choose what this row does before importing."}</p>}
           {decision?.action === "update" && candidate.changes.length === 0 && <p className={ui["form-hint"]}>Nothing to update: the booking already has these values.</p>}
         </div>
       </div>

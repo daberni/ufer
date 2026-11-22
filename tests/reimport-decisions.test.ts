@@ -352,6 +352,15 @@ test("an update naming a booking that is no longer a candidate waits for a new d
   assert.deepEqual((await db.select().from(schema.transactions)).map(item => item.counterparty), ["Example Cinema", "Example Cinema"]);
 });
 
+function counts(totals: ReturnType<typeof decisionTotals>) {
+  return {
+    created: totals.created,
+    updated: totals.updated,
+    unchanged: totals.unchanged,
+    undecided: totals.undecided
+  };
+}
+
 test("the review's totals follow the decisions and leave a possible duplicate undecided when its booking is already updated", () => {
   const existing = (reference: string, changes: ExistingMatch["changes"]): ExistingMatch => ({
     reference,
@@ -387,33 +396,33 @@ test("the review's totals follow the decisions and leave a possible duplicate un
     candidates: [existing("a", ["description"]), existing("c", ["description"])]
   }];
 
-  assert.deepEqual(decisionTotals(matches, new Map()), {
+  assert.deepEqual(counts(decisionTotals(matches, new Map())), {
     created: 0,
     updated: 1,
     unchanged: 1,
     undecided: 1
   });
   // A row imported before cannot be created again, so its choice falls back to the update; line 4's first candidate is already taken by line 2.
-  assert.deepEqual(decisionTotals(matches, new Map([[2, {
+  assert.deepEqual(counts(decisionTotals(matches, new Map([[2, {
     line: 2,
     action: "create" as const
   }], [4, {
     line: 4,
     action: "update" as const
-  }]])), {
+  }]]))), {
     created: 0,
     updated: 1,
     unchanged: 1,
     undecided: 1
   });
-  assert.deepEqual(decisionTotals(matches, new Map([[3, {
+  assert.deepEqual(counts(decisionTotals(matches, new Map([[3, {
     line: 3,
     action: "create" as const
   }], [4, {
     line: 4,
     action: "update" as const,
     reference: "c"
-  }]])), {
+  }]]))), {
     created: 1,
     updated: 2,
     unchanged: 0,
@@ -427,6 +436,11 @@ test("the review's totals follow the decisions and leave a possible duplicate un
     line: 4,
     action: "update" as const
   }]])).undecided, 0);
+  // A second row choosing an already updated booking is a conflict the review marks.
+  assert.deepEqual([...decisionTotals(matches, new Map([[4, {
+    line: 4,
+    action: "update" as const
+  }]])).conflicts], [4]);
 });
 
 test("an update of a chosen booking is not redirected to another booking that now matches", async context => {
