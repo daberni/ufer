@@ -64,7 +64,7 @@ Use persistent external libSQL through `DATABASE_URL=libsql://…` and `DATABASE
 
 Set `BETTER_AUTH_SECRET`, `DATA_ENCRYPTION_KEY`, `CRON_SECRET`, the banking application ID, and `ENABLE_BANKING_PRIVATE_KEY` as hosting secrets. Use a PEM value rather than a local key path. Set the application and callback URLs to the deployment origin. Provision individual users through the [operator enrollment workflow](user-management.md#operator-enrollment). This version serves one shared financial workspace; it does not implement multi-customer SaaS isolation.
 
-`vercel.json` configures a daily 05:00 UTC cron call authenticated with `CRON_SECRET`. The route has `maxDuration=300`; provider latency and many accounts can exceed platform runtime limits. An observed unattended scheduled sync and NAS operation remain unverified ([#267](https://github.com/daberni/ufer/issues/267)). See the [deployment guide](vercel-deployment.md) for configuration, cost boundaries and acceptance evidence. Unattended synchronization is a required capability on every supported hosting platform.
+`vercel.json` configures a daily 05:00 UTC cron call authenticated with `CRON_SECRET`; it syncs banks and then updates security prices when `MARKET_DATA_API_KEY` holds an EODHD token. The route has `maxDuration=300`; provider latency and many accounts can exceed platform runtime limits. An observed unattended scheduled sync and NAS operation remain unverified ([#267](https://github.com/daberni/ufer/issues/267)). See the [deployment guide](vercel-deployment.md) for configuration, cost boundaries and acceptance evidence. Unattended synchronization is a required capability on every supported hosting platform.
 
 ## Privacy notice and terms
 

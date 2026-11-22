@@ -8,6 +8,7 @@ import { refuse } from "@/server/database/transaction";
 import { archivedAccountMessage } from "@/features/transactions/server/booking-accounts";
 import { amountMinor, positionOn, type PositionTrade } from "../holdings";
 import { parseMicros } from "../quantities";
+import { priceSourceStatus } from "./price-update-service";
 import { settlementRefusal, settlementWindowDays, tradeCashAmount, type SettlementRefusal } from "../trade-decisions";
 import { brokerageAccountInput, securityInput, settlementCandidatesQuery, tradeInput } from "./security-schema";
 import { deleteTrade, findBrokerageAccount, findSecurity, findSettlementAccount, findSettlementBooking, findTrade, insertBrokerageAccount, insertSecurity, insertSettlementEntry, insertTrade, listSecurities, markSettlementBooking, nextTradeSequence, readAccountSplits, readAccountTrades, readPositionTrades, readSettlementCandidates, readSplits, readTradedSecurityIds, withSecurityTransaction } from "./security-repository";
@@ -51,8 +52,12 @@ export async function createSecurity(payload: unknown) {
   };
 }
 
+/** The securities with their last price update, and whether a price source is configured at all. */
 export async function readSecurities() {
-  return listSecurities();
+  return {
+    price_source: priceSourceStatus(),
+    securities: await listSecurities()
+  };
 }
 
 /** A brokerage account holds securities; it has no transactions and no opening balance. */

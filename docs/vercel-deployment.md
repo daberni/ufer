@@ -25,7 +25,8 @@ Use the existing Vercel Hobby account and Turso Starter plan. Do not select paid
 | --- | --- |
 | BETTER_AUTH_SECRET | Required library authentication secret, at least 32 characters; independent from bank-secret encryption |
 | DATA_ENCRYPTION_KEY | 64 hexadecimal characters; preserve it with the database backup |
-| CRON_SECRET | Authentication for the daily scheduled sync |
+| CRON_SECRET | Authentication for the daily scheduled sync and price update |
+| MARKET_DATA_API_KEY | Optional EODHD token for daily security prices; without it the price update does nothing and securities show "No price source configured" |
 | DATABASE_AUTH_TOKEN | Authentication for the remote libSQL database |
 | ENABLE_BANKING_APP_ID / ENABLE_BANKING_PRIVATE_KEY | Operator's matching provider application and PEM key; no local key-file path on Vercel |
 
