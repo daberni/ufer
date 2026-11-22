@@ -1,6 +1,6 @@
 import { XMLParser, XMLValidator } from "fast-xml-parser";
 import { fractionDigits, negate, parseAmount, signedScaled } from "../csv-values";
-import { separateCurrencies, cleanText, isoDate, lineAt, StatementFileError, StatementRows, type StatementFile } from "./statement-rows";
+import { xmlRootTag, separateCurrencies, cleanText, isoDate, lineAt, StatementFileError, StatementRows, type StatementFile } from "./statement-rows";
 
 // Reads ISO 20022 bank-to-customer statements (camt.053, any version) into mapped rows: one row per booked entry, or per transaction of a batch entry whose transactions carry their own amounts.
 
@@ -8,11 +8,13 @@ type Node = Record<string, unknown>;
 
 /** Whether the text is an ISO 20022 cash-management document; the message type decides whether it is supported. */
 export function looksLikeCamt(text: string) {
-  return /<(?:[A-Za-z_][\w.-]*:)?Document\b[^>]*urn:iso:std:iso:20022:tech:xsd:camt\./.test(text.slice(0, 4096));
+  const root = xmlRootTag(text);
+
+  return root !== null && /^<(?:[A-Za-z_][\w.-]*:)?Document\b[^>]*urn:iso:std:iso:20022:tech:xsd:camt\./.test(root);
 }
 
 export function readCamt053(text: string, locale: string): StatementFile {
-  const namespace = /urn:iso:std:iso:20022:tech:xsd:(camt\.\d{3})/.exec(text.slice(0, 4096))?.[1];
+  const namespace = /urn:iso:std:iso:20022:tech:xsd:(camt\.\d{3})/.exec(xmlRootTag(text) ?? "")?.[1];
 
   if (namespace !== "camt.053") {
     throw new StatementFileError(`${namespace ?? "This CAMT"} files are not supported; export a CAMT.053 account statement instead.`);

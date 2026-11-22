@@ -1,6 +1,6 @@
 import { currencyExponent } from "@/lib/money";
 import { formatScaled, fractionDigits, parseAmount, signedScaled } from "../csv-values";
-import { cleanText, isoDate, lineAt, StatementFileError, StatementRows, type StatementFile } from "./statement-rows";
+import { xmlRootTag, cleanText, isoDate, lineAt, StatementFileError, StatementRows, type StatementFile } from "./statement-rows";
 
 // Reads OFX and QFX bank and credit-card statements, both SGML (1.x, closing tags optional) and XML (2.x), into mapped rows.
 
@@ -14,11 +14,10 @@ type Element = {
 
 /** Whether the text is an OFX file: an SGML header, an OFX processing instruction, or an XML document whose root is OFX. */
 export function looksLikeOfx(text: string) {
-  const head = text.slice(0, 4096).replace(/^\uFEFF/, "");
-  // The XML prolog may hold comments and processing instructions of any kind before the root element.
-  const body = head.replace(/<!--[\s\S]*?-->|<\?[\s\S]*?\?>/g, "");
+  const root = xmlRootTag(text);
 
-  return /^\s*OFXHEADER\s*:/.test(head) || /<\?OFX\b/i.test(head) || /^\s*<(?:[A-Za-z_][\w.-]*:)?OFX(?:\s[^>]*)?>/i.test(body);
+  // The XML prolog may hold comments and processing instructions of any length before the root element.
+  return /^\uFEFF?\s*OFXHEADER\s*:/.test(text.slice(0, 1024)) || (root !== null && /^<(?:[A-Za-z_][\w.-]*:)?OFX(?:\s[^>]*)?>$/i.test(root)) || /^[^<]*(?:<\?(?!OFX\b)[\s\S]*?\?>\s*|<!--[\s\S]*?-->\s*)*<\?OFX\b/i.test(text.replace(/^\uFEFF/, ""));
 }
 
 export function readOfx(text: string, locale: string): StatementFile {

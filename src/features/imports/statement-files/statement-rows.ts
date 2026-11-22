@@ -180,6 +180,45 @@ export function separateCurrencies(rows: MappedRow[]): MappedRow[] {
   } : row);
 }
 
+/** The start tag of an XML document's root element, past any prolog of declarations, comments, processing instructions and document type, however long; null when the text does not start like XML. */
+export function xmlRootTag(text: string) {
+  let position = text.charCodeAt(0) === 0xfeff ? 1 : 0;
+
+  for (;;) {
+    while (position < text.length && /\s/.test(text[position])) {
+      position++;
+    }
+
+    const ends = [["<?", "?>"], ["<!--", "-->"], ["<!DOCTYPE", ">"]].find(([open]) => text.startsWith(open, position));
+
+    if (!ends) {
+      break;
+    }
+
+    const from = position + ends[0].length;
+    const close = text.indexOf(">", from);
+    const subset = text.indexOf("[", from);
+    // A document type's internal subset holds `>` characters of its own and ends with `]>`.
+    const internal = ends[0] === "<!DOCTYPE" && subset >= 0 && subset < close;
+    const end = internal ? text.indexOf("]", subset) : text.indexOf(ends[1], from);
+    const after = internal && end >= 0 ? text.indexOf(">", end) : end;
+
+    if (end < 0 || after < 0) {
+      return null;
+    }
+
+    position = internal ? after + 1 : end + ends[1].length;
+  }
+
+  if (text[position] !== "<") {
+    return null;
+  }
+
+  const end = text.indexOf(">", position);
+
+  return end < 0 ? null : text.slice(position, end + 1);
+}
+
 /** Collapses runs of whitespace, including line breaks inside a field, to single spaces. */
 export function cleanText(value: string | null | undefined) {
   return (value ?? "").replace(/\s+/g, " ").trim();

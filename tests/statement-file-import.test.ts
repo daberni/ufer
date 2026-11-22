@@ -355,6 +355,11 @@ test("OFX empty SGML leaves keep later fields, foreign amounts round exactly, an
   // A single-byte encoding declared in the prolog decodes as declared.
   assert.equal(read(windows1252(camt.replace("UTF-8", "ISO-8859-1").replace("Synthetic Landlord", "S\u00fcd Landlord"))).rows[0].payee, "S\u00fcd Landlord & Co");
 
+  const longProlog = `<!-- ${"x".repeat(5000)} -->\n<?exporter ${"y".repeat(5000)}?>\n`;
+
+  assert.equal(read(camt.replace("<Document", `${longProlog}<Document`)).rows.length, 5);
+  assert.equal(read(`<?xml version="1.0"?>\n${longProlog}<OFX><BANKMSGSRSV1><STMTTRNRS><STMTRS><CURDEF>EUR</CURDEF><BANKACCTFROM><ACCTID>L</ACCTID></BANKACCTFROM><BANKTRANLIST><STMTTRN><DTPOSTED>20260301</DTPOSTED><TRNAMT>-1</TRNAMT><FITID>1</FITID></STMTTRN></BANKTRANLIST></STMTRS></STMTTRNRS></BANKMSGSRSV1></OFX>`).rows.length, 1);
+
   const prefixed = camt.replace(/<(\/?)(?=[A-Z])/g, "<$1iso-doc.x:").replace("<iso-doc.x:Document xmlns=", "<iso-doc.x:Document xmlns:iso-doc.x=");
 
   assert.deepEqual(summary(read(prefixed).rows), summary(read(camt).rows));
