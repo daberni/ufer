@@ -1,4 +1,5 @@
 import { keepBankOpeningBalanceFirst } from "@/features/transactions/server/opening-balance-repository";
+import { bookableAccount } from "@/features/transactions/server/booking-accounts";
 import type { ImportType } from "../import-rows";
 import { randomUUID } from "node:crypto";
 import { and, between, eq, inArray, ne, notInArray, or, sql } from "drizzle-orm";
@@ -112,7 +113,7 @@ export async function findImportTarget(id: string) {
     currency: accounts.currency,
     provider: accounts.provider,
     archived_at: accounts.archived_at
-  }).from(accounts).where(eq(accounts.id, id)).get();
+  }).from(accounts).where(and(eq(accounts.id, id), bookableAccount)).get();
 }
 
 /** Rows that decide a new import account's opening balance: all but those the import itself saved hidden, which the shown balance never includes. */

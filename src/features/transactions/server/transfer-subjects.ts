@@ -3,6 +3,8 @@ import { database, type Database, type DatabaseTransaction } from "@/server/data
 import { accounts, transactions } from "@/server/database/schema";
 import type { TransferBooking, TransferOptions } from "@/features/transactions/types";
 import { createdCounterpart, enteredInUfer, linkCandidate, touchesArchived } from "./transfer-rules";
+import { tradeLeg } from "./trade-leg-rules";
+import { bookableAccount } from "./booking-accounts";
 
 type Executor = Database | DatabaseTransaction;
 
@@ -20,7 +22,8 @@ export const subjectColumns = {
   description: transactions.description,
   category_id: transactions.category_id,
   type: transactions.type,
-  transfer_id: transactions.transfer_id
+  transfer_id: transactions.transfer_id,
+  trade_leg: tradeLeg
 };
 
 export type Subject = NonNullable<Awaited<ReturnType<typeof findSubject>>>;
@@ -58,7 +61,7 @@ export async function findManualTarget(tx: DatabaseTransaction, accountId: strin
     id: accounts.id,
     name: accounts.name,
     currency: accounts.currency
-  }).from(accounts).where(and(eq(accounts.id, accountId), eq(accounts.provider, "manual"), isNull(accounts.archived_at))).get();
+  }).from(accounts).where(and(eq(accounts.id, accountId), eq(accounts.provider, "manual"), bookableAccount, isNull(accounts.archived_at))).get();
 }
 
 function transferBooking(booking: Subject): TransferBooking {
@@ -92,7 +95,7 @@ export async function readTransferOptions(id: string): Promise<TransferOptions |
   const manualAccounts = subject.amount_minor === 0 ? [] : await db.select({
     id: accounts.id,
     name: accounts.name
-  }).from(accounts).where(and(eq(accounts.provider, "manual"), isNull(accounts.archived_at), eq(accounts.currency, subject.currency), ne(accounts.id, subject.account_id))).orderBy(asc(accounts.name));
+  }).from(accounts).where(and(eq(accounts.provider, "manual"), bookableAccount, isNull(accounts.archived_at), eq(accounts.currency, subject.currency), ne(accounts.id, subject.account_id))).orderBy(asc(accounts.name));
 
   return {
     counterpart: counterpart ? transferBooking(counterpart) : null,

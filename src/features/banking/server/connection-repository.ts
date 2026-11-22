@@ -1,4 +1,5 @@
 import { and, eq, gt, isNull, ne, sql } from "drizzle-orm";
+import { bookableAccount } from "@/features/transactions/server/booking-accounts";
 import { Temporal } from "temporal-polyfill";
 import { database } from "@/server/database/connection";
 import type { AuthContext } from "@/server/security/session";
@@ -36,7 +37,7 @@ export async function findConnectableAccount(id: string) {
 
   return db.select({
     id: accounts.id
-  }).from(accounts).where(and(eq(accounts.id, id), eq(accounts.provider, "manual"), isNull(accounts.requisition_id), isNull(accounts.archived_at))).get();
+  }).from(accounts).where(and(eq(accounts.id, id), eq(accounts.provider, "manual"), bookableAccount, isNull(accounts.requisition_id), isNull(accounts.archived_at))).get();
 }
 
 /** Records the authorization, or returns false when its target account is no longer an active manual account. */

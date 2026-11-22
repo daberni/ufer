@@ -1,14 +1,16 @@
 import { and, eq, inArray, desc, isNotNull, isNull, ne, sql } from "drizzle-orm";
+import { bookableAccount } from "@/features/transactions/server/booking-accounts";
 import { database, type Database, type DatabaseTransaction } from "@/server/database/connection";
 import { withRefusableTransaction, withTransaction } from "@/server/database/transaction";
-import { accountIdentifiers, accounts, balanceSnapshots, categorizationRules, transactions } from "@/server/database/schema";
+import { accountIdentifiers, accounts, balanceSnapshots, categorizationRules, securityTrades, transactions } from "@/server/database/schema";
+import { HttpError } from "@/lib/errors";
 import { createdCounterpartPrefix, manualEntryPrefix } from "@/lib/booking-references";
 import type { AccountKind } from "../account-kinds";
 import type { ManualAccountInput } from "./account-schema";
 
 export async function findManualAccount(id: string) {
   const db = await database();
-  const scope = and(eq(accounts.id, id), eq(accounts.provider, "manual"));
+  const scope = and(eq(accounts.id, id), eq(accounts.provider, "manual"), bookableAccount);
 
   return db.select().from(accounts).where(scope).get();
 }
@@ -112,7 +114,7 @@ export async function saveAccountKind(id: string, kind: AccountKind) {
 
   const updated = await db.update(accounts).set({
     kind
-  }).where(and(eq(accounts.id, id), eq(accounts.provider, "manual"), isNull(accounts.archived_at), fitsBalance)).returning({
+  }).where(and(eq(accounts.id, id), eq(accounts.provider, "manual"), bookableAccount, isNull(accounts.archived_at), fitsBalance)).returning({
     id: accounts.id
   });
 
@@ -150,6 +152,14 @@ export async function deleteUnlinkedAccount(id: string, confirmedName: string) {
 
     if (!account) {
       return false;
+    }
+
+    const trade = await tx.select({
+      id: securityTrades.id
+    }).from(securityTrades).where(eq(securityTrades.account_id, id)).get();
+
+    if (trade) {
+      throw new HttpError(409, "This brokerage account still has trades. Delete its trades first.");
     }
 
     const own = tx.select({

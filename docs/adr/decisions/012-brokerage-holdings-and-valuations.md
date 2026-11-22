@@ -33,6 +33,15 @@ adr:
 | Manual prices | Not part of the first version; a later change can add them as price observations with a manual source |
 | Price job | Runs in the existing daily `/api/cron` after bank sync, under its own `market-data` lease (it writes no bookings, so it does not take the sync lease). One request per security with a provider symbol, fetching from the day after its newest price; failures are stored on the security and shown, never retried in a loop (free plan: 20 calls/day, failed calls count) |
 
+### Amendment 2026-11-22: cash legs in the first version
+
+| Concern | Decision |
+| --- | --- |
+| Trade amounts | A trade keeps its own date and amounts. A linked bank booking must match the trade's cash amount exactly and lie at most 14 days from the trade date; a later redelivery that corrects the booking changes the booking only, not the trade. This replaces "the trade follows its redelivered date" above |
+| Editing | Trades are recorded and deleted; changing one means deleting and recording it again. A trade's cash side cannot be edited, retyped, hidden, linked as a transfer or deleted on its own |
+| Settlement | Each trade names its cash side: a manual settlement account, where the trade books an entry, or an imported bank booking. A bank-linked settlement account always needs its bank booking, so cash is never booked twice |
+| Brokerage accounts | Take no bookings, balances, transfers, import rows or bank connection, cannot change their kind, and are deleted only after their trades |
+
 ## Consequences
 
 - Net worth and its history include holdings at historical prices; manual `investment` accounts keep working.
