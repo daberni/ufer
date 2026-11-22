@@ -1,142 +1,16 @@
 import assert from "node:assert/strict";
-import { test, type TestContext } from "node:test";
+import { test } from "node:test";
 import { Temporal } from "temporal-polyfill";
-import { createClient } from "@libsql/client";
 import { eq } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/libsql";
-import type { Database } from "../src/server/database/connection";
-import { initializeDatabase } from "../src/server/database/migrations";
 import * as schema from "../src/server/database/schema";
-import { archiveAccount, createManualAccount, deleteAccount } from "../src/features/accounts/server/account-service";
-import { listAccounts } from "../src/features/accounts/server/account-queries";
-import { saveAccountSync } from "../src/features/banking/server/account-sync-service";
+import { archiveAccount, deleteAccount } from "../src/features/accounts/server/account-service";
 import { readCashFlow } from "../src/features/reports/server/cash-flow-query";
 import { enterManualTransaction, hideTransaction, removeManualTransaction, updateTransactionDetails } from "../src/features/transactions/server/transaction-service";
 import { tradeCashAmount } from "../src/features/securities/trade-decisions";
-import { createBrokerageAccount, createSecurity, readBrokerageTrades, recordTrade, removeTrade, settlementCandidates } from "../src/features/securities/server/security-service";
+import { createBrokerageAccount, createSecurity, readBrokerageTrades, removeTrade, settlementCandidates } from "../src/features/securities/server/security-service";
 import { monthPeriod } from "../src/lib/period";
 import { HttpError, ValidationError } from "../src/lib/errors";
-
-const now = Temporal.Instant.from("2026-10-31T12:00:00Z");
-
-async function isolatedDatabase(context: TestContext, queries?: string[]) {
-  const client = createClient({
-    url: ":memory:"
-  });
-  const globals = globalThis as unknown as {
-    budgetDb?: Promise<Database>
-  };
-  const previousDatabase = globals.budgetDb;
-  const previousEnvironment = process.env.ENABLE_BANKING_ENVIRONMENT;
-
-  context.after(() => {
-    globals.budgetDb = previousDatabase;
-
-    if (previousEnvironment === undefined) {
-      delete process.env.ENABLE_BANKING_ENVIRONMENT;
-    } else {
-      process.env.ENABLE_BANKING_ENVIRONMENT = previousEnvironment;
-    }
-
-    client.close();
-  });
-
-  await initializeDatabase(client);
-  const db = drizzle(client, {
-    schema,
-    logger: queries ? {
-      logQuery: query => queries.push(query)
-    } : undefined
-  });
-
-  globals.budgetDb = Promise.resolve(db);
-  process.env.ENABLE_BANKING_ENVIRONMENT = "SANDBOX";
-  await db.insert(schema.accounts).values({
-    id: "checking",
-    name: "Synthetic checking",
-    kind: "checking",
-    provider: "enable_banking"
-  });
-
-  return db;
-}
-
-async function settlementAccount(currency = "EUR") {
-  const { id } = await createManualAccount({
-    name: "Synthetic settlement",
-    kind: "checking",
-    currency,
-    balance: "5000.00",
-    date: "2026-09-01"
-  }, now);
-
-  return id;
-}
-
-async function depot(currency = "EUR") {
-  const { id } = await createBrokerageAccount({
-    name: "Synthetic depot",
-    currency
-  });
-
-  return id;
-}
-
-async function security(currency = "EUR", symbol: string | null = "SYN.XETRA") {
-  const { id } = await createSecurity({
-    name: "Synthetic World ETF",
-    currency,
-    isin: "XS0000000001",
-    provider_symbol: symbol
-  });
-
-  return id;
-}
-
-function trade(accountId: string, input: Record<string, unknown>) {
-  return recordTrade(accountId, input, now);
-}
-
-async function bookingsOf(db: Database, accountId: string) {
-  const rows = await db.select().from(schema.transactions).where(eq(schema.transactions.account_id, accountId)).orderBy(schema.transactions.date, schema.transactions.amount_minor);
-
-  return rows.map(row => [row.date, row.type, row.amount_minor]);
-}
-
-async function balanceOf(accountId: string) {
-  return (await listAccounts()).find(account => account.id === accountId)?.balance_minor;
-}
-
-async function rejectsWith(promise: Promise<unknown>, status: number) {
-  await assert.rejects(promise, error => error instanceof HttpError && error.status === status);
-}
-
-/** A synced booking on the checking account, as a sync stores it. */
-async function syncBooking(db: Database, reference: string, date: string, amount: number) {
-  await saveAccountSync({
-    startedAt: `${date}T08:00:00.000Z`
-  }, "checking", "EUR", [{
-    balance_type: "CLBD",
-    balance_amount: {
-      amount: "1000.00",
-      currency: "EUR"
-    },
-    reference_date: date
-  }], [{
-    reference: `bank:${reference}`,
-    date,
-    amount,
-    currency: "EUR",
-    counterparty: "Example counterparty",
-    description: `Synthetic ${reference}`
-  }], []);
-
-  const booking = await db.select().from(schema.transactions).where(eq(schema.transactions.provider_reference, `bank:${reference}`)).get();
-
-  assert.ok(booking);
-
-  return booking;
-}
+import { balanceOf, bookingsOf, depot, isolatedDatabase, now, rejectsWith, security, settlementAccount, syncBooking, trade } from "./fixtures/brokerage";
 
 test("a buy on a manual settlement account books its cash side as a buy that counts toward no income or spending", async context => {
   const db = await isolatedDatabase(context);
@@ -209,18 +83,27 @@ test("a partial sale keeps the moving-average cost of the rest and realizes its 
   });
 
   const {
-    positions,
-    trades
+    trades,
+    valuation
   } = await readBrokerageTrades(account, now);
 
   assert.deepEqual(trades.map(item => item.sequence), [1, 2, 3]);
-  assert.deepEqual(positions, [{
-    security_id: etf,
-    security_name: "Synthetic World ETF",
-    quantity_micros: 15_000_000,
-    cost_minor: 1657_50,
-    realized_minor: 700_00 - 4_00 - 552_50
-  }]);
+  // No price is stored yet, so the holding is listed without a value.
+  assert.deepEqual(valuation, {
+    value_minor: 0,
+    missing: 1,
+    stale: 0,
+    holdings: [{
+      security_id: etf,
+      security_name: "Synthetic World ETF",
+      quantity_micros: 15_000_000,
+      cost_minor: 1657_50,
+      realized_minor: 700_00 - 4_00 - 552_50,
+      status: "missing",
+      value_minor: null,
+      price: null
+    }]
+  });
   assert.deepEqual((await bookingsOf(db, cash)).at(-1), ["2026-10-01", "sell", 700_00 - 4_00 - 20_00]);
 });
 

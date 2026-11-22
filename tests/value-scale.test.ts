@@ -39,7 +39,7 @@ test("the balance history's zero line meets a balance of exactly zero", () => {
   const chart = plotBalances([-100_00, 0, 100_00].map((amount, index) => ({
     date: `2026-01-0${index + 1}`,
     amount_minor: amount,
-    source: "sync" as const,
+    source: "transactions" as const,
     bank_balance_type: null
   })));
 

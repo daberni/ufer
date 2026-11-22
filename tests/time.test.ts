@@ -46,7 +46,8 @@ function bankAccount(id: string, validUntil: string | null): Account {
     sync_error: null,
     last_synced_at: null,
     valid_until: validUntil,
-    archived_at: null
+    archived_at: null,
+    valuation: null
   };
 }
 
