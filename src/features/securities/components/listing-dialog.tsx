@@ -26,8 +26,10 @@ export function ListingDialog({
   const listings = useListings(security.isin);
   const save = useSaveListing(security.id);
   const [symbol, setSymbol] = useState(security.provider_symbol ?? noListing);
-  const offered = listings.data ?? [];
-  const typed = symbol !== noListing && !offered.some(listing => listing.symbol === symbol);
+  // Only listings quoted in the security's currency can value it without conversion.
+  const offered = (listings.data ?? []).filter(listing => listing.currency.toUpperCase() === security.currency);
+  const [custom, setCustom] = useState(false);
+  const typed = custom || (symbol !== noListing && !offered.some(listing => listing.symbol === symbol));
 
   return (
     <Dialog eyebrow="PRICE LISTING" title={security.name} onClose={close}>
@@ -44,7 +46,15 @@ export function ListingDialog({
         {offered.length > 0 && (
           <label>
             Listing
-            <Select value={typed ? "typed" : symbol} onChange={event => setSymbol(event.target.value === "typed" ? security.provider_symbol ?? "" : event.target.value)}>
+            <Select
+              value={typed ? "typed" : symbol}
+              onChange={event => {
+                const chosen = event.target.value;
+
+                setCustom(chosen === "typed");
+                setSymbol(chosen === "typed" ? "" : chosen);
+              }}
+            >
               <option value={noListing}>No price listing</option>
               {offered.map(listing => <option key={listing.symbol} value={listing.symbol}>{listing.symbol} · {listing.exchange} · {listing.currency}</option>)}
               <option value="typed">Other symbol…</option>

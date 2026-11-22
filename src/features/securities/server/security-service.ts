@@ -8,7 +8,7 @@ import { refuse } from "@/server/database/transaction";
 import { archivedAccountMessage } from "@/features/transactions/server/booking-accounts";
 import { amountMinor, positionOn, type PositionTrade } from "../holdings";
 import { parseMicros } from "../quantities";
-import { priceSourceStatus, searchProviderListings } from "./price-update-service";
+import { marketDataLease, priceSourceStatus, searchProviderListings } from "./price-update-service";
 import { chooseListing } from "../listing-choice";
 import { configuredProvider } from "./market-data/eodhd-provider";
 import type { MarketDataProvider } from "./market-data/market-data-provider";
@@ -16,7 +16,7 @@ import { valueHoldings } from "../valuation";
 import { readHoldingInputs } from "./valuation-repository";
 import { settlementRefusal, settlementWindowDays, tradeCashAmount, type SettlementRefusal } from "../trade-decisions";
 import { brokerageAccountInput, listingInput, resolveSecurityInput, securityInput, settlementCandidatesQuery, tradeInput } from "./security-schema";
-import { deleteTrade, findBrokerageAccount, findSecurity, findSettlementAccount, findSettlementBooking, findTrade, insertBrokerageAccount, insertSecurity, insertSettlementEntry, insertTrade, listSecurities, markSettlementBooking, nextTradeSequence, readAccountTrades, readPositionTrades, readSettlementCandidates, readSplits, readTradedSecurityIds, withSecurityTransaction, findSecurityByIsin, findSecurityListing, saveSecurityListing } from "./security-repository";
+import { deleteTrade, findBrokerageAccount, findSecurity, findSettlementAccount, findSettlementBooking, findTrade, insertBrokerageAccount, insertSecurity, insertSettlementEntry, insertTrade, listSecurities, markSettlementBooking, nextTradeSequence, readAccountTrades, readPositionTrades, readSettlementCandidates, readSplits, readTradedSecurityIds, withSecurityTransaction, findSecurityByIsin, findSecurityListing, insertSecurityForIsin, saveSecurityListing } from "./security-repository";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 
 /** Replays every trade so a sale never exceeds what was held at that point, now or after a change. */
@@ -73,9 +73,8 @@ export async function resolveSecurity(payload: unknown, provider: MarketDataProv
   }
 
   const listing = chooseListing(await searchProviderListings(input.isin, provider), input.currency);
-  const id = randomUUID();
-  const saved = await insertSecurity({
-    id,
+  const resolved = await insertSecurityForIsin({
+    id: randomUUID(),
     isin: input.isin,
     name: input.name ?? listing?.name ?? input.isin,
     currency: input.currency,
@@ -84,28 +83,15 @@ export async function resolveSecurity(payload: unknown, provider: MarketDataProv
     venue: listing?.exchange ?? null
   });
 
-  // Another security already uses that listing, for example the same ISIN entered with a typed symbol; this one then goes without a price source.
-  if (!saved) {
-    await insertSecurity({
-      id,
-      isin: input.isin,
-      name: input.name ?? listing?.name ?? input.isin,
-      currency: input.currency,
-      provider: null,
-      provider_symbol: null,
-      venue: null
-    });
-  }
-
   return {
-    id,
-    created: true,
-    provider_symbol: saved ? listing?.symbol ?? null : null
+    id: resolved.id,
+    created: resolved.created,
+    provider_symbol: resolved.provider_symbol
   };
 }
 
 /** Changes the listing a security is priced with, or removes it; a small edit outside the trade flow. */
-export async function updateSecurityListing(id: string, payload: unknown) {
+export async function updateSecurityListing(id: string, payload: unknown, provider: MarketDataProvider | null = configuredProvider()) {
   const input = listingInput.parse(payload);
   const security = await findSecurityListing(id);
 
@@ -113,10 +99,20 @@ export async function updateSecurityListing(id: string, payload: unknown) {
     throw new HttpError(404, "Security not found.");
   }
 
-  const saved = await saveSecurityListing(id, {
+  // A listing quoted in another currency would value the holding without conversion; a typed symbol the provider does not list for this ISIN stays the person's choice.
+  if (input.provider_symbol && security.isin) {
+    const listed = (await searchProviderListings(security.isin, provider)).find(listing => listing.symbol === input.provider_symbol);
+
+    if (listed && listed.currency.toUpperCase() !== security.currency) {
+      throw new ValidationError(`This listing is quoted in ${listed.currency}; choose one in ${security.currency}.`);
+    }
+  }
+
+  // A running price update may be fetching the old listing; changing it waits, so no old closes land after the switch.
+  const saved = await withLease(marketDataLease, "A price update is running. Change the listing after it has finished.", () => saveSecurityListing(id, {
     provider: input.provider_symbol ? "eodhd" : null,
     provider_symbol: input.provider_symbol
-  });
+  }));
 
   if (!saved) {
     throw new HttpError(409, "Another security already uses this listing.");

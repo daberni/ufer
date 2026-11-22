@@ -12,6 +12,7 @@ import { readSecurities, resolveSecurity, updateSecurityListing } from "../src/f
 import { eodhdProvider, parseSplitRatio } from "../src/features/securities/server/market-data/eodhd-provider";
 import { MarketDataError, type MarketDataProvider, type ProviderClose } from "../src/features/securities/server/market-data/market-data-provider";
 import { acquireLease } from "../src/server/jobs/lease-repository";
+import { insertSecurityForIsin } from "../src/features/securities/server/security-repository";
 import { HttpError } from "../src/lib/errors";
 
 // A Wednesday; the security "etf" checks its splits on Tuesdays (its weekday from checksSplits).
@@ -554,4 +555,64 @@ test("changing a security's listing drops the old listing's prices and refuses a
     provider_symbol: null
   });
   assert.deepEqual([(await securityRow(db, "etf"))?.provider, (await securityRow(db, "etf"))?.provider_symbol], [null, null]);
+});
+
+test("a listing quoted in another currency is refused, and a listing change waits for a running price update", async context => {
+  const db = await isolatedDatabase(context);
+
+  await db.update(schema.securities).set({
+    isin: "US0378331005"
+  }).where(eq(schema.securities.id, "etf"));
+
+  const provider: MarketDataProvider = {
+    ...fakeProvider({}).provider,
+    searchByIsin: async isin => [{
+      symbol: "WLD.LSE",
+      name: "Synthetic World",
+      exchange: "LSE",
+      currency: "GBP",
+      isin
+    }]
+  };
+
+  await assert.rejects(updateSecurityListing("etf", {
+    provider_symbol: "WLD.LSE"
+  }, provider), /quoted in GBP/);
+
+  await acquireLease(marketDataLease, "running-update");
+  await assert.rejects(updateSecurityListing("etf", {
+    provider_symbol: "SYN.F"
+  }, null), error => error instanceof HttpError && error.status === 409);
+  assert.equal((await securityRow(db, "etf"))?.provider_symbol, "SYN.XETRA");
+});
+
+test("a resolution that lost a race to another returns the security the other inserted", async context => {
+  const db = await isolatedDatabase(context);
+
+  // The other resolution inserted its row after this one found none; the re-check in the insert transaction returns it.
+  await db.insert(schema.securities).values({
+    id: "winner",
+    isin: "IE00B4L5Y983",
+    name: "Synthetic New",
+    currency: "EUR",
+    provider: "eodhd",
+    provider_symbol: "NEW.XETRA"
+  });
+
+  const loser = await insertSecurityForIsin({
+    id: "loser",
+    isin: "IE00B4L5Y983",
+    name: "Synthetic New",
+    currency: "EUR",
+    provider: "eodhd",
+    provider_symbol: "NEW.XETRA",
+    venue: "XETRA"
+  });
+
+  assert.deepEqual(loser, {
+    id: "winner",
+    provider_symbol: "NEW.XETRA",
+    created: false
+  });
+  assert.equal((await db.select().from(schema.securities).where(eq(schema.securities.isin, "IE00B4L5Y983"))).length, 1);
 });

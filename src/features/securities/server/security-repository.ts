@@ -332,3 +332,47 @@ export async function saveSecurityListing(id: string, listing: {
     return true;
   });
 }
+
+/**
+ * Returns the security recorded for an ISIN in a currency, inserting `security` when there is none. The check and insert run in one immediate transaction, so concurrent resolutions of the same ISIN share one row.
+ * A listing another security already uses is left off the new row.
+ */
+export async function insertSecurityForIsin(security: NewSecurity & {
+  isin: string
+}) {
+  const db = await database();
+
+  return db.transaction(async tx => {
+    const existing = await tx.select({
+      id: securities.id,
+      provider_symbol: securities.provider_symbol
+    }).from(securities).where(and(eq(securities.isin, security.isin), eq(securities.currency, security.currency))).orderBy(asc(securities.created_at)).get();
+
+    if (existing) {
+      return {
+        ...existing,
+        created: false
+      };
+    }
+
+    const taken = security.provider_symbol ? await tx.select({
+      id: securities.id
+    }).from(securities).where(eq(securities.provider_symbol, security.provider_symbol)).get() : undefined;
+    const row = taken ? {
+      ...security,
+      provider: null,
+      provider_symbol: null,
+      venue: null
+    } : security;
+
+    await tx.insert(securities).values(row);
+
+    return {
+      id: row.id,
+      provider_symbol: row.provider_symbol,
+      created: true
+    };
+  }, {
+    behavior: "immediate"
+  });
+}
