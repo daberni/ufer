@@ -19,7 +19,7 @@
     gap: var(--space-4);
   }
 }
-/* Phones put the actions as compact buttons on the eyebrow's row, so the heading and description keep the full width below. */
+/* Phones keep the actions as compact buttons beside the heading, as on wider screens; the eyebrow and description use the full width. */
 @media (--mobile) {
   .page-heading {
     display: grid;
@@ -32,15 +32,11 @@
   .page-heading > div:first-child {
     display: contents;
   }
-  /* The actions' row already spaces the eyebrow from the heading. */
-  .page-heading > div:first-child > :first-child {
-    margin-bottom: 0;
-  }
-  .page-heading > div:first-child > :not(:first-child) {
+  .page-heading > div:first-child > :not(h1) {
     grid-column: 1 / -1;
   }
   .page-heading > :not(:first-child) {
-    grid-row: 1;
+    grid-row: 2;
     grid-column: 2;
   }
   .description {
