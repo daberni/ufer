@@ -1,4 +1,5 @@
 import { sourceChanges, type ExistingMatch, type RowDecision, type RowMatch, type SourceField } from "../reimport-decisions";
+import { manualEntryPrefix } from "@/lib/booking-references";
 import type { ExistingBooking, findDuplicates } from "./duplicate-matching";
 import type { MappedEntry } from "./mapped-import-repository";
 
@@ -44,7 +45,7 @@ export function planRows(entries: MappedEntry[], found: Found, decisions: Readon
     }
 
     claimed.add(booking.reference);
-    const changes = sourceChanges(booking, entries[index]);
+    const changes = updatableChanges(booking, entries[index]);
 
     if (changes.length > 0) {
       updates.push({
@@ -149,7 +150,7 @@ export function describeMatches(entries: MappedEntry[], found: Found) {
     type: booking.type,
     payeeOverride: booking.payeeOverride === null ? null : shortened(booking.payeeOverride),
     descriptionOverride: booking.descriptionOverride === null ? null : shortened(booking.descriptionOverride),
-    changes: sourceChanges(booking, entries[index])
+    changes: updatableChanges(booking, entries[index])
   });
 
   for (const [index, booking] of found.matches) {
@@ -171,4 +172,9 @@ export function describeMatches(entries: MappedEntry[], found: Found) {
   }
 
   return described;
+}
+
+/** A booking a person entered by hand holds their own text in its source fields, so an import never rewrites it. */
+function updatableChanges(booking: StoredBooking, entry: MappedEntry) {
+  return booking.reference.startsWith(manualEntryPrefix) ? [] : sourceChanges(booking, entry);
 }

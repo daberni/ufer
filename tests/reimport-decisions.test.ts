@@ -559,3 +559,28 @@ test("a row whose decided booking disappeared leaves the booking it now matches 
   assert.deepEqual([result.updatedRows, result.newRows, result.undecided], [1, 0, [2]]);
   assert.deepEqual(stored.map(item => [item.date, item.description]), [["2024-04-22", "Second"]]);
 });
+
+test("an import never rewrites the text of a booking a person entered by hand", async context => {
+  const db = await isolatedDatabase(context);
+
+  await db.insert(schema.transactions).values({
+    id: "entered-by-hand",
+    account_id: "synthetic-account",
+    provider_reference: "manual:entered-by-hand",
+    date: "2024-04-20",
+    amount_minor: -1500,
+    currency: "EUR",
+    counterparty: "Example Cinema",
+    description: "Typed by a person",
+    type: "expense",
+    category_source: "manual"
+  });
+
+  const result = await importRows(reimport, [row(2, "2024-04-20", "-15.00", "EXAMPLE CINEMA 0042", {
+    description: "Card"
+  })], true);
+  const stored = await db.select().from(schema.transactions);
+
+  assert.deepEqual([result.updatedRows, result.newRows], [0, 0]);
+  assert.deepEqual(stored.map(item => [item.counterparty, item.description]), [["Example Cinema", "Typed by a person"]]);
+});
