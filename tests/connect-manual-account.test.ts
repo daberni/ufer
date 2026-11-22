@@ -488,3 +488,27 @@ test("a manual booking whose account a bank connection linked after the request'
   });
   assert.equal((await db.select().from(schema.transactions)).length, 0);
 });
+
+test("a targeted callback whose chosen bank account shares an identifier with another authorized account connects nothing", async context => {
+  const {
+    db,
+    requests,
+    actor
+  } = await connectDatabase(context, () => [bankAccount("other", {
+    identification_hash: "shared"
+  }), bankAccount("same-iban", {
+    identification_hash: "shared",
+    account_id: {
+      iban: "AT000000000000000001"
+    }
+  })]);
+
+  await insertManualAccount(db);
+  await startAuthorization(db, actor, "overlap", "imported");
+
+  await assert.rejects(completeAuthorization("state-overlap", "browser-overlap", "code", actor), {
+    status: 422
+  });
+  assert.deepEqual(requests.map(request => request.method), ["POST", "DELETE"]);
+  assert.deepEqual((await db.select().from(schema.accounts)).map(row => [row.id, row.provider, row.provider_uid]), [["imported", "manual", null]]);
+});

@@ -295,7 +295,12 @@ async function archiveSettled(account: {
   provider: string
 }) {
   if (account.provider === "manual") {
-    return archiveSettledAccount(account.id, timestamp());
+    // A bank connection may have linked the account since the request's own check.
+    return withAccountTransaction(async tx => {
+      await assertWritableManualAccount(tx, account.id);
+
+      return archiveIfSettled(tx, account.id, timestamp());
+    });
   }
 
   return whileNoSync("Archive the account", () => archiveSettledAccount(account.id, timestamp()));

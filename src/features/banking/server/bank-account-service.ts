@@ -35,6 +35,13 @@ export async function saveSessionAccounts(requisitionId: string, institution: st
       }
 
       targetIndex = decideTargetBankAccount(target, identified);
+
+      const targetHashes = new Set(identified[targetIndex].hashes);
+
+      // Another authorized account sharing an identifier would be mapped onto the target or take its identifier.
+      if (identified.some((item, index) => index !== targetIndex && item.hashes.some(hash => targetHashes.has(hash)))) {
+        throw new HttpError(422, "Several authorized bank accounts share this account's bank identifier. Connect again and authorize only this account at the bank.");
+      }
     }
 
     for (const [index, {
