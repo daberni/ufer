@@ -298,7 +298,7 @@ export async function saveSecurityListing(id: string, listing: {
   provider: string | null;
   provider_symbol: string | null;
   venue: string | null;
-}) {
+}, checkedAt: string) {
   const db = await database();
 
   return db.transaction(async tx => {
@@ -322,9 +322,10 @@ export async function saveSecurityListing(id: string, listing: {
     }
 
     await tx.delete(securityPrices).where(eq(securityPrices.security_id, id));
+    // Choosing no listing is final: a check time keeps the price update from looking one up again.
     await tx.update(securities).set({
       ...listing,
-      price_checked_at: null,
+      price_checked_at: listing.provider_symbol ? null : checkedAt,
       price_error: null
     }).where(eq(securities.id, id));
 
@@ -388,14 +389,4 @@ export async function markSplitsUnchecked(tx: DatabaseTransaction, securityId: s
   await tx.update(securities).set({
     price_checked_at: null
   }).where(eq(securities.id, securityId));
-}
-
-/** Whether a security for the ISIN in the currency is already recorded, so a trade can reuse it without searching the provider. */
-export async function securityExistsForIsin(isin: string, currency: string) {
-  const db = await database();
-  const existing = await db.select({
-    id: securities.id
-  }).from(securities).where(and(eq(securities.isin, isin), eq(securities.currency, currency))).get();
-
-  return existing !== undefined;
 }

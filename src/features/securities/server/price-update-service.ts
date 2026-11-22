@@ -6,7 +6,8 @@ import { syncLease, withLease } from "@/server/jobs/lease";
 import { renewLease } from "@/server/jobs/lease-repository";
 import { configuredProvider } from "./market-data/eodhd-provider";
 import { MarketDataError, type MarketDataProvider } from "./market-data/market-data-provider";
-import { listPricedSecurities, savePriceCheck, savePrices, saveSplitsIfConsistent } from "./price-repository";
+import { assignListing, listPricedSecurities, savePriceCheck, savePrices, saveSplitsIfConsistent } from "./price-repository";
+import { chooseListing } from "../listing-choice";
 import { positionOn } from "../holdings";
 
 /** Serializes price updates; they write only prices and splits, so they never wait for or block a bank sync. */
@@ -47,6 +48,28 @@ export function checksSplits(security: {
 }
 
 export const noPriceSource = "No price source configured.";
+
+/**
+ * Looks up the listing of a security recorded by ISIN when it is first updated: one search, then the listing in its currency on the most liquid venue (ADR 012 amendment). Saving a trade never searches.
+ * Returns the chosen symbol, or null without a suitable listing or when another security already uses it.
+ */
+async function resolveListing(security: {
+  id: string;
+  isin: string | null;
+  currency: string
+}, provider: MarketDataProvider) {
+  const listing = chooseListing(await provider.searchByIsin(security.isin!), security.currency);
+
+  if (!listing || !(await assignListing(security.id, {
+    provider: provider.name,
+    provider_symbol: listing.symbol,
+    venue: listing.exchange
+  }))) {
+    return null;
+  }
+
+  return listing.symbol;
+}
 
 /** Whether every account's sales still fit its holdings under a split history; a reported split that would make a recorded sale exceed the holding is not stored. */
 export function splitsFitTrades(tradesByAccount: Parameters<typeof positionOn>[0][], splits: Parameters<typeof positionOn>[1]) {
@@ -163,7 +186,7 @@ export async function updatePrices(now = Temporal.Now.instant(), provider: Marke
       const historyStart = date.subtract({
         days: historyDays
       }).toString();
-      const priced = (await listPricedSecurities()).filter(security => security.provider === provider.name);
+      const priced = (await listPricedSecurities()).filter(security => security.provider === provider.name || security.provider_symbol === null);
 
       for (const security of priced) {
         // A long update renews its lease before each security and stops once another run has taken it over.
@@ -172,9 +195,15 @@ export async function updatePrices(now = Temporal.Now.instant(), provider: Marke
           break;
         }
 
-        const symbol = security.provider_symbol!;
-
         try {
+          const symbol = security.provider_symbol ?? await resolveListing(security, provider);
+
+          // No listing in the security's currency: it stays valid without a price, and the update does not search again.
+          if (symbol === null) {
+            await savePriceCheck(security.id, checkedAt, `No price listing in ${security.currency} was found for this ISIN; choose one under Price listing.`, security.price_checked_at);
+            continue;
+          }
+
           const from = firstDate(security, date);
 
           if (Temporal.PlainDate.compare(from, date) <= 0) {

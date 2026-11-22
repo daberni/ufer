@@ -470,7 +470,7 @@ async function tradeAccounts(db: Database) {
   }]);
 }
 
-function buyByIsin(isin: string, provider: MarketDataProvider | null, extra: Record<string, unknown> = {}) {
+function buyByIsin(isin: string, extra: Record<string, unknown> = {}) {
   return recordTrade("depot", {
     security: {
       isin,
@@ -483,18 +483,24 @@ function buyByIsin(isin: string, provider: MarketDataProvider | null, extra: Rec
     settlement: {
       account_id: "cash"
     }
-  }, now, provider);
+  }, now);
 }
 
 async function securitiesWithIsin(db: Database, isin: string) {
   return db.select().from(schema.securities).where(eq(schema.securities.isin, isin));
 }
 
-test("a trade named by ISIN creates its security once, priced with the preferred listing in the trade currency", async context => {
+test("a trade named by ISIN stores its security without searching; the next update picks the preferred listing and fetches its closes", async context => {
   const db = await isolatedDatabase(context);
   const searched: string[] = [];
+  const listings = fakeProvider({
+    "WLD.XETRA": [{
+      date: "2026-10-13",
+      close: 101
+    }]
+  });
   const provider: MarketDataProvider = {
-    ...fakeProvider({}).provider,
+    ...listings.provider,
     async searchByIsin(isin) {
       searched.push(isin);
 
@@ -521,38 +527,55 @@ test("a trade named by ISIN creates its security once, priced with the preferred
   };
 
   await tradeAccounts(db);
-  await buyByIsin("us0378331005", provider);
-  await buyByIsin("US0378331005", provider);
-  // The second trade reuses the stored security without searching the provider again.
-  assert.deepEqual(searched, ["US0378331005"]);
+  await buyByIsin("us0378331005");
+  await buyByIsin("US0378331005");
 
-  const created = await securitiesWithIsin(db, "US0378331005");
+  let created = await securitiesWithIsin(db, "US0378331005");
 
-  assert.deepEqual(created.map(security => [security.name, security.provider_symbol, security.venue]), [["Synthetic World", "WLD.XETRA", "XETRA"]]);
+  assert.deepEqual(created.map(security => [security.name, security.provider_symbol]), [["US0378331005", null]]);
   assert.equal((await db.select().from(schema.securityTrades)).filter(trade => trade.security_id === created[0].id).length, 2);
-  await assert.rejects(buyByIsin("US0378331006", provider));
+  await assert.rejects(buyByIsin("US0378331006"));
+
+  await updatePrices(now, provider);
+  created = await securitiesWithIsin(db, "US0378331005");
+  assert.deepEqual(searched, ["US0378331005"]);
+  assert.deepEqual(created.map(security => [security.provider_symbol, security.venue]), [["WLD.XETRA", "XETRA"]]);
+  assert.deepEqual(await pricesOf(db, created[0].id), [["2026-10-13", 101_000_000]]);
+
+  // Later updates price it through the chosen listing without searching again.
+  await updatePrices(Temporal.Instant.from("2026-10-15T06:00:00Z"), provider);
+  assert.deepEqual(searched, ["US0378331005"]);
 });
 
-test("without a key or a listing in the trade currency the security is created without a price source", async context => {
+test("without a listing in its currency a security recorded by ISIN stays unpriced, says so and is not searched again", async context => {
   const db = await isolatedDatabase(context);
+  const searched: string[] = [];
+  const provider: MarketDataProvider = {
+    ...fakeProvider({}).provider,
+    async searchByIsin(isin) {
+      searched.push(isin);
+
+      return [{
+        symbol: "WLD.US",
+        name: "Synthetic World",
+        exchange: "US",
+        currency: "USD",
+        isin
+      }];
+    }
+  };
 
   await tradeAccounts(db);
-  await buyByIsin("IE00B4L5Y983", null, {
-    name: "Synthetic fund"
-  });
   await buyByIsin("US0378331005", {
-    ...fakeProvider({}).provider,
-    searchByIsin: async isin => [{
-      symbol: "WLD.US",
-      name: "Synthetic World",
-      exchange: "US",
-      currency: "USD",
-      isin
-    }]
+    name: "Synthetic World"
   });
+  await updatePrices(now, provider);
+  await updatePrices(Temporal.Instant.from("2026-10-15T06:00:00Z"), provider);
 
-  assert.deepEqual((await securitiesWithIsin(db, "IE00B4L5Y983")).map(security => [security.name, security.provider_symbol]), [["Synthetic fund", null]]);
-  assert.deepEqual((await securitiesWithIsin(db, "US0378331005")).map(security => [security.name, security.provider_symbol]), [["US0378331005", null]]);
+  const [security] = await securitiesWithIsin(db, "US0378331005");
+
+  assert.deepEqual([security.name, security.provider_symbol, searched.length], ["Synthetic World", null, 1]);
+  assert.match(security.price_error ?? "", /No price listing in EUR/);
 });
 
 test("a rejected trade named by a new ISIN leaves no security behind", async context => {
@@ -570,7 +593,7 @@ test("a rejected trade named by a new ISIN leaves no security behind", async con
     settlement: {
       account_id: "cash"
     }
-  }, now, null));
+  }, now));
   assert.deepEqual(await securitiesWithIsin(db, "IE00B4L5Y983"), []);
 });
 

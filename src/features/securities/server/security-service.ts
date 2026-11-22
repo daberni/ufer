@@ -2,21 +2,20 @@ import { randomUUID } from "node:crypto";
 import { Temporal } from "temporal-polyfill";
 import { HttpError, ValidationError } from "@/lib/errors";
 import { minorUnits } from "@/lib/money";
-import { today } from "@/lib/time";
+import { timestamp, today } from "@/lib/time";
 import { syncLease, withLease } from "@/server/jobs/lease";
 import { refuse } from "@/server/database/transaction";
 import { archivedAccountMessage } from "@/features/transactions/server/booking-accounts";
 import { amountMinor, positionOn, type PositionTrade } from "../holdings";
 import { parseMicros } from "../quantities";
 import { marketDataLease, priceSourceStatus, searchProviderListings } from "./price-update-service";
-import { chooseListing } from "../listing-choice";
 import { configuredProvider } from "./market-data/eodhd-provider";
 import type { MarketDataProvider } from "./market-data/market-data-provider";
 import { valueHoldings } from "../valuation";
 import { readHoldingInputs } from "./valuation-repository";
 import { settlementRefusal, settlementWindowDays, tradeCashAmount, type SettlementRefusal } from "../trade-decisions";
 import { brokerageAccountInput, listingInput, securityInput, settlementCandidatesQuery, tradeInput } from "./security-schema";
-import { deleteTrade, findBrokerageAccount, findSecurity, findSettlementAccount, findSettlementBooking, findTrade, insertBrokerageAccount, insertSecurity, insertSettlementEntry, insertTrade, listSecurities, markSettlementBooking, nextTradeSequence, readAccountTrades, readPositionTrades, readSettlementCandidates, readSplits, readTradedSecurityIds, isEarliestTrade, markSplitsUnchecked, withSecurityTransaction, findOrInsertSecurity, findSecurityListing, saveSecurityListing, securityExistsForIsin } from "./security-repository";
+import { deleteTrade, findBrokerageAccount, findSecurity, findSettlementAccount, findSettlementBooking, findTrade, insertBrokerageAccount, insertSecurity, insertSettlementEntry, insertTrade, listSecurities, markSettlementBooking, nextTradeSequence, readAccountTrades, readPositionTrades, readSettlementCandidates, readSplits, readTradedSecurityIds, isEarliestTrade, markSplitsUnchecked, withSecurityTransaction, findOrInsertSecurity, findSecurityListing, saveSecurityListing } from "./security-repository";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 
 /** Replays every trade so a sale never exceeds what was held at that point, now or after a change. */
@@ -57,18 +56,16 @@ export async function createSecurity(payload: unknown) {
   };
 }
 
-/** The security a new ISIN would get: its price listing chosen automatically from the provider's listings (ADR 012 amendment); without a key or a listing in that currency it has no price source. */
-async function securityForIsin(isin: string, currency: string, name: string | undefined, provider: MarketDataProvider | null) {
-  const listing = chooseListing(await searchProviderListings(isin, provider), currency);
-
+/** A security recorded by ISIN starts without a listing; the next price update looks one up, so saving a trade never calls the provider. */
+function securityForIsin(isin: string, currency: string, name: string | undefined) {
   return {
     id: randomUUID(),
     isin,
-    name: name ?? listing?.name ?? isin,
+    name: name ?? isin,
     currency,
-    provider: listing ? "eodhd" : null,
-    provider_symbol: listing?.symbol ?? null,
-    venue: listing?.exchange ?? null
+    provider: null,
+    provider_symbol: null,
+    venue: null
   };
 }
 
@@ -93,7 +90,7 @@ export async function updateSecurityListing(id: string, payload: unknown, provid
     provider: input.provider_symbol ? "eodhd" : null,
     provider_symbol: input.provider_symbol,
     venue: listed?.exchange ?? null
-  }));
+  }, timestamp()));
 
   if (!saved) {
     throw new HttpError(409, "Another security already uses this listing.");
@@ -142,7 +139,7 @@ function tradeDescription(side: "buy" | "sell", quantity: string, security: stri
  * Records a buy or sale on a brokerage account with its cash side: a new entry on a manual settlement account, or an existing bank booking that becomes the trade's cash side.
  * Holds the sync lease because a bank booking's type changes, and refuses a sale beyond the quantity held at any point.
  */
-export async function recordTrade(accountId: string, payload: unknown, now = Temporal.Now.instant(), provider: MarketDataProvider | null = configuredProvider()) {
+export async function recordTrade(accountId: string, payload: unknown, now = Temporal.Now.instant()) {
   const input = tradeInput.parse(payload);
   const account = await requireBrokerageAccount(accountId);
 
@@ -157,10 +154,8 @@ export async function recordTrade(accountId: string, payload: unknown, now = Tem
   const quantity = parseMicros(input.quantity, "quantity");
   const price = parseMicros(input.price, "price");
   const id = randomUUID();
-  // The listing lookup is a network call, so it runs before the transaction; the security itself is found or created inside it.
-  // A security already recorded for the ISIN needs no provider search; the transaction below finds it either way.
-  const known = input.security ? await securityExistsForIsin(input.security.isin, account.currency) : false;
-  const newSecurity = input.security ? await securityForIsin(input.security.isin, account.currency, input.security.name, known ? null : provider) : null;
+  // The security for a new ISIN is found or created inside the trade's transaction.
+  const newSecurity = input.security ? securityForIsin(input.security.isin, account.currency, input.security.name) : null;
 
   return withLease(syncLease, tradeLeaseMessage, () => withSecurityTransaction(async tx => {
     const brokerage = await findBrokerageAccount(tx, accountId);

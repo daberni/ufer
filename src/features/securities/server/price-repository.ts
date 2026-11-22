@@ -1,4 +1,4 @@
-import { and, asc, eq, isNotNull, sql } from "drizzle-orm";
+import { and, asc, eq, isNotNull, isNull, ne, or, sql } from "drizzle-orm";
 import { database } from "@/server/database/connection";
 import { securities, securityPrices, securitySplits, securityTrades } from "@/server/database/schema";
 import type { PositionTrade } from "../holdings";
@@ -11,6 +11,8 @@ export async function listPricedSecurities() {
     id: securities.id,
     provider: securities.provider,
     provider_symbol: securities.provider_symbol,
+    isin: securities.isin,
+    currency: securities.currency,
     price_checked_at: securities.price_checked_at,
     price_error: securities.price_error,
     // Drizzle leaves columns in a single-table select unqualified, so these correlated subqueries name their tables explicitly.
@@ -18,7 +20,8 @@ export async function listPricedSecurities() {
     oldest_price: sql<string | null>`(SELECT MIN(p.date) FROM security_prices p WHERE p.security_id=securities.id)`,
     first_trade: sql<string | null>`(SELECT MIN(t.date) FROM security_trades t WHERE t.security_id=securities.id)`
   // The longest-unchecked securities go first, so one skipped over the provider's daily quota leads the next run.
-  }).from(securities).where(isNotNull(securities.provider_symbol)).orderBy(sql`${securities.price_checked_at} IS NOT NULL`, asc(securities.price_checked_at), asc(securities.id));
+  // A security recorded by ISIN without a listing yet is included once, so the update can look up its listing.
+  }).from(securities).where(or(isNotNull(securities.provider_symbol), and(isNotNull(securities.isin), isNull(securities.price_checked_at)))).orderBy(sql`${securities.price_checked_at} IS NOT NULL`, asc(securities.price_checked_at), asc(securities.id));
 }
 
 /** Stores daily closes, replacing a close the provider corrected; one transaction per security. */
@@ -117,4 +120,27 @@ export async function savePriceCheck(securityId: string, checkedAt: string, erro
     price_checked_at: checkedAt,
     price_error: error
   }).where(and(eq(securities.id, securityId), sql`${securities.price_checked_at} IS ${previousCheckedAt}`));
+}
+
+/** Stores the listing the update chose for a security recorded by ISIN; false when another security already uses it. */
+export async function assignListing(securityId: string, listing: {
+  provider: string;
+  provider_symbol: string;
+  venue: string;
+}) {
+  const db = await database();
+
+  return db.transaction(async tx => {
+    const taken = await tx.select({
+      id: securities.id
+    }).from(securities).where(and(eq(securities.provider_symbol, listing.provider_symbol), ne(securities.id, securityId))).get();
+
+    if (taken) {
+      return false;
+    }
+
+    await tx.update(securities).set(listing).where(and(eq(securities.id, securityId), isNull(securities.provider_symbol)));
+
+    return true;
+  });
 }

@@ -47,7 +47,7 @@ adr:
 | Concern | Decision |
 | --- | --- |
 | Trade entry | A trade asks only for ISIN, shares, price, fees, taxes and date. The main flow starts from an imported buy or sale booking on the settlement account: the ISIN is read from its text (ISO 6166 with check digit), and its date and cash amount are taken over, the booking becoming the trade's cash side. The trade is recorded only when its cash amount matches the booking. A manual cash account remains the fallback |
-| Price listing | The listing is an internal, optional detail of the security, chosen automatically when the security is first created from its ISIN: a listing in the trade's currency, preferring XETRA and other liquid venues. There is no listing field in the trade flow; changing the listing is a separate edit on the security, which drops the old listing's prices |
+| Price listing | The listing is an internal, optional detail of the security. Saving a trade only validates the ISIN by its check digit and never calls the provider; the next daily price update searches the ISIN once and picks a listing in the security's currency, preferring XETRA and other liquid venues, then fetches its prices. There is no listing field in the trade flow; changing the listing is a separate edit on the security, which drops the old listing's prices, and choosing no listing stops the automatic search |
 | No listing | A security without a listing, or without a configured key, is valid and has no daily price |
 | Unpriced holdings | A holding without any price is valued at its cost basis and shown as "no price", instead of counting 0; a holding with only an old price keeps that price and is shown as stale. This replaces "counts 0" in the valuation row above |
 
