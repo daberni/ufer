@@ -61,7 +61,7 @@ export async function connectBank(payload: unknown, actor: AuthContext) {
     language: "en"
   });
 
-  await insertAuthorization({
+  const recorded = await insertAuthorization({
     id: randomUUID(),
     bank,
     country,
@@ -71,6 +71,10 @@ export async function connectBank(payload: unknown, actor: AuthContext) {
     targetAccountId: accountId ?? null,
     actor
   });
+
+  if (!recorded) {
+    throw new HttpError(409, "Only an active manual account can be connected to a bank.");
+  }
 
   return {
     url: authorization.url,

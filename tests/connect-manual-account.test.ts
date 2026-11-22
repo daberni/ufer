@@ -11,6 +11,7 @@ import { hash } from "../src/server/security/tokens";
 import type { AuthContext } from "../src/server/security/session";
 import { completeAuthorization } from "../src/features/banking/server/authorization-service";
 import { connectBank } from "../src/features/banking/server/connect-bank";
+import { insertAuthorization } from "../src/features/banking/server/connection-repository";
 import { removeBankConnection } from "../src/features/banking/server/connection-service";
 import { deleteAccount } from "../src/features/accounts/server/account-service";
 import { saveAccountSync } from "../src/features/banking/server/account-sync-service";
@@ -373,6 +374,10 @@ test("the connected bank account is the one the target's identifiers name, else 
   }, [identified("first", null), identified("second", "AT000000000000000002")]), {
     status: 422
   });
+  // An authorized account with the target's IBAN that belongs to another account blocks every fallback.
+  assert.throws(() => decideTargetBankAccount(target, [identified("owned-same-iban", "AT000000000000000001", ["another"]), identified("free", null)]), {
+    status: 422
+  });
   // Only one authorized account may name the target, and it must name no other account.
   assert.throws(() => decideTargetBankAccount(target, [identified("known", null, ["target"]), identified("also-known", null, ["target"])]), {
     status: 422
@@ -423,4 +428,27 @@ test("bank accounts of one callback that share an identifier map to one account,
   await completeAuthorization("state-plain", "browser-plain", "code", actor);
 
   assert.equal((await db.select().from(schema.accounts)).length, 1);
+});
+
+test("recording an authorization reads its target again and refuses one archived while the provider requests ran", async context => {
+  const {
+    db,
+    actor
+  } = await connectDatabase(context, () => []);
+
+  await insertManualAccount(db, {
+    archived_at: "2026-11-01T00:00:00.000Z"
+  });
+
+  assert.equal(await insertAuthorization({
+    id: "stale",
+    bank: "Example bank",
+    country: "AT",
+    stateHash: hash("state-stale"),
+    browserHash: hash("browser-stale"),
+    authorizationId: "authorization-stale",
+    targetAccountId: "imported",
+    actor
+  }), false);
+  assert.equal((await db.select().from(schema.requisitions)).length, 0);
 });

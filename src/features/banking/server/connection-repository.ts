@@ -5,6 +5,8 @@ import type { AuthContext } from "@/server/security/session";
 import { accounts, requisitions } from "@/server/database/schema";
 import { timestamp } from "@/lib/time";
 import { HttpError } from "@/lib/errors";
+import { withTransaction } from "@/server/database/transaction";
+import { findConnectTarget } from "./bank-account-repository";
 
 export type ConnectionRemoval = {
   outcome: "missing";
@@ -37,23 +39,31 @@ export async function findConnectableAccount(id: string) {
   }).from(accounts).where(and(eq(accounts.id, id), eq(accounts.provider, "manual"), isNull(accounts.requisition_id), isNull(accounts.archived_at))).get();
 }
 
+/** Records the authorization, or returns false when its target account is no longer an active manual account. */
 export async function insertAuthorization(record: AuthorizationRecord) {
-  const db = await database();
+  return withTransaction(async tx => {
+    // The target is read again here because it may have changed while the provider requests ran.
+    if (record.targetAccountId && !(await findConnectTarget(tx, record.targetAccountId))) {
+      return false;
+    }
 
-  await db.insert(requisitions).values({
-    id: record.id,
-    workspace_id: record.actor.workspaceId,
-    initiated_by_user_id: record.actor.userId,
-    auth_session_id: record.actor.sessionId,
-    bank_name: record.bank,
-    bank_country: record.country,
-    state_hash: record.stateHash,
-    browser_hash: record.browserHash,
-    state_expires_at: timestamp(Temporal.Now.instant().add({
-      minutes: 15
-    })),
-    authorization_id: record.authorizationId,
-    target_account_id: record.targetAccountId
+    await tx.insert(requisitions).values({
+      id: record.id,
+      workspace_id: record.actor.workspaceId,
+      initiated_by_user_id: record.actor.userId,
+      auth_session_id: record.actor.sessionId,
+      bank_name: record.bank,
+      bank_country: record.country,
+      state_hash: record.stateHash,
+      browser_hash: record.browserHash,
+      state_expires_at: timestamp(Temporal.Now.instant().add({
+        minutes: 15
+      })),
+      authorization_id: record.authorizationId,
+      target_account_id: record.targetAccountId
+    });
+
+    return true;
   });
 }
 

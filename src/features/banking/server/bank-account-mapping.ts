@@ -97,6 +97,12 @@ export function decideTargetBankAccount(target: ConnectTarget, bankAccounts: Ide
   }
 
   const targetIban = compactIban(target.iban);
+
+  // The bank account with the target's IBAN belongs to another account, so no other authorized account can stand in for it.
+  if (targetIban && bankAccounts.some(item => item.matches.length > 0 && compactIban(item.account.account_id?.iban) === targetIban)) {
+    throw new HttpError(422, "The authorized bank account with this account's IBAN already belongs to another account in Ufer.");
+  }
+
   const free = bankAccounts.flatMap((item, index) => {
     const available = item.matches.length === 0 && item.account.currency === target.currency;
     const bankIban = compactIban(item.account.account_id?.iban);
