@@ -134,7 +134,7 @@ export async function readTransactionPage<Run extends ListedSyncRun>(filters: Da
     JOIN accounts a ON a.id=t.account_id
     LEFT JOIN transactions p ON p.transfer_id=t.transfer_id AND p.id<>t.id
     LEFT JOIN accounts pa ON pa.id=p.account_id
-    LEFT JOIN transactions d ON d.id=t.duplicate_of_id AND t.suppressed_at IS NOT NULL
+    LEFT JOIN transactions d ON d.id=t.duplicate_of_id AND t.suppressed_at IS NOT NULL AND d.suppressed_at IS NULL
     WHERE ${condition}
     ORDER BY t.date DESC,COALESCE(t.counterparty_override,t.counterparty)='',COALESCE(t.counterparty_override,t.counterparty) COLLATE NOCASE,COALESCE(t.description_override,t.description) COLLATE NOCASE,t.id
     LIMIT ${transactionPageSize}

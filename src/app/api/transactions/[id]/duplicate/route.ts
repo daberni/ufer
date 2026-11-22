@@ -17,6 +17,8 @@ export async function GET(request: Request, context: Context) {
     const { id } = await context.params;
 
     return duplicateCandidates(id);
+  }, {
+    access: "session"
   });
 }
 
@@ -25,5 +27,7 @@ export async function PUT(request: Request, context: Context) {
     const { id } = await context.params;
 
     return markDuplicate(id, await readJson(request));
+  }, {
+    access: "session"
   });
 }

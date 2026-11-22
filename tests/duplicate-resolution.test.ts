@@ -153,6 +153,10 @@ test("naming the shorter copy a duplicate hides it, records the kept booking and
     counterparty: describedCopy.counterparty,
     description: describedCopy.description
   });
+
+  await hideTransaction(described.id, true, now);
+
+  assert.equal((await listed()).find(item => item.id === short.id)?.duplicate_of, null);
 });
 
 test("naming the better-described copy a duplicate of the shorter one still keeps the better-described copy and takes over the hidden copy's manual category", async context => {
