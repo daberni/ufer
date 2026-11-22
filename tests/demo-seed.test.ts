@@ -404,6 +404,37 @@ test("re-seeding refuses while the demo brokerage holds a trade a person recorde
   await assert.rejects(seedDemoData({
     confirmed: true,
     runDate: secondRun
-  }), /trades that the demo seed did not create/);
+  }), /trades that the demo seed did not create use its brokerage account or securities/);
   assert.ok(await db.select().from(schema.securityTrades).where(eq(schema.securityTrades.id, "person-trade")).get());
+});
+
+test("re-seeding refuses while another brokerage account trades a demo security", async context => {
+  const db = await isolatedDatabase(context);
+
+  await seedActor(db);
+  await seedDemoData({
+    confirmed: true,
+    runDate: firstRun
+  });
+  await db.insert(schema.accounts).values({
+    id: "person-depot",
+    name: "Person depot",
+    kind: "brokerage"
+  });
+  await db.insert(schema.securityTrades).values({
+    id: "person-trade",
+    account_id: "person-depot",
+    security_id: "demo-security-world",
+    date: "2026-11-01",
+    side: "buy",
+    sequence: 1,
+    quantity_micros: 1_000_000,
+    price_micros: 10_000_000,
+    gross_minor: 10_00
+  });
+
+  await assert.rejects(seedDemoData({
+    confirmed: true,
+    runDate: secondRun
+  }), /trades that the demo seed did not create/);
 });

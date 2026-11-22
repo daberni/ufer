@@ -1041,3 +1041,33 @@ test("deleting a security's last trade removes the security, and an earlier trad
   assert.ok(trades.some(trade => trade.id === id));
   assert.deepEqual(await securitiesWithIsin(db, "US0378331005"), []);
 });
+
+test("closes fetched for a security deleted meanwhile are dropped without failing the update", async context => {
+  const db = await isolatedDatabase(context);
+  const deleting = fakeProvider({
+    "SYNF.EUFUND": [{
+      date: "2026-10-13",
+      close: 49.5
+    }]
+  });
+
+  // While the first security's closes are fetched, its last trade and the security itself are deleted.
+  deleting.provider.dailyCloses = async symbol => {
+    if (symbol === "SYN.XETRA") {
+      await db.delete(schema.securities).where(eq(schema.securities.id, "etf"));
+
+      return [{
+        date: "2026-10-13",
+        close: 100
+      }];
+    }
+
+    return [{
+      date: "2026-10-13",
+      close: 49.5
+    }];
+  };
+
+  assert.equal((await updatePrices(now, deleting.provider)).status, "updated");
+  assert.deepEqual(await pricesOf(db, "fund"), [["2026-10-13", 49_500_000]]);
+});

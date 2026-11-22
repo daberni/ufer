@@ -1,4 +1,4 @@
-import { and, count, eq, inArray, isNotNull, like, ne, not, notInArray, sql } from "drizzle-orm";
+import { and, count, eq, inArray, isNotNull, like, ne, not, notInArray, sql, or } from "drizzle-orm";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 import { accounts, balanceSnapshots, categories, categorizationRules, requisitions, securities, securityPrices, securitySplits, securityTrades, syncRuns, transactions } from "@/server/database/schema";
 import { insertSettlementEntry, insertTrade } from "@/features/securities/server/security-repository";
@@ -21,7 +21,7 @@ import type { DemoConnectionData, DemoCreatedCounterpart, DemoSnapshot, DemoSpli
 /** What the guard inspects before demo rows are replaced. */
 export type DemoSeedTarget = {
   foreignManualTransactions: number;
-  /** Trades someone recorded on a demo brokerage account; the seed would delete them with its own. */
+  /** Trades someone recorded on a demo brokerage account or on a demo security; the seed would delete them, or could not delete its securities. */
   foreignTrades: number;
 };
 
@@ -71,7 +71,7 @@ async function inspectTarget(tx: DatabaseTransaction): Promise<DemoSeedTarget> {
 
   const foreignTrades = await tx.select({
     count: count()
-  }).from(securityTrades).where(and(like(securityTrades.account_id, demoRows), not(like(securityTrades.id, demoTradeRows)))).get();
+  }).from(securityTrades).where(or(and(like(securityTrades.account_id, demoRows), not(like(securityTrades.id, demoTradeRows))), and(like(securityTrades.security_id, demoRows), not(like(securityTrades.account_id, demoRows))))).get();
 
   return {
     foreignManualTransactions: manualTransactions?.count ?? 0,

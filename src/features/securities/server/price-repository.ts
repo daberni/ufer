@@ -1,5 +1,5 @@
 import { and, asc, eq, isNotNull, isNull, ne, or, sql } from "drizzle-orm";
-import { database } from "@/server/database/connection";
+import { database, type DatabaseTransaction } from "@/server/database/connection";
 import { securities, securityPrices, securitySplits, securityTrades } from "@/server/database/schema";
 import type { PositionTrade } from "../holdings";
 
@@ -35,20 +35,35 @@ export async function savePrices(securityId: string, closes: {
 
   const db = await database();
 
-  await db.insert(securityPrices).values(closes.map(close => ({
-    security_id: securityId,
-    date: close.date,
-    close_micros: close.close_micros,
-    source,
-    fetched_at: fetchedAt
-  }))).onConflictDoUpdate({
-    target: [securityPrices.security_id, securityPrices.date],
-    set: {
-      close_micros: sql`excluded.close_micros`,
-      source: sql`excluded.source`,
-      fetched_at: sql`excluded.fetched_at`
+  await db.transaction(async tx => {
+    // The security's last trade may have been deleted while its closes were fetched; then there is nothing to store.
+    if (!(await securityExists(tx, securityId))) {
+      return;
     }
+
+    await tx.insert(securityPrices).values(closes.map(close => ({
+      security_id: securityId,
+      date: close.date,
+      close_micros: close.close_micros,
+      source,
+      fetched_at: fetchedAt
+    }))).onConflictDoUpdate({
+      target: [securityPrices.security_id, securityPrices.date],
+      set: {
+        close_micros: sql`excluded.close_micros`,
+        source: sql`excluded.source`,
+        fetched_at: sql`excluded.fetched_at`
+      }
+    });
   });
+}
+
+async function securityExists(tx: DatabaseTransaction, securityId: string) {
+  const row = await tx.select({
+    id: securities.id
+  }).from(securities).where(eq(securities.id, securityId)).get();
+
+  return row !== undefined;
 }
 
 export type SplitRow = {
@@ -69,6 +84,11 @@ export async function saveSplitsIfConsistent(securityId: string, interval: {
   const inInterval = (date: string) => date >= interval.from && date <= interval.to;
 
   return db.transaction(async tx => {
+    // A security deleted with its last trade meanwhile has no splits to store.
+    if (!(await securityExists(tx, securityId))) {
+      return true;
+    }
+
     const stored = await tx.select({
       date: securitySplits.date,
       numerator: securitySplits.numerator,

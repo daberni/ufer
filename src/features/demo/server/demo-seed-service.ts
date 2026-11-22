@@ -23,7 +23,7 @@ export type DemoSeedOptions = {
  */
 function assertDemoTarget(target: DemoSeedTarget) {
   if (target.foreignTrades > 0) {
-    throw new DemoSeedRefusal(`Refusing to seed: the demo brokerage holds ${target.foreignTrades} trades that the demo seed did not create.`);
+    throw new DemoSeedRefusal(`Refusing to seed: ${target.foreignTrades} trades that the demo seed did not create use its brokerage account or securities.`);
   }
 
   if (target.foreignManualTransactions > 0) {
