@@ -1,5 +1,7 @@
+import { sql, type SQL } from "drizzle-orm";
+
 // Searches what the list shows: a person's payee and description override the source's text.
-const searchedText = "lower(COALESCE(t.counterparty_override,t.counterparty) || ' ' || COALESCE(t.description_override,t.description))";
+const searchedText = sql.raw("lower(COALESCE(t.counterparty_override,t.counterparty) || ' ' || COALESCE(t.description_override,t.description))");
 const asciiOnly = /^[\x00-\x7f]*$/;
 
 // Folds that are not a one-to-one uppercase mapping: ß and ẞ become "ss", Greek final ς becomes σ.
@@ -33,7 +35,7 @@ function nonAsciiUppercase(letter: string) {
  * SQL condition on `t` matching a search term in the payee or description regardless of letter case.
  * SQLite and libSQL fold only ASCII letters and hosted libSQL offers no portable Unicode case function, so the stored text is folded in SQL for exactly the non-ASCII letters the term contains.
  */
-export function searchCondition(search: string) {
+export function searchCondition(search: string): SQL {
   const term = foldCase(search);
   const replacements = foldedSequences.filter(([, folded]) => term.includes(folded));
   const letterReplacements: [string, string][] = [];
@@ -48,10 +50,7 @@ export function searchCondition(search: string) {
 
   replacements.push(...letterReplacements.slice(0, maxFoldedLetters));
 
-  const foldedText = replacements.reduce(text => `replace(${text},?,?)`, searchedText);
+  const foldedText = replacements.reduce((text, [uppercase, folded]) => sql`replace(${text},${uppercase},${folded})`, searchedText);
 
-  return {
-    sql: `instr(${foldedText},?) > 0`,
-    args: [...replacements.flat(), term]
-  };
+  return sql`instr(${foldedText},${term}) > 0`;
 }

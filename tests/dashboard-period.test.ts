@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { test, type TestContext } from "node:test";
 import { createClient } from "@libsql/client";
 import { drizzle } from "drizzle-orm/libsql";
+import { sql } from "drizzle-orm";
 import { initializeDatabase } from "../src/server/database/migrations";
 import * as schema from "../src/server/database/schema";
 import type { Database } from "../src/server/database/connection";
@@ -241,12 +242,9 @@ test("a December period includes its last day and ends before the next year's fi
 test("a month period filters booking dates through the booking-date index", async context => {
   const db = await seededDatabase(context);
   const inPeriod = periodCondition(monthPeriod(Temporal.PlainYearMonth.from("2026-01")));
-  const plan = await db.$client.execute({
-    sql: `EXPLAIN QUERY PLAN SELECT COUNT(*) FROM transactions t JOIN accounts a ON a.id=t.account_id WHERE ${inPeriod.sql}`,
-    args: inPeriod.args
-  });
+  const plan = await db.all<Record<string, unknown>>(sql`EXPLAIN QUERY PLAN SELECT COUNT(*) FROM transactions t JOIN accounts a ON a.id=t.account_id WHERE ${inPeriod}`);
 
-  assert.match(plan.rows.map(row => String(row.detail)).join("\n"), /USING (COVERING )?INDEX transactions_\w+ \(.*date>\? AND date<\?\)/);
+  assert.match(plan.map(row => String(row.detail)).join("\n"), /USING (COVERING )?INDEX transactions_\w+ \(.*date>\? AND date<\?\)/);
 });
 
 async function seedCashFlowHistory(context: TestContext) {
