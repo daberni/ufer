@@ -2,11 +2,12 @@ import { randomUUID } from "node:crypto";
 import { Temporal } from "temporal-polyfill";
 import { HttpError, ValidationError } from "@/lib/errors";
 import { timestamp, today } from "@/lib/time";
-import { withLease } from "@/server/jobs/lease";
+import { syncLease, withLease } from "@/server/jobs/lease";
 import { renewLease } from "@/server/jobs/lease-repository";
 import { configuredProvider } from "./market-data/eodhd-provider";
 import { MarketDataError, type MarketDataProvider } from "./market-data/market-data-provider";
-import { listPricedSecurities, savePriceCheck, savePrices, saveSplits } from "./price-repository";
+import { listPricedSecurities, savePriceCheck, savePrices, saveSplitsIfConsistent } from "./price-repository";
+import { positionOn } from "../holdings";
 
 /** Serializes price updates; they write only prices and splits, so they never wait for or block a bank sync. */
 export const marketDataLease = "market-data";
@@ -46,6 +47,23 @@ export function checksSplits(security: {
 }
 
 export const noPriceSource = "No price source configured.";
+
+/** Whether every account's sales still fit its holdings under a split history; a reported split that would make a recorded sale exceed the holding is not stored. */
+export function splitsFitTrades(tradesByAccount: Parameters<typeof positionOn>[0][], splits: Parameters<typeof positionOn>[1]) {
+  try {
+    for (const trades of tradesByAccount) {
+      positionOn(trades, splits, "9999-12-31");
+    }
+
+    return true;
+  } catch (error) {
+    if (error instanceof ValidationError) {
+      return false;
+    }
+
+    throw error;
+  }
+}
 
 /** Converts a provider close to micro-units through its decimal text, so no floating-point product is stored. */
 export function closeMicros(close: number) {
@@ -147,7 +165,14 @@ export async function updatePrices(now = Temporal.Now.instant(), provider: Marke
               throw error instanceof MarketDataError ? new MarketDataError(`${splitErrorPrefix}${error.message}`) : error;
             });
 
-            await saveSplits(security.id, splits);
+            // Trades validate sales against the stored splits under the sync lease, so splits are written under it too.
+            const stored = await withLease(syncLease, "busy", () => saveSplitsIfConsistent(security.id, splits, splitsFitTrades)).catch((error: unknown) => {
+              throw error instanceof HttpError && error.status === 409 ? new MarketDataError(`${splitErrorPrefix}a sync or trade was running; they are checked again on the next run.`) : error;
+            });
+
+            if (!stored) {
+              throw new MarketDataError(`${splitErrorPrefix}the provider reports a split that conflicts with the recorded sales; check the trades.`);
+            }
           }
 
           // The provider's split history reaches back one year, so an older split would be silently missing from the quantity; the security stays flagged.
