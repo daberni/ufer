@@ -21,7 +21,8 @@ export async function listPricedSecurities() {
     first_trade: sql<string | null>`(SELECT MIN(t.date) FROM security_trades t WHERE t.security_id=securities.id)`
   // The longest-unchecked securities go first, so one skipped over the provider's daily quota leads the next run.
   // A security recorded by ISIN without a listing yet is included once, so the update can look up its listing.
-  }).from(securities).where(or(isNotNull(securities.provider_symbol), and(isNotNull(securities.isin), isNull(securities.price_checked_at)))).orderBy(sql`${securities.price_checked_at} IS NOT NULL`, asc(securities.price_checked_at), asc(securities.id));
+  // Only securities some trade holds are updated, so one left without trades spends no provider requests.
+  }).from(securities).where(and(sql`EXISTS (SELECT 1 FROM security_trades t WHERE t.security_id=securities.id)`, or(isNotNull(securities.provider_symbol), and(isNotNull(securities.isin), isNull(securities.price_checked_at))))).orderBy(sql`${securities.price_checked_at} IS NOT NULL`, asc(securities.price_checked_at), asc(securities.id));
 }
 
 /** Stores daily closes, replacing a close the provider corrected; one transaction per security. */

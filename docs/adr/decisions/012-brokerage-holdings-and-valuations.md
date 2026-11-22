@@ -38,7 +38,7 @@ adr:
 | Concern | Decision |
 | --- | --- |
 | Trade amounts | A trade keeps its own date and amounts. A linked bank booking must match the trade's cash amount exactly and lie at most 14 days from the trade date; a later redelivery that corrects the booking changes the booking only, not the trade. This replaces "the trade follows its redelivered date" above |
-| Editing | Trades are recorded and deleted; changing one means deleting and recording it again. A trade's cash side cannot be edited, retyped, hidden, linked as a transfer or deleted on its own |
+| Editing | Trades are recorded and deleted; changing one means deleting and recording it again. A trade's cash side cannot be edited, retyped, hidden, linked as a transfer or deleted on its own. Deleting a trade returns its bank booking to the type its delivery implies; a type a person or rule had set before is not restored (known limitation) |
 | Settlement | Each trade names its cash side: a manual settlement account, where the trade books an entry, or an imported bank booking. A bank-linked settlement account always needs its bank booking, so cash is never booked twice |
 | Brokerage accounts | Take no bookings, balances, transfers, import rows or bank connection, cannot change their kind, and are deleted only after their trades |
 

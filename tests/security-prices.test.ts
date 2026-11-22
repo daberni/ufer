@@ -60,6 +60,26 @@ async function isolatedDatabase(context: TestContext) {
   return db;
 }
 
+/** Gives the fixture securities a holding: price updates cover only securities some trade holds. */
+async function holdFixtureSecurities(db: Database) {
+  await db.insert(schema.accounts).values({
+    id: "holder",
+    name: "Synthetic holder",
+    kind: "brokerage"
+  });
+  await db.insert(schema.securityTrades).values(["etf", "fund"].map((securityId, index) => ({
+    id: `hold-${securityId}`,
+    account_id: "holder",
+    security_id: securityId,
+    date: "2026-10-10",
+    side: "buy" as const,
+    sequence: index + 1,
+    quantity_micros: 1_000_000,
+    price_micros: 10_000_000,
+    gross_minor: 10_00
+  })));
+}
+
 type Request = {
   kind: "closes" | "splits";
   symbol: string;
@@ -149,6 +169,8 @@ test("without a price source the update does nothing and the securities say so",
 test("an update fetches from shortly before the newest price, or from the first trade, and stores exact closes, refetching recent days for corrections", async context => {
   const db = await isolatedDatabase(context);
 
+  await holdFixtureSecurities(db);
+
   await db.insert(schema.securityPrices).values({
     security_id: "etf",
     date: "2026-10-12",
@@ -224,6 +246,8 @@ test("an update fetches from shortly before the newest price, or from the first 
 
 test("a failing security keeps its error visible while the others update", async context => {
   const db = await isolatedDatabase(context);
+
+  await holdFixtureSecurities(db);
   const { provider } = fakeProvider({
     "SYN.XETRA": new MarketDataError("The price provider's request limit is reached."),
     "SYNF.EUFUND": [{
@@ -728,6 +752,8 @@ test("a security inserted meanwhile for the same ISIN is reused instead of addin
 
 test("an update that lost its lease to another run stops before the next security", async context => {
   const db = await isolatedDatabase(context);
+
+  await holdFixtureSecurities(db);
   const takeover = fakeProvider({});
 
   // While the first security is fetched, another run takes over the lease.
@@ -746,11 +772,13 @@ test("an update that lost its lease to another run stops before the next securit
   };
 
   assert.equal((await updatePrices(now, takeover.provider)).status, "interrupted");
-  assert.deepEqual(takeover.requests.map(request => request.symbol), ["SYN.XETRA"]);
+  assert.deepEqual(takeover.requests.filter(request => request.kind === "closes").map(request => request.symbol), ["SYN.XETRA"]);
 });
 
 test("the longest-unchecked securities are updated first, so one skipped over quota leads the next run", async context => {
   const db = await isolatedDatabase(context);
+
+  await holdFixtureSecurities(db);
 
   await db.update(schema.securities).set({
     price_checked_at: "2026-10-13T06:00:00.000Z"
@@ -949,6 +977,8 @@ test("a pending split retry survives a run whose close request fails first", asy
 
 test("a split recheck requested by a trade during an update survives that update", async context => {
   const db = await isolatedDatabase(context);
+
+  await holdFixtureSecurities(db);
   const concurrent = fakeProvider({});
 
   await db.update(schema.securities).set({
@@ -968,7 +998,9 @@ test("a split recheck requested by a trade during an update survives that update
 });
 
 test("an update past its deadline starts no further security", async context => {
-  await isolatedDatabase(context);
+  const db = await isolatedDatabase(context);
+
+  await holdFixtureSecurities(db);
   const {
     provider,
     requests
@@ -1006,7 +1038,7 @@ test("splits reported outside the requested interval are ignored", async context
   assert.deepEqual((await db.select().from(schema.securitySplits)).map(split => split.date), ["2026-09-01"]);
 });
 
-test("deleting a security's last trade removes the security, and an earlier trade keeps a no-listing choice", async context => {
+test("a security keeps its data after its last trade is deleted but is no longer updated, and an earlier trade keeps a no-listing choice", async context => {
   const db = await isolatedDatabase(context);
 
   await tradeAccounts(db);
@@ -1039,11 +1071,26 @@ test("deleting a security's last trade removes the security, and an earlier trad
   }
 
   assert.ok(trades.some(trade => trade.id === id));
-  assert.deepEqual(await securitiesWithIsin(db, "US0378331005"), []);
+  assert.equal((await securitiesWithIsin(db, "US0378331005")).length, 1);
+
+  // Without any trade it is left out of price updates and spends no provider requests.
+  const searched: string[] = [];
+
+  await updatePrices(now, {
+    ...fakeProvider({}).provider,
+    async searchByIsin(isin) {
+      searched.push(isin);
+
+      return [];
+    }
+  });
+  assert.deepEqual(searched, []);
 });
 
 test("closes fetched for a security deleted meanwhile are dropped without failing the update", async context => {
   const db = await isolatedDatabase(context);
+
+  await holdFixtureSecurities(db);
   const deleting = fakeProvider({
     "SYNF.EUFUND": [{
       date: "2026-10-13",
@@ -1054,6 +1101,7 @@ test("closes fetched for a security deleted meanwhile are dropped without failin
   // While the first security's closes are fetched, its last trade and the security itself are deleted.
   deleting.provider.dailyCloses = async symbol => {
     if (symbol === "SYN.XETRA") {
+      await db.delete(schema.securityTrades).where(eq(schema.securityTrades.security_id, "etf"));
       await db.delete(schema.securities).where(eq(schema.securities.id, "etf"));
 
       return [{
