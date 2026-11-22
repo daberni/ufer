@@ -180,12 +180,16 @@ function PageFeedback() {
 function DashboardFooter() {
   return (
     <footer className={styles["page-footer"]}>
-      <span>
-        <BrandIcon size={16} /> Ufer
-      </span>
-      <span>A clearer view of your money.</span>
-      <LegalLinks />
-      <SourceCodeNotice />
+      <p className={styles["footer-brand"]}>
+        <span className={styles["footer-name"]}>
+          <BrandIcon size={16} /> Ufer
+        </span>
+        <span>A clearer view of your money.</span>
+      </p>
+      <div className={styles["footer-legal"]}>
+        <LegalLinks />
+        <SourceCodeNotice />
+      </div>
     </footer>
   );
 }
