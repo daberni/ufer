@@ -10,6 +10,9 @@ import { createContext, useContext, useEffect, useId, useRef, useState, type Key
 import { useAnchoredPopover } from "./use-anchored-popover";
 import { useDismiss } from "./use-dismiss";
 
+// The --mobile custom media in src/styles/media.css; both width and pointer changes switch the layout.
+const phoneLayout = "(width <= 760px), (width <= 900px) and (pointer: coarse)";
+
 type MenuContext = {
   /** Closes the menu and returns focus to its button, so a dialog opened next restores focus there. */
   close: () => void;
@@ -82,6 +85,7 @@ export function ActionMenu({
 
     const view = trigger.ownerDocument.defaultView;
 
+    // Runs after the layout change, so the hidden state is already computed.
     function followLayout() {
       if (!trigger || !view) {
         return;
@@ -102,9 +106,11 @@ export function ActionMenu({
       }
     }
 
-    view?.addEventListener("resize", followLayout);
+    const layout = view?.matchMedia(phoneLayout);
 
-    return () => view?.removeEventListener("resize", followLayout);
+    layout?.addEventListener("change", followLayout);
+
+    return () => layout?.removeEventListener("change", followLayout);
   }, [open]);
 
   useEffect(() => {
