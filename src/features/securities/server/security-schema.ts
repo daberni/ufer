@@ -1,8 +1,9 @@
 import { z } from "zod";
 import { validDate } from "@/lib/time";
+import { currencyExponent } from "@/lib/money";
 import { tradeSides } from "../trade-sides";
 
-const currency = z.string().regex(/^[A-Z]{3}$/);
+const currency = z.string().regex(/^[A-Z]{3}$/).refine(code => currencyExponent(code) !== undefined, "Choose a supported currency.");
 
 export const securityInput = z.object({
   name: z.string().trim().min(1).max(200),

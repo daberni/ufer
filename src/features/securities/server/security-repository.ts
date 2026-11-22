@@ -126,7 +126,7 @@ export async function readSettlementCandidates(currency: string, amount: number,
     currency: transactions.currency,
     counterparty: sql<string>`COALESCE(${transactions.counterparty_override},${transactions.counterparty})`,
     description: sql<string>`COALESCE(${transactions.description_override},${transactions.description})`
-  }).from(transactions).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(and(ne(accounts.provider, "manual"), bookableAccount, isNull(accounts.archived_at), eq(transactions.currency, currency), eq(transactions.amount_minor, amount), isNull(transactions.transfer_id), isNull(transactions.suppressed_at), notSplitBooking(transactions), notTradeLeg, window)).orderBy(asc(transactions.date), asc(transactions.id));
+  }).from(transactions).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(and(ne(accounts.provider, "manual"), bookableAccount, isNull(accounts.archived_at), eq(transactions.currency, currency), eq(transactions.amount_minor, amount), isNull(transactions.transfer_id), isNull(transactions.suppressed_at), sql`${transactions.provider_reference} NOT LIKE ${`${manualEntryPrefix}%`}`, notSplitBooking(transactions), notTradeLeg, window)).orderBy(asc(transactions.date), asc(transactions.id));
 }
 
 /** The trades of one security on an account in replay order. */
@@ -237,7 +237,8 @@ export async function deleteTrade(tx: DatabaseTransaction, trade: NonNullable<Aw
     return;
   }
 
-  if (booking.account_provider === "manual" && booking.provider_reference.startsWith(manualEntryPrefix)) {
+  // Linked bank bookings are never Ufer entries, so the reference identifies an entry the trade booked even after its account was connected to a bank.
+  if (booking.provider_reference.startsWith(manualEntryPrefix)) {
     await tx.delete(transactions).where(eq(transactions.id, booking.id));
 
     return;

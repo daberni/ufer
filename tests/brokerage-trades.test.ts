@@ -12,6 +12,7 @@ import { listAccounts } from "../src/features/accounts/server/account-queries";
 import { saveAccountSync } from "../src/features/banking/server/account-sync-service";
 import { readCashFlow } from "../src/features/reports/server/cash-flow-query";
 import { enterManualTransaction, hideTransaction, removeManualTransaction, updateTransactionDetails } from "../src/features/transactions/server/transaction-service";
+import { tradeCashAmount } from "../src/features/securities/trade-decisions";
 import { createBrokerageAccount, createSecurity, readBrokerageTrades, recordTrade, removeTrade, settlementCandidates } from "../src/features/securities/server/security-service";
 import { monthPeriod } from "../src/lib/period";
 import { HttpError, ValidationError } from "../src/lib/errors";
@@ -507,4 +508,55 @@ test("an account holding a trade's cash side is not deleted, and an archived set
   await rejectsWith(removeTrade(id), 409);
   assert.equal((await db.select().from(schema.securityTrades)).length, 1);
   assert.equal((await bookingsOf(db, cash)).length, 2);
+});
+
+test("a trade entry stays the trade's own after its account is connected to a bank and is deleted with the trade", async context => {
+  const db = await isolatedDatabase(context);
+  const cash = await settlementAccount();
+  const account = await depot();
+  const etf = await security();
+  const { id } = await trade(account, {
+    security_id: etf,
+    date: "2026-09-10",
+    side: "buy",
+    quantity: "1",
+    price: "10",
+    settlement: {
+      account_id: cash
+    }
+  });
+
+  await db.update(schema.accounts).set({
+    provider: "enable_banking"
+  }).where(eq(schema.accounts.id, cash));
+
+  // The connected account's own opening balance is no bank cash and cannot become a trade's cash side.
+  const [opening] = await db.select().from(schema.transactions).where(eq(schema.transactions.type, "opening_balance"));
+
+  assert.deepEqual(await settlementCandidates(account, new URLSearchParams({
+    date: "2026-09-01",
+    amount_minor: String(opening.amount_minor)
+  })), []);
+
+  await removeTrade(id);
+  assert.deepEqual(await bookingsOf(db, cash), [["2026-09-01", "opening_balance", 5000_00]]);
+});
+
+test("cash amounts beyond the exact integer range and unsupported currencies are refused", async context => {
+  await isolatedDatabase(context);
+
+  assert.throws(() => tradeCashAmount({
+    side: "buy",
+    gross_minor: 2,
+    fee_minor: 0,
+    tax_minor: Number.MAX_SAFE_INTEGER
+  }), ValidationError);
+  await assert.rejects(createSecurity({
+    name: "Synthetic unknown",
+    currency: "ZZZ"
+  }));
+  await assert.rejects(createBrokerageAccount({
+    name: "Synthetic unknown",
+    currency: "ZZZ"
+  }));
 });

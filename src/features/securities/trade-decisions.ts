@@ -1,4 +1,5 @@
 import { ValidationError } from "@/lib/errors";
+import { manualEntryPrefix } from "@/lib/booking-references";
 import type { TradeSide } from "./trade-sides";
 
 /** Days a bank booking may lie before or after its trade date to be its cash side, as for linking transfers. */
@@ -13,7 +14,14 @@ export type TradeAmounts = {
 
 /** The signed cash movement on the settlement account: a buy pays its gross amount, fees and taxes; a sale receives its gross amount less fees and taxes. */
 export function tradeCashAmount(trade: TradeAmounts) {
-  const amount = trade.side === "buy" ? -(trade.gross_minor + trade.fee_minor + trade.tax_minor) : trade.gross_minor - trade.fee_minor - trade.tax_minor;
+  const gross = BigInt(trade.gross_minor);
+  const costs = BigInt(trade.fee_minor) + BigInt(trade.tax_minor);
+  const exact = trade.side === "buy" ? -(gross + costs) : gross - costs;
+  const amount = Number(exact);
+
+  if (!Number.isSafeInteger(amount)) {
+    throw new ValidationError("The trade's cash amount is too large.");
+  }
 
   if (amount === 0) {
     throw new ValidationError("A trade must move cash on the settlement account.");
@@ -23,6 +31,7 @@ export function tradeCashAmount(trade: TradeAmounts) {
 }
 
 export type SettlementBooking = {
+  provider_reference: string;
   account_provider: string;
   account_kind: string;
   account_archived_at: string | null;
@@ -43,7 +52,8 @@ export function settlementRefusal(booking: SettlementBooking, expected: {
   currency: string;
   daysApart: number;
 }): SettlementRefusal | null {
-  if (booking.account_provider === "manual" || booking.account_kind === "brokerage") {
+  // Opening balances and adjustments entered on a bank-linked account are Ufer's own bookings, not bank cash.
+  if (booking.account_provider === "manual" || booking.account_kind === "brokerage" || booking.provider_reference.startsWith(manualEntryPrefix)) {
     return "not_bank_booking";
   }
 
