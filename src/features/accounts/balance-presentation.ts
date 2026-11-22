@@ -28,6 +28,11 @@ const bankBalanceLabels: Record<string, string> = {
   XPCD: "Expected"
 };
 
+/** The bank's classification of a reported balance, such as "Closing booked". */
+export function describeBankBalanceType(type: string | null) {
+  return type ? bankBalanceLabels[type] ?? type : "Reported";
+}
+
 export function describeBalanceSource(balance: BalancePoint) {
   if (balance.source !== "sync") {
     return balanceSourceLabels[balance.source];
