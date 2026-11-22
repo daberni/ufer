@@ -162,7 +162,7 @@ export function ActionMenu({
 function menuItems(menu: HTMLElement | null) {
   const items = Array.from(menu?.querySelectorAll<HTMLElement>("[role='menuitem']:not(:disabled)") ?? []);
 
-  return items.filter(item => getComputedStyle(item).display !== "none");
+  return items.filter(item => item.ownerDocument.defaultView?.getComputedStyle(item).display !== "none");
 }
 
 /** A menu entry that runs an action after the menu has closed. */
