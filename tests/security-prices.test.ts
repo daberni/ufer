@@ -682,3 +682,98 @@ test("an update that lost its lease to another run stops before the next securit
   assert.equal((await updatePrices(now, takeover.provider)).status, "interrupted");
   assert.deepEqual(takeover.requests.map(request => request.symbol), ["SYN.XETRA"]);
 });
+
+test("the longest-unchecked securities are updated first, so one skipped over quota leads the next run", async context => {
+  const db = await isolatedDatabase(context);
+
+  await db.update(schema.securities).set({
+    price_checked_at: "2026-10-13T06:00:00.000Z"
+  }).where(eq(schema.securities.id, "etf"));
+  await db.update(schema.securities).set({
+    price_checked_at: "2026-10-01T06:00:00.000Z"
+  }).where(eq(schema.securities.id, "fund"));
+
+  const {
+    provider,
+    requests
+  } = fakeProvider({});
+
+  await updatePrices(now, provider);
+  assert.deepEqual(requests.filter(request => request.kind === "closes").map(request => request.symbol), ["SYNF.EUFUND", "SYN.XETRA"]);
+});
+
+test("a reported split that would make a recorded sale exceed the holding is not stored and stays visible", async context => {
+  const db = await isolatedDatabase(context);
+
+  await db.insert(schema.accounts).values({
+    id: "depot",
+    name: "Synthetic depot",
+    kind: "brokerage"
+  });
+  await db.insert(schema.securityTrades).values([{
+    id: "buy",
+    account_id: "depot",
+    security_id: "etf",
+    date: "2026-06-01",
+    side: "buy",
+    sequence: 1,
+    quantity_micros: 10_000_000,
+    price_micros: 50_000_000,
+    gross_minor: 500_00
+  }, {
+    id: "sell",
+    account_id: "depot",
+    security_id: "etf",
+    date: "2026-09-15",
+    side: "sell",
+    sequence: 2,
+    quantity_micros: 8_000_000,
+    price_micros: 50_000_000,
+    gross_minor: 400_00
+  }]);
+
+  // A 1:2 reverse split before the sale would leave 5 units, fewer than the 8 sold.
+  await updatePrices(etfSplitDay, fakeProvider({}, {
+    "SYN.XETRA": ["2026-09-01 1.000000/2.000000"]
+  }).provider);
+  assert.equal((await db.select().from(schema.securitySplits)).length, 0);
+  assert.match((await securityRow(db, "etf"))?.price_error ?? "", /^Splits: the provider reports a split that conflicts/);
+});
+
+test("a trade before a security's earliest trade makes the next update check its splits again", async context => {
+  const db = await isolatedDatabase(context);
+
+  await db.insert(schema.accounts).values([{
+    id: "depot",
+    name: "Synthetic depot",
+    kind: "brokerage"
+  }, {
+    id: "cash",
+    name: "Synthetic cash",
+    kind: "checking"
+  }]);
+  await db.update(schema.securities).set({
+    price_checked_at: "2026-10-13T06:00:00.000Z"
+  }).where(eq(schema.securities.id, "etf"));
+
+  const buy = (date: string) => recordTrade("depot", {
+    security_id: "etf",
+    date,
+    side: "buy",
+    quantity: "1",
+    price: "10",
+    settlement: {
+      account_id: "cash"
+    }
+  }, now);
+
+  await buy("2026-10-01");
+  assert.equal((await securityRow(db, "etf"))?.price_checked_at, null);
+
+  await db.update(schema.securities).set({
+    price_checked_at: "2026-10-13T06:00:00.000Z"
+  }).where(eq(schema.securities.id, "etf"));
+  // A later trade adds nothing before the checked history.
+  await buy("2026-10-05");
+  assert.equal((await securityRow(db, "etf"))?.price_checked_at, "2026-10-13T06:00:00.000Z");
+});

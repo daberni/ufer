@@ -1,6 +1,7 @@
 import { asc, eq, isNotNull, sql } from "drizzle-orm";
 import { database } from "@/server/database/connection";
-import { securities, securityPrices, securitySplits } from "@/server/database/schema";
+import { securities, securityPrices, securitySplits, securityTrades } from "@/server/database/schema";
+import type { PositionTrade } from "../holdings";
 
 /** Securities with a provider symbol, their newest stored price date and their first trade date. */
 export async function listPricedSecurities() {
@@ -15,7 +16,8 @@ export async function listPricedSecurities() {
     // Drizzle leaves columns in a single-table select unqualified, so these correlated subqueries name their tables explicitly.
     newest_price: sql<string | null>`(SELECT MAX(p.date) FROM security_prices p WHERE p.security_id=securities.id)`,
     first_trade: sql<string | null>`(SELECT MIN(t.date) FROM security_trades t WHERE t.security_id=securities.id)`
-  }).from(securities).where(isNotNull(securities.provider_symbol)).orderBy(asc(securities.id));
+  // The longest-unchecked securities go first, so one skipped over the provider's daily quota leads the next run.
+  }).from(securities).where(isNotNull(securities.provider_symbol)).orderBy(sql`${securities.price_checked_at} IS NOT NULL`, asc(securities.price_checked_at), asc(securities.id));
 }
 
 /** Stores daily closes, replacing a close the provider corrected; one transaction per security. */
@@ -45,26 +47,56 @@ export async function savePrices(securityId: string, closes: {
   });
 }
 
-export async function saveSplits(securityId: string, splits: {
+export type SplitRow = {
   date: string;
   numerator: number;
   denominator: number;
-}[]) {
+};
+
+/**
+ * Stores reported splits unless `consistent` rejects the resulting split history for the security's trades, grouped by account; the check reads trades and splits in the same transaction. Returns whether the splits were stored.
+ */
+export async function saveSplitsIfConsistent(securityId: string, splits: SplitRow[], consistent: (trades: PositionTrade[][], splits: SplitRow[]) => boolean) {
   if (!splits.length) {
-    return;
+    return true;
   }
 
   const db = await database();
 
-  await db.insert(securitySplits).values(splits.map(split => ({
-    security_id: securityId,
-    ...split
-  }))).onConflictDoUpdate({
-    target: [securitySplits.security_id, securitySplits.date],
-    set: {
-      numerator: sql`excluded.numerator`,
-      denominator: sql`excluded.denominator`
+  return db.transaction(async tx => {
+    const stored = await tx.select({
+      date: securitySplits.date,
+      numerator: securitySplits.numerator,
+      denominator: securitySplits.denominator
+    }).from(securitySplits).where(eq(securitySplits.security_id, securityId));
+    const merged = [...stored.filter(split => !splits.some(reported => reported.date === split.date)), ...splits];
+    const trades = await tx.select({
+      account_id: securityTrades.account_id,
+      date: securityTrades.date,
+      side: securityTrades.side,
+      sequence: securityTrades.sequence,
+      quantity_micros: securityTrades.quantity_micros,
+      gross_minor: securityTrades.gross_minor,
+      fee_minor: securityTrades.fee_minor
+    }).from(securityTrades).where(eq(securityTrades.security_id, securityId));
+    const byAccount = Object.values(Object.groupBy(trades, trade => trade.account_id)).map(group => group ?? []);
+
+    if (!consistent(byAccount, merged)) {
+      return false;
     }
+
+    await tx.insert(securitySplits).values(splits.map(split => ({
+      security_id: securityId,
+      ...split
+    }))).onConflictDoUpdate({
+      target: [securitySplits.security_id, securitySplits.date],
+      set: {
+        numerator: sql`excluded.numerator`,
+        denominator: sql`excluded.denominator`
+      }
+    });
+
+    return true;
   });
 }
 

@@ -16,7 +16,7 @@ import { valueHoldings } from "../valuation";
 import { readHoldingInputs } from "./valuation-repository";
 import { settlementRefusal, settlementWindowDays, tradeCashAmount, type SettlementRefusal } from "../trade-decisions";
 import { brokerageAccountInput, listingInput, securityInput, settlementCandidatesQuery, tradeInput } from "./security-schema";
-import { deleteTrade, findBrokerageAccount, findSecurity, findSettlementAccount, findSettlementBooking, findTrade, insertBrokerageAccount, insertSecurity, insertSettlementEntry, insertTrade, listSecurities, markSettlementBooking, nextTradeSequence, readAccountTrades, readPositionTrades, readSettlementCandidates, readSplits, readTradedSecurityIds, withSecurityTransaction, findOrInsertSecurity, findSecurityListing, saveSecurityListing } from "./security-repository";
+import { deleteTrade, findBrokerageAccount, findSecurity, findSettlementAccount, findSettlementBooking, findTrade, insertBrokerageAccount, insertSecurity, insertSettlementEntry, insertTrade, listSecurities, markSettlementBooking, nextTradeSequence, readAccountTrades, readPositionTrades, readSettlementCandidates, readSplits, readTradedSecurityIds, isEarliestTrade, markSplitsUnchecked, withSecurityTransaction, findOrInsertSecurity, findSecurityListing, saveSecurityListing } from "./security-repository";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 
 /** Replays every trade so a sale never exceeds what was held at that point, now or after a change. */
@@ -196,6 +196,11 @@ export async function recordTrade(accountId: string, payload: unknown, now = Tem
     };
 
     positionOn([...await readPositionTrades(tx, accountId, security.id), trade], await readSplits(tx, security.id), replayEnd);
+
+    // A trade before the security's earliest one extends the history its splits must cover, so the next price update checks them again.
+    if (await isEarliestTrade(tx, security.id, input.date)) {
+      await markSplitsUnchecked(tx, security.id);
+    }
 
     let settlementId: string;
 
