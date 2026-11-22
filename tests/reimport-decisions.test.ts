@@ -484,7 +484,7 @@ test("an update decided for a row that no longer matches anything is not inserte
   assert.equal((await db.select().from(schema.transactions)).length, 0);
 });
 
-test("a possible duplicate offers at most five candidates, the closest first", async context => {
+test("a possible duplicate offers at most three candidates, the closest first", async context => {
   await isolatedDatabase(context);
   await importRows(firstImport, ["2024-04-17", "2024-04-18", "2024-04-19", "2024-04-21", "2024-04-22", "2024-04-23"].map((date, index) => row(index + 2, date, "-15.00", "Example Cinema")), true);
 
@@ -493,7 +493,7 @@ test("a possible duplicate offers at most five candidates, the closest first", a
   })], false);
 
   assert.equal(check.matches[0].kind, "possible");
-  assert.equal(check.matches[0].candidates.length, 5);
+  assert.equal(check.matches[0].candidates.length, 3);
   assert.ok(["2024-04-19", "2024-04-21"].includes(check.matches[0].candidates[0].date));
 });
 
@@ -533,7 +533,7 @@ test("the review shortens long candidate texts but compares the full text", asyn
   })], false);
   const candidate = check.matches[0].candidates[0];
 
-  assert.equal(candidate.payee.length, 120);
+  assert.equal(candidate.payee.length, 80);
   assert.deepEqual(candidate.changes, ["description"]);
   assert.equal(check.matches[0].description, "Evening");
 });
@@ -636,4 +636,27 @@ test("a skipped row whose reviewed booking disappeared reserves no other booking
 
   assert.deepEqual([result.newRows, result.updatedRows], [0, 1]);
   assert.deepEqual(stored.map(item => [item.date, item.description]), [["2024-04-22", "Second"]]);
+});
+
+test("rows the review showed as new stay new when a matched row is created instead", async context => {
+  const db = await isolatedDatabase(context);
+
+  await importRows(firstImport, [row(2, "2024-06-01", "-9.00", "Example Bakery")], true);
+
+  const rows = [row(2, "2024-06-01", "-9.00", "Example Bakery", {
+    description: "First visit"
+  }), row(3, "2024-06-01", "-9.00", "Example Bakery", {
+    description: "Second visit"
+  })];
+  const result = await importRows(reimport, rows, true, [{
+    line: 2,
+    action: "create"
+  }, {
+    line: 3,
+    action: "create"
+  }]);
+  const stored = await db.select().from(schema.transactions);
+
+  assert.deepEqual([result.newRows, result.updatedRows], [2, 0]);
+  assert.deepEqual(stored.map(item => item.description).toSorted(), ["", "First visit", "Second visit"]);
 });

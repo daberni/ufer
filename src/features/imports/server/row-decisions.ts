@@ -132,7 +132,7 @@ export function planRows(entries: MappedEntry[], found: Found, decisions: Readon
 }
 
 /** Characters of a candidate's payee or description the review shows; changes are computed on the full text, and the cap bounds the check's response when many rows share long candidates. */
-export const shownTextLength = 120;
+export const shownTextLength = 80;
 
 function shortened(text: string) {
   return text.length > shownTextLength ? `${text.slice(0, shownTextLength - 1)}…` : text;

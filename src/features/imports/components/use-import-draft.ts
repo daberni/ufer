@@ -367,13 +367,19 @@ export function useImportDraft() {
       }];
     }) : [];
 
+    // Once a match is created as new, its booking is free for other rows; rows the check showed as new stay new instead of updating it.
+    const creates = applied.some(decision => decision.action === "create") && summary ? newLines(prepared.rows, summary).map(line => ({
+      line,
+      action: "create" as const
+    })) : [];
+
     mutation.mutate({
       importId,
       rows: prepared.rows,
       rowErrors: mapped.errors,
       targets: prepared.targets,
       categories: prepared.categories,
-      decisions: applied,
+      decisions: [...applied, ...creates],
       confirm,
       onConfirmStart: () => setConfigurationLocked(true)
     }, {
@@ -550,4 +556,13 @@ function withTypeChoices(base: TypeValues, choices: Map<string, ImportType | nul
   }
 
   return values;
+}
+
+/** Lines the check found new: neither matched nor failed. */
+function newLines(rows: {
+  line: number
+}[], summary: MappedImportSummary) {
+  const reviewed = new Set([...summary.matches.map(match => match.line), ...summary.errors.map(error => error.line)]);
+
+  return rows.map(row => row.line).filter(line => !reviewed.has(line));
 }

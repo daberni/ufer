@@ -93,7 +93,7 @@ export function findDuplicates<T extends ExistingBooking>(candidates: ImportCand
 }
 
 /** Most candidates a possible duplicate offers, which bounds the check's response for files with many equal amounts. */
-export const maxCandidates = 5;
+export const maxCandidates = 3;
 
 /** The bookings a possible duplicate may record: same amount within the window, matching text and closer dates first. */
 function possibleCandidates<T extends ExistingBooking>(candidate: PreparedBooking<Booking>, prepared: PreparedBookings<T>, available: (index: number) => boolean) {
