@@ -75,42 +75,30 @@ export function ActionMenu({
     popupRef
   });
 
-  // Crossing the phone breakpoint, for example on rotation, can hide the trigger of a phone-only menu or the focused phone-only entry.
+  // Crossing the phone breakpoint changes which entries and triggers exist and where the trigger sits, so an open menu closes instead of keeping a stale position or focus.
   useEffect(() => {
     const trigger = triggerRef.current;
+    const layout = trigger?.ownerDocument.defaultView?.matchMedia(phoneLayout);
 
-    if (!open || !trigger) {
+    if (!open || !trigger || !layout) {
       return;
     }
 
-    const view = trigger.ownerDocument.defaultView;
+    function closeOnLayoutChange() {
+      // A focused entry that just became hidden has already handed focus to the body.
+      const focused = trigger?.ownerDocument.activeElement ?? null;
+      const focusInside = focused === trigger?.ownerDocument.body || (popupRef.current?.contains(focused) ?? false);
 
-    // Runs after the layout change, so the hidden state is already computed.
-    function followLayout() {
-      if (!trigger || !view) {
-        return;
-      }
+      setOpen(false);
 
-      if (view.getComputedStyle(trigger).display === "none") {
-        setOpen(false);
-
-        return;
-      }
-
-      // Browsers move focus from an entry that becomes hidden to the document body.
-      const focused = trigger.ownerDocument.activeElement;
-      const lostFocus = !focused || focused === trigger.ownerDocument.body || (popupRef.current?.contains(focused) && view.getComputedStyle(focused).display === "none");
-
-      if (lostFocus) {
-        menuItems(popupRef.current)[0]?.focus();
+      if (focusInside) {
+        trigger?.focus();
       }
     }
 
-    const layout = view?.matchMedia(phoneLayout);
+    layout.addEventListener("change", closeOnLayoutChange);
 
-    layout?.addEventListener("change", followLayout);
-
-    return () => layout?.removeEventListener("change", followLayout);
+    return () => layout.removeEventListener("change", closeOnLayoutChange);
   }, [open]);
 
   useEffect(() => {
