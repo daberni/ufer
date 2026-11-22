@@ -83,6 +83,8 @@ export function readOfx(text: string, locale: string): StatementFile {
       const payee = leaf(transaction, "NAME") || leaf(find(transaction.children, "PAYEE"), "NAME");
 
       rows.add({
+        // A correction replaces or deletes an earlier transaction by its FITID, which the import cannot apply to a booking, so it is never imported as a new one.
+        problem: leaf(transaction, "CORRECTFITID") || leaf(transaction, "CORRECTACTION") ? "OFX correction records are not supported; correct the booking in Ufer instead." : undefined,
         currencyRequired: true,
         line: transaction.line,
         // The date the person made the transaction, as bank syncs count bookings, else the posting date.

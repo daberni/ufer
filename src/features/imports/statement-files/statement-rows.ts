@@ -35,6 +35,8 @@ export type StatementEntry = {
   source: string;
   id: string | null;
   type?: MappedRow["type"];
+  /** Why the entry cannot be imported, decided by the format's reader. */
+  problem?: string;
   /** Bank statements always state a currency; without one the amount's currency is unknown, so the entry is a row error rather than taking the account's. */
   currencyRequired?: boolean;
   parts?: SplitPartRow[] | null;
@@ -103,6 +105,12 @@ export class StatementRows {
 
     if (entry.amount === null) {
       failure(`The amount is missing or not a number with at most ${formatCount(15, this.locale)} digits and ${formatCount(6, this.locale)} decimal places.`);
+
+      return;
+    }
+
+    if (entry.problem) {
+      failure(entry.problem);
 
       return;
     }
