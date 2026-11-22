@@ -1,10 +1,10 @@
 import { HttpError } from "@/lib/errors";
-import { database, type DatabaseTransaction } from "@/server/database/connection";
+import type { DatabaseTransaction } from "@/server/database/connection";
 import { prepareRules, type Rule } from "@/features/categorization/server/rule-assignment";
 import { decideAdoptedTypes, decideRuleCategoryChanges, decideRuleTypeChanges, decidedBy, decidedByStoredRule, type SelectRuleAssignments } from "@/features/categorization/server/rule-decisions";
 import { RuleLimitReached, appendedPriority, readRules, removeRule, storeRule, storeRuleDetails, storeRuleEnabled, storeRuleOrder, type NewRule, type RuleDetails } from "@/features/categorization/server/rule-repository";
 import { inactiveTargetError, parseRuleCreation, parseRuleEnabled, parseRuleOrder, parseRulePreview, parseRuleUpdate, ruleLimitError } from "@/features/categorization/server/categorization-service";
-import { adoptManualAssignments, adoptSourceTransaction, categorizeByRule, clearRuleReferences, findManualAssignments, findPreviewedTransactions, findRuleTypeableTransactions, findUncorrectedTransactions, readManualCandidates, readSourceCandidates, readTypeableBookings, readUncategorizedCandidates, storeRuleAssignments, storeRuleTypes, type PreviewedTransaction } from "./rule-booking-repository";
+import { adoptManualAssignments, adoptSourceTransaction, categorizeByRule, clearRuleReferences, findManualAssignments, findPreviewedTransactions, findRuleTypeableTransactions, findUncorrectedTransactions, readManualCandidates, readSourceCandidates, readTypeableBookings, readUncategorizedCandidates, storeRuleAssignments, storeRuleTypes, withRuleReader, withRuleTransaction, type PreviewedTransaction } from "./rule-booking-repository";
 
 /** Manual assignments a rule takes over: the selector picks those the rule decides; the excluded transaction is handled separately. */
 export type ManualAdoption = {
@@ -84,9 +84,7 @@ async function assignNewRule(tx: DatabaseTransaction, rule: NewRule, assignments
 
 /** Stores the rule and its optional assignments in one write transaction; resolves to the number of categorized uncategorized bookings. */
 export async function insertRule(rule: NewRule, assignments: RuleCreationAssignments = {}) {
-  const db = await database();
-
-  return db.transaction(async tx => {
+  return withRuleTransaction(async tx => {
     await storeRule(tx, rule);
 
     return assignNewRule(tx, rule, assignments);
@@ -95,9 +93,7 @@ export async function insertRule(rule: NewRule, assignments: RuleCreationAssignm
 
 /** Stores a rule after every stored rule, with its optional assignments, in one write transaction. */
 export async function appendRule(rule: Omit<NewRule, "priority">, assignments: RuleCreationAssignments = {}) {
-  const db = await database();
-
-  return db.transaction(async tx => {
+  return withRuleTransaction(async tx => {
     const placed = {
       ...rule,
       priority: await appendedPriority(tx)
@@ -111,9 +107,7 @@ export async function appendRule(rule: Omit<NewRule, "priority">, assignments: R
 
 /** Updates the rule's details; chosen manual assignments the updated rule decides are returned to it in the same write transaction. */
 export async function updateRule(id: string, details: RuleDetails, manual?: ManualAdoption) {
-  const db = await database();
-
-  return db.transaction(async tx => {
+  return withRuleTransaction(async tx => {
     const result = await storeRuleDetails(tx, id, details);
 
     if (result === "saved" && manual) {
@@ -196,9 +190,8 @@ export async function updateRuleDetails(id: string, payload: unknown) {
 
 export async function updateRuleEnabled(id: string, payload: unknown) {
   const enabled = parseRuleEnabled(payload);
-  const db = await database();
 
-  if (!(await db.transaction(tx => storeRuleEnabled(tx, id, enabled)))) {
+  if (!(await withRuleTransaction(tx => storeRuleEnabled(tx, id, enabled)))) {
     throw new HttpError(404, "Rule not found.");
   }
 
@@ -209,8 +202,7 @@ export async function updateRuleEnabled(id: string, payload: unknown) {
 
 /** Deleting a rule keeps the categories and types it already assigned, without a reference to the deleted rule; only future applications of the rules change. */
 export async function deleteRule(id: string) {
-  const db = await database();
-  const deleted = await db.transaction(async tx => {
+  const deleted = await withRuleTransaction(async tx => {
     const removed = await removeRule(tx, id);
 
     await clearRuleReferences(tx, id);
@@ -233,9 +225,8 @@ export async function reorderRules(payload: unknown) {
     ids,
     priorities
   } = parseRuleOrder(payload);
-  const db = await database();
 
-  if (!(await db.transaction(tx => storeRuleOrder(tx, ids, priorities)))) {
+  if (!(await withRuleTransaction(tx => storeRuleOrder(tx, ids, priorities)))) {
     throw new HttpError(409, "The rules have changed. Reload them and try again.");
   }
 
@@ -280,10 +271,9 @@ export async function previewRule(payload: unknown) {
     categoryId,
     sourceTransactionId
   } = await parseRulePreview(payload);
-  const db = await database();
   const enabled = draft.enabled;
-  const decided = enabled ? decidedBy(draft, storedRules, await findUncorrectedTransactions(db)) : [];
-  const manualAssignments = enabled ? (await findManualAssignments(db)).filter(entry => entry.id !== sourceTransactionId) : [];
+  const decided = enabled ? decidedBy(draft, storedRules, await withRuleReader(findUncorrectedTransactions)) : [];
+  const manualAssignments = enabled ? (await withRuleReader(findManualAssignments)).filter(entry => entry.id !== sourceTransactionId) : [];
   const decidedManual = decidedBy(draft, storedRules, manualAssignments);
   const listed = [...decided, ...decidedManual].sort(byNewest).slice(0, previewListLimit);
   const transactions = await findPreviewedTransactions(listed.map(entry => entry.id));
@@ -305,9 +295,7 @@ export async function previewRule(payload: unknown) {
  * not reported as an update.
  */
 export async function applyRulesToUncorrectedTransactions() {
-  const db = await database();
-
-  return db.transaction(async tx => {
+  return withRuleTransaction(async tx => {
     const rules = prepareRules(await readRules(tx));
     const categoryChanges = decideRuleCategoryChanges(await findUncorrectedTransactions(tx), rules);
 

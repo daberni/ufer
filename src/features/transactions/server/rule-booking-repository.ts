@@ -9,6 +9,9 @@ import { ruleTypeable } from "./rule-typeability";
 // Bounds the bound parameters of each update for both local SQLite and remote libSQL deployments.
 const assignmentChunkSize = 500;
 
+/** Reads with the application connection, or inside a write transaction. */
+type Reader = Pick<DatabaseTransaction, "select">;
+
 const ruleText = {
   id: transactions.id,
   counterparty: transactions.counterparty,
@@ -25,6 +28,18 @@ function chunks(ids: string[]) {
   }
 
   return result;
+}
+
+/** Runs a rule use case in one write transaction; rule and booking writes take the provided transaction. */
+export async function withRuleTransaction<Result>(work: (tx: DatabaseTransaction) => Promise<Result>) {
+  const db = await database();
+
+  return db.transaction(work);
+}
+
+/** Runs reads with the application connection outside a write transaction. */
+export async function withRuleReader<Result>(work: (reader: Reader) => Promise<Result>) {
+  return work(await database());
 }
 
 // Archiving freezes bookkeeping but not categorization, so rules categorize bookings on archived accounts without changing their type.
@@ -146,9 +161,6 @@ export async function clearRuleReferences(tx: DatabaseTransaction, ruleId: strin
     type_rule_id: null
   }).where(eq(transactions.type_rule_id, ruleId));
 }
-
-/** Reads with the application connection, or inside a write transaction. */
-type Reader = Pick<DatabaseTransaction, "select">;
 
 /** Manually categorized transactions with the text rules match. */
 export async function findManualAssignments(reader: Reader) {
