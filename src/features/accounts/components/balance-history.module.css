@@ -33,11 +33,31 @@
   font-weight: 600;
   color: var(--muted);
 }
-.table td:nth-child(2) {
-  color: var(--muted);
-}
 .table .amount {
   text-align: right;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+.detail {
+  display: block;
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+.table .mismatch {
+  color: var(--gold-text);
+  font-weight: 600;
+}
+.started th,
+.started td {
+  background: var(--gold-soft);
+}
+.started .detail {
+  color: var(--gold-text);
+  font-weight: 600;
+}
+/* Phones keep the reported balance and its difference; the calculated balance is their difference. */
+@media (--mobile) {
+  .calculated {
+    display: none;
+  }
 }

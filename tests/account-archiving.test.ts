@@ -1114,7 +1114,8 @@ async function renderDetails(context: TestContext, account: Account) {
     history: {
       data: {
         currency: "EUR",
-        balances: []
+        balances: [],
+        reported: []
       },
       status: "ready"
     }

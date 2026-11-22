@@ -27,18 +27,26 @@
 .sandbox-note .status-dot {
   background: var(--status-warning);
 }
+/* Two rows at every width: brand with claim, then legal links; each row wraps only when it does not fit. */
 .page-footer {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
+  flex-direction: column;
+  gap: var(--space-2);
   padding: var(--space-6) 0;
   margin-top: var(--space-4);
   font-size: var(--text-sm);
   color: var(--muted);
 }
-.page-footer > span:first-child {
+.footer-brand,
+.footer-legal {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-4);
+  margin: 0;
+}
+.footer-name {
+  display: inline-flex;
   align-items: center;
   gap: var(--space-1);
 }
@@ -74,12 +82,6 @@
     margin-top: var(--space-2);
   }
   /* One left-aligned column; the content padding already keeps it clear of the bottom navigation. */
-  .page-footer {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: var(--space-2);
-    line-height: 1.7;
-  }
 }
 /* The "…" menu sits before the primary action, which stretches on phones while the menu keeps its size. */
 .account-actions {

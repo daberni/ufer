@@ -19,7 +19,7 @@ import { useState } from "react";
 import { BankConnectionDialog } from "./bank-connection-form";
 import { RemoveConnectionDialog } from "./remove-connection-form";
 import { useSyncRunHref } from "@/client/use-app-url";
-import { recentSyncRuns, syncRunProblems, syncRunTone, type SyncRunTone } from "@/features/banking/sync-run-presentation";
+import { recentSyncRuns, syncRunProblems, syncRunTone, syncStatusLabel, type SyncRunTone } from "@/features/banking/sync-run-presentation";
 import { AreaPlaceholder } from "@/components/ui/area-placeholder";
 import type { Area } from "@/components/ui/use-area-result";
 import { useLocale } from "@/client/locale-provider";
@@ -193,7 +193,11 @@ function ConnectionRows({
             SUPERSEDED: "Superseded"
           } as Record<string, string>)[connection.status] || connection.status}</span>
           <div className={styles["connection-actions"]}>
-            <button className={clsx(ui["button"], ui["small"])} onClick={() => openBank(connection)}>
+            <button
+              className={clsx(ui["button"], ui["small"])}
+              onClick={() => openBank(connection)}
+              aria-label={`Reconnect ${connection.bank_name}`}
+            >
               Reconnect
             </button>
             <button
@@ -257,26 +261,11 @@ function SyncRowsSkeleton() {
   );
 }
 
-const syncStatusIndicators: Record<SyncRunTone, {
-  label: string;
-  Icon: typeof CircleCheck
-}> = {
-  success: {
-    label: "Successful",
-    Icon: CircleCheck
-  },
-  partial: {
-    label: "Partial",
-    Icon: CircleAlert
-  },
-  failed: {
-    label: "Failed",
-    Icon: CircleX
-  },
-  running: {
-    label: "Running",
-    Icon: LoaderCircle
-  }
+const syncStatusIcons: Record<SyncRunTone, typeof CircleCheck> = {
+  success: CircleCheck,
+  partial: CircleAlert,
+  failed: CircleX,
+  running: LoaderCircle
 };
 
 /** One run in aligned columns: time, status indicator, result, and its problems beneath the result. */
@@ -288,10 +277,8 @@ function SyncRunRow({
   run: SyncRun;
 }) {
   const tone = syncRunTone(run.status);
-  const {
-    label,
-    Icon
-  } = syncStatusIndicators[tone];
+  const label = syncStatusLabel(run.status);
+  const Icon = syncStatusIcons[tone];
   const problems = syncRunProblems(run.error);
   const imported = run.linked_count > 0 || run.inserted_count > 0;
   // Problems take the result's place; "No new transactions" only reports a successful run.

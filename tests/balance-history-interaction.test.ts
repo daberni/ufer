@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { test, type TestContext } from "node:test";
 import { fireEvent, render, within } from "@testing-library/react";
 import { createElement } from "react";
-import type { BalancePoint } from "../src/features/accounts/types";
+import type { BalancePoint, ReportedBalance } from "../src/features/accounts/types";
 import { browser } from "./fixtures/browser";
 import { stubCssModules } from "./fixtures/css-modules";
 
@@ -26,7 +26,7 @@ const dailyBalances: BalancePoint[] = [{
   bank_balance_type: null
 }];
 
-async function showHistory(context: TestContext, balances = dailyBalances) {
+async function showHistory(context: TestContext, balances = dailyBalances, reported: ReportedBalance[] = []) {
   browser(context);
   const { BalanceHistoryPanel } = await import("../src/features/accounts/components/balance-history");
 
@@ -35,7 +35,8 @@ async function showHistory(context: TestContext, balances = dailyBalances) {
       status: "ready",
       data: {
         currency: "EUR",
-        balances
+        balances,
+        reported
       }
     }
   }));
@@ -55,22 +56,33 @@ function sizePlot(plot: HTMLElement) {
   });
 }
 
-test("only recorded observations are listed or counted while calculated days remain keyboard-explorable", async context => {
+test("reported balances list their difference and mark where it starts while calculated days remain keyboard-explorable", async context => {
   const balances: BalancePoint[] = Array.from({
     length: 12
   }, (_, index) => ({
     date: `2026-01-${String(index + 1).padStart(2, "0")}`,
     amount_minor: 10000 + index * 100,
-    source: index % 2 ? "transactions" : "sync",
+    source: "transactions",
     bank_balance_type: null
   }));
-  const screen = await showHistory(context, balances);
+  const reported: ReportedBalance[] = Array.from({
+    length: 6
+  }, (_, index) => ({
+    date: `2026-01-${String(index * 2 + 1).padStart(2, "0")}`,
+    amount_minor: 10000 + index * 200 - (index >= 3 ? 500 : 0),
+    bank_balance_type: "CLBD",
+    calculated_minor: 10000 + index * 200,
+    difference_minor: index >= 3 ? -500 : 0,
+    difference_started: index === 3
+  }));
+  const screen = await showHistory(context, balances, reported);
   const table = screen.getByRole("table");
 
   assert.equal(within(table).getAllByRole("row").length, 6);
-  assert.equal(within(table).queryByText("Estimated") === null, true);
+  assert.equal(within(table).getAllByText("Difference starts").length, 1);
+  assert.ok(screen.getByText(/The current difference first appeared on/).textContent?.includes("Jan 7, 2026"));
   fireEvent.click(screen.getByRole("button", {
-    name: "Show all 6 balances"
+    name: "Show all 6 reported balances"
   }));
   assert.equal(within(table).getAllByRole("row").length, 7);
 

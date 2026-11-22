@@ -1,4 +1,4 @@
-import clsx from "clsx";
+import { clsx } from "clsx";
 import styles from "./select.module.css";
 import type { ComponentPropsWithoutRef } from "react";
 

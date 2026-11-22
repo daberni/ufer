@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { settle, type ActionResult } from "@/client/settle";
-import { useSync, type SyncFailure, type SyncOutcome } from "./mutations";
+import { useIsMutating } from "@tanstack/react-query";
+import { syncMutationKey, useSync, type SyncFailure, type SyncOutcome } from "./mutations";
 import { useLocale } from "@/client/locale-provider";
 import { formatCount } from "@/lib/locale";
 
@@ -44,6 +45,11 @@ export function useSyncStatus() {
 
   const running = useRef(false);
 
+  // A sync started before a remount keeps running in the mutation cache; the button shows it as syncing until it settles.
+  const syncInFlight = useIsMutating({
+    mutationKey: syncMutationKey
+  }) > 0;
+
   useEffect(() => {
     if (status.phase !== "synced") {
       return;
@@ -60,7 +66,7 @@ export function useSyncStatus() {
   }, [status.phase]);
 
   async function sync() {
-    if (running.current) {
+    if (running.current || syncInFlight) {
       return;
     }
 
@@ -87,8 +93,11 @@ export function useSyncStatus() {
     }));
   }
 
+  const phase = status.phase === "idle" && syncInFlight ? "syncing" : status.phase;
+
   return {
     ...status,
+    phase,
     sync,
     dismissProblem
   };
