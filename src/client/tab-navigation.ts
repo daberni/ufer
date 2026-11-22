@@ -25,3 +25,14 @@ export function tabRootEntry(entries: readonly TabHistoryEntry[], currentIndex: 
 
   return root;
 }
+
+let traversing = false;
+
+/** Whether a tab-bar navigation is returning to the root entry; its popstate is not the user's Back. */
+export function isTabTraversal() {
+  return traversing;
+}
+
+export function setTabTraversal(active: boolean) {
+  traversing = active;
+}

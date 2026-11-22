@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { isTabTraversal } from "@/client/tab-navigation";
 import { activeAccounts, useAccounts } from "@/features/accounts/queries";
 import { useAreaResult } from "@/components/ui/use-area-result";
 import { useCategories } from "@/features/categorization/queries";
@@ -508,7 +509,8 @@ function useNavigationGuard(active: boolean) {
 
     // Back left the guard entry for the page's own entry; staying restores the guard, leaving goes one step further.
     function historyMoved() {
-      if (guarded()) {
+      // The tab bar's return to the root entry follows a link the person already confirmed leaving for.
+      if (guarded() || isTabTraversal()) {
         return;
       }
 

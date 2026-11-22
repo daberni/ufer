@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, type MouseEvent } from "react";
-import { tabRootEntry } from "./tab-navigation";
+import { setTabTraversal, tabRootEntry } from "./tab-navigation";
 
 // Matches --mobile in src/styles/media.css: the widths where the sidebar is the bottom tab bar.
 const tabBarQuery = "(width <= 760px), (width <= 900px) and (pointer: coarse)";
@@ -39,7 +39,13 @@ async function navigateToTab(href: string, replace: (href: string) => void) {
     const root = tabRootEntry(navigation.entries(), current.index);
 
     if (root) {
-      await traverseTo(navigation, root.key);
+      setTabTraversal(true);
+
+      try {
+        await traverseTo(navigation, root.key);
+      } finally {
+        setTabTraversal(false);
+      }
     }
   }
 
