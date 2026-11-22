@@ -119,7 +119,9 @@ export function readQif(text: string, locale: string): StatementFile {
     // Split memos have no place on a split part, so they join the description.
     const splitMemos = record.fields.filter(([field, text]) => field === "E" && text).map(([, text]) => cleanText(text));
     const memo = [cleanText(value(record, "M")), ...splitMemos].filter(Boolean).join(" · ");
-    const description = splits && !parts ? [memo, splitText(splits, amount)].filter(Boolean).join(" · ") : memo;
+    // A single reconciled split line to a category is just that category.
+    const sole = splits && splits.length === 1 && amount !== null && !splitTransfer && splitsReconcile(splits, amount) ? splits[0].category : null;
+    const description = splits && !parts && sole === null ? [memo, splitText(splits, amount)].filter(Boolean).join(" · ") : memo;
 
     rows.add({
       line: record.line,
@@ -128,7 +130,7 @@ export function readQif(text: string, locale: string): StatementFile {
       currency: null,
       payee: cleanText(value(record, "P")),
       description,
-      category: transfer || splits ? null : category || null,
+      category: sole ?? (transfer || splits ? null : category || null),
       source: record.source,
       id: null,
       // Pairing links a transfer to one booking of its full amount, so only a split moving everything to one account is a transfer.

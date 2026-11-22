@@ -14,7 +14,8 @@ type Element = {
 
 /** Whether the text is an OFX file: an SGML header or an XML processing instruction, followed by the OFX root. */
 export function looksLikeOfx(text: string) {
-  const head = text.slice(0, 4096);
+  // Comments may precede the root element.
+  const head = text.slice(0, 4096).replace(/<!--[\s\S]*?-->/g, "");
 
   return /^\s*OFXHEADER\s*:/.test(head) || /<\?OFX\b/i.test(head) || /^\s*(?:<\?xml[^>]*>\s*)?<OFX>/i.test(head);
 }
