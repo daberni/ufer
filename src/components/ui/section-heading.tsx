@@ -14,7 +14,7 @@ type Props = {
   title: string;
   /** How many items the section shows, following its active filters. */
   count: Area<number>;
-  /** The section's actions; they share the heading's row and wrap below it on phones. */
+  /** The section's actions on the heading's row; on phones several of them belong in a phone-only "…" menu, with their buttons marked phone-hidden. */
   children?: ReactNode;
   /** Controls that scope the section, such as its period; they sit before the actions and take their own row on phones. */
   controls?: ReactNode;

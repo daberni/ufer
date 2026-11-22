@@ -59,3 +59,9 @@
     min-height: 44px;
   }
 }
+/* Phone-only menus and entries stand in for actions shown as buttons on wider screens. */
+@media (--above-mobile) {
+  .phone-only {
+    display: none;
+  }
+}

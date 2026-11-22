@@ -373,6 +373,10 @@ form label.check-option {
     clip-path: inset(50%);
     white-space: nowrap;
   }
+  /* A button whose action a phone-only "…" menu offers instead. */
+  .phone-hidden {
+    display: none;
+  }
   form label.check-option {
     min-height: 44px;
   }

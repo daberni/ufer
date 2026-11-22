@@ -1000,6 +1000,7 @@ test("the sync control and reminders cover only active, connected bank accounts"
     requisition_id: null
   }), false);
   assert.equal(showsSync("accounts", undefined), true);
+  assert.equal(showsSync("rules", undefined), false);
 
   const bank: Account = {
     ...manualAccount,

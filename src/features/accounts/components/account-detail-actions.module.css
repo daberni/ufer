@@ -1,14 +1,6 @@
+/* Phones offer the entry inside the "…" menu, which keeps the heading to one compact row. */
 @media (--mobile) {
-  div.actions {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .actions > button.button {
-    min-width: 0;
-    padding-inline: var(--space-2);
-    white-space: nowrap;
-  }
-  .button > svg {
+  .add {
     display: none;
   }
 }

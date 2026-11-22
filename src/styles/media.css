@@ -2,6 +2,9 @@
 
 /* Phone layout with bottom navigation; touch tablets up to 900px use it as well. */
 @custom-media --mobile (width <= 760px), (width <= 900px) and (pointer: coarse);
+/* Exactly the viewports --mobile excludes; keep both, and phoneLayout in action-menu.tsx, in sync. */
+@custom-media --above-mobile (width > 900px),
+  (width > 760px) and (not (pointer: coarse));
 /* Icon-only sidebar. */
 @custom-media --tablet (width <= 900px);
 /* Narrower sidebar and stacked overview columns. */

@@ -103,19 +103,12 @@
     display: none;
   }
 }
+/* Phones keep the square icon button at the heading's top-right edge, sized as a touch target. */
 @media (--mobile) {
   .sync > .button {
-    width: 100%;
-    min-height: 46px;
-    font-size: var(--text-md);
-    padding: var(--space-3) var(--space-4);
-  }
-  .sync > .button svg {
-    width: 18px;
-    height: 18px;
-  }
-  .text {
-    display: inline;
+    width: 44px;
+    min-width: 44px;
+    min-height: 44px;
   }
   .badge {
     min-width: 24px;

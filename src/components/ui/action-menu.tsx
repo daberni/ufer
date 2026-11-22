@@ -10,6 +10,9 @@ import { createContext, useContext, useEffect, useId, useRef, useState, type Key
 import { useAnchoredPopover } from "./use-anchored-popover";
 import { useDismiss } from "./use-dismiss";
 
+// The --mobile custom media in src/styles/media.css; both width and pointer changes switch the layout.
+const phoneLayout = "(width <= 760px), (width <= 900px) and (pointer: coarse)";
+
 type MenuContext = {
   /** Closes the menu and returns focus to its button, so a dialog opened next restores focus there. */
   close: () => void;
@@ -21,6 +24,8 @@ const MenuContext = createContext<MenuContext>({
 
 type ItemProps = {
   icon?: ReactNode;
+  /** Shows the entry only on phones, where it replaces a button the wider layout shows beside the menu. */
+  phoneOnly?: boolean;
   /** Marks an action that removes data. */
   danger?: boolean;
   disabled?: boolean;
@@ -31,12 +36,15 @@ type ItemProps = {
 export function ActionMenu({
   label,
   appearance = "icon",
+  phoneOnly = false,
   children
 }: {
   /** The button's accessible name, such as "Actions for Synthetic checking". */
   label: string;
   /** "button" matches the height and border of neighbouring buttons, as beside a page heading's primary action. */
   appearance?: "icon" | "button";
+  /** Shows the menu only on phones, where it collects actions the wider layout shows as buttons. */
+  phoneOnly?: boolean;
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -66,6 +74,33 @@ export function ActionMenu({
     anchorRef: triggerRef,
     popupRef
   });
+
+  // Crossing the phone breakpoint changes which entries and triggers exist and where the trigger sits, so an open menu closes instead of keeping a stale position or focus.
+  useEffect(() => {
+    const trigger = triggerRef.current;
+    // Environments without media queries, such as tests, have no layout to follow.
+    const layout = trigger?.ownerDocument.defaultView?.matchMedia?.(phoneLayout);
+
+    if (!open || !trigger || !layout) {
+      return;
+    }
+
+    function closeOnLayoutChange() {
+      // A focused entry that just became hidden has already handed focus to the body.
+      const focused = trigger?.ownerDocument.activeElement ?? null;
+      const focusInside = focused === trigger?.ownerDocument.body || (popupRef.current?.contains(focused) ?? false);
+
+      setOpen(false);
+
+      if (focusInside) {
+        trigger?.focus();
+      }
+    }
+
+    layout.addEventListener("change", closeOnLayoutChange);
+
+    return () => layout.removeEventListener("change", closeOnLayoutChange);
+  }, [open]);
 
   useEffect(() => {
     if (!open) {
@@ -120,7 +155,7 @@ export function ActionMenu({
       <button
         ref={triggerRef}
         type="button"
-        className={clsx(appearance === "button" ? ui["button"] : ui["icon-button"], styles["trigger"], styles[appearance])}
+        className={clsx(appearance === "button" ? ui["button"] : ui["icon-button"], styles["trigger"], styles[appearance], phoneOnly && styles["phone-only"])}
         aria-label={label}
         aria-haspopup="menu"
         aria-expanded={open}
@@ -153,13 +188,17 @@ export function ActionMenu({
   );
 }
 
+// Phone-only entries are hidden on wider screens and cannot take focus there.
 function menuItems(menu: HTMLElement | null) {
-  return Array.from(menu?.querySelectorAll<HTMLElement>("[role='menuitem']:not(:disabled)") ?? []);
+  const items = Array.from(menu?.querySelectorAll<HTMLElement>("[role='menuitem']:not(:disabled)") ?? []);
+
+  return items.filter(item => item.ownerDocument.defaultView?.getComputedStyle(item).display !== "none");
 }
 
 /** A menu entry that runs an action after the menu has closed. */
 export function MenuItem({
   icon,
+  phoneOnly = false,
   danger = false,
   disabled = false,
   onSelect,
@@ -174,7 +213,7 @@ export function MenuItem({
       type="button"
       role="menuitem"
       tabIndex={-1}
-      className={clsx(styles["item"], danger && styles["danger"])}
+      className={clsx(styles["item"], danger && styles["danger"], phoneOnly && styles["phone-only"])}
       disabled={disabled}
       onClick={() => {
         close();
@@ -192,7 +231,7 @@ export function MenuLink({
   icon,
   href,
   children
-}: Omit<ItemProps, "danger" | "disabled"> & {
+}: Omit<ItemProps, "danger" | "disabled" | "phoneOnly"> & {
   href: string;
 }) {
   const { close } = useContext(MenuContext);
