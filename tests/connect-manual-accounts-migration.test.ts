@@ -6,9 +6,9 @@ import { test } from "node:test";
 import { createClient } from "@libsql/client";
 import { migrateDatabase } from "../src/server/database/migrations";
 
-const changeset = "0021_connect_manual_accounts";
+const changeset = "0022_connect_manual_accounts";
 
-test("changeset 0021 makes detached bank accounts manual and keeps linked accounts, bookings and identifiers", async context => {
+test("changeset 0022 makes detached bank accounts manual and keeps linked accounts, bookings and identifiers", async context => {
   const directory = mkdtempSync(join(tmpdir(), "ufer-before-connect-manual-accounts-"));
   const journal = JSON.parse(readFileSync("drizzle/sqlite/meta/_journal.json", "utf8"));
   const previousEntries = journal.entries.slice(0, journal.entries.findIndex((entry: {
