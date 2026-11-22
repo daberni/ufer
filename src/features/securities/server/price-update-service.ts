@@ -18,8 +18,29 @@ const historyDays = 365;
 /** Recently stored closes are fetched again, since the provider may still correct them; the upsert replaces a changed close. */
 const correctionDays = 3;
 
-/** Splits cost a request each, so they are checked once a week to stay within the free plan's 20 requests per day. */
-const splitCheckWeekday = 1;
+/** A failed split check is stored with this prefix, so the next run checks the splits again instead of clearing the error. */
+const splitErrorPrefix = "Splits: ";
+
+/**
+ * Splits cost a request each, so each security checks them once a week, on a weekday derived from its ID: the checks spread over the week and stay within the free plan's 20 requests per day.
+ * A security whose last split check failed checks again on the next run.
+ */
+export function checksSplits(security: {
+  id: string;
+  price_error: string | null
+}, date: Temporal.PlainDate) {
+  if (security.price_error?.startsWith(splitErrorPrefix)) {
+    return true;
+  }
+
+  let hash = 0;
+
+  for (const character of security.id) {
+    hash = (hash * 31 + character.charCodeAt(0)) % 7;
+  }
+
+  return date.dayOfWeek === hash + 1;
+}
 
 export const noPriceSource = "No price source configured.";
 
@@ -103,10 +124,13 @@ export async function updatePrices(now = Temporal.Now.instant(), provider: Marke
             })), provider.name, checkedAt);
           }
 
-          if (date.dayOfWeek === splitCheckWeekday && security.first_trade) {
+          if (checksSplits(security, date) && security.first_trade) {
             const splitsFrom = security.first_trade < historyStart ? historyStart : security.first_trade;
+            const splits = await provider.splits(symbol, splitsFrom, date.toString()).catch((error: unknown) => {
+              throw error instanceof MarketDataError ? new MarketDataError(`${splitErrorPrefix}${error.message}`) : error;
+            });
 
-            await saveSplits(security.id, await provider.splits(symbol, splitsFrom, date.toString()));
+            await saveSplits(security.id, splits);
           }
 
           // The provider's split history reaches back one year, so an older split would be silently missing from the quantity; the security stays flagged.

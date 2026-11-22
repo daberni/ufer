@@ -7,16 +7,16 @@ import { drizzle } from "drizzle-orm/libsql";
 import type { Database } from "../src/server/database/connection";
 import { initializeDatabase } from "../src/server/database/migrations";
 import * as schema from "../src/server/database/schema";
-import { closeMicros, marketDataLease, searchListings, updatePrices } from "../src/features/securities/server/price-update-service";
+import { checksSplits, closeMicros, marketDataLease, searchListings, updatePrices } from "../src/features/securities/server/price-update-service";
 import { readSecurities } from "../src/features/securities/server/security-service";
 import { eodhdProvider, parseSplitRatio } from "../src/features/securities/server/market-data/eodhd-provider";
 import { MarketDataError, type MarketDataProvider, type ProviderClose } from "../src/features/securities/server/market-data/market-data-provider";
 import { acquireLease } from "../src/server/jobs/lease-repository";
 import { HttpError } from "../src/lib/errors";
 
-// A Wednesday; splits are checked on Mondays.
+// A Wednesday; the security "etf" checks its splits on Tuesdays (its weekday from checksSplits).
 const now = Temporal.Instant.from("2026-10-14T06:00:00Z");
-const monday = Temporal.Instant.from("2026-10-19T06:00:00Z");
+const etfSplitDay = Temporal.Instant.from("2026-10-20T06:00:00Z");
 
 async function isolatedDatabase(context: TestContext) {
   const client = createClient({
@@ -195,7 +195,7 @@ test("an update fetches from shortly before the newest price, or from the first 
     failed: 0,
     incomplete: 0
   });
-  assert.deepEqual(requests, [{
+  assert.deepEqual(requests.filter(request => request.kind === "closes"), [{
     kind: "closes",
     symbol: "SYN.XETRA",
     from: "2026-10-09",
@@ -250,7 +250,7 @@ test("a failing security keeps its error visible while the others update", async
   assert.equal((await securityRow(db, "etf"))?.price_error, null);
 });
 
-test("splits are checked weekly from the first trade and stored as whole-number ratios", async context => {
+test("splits are checked weekly, on a weekday of their own, from the first trade and stored as whole-number ratios", async context => {
   const db = await isolatedDatabase(context);
 
   await db.insert(schema.accounts).values({
@@ -281,12 +281,12 @@ test("splits are checked weekly from the first trade and stored as whole-number 
     "SYN.XETRA": ["2026-09-01 2.000000/1.000000", "2026-10-01 1.000000/1.500000"]
   });
 
-  await updatePrices(monday, weekly.provider);
+  await updatePrices(etfSplitDay, weekly.provider);
   assert.deepEqual(weekly.requests.filter(request => request.kind === "splits"), [{
     kind: "splits",
     symbol: "SYN.XETRA",
     from: "2026-06-01",
-    to: "2026-10-19"
+    to: "2026-10-20"
   }]);
   assert.deepEqual((await db.select().from(schema.securitySplits).orderBy(asc(schema.securitySplits.date))).map(split => [split.date, split.numerator, split.denominator]), [["2026-09-01", 2, 1], ["2026-10-01", 2, 3]]);
 });
@@ -394,9 +394,58 @@ test("a security first traded before the provider's one-year split history is ch
   });
 
   const weekly = fakeProvider({});
-  const result = await updatePrices(monday, weekly.provider);
+  const result = await updatePrices(etfSplitDay, weekly.provider);
 
   assert.equal(result.incomplete, 1);
-  assert.deepEqual(weekly.requests.filter(request => request.kind === "splits").map(request => request.from), ["2025-10-19"]);
-  assert.match((await securityRow(db, "etf"))?.price_error ?? "", /Splits before 2025-10-19 cannot be checked/);
+  assert.deepEqual(weekly.requests.filter(request => request.kind === "splits").map(request => request.from), ["2025-10-20"]);
+  assert.match((await securityRow(db, "etf"))?.price_error ?? "", /Splits before 2025-10-20 cannot be checked/);
+});
+
+test("split checks spread over the week, and a failed one is retried on the next run instead of being cleared", async context => {
+  const db = await isolatedDatabase(context);
+  const days = ["2026-10-12", "2026-10-13", "2026-10-14", "2026-10-15", "2026-10-16", "2026-10-17", "2026-10-18"].map(day => Temporal.PlainDate.from(day));
+  const checkDays = (id: string) => days.filter(day => checksSplits({
+    id,
+    price_error: null
+  }, day)).map(day => day.toString());
+
+  assert.equal(checkDays("etf").length, 1);
+  assert.equal(checkDays("fund").length, 1);
+  assert.notDeepEqual(checkDays("etf"), checkDays("fund"));
+
+  await db.insert(schema.accounts).values({
+    id: "depot",
+    name: "Synthetic depot",
+    kind: "brokerage"
+  });
+  await db.insert(schema.securityTrades).values({
+    id: "trade",
+    account_id: "depot",
+    security_id: "etf",
+    date: "2026-06-01",
+    side: "buy",
+    sequence: 1,
+    quantity_micros: 1_000_000,
+    price_micros: 50_000_000,
+    gross_minor: 50_00
+  });
+
+  const failing = fakeProvider({});
+
+  failing.provider.splits = async () => {
+    throw new MarketDataError("The price provider's request limit is reached.");
+  };
+
+  await updatePrices(etfSplitDay, failing.provider);
+  assert.equal((await securityRow(db, "etf"))?.price_error, "Splits: The price provider's request limit is reached.");
+
+  // The next day is not its check day, but the failed check runs again; only its success clears the error.
+  const retry = fakeProvider({}, {
+    "SYN.XETRA": ["2026-09-01 2.000000/1.000000"]
+  });
+
+  await updatePrices(Temporal.Instant.from("2026-10-21T06:00:00Z"), retry.provider);
+  assert.equal(retry.requests.filter(request => request.kind === "splits").length, 1);
+  assert.equal((await securityRow(db, "etf"))?.price_error, null);
+  assert.equal((await db.select().from(schema.securitySplits)).length, 1);
 });
