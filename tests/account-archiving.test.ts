@@ -17,7 +17,8 @@ import { readTransactionPage } from "../src/features/transactions/server/transac
 import { dashboardFilters } from "../src/server/http/dashboard-filters";
 import { ValidationError } from "../src/lib/errors";
 import { listAccounts, readBalanceHistory, readNetWorth } from "../src/features/accounts/server/account-queries";
-import { archiveAccount, restoreAccount, updateManualValuation } from "../src/features/accounts/server/account-service";
+import { restoreAccount } from "../src/features/accounts/server/account-service";
+import { archiveAccount, updateManualValuation } from "../src/features/transactions/server/manual-account-service";
 import { editManualTransaction, enterManualTransaction, hideTransaction, removeManualTransaction, transferOptions, updateTransactionCategory, updateTransactionDetails } from "../src/features/transactions/server/transaction-service";
 import { deleteCategory } from "../src/features/categorization/server/categorization-service";
 import { applyRulesToUncorrectedTransactions, createRule, updateRuleDetails } from "../src/features/transactions/server/rule-application-service";

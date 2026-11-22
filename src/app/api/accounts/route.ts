@@ -1,6 +1,6 @@
 import { respond } from "@/server/http/respond";
 import { readJson } from "@/server/http/request-body";
-import { createManualAccount } from "@/features/accounts/server/account-service";
+import { createManualAccount } from "@/features/transactions/server/manual-account-service";
 import { listAccounts } from "@/features/accounts/server/account-queries";
 
 export const runtime = "nodejs";

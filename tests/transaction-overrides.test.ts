@@ -8,7 +8,7 @@ import { drizzle } from "drizzle-orm/libsql";
 import type { Database } from "../src/server/database/connection";
 import { initializeDatabase } from "../src/server/database/migrations";
 import * as schema from "../src/server/database/schema";
-import { createManualAccount } from "../src/features/accounts/server/account-service";
+import { createManualAccount } from "../src/features/transactions/server/manual-account-service";
 import { listAccounts } from "../src/features/accounts/server/account-queries";
 import { saveAccountSync } from "../src/features/banking/server/account-sync-service";
 import { importMappedRows } from "../src/features/imports/server/mapped-import-service";

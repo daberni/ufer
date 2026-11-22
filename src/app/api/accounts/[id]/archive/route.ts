@@ -1,5 +1,6 @@
 import { respond } from "@/server/http/respond";
-import { archiveAccount, restoreAccount } from "@/features/accounts/server/account-service";
+import { restoreAccount } from "@/features/accounts/server/account-service";
+import { archiveAccount } from "@/features/transactions/server/manual-account-service";
 import { readJson } from "@/server/http/request-body";
 
 export const runtime = "nodejs";
