@@ -4,7 +4,7 @@ import { test, type TestContext } from "node:test";
 import { createClient } from "@libsql/client";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/libsql";
-import type { AuthContext } from "../src/features/auth/server/session";
+import type { AuthContext } from "../src/server/security/session";
 import type { Database } from "../src/server/database/connection";
 import { initializeDatabase } from "../src/server/database/migrations";
 import * as schema from "../src/server/database/schema";

@@ -1,5 +1,5 @@
 import { bankConnectionsHref } from "@/features/banking/connections-location";
-import { requireAuth } from "@/features/auth/server/session";
+import { requireAuth } from "@/server/security/session";
 import { applicationOrigin } from "@/server/http/origin";
 import { callbackResultForError, type CallbackResult } from "@/features/banking/callback-result";
 import { NextResponse } from "next/server";

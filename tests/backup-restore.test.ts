@@ -16,7 +16,7 @@ import * as schema from "../src/server/database/schema";
 import { encrypt } from "../src/server/security/secret-box";
 import { provisionUser } from "../src/features/auth/server/provision-user";
 import { handleAuthentication } from "../src/features/auth/server/auth-handler";
-import { requireAuth } from "../src/features/auth/server/session";
+import { requireAuth } from "../src/server/security/session";
 import { syncAccounts } from "../src/features/banking/server/sync-service";
 import { listAccounts } from "../src/features/accounts/server/account-queries";
 

@@ -1,4 +1,4 @@
-import type { AuthContext } from "@/features/auth/server/session";
+import type { AuthContext } from "@/server/security/session";
 import { HttpError } from "@/lib/errors";
 import { encrypt } from "@/server/security/secret-box";
 import { hash } from "@/server/security/tokens";
