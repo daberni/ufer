@@ -1,4 +1,4 @@
-import { detectDateFormat, detectDecimal, negate, parseAmount, parseDate } from "../csv-values";
+import { detectDateFormat, detectDecimal, type DateFormat, negate, parseAmount, parseDate } from "../csv-values";
 import { tagSplit, withSplitTags } from "../import-rows";
 import { cleanText, StatementFileError, StatementRows, type StatementFile } from "./statement-rows";
 
@@ -99,7 +99,7 @@ export function readQif(text: string, locale: string): StatementFile {
 
   const value = (record: QifRecord, code: string) => record.fields.find(([field]) => field === code)?.[1] ?? "";
   const dates = records.map(record => qifDate(value(record, "D")));
-  const dateFormat = detectDateFormat(dates);
+  const dateFormat = qifDateFormat(dates);
   const amounts = records.flatMap(record => record.fields.filter(([field]) => field === "T" || field === "U" || field === "$").map(([, text]) => text));
   const decimal = detectDecimal(amounts);
   const rows = new StatementRows(locale);
@@ -136,6 +136,18 @@ export function readQif(text: string, locale: string): StatementFile {
     rows: rows.rows,
     errors: rows.errors
   };
+}
+
+/** The detected date format; slash dates that never show which part is the day follow Quicken, which writes the month first. */
+function qifDateFormat(dates: string[]) {
+  const detected = detectDateFormat(dates);
+  const readable = (format: DateFormat) => dates.filter(date => parseDate(date, format) !== null).length;
+
+  if (detected === "DD/MM/YYYY" && readable("MM/DD/YYYY") === readable("DD/MM/YYYY")) {
+    return "MM/DD/YYYY";
+  }
+
+  return detected;
 }
 
 /** Quicken writes `1/31'24` or `1/31/2024`, sometimes with spaces; the apostrophe separates a two-digit year. */

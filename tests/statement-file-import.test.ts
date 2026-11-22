@@ -298,6 +298,11 @@ test("QIF reads US dates with apostrophe years and refuses investment accounts",
   assert.match(readError("!Type:Invst\nD1/31'26\nNBuy\n^\n"), /investment accounts are not supported/);
 });
 
+test("QIF slash dates that never show the day follow Quicken's month-first order; a day above 12 settles it", () => {
+  assert.deepEqual(read("!Type:Bank\nD1/2/2026\nT-1.00\n^\nD3/4/2026\nT-2.00\n^\n").rows.map(row => row.date), ["2026-01-02", "2026-03-04"]);
+  assert.deepEqual(read("!Type:Bank\nD1/2/2026\nT-1.00\n^\nD25/4/2026\nT-2.00\n^\n").rows.map(row => row.date), ["2026-02-01", "2026-04-25"]);
+});
+
 test("CSV and other text are not taken for statements", () => {
   assert.equal(readStatementFile(new TextEncoder().encode("Date,Amount\n2026-01-01,1.00\n"), "en"), null);
   assert.equal(readStatementFile(new TextEncoder().encode("<?xml version=\"1.0\"?><Other/>"), "en"), null);
