@@ -23,7 +23,7 @@ test("partial history uses the known balance rather than assuming the account op
   ], [{
     date: "2024-03-01",
     amount_minor: 10000,
-    source: "sync",
+    source: "transactions",
     bank_balance_type: null
   }], "2024-03-04");
 
@@ -35,7 +35,7 @@ test("partial history uses the known balance rather than assuming the account op
     ["2024-03-03", 9950],
     ["2024-03-04", 9950]
   ]);
-  assert.equal(balances[2].source, "sync");
+  assert.equal(balances[2].source, "transactions");
   assert.equal(balances[1].source, "transactions");
 });
 
@@ -52,7 +52,7 @@ test("a reference before the first booking is carried forward and future booking
   ], [{
     date: "2026-01-01",
     amount_minor: 1000,
-    source: "manual",
+    source: "transactions",
     bank_balance_type: null
   }], "2026-01-04");
 
@@ -70,21 +70,21 @@ test("incomplete imports never overwrite recorded balances and preserve observat
     {
       date: "2026-01-01",
       amount_minor: 1000,
-      source: "sync",
+      source: "transactions",
       bank_balance_type: null
     },
     {
       date: "2026-01-03",
       amount_minor: 2000,
-      source: "sync",
+      source: "transactions",
       bank_balance_type: null
     }
   ], "2026-01-04");
 
   assert.deepEqual(balances.map(balance => [balance.date, balance.amount_minor, balance.source]), [
-    ["2026-01-01", 1000, "sync"],
+    ["2026-01-01", 1000, "transactions"],
     ["2026-01-02", 900, "transactions"],
-    ["2026-01-03", 2000, "sync"],
+    ["2026-01-03", 2000, "transactions"],
     ["2026-01-04", 2000, "transactions"]
   ]);
 });
@@ -107,13 +107,13 @@ test("ancient imported dates keep every change and observation without expanding
     {
       date: "1900-01-01",
       amount_minor: 10000,
-      source: "csv",
+      source: "transactions",
       bank_balance_type: null
     },
     {
       date: "2026-01-01",
       amount_minor: 20000,
-      source: "sync",
+      source: "transactions",
       bank_balance_type: null
     }
   ], "2026-01-04");
@@ -124,13 +124,13 @@ test("ancient imported dates keep every change and observation without expanding
   assert.deepEqual(balances.find(balance => balance.date === "1900-01-01"), {
     date: "1900-01-01",
     amount_minor: 10000,
-    source: "csv",
+    source: "transactions",
     bank_balance_type: null
   });
   assert.deepEqual(balances.find(balance => balance.date === "2026-01-01"), {
     date: "2026-01-01",
     amount_minor: 20000,
-    source: "sync",
+    source: "transactions",
     bank_balance_type: null
   });
   assert.equal(balances.find(balance => balance.date === "2024-02-29")?.amount_minor, 9800);
@@ -147,7 +147,7 @@ test("bank classification belongs only to the recorded observation, not estimate
   const observations = [{
     date: "2026-01-02",
     amount_minor: 1000,
-    source: "sync" as const,
+    source: "transactions" as const,
     bank_balance_type: "CLAV"
   }];
   const balances = dailyBalances([{
@@ -163,7 +163,7 @@ test("bank classification belongs only to the recorded observation, not estimate
   }, {
     date: "2026-01-02",
     amount_minor: 1000,
-    source: "sync",
+    source: "transactions",
     bank_balance_type: "CLAV"
   }, {
     date: "2026-01-03",

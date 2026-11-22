@@ -12,7 +12,7 @@ stubCssModules();
 const dailyBalances: BalancePoint[] = [{
   date: "2026-01-01",
   amount_minor: 10000,
-  source: "sync",
+  source: "transactions",
   bank_balance_type: "CLAV"
 }, {
   date: "2026-01-04",
@@ -22,7 +22,7 @@ const dailyBalances: BalancePoint[] = [{
 }, {
   date: "2026-01-11",
   amount_minor: 9000,
-  source: "csv",
+  source: "transactions",
   bank_balance_type: null
 }];
 
@@ -97,7 +97,7 @@ test("reported balances list their difference and mark where it starts while cal
   fireEvent.keyDown(plot, {
     key: "ArrowRight"
   });
-  assert.match(plot.getAttribute("aria-valuetext") || "", /Jan 2, 2026.*101\.00.*Estimated/);
+  assert.match(plot.getAttribute("aria-valuetext") || "", /Jan 2, 2026.*101\.00.*From bookings/);
   fireEvent.keyDown(plot, {
     key: "End"
   });
@@ -122,12 +122,12 @@ test("hovering a step shows the balance effective there rather than the next obs
     pointerType: "mouse",
     clientX: 219
   });
-  assert.match(plot.getAttribute("aria-valuetext") || "", /Jan 1, 2026.*100\.00.*Bank sync · Closing available/);
+  assert.match(plot.getAttribute("aria-valuetext") || "", /Jan 1, 2026.*100\.00.*From bookings/);
   fireEvent.pointerMove(plot, {
     pointerType: "mouse",
     clientX: 220
   });
-  assert.match(plot.getAttribute("aria-valuetext") || "", /Jan 4, 2026.*120\.00.*Estimated/);
+  assert.match(plot.getAttribute("aria-valuetext") || "", /Jan 4, 2026.*120\.00.*From bookings/);
   fireEvent.pointerMove(plot, {
     pointerType: "mouse",
     clientX: 600
@@ -188,5 +188,5 @@ test("ledger-only history has an interactive chart without an empty recorded-bal
   fireEvent.keyDown(plot, {
     key: "Home"
   });
-  assert.match(plot.getAttribute("aria-valuetext") || "", /Jan 1, 2026.*100\.00.*Estimated/);
+  assert.match(plot.getAttribute("aria-valuetext") || "", /Jan 1, 2026.*100\.00.*From bookings/);
 });

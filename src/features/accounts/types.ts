@@ -45,7 +45,7 @@ export type NetWorth = {
 export type BalancePoint = {
   date: string;
   amount_minor: number;
-  source: "sync" | "manual" | "csv" | "transactions" | "valuation";
+  source: "transactions" | "valuation";
   bank_balance_type: string | null;
 };
 
