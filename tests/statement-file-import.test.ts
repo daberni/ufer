@@ -364,7 +364,7 @@ test("OFX empty SGML leaves keep later fields, foreign amounts round exactly, an
   assert.deepEqual(read("OFXHEADER:100\n\n<OFX><BANKMSGSRSV1><STMTTRNRS><STMTRS><BANKACCTFROM><ACCTID>N</BANKACCTFROM><BANKTRANLIST><STMTTRN><DTPOSTED>20260301<TRNAMT>-1<FITID>1</STMTTRN></BANKTRANLIST></STMTRS></STMTTRNRS></BANKMSGSRSV1></OFX>").errors.map(error => error.message), ["The statement states no currency for this entry."]);
   assert.deepEqual([ofxTransaction("<TRNTYPE>XFER").rows[0].type, ofxTransaction("<TRNTYPE>DEBIT").rows[0].type], ["transfer", null]);
   assert.equal(ofxTransaction("<CURRENCY><CURRATE>2</CURRENCY>").errors.length, 1);
-  const instruction = read("<?xml version=\"1.0\"?><OFX><BANKMSGSRSV1><STMTTRNRS><STMTRS><CURDEF>EUR</CURDEF><BANKACCTFROM><ACCTID>I</ACCTID></BANKACCTFROM><BANKTRANLIST><STMTTRN><DTPOSTED>20260301</DTPOSTED><TRNAMT><?exporter note=\"x\"?>-10.00</TRNAMT><MEMO>Coffee<?exporter?> lunch</MEMO><FITID>1</FITID></STMTTRN></BANKTRANLIST></STMTRS></STMTTRNRS></BANKMSGSRSV1></OFX>");
+  const instruction = read("<?xml version=\"1.0\"?><OFX><BANKMSGSRSV1><STMTTRNRS><STMTRS><CURDEF>EUR</CURDEF><BANKACCTFROM><ACCTID>I</ACCTID></BANKACCTFROM><BANKTRANLIST><STMTTRN><DTPOSTED>20260301</DTPOSTED><TRNAMT><?exporter note=\"x\"?>-10<!-- bank note -->.00</TRNAMT><MEMO>Coffee<?exporter?> lunch</MEMO><FITID>1</FITID></STMTTRN></BANKTRANLIST></STMTRS></STMTTRNRS></BANKMSGSRSV1></OFX>");
 
   assert.deepEqual(instruction.rows.map(row => [row.amount, row.description]), [["-10.00", "Coffee lunch"]]);
   assert.deepEqual(ofxTransaction("<CORRECTFITID>0<CORRECTACTION>REPLACE").errors.map(error => error.message), ["OFX correction records are not supported; correct the booking in Ufer instead."]);
