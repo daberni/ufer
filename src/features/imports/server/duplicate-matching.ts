@@ -81,6 +81,9 @@ export function findDuplicates<T extends ExistingBooking>(candidates: ImportCand
   };
 }
 
+/** Most candidates a possible duplicate offers, which bounds the check's response for files with many equal amounts. */
+export const maxCandidates = 5;
+
 /** The bookings a possible duplicate may record: same amount within the window, matching text and closer dates first. */
 function possibleCandidates<T extends ExistingBooking>(candidate: PreparedBooking<Booking>, prepared: PreparedBookings<T>, available: (index: number) => boolean) {
   const rank = (index: number) => {
@@ -89,7 +92,7 @@ function possibleCandidates<T extends ExistingBooking>(candidate: PreparedBookin
     return (textsMatch(booking, candidate) ? 0 : 100) + bookingDistance(booking, candidate);
   };
 
-  return sameAmountInWindow(candidate, prepared, available).toSorted((left, right) => rank(left) - rank(right)).map(index => prepared.bookings[index]);
+  return sameAmountInWindow(candidate, prepared, available).toSorted((left, right) => rank(left) - rank(right)).slice(0, maxCandidates).map(index => prepared.bookings[index]);
 }
 
 /** A booking of the same amount whose text differs, on the same date or recorded as a transfer within the window: too uncertain to skip the row, worth a look in the review. */

@@ -13,7 +13,7 @@ import { mappingProblem, suggestMapping, type CsvMapping, type CsvSettings } fro
 import { importIdFor } from "@/features/imports/import-batches";
 import { categoryValues, importKey, prepareImport, resolveCategories, resolveTargets, sourceAccounts, templateChoices, type CategorySelection, type TargetChoice } from "@/features/imports/import-plan";
 import { useImportTemplates } from "@/features/imports/template-queries";
-import { decisionTotals, effectiveDecision, type DecisionInput } from "@/features/imports/reimport-decisions";
+import { decisionCandidate, decisionTotals, effectiveDecision, type DecisionInput } from "@/features/imports/reimport-decisions";
 import { useLocale } from "@/client/locale-provider";
 import { formatCount } from "@/lib/locale";
 
@@ -342,7 +342,11 @@ export function useImportDraft() {
     const applied = confirm && summary ? summary.matches.flatMap(match => {
       const decision = effectiveDecision(match, decisions.get(match.line));
 
-      return decision ? [decision] : [];
+      // Every decision names the booking the review showed, so a booking that changed meanwhile is never updated in its place.
+      return decision ? [{
+        ...decision,
+        reference: decisionCandidate(match, decision).reference
+      }] : [];
     }) : [];
 
     mutation.mutate({

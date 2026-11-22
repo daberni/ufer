@@ -454,3 +454,16 @@ test("an update decided for a row that no longer matches anything is not inserte
   assert.deepEqual([result.newRows, result.undecided], [0, [2]]);
   assert.equal((await db.select().from(schema.transactions)).length, 0);
 });
+
+test("a possible duplicate offers at most five candidates, the closest first", async context => {
+  await isolatedDatabase(context);
+  await importRows(firstImport, ["2024-04-17", "2024-04-18", "2024-04-19", "2024-04-21", "2024-04-22", "2024-04-23"].map((date, index) => row(index + 2, date, "-15.00", "Example Cinema")), true);
+
+  const check = await importRows(reimport, [row(2, "2024-04-20", "-15.00", "Example Cinema", {
+    description: "Evening"
+  })], false);
+
+  assert.equal(check.matches[0].kind, "possible");
+  assert.equal(check.matches[0].candidates.length, 5);
+  assert.ok(["2024-04-19", "2024-04-21"].includes(check.matches[0].candidates[0].date));
+});
