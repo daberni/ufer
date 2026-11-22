@@ -42,7 +42,7 @@ export function ListingDialog({
           });
         }}
       >
-        <p className={ui["form-description"]}>The holding is valued with the daily close of this listing. Without one it keeps its last price or its cost.</p>
+        <p className={ui["form-description"]}>The holding is valued with the daily close of this listing. Choosing another listing or none deletes the stored prices; without a listing the holding is valued at its cost.</p>
         {offered.length > 0 && (
           <label>
             Listing
