@@ -54,11 +54,10 @@ export function AppSidebar({
         <ShieldCheck size={15} />
       </div>
       <span className={styles["nav-label"]}>MY OVERVIEW</span>
-      <nav>
+      <nav aria-label="Main">
         {links.map(item => (
           <Link
             key={item.id}
-            aria-label={item.label}
             aria-current={item.current ? "page" : undefined}
             className={clsx(styles["nav-item"], item.current ? styles["active"] : "")}
             href={item.href}
@@ -68,7 +67,12 @@ export function AppSidebar({
             <span className={styles["nav-mobile-label"]} aria-hidden="true">
               {item.mobileLabel}
             </span>
-            {item.count > 0 && <span className={styles["nav-count"]}>{formatCount(item.count, locale)}</span>}
+            {item.count > 0 && (
+              <span className={styles["nav-count"]}>
+                {formatCount(item.count, locale)}
+                <span className={ui["visually-hidden"]}> need attention</span>
+              </span>
+            )}
           </Link>
         ))}
       </nav>

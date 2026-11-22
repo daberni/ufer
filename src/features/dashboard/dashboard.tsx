@@ -34,7 +34,7 @@ import { useLoadError } from "./use-load-error";
 import { TraceId } from "@/components/ui/trace-id";
 import type { Failure } from "@/client/api";
 import { useLocale } from "@/client/locale-provider";
-import { formatCount } from "@/lib/locale";
+import { formatCountLabel } from "@/lib/locale";
 
 /** The persistent dashboard shell; the current view route renders inside it. */
 export default function Dashboard({ children }: {
@@ -141,7 +141,7 @@ function DashboardShell({ children }: {
           {expiring.length > 0 && (
             <div className={clsx(ui["notice"], ui["warning"])}>
               <Link2 size={17} />
-              {formatCount(expiring.length, locale)} bank authorization(s) are expiring or have expired.
+              {`${formatCountLabel(expiring.length, "bank authorization is", "bank authorizations are", locale)} expiring or expired.`}
               <Link className={ui["text-button"]} href={bankConnectionsHref}>
                 Review authorizations <ArrowRight size={14} />
               </Link>

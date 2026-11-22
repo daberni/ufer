@@ -66,11 +66,11 @@ export function AccountSettings({ onClose }: Props) {
   return (
     <Dialog title="Your account" closeLabel="Close account settings" onClose={onClose}>
       {/* The session loads when the dialog first opens; both lines keep their height so the dialog does not shift. */}
-      <p className={styles.identity}>{data ? `${data.user.name} · ${data.user.username}` : ""}</p>
-      <p className={styles.email}>{data?.user.email}</p>
+      <p className={styles["identity"]}>{data ? `${data.user.name} · ${data.user.username}` : ""}</p>
+      <p className={styles["email"]}>{data?.user.email}</p>
       <ThemeChoice />
       <LocaleChoice />
-      <form className={clsx(ui.form, styles.section)} onSubmit={changePassword}>
+      <form className={clsx(ui["form"], styles["section"])} onSubmit={changePassword}>
         <h3>Change password</h3>
         <label>
           Current password
@@ -106,16 +106,16 @@ export function AccountSettings({ onClose }: Props) {
         </label>
         <p className={ui["form-hint"]}>{`Use at least ${formatCount(12, locale)} characters. Changing your password signs out your other sessions.`}</p>
         <FormError failure={passwordError} />
-        {passwordChange.isSuccess && <p className={ui.notice} role="status">Password changed. Your other sessions have been signed out.</p>}
-        <button className={clsx(ui.button, ui.primary, ui["full-width"])} disabled={passwordChange.isPending}>Change password</button>
+        {passwordChange.isSuccess && <p className={ui["notice"]} role="status">Password changed. Your other sessions have been signed out.</p>}
+        <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={passwordChange.isPending}>Change password</button>
       </form>
-      <section className={styles.section} aria-labelledby="account-sessions-title">
+      <section className={styles["section"]} aria-labelledby="account-sessions-title">
         <h3 id="account-sessions-title">Other devices</h3>
         <p className={ui["form-hint"]}>Signs out every session except this one.</p>
         <FormError failure={sessionsError} />
-        {otherSessionsSignOut.isSuccess && <p className={ui.notice} role="status">Your other sessions have been signed out.</p>}
+        {otherSessionsSignOut.isSuccess && <p className={ui["notice"]} role="status">Your other sessions have been signed out.</p>}
         <button
-          className={clsx(ui.button, ui["full-width"], styles["section-action"])}
+          className={clsx(ui["button"], ui["full-width"], styles["section-action"])}
           type="button"
           onClick={() => otherSessionsSignOut.mutate()}
           disabled={otherSessionsSignOut.isPending}

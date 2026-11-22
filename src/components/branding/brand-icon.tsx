@@ -18,7 +18,7 @@ export function BrandIcon({
       aria-hidden={label ? undefined : true}
       width={size}
       height={size}
-      className={styles.icon}
+      className={styles["icon"]}
       unoptimized
     />
   );
