@@ -1,10 +1,10 @@
-import type { AccountKind } from "../account-kinds";
+import type { StoredAccountKind } from "../account-kinds";
 
 export type AccountTypeGroup = {
   id: string;
   title: string;
   description: string;
-  kinds: AccountKind[];
+  kinds: StoredAccountKind[];
 };
 
 export type AccountTypeCopy = {
@@ -24,7 +24,7 @@ export const accountTypeGroups: AccountTypeGroup[] = [{
   id: "investments",
   title: "Investments & property",
   description: "Things you own whose value changes",
-  kinds: ["investment", "property"]
+  kinds: ["investment", "brokerage", "property"]
 }, {
   id: "debts",
   title: "Debts",
@@ -32,7 +32,7 @@ export const accountTypeGroups: AccountTypeGroup[] = [{
   kinds: ["credit_card", "loan"]
 }];
 
-export const accountTypeCopy: Record<AccountKind, AccountTypeCopy> = {
+export const accountTypeCopy: Record<StoredAccountKind, AccountTypeCopy> = {
   checking: {
     description: "Everyday payments, salary and bills",
     namePlaceholder: "e.g. Everyday account",
@@ -53,6 +53,13 @@ export const accountTypeCopy: Record<AccountKind, AccountTypeCopy> = {
     balanceLabel: "Current value",
     balancePlaceholder: "0.00",
     hint: "Enter the value of the holdings only and track settlement cash as a separate current account, so it is not counted twice. Use a decimal point."
+  },
+  brokerage: {
+    description: "Securities with trades and daily prices",
+    namePlaceholder: "e.g. Brokerage account",
+    balanceLabel: "Current value",
+    balancePlaceholder: "0.00",
+    hint: "Its value comes from the trades you record and daily prices; the cash for each trade moves on a separate current account."
   },
   property: {
     description: "Home, apartment or land",

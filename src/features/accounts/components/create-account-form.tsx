@@ -10,7 +10,8 @@ import { kinds } from "@/features/accounts/account-presentation";
 import { Select } from "@/components/ui/select";
 import { AccountTypeChoice } from "./account-type-choice";
 import { accountTypeCopy } from "./account-type-options";
-import type { AccountKind } from "../account-kinds";
+import type { AccountKind, StoredAccountKind } from "../account-kinds";
+import { useCreateBrokerageAccount } from "@/features/securities/mutations";
 import { useDialogSubmit, type DialogFormProps } from "@/components/ui/use-dialog-submit";
 import { useCreateAccount } from "@/features/accounts/mutations";
 import { FormError } from "@/components/ui/form-error";
@@ -27,22 +28,62 @@ export function CreateAccountDialog({ close }: DialogFormProps) {
 }
 
 function CreateAccountForm({ close }: DialogFormProps) {
-  const [kind, setKind] = useState<AccountKind | null>(null);
-  const {
-    error,
-    pending,
-    submit
-  } = useDialogSubmit(useCreateAccount(), close);
+  const [kind, setKind] = useState<StoredAccountKind | null>(null);
+  const ledger = useDialogSubmit(useCreateAccount(), close);
+  const brokerage = useDialogSubmit(useCreateBrokerageAccount(), close);
+  const active = kind === "brokerage" ? brokerage : ledger;
 
   return (
     <form
-      onSubmit={event => submit(event, accountBody)}
+      onSubmit={event => kind === "brokerage" ? brokerage.submit(event, data => Object.fromEntries(data)) : ledger.submit(event, accountBody)}
       className={ui["form"]}
     >
       <p className={ui["form-description"]}>Track an account, investment, property or debt by entering its balance yourself. Bank accounts with online access can also be added through Connect bank.</p>
       <AccountTypeChoice selected={kind} onSelect={setKind} />
-      {kind && <AccountDetailsFields pending={pending} error={error} kind={kind} />}
+      {kind === "brokerage" && <BrokerageFields pending={active.pending} error={active.error} />}
+      {kind && kind !== "brokerage" && <AccountDetailsFields pending={active.pending} error={active.error} kind={kind} />}
     </form>
+  );
+}
+
+/** A brokerage account starts empty: its value comes from the trades recorded on it. */
+function BrokerageFields({
+  error,
+  pending
+}: {
+  error: Failure | null;
+  pending: boolean;
+}) {
+  const copy = accountTypeCopy.brokerage;
+
+  return (
+    <>
+      <div className={styles["balance-grid"]}>
+        <label>
+          Name
+          <input
+            name="name"
+            required
+            maxLength={100}
+            placeholder={copy.namePlaceholder}
+          />
+        </label>
+        <label>
+          Currency
+          <Select name="currency">
+            <option>EUR</option>
+            <option>USD</option>
+            <option>CHF</option>
+            <option>GBP</option>
+          </Select>
+        </label>
+      </div>
+      <p className={ui["form-hint"]}>{copy.hint}</p>
+      <FormError failure={error} />
+      <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={pending}>
+        Add brokerage account <Plus size={16} />
+      </button>
+    </>
   );
 }
 

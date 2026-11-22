@@ -121,7 +121,7 @@ function DashboardShell({ children }: {
                 <AccountDetailActions
                   key={selectedAccount.id}
                   account={selectedAccount}
-                  manualAccounts={activeAccounts(accounts.data ?? []).filter(account => account.provider === "manual")}
+                  manualAccounts={activeAccounts(accounts.data ?? []).filter(account => account.provider === "manual" && account.kind !== "brokerage")}
                 />
                 {showSync && <SyncButton bankAccounts={bankAccounts} showConnections={() => router.push(bankConnectionsHref)} />}
               </div>

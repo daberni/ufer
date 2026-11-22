@@ -9,7 +9,8 @@
   color: var(--kind-bank);
   flex-shrink: 0;
 }
-.account-logo.investment {
+.account-logo.investment,
+.account-logo.brokerage {
   background: var(--kind-investment-bg);
   color: var(--kind-investment);
 }

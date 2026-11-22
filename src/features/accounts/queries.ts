@@ -51,7 +51,8 @@ export function accountGroups(accounts: Account[], currency: string, now = Tempo
     currencyAccounts: activeAccounts(accounts).filter(account => account.currency === currency),
     // Reports include archived accounts, so their presence decides whether a currency has figures to show.
     reportedAccounts: accounts.filter(account => account.currency === currency),
-    manualAccounts: activeAccounts(accounts).filter(account => account.provider === "manual"),
+    // Brokerage accounts take no bookings, so they are no manual account for entries or transfers.
+    manualAccounts: activeAccounts(accounts).filter(account => account.provider === "manual" && account.kind !== "brokerage"),
     bankAccounts,
     expiring: bankAccounts.filter(account => account.valid_until && expiresSoon(account.valid_until))
   };

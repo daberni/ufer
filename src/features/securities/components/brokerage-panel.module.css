@@ -1,0 +1,60 @@
+.panel h2 {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-md);
+}
+
+.notice {
+  margin: 0 0 var(--space-3);
+  color: var(--muted);
+}
+
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--border);
+}
+.row:first-child {
+  border-top: 0;
+}
+
+.main {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.meta,
+.status {
+  color: var(--muted);
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+}
+
+.status.warning {
+  color: var(--status-warning-text);
+}
+
+.amount {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+@media (--mobile) {
+  .row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .row > button {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+}

@@ -56,6 +56,12 @@ export const queryKeys = {
     // Below the cash-flow prefix, so transaction and category writes also refresh an account's flows.
     accountCashFlowFor: (filters: AccountCashFlowFilters) => ["reports", "cash-flow", "account", filters] as const
   },
+  securities: {
+    all: () => ["securities"] as const,
+    // Below the accounts prefix, so every balance write also refreshes the holdings.
+    brokerage: (account: string) => ["accounts", "brokerage", account] as const,
+    settlementCandidates: (account: string, date: string, amount: number) => ["transactions", "settlement-candidates", account, date, amount] as const
+  },
   banking: {
     banks: (country: string) => ["banking", "banks", country] as const,
     connections: () => ["banking", "connections"] as const,
