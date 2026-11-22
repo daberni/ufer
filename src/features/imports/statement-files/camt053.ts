@@ -8,7 +8,7 @@ type Node = Record<string, unknown>;
 
 /** Whether the text is an ISO 20022 cash-management document; the message type decides whether it is supported. */
 export function looksLikeCamt(text: string) {
-  return /<(?:\w+:)?Document\b[^>]*urn:iso:std:iso:20022:tech:xsd:camt\./.test(text.slice(0, 4096));
+  return /<(?:[A-Za-z_][\w.-]*:)?Document\b[^>]*urn:iso:std:iso:20022:tech:xsd:camt\./.test(text.slice(0, 4096));
 }
 
 export function readCamt053(text: string, locale: string): StatementFile {
@@ -243,7 +243,7 @@ function accountLabel(account: unknown) {
 function elementPositions(text: string) {
   const entries: number[] = [];
   const details: number[] = [];
-  const tag = /<(?:\w+:)?(Ntry|TxDtls)[\s>]/g;
+  const tag = /<(?:[A-Za-z_][\w.-]*:)?(Ntry|TxDtls)[\s>]/g;
 
   for (const match of text.matchAll(tag)) {
     (match[1] === "Ntry" ? entries : details).push(match.index);

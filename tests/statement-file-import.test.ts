@@ -355,6 +355,10 @@ test("OFX empty SGML leaves keep later fields, foreign amounts round exactly, an
   // A single-byte encoding declared in the prolog decodes as declared.
   assert.equal(read(windows1252(camt.replace("UTF-8", "ISO-8859-1").replace("Synthetic Landlord", "S\u00fcd Landlord"))).rows[0].payee, "S\u00fcd Landlord & Co");
 
+  const prefixed = camt.replace(/<(\/?)(?=[A-Z])/g, "<$1iso-doc.x:").replace("<iso-doc.x:Document xmlns=", "<iso-doc.x:Document xmlns:iso-doc.x=");
+
+  assert.deepEqual(summary(read(prefixed).rows), summary(read(camt).rows));
+
   const shared = read("OFXHEADER:100\n\n<OFX><BANKMSGSRSV1><STMTTRNRS><STMTRS><CURDEF>EUR<BANKACCTFROM><BANKID>B1<ACCTID>42</BANKACCTFROM><BANKTRANLIST><STMTTRN><DTPOSTED>20260301<TRNAMT>-1<FITID>1</STMTTRN></BANKTRANLIST></STMTRS></STMTTRNRS></BANKMSGSRSV1><CREDITCARDMSGSRSV1><CCSTMTTRNRS><CCSTMTRS><CURDEF>EUR<CCACCTFROM><ACCTID>42</CCACCTFROM><BANKTRANLIST><STMTTRN><DTPOSTED>20260301<TRNAMT>-2<FITID>1</STMTTRN></BANKTRANLIST></CCSTMTRS></CCSTMTTRNRS></CREDITCARDMSGSRSV1></OFX>");
 
   assert.deepEqual(shared.rows.map(row => row.source), ["B1 · 42", "Card · 42"]);
