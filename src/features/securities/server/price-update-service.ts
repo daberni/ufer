@@ -192,7 +192,10 @@ export async function updatePrices(now = Temporal.Now.instant(), provider: Marke
             });
 
             // Trades validate sales against the stored splits under the sync lease, so splits are written under it too.
-            const stored = await withLease(syncLease, "busy", () => saveSplitsIfConsistent(security.id, splits, splitsFitTrades)).catch((error: unknown) => {
+            const stored = await withLease(syncLease, "busy", () => saveSplitsIfConsistent(security.id, {
+              from: splitsFrom,
+              to: date.toString()
+            }, splits, splitsFitTrades)).catch((error: unknown) => {
               throw error instanceof HttpError && error.status === 409 ? new MarketDataError(`${splitErrorPrefix}a sync or trade was running; they are checked again on the next run.`) : error;
             });
 

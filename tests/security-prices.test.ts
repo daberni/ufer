@@ -608,3 +608,36 @@ test("a security tracked since its first trade stays complete once that trade is
   assert.equal(result.incomplete, 0);
   assert.equal((await securityRow(db, "etf"))?.price_error, null);
 });
+
+test("a split the provider retracted or redated within the fetched interval is removed", async context => {
+  const db = await isolatedDatabase(context);
+
+  await db.insert(schema.accounts).values({
+    id: "depot",
+    name: "Synthetic depot",
+    kind: "brokerage"
+  });
+  await db.insert(schema.securityTrades).values({
+    id: "trade",
+    account_id: "depot",
+    security_id: "etf",
+    date: "2026-06-01",
+    side: "buy",
+    sequence: 1,
+    quantity_micros: 1_000_000,
+    price_micros: 50_000_000,
+    gross_minor: 50_00
+  });
+  await db.insert(schema.securitySplits).values({
+    security_id: "etf",
+    date: "2026-09-01",
+    numerator: 2,
+    denominator: 1
+  });
+
+  // The provider now dates the same split a day later.
+  await updatePrices(etfSplitDay, fakeProvider({}, {
+    "SYN.XETRA": ["2026-09-02 2.000000/1.000000"]
+  }).provider);
+  assert.deepEqual((await db.select().from(schema.securitySplits)).map(split => split.date), ["2026-09-02"]);
+});
