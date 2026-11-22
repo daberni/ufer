@@ -7,6 +7,8 @@ services:
       - "${BIND_ADDRESS:-127.0.0.1}:${PORT:-3000}:3000"
     env_file: ${APP_ENV_FILE:-.env}
     environment:
+      # The container always listens on 3000; PORT in the env file only selects the published host port.
+      PORT: "3000"
       DATABASE_URL: file:/app/data/budget.db
       ENABLE_BANKING_PRIVATE_KEY_PATH: /run/secrets/enable_banking_key
     volumes:
