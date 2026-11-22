@@ -28,6 +28,8 @@ export type TargetChoice = {
 export type SourceAccount = {
   source: string;
   rows: number;
+  /** The currency all of the source's rows state; null when they state none or differ. */
+  currency: string | null;
 };
 
 export type CategoryValue = {
@@ -75,15 +77,22 @@ export function rowCount(count: number, locale: string) {
 /** Distinct source account values with their row counts, in file order; without an account column all rows share the empty source. */
 export function sourceAccounts(rows: MappedRow[]): SourceAccount[] {
   const counts = new Map<string, number>();
+  const currencies = new Map<string, Set<string | null>>();
 
   for (const row of rows) {
     counts.set(row.source, (counts.get(row.source) ?? 0) + 1);
+    currencies.set(row.source, (currencies.get(row.source) ?? new Set()).add(row.currency));
   }
 
-  return [...counts].map(([source, count]) => ({
-    source,
-    rows: count
-  }));
+  return [...counts].map(([source, count]) => {
+    const stated = [...currencies.get(source) ?? []];
+
+    return {
+      source,
+      rows: count,
+      currency: stated.length === 1 && stated[0] && /^[A-Z]{3}$/.test(stated[0]) ? stated[0] : null
+    };
+  });
 }
 
 /** The one existing account named like the source value is preselected; with none or several, the person chooses. */
@@ -114,12 +123,13 @@ export function accountLabel(account: AccountOption & {
 }
 
 /** A new account named after the source value, shortened to the longest allowed name; the person sees and can edit the prefill. */
-export function newAccountChoice(source: string): TargetChoice {
+/** A new manual account named after the source, in the currency its rows state, else EUR. */
+export function newAccountChoice(source: string, currency: string | null = null): TargetChoice {
   return {
     kind: "new",
     name: source.slice(0, maxAccountNameLength),
     accountKind: "checking",
-    currency: "EUR",
+    currency: currency ?? "EUR",
     balanceKind: "current",
     balance: ""
   };

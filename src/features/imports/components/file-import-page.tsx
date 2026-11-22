@@ -39,7 +39,7 @@ export function FileImportPage() {
       void load(file);
     }
   }, [load]);
-  const loaded = draft.file && draft.settings;
+  const loaded = draft.file && (draft.settings || draft.statement);
 
   if (draft.imported) {
     return (
@@ -72,15 +72,15 @@ export function FileImportPage() {
       <section className={clsx(ui["panel"], styles["section"])} aria-labelledby="import-file">
         <h2 id="import-file">File</h2>
         {loaded ? <FileCard draft={draft} /> : <FileDropZone disabled={draft.inputsLocked} onFile={file => void draft.load(file)} />}
-        {loaded && <TemplateNotice draft={draft} />}
+        {loaded && draft.table && <TemplateNotice draft={draft} />}
         {draft.fileError && <p className={ui["error-text"]} role="alert">{draft.fileError}</p>}
         {draft.formatError && <p className={ui["error-text"]} role="alert">{draft.formatError}</p>}
-        {!loaded && <p className={ui["form-hint"]}>Any CSV export with a date and an amount works: bank exports, Buxfer, spreadsheets. Files matching a template, such as Buxfer exports, are mapped automatically. You choose what each column means, check the result, then import. Nothing is saved before you import.</p>}
+        {!loaded && <p className={ui["form-hint"]}>CAMT.053, OFX, QFX and QIF statements are read as they are. Any CSV export with a date and an amount works too: bank exports, Buxfer, spreadsheets; files matching a template, such as Buxfer exports, are mapped automatically, others you map column by column. You check the result, then import. Nothing is saved before you import.</p>}
       </section>
-      {loaded && draft.table && (
+      {loaded && (draft.table || draft.statement) && (
         <>
           <TargetAccounts draft={draft} />
-          <ColumnPreview draft={draft} reviewing={reviewing} />
+          {draft.table && <ColumnPreview draft={draft} reviewing={reviewing} />}
           {draft.typeOptions.length > 0 && <TypeChoices draft={draft} />}
           {draft.categoryValues.length > 0 && <CategoryChoices draft={draft} />}
           <MatchReview draft={draft} />

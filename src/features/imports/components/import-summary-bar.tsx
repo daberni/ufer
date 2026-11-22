@@ -63,7 +63,7 @@ export function ImportSummaryBar({
       {undecided > 0 && <p className={styles["blocked"]}>Decide what the {formatCount(undecided, locale)} possible {undecided === 1 ? "duplicate does" : "duplicates do"} under Rows before importing.</p>}
       <FormError failure={mutation.error ? toFailure(mutation.error) : null} />
       <div className={styles["actions"]}>
-        {(issues.size > 0 || reviewing) && (
+        {draft.table && (issues.size > 0 || reviewing) && (
           <button
             type="button"
             className={ui["button"]}

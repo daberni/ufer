@@ -57,9 +57,9 @@ How Ufer compares with established personal finance tools, and what is still pla
 | **Imports** | | | | | |
 | File import with CSV mapping and preview | ✅ | ◐[⁵²](#fn-52) | ✅[²⁸](#fn-28) | ✅[⁴](#fn-4) | ✅[⁵³](#fn-53) |
 | ↳ Saved import templates | ✅ | ◐[²⁰](#fn-20) | ◐[⁵⁴](#fn-54) | ✅[⁴](#fn-4) | ✅[⁵³](#fn-53) |
-| OFX or QFX | ❌[⁵⁵](#fn-55) | ✅[⁵⁶](#fn-56) | ✅[²⁸](#fn-28) | ❌[⁵⁷](#fn-57) | ❌[⁵⁸](#fn-58) |
-| QIF | ❌[⁵⁵](#fn-55) | ✅[⁵⁶](#fn-56) | ✅[²⁸](#fn-28) | ❌[⁵⁷](#fn-57) | ✅[⁵⁸](#fn-58) |
-| CAMT.053 | ❌[⁵⁵](#fn-55) | ❔[⁵⁶](#fn-56) | ✅[²⁸](#fn-28) | ✅[⁵⁷](#fn-57) | ❌[⁵⁸](#fn-58) |
+| OFX or QFX | ✅[⁵⁵](#fn-55) | ✅[⁵⁶](#fn-56) | ✅[²⁸](#fn-28) | ❌[⁵⁷](#fn-57) | ❌[⁵⁸](#fn-58) |
+| QIF | ✅[⁵⁵](#fn-55) | ✅[⁵⁶](#fn-56) | ✅[²⁸](#fn-28) | ❌[⁵⁷](#fn-57) | ✅[⁵⁸](#fn-58) |
+| CAMT.053 | ✅[⁵⁵](#fn-55) | ❔[⁵⁶](#fn-56) | ✅[²⁸](#fn-28) | ✅[⁵⁷](#fn-57) | ❌[⁵⁸](#fn-58) |
 | Duplicate detection on reimport | ◐[⁵⁹](#fn-59) | ✅[²](#fn-2) | ✅[²⁸](#fn-28) | ✅[³⁷](#fn-37) | ◐[⁵³](#fn-53) |
 | **Reports** | | | | | |
 | Monthly income and spending | ✅[⁶⁰](#fn-60) | ✅[¹¹](#fn-11) | ✅[¹²](#fn-12) | ✅[²²](#fn-22) | ✅[¹⁴](#fn-14) |
@@ -120,7 +120,7 @@ An item is checked only when its acceptance criterion is met and evidence is rec
 - [ ] **E-02 · Configurable CSV**
   - [x] Preview, column mapping, account and category choices, saved templates
   - [x] Buxfer detection and split import
-  - [ ] OFX, QIF and CAMT.053 ([#14](https://github.com/daberni/ufer/issues/14))
+  - [x] OFX, QIF and CAMT.053 ([#313](https://github.com/daberni/ufer/issues/313))
   - [x] Content matching against earlier CSV imports of other files
   - [x] One CSV reader: the fixed-schema balance import is retired; balances derive from transactions and Update balance ([#282](https://github.com/daberni/ufer/issues/282))
   - [x] Reimports update matched bookings' payee, description and type; possible duplicates wait for a per-row or bulk decision ([#284](https://github.com/daberni/ufer/issues/284))
@@ -249,7 +249,7 @@ An item is checked only when its acceptance criterion is met and evidence is rec
 52. <a id="fn-52"></a>[Buxfer upload](https://www.buxfer.com/help/upload): CSV and Excel; mapping profiles unverified.
 53. <a id="fn-53"></a>[Sure CSV imports](https://docs.sure.am/guides/app-features/csv-imports): mapping, preview, reusable setup; the import account selector lists manual accounts, and CSV rows are not deduplicated against bank-feed imports.
 54. <a id="fn-54"></a>[Actual import dialog source](https://github.com/actualbudget/actual/blob/v26.11.0/packages/desktop-client/src/components/modals/ImportTransactionsModal/ImportTransactionsModal.tsx): the last column mapping and date format are remembered per account; no named templates.
-55. <a id="fn-55"></a>Planned ([#14](https://github.com/daberni/ufer/issues/14)); CSV is the only file format today.
+55. <a id="fn-55"></a>[File import](file-import.md#statement-files): bank and credit card statements, detected by content, with the same review and duplicate handling as CSV; investment statements are refused.
 56. <a id="fn-56"></a>[Buxfer upload formats](https://www.buxfer.com/features/upload/): OFX, QIF, CSV and Excel; CAMT is not listed.
 57. <a id="fn-57"></a>[Firefly III importer file formats](https://github.com/firefly-iii/docs/blob/main/docs/docs/how-to/data-importer/import/file.md): CSV and CAMT.053; no OFX or QIF.
 58. <a id="fn-58"></a>[Sure import types](https://github.com/we-promise/sure/blob/v0.7.6-hotfix.1/app/models/import.rb): CSV, QIF, Mint, YNAB, Actual and PDF imports; no OFX, CAMT or Buxfer import.
