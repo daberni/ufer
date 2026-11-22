@@ -55,7 +55,7 @@ How Ufer compares with established personal finance tools, and what is still pla
 | ↳ Rules limited to one account | ✅ | ❔ | ❔ | ❔ | ❔ |
 | ↳ Create a rule from a transaction | ✅ | ✅[⁴¹](#fn-41) | ✅[⁵⁰](#fn-50) | ✅[¹⁸](#fn-18) | ✅[⁵¹](#fn-51) |
 | **Imports** | | | | | |
-| CSV import with mapping and preview | ✅ | ◐[⁵²](#fn-52) | ✅[²⁸](#fn-28) | ✅[⁴](#fn-4) | ✅[⁵³](#fn-53) |
+| File import with CSV mapping and preview | ✅ | ◐[⁵²](#fn-52) | ✅[²⁸](#fn-28) | ✅[⁴](#fn-4) | ✅[⁵³](#fn-53) |
 | ↳ Saved import templates | ✅ | ◐[²⁰](#fn-20) | ◐[⁵⁴](#fn-54) | ✅[⁴](#fn-4) | ✅[⁵³](#fn-53) |
 | OFX or QFX | ❌[⁵⁵](#fn-55) | ✅[⁵⁶](#fn-56) | ✅[²⁸](#fn-28) | ❌[⁵⁷](#fn-57) | ❌[⁵⁸](#fn-58) |
 | QIF | ❌[⁵⁵](#fn-55) | ✅[⁵⁶](#fn-56) | ✅[²⁸](#fn-28) | ❌[⁵⁷](#fn-57) | ✅[⁵⁸](#fn-58) |

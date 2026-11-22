@@ -6,7 +6,7 @@ import { clsx } from "clsx";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, CircleCheck, X } from "lucide-react";
-import styles from "./csv-import-page.module.css";
+import styles from "./file-import-page.module.css";
 import { viewPaths } from "@/client/app-location";
 import { FileDropZone } from "./file-drop-zone";
 import { FileCard } from "./file-card";
@@ -24,8 +24,8 @@ import { takeImportFile } from "@/features/imports/pending-import-file";
 import { formatCount } from "@/lib/locale";
 import { useLocale } from "@/client/locale-provider";
 
-/** The full-page CSV import: file, accounts, columns and categories, then a check and the import. */
-export function CsvImportPage() {
+/** The full-page file import: file, accounts, columns and categories, then a check and the import. */
+export function FileImportPage() {
   const locale = useLocale();
   const draft = useImportDraft();
   const [reviewing, setReviewing] = useState(false);
