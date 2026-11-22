@@ -18,7 +18,7 @@ import { listRules } from "../src/features/categorization/server/rule-repository
 import type { Rule } from "../src/features/categorization/server/rule-assignment";
 import { applyRulesToUncorrectedTransactions, createRule, previewRule } from "../src/features/transactions/server/rule-application-service";
 import { pairAllTransfers } from "../src/features/transactions/server/transfer-pairing-repository";
-import { readTransactionPage } from "../src/features/transactions/server/transaction-list-query";
+import { readSyncRunTransactionPage } from "../src/features/banking/server/banking-queries";
 import { dashboardFilters } from "../src/server/http/dashboard-filters";
 import { monthPeriod } from "../src/lib/period";
 import { HttpError, ValidationError } from "../src/lib/errors";
@@ -112,7 +112,7 @@ async function row(db: Database, id: string) {
 }
 
 async function listed(search = "") {
-  const page = await readTransactionPage(dashboardFilters(new URLSearchParams({
+  const page = await readSyncRunTransactionPage(dashboardFilters(new URLSearchParams({
     period: "2026-09",
     ...(search ? {
       search

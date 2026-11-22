@@ -15,7 +15,7 @@ import { readCashFlow } from "../src/features/reports/server/cash-flow-query";
 import { editManualTransaction, enterManualTransaction, removeManualTransaction, updateTransactionCategory, updateTransactionDetails } from "../src/features/transactions/server/transaction-service";
 import { splitTransaction } from "../src/features/transactions/server/split-service";
 import { pairAllTransfers } from "../src/features/transactions/server/transfer-pairing-repository";
-import { readTransactionPage } from "../src/features/transactions/server/transaction-list-query";
+import { readSyncRunTransactionPage } from "../src/features/banking/server/banking-queries";
 import { dashboardFilters } from "../src/server/http/dashboard-filters";
 import { monthPeriod } from "../src/lib/period";
 import { HttpError, ValidationError } from "../src/lib/errors";
@@ -330,7 +330,7 @@ test("a transfer between two manual accounts is edited from either side and the 
   assert.equal(await balanceOf(cash), 105000);
   assert.equal(await balanceOf(savings), -5000);
 
-  const page = await readTransactionPage(dashboardFilters(new URLSearchParams({
+  const page = await readSyncRunTransactionPage(dashboardFilters(new URLSearchParams({
     period: "2026-09"
   })));
 
@@ -797,7 +797,7 @@ for (const initiatingSide of ["entered", "imported"] as const) {
     assert.equal(source?.description, imported.description);
     assert.equal(source?.provider_reference, imported.provider_reference);
 
-    const page = await readTransactionPage(dashboardFilters(new URLSearchParams({
+    const page = await readSyncRunTransactionPage(dashboardFilters(new URLSearchParams({
       period: "2026-09",
       account: cash
     })));

@@ -3,6 +3,8 @@ import { database } from "@/server/database/connection";
 import { requisitions, syncRuns } from "@/server/database/schema";
 import { environment } from "@/server/environment";
 import { linkedTransactionCount } from "./sync-repository";
+import { readTransactionPage } from "@/features/transactions/server/transaction-list-query";
+import type { DashboardFilters } from "@/server/http/dashboard-filters";
 import { bankingConfigured } from "./enable-banking-client";
 import { timestamp } from "@/lib/time";
 import { recentSyncRuns } from "@/features/banking/sync-run-presentation";
@@ -55,4 +57,11 @@ export async function findSyncRun(id: string) {
     status: syncRuns.status,
     inserted_count: syncRuns.inserted_count
   }).from(syncRuns).where(eq(syncRuns.id, id)).get();
+}
+
+/** The transaction list page, narrowed to the requested sync run when the filters name one. */
+export async function readSyncRunTransactionPage(filters: DashboardFilters) {
+  const syncRun = filters.syncRunId ? (await findSyncRun(filters.syncRunId)) ?? null : null;
+
+  return readTransactionPage(filters, syncRun);
 }

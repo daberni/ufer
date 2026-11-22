@@ -7,9 +7,8 @@ import { initializeDatabase } from "../src/server/database/migrations";
 import * as schema from "../src/server/database/schema";
 import { saveAccountSync } from "../src/features/banking/server/account-sync-service";
 import { finishSyncRun, startSyncRun } from "../src/features/banking/server/sync-repository";
-import { listRecentSyncRuns } from "../src/features/banking/server/banking-queries";
+import { listRecentSyncRuns, readSyncRunTransactionPage } from "../src/features/banking/server/banking-queries";
 import { dashboardFilters } from "../src/server/http/dashboard-filters";
-import { readTransactionPage } from "../src/features/transactions/server/transaction-list-query";
 import type { Entry } from "../src/features/transactions/server/transaction-entry";
 
 async function isolatedDatabase(context: TestContext) {
@@ -178,7 +177,7 @@ test("the run filter lists exactly the run's rows across months and currencies",
   ], "write");
 
   async function list(query: Record<string, string>) {
-    const page = await readTransactionPage(dashboardFilters(new URLSearchParams(query)));
+    const page = await readSyncRunTransactionPage(dashboardFilters(new URLSearchParams(query)));
 
     return {
       run: page.syncRun?.id ?? null,

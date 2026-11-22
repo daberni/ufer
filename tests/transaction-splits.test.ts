@@ -11,7 +11,7 @@ import { splitTransaction, unsplitTransaction } from "../src/features/transactio
 import { transferOptions, updateTransactionCategory, updateTransactionDetails } from "../src/features/transactions/server/transaction-service";
 import { upsertTransactions } from "../src/features/transactions/server/transaction-repository";
 import { readAccountCashFlow, readCashFlow } from "../src/features/reports/server/cash-flow-query";
-import { readTransactionPage } from "../src/features/transactions/server/transaction-list-query";
+import { readSyncRunTransactionPage } from "../src/features/banking/server/banking-queries";
 import { pairAllTransfers } from "../src/features/transactions/server/transfer-pairing-repository";
 import { replaceSplit } from "../src/features/transactions/server/split-repository";
 import { listAccounts } from "../src/features/accounts/server/account-queries";
@@ -125,7 +125,7 @@ function marketSplit() {
 }
 
 async function marketRow() {
-  const page = await readTransactionPage(dashboardFilters(new URLSearchParams("period=2026-01")));
+  const page = await readSyncRunTransactionPage(dashboardFilters(new URLSearchParams("period=2026-01")));
 
   return page.transactions.find(row => row.id === "market");
 }
@@ -258,7 +258,7 @@ test("reports count the parts of a split booking exactly once while balances and
   assert.equal(row?.split?.balanced, true);
   assert.equal(row?.category_id, null);
 
-  const leisure = await readTransactionPage(dashboardFilters(new URLSearchParams("period=2026-01&category=leisure")));
+  const leisure = await readSyncRunTransactionPage(dashboardFilters(new URLSearchParams("period=2026-01&category=leisure")));
 
   assert.deepEqual(leisure.transactions.map(item => item.id), ["market"]);
 });
@@ -318,7 +318,7 @@ test("a sync that changes a split booking's amount keeps the split, flags it and
   const row = await marketRow();
   const cashFlow = await readCashFlow(january, "EUR");
   const expenses = Object.fromEntries(cashFlow.expenseBreakdown.map(item => [String(item.categoryId), item.amount]));
-  const uncategorized = await readTransactionPage(dashboardFilters(new URLSearchParams("period=2026-01&category=uncategorized")));
+  const uncategorized = await readSyncRunTransactionPage(dashboardFilters(new URLSearchParams("period=2026-01&category=uncategorized")));
 
   assert.equal(row?.amount_minor, -12000);
   assert.equal(row?.split?.balanced, false);

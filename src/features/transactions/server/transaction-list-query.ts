@@ -1,10 +1,7 @@
 import { eq, sql, type SQL } from "drizzle-orm";
 import { database, type Database } from "@/server/database/connection";
 import { accounts, transactions } from "@/server/database/schema";
-// eslint-disable-next-line boundaries/dependencies -- known violation tracked in daberni/ufer#285
-import { findSyncRun } from "@/features/banking/server/banking-queries";
-// eslint-disable-next-line boundaries/dependencies -- known violation tracked in daberni/ufer#285
-import { syncRunTransactions } from "@/features/banking/server/sync-repository";
+import { syncRunTransactions } from "@/features/transactions/server/sync-run-transactions";
 import { periodToJson } from "@/lib/period";
 import { transactionPageSize } from "@/lib/pagination";
 import { periodCondition } from "@/features/transactions/server/period-condition";
@@ -73,12 +70,15 @@ function splitOf(parts: SplitPart[] | undefined, amount: number): TransactionSpl
   };
 }
 
-type FoundSyncRun = NonNullable<Awaited<ReturnType<typeof findSyncRun>>>;
+/** The sync run a list is filtered to, resolved by its owner; its start identifies the rows it inserted. */
+type ListedSyncRun = {
+  started_at: string;
+};
 
 /**
  * The transactions a list shows before search and filters: those a sync run inserted, in any month and currency, or otherwise the selected period in the display currency.
  */
-function listScope(db: Database, filters: DashboardFilters, syncRun: FoundSyncRun | null): SQL[] {
+function listScope(db: Database, filters: DashboardFilters, syncRun: ListedSyncRun | null): SQL[] {
   if (syncRun) {
     const inserted = db.select({
       id: transactions.id
@@ -90,19 +90,11 @@ function listScope(db: Database, filters: DashboardFilters, syncRun: FoundSyncRu
   return [sql`t.currency=${filters.currency}`, periodCondition(filters.period)];
 }
 
-// Null without a run filter, and for an unknown run.
-async function selectedSyncRun(id: string) {
-  if (!id) {
-    return null;
-  }
-
-  return (await findSyncRun(id)) ?? null;
-}
-
-/** One page of the transaction list for the selected filters, with the number of matches across all pages. */
-export async function readTransactionPage(filters: DashboardFilters) {
-  const syncRun = await selectedSyncRun(filters.syncRunId);
-
+/**
+ * One page of the transaction list for the selected filters, with the number of matches across all pages.
+ * The caller resolves `filters.syncRunId`; a requested run that it could not find yields an empty page.
+ */
+export async function readTransactionPage<Run extends ListedSyncRun>(filters: DashboardFilters, syncRun: Run | null) {
   if (filters.syncRunId && !syncRun) {
     return {
       period: periodToJson(filters.period),
