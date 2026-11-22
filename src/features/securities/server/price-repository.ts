@@ -10,6 +10,7 @@ export async function listPricedSecurities() {
     id: securities.id,
     provider: securities.provider,
     provider_symbol: securities.provider_symbol,
+    price_error: securities.price_error,
     // Drizzle leaves columns in a single-table select unqualified, so these correlated subqueries name their tables explicitly.
     newest_price: sql<string | null>`(SELECT MAX(p.date) FROM security_prices p WHERE p.security_id=securities.id)`,
     first_trade: sql<string | null>`(SELECT MIN(t.date) FROM security_trades t WHERE t.security_id=securities.id)`

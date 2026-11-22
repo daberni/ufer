@@ -7,7 +7,7 @@ import ui from "../../../components/ui/primitives.module.css";
 import styles from "./account-source-status.module.css";
 
 type Props = {
-  account: Pick<Account, "provider" | "institution" | "requisition_id" | "last_synced_at" | "valid_until" | "sync_error" | "archived_at">;
+  account: Pick<Account, "kind" | "provider" | "institution" | "requisition_id" | "last_synced_at" | "valid_until" | "sync_error" | "archived_at">;
   /** Shows when a synced account last synced; compact rows leave it out. */
   withDate?: boolean;
 };
