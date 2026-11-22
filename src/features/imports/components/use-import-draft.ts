@@ -353,10 +353,17 @@ export function useImportDraft() {
       const decision = effectiveDecision(match, decisions.get(match.line));
 
       // Every decision names the booking the review showed, so a booking that changed meanwhile is never updated in its place.
-      return decision ? [{
+      if (!decision) {
+        return [];
+      }
+
+      return [decision.action === "update" ? {
         ...decision,
         reference: decisionCandidate(match, decision).reference
-      }] : [];
+      } : {
+        line: decision.line,
+        action: decision.action
+      }];
     }) : [];
 
     mutation.mutate({

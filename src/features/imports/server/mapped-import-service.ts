@@ -89,7 +89,8 @@ const matchedBooking = z.object({
 const decision = z.object({
   line: z.number().int().min(1),
   action: z.enum(rowDecisions),
-  reference: z.string().max(200).optional()
+  // Stored references, such as a bank's entry reference, have no fixed length; the request body limit bounds them.
+  reference: z.string().optional()
 });
 
 const mappedImportInput = z.object({
