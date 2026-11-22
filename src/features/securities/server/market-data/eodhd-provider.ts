@@ -54,7 +54,8 @@ export function parseSplitRatio(date: string, ratio: string): ProviderSplit {
   const numerator = Math.round(Number(match[1]) * scale);
   const denominator = Math.round(Number(match[2]) * scale);
 
-  if (numerator <= 0 || denominator <= 0) {
+  // Huge components would become Infinity and break the reduction; only safe whole numbers form a ratio.
+  if (!Number.isSafeInteger(numerator) || !Number.isSafeInteger(denominator) || numerator <= 0 || denominator <= 0) {
     throw new MarketDataError(`The provider reported an invalid split on ${date}.`);
   }
 

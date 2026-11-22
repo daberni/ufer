@@ -3,6 +3,7 @@ import { Temporal } from "temporal-polyfill";
 import { HttpError, ValidationError } from "@/lib/errors";
 import { timestamp, today } from "@/lib/time";
 import { withLease } from "@/server/jobs/lease";
+import { renewLease } from "@/server/jobs/lease-repository";
 import { configuredProvider } from "./market-data/eodhd-provider";
 import { MarketDataError, type MarketDataProvider } from "./market-data/market-data-provider";
 import { listPricedSecurities, savePriceCheck, savePrices, saveSplits } from "./price-repository";
@@ -77,7 +78,8 @@ function firstDate(security: {
 }
 
 export type PriceUpdateResult = {
-  status: "not_configured" | "updated" | "running";
+  /** "interrupted": another run took over the lease, which then finishes the update. */
+  status: "not_configured" | "updated" | "running" | "interrupted";
   securities: number;
   failed: number;
   /** Securities first traded before the provider's split history reaches back, whose earlier splits could not be checked. */
@@ -99,17 +101,24 @@ export async function updatePrices(now = Temporal.Now.instant(), provider: Marke
   }
 
   try {
-    return await withLease(marketDataLease, "A price update is already running.", async () => {
+    return await withLease(marketDataLease, "A price update is already running.", async owner => {
       const date = today(now);
       const checkedAt = timestamp(now);
       let failed = 0;
       let incomplete = 0;
+      let interrupted = false;
       const historyStart = date.subtract({
         days: historyDays
       }).toString();
       const priced = (await listPricedSecurities()).filter(security => security.provider === provider.name);
 
       for (const security of priced) {
+        // A long update renews its lease before each security and stops once another run has taken it over.
+        if (!(await renewLease(marketDataLease, owner))) {
+          interrupted = true;
+          break;
+        }
+
         const symbol = security.provider_symbol!;
 
         try {
@@ -152,7 +161,7 @@ export async function updatePrices(now = Temporal.Now.instant(), provider: Marke
       }
 
       return {
-        status: "updated" as const,
+        status: interrupted ? "interrupted" as const : "updated" as const,
         securities: priced.length,
         failed,
         incomplete

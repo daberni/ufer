@@ -316,6 +316,7 @@ test("closes convert to micro-units through their decimal text and invalid ones 
   assert.throws(() => closeMicros(0), MarketDataError);
   assert.throws(() => closeMicros(Number.NaN), MarketDataError);
   assert.throws(() => parseSplitRatio("2026-01-01", "two/one"), MarketDataError);
+  assert.throws(() => parseSplitRatio("2026-01-01", `${"9".repeat(309)}/1`), MarketDataError);
 });
 
 test("the EODHD adapter maps responses, sends the token only as a query parameter and keeps it out of errors", async () => {
@@ -448,4 +449,27 @@ test("split checks spread over the week, and a failed one is retried on the next
   assert.equal(retry.requests.filter(request => request.kind === "splits").length, 1);
   assert.equal((await securityRow(db, "etf"))?.price_error, null);
   assert.equal((await db.select().from(schema.securitySplits)).length, 1);
+});
+
+test("an update that lost its lease to another run stops before the next security", async context => {
+  const db = await isolatedDatabase(context);
+  const takeover = fakeProvider({});
+
+  // While the first security is fetched, another run takes over the lease.
+  takeover.provider.dailyCloses = async symbol => {
+    takeover.requests.push({
+      kind: "closes",
+      symbol,
+      from: "",
+      to: ""
+    });
+    await db.update(schema.leases).set({
+      owner: "other-run"
+    }).where(eq(schema.leases.name, marketDataLease));
+
+    return [];
+  };
+
+  assert.equal((await updatePrices(now, takeover.provider)).status, "interrupted");
+  assert.deepEqual(takeover.requests.map(request => request.symbol), ["SYN.XETRA"]);
 });
