@@ -94,7 +94,7 @@ const coverageToleranceDays = 7;
 /**
  * Whether splits before the provider's history may be missing. A security's first update fetches closes and checks splits from the same start, so its oldest stored close marks how far back its splits were checked;
  * only a first trade before both that point and the provider's history leaves a gap. Tracking a security since its first trade therefore stays complete after a year.
- * Known limitation: the seven-day tolerance can reach across the history boundary for a first trade just before it, and if the first split check keeps failing for a year, a later success covers only the recent year and this proxy no longer flags the gap; the split error shows throughout those failures.
+ * Known limitations: a security's first trade recorded while an update processes it with no check yet is not distinguished from that state, so its splits wait for the weekly check; the seven-day tolerance can reach across the history boundary for a first trade just before it, and if the first split check keeps failing for a year, a later success covers only the recent year and this proxy no longer flags the gap; the split error shows throughout those failures.
  */
 export function splitsUncovered(security: {
   first_trade: string | null;
@@ -251,7 +251,8 @@ export async function updatePrices(now = Temporal.Now.instant(), provider: Marke
           // A split check still pending from an earlier failure stays pending when this run fails before reaching it.
           const pendingSplits = security.price_error?.startsWith(splitErrorPrefix) && !error.message.startsWith(splitErrorPrefix);
 
-          await savePriceCheck(security.id, checkedAt, pendingSplits ? `${splitErrorPrefix}${error.message}` : error.message, security.price_checked_at);
+          // A failed attempt keeps its older check time, so the longest-unchecked ordering puts it first on the next run instead of the same securities failing at the tail.
+          await savePriceCheck(security.id, security.price_checked_at, pendingSplits ? `${splitErrorPrefix}${error.message}` : error.message, security.price_checked_at);
         }
       }
 
