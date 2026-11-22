@@ -16,7 +16,7 @@ import { InlineFailure } from "@/components/ui/area-placeholder";
 import { useAreaResult, type Area } from "@/components/ui/use-area-result";
 import { Dialog } from "@/components/ui/dialog";
 import { useLocale } from "@/client/locale-provider";
-import { formatCount } from "@/lib/locale";
+import { formatCountLabel } from "@/lib/locale";
 
 type Props = DialogFormProps & {
   selectedConnection: Connection;
@@ -114,7 +114,7 @@ function RetainedAccounts({
   if (accounts.status === "pending") {
     return (
       <>
-        <strong className={ui["skeleton"]} aria-hidden="true">0 linked account(s) stay in Ufer</strong>
+        <strong className={ui["skeleton"]} aria-hidden="true">0 linked accounts stay in Ufer</strong>
         <span className={ui["visually-hidden"]}>Loading the linked accounts …</span> with their balances, transaction history and categories.
       </>
     );
@@ -124,7 +124,7 @@ function RetainedAccounts({
 
   return (
     <>
-      <strong>{`${formatCount(linkedAccounts.length, locale)} linked account(s) stay in Ufer`}</strong> with their balances, transaction history and categories.
+      <strong>{`${formatCountLabel(linkedAccounts.length, "linked account stays", "linked accounts stay", locale)} in Ufer`}</strong> with their balances, transaction history and categories.
     </>
   );
 }

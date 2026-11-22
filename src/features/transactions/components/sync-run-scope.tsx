@@ -12,6 +12,7 @@ import type { Area } from "@/components/ui/use-area-result";
 import type { TransactionPage } from "@/features/transactions/types";
 import { useLocale } from "@/client/locale-provider";
 import { formatCount } from "@/lib/locale";
+import { syncStatusLabel } from "@/features/banking/sync-run-presentation";
 
 type SelectedRun = TransactionPage["syncRun"];
 
@@ -59,7 +60,7 @@ function RunDescription({
     return (
       <p className={styles["run"]}>
         <span>Imported by the sync on <TimestampValue value={run.started_at} /></span>
-        <span className={ui["pill"]}>{run.status}</span>
+        <span className={ui["pill"]}>{syncStatusLabel(run.status)}</span>
       </p>
     );
   }
@@ -71,7 +72,7 @@ function RunDescription({
   return (
     <p className={styles["run"]}>
       <span className={ui["skeleton"]}>Imported by the sync on 16 Nov</span>
-      <span className={clsx(ui["pill"], ui["skeleton"])}>SUCCESS</span>
+      <span className={clsx(ui["pill"], ui["skeleton"])}>Successful</span>
     </p>
   );
 }

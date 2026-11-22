@@ -4,13 +4,19 @@ import { describeDate } from "@/lib/date-format";
 /** The sync history lists this many of the latest runs. */
 export const recentSyncRuns = 5;
 
-const syncStatusLabels: Record<string, string> = {
-  SUCCESS: "successful",
-  PARTIAL: "partial",
-  RUNNING: "running",
+export type SyncRunTone = "success" | "partial" | "failed" | "running";
+
+const syncRunToneLabels: Record<SyncRunTone, string> = {
+  success: "Successful",
+  partial: "Partial",
+  failed: "Failed",
+  running: "Running"
 };
 
-export type SyncRunTone = "success" | "partial" | "failed" | "running";
+/** The readable, sentence-case status of a run. */
+export function syncStatusLabel(status: string) {
+  return syncRunToneLabels[syncRunTone(status)];
+}
 
 /** The status indicator tone of a run; any status other than the known ones ended in failure. */
 export function syncRunTone(status: string): SyncRunTone {
@@ -42,7 +48,7 @@ export function lastSyncLabel(run: {
     return "No sync yet";
   }
 
-  const status = syncStatusLabels[run.status] || "failed";
+  const status = syncStatusLabel(run.status).toLowerCase();
 
   return `Last sync: ${describeDate(Temporal.Instant.from(run.started_at).toZonedDateTimeISO(timeZone), locale).label} · ${status}`;
 }

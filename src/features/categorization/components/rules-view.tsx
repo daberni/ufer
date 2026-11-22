@@ -496,7 +496,7 @@ function RuleRowContent({
         type="button"
         role="switch"
         aria-checked={Boolean(rule.enabled)}
-        aria-label={`Enable rule ${rule.name}`}
+        aria-label={`Rule ${rule.name}`}
         disabled={toggling}
         onClick={() => toggleRule(rule)}
       >

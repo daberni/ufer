@@ -54,7 +54,7 @@ test("removal stays disabled until the dialog knows how many linked accounts it 
   assert.equal(remove().hasAttribute("disabled"), true);
   // Until the accounts arrive, the count is a skeleton hidden from assistive technology, which hears that it is loading instead.
   assert.ok(screen.getByText("Loading the linked accounts …"));
-  assert.equal(screen.getByText("0 linked account(s) stay in Ufer").getAttribute("aria-hidden"), "true");
+  assert.equal(screen.getByText("0 linked accounts stay in Ufer").getAttribute("aria-hidden"), "true");
 
   await respond(requests("accounts")[0], Response.json({
     title: "Internal Server Error"
@@ -72,7 +72,7 @@ test("removal stays disabled until the dialog knows how many linked accounts it 
   await wait(0);
   await respond(requests("accounts")[1], Response.json([linkedAccount]));
 
-  assert.ok(screen.getByText("1 linked account(s) stay in Ufer"));
+  assert.ok(screen.getByText("1 linked account stays in Ufer"));
   assert.equal(remove().hasAttribute("disabled"), false);
 });
 

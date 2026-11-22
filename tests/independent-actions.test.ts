@@ -85,7 +85,7 @@ function controlsIn(screen: RenderResult) {
       name: "Apply rules"
     }),
     ruleSwitch: screen.getByRole("switch", {
-      name: "Enable rule Market"
+      name: "Rule Market"
     }),
     category: screen.getByRole("combobox", {
       name: "Category for Example Market"

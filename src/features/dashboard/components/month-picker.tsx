@@ -3,7 +3,7 @@
 import ui from "../../../components/ui/primitives.module.css";
 
 import styles from "./month-picker.module.css";
-import clsx from "clsx";
+import { clsx } from "clsx";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import { useAnchoredPopover } from "@/components/ui/use-anchored-popover";
