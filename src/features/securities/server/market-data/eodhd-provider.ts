@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { validDate } from "@/lib/time";
 import { MarketDataError, type MarketDataProvider, type ProviderSplit } from "./market-data-provider";
 
 const origin = "https://eodhd.com/api";
@@ -11,13 +12,16 @@ const searchResponse = z.array(z.object({
   ISIN: z.string().nullable().optional()
 }));
 
+// Only exact calendar dates are stored; anything else fails this security's update instead of corrupting the price order.
+const calendarDate = z.string().refine(validDate);
+
 const closesResponse = z.array(z.object({
-  date: z.string(),
+  date: calendarDate,
   close: z.number()
 }));
 
 const splitsResponse = z.array(z.object({
-  date: z.string(),
+  date: calendarDate,
   split: z.string()
 }));
 

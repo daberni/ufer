@@ -325,6 +325,14 @@ test("the EODHD adapter maps responses, sends the token only as a query paramete
       date: "2026-10-13",
       close: 101.37,
       open: 100
+    }],
+    "/api/eod/BAD.XETRA": [{
+      date: "2026-10-13-invalid",
+      close: 1
+    }],
+    "/api/splits/BAD.XETRA": [{
+      date: "2026-02-30",
+      split: "2/1"
     }]
   };
   const provider = eodhdProvider("secret-token", async input => {
@@ -353,5 +361,7 @@ test("the EODHD adapter maps responses, sends the token only as a query paramete
     close: 101.37
   }]);
   assert.deepEqual([urls[1].searchParams.get("from"), urls[1].searchParams.get("to"), urls[1].searchParams.get("api_token")], ["2026-10-13", "2026-10-14", "secret-token"]);
+  await assert.rejects(provider.dailyCloses("BAD.XETRA", "2026-10-13", "2026-10-14"), MarketDataError);
+  await assert.rejects(provider.splits("BAD.XETRA", "2026-01-01", "2026-10-14"), MarketDataError);
   await assert.rejects(provider.splits("SYN.XETRA", "2026-01-01", "2026-10-14"), (error: unknown) => error instanceof MarketDataError && error.message === "The price provider rejected the API key." && !error.message.includes("secret"));
 });
