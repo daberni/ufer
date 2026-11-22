@@ -11,6 +11,7 @@ import { hash } from "../src/server/security/tokens";
 import type { AuthContext } from "../src/server/security/session";
 import { completeAuthorization } from "../src/features/banking/server/authorization-service";
 import { connectBank } from "../src/features/banking/server/connect-bank";
+import { createManualTransaction } from "../src/features/transactions/server/manual-transaction-repository";
 import { insertAuthorization } from "../src/features/banking/server/connection-repository";
 import { removeBankConnection } from "../src/features/banking/server/connection-service";
 import { deleteAccount } from "../src/features/accounts/server/account-service";
@@ -451,4 +452,39 @@ test("recording an authorization reads its target again and refuses one archived
     actor
   }), false);
   assert.equal((await db.select().from(schema.requisitions)).length, 0);
+});
+
+test("a manual booking whose account a bank connection linked after the request's own check is refused inside its transaction", async context => {
+  const {
+    db
+  } = await connectDatabase(context, () => []);
+
+  await insertManualAccount(db);
+  await db.insert(schema.requisitions).values({
+    id: "linked",
+    bank_name: "Example bank",
+    bank_country: "AT",
+    status: "LINKED"
+  });
+  await db.update(schema.accounts).set({
+    provider: "enable_banking",
+    provider_uid: "uid-checking",
+    requisition_id: "linked"
+  }).where(eq(schema.accounts.id, "imported"));
+
+  await assert.rejects(createManualTransaction({
+    accountId: "imported",
+    currency: "EUR",
+    date: "2026-11-01",
+    amount: -1000,
+    counterparty: "Synthetic shop",
+    description: "",
+    type: "expense",
+    categoryId: null,
+    categorySource: "manual",
+    categoryRuleId: null
+  }), {
+    status: 409
+  });
+  assert.equal((await db.select().from(schema.transactions)).length, 0);
 });

@@ -8,7 +8,7 @@ import { accountDeletionInput, accountEditInput, accountInput, archiveInput, val
 import { archiveIfSettled, archiveSettledAccount, deleteUnlinkedAccount, findManualAccount, insertManualAccount, readBookedTotal, readLatestReportedBalance, refuse, saveAccountArchived, saveAccountKind, saveAccountName, withAccountTransaction, withRefusableAccountTransaction } from "./account-repository";
 import { decideClosing, decideReconciliation } from "./account-decisions";
 import { comparableBankBalanceTypes, findAccountWithBalance } from "./account-queries";
-import { archivedAccountMessage, assertWritableAccount } from "@/features/transactions/server/booking-accounts";
+import { archivedAccountMessage, assertWritableAccount, assertWritableManualAccount } from "@/features/transactions/server/booking-accounts";
 import { bookManualEntry, recordManualBalance, type ManualEntryResult } from "@/features/transactions/server/manual-transaction-repository";
 import type { AccountKind } from "../account-kinds";
 import { currentFormatLocale } from "@/server/http/request-locale";
@@ -48,7 +48,7 @@ export async function updateManualValuation(accountId: string, payload: unknown,
   validateBalanceDate(input.date, now);
 
   await withAccountTransaction(async tx => {
-    await assertWritableAccount(tx, account.id);
+    await assertWritableManualAccount(tx, account.id);
     await recordManualBalance(tx, account, input.date, amount);
   });
 
@@ -241,6 +241,7 @@ async function closeAccount(account: {
   const result = await withRefusableAccountTransaction<ClosingResult | {
     lastBooking: string;
   }>(async tx => {
+    await assertWritableManualAccount(tx, account.id);
     const decision = decideClosing(await readBookedTotal(tx, account.id), closing.balance_minor, closing.date, closing.transfer_account_id !== null);
 
     if (decision.refused === "balance_changed") {

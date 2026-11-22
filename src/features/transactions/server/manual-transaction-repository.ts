@@ -3,7 +3,7 @@ import { and, eq, isNull, lte, sql } from "drizzle-orm";
 import { TransactionRollbackError } from "drizzle-orm/errors";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 import { transactions } from "@/server/database/schema";
-import { assertWritableAccount } from "./booking-accounts";
+import { assertWritableManualAccount } from "./booking-accounts";
 import type { TransactionType } from "@/lib/transaction-types";
 import type { RuleAssignment, RuleText } from "@/features/categorization/server/rule-assignment";
 import { createdCounterpartPrefix, manualEntryPrefix } from "@/lib/booking-references";
@@ -98,7 +98,7 @@ export async function bookManualEntry(tx: DatabaseTransaction, id: string, entry
 export async function createManualTransaction(entry: NewManualEntry) {
   const id = randomUUID();
   const result = await refusable(async tx => {
-    await assertWritableAccount(tx, entry.accountId);
+    await assertWritableManualAccount(tx, entry.accountId);
 
     return bookManualEntry(tx, id, entry);
   });
