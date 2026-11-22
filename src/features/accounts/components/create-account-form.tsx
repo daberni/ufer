@@ -32,16 +32,30 @@ function CreateAccountForm({ close }: DialogFormProps) {
   const ledger = useDialogSubmit(useCreateAccount(), close);
   const brokerage = useDialogSubmit(useCreateBrokerageAccount(), close);
   const active = kind === "brokerage" ? brokerage : ledger;
+  // While either creation runs, the type stays fixed and nothing else is submitted, so switching types cannot create two accounts.
+  const pending = ledger.pending || brokerage.pending;
 
   return (
     <form
-      onSubmit={event => kind === "brokerage" ? brokerage.submit(event, data => Object.fromEntries(data)) : ledger.submit(event, accountBody)}
+      onSubmit={event => {
+        if (pending) {
+          event.preventDefault();
+
+          return;
+        }
+
+        if (kind === "brokerage") {
+          brokerage.submit(event, data => Object.fromEntries(data));
+        } else {
+          ledger.submit(event, accountBody);
+        }
+      }}
       className={ui["form"]}
     >
       <p className={ui["form-description"]}>Track an account, investment, property or debt by entering its balance yourself. Bank accounts with online access can also be added through Connect bank.</p>
-      <AccountTypeChoice selected={kind} onSelect={setKind} />
-      {kind === "brokerage" && <BrokerageFields pending={active.pending} error={active.error} />}
-      {kind && kind !== "brokerage" && <AccountDetailsFields pending={active.pending} error={active.error} kind={kind} />}
+      <AccountTypeChoice selected={kind} onSelect={choice => !pending && setKind(choice)} />
+      {kind === "brokerage" && <BrokerageFields pending={pending} error={active.error} />}
+      {kind && kind !== "brokerage" && <AccountDetailsFields pending={pending} error={active.error} kind={kind} />}
     </form>
   );
 }
