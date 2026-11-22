@@ -1,4 +1,4 @@
-import { detectDateFormat, detectDecimal, type DateFormat, negate, parseAmount, parseDate } from "../csv-values";
+import { twoDigitYear, detectDateFormat, detectDecimal, type DateFormat, negate, parseAmount, parseDate } from "../csv-values";
 import { tagSplit, withSplitTags } from "../import-rows";
 import { cleanText, StatementFileError, StatementRows, type StatementFile } from "./statement-rows";
 
@@ -153,10 +153,10 @@ function qifDateFormat(dates: string[]) {
 /** Quicken writes `1/31'24` or `1/31/2024`, sometimes with spaces; the apostrophe separates a two-digit year. */
 function qifDate(value: string) {
   const text = value.replace(/\s+/g, "");
-  const short = /^(\d{1,2})\/(\d{1,2})'(\d{2})$/.exec(text);
+  const short = /^(\d{1,2})\/(\d{1,2})['/](\d{2})$/.exec(text);
 
   if (short) {
-    return `${short[1]}/${short[2]}/20${short[3]}`;
+    return `${short[1]}/${short[2]}/${twoDigitYear(Number(short[3]))}`;
   }
 
   return text.replace("'", "/");
@@ -172,13 +172,9 @@ function splitTags(record: QifRecord, decimal: "." | ",", amount: string | null)
       category = text;
     } else if (field === "$" && category !== null) {
       const partAmount = parseAmount(text, decimal);
-
-      if (partAmount === null) {
-        return null;
-      }
-
-      // Split tags count in the row's direction, so an outgoing row's negative parts become positive tag amounts.
-      const tagAmount = amount?.startsWith("-") ? negate(partAmount) : partAmount;
+      // Split tags count in the row's direction, so an outgoing row's negative parts become positive tag amounts. An unreadable amount stays as written, so the row imports unsplit with the split text kept in its description.
+      const signed = partAmount !== null && amount?.startsWith("-") ? negate(partAmount) : partAmount;
+      const tagAmount = signed ?? text;
 
       parts.push(`${category.replaceAll(",", " ")}:${tagAmount}`);
       category = null;

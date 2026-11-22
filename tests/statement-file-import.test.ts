@@ -303,6 +303,12 @@ test("QIF slash dates that never show the day follow Quicken's month-first order
   assert.deepEqual(read("!Type:Bank\nD1/2/2026\nT-1.00\n^\nD25/4/2026\nT-2.00\n^\n").rows.map(row => row.date), ["2026-02-01", "2026-04-25"]);
 });
 
+test("QIF two-digit years take the most recent century that is not in the future, and unreadable split amounts stay in the description", () => {
+  const statement = read("!Type:Bank\nD12/31'93\nT-1.00\n^\nD1/5/26\nT-60.00\nSFood\n$oops\nSCar\n$-14.48\n^\n");
+
+  assert.deepEqual(statement.rows.map(row => [row.date, row.description, row.parts]), [["1993-12-31", "", null], ["2026-01-05", "Split: Food:oops, Car 14.48", null]]);
+});
+
 test("CSV and other text are not taken for statements", () => {
   assert.equal(readStatementFile(new TextEncoder().encode("Date,Amount\n2026-01-01,1.00\n"), "en"), null);
   assert.equal(readStatementFile(new TextEncoder().encode("<?xml version=\"1.0\"?><Other/>"), "en"), null);
