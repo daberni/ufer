@@ -404,6 +404,7 @@ test("OFX empty SGML leaves keep later fields, foreign amounts round exactly, an
   const prefixedOfx = read("<?xml version=\"1.0\"?><ofx:OFX xmlns:ofx=\"http://ofx.net/types/2003/04\"><ofx:BANKMSGSRSV1><ofx:STMTTRNRS><ofx:STMTRS><ofx:CURDEF>EUR</ofx:CURDEF><ofx:BANKACCTFROM><ofx:ACCTID>P</ofx:ACCTID></ofx:BANKACCTFROM><ofx:BANKTRANLIST><ofx:STMTTRN><ofx:DTPOSTED>20260301</ofx:DTPOSTED><ofx:TRNAMT>-2</ofx:TRNAMT><ofx:FITID>1</ofx:FITID></ofx:STMTTRN></ofx:BANKTRANLIST></ofx:STMTRS></ofx:STMTTRNRS></ofx:BANKMSGSRSV1></ofx:OFX>");
 
   assert.deepEqual(prefixedOfx.rows.map(row => [row.source, row.amount]), [["P", "-2"]]);
+  assert.equal(read("<?xml version=\"1.0\"?><?exporter version=\"1\"?>\n<OFX><BANKMSGSRSV1><STMTTRNRS><STMTRS><CURDEF>EUR</CURDEF><BANKACCTFROM><ACCTID>PI</ACCTID></BANKACCTFROM><BANKTRANLIST><STMTTRN><DTPOSTED>20260301</DTPOSTED><TRNAMT>-3</TRNAMT><FITID>1</FITID></STMTTRN></BANKTRANLIST></STMTRS></STMTTRNRS></BANKMSGSRSV1></OFX>").rows.length, 1);
 
   const multiCurrency = read(camt.replace("DE89370400440532013000", "AT611904300234573201"));
 

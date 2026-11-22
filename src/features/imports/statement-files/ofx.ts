@@ -12,12 +12,13 @@ type Element = {
   line: number;
 };
 
-/** Whether the text is an OFX file: an SGML header or an XML processing instruction, followed by the OFX root. */
+/** Whether the text is an OFX file: an SGML header, an OFX processing instruction, or an XML document whose root is OFX. */
 export function looksLikeOfx(text: string) {
-  // Comments may precede the root element.
-  const head = text.slice(0, 4096).replace(/<!--[\s\S]*?-->/g, "");
+  const head = text.slice(0, 4096).replace(/^\uFEFF/, "");
+  // The XML prolog may hold comments and processing instructions of any kind before the root element.
+  const body = head.replace(/<!--[\s\S]*?-->|<\?[\s\S]*?\?>/g, "");
 
-  return /^\s*OFXHEADER\s*:/.test(head) || /<\?OFX\b/i.test(head) || /^\s*(?:<\?xml[^>]*>\s*)?<(?:[A-Za-z_][\w.-]*:)?OFX(?:\s[^>]*)?>/i.test(head);
+  return /^\s*OFXHEADER\s*:/.test(head) || /<\?OFX\b/i.test(head) || /^\s*<(?:[A-Za-z_][\w.-]*:)?OFX(?:\s[^>]*)?>/i.test(body);
 }
 
 export function readOfx(text: string, locale: string): StatementFile {
