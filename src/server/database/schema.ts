@@ -30,7 +30,10 @@ export const requisitions = sqliteTable("requisitions", {
   valid_until: text("valid_until"),
   status: text("status").notNull().default("PENDING"),
   error: text("error"),
-  created_at: text("created_at").notNull().default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ','now'))`)
+  created_at: text("created_at").notNull().default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ','now'))`),
+  // The manual account an authorization started from; its callback connects that account instead of creating one.
+  // Deliberately no foreign key: the account stays deletable, and a callback whose target is gone fails instead of becoming untargeted.
+  target_account_id: text("target_account_id")
 });
 
 export const accounts = sqliteTable("accounts", {

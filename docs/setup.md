@@ -7,10 +7,19 @@ This guide covers development, deployment and verification. See [banking](bankin
 ## Run locally
 
 1. Install Node.js 26, run `nvm use` when using nvm, and then run `npm ci`.
-2. Copy `.env.example` to `.env.local`. Configure an Enable Banking application ID, a private key outside the repository, and the exact registered callback URL. The default is `http://localhost:3000/api/banking/callback`.
-3. Generate independent `BETTER_AUTH_SECRET`, `DATA_ENCRYPTION_KEY`, and `CRON_SECRET` values using `openssl rand -hex 32`. Never commit real credentials.
-4. Provision the installation owner using the operator-only [user enrollment](user-management.md#operator-enrollment), then run `npm run dev` and open [localhost:3000](http://localhost:3000). Keep the same hostname and browser throughout bank authorization.
-5. Open Bank connections, authorize a sandbox institution, then select Sync to retrieve balances and booked transactions.
+2. Copy `.env.example` to `.env.local` and fill `BETTER_AUTH_SECRET`, `DATA_ENCRYPTION_KEY` and `CRON_SECRET` with independent values from `openssl rand -hex 32`. Never commit real credentials. The Enable Banking values can stay empty until you connect a bank; the dashboard then shows a configuration notice.
+3. Optionally load the synthetic [demo data](#demo-data) with `npm run demo:seed -- --confirm`. No separate migration step is needed: an empty database at `DATABASE_URL` (default `data/budget.db`) is initialized from the checked-in changesets on first use, and `npm run db:status` shows its state.
+4. Create the installation owner. Enrollment reads a JSON object from standard input and refuses interactive input, so read the password without echoing it:
+
+   ```sh
+   IFS= read -rs UFER_PASSWORD && export UFER_PASSWORD
+   node -e 'process.stdout.write(JSON.stringify({ username: "owner", name: "Owner", email: "owner@example.test", password: process.env.UFER_PASSWORD, role: "owner" }))' | npm run --silent user:create
+   unset UFER_PASSWORD
+   ```
+
+   The password needs 12–128 characters; see [user enrollment](user-management.md#operator-enrollment) for all fields.
+5. Run `npm run dev`, open [localhost:3000](http://localhost:3000) and sign in. `APP_URL` must match the address in the browser, including host and port.
+6. To connect a bank, configure an Enable Banking application ID, a private key outside the repository and the exact registered callback URL (default `http://localhost:3000/api/banking/callback`). Open Bank connections, authorize a sandbox institution, then select Sync. Keep the same hostname and browser throughout bank authorization.
 
 The development server binds to loopback. Username/password sign-in and `BETTER_AUTH_SECRET` are required in every environment. `APP_URL` must match the browser origin because write requests validate their origin. A production server (Docker, or `NODE_ENV=production`) refuses to start unless `APP_URL` is an HTTPS origin, so serve Docker installations through an HTTPS reverse proxy.
 
@@ -39,7 +48,9 @@ It needs Google Chrome; set `CHROME_PATH` to another Chromium-based browser. Sto
 1. Copy `.env.example` to `.env`, configure all secrets including `BETTER_AUTH_SECRET`, and set `ENABLE_BANKING_PRIVATE_KEY_HOST_PATH` to an external PEM file. Compose mounts it read-only as a secret.
 2. Set `APP_URL` and the registered callback to the HTTPS address of the reverse proxy that serves Ufer, for example on the NAS. `BIND_ADDRESS` defaults to `127.0.0.1`, so only a proxy on the same host reaches the application; bind the LAN address only when the proxy runs on another host.
    Behind a reverse proxy that replaces a client-address header with the connecting address (for example nginx `proxy_set_header X-Real-IP $remote_addr;`), set `TRUSTED_CLIENT_IP_HEADER=X-Real-IP` so authentication rate limits count per client. Only set it when the application port is reachable exclusively through that proxy. Without it, all clients share one counter per authentication endpoint; see [authentication rate limits](security.md#authentication-rate-limits).
+   `PORT` selects the published host port; the container always listens on 3000. Compose requires `ENABLE_BANKING_PRIVATE_KEY_HOST_PATH` to point at an existing file even before a bank is connected.
 3. Run `docker compose up -d --build`. The application runs as a non-root user with a read-only root filesystem and a persistent `budget-data` volume. The existing volume and database names are intentionally retained for compatibility.
+   Create the owner through the maintenance image, which shares the data volume: pipe the same enrollment JSON as in [Run locally](#run-locally) into `docker compose --profile maintenance run --rm -T migrate npm run --silent user:create`.
 4. Unattended daily synchronization is included in the default Compose stack. It runs once in the configured hour, default 06:00 Europe/Vienna; set `SYNC_HOUR` to change the hour. There is no immediate retry loop on failure.
 5. For a consistent backup, stop the app and scheduler, back up the data volume and configuration/encryption secrets separately, then restart. Copying an actively written SQLite file is not a verified backup procedure. See [backup and restore](backup-and-restore.md) for read-only artifact checks and the separately authorized recovery procedure.
 

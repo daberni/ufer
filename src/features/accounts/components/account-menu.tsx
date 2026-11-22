@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Temporal } from "temporal-polyfill";
-import { Archive, ArchiveRestore, ArrowRight, PenLine, Pencil, RefreshCw, Trash2 } from "lucide-react";
+import { Archive, ArchiveRestore, ArrowRight, Link2, Pencil, RefreshCw, Trash2 } from "lucide-react";
 import { toFailure } from "@/client/api";
 import { ActionFeedback } from "@/components/ui/action-feedback";
 import { ActionMenu, MenuItem, MenuLink } from "@/components/ui/action-menu";
@@ -13,14 +13,14 @@ import { bankConnectionsHref } from "@/features/banking/connections-location";
 import { useConnections } from "@/features/banking/queries";
 import type { Account } from "@/features/accounts/types";
 import { CloseAccountDialog } from "./close-account-dialog";
-import { ConvertAccountDialog, DeleteAccountDialog } from "./account-removal-dialogs";
+import { DeleteAccountDialog } from "./account-removal-dialogs";
 import { EditAccountDialog } from "./edit-account-dialog";
 
-type Dialog = "edit" | "reconnect" | "close" | "convert" | "delete" | null;
+type Dialog = "edit" | "reconnect" | "connect" | "close" | "delete" | null;
 
 /**
  * The account's actions beside its page heading. Reconnecting appears only while no problem notice offers it, and the bank connections link only for an
- * account without a known connection. Converting and deleting need an account without a connection; archiving needs a balance of 0 or a closing.
+ * account without a known connection. An active manual account can be connected to a bank; deleting needs an account without a connection; archiving needs a balance of 0 or a closing.
  */
 export function AccountMenu({ account }: {
   account: Account
@@ -56,9 +56,9 @@ export function AccountMenu({ account }: {
             Manage bank connections
           </MenuLink>
         )}
-        {bankLinked && detached && (
-          <MenuItem icon={<PenLine size={15} aria-hidden="true" />} onSelect={() => setDialog("convert")}>
-            Convert to manual account
+        {!bankLinked && !archived && (
+          <MenuItem icon={<Link2 size={15} aria-hidden="true" />} onSelect={() => setDialog("connect")}>
+            Connect to bank
           </MenuItem>
         )}
         {archived ? (
@@ -92,7 +92,7 @@ export function AccountMenu({ account }: {
       {dialog === "edit" && <EditAccountDialog account={account} close={close} />}
       {dialog === "reconnect" && connection && <BankConnectionDialog connection={connection} close={close} />}
       {dialog === "close" && <CloseAccountDialog account={account} close={close} />}
-      {dialog === "convert" && <ConvertAccountDialog account={account} close={close} />}
+      {dialog === "connect" && <BankConnectionDialog connection={null} account={account} close={close} />}
       {dialog === "delete" && <DeleteAccountDialog account={account} close={close} />}
     </>
   );

@@ -1,7 +1,16 @@
-import { and, eq, inArray, ne, notExists } from "drizzle-orm";
+import { and, eq, inArray, isNull, ne, notExists } from "drizzle-orm";
 import type { DatabaseTransaction } from "@/server/database/connection";
 import { accountIdentifiers, accounts, requisitions } from "@/server/database/schema";
-import type { IdentifierMatch, MappableBankAccount } from "./bank-account-mapping";
+import type { ConnectTarget, IdentifierMatch, MappableBankAccount } from "./bank-account-mapping";
+
+/** The manual account an authorization connects, read again in the callback's transaction; undefined once it was archived, linked or deleted. */
+export async function findConnectTarget(tx: DatabaseTransaction, id: string): Promise<ConnectTarget | undefined> {
+  return tx.select({
+    id: accounts.id,
+    currency: accounts.currency,
+    iban: accounts.iban
+  }).from(accounts).where(and(eq(accounts.id, id), eq(accounts.provider, "manual"), isNull(accounts.requisition_id), isNull(accounts.archived_at))).get();
+}
 
 /** The existing accounts any of the identifiers belong to, each with its connection. */
 export async function findIdentifierMatches(tx: DatabaseTransaction, hashes: string[]): Promise<IdentifierMatch[]> {
@@ -15,12 +24,13 @@ function providerName(account: MappableBankAccount) {
   return account.name || account.product || null;
 }
 
-/** Links an existing account to the connection and refreshes its provider details; false when its currency differs from the bank's. */
+/** Links an existing account, bank or manual, to the connection and refreshes its provider details; false when its currency differs from the bank's. */
 export async function relinkAccount(tx: DatabaseTransaction, id: string, requisitionId: string, account: MappableBankAccount) {
   const accountScope = and(eq(accounts.id, id), eq(accounts.currency, account.currency));
   const name = providerName(account);
   const iban = account.account_id?.iban;
   const saved = await tx.update(accounts).set({
+    provider: "enable_banking",
     provider_uid: account.uid,
     ...(name ? {
       provider_name: name

@@ -23,7 +23,7 @@ adr:
 | Older bookings | Bookings dated on or before the opening balance, from a wider sync window or a file import, were part of it: the opening balance shrinks by their sum and moves to the day before them, so the current balance stays the same. Later bookings change the balance normally |
 | Reported balance | Each sync keeps the reported balance with its provider classification ([#167](https://github.com/daberni/ufer/issues/167)) in `balance_snapshots`. The newest one is compared with the calculated balance at the end of its date when it is a booked balance (`CLBD`, `ITBD`, `PRCD`); available and expected balances include credit lines or pending items and are never compared |
 | Mismatch | A difference is shown on the account card and details. Book adjustment records an `adjustment` for the difference on the reported date while holding the sync lease. Syncs never book corrections themselves |
-| History | Historical differences between reported balances and bookings are not booked as corrections; showing them per day is [#274](https://github.com/daberni/ufer/issues/274) |
+| History | Historical differences between reported balances and bookings are not booked as corrections; the balance history shows them per reported day and marks where each difference starts ([#274](https://github.com/daberni/ufer/issues/274)) |
 
 Changeset 0017 converts existing bank-linked accounts: one opening balance per account books the stored balance minus its visible bookings, dated the day before its oldest booking, snapshot or balance date, a stored balance without a snapshot is kept as one, and `balance_minor`/`balance_date` are cleared. Current balances and net worth stay identical.
 

@@ -18,6 +18,22 @@ export async function assertWritableAccount(tx: DatabaseTransaction, accountId: 
   }
 }
 
+/** Rechecks inside a manual-only write transaction that the account is still an active manual account; a bank connection may have linked it after the request's own check. */
+export async function assertWritableManualAccount(tx: DatabaseTransaction, accountId: string) {
+  const account = await tx.select({
+    provider: accounts.provider,
+    archived_at: accounts.archived_at
+  }).from(accounts).where(eq(accounts.id, accountId)).get();
+
+  if (account && account.provider !== "manual") {
+    throw new HttpError(409, "This account is now connected to a bank. Reload the page to see its current state.");
+  }
+
+  if (account?.archived_at) {
+    throw new HttpError(409, archivedAccountMessage);
+  }
+}
+
 /** The accounts that are not archived. Archiving freezes bookkeeping, so only bookings on these accounts take a new type. */
 export async function readActiveAccountIds(executor: Pick<Database, "select">) {
   const active = await executor.select({
