@@ -239,13 +239,10 @@ function ShowAgain({
   close: () => void;
 }) {
   const show = useHideTransaction(transaction.id);
-  const locale = useLocale();
-  const original = transaction.duplicate_of;
-  const note = original ? `Hidden as a duplicate of ${[original.counterparty || original.description, describeDate(Temporal.PlainDate.from(original.date), locale).label].filter(Boolean).join(" · ")}; that booking counts instead.` : "Hidden from balances and reports.";
 
   return (
     <div className={styles["hidden-note"]}>
-      <p className={ui["form-hint"]}>{note}</p>
+      <p className={ui["form-hint"]}>Hidden from balances and reports.</p>
       <FormError failure={show.error ? toFailure(show.error) : null} />
       <button
         type="button"

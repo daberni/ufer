@@ -135,9 +135,7 @@ export const transactions = sqliteTable("transactions", {
   counterparty_override: text("counterparty_override"),
   description_override: text("description_override"),
   // Hidden imported booking: kept so a later sync or import finds and leaves it, excluded from balances, reports and pairing.
-  suppressed_at: text("suppressed_at"),
-  // The booking a person kept when they hid this one as its duplicate; showing it again clears it. Not a foreign key, like transfer_id: readers treat an unknown booking as unrecorded.
-  duplicate_of_id: text("duplicate_of_id")
+  suppressed_at: text("suppressed_at")
 }, table => [
   unique("transactions_account_id_provider_reference_unique").on(table.account_id, table.provider_reference),
   index("transactions_date").on(desc(table.date)),

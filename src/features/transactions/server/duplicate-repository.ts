@@ -70,7 +70,7 @@ export type DuplicateDecision = {
 export type DuplicateResult = "saved" | "not_found" | "not_a_candidate" | "entered" | "hidden" | "split" | "archived_account";
 
 /**
- * Resolves `id` as a duplicate of `originalId`: `decide` picks the copy that stays; the other is hidden with a record of the kept booking, so a later sync or reimport leaves it hidden. The kept booking may take over a manual category and type and better text.
+ * Resolves `id` as a duplicate of `originalId`: `decide` picks the copy that stays; the other is hidden like a booking hidden by hand, so a later sync or reimport leaves it hidden. The kept booking may take over a manual category and type and better text.
  * Both copies are read and checked in the write transaction; hiding a linked copy ends its link as hiding it by hand does.
  */
 export async function resolveDuplicate(id: string, originalId: string, at: string, decide: (subject: Copy, original: Copy) => DuplicateDecision): Promise<DuplicateResult> {
@@ -122,8 +122,7 @@ export async function resolveDuplicate(id: string, originalId: string, at: strin
     }
 
     await tx.update(transactions).set({
-      suppressed_at: at,
-      duplicate_of_id: decision.kept.id
+      suppressed_at: at
     }).where(eq(transactions.id, decision.removed.id));
 
     if (decision.text && !decision.kept.overridden) {

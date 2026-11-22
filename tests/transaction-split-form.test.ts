@@ -21,7 +21,6 @@ const outgoing: Transaction = {
   source_counterparty: "Example Market",
   source_description: "Synthetic purchase",
   hidden: false,
-  duplicate_of: null,
   account_name: "Synthetic checking",
   account_id: "synthetic-checking",
   account_archived: false,

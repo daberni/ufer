@@ -127,7 +127,7 @@ const describedCopy = {
   description: "Weekly groceries card payment"
 };
 
-test("naming the shorter copy a duplicate hides it, records the kept booking and counts the movement once, also after a resync", async context => {
+test("naming the shorter copy a duplicate hides it and counts the movement once, also after a resync", async context => {
   const db = await isolatedDatabase(context);
 
   await sync("checking", [shortCopy, describedCopy]);
@@ -144,19 +144,9 @@ test("naming the shorter copy a duplicate hides it, records the kept booking and
   const hidden = await byReference(db, shortCopy.reference);
 
   assert.equal(hidden.suppressed_at, now.toString());
-  assert.equal(hidden.duplicate_of_id, described.id);
   assert.equal((await byReference(db, describedCopy.reference)).suppressed_at, null);
   assert.equal(await expenses(), 1250);
-  assert.deepEqual((await listed()).find(item => item.id === short.id)?.duplicate_of, {
-    id: described.id,
-    date: describedCopy.date,
-    counterparty: describedCopy.counterparty,
-    description: describedCopy.description
-  });
-
-  await hideTransaction(described.id, true, now);
-
-  assert.equal((await listed()).find(item => item.id === short.id)?.duplicate_of, null);
+  assert.equal((await listed()).find(item => item.id === short.id)?.hidden, true);
 });
 
 test("naming the better-described copy a duplicate of the shorter one still keeps the better-described copy and takes over the hidden copy's manual category", async context => {
@@ -177,7 +167,7 @@ test("naming the better-described copy a duplicate of the shorter one still keep
 
   assert.equal(kept.suppressed_at, null);
   assert.deepEqual([kept.category_id, kept.category_source], ["groceries", "manual"]);
-  assert.equal((await byReference(db, shortCopy.reference)).duplicate_of_id, described.id);
+  assert.notEqual((await byReference(db, shortCopy.reference)).suppressed_at, null);
 });
 
 test("the kept copy's own manual category wins over the hidden copy's", async context => {
@@ -237,7 +227,7 @@ test("several equal candidates are all offered and none is resolved without nami
   assert.equal(await expenses(), 1250 * 5 + 1251);
 });
 
-test("showing a resolved duplicate again clears its record and counts it again; a hidden booking cannot be resolved", async context => {
+test("showing a resolved duplicate again counts it again; a hidden booking cannot be resolved", async context => {
   const db = await isolatedDatabase(context);
 
   await sync("checking", [shortCopy, describedCopy]);
@@ -253,9 +243,8 @@ test("showing a resolved duplicate again clears its record and counts it again; 
 
   await hideTransaction(short.id, false, now);
 
-  assert.equal((await byReference(db, shortCopy.reference)).duplicate_of_id, null);
+  assert.equal((await byReference(db, shortCopy.reference)).suppressed_at, null);
   assert.equal(await expenses(), 2500);
-  assert.equal((await listed()).find(item => item.id === short.id)?.duplicate_of, null);
 });
 
 test("a CSV-imported copy beside a bank copy is hidden even when better described, and the bank copy takes over its text, manual category and manual type", async context => {
@@ -290,7 +279,6 @@ test("a CSV-imported copy beside a bank copy is hidden even when better describe
   const csvCopy = await byReference(db, "csv:m:synthetic-row");
 
   assert.notEqual(csvCopy.suppressed_at, null);
-  assert.equal(csvCopy.duplicate_of_id, bank.id);
 
   await sync("checking", [shortCopy]);
   const kept = await byReference(db, shortCopy.reference);

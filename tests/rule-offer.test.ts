@@ -38,7 +38,6 @@ function booking(id: string, counterparty: string): Transaction {
     source_counterparty: counterparty,
     source_description: "Synthetic purchase",
     hidden: false,
-    duplicate_of: null,
     account_name: "Synthetic account",
     account_id: "synthetic-account",
     category_id: null,

@@ -33,13 +33,6 @@ export type Transaction = {
   source_description: string;
   /** Whether the imported booking is hidden: it stays listed but counts toward no balance or report, and later syncs and imports keep it hidden. */
   hidden: boolean;
-  /** For a booking hidden as a duplicate, the booking a person kept instead; null when it is shown, hidden for another reason or the kept booking no longer exists. */
-  duplicate_of: {
-    id: string;
-    date: string;
-    counterparty: string;
-    description: string;
-  } | null;
   account_name: string;
   category_id: string | null;
   category_source: string;
