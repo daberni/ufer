@@ -210,3 +210,24 @@ test("a trade whose bank booking falls on another day leaves cash plus holdings 
     ["2026-10-31", 500_00]
   ]);
 });
+
+test("today's balance counts a holding whose bank booking is dated later, because the settlement balance already includes that booking", async context => {
+  const db = await isolatedDatabase(context);
+  const account = await depot();
+  const etf = await security();
+  const booking = await syncBooking(db, "debit-tomorrow", "2026-11-01", -1000_00);
+
+  await price(db, etf, "2026-10-30", 100);
+  await trade(account, {
+    security_id: etf,
+    date: "2026-10-31",
+    side: "buy",
+    quantity: "10",
+    price: "100",
+    settlement: {
+      transaction_id: booking.id
+    }
+  });
+
+  assert.equal((await brokerageRow(account)).balance_minor, 1000_00);
+});

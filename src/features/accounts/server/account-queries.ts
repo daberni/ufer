@@ -8,7 +8,7 @@ import { dailyBalances } from "@/features/accounts/daily-balances";
 import { reportedBalanceDifferences } from "@/features/accounts/reported-balances";
 import { netWorthCategories, netWorthCategory, type NetWorthCategory } from "@/features/accounts/net-worth-categories";
 import type { BalanceHistory, BalancePoint } from "@/features/accounts/types";
-import { unsettledCash, valueHoldings, valuationSeries } from "@/features/securities/valuation";
+import { valueHoldings, valuationSeries } from "@/features/securities/valuation";
 import { readHoldingInputs } from "@/features/securities/server/valuation-repository";
 
 // Every account's balance is the sum of its visible transactions, dated with its newest one.
@@ -83,7 +83,8 @@ export async function listAccounts(now = Temporal.Now.instant()) {
 
     return {
       ...row,
-      balance_minor: valuation.value_minor + unsettledCash(valuationInputs.settlements, date),
+      // Current balances include every visible booking, whatever its date, and no trade is dated in the future, so no cash is still pending today; only the dated history offsets it.
+      balance_minor: valuation.value_minor,
       balance_date: date,
       valuation: {
         missing: valuation.missing,
