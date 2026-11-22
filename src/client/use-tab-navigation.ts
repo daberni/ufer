@@ -59,6 +59,9 @@ function traverseTo(navigation: Navigation, key: string) {
       once: true
     });
     // An interrupted traversal still ends on an app page; replacing it keeps the tab switch.
-    void navigation.traverseTo(key).finished?.catch(() => resolve());
+    const result = navigation.traverseTo(key);
+
+    void result.committed?.catch(() => resolve());
+    void result.finished?.catch(() => resolve());
   });
 }
