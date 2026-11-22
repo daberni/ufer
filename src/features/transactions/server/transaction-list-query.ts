@@ -40,6 +40,7 @@ function automaticAssignment(row: Record<string, unknown>, rules: PreparedRule[]
   }
 
   const assignment = ruleAssignment({
+    account_id: String(row.account_id),
     counterparty: String(row.source_counterparty),
     description: String(row.source_description),
     counterparty_override: row.counterparty_override == null ? null : String(row.counterparty_override),

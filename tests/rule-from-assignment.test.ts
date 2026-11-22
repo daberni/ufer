@@ -25,6 +25,7 @@ function matchesOwnTransaction(pattern: string, counterparty: string, descriptio
   }]);
 
   return categorize({
+    account_id: "checking",
     counterparty,
     description
   }, rules) === "groceries";

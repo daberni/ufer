@@ -18,6 +18,7 @@ function rule(fields: Partial<Rule> & Pick<Rule, "id" | "pattern" | "category_id
 function booking(id: string, counterparty: string) {
   return {
     id,
+    account_id: "checking",
     counterparty,
     description: ""
   };
@@ -126,11 +127,13 @@ test("rule types are set, released to the derived type, or left alone", () => {
 test("an adopting rule without a type releases only types an earlier rule set", () => {
   const entries = [{
     id: "ruled",
+    account_id: "checking",
     amount_minor: 1500,
     type_rule_id: "earlier",
     transfer_detected: 0
   }, {
     id: "automatic",
+    account_id: "checking",
     amount_minor: 1500,
     type_rule_id: null,
     transfer_detected: 0
@@ -151,4 +154,26 @@ test("an adopting rule without a type releases only types an earlier rule set", 
     transaction_type: "expense",
     transfer_account_id: "ignored"
   }, entries).map(change => [change.id, change.type, change.type_rule_id, change.type_transfer_account_id]), [["ruled", "expense", "new", null], ["automatic", "expense", "new", null]]);
+});
+
+test("an adopting transfer rule naming the booking's own account sets a transfer to any account", () => {
+  const changes = decideAdoptedTypes({
+    id: "move",
+    transaction_type: "transfer",
+    transfer_account_id: "savings"
+  }, [{
+    id: "from-checking",
+    account_id: "checking",
+    amount_minor: -500,
+    type_rule_id: null,
+    transfer_detected: 0
+  }, {
+    id: "on-savings",
+    account_id: "savings",
+    amount_minor: 500,
+    type_rule_id: null,
+    transfer_detected: 0
+  }]);
+
+  assert.deepEqual(changes.map(change => [change.id, change.type, change.type_transfer_account_id]), [["from-checking", "transfer", "savings"], ["on-savings", "transfer", null]]);
 });

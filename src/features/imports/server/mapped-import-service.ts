@@ -570,7 +570,7 @@ async function classifyAndSave(planned: PlannedRow[], targets: Map<string, Targe
     // One transaction for every account of the batch, so a failure saves none of them.
     const saved = await saveMappedBatch(accountIds.map(accountId => ({
       accountId,
-      entries: categorized((rowsOf.get(accountId) ?? []).map(item => item.entry), rules),
+      entries: categorized((rowsOf.get(accountId) ?? []).map(item => item.entry), rules, accountId),
       newAccount: newAccounts.get(accountId) ?? null,
       consumed: absorbedOf(accountId),
       opening: openings.get(accountId) ?? null,
@@ -632,8 +632,8 @@ async function classifyAndSave(planned: PlannedRow[], targets: Map<string, Targe
 }
 
 /** Rules categorize rows without a category from the CSV; a rule's type applies to every row it decides except split ones, which stay income or expense. */
-function categorized(entries: MappedEntry[], rules: Awaited<ReturnType<typeof listRules>>) {
-  const ruled = categorizeEntries(entries, rules);
+function categorized(entries: MappedEntry[], rules: Awaited<ReturnType<typeof listRules>>, accountId: string) {
+  const ruled = categorizeEntries(entries, rules, accountId);
 
   return entries.map((entry, index) => {
     const assignment = ruled[index];

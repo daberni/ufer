@@ -38,6 +38,9 @@ export function useRulePreview(draft: RulePreviewDraft | null) {
     queryFn: draft ? ({ signal }) => apiQuery<RulePreview>("rules/preview", {
       pattern: draft.pattern,
       mode: draft.mode,
+      ...(draft.accountId === null ? {} : {
+        account_id: draft.accountId
+      }),
       ...(draft.ruleId === null ? {} : {
         rule_id: draft.ruleId
       }),
