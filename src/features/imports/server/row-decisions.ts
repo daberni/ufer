@@ -142,7 +142,6 @@ export function describeMatches(entries: MappedEntry[], found: Found) {
   const described = new Map<number, Omit<RowMatch, "line" | "accountId">>();
   const existingMatch = (index: number, booking: StoredBooking): ExistingMatch => ({
     id: booking.id,
-    reference: booking.reference,
     date: booking.date,
     amount: booking.amount,
     payee: shortened(booking.counterparty),

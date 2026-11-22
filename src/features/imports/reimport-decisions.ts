@@ -13,7 +13,6 @@ export type SourceField = "payee" | "description" | "type";
 export type ExistingMatch = {
   /** The booking's ID, which a decision names; bounded, unlike stored references. */
   id: string;
-  reference: string;
   date: string;
   amount: number;
   payee: string;

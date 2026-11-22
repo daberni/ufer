@@ -231,7 +231,7 @@ function MatchItem({
               disabled={draft.inputsLocked}
               onChange={event => decision ? draft.decide([match.line], decision.action, event.target.value) : draft.viewCandidate(match.line, event.target.value)}
             >
-              {match.candidates.map(option => <option key={option.id} value={option.id}>{candidateLabel(option, currency, locale)}</option>)}
+              {match.candidates.map((option, position) => <option key={option.id} value={option.id}>{candidateLabel(option, position, match.candidates.length, currency, locale)}</option>)}
             </Select>
           </div>
         )}
@@ -302,6 +302,7 @@ function typeLabel(type: string) {
   return isTransactionType(type) ? transactionTypeLabels[type] : type;
 }
 
-function candidateLabel(candidate: ExistingMatch, currency: string, locale: string) {
-  return [candidate.date, money(candidate.amount, currency, locale), candidate.payee || candidate.description].filter(Boolean).join(" · ");
+/** Numbered, so candidates whose shown texts are equal stay distinguishable; the comparison above shows the chosen one. */
+function candidateLabel(candidate: ExistingMatch, position: number, count: number, currency: string, locale: string) {
+  return [`${position + 1} of ${count}`, candidate.date, money(candidate.amount, currency, locale), candidate.payee || candidate.description].filter(Boolean).join(" · ");
 }

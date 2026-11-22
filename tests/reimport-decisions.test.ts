@@ -364,7 +364,6 @@ function counts(totals: ReturnType<typeof decisionTotals>) {
 test("the review's totals follow the decisions and leave a possible duplicate undecided when its booking is already updated", () => {
   const existing = (reference: string, changes: ExistingMatch["changes"]): ExistingMatch => ({
     id: reference,
-    reference,
     date: "2024-04-20",
     amount: -1500,
     payee: "Example Cinema",
