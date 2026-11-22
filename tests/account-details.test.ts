@@ -203,17 +203,17 @@ test("balances are spaced by date, and a flat or single balance stays inside the
   const plotted = plotBalances([{
     date: "2026-01-01",
     amount_minor: 1000,
-    source: "manual",
+    source: "transactions",
     bank_balance_type: null
   }, {
     date: "2026-01-04",
     amount_minor: 3000,
-    source: "sync",
+    source: "transactions",
     bank_balance_type: null
   }, {
     date: "2026-01-11",
     amount_minor: 2000,
-    source: "sync",
+    source: "transactions",
     bank_balance_type: null
   }]);
 
@@ -225,7 +225,7 @@ test("balances are spaced by date, and a flat or single balance stays inside the
     const flat = plotBalances(balances.map((amount, index) => ({
       date: `2026-01-0${index + 1}`,
       amount_minor: amount,
-      source: "sync" as const,
+      source: "transactions" as const,
       bank_balance_type: null
     })));
 

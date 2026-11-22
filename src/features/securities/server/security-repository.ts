@@ -272,17 +272,6 @@ export async function readAccountTrades(accountId: string) {
   }).from(securityTrades).innerJoin(securities, eq(securities.id, securityTrades.security_id)).leftJoin(transactions, eq(transactions.id, securityTrades.settlement_transaction_id)).where(eq(securityTrades.account_id, accountId)).orderBy(asc(securityTrades.date), asc(securityTrades.sequence));
 }
 
-export async function readAccountSplits(accountId: string) {
-  const db = await database();
-
-  return db.selectDistinct({
-    security_id: securitySplits.security_id,
-    date: securitySplits.date,
-    numerator: securitySplits.numerator,
-    denominator: securitySplits.denominator
-  }).from(securitySplits).innerJoin(securityTrades, eq(securityTrades.security_id, securitySplits.security_id)).where(eq(securityTrades.account_id, accountId));
-}
-
 /** The securities an account has traded. */
 export async function readTradedSecurityIds(tx: DatabaseTransaction, accountId: string) {
   const rows = await tx.selectDistinct({

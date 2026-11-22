@@ -9,9 +9,11 @@ import { archivedAccountMessage } from "@/features/transactions/server/booking-a
 import { amountMinor, positionOn, type PositionTrade } from "../holdings";
 import { parseMicros } from "../quantities";
 import { priceSourceStatus } from "./price-update-service";
+import { valueHoldings } from "../valuation";
+import { readHoldingInputs } from "./valuation-repository";
 import { settlementRefusal, settlementWindowDays, tradeCashAmount, type SettlementRefusal } from "../trade-decisions";
 import { brokerageAccountInput, securityInput, settlementCandidatesQuery, tradeInput } from "./security-schema";
-import { deleteTrade, findBrokerageAccount, findSecurity, findSettlementAccount, findSettlementBooking, findTrade, insertBrokerageAccount, insertSecurity, insertSettlementEntry, insertTrade, listSecurities, markSettlementBooking, nextTradeSequence, readAccountSplits, readAccountTrades, readPositionTrades, readSettlementCandidates, readSplits, readTradedSecurityIds, withSecurityTransaction } from "./security-repository";
+import { deleteTrade, findBrokerageAccount, findSecurity, findSettlementAccount, findSettlementBooking, findTrade, insertBrokerageAccount, insertSecurity, insertSettlementEntry, insertTrade, listSecurities, markSettlementBooking, nextTradeSequence, readAccountTrades, readPositionTrades, readSettlementCandidates, readSplits, readTradedSecurityIds, withSecurityTransaction } from "./security-repository";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 
 /** Replays every trade so a sale never exceeds what was held at that point, now or after a change. */
@@ -263,27 +265,17 @@ export async function removeTrade(id: string) {
   };
 }
 
-/** The account's trades and, per security, the position today: split-adjusted quantity, moving-average cost and realized gains. */
+/** The account's trades and its holdings today: split-adjusted quantity, moving-average cost, realized gains and the value at the latest price on or before today, with missing or stale prices marked. */
 export async function readBrokerageTrades(accountId: string, now = Temporal.Now.instant()) {
   const account = await requireBrokerageAccount(accountId);
   const trades = await readAccountTrades(accountId);
-  const splits = await readAccountSplits(accountId);
-  const date = today(now).toString();
-  const securityIds = [...new Set(trades.map(trade => trade.security_id))];
+  const holdings = (await readHoldingInputs([accountId])).get(accountId)?.holdings ?? [];
 
   return {
     account_id: account.id,
     currency: account.currency,
     trades,
-    positions: securityIds.map(securityId => {
-      const own = trades.filter(trade => trade.security_id === securityId);
-
-      return {
-        security_id: securityId,
-        security_name: own[0].security_name,
-        ...positionOn(own, splits.filter(split => split.security_id === securityId), date)
-      };
-    })
+    valuation: valueHoldings(holdings, today(now).toString())
   };
 }
 

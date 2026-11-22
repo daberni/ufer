@@ -2,11 +2,10 @@ import { Temporal } from "temporal-polyfill";
 import { dateWithYear, describeDate } from "@/lib/date-format";
 import type { BalancePoint } from "./types";
 
+// A balance is either the running sum of an account's bookings or, for a brokerage account, the market value of its holdings.
 export const balanceSourceLabels: Record<BalancePoint["source"], string> = {
-  sync: "Bank sync",
-  manual: "Manual",
-  csv: "CSV import",
-  transactions: "Estimated"
+  transactions: "From bookings",
+  valuation: "Market value"
 };
 
 export function describeBalanceDate(date: string, locale: string) {
@@ -34,11 +33,5 @@ export function describeBankBalanceType(type: string | null) {
 }
 
 export function describeBalanceSource(balance: BalancePoint) {
-  if (balance.source !== "sync") {
-    return balanceSourceLabels[balance.source];
-  }
-
-  const classification = balance.bank_balance_type ? bankBalanceLabels[balance.bank_balance_type] : undefined;
-
-  return classification ? `Bank sync · ${classification}` : "Bank sync";
+  return balanceSourceLabels[balance.source];
 }

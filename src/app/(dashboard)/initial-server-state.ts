@@ -12,7 +12,7 @@ export async function initialServerState() {
   await Promise.all([
     queryClient.prefetchQuery({
       queryKey: queryKeys.accounts(),
-      queryFn: listAccounts
+      queryFn: () => listAccounts()
     }),
     queryClient.prefetchQuery({
       queryKey: queryKeys.categories(),
