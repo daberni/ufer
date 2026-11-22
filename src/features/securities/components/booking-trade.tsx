@@ -99,7 +99,7 @@ function TradeSummary({
       </p>
       <dl className={styles["facts"]}>
         <dt>Trade</dt>
-        <dd>{trade.side === "buy" ? "Buy" : "Sale"} of {trade.security_name}{trade.security_isin ? ` (${trade.security_isin})` : ""}</dd>
+        <dd>{trade.side === "buy" ? "Buy" : "Sale"} of {trade.security_name}{trade.security_isin && trade.security_isin !== trade.security_name ? ` (${trade.security_isin})` : ""}</dd>
         <dt>Trade date</dt>
         <dd>{dateWithYear(Temporal.PlainDate.from(trade.date), locale)}</dd>
         <dt>Shares</dt>

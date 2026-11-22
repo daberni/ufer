@@ -3,48 +3,33 @@
 import ui from "../../../components/ui/primitives.module.css";
 import styles from "./brokerage-panel.module.css";
 
-import { useState } from "react";
-import { Temporal } from "temporal-polyfill";
-import { dateWithYear } from "@/lib/date-format";
+import { useId, useState } from "react";
 import { clsx } from "clsx";
-import { Trash2 } from "lucide-react";
-import { Dialog } from "@/components/ui/dialog";
+import { Temporal } from "temporal-polyfill";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { Empty } from "@/components/ui/empty-state";
 import { FormError } from "@/components/ui/form-error";
 import { toFailure } from "@/client/api";
 import { useLocale } from "@/client/locale-provider";
-import { money, signedMoney } from "@/lib/money";
+import { dateWithYear } from "@/lib/date-format";
+import { currencyExponent, money, signedMoney } from "@/lib/money";
 import type { Account } from "@/features/accounts/types";
 import { useBrokerageTrades, useSecurities } from "../queries";
-import { useDeleteTrade } from "../mutations";
 import type { Holding, Security, Trade } from "../types";
-import { ListingDialog } from "./listing-dialog";
+import { formatPrice, formatQuantity } from "./holding-format";
+import { BookingDialog } from "./booking-dialog";
 
-/** Display only: a micro-unit quantity as a localized number with up to six decimals. */
-export function formatQuantity(micros: number, locale: string) {
-  return new Intl.NumberFormat(locale, {
-    maximumFractionDigits: 6
-  }).format(micros / 1_000_000);
-}
-
-/** Display only: a micro-unit price in its currency with up to four decimals. */
-function formatPrice(micros: number, currency: string, locale: string) {
-  return new Intl.NumberFormat(locale, {
-    style: "currency",
-    currency,
-    maximumFractionDigits: 4
-  }).format(micros / 1_000_000);
-}
-
-/** A brokerage account's holdings with their value today and the trades they come from. */
+/**
+ * A brokerage account's holdings: one row per security with quantity, average cost, cost basis, current price with its date and venue, value and gain.
+ * Each row opens its buys and sales, and each of those opens its booking, where the trade is changed (ADR 012); the depot itself is read-only.
+ */
 export function BrokeragePanel({ account }: {
   account: Account
 }) {
   const locale = useLocale();
   const trades = useBrokerageTrades(account.id);
   const securities = useSecurities();
-  const [listingFor, setListingFor] = useState<Security | null>(null);
-  const [deleting, setDeleting] = useState<Trade | null>(null);
+  const [booking, setBooking] = useState<string | null>(null);
   const priceSource = securities.data?.price_source;
   const byId = new Map((securities.data?.securities ?? []).map(security => [security.id, security]));
 
@@ -62,139 +47,189 @@ export function BrokeragePanel({ account }: {
   }
 
   const { valuation } = trades.data;
-  const held = valuation.holdings.filter(holding => holding.quantity_micros > 0);
+  const open = valuation.holdings.filter(holding => holding.quantity_micros > 0);
+  const closed = valuation.holdings.filter(holding => holding.quantity_micros === 0);
+  const tradesOf = (securityId: string) => trades.data.trades.filter(trade => trade.security_id === securityId).toReversed();
+  const rows = (holdings: Holding[]) => holdings.map(holding => (
+    <HoldingRow
+      key={holding.security_id}
+      holding={holding}
+      security={byId.get(holding.security_id)}
+      trades={tradesOf(holding.security_id)}
+      currency={account.currency}
+      locale={locale}
+      openBooking={setBooking}
+    />
+  ));
 
   return (
     <>
       <section className={clsx(ui["panel"], styles["panel"])} aria-labelledby={`${account.id}-holdings`}>
         <h2 id={`${account.id}-holdings`}>Holdings</h2>
         {priceSource && !priceSource.configured && <p className={styles["notice"]}>{priceSource.message} Holdings are valued at their last known price or their cost.</p>}
-        {held.length ? (
-          <ul className={styles["list"]}>
-            {held.map(holding => (
-              <HoldingRow
-                key={holding.security_id}
-                holding={holding}
-                security={byId.get(holding.security_id)}
-                currency={account.currency}
-                locale={locale}
-                changeListing={account.archived_at === null ? setListingFor : undefined}
-              />
-            ))}
-          </ul>
-        ) : <Empty title="No holdings yet" illustration={null}>Record a buy, or start one from its booking on the cash account.</Empty>}
+        {open.length ? (
+          <div className={styles["table"]} role="table" aria-label="Holdings">
+            <HeadRow />
+            {rows(open)}
+          </div>
+        ) : <Empty title="No holdings yet" illustration={null}>Record a buy from its booking on the cash account, or with Add trade.</Empty>}
       </section>
-      <section className={clsx(ui["panel"], styles["panel"])} aria-labelledby={`${account.id}-trades`}>
-        <h2 id={`${account.id}-trades`}>Trades</h2>
-        {trades.data.trades.length ? (
-          <ul className={styles["list"]}>
-            {trades.data.trades.toReversed().map(trade => (
-              <li key={trade.id} className={styles["row"]}>
-                <div className={styles["main"]}>
-                  <strong>{trade.side === "buy" ? "Buy" : "Sell"} · {trade.security_name}</strong>
-                  <span className={styles["meta"]}>{dateWithYear(Temporal.PlainDate.from(trade.date), locale)} · {formatQuantity(trade.quantity_micros, locale)} × {formatPrice(trade.price_micros, trade.currency, locale)}{trade.fee_minor ? ` · fees ${money(trade.fee_minor, trade.currency, locale)}` : ""}{trade.tax_minor ? ` · taxes ${money(trade.tax_minor, trade.currency, locale)}` : ""}</span>
-                </div>
-                <span className={styles["amount"]}>{money(trade.gross_minor, trade.currency, locale)}</span>
-                {account.archived_at === null && (
-                  <button
-                    type="button"
-                    className={ui["icon-button"]}
-                    aria-label={`Delete ${trade.side === "buy" ? "buy" : "sale"} of ${trade.security_name} on ${dateWithYear(Temporal.PlainDate.from(trade.date), locale)}`}
-                    title="Delete trade"
-                    onClick={() => setDeleting(trade)}
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                )}
-              </li>
-            ))}
-          </ul>
-        ) : <Empty title="No trades yet" illustration={null}>Trades you record appear here with their cash side.</Empty>}
-      </section>
-      {listingFor && <ListingDialog security={listingFor} close={() => setListingFor(null)} />}
-      {deleting && <DeleteTradeDialog trade={deleting} close={() => setDeleting(null)} />}
+      {closed.length > 0 && (
+        <section className={clsx(ui["panel"], styles["panel"])} aria-labelledby={`${account.id}-closed`}>
+          <h2 id={`${account.id}-closed`}>Closed positions</h2>
+          <div className={styles["table"]} role="table" aria-label="Closed positions">
+            <HeadRow />
+            {rows(closed)}
+          </div>
+        </section>
+      )}
+      {booking && <BookingDialog transactionId={booking} close={() => setBooking(null)} />}
     </>
+  );
+}
+
+function HeadRow() {
+  return (
+    <div className={clsx(styles["row"], styles["head"])} role="row">
+      <span role="columnheader">Security</span>
+      <span role="columnheader" className={styles["number"]}>Shares</span>
+      <span role="columnheader" className={styles["number"]}>Avg. cost</span>
+      <span role="columnheader" className={styles["number"]}>Cost basis</span>
+      <span role="columnheader" className={styles["number"]}>Price</span>
+      <span role="columnheader" className={styles["number"]}>Value</span>
+      <span role="columnheader" className={styles["number"]}>Gain</span>
+    </div>
   );
 }
 
 function HoldingRow({
   holding,
   security,
+  trades,
   currency,
   locale,
-  changeListing
+  openBooking
+}: {
+  holding: Holding;
+  security: Security | undefined;
+  trades: Trade[];
+  currency: string;
+  locale: string;
+  openBooking: (transactionId: string) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const tradesId = useId();
+  const held = holding.quantity_micros > 0;
+  const gain = held ? holding.value_minor - holding.cost_minor : holding.realized_minor;
+  const showGain = !held || holding.status !== "missing";
+  const gainPercent = held && holding.cost_minor > 0 && showGain ? gain / holding.cost_minor : null;
+  // Display only: the average cost per share in micro-units, from the cost in minor units and the quantity in micro-units.
+  const microsPerMinor = 10 ** (6 - (currencyExponent(currency) ?? 2));
+  const averageCostMicros = held ? Math.round(holding.cost_minor * microsPerMinor * 1_000_000 / holding.quantity_micros) : null;
+  const Chevron = expanded ? ChevronDown : ChevronRight;
+
+  return (
+    <>
+      <div className={styles["row"]} role="row">
+        <span role="cell" className={styles["security"]}>
+          <button
+            type="button"
+            className={styles["toggle"]}
+            aria-expanded={expanded}
+            aria-controls={tradesId}
+            onClick={() => setExpanded(!expanded)}
+          >
+            <Chevron size={16} aria-hidden="true" />
+            <span>
+              <strong>{holding.security_name}</strong>
+              {security?.isin && security.isin !== holding.security_name && <small>{security.isin}</small>}
+            </span>
+          </button>
+        </span>
+        <span role="cell" className={styles["number"]} data-label="Shares">{held ? formatQuantity(holding.quantity_micros, locale) : "Sold"}</span>
+        <span role="cell" className={styles["number"]} data-label="Avg. cost">{averageCostMicros === null ? "—" : formatPrice(averageCostMicros, currency, locale)}</span>
+        <span role="cell" className={styles["number"]} data-label="Cost basis">{held ? money(holding.cost_minor, currency, locale) : "—"}</span>
+        <span role="cell" className={styles["number"]} data-label="Price">
+          <PriceCell
+            holding={holding}
+            security={security}
+            currency={currency}
+            locale={locale}
+          />
+        </span>
+        <span role="cell" className={clsx(styles["number"], styles["value"])} data-label="Value">{held ? money(holding.value_minor, currency, locale) : "—"}</span>
+        <span role="cell" className={clsx(styles["number"], showGain && gain > 0 && ui["positive"])} data-label={held ? "Gain" : "Realized"}>
+          {showGain ? signedMoney(gain, currency, locale) : "—"}
+          {gainPercent !== null && (
+            <small>
+              {new Intl.NumberFormat(locale, {
+                style: "percent",
+                signDisplay: "exceptZero",
+                maximumFractionDigits: 1
+              }).format(gainPercent)}
+            </small>
+          )}
+        </span>
+      </div>
+      {expanded && (
+        <div id={tradesId} className={styles["trades"]} role="row">
+          <ul role="cell" aria-label={`Trades of ${holding.security_name}`}>
+            {trades.map(trade => (
+              <li key={trade.id}>
+                <span>{dateWithYear(Temporal.PlainDate.from(trade.date), locale)}</span>
+                <span>{trade.side === "buy" ? "Buy" : "Sale"}</span>
+                <span className={styles["number"]}>{formatQuantity(trade.quantity_micros, locale)} × {formatPrice(trade.price_micros, trade.currency, locale)}</span>
+                <span className={styles["number"]}>
+                  {money(trade.gross_minor, trade.currency, locale)}
+                  {trade.fee_minor > 0 && <small>+ {money(trade.fee_minor, trade.currency, locale)} fees</small>}
+                </span>
+                {trade.settlement_transaction_id ? (
+                  <button type="button" className={ui["text-button"]} onClick={() => openBooking(trade.settlement_transaction_id!)}>
+                    Booking
+                  </button>
+                ) : <span />}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </>
+  );
+}
+
+/** The price a holding is valued with, its date and venue, or why there is none. */
+function PriceCell({
+  holding,
+  security,
+  currency,
+  locale
 }: {
   holding: Holding;
   security: Security | undefined;
   currency: string;
   locale: string;
-  changeListing?: (security: Security) => void;
 }) {
-  const gain = holding.value_minor - holding.cost_minor;
-  const status = holdingStatus(holding, security, locale);
-
-  return (
-    <li className={styles["row"]}>
-      <div className={styles["main"]}>
-        <strong>{holding.security_name}</strong>
-        <span className={styles["meta"]}>
-          {formatQuantity(holding.quantity_micros, locale)} shares · cost <span className={styles["figure"]}>{money(holding.cost_minor, currency, locale)}</span>
-          {holding.status !== "missing" && <> · gain <span className={styles["figure"]}>{signedMoney(gain, currency, locale)}</span></>}
-        </span>
-        {status && <span className={clsx(styles["status"], holding.status === "missing" && styles["warning"])}>{status}</span>}
-      </div>
-      <span className={styles["amount"]}>{money(holding.value_minor, currency, locale)}</span>
-      {changeListing && security && (
-        <button type="button" className={ui["text-button"]} onClick={() => changeListing(security)}>
-          Price listing
-        </button>
-      )}
-    </li>
-  );
-}
-
-/** Why a holding's value is not a current market price, or which price it uses. */
-function holdingStatus(holding: Holding, security: Security | undefined, locale: string) {
-  if (holding.status === "missing") {
-    return security?.price_error ? `No price: ${security.price_error} Valued at cost.` : "No price · valued at cost";
+  if (holding.quantity_micros === 0) {
+    return "—";
   }
 
-  const priced = holding.price ? `Price of ${dateWithYear(Temporal.PlainDate.from(holding.price.date), locale)}${security?.provider_symbol ? ` (${security.provider_symbol})` : ""}` : null;
-
-  if (holding.status === "stale") {
-    return `${priced} · not updated recently`;
+  if (holding.status === "missing" || !holding.price) {
+    return (
+      <span className={styles["warning"]} title={security?.price_error ?? undefined}>
+        No price
+        <small>valued at cost</small>
+      </span>
+    );
   }
 
-  return security?.price_error ? `${priced} · ${security.price_error}` : priced;
-}
-
-function DeleteTradeDialog({
-  trade,
-  close
-}: {
-  trade: Trade;
-  close: () => void;
-}) {
-  const remove = useDeleteTrade();
+  const venue = security?.venue ?? security?.provider_symbol?.split(".").at(-1);
 
   return (
-    <Dialog eyebrow="BROKERAGE" title="Delete trade" onClose={close}>
-      <div className={ui["form"]}>
-        <p className={ui["form-description"]}>
-          The {trade.side === "buy" ? "buy" : "sale"} of {trade.security_name} on {dateWithYear(Temporal.PlainDate.from(trade.date), useLocale())} is removed. A booking entered for its cash is deleted with it; a linked bank booking stays and becomes an ordinary booking again.
-        </p>
-        <FormError failure={remove.error ? toFailure(remove.error) : null} />
-        <button
-          type="button"
-          className={clsx(ui["danger-button"], ui["full-width"])}
-          disabled={remove.isPending}
-          onClick={() => remove.mutate(trade.id, {
-            onSuccess: close
-          })}
-        >
-          Delete trade
-        </button>
-      </div>
-    </Dialog>
+    <>
+      {formatPrice(holding.price.close_micros, currency, locale)}
+      <small className={clsx(holding.status === "stale" && styles["warning"])}>
+        {dateWithYear(Temporal.PlainDate.from(holding.price.date), locale)}{venue ? ` · ${venue}` : ""}{holding.status === "stale" ? " · not updated recently" : ""}
+      </small>
+    </>
   );
 }

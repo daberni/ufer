@@ -8,7 +8,7 @@ import type { Database } from "../src/server/database/connection";
 import { initializeDatabase } from "../src/server/database/migrations";
 import * as schema from "../src/server/database/schema";
 import { checksSplits, closeMicros, marketDataLease, searchListings, updatePrices } from "../src/features/securities/server/price-update-service";
-import { readSecurities, recordTrade, removeTrade, updateSecurityListing } from "../src/features/securities/server/security-service";
+import { readSecurities, recordTrade } from "../src/features/securities/server/security-service";
 import { eodhdProvider, parseSplitRatio } from "../src/features/securities/server/market-data/eodhd-provider";
 import { MarketDataError, type MarketDataProvider, type ProviderClose } from "../src/features/securities/server/market-data/market-data-provider";
 import { acquireLease } from "../src/server/jobs/lease-repository";
@@ -581,31 +581,6 @@ test("a trade named by ISIN stores its security without searching; the next upda
   assert.deepEqual(searched, ["US0378331005"]);
 });
 
-test("choosing no listing for a security not yet looked up keeps the update from picking one", async context => {
-  const db = await isolatedDatabase(context);
-  const searched: string[] = [];
-
-  await tradeAccounts(db);
-  await buyByIsin("US0378331005");
-
-  const [security] = await securitiesWithIsin(db, "US0378331005");
-
-  await updateSecurityListing(security.id, {
-    provider_symbol: null
-  }, null);
-  await updatePrices(now, {
-    ...fakeProvider({}).provider,
-    async searchByIsin(isin) {
-      searched.push(isin);
-
-      return [];
-    }
-  });
-
-  assert.deepEqual(searched, []);
-  assert.notEqual((await securityRow(db, security.id))?.price_checked_at, null);
-});
-
 test("without a listing in its currency a security recorded by ISIN stays unpriced, says so and is not searched again", async context => {
   const db = await isolatedDatabase(context);
   const searched: string[] = [];
@@ -654,73 +629,6 @@ test("a rejected trade named by a new ISIN leaves no security behind", async con
     }
   }, now));
   assert.deepEqual(await securitiesWithIsin(db, "IE00B4L5Y983"), []);
-});
-
-test("changing a security's listing drops the old listing's prices and refuses a symbol another security uses", async context => {
-  const db = await isolatedDatabase(context);
-
-  await db.update(schema.securities).set({
-    venue: "XETRA"
-  }).where(eq(schema.securities.id, "etf"));
-  await db.insert(schema.securityPrices).values({
-    security_id: "etf",
-    date: "2026-10-12",
-    close_micros: 100_000_000,
-    source: "eodhd",
-    fetched_at: "2026-10-12T06:00:00.000Z"
-  });
-  await assert.rejects(updateSecurityListing("etf", {
-    provider_symbol: "SYNF.EUFUND"
-  }), error => error instanceof HttpError && error.status === 409);
-  assert.equal((await pricesOf(db, "etf")).length, 1);
-
-  // Saving the unchanged listing keeps the price history.
-  await updateSecurityListing("etf", {
-    provider_symbol: "SYN.XETRA"
-  });
-  assert.equal((await pricesOf(db, "etf")).length, 1);
-
-  await updateSecurityListing("etf", {
-    provider_symbol: "SYN.F"
-  });
-  assert.deepEqual([(await securityRow(db, "etf"))?.provider_symbol, (await pricesOf(db, "etf")).length], ["SYN.F", 0]);
-
-  // A typed symbol has no known venue, and neither has no listing.
-  assert.equal((await securityRow(db, "etf"))?.venue, null);
-
-  await updateSecurityListing("etf", {
-    provider_symbol: null
-  });
-  assert.deepEqual([(await securityRow(db, "etf"))?.provider, (await securityRow(db, "etf"))?.provider_symbol], [null, null]);
-});
-
-test("a listing quoted in another currency is refused, and a listing change waits for a running price update", async context => {
-  const db = await isolatedDatabase(context);
-
-  await db.update(schema.securities).set({
-    isin: "US0378331005"
-  }).where(eq(schema.securities.id, "etf"));
-
-  const provider: MarketDataProvider = {
-    ...fakeProvider({}).provider,
-    searchByIsin: async isin => [{
-      symbol: "WLD.LSE",
-      name: "Synthetic World",
-      exchange: "LSE",
-      currency: "GBP",
-      isin
-    }]
-  };
-
-  await assert.rejects(updateSecurityListing("etf", {
-    provider_symbol: "WLD.LSE"
-  }, provider), /quoted in GBP/);
-
-  await acquireLease(marketDataLease, "running-update");
-  await assert.rejects(updateSecurityListing("etf", {
-    provider_symbol: "SYN.F"
-  }, null), error => error instanceof HttpError && error.status === 409);
-  assert.equal((await securityRow(db, "etf"))?.provider_symbol, "SYN.XETRA");
 });
 
 test("a security inserted meanwhile for the same ISIN is reused instead of adding a second", async context => {
@@ -1036,55 +944,6 @@ test("splits reported outside the requested interval are ignored", async context
     "SYN.XETRA": ["2026-01-05 3.000000/1.000000", "2026-09-01 2.000000/1.000000"]
   }).provider);
   assert.deepEqual((await db.select().from(schema.securitySplits)).map(split => split.date), ["2026-09-01"]);
-});
-
-test("a security keeps its data after its last trade is deleted but is no longer updated, and an earlier trade keeps a no-listing choice", async context => {
-  const db = await isolatedDatabase(context);
-
-  await tradeAccounts(db);
-  const { id } = await buyByIsin("US0378331005");
-  const [security] = await securitiesWithIsin(db, "US0378331005");
-
-  await updateSecurityListing(security.id, {
-    provider_symbol: null
-  }, null);
-
-  const checkedAt = (await securityRow(db, security.id))?.price_checked_at;
-
-  // A trade before the earliest one asks for a split recheck, which a security without a listing does not need.
-  await recordTrade("depot", {
-    security_id: security.id,
-    date: "2026-10-01",
-    side: "buy",
-    quantity: "1",
-    price: "10",
-    settlement: {
-      account_id: "cash"
-    }
-  }, now);
-  assert.equal((await securityRow(db, security.id))?.price_checked_at, checkedAt);
-
-  const trades = await db.select().from(schema.securityTrades).where(eq(schema.securityTrades.security_id, security.id));
-
-  for (const trade of trades) {
-    await removeTrade(trade.id);
-  }
-
-  assert.ok(trades.some(trade => trade.id === id));
-  assert.equal((await securitiesWithIsin(db, "US0378331005")).length, 1);
-
-  // Without any trade it is left out of price updates and spends no provider requests.
-  const searched: string[] = [];
-
-  await updatePrices(now, {
-    ...fakeProvider({}).provider,
-    async searchByIsin(isin) {
-      searched.push(isin);
-
-      return [];
-    }
-  });
-  assert.deepEqual(searched, []);
 });
 
 test("closes fetched for a security deleted meanwhile are dropped without failing the update", async context => {

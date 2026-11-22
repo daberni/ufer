@@ -3,20 +3,18 @@ import { Temporal } from "temporal-polyfill";
 import { HttpError, ValidationError } from "@/lib/errors";
 import { minorUnits } from "@/lib/money";
 import { manualEntryPrefix } from "@/lib/booking-references";
-import { timestamp, today } from "@/lib/time";
+import { today } from "@/lib/time";
 import { syncLease, withLease } from "@/server/jobs/lease";
 import { refuse } from "@/server/database/transaction";
 import { archivedAccountMessage } from "@/features/transactions/server/booking-accounts";
 import { amountMinor, positionOn, type PositionTrade } from "../holdings";
 import { parseMicros } from "../quantities";
-import { marketDataLease, priceSourceStatus, searchProviderListings } from "./price-update-service";
-import { configuredProvider } from "./market-data/eodhd-provider";
-import type { MarketDataProvider } from "./market-data/market-data-provider";
+import { priceSourceStatus } from "./price-update-service";
 import { valueHoldings } from "../valuation";
 import { readHoldingInputs } from "./valuation-repository";
 import { settlementRefusal, settlementWindowDays, tradeCashAmount, type SettlementRefusal } from "../trade-decisions";
-import { brokerageAccountInput, listingInput, securityInput, settlementCandidatesQuery, tradeCorrectionInput, tradeInput } from "./security-schema";
-import { deleteTrade, findBrokerageAccount, findSecurity, findSettlementAccount, findSettlementBooking, findTrade, insertBrokerageAccount, insertSecurity, insertSettlementEntry, insertTrade, listSecurities, markSettlementBooking, nextTradeSequence, readAccountTrades, readPositionTrades, readSettlementCandidates, readSplits, readTradedSecurityIds, isEarliestTrade, markSplitsUnchecked, saveSettlementEntry, saveTradeCorrection, withSecurityTransaction, findOrInsertSecurity, findSecurityListing, saveSecurityListing } from "./security-repository";
+import { brokerageAccountInput, securityInput, settlementCandidatesQuery, tradeCorrectionInput, tradeInput } from "./security-schema";
+import { deleteTrade, findBrokerageAccount, findSecurity, findSettlementAccount, findSettlementBooking, findTrade, insertBrokerageAccount, insertSecurity, insertSettlementEntry, insertTrade, listSecurities, markSettlementBooking, nextTradeSequence, readAccountTrades, readPositionTrades, readSettlementCandidates, readSplits, readTradedSecurityIds, isEarliestTrade, markSplitsUnchecked, saveSettlementEntry, saveTradeCorrection, withSecurityTransaction, findOrInsertSecurity } from "./security-repository";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 
 /** Replays every trade so a sale never exceeds what was held at that point, now or after a change. */
@@ -67,38 +65,6 @@ function securityForIsin(isin: string, currency: string, name: string | undefine
     provider: null,
     provider_symbol: null,
     venue: null
-  };
-}
-
-/** Changes the listing a security is priced with, or removes it; a small edit outside the trade flow. */
-export async function updateSecurityListing(id: string, payload: unknown, provider: MarketDataProvider | null = configuredProvider()) {
-  const input = listingInput.parse(payload);
-  const security = await findSecurityListing(id);
-
-  if (!security) {
-    throw new HttpError(404, "Security not found.");
-  }
-
-  // A listing quoted in another currency would value the holding without conversion; a typed symbol the provider does not list for this ISIN stays the person's choice and has no known venue.
-  const listed = input.provider_symbol && security.isin ? (await searchProviderListings(security.isin, provider)).find(listing => listing.symbol === input.provider_symbol) : undefined;
-
-  if (listed && listed.currency.toUpperCase() !== security.currency) {
-    throw new ValidationError(`This listing is quoted in ${listed.currency}; choose one in ${security.currency}.`);
-  }
-
-  // A running price update may be fetching the old listing; changing it waits, so no old closes land after the switch.
-  const saved = await withLease(marketDataLease, "A price update is running. Change the listing after it has finished.", () => saveSecurityListing(id, {
-    provider: input.provider_symbol ? "eodhd" : null,
-    provider_symbol: input.provider_symbol,
-    venue: listed?.exchange ?? null
-  }, timestamp()));
-
-  if (!saved) {
-    throw new HttpError(409, "Another security already uses this listing.");
-  }
-
-  return {
-    ok: true
   };
 }
 

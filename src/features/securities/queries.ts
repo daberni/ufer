@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { apiGet } from "@/client/api";
 import { queryKeys } from "@/client/query-keys";
-import type { BrokerageTrades, Listing, SecurityList } from "./types";
+import type { BrokerageTrades, SecurityList } from "./types";
 
 export function useBrokerageTrades(accountId: string) {
   return useQuery({
@@ -19,14 +19,3 @@ export function useSecurities() {
   });
 }
 
-/** The provider's listings for an ISIN, for changing a security's price listing; only fetched while that edit is open. */
-export function useListings(isin: string | null) {
-  return useQuery({
-    queryKey: [...queryKeys.securities.all(), "listings", isin],
-    queryFn: ({ signal }) => apiGet<Listing[]>("securities/listings", {
-      isin: isin ?? ""
-    }, signal),
-    enabled: isin !== null,
-    retry: false
-  });
-}

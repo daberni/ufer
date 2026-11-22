@@ -52,9 +52,6 @@ export const settlementCandidatesQuery = z.object({
   amount_minor: z.coerce.number().int().refine(value => value !== 0)
 });
 
-export const listingInput = z.object({
-  provider_symbol: z.string().trim().min(1).max(50).nullable()
-});
 
 /** A correction of a recorded trade; its security, side and cash side stay. */
 export const tradeCorrectionInput = z.object({

@@ -75,18 +75,6 @@ export function useDeleteTrade() {
   });
 }
 
-export function useSaveListing(securityId: string) {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (providerSymbol: string | null) => api(`securities/${encodeURIComponent(securityId)}`, {
-      provider_symbol: providerSymbol
-    }, "PATCH"),
-    // A new listing drops the stored prices, which changes valuations, net worth and its history.
-    onSettled: () => invalidate(queryClient, [queryKeys.securities.all(), queryKeys.accounts(), queryKeys.reports.netWorth()])
-  });
-}
-
 export type TradeCorrection = {
   tradeId: string;
   date: string;
