@@ -14,7 +14,7 @@ import { unambiguousPairs } from "../src/features/transactions/server/transfer-p
 import { transferOptions, updateTransactionDetails } from "../src/features/transactions/server/transaction-service";
 import { importMappedRows } from "../src/features/imports/server/mapped-import-service";
 import { readCashFlow } from "../src/features/reports/server/cash-flow-query";
-import { readTransactionPage } from "../src/features/transactions/server/transaction-list-query";
+import { readSyncRunTransactionPage } from "../src/features/banking/server/banking-queries";
 import { dashboardFilters } from "../src/server/http/dashboard-filters";
 import { monthPeriod } from "../src/lib/period";
 import { HttpError, ValidationError } from "../src/lib/errors";
@@ -321,7 +321,7 @@ test("a transfer to a manual account creates its counterpart there, and unlinkin
   assert.equal(created.date, "2026-09-15");
   assert.equal(created.transfer_id, (await stored(db, "deposit")).transfer_id);
 
-  const page = await readTransactionPage(dashboardFilters(new URLSearchParams("period=2026-09&currency=EUR")));
+  const page = await readSyncRunTransactionPage(dashboardFilters(new URLSearchParams("period=2026-09&currency=EUR")));
   const shown = page.transactions.find(transaction => transaction.id === deposit.id);
 
   assert.equal(shown?.counterpart?.account_name, "Synthetic flat");
@@ -663,7 +663,7 @@ test("type filtering uses booking types, combines with list filters and paginate
   })));
 
   for (const type of types) {
-    const result = await readTransactionPage(dashboardFilters(new URLSearchParams({
+    const result = await readSyncRunTransactionPage(dashboardFilters(new URLSearchParams({
       period: "2026-09",
       type
     })));
@@ -672,11 +672,11 @@ test("type filtering uses booking types, combines with list filters and paginate
     assert.ok(result.transactions.every(booking => booking.type === type));
   }
 
-  const secondPage = await readTransactionPage(dashboardFilters(new URLSearchParams("period=2026-09&type=expense&page=2")));
+  const secondPage = await readSyncRunTransactionPage(dashboardFilters(new URLSearchParams("period=2026-09&type=expense&page=2")));
 
   assert.equal(secondPage.transactionCount, 52);
   assert.equal(secondPage.transactions.length, 2);
-  const combined = await readTransactionPage(dashboardFilters(new URLSearchParams("period=2026-09&type=expense&account=property&category=income&search=matching")));
+  const combined = await readSyncRunTransactionPage(dashboardFilters(new URLSearchParams("period=2026-09&type=expense&account=property&category=income&search=matching")));
 
   assert.deepEqual(combined.transactions.map(booking => booking.id), ["filter-expense"]);
   assert.equal(combined.transactions[0].amount_minor, 1000, "a positive expense refund stays an expense");

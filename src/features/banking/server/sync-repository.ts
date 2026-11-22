@@ -1,8 +1,9 @@
 import { anchorOpeningBalance, keepBankOpeningBalanceFirst } from "@/features/transactions/server/opening-balance-repository";
 import { comparableBankBalanceTypes } from "@/features/accounts/server/account-queries";
 import { adoptImportedRows } from "@/features/transactions/server/booking-ingestion";
+import { syncRunTransactions } from "@/features/transactions/server/sync-run-transactions";
 import { randomUUID } from "node:crypto";
-import { and, count, eq, getTableColumns, isNull, like, ne, notLike, sql, type SQLWrapper } from "drizzle-orm";
+import { and, count, eq, getTableColumns, isNull, ne, notLike, sql } from "drizzle-orm";
 import { database } from "@/server/database/connection";
 import { timestamp } from "@/lib/time";
 import { accounts, balanceSnapshots, requisitions, syncRuns, transactions } from "@/server/database/schema";
@@ -13,15 +14,6 @@ import type { CategorizedEntry, Entry } from "@/features/transactions/server/tra
 export type SyncRunStart = {
   startedAt: string;
 };
-
-/**
- * Condition on `transactions` joined with `accounts` that selects the rows a sync run inserted.
- * A sync stores its run's `started_at` as `created_at` on the bank rows it inserts, and updates keep the original value, so for bank rows `created_at` is the start of the importing sync run. The sync lease serializes runs, so no two runs share a start.
- * Rows stored before runs stamped them carry the database clock and match no run; they are deliberately not attributed by time window.
- */
-export function syncRunTransactions(startedAt: string | SQLWrapper) {
-  return and(eq(transactions.created_at, startedAt), like(transactions.provider_reference, "bank:%"));
-}
 
 /** Number of transactions a `sync_runs` row inserted. Run counts are derived from it, so the history never reports rows the run cannot show. */
 export const linkedTransactionCount = sql<number>`(SELECT COUNT(*) FROM ${transactions} INNER JOIN ${accounts} ON ${eq(accounts.id, transactions.account_id)} WHERE ${syncRunTransactions(syncRuns.started_at)})`;

@@ -13,7 +13,7 @@ import type { Database } from "../src/server/database/connection";
 import { initializeDatabase } from "../src/server/database/migrations";
 import * as schema from "../src/server/database/schema";
 import { allMonthsPeriod } from "../src/lib/period";
-import { readTransactionPage } from "../src/features/transactions/server/transaction-list-query";
+import { readSyncRunTransactionPage } from "../src/features/banking/server/banking-queries";
 import { dashboardFilters } from "../src/server/http/dashboard-filters";
 import { ValidationError } from "../src/lib/errors";
 import { listAccounts, readBalanceHistory, readNetWorth } from "../src/features/accounts/server/account-queries";
@@ -244,7 +244,7 @@ test("bookings on an archived account cannot be edited, deleted or linked, and a
   }), archived);
   assert.deepEqual(await candidates(), []);
   // The list keeps the entry state and marks the account archived, which freezes entry editing and deletion in the dialog.
-  const page = await readTransactionPage(dashboardFilters(new URLSearchParams({
+  const page = await readSyncRunTransactionPage(dashboardFilters(new URLSearchParams({
     period: "2026-01"
   })));
   const salary = page.transactions.find(item => item.id === "salary");
@@ -320,7 +320,7 @@ test("categories, splits and payee and description overrides of an archived acco
     counterparty: "Synthetic corner shop",
     description: "Synthetic snacks"
   });
-  const listed = (await readTransactionPage(dashboardFilters(new URLSearchParams({
+  const listed = (await readSyncRunTransactionPage(dashboardFilters(new URLSearchParams({
     period: "2026-01"
   })))).transactions.find(item => item.id === "shop");
 
@@ -562,7 +562,7 @@ test("changing a booking linked to a counterpart on an archived account is refus
   }), {
     status: 409
   });
-  const listed = (await readTransactionPage(dashboardFilters(new URLSearchParams({
+  const listed = (await readSyncRunTransactionPage(dashboardFilters(new URLSearchParams({
     period: "2026-01"
   })))).transactions.find(item => item.id === "imported");
 

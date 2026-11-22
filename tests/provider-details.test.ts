@@ -9,7 +9,7 @@ import { normalizeTransactions } from "../src/features/banking/server/bank-data"
 import { maximumPayloadBytes } from "../src/features/banking/server/provider-details";
 import { saveAccountSync } from "../src/features/banking/server/account-sync-service";
 import { dashboardFilters } from "../src/server/http/dashboard-filters";
-import { readTransactionPage } from "../src/features/transactions/server/transaction-list-query";
+import { readSyncRunTransactionPage } from "../src/features/banking/server/banking-queries";
 import type { BankTransaction } from "../src/features/banking/server/enable-banking-client";
 import type { Rule } from "../src/features/categorization/server/rule-assignment";
 
@@ -273,7 +273,7 @@ test("the transaction list returns the original amount and currency only for boo
     ...basic,
     entry_reference: "synthetic-2"
   }], new Set()), rules);
-  const page = await readTransactionPage(dashboardFilters(new URLSearchParams({
+  const page = await readSyncRunTransactionPage(dashboardFilters(new URLSearchParams({
     period: "2026-11"
   })));
   const originals = page.transactions.map(transaction => [transaction.instructed_amount_minor, transaction.instructed_currency]);

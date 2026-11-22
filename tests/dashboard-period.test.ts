@@ -11,7 +11,7 @@ import { allMonthsPeriod, currentMonth, monthPeriod, parsePeriod, periodFromJson
 import { dashboardFilters } from "../src/server/http/dashboard-filters";
 import { readCashFlow } from "../src/features/reports/server/cash-flow-query";
 import { periodCondition } from "../src/features/transactions/server/period-condition";
-import { readTransactionPage } from "../src/features/transactions/server/transaction-list-query";
+import { readSyncRunTransactionPage } from "../src/features/banking/server/banking-queries";
 import { derivedTransactionType } from "../src/lib/transaction-types";
 
 // Temporal values have no enumerable fields, so compare periods through their serialized form.
@@ -137,7 +137,7 @@ function spending(cashFlow: Awaited<ReturnType<typeof readCashFlow>>) {
 // The transaction list and the cash-flow report are separate requests for the same filters.
 async function readPeriod(query: string) {
   const filters = dashboardFilters(new URLSearchParams(query));
-  const [list, cashFlow] = await Promise.all([readTransactionPage(filters), readCashFlow(filters.period, filters.currency)]);
+  const [list, cashFlow] = await Promise.all([readSyncRunTransactionPage(filters), readCashFlow(filters.period, filters.currency)]);
 
   return {
     list,
@@ -379,7 +379,7 @@ test("bookings of the same day are listed alphabetically by payee, with empty pa
     created_at: "2026-03-10T07:00:00.000Z"
   }]);
 
-  const page = await readTransactionPage(dashboardFilters(new URLSearchParams({
+  const page = await readSyncRunTransactionPage(dashboardFilters(new URLSearchParams({
     period: "2026-03"
   })));
 

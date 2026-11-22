@@ -6,7 +6,7 @@ import { initializeDatabase } from "../src/server/database/migrations";
 import * as schema from "../src/server/database/schema";
 import type { Database } from "../src/server/database/connection";
 import { dashboardFilters } from "../src/server/http/dashboard-filters";
-import { readTransactionPage } from "../src/features/transactions/server/transaction-list-query";
+import { readSyncRunTransactionPage } from "../src/features/banking/server/banking-queries";
 
 // More distinct case-mapped letters than the search folds; SQLite cannot nest one replace() for each of them.
 const manyLetters = "абвгдежзийклмнопрстуфхцчшщ αβγδεζηθσ ss";
@@ -79,7 +79,7 @@ async function matches(search: string) {
     period: "all",
     search
   });
-  const page = await readTransactionPage(dashboardFilters(query));
+  const page = await readSyncRunTransactionPage(dashboardFilters(query));
   const ids = page.transactions.map(item => item.id).sort();
 
   assert.equal(page.transactionCount, ids.length);
