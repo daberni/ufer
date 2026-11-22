@@ -12,8 +12,8 @@ This guide covers development, deployment and verification. See [banking](bankin
 4. Create the installation owner. Enrollment reads a JSON object from standard input and refuses interactive input, so read the password without echoing it:
 
    ```sh
-   read -rs UFER_PASSWORD
-   printf '{"username":"owner","name":"Owner","email":"owner@example.test","password":"%s","role":"owner"}' "$UFER_PASSWORD" | npm run --silent user:create
+   IFS= read -rs UFER_PASSWORD && export UFER_PASSWORD
+   node -e 'process.stdout.write(JSON.stringify({ username: "owner", name: "Owner", email: "owner@example.test", password: process.env.UFER_PASSWORD, role: "owner" }))' | npm run --silent user:create
    unset UFER_PASSWORD
    ```
 
