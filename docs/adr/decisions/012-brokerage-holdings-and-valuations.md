@@ -38,7 +38,7 @@ adr:
 | Concern | Decision |
 | --- | --- |
 | Trade amounts | A trade keeps its own date and amounts. A linked bank booking must match the trade's cash amount exactly and lie at most 14 days from the trade date; a later redelivery that corrects the booking changes the booking only, not the trade. This replaces "the trade follows its redelivered date" above |
-| Editing | Trades are recorded and deleted; changing one means deleting and recording it again. A trade's cash side cannot be edited, retyped, hidden, linked as a transfer or deleted on its own. Deleting a trade returns its bank booking to the type its delivery implies; a type a person or rule had set before is not restored (known limitation) |
+| Editing | A trade is corrected (date, shares, price, fees, taxes) or removed only from its booking, which shows the trade and links to its brokerage account; the depot lists holdings and trades read-only and opens each trade's booking. A corrected trade on a bank booking must still match the booking; a trade's own cash entry follows the correction. A trade's cash side cannot be edited, retyped, hidden or linked as a transfer on its own. Removing a trade returns its bank booking to the type its delivery implies; a type a person or rule had set before is not restored (known limitation) |
 | Settlement | Each trade names its cash side: a manual settlement account, where the trade books an entry, or an imported bank booking. A bank-linked settlement account always needs its bank booking, so cash is never booked twice |
 | Brokerage accounts | Take no bookings, balances, transfers, import rows or bank connection, cannot change their kind, and are deleted only after their trades |
 
@@ -47,7 +47,7 @@ adr:
 | Concern | Decision |
 | --- | --- |
 | Trade entry | A trade asks only for ISIN, shares, price, fees, taxes and date. The main flow starts from an imported buy or sale booking on the settlement account: the ISIN is read from its text (ISO 6166 with check digit), and its date and cash amount are taken over, the booking becoming the trade's cash side. The trade is recorded only when its cash amount matches the booking. A manual cash account remains the fallback |
-| Price listing | The listing is an internal, optional detail of the security. Saving a trade only validates the ISIN by its check digit and never calls the provider; the next daily price update searches the ISIN once and picks a listing in the security's currency, preferring XETRA and other liquid venues, then fetches its prices. There is no listing field in the trade flow; changing the listing is a separate edit on the security, which drops the old listing's prices, and choosing no listing stops the automatic search |
+| Price listing | The listing is an internal, optional detail of the security. Saving a trade only validates the ISIN by its check digit and never calls the provider; the next daily price update searches the ISIN once and picks a listing in the security's currency, preferring XETRA and other liquid venues, then fetches its prices. There is no listing field; the chosen venue is shown with the current price |
 | No listing | A security without a listing, or without a configured key, is valid and has no daily price |
 | Unpriced holdings | A holding without any price is valued at its cost basis and shown as "no price", instead of counting 0; a holding with only an old price keeps that price and is shown as stale. This replaces "counts 0" in the valuation row above |
 
