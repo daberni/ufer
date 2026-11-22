@@ -6,7 +6,8 @@ export const balanceSourceLabels: Record<BalancePoint["source"], string> = {
   sync: "Bank sync",
   manual: "Manual",
   csv: "CSV import",
-  transactions: "Estimated"
+  transactions: "Estimated",
+  valuation: "Market value"
 };
 
 export function describeBalanceDate(date: string, locale: string) {

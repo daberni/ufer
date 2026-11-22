@@ -99,7 +99,8 @@ async function showReports(context: TestContext, data: CashFlow = cashFlow) {
         investments: 0,
         property: 0,
         liabilities: 0,
-        unvalued: 0
+        unvalued: 0,
+        incompleteValuations: 0
       }
     },
     netWorthHistory: {

@@ -8,6 +8,8 @@ import { dailyBalances } from "@/features/accounts/daily-balances";
 import { reportedBalanceDifferences } from "@/features/accounts/reported-balances";
 import { netWorthCategories, netWorthCategory, type NetWorthCategory } from "@/features/accounts/net-worth-categories";
 import type { BalanceHistory, BalancePoint } from "@/features/accounts/types";
+import { valueHoldings, valuationSeries } from "@/features/securities/valuation";
+import { readHoldingInputs } from "@/features/securities/server/valuation-repository";
 
 // Every account's balance is the sum of its visible transactions, dated with its newest one.
 const balance = sql<number | null>`(SELECT SUM(${transactions.amount_minor}) FROM ${transactions} WHERE ${transactions.account_id}=${accounts.id} AND ${transactions.suppressed_at} IS NULL)`;
@@ -31,11 +33,10 @@ const lastBookingDate = sql<string | null>`(SELECT MAX(${transactions.date}) FRO
 
 const kindOrder = sql`CASE ${accounts.kind} WHEN 'checking' THEN 0 WHEN 'savings' THEN 1 WHEN 'investment' THEN 2 ELSE 3 END`;
 
-/** Accounts with their current balance and, for bank accounts, the authorization expiry. */
-export async function listAccounts() {
+/** Accounts with their current balance and, for bank accounts, the authorization expiry. A brokerage account's balance is the value of its holdings today (ADR 012). */
+export async function listAccounts(now = Temporal.Now.instant()) {
   const db = await database();
-
-  return db.select({
+  const rows = await db.select({
     id: accounts.id,
     name: accounts.name,
     provider_name: accounts.provider_name,
@@ -55,11 +56,46 @@ export async function listAccounts() {
     sync_error: accounts.sync_error,
     archived_at: accounts.archived_at
   }).from(accounts).leftJoin(requisitions, eq(requisitions.id, accounts.requisition_id)).orderBy(kindOrder, asc(accounts.name));
+  const brokerage = rows.filter(row => row.kind === "brokerage").map(row => row.id);
+  const inputs = await readHoldingInputs(brokerage);
+  const date = today(now).toString();
+
+  return rows.map(row => {
+    if (row.kind !== "brokerage") {
+      return {
+        ...row,
+        valuation: null
+      };
+    }
+
+    const holdings = inputs.get(row.id);
+
+    if (!holdings) {
+      return {
+        ...row,
+        balance_minor: null,
+        balance_date: null,
+        valuation: null
+      };
+    }
+
+    const valuation = valueHoldings(holdings, date);
+
+    return {
+      ...row,
+      balance_minor: valuation.value_minor,
+      balance_date: date,
+      valuation: {
+        missing: valuation.missing,
+        stale: valuation.stale
+      }
+    };
+  });
 }
 
 /** One account with its current balance, as listed. */
-export async function findAccountWithBalance(id: string) {
-  return (await listAccounts()).find(account => account.id === id);
+export async function findAccountWithBalance(id: string, now = Temporal.Now.instant()) {
+  return (await listAccounts(now)).find(account => account.id === id);
 }
 
 function categoryTotals(accountsInCurrency: {
@@ -85,8 +121,8 @@ function categoryTotals(accountsInCurrency: {
 }
 
 /** Net worth and its composition from the latest known balances of the accounts in one currency; it does not depend on a period. Archived accounts still count, so archiving never changes a report. */
-export async function readNetWorth(currency: string) {
-  const relevant = (await listAccounts()).filter(account => account.currency === currency);
+export async function readNetWorth(currency: string, now = Temporal.Now.instant()) {
+  const relevant = (await listAccounts(now)).filter(account => account.currency === currency);
   const totals = categoryTotals(relevant);
 
   return {
@@ -96,14 +132,16 @@ export async function readNetWorth(currency: string) {
     investments: totals.investments,
     property: totals.property,
     liabilities: totals.liabilities,
-    unvalued: relevant.filter(account => account.balance_minor === null).length
+    unvalued: relevant.filter(account => account.balance_minor === null).length,
+    incompleteValuations: relevant.filter(account => account.valuation !== null && account.valuation.missing + account.valuation.stale > 0).length
   };
 }
 
 /** An account's running balance from its transactions, ending at the last sync coverage for a bank-linked account. */
-export async function readBalanceHistory(accountId: string): Promise<BalanceHistory> {
+export async function readBalanceHistory(accountId: string, now = Temporal.Now.instant()): Promise<BalanceHistory> {
   const db = await database();
   const account = await db.select({
+    kind: accounts.kind,
     currency: accounts.currency,
     last_synced_at: accounts.last_synced_at,
     provider: accounts.provider
@@ -113,7 +151,22 @@ export async function readBalanceHistory(accountId: string): Promise<BalanceHist
     throw new HttpError(404, "Account not found.");
   }
 
-  const currentDate = today().toString();
+  const currentDate = today(now).toString();
+
+  if (account.kind === "brokerage") {
+    const holdings = (await readHoldingInputs([accountId])).get(accountId) ?? [];
+
+    return {
+      currency: account.currency,
+      balances: valuationSeries(holdings, currentDate).map(point => ({
+        ...point,
+        source: "valuation",
+        bank_balance_type: null
+      })),
+      reported: []
+    };
+  }
+
   const bookings = await db.select({
     date: transactions.date,
     amount_minor: sql<number>`SUM(${transactions.amount_minor})`.mapWith(Number)

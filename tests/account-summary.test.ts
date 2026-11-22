@@ -46,7 +46,8 @@ const healthy: Account = {
   last_synced_at: "2026-11-20T06:00:00.000Z",
   valid_until: inOneYear,
   sync_error: null,
-  archived_at: null
+  archived_at: null,
+  valuation: null
 };
 
 const connection: Connection = {
