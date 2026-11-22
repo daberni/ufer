@@ -43,14 +43,55 @@ export type StatementEntry = {
 export class StatementRows {
   readonly rows: MappedRow[] = [];
   readonly errors: RowError[] = [];
+  // Rows and errors in file order.
+  private readonly sequence: (MappedRow | RowError)[] = [];
 
   constructor(private readonly locale: string) {}
 
-  add(entry: StatementEntry) {
-    const failure = (message: string) => this.errors.push({
-      line: entry.line,
-      message
+  /** The rows and errors, each with its own line: decisions and matches are keyed by it, so when entries share a physical line (a file written on one line) every entry is numbered in file order instead. */
+  result() {
+    const lines = [...this.rows.map(row => row.line), ...this.errors.map(error => error.line)];
+
+    if (new Set(lines).size === lines.length) {
+      return {
+        rows: this.rows,
+        errors: this.errors
+      };
+    }
+
+    const rows: MappedRow[] = [];
+    const errors: RowError[] = [];
+
+    this.sequence.forEach((entry, index) => {
+      if ("date" in entry) {
+        rows.push({
+          ...entry,
+          line: index + 1
+        });
+      } else {
+        errors.push({
+          ...entry,
+          line: index + 1
+        });
+      }
     });
+
+    return {
+      rows,
+      errors
+    };
+  }
+
+  add(entry: StatementEntry) {
+    const failure = (message: string) => {
+      const error = {
+        line: entry.line,
+        message
+      };
+
+      this.errors.push(error);
+      this.sequence.push(error);
+    };
 
     if (!entry.date) {
       failure("The entry has no valid date.");
@@ -88,7 +129,7 @@ export class StatementRows {
       return;
     }
 
-    this.rows.push({
+    const row: MappedRow = {
       line: entry.line,
       date: entry.date,
       amount: entry.amount,
@@ -102,7 +143,10 @@ export class StatementRows {
       hidden: false,
       parts: entry.parts ?? null,
       tags: entry.tags ?? null
-    });
+    };
+
+    this.rows.push(row);
+    this.sequence.push(row);
   }
 }
 

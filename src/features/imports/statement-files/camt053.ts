@@ -112,8 +112,7 @@ export function readCamt053(text: string, locale: string): StatementFile {
 
   return {
     format: "camt053",
-    rows: rows.rows,
-    errors: rows.errors
+    ...rows.result()
   };
 }
 

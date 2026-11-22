@@ -1,3 +1,4 @@
+import { currencyExponent } from "@/lib/money";
 import { formatScaled, fractionDigits, parseAmount, signedScaled } from "../csv-values";
 import { cleanText, isoDate, lineAt, StatementFileError, StatementRows, type StatementFile } from "./statement-rows";
 
@@ -84,8 +85,7 @@ export function readOfx(text: string, locale: string): StatementFile {
 
   return {
     format: "ofx",
-    rows: rows.rows,
-    errors: rows.errors
+    ...rows.result()
   };
 }
 
@@ -98,14 +98,12 @@ function ofxDate(value: string) {
 
 /** An amount times a rate in the account currency's minor units, rounded half away from zero with exact integers; null without a valid rate. */
 function convert(amount: string | null, rate: string, currency: string) {
-  if (amount === null || !/^[A-Z]{3}$/.test(currency) || !/^\d{1,9}(?:\.\d{1,10})?$/.test(rate) || !/[1-9]/.test(rate)) {
+  const digits = currencyExponent(currency);
+
+  if (amount === null || digits === undefined || !/^\d{1,9}(?:\.\d{1,10})?$/.test(rate) || !/[1-9]/.test(rate)) {
     return null;
   }
 
-  const digits = new Intl.NumberFormat("en", {
-    style: "currency",
-    currency
-  }).resolvedOptions().maximumFractionDigits ?? 2;
   const amountScale = fractionDigits(amount);
   const rateScale = fractionDigits(rate);
   const product = signedScaled(amount, amountScale) * signedScaled(rate, rateScale);

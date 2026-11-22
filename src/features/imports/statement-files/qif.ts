@@ -139,8 +139,7 @@ export function readQif(text: string, locale: string): StatementFile {
 
   return {
     format: "qif",
-    rows: rows.rows,
-    errors: rows.errors
+    ...rows.result()
   };
 }
 
