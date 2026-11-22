@@ -567,9 +567,10 @@ test("the bank balance upgrade keeps every current balance and net worth and boo
   const client = await databaseBefore0017(context);
 
   await client.batch([
-    "INSERT INTO accounts(id,name,institution,kind,provider,provider_uid,balance_minor,balance_date) VALUES('checking','Synthetic checking','Example bank','checking','enable_banking','synthetic-1',100000,'2026-09-30')",
-    "INSERT INTO accounts(id,name,institution,kind,provider,provider_uid,balance_minor,balance_date) VALUES('card','Synthetic card','Example bank','credit_card','enable_banking','synthetic-2',-25000,'2026-09-28')",
-    "INSERT INTO accounts(id,name,institution,kind,provider,provider_uid) VALUES('pending','Synthetic pending','Example bank','savings','enable_banking','synthetic-3')",
+    "INSERT INTO requisitions(id,bank_name,bank_country,status,session_cipher,valid_until) VALUES('linked','Example bank','AT','LINKED','synthetic-ciphertext','2099-01-01')",
+    "INSERT INTO accounts(id,name,institution,kind,provider,provider_uid,requisition_id,balance_minor,balance_date) VALUES('checking','Synthetic checking','Example bank','checking','enable_banking','synthetic-1','linked',100000,'2026-09-30')",
+    "INSERT INTO accounts(id,name,institution,kind,provider,provider_uid,requisition_id,balance_minor,balance_date) VALUES('card','Synthetic card','Example bank','credit_card','enable_banking','synthetic-2','linked',-25000,'2026-09-28')",
+    "INSERT INTO accounts(id,name,institution,kind,provider,provider_uid,requisition_id) VALUES('pending','Synthetic pending','Example bank','savings','enable_banking','synthetic-3','linked')",
     "INSERT INTO accounts(id,name,institution,kind) VALUES('cash','Synthetic cash','Example institution','savings')",
     // Reported balances disagree with the bookings on 2026-09-15; that history is deliberately not booked.
     "INSERT INTO balance_snapshots(id,account_id,observed_at,amount_minor,bank_balance_type,source) VALUES('s1','checking','2026-09-05',90000,'CLBD','sync')",

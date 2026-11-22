@@ -1,21 +1,60 @@
 import { randomUUID } from "node:crypto";
 import { HttpError } from "@/lib/errors";
 import { withTransaction } from "@/server/database/transaction";
-import { decideAccountMapping, mappableBankAccount } from "./bank-account-mapping";
-import { findIdentifierMatches, insertBankAccount, markConnectionLinked, relinkAccount, saveIdentifiers, supersedeEmptyConnections } from "./bank-account-repository";
+import { decideAccountMapping, decideTargetBankAccount, mappableBankAccount, type AccountMapping } from "./bank-account-mapping";
+import { findConnectTarget, findIdentifierMatches, insertBankAccount, markConnectionLinked, relinkAccount, saveIdentifiers, supersedeEmptyConnections } from "./bank-account-repository";
 import type { BankAccount } from "./enable-banking-client";
 
 // Maps the authorized accounts and links the connection in one transaction; a connection removed meanwhile is never linked.
-export async function saveSessionAccounts(requisitionId: string, institution: string, validUntil: string, bankAccounts: BankAccount[]) {
+// An authorization started from a manual account connects that account to one authorized bank account; the others map by their identifiers.
+export async function saveSessionAccounts(requisitionId: string, institution: string, validUntil: string, bankAccounts: BankAccount[], targetAccountId: string | null = null) {
   return withTransaction(async tx => {
     const displacedConnections = new Set<string>();
+    const identified = [];
 
     for (const bankAccount of bankAccounts) {
       const {
         account,
         hashes
       } = mappableBankAccount(bankAccount);
-      const mapping = decideAccountMapping(await findIdentifierMatches(tx, hashes), requisitionId);
+
+      identified.push({
+        account,
+        hashes,
+        matches: await findIdentifierMatches(tx, hashes)
+      });
+    }
+
+    let targetIndex = -1;
+
+    if (targetAccountId) {
+      // Matched by ID only: an account recreated from the same import under the same ID is the one the same user meant to connect.
+      const target = await findConnectTarget(tx, targetAccountId);
+
+      if (!target) {
+        throw new HttpError(422, "The account to connect is no longer an active manual account.");
+      }
+
+      targetIndex = decideTargetBankAccount(target, identified);
+
+      const targetHashes = new Set(identified[targetIndex].hashes);
+
+      // Another authorized account sharing an identifier would be mapped onto the target or take its identifier.
+      if (identified.some((item, index) => index !== targetIndex && item.hashes.some(hash => targetHashes.has(hash)))) {
+        throw new HttpError(422, "Several authorized bank accounts share this account's bank identifier. Connect again and authorize only this account at the bank.");
+      }
+    }
+
+    for (const [index, {
+      account,
+      hashes
+    }] of identified.entries()) {
+      // Matches are read again per account so that identifiers saved for an earlier account of this callback count.
+      const mapping: AccountMapping = index === targetIndex ? {
+        existing: true,
+        accountId: targetAccountId as string,
+        displaced: null
+      } : decideAccountMapping(await findIdentifierMatches(tx, hashes), requisitionId);
       let accountId: string;
 
       if (mapping.existing) {

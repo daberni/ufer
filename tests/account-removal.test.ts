@@ -8,21 +8,18 @@ import { createElement, Fragment, type ReactNode } from "react";
 import { AppRouterContext, type AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import { PathnameContext, SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime";
 import { AppStoreProvider } from "../src/client/app-store";
-import { Temporal } from "temporal-polyfill";
 import type { Database } from "../src/server/database/connection";
 import { initializeDatabase } from "../src/server/database/migrations";
 import * as schema from "../src/server/database/schema";
 import { allMonthsPeriod } from "../src/lib/period";
 import { ValidationError } from "../src/lib/errors";
-import { acquireLease } from "../src/server/jobs/lease-repository";
-import { listAccounts, readBalanceHistory, readNetWorth } from "../src/features/accounts/server/account-queries";
-import { convertToManualAccount, deleteAccount, updateAccount, updateManualValuation } from "../src/features/accounts/server/account-service";
+import { listAccounts, readNetWorth } from "../src/features/accounts/server/account-queries";
+import { deleteAccount, updateAccount } from "../src/features/accounts/server/account-service";
 import { readAccountCashFlow, readCashFlow } from "../src/features/reports/server/cash-flow-query";
 import { pairAllTransfers } from "../src/features/transactions/server/transfer-pairing-repository";
 import { deleteUnlinkedAccount } from "../src/features/accounts/server/account-repository";
 import { updateRule } from "../src/features/transactions/server/rule-application-service";
 import { createRule, updateRuleDetails } from "../src/features/transactions/server/rule-application-service";
-import { syncLease } from "../src/server/jobs/lease";
 import type { Account } from "../src/features/accounts/types";
 import { browser, wait, withQueryClient } from "./fixtures/browser";
 import { chooseMenuItem, menuItem, queryMenuItem } from "./fixtures/action-menu";
@@ -232,98 +229,6 @@ async function reports(accountId: string) {
     netWorth: await readNetWorth("EUR")
   };
 }
-
-test("converting a disconnected bank account keeps its balance, history and every report, and makes it a manual account", async context => {
-  const db = await seededDatabase(context);
-  const before = await reports("detached");
-  const listedBefore = (await listAccounts()).find(account => account.id === "detached");
-
-  assert.deepEqual(await convertToManualAccount("detached"), {
-    ok: true
-  });
-
-  const converted = (await listAccounts()).find(account => account.id === "detached");
-
-  assert.equal(converted?.provider, "manual");
-  assert.equal(listedBefore?.balance_minor, 120000);
-  assert.equal(converted?.balance_minor, 120000);
-  assert.equal(converted?.reported_balance_minor, null);
-  assert.equal(converted?.reported_difference_minor, null);
-  assert.deepEqual(await reports("detached"), before);
-
-  // The balance already is the sum of its bookings, so converting books nothing.
-  assert.equal((await db.select().from(schema.transactions).where(eq(schema.transactions.account_id, "detached"))).length, 3);
-  assert.equal((await db.select().from(schema.balanceSnapshots).where(eq(schema.balanceSnapshots.account_id, "detached"))).length, 2);
-  assert.deepEqual(await db.select().from(schema.accountIdentifiers).where(eq(schema.accountIdentifiers.account_id, "detached")), []);
-  assert.equal((await db.select().from(schema.accounts).where(eq(schema.accounts.id, "detached")).get())?.provider_uid, null);
-  assert.equal((await readBalanceHistory("detached")).balances.at(-1)?.amount_minor, 120000);
-
-  // It now accepts what any manual account accepts.
-  await updateManualValuation("detached", {
-    balance: "1250",
-    date: "2026-03-01"
-  }, Temporal.Instant.from("2026-03-02T00:00:00Z"));
-  await updateAccount("detached", {
-    name: "Synthetic detached account",
-    kind: "savings"
-  });
-  const updated = (await listAccounts()).find(account => account.id === "detached");
-
-  assert.equal(updated?.balance_minor, 125000);
-  assert.equal(updated?.kind, "savings");
-});
-
-test("converting books nothing when bookings are dated after the last reported bank balance", async context => {
-  const db = await seededDatabase(context);
-
-  await db.insert(schema.transactions).values({
-    id: "bank-later",
-    account_id: "detached",
-    provider_reference: "bank-ref-later",
-    date: "2026-03-02",
-    amount_minor: 10000,
-    currency: "EUR",
-    type: "income"
-  });
-  const netWorthBefore = await readNetWorth("EUR");
-
-  await convertToManualAccount("detached");
-
-  const converted = (await listAccounts()).find(account => account.id === "detached");
-
-  assert.equal(converted?.balance_minor, 130000);
-  assert.deepEqual(await readNetWorth("EUR"), netWorthBefore);
-  assert.equal(await db.select().from(schema.transactions).where(eq(schema.transactions.type, "adjustment")).get(), undefined);
-  assert.equal((await readBalanceHistory("detached")).balances.at(-1)?.amount_minor, 130000);
-});
-
-test("a bank account with an active connection, a manual account or an unknown account is not converted", async context => {
-  const db = await seededDatabase(context);
-  const accountsBefore = await db.select().from(schema.accounts);
-
-  await assert.rejects(convertToManualAccount("linked-bank"), {
-    status: 409,
-    message: "Disconnect the bank before converting this account to a manual account."
-  });
-  await assert.rejects(convertToManualAccount("missing"), {
-    status: 404
-  });
-  assert.deepEqual(await convertToManualAccount("cash"), {
-    ok: true
-  });
-  assert.deepEqual(await db.select().from(schema.accounts), accountsBefore);
-});
-
-test("converting waits for a running sync", async context => {
-  const db = await seededDatabase(context);
-
-  await acquireLease(syncLease, "sync");
-  await assert.rejects(convertToManualAccount("detached"), {
-    status: 409,
-    message: "A sync is running. Convert the account after it has finished."
-  });
-  assert.equal((await db.select().from(schema.accounts).where(eq(schema.accounts.id, "detached")).get())?.provider, "enable_banking");
-});
 
 test("deleting a manual account removes its bookings, splits and report contributions, and leaves linked bookings on other accounts as unpaired transfers", async context => {
   const db = await seededDatabase(context);
@@ -629,38 +534,22 @@ test("deleting an account sends no request until its exact name is typed", async
   });
 });
 
-test("a disconnected bank account offers conversion, which converts it after confirmation", async context => {
-  const {
-    screen,
-    requests
-  } = await renderDetails(context, detachedAccount);
-
-  await chooseMenuItem(screen, "Convert to manual account");
-  assert.deepEqual(requests("accounts/bank%2Fold/manual"), []);
-  act(() => fireEvent.submit(within(screen.getByRole("dialog")).getByRole("button", {
-    name: "Convert"
-  })));
-  await wait(0);
-  assert.equal(requests("accounts/bank%2Fold/manual")[0].method, "PUT");
-  assert.ok(await menuItem(screen, "Delete account"));
-});
-
-test("a manual account offers deletion but no conversion", async context => {
+test("a manual account offers deletion and connecting to a bank", async context => {
   const { screen } = await renderDetails(context, {
     ...detachedAccount,
     provider: "manual"
   });
 
-  assert.equal(await queryMenuItem(screen, "Convert to manual account"), null);
+  assert.ok(await menuItem(screen, "Connect to bank"));
   assert.ok(await menuItem(screen, "Delete account"));
 });
 
-test("a bank account with an active connection offers neither deletion nor conversion", async context => {
+test("a bank account with an active connection offers neither deletion nor connecting", async context => {
   const { screen } = await renderDetails(context, {
     ...detachedAccount,
     requisition_id: "linked"
   });
 
   assert.equal(await queryMenuItem(screen, "Delete account"), null);
-  assert.equal(await queryMenuItem(screen, "Convert to manual account"), null);
+  assert.equal(await queryMenuItem(screen, "Connect to bank"), null);
 });

@@ -5,10 +5,10 @@ import { HttpError, ValidationError } from "@/lib/errors";
 import { minorUnits } from "@/lib/money";
 import { timestamp, today } from "@/lib/time";
 import { accountDeletionInput, accountEditInput, accountInput, archiveInput, valuationInput } from "./account-schema";
-import { archiveIfSettled, archiveSettledAccount, convertDetachedAccount, deleteUnlinkedAccount, findManualAccount, insertManualAccount, readBookedTotal, readLatestReportedBalance, refuse, saveAccountArchived, saveAccountKind, saveAccountName, withAccountTransaction, withRefusableAccountTransaction } from "./account-repository";
+import { archiveIfSettled, archiveSettledAccount, deleteUnlinkedAccount, findManualAccount, insertManualAccount, readBookedTotal, readLatestReportedBalance, refuse, saveAccountArchived, saveAccountKind, saveAccountName, withAccountTransaction, withRefusableAccountTransaction } from "./account-repository";
 import { decideClosing, decideReconciliation } from "./account-decisions";
 import { comparableBankBalanceTypes, findAccountWithBalance } from "./account-queries";
-import { archivedAccountMessage, assertWritableAccount } from "@/features/transactions/server/booking-accounts";
+import { archivedAccountMessage, assertWritableAccount, assertWritableManualAccount } from "@/features/transactions/server/booking-accounts";
 import { bookManualEntry, recordManualBalance, type ManualEntryResult } from "@/features/transactions/server/manual-transaction-repository";
 import type { AccountKind } from "../account-kinds";
 import { currentFormatLocale } from "@/server/http/request-locale";
@@ -48,7 +48,7 @@ export async function updateManualValuation(accountId: string, payload: unknown,
   validateBalanceDate(input.date, now);
 
   await withAccountTransaction(async tx => {
-    await assertWritableAccount(tx, account.id);
+    await assertWritableManualAccount(tx, account.id);
     await recordManualBalance(tx, account, input.date, amount);
   });
 
@@ -241,6 +241,7 @@ async function closeAccount(account: {
   const result = await withRefusableAccountTransaction<ClosingResult | {
     lastBooking: string;
   }>(async tx => {
+    await assertWritableManualAccount(tx, account.id);
     const decision = decideClosing(await readBookedTotal(tx, account.id), closing.balance_minor, closing.date, closing.transfer_account_id !== null);
 
     if (decision.refused === "balance_changed") {
@@ -294,7 +295,12 @@ async function archiveSettled(account: {
   provider: string
 }) {
   if (account.provider === "manual") {
-    return archiveSettledAccount(account.id, timestamp());
+    // A bank connection may have linked the account since the request's own check.
+    return withAccountTransaction(async tx => {
+      await assertWritableManualAccount(tx, account.id);
+
+      return archiveIfSettled(tx, account.id, timestamp());
+    });
   }
 
   return whileNoSync("Archive the account", () => archiveSettledAccount(account.id, timestamp()));
@@ -303,33 +309,6 @@ async function archiveSettled(account: {
 /** Runs a change to a bank account while no sync can write to it. */
 async function whileNoSync<Result>(action: string, change: () => Promise<Result>) {
   return withLease(syncLease, `A sync is running. ${action} after it has finished.`, change);
-}
-
-/** Makes a bank account whose connection was removed a manual account that keeps its history and its last bank balance; balance updates, entries and type changes then work as for any manual account. */
-export async function convertToManualAccount(accountId: string) {
-  const account = await findAccountWithBalance(accountId);
-
-  if (!account) {
-    throw new HttpError(404, "Account not found.");
-  }
-
-  if (account.provider === "manual") {
-    return {
-      ok: true
-    };
-  }
-
-  if (account.requisition_id !== null) {
-    throw new HttpError(409, "Disconnect the bank before converting this account to a manual account.");
-  }
-
-  if (!await whileNoSync("Convert the account", () => convertDetachedAccount(accountId))) {
-    throw new HttpError(409, "The account changed meanwhile. Review it and try again.");
-  }
-
-  return {
-    ok: true
-  };
 }
 
 /**
