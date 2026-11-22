@@ -78,7 +78,8 @@ export function ActionMenu({
   // Crossing the phone breakpoint changes which entries and triggers exist and where the trigger sits, so an open menu closes instead of keeping a stale position or focus.
   useEffect(() => {
     const trigger = triggerRef.current;
-    const layout = trigger?.ownerDocument.defaultView?.matchMedia(phoneLayout);
+    // Environments without media queries, such as tests, have no layout to follow.
+    const layout = trigger?.ownerDocument.defaultView?.matchMedia?.(phoneLayout);
 
     if (!open || !trigger || !layout) {
       return;
