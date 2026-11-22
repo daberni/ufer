@@ -71,6 +71,7 @@ const coverageToleranceDays = 7;
 /**
  * Whether splits before the provider's history may be missing. A security's first update fetches closes and checks splits from the same start, so its oldest stored close marks how far back its splits were checked;
  * only a first trade before both that point and the provider's history leaves a gap. Tracking a security since its first trade therefore stays complete after a year.
+ * Known limitation: if the first split check keeps failing for a year, a later success covers only the recent year and this proxy no longer flags the gap; the split error shows throughout those failures.
  */
 export function splitsUncovered(security: {
   first_trade: string | null;
