@@ -1,6 +1,6 @@
 # Feature comparison
 
-Updated: **2026-11-21** · Ufer `0.2.0` · Working product name: **Ufer**
+Updated: **2026-11-22** · Ufer `0.3.0` · Working product name: **Ufer**
 
 How Ufer compares with established personal finance tools, and what is still planned. Details and evidence are in the footnotes, and priorities in the [roadmap](product-direction.md#roadmap). No personal account inventory is included.
 
@@ -14,7 +14,7 @@ How Ufer compares with established personal finance tools, and what is still pla
 
 | Product | Reviewed release | Deployment · license |
 | --- | --- | --- |
-| **Ufer** | `0.2.0` | Self-hosted (Docker/NAS) or Vercel + libSQL · AGPL-3.0-or-later |
+| **Ufer** | `0.3.0` | Self-hosted (Docker/NAS) or Vercel + libSQL · AGPL-3.0-or-later |
 | [Buxfer](https://www.buxfer.com/features/) | hosted, unpinned | Hosted subscription · proprietary |
 | [Actual Budget](https://github.com/actualbudget/actual/releases/tag/v26.11.0) | 26.11.0 | Self-hosted Node server · MIT |
 | [Firefly III](https://github.com/firefly-iii/firefly-iii/releases/tag/v6.7.9) | 6.7.9 + Importer 2.3.5 | PHP app, database, importer, cron · AGPLv3 |
