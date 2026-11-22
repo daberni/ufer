@@ -55,9 +55,11 @@ export function readOfx(text: string, locale: string): StatementFile {
     const currency = leaf(statement, "CURDEF").toUpperCase() || null;
     const accountElement = find(statement.children, account);
     const accountId = leaf(accountElement, "ACCTID");
-    const bankId = leaf(accountElement, "BANKID");
-    // A card and a bank account, or accounts at two banks, may share an account number; the source keeps them apart.
-    const source = account === "CCACCTFROM" ? `Card · ${accountId}` : [bankId, accountId].filter(Boolean).join(" · ");
+    // A card and a bank account, or accounts at two banks, branches or of two types, may share an account number; the source keeps every identifying field.
+    const bankIdentity = ["BANKID", "BRANCHID"].map(name => leaf(accountElement, name));
+    const accountDetails = ["ACCTTYPE", "ACCTKEY"].map(name => leaf(accountElement, name));
+    const cardIdentity = ["Card", accountId, leaf(accountElement, "ACCTKEY")];
+    const source = (account === "CCACCTFROM" ? cardIdentity : [...bankIdentity, accountId, ...accountDetails]).filter(Boolean).join(" · ");
 
     for (const transaction of all(find(statement.children, "BANKTRANLIST"), "STMTTRN")) {
       // A transaction in another currency states its amount in that currency with the rate to the statement's; the row keeps the account's currency and notes the original amount.
@@ -188,7 +190,9 @@ function opensAggregate(name: string, text: string, from: number) {
 /**
  * Parses the body from the `<OFX>` root into a tree. A tag followed by text is a leaf, whose closing tag is optional in SGML; any other tag opens an aggregate, which its closing tag ends, closing any leaves and aggregates left open inside it.
  */
-function parseOfx(text: string): Element {
+function parseOfx(raw: string): Element {
+  // CDATA sections become escaped text, keeping their line breaks, so leaves read them like any value.
+  const text = raw.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, (_, content: string) => content.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;"));
   const start = text.search(/<OFX>/i);
 
   if (start < 0) {

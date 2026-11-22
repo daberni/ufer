@@ -197,8 +197,8 @@ test("OFX 1.x SGML reads Windows-1252 text, entities, both signs, decimal commas
 
   assert.equal(statement.format, "ofx");
   assert.deepEqual(summary(statement.rows), [
-    [14, "12345 · 000111222", "2026-03-05", "-12.34", "EUR", "Café Zentral", "Frühstück & Kaffee", "F-1"],
-    [15, "12345 · 000111222", "2026-03-04", "100.00", "EUR", "Synthetic Refund Ltd", "", "F-2"],
+    [14, "12345 · 000111222 · CHECKING", "2026-03-05", "-12.34", "EUR", "Café Zentral", "Frühstück & Kaffee", "F-1"],
+    [15, "12345 · 000111222 · CHECKING", "2026-03-04", "100.00", "EUR", "Synthetic Refund Ltd", "", "F-2"],
     [21, "Card · XXXX4242", "2026-03-07", "-6.05", "EUR", "Bookshop", "GBP 5.5", "F-1"]
   ]);
   assert.deepEqual(statement.errors.map(error => error.line), [16]);
@@ -219,7 +219,7 @@ test("OFX 2.x XML reads closed elements and refuses investment statements", () =
   </STMTRS></STMTTRNRS></BANKMSGSRSV1>
 </OFX>`);
 
-  assert.deepEqual(summary(statement.rows), [[8, "1 · CH-SYNTH-1", "2026-01-31", "0.42", "CHF", "Interest", "", "X1"]]);
+  assert.deepEqual(summary(statement.rows), [[8, "1 · CH-SYNTH-1 · SAVINGS", "2026-01-31", "0.42", "CHF", "Interest", "", "X1"]]);
   assert.match(readError("OFXHEADER:100\n\n<OFX><INVSTMTMSGSRSV1></INVSTMTMSGSRSV1></OFX>"), /investment statements are not supported/);
   assert.match(readError("OFXHEADER:100\n\n<OFX><SIGNONMSGSRSV1></SIGNONMSGSRSV1></OFX>"), /no bank or credit card statement/);
 });
@@ -362,6 +362,7 @@ test("OFX empty SGML leaves keep later fields, foreign amounts round exactly, an
   const ofxTransaction = (inner: string) => read(`OFXHEADER:100\n\n<OFX><BANKMSGSRSV1><STMTTRNRS><STMTRS><CURDEF>EUR<BANKACCTFROM><ACCTID>F</BANKACCTFROM><BANKTRANLIST><STMTTRN><DTPOSTED>20260301<TRNAMT>-10.00<FITID>1${inner}</STMTTRN></BANKTRANLIST></STMTRS></STMTTRNRS></BANKMSGSRSV1></OFX>`);
 
   assert.equal(ofxTransaction("<CURRENCY><CURRATE>2</CURRENCY>").errors.length, 1);
+  assert.equal(ofxTransaction("<MEMO><![CDATA[Coffee & <lunch>]]></MEMO>").rows[0].description, "Coffee & <lunch>");
   assert.equal(ofxTransaction("<CURRENCY><CURRATE>1<CURSYM>GBP</CURRENCY>").rows[0].description, "GBP 10.00");
 
   const multiTarget = read("!Type:Bank\nD01.03.2026\nT-10,00\nS[Savings]\n$-5,00\nS[Brokerage]\n$-5,00\n^\nD02.03.2026\nT-10,00\nS[Savings]\n$-4,00\nS[Savings]\n$-6,00\n^\n");
@@ -375,6 +376,10 @@ test("OFX empty SGML leaves keep later fields, foreign amounts round exactly, an
   const shared = read("OFXHEADER:100\n\n<OFX><BANKMSGSRSV1><STMTTRNRS><STMTRS><CURDEF>EUR<BANKACCTFROM><BANKID>B1<ACCTID>42</BANKACCTFROM><BANKTRANLIST><STMTTRN><DTPOSTED>20260301<TRNAMT>-1<FITID>1</STMTTRN></BANKTRANLIST></STMTRS></STMTTRNRS></BANKMSGSRSV1><CREDITCARDMSGSRSV1><CCSTMTTRNRS><CCSTMTRS><CURDEF>EUR<CCACCTFROM><ACCTID>42</CCACCTFROM><BANKTRANLIST><STMTTRN><DTPOSTED>20260301<TRNAMT>-2<FITID>1</STMTTRN></BANKTRANLIST></CCSTMTRS></CCSTMTTRNRS></CREDITCARDMSGSRSV1></OFX>");
 
   assert.deepEqual(shared.rows.map(row => row.source), ["B1 · 42", "Card · 42"]);
+
+  const branches = read("OFXHEADER:100\n\n<OFX><BANKMSGSRSV1>" + ["N", "S"].map(branch => `<STMTTRNRS><STMTRS><CURDEF>EUR<BANKACCTFROM><BANKID>B1<BRANCHID>${branch}<ACCTID>42<ACCTTYPE>CHECKING</BANKACCTFROM><BANKTRANLIST><STMTTRN><DTPOSTED>20260301<TRNAMT>-1<FITID>1</STMTTRN></BANKTRANLIST></STMTRS></STMTTRNRS>`).join("") + "</BANKMSGSRSV1></OFX>");
+
+  assert.deepEqual(branches.rows.map(row => row.source), ["B1 · N · 42 · CHECKING", "B1 · S · 42 · CHECKING"]);
 
   const qifSplit = read("!Type:Bank\nD01.03.2026\nT-3,00\nMWeekly\nSFood/Household\nEBread\n$-1,00\nSCar/Work\nEParking\n$-2,00\n^\n");
 
