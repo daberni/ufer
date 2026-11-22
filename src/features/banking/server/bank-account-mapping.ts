@@ -79,10 +79,21 @@ function compactIban(iban: string | null | undefined) {
  * No candidate or several stop the connection, since guessing could sync another account's bookings into it.
  */
 export function decideTargetBankAccount(target: ConnectTarget, bankAccounts: IdentifiedBankAccount[]) {
-  const identified = bankAccounts.findIndex(item => item.matches.some(match => match.account_id === target.id));
+  const identified = bankAccounts.flatMap((item, index) => item.matches.some(match => match.account_id === target.id) ? [index] : []);
 
-  if (identified >= 0) {
-    return identified;
+  // A second bank account naming the target would be mapped onto it as well and overwrite the chosen link.
+  if (identified.length > 1) {
+    throw new HttpError(422, "Several authorized bank accounts were connected to this account before. Connect again and authorize only this account at the bank.");
+  }
+
+  if (identified.length === 1) {
+    const index = identified[0];
+
+    if (bankAccounts[index].matches.some(match => match.account_id !== target.id)) {
+      throw new HttpError(422, "The authorized bank account also belongs to another account in Ufer, so it cannot be connected to this one.");
+    }
+
+    return index;
   }
 
   const targetIban = compactIban(target.iban);

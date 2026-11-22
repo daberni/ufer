@@ -373,6 +373,13 @@ test("the connected bank account is the one the target's identifiers name, else 
   }, [identified("first", null), identified("second", "AT000000000000000002")]), {
     status: 422
   });
+  // Only one authorized account may name the target, and it must name no other account.
+  assert.throws(() => decideTargetBankAccount(target, [identified("known", null, ["target"]), identified("also-known", null, ["target"])]), {
+    status: 422
+  });
+  assert.throws(() => decideTargetBankAccount(target, [identified("shared", null, ["target", "another"]), identified("free", null)]), {
+    status: 422
+  });
 });
 
 test("an account an authorization was started from stays deletable, and that authorization forgets it", async context => {
