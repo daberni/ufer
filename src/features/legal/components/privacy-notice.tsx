@@ -3,7 +3,7 @@ import { LegalDocument } from "./legal-document";
 import { ConfigurationNotice, ContactInstructions, OperatorContact } from "./operator-contact";
 
 // Change this date whenever the text below changes.
-const lastUpdated = "2026-11-16";
+const lastUpdated = "2026-11-22";
 
 export function PrivacyNotice({ configuration }: {
   configuration: LegalConfiguration
