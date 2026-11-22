@@ -9,7 +9,7 @@ import { initializeDatabase } from "../src/server/database/migrations";
 import * as schema from "../src/server/database/schema";
 import { importMappedRows } from "../src/features/imports/server/mapped-import-service";
 import type { ImportRow } from "../src/features/imports/import-rows";
-import { decisionTotals, type ExistingMatch, type RowMatch } from "../src/features/imports/reimport-decisions";
+import { decisionTotals, joinMatches, type ExistingMatch, type RowMatch } from "../src/features/imports/reimport-decisions";
 
 const now = Temporal.Instant.from("2026-06-30T12:00:00Z");
 
@@ -71,12 +71,12 @@ function row(line: number, date: string, amount: string, payee: string, extra: P
   };
 }
 
-function importRows(importId: string, rows: ImportRow[], confirm: boolean, decisions: {
+async function importRows(importId: string, rows: ImportRow[], confirm: boolean, decisions: {
   line: number;
   action: "update" | "skip" | "create";
   booking?: string;
 }[] = []) {
-  return importMappedRows({
+  const result = await importMappedRows({
     import_id: importId,
     rows,
     targets: [{
@@ -86,6 +86,12 @@ function importRows(importId: string, rows: ImportRow[], confirm: boolean, decis
     decisions,
     confirm
   }, now);
+
+  // The review joins candidates with the bookings the response sends once.
+  return {
+    ...result,
+    matches: joinMatches(result.matches, result.bookings)
+  };
 }
 
 const firstImport = "00000000-0000-4000-8000-000000000284";
@@ -503,6 +509,9 @@ test("a confident match keeps its booking when an earlier possible duplicate cho
   })];
   const check = await importRows(reimport, rows, false);
   const later = check.matches.find(match => match.line === 2)?.candidates.find(candidate => candidate.date === "2024-04-24");
+
+  // Both rows name the same two bookings, which the response sends once each.
+  assert.equal(Object.keys(check.bookings).length, 2);
   const result = await importRows(reimport, rows, true, [{
     line: 2,
     action: "update",

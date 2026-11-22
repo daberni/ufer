@@ -217,7 +217,7 @@ export async function checkMappedEntries(accountId: string, entries: MappedEntry
     duplicates: found.duplicates,
     possible: found.possible,
     matched: [...found.matched.filter(booking => !plan.released.has(booking.reference)), ...plan.adopted],
-    matches: describeMatches(entries, found),
+    ...matchesOf(entries, found),
     undecided: plan.undecided,
     updated: plan.updates.map(update => update.index),
     inserted: plan.inserts.length
@@ -378,10 +378,22 @@ async function saveAccountRows(tx: DatabaseTransaction, {
     duplicates: found.duplicates,
     possible: found.possible,
     matched: [...found.matched.filter(booking => !plan.released.has(booking.reference)), ...plan.adopted, ...saved],
-    matches: describeMatches(entries, found),
+    ...matchesOf(entries, found),
     undecided: plan.undecided,
     updated: plan.updates.map(update => update.index),
     inserted
+  };
+}
+
+function matchesOf(entries: MappedEntry[], found: Parameters<typeof describeMatches>[1]) {
+  const {
+    described,
+    bookings
+  } = describeMatches(entries, found);
+
+  return {
+    matches: described,
+    bookings
   };
 }
 

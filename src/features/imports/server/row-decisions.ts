@@ -1,4 +1,4 @@
-import { sourceChanges, type ExistingMatch, type RowDecision, type RowMatch, type SourceField } from "../reimport-decisions";
+import { sourceChanges, type CandidateRef, type MatchedBooking, type RowDecision, type SentRowMatch, type SourceField } from "../reimport-decisions";
 import { manualEntryPrefix } from "@/lib/booking-references";
 import type { ExistingBooking, findDuplicates } from "./duplicate-matching";
 import type { MappedEntry } from "./mapped-import-repository";
@@ -138,27 +138,34 @@ function shortened(text: string) {
   return text.length > shownTextLength ? `${text.slice(0, shownTextLength - 1)}…` : text;
 }
 
-/** The review's view of each matched or possibly duplicate row, by index. */
+/** The review's view of each matched or possibly duplicate row, by index, with each booking it names once. */
 export function describeMatches(entries: MappedEntry[], found: Found) {
-  const described = new Map<number, Omit<RowMatch, "line" | "accountId">>();
-  const existingMatch = (index: number, booking: StoredBooking): ExistingMatch => ({
-    id: booking.id,
-    date: booking.date,
-    amount: booking.amount,
-    payee: shortened(booking.counterparty),
-    description: shortened(booking.description),
-    type: booking.type,
-    payeeOverride: booking.payeeOverride === null ? null : shortened(booking.payeeOverride),
-    descriptionOverride: booking.descriptionOverride === null ? null : shortened(booking.descriptionOverride),
-    changes: updatableChanges(booking, entries[index])
-  });
+  const described = new Map<number, Omit<SentRowMatch, "line" | "accountId">>();
+  const bookings: Record<string, MatchedBooking> = {};
+  const candidate = (index: number, booking: StoredBooking): CandidateRef => {
+    bookings[booking.id] ??= {
+      id: booking.id,
+      date: booking.date,
+      amount: booking.amount,
+      payee: shortened(booking.counterparty),
+      description: shortened(booking.description),
+      type: booking.type,
+      payeeOverride: booking.payeeOverride === null ? null : shortened(booking.payeeOverride),
+      descriptionOverride: booking.descriptionOverride === null ? null : shortened(booking.descriptionOverride)
+    };
+
+    return {
+      id: booking.id,
+      changes: updatableChanges(booking, entries[index])
+    };
+  };
 
   for (const [index, booking] of found.matches) {
     described.set(index, {
       description: entries[index].description,
       kind: "match",
       reason: found.duplicates.get(index) ?? null,
-      candidates: [existingMatch(index, booking)]
+      candidates: [candidate(index, booking)]
     });
   }
 
@@ -167,11 +174,14 @@ export function describeMatches(entries: MappedEntry[], found: Found) {
       description: entries[index].description,
       kind: "possible",
       reason: null,
-      candidates: candidates.map(booking => existingMatch(index, booking))
+      candidates: candidates.map(booking => candidate(index, booking))
     });
   }
 
-  return described;
+  return {
+    described,
+    bookings
+  };
 }
 
 /** A booking a person entered by hand holds their own text in its source fields, so an import never rewrites it. */

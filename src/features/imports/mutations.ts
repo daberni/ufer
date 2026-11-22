@@ -8,7 +8,7 @@ import type { NewImportCategory } from "./import-plan";
 import type { AccountKind } from "@/features/accounts/account-kinds";
 import { assignOccurrences, duplicateIdErrors, rowCategoryValues, type MappedRow, type RowError } from "./import-rows";
 import { batchRows, withConsumed, type ConsumedBooking } from "./import-batches";
-import type { DecisionInput, RowMatch } from "./reimport-decisions";
+import { joinMatches, type DecisionInput, type MatchedBooking, type RowMatch, type SentRowMatch } from "./reimport-decisions";
 
 // Confirmed rows and opening balances change account balances.
 const affectedKeys = [queryKeys.accounts(), queryKeys.reports.netWorth(), queryKeys.transactions.all(), queryKeys.reports.cashFlow()];
@@ -157,8 +157,10 @@ export function useMappedImport() {
           confirm,
           final: index === batches.length - 1
         };
-        const result = await api<MappedImportSummary & {
+        const result = await api<Omit<MappedImportSummary, "matches"> & {
           matched: ConsumedBooking[];
+          matches: SentRowMatch[];
+          bookings: Record<string, MatchedBooking>;
         }>("imports/mapped", withConsumed(request, consumed, batch[0].date));
 
         consumed = [...consumed, ...result.matched];
@@ -167,7 +169,7 @@ export function useMappedImport() {
         summary.duplicates.push(...result.duplicates);
         summary.possibleDuplicates.push(...result.possibleDuplicates);
         summary.undecided.push(...result.undecided);
-        summary.matches.push(...result.matches);
+        summary.matches.push(...joinMatches(result.matches, result.bookings));
         summary.errors.push(...result.errors);
         summary.unknownCategories = [...new Set([...summary.unknownCategories, ...result.unknownCategories])].sort();
         summary.createdCategories = [...new Set([...summary.createdCategories, ...result.createdCategories])].sort();

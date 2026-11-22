@@ -25,6 +25,28 @@ export type ExistingMatch = {
   changes: SourceField[];
 };
 
+/** A booking the check compares rows with, sent once per response however many rows name it. */
+export type MatchedBooking = Omit<ExistingMatch, "changes">;
+
+/** A row's candidate as the check sends it: the booking's ID and what an update changes. */
+export type CandidateRef = Pick<ExistingMatch, "id" | "changes">;
+
+/** A row match as the check sends it; the client joins its candidates with the response's bookings. */
+export type SentRowMatch = Omit<RowMatch, "candidates"> & {
+  candidates: CandidateRef[];
+};
+
+/** Joins sent matches with their bookings; a candidate whose booking is missing is dropped. */
+export function joinMatches(matches: SentRowMatch[], bookings: Readonly<Record<string, MatchedBooking>>): RowMatch[] {
+  return matches.map(match => ({
+    ...match,
+    candidates: match.candidates.flatMap(candidate => bookings[candidate.id] ? [{
+      ...bookings[candidate.id],
+      changes: candidate.changes
+    }] : [])
+  }));
+}
+
 export type DuplicateReason = "already_imported" | "existing_booking";
 
 /** A row that matches a booking (`match`, updated unless the person decides otherwise) or may duplicate one (`possible`, which waits for a decision). */

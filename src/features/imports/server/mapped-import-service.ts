@@ -20,7 +20,7 @@ import { maxCategoryChoicesPerRequest, maxConsumedPerRequest, maxTargetsPerReque
 import { mappedReferencePrefix } from "@/lib/booking-references";
 import { duplicateDateToleranceDays } from "@/lib/booking-matching";
 import { normalizeText } from "@/lib/text";
-import { rowDecisions, type DuplicateReason, type RowMatch } from "../reimport-decisions";
+import { rowDecisions, type DuplicateReason, type MatchedBooking, type SentRowMatch } from "../reimport-decisions";
 import type { SplitPartValues } from "@/features/transactions/server/split-repository";
 import { checkMappedEntries, findImportOpening, findImportTarget, listCategoryNames, saveMappedBatch, type MappedEntry, type NewImportAccount, type NewImportCategory, type OpeningBalance } from "./mapped-import-repository";
 
@@ -130,8 +130,10 @@ export type MappedImportResult = {
   possibleDuplicates: number[];
   /** Possible duplicates without a valid decision, which are neither created nor updated. */
   undecided: number[];
-  /** Every matched or possibly duplicate row with the bookings it compares to. */
-  matches: RowMatch[];
+  /** Every matched or possibly duplicate row with the IDs of the bookings it compares to. */
+  matches: SentRowMatch[];
+  /** The bookings the matches name, each once. */
+  bookings: Record<string, MatchedBooking>;
   /** Bookings this batch matched or, when confirmed, saved; the next batch passes them as `consumed`. */
   matched: z.infer<typeof matchedBooking>[];
   duplicates: {
@@ -230,6 +232,7 @@ async function checkAndImport(input: z.infer<typeof mappedImportInput>, now: Tem
     updatedRows,
     undecided,
     matches,
+    bookings,
     createdCategories
   } = await classifyAndSave(planned, targets, input.consumed, input.decisions, input.confirm, categories.created);
 
@@ -246,6 +249,7 @@ async function checkAndImport(input: z.infer<typeof mappedImportInput>, now: Tem
     possibleDuplicates: possible.sort((left, right) => left - right),
     undecided: undecided.sort((left, right) => left - right),
     matches: matches.sort((left, right) => left.line - right.line),
+    bookings,
     duplicates: [...duplicates].map(([line, reason]) => ({
       line,
       reason
@@ -540,7 +544,8 @@ async function classifyAndSave(planned: PlannedRow[], targets: Map<string, Targe
   const matched: z.infer<typeof matchedBooking>[] = [];
   const possible: number[] = [];
   const undecided: number[] = [];
-  const matches: RowMatch[] = [];
+  const matches: SentRowMatch[] = [];
+  const bookings: Record<string, MatchedBooking> = {};
   const decisionOf = new Map(decisions.map(item => [item.line, {
     action: item.action,
     booking: item.booking
@@ -596,6 +601,8 @@ async function classifyAndSave(planned: PlannedRow[], targets: Map<string, Targe
     undecided.push(...result.undecided.map(index => rows[index].line));
     updatedRows += result.updated.length;
 
+    Object.assign(bookings, result.bookings);
+
     for (const [index, match] of result.matches) {
       matches.push({
         line: rows[index].line,
@@ -619,6 +626,7 @@ async function classifyAndSave(planned: PlannedRow[], targets: Map<string, Targe
     updatedRows,
     undecided,
     matches,
+    bookings,
     createdCategories
   };
 }
