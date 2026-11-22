@@ -223,8 +223,13 @@ function opensAggregate(name: string, text: string, from: number) {
  * Parses the body from the `<OFX>` root into a tree. A tag followed by text is a leaf, whose closing tag is optional in SGML; any other tag opens an aggregate, which its closing tag ends, closing any leaves and aggregates left open inside it.
  */
 function parseOfx(raw: string): Element {
-  // Comments become blank lines and CDATA sections escaped text, both keeping their line breaks, so a commented-out element is never read and leaves read CDATA like any value.
-  const text = raw.replace(/<!--[\s\S]*?-->|<!\[CDATA\[([\s\S]*?)\]\]>/g, (whole: string, content: string | undefined) => {
+  // Comments become blank lines, processing instructions disappear and CDATA sections become escaped text, all keeping their line breaks, so a commented-out element is never read and leaves read the text around them.
+  const text = raw.replace(/<!--[\s\S]*?-->|<\?[\s\S]*?\?>|<!\[CDATA\[([\s\S]*?)\]\]>/g, (whole: string, content: string | undefined) => {
+    // A processing instruction inside a value leaves the text around it joined; only its line breaks stay.
+    if (whole.startsWith("<?")) {
+      return whole.replace(/[^\n]/g, "");
+    }
+
     if (content === undefined) {
       return whole.replace(/[^\n]/g, " ");
     }
