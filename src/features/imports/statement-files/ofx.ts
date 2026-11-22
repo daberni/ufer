@@ -44,6 +44,19 @@ export function readOfx(text: string, locale: string): StatementFile {
   }
 
   const rows = new StatementRows(locale);
+  // One account may report a statement per currency; Ufer accounts hold one currency, so those statements get separate sources.
+  const currenciesBySource = new Map<string, Set<string>>();
+
+  for (const {
+    statement,
+    account
+  } of statements) {
+    if (statement) {
+      const label = accountSource(statement, account);
+
+      currenciesBySource.set(label, (currenciesBySource.get(label) ?? new Set()).add(leaf(statement, "CURDEF").toUpperCase()));
+    }
+  }
 
   for (const {
     statement,
@@ -54,18 +67,8 @@ export function readOfx(text: string, locale: string): StatementFile {
     }
 
     const currency = leaf(statement, "CURDEF").toUpperCase() || null;
-    const accountElement = find(statement.children, account);
-    const accountId = leaf(accountElement, "ACCTID");
-    // A card and a bank account, or accounts at two banks, branches or of two types, may share an account number; the source keeps every identifying field.
-    // Optional fields carry their label, so accounts that omit different fields never read alike.
-    const labelled = (label: string, name: string) => {
-      const value = leaf(accountElement, name);
-
-      return value ? `${label} ${value}` : "";
-    };
-    const cardIdentity = ["Card", accountId, labelled("key", "ACCTKEY")];
-    const bankIdentity = [labelled("Bank", "BANKID"), labelled("branch", "BRANCHID"), accountId, labelled("type", "ACCTTYPE"), labelled("key", "ACCTKEY")];
-    const source = (account === "CCACCTFROM" ? cardIdentity : bankIdentity).filter(Boolean).join(" · ");
+    const label = accountSource(statement, account);
+    const source = (currenciesBySource.get(label)?.size ?? 0) > 1 ? `${label} · ${currency ?? "no currency"}` : label;
 
     for (const transaction of all(find(statement.children, "BANKTRANLIST"), "STMTTRN")) {
       // A transaction in another currency states its amount in that currency with the rate to the statement's; the row keeps the account's currency and notes the original amount.
@@ -99,6 +102,23 @@ export function readOfx(text: string, locale: string): StatementFile {
     format: "ofx",
     ...rows.result()
   };
+}
+
+/**
+ * The statement's account as a source. A card and a bank account, or accounts at two banks, branches or of two types, may share an account number, so the source keeps every identifying field; optional fields carry their label, so accounts that omit different fields never read alike.
+ */
+function accountSource(statement: Element, account: string) {
+  const accountElement = find(statement.children, account);
+  const accountId = leaf(accountElement, "ACCTID");
+  const labelled = (label: string, name: string) => {
+    const value = leaf(accountElement, name);
+
+    return value ? `${label} ${value}` : "";
+  };
+  const cardIdentity = ["Card", accountId, labelled("key", "ACCTKEY")];
+  const bankIdentity = [labelled("Bank", "BANKID"), labelled("branch", "BRANCHID"), accountId, labelled("type", "ACCTTYPE"), labelled("key", "ACCTKEY")];
+
+  return (account === "CCACCTFROM" ? cardIdentity : bankIdentity).filter(Boolean).join(" · ");
 }
 
 /** The `YYYYMMDD` start of an OFX date-time; the time and time zone do not move the calendar date the bank reported. */

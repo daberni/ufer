@@ -401,6 +401,10 @@ test("OFX empty SGML leaves keep later fields, foreign amounts round exactly, an
 
   assert.deepEqual(branches.rows.map(row => row.source), ["Bank B1 · branch N · 42 · type CHECKING", "Bank B1 · branch S · 42 · type CHECKING"]);
 
+  const ledgers = read("OFXHEADER:100\n\n<OFX><BANKMSGSRSV1>" + ["EUR", "USD"].map(currency => `<STMTTRNRS><STMTRS><CURDEF>${currency}<BANKACCTFROM><ACCTID>M</BANKACCTFROM><BANKTRANLIST><STMTTRN><DTPOSTED>20260301<TRNAMT>-1<FITID>${currency}</STMTTRN></BANKTRANLIST></STMTRS></STMTTRNRS>`).join("") + "</BANKMSGSRSV1></OFX>");
+
+  assert.deepEqual(ledgers.rows.map(row => [row.source, row.currency]), [["M · EUR", "EUR"], ["M · USD", "USD"]]);
+
   // Accounts omitting different optional fields keep distinct sources.
   const omitted = read("OFXHEADER:100\n\n<OFX><BANKMSGSRSV1>" + ["<BANKID>B<BRANCHID>123<ACCTID>SAVINGS<ACCTTYPE>CHECKING", "<BANKID>B<ACCTID>123<ACCTTYPE>SAVINGS<ACCTKEY>CHECKING"].map(identity => `<STMTTRNRS><STMTRS><CURDEF>EUR<BANKACCTFROM>${identity}</BANKACCTFROM><BANKTRANLIST><STMTTRN><DTPOSTED>20260301<TRNAMT>-1<FITID>1</STMTTRN></BANKTRANLIST></STMTRS></STMTTRNRS>`).join("") + "</BANKMSGSRSV1></OFX>");
 
