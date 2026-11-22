@@ -1,7 +1,7 @@
 import { and, asc, eq, sql } from "drizzle-orm";
 import { database, type Database, type DatabaseTransaction } from "@/server/database/connection";
 import { accounts, transactions } from "@/server/database/schema";
-import { derivedTransactionType } from "@/lib/transaction-types";
+import { derivedTransactionType, type TransactionType } from "@/lib/transaction-types";
 import { notSplit } from "./split-repository";
 import { duplicateCandidate } from "./duplicate-rules";
 import { dissolveLink } from "./transfer-link-repository";
@@ -19,6 +19,9 @@ const copyColumns = {
   amount_minor: transactions.amount_minor,
   currency: transactions.currency,
   type: transactions.type,
+  type_source: transactions.type_source,
+  transfer_id: transactions.transfer_id,
+  linked_account: sql<string | null>`(SELECT pa.name FROM transactions p JOIN accounts pa ON pa.id=p.account_id WHERE p.transfer_id=${transactions.transfer_id} AND p.id<>${transactions.id})`,
   counterparty: sql<string>`COALESCE(${transactions.counterparty_override},${transactions.counterparty})`,
   description: sql<string>`COALESCE(${transactions.description_override},${transactions.description})`,
   category_id: transactions.category_id,
@@ -58,6 +61,7 @@ export type DuplicateDecision = {
   removed: Copy;
   deleted: boolean;
   category: string | null | undefined;
+  type: TransactionType | undefined;
   text: {
     counterparty: string;
     description: string;
@@ -131,6 +135,14 @@ export async function resolveDuplicate(id: string, originalId: string, at: strin
       await tx.update(transactions).set({
         counterparty_override: decision.text.counterparty,
         description_override: decision.text.description
+      }).where(eq(transactions.id, decision.kept.id));
+    }
+
+    if (decision.type !== undefined) {
+      await tx.update(transactions).set({
+        type: decision.type,
+        type_source: "manual",
+        type_rule_id: null
       }).where(eq(transactions.id, decision.kept.id));
     }
 

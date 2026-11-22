@@ -1,5 +1,6 @@
 import { normalizeText } from "@/lib/text";
 import { mappedReferencePrefix } from "@/lib/booking-references";
+import type { TransactionType } from "@/lib/transaction-types";
 
 /** Days a booking may lie from its duplicate when a person resolves it: exports and banks can record the same movement on dates further apart than automatic matching accepts. */
 export const duplicateSearchDays = 14;
@@ -69,4 +70,25 @@ export function carriedCategory(kept: Categorized, removed: Categorized) {
   }
 
   return removed.category_id;
+}
+
+type Typed = {
+  type: TransactionType;
+  type_source: string;
+  transfer_id: string | null;
+};
+
+/**
+ * The type the kept booking takes over from the removed copy: a person's income or expense choice survives resolving the duplicate when the kept booking's type is automatic and it is not linked.
+ * A transfer type is never carried, because it belongs to the removed copy's link. Undefined leaves the kept booking's type as it is.
+ */
+export function carriedType(kept: Typed, removed: Typed) {
+  const ownChoice = kept.type_source === "manual" || kept.transfer_id !== null;
+  const carriable = removed.type_source === "manual" && (removed.type === "income" || removed.type === "expense");
+
+  if (ownChoice || !carriable || kept.type === removed.type) {
+    return undefined;
+  }
+
+  return removed.type;
 }

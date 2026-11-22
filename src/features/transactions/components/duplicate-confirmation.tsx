@@ -19,17 +19,16 @@ import type { DuplicateCandidate, Transaction } from "@/features/transactions/ty
 
 /** What resolving the duplicate with `candidate` keeps and hides. */
 function resolutionEffect(transaction: Transaction, candidate: DuplicateCandidate) {
-  const linked = transaction.counterpart?.account_name;
   const removal = candidate.deletes_other ? "deletes" : "hides";
   const undo = candidate.deletes_other ? " Deleting a CSV-imported booking cannot be undone." : "";
+  const linked = candidate.keeps_candidate ? transaction.counterpart?.account_name : candidate.linked_account;
+  const link = linked ? ` Ends its link with ${linked}.` : "";
 
   if (candidate.keeps_candidate) {
-    const link = linked ? ` Ends its link with ${linked}.` : "";
-
     return `Keeps the chosen booking and ${removal} this one.${link}${undo}`;
   }
 
-  return `Keeps this booking and ${removal} the chosen one.${undo}`;
+  return `Keeps this booking and ${removal} the chosen one.${link}${undo}`;
 }
 
 /**

@@ -2,8 +2,9 @@ import { Temporal } from "temporal-polyfill";
 import { z } from "zod";
 import { HttpError, ValidationError } from "@/lib/errors";
 import { formatCount } from "@/lib/locale";
+import { syncLease, withLease } from "@/server/jobs/lease";
 import { currentFormatLocale } from "@/server/http/request-locale";
-import { carriedCategory, carriedText, duplicateSearchDays, keptCopy } from "@/features/transactions/duplicate-resolution";
+import { carriedCategory, carriedText, carriedType, duplicateSearchDays, keptCopy } from "@/features/transactions/duplicate-resolution";
 import type { DuplicateCandidates } from "@/features/transactions/types";
 import { readDuplicateCandidates, resolveDuplicate, type Copy, type DuplicateResult } from "./duplicate-repository";
 
@@ -25,7 +26,8 @@ export async function duplicateCandidates(id: string): Promise<DuplicateCandidat
         counterparty: candidate.counterparty,
         description: candidate.description,
         keeps_candidate: outcome.kept === candidate,
-        deletes_other: outcome.deleted
+        deletes_other: outcome.deleted,
+        linked_account: candidate.linked_account
       };
     })
   };
@@ -47,11 +49,12 @@ function decide(subject: Copy, original: Copy) {
     removed,
     deleted,
     category: carriedCategory(kept, removed),
+    type: carriedType(kept, removed),
     text: carriedText(kept, removed)
   };
 }
 
-/** Resolves a booking as a duplicate of the one a person named: a CSV-imported copy beside a bank copy is deleted, otherwise the better-described copy stays; the other copy is deleted when it came from a CSV import and hidden otherwise. The kept copy takes over a manual category and better text. */
+/** Resolves a booking as a duplicate of the one a person named: a CSV-imported copy beside a bank copy is deleted, otherwise the better-described copy stays; the other copy is deleted when it came from a CSV import and hidden otherwise. The kept copy takes over a manual category, a manual income or expense type and better text. */
 export async function markDuplicate(id: string, payload: unknown, now = Temporal.Now.instant()) {
   const input = duplicateInput.parse(payload);
 
@@ -59,7 +62,10 @@ export async function markDuplicate(id: string, payload: unknown, now = Temporal
     throw new ValidationError("A booking cannot be a duplicate of itself.");
   }
 
-  await requireResolved(await resolveDuplicate(id, input.duplicate_of, now.toString(), decide));
+  // Syncs and imports upsert and pair these bookings under the sync lease; resolving waits for them instead of racing their writes.
+  const result = await withLease(syncLease, "A sync or import is running. Resolve the duplicate after it has finished.", () => resolveDuplicate(id, input.duplicate_of, now.toString(), decide));
+
+  await requireResolved(result);
 
   return {
     ok: true

@@ -268,6 +268,8 @@ test("a CSV-imported copy beside a bank copy is deleted, and the bank copy takes
     ...bank,
     id: "csv-copy",
     provider_reference: "csv:m:synthetic-row",
+    type: "income",
+    type_source: "manual",
     booking_date: null,
     date: describedCopy.date,
     counterparty: describedCopy.counterparty,
@@ -279,7 +281,7 @@ test("a CSV-imported copy beside a bank copy is deleted, and the bank copy takes
 
   const offered = await duplicateCandidates("csv-copy");
 
-  assert.deepEqual(offered.candidates.map(candidate => [candidate.id, candidate.keeps_candidate, candidate.deletes_other]), [[bank.id, true, true]]);
+  assert.deepEqual(offered.candidates.map(candidate => [candidate.id, candidate.keeps_candidate, candidate.deletes_other, candidate.linked_account]), [[bank.id, true, true, null]]);
 
   await markDuplicate("csv-copy", {
     duplicate_of: bank.id
@@ -295,5 +297,7 @@ test("a CSV-imported copy beside a bank copy is deleted, and the bank copy takes
   assert.equal(kept.description_override, describedCopy.description);
   assert.equal(kept.category_id, "groceries");
   assert.equal(kept.category_source, "manual");
-  assert.equal(await expenses(), 1250);
+  assert.equal(kept.type, "income");
+  assert.equal(kept.type_source, "manual");
+  assert.equal(await expenses(), 0);
 });
