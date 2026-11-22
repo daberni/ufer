@@ -375,6 +375,15 @@ test("OFX empty SGML leaves keep later fields, foreign amounts round exactly, an
 
   assert.deepEqual([noDirection.rows.length, noDirection.errors.map(error => error.line)], [4, [20, 48]]);
 
+  const commaSplit = read("!Type:Bank\nD01.03.2026\nT-10,00\nSFood, Dining\n$-4,00\nSCar\n$-6,00\n^\n");
+
+  assert.deepEqual(commaSplit.rows[0].parts?.map(part => part.category), ["Food, Dining", "Car"]);
+
+  const other = (id: string, scheme: string) => `<Acct><Id><Othr><Id>${id}</Id><SchmeNm><Cd>${scheme}</Cd></SchmeNm><Issr>Synthetic Bank</Issr></Othr></Id><Ccy>EUR</Ccy></Acct>`;
+  const schemes = read(camt.replace(/<Acct>[\s\S]*?<\/Acct>/, other("123", "BBAN")).replace(/<Acct><Id><IBAN>DE89[\s\S]*?<\/Acct>/, other("123", "CUID")));
+
+  assert.deepEqual([...new Set(schemes.rows.map(row => row.source))], ["123 · BBAN · Synthetic Bank", "123 · CUID · Synthetic Bank"]);
+
   const shared = read("OFXHEADER:100\n\n<OFX><BANKMSGSRSV1><STMTTRNRS><STMTRS><CURDEF>EUR<BANKACCTFROM><BANKID>B1<ACCTID>42</BANKACCTFROM><BANKTRANLIST><STMTTRN><DTPOSTED>20260301<TRNAMT>-1<FITID>1</STMTTRN></BANKTRANLIST></STMTRS></STMTTRNRS></BANKMSGSRSV1><CREDITCARDMSGSRSV1><CCSTMTTRNRS><CCSTMTRS><CURDEF>EUR<CCACCTFROM><ACCTID>42</CCACCTFROM><BANKTRANLIST><STMTTRN><DTPOSTED>20260301<TRNAMT>-2<FITID>1</STMTTRN></BANKTRANLIST></CCSTMTRS></CCSTMTTRNRS></CREDITCARDMSGSRSV1></OFX>");
 
   assert.deepEqual(shared.rows.map(row => row.source), ["B1 · 42", "Card · 42"]);

@@ -248,7 +248,11 @@ function accountLabel(account: unknown) {
     return iban.replace(/(.{4})(?=.)/g, "$1 ");
   }
 
-  return textOf(child(child(id, "Othr"), "Id"));
+  // Another identification is unique only with its scheme and issuer, so statements of two schemes sharing an ID stay apart.
+  const other = child(id, "Othr");
+  const scheme = child(other, "SchmeNm");
+
+  return [textOf(child(other, "Id")), textOf(child(scheme, "Cd")) || textOf(child(scheme, "Prtry")), textOf(child(other, "Issr"))].filter(Boolean).join(" · ");
 }
 
 /** Character offsets of entry and transaction-detail start tags in document order, so rows point at their line in the file. */

@@ -1,5 +1,6 @@
-import { twoDigitYear, detectDateFormat, detectDecimal, type DateFormat, negate, parseAmount, parseDate } from "../csv-values";
-import { tagSplit, withSplitTags } from "../import-rows";
+import { twoDigitYear, detectDateFormat, detectDecimal, type DateFormat, fractionDigits, negate, parseAmount, parseDate, signedScaled } from "../csv-values";
+import { maxCategoryLength, type SplitPartRow } from "../import-rows";
+import { maximumSplitParts } from "@/features/transactions/split-limits";
 import { cleanText, StatementFileError, StatementRows, type StatementFile } from "./statement-rows";
 
 // Reads Quicken Interchange Format files into mapped rows. QIF has no transaction IDs, so reimports match by content; dates and decimals have no fixed format and are detected over the whole file like CSV columns.
@@ -110,16 +111,15 @@ export function readQif(text: string, locale: string): StatementFile {
     const category = value(record, "L").split("/")[0].trim();
     // `[Account]` names a transfer to another account in Quicken, not a category.
     const transfer = /^\[.*\]$/.test(category);
-    const splits = splitTags(record, decimal, amount);
+    const splits = splitLines(record, decimal);
     // A split part that moves money to another account (`S[Savings]`) has no place in a categorized split; the row stays unsplit and keeps the split text.
     const splitTargets = record.fields.filter(([field]) => field === "S").map(([, text]) => /^\[.*\]$/.test(text.split("/")[0].trim()));
     const splitTransfer = splitTargets.some(Boolean);
-    const split = splits && amount !== null && !transfer && !splitTransfer ? tagSplit(splits, amount) : null;
-    const parts = split && "parts" in split ? split.parts : null;
+    const parts = splits && amount !== null && !transfer && !splitTransfer ? splitParts(splits, amount) : null;
     // Split memos have no place on a split part, so they join the description.
     const splitMemos = record.fields.filter(([field, text]) => field === "E" && text).map(([, text]) => cleanText(text));
     const memo = [cleanText(value(record, "M")), ...splitMemos].filter(Boolean).join(" · ");
-    const description = splits && !parts ? withSplitTags(memo, splits) : memo;
+    const description = splits && !parts ? [memo, splitText(splits, amount)].filter(Boolean).join(" · ") : memo;
 
     rows.add({
       line: record.line,
@@ -134,7 +134,8 @@ export function readQif(text: string, locale: string): StatementFile {
       // Pairing links a transfer to one booking of its full amount, so only a split moving everything to one account is a transfer.
       type: transfer || singleSplitTarget(record) ? "transfer" : null,
       parts,
-      tags: parts ? splits : null
+      // Kept for the server, which appends the split text when it cannot take the split.
+      tags: parts && splits ? splitText(splits, amount).slice("Split: ".length) : null
     });
   });
 
@@ -174,33 +175,84 @@ function qifDate(value: string) {
   return text.replace("'", "/");
 }
 
-/** A split transaction's `S` category and `$` amount pairs as amount-bearing tags (`Food:Groceries:12.50`) signed like the row; null without splits. */
-function splitTags(record: QifRecord, decimal: "." | ",", amount: string | null) {
-  const parts: string[] = [];
+type QifSplitLine = {
+  category: string;
+  /** The signed part amount; null when unreadable, with `text` as written, or missing. */
+  amount: string | null;
+  text: string | null;
+};
+
+/** A split transaction's `S` category and `$` amount pairs in file order, read without a delimiter so category names keep their commas; null without splits. */
+function splitLines(record: QifRecord, decimal: "." | ","): QifSplitLine[] | null {
+  const lines: QifSplitLine[] = [];
   let category: string | null = null;
 
   for (const [field, text] of record.fields) {
     if (field === "S") {
-      // A category without its amount stays as a tag without one, which makes the split invalid and keeps its text.
+      // A category without its amount stays without one, which makes the split invalid and keeps its text.
       if (category !== null) {
-        parts.push(category.replaceAll(",", " "));
+        lines.push({
+          category,
+          amount: null,
+          text: null
+        });
       }
 
       category = text.split("/")[0].trim();
     } else if (field === "$" && category !== null) {
-      const partAmount = parseAmount(text, decimal);
-      // Split tags count in the row's direction, so an outgoing row's negative parts become positive tag amounts. An unreadable amount stays as written, so the row imports unsplit with the split text kept in its description.
-      const signed = partAmount !== null && amount?.startsWith("-") ? negate(partAmount) : partAmount;
-      const tagAmount = signed ?? text;
-
-      parts.push(`${category.replaceAll(",", " ")}:${tagAmount}`);
+      lines.push({
+        category,
+        amount: parseAmount(text, decimal),
+        text
+      });
       category = null;
     }
   }
 
   if (category !== null) {
-    parts.push(category.replaceAll(",", " "));
+    lines.push({
+      category,
+      amount: null,
+      text: null
+    });
   }
 
-  return parts.length > 0 ? parts.join(",") : null;
+  return lines.length > 0 ? lines : null;
+}
+
+/** The parts of a valid split, which add up exactly to the row's amount; null when the split lines form none. */
+function splitParts(lines: QifSplitLine[], amount: string): SplitPartRow[] | null {
+  const valid = lines.length >= 2 && lines.length <= maximumSplitParts && lines.every(line => line.amount !== null && line.category && line.category.length <= maxCategoryLength);
+
+  if (!valid) {
+    return null;
+  }
+
+  const parts = lines.map(line => ({
+    category: line.category,
+    amount: line.amount!
+  }));
+  const scale = Math.max(fractionDigits(amount), ...parts.map(part => fractionDigits(part.amount)));
+
+  if (parts.some(part => signedScaled(part.amount, scale) === 0n)) {
+    return null;
+  }
+
+  const total = parts.reduce((sum, part) => sum + signedScaled(part.amount, scale), 0n);
+
+  return total === signedScaled(amount, scale) ? parts : null;
+}
+
+/** The split lines as text, with amounts in the row's direction: `Split: Food, Dining 4.00, Car 6.00`. */
+function splitText(lines: QifSplitLine[], amount: string | null) {
+  const outgoing = amount?.startsWith("-") ?? false;
+  const listed = lines.map(line => {
+    if (line.amount !== null) {
+      return `${line.category} ${outgoing ? negate(line.amount) : line.amount}`;
+    }
+
+    return line.text === null ? line.category : `${line.category}:${line.text}`;
+  });
+
+  return `Split: ${listed.join(", ")}`;
 }
