@@ -276,14 +276,11 @@ async function resolveTargets(importId: string, inputs: z.infer<typeof target>[]
 
   for (const input of inputs) {
     if (input.new_account) {
-      const {
-        seed,
-        persisted
-      } = await resolveImportSeed(importId, input.source);
-      const id = importAccountId(seed, input.source);
+      const id = importAccountId(importId, input.source);
+      const persisted = await findImportTarget(id);
 
       requireActiveTarget(persisted);
-      const opening = input.new_account.opening ? openingBalance(importAccountId(seed, `${input.source}|opening|${input.new_account.opening.kind}`), input.new_account.opening, input.new_account.currency) : null;
+      const opening = input.new_account.opening ? openingBalance(importAccountId(importId, `${input.source}|opening|${input.new_account.opening.kind}`), input.new_account.opening, input.new_account.currency) : null;
 
       // The stated balance follows the same liability rule as creating or retyping an account.
       if (opening) {
@@ -291,7 +288,7 @@ async function resolveTargets(importId: string, inputs: z.infer<typeof target>[]
       }
 
       // An earlier confirmed batch of this import created the account; its stored configuration is authoritative.
-      if (persisted && (persisted.currency !== input.new_account.currency || persisted.name !== input.new_account.name || persisted.kind !== input.new_account.kind || !await storedOpeningMatches(seed, input.source, persisted.id, opening))) {
+      if (persisted && (persisted.currency !== input.new_account.currency || persisted.name !== input.new_account.name || persisted.kind !== input.new_account.kind || !await storedOpeningMatches(importId, input.source, persisted.id, opening))) {
         throw new ValidationError(`The account “${persisted.name}” (${persisted.currency}) was already created by this import; keep its name, type, currency and balance.`);
       }
 
@@ -330,43 +327,16 @@ async function resolveTargets(importId: string, inputs: z.infer<typeof target>[]
 }
 
 /** Whether a resumed import states the opening balance its account already has. */
-async function storedOpeningMatches(seed: string, source: string, accountId: string, opening: OpeningBalance | null) {
+async function storedOpeningMatches(importId: string, source: string, accountId: string, opening: OpeningBalance | null) {
   const kinds = ["current", "start"] as const;
-  const stored = await findImportOpening(accountId, kinds.map(kind => importAccountId(seed, `${source}|opening|${kind}`)));
+  const stored = await findImportOpening(accountId, kinds.map(kind => importAccountId(importId, `${source}|opening|${kind}`)));
 
   return sameOpening(stored, opening);
 }
 
-/** Banking environments that prefixed the hash of import IDs persisted before #292; fixed values, independent of the configured environment. */
-const legacySeedPrefixes = ["SANDBOX", "PRODUCTION"] as const;
-
-/**
- * The hash seed of an import's IDs for one source account: the import ID, or the legacy environment-prefixed seed when an earlier import created the account with it.
- * Re-importing the same file therefore resumes an account created under either formula instead of creating a second one.
- */
-async function resolveImportSeed(importId: string, source: string) {
-  const seeds = [importId, ...legacySeedPrefixes.map(prefix => `${prefix}|${importId}`)];
-
-  for (const seed of seeds) {
-    const persisted = await findImportTarget(importAccountId(seed, source));
-
-    if (persisted) {
-      return {
-        seed,
-        persisted
-      };
-    }
-  }
-
-  return {
-    seed: importId,
-    persisted: undefined
-  };
-}
-
-/** A stable account ID per import seed and source account, so every batch and retry of one import targets the same new account. */
-function importAccountId(seed: string, source: string) {
-  const hex = createHash("sha256").update(`${seed}|${source}`).digest("hex");
+/** A stable account ID per import and source account, so every batch and retry of one import targets the same new account. */
+function importAccountId(importId: string, source: string) {
+  const hex = createHash("sha256").update(`${importId}|${source}`).digest("hex");
 
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
 }
