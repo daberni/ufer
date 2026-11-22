@@ -389,6 +389,10 @@ test("OFX empty SGML leaves keep later fields, foreign amounts round exactly, an
 
   assert.deepEqual([...new Set(schemes.rows.map(row => row.source))], ["ID 123 · scheme BBAN · issuer Synthetic Bank", "ID 123 · scheme CUID · issuer Synthetic Bank"]);
 
+  const partlyStated = read(camt.replace("DE89370400440532013000", "AT611904300234573201").replace("<Ccy>USD</Ccy></Acct>", "</Acct>").replace(/USD/g, "EUR"));
+
+  assert.deepEqual([...new Set(partlyStated.rows.map(row => row.source))], ["AT61 1904 3002 3457 3201"]);
+
   const noAccountCurrency = read(camt.replace("DE89370400440532013000", "AT611904300234573201").replace(/<Ccy>(EUR|USD)<\/Ccy><\/Acct>/g, "</Acct>"));
 
   assert.deepEqual([...new Set(noAccountCurrency.rows.map(row => row.source))], ["AT61 1904 3002 3457 3201 · EUR", "AT61 1904 3002 3457 3201 · USD"]);
