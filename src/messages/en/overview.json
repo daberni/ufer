@@ -1,0 +1,23 @@
+{
+  "period": {
+    "previousMonth": "Previous month",
+    "nextMonth": "Next month",
+    "allMonths": "All months",
+    "transactionCount": "{count, plural, one {# transaction} other {# transactions}}"
+  },
+  "monthPicker": {
+    "trigger": "Select month, {label}",
+    "dialog": "Choose a month",
+    "previousYear": "Previous year",
+    "nextYear": "Next year"
+  },
+  "account": {
+    "emptyTitle": "No transactions in this period",
+    "emptyBody": "Choose another month or all months to see earlier transactions of this account."
+  },
+  "loading": {
+    "loading": "Loading your data …",
+    "failed": "Some of your data could not be loaded."
+  },
+  "bankConnected": "Bank connected. Select “Sync” to retrieve balances and transactions for the first time."
+}

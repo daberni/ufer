@@ -266,6 +266,7 @@ function AccountActivity({
   list: Area<TransactionPage>;
   page: number;
 }) {
+  const t = useTranslations("overview.account");
   const accountTransactionsHref = useAccountTransactionsHref();
   const transactionCount = mapArea<TransactionPage, number>(list, data => data.transactionCount);
 
@@ -275,7 +276,7 @@ function AccountActivity({
       <AccountCashFlowSummary cashFlow={cashFlow} currency={account?.currency ?? "EUR"} />
       <TransactionsPanel
         categories={categories}
-        emptyState={<Empty title="No transactions in this period" illustration={null}>Choose another month or all months to see earlier transactions of this account.</Empty>}
+        emptyState={<Empty title={t("emptyTitle")} illustration={null}>{t("emptyBody")}</Empty>}
         filterHref={account ? accountTransactionsHref(account) : "/transactions"}
         list={list}
         page={page}

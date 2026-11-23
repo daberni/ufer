@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { Select } from "@/components/ui/select";
 import { setCurrency, useCurrency } from "@/client/use-app-url";
 import { showsCurrencySelect } from "@/features/accounts/queries";
@@ -18,6 +19,7 @@ export function CurrencyChoice({
   compact = false,
   className
 }: Props) {
+  const t = useTranslations("accounts.currencyChoice");
   const currency = useCurrency();
 
   if (!showsCurrencySelect(currencies)) {
@@ -28,12 +30,16 @@ export function CurrencyChoice({
     <Select
       variant="bare"
       className={className}
-      aria-label="Accounts shown by currency"
-      title={compact ? "Accounts shown by currency" : undefined}
+      aria-label={t("label")}
+      title={compact ? t("label") : undefined}
       value={currency}
       onChange={event => setCurrency(event.target.value)}
     >
-      {currencies.map(value => <option key={value} value={value}>{compact ? value : `${value} accounts`}</option>)}
+      {currencies.map(value => (
+        <option key={value} value={value}>{compact ? value : t("option", {
+          currency: value
+        })}</option>
+      ))}
     </Select>
   );
 }

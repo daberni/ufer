@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { mock, test } from "node:test";
 import { act, renderHook } from "@testing-library/react";
+import { withIntl } from "./fixtures/intl";
 import { createElement, type ReactNode } from "react";
 import { AppRouterContext, type AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import { PathnameContext, SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime";
@@ -44,9 +45,9 @@ function queryWrapper(queryClient: QueryClient) {
   return function wrapper({ children }: {
     children: ReactNode
   }) {
-    return withQueryClient(queryClient, createElement(AppStoreProvider, {
+    return withIntl(withQueryClient(queryClient, createElement(AppStoreProvider, {
       locked: false
-    }, children));
+    }, children)));
   };
 }
 
@@ -650,11 +651,11 @@ function renderDashboard(context: Parameters<typeof browser>[0], url: string) {
       value: new URLSearchParams(window.location.search)
     }, children));
 
-    return withQueryClient(environment.queryClient, createElement(AppStoreProvider, {
+    return withIntl(withQueryClient(environment.queryClient, createElement(AppStoreProvider, {
       locked: false
     }, createElement(AppRouterContext, {
       value: router
-    }, route)));
+    }, route))));
   }
 
   return {

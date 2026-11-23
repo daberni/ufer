@@ -12,7 +12,9 @@ import { Temporal } from "temporal-polyfill";
 import { useLocale } from "@/client/locale-provider";
 import { TimestampValue } from "@/components/ui/date-value";
 import { money } from "@/lib/money";
-import { accountIcon, accountProblem, kinds } from "@/features/accounts/account-presentation";
+import { accountIcon, accountProblem } from "@/features/accounts/account-presentation";
+import { useAccountKindLabel } from "./use-account-kind-label";
+import { useTranslations } from "next-intl";
 import { BankConnectionDialog } from "@/features/banking/components/bank-connection-form";
 import type { Account } from "@/features/accounts/types";
 import type { Connection } from "@/features/banking/types";
@@ -31,6 +33,8 @@ export function AccountSummary({
   account: Account;
   connections: Connection[];
 }) {
+  const t = useTranslations("accounts.summary");
+  const kindLabel = useAccountKindLabel();
   const locale = useLocale();
   const [reconnecting, setReconnecting] = useState<Connection | null>(null);
   const [updatingBalance, setUpdatingBalance] = useState(false);
@@ -45,20 +49,22 @@ export function AccountSummary({
   const mismatch = !archived && !problem && difference !== 0;
 
   return (
-    <section className={clsx(ui["panel"], styles["summary"])} aria-label="Account summary">
+    <section className={clsx(ui["panel"], styles["summary"])} aria-label={t("label")}>
       <div className={styles["header"]}>
         <span className={clsx(accountStyles["account-logo"], accountStyles[account.kind])}>
           <Icon size={23} aria-hidden="true" />
         </span>
-        <p className={styles["meta"]}>{kinds[account.kind] ?? account.kind}</p>
+        <p className={styles["meta"]}>{kindLabel(account.kind)}</p>
       </div>
       <div className={styles["balance-row"]}>
         <strong className={styles["balance"]}>{account.balance_minor === null ? "—" : money(account.balance_minor, account.currency, locale)}</strong>
         {balanceEditable && (
           <button
             className={clsx(ui["icon-button"], styles["balance-edit"])}
-            aria-label={`Update balance of ${account.name}`}
-            title="Update balance"
+            aria-label={t("updateBalanceOf", {
+              name: account.name
+            })}
+            title={t("updateBalance")}
             onClick={() => setUpdatingBalance(true)}
           >
             <Pencil size={18} aria-hidden="true" />
@@ -82,10 +88,14 @@ export function AccountSummary({
 function ArchivedHint({ archivedAt }: {
   archivedAt: string
 }) {
+  const t = useTranslations("accounts.summary");
+
   return (
     <p className={styles["status"]}>
       <Archive size={14} aria-hidden="true" />
-      <span>Archived on <TimestampValue value={archivedAt} /> · hidden from lists, still counted in reports</span>
+      <span>{t.rich("archived", {
+        date: () => <TimestampValue value={archivedAt} />
+      })}</span>
     </p>
   );
 }

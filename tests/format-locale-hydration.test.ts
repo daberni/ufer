@@ -6,6 +6,7 @@ import { renderToString } from "react-dom/server";
 import { hydrateRoot } from "react-dom/client";
 import { stubCssModules } from "./fixtures/css-modules";
 import { LocaleProvider } from "../src/client/locale-provider";
+import { withIntl } from "./fixtures/intl";
 import type { CategoryGroup } from "../src/features/reports/category-groups";
 
 stubCssModules();
@@ -23,14 +24,14 @@ const groups: CategoryGroup[] = [{
 async function page(locale: string) {
   const { CategoryRows } = await import("../src/features/reports/components/category-rows");
 
-  return createElement(LocaleProvider, {
+  return withIntl(createElement(LocaleProvider, {
     locale,
     requestLanguages: [],
     children: createElement(CategoryRows, {
       groups,
       currency: "EUR"
     })
-  });
+  }));
 }
 
 // The server resolves the locale once per request and hands it to the browser, so hydration finds the same text and keeps the server's markup.

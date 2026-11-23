@@ -1,12 +1,5 @@
 import { Temporal } from "temporal-polyfill";
 import { dateWithYear, describeDate } from "@/lib/date-format";
-import type { BalancePoint } from "./types";
-
-// A balance is either the running sum of an account's bookings or, for a brokerage account, the market value of its holdings.
-export const balanceSourceLabels: Record<BalancePoint["source"], string> = {
-  transactions: "From bookings",
-  valuation: "Market value"
-};
 
 export function describeBalanceDate(date: string, locale: string) {
   const day = Temporal.PlainDate.from(date);
@@ -17,21 +10,11 @@ export function describeBalanceDate(date: string, locale: string) {
   };
 }
 
+/** The bank balance types with a translated label, such as "Closing booked" for CLBD; other codes are shown as reported. */
+export const knownBankBalanceTypes = ["CLBD", "ITBD", "CLAV", "ITAV", "PRCD", "XPCD"] as const;
 
-const bankBalanceLabels: Record<string, string> = {
-  CLBD: "Closing booked",
-  ITBD: "Interim booked",
-  CLAV: "Closing available",
-  ITAV: "Interim available",
-  PRCD: "Previous closing booked",
-  XPCD: "Expected"
-};
+export type KnownBankBalanceType = (typeof knownBankBalanceTypes)[number];
 
-/** The bank's classification of a reported balance, such as "Closing booked". */
-export function describeBankBalanceType(type: string | null) {
-  return type ? bankBalanceLabels[type] ?? type : "Reported";
-}
-
-export function describeBalanceSource(balance: BalancePoint) {
-  return balanceSourceLabels[balance.source];
+export function isKnownBankBalanceType(type: string): type is KnownBankBalanceType {
+  return (knownBankBalanceTypes as readonly string[]).includes(type);
 }

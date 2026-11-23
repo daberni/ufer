@@ -7,6 +7,7 @@ import { clsx } from "clsx";
 import Link from "next/link";
 import { ArrowRight, RefreshCw, TriangleAlert } from "lucide-react";
 import { toFailure } from "@/client/api";
+import { useTranslations } from "next-intl";
 import { useLocale } from "@/client/locale-provider";
 import { DateValue, TimestampValue } from "@/components/ui/date-value";
 import { FormError } from "@/components/ui/form-error";
@@ -27,25 +28,29 @@ export function ProblemNotice({
   connection: Connection | null;
   reconnect: () => void;
 }) {
+  const t = useTranslations("accounts.notices");
+
   return (
     <div className={clsx(ui["notice"], ui["error"], styles["notice"])} role="alert">
       <TriangleAlert size={18} aria-hidden="true" />
       <div className={styles["notice-body"]}>
         <p>
           {problem.kind === "expired" ? (
-            <>The bank authorization expired on <TimestampValue value={problem.since} />. Reconnect the bank to continue syncing.</>
-          ) : (
-            <>The last sync failed: {problem.message}</>
-          )}
+            t.rich("expired", {
+              date: () => <TimestampValue value={problem.since} />
+            })
+          ) : t("syncFailed", {
+            message: problem.message
+          })}
         </p>
         {connection ? (
           <button type="button" className={ui["button"]} onClick={reconnect}>
             <RefreshCw size={15} aria-hidden="true" />
-            Reconnect bank
+            {t("reconnect")}
           </button>
         ) : (
           <Link className={ui["button"]} href={bankConnectionsHref}>
-            Manage bank connections <ArrowRight size={15} aria-hidden="true" />
+            {t("manageConnections")} <ArrowRight size={15} aria-hidden="true" />
           </Link>
         )}
       </div>
@@ -61,6 +66,7 @@ export function BalanceMismatchNotice({
   account: Account;
   difference: number;
 }) {
+  const t = useTranslations("accounts.notices");
   const locale = useLocale();
   const reconcile = useReconcileBalance(account.id);
   const reported = account.reported_balance_minor ?? 0;
@@ -70,7 +76,11 @@ export function BalanceMismatchNotice({
       <TriangleAlert size={18} aria-hidden="true" />
       <div className={styles["notice-body"]}>
         <p>
-          The bank reports {money(reported, account.currency, locale)} on <DateValue value={account.reported_balance_date} />, but the bookings up to that day add up to {money(reported - difference, account.currency, locale)}.
+          {t.rich("mismatch", {
+            reported: money(reported, account.currency, locale),
+            date: () => <DateValue value={account.reported_balance_date} />,
+            calculated: money(reported - difference, account.currency, locale)
+          })}
         </p>
         <button
           type="button"
@@ -78,7 +88,9 @@ export function BalanceMismatchNotice({
           disabled={reconcile.isPending}
           onClick={() => reconcile.mutate()}
         >
-          Book {money(difference, account.currency, locale)} adjustment
+          {t("bookAdjustment", {
+            amount: money(difference, account.currency, locale)
+          })}
         </button>
         <FormError failure={reconcile.error ? toFailure(reconcile.error) : null} />
       </div>

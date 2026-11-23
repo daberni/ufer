@@ -8,7 +8,9 @@ import { clsx } from "clsx";
 import Link from "next/link";
 import styles from "./accounts-view.module.css";
 import { Link2, Plus, TriangleAlert } from "lucide-react";
-import { accountIcon, kinds } from "@/features/accounts/account-presentation";
+import { accountIcon } from "@/features/accounts/account-presentation";
+import { useAccountKindLabel } from "./use-account-kind-label";
+import { useTranslations } from "next-intl";
 import { money } from "@/lib/money";
 import { Empty } from "@/components/ui/empty-state";
 import { ActionMenu, MenuItem } from "@/components/ui/action-menu";
@@ -23,7 +25,6 @@ import { AreaPlaceholder } from "@/components/ui/area-placeholder";
 import { mapArea, type Area } from "@/components/ui/use-area-result";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { useLocale } from "@/client/locale-provider";
-import { formatCount } from "@/lib/locale";
 
 type Props = {
   accounts: Area<Account[]>;
@@ -40,6 +41,7 @@ const skeletonAccounts = 3;
 export function AccountsView({
   accounts
 }: Props) {
+  const t = useTranslations("accounts.list");
   const [dialog, setDialog] = useState<OpenDialog | null>(null);
   const closeDialog = () => setDialog(null);
   const addAccount = () => setDialog({
@@ -51,26 +53,26 @@ export function AccountsView({
 
   return (
     <>
-      <SectionHeading title="Accounts & assets" count={mapArea(accounts, data => activeAccounts(data).length)}>
+      <SectionHeading title={t("title")} count={mapArea(accounts, data => activeAccounts(data).length)}>
         <button className={clsx(ui["button"], ui["phone-hidden"])} onClick={addAccount}>
           <Plus size={15} />
-          Add account
+          {t("addAccount")}
         </button>
         <button className={clsx(ui["button"], ui["primary"], ui["phone-hidden"])} onClick={connectBank}>
           <Link2 size={15} />
-          Connect bank
+          {t("connectBank")}
         </button>
-        <ActionMenu label="Account actions" appearance="button" phoneOnly>
+        <ActionMenu label={t("actions")} appearance="button" phoneOnly>
           <MenuItem icon={<Plus size={15} aria-hidden="true" />} onSelect={addAccount}>
-            Add account
+            {t("addAccount")}
           </MenuItem>
           <MenuItem icon={<Link2 size={15} aria-hidden="true" />} onSelect={connectBank}>
-            Connect bank
+            {t("connectBank")}
           </MenuItem>
         </ActionMenu>
       </SectionHeading>
       {accounts.status === "pending" ? (
-        <AreaPlaceholder area={accounts} failureTitle="Your accounts could not be loaded">
+        <AreaPlaceholder area={accounts} failureTitle={t("failure")}>
           <AccountCardsSkeleton />
         </AreaPlaceholder>
       ) : (
@@ -119,7 +121,7 @@ function AccountCards({
   accounts: Account[];
   addAccount: () => void;
 }) {
-  const locale = useLocale();
+  const t = useTranslations("accounts.list");
   const shown = activeAccounts(accounts);
   const archived = accounts.filter(account => account.archived_at !== null);
   const archivedOpen = useArchivedAccountsOpen();
@@ -133,21 +135,23 @@ function AccountCards({
       ) : (
         <section className={ui["panel"]}>
           <Empty
-            title="Everything in one place"
+            title={t("emptyTitle")}
             action={(
               <button className={clsx(ui["button"], ui["primary"])} onClick={addAccount}>
                 <Plus size={15} />
-                Add your first account
+                {t("addFirst")}
               </button>
             )}
           >
-            Add bank accounts, investments, property and debts to build your overview.
+            {t("emptyBody")}
           </Empty>
         </section>
       )}
       {archived.length > 0 && (
         <details className={styles["archived"]} open={archivedOpen} onToggle={event => setArchivedAccountsOpen(event.currentTarget.open)}>
-          <summary className={ui["text-button"]}>{`Archived accounts (${formatCount(archived.length, locale)})`}</summary>
+          <summary className={ui["text-button"]}>{t("archived", {
+            count: archived.length
+          })}</summary>
           <div className={styles["accounts-grid"]}>
             {archived.map(account => <AccountCard account={account} key={account.id} />)}
           </div>
@@ -160,6 +164,8 @@ function AccountCards({
 function AccountCard({ account }: {
   account: Account
 }) {
+  const t = useTranslations("accounts.list");
+  const kindLabel = useAccountKindLabel();
   const locale = useLocale();
   const accountHref = useAccountHref();
   const Icon = accountIcon(account.kind);
@@ -179,7 +185,7 @@ function AccountCard({ account }: {
             )}
           </Tooltip>
         </h2>
-        <span className={ui["pill"]}>{kinds[account.kind] ?? account.kind}</span>
+        <span className={ui["pill"]}>{kindLabel(account.kind)}</span>
       </div>
       <strong className={styles["account-detail-balance"]}>{account.balance_minor === null ? "—" : money(account.balance_minor, account.currency, locale)}</strong>
       <div className={styles["account-detail-meta"]}>
@@ -188,7 +194,9 @@ function AccountCard({ account }: {
       {account.reported_difference_minor !== null && account.reported_difference_minor !== 0 && (
         <p className={styles["mismatch"]}>
           <TriangleAlert size={15} aria-hidden="true" />
-          Differs from bank by {money(account.reported_difference_minor, account.currency, locale)}
+          {t("differsFromBank", {
+            amount: money(account.reported_difference_minor, account.currency, locale)
+          })}
         </p>
       )}
     </section>

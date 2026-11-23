@@ -92,8 +92,9 @@ export function describeMonth(month: Temporal.PlainYearMonth, locale: string) {
   };
 }
 
-export function periodLabel(period: Period, locale: string) {
-  return period.kind === "all" ? "All months" : describeMonth(period.month, locale).title;
+/** The translated label for all months comes from the caller, since this helper has no message catalog. */
+export function periodLabel(period: Period, locale: string, allMonthsLabel: string) {
+  return period.kind === "all" ? allMonthsLabel : describeMonth(period.month, locale).title;
 }
 
 // Month and year are formatted together, so the locale decides their order, spacing and numerals.
