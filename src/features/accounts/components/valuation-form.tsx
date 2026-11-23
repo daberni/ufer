@@ -20,7 +20,7 @@ export function ValuationDialog({
   selectedAccount
 }: Props) {
   return (
-    <Dialog eyebrow="YOUR FINANCES" title="Update balance" onClose={close}>
+    <Dialog eyebrow="Your finances" title="Update balance" onClose={close}>
       <ValuationForm close={close} selectedAccount={selectedAccount} />
     </Dialog>
   );

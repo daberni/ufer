@@ -32,7 +32,7 @@ type Props = {
 
 export function RuleFromAssignmentDialog(props: Props) {
   return (
-    <Dialog eyebrow="YOUR FINANCES" title="Create rule" onClose={props.close}>
+    <Dialog eyebrow="Your finances" title="Create rule" onClose={props.close}>
       <RuleFromAssignmentForm {...props} />
     </Dialog>
   );

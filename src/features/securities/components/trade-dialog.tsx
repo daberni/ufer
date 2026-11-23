@@ -50,7 +50,7 @@ export type TradeFormProps = {
  */
 export function TradeDialog(props: TradeFormProps) {
   return (
-    <Dialog eyebrow="BROKERAGE" title={props.booking ? "Record trade from booking" : "Add trade"} onClose={props.close}>
+    <Dialog eyebrow="Brokerage" title={props.booking ? "Record trade from booking" : "Add trade"} onClose={props.close}>
       <TradeForm {...props} />
     </Dialog>
   );

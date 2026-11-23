@@ -21,7 +21,7 @@ export function AppHeader({
         <strong>{title}</strong>
       </span>
       <div>
-        {environment === "SANDBOX" && <span className={styles["environment-pill"]}>SANDBOX</span>}
+        {environment === "SANDBOX" && <span className={styles["environment-pill"]}>Sandbox</span>}
         <UserAccess />
       </div>
     </header>

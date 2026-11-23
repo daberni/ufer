@@ -8,6 +8,7 @@
 }
 .eyebrow {
   display: block;
+  text-transform: uppercase;
   font-size: var(--text-xs);
   letter-spacing: 1.8px;
   font-weight: 600;
