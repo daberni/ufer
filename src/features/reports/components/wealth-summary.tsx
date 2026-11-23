@@ -45,13 +45,14 @@ export function WealthSummary({
   const locale = useLocale();
   const changesId = useId();
   const selectedCurrency = useCurrency();
+  // Placeholder figures of typical width, so the masks cover about the space the loaded amounts take.
   const netWorth = withPlaceholder(netWorthArea, () => ({
     currency: selectedCurrency,
-    netWorth: 0,
-    liquidity: 0,
-    investments: 0,
-    property: 0,
-    liabilities: 0,
+    netWorth: 10_000_000,
+    liquidity: 1_000_000,
+    investments: 1_000_000,
+    property: 1_000_000,
+    liabilities: -1_000_000,
     unvalued: 0,
     incompleteValuations: 0
   }));

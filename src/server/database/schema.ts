@@ -295,3 +295,23 @@ export const securityTrades = sqliteTable("security_trades", {
   check("security_trades_side", sql`${table.side} IN ('buy','sell')`),
   check("security_trades_amounts", sql`${table.quantity_micros} > 0 AND ${table.price_micros} > 0 AND ${table.gross_minor} >= 0 AND ${table.fee_minor} >= 0 AND ${table.tax_minor} >= 0`)
 ]);
+
+/** A quantity of one security moved between two brokerage accounts without a sale; its cost basis is carried over by replaying the sending account. */
+export const securityTransfers = sqliteTable("security_transfers", {
+  id: text("id").primaryKey(),
+  security_id: text("security_id").notNull().references(() => securities.id),
+  from_account_id: text("from_account_id").notNull().references(() => accounts.id),
+  to_account_id: text("to_account_id").notNull().references(() => accounts.id),
+  date: text("date").notNull(),
+  // Each leg's replay position within its account, shared with that account's trades.
+  from_sequence: integer("from_sequence").notNull(),
+  to_sequence: integer("to_sequence").notNull(),
+  quantity_micros: integer("quantity_micros").notNull(),
+  created_at: text("created_at").notNull().default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ','now'))`)
+}, table => [
+  index("security_transfers_security").on(table.security_id),
+  uniqueIndex("security_transfers_from_sequence").on(table.from_account_id, table.from_sequence),
+  uniqueIndex("security_transfers_to_sequence").on(table.to_account_id, table.to_sequence),
+  check("security_transfers_accounts", sql`${table.from_account_id} <> ${table.to_account_id}`),
+  check("security_transfers_quantity", sql`${table.quantity_micros} > 0`)
+]);

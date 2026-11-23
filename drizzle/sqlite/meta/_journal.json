@@ -162,6 +162,13 @@
       "when": 1796100000000,
       "tag": "0022_brokerage_holdings",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "6",
+      "when": 1796200000000,
+      "tag": "0023_security_transfers",
+      "breakpoints": true
     }
   ]
 }

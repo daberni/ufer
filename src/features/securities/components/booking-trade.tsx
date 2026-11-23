@@ -39,10 +39,13 @@ function microsText(micros: number) {
 export function BookingTradePanel({
   transaction,
   trade,
+  depotId,
   close
 }: {
   transaction: Transaction;
   trade: BookingTrade;
+  /** The depot whose page opened the panel; its own link is then left out. */
+  depotId?: string;
   close: () => void;
 }) {
   const [step, setStep] = useState<Step>("view");
@@ -72,26 +75,26 @@ export function BookingTradePanel({
     <TradeSummary
       transaction={transaction}
       trade={trade}
+      showDepot={trade.account_id !== depotId}
       edit={() => setStep("edit")}
       remove={() => setStep("remove")}
     />
   );
 }
 
-/** The settlement booking as a card of its own, so the cash side reads apart from the trade. */
+/** The settlement booking as one compact row: where and when the cash moved, and how much. The trade itself is described by the dialog title. */
 function CashBooking({ transaction }: {
   transaction: Transaction
 }) {
   const locale = useLocale();
-  const text = [transaction.counterparty, transaction.description].filter(Boolean).join(" · ");
 
   return (
     <section className={styles["booking"]} aria-labelledby={`${transaction.id}-cash`}>
       <h3 id={`${transaction.id}-cash`} className={styles["section-title"]}>Cash booking</h3>
       <div className={styles["booking-main"]}>
         <span className={styles["booking-text"]}>
-          <strong>{text || "No description"}</strong>
-          <small>{transaction.account_name} · {dateWithYear(Temporal.PlainDate.from(transaction.date), locale)}</small>
+          <strong>{transaction.account_name}</strong>
+          <small>{dateWithYear(Temporal.PlainDate.from(transaction.date), locale)}</small>
         </span>
         <strong className={clsx(styles["amount"], transaction.amount_minor > 0 && ui["positive"])}>{signedMoney(transaction.amount_minor, transaction.currency, locale)}</strong>
       </div>
@@ -102,11 +105,13 @@ function CashBooking({ transaction }: {
 function TradeSummary({
   transaction,
   trade,
+  showDepot,
   edit,
   remove
 }: {
   transaction: Transaction;
   trade: BookingTrade;
+  showDepot: boolean;
   edit: () => void;
   remove: () => void;
 }) {
@@ -121,17 +126,22 @@ function TradeSummary({
       <section aria-labelledby={`${trade.id}-trade`}>
         <h3 id={`${trade.id}-trade`} className={styles["section-title"]}>Trade</h3>
         <dl className={styles["facts"]}>
-          <dt>Security</dt>
-          <dd className={styles["text"]}>
-            {trade.security_name}
-            {trade.security_isin && trade.security_isin !== trade.security_name && <small>{trade.security_isin}</small>}
-          </dd>
-          <dt>Depot</dt>
-          <dd className={styles["text"]}>
-            <Link className={ui["text-button"]} href={accountHref(trade.account_id)}>
-              {trade.account_name} <ArrowRight size={15} aria-hidden="true" />
-            </Link>
-          </dd>
+          {trade.security_isin && (
+            <>
+              <dt>ISIN</dt>
+              <dd>{trade.security_isin}</dd>
+            </>
+          )}
+          {showDepot && (
+            <>
+              <dt>Depot</dt>
+              <dd>
+                <Link className={ui["text-button"]} href={accountHref(trade.account_id)}>
+                  {trade.account_name} <ArrowRight size={15} aria-hidden="true" />
+                </Link>
+              </dd>
+            </>
+          )}
           <dt>Trade date</dt>
           <dd>{dateWithYear(Temporal.PlainDate.from(trade.date), locale)}</dd>
           <dt>Shares</dt>
@@ -219,7 +229,7 @@ function TradeCorrectionForm({
       }))}
     >
       <CashBooking transaction={transaction} />
-      <h3 className={styles["section-title"]}>{trade.side === "buy" ? "Buy" : "Sell"} of {trade.security_name}</h3>
+      <h3 className={styles["section-title"]}>Correct trade</h3>
       <div className={styles["grid"]}>
         <label>
           Shares
