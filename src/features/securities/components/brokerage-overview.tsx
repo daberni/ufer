@@ -48,7 +48,7 @@ export function BrokerageOverview() {
   const series = performance.data?.currencies ?? [];
   const many = series.length > 1;
   // The combined value adds up the accounts' balances, so both queries are needed before it replaces its skeleton.
-  const combinedPending = performance.isPending || accounts.isPending;
+  const combinedPending = !performance.isError && (performance.isPending || accounts.isPending);
 
   return (
     <div className={styles["overview"]} aria-busy={combinedPending}>
