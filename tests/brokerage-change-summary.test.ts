@@ -81,3 +81,18 @@ test("a split between the last two prices is no change, and holdings priced on d
   assert.equal(mixed?.change_minor, 1_00);
   assert.equal(mixed?.mixed_dates, true);
 });
+
+test("a split newer than the latest price values today's quantity in that price's pre-split units", () => {
+  const split = {
+    ...holding("split", [buy("2026-11-02", 10, 1000_00)], [["2026-11-19", 100], ["2026-11-20", 110]]),
+    splits: [{
+      date: "2026-11-23",
+      numerator: 2,
+      denominator: 1
+    }]
+  };
+  const summary = changeSummary([split], "2026-11-23");
+
+  assert.equal(summary.total.gain_minor, 100_00);
+  assert.equal(summary.day?.change_minor, 100_00);
+});

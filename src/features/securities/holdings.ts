@@ -175,7 +175,12 @@ export function priceOn(prices: PricePoint[], date: string) {
 }
 
 /** Values a quantity on `date` with the price valid then; without one the value is unknown rather than zero. */
-export function valueHolding(quantityMicros: number, prices: PricePoint[], currency: string, date: string): HoldingValuation {
+/** The quantity in the units of an earlier close: splits after `after` through `through` apply in reverse, since a split is no price change. */
+export function quantityBeforeSplits(quantityMicros: number, splits: PositionSplit[], after: string, through: string) {
+  return splits.filter(split => split.date > after && split.date <= through).reduce((quantity, split) => Math.round(quantity * split.denominator / split.numerator), quantityMicros);
+}
+
+export function valueHolding(quantityMicros: number, splits: PositionSplit[], prices: PricePoint[], currency: string, date: string): HoldingValuation {
   // A position with nothing held is worth exactly zero, however old or missing its price.
   if (quantityMicros === 0) {
     return {
@@ -199,7 +204,8 @@ export function valueHolding(quantityMicros: number, prices: PricePoint[], curre
 
   return {
     status: age > staleAfterDays ? "stale" : "current",
-    value_minor: amountMinor(quantityMicros, price.close_micros, currency),
+    // A split newer than the close leaves the close in pre-split units until a newer quote arrives.
+    value_minor: amountMinor(quantityBeforeSplits(quantityMicros, splits, price.date, date), price.close_micros, currency),
     price
   };
 }

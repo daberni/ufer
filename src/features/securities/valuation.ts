@@ -1,5 +1,5 @@
 import { Temporal } from "temporal-polyfill";
-import { amountMinor, positionOn, priceOn, valueHolding, type PositionSplit, type PositionTrade, type PricePoint } from "./holdings";
+import { amountMinor, positionOn, priceOn, quantityBeforeSplits, valueHolding, type PositionSplit, type PositionTrade, type PricePoint } from "./holdings";
 
 /** One security on a brokerage account with everything its value on any date depends on. */
 export type HoldingInputs = {
@@ -58,7 +58,7 @@ export type AccountValuation = {
 export function valueHoldings(holdings: HoldingInputs[], date: string): AccountValuation {
   const values = holdings.map(holding => {
     const position = positionOn(holding.trades, holding.splits, date);
-    const valuation = valueHolding(position.quantity_micros, holding.prices, holding.currency, date);
+    const valuation = valueHolding(position.quantity_micros, holding.splits, holding.prices, holding.currency, date);
 
     return {
       security_id: holding.security_id,
@@ -145,7 +145,7 @@ export function changeSummary(holdings: HoldingInputs[], date: string) {
     }
 
     const position = positionOn(holding.trades, holding.splits, date);
-    const valuation = valueHolding(position.quantity_micros, holding.prices, holding.currency, date);
+    const valuation = valueHolding(position.quantity_micros, holding.splits, holding.prices, holding.currency, date);
 
     gain += position.realized_minor;
 
@@ -170,9 +170,8 @@ export function changeSummary(holdings: HoldingInputs[], date: string) {
       continue;
     }
 
-    // The earlier close is in pre-split units, so a split after it applies in reverse to today's quantity; a split is no price change.
-    const splitsBetween = holding.splits.filter(split => split.date > previous.date && split.date <= valuation.price!.date);
-    const quantityBefore = splitsBetween.reduce((quantity, split) => Math.round(quantity * split.denominator / split.numerator), position.quantity_micros);
+    // Both closes are in the units before any later split, so splits after the earlier close apply in reverse to today's quantity.
+    const quantityBefore = quantityBeforeSplits(position.quantity_micros, holding.splits, previous.date, date);
     const before = amountMinor(quantityBefore, previous.close_micros, holding.currency);
 
     intervals.add(`${previous.date}/${valuation.price.date}`);
