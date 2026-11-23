@@ -36,17 +36,22 @@ function rangeStart(range: PerformanceRange, end: string) {
 }
 
 /**
- * Rebases the performance series to a range ending at its last point: the range starts at the last point on or before its start date, so the opening value is the one valid then, and each later point's return is its growth relative to that point.
- * Gains subtract what was invested within the range, so a buy is never shown as a gain.
+ * Rebases the performance series to a range ending on `asOf`: the range starts at the last point on or before its start date, so the opening value is the one valid then, and each later point's return is its growth relative to that point.
+ * Gains subtract what was invested within the range, so a buy is never shown as a gain. A series that ended with a closing on or before the range's start has nothing in the range.
  */
-export function performanceInRange(points: PerformancePoint[], range: PerformanceRange): RangePoint[] {
+export function performanceInRange(points: PerformancePoint[], range: PerformanceRange, asOf?: string): RangePoint[] {
   const last = points[points.length - 1];
 
   if (!last) {
     return [];
   }
 
-  const start = rangeStart(range, last.date);
+  const start = rangeStart(range, asOf ?? last.date);
+
+  if (start !== null && last.date <= start) {
+    return [];
+  }
+
   const startIndex = start === null ? 0 : Math.max(0, points.findLastIndex(point => point.date <= start));
   const base = points[startIndex];
   const baseGain = base.value_minor - base.invested_minor;

@@ -80,6 +80,8 @@ export type BrokerageTrades = {
 export type BrokeragePerformance = {
   account_id: string;
   currency: string;
+  /** The date the series is computed through; ranges end here even when the series ends earlier with a closing. */
+  as_of: string;
   /** Holdings without any price, counted at cost and so without performance. */
   missing: number;
   points: PerformancePoint[];

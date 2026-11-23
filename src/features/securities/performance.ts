@@ -16,6 +16,7 @@ export type PerformancePoint = {
 /**
  * The time-weighted return of a brokerage account's holdings on every date their value can change through `endDate`, starting at a zero value the day before the first trade.
  * Each sub-period returns (value + sale proceeds) ÷ (previous value + buy costs) on its end date: buys count as invested at the start of the day and sales as withdrawn at its end, so neither counts as performance while fees do. A period with nothing invested returns nothing. Values use only prices valid on their date, and a holding without any price counts at its cost basis.
+ * Only periods with holdings count: the series starts the day before the first holding, ends on the date the last one is closed, and leaves out the dates between a closing and the next holding, which hold nothing to perform.
  * A transfer is an external flow of the single account at the moved quantity's value on its date: received like a buy, sent like a sale. Across several accounts both legs cancel, so a transfer changes no combined figure.
  */
 export function performanceSeries(holdings: HoldingInputs[], endDate: string): PerformancePoint[] {
@@ -96,12 +97,15 @@ export function performanceSeries(holdings: HoldingInputs[], endDate: string): P
     invested_minor: 0,
     growth: 1
   }];
+  // Whether anything is held at the end of each point's date; the start point opens the first holding period.
+  const held = [true];
 
   for (const date of [...dates].sort()) {
     const previous = points[points.length - 1];
     const bought = buys.get(date) ?? 0;
     const proceeds = sales.get(date) ?? 0;
-    const value = valueHoldings(holdings, date).value_minor;
+    const valuation = valueHoldings(holdings, date);
+    const value = valuation.value_minor;
     const invested = previous.value_minor + bought;
 
     points.push({
@@ -110,7 +114,9 @@ export function performanceSeries(holdings: HoldingInputs[], endDate: string): P
       invested_minor: previous.invested_minor + bought - proceeds,
       growth: invested > 0 ? previous.growth * ((value + proceeds) / invested) : previous.growth
     });
+    held.push(valuation.holdings.some(holding => holding.quantity_micros > 0));
   }
 
-  return points;
+  // A point counts while something is held, and on the date of a closing; a closing point also opens the next holding period's first day.
+  return points.filter((_, index) => held[index] || held[index - 1]);
 }
