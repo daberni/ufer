@@ -60,7 +60,7 @@ export function ChangeFigures({
       {showTotal && (
         <div className={styles["figure"]}>
           <dt>Total performance</dt>
-          <dd className={clsx(styles["amount"], total.gain_minor > 0 && ui["positive"])}>
+          <dd className={clsx(styles["amount"], total.gain_minor > 0 && ui["positive"], total.gain_minor < 0 && ui["negative"])}>
             {signedMoney(total.gain_minor, currency, locale)}
             {last && <span className={styles["percent"]}>{formatSignedPercent(last.growth - 1, locale)} time-weighted</span>}
           </dd>
@@ -71,7 +71,7 @@ export function ChangeFigures({
         {day ? (
           <>
             <dt>{day.mixed_dates ? "Since previous prices" : `Since ${dateWithYear(Temporal.PlainDate.from(day.previous_date), locale)}`}</dt>
-            <dd className={clsx(styles["amount"], day.change_minor > 0 && ui["positive"])}>
+            <dd className={clsx(styles["amount"], day.change_minor > 0 && ui["positive"], day.change_minor < 0 && ui["negative"])}>
               {signedMoney(day.change_minor, currency, locale)}
               <span className={styles["percent"]}>{formatSignedPercent(day.ratio, locale)}</span>
             </dd>

@@ -181,6 +181,9 @@
 .positive {
   color: var(--green-text);
 }
+.negative {
+  color: var(--danger);
+}
 .section-heading h2 {
   display: flex;
   align-items: center;
