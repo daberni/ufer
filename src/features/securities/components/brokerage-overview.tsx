@@ -51,7 +51,7 @@ export function BrokerageOverview() {
   const combinedPending = !performance.isError && (performance.isPending || accounts.isPending);
 
   return (
-    <div className={styles["overview"]} aria-busy={combinedPending}>
+    <div className={styles["overview"]} aria-busy={combinedPending || accounts.isPending}>
       {combinedPending && (
         <div className={styles["combined"]}>
           <CombinedValueSkeleton />
