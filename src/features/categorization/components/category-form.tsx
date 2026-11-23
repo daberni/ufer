@@ -17,6 +17,7 @@ import { CategoryColorField } from "./category-color-field";
 import { CategoryIconField } from "./category-icon-field";
 import { Dialog } from "@/components/ui/dialog";
 import { CategoryDeleteForm, DeleteButton } from "./deletion-forms";
+import { useTranslations } from "next-intl";
 
 type Props = DialogFormProps & {
   category?: Category | null;
@@ -35,15 +36,16 @@ export function CategoryDialog({
   initialName,
   onSaved
 }: Props) {
+  const t = useTranslations("categorization.categoryForm");
   const [deleting, setDeleting] = useState(false);
-  let title = category ? "Edit category" : "Add category";
+  let title = category ? t("editTitle") : t("addTitle");
 
   if (category && deleting) {
-    title = "Delete category";
+    title = t("deleteTitle");
   }
 
   return (
-    <Dialog eyebrow="Your finances" title={title} onClose={close}>
+    <Dialog eyebrow={t("eyebrow")} title={title} onClose={close}>
       {category && deleting ? (
         <CategoryDeleteForm category={category} close={close} cancel={() => setDeleting(false)} />
       ) : (
@@ -68,6 +70,7 @@ function CategoryForm({
 }: Props & {
   onDelete: () => void;
 }) {
+  const t = useTranslations("categorization.categoryForm");
   const {
     error,
     pending,
@@ -85,7 +88,7 @@ function CategoryForm({
   let unknownColorLabel: string | null = null;
 
   if (!category && !categories.data) {
-    unknownColorLabel = categories.isError ? "Automatic" : "Loading…";
+    unknownColorLabel = categories.isError ? t("colorAutomatic") : t("colorLoading");
   }
 
   const existing = categories.data ?? [];
@@ -119,14 +122,14 @@ function CategoryForm({
       <div className={styles["preview"]} aria-hidden="true">
         <CategoryLabel
           category={{
-            name: name.trim() || "New category",
+            name: name.trim() || t("newCategory"),
             color,
             icon: icon || null
           }}
         />
       </div>
       <label>
-        Name
+        {t("name")}
         <input
           name="name"
           required
@@ -155,9 +158,9 @@ function CategoryForm({
       </div>
       <FormError failure={error} />
       <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={pending}>
-        Save category
+        {t("save")}
       </button>
-      {category && <DeleteButton label="Delete category" disabled={pending} onClick={onDelete} />}
+      {category && <DeleteButton label={t("deleteTitle")} disabled={pending} onClick={onDelete} />}
     </form>
   );
 }

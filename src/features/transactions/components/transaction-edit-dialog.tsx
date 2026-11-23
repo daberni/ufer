@@ -16,7 +16,7 @@ import { CategoryPicker } from "@/features/categorization/components/category-pi
 import { useCategories } from "@/features/categorization/queries";
 import { describeDate } from "@/lib/date-format";
 import { decimalAmount, minorUnits, signedMoney } from "@/lib/money";
-import { derivedTransactionType, entryTransactionTypes, isTransactionType, manualAccountTypes, transactionTypeLabels, type TransactionType } from "@/lib/transaction-types";
+import { derivedTransactionType, entryTransactionTypes, isTransactionType, manualAccountTypes, type TransactionType } from "@/lib/transaction-types";
 import { useDeleteTransaction, useHideTransaction, useSaveTransaction, type EntryEdit, type TransactionEdit } from "@/features/transactions/mutations";
 import { useTransferOptions } from "@/features/transactions/queries";
 import { useTransactionCategory } from "@/features/transactions/use-transaction-category";
@@ -32,6 +32,11 @@ import type { Account } from "@/features/accounts/types";
 import { TradeForm } from "@/features/securities/components/trade-dialog";
 import { BookingTradePanel } from "@/features/securities/components/booking-trade";
 import { useLocale } from "@/client/locale-provider";
+import { useTranslations } from "next-intl";
+
+type Translator = ReturnType<typeof useTranslations<"transactions">>;
+
+type EditTranslator = ReturnType<typeof useTranslations<"transactions.edit">>;
 
 type Props = {
   transaction: Transaction;
@@ -119,13 +124,6 @@ function transferEdit(target: Target): TransactionEdit["transfer"] {
 
 type Step = "edit" | "delete" | "hide" | "trade";
 
-const stepTitles: Record<Step, string> = {
-  edit: "Edit transaction",
-  delete: "Delete transaction",
-  hide: "Hide transaction",
-  trade: "Record trade"
-};
-
 /**
  * Edits a transaction's type, category and, for a transfer, where it goes. A transaction entered in Ufer also edits its date, amount, payee and description and can be deleted; an imported one overrides its payee and description and can be hidden. One Save stores everything.
  */
@@ -133,6 +131,7 @@ export function TransactionEditDialog({
   transaction,
   close
 }: Props) {
+  const t = useTranslations("transactions.edit");
   const [step, setStep] = useState<Step>("edit");
   // The dashboard always holds the account list, so the dialog reads it without starting a request of its own.
   const brokerageAccounts = activeAccounts(useQueryClient().getQueryData<Account[]>(queryKeys.accounts()) ?? []).filter(account => account.kind === "brokerage" && account.currency === transaction.currency);
@@ -142,7 +141,13 @@ export function TransactionEditDialog({
   // The cash side of a security trade is changed through its trade (ADR 012), so its dialog shows the trade instead of the booking form.
   if (transaction.trade) {
     return (
-      <Dialog eyebrow="Trade" title={`${transaction.trade.side === "buy" ? "Buy" : "Sell"} of ${transaction.trade.security_name}`} onClose={close}>
+      <Dialog
+        eyebrow={t("tradeEyebrow")}
+        title={t(transaction.trade.side === "buy" ? "buyOf" : "sellOf", {
+          security: transaction.trade.security_name
+        })}
+        onClose={close}
+      >
         <BookingTradePanel transaction={transaction} trade={transaction.trade} close={close} />
       </Dialog>
     );
@@ -150,8 +155,8 @@ export function TransactionEditDialog({
 
   return (
     <Dialog
-      eyebrow="Transaction"
-      title={stepTitles[step]}
+      eyebrow={t("eyebrow")}
+      title={t(`steps.${step}`)}
       wide={step === "edit"}
       onClose={close}
     >
@@ -195,7 +200,8 @@ function TransactionFacts({
   children?: ReactNode;
 }) {
   const locale = useLocale();
-  const subject = transaction.counterparty || transaction.description || transactionTypeLabels[transaction.type];
+  const t = useTranslations("transactions.types");
+  const subject = transaction.counterparty || transaction.description || t(transaction.type);
   const date = describeDate(Temporal.PlainDate.from(transaction.date), locale).label;
 
   return (
@@ -210,15 +216,16 @@ function TransactionFacts({
 }
 
 /** What hiding an imported booking changes, including the transfer link it ends. */
-function hidingEffect(transaction: Transaction) {
-  const effect = "Excluded from balances and reports until shown again.";
+function hidingEffect(transaction: Transaction, t: EditTranslator) {
   const other = transaction.counterpart?.account_name;
 
   if (!other) {
-    return effect;
+    return t("hideEffect");
   }
 
-  return `${effect} Ends the link with ${other}.`;
+  return t("hideEffectLinked", {
+    account: other
+  });
 }
 
 function HideConfirmation({
@@ -230,6 +237,7 @@ function HideConfirmation({
   close: () => void;
   cancel: () => void;
 }) {
+  const t = useTranslations("transactions.edit");
   const hide = useHideTransaction(transaction.id);
 
   return (
@@ -242,7 +250,7 @@ function HideConfirmation({
         });
       }}
     >
-      <p className={ui["form-hint"]}>{hidingEffect(transaction)}</p>
+      <p className={ui["form-hint"]}>{hidingEffect(transaction, t)}</p>
       <FormError failure={hide.error ? toFailure(hide.error) : null} />
       <div className={ui["form-actions"]}>
         <button
@@ -251,11 +259,11 @@ function HideConfirmation({
           disabled={hide.isPending}
           onClick={cancel}
         >
-          Cancel
+          {t("cancel")}
         </button>
         <button className={clsx(ui["button"], ui["primary"])} disabled={hide.isPending}>
           <EyeOff size={15} />
-          Hide
+          {t("hide")}
         </button>
       </div>
     </form>
@@ -270,11 +278,12 @@ function ShowAgain({
   transaction: Transaction;
   close: () => void;
 }) {
+  const t = useTranslations("transactions.edit");
   const show = useHideTransaction(transaction.id);
 
   return (
     <div className={styles["hidden-note"]}>
-      <p className={ui["form-hint"]}>Hidden from balances and reports.</p>
+      <p className={ui["form-hint"]}>{t("hiddenNote")}</p>
       <FormError failure={show.error ? toFailure(show.error) : null} />
       <button
         type="button"
@@ -285,25 +294,29 @@ function ShowAgain({
         })}
       >
         <Eye size={15} />
-        Show transaction
+        {t("show")}
       </button>
     </div>
   );
 }
 
 /** What deleting a transaction entered in Ufer also changes. */
-function deletionEffect(transaction: Transaction) {
+function deletionEffect(transaction: Transaction, t: EditTranslator) {
   const other = transaction.counterpart?.account_name;
 
   if (!other) {
-    return "This cannot be undone.";
+    return t("deleteEffect");
   }
 
   if (transaction.follows_import) {
-    return `The booking on ${other} stays. This cannot be undone.`;
+    return t("deleteEffectKeepsLinked", {
+      account: other
+    });
   }
 
-  return `Also deletes the booking on ${other}. This cannot be undone.`;
+  return t("deleteEffectLinked", {
+    account: other
+  });
 }
 
 function DeleteConfirmation({
@@ -315,6 +328,7 @@ function DeleteConfirmation({
   close: () => void;
   cancel: () => void;
 }) {
+  const t = useTranslations("transactions.edit");
   const remove = useDeleteTransaction(transaction.id);
 
   return (
@@ -327,7 +341,7 @@ function DeleteConfirmation({
         });
       }}
     >
-      <p className={ui["form-hint"]}>{deletionEffect(transaction)}</p>
+      <p className={ui["form-hint"]}>{deletionEffect(transaction, t)}</p>
       <FormError failure={remove.error ? toFailure(remove.error) : null} />
       <div className={ui["form-actions"]}>
         <button
@@ -336,11 +350,11 @@ function DeleteConfirmation({
           disabled={remove.isPending}
           onClick={cancel}
         >
-          Cancel
+          {t("cancel")}
         </button>
         <button className={ui["danger-button"]} disabled={remove.isPending}>
           <Trash2 size={15} />
-          Delete
+          {t("delete")}
         </button>
       </div>
     </form>
@@ -379,6 +393,7 @@ function TransactionEditForm({
   /** Records the booking as the cash side of a trade; offered for imported income and expenses while a brokerage account in its currency exists. */
   onTrade?: () => void;
 }) {
+  const t = useTranslations("transactions");
   const save = useSaveTransaction(transaction.id);
   const categories = useCategories();
   const categoryFieldId = useId();
@@ -515,7 +530,7 @@ function TransactionEditForm({
         <TransactionFacts transaction={transaction}>
           <Select
             className={styles["type-control"]}
-            aria-label="Type"
+            aria-label={t("edit.type")}
             name="type"
             value={type}
             disabled={available.length < 2}
@@ -528,12 +543,12 @@ function TransactionEditForm({
               }
             }}
           >
-            {available.map(option => <option key={option} value={option}>{transactionTypeLabels[option]}</option>)}
+            {available.map(option => <option key={option} value={option}>{t(`types.${option}`)}</option>)}
           </Select>
         </TransactionFacts>
         <div className={styles["fields"]}>
-          {type === transaction.type && transaction.type_source === "auto" && transaction.type_rule_id !== null && <p className={ui["form-hint"]}>Type set by a rule.</p>}
-          {frozen && <p className={ui["form-hint"]}>{frozenHint(transaction)}</p>}
+          {type === transaction.type && transaction.type_source === "auto" && transaction.type_rule_id !== null && <p className={ui["form-hint"]}>{t("edit.typeByRule")}</p>}
+          {frozen && <p className={ui["form-hint"]}>{frozenHint(transaction, t)}</p>}
           {transaction.hidden && hideable && <ShowAgain transaction={transaction} close={close} />}
           {imported && <ImportedTextFields transaction={transaction} />}
           {editsEntry && (
@@ -556,7 +571,7 @@ function TransactionEditForm({
               }}
             />
           )}
-          {!transfer && transaction.counterpart && <p className={ui["form-hint"]}>{leaveTransferHint(transaction)}</p>}
+          {!transfer && transaction.counterpart && <p className={ui["form-hint"]}>{leaveTransferHint(transaction, t)}</p>}
           {linkable && (
             <TransferFields
               transaction={transaction}
@@ -568,7 +583,7 @@ function TransactionEditForm({
           )}
           {!splitOpen && (
             <div className={styles["cell"]}>
-              <label htmlFor={categoryFieldId}>Category</label>
+              <label htmlFor={categoryFieldId}>{t("edit.category")}</label>
               <CategoryPicker
                 id={categoryFieldId}
                 categories={categories.data ?? []}
@@ -576,7 +591,7 @@ function TransactionEditForm({
                 includeUncategorized
                 onChange={setCategory}
               />
-              {category !== null && category === initialCategory && category === transaction.category_id && transaction.category_source === "rule" && <span>Assigned by a rule.</span>}
+              {category !== null && category === initialCategory && category === transaction.category_id && transaction.category_source === "rule" && <span>{t("edit.categoryByRule")}</span>}
               {canSplit && (
                 <button
                   ref={element => {
@@ -594,7 +609,7 @@ function TransactionEditForm({
                   }}
                 >
                   <Split size={14} aria-hidden="true" />
-                  Split into categories
+                  {t("edit.split")}
                 </button>
               )}
             </div>
@@ -618,7 +633,7 @@ function TransactionEditForm({
         <FormError failure={error} />
         <div className={styles["actions"]}>
           <button className={clsx(ui["button"], ui["primary"])} disabled={pending || targetUnknown || splitBlocked || linkMissing}>
-            Save <Check size={16} />
+            {t("edit.save")} <Check size={16} />
           </button>
           {editsEntry && (
             <button
@@ -628,7 +643,7 @@ function TransactionEditForm({
               onClick={onDelete}
             >
               <Trash2 size={15} />
-              Delete transaction
+              {t("edit.steps.delete")}
             </button>
           )}
           {hideable && !transaction.hidden && (
@@ -639,7 +654,7 @@ function TransactionEditForm({
               onClick={onHide}
             >
               <EyeOff size={15} />
-              Hide transaction
+              {t("edit.steps.hide")}
             </button>
           )}
           {onTrade && (
@@ -650,7 +665,7 @@ function TransactionEditForm({
               onClick={onTrade}
             >
               <ChartNoAxesCombined size={15} />
-              Record as trade
+              {t("edit.recordAsTrade")}
             </button>
           )}
         </div>
@@ -675,10 +690,16 @@ function frozenTypes(transaction: Transaction, relinkable: boolean): Transaction
 }
 
 /** Why the balance is fixed: the booking's own account or its counterpart's is archived. */
-function frozenHint(transaction: Transaction) {
-  const archived = transaction.account_archived ? transaction.account_name : transaction.counterpart?.account_name ?? "the linked account";
+function frozenHint(transaction: Transaction, t: Translator) {
+  const archived = transaction.account_archived ? transaction.account_name : transaction.counterpart?.account_name;
 
-  return `${archived} is archived, so this booking keeps its amount, date and balance effect. Its category, split, payee and description can still change, and an imported booking can be linked with an existing booking or unlinked.`;
+  if (!archived) {
+    return t("edit.frozenLinked");
+  }
+
+  return t("edit.frozen", {
+    account: archived
+  });
 }
 
 function detailsEdit(edit: TransactionEdit, data: FormData, transaction: Transaction, imported: boolean, editsEntry: boolean): TransactionEdit | EntryEdit {
@@ -709,12 +730,14 @@ function textEdit(edit: TransactionEdit, data: FormData, transaction: Transactio
 function ImportedTextFields({ transaction }: {
   transaction: Transaction
 }) {
+  const t = useTranslations("transactions.edit");
+
   return (
     <>
       <OverridableText initial={transaction.counterparty} source={transaction.source_counterparty}>
         {field => (
           <PayeeInput
-            label="Payee"
+            label={t("payee")}
             name="counterparty"
             maxLength={500}
             defaultValue={field.defaultValue}
@@ -727,7 +750,7 @@ function ImportedTextFields({ transaction }: {
       <OverridableText initial={transaction.description} source={transaction.source_description}>
         {field => (
           <label>
-            Description
+            {t("description")}
             <input
               ref={field.inputRef}
               name="description"
@@ -760,6 +783,7 @@ function OverridableText({
   source: string;
   children: (field: OverridableField) => ReactNode;
 }) {
+  const t = useTranslations("transactions.edit");
   const hintId = useId();
   const input = useRef<HTMLInputElement>(null);
   const [overridden, setOverridden] = useState(initial.trim() !== source.trim());
@@ -774,7 +798,9 @@ function OverridableText({
       })}
       {overridden && (
         <p id={hintId} className={styles["source-text"]}>
-          <span>Original: {source || "empty"}</span>
+          <span>{source ? t("original", {
+            text: source
+          }) : t("originalEmpty")}</span>
           <button
             type="button"
             className={styles["restore"]}
@@ -786,7 +812,7 @@ function OverridableText({
               setOverridden(false);
             }}
           >
-            Restore
+            {t("restore")}
           </button>
         </p>
       )}
@@ -805,18 +831,22 @@ function entryEdit(edit: TransactionEdit, data: FormData): EntryEdit {
 }
 
 /** What saving a type other than transfer does to the linked booking. */
-function leaveTransferHint(transaction: Transaction) {
-  const account = transaction.counterpart?.account_name;
+function leaveTransferHint(transaction: Transaction, t: Translator) {
+  const account = transaction.counterpart?.account_name ?? "";
 
   if (transaction.entered && !transaction.follows_import) {
-    return `Also deletes the booking on ${account}.`;
+    return t("edit.leaveDeletesLinked", {
+      account
+    });
   }
 
   if (transaction.created_counterpart) {
-    return "Deletes this booking.";
+    return t("edit.leaveDeletesThis");
   }
 
-  return `Ends the link with ${account}.`;
+  return t("edit.leaveEndsLink", {
+    account
+  });
 }
 
 /** A booking Ufer created on a manual account for another booking's transfer: it keeps that link or is removed; where the transfer goes is edited on the source booking. */
@@ -830,11 +860,14 @@ function CreatedCounterpartFields({
   onTarget: (target: Target) => void;
 }) {
   const locale = useLocale();
+  const t = useTranslations("transactions.edit");
   const remove = target.kind === "none";
 
   return (
     <div className={styles["created"]}>
-      <p className={ui["form-hint"]}>Created for the transfer of {bookingLabel(source, locale)}.</p>
+      <p className={ui["form-hint"]}>{t("createdFor", {
+        booking: bookingLabel(source, locale)
+      })}</p>
       <label className={styles["remove-option"]}>
         <input
           type="checkbox"
@@ -845,9 +878,11 @@ function CreatedCounterpartFields({
             booking: source
           })}
         />
-        Remove this booking
+        {t("removeBooking")}
       </label>
-      <p className={ui["form-hint"]} role="status">{remove ? "Save removes this booking." : `Linked with ${source.account_name}.`}</p>
+      <p className={ui["form-hint"]} role="status">{remove ? t("saveRemoves") : t("linkedWith", {
+        account: source.account_name
+      })}</p>
     </div>
   );
 }
@@ -913,11 +948,12 @@ function TransferFields({
   /** Whether either account is archived, so no counterpart may be created on a manual account. */
   frozen: boolean;
 }) {
+  const t = useTranslations("transactions.edit");
   const hintId = useId();
   const accountChoiceId = useId();
 
   if (options.status === "pending") {
-    return <p className={ui["form-hint"]} role="status">Loading suggestions …</p>;
+    return <p className={ui["form-hint"]} role="status">{t("loadingSuggestions")}</p>;
   }
 
   if (options.status === "error") {
@@ -934,13 +970,13 @@ function TransferFields({
   const suggestions = suggestionsOf(transaction, options.data);
   const stored = storedTarget(transaction, options.data);
   const accounts = counterpartAccounts(transaction, options.data, frozen);
-  const direction = transaction.amount_minor < 0 ? "to" : "from";
+  const outgoing = transaction.amount_minor < 0;
   const accountId = shownAccount(target, stored, accounts);
 
   return (
     <fieldset className={styles["choices"]} aria-describedby={suggestions.length > 0 ? hintId : undefined}>
-      <legend>Counterpart</legend>
-      {suggestions.length > 0 && <p id={hintId} className={styles["choices-hint"]}>Bookings with the opposite amount within two weeks, or a new counterpart.</p>}
+      <legend>{t("counterpart")}</legend>
+      {suggestions.length > 0 && <p id={hintId} className={styles["choices-hint"]}>{t("counterpartHint")}</p>}
       {suggestions.map(booking => (
         <label key={booking.id} className={styles["choice"]}>
           <input
@@ -970,9 +1006,9 @@ function TransferFields({
             })}
           />
           <span className={styles["choice-body"]}>
-            <label htmlFor={accountChoiceId} className={styles["choice-title"]}>{stored.kind === "account" ? "Counterpart on" : "Create a counterpart on"}</label>
+            <label htmlFor={accountChoiceId} className={styles["choice-title"]}>{stored.kind === "account" ? t("counterpartOn") : t("createCounterpartOn")}</label>
             <Select
-              aria-label="Manual account"
+              aria-label={t("manualAccount")}
               value={accountId}
               onChange={event => onTarget({
                 kind: "account",
@@ -993,8 +1029,8 @@ function TransferFields({
           onChange={() => onTarget(noTarget)}
         />
         <span className={styles["choice-body"]}>
-          <span className={styles["choice-title"]}>No counterpart</span>
-          <span className={styles["choice-meta"]}>{`Transfer ${direction} an account not tracked in Ufer.`}</span>
+          <span className={styles["choice-title"]}>{t("noCounterpart")}</span>
+          <span className={styles["choice-meta"]}>{outgoing ? t("noCounterpartOutgoing") : t("noCounterpartIncoming")}</span>
         </span>
       </label>
     </fieldset>

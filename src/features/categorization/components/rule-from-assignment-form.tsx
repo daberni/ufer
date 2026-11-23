@@ -16,8 +16,7 @@ import { useRulePreviewDraft } from "@/features/categorization/use-rule-preview-
 import { proposeRulePattern } from "@/features/categorization/rule-pattern";
 import { CategoryPicker } from "./category-picker";
 import { ManualAdoptionOption, useManualAdoption } from "./manual-adoption-option";
-import { formatCount, formatCountLabel } from "@/lib/locale";
-import { useLocale } from "@/client/locale-provider";
+import { useTranslations } from "next-intl";
 
 type Props = {
   /** The transaction whose category was chosen manually; the proposed pattern comes from it, and it becomes rule-assigned when the new rule decides its category. */
@@ -31,8 +30,10 @@ type Props = {
 };
 
 export function RuleFromAssignmentDialog(props: Props) {
+  const t = useTranslations("categorization.ruleForm");
+
   return (
-    <Dialog eyebrow="Your finances" title="Create rule" onClose={props.close}>
+    <Dialog eyebrow={t("eyebrow")} title={t("createTitle")} onClose={props.close}>
       <RuleFromAssignmentForm {...props} />
     </Dialog>
   );
@@ -46,7 +47,7 @@ function RuleFromAssignmentForm({
   close,
   onCreated
 }: Props) {
-  const locale = useLocale();
+  const t = useTranslations("categorization.fromAssignment");
   const categories = useCategories();
   const {
     error,
@@ -78,16 +79,21 @@ function RuleFromAssignmentForm({
     sameCategory: preview.data.manual_same_category
   } : null);
 
-  let previewText = "Enter a pattern to see what the rule would categorize.";
+  let previewText = t("enterPattern");
 
   if (matchesCurrentDraft && preview.isError) {
-    previewText = `The preview is unavailable: ${toFailure(preview.error).message}`;
+    previewText = t("unavailable", {
+      message: toFailure(preview.error).message
+    });
   } else if (previewPending) {
-    previewText = "Counting matching transactions …";
+    previewText = t("counting");
   } else if (previewReady && preview.data?.matched === 0) {
-    previewText = "Would not categorize any other transactions yet.";
+    previewText = t("none");
   } else if (previewReady && preview.data) {
-    previewText = `Would categorize ${formatCountLabel(preview.data.matched, "other transaction", "other transactions", locale)}; ${formatCount(preview.data.uncategorized, locale)} of them ${preview.data.uncategorized === 1 ? "is" : "are"} uncategorized.`;
+    previewText = t("matches", {
+      matched: preview.data.matched,
+      uncategorized: preview.data.uncategorized
+    });
   }
 
   return (
@@ -118,9 +124,11 @@ function RuleFromAssignmentForm({
       }}
       className={ui["form"]}
     >
-      <p className={ui["form-description"]}>Categorize transactions like “{counterparty || description}” automatically. The first matching rule wins. This transaction follows the rule when the rule decides its category; other manual assignments only follow it when you choose so below.</p>
+      <p className={ui["form-description"]}>{t("description", {
+        example: counterparty || description
+      })}</p>
       <div className={ui["field"]}>
-        <label htmlFor={patternFieldId}>Matching pattern</label>
+        <label htmlFor={patternFieldId}>{t("pattern")}</label>
         <input
           id={patternFieldId}
           name="pattern"
@@ -130,10 +138,10 @@ function RuleFromAssignmentForm({
           aria-describedby={patternHintId}
           onChange={event => setPattern(event.target.value)}
         />
-        <span id={patternHintId} className={styles["hint"]}>Contained in the payee or description, without case sensitivity.</span>
+        <span id={patternHintId} className={styles["hint"]}>{t("patternHint")}</span>
       </div>
       <div className={ui["field"]}>
-        <label htmlFor={categoryFieldId}>Category</label>
+        <label htmlFor={categoryFieldId}>{t("category")}</label>
         <CategoryPicker
           id={categoryFieldId}
           categories={categories.data ?? []}
@@ -148,13 +156,13 @@ function RuleFromAssignmentForm({
           checked={applyToUncategorized}
           onChange={event => setApplyToUncategorized(event.target.checked)}
         />
-        Categorize the uncategorized matches now
+        {t("applyNow")}
       </label>
       <ManualAdoptionOption adoption={adoption} />
-      <p className={ui["form-hint"]}>The rule is added at the end of your rules; reorder it in the rule list. Other matches follow the rule when rules are applied.</p>
+      <p className={ui["form-hint"]}>{t("orderHint")}</p>
       <FormError failure={error} />
       <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={pending || !categories.data || !previewReady || !preview.data?.id}>
-        Create rule <Sparkles size={16} />
+        {t("create")} <Sparkles size={16} />
       </button>
     </form>
   );

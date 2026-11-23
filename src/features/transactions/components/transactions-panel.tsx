@@ -23,12 +23,11 @@ import { AreaPlaceholder } from "@/components/ui/area-placeholder";
 import { mapArea, pendingTogether, type Area, type AreaResult } from "@/components/ui/use-area-result";
 import type { Account } from "@/features/accounts/types";
 import type { Category } from "@/features/categorization/types";
-import { transactionTypes, transactionTypeLabels } from "@/lib/transaction-types";
+import { transactionTypes } from "@/lib/transaction-types";
 import type { TransactionPage } from "@/features/transactions/types";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { ActionMenu, MenuItem } from "@/components/ui/action-menu";
-import { useLocale } from "@/client/locale-provider";
-import { formatCount } from "@/lib/locale";
+import { useTranslations } from "next-intl";
 
 type Props = {
   categories: Area<Category[]>;
@@ -72,11 +71,6 @@ function categoryFilterValue(value: CategoryPickerValue) {
   return value ?? "uncategorized";
 }
 
-const headings: Record<Exclude<Props["view"], "transactions">, string> = {
-  overview: "Recent transactions",
-  account: "Transactions"
-};
-
 export function TransactionsPanel(props: Props) {
   const {
     categories,
@@ -85,6 +79,7 @@ export function TransactionsPanel(props: Props) {
     page,
     view
   } = props;
+  const t = useTranslations("transactions.panel");
   const headingRef = useRef<HTMLHeadingElement>(null);
   const [entryOpen, setEntryOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -98,45 +93,45 @@ export function TransactionsPanel(props: Props) {
           controls={props.periodControls}
           count={mapArea(list, data => data.transactionCount)}
           headingRef={headingRef}
-          title="Transactions"
+          title={t("title")}
         >
           {manualAccounts.length > 0 && (
             <button className={clsx(ui["button"], ui["phone-hidden"])} onClick={() => setEntryOpen(true)}>
               <Plus size={15} />
-              Add transaction
+              {t("add")}
             </button>
           )}
           <button className={clsx(ui["button"], ui["phone-hidden"])} onClick={() => setImportOpen(true)}>
             <ArrowDownToLine size={15} />
-            Import file
+            {t("import")}
           </button>
-          <ActionMenu label="Transaction actions" appearance="button" phoneOnly>
+          <ActionMenu label={t("actions")} appearance="button" phoneOnly>
             {manualAccounts.length > 0 && (
               <MenuItem icon={<Plus size={15} aria-hidden="true" />} onSelect={() => setEntryOpen(true)}>
-                Add transaction
+                {t("add")}
               </MenuItem>
             )}
             <MenuItem icon={<ArrowDownToLine size={15} aria-hidden="true" />} onSelect={() => setImportOpen(true)}>
-              Import file
+              {t("import")}
             </MenuItem>
           </ActionMenu>
         </SectionHeading>
       )}
       {props.view === "transactions" && props.scope}
-      <section className={clsx(ui["panel"], styles["transaction-panel"], props.view === "transactions" && styles["below-heading"])} aria-label={props.view === "transactions" ? "Transactions" : undefined}>
+      <section className={clsx(ui["panel"], styles["transaction-panel"], props.view === "transactions" && styles["below-heading"])} aria-label={props.view === "transactions" ? t("title") : undefined}>
         {props.view !== "transactions" && (
           <div className={styles["card-heading"]}>
-            <h2 ref={headingRef} tabIndex={-1}>{headings[props.view]}</h2>
+            <h2 ref={headingRef} tabIndex={-1}>{props.view === "overview" ? t("recent") : t("title")}</h2>
             {props.view === "overview" && (
               // The overview lists the latest bookings of every month, so the full list continues them over all months.
               <Link className={ui["text-button"]} href={allTransactionsHref}>
-                View all <ArrowRight size={15} />
+                {t("viewAll")} <ArrowRight size={15} />
               </Link>
             )}
             {props.view === "account" && (
               <Link className={ui["text-button"]} href={props.filterHref}>
                 <SlidersHorizontal size={14} />
-                Search and filter
+                {t("searchAndFilter")}
               </Link>
             )}
           </div>
@@ -144,7 +139,7 @@ export function TransactionsPanel(props: Props) {
         {props.view === "transactions" && <TransactionFilters categories={categories.data ?? []} filterAccounts={props.filterAccounts.data ?? []} />}
         <TransactionRuleProvider fallbackFocus={headingRef}>
           {list.status === "pending" || categories.status === "pending" ? (
-            <AreaPlaceholder area={pendingTogether(list, categories)} failureTitle="Your transactions could not be loaded">
+            <AreaPlaceholder area={pendingTogether(list, categories)} failureTitle={t("loadFailed")}>
               {view === "overview" ? <TransactionListSkeleton rows={recentTransactions} /> : <TransactionPageSkeleton />}
             </AreaPlaceholder>
           ) : (
@@ -174,7 +169,7 @@ function TransactionPages({
   categories: Category[];
   list: AreaResult<TransactionPage>;
 }) {
-  const locale = useLocale();
+  const t = useTranslations("transactions.panel");
   const {
     transactionCount,
     transactions
@@ -187,18 +182,22 @@ function TransactionPages({
   return (
     <>
       <div {...areaProps(list.status)}>
-        {visibleTransactions.length ? <TransactionList categories={categories} transactions={visibleTransactions} /> : noMatches && (emptyState ?? <Empty title="Your financial history starts here.">Connect a bank account and sync, or import your existing transactions from a file.</Empty>)}
+        {visibleTransactions.length ? <TransactionList categories={categories} transactions={visibleTransactions} /> : noMatches && (emptyState ?? <Empty title={t("emptyTitle")}>{t("empty")}</Empty>)}
       </div>
       {view !== "overview" && transactionCount > transactionPageSize && (
         <div className={styles["pagination"]}>
           <span className={valueMask(list.status)}>
-            {`${formatCount((page - 1) * transactionPageSize + 1, locale)}–${formatCount(Math.min(page * transactionPageSize, transactionCount), locale)} of ${formatCount(transactionCount, locale)}`}
+            {t("range", {
+              first: (page - 1) * transactionPageSize + 1,
+              last: Math.min(page * transactionPageSize, transactionCount),
+              total: transactionCount
+            })}
           </span>
           <button className={clsx(styles["button"], ui["small"])} disabled={page === 1} onClick={() => setPage(page - 1)}>
-            Previous
+            {t("previous")}
           </button>
           <button className={clsx(styles["button"], ui["small"])} disabled={page * transactionPageSize >= transactionCount} onClick={() => setPage(page + 1)}>
-            Next
+            {t("next")}
           </button>
         </div>
       )}
@@ -208,13 +207,15 @@ function TransactionPages({
 
 // Takes the place of a full page and its pagination; a period with fewer transactions ends earlier.
 function TransactionPageSkeleton() {
+  const t = useTranslations("transactions.panel");
+
   return (
     <>
       <TransactionListSkeleton rows={transactionPageSize} />
       <div className={styles["pagination"]}>
         <span className={ui["skeleton"]}>1–50 of 120</span>
-        <button className={clsx(styles["button"], ui["small"], ui["skeleton"])} type="button" disabled>Previous</button>
-        <button className={clsx(styles["button"], ui["small"], ui["skeleton"])} type="button" disabled>Next</button>
+        <button className={clsx(styles["button"], ui["small"], ui["skeleton"])} type="button" disabled>{t("previous")}</button>
+        <button className={clsx(styles["button"], ui["small"], ui["skeleton"])} type="button" disabled>{t("next")}</button>
       </div>
     </>
   );
@@ -228,6 +229,7 @@ function TransactionFilters({
   categories: Category[];
   filterAccounts: Account[];
 }) {
+  const t = useTranslations("transactions");
   const accountFilter = useAccountFilter();
   const categoryFilter = useCategoryFilter();
   const typeFilter = useTypeFilter();
@@ -236,25 +238,25 @@ function TransactionFilters({
     <div className={styles["filters"]}>
       <TransactionSearch />
       <Select
-        aria-label="Account filter"
+        aria-label={t("filters.account")}
         value={accountFilter}
         onChange={event => setAccountFilter(event.target.value)}
       >
-        <option value="">All accounts</option>
+        <option value="">{t("filters.allAccounts")}</option>
         {filterAccounts.map(account => (
           <option key={account.id} value={account.id}>
             {account.name}
           </option>
         ))}
       </Select>
-      <Select aria-label="Transaction type filter" value={typeFilter} onChange={event => setTypeFilter(event.target.value)}>
-        <option value="">All types</option>
-        {transactionTypes.map(type => <option key={type} value={type}>{transactionTypeLabels[type]}</option>)}
+      <Select aria-label={t("filters.type")} value={typeFilter} onChange={event => setTypeFilter(event.target.value)}>
+        <option value="">{t("filters.allTypes")}</option>
+        {transactionTypes.map(type => <option key={type} value={type}>{t(`types.${type}`)}</option>)}
       </Select>
       <CategoryPicker
         className={styles["category-filter"]}
         size="compact"
-        aria-label="Category filter"
+        aria-label={t("filters.category")}
         categories={categories}
         value={categoryPickerValue(categoryFilter)}
         includeAll
@@ -267,6 +269,7 @@ function TransactionFilters({
 
 // Keystrokes change only this field's draft; the list follows once the committed search reaches the URL.
 function TransactionSearch() {
+  const t = useTranslations("transactions.filters");
   const [searchDraft, setSearchDraft] = useSearchDraft(useSearchFilter(), setSearch);
   const input = useRef<HTMLInputElement>(null);
 
@@ -283,8 +286,8 @@ function TransactionSearch() {
       <Search size={16} aria-hidden="true" />
       <input
         ref={input}
-        aria-label="Search transactions"
-        placeholder="Payee or description …"
+        aria-label={t("search")}
+        placeholder={t("searchPlaceholder")}
         value={searchDraft}
         onChange={event => setSearchDraft(event.target.value)}
       />
@@ -292,7 +295,7 @@ function TransactionSearch() {
         <button
           type="button"
           className={styles["clear-search"]}
-          aria-label="Clear search"
+          aria-label={t("clearSearch")}
           onClick={() => {
             setSearchDraft("");
             input.current?.focus();

@@ -5,6 +5,7 @@ import ui from "../../../components/ui/primitives.module.css";
 import { PayeeInput } from "./payee-input";
 import { today } from "@/lib/time";
 import type { TransactionType } from "@/lib/transaction-types";
+import { useTranslations } from "next-intl";
 
 /** The values an entry form starts with; the amount as a signed decimal. */
 export type EntryDefaults = {
@@ -41,6 +42,7 @@ export function EntryFields({
   followedAccount,
   onAmount
 }: Props) {
+  const t = useTranslations("transactions.entry");
   const latestDate = today().toString();
   const locked = followedAccount !== undefined;
 
@@ -48,7 +50,7 @@ export function EntryFields({
     <>
       <div className={ui["form-grid"]}>
         <label>
-          Date
+          {t("date")}
           <input
             name="date"
             type="date"
@@ -59,7 +61,7 @@ export function EntryFields({
           />
         </label>
         <label>
-          Amount
+          {t("amount")}
           <input
             name="amount"
             required
@@ -72,17 +74,19 @@ export function EntryFields({
           />
         </label>
       </div>
-      <p className={ui["form-hint"]}>{locked ? `The date and amount follow the linked booking on ${followedAccount}.` : "Enter money leaving the account as a negative amount."}</p>
+      <p className={ui["form-hint"]}>{locked ? t("followsLinked", {
+        account: followedAccount
+      }) : t("amountHint")}</p>
       {payee && (
         <PayeeInput
-          label="Payee"
+          label={t("payee")}
           name="counterparty"
           maxLength={500}
           defaultValue={defaults?.counterparty}
         />
       )}
       <label>
-        Description
+        {t("description")}
         <input
           name="description"
           maxLength={2000}

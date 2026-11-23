@@ -13,17 +13,18 @@ import type { Transaction, TransactionSplit } from "@/features/transactions/type
 import { nextPartAmount, type DraftPart, type DraftState, type SplitDraft } from "@/features/transactions/split-draft";
 import { useLocale } from "@/client/locale-provider";
 import { formatCount } from "@/lib/locale";
+import { useTranslations } from "next-intl";
+
+type SplitTranslator = ReturnType<typeof useTranslations<"transactions.split">>;
 
 /** Whether a booking of this type can be split; only income and expenses count by category. */
 export function splittable(transaction: Transaction) {
   return transaction.type === "income" || transaction.type === "expense";
 }
 
-/** For example "Split · 3 categories"; the number of distinct categories, counting uncategorized parts as one. */
-export function splitLabel(split: TransactionSplit, locale: string) {
-  const count = new Set(split.parts.map(part => part.category_id)).size;
-
-  return `Split · ${formatCount(count, locale)} ${count === 1 ? "category" : "categories"}`;
+/** The number of distinct categories, counting uncategorized parts as one. */
+function splitCategoryCount(split: TransactionSplit) {
+  return new Set(split.parts.map(part => part.category_id)).size;
 }
 
 function partsTotal(split: TransactionSplit) {
@@ -31,11 +32,14 @@ function partsTotal(split: TransactionSplit) {
 }
 
 /** Why an unbalanced split is flagged and how reports count it meanwhile. */
-function unbalancedNote(transaction: Transaction, split: TransactionSplit, locale: string) {
+function unbalancedNote(transaction: Transaction, split: TransactionSplit, locale: string, t: SplitTranslator) {
   const total = money(partsTotal(split), transaction.currency, locale);
   const amount = money(transaction.amount_minor, transaction.currency, locale);
 
-  return `The parts add up to ${total}, but the booking is now ${amount}. Reports count the difference as uncategorized until the split is corrected.`;
+  return t("unbalanced", {
+    total,
+    amount
+  });
 }
 
 /** The split cell of a transaction row: how many categories, flagged when the parts no longer add up to the booking. Pressing the row opens the split in the edit dialog. */
@@ -47,8 +51,11 @@ export function SplitTag({
   split: TransactionSplit;
 }) {
   const locale = useLocale();
-  const label = splitLabel(split, locale);
-  const warning = split.balanced ? undefined : unbalancedNote(transaction, split, locale);
+  const t = useTranslations("transactions.split");
+  const label = t("tag", {
+    count: splitCategoryCount(split)
+  });
+  const warning = split.balanced ? undefined : unbalancedNote(transaction, split, locale, t);
 
   return (
     <span className={clsx(styles["tag"], !split.balanced && styles["unbalanced"])} title={warning}>
@@ -59,20 +66,24 @@ export function SplitTag({
   );
 }
 
-function statusText(state: DraftState, currency: string, locale: string) {
+function statusText(state: DraftState, currency: string, locale: string, t: SplitTranslator) {
   const remaining = money(Math.abs(state.remaining), currency, locale);
 
   switch (state.status) {
     case "invalid":
-      return "Check the highlighted amount.";
+      return t("status.invalid");
     case "under":
-      return `${remaining} still to assign`;
+      return t("status.under", {
+        remaining
+      });
     case "over":
-      return `${remaining} more than the total`;
+      return t("status.over", {
+        remaining
+      });
     case "single":
-      return "Add a part to split the amount.";
+      return t("status.single");
     default:
-      return "Fully assigned";
+      return t("status.complete");
   }
 }
 
@@ -101,6 +112,7 @@ export function SplitEditor({
   onClose: () => void;
 }) {
   const locale = useLocale();
+  const t = useTranslations("transactions.split");
   const statusId = useId();
   // The part just added, whose category takes focus since its amount is already filled in.
   const [addedKey, setAddedKey] = useState<number | null>(null);
@@ -119,11 +131,11 @@ export function SplitEditor({
   }
 
   return (
-    <section className={styles["section"]} aria-label="Split">
+    <section className={styles["section"]} aria-label={t("title")}>
       <div className={styles["section-head"]}>
         <h3 className={styles["section-title"]}>
           <Split size={15} aria-hidden="true" />
-          Split
+          {t("title")}
         </h3>
         <button
           type="button"
@@ -132,17 +144,21 @@ export function SplitEditor({
           onClick={onClose}
         >
           <X size={14} aria-hidden="true" />
-          {transaction.split ? "Remove split" : "Cancel split"}
+          {transaction.split ? t("remove") : t("cancel")}
         </button>
       </div>
       <div className={styles["meter-row"]}>
         <div className={styles["meter-text"]}>
           <span>
-            Assigned <strong>{money(state.assigned, transaction.currency, locale)}</strong> of {money(total, transaction.currency, locale)}
+            {t.rich("assigned", {
+              assigned: money(state.assigned, transaction.currency, locale),
+              total: money(total, transaction.currency, locale),
+              strong: chunks => <strong>{chunks}</strong>
+            })}
           </span>
           <span id={statusId} className={clsx(styles["status"], problem && styles["problem"])} role="status">
             {problem && <CircleAlert size={14} aria-hidden="true" />}
-            {statusText(state, transaction.currency, locale)}
+            {statusText(state, transaction.currency, locale, t)}
           </span>
         </div>
         <span className={clsx(styles["meter"], state.status === "over" && styles["over"])} aria-hidden="true">
@@ -191,7 +207,7 @@ export function SplitEditor({
         }}
       >
         <Plus size={14} aria-hidden="true" />
-        Add part
+        {t("addPart")}
       </button>
     </section>
   );
@@ -219,6 +235,7 @@ function SplitPartFields({
   onRemove?: () => void;
 }) {
   const locale = useLocale();
+  const t = useTranslations("transactions.split");
   const fieldId = useId();
   const categoryId = `${fieldId}-category`;
   const shownPosition = formatCount(position, locale);
@@ -233,7 +250,9 @@ function SplitPartFields({
     <li className={styles["part"]}>
       <input
         className={styles["amount"]}
-        aria-label={`Amount of part ${shownPosition}`}
+        aria-label={t("partAmount", {
+          position: shownPosition
+        })}
         autoFocus={focusAmount}
         inputMode="decimal"
         placeholder="0.00"
@@ -245,7 +264,9 @@ function SplitPartFields({
         })}
       />
       <div className={styles["category"]}>
-        <label htmlFor={categoryId} className={ui["visually-hidden"]}>{`Category of part ${shownPosition}`}</label>
+        <label htmlFor={categoryId} className={ui["visually-hidden"]}>{t("partCategory", {
+          position: shownPosition
+        })}</label>
         <CategoryPicker
           id={categoryId}
           categories={categories}
@@ -258,9 +279,11 @@ function SplitPartFields({
       </div>
       <input
         className={styles["note"]}
-        aria-label={`Note of part ${shownPosition}`}
+        aria-label={t("partNote", {
+          position: shownPosition
+        })}
         maxLength={200}
-        placeholder="Note"
+        placeholder={t("note")}
         value={part.note}
         onChange={event => onChange({
           note: event.target.value
@@ -270,7 +293,9 @@ function SplitPartFields({
         <button
           type="button"
           className={styles["remove"]}
-          aria-label={`Remove part ${shownPosition}`}
+          aria-label={t("removePart", {
+            position: shownPosition
+          })}
           onClick={onRemove}
         >
           <X size={16} />

@@ -2,7 +2,7 @@ import "./fixtures/dom-environment";
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { act, fireEvent, renderHook } from "@testing-library/react";
-import { render } from "./fixtures/intl";
+import { render, withIntl } from "./fixtures/intl";
 import { createElement } from "react";
 import { queryKeys } from "../src/client/query-keys";
 import type { Category, Rule } from "../src/features/categorization/types";
@@ -287,7 +287,7 @@ test("a failed older drop does not report a failure once a newer drop has been s
 
   queryClient.setQueryData(queryKeys.rules(), stored);
   const hook = renderHook(() => useRuleReorder(queryClient.getQueryData<Rule[]>(queryKeys.rules()) ?? []), {
-    wrapper: ({ children }) => withQueryClient(queryClient, children)
+    wrapper: ({ children }) => withIntl(withQueryClient(queryClient, children))
   });
   const drop = (active: string, over: string) => hook.result.current.onDragEnd({
     active: {

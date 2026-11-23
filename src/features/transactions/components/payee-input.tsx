@@ -8,6 +8,7 @@ import { useComboboxOptions } from "@/components/ui/use-combobox-options";
 import { useDismiss } from "@/components/ui/use-dismiss";
 import { usePayeeSuggestions } from "@/features/transactions/queries";
 import { commitDelay } from "@/features/transactions/use-search-draft";
+import { useTranslations } from "next-intl";
 
 type Props = {
   label: string;
@@ -33,6 +34,7 @@ export function PayeeInput({
   "aria-describedby": ariaDescribedBy,
   onValueChange
 }: Props) {
+  const t = useTranslations("transactions.entry");
   const input = useRef<HTMLInputElement>(null);
   const popupRef = useRef<HTMLDivElement>(null);
   const listboxRef = useRef<HTMLUListElement>(null);
@@ -180,7 +182,7 @@ export function PayeeInput({
           id={listboxId}
           className={styles["listbox"]}
           role="listbox"
-          aria-label="Existing payees"
+          aria-label={t("existingPayees")}
           // Keeps focus in the field, so picking with a pointer does not blur and close the list first.
           onMouseDown={event => event.preventDefault()}
         >

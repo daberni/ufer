@@ -4,7 +4,7 @@ import ui from "../../../components/ui/primitives.module.css";
 
 import { clsx } from "clsx";
 import { Trash2 } from "lucide-react";
-import { useId, useState } from "react";
+import { useId, useState, type ReactNode } from "react";
 import styles from "./deletion-forms.module.css";
 import { toFailure } from "@/client/api";
 import { FormError } from "@/components/ui/form-error";
@@ -14,8 +14,7 @@ import { useDeleteCategory, useDeleteRule } from "@/features/categorization/muta
 import { useCategories, useCategoryUsage } from "@/features/categorization/queries";
 import type { Category, CategoryUsage, Rule } from "@/features/categorization/types";
 import { CategoryPicker } from "./category-picker";
-import { formatCountLabel } from "@/lib/locale";
-import { useLocale } from "@/client/locale-provider";
+import { useTranslations } from "next-intl";
 
 /** Opens the deletion step of an edit dialog. */
 export function DeleteButton({
@@ -51,6 +50,8 @@ function ConfirmActions({
   cancel: () => void;
   label: string;
 }) {
+  const t = useTranslations("categorization.deletion");
+
   return (
     <div className={ui["form-actions"]}>
       <button
@@ -59,7 +60,7 @@ function ConfirmActions({
         disabled={pending}
         onClick={cancel}
       >
-        Cancel
+        {t("cancel")}
       </button>
       <button className={ui["danger-button"]} disabled={pending || disabled}>
         <Trash2 size={15} />
@@ -78,6 +79,7 @@ export function RuleDeleteConfirmation({
   close: () => void;
   cancel: () => void;
 }) {
+  const t = useTranslations("categorization.deletion");
   const remove = useDeleteRule(rule);
 
   return (
@@ -92,12 +94,12 @@ export function RuleDeleteConfirmation({
     >
       <p className={ui["form-description"]}>“{rule.name}” · {rule.pattern}</p>
       <ul className={styles["effects"]}>
-        <li>New and re-applied transactions no longer match this rule; the next matching rule decides instead.</li>
-        <li>Transactions it already categorized keep their category until you apply the rules.</li>
-        <li>Manual assignments are never changed.</li>
+        <li>{t("ruleEffects.matching")}</li>
+        <li>{t("ruleEffects.categorized")}</li>
+        <li>{t("ruleEffects.manual")}</li>
       </ul>
       <FormError failure={remove.error ? toFailure(remove.error) : null} />
-      <ConfirmActions pending={remove.isPending} cancel={cancel} label="Delete rule" />
+      <ConfirmActions pending={remove.isPending} cancel={cancel} label={t("deleteRule")} />
     </form>
   );
 }
@@ -113,6 +115,7 @@ export function CategoryDeleteForm({
   close: () => void;
   cancel: () => void;
 }) {
+  const t = useTranslations("categorization.deletion");
   const usage = useAreaResult(useCategoryUsage(category.id));
   const categories = useCategories();
   const remove = useDeleteCategory(category);
@@ -139,12 +142,12 @@ export function CategoryDeleteForm({
     >
       <p className={ui["form-description"]}>{category.name}</p>
       {usage.status === "pending" && usage.failure ? (
-        <InlineFailure failure={usage.failure} failureTitle="What uses this category could not be loaded" />
+        <InlineFailure failure={usage.failure} failureTitle={t("usageFailed")} />
       ) : (
         <UsageSummary usage={usage.data ?? null} />
       )}
       <fieldset className={styles["outcomes"]}>
-        <legend>Its transactions and rules</legend>
+        <legend>{t("outcomesLegend")}</legend>
         <label className={styles["outcome"]}>
           <input
             type="radio"
@@ -154,13 +157,13 @@ export function CategoryDeleteForm({
             onChange={() => setOutcome("reassign")}
           />
           <span>
-            Move to another category
-            <small>Transactions and rules use the chosen category instead; reports count them there.</small>
+            {t("reassign")}
+            <small>{t("reassignHint")}</small>
           </span>
         </label>
         {outcome === "reassign" && (
           <div className={clsx(ui["field"], styles["replacement"])}>
-            <label htmlFor={replacementFieldId}>Move to</label>
+            <label htmlFor={replacementFieldId}>{t("moveTo")}</label>
             <CategoryPicker
               id={replacementFieldId}
               categories={others}
@@ -178,18 +181,18 @@ export function CategoryDeleteForm({
             onChange={() => setOutcome("uncategorize")}
           />
           <span>
-            Leave uncategorized
-            <small>Transactions become uncategorized and reports show them as Uncategorized. Its rules are deleted, since a rule needs a category.</small>
+            {t("uncategorize")}
+            <small>{t("uncategorizeHint")}</small>
           </span>
         </label>
       </fieldset>
-      <p className={ui["form-hint"]}>Manual assignments stay manual, so applying rules later does not change them. This cannot be undone.</p>
+      <p className={ui["form-hint"]}>{t("categoryNote")}</p>
       <FormError failure={remove.error ? toFailure(remove.error) : null} />
       <ConfirmActions
         pending={remove.isPending}
         disabled={replacementMissing || usage.status === "pending"}
         cancel={cancel}
-        label="Delete category"
+        label={t("deleteCategory")}
       />
     </form>
   );
@@ -200,22 +203,27 @@ function UsageSummary({
 }: {
   usage: CategoryUsage | null;
 }) {
-  const locale = useLocale();
+  const t = useTranslations("categorization.deletion");
 
   if (!usage) {
     return (
       <p className={styles["usage"]}>
-        <span className={ui["skeleton"]} aria-hidden="true">Used by 0 transactions and 0 rules</span>
-        <span className={ui["visually-hidden"]}>Counting what uses this category …</span>
+        <span className={ui["skeleton"]} aria-hidden="true">{t("usagePlaceholder")}</span>
+        <span className={ui["visually-hidden"]}>{t("countingUsage")}</span>
       </p>
     );
   }
 
-  const manual = usage.manual_transactions > 0 ? ` (${formatCountLabel(usage.manual_transactions, "manual assignment", "manual assignments", locale)})` : "";
+  const values = {
+    transactions: usage.transactions,
+    manual: usage.manual_transactions,
+    rules: usage.rules,
+    strong: (chunks: ReactNode) => <strong>{chunks}</strong>
+  };
 
   return (
     <p className={styles["usage"]}>
-      Used by <strong>{formatCountLabel(usage.transactions, "transaction", "transactions", locale)}</strong>{manual} and <strong>{formatCountLabel(usage.rules, "rule", "rules", locale)}</strong>.
+      {usage.manual_transactions > 0 ? t.rich("usageWithManual", values) : t.rich("usage", values)}
     </p>
   );
 }

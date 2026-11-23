@@ -10,9 +10,8 @@ import { Empty } from "@/components/ui/empty-state";
 import { shownStatus, valueMask } from "@/components/ui/result-presentation";
 import type { Area } from "@/components/ui/use-area-result";
 import type { TransactionPage } from "@/features/transactions/types";
-import { useLocale } from "@/client/locale-provider";
-import { formatCount } from "@/lib/locale";
 import { syncStatusLabel } from "@/features/banking/sync-run-presentation";
+import { useTranslations } from "next-intl";
 
 type SelectedRun = TransactionPage["syncRun"];
 
@@ -32,18 +31,20 @@ export function SyncRunScope({
   run: SelectedRun;
   transactionCount: Area<number>;
 }) {
-  const locale = useLocale();
+  const t = useTranslations("transactions.syncRun");
   const count = transactionCount.data ?? 0;
 
   return (
     <div className={styles["scope-bar"]}>
       <div className={styles["scope"]}>
-        <span className={clsx(ui["section-kicker"], valueMask(shownStatus(transactionCount)))}>{`${formatCount(count, locale)} ${count === 1 ? "TRANSACTION" : "TRANSACTIONS"}`}</span>
+        <span className={clsx(ui["section-kicker"], valueMask(shownStatus(transactionCount)))}>{t("count", {
+          count
+        })}</span>
         <RunDescription found={found} run={run} />
       </div>
       <button className={clsx(ui["button"], ui["small"])} onClick={clear}>
         <X size={14} />
-        Clear sync filter
+        {t("clear")}
       </button>
     </div>
   );
@@ -56,17 +57,21 @@ function RunDescription({
   found: boolean;
   run: SelectedRun;
 }) {
+  const t = useTranslations("transactions.syncRun");
+
   if (run) {
     return (
       <p className={styles["run"]}>
-        <span>Imported by the sync on <TimestampValue value={run.started_at} /></span>
+        <span>{t.rich("importedBy", {
+          time: () => <TimestampValue value={run.started_at} />
+        })}</span>
         <span className={ui["pill"]}>{syncStatusLabel(run.status)}</span>
       </p>
     );
   }
 
   if (!found) {
-    return <p className={styles["run"]}>This sync was not found.</p>;
+    return <p className={styles["run"]}>{t("notFound")}</p>;
   }
 
   return (
@@ -88,17 +93,19 @@ export function SyncRunEmpty({
   found: boolean;
   run: SelectedRun;
 }) {
+  const t = useTranslations("transactions.syncRun.empty");
+
   if (!run) {
-    return !found && <Empty title="Sync not found" illustration={null}>The link may be outdated.</Empty>;
+    return !found && <Empty title={t("notFoundTitle")} illustration={null}>{t("notFound")}</Empty>;
   }
 
   if (filtered) {
-    return <Empty title="No matching transactions" illustration={null}>None of the transactions this sync imported match the search and filters.</Empty>;
+    return <Empty title={t("filteredTitle")} illustration={null}>{t("filtered")}</Empty>;
   }
 
   if (run.inserted_count === 0) {
-    return <Empty title="No new transactions" illustration={null}>This sync did not import any new transactions.</Empty>;
+    return <Empty title={t("noneTitle")} illustration={null}>{t("none")}</Empty>;
   }
 
-  return <Empty title="Transactions not traceable" illustration={null}>This sync ran before Ufer recorded which sync imported a transaction, so its transactions cannot be listed.</Empty>;
+  return <Empty title={t("untraceableTitle")} illustration={null}>{t("untraceable")}</Empty>;
 }

@@ -11,10 +11,11 @@ import { Select } from "@/components/ui/select";
 import { useDialogSubmit } from "@/components/ui/use-dialog-submit";
 import { automaticCategory, CategoryPicker, type CategoryAssignmentValue } from "@/features/categorization/components/category-picker";
 import { useCategories } from "@/features/categorization/queries";
-import { entryTransactionTypes, isTransactionType, transactionTypeLabels, type TransactionType } from "@/lib/transaction-types";
+import { entryTransactionTypes, isTransactionType, type TransactionType } from "@/lib/transaction-types";
 import { useEnterTransaction, type NewEntry } from "@/features/transactions/mutations";
 import type { Account } from "@/features/accounts/types";
 import { EntryFields, suggestedType } from "./entry-fields";
+import { useTranslations } from "next-intl";
 
 type Props = {
   /** The manual accounts a transaction can be entered on or transferred to. */
@@ -30,8 +31,10 @@ export function ManualTransactionDialog({
   accountId,
   close
 }: Props) {
+  const t = useTranslations("transactions.manual");
+
   return (
-    <Dialog eyebrow="Your finances" title="Add transaction" onClose={close}>
+    <Dialog eyebrow={t("eyebrow")} title={t("title")} onClose={close}>
       <ManualTransactionForm accounts={accounts} accountId={accountId} close={close} />
     </Dialog>
   );
@@ -42,6 +45,7 @@ function ManualTransactionForm({
   accountId,
   close
 }: Props) {
+  const t = useTranslations("transactions");
   const [chosenAccountId, setAccountId] = useState(accountId ?? accounts[0]?.id ?? "");
   const [type, setType] = useState<TransactionType>("expense");
   const [typeChosen, setTypeChosen] = useState(false);
@@ -94,7 +98,7 @@ function ManualTransactionForm({
         <p className={ui["form-description"]}>{account.name} · {account.currency}</p>
       ) : (
         <label>
-          Account
+          {t("manual.account")}
           <Select value={chosenAccountId} onChange={event => setAccountId(event.target.value)}>
             {accounts.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
           </Select>
@@ -111,7 +115,7 @@ function ManualTransactionForm({
         }}
       />
       <div className={ui["field"]}>
-        <label htmlFor={categoryFieldId}>Category (optional)</label>
+        <label htmlFor={categoryFieldId}>{t("manual.category")}</label>
         <CategoryPicker
           id={categoryFieldId}
           categories={categories.data ?? []}
@@ -121,9 +125,9 @@ function ManualTransactionForm({
           onChange={setCategory}
         />
       </div>
-      <p className={ui["form-hint"]}>Automatic applies your categorization rules.</p>
+      <p className={ui["form-hint"]}>{t("manual.automaticHint")}</p>
       <label htmlFor={typeId}>
-        Type
+        {t("manual.type")}
         <Select
           id={typeId}
           value={type}
@@ -136,24 +140,26 @@ function ManualTransactionForm({
             }
           }}
         >
-          {entryTransactionTypes.map(option => <option key={option} value={option}>{transactionTypeLabels[option]}</option>)}
+          {entryTransactionTypes.map(option => <option key={option} value={option}>{t(`types.${option}`)}</option>)}
         </Select>
       </label>
       {transfer && (
         <>
           <label>
-            Other account
+            {t("manual.otherAccount")}
             <Select value={target?.id ?? ""} onChange={event => setTargetId(event.target.value)}>
-              <option value="">None (account not tracked in Ufer)</option>
+              <option value="">{t("manual.noOtherAccount")}</option>
               {targets.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
             </Select>
           </label>
-          <p className={ui["form-hint"]} role="status">{target ? `The opposite amount is booked on ${target.name}; editing or deleting either side changes both.` : "Without another account this is a transfer to or from an account not tracked in Ufer."}</p>
+          <p className={ui["form-hint"]} role="status">{target ? t("manual.linkedHint", {
+            account: target.name
+          }) : t("manual.untrackedHint")}</p>
         </>
       )}
       <FormError failure={error} />
       <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={pending || !account}>
-        Add transaction <Plus size={16} />
+        {t("manual.title")} <Plus size={16} />
       </button>
     </form>
   );

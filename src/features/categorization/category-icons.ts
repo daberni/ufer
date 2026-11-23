@@ -1,4 +1,5 @@
 // Persisted keys are a stable contract: rename or remove a key only through a data migration. Labels, groups and keywords may change freely.
+// The English labels and group names here are search and suggestion terms; the interface shows the translated names from the categorization catalog.
 export const categoryIconGroups = {
   food: "Food & drink",
   transport: "Transport",
@@ -631,11 +632,11 @@ function searchWords(text: string) {
 
 /**
  * Whether every word of the search starts a word of the icon's label, group or keywords, so "car" finds "Car" and "card" but not "childcare". Letter case
- * is ignored independent of the browser locale.
+ * is ignored independent of the browser locale. `shownNames` adds the label and group as the interface language shows them.
  */
-export function matchesCategoryIconSearch(key: CategoryIconKey, search: string) {
+export function matchesCategoryIconSearch(key: CategoryIconKey, search: string, shownNames = "") {
   const icon = categoryIcons[key];
-  const iconWords = searchWords(`${icon.label} ${categoryIconGroups[icon.group]} ${icon.keywords}`);
+  const iconWords = searchWords(`${icon.label} ${categoryIconGroups[icon.group]} ${icon.keywords} ${shownNames}`);
 
   return searchWords(search).every(query => iconWords.some(word => word.startsWith(query)));
 }
