@@ -34,7 +34,7 @@
   "holdings": {
     "title": "Holdings",
     "closed": "Closed positions",
-    "priceSourceNotice": "{message} Holdings are valued at their last known price or their cost.",
+    "priceSourceNotice": "No price source is configured. Holdings are valued at their last known price or their cost.",
     "emptyTitle": "No holdings yet",
     "emptyBody": "Record a buy from its booking on the cash account, or with Add trade.",
     "columns": {

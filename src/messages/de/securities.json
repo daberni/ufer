@@ -34,7 +34,7 @@
   "holdings": {
     "title": "Bestand",
     "closed": "Geschlossene Positionen",
-    "priceSourceNotice": "{message} Positionen werden mit ihrem letzten bekannten Kurs oder ihrem Einstandswert bewertet.",
+    "priceSourceNotice": "Keine Kursquelle eingerichtet. Positionen werden mit ihrem letzten bekannten Kurs oder ihrem Einstandswert bewertet.",
     "emptyTitle": "Noch kein Bestand",
     "emptyBody": "Erfasse einen Kauf über seine Buchung auf dem Verrechnungskonto oder mit „Trade hinzufügen“.",
     "columns": {

@@ -57,9 +57,7 @@ export function BrokeragePanel({ account }: {
       <section className={clsx(ui["panel"], styles["panel"])} aria-labelledby={`${account.id}-holdings`}>
         <h2 id={`${account.id}-holdings`}>{t("title")}</h2>
         {priceSource && !priceSource.configured && (
-          <p className={styles["notice"]}>{t("priceSourceNotice", {
-            message: priceSource.message ?? ""
-          })}</p>
+          <p className={styles["notice"]}>{t("priceSourceNotice")}</p>
         )}
         {open.length ? (
           <HoldingsTable
