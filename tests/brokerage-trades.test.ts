@@ -543,3 +543,34 @@ test("correcting a trade moves its own cash entry, keeps a bank booking as the s
   }, now), ValidationError);
   assert.ok(sale);
 });
+
+test("a position sold at exactly its cost stays listed as closed", async context => {
+  await isolatedDatabase(context);
+  const cash = await settlementAccount();
+  const account = await depot();
+  const etf = await security();
+  const settlement = {
+    account_id: cash
+  };
+
+  await trade(account, {
+    security_id: etf,
+    date: "2026-09-10",
+    side: "buy",
+    quantity: "10",
+    price: "100",
+    settlement
+  });
+  await trade(account, {
+    security_id: etf,
+    date: "2026-09-20",
+    side: "sell",
+    quantity: "10",
+    price: "100",
+    settlement
+  });
+
+  const { valuation } = await readBrokerageTrades(account, now);
+
+  assert.deepEqual(valuation.holdings.map(holding => [holding.security_id, holding.quantity_micros, holding.realized_minor]), [[etf, 0, 0]]);
+});

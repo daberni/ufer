@@ -74,7 +74,7 @@ export function valueHoldings(holdings: HoldingInputs[], date: string): AccountV
     value_minor: values.reduce((total, holding) => total + holding.value_minor, 0),
     missing: values.filter(holding => holding.status === "missing").length,
     stale: values.filter(holding => holding.status === "stale").length,
-    holdings: values.filter(holding => holding.quantity_micros > 0 || holding.realized_minor !== 0)
+    holdings: values.filter((_, index) => holdings[index]!.trades.some(trade => trade.date <= date))
   };
 }
 
