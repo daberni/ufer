@@ -35,6 +35,8 @@ import { useLocale } from "@/client/locale-provider";
 
 type Props = {
   transaction: Transaction;
+  /** The depot whose page opened the dialog, so a trade on it does not link back to the page it came from. */
+  depotId?: string;
   close: () => void;
 };
 
@@ -131,6 +133,7 @@ const stepTitles: Record<Step, string> = {
  */
 export function TransactionEditDialog({
   transaction,
+  depotId,
   close
 }: Props) {
   const [step, setStep] = useState<Step>("edit");
@@ -142,15 +145,20 @@ export function TransactionEditDialog({
   // The cash side of a security trade is changed through its trade (ADR 012), so its dialog shows the trade instead of the booking form.
   if (transaction.trade) {
     return (
-      <Dialog eyebrow="TRADE" title={`${transaction.trade.side === "buy" ? "Buy" : "Sell"} of ${transaction.trade.security_name}`} onClose={close}>
-        <BookingTradePanel transaction={transaction} trade={transaction.trade} close={close} />
+      <Dialog eyebrow="Trade" title={`${transaction.trade.side === "buy" ? "Buy" : "Sell"} of ${transaction.trade.security_name}`} onClose={close}>
+        <BookingTradePanel
+          transaction={transaction}
+          trade={transaction.trade}
+          depotId={depotId}
+          close={close}
+        />
       </Dialog>
     );
   }
 
   return (
     <Dialog
-      eyebrow="TRANSACTION"
+      eyebrow="Transaction"
       title={stepTitles[step]}
       wide={step === "edit"}
       onClose={close}

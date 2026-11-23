@@ -30,7 +30,7 @@ export function RemoveConnectionDialog({
   selectedConnection
 }: Props) {
   return (
-    <Dialog eyebrow="YOUR FINANCES" title="Remove connection" onClose={close}>
+    <Dialog eyebrow="Your finances" title="Remove connection" onClose={close}>
       <RemoveConnectionForm close={close} onRemoved={onRemoved} selectedConnection={selectedConnection} />
     </Dialog>
   );

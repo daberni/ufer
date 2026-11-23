@@ -103,6 +103,13 @@
   margin-top: var(--space-1);
 }
 
+/* Lines up with the name beside the holding toggle's chevron. */
+.skeleton-security {
+  display: grid;
+  justify-items: start;
+  padding-left: calc(16px + var(--space-2));
+}
+
 .warning {
   display: grid;
   justify-items: end;

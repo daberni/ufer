@@ -21,6 +21,11 @@ export function BrokerageChange({ accountId, currency }: {
   const trades = useBrokerageTrades(accountId);
   const performance = useBrokeragePerformance(accountId);
 
+  // The time-weighted percent sits beside the total, so the figures wait for the series instead of growing when it arrives.
+  if (trades.isPending || performance.isPending) {
+    return <ChangeFiguresSkeleton stacked />;
+  }
+
   return trades.data ? (
     <ChangeFigures
       summary={trades.data.summary}
@@ -29,6 +34,36 @@ export function BrokerageChange({ accountId, currency }: {
       stacked
     />
   ) : null;
+}
+
+/** The change figures' layout, held while the holdings load. */
+export function ChangeFiguresSkeleton({
+  stacked = false,
+  showTotal = true
+}: {
+  stacked?: boolean;
+  showTotal?: boolean;
+}) {
+  return (
+    <dl className={clsx(styles["figures"], stacked && styles["stacked"])} aria-hidden="true">
+      {showTotal && (
+        <div className={styles["figure"]}>
+          <dt><span className={ui["skeleton"]}>Total performance</span></dt>
+          <dd className={styles["amount"]}>
+            <span className={ui["skeleton"]}>+€0,000.00</span>
+            <span className={clsx(styles["percent"], ui["skeleton"])}>+00.0% time-weighted</span>
+          </dd>
+        </div>
+      )}
+      <div className={styles["figure"]}>
+        <dt><span className={ui["skeleton"]}>Since 23 Nov 2026</span></dt>
+        <dd className={styles["amount"]}>
+          <span className={ui["skeleton"]}>+€000.00</span>
+          <span className={clsx(styles["percent"], ui["skeleton"])}>+0.00%</span>
+        </dd>
+      </div>
+    </dl>
+  );
 }
 
 /** The total performance (unrealized plus realized, with its time-weighted %) and the change since the previous prices; without an honest figure it shows a dash and says why. */

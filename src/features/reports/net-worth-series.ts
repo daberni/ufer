@@ -28,7 +28,7 @@ export type NetWorthHistory = {
 const historyMonths = 12;
 
 /** The month ends before `endDate`, oldest first, followed by `endDate` itself. */
-function sampleDates(endDate: string) {
+export function sampleDates(endDate: string) {
   const end = Temporal.PlainDate.from(endDate);
   const dates: string[] = [];
 

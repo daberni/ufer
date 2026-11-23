@@ -4,6 +4,7 @@ import { securities, securityPrices, securitySplits, securityTrades, transaction
 import { resolveTransferCosts } from "../transfers";
 import type { HoldingInputs, TradeSettlement } from "../valuation";
 import { readSecurityLegs, readTradedSecurityIds } from "./security-repository";
+import { selectedPrices, type PriceSelection } from "./price-selection";
 
 /** A holding whose replay steps keep their stored trade or transfer id. */
 export type StoredHoldingInputs = HoldingInputs & {
@@ -16,10 +17,10 @@ export type AccountValuationInputs = {
 };
 
 /**
- * The trades, transfer legs, splits and prices of every security each of the given brokerage accounts traded or received, with each trade's cash booking, keyed by account.
+ * The trades, transfer legs, splits and the selected prices of every security each of the given brokerage accounts traded or received, with each trade's cash booking, keyed by account.
  * Received transfers carry the cost basis the sending account had, so the security's legs on every account are read.
  */
-export async function readHoldingInputs(accountIds: string[], executor?: Database | DatabaseTransaction) {
+export async function readHoldingInputs(accountIds: string[], selection: PriceSelection, executor?: Database | DatabaseTransaction) {
   const byAccount = new Map<string, AccountValuationInputs>();
   const db = executor ?? await database();
   const securityIds = await readTradedSecurityIds(db, accountIds);
@@ -39,14 +40,23 @@ export async function readHoldingInputs(accountIds: string[], executor?: Databas
     numerator: securitySplits.numerator,
     denominator: securitySplits.denominator
   }).from(securitySplits).where(inArray(securitySplits.security_id, securityIds)).orderBy(asc(securitySplits.date));
+  const legs = await readSecurityLegs(db, securityIds);
+  const requested = new Set(accountIds);
+  const resolved = securityIds.flatMap(securityId => resolveTransferCosts(legs.filter(leg => leg.security_id === securityId), splits.filter(split => split.security_id === securityId))).filter(leg => requested.has(leg.account_id)).toSorted((left, right) => left.date.localeCompare(right.date) || left.sequence - right.sequence);
+  const settlements = await db.select({
+    account_id: securityTrades.account_id,
+    trade_date: securityTrades.date,
+    // A hidden cash booking counts toward no balance, so it settles nothing either.
+    cash_date: transactions.date,
+    amount_minor: transactions.amount_minor
+  }).from(securityTrades).innerJoin(transactions, eq(transactions.id, securityTrades.settlement_transaction_id)).where(and(inArray(securityTrades.account_id, accountIds), isNull(transactions.suppressed_at))).orderBy(asc(securityTrades.date), asc(securityTrades.sequence));
+  // No account's value can change before its earliest trade, transfer or cash booking, so a history starts there.
+  const from = [...resolved.map(leg => leg.date), ...settlements.map(settlement => settlement.cash_date)].toSorted()[0] ?? "9999-12-31";
   const prices = await db.select({
     security_id: securityPrices.security_id,
     date: securityPrices.date,
     close_micros: securityPrices.close_micros
-  }).from(securityPrices).where(inArray(securityPrices.security_id, securityIds)).orderBy(asc(securityPrices.date));
-  const legs = await readSecurityLegs(db, securityIds);
-  const requested = new Set(accountIds);
-  const resolved = securityIds.flatMap(securityId => resolveTransferCosts(legs.filter(leg => leg.security_id === securityId), splits.filter(split => split.security_id === securityId))).filter(leg => requested.has(leg.account_id)).toSorted((left, right) => left.date.localeCompare(right.date) || left.sequence - right.sequence);
+  }).from(securityPrices).where(and(inArray(securityPrices.security_id, securityIds), selectedPrices(selection, from))).orderBy(asc(securityPrices.date));
 
   for (const leg of resolved) {
     const inputs = byAccount.get(leg.account_id) ?? {
@@ -72,14 +82,6 @@ export async function readHoldingInputs(accountIds: string[], executor?: Databas
     holding.trades.push(leg);
     byAccount.set(leg.account_id, inputs);
   }
-
-  const settlements = await db.select({
-    account_id: securityTrades.account_id,
-    trade_date: securityTrades.date,
-    // A hidden cash booking counts toward no balance, so it settles nothing either.
-    cash_date: transactions.date,
-    amount_minor: transactions.amount_minor
-  }).from(securityTrades).innerJoin(transactions, eq(transactions.id, securityTrades.settlement_transaction_id)).where(and(inArray(securityTrades.account_id, accountIds), isNull(transactions.suppressed_at))).orderBy(asc(securityTrades.date), asc(securityTrades.sequence));
 
   for (const settlement of settlements) {
     byAccount.get(settlement.account_id)?.settlements.push({
