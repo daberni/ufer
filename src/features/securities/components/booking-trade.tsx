@@ -7,17 +7,19 @@ import { useState } from "react";
 import Link from "next/link";
 import { clsx } from "clsx";
 import { Temporal } from "temporal-polyfill";
-import { ArrowRight, Check, Pencil, Unlink } from "lucide-react";
+import { ArrowRight, Check, Pencil, Trash2, Unlink } from "lucide-react";
 import { FormError } from "@/components/ui/form-error";
 import { useDialogSubmit } from "@/components/ui/use-dialog-submit";
 import { toFailure } from "@/client/api";
 import { useLocale } from "@/client/locale-provider";
 import { useAccountHref } from "@/client/use-app-url";
 import { dateWithYear } from "@/lib/date-format";
-import { decimalAmount, money, signedMoney } from "@/lib/money";
+import { decimalAmount, minorUnits, money, signedMoney } from "@/lib/money";
 import { today } from "@/lib/time";
 import type { Transaction, BookingTrade } from "@/features/transactions/types";
 import { useCorrectTrade, useDeleteTrade } from "../mutations";
+import { amountMinor } from "../holdings";
+import { parseMicros } from "../quantities";
 import { cashPreview } from "./trade-dialog";
 import { formatPrice, formatQuantity } from "./holding-format";
 
@@ -76,6 +78,27 @@ export function BookingTradePanel({
   );
 }
 
+/** The settlement booking as a card of its own, so the cash side reads apart from the trade. */
+function CashBooking({ transaction }: {
+  transaction: Transaction
+}) {
+  const locale = useLocale();
+  const text = [transaction.counterparty, transaction.description].filter(Boolean).join(" · ");
+
+  return (
+    <section className={styles["booking"]} aria-labelledby={`${transaction.id}-cash`}>
+      <h3 id={`${transaction.id}-cash`} className={styles["section-title"]}>Cash booking</h3>
+      <div className={styles["booking-main"]}>
+        <span className={styles["booking-text"]}>
+          <strong>{text || "No description"}</strong>
+          <small>{transaction.account_name} · {dateWithYear(Temporal.PlainDate.from(transaction.date), locale)}</small>
+        </span>
+        <strong className={clsx(styles["amount"], transaction.amount_minor > 0 && ui["positive"])}>{signedMoney(transaction.amount_minor, transaction.currency, locale)}</strong>
+      </div>
+    </section>
+  );
+}
+
 function TradeSummary({
   transaction,
   trade,
@@ -90,48 +113,58 @@ function TradeSummary({
   const locale = useLocale();
   const accountHref = useAccountHref();
   const frozen = transaction.account_archived || trade.account_archived;
+  const currency = transaction.currency;
 
   return (
     <div className={ui["form"]}>
-      <p className={ui["form-description"]}>
-        {transaction.account_name} · {dateWithYear(Temporal.PlainDate.from(transaction.date), locale)} · <strong>{signedMoney(transaction.amount_minor, transaction.currency, locale)}</strong>
-      </p>
-      <dl className={styles["facts"]}>
-        <dt>Trade</dt>
-        <dd>{trade.side === "buy" ? "Buy" : "Sale"} of {trade.security_name}{trade.security_isin && trade.security_isin !== trade.security_name ? ` (${trade.security_isin})` : ""}</dd>
-        <dt>Trade date</dt>
-        <dd>{dateWithYear(Temporal.PlainDate.from(trade.date), locale)}</dd>
-        <dt>Shares</dt>
-        <dd>{formatQuantity(trade.quantity_micros, locale)}</dd>
-        <dt>Price per share</dt>
-        <dd>{formatPrice(trade.price_micros, transaction.currency, locale)}</dd>
-        <dt>Traded amount</dt>
-        <dd>{money(trade.gross_minor, transaction.currency, locale)}</dd>
-        {trade.fee_minor > 0 && (
-          <>
-            <dt>Fees</dt>
-            <dd>{money(trade.fee_minor, transaction.currency, locale)}</dd>
-          </>
-        )}
-        {trade.tax_minor > 0 && (
-          <>
-            <dt>Taxes</dt>
-            <dd>{money(trade.tax_minor, transaction.currency, locale)}</dd>
-          </>
-        )}
-      </dl>
-      <Link className={clsx(ui["text-button"], styles["depot-link"])} href={accountHref(trade.account_id)}>
-        Open {trade.account_name} <ArrowRight size={15} />
-      </Link>
+      <CashBooking transaction={transaction} />
+      <section aria-labelledby={`${trade.id}-trade`}>
+        <h3 id={`${trade.id}-trade`} className={styles["section-title"]}>Trade</h3>
+        <dl className={styles["facts"]}>
+          <dt>Security</dt>
+          <dd className={styles["text"]}>
+            {trade.security_name}
+            {trade.security_isin && trade.security_isin !== trade.security_name && <small>{trade.security_isin}</small>}
+          </dd>
+          <dt>Depot</dt>
+          <dd className={styles["text"]}>
+            <Link className={ui["text-button"]} href={accountHref(trade.account_id)}>
+              {trade.account_name} <ArrowRight size={15} aria-hidden="true" />
+            </Link>
+          </dd>
+          <dt>Trade date</dt>
+          <dd>{dateWithYear(Temporal.PlainDate.from(trade.date), locale)}</dd>
+          <dt>Shares</dt>
+          <dd>{formatQuantity(trade.quantity_micros, locale)}</dd>
+          <dt>Price per share</dt>
+          <dd>{formatPrice(trade.price_micros, currency, locale)}</dd>
+          <dt>Traded amount</dt>
+          <dd>{money(trade.gross_minor, currency, locale)}</dd>
+          {trade.fee_minor > 0 && (
+            <>
+              <dt>Fees</dt>
+              <dd>{trade.side === "buy" ? "+" : "−"} {money(trade.fee_minor, currency, locale)}</dd>
+            </>
+          )}
+          {trade.tax_minor > 0 && (
+            <>
+              <dt>Taxes</dt>
+              <dd>{trade.side === "buy" ? "+" : "−"} {money(trade.tax_minor, currency, locale)}</dd>
+            </>
+          )}
+          <dt className={styles["total"]}>Cash amount</dt>
+          <dd className={styles["total"]}>{signedMoney(transaction.amount_minor, currency, locale)}</dd>
+        </dl>
+      </section>
       {frozen ? <p className={ui["form-hint"]}>This account is archived; restore it to change the trade.</p> : (
         <div className={ui["button-group"]}>
           <button type="button" className={ui["button"]} onClick={edit}>
-            <Pencil size={15} />
+            <Pencil size={15} aria-hidden="true" />
             Edit trade
           </button>
           <button type="button" className={ui["button"]} onClick={remove}>
-            <Unlink size={15} />
-            Remove trade
+            {trade.entry_owned ? <Trash2 size={15} aria-hidden="true" /> : <Unlink size={15} aria-hidden="true" />}
+            {trade.entry_owned ? "Delete trade" : "Unlink trade"}
           </button>
         </div>
       )}
@@ -154,7 +187,7 @@ function TradeCorrectionForm({
   const currency = transaction.currency;
   const [quantity, setQuantity] = useState(microsText(trade.quantity_micros));
   const [price, setPrice] = useState(microsText(trade.price_micros));
-  const [fee, setFee] = useState(trade.fee_minor ? decimalAmount(trade.fee_minor, currency) : "");
+  const [ownFee, setFee] = useState(trade.fee_minor ? decimalAmount(trade.fee_minor, currency) : "");
   const [tax, setTax] = useState(trade.tax_minor ? decimalAmount(trade.tax_minor, currency) : "");
   const {
     error,
@@ -164,10 +197,13 @@ function TradeCorrectionForm({
   // A recorded gross can differ from shares × price through broker rounding; it is kept until shares or price change.
   const keepGross = quantity === microsText(trade.quantity_micros) && price === microsText(trade.price_micros);
   const gross = keepGross ? decimalAmount(trade.gross_minor, currency) : undefined;
-  const cash = cashPreview(trade.side, quantity, price, fee, tax, currency, gross);
-  // A trade on an imported booking must keep matching it; a trade's own cash entry follows the correction.
+  // A trade on an imported booking must keep matching it, so its fees are what remains of the booking amount; a trade's own cash entry follows the correction.
   const imported = !trade.entry_owned;
-  const difference = imported && cash !== null ? transaction.amount_minor - cash : null;
+  const derivedFee = imported ? remainingFee(trade.side, transaction.amount_minor, quantity, price, tax, currency, gross) : null;
+  const mismatch = imported && (derivedFee === null || derivedFee < 0);
+  const derivedText = derivedFee !== null && !mismatch ? decimalAmount(derivedFee, currency) : "";
+  const fee = imported ? derivedText : ownFee;
+  const cash = cashPreview(trade.side, quantity, price, fee, tax, currency, gross);
 
   return (
     <form
@@ -182,7 +218,8 @@ function TradeCorrectionForm({
         tax: tax.trim() || "0"
       }))}
     >
-      <p className={ui["form-description"]}>{trade.side === "buy" ? "Buy" : "Sale"} of {trade.security_name}</p>
+      <CashBooking transaction={transaction} />
+      <h3 className={styles["section-title"]}>{trade.side === "buy" ? "Buy" : "Sell"} of {trade.security_name}</h3>
       <div className={styles["grid"]}>
         <label>
           Shares
@@ -206,16 +243,6 @@ function TradeCorrectionForm({
           />
         </label>
         <label>
-          Fees (optional)
-          <input
-            name="fee"
-            inputMode="decimal"
-            value={fee}
-            onChange={event => setFee(event.target.value)}
-            placeholder="0.00"
-          />
-        </label>
-        <label>
           Taxes (optional)
           <input
             name="tax"
@@ -225,6 +252,28 @@ function TradeCorrectionForm({
             placeholder="0.00"
           />
         </label>
+        {imported ? (
+          <label>
+            Fees (from the booking)
+            <input
+              name="fee"
+              value={fee}
+              readOnly
+              aria-describedby={`${trade.id}-fee-hint`}
+            />
+          </label>
+        ) : (
+          <label>
+            Fees (optional)
+            <input
+              name="fee"
+              inputMode="decimal"
+              value={ownFee}
+              onChange={event => setFee(event.target.value)}
+              placeholder="0.00"
+            />
+          </label>
+        )}
         <label>
           Trade date
           <input
@@ -236,9 +285,16 @@ function TradeCorrectionForm({
           />
         </label>
       </div>
-      <p className={ui["form-hint"]} aria-live="polite">
-        {cash === null ? "Enter shares and price to see the cash amount." : `Cash amount ${signedMoney(cash, currency, locale)}`}
-        {difference !== null && difference !== 0 && ` · differs from the booking by ${money(Math.abs(difference), currency, locale)}; adjust fees or taxes`}
+      <p id={`${trade.id}-fee-hint`} className={ui["form-hint"]} aria-live="polite">
+        {correctionHint({
+          imported,
+          mismatch,
+          cash,
+          bookingMinor: transaction.amount_minor,
+          hasTax: Boolean(tax.trim()),
+          currency,
+          locale
+        })}
       </p>
       <FormError failure={error} />
       <div className={ui["button-group"]}>
@@ -248,12 +304,44 @@ function TradeCorrectionForm({
           onClick={cancel}
           disabled={pending}
         >Back</button>
-        <button className={clsx(ui["button"], ui["primary"])} disabled={pending || cash === null || (difference !== null && difference !== 0)}>
+        <button className={clsx(ui["button"], ui["primary"])} disabled={pending || cash === null || mismatch}>
           Save trade <Check size={16} />
         </button>
       </div>
     </form>
   );
+}
+
+function correctionHint({ imported, mismatch, cash, bookingMinor, hasTax, currency, locale }: {
+  imported: boolean;
+  mismatch: boolean;
+  cash: number | null;
+  bookingMinor: number;
+  hasTax: boolean;
+  currency: string;
+  locale: string;
+}) {
+  if (!imported) {
+    return cash === null ? "Enter shares and price to see the cash amount." : `Cash amount ${signedMoney(cash, currency, locale)}`;
+  }
+
+  if (mismatch) {
+    return `Shares × price${hasTax ? " and taxes" : ""} exceed the booking amount of ${money(Math.abs(bookingMinor), currency, locale)}; check them.`;
+  }
+
+  return `The trade stays equal to the booking amount of ${signedMoney(bookingMinor, currency, locale)}; fees are the remainder.`;
+}
+
+/** The fee that makes a trade's cash equal a booking's amount, or null while shares, price or taxes are incomplete. Negative when the trade alone already exceeds the booking. */
+function remainingFee(side: BookingTrade["side"], bookingMinor: number, quantity: string, price: string, tax: string, currency: string, grossAmount?: string) {
+  try {
+    const gross = grossAmount === undefined ? amountMinor(parseMicros(quantity, "quantity"), parseMicros(price, "price"), currency) : minorUnits(grossAmount, currency);
+    const taxes = tax.trim() ? minorUnits(tax, currency) : 0;
+
+    return (side === "buy" ? -bookingMinor - gross : gross - bookingMinor) - taxes;
+  } catch {
+    return null;
+  }
 }
 
 function RemoveTrade({
@@ -266,13 +354,16 @@ function RemoveTrade({
   cancel: () => void;
 }) {
   const remove = useDeleteTrade();
+  const action = trade.entry_owned ? "Delete trade" : "Unlink trade";
 
   return (
     <div className={ui["form"]}>
-      <p className={ui["form-description"]}>
-        The {trade.side === "buy" ? "buy" : "sale"} of {trade.security_name} is removed from {trade.account_name}.
-        {trade.entry_owned ? " This booking was entered for the trade and is deleted with it." : " This booking stays and becomes an ordinary booking again; a type you had set before is not restored."}
-      </p>
+      <h3 className={styles["section-title"]}>{action}?</h3>
+      <ul className={styles["consequences"]}>
+        <li>The {trade.side === "buy" ? "buy" : "sell"} of {trade.security_name} is removed from {trade.account_name}, and its holdings and gains are recalculated.</li>
+        <li>{trade.entry_owned ? "This cash booking was entered for the trade and is deleted with it." : "The cash booking stays on its account with its amount and becomes an ordinary booking again. A type you had set before is not restored."}</li>
+        <li>You can record the trade again later{trade.entry_owned ? "" : " from the same booking"}.</li>
+      </ul>
       <FormError failure={remove.error ? toFailure(remove.error) : null} />
       <div className={ui["button-group"]}>
         <button
@@ -289,7 +380,7 @@ function RemoveTrade({
             onSuccess: close
           })}
         >
-          Remove trade
+          {trade.entry_owned ? "Delete trade and booking" : "Unlink trade, keep booking"}
         </button>
       </div>
     </div>
