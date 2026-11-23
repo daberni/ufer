@@ -65,7 +65,8 @@
 .toggle::after {
   content: "";
   position: absolute;
-  inset: 0;
+  inset: 0 calc(var(--space-3) * -1);
+  border-radius: var(--radius-md);
 }
 .toggle:focus-visible {
   outline: none;
@@ -73,10 +74,6 @@
 .toggle:focus-visible::after {
   outline: var(--focus-ring);
   outline-offset: -3px;
-}
-.toggle::after {
-  inset: 0 calc(var(--space-3) * -1);
-  border-radius: var(--radius-md);
 }
 .holding .price,
 .holding .warning {
