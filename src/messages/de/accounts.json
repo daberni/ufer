@@ -84,7 +84,7 @@
     "manual": "Manuell",
     "states": {
       "pending": "Noch nicht synchronisiert",
-      "attention": "Braucht Aufmerksamkeit",
+      "attention": "Aktion erforderlich",
       "error": "Synchronisierungsfehler",
       "archived": "Archiviert"
     },
