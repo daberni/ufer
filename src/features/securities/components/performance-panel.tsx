@@ -13,7 +13,6 @@ import { signedMoney } from "@/lib/money";
 import { plotBalances } from "@/features/accounts/balance-chart";
 import { describeBalanceDate } from "@/features/accounts/balance-presentation";
 import { useBalanceChart } from "@/features/accounts/use-balance-chart";
-import { BalanceHistoryChartSkeleton } from "@/features/accounts/components/balance-history-chart";
 import { useBrokeragePerformance } from "../queries";
 import type { BrokeragePerformance } from "../types";
 import { changeFromPrevious, performanceInRange, performanceRanges, type PerformanceRange, type RangePoint } from "../performance-range";
@@ -59,7 +58,7 @@ export function PerformanceView({
   const points = useMemo(() => performanceInRange(query.data?.points ?? [], range), [query.data, range]);
 
   return (
-    <section className={clsx(ui["panel"], styles["performance"])}>
+    <section className={clsx(ui["panel"], styles["performance"])} aria-busy={query.isPending}>
       <div className={ui["card-heading"]}>
         <h2>{title}</h2>
         <div className={styles["ranges"]} role="group" aria-label="Range">
@@ -74,11 +73,34 @@ export function PerformanceView({
           ))}
         </div>
       </div>
-      {query.isPending && <BalanceHistoryChartSkeleton />}
+      {query.isPending && <PerformanceChartSkeleton />}
       {query.isError && <p className={styles["note"]}>The performance could not be loaded.</p>}
       {query.data && (points.length > 1 ? <PerformanceChart points={points} currency={query.data.currency} /> : <p className={styles["note"]}>The chart appears once a trade is recorded.</p>)}
       {query.data && query.data.missing > 0 && <p className={styles["note"]}>{formatCountLabel(query.data.missing, "holding has", "holdings have", locale)} no price yet and count at cost, without performance.</p>}
     </section>
+  );
+}
+
+/** The performance chart's layout with its readout of return and gain, held until the series arrives. */
+function PerformanceChartSkeleton() {
+  return (
+    <figure className={chartStyles["chart"]} aria-hidden="true">
+      <figcaption className={chartStyles["readout"]}>
+        <span>
+          <span className={ui["skeleton"]}>23 Nov 2026</span>
+          <small className={ui["skeleton"]}>Since 12 Jan 2025</small>
+        </span>
+        <span className={styles["totals"]}>
+          <strong className={ui["skeleton"]}>+00.00%</strong>
+          <small className={ui["skeleton"]}>+€0,000.00</small>
+        </span>
+      </figcaption>
+      <div className={clsx(chartStyles["plot"], ui["skeleton"])} />
+      <div className={chartStyles["dates"]}>
+        <span className={ui["skeleton"]}>12 Jan 2025</span>
+        <span className={ui["skeleton"]}>23 Nov 2026</span>
+      </div>
+    </figure>
   );
 }
 
