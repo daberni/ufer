@@ -54,8 +54,13 @@
   position: relative;
   isolation: isolate;
 }
-.holding:hover {
+.holding:hover::before {
+  content: "";
+  position: absolute;
+  inset: 0 calc(var(--space-3) * -1);
+  border-radius: var(--radius-md);
   background: var(--surface-muted);
+  z-index: -1;
 }
 .toggle::after {
   content: "";
@@ -68,6 +73,9 @@
 .toggle:focus-visible::after {
   outline: var(--focus-ring);
   outline-offset: -3px;
+}
+.toggle::after {
+  inset: 0 calc(var(--space-3) * -1);
   border-radius: var(--radius-md);
 }
 .holding .price,
