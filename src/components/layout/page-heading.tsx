@@ -17,7 +17,7 @@ export function PageHeading({
   return (
     <div className={styles["page-heading"]}>
       <div>
-        <span className={ui["eyebrow"]}>CLARITY FOR YOUR FINANCES</span>
+        <span className={ui["eyebrow"]}>Clarity for your finances</span>
         <h1>{heading}</h1>
         <p className={styles["description"]}>{description}</p>
       </div>

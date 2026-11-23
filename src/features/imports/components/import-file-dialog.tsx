@@ -17,7 +17,7 @@ export function ImportFileDialog({
   const router = useRouter();
 
   return (
-    <Dialog eyebrow="YOUR FINANCES" title="Import file" onClose={close}>
+    <Dialog eyebrow="Your finances" title="Import file" onClose={close}>
       <div className={ui["form"]}>
         <p className={ui["form-description"]}>CAMT.053, OFX, QFX and QIF statements are read as they are. Any CSV export with a date and an amount works too; you choose what each column means. Next, you check the result. Nothing is saved before you import.</p>
         <FileDropZone

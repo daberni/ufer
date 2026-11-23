@@ -142,7 +142,7 @@ export function TransactionEditDialog({
   // The cash side of a security trade is changed through its trade (ADR 012), so its dialog shows the trade instead of the booking form.
   if (transaction.trade) {
     return (
-      <Dialog eyebrow="TRADE" title={`${transaction.trade.side === "buy" ? "Buy" : "Sell"} of ${transaction.trade.security_name}`} onClose={close}>
+      <Dialog eyebrow="Trade" title={`${transaction.trade.side === "buy" ? "Buy" : "Sell"} of ${transaction.trade.security_name}`} onClose={close}>
         <BookingTradePanel transaction={transaction} trade={transaction.trade} close={close} />
       </Dialog>
     );
@@ -150,7 +150,7 @@ export function TransactionEditDialog({
 
   return (
     <Dialog
-      eyebrow="TRANSACTION"
+      eyebrow="Transaction"
       title={stepTitles[step]}
       wide={step === "edit"}
       onClose={close}

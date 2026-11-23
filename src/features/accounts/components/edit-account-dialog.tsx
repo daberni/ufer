@@ -22,7 +22,7 @@ export function EditAccountDialog({
   close: () => void
 }) {
   return (
-    <Dialog eyebrow="YOUR FINANCES" title="Edit account" onClose={close}>
+    <Dialog eyebrow="Your finances" title="Edit account" onClose={close}>
       <EditAccountForm account={account} close={close} />
     </Dialog>
   );

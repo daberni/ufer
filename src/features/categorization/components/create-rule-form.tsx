@@ -41,7 +41,7 @@ export function RuleDialog({
   }
 
   return (
-    <Dialog eyebrow="YOUR FINANCES" title={title} onClose={close}>
+    <Dialog eyebrow="Your finances" title={title} onClose={close}>
       {rule && deleting ? <RuleDeleteConfirmation rule={rule} close={close} cancel={() => setDeleting(false)} /> : <RuleForm close={close} rule={rule} onDelete={() => setDeleting(true)} />}
     </Dialog>
   );

@@ -51,7 +51,7 @@ export function LoginForm() {
         <div className={styles["brand-symbol"]}>
           <BrandIcon size={56} label="Ufer" />
         </div>
-        <span className={ui["eyebrow"]}>YOUR PERSONAL OVERVIEW</span>
+        <span className={ui["eyebrow"]}>Your personal overview</span>
         <h1>Welcome back.</h1>
         <p>Your finances, under your control.</p>
         <label>
