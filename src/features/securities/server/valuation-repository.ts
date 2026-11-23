@@ -1,15 +1,16 @@
-import { asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { database } from "@/server/database/connection";
 import { securities, securityPrices, securitySplits, securityTrades, transactions } from "@/server/database/schema";
 import type { HoldingInputs, TradeSettlement } from "../valuation";
+import { selectedPrices, type PriceSelection } from "./price-selection";
 
 export type AccountValuationInputs = {
   holdings: HoldingInputs[];
   settlements: TradeSettlement[];
 };
 
-/** The trades, splits and prices of every security each of the given brokerage accounts traded, with each trade's cash booking, keyed by account. */
-export async function readHoldingInputs(accountIds: string[]) {
+/** The trades, splits and the selected prices of every security each of the given brokerage accounts traded, with each trade's cash booking, keyed by account. */
+export async function readHoldingInputs(accountIds: string[], selection: PriceSelection) {
   const byAccount = new Map<string, AccountValuationInputs>();
 
   if (!accountIds.length) {
@@ -44,11 +45,13 @@ export async function readHoldingInputs(accountIds: string[]) {
     numerator: securitySplits.numerator,
     denominator: securitySplits.denominator
   }).from(securitySplits).where(inArray(securitySplits.security_id, securityIds));
+  // No account's value can change before its earliest trade or cash booking, so a history starts there.
+  const from = trades.flatMap(trade => trade.cash_date === null ? [trade.date] : [trade.date, trade.cash_date]).toSorted()[0]!;
   const prices = await db.select({
     security_id: securityPrices.security_id,
     date: securityPrices.date,
     close_micros: securityPrices.close_micros
-  }).from(securityPrices).where(inArray(securityPrices.security_id, securityIds)).orderBy(asc(securityPrices.date));
+  }).from(securityPrices).where(and(inArray(securityPrices.security_id, securityIds), selectedPrices(selection, from))).orderBy(asc(securityPrices.date));
 
   for (const trade of trades) {
     const inputs = byAccount.get(trade.account_id) ?? {

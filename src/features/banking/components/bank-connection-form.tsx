@@ -73,7 +73,7 @@ export function BankConnectionDialog({
   account
 }: Props) {
   return (
-    <Dialog eyebrow="YOUR FINANCES" title={account ? "Connect to bank" : "Connect bank"} onClose={close}>
+    <Dialog eyebrow="Your finances" title={account ? "Connect to bank" : "Connect bank"} onClose={close}>
       <BankConnectionForm close={close} connection={connection} account={account} />
     </Dialog>
   );

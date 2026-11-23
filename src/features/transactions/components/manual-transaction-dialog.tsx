@@ -31,7 +31,7 @@ export function ManualTransactionDialog({
   close
 }: Props) {
   return (
-    <Dialog eyebrow="YOUR FINANCES" title="Add transaction" onClose={close}>
+    <Dialog eyebrow="Your finances" title="Add transaction" onClose={close}>
       <ManualTransactionForm accounts={accounts} accountId={accountId} close={close} />
     </Dialog>
   );

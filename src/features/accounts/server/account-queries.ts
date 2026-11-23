@@ -8,7 +8,7 @@ import { dailyBalances } from "@/features/accounts/daily-balances";
 import { reportedBalanceDifferences } from "@/features/accounts/reported-balances";
 import { netWorthCategories, netWorthCategory, type NetWorthCategory } from "@/features/accounts/net-worth-categories";
 import type { BalanceHistory, BalancePoint } from "@/features/accounts/types";
-import { valueHoldings, valuationSeries } from "@/features/securities/valuation";
+import { valuationOn, valueHoldings, valuationSeries } from "@/features/securities/valuation";
 import { readHoldingInputs } from "@/features/securities/server/valuation-repository";
 
 // Every account's balance is the sum of its visible transactions, dated with its newest one.
@@ -57,8 +57,12 @@ export async function listAccounts(now = Temporal.Now.instant()) {
     archived_at: accounts.archived_at
   }).from(accounts).leftJoin(requisitions, eq(requisitions.id, accounts.requisition_id)).orderBy(kindOrder, asc(accounts.name));
   const brokerage = rows.filter(row => row.kind === "brokerage").map(row => row.id);
-  const inputs = await readHoldingInputs(brokerage);
   const date = today(now).toString();
+  const inputs = await readHoldingInputs(brokerage, {
+    kind: "latest",
+    date,
+    count: 1
+  });
 
   return rows.map(row => {
     if (row.kind !== "brokerage") {
@@ -138,6 +142,23 @@ export async function readNetWorth(currency: string, now = Temporal.Now.instant(
   };
 }
 
+/** Each brokerage account's value on each of the given dates, as its balance history reports it there, reading only the closes valid on those dates. */
+export async function readBrokerageValuations(accountIds: string[], dates: string[]) {
+  const inputs = await readHoldingInputs(accountIds, {
+    kind: "dates",
+    dates
+  });
+
+  return new Map(accountIds.map(id => {
+    const account = inputs.get(id);
+
+    return [id, dates.map(date => ({
+      date,
+      amount_minor: account ? valuationOn(account.holdings, account.settlements, date) : 0
+    }))];
+  }));
+}
+
 /** An account's running balance from its transactions, ending at the last sync coverage for a bank-linked account. */
 export async function readBalanceHistory(accountId: string, now = Temporal.Now.instant()): Promise<BalanceHistory> {
   const db = await database();
@@ -155,7 +176,10 @@ export async function readBalanceHistory(accountId: string, now = Temporal.Now.i
   const currentDate = today(now).toString();
 
   if (account.kind === "brokerage") {
-    const inputs = (await readHoldingInputs([accountId])).get(accountId);
+    const inputs = (await readHoldingInputs([accountId], {
+      kind: "history",
+      through: currentDate
+    })).get(accountId);
 
     return {
       currency: account.currency,
