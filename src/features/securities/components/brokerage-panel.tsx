@@ -169,6 +169,7 @@ function HoldingRow({
               }).format(gainPercent)}
             </small>
           )}
+          {held && holding.realized_minor !== 0 && <small>{signedMoney(holding.realized_minor, currency, locale)} realized</small>}
         </span>
       </div>
       {expanded && (
