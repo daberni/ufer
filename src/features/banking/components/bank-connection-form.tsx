@@ -17,7 +17,7 @@ import { SearchableSelect, type SearchableSelectOption } from "@/components/ui/s
 import { Select } from "@/components/ui/select";
 import { Dialog } from "@/components/ui/dialog";
 import { useBankingConfiguration } from "@/features/banking/banking-configuration";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 
 type ConnectMessages = ReturnType<typeof useTranslations<"banking.connect">>;
 
@@ -85,7 +85,10 @@ function BankConnectionForm({
   account
 }: Props) {
   const t = useTranslations("banking.connect");
-  const countries = useTranslations("banking.countries");
+  // Country names come from the runtime in the interface language, so no catalog has to list them.
+  const countryNames = new Intl.DisplayNames([useLocale()], {
+    type: "region"
+  });
   const { environment } = useBankingConfiguration();
   const directory = useBankDirectory(connection);
   const status = directoryStatus(directory, t);
@@ -117,7 +120,7 @@ function BankConnectionForm({
       <label>
         {t("country")}
         <Select value={directory.country} onChange={event => directory.setCountry(event.target.value)}>
-          {bankCountries.map(country => <option key={country.code} value={country.code}>{countries(country.code)}</option>)}
+          {bankCountries.map(country => <option key={country.code} value={country.code}>{countryNames.of(country.code) ?? country.code}</option>)}
         </Select>
       </label>
       <div className={ui["field"]}>

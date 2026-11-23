@@ -17,13 +17,6 @@
     "bank": "Bank",
     "authorize": "Bei der Bank freigeben"
   },
-  "countries": {
-    "AT": "Österreich",
-    "DE": "Deutschland",
-    "FI": "Finnland",
-    "GB": "Vereinigtes Königreich",
-    "SE": "Schweden"
-  },
   "remove": {
     "title": "Bankverbindung entfernen",
     "notSynced": "Diese Konten werden nicht mehr synchronisiert, auch nicht automatisch. Jeder Saldo bleibt die Summe der Buchungen des Kontos.",

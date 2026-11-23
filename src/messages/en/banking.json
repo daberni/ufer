@@ -17,13 +17,6 @@
     "bank": "Bank",
     "authorize": "Authorize with bank"
   },
-  "countries": {
-    "AT": "Austria",
-    "DE": "Germany",
-    "FI": "Finland",
-    "GB": "United Kingdom",
-    "SE": "Sweden"
-  },
   "remove": {
     "title": "Remove connection",
     "notSynced": "These accounts are no longer synced, including scheduled syncs. Each balance remains the sum of the account's bookings.",
