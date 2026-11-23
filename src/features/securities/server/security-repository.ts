@@ -306,7 +306,7 @@ export async function readTradedSecurityIds(tx: DatabaseTransaction, accountId: 
 
 /**
  * Returns the security recorded for an ISIN in a currency, inserting `security` when there is none, inside the caller's transaction; a trade uses its own, so a rejected trade leaves no new security behind.
- * A listing another security already uses is left off the new row.
+ * Of several listings of the same ISIN, the oldest listed one is used, so the trade gets prices; a listing another security already uses is left off a new row.
  */
 export async function findOrInsertSecurity(tx: DatabaseTransaction, security: NewSecurity & {
   isin: string
@@ -316,7 +316,7 @@ export async function findOrInsertSecurity(tx: DatabaseTransaction, security: Ne
     name: securities.name,
     currency: securities.currency,
     provider_symbol: securities.provider_symbol
-  }).from(securities).where(and(eq(securities.isin, security.isin), eq(securities.currency, security.currency))).orderBy(asc(securities.created_at)).get();
+  }).from(securities).where(and(eq(securities.isin, security.isin), eq(securities.currency, security.currency))).orderBy(sql`${securities.provider_symbol} IS NULL`, asc(securities.created_at)).get();
 
   if (existing) {
     return {
