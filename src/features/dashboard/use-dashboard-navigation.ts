@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { useTranslations } from "next-intl";
 import { usePathname, useRouter } from "next/navigation";
 import type { Feedback } from "@/components/ui/use-action-feedback";
 import { callbackFailureMessage, parseCallbackResult, type CallbackResult } from "@/features/banking/callback-result";
@@ -12,6 +13,7 @@ import { isAccountList, isPeriodAware } from "@/client/app-location";
  * Keeps the UI store in step with navigation: a page message belongs to the view it was reported on, views without a period remember the last one selected, an account's details return to the list they were opened from, and a bank callback result is shown once.
  */
 export function useDashboardNavigation() {
+  const t = useTranslations("overview");
   const router = useRouter();
   const pathname = usePathname();
   const view = useView();
@@ -51,7 +53,7 @@ export function useDashboardNavigation() {
     }
 
     if (result) {
-      store.getState().reportFeedback(bankingCallbackFeedback(result));
+      store.getState().reportFeedback(bankingCallbackFeedback(result, t("bankConnected")));
     }
 
     params.delete("banking");
@@ -62,14 +64,14 @@ export function useDashboardNavigation() {
     router.replace(`${destination}${window.location.hash}`, {
       scroll: false
     });
-  }, [store, router]);
+  }, [store, router, t]);
 }
 
-function bankingCallbackFeedback(result: CallbackResult): Feedback {
+function bankingCallbackFeedback(result: CallbackResult, connectedMessage: string): Feedback {
   if (result === "connected") {
     return {
       tone: "success",
-      messages: ["Bank connected. Select “Sync” to retrieve balances and transactions for the first time."]
+      messages: [connectedMessage]
     };
   }
 

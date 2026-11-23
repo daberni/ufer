@@ -9,23 +9,30 @@ import { CategoryLabel, type DisplayCategory, type NeutralCategory } from "@/fea
 import { categoryBarColor, neutralChipColor, themedColor } from "@/features/categorization/category-colors";
 import { displayName, type CategoryGroup } from "@/features/reports/category-groups";
 import { useLocale } from "@/client/locale-provider";
+import { useTranslations } from "next-intl";
+
+/** Translated words for describing category rows outside a component. */
+export type CategoryGroupWords = {
+  none: string;
+  more: (count: string) => string;
+};
 
 /** The rows as one sentence for an accessible description, e.g. "Groceries €120.00 (40%), Rent €180.00 (60%)". */
-export function describeCategoryGroups(groups: CategoryGroup[], currency: string, locale: string) {
+export function describeCategoryGroups(groups: CategoryGroup[], currency: string, locale: string, words: CategoryGroupWords) {
   if (!groups.length) {
-    return "None.";
+    return words.none;
   }
 
-  return groups.map(group => `${displayName(group, locale)} ${money(group.amount, currency, locale)} (${formatPercent(group.share, locale)})`).join(", ");
+  return groups.map(group => `${displayName(group, locale, words.more)} ${money(group.amount, currency, locale)} (${formatPercent(group.share, locale)})`).join(", ");
 }
 
-function groupCategory(group: CategoryGroup, locale: string): DisplayCategory | NeutralCategory {
+function groupCategory(group: CategoryGroup, locale: string, moreLabel: (count: string) => string): DisplayCategory | NeutralCategory {
   if (group.key === "uncategorized") {
     return "uncategorized";
   }
 
   return {
-    name: displayName(group, locale),
+    name: displayName(group, locale, moreLabel),
     color: group.color,
     icon: group.icon
   };
@@ -52,7 +59,11 @@ export function CategoryRows({
   rowLink,
   className
 }: Props) {
+  const t = useTranslations("reports.categories");
   const locale = useLocale();
+  const moreLabel = (count: string) => t("more", {
+    count
+  });
 
   return (
     <div className={clsx(styles["rows"], className)}>
@@ -61,7 +72,7 @@ export function CategoryRows({
         const content = (
           <>
             <span className={styles["category"]}>
-              <CategoryLabel category={groupCategory(group, locale)} />
+              <CategoryLabel category={groupCategory(group, locale, moreLabel)} />
             </span>
             <strong>{money(group.amount, currency, locale)}</strong>
             <div>

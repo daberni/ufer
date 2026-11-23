@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test, type TestContext } from "node:test";
 import { act, renderHook } from "@testing-library/react";
+import { withIntl } from "./fixtures/intl";
 import { createElement, type ReactNode } from "react";
 import { Temporal } from "temporal-polyfill";
 import { AppRouterContext, type AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
@@ -36,11 +37,11 @@ function renderUrlState(context: TestContext, url: string) {
       value: new URLSearchParams(window.location.search)
     }, children));
 
-    return createElement(AppStoreProvider, {
+    return withIntl(createElement(AppStoreProvider, {
       locked: false
     }, createElement(AppRouterContext, {
       value: router
-    }, route));
+    }, route)));
   }
 
   const rendered = renderHook(() => {

@@ -1,0 +1,58 @@
+{
+  "categories": {
+    "none": "None.",
+    "more": "+{count} more"
+  },
+  "accountCashFlow": {
+    "title": "Cash flow",
+    "allMonths": "All months",
+    "income": "Income",
+    "spending": "Spending",
+    "transfers": "Transfers",
+    "transfersDetail": "In {incoming} · Out {outgoing}",
+    "failure": "The cash flow could not be loaded"
+  },
+  "breakdown": {
+    "title": "By category",
+    "allMonths": "All months",
+    "viewTransactions": "View transactions",
+    "viewTransactionsLabel": "View transactions, {context}",
+    "net": "Net",
+    "savingsRate": "Savings rate",
+    "failure": "Income and spending by category could not be loaded",
+    "income": "Income",
+    "expenses": "Expenses",
+    "viewIncomeIn": "View income in {category}, {context}",
+    "viewExpensesIn": "View expenses in {category}, {context}",
+    "noIncomeMonth": "No income this month.",
+    "noIncomePeriod": "No income in this period.",
+    "noExpensesMonth": "No expenses this month.",
+    "noExpensesPeriod": "No expenses in this period."
+  },
+  "chart": {
+    "title": "Income & expenses",
+    "income": "Income",
+    "expenses": "Expenses",
+    "net": "Net",
+    "savingsRate": "Savings rate",
+    "failure": "Income and expenses could not be loaded",
+    "plotLabel": "Monthly income, expenses and net, {range}",
+    "monthDescription": "Income by category: {income} Spending by category: {expenses}",
+    "monthLabel": "{month}: income {income}, expenses {expenses}, net {net}, savings rate {rate}",
+    "currentMonthLabel": "{month} (this month): income {income}, expenses {expenses}, net {net}, savings rate {rate}",
+    "empty": "Your history appears here after the first import."
+  },
+  "wealth": {
+    "netWorth": "Net worth",
+    "since": "since {month}",
+    "unvalued": "{count, number} without a balance",
+    "incompleteValuations": "{count, number} valued with missing or old prices",
+    "cash": "Cash",
+    "investments": "Investments",
+    "property": "Property",
+    "loans": "Loans",
+    "showChanges": "Show changes since {month}",
+    "changeAnnouncement": "Since {month}: net worth {netWorth}, cash {cash}, investments {investments}, property {property}, loans {loans}.",
+    "failure": "Your net worth could not be loaded"
+  }
+}

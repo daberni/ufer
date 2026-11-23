@@ -5,8 +5,10 @@ import accountStyles from "./account-presentation.module.css";
 import { clsx } from "clsx";
 import styles from "./account-type-choice.module.css";
 import { useId } from "react";
-import { accountIcon, kinds } from "@/features/accounts/account-presentation";
-import { accountTypeCopy, accountTypeGroups } from "./account-type-options";
+import { accountIcon } from "@/features/accounts/account-presentation";
+import { accountTypeGroups } from "./account-type-options";
+import { useAccountKindLabel } from "./use-account-kind-label";
+import { useTranslations } from "next-intl";
 import type { StoredAccountKind } from "../account-kinds";
 
 type Props = {
@@ -20,19 +22,21 @@ type Props = {
 export function AccountTypeChoice({
   selected,
   onSelect,
-  legend = "What do you want to add?",
+  legend,
   ledgerOnly = false
 }: Props) {
+  const t = useTranslations("accounts");
+  const kindLabel = useAccountKindLabel();
   const id = useId();
 
   return (
     <fieldset className={styles["type-choice"]}>
-      <legend className={styles["choice-legend"]}>{legend}</legend>
+      <legend className={styles["choice-legend"]}>{legend ?? t("typeChoice.legend")}</legend>
       {accountTypeGroups.map(group => (
         <fieldset className={styles["type-group"]} key={group.id}>
           <legend className={styles["group-legend"]}>
-            {group.title}
-            <small>{group.description}</small>
+            {t(`typeGroups.${group.id}.title`)}
+            <small>{t(`typeGroups.${group.id}.description`)}</small>
           </legend>
           <div className={styles["options"]}>
             {group.kinds.filter(kind => !ledgerOnly || kind !== "brokerage").map(kind => {
@@ -46,8 +50,8 @@ export function AccountTypeChoice({
                     <Icon size={19} aria-hidden="true" />
                   </span>
                   <span className={styles["option-text"]}>
-                    <span id={labelId}>{kinds[kind]}</span>
-                    <small id={descriptionId}>{accountTypeCopy[kind].description}</small>
+                    <span id={labelId}>{kindLabel(kind)}</span>
+                    <small id={descriptionId}>{t(`types.${kind}.description`)}</small>
                   </span>
                   <input
                     type="radio"

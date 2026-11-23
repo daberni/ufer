@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { Temporal } from "temporal-polyfill";
 import { Archive, ArchiveRestore, ArrowRight, Link2, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { toFailure } from "@/client/api";
@@ -25,13 +26,14 @@ type Dialog = "edit" | "reconnect" | "connect" | "close" | "delete" | null;
 export function AccountMenu({
   account,
   addTransaction,
-  addLabel = "Add transaction"
+  addLabel
 }: {
   account: Account;
   /** Offered as the first entry on phones, where the heading shows no separate "Add transaction" button. */
   addTransaction?: () => void;
   addLabel?: string;
 }) {
+  const t = useTranslations("accounts.menu");
   const [dialog, setDialog] = useState<Dialog>(null);
   const archive = useArchiveAccount(account.id);
   const restore = useRestoreAccount(account.id);
@@ -51,42 +53,47 @@ export function AccountMenu({
 
   return (
     <>
-      <ActionMenu label={`Actions for ${account.name}`} appearance="button">
+      <ActionMenu
+        label={t("label", {
+          name: account.name
+        })}
+        appearance="button"
+      >
         {addTransaction && (
           <MenuItem icon={<Plus size={15} aria-hidden="true" />} phoneOnly onSelect={addTransaction}>
-            {addLabel}
+            {addLabel ?? t("addTransaction")}
           </MenuItem>
         )}
         <MenuItem icon={<Pencil size={15} aria-hidden="true" />} onSelect={() => setDialog("edit")}>
-          Edit account
+          {t("edit")}
         </MenuItem>
         {offersReconnect && (
           <MenuItem icon={<RefreshCw size={15} aria-hidden="true" />} onSelect={() => setDialog("reconnect")}>
-            Reconnect
+            {t("reconnect")}
           </MenuItem>
         )}
         {bankLinked && !connection && (
           <MenuLink icon={<ArrowRight size={15} aria-hidden="true" />} href={bankConnectionsHref}>
-            Manage bank connections
+            {t("manageConnections")}
           </MenuLink>
         )}
         {!bankLinked && !brokerage && !archived && (
           <MenuItem icon={<Link2 size={15} aria-hidden="true" />} onSelect={() => setDialog("connect")}>
-            Connect to bank
+            {t("connect")}
           </MenuItem>
         )}
         {archived ? (
           <MenuItem icon={<ArchiveRestore size={15} aria-hidden="true" />} disabled={restore.isPending} onSelect={() => restore.mutate()}>
-            Restore account
+            {t("restore")}
           </MenuItem>
         ) : (
           <MenuItem icon={<Archive size={15} aria-hidden="true" />} disabled={archive.isPending} onSelect={() => settled || brokerage ? archive.mutate({}) : setDialog("close")}>
-            Archive account
+            {t("archive")}
           </MenuItem>
         )}
         {detached && (
           <MenuItem icon={<Trash2 size={15} aria-hidden="true" />} danger onSelect={() => setDialog("delete")}>
-            Delete account
+            {t("delete")}
           </MenuItem>
         )}
       </ActionMenu>
@@ -96,7 +103,7 @@ export function AccountMenu({
           messages: [failure.message],
           traceId: failure.traceId
         } : null}
-        dismissLabel="Dismiss"
+        dismissLabel={t("dismiss")}
         onDismiss={() => {
           archive.reset();
           restore.reset();

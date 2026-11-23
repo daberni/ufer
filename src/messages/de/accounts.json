@@ -1,0 +1,230 @@
+{
+  "dialogEyebrow": "Deine Finanzen",
+  "kinds": {
+    "checking": "Girokonto",
+    "savings": "Sparkonto",
+    "investment": "Anlagekonto",
+    "brokerage": "Depot",
+    "loan": "Kredit",
+    "property": "Immobilie",
+    "credit_card": "Kreditkarte"
+  },
+  "typeChoice": {
+    "legend": "Was möchtest du hinzufügen?"
+  },
+  "typeGroups": {
+    "bankAccounts": {
+      "title": "Bankkonten",
+      "description": "Geld zum Ausgeben oder Zurücklegen"
+    },
+    "investments": {
+      "title": "Investments & Immobilien",
+      "description": "Besitz, dessen Wert sich ändert"
+    },
+    "debts": {
+      "title": "Schulden",
+      "description": "Geld, das du schuldest"
+    }
+  },
+  "types": {
+    "checking": {
+      "description": "Alltagszahlungen, Gehalt und Rechnungen",
+      "namePlaceholder": "z. B. Alltagskonto",
+      "balanceLabel": "Aktueller Saldo",
+      "hint": "Verwende einen Dezimalpunkt. Gib einen überzogenen Saldo als negative Zahl ein."
+    },
+    "savings": {
+      "description": "Zurückgelegtes oder angelegtes Geld für später",
+      "namePlaceholder": "z. B. Notgroschen",
+      "balanceLabel": "Aktueller Saldo",
+      "hint": "Verwende einen Dezimalpunkt."
+    },
+    "investment": {
+      "description": "Wertpapiere, Fonds oder Altersvorsorge",
+      "namePlaceholder": "z. B. Wertpapierportfolio",
+      "balanceLabel": "Aktueller Wert",
+      "hint": "Gib nur den Wert der Bestände ein und führe das Verrechnungsgeld als eigenes Girokonto, damit es nicht doppelt zählt. Verwende einen Dezimalpunkt."
+    },
+    "brokerage": {
+      "description": "Wertpapiere mit Trades und täglichen Kursen",
+      "namePlaceholder": "z. B. Depot",
+      "balanceLabel": "Aktueller Wert",
+      "hint": "Sein Wert ergibt sich aus den erfassten Trades und täglichen Kursen; das Geld für jeden Trade bewegt sich auf einem eigenen Girokonto."
+    },
+    "property": {
+      "description": "Haus, Wohnung oder Grundstück",
+      "namePlaceholder": "z. B. Wohnung",
+      "balanceLabel": "Geschätzter Wert",
+      "hint": "Gib deine eigene Schätzung des aktuellen Marktwerts ein. Verwende einen Dezimalpunkt."
+    },
+    "credit_card": {
+      "description": "Kartenausgaben, die du später zurückzahlst",
+      "namePlaceholder": "z. B. Reisekarte",
+      "balanceLabel": "Offener Saldo",
+      "hint": "Gib den aktuell geschuldeten Betrag als negative Zahl ein, z. B. -350.00."
+    },
+    "loan": {
+      "description": "Hypothek, Auto- oder Privatkredit",
+      "namePlaceholder": "z. B. Hypothek",
+      "balanceLabel": "Noch offener Betrag",
+      "hint": "Gib den noch offenen Betrag als negative Zahl ein, z. B. -12000.00."
+    }
+  },
+  "currencyChoice": {
+    "label": "Angezeigte Konten nach Währung",
+    "option": "{currency}-Konten"
+  },
+  "actions": {
+    "addTrade": "Trade hinzufügen",
+    "addTransaction": "Buchung hinzufügen"
+  },
+  "source": {
+    "bank": "Bank",
+    "trades": "Trades und Kurse",
+    "manual": "Manuell",
+    "states": {
+      "pending": "Noch nicht synchronisiert",
+      "attention": "Aktion erforderlich",
+      "error": "Synchronisierungsfehler",
+      "archived": "Archiviert"
+    },
+    "synced": "Synchronisiert",
+    "syncedAt": "Synchronisiert <date></date>"
+  },
+  "notices": {
+    "expired": "Die Bankfreigabe ist am <date></date> abgelaufen. Verbinde die Bank erneut, um weiter zu synchronisieren.",
+    "syncFailed": "Die letzte Synchronisierung ist fehlgeschlagen: {message}",
+    "reconnect": "Bank erneut verbinden",
+    "manageConnections": "Bankverbindungen verwalten",
+    "mismatch": "Die Bank meldet {reported} am <date></date>, die Buchungen bis zu diesem Tag ergeben aber {calculated}.",
+    "bookAdjustment": "Korrektur über {amount} buchen"
+  },
+  "details": {
+    "failure": "Dieses Konto konnte nicht geladen werden",
+    "back": "Zurück",
+    "notFoundTitle": "Dieses Konto ist nicht verfügbar",
+    "notFoundBody": "Es wurde vielleicht entfernt, oder der Link gehört zu einer anderen Installation."
+  },
+  "edit": {
+    "title": "Konto bearbeiten",
+    "name": "Kontoname",
+    "bankName": "Name bei der Bank: {name}",
+    "type": "Kontoart",
+    "save": "Speichern",
+    "brokerageNote": "Kontoart: <strong>{type}</strong>. Ein Depot enthält Wertpapiere und behält seine Art.",
+    "archivedNote": "Kontoart: <strong>{type}</strong>. Stelle das Konto wieder her, um seine Art zu ändern.",
+    "bankNote": "Kontoart: <strong>{type}</strong>. Ein mit der Bank synchronisiertes Konto behält die Art aus seiner Bankverbindung."
+  },
+  "delete": {
+    "title": "Konto löschen",
+    "mismatch": "Gib den genauen Namen des Kontos ein, um das Löschen zu bestätigen.",
+    "warning": "Löschen kann nicht rückgängig gemacht werden. Um den Verlauf in Auswertungen zu behalten, archiviere das Konto stattdessen.",
+    "effectBookings": "Alle Buchungen dieses Kontos, ihre Aufteilungen und sein Saldoverlauf werden gelöscht. Vermögen und Cashflow enthalten sie nicht mehr.",
+    "effectTransfers": "Umbuchungen, die mit Buchungen auf anderen Konten verknüpft sind, bleiben dort mit ihren Beträgen als Umbuchungen ohne Gegenkonto.",
+    "effectRules": "Regeln, die dieses Konto als Umbuchungsziel nennen, behalten die Art Umbuchung ohne Gegenkonto.",
+    "confirmLabel": "Gib zur Bestätigung den Kontonamen ein",
+    "cancel": "Abbrechen",
+    "submit": "Endgültig löschen"
+  },
+  "archive": {
+    "title": "Konto archivieren",
+    "bankNotice": "Ein Konto kann nur mit einem Saldo von 0 archiviert werden. Der Saldo dieses Kontos folgt seinen Bankbuchungen, daher kann Ufer ihn nicht ausbuchen. Archiviere es, sobald seine Buchungen den Saldo auf 0 bringen.",
+    "manualNotice": "Ein Konto kann nur mit einem Saldo von 0 archiviert werden. Ufer bucht die restlichen {amount} aus und archiviert dann das Konto.",
+    "bookAs": "Saldo buchen als",
+    "adjustment": "Korrektur, kein anderes Konto",
+    "transferTo": "Umbuchung auf {name}",
+    "closingDate": "Abschlussdatum",
+    "cancel": "Abbrechen",
+    "submit": "Abschließen und archivieren"
+  },
+  "menu": {
+    "label": "Aktionen für {name}",
+    "addTransaction": "Buchung hinzufügen",
+    "edit": "Konto bearbeiten",
+    "reconnect": "Erneut verbinden",
+    "manageConnections": "Bankverbindungen verwalten",
+    "connect": "Mit Bank verbinden",
+    "restore": "Konto wiederherstellen",
+    "archive": "Konto archivieren",
+    "delete": "Konto löschen",
+    "dismiss": "Schließen"
+  },
+  "summary": {
+    "label": "Kontoübersicht",
+    "updateBalanceOf": "Saldo von {name} aktualisieren",
+    "updateBalance": "Saldo aktualisieren",
+    "archived": "Archiviert am <date></date> · in Listen ausgeblendet, in Auswertungen weiter gezählt"
+  },
+  "valuation": {
+    "title": "Saldo aktualisieren",
+    "balance": "Neuer Saldo",
+    "date": "Saldodatum",
+    "hint": "Der Saldo ergibt sich aus den Buchungen des Kontos. Beim Speichern wird die Differenz zum Saldo an diesem Datum als Korrektur gebucht, zum Beispiel als Neubewertung.",
+    "submit": "Saldo speichern"
+  },
+  "create": {
+    "title": "Konto hinzufügen",
+    "description": "Erfasse ein Konto, ein Investment, eine Immobilie oder Schulden, indem du den Saldo selbst einträgst. Bankkonten mit Onlinezugang kannst du auch über „Bank verbinden“ hinzufügen.",
+    "name": "Name",
+    "currency": "Währung",
+    "balanceDate": "Saldodatum (optional)",
+    "hint": "{hint} Lass das Saldodatum leer, um den Saldo mit heutigem Datum zu erfassen.",
+    "addBrokerage": "Depot hinzufügen",
+    "add": "{kind, select, checking {Girokonto} savings {Sparkonto} investment {Anlagekonto} property {Immobilie} credit_card {Kreditkarte} loan {Kredit} other {Konto}} hinzufügen"
+  },
+  "list": {
+    "title": "Konten & Vermögen",
+    "addAccount": "Konto hinzufügen",
+    "connectBank": "Bank verbinden",
+    "actions": "Kontoaktionen",
+    "failure": "Deine Konten konnten nicht geladen werden",
+    "emptyTitle": "Alles an einem Ort",
+    "addFirst": "Füge dein erstes Konto hinzu",
+    "emptyBody": "Füge Bankkonten, Investments, Immobilien und Schulden hinzu, um deine Übersicht aufzubauen.",
+    "archived": "Archivierte Konten ({count, number})",
+    "differsFromBank": "Weicht um {amount} von der Bank ab"
+  },
+  "overview": {
+    "title": "Deine Konten",
+    "manageAll": "Alle verwalten",
+    "failure": "Deine Konten konnten nicht geladen werden",
+    "noBalance": "Noch kein Saldo",
+    "onboardingTitle": "Deine Übersicht beginnt mit deinem ersten Konto.",
+    "onboarding": "Verbinde deine Bank oder füge Konten, Investments, Immobilien und Schulden manuell hinzu.",
+    "onboardingSandbox": "Verbinde eine Sandbox-Bank oder füge Konten, Investments, Immobilien und Schulden manuell hinzu.",
+    "connectBank": "Bank verbinden",
+    "addManually": "Manuell hinzufügen"
+  },
+  "history": {
+    "title": "Saldoverlauf",
+    "since": "Seit {date}",
+    "failure": "Der Saldoverlauf konnte nicht geladen werden",
+    "empty": "Für dieses Konto wurde noch kein Saldo erfasst.",
+    "single": "Das Diagramm erscheint, sobald ein zweiter Saldo erfasst ist.",
+    "differenceStarted": "Die aktuelle Differenz ist erstmals am <date></date> aufgetreten.",
+    "caption": "Von der Bank gemeldete Salden und ihre Differenz zum berechneten Saldo, neueste zuerst",
+    "date": "Datum",
+    "reported": "Gemeldet",
+    "calculated": "Berechnet",
+    "difference": "Differenz",
+    "differenceStarts": "Differenz beginnt",
+    "none": "Keine",
+    "showLatest": "Nur die neuesten Salden anzeigen",
+    "showAll": "Alle {count, number} gemeldeten Salden anzeigen",
+    "balanceTypes": {
+      "reported": "Gemeldet",
+      "CLBD": "Gebuchter Schlusssaldo",
+      "ITBD": "Gebuchter Zwischensaldo",
+      "CLAV": "Verfügbarer Schlusssaldo",
+      "ITAV": "Verfügbarer Zwischensaldo",
+      "PRCD": "Gebuchter Vortagessaldo",
+      "XPCD": "Erwartet"
+    },
+    "sources": {
+      "transactions": "Aus Buchungen",
+      "valuation": "Marktwert"
+    },
+    "pointValue": "{date}: {amount}, {source}",
+    "keyboardHint": "Mit den Pfeiltasten links und rechts erkundest du die Salden, mit Pos1 und Ende springst du zum ersten und letzten Datum, mit Escape hebst du die Auswahl auf."
+  }
+}

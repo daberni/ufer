@@ -14,6 +14,7 @@ import { usePeriod } from "@/client/use-app-url";
 import type { Area } from "@/components/ui/use-area-result";
 import type { AccountCashFlow } from "@/features/reports/types";
 import { useLocale } from "@/client/locale-provider";
+import { useTranslations } from "next-intl";
 
 type Props = {
   cashFlow: Area<AccountCashFlow>;
@@ -26,6 +27,7 @@ export function AccountCashFlowSummary({
   cashFlow: area,
   currency
 }: Props) {
+  const t = useTranslations("reports.accountCashFlow");
   const locale = useLocale();
   const selectedPeriod = usePeriod();
   const cashFlow = withPlaceholder(area, () => ({
@@ -43,8 +45,8 @@ export function AccountCashFlowSummary({
   return (
     <section className={clsx(ui["panel"], styles["cash-flow"])} aria-busy={cashFlow.status === "loading"}>
       <div className={ui["card-heading"]}>
-        <h2>Cash flow</h2>
-        <span className={clsx(ui["subtle"], mask)}>{periodLabel(periodFromJson(flows.period), locale)}</span>
+        <h2>{t("title")}</h2>
+        <span className={clsx(ui["subtle"], mask)}>{periodLabel(periodFromJson(flows.period), locale, t("allMonths"))}</span>
       </div>
       <dl className={styles["flows"]}>
         <div>
@@ -52,7 +54,7 @@ export function AccountCashFlowSummary({
             <span className={clsx(styles["flow-icon"], styles["incoming"])} aria-hidden="true">
               <ArrowDownLeft size={17} />
             </span>
-            Income
+            {t("income")}
           </dt>
           <dd className={clsx(ui["positive"], mask)}>{money(flows.income, flows.currency, locale)}</dd>
         </div>
@@ -61,7 +63,7 @@ export function AccountCashFlowSummary({
             <span className={clsx(styles["flow-icon"], styles["outgoing"])} aria-hidden="true">
               <ArrowUpRight size={17} />
             </span>
-            Spending
+            {t("spending")}
           </dt>
           <dd className={mask}>{money(flows.expenses, flows.currency, locale)}</dd>
         </div>
@@ -70,15 +72,18 @@ export function AccountCashFlowSummary({
             <span className={styles["flow-icon"]} aria-hidden="true">
               <ArrowLeftRight size={17} />
             </span>
-            Transfers
+            {t("transfers")}
           </dt>
           <dd className={mask}>
             {money(transfers, flows.currency, locale)}
-            <small>{`In ${money(flows.transfersIn, flows.currency, locale)} · Out ${money(flows.transfersOut, flows.currency, locale)}`}</small>
+            <small>{t("transfersDetail", {
+              incoming: money(flows.transfersIn, flows.currency, locale),
+              outgoing: money(flows.transfersOut, flows.currency, locale)
+            })}</small>
           </dd>
         </div>
       </dl>
-      {area.status === "pending" && area.failure && <FailureCover failure={area.failure} failureTitle="The cash flow could not be loaded" />}
+      {area.status === "pending" && area.failure && <FailureCover failure={area.failure} failureTitle={t("failure")} />}
     </section>
   );
 }

@@ -22,7 +22,7 @@ import { valueScale } from "@/lib/value-scale";
 import { netWorthChange, type NetWorthChange, type NetWorthHistory, type NetWorthPoint } from "@/features/reports/net-worth-series";
 import { useCurveActivation } from "@/features/reports/use-curve-activation";
 import { useLocale } from "@/client/locale-provider";
-import { formatCount } from "@/lib/locale";
+import { useTranslations } from "next-intl";
 import { cssPercent } from "@/lib/percent";
 
 type Props = {
@@ -41,6 +41,7 @@ export function WealthSummary({
   netWorthArea,
   historyArea
 }: Props) {
+  const t = useTranslations("reports.wealth");
   const locale = useLocale();
   const changesId = useId();
   const selectedCurrency = useCurrency();
@@ -87,7 +88,7 @@ export function WealthSummary({
           <span className={styles["wealth-mark"]}>
             <Wallet size={17} />
           </span>
-          Net worth
+          {t("netWorth")}
         </span>
         {showsCurrencySelect(currencies) ? <CurrencyChoice compact className={styles["currency-choice"]} currencies={currencies} /> : <span className={clsx(styles["small-tag"], netWorthValue)}>{currency}</span>}
       </div>
@@ -95,12 +96,22 @@ export function WealthSummary({
         <div className={clsx(styles["wealth-number"], netWorthValue)}>{hasAccounts ? money(summary.netWorth, currency, locale) : "—"}</div>
         {hasAccounts && (
           <span className={clsx(styles["headline-delta"], !shownChange && styles["concealed"])} aria-hidden="true">
-            {delta(change?.amount_minor)} {change ? `since ${since}` : ""}
+            {delta(change?.amount_minor)} {change ? t("since", {
+              month: since
+            }) : ""}
           </span>
         )}
       </div>
-      {summary.unvalued > 0 && <p>{formatCount(summary.unvalued, locale)} without a balance</p>}
-      {summary.incompleteValuations > 0 && <p>{formatCount(summary.incompleteValuations, locale)} valued with missing or old prices</p>}
+      {summary.unvalued > 0 && (
+        <p>{t("unvalued", {
+          count: summary.unvalued
+        })}</p>
+      )}
+      {summary.incompleteValuations > 0 && (
+        <p>{t("incompleteValuations", {
+          count: summary.incompleteValuations
+        })}</p>
+      )}
       {/* Assets and loans share one scale; the loan track is always laid out, so the card's height does not depend on having loans. */}
       <div className={clsx(styles["bars"], netWorthValue)} aria-hidden="true">
         <div className={styles["bar-track"]}>
@@ -142,25 +153,25 @@ export function WealthSummary({
       <div className={styles["wealth-allocation"]}>
         <span>
           <i className={clsx(styles["legend-dot"], ui["liquid"])} />
-          Cash<strong className={netWorthValue}>{money(summary.liquidity, currency, locale)}
+          {t("cash")}<strong className={netWorthValue}>{money(summary.liquidity, currency, locale)}
             {delta(change?.categories.liquidity)}
           </strong>
         </span>
         <span>
           <i className={clsx(styles["legend-dot"], styles["invested"])} />
-          Investments<strong className={netWorthValue}>{money(summary.investments, currency, locale)}
+          {t("investments")}<strong className={netWorthValue}>{money(summary.investments, currency, locale)}
             {delta(change?.categories.investments)}
           </strong>
         </span>
         <span>
           <i className={clsx(styles["legend-dot"], ui["property"])} />
-          Property<strong className={netWorthValue}>{money(summary.property, currency, locale)}
+          {t("property")}<strong className={netWorthValue}>{money(summary.property, currency, locale)}
             {delta(change?.categories.property)}
           </strong>
         </span>
         <span>
           <i className={clsx(styles["legend-dot"], styles["loans"])} />
-          Loans<strong className={netWorthValue}>{summary.liabilities === 0 && netWorth.status === "ready" ? "—" : money(summary.liabilities, currency, locale)}
+          {t("loans")}<strong className={netWorthValue}>{summary.liabilities === 0 && netWorth.status === "ready" ? "—" : money(summary.liabilities, currency, locale)}
             {delta(change?.categories.liabilities)}
           </strong>
         </span>
@@ -170,7 +181,9 @@ export function WealthSummary({
         <button
           type="button"
           className={styles["history-curve"]}
-          aria-label={`Show changes since ${since}`}
+          aria-label={t("showChanges", {
+            month: since
+          })}
           aria-pressed={active}
           aria-describedby={changesId}
           {...curveProps}
@@ -178,16 +191,24 @@ export function WealthSummary({
           <HistoryCurve points={points} active={active} />
         </button>
       ))}
-      <span id={changesId} className={ui["visually-hidden"]} aria-live="polite">{shownChange && changeAnnouncement(shownChange, since, currency, locale)}</span>
-      {netWorthArea.status === "pending" && netWorthArea.failure && <FailureCover failure={netWorthArea.failure} failureTitle="Your net worth could not be loaded" />}
+      <span id={changesId} className={ui["visually-hidden"]} aria-live="polite">{shownChange && t("changeAnnouncement", changeFigures(shownChange, since, currency, locale))}</span>
+      {netWorthArea.status === "pending" && netWorthArea.failure && <FailureCover failure={netWorthArea.failure} failureTitle={t("failure")} />}
     </section>
   );
 }
 
-function changeAnnouncement(change: NetWorthChange, since: string, currency: string, locale: string) {
+// The formatted figures for the change announcement message.
+function changeFigures(change: NetWorthChange, since: string, currency: string, locale: string) {
   const amount = (value: number) => signedMoney(value, currency, locale);
 
-  return `Since ${since}: net worth ${amount(change.amount_minor)}, cash ${amount(change.categories.liquidity)}, investments ${amount(change.categories.investments)}, property ${amount(change.categories.property)}, loans ${amount(change.categories.liabilities)}.`;
+  return {
+    month: since,
+    netWorth: amount(change.amount_minor),
+    cash: amount(change.categories.liquidity),
+    investments: amount(change.categories.investments),
+    property: amount(change.categories.property),
+    loans: amount(change.categories.liabilities)
+  };
 }
 
 const curveHeight = 40;

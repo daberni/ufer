@@ -1,0 +1,58 @@
+{
+  "categories": {
+    "none": "Keine.",
+    "more": "+{count} weitere"
+  },
+  "accountCashFlow": {
+    "title": "Cashflow",
+    "allMonths": "Alle Monate",
+    "income": "Einnahmen",
+    "spending": "Ausgaben",
+    "transfers": "Umbuchungen",
+    "transfersDetail": "Ein {incoming} · Aus {outgoing}",
+    "failure": "Der Cashflow konnte nicht geladen werden"
+  },
+  "breakdown": {
+    "title": "Nach Kategorie",
+    "allMonths": "Alle Monate",
+    "viewTransactions": "Buchungen ansehen",
+    "viewTransactionsLabel": "Buchungen ansehen, {context}",
+    "net": "Netto",
+    "savingsRate": "Sparquote",
+    "failure": "Einnahmen und Ausgaben nach Kategorie konnten nicht geladen werden",
+    "income": "Einnahmen",
+    "expenses": "Ausgaben",
+    "viewIncomeIn": "Einnahmen in {category} ansehen, {context}",
+    "viewExpensesIn": "Ausgaben in {category} ansehen, {context}",
+    "noIncomeMonth": "Keine Einnahmen in diesem Monat.",
+    "noIncomePeriod": "Keine Einnahmen in diesem Zeitraum.",
+    "noExpensesMonth": "Keine Ausgaben in diesem Monat.",
+    "noExpensesPeriod": "Keine Ausgaben in diesem Zeitraum."
+  },
+  "chart": {
+    "title": "Einnahmen & Ausgaben",
+    "income": "Einnahmen",
+    "expenses": "Ausgaben",
+    "net": "Netto",
+    "savingsRate": "Sparquote",
+    "failure": "Einnahmen und Ausgaben konnten nicht geladen werden",
+    "plotLabel": "Monatliche Einnahmen, Ausgaben und Netto, {range}",
+    "monthDescription": "Einnahmen nach Kategorie: {income} Ausgaben nach Kategorie: {expenses}",
+    "monthLabel": "{month}: Einnahmen {income}, Ausgaben {expenses}, Netto {net}, Sparquote {rate}",
+    "currentMonthLabel": "{month} (dieser Monat): Einnahmen {income}, Ausgaben {expenses}, Netto {net}, Sparquote {rate}",
+    "empty": "Dein Verlauf erscheint hier nach dem ersten Import."
+  },
+  "wealth": {
+    "netWorth": "Vermögen",
+    "since": "seit {month}",
+    "unvalued": "{count, number} ohne Saldo",
+    "incompleteValuations": "{count, number} mit fehlenden oder alten Kursen bewertet",
+    "cash": "Barmittel",
+    "investments": "Investments",
+    "property": "Immobilien",
+    "loans": "Kredite",
+    "showChanges": "Veränderungen seit {month} anzeigen",
+    "changeAnnouncement": "Seit {month}: Vermögen {netWorth}, Barmittel {cash}, Investments {investments}, Immobilien {property}, Kredite {loans}.",
+    "failure": "Dein Vermögen konnte nicht geladen werden"
+  }
+}

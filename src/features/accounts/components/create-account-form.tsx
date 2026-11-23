@@ -6,10 +6,10 @@ import styles from "./create-account-form.module.css";
 import { clsx } from "clsx";
 import { Plus } from "lucide-react";
 import { useState } from "react";
-import { kinds } from "@/features/accounts/account-presentation";
 import { Select } from "@/components/ui/select";
 import { AccountTypeChoice } from "./account-type-choice";
-import { accountTypeCopy } from "./account-type-options";
+import { balancePlaceholder } from "./account-type-options";
+import { useTranslations } from "next-intl";
 import type { AccountKind, StoredAccountKind } from "../account-kinds";
 import { useCreateBrokerageAccount } from "@/features/securities/mutations";
 import { useDialogSubmit, type DialogFormProps } from "@/components/ui/use-dialog-submit";
@@ -20,14 +20,17 @@ import { Dialog } from "@/components/ui/dialog";
 import { today } from "@/lib/time";
 
 export function CreateAccountDialog({ close }: DialogFormProps) {
+  const t = useTranslations("accounts");
+
   return (
-    <Dialog eyebrow="Your finances" title="Add account" onClose={close}>
+    <Dialog eyebrow={t("dialogEyebrow")} title={t("create.title")} onClose={close}>
       <CreateAccountForm close={close} />
     </Dialog>
   );
 }
 
 function CreateAccountForm({ close }: DialogFormProps) {
+  const t = useTranslations("accounts.create");
   const [kind, setKind] = useState<StoredAccountKind | null>(null);
   const ledger = useDialogSubmit(useCreateAccount(), close);
   const brokerage = useDialogSubmit(useCreateBrokerageAccount(), close);
@@ -52,7 +55,7 @@ function CreateAccountForm({ close }: DialogFormProps) {
       }}
       className={ui["form"]}
     >
-      <p className={ui["form-description"]}>Track an account, investment, property or debt by entering its balance yourself. Bank accounts with online access can also be added through Connect bank.</p>
+      <p className={ui["form-description"]}>{t("description")}</p>
       <AccountTypeChoice selected={kind} onSelect={choice => !pending && setKind(choice)} />
       {kind === "brokerage" && <BrokerageFields pending={pending} error={active.error} />}
       {kind && kind !== "brokerage" && <AccountDetailsFields pending={pending} error={active.error} kind={kind} />}
@@ -68,22 +71,22 @@ function BrokerageFields({
   error: Failure | null;
   pending: boolean;
 }) {
-  const copy = accountTypeCopy.brokerage;
+  const t = useTranslations("accounts");
 
   return (
     <>
       <div className={styles["balance-grid"]}>
         <label>
-          Name
+          {t("create.name")}
           <input
             name="name"
             required
             maxLength={100}
-            placeholder={copy.namePlaceholder}
+            placeholder={t("types.brokerage.namePlaceholder")}
           />
         </label>
         <label>
-          Currency
+          {t("create.currency")}
           <Select name="currency">
             <option>EUR</option>
             <option>USD</option>
@@ -92,10 +95,10 @@ function BrokerageFields({
           </Select>
         </label>
       </div>
-      <p className={ui["form-hint"]}>{copy.hint}</p>
+      <p className={ui["form-hint"]}>{t("types.brokerage.hint")}</p>
       <FormError failure={error} />
       <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={pending}>
-        Add brokerage account <Plus size={16} />
+        {t("create.addBrokerage")} <Plus size={16} />
       </button>
     </>
   );
@@ -123,33 +126,33 @@ function AccountDetailsFields({
   kind,
   pending
 }: DetailsProps) {
-  const copy = accountTypeCopy[kind];
+  const t = useTranslations("accounts");
   const latestDate = today().toString();
 
   return (
     <>
       <label>
-        Name
+        {t("create.name")}
         <input
           name="name"
           required
           maxLength={100}
-          placeholder={copy.namePlaceholder}
+          placeholder={t(`types.${kind}.namePlaceholder`)}
         />
       </label>
       <div className={styles["balance-grid"]}>
         <label>
-          {copy.balanceLabel}
+          {t(`types.${kind}.balanceLabel`)}
           <input
             name="balance"
             required
             inputMode="decimal"
             pattern="[+-]?[0-9]+([.][0-9]+)?"
-            placeholder={copy.balancePlaceholder}
+            placeholder={balancePlaceholder(kind)}
           />
         </label>
         <label>
-          Currency
+          {t("create.currency")}
           <Select name="currency">
             <option>EUR</option>
             <option>USD</option>
@@ -158,7 +161,7 @@ function AccountDetailsFields({
           </Select>
         </label>
         <label>
-          Balance date (optional)
+          {t("create.balanceDate")}
           <input
             name="date"
             type="date"
@@ -166,10 +169,14 @@ function AccountDetailsFields({
           />
         </label>
       </div>
-      <p className={ui["form-hint"]}>{copy.hint} Leave the balance date empty to record the balance as of today.</p>
+      <p className={ui["form-hint"]}>{t("create.hint", {
+        hint: t(`types.${kind}.hint`)
+      })}</p>
       <FormError failure={error} />
       <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={pending}>
-        Add {kinds[kind].toLowerCase()} <Plus size={16} />
+        {t("create.add", {
+          kind
+        })} <Plus size={16} />
       </button>
     </>
   );
