@@ -162,7 +162,10 @@ function TradeCorrectionForm({
     pending,
     submit
   } = useDialogSubmit(useCorrectTrade(), close);
-  const cash = cashPreview(trade.side, quantity, price, fee, tax, currency);
+  // A recorded gross can differ from shares × price through broker rounding; it is kept until shares or price change.
+  const keepGross = quantity === microsText(trade.quantity_micros) && price === microsText(trade.price_micros);
+  const gross = keepGross ? decimalAmount(trade.gross_minor, currency) : undefined;
+  const cash = cashPreview(trade.side, quantity, price, fee, tax, currency, gross);
   // A trade on an imported booking must keep matching it; a trade's own cash entry follows the correction.
   const imported = !transaction.entered;
   const difference = imported && cash !== null ? transaction.amount_minor - cash : null;
@@ -175,6 +178,7 @@ function TradeCorrectionForm({
         date: String(data.get("date")),
         quantity,
         price,
+        gross,
         fee: fee.trim() || "0",
         tax: tax.trim() || "0"
       }))}
