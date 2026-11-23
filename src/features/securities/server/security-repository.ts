@@ -291,8 +291,11 @@ export async function readAccountTrades(accountId: string) {
     fee_minor: securityTrades.fee_minor,
     tax_minor: securityTrades.tax_minor,
     settlement_transaction_id: securityTrades.settlement_transaction_id,
-    settlement_account_id: transactions.account_id
-  }).from(securityTrades).innerJoin(securities, eq(securities.id, securityTrades.security_id)).leftJoin(transactions, eq(transactions.id, securityTrades.settlement_transaction_id)).where(eq(securityTrades.account_id, accountId)).orderBy(asc(securityTrades.date), asc(securityTrades.sequence));
+    settlement_account_id: transactions.account_id,
+    settlement_account_name: accounts.name,
+    settlement_counterparty: sql<string | null>`COALESCE(${transactions.counterparty_override}, ${transactions.counterparty})`,
+    settlement_description: sql<string | null>`COALESCE(${transactions.description_override}, ${transactions.description})`
+  }).from(securityTrades).innerJoin(securities, eq(securities.id, securityTrades.security_id)).leftJoin(transactions, eq(transactions.id, securityTrades.settlement_transaction_id)).leftJoin(accounts, eq(accounts.id, transactions.account_id)).where(eq(securityTrades.account_id, accountId)).orderBy(asc(securityTrades.date), asc(securityTrades.sequence));
 }
 
 /** The securities an account has traded. */

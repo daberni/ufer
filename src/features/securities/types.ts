@@ -33,6 +33,11 @@ export type Trade = {
   tax_minor: number;
   settlement_transaction_id: string | null;
   settlement_account_id: string | null;
+  settlement_account_name: string | null;
+  settlement_counterparty: string | null;
+  settlement_description: string | null;
+  /** The gain a sale realized against the moving-average cost; null for a buy. */
+  realized_minor: number | null;
 };
 
 export type BrokerageTrades = {
