@@ -2,21 +2,17 @@
 
 import type { Bank, Connection } from "@/features/banking/types";
 
+/** Countries with personal banks to connect; their names come from the `banking.countries` messages. */
 export const bankCountries = [{
-  code: "AT",
-  name: "Austria"
+  code: "AT"
 }, {
-  code: "DE",
-  name: "Germany"
+  code: "DE"
 }, {
-  code: "FI",
-  name: "Finland"
+  code: "FI"
 }, {
-  code: "GB",
-  name: "United Kingdom"
+  code: "GB"
 }, {
-  code: "SE",
-  name: "Sweden"
+  code: "SE"
 }] as const;
 
 const fallbackCountry = "AT";

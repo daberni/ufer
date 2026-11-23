@@ -2,6 +2,7 @@ import { twoDigitYear, detectDateFormat, detectDecimal, type DateFormat, fractio
 import { maxCategoryLength, type SplitPartRow } from "../import-rows";
 import { maximumSplitParts } from "@/features/transactions/split-limits";
 import { cleanText, StatementFileError, StatementRows, type StatementFile } from "./statement-rows";
+import type { ImportMessages } from "../import-messages";
 
 // Reads Quicken Interchange Format files into mapped rows. QIF has no transaction IDs, so reimports match by content; dates and decimals have no fixed format and are detected over the whole file like CSV columns.
 
@@ -18,7 +19,7 @@ type QifRecord = {
   fields: [string, string][];
 };
 
-export function readQif(text: string, locale: string): StatementFile {
+export function readQif(text: string, t: ImportMessages): StatementFile {
   const records: QifRecord[] = [];
   let section: "transactions" | "account" | "other" = "other";
   let source = "";
@@ -41,7 +42,7 @@ export function readQif(text: string, locale: string): StatementFile {
         const type = header.slice(5).trim();
 
         if (type === "invst") {
-          throw new StatementFileError("QIF investment accounts are not supported; export a bank, cash or credit card account instead.");
+          throw new StatementFileError(t("statements.qifInvestment"));
         }
 
         section = transactionTypes.has(type) ? "transactions" : "other";
@@ -95,7 +96,7 @@ export function readQif(text: string, locale: string): StatementFile {
   }
 
   if (records.length === 0) {
-    throw new StatementFileError("The QIF file contains no bank, cash or credit card transactions.");
+    throw new StatementFileError(t("statements.qifEmpty"));
   }
 
   const value = (record: QifRecord, code: string) => record.fields.find(([field]) => field === code)?.[1] ?? "";
@@ -103,7 +104,7 @@ export function readQif(text: string, locale: string): StatementFile {
   const dateFormat = qifDateFormat(dates);
   const amounts = records.flatMap(record => record.fields.filter(([field]) => field === "T" || field === "U" || field === "$").map(([, text]) => text));
   const decimal = detectDecimal(amounts);
-  const rows = new StatementRows(locale);
+  const rows = new StatementRows(t);
 
   records.forEach((record, index) => {
     const amount = parseAmount(value(record, "T") || value(record, "U"), decimal);

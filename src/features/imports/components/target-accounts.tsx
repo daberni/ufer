@@ -7,14 +7,14 @@ import { useId } from "react";
 import styles from "./target-accounts.module.css";
 import { Select } from "@/components/ui/select";
 import { InlineFailure } from "@/components/ui/area-placeholder";
-import { accountLabel, newAccountChoice, rowCount, type AccountProblem, type TargetChoice } from "@/features/imports/import-plan";
+import { accountLabel, newAccountChoice, type AccountProblem, type TargetChoice } from "@/features/imports/import-plan";
 import { FieldProblem, problemProps } from "./field-problem";
 import { accountKinds, type AccountKind } from "@/features/accounts/account-kinds";
 import { kinds } from "@/features/accounts/account-presentation";
 import type { Account } from "@/features/accounts/types";
 import { bookableManualAccounts } from "@/features/accounts/queries";
 import type { ImportDraft } from "./use-import-draft";
-import { useLocale } from "@/client/locale-provider";
+import { useTranslations } from "next-intl";
 
 /** One account picker for the whole file, or one per value of the mapped account column. */
 export function TargetAccounts({
@@ -22,6 +22,7 @@ export function TargetAccounts({
 }: {
   draft: ImportDraft;
 }) {
+  const t = useTranslations("imports.targets");
   const perSource = draft.perSource;
   // Without an account column, the single picker shows before the columns are complete.
   const sources = perSource || draft.sources.length > 0 ? draft.sources : [{
@@ -32,14 +33,14 @@ export function TargetAccounts({
 
   return (
     <section className={clsx(ui["panel"], styles["section"])} aria-labelledby="import-accounts">
-      <h2 id="import-accounts">{perSource ? "Accounts in the file" : "Import into"}</h2>
-      {perSource && <p className={ui["form-hint"]}>Each account {draft.statement ? "in the statement" : "value in the file"} goes to an existing account, a new manual account, or is skipped.</p>}
-      {perSource && !draft.mapped && <p className={ui["form-hint"]}>Choose the date, amount and payee or description columns below to see the accounts.</p>}
-      {draft.accountsFailure && <InlineFailure failure={draft.accountsFailure} failureTitle="Your accounts could not be loaded" />}
-      {!draft.accountsReady && !draft.accountsFailure && <p className={ui["form-hint"]}>Loading your accounts …</p>}
+      <h2 id="import-accounts">{perSource ? t("perSourceHeading") : t("singleHeading")}</h2>
+      {perSource && <p className={ui["form-hint"]}>{draft.statement ? t("statementHint") : t("fileHint")}</p>}
+      {perSource && !draft.mapped && <p className={ui["form-hint"]}>{t("mapFirst")}</p>}
+      {draft.accountsFailure && <InlineFailure failure={draft.accountsFailure} failureTitle={t("accountsFailed")} />}
+      {!draft.accountsReady && !draft.accountsFailure && <p className={ui["form-hint"]}>{t("loadingAccounts")}</p>}
       {/* An explicit choice before the accounts load would override the preselection of a same-named account. */}
       <fieldset className={styles["targets"]} disabled={draft.inputsLocked || !draft.accountsReady}>
-        <legend className={ui["visually-hidden"]}>Target accounts</legend>
+        <legend className={ui["visually-hidden"]}>{t("legend")}</legend>
         {sources.map(({
           source,
           rows,
@@ -60,7 +61,7 @@ export function TargetAccounts({
           />
         ))}
       </fieldset>
-      {draft.targets.size > 0 && [...draft.targets.values()].some(choice => choice.kind === "existing" && draft.accounts.find(account => account.id === choice.accountId)?.provider !== "manual") && <p className={ui["form-hint"]}>Rows imported into a bank-linked account dated before its opening balance extend its history without changing its balance; later rows change the balance and show up as a difference to the bank balance.</p>}
+      {draft.targets.size > 0 && [...draft.targets.values()].some(choice => choice.kind === "existing" && draft.accounts.find(account => account.id === choice.accountId)?.provider !== "manual") && <p className={ui["form-hint"]}>{t("linkedHint")}</p>}
     </section>
   );
 }
@@ -84,7 +85,7 @@ function TargetRow({
   problems: AccountProblem[];
   onChange: (choice: TargetChoice) => void;
 }) {
-  const locale = useLocale();
+  const t = useTranslations("imports");
   const selectId = useId();
   const targetProblem = problems.find(problem => problem.field === "target");
   const manual = bookableManualAccounts(accounts);
@@ -121,11 +122,15 @@ function TargetRow({
       <div className={styles["choice"]}>
         {perSource ? (
           <label htmlFor={selectId} className={styles["source"]}>
-            <strong>{source || "No account value"}</strong>
-            <span>{rowCount(rows, locale)}</span>
+            <strong>{source || t("targets.noAccountValue")}</strong>
+            <span>
+              {t("rowCount", {
+                count: rows
+              })}
+            </span>
           </label>
         ) : (
-          <label htmlFor={selectId} className={ui["visually-hidden"]}>Target account</label>
+          <label htmlFor={selectId} className={ui["visually-hidden"]}>{t("targets.targetAccount")}</label>
         )}
         <div className={styles["control"]}>
           <Select
@@ -134,19 +139,19 @@ function TargetRow({
             {...problemProps(targetProblem, `${selectId}-problem`)}
             onChange={event => select(event.target.value)}
           >
-            <option value="">Choose an account</option>
+            <option value="">{t("targets.chooseAccount")}</option>
             {manual.length > 0 && (
-              <optgroup label="Manual accounts">
+              <optgroup label={t("targets.manualAccounts")}>
                 {manual.map(account => <option key={account.id} value={account.id}>{accountLabel(account, accounts)}</option>)}
               </optgroup>
             )}
             {linked.length > 0 && (
-              <optgroup label="Bank-linked accounts">
+              <optgroup label={t("targets.linkedAccounts")}>
                 {linked.map(account => <option key={account.id} value={account.id}>{accountLabel(account, accounts)}</option>)}
               </optgroup>
             )}
-            <option value="new">New manual account …</option>
-            {perSource && <option value="skip">Skip these rows</option>}
+            <option value="new">{t("targets.newAccount")}</option>
+            {perSource && <option value="skip">{t("targets.skip")}</option>}
           </Select>
           <FieldProblem problem={targetProblem} id={`${selectId}-problem`} />
         </div>
@@ -167,6 +172,7 @@ function NewAccountFields({
   problems: AccountProblem[];
   onChange: (choice: TargetChoice) => void;
 }) {
+  const t = useTranslations("imports.targets");
   const balanceName = useId();
   const nameProblem = problems.find(problem => problem.field === "name");
   const currencyProblem = problems.find(problem => problem.field === "currency");
@@ -179,7 +185,7 @@ function NewAccountFields({
   return (
     <div className={styles["new-account"]}>
       <label>
-        Account name
+        {t("accountName")}
         <input
           value={choice.name}
           maxLength={100}
@@ -191,7 +197,7 @@ function NewAccountFields({
         <FieldProblem problem={nameProblem} id={`${balanceName}-name`} />
       </label>
       <label>
-        Currency
+        {t("currency")}
         <input
           value={choice.currency}
           maxLength={3}
@@ -204,7 +210,7 @@ function NewAccountFields({
         <FieldProblem problem={currencyProblem} id={`${balanceName}-currency`} />
       </label>
       <label className={styles["account-type"]}>
-        Account type
+        {t("accountType")}
         <Select
           value={choice.accountKind}
           onChange={event => change({
@@ -215,7 +221,7 @@ function NewAccountFields({
         </Select>
       </label>
       <fieldset className={styles["balance"]}>
-        <legend>Balance</legend>
+        <legend>{t("balance")}</legend>
         <div className={styles["balance-kinds"]}>
           <label>
             <input
@@ -226,7 +232,7 @@ function NewAccountFields({
                 balanceKind: "current"
               })}
             />
-            Current balance today
+            {t("currentBalance")}
           </label>
           <label>
             <input
@@ -237,11 +243,11 @@ function NewAccountFields({
                 balanceKind: "start"
               })}
             />
-            Balance at the start of the file
+            {t("startBalance")}
           </label>
         </div>
         <input
-          aria-label="Balance amount"
+          aria-label={t("balanceAmount")}
           inputMode="decimal"
           {...problemProps(balanceProblem, `${balanceName}-balance`)}
           placeholder="0.00"
@@ -251,7 +257,7 @@ function NewAccountFields({
           })}
         />
         <FieldProblem problem={balanceProblem} id={`${balanceName}-balance`} />
-        <span className={ui["form-hint"]}>{choice.balanceKind === "current" ? "The difference to the imported rows is booked as an opening balance on the file's first date." : "Booked as the opening balance on the file's first date."} Leave empty to start from zero.</span>
+        <span className={ui["form-hint"]}>{choice.balanceKind === "current" ? t("currentBalanceHint") : t("startBalanceHint")}</span>
       </fieldset>
     </div>
   );

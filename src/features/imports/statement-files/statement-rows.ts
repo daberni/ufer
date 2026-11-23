@@ -1,5 +1,5 @@
-import { formatCount } from "@/lib/locale";
-import { maxCategoryLength, maxIdLength, maxSourceLength, type MappedRow, type RowError, type SplitPartRow } from "../import-rows";
+import { amountLimits, maxCategoryLength, maxIdLength, maxSourceLength, type MappedRow, type RowError, type SplitPartRow } from "../import-rows";
+import type { ImportMessages } from "../import-messages";
 
 // Shared row building for structured statement files: the same limits as mapped CSV rows, without column mapping.
 
@@ -7,6 +7,7 @@ export const statementFormats = ["camt053", "ofx", "qif"] as const;
 
 export type StatementFormat = typeof statementFormats[number];
 
+/** Format names, which read the same in every language. */
 export const statementFormatLabels: Record<StatementFormat, string> = {
   camt053: "CAMT.053",
   ofx: "OFX",
@@ -50,7 +51,7 @@ export class StatementRows {
   // Rows and errors in file order.
   private readonly sequence: (MappedRow | RowError)[] = [];
 
-  constructor(private readonly locale: string) {}
+  constructor(private readonly t: ImportMessages) {}
 
   /** The rows and errors, each with its own line: decisions and matches are keyed by it, so when entries share a physical line (a file written on one line) every entry is numbered in file order instead. */
   result() {
@@ -98,13 +99,13 @@ export class StatementRows {
     };
 
     if (!entry.date) {
-      failure("The entry has no valid date.");
+      failure(this.t("rows.noDate"));
 
       return;
     }
 
     if (entry.amount === null) {
-      failure(`The amount is missing or not a number with at most ${formatCount(15, this.locale)} digits and ${formatCount(6, this.locale)} decimal places.`);
+      failure(this.t("rows.amount", amountLimits));
 
       return;
     }
@@ -116,31 +117,39 @@ export class StatementRows {
     }
 
     if (entry.currency === null && entry.currencyRequired) {
-      failure("The statement states no currency for this entry.");
+      failure(this.t("rows.noCurrency"));
 
       return;
     }
 
     if (entry.currency !== null && !/^[A-Z]{3}$/.test(entry.currency)) {
-      failure(`The currency “${entry.currency.slice(0, 20)}” is not an ISO 4217 code.`);
+      failure(this.t("rows.unknownCurrency", {
+        currency: entry.currency.slice(0, 20)
+      }));
 
       return;
     }
 
     if (entry.source.length > maxSourceLength) {
-      failure(`The account value is longer than ${formatCount(maxSourceLength, this.locale)} characters.`);
+      failure(this.t("rows.accountLength", {
+        max: maxSourceLength
+      }));
 
       return;
     }
 
     if (entry.category !== null && entry.category.length > maxCategoryLength) {
-      failure(`The category is longer than ${formatCount(maxCategoryLength, this.locale)} characters.`);
+      failure(this.t("rows.categoryLength", {
+        max: maxCategoryLength
+      }));
 
       return;
     }
 
     if (entry.id !== null && entry.id.length > maxIdLength) {
-      failure(`The ID is longer than ${formatCount(maxIdLength, this.locale)} characters.`);
+      failure(this.t("rows.idLength", {
+        max: maxIdLength
+      }));
 
       return;
     }

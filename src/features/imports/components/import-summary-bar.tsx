@@ -11,6 +11,7 @@ import { useRowIssues } from "./column-preview";
 import type { ImportDraft } from "./use-import-draft";
 import { formatCount } from "@/lib/locale";
 import { useLocale } from "@/client/locale-provider";
+import { useTranslations } from "next-intl";
 
 /** The import's counts, the review filter and the one primary action: check the rows, then import them. */
 export function ImportSummaryBar({
@@ -23,6 +24,7 @@ export function ImportSummaryBar({
   onReview: (reviewing: boolean) => void;
 }) {
   const locale = useLocale();
+  const t = useTranslations("imports.summary");
   const issues = useRowIssues(draft);
   const {
     summary,
@@ -39,17 +41,22 @@ export function ImportSummaryBar({
   const ready = draft.accountsReady;
   const pending = mutation.isPending;
   const counts: [string, number | null, string?][] = [
-    ["New rows", newRows],
-    ["Updates", totals ? updates : null],
-    ["Already in Ufer", totals ? totals.unchanged : null],
-    ["Undecided duplicates", totals ? undecided : null, "warning"],
-    ["Errors", errors, "danger"]
+    [t("newRows"), newRows],
+    [t("updates"), totals ? updates : null],
+    [t("unchanged"), totals ? totals.unchanged : null],
+    [t("undecided"), totals ? undecided : null, "warning"],
+    [t("errors"), errors, "danger"]
   ];
-  const importLabel = updates > 0 ? `Import ${formatCount(newRows ?? 0, locale)}, update ${formatCount(updates, locale)}` : `Import ${formatCount(newRows ?? 0, locale)}`;
+  const importLabel = updates > 0 ? t("importAndUpdate", {
+    count: newRows ?? 0,
+    updates
+  }) : t("import", {
+    count: newRows ?? 0
+  });
 
   return (
     <section className={clsx(ui["panel"], styles["bar"])} aria-labelledby="import-summary">
-      <h2 id="import-summary" className={ui["visually-hidden"]}>Import summary</h2>
+      <h2 id="import-summary" className={ui["visually-hidden"]}>{t("heading")}</h2>
       <dl className={styles["counts"]}>
         {counts.map(([label, value, tone]) => (
           <div key={label} className={clsx(styles["count"], tone && value ? styles[tone] : undefined)}>
@@ -58,9 +65,21 @@ export function ImportSummaryBar({
           </div>
         ))}
       </dl>
-      {prepared && prepared.skipped > 0 && <p className={ui["form-hint"]}>{formatCount(prepared.skipped, locale)} rows of skipped accounts are left out.</p>}
-      {summary && summary.createdCategories.length > 0 && <p className={ui["form-hint"]}>New categories: {summary.createdCategories.join(", ")}.</p>}
-      {undecided > 0 && <p className={styles["blocked"]}>Decide what the {formatCount(undecided, locale)} possible {undecided === 1 ? "duplicate does" : "duplicates do"} under Rows before importing.</p>}
+      {prepared && prepared.skipped > 0 && (
+        <p className={ui["form-hint"]}>{t("skipped", {
+          count: prepared.skipped
+        })}</p>
+      )}
+      {summary && summary.createdCategories.length > 0 && (
+        <p className={ui["form-hint"]}>{t("newCategories", {
+          categories: summary.createdCategories.join(", ")
+        })}</p>
+      )}
+      {undecided > 0 && (
+        <p className={styles["blocked"]}>{t("decideFirst", {
+          count: undecided
+        })}</p>
+      )}
       <FormError failure={mutation.error ? toFailure(mutation.error) : null} />
       <div className={styles["actions"]}>
         {draft.table && (issues.size > 0 || reviewing) && (
@@ -71,7 +90,9 @@ export function ImportSummaryBar({
             onClick={() => onReview(!reviewing)}
           >
             {reviewing ? <X size={15} /> : <ListFilter size={15} />}
-            {reviewing ? "Show all rows" : `Review rows (${formatCount(issues.size, locale)})`}
+            {reviewing ? t("showAll") : t("review", {
+              count: issues.size
+            })}
           </button>
         )}
         {summary ? (
@@ -81,7 +102,7 @@ export function ImportSummaryBar({
             disabled={pending || (newRows ?? 0) + updates + undecided === 0}
             onClick={() => draft.run(true)}
           >
-            {pending ? "Importing …" : importLabel}
+            {pending ? t("importing") : importLabel}
             <ArrowDownToLine size={16} />
           </button>
         ) : (
@@ -91,7 +112,9 @@ export function ImportSummaryBar({
             disabled={pending || !ready}
             onClick={() => draft.run(false)}
           >
-            {pending ? "Checking …" : `Check ${formatCount(prepared?.rows.length ?? 0, locale)} rows`}
+            {pending ? t("checking") : t("check", {
+              count: prepared?.rows.length ?? 0
+            })}
             <SearchCheck size={16} />
           </button>
         )}

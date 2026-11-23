@@ -7,7 +7,7 @@ import type { Database } from "../src/server/database/connection";
 import { initializeDatabase } from "../src/server/database/migrations";
 import * as schema from "../src/server/database/schema";
 import { HttpError } from "../src/lib/errors";
-import { builtInTemplates, buxferTemplate, matchTemplate, templateFromMapping, templateConventions, templateLabel, templateMapping, templateSettings, type CsvTemplate } from "../src/features/imports/csv-templates";
+import { builtInTemplates, buxferTemplate, matchTemplate, templateFromMapping, templateConventions, templateMapping, templateSettings, type CsvTemplate } from "../src/features/imports/csv-templates";
 import { decodeCsv, detectDelimiter, parseCsv } from "../src/features/imports/csv-reading";
 import { mapRows } from "../src/features/imports/import-rows";
 import { suggestMapping, type CsvSettings } from "../src/features/imports/csv-mapping";
@@ -17,6 +17,7 @@ import { importMappedRows } from "../src/features/imports/server/mapped-import-s
 import { assignOccurrences } from "../src/features/imports/import-rows";
 import { uniqueWrite } from "../src/features/imports/server/template-repository";
 import { changeTemplate, createTemplate, duplicateTemplate, readTemplates, removeTemplate } from "../src/features/imports/server/template-service";
+import { importMessages } from "./fixtures/import-messages";
 
 async function isolatedDatabase(context: TestContext) {
   const client = createClient({
@@ -87,7 +88,7 @@ test("a Buxfer export is recognized and maps IDs, accounts, signed amounts and t
 
   assert.equal(template?.id, buxferTemplate.id);
 
-  const result = mapRows(rows, templateMapping(template!, header), settings, "en");
+  const result = mapRows(rows, templateMapping(template!, header), settings, importMessages);
 
   assert.deepEqual(result.errors, []);
   assert.deepEqual(result.rows.map(row => [row.id, row.date, row.amount, row.source]), [
@@ -115,7 +116,7 @@ test("a shortened Buxfer description still matches the full bank booking", () =>
     template,
     settings
   } = readBuxfer();
-  const truncated = mapRows(rows, templateMapping(template!, header), settings, "en").rows[5];
+  const truncated = mapRows(rows, templateMapping(template!, header), settings, importMessages).rows[5];
 
   assert.equal(textsMatch(prepareBooking({
     date: truncated.date,
@@ -368,7 +369,7 @@ test("a repeated header name keeps its role on the same occurrence", () => {
     delimiter: ",",
     decimal: ".",
     dateFormat: "YYYY-MM-DD"
-  }, "en").rows.map(row => row.amount), ["-2.50"]);
+  }, importMessages).rows.map(row => row.amount), ["-2.50"]);
 });
 
 test("remembered choices apply once accounts and categories load, and never override the person's choice", () => {
@@ -427,7 +428,7 @@ test("the built-in Buxfer template is listed after saved ones, cannot be renamed
   const [listed] = await readTemplates();
 
   assert.equal(listed.id, buxferTemplate.id);
-  assert.equal(templateLabel(listed), "Buxfer export (built-in)");
+  assert.equal(listed.builtIn, true);
   await assert.rejects(changeTemplate(buxferTemplate.id, {
     name: "Renamed"
   }), (error: unknown) => error instanceof HttpError && error.status === 409);
@@ -472,7 +473,7 @@ test("Buxfer transfers import as transfers, and automatic pairing links both sid
     template,
     settings
   } = readBuxfer();
-  const mapped = mapRows(rows, templateMapping(template!, header), settings, "en").rows;
+  const mapped = mapRows(rows, templateMapping(template!, header), settings, importMessages).rows;
 
   assert.deepEqual(mapped.map(row => row.type === "transfer"), [false, false, false, true, true, false]);
 

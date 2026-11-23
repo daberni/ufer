@@ -7,25 +7,11 @@ import { useMemo } from "react";
 import styles from "./column-preview.module.css";
 import { Select } from "@/components/ui/select";
 import type { CsvMapping } from "@/features/imports/csv-mapping";
-import { rowCount } from "@/features/imports/import-plan";
 import { problemProps } from "./field-problem";
 import type { ImportDraft } from "./use-import-draft";
-import { formatCount } from "@/lib/locale";
-import { useLocale } from "@/client/locale-provider";
+import { useTranslations } from "next-intl";
 
-const roles: [keyof CsvMapping, string][] = [
-  ["date", "Date"],
-  ["payee", "Payee"],
-  ["description", "Description"],
-  ["amount", "Amount"],
-  ["debit", "Debit"],
-  ["credit", "Credit"],
-  ["currency", "Currency"],
-  ["category", "Category"],
-  ["account", "Account"],
-  ["id", "ID"],
-  ["type", "Type"]
-];
+const roles: (keyof CsvMapping)[] = ["date", "payee", "description", "amount", "debit", "credit", "currency", "category", "account", "id", "type"];
 
 const previewRows = 8;
 
@@ -39,7 +25,7 @@ export function ColumnPreview({
   draft: ImportDraft;
   reviewing: boolean;
 }) {
-  const locale = useLocale();
+  const t = useTranslations("imports.columns");
   const issues = useRowIssues(draft);
   const table = draft.table;
 
@@ -47,18 +33,28 @@ export function ColumnPreview({
     return null;
   }
 
-  const roleOf = (column: number) => roles.find(([field]) => draft.mapping?.[field] === column)?.[0] ?? "";
+  const roleOf = (column: number) => roles.find(field => draft.mapping?.[field] === column) ?? "";
   const indexes = table.rows.map((_row, index) => index);
   const shown = reviewing ? indexes.filter(index => issues.has(table.lines[index])).slice(0, maxReviewRows) : indexes.slice(0, previewRows);
   const keptLines = new Set(draft.keptRows.map(row => row.line));
   const skipped = (line: number) => Boolean(draft.mapped?.rows.some(row => row.line === line)) && !keptLines.has(line);
   const reviewCount = reviewing ? indexes.filter(index => issues.has(table.lines[index])).length : 0;
+  const reviewHint = reviewCount > maxReviewRows ? t("reviewHintTruncated", {
+    count: reviewCount,
+    shown: maxReviewRows
+  }) : t("reviewHint", {
+    count: reviewCount
+  });
+  const shownHint = {
+    shown: previewRows,
+    count: table.rows.length
+  };
 
   return (
     <section className={clsx(ui["panel"], styles["section"])} aria-labelledby="import-columns">
       <div className={styles["heading"]}>
-        <h2 id="import-columns">{reviewing ? "Rows to review" : "Columns"}</h2>
-        <p className={ui["form-hint"]}>{reviewing ? `${formatCount(reviewCount, locale)} rows need attention${reviewCount > maxReviewRows ? `; the first ${formatCount(maxReviewRows, locale)} are shown` : ""}.` : "Choose what each column means. Columns you leave on Ignore are not imported."}</p>
+        <h2 id="import-columns">{reviewing ? t("reviewHeading") : t("heading")}</h2>
+        <p className={ui["form-hint"]}>{reviewing ? reviewHint : t("hint")}</p>
       </div>
       {draft.problem && <p id="import-columns-problem" className={styles["problem"]}>{draft.problem}</p>}
       <div
@@ -70,14 +66,18 @@ export function ColumnPreview({
         <table>
           <thead>
             <tr>
-              <th scope="col" className={styles["line"]}>Row</th>
-              {reviewing && <th scope="col" className={styles["issue"]}>Issue</th>}
+              <th scope="col" className={styles["line"]}>{t("row")}</th>
+              {reviewing && <th scope="col" className={styles["issue"]}>{t("issue")}</th>}
               {table.header.map((column, index) => (
                 <th key={index} scope="col">
                   <Select
                     variant="compact"
                     className={clsx(styles["role"], roleOf(index) && styles["assigned"])}
-                    aria-label={`Role of column ${column || formatCount(index + 1, locale)}`}
+                    aria-label={t("roleOf", {
+                      column: column || t("unnamed", {
+                        number: index + 1
+                      })
+                    })}
                     {...index === 0 ? problemProps(draft.problem ? {
                       message: draft.problem
                     } : null, "import-columns-problem") : {}}
@@ -85,10 +85,12 @@ export function ColumnPreview({
                     disabled={draft.inputsLocked}
                     onChange={event => draft.assignRole(index, (event.target.value || null) as keyof CsvMapping | null)}
                   >
-                    <option value="">Ignore</option>
-                    {roles.map(([field, label]) => <option key={field} value={field}>{label}</option>)}
+                    <option value="">{t("ignore")}</option>
+                    {roles.map(field => <option key={field} value={field}>{t(`roles.${field}`)}</option>)}
                   </Select>
-                  <span className={styles["original"]}>{column || `Column ${formatCount(index + 1, locale)}`}</span>
+                  <span className={styles["original"]}>{column || t("unnamed", {
+                    number: index + 1
+                  })}</span>
                 </th>
               ))}
             </tr>
@@ -104,7 +106,7 @@ export function ColumnPreview({
           </tbody>
         </table>
       </div>
-      {!reviewing && table.rows.length > previewRows && <p className={ui["form-hint"]}>Showing the first {formatCount(previewRows, locale)} of {rowCount(table.rows.length, locale)}.{draft.prepared?.skipped ? " Rows of skipped accounts are dimmed." : ""}</p>}
+      {!reviewing && table.rows.length > previewRows && <p className={ui["form-hint"]}>{draft.prepared?.skipped ? t("showingFirstSkipped", shownHint) : t("showingFirst", shownHint)}</p>}
     </section>
   );
 }
@@ -115,6 +117,7 @@ export function useRowIssues(draft: ImportDraft) {
     mapped,
     summary
   } = draft;
+  const t = useTranslations("imports.columns");
 
   return useMemo(() => {
     const issues = new Map<number, string>();
@@ -131,14 +134,14 @@ export function useRowIssues(draft: ImportDraft) {
     // Rows imported before need no attention; a match with another booking may be a false positive.
     for (const duplicate of summary?.duplicates ?? []) {
       if (duplicate.reason === "existing_booking") {
-        add(duplicate.line, "Matches a booking already in Ufer; it updates that booking unless you decide otherwise under Rows.");
+        add(duplicate.line, t("existingBooking"));
       }
     }
 
     for (const line of summary?.possibleDuplicates ?? []) {
-      add(line, "Possible duplicate of a booking already in Ufer. Decide under Rows whether it updates, skips or creates a booking.");
+      add(line, t("possibleDuplicate"));
     }
 
     return issues;
-  }, [mapped, summary]);
+  }, [mapped, summary, t]);
 }

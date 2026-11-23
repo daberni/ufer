@@ -19,11 +19,10 @@ import { useState } from "react";
 import { BankConnectionDialog } from "./bank-connection-form";
 import { RemoveConnectionDialog } from "./remove-connection-form";
 import { useSyncRunHref } from "@/client/use-app-url";
-import { recentSyncRuns, syncRunProblems, syncRunTone, syncStatusLabel, type SyncRunTone } from "@/features/banking/sync-run-presentation";
+import { recentSyncRuns, syncRunProblems, syncRunTone, type SyncRunTone } from "@/features/banking/sync-run-presentation";
 import { AreaPlaceholder } from "@/components/ui/area-placeholder";
 import type { Area } from "@/components/ui/use-area-result";
-import { useLocale } from "@/client/locale-provider";
-import { formatCount } from "@/lib/locale";
+import { useTranslations } from "next-intl";
 
 type Props = {
   banking: BankingConfiguration;
@@ -47,6 +46,7 @@ export function ConnectionsSection({
   connections,
   syncRuns
 }: Props) {
+  const t = useTranslations("banking.connections");
   const [dialog, setDialog] = useState<OpenDialog | null>(null);
   const closeDialog = () => setDialog(null);
   const openBank = (connection: Connection | null = null) => setDialog({
@@ -63,7 +63,9 @@ export function ConnectionsSection({
     if (removal.notArchived.length) {
       removalFeedback.report({
         tone: "problem",
-        messages: [`Not archived because their balance is not 0: ${removal.notArchived.join(", ")}. They stay active.`]
+        messages: [t("notArchived", {
+          accounts: removal.notArchived.join(", ")
+        })]
       });
     }
   };
@@ -71,24 +73,24 @@ export function ConnectionsSection({
   return (
     <section id={bankConnectionsSectionId} aria-labelledby="bank-connections-heading" className={styles["connections-section"]}>
       <div className={ui["section-heading"]}>
-        <h2 id="bank-connections-heading">Bank connections</h2>
+        <h2 id="bank-connections-heading">{t("heading")}</h2>
         <button className={clsx(ui["button"], ui["primary"])} onClick={() => openBank()}>
           <Plus size={15} />
-          Connect bank
+          {t("connect")}
         </button>
       </div>
       <p className={styles["provider"]}>ENABLE BANKING{sandbox && " · SANDBOX"}</p>
       <div className={styles["connection-info"]}>
         <ShieldCheck size={23} />
         <div>
-          <strong>Authorize directly with your bank.</strong>
-          <p>Your private application key stays on your server. Bank authorizations need periodic renewal; their duration depends on the bank.</p>
+          <strong>{t("infoTitle")}</strong>
+          <p>{t("infoText")}</p>
         </div>
       </div>
-      {!banking.configured && <div className={clsx(ui["notice"], ui["warning"])}>Configure the application ID and private key on the server to enable bank access.</div>}
+      {!banking.configured && <div className={clsx(ui["notice"], ui["warning"])}>{t("notConfigured")}</div>}
       <section className={ui["panel"]}>
         {connections.status === "pending" ? (
-          <AreaPlaceholder area={connections} failureTitle="Your bank connections could not be loaded">
+          <AreaPlaceholder area={connections} failureTitle={t("loadFailed")}>
             <ConnectionRowsSkeleton />
           </AreaPlaceholder>
         ) : (
@@ -105,7 +107,7 @@ export function ConnectionsSection({
       {dialog?.kind === "removeConnection" && <RemoveConnectionDialog selectedConnection={dialog.connection} close={closeDialog} onRemoved={reportRemoval} />}
       <ActionFeedback
         feedback={removalFeedback.feedback}
-        dismissLabel="Dismiss message"
+        dismissLabel={t("dismissMessage")}
         onDismiss={removalFeedback.dismiss}
         placement="overlay"
       />
@@ -116,6 +118,7 @@ export function ConnectionsSection({
 function SyncHistory({ syncRuns }: {
   syncRuns: Area<SyncRun[]>
 }) {
+  const t = useTranslations("banking.syncRuns");
   const syncRunHref = useSyncRunHref();
 
   if (syncRuns.status !== "pending" && !syncRuns.data.length) {
@@ -125,10 +128,10 @@ function SyncHistory({ syncRuns }: {
   return (
     <section className={clsx(ui["panel"], styles["sync-history"])}>
       <div className={ui["card-heading"]}>
-        <h2>Recent syncs</h2>
+        <h2>{t("heading")}</h2>
       </div>
       {syncRuns.status === "pending" ? (
-        <AreaPlaceholder area={syncRuns} failureTitle="Recent syncs could not be loaded">
+        <AreaPlaceholder area={syncRuns} failureTitle={t("loadFailed")}>
           <SyncRowsSkeleton />
         </AreaPlaceholder>
       ) : (
@@ -153,19 +156,21 @@ function ConnectionRows({
   removeConnection: (connection: Connection) => void;
   sandbox: boolean;
 }) {
+  const t = useTranslations("banking.connections");
+
   if (!connections.length) {
     return (
       <Empty
-        title="Your first bank connection"
+        title={t("emptyTitle")}
         illustration={BridgeIllustration}
         action={(
           <button className={clsx(ui["button"], ui["primary"])} onClick={() => openBank()}>
             <Link2 size={15} />
-            {sandbox ? "Select sandbox bank" : "Connect your bank"}
+            {sandbox ? t("emptySandboxAction") : t("emptyAction")}
           </button>
         )}
       >
-        {sandbox ? "Choose an available sandbox bank to test the complete flow with synthetic data." : "Authorize read-only access with your bank to import accounts and transactions."}
+        {sandbox ? t("emptySandboxText") : t("emptyText")}
       </Empty>
     );
   }
@@ -180,33 +185,30 @@ function ConnectionRows({
           <div>
             <h3>{connection.bank_name}</h3>
             <p className={styles["connection-detail"]}>
-              {connection.bank_country} · {connection.valid_until ? <>Authorized until <TimestampValue value={connection.valid_until} /></> : "Authorization not completed yet"}
+              {connection.bank_country} · {connection.valid_until ? <AuthorizedUntil value={connection.valid_until} /> : t("notAuthorized")}
             </p>
             {connection.error && <p className={ui["error-text"]}>{connection.error}</p>}
           </div>
-          <span className={clsx(styles["pill"], connection.status === "LINKED" ? styles["success"] : "")}>{({
-            LINKED: "Connected",
-            PENDING: "Pending",
-            EXCHANGING: "Connecting",
-            EXPIRED: "Expired",
-            ERROR: "Review",
-            SUPERSEDED: "Superseded"
-          } as Record<string, string>)[connection.status] || connection.status}</span>
+          <span className={clsx(styles["pill"], connection.status === "LINKED" ? styles["success"] : "")}>{isConnectionStatus(connection.status) ? t(`status.${connection.status}`) : connection.status}</span>
           <div className={styles["connection-actions"]}>
             <button
               className={clsx(ui["button"], ui["small"])}
               onClick={() => openBank(connection)}
-              aria-label={`Reconnect ${connection.bank_name}`}
+              aria-label={t("reconnectBank", {
+                bank: connection.bank_name
+              })}
             >
-              Reconnect
+              {t("reconnect")}
             </button>
             <button
               className={clsx(ui["button"], ui["small"])}
               onClick={() => removeConnection(connection)}
-              aria-label={`Remove ${connection.bank_name} connection`}
+              aria-label={t("removeBank", {
+                bank: connection.bank_name
+              })}
             >
               <Trash2 size={13} />
-              Remove
+              {t("remove")}
             </button>
           </div>
         </div>
@@ -215,7 +217,25 @@ function ConnectionRows({
   );
 }
 
+const connectionStatuses = ["LINKED", "PENDING", "EXCHANGING", "EXPIRED", "ERROR", "SUPERSEDED"] as const;
+
+function isConnectionStatus(status: string): status is typeof connectionStatuses[number] {
+  return (connectionStatuses as readonly string[]).includes(status);
+}
+
+function AuthorizedUntil({ value }: {
+  value: string
+}) {
+  const t = useTranslations("banking.connections");
+
+  return t.rich("authorizedUntil", {
+    date: () => <TimestampValue value={value} />
+  });
+}
+
 function ConnectionRowsSkeleton() {
+  const t = useTranslations("banking.connections");
+
   return (
     <div>
       {Array.from({
@@ -225,18 +245,18 @@ function ConnectionRowsSkeleton() {
           <span className={clsx(accountStyles["account-logo"], ui["skeleton"])} />
           <div>
             <h3>
-              <span className={ui["skeleton"]}>Example bank</span>
+              <span className={ui["skeleton"]}>{t("skeletonBank")}</span>
             </h3>
             <p className={styles["connection-detail"]}>
-              <span className={ui["skeleton"]}>AT · Authorized until 12 Jan 2025, 10:00</span>
+              <span className={ui["skeleton"]}>{t("skeletonDetail")}</span>
             </p>
           </div>
-          <span className={clsx(styles["pill"], ui["skeleton"])}>Connected</span>
+          <span className={clsx(styles["pill"], ui["skeleton"])}>{t("status.LINKED")}</span>
           <div className={styles["connection-actions"]}>
-            <span className={clsx(ui["button"], ui["small"], ui["skeleton"])}>Reconnect</span>
+            <span className={clsx(ui["button"], ui["small"], ui["skeleton"])}>{t("reconnect")}</span>
             <span className={clsx(ui["button"], ui["small"], ui["skeleton"])}>
               <Trash2 size={13} />
-              Remove
+              {t("remove")}
             </span>
           </div>
         </div>
@@ -246,6 +266,8 @@ function ConnectionRowsSkeleton() {
 }
 
 function SyncRowsSkeleton() {
+  const t = useTranslations("banking.connections");
+
   return (
     <ul className={styles["sync-table"]}>
       {Array.from({
@@ -254,7 +276,7 @@ function SyncRowsSkeleton() {
         <li className={styles["sync-row"]} key={index}>
           <span className={ui["skeleton"]}>12 Jan, 10:00</span>
           <span className={clsx(styles["sync-status"], ui["skeleton"])} />
-          <span className={ui["skeleton"]}>12 new transactions</span>
+          <span className={ui["skeleton"]}>{t("skeletonSync")}</span>
         </li>
       ))}
     </ul>
@@ -276,8 +298,9 @@ function SyncRunRow({
   href: (runId: string) => string;
   run: SyncRun;
 }) {
+  const t = useTranslations("banking.syncRuns");
   const tone = syncRunTone(run.status);
-  const label = syncStatusLabel(run.status);
+  const label = t(`tone.${tone}`);
   const Icon = syncStatusIcons[tone];
   const problems = syncRunProblems(run.error);
   const imported = run.linked_count > 0 || run.inserted_count > 0;
@@ -317,16 +340,27 @@ function SyncRunTransactions({
   href: (id: string) => string;
   run: SyncRun;
 }) {
-  const locale = useLocale();
-  const label = (count: number) => `${formatCount(count, locale)} new ${count === 1 ? "transaction" : "transactions"}`;
+  const t = useTranslations("banking.syncRuns");
 
   if (run.linked_count > 0) {
-    return <Link className={styles["transactions-link"]} href={href(run.id)}>{label(run.linked_count)}</Link>;
+    return (
+      <Link className={styles["transactions-link"]} href={href(run.id)}>
+        {t("newTransactions", {
+          count: run.linked_count
+        })}
+      </Link>
+    );
   }
 
   if (run.inserted_count > 0) {
-    return <span>{label(run.inserted_count)} · not traceable to this sync</span>;
+    return (
+      <span>
+        {t("untraceable", {
+          count: run.inserted_count
+        })}
+      </span>
+    );
   }
 
-  return <span>No new transactions</span>;
+  return <span>{t("noNewTransactions")}</span>;
 }

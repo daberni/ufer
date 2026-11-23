@@ -21,12 +21,11 @@ import { TemplateList } from "./template-list";
 import { TemplateNotice } from "./template-notice";
 import { useImportDraft } from "./use-import-draft";
 import { takeImportFile } from "@/features/imports/pending-import-file";
-import { formatCount } from "@/lib/locale";
-import { useLocale } from "@/client/locale-provider";
+import { useTranslations } from "next-intl";
 
 /** The full-page file import: file, accounts, columns and categories, then a check and the import. */
 export function FileImportPage() {
-  const locale = useLocale();
+  const t = useTranslations("imports.page");
   const draft = useImportDraft();
   const [reviewing, setReviewing] = useState(false);
   const load = draft.load;
@@ -46,15 +45,31 @@ export function FileImportPage() {
       <div className={styles["page"]}>
         <section className={clsx(ui["panel"], styles["done"])} aria-labelledby="import-done">
           <CircleCheck size={32} aria-hidden="true" />
-          <h2 id="import-done">{formatCount(draft.imported.newRows, locale)} {draft.imported.newRows === 1 ? "transaction" : "transactions"} imported</h2>
-          {draft.imported.updatedRows > 0 && <p>{formatCount(draft.imported.updatedRows, locale)} existing {draft.imported.updatedRows === 1 ? "booking" : "bookings"} updated from the file.</p>}
-          {draft.imported.undecided.length > 0 && <p className={ui["form-hint"]}>{formatCount(draft.imported.undecided.length, locale)} possible {draft.imported.undecided.length === 1 ? "duplicate was" : "duplicates were"} left out because the booking chosen for the update changed or was taken by another row.</p>}
-          <p className={ui["form-hint"]}>Rules categorized the rows without a chosen category. Importing the same file again updates the bookings it already holds from the file.</p>
+          <h2 id="import-done">
+            {t("imported", {
+              count: draft.imported.newRows
+            })}
+          </h2>
+          {draft.imported.updatedRows > 0 && (
+            <p>
+              {t("updated", {
+                count: draft.imported.updatedRows
+              })}
+            </p>
+          )}
+          {draft.imported.undecided.length > 0 && (
+            <p className={ui["form-hint"]}>
+              {t("undecided", {
+                count: draft.imported.undecided.length
+              })}
+            </p>
+          )}
+          <p className={ui["form-hint"]}>{t("importedHint")}</p>
           <div className={ui["button-group"]}>
             <Link className={clsx(ui["button"], ui["primary"])} href={viewPaths.transactions}>
-              View transactions <ArrowRight size={16} />
+              {t("viewTransactions")} <ArrowRight size={16} />
             </Link>
-            <button type="button" className={ui["button"]} onClick={draft.clear}>Import another file</button>
+            <button type="button" className={ui["button"]} onClick={draft.clear}>{t("importAnother")}</button>
           </div>
           <SaveTemplate draft={draft} />
         </section>
@@ -67,15 +82,15 @@ export function FileImportPage() {
     <div className={styles["page"]}>
       <Link className={clsx(ui["text-button"], styles["back"])} href={viewPaths.transactions}>
         <X size={15} />
-        Cancel import
+        {t("cancel")}
       </Link>
       <section className={clsx(ui["panel"], styles["section"])} aria-labelledby="import-file">
-        <h2 id="import-file">File</h2>
+        <h2 id="import-file">{t("file")}</h2>
         {loaded ? <FileCard draft={draft} /> : <FileDropZone disabled={draft.inputsLocked} onFile={file => void draft.load(file)} />}
         {loaded && draft.table && <TemplateNotice draft={draft} />}
         {draft.fileError && <p className={ui["error-text"]} role="alert">{draft.fileError}</p>}
         {draft.formatError && <p className={ui["error-text"]} role="alert">{draft.formatError}</p>}
-        {!loaded && <p className={ui["form-hint"]}>CAMT.053, OFX, QFX and QIF statements are read as they are. Any CSV export with a date and an amount works too: bank exports, Buxfer, spreadsheets; files matching a template, such as Buxfer exports, are mapped automatically, others you map column by column. You check the result, then import. Nothing is saved before you import.</p>}
+        {!loaded && <p className={ui["form-hint"]}>{t("hint")}</p>}
       </section>
       {loaded && (draft.table || draft.statement) && (
         <>
