@@ -15,7 +15,7 @@ import { performanceSeries } from "../performance";
 import { readHoldingInputs } from "./valuation-repository";
 import { settlementRefusal, settlementWindowDays, tradeCashAmount, type SettlementRefusal } from "../trade-decisions";
 import { brokerageAccountInput, securityInput, settlementCandidatesQuery, tradeCorrectionInput, tradeInput } from "./security-schema";
-import { deleteTrade, findBrokerageAccount, findSecurity, findSettlementAccount, findSettlementBooking, findTrade, insertBrokerageAccount, insertSecurity, insertSettlementEntry, insertTrade, listSecurities, markSettlementBooking, nextTradeSequence, readAccountTrades, readPositionTrades, readSettlementCandidates, readSplits, readTradedSecurityIds, isEarliestTrade, markSplitsUnchecked, saveSettlementEntry, saveTradeCorrection, withSecurityTransaction, findOrInsertSecurity } from "./security-repository";
+import { deleteTrade, findBrokerageAccount, findSecurity, findSettlementAccount, findSettlementBooking, findTrade, insertBrokerageAccount, insertSecurity, insertSettlementEntry, insertTrade, listActiveBrokerageAccounts, listSecurities, markSettlementBooking, nextTradeSequence, readAccountTrades, readPositionTrades, readSettlementCandidates, readSplits, readTradedSecurityIds, isEarliestTrade, markSplitsUnchecked, saveSettlementEntry, saveTradeCorrection, withSecurityTransaction, findOrInsertSecurity } from "./security-repository";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 
 /** Replays every trade so a sale never exceeds what was held at that point, now or after a change. */
@@ -411,6 +411,28 @@ export async function readBrokeragePerformance(accountId: string, now = Temporal
     currency: account.currency,
     missing: valueHoldings(holdings, date).missing,
     points: performanceSeries(holdings, date)
+  };
+}
+
+/** The time-weighted performance of all active brokerage accounts together, one series per currency, since amounts are never summed across currencies. */
+export async function readCombinedBrokeragePerformance(now = Temporal.Now.instant()) {
+  const accounts = await listActiveBrokerageAccounts();
+  const inputs = await readHoldingInputs(accounts.map(account => account.id));
+  const date = today(now).toString();
+  const currencies = [...new Set(accounts.map(account => account.currency))];
+
+  return {
+    currencies: currencies.map(currency => {
+      const accountIds = accounts.filter(account => account.currency === currency).map(account => account.id);
+      const holdings = accountIds.flatMap(id => inputs.get(id)?.holdings ?? []);
+
+      return {
+        currency,
+        account_ids: accountIds,
+        missing: valueHoldings(holdings, date).missing,
+        points: performanceSeries(holdings, date)
+      };
+    })
   };
 }
 

@@ -81,6 +81,16 @@ export async function findBrokerageAccount(executor: Executor, id: string) {
   }).from(accounts).where(and(eq(accounts.id, id), eq(accounts.kind, "brokerage"))).get();
 }
 
+/** The active brokerage accounts by name. */
+export async function listActiveBrokerageAccounts() {
+  const db = await database();
+
+  return db.select({
+    id: accounts.id,
+    currency: accounts.currency
+  }).from(accounts).where(and(eq(accounts.kind, "brokerage"), isNull(accounts.archived_at))).orderBy(asc(accounts.name));
+}
+
 /** A manual or bank-linked account that can carry the cash side of a trade. */
 export async function findSettlementAccount(tx: DatabaseTransaction, id: string) {
   return tx.select({

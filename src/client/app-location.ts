@@ -3,7 +3,7 @@ import { allMonthsPeriod, currentMonth, currentMonthPeriod, parsePeriod, seriali
 import { parsePage } from "@/lib/pagination";
 import { parseCurrencyCode } from "@/lib/money";
 
-export type View = "overview" | "transactions" | "import" | "accounts" | "account" | "rules";
+export type View = "overview" | "transactions" | "import" | "accounts" | "account" | "brokerage" | "rules";
 
 /** A view in the navigation; an account's details belong to accounts and the import page to transactions. */
 export type Section = Exclude<View, "account" | "import">;
@@ -18,6 +18,7 @@ export const viewPaths: Record<Section, string> = {
   overview: "/",
   transactions: "/transactions",
   accounts: "/accounts",
+  brokerage: "/brokerage",
   rules: "/rules"
 };
 

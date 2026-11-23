@@ -13,6 +13,7 @@ import { AccountDetails, AccountNotFound, type BackLink } from "@/features/accou
 import { FileImportPage } from "@/features/imports/components/file-import-page";
 import { AccountCashFlowSummary } from "@/features/reports/components/account-cash-flow";
 import { BrokeragePanel } from "@/features/securities/components/brokerage-panel";
+import { BrokerageOverview } from "@/features/securities/components/brokerage-overview";
 import { withArchivedAccountsOpen } from "@/client/app-location";
 import { replacePage, setSyncRun, useAccountTransactionsHref, useViewHref, useViewQuery } from "@/client/use-app-url";
 import { useAppStore } from "@/client/app-store";
@@ -122,6 +123,10 @@ export function AccountsPage() {
       <ConnectionsSection banking={banking} connections={connections} syncRuns={syncRuns} />
     </>
   );
+}
+
+export function BrokeragePage() {
+  return <BrokerageOverview />;
 }
 
 export function RulesPage() {

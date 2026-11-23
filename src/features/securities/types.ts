@@ -60,6 +60,13 @@ export type BrokeragePerformance = {
   points: PerformancePoint[];
 };
 
+/** All active brokerage accounts' performance, one series per currency. */
+export type CombinedBrokeragePerformance = {
+  currencies: (Omit<BrokeragePerformance, "account_id"> & {
+    account_ids: string[]
+  })[];
+};
+
 export type Security = {
   id: string;
   isin: string | null;
