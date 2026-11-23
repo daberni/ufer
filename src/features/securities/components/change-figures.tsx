@@ -36,7 +36,8 @@ export function ChangeFigures({
   summary,
   points,
   currency,
-  stacked = false
+  stacked = false,
+  showTotal = true
 }: {
   summary: ChangeSummary;
   /** The time-weighted performance series; its last point gives the performance since the first trade. */
@@ -44,6 +45,8 @@ export function ChangeFigures({
   currency: string;
   /** One figure per line, for narrow cards beside a chart. */
   stacked?: boolean;
+  /** False beside a performance chart, whose header already shows the total. */
+  showTotal?: boolean;
 }) {
   const locale = useLocale();
   const {
@@ -54,14 +57,16 @@ export function ChangeFigures({
 
   return (
     <dl className={clsx(styles["figures"], stacked && styles["stacked"])}>
-      <div className={styles["figure"]}>
-        <dt>Total performance</dt>
-        <dd className={clsx(styles["amount"], total.gain_minor > 0 && ui["positive"])}>
-          {signedMoney(total.gain_minor, currency, locale)}
-          {last && <span className={styles["percent"]}>{formatSignedPercent(last.growth - 1, locale)} time-weighted</span>}
-        </dd>
-        {total.unpriced > 0 && <dd className={styles["hint"]}>{formatCountLabel(total.unpriced, "holding", "holdings", locale)} without a price at cost</dd>}
-      </div>
+      {showTotal && (
+        <div className={styles["figure"]}>
+          <dt>Total performance</dt>
+          <dd className={clsx(styles["amount"], total.gain_minor > 0 && ui["positive"])}>
+            {signedMoney(total.gain_minor, currency, locale)}
+            {last && <span className={styles["percent"]}>{formatSignedPercent(last.growth - 1, locale)} time-weighted</span>}
+          </dd>
+          {total.unpriced > 0 && <dd className={styles["hint"]}>{formatCountLabel(total.unpriced, "holding", "holdings", locale)} without a price at cost</dd>}
+        </div>
+      )}
       <div className={styles["figure"]}>
         {day ? (
           <>

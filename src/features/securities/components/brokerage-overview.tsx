@@ -100,9 +100,9 @@ function CombinedValue({
       <strong className={styles["value"]}>{money(value, item.currency, locale)}</strong>
       <ChangeFigures
         summary={item.summary}
-        points={item.points}
         currency={item.currency}
         stacked
+        showTotal={false}
       />
     </section>
   );
