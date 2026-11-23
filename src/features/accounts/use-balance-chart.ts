@@ -3,8 +3,11 @@
 import { useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import { useDismiss } from "@/components/ui/use-dismiss";
 
-/** Selects the step effective under the pointer, without giving every day a separate focus target. */
-export function useBalanceChart(positions: number[], enabled: boolean) {
+/**
+ * Selects a point under the pointer, without giving every day a separate focus target.
+ * "step" selects the step effective under the pointer; "nearest" gives every point the half of the spacing to each neighbour, so the first and last points get a full share too.
+ */
+export function useBalanceChart(positions: number[], enabled: boolean, selection: "step" | "nearest" = "step") {
   const [selected, setSelected] = useState<number | null>(null);
   const plotRef = useRef<HTMLDivElement>(null);
   const lastIndex = positions.length - 1;
@@ -28,6 +31,18 @@ export function useBalanceChart(positions: number[], enabled: boolean) {
     }
 
     const position = Math.min(100, Math.max(0, (event.clientX - bounds.left) / bounds.width * 100));
+    const step = stepAt(position);
+
+    const closerToNext = step < lastIndex && positions[step + 1] - position < position - positions[step];
+
+    if (selection === "nearest" && closerToNext) {
+      setSelected(step + 1);
+    } else {
+      setSelected(step);
+    }
+  }
+
+  function stepAt(position: number) {
     let first = 0;
     let end = positions.length;
 
@@ -42,7 +57,7 @@ export function useBalanceChart(positions: number[], enabled: boolean) {
       }
     }
 
-    setSelected(Math.max(0, first - 1));
+    return Math.max(0, first - 1);
   }
 
   function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
