@@ -290,6 +290,7 @@ function TradeCorrectionForm({
           imported,
           mismatch,
           cash,
+          side: trade.side,
           bookingMinor: transaction.amount_minor,
           hasTax: Boolean(tax.trim()),
           currency,
@@ -312,10 +313,11 @@ function TradeCorrectionForm({
   );
 }
 
-function correctionHint({ imported, mismatch, cash, bookingMinor, hasTax, currency, locale }: {
+function correctionHint({ imported, mismatch, cash, side, bookingMinor, hasTax, currency, locale }: {
   imported: boolean;
   mismatch: boolean;
   cash: number | null;
+  side: BookingTrade["side"];
   bookingMinor: number;
   hasTax: boolean;
   currency: string;
@@ -326,7 +328,12 @@ function correctionHint({ imported, mismatch, cash, bookingMinor, hasTax, curren
   }
 
   if (mismatch) {
-    return `Shares × price${hasTax ? " and taxes" : ""} exceed the booking amount of ${money(Math.abs(bookingMinor), currency, locale)}; check them.`;
+    const booking = money(Math.abs(bookingMinor), currency, locale);
+
+    // A buy's cost grows with fees, a sale's proceeds shrink by them, so a negative remainder means opposite things.
+    return side === "buy"
+      ? `Shares × price${hasTax ? " and taxes" : ""} exceed the booking amount of ${booking}; check them.`
+      : `Shares × price${hasTax ? " less taxes" : ""} fall short of the booking amount of ${booking}; check them.`;
   }
 
   return `The trade stays equal to the booking amount of ${signedMoney(bookingMinor, currency, locale)}; fees are the remainder.`;
