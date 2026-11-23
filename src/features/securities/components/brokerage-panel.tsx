@@ -33,8 +33,14 @@ export function BrokeragePanel({ account }: {
   const [booking, setBooking] = useState<string | null>(null);
   const priceSource = securities.data?.price_source;
 
-  if (trades.isPending) {
-    return <section className={clsx(ui["panel"], styles["panel"])} aria-busy="true"><h2>Holdings</h2></section>;
+  // The price-source notice comes from the securities query and sits above the table, so the skeleton waits for both.
+  if (!trades.isError && (trades.isPending || securities.isPending)) {
+    return (
+      <section className={clsx(ui["panel"], styles["panel"])} aria-labelledby={`${account.id}-holdings`} aria-busy="true">
+        <h2 id={`${account.id}-holdings`}>Holdings</h2>
+        <HoldingsTableSkeleton />
+      </section>
+    );
   }
 
   if (trades.isError) {
@@ -125,6 +131,47 @@ export function HoldingsTable({
           locale={locale}
           openBooking={openBooking}
         />
+      ))}
+    </div>
+  );
+}
+
+/** The holdings table's columns with placeholder rows, held while the holdings load. */
+export function HoldingsTableSkeleton({ rows = 2 }: {
+  rows?: number
+}) {
+  return (
+    <div className={styles["table"]} aria-hidden="true">
+      <div className={clsx(styles["row"], styles["head"])}>
+        <span>Security</span>
+        <span className={styles["number"]}>Shares</span>
+        <span className={styles["number"]}>Avg. cost</span>
+        <span className={styles["number"]}>Cost basis</span>
+        <span className={styles["number"]}>Price</span>
+        <span className={styles["number"]}>Value</span>
+        <span className={styles["number"]}>Gain</span>
+      </div>
+      {Array.from({
+        length: rows
+      }, (_, index) => (
+        <div key={index} className={styles["row"]}>
+          <span className={clsx(styles["security"], styles["skeleton-security"])}>
+            <strong className={ui["skeleton"]}>Global equity ETF</strong>
+            <small className={ui["skeleton"]}>IE00B0000000</small>
+          </span>
+          <span className={styles["number"]} data-label="Shares"><span className={ui["skeleton"]}>00.000</span></span>
+          <span className={styles["number"]} data-label="Avg. cost"><span className={ui["skeleton"]}>€00.00</span></span>
+          <span className={styles["number"]} data-label="Cost basis"><span className={ui["skeleton"]}>€0,000.00</span></span>
+          <span className={styles["number"]} data-label="Price">
+            <span className={ui["skeleton"]}>€00.00</span>
+            <small className={ui["skeleton"]}>23 Nov 2026</small>
+          </span>
+          <span className={clsx(styles["number"], styles["value"])} data-label="Value"><span className={ui["skeleton"]}>€0,000.00</span></span>
+          <span className={styles["number"]} data-label="Gain">
+            <span className={ui["skeleton"]}>+€000.00</span>
+            <small className={ui["skeleton"]}>+0.0%</small>
+          </span>
+        </div>
       ))}
     </div>
   );

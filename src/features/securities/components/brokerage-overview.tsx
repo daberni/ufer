@@ -17,10 +17,10 @@ import { activeAccounts, useAccounts } from "@/features/accounts/queries";
 import type { Account } from "@/features/accounts/types";
 import { useBrokerageTrades, useCombinedBrokeragePerformance, useSecurities } from "../queries";
 import type { CombinedBrokeragePerformance } from "../types";
-import { HoldingsTable } from "./brokerage-panel";
+import { HoldingsTable, HoldingsTableSkeleton } from "./brokerage-panel";
 import { PerformanceView } from "./performance-panel";
 import { BookingDialog } from "./booking-dialog";
-import { ChangeFigures } from "./change-figures";
+import { ChangeFigures, ChangeFiguresSkeleton } from "./change-figures";
 
 /**
  * All active brokerage accounts together: the combined value and time-weighted performance per currency, then each account with its value, gain and holdings.
@@ -47,16 +47,21 @@ export function BrokerageOverview() {
 
   const series = performance.data?.currencies ?? [];
   const many = series.length > 1;
+  // The combined value adds up the accounts' balances, so both queries are needed before it replaces its skeleton.
+  const combinedPending = !performance.isError && (performance.isPending || accounts.isPending);
 
   return (
-    <div className={styles["overview"]}>
-      {performance.isPending && (
-        <PerformanceView
-          title="Performance"
-          isPending
-          isError={false}
-          performance={undefined}
-        />
+    <div className={styles["overview"]} aria-busy={combinedPending || accounts.isPending}>
+      {combinedPending && (
+        <div className={styles["combined"]}>
+          <CombinedValueSkeleton />
+          <PerformanceView
+            title="Performance"
+            isPending
+            isError={false}
+            performance={undefined}
+          />
+        </div>
       )}
       {performance.isError && (
         <PerformanceView
@@ -66,7 +71,7 @@ export function BrokerageOverview() {
           performance={undefined}
         />
       )}
-      {series.map(item => (
+      {!combinedPending && series.map(item => (
         <div key={item.currency} className={styles["combined"]}>
           <CombinedValue item={item} accounts={brokerage} />
           <PerformanceView
@@ -78,6 +83,7 @@ export function BrokerageOverview() {
         </div>
       ))}
       <h2 className={styles["section-title"]}>Accounts</h2>
+      {accounts.isPending && <AccountHoldingsSkeleton />}
       {brokerage.map(account => <AccountHoldings key={account.id} account={account} openBooking={setBooking} />)}
       {booking && <BookingDialog transactionId={booking} close={() => setBooking(null)} />}
     </div>
@@ -108,6 +114,39 @@ function CombinedValue({
   );
 }
 
+function CombinedValueSkeleton() {
+  return (
+    <section className={clsx(ui["panel"], styles["summary"])} aria-hidden="true">
+      <span className={clsx(styles["label"], ui["skeleton"])}>Combined value · 1 account</span>
+      <strong className={clsx(styles["value"], ui["skeleton"])}>€00,000.00</strong>
+      <ChangeFiguresSkeleton stacked showTotal={false} />
+    </section>
+  );
+}
+
+/** A brokerage account's heading and holdings before the accounts are known. */
+function AccountHoldingsSkeleton() {
+  return (
+    <section className={ui["panel"]} aria-hidden="true">
+      <div className={styles["account-link"]}>
+        <h3><span className={ui["skeleton"]}>Brokerage account</span></h3>
+        <AccountFiguresSkeleton />
+        <ArrowRight size={16} aria-hidden="true" />
+      </div>
+      <HoldingsTableSkeleton />
+    </section>
+  );
+}
+
+function AccountFiguresSkeleton() {
+  return (
+    <span className={styles["account-figures"]} aria-hidden="true">
+      <strong className={ui["skeleton"]}>€00,000.00</strong>
+      <small className={ui["skeleton"]}>+€0,000.00 total</small>
+    </span>
+  );
+}
+
 /** One brokerage account: a heading row linking to its page with value and gain, then its holdings in the account's table. */
 function AccountHoldings({
   account,
@@ -127,12 +166,15 @@ function AccountHoldings({
     <section className={ui["panel"]} aria-labelledby={headingId} aria-busy={trades.isPending}>
       <Link className={styles["account-link"]} href={accountHref(account.id)}>
         <h3 id={headingId}>{account.name}</h3>
-        <span className={styles["account-figures"]}>
-          {trades.data && <strong>{money(trades.data.valuation.value_minor, account.currency, locale)}</strong>}
-          {trades.data && trades.data.trades.length > 0 && <small className={clsx(trades.data.summary.total.gain_minor > 0 && ui["positive"])} data-negative={trades.data.summary.total.gain_minor < 0 ? "" : undefined}>{signedMoney(trades.data.summary.total.gain_minor, account.currency, locale)} total</small>}
-        </span>
+        {trades.isPending ? <AccountFiguresSkeleton /> : (
+          <span className={styles["account-figures"]}>
+            {trades.data && <strong>{money(trades.data.valuation.value_minor, account.currency, locale)}</strong>}
+            {trades.data && trades.data.trades.length > 0 && <small className={clsx(trades.data.summary.total.gain_minor > 0 && ui["positive"])} data-negative={trades.data.summary.total.gain_minor < 0 ? "" : undefined}>{signedMoney(trades.data.summary.total.gain_minor, account.currency, locale)} total</small>}
+          </span>
+        )}
         <ArrowRight size={16} aria-hidden="true" />
       </Link>
+      {trades.isPending && <HoldingsTableSkeleton />}
       {trades.isError && <FormError failure={toFailure(trades.error)} />}
       {trades.data && (held.length ? (
         <HoldingsTable
