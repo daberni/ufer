@@ -166,7 +166,7 @@ function HoldingRows({
 
   return (
     <>
-      <div className={styles["row"]} role="row">
+      <div className={clsx(styles["row"], styles["holding"])} role="row">
         <span role="rowheader" className={styles["security"]}>
           <button
             type="button"
