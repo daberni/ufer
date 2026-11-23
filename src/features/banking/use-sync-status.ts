@@ -4,8 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import { settle, type ActionResult } from "@/client/settle";
 import { useIsMutating } from "@tanstack/react-query";
 import { syncMutationKey, useSync, type SyncFailure, type SyncOutcome } from "./mutations";
-import { useLocale } from "@/client/locale-provider";
-import { formatCount } from "@/lib/locale";
+import { useTranslations } from "next-intl";
+
+type SyncMessages = ReturnType<typeof useTranslations<"banking.sync">>;
 
 // A sync that did not fully succeed stays reported until it is dismissed or a later sync succeeds.
 export type SyncProblem = {
@@ -38,7 +39,7 @@ const idleStatus: SyncStatus = {
 
 // The sync button presents its own state; other dashboard actions never change it.
 export function useSyncStatus() {
-  const locale = useLocale();
+  const t = useTranslations("banking.sync");
   const syncMutation = useSync();
 
   const [status, setStatus] = useState<SyncStatus>(idleStatus);
@@ -74,7 +75,7 @@ export function useSyncStatus() {
     setStatus(current => ({
       ...current,
       phase: "syncing",
-      politeAnnouncement: "Syncing transactions …",
+      politeAnnouncement: t("announceSyncing"),
       assertiveAnnouncement: ""
     }));
 
@@ -82,7 +83,7 @@ export function useSyncStatus() {
     const result = await settle(syncMutation.mutateAsync());
 
     running.current = false;
-    setStatus(completedStatus(result, locale));
+    setStatus(completedStatus(result, t));
   }
 
   function dismissProblem() {
@@ -103,18 +104,20 @@ export function useSyncStatus() {
   };
 }
 
-function completedStatus(result: ActionResult<SyncOutcome>, locale: string): SyncStatus {
+function completedStatus(result: ActionResult<SyncOutcome>, t: SyncMessages): SyncStatus {
   if (!result.ok) {
     return {
       ...idleStatus,
       problem: {
-        title: "Sync failed",
-        buttonLabel: "last sync failed",
+        title: t("failedTitle"),
+        buttonLabel: t("failedButton"),
         note: result.failure.message,
         traceId: result.failure.traceId,
         failures: []
       },
-      assertiveAnnouncement: `Sync failed: ${result.failure.message}`
+      assertiveAnnouncement: t("failedAnnouncement", {
+        message: result.failure.message
+      })
     };
   }
 
@@ -122,27 +125,34 @@ function completedStatus(result: ActionResult<SyncOutcome>, locale: string): Syn
     inserted,
     failures
   } = result.value;
-  const transactions = `${formatCount(inserted, locale)} new ${inserted === 1 ? "transaction" : "transactions"}`;
+  const count = {
+    count: inserted
+  };
 
   if (failures.length) {
-    const failedAccounts = `${formatCount(failures.length, locale)} ${failures.length === 1 ? "account" : "accounts"} failed`;
+    const failedAccounts = t("failedAccounts", {
+      count: failures.length
+    });
 
     return {
       ...idleStatus,
       problem: {
         title: failedAccounts,
         buttonLabel: failedAccounts,
-        note: `${transactions} synced.`,
+        note: t("syncedNote", count),
         failures
       },
-      assertiveAnnouncement: `Sync finished with problems: ${failedAccounts}. ${transactions} synced.`
+      assertiveAnnouncement: t("problemsAnnouncement", {
+        failed: failedAccounts,
+        count: inserted
+      })
     };
   }
 
   return {
     ...idleStatus,
     phase: "synced",
-    resultLabel: inserted ? `${formatCount(inserted, locale)} new` : "Up to date",
-    politeAnnouncement: inserted ? `Sync complete: ${transactions}.` : "Sync complete: everything is up to date."
+    resultLabel: inserted ? t("newCount", count) : t("upToDate"),
+    politeAnnouncement: inserted ? t("completeAnnouncement", count) : t("upToDateAnnouncement")
   };
 }

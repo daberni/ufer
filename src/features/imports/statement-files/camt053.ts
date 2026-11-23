@@ -1,6 +1,7 @@
 import { XMLParser, XMLValidator } from "fast-xml-parser";
 import { fractionDigits, negate, parseAmount, signedScaled } from "../csv-values";
 import { xmlRootTag, separateCurrencies, cleanText, isoDate, lineAt, StatementFileError, StatementRows, type StatementFile } from "./statement-rows";
+import type { ImportMessages } from "../import-messages";
 
 // Reads ISO 20022 bank-to-customer statements (camt.053, any version) into mapped rows: one row per booked entry, or per transaction of a batch entry whose transactions carry their own amounts.
 
@@ -13,20 +14,22 @@ export function looksLikeCamt(text: string) {
   return root !== null && /^<(?:[A-Za-z_][\w.-]*:)?Document\b[^>]*urn:iso:std:iso:20022:tech:xsd:camt\./.test(root);
 }
 
-export function readCamt053(text: string, locale: string): StatementFile {
+export function readCamt053(text: string, t: ImportMessages): StatementFile {
   const namespace = /urn:iso:std:iso:20022:tech:xsd:(camt\.\d{3})/.exec(xmlRootTag(text) ?? "")?.[1];
 
   if (namespace !== "camt.053") {
-    throw new StatementFileError(`${namespace ?? "This CAMT"} files are not supported; export a CAMT.053 account statement instead.`);
+    throw new StatementFileError(namespace ? t("statements.otherCamt", {
+      message: namespace
+    }) : t("statements.unknownCamt"));
   }
 
   // Statements never declare entities; refusing a document type keeps entity expansion out of untrusted input.
   if (/<!DOCTYPE|<!ENTITY/i.test(text)) {
-    throw new StatementFileError("The CAMT.053 file declares a document type, which statements never do.");
+    throw new StatementFileError(t("statements.camtDocumentType"));
   }
 
   if (XMLValidator.validate(text) !== true) {
-    throw new StatementFileError("The CAMT.053 file is not well-formed XML.");
+    throw new StatementFileError(t("statements.camtMalformed"));
   }
 
   const parser = new XMLParser({
@@ -41,10 +44,10 @@ export function readCamt053(text: string, locale: string): StatementFile {
   const statements = list(child(child(document, "Document"), "BkToCstmrStmt"), "Stmt");
 
   if (statements.length === 0) {
-    throw new StatementFileError("The CAMT.053 file contains no statement.");
+    throw new StatementFileError(t("statements.camtEmpty"));
   }
 
-  const rows = new StatementRows(locale);
+  const rows = new StatementRows(t);
   const positions = elementPositions(text);
   const lines = {
     offset: 0,
@@ -111,7 +114,7 @@ export function readCamt053(text: string, locale: string): StatementFile {
 
       rows.add({
         // A transaction with an unknown direction leaves the entry's parties and sign in doubt, so it is never read past.
-        problem: invalidDetail ? "A transaction of the entry has an unknown credit/debit indicator." : undefined,
+        problem: invalidDetail ? t("statements.camtIndicator") : undefined,
         currencyRequired: true,
         line: entryLine,
         date,

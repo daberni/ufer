@@ -12,17 +12,18 @@ import { SyncProblemDetails } from "@/features/banking/components/sync-problem-d
 import { useSyncStatus, type SyncPhase, type SyncProblem } from "@/features/banking/use-sync-status";
 import type { Account } from "@/features/accounts/types";
 import { useSyncRuns } from "@/features/banking/queries";
-import { lastSyncLabel } from "@/features/banking/sync-run-presentation";
 import { useDisplayTimeZone } from "@/components/ui/use-display-time-zone";
 import { useLocale } from "@/client/locale-provider";
+import { useTranslations } from "next-intl";
+import { Temporal } from "temporal-polyfill";
+import { describeDate } from "@/lib/date-format";
+import { syncRunTone } from "@/features/banking/sync-run-presentation";
 
 type Props = {
   bankAccounts: Account[];
   /** Shows the bank connections, where failed accounts are reauthorized. */
   showConnections: () => void;
 };
-
-const fixedLabels = ["Sync", "Syncing …", "Up to date"];
 
 // The button reflects only its own sync; other dashboard actions never change it.
 export function SyncButton({
@@ -38,6 +39,8 @@ export function SyncButton({
     sync,
     dismissProblem
   } = useSyncStatus();
+
+  const t = useTranslations("banking.sync");
 
   const [detailsOpen, setDetailsOpen] = useState(false);
 
@@ -55,10 +58,14 @@ export function SyncButton({
 
   const syncing = phase === "syncing";
 
-  const visibleLabel = buttonText(phase, resultLabel);
+  const idleLabel = t("idle");
+
+  const syncingLabel = t("syncing");
+
+  const visibleLabel = buttonText(phase, resultLabel, idleLabel, syncingLabel);
 
   // Every state's icon and label share one grid cell, so the button keeps the width of the longest one.
-  const layers = [...new Set([...fixedLabels, resultLabel])].filter(Boolean);
+  const layers = [...new Set([idleLabel, syncingLabel, t("upToDate"), resultLabel])].filter(Boolean);
 
   function startSync() {
     // aria-disabled instead of disabled keeps keyboard focus on the button while it syncs.
@@ -105,14 +112,14 @@ export function SyncButton({
         disabled={!bankAccounts.length}
         aria-disabled={syncing || undefined}
         aria-busy={syncing}
-        aria-label={accessibleName(phase, visibleLabel, problem)}
+        aria-label={accessibleName(phase, visibleLabel, problem, t)}
         aria-describedby={lastSync ? lastSyncId : undefined}
         onClick={startSync}
       >
         <span className={styles["layers"]}>
           {layers.map(label => (
             <span key={label} className={clsx(styles["layer"], label === visibleLabel && styles["visible"])}>
-              <LayerIcon label={label} syncing={syncing} />
+              <LayerIcon icon={layerIcon(label, idleLabel, syncingLabel)} syncing={syncing} />
               <span className={styles["text"]}>{label}</span>
             </span>
           ))}
@@ -123,7 +130,9 @@ export function SyncButton({
           ref={badge}
           type="button"
           className={styles["badge"]}
-          aria-label={`Show sync problems: ${problem.buttonLabel}`}
+          aria-label={t("showProblems", {
+            problem: problem.buttonLabel
+          })}
           aria-expanded={detailsOpen}
           aria-controls={detailsId}
           onClick={() => setDetailsOpen(open => !open)}
@@ -150,52 +159,86 @@ function useLastSyncLabel() {
   const locale = useLocale();
   const timeZone = useDisplayTimeZone();
   const runs = useSyncRuns();
+  const t = useTranslations("banking.syncRuns");
 
-  return runs.data ? lastSyncLabel(runs.data[0], timeZone, locale) : undefined;
+  if (!runs.data) {
+    return undefined;
+  }
+
+  const run = runs.data[0];
+
+  if (!run) {
+    return t("none");
+  }
+
+  const date = describeDate(Temporal.Instant.from(run.started_at).toZonedDateTimeISO(timeZone), locale).label;
+
+  return t("last", {
+    date,
+    tone: syncRunTone(run.status)
+  });
+}
+
+type LayerIconKind = "idle" | "syncing" | "done";
+
+function layerIcon(label: string, idleLabel: string, syncingLabel: string): LayerIconKind {
+  if (label === syncingLabel) {
+    return "syncing";
+  }
+
+  if (label === idleLabel) {
+    return "idle";
+  }
+
+  return "done";
 }
 
 function LayerIcon({
-  label,
+  icon,
   syncing
 }: {
-  label: string;
+  icon: LayerIconKind;
   syncing: boolean
 }) {
-  if (label === "Syncing …") {
+  if (icon === "syncing") {
     return <RefreshCw size={15} className={clsx(syncing && ui["spinning"])} />;
   }
 
-  if (label === "Sync") {
+  if (icon === "idle") {
     return <RefreshCw size={15} />;
   }
 
   return <Check size={15} />;
 }
 
-function buttonText(phase: SyncPhase, resultLabel: string) {
+function buttonText(phase: SyncPhase, resultLabel: string, idleLabel: string, syncingLabel: string) {
   if (phase === "syncing") {
-    return "Syncing …";
+    return syncingLabel;
   }
 
   if (phase === "synced") {
     return resultLabel;
   }
 
-  return "Sync";
+  return idleLabel;
 }
 
-function accessibleName(phase: SyncPhase, visibleLabel: string, problem: SyncProblem | null) {
+function accessibleName(phase: SyncPhase, visibleLabel: string, problem: SyncProblem | null, t: ReturnType<typeof useTranslations<"banking.sync">>) {
   if (phase === "synced") {
-    return `Synced: ${visibleLabel}`;
+    return t("synced", {
+      label: visibleLabel
+    });
   }
 
   // Phones show only the icon, so the idle name says what the button covers; it starts with the visible "Sync" for speech input.
   if (phase === "idle" && problem) {
-    return `Sync all accounts — ${problem.buttonLabel}`;
+    return t("allAccountsProblem", {
+      problem: problem.buttonLabel
+    });
   }
 
   if (phase === "idle") {
-    return "Sync all accounts";
+    return t("allAccounts");
   }
 
   return visibleLabel;

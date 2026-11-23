@@ -9,33 +9,18 @@ import { Select } from "@/components/ui/select";
 import { DateValue } from "@/components/ui/date-value";
 import { allowedDecisions, decisionCandidate, effectiveDecision, type ExistingMatch, type RowDecision, type RowMatch, type SourceField } from "@/features/imports/reimport-decisions";
 import type { MappedRow, RowError } from "@/features/imports/import-rows";
-import { isTransactionType, transactionTypeLabels } from "@/lib/transaction-types";
+import { isTransactionType } from "@/lib/transaction-types";
 import { minorUnits, money } from "@/lib/money";
 import { formatCount } from "@/lib/locale";
 import { useLocale } from "@/client/locale-provider";
 import type { ImportDraft } from "./use-import-draft";
+import { useTranslations } from "next-intl";
+import type { ImportMessages } from "@/features/imports/import-messages";
 
 type Group = "undecided" | "updates" | "new" | "errors";
 
 // Possible duplicates come first: they block the import. Matches that would change nothing are a no-op and not listed.
-const groupLabels: Record<Group, string> = {
-  undecided: "Possible duplicates",
-  updates: "Updates",
-  new: "New",
-  errors: "Errors"
-};
-
-const decisionLabels: Record<RowDecision, string> = {
-  update: "Update",
-  skip: "Skip",
-  create: "Create new"
-};
-
-const bulkLabels: Record<RowDecision, string> = {
-  update: "Update all",
-  skip: "Skip all",
-  create: "Create all"
-};
+const groupOrder: Group[] = ["undecided", "updates", "new", "errors"];
 
 const pageSize = 100;
 
@@ -50,11 +35,11 @@ export function MatchReview({
 }: {
   draft: ImportDraft;
 }) {
-  const locale = useLocale();
+  const t = useTranslations("imports.review");
   const summary = draft.summary;
   const rows = useMemo(() => new Map((draft.prepared?.rows ?? []).map(row => [row.line, row])), [draft.prepared]);
   const groups = useMemo(() => groupRows(summary, rows), [summary, rows]);
-  const available = (Object.keys(groupLabels) as Group[]).filter(group => groups[group].length > 0);
+  const available = groupOrder.filter(group => groups[group].length > 0);
   const [chosenGroup, setGroup] = useState<Group | null>(null);
   const [shown, setShown] = useState(pageSize);
   const group = chosenGroup && groups[chosenGroup].length > 0 ? chosenGroup : available[0];
@@ -115,11 +100,16 @@ export function MatchReview({
   return (
     <section className={clsx(ui["panel"], styles["section"])} aria-labelledby="import-matches">
       <div>
-        <h2 id="import-matches">Rows</h2>
-        <p className={ui["form-hint"]}>Updates write the file's payee, description and type to the booking in Ufer; your own edits, categories, type corrections, splits and links stay. Possible duplicates need a decision.{unchanged > 0 ? ` ${formatCount(unchanged, locale)} matched ${unchanged === 1 ? "row changes" : "rows change"} nothing and ${unchanged === 1 ? "is" : "are"} not listed.` : ""}</p>
+        <h2 id="import-matches">{t("heading")}</h2>
+        <p className={ui["form-hint"]}>
+          {t("hint")}
+          {unchanged > 0 && ` ${t("unchanged", {
+            count: unchanged
+          })}`}
+        </p>
       </div>
       <div className={styles["toolbar"]}>
-        <div className={ui["button-group"]} role="group" aria-label="Show">
+        <div className={ui["button-group"]} role="group" aria-label={t("show")}>
           {available.map(item => (
             <button
               key={item}
@@ -131,12 +121,21 @@ export function MatchReview({
                 setShown(pageSize);
               }}
             >
-              {groupLabels[item]} ({formatCount(groups[item].length, locale)})
+              {t("group", {
+                group: item,
+                count: groups[item].length
+              })}
             </button>
           ))}
         </div>
         {decidable && (
-          <div className={ui["button-group"]} role="group" aria-label={`Decide for all ${groupLabels[group].toLowerCase()}`}>
+          <div
+            className={ui["button-group"]}
+            role="group"
+            aria-label={t("decideAll", {
+              group
+            })}
+          >
             {(["update", "skip", "create"] as const).map(action => (
               <button
                 key={action}
@@ -145,7 +144,7 @@ export function MatchReview({
                 disabled={draft.inputsLocked || !listedMatches.some(match => allowedDecisions(match).includes(action))}
                 onClick={() => bulk(action)}
               >
-                {bulkLabels[action]}
+                {t(`bulk.${action}`)}
               </button>
             ))}
           </div>
@@ -160,13 +159,13 @@ export function MatchReview({
         <table>
           <thead>
             <tr>
-              <th scope="col">Row</th>
-              {decidable && <th scope="col">Decision</th>}
-              <th scope="col">Date</th>
-              <th scope="col" className={styles["amount"]}>Amount</th>
-              <th scope="col">Payee</th>
-              <th scope="col">Description</th>
-              {group === "errors" ? <th scope="col">Problem</th> : <th scope="col">Type</th>}
+              <th scope="col">{t("row")}</th>
+              {decidable && <th scope="col">{t("decision")}</th>}
+              <th scope="col">{t("date")}</th>
+              <th scope="col" className={styles["amount"]}>{t("amount")}</th>
+              <th scope="col">{t("payee")}</th>
+              <th scope="col">{t("description")}</th>
+              {group === "errors" ? <th scope="col">{t("problem")}</th> : <th scope="col">{t("type")}</th>}
             </tr>
           </thead>
           <tbody>
@@ -201,7 +200,10 @@ export function MatchReview({
       </div>
       {listed.length > shown && (
         <button type="button" className={clsx(ui["button"], styles["more"])} onClick={() => setShown(count => count + pageSize)}>
-          Show {formatCount(Math.min(pageSize, listed.length - shown), locale)} more of {formatCount(listed.length - shown, locale)}
+          {t("more", {
+            shown: Math.min(pageSize, listed.length - shown),
+            remaining: listed.length - shown
+          })}
         </button>
       )}
     </section>
@@ -221,6 +223,7 @@ function PlainRow({
   error: RowError | undefined;
 }) {
   const locale = useLocale();
+  const t = useTranslations("imports");
   const currency = account?.currency ?? row?.currency ?? "EUR";
 
   return (
@@ -230,7 +233,7 @@ function PlainRow({
       <td className={styles["amount"]}>{row ? fileAmount(row.amount, currency, locale) : "—"}</td>
       <td>{row?.payee || "—"}</td>
       <td>{row?.description || "—"}</td>
-      {error ? <td className={styles["problem"]}>{error.message}</td> : <td>{row?.type ? typeLabel(row.type) : "—"}</td>}
+      {error ? <td className={styles["problem"]}>{error.message}</td> : <td>{row?.type ? typeLabel(row.type, t) : "—"}</td>}
     </tr>
   );
 }
@@ -248,6 +251,7 @@ function MatchRows({
   draft: ImportDraft;
 }) {
   const locale = useLocale();
+  const t = useTranslations("imports");
   const viewed = draft.viewedCandidates.get(match.line);
   const decision = effectiveDecision(match, draft.decisions.get(match.line));
   const candidate = decision?.booking ? decisionCandidate(match, decision) : match.candidates.find(option => option.id === viewed) ?? decisionCandidate(match, decision);
@@ -256,15 +260,17 @@ function MatchRows({
   const changes = new Set<SourceField>(decision?.action === "update" ? candidate.changes : []);
   const currency = account?.currency ?? "EUR";
   const possible = match.kind === "possible";
-  const label = `row ${formatCount(match.line, locale)}`;
+  const line = {
+    line: match.line
+  };
   // A file without a type keeps the booking's type.
-  const fileType = row?.type ? typeLabel(row.type) : typeLabel(candidate.type);
+  const fileType = row?.type ? typeLabel(row.type, t) : typeLabel(candidate.type, t);
   const field = (name: SourceField, file: string, stored: string, override: string | null): ReactNode => changes.has(name) ? (
     <span className={styles["change"]}>
       <del>{override ?? (stored || "—")}</del>
       <span aria-hidden="true"> → </span>
       <ins>{file || "—"}</ins>
-      {override !== null && <span className={styles["note"]}> (your edit stays shown)</span>}
+      {override !== null && <span className={styles["note"]}>{t("review.editStays")}</span>}
     </span>
   ) : file || "—";
 
@@ -275,45 +281,50 @@ function MatchRows({
         <td className={styles["decision"]}>
           <Select
             variant="compact"
-            aria-label={`Decision for ${label}`}
+            aria-label={t("review.decisionFor", line)}
             value={decision?.action ?? ""}
             aria-invalid={blocked}
-            title={conflict ? "Another row already updates this booking. Choose another booking or decision." : undefined}
+            title={conflict ? t("review.conflictTitle") : undefined}
             disabled={draft.inputsLocked}
             onChange={event => draft.decide([match.line], event.target.value as RowDecision, possible ? candidate.id : undefined)}
           >
-            {decision === null && <option value="" disabled>Choose …</option>}
-            {allowedDecisions(match).map(action => <option key={action} value={action}>{decisionLabels[action]}</option>)}
+            {decision === null && <option value="" disabled>{t("review.choose")}</option>}
+            {allowedDecisions(match).map(action => <option key={action} value={action}>{t(`review.decisions.${action}`)}</option>)}
           </Select>
         </td>
         <td className={styles["nowrap"]}><DateValue value={row?.date ?? null} /></td>
         <td className={styles["amount"]}>{row ? fileAmount(row.amount, currency, locale) : "—"}</td>
         <td>{field("payee", row?.payee ?? "", candidate.payee, candidate.payeeOverride)}</td>
         <td>{field("description", match.description, candidate.description, candidate.descriptionOverride)}</td>
-        <td className={styles["nowrap"]}>{field("type", fileType, typeLabel(candidate.type), null)}</td>
+        <td className={styles["nowrap"]}>{field("type", fileType, typeLabel(candidate.type, t), null)}</td>
       </tr>
       {possible && (
         <tr className={clsx(styles["existing"], blocked && styles["blocked"])}>
-          <td className={styles["line"]}><span className={ui["visually-hidden"]}>Booking in Ufer for {label}</span></td>
+          <td className={styles["line"]}><span className={ui["visually-hidden"]}>{t("review.bookingFor", line)}</span></td>
           <td className={styles["decision"]}>
             {match.candidates.length > 1 ? (
               <Select
                 variant="compact"
-                aria-label={`Booking in Ufer for ${label}`}
+                aria-label={t("review.bookingFor", line)}
                 value={candidate.id}
                 disabled={draft.inputsLocked}
                 onChange={event => decision ? draft.decide([match.line], decision.action, event.target.value) : draft.viewCandidate(match.line, event.target.value)}
               >
-                {match.candidates.map((option, position) => <option key={option.id} value={option.id}>{candidateLabel(option, position, match.candidates.length, currency, locale)}</option>)}
+                {match.candidates.map((option, position) => (
+                  <option key={option.id} value={option.id}>{candidateLabel(option, t("review.candidate", {
+                    position: position + 1,
+                    count: match.candidates.length
+                  }), currency, locale)}</option>
+                ))}
               </Select>
-            ) : <span className={styles["note"]}>In Ufer</span>}
-            {conflict && <span className={styles["warning"]}>Another row updates this booking.</span>}
+            ) : <span className={styles["note"]}>{t("review.inUfer")}</span>}
+            {conflict && <span className={styles["warning"]}>{t("review.conflict")}</span>}
           </td>
           <td className={styles["nowrap"]}><DateValue value={candidate.date} /></td>
           <td className={styles["amount"]}>{money(candidate.amount, currency, locale)}</td>
           <td>{candidate.payeeOverride ?? (candidate.payee || "—")}</td>
           <td>{candidate.descriptionOverride ?? (candidate.description || "—")}</td>
-          <td className={styles["nowrap"]}>{typeLabel(candidate.type)}</td>
+          <td className={styles["nowrap"]}>{typeLabel(candidate.type, t)}</td>
         </tr>
       )}
     </Fragment>
@@ -365,11 +376,11 @@ function fileAmount(value: string, currency: string, locale: string) {
   }
 }
 
-function typeLabel(type: string) {
-  return isTransactionType(type) ? transactionTypeLabels[type] : type;
+function typeLabel(type: string, t: ImportMessages) {
+  return isTransactionType(type) ? t(`types.${type}`) : type;
 }
 
 /** Numbered, so candidates whose shown texts are equal stay distinguishable; the row below the file's row shows the chosen one. */
-function candidateLabel(candidate: ExistingMatch, position: number, count: number, currency: string, locale: string) {
-  return [`${position + 1} of ${count}`, candidate.date, money(candidate.amount, currency, locale), candidate.payeeOverride || candidate.payee || candidate.description].filter(Boolean).join(" · ");
+function candidateLabel(candidate: ExistingMatch, position: string, currency: string, locale: string) {
+  return [position, candidate.date, money(candidate.amount, currency, locale), candidate.payeeOverride || candidate.payee || candidate.description].filter(Boolean).join(" · ");
 }

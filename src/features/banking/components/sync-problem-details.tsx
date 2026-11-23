@@ -8,6 +8,7 @@ import styles from "./sync-problem-details.module.css";
 import { ArrowRight, TriangleAlert, X } from "lucide-react";
 import { TraceId } from "@/components/ui/trace-id";
 import type { SyncProblem } from "@/features/banking/use-sync-status";
+import { useTranslations } from "next-intl";
 
 type Props = {
   id: string;
@@ -23,6 +24,7 @@ export function SyncProblemDetails({
   onOpenConnections
 }: Props) {
   const titleId = useId();
+  const t = useTranslations("banking.sync");
 
   return (
     <div
@@ -41,7 +43,7 @@ export function SyncProblemDetails({
         <button
           type="button"
           className={clsx(ui["icon-button"], styles["dismiss"])}
-          aria-label="Dismiss sync warning"
+          aria-label={t("dismissWarning")}
           onClick={onDismiss}
         >
           <X size={14} />
@@ -62,7 +64,7 @@ export function SyncProblemDetails({
         <TraceId id={problem.traceId} />
         {problem.failures.some(failure => failure.reconnect) && (
           <button type="button" className={clsx(ui["text-button"], styles["connections"])} onClick={onOpenConnections}>
-            Reconnect in Bank connections
+            {t("reconnect")}
             <ArrowRight size={14} />
           </button>
         )}

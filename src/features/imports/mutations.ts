@@ -8,6 +8,7 @@ import type { NewImportCategory } from "./import-plan";
 import type { AccountKind } from "@/features/accounts/account-kinds";
 import { assignOccurrences, duplicateIdErrors, rowCategoryValues, type MappedRow, type RowError } from "./import-rows";
 import { batchRows, withConsumed, type ConsumedBooking } from "./import-batches";
+import { useTranslations } from "next-intl";
 import { joinMatches, type DecisionInput, type MatchedBooking, type RowMatch, type SentRowMatch } from "./reimport-decisions";
 
 // Confirmed rows and opening balances change account balances.
@@ -79,6 +80,7 @@ type MappedImport = {
 /** Checks or saves mapped rows in request batches and merges the batch summaries. The server creates new accounts with the first confirmed batch. */
 export function useMappedImport() {
   const queryClient = useQueryClient();
+  const t = useTranslations("imports");
 
   return useMutation({
     mutationFn: async ({
@@ -134,7 +136,7 @@ export function useMappedImport() {
       };
       const currencyOf = (source: string) => targets.find(item => item.source === source)?.currency || null;
       // An ID must identify one row per account; rows sharing one are rejected before anything is sent.
-      const idErrors = duplicateIdErrors(rows, targetOf);
+      const idErrors = duplicateIdErrors(rows, targetOf, t);
       const rejected = new Set(idErrors.map(error => error.line));
       const numbered = assignOccurrences(rows.filter(row => !rejected.has(row.line)), targetOf, currencyOf);
 

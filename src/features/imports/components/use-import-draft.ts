@@ -18,10 +18,12 @@ import type { DecimalSeparator } from "@/features/imports/csv-values";
 import { useImportTemplates } from "@/features/imports/template-queries";
 import { decisionCandidate, decisionTotals, effectiveDecision, type DecisionInput } from "@/features/imports/reimport-decisions";
 import { useLocale } from "@/client/locale-provider";
-import { formatCount } from "@/lib/locale";
+import { useTranslations } from "next-intl";
 
 /** Large multi-year exports are read in the browser and sent as mapped rows in batches, so only the browser's memory bounds the file. */
-const maxFileBytes = 25_000_000;
+const maxFileMegabytes = 25;
+
+const maxFileBytes = maxFileMegabytes * 1_000_000;
 
 export type LoadedFile = {
   name: string;
@@ -33,6 +35,7 @@ export type LoadedFile = {
  */
 export function useImportDraft() {
   const locale = useLocale();
+  const t = useTranslations("imports");
   const [file, setFile] = useState<LoadedFile | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const [settings, setSettings] = useState<CsvSettings | null>(null);
@@ -71,13 +74,14 @@ export function useImportDraft() {
   const accountOptions = useMemo(() => activeAccounts(accounts.data ?? []), [accounts.data]);
   const table = useMemo(() => file && settings ? readCsvTable(file.bytes, settings) : null, [file, settings]);
   // A delimiter or encoding that breaks the file keeps it loaded so another format can be chosen; nothing else works until then.
-  const formatError = file && settings && !table ? "The file could not be read with these settings." : null;
+  const formatError = file && settings && !table ? t("file.settingsUnreadable") : null;
   // Without a stored mapping (a new file, delimiter or encoding), the suggestion for the current header applies.
   const effectiveMapping = useMemo(() => mapping ?? (table ? suggestMapping(table.header) : null), [mapping, table]);
-  const problem = effectiveMapping ? mappingProblem(effectiveMapping) : null;
+  const problemKey = effectiveMapping ? mappingProblem(effectiveMapping) : null;
+  const problem = problemKey ? t(`mapping.${problemKey}`) : null;
   const typeValues = useMemo(() => withTypeChoices(templateTypeValues(template), typeChoices), [template, typeChoices]);
   const typeOptions = useMemo(() => table && effectiveMapping ? typeColumnValues(table.rows, effectiveMapping.type) : [], [table, effectiveMapping]);
-  const csvMapped = useMemo(() => table && effectiveMapping && !mappingProblem(effectiveMapping) && settings ? mapRows(table.rows, effectiveMapping, settings, locale, table.lines, templateConventions(template), typeValues) : null, [table, effectiveMapping, settings, locale, template, typeValues]);
+  const csvMapped = useMemo(() => table && effectiveMapping && !mappingProblem(effectiveMapping) && settings ? mapRows(table.rows, effectiveMapping, settings, t, table.lines, templateConventions(template), typeValues) : null, [table, effectiveMapping, settings, t, template, typeValues]);
   const mapped = statement ?? csvMapped;
   // A statement has no decimal setting; a new account's balance is typed in the person's locale.
   const decimal = statement ? localeDecimal(locale) : settings?.decimal ?? null;
@@ -89,7 +93,7 @@ export function useImportDraft() {
   const keptRows = useMemo(() => mapped?.rows.filter(row => resolvedTargets.get(row.source)?.kind !== "skip") ?? [], [mapped, resolvedTargets]);
   const values = useMemo(() => categoryValues(keptRows, categories.data ?? []), [keptRows, categories.data]);
   const resolvedCategories = useMemo(() => resolveCategories(values, categoryChoices, remembered?.selections ?? new Map()), [values, categoryChoices, remembered]);
-  const prepared = useMemo(() => mapped && decimal ? prepareImport(mapped.rows, resolvedTargets, accountOptions, resolvedCategories, decimal, locale) : null, [mapped, decimal, resolvedTargets, accountOptions, resolvedCategories, locale]);
+  const prepared = useMemo(() => mapped && decimal ? prepareImport(mapped.rows, resolvedTargets, accountOptions, resolvedCategories, decimal, t) : null, [mapped, decimal, resolvedTargets, accountOptions, resolvedCategories, t]);
   const preparedKey = useMemo(() => prepared ? importKey(prepared) : null, [prepared]);
   // A refetched account list can change a preselected target; the check then no longer describes what Import would save.
   const summary = checked && checked.key === preparedKey ? checked.summary : null;
@@ -101,7 +105,7 @@ export function useImportDraft() {
   // Leaving during a running request or after a confirmation started would lose the import's ID and let a new visit import differently.
   const unfinished = mutation.isPending || configurationLocked;
 
-  useNavigationGuard(unfinished);
+  useNavigationGuard(unfinished, t("page.leaveQuestion"));
 
   function reset() {
     setSettings(null);
@@ -134,7 +138,9 @@ export function useImportDraft() {
     }
 
     if (selected.size > maxFileBytes) {
-      setFileError(`The file cannot exceed ${formatCount(25, locale)} MB.`);
+      setFileError(t("file.tooLarge", {
+        megabytes: maxFileMegabytes
+      }));
 
       return;
     }
@@ -145,7 +151,7 @@ export function useImportDraft() {
       bytes = new Uint8Array(await selected.arrayBuffer());
     } catch {
       if (selection === latestSelection.current) {
-        setFileError("The file could not be read.");
+        setFileError(t("file.unreadable"));
       }
 
       return;
@@ -162,7 +168,7 @@ export function useImportDraft() {
       return;
     }
 
-    const read = readStatementFile(bytes, locale);
+    const read = readStatementFile(bytes, t);
 
     if (read && "error" in read) {
       setFileError(read.error);
@@ -188,7 +194,7 @@ export function useImportDraft() {
     try {
       parsed = parseCsv(decoded.text, delimiter);
     } catch {
-      setFileError("The file could not be read as CSV.");
+      setFileError(t("file.notCsv"));
 
       return;
     }
@@ -503,12 +509,10 @@ function revealFirstProblem() {
   });
 }
 
-const leaveQuestion = "The import has not finished. Leave anyway? Rows saved so far stay imported.";
-
 const guardMarker = "uferImportGuard";
 
 /** Asks before the page is left while `active`: on reload or closing the tab, on in-app links, and on Back/Forward, which a guard history entry on top of the page intercepts. */
-function useNavigationGuard(active: boolean) {
+function useNavigationGuard(active: boolean, leaveQuestion: string) {
   useEffect(() => {
     if (!active) {
       return;
@@ -570,7 +574,7 @@ function useNavigationGuard(active: boolean) {
         window.history.back();
       }
     };
-  }, [active]);
+  }, [active, leaveQuestion]);
 }
 
 /** The decimal separator the locale writes numbers with. */

@@ -17,6 +17,7 @@ import { assignOccurrences, mapRows, tagSplit, withSplitTags, type MappedRow } f
 import { buxferTemplate, templateConventions, templateMapping, templateTypeValues } from "../src/features/imports/csv-templates";
 import { parseCsv } from "../src/features/imports/csv-reading";
 import { suggestMapping, type CsvSettings } from "../src/features/imports/csv-mapping";
+import { importMessages } from "./fixtures/import-messages";
 
 const now = Temporal.Instant.from("2026-06-30T12:00:00Z");
 const importId = "00000000-0000-4000-8000-000000000247";
@@ -78,7 +79,7 @@ async function isolatedDatabase(context: TestContext) {
 function mappedBuxferRows(csv = buxferCsv) {
   const [header, ...rows] = parseCsv(csv, ",");
 
-  return mapRows(rows, templateMapping(buxferTemplate, header), settings, "en", undefined, templateConventions(buxferTemplate), templateTypeValues(buxferTemplate));
+  return mapRows(rows, templateMapping(buxferTemplate, header), settings, importMessages, undefined, templateConventions(buxferTemplate), templateTypeValues(buxferTemplate));
 }
 
 function payload(rows: MappedRow[], confirm: boolean, categories: object[] = []) {
@@ -249,7 +250,7 @@ test("a transfer row with amount-bearing tags is not split and keeps its tags in
 
 test("only Buxfer's layout reads tags as splits; other files keep colon values as plain categories", () => {
   const [header, ...rows] = parseCsv(["Date,Payee,Amount,Category", "2026-01-10,Contractor,-10,Phase:5,Project:5", "2026-01-11,Contractor,-20,Project:2026"].join("\n").replace("Phase:5,Project:5", "\"Phase:5,Project:5\""), ",");
-  const mapped = mapRows(rows, suggestMapping(header), settings, "en");
+  const mapped = mapRows(rows, suggestMapping(header), settings, importMessages);
 
   assert.deepEqual(mapped.rows.map(row => [row.category, row.parts, row.description]), [
     ["Phase:5,Project:5", null, ""],
@@ -349,8 +350,8 @@ test("type values of a template replace the defaults, and a saved template witho
     type: 3
   };
 
-  assert.deepEqual(mapRows(rows, mapping, settings, "en").rows.map(row => row.type), [null, "transfer"]);
-  assert.deepEqual(mapRows(rows, mapping, settings, "en", undefined, undefined, {
+  assert.deepEqual(mapRows(rows, mapping, settings, importMessages).rows.map(row => row.type), [null, "transfer"]);
+  assert.deepEqual(mapRows(rows, mapping, settings, importMessages, undefined, undefined, {
     gutschrift: "expense"
   }).rows.map(row => row.type), ["expense", null]);
   assert.deepEqual(templateTypeValues({
@@ -373,7 +374,7 @@ test("only the Buxfer template hides investment trades", () => {
       type: 3
     }
   }, header);
-  const row = mapRows([["2026-02-02", "100", "Fund", "Investment purchase"]], mapping, settings, "en").rows[0];
+  const row = mapRows([["2026-02-02", "100", "Fund", "Investment purchase"]], mapping, settings, importMessages).rows[0];
 
   assert.equal(row.amount, "100");
   assert.equal(row.hidden, false);

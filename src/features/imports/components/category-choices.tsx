@@ -5,7 +5,7 @@ import ui from "../../../components/ui/primitives.module.css";
 import { clsx } from "clsx";
 import { useId } from "react";
 import styles from "./category-choices.module.css";
-import { rowCount, type CategorySelection, type CategoryValue, type ImportProblem, type NewImportCategory } from "@/features/imports/import-plan";
+import { type CategorySelection, type CategoryValue, type ImportProblem, type NewImportCategory } from "@/features/imports/import-plan";
 import { FieldProblem, problemProps } from "./field-problem";
 import { CategoryPicker, type PickerCategory } from "@/features/categorization/components/category-picker";
 import { newCategoryColor } from "@/features/categorization/category-color-suggestions";
@@ -13,7 +13,7 @@ import { suggestCategoryIcon } from "@/features/categorization/category-icons";
 import { categoryNameKey } from "@/lib/category-name";
 import type { Category } from "@/features/categorization/types";
 import type { ImportDraft } from "./use-import-draft";
-import { useLocale } from "@/client/locale-provider";
+import { useTranslations } from "next-intl";
 
 // Categories the import creates on confirmation are offered under IDs no stored category uses.
 function pendingId(name: string) {
@@ -42,17 +42,18 @@ export function CategoryChoices({
 }: {
   draft: ImportDraft;
 }) {
+  const t = useTranslations("imports.categoryChoices");
   const pending = pendingCategories(draft.categories);
   const options = [...draft.categoryOptions, ...pending];
 
   return (
     <section className={clsx(ui["panel"], styles["section"])} aria-labelledby="import-categories">
       <div>
-        <h2 id="import-categories">Categories</h2>
-        <p className={ui["form-hint"]}>Each value without a category of the same name goes to an existing category, a new one created when you import, or stays uncategorized so rules can categorize it. Values with several tags are not guessed; tags with amounts split their row, and each tag is listed here.</p>
+        <h2 id="import-categories">{t("heading")}</h2>
+        <p className={ui["form-hint"]}>{t("hint")}</p>
       </div>
       <fieldset className={styles["values"]} disabled={draft.inputsLocked}>
-        <legend className={ui["visually-hidden"]}>Category for each value</legend>
+        <legend className={ui["visually-hidden"]}>{t("legend")}</legend>
         {draft.categoryValues.map(value => (
           <CategoryRow
             key={value.value}
@@ -87,7 +88,7 @@ function CategoryRow({
   problem: ImportProblem | undefined;
   onChange: (selection: CategorySelection) => void;
 }) {
-  const locale = useLocale();
+  const t = useTranslations("imports");
   const pickerId = useId();
   // An unset value matches no option, so the field starts empty and asks for a choice.
   let current: string | null = "";
@@ -139,9 +140,11 @@ function CategoryRow({
       <label htmlFor={pickerId} className={styles["label"]}>
         <strong>{value.value}</strong>
         <span>
-          {rowCount(value.rows, locale)}
-          {value.multiTag && <span className={styles["several"]}>Several tags</span>}
-          {selection?.action === "create" && <span className={styles["new"]}>New category</span>}
+          {t("rowCount", {
+            count: value.rows
+          })}
+          {value.multiTag && <span className={styles["several"]}>{t("categoryChoices.severalTags")}</span>}
+          {selection?.action === "create" && <span className={styles["new"]}>{t("categoryChoices.newCategory")}</span>}
         </span>
       </label>
       <div className={styles["control"]}>

@@ -4,7 +4,7 @@ import { currencyAllows, parseAmount, splitCurrency, type DecimalSeparator } fro
 import type { CsvTemplate } from "./csv-templates";
 import type { AccountKind } from "@/features/accounts/account-kinds";
 import type { CategoryChoice, ImportTarget } from "./mutations";
-import { formatCount } from "@/lib/locale";
+import type { ImportMessages } from "./import-messages";
 
 /** What the person chose for one source account's rows. */
 export type TargetChoice = {
@@ -69,10 +69,6 @@ type AccountOption = {
   name: string;
   currency: string;
 };
-
-export function rowCount(count: number, locale: string) {
-  return `${formatCount(count, locale)} ${count === 1 ? "row" : "rows"}`;
-}
 
 /** Distinct source account values with their row counts, in file order; without an account column all rows share the empty source. */
 export function sourceAccounts(rows: MappedRow[]): SourceAccount[] {
@@ -202,7 +198,7 @@ export type ImportProblem = AccountProblem | {
 };
 
 /** Turns the page's choices into the import request: skipped sources drop their rows, and a new account's opening balance is dated on its first row. */
-export function prepareImport(rows: MappedRow[], choices: ReadonlyMap<string, TargetChoice>, accounts: AccountOption[], selections: ReadonlyMap<string, CategorySelection>, decimal: DecimalSeparator, locale: string): PreparedImport {
+export function prepareImport(rows: MappedRow[], choices: ReadonlyMap<string, TargetChoice>, accounts: AccountOption[], selections: ReadonlyMap<string, CategorySelection>, decimal: DecimalSeparator, t: ImportMessages): PreparedImport {
   const targets: ImportTarget[] = [];
   const problems: ImportProblem[] = [];
   const kept = rows.filter(row => choices.get(row.source)?.kind !== "skip");
@@ -222,7 +218,7 @@ export function prepareImport(rows: MappedRow[], choices: ReadonlyMap<string, Ta
     }
 
     if (choice.kind === "unset") {
-      problem("target", "Choose an account.");
+      problem("target", t("problems.chooseAccount"));
 
       continue;
     }
@@ -231,7 +227,7 @@ export function prepareImport(rows: MappedRow[], choices: ReadonlyMap<string, Ta
       const account = accounts.find(item => item.id === choice.accountId);
 
       if (!account) {
-        problem("target", "Choose an account.");
+        problem("target", t("problems.chooseAccount"));
 
         continue;
       }
@@ -250,30 +246,34 @@ export function prepareImport(rows: MappedRow[], choices: ReadonlyMap<string, Ta
     const balance = choice.balance.trim() ? parseAmount(choice.balance, decimal) : null;
 
     if (!name) {
-      problem("name", "Enter a name for the new account.");
+      problem("name", t("problems.accountName"));
     }
 
     if (name.length > maxAccountNameLength) {
-      problem("name", `Use at most ${formatCount(maxAccountNameLength, locale)} characters.`);
+      problem("name", t("problems.accountNameLength", {
+        max: maxAccountNameLength
+      }));
     }
 
     if (!/^[A-Z]{3}$/.test(choice.currency)) {
-      problem("currency", "Enter a three-letter code.");
+      problem("currency", t("problems.currency"));
     }
 
     if (choice.balance.trim() && balance === null) {
-      problem("balance", "Enter the balance as a number.");
+      problem("balance", t("problems.balanceNumber"));
     }
 
     if (choice.accountKind === "loan" && balance !== null && Number(balance) > 0) {
-      problem("balance", "Enter outstanding debt as a negative balance.");
+      problem("balance", t("problems.loanBalance"));
     }
 
     const balanceCurrency = splitCurrency(choice.balance.trim()).currency;
 
     // The amount is stored in the account currency, so a balance stated in another currency must not be relabelled.
     if (balance !== null && balanceCurrency && !currencyAllows(balanceCurrency, choice.currency)) {
-      problem("balance", `Enter the balance in ${choice.currency}.`);
+      problem("balance", t("problems.balanceCurrency", {
+        currency: choice.currency
+      }));
     }
 
     const firstDate = kept.filter(row => row.source === source).map(row => row.date).sort()[0];
@@ -301,7 +301,7 @@ export function prepareImport(rows: MappedRow[], choices: ReadonlyMap<string, Ta
       problems.push({
         value,
         field: "category",
-        message: "Choose a category."
+        message: t("problems.chooseCategory")
       });
 
       continue;
@@ -312,7 +312,9 @@ export function prepareImport(rows: MappedRow[], choices: ReadonlyMap<string, Ta
       problems.push({
         value,
         field: "category",
-        message: `Use at most ${formatCount(maxCategoryLength, locale)} characters for the new category.`
+        message: t("problems.categoryLength", {
+          max: maxCategoryLength
+        })
       });
 
       continue;

@@ -9,6 +9,7 @@ import * as schema from "../src/server/database/schema";
 import { importMappedRows } from "../src/features/imports/server/mapped-import-service";
 import { assignOccurrences, duplicateIdErrors, type MappedRow } from "../src/features/imports/import-rows";
 import { readStatementFile, type StatementFile } from "../src/features/imports/statement-files";
+import { importMessages } from "./fixtures/import-messages";
 
 // Synthetic statements only: names, IBANs and references are invented.
 
@@ -49,7 +50,7 @@ async function isolatedDatabase(context: TestContext) {
 
 function read(text: string | Uint8Array) {
   const bytes = typeof text === "string" ? new TextEncoder().encode(text) : text;
-  const result = readStatementFile(bytes, "en");
+  const result = readStatementFile(bytes, importMessages);
 
   assert.ok(result && !("error" in result), `expected a statement, got ${JSON.stringify(result)}`);
 
@@ -57,7 +58,7 @@ function read(text: string | Uint8Array) {
 }
 
 function readError(text: string) {
-  const result = readStatementFile(new TextEncoder().encode(text), "en");
+  const result = readStatementFile(new TextEncoder().encode(text), importMessages);
 
   assert.ok(result && "error" in result, `expected an error, got ${JSON.stringify(result)}`);
 
@@ -203,7 +204,7 @@ test("OFX 1.x SGML reads Windows-1252 text, entities, both signs, decimal commas
   ]);
   assert.deepEqual(statement.errors.map(error => error.line), [16]);
   // FITIDs are unique per account, so the same ID on the card account is no conflict.
-  assert.deepEqual(duplicateIdErrors(statement.rows, source => source), []);
+  assert.deepEqual(duplicateIdErrors(statement.rows, source => source, importMessages), []);
 });
 
 test("OFX 2.x XML reads closed elements and refuses investment statements", () => {
@@ -458,8 +459,8 @@ test("OFX empty SGML leaves keep later fields, foreign amounts round exactly, an
 });
 
 test("CSV and other text are not taken for statements", () => {
-  assert.equal(readStatementFile(new TextEncoder().encode("Date,Amount\n2026-01-01,1.00\n"), "en"), null);
-  assert.equal(readStatementFile(new TextEncoder().encode("<?xml version=\"1.0\"?><Other/>"), "en"), null);
+  assert.equal(readStatementFile(new TextEncoder().encode("Date,Amount\n2026-01-01,1.00\n"), importMessages), null);
+  assert.equal(readStatementFile(new TextEncoder().encode("<?xml version=\"1.0\"?><Other/>"), importMessages), null);
 });
 
 async function importStatement(statement: StatementFile, importId: string, targets: {

@@ -11,15 +11,14 @@ import { dateFormats } from "@/features/imports/csv-values";
 import type { CsvSettings } from "@/features/imports/csv-mapping";
 import { statementFormatLabels } from "@/features/imports/statement-files";
 import { importFileTypes } from "@/features/imports/pending-import-file";
-import { rowCount } from "@/features/imports/import-plan";
 import type { ImportDraft } from "./use-import-draft";
-import { useLocale } from "@/client/locale-provider";
+import { useTranslations } from "next-intl";
 
-const delimiterLabels: Record<CsvSettings["delimiter"], string> = {
-  ";": "Semicolon",
-  ",": "Comma",
-  "\t": "Tab",
-  "|": "Pipe"
+const delimiterNames: Record<CsvSettings["delimiter"], "semicolon" | "comma" | "tab" | "pipe"> = {
+  ";": "semicolon",
+  ",": "comma",
+  "\t": "tab",
+  "|": "pipe"
 };
 
 /** The loaded file with its row count, a replace action and the detected format as compact, changeable controls. */
@@ -28,7 +27,7 @@ export function FileCard({
 }: {
   draft: ImportDraft;
 }) {
-  const locale = useLocale();
+  const t = useTranslations("imports");
   const input = useRef<HTMLInputElement>(null);
   const {
     file,
@@ -50,7 +49,16 @@ export function FileCard({
         <FileText size={22} aria-hidden="true" />
         <div className={styles["name"]}>
           <strong>{file.name}</strong>
-          {rows !== undefined && <span>{statement ? `${statementFormatLabels[statement.format]} statement · ` : ""}{rowCount(rows, locale)}</span>}
+          {rows !== undefined && (
+            <span>
+              {statement ? t("file.statementRows", {
+                format: statementFormatLabels[statement.format],
+                count: rows
+              }) : t("rowCount", {
+                count: rows
+              })}
+            </span>
+          )}
         </div>
         <button
           type="button"
@@ -59,7 +67,7 @@ export function FileCard({
           onClick={() => input.current?.click()}
         >
           <RefreshCw size={14} />
-          Replace file
+          {t("file.replace")}
         </button>
         <input
           ref={input}
@@ -76,9 +84,9 @@ export function FileCard({
       </div>
       {settings && (
         <fieldset className={styles["format"]} disabled={inputsLocked}>
-          <legend className={ui["visually-hidden"]}>File format</legend>
+          <legend className={ui["visually-hidden"]}>{t("file.format")}</legend>
           <label className={styles["chip"]}>
-            <span>Encoding</span>
+            <span>{t("file.encoding")}</span>
             <Select
               variant="compact"
               value={settings.encoding}
@@ -91,7 +99,7 @@ export function FileCard({
             </Select>
           </label>
           <label className={styles["chip"]}>
-            <span>Delimiter</span>
+            <span>{t("file.delimiter")}</span>
             <Select
               variant="compact"
               value={settings.delimiter}
@@ -99,11 +107,11 @@ export function FileCard({
                 delimiter: event.target.value as CsvSettings["delimiter"]
               })}
             >
-              {Object.entries(delimiterLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              {Object.entries(delimiterNames).map(([value, name]) => <option key={value} value={value}>{t(`file.delimiters.${name}`)}</option>)}
             </Select>
           </label>
           <label className={styles["chip"]}>
-            <span>Dates</span>
+            <span>{t("file.dates")}</span>
             <Select
               variant="compact"
               value={settings.dateFormat}
@@ -115,7 +123,7 @@ export function FileCard({
             </Select>
           </label>
           <label className={styles["chip"]}>
-            <span>Decimals</span>
+            <span>{t("file.decimals")}</span>
             <Select
               variant="compact"
               value={settings.decimal}
