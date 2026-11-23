@@ -97,3 +97,53 @@ export function useCorrectTrade() {
     onSettled: () => invalidate(queryClient, tradeKeys)
   });
 }
+
+// A transfer changes two brokerage accounts' holdings and values, and so net worth; no cash moves.
+const transferKeys = [queryKeys.accounts(), queryKeys.reports.netWorth()];
+
+export type TransferRequest = {
+  accountId: string;
+  security_id: string;
+  to_account_id: string;
+  date: string;
+  quantity: string;
+};
+
+export function useRecordTransfer() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      accountId,
+      ...transfer
+    }: TransferRequest) => api<{
+      id: string
+    }>(`brokerage-accounts/${encodeURIComponent(accountId)}/transfers`, transfer),
+    onSettled: () => invalidate(queryClient, transferKeys)
+  });
+}
+
+export function useCorrectTransfer() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      transferId,
+      ...correction
+    }: {
+      transferId: string;
+      date: string;
+      quantity: string;
+    }) => api(`security-transfers/${encodeURIComponent(transferId)}`, correction, "PATCH"),
+    onSettled: () => invalidate(queryClient, transferKeys)
+  });
+}
+
+export function useDeleteTransfer() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (transferId: string) => api(`security-transfers/${encodeURIComponent(transferId)}`, undefined, "DELETE"),
+    onSettled: () => invalidate(queryClient, transferKeys)
+  });
+}

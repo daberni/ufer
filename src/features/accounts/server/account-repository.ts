@@ -1,8 +1,8 @@
-import { and, eq, inArray, desc, isNotNull, isNull, ne, sql } from "drizzle-orm";
+import { and, eq, inArray, desc, isNotNull, isNull, ne, or, sql } from "drizzle-orm";
 import { bookableAccount } from "@/features/transactions/server/booking-accounts";
 import { database, type Database, type DatabaseTransaction } from "@/server/database/connection";
 import { withRefusableTransaction, withTransaction } from "@/server/database/transaction";
-import { accountIdentifiers, accounts, balanceSnapshots, categorizationRules, securityTrades, transactions } from "@/server/database/schema";
+import { accountIdentifiers, accounts, balanceSnapshots, categorizationRules, securityTrades, securityTransfers, transactions } from "@/server/database/schema";
 import { HttpError } from "@/lib/errors";
 import { createdCounterpartPrefix, manualEntryPrefix } from "@/lib/booking-references";
 import type { AccountKind } from "../account-kinds";
@@ -158,8 +158,12 @@ export async function deleteUnlinkedAccount(id: string, confirmedName: string) {
       id: securityTrades.id
     }).from(securityTrades).where(eq(securityTrades.account_id, id)).get();
 
-    if (trade) {
-      throw new HttpError(409, "This brokerage account still has trades. Delete its trades first.");
+    const transfer = await tx.select({
+      id: securityTransfers.id
+    }).from(securityTransfers).where(or(eq(securityTransfers.from_account_id, id), eq(securityTransfers.to_account_id, id))).get();
+
+    if (trade || transfer) {
+      throw new HttpError(409, "This brokerage account still has trades or transfers. Delete them first.");
     }
 
     const settled = await tx.select({

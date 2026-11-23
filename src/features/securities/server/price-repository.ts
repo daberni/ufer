@@ -1,7 +1,8 @@
 import { and, asc, eq, isNotNull, isNull, ne, or, sql } from "drizzle-orm";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
-import { securities, securityPrices, securitySplits, securityTrades } from "@/server/database/schema";
-import type { PositionTrade } from "../holdings";
+import { securities, securityPrices, securitySplits } from "@/server/database/schema";
+import type { SecurityLeg } from "../transfers";
+import { readSecurityLegs } from "./security-repository";
 
 /** Securities with a provider symbol, their newest stored price date and their first trade date. */
 export async function listPricedSecurities() {
@@ -74,13 +75,13 @@ export type SplitRow = {
 };
 
 /**
- * Replaces the stored splits inside the fetched interval with the reported ones, so a split the provider retracted or redated within it is removed, unless `consistent` rejects the resulting split history for the security's trades, grouped by account.
+ * Replaces the stored splits inside the fetched interval with the reported ones, so a split the provider retracted or redated within it is removed, unless `consistent` rejects the resulting split history for the security's trades and transfers.
  * The check reads trades and splits in the same transaction. Returns whether the splits were stored.
  */
 export async function saveSplitsIfConsistent(securityId: string, interval: {
   from: string;
   to: string
-}, splits: SplitRow[], consistent: (trades: PositionTrade[][], splits: SplitRow[]) => boolean) {
+}, splits: SplitRow[], consistent: (legs: SecurityLeg[], splits: SplitRow[]) => boolean) {
   const db = await database();
   const inInterval = (date: string) => date >= interval.from && date <= interval.to;
 
@@ -96,18 +97,8 @@ export async function saveSplitsIfConsistent(securityId: string, interval: {
       denominator: securitySplits.denominator
     }).from(securitySplits).where(eq(securitySplits.security_id, securityId));
     const merged = [...stored.filter(split => !inInterval(split.date)), ...splits];
-    const trades = await tx.select({
-      account_id: securityTrades.account_id,
-      date: securityTrades.date,
-      side: securityTrades.side,
-      sequence: securityTrades.sequence,
-      quantity_micros: securityTrades.quantity_micros,
-      gross_minor: securityTrades.gross_minor,
-      fee_minor: securityTrades.fee_minor
-    }).from(securityTrades).where(eq(securityTrades.security_id, securityId));
-    const byAccount = Object.values(Object.groupBy(trades, trade => trade.account_id)).map(group => group ?? []);
 
-    if (!consistent(byAccount, merged)) {
+    if (!consistent(await readSecurityLegs(tx, [securityId]), merged)) {
       return false;
     }
 
