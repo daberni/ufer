@@ -12,10 +12,11 @@ import { FormError } from "@/components/ui/form-error";
 import { toFailure } from "@/client/api";
 import { useLocale } from "@/client/locale-provider";
 import { dateWithYear } from "@/lib/date-format";
-import { currencyExponent, money, signedMoney } from "@/lib/money";
+import { money, signedMoney } from "@/lib/money";
 import type { Account } from "@/features/accounts/types";
 import { useBrokerageTrades, useSecurities } from "../queries";
 import type { Holding, Security, Trade } from "../types";
+import { averageCostMicros } from "../holdings";
 import { formatPrice, formatQuantity } from "./holding-format";
 import { BookingDialog } from "./booking-dialog";
 
@@ -123,9 +124,7 @@ function HoldingRow({
   const gain = held ? holding.value_minor - holding.cost_minor : holding.realized_minor;
   const showGain = !held || holding.status !== "missing";
   const gainPercent = held && holding.cost_minor > 0 && showGain ? gain / holding.cost_minor : null;
-  // Display only: the average cost per share in micro-units, from the cost in minor units and the quantity in micro-units.
-  const microsPerMinor = 10 ** (6 - (currencyExponent(currency) ?? 2));
-  const averageCostMicros = held ? Math.round(holding.cost_minor * microsPerMinor * 1_000_000 / holding.quantity_micros) : null;
+  const averageCost = held ? averageCostMicros(holding.cost_minor, holding.quantity_micros, currency) : null;
   const Chevron = expanded ? ChevronDown : ChevronRight;
 
   return (
@@ -147,7 +146,7 @@ function HoldingRow({
           </button>
         </span>
         <span role="cell" className={styles["number"]} data-label="Shares">{held ? formatQuantity(holding.quantity_micros, locale) : "Sold"}</span>
-        <span role="cell" className={styles["number"]} data-label="Avg. cost">{averageCostMicros === null ? "—" : formatPrice(averageCostMicros, currency, locale)}</span>
+        <span role="cell" className={styles["number"]} data-label="Avg. cost">{averageCost === null ? "—" : formatPrice(averageCost, currency, locale)}</span>
         <span role="cell" className={styles["number"]} data-label="Cost basis">{held ? money(holding.cost_minor, currency, locale) : "—"}</span>
         <span role="cell" className={styles["number"]} data-label="Price">
           <PriceCell
