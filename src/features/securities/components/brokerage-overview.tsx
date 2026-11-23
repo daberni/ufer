@@ -98,7 +98,12 @@ function CombinedValue({
     <section className={clsx(ui["panel"], styles["summary"])} aria-label={`Combined value in ${item.currency}`}>
       <span className={styles["label"]}>Combined value · {item.account_ids.length === 1 ? "1 account" : `${item.account_ids.length} accounts`}</span>
       <strong className={styles["value"]}>{money(value, item.currency, locale)}</strong>
-      <ChangeFigures summary={item.summary} currency={item.currency} stacked />
+      <ChangeFigures
+        summary={item.summary}
+        points={item.points}
+        currency={item.currency}
+        stacked
+      />
     </section>
   );
 }
