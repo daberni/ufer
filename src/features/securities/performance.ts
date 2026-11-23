@@ -1,8 +1,9 @@
 import { Temporal } from "temporal-polyfill";
+import { valueHolding } from "./holdings";
 import { valueHoldings, type HoldingInputs } from "./valuation";
 
 /**
- * One date of a brokerage account's performance: its holdings value, the net amount invested so far (buy costs including fees minus sale proceeds after fees) and the time-weighted growth factor since the first trade.
+ * One date of a brokerage account's performance: its holdings value, the net amount invested so far (buy costs including fees minus sale proceeds after fees, with transfers at their value on the day) and the time-weighted growth factor since the first trade.
  * Any range's return is `growth` at its end divided by `growth` at its start, minus one; its gain is the change in `value_minor - invested_minor`.
  */
 export type PerformancePoint = {
@@ -15,10 +16,13 @@ export type PerformancePoint = {
 /**
  * The time-weighted return of a brokerage account's holdings on every date their value can change through `endDate`, starting at a zero value the day before the first trade.
  * Each sub-period returns (value + sale proceeds) ÷ (previous value + buy costs) on its end date: buys count as invested at the start of the day and sales as withdrawn at its end, so neither counts as performance while fees do. A period with nothing invested returns nothing. Values use only prices valid on their date, and a holding without any price counts at its cost basis.
+ * A transfer is an external flow of the single account at the moved quantity's value on its date: received like a buy, sent like a sale. Across several accounts both legs cancel, so a transfer changes no combined figure.
  */
 export function performanceSeries(holdings: HoldingInputs[], endDate: string): PerformancePoint[] {
   const buys = new Map<string, number>();
   const sales = new Map<string, number>();
+  // Received minus sent transfers per date, netted so both legs of a transfer between the given accounts cancel.
+  const transfers = new Map<string, number>();
 
   for (const holding of holdings) {
     for (const trade of holding.trades) {
@@ -28,9 +32,22 @@ export function performanceSeries(holdings: HoldingInputs[], endDate: string): P
 
       if (trade.side === "buy") {
         buys.set(trade.date, (buys.get(trade.date) ?? 0) + trade.gross_minor + trade.fee_minor);
-      } else {
+      } else if (trade.side === "sell") {
         sales.set(trade.date, (sales.get(trade.date) ?? 0) + trade.gross_minor - trade.fee_minor);
+      } else {
+        // Without a price the moved holding counts at the cost it carries, as in its valuation.
+        const moved = valueHolding(trade.quantity_micros, holding.splits, holding.prices, holding.currency, trade.date).value_minor ?? trade.gross_minor;
+
+        transfers.set(trade.date, (transfers.get(trade.date) ?? 0) + (trade.side === "transfer_in" ? moved : -moved));
       }
+    }
+  }
+
+  for (const [date, net] of transfers) {
+    const flows = net > 0 ? buys : sales;
+
+    if (net !== 0) {
+      flows.set(date, (flows.get(date) ?? 0) + Math.abs(net));
     }
   }
 

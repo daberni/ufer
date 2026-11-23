@@ -1,7 +1,7 @@
 import { Temporal } from "temporal-polyfill";
 import { ValidationError } from "@/lib/errors";
 import { currencyExponent } from "@/lib/money";
-import type { TradeSide } from "./trade-sides";
+import type { LegSide } from "./trade-sides";
 
 /** Quantities and prices are stored in millionths of a unit. */
 export const microsPerUnit = 1_000_000n;
@@ -11,10 +11,11 @@ export const staleAfterDays = 7;
 
 export type PositionTrade = {
   date: string;
-  side: TradeSide;
+  side: LegSide;
   /** The trade's recorded order within its account; it decides the replay order of trades on the same date. */
   sequence: number;
   quantity_micros: number;
+  /** For a transfer leg, the cost basis it carries; a received leg adds it, a sent leg's own value is ignored by the replay. */
   gross_minor: number;
   fee_minor: number;
 };
@@ -91,9 +92,22 @@ export function averageCostMicros(costMinor: number, quantityMicros: number, cur
 /**
  * Replays trades and splits up to and including `date` by date, then recorded sequence, whatever order they are passed in. A split takes effect at the start of its date, so trades on that date are already in post-split units.
  * Buys add their gross amount and fees to the cost; a sale removes the average cost of the sold part and realizes its proceeds less fees and that cost. Taxes are cash only.
+ * A sent transfer removes the average cost of its part without realizing anything; a received one adds the cost it carries.
  */
 export function positionOn(trades: PositionTrade[], splits: PositionSplit[], date: string): Position {
   return replay(trades, splits, date).position;
+}
+
+/** The cost basis a sent transfer leg takes out of the holding, replaying only what precedes it in its account. */
+export function sentCost(trades: PositionTrade[], splits: PositionSplit[], leg: PositionTrade) {
+  const prior = trades.filter(trade => trade !== leg && (trade.date < leg.date || (trade.date === leg.date && trade.sequence < leg.sequence)));
+  const cost = replay([...prior, leg], splits, leg.date).sent.get(leg);
+
+  if (cost === undefined) {
+    throw new Error("The sent transfer leg was not replayed.");
+  }
+
+  return cost;
 }
 
 /** The gain each sale realized, keyed by the trade object passed in, by the same replay as `positionOn`. */
@@ -119,6 +133,7 @@ function replay(trades: PositionTrade[], splits: PositionSplit[], date: string) 
     }))
   ].toSorted((left, right) => left.date.localeCompare(right.date) || left.order - right.order || left.sequence - right.sequence);
   const sales = new Map<PositionTrade, number>();
+  const sent = new Map<PositionTrade, number>();
   let quantity = 0n;
   let cost = 0n;
   let realized = 0n;
@@ -132,14 +147,23 @@ function replay(trades: PositionTrade[], splits: PositionSplit[], date: string) 
     const trade = event.trade;
     const traded = BigInt(trade.quantity_micros);
 
-    if (trade.side === "buy") {
+    if (trade.side === "buy" || trade.side === "transfer_in") {
       quantity += traded;
       cost += BigInt(trade.gross_minor) + BigInt(trade.fee_minor);
       continue;
     }
 
     if (traded > quantity) {
-      throw new ValidationError(`The sale on ${trade.date} exceeds the quantity held.`);
+      throw new ValidationError(`The ${trade.side === "sell" ? "sale" : "transfer"} on ${trade.date} exceeds the quantity held.`);
+    }
+
+    if (trade.side === "transfer_out") {
+      const movedCost = divideRounded(cost * traded, quantity);
+
+      quantity -= traded;
+      cost -= movedCost;
+      sent.set(trade, safeNumber(movedCost));
+      continue;
     }
 
     const soldCost = divideRounded(cost * traded, quantity);
@@ -157,7 +181,8 @@ function replay(trades: PositionTrade[], splits: PositionSplit[], date: string) 
       cost_minor: safeNumber(cost),
       realized_minor: safeNumber(realized)
     },
-    sales
+    sales,
+    sent
   };
 }
 

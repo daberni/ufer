@@ -62,3 +62,17 @@ export const tradeCorrectionInput = z.object({
   fee: amount.default("0"),
   tax: amount.default("0")
 });
+
+/** A quantity of a held security sent from the account in the path to another brokerage account. */
+export const transferInput = z.object({
+  security_id: z.string().min(1),
+  to_account_id: z.string().min(1),
+  date: z.string().refine(validDate),
+  quantity: amount
+});
+
+/** A correction of a recorded transfer; its security and accounts stay. */
+export const transferCorrectionInput = z.object({
+  date: z.string().refine(validDate),
+  quantity: amount
+});

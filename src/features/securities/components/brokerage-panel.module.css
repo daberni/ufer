@@ -182,6 +182,15 @@
   overflow-wrap: anywhere;
 }
 
+/* Actions on an expanded holding span all columns above its trades. */
+.actions {
+  display: flex;
+  padding-block: var(--space-2);
+}
+.actions + .trade {
+  border-top-color: var(--border-subtle);
+}
+
 @media (--mobile) {
   .head {
     display: none;

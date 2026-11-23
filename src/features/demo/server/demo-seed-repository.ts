@@ -1,6 +1,6 @@
 import { and, count, eq, inArray, isNotNull, like, ne, not, notInArray, sql, or } from "drizzle-orm";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
-import { accounts, balanceSnapshots, categories, categorizationRules, requisitions, securities, securityPrices, securitySplits, securityTrades, syncRuns, transactions } from "@/server/database/schema";
+import { accounts, balanceSnapshots, categories, categorizationRules, requisitions, securities, securityPrices, securitySplits, securityTrades, securityTransfers, syncRuns, transactions } from "@/server/database/schema";
 import { insertSettlementEntry, insertTrade } from "@/features/securities/server/security-repository";
 import { tradeCashAmount } from "@/features/securities/trade-decisions";
 import { demoBrokerage, type DemoBrokerageRows } from "./demo-brokerage";
@@ -77,9 +77,14 @@ async function inspectTarget(tx: DatabaseTransaction): Promise<DemoSeedTarget> {
     count: count()
   }).from(securityTrades).where(and(not(like(securityTrades.id, demoTradeRows)), or(like(securityTrades.account_id, demoRows), like(securityTrades.security_id, demoRows), inArray(securityTrades.settlement_transaction_id, demoBookings)))).get();
 
+  // The seed records no transfers, so any transfer touching a demo account or security is the user's.
+  const foreignTransfers = await tx.select({
+    count: count()
+  }).from(securityTransfers).where(or(like(securityTransfers.from_account_id, demoRows), like(securityTransfers.to_account_id, demoRows), like(securityTransfers.security_id, demoRows))).get();
+
   return {
     foreignManualTransactions: manualTransactions?.count ?? 0,
-    foreignTrades: foreignTrades?.count ?? 0
+    foreignTrades: (foreignTrades?.count ?? 0) + (foreignTransfers?.count ?? 0)
   };
 }
 

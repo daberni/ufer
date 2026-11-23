@@ -7,7 +7,9 @@ import { today } from "@/lib/time";
 import { syncLease, withLease } from "@/server/jobs/lease";
 import { refuse } from "@/server/database/transaction";
 import { archivedAccountMessage } from "@/features/transactions/server/booking-accounts";
-import { amountMinor, positionOn, saleGains, type PositionTrade } from "../holdings";
+import { amountMinor, averageCostMicros, positionOn, saleGains, type PositionTrade } from "../holdings";
+import { checkSecurityChange } from "./security-history";
+import { readAccountTransfers } from "./transfer-repository";
 import { parseMicros } from "../quantities";
 import { priceSourceStatus } from "./price-update-service";
 import { changeSummary, valueHoldings } from "../valuation";
@@ -15,7 +17,7 @@ import { performanceSeries } from "../performance";
 import { readHoldingInputs } from "./valuation-repository";
 import { settlementRefusal, settlementWindowDays, tradeCashAmount, type SettlementRefusal } from "../trade-decisions";
 import { brokerageAccountInput, securityInput, settlementCandidatesQuery, tradeCorrectionInput, tradeInput } from "./security-schema";
-import { deleteTrade, findBrokerageAccount, findSecurity, findSettlementAccount, findSettlementBooking, findTrade, insertBrokerageAccount, insertSecurity, insertSettlementEntry, insertTrade, listActiveBrokerageAccounts, listSecurities, markSettlementBooking, nextTradeSequence, readAccountTrades, readPositionTrades, readSettlementCandidates, readSplits, readTradedSecurityIds, isEarliestTrade, markSplitsUnchecked, saveSettlementEntry, saveTradeCorrection, withSecurityTransaction, findOrInsertSecurity } from "./security-repository";
+import { deleteTrade, findBrokerageAccount, findSecurity, findSettlementAccount, findSettlementBooking, findTrade, insertBrokerageAccount, insertSecurity, insertSettlementEntry, insertTrade, listActiveBrokerageAccounts, listSecurities, markSettlementBooking, nextTradeSequence, readAccountTrades, readSettlementCandidates, isEarliestTrade, markSplitsUnchecked, saveSettlementEntry, saveTradeCorrection, withSecurityTransaction, findOrInsertSecurity } from "./security-repository";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 
 /** Replays every trade so a sale never exceeds what was held at that point, now or after a change. */
@@ -159,7 +161,12 @@ export async function recordTrade(accountId: string, payload: unknown, now = Tem
       fee_minor: amounts.fee_minor
     };
 
-    positionOn([...await readPositionTrades(tx, accountId, security.id), trade], await readSplits(tx, security.id), replayEnd);
+    await checkSecurityChange(tx, security.id, legs => [...legs, {
+      ...trade,
+      id,
+      account_id: accountId,
+      transfer_id: null
+    }]);
 
     // A trade before the security's earliest one extends the history its splits must cover, so the next price update checks them again.
     if (await isEarliestTrade(tx, security.id, input.date)) {
@@ -297,9 +304,11 @@ export async function correctTrade(id: string, payload: unknown, now = Temporal.
       gross_minor: amounts.gross_minor,
       fee_minor: amounts.fee_minor
     };
-    const others = (await readPositionTrades(tx, trade.account_id, trade.security_id)).filter(other => other.id !== trade.id);
 
-    positionOn([...others, corrected], await readSplits(tx, trade.security_id), replayEnd);
+    await checkSecurityChange(tx, trade.security_id, legs => legs.map(leg => leg.transfer_id === null && leg.id === trade.id ? {
+      ...leg,
+      ...corrected
+    } : leg));
 
     const booking = trade.settlement_transaction_id ? await findSettlementBooking(tx, trade.settlement_transaction_id) : undefined;
 
@@ -365,9 +374,7 @@ export async function removeTrade(id: string) {
       throw new HttpError(409, archivedAccountMessage);
     }
 
-    const remaining = (await readPositionTrades(tx, trade.account_id, trade.security_id)).filter(other => other.id !== trade.id);
-
-    positionOn(remaining, await readSplits(tx, trade.security_id), replayEnd);
+    await checkSecurityChange(tx, trade.security_id, legs => legs.filter(leg => leg.transfer_id !== null || leg.id !== trade.id));
     await deleteTrade(tx, trade);
   }));
 
@@ -376,26 +383,68 @@ export async function removeTrade(id: string) {
   };
 }
 
-/** The account's trades, each sale with the gain it realized, and its holdings today: split-adjusted quantity, moving-average cost, realized gains and the value at the latest price on or before today, with missing or stale prices marked. */
+/**
+ * The account's trades and transfers, each sale with the gain it realized, and its holdings today: split-adjusted quantity, moving-average cost, realized gains and the value at the latest price on or before today, with missing or stale prices marked.
+ * A transfer shows the cost basis it carried and that cost per unit.
+ */
 export async function readBrokerageTrades(accountId: string, now = Temporal.Now.instant()) {
   const account = await requireBrokerageAccount(accountId);
   const trades = await readAccountTrades(accountId);
+  const transfers = await readAccountTransfers(accountId);
   const holdings = (await readHoldingInputs([accountId])).get(accountId)?.holdings ?? [];
-  const gains = new Map<(typeof trades)[number], number>();
+  const gains = new Map<string, number>();
+  const carried = new Map<string, number>();
 
   for (const holding of holdings) {
-    for (const [trade, gain] of saleGains(trades.filter(trade => trade.security_id === holding.security_id), holding.splits)) {
-      gains.set(trade, gain);
+    for (const [leg, gain] of saleGains(holding.trades, holding.splits)) {
+      gains.set(leg.id, gain);
+    }
+
+    for (const leg of holding.trades) {
+      if (leg.transfer_id) {
+        carried.set(leg.transfer_id, leg.gross_minor);
+      }
     }
   }
+
+  const rows = [...trades.map(trade => ({
+    ...trade,
+    transfer: null,
+    realized_minor: gains.get(trade.id) ?? null
+  })), ...transfers.map(transfer => {
+    const sent = transfer.from_account_id === accountId;
+    const cost = carried.get(transfer.id) ?? 0;
+
+    return {
+      id: transfer.id,
+      security_id: transfer.security_id,
+      security_name: transfer.security_name,
+      currency: transfer.currency,
+      date: transfer.date,
+      side: sent ? "transfer_out" as const : "transfer_in" as const,
+      sequence: sent ? transfer.from_sequence : transfer.to_sequence,
+      quantity_micros: transfer.quantity_micros,
+      price_micros: averageCostMicros(cost, transfer.quantity_micros, transfer.currency),
+      gross_minor: cost,
+      fee_minor: 0,
+      tax_minor: 0,
+      settlement_transaction_id: null,
+      settlement_account_id: null,
+      settlement_account_name: null,
+      settlement_counterparty: null,
+      settlement_description: null,
+      transfer: {
+        counterpart_account_id: sent ? transfer.to_account_id : transfer.from_account_id,
+        counterpart_account_name: sent ? transfer.to_account_name : transfer.from_account_name
+      },
+      realized_minor: null
+    };
+  })].toSorted((left, right) => left.date.localeCompare(right.date) || left.sequence - right.sequence);
 
   return {
     account_id: account.id,
     currency: account.currency,
-    trades: trades.map(trade => ({
-      ...trade,
-      realized_minor: gains.get(trade) ?? null
-    })),
+    trades: rows,
     valuation: valueHoldings(holdings, today(now).toString()),
     summary: changeSummary(holdings, today(now).toString())
   };
@@ -448,11 +497,7 @@ export async function settlementCandidates(accountId: string, query: URLSearchPa
 
 /** Whether the brokerage account still holds any security; read inside the caller's write transaction, since a trade may be recorded meanwhile. */
 export async function holdsSecurities(tx: DatabaseTransaction, accountId: string) {
-  for (const securityId of await readTradedSecurityIds(tx, accountId)) {
-    if (positionOn(await readPositionTrades(tx, accountId, securityId), await readSplits(tx, securityId), replayEnd).quantity_micros > 0) {
-      return true;
-    }
-  }
+  const holdings = (await readHoldingInputs([accountId], tx)).get(accountId)?.holdings ?? [];
 
-  return false;
+  return holdings.some(holding => positionOn(holding.trades, holding.splits, replayEnd).quantity_micros > 0);
 }
