@@ -95,11 +95,6 @@ const assignmentHints = {
   recordedRule: "Assigned by a rule"
 };
 
-const categoryNoun = {
-  one: "category",
-  other: "categories"
-};
-
 // Options show the same readable icon and name as a category label.
 function categoryOption(key: string, value: PickerValue, category: DisplayCategory | NeutralCategory): SearchableSelectOption<PickerValue> {
   return {
@@ -222,7 +217,7 @@ export function CategoryPicker({
         onChange={choose}
         query={search ?? (uncategorized ? "" : selected?.label) ?? ""}
         onQueryChange={setSearch}
-        noun={categoryNoun}
+        noun="category"
         placeholder={uncategorized ? "Uncategorized" : "Search categories"}
         appearance={appearance}
         busy={ariaBusy}

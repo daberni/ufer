@@ -1,7 +1,8 @@
 import "./fixtures/dom-environment";
 import assert from "node:assert/strict";
 import { test, type TestContext } from "node:test";
-import { act, fireEvent, render, type RenderResult } from "@testing-library/react";
+import { act, fireEvent, type RenderResult } from "@testing-library/react";
+import { render } from "./fixtures/intl";
 import { createElement, useState } from "react";
 import type { Category } from "../src/features/categorization/types";
 import { suggestedCategoryColors } from "../src/features/categorization/category-colors";

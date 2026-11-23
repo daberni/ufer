@@ -32,8 +32,7 @@ import { sectionOf } from "@/client/app-location";
 import { useLoadError } from "./use-load-error";
 import { TraceId } from "@/components/ui/trace-id";
 import type { Failure } from "@/client/api";
-import { useLocale } from "@/client/locale-provider";
-import { formatCountLabel } from "@/lib/locale";
+import { useTranslations } from "next-intl";
 
 /** The persistent dashboard shell; the current view route renders inside it. */
 export default function Dashboard({ children }: {
@@ -61,7 +60,7 @@ function DashboardShell({ children }: {
   children: React.ReactNode
 }) {
   const { environment } = useBankingConfiguration();
-  const locale = useLocale();
+  const t = useTranslations("shell");
   const view = useView();
   const viewHref = useViewHref();
   const router = useRouter();
@@ -72,20 +71,20 @@ function DashboardShell({ children }: {
   const section = sectionOf(view);
   const nav = navigation.find(item => item.id === section)!;
   const selectedAccount = view === "account" ? accounts.data?.find(account => account.id === accountId) : undefined;
-  let heading = view === "account" ? selectedAccount?.name ?? "Account details" : nav.heading;
+  let heading = view === "account" ? selectedAccount?.name ?? t("views.accountDetails") : t(`navigation.${nav.id}.heading`);
 
   if (view === "import") {
-    heading = "Import transactions";
+    heading = t("views.importHeading");
   }
 
-  let description = nav.description;
+  let description = t(`navigation.${nav.id}.description`);
 
   if (view === "account") {
-    description = selectedAccount?.kind === "brokerage" ? "Holdings and trades." : "Balance, transactions and history.";
+    description = selectedAccount?.kind === "brokerage" ? t("views.brokerageAccount") : t("views.account");
   } else if (view === "import") {
-    description = "Bring in the history of an account from a bank or app export.";
+    description = t("views.import");
   } else if (view === "accounts") {
-    description = "All your accounts and assets.";
+    description = t("views.accounts");
   }
 
   const showSync = showsSync(view, selectedAccount);
@@ -97,8 +96,8 @@ function DashboardShell({ children }: {
   } = accountGroups(accounts.data ?? [], currency);
   const links: SidebarLink[] = navigation.map(item => ({
     id: item.id,
-    label: item.label,
-    mobileLabel: item.mobileLabel,
+    label: t(`navigation.${item.id}.label`),
+    mobileLabel: t(`navigation.${item.id}.mobileLabel`),
     icon: item.icon,
     href: viewHref(item.id),
     current: item.id === section,
@@ -113,7 +112,7 @@ function DashboardShell({ children }: {
         links={links}
       />
       <div className={styles["main-shell"]}>
-        <AppHeader environment={environment} title={nav.label} />
+        <AppHeader environment={environment} title={t(`navigation.${nav.id}.label`)} />
         <main className={styles["content"]}>
           <PageHeading heading={selectedAccount ? selectedAccount.name : heading} description={description}>
             {selectedAccount ? (
@@ -131,15 +130,17 @@ function DashboardShell({ children }: {
           {environment === "SANDBOX" && (
             <div className={styles["sandbox-note"]}>
               <span className={styles["status-dot"]} />
-              Sandbox mode: linked banks provide synthetic test data.
+              {t("sandboxNote")}
             </div>
           )}
           {expiring.length > 0 && (
             <div className={clsx(ui["notice"], ui["warning"])}>
               <Link2 size={17} />
-              {`${formatCountLabel(expiring.length, "bank authorization is", "bank authorizations are", locale)} expiring or expired.`}
+              {t("expiringAuthorizations", {
+                count: expiring.length
+              })}
               <Link className={ui["text-button"]} href={bankConnectionsHref}>
-                Review authorizations <ArrowRight size={14} />
+                {t("reviewAuthorizations")} <ArrowRight size={14} />
               </Link>
             </div>
           )}
@@ -155,6 +156,7 @@ function DashboardShell({ children }: {
 
 // Page-level messages without a surviving trigger, such as a bank callback result; they belong to the view they were reported on.
 function PageFeedback() {
+  const t = useTranslations("shell");
   const pathname = usePathname();
   const bound = useAppStore(state => state.feedback);
   const dismiss = useAppStore(state => state.dismissFeedback);
@@ -165,7 +167,7 @@ function PageFeedback() {
   return (
     <ActionFeedback
       feedback={feedback}
-      dismissLabel="Dismiss message"
+      dismissLabel={t("dismissMessage")}
       onDismiss={dismiss}
       placement="overlay"
     />
@@ -174,13 +176,15 @@ function PageFeedback() {
 
 // Rendered with the shell, so the source offer never depends on a successful query.
 function DashboardFooter() {
+  const t = useTranslations("shell");
+
   return (
     <footer className={styles["page-footer"]}>
       <p className={styles["footer-brand"]}>
         <span className={styles["footer-name"]}>
           <BrandIcon size={16} /> Ufer
         </span>
-        <span>A clearer view of your money.</span>
+        <span>{t("footerTagline")}</span>
       </p>
       <div className={styles["footer-legal"]}>
         <LegalLinks />
@@ -197,6 +201,8 @@ function LoadErrorNotice({
   failure: Failure | null;
   retry: () => void;
 }) {
+  const t = useTranslations();
+
   if (!failure) {
     return null;
   }
@@ -205,11 +211,13 @@ function LoadErrorNotice({
     <div className={clsx(ui["notice"], ui["error"])} role="alert">
       <CircleHelp size={18} />
       <span>
-        Your data could not be loaded: {failure.message}
+        {t("shell.loadError", {
+          message: failure.message
+        })}
         <TraceId id={failure.traceId} />
       </span>
       <button className={ui["text-button"]} onClick={retry}>
-        Retry
+        {t("common.retry")}
       </button>
     </div>
   );

@@ -15,6 +15,7 @@ import { SourceCodeNotice } from "@/features/legal/components/source-code-notice
 import { authClient, requireAuthResult } from "@/features/auth/client";
 import { useAppStore } from "@/client/app-store";
 import { signInMeta } from "@/client/use-session-lock";
+import { useTranslations } from "next-intl";
 
 type Credentials = {
   username: string;
@@ -22,6 +23,7 @@ type Credentials = {
 };
 
 export function LoginForm() {
+  const t = useTranslations("account.signIn");
   const unlock = useAppStore(state => state.unlock);
   const signIn = useMutation({
     meta: signInMeta,
@@ -51,11 +53,11 @@ export function LoginForm() {
         <div className={styles["brand-symbol"]}>
           <BrandIcon size={56} label="Ufer" />
         </div>
-        <span className={ui["eyebrow"]}>Your personal overview</span>
-        <h1>Welcome back.</h1>
-        <p>Your finances, under your control.</p>
+        <span className={ui["eyebrow"]}>{t("eyebrow")}</span>
+        <h1>{t("heading")}</h1>
+        <p>{t("lead")}</p>
         <label>
-          Username
+          {t("username")}
           <input
             name="username"
             autoComplete="username"
@@ -66,7 +68,7 @@ export function LoginForm() {
           />
         </label>
         <label>
-          Password
+          {t("password")}
           <input
             name="password"
             type="password"
@@ -76,7 +78,7 @@ export function LoginForm() {
         </label>
         <FormError failure={signIn.error ? toFailure(signIn.error) : null} />
         <button className={clsx(styles["button"], ui["primary"])} disabled={signIn.isPending}>
-          Open dashboard <ArrowRight size={16} />
+          {t("submit")} <ArrowRight size={16} />
         </button>
         <div className={styles["legal"]}>
           <LegalLinks />

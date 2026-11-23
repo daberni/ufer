@@ -1,0 +1,52 @@
+{
+  "signIn": {
+    "eyebrow": "Your personal overview",
+    "heading": "Welcome back.",
+    "lead": "Your finances, under your control.",
+    "username": "Username",
+    "password": "Password",
+    "submit": "Open dashboard"
+  },
+  "access": {
+    "account": "Your account",
+    "signOut": "Sign out",
+    "signOutFailed": "Sign-out failed: {message}"
+  },
+  "settings": {
+    "title": "Your account",
+    "close": "Close account settings",
+    "changePassword": "Change password",
+    "currentPassword": "Current password",
+    "newPassword": "New password",
+    "confirmPassword": "Confirm new password",
+    "passwordHint": "Use at least {count, number} characters. Changing your password signs out your other sessions.",
+    "passwordMismatch": "The new passwords do not match.",
+    "passwordFailed": "The password could not be changed.",
+    "passwordChanged": "Password changed. Your other sessions have been signed out.",
+    "otherDevices": "Other devices",
+    "otherDevicesHint": "Signs out every session except this one.",
+    "signOutOthers": "Sign out other devices",
+    "signOutOthersFailed": "The sessions could not be signed out.",
+    "othersSignedOut": "Your other sessions have been signed out."
+  },
+  "theme": {
+    "legend": "Appearance",
+    "system": "System",
+    "light": "Light",
+    "dark": "Dark",
+    "hint": "Saved in this browser. System follows your device setting."
+  },
+  "language": {
+    "legend": "Language",
+    "browser": "Browser default",
+    "hint": "Saved in this browser; changing it reloads the page."
+  },
+  "format": {
+    "label": "Number and date format",
+    "browser": "Browser default",
+    "search": "Search languages and regions",
+    "date": "Date",
+    "amount": "Amount",
+    "hint": "Saved in this browser; changing it reloads the page."
+  }
+}

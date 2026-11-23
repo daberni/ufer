@@ -111,7 +111,7 @@ export function RulesView({
       </SectionHeading>
       <section className={styles["category-panel"]} aria-label="Your categories">
         {categories.status === "pending" ? (
-          <AreaPlaceholder area={categories} subject="Your categories">
+          <AreaPlaceholder area={categories} failureTitle="Your categories could not be loaded">
             <CategoryGridSkeleton />
           </AreaPlaceholder>
         ) : (
@@ -155,7 +155,7 @@ export function RulesView({
       </SectionHeading>
       <section className={clsx(ui["panel"], styles["rule-panel"])} aria-label="Your rules">
         {rules.status === "pending" ? (
-          <AreaPlaceholder area={rules} subject="Your rules">
+          <AreaPlaceholder area={rules} failureTitle="Your rules could not be loaded">
             <RuleRowsSkeleton />
           </AreaPlaceholder>
         ) : (

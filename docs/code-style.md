@@ -1,6 +1,6 @@
 # Code style and responsibility boundaries
 
-Ufer maintains code, comments, UI copy and examples in English. Readability and explicit ownership take precedence over minimizing lines. These rules apply to new code and code changed as part of a task; preserve unrelated work.
+Ufer maintains code, comments and examples in English; UI copy lives in English and German [message catalogs](localization.md). Readability and explicit ownership take precedence over minimizing lines. These rules apply to new code and code changed as part of a task; preserve unrelated work.
 
 ## Structure
 

@@ -1,4 +1,5 @@
 import { defaultFormatLocale, supportedLocale } from "@/lib/locale";
+import { languageOf, type Language } from "@/lib/language";
 
 // Regional formats people commonly choose; the request's own languages are offered as well. Tags the runtime cannot format are left out.
 const candidateLocales = [
@@ -29,8 +30,15 @@ function displayName(locale: string, inLocale: string) {
   }
 }
 
-/** The locale "Browser default" selects: the request's first formattable language, otherwise the default. It ignores any explicit choice. */
-export function browserDefaultLocale(requestLanguages: readonly string[]) {
+/**
+ * The locale "Browser default" selects: the request's first formattable language, otherwise the default. It ignores any explicit format choice,
+ * but an explicitly chosen interface language limits it to that language, as on the server.
+ */
+export function browserDefaultLocale(requestLanguages: readonly string[], chosenLanguage?: Language) {
+  if (chosenLanguage) {
+    return requestLanguages.find(locale => languageOf(locale) === chosenLanguage) ?? chosenLanguage;
+  }
+
   return requestLanguages[0] ?? defaultFormatLocale;
 }
 

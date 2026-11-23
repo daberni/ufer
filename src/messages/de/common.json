@@ -1,0 +1,36 @@
+{
+  "retry": "Erneut versuchen",
+  "tryAgain": "Erneut versuchen",
+  "select": {
+    "showingFirst": "{count}, die ersten {shown, number} werden angezeigt",
+    "truncated": "Die ersten {shown, number} von {count} werden angezeigt. Tippe, um die Liste einzugrenzen.",
+    "createAvailable": "{label} ist verfügbar.",
+    "nouns": {
+      "category": {
+        "count": "{count, plural, one {# Kategorie} other {# Kategorien}}",
+        "list": "Kategorien",
+        "show": "Kategorien anzeigen",
+        "noMatch": "Keine Kategorie passt zu „{query}“.",
+        "create": "Kategorie „{name}“ anlegen"
+      },
+      "bank": {
+        "count": "{count, plural, one {# Bank} other {# Banken}}",
+        "list": "Banken",
+        "show": "Banken anzeigen",
+        "noMatch": "Keine Bank passt zu „{query}“.",
+        "create": "Bank „{name}“ anlegen"
+      },
+      "format": {
+        "count": "{count, plural, one {# Format} other {# Formate}}",
+        "list": "Formate",
+        "show": "Formate anzeigen",
+        "noMatch": "Kein Format passt zu „{query}“.",
+        "create": "Format „{name}“ anlegen"
+      }
+    },
+    "position": "{label}, {position, number} von {total, number}",
+    "selectedPosition": "{label}, ausgewählt, {position, number} von {total, number}"
+  },
+  "traceId": "Trace-ID",
+  "closeDialog": "Dialog schließen"
+}

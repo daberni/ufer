@@ -1,7 +1,8 @@
 import "./fixtures/dom-environment";
 import assert from "node:assert/strict";
 import { test, type TestContext } from "node:test";
-import { act, fireEvent, render, within } from "@testing-library/react";
+import { act, fireEvent, within } from "@testing-library/react";
+import { render } from "./fixtures/intl";
 import { createElement, type ReactNode } from "react";
 import { Temporal } from "temporal-polyfill";
 import { AppRouterContext, type AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";

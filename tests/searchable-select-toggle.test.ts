@@ -1,7 +1,8 @@
 import "./fixtures/dom-environment";
 import assert from "node:assert/strict";
 import { test, type TestContext } from "node:test";
-import { act, fireEvent, render, type RenderResult } from "@testing-library/react";
+import { act, fireEvent, type RenderResult } from "@testing-library/react";
+import { render } from "./fixtures/intl";
 import { createElement, useState } from "react";
 import { browser } from "./fixtures/browser";
 import { stubCssModules } from "./fixtures/css-modules";
@@ -37,10 +38,7 @@ async function renderSelect(context: TestContext) {
         setSearch(null);
         setValue(next);
       },
-      noun: {
-        one: "fruit",
-        other: "fruits"
-      },
+      noun: "category",
       placeholder: "Search fruits"
     });
   }
@@ -54,7 +52,7 @@ async function renderSelect(context: TestContext) {
       name: "Fruit"
     }) as HTMLInputElement,
     toggle: screen.getByRole("button", {
-      name: "Show fruits"
+      name: "Show categories"
     })
   };
 }

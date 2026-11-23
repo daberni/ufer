@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test, type TestContext } from "node:test";
-import { act, fireEvent, render, renderHook } from "@testing-library/react";
+import { act, fireEvent, renderHook } from "@testing-library/react";
+import { render } from "./fixtures/intl";
 import { createElement, StrictMode, useRef } from "react";
 import { useDismiss, type Dismissal } from "../src/components/ui/use-dismiss";
 import { browser, wait } from "./fixtures/browser";

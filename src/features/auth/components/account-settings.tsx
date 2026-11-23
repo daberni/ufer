@@ -6,20 +6,20 @@ import { clsx } from "clsx";
 import { authClient, requireAuthResult } from "@/features/auth/client";
 import { ThemeChoice } from "@/features/appearance/components/theme-choice";
 import { LocaleChoice } from "@/features/appearance/components/locale-choice";
+import { LanguageChoice } from "@/features/appearance/components/language-choice";
 import ui from "../../../components/ui/primitives.module.css";
 import { FormError } from "@/components/ui/form-error";
 import { toFailure, type Failure } from "@/client/api";
 import { Dialog } from "@/components/ui/dialog";
 import styles from "./account-settings.module.css";
-import { useLocale } from "@/client/locale-provider";
-import { formatCount } from "@/lib/locale";
+import { useTranslations } from "next-intl";
 
 type Props = {
   onClose: () => void;
 };
 
 export function AccountSettings({ onClose }: Props) {
-  const locale = useLocale();
+  const t = useTranslations("account.settings");
   const [mismatch, setMismatch] = useState(false);
   const { data } = authClient.useSession();
 
@@ -59,21 +59,22 @@ export function AccountSettings({ onClose }: Props) {
   }
 
   const passwordError = mismatch ? {
-    message: "The new passwords do not match."
-  } : failureOf(passwordChange.error, "The password could not be changed.");
-  const sessionsError = failureOf(otherSessionsSignOut.error, "The sessions could not be signed out.");
+    message: t("passwordMismatch")
+  } : failureOf(passwordChange.error, t("passwordFailed"));
+  const sessionsError = failureOf(otherSessionsSignOut.error, t("signOutOthersFailed"));
 
   return (
-    <Dialog title="Your account" closeLabel="Close account settings" onClose={onClose}>
+    <Dialog title={t("title")} closeLabel={t("close")} onClose={onClose}>
       {/* The session loads when the dialog first opens; both lines keep their height so the dialog does not shift. */}
       <p className={styles["identity"]}>{data ? `${data.user.name} · ${data.user.username}` : ""}</p>
       <p className={styles["email"]}>{data?.user.email}</p>
       <ThemeChoice />
+      <LanguageChoice />
       <LocaleChoice />
       <form className={clsx(ui["form"], styles["section"])} onSubmit={changePassword}>
-        <h3>Change password</h3>
+        <h3>{t("changePassword")}</h3>
         <label>
-          Current password
+          {t("currentPassword")}
           <input
             name="currentPassword"
             type="password"
@@ -83,7 +84,7 @@ export function AccountSettings({ onClose }: Props) {
           />
         </label>
         <label>
-          New password
+          {t("newPassword")}
           <input
             name="newPassword"
             type="password"
@@ -94,7 +95,7 @@ export function AccountSettings({ onClose }: Props) {
           />
         </label>
         <label>
-          Confirm new password
+          {t("confirmPassword")}
           <input
             name="confirmation"
             type="password"
@@ -104,22 +105,24 @@ export function AccountSettings({ onClose }: Props) {
             maxLength={128}
           />
         </label>
-        <p className={ui["form-hint"]}>{`Use at least ${formatCount(12, locale)} characters. Changing your password signs out your other sessions.`}</p>
+        <p className={ui["form-hint"]}>{t("passwordHint", {
+          count: 12
+        })}</p>
         <FormError failure={passwordError} />
-        {passwordChange.isSuccess && <p className={ui["notice"]} role="status">Password changed. Your other sessions have been signed out.</p>}
-        <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={passwordChange.isPending}>Change password</button>
+        {passwordChange.isSuccess && <p className={ui["notice"]} role="status">{t("passwordChanged")}</p>}
+        <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={passwordChange.isPending}>{t("changePassword")}</button>
       </form>
       <section className={styles["section"]} aria-labelledby="account-sessions-title">
-        <h3 id="account-sessions-title">Other devices</h3>
-        <p className={ui["form-hint"]}>Signs out every session except this one.</p>
+        <h3 id="account-sessions-title">{t("otherDevices")}</h3>
+        <p className={ui["form-hint"]}>{t("otherDevicesHint")}</p>
         <FormError failure={sessionsError} />
-        {otherSessionsSignOut.isSuccess && <p className={ui["notice"]} role="status">Your other sessions have been signed out.</p>}
+        {otherSessionsSignOut.isSuccess && <p className={ui["notice"]} role="status">{t("othersSignedOut")}</p>}
         <button
           className={clsx(ui["button"], ui["full-width"], styles["section-action"])}
           type="button"
           onClick={() => otherSessionsSignOut.mutate()}
           disabled={otherSessionsSignOut.isPending}
-        >Sign out other devices</button>
+        >{t("signOutOthers")}</button>
       </section>
     </Dialog>
   );

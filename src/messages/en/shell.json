@@ -1,0 +1,78 @@
+{
+  "metadata": {
+    "title": "Ufer · Your finances, in perspective",
+    "transactions": "Transactions",
+    "import": "Import transactions",
+    "accounts": "Accounts & assets",
+    "account": "Account",
+    "brokerage": "Brokerage",
+    "rules": "Categories & rules",
+    "description": "Your personal dashboard for accounts, transactions, and net worth."
+  },
+  "navigation": {
+    "overview": {
+      "label": "Overview",
+      "mobileLabel": "Overview",
+      "heading": "Your money. In perspective.",
+      "description": "A clear picture is the first step forward."
+    },
+    "transactions": {
+      "label": "Transactions",
+      "mobileLabel": "Activity",
+      "heading": "Transactions",
+      "description": "Every transaction, across all your accounts."
+    },
+    "accounts": {
+      "label": "Accounts & assets",
+      "mobileLabel": "Accounts",
+      "heading": "Accounts & assets",
+      "description": "Your accounts and assets, together in one place."
+    },
+    "brokerage": {
+      "label": "Brokerage",
+      "mobileLabel": "Brokerage",
+      "heading": "Brokerage",
+      "description": "Your depots, holdings and performance together."
+    },
+    "rules": {
+      "label": "Categories & rules",
+      "mobileLabel": "Rules",
+      "heading": "Categories & rules",
+      "description": "Less sorting. More clarity."
+    }
+  },
+  "views": {
+    "accountDetails": "Account details",
+    "brokerageAccount": "Holdings and trades.",
+    "account": "Balance, transactions and history.",
+    "importHeading": "Import transactions",
+    "import": "Bring in the history of an account from a bank or app export.",
+    "accounts": "All your accounts and assets."
+  },
+  "sidebar": {
+    "tagline": "All in one place.",
+    "workspace": "My finances",
+    "workspaceKind": "Personal workspace",
+    "overviewLabel": "My overview",
+    "mainNavigation": "Main",
+    "needAttention": "need attention",
+    "privacyTitle": "Your data. Your perspective.",
+    "selfHosted": "Self-hosted.",
+    "bankAccess": "Bank access through Enable Banking.",
+    "sandbox": "Sandbox · test data"
+  },
+  "header": {
+    "workspace": "My finances",
+    "sandbox": "Sandbox"
+  },
+  "sandboxNote": "Sandbox mode: linked banks provide synthetic test data.",
+  "expiringAuthorizations": "{count, plural, one {# bank authorization is} other {# bank authorizations are}} expiring or expired.",
+  "reviewAuthorizations": "Review authorizations",
+  "dismissMessage": "Dismiss message",
+  "footerTagline": "A clearer view of your money.",
+  "loadError": "Your data could not be loaded: {message}",
+  "viewError": {
+    "title": "This page could not be displayed",
+    "body": "Something went wrong while rendering it. Try again or pick another page from the navigation."
+  }
+}

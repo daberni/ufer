@@ -1,4 +1,5 @@
-.theme-choice {
+/* A labelled segmented control shared by the appearance and language choices. */
+.choice {
   border: 0;
   margin: 0 0 var(--space-6);
   padding: 0;

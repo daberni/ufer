@@ -31,7 +31,7 @@ export function BalanceHistoryPanel({ history }: {
         {history.status !== "pending" && history.data.balances.length > 0 && <span className={clsx(ui["subtle"], styles["range"])} title={describeBalanceDate(history.data.balances[0].date, locale).title}>Since {describeBalanceDate(history.data.balances[0].date, locale).label}</span>}
       </div>
       {history.status === "pending" ? (
-        <AreaPlaceholder area={history} subject="The balance history">
+        <AreaPlaceholder area={history} failureTitle="The balance history could not be loaded">
           <BalanceHistoryChartSkeleton />
         </AreaPlaceholder>
       ) : <HistoryContent history={history} />}

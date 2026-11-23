@@ -139,7 +139,7 @@ export function CategoryDeleteForm({
     >
       <p className={ui["form-description"]}>{category.name}</p>
       {usage.status === "pending" && usage.failure ? (
-        <InlineFailure failure={usage.failure} subject="What uses this category" />
+        <InlineFailure failure={usage.failure} failureTitle="What uses this category could not be loaded" />
       ) : (
         <UsageSummary usage={usage.data ?? null} />
       )}

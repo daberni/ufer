@@ -25,11 +25,6 @@ type Props = DialogFormProps & {
   account?: Pick<Account, "id" | "name">;
 };
 
-const bankNoun = {
-  one: "bank",
-  other: "banks"
-};
-
 function bankOption(bank: Bank): SearchableSelectOption<string> {
   return {
     key: bank.name,
@@ -123,7 +118,7 @@ function BankConnectionForm({
           onChange={directory.choose}
           query={directory.query}
           onQueryChange={directory.search}
-          noun={bankNoun}
+          noun="bank"
           placeholder={status.placeholder}
           notice={status.notice}
           busy={directory.loading}

@@ -88,7 +88,7 @@ export function ConnectionsSection({
       {!banking.configured && <div className={clsx(ui["notice"], ui["warning"])}>Configure the application ID and private key on the server to enable bank access.</div>}
       <section className={ui["panel"]}>
         {connections.status === "pending" ? (
-          <AreaPlaceholder area={connections} subject="Your bank connections">
+          <AreaPlaceholder area={connections} failureTitle="Your bank connections could not be loaded">
             <ConnectionRowsSkeleton />
           </AreaPlaceholder>
         ) : (
@@ -128,7 +128,7 @@ function SyncHistory({ syncRuns }: {
         <h2>Recent syncs</h2>
       </div>
       {syncRuns.status === "pending" ? (
-        <AreaPlaceholder area={syncRuns} subject="Recent syncs">
+        <AreaPlaceholder area={syncRuns} failureTitle="Recent syncs could not be loaded">
           <SyncRowsSkeleton />
         </AreaPlaceholder>
       ) : (

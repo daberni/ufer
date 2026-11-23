@@ -178,7 +178,7 @@ export function WealthSummary({
         </button>
       ))}
       <span id={changesId} className={ui["visually-hidden"]} aria-live="polite">{shownChange && changeAnnouncement(shownChange, since, currency, locale)}</span>
-      {netWorthArea.status === "pending" && netWorthArea.failure && <FailureCover failure={netWorthArea.failure} subject="Your net worth" />}
+      {netWorthArea.status === "pending" && netWorthArea.failure && <FailureCover failure={netWorthArea.failure} failureTitle="Your net worth could not be loaded" />}
     </section>
   );
 }

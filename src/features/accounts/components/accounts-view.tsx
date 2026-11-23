@@ -70,7 +70,7 @@ export function AccountsView({
         </ActionMenu>
       </SectionHeading>
       {accounts.status === "pending" ? (
-        <AreaPlaceholder area={accounts} subject="Your accounts">
+        <AreaPlaceholder area={accounts} failureTitle="Your accounts could not be loaded">
           <AccountCardsSkeleton />
         </AreaPlaceholder>
       ) : (

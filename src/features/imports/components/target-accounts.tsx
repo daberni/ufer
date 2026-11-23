@@ -35,7 +35,7 @@ export function TargetAccounts({
       <h2 id="import-accounts">{perSource ? "Accounts in the file" : "Import into"}</h2>
       {perSource && <p className={ui["form-hint"]}>Each account {draft.statement ? "in the statement" : "value in the file"} goes to an existing account, a new manual account, or is skipped.</p>}
       {perSource && !draft.mapped && <p className={ui["form-hint"]}>Choose the date, amount and payee or description columns below to see the accounts.</p>}
-      {draft.accountsFailure && <InlineFailure failure={draft.accountsFailure} subject="Your accounts" />}
+      {draft.accountsFailure && <InlineFailure failure={draft.accountsFailure} failureTitle="Your accounts could not be loaded" />}
       {!draft.accountsReady && !draft.accountsFailure && <p className={ui["form-hint"]}>Loading your accounts …</p>}
       {/* An explicit choice before the accounts load would override the preselection of a same-named account. */}
       <fieldset className={styles["targets"]} disabled={draft.inputsLocked || !draft.accountsReady}>

@@ -1,7 +1,8 @@
 import "./fixtures/dom-environment";
 import assert from "node:assert/strict";
 import { test, type TestContext } from "node:test";
-import { fireEvent, render, within } from "@testing-library/react";
+import { fireEvent, within } from "@testing-library/react";
+import { render } from "./fixtures/intl";
 import { createElement } from "react";
 import type { BalancePoint, ReportedBalance } from "../src/features/accounts/types";
 import { browser } from "./fixtures/browser";

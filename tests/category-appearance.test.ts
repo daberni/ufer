@@ -1,7 +1,8 @@
 import "./fixtures/dom-environment";
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { act, fireEvent, render, type RenderResult } from "@testing-library/react";
+import { act, fireEvent, type RenderResult } from "@testing-library/react";
+import { render } from "./fixtures/intl";
 import { createElement, useState } from "react";
 import { browser } from "./fixtures/browser";
 import { stubCssModules } from "./fixtures/css-modules";

@@ -108,7 +108,7 @@ function RetainedAccounts({
   const locale = useLocale();
 
   if (accounts.status === "pending" && accounts.failure) {
-    return <InlineFailure failure={accounts.failure} subject="The linked accounts" />;
+    return <InlineFailure failure={accounts.failure} failureTitle="The linked accounts could not be loaded" />;
   }
 
   if (accounts.status === "pending") {

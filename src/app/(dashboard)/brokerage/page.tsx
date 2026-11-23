@@ -1,9 +1,9 @@
-import type { Metadata } from "next";
+import { viewMetadata } from "@/i18n/metadata";
 import { BrokeragePage } from "@/features/dashboard/components/dashboard-views";
 
-export const metadata: Metadata = {
-  title: "Brokerage"
-};
+export function generateMetadata() {
+  return viewMetadata("brokerage");
+}
 
 export default function Page() {
   return <BrokeragePage />;

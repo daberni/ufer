@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { act, fireEvent, render, within } from "@testing-library/react";
+import { act, fireEvent, within } from "@testing-library/react";
+import { render } from "./fixtures/intl";
 import { createElement } from "react";
 import type { Account } from "../src/features/accounts/types";
 import { queryKeys } from "../src/client/query-keys";
