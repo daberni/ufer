@@ -1,5 +1,6 @@
 "use client";
 
+import { BrokerageChange } from "@/features/securities/components/change-figures";
 import ui from "../../../components/ui/primitives.module.css";
 import accountStyles from "./account-presentation.module.css";
 import styles from "./account-summary.module.css";
@@ -67,6 +68,7 @@ export function AccountSummary({
       <p className={styles["status"]}>
         <AccountSourceStatus account={account} withDate />
       </p>
+      {account.kind === "brokerage" && <BrokerageChange accountId={account.id} currency={account.currency} />}
       {account.archived_at && <ArchivedHint archivedAt={account.archived_at} />}
       {problem && <ProblemNotice problem={problem} connection={connection} reconnect={() => connection && setReconnecting(connection)} />}
       {mismatch && <BalanceMismatchNotice account={account} difference={difference} />}

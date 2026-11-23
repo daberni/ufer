@@ -12,7 +12,7 @@
 
 .summary {
   display: grid;
-  gap: var(--space-1);
+  gap: var(--space-3);
 }
 
 .label {
@@ -22,11 +22,6 @@
 
 .value {
   font-size: var(--text-xl);
-  font-variant-numeric: tabular-nums;
-}
-
-.gain {
-  color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
 

@@ -20,6 +20,7 @@ import type { CombinedBrokeragePerformance } from "../types";
 import { HoldingsTable } from "./brokerage-panel";
 import { PerformanceView } from "./performance-panel";
 import { BookingDialog } from "./booking-dialog";
+import { ChangeFigures } from "./change-figures";
 
 /**
  * All active brokerage accounts together: the combined value and time-weighted performance per currency, then each account with its value, gain and holdings.
@@ -92,14 +93,12 @@ function CombinedValue({
 }) {
   const locale = useLocale();
   const value = accounts.filter(account => account.currency === item.currency).reduce((sum, account) => sum + (account.balance_minor ?? 0), 0);
-  const last = item.points.at(-1);
-  const gain = last ? last.value_minor - last.invested_minor : null;
 
   return (
     <section className={clsx(ui["panel"], styles["summary"])} aria-label={`Combined value in ${item.currency}`}>
       <span className={styles["label"]}>Combined value · {item.account_ids.length === 1 ? "1 account" : `${item.account_ids.length} accounts`}</span>
       <strong className={styles["value"]}>{money(value, item.currency, locale)}</strong>
-      {gain !== null && <span className={clsx(styles["gain"], gain > 0 && ui["positive"])}>{signedMoney(gain, item.currency, locale)} total gain</span>}
+      <ChangeFigures summary={item.summary} currency={item.currency} stacked />
     </section>
   );
 }

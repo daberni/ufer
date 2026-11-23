@@ -40,6 +40,24 @@ export type Trade = {
   realized_minor: number | null;
 };
 
+/** Total and previous-trading-day change; see `changeSummary`. A null ratio or day means there is no honest figure. */
+export type ChangeSummary = {
+  total: {
+    gain_minor: number;
+    ratio: number | null;
+    unpriced: number;
+  };
+  day: {
+    change_minor: number;
+    ratio: number;
+    date: string;
+    /** The earlier price date the change is measured from; weekends and holidays put it more than a day back. */
+    previous_date: string;
+    excluded: number;
+  } | null;
+  excluded: number;
+};
+
 export type BrokerageTrades = {
   account_id: string;
   currency: string;
@@ -50,6 +68,7 @@ export type BrokerageTrades = {
     stale: number;
     holdings: Holding[];
   };
+  summary: ChangeSummary;
 };
 
 export type BrokeragePerformance = {
@@ -63,7 +82,8 @@ export type BrokeragePerformance = {
 /** All active brokerage accounts' performance, one series per currency. */
 export type CombinedBrokeragePerformance = {
   currencies: (Omit<BrokeragePerformance, "account_id"> & {
-    account_ids: string[]
+    account_ids: string[];
+    summary: ChangeSummary;
   })[];
 };
 

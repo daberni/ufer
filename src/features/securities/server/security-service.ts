@@ -10,7 +10,7 @@ import { archivedAccountMessage } from "@/features/transactions/server/booking-a
 import { amountMinor, positionOn, saleGains, type PositionTrade } from "../holdings";
 import { parseMicros } from "../quantities";
 import { priceSourceStatus } from "./price-update-service";
-import { valueHoldings } from "../valuation";
+import { changeSummary, valueHoldings } from "../valuation";
 import { performanceSeries } from "../performance";
 import { readHoldingInputs } from "./valuation-repository";
 import { settlementRefusal, settlementWindowDays, tradeCashAmount, type SettlementRefusal } from "../trade-decisions";
@@ -396,7 +396,8 @@ export async function readBrokerageTrades(accountId: string, now = Temporal.Now.
       ...trade,
       realized_minor: gains.get(trade) ?? null
     })),
-    valuation: valueHoldings(holdings, today(now).toString())
+    valuation: valueHoldings(holdings, today(now).toString()),
+    summary: changeSummary(holdings, today(now).toString())
   };
 }
 
@@ -430,7 +431,8 @@ export async function readCombinedBrokeragePerformance(now = Temporal.Now.instan
         currency,
         account_ids: accountIds,
         missing: valueHoldings(holdings, date).missing,
-        points: performanceSeries(holdings, date)
+        points: performanceSeries(holdings, date),
+        summary: changeSummary(holdings, date)
       };
     })
   };
