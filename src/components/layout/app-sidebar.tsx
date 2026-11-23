@@ -45,7 +45,7 @@ export function AppSidebar({
         </span>
         <span>
           ufer
-          <small>ALL IN ONE PLACE.</small>
+          <small>All in one place.</small>
         </span>
       </Link>
       <div className={styles["workspace"]}>
@@ -55,7 +55,7 @@ export function AppSidebar({
         </div>
         <ShieldCheck size={15} />
       </div>
-      <span className={styles["nav-label"]}>MY OVERVIEW</span>
+      <span className={styles["nav-label"]}>My overview</span>
       <nav aria-label="Main">
         {links.map(item => (
           <Link

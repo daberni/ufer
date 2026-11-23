@@ -21,6 +21,7 @@
 }
 .brand small {
   display: block;
+  text-transform: uppercase;
   font-size: var(--text-xs);
   font-weight: 400;
   letter-spacing: 2.1px;
@@ -59,6 +60,7 @@
   font-size: var(--text-md);
 }
 .nav-label {
+  text-transform: uppercase;
   font-size: var(--text-xs);
   color: var(--sidebar-muted);
   letter-spacing: 1.6px;

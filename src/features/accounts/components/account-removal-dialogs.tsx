@@ -22,7 +22,7 @@ export function DeleteAccountDialog({
   close: () => void
 }) {
   return (
-    <Dialog eyebrow="YOUR FINANCES" title="Delete account" onClose={close}>
+    <Dialog eyebrow="Your finances" title="Delete account" onClose={close}>
       <DeleteForm account={account} close={close} />
     </Dialog>
   );

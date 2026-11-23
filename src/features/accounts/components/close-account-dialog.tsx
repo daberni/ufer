@@ -24,7 +24,7 @@ export function CloseAccountDialog({
   close: () => void
 }) {
   return (
-    <Dialog eyebrow="YOUR FINANCES" title="Archive account" onClose={close}>
+    <Dialog eyebrow="Your finances" title="Archive account" onClose={close}>
       <ArchiveDialogContent account={account} close={close} />
     </Dialog>
   );

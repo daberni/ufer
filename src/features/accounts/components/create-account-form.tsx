@@ -21,7 +21,7 @@ import { today } from "@/lib/time";
 
 export function CreateAccountDialog({ close }: DialogFormProps) {
   return (
-    <Dialog eyebrow="YOUR FINANCES" title="Add account" onClose={close}>
+    <Dialog eyebrow="Your finances" title="Add account" onClose={close}>
       <CreateAccountForm close={close} />
     </Dialog>
   );
