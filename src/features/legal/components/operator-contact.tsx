@@ -2,6 +2,7 @@ import ui from "../../../components/ui/primitives.module.css";
 
 import { clsx } from "clsx";
 import { TriangleAlert } from "lucide-react";
+import { useTranslations } from "next-intl";
 import type { LegalConfiguration, OperatorDetails } from "../types";
 import styles from "./operator-contact.module.css";
 
@@ -9,6 +10,8 @@ import styles from "./operator-contact.module.css";
 export function ConfigurationNotice({ configuration }: {
   configuration: LegalConfiguration
 }) {
+  const t = useTranslations("legal.operator");
+
   if (configuration.configured) {
     return null;
   }
@@ -17,7 +20,10 @@ export function ConfigurationNotice({ configuration }: {
     <div className={clsx(ui["notice"], ui["warning"], styles["configuration-notice"])} role="note">
       <TriangleAlert size={18} />
       <p>
-        <strong>Operator details are not configured.</strong> This installation has not provided the operator&apos;s identity and service providers, so this page is incomplete. The operator must set {configuration.invalidVariables.join(", ")}.
+        {t.rich("notConfigured", {
+          variables: configuration.invalidVariables.join(", "),
+          strong: chunks => <strong>{chunks}</strong>
+        })}
       </p>
     </div>
   );
@@ -26,8 +32,10 @@ export function ConfigurationNotice({ configuration }: {
 export function OperatorContact({ operator }: {
   operator: OperatorDetails | null
 }) {
+  const t = useTranslations("legal.operator");
+
   if (!operator) {
-    return <p className={styles["missing"]}>Not configured for this installation.</p>;
+    return <p className={styles["missing"]}>{t("missing")}</p>;
   }
 
   return (
@@ -39,13 +47,3 @@ export function OperatorContact({ operator }: {
   );
 }
 
-/** How to reach the operator; without a published email, only the personal channel every invited user already has is true for this installation. */
-export function ContactInstructions({ operator }: {
-  operator: OperatorDetails | null
-}) {
-  if (operator?.email) {
-    return <>contact the operator at <a href={`mailto:${operator.email}`}>{operator.email}</a></>;
-  }
-
-  return <>contact the operator directly, the same way you were given access to this installation; no contact email is published for it</>;
-}

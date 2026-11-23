@@ -4,6 +4,7 @@ import ui from "../../../components/ui/primitives.module.css";
 import styles from "./brokerage-panel.module.css";
 
 import { useId, useState } from "react";
+import { useTranslations } from "next-intl";
 import { clsx } from "clsx";
 import { Temporal } from "temporal-polyfill";
 import { ChevronDown, ChevronRight } from "lucide-react";
@@ -28,19 +29,20 @@ import { BookingDialog } from "./booking-dialog";
 export function BrokeragePanel({ account }: {
   account: Account
 }) {
+  const t = useTranslations("securities.holdings");
   const trades = useBrokerageTrades(account.id);
   const securities = useSecurities();
   const [booking, setBooking] = useState<string | null>(null);
   const priceSource = securities.data?.price_source;
 
   if (trades.isPending) {
-    return <section className={clsx(ui["panel"], styles["panel"])} aria-busy="true"><h2>Holdings</h2></section>;
+    return <section className={clsx(ui["panel"], styles["panel"])} aria-busy="true"><h2>{t("title")}</h2></section>;
   }
 
   if (trades.isError) {
     return (
       <section className={clsx(ui["panel"], styles["panel"])}>
-        <h2>Holdings</h2>
+        <h2>{t("title")}</h2>
         <FormError failure={toFailure(trades.error)} />
       </section>
     );
@@ -53,24 +55,28 @@ export function BrokeragePanel({ account }: {
   return (
     <>
       <section className={clsx(ui["panel"], styles["panel"])} aria-labelledby={`${account.id}-holdings`}>
-        <h2 id={`${account.id}-holdings`}>Holdings</h2>
-        {priceSource && !priceSource.configured && <p className={styles["notice"]}>{priceSource.message} Holdings are valued at their last known price or their cost.</p>}
+        <h2 id={`${account.id}-holdings`}>{t("title")}</h2>
+        {priceSource && !priceSource.configured && (
+          <p className={styles["notice"]}>{t("priceSourceNotice", {
+            message: priceSource.message ?? ""
+          })}</p>
+        )}
         {open.length ? (
           <HoldingsTable
-            label="Holdings"
+            label={t("title")}
             holdings={open}
             trades={trades.data.trades}
             securities={securities.data?.securities ?? []}
             currency={account.currency}
             openBooking={setBooking}
           />
-        ) : <Empty title="No holdings yet" illustration={null}>Record a buy from its booking on the cash account, or with Add trade.</Empty>}
+        ) : <Empty title={t("emptyTitle")} illustration={null}>{t("emptyBody")}</Empty>}
       </section>
       {closed.length > 0 && (
         <section className={clsx(ui["panel"], styles["panel"])} aria-labelledby={`${account.id}-closed`}>
-          <h2 id={`${account.id}-closed`}>Closed positions</h2>
+          <h2 id={`${account.id}-closed`}>{t("closed")}</h2>
           <HoldingsTable
-            label="Closed positions"
+            label={t("closed")}
             holdings={closed}
             trades={trades.data.trades}
             securities={securities.data?.securities ?? []}
@@ -100,6 +106,7 @@ export function HoldingsTable({
   currency: string;
   openBooking: (transactionId: string) => void;
 }) {
+  const t = useTranslations("securities.holdings.columns");
   const locale = useLocale();
   const byId = new Map(securities.map(security => [security.id, security]));
   const tradesOf = (securityId: string) => trades.filter(trade => trade.security_id === securityId).toReversed();
@@ -107,13 +114,13 @@ export function HoldingsTable({
   return (
     <div className={styles["table"]} role="table" aria-label={label}>
       <div className={clsx(styles["row"], styles["head"])} role="row">
-        <span role="columnheader">Security</span>
-        <span role="columnheader" className={styles["number"]}>Shares</span>
-        <span role="columnheader" className={styles["number"]}>Avg. cost</span>
-        <span role="columnheader" className={styles["number"]}>Cost basis</span>
-        <span role="columnheader" className={styles["number"]}>Price</span>
-        <span role="columnheader" className={styles["number"]}>Value</span>
-        <span role="columnheader" className={styles["number"]}>Gain</span>
+        <span role="columnheader">{t("security")}</span>
+        <span role="columnheader" className={styles["number"]}>{t("shares")}</span>
+        <span role="columnheader" className={styles["number"]}>{t("averageCost")}</span>
+        <span role="columnheader" className={styles["number"]}>{t("costBasis")}</span>
+        <span role="columnheader" className={styles["number"]}>{t("price")}</span>
+        <span role="columnheader" className={styles["number"]}>{t("value")}</span>
+        <span role="columnheader" className={styles["number"]}>{t("gain")}</span>
       </div>
       {holdings.map(holding => (
         <HoldingRows
@@ -153,6 +160,7 @@ function HoldingRows({
   locale: string;
   openBooking: (transactionId: string) => void;
 }) {
+  const t = useTranslations("securities.holdings");
   const [expanded, setExpanded] = useState(false);
   const tradesId = useId();
   const held = holding.quantity_micros > 0;
@@ -182,10 +190,10 @@ function HoldingRows({
             </span>
           </button>
         </span>
-        <span role="cell" className={styles["number"]} data-label="Shares">{held ? formatQuantity(holding.quantity_micros, locale) : "Sold"}</span>
-        <span role="cell" className={styles["number"]} data-label="Avg. cost">{averageCost === null ? "—" : formatPrice(averageCost, currency, locale, digits)}</span>
-        <span role="cell" className={styles["number"]} data-label="Cost basis">{held ? money(holding.cost_minor, currency, locale) : "—"}</span>
-        <span role="cell" className={styles["number"]} data-label="Price">
+        <span role="cell" className={styles["number"]} data-label={t("columns.shares")}>{held ? formatQuantity(holding.quantity_micros, locale) : t("sold")}</span>
+        <span role="cell" className={styles["number"]} data-label={t("columns.averageCost")}>{averageCost === null ? "—" : formatPrice(averageCost, currency, locale, digits)}</span>
+        <span role="cell" className={styles["number"]} data-label={t("columns.costBasis")}>{held ? money(holding.cost_minor, currency, locale) : "—"}</span>
+        <span role="cell" className={styles["number"]} data-label={t("columns.price")}>
           <PriceCell
             holding={holding}
             security={security}
@@ -194,8 +202,8 @@ function HoldingRows({
             digits={digits}
           />
         </span>
-        <span role="cell" className={clsx(styles["number"], styles["value"])} data-label="Value">{held ? money(holding.value_minor, currency, locale) : "—"}</span>
-        <span role="cell" className={clsx(styles["number"], showGain && gain > 0 && ui["positive"])} data-label={held ? "Gain" : "Realized"}>
+        <span role="cell" className={clsx(styles["number"], styles["value"])} data-label={t("columns.value")}>{held ? money(holding.value_minor, currency, locale) : "—"}</span>
+        <span role="cell" className={clsx(styles["number"], showGain && gain > 0 && ui["positive"])} data-label={held ? t("columns.gain") : t("columns.realized")}>
           {showGain ? signedMoney(gain, currency, locale) : "—"}
           {gainPercent !== null && <small>{percent(gainPercent, locale)}</small>}
         </span>
@@ -233,14 +241,27 @@ function TradeRow({
   digits: number;
   openBooking: (transactionId: string) => void;
 }) {
+  const t = useTranslations("securities.holdings");
   const buy = trade.side === "buy";
-  const side = buy ? "Buy" : "Sell";
+  const side = t("side", {
+    side: trade.side
+  });
   const date = dateWithYear(Temporal.PlainDate.from(trade.date), locale);
   const quantity = formatQuantity(trade.quantity_micros, locale);
   const bookingText = trade.settlement_counterparty || trade.settlement_description;
   const settlement = [trade.settlement_account_name, bookingText].filter(Boolean).join(" · ");
   const fees = trade.fee_minor > 0 ? money(trade.fee_minor, trade.currency, locale) : null;
   const settlementId = trade.settlement_transaction_id;
+  const openLabel = settlement ? t("openTradeBooked", {
+    side: trade.side,
+    quantity,
+    date,
+    settlement
+  }) : t("openTrade", {
+    side: trade.side,
+    quantity,
+    date
+  });
 
   return (
     <div className={clsx(styles["row"], styles["trade"])} role="row">
@@ -250,40 +271,48 @@ function TradeRow({
             type="button"
             className={styles["open-trade"]}
             onClick={() => openBooking(settlementId)}
-            aria-label={`Open ${side.toLowerCase()} of ${quantity} on ${date}${settlement ? `, booked on ${settlement}` : ""}`}
+            aria-label={openLabel}
           >
             <strong>{side}</strong>
           </button>
         ) : <strong>{side}</strong>}
         {settlement && <small className={styles["settlement"]}>{settlement}</small>}
       </span>
-      <span role="cell" className={styles["number"]} data-label="Shares">{buy ? quantity : `−${quantity}`}</span>
-      <span role="cell" className={clsx(styles["number"], styles["empty"])} data-label="Avg. cost" />
-      <span role="cell" className={clsx(styles["number"], !buy && styles["empty"])} data-label="Cost basis">
+      <span role="cell" className={styles["number"]} data-label={t("columns.shares")}>{buy ? quantity : `−${quantity}`}</span>
+      <span role="cell" className={clsx(styles["number"], styles["empty"])} data-label={t("columns.averageCost")} />
+      <span role="cell" className={clsx(styles["number"], !buy && styles["empty"])} data-label={t("columns.costBasis")}>
         {buy && (
           <>
             {money(trade.gross_minor + trade.fee_minor, trade.currency, locale)}
-            {fees && <small>incl. {fees} fees</small>}
+            {fees && (
+              <small>{t("includingFees", {
+                fees
+              })}</small>
+            )}
           </>
         )}
       </span>
-      <span role="cell" className={styles["number"]} data-label="Price">
+      <span role="cell" className={styles["number"]} data-label={t("columns.price")}>
         {formatPrice(trade.price_micros, trade.currency, locale, digits)}
         <small>{date}</small>
       </span>
-      <span role="cell" className={clsx(styles["number"], buy && styles["empty"])} data-label="Proceeds">
+      <span role="cell" className={clsx(styles["number"], buy && styles["empty"])} data-label={t("columns.proceeds")}>
         {!buy && (
           <>
             {money(trade.gross_minor - trade.fee_minor, trade.currency, locale)}
-            {fees && <small>after {fees} fees</small>}
+            {fees && (
+              <small>{t("afterFees", {
+                fees
+              })}</small>
+            )}
           </>
         )}
       </span>
-      <span role="cell" className={clsx(styles["number"], trade.realized_minor === null && styles["empty"], trade.realized_minor !== null && trade.realized_minor > 0 && ui["positive"])} data-label="Realized gain">
+      <span role="cell" className={clsx(styles["number"], trade.realized_minor === null && styles["empty"], trade.realized_minor !== null && trade.realized_minor > 0 && ui["positive"])} data-label={t("columns.realizedGain")}>
         {trade.realized_minor !== null && (
           <>
             {signedMoney(trade.realized_minor, trade.currency, locale)}
-            <small>realized</small>
+            <small>{t("realizedNote")}</small>
           </>
         )}
       </span>
@@ -305,17 +334,19 @@ function PriceCell({
   locale: string;
   digits: number;
 }) {
+  const t = useTranslations("securities.holdings");
+
   if (holding.quantity_micros === 0) {
     return "—";
   }
 
   if (holding.status === "missing" || !holding.price) {
     return (
-      <Tooltip text={security?.price_error ?? "No price is known for this security yet."}>
+      <Tooltip text={security?.price_error ?? t("noPriceKnown")}>
         {trigger => (
           <span {...trigger} className={styles["warning"]}>
-            No price
-            <small>valued at cost</small>
+            {t("noPrice")}
+            <small>{t("valuedAtCost")}</small>
           </span>
         )}
       </Tooltip>
@@ -326,7 +357,9 @@ function PriceCell({
   const venue = security?.venue ?? security?.provider_symbol?.split(".").at(-1);
   const listing = [venue, security?.provider_symbol && security.provider_symbol !== venue ? security.provider_symbol : null].filter(Boolean);
   const stale = holding.status === "stale";
-  const tip = `Closing price on ${date}${listing.length ? ` · ${listing.join(", ")}` : ""}${stale ? " · not updated recently" : ""}`;
+  const tip = [t("closingPrice", {
+    date
+  }), listing.join(", "), stale ? t("notUpdatedRecently") : ""].filter(Boolean).join(" · ");
 
   return (
     <Tooltip text={tip}>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
 import { apiGet, toFailure } from "@/client/api";
 import { queryKeys } from "@/client/query-keys";
 import { Dialog } from "@/components/ui/dialog";
@@ -16,6 +17,7 @@ export function BookingDialog({
   transactionId: string;
   close: () => void;
 }) {
+  const t = useTranslations("securities.booking");
   const booking = useQuery({
     queryKey: [...queryKeys.transactions.all(), "booking", transactionId],
     queryFn: ({ signal }) => apiGet<Transaction>(`transactions/${encodeURIComponent(transactionId)}`, undefined, signal)
@@ -26,8 +28,8 @@ export function BookingDialog({
   }
 
   return (
-    <Dialog eyebrow="Trade" title="Trade" onClose={close}>
-      {booking.isError ? <FormError failure={toFailure(booking.error)} /> : <p aria-busy="true">Loading the trade and its booking…</p>}
+    <Dialog eyebrow={t("title")} title={t("title")} onClose={close}>
+      {booking.isError ? <FormError failure={toFailure(booking.error)} /> : <p aria-busy="true">{t("loading")}</p>}
     </Dialog>
   );
 }

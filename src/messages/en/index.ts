@@ -9,6 +9,7 @@ import transactions from "./transactions.json";
 import categorization from "./categorization.json";
 import banking from "./banking.json";
 import imports from "./imports.json";
+import securities from "./securities.json";
 
 /** One namespace per feature file, so parallel changes rarely touch the same catalog file. */
 export const en = {
@@ -22,5 +23,6 @@ export const en = {
   transactions,
   categorization,
   banking,
-  imports
+  imports,
+  securities
 };
