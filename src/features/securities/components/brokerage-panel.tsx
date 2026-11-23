@@ -79,7 +79,7 @@ export function BrokeragePanel({ account }: {
           />
         </section>
       )}
-      {booking && <BookingDialog transactionId={booking} close={() => setBooking(null)} />}
+      {booking && <BookingDialog transactionId={booking} depotId={account.id} close={() => setBooking(null)} />}
     </>
   );
 }
