@@ -34,7 +34,7 @@ export function BrokeragePanel({ account }: {
   const priceSource = securities.data?.price_source;
 
   // The price-source notice comes from the securities query and sits above the table, so the skeleton waits for both.
-  if (trades.isPending || securities.isPending) {
+  if (!trades.isError && (trades.isPending || securities.isPending)) {
     return (
       <section className={clsx(ui["panel"], styles["panel"])} aria-labelledby={`${account.id}-holdings`} aria-busy="true">
         <h2 id={`${account.id}-holdings`}>Holdings</h2>
