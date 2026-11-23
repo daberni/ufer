@@ -16,7 +16,7 @@ import { useBalanceChart } from "@/features/accounts/use-balance-chart";
 import { BalanceHistoryChartSkeleton } from "@/features/accounts/components/balance-history-chart";
 import { useBrokeragePerformance } from "../queries";
 import type { BrokeragePerformance } from "../types";
-import { performanceInRange, performanceRanges, type PerformanceRange, type RangePoint } from "../performance-range";
+import { changeFromPrevious, performanceInRange, performanceRanges, type PerformanceRange, type RangePoint } from "../performance-range";
 
 // Returns are plotted in millionths so the shared integer value scale keeps enough resolution.
 const plotScale = 1_000_000;
@@ -99,13 +99,54 @@ function PerformanceChart({
   const {
     activeIndex,
     plotProps
-  } = useBalanceChart(positions, true);
+  } = useBalanceChart(positions, true, "nearest");
   const lastIndex = points.length - 1;
   const point = points[activeIndex ?? lastIndex];
   const date = describeBalanceDate(point.date, locale);
+  const start = describeBalanceDate(points[0].date, locale).label;
   const percent = formatSignedPercent(point.return_ratio, locale);
   const gain = signedMoney(point.gain_minor, currency, locale);
+  const readout = activeIndex === null ? rangeReadout() : pointReadout(activeIndex);
   const activePoint = activeIndex === null ? null : chart.points[activeIndex];
+
+  // Without a selection the header shows the whole range; a selected point shows its change against the previous point, which may lie several days back.
+  function rangeReadout() {
+    return {
+      context: `Since ${start}`,
+      negative: point.return_ratio < 0,
+      percent,
+      detail: gain,
+      valueText: `${date.label}: ${percent}, ${gain} since ${start}`
+    };
+  }
+
+  function pointReadout(index: number) {
+    const change = changeFromPrevious(points, index);
+    const context = `${percent} since ${start}`;
+
+    if (!change) {
+      return {
+        context,
+        negative: false,
+        percent: "–",
+        detail: "Start of range",
+        valueText: `${date.label}: start of range`
+      };
+    }
+
+    const previous = describeBalanceDate(change.previousDate, locale).label;
+    const changePercent = formatSignedPercent(change.ratio, locale);
+    const changeGain = signedMoney(change.gain_minor, currency, locale);
+
+    return {
+      context,
+      negative: change.ratio < 0,
+      percent: changePercent,
+      detail: `${changeGain} vs ${previous}`,
+      valueText: `${date.label}: ${changePercent}, ${changeGain} since ${previous}; ${context}`
+    };
+  }
+
   const line = useMemo(() => chart.points.map((plotted, index) => index ? `H${plotted.x} V${plotted.y}` : `M${plotted.x} ${plotted.y}`).join(" "), [chart]);
 
   return (
@@ -113,11 +154,11 @@ function PerformanceChart({
       <figcaption className={chartStyles["readout"]} aria-hidden="true">
         <span>
           <time dateTime={date.dateTime} title={date.title}>{date.label}</time>
-          <small>Since {describeBalanceDate(points[0].date, locale).label}</small>
+          <small>{readout.context}</small>
         </span>
         <span className={styles["totals"]}>
-          <strong data-negative={point.return_ratio < 0 ? "" : undefined}>{percent}</strong>
-          <small>{gain}</small>
+          <strong data-negative={readout.negative ? "" : undefined}>{readout.percent}</strong>
+          <small>{readout.detail}</small>
         </span>
       </figcaption>
       <div
@@ -131,7 +172,7 @@ function PerformanceChart({
         aria-valuemin={0}
         aria-valuemax={lastIndex}
         aria-valuenow={activeIndex ?? lastIndex}
-        aria-valuetext={`${date.label}: ${percent}, ${gain}`}
+        aria-valuetext={readout.valueText}
         data-active={activePoint ? "" : undefined}
       >
         <span className={chartStyles["axis-label"]} data-edge="top" aria-hidden="true">{formatSignedPercent(chart.highest / plotScale, locale)}</span>

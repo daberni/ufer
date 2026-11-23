@@ -57,3 +57,19 @@ export function performanceInRange(points: PerformancePoint[], range: Performanc
     gain_minor: point.value_minor - point.invested_minor - baseGain
   }));
 }
+
+/** A point's change against the previous point of its range, or null for the range's first point, which has nothing to compare against. */
+export function changeFromPrevious(points: RangePoint[], index: number) {
+  const point = points[index];
+  const previous = index > 0 ? points[index - 1] : undefined;
+
+  if (!point || !previous) {
+    return null;
+  }
+
+  return {
+    previousDate: previous.date,
+    ratio: (1 + point.return_ratio) / (1 + previous.return_ratio) - 1,
+    gain_minor: point.gain_minor - previous.gain_minor
+  };
+}
