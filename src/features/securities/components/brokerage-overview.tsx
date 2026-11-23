@@ -121,8 +121,6 @@ function AccountHoldings({
   const trades = useBrokerageTrades(account.id);
   const securities = useSecurities();
   const held = trades.data?.valuation.holdings.filter(holding => holding.quantity_micros > 0) ?? [];
-  const priced = held.filter(holding => holding.status !== "missing");
-  const gain = priced.reduce((sum, holding) => sum + holding.value_minor - holding.cost_minor, 0);
   const headingId = `${account.id}-overview`;
 
   return (
@@ -131,7 +129,7 @@ function AccountHoldings({
         <h3 id={headingId}>{account.name}</h3>
         <span className={styles["account-figures"]}>
           {trades.data && <strong>{money(trades.data.valuation.value_minor, account.currency, locale)}</strong>}
-          {trades.data && priced.length > 0 && <small className={clsx(gain > 0 && ui["positive"])}>{signedMoney(gain, account.currency, locale)} unrealized</small>}
+          {trades.data && held.length > 0 && <small className={clsx(trades.data.summary.total.gain_minor > 0 && ui["positive"])}>{signedMoney(trades.data.summary.total.gain_minor, account.currency, locale)} total</small>}
         </span>
         <ArrowRight size={16} aria-hidden="true" />
       </Link>

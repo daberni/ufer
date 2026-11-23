@@ -40,11 +40,10 @@ export type Trade = {
   realized_minor: number | null;
 };
 
-/** Total and previous-trading-day change; see `changeSummary`. A null ratio or day means there is no honest figure. */
+/** Total and previous-trading-day change; see `changeSummary`. A null day means there is no honest figure. */
 export type ChangeSummary = {
   total: {
     gain_minor: number;
-    ratio: number | null;
     unpriced: number;
   };
   day: {

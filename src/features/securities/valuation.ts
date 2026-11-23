@@ -123,13 +123,12 @@ export function valuationSeries(holdings: HoldingInputs[], settlements: TradeSet
 
 /**
  * The two headline figures of one or more brokerage accounts on `date`.
- * Total: unrealized gain of priced holdings plus every realized gain, relative to all buy costs including fees. Holdings without a price add only their realized gain and are counted in `unpriced`.
+ * Total: unrealized gain of priced holdings plus every realized gain. Holdings without a price add only their realized gain and are counted in `unpriced`.
  * Day: the price change of each currently priced holding between its last two price dates, at today's quantity, relative to its value at the earlier price. Stale, unpriced and single-price holdings are left out and counted in `excluded`; with none left there is no day change rather than a zero.
  */
 export function changeSummary(holdings: HoldingInputs[], date: string) {
   let gain = 0;
   let unpriced = 0;
-  let invested = 0;
   let change = 0;
   let previousValue = 0;
   let excluded = 0;
@@ -138,12 +137,6 @@ export function changeSummary(holdings: HoldingInputs[], date: string) {
   const intervals = new Set<string>();
 
   for (const holding of holdings) {
-    for (const trade of holding.trades) {
-      if (trade.side === "buy" && trade.date <= date) {
-        invested += trade.gross_minor + trade.fee_minor;
-      }
-    }
-
     const position = positionOn(holding.trades, holding.splits, date);
     const valuation = valueHolding(position.quantity_micros, holding.splits, holding.prices, holding.currency, date);
 
@@ -188,7 +181,6 @@ export function changeSummary(holdings: HoldingInputs[], date: string) {
   return {
     total: {
       gain_minor: gain,
-      ratio: invested > 0 ? gain / invested : null,
       unpriced
     },
     day: priceDate !== null && previousValue > 0 ? {

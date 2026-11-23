@@ -31,7 +31,7 @@ export function BrokerageChange({ accountId, currency }: {
   ) : null;
 }
 
-/** The total performance (unrealized plus realized, with its time-weighted % and gain on cost) and the change since the previous trading day; without an honest figure it shows a dash and says why. */
+/** The total performance (unrealized plus realized, with its time-weighted %) and the change since the previous prices; without an honest figure it shows a dash and says why. */
 export function ChangeFigures({
   summary,
   points,
@@ -60,27 +60,21 @@ export function ChangeFigures({
           {signedMoney(total.gain_minor, currency, locale)}
           {last && <span className={styles["percent"]}>{formatSignedPercent(last.growth - 1, locale)} time-weighted</span>}
         </dd>
-        {/* The time-weighted % ignores when and how much was invested; the gain on cost is the simple ratio of the amount to all buy costs. */}
-        {total.ratio !== null && <dd className={styles["secondary"]}>{formatSignedPercent(total.ratio, locale)} gain on cost</dd>}
-        <dd className={styles["hint"]}>
-          {total.unpriced > 0 ? `Unrealized and realized; ${formatCountLabel(total.unpriced, "holding", "holdings", locale)} without a price count at cost` : "Unrealized and realized"}
-        </dd>
+        {total.unpriced > 0 && <dd className={styles["hint"]}>{formatCountLabel(total.unpriced, "holding", "holdings", locale)} without a price at cost</dd>}
       </div>
       <div className={styles["figure"]}>
-        <dt>Since previous trading day</dt>
         {day ? (
           <>
+            <dt>{day.mixed_dates ? "Since previous prices" : `Since ${dateWithYear(Temporal.PlainDate.from(day.previous_date), locale)}`}</dt>
             <dd className={clsx(styles["amount"], day.change_minor > 0 && ui["positive"])}>
               {signedMoney(day.change_minor, currency, locale)}
               <span className={styles["percent"]}>{formatSignedPercent(day.ratio, locale)}</span>
             </dd>
-            <dd className={styles["hint"]}>
-              {day.mixed_dates ? `Each holding's latest two prices, up to ${dateWithYear(Temporal.PlainDate.from(day.date), locale)}` : `${dateWithYear(Temporal.PlainDate.from(day.date), locale)} against ${dateWithYear(Temporal.PlainDate.from(day.previous_date), locale)}`}
-              {day.excluded > 0 && `; ${formatCountLabel(day.excluded, "holding", "holdings", locale)} without a current price left out`}
-            </dd>
+            {day.excluded > 0 && <dd className={styles["hint"]}>{formatCountLabel(day.excluded, "holding", "holdings", locale)} without a current price left out</dd>}
           </>
         ) : (
           <>
+            <dt>Since previous prices</dt>
             <dd className={styles["amount"]} aria-label="Not available">–</dd>
             <dd className={styles["hint"]}>No current prices from two trading days yet</dd>
           </>
