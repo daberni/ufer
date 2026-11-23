@@ -55,7 +55,7 @@
     "@csstools/postcss-global-data": "^4.0.0",
     "@eslint/compat": "^2.1.1",
     "@next/eslint-plugin-next": "^16.4.6",
-    "@stylistic/eslint-plugin": "^6.0.0",
+    "@stylistic/eslint-plugin": "^6.0.1",
     "@testing-library/react": "^16.3.3",
     "@types/jsdom": "^30.0.0",
     "@types/negotiator": "^0.6.5",
