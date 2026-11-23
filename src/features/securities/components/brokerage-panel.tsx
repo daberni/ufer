@@ -6,7 +6,7 @@ import styles from "./brokerage-panel.module.css";
 import { useId, useState } from "react";
 import { clsx } from "clsx";
 import { Temporal } from "temporal-polyfill";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ArrowRightLeft, ChevronDown, ChevronRight } from "lucide-react";
 import { Empty } from "@/components/ui/empty-state";
 import { FormError } from "@/components/ui/form-error";
 import { Tooltip } from "@/components/ui/tooltip";
@@ -15,26 +15,39 @@ import { useLocale } from "@/client/locale-provider";
 import { dateWithYear } from "@/lib/date-format";
 import { money, signedMoney } from "@/lib/money";
 import type { Account } from "@/features/accounts/types";
+import { useAccounts } from "@/features/accounts/queries";
 import { useBrokerageTrades, useSecurities } from "../queries";
 import type { Holding, Security, Trade } from "../types";
 import { averageCostMicros } from "../holdings";
 import { formatPrice, formatQuantity, priceDigits } from "./holding-format";
 import { BookingDialog } from "./booking-dialog";
+import { TransferDialog, TransferEditDialog } from "./transfer-dialog";
 
 /**
  * A brokerage account's holdings: one row per security with quantity, average cost (Einstandskurs), cost basis (Einstandswert), current price, value and gain.
- * Each row expands to its buys and sells in the same columns; a trade row opens its booking, where the trade is changed (ADR 012). The depot itself is read-only.
+ * Each row expands to its buys, sells and transfers in the same columns; a trade row opens its booking, where the trade is changed (ADR 012), and a transfer row opens the transfer. Shares move to another brokerage account from an expanded holding.
  */
 export function BrokeragePanel({ account }: {
   account: Account
 }) {
   const trades = useBrokerageTrades(account.id);
   const securities = useSecurities();
+  const accounts = useAccounts();
   const [booking, setBooking] = useState<string | null>(null);
+  const transfers = {
+    account,
+    brokerageAccounts: (accounts.data ?? []).filter(item => item.kind === "brokerage")
+  };
   const priceSource = securities.data?.price_source;
 
-  if (trades.isPending) {
-    return <section className={clsx(ui["panel"], styles["panel"])} aria-busy="true"><h2>Holdings</h2></section>;
+  // The price-source notice comes from the securities query and sits above the table, so the skeleton waits for both.
+  if (!trades.isError && (trades.isPending || securities.isPending)) {
+    return (
+      <section className={clsx(ui["panel"], styles["panel"])} aria-labelledby={`${account.id}-holdings`} aria-busy="true">
+        <h2 id={`${account.id}-holdings`}>Holdings</h2>
+        <HoldingsTableSkeleton />
+      </section>
+    );
   }
 
   if (trades.isError) {
@@ -63,6 +76,7 @@ export function BrokeragePanel({ account }: {
             securities={securities.data?.securities ?? []}
             currency={account.currency}
             openBooking={setBooking}
+            transfers={transfers}
           />
         ) : <Empty title="No holdings yet" illustration={null}>Record a buy from its booking on the cash account, or with Add trade.</Empty>}
       </section>
@@ -76,13 +90,20 @@ export function BrokeragePanel({ account }: {
             securities={securities.data?.securities ?? []}
             currency={account.currency}
             openBooking={setBooking}
+            transfers={transfers}
           />
         </section>
       )}
-      {booking && <BookingDialog transactionId={booking} close={() => setBooking(null)} />}
+      {booking && <BookingDialog transactionId={booking} depotId={account.id} close={() => setBooking(null)} />}
     </>
   );
 }
+
+/** What a holdings table needs to record and change transfers; the Brokerage overview shows transfers read-only. */
+type TransferActions = {
+  account: Account;
+  brokerageAccounts: Account[];
+};
 
 /** Holdings with their expandable trades; the Brokerage overview reuses it per account. */
 export function HoldingsTable({
@@ -91,7 +112,8 @@ export function HoldingsTable({
   trades,
   securities,
   currency,
-  openBooking
+  openBooking,
+  transfers
 }: {
   label: string;
   holdings: Holding[];
@@ -99,8 +121,11 @@ export function HoldingsTable({
   securities: Security[];
   currency: string;
   openBooking: (transactionId: string) => void;
+  transfers?: TransferActions;
 }) {
   const locale = useLocale();
+  const [transferring, setTransferring] = useState<Holding | null>(null);
+  const [editing, setEditing] = useState<Trade | null>(null);
   const byId = new Map(securities.map(security => [security.id, security]));
   const tradesOf = (securityId: string) => trades.filter(trade => trade.security_id === securityId).toReversed();
 
@@ -124,7 +149,59 @@ export function HoldingsTable({
           currency={currency}
           locale={locale}
           openBooking={openBooking}
+          startTransfer={transfers ? setTransferring : undefined}
+          openTransfer={transfers ? setEditing : undefined}
         />
+      ))}
+      {transfers && transferring && (
+        <TransferDialog
+          account={transfers.account}
+          holding={transferring}
+          brokerageAccounts={transfers.brokerageAccounts}
+          close={() => setTransferring(null)}
+        />
+      )}
+      {transfers && editing && <TransferEditDialog trade={editing} accountName={transfers.account.name} close={() => setEditing(null)} />}
+    </div>
+  );
+}
+
+/** The holdings table's columns with placeholder rows, held while the holdings load. */
+export function HoldingsTableSkeleton({ rows = 2 }: {
+  rows?: number
+}) {
+  return (
+    <div className={styles["table"]} aria-hidden="true">
+      <div className={clsx(styles["row"], styles["head"])}>
+        <span>Security</span>
+        <span className={styles["number"]}>Shares</span>
+        <span className={styles["number"]}>Avg. cost</span>
+        <span className={styles["number"]}>Cost basis</span>
+        <span className={styles["number"]}>Price</span>
+        <span className={styles["number"]}>Value</span>
+        <span className={styles["number"]}>Gain</span>
+      </div>
+      {Array.from({
+        length: rows
+      }, (_, index) => (
+        <div key={index} className={styles["row"]}>
+          <span className={clsx(styles["security"], styles["skeleton-security"])}>
+            <strong className={ui["skeleton"]}>Global equity ETF</strong>
+            <small className={ui["skeleton"]}>IE00B0000000</small>
+          </span>
+          <span className={styles["number"]} data-label="Shares"><span className={ui["skeleton"]}>00.000</span></span>
+          <span className={styles["number"]} data-label="Avg. cost"><span className={ui["skeleton"]}>€00.00</span></span>
+          <span className={styles["number"]} data-label="Cost basis"><span className={ui["skeleton"]}>€0,000.00</span></span>
+          <span className={styles["number"]} data-label="Price">
+            <span className={ui["skeleton"]}>€00.00</span>
+            <small className={ui["skeleton"]}>23 Nov 2026</small>
+          </span>
+          <span className={clsx(styles["number"], styles["value"])} data-label="Value"><span className={ui["skeleton"]}>€0,000.00</span></span>
+          <span className={styles["number"]} data-label="Gain">
+            <span className={ui["skeleton"]}>+€000.00</span>
+            <small className={ui["skeleton"]}>+0.0%</small>
+          </span>
+        </div>
       ))}
     </div>
   );
@@ -144,7 +221,9 @@ function HoldingRows({
   trades,
   currency,
   locale,
-  openBooking
+  openBooking,
+  startTransfer,
+  openTransfer
 }: {
   holding: Holding;
   security: Security | undefined;
@@ -152,6 +231,8 @@ function HoldingRows({
   currency: string;
   locale: string;
   openBooking: (transactionId: string) => void;
+  startTransfer?: (holding: Holding) => void;
+  openTransfer?: (trade: Trade) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const tradesId = useId();
@@ -159,8 +240,8 @@ function HoldingRows({
   const gain = held ? holding.value_minor - holding.cost_minor : holding.realized_minor;
   const showGain = !held || holding.status !== "missing";
   const gainPercent = held && holding.cost_minor > 0 && showGain ? gain / holding.cost_minor : null;
-  // Per-share figures of one holding share their decimals; the average cost is rounded to them.
-  const digits = priceDigits([...trades.map(trade => trade.price_micros), ...holding.price ? [holding.price.close_micros] : []], currency);
+  // Per-share figures of one holding share their decimals; the average cost and a transfer's carried cost per share are rounded to them.
+  const digits = priceDigits([...trades.filter(trade => !trade.transfer).map(trade => trade.price_micros), ...holding.price ? [holding.price.close_micros] : []], currency);
   const averageCost = held ? averageCostMicros(holding.cost_minor, holding.quantity_micros, currency) : null;
   const Chevron = expanded ? ChevronDown : ChevronRight;
 
@@ -195,7 +276,7 @@ function HoldingRows({
           />
         </span>
         <span role="cell" className={clsx(styles["number"], styles["value"])} data-label="Value">{held ? money(holding.value_minor, currency, locale) : "—"}</span>
-        <span role="cell" className={clsx(styles["number"], showGain && gain > 0 && ui["positive"])} data-label={held ? "Gain" : "Realized"}>
+        <span role="cell" className={clsx(styles["number"], showGain && gain > 0 && ui["positive"], showGain && gain < 0 && ui["negative"])} data-label={held ? "Gain" : "Realized"}>
           {showGain ? signedMoney(gain, currency, locale) : "—"}
           {gainPercent !== null && <small>{percent(gainPercent, locale)}</small>}
         </span>
@@ -207,7 +288,24 @@ function HoldingRows({
         role="none"
         hidden={!expanded}
       >
-        {expanded && trades.map(trade => (
+        {expanded && held && startTransfer && (
+          <div className={clsx(styles["row"], styles["actions"])} role="row">
+            <span role="cell">
+              <button type="button" className={clsx(ui["button"], ui["small"])} onClick={() => startTransfer(holding)}>
+                <ArrowRightLeft size={14} aria-hidden="true" /> Transfer to another account
+              </button>
+            </span>
+          </div>
+        )}
+        {expanded && trades.map(trade => trade.transfer ? (
+          <TransferRow
+            key={`${trade.id}-${trade.side}`}
+            trade={trade}
+            locale={locale}
+            digits={digits}
+            openTransfer={openTransfer}
+          />
+        ) : (
           <TradeRow
             key={trade.id}
             trade={trade}
@@ -279,7 +377,7 @@ function TradeRow({
           </>
         )}
       </span>
-      <span role="cell" className={clsx(styles["number"], trade.realized_minor === null && styles["empty"], trade.realized_minor !== null && trade.realized_minor > 0 && ui["positive"])} data-label="Realized gain">
+      <span role="cell" className={clsx(styles["number"], trade.realized_minor === null && styles["empty"], trade.realized_minor !== null && trade.realized_minor > 0 && ui["positive"], trade.realized_minor !== null && trade.realized_minor < 0 && ui["negative"])} data-label="Realized gain">
         {trade.realized_minor !== null && (
           <>
             {signedMoney(trade.realized_minor, trade.currency, locale)}
@@ -287,6 +385,55 @@ function TradeRow({
           </>
         )}
       </span>
+    </div>
+  );
+}
+
+/** One leg of a transfer in its holding's columns: the shares and cost basis it moved, and that cost per share. */
+function TransferRow({
+  trade,
+  locale,
+  digits,
+  openTransfer
+}: {
+  trade: Trade;
+  locale: string;
+  digits: number;
+  openTransfer?: (trade: Trade) => void;
+}) {
+  const received = trade.side === "transfer_in";
+  const label = received ? "Transfer in" : "Transfer out";
+  const date = dateWithYear(Temporal.PlainDate.from(trade.date), locale);
+  const quantity = formatQuantity(trade.quantity_micros, locale);
+  const counterpart = `${received ? "from" : "to"} ${trade.transfer?.counterpart_account_name ?? "another account"}`;
+
+  return (
+    <div className={clsx(styles["row"], styles["trade"])} role="row">
+      <span role="rowheader" className={styles["security"]}>
+        {openTransfer ? (
+          <button
+            type="button"
+            className={styles["open-trade"]}
+            onClick={() => openTransfer(trade)}
+            aria-label={`Open ${label.toLowerCase()} of ${quantity} on ${date} ${counterpart}`}
+          >
+            <strong>{label}</strong>
+          </button>
+        ) : <strong>{label}</strong>}
+        <small className={styles["settlement"]}>{counterpart}</small>
+      </span>
+      <span role="cell" className={styles["number"]} data-label="Shares">{received ? quantity : `−${quantity}`}</span>
+      <span role="cell" className={clsx(styles["number"], styles["empty"])} data-label="Avg. cost" />
+      <span role="cell" className={styles["number"]} data-label="Cost basis">
+        {money(trade.gross_minor, trade.currency, locale)}
+        <small>{received ? "carried over" : "moved out"}</small>
+      </span>
+      <span role="cell" className={styles["number"]} data-label="Cost per share">
+        {formatPrice(trade.price_micros, trade.currency, locale, digits)}
+        <small>{date}</small>
+      </span>
+      <span role="cell" className={clsx(styles["number"], styles["empty"])} data-label="Proceeds" />
+      <span role="cell" className={clsx(styles["number"], styles["empty"])} data-label="Realized gain" />
     </div>
   );
 }

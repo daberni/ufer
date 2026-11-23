@@ -78,13 +78,26 @@ export function valueHoldings(holdings: HoldingInputs[], date: string): AccountV
   };
 }
 
+// The first date through `endDate` on which a trade or its cash booking can change the account's value.
+function firstChange(holdings: HoldingInputs[], settlements: TradeSettlement[], endDate: string) {
+  return [...holdings.flatMap(holding => holding.trades.map(trade => trade.date)), ...settlements.map(settlement => settlement.cash_date)].filter(date => date <= endDate).sort()[0];
+}
+
+/** The account's value on one date as `valuationSeries` reports it there; zero before its first trade or cash booking. */
+export function valuationOn(holdings: HoldingInputs[], settlements: TradeSettlement[], date: string) {
+  if (!firstChange(holdings, settlements, date)) {
+    return 0;
+  }
+
+  return valueHoldings(holdings, date).value_minor + unsettledCash(settlements, date);
+}
+
 /**
  * The account's value on every date it can change through `endDate`: each trade, cash booking, split and price date, starting at zero the day before the first of them. Cash a trade has moved on only one side counts as in `unsettledCash`.
  * Values between two points equal the earlier point, so the series never uses a price dated after the day it values.
  */
 export function valuationSeries(holdings: HoldingInputs[], settlements: TradeSettlement[], endDate: string) {
-  const tradeDates = [...holdings.flatMap(holding => holding.trades.map(trade => trade.date)), ...settlements.map(settlement => settlement.cash_date)].filter(date => date <= endDate).sort();
-  const first = tradeDates[0];
+  const first = firstChange(holdings, settlements, endDate);
 
   if (!first) {
     return [];

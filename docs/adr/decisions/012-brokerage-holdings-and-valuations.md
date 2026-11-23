@@ -51,11 +51,23 @@ adr:
 | No listing | A security without a listing, or without a configured key, is valid and has no daily price |
 | Unpriced holdings | A holding without any price is valued at its cost basis and shown as "no price", instead of counting 0; a holding with only an old price keeps that price and is shown as stale. This replaces "counts 0" in the valuation row above |
 
+### Amendment 2026-11-23: transfers between brokerage accounts ([#362](https://github.com/daberni/ufer/issues/362))
+
+| Concern | Decision |
+| --- | --- |
+| Model | A transfer moves a quantity of one security from one brokerage account to another on a date, without a sale. It is a row in its own `security_transfers` table rather than two new trade sides: it has no price, gross amount or cash side, and `security_trades` would need a rebuild to accept such rows. Each leg takes the next replay position in its account, shared with that account's trades |
+| Cost basis | Not stored. The sending account's moving-average cost of the moved quantity just before the transfer is derived by replay and carried into the receiving account, so a later correction of an earlier trade carries through. Neither account realizes a gain; a later sale in the receiving account realizes its gain against the original cost. Purchase dates of individual lots are not kept, as the moving average has none |
+| Validation | Any change to a security's trades or transfers replays its history on every account, so no sale or transfer exceeds what its account held then. Same-day transfers that each depend on the other are refused. Both accounts must use the security's currency |
+| Performance | A transfer is an external flow of each single account at the moved quantity's value on its date (its carried cost without a price). Across accounts both legs net out, so the combined series is unchanged by a transfer |
+| Editing | A transfer's date and quantity are corrected, or it is removed, from either account's holdings. Accounts with transfers cannot be deleted; a receiving account still holding shares cannot be archived |
+| Fees | Not part of the transfer. A broker's transfer fee is an ordinary booking on its cash account |
+
 ## Consequences
 
 - Net worth and its history include holdings at historical prices; manual `investment` accounts keep working.
 - A past-dated buy counts at its cost basis before the first stored price, flagged as missing a market price, until history backfill (out of scope).
 - Realized gains are visible per holding but not in income reports yet.
+- Changeset 0023 adds the `security_transfers` table; no existing row changes.
 - Changeset 0022 rebuilds `accounts` and `transactions` to widen their kind and type constraints and adds four tables; every existing row keeps its values. Applying it to a hosted database is a separate, explicitly approved step.
 
 ## Compliance

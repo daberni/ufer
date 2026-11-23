@@ -8,7 +8,8 @@ import { configuredProvider } from "./market-data/eodhd-provider";
 import { MarketDataError, type MarketDataProvider } from "./market-data/market-data-provider";
 import { assignListing, listPricedSecurities, savePriceCheck, savePrices, saveSplitsIfConsistent } from "./price-repository";
 import { chooseListing } from "../listing-choice";
-import { positionOn } from "../holdings";
+import type { PositionSplit } from "../holdings";
+import { checkSecurityHistory, type SecurityLeg } from "../transfers";
 
 /** Serializes price updates; they write only prices and splits, so they never wait for or block a bank sync. */
 export const marketDataLease = "market-data";
@@ -73,11 +74,9 @@ async function resolveListing(security: {
 }
 
 /** Whether every account's sales still fit its holdings under a split history; a reported split that would make a recorded sale exceed the holding is not stored. */
-export function splitsFitTrades(tradesByAccount: Parameters<typeof positionOn>[0][], splits: Parameters<typeof positionOn>[1]) {
+export function splitsFitTrades(legs: SecurityLeg[], splits: PositionSplit[]) {
   try {
-    for (const trades of tradesByAccount) {
-      positionOn(trades, splits, "9999-12-31");
-    }
+    checkSecurityHistory(legs, splits);
 
     return true;
   } catch (error) {
