@@ -53,6 +53,8 @@ export type ChangeSummary = {
     date: string;
     /** The earlier price date the change is measured from; weekends and holidays put it more than a day back. */
     previous_date: string;
+    /** Whether holdings' latest two prices fall on different dates, so `date` and `previous_date` describe only the newest. */
+    mixed_dates: boolean;
     excluded: number;
   } | null;
   excluded: number;

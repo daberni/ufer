@@ -75,7 +75,7 @@ export function ChangeFigures({
               <span className={styles["percent"]}>{formatSignedPercent(day.ratio, locale)}</span>
             </dd>
             <dd className={styles["hint"]}>
-              {dateWithYear(Temporal.PlainDate.from(day.date), locale)} against {dateWithYear(Temporal.PlainDate.from(day.previous_date), locale)}
+              {day.mixed_dates ? `Each holding's latest two prices, up to ${dateWithYear(Temporal.PlainDate.from(day.date), locale)}` : `${dateWithYear(Temporal.PlainDate.from(day.date), locale)} against ${dateWithYear(Temporal.PlainDate.from(day.previous_date), locale)}`}
               {day.excluded > 0 && `; ${formatCountLabel(day.excluded, "holding", "holdings", locale)} without a current price left out`}
             </dd>
           </>

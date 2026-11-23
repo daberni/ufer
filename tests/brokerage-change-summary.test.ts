@@ -42,6 +42,7 @@ test("the total change adds unrealized and realized gains over all buy costs", (
     ratio: 50_00 / 550_00,
     date: "2026-11-20",
     previous_date: "2026-11-19",
+    mixed_dates: false,
     excluded: 0
   });
 });
@@ -60,4 +61,23 @@ test("stale, unpriced and single-price holdings are left out of the day change a
   // The unpriced holding adds nothing; the others add 2.00, −10.00 and 5.00.
   assert.equal(mixed.total.gain_minor, 2_00 - 10_00 + 5_00);
   assert.equal(changeSummary([stale, unpriced, single], "2026-11-23").day, null);
+});
+
+test("a split between the last two prices is no change, and holdings priced on different dates are flagged", () => {
+  const split = {
+    ...holding("split", [buy("2026-11-02", 10, 1000_00)], [["2026-11-19", 100], ["2026-11-20", 50]]),
+    splits: [{
+      date: "2026-11-20",
+      numerator: 2,
+      denominator: 1
+    }]
+  };
+  const fund = holding("fund", [buy("2026-11-02", 1, 100_00)], [["2026-11-18", 100], ["2026-11-19", 101]]);
+
+  assert.equal(changeSummary([split], "2026-11-23").day?.change_minor, 0);
+
+  const mixed = changeSummary([split, fund], "2026-11-23").day;
+
+  assert.equal(mixed?.change_minor, 1_00);
+  assert.equal(mixed?.mixed_dates, true);
 });

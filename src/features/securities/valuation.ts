@@ -135,6 +135,7 @@ export function changeSummary(holdings: HoldingInputs[], date: string) {
   let excluded = 0;
   let priceDate: string | null = null;
   let previousDate: string | null = null;
+  const intervals = new Set<string>();
 
   for (const holding of holdings) {
     for (const trade of holding.trades) {
@@ -169,7 +170,12 @@ export function changeSummary(holdings: HoldingInputs[], date: string) {
       continue;
     }
 
-    const before = amountMinor(position.quantity_micros, previous.close_micros, holding.currency);
+    // The earlier close is in pre-split units, so a split after it applies in reverse to today's quantity; a split is no price change.
+    const splitsBetween = holding.splits.filter(split => split.date > previous.date && split.date <= valuation.price!.date);
+    const quantityBefore = splitsBetween.reduce((quantity, split) => Math.round(quantity * split.denominator / split.numerator), position.quantity_micros);
+    const before = amountMinor(quantityBefore, previous.close_micros, holding.currency);
+
+    intervals.add(`${previous.date}/${valuation.price.date}`);
 
     change += valuation.value_minor - before;
     previousValue += before;
@@ -191,6 +197,8 @@ export function changeSummary(holdings: HoldingInputs[], date: string) {
       ratio: change / previousValue,
       date: priceDate,
       previous_date: previousDate ?? priceDate,
+      // Holdings whose latest two prices fall on different dates are summed over their own intervals, so no single date pair describes the total.
+      mixed_dates: intervals.size > 1,
       excluded
     } : null,
     excluded
