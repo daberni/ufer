@@ -59,7 +59,6 @@ export function BookingTradePanel({
   if (step === "remove") {
     return (
       <RemoveTrade
-        transaction={transaction}
         trade={trade}
         close={close}
         cancel={() => setStep("view")}
@@ -167,7 +166,7 @@ function TradeCorrectionForm({
   const gross = keepGross ? decimalAmount(trade.gross_minor, currency) : undefined;
   const cash = cashPreview(trade.side, quantity, price, fee, tax, currency, gross);
   // A trade on an imported booking must keep matching it; a trade's own cash entry follows the correction.
-  const imported = !transaction.entered;
+  const imported = !trade.entry_owned;
   const difference = imported && cash !== null ? transaction.amount_minor - cash : null;
 
   return (
@@ -258,12 +257,10 @@ function TradeCorrectionForm({
 }
 
 function RemoveTrade({
-  transaction,
   trade,
   close,
   cancel
 }: {
-  transaction: Transaction;
   trade: BookingTrade;
   close: () => void;
   cancel: () => void;
@@ -274,7 +271,7 @@ function RemoveTrade({
     <div className={ui["form"]}>
       <p className={ui["form-description"]}>
         The {trade.side === "buy" ? "buy" : "sale"} of {trade.security_name} is removed from {trade.account_name}.
-        {transaction.entered ? " This booking was entered for the trade and is deleted with it." : " This booking stays and becomes an ordinary booking again; a type you had set before is not restored."}
+        {trade.entry_owned ? " This booking was entered for the trade and is deleted with it." : " This booking stays and becomes an ordinary booking again; a type you had set before is not restored."}
       </p>
       <FormError failure={remove.error ? toFailure(remove.error) : null} />
       <div className={ui["button-group"]}>

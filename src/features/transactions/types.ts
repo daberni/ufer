@@ -90,6 +90,8 @@ export type BookingTrade = {
   account_name: string;
   /** Whether the brokerage account is archived, which freezes its trades. */
   account_archived: boolean;
+  /** Whether the booking is the trade's own cash entry, which follows corrections and is deleted with the trade, rather than an imported booking it is linked to. */
+  entry_owned: boolean;
 };
 
 /** A booking as shown when linking the two sides of a transfer. */
