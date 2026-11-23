@@ -31,6 +31,11 @@ export function BrokerageChange({ accountId, currency }: {
   ) : null;
 }
 
+/** Colors a figure by its own sign: the money and the time-weighted percentage can legitimately differ. */
+function tone(value: number) {
+  return clsx(value > 0 && ui["positive"], value < 0 && ui["negative"]);
+}
+
 /** The total performance (unrealized plus realized, with its time-weighted %) and the change since the previous prices; without an honest figure it shows a dash and says why. */
 export function ChangeFigures({
   summary,
@@ -60,9 +65,9 @@ export function ChangeFigures({
       {showTotal && (
         <div className={styles["figure"]}>
           <dt>Total performance</dt>
-          <dd className={clsx(styles["amount"], total.gain_minor > 0 && ui["positive"], total.gain_minor < 0 && ui["negative"])}>
-            {signedMoney(total.gain_minor, currency, locale)}
-            {last && <span className={styles["percent"]}>{formatSignedPercent(last.growth - 1, locale)} time-weighted</span>}
+          <dd className={styles["amount"]}>
+            <span className={tone(total.gain_minor)}>{signedMoney(total.gain_minor, currency, locale)}</span>
+            {last && <span className={clsx(styles["percent"], tone(last.growth - 1))}>{formatSignedPercent(last.growth - 1, locale)} time-weighted</span>}
           </dd>
           {total.unpriced > 0 && <dd className={styles["hint"]}>{formatCountLabel(total.unpriced, "holding", "holdings", locale)} without a price at cost</dd>}
         </div>
@@ -71,9 +76,9 @@ export function ChangeFigures({
         {day ? (
           <>
             <dt>{day.mixed_dates ? "Since previous prices" : `Since ${dateWithYear(Temporal.PlainDate.from(day.previous_date), locale)}`}</dt>
-            <dd className={clsx(styles["amount"], day.change_minor > 0 && ui["positive"], day.change_minor < 0 && ui["negative"])}>
-              {signedMoney(day.change_minor, currency, locale)}
-              <span className={styles["percent"]}>{formatSignedPercent(day.ratio, locale)}</span>
+            <dd className={styles["amount"]}>
+              <span className={tone(day.change_minor)}>{signedMoney(day.change_minor, currency, locale)}</span>
+              <span className={clsx(styles["percent"], tone(day.ratio))}>{formatSignedPercent(day.ratio, locale)}</span>
             </dd>
             {day.excluded > 0 && <dd className={styles["hint"]}>{formatCountLabel(day.excluded, "holding", "holdings", locale)} without a current price left out</dd>}
           </>
