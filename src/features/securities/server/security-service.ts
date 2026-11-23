@@ -380,7 +380,12 @@ export async function removeTrade(id: string) {
 export async function readBrokerageTrades(accountId: string, now = Temporal.Now.instant()) {
   const account = await requireBrokerageAccount(accountId);
   const trades = await readAccountTrades(accountId);
-  const holdings = (await readHoldingInputs([accountId])).get(accountId)?.holdings ?? [];
+  const date = today(now).toString();
+  const holdings = (await readHoldingInputs([accountId], {
+    kind: "latest",
+    date,
+    count: 2
+  })).get(accountId)?.holdings ?? [];
   const gains = new Map<(typeof trades)[number], number>();
 
   for (const holding of holdings) {
@@ -396,16 +401,19 @@ export async function readBrokerageTrades(accountId: string, now = Temporal.Now.
       ...trade,
       realized_minor: gains.get(trade) ?? null
     })),
-    valuation: valueHoldings(holdings, today(now).toString()),
-    summary: changeSummary(holdings, today(now).toString())
+    valuation: valueHoldings(holdings, date),
+    summary: changeSummary(holdings, date)
   };
 }
 
 /** A brokerage account's time-weighted performance through today; see `performanceSeries`. */
 export async function readBrokeragePerformance(accountId: string, now = Temporal.Now.instant()) {
   const account = await requireBrokerageAccount(accountId);
-  const holdings = (await readHoldingInputs([accountId])).get(accountId)?.holdings ?? [];
   const date = today(now).toString();
+  const holdings = (await readHoldingInputs([accountId], {
+    kind: "history",
+    through: date
+  })).get(accountId)?.holdings ?? [];
 
   return {
     account_id: account.id,
@@ -418,8 +426,11 @@ export async function readBrokeragePerformance(accountId: string, now = Temporal
 /** The time-weighted performance of all active brokerage accounts together, one series per currency, since amounts are never summed across currencies. */
 export async function readCombinedBrokeragePerformance(now = Temporal.Now.instant()) {
   const accounts = await listActiveBrokerageAccounts();
-  const inputs = await readHoldingInputs(accounts.map(account => account.id));
   const date = today(now).toString();
+  const inputs = await readHoldingInputs(accounts.map(account => account.id), {
+    kind: "history",
+    through: date
+  });
   const currencies = [...new Set(accounts.map(account => account.currency))];
 
   return {
