@@ -69,9 +69,13 @@ async function inspectTarget(tx: DatabaseTransaction): Promise<DemoSeedTarget> {
     count: count()
   }).from(transactions).where(and(inArray(transactions.account_id, foreignManualAccounts), notInArray(transactions.type, [...manualAccountTypes]))).get();
 
+  const demoBookings = tx.select({
+    id: transactions.id
+  }).from(transactions).where(like(transactions.account_id, demoRows));
+  // A trade that is not the seed's own counts when it sits on a demo account, holds a demo security or is settled through a demo booking.
   const foreignTrades = await tx.select({
     count: count()
-  }).from(securityTrades).where(or(and(like(securityTrades.account_id, demoRows), not(like(securityTrades.id, demoTradeRows))), and(like(securityTrades.security_id, demoRows), not(like(securityTrades.account_id, demoRows))))).get();
+  }).from(securityTrades).where(and(not(like(securityTrades.id, demoTradeRows)), or(like(securityTrades.account_id, demoRows), like(securityTrades.security_id, demoRows), inArray(securityTrades.settlement_transaction_id, demoBookings)))).get();
 
   return {
     foreignManualTransactions: manualTransactions?.count ?? 0,

@@ -404,7 +404,7 @@ test("re-seeding refuses while the demo brokerage holds a trade a person recorde
   await assert.rejects(seedDemoData({
     confirmed: true,
     runDate: secondRun
-  }), /trades that the demo seed did not create use its brokerage account or securities/);
+  }), /trades that the demo seed did not create use its brokerage account, securities or bookings/);
   assert.ok(await db.select().from(schema.securityTrades).where(eq(schema.securityTrades.id, "person-trade")).get());
 });
 
@@ -431,6 +431,47 @@ test("re-seeding refuses while another brokerage account trades a demo security"
     quantity_micros: 1_000_000,
     price_micros: 10_000_000,
     gross_minor: 10_00
+  });
+
+  await assert.rejects(seedDemoData({
+    confirmed: true,
+    runDate: secondRun
+  }), /trades that the demo seed did not create/);
+});
+
+test("re-seeding refuses while a person's trade is settled through a demo booking", async context => {
+  const db = await isolatedDatabase(context);
+
+  await seedActor(db);
+  await seedDemoData({
+    confirmed: true,
+    runDate: firstRun
+  });
+  const booking = await db.select({
+    id: schema.transactions.id
+  }).from(schema.transactions).where(like(schema.transactions.account_id, "demo-%")).get();
+
+  await db.insert(schema.accounts).values({
+    id: "person-depot",
+    name: "Person depot",
+    kind: "brokerage"
+  });
+  await db.insert(schema.securities).values({
+    id: "person-security",
+    name: "Person security",
+    currency: "EUR"
+  });
+  await db.insert(schema.securityTrades).values({
+    id: "person-trade",
+    account_id: "person-depot",
+    security_id: "person-security",
+    date: "2026-11-01",
+    side: "buy",
+    sequence: 1,
+    quantity_micros: 1_000_000,
+    price_micros: 10_000_000,
+    gross_minor: 10_00,
+    settlement_transaction_id: booking!.id
   });
 
   await assert.rejects(seedDemoData({
