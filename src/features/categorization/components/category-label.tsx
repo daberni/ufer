@@ -6,6 +6,7 @@ import { isCategoryIcon } from "@/features/categorization/category-icons";
 import { categoryTextColor, neutralChipColor, themedColor } from "@/features/categorization/category-colors";
 import { categoryIconComponents } from "./category-icon-components";
 import { Tooltip } from "@/components/ui/tooltip";
+import { useTranslations } from "next-intl";
 
 export type DisplayCategory = {
   name: string;
@@ -16,19 +17,10 @@ export type DisplayCategory = {
 /** Neutral labels for automatic assignment, no assigned category and unrestricted category filters. */
 export type NeutralCategory = "automatic" | "uncategorized" | "all-categories";
 
-const neutralCategories = {
-  "automatic": {
-    label: "Automatic",
-    Icon: SlidersHorizontal
-  },
-  "uncategorized": {
-    label: "Uncategorized",
-    Icon: CircleDashed
-  },
-  "all-categories": {
-    label: "All categories",
-    Icon: Shapes
-  }
+const neutralIcons = {
+  "automatic": SlidersHorizontal,
+  "uncategorized": CircleDashed,
+  "all-categories": Shapes
 };
 
 type Props = {
@@ -36,8 +28,10 @@ type Props = {
   className?: string;
 };
 
-export function categoryLabel(category: DisplayCategory | NeutralCategory) {
-  return typeof category === "string" ? neutralCategories[category].label : category.name;
+export type NeutralCategoryTranslator = ReturnType<typeof useTranslations<"categorization.neutral">>;
+
+export function categoryLabel(category: DisplayCategory | NeutralCategory, t: NeutralCategoryTranslator) {
+  return typeof category === "string" ? t(category) : category.name;
 }
 
 function baseColor(category: DisplayCategory | NeutralCategory) {
@@ -56,7 +50,7 @@ export function CategoryGlyph({
   category: DisplayCategory | NeutralCategory;
 }) {
   if (typeof category === "string") {
-    const NeutralIcon = neutralCategories[category].Icon;
+    const NeutralIcon = neutralIcons[category];
 
     return <NeutralIcon className={styles["icon"]} aria-hidden="true" strokeWidth={2.2} />;
   }
@@ -75,8 +69,10 @@ export function CategoryLabel({
   category,
   className
 }: Props) {
+  const t = useTranslations("categorization.neutral");
+
   return (
-    <Tooltip text={categoryLabel(category)} describes={false} onlyWhenTruncated>
+    <Tooltip text={categoryLabel(category, t)} describes={false} onlyWhenTruncated>
       {trigger => (
         <span
           {...trigger}
@@ -86,7 +82,7 @@ export function CategoryLabel({
           }}
         >
           <CategoryGlyph category={category} />
-          <span className={ui["truncate"]}>{categoryLabel(category)}</span>
+          <span className={ui["truncate"]}>{categoryLabel(category, t)}</span>
         </span>
       )}
     </Tooltip>

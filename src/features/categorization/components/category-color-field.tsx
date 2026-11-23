@@ -6,7 +6,8 @@ import { clsx } from "clsx";
 import { Palette } from "lucide-react";
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import styles from "./picker-field.module.css";
-import { categoryBarColor, formatHexColor, parseHexColor, suggestedCategoryColors, themedColor } from "@/features/categorization/category-colors";
+import { categoryBarColor, formatHexColor, parseHexColor, suggestedCategoryColors, themedColor, type SuggestedCategoryColor } from "@/features/categorization/category-colors";
+import { useTranslations } from "next-intl";
 import { gridNeighbor } from "./grid-navigation";
 import { usePickerPanel } from "./use-picker-panel";
 
@@ -20,8 +21,6 @@ type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 };
-
-const invalidHexMessage = "Enter a color like #1D9E75";
 
 function isFullHex(input: string) {
   return input.trim().replace(/^#/, "").length === 6;
@@ -40,6 +39,8 @@ export function CategoryColorField({
   open,
   onOpenChange
 }: Props) {
+  const t = useTranslations("categorization.color");
+  const invalidHexMessage = t("invalid");
   const id = useId();
   const loading = unknownLabel !== null;
   const swatchesRef = useRef<HTMLDivElement>(null);
@@ -49,8 +50,8 @@ export function CategoryColorField({
   const [shownHex, setShownHex] = useState(hex);
   const [invalid, setInvalid] = useState(false);
   // A suggestion outside the palette, such as a custom color of similar categories, joins the palette as one more swatch.
-  const swatches = suggested && !suggestedCategoryColors.some(swatch => swatch.value === suggested) ? [...suggestedCategoryColors, {
-    name: "Similar categories",
+  const swatches: SuggestedCategoryColor[] = suggested && !suggestedCategoryColors.some(swatch => swatch.value === suggested) ? [...suggestedCategoryColors, {
+    name: "similar",
     value: suggested
   }] : suggestedCategoryColors;
   const checkedIndex = swatches.findIndex(suggestion => suggestion.value === hex);
@@ -80,7 +81,7 @@ export function CategoryColorField({
   // While the text is not a color, the category form cannot be submitted with the previous color.
   useEffect(() => {
     inputRef.current?.setCustomValidity(parseHexColor(draft) ? "" : invalidHexMessage);
-  }, [draft]);
+  }, [draft, invalidHexMessage]);
 
   function apply() {
     const parsed = parseHexColor(draft);
@@ -124,7 +125,7 @@ export function CategoryColorField({
   return (
     <div ref={fieldRef} className={styles["field"]} onKeyDown={handleFieldKeyDown}>
       {!loading && <input type="hidden" name="color" value={color} />}
-      <label className={styles["field-label"]} htmlFor={`${id}-hex`}>Color</label>
+      <label className={styles["field-label"]} htmlFor={`${id}-hex`}>{t("label")}</label>
       <div ref={anchorRef} className={clsx(styles["control"], invalid && styles["invalid"])}>
         <span
           className={styles["color-dot"]}
@@ -166,7 +167,7 @@ export function CategoryColorField({
           ref={triggerRef}
           type="button"
           className={clsx(styles["toggle"], suggested && sparkle["sparkle-outline"])}
-          aria-label="Suggested colors"
+          aria-label={t("suggestions")}
           aria-expanded={open}
           aria-controls={`${id}-panel`}
           disabled={loading}
@@ -187,12 +188,15 @@ export function CategoryColorField({
             ref={swatchesRef}
             className={styles["swatches"]}
             role="radiogroup"
-            aria-label="Suggested colors"
+            aria-label={t("suggestions")}
           >
             {swatches.map((suggestion, index) => {
               const checked = index === checkedIndex;
               const isSuggestion = suggestion.value === suggested;
-              const label = isSuggestion ? `${suggestion.name} (suggested)` : suggestion.name;
+              const name = t(`names.${suggestion.name}`);
+              const label = isSuggestion ? t("suggested", {
+                name
+              }) : name;
               const focusable = checked || (checkedIndex === -1 && index === 0);
 
               return (

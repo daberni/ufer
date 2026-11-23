@@ -8,14 +8,14 @@ import { useState } from "react";
 import { DateValue } from "@/components/ui/date-value";
 import { money, signedMoney } from "@/lib/money";
 import { TransactionCategory, TransactionCategorySkeleton } from "@/features/transactions/components/transaction-category";
-import { transactionTypeLabels } from "@/lib/transaction-types";
-import { TransactionTypeIcon, transferDirection } from "@/features/transactions/components/transaction-type";
+import { TransactionTypeIcon, TransferDirection } from "@/features/transactions/components/transaction-type";
 import { TransactionEditDialog } from "@/features/transactions/components/transaction-edit-dialog";
 import { SplitTag } from "@/features/transactions/components/transaction-split";
 import type { Category } from "@/features/categorization/types";
 import type { Transaction } from "@/features/transactions/types";
 import { useLocale } from "@/client/locale-provider";
 import { Tooltip } from "@/components/ui/tooltip";
+import { useTranslations } from "next-intl";
 
 type Props = {
   categories: Category[];
@@ -24,6 +24,8 @@ type Props = {
 
 // Phones show each table row as a card; the explicit roles keep the table semantics that WebKit drops from table elements whose display changes.
 function TableHeader() {
+  const t = useTranslations("transactions.list");
+
   return (
     <>
       <colgroup>
@@ -35,18 +37,18 @@ function TableHeader() {
       </colgroup>
       <thead role="rowgroup" className={clsx(styles["header"], ui["visually-hidden-mobile"])}>
         <tr role="row">
-          <th role="columnheader" scope="col">Payee / description</th>
-          <th role="columnheader" scope="col">Category</th>
-          <th role="columnheader" scope="col">Account</th>
-          <th role="columnheader" scope="col">Date</th>
-          <th role="columnheader" scope="col" className={styles["amount-heading"]}>Amount</th>
+          <th role="columnheader" scope="col">{t("columns.payee")}</th>
+          <th role="columnheader" scope="col">{t("columns.category")}</th>
+          <th role="columnheader" scope="col">{t("columns.account")}</th>
+          <th role="columnheader" scope="col">{t("columns.date")}</th>
+          <th role="columnheader" scope="col" className={styles["amount-heading"]}>{t("columns.amount")}</th>
         </tr>
       </thead>
     </>
   );
 }
 
-/** The original amount of a foreign-currency booking; the direction is already shown by the booked amount. */
+/** The original amount of a foreign-currency booking, formatted; the direction is already shown by the booked amount. */
 function originalAmount(transaction: Transaction, locale: string) {
   const instructed = transaction.instructed_amount_minor;
   const currency = transaction.instructed_currency;
@@ -55,7 +57,7 @@ function originalAmount(transaction: Transaction, locale: string) {
     return null;
   }
 
-  return `${money(Math.abs(instructed), currency, locale)} original`;
+  return money(Math.abs(instructed), currency, locale);
 }
 
 function TransactionRow({
@@ -66,10 +68,11 @@ function TransactionRow({
   transaction: Transaction;
 }) {
   const locale = useLocale();
+  const t = useTranslations("transactions");
   const [editing, setEditing] = useState(false);
   const incoming = transaction.amount_minor > 0;
   const original = originalAmount(transaction, locale);
-  const subject = transaction.counterparty || transaction.description || transactionTypeLabels[transaction.type];
+  const subject = transaction.counterparty || transaction.description || t(`types.${transaction.type}`);
   // Without a payee the description is already the title, so it is not repeated below.
   const showsDescription = Boolean(transaction.counterparty) || !transaction.description;
 
@@ -83,7 +86,9 @@ function TransactionRow({
               className={styles["edit-transaction"]}
               type="button"
               onClick={() => setEditing(true)}
-              aria-label={`Edit transaction: ${subject}`}
+              aria-label={t("list.edit", {
+                subject
+              })}
             >
               <Tooltip text={subject} describes={false} onlyWhenTruncated>
                 {trigger => <span {...trigger} className={styles["name-preview"]}>{subject}</span>}
@@ -92,7 +97,7 @@ function TransactionRow({
           </strong>
           {showsDescription ? (
             <Tooltip text={transaction.description} describes={false} onlyWhenTruncated>
-              {trigger => <span {...trigger} className={styles["description"]}>{transaction.description || "No description"}</span>}
+              {trigger => <span {...trigger} className={styles["description"]}>{transaction.description || t("list.noDescription")}</span>}
             </Tooltip>
           ) : (
             <>
@@ -102,15 +107,19 @@ function TransactionRow({
           )}
           {transaction.counterparty || transaction.description ? (
             <details className={styles["transaction-details"]}>
-              <summary aria-label={`Details for ${subject}`}>Details</summary>
+              <summary
+                aria-label={t("list.detailsFor", {
+                  subject
+                })}
+              >{t("list.details")}</summary>
               <dl>
-                <dt>Payee</dt>
-                <dd>{transaction.counterparty || "Not provided"}</dd>
-                <dt>Description</dt>
-                <dd>{transaction.description || "No description"}</dd>
+                <dt>{t("list.payee")}</dt>
+                <dd>{transaction.counterparty || t("list.notProvided")}</dd>
+                <dt>{t("list.description")}</dt>
+                <dd>{transaction.description || t("list.noDescription")}</dd>
               </dl>
             </details>
-          ) : <span className={styles["no-details"]}>No description</span>}
+          ) : <span className={styles["no-details"]}>{t("list.noDescription")}</span>}
         </div>
         {editing && <TransactionEditDialog transaction={transaction} close={() => setEditing(false)} />}
       </th>
@@ -119,15 +128,19 @@ function TransactionRow({
       </td>
       <td role="cell" className={styles["account"]}>
         {transaction.account_name}
-        {transaction.type === "transfer" && <span className={styles["counterpart"]}>{transferDirection(transaction)}</span>}
+        {transaction.type === "transfer" && <span className={styles["counterpart"]}><TransferDirection transaction={transaction} /></span>}
       </td>
       <td role="cell" className={styles["date"]}>
         <DateValue value={transaction.date} />
       </td>
       <td role="cell" className={clsx(styles["amount"], incoming && ui["positive"])}>
         {signedMoney(transaction.amount_minor, transaction.currency, locale)}
-        {original && <span className={styles["original-amount"]}>{original}</span>}
-        {transaction.hidden && <span className={styles["hidden-tag"]}>Hidden</span>}
+        {original && (
+          <span className={styles["original-amount"]}>{t("list.originalAmount", {
+            amount: original
+          })}</span>
+        )}
+        {transaction.hidden && <span className={styles["hidden-tag"]}>{t("list.hidden")}</span>}
       </td>
     </tr>
   );
@@ -137,9 +150,11 @@ export function TransactionList({
   categories,
   transactions
 }: Props) {
+  const t = useTranslations("transactions.list");
+
   return (
     <div className={styles["table-scroll"]}>
-      <table role="table" className={styles["table"]} aria-label="Transactions">
+      <table role="table" className={styles["table"]} aria-label={t("label")}>
         <TableHeader />
         <tbody role="rowgroup">
           {transactions.map(transaction => <TransactionRow key={transaction.id} categories={categories} transaction={transaction} />)}

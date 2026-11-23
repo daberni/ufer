@@ -155,75 +155,78 @@ export function themedColors<Colors extends Record<string, string>>(colorsFor: (
   return Object.fromEntries(entries) as Colors;
 }
 
+/** Message keys of the palette colors' names; "similar" names a custom color that similar categories use. */
+export type CategoryColorName = "sage" | "forest" | "jade" | "teal" | "ocean" | "indigo" | "violet" | "plum" | "rose" | "crimson" | "terracotta" | "amber" | "ochre" | "olive" | "brown" | "slate" | "similar";
+
 export type SuggestedCategoryColor = {
-  name: string;
+  name: CategoryColorName;
   value: string;
 };
 
 // Mid-tone colors: a white icon glyph keeps 3:1 on each, and each keeps 3:1 against the dark surface, so they read well as solid marks in both themes.
 export const suggestedCategoryColors: SuggestedCategoryColor[] = [
   {
-    name: "Sage",
+    name: "sage",
     value: "#638777"
   },
   {
-    name: "Forest",
+    name: "forest",
     value: "#33805A"
   },
   {
-    name: "Jade",
+    name: "jade",
     value: "#1D9E75"
   },
   {
-    name: "Teal",
+    name: "teal",
     value: "#1D8A80"
   },
   {
-    name: "Ocean",
+    name: "ocean",
     value: "#2A74B0"
   },
   {
-    name: "Indigo",
+    name: "indigo",
     value: "#5868C6"
   },
   {
-    name: "Violet",
+    name: "violet",
     value: "#7E59C4"
   },
   {
-    name: "Plum",
+    name: "plum",
     value: "#A04F95"
   },
   {
-    name: "Rose",
+    name: "rose",
     value: "#C2456F"
   },
   {
-    name: "Crimson",
+    name: "crimson",
     value: "#C2413B"
   },
   {
-    name: "Terracotta",
+    name: "terracotta",
     value: "#B85C38"
   },
   {
-    name: "Amber",
+    name: "amber",
     value: "#B07415"
   },
   {
-    name: "Ochre",
+    name: "ochre",
     value: "#937A2E"
   },
   {
-    name: "Olive",
+    name: "olive",
     value: "#6C7F2A"
   },
   {
-    name: "Brown",
+    name: "brown",
     value: "#90674D"
   },
   {
-    name: "Slate",
+    name: "slate",
     value: "#617385"
   }
 ];

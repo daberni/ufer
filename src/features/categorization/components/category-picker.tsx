@@ -7,7 +7,8 @@ import { clsx } from "clsx";
 import { Plus, Zap } from "lucide-react";
 import { useId, useState, type ReactNode } from "react";
 import { SearchableSelect, type SearchableSelectOption, type SearchableSelectAppearance } from "@/components/ui/searchable-select";
-import { CategoryGlyph, categoryLabel, categoryNameColor, type DisplayCategory, type NeutralCategory } from "./category-label";
+import { CategoryGlyph, categoryLabel, categoryNameColor, type DisplayCategory, type NeutralCategory, type NeutralCategoryTranslator } from "./category-label";
+import { useTranslations } from "next-intl";
 import { CategoryDialog } from "./category-form";
 import { Tooltip } from "@/components/ui/tooltip";
 
@@ -89,45 +90,39 @@ type Props = ValueProps & {
   className?: string;
 };
 
-const assignmentHints = {
-  manual: "Set manually; kept when syncing and applying rules",
-  rule: "Assigned by a rule; source rule not recorded",
-  recordedRule: "Assigned by a rule"
-};
-
 // Options show the same readable icon and name as a category label.
-function categoryOption(key: string, value: PickerValue, category: DisplayCategory | NeutralCategory): SearchableSelectOption<PickerValue> {
+function categoryOption(key: string, value: PickerValue, category: DisplayCategory | NeutralCategory, t: NeutralCategoryTranslator): SearchableSelectOption<PickerValue> {
   return {
     key,
     value,
-    label: categoryLabel(category),
+    label: categoryLabel(category, t),
     icon: <CategoryGlyph category={category} />,
     color: categoryNameColor(category)
   };
 }
 
-function pickerOptions(categories: readonly PickerCategory[], includeAll: boolean, includeUncategorized: boolean, includeAutomatic: boolean, automaticLabel: string | undefined) {
+function pickerOptions(categories: readonly PickerCategory[], includeAll: boolean, includeUncategorized: boolean, includeAutomatic: boolean, automaticLabel: string | undefined, t: NeutralCategoryTranslator) {
   const options: SearchableSelectOption<PickerValue>[] = [];
 
   if (includeAutomatic) {
-    options.push(categoryOption("automatic-category", automaticCategory, "automatic"));
+    options.push(categoryOption("automatic-category", automaticCategory, "automatic", t));
   } else if (automaticLabel !== undefined) {
     options.push({
-      ...categoryOption("automatic-category", automaticCategory, "automatic"),
+      ...categoryOption("automatic-category", automaticCategory, "automatic", t),
       label: automaticLabel
     });
   }
 
   if (includeAll) {
-    options.push(categoryOption("all-categories", anyCategory, "all-categories"));
+    options.push(categoryOption("all-categories", anyCategory, "all-categories", t));
   }
 
   if (includeUncategorized) {
-    options.push(categoryOption("uncategorized", null, "uncategorized"));
+    options.push(categoryOption("uncategorized", null, "uncategorized", t));
   }
 
   for (const category of categories) {
-    options.push(categoryOption(category.id, category.id, category));
+    options.push(categoryOption(category.id, category.id, category, t));
   }
 
   return options;
@@ -158,17 +153,19 @@ export function CategoryPicker({
   "aria-describedby": ariaDescribedBy,
   className
 }: Props) {
+  const t = useTranslations("categorization.picker");
+  const tNeutral = useTranslations("categorization.neutral");
   const generatedId = useId();
   const assignmentHintId = useId();
   // A typed search; null while the field shows the selected category.
   const [search, setSearch] = useState<string | null>(null);
   // The name of a category being created from a search; its dialog is open while set.
   const [newCategoryName, setNewCategoryName] = useState<string | null>(null);
-  const options = pickerOptions(categories, includeAll, includeUncategorized, includeAutomatic, automaticOption?.label);
+  const options = pickerOptions(categories, includeAll, includeUncategorized, includeAutomatic, automaticOption?.label, tNeutral);
   const selected = options.find(option => Object.is(option.value, value));
   const assignmentSource = assignment?.source;
   const assigningRule = assignmentSource === "rule" ? assignment?.assigningRule : undefined;
-  const assignmentHint = assignmentSource ? assignmentHints[assigningRule ? "recordedRule" : assignmentSource] : undefined;
+  const assignmentHint = assignmentSource ? t(`hints.${assigningRule ? "recordedRule" : assignmentSource}`) : undefined;
   // "Uncategorized" is a hint, not text in the field, so typing a search starts from an empty field; a description keeps the selection announced.
   const uncategorized = includeUncategorized && value === null;
   const uncategorizedId = useId();
@@ -218,7 +215,7 @@ export function CategoryPicker({
         query={search ?? (uncategorized ? "" : selected?.label) ?? ""}
         onQueryChange={setSearch}
         noun="category"
-        placeholder={uncategorized ? "Uncategorized" : "Search categories"}
+        placeholder={uncategorized ? tNeutral("uncategorized") : t("search")}
         appearance={appearance}
         busy={ariaBusy}
         aria-label={ariaLabel}
@@ -295,7 +292,7 @@ export function CategoryPicker({
           </p>
         )}
       />
-      {uncategorized && <span id={uncategorizedId} className={ui["visually-hidden"]}>Uncategorized</span>}
+      {uncategorized && <span id={uncategorizedId} className={ui["visually-hidden"]}>{tNeutral("uncategorized")}</span>}
       {assignmentHint && <span id={assignmentHintId} className={ui["visually-hidden"]}>{assignmentHint}</span>}
       {name && <input type="hidden" name={name} value={typeof value === "string" ? value : ""} />}
       {newCategoryName !== null && (

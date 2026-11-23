@@ -12,7 +12,7 @@ import { TraceId } from "@/components/ui/trace-id";
 import { CategoryPicker } from "@/features/categorization/components/category-picker";
 import { useTransactionCategory } from "@/features/transactions/use-transaction-category";
 import { useTransactionRules } from "./transaction-rule-provider";
-import { transactionTypeLabels } from "@/lib/transaction-types";
+import { useTranslations } from "next-intl";
 
 type Props = {
   categories: Category[];
@@ -20,22 +20,31 @@ type Props = {
 };
 
 /** Names what returning to automatic categorization assigns, for example: Automatic · Groceries via rule “Market”. */
-export function automaticLabel(assignment: NonNullable<Transaction["automatic_assignment"]>, categories: readonly Category[], rule: Rule | undefined) {
+export function automaticLabel(assignment: NonNullable<Transaction["automatic_assignment"]>, categories: readonly Category[], rule: Rule | undefined, t: ReturnType<typeof useTranslations<"transactions.category">>) {
   const category = categories.find(candidate => candidate.id === assignment.category_id);
 
   if (!category) {
-    return "Automatic · Uncategorized";
+    return t("automaticUncategorized");
   }
 
-  const source = rule ? `via rule “${rule.name}”` : "via a rule";
+  if (!rule) {
+    return t("automaticViaRule", {
+      category: category.name
+    });
+  }
 
-  return `Automatic · ${category.name} ${source}`;
+  return t("automaticViaNamedRule", {
+    category: category.name,
+    rule: rule.name
+  });
 }
 
 export function TransactionCategory({
   categories,
   transaction
 }: Props) {
+  const t = useTranslations("transactions");
+  const tCategory = useTranslations("transactions.category");
   const messageId = useId();
   const fieldId = useId();
   const {
@@ -46,12 +55,15 @@ export function TransactionCategory({
     returnToAutomatic
   } = useTransactionCategory(transaction);
   const rules = useTransactionRules();
-  const failure = status?.kind === "failed" ? `Category not saved: ${status.failure.message}` : "";
+  const failure = status?.kind === "failed" ? tCategory("failed", {
+    message: status.failure.message
+  }) : "";
   const announcements = {
-    saving: "Saving category …",
-    saved: "Category saved.",
+    saving: tCategory("saving"),
+    saved: tCategory("saved"),
     failed: failure
   };
+  const subject = transaction.counterparty || transaction.description || t(`types.${transaction.type}`);
   // A pending choice is a manual assignment before the server confirms it, unless it returns the transaction to the rules.
   const manual = pendingAutomatic ? false : status?.kind === "saving" || transaction.category_source === "manual";
   const automatic = transaction.category_source === "manual" && !pendingAutomatic ? transaction.automatic_assignment : null;
@@ -71,7 +83,7 @@ export function TransactionCategory({
         value={categoryId}
         includeUncategorized
         automaticOption={automatic ? {
-          label: automaticLabel(automatic, categories, rules.findRule(automatic.rule_id)),
+          label: automaticLabel(automatic, categories, rules.findRule(automatic.rule_id), tCategory),
           choose: () => {
             rules.clearAnnouncement();
             returnToAutomatic();
@@ -79,10 +91,14 @@ export function TransactionCategory({
         } : undefined}
         assignment={{
           source: categoryId === null ? null : assignmentSource,
-          actionLabel: `Create rule for ${transaction.counterparty || transaction.description || transactionTypeLabels[transaction.type]}`,
+          actionLabel: tCategory("createRule", {
+            subject
+          }),
           disabled: status?.kind === "saving",
           assigningRule: assigningRule && {
-            label: `Open rule ${assigningRule.name}`,
+            label: tCategory("openRule", {
+              rule: assigningRule.name
+            }),
             open: () => rules.edit(assigningRule, fieldId)
           },
           createRule: () => {
@@ -104,7 +120,9 @@ export function TransactionCategory({
             {status.kind === "failed" && <CircleAlert />}
           </span>
         )}
-        aria-label={`Category for ${transaction.counterparty || transaction.description || transactionTypeLabels[transaction.type]}`}
+        aria-label={tCategory("label", {
+          subject
+        })}
         aria-busy={status?.kind === "saving"}
         aria-invalid={status?.kind === "failed"}
         aria-describedby={failure ? messageId : undefined}

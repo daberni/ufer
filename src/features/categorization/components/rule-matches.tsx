@@ -6,7 +6,7 @@ import styles from "./rule-form.module.css";
 import { Temporal } from "temporal-polyfill";
 import { useLocale } from "@/client/locale-provider";
 import { describeDate } from "@/lib/date-format";
-import { formatCount, formatCountLabel } from "@/lib/locale";
+import { useTranslations } from "next-intl";
 import { signedMoney } from "@/lib/money";
 import type { Category, RulePreviewTransaction } from "@/features/categorization/types";
 import { ArrowRight } from "lucide-react";
@@ -37,20 +37,21 @@ function outcomeOf(transaction: RulePreviewTransaction, categoryId: string | nul
   return transaction.manual ? "overrides" : "changes";
 }
 
-const outcomeLabels: Record<Outcome, string> = {
-  changes: "Would change",
-  overrides: "Overrides manual",
-  same: "Already set",
-  manual: "Manual, unchanged"
-};
-
 /** The transactions a drafted rule matches, collapsed behind their count. */
 /** The count line, with how many categories would change; adopted manual assignments count once the option is chosen. */
-function matchSummary(matches: RuleMatchList, adoptManual: boolean, locale: string) {
+function matchSummary(matches: RuleMatchList, adoptManual: boolean, t: ReturnType<typeof useTranslations<"categorization.matches">>) {
   const changing = matches.changing + (adoptManual ? matches.manualDiffering : 0);
-  const total = `Matches ${formatCountLabel(matches.total, "transaction", "transactions", locale)}`;
 
-  return changing === 0 ? `${total}, none would change` : `${total}, ${formatCount(changing, locale)} would change`;
+  if (changing === 0) {
+    return t("summaryUnchanged", {
+      total: matches.total
+    });
+  }
+
+  return t("summary", {
+    total: matches.total,
+    changing
+  });
 }
 
 export function RuleMatches({
@@ -65,11 +66,12 @@ export function RuleMatches({
   adoptManual: boolean;
 }) {
   const locale = useLocale();
+  const t = useTranslations("categorization.matches");
   const hidden = matches.total - matches.transactions.length;
 
   return (
     <details>
-      <summary className={styles["matches-summary"]}>{matchSummary(matches, adoptManual, locale)}</summary>
+      <summary className={styles["matches-summary"]}>{matchSummary(matches, adoptManual, t)}</summary>
       <ul className={styles["match-list"]}>
         {matches.transactions.map(transaction => {
           const date = describeDate(Temporal.PlainDate.from(transaction.date), locale);
@@ -81,23 +83,28 @@ export function RuleMatches({
           return (
             <li key={transaction.id} className={styles["match"]}>
               <time className={styles["match-date"]} dateTime={date.dateTime}>{date.label}</time>
-              <span className={styles["match-payee"]}>{transaction.payee || transaction.description || "No payee"}</span>
+              <span className={styles["match-payee"]}>{transaction.payee || transaction.description || t("noPayee")}</span>
               <span className={styles["match-amount"]}>{signedMoney(transaction.amount_minor, transaction.currency, locale)}</span>
               <span className={styles["match-category"]}>
                 <CategoryLabel category={category ?? "uncategorized"} />
                 {changing && (
                   <>
-                    <ArrowRight className={styles["arrow"]} size={14} aria-label="to" />
+                    <ArrowRight className={styles["arrow"]} size={14} aria-label={t("to")} />
                     <CategoryLabel category={ruleCategory} />
                   </>
                 )}
               </span>
-              <span className={styles[`outcome-${outcome}`]}>{outcomeLabels[outcome]}</span>
+              <span className={styles[`outcome-${outcome}`]}>{t(`outcomes.${outcome}`)}</span>
             </li>
           );
         })}
       </ul>
-      {hidden > 0 && <p className={ui["form-hint"]}>{`Showing the newest ${formatCount(matches.transactions.length, locale)}; ${formatCountLabel(hidden, "older transaction is", "older transactions are", locale)} not listed.`}</p>}
+      {hidden > 0 && (
+        <p className={ui["form-hint"]}>{t("hidden", {
+          shown: matches.transactions.length,
+          hidden
+        })}</p>
+      )}
     </details>
   );
 }

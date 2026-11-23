@@ -21,15 +21,13 @@ import { neutralChipColor } from "@/features/categorization/category-colors";
 import { useState } from "react";
 import { CategoryGlyph, CategoryLabel, categoryNameColor } from "./category-label";
 import { TransactionTypeIcon } from "@/features/transactions/components/transaction-type";
-import { transactionTypeLabels } from "@/lib/transaction-types";
 import { CategoryDialog } from "./category-form";
 import { RuleDialog } from "./create-rule-form";
 import { closestCenter, DndContext, DragOverlay } from "@dnd-kit/core";
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { reorderInstructions, useRuleReorder, verticalOnly } from "./use-rule-reorder";
-import { useLocale } from "@/client/locale-provider";
-import { formatCount } from "@/lib/locale";
+import { useRuleReorder, verticalOnly } from "./use-rule-reorder";
+import { useTranslations } from "next-intl";
 import { Tooltip } from "@/components/ui/tooltip";
 
 type Props = {
@@ -53,6 +51,8 @@ export function RulesView({
   categories,
   rules
 }: Props) {
+  const t = useTranslations("categorization.rules");
+  const tCategories = useTranslations("categorization.categories");
   const [dialog, setDialog] = useState<OpenDialog | null>(null);
   const closeDialog = () => setDialog(null);
   const reportFeedback = useAppStore(state => state.reportFeedback);
@@ -67,10 +67,12 @@ export function RulesView({
 
     applyFeedback.report(result.ok ? {
       tone: "success",
-      messages: ["Rules applied. Manual assignments have been preserved."]
+      messages: [t("applied")]
     } : {
       tone: "problem",
-      messages: [`Rules could not be applied: ${result.failure.message}`],
+      messages: [t("applyFailed", {
+        message: result.failure.message
+      })],
       traceId: result.failure.traceId
     });
   }
@@ -82,14 +84,17 @@ export function RulesView({
     if (!result.ok) {
       reportFeedback({
         tone: "problem",
-        messages: [`Rule “${rule.name}” could not be ${rule.enabled ? "disabled" : "enabled"}: ${result.failure.message}`],
+        messages: [t(rule.enabled ? "disableFailed" : "enableFailed", {
+          rule: rule.name,
+          message: result.failure.message
+        })],
         traceId: result.failure.traceId
       });
     }
   }
 
   const togglingRules = useTogglingRules();
-  const applyLabel = savingOrder ? "Saving order …" : "Apply rules";
+  const applyLabel = savingOrder ? t("savingOrder") : t("apply");
   const createRule = () => setDialog({
     kind: "rule",
     rule: null
@@ -97,7 +102,7 @@ export function RulesView({
 
   return (
     <>
-      <SectionHeading title="Categories" count={mapArea(categories, data => data.length)}>
+      <SectionHeading title={tCategories("title")} count={mapArea(categories, data => data.length)}>
         <button
           className={clsx(ui["button"], ui["primary"])}
           onClick={() => setDialog({
@@ -106,12 +111,12 @@ export function RulesView({
           })}
         >
           <Plus size={16} />
-          Add category
+          {tCategories("add")}
         </button>
       </SectionHeading>
-      <section className={styles["category-panel"]} aria-label="Your categories">
+      <section className={styles["category-panel"]} aria-label={tCategories("yours")}>
         {categories.status === "pending" ? (
-          <AreaPlaceholder area={categories} failureTitle="Your categories could not be loaded">
+          <AreaPlaceholder area={categories} failureTitle={tCategories("loadFailed")}>
             <CategoryGridSkeleton />
           </AreaPlaceholder>
         ) : (
@@ -124,7 +129,7 @@ export function RulesView({
           />
         )}
       </section>
-      <SectionHeading title="Rules" count={mapArea(rules, data => data.length)}>
+      <SectionHeading title={t("title")} count={mapArea(rules, data => data.length)}>
         <button
           className={clsx(ui["button"], ui["phone-hidden"])}
           disabled={apply.isPending || savingOrder}
@@ -136,26 +141,26 @@ export function RulesView({
         </button>
         <button className={clsx(ui["button"], ui["phone-hidden"])} onClick={createRule}>
           <Plus size={15} />
-          Create rule
+          {t("create")}
         </button>
-        <ActionMenu label="Rule actions" appearance="button" phoneOnly>
+        <ActionMenu label={t("actions")} appearance="button" phoneOnly>
           <MenuItem icon={<Sparkles size={15} aria-hidden="true" />} disabled={apply.isPending || savingOrder} onSelect={applyRules}>
             {applyLabel}
           </MenuItem>
           <MenuItem icon={<Plus size={15} aria-hidden="true" />} onSelect={createRule}>
-            Create rule
+            {t("create")}
           </MenuItem>
         </ActionMenu>
         <ActionFeedback
           feedback={applyFeedback.feedback}
-          dismissLabel="Dismiss rules status"
+          dismissLabel={t("dismissStatus")}
           onDismiss={applyFeedback.dismiss}
           placement="anchored"
         />
       </SectionHeading>
-      <section className={clsx(ui["panel"], styles["rule-panel"])} aria-label="Your rules">
+      <section className={clsx(ui["panel"], styles["rule-panel"])} aria-label={t("yours")}>
         {rules.status === "pending" ? (
-          <AreaPlaceholder area={rules} failureTitle="Your rules could not be loaded">
+          <AreaPlaceholder area={rules} failureTitle={t("loadFailed")}>
             <RuleRowsSkeleton />
           </AreaPlaceholder>
         ) : (
@@ -183,8 +188,10 @@ function CategoryGrid({
   categories: Category[];
   editCategory: (category: Category) => void;
 }) {
+  const t = useTranslations("categorization.categories");
+
   if (!categories.length) {
-    return <Empty title="Make your spending yours.">Add a category to organize your transactions.</Empty>;
+    return <Empty title={t("emptyTitle")}>{t("empty")}</Empty>;
   }
 
   return (
@@ -197,7 +204,9 @@ function CategoryGrid({
                 {...trigger}
                 className={styles["category-tile"]}
                 type="button"
-                aria-label={`Edit category ${category.name}`}
+                aria-label={t("edit", {
+                  category: category.name
+                })}
                 style={{
                   color: categoryNameColor(category)
                 }}
@@ -259,10 +268,11 @@ function RuleRows({
   toggleRule: (rule: Rule) => void;
   editRule: (rule: Rule) => void;
 }) {
+  const t = useTranslations("categorization.rules");
   const reorder = useRuleReorder(rules);
 
   if (!rules.length) {
-    return <Empty title="Let your transactions sort themselves.">For example: “MARKET” in the payee or description → Groceries. Manual corrections always take precedence.</Empty>;
+    return <Empty title={t("emptyTitle")}>{t("empty")}</Empty>;
   }
 
   return (
@@ -272,10 +282,12 @@ function RuleRows({
           <FormError
             failure={{
               ...reorder.failure,
-              message: `The new order could not be saved, so the previous order was restored: ${reorder.failure.message}`
+              message: t("orderFailed", {
+                message: reorder.failure.message
+              })
             }}
           />
-          <button className={ui["text-button"]} type="button" onClick={reorder.dismissFailure}>Dismiss</button>
+          <button className={ui["text-button"]} type="button" onClick={reorder.dismissFailure}>{t("dismiss")}</button>
         </div>
       )}
       <DndContext
@@ -284,7 +296,7 @@ function RuleRows({
         modifiers={[verticalOnly]}
         accessibility={{
           announcements: reorder.announcements,
-          screenReaderInstructions: reorderInstructions
+          screenReaderInstructions: reorder.instructions
         }}
         onDragStart={reorder.onDragStart}
         onDragCancel={reorder.onDragCancel}
@@ -321,7 +333,7 @@ function SortableRuleRow({
   toggleRule,
   editRule
 }: RuleRowProps) {
-  const locale = useLocale();
+  const t = useTranslations("categorization.rules");
   const {
     attributes,
     listeners,
@@ -348,11 +360,15 @@ function SortableRuleRow({
         ref={setActivatorNodeRef}
         className={styles["handle"]}
         type="button"
-        title="Drag to reorder"
+        title={t("dragToReorder")}
         disabled={count < 2}
         {...attributes}
         {...listeners}
-        aria-label={`Move rule ${rule.name}, position ${formatCount(position, locale)} of ${formatCount(count, locale)}`}
+        aria-label={t("move", {
+          rule: rule.name,
+          position,
+          total: count
+        })}
       >
         <GripVertical aria-hidden="true" size={18} />
       </button>
@@ -373,19 +389,28 @@ function RuleTypeLabel({
 }: {
   rule: Rule;
 }) {
+  const t = useTranslations("categorization.rules");
+  const tTypes = useTranslations("transactions.types");
   const type = rule.transaction_type;
 
   if (!type) {
     return null;
   }
 
-  const label = transactionTypeLabels[type];
+  const label = tTypes(type);
   // A target without a name belongs to a deleted account.
-  const accountName = rule.transfer_account_id ? rule.transfer_account_name ?? "Deleted account" : null;
-  const text = accountName ? `${label} · ${accountName}` : label;
+  const accountName = rule.transfer_account_id ? rule.transfer_account_name ?? t("deletedAccount") : null;
+  const text = accountName ? t("typeWithAccount", {
+    type: label,
+    account: accountName
+  }) : label;
 
   return (
-    <Tooltip text={`Sets type: ${text}`}>
+    <Tooltip
+      text={t("setsType", {
+        type: text
+      })}
+    >
       {trigger => (
         <span {...trigger} className={styles["rule-tag"]}>
           <TransactionTypeIcon type={type} />
@@ -402,19 +427,27 @@ function RuleAccountLabel({
 }: {
   rule: Rule;
 }) {
+  const t = useTranslations("categorization.rules");
+
   if (!rule.account_id) {
     return null;
   }
 
   // A condition without a name belongs to a deleted account.
-  const accountName = rule.account_name ?? "Deleted account";
+  const accountName = rule.account_name ?? t("deletedAccount");
 
   return (
-    <Tooltip text={`Matches only bookings on ${accountName}`}>
+    <Tooltip
+      text={t("onlyAccountHint", {
+        account: accountName
+      })}
+    >
       {trigger => (
         <span {...trigger} className={styles["rule-tag"]}>
           <Landmark size={17} aria-hidden="true" />
-          <span>Only {accountName}</span>
+          <span>{t("onlyAccount", {
+            account: accountName
+          })}</span>
         </span>
       )}
     </Tooltip>
@@ -426,6 +459,8 @@ function DraggedRuleRow({
 }: {
   rule: Rule;
 }) {
+  const t = useTranslations("categorization.rules");
+
   return (
     <div className={clsx(styles["rule-row"], styles["dragged"])} aria-hidden="true">
       <span className={styles["handle"]}>
@@ -435,7 +470,7 @@ function DraggedRuleRow({
         <strong>{rule.name}</strong>
       </span>
       <div className={styles["rule-pattern"]}>
-        <span className={styles["rule-label"]}>{rule.mode === "keyword" ? "Keyword" : "Regex"}</span>
+        <span className={styles["rule-label"]}>{rule.mode === "keyword" ? t("modes.keyword") : t("modes.regex")}</span>
         <code>{rule.pattern}</code>
       </div>
       <div className={styles["rule-details"]}>
@@ -464,6 +499,8 @@ function RuleRowContent({
   toggleRule,
   editRule
 }: Pick<RuleRowProps, "rule" | "toggling" | "toggleRule" | "editRule">) {
+  const t = useTranslations("categorization.rules");
+
   return (
     <>
       <Tooltip text={`${rule.name}: ${rule.pattern}`}>
@@ -472,7 +509,9 @@ function RuleRowContent({
             {...trigger}
             className={styles["rule-name"]}
             type="button"
-            aria-label={`Edit rule ${rule.name}`}
+            aria-label={t("edit", {
+              rule: rule.name
+            })}
             onClick={() => editRule(rule)}
           >
             <strong>{rule.name}</strong>
@@ -481,7 +520,7 @@ function RuleRowContent({
         )}
       </Tooltip>
       <div className={styles["rule-pattern"]}>
-        <span className={styles["rule-label"]}>{rule.mode === "keyword" ? "Keyword" : "Regex"}</span>
+        <span className={styles["rule-label"]}>{rule.mode === "keyword" ? t("modes.keyword") : t("modes.regex")}</span>
         <Tooltip text={rule.pattern} describes={false} onlyWhenTruncated>
           {trigger => <code {...trigger}>{rule.pattern}</code>}
         </Tooltip>
@@ -504,7 +543,9 @@ function RuleRowContent({
         type="button"
         role="switch"
         aria-checked={Boolean(rule.enabled)}
-        aria-label={`Rule ${rule.name}`}
+        aria-label={t("toggle", {
+          rule: rule.name
+        })}
         disabled={toggling}
         onClick={() => toggleRule(rule)}
       >

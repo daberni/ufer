@@ -11,6 +11,7 @@ import { categoryBarColor, categoryChipColors, categoryGlyphColor, themedColor, 
 import { categoryIconComponents } from "./category-icon-components";
 import { gridNeighbor } from "./grid-navigation";
 import { usePickerPanel } from "./use-picker-panel";
+import { useTranslations } from "next-intl";
 
 type IconChoice = CategoryIconKey | "";
 
@@ -26,9 +27,6 @@ type Props = {
 
 const groupKeys = Object.keys(categoryIconGroups) as CategoryIconGroup[];
 
-function iconLabel(icon: IconChoice) {
-  return icon === "" ? "No icon" : categoryIcons[icon].label;
-}
 
 export function CategoryIconField({
   color,
@@ -38,6 +36,10 @@ export function CategoryIconField({
   open,
   onOpenChange
 }: Props) {
+  const t = useTranslations("categorization.iconPicker");
+  const tIcons = useTranslations("categorization.icons");
+  const tGroups = useTranslations("categorization.iconGroups");
+  const iconLabel = (choice: IconChoice) => choice === "" ? t("none") : tIcons(choice);
   const id = useId();
   const optionsRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -64,7 +66,7 @@ export function CategoryIconField({
   });
   const TriggerIcon = icon === "" ? null : categoryIconComponents[icon];
   const { foreground: iconColor } = themedColors(scheme => categoryChipColors(color, scheme));
-  const matches = categoryIconKeys.filter(key => matchesCategoryIconSearch(key, search));
+  const matches = categoryIconKeys.filter(key => matchesCategoryIconSearch(key, search, `${tIcons(key)} ${tGroups(categoryIcons[key].group)}`));
   const searching = search.trim() !== "";
   const visibleChoices: IconChoice[] = searching ? matches : ["", ...categoryIconKeys];
   const focusableChoice = visibleChoices.includes(icon) ? icon : visibleChoices[0];
@@ -112,7 +114,9 @@ export function CategoryIconField({
   function renderOption(choice: IconChoice, shortcut = false) {
     const Icon = choice === "" ? null : categoryIconComponents[choice];
     const isSuggestion = choice !== "" && choice === suggested;
-    const label = isSuggestion ? `${iconLabel(choice)} (suggested)` : iconLabel(choice);
+    const label = isSuggestion ? t("suggested", {
+      icon: iconLabel(choice)
+    }) : iconLabel(choice);
 
     return (
       <button
@@ -153,13 +157,15 @@ export function CategoryIconField({
   return (
     <div ref={fieldRef} className={styles["field"]} onKeyDown={handleFieldKeyDown}>
       <input type="hidden" name="icon" value={icon} />
-      <span className={styles["field-label"]} aria-hidden="true">Icon</span>
+      <span className={styles["field-label"]} aria-hidden="true">{t("label")}</span>
       <div ref={anchorRef} className={styles["icon-anchor"]}>
         <button
           ref={triggerRef}
           type="button"
           className={clsx(styles["control"], styles["icon-trigger"], suggested && sparkle["sparkle-outline"])}
-          aria-label={icon === "" ? "Icon: No icon" : `Icon: ${iconLabel(icon)}`}
+          aria-label={t("trigger", {
+            icon: iconLabel(icon)
+          })}
           aria-expanded={open}
           aria-controls={`${id}-panel`}
           onClick={() => {
@@ -185,7 +191,7 @@ export function CategoryIconField({
         className={clsx(styles["popover"], styles["icon-popover"])}
         popover="manual"
         role="group"
-        aria-label="Choose an icon"
+        aria-label={t("choose")}
       >
         {open && (
           <>
@@ -194,8 +200,8 @@ export function CategoryIconField({
               <input
                 ref={searchRef}
                 type="search"
-                placeholder="Search icons"
-                aria-label="Search icons"
+                placeholder={t("search")}
+                aria-label={t("search")}
                 aria-controls={`${id}-options`}
                 autoComplete="off"
                 value={search}
@@ -206,7 +212,7 @@ export function CategoryIconField({
                 <button
                   type="button"
                   className={styles["clear-search"]}
-                  aria-label="Clear search"
+                  aria-label={t("clearSearch")}
                   onClick={() => {
                     setSearch("");
                     searchRef.current?.focus();
@@ -221,7 +227,7 @@ export function CategoryIconField({
               id={`${id}-options`}
               className={styles["icon-options"]}
               role="group"
-              aria-label="Icons"
+              aria-label={t("icons")}
             >
               {searching ? (
                 <div className={styles["icon-grid"]}>{matches.map(match => renderOption(match))}</div>
@@ -233,7 +239,7 @@ export function CategoryIconField({
                   </div>
                   {groupKeys.map(group => (
                     <div key={group} role="group" aria-labelledby={`${id}-${group}`}>
-                      <span className={styles["group-heading"]} id={`${id}-${group}`}>{categoryIconGroups[group]}</span>
+                      <span className={styles["group-heading"]} id={`${id}-${group}`}>{tGroups(group)}</span>
                       <div className={styles["icon-grid"]}>
                         {categoryIconKeys.filter(key => categoryIcons[key].group === group).map(key => renderOption(key))}
                       </div>
@@ -241,7 +247,11 @@ export function CategoryIconField({
                   ))}
                 </>
               )}
-              {searching && matches.length === 0 && <p className={styles["empty"]}>No icons match “{search.trim()}”.</p>}
+              {searching && matches.length === 0 && (
+                <p className={styles["empty"]}>{t("noMatch", {
+                  query: search.trim()
+                })}</p>
+              )}
             </div>
           </>
         )}

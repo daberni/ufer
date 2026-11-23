@@ -2,7 +2,7 @@
 
 import ui from "../../../components/ui/primitives.module.css";
 import styles from "./rule-form.module.css";
-import { useLocale } from "@/client/locale-provider";
+import { useTranslations } from "next-intl";
 
 import { clsx } from "clsx";
 import { useId, useState } from "react";
@@ -12,7 +12,7 @@ import { useSaveRule } from "@/features/categorization/mutations";
 import { useCategories } from "@/features/categorization/queries";
 import { useRulePreviewDraft } from "@/features/categorization/use-rule-preview-draft";
 import { activeAccounts, useAccounts } from "@/features/accounts/queries";
-import { ruleTransactionTypes, transactionTypeLabels, type RuleTransactionType } from "@/lib/transaction-types";
+import { ruleTransactionTypes, type RuleTransactionType } from "@/lib/transaction-types";
 import { toFailure } from "@/client/api";
 import { FormError } from "@/components/ui/form-error";
 import { Select } from "@/components/ui/select";
@@ -22,7 +22,6 @@ import { Dialog } from "@/components/ui/dialog";
 import type { Rule, RulePreviewDraft } from "@/features/categorization/types";
 import { DeleteButton, RuleDeleteConfirmation } from "./deletion-forms";
 import { ManualAdoptionOption, useManualAdoption, type ManualMatches } from "./manual-adoption-option";
-import { formatCountLabel } from "@/lib/locale";
 import { RuleMatches, type RuleMatchList } from "./rule-matches";
 
 type RuleFormProps = DialogFormProps & {
@@ -33,15 +32,16 @@ export function RuleDialog({
   close,
   rule
 }: RuleFormProps) {
+  const t = useTranslations("categorization.ruleForm");
   const [deleting, setDeleting] = useState(false);
-  let title = rule ? "Edit rule" : "Create rule";
+  let title = rule ? t("editTitle") : t("createTitle");
 
   if (rule && deleting) {
-    title = "Delete rule";
+    title = t("deleteTitle");
   }
 
   return (
-    <Dialog eyebrow="Your finances" title={title} onClose={close}>
+    <Dialog eyebrow={t("eyebrow")} title={title} onClose={close}>
       {rule && deleting ? <RuleDeleteConfirmation rule={rule} close={close} cancel={() => setDeleting(false)} /> : <RuleForm close={close} rule={rule} onDelete={() => setDeleting(true)} />}
     </Dialog>
   );
@@ -51,7 +51,7 @@ type Mode = RulePreviewDraft["mode"];
 
 /** What the drafted rule would decide when rules are applied; nothing changes before that. */
 function useRuleImpact(fields: RulePreviewDraft) {
-  const locale = useLocale();
+  const t = useTranslations("categorization.ruleForm.impact");
   const {
     draft,
     preview,
@@ -68,14 +68,16 @@ function useRuleImpact(fields: RulePreviewDraft) {
   if (draft === null) {
     return {
       ...empty,
-      text: "Enter a pattern to see the matching transactions."
+      text: t("enterPattern")
     };
   }
 
   if (current && preview.isError) {
     return {
       ...empty,
-      text: `The preview is unavailable: ${toFailure(preview.error).message}`
+      text: t("unavailable", {
+        message: toFailure(preview.error).message
+      })
     };
   }
 
@@ -83,7 +85,7 @@ function useRuleImpact(fields: RulePreviewDraft) {
     return {
       ...empty,
       pending: true,
-      text: "Finding matching transactions …"
+      text: t("finding")
     };
   }
 
@@ -99,7 +101,7 @@ function useRuleImpact(fields: RulePreviewDraft) {
       ...empty,
       previewId,
       manual,
-      text: "This rule is disabled, so it matches no transactions until you enable it in the list."
+      text: t("disabled")
     };
   }
 
@@ -110,7 +112,7 @@ function useRuleImpact(fields: RulePreviewDraft) {
       ...empty,
       previewId,
       manual,
-      text: "Matches no transactions yet."
+      text: t("none")
     };
   }
 
@@ -126,7 +128,9 @@ function useRuleImpact(fields: RulePreviewDraft) {
     previewId,
     manual,
     matches,
-    text: `Matches ${formatCountLabel(total, "transaction", "transactions", locale)}`
+    text: t("matches", {
+      count: total
+    })
   };
 }
 
@@ -137,6 +141,7 @@ function RuleForm({
 }: RuleFormProps & {
   onDelete: () => void;
 }) {
+  const t = useTranslations("categorization.ruleForm");
   const categories = useCategories();
   const {
     error,
@@ -185,22 +190,22 @@ function RuleForm({
       className={clsx(ui["form"], styles["form"])}
     >
       <label>
-        Rule name
+        {t("name")}
         <input
           name="name"
           defaultValue={rule?.name}
           required
-          placeholder="e.g. Groceries"
+          placeholder={t("namePlaceholder")}
           maxLength={100}
         />
       </label>
       <fieldset className={styles["section"]}>
-        <legend className={styles["section-title"]}>When</legend>
+        <legend className={styles["section-title"]}>{t("when")}</legend>
         <label>
-          Match type
+          {t("matchType")}
           <Select name="mode" value={mode} onChange={event => setMode(event.target.value === "regex" ? "regex" : "keyword")}>
-            <option value="keyword">Contains keyword</option>
-            <option value="regex">Regular expression (RE2)</option>
+            <option value="keyword">{t("keyword")}</option>
+            <option value="regex">{t("regex")}</option>
           </Select>
         </label>
         <PatternField pattern={pattern} mode={mode} onChange={setPattern} />
@@ -212,9 +217,9 @@ function RuleForm({
         />
       </fieldset>
       <fieldset className={styles["section"]}>
-        <legend className={styles["section-title"]}>Then</legend>
+        <legend className={styles["section-title"]}>{t("then")}</legend>
         <div className={styles["field"]}>
-          <label htmlFor={categoryFieldId}>Category</label>
+          <label htmlFor={categoryFieldId}>{t("category")}</label>
           <CategoryPicker
             id={categoryFieldId}
             name="category_id"
@@ -224,8 +229,8 @@ function RuleForm({
           />
           {noCategories && (
             <p className={ui["form-hint"]}>
-              A rule needs a category, and none exist yet.{" "}
-              <button className={ui["text-button"]} type="button" onClick={() => setAddingCategory(true)}>Add a category</button>
+              {t("noCategories")}{" "}
+              <button className={ui["text-button"]} type="button" onClick={() => setAddingCategory(true)}>{t("addCategory")}</button>
             </p>
           )}
         </div>
@@ -251,9 +256,9 @@ function RuleForm({
       <ManualAdoptionOption adoption={adoption} />
       <FormError failure={error} />
       <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={pending || !categorySelected || (!rule && !impact.previewId)}>
-        {rule ? "Save changes" : "Create rule"} <Sparkles size={16} />
+        {rule ? t("save") : t("createTitle")} <Sparkles size={16} />
       </button>
-      {rule && <DeleteButton label="Delete rule" disabled={pending} onClick={onDelete} />}
+      {rule && <DeleteButton label={t("deleteTitle")} disabled={pending} onClick={onDelete} />}
     </form>
   );
 }
@@ -268,12 +273,13 @@ function PatternField({
   mode: Mode;
   onChange: (pattern: string) => void;
 }) {
+  const t = useTranslations("categorization.ruleForm");
   const fieldId = useId();
   const hintId = useId();
 
   return (
     <div className={styles["field"]}>
-      <label htmlFor={fieldId}>Matching pattern</label>
+      <label htmlFor={fieldId}>{t("pattern")}</label>
       <textarea
         id={fieldId}
         name="pattern"
@@ -292,10 +298,10 @@ function PatternField({
         autoCapitalize="off"
         autoCorrect="off"
         aria-describedby={hintId}
-        placeholder={mode === "regex" ? "e.g. ^MARKET\\b" : "e.g. MARKET"}
+        placeholder={mode === "regex" ? t("regexPlaceholder") : t("keywordPlaceholder")}
         maxLength={500}
       />
-      <span id={hintId} className={styles["hint"]}>Matches payee and description, ignoring case. The first matching rule wins.</span>
+      <span id={hintId} className={styles["hint"]}>{t("patternHint")}</span>
     </div>
   );
 }
@@ -312,16 +318,17 @@ function AccountConditionField({
   storedId: string;
   storedName: string | null;
 }) {
+  const t = useTranslations("categorization.ruleForm");
   const accounts = useAccounts();
   const options = activeAccounts(accounts.data ?? []);
   const storedMissing = storedId !== "" && !options.some(account => account.id === storedId);
 
   return (
     <label>
-      Only for account
+      {t("onlyAccount")}
       <Select name="account_id" value={value} onChange={event => onChange(event.target.value)}>
-        <option value="">Any account</option>
-        {storedMissing && <option value={storedId}>{storedName ?? "Deleted account"}</option>}
+        <option value="">{t("anyAccount")}</option>
+        {storedMissing && <option value={storedId}>{storedName ?? t("deletedAccount")}</option>}
         {options.map(account => <option key={account.id} value={account.id}>{account.name}</option>)}
       </Select>
     </label>
@@ -345,6 +352,8 @@ function RuleTypeFields({
   /** The stored account's name from the rule, shown until the account list includes it, so loading never drops the stored choice. */
   accountName: string | null;
 }) {
+  const t = useTranslations("categorization.ruleForm");
+  const tTypes = useTranslations("transactions.types");
   const accounts = useAccounts();
   const [chosenAccountId, setChosenAccountId] = useState(accountId);
   const options = activeAccounts(accounts.data ?? []);
@@ -354,24 +363,24 @@ function RuleTypeFields({
     <>
       <div className={ui["form-grid"]}>
         <label>
-          Type
+          {t("type")}
           <Select name="transaction_type" value={type} onChange={event => onTypeChange(isRuleType(event.target.value) ? event.target.value : "")}>
-            <option value="">Automatic</option>
-            {ruleTransactionTypes.map(option => <option key={option} value={option}>{transactionTypeLabels[option]}</option>)}
+            <option value="">{t("automatic")}</option>
+            {ruleTransactionTypes.map(option => <option key={option} value={option}>{tTypes(option)}</option>)}
           </Select>
         </label>
         {type === "transfer" && (
           <label>
-            Account
+            {t("transferAccount")}
             <Select name="transfer_account_id" value={chosenAccountId} onChange={event => setChosenAccountId(event.target.value)}>
-              <option value="">Any or untracked account</option>
-              {storedMissing && <option value={accountId}>{accountName ?? "Deleted account"}</option>}
+              <option value="">{t("anyOrUntracked")}</option>
+              {storedMissing && <option value={accountId}>{accountName ?? t("deletedAccount")}</option>}
               {options.map(account => <option key={account.id} value={account.id}>{account.name}</option>)}
             </Select>
           </label>
         )}
       </div>
-      {type === "transfer" && <p className={ui["form-hint"]}>Links matching bookings to this account.</p>}
+      {type === "transfer" && <p className={ui["form-hint"]}>{t("transferHint")}</p>}
     </>
   );
 }

@@ -5,6 +5,8 @@ import legal from "./legal.json";
 import overview from "./overview.json";
 import reports from "./reports.json";
 import accounts from "./accounts.json";
+import transactions from "./transactions.json";
+import categorization from "./categorization.json";
 
 /** One namespace per feature file, so parallel changes rarely touch the same catalog file. */
 export const de = {
@@ -14,5 +16,7 @@ export const de = {
   legal,
   overview,
   reports,
-  accounts
+  accounts,
+  transactions,
+  categorization
 };
