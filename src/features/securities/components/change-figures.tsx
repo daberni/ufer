@@ -22,6 +22,11 @@ export function BrokerageChange({ accountId, currency }: {
   const trades = useBrokerageTrades(accountId);
   const performance = useBrokeragePerformance(accountId);
 
+  // The time-weighted percent sits beside the total, so the figures wait for the series instead of growing when it arrives.
+  if (trades.isPending || performance.isPending) {
+    return <ChangeFiguresSkeleton stacked />;
+  }
+
   return trades.data ? (
     <ChangeFigures
       summary={trades.data.summary}
@@ -30,6 +35,52 @@ export function BrokerageChange({ accountId, currency }: {
       stacked
     />
   ) : null;
+}
+
+/** Colors a figure by its own sign: the money and the time-weighted percentage can legitimately differ. */
+function tone(value: number) {
+  return clsx(value > 0 && ui["positive"], value < 0 && ui["negative"]);
+}
+
+/** Like `tone`, on the four-decimal ratio that `formatSignedPercent` shows, so a displayed 0.00% stays neutral. */
+function ratioTone(ratio: number) {
+  return tone(Math.round(ratio * 10_000));
+}
+
+/** The change figures' layout, held while the holdings load. */
+export function ChangeFiguresSkeleton({
+  stacked = false,
+  showTotal = true
+}: {
+  stacked?: boolean;
+  showTotal?: boolean;
+}) {
+  const t = useTranslations("securities.change");
+
+  return (
+    <dl className={clsx(styles["figures"], stacked && styles["stacked"])} aria-hidden="true">
+      {showTotal && (
+        <div className={styles["figure"]}>
+          <dt><span className={ui["skeleton"]}>{t("totalPerformance")}</span></dt>
+          <dd className={styles["amount"]}>
+            <span className={ui["skeleton"]}>+€0,000.00</span>
+            <span className={clsx(styles["percent"], ui["skeleton"])}>{t("timeWeighted", {
+              percent: "+00.0%"
+            })}</span>
+          </dd>
+        </div>
+      )}
+      <div className={styles["figure"]}>
+        <dt><span className={ui["skeleton"]}>{t("sinceDate", {
+          date: "00 Xxx 0000"
+        })}</span></dt>
+        <dd className={styles["amount"]}>
+          <span className={ui["skeleton"]}>+€000.00</span>
+          <span className={clsx(styles["percent"], ui["skeleton"])}>+0.00%</span>
+        </dd>
+      </div>
+    </dl>
+  );
 }
 
 /** The total performance (unrealized plus realized, with its time-weighted %) and the change since the previous prices; without an honest figure it shows a dash and says why. */
@@ -62,10 +113,10 @@ export function ChangeFigures({
       {showTotal && (
         <div className={styles["figure"]}>
           <dt>{t("totalPerformance")}</dt>
-          <dd className={clsx(styles["amount"], total.gain_minor > 0 && ui["positive"])}>
-            {signedMoney(total.gain_minor, currency, locale)}
+          <dd className={styles["amount"]}>
+            <span className={tone(total.gain_minor)}>{signedMoney(total.gain_minor, currency, locale)}</span>
             {last && (
-              <span className={styles["percent"]}>{t("timeWeighted", {
+              <span className={clsx(styles["percent"], ratioTone(last.growth - 1))}>{t("timeWeighted", {
                 percent: formatSignedPercent(last.growth - 1, locale)
               })}</span>
             )}
@@ -83,9 +134,9 @@ export function ChangeFigures({
             <dt>{day.mixed_dates ? t("sincePreviousPrices") : t("sinceDate", {
               date: dateWithYear(Temporal.PlainDate.from(day.previous_date), locale)
             })}</dt>
-            <dd className={clsx(styles["amount"], day.change_minor > 0 && ui["positive"])}>
-              {signedMoney(day.change_minor, currency, locale)}
-              <span className={styles["percent"]}>{formatSignedPercent(day.ratio, locale)}</span>
+            <dd className={styles["amount"]}>
+              <span className={tone(day.change_minor)}>{signedMoney(day.change_minor, currency, locale)}</span>
+              <span className={clsx(styles["percent"], ratioTone(day.ratio))}>{formatSignedPercent(day.ratio, locale)}</span>
             </dd>
             {day.excluded > 0 && (
               <dd className={styles["hint"]}>{t("excluded", {

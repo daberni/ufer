@@ -28,8 +28,14 @@
     "noChart": "Das Diagramm erscheint, sobald ein Trade erfasst ist.",
     "missing": "{count, plural, one {# Position hat noch keinen Kurs und zählt} other {# Positionen haben noch keinen Kurs und zählen}} zum Einstandswert, ohne Performance.",
     "since": "Seit {date}",
-    "valueText": "{date}: {percent}, {gain}",
-    "description": "Zeitgewichtete Rendite, die den Effekt von Käufen und Verkäufen ausklammert. Mit den Pfeiltasten links und rechts wählst du ein Datum, mit Pos1 und Ende das erste und letzte Datum, mit Escape hebst du die Auswahl auf."
+    "valueText": "{date}: {percent}, {gain} seit {start}",
+    "description": "Zeitgewichtete Rendite, die den Effekt von Käufen und Verkäufen ausklammert. Mit den Pfeiltasten links und rechts wählst du ein Datum, mit Pos1 und Ende das erste und letzte Datum, mit Escape hebst du die Auswahl auf.",
+    "nothingHeld": "In diesem Zeitraum war nichts im Bestand.",
+    "pointContext": "{percent} seit {start}",
+    "startOfRange": "Beginn des Zeitraums",
+    "startOfRangeValueText": "{date}: Beginn des Zeitraums",
+    "versusPrevious": "{gain} ggü. {previous}",
+    "pointValueText": "{date}: {percent}, {gain} seit {previous}; {context}"
   },
   "holdings": {
     "title": "Bestand",
@@ -47,7 +53,8 @@
       "gain": "Gewinn",
       "realized": "Realisiert",
       "proceeds": "Erlös",
-      "realizedGain": "Realisierter Gewinn"
+      "realizedGain": "Realisierter Gewinn",
+      "costPerShare": "Einstand pro Stück"
     },
     "sold": "Verkauft",
     "side": "{side, select, buy {Kauf} other {Verkauf}}",
@@ -60,7 +67,13 @@
     "noPriceKnown": "Für dieses Wertpapier ist noch kein Kurs bekannt.",
     "valuedAtCost": "zum Einstandswert",
     "closingPrice": "Schlusskurs am {date}",
-    "notUpdatedRecently": "länger nicht aktualisiert"
+    "notUpdatedRecently": "länger nicht aktualisiert",
+    "transferAction": "In ein anderes Depot übertragen",
+    "transferSide": "{direction, select, in {Übertrag ein} other {Übertrag aus}}",
+    "transferCounterpart": "{direction, select, in {von {account}} other {nach {account}}}",
+    "anotherAccount": "einem anderen Depot",
+    "openTransfer": "{direction, select, in {Übertrag ein} other {Übertrag aus}} von {quantity} am {date} {counterpart} öffnen",
+    "transferCost": "{direction, select, in {übernommen} other {übertragen}}"
   },
   "overview": {
     "noAccountsTitle": "Noch keine Depots",
@@ -101,9 +114,7 @@
   },
   "bookingTrade": {
     "cashBooking": "Geldbuchung",
-    "noDescription": "Keine Beschreibung",
     "trade": "Trade",
-    "security": "Wertpapier",
     "depot": "Depot",
     "tradeDate": "Handelstag",
     "shares": "Stück",
@@ -117,7 +128,6 @@
     "edit": "Trade bearbeiten",
     "delete": "Trade löschen",
     "unlink": "Trade lösen",
-    "correctionTitle": "{side, select, buy {Kauf} other {Verkauf}} von {security}",
     "taxesOptional": "Steuern (optional)",
     "feesFromBooking": "Gebühren (aus der Buchung)",
     "feesOptional": "Gebühren (optional)",
@@ -136,6 +146,26 @@
     "recordAgain": "Du kannst den Trade später erneut erfassen.",
     "recordAgainFromBooking": "Du kannst den Trade später erneut aus derselben Buchung erfassen.",
     "deleteWithBooking": "Trade und Buchung löschen",
-    "unlinkKeepBooking": "Trade lösen, Buchung behalten"
+    "unlinkKeepBooking": "Trade lösen, Buchung behalten",
+    "isin": "ISIN",
+    "correctTitle": "Trade korrigieren"
+  },
+  "transfer": {
+    "eyebrow": "Übertrag",
+    "title": "{security} übertragen",
+    "description": "Überträgt Stücke aus {account}, ohne sie zu verkaufen. Das empfangende Depot übernimmt ihren Anteil am Einstandswert (heute {costBasis} für {quantity} Stück), und keines der Depots realisiert einen Gewinn.",
+    "toAccount": "In Depot",
+    "submit": "Übertrag erfassen",
+    "noReceiver": "Lege zuerst ein weiteres {currency}-Depot an; die Stücke werden dorthin übertragen.",
+    "shares": "Stück",
+    "date": "Datum",
+    "anotherAccount": "anderes Depot",
+    "editTitle": "Übertrag von {security}",
+    "route": "Von {from} nach {to} · übernommener Einstandswert {costBasis}",
+    "deleteEffect": "Die Stücke kehren nach {from} zurück; Bestand und Gewinne beider Depots werden neu berechnet.",
+    "back": "Zurück",
+    "deleteConfirm": "Übertrag löschen",
+    "delete": "Löschen",
+    "save": "Speichern"
   }
 }

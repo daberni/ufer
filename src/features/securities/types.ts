@@ -1,5 +1,5 @@
 import type { PerformancePoint } from "./performance";
-import type { TradeSide } from "./trade-sides";
+import type { LegSide } from "./trade-sides";
 
 export type PricePoint = {
   date: string;
@@ -24,7 +24,8 @@ export type Trade = {
   security_name: string;
   currency: string;
   date: string;
-  side: TradeSide;
+  /** A transfer row is one leg of a transfer between brokerage accounts; its gross amount is the cost basis it carried and its price that cost per unit. */
+  side: LegSide;
   sequence: number;
   quantity_micros: number;
   price_micros: number;
@@ -36,6 +37,10 @@ export type Trade = {
   settlement_account_name: string | null;
   settlement_counterparty: string | null;
   settlement_description: string | null;
+  transfer: {
+    counterpart_account_id: string;
+    counterpart_account_name: string;
+  } | null;
   /** The gain a sale realized against the moving-average cost; null for a buy. */
   realized_minor: number | null;
 };
@@ -75,6 +80,8 @@ export type BrokerageTrades = {
 export type BrokeragePerformance = {
   account_id: string;
   currency: string;
+  /** The date the series is computed through; ranges end here even when the series ends earlier with a closing. */
+  as_of: string;
   /** Holdings without any price, counted at cost and so without performance. */
   missing: number;
   points: PerformancePoint[];

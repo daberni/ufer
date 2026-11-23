@@ -40,6 +40,8 @@ type EditTranslator = ReturnType<typeof useTranslations<"transactions.edit">>;
 
 type Props = {
   transaction: Transaction;
+  /** The depot whose page opened the dialog, so a trade on it does not link back to the page it came from. */
+  depotId?: string;
   close: () => void;
 };
 
@@ -129,6 +131,7 @@ type Step = "edit" | "delete" | "hide" | "trade";
  */
 export function TransactionEditDialog({
   transaction,
+  depotId,
   close
 }: Props) {
   const t = useTranslations("transactions.edit");
@@ -148,7 +151,12 @@ export function TransactionEditDialog({
         })}
         onClose={close}
       >
-        <BookingTradePanel transaction={transaction} trade={transaction.trade} close={close} />
+        <BookingTradePanel
+          transaction={transaction}
+          trade={transaction.trade}
+          depotId={depotId}
+          close={close}
+        />
       </Dialog>
     );
   }

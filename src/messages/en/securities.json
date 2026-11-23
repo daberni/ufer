@@ -28,8 +28,14 @@
     "noChart": "The chart appears once a trade is recorded.",
     "missing": "{count, plural, one {# holding has} other {# holdings have}} no price yet and count at cost, without performance.",
     "since": "Since {date}",
-    "valueText": "{date}: {percent}, {gain}",
-    "description": "Time-weighted return, which leaves out the effect of buys and sales. Use the left and right arrow keys to explore dates, Home and End for the first and last date, and Escape to dismiss the selection."
+    "valueText": "{date}: {percent}, {gain} since {start}",
+    "description": "Time-weighted return, which leaves out the effect of buys and sales. Use the left and right arrow keys to explore dates, Home and End for the first and last date, and Escape to dismiss the selection.",
+    "nothingHeld": "Nothing was held in this range.",
+    "pointContext": "{percent} since {start}",
+    "startOfRange": "Start of range",
+    "startOfRangeValueText": "{date}: start of range",
+    "versusPrevious": "{gain} vs {previous}",
+    "pointValueText": "{date}: {percent}, {gain} since {previous}; {context}"
   },
   "holdings": {
     "title": "Holdings",
@@ -47,7 +53,8 @@
       "gain": "Gain",
       "realized": "Realized",
       "proceeds": "Proceeds",
-      "realizedGain": "Realized gain"
+      "realizedGain": "Realized gain",
+      "costPerShare": "Cost per share"
     },
     "sold": "Sold",
     "side": "{side, select, buy {Buy} other {Sell}}",
@@ -60,7 +67,13 @@
     "noPriceKnown": "No price is known for this security yet.",
     "valuedAtCost": "valued at cost",
     "closingPrice": "Closing price on {date}",
-    "notUpdatedRecently": "not updated recently"
+    "notUpdatedRecently": "not updated recently",
+    "transferAction": "Transfer to another account",
+    "transferSide": "{direction, select, in {Transfer in} other {Transfer out}}",
+    "transferCounterpart": "{direction, select, in {from {account}} other {to {account}}}",
+    "anotherAccount": "another account",
+    "openTransfer": "Open {direction, select, in {transfer in} other {transfer out}} of {quantity} on {date} {counterpart}",
+    "transferCost": "{direction, select, in {carried over} other {moved out}}"
   },
   "overview": {
     "noAccountsTitle": "No brokerage accounts yet",
@@ -101,9 +114,7 @@
   },
   "bookingTrade": {
     "cashBooking": "Cash booking",
-    "noDescription": "No description",
     "trade": "Trade",
-    "security": "Security",
     "depot": "Depot",
     "tradeDate": "Trade date",
     "shares": "Shares",
@@ -117,7 +128,6 @@
     "edit": "Edit trade",
     "delete": "Delete trade",
     "unlink": "Unlink trade",
-    "correctionTitle": "{side, select, buy {Buy} other {Sell}} of {security}",
     "taxesOptional": "Taxes (optional)",
     "feesFromBooking": "Fees (from the booking)",
     "feesOptional": "Fees (optional)",
@@ -136,6 +146,26 @@
     "recordAgain": "You can record the trade again later.",
     "recordAgainFromBooking": "You can record the trade again later from the same booking.",
     "deleteWithBooking": "Delete trade and booking",
-    "unlinkKeepBooking": "Unlink trade, keep booking"
+    "unlinkKeepBooking": "Unlink trade, keep booking",
+    "isin": "ISIN",
+    "correctTitle": "Correct trade"
+  },
+  "transfer": {
+    "eyebrow": "Transfer",
+    "title": "Transfer {security}",
+    "description": "Moves shares from {account} without selling them. The receiving account takes over their share of the cost basis ({costBasis} for {quantity} shares today), and neither account realizes a gain.",
+    "toAccount": "To brokerage account",
+    "submit": "Record transfer",
+    "noReceiver": "Add another {currency} brokerage account first; shares are transferred to it.",
+    "shares": "Shares",
+    "date": "Date",
+    "anotherAccount": "another account",
+    "editTitle": "Transfer of {security}",
+    "route": "From {from} to {to} · carried cost basis {costBasis}",
+    "deleteEffect": "The shares return to {from}, and both accounts' holdings and gains are recalculated.",
+    "back": "Back",
+    "deleteConfirm": "Delete transfer",
+    "delete": "Delete",
+    "save": "Save"
   }
 }

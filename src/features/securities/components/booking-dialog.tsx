@@ -12,9 +12,12 @@ import type { Transaction } from "@/features/transactions/types";
 /** Opens a trade's booking from the depot in the same dialog the transaction list uses; the trade is changed there. */
 export function BookingDialog({
   transactionId,
+  depotId,
   close
 }: {
   transactionId: string;
+  /** The depot whose page opened the dialog; omitted elsewhere, such as on the Brokerage overview. */
+  depotId?: string;
   close: () => void;
 }) {
   const t = useTranslations("securities.booking");
@@ -24,7 +27,7 @@ export function BookingDialog({
   });
 
   if (booking.data) {
-    return <TransactionEditDialog transaction={booking.data} close={close} />;
+    return <TransactionEditDialog transaction={booking.data} depotId={depotId} close={close} />;
   }
 
   return (

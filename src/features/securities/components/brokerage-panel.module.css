@@ -103,6 +103,13 @@
   margin-top: var(--space-1);
 }
 
+/* Lines up with the name beside the holding toggle's chevron. */
+.skeleton-security {
+  display: grid;
+  justify-items: start;
+  padding-left: calc(16px + var(--space-2));
+}
+
 .warning {
   display: grid;
   justify-items: end;
@@ -180,6 +187,15 @@
 
 .settlement {
   overflow-wrap: anywhere;
+}
+
+/* Actions on an expanded holding span all columns above its trades. */
+.actions {
+  display: flex;
+  padding-block: var(--space-2);
+}
+.actions + .trade {
+  border-top-color: var(--border-subtle);
 }
 
 @media (--mobile) {
