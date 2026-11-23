@@ -77,21 +77,71 @@
   color: var(--status-warning-text);
 }
 
-.trades ul {
-  display: grid;
-  gap: var(--space-2);
-  margin: 0 0 var(--space-3);
-  padding: var(--space-3);
-  border-radius: var(--radius-md);
-  background: var(--surface-muted);
-  list-style: none;
+.isin {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
 }
 
-.trades li {
+.price {
   display: grid;
-  grid-template-columns: 9rem 4rem minmax(0, 1fr) minmax(0, 1fr) auto;
-  align-items: center;
-  gap: var(--space-3);
+  justify-items: end;
+  border-radius: var(--radius-sm);
+}
+.price:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.trades:not([hidden]) {
+  display: grid;
+  margin-bottom: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--surface-muted);
+}
+
+/* A trade row sits in its holding's columns; its opening button covers the row, like transaction rows. */
+.trade {
+  position: relative;
+  padding-inline: var(--space-3);
+  border-top-color: var(--border-subtle);
+}
+.trades > .trade:first-child {
+  border-top: 0;
+}
+.trade:has(.open-trade):hover {
+  background: var(--surface);
+  border-radius: var(--radius-md);
+}
+.trade .security {
+  display: grid;
+  padding-left: calc(16px + var(--space-2));
+}
+
+.open-trade {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.open-trade::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-md);
+}
+.open-trade:focus-visible {
+  outline: none;
+}
+.open-trade:focus-visible::after {
+  outline: var(--focus-ring);
+  outline-offset: -3px;
+}
+
+.settlement {
+  overflow-wrap: anywhere;
 }
 
 @media (--mobile) {
@@ -99,35 +149,35 @@
     display: none;
   }
 
+  /* Each figure becomes a label on the left and its value right-aligned, so money stays right-aligned on phones too. */
   .row {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  }
-
-  .security {
-    grid-column: 1 / -1;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-1);
   }
 
   .row > .number {
-    justify-items: start;
-    text-align: left;
+    grid-template-columns: auto minmax(0, 1fr);
+    column-gap: var(--space-3);
   }
 
   .row > .number::before {
     content: attr(data-label);
+    grid-row: 1 / span 3;
+    grid-column: 1;
+    justify-self: start;
     color: var(--muted);
     font-size: var(--text-sm);
   }
 
-  .row .warning {
-    justify-items: start;
+  .security {
+    margin-bottom: var(--space-1);
   }
 
-  .trades li {
-    grid-template-columns: minmax(0, 1fr) auto;
+  .trade .security {
+    padding-left: 0;
   }
 
-  .trades li > .number {
-    justify-items: start;
-    text-align: left;
+  .row > .empty {
+    display: none;
   }
 }

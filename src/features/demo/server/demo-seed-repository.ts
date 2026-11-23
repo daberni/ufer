@@ -223,11 +223,13 @@ async function insertBrokerage(tx: DatabaseTransaction, rows: DemoBrokerageRows)
     id: cash.id,
     currency: "EUR"
   }, rows.openingDate, rows.openingMinor);
-  // Demo securities carry no ISIN, so a trade someone records by ISIN never reuses a row the seed replaces.
+  // Demo ISINs use the user-assigned prefix XX, which no real instrument carries, so a trade recorded by a real ISIN never reuses a row the seed replaces.
   await tx.insert(securities).values(rows.securities.map(security => ({
     id: security.id,
+    isin: security.isin,
     name: security.name,
-    currency: "EUR"
+    currency: "EUR",
+    venue: "Demo Exchange"
   })));
   await tx.insert(securityPrices).values(rows.prices.map(price => ({
     security_id: price.securityId,

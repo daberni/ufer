@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { amountMinor, averageCostMicros, positionOn, priceOn, valueHolding, type PositionTrade } from "../src/features/securities/holdings";
+import { amountMinor, averageCostMicros, positionOn, priceOn, saleGains, valueHolding, type PositionTrade } from "../src/features/securities/holdings";
 import { ValidationError } from "../src/lib/errors";
 
 const units = (value: number) => value * 1_000_000;
@@ -95,6 +95,24 @@ test("a reverse split rounds fractional micro-units half to even", () => {
 
   // 5 / 2 = 2.5 micro-units rounds to the even 2.
   assert.equal(position.quantity_micros, 2);
+});
+
+test("each sale realizes its own gain against the cost left after earlier trades and splits, adding up to the position's total", () => {
+  const first = sell("2026-03-01", 4, 520_00, 2_00);
+  const second = sell("2026-06-01", 6, 300_00, 1_00);
+  const trades = [buy("2026-01-10", 10, 1000_00), buy("2026-02-10", 10, 1200_00), first, second];
+  const splits = [{
+    date: "2026-05-01",
+    numerator: 2,
+    denominator: 1
+  }];
+  const gains = saleGains(shuffled(trades), splits);
+
+  // 20 shares cost 2,200.00; selling 4 removes 440.00. After the 2:1 split 32 shares cost 1,760.00; selling 6 removes 330.00.
+  assert.equal(gains.get(first), 520_00 - 2_00 - 440_00);
+  assert.equal(gains.get(second), 300_00 - 1_00 - 330_00);
+  assert.equal(gains.size, 2);
+  assert.equal(gains.get(first)! + gains.get(second)!, positionOn(trades, splits, "2026-12-31").realized_minor);
 });
 
 test("a sale beyond the held quantity is refused", () => {

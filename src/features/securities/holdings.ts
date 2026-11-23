@@ -93,6 +93,15 @@ export function averageCostMicros(costMinor: number, quantityMicros: number, cur
  * Buys add their gross amount and fees to the cost; a sale removes the average cost of the sold part and realizes its proceeds less fees and that cost. Taxes are cash only.
  */
 export function positionOn(trades: PositionTrade[], splits: PositionSplit[], date: string): Position {
+  return replay(trades, splits, date).position;
+}
+
+/** The gain each sale realized, keyed by the trade object passed in, by the same replay as `positionOn`. */
+export function saleGains<T extends PositionTrade>(trades: T[], splits: PositionSplit[]) {
+  return replay(trades, splits, "9999-12-31").sales as Map<T, number>;
+}
+
+function replay(trades: PositionTrade[], splits: PositionSplit[], date: string) {
   const events = [
     ...splits.filter(split => split.date <= date).map(split => ({
       date: split.date,
@@ -109,6 +118,7 @@ export function positionOn(trades: PositionTrade[], splits: PositionSplit[], dat
       trade
     }))
   ].toSorted((left, right) => left.date.localeCompare(right.date) || left.order - right.order || left.sequence - right.sequence);
+  const sales = new Map<PositionTrade, number>();
   let quantity = 0n;
   let cost = 0n;
   let realized = 0n;
@@ -133,16 +143,21 @@ export function positionOn(trades: PositionTrade[], splits: PositionSplit[], dat
     }
 
     const soldCost = divideRounded(cost * traded, quantity);
+    const gain = BigInt(trade.gross_minor) - BigInt(trade.fee_minor) - soldCost;
 
     quantity -= traded;
     cost -= soldCost;
-    realized += BigInt(trade.gross_minor) - BigInt(trade.fee_minor) - soldCost;
+    realized += gain;
+    sales.set(trade, safeNumber(gain));
   }
 
   return {
-    quantity_micros: safeNumber(quantity),
-    cost_minor: safeNumber(cost),
-    realized_minor: safeNumber(realized)
+    position: {
+      quantity_micros: safeNumber(quantity),
+      cost_minor: safeNumber(cost),
+      realized_minor: safeNumber(realized)
+    },
+    sales
   };
 }
 

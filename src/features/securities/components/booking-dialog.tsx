@@ -26,8 +26,8 @@ export function BookingDialog({
   }
 
   return (
-    <Dialog eyebrow="TRANSACTION" title="Booking" onClose={close}>
-      {booking.isError ? <FormError failure={toFailure(booking.error)} /> : <p aria-busy="true">Loading the booking…</p>}
+    <Dialog eyebrow="TRADE" title="Trade" onClose={close}>
+      {booking.isError ? <FormError failure={toFailure(booking.error)} /> : <p aria-busy="true">Loading the trade and its booking…</p>}
     </Dialog>
   );
 }
