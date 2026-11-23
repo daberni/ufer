@@ -5,7 +5,7 @@ import { eq } from "drizzle-orm";
 import * as schema from "../src/server/database/schema";
 import { archiveAccount, deleteAccount } from "../src/features/accounts/server/account-service";
 import { readCashFlow } from "../src/features/reports/server/cash-flow-query";
-import { enterManualTransaction, hideTransaction, removeManualTransaction, updateTransactionDetails } from "../src/features/transactions/server/transaction-service";
+import { enterManualTransaction, hideTransaction, readBooking, removeManualTransaction, updateTransactionDetails } from "../src/features/transactions/server/transaction-service";
 import { tradeCashAmount } from "../src/features/securities/trade-decisions";
 import { correctTrade, createBrokerageAccount, createSecurity, readBrokerageTrades, removeTrade, settlementCandidates } from "../src/features/securities/server/security-service";
 import { monthPeriod } from "../src/lib/period";
@@ -542,4 +542,62 @@ test("correcting a trade moves its own cash entry, keeps a bank booking as the s
     price: "100"
   }, now), ValidationError);
   assert.ok(sale);
+});
+
+test("a position sold at exactly its cost stays listed as closed", async context => {
+  await isolatedDatabase(context);
+  const cash = await settlementAccount();
+  const account = await depot();
+  const etf = await security();
+  const settlement = {
+    account_id: cash
+  };
+
+  await trade(account, {
+    security_id: etf,
+    date: "2026-09-10",
+    side: "buy",
+    quantity: "10",
+    price: "100",
+    settlement
+  });
+  await trade(account, {
+    security_id: etf,
+    date: "2026-09-20",
+    side: "sell",
+    quantity: "10",
+    price: "100",
+    settlement
+  });
+
+  const { valuation } = await readBrokerageTrades(account, now);
+
+  assert.deepEqual(valuation.holdings.map(holding => [holding.security_id, holding.quantity_micros, holding.realized_minor]), [[etf, 0, 0]]);
+});
+
+test("a trade's own cash entry stays owned by the trade after its account is connected to a bank", async context => {
+  const db = await isolatedDatabase(context);
+  const cash = await settlementAccount();
+  const account = await depot();
+  const etf = await security();
+
+  const { id } = await trade(account, {
+    security_id: etf,
+    date: "2026-09-10",
+    side: "buy",
+    quantity: "10",
+    price: "100",
+    settlement: {
+      account_id: cash
+    }
+  });
+  const stored = await db.select().from(schema.securityTrades).where(eq(schema.securityTrades.id, id)).get();
+
+  await db.update(schema.accounts).set({
+    provider: "enable_banking"
+  }).where(eq(schema.accounts.id, cash));
+
+  const booking = await readBooking(stored!.settlement_transaction_id!);
+
+  assert.equal(booking.trade?.entry_owned, true);
 });

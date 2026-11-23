@@ -83,6 +83,11 @@ export function amountMinor(quantityMicros: number, priceMicros: number, currenc
   return safeNumber(divideRounded(BigInt(quantityMicros) * BigInt(priceMicros) * minorPerUnit(currency), microsPerUnit * microsPerUnit));
 }
 
+/** The average cost per unit in micro-units of `currency` for a cost in minor units over a quantity in micro-units, computed exactly. */
+export function averageCostMicros(costMinor: number, quantityMicros: number, currency: string) {
+  return safeNumber(divideRounded(BigInt(costMinor) * microsPerUnit * microsPerUnit, BigInt(quantityMicros) * minorPerUnit(currency)));
+}
+
 /**
  * Replays trades and splits up to and including `date` by date, then recorded sequence, whatever order they are passed in. A split takes effect at the start of its date, so trades on that date are already in post-split units.
  * Buys add their gross amount and fees to the cost; a sale removes the average cost of the sold part and realizes its proceeds less fees and that cost. Taxes are cash only.

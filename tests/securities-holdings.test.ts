@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { amountMinor, positionOn, priceOn, valueHolding, type PositionTrade } from "../src/features/securities/holdings";
+import { amountMinor, averageCostMicros, positionOn, priceOn, valueHolding, type PositionTrade } from "../src/features/securities/holdings";
 import { ValidationError } from "../src/lib/errors";
 
 const units = (value: number) => value * 1_000_000;
@@ -183,4 +183,10 @@ test("a fully sold holding is worth exactly zero and current, even with an old p
     value_minor: 0,
     price: null
   });
+});
+
+test("the average cost per unit is exact in micro-units, also for large cost bases", () => {
+  assert.equal(averageCostMicros(10_00, 3_000_000, "EUR"), 3_333_333);
+  assert.equal(averageCostMicros(900_000_000_01, 123_456_789, "EUR"), 7_290_000_066_420);
+  assert.equal(averageCostMicros(1_000, 3_000_000, "JPY"), 333_333_333);
 });

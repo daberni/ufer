@@ -207,7 +207,7 @@ export async function updatePrices(now = Temporal.Now.instant(), provider: Marke
 
           // No listing in the security's currency: it stays valid without a price, and the update does not search again.
           if (symbol === null) {
-            await savePriceCheck(security.id, checkedAt, `No price listing in ${security.currency} was found for this ISIN; choose one under Price listing.`, security.price_checked_at);
+            await savePriceCheck(security.id, checkedAt, `No price listing in ${security.currency} was found for this ISIN; it is valued at its cost.`, security.price_checked_at);
             continue;
           }
 

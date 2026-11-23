@@ -80,6 +80,8 @@ export type TradeCorrection = {
   date: string;
   quantity: string;
   price: string;
+  /** The traded amount, kept when it differs from shares × price through broker rounding. */
+  gross?: string;
   fee: string;
   tax: string;
 };
