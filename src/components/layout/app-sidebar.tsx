@@ -10,6 +10,7 @@ import { BrandIcon } from "@/components/branding/brand-icon";
 import { useLocale } from "@/client/locale-provider";
 import { formatCount } from "@/lib/locale";
 import { useTabNavigation } from "@/client/use-tab-navigation";
+import { useTranslations } from "next-intl";
 
 export type SidebarLink = {
   id: string;
@@ -34,6 +35,7 @@ export function AppSidebar({
   homeHref,
   links
 }: Props) {
+  const t = useTranslations("shell.sidebar");
   const locale = useLocale();
   const navigateToTab = useTabNavigation();
 
@@ -45,18 +47,18 @@ export function AppSidebar({
         </span>
         <span>
           ufer
-          <small>All in one place.</small>
+          <small>{t("tagline")}</small>
         </span>
       </Link>
       <div className={styles["workspace"]}>
         <span className={styles["workspace-avatar"]}>P</span>
         <div>
-          My finances<small>Personal workspace</small>
+          {t("workspace")}<small>{t("workspaceKind")}</small>
         </div>
         <ShieldCheck size={15} />
       </div>
-      <span className={styles["nav-label"]}>My overview</span>
-      <nav aria-label="Main">
+      <span className={styles["nav-label"]}>{t("overviewLabel")}</span>
+      <nav aria-label={t("mainNavigation")}>
         {links.map(item => (
           <Link
             key={item.id}
@@ -73,7 +75,7 @@ export function AppSidebar({
             {item.count > 0 && (
               <span className={styles["nav-count"]}>
                 {formatCount(item.count, locale)}
-                <span className={ui["visually-hidden"]}> need attention</span>
+                <span className={ui["visually-hidden"]}> {t("needAttention")}</span>
               </span>
             )}
           </Link>
@@ -82,17 +84,17 @@ export function AppSidebar({
       <div className={styles["sidebar-bottom"]}>
         <div className={styles["privacy-note"]}>
           <ShieldCheck size={20} />
-          <strong>Your data. Your perspective.</strong>
+          <strong>{t("privacyTitle")}</strong>
           <p>
-            Self-hosted.
+            {t("selfHosted")}
             <br />
-            Bank access through Enable Banking.
+            {t("bankAccess")}
           </p>
         </div>
         {environment === "SANDBOX" && (
           <span className={styles["sidebar-foot"]}>
             <span className={ui["status-dot"]} />
-            Sandbox · test data
+            {t("sandbox")}
           </span>
         )}
       </div>

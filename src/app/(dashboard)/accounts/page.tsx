@@ -1,9 +1,9 @@
-import type { Metadata } from "next";
+import { viewMetadata } from "@/i18n/metadata";
 import { AccountsPage } from "@/features/dashboard/components/dashboard-views";
 
-export const metadata: Metadata = {
-  title: "Accounts & assets"
-};
+export function generateMetadata() {
+  return viewMetadata("accounts");
+}
 
 export default function Page() {
   return <AccountsPage />;

@@ -1,0 +1,36 @@
+{
+  "retry": "Retry",
+  "tryAgain": "Try again",
+  "select": {
+    "showingFirst": "{count}, showing the first {shown, number}",
+    "truncated": "Showing the first {shown, number} of {count}. Type to narrow the list.",
+    "createAvailable": "{label} is available.",
+    "nouns": {
+      "category": {
+        "count": "{count, plural, one {# category} other {# categories}}",
+        "list": "Categories",
+        "show": "Show categories",
+        "noMatch": "No category matches “{query}”.",
+        "create": "Create category “{name}”"
+      },
+      "bank": {
+        "count": "{count, plural, one {# bank} other {# banks}}",
+        "list": "Banks",
+        "show": "Show banks",
+        "noMatch": "No bank matches “{query}”.",
+        "create": "Create bank “{name}”"
+      },
+      "format": {
+        "count": "{count, plural, one {# format} other {# formats}}",
+        "list": "Formats",
+        "show": "Show formats",
+        "noMatch": "No format matches “{query}”.",
+        "create": "Create format “{name}”"
+      }
+    },
+    "position": "{label}, {position, number} of {total, number}",
+    "selectedPosition": "{label}, selected, {position, number} of {total, number}"
+  },
+  "traceId": "Trace ID",
+  "closeDialog": "Close dialog"
+}

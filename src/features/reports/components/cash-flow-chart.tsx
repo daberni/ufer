@@ -251,7 +251,7 @@ function ChartSkeleton({
   };
 
   return (
-    <AreaPlaceholder area={area} subject="Income and expenses">
+    <AreaPlaceholder area={area} failureTitle="Income and expenses could not be loaded">
       {/* The skeleton lays out every trend month and its stylesheet shows the ones that fit, so it matches the loaded chart before the page's script measures the width. */}
       <div className={styles["bar-chart"]} data-skeleton-months>
         <style>{skeletonMonthStyles}</style>

@@ -10,8 +10,10 @@ import ui from "../../../components/ui/primitives.module.css";
 import { toFailure } from "@/client/api";
 import { useAppStore } from "@/client/app-store";
 import { useLockSession } from "@/client/use-session-lock";
+import { useTranslations } from "next-intl";
 
 export function UserAccess() {
+  const t = useTranslations("account.access");
   const lock = useLockSession();
   const reportFeedback = useAppStore(state => state.reportFeedback);
   const pathname = usePathname();
@@ -30,7 +32,9 @@ export function UserAccess() {
 
       reportFeedback({
         tone: "problem",
-        messages: [`Sign-out failed: ${failure.message}`],
+        messages: [t("signOutFailed", {
+          message: failure.message
+        })],
         traceId: failure.traceId
       });
     }
@@ -41,7 +45,7 @@ export function UserAccess() {
       <button
         className={ui["icon-button"]}
         type="button"
-        aria-label="Your account"
+        aria-label={t("account")}
         onClick={() => setSettingsView(pathname)}
       >
         <UserRound size={18} />
@@ -49,7 +53,7 @@ export function UserAccess() {
       <button
         className={ui["icon-button"]}
         type="button"
-        aria-label="Sign out"
+        aria-label={t("signOut")}
         disabled={signOut.isPending}
         onClick={() => signOut.mutate()}
       >

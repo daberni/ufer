@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { test, type TestContext } from "node:test";
 import { createClient } from "@libsql/client";
-import { act, fireEvent, render, within } from "@testing-library/react";
+import { act, fireEvent, within } from "@testing-library/react";
+import { render } from "./fixtures/intl";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/libsql";
 import { createElement, Fragment, type ReactNode } from "react";

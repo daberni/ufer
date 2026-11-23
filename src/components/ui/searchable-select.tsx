@@ -10,8 +10,7 @@ import { creatableName, matchOptions, searchableSelectToggleKeyAction, shownOpti
 import { useAnchoredPopover } from "./use-anchored-popover";
 import { useComboboxOptions } from "./use-combobox-options";
 import { useDismiss } from "./use-dismiss";
-import { formatCount } from "@/lib/locale";
-import { useLocale } from "@/client/locale-provider";
+import { useTranslations } from "next-intl";
 
 export type SearchableSelectOption<Value> = {
   key: string;
@@ -28,6 +27,8 @@ export type SearchableSelectOption<Value> = {
 
 export type SearchableSelectAppearance = "default" | "inline";
 
+export type SearchableSelectNoun = "category" | "bank" | "format";
+
 type Props<Value> = {
   id: string;
   options: readonly SearchableSelectOption<Value>[];
@@ -39,11 +40,8 @@ type Props<Value> = {
   onQueryChange: (query: string) => void;
   /** Filters and orders the options for the typed text. */
   match?: (options: readonly SearchableSelectOption<Value>[], query: string) => readonly SearchableSelectOption<Value>[];
-  /** Names the options in counts and messages, such as "bank" and "banks". */
-  noun: {
-    one: string;
-    other: string;
-  };
+  /** Names the options in counts and messages; each noun has its own sentences in the common.select catalog, since languages inflect them differently. */
+  noun: SearchableSelectNoun;
   placeholder: string;
   /** Replaces the options with a message, such as a loading, error or empty state. */
   notice?: string;
@@ -101,7 +99,7 @@ export function SearchableSelect<Value>({
   const controlRef = useRef<HTMLDivElement>(null);
   const popupRef = useRef<HTMLDivElement>(null);
   const listboxRef = useRef<HTMLUListElement>(null);
-  const locale = useLocale();
+  const t = useTranslations("common.select");
   const selected = options.find(option => Object.is(option.value, value));
   // The selected option's label lists every option again, so another one can be picked without clearing the field first.
   const matches = notice ? [] : match(options, query === selected?.label ? "" : query);
@@ -130,14 +128,20 @@ export function SearchableSelect<Value>({
     onSelect: choose,
     onClose: () => setOpen(false)
   });
-  const createLabel = `Create ${noun.one} “${createName}”`;
-  const countText = (count: number) => `${formatCount(count, locale)} ${count === 1 ? noun.one : noun.other}`;
+  const createLabel = t(`nouns.${noun}.create`, {
+    name: createName
+  });
+  const countText = (count: number) => t(`nouns.${noun}.count`, {
+    count
+  });
   const truncated = matches.length > shown.length;
-  const listLabel = `${noun.other.charAt(0).toLocaleUpperCase()}${noun.other.slice(1)}`;
+  const listLabel = t(`nouns.${noun}.list`);
   // A selection shown as the placeholder hint (an empty field reading "Uncategorized") keeps its icon like one shown as text.
   const showsSelected = selected !== undefined && (query === selected.label || (query === "" && placeholder === selected.label));
 
-  const noMatchText = `No ${noun.one} matches “${query.trim()}”.`;
+  const noMatchText = t(`nouns.${noun}.noMatch`, {
+    query: query.trim()
+  });
   let message = notice;
 
   // The create option says enough on its own when nothing matches.
@@ -150,17 +154,26 @@ export function SearchableSelect<Value>({
   if (open && !matches.length) {
     announcement = message || noMatchText;
   } else if (open) {
-    announcement = message || (truncated ? `${countText(matches.length)}, showing the first ${formatCount(shown.length, locale)}` : countText(matches.length));
+    announcement = message || (truncated ? t("showingFirst", {
+      count: countText(matches.length),
+      shown: shown.length
+    }) : countText(matches.length));
   }
 
   if (open && createName) {
-    announcement = `${announcement} ${createLabel} is available.`;
+    announcement = `${announcement} ${t("createAvailable", {
+      label: createLabel
+    })}`;
   }
 
   const activeLabel = active === createIndex ? createLabel : shown[active]?.label;
 
   if (open && toggleFocused && activeLabel) {
-    announcement = `${activeLabel}${active === selectedIndex ? ", selected" : ""}, ${formatCount(active + 1, locale)} of ${formatCount(optionCount, locale)}`;
+    announcement = t(active === selectedIndex ? "selectedPosition" : "position", {
+      label: activeLabel,
+      position: active + 1,
+      total: optionCount
+    });
   }
 
   // The list joins the top layer, so it neither grows a surrounding dialog nor gets clipped by it or by a scrolling table.
@@ -284,7 +297,7 @@ export function SearchableSelect<Value>({
           type="button"
           className={styles["toggle"]}
           tabIndex={-1}
-          aria-label={`Show ${noun.other}`}
+          aria-label={t(`nouns.${noun}.show`)}
           aria-haspopup="listbox"
           aria-expanded={open}
           aria-controls={listboxId}
@@ -353,7 +366,12 @@ export function SearchableSelect<Value>({
           )}
         </ul>
         {message && <p className={styles["message"]}>{message}</p>}
-        {!message && truncated && <p className={styles["message"]}>Showing the first {formatCount(shown.length, locale)} of {countText(matches.length)}. Type to narrow the list.</p>}
+        {!message && truncated && (
+          <p className={styles["message"]}>{t("truncated", {
+            shown: shown.length,
+            count: countText(matches.length)
+          })}</p>
+        )}
         {footer}
       </div>
       <div className={ui["visually-hidden"]} role="status">

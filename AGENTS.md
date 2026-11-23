@@ -10,7 +10,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 ## Project conventions
 
-- Maintain documentation, code, comments, UI copy, and synthetic examples in English.
+- Maintain documentation, code, comments, and synthetic examples in English. User-facing UI copy lives in the English and German message catalogs under `src/messages`; see [localization](docs/localization.md).
 - Keep personal account inventories, real financial data, credentials, application IDs, and host-specific paths out of repository content and history.
 - Update the feature comparison when capabilities or their verification status change. Keep implemented behavior distinct from planned requirements.
 - Preserve existing data, database paths, volume names, and persistence identifiers during branding and copy changes. Schema upgrades require explicit migrations and authorization.

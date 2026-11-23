@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import styles from "./source-code-notice.module.css";
 
 /** SPDX identifier of the license in the repository's LICENSE file. */
@@ -12,10 +13,12 @@ export const sourceCodeUrl = "https://github.com/daberni/ufer";
 export function SourceCodeNotice({ className }: {
   className?: string
 }) {
+  const t = useTranslations("legal");
+
   return (
     <span className={className}>
       <a className={styles["link"]} href={sourceCodeUrl} rel="noreferrer">
-        Source code
+        {t("sourceCode")}
       </a>{" "}
       · {projectLicense}
     </span>

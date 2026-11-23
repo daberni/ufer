@@ -1,7 +1,8 @@
 import "./fixtures/dom-environment";
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { act, fireEvent, render, renderHook } from "@testing-library/react";
+import { act, fireEvent, renderHook } from "@testing-library/react";
+import { render } from "./fixtures/intl";
 import { createElement } from "react";
 import { queryKeys } from "../src/client/query-keys";
 import type { Category, Rule } from "../src/features/categorization/types";

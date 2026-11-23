@@ -144,7 +144,7 @@ export function TransactionsPanel(props: Props) {
         {props.view === "transactions" && <TransactionFilters categories={categories.data ?? []} filterAccounts={props.filterAccounts.data ?? []} />}
         <TransactionRuleProvider fallbackFocus={headingRef}>
           {list.status === "pending" || categories.status === "pending" ? (
-            <AreaPlaceholder area={pendingTogether(list, categories)} subject="Your transactions">
+            <AreaPlaceholder area={pendingTogether(list, categories)} failureTitle="Your transactions could not be loaded">
               {view === "overview" ? <TransactionListSkeleton rows={recentTransactions} /> : <TransactionPageSkeleton />}
             </AreaPlaceholder>
           ) : (

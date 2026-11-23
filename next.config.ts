@@ -1,4 +1,8 @@
 import type { NextConfig } from "next";
+import createNextIntlPlugin from "next-intl/plugin";
+
+// Reads the request language and catalog from src/i18n/request.ts; there are no locale path prefixes.
+const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
 // Ufer uses none of these browser features.
 const disabledBrowserFeatures = [
@@ -87,4 +91,4 @@ const config: NextConfig = {
   }
 };
 
-export default config;
+export default withNextIntl(config);

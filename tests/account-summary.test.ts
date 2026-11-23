@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test, type TestContext } from "node:test";
-import { render, within } from "@testing-library/react";
+import { within } from "@testing-library/react";
+import { render } from "./fixtures/intl";
 import { createElement, Fragment } from "react";
 import { AppRouterContext, type AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import { PathnameContext, SearchParamsContext } from "next/dist/shared/lib/hooks-client-context.shared-runtime";

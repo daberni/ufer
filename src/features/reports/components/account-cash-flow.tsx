@@ -78,7 +78,7 @@ export function AccountCashFlowSummary({
           </dd>
         </div>
       </dl>
-      {area.status === "pending" && area.failure && <FailureCover failure={area.failure} subject="The cash flow" />}
+      {area.status === "pending" && area.failure && <FailureCover failure={area.failure} failureTitle="The cash flow could not be loaded" />}
     </section>
   );
 }

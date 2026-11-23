@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test, type TestContext } from "node:test";
-import { act, fireEvent, render } from "@testing-library/react";
+import { act, fireEvent } from "@testing-library/react";
+import { render } from "./fixtures/intl";
 import { createElement } from "react";
 import { browser, wait } from "./fixtures/browser";
 import { stubCssModules } from "./fixtures/css-modules";

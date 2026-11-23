@@ -83,7 +83,7 @@ export function CategoryBreakdown({
         </span>
       </div>
       {pending ? (
-        <AreaPlaceholder area={cashFlow} subject="Income and spending by category">
+        <AreaPlaceholder area={cashFlow} failureTitle="Income and spending by category could not be loaded">
           <div className={styles["columns"]}>
             <FlowColumnSkeleton label="Income" />
             <FlowColumnSkeleton label="Expenses" />

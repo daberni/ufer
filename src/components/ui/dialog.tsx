@@ -5,6 +5,7 @@ import ui from "./primitives.module.css";
 import styles from "./dialog.module.css";
 import { clsx } from "clsx";
 import { X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { useEffect, useId, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
@@ -28,11 +29,12 @@ type Props = {
 export function Dialog({
   title,
   eyebrow,
-  closeLabel = "Close dialog",
+  closeLabel,
   wide = false,
   onClose,
   children
 }: Props) {
+  const t = useTranslations("common");
   const dialogRef = useRef<HTMLDialogElement>(null);
   const onCloseRef = useRef(onClose);
   const pressStartedOnBackdrop = useRef(false);
@@ -96,7 +98,7 @@ export function Dialog({
           <button
             type="button"
             className={ui["icon-button"]}
-            aria-label={closeLabel}
+            aria-label={closeLabel ?? t("closeDialog")}
             onClick={onClose}
           >
             <X size={20} />

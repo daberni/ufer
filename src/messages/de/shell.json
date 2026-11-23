@@ -1,0 +1,78 @@
+{
+  "metadata": {
+    "title": "Ufer · Deine Finanzen im Blick",
+    "transactions": "Buchungen",
+    "import": "Buchungen importieren",
+    "accounts": "Konten & Vermögen",
+    "account": "Konto",
+    "brokerage": "Depots",
+    "rules": "Kategorien & Regeln",
+    "description": "Dein persönliches Dashboard für Konten, Buchungen und Vermögen."
+  },
+  "navigation": {
+    "overview": {
+      "label": "Übersicht",
+      "mobileLabel": "Übersicht",
+      "heading": "Dein Geld. Im Blick.",
+      "description": "Ein klares Bild ist der erste Schritt nach vorn."
+    },
+    "transactions": {
+      "label": "Buchungen",
+      "mobileLabel": "Buchungen",
+      "heading": "Buchungen",
+      "description": "Jede Buchung, über alle deine Konten."
+    },
+    "accounts": {
+      "label": "Konten & Vermögen",
+      "mobileLabel": "Konten",
+      "heading": "Konten & Vermögen",
+      "description": "Deine Konten und Vermögenswerte an einem Ort."
+    },
+    "brokerage": {
+      "label": "Depots",
+      "mobileLabel": "Depots",
+      "heading": "Depots",
+      "description": "Deine Depots, Bestände und Wertentwicklung zusammen."
+    },
+    "rules": {
+      "label": "Kategorien & Regeln",
+      "mobileLabel": "Regeln",
+      "heading": "Kategorien & Regeln",
+      "description": "Weniger sortieren. Mehr Klarheit."
+    }
+  },
+  "views": {
+    "accountDetails": "Kontodetails",
+    "brokerageAccount": "Bestände und Trades.",
+    "account": "Saldo, Buchungen und Verlauf.",
+    "importHeading": "Buchungen importieren",
+    "import": "Übernimm den Verlauf eines Kontos aus einem Bank- oder App-Export.",
+    "accounts": "Alle deine Konten und Vermögenswerte."
+  },
+  "sidebar": {
+    "tagline": "Alles an einem Ort.",
+    "workspace": "Meine Finanzen",
+    "workspaceKind": "Persönlicher Arbeitsbereich",
+    "overviewLabel": "Mein Überblick",
+    "mainNavigation": "Hauptnavigation",
+    "needAttention": "brauchen Aufmerksamkeit",
+    "privacyTitle": "Deine Daten. Dein Blick.",
+    "selfHosted": "Selbst gehostet.",
+    "bankAccess": "Bankzugriff über Enable Banking.",
+    "sandbox": "Sandbox · Testdaten"
+  },
+  "header": {
+    "workspace": "Meine Finanzen",
+    "sandbox": "Sandbox"
+  },
+  "sandboxNote": "Sandbox-Modus: Verbundene Banken liefern synthetische Testdaten.",
+  "expiringAuthorizations": "{count, plural, one {# Bankfreigabe läuft} other {# Bankfreigaben laufen}} bald ab oder sind abgelaufen.",
+  "reviewAuthorizations": "Freigaben prüfen",
+  "dismissMessage": "Meldung schließen",
+  "footerTagline": "Ein klarerer Blick auf dein Geld.",
+  "loadError": "Deine Daten konnten nicht geladen werden: {message}",
+  "viewError": {
+    "title": "Diese Seite konnte nicht angezeigt werden",
+    "body": "Beim Darstellen ist etwas schiefgelaufen. Versuche es erneut oder wähle eine andere Seite in der Navigation."
+  }
+}

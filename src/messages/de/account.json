@@ -1,0 +1,52 @@
+{
+  "signIn": {
+    "eyebrow": "Dein persönlicher Überblick",
+    "heading": "Willkommen zurück.",
+    "lead": "Deine Finanzen, unter deiner Kontrolle.",
+    "username": "Benutzername",
+    "password": "Passwort",
+    "submit": "Dashboard öffnen"
+  },
+  "access": {
+    "account": "Dein Konto",
+    "signOut": "Abmelden",
+    "signOutFailed": "Abmelden fehlgeschlagen: {message}"
+  },
+  "settings": {
+    "title": "Dein Konto",
+    "close": "Kontoeinstellungen schließen",
+    "changePassword": "Passwort ändern",
+    "currentPassword": "Aktuelles Passwort",
+    "newPassword": "Neues Passwort",
+    "confirmPassword": "Neues Passwort bestätigen",
+    "passwordHint": "Verwende mindestens {count, number} Zeichen. Eine Passwortänderung meldet deine anderen Sitzungen ab.",
+    "passwordMismatch": "Die neuen Passwörter stimmen nicht überein.",
+    "passwordFailed": "Das Passwort konnte nicht geändert werden.",
+    "passwordChanged": "Passwort geändert. Deine anderen Sitzungen wurden abgemeldet.",
+    "otherDevices": "Andere Geräte",
+    "otherDevicesHint": "Meldet jede Sitzung außer dieser ab.",
+    "signOutOthers": "Andere Geräte abmelden",
+    "signOutOthersFailed": "Die Sitzungen konnten nicht abgemeldet werden.",
+    "othersSignedOut": "Deine anderen Sitzungen wurden abgemeldet."
+  },
+  "theme": {
+    "legend": "Darstellung",
+    "system": "System",
+    "light": "Hell",
+    "dark": "Dunkel",
+    "hint": "In diesem Browser gespeichert. System folgt der Einstellung deines Geräts."
+  },
+  "language": {
+    "legend": "Sprache",
+    "browser": "Browser-Standard",
+    "hint": "In diesem Browser gespeichert; eine Änderung lädt die Seite neu."
+  },
+  "format": {
+    "label": "Zahlen- und Datumsformat",
+    "browser": "Browser-Standard",
+    "search": "Sprachen und Regionen suchen",
+    "date": "Datum",
+    "amount": "Betrag",
+    "hint": "In diesem Browser gespeichert; eine Änderung lädt die Seite neu."
+  }
+}

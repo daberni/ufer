@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { useTranslations } from "next-intl";
 import { bankConnectionsSectionId } from "@/features/banking/connections-location";
 import { OverviewView } from "@/features/dashboard/components/overview-view";
 import { PeriodControls } from "@/features/dashboard/components/period-controls";
@@ -21,7 +22,6 @@ import { mapArea, useAreaResult, type Area } from "@/components/ui/use-area-resu
 import { Empty } from "@/components/ui/empty-state";
 import { useAccountCashFlow, useCashFlow, useNetWorthHistory } from "@/features/reports/queries";
 import { accountGroups, activeAccounts, useAccounts, useBalanceHistory, useNetWorth } from "@/features/accounts/queries";
-import { navigation } from "@/features/dashboard/navigation";
 import { useCategories, useRules } from "@/features/categorization/queries";
 import { useBankingConfiguration } from "@/features/banking/banking-configuration";
 import { useConnections, useSyncRuns } from "@/features/banking/queries";
@@ -157,6 +157,7 @@ export function ImportPage() {
 }
 
 export function AccountPage() {
+  const t = useTranslations("shell.navigation");
   const query = useViewQuery();
   const viewHref = useViewHref();
   const listView = useAppStore(state => state.accountList);
@@ -170,7 +171,7 @@ export function AccountPage() {
   const listHref = viewHref(listView);
   const back: BackLink = {
     href: listView === "accounts" && archivedOpen ? withArchivedAccountsOpen(listHref) : listHref,
-    label: navigation.find(item => item.id === listView)!.label
+    label: t(`${listView}.label`)
   };
 
   if (!account) {

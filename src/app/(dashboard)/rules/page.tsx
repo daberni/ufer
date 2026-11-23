@@ -1,9 +1,9 @@
-import type { Metadata } from "next";
+import { viewMetadata } from "@/i18n/metadata";
 import { RulesPage } from "@/features/dashboard/components/dashboard-views";
 
-export const metadata: Metadata = {
-  title: "Categories & rules"
-};
+export function generateMetadata() {
+  return viewMetadata("rules");
+}
 
 export default function Page() {
   return <RulesPage />;

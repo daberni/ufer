@@ -42,7 +42,7 @@ export function AccountDetails({
       <BackNavigation back={back} />
       <div className={styles["details-grid"]}>
         {account.status === "pending" ? (
-          <AreaPlaceholder area={account} subject="This account">
+          <AreaPlaceholder area={account} failureTitle="This account could not be loaded">
             <AccountSummarySkeleton />
           </AreaPlaceholder>
         ) : <AccountSummary account={account.data} connections={connections.data ?? []} />}

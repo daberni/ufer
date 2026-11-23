@@ -124,7 +124,7 @@ No market-data provider is selected. Price availability, venue coverage, redistr
 
 ## Repository privacy and language
 
-Maintain documentation, code comments, UI copy, API messages, and synthetic examples in English. Preserve existing user-entered data; translating source defaults is not permission to rewrite a user's stored categories or transactions.
+Maintain documentation, code comments, API messages, and synthetic examples in English. UI copy lives in English and German [message catalogs](localization.md). Preserve existing user-entered data; translating source defaults is not permission to rewrite a user's stored categories or transactions.
 
 Repository content must describe a generic product. Do not include personal institution lists, account inventories, real balances, IBANs, application identifiers, local user paths, private keys, financial exports, or screenshots of real data. Generic financial concepts and supported data types belong to the application model and are not a statement about its owner's finances.
 

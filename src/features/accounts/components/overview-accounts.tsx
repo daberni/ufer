@@ -73,7 +73,7 @@ function AccountStripSkeleton({ area }: {
   area: PendingArea
 }) {
   return (
-    <AreaPlaceholder area={area} subject="Your accounts">
+    <AreaPlaceholder area={area} failureTitle="Your accounts could not be loaded">
       <div className={styles["account-strip"]}>
         {Array.from({
           length: shownRows

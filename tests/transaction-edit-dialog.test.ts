@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test, type TestContext } from "node:test";
-import { act, fireEvent, render } from "@testing-library/react";
+import { act, fireEvent } from "@testing-library/react";
+import { render } from "./fixtures/intl";
 import { createElement } from "react";
 import type { Transaction, TransferBooking, TransferOptions } from "../src/features/transactions/types";
 import { browser, respond, wait, withQueryClient } from "./fixtures/browser";
