@@ -242,7 +242,7 @@ function HoldingRows({
           />
         </span>
         <span role="cell" className={clsx(styles["number"], styles["value"])} data-label="Value">{held ? money(holding.value_minor, currency, locale) : "—"}</span>
-        <span role="cell" className={clsx(styles["number"], showGain && gain > 0 && ui["positive"])} data-label={held ? "Gain" : "Realized"}>
+        <span role="cell" className={clsx(styles["number"], showGain && gain > 0 && ui["positive"], showGain && gain < 0 && ui["negative"])} data-label={held ? "Gain" : "Realized"}>
           {showGain ? signedMoney(gain, currency, locale) : "—"}
           {gainPercent !== null && <small>{percent(gainPercent, locale)}</small>}
         </span>
@@ -326,7 +326,7 @@ function TradeRow({
           </>
         )}
       </span>
-      <span role="cell" className={clsx(styles["number"], trade.realized_minor === null && styles["empty"], trade.realized_minor !== null && trade.realized_minor > 0 && ui["positive"])} data-label="Realized gain">
+      <span role="cell" className={clsx(styles["number"], trade.realized_minor === null && styles["empty"], trade.realized_minor !== null && trade.realized_minor > 0 && ui["positive"], trade.realized_minor !== null && trade.realized_minor < 0 && ui["negative"])} data-label="Realized gain">
         {trade.realized_minor !== null && (
           <>
             {signedMoney(trade.realized_minor, trade.currency, locale)}

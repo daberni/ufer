@@ -169,7 +169,7 @@ function AccountHoldings({
         {trades.isPending ? <AccountFiguresSkeleton /> : (
           <span className={styles["account-figures"]}>
             {trades.data && <strong>{money(trades.data.valuation.value_minor, account.currency, locale)}</strong>}
-            {trades.data && trades.data.trades.length > 0 && <small className={clsx(trades.data.summary.total.gain_minor > 0 && ui["positive"])}>{signedMoney(trades.data.summary.total.gain_minor, account.currency, locale)} total</small>}
+            {trades.data && trades.data.trades.length > 0 && <small className={clsx(trades.data.summary.total.gain_minor > 0 && ui["positive"])} data-negative={trades.data.summary.total.gain_minor < 0 ? "" : undefined}>{signedMoney(trades.data.summary.total.gain_minor, account.currency, locale)} total</small>}
           </span>
         )}
         <ArrowRight size={16} aria-hidden="true" />

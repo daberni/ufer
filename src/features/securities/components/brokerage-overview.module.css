@@ -66,6 +66,9 @@
   color: var(--muted);
   font-size: var(--text-sm);
 }
+.account-figures small[data-negative] {
+  color: var(--danger);
+}
 
 .note {
   margin: 0;
