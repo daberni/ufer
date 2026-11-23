@@ -1,4 +1,4 @@
-import { ArrowDownLeft, LayoutDashboard, SlidersHorizontal, Wallet, type LucideIcon } from "lucide-react";
+import { ArrowDownLeft, ChartCandlestick, LayoutDashboard, SlidersHorizontal, Wallet, type LucideIcon } from "lucide-react";
 import type { Section } from "@/client/app-location";
 
 export type NavigationItem = {
@@ -33,6 +33,13 @@ export const navigation: NavigationItem[] = [{
   heading: "Accounts & assets",
   description: "Your accounts and assets, together in one place.",
   icon: Wallet
+}, {
+  id: "brokerage",
+  label: "Brokerage",
+  mobileLabel: "Brokerage",
+  heading: "Brokerage",
+  description: "Your depots, holdings and performance together.",
+  icon: ChartCandlestick
 }, {
   id: "rules",
   label: "Categories & rules",

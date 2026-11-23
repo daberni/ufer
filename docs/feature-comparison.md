@@ -157,6 +157,7 @@ An item is checked only when its acceptance criterion is met and evidence is rec
   - [x] Brokerage accounts with holdings, buys and sells, recorded from their bank booking or a manual cash account
   - [x] Valuations in net worth and its history from stored daily prices; daily EODHD prices need the operator's API key
   - [x] Time-weighted performance chart on brokerage accounts, with the gain over 1M, 6M, 1Y, YTD or all time
+  - [x] Brokerage section with the combined value and performance of all brokerage accounts and their holdings grouped by account
 - [ ] **K-04 · Planning:** budgets, recurring entries and forecasts; planning model to be agreed first
 - [ ] **K-05 · Historical wealth**
   - [x] Per-account balance history

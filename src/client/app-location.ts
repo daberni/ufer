@@ -3,13 +3,13 @@ import { allMonthsPeriod, currentMonth, currentMonthPeriod, parsePeriod, seriali
 import { parsePage } from "@/lib/pagination";
 import { parseCurrencyCode } from "@/lib/money";
 
-export type View = "overview" | "transactions" | "import" | "accounts" | "account" | "rules";
+export type View = "overview" | "transactions" | "import" | "accounts" | "account" | "brokerage" | "rules";
 
 /** A view in the navigation; an account's details belong to accounts and the import page to transactions. */
 export type Section = Exclude<View, "account" | "import">;
 
 /** The lists an account's details are opened from and return to. */
-export type AccountList = "overview" | "accounts";
+export type AccountList = "overview" | "accounts" | "brokerage";
 
 /**
  * Each dashboard view is a route. The period and currency are shared by the period-aware views; search, filters and page belong to the transaction list. A selected sync run replaces the period and currency for the list: it shows everything the run imported. An account's details list that account's transactions page by page.
@@ -18,6 +18,7 @@ export const viewPaths: Record<Section, string> = {
   overview: "/",
   transactions: "/transactions",
   accounts: "/accounts",
+  brokerage: "/brokerage",
   rules: "/rules"
 };
 
@@ -103,7 +104,7 @@ export function isPeriodAware(view: View) {
 }
 
 export function isAccountList(view: View): view is AccountList {
-  return view === "overview" || view === "accounts";
+  return view === "overview" || view === "accounts" || view === "brokerage";
 }
 
 /** The period and currency parameters that period-aware views carry between each other. */

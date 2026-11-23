@@ -142,4 +142,10 @@ test("an account's details keep the period and return to the list they were open
 
   assert.equal(result.current.accountList, "accounts");
   assert.equal(result.current.viewHref(result.current.accountList), "/accounts");
+
+  navigate("/brokerage");
+  navigate("/accounts/synthetic-account");
+
+  assert.equal(result.current.accountList, "brokerage");
+  assert.equal(result.current.viewHref(result.current.accountList), "/brokerage");
 });

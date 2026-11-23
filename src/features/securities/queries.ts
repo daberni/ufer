@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { apiGet } from "@/client/api";
 import { queryKeys } from "@/client/query-keys";
-import type { BrokeragePerformance, BrokerageTrades, SecurityList } from "./types";
+import type { BrokeragePerformance, BrokerageTrades, CombinedBrokeragePerformance, SecurityList } from "./types";
 
 export function useBrokerageTrades(accountId: string) {
   return useQuery({
@@ -16,6 +16,13 @@ export function useBrokeragePerformance(accountId: string) {
   return useQuery({
     queryKey: queryKeys.securities.performance(accountId),
     queryFn: ({ signal }) => apiGet<BrokeragePerformance>(`brokerage-accounts/${encodeURIComponent(accountId)}/performance`, undefined, signal)
+  });
+}
+
+export function useCombinedBrokeragePerformance() {
+  return useQuery({
+    queryKey: queryKeys.securities.combinedPerformance(),
+    queryFn: ({ signal }) => apiGet<CombinedBrokeragePerformance>("brokerage/performance", undefined, signal)
   });
 }
 

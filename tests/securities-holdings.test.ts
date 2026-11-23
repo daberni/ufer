@@ -147,7 +147,7 @@ test("the price on a date is the latest on or before it, never a later one", () 
 });
 
 test("a holding without a price on or before the date is missing rather than worth zero", () => {
-  const valuation = valueHolding(units(5), [{
+  const valuation = valueHolding(units(5), [], [{
     date: "2026-03-10",
     close_micros: 50_000_000
   }], "EUR", "2026-03-09");
@@ -165,8 +165,8 @@ test("a price older than a week is used but marked stale", () => {
     close_micros: 50_000_000
   }];
 
-  assert.equal(valueHolding(units(5), prices, "EUR", "2026-03-09").status, "current");
-  assert.deepEqual(valueHolding(units(5), prices, "EUR", "2026-03-10"), {
+  assert.equal(valueHolding(units(5), [], prices, "EUR", "2026-03-09").status, "current");
+  assert.deepEqual(valueHolding(units(5), [], prices, "EUR", "2026-03-10"), {
     status: "stale",
     value_minor: 250_00,
     price: prices[0]
@@ -193,7 +193,7 @@ test("a same-day sale recorded before the buy that would cover it is refused reg
 });
 
 test("a fully sold holding is worth exactly zero and current, even with an old price", () => {
-  assert.deepEqual(valueHolding(0, [{
+  assert.deepEqual(valueHolding(0, [], [{
     date: "2026-01-02",
     close_micros: 50_000_000
   }], "EUR", "2026-06-30"), {

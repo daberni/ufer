@@ -15,6 +15,7 @@ import { describeBalanceDate } from "@/features/accounts/balance-presentation";
 import { useBalanceChart } from "@/features/accounts/use-balance-chart";
 import { BalanceHistoryChartSkeleton } from "@/features/accounts/components/balance-history-chart";
 import { useBrokeragePerformance } from "../queries";
+import type { BrokeragePerformance } from "../types";
 import { performanceInRange, performanceRanges, type PerformanceRange, type RangePoint } from "../performance-range";
 
 // Returns are plotted in millionths so the shared integer value scale keeps enough resolution.
@@ -25,6 +26,34 @@ export function PerformancePanel({ accountId }: {
   accountId: string
 }) {
   const query = useBrokeragePerformance(accountId);
+
+  return (
+    <PerformanceView
+      title="Performance"
+      isPending={query.isPending}
+      isError={query.isError}
+      performance={query.data}
+    />
+  );
+}
+
+/** A time-weighted return series over a chosen range; the Brokerage overview shows one per currency across all accounts. */
+export function PerformanceView({
+  title,
+  isPending,
+  isError,
+  performance
+}: {
+  title: string;
+  isPending: boolean;
+  isError: boolean;
+  performance: Pick<BrokeragePerformance, "currency" | "missing" | "points"> | undefined;
+}) {
+  const query = {
+    isPending,
+    isError,
+    data: performance
+  };
   const [range, setRange] = useState<PerformanceRange>("All");
   const locale = useLocale();
   const points = useMemo(() => performanceInRange(query.data?.points ?? [], range), [query.data, range]);
@@ -32,7 +61,7 @@ export function PerformancePanel({ accountId }: {
   return (
     <section className={clsx(ui["panel"], styles["performance"])}>
       <div className={ui["card-heading"]}>
-        <h2>Performance</h2>
+        <h2>{title}</h2>
         <div className={styles["ranges"]} role="group" aria-label="Range">
           {performanceRanges.map(option => (
             <button
