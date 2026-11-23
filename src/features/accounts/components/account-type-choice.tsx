@@ -7,18 +7,21 @@ import styles from "./account-type-choice.module.css";
 import { useId } from "react";
 import { accountIcon, kinds } from "@/features/accounts/account-presentation";
 import { accountTypeCopy, accountTypeGroups } from "./account-type-options";
-import type { AccountKind } from "../account-kinds";
+import type { StoredAccountKind } from "../account-kinds";
 
 type Props = {
-  selected: AccountKind | null;
-  onSelect: (kind: AccountKind) => void;
+  selected: StoredAccountKind | null;
+  onSelect: (kind: StoredAccountKind) => void;
   legend?: string;
+  /** Leaves out the brokerage kind, which an existing account cannot change into or out of. */
+  ledgerOnly?: boolean;
 };
 
 export function AccountTypeChoice({
   selected,
   onSelect,
-  legend = "What do you want to add?"
+  legend = "What do you want to add?",
+  ledgerOnly = false
 }: Props) {
   const id = useId();
 
@@ -32,7 +35,7 @@ export function AccountTypeChoice({
             <small>{group.description}</small>
           </legend>
           <div className={styles["options"]}>
-            {group.kinds.map(kind => {
+            {group.kinds.filter(kind => !ledgerOnly || kind !== "brokerage").map(kind => {
               const Icon = accountIcon(kind);
               const labelId = `${id}-${kind}-label`;
               const descriptionId = `${id}-${kind}-description`;

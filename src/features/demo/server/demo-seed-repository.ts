@@ -1,6 +1,9 @@
-import { and, count, eq, inArray, isNotNull, like, ne, not, notInArray, sql } from "drizzle-orm";
+import { and, count, eq, inArray, isNotNull, like, ne, not, notInArray, sql, or } from "drizzle-orm";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
-import { accounts, balanceSnapshots, categories, categorizationRules, requisitions, syncRuns, transactions } from "@/server/database/schema";
+import { accounts, balanceSnapshots, categories, categorizationRules, requisitions, securities, securityPrices, securitySplits, securityTrades, syncRuns, transactions } from "@/server/database/schema";
+import { insertSettlementEntry, insertTrade } from "@/features/securities/server/security-repository";
+import { tradeCashAmount } from "@/features/securities/trade-decisions";
+import { demoBrokerage, type DemoBrokerageRows } from "./demo-brokerage";
 import { upsertTransactions } from "@/features/transactions/server/transaction-repository";
 import { recordManualBalance } from "@/features/transactions/server/manual-transaction-repository";
 import { manualAccountTypes } from "@/lib/transaction-types";
@@ -18,6 +21,8 @@ import type { DemoConnectionData, DemoCreatedCounterpart, DemoSnapshot, DemoSpli
 /** What the guard inspects before demo rows are replaced. */
 export type DemoSeedTarget = {
   foreignManualTransactions: number;
+  /** Trades someone recorded on a demo brokerage account or on a demo security; the seed would delete them, or could not delete its securities. */
+  foreignTrades: number;
 };
 
 export type DemoAccountRows = DemoAccountDefinition & {
@@ -37,9 +42,13 @@ export type DemoSeedRows = {
   connections: DemoConnectionData[];
   syncRuns: DemoSyncRun[];
   lastSyncedAt: string;
+  brokerage: DemoBrokerageRows;
 };
 
 const demoRows = `${demoIdPrefix}%`;
+
+// The seed's own trades; any other trade on a demo account was recorded by a person.
+const demoTradeRows = `${demoIdPrefix}trade-%`;
 
 /** Categories the seed did not create; the seed reuses one of them instead of adding a demo category with the same name. */
 export async function listForeignCategories(): Promise<Pick<Category, "id" | "name">[]> {
@@ -60,8 +69,17 @@ async function inspectTarget(tx: DatabaseTransaction): Promise<DemoSeedTarget> {
     count: count()
   }).from(transactions).where(and(inArray(transactions.account_id, foreignManualAccounts), notInArray(transactions.type, [...manualAccountTypes]))).get();
 
+  const demoBookings = tx.select({
+    id: transactions.id
+  }).from(transactions).where(like(transactions.account_id, demoRows));
+  // A trade that is not the seed's own counts when it sits on a demo account, holds a demo security or is settled through a demo booking.
+  const foreignTrades = await tx.select({
+    count: count()
+  }).from(securityTrades).where(and(not(like(securityTrades.id, demoTradeRows)), or(like(securityTrades.account_id, demoRows), like(securityTrades.security_id, demoRows), inArray(securityTrades.settlement_transaction_id, demoBookings)))).get();
+
   return {
-    foreignManualTransactions: manualTransactions?.count ?? 0
+    foreignManualTransactions: manualTransactions?.count ?? 0,
+    foreignTrades: foreignTrades?.count ?? 0
   };
 }
 
@@ -74,6 +92,10 @@ async function deleteDemoRows(tx: DatabaseTransaction) {
   await tx.update(transactions).set({
     transfer_id: null
   }).where(and(not(like(transactions.account_id, demoRows)), inArray(transactions.transfer_id, demoTransfers)));
+  await tx.delete(securityTrades).where(like(securityTrades.account_id, demoRows));
+  await tx.delete(securityPrices).where(like(securityPrices.security_id, demoRows));
+  await tx.delete(securitySplits).where(like(securitySplits.security_id, demoRows));
+  await tx.delete(securities).where(like(securities.id, demoRows));
   await tx.delete(transactions).where(like(transactions.account_id, demoRows));
   await tx.delete(balanceSnapshots).where(like(balanceSnapshots.account_id, demoRows));
   await tx.delete(accounts).where(like(accounts.id, demoRows));
@@ -181,6 +203,76 @@ async function insertSplits(tx: DatabaseTransaction, splits: DemoSplit[]) {
   }
 }
 
+/** The demo brokerage: its trades book their cash on a separate manual cash account, and synthetic weekly prices value the holdings. */
+async function insertBrokerage(tx: DatabaseTransaction, rows: DemoBrokerageRows) {
+  const cash = demoBrokerage.cashAccount;
+  const account = demoBrokerage.account;
+
+  await tx.insert(accounts).values([{
+    id: cash.id,
+    name: cash.name,
+    kind: "checking",
+    currency: "EUR"
+  }, {
+    id: account.id,
+    name: account.name,
+    kind: "brokerage",
+    currency: "EUR"
+  }]);
+  await recordManualBalance(tx, {
+    id: cash.id,
+    currency: "EUR"
+  }, rows.openingDate, rows.openingMinor);
+  // Demo securities carry no ISIN, so a trade someone records by ISIN never reuses a row the seed replaces.
+  await tx.insert(securities).values(rows.securities.map(security => ({
+    id: security.id,
+    name: security.name,
+    currency: "EUR"
+  })));
+  await tx.insert(securityPrices).values(rows.prices.map(price => ({
+    security_id: price.securityId,
+    date: price.date,
+    close_micros: price.closeMicros,
+    source: "demo",
+    fetched_at: `${price.date}T20:00:00.000Z`
+  })));
+
+  for (const trade of rows.trades) {
+    const security = rows.securities.find(item => item.id === trade.securityId)!;
+    const legId = `${trade.id}-cash`;
+
+    await insertSettlementEntry(tx, {
+      id: legId,
+      account_id: cash.id,
+      date: trade.date,
+      amount_minor: tradeCashAmount({
+        side: trade.side,
+        gross_minor: trade.grossMinor,
+        fee_minor: trade.feeMinor,
+        tax_minor: 0
+      }),
+      currency: "EUR",
+      type: trade.side,
+      counterparty: account.name,
+      description: `${trade.side === "buy" ? "Buy" : "Sell"} ${trade.quantityMicros / 1_000_000} ${security.name}`
+    });
+    await insertTrade(tx, {
+      id: trade.id,
+      account_id: account.id,
+      security_id: trade.securityId,
+      date: trade.date,
+      side: trade.side,
+      sequence: trade.sequence,
+      quantity_micros: trade.quantityMicros,
+      price_micros: trade.priceMicros,
+      gross_minor: trade.grossMinor,
+      fee_minor: trade.feeMinor,
+      tax_minor: 0,
+      settlement_transaction_id: legId
+    });
+  }
+}
+
 function demoAccount(account: DemoAccountRows) {
   return {
     id: account.id,
@@ -212,6 +304,7 @@ export async function replaceDemoRows(rows: DemoSeedRows, verify: (target: DemoS
     }
 
     await insertSplits(tx, rows.splits);
+    await insertBrokerage(tx, rows.brokerage);
     await tx.insert(syncRuns).values(rows.syncRuns.map(run => ({
       id: run.id,
       started_at: run.startedAt,

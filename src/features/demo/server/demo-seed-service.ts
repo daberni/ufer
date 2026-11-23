@@ -6,6 +6,7 @@ import { environment } from "@/server/environment";
 import { categorizeEntries } from "@/features/categorization/server/rule-assignment";
 import { demoCategories, demoRules } from "./demo-catalog";
 import { buildDemoDataset } from "./demo-dataset";
+import { buildDemoBrokerage } from "./demo-brokerage";
 import { countDemoRows, listForeignCategories, replaceDemoRows, type DemoSeedTarget } from "./demo-seed-repository";
 
 /** An expected refusal of the guard, reported to the operator without a stack trace. */
@@ -21,6 +22,10 @@ export type DemoSeedOptions = {
  * the configured banking environment must be SANDBOX, and manual or CSV accounts the seed did not create must not hold transactions.
  */
 function assertDemoTarget(target: DemoSeedTarget) {
+  if (target.foreignTrades > 0) {
+    throw new DemoSeedRefusal(`Refusing to seed: ${target.foreignTrades} trades that the demo seed did not create use its brokerage account, securities or bookings.`);
+  }
+
   if (target.foreignManualTransactions > 0) {
     throw new DemoSeedRefusal(`Refusing to seed: the database contains ${target.foreignManualTransactions} transactions on manual or CSV accounts that the demo seed did not create.`);
   }
@@ -58,7 +63,8 @@ export function assertDemoSeedRequest(options: DemoSeedOptions) {
 export async function seedDemoData(options: DemoSeedOptions) {
   assertDemoSeedRequest(options);
 
-  const dataset = buildDemoDataset(options.runDate ?? today());
+  const runDate = options.runDate ?? today();
+  const dataset = buildDemoDataset(runDate);
   const categories = await resolveCategories();
   const rules: Rule[] = demoRules.map(rule => ({
     id: rule.id,
@@ -88,7 +94,8 @@ export async function seedDemoData(options: DemoSeedOptions) {
     })),
     connections: dataset.connections,
     syncRuns: dataset.syncRuns,
-    lastSyncedAt: dataset.lastSyncedAt
+    lastSyncedAt: dataset.lastSyncedAt,
+    brokerage: buildDemoBrokerage(runDate)
   }, assertDemoTarget);
 
   return {

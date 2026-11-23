@@ -154,8 +154,8 @@ An item is checked only when its acceptance criterion is met and evidence is rec
   - [x] Account-scoped rules ([#243](https://github.com/daberni/ufer/issues/243))
 - [ ] **K-03 · Securities** ([#266](https://github.com/daberni/ufer/issues/266))
   - [x] Market-data provider evaluated ([market data providers](market-data-providers.md))
-  - [ ] Brokerage accounts with holdings, buys and sells
-  - [ ] Daily valuations in net worth and its history
+  - [x] Brokerage accounts with holdings, buys and sells, recorded from their bank booking or a manual cash account
+  - [x] Valuations in net worth and its history from stored daily prices; daily EODHD prices need the operator's API key
 - [ ] **K-04 · Planning:** budgets, recurring entries and forecasts; planning model to be agreed first
 - [ ] **K-05 · Historical wealth**
   - [x] Per-account balance history

@@ -42,7 +42,7 @@ function EditAccountForm({
   } = useDialogSubmit(useEditAccount(account.id), close);
   const [kind, setKind] = useState(account.kind as AccountKind);
   // A bank-synced account keeps its bank's type, and an archived account is read-only until it is restored.
-  const typeEditable = account.provider === "manual" && account.archived_at === null;
+  const typeEditable = account.provider === "manual" && account.kind !== "brokerage" && account.archived_at === null;
 
   return (
     <form className={ui["form"]} onSubmit={event => submit(event, data => Object.fromEntries(data))}>
@@ -57,7 +57,14 @@ function EditAccountForm({
         />
       </label>
       {account.provider_name && account.provider_name !== account.name && <p className={ui["form-hint"]}>Name at the bank: {account.provider_name}</p>}
-      {typeEditable ? <AccountTypeChoice selected={kind} onSelect={setKind} legend="Account type" /> : <AccountTypeNote account={account} />}
+      {typeEditable ? (
+        <AccountTypeChoice
+          selected={kind}
+          onSelect={choice => choice !== "brokerage" && setKind(choice)}
+          legend="Account type"
+          ledgerOnly
+        />
+      ) : <AccountTypeNote account={account} />}
       <FormError failure={error} />
       <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={pending}>
         Save <Check size={16} />
@@ -66,10 +73,18 @@ function EditAccountForm({
   );
 }
 
+function accountTypeNote(account: Account) {
+  if (account.kind === "brokerage") {
+    return "A brokerage account holds securities and keeps its type.";
+  }
+
+  return account.provider === "manual" ? "Restore the account to change its type." : "A bank-synced account keeps the type from its bank connection.";
+}
+
 function AccountTypeNote({ account }: {
   account: Account
 }) {
-  const reason = account.provider === "manual" ? "Restore the account to change its type." : "A bank-synced account keeps the type from its bank connection.";
+  const reason = accountTypeNote(account);
 
   return (
     <p className={ui["form-hint"]}>

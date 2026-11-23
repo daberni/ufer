@@ -43,11 +43,11 @@ export type HoldingValue = {
   cost_minor: number;
   realized_minor: number;
   status: "current" | "stale" | "missing";
-  value_minor: number | null;
+  value_minor: number;
   price: PricePoint | null;
 };
 
-/** A brokerage account's value on one date: the sum of its holdings at the price valid then. A holding without a price counts zero and is reported missing; one with an old price counts and is reported stale. */
+/** A brokerage account's value on one date: the sum of its holdings at the price valid then. A holding without any price counts at its cost basis and is reported missing ("no price"); one with an old price counts at that price and is reported stale. */
 export type AccountValuation = {
   value_minor: number;
   missing: number;
@@ -58,20 +58,23 @@ export type AccountValuation = {
 export function valueHoldings(holdings: HoldingInputs[], date: string): AccountValuation {
   const values = holdings.map(holding => {
     const position = positionOn(holding.trades, holding.splits, date);
+    const valuation = valueHolding(position.quantity_micros, holding.prices, holding.currency, date);
 
     return {
       security_id: holding.security_id,
       security_name: holding.security_name,
       ...position,
-      ...valueHolding(position.quantity_micros, holding.prices, holding.currency, date)
+      ...valuation,
+      // Without any price the cost basis is the best available approximation (ADR 012 amendment); the status still says it is not a market value.
+      value_minor: valuation.value_minor ?? position.cost_minor
     };
   });
 
   return {
-    value_minor: values.reduce((total, holding) => total + (holding.value_minor ?? 0), 0),
+    value_minor: values.reduce((total, holding) => total + holding.value_minor, 0),
     missing: values.filter(holding => holding.status === "missing").length,
     stale: values.filter(holding => holding.status === "stale").length,
-    holdings: values.filter(holding => holding.quantity_micros > 0 || holding.realized_minor !== 0)
+    holdings: values.filter((_, index) => holdings[index]!.trades.some(trade => trade.date <= date))
   };
 }
 

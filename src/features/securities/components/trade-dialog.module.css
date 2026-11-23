@@ -1,0 +1,21 @@
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+.grid label {
+  margin-bottom: 0;
+}
+
+.booking-text {
+  display: block;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+/* Stacked fields flow as blocks so their label margins collapse like the fields above them. */
+@media (--mobile) {
+  .grid {
+    display: block;
+  }
+}

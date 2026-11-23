@@ -114,7 +114,7 @@ test("changeset 0022 accepts brokerage accounts, trade bookings, securities, pri
     "INSERT INTO accounts(id,name,kind) VALUES('depot','Synthetic depot','brokerage')",
     "INSERT INTO accounts(id,name,kind) VALUES('cash','Synthetic settlement','checking')",
     "INSERT INTO transactions(id,account_id,provider_reference,date,amount_minor,currency,type) VALUES('leg','cash','manual:leg','2026-03-02',-100500,'EUR','buy')",
-    "INSERT INTO securities(id,isin,name,currency,provider,provider_symbol,venue) VALUES('etf','XS0000000001','Synthetic World ETF','EUR','eodhd','SYN.XETRA','XETR')",
+    "INSERT INTO securities(id,isin,name,currency,provider,provider_symbol,venue) VALUES('etf','XS0000000009','Synthetic World ETF','EUR','eodhd','SYN.XETRA','XETR')",
     "INSERT INTO securities(id,name,currency) VALUES('fund','Synthetic fund','EUR')",
     "INSERT INTO security_prices(security_id,date,close_micros,source,fetched_at) VALUES('etf','2026-03-02',100250000,'eodhd','2026-03-03T06:00:00Z')",
     "INSERT INTO security_splits(security_id,date,numerator,denominator) VALUES('etf','2026-06-01',2,1)",

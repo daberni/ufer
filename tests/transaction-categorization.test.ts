@@ -9,6 +9,7 @@ import type { Transaction, TransactionPage } from "../src/features/transactions/
 import { browser, respond, wait, withQueryClient, type PendingRequest } from "./fixtures/browser";
 
 const transaction: Transaction = {
+  trade: null,
   id: "synthetic-entry",
   date: "2000-01-10",
   amount_minor: -1250,

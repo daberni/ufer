@@ -363,6 +363,7 @@ function booking(overrides: Partial<Transaction>): Transaction {
     follows_import: false,
     created_counterpart: false,
     counterpart: null,
+    trade: null,
     ...overrides
   };
 }

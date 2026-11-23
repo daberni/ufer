@@ -1,6 +1,6 @@
 import { respond } from "@/server/http/respond";
 import { readJson } from "@/server/http/request-body";
-import { editManualTransaction, removeManualTransaction, updateTransactionCategory } from "@/features/transactions/server/transaction-service";
+import { editManualTransaction, readBooking, removeManualTransaction, updateTransactionCategory } from "@/features/transactions/server/transaction-service";
 
 export const runtime = "nodejs";
 
@@ -13,6 +13,12 @@ type Context = {
     id: string;
   }>;
 };
+
+export async function GET(request: Request, context: Context) {
+  return respond(request, async () => readBooking((await context.params).id), {
+    access: "session"
+  });
+}
 
 export async function PATCH(request: Request, context: Context) {
   return respond(request, async () => {

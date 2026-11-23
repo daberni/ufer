@@ -62,10 +62,11 @@
   /* Charts and account kinds: marks keep 3:1 against their background where they carry meaning. */
   --chart-income: light-dark(#719064, #7fae7b);
   --chart-expense: light-dark(#c0724f, #c98463);
-  --chart-liquid: light-dark(#567d53, #86b383);
-  --chart-invested: light-dark(#b0be8e, #a3b47f);
-  --chart-property: light-dark(#cfbd8d, #cdb47d);
-  --chart-loans: light-dark(#b67a6c, #d39888);
+  /* Net-worth categories use the account kind colours, so the chart matches account icons everywhere. */
+  --chart-liquid: var(--kind-bank);
+  --chart-invested: var(--kind-investment);
+  --chart-property: var(--kind-property);
+  --chart-loans: var(--kind-debt);
   --chart-track: light-dark(#eef1e9, #26332c);
   --wealth-surface: light-dark(#edf2e2, #1b2a21);
   --wealth-highlight: light-dark(#f2f5ec, #21322a);

@@ -39,6 +39,7 @@ type OpenDialog = {
 const shownRows = 3;
 
 const placeholderAccount = {
+  kind: "checking",
   provider: "manual",
   institution: null,
   requisition_id: null,

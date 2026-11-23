@@ -5,9 +5,9 @@ import { eq } from "drizzle-orm";
 import * as schema from "../src/server/database/schema";
 import { archiveAccount, deleteAccount } from "../src/features/accounts/server/account-service";
 import { readCashFlow } from "../src/features/reports/server/cash-flow-query";
-import { enterManualTransaction, hideTransaction, removeManualTransaction, updateTransactionDetails } from "../src/features/transactions/server/transaction-service";
+import { enterManualTransaction, hideTransaction, readBooking, removeManualTransaction, updateTransactionDetails } from "../src/features/transactions/server/transaction-service";
 import { tradeCashAmount } from "../src/features/securities/trade-decisions";
-import { createBrokerageAccount, createSecurity, readBrokerageTrades, removeTrade, settlementCandidates } from "../src/features/securities/server/security-service";
+import { correctTrade, createBrokerageAccount, createSecurity, readBrokerageTrades, removeTrade, settlementCandidates } from "../src/features/securities/server/security-service";
 import { monthPeriod } from "../src/lib/period";
 import { HttpError, ValidationError } from "../src/lib/errors";
 import { balanceOf, bookingsOf, depot, isolatedDatabase, now, rejectsWith, security, settlementAccount, syncBooking, trade } from "./fixtures/brokerage";
@@ -88,9 +88,9 @@ test("a partial sale keeps the moving-average cost of the rest and realizes its 
   } = await readBrokerageTrades(account, now);
 
   assert.deepEqual(trades.map(item => item.sequence), [1, 2, 3]);
-  // No price is stored yet, so the holding is listed without a value.
+  // No price is stored yet, so the holding counts at its cost basis and is marked missing.
   assert.deepEqual(valuation, {
-    value_minor: 0,
+    value_minor: 1657_50,
     missing: 1,
     stale: 0,
     holdings: [{
@@ -100,7 +100,7 @@ test("a partial sale keeps the moving-average cost of the rest and realizes its 
       cost_minor: 1657_50,
       realized_minor: 700_00 - 4_00 - 552_50,
       status: "missing",
-      value_minor: null,
+      value_minor: 1657_50,
       price: null
     }]
   });
@@ -473,4 +473,131 @@ test("a brokerage account is archived only once it holds no securities", async c
   });
   await archiveAccount(account, {}, now);
   assert.ok((await db.select().from(schema.accounts).where(eq(schema.accounts.id, account)).get())?.archived_at);
+});
+
+test("correcting a trade moves its own cash entry, keeps a bank booking as the source of truth and refuses an oversell", async context => {
+  const db = await isolatedDatabase(context);
+  const cash = await settlementAccount();
+  const account = await depot();
+  const etf = await security();
+  const { id: entered } = await trade(account, {
+    security_id: etf,
+    date: "2026-09-10",
+    side: "buy",
+    quantity: "10",
+    price: "100",
+    settlement: {
+      account_id: cash
+    }
+  });
+
+  await correctTrade(entered, {
+    date: "2026-09-11",
+    quantity: "8",
+    price: "100",
+    fee: "2"
+  }, now);
+  assert.deepEqual((await bookingsOf(db, cash)).at(-1), ["2026-09-11", "buy", -802_00]);
+
+  const booking = await syncBooking(db, "broker-debit", "2026-09-20", -500_00);
+  const { id: linked } = await trade(account, {
+    security_id: etf,
+    date: "2026-09-20",
+    side: "buy",
+    quantity: "5",
+    price: "100",
+    settlement: {
+      transaction_id: booking.id
+    }
+  });
+
+  await assert.rejects(correctTrade(linked, {
+    date: "2026-09-20",
+    quantity: "5",
+    price: "100",
+    fee: "1"
+  }, now), ValidationError);
+  await correctTrade(linked, {
+    date: "2026-09-19",
+    quantity: "4",
+    price: "125"
+  }, now);
+  assert.deepEqual((await db.select().from(schema.securityTrades).where(eq(schema.securityTrades.id, linked)).get())?.quantity_micros, 4_000_000);
+
+  const { id: sale } = await trade(account, {
+    security_id: etf,
+    date: "2026-10-01",
+    side: "sell",
+    quantity: "12",
+    price: "100",
+    settlement: {
+      account_id: cash
+    }
+  });
+
+  // Reducing the first buy would leave the sale above the quantity held.
+  await assert.rejects(correctTrade(entered, {
+    date: "2026-09-11",
+    quantity: "5",
+    price: "100"
+  }, now), ValidationError);
+  assert.ok(sale);
+});
+
+test("a position sold at exactly its cost stays listed as closed", async context => {
+  await isolatedDatabase(context);
+  const cash = await settlementAccount();
+  const account = await depot();
+  const etf = await security();
+  const settlement = {
+    account_id: cash
+  };
+
+  await trade(account, {
+    security_id: etf,
+    date: "2026-09-10",
+    side: "buy",
+    quantity: "10",
+    price: "100",
+    settlement
+  });
+  await trade(account, {
+    security_id: etf,
+    date: "2026-09-20",
+    side: "sell",
+    quantity: "10",
+    price: "100",
+    settlement
+  });
+
+  const { valuation } = await readBrokerageTrades(account, now);
+
+  assert.deepEqual(valuation.holdings.map(holding => [holding.security_id, holding.quantity_micros, holding.realized_minor]), [[etf, 0, 0]]);
+});
+
+test("a trade's own cash entry stays owned by the trade after its account is connected to a bank", async context => {
+  const db = await isolatedDatabase(context);
+  const cash = await settlementAccount();
+  const account = await depot();
+  const etf = await security();
+
+  const { id } = await trade(account, {
+    security_id: etf,
+    date: "2026-09-10",
+    side: "buy",
+    quantity: "10",
+    price: "100",
+    settlement: {
+      account_id: cash
+    }
+  });
+  const stored = await db.select().from(schema.securityTrades).where(eq(schema.securityTrades.id, id)).get();
+
+  await db.update(schema.accounts).set({
+    provider: "enable_banking"
+  }).where(eq(schema.accounts.id, cash));
+
+  const booking = await readBooking(stored!.settlement_transaction_id!);
+
+  assert.equal(booking.trade?.entry_owned, true);
 });

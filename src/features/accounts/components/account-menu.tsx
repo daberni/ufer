@@ -24,11 +24,13 @@ type Dialog = "edit" | "reconnect" | "connect" | "close" | "delete" | null;
  */
 export function AccountMenu({
   account,
-  addTransaction
+  addTransaction,
+  addLabel = "Add transaction"
 }: {
   account: Account;
   /** Offered as the first entry on phones, where the heading shows no separate "Add transaction" button. */
   addTransaction?: () => void;
+  addLabel?: string;
 }) {
   const [dialog, setDialog] = useState<Dialog>(null);
   const archive = useArchiveAccount(account.id);
@@ -37,6 +39,8 @@ export function AccountMenu({
   const close = () => setDialog(null);
   const archived = account.archived_at !== null;
   const bankLinked = account.provider !== "manual";
+  // A brokerage account holds securities: it connects to no bank and is archived once nothing is held, never closed by booking its value away.
+  const brokerage = account.kind === "brokerage";
   const detached = account.requisition_id === null;
   const connection = connections.find(item => item.id === account.requisition_id) ?? null;
   const offersReconnect = connection !== null && !archived && accountProblem(account, Temporal.Now.instant()) === null;
@@ -50,7 +54,7 @@ export function AccountMenu({
       <ActionMenu label={`Actions for ${account.name}`} appearance="button">
         {addTransaction && (
           <MenuItem icon={<Plus size={15} aria-hidden="true" />} phoneOnly onSelect={addTransaction}>
-            Add transaction
+            {addLabel}
           </MenuItem>
         )}
         <MenuItem icon={<Pencil size={15} aria-hidden="true" />} onSelect={() => setDialog("edit")}>
@@ -66,7 +70,7 @@ export function AccountMenu({
             Manage bank connections
           </MenuLink>
         )}
-        {!bankLinked && !archived && (
+        {!bankLinked && !brokerage && !archived && (
           <MenuItem icon={<Link2 size={15} aria-hidden="true" />} onSelect={() => setDialog("connect")}>
             Connect to bank
           </MenuItem>
@@ -76,7 +80,7 @@ export function AccountMenu({
             Restore account
           </MenuItem>
         ) : (
-          <MenuItem icon={<Archive size={15} aria-hidden="true" />} disabled={archive.isPending} onSelect={() => settled ? archive.mutate({}) : setDialog("close")}>
+          <MenuItem icon={<Archive size={15} aria-hidden="true" />} disabled={archive.isPending} onSelect={() => settled || brokerage ? archive.mutate({}) : setDialog("close")}>
             Archive account
           </MenuItem>
         )}

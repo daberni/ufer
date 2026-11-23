@@ -69,14 +69,14 @@ test("a brokerage account's balance is its holdings at the latest price, without
   assert.equal((await db.select().from(schema.transactions)).filter(booking => booking.account_id === account).length, 0);
 });
 
-test("a holding without any price counts nothing and is reported missing; an old price counts and is reported stale", async context => {
+test("a holding without any price counts at its cost basis and is reported missing; an old price counts and is reported stale", async context => {
   const {
     db,
     account,
     etf
   } = await holdings(context);
 
-  assert.deepEqual([(await brokerageRow(account)).balance_minor, (await brokerageRow(account)).valuation], [0, {
+  assert.deepEqual([(await brokerageRow(account)).balance_minor, (await brokerageRow(account)).valuation], [1000_00, {
     missing: 1,
     stale: 0
   }]);

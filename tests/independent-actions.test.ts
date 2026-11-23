@@ -46,6 +46,7 @@ const rule = {
 } satisfies Rule;
 
 const transaction: Transaction = {
+  trade: null,
   id: "synthetic-entry",
   date: "2000-01-10",
   amount_minor: -1250,

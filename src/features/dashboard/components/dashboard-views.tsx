@@ -12,6 +12,7 @@ import { ConnectionsSection } from "@/features/banking/components/connections-vi
 import { AccountDetails, AccountNotFound, type BackLink } from "@/features/accounts/components/account-details";
 import { FileImportPage } from "@/features/imports/components/file-import-page";
 import { AccountCashFlowSummary } from "@/features/reports/components/account-cash-flow";
+import { BrokeragePanel } from "@/features/securities/components/brokerage-panel";
 import { withArchivedAccountsOpen } from "@/client/app-location";
 import { replacePage, setSyncRun, useAccountTransactionsHref, useViewHref, useViewQuery } from "@/client/use-app-url";
 import { useAppStore } from "@/client/app-store";
@@ -179,25 +180,12 @@ export function AccountPage() {
         connections={connections}
         history={history}
       />
-      {account.status === "pending" ? (
-        <AccountActivity
-          account={null}
-          cashFlow={cashFlow}
-          categories={categories}
-          list={{
-            status: "pending",
-            failure: null
-          }}
-          page={query.page}
-        />
-      ) : (
-        <LoadedAccountActivity
-          account={account.data}
-          cashFlow={cashFlow}
-          categories={categories}
-          query={query}
-        />
-      )}
+      <AccountContent
+        account={account}
+        cashFlow={cashFlow}
+        categories={categories}
+        query={query}
+      />
     </>
   );
 }
@@ -206,6 +194,36 @@ type AccountActivityProps = {
   cashFlow: Area<AccountCashFlow>;
   categories: Area<Category[]>;
 };
+
+/** Below the summary: a brokerage account's holdings and trades, any other account's cash flow and transactions. */
+function AccountContent({
+  account,
+  query,
+  ...areas
+}: AccountActivityProps & {
+  account: Area<Account>;
+  query: ViewQuery;
+}) {
+  if (account.status === "pending") {
+    return (
+      <AccountActivity
+        account={null}
+        list={{
+          status: "pending",
+          failure: null
+        }}
+        page={query.page}
+        {...areas}
+      />
+    );
+  }
+
+  if (account.data.kind === "brokerage") {
+    return <BrokeragePanel account={account.data} />;
+  }
+
+  return <LoadedAccountActivity account={account.data} query={query} {...areas} />;
+}
 
 // The list is filtered by the account's own currency, which is known once the account has loaded.
 function LoadedAccountActivity({

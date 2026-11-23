@@ -76,7 +76,21 @@ export type AccountSource = {
   };
 };
 
+// A brokerage account is neither entered by hand nor synced: its value comes from its trades and prices.
+function sourceLabel(account: {
+  kind: string;
+  provider: string;
+  institution: string | null
+}) {
+  if (account.provider !== "manual") {
+    return account.institution ?? "Bank";
+  }
+
+  return account.kind === "brokerage" ? "Trades and prices" : "Manual";
+}
+
 export function accountSource(account: {
+  kind: string;
   provider: string;
   institution: string | null;
   requisition_id: string | null;
@@ -86,7 +100,7 @@ export function accountSource(account: {
   archived_at: string | null
 }, now: Temporal.Instant): AccountSource {
   const manual = account.provider === "manual";
-  const label = manual ? "Manual" : account.institution ?? "Bank";
+  const label = sourceLabel(account);
 
   if (account.archived_at) {
     return {

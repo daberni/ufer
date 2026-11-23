@@ -12,6 +12,7 @@ import { readSecurities, recordTrade } from "../src/features/securities/server/s
 import { eodhdProvider, parseSplitRatio } from "../src/features/securities/server/market-data/eodhd-provider";
 import { MarketDataError, type MarketDataProvider, type ProviderClose } from "../src/features/securities/server/market-data/market-data-provider";
 import { acquireLease } from "../src/server/jobs/lease-repository";
+import { findOrInsertSecurity } from "../src/features/securities/server/security-repository";
 import { HttpError } from "../src/lib/errors";
 
 // A Wednesday; the security "etf" checks its splits on Tuesdays (its weekday from checksSplits).
@@ -57,6 +58,26 @@ async function isolatedDatabase(context: TestContext) {
   }]);
 
   return db;
+}
+
+/** Gives the fixture securities a holding: price updates cover only securities some trade holds. */
+async function holdFixtureSecurities(db: Database) {
+  await db.insert(schema.accounts).values({
+    id: "holder",
+    name: "Synthetic holder",
+    kind: "brokerage"
+  });
+  await db.insert(schema.securityTrades).values(["etf", "fund"].map((securityId, index) => ({
+    id: `hold-${securityId}`,
+    account_id: "holder",
+    security_id: securityId,
+    date: "2026-10-10",
+    side: "buy" as const,
+    sequence: index + 1,
+    quantity_micros: 1_000_000,
+    price_micros: 10_000_000,
+    gross_minor: 10_00
+  })));
 }
 
 type Request = {
@@ -141,12 +162,14 @@ test("without a price source the update does nothing and the securities say so",
     message: "No price source configured."
   });
   await assert.rejects(searchListings(new URLSearchParams({
-    isin: "XS0000000001"
+    isin: "XS0000000009"
   }), null), error => error instanceof HttpError && error.status === 409);
 });
 
 test("an update fetches from shortly before the newest price, or from the first trade, and stores exact closes, refetching recent days for corrections", async context => {
   const db = await isolatedDatabase(context);
+
+  await holdFixtureSecurities(db);
 
   await db.insert(schema.securityPrices).values({
     security_id: "etf",
@@ -223,6 +246,8 @@ test("an update fetches from shortly before the newest price, or from the first 
 
 test("a failing security keeps its error visible while the others update", async context => {
   const db = await isolatedDatabase(context);
+
+  await holdFixtureSecurities(db);
   const { provider } = fakeProvider({
     "SYN.XETRA": new MarketDataError("The price provider's request limit is reached."),
     "SYNF.EUFUND": [{
@@ -329,12 +354,12 @@ test("closes convert to micro-units through their decimal text and invalid ones 
 test("the EODHD adapter maps responses, sends the token only as a query parameter and keeps it out of errors", async () => {
   const urls: URL[] = [];
   const responses: Record<string, unknown> = {
-    "/api/search/XS0000000001": [{
+    "/api/search/XS0000000009": [{
       Code: "SYN",
       Exchange: "XETRA",
       Name: "Synthetic World ETF",
       Currency: "EUR",
-      ISIN: "XS0000000001"
+      ISIN: "XS0000000009"
     }],
     "/api/eod/SYN.XETRA": [{
       date: "2026-10-13",
@@ -371,12 +396,12 @@ test("the EODHD adapter maps responses, sends the token only as a query paramete
     return Response.json(responses[url.pathname]);
   });
 
-  assert.deepEqual(await provider.searchByIsin("XS0000000001"), [{
+  assert.deepEqual(await provider.searchByIsin("XS0000000009"), [{
     symbol: "SYN.XETRA",
     name: "Synthetic World ETF",
     exchange: "XETRA",
     currency: "EUR",
-    isin: "XS0000000001"
+    isin: "XS0000000009"
   }]);
   assert.deepEqual(await provider.dailyCloses("SYN.XETRA", "2026-10-13", "2026-10-14"), [{
     date: "2026-10-13",
@@ -467,8 +492,176 @@ test("split checks spread over the week, and a failed one is retried on the next
   assert.equal((await db.select().from(schema.securitySplits)).length, 1);
 });
 
+async function tradeAccounts(db: Database) {
+  await db.insert(schema.accounts).values([{
+    id: "depot",
+    name: "Synthetic depot",
+    kind: "brokerage"
+  }, {
+    id: "cash",
+    name: "Synthetic cash",
+    kind: "checking"
+  }]);
+}
+
+function buyByIsin(isin: string, extra: Record<string, unknown> = {}) {
+  return recordTrade("depot", {
+    security: {
+      isin,
+      ...extra
+    },
+    date: "2026-10-13",
+    side: "buy",
+    quantity: "1",
+    price: "10",
+    settlement: {
+      account_id: "cash"
+    }
+  }, now);
+}
+
+async function securitiesWithIsin(db: Database, isin: string) {
+  return db.select().from(schema.securities).where(eq(schema.securities.isin, isin));
+}
+
+test("a trade named by ISIN stores its security without searching; the next update picks the preferred listing and fetches its closes", async context => {
+  const db = await isolatedDatabase(context);
+  const searched: string[] = [];
+  const listings = fakeProvider({
+    "WLD.XETRA": [{
+      date: "2026-10-13",
+      close: 101
+    }]
+  });
+  const provider: MarketDataProvider = {
+    ...listings.provider,
+    async searchByIsin(isin) {
+      searched.push(isin);
+
+      return [{
+        symbol: "WLD.LSE",
+        name: "Synthetic World (London)",
+        exchange: "LSE",
+        currency: "GBP",
+        isin
+      }, {
+        symbol: "WLD.F",
+        name: "Synthetic World",
+        exchange: "F",
+        currency: "EUR",
+        isin
+      }, {
+        symbol: "WLD.XETRA",
+        name: "Synthetic World",
+        exchange: "XETRA",
+        currency: "EUR",
+        isin
+      }];
+    }
+  };
+
+  await tradeAccounts(db);
+  await buyByIsin("us0378331005");
+  await buyByIsin("US0378331005");
+
+  let created = await securitiesWithIsin(db, "US0378331005");
+
+  assert.deepEqual(created.map(security => [security.name, security.provider_symbol]), [["US0378331005", null]]);
+  assert.equal((await db.select().from(schema.securityTrades)).filter(trade => trade.security_id === created[0].id).length, 2);
+  await assert.rejects(buyByIsin("US0378331006"));
+
+  await updatePrices(now, provider);
+  created = await securitiesWithIsin(db, "US0378331005");
+  assert.deepEqual(searched, ["US0378331005"]);
+  assert.deepEqual(created.map(security => [security.name, security.provider_symbol, security.venue]), [["Synthetic World", "WLD.XETRA", "XETRA"]]);
+  assert.deepEqual(await pricesOf(db, created[0].id), [["2026-10-13", 101_000_000]]);
+
+  // Later updates price it through the chosen listing without searching again.
+  await updatePrices(Temporal.Instant.from("2026-10-15T06:00:00Z"), provider);
+  assert.deepEqual(searched, ["US0378331005"]);
+});
+
+test("without a listing in its currency a security recorded by ISIN stays unpriced, says so and is not searched again", async context => {
+  const db = await isolatedDatabase(context);
+  const searched: string[] = [];
+  const provider: MarketDataProvider = {
+    ...fakeProvider({}).provider,
+    async searchByIsin(isin) {
+      searched.push(isin);
+
+      return [{
+        symbol: "WLD.US",
+        name: "Synthetic World",
+        exchange: "US",
+        currency: "USD",
+        isin
+      }];
+    }
+  };
+
+  await tradeAccounts(db);
+  await buyByIsin("US0378331005", {
+    name: "Synthetic World"
+  });
+  await updatePrices(now, provider);
+  await updatePrices(Temporal.Instant.from("2026-10-15T06:00:00Z"), provider);
+
+  const [security] = await securitiesWithIsin(db, "US0378331005");
+
+  assert.deepEqual([security.name, security.provider_symbol, searched.length], ["Synthetic World", null, 1]);
+  assert.match(security.price_error ?? "", /No price listing in EUR/);
+});
+
+test("a rejected trade named by a new ISIN leaves no security behind", async context => {
+  const db = await isolatedDatabase(context);
+
+  await tradeAccounts(db);
+  await assert.rejects(recordTrade("depot", {
+    security: {
+      isin: "IE00B4L5Y983"
+    },
+    date: "2026-10-13",
+    side: "sell",
+    quantity: "1",
+    price: "10",
+    settlement: {
+      account_id: "cash"
+    }
+  }, now));
+  assert.deepEqual(await securitiesWithIsin(db, "IE00B4L5Y983"), []);
+});
+
+test("a security inserted meanwhile for the same ISIN is reused instead of adding a second", async context => {
+  const db = await isolatedDatabase(context);
+
+  // Another trade inserted its security after this one looked; the check inside the transaction returns it.
+  await db.insert(schema.securities).values({
+    id: "winner",
+    isin: "IE00B4L5Y983",
+    name: "Synthetic New",
+    currency: "EUR",
+    provider: "eodhd",
+    provider_symbol: "NEW.XETRA"
+  });
+
+  const reused = await db.transaction(tx => findOrInsertSecurity(tx, {
+    id: "loser",
+    isin: "IE00B4L5Y983",
+    name: "Synthetic New",
+    currency: "EUR",
+    provider: "eodhd",
+    provider_symbol: "NEW.XETRA",
+    venue: "XETRA"
+  }));
+
+  assert.deepEqual([reused.id, reused.created], ["winner", false]);
+  assert.equal((await securitiesWithIsin(db, "IE00B4L5Y983")).length, 1);
+});
+
 test("an update that lost its lease to another run stops before the next security", async context => {
   const db = await isolatedDatabase(context);
+
+  await holdFixtureSecurities(db);
   const takeover = fakeProvider({});
 
   // While the first security is fetched, another run takes over the lease.
@@ -487,11 +680,13 @@ test("an update that lost its lease to another run stops before the next securit
   };
 
   assert.equal((await updatePrices(now, takeover.provider)).status, "interrupted");
-  assert.deepEqual(takeover.requests.map(request => request.symbol), ["SYN.XETRA"]);
+  assert.deepEqual(takeover.requests.filter(request => request.kind === "closes").map(request => request.symbol), ["SYN.XETRA"]);
 });
 
 test("the longest-unchecked securities are updated first, so one skipped over quota leads the next run", async context => {
   const db = await isolatedDatabase(context);
+
+  await holdFixtureSecurities(db);
 
   await db.update(schema.securities).set({
     price_checked_at: "2026-10-13T06:00:00.000Z"
@@ -690,6 +885,8 @@ test("a pending split retry survives a run whose close request fails first", asy
 
 test("a split recheck requested by a trade during an update survives that update", async context => {
   const db = await isolatedDatabase(context);
+
+  await holdFixtureSecurities(db);
   const concurrent = fakeProvider({});
 
   await db.update(schema.securities).set({
@@ -709,7 +906,9 @@ test("a split recheck requested by a trade during an update survives that update
 });
 
 test("an update past its deadline starts no further security", async context => {
-  await isolatedDatabase(context);
+  const db = await isolatedDatabase(context);
+
+  await holdFixtureSecurities(db);
   const {
     provider,
     requests
@@ -745,4 +944,37 @@ test("splits reported outside the requested interval are ignored", async context
     "SYN.XETRA": ["2026-01-05 3.000000/1.000000", "2026-09-01 2.000000/1.000000"]
   }).provider);
   assert.deepEqual((await db.select().from(schema.securitySplits)).map(split => split.date), ["2026-09-01"]);
+});
+
+test("closes fetched for a security deleted meanwhile are dropped without failing the update", async context => {
+  const db = await isolatedDatabase(context);
+
+  await holdFixtureSecurities(db);
+  const deleting = fakeProvider({
+    "SYNF.EUFUND": [{
+      date: "2026-10-13",
+      close: 49.5
+    }]
+  });
+
+  // While the first security's closes are fetched, its last trade and the security itself are deleted.
+  deleting.provider.dailyCloses = async symbol => {
+    if (symbol === "SYN.XETRA") {
+      await db.delete(schema.securityTrades).where(eq(schema.securityTrades.security_id, "etf"));
+      await db.delete(schema.securities).where(eq(schema.securities.id, "etf"));
+
+      return [{
+        date: "2026-10-13",
+        close: 100
+      }];
+    }
+
+    return [{
+      date: "2026-10-13",
+      close: 49.5
+    }];
+  };
+
+  assert.equal((await updatePrices(now, deleting.provider)).status, "updated");
+  assert.deepEqual(await pricesOf(db, "fund"), [["2026-10-13", 49_500_000]]);
 });

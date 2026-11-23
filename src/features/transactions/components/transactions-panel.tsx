@@ -11,7 +11,7 @@ import { Empty } from "@/components/ui/empty-state";
 import { TransactionRuleProvider } from "./transaction-rule-provider";
 import { TransactionList, TransactionListSkeleton } from "@/features/transactions/components/transaction-list";
 import { ManualTransactionDialog } from "@/features/transactions/components/manual-transaction-dialog";
-import { activeAccounts, useAccounts } from "@/features/accounts/queries";
+import { activeAccounts, bookableManualAccounts, useAccounts } from "@/features/accounts/queries";
 import { ImportFileDialog } from "@/features/imports/components/import-file-dialog";
 import { setAccountFilter, setCategoryFilter, setTypeFilter, setPage, setSearch, useAccountFilter, useCategoryFilter, useTypeFilter, useAllTransactionsHref, useSearchFilter } from "@/client/use-app-url";
 import { Select } from "@/components/ui/select";
@@ -89,7 +89,7 @@ export function TransactionsPanel(props: Props) {
   const [entryOpen, setEntryOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const allTransactionsHref = useAllTransactionsHref();
-  const manualAccounts = activeAccounts(useAccounts().data ?? []).filter(account => account.provider === "manual");
+  const manualAccounts = bookableManualAccounts(activeAccounts(useAccounts().data ?? []));
 
   return (
     <>

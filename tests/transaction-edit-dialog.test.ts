@@ -9,6 +9,7 @@ import { stubCssModules } from "./fixtures/css-modules";
 stubCssModules();
 
 const outgoing: Transaction = {
+  trade: null,
   id: "out",
   date: "2026-09-02",
   amount_minor: -35000,

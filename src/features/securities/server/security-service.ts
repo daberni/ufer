@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Temporal } from "temporal-polyfill";
 import { HttpError, ValidationError } from "@/lib/errors";
 import { minorUnits } from "@/lib/money";
+import { manualEntryPrefix } from "@/lib/booking-references";
 import { today } from "@/lib/time";
 import { syncLease, withLease } from "@/server/jobs/lease";
 import { refuse } from "@/server/database/transaction";
@@ -12,8 +13,8 @@ import { priceSourceStatus } from "./price-update-service";
 import { valueHoldings } from "../valuation";
 import { readHoldingInputs } from "./valuation-repository";
 import { settlementRefusal, settlementWindowDays, tradeCashAmount, type SettlementRefusal } from "../trade-decisions";
-import { brokerageAccountInput, securityInput, settlementCandidatesQuery, tradeInput } from "./security-schema";
-import { deleteTrade, findBrokerageAccount, findSecurity, findSettlementAccount, findSettlementBooking, findTrade, insertBrokerageAccount, insertSecurity, insertSettlementEntry, insertTrade, listSecurities, markSettlementBooking, nextTradeSequence, readAccountTrades, readPositionTrades, readSettlementCandidates, readSplits, readTradedSecurityIds, isEarliestTrade, markSplitsUnchecked, withSecurityTransaction } from "./security-repository";
+import { brokerageAccountInput, securityInput, settlementCandidatesQuery, tradeCorrectionInput, tradeInput } from "./security-schema";
+import { deleteTrade, findBrokerageAccount, findSecurity, findSettlementAccount, findSettlementBooking, findTrade, insertBrokerageAccount, insertSecurity, insertSettlementEntry, insertTrade, listSecurities, markSettlementBooking, nextTradeSequence, readAccountTrades, readPositionTrades, readSettlementCandidates, readSplits, readTradedSecurityIds, isEarliestTrade, markSplitsUnchecked, saveSettlementEntry, saveTradeCorrection, withSecurityTransaction, findOrInsertSecurity } from "./security-repository";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 
 /** Replays every trade so a sale never exceeds what was held at that point, now or after a change. */
@@ -51,6 +52,19 @@ export async function createSecurity(payload: unknown) {
 
   return {
     id
+  };
+}
+
+/** A security recorded by ISIN starts without a listing; the next price update looks one up, so saving a trade never calls the provider. */
+function securityForIsin(isin: string, currency: string, name: string | undefined) {
+  return {
+    id: randomUUID(),
+    isin,
+    name: name ?? isin,
+    currency,
+    provider: null,
+    provider_symbol: null,
+    venue: null
   };
 }
 
@@ -107,6 +121,8 @@ export async function recordTrade(accountId: string, payload: unknown, now = Tem
   const quantity = parseMicros(input.quantity, "quantity");
   const price = parseMicros(input.price, "price");
   const id = randomUUID();
+  // The security for a new ISIN is found or created inside the trade's transaction.
+  const newSecurity = input.security ? securityForIsin(input.security.isin, account.currency, input.security.name) : null;
 
   return withLease(syncLease, tradeLeaseMessage, () => withSecurityTransaction(async tx => {
     const brokerage = await findBrokerageAccount(tx, accountId);
@@ -115,7 +131,7 @@ export async function recordTrade(accountId: string, payload: unknown, now = Tem
       throw new HttpError(409, archivedAccountMessage);
     }
 
-    const security = await findSecurity(tx, input.security_id);
+    const security = newSecurity ? await findOrInsertSecurity(tx, newSecurity) : await findSecurity(tx, input.security_id!);
 
     if (!security) {
       throw new ValidationError("Security does not exist.");
@@ -235,6 +251,95 @@ function nonNegative(amount: number, label: string) {
   }
 
   return amount;
+}
+
+/**
+ * Corrects a recorded trade's date, shares, price, fees and taxes. A trade linked to a bank booking must still match the booking's amount and lie within the settlement window; a trade's own cash entry follows the correction.
+ * Every change replays the security's trades, so no sale exceeds the quantity held.
+ */
+export async function correctTrade(id: string, payload: unknown, now = Temporal.Now.instant()) {
+  const input = tradeCorrectionInput.parse(payload);
+
+  if (Temporal.PlainDate.compare(Temporal.PlainDate.from(input.date), today(now)) > 0) {
+    throw new ValidationError("The trade date cannot be in the future.");
+  }
+
+  const quantity = parseMicros(input.quantity, "quantity");
+  const price = parseMicros(input.price, "price");
+
+  await withLease(syncLease, "A sync is running. Change the trade after it has finished.", () => withSecurityTransaction(async tx => {
+    const trade = await findTrade(tx, id);
+
+    if (!trade) {
+      throw new HttpError(404, "Trade not found.");
+    }
+
+    const brokerage = await findBrokerageAccount(tx, trade.account_id);
+    const security = await findSecurity(tx, trade.security_id);
+
+    if (!brokerage || !security || brokerage.archived_at !== null) {
+      throw new HttpError(409, archivedAccountMessage);
+    }
+
+    const amounts = {
+      side: trade.side,
+      gross_minor: input.gross === undefined ? amountMinor(quantity, price, security.currency) : nonNegative(minorUnits(input.gross, security.currency), "gross amount"),
+      fee_minor: nonNegative(minorUnits(input.fee, security.currency), "fee"),
+      tax_minor: nonNegative(minorUnits(input.tax, security.currency), "tax")
+    };
+    const cash = tradeCashAmount(amounts);
+    const corrected: PositionTrade = {
+      date: input.date,
+      side: trade.side,
+      sequence: trade.sequence,
+      quantity_micros: quantity,
+      gross_minor: amounts.gross_minor,
+      fee_minor: amounts.fee_minor
+    };
+    const others = (await readPositionTrades(tx, trade.account_id, trade.security_id)).filter(other => other.id !== trade.id);
+
+    positionOn([...others, corrected], await readSplits(tx, trade.security_id), replayEnd);
+
+    const booking = trade.settlement_transaction_id ? await findSettlementBooking(tx, trade.settlement_transaction_id) : undefined;
+
+    if (booking?.account_archived_at) {
+      throw new HttpError(409, archivedAccountMessage);
+    }
+
+    if (booking && booking.provider_reference.startsWith(manualEntryPrefix)) {
+      await saveSettlementEntry(tx, booking.id, {
+        date: input.date,
+        amount_minor: cash,
+        description: tradeDescription(trade.side, input.quantity, security.name)
+      });
+    } else if (booking) {
+      // The bank booking stays the source of truth for the cash; the corrected trade must still match it.
+      if (booking.amount_minor !== cash) {
+        throw new ValidationError(settlementFailures.amount_mismatch);
+      }
+
+      if (Math.abs(Temporal.PlainDate.from(input.date).until(Temporal.PlainDate.from(booking.date)).days) > settlementWindowDays) {
+        throw new ValidationError(settlementFailures.outside_window);
+      }
+    }
+
+    if (await isEarliestTrade(tx, security.id, input.date)) {
+      await markSplitsUnchecked(tx, security.id);
+    }
+
+    await saveTradeCorrection(tx, trade.id, {
+      date: input.date,
+      quantity_micros: quantity,
+      price_micros: price,
+      gross_minor: amounts.gross_minor,
+      fee_minor: amounts.fee_minor,
+      tax_minor: amounts.tax_minor
+    });
+  }));
+
+  return {
+    ok: true
+  };
 }
 
 /** Deletes a trade with its cash side, unless a later sale would then exceed the quantity held. */

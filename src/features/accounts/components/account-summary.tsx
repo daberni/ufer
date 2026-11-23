@@ -36,7 +36,8 @@ export function AccountSummary({
   const Icon = accountIcon(account.kind);
   const archived = account.archived_at !== null;
   // A synced account's balance follows its bank bookings and is corrected by reconciling; an archived account is read-only until it is restored.
-  const balanceEditable = account.provider === "manual" && !archived;
+  // A brokerage account's balance is the market value of its holdings, changed through trades.
+  const balanceEditable = account.provider === "manual" && account.kind !== "brokerage" && !archived;
   const connection = connections.find(item => item.id === account.requisition_id) ?? null;
   const problem = accountProblem(account, Temporal.Now.instant());
   const difference = account.reported_difference_minor ?? 0;

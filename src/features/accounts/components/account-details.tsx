@@ -45,7 +45,8 @@ export function AccountDetails({
             <AccountSummarySkeleton />
           </AreaPlaceholder>
         ) : <AccountSummary account={account.data} connections={connections.data ?? []} />}
-        <BalanceHistoryPanel history={history} />
+        {/* A brokerage account's value chart says little about its performance; a performance chart replaces it in a later change. */}
+        {(account.status === "pending" || account.data.kind !== "brokerage") && <BalanceHistoryPanel history={history} />}
       </div>
     </>
   );

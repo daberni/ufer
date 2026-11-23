@@ -6,7 +6,7 @@ import { useId, useRef, useState } from "react";
 import type { ReactNode, RefObject } from "react";
 import { clsx } from "clsx";
 import { Temporal } from "temporal-polyfill";
-import { Check, Eye, EyeOff, Split, Trash2 } from "lucide-react";
+import { ChartNoAxesCombined, Check, Eye, EyeOff, Split, Trash2 } from "lucide-react";
 import styles from "./transaction-type.module.css";
 import { toFailure, type Failure } from "@/client/api";
 import { Dialog } from "@/components/ui/dialog";
@@ -25,6 +25,12 @@ import { EntryFields, suggestedType } from "./entry-fields";
 import { draftEdits, draftState, initialDraft } from "@/features/transactions/split-draft";
 import { SplitEditor } from "./transaction-split";
 import { PayeeInput } from "./payee-input";
+import { useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/client/query-keys";
+import { activeAccounts } from "@/features/accounts/queries";
+import type { Account } from "@/features/accounts/types";
+import { TradeForm } from "@/features/securities/components/trade-dialog";
+import { BookingTradePanel } from "@/features/securities/components/booking-trade";
 import { useLocale } from "@/client/locale-provider";
 
 type Props = {
@@ -111,12 +117,13 @@ function transferEdit(target: Target): TransactionEdit["transfer"] {
   } : null;
 }
 
-type Step = "edit" | "delete" | "hide";
+type Step = "edit" | "delete" | "hide" | "trade";
 
 const stepTitles: Record<Step, string> = {
   edit: "Edit transaction",
   delete: "Delete transaction",
-  hide: "Hide transaction"
+  hide: "Hide transaction",
+  trade: "Record trade"
 };
 
 /**
@@ -127,6 +134,19 @@ export function TransactionEditDialog({
   close
 }: Props) {
   const [step, setStep] = useState<Step>("edit");
+  // The dashboard always holds the account list, so the dialog reads it without starting a request of its own.
+  const brokerageAccounts = activeAccounts(useQueryClient().getQueryData<Account[]>(queryKeys.accounts()) ?? []).filter(account => account.kind === "brokerage" && account.currency === transaction.currency);
+  // An imported income or expense can be the cash side of a buy or sale on a brokerage account in its currency.
+  const tradeable = !transaction.entered && !transaction.manual_account && !transaction.hidden && !transaction.account_archived && transaction.split === null && (transaction.type === "income" || transaction.type === "expense") && brokerageAccounts.length > 0;
+
+  // The cash side of a security trade is changed through its trade (ADR 012), so its dialog shows the trade instead of the booking form.
+  if (transaction.trade) {
+    return (
+      <Dialog eyebrow="TRANSACTION" title={transaction.trade.side === "buy" ? "Buy" : "Sale"} onClose={close}>
+        <BookingTradePanel transaction={transaction} trade={transaction.trade} close={close} />
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog
@@ -135,7 +155,22 @@ export function TransactionEditDialog({
       wide={step === "edit"}
       onClose={close}
     >
-      {step !== "edit" && <TransactionFacts transaction={transaction} />}
+      {step !== "edit" && step !== "trade" && <TransactionFacts transaction={transaction} />}
+      {step === "trade" && (
+        <TradeForm
+          brokerageAccounts={brokerageAccounts}
+          settlementAccounts={[]}
+          booking={{
+            id: transaction.id,
+            date: transaction.date,
+            amount_minor: transaction.amount_minor,
+            currency: transaction.currency,
+            text: [transaction.counterparty, transaction.description].filter(Boolean).join(" · "),
+            account_name: transaction.account_name
+          }}
+          close={close}
+        />
+      )}
       {step === "delete" && <DeleteConfirmation transaction={transaction} close={close} cancel={() => setStep("edit")} />}
       {step === "hide" && <HideConfirmation transaction={transaction} close={close} cancel={() => setStep("edit")} />}
       {step === "edit" && (
@@ -144,6 +179,7 @@ export function TransactionEditDialog({
           close={close}
           onDelete={() => setStep("delete")}
           onHide={() => setStep("hide")}
+          onTrade={tradeable ? () => setStep("trade") : undefined}
         />
       )}
     </Dialog>
@@ -335,10 +371,13 @@ function TransactionEditForm({
   transaction,
   close,
   onDelete,
-  onHide
+  onHide,
+  onTrade
 }: Props & {
   onDelete: () => void;
   onHide: () => void;
+  /** Records the booking as the cash side of a trade; offered for imported income and expenses while a brokerage account in its currency exists. */
+  onTrade?: () => void;
 }) {
   const save = useSaveTransaction(transaction.id);
   const categories = useCategories();
@@ -601,6 +640,17 @@ function TransactionEditForm({
             >
               <EyeOff size={15} />
               Hide transaction
+            </button>
+          )}
+          {onTrade && (
+            <button
+              type="button"
+              className={ui["button"]}
+              disabled={pending}
+              onClick={onTrade}
+            >
+              <ChartNoAxesCombined size={15} />
+              Record as trade
             </button>
           )}
         </div>

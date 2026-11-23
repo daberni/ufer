@@ -1,0 +1,133 @@
+.panel h2 {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-md);
+}
+
+.notice {
+  margin: 0 0 var(--space-3);
+  color: var(--muted);
+}
+
+.table {
+  display: grid;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: minmax(10rem, 2.2fr) repeat(6, minmax(0, 1fr));
+  align-items: start;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--border);
+}
+
+.head {
+  padding-top: 0;
+  border-top: 0;
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+.number {
+  display: grid;
+  justify-items: end;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.row small,
+.trades small {
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+.value {
+  font-weight: 600;
+}
+
+.security {
+  min-width: 0;
+}
+
+.toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.toggle > span {
+  display: grid;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.toggle svg {
+  flex: none;
+  margin-top: var(--space-1);
+}
+
+.warning {
+  display: grid;
+  justify-items: end;
+  color: var(--status-warning-text);
+}
+
+.trades ul {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-3);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--surface-muted);
+  list-style: none;
+}
+
+.trades li {
+  display: grid;
+  grid-template-columns: 9rem 4rem minmax(0, 1fr) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+@media (--mobile) {
+  .head {
+    display: none;
+  }
+
+  .row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .security {
+    grid-column: 1 / -1;
+  }
+
+  .row > .number {
+    justify-items: start;
+    text-align: left;
+  }
+
+  .row > .number::before {
+    content: attr(data-label);
+    color: var(--muted);
+    font-size: var(--text-sm);
+  }
+
+  .row .warning {
+    justify-items: start;
+  }
+
+  .trades li {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .trades li > .number {
+    justify-items: start;
+    text-align: left;
+  }
+}

@@ -1,4 +1,4 @@
-import { and, asc, eq, isNull, max, ne, sql } from "drizzle-orm";
+import { and, asc, eq, isNull, max, ne, sql, isNotNull } from "drizzle-orm";
 import { database, type Database, type DatabaseTransaction } from "@/server/database/connection";
 import { withRefusableTransaction } from "@/server/database/transaction";
 import { accounts, securities, securitySplits, securityTrades, transactions } from "@/server/database/schema";
@@ -219,8 +219,31 @@ export async function findTrade(executor: Executor, id: string) {
     id: securityTrades.id,
     account_id: securityTrades.account_id,
     security_id: securityTrades.security_id,
+    side: securityTrades.side,
+    sequence: securityTrades.sequence,
     settlement_transaction_id: securityTrades.settlement_transaction_id
   }).from(securityTrades).where(eq(securityTrades.id, id)).get();
+}
+
+/** Saves a corrected trade; its side, security and cash side stay. */
+export async function saveTradeCorrection(tx: DatabaseTransaction, id: string, correction: {
+  date: string;
+  quantity_micros: number;
+  price_micros: number;
+  gross_minor: number;
+  fee_minor: number;
+  tax_minor: number;
+}) {
+  await tx.update(securityTrades).set(correction).where(eq(securityTrades.id, id));
+}
+
+/** Moves a trade's own cash entry to the corrected date and amount. */
+export async function saveSettlementEntry(tx: DatabaseTransaction, id: string, entry: {
+  date: string;
+  amount_minor: number;
+  description: string;
+}) {
+  await tx.update(transactions).set(entry).where(eq(transactions.id, id));
 }
 
 /** Deletes a trade and releases its cash side: an entry booked for it is removed, a linked bank booking returns to the type its delivery implies. */
@@ -281,6 +304,48 @@ export async function readTradedSecurityIds(tx: DatabaseTransaction, accountId: 
   return rows.map(row => row.security_id);
 }
 
+/**
+ * Returns the security recorded for an ISIN in a currency, inserting `security` when there is none, inside the caller's transaction; a trade uses its own, so a rejected trade leaves no new security behind.
+ * Of several listings of the same ISIN, the oldest listed one is used, so the trade gets prices; a listing another security already uses is left off a new row.
+ */
+export async function findOrInsertSecurity(tx: DatabaseTransaction, security: NewSecurity & {
+  isin: string
+}) {
+  const existing = await tx.select({
+    id: securities.id,
+    name: securities.name,
+    currency: securities.currency,
+    provider_symbol: securities.provider_symbol
+  }).from(securities).where(and(eq(securities.isin, security.isin), eq(securities.currency, security.currency))).orderBy(sql`${securities.provider_symbol} IS NULL`, asc(securities.created_at)).get();
+
+  if (existing) {
+    return {
+      ...existing,
+      created: false
+    };
+  }
+
+  const taken = security.provider_symbol ? await tx.select({
+    id: securities.id
+  }).from(securities).where(eq(securities.provider_symbol, security.provider_symbol)).get() : undefined;
+  const row = taken ? {
+    ...security,
+    provider: null,
+    provider_symbol: null,
+    venue: null
+  } : security;
+
+  await tx.insert(securities).values(row);
+
+  return {
+    id: row.id,
+    name: row.name,
+    currency: row.currency,
+    provider_symbol: row.provider_symbol,
+    created: true
+  };
+}
+
 /** Whether no trade of the security, on any account, lies on or before `date`. */
 export async function isEarliestTrade(tx: DatabaseTransaction, securityId: string, date: string) {
   const earlier = await tx.select({
@@ -290,9 +355,9 @@ export async function isEarliestTrade(tx: DatabaseTransaction, securityId: strin
   return !earlier;
 }
 
-/** Clears the last price check so the next update checks the security's splits again. */
+/** Clears the last price check so the next update checks the security's splits again; a security without a listing has no splits to check and keeps its check time, so a "No price listing" choice stays. */
 export async function markSplitsUnchecked(tx: DatabaseTransaction, securityId: string) {
   await tx.update(securities).set({
     price_checked_at: null
-  }).where(eq(securities.id, securityId));
+  }).where(and(eq(securities.id, securityId), isNotNull(securities.provider_symbol)));
 }
