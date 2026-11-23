@@ -18,6 +18,8 @@ export type PositionTrade = {
   /** For a transfer leg, the cost basis it carries; a received leg adds it, a sent leg's own value is ignored by the replay. */
   gross_minor: number;
   fee_minor: number;
+  /** The transfer a leg belongs to; both legs share it. */
+  transfer_id?: string | null;
 };
 
 export type PositionSplit = {

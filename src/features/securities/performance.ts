@@ -21,8 +21,13 @@ export type PerformancePoint = {
 export function performanceSeries(holdings: HoldingInputs[], endDate: string): PerformancePoint[] {
   const buys = new Map<string, number>();
   const sales = new Map<string, number>();
-  // Received minus sent transfers per date, netted so both legs of a transfer between the given accounts cancel.
-  const transfers = new Map<string, number>();
+  // Transfer legs by transfer, so only both legs of the same transfer between the given accounts cancel.
+  const transfers = new Map<string, {
+    date: string;
+    received: number;
+    sent: number;
+    legs: number;
+  }>();
 
   for (const holding of holdings) {
     for (const trade of holding.trades) {
@@ -38,17 +43,33 @@ export function performanceSeries(holdings: HoldingInputs[], endDate: string): P
         // Without a price the moved holding counts at the cost it carries, as in its valuation.
         const moved = valueHolding(trade.quantity_micros, holding.splits, holding.prices, holding.currency, trade.date).value_minor ?? trade.gross_minor;
 
-        transfers.set(trade.date, (transfers.get(trade.date) ?? 0) + (trade.side === "transfer_in" ? moved : -moved));
+        const key = trade.transfer_id ?? `${trade.date}:${trade.sequence}:${trade.side}`;
+        const flow = transfers.get(key) ?? {
+          date: trade.date,
+          received: 0,
+          sent: 0,
+          legs: 0
+        };
+
+        if (trade.side === "transfer_in") {
+          flow.received += moved;
+        } else {
+          flow.sent += moved;
+        }
+
+        flow.legs += 1;
+        transfers.set(key, flow);
       }
     }
   }
 
-  for (const [date, net] of transfers) {
-    const flows = net > 0 ? buys : sales;
-
-    if (net !== 0) {
-      flows.set(date, (flows.get(date) ?? 0) + Math.abs(net));
+  for (const flow of transfers.values()) {
+    if (flow.legs === 2) {
+      continue;
     }
+
+    buys.set(flow.date, (buys.get(flow.date) ?? 0) + flow.received);
+    sales.set(flow.date, (sales.get(flow.date) ?? 0) + flow.sent);
   }
 
   const first = [...buys.keys(), ...sales.keys()].sort()[0];

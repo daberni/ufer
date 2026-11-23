@@ -249,3 +249,28 @@ test("transfers chain through several accounts and block archiving and deleting 
     name: "Synthetic depot"
   }), 409);
 });
+
+test("an account that receives and sends on the same day keeps both flows apart in its return", async context => {
+  const {
+    db,
+    sender,
+    receiver,
+    etf,
+    record,
+    transfer
+  } = await setup(context);
+  const third = await depot();
+
+  await price(db, etf, "2026-09-01", 100);
+  await price(db, etf, "2026-10-01", 110);
+  await record(receiver, "2026-09-01", "buy", "10", "100");
+  await record(sender, "2026-09-01", "buy", "10", "100");
+  await transfer("2026-10-01", "10");
+  await transfer("2026-10-01", "5", receiver, third);
+
+  // 1000.00 held; 1100.00 received at the start and 550.00 sent at the end of the day; 1650.00 left.
+  const point = (await readBrokeragePerformance(receiver, now)).points.find(item => item.date === "2026-10-01");
+
+  assert.equal(point?.growth, (1650_00 + 550_00) / (1000_00 + 1100_00));
+  assert.equal(point?.invested_minor, 1000_00 + 1100_00 - 550_00);
+});
