@@ -165,7 +165,7 @@ function HoldingRows({
   const Chevron = expanded ? ChevronDown : ChevronRight;
 
   return (
-    <div role="rowgroup">
+    <>
       <div className={styles["row"]} role="row">
         <span role="rowheader" className={styles["security"]}>
           <button
@@ -200,11 +200,11 @@ function HoldingRows({
           {gainPercent !== null && <small>{percent(gainPercent, locale)}</small>}
         </span>
       </div>
+      {/* A presentational wrapper, so the trade rows belong to the table directly. */}
       <div
         id={tradesId}
         className={styles["trades"]}
-        role="rowgroup"
-        aria-label={`Trades of ${holding.security_name}`}
+        role="none"
         hidden={!expanded}
       >
         {expanded && trades.map(trade => (
@@ -217,7 +217,7 @@ function HoldingRows({
           />
         ))}
       </div>
-    </div>
+    </>
   );
 }
 
