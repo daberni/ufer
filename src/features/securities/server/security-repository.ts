@@ -1,13 +1,15 @@
-import { and, asc, eq, isNull, max, ne, sql, isNotNull } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, max, ne, or, sql, isNotNull } from "drizzle-orm";
+import { union } from "drizzle-orm/sqlite-core";
 import { database, type Database, type DatabaseTransaction } from "@/server/database/connection";
 import { withRefusableTransaction } from "@/server/database/transaction";
-import { accounts, securities, securitySplits, securityTrades, transactions } from "@/server/database/schema";
+import { accounts, securities, securitySplits, securityTrades, securityTransfers, transactions } from "@/server/database/schema";
 import { manualEntryPrefix } from "@/lib/booking-references";
 import { derivedTransactionType } from "@/lib/transaction-types";
 import { bookableAccount } from "@/features/transactions/server/booking-accounts";
 import { notSplit, notSplitBooking } from "@/features/transactions/server/split-repository";
 import { notTradeLeg, tradeLeg } from "@/features/transactions/server/trade-leg-rules";
-import type { TradeSide } from "../trade-sides";
+import type { LegSide, TradeSide } from "../trade-sides";
+import type { SecurityLeg } from "../transfers";
 import { settlementWindowDays } from "../trade-decisions";
 
 type Executor = Database | DatabaseTransaction;
@@ -139,17 +141,72 @@ export async function readSettlementCandidates(currency: string, amount: number,
   }).from(transactions).innerJoin(accounts, eq(accounts.id, transactions.account_id)).where(and(ne(accounts.provider, "manual"), bookableAccount, isNull(accounts.archived_at), eq(transactions.currency, currency), eq(transactions.amount_minor, amount), isNull(transactions.transfer_id), isNull(transactions.suppressed_at), sql`${transactions.provider_reference} NOT LIKE ${`${manualEntryPrefix}%`}`, notSplitBooking(transactions), notTradeLeg, window)).orderBy(asc(transactions.date), asc(transactions.id));
 }
 
-/** The trades of one security on an account in replay order. */
-export async function readPositionTrades(tx: DatabaseTransaction, accountId: string, securityId: string) {
-  return tx.select({
+/**
+ * Every trade and transfer leg of the given securities on every account, in replay order; transfer legs carry no cost yet (see `resolveTransferCosts`).
+ * A transfer's legs reach into other accounts, so a holding's history is always read for the security as a whole.
+ */
+export async function readSecurityLegs(executor: Executor, securityIds: string[]): Promise<(SecurityLeg & {
+  id: string;
+  security_id: string
+})[]> {
+  if (!securityIds.length) {
+    return [];
+  }
+
+  const trades = await executor.select({
     id: securityTrades.id,
+    security_id: securityTrades.security_id,
+    account_id: securityTrades.account_id,
     date: securityTrades.date,
     side: securityTrades.side,
     sequence: securityTrades.sequence,
     quantity_micros: securityTrades.quantity_micros,
     gross_minor: securityTrades.gross_minor,
     fee_minor: securityTrades.fee_minor
-  }).from(securityTrades).where(and(eq(securityTrades.account_id, accountId), eq(securityTrades.security_id, securityId))).orderBy(asc(securityTrades.date), asc(securityTrades.sequence));
+  }).from(securityTrades).where(inArray(securityTrades.security_id, securityIds));
+  const transfers = await executor.select({
+    id: securityTransfers.id,
+    security_id: securityTransfers.security_id,
+    from_account_id: securityTransfers.from_account_id,
+    to_account_id: securityTransfers.to_account_id,
+    date: securityTransfers.date,
+    from_sequence: securityTransfers.from_sequence,
+    to_sequence: securityTransfers.to_sequence,
+    quantity_micros: securityTransfers.quantity_micros
+  }).from(securityTransfers).where(inArray(securityTransfers.security_id, securityIds));
+  const legs = [...trades.map(trade => ({
+    ...trade,
+    side: trade.side as LegSide,
+    transfer_id: null
+  })), ...transfers.flatMap(transfer => [transferLeg(transfer, "transfer_out"), transferLeg(transfer, "transfer_in")])];
+
+  return legs.toSorted((left, right) => left.date.localeCompare(right.date) || left.sequence - right.sequence);
+}
+
+function transferLeg(transfer: {
+  id: string;
+  security_id: string;
+  from_account_id: string;
+  to_account_id: string;
+  date: string;
+  from_sequence: number;
+  to_sequence: number;
+  quantity_micros: number;
+}, side: "transfer_in" | "transfer_out") {
+  const sent = side === "transfer_out";
+
+  return {
+    id: transfer.id,
+    security_id: transfer.security_id,
+    account_id: sent ? transfer.from_account_id : transfer.to_account_id,
+    date: transfer.date,
+    side,
+    sequence: sent ? transfer.from_sequence : transfer.to_sequence,
+    quantity_micros: transfer.quantity_micros,
+    gross_minor: 0,
+    fee_minor: 0,
+    transfer_id: transfer.id
+  };
 }
 
 export async function readSplits(executor: Executor, securityId: string) {
@@ -160,13 +217,19 @@ export async function readSplits(executor: Executor, securityId: string) {
   }).from(securitySplits).where(eq(securitySplits.security_id, securityId)).orderBy(asc(securitySplits.date));
 }
 
-/** The next replay position on the account; read inside the trade's write transaction. */
+/** The next replay position on the account, after its trades and transfer legs; read inside the write transaction. */
 export async function nextTradeSequence(tx: DatabaseTransaction, accountId: string) {
-  const row = await tx.select({
+  const trades = await tx.select({
     sequence: max(securityTrades.sequence)
   }).from(securityTrades).where(eq(securityTrades.account_id, accountId)).get();
+  const sent = await tx.select({
+    sequence: max(securityTransfers.from_sequence)
+  }).from(securityTransfers).where(eq(securityTransfers.from_account_id, accountId)).get();
+  const received = await tx.select({
+    sequence: max(securityTransfers.to_sequence)
+  }).from(securityTransfers).where(eq(securityTransfers.to_account_id, accountId)).get();
 
-  return (row?.sequence ?? 0) + 1;
+  return Math.max(trades?.sequence ?? 0, sent?.sequence ?? 0, received?.sequence ?? 0) + 1;
 }
 
 export type NewTrade = {
@@ -308,11 +371,17 @@ export async function readAccountTrades(accountId: string) {
   }).from(securityTrades).innerJoin(securities, eq(securities.id, securityTrades.security_id)).leftJoin(transactions, eq(transactions.id, securityTrades.settlement_transaction_id)).leftJoin(accounts, eq(accounts.id, transactions.account_id)).where(eq(securityTrades.account_id, accountId)).orderBy(asc(securityTrades.date), asc(securityTrades.sequence));
 }
 
-/** The securities an account has traded. */
-export async function readTradedSecurityIds(tx: DatabaseTransaction, accountId: string) {
-  const rows = await tx.selectDistinct({
+/** The securities the given accounts have traded, sent or received. */
+export async function readTradedSecurityIds(executor: Executor, accountIds: string[]) {
+  if (!accountIds.length) {
+    return [];
+  }
+
+  const rows = await union(executor.select({
     security_id: securityTrades.security_id
-  }).from(securityTrades).where(eq(securityTrades.account_id, accountId));
+  }).from(securityTrades).where(inArray(securityTrades.account_id, accountIds)), executor.select({
+    security_id: securityTransfers.security_id
+  }).from(securityTransfers).where(or(inArray(securityTransfers.from_account_id, accountIds), inArray(securityTransfers.to_account_id, accountIds))));
 
   return rows.map(row => row.security_id);
 }
