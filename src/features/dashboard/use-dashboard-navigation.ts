@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { usePathname, useRouter } from "next/navigation";
 import type { Feedback } from "@/components/ui/use-action-feedback";
-import { callbackFailureMessage, parseCallbackResult, type CallbackResult } from "@/features/banking/callback-result";
+import { parseCallbackResult, type CallbackResult } from "@/features/banking/callback-result";
 import { useAppStoreApi } from "@/client/app-store";
 import { useArchivedAccountsOpen, usePeriodScope, useView } from "@/client/use-app-url";
 import { isAccountList, isPeriodAware } from "@/client/app-location";
@@ -14,6 +14,7 @@ import { isAccountList, isPeriodAware } from "@/client/app-location";
  */
 export function useDashboardNavigation() {
   const t = useTranslations("overview");
+  const tCallback = useTranslations("banking.callback");
   const router = useRouter();
   const pathname = usePathname();
   const view = useView();
@@ -53,7 +54,7 @@ export function useDashboardNavigation() {
     }
 
     if (result) {
-      store.getState().reportFeedback(bankingCallbackFeedback(result, t("bankConnected")));
+      store.getState().reportFeedback(bankingCallbackFeedback(result, result === "connected" ? t("bankConnected") : tCallback(result)));
     }
 
     params.delete("banking");
@@ -64,19 +65,19 @@ export function useDashboardNavigation() {
     router.replace(`${destination}${window.location.hash}`, {
       scroll: false
     });
-  }, [store, router, t]);
+  }, [store, router, t, tCallback]);
 }
 
-function bankingCallbackFeedback(result: CallbackResult, connectedMessage: string): Feedback {
+function bankingCallbackFeedback(result: CallbackResult, message: string): Feedback {
   if (result === "connected") {
     return {
       tone: "success",
-      messages: [connectedMessage]
+      messages: [message]
     };
   }
 
   return {
     tone: "problem",
-    messages: [callbackFailureMessage(result)]
+    messages: [message]
   };
 }

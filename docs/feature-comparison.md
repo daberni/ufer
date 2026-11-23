@@ -174,9 +174,9 @@ An item is checked only when its acceptance criterion is met and evidence is rec
   - [ ] Long-term category trends and wealth or investment summaries ([#249](https://github.com/daberni/ufer/issues/249))
 - [ ] **UX-03 · Optional widget editing**
 - [x] **UX-04 · Responsive loading:** server-resolved session, immediate app frame, per-area loading
-- [ ] **UX-05 · Localization** ([#21](https://github.com/daberni/ufer/issues/21))
-  - [x] Amounts, numbers and dates in the browser's locale
-  - [ ] Translated interface
+- [x] **UX-05 · Localization** ([#21](https://github.com/daberni/ufer/issues/21))
+  - [x] Amounts, numbers and dates in the browser's locale, kept in the chosen interface language
+  - [x] English and German interface with a per-browser language switch; API error details stay English
 - [x] **UX-06 · Dark mode**
 - [x] **UX-07 · Installable web app**
 

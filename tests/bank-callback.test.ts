@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { callbackFailureMessage, callbackResultForError, parseCallbackResult } from "../src/features/banking/callback-result";
+import { callbackResultForError, parseCallbackResult } from "../src/features/banking/callback-result";
 import { bankCallbackUrl } from "../src/features/banking/server/callback-url";
 import { HttpError } from "../src/lib/errors";
 
@@ -18,7 +18,6 @@ test("callback errors map to fixed codes without forwarding provider messages", 
   assert.equal(callbackResultForError(new HttpError(409, "Removed")), "removed");
   assert.equal(callbackResultForError(new HttpError(502, "Provider said: account 123 rejected")), "failed");
   assert.equal(callbackResultForError(new Error("boom")), "failed");
-  assert.ok(callbackFailureMessage("failed").length > 0);
 });
 
 test("the provider callback uses the application origin unless overridden", () => {

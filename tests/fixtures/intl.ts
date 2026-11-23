@@ -9,6 +9,8 @@ export function withIntl(children: ReactNode, language: Language = "en") {
   return createElement(NextIntlClientProvider, {
     locale: language,
     messages: messagesFor(language),
+    // Messages never format dates themselves; a fixed zone keeps next-intl from warning about an environment fallback.
+    timeZone: "UTC",
     children
   });
 }
