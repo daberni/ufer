@@ -2,7 +2,7 @@
 
 import type { Bank, Connection } from "@/features/banking/types";
 
-/** Countries with personal banks to connect; their names come from the `banking.countries` messages. */
+/** Countries with personal banks to connect; the dialog names them in the interface language with Intl.DisplayNames. */
 export const bankCountries = [{
   code: "AT"
 }, {
