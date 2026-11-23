@@ -1,0 +1,230 @@
+{
+  "dialogEyebrow": "Your finances",
+  "kinds": {
+    "checking": "Current account",
+    "savings": "Savings account",
+    "investment": "Investment account",
+    "brokerage": "Brokerage account",
+    "loan": "Loan",
+    "property": "Property",
+    "credit_card": "Credit card"
+  },
+  "typeChoice": {
+    "legend": "What do you want to add?"
+  },
+  "typeGroups": {
+    "bankAccounts": {
+      "title": "Bank accounts",
+      "description": "Money you can spend or have set aside"
+    },
+    "investments": {
+      "title": "Investments & property",
+      "description": "Things you own whose value changes"
+    },
+    "debts": {
+      "title": "Debts",
+      "description": "Money you owe"
+    }
+  },
+  "types": {
+    "checking": {
+      "description": "Everyday payments, salary and bills",
+      "namePlaceholder": "e.g. Everyday account",
+      "balanceLabel": "Current balance",
+      "hint": "Use a decimal point. Enter an overdrawn balance as a negative number."
+    },
+    "savings": {
+      "description": "Money set aside or deposited for later",
+      "namePlaceholder": "e.g. Emergency fund",
+      "balanceLabel": "Current balance",
+      "hint": "Use a decimal point."
+    },
+    "investment": {
+      "description": "Securities, funds or pension savings",
+      "namePlaceholder": "e.g. Investment portfolio",
+      "balanceLabel": "Current value",
+      "hint": "Enter the value of the holdings only and track settlement cash as a separate current account, so it is not counted twice. Use a decimal point."
+    },
+    "brokerage": {
+      "description": "Securities with trades and daily prices",
+      "namePlaceholder": "e.g. Brokerage account",
+      "balanceLabel": "Current value",
+      "hint": "Its value comes from the trades you record and daily prices; the cash for each trade moves on a separate current account."
+    },
+    "property": {
+      "description": "Home, apartment or land",
+      "namePlaceholder": "e.g. Apartment",
+      "balanceLabel": "Estimated value",
+      "hint": "Enter your own estimate of the current market value. Use a decimal point."
+    },
+    "credit_card": {
+      "description": "Card spending you pay back later",
+      "namePlaceholder": "e.g. Travel card",
+      "balanceLabel": "Outstanding balance",
+      "hint": "Enter the amount you currently owe as a negative number, e.g. -350.00."
+    },
+    "loan": {
+      "description": "Mortgage, car or personal loan",
+      "namePlaceholder": "e.g. Mortgage",
+      "balanceLabel": "Amount still owed",
+      "hint": "Enter the amount still owed as a negative number, e.g. -12000.00."
+    }
+  },
+  "currencyChoice": {
+    "label": "Accounts shown by currency",
+    "option": "{currency} accounts"
+  },
+  "actions": {
+    "addTrade": "Add trade",
+    "addTransaction": "Add transaction"
+  },
+  "source": {
+    "bank": "Bank",
+    "trades": "Trades and prices",
+    "manual": "Manual",
+    "states": {
+      "pending": "Not synced yet",
+      "attention": "Needs attention",
+      "error": "Sync error",
+      "archived": "Archived"
+    },
+    "synced": "Synced",
+    "syncedAt": "Synced <date></date>"
+  },
+  "notices": {
+    "expired": "The bank authorization expired on <date></date>. Reconnect the bank to continue syncing.",
+    "syncFailed": "The last sync failed: {message}",
+    "reconnect": "Reconnect bank",
+    "manageConnections": "Manage bank connections",
+    "mismatch": "The bank reports {reported} on <date></date>, but the bookings up to that day add up to {calculated}.",
+    "bookAdjustment": "Book {amount} adjustment"
+  },
+  "details": {
+    "failure": "This account could not be loaded",
+    "back": "Back",
+    "notFoundTitle": "This account is not available",
+    "notFoundBody": "It may have been removed, or the link belongs to another installation."
+  },
+  "edit": {
+    "title": "Edit account",
+    "name": "Account name",
+    "bankName": "Name at the bank: {name}",
+    "type": "Account type",
+    "save": "Save",
+    "brokerageNote": "Account type: <strong>{type}</strong>. A brokerage account holds securities and keeps its type.",
+    "archivedNote": "Account type: <strong>{type}</strong>. Restore the account to change its type.",
+    "bankNote": "Account type: <strong>{type}</strong>. A bank-synced account keeps the type from its bank connection."
+  },
+  "delete": {
+    "title": "Delete account",
+    "mismatch": "Enter the account's exact name to confirm the deletion.",
+    "warning": "Deleting cannot be undone. To keep the history in reports, archive the account instead.",
+    "effectBookings": "All bookings of this account, their splits and its balance history are deleted. Net worth and cash flow no longer include them.",
+    "effectTransfers": "Transfers linked to bookings on other accounts stay there with their amounts, as transfers without a counterpart.",
+    "effectRules": "Rules that named this account as transfer target keep the transfer type without a counterpart account.",
+    "confirmLabel": "Type the account name to confirm",
+    "cancel": "Cancel",
+    "submit": "Delete permanently"
+  },
+  "archive": {
+    "title": "Archive account",
+    "bankNotice": "An account can only be archived with a balance of 0. This account's balance follows its bank bookings, so Ufer cannot book it away. Archive it once its bookings bring the balance to 0.",
+    "manualNotice": "An account can only be archived with a balance of 0. Ufer books the remaining {amount} away, then archives the account.",
+    "bookAs": "Book the balance as",
+    "adjustment": "Adjustment, no other account",
+    "transferTo": "Transfer to {name}",
+    "closingDate": "Closing date",
+    "cancel": "Cancel",
+    "submit": "Close and archive"
+  },
+  "menu": {
+    "label": "Actions for {name}",
+    "addTransaction": "Add transaction",
+    "edit": "Edit account",
+    "reconnect": "Reconnect",
+    "manageConnections": "Manage bank connections",
+    "connect": "Connect to bank",
+    "restore": "Restore account",
+    "archive": "Archive account",
+    "delete": "Delete account",
+    "dismiss": "Dismiss"
+  },
+  "summary": {
+    "label": "Account summary",
+    "updateBalanceOf": "Update balance of {name}",
+    "updateBalance": "Update balance",
+    "archived": "Archived on <date></date> · hidden from lists, still counted in reports"
+  },
+  "valuation": {
+    "title": "Update balance",
+    "balance": "New balance",
+    "date": "Balance date",
+    "hint": "The balance is derived from the account's transactions. Saving books the difference to the balance on that date as an adjustment, for example a revaluation.",
+    "submit": "Save balance"
+  },
+  "create": {
+    "title": "Add account",
+    "description": "Track an account, investment, property or debt by entering its balance yourself. Bank accounts with online access can also be added through Connect bank.",
+    "name": "Name",
+    "currency": "Currency",
+    "balanceDate": "Balance date (optional)",
+    "hint": "{hint} Leave the balance date empty to record the balance as of today.",
+    "addBrokerage": "Add brokerage account",
+    "add": "Add {kind, select, checking {current account} savings {savings account} investment {investment account} property {property} credit_card {credit card} loan {loan} other {account}}"
+  },
+  "list": {
+    "title": "Accounts & assets",
+    "addAccount": "Add account",
+    "connectBank": "Connect bank",
+    "actions": "Account actions",
+    "failure": "Your accounts could not be loaded",
+    "emptyTitle": "Everything in one place",
+    "addFirst": "Add your first account",
+    "emptyBody": "Add bank accounts, investments, property and debts to build your overview.",
+    "archived": "Archived accounts ({count, number})",
+    "differsFromBank": "Differs from bank by {amount}"
+  },
+  "overview": {
+    "title": "Your accounts",
+    "manageAll": "Manage all",
+    "failure": "Your accounts could not be loaded",
+    "noBalance": "No balance yet",
+    "onboardingTitle": "Your overview starts with your first account.",
+    "onboarding": "Connect your bank, or manually add accounts, investments, property and debts.",
+    "onboardingSandbox": "Connect a sandbox bank, or manually add accounts, investments, property and debts.",
+    "connectBank": "Connect bank",
+    "addManually": "Add manually"
+  },
+  "history": {
+    "title": "Balance history",
+    "since": "Since {date}",
+    "failure": "The balance history could not be loaded",
+    "empty": "No balance has been recorded for this account yet.",
+    "single": "The chart appears once a second balance is recorded.",
+    "differenceStarted": "The current difference first appeared on <date></date>.",
+    "caption": "Reported bank balances and their difference to the calculated balance, newest first",
+    "date": "Date",
+    "reported": "Reported",
+    "calculated": "Calculated",
+    "difference": "Difference",
+    "differenceStarts": "Difference starts",
+    "none": "None",
+    "showLatest": "Show latest balances only",
+    "showAll": "Show all {count, number} reported balances",
+    "balanceTypes": {
+      "reported": "Reported",
+      "CLBD": "Closing booked",
+      "ITBD": "Interim booked",
+      "CLAV": "Closing available",
+      "ITAV": "Interim available",
+      "PRCD": "Previous closing booked",
+      "XPCD": "Expected"
+    },
+    "sources": {
+      "transactions": "From bookings",
+      "valuation": "Market value"
+    },
+    "pointValue": "{date}: {amount}, {source}",
+    "keyboardHint": "Use the left and right arrow keys to explore balances, Home and End for the first and last date, and Escape to dismiss the selection."
+  }
+}

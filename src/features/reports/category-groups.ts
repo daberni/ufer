@@ -56,9 +56,9 @@ function remainderOf(items: CategoryAmount[]): Row {
   };
 }
 
-/** The row's label, such as a category name or "+3 more" with the count in the locale's numerals. */
-export function displayName(group: Pick<CategoryGroup, "name" | "combined">, locale: string) {
-  return group.combined ? `+${formatCount(group.combined, locale)} more` : group.name;
+/** The row's label: a category name, or the translated combined-row label such as "+3 more" for the count in the locale's numerals. */
+export function displayName(group: Pick<CategoryGroup, "name" | "combined">, locale: string, moreLabel: (count: string) => string) {
+  return group.combined ? moreLabel(formatCount(group.combined, locale)) : group.name;
 }
 
 /** Shares of the rows actually shown: positive rows divide their own sum, so the visible bars always add up to the whole; negative rows have none. */

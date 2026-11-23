@@ -4,6 +4,7 @@ import ui from "../../../components/ui/primitives.module.css";
 import contextStyles from "./account-context.module.css";
 
 import { clsx } from "clsx";
+import { useTranslations } from "next-intl";
 import Link from "next/link";
 import styles from "./account-details.module.css";
 import { ArrowLeft, ArrowRight } from "lucide-react";
@@ -37,12 +38,14 @@ export function AccountDetails({
   connections,
   history
 }: Props) {
+  const t = useTranslations("accounts.details");
+
   return (
     <>
       <BackNavigation back={back} />
       <div className={styles["details-grid"]}>
         {account.status === "pending" ? (
-          <AreaPlaceholder area={account} failureTitle="This account could not be loaded">
+          <AreaPlaceholder area={account} failureTitle={t("failure")}>
             <AccountSummarySkeleton />
           </AreaPlaceholder>
         ) : <AccountSummary account={account.data} connections={connections.data ?? []} />}
@@ -56,8 +59,10 @@ export function AccountDetails({
 function BackNavigation({ back }: {
   back: BackLink
 }) {
+  const t = useTranslations("accounts.details");
+
   return (
-    <nav className={contextStyles["context-row"]} aria-label="Back">
+    <nav className={contextStyles["context-row"]} aria-label={t("back")}>
       <Link className={clsx(contextStyles["back-link"], ui["text-button"])} href={back.href}>
         <ArrowLeft size={15} />
         {back.label}
@@ -70,19 +75,21 @@ function BackNavigation({ back }: {
 export function AccountNotFound({ back }: {
   back: BackLink
 }) {
+  const t = useTranslations("accounts.details");
+
   return (
     <>
       <BackNavigation back={back} />
       <section className={ui["panel"]}>
         <Empty
-          title="This account is not available"
+          title={t("notFoundTitle")}
           action={(
             <Link className={clsx(ui["button"], ui["primary"])} href={back.href}>
               {back.label} <ArrowRight size={15} />
             </Link>
           )}
         >
-          It may have been removed, or the link belongs to another installation.
+          {t("notFoundBody")}
         </Empty>
       </section>
     </>

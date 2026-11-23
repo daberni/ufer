@@ -13,6 +13,7 @@ import { Temporal } from "temporal-polyfill";
 import { currentMonth } from "@/lib/period";
 import { describeMonth, formatYear } from "@/lib/date-format";
 import { useLocale } from "@/client/locale-provider";
+import { useTranslations } from "next-intl";
 
 type Props = {
   label: string;
@@ -29,6 +30,7 @@ export function MonthPicker({
   selected,
   onSelect
 }: Props) {
+  const t = useTranslations("overview.monthPicker");
   const locale = useLocale();
   const [open, setOpen] = useState(false);
   const [year, setYear] = useState(0);
@@ -130,7 +132,9 @@ export function MonthPicker({
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={open ? dialogId : undefined}
-        aria-label={`Select month, ${label}`}
+        aria-label={t("trigger", {
+          label
+        })}
         onClick={() => open ? close() : openPicker()}
       >
         {label}
@@ -141,7 +145,7 @@ export function MonthPicker({
         className={styles["popover"]}
         popover="manual"
         role="dialog"
-        aria-label="Choose a month"
+        aria-label={t("dialog")}
       >
         {open && (
           <>
@@ -149,7 +153,7 @@ export function MonthPicker({
               <button
                 type="button"
                 className={ui["icon-button"]}
-                aria-label="Previous year"
+                aria-label={t("previousYear")}
                 onClick={() => setYear(year - 1)}
               >
                 <ChevronLeft size={17} />
@@ -159,7 +163,7 @@ export function MonthPicker({
               <button
                 type="button"
                 className={ui["icon-button"]}
-                aria-label="Next year"
+                aria-label={t("nextYear")}
                 onClick={() => setYear(year + 1)}
               >
                 <ChevronRight size={17} />

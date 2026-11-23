@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import { clsx } from "clsx";
+import { useTranslations } from "next-intl";
+import { useAccountKindLabel } from "./use-account-kind-label";
 import { Check } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { FormError } from "@/components/ui/form-error";
 import { useDialogSubmit } from "@/components/ui/use-dialog-submit";
-import { kinds } from "@/features/accounts/account-presentation";
 import { useEditAccount } from "@/features/accounts/mutations";
 import type { Account } from "@/features/accounts/types";
 import ui from "../../../components/ui/primitives.module.css";
@@ -21,8 +22,10 @@ export function EditAccountDialog({
   account: Account;
   close: () => void
 }) {
+  const t = useTranslations("accounts");
+
   return (
-    <Dialog eyebrow="Your finances" title="Edit account" onClose={close}>
+    <Dialog eyebrow={t("dialogEyebrow")} title={t("edit.title")} onClose={close}>
       <EditAccountForm account={account} close={close} />
     </Dialog>
   );
@@ -35,6 +38,7 @@ function EditAccountForm({
   account: Account;
   close: () => void
 }) {
+  const t = useTranslations("accounts.edit");
   const {
     error,
     pending,
@@ -47,7 +51,7 @@ function EditAccountForm({
   return (
     <form className={ui["form"]} onSubmit={event => submit(event, data => Object.fromEntries(data))}>
       <label>
-        Account name
+        {t("name")}
         <input
           name="name"
           required
@@ -56,39 +60,48 @@ function EditAccountForm({
           autoFocus
         />
       </label>
-      {account.provider_name && account.provider_name !== account.name && <p className={ui["form-hint"]}>Name at the bank: {account.provider_name}</p>}
+      {account.provider_name && account.provider_name !== account.name && (
+        <p className={ui["form-hint"]}>{t("bankName", {
+          name: account.provider_name
+        })}</p>
+      )}
       {typeEditable ? (
         <AccountTypeChoice
           selected={kind}
           onSelect={choice => choice !== "brokerage" && setKind(choice)}
-          legend="Account type"
+          legend={t("type")}
           ledgerOnly
         />
       ) : <AccountTypeNote account={account} />}
       <FormError failure={error} />
       <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={pending}>
-        Save <Check size={16} />
+        {t("save")} <Check size={16} />
       </button>
     </form>
   );
 }
 
+// Which note explains why the type cannot be changed.
 function accountTypeNote(account: Account) {
   if (account.kind === "brokerage") {
-    return "A brokerage account holds securities and keeps its type.";
+    return "brokerageNote";
   }
 
-  return account.provider === "manual" ? "Restore the account to change its type." : "A bank-synced account keeps the type from its bank connection.";
+  return account.provider === "manual" ? "archivedNote" : "bankNote";
 }
 
 function AccountTypeNote({ account }: {
   account: Account
 }) {
-  const reason = accountTypeNote(account);
+  const t = useTranslations("accounts.edit");
+  const kindLabel = useAccountKindLabel();
 
   return (
     <p className={ui["form-hint"]}>
-      Account type: <strong>{kinds[account.kind] ?? account.kind}</strong>. {reason}
+      {t.rich(accountTypeNote(account), {
+        type: kindLabel(account.kind),
+        strong: chunks => <strong>{chunks}</strong>
+      })}
     </p>
   );
 }

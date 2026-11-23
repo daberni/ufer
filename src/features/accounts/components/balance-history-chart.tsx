@@ -7,7 +7,8 @@ import { clsx } from "clsx";
 import { SignedArea } from "@/components/ui/signed-area";
 import { money } from "@/lib/money";
 import { plotBalances } from "@/features/accounts/balance-chart";
-import { describeBalanceSource, describeBalanceDate } from "@/features/accounts/balance-presentation";
+import { describeBalanceDate } from "@/features/accounts/balance-presentation";
+import { useTranslations } from "next-intl";
 import { useBalanceChart } from "@/features/accounts/use-balance-chart";
 import type { BalancePoint } from "@/features/accounts/types";
 import styles from "./balance-history-chart.module.css";
@@ -24,6 +25,7 @@ export function BalanceHistoryChart({
   currency,
   interactive
 }: Props) {
+  const t = useTranslations("accounts.history");
   const locale = useLocale();
   const descriptionId = useId();
   const chart = useMemo(() => plotBalances(balances), [balances]);
@@ -37,7 +39,7 @@ export function BalanceHistoryChart({
   const lastDate = describeBalanceDate(balances[lastIndex].date, locale);
   const balance = balances[activeIndex ?? lastIndex];
   const date = describeBalanceDate(balance.date, locale);
-  const source = describeBalanceSource(balance);
+  const source = t(`sources.${balance.source}`);
   const amount = money(balance.amount_minor, currency, locale);
   const activePoint = activeIndex === null ? null : chart.points[activeIndex];
   const line = useMemo(() => chart.points.map((point, index) => index ? `H${point.x} V${point.y}` : `M${point.x} ${point.y}`).join(" "), [chart]);
@@ -56,14 +58,18 @@ export function BalanceHistoryChart({
         className={styles["plot"]}
         role="slider"
         tabIndex={interactive ? 0 : -1}
-        aria-label="Balance history"
+        aria-label={t("title")}
         aria-describedby={descriptionId}
         aria-orientation="horizontal"
         aria-disabled={!interactive}
         aria-valuemin={0}
         aria-valuemax={lastIndex}
         aria-valuenow={activeIndex ?? lastIndex}
-        aria-valuetext={`${date.label}: ${amount}, ${source}`}
+        aria-valuetext={t("pointValue", {
+          date: date.label,
+          amount,
+          source
+        })}
         data-active={activePoint ? "" : undefined}
       >
         <span className={styles["axis-label"]} data-edge="top" aria-hidden="true">{money(chart.highest, currency, locale)}</span>
@@ -103,7 +109,7 @@ export function BalanceHistoryChart({
           </span>
         )}
       </div>
-      <p className={ui["visually-hidden"]} id={descriptionId}>Use the left and right arrow keys to explore balances, Home and End for the first and last date, and Escape to dismiss the selection.</p>
+      <p className={ui["visually-hidden"]} id={descriptionId}>{t("keyboardHint")}</p>
       <div className={styles["dates"]} aria-hidden="true">
         <span>{firstDate.label}</span>
         <span>{lastDate.label}</span>

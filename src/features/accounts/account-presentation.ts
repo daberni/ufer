@@ -67,7 +67,12 @@ export function accountProblem(account: {
  * (never the provider) and its sync state; an account without a bank connection is "Manual". Archived accounts are not synced, so they only say so.
  */
 export type AccountSource = {
-  label: string;
+  /** A bank-linked account's institution, or a generic source the interface names in its language. */
+  label: {
+    institution: string;
+  } | {
+    generic: "bank" | "trades" | "manual";
+  };
   state: {
     kind: "synced";
     at: string;
@@ -81,12 +86,18 @@ function sourceLabel(account: {
   kind: string;
   provider: string;
   institution: string | null
-}) {
+}): AccountSource["label"] {
   if (account.provider !== "manual") {
-    return account.institution ?? "Bank";
+    return account.institution ? {
+      institution: account.institution
+    } : {
+      generic: "bank"
+    };
   }
 
-  return account.kind === "brokerage" ? "Trades and prices" : "Manual";
+  return {
+    generic: account.kind === "brokerage" ? "trades" : "manual"
+  };
 }
 
 export function accountSource(account: {

@@ -1,0 +1,23 @@
+{
+  "period": {
+    "previousMonth": "Vorheriger Monat",
+    "nextMonth": "Nächster Monat",
+    "allMonths": "Alle Monate",
+    "transactionCount": "{count, plural, one {# Buchung} other {# Buchungen}}"
+  },
+  "monthPicker": {
+    "trigger": "Monat auswählen, {label}",
+    "dialog": "Monat wählen",
+    "previousYear": "Vorheriges Jahr",
+    "nextYear": "Nächstes Jahr"
+  },
+  "account": {
+    "emptyTitle": "Keine Buchungen in diesem Zeitraum",
+    "emptyBody": "Wähle einen anderen Monat oder alle Monate, um frühere Buchungen dieses Kontos zu sehen."
+  },
+  "loading": {
+    "loading": "Deine Daten werden geladen …",
+    "failed": "Einige deiner Daten konnten nicht geladen werden."
+  },
+  "bankConnected": "Bank verbunden. Wähle „Synchronisieren“, um Salden und Buchungen erstmals abzurufen."
+}

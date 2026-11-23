@@ -20,6 +20,7 @@ import { useCurrency, useMonthTransactionsHref, usePeriod, useViewHref } from "@
 import type { Area } from "@/components/ui/use-area-result";
 import type { CashFlow } from "@/features/reports/types";
 import { useLocale } from "@/client/locale-provider";
+import { useTranslations } from "next-intl";
 
 type Props = {
   cashFlow: Area<CashFlow>;
@@ -42,6 +43,7 @@ export function CategoryBreakdown({
   selection,
   id
 }: Props) {
+  const t = useTranslations("reports.breakdown");
   const locale = useLocale();
   const selectedPeriod = usePeriod();
   const selectedCurrency = useCurrency();
@@ -54,8 +56,7 @@ export function CategoryBreakdown({
   const shownMonth = selection?.month ?? (period.kind === "month" ? period.month.toString() : null);
   const transactionsHref = shownMonth ? monthTransactionsHref(shownMonth) : viewHref("transactions");
   const summary = selection ?? (pending ? emptySummary : periodCashFlow(cashFlow.data));
-  const context = selection ? describeMonth(Temporal.PlainYearMonth.from(selection.month), locale).title : periodLabel(period, locale);
-  const emptyNote = selection ? "this month" : "in this period";
+  const context = selection ? describeMonth(Temporal.PlainYearMonth.from(selection.month), locale).title : periodLabel(period, locale, t("allMonths"));
   const shownPeriod = selection ? monthPeriod(Temporal.PlainYearMonth.from(selection.month)) : period;
   const reserved = pending ? {
     income: categoryRowLimit,
@@ -66,48 +67,60 @@ export function CategoryBreakdown({
     <section className={clsx(ui["panel"], styles["panel"])} id={id}>
       <div className={clsx(ui["card-heading"], styles["heading"])}>
         <div className={styles["title"]}>
-          <h2>By category</h2>
+          <h2>{t("title")}</h2>
           <span className={clsx(ui["subtle"], pending ? "" : mask)}>{context}</span>
         </div>
-        <Link className={ui["text-button"]} href={transactionsHref} aria-label={`View transactions, ${context}`}>
-          View transactions
+        <Link
+          className={ui["text-button"]}
+          href={transactionsHref}
+          aria-label={t("viewTransactionsLabel", {
+            context
+          })}
+        >
+          {t("viewTransactions")}
           <ChevronRight className={styles["link-icon"]} size={16} />
         </Link>
       </div>
       <div className={styles["summary"]}>
         <span>
-          Net <strong className={clsx(summary.net < 0 && styles["negative"], mask)}>{money(summary.net, currency, locale)}</strong>
+          {t("net")} <strong className={clsx(summary.net < 0 && styles["negative"], mask)}>{money(summary.net, currency, locale)}</strong>
         </span>
         <span className={styles["savings-rate"]}>
-          Savings rate <strong className={clsx(isNegativeRate(summary.savingsRate, locale) && styles["negative"], mask)}>{formatSavingsRate(summary.savingsRate, locale)}</strong>
+          {t("savingsRate")} <strong className={clsx(isNegativeRate(summary.savingsRate, locale) && styles["negative"], mask)}>{formatSavingsRate(summary.savingsRate, locale)}</strong>
         </span>
       </div>
       {pending ? (
-        <AreaPlaceholder area={cashFlow} failureTitle="Income and spending by category could not be loaded">
+        <AreaPlaceholder area={cashFlow} failureTitle={t("failure")}>
           <div className={styles["columns"]}>
-            <FlowColumnSkeleton label="Income" />
-            <FlowColumnSkeleton label="Expenses" />
+            <FlowColumnSkeleton label={t("income")} />
+            <FlowColumnSkeleton label={t("expenses")} />
           </div>
         </AreaPlaceholder>
       ) : (
         <div {...areaProps(cashFlow.status, styles["columns"])}>
           <FlowColumn
-            label="Income"
+            label={t("income")}
             total={summary.income}
             groups={summary.incomeGroups}
             reservedRows={reserved.income}
             currency={currency}
-            rowLink={categoryRowLink(shownPeriod, currency, "income", context)}
-            empty={`No income ${emptyNote}.`}
+            rowLink={categoryRowLink(shownPeriod, currency, "income", category => t("viewIncomeIn", {
+              category,
+              context
+            }))}
+            empty={selection ? t("noIncomeMonth") : t("noIncomePeriod")}
           />
           <FlowColumn
-            label="Expenses"
+            label={t("expenses")}
             total={summary.expenses}
             groups={summary.expenseGroups}
             reservedRows={reserved.expenses}
             currency={currency}
-            rowLink={categoryRowLink(shownPeriod, currency, "expense", context)}
-            empty={`No expenses ${emptyNote}.`}
+            rowLink={categoryRowLink(shownPeriod, currency, "expense", category => t("viewExpensesIn", {
+              category,
+              context
+            }))}
+            empty={selection ? t("noExpensesMonth") : t("noExpensesPeriod")}
           />
         </div>
       )}
@@ -118,9 +131,7 @@ export function CategoryBreakdown({
 /**
  * Each category row opens its income or expense transactions in the shown month or period and currency. The combined "+N more" row stays plain: the list filters one category at a time, and the period's whole list is already linked from the panel.
  */
-export function categoryRowLink(period: Period, currency: string, type: "income" | "expense", context: string) {
-  const flow = type === "income" ? "income" : "expenses";
-
+export function categoryRowLink(period: Period, currency: string, type: "income" | "expense", label: (category: string) => string) {
   return (group: CategoryGroup): CategoryRowLink | null => {
     if (group.key === "remainder") {
       return null;
@@ -133,7 +144,7 @@ export function categoryRowLink(period: Period, currency: string, type: "income"
         category: group.key,
         type
       }),
-      label: `View ${flow} in ${group.name}, ${context}`
+      label: label(group.name)
     };
   };
 }

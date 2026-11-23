@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 import { useQueryClient, type Query } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
 import { toFailure } from "@/client/api";
 
 // The query cache clears the error of a query without data when it is fetched again; the banner keeps the last failure until a load succeeds.
@@ -32,6 +33,7 @@ function awaitsFirstResults(query: Query) {
  * The dashboard's load status. A failed query whose area keeps earlier results is reported once with a retry; it stays visible while a retry runs and disappears when the failed queries load successfully or leave the screen. Areas without results show skeletons hidden from assistive technology, so a single polite announcement reports that they are loading or that some could not be loaded.
  */
 export function useLoadError() {
+  const t = useTranslations("overview.loading");
   const queryClient = useQueryClient();
   const cache = queryClient.getQueryCache();
 
@@ -60,17 +62,18 @@ export function useLoadError() {
     return failedQuery ? failedQuery.state.error ?? lastErrors.get(failedQuery) ?? null : null;
   }, () => null);
 
-  const announcement = useSyncExternalStore(subscribe, () => {
+  const loadState = useSyncExternalStore<"failed" | "loading" | "">(subscribe, () => {
     const waiting = cache.findAll({
       predicate: awaitsFirstResults
     });
 
     if (waiting.some(query => query.state.status === "error")) {
-      return "Some of your data could not be loaded.";
+      return "failed";
     }
 
-    return waiting.length ? "Loading your data …" : "";
+    return waiting.length ? "loading" : "";
   }, () => "");
+  const announcement = loadState ? t(loadState) : "";
 
   const retry = useCallback(() => {
     void queryClient.refetchQueries({

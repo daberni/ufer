@@ -7,7 +7,9 @@ import { clsx } from "clsx";
 import Link from "next/link";
 import styles from "./overview-accounts.module.css";
 import { ArrowRight, Landmark, Plus } from "lucide-react";
-import { accountIcon, kinds } from "@/features/accounts/account-presentation";
+import { accountIcon } from "@/features/accounts/account-presentation";
+import { useAccountKindLabel } from "./use-account-kind-label";
+import { useTranslations } from "next-intl";
 import { AccountSourceStatus } from "./account-source-status";
 import { DateValue } from "@/components/ui/date-value";
 import { useBankingConfiguration } from "@/features/banking/banking-configuration";
@@ -50,6 +52,7 @@ const placeholderAccount = {
 };
 
 export function OverviewAccounts({ currencyAccounts }: Props) {
+  const t = useTranslations("accounts.overview");
   const locale = useLocale();
   const changeView = useChangeView();
 
@@ -57,10 +60,10 @@ export function OverviewAccounts({ currencyAccounts }: Props) {
     <section className={styles["accounts-section"]}>
       <div className={styles["section-heading"]}>
         <h2>
-          Your accounts <span className={clsx(ui["count-badge"], valueMask(shownStatus(currencyAccounts)))}>{formatCount(currencyAccounts.data?.length ?? 0, locale)}</span>
+          {t("title")} <span className={clsx(ui["count-badge"], valueMask(shownStatus(currencyAccounts)))}>{formatCount(currencyAccounts.data?.length ?? 0, locale)}</span>
         </h2>
         <button className={ui["text-button"]} onClick={() => changeView("accounts")}>
-          Manage all <ArrowRight size={15} />
+          {t("manageAll")} <ArrowRight size={15} />
         </button>
       </div>
       {currencyAccounts.status === "pending" ? <AccountStripSkeleton area={currencyAccounts} /> : <AccountStrip currencyAccounts={currencyAccounts.data} />}
@@ -72,8 +75,10 @@ export function OverviewAccounts({ currencyAccounts }: Props) {
 function AccountStripSkeleton({ area }: {
   area: PendingArea
 }) {
+  const t = useTranslations("accounts.overview");
+
   return (
-    <AreaPlaceholder area={area} failureTitle="Your accounts could not be loaded">
+    <AreaPlaceholder area={area} failureTitle={t("failure")}>
       <div className={styles["account-strip"]}>
         {Array.from({
           length: shownRows
@@ -104,6 +109,8 @@ function AccountStripSkeleton({ area }: {
 function AccountStrip({ currencyAccounts }: {
   currencyAccounts: Account[]
 }) {
+  const t = useTranslations("accounts.overview");
+  const kindLabel = useAccountKindLabel();
   const locale = useLocale();
   const [dialog, setDialog] = useState<OpenDialog | null>(null);
   const closeDialog = () => setDialog(null);
@@ -123,13 +130,13 @@ function AccountStrip({ currencyAccounts }: {
             <span className={styles["account-tile-name"]}>{account.name}</span>
             <strong>{account.balance_minor === null ? "—" : money(account.balance_minor, account.currency, locale)}</strong>
             <span className={styles["account-tile-meta"]}>
-              <span className={styles["account-tile-kind"]}>{kinds[account.kind] ?? account.kind}</span>
+              <span className={styles["account-tile-kind"]}>{kindLabel(account.kind)}</span>
               {/* A manual account's status starts with its own dot, so a separator would repeat it. */}
               {account.provider !== "manual" && <span className={styles["account-tile-separator"]} aria-hidden="true">·</span>}
               <AccountSourceStatus account={account} />
             </span>
             <span className={styles["account-tile-date"]}>
-              <DateValue value={account.balance_date} fallback="No balance yet" />
+              <DateValue value={account.balance_date} fallback={t("noBalance")} />
             </span>
           </Link>
         );
@@ -141,8 +148,8 @@ function AccountStrip({ currencyAccounts }: {
         <Landmark size={27} />
       </span>
       <div>
-        <h3>Your overview starts with your first account.</h3>
-        <p>{sandbox ? "Connect a sandbox bank" : "Connect your bank"}, or manually add accounts, investments, property and debts.</p>
+        <h3>{t("onboardingTitle")}</h3>
+        <p>{sandbox ? t("onboardingSandbox") : t("onboarding")}</p>
       </div>
       <button
         className={clsx(styles["button"], ui["primary"])}
@@ -151,7 +158,7 @@ function AccountStrip({ currencyAccounts }: {
         })}
       >
         <Plus size={15} />
-        Connect bank
+        {t("connectBank")}
       </button>
       <button
         className={styles["button"]}
@@ -159,7 +166,7 @@ function AccountStrip({ currencyAccounts }: {
           kind: "account"
         })}
       >
-        Add manually
+        {t("addManually")}
       </button>
     </div>
   );

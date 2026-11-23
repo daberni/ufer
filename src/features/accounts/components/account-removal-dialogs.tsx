@@ -5,6 +5,7 @@ import styles from "./account-removal-dialogs.module.css";
 
 import { useState } from "react";
 import { clsx } from "clsx";
+import { useTranslations } from "next-intl";
 import { Trash2 } from "lucide-react";
 import { toFailure } from "@/client/api";
 import { useChangeView } from "@/client/use-app-url";
@@ -21,8 +22,10 @@ export function DeleteAccountDialog({
   account: Account;
   close: () => void
 }) {
+  const t = useTranslations("accounts");
+
   return (
-    <Dialog eyebrow="Your finances" title="Delete account" onClose={close}>
+    <Dialog eyebrow={t("dialogEyebrow")} title={t("delete.title")} onClose={close}>
       <DeleteForm account={account} close={close} />
     </Dialog>
   );
@@ -35,6 +38,7 @@ function DeleteForm({
   account: Account;
   close: () => void
 }) {
+  const t = useTranslations("accounts.delete");
   const changeView = useChangeView();
   const [mismatch, setMismatch] = useState(false);
   const remove = useDeleteAccount(account.id, () => {
@@ -44,7 +48,7 @@ function DeleteForm({
   const pending = remove.isPending;
   const requestFailure = remove.error ? toFailure(remove.error) : null;
   const failure = mismatch ? {
-    message: "Enter the account's exact name to confirm the deletion."
+    message: t("mismatch")
   } : requestFailure;
 
   return (
@@ -66,14 +70,14 @@ function DeleteForm({
       }}
     >
       <p className={ui["form-description"]}>{account.name}</p>
-      <p className={clsx(ui["notice"], ui["error"])}>Deleting cannot be undone. To keep the history in reports, archive the account instead.</p>
+      <p className={clsx(ui["notice"], ui["error"])}>{t("warning")}</p>
       <ul className={styles["effects"]}>
-        <li>All bookings of this account, their splits and its balance history are deleted. Net worth and cash flow no longer include them.</li>
-        <li>Transfers linked to bookings on other accounts stay there with their amounts, as transfers without a counterpart.</li>
-        <li>Rules that named this account as transfer target keep the transfer type without a counterpart account.</li>
+        <li>{t("effectBookings")}</li>
+        <li>{t("effectTransfers")}</li>
+        <li>{t("effectRules")}</li>
       </ul>
       <label>
-        Type the account name to confirm
+        {t("confirmLabel")}
         <input
           name="name"
           autoComplete="off"
@@ -87,10 +91,10 @@ function DeleteForm({
           className={ui["button"]}
           disabled={pending}
           onClick={close}
-        >Cancel</button>
+        >{t("cancel")}</button>
         <button className={ui["danger-button"]} disabled={pending}>
           <Trash2 size={15} />
-          Delete permanently
+          {t("submit")}
         </button>
       </div>
     </form>

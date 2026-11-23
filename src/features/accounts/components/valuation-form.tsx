@@ -3,6 +3,7 @@
 import ui from "../../../components/ui/primitives.module.css";
 
 import { clsx } from "clsx";
+import { useTranslations } from "next-intl";
 import { Check } from "lucide-react";
 import type { Account } from "@/features/accounts/types";
 import { useDialogSubmit, type DialogFormProps } from "@/components/ui/use-dialog-submit";
@@ -19,8 +20,10 @@ export function ValuationDialog({
   close,
   selectedAccount
 }: Props) {
+  const t = useTranslations("accounts");
+
   return (
-    <Dialog eyebrow="Your finances" title="Update balance" onClose={close}>
+    <Dialog eyebrow={t("dialogEyebrow")} title={t("valuation.title")} onClose={close}>
       <ValuationForm close={close} selectedAccount={selectedAccount} />
     </Dialog>
   );
@@ -30,6 +33,7 @@ function ValuationForm({
   close,
   selectedAccount
 }: Props) {
+  const t = useTranslations("accounts.valuation");
   const {
     error,
     pending,
@@ -46,7 +50,7 @@ function ValuationForm({
         {selectedAccount.name} · {selectedAccount.currency}
       </p>
       <label>
-        New balance
+        {t("balance")}
         <input
           name="balance"
           required
@@ -55,7 +59,7 @@ function ValuationForm({
         />
       </label>
       <label>
-        Balance date
+        {t("date")}
         <input
           name="date"
           type="date"
@@ -64,10 +68,10 @@ function ValuationForm({
           max={latestDate}
         />
       </label>
-      <p className={ui["form-hint"]}>The balance is derived from the account's transactions. Saving books the difference to the balance on that date as an adjustment, for example a revaluation.</p>
+      <p className={ui["form-hint"]}>{t("hint")}</p>
       <FormError failure={error} />
       <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={pending}>
-        Save balance <Check size={16} />
+        {t("submit")} <Check size={16} />
       </button>
     </form>
   );

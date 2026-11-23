@@ -3,6 +3,7 @@
 import ui from "../../../components/ui/primitives.module.css";
 
 import { clsx } from "clsx";
+import { useTranslations } from "next-intl";
 import { Archive } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { FormError } from "@/components/ui/form-error";
@@ -23,8 +24,10 @@ export function CloseAccountDialog({
   account: Account;
   close: () => void
 }) {
+  const t = useTranslations("accounts");
+
   return (
-    <Dialog eyebrow="Your finances" title="Archive account" onClose={close}>
+    <Dialog eyebrow={t("dialogEyebrow")} title={t("archive.title")} onClose={close}>
       <ArchiveDialogContent account={account} close={close} />
     </Dialog>
   );
@@ -47,6 +50,7 @@ function BankBalanceNotice({
   account: Account;
   close: () => void
 }) {
+  const t = useTranslations("accounts.archive");
   const locale = useLocale();
 
   return (
@@ -54,8 +58,8 @@ function BankBalanceNotice({
       <p className={ui["form-description"]}>
         {account.name} · {money(account.balance_minor ?? 0, account.currency, locale)}
       </p>
-      <p>An account can only be archived with a balance of 0. This account's balance follows its bank bookings, so Ufer cannot book it away. Archive it once its bookings bring the balance to 0.</p>
-      <button type="button" className={clsx(ui["button"], ui["full-width"])} onClick={close}>Cancel</button>
+      <p>{t("bankNotice")}</p>
+      <button type="button" className={clsx(ui["button"], ui["full-width"])} onClick={close}>{t("cancel")}</button>
     </div>
   );
 }
@@ -67,6 +71,7 @@ function CloseAccountForm({
   account: Account;
   close: () => void
 }) {
+  const t = useTranslations("accounts.archive");
   const locale = useLocale();
   const {
     error,
@@ -92,18 +97,22 @@ function CloseAccountForm({
       <p className={ui["form-description"]}>
         {account.name} · {money(remaining, account.currency, locale)}
       </p>
-      <p>An account can only be archived with a balance of 0. Ufer books the remaining {money(remaining, account.currency, locale)} away, then archives the account.</p>
+      <p>{t("manualNotice", {
+        amount: money(remaining, account.currency, locale)
+      })}</p>
       <label>
-        Book the balance as
+        {t("bookAs")}
         <Select name="transfer_account_id" defaultValue="">
-          <option value="">Adjustment, no other account</option>
+          <option value="">{t("adjustment")}</option>
           {transferAccounts.map(other => (
-            <option key={other.id} value={other.id}>Transfer to {other.name}</option>
+            <option key={other.id} value={other.id}>{t("transferTo", {
+              name: other.name
+            })}</option>
           ))}
         </Select>
       </label>
       <label>
-        Closing date
+        {t("closingDate")}
         <input
           name="date"
           type="date"
@@ -120,10 +129,10 @@ function CloseAccountForm({
           className={ui["button"]}
           disabled={pending}
           onClick={close}
-        >Cancel</button>
+        >{t("cancel")}</button>
         <button className={clsx(ui["button"], ui["primary"])} disabled={pending}>
           <Archive size={15} />
-          Close and archive
+          {t("submit")}
         </button>
       </div>
     </form>

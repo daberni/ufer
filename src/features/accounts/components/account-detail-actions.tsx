@@ -4,6 +4,7 @@ import ui from "../../../components/ui/primitives.module.css";
 import styles from "./account-detail-actions.module.css";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { clsx } from "clsx";
 import { Plus } from "lucide-react";
 import { ManualTransactionDialog } from "@/features/transactions/components/manual-transaction-dialog";
@@ -22,12 +23,13 @@ export function AccountDetailActions({
   account: Account;
   manualAccounts: Account[];
 }) {
+  const t = useTranslations("accounts.actions");
   const [dialog, setDialog] = useState(false);
   const close = () => setDialog(false);
   const addTransaction = () => setDialog(true);
   const brokerage = account.kind === "brokerage";
   const acceptsEntries = account.provider === "manual" && account.archived_at === null;
-  const label = brokerage ? "Add trade" : "Add transaction";
+  const label = brokerage ? t("addTrade") : t("addTransaction");
 
   return (
     <>

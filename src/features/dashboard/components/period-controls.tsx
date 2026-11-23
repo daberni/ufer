@@ -14,7 +14,7 @@ import { MonthPicker } from "@/features/dashboard/components/month-picker";
 import { shownStatus, valueMask } from "@/components/ui/result-presentation";
 import type { Area } from "@/components/ui/use-area-result";
 import { useLocale } from "@/client/locale-provider";
-import { formatCount } from "@/lib/locale";
+import { useTranslations } from "next-intl";
 
 type DisplayCurrencies = {
   /** The currencies in use and the selected one; until they load, no currency choice is offered. */
@@ -55,6 +55,7 @@ export function PeriodControls(props: Props) {
 }
 
 function PeriodSelect() {
+  const t = useTranslations("overview.period");
   const locale = useLocale();
   const period = usePeriod();
   const allMonths = period.kind === "all";
@@ -71,20 +72,20 @@ function PeriodSelect() {
     <>
       <button
         className={ui["icon-button"]}
-        aria-label="Previous month"
+        aria-label={t("previousMonth")}
         disabled={allMonths}
         onClick={() => moveMonth(-1)}
       >
         <ChevronLeft size={17} />
       </button>
       <MonthPicker
-        label={periodLabel(period, locale)}
+        label={periodLabel(period, locale, t("allMonths"))}
         selected={period.kind === "month" ? period.month : null}
         onSelect={month => selectPeriod(monthPeriod(month))}
       />
       <button
         className={ui["icon-button"]}
-        aria-label="Next month"
+        aria-label={t("nextMonth")}
         disabled={allMonths}
         onClick={() => moveMonth(1)}
       >
@@ -97,7 +98,7 @@ function PeriodSelect() {
         onClick={() => selectPeriod(allMonths ? currentMonthPeriod() : allMonthsPeriod)}
       >
         {allMonths ? <Check size={16} aria-hidden="true" /> : <CalendarRange size={16} aria-hidden="true" />}
-        All months
+        {t("allMonths")}
       </button>
     </>
   );
@@ -106,8 +107,12 @@ function PeriodSelect() {
 function TransactionCount({ count }: {
   count: Area<number>
 }) {
-  const locale = useLocale();
+  const t = useTranslations("overview.period");
   const shown = count.data ?? 0;
 
-  return <span className={clsx(ui["section-kicker"], valueMask(shownStatus(count)))}>{`${formatCount(shown, locale)} ${shown === 1 ? "TRANSACTION" : "TRANSACTIONS"}`}</span>;
+  return (
+    <span className={clsx(ui["section-kicker"], valueMask(shownStatus(count)))}>{t("transactionCount", {
+      count: shown
+    })}</span>
+  );
 }
