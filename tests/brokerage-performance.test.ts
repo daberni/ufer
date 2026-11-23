@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { eq } from "drizzle-orm";
 import type { Database } from "../src/server/database/connection";
 import * as schema from "../src/server/database/schema";
-import { readBrokeragePerformance } from "../src/features/securities/server/security-service";
+import { readBrokeragePerformance, readCombinedBrokeragePerformance } from "../src/features/securities/server/security-service";
 import { performanceInRange } from "../src/features/securities/performance-range";
 import { depot, isolatedDatabase, now, security, settlementAccount, trade } from "./fixtures/brokerage";
 
@@ -167,4 +168,50 @@ test("an account without trades has no performance", async context => {
   const account = await depot();
 
   assert.deepEqual((await readBrokeragePerformance(account, now)).points, []);
+});
+
+test("the combined performance adds up active accounts of one currency, keeps other currencies apart and leaves archived accounts out", async context => {
+  const db = await isolatedDatabase(context);
+  const euroCash = await settlementAccount();
+  const dollarCash = await settlementAccount("USD");
+  const first = await depot();
+  const second = await depot();
+  const archived = await depot();
+  const dollars = await depot("USD");
+  const etf = await security();
+  const usEtf = await security("USD", null);
+  const buy = (account: string, securityId: string, cash: string, quantity: string) => trade(account, {
+    security_id: securityId,
+    date: "2026-09-10",
+    side: "buy",
+    quantity,
+    price: "100",
+    fee: "0",
+    settlement: {
+      account_id: cash
+    }
+  });
+
+  await price(db, etf, "2026-09-10", 100);
+  await price(db, etf, "2026-10-30", 110);
+  await price(db, usEtf, "2026-09-10", 100);
+  await buy(first, etf, euroCash, "10");
+  await buy(second, etf, euroCash, "5");
+  await buy(archived, etf, euroCash, "100");
+  await buy(dollars, usEtf, dollarCash, "1");
+  await db.update(schema.accounts).set({
+    archived_at: "2026-10-01T00:00:00.000Z"
+  }).where(eq(schema.accounts.id, archived));
+
+  const combined = await readCombinedBrokeragePerformance(now);
+  const euro = combined.currencies.find(item => item.currency === "EUR")!;
+  const dollar = combined.currencies.find(item => item.currency === "USD")!;
+  const last = euro.points.at(-1)!;
+
+  assert.equal(combined.currencies.length, 2);
+  assert.deepEqual(euro.account_ids.toSorted(), [first, second].toSorted());
+  assert.equal(last.value_minor, 15 * 110_00);
+  assert.equal(last.invested_minor, 15 * 100_00);
+  assert.deepEqual(dollar.account_ids, [dollars]);
+  assert.equal(dollar.points.at(-1)!.value_minor, 100_00);
 });
