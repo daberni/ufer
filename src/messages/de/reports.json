@@ -47,12 +47,12 @@
     "since": "seit {month}",
     "unvalued": "{count, number} ohne Saldo",
     "incompleteValuations": "{count, number} mit fehlenden oder alten Kursen bewertet",
-    "cash": "Liquidität",
+    "cash": "Barmittel",
     "investments": "Investments",
     "property": "Immobilien",
     "loans": "Kredite",
     "showChanges": "Veränderungen seit {month} anzeigen",
-    "changeAnnouncement": "Seit {month}: Vermögen {netWorth}, Liquidität {cash}, Investments {investments}, Immobilien {property}, Kredite {loans}.",
+    "changeAnnouncement": "Seit {month}: Vermögen {netWorth}, Barmittel {cash}, Investments {investments}, Immobilien {property}, Kredite {loans}.",
     "failure": "Dein Vermögen konnte nicht geladen werden"
   }
 }
