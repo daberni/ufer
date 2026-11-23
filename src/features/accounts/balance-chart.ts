@@ -23,7 +23,7 @@ const edge = verticalPadding / (1 + 2 * verticalPadding) * 100;
 /**
  * Plots balances, oldest first, against their dates. Dates are spaced by days rather than by observation, so gaps between syncs stay visible. An unchanged balance is drawn in the middle.
  */
-export function plotBalances(balances: BalancePoint[]): BalanceChart {
+export function plotBalances<Point extends Pick<BalancePoint, "date" | "amount_minor">>(balances: Point[]): BalanceChart {
   if (!balances.length) {
     return {
       points: [],

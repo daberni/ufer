@@ -60,6 +60,7 @@ export const queryKeys = {
     all: () => ["securities"] as const,
     // Below the accounts prefix, so every balance write also refreshes the holdings.
     brokerage: (account: string) => ["accounts", "brokerage", account] as const,
+    performance: (account: string) => ["accounts", "brokerage", account, "performance"] as const,
     settlementCandidates: (account: string, date: string, amount: number) => ["transactions", "settlement-candidates", account, date, amount] as const
   },
   banking: {

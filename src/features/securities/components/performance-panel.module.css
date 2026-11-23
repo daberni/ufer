@@ -1,0 +1,41 @@
+.performance {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.ranges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+.range {
+  min-width: 44px;
+  min-height: 32px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: var(--text-xs);
+  cursor: pointer;
+}
+.range[aria-pressed="true"] {
+  border-color: var(--ink);
+  color: var(--ink);
+  font-weight: 600;
+}
+.range:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+}
+.totals {
+  align-items: flex-end;
+}
+.totals [data-negative] {
+  color: var(--danger);
+}
+.note {
+  font-size: var(--text-sm);
+  color: var(--muted);
+}

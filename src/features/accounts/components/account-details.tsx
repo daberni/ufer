@@ -10,6 +10,7 @@ import { ArrowLeft, ArrowRight } from "lucide-react";
 import { Empty } from "@/components/ui/empty-state";
 import { AreaPlaceholder } from "@/components/ui/area-placeholder";
 import { BalanceHistoryPanel } from "./balance-history";
+import { PerformancePanel } from "@/features/securities/components/performance-panel";
 import { AccountSummary, AccountSummarySkeleton } from "./account-summary";
 import type { Area } from "@/components/ui/use-area-result";
 import type { Account, BalanceHistory } from "@/features/accounts/types";
@@ -45,8 +46,8 @@ export function AccountDetails({
             <AccountSummarySkeleton />
           </AreaPlaceholder>
         ) : <AccountSummary account={account.data} connections={connections.data ?? []} />}
-        {/* A brokerage account's value chart says little about its performance; a performance chart replaces it in a later change. */}
-        {(account.status === "pending" || account.data.kind !== "brokerage") && <BalanceHistoryPanel history={history} />}
+        {/* A brokerage account's value says little about how it performed, so it shows its return instead. */}
+        {account.status !== "pending" && account.data.kind === "brokerage" ? <PerformancePanel accountId={account.data.id} /> : <BalanceHistoryPanel history={history} />}
       </div>
     </>
   );

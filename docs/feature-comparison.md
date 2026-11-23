@@ -75,7 +75,7 @@ How Ufer compares with established personal finance tools, and what is still pla
 | Investment account value | ✅ | ✅[⁶⁷](#fn-67) | ✅[¹²](#fn-12) | ◐[⁶⁸](#fn-68) | ✅[⁶⁹](#fn-69) |
 | Securities, holdings and trades | ❌[⁷⁰](#fn-70) | ◐[²⁰](#fn-20) | ❌[⁷¹](#fn-71) | ❌[⁶⁸](#fn-68) | ✅[⁶⁹](#fn-69) |
 | ↳ Instrument identity (ISIN, venue) | ❌ | ❔ | ❌[⁷¹](#fn-71) | ❌[⁶⁸](#fn-68) | ✅[³⁵](#fn-35) |
-| ↳ Market prices and performance | ❌ | ✅[⁶⁷](#fn-67) | ❌[⁷¹](#fn-71) | ❌[⁶⁸](#fn-68) | ✅[²⁷](#fn-27) |
+| ↳ Market prices and performance | ✅ | ✅[⁶⁷](#fn-67) | ❌[⁷¹](#fn-71) | ❌[⁶⁸](#fn-68) | ✅[²⁷](#fn-27) |
 | **Platform** | | | | | |
 | Self-hosting | ✅ | ❌ | ✅ | ✅ | ✅ |
 | ↳ Serverless hosting (Vercel) | ✅ | — | ❌ | ❌ | ❌ |
@@ -156,6 +156,7 @@ An item is checked only when its acceptance criterion is met and evidence is rec
   - [x] Market-data provider evaluated ([market data providers](market-data-providers.md))
   - [x] Brokerage accounts with holdings, buys and sells, recorded from their bank booking or a manual cash account
   - [x] Valuations in net worth and its history from stored daily prices; daily EODHD prices need the operator's API key
+  - [x] Time-weighted performance chart on brokerage accounts, with the gain over 1M, 6M, 1Y, YTD or all time
 - [ ] **K-04 · Planning:** budgets, recurring entries and forecasts; planning model to be agreed first
 - [ ] **K-05 · Historical wealth**
   - [x] Per-account balance history
