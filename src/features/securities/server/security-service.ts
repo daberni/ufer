@@ -11,6 +11,7 @@ import { amountMinor, positionOn, type PositionTrade } from "../holdings";
 import { parseMicros } from "../quantities";
 import { priceSourceStatus } from "./price-update-service";
 import { valueHoldings } from "../valuation";
+import { performanceSeries } from "../performance";
 import { readHoldingInputs } from "./valuation-repository";
 import { settlementRefusal, settlementWindowDays, tradeCashAmount, type SettlementRefusal } from "../trade-decisions";
 import { brokerageAccountInput, securityInput, settlementCandidatesQuery, tradeCorrectionInput, tradeInput } from "./security-schema";
@@ -386,6 +387,20 @@ export async function readBrokerageTrades(accountId: string, now = Temporal.Now.
     currency: account.currency,
     trades,
     valuation: valueHoldings(holdings, today(now).toString())
+  };
+}
+
+/** A brokerage account's time-weighted performance through today; see `performanceSeries`. */
+export async function readBrokeragePerformance(accountId: string, now = Temporal.Now.instant()) {
+  const account = await requireBrokerageAccount(accountId);
+  const holdings = (await readHoldingInputs([accountId])).get(accountId)?.holdings ?? [];
+  const date = today(now).toString();
+
+  return {
+    account_id: account.id,
+    currency: account.currency,
+    missing: valueHoldings(holdings, date).missing,
+    points: performanceSeries(holdings, date)
   };
 }
 

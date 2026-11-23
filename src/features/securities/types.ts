@@ -1,3 +1,4 @@
+import type { PerformancePoint } from "./performance";
 import type { TradeSide } from "./trade-sides";
 
 export type PricePoint = {
@@ -44,6 +45,14 @@ export type BrokerageTrades = {
     stale: number;
     holdings: Holding[];
   };
+};
+
+export type BrokeragePerformance = {
+  account_id: string;
+  currency: string;
+  /** Holdings without any price, counted at cost and so without performance. */
+  missing: number;
+  points: PerformancePoint[];
 };
 
 export type Security = {

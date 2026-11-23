@@ -96,6 +96,19 @@ export function formatPercent(ratio: number, locale: string) {
   return percentFormat(locale).format(ratio);
 }
 
+/** A return ratio with a sign and up to two decimals, for example 0.0512 as "+5.12%" in English. */
+export function formatSignedPercent(ratio: number, locale: string) {
+  // A ratio that rounds to zero shows no sign rather than "-0.00%"; adding 0 turns -0 into 0.
+  const shown = Math.round(ratio * 10_000) / 10_000 + 0;
+
+  return cachedFormat(numberFormats, locale, "signed-percent", supported => new Intl.NumberFormat(supported, {
+    style: "percent",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+    signDisplay: "exceptZero"
+  })).format(shown);
+}
+
 function percentFormat(locale: string) {
   return cachedFormat(numberFormats, locale, "percent", supported => new Intl.NumberFormat(supported, {
     style: "percent",
