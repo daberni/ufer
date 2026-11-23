@@ -7,6 +7,7 @@ import { correctTrade, readBrokeragePerformance, readBrokerageTrades, readCombin
 import { correctTransfer, recordTransfer, removeTransfer } from "../src/features/securities/server/transfer-service";
 import { ValidationError } from "../src/lib/errors";
 import { depot, isolatedDatabase, now, rejectsWith, security, settlementAccount, trade } from "./fixtures/brokerage";
+import { performanceInRange } from "../src/features/securities/performance-range";
 
 async function price(db: Database, securityId: string, date: string, close: number) {
   await db.insert(schema.securityPrices).values({
@@ -273,4 +274,82 @@ test("an account that receives and sends on the same day keeps both flows apart 
 
   assert.equal(point?.growth, (1650_00 + 550_00) / (1000_00 + 1100_00));
   assert.equal(point?.invested_minor, 1000_00 + 1100_00 - 550_00);
+});
+
+test("an account transferred out completely after gains keeps its return up to the transfer and has no performance afterwards", async context => {
+  const {
+    db,
+    sender,
+    receiver,
+    etf,
+    record,
+    transfer
+  } = await setup(context);
+  const bond = await security("EUR", "BOND.XETRA");
+
+  await price(db, etf, "2026-09-01", 100);
+  await price(db, etf, "2026-10-01", 110);
+  await price(db, etf, "2026-10-20", 112);
+  await price(db, etf, "2026-10-27", 115);
+  await price(db, bond, "2026-09-01", 50);
+  await price(db, bond, "2026-10-19", 51);
+  await price(db, bond, "2026-10-27", 52);
+  await record(sender, "2026-09-01", "buy", "10", "100");
+  await trade(sender, {
+    security_id: bond,
+    date: "2026-09-01",
+    side: "buy",
+    quantity: "20",
+    price: "50",
+    settlement: {
+      account_id: await settlementAccount()
+    }
+  });
+  await transfer("2026-10-20", "10");
+  await recordTransfer(sender, {
+    security_id: bond,
+    to_account_id: receiver,
+    date: "2026-10-27",
+    quantity: "20"
+  }, now);
+
+  const sending = await readBrokeragePerformance(sender, now);
+  const last = sending.points.at(-1)!;
+
+  // 2000 invested grew to 1120 + 1040 by the last close before the final transfer, then only the bond's move to 52 counts.
+  assert.equal(last.date, "2026-10-27");
+  assert.equal(Math.round(last.growth * 1_000_000), Math.round((1120 + 1020) / 2000 * (1040 / 1020) * 1_000_000));
+  assert.ok(sending.points.every(point => point.date <= "2026-10-27"));
+  assert.deepEqual(performanceInRange(sending.points, "1M", sending.as_of).map(point => point.date), ["2026-09-30", "2026-10-01", "2026-10-19", "2026-10-20", "2026-10-27"]);
+  assert.deepEqual(performanceInRange(sending.points, "1M", "2026-12-31"), []);
+
+  const receiving = await readBrokeragePerformance(receiver, now);
+
+  // The receiver starts with the shares at 1120 and gains only their later move to 115; the bond arrives at 1040 on that day.
+  assert.equal(Math.round(receiving.points.find(point => point.date === "2026-10-27")!.growth * 1_000_000), Math.round((1150 + 1040) / (1120 + 1040) * 1_000_000));
+});
+
+test("the combined series keeps an emptied and archived account's history, with transfers between the accounts as no flow", async context => {
+  const {
+    db,
+    sender,
+    receiver,
+    etf,
+    record,
+    transfer
+  } = await setup(context);
+
+  await price(db, etf, "2026-09-01", 100);
+  await price(db, etf, "2026-10-01", 110);
+  await price(db, etf, "2026-10-20", 121);
+  await record(sender, "2026-09-01", "buy", "10", "100");
+  await transfer("2026-10-01", "10");
+  await archiveAccount(sender, {}, now);
+
+  const combined = (await readCombinedBrokeragePerformance(now)).currencies[0]!;
+
+  assert.deepEqual(combined.account_ids, [receiver]);
+  assert.equal(combined.points[0]?.date, "2026-08-31");
+  assert.equal(Math.round(combined.points.at(-1)!.growth * 10_000), 12_100);
+  assert.equal(combined.points.at(-1)!.invested_minor, 1000_00);
 });

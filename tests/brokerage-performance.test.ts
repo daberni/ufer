@@ -99,9 +99,8 @@ test("fees reduce the return and a full sale above the last price keeps its gain
     ["2026-09-09", 0, 1],
     // 1,000 held for 1,010 paid.
     ["2026-09-10", 1000_00, rounded(1000 / 1010)],
-    // Sold for 1,050 after holding 1,000.
-    ["2026-09-15", 0, rounded(1000 / 1010 * 1.05)],
-    ["2026-10-31", 0, rounded(1000 / 1010 * 1.05)]
+    // Sold for 1,050 after holding 1,000; with nothing held afterwards the series ends here.
+    ["2026-09-15", 0, rounded(1000 / 1010 * 1.05)]
   ]);
 });
 
@@ -210,7 +209,7 @@ test("an account without trades has no performance", async context => {
   assert.deepEqual((await readBrokeragePerformance(account, now)).points, []);
 });
 
-test("the combined performance adds up active accounts of one currency, keeps other currencies apart and leaves archived accounts out", async context => {
+test("the combined performance adds up active accounts of one currency, keeps other currencies apart and keeps archived accounts' history out of today's figures only", async context => {
   const db = await isolatedDatabase(context);
   const euroCash = await settlementAccount();
   const dollarCash = await settlementAccount("USD");
@@ -250,8 +249,10 @@ test("the combined performance adds up active accounts of one currency, keeps ot
 
   assert.equal(combined.currencies.length, 2);
   assert.deepEqual(euro.account_ids.toSorted(), [first, second].toSorted());
-  assert.equal(last.value_minor, 15 * 110_00);
-  assert.equal(last.invested_minor, 15 * 100_00);
+  // The series includes the archived account's history; its account list and today's summary do not.
+  assert.equal(last.value_minor, 115 * 110_00);
+  assert.equal(last.invested_minor, 115 * 100_00);
+  assert.equal(euro.summary.total.gain_minor, 15 * 10_00);
   assert.deepEqual(dollar.account_ids, [dollars]);
   assert.equal(dollar.points.at(-1)!.value_minor, 100_00);
 });

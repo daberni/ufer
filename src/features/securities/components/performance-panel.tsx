@@ -46,7 +46,7 @@ export function PerformanceView({
   title: string;
   isPending: boolean;
   isError: boolean;
-  performance: Pick<BrokeragePerformance, "currency" | "missing" | "points"> | undefined;
+  performance: Pick<BrokeragePerformance, "currency" | "missing" | "points" | "as_of"> | undefined;
 }) {
   const query = {
     isPending,
@@ -55,7 +55,7 @@ export function PerformanceView({
   };
   const [range, setRange] = useState<PerformanceRange>("All");
   const locale = useLocale();
-  const points = useMemo(() => performanceInRange(query.data?.points ?? [], range), [query.data, range]);
+  const points = useMemo(() => performanceInRange(query.data?.points ?? [], range, query.data?.as_of), [query.data, range]);
 
   return (
     <section className={clsx(ui["panel"], styles["performance"])} aria-busy={query.isPending}>
@@ -75,7 +75,7 @@ export function PerformanceView({
       </div>
       {query.isPending && <PerformanceChartSkeleton />}
       {query.isError && <p className={styles["note"]}>The performance could not be loaded.</p>}
-      {query.data && (points.length > 1 ? <PerformanceChart points={points} currency={query.data.currency} /> : <p className={styles["note"]}>The chart appears once a trade is recorded.</p>)}
+      {query.data && (points.length > 1 ? <PerformanceChart points={points} currency={query.data.currency} /> : <p className={styles["note"]}>{query.data.points.length ? "Nothing was held in this range." : "The chart appears once a trade is recorded."}</p>)}
       {query.data && query.data.missing > 0 && <p className={styles["note"]}>{formatCountLabel(query.data.missing, "holding has", "holdings have", locale)} no price yet and count at cost, without performance.</p>}
     </section>
   );

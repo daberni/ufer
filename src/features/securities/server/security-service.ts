@@ -17,7 +17,7 @@ import { performanceSeries } from "../performance";
 import { readHoldingInputs } from "./valuation-repository";
 import { settlementRefusal, settlementWindowDays, tradeCashAmount, type SettlementRefusal } from "../trade-decisions";
 import { brokerageAccountInput, securityInput, settlementCandidatesQuery, tradeCorrectionInput, tradeInput } from "./security-schema";
-import { deleteTrade, findBrokerageAccount, findSecurity, findSettlementAccount, findSettlementBooking, findTrade, insertBrokerageAccount, insertSecurity, insertSettlementEntry, insertTrade, listActiveBrokerageAccounts, listSecurities, markSettlementBooking, nextTradeSequence, readAccountTrades, readSettlementCandidates, isEarliestTrade, markSplitsUnchecked, saveSettlementEntry, saveTradeCorrection, withSecurityTransaction, findOrInsertSecurity } from "./security-repository";
+import { deleteTrade, findBrokerageAccount, findSecurity, findSettlementAccount, findSettlementBooking, findTrade, insertBrokerageAccount, insertSecurity, insertSettlementEntry, insertTrade, listAllBrokerageAccounts, listSecurities, markSettlementBooking, nextTradeSequence, readAccountTrades, readSettlementCandidates, isEarliestTrade, markSplitsUnchecked, saveSettlementEntry, saveTradeCorrection, withSecurityTransaction, findOrInsertSecurity } from "./security-repository";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 
 /** Replays every trade so a sale never exceeds what was held at that point, now or after a change. */
@@ -467,31 +467,38 @@ export async function readBrokeragePerformance(accountId: string, now = Temporal
   return {
     account_id: account.id,
     currency: account.currency,
+    as_of: date,
     missing: valueHoldings(holdings, date).missing,
     points: performanceSeries(holdings, date)
   };
 }
 
-/** The time-weighted performance of all active brokerage accounts together, one series per currency, since amounts are never summed across currencies. */
+/**
+ * The time-weighted performance of all brokerage accounts together, one series per currency, since amounts are never summed across currencies.
+ * The series includes archived accounts for the periods they held positions, so closing a depot keeps its history; both legs of a transfer between them cancel. Today's figures cover the active accounts.
+ */
 export async function readCombinedBrokeragePerformance(now = Temporal.Now.instant()) {
-  const accounts = await listActiveBrokerageAccounts();
+  const accounts = await listAllBrokerageAccounts();
+  const active = accounts.filter(account => account.archived_at === null);
   const date = today(now).toString();
   const inputs = await readHoldingInputs(accounts.map(account => account.id), {
     kind: "history",
     through: date
   });
-  const currencies = [...new Set(accounts.map(account => account.currency))];
+  const currencies = [...new Set(active.map(account => account.currency))];
 
   return {
     currencies: currencies.map(currency => {
-      const accountIds = accounts.filter(account => account.currency === currency).map(account => account.id);
+      const accountIds = active.filter(account => account.currency === currency).map(account => account.id);
       const holdings = accountIds.flatMap(id => inputs.get(id)?.holdings ?? []);
+      const history = accounts.filter(account => account.currency === currency).flatMap(account => inputs.get(account.id)?.holdings ?? []);
 
       return {
         currency,
+        as_of: date,
         account_ids: accountIds,
         missing: valueHoldings(holdings, date).missing,
-        points: performanceSeries(holdings, date),
+        points: performanceSeries(history, date),
         summary: changeSummary(holdings, date)
       };
     })
