@@ -1,6 +1,6 @@
 # Feature comparison
 
-Updated: **2026-11-22** · Ufer `0.3.0` · Working product name: **Ufer**
+Updated: **2026-11-24** · Ufer `main` after `0.3.0` · Working product name: **Ufer**
 
 How Ufer compares with established personal finance tools, and what is still planned. Details and evidence are in the footnotes, and priorities in the [roadmap](product-direction.md#roadmap). No personal account inventory is included.
 
@@ -14,7 +14,7 @@ How Ufer compares with established personal finance tools, and what is still pla
 
 | Product | Reviewed release | Deployment · license |
 | --- | --- | --- |
-| **Ufer** | `0.3.0` | Self-hosted (Docker/NAS) or Vercel + libSQL · AGPL-3.0-or-later |
+| **Ufer** | `main` after `0.3.0` | Self-hosted (Docker/NAS) or Vercel + libSQL · AGPL-3.0-or-later |
 | [Buxfer](https://www.buxfer.com/features/) | hosted, unpinned | Hosted subscription · proprietary |
 | [Actual Budget](https://github.com/actualbudget/actual/releases/tag/v26.11.0) | 26.11.0 | Self-hosted Node server · MIT |
 | [Firefly III](https://github.com/firefly-iii/firefly-iii/releases/tag/v6.7.9) | 6.7.9 + Importer 2.3.5 | PHP app, database, importer, cron · AGPLv3 |
@@ -49,7 +49,7 @@ How Ufer compares with established personal finance tools, and what is still pla
 | Source provenance | ◐[⁴⁶](#fn-46) | ◐[²](#fn-2) | ◐[²⁸](#fn-28) | ◐[³⁷](#fn-37) | ✅[³⁵](#fn-35) |
 | **Categorization** | | | | | |
 | Categories with color and icon | ✅ | ❌[²⁰](#fn-20) | ❌[³⁴](#fn-34) | ◐[⁴⁷](#fn-47) | ✅[³⁵](#fn-35) |
-| ↳ Category hierarchy or tags | ❌ | ✅[¹¹](#fn-11) | ✅[⁹](#fn-9) | ◐[¹³](#fn-13) | ✅[⁴⁸](#fn-48) |
+| ↳ Category hierarchy or tags | ❌[⁹¹](#fn-91) | ✅[¹¹](#fn-11) | ✅[⁹](#fn-9) | ◐[¹³](#fn-13) | ✅[⁴⁸](#fn-48) |
 | Automatic categorization rules | ✅[⁴⁹](#fn-49) | ✅[¹¹](#fn-11) | ✅[⁵⁰](#fn-50) | ✅[⁴³](#fn-43) | ✅[³⁰](#fn-30) |
 | ↳ Rules set type and transfer account | ✅ | ✅[⁴¹](#fn-41) | ◐[⁵⁰](#fn-50) | ✅[⁴³](#fn-43) | ◐[⁵¹](#fn-51) |
 | ↳ Rules limited to one account | ✅ | ❔ | ❔ | ❔ | ❔ |
@@ -73,8 +73,8 @@ How Ufer compares with established personal finance tools, and what is still pla
 | Long-term planning | ❌ | ✅[¹¹](#fn-11) | ✅🧪[¹²](#fn-12) | ◐[¹³](#fn-13) | ◐[¹⁴](#fn-14) |
 | **Investments** | | | | | |
 | Investment account value | ✅ | ✅[⁶⁷](#fn-67) | ✅[¹²](#fn-12) | ◐[⁶⁸](#fn-68) | ✅[⁶⁹](#fn-69) |
-| Securities, holdings and trades | ❌[⁷⁰](#fn-70) | ◐[²⁰](#fn-20) | ❌[⁷¹](#fn-71) | ❌[⁶⁸](#fn-68) | ✅[⁶⁹](#fn-69) |
-| ↳ Instrument identity (ISIN, venue) | ❌ | ❔ | ❌[⁷¹](#fn-71) | ❌[⁶⁸](#fn-68) | ✅[³⁵](#fn-35) |
+| Securities, holdings and trades | ✅[⁷⁰](#fn-70) | ◐[²⁰](#fn-20) | ❌[⁷¹](#fn-71) | ❌[⁶⁸](#fn-68) | ✅[⁶⁹](#fn-69) |
+| ↳ Instrument identity (ISIN, venue) | ✅[⁷⁰](#fn-70) | ❔ | ❌[⁷¹](#fn-71) | ❌[⁶⁸](#fn-68) | ✅[³⁵](#fn-35) |
 | ↳ Market prices and performance | ✅ | ✅[⁶⁷](#fn-67) | ❌[⁷¹](#fn-71) | ❌[⁶⁸](#fn-68) | ✅[²⁷](#fn-27) |
 | **Platform** | | | | | |
 | Self-hosting | ✅ | ❌ | ✅ | ✅ | ✅ |
@@ -83,7 +83,7 @@ How Ufer compares with established personal finance tools, and what is still pla
 | ↳ Installable web app | ✅ | ◐[²⁰](#fn-20) | ✅[⁷⁵](#fn-75) | ✅[⁷⁶](#fn-76) | ✅[⁷⁷](#fn-77) |
 | Dark mode | ✅ | ❌[²⁰](#fn-20) | ✅[⁷⁵](#fn-75) | ✅[⁷⁸](#fn-78) | ✅[³⁵](#fn-35) |
 | Multiple users | ◐[⁷⁹](#fn-79) | ✅[¹¹](#fn-11) | ✅[⁸⁰](#fn-80) | ◐[⁸¹](#fn-81) | ✅[⁸²](#fn-82) |
-| ↳ Single sign-on | ❌ | ◐[⁸³](#fn-83) | ✅[⁸⁰](#fn-80) | ✅[⁸⁴](#fn-84) | ✅[⁷⁷](#fn-77) |
+| ↳ Single sign-on | ❌[⁹²](#fn-92) | ◐[⁸³](#fn-83) | ✅[⁸⁰](#fn-80) | ✅[⁸⁴](#fn-84) | ✅[⁷⁷](#fn-77) |
 | Local-first or end-to-end encryption | ❌ | ❔ | ✅[⁸⁵](#fn-85) | ❌[⁸⁶](#fn-86) | ❔ |
 | Export and restore | ◐[⁸⁷](#fn-87) | ✅[¹¹](#fn-11) | ✅[⁸⁸](#fn-88) | ◐[⁸⁹](#fn-89) | ✅[⁹⁰](#fn-90) |
 | Open source | ✅ | ❌ | ✅ | ✅ | ✅ |
@@ -92,7 +92,7 @@ Low resource use is a Ufer goal, not a measured advantage; no comparative perfor
 
 **Verification limits.** Not yet verified: the first unattended scheduled sync on the Docker host, physical phones, Safari and real bank-app redirects, large histories, NAS operation, restoring from a backup, PostgreSQL and multi-tenant hosting.
 
-**Positioning.** Ufer currently offers less than the established alternatives; bank sync, editable imports and historical wealth exist elsewhere, and Sure also covers securities. Ufer targets everyday users with automatic bank sync, one view across institutions, simple onboarding and useful default reports; imports serve history and portability. The decision to continue Ufer rather than fork Sure is recorded in [ADR 001](adr/decisions/001-continue-ufer.md).
+**Positioning.** Ufer currently offers less than the established alternatives; bank sync, editable imports and historical wealth exist elsewhere, and only Sure and Ufer cover securities with holdings and trades. Ufer targets everyday users with automatic bank sync, one view across institutions, simple onboarding and useful default reports; imports serve history and portability. The decision to continue Ufer rather than fork Sure is recorded in [ADR 001](adr/decisions/001-continue-ufer.md).
 
 ## Bank providers
 
@@ -144,7 +144,7 @@ An item is checked only when its acceptance criterion is met and evidence is rec
   - [x] Split transactions
   - [x] Sync runs linked to the bookings they inserted
   - [ ] CSV import runs linked to their bookings
-  - [ ] Date and amount overrides for imported bookings ([#246](https://github.com/daberni/ufer/issues/246))
+  - [x] Date and amount overrides decided against for now: corrections use overrides, splits, adjustments and reimports ([#246](https://github.com/daberni/ufer/issues/246))
 - [ ] **K-02 · Complete management**
   - [x] Rules: create, edit with preview, toggle, reorder, delete, apply
   - [x] Categories: create, edit, delete with reassignment
@@ -152,7 +152,8 @@ An item is checked only when its acceptance criterion is met and evidence is rec
   - [x] Bookings on archived accounts stay categorizable ([#271](https://github.com/daberni/ufer/issues/271))
   - [x] Bank connections: connect, reconnect, remove
   - [x] Account-scoped rules ([#243](https://github.com/daberni/ufer/issues/243))
-- [ ] **K-03 · Securities** ([#266](https://github.com/daberni/ufer/issues/266))
+  - [ ] Category grouping or tags ([#387](https://github.com/daberni/ufer/issues/387))
+- [x] **K-03 · Securities** ([#266](https://github.com/daberni/ufer/issues/266))
   - [x] Market-data provider evaluated ([market data providers](market-data-providers.md))
   - [x] Brokerage accounts with holdings, buys and sells, recorded from their bank booking or a manual cash account
   - [x] Valuations in net worth and its history from stored daily prices; daily EODHD prices need the operator's API key
@@ -187,10 +188,11 @@ An item is checked only when its acceptance criterion is met and evidence is rec
   - [x] AGPL-3.0-or-later, CLA and source link on every screen
   - [ ] Third-party notices for prebuilt images or the managed service
   - [ ] Commercial Enable Banking agreement and market-data rights
-- [ ] **OSS-02 · Publication privacy:** scan the tree and history for secrets and real financial data
+- [x] **OSS-02 · Publication privacy:** tree and history scanned for secrets and real financial data (2026-11-22); no findings beyond the owner's name and contact address, which are accepted
 - [ ] **OSS-03 · Fresh setup and demo**
   - [x] Synthetic demo data (`npm run demo:seed`)
-  - [ ] Verified setup from a fresh checkout and container configurations
+  - [x] Verified setup from a fresh checkout ([#336](https://github.com/daberni/ufer/pull/336))
+  - [ ] Verified container configurations
 - [ ] **OSS-04 · Contribution and security process**
   - [x] Contribution guidelines, CLA and security policy
   - [x] Security assessment findings tracked
@@ -268,7 +270,7 @@ An item is checked only when its acceptance criterion is met and evidence is rec
 67. <a id="fn-67"></a>[Buxfer investments](https://www.buxfer.com/features/investments/)
 68. <a id="fn-68"></a>[Firefly III discussion](https://github.com/orgs/firefly-iii/discussions/10190): no dedicated securities tracking.
 69. <a id="fn-69"></a>[Sure investment accounts](https://docs.sure.am/guides/key-concepts/investment-accounts)
-70. <a id="fn-70"></a>Planned as the next major topic ([#266](https://github.com/daberni/ufer/issues/266)).
+70. <a id="fn-70"></a>Brokerage accounts with securities identified by ISIN, buys and sells linked to their settlement booking, transfers between brokerage accounts at original cost, daily prices from EODHD on a chosen listing, and time-weighted performance ([#266](https://github.com/daberni/ufer/issues/266), [#362](https://github.com/daberni/ufer/issues/362), [#384](https://github.com/daberni/ufer/issues/384)).
 71. <a id="fn-71"></a>[Actual 26.11.0 source tree](https://github.com/actualbudget/actual/tree/v26.11.0) has no Buxfer importer or securities model; [investment accounts](https://github.com/actualbudget/actual/blob/v26.11.0/packages/docs/docs/accounts/index.md) track balances only.
 72. <a id="fn-72"></a>Checked in browser emulation; physical phones not yet tested.
 73. <a id="fn-73"></a>[Actual 26.11.0 release](https://actualbudget.org/blog/release-26.11.0/); physical phones not tested.
@@ -289,6 +291,8 @@ An item is checked only when its acceptance criterion is met and evidence is rec
 88. <a id="fn-88"></a>[Actual backup](https://actualbudget.org/docs/backup-restore/backup/) and [restore](https://actualbudget.org/docs/backup-restore/restore/)
 89. <a id="fn-89"></a>[Firefly III export](https://github.com/firefly-iii/docs/blob/main/docs/docs/tutorials/firefly-iii/exporting-data.md): CSV and API; full restore needs a database backup.
 90. <a id="fn-90"></a>[Sure 0.7.6-hotfix.1](https://github.com/we-promise/sure/releases/tag/v0.7.6-hotfix.1): instance backup and restore.
+91. <a id="fn-91"></a>Categories are a flat list; grouping or tags are planned ([#387](https://github.com/daberni/ufer/issues/387)).
+92. <a id="fn-92"></a>Password sign-in only; OpenID Connect single sign-on is planned ([#389](https://github.com/daberni/ufer/issues/389)).
 
 ## Maintenance
 

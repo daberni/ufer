@@ -142,11 +142,12 @@ Use the same synthetic data for these end-to-end checks; they are pending, not c
 
 Open work grouped by phase, in priority order. Budgets and forecasting have lower priority than reliable insights and brokerage accounts.
 
-1. **Reliable operation and trustworthy figures:** restore-tested, automated backups ([#84](https://github.com/daberni/ufer/issues/84)); verified unattended production bank sync, repeat sync and reauthorization ([#267](https://github.com/daberni/ufer/issues/267)); reconciling bank-linked balances with booked transactions ([#183](https://github.com/daberni/ufer/issues/183)); account-scoped rules ([#243](https://github.com/daberni/ufer/issues/243)).
-2. **Wealth and securities (next major topic):** brokerage accounts with a settlement account, buy and sell transactions creating holdings with cost, quantity, date and fees, daily valuations from a market-data provider (EODHD evaluated) that are not transactions but flow into net worth and its history ([#266](https://github.com/daberni/ufer/issues/266), [#87](https://github.com/daberni/ufer/issues/87)).
-3. **Insights:** an insights page with configurable reports ([#249](https://github.com/daberni/ufer/issues/249)).
-4. **Planning (lower priority):** budgets, recurring entries and forecasting (feature comparison K-04).
-5. **Platform (last):** user management with enforced roles (owner and member exist, but routes do not enforce different rights), localization ([#21](https://github.com/daberni/ufer/issues/21)), PostgreSQL and multi-tenant hosting. A hosted service is a medium-term goal.
+1. **Reliable operation and trustworthy figures:** restore-tested, automated backups ([#84](https://github.com/daberni/ufer/issues/84)) and deployments that apply pending migrations through a gated workflow ([#90](https://github.com/daberni/ufer/issues/90)).
+2. **Insights:** an insights page with configurable reports, including the full net-worth history ([#249](https://github.com/daberni/ufer/issues/249), [#87](https://github.com/daberni/ufer/issues/87)), and category grouping or tags ([#387](https://github.com/daberni/ufer/issues/387)).
+3. **Planning (lower priority):** budgets, recurring entries and forecasting (feature comparison K-04).
+4. **Platform (last):** user management with enforced roles (owner and member exist, but routes do not enforce different rights), OpenID Connect single sign-on ([#389](https://github.com/daberni/ufer/issues/389)), localized server errors ([#386](https://github.com/daberni/ufer/issues/386)), banks offered from the provider's list ([#388](https://github.com/daberni/ufer/issues/388)), PostgreSQL and multi-tenant hosting. A hosted service is a medium-term goal.
+
+Done since the previous roadmap: securities with brokerage accounts, trades, transfers and time-weighted performance ([#266](https://github.com/daberni/ufer/issues/266)), verified unattended bank sync ([#267](https://github.com/daberni/ufer/issues/267)), reconciled bank-linked balances ([#183](https://github.com/daberni/ufer/issues/183)), account-scoped rules ([#243](https://github.com/daberni/ufer/issues/243)) and the English and German interface ([#21](https://github.com/daberni/ufer/issues/21)).
 
 JSX accessibility linting ([#111](https://github.com/daberni/ufer/issues/111)) waits for an ESLint 10-compatible `eslint-plugin-jsx-a11y` release.
 
