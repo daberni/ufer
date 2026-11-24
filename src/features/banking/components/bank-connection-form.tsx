@@ -17,6 +17,9 @@ import { SearchableSelect, type SearchableSelectOption } from "@/components/ui/s
 import { Select } from "@/components/ui/select";
 import { Dialog } from "@/components/ui/dialog";
 import { useBankingConfiguration } from "@/features/banking/banking-configuration";
+import { useLocale, useTranslations } from "next-intl";
+
+type ConnectMessages = ReturnType<typeof useTranslations<"banking.connect">>;
 
 type Props = DialogFormProps & {
   /** The connection to reauthorize; null connects a new bank. */
@@ -25,40 +28,40 @@ type Props = DialogFormProps & {
   account?: Pick<Account, "id" | "name">;
 };
 
-function bankOption(bank: Bank): SearchableSelectOption<string> {
+function bankOption(bank: Bank, betaLabel: string): SearchableSelectOption<string> {
   return {
     key: bank.name,
     value: bank.name,
     label: bank.name,
-    description: bank.beta ? <span className={ui["pill"]}>Beta</span> : undefined
+    description: bank.beta ? <span className={ui["pill"]}>{betaLabel}</span> : undefined
   };
 }
 
-function directoryStatus(directory: Pick<ReturnType<typeof useBankDirectory>, "banks" | "error" | "loading">) {
+function directoryStatus(directory: Pick<ReturnType<typeof useBankDirectory>, "banks" | "error" | "loading">, t: ConnectMessages) {
   if (directory.loading) {
     return {
-      notice: "Loading banks …",
-      placeholder: "Loading banks …"
+      notice: t("loadingBanks"),
+      placeholder: t("loadingBanks")
     };
   }
 
   if (directory.error) {
     return {
-      notice: "The bank list could not be loaded.",
-      placeholder: "Bank list unavailable"
+      notice: t("directoryFailed"),
+      placeholder: t("directoryUnavailable")
     };
   }
 
   if (!directory.banks.length) {
     return {
-      notice: "No personal bank is available for this country.",
-      placeholder: "No bank available"
+      notice: t("noBankNotice"),
+      placeholder: t("noBankPlaceholder")
     };
   }
 
   return {
     notice: "",
-    placeholder: "Type to search banks"
+    placeholder: t("searchPlaceholder")
   };
 }
 
@@ -67,8 +70,10 @@ export function BankConnectionDialog({
   connection,
   account
 }: Props) {
+  const t = useTranslations("banking");
+
   return (
-    <Dialog eyebrow="Your finances" title={account ? "Connect to bank" : "Connect bank"} onClose={close}>
+    <Dialog eyebrow={t("eyebrow")} title={account ? t("connect.titleAccount") : t("connect.titleNew")} onClose={close}>
       <BankConnectionForm close={close} connection={connection} account={account} />
     </Dialog>
   );
@@ -79,9 +84,14 @@ function BankConnectionForm({
   connection,
   account
 }: Props) {
+  const t = useTranslations("banking.connect");
+  // Country names come from the runtime in the interface language, so no catalog has to list them.
+  const countryNames = new Intl.DisplayNames([useLocale()], {
+    type: "region"
+  });
   const { environment } = useBankingConfiguration();
   const directory = useBankDirectory(connection);
-  const status = directoryStatus(directory);
+  const status = directoryStatus(directory, t);
   const bankFieldId = useId();
   const directoryErrorId = useId();
   const {
@@ -101,19 +111,23 @@ function BankConnectionForm({
       }))}
       className={ui["form"]}
     >
-      <p className={ui["form-description"]}>{environment === "SANDBOX" ? "You are connecting a test bank. Use only its test credentials." : "After selecting a bank, authorize read-only access with your bank."}</p>
-      {account && <p className={ui["form-hint"]}>Authorize only the bank account that {account.name} records. Its bookings stay, and bank bookings that match rows imported from a file take those rows over instead of being added twice.</p>}
+      <p className={ui["form-description"]}>{environment === "SANDBOX" ? t("sandboxDescription") : t("description")}</p>
+      {account && (
+        <p className={ui["form-hint"]}>{t("accountHint", {
+          account: account.name
+        })}</p>
+      )}
       <label>
-        Country
+        {t("country")}
         <Select value={directory.country} onChange={event => directory.setCountry(event.target.value)}>
-          {bankCountries.map(country => <option key={country.code} value={country.code}>{country.name}</option>)}
+          {bankCountries.map(country => <option key={country.code} value={country.code}>{countryNames.of(country.code) ?? country.code}</option>)}
         </Select>
       </label>
       <div className={ui["field"]}>
-        <label htmlFor={bankFieldId}>Bank</label>
+        <label htmlFor={bankFieldId}>{t("bank")}</label>
         <SearchableSelect
           id={bankFieldId}
-          options={directory.banks.map(bankOption)}
+          options={directory.banks.map(bank => bankOption(bank, t("beta")))}
           value={directory.bankName || undefined}
           onChange={directory.choose}
           query={directory.query}
@@ -133,7 +147,7 @@ function BankConnectionForm({
       </div>
       <FormError failure={error} />
       <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={pending || !directory.bankName}>
-        Authorize with bank <ArrowRight size={16} />
+        {t("authorize")} <ArrowRight size={16} />
       </button>
     </form>
   );

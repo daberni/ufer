@@ -5,8 +5,7 @@ import { clsx } from "clsx";
 import { useId, useRef, useState } from "react";
 import { FileUp } from "lucide-react";
 import styles from "./file-drop-zone.module.css";
-import { useLocale } from "@/client/locale-provider";
-import { formatCount } from "@/lib/locale";
+import { useTranslations } from "next-intl";
 
 /** A dashed drop area that also opens the file chooser by click or keyboard. */
 export function FileDropZone({
@@ -19,7 +18,7 @@ export function FileDropZone({
   const input = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const hintId = useId();
-  const locale = useLocale();
+  const t = useTranslations("imports.dropZone");
 
   return (
     <div
@@ -40,18 +39,23 @@ export function FileDropZone({
     >
       <FileUp size={28} aria-hidden="true" />
       <p className={styles["title"]}>
-        Drop a file here or{" "}
-        <button
-          type="button"
-          className={styles["choose"]}
-          disabled={disabled}
-          aria-describedby={hintId}
-          onClick={() => input.current?.click()}
-        >
-          choose a file
-        </button>
+        {t.rich("title", {
+          choose: chunks => (
+            <button
+              type="button"
+              className={styles["choose"]}
+              disabled={disabled}
+              aria-describedby={hintId}
+              onClick={() => input.current?.click()}
+            >
+              {chunks}
+            </button>
+          )
+        })}
       </p>
-      <p id={hintId} className={styles["hint"]}>{`CSV, CAMT.053, OFX, QFX or QIF, up to ${formatCount(25, locale)} MB`}</p>
+      <p id={hintId} className={styles["hint"]}>{t("hint", {
+        megabytes: 25
+      })}</p>
       <input
         ref={input}
         className={styles["input"]}

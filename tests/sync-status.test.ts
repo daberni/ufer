@@ -4,6 +4,7 @@ import { act, renderHook } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { syncResultLabelDuration, useSyncStatus } from "../src/features/banking/use-sync-status";
 import { browser, respond, withQueryClient } from "./fixtures/browser";
+import { withIntl } from "./fixtures/intl";
 
 function renderSyncStatus(context: TestContext) {
   const {
@@ -13,7 +14,7 @@ function renderSyncStatus(context: TestContext) {
   const { result } = renderHook(() => useSyncStatus(), {
     wrapper: ({ children }: {
       children: ReactNode
-    }) => withQueryClient(queryClient, children)
+    }) => withIntl(withQueryClient(queryClient, children))
   });
 
   return {

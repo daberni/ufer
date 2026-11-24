@@ -1,6 +1,7 @@
 import { currencyExponent } from "@/lib/money";
 import { formatScaled, fractionDigits, parseAmount, signedScaled } from "../csv-values";
 import { separateCurrencies, xmlRootTag, cleanText, isoDate, lineAt, StatementFileError, StatementRows, type StatementFile } from "./statement-rows";
+import type { ImportMessages } from "../import-messages";
 
 // Reads OFX and QFX bank and credit-card statements, both SGML (1.x, closing tags optional) and XML (2.x), into mapped rows.
 
@@ -20,12 +21,12 @@ export function looksLikeOfx(text: string) {
   return /^\uFEFF?\s*OFXHEADER\s*:/.test(text.slice(0, 1024)) || (root !== null && /^<(?:[A-Za-z_][\w.-]*:)?OFX(?:\s[^>]*)?>$/i.test(root)) || /^[^<]*(?:<\?(?!OFX\b)[\s\S]*?\?>\s*|<!--[\s\S]*?-->\s*)*<\?OFX\b/i.test(text.replace(/^\uFEFF/, ""));
 }
 
-export function readOfx(text: string, locale: string): StatementFile {
-  const root = parseOfx(text);
+export function readOfx(text: string, t: ImportMessages): StatementFile {
+  const root = parseOfx(text, t);
   const messages = root.children;
 
   if (find(messages, "INVSTMTMSGSRSV1")) {
-    throw new StatementFileError("OFX investment statements are not supported; export a bank or credit card statement instead.");
+    throw new StatementFileError(t("statements.ofxInvestment"));
   }
 
   const statements = [
@@ -40,10 +41,10 @@ export function readOfx(text: string, locale: string): StatementFile {
   ];
 
   if (statements.length === 0) {
-    throw new StatementFileError("The OFX file contains no bank or credit card statement.");
+    throw new StatementFileError(t("statements.ofxEmpty"));
   }
 
-  const rows = new StatementRows(locale);
+  const rows = new StatementRows(t);
 
   for (const {
     statement,
@@ -69,7 +70,7 @@ export function readOfx(text: string, locale: string): StatementFile {
 
       rows.add({
         // A correction replaces or deletes an earlier transaction by its FITID, which the import cannot apply to a booking, so it is never imported as a new one.
-        problem: leaf(transaction, "CORRECTFITID") || leaf(transaction, "CORRECTACTION") ? "OFX correction records are not supported; correct the booking in Ufer instead." : undefined,
+        problem: leaf(transaction, "CORRECTFITID") || leaf(transaction, "CORRECTACTION") ? t("statements.ofxCorrection") : undefined,
         currencyRequired: true,
         line: transaction.line,
         // The date the person made the transaction, as bank syncs count bookings, else the posting date.
@@ -211,7 +212,7 @@ function opensAggregate(name: string, text: string, from: number) {
 /**
  * Parses the body from the `<OFX>` root into a tree. A tag followed by text is a leaf, whose closing tag is optional in SGML; any other tag opens an aggregate, which its closing tag ends, closing any leaves and aggregates left open inside it.
  */
-function parseOfx(raw: string): Element {
+function parseOfx(raw: string, t: ImportMessages): Element {
   // Comments and processing instructions disappear and CDATA sections become escaped text, all keeping their line breaks, so a commented-out element is never read and leaves read the text around them.
   const text = raw.replace(/<!--[\s\S]*?-->|<\?[\s\S]*?\?>|<!\[CDATA\[([\s\S]*?)\]\]>/g, (whole: string, content: string | undefined) => {
     // A comment or processing instruction inside a value leaves the text around it joined; only its line breaks stay.
@@ -224,7 +225,7 @@ function parseOfx(raw: string): Element {
   const start = text.search(/<(?:[A-Za-z_][\w.-]*:)?OFX(?:\s[^>]*)?>/i);
 
   if (start < 0) {
-    throw new StatementFileError("The OFX file has no OFX element.");
+    throw new StatementFileError(t("statements.ofxMissing"));
   }
 
   const root: Element = {
@@ -276,7 +277,7 @@ function parseOfx(raw: string): Element {
   const ofx = find(root.children, "OFX");
 
   if (!ofx) {
-    throw new StatementFileError("The OFX file has no OFX element.");
+    throw new StatementFileError(t("statements.ofxMissing"));
   }
 
   return ofx;

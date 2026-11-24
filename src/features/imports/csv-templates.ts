@@ -113,11 +113,6 @@ export function templateSettings(template: Pick<CsvTemplate, "settings">, detect
   };
 }
 
-/** A template's name as listed, marking the ones defined in code. */
-export function templateLabel(template: Pick<CsvTemplate, "name" | "builtIn">) {
-  return template.builtIn ? `${template.name} (built-in)` : template.name;
-}
-
 /** A template that recreates a mapping on files with the same header: column positions, the format, and the given account, category and type value choices. */
 export function templateFromMapping(name: string, header: string[], mapping: CsvMapping, settings: CsvSettings, accounts: Record<string, string>, categories: Record<string, string>, types: TypeValues): Omit<CsvTemplate, "id" | "builtIn"> {
   const columns: CsvTemplate["columns"] = {};

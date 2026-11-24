@@ -1,4 +1,4 @@
-import { formatCount } from "@/lib/locale";
+import type { ImportMessages } from "./import-messages";
 import { normalizeText } from "@/lib/text";
 import { maximumSplitParts } from "@/features/transactions/split-limits";
 import type { CsvMapping, CsvSettings } from "./csv-mapping";
@@ -51,6 +51,12 @@ export const maxAccountNameLength = 100;
 
 /** Longest account value; the server applies the same limit. */
 export const maxSourceLength = 200;
+
+/** The most digits and decimal places of an amount, as named in row problems. */
+export const amountLimits = {
+  digits: 15,
+  decimals: 6
+};
 
 export type RowError = {
   line: number;
@@ -113,8 +119,8 @@ export function typeColumnValues(rows: string[][], column: number | null) {
   }));
 }
 
-/** Turns data rows (without the header) into mapped rows and row-level errors; the locale formats numbers in row problems. `lines` gives each row's physical line in the file; without it, rows count from line 2. */
-export function mapRows(rows: string[][], mapping: CsvMapping, settings: CsvSettings, locale: string, lines?: number[], conventions = defaultConventions, typeValues = defaultTypeValues) {
+/** Turns data rows (without the header) into mapped rows and row-level errors worded by `t`. `lines` gives each row's physical line in the file; without it, rows count from line 2. */
+export function mapRows(rows: string[][], mapping: CsvMapping, settings: CsvSettings, t: ImportMessages, lines?: number[], conventions = defaultConventions, typeValues = defaultTypeValues) {
   const mapped: MappedRow[] = [];
   const errors: RowError[] = [];
 
@@ -128,7 +134,10 @@ export function mapRows(rows: string[][], mapping: CsvMapping, settings: CsvSett
     const date = parseDate(cell(mapping.date), settings.dateFormat);
 
     if (!date) {
-      failure(`The date “${cell(mapping.date).slice(0, 40)}” does not match ${settings.dateFormat}.`);
+      failure(t("rows.date", {
+        value: cell(mapping.date).slice(0, 40),
+        format: settings.dateFormat
+      }));
 
       return;
     }
@@ -138,12 +147,12 @@ export function mapRows(rows: string[][], mapping: CsvMapping, settings: CsvSett
     if (amount === null) {
       const scientific = [mapping.amount, mapping.debit, mapping.credit].some(column => /\d[eE][+-]?\d/.test(cell(column)));
 
-      failure(scientific ? "Scientific notation is not supported; export amounts as plain numbers." : `The amount is missing or not a number with at most ${formatCount(15, locale)} digits and ${formatCount(6, locale)} decimal places.`);
+      failure(scientific ? t("rows.scientific") : t("rows.amount", amountLimits));
 
       return;
     }
 
-    const currency = rowCurrency(cell, mapping);
+    const currency = rowCurrency(cell, mapping, t);
 
     if (typeof currency === "object" && currency !== null) {
       failure(currency.error);
@@ -155,7 +164,9 @@ export function mapRows(rows: string[][], mapping: CsvMapping, settings: CsvSett
     const source = cell(mapping.account);
 
     if (source.length > maxSourceLength) {
-      failure(`The account value is longer than ${formatCount(maxSourceLength, locale)} characters.`);
+      failure(t("rows.accountLength", {
+        max: maxSourceLength
+      }));
 
       return;
     }
@@ -173,7 +184,9 @@ export function mapRows(rows: string[][], mapping: CsvMapping, settings: CsvSett
     const description = tagged && !split ? withSplitTags(cell(mapping.description), tags) : cell(mapping.description);
 
     if (category.length > maxCategoryLength) {
-      failure(`The category is longer than ${formatCount(maxCategoryLength, locale)} characters.`);
+      failure(t("rows.categoryLength", {
+        max: maxCategoryLength
+      }));
 
       return;
     }
@@ -181,13 +194,15 @@ export function mapRows(rows: string[][], mapping: CsvMapping, settings: CsvSett
     const id = cell(mapping.id);
 
     if (mapping.id !== null && !id) {
-      failure("The ID is empty.");
+      failure(t("rows.emptyId"));
 
       return;
     }
 
     if (id.length > maxIdLength) {
-      failure(`The ID is longer than ${formatCount(maxIdLength, locale)} characters.`);
+      failure(t("rows.idLength", {
+        max: maxIdLength
+      }));
 
       return;
     }
@@ -244,7 +259,7 @@ export function assignOccurrences(rows: MappedRow[], targetOf: (source: string) 
 }
 
 /** Rows whose ID repeats for the same target account; an ID must identify one row, so every row sharing it is rejected. */
-export function duplicateIdErrors(rows: MappedRow[], targetOf: (source: string) => string): RowError[] {
+export function duplicateIdErrors(rows: MappedRow[], targetOf: (source: string) => string, t: ImportMessages): RowError[] {
   const counts = new Map<string, number>();
   const key = (row: MappedRow) => `${targetOf(row.source)}\u0000${row.id}`;
 
@@ -256,7 +271,9 @@ export function duplicateIdErrors(rows: MappedRow[], targetOf: (source: string) 
 
   return rows.filter(row => row.id !== null && (counts.get(key(row)) ?? 0) > 1).map(row => ({
     line: row.line,
-    message: `The ID “${row.id!.slice(0, 40)}” appears more than once for this account.`
+    message: t("rows.duplicateId", {
+      id: row.id!.slice(0, 40)
+    })
   }));
 }
 
@@ -366,7 +383,7 @@ function rowAmount(cell: (column: number | null) => string, mapping: CsvMapping,
 }
 
 /** The row's currency from the currency column and any currency on the amount cells; conflicting or unknown codes are row errors. */
-function rowCurrency(cell: (column: number | null) => string, mapping: CsvMapping): string | null | {
+function rowCurrency(cell: (column: number | null) => string, mapping: CsvMapping, t: ImportMessages): string | null | {
   error: string;
 } {
   const columns = mapping.amount !== null ? [mapping.amount] : [mapping.debit, mapping.credit];
@@ -375,7 +392,9 @@ function rowCurrency(cell: (column: number | null) => string, mapping: CsvMappin
 
   if (columnText && (columnCurrency === undefined || columnText.length !== 3)) {
     return {
-      error: `The currency “${columnText.slice(0, 20)}” is not an ISO 4217 code.`
+      error: t("rows.unknownCurrency", {
+        currency: columnText.slice(0, 20)
+      })
     };
   }
 
@@ -387,7 +406,9 @@ function rowCurrency(cell: (column: number | null) => string, mapping: CsvMappin
 
   if (!consistent) {
     return {
-      error: `The row names different currencies: ${[...found].sort().join(", ")}.`
+      error: t("rows.mixedCurrencies", {
+        currencies: [...found].sort().join(", ")
+      })
     };
   }
 

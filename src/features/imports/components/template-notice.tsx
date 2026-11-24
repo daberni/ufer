@@ -6,6 +6,7 @@ import { clsx } from "clsx";
 import { LayoutTemplate } from "lucide-react";
 import styles from "./template-notice.module.css";
 import type { ImportDraft } from "./use-import-draft";
+import { useTranslations } from "next-intl";
 
 /** Says which template shaped the mapping and switches between it and a manual mapping. */
 export function TemplateNotice({
@@ -13,6 +14,7 @@ export function TemplateNotice({
 }: {
   draft: ImportDraft;
 }) {
+  const t = useTranslations("imports.templateNotice");
   const {
     template,
     offeredTemplate,
@@ -29,15 +31,17 @@ export function TemplateNotice({
       <div className={clsx(ui["notice"], styles["notice"])} role="status">
         <LayoutTemplate size={18} aria-hidden="true" />
         <p>
-          <strong>{template.builtIn ? `Detected as ${template.name}` : `Using your template “${template.name}”`}</strong>
-          <span>{remembered ? "Format, column roles and remembered account and category choices are applied." : "Format and column roles are applied."}</span>
+          <strong>{t(template.builtIn ? "detected" : "using", {
+            name: template.name
+          })}</strong>
+          <span>{remembered ? t("appliedWithChoices") : t("applied")}</span>
         </p>
         <button
           type="button"
           className={clsx(ui["text-button"], styles["action"])}
           disabled={inputsLocked}
           onClick={draft.mapManually}
-        >Map manually</button>
+        >{t("mapManually")}</button>
       </div>
     );
   }
@@ -47,15 +51,17 @@ export function TemplateNotice({
       <div className={clsx(ui["notice"], styles["notice"])}>
         <LayoutTemplate size={18} aria-hidden="true" />
         <p>
-          <strong>{offeredTemplate.builtIn ? `Looks like a ${offeredTemplate.name}` : `Matches your template “${offeredTemplate.name}”`}</strong>
-          <span>Applying it replaces the current format and column roles.</span>
+          <strong>{t(offeredTemplate.builtIn ? "looksLike" : "matches", {
+            name: offeredTemplate.name
+          })}</strong>
+          <span>{t("replaces")}</span>
         </p>
         <button
           type="button"
           className={clsx(ui["text-button"], styles["action"])}
           disabled={inputsLocked}
           onClick={() => draft.applyTemplate(offeredTemplate)}
-        >Apply template</button>
+        >{t("apply")}</button>
       </div>
     );
   }

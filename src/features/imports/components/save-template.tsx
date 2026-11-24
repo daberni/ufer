@@ -12,6 +12,7 @@ import { maxTemplateNameLength, templateFromMapping } from "@/features/imports/c
 import { rememberedChoices } from "@/features/imports/import-plan";
 import { useChangeTemplate, useSaveTemplate } from "@/features/imports/template-queries";
 import type { ImportDraft } from "./use-import-draft";
+import { useTranslations } from "next-intl";
 
 /** After an import, keeps its mapping as a template for later files with the same columns, or updates the saved template it used. */
 export function SaveTemplate({
@@ -19,6 +20,7 @@ export function SaveTemplate({
 }: {
   draft: ImportDraft;
 }) {
+  const t = useTranslations("imports.saveTemplate");
   const nameId = useId();
   const save = useSaveTemplate();
   const change = useChangeTemplate();
@@ -64,22 +66,28 @@ export function SaveTemplate({
           types: template.types
         }
       }, {
-        onSuccess: () => setDone(`Template “${saved.name}” updated.`)
+        onSuccess: () => setDone(t("updated", {
+          name: saved.name
+        }))
       });
     } else {
       save.mutate(template, {
-        onSuccess: () => setDone(`Saved as template “${template.name}”. Files with the same columns use it automatically.`)
+        onSuccess: () => setDone(t("saved", {
+          name: template.name
+        }))
       });
     }
   }
 
   return (
     <form className={styles["form"]} onSubmit={submit} aria-labelledby={`${nameId}-heading`}>
-      <h3 id={`${nameId}-heading`}>{saved ? `Update “${saved.name}”?` : "Save this mapping as a template?"}</h3>
-      <p className={ui["form-hint"]}>{saved ? "Later files with these columns use the format, column roles and choices of this import." : "Later files with the same columns are recognized and mapped the same way."}</p>
+      <h3 id={`${nameId}-heading`}>{saved ? t("updateHeading", {
+        name: saved.name
+      }) : t("saveHeading")}</h3>
+      <p className={ui["form-hint"]}>{saved ? t("updateHint") : t("saveHint")}</p>
       {!saved && (
         <label htmlFor={nameId} className={styles["name"]}>
-          <span>Template name</span>
+          <span>{t("name")}</span>
           <input
             id={nameId}
             value={name}
@@ -91,11 +99,11 @@ export function SaveTemplate({
       )}
       <label className={styles["remember"]}>
         <input type="checkbox" checked={remember} onChange={event => setRemember(event.target.checked)} />
-        Remember the chosen existing accounts and categories
+        {t("remember")}
       </label>
       <FormError failure={failure ? toFailure(failure) : null} />
       <div className={clsx(ui["button-group"], styles["actions"])}>
-        <button type="submit" className={ui["button"]} disabled={pending || !name.trim()}>{saved ? "Update template" : "Save template"}</button>
+        <button type="submit" className={ui["button"]} disabled={pending || !name.trim()}>{saved ? t("update") : t("save")}</button>
       </div>
     </form>
   );

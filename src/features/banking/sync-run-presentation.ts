@@ -1,6 +1,3 @@
-import { Temporal } from "temporal-polyfill";
-import { describeDate } from "@/lib/date-format";
-
 /** The sync history lists this many of the latest runs. */
 export const recentSyncRuns = 5;
 
@@ -38,17 +35,4 @@ export function syncRunTone(status: string): SyncRunTone {
 /** Splits a run's error log into one problem per line; account failures read "Account: message". */
 export function syncRunProblems(error: string | null) {
   return (error ?? "").split("\n").map(line => line.trim()).filter(Boolean);
-}
-
-export function lastSyncLabel(run: {
-  started_at: string;
-  status: string
-} | undefined, timeZone: string, locale: string) {
-  if (!run) {
-    return "No sync yet";
-  }
-
-  const status = syncStatusLabel(run.status).toLowerCase();
-
-  return `Last sync: ${describeDate(Temporal.Instant.from(run.started_at).toZonedDateTimeISO(timeZone), locale).label} · ${status}`;
 }

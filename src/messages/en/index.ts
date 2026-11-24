@@ -7,6 +7,8 @@ import reports from "./reports.json";
 import accounts from "./accounts.json";
 import transactions from "./transactions.json";
 import categorization from "./categorization.json";
+import banking from "./banking.json";
+import imports from "./imports.json";
 
 /** One namespace per feature file, so parallel changes rarely touch the same catalog file. */
 export const en = {
@@ -18,5 +20,7 @@ export const en = {
   reports,
   accounts,
   transactions,
-  categorization
+  categorization,
+  banking,
+  imports
 };

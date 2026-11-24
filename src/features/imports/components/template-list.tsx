@@ -8,10 +8,9 @@ import { Copy, Pencil, Trash2 } from "lucide-react";
 import styles from "./template-list.module.css";
 import { toFailure } from "@/client/api";
 import { FormError } from "@/components/ui/form-error";
-import { maxTemplateNameLength, templateLabel, type CsvTemplate } from "@/features/imports/csv-templates";
+import { maxTemplateNameLength, type CsvTemplate } from "@/features/imports/csv-templates";
 import { useChangeTemplate, useDeleteTemplate, useDuplicateTemplate } from "@/features/imports/template-queries";
-import { useLocale } from "@/client/locale-provider";
-import { formatCount } from "@/lib/locale";
+import { useTranslations } from "next-intl";
 
 /** Built-in and saved templates with their recognized columns. Saved ones can be renamed or deleted; built-in ones can be duplicated into an editable saved copy. */
 export function TemplateList({
@@ -24,14 +23,16 @@ export function TemplateList({
   /** Called after a template was deleted, so a draft using it can let it go. */
   onDeleted?: (id: string) => void;
 }) {
+  const t = useTranslations("imports.templates");
+
   if (templates.length === 0) {
     return null;
   }
 
   return (
     <section className={clsx(ui["panel"], styles["section"])} aria-labelledby="import-templates">
-      <h2 id="import-templates">Templates</h2>
-      <p className={ui["form-hint"]}>A file whose header row matches a template is mapped with it automatically; your templates come before built-in ones.</p>
+      <h2 id="import-templates">{t("heading")}</h2>
+      <p className={ui["form-hint"]}>{t("hint")}</p>
       <ul className={styles["list"]}>
         {templates.map(template => (
           <TemplateItem
@@ -63,7 +64,7 @@ function TemplateItem({
   const [confirming, setConfirming] = useState(false);
   const [name, setName] = useState(template.name);
   const failure = change.error ?? remove.error ?? duplicate.error;
-  const locale = useLocale();
+  const t = useTranslations("imports.templates");
   const remembered = Object.keys(template.accounts).length + Object.keys(template.categories).length;
 
   function rename(event: React.FormEvent) {
@@ -80,7 +81,7 @@ function TemplateItem({
     <li className={styles["item"]}>
       {editing ? (
         <form className={styles["rename"]} onSubmit={rename}>
-          <label htmlFor={inputId} className={ui["visually-hidden"]}>Template name</label>
+          <label htmlFor={inputId} className={ui["visually-hidden"]}>{t("name")}</label>
           <input
             id={inputId}
             value={name}
@@ -90,7 +91,7 @@ function TemplateItem({
             onChange={event => setName(event.target.value)}
           />
           <div className={ui["button-group"]}>
-            <button type="submit" className={clsx(ui["button"], ui["small"], ui["primary"])} disabled={change.isPending || !name.trim()}>Save</button>
+            <button type="submit" className={clsx(ui["button"], ui["small"], ui["primary"])} disabled={change.isPending || !name.trim()}>{t("save")}</button>
             <button
               type="button"
               className={clsx(ui["button"], ui["small"])}
@@ -100,15 +101,21 @@ function TemplateItem({
                 change.reset();
               }}
             >
-              Cancel
+              {t("cancel")}
             </button>
           </div>
         </form>
       ) : (
         <div className={styles["details"]}>
-          <strong>{templateLabel(template)}</strong>
+          <strong>{template.builtIn ? t("builtIn", {
+            name: template.name
+          }) : template.name}</strong>
           <span className={ui["truncate"]} title={template.header.join(", ")}>{template.header.join(", ")}</span>
-          {remembered > 0 && <span>{`${formatCount(remembered, locale)} ${remembered === 1 ? "remembered choice" : "remembered choices"}`}</span>}
+          {remembered > 0 && (
+            <span>{t("remembered", {
+              count: remembered
+            })}</span>
+          )}
         </div>
       )}
       {template.builtIn && (
@@ -119,11 +126,13 @@ function TemplateItem({
             disabled={disabled || duplicate.isPending}
             onClick={() => duplicate.mutate({
               id: template.id,
-              name: `${template.name} (copy)`
+              name: t("copyName", {
+                name: template.name
+              })
             })}
           >
             <Copy size={14} aria-hidden="true" />
-            Duplicate
+            {t("duplicate")}
           </button>
         </div>
       )}
@@ -138,8 +147,12 @@ function TemplateItem({
                 onClick={() => remove.mutate(template.id, {
                   onSuccess: () => onDeleted?.(template.id)
                 })}
-              >Delete “{template.name}”</button>
-              <button type="button" className={clsx(ui["button"], ui["small"])} onClick={() => setConfirming(false)}>Keep</button>
+              >
+                {t("confirmDelete", {
+                  name: template.name
+                })}
+              </button>
+              <button type="button" className={clsx(ui["button"], ui["small"])} onClick={() => setConfirming(false)}>{t("keep")}</button>
             </>
           ) : (
             <>
@@ -154,7 +167,7 @@ function TemplateItem({
                 }}
               >
                 <Pencil size={14} aria-hidden="true" />
-                Rename
+                {t("rename")}
               </button>
               <button
                 type="button"
@@ -163,7 +176,7 @@ function TemplateItem({
                 onClick={() => setConfirming(true)}
               >
                 <Trash2 size={14} aria-hidden="true" />
-                Delete
+                {t("delete")}
               </button>
             </>
           )}

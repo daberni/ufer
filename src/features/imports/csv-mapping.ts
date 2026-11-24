@@ -76,26 +76,28 @@ export function suggestMapping(header: string[]): CsvMapping {
   return mapping;
 }
 
-/** Why a mapping cannot produce rows yet; null when it is complete. */
-export function mappingProblem(mapping: CsvMapping) {
+export type MappingProblem = "date" | "amount" | "amountModes" | "sameColumns" | "text";
+
+/** Why a mapping cannot produce rows yet, as the key of its `imports.mapping` message; null when it is complete. */
+export function mappingProblem(mapping: CsvMapping): MappingProblem | null {
   if (mapping.date === null) {
-    return "Map the booking date column.";
+    return "date";
   }
 
   if (mapping.amount === null && mapping.debit === null && mapping.credit === null) {
-    return "Map an amount column, or debit and credit columns.";
+    return "amount";
   }
 
   if (mapping.amount !== null && (mapping.debit !== null || mapping.credit !== null)) {
-    return "Map either an amount column or debit and credit columns, not both.";
+    return "amountModes";
   }
 
   if (mapping.debit !== null && mapping.debit === mapping.credit) {
-    return "Map debit and credit to different columns.";
+    return "sameColumns";
   }
 
   if (mapping.payee === null && mapping.description === null) {
-    return "Map a payee or description column.";
+    return "text";
   }
 
   return null;
