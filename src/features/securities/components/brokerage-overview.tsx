@@ -2,6 +2,8 @@
 
 import ui from "../../../components/ui/primitives.module.css";
 import styles from "./brokerage-overview.module.css";
+import summaryStyles from "../../accounts/components/account-summary.module.css";
+import accountStyles from "../../accounts/components/account-presentation.module.css";
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
@@ -11,7 +13,10 @@ import { ArrowRight } from "lucide-react";
 import { Empty } from "@/components/ui/empty-state";
 import { FormError } from "@/components/ui/form-error";
 import { toFailure } from "@/client/api";
+import { Temporal } from "temporal-polyfill";
 import { useLocale } from "@/client/locale-provider";
+import { dateWithYear } from "@/lib/date-format";
+import { accountIcon } from "@/features/accounts/account-presentation";
 import { useAccountHref } from "@/client/use-app-url";
 import { money, signedMoney } from "@/lib/money";
 import { activeAccounts, useAccounts } from "@/features/accounts/queries";
@@ -94,6 +99,7 @@ export function BrokerageOverview() {
   );
 }
 
+/** The combined value of all active brokerage accounts in one currency, in the same value card layout and figure rows as a brokerage account's page. */
 function CombinedValue({
   item,
   accounts
@@ -104,23 +110,33 @@ function CombinedValue({
   const t = useTranslations("securities.overview");
   const locale = useLocale();
   const value = accounts.filter(account => account.currency === item.currency).reduce((sum, account) => sum + (account.balance_minor ?? 0), 0);
+  const Icon = accountIcon("brokerage");
 
   return (
     <section
-      className={clsx(ui["panel"], styles["summary"])}
+      className={clsx(ui["panel"], summaryStyles["summary"])}
       aria-label={t("combinedValueIn", {
         currency: item.currency
       })}
     >
-      <span className={styles["label"]}>{t("combinedValue", {
-        count: item.account_ids.length
-      })}</span>
-      <strong className={styles["value"]}>{money(value, item.currency, locale)}</strong>
+      <div className={summaryStyles["header"]}>
+        <span className={clsx(accountStyles["account-logo"], accountStyles["brokerage"])}>
+          <Icon size={23} aria-hidden="true" />
+        </span>
+        <p className={summaryStyles["meta"]}>{t("allAccounts", {
+          count: item.account_ids.length
+        })}</p>
+      </div>
+      <div className={summaryStyles["balance-row"]}>
+        <strong className={summaryStyles["balance"]}>{money(value, item.currency, locale)}</strong>
+      </div>
+      <p className={summaryStyles["status"]}>{item.summary.day ? t("pricesOf", {
+        date: dateWithYear(Temporal.PlainDate.from(item.summary.day.date), locale)
+      }) : t("noCurrentPrices")}</p>
       <ChangeFigures
         summary={item.summary}
+        points={item.points}
         currency={item.currency}
-        stacked
-        showTotal={false}
       />
     </section>
   );
@@ -130,12 +146,24 @@ function CombinedValueSkeleton() {
   const t = useTranslations("securities.overview");
 
   return (
-    <section className={clsx(ui["panel"], styles["summary"])} aria-hidden="true">
-      <span className={clsx(styles["label"], ui["skeleton"])}>{t("combinedValue", {
-        count: 1
-      })}</span>
-      <strong className={clsx(styles["value"], ui["skeleton"])}>€00,000.00</strong>
-      <ChangeFiguresSkeleton stacked showTotal={false} />
+    <section className={clsx(ui["panel"], summaryStyles["summary"])} aria-hidden="true">
+      <div className={summaryStyles["header"]}>
+        <span className={clsx(accountStyles["account-logo"], ui["skeleton"])} />
+        <span className={clsx(summaryStyles["meta"], ui["skeleton"])}>{t("allAccounts", {
+          count: 2
+        })}</span>
+      </div>
+      <div className={summaryStyles["balance-row"]}>
+        <strong className={summaryStyles["balance"]}>
+          <span className={ui["skeleton"]}>€00,000.00</span>
+        </strong>
+      </div>
+      <p className={summaryStyles["status"]}>
+        <span className={ui["skeleton"]}>{t("pricesOf", {
+          date: "00 Xxx 0000"
+        })}</span>
+      </p>
+      <ChangeFiguresSkeleton />
     </section>
   );
 }

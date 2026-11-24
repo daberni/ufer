@@ -36,6 +36,9 @@ test("the total change adds unrealized and realized gains", () => {
 
   // Realized 600.00 − 500.00; unrealized 5 × 120.00 − 500.00.
   assert.equal(summary.total.gain_minor, 100_00 + 100_00);
+  assert.equal(summary.total.realized_minor, 100_00);
+  // Bought for 1000.00, sold for 600.00: 400.00 is still invested, the open cost 500.00 less the realized 100.00.
+  assert.equal(summary.total.invested_minor, 400_00);
   assert.deepEqual(summary.day, {
     change_minor: 5 * 10_00,
     ratio: 50_00 / 550_00,

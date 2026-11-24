@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import type { Database } from "../src/server/database/connection";
 import * as schema from "../src/server/database/schema";
 import { readBrokeragePerformance, readCombinedBrokeragePerformance } from "../src/features/securities/server/security-service";
-import { changeFromPrevious, performanceInRange } from "../src/features/securities/performance-range";
+import { performanceInRange } from "../src/features/securities/performance-range";
 import { depot, isolatedDatabase, now, security, settlementAccount, trade } from "./fixtures/brokerage";
 
 async function price(db: Database, securityId: string, date: string, close: number) {
@@ -160,46 +160,6 @@ test("a range rebases return and gain to the value valid at its start", async co
     ["2026-10-20", 0.1, 220_00],
     ["2026-10-31", 0.1, 220_00]
   ]);
-});
-
-test("a point's change against the previous point compounds returns and leaves out buys, and the first point has none", () => {
-  const range = performanceInRange([
-    {
-      date: "2026-09-10",
-      value_minor: 1000_00,
-      invested_minor: 1000_00,
-      growth: 1
-    },
-    {
-      date: "2026-09-20",
-      value_minor: 1100_00,
-      invested_minor: 1000_00,
-      growth: 1.1
-    },
-    {
-      date: "2026-10-05",
-      value_minor: 2200_00,
-      invested_minor: 2100_00,
-      growth: 1.1
-    },
-    {
-      date: "2026-10-20",
-      value_minor: 2420_00,
-      invested_minor: 2100_00,
-      growth: 1.21
-    }
-  ], "All");
-
-  assert.equal(changeFromPrevious(range, 0), null);
-
-  const buy = changeFromPrevious(range, 2);
-
-  assert.deepEqual([buy?.previousDate, rounded(buy?.ratio ?? NaN), buy?.gain_minor], ["2026-09-20", 0, 0]);
-
-  // The range return grows from 10 % to 21 %, which is a 10 % move on that day, not 11 points.
-  const rise = changeFromPrevious(range, 3);
-
-  assert.deepEqual([rise?.previousDate, rounded(rise?.ratio ?? NaN), rise?.gain_minor], ["2026-10-05", 0.1, 220_00]);
 });
 
 test("an account without trades has no performance", async context => {

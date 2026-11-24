@@ -49,6 +49,10 @@ export type Trade = {
 export type ChangeSummary = {
   total: {
     gain_minor: number;
+    /** The part of `gain_minor` locked in by sales; the rest is unrealized. */
+    realized_minor: number;
+    /** Buys including fees minus sale proceeds after fees: the money still put in. */
+    invested_minor: number;
     unpriced: number;
   };
   day: {
