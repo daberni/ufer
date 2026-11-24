@@ -14,7 +14,7 @@
     "noPrices": "Noch keine aktuellen Kurse von zwei Handelstagen"
   },
   "performance": {
-    "title": "Performance",
+    "title": "Wertentwicklung",
     "titleInCurrency": "Performance ({currency})",
     "range": "Zeitraum",
     "ranges": {

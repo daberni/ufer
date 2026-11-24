@@ -10,7 +10,7 @@ import { InlineFailure } from "@/components/ui/area-placeholder";
 import { accountLabel, newAccountChoice, type AccountProblem, type TargetChoice } from "@/features/imports/import-plan";
 import { FieldProblem, problemProps } from "./field-problem";
 import { accountKinds, type AccountKind } from "@/features/accounts/account-kinds";
-import { kinds } from "@/features/accounts/account-presentation";
+import { useAccountKindLabel } from "@/features/accounts/components/use-account-kind-label";
 import type { Account } from "@/features/accounts/types";
 import { bookableManualAccounts } from "@/features/accounts/queries";
 import type { ImportDraft } from "./use-import-draft";
@@ -173,6 +173,7 @@ function NewAccountFields({
   onChange: (choice: TargetChoice) => void;
 }) {
   const t = useTranslations("imports.targets");
+  const kindLabel = useAccountKindLabel();
   const balanceName = useId();
   const nameProblem = problems.find(problem => problem.field === "name");
   const currencyProblem = problems.find(problem => problem.field === "currency");
@@ -217,7 +218,7 @@ function NewAccountFields({
             accountKind: event.target.value as AccountKind
           })}
         >
-          {accountKinds.map(kind => <option key={kind} value={kind}>{kinds[kind]}</option>)}
+          {accountKinds.map(kind => <option key={kind} value={kind}>{kindLabel(kind)}</option>)}
         </Select>
       </label>
       <fieldset className={styles["balance"]}>

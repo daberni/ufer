@@ -10,7 +10,7 @@ import { Empty } from "@/components/ui/empty-state";
 import { shownStatus, valueMask } from "@/components/ui/result-presentation";
 import type { Area } from "@/components/ui/use-area-result";
 import type { TransactionPage } from "@/features/transactions/types";
-import { syncStatusLabel } from "@/features/banking/sync-run-presentation";
+import { syncRunTone } from "@/features/banking/sync-run-presentation";
 import { useTranslations } from "next-intl";
 
 type SelectedRun = TransactionPage["syncRun"];
@@ -58,6 +58,7 @@ function RunDescription({
   run: SelectedRun;
 }) {
   const t = useTranslations("transactions.syncRun");
+  const tone = useTranslations("banking.syncRuns.tone");
 
   if (run) {
     return (
@@ -65,7 +66,7 @@ function RunDescription({
         <span>{t.rich("importedBy", {
           time: () => <TimestampValue value={run.started_at} />
         })}</span>
-        <span className={ui["pill"]}>{syncStatusLabel(run.status)}</span>
+        <span className={ui["pill"]}>{tone(syncRunTone(run.status))}</span>
       </p>
     );
   }

@@ -1,16 +1,6 @@
 import { Temporal } from "temporal-polyfill";
 import { Building2, ChartNoAxesCombined, CreditCard, HandCoins, Landmark, PiggyBank } from "lucide-react";
 
-export const kinds: Record<string, string> = {
-  checking: "Current account",
-  savings: "Savings account",
-  investment: "Investment account",
-  brokerage: "Brokerage account",
-  loan: "Loan",
-  property: "Property",
-  credit_card: "Credit card"
-};
-
 export function accountIcon(kind: string) {
   switch (kind) {
     case "property":

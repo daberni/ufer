@@ -74,5 +74,6 @@
   "viewError": {
     "title": "This page could not be displayed",
     "body": "Something went wrong while rendering it. Try again or pick another page from the navigation."
-  }
+  },
+  "eyebrow": "Clarity for your finances"
 }

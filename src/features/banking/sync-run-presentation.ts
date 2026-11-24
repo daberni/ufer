@@ -3,18 +3,6 @@ export const recentSyncRuns = 5;
 
 export type SyncRunTone = "success" | "partial" | "failed" | "running";
 
-const syncRunToneLabels: Record<SyncRunTone, string> = {
-  success: "Successful",
-  partial: "Partial",
-  failed: "Failed",
-  running: "Running"
-};
-
-/** The readable, sentence-case status of a run. */
-export function syncStatusLabel(status: string) {
-  return syncRunToneLabels[syncRunTone(status)];
-}
-
 /** The status indicator tone of a run; any status other than the known ones ended in failure. */
 export function syncRunTone(status: string): SyncRunTone {
   if (status === "SUCCESS") {

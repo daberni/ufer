@@ -13,7 +13,7 @@
     "failure": "Der Cashflow konnte nicht geladen werden"
   },
   "breakdown": {
-    "title": "Nach Kategorie",
+    "title": "Kategorien",
     "allMonths": "Alle Monate",
     "viewTransactions": "Buchungen ansehen",
     "viewTransactionsLabel": "Buchungen ansehen, {context}",

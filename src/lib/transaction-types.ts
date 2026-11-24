@@ -3,16 +3,6 @@ export const transactionTypes = ["income", "expense", "transfer", "opening_balan
 
 export type TransactionType = typeof transactionTypes[number];
 
-export const transactionTypeLabels: Record<TransactionType, string> = {
-  income: "Income",
-  expense: "Expense",
-  transfer: "Transfer",
-  opening_balance: "Opening balance",
-  adjustment: "Adjustment",
-  buy: "Buy",
-  sell: "Sell"
-};
-
 /** Types only a security trade sets on its cash leg; a person never chooses them for a booking. */
 export const tradeTransactionTypes: readonly TransactionType[] = ["buy", "sell"];
 
