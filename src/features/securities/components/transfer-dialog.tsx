@@ -4,6 +4,7 @@ import ui from "../../../components/ui/primitives.module.css";
 import styles from "./transfer-dialog.module.css";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { clsx } from "clsx";
 import { Check } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
@@ -41,6 +42,7 @@ export function TransferDialog({
   brokerageAccounts: Account[];
   close: () => void;
 }) {
+  const t = useTranslations("securities");
   const locale = useLocale();
   const receivers = brokerageAccounts.filter(item => item.id !== account.id && item.currency === account.currency && item.archived_at === null);
   const {
@@ -50,7 +52,13 @@ export function TransferDialog({
   } = useDialogSubmit(useRecordTransfer(), close);
 
   return (
-    <Dialog eyebrow="BROKERAGE" title={`Transfer ${holding.security_name}`} onClose={close}>
+    <Dialog
+      eyebrow={t("tradeForm.eyebrow")}
+      title={t("transfer.title", {
+        security: holding.security_name
+      })}
+      onClose={close}
+    >
       {receivers.length ? (
         <form
           className={ui["form"]}
@@ -63,10 +71,14 @@ export function TransferDialog({
           }))}
         >
           <p className={ui["form-description"]}>
-            Moves shares from {account.name} without selling them. The receiving account takes over their share of the cost basis ({money(holding.cost_minor, account.currency, locale)} for {formatQuantity(holding.quantity_micros, locale)} shares today), and neither account realizes a gain.
+            {t("transfer.description", {
+              account: account.name,
+              costBasis: money(holding.cost_minor, account.currency, locale),
+              quantity: formatQuantity(holding.quantity_micros, locale)
+            })}
           </p>
           <label>
-            To brokerage account
+            {t("transfer.toAccount")}
             <Select name="to_account_id" required autoFocus>
               {receivers.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
             </Select>
@@ -74,10 +86,14 @@ export function TransferDialog({
           <TransferFields quantity={sharesText(holding.quantity_micros)} date={today().toString()} />
           <FormError failure={error} />
           <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={pending}>
-            Record transfer <Check size={16} />
+            {t("transfer.submit")} <Check size={16} />
           </button>
         </form>
-      ) : <p className={ui["form-description"]}>Add another {account.currency} brokerage account first; shares are transferred to it.</p>}
+      ) : (
+        <p className={ui["form-description"]}>{t("transfer.noReceiver", {
+          currency: account.currency
+        })}</p>
+      )}
     </Dialog>
   );
 }
@@ -89,10 +105,12 @@ function TransferFields({
   quantity: string;
   date: string;
 }) {
+  const t = useTranslations("securities.transfer");
+
   return (
     <div className={styles["fields"]}>
       <label>
-        Shares
+        {t("shares")}
         <input
           name="quantity"
           required
@@ -101,7 +119,7 @@ function TransferFields({
         />
       </label>
       <label>
-        Date
+        {t("date")}
         <input
           name="date"
           type="date"
@@ -124,6 +142,7 @@ export function TransferEditDialog({
   accountName: string;
   close: () => void;
 }) {
+  const t = useTranslations("securities.transfer");
   const locale = useLocale();
   const [removing, setRemoving] = useState(false);
   const remove = useDeleteTransfer();
@@ -132,17 +151,29 @@ export function TransferEditDialog({
     pending,
     submit
   } = useDialogSubmit(useCorrectTransfer(), close);
-  const counterpart = trade.transfer?.counterpart_account_name ?? "another account";
+  const counterpart = trade.transfer?.counterpart_account_name ?? t("anotherAccount");
   const [from, to] = trade.side === "transfer_out" ? [accountName, counterpart] : [counterpart, accountName];
 
   return (
-    <Dialog eyebrow="TRANSFER" title={`Transfer of ${trade.security_name}`} onClose={close}>
+    <Dialog
+      eyebrow={t("eyebrow")}
+      title={t("editTitle", {
+        security: trade.security_name
+      })}
+      onClose={close}
+    >
       <p className={ui["form-description"]}>
-        From {from} to {to} · carried cost basis {money(trade.gross_minor, trade.currency, locale)}
+        {t("route", {
+          from,
+          to,
+          costBasis: money(trade.gross_minor, trade.currency, locale)
+        })}
       </p>
       {removing ? (
         <div className={ui["form"]}>
-          <p className={ui["form-description"]}>The shares return to {from}, and both accounts&apos; holdings and gains are recalculated.</p>
+          <p className={ui["form-description"]}>{t("deleteEffect", {
+            from
+          })}</p>
           <FormError failure={remove.error ? toFailure(remove.error) : null} />
           <div className={ui["button-group"]}>
             <button
@@ -150,7 +181,7 @@ export function TransferEditDialog({
               className={ui["button"]}
               onClick={() => setRemoving(false)}
               disabled={remove.isPending}
-            >Back</button>
+            >{t("back")}</button>
             <button
               type="button"
               className={ui["danger-button"]}
@@ -158,7 +189,7 @@ export function TransferEditDialog({
               onClick={() => remove.mutate(trade.id, {
                 onSuccess: close
               })}
-            >Delete transfer</button>
+            >{t("deleteConfirm")}</button>
           </div>
         </div>
       ) : (
@@ -178,9 +209,9 @@ export function TransferEditDialog({
               className={ui["danger-button"]}
               onClick={() => setRemoving(true)}
               disabled={pending}
-            >Delete</button>
+            >{t("delete")}</button>
             <button className={clsx(ui["button"], ui["primary"])} disabled={pending}>
-              Save <Check size={16} />
+              {t("save")} <Check size={16} />
             </button>
           </div>
         </form>

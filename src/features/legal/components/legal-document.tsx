@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { BrandIcon } from "@/components/branding/brand-icon";
 import { FullDateValue } from "@/components/ui/date-value";
 import { LegalLinks } from "./legal-links";
@@ -19,6 +20,7 @@ export function LegalDocument({
   lastUpdated,
   children
 }: Props) {
+  const t = useTranslations("legal.document");
 
   return (
     <div className={styles["legal-page"]}>
@@ -26,13 +28,15 @@ export function LegalDocument({
         <Link href="/" className={styles["home-link"]}>
           <ArrowLeft size={16} />
           <BrandIcon size={24} />
-          Back to Ufer
+          {t("back")}
         </Link>
       </header>
       <main className={styles["document"]}>
         <h1>{title}</h1>
         <p className={styles["updated"]}>
-          Last updated: <FullDateValue value={lastUpdated} />
+          {t.rich("lastUpdated", {
+            date: () => <FullDateValue value={lastUpdated} />
+          })}
         </p>
         {children}
       </main>

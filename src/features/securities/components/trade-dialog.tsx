@@ -4,6 +4,7 @@ import ui from "../../../components/ui/primitives.module.css";
 import styles from "./trade-dialog.module.css";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { Temporal } from "temporal-polyfill";
 import { dateWithYear } from "@/lib/date-format";
 import { clsx } from "clsx";
@@ -49,8 +50,10 @@ export type TradeFormProps = {
  * The price listing is chosen automatically when the security is new (ADR 012); there is no listing field.
  */
 export function TradeDialog(props: TradeFormProps) {
+  const t = useTranslations("securities.tradeForm");
+
   return (
-    <Dialog eyebrow="Brokerage" title={props.booking ? "Record trade from booking" : "Add trade"} onClose={props.close}>
+    <Dialog eyebrow={t("eyebrow")} title={props.booking ? t("fromBookingTitle") : t("addTitle")} onClose={props.close}>
       <TradeForm {...props} />
     </Dialog>
   );
@@ -65,6 +68,7 @@ export function TradeForm({
   close
 }: TradeFormProps) {
   const locale = useLocale();
+  const t = useTranslations("securities.tradeForm");
   const [chosenAccountId, setAccountId] = useState(accountId ?? brokerageAccounts.find(account => !booking || account.currency === booking.currency)?.id ?? "");
   const account = brokerageAccounts.find(item => item.id === chosenAccountId);
   const currency = account?.currency ?? booking?.currency ?? "EUR";
@@ -82,6 +86,18 @@ export function TradeForm({
   const cash = cashPreview(side, quantity, price, fee, tax, currency);
   const difference = booking && cash !== null ? booking.amount_minor - cash : null;
   const isin = booking ? findIsin(booking.text) ?? "" : "";
+  let cashHint = t("enterSharesAndPrice");
+
+  if (cash !== null && difference !== null && difference !== 0) {
+    cashHint = t("cashAmountDiffers", {
+      amount: signedMoney(cash, currency, locale),
+      difference: money(Math.abs(difference), currency, locale)
+    });
+  } else if (cash !== null) {
+    cashHint = t("cashAmount", {
+      amount: signedMoney(cash, currency, locale)
+    });
+  }
 
   function request(data: FormData): TradeRequest {
     const name = String(data.get("name") ?? "").trim();
@@ -106,7 +122,7 @@ export function TradeForm({
   }
 
   if (!brokerageAccounts.length) {
-    return <p className={ui["form-description"]}>Add a brokerage account first; trades are recorded on it.</p>;
+    return <p className={ui["form-description"]}>{t("noBrokerageAccount")}</p>;
   }
 
   return (
@@ -119,7 +135,7 @@ export function TradeForm({
       )}
       {!accountId && (
         <label>
-          Brokerage account
+          {t("brokerageAccount")}
           <Select
             value={chosenAccountId}
             onChange={event => setAccountId(event.target.value)}
@@ -132,7 +148,7 @@ export function TradeForm({
       )}
       <div className={styles["grid"]}>
         <label>
-          ISIN
+          {t("isin")}
           <input
             name="isin"
             required
@@ -142,18 +158,22 @@ export function TradeForm({
             maxLength={12}
             pattern="[A-Za-z]{2}[A-Za-z0-9]{9}[0-9]"
             autoFocus={Boolean(accountId)}
-            onInput={event => event.currentTarget.setCustomValidity(isinProblem(event.currentTarget.value))}
+            onInput={event => {
+              const problem = isinProblem(event.currentTarget.value);
+
+              event.currentTarget.setCustomValidity(problem ? t(problem) : "");
+            }}
           />
         </label>
         <label>
-          Trade
+          {t("trade")}
           <Select value={side} onChange={event => setSide(event.target.value as TradeSide)}>
-            <option value="buy">Buy</option>
-            <option value="sell">Sell</option>
+            <option value="buy">{t("buy")}</option>
+            <option value="sell">{t("sell")}</option>
           </Select>
         </label>
         <label>
-          Shares
+          {t("shares")}
           <input
             name="quantity"
             required
@@ -164,7 +184,9 @@ export function TradeForm({
           />
         </label>
         <label>
-          Price per share ({currency})
+          {t("pricePerShare", {
+            currency
+          })}
           <input
             name="price"
             required
@@ -175,7 +197,7 @@ export function TradeForm({
           />
         </label>
         <label>
-          Fees (optional)
+          {t("feesOptional")}
           <input
             name="fee"
             inputMode="decimal"
@@ -185,7 +207,7 @@ export function TradeForm({
           />
         </label>
         <label>
-          Taxes (optional)
+          {t("taxesOptional")}
           <input
             name="tax"
             inputMode="decimal"
@@ -195,7 +217,7 @@ export function TradeForm({
           />
         </label>
         <label>
-          Date
+          {t("date")}
           <input
             name="date"
             type="date"
@@ -206,7 +228,7 @@ export function TradeForm({
         </label>
         {!booking && (
           <label>
-            Cash account
+            {t("cashAccount")}
             <Select name="settlement_account_id" required>
               {settlementChoices.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
             </Select>
@@ -214,31 +236,34 @@ export function TradeForm({
         )}
       </div>
       <label>
-        Name (optional)
-        <input name="name" maxLength={200} placeholder="Used when no price listing is found" />
+        {t("nameOptional")}
+        <input name="name" maxLength={200} placeholder={t("namePlaceholder")} />
       </label>
       <p className={ui["form-hint"]} aria-live="polite">
-        {cash === null ? "Enter shares and price to see the cash amount." : `Cash amount ${signedMoney(cash, currency, locale)}`}
-        {difference !== null && difference !== 0 && ` · differs from the booking by ${money(Math.abs(difference), currency, locale)}; adjust fees or taxes`}
+        {cashHint}
       </p>
-      {!booking && !settlementChoices.length && <p className={ui["form-hint"]}>Add a manual {currency} account for the cash, or record the trade from its bank booking.</p>}
+      {!booking && !settlementChoices.length && (
+        <p className={ui["form-hint"]}>{t("noCashAccount", {
+          currency
+        })}</p>
+      )}
       <FormError failure={error} />
       <button className={clsx(ui["button"], ui["primary"], ui["full-width"])} disabled={pending || (!booking && !settlementChoices.length) || (difference !== null && difference !== 0)}>
-        Record trade <Check size={16} />
+        {t("submit")} <Check size={16} />
       </button>
     </form>
   );
 }
 
-/** Why the browser should refuse an ISIN as typed: the full code must carry a matching check digit, so a typo is caught before the trade is sent. */
-function isinProblem(value: string) {
+/** The message key for why the browser should refuse an ISIN as typed: the full code must carry a matching check digit, so a typo is caught before the trade is sent. */
+function isinProblem(value: string): "isinCheckDigit" | "isinLength" | null {
   const code = value.trim().toUpperCase();
 
   if (!code || validIsin(code)) {
-    return "";
+    return null;
   }
 
-  return code.length === 12 ? "This ISIN's check digit does not match; check it for typos." : "Enter a 12-character ISIN.";
+  return code.length === 12 ? "isinCheckDigit" : "isinLength";
 }
 
 /** The signed cash movement the entered values produce, or null while they are incomplete or invalid. */

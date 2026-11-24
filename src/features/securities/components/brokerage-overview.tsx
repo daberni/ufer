@@ -4,6 +4,7 @@ import ui from "../../../components/ui/primitives.module.css";
 import styles from "./brokerage-overview.module.css";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { clsx } from "clsx";
 import { ArrowRight } from "lucide-react";
@@ -27,6 +28,7 @@ import { ChangeFigures, ChangeFiguresSkeleton } from "./change-figures";
  * Holdings are grouped by account, so each group links to the account where trades are added.
  */
 export function BrokerageOverview() {
+  const t = useTranslations("securities");
   const accounts = useAccounts();
   const performance = useCombinedBrokeragePerformance();
   const [booking, setBooking] = useState<string | null>(null);
@@ -40,7 +42,7 @@ export function BrokerageOverview() {
   if (accounts.data && !brokerage.length) {
     return (
       <section className={ui["panel"]}>
-        <Empty title="No brokerage accounts yet" illustration={null}>Add a brokerage account under Accounts &amp; assets to track holdings, trades and performance.</Empty>
+        <Empty title={t("overview.noAccountsTitle")} illustration={null}>{t("overview.noAccountsBody")}</Empty>
       </section>
     );
   }
@@ -56,7 +58,7 @@ export function BrokerageOverview() {
         <div className={styles["combined"]}>
           <CombinedValueSkeleton />
           <PerformanceView
-            title="Performance"
+            title={t("performance.title")}
             isPending
             isError={false}
             performance={undefined}
@@ -65,7 +67,7 @@ export function BrokerageOverview() {
       )}
       {performance.isError && (
         <PerformanceView
-          title="Performance"
+          title={t("performance.title")}
           isPending={false}
           isError
           performance={undefined}
@@ -75,14 +77,16 @@ export function BrokerageOverview() {
         <div key={item.currency} className={styles["combined"]}>
           <CombinedValue item={item} accounts={brokerage} />
           <PerformanceView
-            title={many ? `Performance (${item.currency})` : "Performance"}
+            title={many ? t("performance.titleInCurrency", {
+              currency: item.currency
+            }) : t("performance.title")}
             isPending={false}
             isError={false}
             performance={item}
           />
         </div>
       ))}
-      <h2 className={styles["section-title"]}>Accounts</h2>
+      <h2 className={styles["section-title"]}>{t("overview.accounts")}</h2>
       {accounts.isPending && <AccountHoldingsSkeleton />}
       {brokerage.map(account => <AccountHoldings key={account.id} account={account} openBooking={setBooking} />)}
       {booking && <BookingDialog transactionId={booking} close={() => setBooking(null)} />}
@@ -97,12 +101,20 @@ function CombinedValue({
   item: CombinedBrokeragePerformance["currencies"][number];
   accounts: Account[];
 }) {
+  const t = useTranslations("securities.overview");
   const locale = useLocale();
   const value = accounts.filter(account => account.currency === item.currency).reduce((sum, account) => sum + (account.balance_minor ?? 0), 0);
 
   return (
-    <section className={clsx(ui["panel"], styles["summary"])} aria-label={`Combined value in ${item.currency}`}>
-      <span className={styles["label"]}>Combined value · {item.account_ids.length === 1 ? "1 account" : `${item.account_ids.length} accounts`}</span>
+    <section
+      className={clsx(ui["panel"], styles["summary"])}
+      aria-label={t("combinedValueIn", {
+        currency: item.currency
+      })}
+    >
+      <span className={styles["label"]}>{t("combinedValue", {
+        count: item.account_ids.length
+      })}</span>
       <strong className={styles["value"]}>{money(value, item.currency, locale)}</strong>
       <ChangeFigures
         summary={item.summary}
@@ -115,9 +127,13 @@ function CombinedValue({
 }
 
 function CombinedValueSkeleton() {
+  const t = useTranslations("securities.overview");
+
   return (
     <section className={clsx(ui["panel"], styles["summary"])} aria-hidden="true">
-      <span className={clsx(styles["label"], ui["skeleton"])}>Combined value · 1 account</span>
+      <span className={clsx(styles["label"], ui["skeleton"])}>{t("combinedValue", {
+        count: 1
+      })}</span>
       <strong className={clsx(styles["value"], ui["skeleton"])}>€00,000.00</strong>
       <ChangeFiguresSkeleton stacked showTotal={false} />
     </section>
@@ -126,10 +142,12 @@ function CombinedValueSkeleton() {
 
 /** A brokerage account's heading and holdings before the accounts are known. */
 function AccountHoldingsSkeleton() {
+  const t = useTranslations("securities.tradeForm");
+
   return (
     <section className={ui["panel"]} aria-hidden="true">
       <div className={styles["account-link"]}>
-        <h3><span className={ui["skeleton"]}>Brokerage account</span></h3>
+        <h3><span className={ui["skeleton"]}>{t("brokerageAccount")}</span></h3>
         <AccountFiguresSkeleton />
         <ArrowRight size={16} aria-hidden="true" />
       </div>
@@ -139,10 +157,14 @@ function AccountHoldingsSkeleton() {
 }
 
 function AccountFiguresSkeleton() {
+  const t = useTranslations("securities.overview");
+
   return (
     <span className={styles["account-figures"]} aria-hidden="true">
       <strong className={ui["skeleton"]}>€00,000.00</strong>
-      <small className={ui["skeleton"]}>+€0,000.00 total</small>
+      <small className={ui["skeleton"]}>{t("totalGain", {
+        amount: "+€0,000.00"
+      })}</small>
     </span>
   );
 }
@@ -155,6 +177,7 @@ function AccountHoldings({
   account: Account;
   openBooking: (transactionId: string) => void;
 }) {
+  const t = useTranslations("securities.overview");
   const locale = useLocale();
   const accountHref = useAccountHref();
   const trades = useBrokerageTrades(account.id);
@@ -169,7 +192,11 @@ function AccountHoldings({
         {trades.isPending ? <AccountFiguresSkeleton /> : (
           <span className={styles["account-figures"]}>
             {trades.data && <strong>{money(trades.data.valuation.value_minor, account.currency, locale)}</strong>}
-            {trades.data && trades.data.trades.length > 0 && <small className={clsx(trades.data.summary.total.gain_minor > 0 && ui["positive"])} data-negative={trades.data.summary.total.gain_minor < 0 ? "" : undefined}>{signedMoney(trades.data.summary.total.gain_minor, account.currency, locale)} total</small>}
+            {trades.data && trades.data.trades.length > 0 && (
+              <small className={clsx(trades.data.summary.total.gain_minor > 0 && ui["positive"])} data-negative={trades.data.summary.total.gain_minor < 0 ? "" : undefined}>{t("totalGain", {
+                amount: signedMoney(trades.data.summary.total.gain_minor, account.currency, locale)
+              })}</small>
+            )}
           </span>
         )}
         <ArrowRight size={16} aria-hidden="true" />
@@ -178,14 +205,16 @@ function AccountHoldings({
       {trades.isError && <FormError failure={toFailure(trades.error)} />}
       {trades.data && (held.length ? (
         <HoldingsTable
-          label={`Holdings of ${account.name}`}
+          label={t("holdingsOf", {
+            name: account.name
+          })}
           holdings={held}
           trades={trades.data.trades}
           securities={securities.data?.securities ?? []}
           currency={account.currency}
           openBooking={openBooking}
         />
-      ) : <p className={styles["note"]}>{trades.data.trades.length > 0 ? "No open positions." : "No holdings yet."}</p>)}
+      ) : <p className={styles["note"]}>{trades.data.trades.length > 0 ? t("noOpenPositions") : t("noHoldings")}</p>)}
     </section>
   );
 }

@@ -4,5 +4,169 @@
     "privacy": "Datenschutz",
     "terms": "Nutzungsbedingungen"
   },
-  "sourceCode": "Quellcode"
+  "sourceCode": "Quellcode",
+  "document": {
+    "back": "Zurück zu Ufer",
+    "lastUpdated": "Zuletzt aktualisiert: <date></date>"
+  },
+  "operator": {
+    "notConfigured": "<strong>Betreiberangaben sind nicht konfiguriert.</strong> Diese Installation hat die Identität des Betreibers und seine Dienstleister nicht angegeben, daher ist diese Seite unvollständig. Der Betreiber muss {variables} setzen.",
+    "missing": "Für diese Installation nicht konfiguriert."
+  },
+  "privacy": {
+    "metaTitle": "Datenschutzerklärung",
+    "metaDescription": "Wie diese Ufer-Installation personenbezogene Daten verarbeitet.",
+    "title": "Datenschutzerklärung",
+    "intro": "Diese Erklärung beschreibt, welche personenbezogenen Daten diese Ufer-Installation verarbeitet, zu welchem Zweck und welche Rechte du nach der EU-Datenschutz-Grundverordnung (DSGVO) hast.",
+    "responsible": {
+      "heading": "Verantwortlicher",
+      "body": "Verantwortlicher für die hier beschriebene Verarbeitung ist der Betreiber dieser Installation:"
+    },
+    "installation": {
+      "heading": "Über diese Installation",
+      "basis": "Ufer ist eine Übersicht über private Finanzen in einem frühen Entwicklungsstadium. Diese Installation wird nicht kommerziell für Nutzer betrieben, die der Betreiber eingeladen hat; eine öffentliche Registrierung gibt es nicht.",
+      "shared": "Alle Nutzer dieser Installation teilen sich einen gemeinsamen Finanzbereich. Alle angemeldeten Nutzer können alle Konten, Buchungen, Kategorien und Regeln sehen und ändern, einschließlich Bankdaten, die ein anderer Nutzer verbunden hat."
+    },
+    "data": {
+      "heading": "Verarbeitete Daten",
+      "account": {
+        "heading": "Dein Benutzerkonto",
+        "body": "Dein Benutzername, Anzeigename und deine E-Mail-Adresse, die der Betreiber bei deiner Aufnahme einträgt, deine Rolle sowie dein Passwort, das nur als Hash gespeichert wird. E-Mail-Adressen werden nicht verifiziert, und Ufer versendet keine E-Mails."
+      },
+      "sessions": {
+        "heading": "Anmeldung und Sitzungen",
+        "body": "Wenn du dich anmeldest, speichert Ufer einen Sitzungsdatensatz mit seiner Ablaufzeit und der User-Agent-Kennung deines Browsers. Ufer speichert deine IP-Adresse nicht mit der Sitzung. Anmeldeversuche werden pro Endpunkt gezählt, nicht pro Person, um das Erraten von Passwörtern zu begrenzen."
+      },
+      "bank": {
+        "heading": "Bankdaten",
+        "intro": "Wenn du eine Bank verbindest, ruft Enable Banking mit deiner Freigabe Kontoinformationen von deiner Bank ab. Ufer speichert dann:",
+        "bankName": "Name und Land der Bank sowie die Gültigkeitsdauer deiner Freigabe;",
+        "accounts": "Kontonamen, IBANs, Währungen, Salden und Saldenverlauf;",
+        "transactions": "gebuchte Umsätze mit Datum, Betrag, Währung, Name der Gegenpartei und Beschreibung;",
+        "foreignCurrency": "bei Zahlungen in Fremdwährung den ursprünglichen Betrag und die Währung, sofern die Bank sie liefert;",
+        "rawRecord": "den vollständigen Umsatzdatensatz, wie ihn die Bank geliefert hat, damit er später erneut ausgewertet werden kann. Je nach Bank enthält er weitere Umsatzdetails wie Valuta- und Buchungsdatum, den Transaktionscode der Bank, den Händlerkategoriecode, den Wechselkurs, den Saldo nach dem Umsatz, die Zahlungsreferenz, deine eigenen Kontokennungen sowie IBAN oder andere Kontonummer, Bankkennung (BIC), Adresse oder andere Kennungen der Gegenpartei;",
+        "accountIdentifier": "eine von Enable Banking bereitgestellte Kontokennung, mit der Konten beim erneuten Verbinden wiedererkannt werden;",
+        "sessionId": "die Sitzungs-ID von Enable Banking, verschlüsselt;",
+        "connections": "einen Eintrag zu jeder Bankverbindung mit Name und Land der Bank, ihrem Status, dem Nutzer, der sie gestartet hat, und dem Zeitpunkt;",
+        "history": "einen Synchronisierungsverlauf mit Zeitpunkten, Anzahl importierter Buchungen und Fehlern.",
+        "sync": "Die Synchronisierung läuft, wenn ein Nutzer „Synchronisieren“ wählt, sowie einmal täglich automatisch und umfasst die letzten 89 Tage. Ufer liest nur Kontoinformationen und kann keine Zahlungen auslösen. Du meldest dich direkt bei deiner Bank an; deine Bankzugangsdaten erreichen Ufer nie. Buchungen können personenbezogene Daten anderer Personen enthalten, etwa Namen, Kontonummern und Adressen von Zahlern und Empfängern sowie Zahlungsreferenzen."
+      },
+      "entered": {
+        "heading": "Daten, die du eingibst oder importierst",
+        "body": "Manuelle Konten und Bewertungen, aus Dateien in manuelle Konten importierte Salden und Buchungen, Kategorien, Kategorisierungsregeln und Kategoriezuordnungen. Ufer speichert die importierten Zeilen, nicht die hochgeladene Datei."
+      },
+      "required": {
+        "heading": "Was du angeben musst",
+        "body": "Für ein Benutzerkonto benötigt der Betreiber deinen Benutzernamen, Anzeigenamen und deine E-Mail-Adresse, und du brauchst ein Passwort; ohne diese Angaben kannst du Ufer nicht nutzen. Eine Bankverbindung ist freiwillig und nur für die Bank-Synchronisierung nötig. Auch manuelle Konten, Bewertungen und Importe sind freiwillig; ohne sie bleiben die zugehörigen Funktionen leer. Eine gesetzliche Pflicht zur Bereitstellung von Daten besteht nicht."
+      },
+      "logs": {
+        "heading": "Technische Protokolle",
+        "body": "Schlägt eine Anfrage fehl, protokolliert der Server eine Trace-ID, den Statuscode und den Fehlertyp, damit Supportanfragen einem Fehler zugeordnet werden können. Diese Einträge enthalten weder Anfrageinhalte noch Finanzdaten. Die Infrastruktur, auf der Ufer läuft, verarbeitet außerdem Verbindungsdaten, um Anfragen zuzustellen, und kann eigene Anfrageprotokolle führen, einschließlich der aufgerufenen URL, der User-Agent-Kennung des Browsers und der IP-Adresse."
+      },
+      "cookies": {
+        "heading": "Cookies",
+        "intro": "Ufer verwendet nur Cookies, die für die Bereitstellung des Dienstes notwendig sind:",
+        "session": "<code>better-auth.session_token</code> (unter HTTPS <code>__Secure-better-auth.session_token</code>) hält dich angemeldet. Es läuft nach 24 Stunden ohne Nutzung ab und endet früher, wenn du dich abmeldest oder dein Passwort in einer anderen Sitzung geändert wird.",
+        "bankFlow": "<code>budget_bank_flow</code> verknüpft eine Bankfreigabe mit dem Browser, der sie gestartet hat. Es wird nur an den Bank-Callback gesendet, läuft nach 15 Minuten ab und wird gelöscht, wenn die Freigabe abgeschlossen ist.",
+        "noTracking": "Es gibt keine Analyse, keine Werbung und kein Tracking. Die Seiten laden keine Skripte oder Schriften von Dritten."
+      }
+    },
+    "purposes": {
+      "heading": "Zwecke und Rechtsgrundlagen",
+      "service": "Bereitstellung des Dienstes, den du nutzt, einschließlich deines Benutzerkontos, der Bank-Synchronisierung und der Finanzübersicht: Vertragserfüllung (Art. 6 Abs. 1 lit. b DSGVO).",
+      "security": "Sicherer und zuverlässiger Betrieb des Dienstes durch Sitzungen, Anmeldebegrenzungen, Fehlerprotokolle und Verschlüsselung: berechtigte Interessen (Art. 6 Abs. 1 lit. f DSGVO).",
+      "thirdParties": "Personenbezogene Daten anderer Personen in Buchungen: das berechtigte Interesse der Nutzer an einer vollständigen Übersicht über ihre eigenen Finanzen (Art. 6 Abs. 1 lit. f DSGVO).",
+      "authorization": "Der Bankzugriff erfordert zusätzlich deine Freigabe im Ablauf von Enable Banking und deiner Bank. Du kannst sie jederzeit widerrufen, wie unten beschrieben."
+    },
+    "recipients": {
+      "heading": "Dienstleister und Empfänger",
+      "enableBanking": "<strong>Enable Banking</strong> verbindet sich mit deiner Bank und übermittelt Kontoinformationen an Ufer. Während der Freigabe zeigen Enable Banking und deine Bank ihre eigenen Bedingungen und Datenschutzinformationen an, die für ihre Verarbeitung gelten.",
+      "processorsMissing": "Hosting- und Datenbankanbieter: für diese Installation nicht konfiguriert.",
+      "processorsNone": "Diese Installation nutzt keine externen Hosting- oder Datenbankanbieter; der Betreiber betreibt sie auf Infrastruktur unter eigener Kontrolle.",
+      "processor": "<strong>{name}</strong> ({location}): {purpose}",
+      "others": "Andere Nutzer dieser Installation können die gemeinsamen Finanzdaten sehen. Daten werden weder verkauft noch für Werbung verwendet."
+    },
+    "security": {
+      "heading": "Sicherheit",
+      "body": "Passwörter werden gehasht, Sitzungscookies sind HttpOnly und unter HTTPS Secure, und Sitzungs-IDs von Enable Banking werden mit AES-256-GCM verschlüsselt. Finanzdaten sind nicht Ende-zu-Ende-verschlüsselt: Der Betreiber und die Anbieter, die die Datenbank speichern, können technisch darauf zugreifen."
+    },
+    "retention": {
+      "heading": "Speicherdauer und Löschung",
+      "account": "Die Daten deines Benutzerkontos werden gespeichert, solange du Zugang zu dieser Installation hast. Der Betreiber löscht sie, wenn dein Zugang endet oder du die Löschung verlangst.",
+      "sessions": "Ein Sitzungsdatensatz einschließlich seiner User-Agent-Kennung wird gelöscht, wenn du dich abmeldest. Wenn du dein Passwort änderst oder andere Geräte abmeldest, werden die Datensätze deiner anderen Sitzungen gelöscht und die aktuelle bleibt bestehen. Eine Sitzung, die ohne Abmeldung abläuft, behält ihren Datensatz in der Datenbank, bis der Betreiber ihn entfernt.",
+      "connections": "Wenn du eine Bankverbindung unter „Bankverbindungen“ entfernst, wird Enable Banking aufgefordert, ihre Sitzung zu beenden. Erst wenn Enable Banking bestätigt, dass die Sitzung beendet ist, entfernt Ufer die Verbindung und löscht ihre verschlüsselte Sitzungs-ID. Schlägt diese Anfrage fehl, bleiben Verbindung und Sitzungs-ID unverändert, und du kannst das Entfernen erneut versuchen. Beim erneuten Verbinden wird einmal versucht, eine ersetzte Sitzung zu widerrufen; schlägt das fehl, bleibt die vorherige Verbindung mit einem Hinweis sichtbar, sie zu entfernen. Abgelaufene Verbindungen behalten ihre Sitzungs-ID, bis du sie entfernst oder Enable Banking die Sitzung als beendet meldet. Ufer wiederholt Widerrufe bei geplanten Synchronisierungen nicht. Die Bankfreigabe endet außerdem, wenn sie abläuft oder du sie bei deiner Bank widerrufst. Der Verbindungseintrag selbst bleibt bestehen. Konten, Salden und Buchungen, die vor dem Entfernen abgerufen wurden, bleiben im gemeinsamen Finanzbereich, bis der Betreiber sie auf Anfrage löscht oder die Datenbank der Installation löscht, wenn die Installation eingestellt wird.",
+      "onRequest": "Ufer bietet noch keine Selbstlöschung von Benutzerkonten oder Finanzdaten an. Der Betreiber löscht sie auf Anfrage innerhalb der unten genannten Antwortfristen und bestätigt die Löschung. Da sich alle Nutzer einen Finanzbereich teilen, kann der Betreiber nachfragen, welche Konten eine Anfrage betrifft.",
+      "logs": "Fehlerprotokolleinträge und Anfrageprotokolle werden für die Protokoll-Aufbewahrungsdauer der Hosting-Infrastruktur gespeichert. Ist oben ein Hosting-Anbieter aufgeführt, nennt sein Eintrag diese Dauer.",
+      "backups": "Gelöschte Daten können in Sicherungen des Datenbankanbieters verbleiben, bis diese gemäß der Sicherungsaufbewahrung dieses Anbieters ablaufen."
+    },
+    "rights": {
+      "heading": "Deine Rechte",
+      "exerciseWithEmail": "Du hast das Recht auf Auskunft über deine personenbezogenen Daten, auf deren Berichtigung oder Löschung, auf Einschränkung der Verarbeitung und auf Erhalt in einem übertragbaren Format. Um diese Rechte auszuüben, wende dich an den Betreiber unter <mail>{email}</mail>.",
+      "exerciseWithoutEmail": "Du hast das Recht auf Auskunft über deine personenbezogenen Daten, auf deren Berichtigung oder Löschung, auf Einschränkung der Verarbeitung und auf Erhalt in einem übertragbaren Format. Um diese Rechte auszuüben, wende dich direkt an den Betreiber, auf demselben Weg, über den du Zugang zu dieser Installation erhalten hast; eine Kontakt-E-Mail-Adresse ist dafür nicht veröffentlicht.",
+      "responseTime": "Der Betreiber antwortet unverzüglich, spätestens innerhalb eines Monats nach Eingang deiner Anfrage. Wenn es wegen der Komplexität oder Anzahl der Anfragen erforderlich ist, kann diese Frist um zwei weitere Monate verlängert werden; über die Verlängerung und die Gründe wirst du innerhalb des ersten Monats informiert.",
+      "withdrawal": "Du kannst eine Bankfreigabe jederzeit widerrufen, indem du die Verbindung in Ufer oder bei deiner Bank entfernst. Du kannst außerdem Beschwerde bei einer Datenschutz-Aufsichtsbehörde einlegen, insbesondere in dem EU-Mitgliedstaat deines gewöhnlichen Aufenthalts, deines Arbeitsplatzes oder des Orts des mutmaßlichen Verstoßes.",
+      "automatedDecisions": "Ufer trifft keine automatisierten Entscheidungen, die dir gegenüber rechtliche Wirkung entfalten oder dich in ähnlicher Weise erheblich beeinträchtigen.",
+      "objectHeading": "Widerspruchsrecht",
+      "object": "Beruht eine Verarbeitung auf berechtigten Interessen (Art. 6 Abs. 1 lit. f DSGVO), kannst du ihr jederzeit aus Gründen, die sich aus deiner besonderen Situation ergeben, widersprechen. Der Betreiber stellt diese Verarbeitung dann ein, es sei denn, es bestehen zwingende schutzwürdige Gründe, die deine Interessen, Rechte und Freiheiten überwiegen, oder die Verarbeitung dient der Geltendmachung, Ausübung oder Verteidigung von Rechtsansprüchen."
+    },
+    "changes": {
+      "heading": "Änderungen",
+      "body": "Diese Erklärung wird aktualisiert, wenn sich die Verarbeitung ändert. Das Datum oben zeigt die aktuelle Fassung."
+    }
+  },
+  "terms": {
+    "metaTitle": "Nutzungsbedingungen",
+    "metaDescription": "Bedingungen für die Nutzung dieser Ufer-Installation.",
+    "title": "Nutzungsbedingungen",
+    "intro": "Diese Bedingungen gelten für deine Nutzung dieser Ufer-Installation. Mit der Anmeldung akzeptierst du sie. Die <privacy>Datenschutzerklärung</privacy> erklärt, wie deine Daten verarbeitet werden.",
+    "operator": {
+      "heading": "Betreiber und Geltungsbereich",
+      "intro": "Diese Installation wird betrieben von:",
+      "scope": "Ufer befindet sich in einer frühen Entwicklungsphase. Diese Installation ist eine private, nicht kommerzielle Installation, die nur Nutzern zur Verfügung steht, die der Betreiber eingeladen und aufgenommen hat. Sie ist kein kommerzieller Dienst: Es gibt keine öffentliche Registrierung, kein kostenpflichtiges Angebot und keine Gebühr."
+    },
+    "service": {
+      "heading": "Der Dienst",
+      "body": "Ufer zeigt eine Übersicht über Konten, Salden, Buchungen und Ausgaben. Ufer kann über Enable Banking Kontoinformationen von Banken abrufen, und du kannst manuelle Konten, Bewertungen und Dateiimporte hinzufügen. Ufer liest nur Kontoinformationen und kann keine Zahlungen auslösen.",
+      "shared": "Alle Nutzer dieser Installation teilen sich einen gemeinsamen Finanzbereich und können alle seine Daten sehen und ändern, einschließlich Bankdaten, die ein anderer Nutzer verbunden hat."
+    },
+    "bank": {
+      "heading": "Bankverbindungen",
+      "body": "Um eine Bank zu verbinden, wirst du zu Enable Banking und deiner Bank weitergeleitet, wo du den Zugriff auf deine Kontoinformationen freigibst. Für diesen Schritt gelten deren eigene Bedingungen. Die Freigabe gilt für den Zeitraum, den deine Bank gewährt. Du kannst sie jederzeit beenden, indem du die Verbindung in Ufer oder bei deiner Bank entfernst."
+    },
+    "responsibilities": {
+      "heading": "Deine Pflichten",
+      "entitled": "Verbinde oder importiere nur Konten, auf die du zugreifen darfst, und teile sie nur mit Nutzern, mit denen du das vereinbart hast.",
+      "password": "Halte dein Ufer-Passwort geheim und teile dein Benutzerkonto nicht.",
+      "misuse": "Informiere den Betreiber umgehend, wenn du einen Missbrauch deines Kontos vermutest.",
+      "security": "Versuche nicht, Sicherheitsmaßnahmen zu umgehen, unbefugt auf Daten zuzugreifen oder den Dienst zu stören."
+    },
+    "advice": {
+      "heading": "Keine Finanzberatung",
+      "body": "Ufer stellt Informationen über deine Finanzen dar. Ufer bietet keine Finanz-, Anlage-, Steuer- oder Rechtsberatung."
+    },
+    "accuracy": {
+      "heading": "Richtigkeit der Daten",
+      "body": "Bankdaten hängen von deiner Bank und Enable Banking ab und können verzögert, unvollständig oder fehlerhaft sein. Importierte und manuell eingegebene Daten sind nur so genau wie ihre Quelle. Prüfe wichtige Zahlen bei deiner Bank, bevor du dich darauf verlässt, und nutze Ufer nicht als einzige Aufzeichnung deiner Finanzen."
+    },
+    "availability": {
+      "heading": "Verfügbarkeit und Änderungen",
+      "body": "Der Dienst wird unentgeltlich und so, wie er ist, ohne Gewähr für seine Verfügbarkeit bereitgestellt. Funktionen können sich ändern oder entfallen, und der Dienst kann für Wartung oder aus anderen Gründen unterbrochen werden."
+    },
+    "ending": {
+      "heading": "Beendigung der Nutzung",
+      "body": "Du kannst die Nutzung von Ufer jederzeit beenden und den Betreiber bitten, deinen Zugang zu entfernen und deine Daten zu löschen. Der Betreiber kann deinen Zugang sperren oder beenden, etwa bei Missbrauch oder wenn diese Installation eingestellt wird, und kündigt dies nach Möglichkeit mit angemessener Frist an."
+    },
+    "liability": {
+      "heading": "Haftung",
+      "body": "Der Dienst wird unentgeltlich bereitgestellt. Der Betreiber haftet unbeschränkt für vorsätzlich oder grob fahrlässig verursachte Schäden sowie für Verletzungen des Lebens, des Körpers oder der Gesundheit. Für sonstige leicht fahrlässig verursachte Schäden haftet der Betreiber nicht. Ansprüche nach Art. 82 DSGVO und Rechte aus zwingendem Verbraucherschutzrecht bleiben unberührt."
+    },
+    "changes": {
+      "heading": "Änderungen dieser Bedingungen",
+      "body": "Der Betreiber kann diese Bedingungen aktualisieren und informiert die Nutzer über wesentliche Änderungen. Das Datum oben zeigt die aktuelle Fassung."
+    },
+    "law": {
+      "heading": "Anwendbares Recht",
+      "body": "Für diese Bedingungen gilt österreichisches Recht unter Ausschluss seiner Kollisionsnormen. Bist du Verbraucher, entzieht dir diese Rechtswahl nicht den Schutz der zwingenden Bestimmungen des Rechts des Staates, in dem du deinen gewöhnlichen Aufenthalt hast."
+    }
+  }
 }

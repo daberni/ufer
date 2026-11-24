@@ -5,9 +5,10 @@ import styles from "./change-figures.module.css";
 
 import { clsx } from "clsx";
 import { Temporal } from "temporal-polyfill";
+import { useTranslations } from "next-intl";
 import { useLocale } from "@/client/locale-provider";
 import { dateWithYear } from "@/lib/date-format";
-import { formatCountLabel, formatSignedPercent } from "@/lib/locale";
+import { formatSignedPercent } from "@/lib/locale";
 import { signedMoney } from "@/lib/money";
 import { useBrokeragePerformance, useBrokerageTrades } from "../queries";
 import type { PerformancePoint } from "../performance";
@@ -54,19 +55,25 @@ export function ChangeFiguresSkeleton({
   stacked?: boolean;
   showTotal?: boolean;
 }) {
+  const t = useTranslations("securities.change");
+
   return (
     <dl className={clsx(styles["figures"], stacked && styles["stacked"])} aria-hidden="true">
       {showTotal && (
         <div className={styles["figure"]}>
-          <dt><span className={ui["skeleton"]}>Total performance</span></dt>
+          <dt><span className={ui["skeleton"]}>{t("totalPerformance")}</span></dt>
           <dd className={styles["amount"]}>
             <span className={ui["skeleton"]}>+€0,000.00</span>
-            <span className={clsx(styles["percent"], ui["skeleton"])}>+00.0% time-weighted</span>
+            <span className={clsx(styles["percent"], ui["skeleton"])}>{t("timeWeighted", {
+              percent: "+00.0%"
+            })}</span>
           </dd>
         </div>
       )}
       <div className={styles["figure"]}>
-        <dt><span className={ui["skeleton"]}>Since 23 Nov 2026</span></dt>
+        <dt><span className={ui["skeleton"]}>{t("sinceDate", {
+          date: "00 Xxx 0000"
+        })}</span></dt>
         <dd className={styles["amount"]}>
           <span className={ui["skeleton"]}>+€000.00</span>
           <span className={clsx(styles["percent"], ui["skeleton"])}>+0.00%</span>
@@ -93,6 +100,7 @@ export function ChangeFigures({
   /** False beside a performance chart, whose header already shows the total. */
   showTotal?: boolean;
 }) {
+  const t = useTranslations("securities.change");
   const locale = useLocale();
   const {
     total,
@@ -104,29 +112,43 @@ export function ChangeFigures({
     <dl className={clsx(styles["figures"], stacked && styles["stacked"])}>
       {showTotal && (
         <div className={styles["figure"]}>
-          <dt>Total performance</dt>
+          <dt>{t("totalPerformance")}</dt>
           <dd className={styles["amount"]}>
             <span className={tone(total.gain_minor)}>{signedMoney(total.gain_minor, currency, locale)}</span>
-            {last && <span className={clsx(styles["percent"], ratioTone(last.growth - 1))}>{formatSignedPercent(last.growth - 1, locale)} time-weighted</span>}
+            {last && (
+              <span className={clsx(styles["percent"], ratioTone(last.growth - 1))}>{t("timeWeighted", {
+                percent: formatSignedPercent(last.growth - 1, locale)
+              })}</span>
+            )}
           </dd>
-          {total.unpriced > 0 && <dd className={styles["hint"]}>{formatCountLabel(total.unpriced, "holding", "holdings", locale)} without a price at cost</dd>}
+          {total.unpriced > 0 && (
+            <dd className={styles["hint"]}>{t("unpricedAtCost", {
+              count: total.unpriced
+            })}</dd>
+          )}
         </div>
       )}
       <div className={styles["figure"]}>
         {day ? (
           <>
-            <dt>{day.mixed_dates ? "Since previous prices" : `Since ${dateWithYear(Temporal.PlainDate.from(day.previous_date), locale)}`}</dt>
+            <dt>{day.mixed_dates ? t("sincePreviousPrices") : t("sinceDate", {
+              date: dateWithYear(Temporal.PlainDate.from(day.previous_date), locale)
+            })}</dt>
             <dd className={styles["amount"]}>
               <span className={tone(day.change_minor)}>{signedMoney(day.change_minor, currency, locale)}</span>
               <span className={clsx(styles["percent"], ratioTone(day.ratio))}>{formatSignedPercent(day.ratio, locale)}</span>
             </dd>
-            {day.excluded > 0 && <dd className={styles["hint"]}>{formatCountLabel(day.excluded, "holding", "holdings", locale)} without a current price left out</dd>}
+            {day.excluded > 0 && (
+              <dd className={styles["hint"]}>{t("excluded", {
+                count: day.excluded
+              })}</dd>
+            )}
           </>
         ) : (
           <>
-            <dt>Since previous prices</dt>
-            <dd className={styles["amount"]} aria-label="Not available">–</dd>
-            <dd className={styles["hint"]}>No current prices from two trading days yet</dd>
+            <dt>{t("sincePreviousPrices")}</dt>
+            <dd className={styles["amount"]} aria-label={t("notAvailable")}>–</dd>
+            <dd className={styles["hint"]}>{t("noPrices")}</dd>
           </>
         )}
       </div>

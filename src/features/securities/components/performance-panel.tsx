@@ -5,10 +5,11 @@ import chartStyles from "../../accounts/components/balance-history-chart.module.
 
 import { clsx } from "clsx";
 import { useId, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import styles from "./performance-panel.module.css";
 import { SignedArea } from "@/components/ui/signed-area";
 import { useLocale } from "@/client/locale-provider";
-import { formatCountLabel, formatSignedPercent } from "@/lib/locale";
+import { formatSignedPercent } from "@/lib/locale";
 import { signedMoney } from "@/lib/money";
 import { plotBalances } from "@/features/accounts/balance-chart";
 import { describeBalanceDate } from "@/features/accounts/balance-presentation";
@@ -25,10 +26,11 @@ export function PerformancePanel({ accountId }: {
   accountId: string
 }) {
   const query = useBrokeragePerformance(accountId);
+  const t = useTranslations("securities.performance");
 
   return (
     <PerformanceView
-      title="Performance"
+      title={t("title")}
       isPending={query.isPending}
       isError={query.isError}
       performance={query.data}
@@ -53,15 +55,15 @@ export function PerformanceView({
     isError,
     data: performance
   };
+  const t = useTranslations("securities.performance");
   const [range, setRange] = useState<PerformanceRange>("All");
-  const locale = useLocale();
   const points = useMemo(() => performanceInRange(query.data?.points ?? [], range, query.data?.as_of), [query.data, range]);
 
   return (
     <section className={clsx(ui["panel"], styles["performance"])} aria-busy={query.isPending}>
       <div className={ui["card-heading"]}>
         <h2>{title}</h2>
-        <div className={styles["ranges"]} role="group" aria-label="Range">
+        <div className={styles["ranges"]} role="group" aria-label={t("range")}>
           {performanceRanges.map(option => (
             <button
               key={option}
@@ -69,26 +71,34 @@ export function PerformanceView({
               className={styles["range"]}
               aria-pressed={option === range}
               onClick={() => setRange(option)}
-            >{option}</button>
+            >{t(`ranges.${option}`)}</button>
           ))}
         </div>
       </div>
       {query.isPending && <PerformanceChartSkeleton />}
-      {query.isError && <p className={styles["note"]}>The performance could not be loaded.</p>}
-      {query.data && (points.length > 1 ? <PerformanceChart points={points} currency={query.data.currency} /> : <p className={styles["note"]}>{query.data.points.length ? "Nothing was held in this range." : "The chart appears once a trade is recorded."}</p>)}
-      {query.data && query.data.missing > 0 && <p className={styles["note"]}>{formatCountLabel(query.data.missing, "holding has", "holdings have", locale)} no price yet and count at cost, without performance.</p>}
+      {query.isError && <p className={styles["note"]}>{t("loadError")}</p>}
+      {query.data && (points.length > 1 ? <PerformanceChart points={points} currency={query.data.currency} /> : <p className={styles["note"]}>{query.data.points.length ? t("nothingHeld") : t("noChart")}</p>)}
+      {query.data && query.data.missing > 0 && (
+        <p className={styles["note"]}>{t("missing", {
+          count: query.data.missing
+        })}</p>
+      )}
     </section>
   );
 }
 
 /** The performance chart's layout with its readout of return and gain, held until the series arrives. */
 function PerformanceChartSkeleton() {
+  const t = useTranslations("securities.performance");
+
   return (
     <figure className={chartStyles["chart"]} aria-hidden="true">
       <figcaption className={chartStyles["readout"]}>
         <span>
           <span className={ui["skeleton"]}>23 Nov 2026</span>
-          <small className={ui["skeleton"]}>Since 12 Jan 2025</small>
+          <small className={ui["skeleton"]}>{t("since", {
+            date: "12 Jan 2025"
+          })}</small>
         </span>
         <span className={styles["totals"]}>
           <strong className={ui["skeleton"]}>+00.00%</strong>
@@ -111,6 +121,7 @@ function PerformanceChart({
   points: RangePoint[];
   currency: string;
 }) {
+  const t = useTranslations("securities.performance");
   const locale = useLocale();
   const descriptionId = useId();
   const chart = useMemo(() => plotBalances(points.map(point => ({
@@ -134,25 +145,37 @@ function PerformanceChart({
   // Without a selection the header shows the whole range; a selected point shows its change against the previous point, which may lie several days back.
   function rangeReadout() {
     return {
-      context: `Since ${start}`,
+      context: t("since", {
+        date: start
+      }),
       negative: point.return_ratio < 0,
       percent,
       detail: gain,
-      valueText: `${date.label}: ${percent}, ${gain} since ${start}`
+      valueText: t("valueText", {
+        date: date.label,
+        percent,
+        gain,
+        start
+      })
     };
   }
 
   function pointReadout(index: number) {
     const change = changeFromPrevious(points, index);
-    const context = `${percent} since ${start}`;
+    const context = t("pointContext", {
+      percent,
+      start
+    });
 
     if (!change) {
       return {
         context,
         negative: false,
         percent: "–",
-        detail: "Start of range",
-        valueText: `${date.label}: start of range`
+        detail: t("startOfRange"),
+        valueText: t("startOfRangeValueText", {
+          date: date.label
+        })
       };
     }
 
@@ -164,8 +187,17 @@ function PerformanceChart({
       context,
       negative: change.ratio < 0,
       percent: changePercent,
-      detail: `${changeGain} vs ${previous}`,
-      valueText: `${date.label}: ${changePercent}, ${changeGain} since ${previous}; ${context}`
+      detail: t("versusPrevious", {
+        gain: changeGain,
+        previous
+      }),
+      valueText: t("pointValueText", {
+        date: date.label,
+        percent: changePercent,
+        gain: changeGain,
+        previous,
+        context
+      })
     };
   }
 
@@ -188,7 +220,7 @@ function PerformanceChart({
         className={chartStyles["plot"]}
         role="slider"
         tabIndex={0}
-        aria-label="Performance"
+        aria-label={t("title")}
         aria-describedby={descriptionId}
         aria-orientation="horizontal"
         aria-valuemin={0}
@@ -234,7 +266,7 @@ function PerformanceChart({
           </span>
         )}
       </div>
-      <p className={ui["visually-hidden"]} id={descriptionId}>Time-weighted return, which leaves out the effect of buys and sales. Use the left and right arrow keys to explore dates, Home and End for the first and last date, and Escape to dismiss the selection.</p>
+      <p className={ui["visually-hidden"]} id={descriptionId}>{t("description")}</p>
       <div className={chartStyles["dates"]} aria-hidden="true">
         <span>{describeBalanceDate(points[0].date, locale).label}</span>
         <span>{describeBalanceDate(points[lastIndex].date, locale).label}</span>

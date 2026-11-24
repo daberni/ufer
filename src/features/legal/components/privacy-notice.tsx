@@ -1,157 +1,124 @@
+import { useTranslations } from "next-intl";
 import type { DataProcessor, LegalConfiguration } from "../types";
 import { LegalDocument } from "./legal-document";
-import { ConfigurationNotice, ContactInstructions, OperatorContact } from "./operator-contact";
+import { ConfigurationNotice, OperatorContact } from "./operator-contact";
 
 // Change this date whenever the text below changes.
 const lastUpdated = "2026-11-22";
 
+const code = (chunks: React.ReactNode) => <code>{chunks}</code>;
+const strong = (chunks: React.ReactNode) => <strong>{chunks}</strong>;
+
 export function PrivacyNotice({ configuration }: {
   configuration: LegalConfiguration
 }) {
+  const t = useTranslations("legal.privacy");
   const operator = configuration.configured ? configuration.operator : null;
   const processors = configuration.configured ? configuration.processors : null;
+  const email = operator?.email;
 
   return (
-    <LegalDocument title="Privacy notice" lastUpdated={lastUpdated}>
+    <LegalDocument title={t("title")} lastUpdated={lastUpdated}>
       <ConfigurationNotice configuration={configuration} />
-      <p>
-        This notice explains which personal data this Ufer installation processes, why, and what rights you have under the EU General Data Protection Regulation (GDPR).
-      </p>
+      <p>{t("intro")}</p>
 
-      <h2>Who is responsible</h2>
-      <p>The operator of this installation is the controller for the processing described here:</p>
+      <h2>{t("responsible.heading")}</h2>
+      <p>{t("responsible.body")}</p>
       <OperatorContact operator={operator} />
 
-      <h2>About this installation</h2>
-      <p>
-        Ufer is an early-stage overview of personal finances. This installation is operated on a non-commercial basis for users the operator has invited; there is no public registration.
-      </p>
-      <p>
-        All users of this installation share one financial workspace. Every signed-in user can see and change all accounts, transactions, categories and rules, including bank data connected by another user.
-      </p>
+      <h2>{t("installation.heading")}</h2>
+      <p>{t("installation.basis")}</p>
+      <p>{t("installation.shared")}</p>
 
-      <h2>Data processed</h2>
-      <h3>Your user account</h3>
-      <p>
-        Your username, display name and email address, which the operator enters when enrolling you, your role, and your password, which is stored only in hashed form. Email addresses are not verified and Ufer does not send emails.
-      </p>
-      <h3>Sign-in and sessions</h3>
-      <p>
-        When you sign in, Ufer stores a session record with its expiry time and your browser&apos;s user-agent string. Ufer does not store your IP address with the session. Sign-in attempts are counted per endpoint, not per person, to limit password guessing.
-      </p>
-      <h3>Bank data</h3>
-      <p>
-        When you connect a bank, Enable Banking retrieves account information from your bank with your authorization. Ufer then stores:
-      </p>
+      <h2>{t("data.heading")}</h2>
+      <h3>{t("data.account.heading")}</h3>
+      <p>{t("data.account.body")}</p>
+      <h3>{t("data.sessions.heading")}</h3>
+      <p>{t("data.sessions.body")}</p>
+      <h3>{t("data.bank.heading")}</h3>
+      <p>{t("data.bank.intro")}</p>
       <ul>
-        <li>the bank&apos;s name and country and how long your authorization is valid;</li>
-        <li>account names, IBANs, currencies, balances and balance history;</li>
-        <li>booked transactions with date, amount, currency, counterparty name and description;</li>
-        <li>for payments in a foreign currency, the original amount and currency where the bank provides them;</li>
-        <li>
-          the complete transaction record as the bank delivered it, so that it can be evaluated again later. Depending on the bank, it contains further transaction details such as value and transaction dates, the bank&apos;s transaction code, the merchant category code, the exchange rate, the balance after the transaction, the payment reference number, your own account identifiers and the counterparty&apos;s IBAN or other account number, bank identifier (BIC), address or other identifiers;
-        </li>
-        <li>an account identifier provided by Enable Banking, used to recognize accounts when you reconnect;</li>
-        <li>the Enable Banking session ID, encrypted;</li>
-        <li>a record of each bank connection with the bank&apos;s name and country, its status, the user who started it and when;</li>
-        <li>a synchronization history with times, numbers of imported transactions and errors.</li>
+        <li>{t("data.bank.bankName")}</li>
+        <li>{t("data.bank.accounts")}</li>
+        <li>{t("data.bank.transactions")}</li>
+        <li>{t("data.bank.foreignCurrency")}</li>
+        <li>{t("data.bank.rawRecord")}</li>
+        <li>{t("data.bank.accountIdentifier")}</li>
+        <li>{t("data.bank.sessionId")}</li>
+        <li>{t("data.bank.connections")}</li>
+        <li>{t("data.bank.history")}</li>
       </ul>
-      <p>
-        Synchronization runs when a user selects Sync and once a day automatically, and covers the last 89 days. Ufer only reads account information and cannot initiate payments. You sign in to your bank directly; your bank credentials never reach Ufer. Transactions can contain personal data of other people, such as the names, account numbers and addresses of payers and payees and payment references.
-      </p>
-      <h3>Data you enter or import</h3>
-      <p>
-        Manual accounts and valuations, balances and transactions imported from files into manual accounts, categories, categorization rules and category assignments. Ufer stores the imported rows, not the uploaded file.
-      </p>
-      <h3>What you need to provide</h3>
-      <p>
-        To have a user account, the operator needs your username, display name and email address, and you need a password; without them you cannot use Ufer. Connecting a bank is optional and only needed for bank synchronization. Manual accounts, valuations and imports are optional too; without them the related features stay empty. There is no legal obligation to provide data.
-      </p>
-      <h3>Technical logs</h3>
-      <p>
-        When a request fails, the server logs a trace ID, the status code and the error type so that support requests can be matched to an error. These entries do not contain request contents or financial data. The infrastructure that runs Ufer also processes connection data to deliver requests and may keep its own request logs, including the requested URL, the browser&apos;s user-agent string and the IP address.
-      </p>
-      <h3>Cookies</h3>
-      <p>Ufer uses only cookies that are necessary to provide the service:</p>
+      <p>{t("data.bank.sync")}</p>
+      <h3>{t("data.entered.heading")}</h3>
+      <p>{t("data.entered.body")}</p>
+      <h3>{t("data.required.heading")}</h3>
+      <p>{t("data.required.body")}</p>
+      <h3>{t("data.logs.heading")}</h3>
+      <p>{t("data.logs.body")}</p>
+      <h3>{t("data.cookies.heading")}</h3>
+      <p>{t("data.cookies.intro")}</p>
       <ul>
         <li>
-          <code>better-auth.session_token</code> (named <code>__Secure-better-auth.session_token</code> on HTTPS) keeps you signed in. It expires after 24 hours without use and ends earlier when you sign out or when your password is changed in another session.
+          {t.rich("data.cookies.session", {
+            code
+          })}
         </li>
         <li>
-          <code>budget_bank_flow</code> links a bank authorization to the browser that started it. It is sent only to the bank callback, expires after 15 minutes and is deleted when the authorization completes.
+          {t.rich("data.cookies.bankFlow", {
+            code
+          })}
         </li>
       </ul>
-      <p>
-        There is no analytics, advertising or tracking. The pages do not load third-party scripts or fonts.
-      </p>
+      <p>{t("data.cookies.noTracking")}</p>
 
-      <h2>Purposes and legal bases</h2>
+      <h2>{t("purposes.heading")}</h2>
       <ul>
-        <li>Providing the service you use, including your user account, bank synchronization and the financial overview: performance of a contract (Art. 6(1)(b) GDPR).</li>
-        <li>Keeping the service secure and reliable through sessions, sign-in limits, error logs and encryption: legitimate interests (Art. 6(1)(f) GDPR).</li>
-        <li>Personal data of other people contained in transactions: the legitimate interest of users in a complete overview of their own finances (Art. 6(1)(f) GDPR).</li>
+        <li>{t("purposes.service")}</li>
+        <li>{t("purposes.security")}</li>
+        <li>{t("purposes.thirdParties")}</li>
       </ul>
-      <p>
-        Bank access additionally requires your authorization in the Enable Banking and bank flow. You can withdraw it at any time, as described below.
-      </p>
+      <p>{t("purposes.authorization")}</p>
 
-      <h2>Service providers and recipients</h2>
+      <h2>{t("recipients.heading")}</h2>
       <ul>
         <li>
-          <strong>Enable Banking</strong> connects to your bank and transmits account information to Ufer. During authorization, Enable Banking and your bank present their own terms and privacy information, which govern their processing.
+          {t.rich("recipients.enableBanking", {
+            strong
+          })}
         </li>
         <ProcessorItems processors={processors} />
       </ul>
-      <p>
-        Other users of this installation can see the shared financial data. Data is not sold or used for advertising.
-      </p>
+      <p>{t("recipients.others")}</p>
 
-      <h2>Security</h2>
-      <p>
-        Passwords are hashed, session cookies are HttpOnly and, on HTTPS, Secure, and Enable Banking session IDs are encrypted with AES-256-GCM. Financial data is not end-to-end encrypted: the operator and the providers that store the database can technically access it.
-      </p>
+      <h2>{t("security.heading")}</h2>
+      <p>{t("security.body")}</p>
 
-      <h2>Retention and deletion</h2>
+      <h2>{t("retention.heading")}</h2>
       <ul>
-        <li>Your user account data is kept while you have access to this installation. The operator deletes it when your access ends or when you ask for deletion.</li>
-        <li>
-          A session record, including its user-agent string, is deleted when you sign out. Changing your password or choosing to sign out other devices deletes the records of your other sessions and keeps the current one. A session that expires without a sign-out keeps its record in the database until the operator removes it.
-        </li>
-        <li>
-          Removing a bank connection under Bank connections asks Enable Banking to end its session. Only after Enable Banking confirms that the session has ended does Ufer remove the connection and delete its encrypted session ID. If that request fails, the connection and session ID stay unchanged, and you can retry removal. Reconnecting attempts once to revoke a replaced session; if that fails, the previous connection stays visible with a message asking you to remove it. Expired connections keep their session ID until you remove them or Enable Banking reports the session as ended. Ufer does not retry revocations during scheduled syncs. Bank authorization also ends when it expires or you withdraw it at your bank. The connection record itself stays. Accounts, balances and transactions retrieved before the removal remain in the shared workspace until the operator deletes them on request or deletes the installation&apos;s database when the installation is discontinued.
-        </li>
-        <li>
-          Ufer does not yet offer self-service deletion of user accounts or financial data. The operator deletes them on request within the response times below and confirms the deletion. Because all users share one workspace, the operator may ask which accounts a request covers.
-        </li>
-        <li>
-          Error log entries and request logs are kept for the log retention period of the hosting infrastructure. Where a hosting provider is listed above, its entry states that period.
-        </li>
-        <li>Deleted data can remain in backups kept by the database provider until they expire under that provider&apos;s backup retention.</li>
+        <li>{t("retention.account")}</li>
+        <li>{t("retention.sessions")}</li>
+        <li>{t("retention.connections")}</li>
+        <li>{t("retention.onRequest")}</li>
+        <li>{t("retention.logs")}</li>
+        <li>{t("retention.backups")}</li>
       </ul>
 
-      <h2>Your rights</h2>
+      <h2>{t("rights.heading")}</h2>
       <p>
-        You have the right to access your personal data, to have it rectified or erased, to restrict its processing and to receive it in a portable format. To exercise these rights, <ContactInstructions operator={operator} />.
+        {email ? t.rich("rights.exerciseWithEmail", {
+          email,
+          mail: chunks => <a href={`mailto:${email}`}>{chunks}</a>
+        }) : t("rights.exerciseWithoutEmail")}
       </p>
-      <p>
-        The operator answers without undue delay and at the latest within one month of receiving your request. Where necessary because of the complexity or number of requests, this can be extended by two further months; you will be told about the extension and the reasons within the first month.
-      </p>
-      <p>
-        You can withdraw a bank authorization at any time by removing the connection in Ufer or at your bank. You can also lodge a complaint with a data protection supervisory authority, in particular in the EU member state of your habitual residence, place of work or the place of the alleged infringement.
-      </p>
-      <p>
-        Ufer does not make automated decisions that have legal or similarly significant effects on you.
-      </p>
+      <p>{t("rights.responseTime")}</p>
+      <p>{t("rights.withdrawal")}</p>
+      <p>{t("rights.automatedDecisions")}</p>
 
-      <h3>Right to object</h3>
-      <p>
-        Where processing is based on legitimate interests (Art. 6(1)(f) GDPR), you can object to it at any time on grounds relating to your particular situation. The operator then stops that processing unless there are compelling legitimate grounds that override your interests, rights and freedoms, or the processing is needed to establish, exercise or defend legal claims.
-      </p>
+      <h3>{t("rights.objectHeading")}</h3>
+      <p>{t("rights.object")}</p>
 
-      <h2>Changes</h2>
-      <p>
-        This notice is updated when the processing changes. The date at the top shows the current version.
-      </p>
+      <h2>{t("changes.heading")}</h2>
+      <p>{t("changes.body")}</p>
     </LegalDocument>
   );
 }
@@ -159,17 +126,24 @@ export function PrivacyNotice({ configuration }: {
 function ProcessorItems({ processors }: {
   processors: DataProcessor[] | null
 }) {
+  const t = useTranslations("legal.privacy.recipients");
+
   if (!processors) {
-    return <li>Hosting and database providers: not configured for this installation.</li>;
+    return <li>{t("processorsMissing")}</li>;
   }
 
   if (processors.length === 0) {
-    return <li>This installation does not use external hosting or database providers; the operator runs it on infrastructure under their own control.</li>;
+    return <li>{t("processorsNone")}</li>;
   }
 
   return processors.map(processor => (
     <li key={processor.name}>
-      <strong>{processor.name}</strong> ({processor.location}): {processor.purpose}
+      {t.rich("processor", {
+        name: processor.name,
+        location: processor.location,
+        purpose: processor.purpose,
+        strong
+      })}
     </li>
   ));
 }

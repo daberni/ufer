@@ -4,5 +4,169 @@
     "privacy": "Privacy",
     "terms": "Terms"
   },
-  "sourceCode": "Source code"
+  "sourceCode": "Source code",
+  "document": {
+    "back": "Back to Ufer",
+    "lastUpdated": "Last updated: <date></date>"
+  },
+  "operator": {
+    "notConfigured": "<strong>Operator details are not configured.</strong> This installation has not provided the operator's identity and service providers, so this page is incomplete. The operator must set {variables}.",
+    "missing": "Not configured for this installation."
+  },
+  "privacy": {
+    "metaTitle": "Privacy notice",
+    "metaDescription": "How this Ufer installation processes personal data.",
+    "title": "Privacy notice",
+    "intro": "This notice explains which personal data this Ufer installation processes, why, and what rights you have under the EU General Data Protection Regulation (GDPR).",
+    "responsible": {
+      "heading": "Who is responsible",
+      "body": "The operator of this installation is the controller for the processing described here:"
+    },
+    "installation": {
+      "heading": "About this installation",
+      "basis": "Ufer is an early-stage overview of personal finances. This installation is operated on a non-commercial basis for users the operator has invited; there is no public registration.",
+      "shared": "All users of this installation share one financial workspace. Every signed-in user can see and change all accounts, transactions, categories and rules, including bank data connected by another user."
+    },
+    "data": {
+      "heading": "Data processed",
+      "account": {
+        "heading": "Your user account",
+        "body": "Your username, display name and email address, which the operator enters when enrolling you, your role, and your password, which is stored only in hashed form. Email addresses are not verified and Ufer does not send emails."
+      },
+      "sessions": {
+        "heading": "Sign-in and sessions",
+        "body": "When you sign in, Ufer stores a session record with its expiry time and your browser's user-agent string. Ufer does not store your IP address with the session. Sign-in attempts are counted per endpoint, not per person, to limit password guessing."
+      },
+      "bank": {
+        "heading": "Bank data",
+        "intro": "When you connect a bank, Enable Banking retrieves account information from your bank with your authorization. Ufer then stores:",
+        "bankName": "the bank's name and country and how long your authorization is valid;",
+        "accounts": "account names, IBANs, currencies, balances and balance history;",
+        "transactions": "booked transactions with date, amount, currency, counterparty name and description;",
+        "foreignCurrency": "for payments in a foreign currency, the original amount and currency where the bank provides them;",
+        "rawRecord": "the complete transaction record as the bank delivered it, so that it can be evaluated again later. Depending on the bank, it contains further transaction details such as value and transaction dates, the bank's transaction code, the merchant category code, the exchange rate, the balance after the transaction, the payment reference number, your own account identifiers and the counterparty's IBAN or other account number, bank identifier (BIC), address or other identifiers;",
+        "accountIdentifier": "an account identifier provided by Enable Banking, used to recognize accounts when you reconnect;",
+        "sessionId": "the Enable Banking session ID, encrypted;",
+        "connections": "a record of each bank connection with the bank's name and country, its status, the user who started it and when;",
+        "history": "a synchronization history with times, numbers of imported transactions and errors.",
+        "sync": "Synchronization runs when a user selects Sync and once a day automatically, and covers the last 89 days. Ufer only reads account information and cannot initiate payments. You sign in to your bank directly; your bank credentials never reach Ufer. Transactions can contain personal data of other people, such as the names, account numbers and addresses of payers and payees and payment references."
+      },
+      "entered": {
+        "heading": "Data you enter or import",
+        "body": "Manual accounts and valuations, balances and transactions imported from files into manual accounts, categories, categorization rules and category assignments. Ufer stores the imported rows, not the uploaded file."
+      },
+      "required": {
+        "heading": "What you need to provide",
+        "body": "To have a user account, the operator needs your username, display name and email address, and you need a password; without them you cannot use Ufer. Connecting a bank is optional and only needed for bank synchronization. Manual accounts, valuations and imports are optional too; without them the related features stay empty. There is no legal obligation to provide data."
+      },
+      "logs": {
+        "heading": "Technical logs",
+        "body": "When a request fails, the server logs a trace ID, the status code and the error type so that support requests can be matched to an error. These entries do not contain request contents or financial data. The infrastructure that runs Ufer also processes connection data to deliver requests and may keep its own request logs, including the requested URL, the browser's user-agent string and the IP address."
+      },
+      "cookies": {
+        "heading": "Cookies",
+        "intro": "Ufer uses only cookies that are necessary to provide the service:",
+        "session": "<code>better-auth.session_token</code> (named <code>__Secure-better-auth.session_token</code> on HTTPS) keeps you signed in. It expires after 24 hours without use and ends earlier when you sign out or when your password is changed in another session.",
+        "bankFlow": "<code>budget_bank_flow</code> links a bank authorization to the browser that started it. It is sent only to the bank callback, expires after 15 minutes and is deleted when the authorization completes.",
+        "noTracking": "There is no analytics, advertising or tracking. The pages do not load third-party scripts or fonts."
+      }
+    },
+    "purposes": {
+      "heading": "Purposes and legal bases",
+      "service": "Providing the service you use, including your user account, bank synchronization and the financial overview: performance of a contract (Art. 6(1)(b) GDPR).",
+      "security": "Keeping the service secure and reliable through sessions, sign-in limits, error logs and encryption: legitimate interests (Art. 6(1)(f) GDPR).",
+      "thirdParties": "Personal data of other people contained in transactions: the legitimate interest of users in a complete overview of their own finances (Art. 6(1)(f) GDPR).",
+      "authorization": "Bank access additionally requires your authorization in the Enable Banking and bank flow. You can withdraw it at any time, as described below."
+    },
+    "recipients": {
+      "heading": "Service providers and recipients",
+      "enableBanking": "<strong>Enable Banking</strong> connects to your bank and transmits account information to Ufer. During authorization, Enable Banking and your bank present their own terms and privacy information, which govern their processing.",
+      "processorsMissing": "Hosting and database providers: not configured for this installation.",
+      "processorsNone": "This installation does not use external hosting or database providers; the operator runs it on infrastructure under their own control.",
+      "processor": "<strong>{name}</strong> ({location}): {purpose}",
+      "others": "Other users of this installation can see the shared financial data. Data is not sold or used for advertising."
+    },
+    "security": {
+      "heading": "Security",
+      "body": "Passwords are hashed, session cookies are HttpOnly and, on HTTPS, Secure, and Enable Banking session IDs are encrypted with AES-256-GCM. Financial data is not end-to-end encrypted: the operator and the providers that store the database can technically access it."
+    },
+    "retention": {
+      "heading": "Retention and deletion",
+      "account": "Your user account data is kept while you have access to this installation. The operator deletes it when your access ends or when you ask for deletion.",
+      "sessions": "A session record, including its user-agent string, is deleted when you sign out. Changing your password or choosing to sign out other devices deletes the records of your other sessions and keeps the current one. A session that expires without a sign-out keeps its record in the database until the operator removes it.",
+      "connections": "Removing a bank connection under Bank connections asks Enable Banking to end its session. Only after Enable Banking confirms that the session has ended does Ufer remove the connection and delete its encrypted session ID. If that request fails, the connection and session ID stay unchanged, and you can retry removal. Reconnecting attempts once to revoke a replaced session; if that fails, the previous connection stays visible with a message asking you to remove it. Expired connections keep their session ID until you remove them or Enable Banking reports the session as ended. Ufer does not retry revocations during scheduled syncs. Bank authorization also ends when it expires or you withdraw it at your bank. The connection record itself stays. Accounts, balances and transactions retrieved before the removal remain in the shared workspace until the operator deletes them on request or deletes the installation's database when the installation is discontinued.",
+      "onRequest": "Ufer does not yet offer self-service deletion of user accounts or financial data. The operator deletes them on request within the response times below and confirms the deletion. Because all users share one workspace, the operator may ask which accounts a request covers.",
+      "logs": "Error log entries and request logs are kept for the log retention period of the hosting infrastructure. Where a hosting provider is listed above, its entry states that period.",
+      "backups": "Deleted data can remain in backups kept by the database provider until they expire under that provider's backup retention."
+    },
+    "rights": {
+      "heading": "Your rights",
+      "exerciseWithEmail": "You have the right to access your personal data, to have it rectified or erased, to restrict its processing and to receive it in a portable format. To exercise these rights, contact the operator at <mail>{email}</mail>.",
+      "exerciseWithoutEmail": "You have the right to access your personal data, to have it rectified or erased, to restrict its processing and to receive it in a portable format. To exercise these rights, contact the operator directly, the same way you were given access to this installation; no contact email is published for it.",
+      "responseTime": "The operator answers without undue delay and at the latest within one month of receiving your request. Where necessary because of the complexity or number of requests, this can be extended by two further months; you will be told about the extension and the reasons within the first month.",
+      "withdrawal": "You can withdraw a bank authorization at any time by removing the connection in Ufer or at your bank. You can also lodge a complaint with a data protection supervisory authority, in particular in the EU member state of your habitual residence, place of work or the place of the alleged infringement.",
+      "automatedDecisions": "Ufer does not make automated decisions that have legal or similarly significant effects on you.",
+      "objectHeading": "Right to object",
+      "object": "Where processing is based on legitimate interests (Art. 6(1)(f) GDPR), you can object to it at any time on grounds relating to your particular situation. The operator then stops that processing unless there are compelling legitimate grounds that override your interests, rights and freedoms, or the processing is needed to establish, exercise or defend legal claims."
+    },
+    "changes": {
+      "heading": "Changes",
+      "body": "This notice is updated when the processing changes. The date at the top shows the current version."
+    }
+  },
+  "terms": {
+    "metaTitle": "Terms of use",
+    "metaDescription": "Terms for using this Ufer installation.",
+    "title": "Terms of use",
+    "intro": "These terms apply to your use of this Ufer installation. By signing in, you accept them. The <privacy>privacy notice</privacy> explains how your data is processed.",
+    "operator": {
+      "heading": "Operator and scope",
+      "intro": "This installation is operated by:",
+      "scope": "Ufer is in early development. This installation is a personal, non-commercial installation available only to users the operator has invited and enrolled. It is not a commercial service: there is no public registration, no paid plan and no fee."
+    },
+    "service": {
+      "heading": "The service",
+      "body": "Ufer shows an overview of accounts, balances, transactions and spending. It can retrieve account information from banks through Enable Banking, and you can add manual accounts, valuations and file imports. Ufer only reads account information and cannot initiate payments.",
+      "shared": "All users of this installation share one financial workspace and can see and change all of its data, including bank data connected by another user."
+    },
+    "bank": {
+      "heading": "Bank connections",
+      "body": "To connect a bank, you are redirected to Enable Banking and your bank, where you authorize access to your account information. Their own terms apply to that step. The authorization lasts for the period your bank grants. You can end it at any time by removing the connection in Ufer or at your bank."
+    },
+    "responsibilities": {
+      "heading": "Your responsibilities",
+      "entitled": "Connect or import only accounts you are entitled to access, and share them only with users you have agreed to share them with.",
+      "password": "Keep your Ufer password confidential and do not share your user account.",
+      "misuse": "Tell the operator promptly if you suspect misuse of your account.",
+      "security": "Do not try to bypass security measures, access data without authorization or disrupt the service."
+    },
+    "advice": {
+      "heading": "No financial advice",
+      "body": "Ufer presents information about your finances. It does not provide financial, investment, tax or legal advice."
+    },
+    "accuracy": {
+      "heading": "Accuracy of data",
+      "body": "Bank data depends on your bank and Enable Banking and can be delayed, incomplete or incorrect. Imported and manually entered data is only as accurate as its source. Check important figures with your bank before relying on them, and do not use Ufer as your only record of your finances."
+    },
+    "availability": {
+      "heading": "Availability and changes",
+      "body": "The service is provided free of charge and as it is, without any guarantee of availability. Features can change or be removed, and the service can be interrupted for maintenance or other reasons."
+    },
+    "ending": {
+      "heading": "Ending use",
+      "body": "You can stop using Ufer at any time and ask the operator to remove your access and delete your data. The operator can suspend or end your access, for example in case of misuse or if this installation is discontinued, and will give reasonable notice where possible."
+    },
+    "liability": {
+      "heading": "Liability",
+      "body": "The service is provided free of charge. The operator is liable without limitation for damage caused intentionally or by gross negligence and for any injury to life, body or health. For other damage caused by slight negligence, the operator is not liable. Claims under Art. 82 GDPR and rights under mandatory consumer protection law are not affected."
+    },
+    "changes": {
+      "heading": "Changes to these terms",
+      "body": "The operator can update these terms and will inform users of material changes. The date at the top shows the current version."
+    },
+    "law": {
+      "heading": "Applicable law",
+      "body": "These terms are governed by Austrian law, excluding its conflict-of-law rules. If you are a consumer, this choice of law does not deprive you of the protection of mandatory provisions of the law of the country where you habitually reside."
+    }
+  }
 }
