@@ -3,26 +3,12 @@
   gap: var(--space-4);
 }
 
+/* The same columns as a brokerage account's page, so the value card and chart line up between both. */
 .combined {
   display: grid;
-  grid-template-columns: minmax(14rem, 1fr) minmax(0, 3fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
   align-items: start;
   gap: var(--space-4);
-}
-
-.summary {
-  display: grid;
-  gap: var(--space-3);
-}
-
-.label {
-  color: var(--muted);
-  font-size: var(--text-sm);
-}
-
-.value {
-  font-size: var(--text-xl);
-  font-variant-numeric: tabular-nums;
 }
 
 .section-title {
@@ -75,7 +61,7 @@
   color: var(--muted);
 }
 
-@media (--mobile) {
+@media (--laptop) {
   .combined {
     grid-template-columns: minmax(0, 1fr);
   }

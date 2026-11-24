@@ -1,7 +1,7 @@
 import { Temporal } from "temporal-polyfill";
 import type { PerformancePoint } from "./performance";
 
-export const performanceRanges = ["1M", "6M", "1Y", "YTD", "All"] as const;
+export const performanceRanges = ["1W", "1M", "YTD", "1Y", "All"] as const;
 
 export type PerformanceRange = (typeof performanceRanges)[number];
 
@@ -16,11 +16,11 @@ function rangeStart(range: PerformanceRange, end: string) {
   const date = Temporal.PlainDate.from(end);
 
   switch (range) {
+    case "1W": return date.subtract({
+      weeks: 1
+    }).toString();
     case "1M": return date.subtract({
       months: 1
-    }).toString();
-    case "6M": return date.subtract({
-      months: 6
     }).toString();
     case "1Y": return date.subtract({
       years: 1
@@ -61,20 +61,4 @@ export function performanceInRange(points: PerformancePoint[], range: Performanc
     return_ratio: point.growth / base.growth - 1,
     gain_minor: point.value_minor - point.invested_minor - baseGain
   }));
-}
-
-/** A point's change against the previous point of its range, or null for the range's first point, which has nothing to compare against. */
-export function changeFromPrevious(points: RangePoint[], index: number) {
-  const point = points[index];
-  const previous = index > 0 ? points[index - 1] : undefined;
-
-  if (!point || !previous) {
-    return null;
-  }
-
-  return {
-    previousDate: previous.date,
-    ratio: (1 + point.return_ratio) / (1 + previous.return_ratio) - 1,
-    gain_minor: point.gain_minor - previous.gain_minor
-  };
 }

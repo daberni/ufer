@@ -16,12 +16,12 @@ import { describeBalanceDate } from "@/features/accounts/balance-presentation";
 import { useBalanceChart } from "@/features/accounts/use-balance-chart";
 import { useBrokeragePerformance } from "../queries";
 import type { BrokeragePerformance } from "../types";
-import { changeFromPrevious, performanceInRange, performanceRanges, type PerformanceRange, type RangePoint } from "../performance-range";
+import { performanceInRange, performanceRanges, type PerformanceRange, type RangePoint } from "../performance-range";
 
 // Returns are plotted in millionths so the shared integer value scale keeps enough resolution.
 const plotScale = 1_000_000;
 
-/** A brokerage account's time-weighted return over a chosen range, with the gain in money beside it. */
+/** A brokerage account's time-weighted return over a chosen range, with the gain in money beside it; the account's value and totals live in its value card. */
 export function PerformancePanel({ accountId }: {
   accountId: string
 }) {
@@ -77,7 +77,7 @@ export function PerformanceView({
       </div>
       {query.isPending && <PerformanceChartSkeleton />}
       {query.isError && <p className={styles["note"]}>{t("loadError")}</p>}
-      {query.data && (points.length > 1 ? <PerformanceChart points={points} currency={query.data.currency} /> : <p className={styles["note"]}>{query.data.points.length ? t("nothingHeld") : t("noChart")}</p>)}
+      {query.data && (points.length > 1 ? <PerformanceChart points={points} range={range} currency={query.data.currency} /> : <p className={styles["note"]}>{query.data.points.length ? t("nothingHeld") : t("noChart")}</p>)}
       {query.data && query.data.missing > 0 && (
         <p className={styles["note"]}>{t("missing", {
           count: query.data.missing
@@ -93,32 +93,46 @@ function PerformanceChartSkeleton() {
 
   return (
     <figure className={chartStyles["chart"]} aria-hidden="true">
-      <figcaption className={chartStyles["readout"]}>
-        <span>
-          <span className={ui["skeleton"]}>23 Nov 2026</span>
-          <small className={ui["skeleton"]}>{t("since", {
-            date: "12 Jan 2025"
-          })}</small>
-        </span>
-        <span className={styles["totals"]}>
-          <strong className={ui["skeleton"]}>+00.00%</strong>
-          <small className={ui["skeleton"]}>+€0,000.00</small>
-        </span>
+      <figcaption className={styles["readout"]}>
+        <strong className={ui["skeleton"]}>+00.00%</strong>
+        <span className={ui["skeleton"]}>+€0,000.00</span>
+        <small className={ui["skeleton"]}>{t("rangeContext.All")}</small>
       </figcaption>
-      <div className={clsx(chartStyles["plot"], ui["skeleton"])} />
-      <div className={chartStyles["dates"]}>
-        <span className={ui["skeleton"]}>12 Jan 2025</span>
-        <span className={ui["skeleton"]}>23 Nov 2026</span>
+      <div className={styles["frame"]}>
+        <div className={clsx(chartStyles["plot"], ui["skeleton"])} />
+        <div className={styles["axis"]} />
+        <div className={chartStyles["dates"]}>
+          <span className={ui["skeleton"]}>12 Jan 2025</span>
+          <span className={ui["skeleton"]}>23 Nov 2026</span>
+        </div>
       </div>
     </figure>
   );
 }
 
+/** A figure's color by its sign; zero stays neutral. */
+function tone(value: number) {
+  if (value > 0) {
+    return "positive";
+  }
+
+  return value < 0 ? "negative" : undefined;
+}
+
+// The zero label is left out when it would sit within this share of the plot's height of the top or bottom label.
+const labelClearance = 18;
+
+/**
+ * The time-weighted return since the range's start, with the gain in money beside it. Selecting a point shows both from the range's start to that point, so the readout always means the same as the line.
+ * The return axis has its own column beside the plot and the dates their own row below it, so their labels never overlap.
+ */
 function PerformanceChart({
   points,
+  range,
   currency
 }: {
   points: RangePoint[];
+  range: PerformanceRange;
   currency: string;
 }) {
   const t = useTranslations("securities.performance");
@@ -137,140 +151,107 @@ function PerformanceChart({
   const point = points[activeIndex ?? lastIndex];
   const date = describeBalanceDate(point.date, locale);
   const start = describeBalanceDate(points[0].date, locale).label;
+  const end = describeBalanceDate(points[lastIndex].date, locale).label;
   const percent = formatSignedPercent(point.return_ratio, locale);
   const gain = signedMoney(point.gain_minor, currency, locale);
-  const readout = activeIndex === null ? rangeReadout() : pointReadout(activeIndex);
+  const context = activeIndex === null ? t(`rangeContext.${range}`) : t("between", {
+    start,
+    end: date.label
+  });
   const activePoint = activeIndex === null ? null : chart.points[activeIndex];
-
-  // Without a selection the header shows the whole range; a selected point shows its change against the previous point, which may lie several days back.
-  function rangeReadout() {
-    return {
-      context: t("since", {
-        date: start
-      }),
-      negative: point.return_ratio < 0,
-      percent,
-      detail: gain,
-      valueText: t("valueText", {
-        date: date.label,
-        percent,
-        gain,
-        start
-      })
-    };
-  }
-
-  function pointReadout(index: number) {
-    const change = changeFromPrevious(points, index);
-    const context = t("pointContext", {
-      percent,
-      start
-    });
-
-    if (!change) {
-      return {
-        context,
-        negative: false,
-        percent: "–",
-        detail: t("startOfRange"),
-        valueText: t("startOfRangeValueText", {
-          date: date.label
-        })
-      };
-    }
-
-    const previous = describeBalanceDate(change.previousDate, locale).label;
-    const changePercent = formatSignedPercent(change.ratio, locale);
-    const changeGain = signedMoney(change.gain_minor, currency, locale);
-
-    return {
-      context,
-      negative: change.ratio < 0,
-      percent: changePercent,
-      detail: t("versusPrevious", {
-        gain: changeGain,
-        previous
-      }),
-      valueText: t("pointValueText", {
-        date: date.label,
-        percent: changePercent,
-        gain: changeGain,
-        previous,
-        context
-      })
-    };
-  }
-
+  const top = chart.points.length ? Math.min(...chart.points.map(plotted => plotted.y)) : 0;
+  const bottom = chart.points.length ? Math.max(...chart.points.map(plotted => plotted.y)) : 100;
+  const zero = chart.zero;
+  const showZero = zero !== null && zero - top > labelClearance && bottom - zero > labelClearance;
   const line = useMemo(() => chart.points.map((plotted, index) => index ? `H${plotted.x} V${plotted.y}` : `M${plotted.x} ${plotted.y}`).join(" "), [chart]);
 
   return (
     <figure className={chartStyles["chart"]}>
-      <figcaption className={chartStyles["readout"]} aria-hidden="true">
-        <span>
-          <time dateTime={date.dateTime} title={date.title}>{date.label}</time>
-          <small>{readout.context}</small>
-        </span>
-        <span className={styles["totals"]}>
-          <strong data-negative={readout.negative ? "" : undefined}>{readout.percent}</strong>
-          <small>{readout.detail}</small>
-        </span>
+      <figcaption className={styles["readout"]} aria-hidden="true">
+        <strong data-tone={tone(Math.round(point.return_ratio * 10_000))}>{percent}</strong>
+        <span data-tone={tone(point.gain_minor)}>{gain}</span>
+        <small>{context}</small>
       </figcaption>
-      <div
-        {...plotProps}
-        className={chartStyles["plot"]}
-        role="slider"
-        tabIndex={0}
-        aria-label={t("title")}
-        aria-describedby={descriptionId}
-        aria-orientation="horizontal"
-        aria-valuemin={0}
-        aria-valuemax={lastIndex}
-        aria-valuenow={activeIndex ?? lastIndex}
-        aria-valuetext={readout.valueText}
-        data-active={activePoint ? "" : undefined}
-      >
-        <span className={chartStyles["axis-label"]} data-edge="top" aria-hidden="true">{formatSignedPercent(chart.highest / plotScale, locale)}</span>
-        <span className={chartStyles["axis-label"]} data-edge="bottom" aria-hidden="true">{formatSignedPercent(chart.lowest / plotScale, locale)}</span>
-        <svg
-          viewBox="0 0 100 100"
-          preserveAspectRatio="none"
-          aria-hidden="true"
-          focusable="false"
+      <div className={styles["frame"]}>
+        <div
+          {...plotProps}
+          className={chartStyles["plot"]}
+          role="slider"
+          tabIndex={0}
+          aria-label={t("title")}
+          aria-describedby={descriptionId}
+          aria-orientation="horizontal"
+          aria-valuemin={0}
+          aria-valuemax={lastIndex}
+          aria-valuenow={activeIndex ?? lastIndex}
+          aria-valuetext={t("valueText", {
+            date: date.label,
+            percent,
+            gain,
+            start
+          })}
+          data-active={activePoint ? "" : undefined}
         >
-          <SignedArea
-            line={line}
-            height={100}
-            zero={chart.zero}
-            areaClassName={chartStyles["area"]}
-            lineClassName={chartStyles["line"]}
-            positiveClassName={chartStyles["positive"]}
-            negativeClassName={chartStyles["negative"]}
-            zeroClassName={chartStyles["zero"]}
-          />
-        </svg>
-        {activePoint && (
-          <span
-            className={chartStyles["cursor"]}
-            style={{
-              left: `${activePoint.x}%`
-            }}
+          <svg
+            viewBox="0 0 100 100"
+            preserveAspectRatio="none"
             aria-hidden="true"
+            focusable="false"
           >
-            <i
-              className={chartStyles["point"]}
-              data-negative={point.return_ratio < 0 && chart.zero !== null ? "" : undefined}
-              style={{
-                top: `${activePoint.y}%`
-              }}
+            <SignedArea
+              line={line}
+              height={100}
+              zero={chart.zero}
+              areaClassName={chartStyles["area"]}
+              lineClassName={chartStyles["line"]}
+              positiveClassName={chartStyles["positive"]}
+              negativeClassName={chartStyles["negative"]}
+              zeroClassName={chartStyles["zero"]}
             />
-          </span>
-        )}
+          </svg>
+          {activePoint && (
+            <span
+              className={chartStyles["cursor"]}
+              style={{
+                left: `${activePoint.x}%`
+              }}
+              aria-hidden="true"
+            >
+              <i
+                className={chartStyles["point"]}
+                data-negative={point.return_ratio < 0 && chart.zero !== null ? "" : undefined}
+                style={{
+                  top: `${activePoint.y}%`
+                }}
+              />
+            </span>
+          )}
+        </div>
+        <div className={styles["axis"]} aria-hidden="true">
+          <span
+            style={{
+              top: `${top}%`
+            }}
+          >{formatSignedPercent(chart.highest / plotScale, locale)}</span>
+          {showZero && (
+            <span
+              style={{
+                top: `${zero}%`
+              }}
+            >{formatSignedPercent(0, locale)}</span>
+          )}
+          <span
+            style={{
+              top: `${bottom}%`
+            }}
+          >{formatSignedPercent(chart.lowest / plotScale, locale)}</span>
+        </div>
+        <div className={chartStyles["dates"]} aria-hidden="true">
+          <span>{start}</span>
+          <span>{end}</span>
+        </div>
       </div>
       <p className={ui["visually-hidden"]} id={descriptionId}>{t("description")}</p>
-      <div className={chartStyles["dates"]} aria-hidden="true">
-        <span>{describeBalanceDate(points[0].date, locale).label}</span>
-        <span>{describeBalanceDate(points[lastIndex].date, locale).label}</span>
-      </div>
     </figure>
   );
 }

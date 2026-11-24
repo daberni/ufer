@@ -4,38 +4,41 @@
     "loading": "Loading the trade and its booking…"
   },
   "change": {
-    "totalPerformance": "Total performance",
-    "timeWeighted": "{percent} time-weighted",
+    "today": "Today",
+    "versus": "{percent} vs {date}",
+    "totalGain": "Total gain",
+    "returnSince": "{percent} return since {date}",
+    "invested": "Invested",
+    "unrealized": "Unrealized gain",
+    "realized": "Realized gain",
     "unpricedAtCost": "{count, plural, one {# holding} other {# holdings}} without a price at cost",
-    "sincePreviousPrices": "Since previous prices",
-    "sinceDate": "Since {date}",
-    "excluded": "{count, plural, one {# holding} other {# holdings}} without a current price left out",
-    "notAvailable": "Not available",
-    "noPrices": "No current prices from two trading days yet"
+    "excluded": "{count, plural, one {# holding} other {# holdings}} without a current price left out"
   },
   "performance": {
     "title": "Performance",
     "titleInCurrency": "Performance ({currency})",
     "range": "Range",
     "ranges": {
+      "1W": "1W",
       "1M": "1M",
-      "6M": "6M",
-      "1Y": "1Y",
       "YTD": "YTD",
-      "All": "All"
+      "1Y": "1Y",
+      "All": "Max"
     },
     "loadError": "The performance could not be loaded.",
     "noChart": "The chart appears once a trade is recorded.",
     "missing": "{count, plural, one {# holding has} other {# holdings have}} no price yet and count at cost, without performance.",
-    "since": "Since {date}",
-    "valueText": "{date}: {percent}, {gain} since {start}",
-    "description": "Time-weighted return, which leaves out the effect of buys and sales. Use the left and right arrow keys to explore dates, Home and End for the first and last date, and Escape to dismiss the selection.",
+    "valueText": "{date}: {percent} return, {gain} gain since {start}",
+    "description": "Time-weighted return since the start of the range, which leaves out the effect of buys and sales. Use the left and right arrow keys to explore dates, Home and End for the first and last date, and Escape to dismiss the selection.",
     "nothingHeld": "Nothing was held in this range.",
-    "pointContext": "{percent} since {start}",
-    "startOfRange": "Start of range",
-    "startOfRangeValueText": "{date}: start of range",
-    "versusPrevious": "{gain} vs {previous}",
-    "pointValueText": "{date}: {percent}, {gain} since {previous}; {context}"
+    "rangeContext": {
+      "1W": "Past week",
+      "1M": "Past month",
+      "YTD": "This year",
+      "1Y": "Past year",
+      "All": "Since first purchase"
+    },
+    "between": "{start} – {end}"
   },
   "holdings": {
     "title": "Holdings",
@@ -80,11 +83,11 @@
     "noAccountsBody": "Add a brokerage account under Accounts & assets to track holdings, trades and performance.",
     "accounts": "Accounts",
     "combinedValueIn": "Combined value in {currency}",
-    "combinedValue": "Combined value · {count, plural, one {# account} other {# accounts}}",
     "totalGain": "{amount} total",
     "holdingsOf": "Holdings of {name}",
     "noOpenPositions": "No open positions.",
-    "noHoldings": "No holdings yet."
+    "noHoldings": "No holdings yet.",
+    "allAccounts": "All brokerage accounts · {count, plural, one {# account} other {# accounts}}"
   },
   "tradeForm": {
     "eyebrow": "Brokerage",

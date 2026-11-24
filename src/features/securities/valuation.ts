@@ -136,11 +136,13 @@ export function valuationSeries(holdings: HoldingInputs[], settlements: TradeSet
 
 /**
  * The two headline figures of one or more brokerage accounts on `date`.
- * Total: unrealized gain of priced holdings plus every realized gain. Holdings without a price add only their realized gain and are counted in `unpriced`.
+ * Total: unrealized gain of priced holdings plus every realized gain, which `realized_minor` also reports on its own. Holdings without a price add only their realized gain and are counted in `unpriced`.
  * Day: the price change of each currently priced holding between its last two price dates, at today's quantity, relative to its value at the earlier price. Stale, unpriced and single-price holdings are left out and counted in `excluded`; with none left there is no day change rather than a zero.
  */
 export function changeSummary(holdings: HoldingInputs[], date: string) {
   let gain = 0;
+  let realized = 0;
+  let cost = 0;
   let unpriced = 0;
   let change = 0;
   let previousValue = 0;
@@ -154,10 +156,13 @@ export function changeSummary(holdings: HoldingInputs[], date: string) {
     const valuation = valueHolding(position.quantity_micros, holding.splits, holding.prices, holding.currency, date);
 
     gain += position.realized_minor;
+    realized += position.realized_minor;
 
     if (position.quantity_micros === 0) {
       continue;
     }
+
+    cost += position.cost_minor;
 
     if (valuation.value_minor === null || !valuation.price) {
       unpriced += 1;
@@ -194,6 +199,9 @@ export function changeSummary(holdings: HoldingInputs[], date: string) {
   return {
     total: {
       gain_minor: gain,
+      realized_minor: realized,
+      // Sale proceeds returned each sold cost plus its realized gain, so the money still invested is the open cost basis less what sales gained.
+      invested_minor: cost - realized,
       unpriced
     },
     day: priceDate !== null && previousValue > 0 ? {

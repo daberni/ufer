@@ -46,9 +46,19 @@ export type Trade = {
 };
 
 /** Total and previous-trading-day change; see `changeSummary`. A null day means there is no honest figure. */
+/** A time-weighted return since the first trade, dated by that trade. */
+export type TotalReturn = {
+  ratio: number;
+  since: string;
+};
+
 export type ChangeSummary = {
   total: {
     gain_minor: number;
+    /** The part of `gain_minor` locked in by sales; the rest is unrealized. */
+    realized_minor: number;
+    /** Buys including fees minus sale proceeds after fees: the money still put in. */
+    invested_minor: number;
     unpriced: number;
   };
   day: {
@@ -92,6 +102,8 @@ export type CombinedBrokeragePerformance = {
   currencies: (Omit<BrokeragePerformance, "account_id"> & {
     account_ids: string[];
     summary: ChangeSummary;
+    /** The time-weighted return of the active accounts alone, the same scope as `summary`; `points` also covers archived accounts' history. */
+    total_return: TotalReturn | null;
   })[];
 };
 

@@ -4,38 +4,41 @@
     "loading": "Trade und Buchung werden geladen …"
   },
   "change": {
-    "totalPerformance": "Gesamtperformance",
-    "timeWeighted": "{percent} zeitgewichtet",
+    "today": "Heute",
+    "versus": "{percent} ggü. {date}",
+    "totalGain": "Gesamtgewinn",
+    "returnSince": "{percent} Rendite seit {date}",
+    "invested": "Investiert",
+    "unrealized": "Nicht realisierter Gewinn",
+    "realized": "Realisierter Gewinn",
     "unpricedAtCost": "{count, plural, one {# Position} other {# Positionen}} ohne Kurs zum Einstandswert",
-    "sincePreviousPrices": "Seit den vorherigen Kursen",
-    "sinceDate": "Seit {date}",
-    "excluded": "{count, plural, one {# Position} other {# Positionen}} ohne aktuellen Kurs nicht berücksichtigt",
-    "notAvailable": "Nicht verfügbar",
-    "noPrices": "Noch keine aktuellen Kurse von zwei Handelstagen"
+    "excluded": "{count, plural, one {# Position} other {# Positionen}} ohne aktuellen Kurs nicht berücksichtigt"
   },
   "performance": {
-    "title": "Wertentwicklung",
+    "title": "Performance",
     "titleInCurrency": "Performance ({currency})",
     "range": "Zeitraum",
     "ranges": {
+      "1W": "1W",
       "1M": "1M",
-      "6M": "6M",
-      "1Y": "1J",
       "YTD": "YTD",
-      "All": "Alle"
+      "1Y": "1J",
+      "All": "Max"
     },
     "loadError": "Die Performance konnte nicht geladen werden.",
     "noChart": "Das Diagramm erscheint, sobald ein Trade erfasst ist.",
     "missing": "{count, plural, one {# Position hat noch keinen Kurs und zählt} other {# Positionen haben noch keinen Kurs und zählen}} zum Einstandswert, ohne Performance.",
-    "since": "Seit {date}",
-    "valueText": "{date}: {percent}, {gain} seit {start}",
-    "description": "Zeitgewichtete Rendite, die den Effekt von Käufen und Verkäufen ausklammert. Mit den Pfeiltasten links und rechts wählst du ein Datum, mit Pos1 und Ende das erste und letzte Datum, mit Escape hebst du die Auswahl auf.",
+    "valueText": "{date}: {percent} Rendite, {gain} Gewinn seit {start}",
+    "description": "Zeitgewichtete Rendite seit Beginn des Zeitraums, die den Effekt von Käufen und Verkäufen ausklammert. Mit den Pfeiltasten links und rechts wählst du ein Datum, mit Pos1 und Ende das erste und letzte Datum, mit Escape hebst du die Auswahl auf.",
     "nothingHeld": "In diesem Zeitraum war nichts im Bestand.",
-    "pointContext": "{percent} seit {start}",
-    "startOfRange": "Beginn des Zeitraums",
-    "startOfRangeValueText": "{date}: Beginn des Zeitraums",
-    "versusPrevious": "{gain} ggü. {previous}",
-    "pointValueText": "{date}: {percent}, {gain} seit {previous}; {context}"
+    "rangeContext": {
+      "1W": "Letzte Woche",
+      "1M": "Letzter Monat",
+      "YTD": "Dieses Jahr",
+      "1Y": "Letztes Jahr",
+      "All": "Seit dem ersten Kauf"
+    },
+    "between": "{start} – {end}"
   },
   "holdings": {
     "title": "Bestand",
@@ -80,11 +83,11 @@
     "noAccountsBody": "Lege unter Konten & Vermögen ein Depot an, um Bestand, Trades und Performance zu verfolgen.",
     "accounts": "Konten",
     "combinedValueIn": "Gesamtwert in {currency}",
-    "combinedValue": "Gesamtwert · {count, plural, one {# Konto} other {# Konten}}",
     "totalGain": "{amount} gesamt",
     "holdingsOf": "Bestand von {name}",
     "noOpenPositions": "Keine offenen Positionen.",
-    "noHoldings": "Noch kein Bestand."
+    "noHoldings": "Noch kein Bestand.",
+    "allAccounts": "Alle Depots · {count, plural, one {# Konto} other {# Konten}}"
   },
   "tradeForm": {
     "eyebrow": "Depot",

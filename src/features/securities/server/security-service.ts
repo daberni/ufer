@@ -13,7 +13,7 @@ import { readAccountTransfers } from "./transfer-repository";
 import { parseMicros } from "../quantities";
 import { priceSourceStatus } from "./price-update-service";
 import { changeSummary, valueHoldings } from "../valuation";
-import { performanceSeries } from "../performance";
+import { performanceSeries, totalReturn } from "../performance";
 import { readHoldingInputs } from "./valuation-repository";
 import { settlementRefusal, settlementWindowDays, tradeCashAmount, type SettlementRefusal } from "../trade-decisions";
 import { brokerageAccountInput, securityInput, settlementCandidatesQuery, tradeCorrectionInput, tradeInput } from "./security-schema";
@@ -499,7 +499,8 @@ export async function readCombinedBrokeragePerformance(now = Temporal.Now.instan
         account_ids: accountIds,
         missing: valueHoldings(holdings, date).missing,
         points: performanceSeries(history, date),
-        summary: changeSummary(holdings, date)
+        summary: changeSummary(holdings, date),
+        total_return: totalReturn(performanceSeries(holdings, date))
       };
     })
   };

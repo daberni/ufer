@@ -19,6 +19,17 @@ export type PerformancePoint = {
  * Only periods with holdings count: the series starts the day before the first holding, ends on the date the last one is closed, and leaves out the dates between a closing and the next holding, which hold nothing to perform.
  * A transfer is an external flow of the single account at the moved quantity's value on its date: received like a buy, sent like a sale. Across several accounts both legs cancel, so a transfer changes no combined figure.
  */
+/** The time-weighted return since the first trade and that trade's date, or null without any trade. The series opens the day before the first trade, so its second point is the first purchase. */
+export function totalReturn(points: PerformancePoint[]) {
+  const first = points[1];
+  const last = points[points.length - 1];
+
+  return first && last ? {
+    ratio: last.growth - 1,
+    since: first.date
+  } : null;
+}
+
 export function performanceSeries(holdings: HoldingInputs[], endDate: string): PerformancePoint[] {
   const buys = new Map<string, number>();
   const sales = new Map<string, number>();

@@ -29,13 +29,59 @@
   outline: var(--focus-ring);
   outline-offset: 2px;
 }
-.totals {
-  align-items: flex-end;
-}
-.totals [data-negative] {
-  color: var(--danger);
-}
 .note {
   font-size: var(--text-sm);
   color: var(--muted);
+}
+
+/* The return and gain for the range, or for the selected point since the range's start. */
+.readout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-3);
+  min-height: 48px;
+  padding-bottom: var(--space-3);
+  font-variant-numeric: tabular-nums;
+}
+.readout strong {
+  font-size: var(--text-xl);
+  font-weight: 600;
+}
+.readout span {
+  font-weight: 600;
+}
+.readout [data-tone="positive"] {
+  color: var(--green-text);
+}
+.readout [data-tone="negative"] {
+  color: var(--danger);
+}
+.readout small {
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+/* The plot with the return axis in its own column and the dates in their own row, so no label overlaps another. */
+.frame {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: var(--space-3);
+}
+.frame > :last-child {
+  grid-column: 1;
+}
+.axis {
+  position: relative;
+  /* The labels are positioned absolutely, so the column reserves room for the widest one, such as "+100,00 %". */
+  min-width: 9ch;
+  font-size: var(--text-xs);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.axis span {
+  position: absolute;
+  right: 0;
+  white-space: nowrap;
+  transform: translateY(-50%);
 }
