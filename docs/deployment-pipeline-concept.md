@@ -1,6 +1,6 @@
 # Deployment pipeline and backup concept
 
-Status: **accepted concept**, nothing here is implemented yet. It covers [#84](https://github.com/daberni/ufer/issues/84) (automated backups and an exercised restore) and [#90](https://github.com/daberni/ufer/issues/90) (production from version tags, staging from `main`), and turns #90 into a deployment that applies pending migrations through GitHub Actions instead of by hand. Decisions the owner must make are collected at the end.
+Status: **accepted concept**, implemented step by step; see the [rollout checklist](#5-rollout-plan). It covers [#84](https://github.com/daberni/ufer/issues/84) (automated backups and an exercised restore) and [#90](https://github.com/daberni/ufer/issues/90) (production from version tags, staging from `main`), and turns #90 into a deployment that applies pending migrations through GitHub Actions instead of by hand. Decisions the owner must make are collected at the end.
 
 ## Current state
 
@@ -254,21 +254,21 @@ Rehearsal and drill copies contain production data in Turso's region; they are d
 
 ## 5. Rollout plan
 
-Each step is issue-sized and independently reviewable. "Owner" marks steps that need the owner's explicit authorization or action.
+The steps are worked through interactively under #84 and #90; this checklist tracks them. "Owner" marks steps that need the owner's action or authorization.
 
-1. **Confirm the Turso plan** (#84). Confirm the current plan, its PITR window and database limit; no upgrade. *Owner: provider dashboard access.*
-2. **Backup storage and keys** (#84). Create the R2 EU bucket, write-only token, lifecycle rules (30 daily, 12 monthly), age key pair; store private key offline. *Owner: new cloud resource and account.*
-3. **Backup workflow** (#84). `backup.yml` with export, verify, encrypt, upload, manifest, failure issue; GitHub environment `backup`. First run on `workflow_dispatch`. *Owner: GitHub environment/secrets creation, first run reads production.*
-4. **Privacy and processors update** (#84). `DATA_PROCESSORS`, privacy notice retention, docs. Code/docs PR only.
-5. **Restore drill and recorded manual restore** (#84). Runbook update, first manual local drill from an R2 backup and one recorded PITR restore into a fresh database. *Owner: reading production into a copy.*
-6. **`db:status --json` and breaking-changeset marker**. Small change to `scripts/migrate.ts` and docs, with tests. Ordinary PR.
-7. **Staging environment** (#90). Staging Turso database seeded with demo data, Vercel staging alias and env, `staging.yml` (build → migrate → deploy → alias). *Owner: new database, Vercel env, GitHub environment.*
-8. **Production release workflow** (#90). `release.yml` with the job graph and conditional gate; GitHub environments `production-read`, `production-migration` (owner as reviewer), `production`. First release without pending changesets as a dry run. *Owner: environments, secrets, first tag.*
-9. **Switch Vercel to workflow-only deployments** (#90). `vercel.json` `deploymentEnabled: false`, domain auto-assign setting, `docs/releasing.md` and `docs/vercel-deployment.md`. *Owner: Vercel project settings; merging changes production behavior.*
-10. **First gated migration release.** A release with a pending changeset goes through the gate end to end; record the result. *Owner: approval of that migration (this is the normal per-release authorization the gate provides).*
-11. **Record gate approval as migration authorization in AGENTS.md.** Proposed wording for the migration bullets: "For production, approving the `production-migration` gate of a release run is the explicit authorization for exactly the changesets listed in that run's summary; it does not cover other databases, re-runs with a different pending list or manual migrations." *Owner: review and commit (doc-only change on main).*
+- [x] Nightly encrypted backup workflow, freshness alert and owner setup docs (`backup.yml`, `backup-freshness.yml`, `db:export`)
+- [ ] Owner: confirm the Turso plan, its restore window and database limit; no upgrade
+- [ ] Owner: Cloudflare account with payment method, R2 EU bucket, lifecycle and lock rules, token, age key pair, GitHub `backup` environment; first manual backup run and local decryption check
+- [ ] Backup location and retention in `DATA_PROCESSORS` and the privacy notice (owner updates the production value in Vercel)
+- [ ] Restore runbook, first local drill and one point-in-time restore into a fresh database (owner authorization)
+- [ ] `db:status --json` and the breaking-changeset marker
+- [ ] Staging from `main` with automatic migrations (owner: staging database, Vercel env, GitHub environment)
+- [ ] Tag release workflow with the conditional migration gate, reusing the backup workflow (owner: GitHub environments and secrets); switch the nightly backup's ref to the latest tag
+- [ ] Workflow-only Vercel deployments (owner: Vercel settings; merging changes production behavior)
+- [ ] First gated migration release (owner: approval)
+- [ ] `AGENTS.md`: gate approval is the migration authorization, with the proposed wording: "For production, approving the `production-migration` gate of a release run is the explicit authorization for exactly the changesets listed in that run's summary; it does not cover other databases, re-runs with a different pending list or manual migrations." (owner review)
 
-Steps 1–5 deliver #84 and are prerequisites for 8–10. Step 6 and 7 can run in parallel with 3–5.
+The backup steps deliver #84 and come before the release workflow.
 
 ## Decided
 

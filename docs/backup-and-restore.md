@@ -1,6 +1,6 @@
 # Backup and restore
 
-The offline verifier, the synthetic recovery rehearsal and the [nightly backup workflow](#nightly-encrypted-backups) are implemented. The workflow stays inactive until the [one-time setup](#one-time-setup) is done ([#392](https://github.com/daberni/ufer/issues/392)); hosted point-in-time recovery and a restore of real hosted data are not verified yet. Track the remaining operations in [#84](https://github.com/daberni/ufer/issues/84).
+The offline verifier, the synthetic recovery rehearsal and the [nightly backup workflow](#nightly-encrypted-backups) are implemented. The workflow stays inactive until the [one-time setup](#one-time-setup) is done; hosted point-in-time recovery and a restore of real hosted data are not verified yet. Track the remaining operations in [#84](https://github.com/daberni/ufer/issues/84).
 
 ## What a recovery needs
 
@@ -70,7 +70,7 @@ Until the setup is complete, both workflows finish with a visible warning in the
 
 ## One-time setup
 
-These steps need the owner's accounts and are tracked in [#392](https://github.com/daberni/ufer/issues/392). Keep identifiers and keys out of the repository.
+These steps need the owner's accounts and are tracked in [#84](https://github.com/daberni/ufer/issues/84). Keep identifiers and keys out of the repository.
 
 1. **Encryption key.** Install age locally and run `age-keygen -o ufer-backup.key`. Store the file's content (including the `AGE-SECRET-KEY-…` line) in the password manager and keep an offline copy; delete the local file afterwards. The printed `age1…` line is the public key.
 2. **Cloudflare account.** R2 requires a payment method on the account even though this usage stays within the free tier (10 GB storage, included operations, no egress fees).
@@ -86,9 +86,9 @@ These steps need the owner's accounts and are tracked in [#392](https://github.c
    - `BACKUP_BUCKET`: the bucket name
    - `BACKUP_AGE_RECIPIENTS`: the `age1…` public key (one per line if there are several)
 8. **First run.** Start "Database backup" manually from the Actions tab. Then download the new `.sqlite.age` object, run `age --decrypt -i <key file> -o <fresh dir>/ufer.sqlite <object>` and `npm run db:verify-backup -- --file=<fresh dir>/ufer.sqlite --check-bank-secrets` with `DATA_ENCRYPTION_KEY` from the password manager. Delete the decrypted copy afterwards.
-9. **Privacy notice.** Add the backup location and retention to `DATA_PROCESSORS` ([#393](https://github.com/daberni/ufer/issues/393)).
+9. **Privacy notice.** Add the backup location and retention to `DATA_PROCESSORS`.
 
 ## Open operations decisions
 
-- The first recorded restore drill and point-in-time restore ([#394](https://github.com/daberni/ufer/issues/394)).
-- Confirmation of the Turso plan, restore window and database limit ([#391](https://github.com/daberni/ufer/issues/391)).
+- The first recorded restore drill and point-in-time restore.
+- Confirmation of the Turso plan, restore window and database limit.

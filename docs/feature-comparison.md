@@ -127,7 +127,7 @@ An item is checked only when its acceptance criterion is met and evidence is rec
   - [x] An existing duplicate is resolved with Hide transaction; syncs and reimports leave it hidden ([#228](https://github.com/daberni/ufer/issues/228))
 - [ ] **E-03 · Backup and restore**
   - [x] Offline backup verification and synthetic restore rehearsal
-  - [x] Nightly encrypted export workflow with freshness alert, inactive until configured ([#401](https://github.com/daberni/ufer/issues/401))
+  - [x] Nightly encrypted export workflow with freshness alert, inactive until configured ([#84](https://github.com/daberni/ufer/issues/84))
   - [ ] Backup storage configured and a restore drill on a fresh instance ([#84](https://github.com/daberni/ufer/issues/84))
 - [ ] **E-04 · PostgreSQL adapter**
   - [x] Versioned SQLite/libSQL migrations
