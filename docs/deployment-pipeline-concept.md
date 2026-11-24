@@ -34,11 +34,11 @@ The docs currently name the plan "Starter"; the first step is to confirm the act
 
 PITR does not protect against losing the Turso account, a provider incident or a deleted database. Add a daily export to storage that Turso does not control.
 
-- **Job:** a scheduled GitHub Actions workflow (`backup.yml`, daily at about 03:00 UTC, before the 05:00 sync cron, plus `workflow_dispatch`). GitHub Actions is preferred over a Vercel cron because a function has short time limits, no durable disk and would need storage credentials in the app's runtime. The export uses the Turso CLI (`turso db export`, which produces a consistent SQLite file of the primary) or, if that is unavailable for the plan, a libSQL `.dump` imported into a fresh SQLite file; either way the result is a self-contained SQLite file with no WAL sibling, which is what the verifier expects.
-- **Verify before upload:** run `npm run db:verify-backup -- --file=… --check-bank-secrets` from the commit currently deployed in production (its migration history must match). A failed verification fails the job and nothing is uploaded under the "good" prefix.
+- **Job (decided):** a scheduled GitHub Actions workflow (`backup.yml`, nightly at about 03:00 UTC, before the 05:00 sync cron, plus `workflow_dispatch`), also called as the pipeline's backup step before every migration. GitHub Actions is preferred over a Vercel cron because a function has short time limits, no durable disk and would need storage credentials in the app's runtime. The export uses the Turso CLI (`turso db export`, which produces a consistent SQLite file of the primary) or, if that is unavailable for the plan, a libSQL `.dump` imported into a fresh SQLite file; either way the result is a self-contained SQLite file with no WAL sibling, which is what the verifier expects.
+- **Verify before upload:** run `npm run db:verify-backup -- --file=…` (without `--check-bank-secrets`; the job never holds `DATA_ENCRYPTION_KEY`) from the commit currently deployed in production (its migration history must match). A failed verification fails the job and nothing is uploaded under the "good" prefix.
 - **Encryption:** encrypt client-side with [age](https://age-encryption.org) to a public key stored as a repository variable; the private key lives only in the owner's password manager (and a printed offline copy). The pipeline can write backups but never read them, so a leaked GitHub secret cannot decrypt history. The storage provider only sees ciphertext.
-- **Storage:** an S3-compatible bucket in the EU at a provider other than Turso and Vercel, for example Cloudflare R2 (EU jurisdiction), Backblaze B2 (EU region) or Hetzner Object Storage. Use a bucket-scoped key that can only put objects (no delete, no list where the provider allows), and enable object lock / versioning so the key cannot destroy existing backups. Expected cost at this size (a few MB per export): free tier or cents per month.
-- **Retention:** 14 daily, 8 weekly, 12 monthly via lifecycle rules on prefixes (`daily/`, `weekly/`, `monthly/`), i.e. at most one year. The privacy notice already has to name a retention; one year after deletion of an account the data is gone from backups. The owner decides the exact numbers; they go into `DATA_PROCESSORS` together with the provider and region.
+- **Storage (decided):** a Cloudflare R2 bucket with EU jurisdiction (no egress fees). The job gets a bucket-scoped write-only token, and versioning or bucket locks keep that token from destroying existing backups. Expected cost at this size (a few MB per export): free tier.
+- **Retention (decided):** dailies for 30 days plus one monthly for 12 months, enforced by R2 lifecycle rules on prefixes (`daily/`, `monthly/`). Data from a deleted account is gone from backups after at most one year. Provider, region and retention go into `DATA_PROCESSORS` and the privacy notice.
 - **Manifest:** each upload has a JSON manifest next to it: creation time, deployed commit, migration count and last changeset name, SHA-256 of the plaintext and of the ciphertext, table row counts. No account names, amounts or secrets.
 - **Never in GitHub:** the repository is public, so job summaries, logs and artifacts are world-readable. The backup file, its decrypted form and row-level data must never be written to the summary, a log or an `upload-artifact`. Only counts and checksums are printed.
 
@@ -50,21 +50,21 @@ PITR does not protect against losing the Turso account, a provider incident or a
 | `PRODUCTION_DATABASE_URL`, `PRODUCTION_DATABASE_AUTH_TOKEN` (secrets) | `backup`, `production` | Read path for export; the migration job in `production` uses the same values |
 | `BACKUP_S3_*` (secrets) | `backup` | Write-only bucket credentials |
 | `BACKUP_AGE_RECIPIENT` (variable) | repository | age public key |
-| `DATA_ENCRYPTION_KEY` (secret) | `backup` | Needed only for `--check-bank-secrets`; optional, see decisions |
+
+`DATA_ENCRYPTION_KEY` is deliberately not in GitHub; bank-secret decryption is checked in the local drill.
 
 GitHub environments limit which workflows and branches can read a secret (deployment branch/tag rules), which keeps production credentials away from pull-request workflows.
 
 ### Restore drill
 
-- **Monthly automated drill** (`restore-drill.yml`): download the latest backup, decrypt it with a drill-only age identity (a second recipient the export also encrypts to, stored as a `restore-drill` environment secret), verify it, import it into a fresh SQLite file, start the app locally in the runner (`npm run build && npm start` with `ENABLE_BANKING_ENVIRONMENT` disabled for outbound calls and the scheduler off) and run a smoke test: startup with migration verification, the health endpoint and row counts against the manifest. Signing in would need a real user's credentials, so that check stays in the manual restore below. The decrypted file only exists on the ephemeral runner.
-  - Trade-off: a drill identity in GitHub can decrypt backups. Alternative: run the drill monthly on the owner's machine with the offline key. The first option proves the restore is exercised without a human; the second keeps decryption entirely offline. Owner decision.
-- **One manual, recorded restore** of production into a new Turso database (PITR and from an export) with real sign-in and one controlled sandbox-free check, as #84 requires. Recorded in a private recovery log, with only the result summarized in `docs/backup-and-restore.md`.
+- **Manual local drill (decided):** on the owner's machine, download a backup, decrypt it with the offline age key, run `npm run db:verify-backup -- --file=… --check-bank-secrets` with `DATA_ENCRYPTION_KEY` from the password manager, and start the app against the restored SQLite file on 127.0.0.1 with the scheduler and outbound bank calls off; verify sign-in, representative views and row counts against the manifest. Decryption keys never enter GitHub. Record each drill (date, backup, commit, result) in a private recovery log and summarize only the result in `docs/backup-and-restore.md`. Proposed cadence: after setup, then quarterly and after any restore-relevant change.
+- **PITR exercise:** once, restore production by PITR into a new Turso database and verify it the same way, as #84 requires; then delete the copy.
 - **Recovery runbook** in `docs/backup-and-restore.md`: PITR into a new database → verify → switch `DATABASE_URL`/`DATABASE_AUTH_TOKEN` in Vercel production → redeploy the matching commit; or the same from an export via `turso db create --from-file`.
 
 ### Monitoring
 
 - A failed scheduled workflow notifies the repository owner by GitHub email by default; keep that enabled and additionally open (or update) a single issue labeled `ops-alert` from the failing job, so a failure stays visible.
-- Dead-man check: the drill also fails when the newest daily backup is older than 36 hours, which catches a silently disabled schedule (GitHub disables scheduled workflows after 60 days without repository activity).
+- Dead-man check: a small scheduled check (part of `backup.yml` or a separate cron) fails when the newest daily object in R2 is older than 36 hours, which catches a silently disabled schedule (GitHub disables scheduled workflows after 60 days without repository activity).
 - Optional: a free heartbeat service (for example healthchecks.io) pinged on success, which alerts when the ping is missing. It is one more processor, but it receives no data.
 
 ## 2. Deployment pipeline (#90)
@@ -248,7 +248,7 @@ Rehearsal and drill copies contain production data in Turso's region; they are d
 | Item | Cost |
 | --- | --- |
 | Turso Developer plan (recommended for the 10-day PITR and more databases) | ≈ USD 5/month |
-| Object storage for backups | Free tier to < EUR 1/month |
+| Cloudflare R2 for backups | Free tier (no egress fees) |
 | GitHub Actions minutes | Free for public repositories |
 | Vercel | Hobby stays sufficient; staging deployments count against the daily deployment limit (one per merge) |
 
@@ -257,10 +257,10 @@ Rehearsal and drill copies contain production data in Turso's region; they are d
 Each step is issue-sized and independently reviewable. "Owner" marks steps that need the owner's explicit authorization or action.
 
 1. **Decide and configure Turso plan** (#84). Confirm current plan and PITR window; upgrade to Developer if approved. *Owner: paid change, provider settings.*
-2. **Backup storage and keys** (#84). Create bucket, write-only key, lifecycle rules, age key pair; store private key offline. *Owner: new cloud resource and account.*
+2. **Backup storage and keys** (#84). Create the R2 EU bucket, write-only token, lifecycle rules (30 daily, 12 monthly), age key pair; store private key offline. *Owner: new cloud resource and account.*
 3. **Backup workflow** (#84). `backup.yml` with export, verify, encrypt, upload, manifest, failure issue; GitHub environment `backup`. First run on `workflow_dispatch`. *Owner: GitHub environment/secrets creation, first run reads production.*
 4. **Privacy and processors update** (#84). `DATA_PROCESSORS`, privacy notice retention, docs. Code/docs PR only.
-5. **Restore drill and recorded manual restore** (#84). `restore-drill.yml`, runbook update, one recorded PITR and export restore into a fresh database. *Owner: reading production into a copy.*
+5. **Restore drill and recorded manual restore** (#84). Runbook update, first manual local drill from an R2 backup and one recorded PITR restore into a fresh database. *Owner: reading production into a copy.*
 6. **`db:status --json` and breaking-changeset marker**. Small change to `scripts/migrate.ts` and docs, with tests. Ordinary PR.
 7. **Staging environment** (#90). Staging Turso database seeded with demo data, Vercel staging alias and env, `staging.yml` (build → migrate → deploy → alias). *Owner: new database, Vercel env, GitHub environment.*
 8. **Production release workflow** (#90). `release.yml` with the job graph and conditional gate; GitHub environments `production-read`, `production-migration` (owner as reviewer), `production`. First release without pending changesets as a dry run. *Owner: environments, secrets, first tag.*
@@ -269,12 +269,16 @@ Each step is issue-sized and independently reviewable. "Owner" marks steps that 
 
 Steps 1–5 deliver #84 and are prerequisites for 8–10. Step 6 and 7 can run in parallel with 3–5.
 
+## Decided
+
+- Backups run in GitHub Actions: nightly cron plus a backup before every migration.
+- Storage: Cloudflare R2, EU jurisdiction bucket, write-only token, lifecycle retention.
+- Retention: dailies for 30 days, one monthly for 12 months.
+- Restore drill: manual and local; `DATA_ENCRYPTION_KEY` stays out of GitHub, CI verifies without `--check-bank-secrets`.
+
 ## Decisions for the owner
 
 1. Turso plan: upgrade to Developer for 10-day PITR (≈ USD 5/month), or stay and rely on exports.
-2. Backup storage provider and region (R2 EU, B2 EU or Hetzner), and retention (proposed 14 daily / 8 weekly / 12 monthly).
-3. Restore drill: automated monthly in GitHub with a drill-only decryption key, or manual on the owner's machine with the offline key.
-4. Whether the backup job may hold `DATA_ENCRYPTION_KEY` to verify bank-secret readability, or skip that check in automation.
-5. Production from version tags (recommended) or keep production from `main` with only the migration gate.
-6. Gate mechanism: separate skipped gate job (recommended) or expression-selected environment.
-7. Standing authorization: whether approving the gate in the workflow counts as the explicit migration authorization `AGENTS.md` requires for each production migration (proposed: yes, the approval is the authorization; the summary shows the exact SQL).
+2. Production from version tags (recommended) or keep production from `main` with only the migration gate.
+3. Gate mechanism: separate skipped gate job (recommended) or expression-selected environment.
+4. Standing authorization: whether approving the gate in the workflow counts as the explicit migration authorization `AGENTS.md` requires for each production migration (proposed: yes, the approval is the authorization; the summary shows the exact SQL).
