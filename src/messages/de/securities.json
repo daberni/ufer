@@ -87,9 +87,7 @@
     "holdingsOf": "Bestand von {name}",
     "noOpenPositions": "Keine offenen Positionen.",
     "noHoldings": "Noch kein Bestand.",
-    "allAccounts": "Alle Depots · {count, plural, one {# Konto} other {# Konten}}",
-    "pricesOf": "Kurse vom {date}",
-    "noCurrentPrices": "Noch keine aktuellen Kurse"
+    "allAccounts": "Alle Depots · {count, plural, one {# Konto} other {# Konten}}"
   },
   "tradeForm": {
     "eyebrow": "Depot",

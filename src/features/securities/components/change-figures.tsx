@@ -11,8 +11,8 @@ import { dateWithYear } from "@/lib/date-format";
 import { formatSignedPercent } from "@/lib/locale";
 import { money, signedMoney } from "@/lib/money";
 import { useBrokeragePerformance, useBrokerageTrades } from "../queries";
-import type { PerformancePoint } from "../performance";
-import type { ChangeSummary } from "../types";
+import { totalReturn } from "../performance";
+import type { ChangeSummary, TotalReturn } from "../types";
 
 /** A brokerage account's figures from its holdings and performance queries, for the account's value card. */
 export function BrokerageChange({ accountId, currency }: {
@@ -30,7 +30,7 @@ export function BrokerageChange({ accountId, currency }: {
   return trades.data ? (
     <ChangeFigures
       summary={trades.data.summary}
-      points={performance.data?.points}
+      totalReturn={totalReturn(performance.data?.points ?? [])}
       currency={currency}
     />
   ) : null;
@@ -70,12 +70,12 @@ export function ChangeFiguresSkeleton() {
  */
 export function ChangeFigures({
   summary,
-  points,
+  totalReturn,
   currency
 }: {
   summary: ChangeSummary;
-  /** The time-weighted performance series; its last point gives the return since the first trade. */
-  points?: PerformancePoint[];
+  /** The time-weighted return since the first trade, over the same accounts as `summary`. */
+  totalReturn: TotalReturn | null;
   currency: string;
 }) {
   const t = useTranslations("securities.change");
@@ -84,9 +84,6 @@ export function ChangeFigures({
     total,
     day
   } = summary;
-  const last = points?.at(-1);
-  // The series opens the day before the first trade, so its second point is the first purchase.
-  const first = points?.[1];
   const unrealized = total.gain_minor - total.realized_minor;
 
   return (
@@ -112,10 +109,10 @@ export function ChangeFigures({
         <dt>{t("totalGain")}</dt>
         <dd>
           <span className={tone(total.gain_minor)}>{signedMoney(total.gain_minor, currency, locale)}</span>
-          {last && first && (
-            <small className={ratioTone(last.growth - 1)}>{t("returnSince", {
-              percent: formatSignedPercent(last.growth - 1, locale),
-              date: dateWithYear(Temporal.PlainDate.from(first.date), locale)
+          {totalReturn && (
+            <small className={ratioTone(totalReturn.ratio)}>{t("returnSince", {
+              percent: formatSignedPercent(totalReturn.ratio, locale),
+              date: dateWithYear(Temporal.PlainDate.from(totalReturn.since), locale)
             })}</small>
           )}
         </dd>

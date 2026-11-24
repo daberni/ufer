@@ -13,9 +13,7 @@ import { ArrowRight } from "lucide-react";
 import { Empty } from "@/components/ui/empty-state";
 import { FormError } from "@/components/ui/form-error";
 import { toFailure } from "@/client/api";
-import { Temporal } from "temporal-polyfill";
 import { useLocale } from "@/client/locale-provider";
-import { dateWithYear } from "@/lib/date-format";
 import { accountIcon } from "@/features/accounts/account-presentation";
 import { useAccountHref } from "@/client/use-app-url";
 import { money, signedMoney } from "@/lib/money";
@@ -108,6 +106,7 @@ function CombinedValue({
   accounts: Account[];
 }) {
   const t = useTranslations("securities.overview");
+  const source = useTranslations("accounts.source");
   const locale = useLocale();
   const value = accounts.filter(account => account.currency === item.currency).reduce((sum, account) => sum + (account.balance_minor ?? 0), 0);
   const Icon = accountIcon("brokerage");
@@ -130,12 +129,10 @@ function CombinedValue({
       <div className={summaryStyles["balance-row"]}>
         <strong className={summaryStyles["balance"]}>{money(value, item.currency, locale)}</strong>
       </div>
-      <p className={summaryStyles["status"]}>{item.summary.day ? t("pricesOf", {
-        date: dateWithYear(Temporal.PlainDate.from(item.summary.day.date), locale)
-      }) : t("noCurrentPrices")}</p>
+      <p className={summaryStyles["status"]}>{source("trades")}</p>
       <ChangeFigures
         summary={item.summary}
-        points={item.points}
+        totalReturn={item.total_return}
         currency={item.currency}
       />
     </section>
@@ -144,6 +141,7 @@ function CombinedValue({
 
 function CombinedValueSkeleton() {
   const t = useTranslations("securities.overview");
+  const source = useTranslations("accounts.source");
 
   return (
     <section className={clsx(ui["panel"], summaryStyles["summary"])} aria-hidden="true">
@@ -159,9 +157,7 @@ function CombinedValueSkeleton() {
         </strong>
       </div>
       <p className={summaryStyles["status"]}>
-        <span className={ui["skeleton"]}>{t("pricesOf", {
-          date: "00 Xxx 0000"
-        })}</span>
+        <span className={ui["skeleton"]}>{source("trades")}</span>
       </p>
       <ChangeFiguresSkeleton />
     </section>

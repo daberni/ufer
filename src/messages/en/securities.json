@@ -87,9 +87,7 @@
     "holdingsOf": "Holdings of {name}",
     "noOpenPositions": "No open positions.",
     "noHoldings": "No holdings yet.",
-    "allAccounts": "All brokerage accounts · {count, plural, one {# account} other {# accounts}}",
-    "pricesOf": "Prices of {date}",
-    "noCurrentPrices": "No current prices yet"
+    "allAccounts": "All brokerage accounts · {count, plural, one {# account} other {# accounts}}"
   },
   "tradeForm": {
     "eyebrow": "Brokerage",

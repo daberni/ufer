@@ -169,7 +169,7 @@ test("an account without trades has no performance", async context => {
   assert.deepEqual((await readBrokeragePerformance(account, now)).points, []);
 });
 
-test("the combined performance adds up active accounts of one currency, keeps other currencies apart and keeps archived accounts' history out of today's figures only", async context => {
+test("the combined performance adds up active accounts of one currency, keeps other currencies apart and keeps archived accounts' history out of today's figures and total return only", async context => {
   const db = await isolatedDatabase(context);
   const euroCash = await settlementAccount();
   const dollarCash = await settlementAccount("USD");
@@ -179,6 +179,7 @@ test("the combined performance adds up active accounts of one currency, keeps ot
   const dollars = await depot("USD");
   const etf = await security();
   const usEtf = await security("USD", null);
+  const archivedEtf = await security("EUR", null, "XS0000000017");
   const buy = (account: string, securityId: string, cash: string, quantity: string) => trade(account, {
     security_id: securityId,
     date: "2026-09-10",
@@ -194,9 +195,11 @@ test("the combined performance adds up active accounts of one currency, keeps ot
   await price(db, etf, "2026-09-10", 100);
   await price(db, etf, "2026-10-30", 110);
   await price(db, usEtf, "2026-09-10", 100);
+  await price(db, archivedEtf, "2026-09-10", 100);
+  await price(db, archivedEtf, "2026-10-30", 200);
   await buy(first, etf, euroCash, "10");
   await buy(second, etf, euroCash, "5");
-  await buy(archived, etf, euroCash, "100");
+  await buy(archived, archivedEtf, euroCash, "100");
   await buy(dollars, usEtf, dollarCash, "1");
   await db.update(schema.accounts).set({
     archived_at: "2026-10-01T00:00:00.000Z"
@@ -210,9 +213,12 @@ test("the combined performance adds up active accounts of one currency, keeps ot
   assert.equal(combined.currencies.length, 2);
   assert.deepEqual(euro.account_ids.toSorted(), [first, second].toSorted());
   // The series includes the archived account's history; its account list and today's summary do not.
-  assert.equal(last.value_minor, 115 * 110_00);
+  assert.equal(last.value_minor, 15 * 110_00 + 100 * 200_00);
   assert.equal(last.invested_minor, 115 * 100_00);
   assert.equal(euro.summary.total.gain_minor, 15 * 10_00);
+  // The return beside that gain covers the same active accounts: 10 %, not the archived holding's doubling.
+  assert.equal(Math.round((euro.total_return?.ratio ?? NaN) * 10_000) / 10_000, 0.1);
+  assert.equal(euro.total_return?.since, "2026-09-10");
   assert.deepEqual(dollar.account_ids, [dollars]);
   assert.equal(dollar.points.at(-1)!.value_minor, 100_00);
 });
