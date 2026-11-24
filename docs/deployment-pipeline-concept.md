@@ -1,6 +1,6 @@
 # Deployment pipeline and backup concept
 
-Status: **proposal**, nothing here is implemented. It covers [#84](https://github.com/daberni/ufer/issues/84) (automated backups and an exercised restore) and [#90](https://github.com/daberni/ufer/issues/90) (production from version tags, staging from `main`), and turns #90 into a deployment that applies pending migrations through GitHub Actions instead of by hand. Decisions the owner must make are collected at the end.
+Status: **accepted concept**, nothing here is implemented yet. It covers [#84](https://github.com/daberni/ufer/issues/84) (automated backups and an exercised restore) and [#90](https://github.com/daberni/ufer/issues/90) (production from version tags, staging from `main`), and turns #90 into a deployment that applies pending migrations through GitHub Actions instead of by hand. Decisions the owner must make are collected at the end.
 
 ## Current state
 
@@ -24,11 +24,11 @@ Point-in-time restore (PITR) is the fastest recovery for operator mistakes and b
 
 | Plan | PITR window (per Turso pricing, verify before deciding) | Fit |
 | --- | --- | --- |
-| Free | 1 day | Too short: a problem noticed after a weekend is unrecoverable from PITR |
-| Developer (≈ USD 5/month) | 10 days | **Recommended.** Covers "noticed a week later", plus enough databases for production, staging, preview and drill copies |
+| Free (current, decided) | 1 day | Accepted limit: nightly encrypted exports and a backup before every migration cover longer history |
+| Developer (≈ USD 5/month) | 10 days | Revisit when data or users grow |
 | Scaler and above | 30+ days | Not needed for one household |
 
-The docs currently name the plan "Starter"; the first step is to confirm the actual plan and its window in the Turso dashboard. Recommendation: Developer plan, because the independent exports below cover longer history and provider loss, while PITR covers the common short-term case. This is a paid change and needs the owner's approval (`docs/vercel-deployment.md` forbids unapproved paid upgrades).
+Decided: no upgrade for now. The free plan's 1-day PITR is an accepted limit; recovery beyond one day uses the nightly R2 exports (up to a day of data loss) or the pre-migration backup. Confirm the actual plan in the Turso dashboard (older docs say "Starter") and revisit the upgrade when data or users grow. Because the free plan limits database count, check that production, preview, staging and the temporary rehearsal copy fit; otherwise rehearse on a local SQLite copy of the pre-migration backup instead of a Turso copy.
 
 ### Independent exports
 
@@ -57,7 +57,7 @@ GitHub environments limit which workflows and branches can read a secret (deploy
 
 ### Restore drill
 
-- **Manual local drill (decided):** on the owner's machine, download a backup, decrypt it with the offline age key, run `npm run db:verify-backup -- --file=… --check-bank-secrets` with `DATA_ENCRYPTION_KEY` from the password manager, and start the app against the restored SQLite file on 127.0.0.1 with the scheduler and outbound bank calls off; verify sign-in, representative views and row counts against the manifest. Decryption keys never enter GitHub. Record each drill (date, backup, commit, result) in a private recovery log and summarize only the result in `docs/backup-and-restore.md`. Proposed cadence: after setup, then quarterly and after any restore-relevant change.
+- **Manual local drill (decided):** on the owner's machine, download a backup, decrypt it with the offline age key, run `npm run db:verify-backup -- --file=… --check-bank-secrets` with `DATA_ENCRYPTION_KEY` from the password manager, and start the app against the restored SQLite file on 127.0.0.1 with the scheduler and outbound bank calls off; verify sign-in, representative views and row counts against the manifest. Decryption keys never enter GitHub. Record each drill (date, backup, commit, result) in a private recovery log and summarize only the result in `docs/backup-and-restore.md`. Cadence (decided): once after setup, then quarterly.
 - **PITR exercise:** once, restore production by PITR into a new Turso database and verify it the same way, as #84 requires; then delete the copy.
 - **Recovery runbook** in `docs/backup-and-restore.md`: PITR into a new database → verify → switch `DATABASE_URL`/`DATABASE_AUTH_TOKEN` in Vercel production → redeploy the matching commit; or the same from an export via `turso db create --from-file`.
 
@@ -77,7 +77,7 @@ GitHub environments limit which workflows and branches can read a secret (deploy
 | Push to `main` | Staging alias (e.g. `ufer-staging.vercel.app`) | Staging database (new) | None |
 | Push of tag `X.Y.Z` | Production domain | Production database | Only when changesets are pending |
 
-Tags follow #90: plain version, equal to `package.json`, pointing at a commit on `main`. Alternative considered: keep "production from `main`" and only add the migration gate. Simpler, but every merge is a release and approved PRs cannot accumulate on staging first; tags also give a clear rollback target and match the existing changelog/release practice. Recommendation: tags.
+Tags follow #90: plain version, equal to `package.json`, pointing at a commit on `main`. Decided: production from tags. (Considered alternative: keep production from `main` and add only the migration gate; rejected because every merge would be a release and staging could not collect changes first.)
 
 ### Building the exact commit
 
@@ -187,7 +187,7 @@ jobs:
     environment: ${{ needs.plan.outputs.pending == 'true' && 'production-migration' || 'production' }}
 ```
 
-Both work. A keeps credentials and approval separate (the approval environment holds no secrets, so approving cannot accidentally widen secret access) and the run graph shows clearly whether a gate was needed. B needs the same secrets duplicated in both environments.
+Decided: variant A. It keeps credentials and approval separate (the approval environment holds no secrets) and the run graph shows whether a gate was needed. B would need the same secrets duplicated in both environments.
 
 A time-of-check/time-of-use guard is required in either variant: between plan and migrate someone could run another migration. The migrate step re-reads the pending list and fails if it differs from the approved plan (pass the plan's list as an output and compare).
 
@@ -247,8 +247,8 @@ Rehearsal and drill copies contain production data in Turso's region; they are d
 
 | Item | Cost |
 | --- | --- |
-| Turso Developer plan (recommended for the 10-day PITR and more databases) | ≈ USD 5/month |
-| Cloudflare R2 for backups | Free tier (no egress fees) |
+| Turso | Free plan, no change (Developer ≈ USD 5/month if revisited) |
+| Cloudflare R2 for backups | Free tier (10 GB, no egress fees); needs a payment method on the account |
 | GitHub Actions minutes | Free for public repositories |
 | Vercel | Hobby stays sufficient; staging deployments count against the daily deployment limit (one per merge) |
 
@@ -256,7 +256,7 @@ Rehearsal and drill copies contain production data in Turso's region; they are d
 
 Each step is issue-sized and independently reviewable. "Owner" marks steps that need the owner's explicit authorization or action.
 
-1. **Decide and configure Turso plan** (#84). Confirm current plan and PITR window; upgrade to Developer if approved. *Owner: paid change, provider settings.*
+1. **Confirm the Turso plan** (#84). Confirm the current plan, its PITR window and database limit; no upgrade. *Owner: provider dashboard access.*
 2. **Backup storage and keys** (#84). Create the R2 EU bucket, write-only token, lifecycle rules (30 daily, 12 monthly), age key pair; store private key offline. *Owner: new cloud resource and account.*
 3. **Backup workflow** (#84). `backup.yml` with export, verify, encrypt, upload, manifest, failure issue; GitHub environment `backup`. First run on `workflow_dispatch`. *Owner: GitHub environment/secrets creation, first run reads production.*
 4. **Privacy and processors update** (#84). `DATA_PROCESSORS`, privacy notice retention, docs. Code/docs PR only.
@@ -266,19 +266,21 @@ Each step is issue-sized and independently reviewable. "Owner" marks steps that 
 8. **Production release workflow** (#90). `release.yml` with the job graph and conditional gate; GitHub environments `production-read`, `production-migration` (owner as reviewer), `production`. First release without pending changesets as a dry run. *Owner: environments, secrets, first tag.*
 9. **Switch Vercel to workflow-only deployments** (#90). `vercel.json` `deploymentEnabled: false`, domain auto-assign setting, `docs/releasing.md` and `docs/vercel-deployment.md`. *Owner: Vercel project settings; merging changes production behavior.*
 10. **First gated migration release.** A release with a pending changeset goes through the gate end to end; record the result. *Owner: approval of that migration (this is the normal per-release authorization the gate provides).*
+11. **Record gate approval as migration authorization in AGENTS.md.** Proposed wording for the migration bullets: "For production, approving the `production-migration` gate of a release run is the explicit authorization for exactly the changesets listed in that run's summary; it does not cover other databases, re-runs with a different pending list or manual migrations." *Owner: review and commit (doc-only change on main).*
 
 Steps 1–5 deliver #84 and are prerequisites for 8–10. Step 6 and 7 can run in parallel with 3–5.
 
 ## Decided
 
 - Backups run in GitHub Actions: nightly cron plus a backup before every migration.
-- Storage: Cloudflare R2, EU jurisdiction bucket, write-only token, lifecycle retention.
+- Storage: Cloudflare R2, EU jurisdiction bucket, write-only token, lifecycle retention. Free at this size (10 GB storage and the operation quota in the free tier, no egress fees); R2 requires a payment method on the Cloudflare account.
 - Retention: dailies for 30 days, one monthly for 12 months.
-- Restore drill: manual and local; `DATA_ENCRYPTION_KEY` stays out of GitHub, CI verifies without `--check-bank-secrets`.
+- Restore drill: manual and local, once after setup and then quarterly; `DATA_ENCRYPTION_KEY` stays out of GitHub, CI verifies without `--check-bank-secrets`.
+- Turso: stay on the free plan; 1-day PITR is an accepted limit, revisit when data or users grow.
+- Production deploys from version tags, staging from `main`.
+- Gate mechanism: a separate gate job in a protected environment, skipped when nothing is pending.
+- Approving the gate is the explicit per-migration authorization `AGENTS.md` requires, limited to the changesets shown in that run's summary. The `AGENTS.md` wording change is rollout step 11.
 
-## Decisions for the owner
+## Open points
 
-1. Turso plan: upgrade to Developer for 10-day PITR (≈ USD 5/month), or stay and rely on exports.
-2. Production from version tags (recommended) or keep production from `main` with only the migration gate.
-3. Gate mechanism: separate skipped gate job (recommended) or expression-selected environment.
-4. Standing authorization: whether approving the gate in the workflow counts as the explicit migration authorization `AGENTS.md` requires for each production migration (proposed: yes, the approval is the authorization; the summary shows the exact SQL).
+- None for the concept. Implementation steps marked *Owner* need authorization when they start.
