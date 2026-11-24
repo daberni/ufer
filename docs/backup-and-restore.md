@@ -1,6 +1,6 @@
 # Backup and restore
 
-The offline verifier and synthetic recovery rehearsal below are implemented. Automated external backups, hosted point-in-time recovery and a restore of real hosted data are not configured or verified by this work. Track the remaining operations in [#84](https://github.com/daberni/ufer/issues/84).
+The offline verifier, the synthetic recovery rehearsal and the [nightly backup workflow](#nightly-encrypted-backups) are implemented. The workflow stays inactive until the [one-time setup](#one-time-setup) is done ([#392](https://github.com/daberni/ufer/issues/392)); hosted point-in-time recovery and a restore of real hosted data are not verified yet. Track the remaining operations in [#84](https://github.com/daberni/ufer/issues/84).
 
 ## What a recovery needs
 
@@ -52,9 +52,43 @@ The command decrypts locally using Ufer's existing encryption implementation and
 
 A regression fixture also demonstrates a committed account present in WAL but missing from a raw main-file copy; the verifier rejects that source and its symlink instead of reporting the WAL-assisted counts as a standalone backup. Additional cases verify rejection of missing/corrupt artifacts, broken foreign keys, altered/pending migration history and wrong encryption keys. File checksums remain unchanged during verification. The missing-key check is explicit rather than silently counted as complete recovery. These checks were exercised only with synthetic local data; they do not replace a restore trial of an actual authorized hosted export.
 
+## Nightly encrypted backups
+
+`.github/workflows/backup.yml` runs nightly at 03:17 UTC, before the 05:00 sync, and on manual dispatch. The release pipeline will call the same workflow before a migration with a `reason` (for example `pre-migration-0.4.0`) and the ref of the release currently in production; such a call fails instead of skipping when the setup is incomplete.
+
+1. `npm run db:export -- --file=<new file>` copies the database named by `DATABASE_URL` into a new self-contained SQLite file. All reads run in one read transaction, so the copy is consistent while the application writes; integers are copied exactly. It never overwrites an existing file and never loads `.env` files.
+2. `npm run db:verify-backup` checks the copy against the changesets of the selected ref (the workflow's commit by default, or the `ref` input). Bank-secret decryption is not checked in CI because `DATA_ENCRYPTION_KEY` stays out of GitHub; the [restore drill](#rehearse-application-recovery) checks it locally.
+3. The export and the verification report (which contains row counts) are encrypted with [age](https://age-encryption.org) to the public keys in `BACKUP_AGE_RECIPIENTS`. The private key exists only in the owner's password manager and an offline copy; GitHub can write backups but never decrypt them.
+4. The workflow uploads `<name>.sqlite.age`, `<name>.report.json.age` and a public `<name>.manifest.json` (creation time, commits, migration count, checksums, size) to `daily/YYYY/MM/` and, on the first of the month, to `monthly/YYYY/`. Retention comes from the bucket's lifecycle rules: 30 days for `daily/`, 365 days for `monthly/`.
+5. The plaintext is deleted from the runner at the end of the job.
+
+The repository is public, so logs, job summaries and artifacts are world-readable. The workflow prints only the object name, source commit, migration count and ciphertext checksum. Export errors are reduced to a generic message because driver errors can name the database host; secret values are additionally masked by GitHub.
+
+`.github/workflows/backup-freshness.yml` runs at 15:41 UTC and fails when the newest daily backup is older than 36 hours or missing; this also catches a schedule GitHub disabled after 60 days without repository activity. A failed nightly or freshness run opens one issue titled "Database backup alert" with the `ops-alert` label, or comments on the open one; GitHub also emails the owner about failed scheduled runs. Close the issue once backups succeed again.
+
+Until the setup is complete, both workflows finish with a visible warning in the run summary instead of failing. The first run creates the `backup` environment if it does not exist yet; finish its configuration as below.
+
+## One-time setup
+
+These steps need the owner's accounts and are tracked in [#392](https://github.com/daberni/ufer/issues/392). Keep identifiers and keys out of the repository.
+
+1. **Encryption key.** Install age locally and run `age-keygen -o ufer-backup.key`. Store the file's content (including the `AGE-SECRET-KEY-…` line) in the password manager and keep an offline copy; delete the local file afterwards. The printed `age1…` line is the public key.
+2. **Cloudflare account.** R2 requires a payment method on the account even though this usage stays within the free tier (10 GB storage, included operations, no egress fees).
+3. **Bucket.** Create an R2 bucket with the **EU jurisdiction**. Note its S3 endpoint, `https://<account id>.eu.r2.cloudflarestorage.com`.
+4. **Lifecycle rules.** Delete objects with prefix `daily/` after 30 days and with prefix `monthly/` after 365 days.
+5. **Bucket lock rules.** Lock prefix `daily/` for 30 days and `monthly/` for 365 days, so a leaked workflow token cannot delete or overwrite existing backups.
+6. **API token.** Create an R2 API token with **Object Read & Write** limited to this bucket. R2 offers no write-only permission; read access only exposes ciphertext, the freshness check needs to list objects, and the bucket locks prevent deletion.
+7. **GitHub environment `backup`** (Settings → Environments). Deployment branches and tags: `main` and the version tag pattern (for pre-migration backups from release runs). Environment secrets:
+   - `DATABASE_URL`, `DATABASE_AUTH_TOKEN`: the production libSQL URL and a database token (preferably a dedicated read-only token, so it can be revoked separately)
+   - `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`: the API token's S3 credentials
+   - `R2_ENDPOINT`: the EU S3 endpoint from step 3
+   Environment variables:
+   - `BACKUP_BUCKET`: the bucket name
+   - `BACKUP_AGE_RECIPIENTS`: the `age1…` public key (one per line if there are several)
+8. **First run.** Start "Database backup" manually from the Actions tab. Then download the new `.sqlite.age` object, run `age --decrypt -i <key file> -o <fresh dir>/ufer.sqlite <object>` and `npm run db:verify-backup -- --file=<fresh dir>/ufer.sqlite --check-bank-secrets` with `DATA_ENCRYPTION_KEY` from the password manager. Delete the decrypted copy afterwards.
+9. **Privacy notice.** Add the backup location and retention to `DATA_PROCESSORS` ([#393](https://github.com/daberni/ufer/issues/393)).
+
 ## Open operations decisions
 
-- Required recoverable history, acceptable data loss and recovery objectives; the hosted plan's actual restore window and restore capabilities must be confirmed before choosing a plan.
-- Independent backup storage provider/location, access and encryption, retention/deletion policy, and corresponding `DATA_PROCESSORS`/privacy disclosures.
-- Export frequency, scheduling, failure monitoring and the credentials needed for that job; no schedule or cloud credential was created here.
-- Authorization and an isolated target for a real export/PITR rehearsal, including secret-version recovery and any permitted bank requests.
+- The first recorded restore drill and point-in-time restore ([#394](https://github.com/daberni/ufer/issues/394)).
+- Confirmation of the Turso plan, restore window and database limit ([#391](https://github.com/daberni/ufer/issues/391)).
