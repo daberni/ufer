@@ -4,12 +4,15 @@ import { DatabaseSync } from "node:sqlite";
 import { getTableName, is } from "drizzle-orm";
 import { SQLiteTable } from "drizzle-orm/sqlite-core";
 import { decrypt } from "@/server/security/secret-box";
-import { verifyAppliedMigrations } from "./migrations";
+import { createClient } from "@libsql/client";
+import { migrateDatabase, verifyAppliedMigrations } from "./migrations";
 import * as schema from "./schema";
 
 /** Checks a standalone local SQLite artifact; never loads environment files, opens remote URLs or applies migrations. */
 export function verifyLocalBackup(filename: string, options: {
-  checkBankSecrets?: boolean
+  checkBankSecrets?: boolean,
+  migrationDirectory?: string,
+  expectedTables?: string[]
 } = {}) {
   if (filename.includes("://")) {
     throw new Error("Provide a local filesystem path, not a database URL.");
@@ -42,7 +45,7 @@ export function verifyLocalBackup(filename: string, options: {
     const status = verifyAppliedMigrations(rows.map(row => ({
       hash: row.hash,
       created_at: row.created_at
-    })));
+    })), options.migrationDirectory);
 
     if (!status.applied || status.pending) {
       throw new Error("Use the application revision matching the backup's applied migrations. This check never upgrades a database.");
@@ -50,12 +53,8 @@ export function verifyLocalBackup(filename: string, options: {
 
     const counts: Record<string, number> = {};
 
-    for (const table of Object.values(schema)) {
-      if (is(table, SQLiteTable)) {
-        const name = getTableName(table);
-
-        counts[name] = Number(db.prepare(`SELECT COUNT(*) AS count FROM "${name}"`).get()?.count);
-      }
+    for (const name of options.expectedTables ?? applicationTables()) {
+      counts[name] = Number(db.prepare(`SELECT COUNT(*) AS count FROM "${name.replaceAll("\"", "\"\"")}"`).get()?.count);
     }
 
     const bankSessions = db.prepare("SELECT session_cipher FROM requisitions WHERE session_cipher IS NOT NULL").all();
@@ -87,6 +86,28 @@ export function verifyLocalBackup(filename: string, options: {
   }
 }
 
+function applicationTables() {
+  return Object.values(schema).filter(table => is(table, SQLiteTable)).map(table => getTableName(table));
+}
+
+/**
+ * Lists the tables a release's changesets create, by applying them to an empty in-memory database.
+ * Lets the current verifier check a backup of an older release without that release's code.
+ */
+export async function releaseTables(migrationDirectory: string) {
+  const client = createClient({
+    url: ":memory:"
+  });
+
+  try {
+    await migrateDatabase(client, migrationDirectory);
+    const result = await client.execute("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name <> '__drizzle_migrations' ORDER BY name");
+
+    return result.rows.map(row => String(row.name));
+  } finally {
+    client.close();
+  }
+}
 
 function assertStandaloneBackup(file: string) {
   // Read-only SQLite still consults recovery logs; those pages would be lost when moving only the named artifact.

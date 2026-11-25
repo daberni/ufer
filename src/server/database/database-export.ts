@@ -1,12 +1,27 @@
 import { existsSync } from "node:fs";
 import { DatabaseSync, type SQLInputValue } from "node:sqlite";
-import type { Client, InValue } from "@libsql/client";
+import type { Client, InValue, ResultSet, Transaction } from "@libsql/client";
 
 type SchemaObject = {
   type: string;
   name: string;
   sql: string;
 };
+
+// Remote libSQL caps a single response (10 MB by default). Pages are planned from measured row sizes so each stays far below it.
+export type ExportPaging = {
+  pageBytes: number;
+  sizeScanRows: number;
+};
+
+const defaultPaging: ExportPaging = {
+  pageBytes: 2_000_000,
+  // A size-scan row holds a key and one integer, so even this many stay small.
+  sizeScanRows: 10_000
+};
+
+// Covers encoding overhead per value, so many tiny rows are bounded too.
+const rowOverheadBytes = 64;
 
 /** Internal tables of SQLite, libSQL and replication tooling; SQLite recreates `sqlite_sequence` from the AUTOINCREMENT tables. */
 function isInternalTable(name: string) {
@@ -15,6 +30,10 @@ function isInternalTable(name: string) {
 
 function quoteIdentifier(name: string) {
   return `"${name.replaceAll("\"", "\"\"")}"`;
+}
+
+function quoteLiteral(value: string) {
+  return `'${value.replaceAll("'", "''")}'`;
 }
 
 function localValue(value: InValue): SQLInputValue {
@@ -33,11 +52,117 @@ function localValue(value: InValue): SQLInputValue {
   return value ?? null;
 }
 
+function isWithoutRowid(table: SchemaObject) {
+  return /\bWITHOUT\s+ROWID\b/i.test(table.sql);
+}
+
+type Page = {
+  first: number;
+  count: number;
+  lastKey: InValue;
+};
+
+/**
+ * Plans byte-bounded pages from a cheap scan of row sizes and keys. A single row larger than the budget gets a page of its own.
+ * Rowid tables are scanned by `_rowid_`; tables without rowid by primary key with an offset.
+ */
+async function* planPages(transaction: Transaction, table: SchemaObject, columns: string[], paging: ExportPaging): AsyncGenerator<Page> {
+  const name = quoteIdentifier(table.name);
+  const sizeExpression = columns.map(column => `COALESCE(length(CAST(${quoteIdentifier(column)} AS BLOB)), 0)`).join(" + ") || "0";
+  const withoutRowid = isWithoutRowid(table);
+  const order = withoutRowid ? await primaryKeyOrder(transaction, table) : "_rowid_";
+  const key = withoutRowid ? "NULL" : "_rowid_";
+  let page: Page = {
+    first: 0,
+    count: 0,
+    lastKey: null
+  };
+  let bytes = 0;
+  let scanned = 0;
+  let lastKey: InValue = null;
+
+  for (;;) {
+    const scan: ResultSet = withoutRowid || lastKey === null
+      ? await transaction.execute({
+        sql: `SELECT ${key}, ${sizeExpression} FROM ${name} ORDER BY ${order} LIMIT ? OFFSET ?`,
+        args: [paging.sizeScanRows, withoutRowid ? scanned : 0]
+      })
+      : await transaction.execute({
+        sql: `SELECT ${key}, ${sizeExpression} FROM ${name} WHERE _rowid_ > ? ORDER BY ${order} LIMIT ?`,
+        args: [lastKey, paging.sizeScanRows]
+      });
+
+    for (const row of scan.rows) {
+      const size = Number(row[1]) + rowOverheadBytes;
+
+      if (page.count > 0 && bytes + size > paging.pageBytes) {
+        yield page;
+        page = {
+          first: page.first + page.count,
+          count: 0,
+          lastKey: page.lastKey
+        };
+        bytes = 0;
+      }
+
+      page.count += 1;
+      page.lastKey = row[0];
+      bytes += size;
+      lastKey = row[0];
+    }
+
+    scanned += scan.rows.length;
+
+    if (scan.rows.length < paging.sizeScanRows) {
+      break;
+    }
+  }
+
+  if (page.count > 0) {
+    yield page;
+  }
+}
+
+async function primaryKeyOrder(transaction: Transaction, table: SchemaObject) {
+  const keys = await transaction.execute(`SELECT name FROM pragma_table_info(${quoteLiteral(table.name)}) WHERE pk > 0 ORDER BY pk`);
+
+  return keys.rows.map(row => quoteIdentifier(String(row.name))).join(", ");
+}
+
+/** Copies one table in byte-bounded pages inside the caller's read transaction. */
+async function copyRows(transaction: Transaction, local: DatabaseSync, table: SchemaObject, paging: ExportPaging) {
+  const name = quoteIdentifier(table.name);
+  const columns = (await transaction.execute(`SELECT name FROM pragma_table_info(${quoteLiteral(table.name)}) ORDER BY cid`)).rows.map(row => String(row.name));
+  const columnList = columns.map(quoteIdentifier).join(", ");
+  const insert = local.prepare(`INSERT INTO ${name} (${columnList}) VALUES (${columns.map(() => "?").join(", ")})`);
+  const withoutRowid = isWithoutRowid(table);
+  const order = withoutRowid ? await primaryKeyOrder(transaction, table) : "_rowid_";
+  let previousKey: InValue = null;
+
+  for await (const page of planPages(transaction, table, columns, paging)) {
+    const rows = withoutRowid
+      ? await transaction.execute({
+        sql: `SELECT ${columnList} FROM ${name} ORDER BY ${order} LIMIT ? OFFSET ?`,
+        args: [page.count, page.first]
+      })
+      : await transaction.execute({
+        sql: `SELECT ${columnList} FROM ${name} WHERE ${previousKey === null ? "" : "_rowid_ > ? AND "}_rowid_ <= ? ORDER BY _rowid_`,
+        args: previousKey === null ? [page.lastKey] : [previousKey, page.lastKey]
+      });
+
+    for (const row of rows.rows) {
+      insert.run(...columns.map((_, index) => localValue(row[index])));
+    }
+
+    previousKey = page.lastKey;
+  }
+}
+
 /**
  * Copies every table, row, index, trigger and view of a libSQL database into a new self-contained SQLite file.
  * All reads run in one read transaction, so the copy is a consistent snapshot even while the application writes.
  */
-export async function exportDatabase(client: Client, destination: string) {
+export async function exportDatabase(client: Client, destination: string, paging: ExportPaging = defaultPaging) {
   if (existsSync(destination)) {
     throw new Error("The export destination already exists; choose a new file.");
   }
@@ -65,19 +190,7 @@ export async function exportDatabase(client: Client, destination: string) {
       }
 
       for (const table of tables) {
-        const result = await transaction.execute(`SELECT * FROM ${quoteIdentifier(table.name)}`);
-
-        if (!result.rows.length) {
-          continue;
-        }
-
-        const columns = result.columns.map(quoteIdentifier).join(", ");
-        const placeholders = result.columns.map(() => "?").join(", ");
-        const insert = local.prepare(`INSERT INTO ${quoteIdentifier(table.name)} (${columns}) VALUES (${placeholders})`);
-
-        for (const row of result.rows) {
-          insert.run(...result.columns.map((_, index) => localValue(row[index])));
-        }
+        await copyRows(transaction, local, table, paging);
       }
 
       if (hasSequence) {
