@@ -1,0 +1,223 @@
+name: Release
+
+# Pushing a version tag (for example 0.4.0) on a commit of main releases that commit to production:
+# verify → plan (pending changesets and their SQL in the summary) → approval only when changesets are pending →
+# pre-migration backup → rehearsal on a local copy → deploy without the domain → migrate → promote → smoke test.
+# Approving the production-migration gate is the explicit authorization for exactly the changesets listed in this run's summary.
+on:
+  push:
+    tags: ['[0-9]+.[0-9]+.[0-9]+']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Check tag, version and history
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          version=$(node -p "require('./package.json').version")
+          if [ "$TAG" != "$version" ]; then
+            echo "::error::Tag $TAG does not match package.json version $version."
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::Tag $TAG does not point to a commit on main."
+            exit 1
+          fi
+
+      # Without a protection rule the gate job would run without asking; fail closed instead of migrating unapproved.
+      - name: Check that the migration gate requires a reviewer
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! rules=$(gh api "repos/$GITHUB_REPOSITORY/environments/production-migration" --jq '[.protection_rules[]?.type]'); then
+            echo "::error::The production-migration environment does not exist. See docs/releasing.md#one-time-setup."
+            exit 1
+          fi
+          if ! jq -e 'index("required_reviewers") != null' <<< "$rules" > /dev/null; then
+            echo "::error::The production-migration environment has no required reviewers. See docs/releasing.md#one-time-setup."
+            exit 1
+          fi
+
+      - run: npm ci --no-audit --no-fund
+      - run: npm run lint
+      - run: npm run check:styles
+      - run: npm run check
+      - run: npm test
+      - run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: '1'
+
+  plan:
+    needs: verify
+    runs-on: ubuntu-latest
+    environment: release
+    timeout-minutes: 10
+    outputs:
+      pending: ${{ steps.plan.outputs.pending }}
+      changesets: ${{ steps.plan.outputs.changesets }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci --no-audit --no-fund
+
+      - name: List pending changesets
+        id: plan
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DATABASE_AUTH_TOKEN: ${{ secrets.DATABASE_AUTH_TOKEN }}
+        run: .github/scripts/migration-plan.sh "Pending production changesets for ${GITHUB_REF_NAME}"
+
+  approve-migration:
+    needs: plan
+    if: needs.plan.outputs.pending == 'true'
+    runs-on: ubuntu-latest
+    environment: production-migration
+    steps:
+      - name: Record the approval
+        env:
+          CHANGESETS: ${{ needs.plan.outputs.changesets }}
+        run: |
+          echo "Approved changesets for $GITHUB_REF_NAME: $CHANGESETS" >> "$GITHUB_STEP_SUMMARY"
+
+  backup:
+    needs: [plan, approve-migration]
+    if: ${{ !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.pending == 'true' && needs.approve-migration.result == 'success' }}
+    uses: ./.github/workflows/backup.yml
+    with:
+      reason: pre-migration-${{ github.ref_name }}
+      ref: ${{ github.sha }}
+    secrets: inherit
+
+  deploy:
+    needs: [plan, approve-migration, backup]
+    # Runs after approval and backup, or directly when nothing is pending and both were skipped.
+    if: ${{ !cancelled() && needs.plan.result == 'success' && contains(fromJSON('["success","skipped"]'), needs.approve-migration.result) && contains(fromJSON('["success","skipped"]'), needs.backup.result) }}
+    runs-on: ubuntu-latest
+    environment: release
+    timeout-minutes: 30
+    env:
+      VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+      PRODUCTION_URL: ${{ vars.PRODUCTION_URL }}
+      PENDING: ${{ needs.plan.outputs.pending }}
+      APPROVED_CHANGESETS: ${{ needs.plan.outputs.changesets }}
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DATABASE_AUTH_TOKEN: ${{ secrets.DATABASE_AUTH_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci --no-audit --no-fund
+
+      - name: Check configuration
+        env:
+          HAS_VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN != '' }}
+        run: |
+          if [ "$HAS_VERCEL_TOKEN" != "true" ] || [ -z "$PRODUCTION_URL" ] || [ -z "$VERCEL_PROJECT_ID" ]; then
+            echo "::error::The release environment needs VERCEL_TOKEN and PRODUCTION_URL. See docs/releasing.md#one-time-setup."
+            exit 1
+          fi
+
+      # Guards against a migration applied by someone else between the approval and now.
+      - name: Re-check the pending changesets against the approved plan
+        if: env.PENDING == 'true'
+        run: |
+          current=$(npm run --silent db:status | jq -c '.pendingChangesets')
+          if [ "$current" != "$APPROVED_CHANGESETS" ]; then
+            echo "::error::The pending changesets changed after approval. Re-run the release to approve the current list."
+            exit 1
+          fi
+
+      # The rehearsal copy holds production data; it exists only on this runner and is removed at the end of the job.
+      - name: Rehearse the migration on a local copy
+        if: env.PENDING == 'true'
+        run: |
+          rehearsal="$RUNNER_TEMP/rehearsal"
+          mkdir -m 700 "$rehearsal"
+          npm run --silent db:export -- --file="$rehearsal/copy.sqlite"
+          DATABASE_URL="file:$rehearsal/copy.sqlite" DATABASE_AUTH_TOKEN="" npm run --silent db:migrate > /dev/null
+          if ! npm run --silent db:verify-backup -- --file="$rehearsal/copy.sqlite" > /dev/null; then
+            echo "::error::The migrated rehearsal copy failed verification."
+            exit 1
+          fi
+          echo "Rehearsal: the changesets applied cleanly to a copy of production." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Remove the rehearsal copy
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/rehearsal"
+
+      - name: Deploy without the production domain
+        id: deploy
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          url=$(npx --yes vercel@65.16.0 deploy --prod --skip-domain --yes --token "$VERCEL_TOKEN" --meta "releaseTag=$GITHUB_REF_NAME" --meta "releaseSha=$GITHUB_SHA")
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
+      # From here until the promotion, cold starts of the previous deployment refuse the newer migration history; keep this window short.
+      - name: Migrate production
+        if: env.PENDING == 'true'
+        run: |
+          npm run --silent db:migrate > /dev/null
+          echo "Migrated production with $APPROVED_CHANGESETS" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Promote the deployment
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.url }}
+        run: npx --yes vercel@65.16.0 promote "$DEPLOYMENT_URL" --yes --token "$VERCEL_TOKEN"
+
+      - name: Smoke test
+        run: |
+          page=$(curl -s -o /dev/null -w '%{http_code}' "$PRODUCTION_URL/")
+          api=$(curl -s -o /dev/null -w '%{http_code}' "$PRODUCTION_URL/api/me")
+          echo "Smoke test: / → $page, /api/me → $api (expected 2xx/3xx and 401)" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${page:0:1}" != "2" ] && [ "${page:0:1}" != "3" ] || [ "$api" != "401" ]; then
+            echo "::error::Smoke test failed. See docs/releasing.md#recovery."
+            exit 1
+          fi
+
+      - name: Recovery hint
+        if: failure()
+        run: |
+          {
+            echo "## Release failed"
+            echo "Check which step failed. Before 'Migrate production' nothing changed in production."
+            echo "After a migration, the previous build cannot cold-start: fix forward with a new release, or restore the pre-migration backup or point-in-time copy and redeploy the previous tag (docs/releasing.md#recovery)."
+          } >> "$GITHUB_STEP_SUMMARY"

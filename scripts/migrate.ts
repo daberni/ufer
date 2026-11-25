@@ -1,6 +1,6 @@
 import { loadEnvConfig } from "@next/env";
 import { createDatabaseClient } from "../src/server/database/connection";
-import { migrateDatabase, migrationStatus } from "../src/server/database/migrations";
+import { migrateDatabase, migrationReport } from "../src/server/database/migrations";
 
 async function main() {
   loadEnvConfig(process.cwd());
@@ -8,7 +8,7 @@ async function main() {
   const client = createDatabaseClient();
 
   try {
-    const status = process.argv.includes("--status") ? await migrationStatus(client) : await migrateDatabase(client);
+    const status = process.argv.includes("--status") ? await migrationReport(client) : await migrateDatabase(client);
 
     console.log(JSON.stringify(status, null, 2));
   } finally {

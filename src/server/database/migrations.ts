@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { drizzle } from "drizzle-orm/libsql";
 import { migrate } from "drizzle-orm/libsql/migrator";
@@ -83,6 +84,21 @@ export async function migrationStatus(client: Client, directory = migrationDirec
     hash: row.hash,
     created_at: row.created_at
   })), directory);
+}
+
+/** Migration status plus the names of the pending changesets in apply order, for review before a migration. */
+export async function migrationReport(client: Client, directory = migrationDirectory) {
+  const status = await migrationStatus(client, directory);
+  const journal = JSON.parse(readFileSync(resolve(directory, "meta", "_journal.json"), "utf8")) as {
+    entries: {
+      tag: string
+    }[]
+  };
+
+  return {
+    ...status,
+    pendingChangesets: journal.entries.slice(journal.entries.length - status.pending).map(entry => `${entry.tag}.sql`)
+  };
 }
 
 /** Verifies persisted history without applying SQL; also used by read-only offline recovery checks. */

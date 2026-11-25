@@ -5,10 +5,7 @@
     "fra1"
   ],
   "git": {
-    "deploymentEnabled": {
-      "**": false,
-      "main": true
-    }
+    "deploymentEnabled": false
   },
   "crons": [
     {

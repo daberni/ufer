@@ -69,6 +69,8 @@ GitHub environments limit which workflows and branches can read a secret (deploy
 
 ## 2. Deployment pipeline (#90)
 
+Implemented in `release.yml` and `staging.yml`; [releasing](releasing.md) is the operating procedure. Differences from the sketches below: one `release` environment holds the production secrets (the existing `Production` environment belongs to Vercel's deployment statuses), the rehearsal runs on a local SQLite copy instead of a Turso copy, the pre-migration backup runs only when changesets are pending, and the nightly and pre-migration backups verify against the release's changesets up to the database's applied count.
+
 ### Triggers and environments
 
 | Trigger | Target | Database | Approval |
@@ -259,15 +261,15 @@ The steps are worked through interactively under #84 and #90; this checklist tra
 
 - [x] Nightly encrypted backup workflow, freshness alert and owner setup docs (`backup.yml`, `backup-freshness.yml`, `db:export`)
 - [ ] Owner: confirm the Turso plan, its restore window and database limit; no upgrade
-- [ ] Owner: Cloudflare account with payment method, R2 EU bucket, lifecycle and lock rules, token, age key pair, GitHub `backup` environment; first manual backup run and local decryption check
+- [x] Owner: Cloudflare account with payment method, R2 EU bucket, lifecycle and lock rules, token, age key pair, GitHub `backup` environment; first manual backup run and local decryption check
 - [ ] Backup location and retention in `DATA_PROCESSORS` and the privacy notice (owner updates the production value in Vercel)
 - [ ] Restore runbook, first local drill and one point-in-time restore into a fresh database (owner authorization)
-- [ ] `db:status --json` and the breaking-changeset marker
-- [ ] Staging from `main` with automatic migrations (owner: staging database, Vercel env, GitHub environment)
-- [ ] Tag release workflow with the conditional migration gate, reusing the backup workflow (owner: GitHub environments and secrets); switch the nightly backup's ref to the latest tag
-- [ ] Workflow-only Vercel deployments (owner: Vercel settings; merging changes production behavior)
+- [x] Migration status with pending changeset names (`npm run db:status` prints `pendingChangesets`); breaking changes are split by review rule instead of a marker
+- [x] Staging workflow from `main` with automatic migrations (`staging.yml`); owner: staging database and GitHub `staging` environment
+- [x] Tag release workflow with the conditional migration gate, reusing the backup workflow (`release.yml`); owner: GitHub `release` and `production-migration` environments
+- [x] Workflow-only Vercel deployments (`git.deploymentEnabled: false`); takes effect when merged, after the owner setup
 - [ ] First gated migration release (owner: approval)
-- [ ] `AGENTS.md`: gate approval is the migration authorization, with the proposed wording: "For production, approving the `production-migration` gate of a release run is the explicit authorization for exactly the changesets listed in that run's summary; it does not cover other databases, re-runs with a different pending list or manual migrations." (owner review)
+- [x] `AGENTS.md`: gate approval is the migration authorization, with the proposed wording: "For production, approving the `production-migration` gate of a release run is the explicit authorization for exactly the changesets listed in that run's summary; it does not cover other databases, re-runs with a different pending list or manual migrations." (owner review)
 
 The backup steps deliver #84 and come before the release workflow.
 

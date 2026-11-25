@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -7,6 +7,7 @@ import { test, type TestContext } from "node:test";
 import { createClient, type Client, type InStatement, type ResultSet, type TransactionMode } from "@libsql/client";
 import { initializeDatabase } from "../src/server/database/migrations";
 import { releaseTables, verifyLocalBackup } from "../src/server/database/backup-verification";
+import { olderRelease } from "./fixtures/older-release";
 import { exportDatabase } from "../src/server/database/database-export";
 
 async function sourceFixture(context: TestContext) {
@@ -192,34 +193,6 @@ test("an export reads tables in byte-bounded pages, including tables without row
   assert.ok(measured.responses.length > 4);
   assert.ok(Math.max(...measured.responses) <= 2_600, `largest response ${Math.max(...measured.responses)} bytes`);
 });
-
-/** Copies the checked-in changesets and keeps only the first `count`, as an older release would have them. */
-function olderRelease(directory: string, count: number) {
-  const target = join(directory, "release", "drizzle", "sqlite");
-
-  cpSync("drizzle/sqlite", target, {
-    recursive: true
-  });
-
-  const journalFile = join(target, "meta", "_journal.json");
-  const journal = JSON.parse(readFileSync(journalFile, "utf8")) as {
-    entries: {
-      tag: string
-    }[]
-  };
-  const kept = new Set(journal.entries.slice(0, count).map(entry => entry.tag));
-
-  journal.entries = journal.entries.slice(0, count);
-  writeFileSync(journalFile, JSON.stringify(journal));
-
-  for (const file of readdirSync(target).filter(name => name.endsWith(".sql"))) {
-    if (!kept.has(file.replace(/\.sql$/, ""))) {
-      rmSync(join(target, file));
-    }
-  }
-
-  return target;
-}
 
 test("a backup of an older release verifies against that release's changesets and tables, not the current schema", async context => {
   const directory = mkdtempSync(join(tmpdir(), "ufer-older-release-"));
