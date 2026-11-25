@@ -1,4 +1,5 @@
 import { sql, type SQL } from "drizzle-orm";
+import type { Temporal } from "temporal-polyfill";
 import type { Period } from "@/lib/period";
 
 /**
@@ -10,15 +11,25 @@ export function periodCondition(period: Period): SQL {
     return sql`TRUE`;
   }
 
-  const firstDay = {
-    day: 1
-  };
-  const start = period.month.toPlainDate(firstDay).toString();
-  const end = period.month.add({
-    months: 1
-  }).toPlainDate(firstDay).toString();
+  return monthsCondition(period.month, period.month);
+}
 
-  return dateRangeCondition(start, end);
+function firstDayOf(month: Temporal.PlainYearMonth) {
+  return month.toPlainDate({
+    day: 1
+  }).toString();
+}
+
+/** SQL condition on `t.date` for the consecutive months from `first` through `last`, as a half-open date range. */
+export function monthsCondition(first: Temporal.PlainYearMonth, last: Temporal.PlainYearMonth): SQL {
+  return dateRangeCondition(firstDayOf(first), firstDayOf(last.add({
+    months: 1
+  })));
+}
+
+/** SQL condition on `t.date` for dates before the given month. */
+export function beforeMonthCondition(month: Temporal.PlainYearMonth): SQL {
+  return sql`t.date<${firstDayOf(month)}`;
 }
 
 /** SQL condition on `t.date` for the half-open range from `start` up to, but excluding, `end`. */

@@ -11,7 +11,7 @@ import { AppStoreProvider } from "../src/client/app-store";
 import { BankingConfigurationProvider } from "../src/features/banking/banking-configuration";
 import { monthPeriod, periodToJson } from "../src/lib/period";
 import type { CashFlow, CategoryAmount } from "../src/features/reports/types";
-import { browser } from "./fixtures/browser";
+import { browser, withQueryClient } from "./fixtures/browser";
 import { stubCssModules } from "./fixtures/css-modules";
 
 stubCssModules();
@@ -54,7 +54,10 @@ const cashFlow: CashFlow = {
 };
 
 async function showReports(context: TestContext, data: CashFlow = cashFlow) {
-  browser(context, "http://localhost/?period=2026-07");
+  const {
+    queryClient,
+    requests
+  } = browser(context, "http://localhost/?period=2026-07");
   const previousNode = Object.getOwnPropertyDescriptor(globalThis, "Node");
 
   Object.defineProperty(globalThis, "Node", {
@@ -132,7 +135,7 @@ async function showReports(context: TestContext, data: CashFlow = cashFlow) {
       value: new URLSearchParams(window.location.search)
     }, children));
 
-    return createElement(AppStoreProvider, {
+    return withQueryClient(queryClient, createElement(AppStoreProvider, {
       locked: false
     }, createElement(AppRouterContext, {
       value: router
@@ -142,7 +145,7 @@ async function showReports(context: TestContext, data: CashFlow = cashFlow) {
         configured: false
       },
       children: route
-    })));
+    }))));
   }
 
   const screen = render(createElement(OverviewView, props), {
@@ -152,6 +155,7 @@ async function showReports(context: TestContext, data: CashFlow = cashFlow) {
   return {
     ...screen,
     pushed,
+    requests,
     changeScope: (url: string) => {
       window.history.replaceState(null, "", url);
       screen.rerender(createElement(OverviewView, props));
@@ -316,9 +320,10 @@ test("the savings rate beside the chart covers exactly the visible months", asyn
   }).closest("section")!;
   const rate = within(chart).getByText("Savings rate").querySelector("strong");
 
+  // Every month is a scrollable column; the narrow chart shows the latest six.
   assert.equal(screen.getAllByRole("button", {
     name: /2026: income/
-  }).length, 6);
+  }).length, 8);
   // The six visible months give (6 × 100000) / (6 × 200000) = 50%; the whole trend would give 1400000 / 2200000 = 64%.
   assert.equal(rate?.textContent, "50%");
 });
@@ -461,4 +466,36 @@ test("the uncategorized row links to the uncategorized filter in the shown curre
   assert.equal(within(screen.panel()).queryByRole("link", {
     name: /more/
   }), null);
+});
+
+test("arrow, page and Home/End keys move between the chart's months without loading earlier ones", async context => {
+  const months = ["2026-01", "2026-02", "2026-03", "2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09"];
+  const screen = await showReports(context, {
+    ...cashFlow,
+    trend: months.map(month => ({
+      month,
+      income: 100000,
+      expenses: 50000,
+      incomeBreakdown: [],
+      expenseBreakdown: []
+    }))
+  });
+  const columns = screen.getAllByRole("button", {
+    name: /2026: income/
+  });
+  const focusedMonth = () => months[columns.indexOf(document.activeElement as HTMLElement)];
+
+  act(() => columns[8].focus());
+
+  const presses = ["ArrowLeft", "PageUp", "PageUp", "ArrowLeft", "End", "Home", "ArrowRight", "PageDown"].map(key => {
+    fireEvent.keyDown(document.activeElement!, {
+      key
+    });
+
+    return focusedMonth();
+  });
+
+  // A page moves by the six months a narrow chart shows, and stops at the first or last month.
+  assert.deepEqual(presses, ["2026-08", "2026-02", "2026-01", "2026-01", "2026-09", "2026-01", "2026-02", "2026-08"]);
+  assert.equal(screen.requests("reports/cash-flow/history").length, 0);
 });

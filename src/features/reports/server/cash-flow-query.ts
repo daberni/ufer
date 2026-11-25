@@ -1,9 +1,10 @@
 import { sql, type SQL } from "drizzle-orm";
-import { database } from "@/server/database/connection";
-import { currentMonth, periodToJson, trendMonths, type Period } from "@/lib/period";
+import { Temporal } from "temporal-polyfill";
+import { database, type Database } from "@/server/database/connection";
+import { currentMonth, monthPeriod, periodToJson, trendMonths, type Period } from "@/lib/period";
 import { HttpError } from "@/lib/errors";
-import type { AccountCashFlow, CategoryAmount } from "@/features/reports/types";
-import { dateRangeCondition, periodCondition } from "@/features/transactions/server/period-condition";
+import type { AccountCashFlow, CashFlowHistory, CategoryAmount } from "@/features/reports/types";
+import { beforeMonthCondition, monthsCondition, periodCondition } from "@/features/transactions/server/period-condition";
 
 type Row = Record<string, unknown>;
 
@@ -106,33 +107,41 @@ function categoryAmount(row: Row): CategoryAmount {
   };
 }
 
+/** Each of the given consecutive months' totals and category breakdowns, with the totals of the month before them, which only continue the chart's net area to its left edge. */
+async function readMonthFlows(db: Database, currency: string, months: Temporal.PlainYearMonth[]) {
+  const window = months.map(month => month.toString());
+  const leadMonth = months[0].subtract({
+    months: 1
+  });
+  const lastMonth = months[months.length - 1];
+  const inMonths = countedTransactions(currency, monthsCondition(months[0], lastMonth));
+  const totalsByMonth = countedTransactions(currency, monthsCondition(leadMonth, lastMonth));
+  const totalsQuery = db.all<Row>(sql`SELECT ${bookingMonth} AS month,${flowTotal("income")} AS income,${flowTotal("expenses")} AS expenses ${totalsByMonth} GROUP BY ${bookingMonth}`);
+  const incomeQuery = db.all<Row>(flowByCategory(inMonths, "income", true));
+  const expensesQuery = db.all<Row>(flowByCategory(inMonths, "expenses", true));
+  const [totals, income, expenses] = await Promise.all([totalsQuery, incomeQuery, expensesQuery]);
+
+  return {
+    leadIn: monthTotals(totals, leadMonth.toString()),
+    months: window.map(month => {
+      return {
+        ...monthTotals(totals, month),
+        incomeBreakdown: income.filter(item => item.month === month).map(categoryAmount),
+        expenseBreakdown: expenses.filter(item => item.month === month).map(categoryAmount)
+      };
+    })
+  };
+}
+
 /** Income, expenses, both by category, and the twelve-month trend with the totals of the month before it, including each month's income and spending by category, for one period and currency. */
 export async function readCashFlow(period: Period, currency: string) {
   const db = await database();
-  const trendRange = trendMonths(period, currentMonth());
-  const trendWindow = trendRange.map(month => month.toString());
-  const firstDay = {
-    day: 1
-  };
-  const trendStart = trendRange[0].toPlainDate(firstDay).toString();
-  // The month before the trend only continues the chart's net area to its left edge.
-  const leadMonth = trendRange[0].subtract({
-    months: 1
-  });
-  const leadStart = leadMonth.toPlainDate(firstDay).toString();
-  const trendEnd = trendRange[trendRange.length - 1].add({
-    months: 1
-  }).toPlainDate(firstDay).toString();
   const inPeriod = countedTransactions(currency, periodCondition(period));
-  const inTrend = countedTransactions(currency, dateRangeCondition(trendStart, trendEnd));
-  const totalsByMonth = countedTransactions(currency, dateRangeCondition(leadStart, trendEnd));
   const totalsQuery = db.all<Row>(sql`SELECT ${flowTotal("income")} AS income,${flowTotal("expenses")} AS expenses ${inPeriod}`);
   const incomeBreakdownQuery = db.all<Row>(flowByCategory(inPeriod, "income", false));
   const expenseBreakdownQuery = db.all<Row>(flowByCategory(inPeriod, "expenses", false));
-  const trendQuery = db.all<Row>(sql`SELECT ${bookingMonth} AS month,${flowTotal("income")} AS income,${flowTotal("expenses")} AS expenses ${totalsByMonth} GROUP BY ${bookingMonth}`);
-  const trendIncomeQuery = db.all<Row>(flowByCategory(inTrend, "income", true));
-  const trendExpensesQuery = db.all<Row>(flowByCategory(inTrend, "expenses", true));
-  const [totals, incomeBreakdown, expenseBreakdown, trend, trendIncome, trendExpenses] = await Promise.all([totalsQuery, incomeBreakdownQuery, expenseBreakdownQuery, trendQuery, trendIncomeQuery, trendExpensesQuery]);
+  const trendQuery = readMonthFlows(db, currency, trendMonths(period, currentMonth()));
+  const [totals, incomeBreakdown, expenseBreakdown, trend] = await Promise.all([totalsQuery, incomeBreakdownQuery, expenseBreakdownQuery, trendQuery]);
 
   return {
     period: periodToJson(period),
@@ -141,14 +150,44 @@ export async function readCashFlow(period: Period, currency: string) {
     expenses: Number(totals[0].expenses),
     incomeBreakdown: incomeBreakdown.map(categoryAmount),
     expenseBreakdown: expenseBreakdown.map(categoryAmount),
-    leadIn: monthTotals(trend, leadMonth.toString()),
-    trend: trendWindow.map(month => {
-      return {
-        ...monthTotals(trend, month),
-        incomeBreakdown: trendIncome.filter(item => item.month === month).map(categoryAmount),
-        expenseBreakdown: trendExpenses.filter(item => item.month === month).map(categoryAmount)
-      };
-    })
+    leadIn: trend.leadIn,
+    trend: trend.months
+  };
+}
+
+/** Whether any counted transaction in the currency lies before the given month. */
+async function hasCountedBefore(db: Database, currency: string, month: Temporal.PlainYearMonth) {
+  const rows = await db.all<Row>(sql`SELECT 1 AS found ${countedTransactions(currency, beforeMonthCondition(month))} LIMIT 1`);
+
+  return rows.length > 0;
+}
+
+/**
+ * A batch of trend months before the given month, oldest first, and whether counted transactions lie before the batch, so the chart keeps loading earlier months until there are none. Without any counted transaction before the given month the batch is empty.
+ */
+export async function readCashFlowHistory(currency: string, before: Temporal.PlainYearMonth): Promise<CashFlowHistory> {
+  const db = await database();
+  const lastMonth = before.subtract({
+    months: 1
+  });
+
+  if (!await hasCountedBefore(db, currency, before)) {
+    return {
+      currency,
+      leadIn: monthTotals([], lastMonth.toString()),
+      trend: [],
+      hasEarlier: false
+    };
+  }
+
+  const months = trendMonths(monthPeriod(lastMonth), currentMonth());
+  const [flows, hasEarlier] = await Promise.all([readMonthFlows(db, currency, months), hasCountedBefore(db, currency, months[0])]);
+
+  return {
+    currency,
+    leadIn: flows.leadIn,
+    trend: flows.months,
+    hasEarlier
   };
 }
 
