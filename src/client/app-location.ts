@@ -2,6 +2,7 @@ import { isTransactionType, type TransactionType } from "@/lib/transaction-types
 import { allMonthsPeriod, currentMonth, currentMonthPeriod, parsePeriod, serializePeriod, type Period } from "@/lib/period";
 import { parsePage } from "@/lib/pagination";
 import { parseCurrencyCode } from "@/lib/money";
+import type { BreakdownGrouping } from "@/features/reports/types";
 
 export type View = "overview" | "insights" | "transactions" | "import" | "accounts" | "account" | "brokerage" | "rules";
 
@@ -175,19 +176,20 @@ export function accountHref(id: string, scope: string) {
   return scope ? `${accountPath(id)}?${scope}` : accountPath(id);
 }
 
-/** The transactions behind one row of a breakdown by category: a category ID or "uncategorized", income or expenses, in the breakdown's period and currency. */
-export type CategoryTransactions = {
+/** The transactions behind one row of a breakdown: a category ID or "uncategorized", or an account ID, with income or expenses, in the breakdown's period and currency. */
+export type BreakdownTransactions = {
   period: Period;
   currency: string;
-  category: string;
+  grouping: BreakdownGrouping;
+  key: string;
   type: "income" | "expense";
 };
 
-export function categoryTransactionsHref(filter: CategoryTransactions) {
+export function breakdownTransactionsHref(filter: BreakdownTransactions) {
   return withQueryChanges(viewPaths.transactions, "", {
     period: filter.period,
     currency: filter.currency,
-    category: filter.category,
+    [filter.grouping]: filter.key,
     type: filter.type
   });
 }

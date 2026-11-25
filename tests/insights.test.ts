@@ -7,6 +7,7 @@ import { initializeDatabase } from "../src/server/database/migrations";
 import * as schema from "../src/server/database/schema";
 import type { Database } from "../src/server/database/connection";
 import { readInsights, readNetWorthChange } from "../src/features/insights/server/insights-query";
+import { compareCategories } from "../src/features/insights/category-comparison";
 import { changeInterval, comparisonSpans, parseRange, precedingRanges, serializeRange, shiftRange, spanToJson } from "../src/lib/period-range";
 
 // 2026-11-25 midday in the product time zone.
@@ -154,6 +155,8 @@ async function seed(context: TestContext) {
     booking("2026-11-10", -50000, "expense", "groceries"),
     booking("2026-11-11", -70000, "transfer")
   ]);
+
+  return db;
 }
 
 test("insights read one column per interval and compare a running month with the same days of the previous month", async context => {
@@ -198,4 +201,74 @@ test("net-worth change covers the compared spans and is unknown for a range that
 
   assert.equal(future.current, null);
   assert.equal(future.previous, null);
+});
+
+test("the account breakdown sums each account's counted lines and compares them with the previous span", async context => {
+  const db = await seed(context);
+
+  await db.insert(schema.accounts).values({
+    id: "card",
+    name: "Synthetic card",
+    kind: "credit_card",
+    provider: "manual"
+  });
+  await db.insert(schema.transactions).values([
+    // October's card spending lies within November's first 25 days; November has none, so the card drops to nothing.
+    {
+      id: "card-1",
+      account_id: "card",
+      provider_reference: "manual:card-1",
+      date: "2026-10-12",
+      amount_minor: -8000,
+      currency: "EUR",
+      counterparty: "Example card",
+      type: "expense",
+      category_id: "groceries"
+    },
+    // A transfer onto the card never counts.
+    {
+      id: "card-2",
+      account_id: "card",
+      provider_reference: "manual:card-2",
+      date: "2026-11-11",
+      amount_minor: 70000,
+      currency: "EUR",
+      counterparty: "Example card",
+      type: "transfer"
+    }
+  ]);
+
+  const insights = await readInsights(range("2026-11"), "EUR", now);
+  const october = insights.columns.at(-2);
+  const {
+    current,
+    previous
+  } = insights.comparison;
+  const rows = (items: {
+    categoryId: string | null;
+    name: string;
+    amount: number
+  }[] | undefined) => items?.map(row => [row.categoryId, row.name, row.amount]);
+
+  assert.deepEqual(rows(october?.expensesByAccount), [["checking", "Synthetic checking", 130000], ["card", "Synthetic card", 8000]]);
+  assert.deepEqual(rows(october?.incomeByAccount), [["checking", "Synthetic checking", 300000]]);
+  assert.deepEqual(rows(previous.expensesByAccount), [["checking", "Synthetic checking", 40000], ["card", "Synthetic card", 8000]]);
+  assert.deepEqual(rows(current.expensesByAccount), [["checking", "Synthetic checking", 50000]]);
+
+  // Account rows add up to the same counted totals as the category rows.
+  for (const flows of [...insights.columns, current, previous]) {
+    const sum = (items: {
+      amount: number
+    }[]) => items.reduce((total, item) => total + item.amount, 0);
+
+    assert.equal(sum(flows.expensesByAccount), flows.expenses);
+    assert.equal(sum(flows.incomeByAccount), flows.income);
+  }
+
+  const {
+    groups,
+    changes
+  } = compareCategories(current.expensesByAccount, previous.expensesByAccount);
+
+  assert.deepEqual(groups.map(group => [group.key, group.amount, changes?.get(group.key)]), [["checking", 50000, 10000], ["card", 0, -8000]]);
 });

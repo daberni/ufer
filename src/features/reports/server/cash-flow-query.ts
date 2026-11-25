@@ -3,7 +3,7 @@ import { Temporal } from "temporal-polyfill";
 import { database, type Database } from "@/server/database/connection";
 import { currentMonth, monthPeriod, periodToJson, trendMonths, type Period } from "@/lib/period";
 import { HttpError } from "@/lib/errors";
-import type { AccountCashFlow, CashFlowHistory, CategoryAmount } from "@/features/reports/types";
+import type { AccountCashFlow, BreakdownGrouping, CashFlowHistory, CategoryAmount } from "@/features/reports/types";
 import { beforeMonthCondition, dateRangeCondition, periodCondition } from "@/features/transactions/server/period-condition";
 
 type Row = Record<string, unknown>;
@@ -67,19 +67,41 @@ export function flowTotal(flow: Flow) {
   return sql`COALESCE(SUM(CASE WHEN ${flows[flow].condition} THEN ${flows[flow].amount} ELSE 0 END),0)`;
 }
 
+/** How a breakdown names and colors each group of a flow's counted lines. */
+const groupings: Record<BreakdownGrouping, {
+  id: SQL;
+  name: SQL;
+  color: SQL;
+  icon: SQL;
+}> = {
+  category: {
+    id: sql.raw("t.category_id"),
+    name: sql.raw("COALESCE(c.name,'Uncategorized')"),
+    color: sql.raw("COALESCE(c.color,'#a2aaa5')"),
+    icon: sql.raw("c.icon")
+  },
+  account: {
+    id: sql.raw("t.account_id"),
+    name: sql.raw("a.name"),
+    color: sql.raw("'#a2aaa5'"),
+    icon: sql.raw("NULL")
+  }
+};
+
 /**
- * Amounts per category of one flow among counted transactions, largest first, with uncategorized transactions as one row. With a bucket expression (such as the booking month), rows are also split by bucket, returned as `month`.
- * A category with a negative net amount, such as an income correction or refunds exceeding spending, keeps a signed row, so the rows always sum to the flow's total; only categories netting to zero are left out.
+ * Amounts per category or account of one flow among counted transactions, largest first, with uncategorized transactions as one category row. With a bucket expression (such as the booking month), rows are also split by bucket, returned as `month`.
+ * A group with a negative net amount, such as an income correction or refunds exceeding spending, keeps a signed row, so the rows always sum to the flow's total; only groups netting to zero are left out.
  */
-export function flowByCategory(source: SQL, flow: Flow, bucket: SQL | null) {
+export function flowByGroup(source: SQL, flow: Flow, bucket: SQL | null, grouping: BreakdownGrouping) {
+  const group = groupings[grouping];
   const month = bucket ?? sql.raw("NULL");
-  const grouping = bucket ? sql`${bucket},t.category_id` : sql.raw("t.category_id");
+  const grouped = bucket ? sql`${bucket},${group.id}` : group.id;
 
   return sql`
-    SELECT ${month} AS month,t.category_id AS category_id,COALESCE(c.name,'Uncategorized') AS name,COALESCE(c.color,'#a2aaa5') AS color,c.icon AS icon,SUM(${flows[flow].amount}) AS amount
+    SELECT ${month} AS month,${group.id} AS category_id,${group.name} AS name,${group.color} AS color,${group.icon} AS icon,SUM(${flows[flow].amount}) AS amount
     ${source}
     AND ${flows[flow].condition}
-    GROUP BY ${grouping}
+    GROUP BY ${grouped}
     HAVING amount<>0
     ORDER BY month,amount DESC,name
   `;
@@ -125,29 +147,59 @@ function spanIndex(spans: DaySpan[]) {
   return sql`(CASE ${sql.join(cases, sql.raw(" "))} END)`;
 }
 
-/** Income, expenses and both by category for each of the given consecutive spans, such as months, quarters or custom ranges, read through the counted lines in one pass per figure. */
-export async function readSpanFlows(db: Database, currency: string, spans: DaySpan[]) {
+/** The counted lines of consecutive spans and the expression that tells which span a line falls in. */
+function spanSource(currency: string, spans: DaySpan[]) {
   const outer = spanBounds({
     start: spans[0].start,
     end: spans[spans.length - 1].end
   });
-  const source = countedTransactions(currency, dateRangeCondition(outer.from, outer.until));
-  const bucket = spanIndex(spans);
-  const [totals, income, expenses] = await Promise.all([
-    db.all<Row>(sql`SELECT ${bucket} AS month,${flowTotal("income")} AS income,${flowTotal("expenses")} AS expenses ${source} GROUP BY ${bucket}`),
-    db.all<Row>(flowByCategory(source, "income", bucket)),
-    db.all<Row>(flowByCategory(source, "expenses", bucket))
+
+  return {
+    source: countedTransactions(currency, dateRangeCondition(outer.from, outer.until)),
+    bucket: spanIndex(spans)
+  };
+}
+
+/** Income and expenses by category or account for each of the given consecutive spans; each span's rows sum to its totals. */
+export async function readSpanBreakdowns(db: Database, currency: string, spans: DaySpan[], grouping: BreakdownGrouping) {
+  const {
+    source,
+    bucket
+  } = spanSource(currency, spans);
+  const [income, expenses] = await Promise.all([
+    db.all<Row>(flowByGroup(source, "income", bucket, grouping)),
+    db.all<Row>(flowByGroup(source, "expenses", bucket, grouping))
   ]);
 
   return spans.map((_, index) => {
     const ofSpan = (row: Row) => Number(row.month) === index;
-    const total = totals.find(ofSpan);
+
+    return {
+      income: income.filter(ofSpan).map(categoryAmount),
+      expenses: expenses.filter(ofSpan).map(categoryAmount)
+    };
+  });
+}
+
+/** Income, expenses and both by category for each of the given consecutive spans, such as months, quarters or custom ranges, read through the counted lines in one pass per figure. */
+export async function readSpanFlows(db: Database, currency: string, spans: DaySpan[]) {
+  const {
+    source,
+    bucket
+  } = spanSource(currency, spans);
+  const [totals, breakdowns] = await Promise.all([
+    db.all<Row>(sql`SELECT ${bucket} AS month,${flowTotal("income")} AS income,${flowTotal("expenses")} AS expenses ${source} GROUP BY ${bucket}`),
+    readSpanBreakdowns(db, currency, spans, "category")
+  ]);
+
+  return spans.map((_, index) => {
+    const total = totals.find(row => Number(row.month) === index);
 
     return {
       income: Number(total?.income ?? 0),
       expenses: Number(total?.expenses ?? 0),
-      incomeBreakdown: income.filter(ofSpan).map(categoryAmount),
-      expenseBreakdown: expenses.filter(ofSpan).map(categoryAmount)
+      incomeBreakdown: breakdowns[index].income,
+      expenseBreakdown: breakdowns[index].expenses
     };
   });
 }
@@ -188,8 +240,8 @@ export async function readCashFlow(period: Period, currency: string) {
   const db = await database();
   const inPeriod = countedTransactions(currency, periodCondition(period));
   const totalsQuery = db.all<Row>(sql`SELECT ${flowTotal("income")} AS income,${flowTotal("expenses")} AS expenses ${inPeriod}`);
-  const incomeBreakdownQuery = db.all<Row>(flowByCategory(inPeriod, "income", null));
-  const expenseBreakdownQuery = db.all<Row>(flowByCategory(inPeriod, "expenses", null));
+  const incomeBreakdownQuery = db.all<Row>(flowByGroup(inPeriod, "income", null, "category"));
+  const expenseBreakdownQuery = db.all<Row>(flowByGroup(inPeriod, "expenses", null, "category"));
   const trendQuery = readMonthFlows(db, currency, trendMonths(period, currentMonth()));
   const [totals, incomeBreakdown, expenseBreakdown, trend] = await Promise.all([totalsQuery, incomeBreakdownQuery, expenseBreakdownQuery, trendQuery]);
 

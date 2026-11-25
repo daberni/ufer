@@ -1,5 +1,8 @@
 import type { PeriodJson } from "@/lib/period";
 
+/** What a breakdown groups income and expenses by. */
+export type BreakdownGrouping = "category" | "account";
+
 /** Income or spending in one category; `categoryId` is null for uncategorized transactions. */
 export type CategoryAmount = {
   categoryId: string | null;

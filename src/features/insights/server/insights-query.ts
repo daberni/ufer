@@ -3,17 +3,20 @@ import { database } from "@/server/database/connection";
 import { today } from "@/lib/time";
 import { comparisonSpans, precedingRanges, serializeRange, spanToJson, type PeriodRange } from "@/lib/period-range";
 import { trendLength } from "@/lib/period";
-import { readSpanFlows, type DaySpan } from "@/features/reports/server/cash-flow-query";
+import { readSpanBreakdowns, readSpanFlows, type DaySpan } from "@/features/reports/server/cash-flow-query";
 import { readNetWorthOn } from "@/features/reports/server/net-worth-history-query";
 import type { Insights, NetWorthChangeComparison, SpanFlows } from "@/features/insights/types";
 
-/** Income, expenses and both by category for each span, with the span's dates. */
+/** Income, expenses and both by category and by account for each span, with the span's dates. */
 async function readFlows(currency: string, spans: DaySpan[]): Promise<SpanFlows[]> {
-  const flows = await readSpanFlows(await database(), currency, spans);
+  const db = await database();
+  const [flows, byAccount] = await Promise.all([readSpanFlows(db, currency, spans), readSpanBreakdowns(db, currency, spans, "account")]);
 
   return flows.map((flow, index) => ({
     ...spanToJson(spans[index]),
-    ...flow
+    ...flow,
+    incomeByAccount: byAccount[index].income,
+    expensesByAccount: byAccount[index].expenses
   }));
 }
 

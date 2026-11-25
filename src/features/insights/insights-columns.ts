@@ -2,6 +2,7 @@ import { trendLength } from "@/lib/period";
 import { parseRange, precedingRanges, type PeriodRange } from "@/lib/period-range";
 import { compareCategories } from "@/features/insights/category-comparison";
 import type { Insights, SpanFlows } from "@/features/insights/types";
+import type { BreakdownGrouping, CategoryAmount } from "@/features/reports/types";
 
 /** A chart column: one interval's range with its flows. */
 export type InsightsColumn = SpanFlows & {
@@ -38,14 +39,34 @@ export function previousFlows(data: Insights, columns: InsightsColumn[], index: 
   return columns[index - 1] ?? null;
 }
 
-/** Category rows each breakdown column reserves: the most any column's comparison lists, so the panel keeps its height between columns. */
-export function reservedComparisonRows(data: Insights, columns: InsightsColumn[]) {
+/** A span's income and expense rows by category or by account. */
+export function breakdownOf(flows: SpanFlows, grouping: BreakdownGrouping): {
+  income: CategoryAmount[];
+  expenses: CategoryAmount[];
+} {
+  if (grouping === "account") {
+    return {
+      income: flows.incomeByAccount,
+      expenses: flows.expensesByAccount
+    };
+  }
+
+  return {
+    income: flows.incomeBreakdown,
+    expenses: flows.expenseBreakdown
+  };
+}
+
+/** Rows each breakdown column reserves: the most any column's comparison lists, so the panel keeps its height between columns. */
+export function reservedComparisonRows(data: Insights, columns: InsightsColumn[], grouping: BreakdownGrouping) {
   const counts = columns.map((column, index) => {
-    const previous = previousFlows(data, columns, index);
+    const current = breakdownOf(column, grouping);
+    const previousFlow = previousFlows(data, columns, index);
+    const previous = previousFlow ? breakdownOf(previousFlow, grouping) : null;
 
     return {
-      income: compareCategories(column.incomeBreakdown, previous?.incomeBreakdown ?? null).groups.length,
-      expenses: compareCategories(column.expenseBreakdown, previous?.expenseBreakdown ?? null).groups.length
+      income: compareCategories(current.income, previous?.income ?? null).groups.length,
+      expenses: compareCategories(current.expenses, previous?.expenses ?? null).groups.length
     };
   });
 
