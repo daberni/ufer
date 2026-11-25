@@ -36,6 +36,7 @@ Between the migration and the promotion, cold starts of the previous deployment 
 - **Code-only release:** use Vercel's instant rollback to the previous production deployment. Re-running an older tag's release fails by design; to ship older code as the current release, tag it with a new, higher version.
 - **Release with a changeset:** a code rollback is not possible after the migration, because the previous build refuses the newer history. Fix forward with a new release, or restore: create a new database from the pre-migration backup (or Turso's point-in-time restore within the plan's window), verify it as in [backup and restore](backup-and-restore.md), switch Vercel's production database variables and roll back to the previous deployment with Vercel's instant rollback. Data written after the migration is lost unless replayed.
 - Never edit applied changesets or the migration history to make a failed release pass.
+- The pipelines only upgrade databases that already have a migration history (`managed`); they stop on a legacy or empty database, whose adoption or initialization stays a manual step under [database migrations](database-migrations.md).
 
 ## One-time setup
 

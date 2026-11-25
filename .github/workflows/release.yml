@@ -105,7 +105,13 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DATABASE_AUTH_TOKEN: ${{ secrets.DATABASE_AUTH_TOKEN }}
         run: |
-          changesets=$(npm run --silent db:status | jq -c '.pendingChangesets')
+          report=$(npm run --silent db:status)
+          # The pipeline upgrades managed databases only; adopting a legacy or initializing an empty one stays a manual step.
+          if ! jq -e '.mode == "managed"' <<< "$report" > /dev/null; then
+            echo "::error::Expected a managed database with migration history, found mode $(jq -r '.mode' <<< "$report"). See docs/database-migrations.md."
+            exit 1
+          fi
+          changesets=$(jq -c '.pendingChangesets' <<< "$report")
           echo "changesets=$changesets" >> "$GITHUB_OUTPUT"
           echo "pending=$(jq 'length > 0' <<< "$changesets")" >> "$GITHUB_OUTPUT"
           echo "Pending changesets: $(jq -r 'if length == 0 then "none" else join(", ") end' <<< "$changesets")" >> "$GITHUB_STEP_SUMMARY"
