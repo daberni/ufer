@@ -1,9 +1,13 @@
+import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
+import { setTimeout as sleep } from "node:timers/promises";
+import { Temporal } from "temporal-polyfill";
 import { resolve } from "node:path";
 import { drizzle } from "drizzle-orm/libsql";
 import { migrate } from "drizzle-orm/libsql/migrator";
 import { readMigrationFiles } from "drizzle-orm/migrator";
 import type { Client } from "@libsql/client";
+import { timestamp } from "@/lib/time";
 
 const migrationDirectory = resolve(process.cwd(), "drizzle/sqlite");
 const historyTable = "__drizzle_migrations";
@@ -132,6 +136,61 @@ export async function migrateDatabase(client: Client, directory = migrationDirec
   });
 
   return migrationStatus(client, directory);
+}
+
+type LeaseWait = {
+  waitMinutes?: number;
+  pollMilliseconds?: number;
+};
+
+// Longer than the application's lease, because a migration must not lose the lease halfway.
+const migrationLeaseMinutes = 30;
+
+/** Takes the named job lease on the maintenance connection; the application's lease helpers need a fully migrated database. */
+async function acquireMaintenanceLease(client: Client, name: string, owner: string) {
+  const now = Temporal.Now.instant();
+  const result = await client.execute({
+    sql: "INSERT INTO leases (name, owner, expires_at) VALUES (?, ?, ?) ON CONFLICT(name) DO UPDATE SET owner = excluded.owner, expires_at = excluded.expires_at WHERE leases.expires_at < ? RETURNING owner",
+    args: [name, owner, timestamp(now.add({
+      minutes: migrationLeaseMinutes
+    })), timestamp(now)]
+  });
+
+  return result.rows.length === 1;
+}
+
+/**
+ * Applies pending changesets while holding the named job lease, so syncs, imports and conflicting writes cannot run in between.
+ * Waits for a running job to finish and gives up after the wait time. An empty database has no lease table and no jobs yet.
+ */
+export async function migrateDatabaseUnderLease(client: Client, leaseName: string, wait: LeaseWait = {}, directory = migrationDirectory) {
+  const status = await migrationStatus(client, directory);
+
+  if (status.mode !== "managed") {
+    return migrateDatabase(client, directory);
+  }
+
+  const owner = `migration-${randomUUID()}`;
+  const deadline = Temporal.Now.instant().add({
+    minutes: wait.waitMinutes ?? 10
+  });
+
+  while (!(await acquireMaintenanceLease(client, leaseName, owner))) {
+    if (Temporal.Instant.compare(Temporal.Now.instant(), deadline) >= 0) {
+      throw new Error("The job lease stayed busy because a sync or import is running. Retry the migration once it has finished.");
+    }
+
+    await sleep(wait.pollMilliseconds ?? 15_000);
+  }
+
+  try {
+    return await migrateDatabase(client, directory);
+  } finally {
+    await client.execute({
+      sql: "DELETE FROM leases WHERE name = ? AND owner = ?",
+      args: [leaseName, owner]
+    });
+  }
 }
 
 export async function initializeDatabase(client: Client, directory = migrationDirectory) {

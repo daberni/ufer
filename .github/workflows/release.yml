@@ -213,6 +213,8 @@ jobs:
           rehearsal="$RUNNER_TEMP/rehearsal"
           mkdir -m 700 "$rehearsal"
           npm run --silent db:export -- --file="$rehearsal/copy.sqlite"
+          # A lease copied from a running production sync would block the rehearsal; the copy runs no jobs.
+          node -e 'const { DatabaseSync } = require("node:sqlite"); new DatabaseSync(process.argv[1]).exec("DELETE FROM leases");' "$rehearsal/copy.sqlite"
           DATABASE_URL="file:$rehearsal/copy.sqlite" DATABASE_AUTH_TOKEN="" npm run --silent db:migrate > /dev/null
           if ! npm run --silent db:verify-backup -- --file="$rehearsal/copy.sqlite" > /dev/null; then
             echo "::error::The migrated rehearsal copy failed verification."
@@ -229,6 +231,7 @@ jobs:
         if: always()
         run: rm -rf "$RUNNER_TEMP/rehearsal"
 
+      # db:migrate holds the sync lease (waiting up to 10 minutes for a running sync or import), so no job writes during the migration.
       # From here until the promotion, cold starts of the previous deployment refuse the newer migration history; keep this window short.
       - name: Migrate production
         run: |
