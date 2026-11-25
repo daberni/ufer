@@ -49,24 +49,38 @@ jobs:
           echo "$message" >> "$GITHUB_STEP_SUMMARY"
           echo "::warning::$message"
 
-      - uses: actions/checkout@v7
+      # Concurrency does not guarantee order: a run whose commit is no longer the head of main skips instead of touching staging.
+      - name: Check that this commit is still the head of main
+        id: head
         if: steps.config.outputs.configured == 'true'
+        run: |
+          current=$(git ls-remote "https://github.com/$GITHUB_REPOSITORY" refs/heads/main | cut -f 1)
+          if [ "$current" = "$GITHUB_SHA" ]; then
+            echo "current=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "current=false" >> "$GITHUB_OUTPUT"
+          echo "::notice::main moved on to $current; that run updates staging."
+          echo "Skipped: this commit is no longer the head of main." >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/checkout@v7
+        if: steps.config.outputs.configured == 'true' && steps.head.outputs.current == 'true'
         with:
           persist-credentials: false
 
       - uses: actions/setup-node@v7
-        if: steps.config.outputs.configured == 'true'
+        if: steps.config.outputs.configured == 'true' && steps.head.outputs.current == 'true'
         with:
           node-version-file: .nvmrc
           cache: npm
 
       - name: Install dependencies
-        if: steps.config.outputs.configured == 'true'
+        if: steps.config.outputs.configured == 'true' && steps.head.outputs.current == 'true'
         run: npm ci --no-audit --no-fund
 
       - name: List pending changesets
         id: plan
-        if: steps.config.outputs.configured == 'true'
+        if: steps.config.outputs.configured == 'true' && steps.head.outputs.current == 'true'
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DATABASE_AUTH_TOKEN: ${{ secrets.DATABASE_AUTH_TOKEN }}
@@ -76,7 +90,7 @@ jobs:
       # The build uses Vercel's Preview environment (preview database, sandbox bank); APP_URL makes the alias its trusted origin.
       - name: Deploy the preview build
         id: deploy
-        if: steps.config.outputs.configured == 'true'
+        if: steps.config.outputs.configured == 'true' && steps.head.outputs.current == 'true'
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
@@ -84,15 +98,15 @@ jobs:
           echo "url=$url" >> "$GITHUB_OUTPUT"
 
       - name: Migrate the preview database
-        if: steps.config.outputs.configured == 'true' && steps.plan.outputs.pending == 'true'
+        if: steps.config.outputs.configured == 'true' && steps.head.outputs.current == 'true' && steps.plan.outputs.pending == 'true'
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DATABASE_AUTH_TOKEN: ${{ secrets.DATABASE_AUTH_TOKEN }}
         run: npm run --silent db:migrate > /dev/null
 
-      # Concurrency does not guarantee order: an older run that starts after a newer one must not move the alias back.
+      # Re-checked here: main may have moved on while this run was building or migrating.
       - name: Point the staging alias at it
-        if: steps.config.outputs.configured == 'true'
+        if: steps.config.outputs.configured == 'true' && steps.head.outputs.current == 'true'
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           DEPLOYMENT_URL: ${{ steps.deploy.outputs.url }}
