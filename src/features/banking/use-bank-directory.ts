@@ -4,7 +4,7 @@ import { useReducer } from "react";
 import { toFailure } from "@/client/api";
 import type { Connection } from "@/features/banking/types";
 import { changeBankSelection, chosenBankName, defaultBankCountry, type BankSelection } from "./bank-selection";
-import { useBanks, useConnections } from "./queries";
+import { useBankCountries, useBanks, useConnections } from "./queries";
 
 /** The country and bank chosen in the connection dialog; reauthorizing starts with the connection's bank. */
 export function useBankDirectory(reauthorized: Connection | null) {
@@ -25,17 +25,26 @@ export function useBankDirectory(reauthorized: Connection | null) {
     };
   });
 
-  const country = selection.country ?? defaultBankCountry(connections.data ?? [], navigator.languages);
+  const countries = useBankCountries();
+  const offered = countries.data ?? [];
+  const country = selection.country ?? defaultBankCountry(connections.data ?? [], navigator.languages, offered);
   const directory = useBanks(country);
   const banks = directory.data ?? [];
+  const failed = [countries, directory].find(query => query.isError);
+  // A reauthorized connection keeps its country even when the provider no longer lists it, so the dialog can say that no bank is available.
+  const choices = country && !offered.includes(country) ? [...offered, country] : offered;
 
   return {
     country,
+    countries: choices,
     query: selection.query,
     banks,
     bankName: chosenBankName(selection, banks),
-    loading: directory.isPending,
-    error: directory.isError ? toFailure(directory.error) : null,
+    loading: countries.isPending || (country !== null && directory.isPending),
+    error: failed ? toFailure(failed.error) : null,
+    retry: () => {
+      void failed?.refetch();
+    },
     setCountry: (country: string) => dispatch({
       type: "country",
       country
