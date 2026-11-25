@@ -4,6 +4,31 @@ All notable changes to Ufer are documented here. Versions follow [Semantic Versi
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-25
+
+### Brokerage
+
+- Brokerage accounts with securities, holdings and trades; each trade books its cash leg on a settlement account, and trades can be recorded from existing bookings.
+- Daily security prices from EODHD, including stock splits; brokerage accounts count towards balances and net worth.
+- A Brokerage section with time-weighted performance per account and combined, value and performance figures in one layout, and the day's change when selecting a chart point.
+- Performance covers only the periods in which securities were held, and the combined history keeps accounts that have since been emptied.
+- Security transfers between brokerage accounts keep their purchase history.
+- Losses are shown in red, and brokerage and net-worth pages load with stable skeletons.
+
+### Imports
+
+- CAMT.053, OFX and QIF statement files can be imported; the CSV import is now called File import.
+
+### Interface
+
+- English and German interface languages with a per-browser switch.
+- Labels are written in sentence case.
+
+### Setup and operations
+
+- Encrypted daily and monthly database backups with a freshness check.
+- Every change on `main` deploys to staging; production deploys from version tags, and database migrations need an approval with a backup and a rehearsal beforehand.
+
 ## [0.3.0] - 2026-11-22
 
 ### Accounts
@@ -108,7 +133,8 @@ First release of Ufer, a self-hosted personal finance overview for one household
 - Deployment on Vercel with a Turso (libSQL) database, versioned SQL migrations, Docker and Compose for self-hosting.
 - Preview deployments for pull requests with a shared synthetic demo dataset (`npm run demo:seed`) and a sandbox bank connection.
 
-[Unreleased]: https://github.com/daberni/ufer/compare/0.3.0...main
+[Unreleased]: https://github.com/daberni/ufer/compare/0.4.0...main
+[0.4.0]: https://github.com/daberni/ufer/releases/tag/0.4.0
 [0.3.0]: https://github.com/daberni/ufer/releases/tag/0.3.0
 [0.2.0]: https://github.com/daberni/ufer/releases/tag/0.2.0
 [0.1.0]: https://github.com/daberni/ufer/releases/tag/0.1.0
