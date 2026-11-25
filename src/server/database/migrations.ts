@@ -200,10 +200,19 @@ export async function migrateDatabaseUnderLease(client: Client, leaseName: strin
     return await migrateDatabase(client, directory);
   } finally {
     clearInterval(renewal);
+    await releaseMaintenanceLease(client, leaseName, owner);
+  }
+}
+
+/** Best effort: a failed release must not turn a committed migration into a failure; the lease expires on its own. */
+async function releaseMaintenanceLease(client: Client, name: string, owner: string) {
+  try {
     await client.execute({
       sql: "DELETE FROM leases WHERE name = ? AND owner = ?",
-      args: [leaseName, owner]
+      args: [name, owner]
     });
+  } catch {
+    console.warn(`Could not release the ${name} lease; it expires within ${migrationLeaseMinutes} minutes.`);
   }
 }
 

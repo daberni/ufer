@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test, type TestContext } from "node:test";
 import { Temporal } from "temporal-polyfill";
-import { createClient } from "@libsql/client";
+import { createClient, type InStatement } from "@libsql/client";
 import { initializeDatabase, migrateDatabaseUnderLease, migrationReport } from "../src/server/database/migrations";
 import { timestamp } from "../src/lib/time";
 import { olderRelease } from "./fixtures/older-release";
@@ -90,4 +90,45 @@ test("a migration takes an expired or free sync lease, applies the changesets an
 
   assert.equal(status.pending, 0);
   assert.equal((await client.execute("SELECT COUNT(*) AS count FROM leases WHERE name = 'sync'")).rows[0]?.count, 0);
+});
+
+test("a migration that committed still succeeds when releasing the lease fails", async context => {
+  const client = await olderDatabase(context);
+  const failingRelease = new Proxy(client, {
+    get(target, property) {
+      if (property === "execute") {
+        return async (statement: InStatement) => {
+          const sql = typeof statement === "string" ? statement : statement.sql;
+
+          if (sql.startsWith("DELETE FROM leases")) {
+            throw new Error("connection lost");
+          }
+
+          return target.execute(statement);
+        };
+      }
+
+      const value = Reflect.get(target, property, target);
+
+      return typeof value === "function" ? value.bind(target) : value;
+    }
+  });
+  const warnings: unknown[] = [];
+  const warn = console.warn;
+
+  console.warn = (...args: unknown[]) => {
+    warnings.push(args);
+  };
+
+  context.after(() => {
+    console.warn = warn;
+  });
+
+  const status = await migrateDatabaseUnderLease(failingRelease, "sync", {
+    waitMinutes: 0,
+    pollMilliseconds: 1
+  });
+
+  assert.equal(status.pending, 0);
+  assert.equal(warnings.length, 1);
 });
