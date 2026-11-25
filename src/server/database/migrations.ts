@@ -161,12 +161,12 @@ async function acquireMaintenanceLease(client: Client, name: string, owner: stri
 
 /**
  * Applies pending changesets while holding the named job lease, so syncs, imports and conflicting writes cannot run in between.
- * Waits for a running job to finish and gives up after the wait time. An empty database has no lease table and no jobs yet.
+ * Waits for a running job to finish and gives up after the wait time. Only an empty database skips the lease: it has no lease table and no jobs yet, while a legacy database may still be serving syncs.
  */
 export async function migrateDatabaseUnderLease(client: Client, leaseName: string, wait: LeaseWait = {}, directory = migrationDirectory) {
   const status = await migrationStatus(client, directory);
 
-  if (status.mode !== "managed") {
+  if (status.mode === "empty") {
     return migrateDatabase(client, directory);
   }
 
