@@ -115,7 +115,8 @@ jobs:
           DATABASE_AUTH_TOKEN: ${{ secrets.DATABASE_AUTH_TOKEN }}
         run: npm run --silent db:migrate > /dev/null
 
-      # Unlike deploy, alias and promote do not read the team from VERCEL_ORG_ID; without --scope they look up a personal account.
+      # alias and promote look up the token's user, so the staging and release environments hold a Full Account VERCEL_TOKEN;
+      # the repository-level token used by pull-request previews stays scoped to the team.
       - name: Point the staging alias at it
         if: steps.config.outputs.configured == 'true' && steps.head.outputs.current == 'true'
         env:
