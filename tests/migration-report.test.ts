@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { test, type TestContext } from "node:test";
 import { Temporal } from "temporal-polyfill";
 import { createClient, type InStatement } from "@libsql/client";
-import { initializeDatabase, migrateDatabaseUnderLease, migrationReport } from "../src/server/database/migrations";
+import { initializeDatabase, migrateDatabaseUnderLeases, migrationReport } from "../src/server/database/migrations";
 import { timestamp } from "../src/lib/time";
 import { olderRelease } from "./fixtures/older-release";
 
@@ -65,10 +65,10 @@ test("a migration waits for the sync lease and gives up without changing anythin
     }))]
   });
 
-  await assert.rejects(migrateDatabaseUnderLease(client, "sync", {
+  await assert.rejects(migrateDatabaseUnderLeases(client, ["sync"], {
     waitMinutes: 0,
     pollMilliseconds: 1
-  }), /lease stayed busy/);
+  }), /job lease stayed busy/);
   assert.equal((await migrationReport(client)).applied, 20);
   assert.equal((await client.execute("SELECT owner FROM leases WHERE name = 'sync'")).rows[0]?.owner, "running-sync");
 });
@@ -83,7 +83,7 @@ test("a migration takes an expired or free sync lease, applies the changesets an
     }))]
   });
 
-  const status = await migrateDatabaseUnderLease(client, "sync", {
+  const status = await migrateDatabaseUnderLeases(client, ["sync"], {
     waitMinutes: 0,
     pollMilliseconds: 1
   });
@@ -124,11 +124,29 @@ test("a migration that committed still succeeds when releasing the lease fails",
     console.warn = warn;
   });
 
-  const status = await migrateDatabaseUnderLease(failingRelease, "sync", {
+  const status = await migrateDatabaseUnderLeases(failingRelease, ["sync"], {
     waitMinutes: 0,
     pollMilliseconds: 1
   });
 
   assert.equal(status.pending, 0);
   assert.equal(warnings.length, 1);
+});
+
+test("a migration also waits for the market-data lease and releases the leases it took when it gives up", async context => {
+  const client = await olderDatabase(context);
+
+  await client.execute({
+    sql: "INSERT INTO leases (name, owner, expires_at) VALUES ('market-data', 'running-price-update', ?)",
+    args: [timestamp(Temporal.Now.instant().add({
+      minutes: 5
+    }))]
+  });
+
+  await assert.rejects(migrateDatabaseUnderLeases(client, ["sync", "market-data"], {
+    waitMinutes: 0,
+    pollMilliseconds: 1
+  }), /market-data job lease stayed busy/);
+  assert.equal((await migrationReport(client)).applied, 20);
+  assert.deepEqual((await client.execute("SELECT name, owner FROM leases ORDER BY name")).rows.map(row => `${row.name}:${row.owner}`), ["market-data:running-price-update"]);
 });

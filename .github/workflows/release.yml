@@ -256,7 +256,7 @@ jobs:
         if: always()
         run: rm -rf "$RUNNER_TEMP/rehearsal"
 
-      # db:migrate holds the sync lease (waiting up to 10 minutes for a running sync or import), so no job writes during the migration.
+      # db:migrate holds the sync and market-data leases (waiting up to 10 minutes for running jobs), so no job writes during the migration.
       # From here until the promotion, cold starts of the previous deployment refuse the newer migration history; keep this window short.
       - name: Migrate production
         run: |

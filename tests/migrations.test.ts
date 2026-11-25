@@ -6,7 +6,7 @@ import { test } from "node:test";
 import { createClient, type Client } from "@libsql/client";
 import { drizzle } from "drizzle-orm/libsql";
 import { Temporal } from "temporal-polyfill";
-import { initializeDatabase, migrateDatabase, migrateDatabaseUnderLease, migrationStatus } from "../src/server/database/migrations";
+import { initializeDatabase, migrateDatabase, migrateDatabaseUnderLeases, migrationStatus } from "../src/server/database/migrations";
 import { timestamp } from "../src/lib/time";
 import * as schema from "../src/server/database/schema";
 import type { Database } from "../src/server/database/connection";
@@ -1397,10 +1397,10 @@ test("adopting a legacy database waits for the sync lease like any other migrati
     }))]
   });
 
-  await assert.rejects(migrateDatabaseUnderLease(client, "sync", {
+  await assert.rejects(migrateDatabaseUnderLeases(client, ["sync"], {
     waitMinutes: 0,
     pollMilliseconds: 1
-  }), /lease stayed busy/);
+  }), /job lease stayed busy/);
   assert.equal((await migrationStatus(client)).mode, "legacy");
   client.close();
 });

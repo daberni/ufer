@@ -164,10 +164,11 @@ async function acquireMaintenanceLease(client: Client, name: string, owner: stri
 }
 
 /**
- * Applies pending changesets while holding the named job lease, so syncs, imports and conflicting writes cannot run in between.
- * Waits for a running job to finish and gives up after the wait time. Only an empty database skips the lease: it has no lease table and no jobs yet, while a legacy database may still be serving syncs.
+ * Applies pending changesets while holding every named job lease, so syncs, price updates, imports and conflicting writes cannot run in between.
+ * Waits for running jobs to finish and gives up after the wait time, releasing what it took. Only an empty database skips the leases: it has no
+ * lease table and no jobs yet, while a legacy database may still be serving syncs.
  */
-export async function migrateDatabaseUnderLease(client: Client, leaseName: string, wait: LeaseWait = {}, directory = migrationDirectory) {
+export async function migrateDatabaseUnderLeases(client: Client, leaseNames: string[], wait: LeaseWait = {}, directory = migrationDirectory) {
   const status = await migrationStatus(client, directory);
 
   if (status.mode === "empty") {
@@ -178,19 +179,26 @@ export async function migrateDatabaseUnderLease(client: Client, leaseName: strin
   const deadline = Temporal.Now.instant().add({
     minutes: wait.waitMinutes ?? 10
   });
-
-  while (!(await acquireMaintenanceLease(client, leaseName, owner))) {
-    if (Temporal.Instant.compare(Temporal.Now.instant(), deadline) >= 0) {
-      throw new Error("The job lease stayed busy because a sync or import is running. Retry the migration once it has finished.");
-    }
-
-    await sleep(wait.pollMilliseconds ?? 15_000);
-  }
+  const held: string[] = [];
 
   try {
+    for (const name of leaseNames) {
+      while (!(await acquireMaintenanceLease(client, name, owner))) {
+        if (Temporal.Instant.compare(Temporal.Now.instant(), deadline) >= 0) {
+          throw new Error(`The ${name} job lease stayed busy because a job is running. Retry the migration once it has finished.`);
+        }
+
+        await sleep(wait.pollMilliseconds ?? 15_000);
+      }
+
+      held.push(name);
+    }
+
     return await migrateDatabase(client, directory);
   } finally {
-    await releaseMaintenanceLease(client, leaseName, owner);
+    for (const name of held) {
+      await releaseMaintenanceLease(client, name, owner);
+    }
   }
 }
 
