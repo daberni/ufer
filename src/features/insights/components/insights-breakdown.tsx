@@ -168,7 +168,12 @@ function comparisonName(data: Insights, columns: InsightsColumn[], index: number
   return rangeTitle(shiftRange(columns[index].range, -1), locale);
 }
 
+/** Green for good news and red for bad news; an unchanged amount stays neutral. */
 function changeTone(change: number, rising: "better" | "worse") {
+  if (change === 0) {
+    return undefined;
+  }
+
   return (change > 0) === (rising === "better") ? ui["positive"] : ui["negative"];
 }
 
@@ -210,7 +215,7 @@ function ComparisonColumn({
       return null;
     }
 
-    const tone = change === 0 ? undefined : changeTone(change, rising);
+    const tone = changeTone(change, rising);
 
     return (
       <span className={tone}>

@@ -101,9 +101,9 @@ export function InsightsSummary({
       />
       <Figure
         label={t("netWorthChange")}
-        value={netWorth?.current === null || netWorth === undefined ? "–" : signedMoney(netWorth.current, currency, locale)}
+        value={netWorth?.current === null || netWorth === undefined ? "–" : signedMoney(netWorth.current, netWorth.currency, locale)}
         detail={netWorth && netWorth.current !== null && netWorth.previous !== null ? t("change", {
-          amount: signedMoney(netWorth.current - netWorth.previous, currency, locale)
+          amount: signedMoney(netWorth.current - netWorth.previous, netWorth.currency, locale)
         }) : t("noComparison")}
         detailTone={netWorth && netWorth.current !== null && netWorth.previous !== null ? tone(netWorth.current - netWorth.previous, "higher-is-better") : undefined}
         mask={netWorthMask}
