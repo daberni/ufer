@@ -10,6 +10,8 @@ Production deploys only from version tags; every push to `main` deploys to stagi
 2. Deploys a preview build, which uses Vercel's Preview environment variables (preview database, sandbox bank), with `APP_URL` set to the staging alias.
 3. Applies the pending changesets without approval (synthetic demo data and the sandbox bank only), then points the alias at the new build. A failed build changes neither the database nor the alias.
 
+Staging runs one at a time and is never cancelled mid-migration. GitHub may start queued runs in any order, so a run first checks that its commit is still the head of `main` and otherwise skips; the newest commit's run therefore always finishes last.
+
 Pull requests get no hosted previews; the former label-based preview workflow was removed. Verify changes locally before merge and on staging after merge.
 
 Until the `staging` environment is configured, the workflow finishes with a warning.

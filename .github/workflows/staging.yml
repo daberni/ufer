@@ -10,9 +10,11 @@ on:
 permissions:
   contents: read
 
+# One run at a time, never cancelled mid-migration. GitHub may start queued runs in any order, so the first step skips a run
+# whose commit is no longer the head of main: a newer push always exists before its own run starts, so no run can start after
+# a newer one and still pass, and a run that passes always finishes before the newer run starts.
 concurrency:
   group: staging
-  # A migration must never be cancelled halfway; newer pushes wait instead.
   cancel-in-progress: false
 
 jobs:
@@ -49,7 +51,6 @@ jobs:
           echo "$message" >> "$GITHUB_STEP_SUMMARY"
           echo "::warning::$message"
 
-      # Concurrency does not guarantee order: a run whose commit is no longer the head of main skips instead of touching staging.
       - name: Check that this commit is still the head of main
         id: head
         if: steps.config.outputs.configured == 'true'
@@ -104,20 +105,11 @@ jobs:
           DATABASE_AUTH_TOKEN: ${{ secrets.DATABASE_AUTH_TOKEN }}
         run: npm run --silent db:migrate > /dev/null
 
-      # Re-checked here: main may have moved on while this run was building. A run that migrated always points the alias at its
-      # compatible build, because the previous build refuses the newer history; the queued newer run then replaces it.
       - name: Point the staging alias at it
         if: steps.config.outputs.configured == 'true' && steps.head.outputs.current == 'true'
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           DEPLOYMENT_URL: ${{ steps.deploy.outputs.url }}
-          MIGRATED: ${{ steps.plan.outputs.pending }}
         run: |
-          current=$(git ls-remote "https://github.com/$GITHUB_REPOSITORY" refs/heads/main | cut -f 1)
-          if [ "$MIGRATED" != "true" ] && [ "$current" != "$GITHUB_SHA" ]; then
-            echo "::notice::main moved on to $current; leaving the staging alias to that run."
-            echo "Staging alias unchanged: this commit is no longer the head of main." >> "$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
           npx --yes vercel@65.16.0 alias set "$DEPLOYMENT_URL" "$STAGING_ALIAS" --token "$VERCEL_TOKEN"
           echo "Staging: https://$STAGING_ALIAS ($GITHUB_SHA)" >> "$GITHUB_STEP_SUMMARY"
