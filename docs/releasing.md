@@ -7,8 +7,8 @@ Production deploys only from version tags; every push to `main` deploys to stagi
 [`staging.yml`](../.github/workflows/staging.yml) runs on every push to `main`:
 
 1. Lists the pending changesets of the shared preview database and their SQL in the job summary.
-2. Applies them without approval; that database holds synthetic demo data and the sandbox bank only.
-3. Deploys a preview build, which uses Vercel's Preview environment variables (preview database, sandbox bank), with `APP_URL` set to the staging alias, and points the alias at it.
+2. Deploys a preview build, which uses Vercel's Preview environment variables (preview database, sandbox bank), with `APP_URL` set to the staging alias.
+3. Applies the pending changesets without approval (synthetic demo data and the sandbox bank only), then points the alias at the new build. A failed build changes neither the database nor the alias.
 
 Pull requests get no hosted previews; the former label-based preview workflow was removed. Verify changes locally before merge and on staging after merge.
 

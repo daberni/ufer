@@ -72,13 +72,7 @@ jobs:
           DATABASE_AUTH_TOKEN: ${{ secrets.DATABASE_AUTH_TOKEN }}
         run: .github/scripts/migration-plan.sh "Preview database changesets"
 
-      - name: Migrate the preview database
-        if: steps.config.outputs.configured == 'true' && steps.plan.outputs.pending == 'true'
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          DATABASE_AUTH_TOKEN: ${{ secrets.DATABASE_AUTH_TOKEN }}
-        run: npm run --silent db:migrate > /dev/null
-
+      # Deployed before the migration, so a failed build leaves the alias on a build that matches the database.
       # The build uses Vercel's Preview environment (preview database, sandbox bank); APP_URL makes the alias its trusted origin.
       - name: Deploy the preview build
         id: deploy
@@ -88,6 +82,13 @@ jobs:
         run: |
           url=$(npx --yes vercel@65.16.0 deploy --yes --token "$VERCEL_TOKEN" --meta "stagingSha=$GITHUB_SHA" --env "APP_URL=https://$STAGING_ALIAS")
           echo "url=$url" >> "$GITHUB_OUTPUT"
+
+      - name: Migrate the preview database
+        if: steps.config.outputs.configured == 'true' && steps.plan.outputs.pending == 'true'
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DATABASE_AUTH_TOKEN: ${{ secrets.DATABASE_AUTH_TOKEN }}
+        run: npm run --silent db:migrate > /dev/null
 
       - name: Point the staging alias at it
         if: steps.config.outputs.configured == 'true'
