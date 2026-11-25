@@ -69,7 +69,8 @@ export function CashFlowChart({
   const [hiddenAfter, setHiddenAfter] = useState(0);
   // The trend's months follow from the selected period, so the heading and month labels are known before the figures.
   const trend = cashFlow.status === "pending" ? trendMonths(period, currentMonth()) : cashFlow.data.trend.map(item => Temporal.PlainYearMonth.from(item.month));
-  const visibleEnd = trend.length - hiddenAfter;
+  // While earlier months load, placeholder columns in view describe nothing yet; the heading and rate keep the oldest loaded view.
+  const visibleEnd = Math.max(Math.min(plot.count, trend.length), trend.length - hiddenAfter);
   const visibleStart = Math.max(0, visibleEnd - plot.count);
   const months = trend.slice(visibleStart, visibleEnd);
   const rangeMask = cashFlow.status === "pending" ? "" : valueMask(cashFlow.status);
