@@ -55,10 +55,10 @@ Preview deployments build the exact pull request head commit, independently of f
 
 Preview deployments share one persistent Turso preview database. Never bypass migration verification or rewrite applied changesets to make an older preview start. An existing immutable preview URL keeps its old code; use the replacement preview after stack integration. Fill it with the synthetic [demo dataset](setup.md#demo-data) from an operator machine; nothing seeds it automatically at build or startup. Re-run the same command when the history should end today again; it replaces only the demo rows and keeps users, sandbox bank connections and their transactions.
 
-1. Obtain the preview database URL and token without writing them into the checkout, for example with `vercel env pull --environment=preview <file outside the repository>`: the Turso integration's TURSO_DATABASE_URL and TURSO_AUTH_TOKEN are readable there, while the sensitive DATABASE_URL and DATABASE_AUTH_TOKEN are not. Use them as `DATABASE_URL` and `DATABASE_AUTH_TOKEN` together with `ENABLE_BANKING_ENVIRONMENT=SANDBOX`.
+1. Obtain the preview database URL and token from the operator's password manager. All database variables in Vercel, including the Turso integration's TURSO_DATABASE_URL and TURSO_AUTH_TOKEN, are sensitive and cannot be pulled; the password manager keeps a copy per environment. Use them as `DATABASE_URL` and `DATABASE_AUTH_TOKEN` together with `ENABLE_BANKING_ENVIRONMENT=SANDBOX`, without writing them into the checkout.
 2. Export these values in the shell; exported variables take precedence over local `.env*` files. Confirm that `DATABASE_URL` names the preview database, not production.
 3. Run `npm run demo:seed -- --confirm` from a checkout of the reviewed source. The command prints the date range and the number of demo accounts, transactions, uncategorized rows and rules.
-4. Delete the pulled environment file and unset the variables.
+4. Unset the variables.
 
 The guard refuses databases with non-sandbox banking data or transactions on manual or CSV accounts the seed did not create. Reviewer-created manual accounts with imported transactions therefore block a later run until those rows are removed. Never run the seed against the production database.
 

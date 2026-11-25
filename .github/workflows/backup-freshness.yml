@@ -1,0 +1,63 @@
+name: Database backup freshness
+
+# Raises an alert when the newest daily backup is older than 36 hours, which also catches a disabled or silently skipped nightly schedule.
+
+on:
+  schedule:
+    - cron: "41 15 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    environment: backup
+    timeout-minutes: 5
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: auto
+      AWS_ENDPOINT_URL: ${{ secrets.R2_ENDPOINT }}
+      AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+      AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+      R2_BUCKET: ${{ vars.BACKUP_BUCKET }}
+      CONFIGURED: ${{ secrets.R2_ACCESS_KEY_ID != '' && secrets.R2_SECRET_ACCESS_KEY != '' && secrets.R2_ENDPOINT != '' && vars.BACKUP_BUCKET != '' }}
+    steps:
+      - name: Check the newest daily backup
+        run: |
+          if [ "$CONFIGURED" != "true" ]; then
+            message="Database backup storage is not configured; see docs/backup-and-restore.md#one-time-setup."
+            echo "::warning::$message"
+            echo "$message" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          # shellcheck disable=SC2016 # JMESPath literals use backticks
+          newest=$(aws s3api list-objects-v2 --bucket "$R2_BUCKET" --prefix daily/ --query 'max_by(Contents[?ends_with(Key, `.sqlite.age`)], &LastModified).LastModified' --output text)
+          if [ -z "$newest" ] || [ "$newest" = "None" ]; then
+            echo "::error::No daily backup exists yet."
+            exit 1
+          fi
+          age_hours=$(( ($(date -u +%s) - $(date -u -d "$newest" +%s)) / 3600 ))
+          echo "Newest daily backup: $newest ($age_hours hours old)" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$age_hours" -ge 36 ]; then
+            echo "::error::The newest daily backup is $age_hours hours old."
+            exit 1
+          fi
+
+  alert:
+    needs: check
+    if: failure()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Open or update the backup alert issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: .github/scripts/backup-alert.sh "No recent database backup was found."

@@ -15,6 +15,7 @@
     "db:migrate": "tsx scripts/migrate.ts",
     "db:status": "tsx scripts/migrate.ts --status",
     "db:verify-backup": "tsx scripts/verify-backup.ts",
+    "db:export": "tsx scripts/export-database.ts",
     "demo:seed": "tsx scripts/seed-demo.ts",
     "format:styles": "prettier --write \"src/**/*.css\"",
     "check:styles": "stylelint \"src/**/*.css\" && prettier --check \"src/**/*.css\"",
