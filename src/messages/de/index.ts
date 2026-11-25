@@ -4,6 +4,7 @@ import account from "./account.json";
 import legal from "./legal.json";
 import overview from "./overview.json";
 import reports from "./reports.json";
+import insights from "./insights.json";
 import accounts from "./accounts.json";
 import transactions from "./transactions.json";
 import categorization from "./categorization.json";
@@ -19,6 +20,7 @@ export const de = {
   legal,
   overview,
   reports,
+  insights,
   accounts,
   transactions,
   categorization,

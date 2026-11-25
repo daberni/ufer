@@ -60,7 +60,6 @@ export function CashFlowChart({
   onSelectionHidden,
   earlier
 }: Props) {
-  const t = useTranslations("reports.chart");
   const locale = useLocale();
   const period = usePeriod();
   const plotRef = useRef<HTMLDivElement>(null);
@@ -80,31 +79,14 @@ export function CashFlowChart({
 
   return (
     <section className={clsx(ui["panel"], styles["chart-panel"])}>
-      <div className={clsx(ui["card-heading"], styles["heading"])}>
-        <div className={styles["title"]}>
-          <h2>{t("title")}</h2>
-          <span className={clsx(ui["subtle"], rangeMask)}>{monthRangeLabel(months, locale)}</span>
-        </div>
-      </div>
-      <div className={styles["chart-legend"]}>
-        <span>
-          <i className={clsx(styles["legend-dot"], styles["income-dot"])} />
-          {t("income")}
-        </span>
-        <span>
-          <i className={clsx(styles["legend-dot"], styles["expense-dot"])} />
-          {t("expenses")}
-        </span>
-        <span>
-          <i className={styles["legend-area"]} />
-          {t("net")}
-        </span>
-        <span className={styles["savings-rate"]}>
-          {t("savingsRate")} <strong className={clsx(isNegativeRate(visibleRate, locale) && styles["negative"], rateMask)}>{formatSavingsRate(visibleRate, locale)}</strong>
-        </span>
-      </div>
+      <ChartHeading
+        range={monthRangeLabel(months, locale)}
+        rangeMask={rangeMask}
+        rate={visibleRate}
+        rateMask={rateMask}
+      />
       <div className={styles["plot"]} ref={plotRef}>
-        {cashFlow.status === "pending" ? <ChartSkeleton area={cashFlow} months={trend} /> : (
+        {cashFlow.status === "pending" ? <ChartSkeleton area={cashFlow} columns={trend.map(month => skeletonColumn(month, locale))} /> : (
           <ChartPlot
             cashFlow={cashFlow}
             selection={selection}
@@ -121,13 +103,57 @@ export function CashFlowChart({
   );
 }
 
+/** The panel's title with the shown range, and the legend with the savings rate of the shown columns. */
+export function ChartHeading({
+  range,
+  rangeMask,
+  rate,
+  rateMask
+}: {
+  range: string;
+  rangeMask: string;
+  rate: number | null;
+  rateMask: string;
+}) {
+  const t = useTranslations("reports.chart");
+  const locale = useLocale();
+
+  return (
+    <>
+      <div className={clsx(ui["card-heading"], styles["heading"])}>
+        <div className={styles["title"]}>
+          <h2>{t("title")}</h2>
+          <span className={clsx(ui["subtle"], rangeMask)}>{range}</span>
+        </div>
+      </div>
+      <div className={styles["chart-legend"]}>
+        <span>
+          <i className={clsx(styles["legend-dot"], styles["income-dot"])} />
+          {t("income")}
+        </span>
+        <span>
+          <i className={clsx(styles["legend-dot"], styles["expense-dot"])} />
+          {t("expenses")}
+        </span>
+        <span>
+          <i className={styles["legend-area"]} />
+          {t("net")}
+        </span>
+        <span className={styles["savings-rate"]}>
+          {t("savingsRate")} <strong className={clsx(isNegativeRate(rate, locale) && styles["negative"], rateMask)}>{formatSavingsRate(rate, locale)}</strong>
+        </span>
+      </div>
+    </>
+  );
+}
+
 /** How many month columns the plot shows at once and how wide each is, measured before paint so a resize never shows a squeezed chart. */
-type PlotColumns = {
+export type PlotColumns = {
   count: number;
   width: number;
 };
 
-function usePlotColumns(plotRef: RefObject<HTMLDivElement | null>) {
+export function usePlotColumns(plotRef: RefObject<HTMLDivElement | null>) {
   const [columns, setColumns] = useState<PlotColumns>({
     count: minimumChartMonths,
     width: 0
@@ -258,7 +284,7 @@ function barPosition(flow: Flow, amount: number, scale: CashFlowScale): CSSPrope
   };
 }
 
-function ZeroLine({ scale }: {
+export function ZeroLine({ scale }: {
   scale: CashFlowScale;
 }) {
   return (
@@ -289,7 +315,7 @@ function Hairline({ fraction }: {
 }
 
 /** Exposes the device pixel ratio as `--device-pixel-ratio`, so sizes measured in device pixels (like the bars' minimum height beside the hairlines) can be written in CSS. */
-function useDevicePixelRatioProperty() {
+export function useDevicePixelRatioProperty() {
   const elementRef = useRef<HTMLDivElement>(null);
 
   useLayoutEffect(() => {
@@ -359,15 +385,29 @@ function SkeletonBars({
   );
 }
 
-function ChartSkeleton({
+/** A column of the loading chart: its label and whether it is the highlighted one. */
+export type SkeletonColumn = {
+  key: string;
+  label: string;
+  current: boolean;
+};
+
+function skeletonColumn(month: Temporal.PlainYearMonth, locale: string): SkeletonColumn {
+  return {
+    key: month.toString(),
+    label: describeMonth(month, locale).label,
+    current: month.equals(currentMonth())
+  };
+}
+
+export function ChartSkeleton({
   area,
-  months
+  columns
 }: {
   area: PendingArea;
-  months: Temporal.PlainYearMonth[];
+  columns: SkeletonColumn[];
 }) {
   const t = useTranslations("reports.chart");
-  const locale = useLocale();
   const scale = {
     zero: 0.5,
     extent: 2
@@ -379,14 +419,12 @@ function ChartSkeleton({
       <div className={styles["bar-chart"]} data-skeleton-months>
         <style>{skeletonMonthStyles}</style>
         <ZeroLine scale={scale} />
-        {months.map((month, index) => {
-          return (
-            <div className={styles["month"]} key={month.toString()} data-current={month.equals(currentMonth()) ? "" : undefined}>
-              <SkeletonBars index={index} scale={scale} />
-              <span className={styles["month-label"]}>{describeMonth(month, locale).label}</span>
-            </div>
-          );
-        })}
+        {columns.map((column, index) => (
+          <div className={styles["month"]} key={column.key} data-current={column.current ? "" : undefined}>
+            <SkeletonBars index={index} scale={scale} />
+            <span className={styles["month-label"]}>{column.label}</span>
+          </div>
+        ))}
       </div>
     </AreaPlaceholder>
   );
@@ -440,7 +478,6 @@ function ChartPlot({
   };
   const descriptionPrefix = useId();
   const chartRef = useDevicePixelRatioProperty();
-  const clipPrefix = useId();
   const router = useRouter();
   const monthTransactionsHref = useMonthTransactionsHref();
   const {
@@ -487,17 +524,6 @@ function ChartPlot({
     }
   }, [selectionHidden, onSelectionHidden]);
   const hasHistory = hasCashFlowToDraw(trend, leftEdgeNet);
-  // Month columns share the width equally, so their centres lie at even steps of a 0–100 coordinate space that stretches with the plot.
-  const centre = (index: number) => (index + 0.5) / chartMonths.length * 100;
-  const zero = scale.zero * 100;
-  const monthPoints = chartMonths.map((item, index) => `${centre(index)},${scaleOffset(item.net, scale) * 100}`);
-  // The area starts at the left edge on the way from the previous month's net, so it reads as continuing beyond the visible months; it ends at the last month, after which there is no data.
-  const startX = leftEdgeNet === null ? centre(0) : 0;
-  const netPoints = [...leftEdgeNet === null ? [] : [`0,${scaleOffset(leftEdgeNet, scale) * 100}`], ...monthPoints].join(" ");
-  // The area closes along the zero line; clipping splits it into a surplus tone above and a deficit tone below.
-  const netArea = `${startX},${zero} ${netPoints} ${centre(chartMonths.length - 1)},${zero}`;
-  const surplusClip = `${clipPrefix}-surplus`;
-  const deficitClip = `${clipPrefix}-deficit`;
 
   function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     const buttons = [...event.currentTarget.querySelectorAll<HTMLButtonElement>("button[data-month]")];
@@ -551,33 +577,7 @@ function ChartPlot({
                 }}
               />
             )}
-            {hasHistory && (
-              <span className={styles["plot-area"]} aria-hidden="true">
-                <svg className={styles["net-area"]} viewBox="0 0 100 100" preserveAspectRatio="none">
-                  <defs>
-                    <clipPath id={surplusClip}>
-                      <rect
-                        x="0"
-                        y="0"
-                        width="100"
-                        height={zero}
-                      />
-                    </clipPath>
-                    <clipPath id={deficitClip}>
-                      <rect
-                        x="0"
-                        y={zero}
-                        width="100"
-                        height={100 - zero}
-                      />
-                    </clipPath>
-                  </defs>
-                  <polygon className={styles["net-surplus"]} points={netArea} clipPath={`url(#${surplusClip})`} />
-                  <polygon className={styles["net-deficit"]} points={netArea} clipPath={`url(#${deficitClip})`} />
-                  <polyline className={styles["net-outline"]} points={netPoints} vectorEffect="non-scaling-stroke" />
-                </svg>
-              </span>
-            )}
+            {hasHistory && <NetArea nets={chartMonths.map(item => item.net)} leftEdgeNet={leftEdgeNet} scale={scale} />}
             {/* Drawn after the highlight and the net area, so the zero line runs uninterrupted beneath the bars. */}
             <ZeroLine scale={scale} />
             {chartMonths.map(item => {
@@ -608,30 +608,13 @@ function ChartPlot({
                   data-current={item.month === thisMonth ? "" : undefined}
                   {...targetProps(item.month, () => router.push(monthTransactionsHref(item.month)))}
                 >
-                  <span className={styles["bars"]}>
-                    <FlowBar
-                      flow="income"
-                      shared={sharesDirection(item)}
-                      amount={item.income}
-                      groups={active ? item.incomeGroups : []}
-                      scale={scale}
-                    />
-                    <FlowBar
-                      flow="expenses"
-                      shared={sharesDirection(item)}
-                      amount={item.expenses}
-                      groups={active ? item.expenseGroups : []}
-                      scale={scale}
-                    />
-                    {active && (
-                      <span
-                        className={styles["net-point"]}
-                        style={{
-                          top: cssPercent(scaleOffset(item.net, scale))
-                        }}
-                      />
-                    )}
-                  </span>
+                  <ColumnBars
+                    column={item}
+                    incomeGroups={item.incomeGroups}
+                    expenseGroups={item.expenseGroups}
+                    active={active}
+                    scale={scale}
+                  />
                   <span className={styles["month-label"]}>{item.label}</span>
                   <span id={descriptionId} hidden>{description}</span>
                 </button>
@@ -642,6 +625,105 @@ function ChartPlot({
       </div>
       {!hasHistory && <p className={clsx(styles["chart-empty-note"], valueMask(cashFlow.status))}>{t("empty")}</p>}
     </>
+  );
+}
+
+/**
+ * The net flow across the columns as an area from the zero line. With the net entering from an earlier column (`leftEdgeNet`), the area starts at the left edge so it reads as continuing beyond the visible columns; it ends at the last column, after which there is no data.
+ */
+export function NetArea({
+  nets,
+  leftEdgeNet,
+  scale
+}: {
+  nets: number[];
+  leftEdgeNet: number | null;
+  scale: CashFlowScale;
+}) {
+  const clipPrefix = useId();
+  // Columns share the width equally, so their centres lie at even steps of a 0–100 coordinate space that stretches with the plot.
+  const centre = (index: number) => (index + 0.5) / nets.length * 100;
+  const zero = scale.zero * 100;
+  const columnPoints = nets.map((net, index) => `${centre(index)},${scaleOffset(net, scale) * 100}`);
+  const startX = leftEdgeNet === null ? centre(0) : 0;
+  const netPoints = [...leftEdgeNet === null ? [] : [`0,${scaleOffset(leftEdgeNet, scale) * 100}`], ...columnPoints].join(" ");
+  // The area closes along the zero line; clipping splits it into a surplus tone above and a deficit tone below.
+  const netArea = `${startX},${zero} ${netPoints} ${centre(nets.length - 1)},${zero}`;
+  const surplusClip = `${clipPrefix}-surplus`;
+  const deficitClip = `${clipPrefix}-deficit`;
+
+  return (
+    <span className={styles["plot-area"]} aria-hidden="true">
+      <svg className={styles["net-area"]} viewBox="0 0 100 100" preserveAspectRatio="none">
+        <defs>
+          <clipPath id={surplusClip}>
+            <rect
+              x="0"
+              y="0"
+              width="100"
+              height={zero}
+            />
+          </clipPath>
+          <clipPath id={deficitClip}>
+            <rect
+              x="0"
+              y={zero}
+              width="100"
+              height={100 - zero}
+            />
+          </clipPath>
+        </defs>
+        <polygon className={styles["net-surplus"]} points={netArea} clipPath={`url(#${surplusClip})`} />
+        <polygon className={styles["net-deficit"]} points={netArea} clipPath={`url(#${deficitClip})`} />
+        <polyline className={styles["net-outline"]} points={netPoints} vectorEffect="non-scaling-stroke" />
+      </svg>
+    </span>
+  );
+}
+
+/** A column's income and expense bars; while it is active, they split into category segments and its net is marked. */
+export function ColumnBars({
+  column,
+  incomeGroups,
+  expenseGroups,
+  active,
+  scale
+}: {
+  column: {
+    income: number;
+    expenses: number;
+    net: number;
+  };
+  incomeGroups: CategoryGroup[];
+  expenseGroups: CategoryGroup[];
+  active: boolean;
+  scale: CashFlowScale;
+}) {
+  return (
+    <span className={styles["bars"]}>
+      <FlowBar
+        flow="income"
+        shared={sharesDirection(column)}
+        amount={column.income}
+        groups={active ? incomeGroups : []}
+        scale={scale}
+      />
+      <FlowBar
+        flow="expenses"
+        shared={sharesDirection(column)}
+        amount={column.expenses}
+        groups={active ? expenseGroups : []}
+        scale={scale}
+      />
+      {active && (
+        <span
+          className={styles["net-point"]}
+          style={{
+            top: cssPercent(scaleOffset(column.net, scale))
+          }}
+        />
+      )}
+    </span>
   );
 }
 

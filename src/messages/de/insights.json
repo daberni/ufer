@@ -1,0 +1,43 @@
+{
+  "period": {
+    "label": "Zeitraum",
+    "month": "Monat",
+    "quarter": "Quartal",
+    "year": "Jahr",
+    "custom": "Eigener",
+    "previous": "Vorheriger Zeitraum",
+    "next": "Nächster Zeitraum",
+    "from": "Von",
+    "to": "Bis",
+    "versus": "ggü. {period}"
+  },
+  "summary": {
+    "label": "Zusammenfassung",
+    "income": "Einnahmen",
+    "expenses": "Ausgaben",
+    "saved": "Gespart",
+    "netWorthChange": "Vermögensänderung",
+    "change": "{amount}",
+    "changeWithRate": "{amount} · {percent}",
+    "savedChange": "{amount} · vorher {rate}",
+    "noComparison": "Kein Vergleich",
+    "failure": "Die Zusammenfassung konnte nicht geladen werden",
+    "netWorthFailure": "Die Vermögensänderung konnte nicht geladen werden"
+  },
+  "chart": {
+    "plotLabel": "Einnahmen, Ausgaben und Netto je {interval}, {range}",
+    "columnLabel": "{period}: Einnahmen {income}, Ausgaben {expenses}, Netto {net}, Sparquote {rate}",
+    "selectedColumnLabel": "{period} (ausgewählt): Einnahmen {income}, Ausgaben {expenses}, Netto {net}, Sparquote {rate}",
+    "intervals": {
+      "month": "Monat",
+      "quarter": "Quartal",
+      "year": "Jahr",
+      "custom": "Zeitraum"
+    }
+  },
+  "breakdown": {
+    "noIncome": "Keine Einnahmen in diesem Zeitraum.",
+    "noExpenses": "Keine Ausgaben in diesem Zeitraum.",
+    "changeLabel": "{amount} ggü. {period}"
+  }
+}

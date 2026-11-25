@@ -78,7 +78,7 @@ export function groupByCategory(items: CategoryAmount[]): CategoryGroup[] {
   const ranked = [...items].sort(byAmount);
 
   if (ranked.length <= categoryRowLimit) {
-    return withShares(ranked.map(rowOf));
+    return categoryRows(ranked);
   }
 
   const uncategorized = ranked.filter(item => item.categoryId === null);
@@ -88,4 +88,9 @@ export function groupByCategory(items: CategoryAmount[]): CategoryGroup[] {
   const remainder = categorized.slice(categorizedRows);
 
   return withShares([...kept.map(rowOf), remainderOf(remainder)]);
+}
+
+/** Every category as its own row, largest first, for breakdowns that list all categories instead of combining the smaller ones. */
+export function categoryRows(items: CategoryAmount[]): CategoryGroup[] {
+  return withShares([...items].sort(byAmount).map(rowOf));
 }

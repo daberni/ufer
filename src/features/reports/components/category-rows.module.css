@@ -9,6 +9,20 @@
   gap: var(--space-2);
   font-size: var(--text-sm);
 }
+/* A row with a detail keeps the name's full width: the detail sits after the share bar, below the amount. */
+.row.with-detail > div {
+  grid-row: 2;
+  grid-column: 1;
+}
+.detail {
+  grid-row: 2;
+  grid-column: 2;
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  text-align: end;
+  white-space: nowrap;
+}
 /* A linked row is highlighted like the chart's selected month column; the padding sits in a negative margin, so rows keep their spacing. */
 .link {
   margin: calc(-1 * var(--space-2));
