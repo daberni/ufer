@@ -178,6 +178,12 @@ jobs:
           fi
           echo "Rehearsal: the changesets applied cleanly to a copy of production." >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Run the release build against the migrated copy
+        if: env.PENDING == 'true'
+        run: |
+          NEXT_TELEMETRY_DISABLED=1 npm run build > /dev/null
+          .github/scripts/rehearsal-smoke.sh "$RUNNER_TEMP/rehearsal/copy.sqlite"
+
       - name: Remove the rehearsal copy
         if: always()
         run: rm -rf "$RUNNER_TEMP/rehearsal"
