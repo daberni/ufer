@@ -30,6 +30,10 @@ inputs:
   age-recipients:
     description: age public keys, one per line
     required: true
+  copy-to:
+    description: Optional new file path that receives a plaintext copy of the verified export, for example for a migration rehearsal; the caller removes it
+    required: false
+    default: ''
 
 outputs:
   object:
@@ -76,6 +80,15 @@ runs:
           exit 1
         fi
         echo "Applied changesets: $(jq '.appliedMigrations' "$BACKUP_DIR/report.json")" >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Keep a copy of the verified export
+      if: inputs.copy-to != ''
+      shell: bash
+      env:
+        COPY_TO: ${{ inputs.copy-to }}
+      run: |
+        mkdir -p -m 700 "$(dirname "$COPY_TO")"
+        cp "$BACKUP_DIR/ufer.sqlite" "$COPY_TO"
 
     - name: Encrypt
       shell: bash

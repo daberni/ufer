@@ -216,13 +216,13 @@ jobs:
           access-key-id: ${{ secrets.R2_ACCESS_KEY_ID }}
           secret-access-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           age-recipients: ${{ vars.BACKUP_AGE_RECIPIENTS }}
+          copy-to: ${{ runner.temp }}/rehearsal/copy.sqlite
 
-      # The rehearsal copy holds production data; it exists only on this runner and is removed at the end of the job.
-      - name: Rehearse the migration on a local copy
+      # The rehearsal uses a copy of the exact backup that was verified and uploaded; it holds production data, exists only on this
+      # runner and is removed at the end of the job.
+      - name: Rehearse the migration on a copy of the backup
         run: |
           rehearsal="$RUNNER_TEMP/rehearsal"
-          mkdir -m 700 "$rehearsal"
-          npm run --silent db:export -- --file="$rehearsal/copy.sqlite"
           # A lease copied from a running production sync would block the rehearsal; the copy runs no jobs.
           node -e 'const { DatabaseSync } = require("node:sqlite"); new DatabaseSync(process.argv[1]).exec("DELETE FROM leases");' "$rehearsal/copy.sqlite"
           DATABASE_URL="file:$rehearsal/copy.sqlite" DATABASE_AUTH_TOKEN="" npm run --silent db:migrate > /dev/null
@@ -230,7 +230,7 @@ jobs:
             echo "::error::The migrated rehearsal copy failed verification."
             exit 1
           fi
-          echo "Rehearsal: the changesets applied cleanly to a copy of production." >> "$GITHUB_STEP_SUMMARY"
+          echo "Rehearsal: the changesets applied cleanly to a copy of the pre-migration backup." >> "$GITHUB_STEP_SUMMARY"
 
       # A rejected sign-in (401) proves startup, migration-history verification and queries against the authentication tables.
       # Throwaway secrets: the rehearsal never decrypts bank sessions or keeps a session.
