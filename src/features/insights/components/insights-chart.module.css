@@ -1,0 +1,4 @@
+/* The breakdown lists every category, so it often outgrows the chart; the chart keeps its own height instead of stretching its bars to the breakdown's. */
+.chart {
+  align-self: start;
+}

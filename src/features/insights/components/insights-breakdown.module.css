@@ -1,0 +1,7 @@
+/* A change is good or bad news depending on the flow: more income is good, more expenses are not. */
+.better {
+  color: var(--green-text);
+}
+.worse {
+  color: var(--danger-text);
+}

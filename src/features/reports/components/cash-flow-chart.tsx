@@ -111,7 +111,7 @@ export function CashFlowChart({
 }
 
 /** How many of the latest months fit the plot's current width, measured before paint so a resize never shows a squeezed chart. */
-function useChartMonthCount(plotRef: RefObject<HTMLDivElement | null>) {
+export function useChartMonthCount(plotRef: RefObject<HTMLDivElement | null>) {
   const [count, setCount] = useState(minimumChartMonths);
 
   useLayoutEffect(() => {
@@ -156,7 +156,7 @@ function barPosition(flow: Flow, amount: number, scale: CashFlowScale): CSSPrope
   };
 }
 
-function ZeroLine({ scale }: {
+export function ZeroLine({ scale }: {
   scale: CashFlowScale;
 }) {
   return (
@@ -187,7 +187,7 @@ function Hairline({ fraction }: {
 }
 
 /** Exposes the device pixel ratio as `--device-pixel-ratio`, so sizes measured in device pixels (like the bars' minimum height beside the hairlines) can be written in CSS. */
-function useDevicePixelRatioProperty() {
+export function useDevicePixelRatioProperty() {
   const elementRef = useRef<HTMLDivElement>(null);
 
   useLayoutEffect(() => {
@@ -473,7 +473,7 @@ function splitsIntoSegments(amount: number, groups: CategoryGroup[]) {
 }
 
 /** Whether a month's income and expense bars extend to the same side of the zero line, as when refunds exceed spending; they are then drawn next to each other instead of on top of each other. */
-function sharesDirection(month: {
+export function sharesDirection(month: {
   income: number;
   expenses: number;
 }) {
@@ -481,7 +481,7 @@ function sharesDirection(month: {
 }
 
 /** A month's income above or expenses below the zero line (reversed for a negative amount); while its month is selected, a positive total splits into category segments stacked outward from the zero line. */
-function FlowBar({
+export function FlowBar({
   flow,
   shared,
   amount,

@@ -1,4 +1,4 @@
-import { ArrowDownLeft, ChartCandlestick, LayoutDashboard, SlidersHorizontal, Wallet, type LucideIcon } from "lucide-react";
+import { ArrowDownLeft, ChartCandlestick, ChartColumn, LayoutDashboard, SlidersHorizontal, Wallet, type LucideIcon } from "lucide-react";
 import type { Section } from "@/client/app-location";
 
 export type NavigationItem = {
@@ -10,6 +10,9 @@ export type NavigationItem = {
 export const navigation: NavigationItem[] = [{
   id: "overview",
   icon: LayoutDashboard
+}, {
+  id: "insights",
+  icon: ChartColumn
 }, {
   id: "transactions",
   icon: ArrowDownLeft

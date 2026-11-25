@@ -1,0 +1,64 @@
+/* Four figures side by side on wide screens and two by two on narrow ones; each keeps its height while loading. */
+.summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-6);
+}
+.figure {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.label {
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+.value {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-size: var(--text-xl);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+.rate {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--muted);
+}
+.detail {
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+.better {
+  color: var(--green-text);
+}
+.worse {
+  color: var(--danger-text);
+}
+@media (--laptop) {
+  .summary {
+    gap: var(--space-4);
+  }
+}
+@media (--tablet) {
+  .summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (--mobile) {
+  .summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-3);
+  }
+  .figure {
+    padding: var(--space-4);
+  }
+  .value {
+    font-size: var(--text-lg);
+  }
+}

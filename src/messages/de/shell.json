@@ -1,6 +1,7 @@
 {
   "metadata": {
     "title": "Ufer · Deine Finanzen im Blick",
+    "insights": "Auswertungen",
     "transactions": "Buchungen",
     "import": "Buchungen importieren",
     "accounts": "Konten & Vermögen",
@@ -15,6 +16,12 @@
       "mobileLabel": "Übersicht",
       "heading": "Dein Geld. Im Blick.",
       "description": "Ein klares Bild ist der erste Schritt nach vorn."
+    },
+    "insights": {
+      "label": "Auswertungen",
+      "mobileLabel": "Analyse",
+      "heading": "Auswertungen",
+      "description": "Einnahmen, Ausgaben und Vermögen für jeden Zeitraum."
     },
     "transactions": {
       "label": "Buchungen",

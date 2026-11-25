@@ -19,6 +19,11 @@ export type CashFlowFilters = {
   currency: string;
 };
 
+export type InsightsFilters = {
+  range: string;
+  currency: string;
+};
+
 export type AccountCashFlowFilters = {
   account: string;
   period: string;
@@ -51,7 +56,11 @@ export const queryKeys = {
     netWorthHistoryIn: (currency: string) => ["reports", "net-worth", "history", {
       currency
     }] as const,
+    // Below the net-worth prefix, so every balance write also refreshes the insights' net-worth change.
+    netWorthChangeFor: (filters: InsightsFilters) => ["reports", "net-worth", "change", filters] as const,
     cashFlow: () => ["reports", "cash-flow"] as const,
+    // Below the cash-flow prefix, so transaction and category writes also refresh the insights.
+    insightsFor: (filters: InsightsFilters) => ["reports", "cash-flow", "insights", filters] as const,
     cashFlowFor: (filters: CashFlowFilters) => ["reports", "cash-flow", filters] as const,
     // Below the cash-flow prefix, so transaction and category writes also refresh an account's flows.
     accountCashFlowFor: (filters: AccountCashFlowFilters) => ["reports", "cash-flow", "account", filters] as const

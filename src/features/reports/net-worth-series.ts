@@ -90,6 +90,17 @@ export function netWorthSeries(accounts: AccountBalanceSeries[], currency: strin
   return [...past, current];
 }
 
+/** Net worth on one date: from the dated balances before `endDate`, and from the current balances, like the net-worth figure, on or after it. */
+export function netWorthOn(accounts: AccountBalanceSeries[], currency: string, date: string, endDate: string) {
+  const relevant = accounts.filter(account => account.currency === currency && netWorthCategory(account.kind));
+
+  if (date >= endDate) {
+    return pointOn(relevant, date, account => account.current_minor ?? 0);
+  }
+
+  return pointOn(relevant, date, account => balanceOn(account, date));
+}
+
 /** How net worth and each category changed from the first to the last point, and the month the first point falls in; null without two points. */
 export type NetWorthChange = {
   since: string;

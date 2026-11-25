@@ -36,7 +36,7 @@ function countedIn(range: SQL) {
 /**
  * Transactions that count toward cash flow and spending in a date range: visible income and expenses in one currency. Transfers, opening balances, adjustments and hidden bookings never count, whatever their category. A split booking counts as its parts. Every cash-flow figure reads through this one definition so totals, breakdowns and the trend agree.
  */
-function countedTransactions(currency: string, range: SQL) {
+export function countedTransactions(currency: string, range: SQL) {
   return sql`
     FROM ${countedLines} t
     JOIN accounts a ON a.id=t.account_id
@@ -47,7 +47,7 @@ function countedTransactions(currency: string, range: SQL) {
   `;
 }
 
-type Flow = "income" | "expenses";
+export type Flow = "income" | "expenses";
 
 /** Which transactions make up each flow and the amount each contributes. A refund is an expense with a positive amount, so it reduces spending. */
 const flows: Record<Flow, {
@@ -64,17 +64,17 @@ const flows: Record<Flow, {
   }
 };
 
-function flowTotal(flow: Flow) {
+export function flowTotal(flow: Flow) {
   return sql`COALESCE(SUM(CASE WHEN ${flows[flow].condition} THEN ${flows[flow].amount} ELSE 0 END),0)`;
 }
 
 /**
- * Amounts per category of one flow among counted transactions, largest first, with uncategorized transactions as one row. Per month, rows are also split by booking month.
+ * Amounts per category of one flow among counted transactions, largest first, with uncategorized transactions as one row. With a bucket expression (such as the booking month), rows are also split by bucket, returned as `month`.
  * A category with a negative net amount, such as an income correction or refunds exceeding spending, keeps a signed row, so the rows always sum to the flow's total; only categories netting to zero are left out.
  */
-function flowByCategory(source: SQL, flow: Flow, perMonth: boolean) {
-  const month = perMonth ? bookingMonth : sql.raw("NULL");
-  const grouping = perMonth ? sql`${bookingMonth},t.category_id` : sql.raw("t.category_id");
+export function flowByCategory(source: SQL, flow: Flow, bucket: SQL | null) {
+  const month = bucket ?? sql.raw("NULL");
+  const grouping = bucket ? sql`${bucket},t.category_id` : sql.raw("t.category_id");
 
   return sql`
     SELECT ${month} AS month,t.category_id AS category_id,COALESCE(c.name,'Uncategorized') AS name,COALESCE(c.color,'#a2aaa5') AS color,c.icon AS icon,SUM(${flows[flow].amount}) AS amount
@@ -96,7 +96,7 @@ function monthTotals(rows: Row[], month: string) {
   };
 }
 
-function categoryAmount(row: Row): CategoryAmount {
+export function categoryAmount(row: Row): CategoryAmount {
   return {
     categoryId: row.category_id === null ? null : String(row.category_id),
     name: String(row.name),
@@ -127,11 +127,11 @@ export async function readCashFlow(period: Period, currency: string) {
   const inTrend = countedTransactions(currency, dateRangeCondition(trendStart, trendEnd));
   const totalsByMonth = countedTransactions(currency, dateRangeCondition(leadStart, trendEnd));
   const totalsQuery = db.all<Row>(sql`SELECT ${flowTotal("income")} AS income,${flowTotal("expenses")} AS expenses ${inPeriod}`);
-  const incomeBreakdownQuery = db.all<Row>(flowByCategory(inPeriod, "income", false));
-  const expenseBreakdownQuery = db.all<Row>(flowByCategory(inPeriod, "expenses", false));
+  const incomeBreakdownQuery = db.all<Row>(flowByCategory(inPeriod, "income", null));
+  const expenseBreakdownQuery = db.all<Row>(flowByCategory(inPeriod, "expenses", null));
   const trendQuery = db.all<Row>(sql`SELECT ${bookingMonth} AS month,${flowTotal("income")} AS income,${flowTotal("expenses")} AS expenses ${totalsByMonth} GROUP BY ${bookingMonth}`);
-  const trendIncomeQuery = db.all<Row>(flowByCategory(inTrend, "income", true));
-  const trendExpensesQuery = db.all<Row>(flowByCategory(inTrend, "expenses", true));
+  const trendIncomeQuery = db.all<Row>(flowByCategory(inTrend, "income", bookingMonth));
+  const trendExpensesQuery = db.all<Row>(flowByCategory(inTrend, "expenses", bookingMonth));
   const [totals, incomeBreakdown, expenseBreakdown, trend, trendIncome, trendExpenses] = await Promise.all([totalsQuery, incomeBreakdownQuery, expenseBreakdownQuery, trendQuery, trendIncomeQuery, trendExpensesQuery]);
 
   return {

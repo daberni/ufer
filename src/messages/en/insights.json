@@ -1,0 +1,43 @@
+{
+  "period": {
+    "label": "Period",
+    "month": "Month",
+    "quarter": "Quarter",
+    "year": "Year",
+    "custom": "Custom",
+    "previous": "Previous period",
+    "next": "Next period",
+    "from": "From",
+    "to": "To",
+    "versus": "vs {period}"
+  },
+  "summary": {
+    "label": "Summary",
+    "income": "Income",
+    "expenses": "Expenses",
+    "saved": "Saved",
+    "netWorthChange": "Net-worth change",
+    "change": "{amount}",
+    "changeWithRate": "{amount} · {percent}",
+    "savedChange": "{amount} · was {rate}",
+    "noComparison": "No comparison",
+    "failure": "The summary could not be loaded",
+    "netWorthFailure": "The net-worth change could not be loaded"
+  },
+  "chart": {
+    "plotLabel": "Income, expenses and net per {interval}, {range}",
+    "columnLabel": "{period}: income {income}, expenses {expenses}, net {net}, savings rate {rate}",
+    "selectedColumnLabel": "{period} (selected): income {income}, expenses {expenses}, net {net}, savings rate {rate}",
+    "intervals": {
+      "month": "month",
+      "quarter": "quarter",
+      "year": "year",
+      "custom": "period"
+    }
+  },
+  "breakdown": {
+    "noIncome": "No income in this period.",
+    "noExpenses": "No expenses in this period.",
+    "changeLabel": "{amount} vs {period}"
+  }
+}

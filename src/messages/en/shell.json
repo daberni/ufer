@@ -1,6 +1,7 @@
 {
   "metadata": {
     "title": "Ufer · Your finances, in perspective",
+    "insights": "Insights",
     "transactions": "Transactions",
     "import": "Import transactions",
     "accounts": "Accounts & assets",
@@ -15,6 +16,12 @@
       "mobileLabel": "Overview",
       "heading": "Your money. In perspective.",
       "description": "A clear picture is the first step forward."
+    },
+    "insights": {
+      "label": "Insights",
+      "mobileLabel": "Insights",
+      "heading": "Insights",
+      "description": "Income, expenses and net worth over any period."
     },
     "transactions": {
       "label": "Transactions",

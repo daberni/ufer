@@ -219,17 +219,22 @@
     flex-direction: column;
     justify-content: center;
     gap: var(--space-1);
-    padding: var(--space-2) 2px;
+    padding: var(--space-2) 0;
     min-height: 56px;
     width: auto;
     min-width: 0;
     border-radius: var(--radius-md);
   }
+  /* Six items share a phone's width, so labels use the size of platform tab bars and end with an ellipsis rather than run into their neighbours. */
   .nav-item > .nav-mobile-label {
     display: block;
-    font-size: var(--text-xs);
+    max-width: 100%;
+    overflow: hidden;
+    font-size: var(--text-2xs);
     line-height: 1.2;
     font-weight: 500;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .nav-item > .nav-count {
     display: block;

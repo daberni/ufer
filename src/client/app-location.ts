@@ -3,7 +3,7 @@ import { allMonthsPeriod, currentMonth, currentMonthPeriod, parsePeriod, seriali
 import { parsePage } from "@/lib/pagination";
 import { parseCurrencyCode } from "@/lib/money";
 
-export type View = "overview" | "transactions" | "import" | "accounts" | "account" | "brokerage" | "rules";
+export type View = "overview" | "insights" | "transactions" | "import" | "accounts" | "account" | "brokerage" | "rules";
 
 /** A view in the navigation; an account's details belong to accounts and the import page to transactions. */
 export type Section = Exclude<View, "account" | "import">;
@@ -16,6 +16,7 @@ export type AccountList = "overview" | "accounts" | "brokerage";
  */
 export const viewPaths: Record<Section, string> = {
   overview: "/",
+  insights: "/insights",
   transactions: "/transactions",
   accounts: "/accounts",
   brokerage: "/brokerage",
@@ -99,8 +100,9 @@ export function sectionOf(view: View): Section {
   return view === "import" ? "transactions" : view;
 }
 
+/** Views that carry the shared period scope; the insights use only its currency and keep their own range, but pass the period on to the views they link to. */
 export function isPeriodAware(view: View) {
-  return view === "overview" || view === "transactions" || view === "account";
+  return view === "overview" || view === "insights" || view === "transactions" || view === "account";
 }
 
 export function isAccountList(view: View): view is AccountList {

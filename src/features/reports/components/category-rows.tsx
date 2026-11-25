@@ -2,6 +2,7 @@ import ui from "../../../components/ui/primitives.module.css";
 
 import styles from "./category-rows.module.css";
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { clsx } from "clsx";
 import { formatPercent } from "@/lib/locale";
 import { money } from "@/lib/money";
@@ -49,6 +50,8 @@ type Props = {
   currency: string;
   /** The transactions behind a row; rows without one stay plain. */
   rowLink?: (group: CategoryGroup) => CategoryRowLink | null;
+  /** A small figure after the amount, such as the change against the previous period. */
+  detail?: (group: CategoryGroup) => ReactNode;
   className?: string;
 };
 
@@ -57,6 +60,7 @@ export function CategoryRows({
   groups,
   currency,
   rowLink,
+  detail,
   className
 }: Props) {
   const t = useTranslations("reports.categories");
@@ -75,6 +79,7 @@ export function CategoryRows({
               <CategoryLabel category={groupCategory(group, locale, moreLabel)} />
             </span>
             <strong>{money(group.amount, currency, locale)}</strong>
+            {detail && <span className={styles["detail"]}>{detail(group)}</span>}
             <div>
               <i
                 style={{
@@ -87,12 +92,12 @@ export function CategoryRows({
         );
 
         if (!link) {
-          return <div className={styles["row"]} key={group.key}>{content}</div>;
+          return <div className={clsx(styles["row"], detail && styles["with-detail"])} key={group.key}>{content}</div>;
         }
 
         return (
           <Link
-            className={clsx(styles["row"], styles["link"])}
+            className={clsx(styles["row"], styles["link"], detail && styles["with-detail"])}
             key={group.key}
             href={link.href}
             aria-label={link.label}
