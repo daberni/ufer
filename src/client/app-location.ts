@@ -175,21 +175,30 @@ export function accountHref(id: string, scope: string) {
   return scope ? `${accountPath(id)}?${scope}` : accountPath(id);
 }
 
-/** The transactions behind one row of a breakdown by category: a category ID or "uncategorized", income or expenses, in the breakdown's period and currency. */
-export type CategoryTransactions = {
+/** One row of a breakdown by category: a category ID or "uncategorized", income or expenses, in the breakdown's period and currency. */
+export type CategoryHistory = {
   period: Period;
   currency: string;
   category: string;
   type: "income" | "expense";
 };
 
-export function categoryTransactionsHref(filter: CategoryTransactions) {
-  return withQueryChanges(viewPaths.transactions, "", {
-    period: filter.period,
-    currency: filter.currency,
-    category: filter.category,
-    type: filter.type
-  });
+/** A category's history in the insights: its income or expenses over the intervals up to the breakdown's month, in the breakdown's currency. Without a month the insights start at the current one. */
+export function categoryHistoryHref(filter: CategoryHistory) {
+  const params = new URLSearchParams();
+
+  if (filter.period.kind === "month" && !isCurrentMonth(filter.period)) {
+    params.set("range", filter.period.month.toString());
+  }
+
+  if (filter.currency !== defaultCurrency) {
+    params.set("currency", filter.currency);
+  }
+
+  params.set("category", filter.category);
+  params.set("type", filter.type);
+
+  return `${viewPaths.insights}?${params.toString()}`;
 }
 
 /** Applies query changes to a URL; default values are omitted so plain view URLs stay plain. */

@@ -184,24 +184,44 @@ function TransactionPages({
       <div {...areaProps(list.status)}>
         {visibleTransactions.length ? <TransactionList categories={categories} transactions={visibleTransactions} /> : noMatches && (emptyState ?? <Empty title={t("emptyTitle")}>{t("empty")}</Empty>)}
       </div>
-      {view !== "overview" && transactionCount > transactionPageSize && (
-        <div className={styles["pagination"]}>
-          <span className={valueMask(list.status)}>
-            {t("range", {
-              first: (page - 1) * transactionPageSize + 1,
-              last: Math.min(page * transactionPageSize, transactionCount),
-              total: transactionCount
-            })}
-          </span>
-          <button className={clsx(styles["button"], ui["small"])} disabled={page === 1} onClick={() => setPage(page - 1)}>
-            {t("previous")}
-          </button>
-          <button className={clsx(styles["button"], ui["small"])} disabled={page * transactionPageSize >= transactionCount} onClick={() => setPage(page + 1)}>
-            {t("next")}
-          </button>
-        </div>
-      )}
+      {view !== "overview" && <TransactionPagination list={list} page={page} onPage={setPage} />}
     </>
+  );
+}
+
+/** Moves between pages of a list with more matches than one page holds; a shorter list shows none. */
+export function TransactionPagination({
+  list,
+  page,
+  onPage
+}: {
+  list: AreaResult<TransactionPage>;
+  page: number;
+  onPage: (page: number) => void;
+}) {
+  const t = useTranslations("transactions.panel");
+  const { transactionCount } = list.data;
+
+  if (transactionCount <= transactionPageSize) {
+    return null;
+  }
+
+  return (
+    <div className={styles["pagination"]}>
+      <span className={valueMask(list.status)}>
+        {t("range", {
+          first: (page - 1) * transactionPageSize + 1,
+          last: Math.min(page * transactionPageSize, transactionCount),
+          total: transactionCount
+        })}
+      </span>
+      <button className={clsx(styles["button"], ui["small"])} disabled={page === 1} onClick={() => onPage(page - 1)}>
+        {t("previous")}
+      </button>
+      <button className={clsx(styles["button"], ui["small"])} disabled={page * transactionPageSize >= transactionCount} onClick={() => onPage(page + 1)}>
+        {t("next")}
+      </button>
+    </div>
   );
 }
 

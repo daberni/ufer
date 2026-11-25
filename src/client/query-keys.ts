@@ -5,6 +5,8 @@ import type { RulePreviewDraft } from "@/features/categorization/types";
  */
 export type TransactionListFilters = {
   period: string;
+  /** An insights range in its URL form, which replaces the period; empty for the period. */
+  range: string;
   currency: string;
   search: string;
   account: string;

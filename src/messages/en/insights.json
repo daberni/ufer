@@ -39,5 +39,22 @@
     "noIncome": "No income in this period.",
     "noExpenses": "No expenses in this period.",
     "changeLabel": "{amount} vs {period}"
+  },
+  "history": {
+    "incomeTitle": "Income history",
+    "expensesTitle": "Spending history",
+    "clear": "All categories",
+    "loadingCategory": "Category",
+    "average": "Average",
+    "plotLabel": "Amount per {interval}, {range}",
+    "columnLabel": "{period}: {amount}",
+    "selectedColumnLabel": "{period} (selected): {amount}",
+    "detail": "{period}: {amount}",
+    "hint": "Select a column to show that period.",
+    "empty": "Nothing in these periods.",
+    "transactions": "Transactions, {period}",
+    "transactionsFailure": "The transactions could not be loaded",
+    "noTransactionsTitle": "No transactions",
+    "noTransactions": "Nothing in this category in the selected period."
   }
 }

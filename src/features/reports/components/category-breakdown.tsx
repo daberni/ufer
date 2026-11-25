@@ -14,7 +14,7 @@ import { money } from "@/lib/money";
 import { categoryRowLimit, type CategoryGroup } from "@/features/reports/category-groups";
 import { formatSavingsRate, isNegativeRate, periodCashFlow, reservedCategoryRows, type CashFlowSelection, type CashFlowSummary } from "@/features/reports/cash-flow-selection";
 import { CategoryRows, CategoryRowsSkeleton, type CategoryRowLink } from "@/features/reports/components/category-rows";
-import { categoryTransactionsHref } from "@/client/app-location";
+import { categoryHistoryHref } from "@/client/app-location";
 import { AreaPlaceholder } from "@/components/ui/area-placeholder";
 import { areaProps, valueMask } from "@/components/ui/result-presentation";
 import { useCurrency, useMonthTransactionsHref, usePeriod, useViewHref } from "@/client/use-app-url";
@@ -130,7 +130,7 @@ export function CategoryBreakdown({
 }
 
 /**
- * Each category row opens its income or expense transactions in the shown month or period and currency. The combined "+N more" row stays plain: the list filters one category at a time, and the period's whole list is already linked from the panel.
+ * Each category row opens the history of its income or expenses in the insights, ending at the shown month, in the shown currency. The combined "+N more" row stays plain: the list filters one category at a time, and the period's whole list is already linked from the panel.
  */
 export function categoryRowLink(period: Period, currency: string, type: "income" | "expense", label: (category: string) => string) {
   return (group: CategoryGroup): CategoryRowLink | null => {
@@ -139,7 +139,7 @@ export function categoryRowLink(period: Period, currency: string, type: "income"
     }
 
     return {
-      href: categoryTransactionsHref({
+      href: categoryHistoryHref({
         period,
         currency,
         category: group.key,

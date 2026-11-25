@@ -6,7 +6,8 @@ import { PeriodBar } from "./period-bar";
 import { InsightsSummary } from "./insights-summary";
 import { InsightsChart } from "./insights-chart";
 import { InsightsBreakdown } from "./insights-breakdown";
-import { useInsightsRange } from "@/features/insights/insights-location";
+import { CategoryHistory } from "./category-history";
+import { useInsightsCategory, useInsightsRange } from "@/features/insights/insights-location";
 import { useInsights, useNetWorthChange } from "@/features/insights/queries";
 import { accountGroups, useAccounts } from "@/features/accounts/queries";
 import { useChartDetails } from "@/features/reports/use-chart-details";
@@ -15,9 +16,10 @@ import { mapArea, useAreaResult, type Area } from "@/components/ui/use-area-resu
 import { serializeRange, type PeriodRange } from "@/lib/period-range";
 import type { Insights } from "@/features/insights/types";
 
-/** The insights view: one period bar drives the summary, the interval columns and the category breakdown that follows the active column. */
+/** The insights view: one period bar drives the summary and either the interval columns with the category breakdown that follows the active column, or one category's history. */
 export function InsightsPage() {
   const range = useInsightsRange();
+  const history = useInsightsCategory();
   const currency = useCurrency();
   const accounts = useAreaResult(useAccounts());
   const currencies = mapArea(accounts, data => accountGroups(data, currency).currencies);
@@ -28,8 +30,17 @@ export function InsightsPage() {
     <>
       <PeriodBar range={range} currencies={currencies} />
       <InsightsSummary insights={insights} netWorthChange={netWorthChange} />
-      {/* The range and currency own the column selection's lifetime; changing either starts from the selected range again. */}
-      <InsightsPanels key={`${serializeRange(range)}:${currency}`} range={range} insights={insights} />
+      {history ? (
+        <CategoryHistory
+          range={range}
+          insights={insights}
+          category={history.category}
+          flow={history.flow}
+        />
+      ) : (
+        // The range and currency own the column selection's lifetime; changing either starts from the selected range again.
+        <InsightsPanels key={`${serializeRange(range)}:${currency}`} range={range} insights={insights} />
+      )}
     </>
   );
 }

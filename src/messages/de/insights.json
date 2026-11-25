@@ -39,5 +39,22 @@
     "noIncome": "Keine Einnahmen in diesem Zeitraum.",
     "noExpenses": "Keine Ausgaben in diesem Zeitraum.",
     "changeLabel": "{amount} ggü. {period}"
+  },
+  "history": {
+    "incomeTitle": "Verlauf der Einnahmen",
+    "expensesTitle": "Verlauf der Ausgaben",
+    "clear": "Alle Kategorien",
+    "loadingCategory": "Kategorie",
+    "average": "Durchschnitt",
+    "plotLabel": "Betrag pro {interval}, {range}",
+    "columnLabel": "{period}: {amount}",
+    "selectedColumnLabel": "{period} (ausgewählt): {amount}",
+    "detail": "{period}: {amount}",
+    "hint": "Spalte auswählen, um den Zeitraum anzuzeigen.",
+    "empty": "Nichts in diesen Zeiträumen.",
+    "transactions": "Buchungen, {period}",
+    "transactionsFailure": "Die Buchungen konnten nicht geladen werden",
+    "noTransactionsTitle": "Keine Buchungen",
+    "noTransactions": "Nichts in dieser Kategorie im gewählten Zeitraum."
   }
 }

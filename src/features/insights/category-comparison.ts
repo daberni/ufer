@@ -1,7 +1,8 @@
 import { categoryRows, type CategoryGroup } from "@/features/reports/category-groups";
 import type { CategoryAmount } from "@/features/reports/types";
 
-function keyOf(item: CategoryAmount) {
+/** A category's key as the breakdowns and the transaction filter name it: its ID, or "uncategorized". */
+export function keyOf(item: Pick<CategoryAmount, "categoryId">) {
   return item.categoryId ?? "uncategorized";
 }
 
