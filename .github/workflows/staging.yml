@@ -1,7 +1,7 @@
 name: Staging
 
-# Every push to main migrates the staging database and deploys a preview build behind the fixed staging alias.
-# Staging holds synthetic data only, so its migrations run without approval; the summary still lists them.
+# Every push to main migrates the shared preview database and deploys a preview build behind the fixed staging alias.
+# That database holds synthetic data only, so its migrations run without approval; the summary still lists them.
 on:
   push:
     branches: [main]
@@ -70,25 +70,23 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DATABASE_AUTH_TOKEN: ${{ secrets.DATABASE_AUTH_TOKEN }}
-        run: .github/scripts/migration-plan.sh "Staging database changesets"
+        run: .github/scripts/migration-plan.sh "Preview database changesets"
 
-      - name: Migrate the staging database
+      - name: Migrate the preview database
         if: steps.config.outputs.configured == 'true' && steps.plan.outputs.pending == 'true'
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DATABASE_AUTH_TOKEN: ${{ secrets.DATABASE_AUTH_TOKEN }}
         run: npm run --silent db:migrate > /dev/null
 
-      # Deployment-level variables point this preview build at the staging database and make the alias its trusted origin.
+      # The build uses Vercel's Preview environment (preview database, sandbox bank); APP_URL makes the alias its trusted origin.
       - name: Deploy the preview build
         id: deploy
         if: steps.config.outputs.configured == 'true'
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          DATABASE_AUTH_TOKEN: ${{ secrets.DATABASE_AUTH_TOKEN }}
         run: |
-          url=$(npx --yes vercel@65.16.0 deploy --yes --token "$VERCEL_TOKEN" --meta "stagingSha=$GITHUB_SHA" --env "APP_URL=https://$STAGING_ALIAS" --env "DATABASE_URL=$DATABASE_URL" --env "DATABASE_AUTH_TOKEN=$DATABASE_AUTH_TOKEN" --env "ENABLE_BANKING_ENVIRONMENT=SANDBOX")
+          url=$(npx --yes vercel@65.16.0 deploy --yes --token "$VERCEL_TOKEN" --meta "stagingSha=$GITHUB_SHA" --env "APP_URL=https://$STAGING_ALIAS")
           echo "url=$url" >> "$GITHUB_OUTPUT"
 
       - name: Point the staging alias at it

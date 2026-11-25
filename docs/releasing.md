@@ -6,9 +6,11 @@ Production deploys only from version tags; every push to `main` deploys to stagi
 
 [`staging.yml`](../.github/workflows/staging.yml) runs on every push to `main`:
 
-1. Lists the staging database's pending changesets and their SQL in the job summary.
-2. Applies them without approval; the staging database holds synthetic demo data and the sandbox bank only.
-3. Deploys a preview build with deployment-level variables for the staging database, `APP_URL` and `ENABLE_BANKING_ENVIRONMENT=SANDBOX`, and points the staging alias at it.
+1. Lists the pending changesets of the shared preview database and their SQL in the job summary.
+2. Applies them without approval; that database holds synthetic demo data and the sandbox bank only.
+3. Deploys a preview build, which uses Vercel's Preview environment variables (preview database, sandbox bank), with `APP_URL` set to the staging alias, and points the alias at it.
+
+Pull requests get no hosted previews; the former label-based preview workflow was removed. Verify changes locally before merge and on staging after merge.
 
 Until the `staging` environment is configured, the workflow finishes with a warning.
 
@@ -37,8 +39,8 @@ Between the migration and the promotion, cold starts of the previous deployment 
 
 These steps need the owner's accounts. Keep identifiers and tokens out of the repository.
 
-1. **Staging database.** Create a separate Turso database for staging in the same region, initialize it once from current `main` with `npm run db:migrate` and seed it with `npm run demo:seed -- --confirm` (see [preview demo data](vercel-deployment.md#preview-demo-data)). Create a token for it.
-2. **GitHub environment `staging`:** deployment branch `main`, no reviewers. Secrets `DATABASE_URL`, `DATABASE_AUTH_TOKEN` (staging database) and `VERCEL_TOKEN`; variable `STAGING_ALIAS`, for example `ufer-staging.vercel.app`.
+1. **Staging database.** Staging reuses the existing preview database; no new database is needed. Its URL and token are in the password manager ("Ufer - Vercel", section "Turso preview").
+2. **GitHub environment `staging`:** deployment branch `main`, no reviewers. Secrets `DATABASE_URL`, `DATABASE_AUTH_TOKEN` (preview database) and `VERCEL_TOKEN`; variable `STAGING_ALIAS`, for example `ufer-staging.vercel.app`.
 3. **GitHub environment `release`:** deployment tags matching `[0-9]*.[0-9]*.[0-9]*`, no reviewers. (The existing `Production` and `Preview` environments belong to Vercel's deployment statuses; leave them unchanged.) Secrets `DATABASE_URL`, `DATABASE_AUTH_TOKEN` (production, with write access for the migration) and `VERCEL_TOKEN`; variable `PRODUCTION_URL` (the production origin, `https://…`).
 4. **GitHub environment `production-migration`:** deployment tags matching `[0-9]*.[0-9]*.[0-9]*`, **required reviewers: the owner**, self-review allowed, no secrets. The release refuses to run if this rule is missing.
 5. **Backup environment.** Add a dedicated read-only production token as `DATABASE_AUTH_TOKEN` in the `backup` environment, replacing the write-capable one.

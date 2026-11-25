@@ -75,8 +75,7 @@ Implemented in `release.yml` and `staging.yml`; [releasing](releasing.md) is the
 
 | Trigger | Target | Database | Approval |
 | --- | --- | --- | --- |
-| Pull request with `preview` label | Preview URL (unchanged) | Shared preview database | None |
-| Push to `main` | Staging alias (e.g. `ufer-staging.vercel.app`) | Staging database (new) | None |
+| Push to `main` | Staging alias (e.g. `ufer-staging.vercel.app`) | Shared preview database (decided) | None |
 | Push of tag `X.Y.Z` | Production domain | Production database | Only when changesets are pending |
 
 Tags follow #90: plain version, equal to `package.json`, pointing at a commit on `main`. Decided: production from tags. (Considered alternative: keep production from `main` and add only the migration gate; rejected because every merge would be a release and staging could not collect changes first.)
@@ -217,13 +216,12 @@ Different for Ufer: instead of failing, the pipeline pauses at an approval and t
 | Database | Used by | Data | Migrated by |
 | --- | --- | --- | --- |
 | `production` | Production deployments | Real | Tag pipeline after approval |
-| `staging` (new) | Staging alias from `main` | Synthetic demo data, sandbox bank | Staging pipeline, automatically |
-| `preview` (existing) | Labeled PR previews | Synthetic demo data | Unchanged: one-off, operator-run, because PRs carry unmerged changesets |
-| `ufer-rehearsal-*`, `ufer-drill-*` | Pipeline, temporary | Copies of production | Created and destroyed per run |
+| `preview` (existing) | Staging alias from `main` (decided: shared, no separate staging database; label-based PR previews retired) | Synthetic demo data, sandbox bank | Staging pipeline, automatically |
+| Rehearsal copy | Release pipeline, temporary | Copy of production | Local SQLite on the runner, deleted per run |
 
 Staging migrates automatically because it holds synthetic data only; it runs every merged changeset before any production tag, which is an additional rehearsal on a long-lived database. The preview database keeps its current manual process: automatically applying unmerged changesets from a PR would make it incompatible with other PRs.
 
-Rehearsal and drill copies contain production data in Turso's region; they are deleted at the end of each run and are covered by the existing Turso processor entry.
+The rehearsal copy contains production data only on the ephemeral GitHub runner and is deleted at the end of the job.
 
 ### Secrets: GitHub environments vs Vercel
 
