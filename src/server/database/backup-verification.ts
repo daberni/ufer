@@ -5,14 +5,16 @@ import { getTableName, is } from "drizzle-orm";
 import { SQLiteTable } from "drizzle-orm/sqlite-core";
 import { decrypt } from "@/server/security/secret-box";
 import { createClient } from "@libsql/client";
-import { migrateDatabase, verifyAppliedMigrations } from "./migrations";
+import { readMigrationFiles } from "drizzle-orm/migrator";
+import { verifyAppliedMigrations } from "./migrations";
 import * as schema from "./schema";
 
 /** Checks a standalone local SQLite artifact; never loads environment files, opens remote URLs or applies migrations. */
 export function verifyLocalBackup(filename: string, options: {
   checkBankSecrets?: boolean,
   migrationDirectory?: string,
-  expectedTables?: string[]
+  expectedTables?: string[],
+  allowNewerChangesets?: boolean
 } = {}) {
   if (filename.includes("://")) {
     throw new Error("Provide a local filesystem path, not a database URL.");
@@ -47,7 +49,8 @@ export function verifyLocalBackup(filename: string, options: {
       created_at: row.created_at
     })), options.migrationDirectory);
 
-    if (!status.applied || status.pending) {
+    // A backup taken before a release's migration knows only the first changesets of that release.
+    if (!status.applied || (status.pending && !options.allowNewerChangesets)) {
       throw new Error("Use the application revision matching the backup's applied migrations. This check never upgrades a database.");
     }
 
@@ -90,18 +93,38 @@ function applicationTables() {
   return Object.values(schema).filter(table => is(table, SQLiteTable)).map(table => getTableName(table));
 }
 
+/** Number of changesets recorded in a local backup's migration history. */
+export function appliedChangesetCount(filename: string) {
+  const db = new DatabaseSync(realpathSync(resolve(filename)), {
+    readOnly: true
+  });
+
+  try {
+    return Number(db.prepare("SELECT COUNT(*) AS count FROM __drizzle_migrations").get()?.count);
+  } finally {
+    db.close();
+  }
+}
+
 /**
- * Lists the tables a release's changesets create, by applying them to an empty in-memory database.
- * Lets the current verifier check a backup of an older release without that release's code.
+ * Lists the tables that the first `count` changesets of a release create, by applying them to an empty in-memory database.
+ * Lets the current verifier check a backup taken at any earlier point of that release's history without older code.
  */
-export async function releaseTables(migrationDirectory: string) {
+export async function releaseTables(migrationDirectory: string, count: number) {
   const client = createClient({
     url: ":memory:"
   });
 
   try {
-    await migrateDatabase(client, migrationDirectory);
-    const result = await client.execute("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name <> '__drizzle_migrations' ORDER BY name");
+    for (const changeset of readMigrationFiles({
+      migrationsFolder: migrationDirectory
+    }).slice(0, count)) {
+      for (const statement of changeset.sql.filter(sql => sql.trim())) {
+        await client.execute(statement);
+      }
+    }
+
+    const result = await client.execute("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name");
 
     return result.rows.map(row => String(row.name));
   } finally {

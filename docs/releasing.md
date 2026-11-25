@@ -6,7 +6,7 @@ Production deploys only from version tags; every push to `main` deploys to stagi
 
 [`staging.yml`](../.github/workflows/staging.yml) runs on every push to `main`:
 
-1. Lists the pending changesets of the shared preview database and their SQL in the job summary.
+1. Lists the names of the shared preview database's pending changesets in the job summary.
 2. Deploys a preview build, which uses Vercel's Preview environment variables (preview database, sandbox bank), with `APP_URL` set to the staging alias.
 3. Applies the pending changesets without approval (synthetic demo data and the sandbox bank only), then points the alias at the new build. A failed build changes neither the database nor the alias.
 
@@ -22,7 +22,7 @@ Until the `staging` environment is configured, the workflow finishes with a warn
 2. Tag the merged commit with the plain version and push the tag: `git tag 0.4.0 <commit>` and `git push origin refs/tags/0.4.0`.
 3. [`release.yml`](../.github/workflows/release.yml) then:
    - **verify:** checks that the tag equals the `package.json` version, points to a commit on `main` and is the highest version tag (so a delayed run of an older tag never promotes over a newer release), that the `production-migration` environment requires a reviewer, and runs lint, type, style, test and build checks;
-   - **plan** (`release` environment, read-only token): lists the production database's pending changesets with their SQL in the job summary;
+   - **plan** (`release` environment, read-only token): lists the names of the production database's pending changesets in the job summary; their SQL is in `drizzle/sqlite/` at the tagged commit;
    - **deploy** (`release`): deploys the build to Vercel without the production domain;
    - **migrate** (`production-migration`), only when changesets are pending: waits for the owner's approval, which is the explicit authorization for exactly the listed changesets. It then re-checks that the pending list is unchanged, takes and verifies a pre-migration backup, rehearses the migration on a local copy of production and starts the release build against it with a database-backed sign-in check (the copy is removed at the end of the job), and migrates production while holding the `sync` job lease (it waits up to 10 minutes for a running sync or import and then fails without changes). Only this job holds the production write token; without pending changesets it is skipped, nobody is asked and no write credentials are used;
    - **promote** (`release`): promotes the deployment to the production domain and runs a smoke test (the home page answers and `/api/me` returns 401).

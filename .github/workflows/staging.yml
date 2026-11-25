@@ -85,7 +85,11 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DATABASE_AUTH_TOKEN: ${{ secrets.DATABASE_AUTH_TOKEN }}
-        run: .github/scripts/migration-plan.sh "Preview database changesets"
+        run: |
+          changesets=$(npm run --silent db:status | jq -c '.pendingChangesets')
+          echo "changesets=$changesets" >> "$GITHUB_OUTPUT"
+          echo "pending=$(jq 'length > 0' <<< "$changesets")" >> "$GITHUB_OUTPUT"
+          echo "Pending changesets: $(jq -r 'if length == 0 then "none" else join(", ") end' <<< "$changesets")" >> "$GITHUB_STEP_SUMMARY"
 
       # Deployed before the migration, so a failed build leaves the alias on a build that matches the database.
       # The build uses Vercel's Preview environment (preview database, sandbox bank); APP_URL makes the alias its trusted origin.

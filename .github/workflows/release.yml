@@ -1,7 +1,7 @@
 name: Release
 
 # Pushing a version tag (for example 0.4.0) on a commit of main releases that commit to production:
-# verify → plan (pending changesets and their SQL in the summary, read-only token) → deploy without the domain →
+# verify → plan (pending changeset names in the summary, read-only token) → deploy without the domain →
 # migrate (only when changesets are pending; gated by the production-migration environment, which alone holds the write token:
 # backup → re-check → rehearsal on a local copy including an app run → migrate) → promote → smoke test.
 # Approving the production-migration environment is the explicit authorization for exactly the changesets listed in this run's summary.
@@ -104,7 +104,11 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DATABASE_AUTH_TOKEN: ${{ secrets.DATABASE_AUTH_TOKEN }}
-        run: .github/scripts/migration-plan.sh "Pending production changesets for ${GITHUB_REF_NAME}"
+        run: |
+          changesets=$(npm run --silent db:status | jq -c '.pendingChangesets')
+          echo "changesets=$changesets" >> "$GITHUB_OUTPUT"
+          echo "pending=$(jq 'length > 0' <<< "$changesets")" >> "$GITHUB_OUTPUT"
+          echo "Pending changesets: $(jq -r 'if length == 0 then "none" else join(", ") end' <<< "$changesets")" >> "$GITHUB_STEP_SUMMARY"
 
   deploy:
     needs: plan
@@ -222,10 +226,24 @@ jobs:
           fi
           echo "Rehearsal: the changesets applied cleanly to a copy of production." >> "$GITHUB_STEP_SUMMARY"
 
+      # A rejected sign-in (401) proves startup, migration-history verification and queries against the authentication tables.
+      # Throwaway secrets: the rehearsal never decrypts bank sessions or keeps a session.
       - name: Run the release build against the migrated copy
+        env:
+          DATABASE_URL: file:${{ runner.temp }}/rehearsal/copy.sqlite
+          DATABASE_AUTH_TOKEN: ""
+          APP_URL: https://rehearsal.invalid
+          NEXT_TELEMETRY_DISABLED: "1"
         run: |
-          NEXT_TELEMETRY_DISABLED=1 npm run build > /dev/null
-          .github/scripts/rehearsal-smoke.sh "$RUNNER_TEMP/rehearsal/copy.sqlite"
+          npm run build > /dev/null
+          BETTER_AUTH_SECRET=$(openssl rand -hex 32) DATA_ENCRYPTION_KEY=$(openssl rand -hex 32) npx next start --hostname 127.0.0.1 --port 3123 > "$RUNNER_TEMP/rehearsal/server.log" 2>&1 &
+          for _ in $(seq 1 60); do curl -s -o /dev/null http://127.0.0.1:3123/ && break; sleep 1; done
+          status=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:3123/api/auth/sign-in/username -H "Origin: $APP_URL" -H "Content-Type: application/json" --data '{"username":"rehearsal","password":"not-a-real-password"}')
+          kill %1
+          if [ "$status" != "401" ]; then
+            echo "::error::The release build did not answer a database-backed sign-in check on the migrated copy (HTTP $status)."
+            exit 1
+          fi
 
       - name: Remove the rehearsal copy
         if: always()
