@@ -7,10 +7,9 @@ import { ChevronRight } from "lucide-react";
 import { clsx } from "clsx";
 import { useTranslations } from "next-intl";
 import styles from "../../reports/components/category-breakdown.module.css";
-import own from "./insights-breakdown.module.css";
-import { categoryRowLink } from "@/features/reports/components/category-breakdown";
-import { CategoryRows, CategoryRowsSkeleton, type CategoryRowLink } from "@/features/reports/components/category-rows";
-import { categoryRowLimit, type CategoryGroup } from "@/features/reports/category-groups";
+import { categoryRowLink, FlowColumn, FlowColumnSkeleton } from "@/features/reports/components/category-breakdown";
+import type { CategoryRowLink } from "@/features/reports/components/category-rows";
+import type { CategoryGroup } from "@/features/reports/category-groups";
 import { formatSavingsRate, isNegativeRate, netFlow } from "@/features/reports/cash-flow-selection";
 import { compareCategories } from "@/features/insights/category-comparison";
 import { insightsColumns, previousFlows, reservedComparisonRows, type InsightsColumn } from "@/features/insights/insights-columns";
@@ -66,15 +65,8 @@ export function InsightsBreakdown({
         </div>
         <AreaPlaceholder area={insights} failureTitle={t("failure")}>
           <div className={styles["columns"]}>
-            {[t("income"), t("expenses")].map(label => (
-              <div className={styles["column"]} key={label}>
-                <h3 className={styles["column-heading"]}>
-                  {label}
-                  <strong className={ui["skeleton"]}>€0,000.00</strong>
-                </h3>
-                <CategoryRowsSkeleton rows={categoryRowLimit} />
-              </div>
-            ))}
+            <FlowColumnSkeleton label={t("income")} />
+            <FlowColumnSkeleton label={t("expenses")} />
           </div>
         </AreaPlaceholder>
       </section>
@@ -177,7 +169,7 @@ function comparisonName(data: Insights, columns: InsightsColumn[], index: number
 }
 
 function changeTone(change: number, rising: "better" | "worse") {
-  return (change > 0) === (rising === "better") ? own["better"] : own["worse"];
+  return (change > 0) === (rising === "better") ? ui["positive"] : ui["negative"];
 }
 
 function ComparisonColumn({
@@ -232,26 +224,15 @@ function ComparisonColumn({
   }
 
   return (
-    <div className={styles["column"]}>
-      <h3 className={styles["column-heading"]}>
-        {label}
-        <strong>{money(total, currency, locale)}</strong>
-      </h3>
-      <div className={styles["rows-frame"]}>
-        <div className={styles["reserved-rows"]} aria-hidden="true">
-          <CategoryRowsSkeleton rows={reservedRows} />
-        </div>
-        <div className={styles["shown-rows"]}>
-          {groups.length ? (
-            <CategoryRows
-              groups={groups}
-              currency={currency}
-              rowLink={rowLink}
-              detail={changes ? detail : undefined}
-            />
-          ) : <p className={ui["subtle"]}>{empty}</p>}
-        </div>
-      </div>
-    </div>
+    <FlowColumn
+      label={label}
+      total={total}
+      groups={groups}
+      reservedRows={reservedRows}
+      currency={currency}
+      rowLink={rowLink}
+      detail={changes ? detail : undefined}
+      empty={empty}
+    />
   );
 }

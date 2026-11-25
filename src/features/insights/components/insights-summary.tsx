@@ -30,7 +30,7 @@ function tone(change: number, direction: Direction) {
 
   const better = direction === "higher-is-better" ? change > 0 : change < 0;
 
-  return better ? styles["better"] : styles["worse"];
+  return better ? ui["positive"] : ui["negative"];
 }
 
 /** Income, expenses, savings and net-worth change of the selected range, each against the previous interval over the same number of days. */
@@ -150,7 +150,7 @@ function Figure({
         <span className={mask}>{value}</span>
         {rate && <small className={clsx(styles["rate"], mask)}>{rate}</small>}
       </strong>
-      <span className={clsx(styles["detail"], detailTone, mask)}>{detail}</span>
+      <span className={clsx(styles["detail"], mask)}><span className={detailTone}>{detail}</span></span>
     </div>
   );
 }

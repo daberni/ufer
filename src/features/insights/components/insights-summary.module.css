@@ -34,12 +34,6 @@
   font-variant-numeric: tabular-nums;
   color: var(--muted);
 }
-.better {
-  color: var(--green-text);
-}
-.worse {
-  color: var(--danger-text);
-}
 @media (--laptop) {
   .summary {
     gap: var(--space-4);

@@ -3,6 +3,7 @@
 import ui from "../../../components/ui/primitives.module.css";
 
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { ChevronRight } from "lucide-react";
 import { clsx } from "clsx";
 import { Temporal } from "temporal-polyfill";
@@ -149,13 +150,15 @@ export function categoryRowLink(period: Period, currency: string, type: "income"
   };
 }
 
-function FlowColumn({
+/** One flow's total and category rows, with invisible rows reserving the height of the largest selection. */
+export function FlowColumn({
   label,
   total,
   groups,
   reservedRows,
   currency,
   rowLink,
+  detail,
   empty
 }: {
   label: string;
@@ -163,7 +166,8 @@ function FlowColumn({
   groups: CategoryGroup[];
   reservedRows: number;
   currency: string;
-  rowLink: (group: CategoryGroup) => CategoryRowLink | null;
+  rowLink?: (group: CategoryGroup) => CategoryRowLink | null;
+  detail?: (group: CategoryGroup) => ReactNode;
   empty: string;
 }) {
   const locale = useLocale();
@@ -180,14 +184,21 @@ function FlowColumn({
           <CategoryRowsSkeleton rows={reservedRows} />
         </div>
         <div className={styles["shown-rows"]}>
-          {groups.length ? <CategoryRows groups={groups} currency={currency} rowLink={rowLink} /> : <p className={ui["subtle"]}>{empty}</p>}
+          {groups.length ? (
+            <CategoryRows
+              groups={groups}
+              currency={currency}
+              rowLink={rowLink}
+              detail={detail}
+            />
+          ) : <p className={ui["subtle"]}>{empty}</p>}
         </div>
       </div>
     </div>
   );
 }
 
-function FlowColumnSkeleton({ label }: {
+export function FlowColumnSkeleton({ label }: {
   label: string;
 }) {
   return (
