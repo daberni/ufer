@@ -114,9 +114,9 @@ Making old builds tolerate newer additive history (for example by marking change
 
 ### Rollback and recovery
 
-- **Code only (no changeset in the release):** Vercel instant rollback to the previous production deployment, or re-run the pipeline for the previous tag. No database action.
-- **Release with a changeset:** a code rollback is not possible after the migration, because the previous build refuses the newer history. Fix forward with a new release, or restore (next point) and redeploy the previous tag.
-- **Bad data migration:** restore. PITR to the timestamp recorded before migrate (within the plan's window) or the pre-migration backup into a new database, verify, switch Vercel's database env vars, redeploy the previous tag. Data written after the migration is lost or must be replayed; that is the accepted cost, decided per incident by the owner. Never edit applied changesets or the migration table.
+- **Code only (no changeset in the release):** Vercel instant rollback to the previous production deployment (the release workflow only releases the highest version tag). No database action.
+- **Release with a changeset:** a code rollback is not possible after the migration, because the previous build refuses the newer history. Fix forward with a new release, or restore (next point) and roll back to the previous deployment.
+- **Bad data migration:** restore. PITR to the timestamp recorded before migrate (within the plan's window) or the pre-migration backup into a new database, verify, switch Vercel's database env vars, roll back to the previous deployment. Data written after the migration is lost or must be replayed; that is the accepted cost, decided per incident by the owner. Never edit applied changesets or the migration table.
 - **Pipeline failure before migrate:** nothing changed; production still serves the old deployment.
 - **Failure during migrate:** SQLite changesets run in a transaction per file in Drizzle's migrator; a failing file rolls back, earlier files stay applied. If any file was applied, the old build can no longer cold-start, so the failing run must be followed promptly by fix-forward or restore. The summary prints which files were applied.
 ## 3. Conditional approval

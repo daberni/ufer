@@ -47,6 +47,14 @@ jobs:
             echo "::error::Tag $TAG does not point to a commit on main."
             exit 1
           fi
+          # Runs in the concurrency group may start in any order; only the highest version may release, so an older tag
+          # never promotes over a newer one. Roll back with Vercel's instant rollback instead (docs/releasing.md#recovery).
+          git fetch --force --tags origin > /dev/null
+          highest=$(git tag --list '[0-9]*.[0-9]*.[0-9]*' | sort -V | tail -n 1)
+          if [ "$TAG" != "$highest" ]; then
+            echo "::error::Tag $TAG is not the highest version ($highest); an older tag cannot be released."
+            exit 1
+          fi
 
       # Without a protection rule the gate job would run without asking; fail closed instead of migrating unapproved.
       - name: Check that the migration gate requires a reviewer
@@ -272,5 +280,5 @@ jobs:
           {
             echo "## Release failed"
             echo "Check which job failed. Before 'Migrate production' nothing changed in production; the previous deployment still serves."
-            echo "After a migration, the previous build cannot cold-start: fix forward with a new release, or restore the pre-migration backup or point-in-time copy and redeploy the previous tag (docs/releasing.md#recovery)."
+            echo "After a migration, the previous build cannot cold-start: fix forward with a new release, or restore the pre-migration backup or point-in-time copy and roll back to the previous deployment in Vercel (docs/releasing.md#recovery)."
           } >> "$GITHUB_STEP_SUMMARY"
