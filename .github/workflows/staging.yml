@@ -104,15 +104,17 @@ jobs:
           DATABASE_AUTH_TOKEN: ${{ secrets.DATABASE_AUTH_TOKEN }}
         run: npm run --silent db:migrate > /dev/null
 
-      # Re-checked here: main may have moved on while this run was building or migrating.
+      # Re-checked here: main may have moved on while this run was building. A run that migrated always points the alias at its
+      # compatible build, because the previous build refuses the newer history; the queued newer run then replaces it.
       - name: Point the staging alias at it
         if: steps.config.outputs.configured == 'true' && steps.head.outputs.current == 'true'
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           DEPLOYMENT_URL: ${{ steps.deploy.outputs.url }}
+          MIGRATED: ${{ steps.plan.outputs.pending }}
         run: |
           current=$(git ls-remote "https://github.com/$GITHUB_REPOSITORY" refs/heads/main | cut -f 1)
-          if [ "$current" != "$GITHUB_SHA" ]; then
+          if [ "$MIGRATED" != "true" ] && [ "$current" != "$GITHUB_SHA" ]; then
             echo "::notice::main moved on to $current; leaving the staging alias to that run."
             echo "Staging alias unchanged: this commit is no longer the head of main." >> "$GITHUB_STEP_SUMMARY"
             exit 0
