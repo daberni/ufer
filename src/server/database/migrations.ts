@@ -141,12 +141,10 @@ export async function migrateDatabase(client: Client, directory = migrationDirec
 type LeaseWait = {
   waitMinutes?: number;
   pollMilliseconds?: number;
-  renewalMilliseconds?: number;
 };
 
-// Renewed while the changesets run, so a long migration never loses the lease; a crashed one frees it within this time.
-const migrationLeaseMinutes = 12;
-const leaseRenewalMilliseconds = 4 * 60_000;
+// Longer than the release's migration job may run (40 minutes), so the lease cannot expire mid-migration; a crashed migration frees it within this time.
+const migrationLeaseMinutes = 60;
 
 function leaseExpiry() {
   return timestamp(Temporal.Now.instant().add({
@@ -189,17 +187,9 @@ export async function migrateDatabaseUnderLease(client: Client, leaseName: strin
     await sleep(wait.pollMilliseconds ?? 15_000);
   }
 
-  const renewal = setInterval(() => {
-    void client.execute({
-      sql: "UPDATE leases SET expires_at = ? WHERE name = ? AND owner = ?",
-      args: [leaseExpiry(), leaseName, owner]
-    }).catch(() => undefined);
-  }, wait.renewalMilliseconds ?? leaseRenewalMilliseconds);
-
   try {
     return await migrateDatabase(client, directory);
   } finally {
-    clearInterval(renewal);
     await releaseMaintenanceLease(client, leaseName, owner);
   }
 }

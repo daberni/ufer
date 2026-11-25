@@ -154,6 +154,7 @@ jobs:
     if: needs.plan.outputs.pending == 'true'
     runs-on: ubuntu-latest
     environment: production-migration
+    # Must stay below the 60-minute migration lease in src/server/database/migrations.ts.
     timeout-minutes: 40
     env:
       APPROVED_CHANGESETS: ${{ needs.plan.outputs.changesets }}
