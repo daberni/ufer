@@ -286,7 +286,7 @@ jobs:
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           DEPLOYMENT_URL: ${{ needs.deploy.outputs.url }}
-        run: npx --yes vercel@65.16.0 promote "$DEPLOYMENT_URL" --yes --token "$VERCEL_TOKEN"
+        run: npx --yes vercel@65.16.0 promote "$DEPLOYMENT_URL" --yes --token "$VERCEL_TOKEN" --scope "$VERCEL_ORG_ID"
 
       - name: Smoke test
         run: |
