@@ -90,11 +90,18 @@ jobs:
           DATABASE_AUTH_TOKEN: ${{ secrets.DATABASE_AUTH_TOKEN }}
         run: npm run --silent db:migrate > /dev/null
 
+      # Concurrency does not guarantee order: an older run that starts after a newer one must not move the alias back.
       - name: Point the staging alias at it
         if: steps.config.outputs.configured == 'true'
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           DEPLOYMENT_URL: ${{ steps.deploy.outputs.url }}
         run: |
+          current=$(git ls-remote "https://github.com/$GITHUB_REPOSITORY" refs/heads/main | cut -f 1)
+          if [ "$current" != "$GITHUB_SHA" ]; then
+            echo "::notice::main moved on to $current; leaving the staging alias to that run."
+            echo "Staging alias unchanged: this commit is no longer the head of main." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
           npx --yes vercel@65.16.0 alias set "$DEPLOYMENT_URL" "$STAGING_ALIAS" --token "$VERCEL_TOKEN"
           echo "Staging: https://$STAGING_ALIAS ($GITHUB_SHA)" >> "$GITHUB_STEP_SUMMARY"
