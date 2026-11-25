@@ -1,80 +1,31 @@
-import { sql } from "drizzle-orm";
 import { Temporal } from "temporal-polyfill";
 import { database } from "@/server/database/connection";
 import { today } from "@/lib/time";
 import { comparisonSpans, precedingRanges, serializeRange, spanToJson, type PeriodRange } from "@/lib/period-range";
 import { trendLength } from "@/lib/period";
-import { dateRangeCondition } from "@/features/transactions/server/period-condition";
-import { categoryAmount, countedTransactions, flowByCategory, flowTotal } from "@/features/reports/server/cash-flow-query";
+import { readSpanFlows, type DaySpan } from "@/features/reports/server/cash-flow-query";
 import { readNetWorthOn } from "@/features/reports/server/net-worth-history-query";
 import type { Insights, NetWorthChangeComparison, SpanFlows } from "@/features/insights/types";
 
-type Row = Record<string, unknown>;
+/** Income, expenses and both by category for each span, with the span's dates. */
+async function readFlows(currency: string, spans: DaySpan[]): Promise<SpanFlows[]> {
+  const flows = await readSpanFlows(await database(), currency, spans);
 
-type Span = Pick<PeriodRange, "start" | "end">;
-
-/** The half-open date bounds of a span whose end day is included. */
-function bounds(span: Span) {
-  return {
-    from: span.start.toString(),
-    until: span.end.add({
-      days: 1
-    }).toString()
-  };
-}
-
-/** The index of the span a booking date falls in; spans are consecutive and never overlap. */
-function spanIndex(spans: Span[]) {
-  const cases = spans.map((span, index) => {
-    const {
-      from,
-      until
-    } = bounds(span);
-
-    return sql`WHEN t.date>=${from} AND t.date<${until} THEN ${index}`;
-  });
-
-  return sql`(CASE ${sql.join(cases, sql.raw(" "))} END)`;
-}
-
-/** Income, expenses and both by category for each span, read through the counted lines in one pass per figure. */
-async function readSpanFlows(currency: string, spans: Span[]): Promise<SpanFlows[]> {
-  const db = await database();
-  const outer = bounds({
-    start: spans[0].start,
-    end: spans[spans.length - 1].end
-  });
-  const source = countedTransactions(currency, dateRangeCondition(outer.from, outer.until));
-  const bucket = spanIndex(spans);
-  const [totals, income, expenses] = await Promise.all([
-    db.all<Row>(sql`SELECT ${bucket} AS month,${flowTotal("income")} AS income,${flowTotal("expenses")} AS expenses ${source} GROUP BY ${bucket}`),
-    db.all<Row>(flowByCategory(source, "income", bucket)),
-    db.all<Row>(flowByCategory(source, "expenses", bucket))
-  ]);
-
-  return spans.map((span, index) => {
-    const ofSpan = (row: Row) => Number(row.month) === index;
-    const total = totals.find(ofSpan);
-
-    return {
-      ...spanToJson(span),
-      income: Number(total?.income ?? 0),
-      expenses: Number(total?.expenses ?? 0),
-      incomeBreakdown: income.filter(ofSpan).map(categoryAmount),
-      expenseBreakdown: expenses.filter(ofSpan).map(categoryAmount)
-    };
-  });
+  return flows.map((flow, index) => ({
+    ...spanToJson(spans[index]),
+    ...flow
+  }));
 }
 
 /** The day before a span starts, whose closing net worth the span's change starts from. */
-function dayBefore(span: Span) {
+function dayBefore(span: DaySpan) {
   return span.start.subtract({
     days: 1
   }).toString();
 }
 
 /** Net-worth change over each span, or null for a span that has not started. */
-async function readNetWorthChanges(currency: string, spans: Span[], now: Temporal.Instant) {
+async function readNetWorthChanges(currency: string, spans: DaySpan[], now: Temporal.Instant) {
   const current = today(now);
   const started = spans.filter(span => Temporal.PlainDate.compare(span.start, current) <= 0);
   const dates = started.flatMap(span => [dayBefore(span), span.end.toString()]);
@@ -94,9 +45,9 @@ export async function readInsights(range: PeriodRange, currency: string, now = T
   const comparison = comparisonSpans(range, today(now));
   // The compared spans are read on their own: the running range's days and the previous interval's first days need not be adjacent.
   const [columns, [current], [previous]] = await Promise.all([
-    readSpanFlows(currency, precedingRanges(range, trendLength)),
-    readSpanFlows(currency, [comparison.current]),
-    readSpanFlows(currency, [comparison.previous])
+    readFlows(currency, precedingRanges(range, trendLength)),
+    readFlows(currency, [comparison.current]),
+    readFlows(currency, [comparison.previous])
   ]);
 
   return {

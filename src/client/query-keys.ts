@@ -24,6 +24,11 @@ export type InsightsFilters = {
   currency: string;
 };
 
+export type CashFlowHistoryFilters = {
+  before: string;
+  currency: string;
+};
+
 export type AccountCashFlowFilters = {
   account: string;
   period: string;
@@ -62,6 +67,8 @@ export const queryKeys = {
     // Below the cash-flow prefix, so transaction and category writes also refresh the insights.
     insightsFor: (filters: InsightsFilters) => ["reports", "cash-flow", "insights", filters] as const,
     cashFlowFor: (filters: CashFlowFilters) => ["reports", "cash-flow", filters] as const,
+    // Below the cash-flow prefix, so transaction and category writes also refresh the earlier months.
+    cashFlowHistoryFor: (filters: CashFlowHistoryFilters) => ["reports", "cash-flow", "history", filters] as const,
     // Below the cash-flow prefix, so transaction and category writes also refresh an account's flows.
     accountCashFlowFor: (filters: AccountCashFlowFilters) => ["reports", "cash-flow", "account", filters] as const
   },
@@ -75,6 +82,7 @@ export const queryKeys = {
   },
   banking: {
     banks: (country: string) => ["banking", "banks", country] as const,
+    countries: () => ["banking", "bank-countries"] as const,
     connections: () => ["banking", "connections"] as const,
     syncRuns: () => ["banking", "sync-runs"] as const
   }

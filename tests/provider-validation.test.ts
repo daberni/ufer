@@ -12,7 +12,7 @@ import { decrypt, encrypt } from "../src/server/security/secret-box";
 import { hash } from "../src/server/security/tokens";
 import { cancelAuthorization, completeAuthorization } from "../src/features/banking/server/authorization-service";
 import { connectBank } from "../src/features/banking/server/connect-bank";
-import { availableBanks } from "../src/features/banking/server/enable-banking-client";
+import { availableBanks, bankCountries, clearBankDirectory } from "../src/features/banking/server/enable-banking-client";
 import { removeBankConnection } from "../src/features/banking/server/connection-service";
 import { syncAccounts } from "../src/features/banking/server/sync-service";
 import { seedActor } from "./fixtures/auth";
@@ -73,6 +73,7 @@ async function providerDatabase(context: TestContext) {
   });
 
   globals.budgetDb = Promise.resolve(db);
+  clearBankDirectory();
   process.env.ENABLE_BANKING_ENVIRONMENT = "SANDBOX";
   process.env.ENABLE_BANKING_APP_ID = "synthetic-app";
   process.env.ENABLE_BANKING_PRIVATE_KEY = providerKey;
@@ -348,6 +349,7 @@ test("a bank redirect or directory that does not match the provider contract is 
   });
   assert.equal((await db.select().from(schema.requisitions)).length, 0);
 
+  clearBankDirectory();
   useProvider(() => Response.json({
     aspsps: [{
       name: "Example institution",
@@ -357,6 +359,62 @@ test("a bank redirect or directory that does not match the provider contract is 
   await assert.rejects(availableBanks("AT"), {
     status: 502
   });
+});
+
+test("the connect dialog offers the countries and personal banks of the provider's whole directory, loaded once", async context => {
+  const {
+    requests,
+    useProvider
+  } = await providerDatabase(context);
+
+  useProvider(() => Response.json({
+    aspsps: [{
+      name: "Banco Sintético",
+      country: "PT",
+      psu_types: ["personal", "business"]
+    }, {
+      name: "Corporate Only Bank",
+      country: "LU",
+      psu_types: ["business"]
+    }, {
+      name: "Alpine Savings Bank",
+      country: "AT"
+    }, {
+      name: "Banco Empresarial",
+      country: "PT",
+      psu_types: ["business"]
+    }]
+  }));
+
+  assert.deepEqual(await bankCountries(), ["AT", "PT"]);
+  assert.deepEqual((await availableBanks("PT")).map(bank => bank.name), ["Banco Sintético"]);
+  assert.deepEqual(await availableBanks("LU"), []);
+  assert.deepEqual(requests, ["GET /aspsps"]);
+});
+
+test("an unavailable provider directory fails the request and is retried on the next one", async context => {
+  const {
+    requests,
+    useProvider
+  } = await providerDatabase(context);
+
+  useProvider(() => Response.json({
+    error: "SERVICE_UNAVAILABLE"
+  }, {
+    status: 503
+  }));
+  await assert.rejects(bankCountries(), (error: {
+    status?: number;
+  }) => typeof error.status === "number" && error.status >= 500);
+
+  useProvider(() => Response.json({
+    aspsps: [{
+      name: "Alpine Savings Bank",
+      country: "AT"
+    }]
+  }));
+  assert.deepEqual(await bankCountries(), ["AT"]);
+  assert.deepEqual(requests, ["GET /aspsps", "GET /aspsps"]);
 });
 
 test("malformed balances or transactions fail the account's sync without writing its balance or bookings", async context => {

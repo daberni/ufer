@@ -78,8 +78,8 @@
   margin-top: var(--space-6);
 }
 /* The loading placeholder and its inner wrapper pass the plot's height on to the skeleton, so the skeleton's month labels sit where the loaded chart puts them. */
-.plot > :not(.bar-chart, .chart-empty-note),
-.plot > :not(.bar-chart, .chart-empty-note) > * {
+.plot > :not(.viewport, .chart-empty-note),
+.plot > :not(.viewport, .chart-empty-note) > * {
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
@@ -242,4 +242,32 @@
   .bar-chart {
     min-height: 200px;
   }
+}
+/* The plot scrolls through months horizontally, one column per snap, with the latest month at the right. */
+.viewport {
+  flex: 1 1 auto;
+  display: flex;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: thin;
+}
+.strip {
+  flex: none;
+  display: flex;
+  min-width: 100%;
+}
+.strip .bar-chart,
+.earlier {
+  flex: none;
+}
+.strip .month {
+  flex: none;
+  width: var(--month-width);
+  scroll-snap-align: start;
+}
+.earlier {
+  position: relative;
+  display: flex;
 }

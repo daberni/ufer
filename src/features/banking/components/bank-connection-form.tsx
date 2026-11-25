@@ -7,7 +7,7 @@ import { ArrowRight } from "lucide-react";
 import { useId } from "react";
 import { useDialogSubmit, type DialogFormProps } from "@/components/ui/use-dialog-submit";
 import { useConnectBank } from "@/features/banking/mutations";
-import { bankCountries } from "@/features/banking/bank-selection";
+import { namedCountries } from "@/features/banking/bank-selection";
 import { useBankDirectory } from "@/features/banking/use-bank-directory";
 import type { Bank, Connection } from "@/features/banking/types";
 import type { Account } from "@/features/accounts/types";
@@ -85,12 +85,12 @@ function BankConnectionForm({
   account
 }: Props) {
   const t = useTranslations("banking.connect");
-  // Country names come from the runtime in the interface language, so no catalog has to list them.
-  const countryNames = new Intl.DisplayNames([useLocale()], {
-    type: "region"
-  });
+  const common = useTranslations("common");
+  const locale = useLocale();
   const { environment } = useBankingConfiguration();
   const directory = useBankDirectory(connection);
+  // Country names come from the runtime in the interface language, so no catalog has to list them.
+  const countries = namedCountries(directory.countries, locale);
   const status = directoryStatus(directory, t);
   const bankFieldId = useId();
   const directoryErrorId = useId();
@@ -104,7 +104,7 @@ function BankConnectionForm({
     <form
       onSubmit={event => submit(event, () => ({
         bank: directory.bankName,
-        country: directory.country,
+        country: directory.country ?? "",
         ...(account ? {
           accountId: account.id
         } : {})
@@ -119,8 +119,8 @@ function BankConnectionForm({
       )}
       <label>
         {t("country")}
-        <Select value={directory.country} onChange={event => directory.setCountry(event.target.value)}>
-          {bankCountries.map(country => <option key={country.code} value={country.code}>{countryNames.of(country.code) ?? country.code}</option>)}
+        <Select value={directory.country ?? ""} disabled={!countries.length} onChange={event => directory.setCountry(event.target.value)}>
+          {countries.map(country => <option key={country.code} value={country.code}>{country.name}</option>)}
         </Select>
       </label>
       <div className={ui["field"]}>
@@ -140,8 +140,9 @@ function BankConnectionForm({
         />
         {directory.error && (
           <>
-            <p id={directoryErrorId} className={ui["error-text"]}>{directory.error.message}</p>
+            <p id={directoryErrorId} className={ui["error-text"]}>{t("directoryFailedRetry")}</p>
             <TraceId id={directory.error.traceId} />
+            <button className={ui["text-button"]} type="button" onClick={directory.retry}>{common("retry")}</button>
           </>
         )}
       </div>

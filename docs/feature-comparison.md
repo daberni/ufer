@@ -117,6 +117,7 @@ An item is checked only when its acceptance criterion is met and evidence is rec
   - [x] Provider data validation, session revocation and per-client sign-in limits
   - [x] Reauthorization with a production institution (2026-11-21)
   - [x] Repeat syncs and the unattended daily sync over time ([#267](https://github.com/daberni/ufer/issues/267))
+  - [x] Countries and personal banks offered from the provider's directory for the configured environment, with a retry when it cannot be loaded ([#388](https://github.com/daberni/ufer/issues/388); behavior tests and a mocked-provider demo)
 - [ ] **E-02 · Configurable CSV**
   - [x] Preview, column mapping, account and category choices, saved templates
   - [x] Buxfer detection and split import

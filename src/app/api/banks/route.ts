@@ -10,7 +10,7 @@ export const maxDuration = 300;
 
 export async function GET(request: Request) {
   return respond(request, async () => {
-    const country = z.string().regex(/^[A-Z]{2}$/).parse(new URL(request.url).searchParams.get("country") || "AT");
+    const country = z.string().regex(/^[A-Z]{2}$/).parse(new URL(request.url).searchParams.get("country"));
 
     return {
       banks: await listBanks(country)

@@ -36,6 +36,12 @@ export type CashFlow = {
   }[];
 };
 
+/** A batch of trend months before the ones already loaded, oldest first, with the totals of the month before the batch. */
+export type CashFlowHistory = Pick<CashFlow, "currency" | "leadIn" | "trend"> & {
+  /** Whether counted transactions exist before the batch, so another batch is worth loading. */
+  hasEarlier: boolean;
+};
+
 /** One account's flows in a period, in the account's currency; income and expenses exclude categorized transfers, which are reported separately. */
 export type AccountCashFlow = {
   period: PeriodJson;
