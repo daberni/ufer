@@ -69,12 +69,13 @@ GitHub environments limit which workflows and branches can read a secret (deploy
 
 ## 2. Deployment pipeline (#90)
 
+Implemented in `release.yml` and `staging.yml`; [releasing](releasing.md) is the operating procedure. Differences from the sketches below: least privilege — the `release` environment holds only a read-only production token, `VERCEL_TOKEN` and `PRODUCTION_URL`, while the production write token lives only in the gated `production-migration` environment, whose single migration job (backup, re-check, rehearsal, migrate) replaces the separate empty gate job and is skipped when nothing is pending (the existing `Production` environment belongs to Vercel's deployment statuses), the rehearsal runs on a local SQLite copy instead of a Turso copy, the pre-migration backup runs inside the migration job, and the nightly and pre-migration backups verify against the release's changesets up to the database's applied count.
+
 ### Triggers and environments
 
 | Trigger | Target | Database | Approval |
 | --- | --- | --- | --- |
-| Pull request with `preview` label | Preview URL (unchanged) | Shared preview database | None |
-| Push to `main` | Staging alias (e.g. `ufer-staging.vercel.app`) | Staging database (new) | None |
+| Push to `main` | Staging alias (e.g. `ufer-staging.vercel.app`) | Shared preview database (decided) | None |
 | Push of tag `X.Y.Z` | Production domain | Production database | Only when changesets are pending |
 
 Tags follow #90: plain version, equal to `package.json`, pointing at a commit on `main`. Decided: production from tags. (Considered alternative: keep production from `main` and add only the migration gate; rejected because every merge would be a release and staging could not collect changes first.)
@@ -105,7 +106,7 @@ Without pending changesets the run is verify → plan → build → promote → 
 
 Startup verification rejects any migration history the build does not know: an **old** build refuses to start once the database contains a changeset row it does not have, even if the SQL was purely additive. Instances that are already warm keep serving because verification runs when an instance initializes its database connection, but any cold start of the old deployment between migrate (7) and promote (8) fails. Therefore:
 
-- Keep the migrate → promote window as short as possible: promote immediately after a successful migrate, with no other steps in between, and stay clear of the 05:00 cron slot. Requests that hit a cold start in that window fail with the existing "database is newer" error; for a single-household app this brief window is accepted.
+- Keep the migrate → promote window as short as possible: promote immediately after a successful migrate, with no other steps in between, and stay clear of the 05:00 cron slot. Requests that hit a cold start in that window fail with the existing "database is newer" error, and in-flight user writes without a job lease can fail against the changed schema; their transactions roll back. For a single-household app this brief window is accepted instead of a maintenance mode.
 - **Breaking changesets** (drop/rename columns, tighter constraints the new build relies on but the old data violates): split them into expand/contract releases. A maintenance mode does not exist; if a future changeset cannot be split, add one before shipping it. This is a review rule in `docs/database-migrations.md`.
 - Startup history verification stays as the last line of defense: a build never runs against a database missing its changesets or carrying changesets it does not know.
 
@@ -113,9 +114,9 @@ Making old builds tolerate newer additive history (for example by marking change
 
 ### Rollback and recovery
 
-- **Code only (no changeset in the release):** Vercel instant rollback to the previous production deployment, or re-run the pipeline for the previous tag. No database action.
-- **Release with a changeset:** a code rollback is not possible after the migration, because the previous build refuses the newer history. Fix forward with a new release, or restore (next point) and redeploy the previous tag.
-- **Bad data migration:** restore. PITR to the timestamp recorded before migrate (within the plan's window) or the pre-migration backup into a new database, verify, switch Vercel's database env vars, redeploy the previous tag. Data written after the migration is lost or must be replayed; that is the accepted cost, decided per incident by the owner. Never edit applied changesets or the migration table.
+- **Code only (no changeset in the release):** Vercel instant rollback to the previous production deployment (the release workflow only releases the highest version tag). No database action.
+- **Release with a changeset:** a code rollback is not possible after the migration, because the previous build refuses the newer history. Fix forward with a new release, or restore (next point) and roll back to the previous deployment.
+- **Bad data migration:** restore. PITR to the timestamp recorded before migrate (within the plan's window) or the pre-migration backup into a new database, verify, switch Vercel's database env vars, roll back to the previous deployment. Data written after the migration is lost or must be replayed; that is the accepted cost, decided per incident by the owner. Never edit applied changesets or the migration table.
 - **Pipeline failure before migrate:** nothing changed; production still serves the old deployment.
 - **Failure during migrate:** SQLite changesets run in a transaction per file in Drizzle's migrator; a failing file rolls back, earlier files stay applied. If any file was applied, the old build can no longer cold-start, so the failing run must be followed promptly by fix-forward or restore. The summary prints which files were applied.
 ## 3. Conditional approval
@@ -215,13 +216,12 @@ Different for Ufer: instead of failing, the pipeline pauses at an approval and t
 | Database | Used by | Data | Migrated by |
 | --- | --- | --- | --- |
 | `production` | Production deployments | Real | Tag pipeline after approval |
-| `staging` (new) | Staging alias from `main` | Synthetic demo data, sandbox bank | Staging pipeline, automatically |
-| `preview` (existing) | Labeled PR previews | Synthetic demo data | Unchanged: one-off, operator-run, because PRs carry unmerged changesets |
-| `ufer-rehearsal-*`, `ufer-drill-*` | Pipeline, temporary | Copies of production | Created and destroyed per run |
+| `preview` (existing) | Staging alias from `main` and labeled PR previews (decided: shared, no separate staging database; previews must contain all of main's changesets and add none) | Synthetic demo data, sandbox bank | Staging pipeline, automatically |
+| Rehearsal copy | Release pipeline, temporary | Copy of production | Local SQLite on the runner, deleted per run |
 
 Staging migrates automatically because it holds synthetic data only; it runs every merged changeset before any production tag, which is an additional rehearsal on a long-lived database. The preview database keeps its current manual process: automatically applying unmerged changesets from a PR would make it incompatible with other PRs.
 
-Rehearsal and drill copies contain production data in Turso's region; they are deleted at the end of each run and are covered by the existing Turso processor entry.
+The rehearsal copy contains production data only on the ephemeral GitHub runner and is deleted at the end of the job.
 
 ### Secrets: GitHub environments vs Vercel
 
@@ -259,15 +259,15 @@ The steps are worked through interactively under #84 and #90; this checklist tra
 
 - [x] Nightly encrypted backup workflow, freshness alert and owner setup docs (`backup.yml`, `backup-freshness.yml`, `db:export`)
 - [ ] Owner: confirm the Turso plan, its restore window and database limit; no upgrade
-- [ ] Owner: Cloudflare account with payment method, R2 EU bucket, lifecycle and lock rules, token, age key pair, GitHub `backup` environment; first manual backup run and local decryption check
+- [x] Owner: Cloudflare account with payment method, R2 EU bucket, lifecycle and lock rules, token, age key pair, GitHub `backup` environment; first manual backup run and local decryption check
 - [ ] Backup location and retention in `DATA_PROCESSORS` and the privacy notice (owner updates the production value in Vercel)
 - [ ] Restore runbook, first local drill and one point-in-time restore into a fresh database (owner authorization)
-- [ ] `db:status --json` and the breaking-changeset marker
-- [ ] Staging from `main` with automatic migrations (owner: staging database, Vercel env, GitHub environment)
-- [ ] Tag release workflow with the conditional migration gate, reusing the backup workflow (owner: GitHub environments and secrets); switch the nightly backup's ref to the latest tag
-- [ ] Workflow-only Vercel deployments (owner: Vercel settings; merging changes production behavior)
+- [x] Migration status with pending changeset names (`npm run db:status` prints `pendingChangesets`); breaking changes are split by review rule instead of a marker
+- [x] Staging workflow from `main` with automatic migrations (`staging.yml`); owner: staging database and GitHub `staging` environment
+- [x] Tag release workflow with the conditional migration gate, reusing the backup workflow (`release.yml`); owner: GitHub `release` and `production-migration` environments
+- [x] Workflow-only Vercel deployments (`git.deploymentEnabled: false`); takes effect when merged, after the owner setup
 - [ ] First gated migration release (owner: approval)
-- [ ] `AGENTS.md`: gate approval is the migration authorization, with the proposed wording: "For production, approving the `production-migration` gate of a release run is the explicit authorization for exactly the changesets listed in that run's summary; it does not cover other databases, re-runs with a different pending list or manual migrations." (owner review)
+- [x] `AGENTS.md`: gate approval is the migration authorization, with the proposed wording: "For production, approving the `production-migration` gate of a release run is the explicit authorization for exactly the changesets listed in that run's summary; it does not cover other databases, re-runs with a different pending list or manual migrations." (owner review)
 
 The backup steps deliver #84 and come before the release workflow.
 

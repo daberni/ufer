@@ -1,8 +1,13 @@
+import { randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { setTimeout as sleep } from "node:timers/promises";
+import { Temporal } from "temporal-polyfill";
 import { resolve } from "node:path";
 import { drizzle } from "drizzle-orm/libsql";
 import { migrate } from "drizzle-orm/libsql/migrator";
 import { readMigrationFiles } from "drizzle-orm/migrator";
 import type { Client } from "@libsql/client";
+import { timestamp } from "@/lib/time";
 
 const migrationDirectory = resolve(process.cwd(), "drizzle/sqlite");
 const historyTable = "__drizzle_migrations";
@@ -85,6 +90,21 @@ export async function migrationStatus(client: Client, directory = migrationDirec
   })), directory);
 }
 
+/** Migration status plus the names of the pending changesets in apply order, for review before a migration. */
+export async function migrationReport(client: Client, directory = migrationDirectory) {
+  const status = await migrationStatus(client, directory);
+  const journal = JSON.parse(readFileSync(resolve(directory, "meta", "_journal.json"), "utf8")) as {
+    entries: {
+      tag: string
+    }[]
+  };
+
+  return {
+    ...status,
+    pendingChangesets: journal.entries.slice(journal.entries.length - status.pending).map(entry => `${entry.tag}.sql`)
+  };
+}
+
 /** Verifies persisted history without applying SQL; also used by read-only offline recovery checks. */
 export function verifyAppliedMigrations(rows: {
   hash: unknown;
@@ -116,6 +136,82 @@ export async function migrateDatabase(client: Client, directory = migrationDirec
   });
 
   return migrationStatus(client, directory);
+}
+
+type LeaseWait = {
+  waitMinutes?: number;
+  pollMilliseconds?: number;
+};
+
+// Longer than the release's migration job may run (40 minutes), so the lease cannot expire mid-migration; a crashed migration frees it within this time.
+const migrationLeaseMinutes = 60;
+
+function leaseExpiry() {
+  return timestamp(Temporal.Now.instant().add({
+    minutes: migrationLeaseMinutes
+  }));
+}
+
+/** Takes the named job lease on the maintenance connection; the application's lease helpers need a fully migrated database. */
+async function acquireMaintenanceLease(client: Client, name: string, owner: string) {
+  const now = Temporal.Now.instant();
+  const result = await client.execute({
+    sql: "INSERT INTO leases (name, owner, expires_at) VALUES (?, ?, ?) ON CONFLICT(name) DO UPDATE SET owner = excluded.owner, expires_at = excluded.expires_at WHERE leases.expires_at < ? RETURNING owner",
+    args: [name, owner, leaseExpiry(), timestamp(now)]
+  });
+
+  return result.rows.length === 1;
+}
+
+/**
+ * Applies pending changesets while holding every named job lease, so syncs, price updates, imports and conflicting writes cannot run in between.
+ * Waits for running jobs to finish and gives up after the wait time, releasing what it took. Only an empty database skips the leases: it has no
+ * lease table and no jobs yet, while a legacy database may still be serving syncs.
+ */
+export async function migrateDatabaseUnderLeases(client: Client, leaseNames: string[], wait: LeaseWait = {}, directory = migrationDirectory) {
+  const status = await migrationStatus(client, directory);
+
+  if (status.mode === "empty") {
+    return migrateDatabase(client, directory);
+  }
+
+  const owner = `migration-${randomUUID()}`;
+  const deadline = Temporal.Now.instant().add({
+    minutes: wait.waitMinutes ?? 10
+  });
+  const held: string[] = [];
+
+  try {
+    for (const name of leaseNames) {
+      while (!(await acquireMaintenanceLease(client, name, owner))) {
+        if (Temporal.Instant.compare(Temporal.Now.instant(), deadline) >= 0) {
+          throw new Error(`The ${name} job lease stayed busy because a job is running. Retry the migration once it has finished.`);
+        }
+
+        await sleep(wait.pollMilliseconds ?? 15_000);
+      }
+
+      held.push(name);
+    }
+
+    return await migrateDatabase(client, directory);
+  } finally {
+    for (const name of held) {
+      await releaseMaintenanceLease(client, name, owner);
+    }
+  }
+}
+
+/** Best effort: a failed release must not turn a committed migration into a failure; the lease expires on its own. */
+async function releaseMaintenanceLease(client: Client, name: string, owner: string) {
+  try {
+    await client.execute({
+      sql: "DELETE FROM leases WHERE name = ? AND owner = ?",
+      args: [name, owner]
+    });
+  } catch {
+    console.warn(`Could not release the ${name} lease; it expires within ${migrationLeaseMinutes} minutes.`);
+  }
 }
 
 export async function initializeDatabase(client: Client, directory = migrationDirectory) {

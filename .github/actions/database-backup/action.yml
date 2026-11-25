@@ -1,0 +1,142 @@
+name: Database backup
+description: Exports the libSQL database, verifies the copy against a release's changesets, encrypts it with age and uploads it to R2. Expects a full checkout (fetch-depth 0) with installed dependencies.
+# The repository is public: nothing derived from the data (rows, counts, connection strings) may reach a log, the job summary or an artifact.
+
+inputs:
+  database-url:
+    description: libSQL URL of the database to back up
+    required: true
+  database-auth-token:
+    description: Database token (read access is enough)
+    required: true
+  ref:
+    description: Commit or tag whose changesets, up to the database's applied count, define the expected history
+    required: true
+  reason:
+    description: Short label stored in the object name, for example nightly or pre-migration-0.4.0
+    required: true
+  bucket:
+    description: R2 bucket name
+    required: true
+  endpoint:
+    description: R2 S3 endpoint
+    required: true
+  access-key-id:
+    description: R2 access key ID
+    required: true
+  secret-access-key:
+    description: R2 secret access key
+    required: true
+  age-recipients:
+    description: age public keys, one per line
+    required: true
+  copy-to:
+    description: Optional new file path that receives a plaintext copy of the verified export, for example for a migration rehearsal; the caller removes it
+    required: false
+    default: ''
+
+outputs:
+  object:
+    description: Object key of the uploaded encrypted backup
+    value: ${{ steps.upload.outputs.object }}
+
+runs:
+  using: composite
+  steps:
+    - name: Prepare
+      shell: bash
+      env:
+        SOURCE_REF: ${{ inputs.ref }}
+      run: |
+        sudo apt-get install -y --no-install-recommends age > /dev/null
+        commit=$(git rev-parse --verify --end-of-options "${SOURCE_REF}^{commit}")
+        backup_dir="$RUNNER_TEMP/backup"
+        release_dir="$RUNNER_TEMP/backup-release"
+        mkdir -m 700 "$backup_dir"
+        mkdir -p "$release_dir"
+        git archive "$commit" drizzle/sqlite | tar -x -C "$release_dir"
+        {
+          echo "SOURCE_COMMIT=$commit"
+          echo "BACKUP_DIR=$backup_dir"
+          echo "RELEASE_CHANGESETS=$release_dir/drizzle/sqlite"
+        } >> "$GITHUB_ENV"
+
+    - name: Export the database
+      shell: bash
+      env:
+        DATABASE_URL: ${{ inputs.database-url }}
+        DATABASE_AUTH_TOKEN: ${{ inputs.database-auth-token }}
+      run: npm run --silent db:export -- --file="$BACKUP_DIR/ufer.sqlite"
+
+    # The release's changesets up to the backup's applied count define the expected history and tables.
+    # The report lists row counts; it stays on the runner and is uploaded only in encrypted form.
+    - name: Verify the export
+      shell: bash
+      env:
+        SOURCE_REF: ${{ inputs.ref }}
+      run: |
+        if ! npm run --silent db:verify-backup -- --file="$BACKUP_DIR/ufer.sqlite" --migrations="$RELEASE_CHANGESETS" > "$BACKUP_DIR/report.json"; then
+          echo "::error::The export failed verification against the changesets of $SOURCE_REF."
+          exit 1
+        fi
+        echo "Applied changesets: $(jq '.appliedMigrations' "$BACKUP_DIR/report.json")" >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Keep a copy of the verified export
+      if: inputs.copy-to != ''
+      shell: bash
+      env:
+        COPY_TO: ${{ inputs.copy-to }}
+      run: |
+        mkdir -p -m 700 "$(dirname "$COPY_TO")"
+        cp "$BACKUP_DIR/ufer.sqlite" "$COPY_TO"
+
+    - name: Encrypt
+      shell: bash
+      env:
+        BACKUP_AGE_RECIPIENTS: ${{ inputs.age-recipients }}
+        REASON: ${{ inputs.reason }}
+      run: |
+        printf '%s\n' "$BACKUP_AGE_RECIPIENTS" > "$BACKUP_DIR/recipients.txt"
+        if ! grep -Eq '^age1[0-9a-z]+$' "$BACKUP_DIR/recipients.txt"; then
+          echo "::error::The age recipients must be public keys (age1…), one per line."
+          exit 1
+        fi
+        # Named as uploaded: <name>.sqlite.age, <name>.report.json.age and <name>.manifest.json.
+        mkdir "$BACKUP_DIR/out"
+        age --encrypt --recipients-file "$BACKUP_DIR/recipients.txt" --output "$BACKUP_DIR/out/sqlite.age" "$BACKUP_DIR/ufer.sqlite"
+        age --encrypt --recipients-file "$BACKUP_DIR/recipients.txt" --output "$BACKUP_DIR/out/report.json.age" "$BACKUP_DIR/report.json"
+        # The public manifest holds commits, the migration count, checksums and size, never data.
+        jq -n --arg createdAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --arg reason "$REASON" --arg sourceCommit "$SOURCE_COMMIT" --arg workflowCommit "$GITHUB_SHA" --argjson appliedMigrations "$(jq '.appliedMigrations' "$BACKUP_DIR/report.json")" --arg plaintextSha256 "$(sha256sum "$BACKUP_DIR/ufer.sqlite" | cut -d ' ' -f 1)" --arg ciphertextSha256 "$(sha256sum "$BACKUP_DIR/out/sqlite.age" | cut -d ' ' -f 1)" --argjson ciphertextBytes "$(stat -c %s "$BACKUP_DIR/out/sqlite.age")" '$ARGS.named' > "$BACKUP_DIR/out/manifest.json"
+
+    # daily/ has a 30-day lifecycle rule; a nightly run on the first of the month also writes monthly/ (365 days).
+    - name: Upload
+      id: upload
+      shell: bash
+      env:
+        REASON: ${{ inputs.reason }}
+        R2_BUCKET: ${{ inputs.bucket }}
+        AWS_ACCESS_KEY_ID: ${{ inputs.access-key-id }}
+        AWS_SECRET_ACCESS_KEY: ${{ inputs.secret-access-key }}
+        AWS_ENDPOINT_URL: ${{ inputs.endpoint }}
+        AWS_DEFAULT_REGION: auto
+        AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+        AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+      run: |
+        name="ufer-$(date -u +%Y%m%dT%H%M%SZ)-$(printf '%s' "$REASON" | tr -c 'a-zA-Z0-9.-' '-')"
+        prefixes=("daily/$(date -u +%Y/%m)")
+        if [ "$REASON" = "nightly" ] && [ "$(date -u +%d)" = "01" ]; then
+          prefixes+=("monthly/$(date -u +%Y)")
+        fi
+        for prefix in "${prefixes[@]}"; do
+          for file in sqlite.age report.json.age manifest.json; do
+            aws s3 cp --only-show-errors "$BACKUP_DIR/out/$file" "s3://${R2_BUCKET}/${prefix}/${name}.${file}"
+          done
+        done
+        object="${prefixes[0]}/${name}.sqlite.age"
+        echo "object=$object" >> "$GITHUB_OUTPUT"
+        echo "Backup: \`$object\` (${#prefixes[@]} copies, source commit \`$SOURCE_COMMIT\`)" >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Remove plaintext
+      if: always()
+      shell: bash
+      run: rm -rf "$RUNNER_TEMP/backup" "$RUNNER_TEMP/backup-release"

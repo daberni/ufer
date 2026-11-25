@@ -1,6 +1,8 @@
 import { loadEnvConfig } from "@next/env";
 import { createDatabaseClient } from "../src/server/database/connection";
-import { migrateDatabase, migrationStatus } from "../src/server/database/migrations";
+import { migrateDatabaseUnderLeases, migrationReport } from "../src/server/database/migrations";
+import { marketDataLease } from "../src/features/securities/server/price-update-service";
+import { syncLease } from "../src/server/jobs/lease";
 
 async function main() {
   loadEnvConfig(process.cwd());
@@ -8,7 +10,7 @@ async function main() {
   const client = createDatabaseClient();
 
   try {
-    const status = process.argv.includes("--status") ? await migrationStatus(client) : await migrateDatabase(client);
+    const status = process.argv.includes("--status") ? await migrationReport(client) : await migrateDatabaseUnderLeases(client, [syncLease, marketDataLease]);
 
     console.log(JSON.stringify(status, null, 2));
   } finally {

@@ -6,7 +6,8 @@ import { test } from "node:test";
 import { createClient, type Client } from "@libsql/client";
 import { drizzle } from "drizzle-orm/libsql";
 import { Temporal } from "temporal-polyfill";
-import { initializeDatabase, migrateDatabase, migrationStatus } from "../src/server/database/migrations";
+import { initializeDatabase, migrateDatabase, migrateDatabaseUnderLeases, migrationStatus } from "../src/server/database/migrations";
+import { timestamp } from "../src/lib/time";
 import * as schema from "../src/server/database/schema";
 import type { Database } from "../src/server/database/connection";
 import { readCashFlow } from "../src/features/reports/server/cash-flow-query";
@@ -1384,4 +1385,22 @@ test("environment migration refuses a database holding rows from more than one e
       force: true
     });
   }
+});
+
+test("adopting a legacy database waits for the sync lease like any other migration", async () => {
+  const client = await legacyDatabase();
+
+  await client.execute({
+    sql: "INSERT INTO leases (name, owner, expires_at) VALUES ('sync', 'running-sync', ?)",
+    args: [timestamp(Temporal.Now.instant().add({
+      minutes: 5
+    }))]
+  });
+
+  await assert.rejects(migrateDatabaseUnderLeases(client, ["sync"], {
+    waitMinutes: 0,
+    pollMilliseconds: 1
+  }), /job lease stayed busy/);
+  assert.equal((await migrationStatus(client)).mode, "legacy");
+  client.close();
 });

@@ -1,12 +1,13 @@
 import assert from "node:assert/strict";
-import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { test, type TestContext } from "node:test";
 import { createClient, type Client, type InStatement, type ResultSet, type TransactionMode } from "@libsql/client";
 import { initializeDatabase } from "../src/server/database/migrations";
-import { releaseTables, verifyLocalBackup } from "../src/server/database/backup-verification";
+import { appliedChangesetCount, releaseTables, verifyLocalBackup } from "../src/server/database/backup-verification";
+import { olderRelease } from "./fixtures/older-release";
 import { exportDatabase } from "../src/server/database/database-export";
 
 async function sourceFixture(context: TestContext) {
@@ -193,37 +194,8 @@ test("an export reads tables in byte-bounded pages, including tables without row
   assert.ok(Math.max(...measured.responses) <= 2_600, `largest response ${Math.max(...measured.responses)} bytes`);
 });
 
-/** Copies the checked-in changesets and keeps only the first `count`, as an older release would have them. */
-function olderRelease(directory: string, count: number) {
-  const target = join(directory, "release", "drizzle", "sqlite");
-
-  cpSync("drizzle/sqlite", target, {
-    recursive: true
-  });
-
-  const journalFile = join(target, "meta", "_journal.json");
-  const journal = JSON.parse(readFileSync(journalFile, "utf8")) as {
-    entries: {
-      tag: string
-    }[]
-  };
-  const kept = new Set(journal.entries.slice(0, count).map(entry => entry.tag));
-
-  journal.entries = journal.entries.slice(0, count);
-  writeFileSync(journalFile, JSON.stringify(journal));
-
-  for (const file of readdirSync(target).filter(name => name.endsWith(".sql"))) {
-    if (!kept.has(file.replace(/\.sql$/, ""))) {
-      rmSync(join(target, file));
-    }
-  }
-
-  return target;
-}
-
-test("a backup of an older release verifies against that release's changesets and tables, not the current schema", async context => {
+test("a backup taken before newer changesets verifies against the release's first changesets and their tables, not the current schema", async context => {
   const directory = mkdtempSync(join(tmpdir(), "ufer-older-release-"));
-  const release = olderRelease(directory, 10);
   const source = join(directory, "source.sqlite");
   const destination = join(directory, "export.sqlite");
   const client = createClient({
@@ -239,19 +211,23 @@ test("a backup of an older release verifies against that release's changesets an
     });
   });
 
-  await initializeDatabase(client, release);
+  await initializeDatabase(client, olderRelease(directory, 10));
   await exportDatabase(client, destination);
 
-  const tables = await releaseTables(release);
+  const tables = await releaseTables("drizzle/sqlite", appliedChangesetCount(destination));
   const report = verifyLocalBackup(destination, {
-    migrationDirectory: release,
-    expectedTables: tables
+    migrationDirectory: "drizzle/sqlite",
+    expectedTables: tables,
+    allowNewerChangesets: true
   });
 
   assert.equal(report.appliedMigrations, 10);
   assert.deepEqual(Object.keys(report.counts).sort(), tables);
-  // The current schema has tables this release does not create yet, which is what the pre-migration backup must tolerate.
+  // Without the release's earlier tables, or without accepting newer changesets, the same backup is rejected.
   assert.throws(() => verifyLocalBackup(destination, {
-    migrationDirectory: release
+    allowNewerChangesets: true
   }), /no such table/);
+  assert.throws(() => verifyLocalBackup(destination, {
+    expectedTables: tables
+  }), /matching the backup's applied migrations/);
 });
