@@ -25,3 +25,8 @@ export function periodCondition(period: Period): SQL {
 export function dateRangeCondition(start: string, end: string): SQL {
   return sql`t.date>=${start} AND t.date<${end}`;
 }
+
+/** SQL condition on `t.date` for dates before, but excluding, `end`. */
+export function dateBeforeCondition(end: string): SQL {
+  return sql`t.date<${end}`;
+}

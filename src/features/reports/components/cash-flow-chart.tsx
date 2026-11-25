@@ -3,7 +3,7 @@
 import ui from "../../../components/ui/primitives.module.css";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type RefObject } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type RefObject } from "react";
 import { clsx } from "clsx";
 import { Temporal } from "temporal-polyfill";
 import styles from "./cash-flow-chart.module.css";
@@ -15,11 +15,12 @@ import { money } from "@/lib/money";
 import { describeCategoryGroups } from "@/features/reports/components/category-rows";
 import { areaProps, valueMask } from "@/components/ui/result-presentation";
 import { AreaPlaceholder } from "@/components/ui/area-placeholder";
-import { currentMonth, trendMonths } from "@/lib/period";
+import { currentMonth, trendLength, trendMonths } from "@/lib/period";
 import { chartMonthCount, minimumChartMonths, skeletonMonthBreakpoints } from "@/features/reports/chart-months";
 import { useMonthTransactionsHref, usePeriod } from "@/client/use-app-url";
 import type { Area, AreaResult, PendingArea } from "@/components/ui/use-area-result";
 import type { CashFlow } from "@/features/reports/types";
+import type { EarlierMonths } from "@/features/reports/use-earlier-months";
 import { barSpan, cashFlowScale, scaleOffset, type CashFlowScale } from "@/features/reports/cash-flow-scale";
 import { edgeNet, hasCashFlowToDraw, formatSavingsRate, isNegativeRate, netFlow, trendCashFlow, type CashFlowSelection } from "@/features/reports/cash-flow-selection";
 import { useLocale } from "@/client/locale-provider";
@@ -31,8 +32,10 @@ type Props = {
   selection: CashFlowSelection | null;
   targetProps: ReturnType<typeof useChartDetails>["targetProps"];
   detailsId: string;
-  /** Called when the selected month is no longer among the months that fit, so the panel does not describe a hidden month. */
+  /** Called when the selected month is no longer among the loaded months, so the panel does not describe a missing month. */
   onSelectionHidden: () => void;
+  /** Months before the trend the chart scrolls to; without it the chart scrolls through the trend alone. */
+  earlier?: EarlierMonths;
 };
 
 type Flow = "income" | "expenses";
@@ -54,20 +57,25 @@ export function CashFlowChart({
   selection,
   targetProps,
   detailsId,
-  onSelectionHidden
+  onSelectionHidden,
+  earlier
 }: Props) {
   const t = useTranslations("reports.chart");
   const locale = useLocale();
   const period = usePeriod();
   const plotRef = useRef<HTMLDivElement>(null);
-  const monthCount = useChartMonthCount(plotRef);
+  const plot = usePlotColumns(plotRef);
+  // Whole months scrolled out of view to the right; the chart opens at the trend's latest month.
+  const [hiddenAfter, setHiddenAfter] = useState(0);
   // The trend's months follow from the selected period, so the heading and month labels are known before the figures.
   const trend = cashFlow.status === "pending" ? trendMonths(period, currentMonth()) : cashFlow.data.trend.map(item => Temporal.PlainYearMonth.from(item.month));
-  const months = trend.slice(-monthCount);
+  const visibleEnd = trend.length - hiddenAfter;
+  const visibleStart = Math.max(0, visibleEnd - plot.count);
+  const months = trend.slice(visibleStart, visibleEnd);
   const rangeMask = cashFlow.status === "pending" ? "" : valueMask(cashFlow.status);
   const rateMask = cashFlow.status === "pending" ? ui["skeleton"] : rangeMask;
   // The rate covers exactly the months the chart shows.
-  const visibleRate = cashFlow.status === "pending" ? null : trendCashFlow(cashFlow.data.trend.slice(-months.length)).savingsRate;
+  const visibleRate = cashFlow.status === "pending" ? null : trendCashFlow(cashFlow.data.trend.slice(visibleStart, visibleEnd)).savingsRate;
 
   return (
     <section className={clsx(ui["panel"], styles["chart-panel"])}>
@@ -98,11 +106,13 @@ export function CashFlowChart({
         {cashFlow.status === "pending" ? <ChartSkeleton area={cashFlow} months={trend} /> : (
           <ChartPlot
             cashFlow={cashFlow}
-            months={months}
             selection={selection}
             targetProps={targetProps}
             detailsId={detailsId}
             onSelectionHidden={onSelectionHidden}
+            earlier={earlier}
+            columns={plot}
+            onScrolled={setHiddenAfter}
           />
         )}
       </div>
@@ -110,9 +120,17 @@ export function CashFlowChart({
   );
 }
 
-/** How many of the latest months fit the plot's current width, measured before paint so a resize never shows a squeezed chart. */
-function useChartMonthCount(plotRef: RefObject<HTMLDivElement | null>) {
-  const [count, setCount] = useState(minimumChartMonths);
+/** How many month columns the plot shows at once and how wide each is, measured before paint so a resize never shows a squeezed chart. */
+type PlotColumns = {
+  count: number;
+  width: number;
+};
+
+function usePlotColumns(plotRef: RefObject<HTMLDivElement | null>) {
+  const [columns, setColumns] = useState<PlotColumns>({
+    count: minimumChartMonths,
+    width: 0
+  });
 
   useLayoutEffect(() => {
     const plot = plotRef.current;
@@ -121,7 +139,14 @@ function useChartMonthCount(plotRef: RefObject<HTMLDivElement | null>) {
       return;
     }
 
-    const measure = () => setCount(chartMonthCount(plot.clientWidth));
+    const measure = () => {
+      const count = chartMonthCount(plot.clientWidth);
+
+      setColumns({
+        count,
+        width: plot.clientWidth / count
+      });
+    };
     const observer = new ResizeObserver(measure);
 
     measure();
@@ -130,7 +155,83 @@ function useChartMonthCount(plotRef: RefObject<HTMLDivElement | null>) {
     return () => observer.disconnect();
   }, [plotRef]);
 
-  return count;
+  return columns;
+}
+
+/** The month column a key moves focus to, from the focused one among `count` columns; null for keys the chart leaves alone. */
+function keyTarget(key: string, index: number, count: number, page: number) {
+  const targets: Record<string, number> = {
+    ArrowLeft: index - 1,
+    ArrowRight: index + 1,
+    PageUp: index - page,
+    PageDown: index + page,
+    Home: 0,
+    End: count - 1
+  };
+
+  if (!(key in targets)) {
+    return null;
+  }
+
+  return Math.min(count - 1, Math.max(0, targets[key]));
+}
+
+/**
+ * Keeps the plot scrolled to the same months while columns are added before them or resized: the months hidden to the right stay hidden, so the latest month is the initial position and a loaded batch of earlier months never moves the visible ones. Near the start, it asks for earlier months.
+ */
+function useMonthScroller({
+  columnCount,
+  placeholderCount,
+  width,
+  visibleCount,
+  earlier,
+  onScrolled
+}: {
+  columnCount: number;
+  placeholderCount: number;
+  width: number;
+  visibleCount: number;
+  earlier: EarlierMonths | undefined;
+  onScrolled: (hiddenAfter: number) => void;
+}) {
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const hiddenAfter = useRef(0);
+
+  // Earlier months load once the loaded months' start is less than a view away, before their placeholders come into view; half a column of slack absorbs fractional scroll positions at the initial position.
+  function loadIfNearStart(viewport: HTMLDivElement) {
+    if (earlier?.hasEarlier && viewport.scrollLeft < (placeholderCount + visibleCount - 0.5) * width) {
+      earlier.load();
+    }
+  }
+
+  useLayoutEffect(() => {
+    const viewport = viewportRef.current;
+
+    if (!viewport || width === 0) {
+      return;
+    }
+
+    viewport.scrollLeft = viewport.scrollWidth - viewport.clientWidth - hiddenAfter.current * width;
+  }, [columnCount, width]);
+
+  function onScroll() {
+    const viewport = viewportRef.current;
+
+    if (!viewport || width === 0) {
+      return;
+    }
+
+    const hidden = Math.max(0, Math.round((viewport.scrollWidth - viewport.clientWidth - viewport.scrollLeft) / width));
+
+    hiddenAfter.current = hidden;
+    onScrolled(hidden);
+    loadIfNearStart(viewport);
+  }
+
+  return {
+    viewportRef,
+    onScroll
+  };
 }
 
 /** A flow's bar from the zero line: income upward and expenses downward, each reversed when its amount is negative. */
@@ -277,16 +378,49 @@ function ChartSkeleton({
   );
 }
 
+/** Columns that hold the place of a batch of earlier months while it loads, as wide as the months they become. */
+function EarlierPlaceholders({
+  count,
+  scale
+}: {
+  count: number;
+  scale: CashFlowScale;
+}) {
+  return (
+    <div className={styles["earlier"]} aria-hidden="true">
+      <ZeroLine scale={scale} />
+      {Array.from({
+        length: count
+      }, (_, index) => {
+        const [income, expenses] = skeletonFlows[index % skeletonFlows.length];
+
+        return (
+          <div className={styles["month"]} key={index}>
+            <span className={styles["bars"]}>
+              <span className={clsx(styles["bar"], ui["skeleton"])} style={barPosition("income", income * scale.zero * scale.extent, scale)} />
+              <span className={clsx(styles["bar"], ui["skeleton"])} style={barPosition("expenses", expenses * (1 - scale.zero) * scale.extent, scale)} />
+            </span>
+            <span className={styles["month-label"]} />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function ChartPlot({
   cashFlow,
-  months,
   selection,
   targetProps,
   detailsId,
-  onSelectionHidden
+  onSelectionHidden,
+  earlier,
+  columns,
+  onScrolled
 }: Omit<Props, "cashFlow"> & {
   cashFlow: AreaResult<CashFlow>;
-  months: Temporal.PlainYearMonth[];
+  columns: PlotColumns;
+  onScrolled: (hiddenAfter: number) => void;
 }) {
   const t = useTranslations("reports.chart");
   const tCategories = useTranslations("reports.categories");
@@ -305,8 +439,21 @@ function ChartPlot({
   const {
     currency
   } = cashFlow.data;
-  // The chart shows the latest of the trend's months that fit its width.
-  const trend = cashFlow.data.trend.slice(-months.length);
+  const trend = cashFlow.data.trend;
+  const months = trend.map(item => Temporal.PlainYearMonth.from(item.month));
+  // A batch of placeholder columns before the loaded months keeps their size while earlier months load.
+  const placeholderCount = earlier?.hasEarlier ? trendLength : 0;
+  const {
+    viewportRef,
+    onScroll
+  } = useMonthScroller({
+    columnCount: placeholderCount + trend.length,
+    placeholderCount,
+    width: columns.width,
+    visibleCount: columns.count,
+    earlier,
+    onScrolled
+  });
   const leftEdgeNet = edgeNet(cashFlow.data, trend.length);
   const scale = cashFlowScale(trend, leftEdgeNet === null ? [] : [leftEdgeNet]);
   const chartMonths: ChartMonth[] = trend.map((item, index) => {
@@ -345,113 +492,146 @@ function ChartPlot({
   const surplusClip = `${clipPrefix}-surplus`;
   const deficitClip = `${clipPrefix}-deficit`;
 
+  function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    const buttons = [...event.currentTarget.querySelectorAll<HTMLButtonElement>("button[data-month]")];
+    const index = buttons.indexOf(event.target as HTMLButtonElement);
+    const target = index === -1 ? null : keyTarget(event.key, index, buttons.length, columns.count);
+
+    if (target === null) {
+      return;
+    }
+
+    event.preventDefault();
+    buttons[target].focus({
+      preventScroll: true
+    });
+    buttons[target].scrollIntoView({
+      block: "nearest",
+      inline: "nearest"
+    });
+  }
+
   return (
     <>
       <div
-        {...areaProps(cashFlow.status, styles["bar-chart"])}
-        ref={chartRef}
-        role="group"
-        aria-label={t("plotLabel", {
-          range: monthRangeLabel(months, locale)
-        })}
-        data-active={activeMonth ? "" : undefined}
+        className={styles["viewport"]}
+        ref={viewportRef}
+        onScroll={onScroll}
+        onKeyDown={onKeyDown}
+        style={{
+          "--month-width": `${columns.width}px`
+        } as CSSProperties}
       >
-        {/* The selected month's column is highlighted behind the net area, so the area stays continuous across all months. */}
-        {activeMonth && (
-          <span
-            className={styles["column-highlight"]}
-            aria-hidden="true"
-            style={{
-              left: cssPercent(chartMonths.indexOf(activeMonth) / chartMonths.length),
-              width: cssPercent(1 / chartMonths.length)
-            }}
-          />
-        )}
-        {hasHistory && (
-          <span className={styles["plot-area"]} aria-hidden="true">
-            <svg className={styles["net-area"]} viewBox="0 0 100 100" preserveAspectRatio="none">
-              <defs>
-                <clipPath id={surplusClip}>
-                  <rect
-                    x="0"
-                    y="0"
-                    width="100"
-                    height={zero}
-                  />
-                </clipPath>
-                <clipPath id={deficitClip}>
-                  <rect
-                    x="0"
-                    y={zero}
-                    width="100"
-                    height={100 - zero}
-                  />
-                </clipPath>
-              </defs>
-              <polygon className={styles["net-surplus"]} points={netArea} clipPath={`url(#${surplusClip})`} />
-              <polygon className={styles["net-deficit"]} points={netArea} clipPath={`url(#${deficitClip})`} />
-              <polyline className={styles["net-outline"]} points={netPoints} vectorEffect="non-scaling-stroke" />
-            </svg>
-          </span>
-        )}
-        {/* Drawn after the highlight and the net area, so the zero line runs uninterrupted beneath the bars. */}
-        <ZeroLine scale={scale} />
-        {chartMonths.map(item => {
-          const active = item === activeMonth;
-          const descriptionId = `${descriptionPrefix}-${item.month}`;
-          const description = t("monthDescription", {
-            income: describeCategoryGroups(item.incomeGroups, currency, locale, groupWords),
-            expenses: describeCategoryGroups(item.expenseGroups, currency, locale, groupWords)
-          });
-          const monthFigures = {
-            month: item.title,
-            income: money(item.income, currency, locale),
-            expenses: money(item.expenses, currency, locale),
-            net: money(item.net, currency, locale),
-            rate: formatSavingsRate(item.savingsRate, locale)
-          };
-
-          return (
-            <button
-              type="button"
-              className={styles["month"]}
-              key={item.month}
-              aria-label={item.month === thisMonth ? t("currentMonthLabel", monthFigures) : t("monthLabel", monthFigures)}
-              aria-describedby={descriptionId}
-              aria-controls={detailsId}
-              data-active={active ? "" : undefined}
-              data-current={item.month === thisMonth ? "" : undefined}
-              {...targetProps(item.month, () => router.push(monthTransactionsHref(item.month)))}
-            >
-              <span className={styles["bars"]}>
-                <FlowBar
-                  flow="income"
-                  shared={sharesDirection(item)}
-                  amount={item.income}
-                  groups={active ? item.incomeGroups : []}
-                  scale={scale}
-                />
-                <FlowBar
-                  flow="expenses"
-                  shared={sharesDirection(item)}
-                  amount={item.expenses}
-                  groups={active ? item.expenseGroups : []}
-                  scale={scale}
-                />
-                {active && (
-                  <span
-                    className={styles["net-point"]}
-                    style={{
-                      top: cssPercent(scaleOffset(item.net, scale))
-                    }}
-                  />
-                )}
+        <div className={styles["strip"]}>
+          {placeholderCount > 0 && <EarlierPlaceholders count={placeholderCount} scale={scale} />}
+          <div
+            {...areaProps(cashFlow.status, styles["bar-chart"])}
+            ref={chartRef}
+            role="group"
+            aria-label={t("plotLabel", {
+              range: monthRangeLabel(months, locale)
+            })}
+            data-active={activeMonth ? "" : undefined}
+          >
+            {/* The selected month's column is highlighted behind the net area, so the area stays continuous across all months. */}
+            {activeMonth && (
+              <span
+                className={styles["column-highlight"]}
+                aria-hidden="true"
+                style={{
+                  left: cssPercent(chartMonths.indexOf(activeMonth) / chartMonths.length),
+                  width: cssPercent(1 / chartMonths.length)
+                }}
+              />
+            )}
+            {hasHistory && (
+              <span className={styles["plot-area"]} aria-hidden="true">
+                <svg className={styles["net-area"]} viewBox="0 0 100 100" preserveAspectRatio="none">
+                  <defs>
+                    <clipPath id={surplusClip}>
+                      <rect
+                        x="0"
+                        y="0"
+                        width="100"
+                        height={zero}
+                      />
+                    </clipPath>
+                    <clipPath id={deficitClip}>
+                      <rect
+                        x="0"
+                        y={zero}
+                        width="100"
+                        height={100 - zero}
+                      />
+                    </clipPath>
+                  </defs>
+                  <polygon className={styles["net-surplus"]} points={netArea} clipPath={`url(#${surplusClip})`} />
+                  <polygon className={styles["net-deficit"]} points={netArea} clipPath={`url(#${deficitClip})`} />
+                  <polyline className={styles["net-outline"]} points={netPoints} vectorEffect="non-scaling-stroke" />
+                </svg>
               </span>
-              <span className={styles["month-label"]}>{item.label}</span>
-              <span id={descriptionId} hidden>{description}</span>
-            </button>
-          );
-        })}
+            )}
+            {/* Drawn after the highlight and the net area, so the zero line runs uninterrupted beneath the bars. */}
+            <ZeroLine scale={scale} />
+            {chartMonths.map(item => {
+              const active = item === activeMonth;
+              const descriptionId = `${descriptionPrefix}-${item.month}`;
+              const description = t("monthDescription", {
+                income: describeCategoryGroups(item.incomeGroups, currency, locale, groupWords),
+                expenses: describeCategoryGroups(item.expenseGroups, currency, locale, groupWords)
+              });
+              const monthFigures = {
+                month: item.title,
+                income: money(item.income, currency, locale),
+                expenses: money(item.expenses, currency, locale),
+                net: money(item.net, currency, locale),
+                rate: formatSavingsRate(item.savingsRate, locale)
+              };
+
+              return (
+                <button
+                  type="button"
+                  className={styles["month"]}
+                  key={item.month}
+                  data-month={item.month}
+                  aria-label={item.month === thisMonth ? t("currentMonthLabel", monthFigures) : t("monthLabel", monthFigures)}
+                  aria-describedby={descriptionId}
+                  aria-controls={detailsId}
+                  data-active={active ? "" : undefined}
+                  data-current={item.month === thisMonth ? "" : undefined}
+                  {...targetProps(item.month, () => router.push(monthTransactionsHref(item.month)))}
+                >
+                  <span className={styles["bars"]}>
+                    <FlowBar
+                      flow="income"
+                      shared={sharesDirection(item)}
+                      amount={item.income}
+                      groups={active ? item.incomeGroups : []}
+                      scale={scale}
+                    />
+                    <FlowBar
+                      flow="expenses"
+                      shared={sharesDirection(item)}
+                      amount={item.expenses}
+                      groups={active ? item.expenseGroups : []}
+                      scale={scale}
+                    />
+                    {active && (
+                      <span
+                        className={styles["net-point"]}
+                        style={{
+                          top: cssPercent(scaleOffset(item.net, scale))
+                        }}
+                      />
+                    )}
+                  </span>
+                  <span className={styles["month-label"]}>{item.label}</span>
+                  <span id={descriptionId} hidden>{description}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
       {!hasHistory && <p className={clsx(styles["chart-empty-note"], valueMask(cashFlow.status))}>{t("empty")}</p>}
     </>
