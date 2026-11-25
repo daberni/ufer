@@ -115,12 +115,15 @@ jobs:
           DATABASE_AUTH_TOKEN: ${{ secrets.DATABASE_AUTH_TOKEN }}
         run: npm run --silent db:migrate > /dev/null
 
-      # Unlike deploy, alias and promote do not read the team from VERCEL_ORG_ID; without --scope they look up a personal account.
+      # The REST API, because the CLI's alias command first looks up the token's user, which a team-scoped token cannot read.
       - name: Point the staging alias at it
         if: steps.config.outputs.configured == 'true' && steps.head.outputs.current == 'true'
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           DEPLOYMENT_URL: ${{ steps.deploy.outputs.url }}
         run: |
-          npx --yes vercel@65.16.0 alias set "$DEPLOYMENT_URL" "$STAGING_ALIAS" --token "$VERCEL_TOKEN" --scope "$VERCEL_ORG_ID"
+          api="https://api.vercel.com"
+          auth="Authorization: Bearer $VERCEL_TOKEN"
+          deployment=$(curl -sS --fail-with-body -H "$auth" "$api/v13/deployments/${DEPLOYMENT_URL#https://}?teamId=$VERCEL_ORG_ID" | jq -r '.id')
+          curl -sS --fail-with-body -o /dev/null -X POST -H "$auth" -H "Content-Type: application/json" --data "$(jq -n --arg alias "$STAGING_ALIAS" '{alias: $alias}')" "$api/v2/deployments/$deployment/aliases?teamId=$VERCEL_ORG_ID"
           echo "Staging: https://$STAGING_ALIAS ($GITHUB_SHA)" >> "$GITHUB_STEP_SUMMARY"
