@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { test, type TestContext } from "node:test";
-import { createClient } from "@libsql/client";
+import { createClient, type Client, type InStatement, type ResultSet, type TransactionMode } from "@libsql/client";
 import { initializeDatabase } from "../src/server/database/migrations";
-import { verifyLocalBackup } from "../src/server/database/backup-verification";
+import { releaseTables, verifyLocalBackup } from "../src/server/database/backup-verification";
 import { exportDatabase } from "../src/server/database/database-export";
 
 async function sourceFixture(context: TestContext) {
@@ -110,29 +110,148 @@ test("an export never overwrites an existing file", async context => {
   await assert.rejects(exportDatabase(client, destination), /already exists/);
 });
 
-test("an export reads large tables in bounded pages, including tables without rowid, and still copies every row", async context => {
+/** Wraps a client so every row-data response for the given tables is measured. */
+function measuredClient(client: Client, tablePrefix: string) {
+  const responses: number[] = [];
+  const measure = (statement: InStatement, result: ResultSet) => {
+    const sql = typeof statement === "string" ? statement : statement.sql;
+
+    if (!sql.includes(`FROM "${tablePrefix}`)) {
+      return result;
+    }
+
+    responses.push(result.rows.reduce((total, row) => total + Array.from(row).reduce<number>((sum, value) => sum + (value instanceof ArrayBuffer ? value.byteLength : String(value ?? "").length), 0), 0));
+
+    return result;
+  };
+  const wrapped = new Proxy(client, {
+    get(target, property) {
+      if (property !== "transaction") {
+        return Reflect.get(target, property, target);
+      }
+
+      return async (mode: TransactionMode) => {
+        const transaction = await target.transaction(mode);
+
+        return new Proxy(transaction, {
+          get(inner, name) {
+            if (name === "execute") {
+              return async (statement: InStatement) => measure(statement, await inner.execute(statement));
+            }
+
+            const value = Reflect.get(inner, name, inner);
+
+            return typeof value === "function" ? value.bind(inner) : value;
+          }
+        });
+      };
+    }
+  });
+
+  return {
+    client: wrapped,
+    responses
+  };
+}
+
+test("an export reads tables in byte-bounded pages, including tables without rowid and rows larger than a page, and copies every row", async context => {
   const {
     directory,
     file,
     client
   } = await sourceFixture(context);
   const destination = join(directory, "paged.sqlite");
+  const paging = {
+    pageBytes: 1_000,
+    sizeScanRows: 3
+  };
 
-  await client.execute("CREATE TABLE paged_rows (id INTEGER PRIMARY KEY, label TEXT NOT NULL)");
-  await client.execute("CREATE TABLE paged_keys (scope TEXT NOT NULL, position INTEGER NOT NULL, PRIMARY KEY (scope, position)) WITHOUT ROWID");
+  await client.execute("CREATE TABLE paged_rows (id INTEGER PRIMARY KEY, payload TEXT NOT NULL)");
+  await client.execute("CREATE TABLE paged_keys (scope TEXT NOT NULL, position INTEGER NOT NULL, payload TEXT NOT NULL, PRIMARY KEY (scope, position)) WITHOUT ROWID");
 
-  for (let index = 1; index <= 7; index += 1) {
+  for (let index = 1; index <= 12; index += 1) {
+    // Every fifth row alone exceeds the page budget.
+    const payload = "x".repeat(index % 5 === 0 ? 2_500 : 300);
+
     await client.execute({
-      sql: "INSERT INTO paged_rows (id, label) VALUES (?, ?)",
-      args: [index * 10, `row ${index}`]
+      sql: "INSERT INTO paged_rows (id, payload) VALUES (?, ?)",
+      args: [index * 10, payload]
     });
     await client.execute({
-      sql: "INSERT INTO paged_keys (scope, position) VALUES (?, ?)",
-      args: [index % 2 ? "odd" : "even", index]
+      sql: "INSERT INTO paged_keys (scope, position, payload) VALUES (?, ?, ?)",
+      args: [index % 2 ? "odd" : "even", index, payload]
     });
   }
 
-  await exportDatabase(client, destination, 2);
+  const measured = measuredClient(client, "paged_");
+
+  await exportDatabase(measured.client, destination, paging);
 
   assert.deepEqual(snapshot(destination), snapshot(file));
+  // A page holds rows up to the budget, or one oversized row on its own.
+  assert.ok(measured.responses.length > 4);
+  assert.ok(Math.max(...measured.responses) <= 2_600, `largest response ${Math.max(...measured.responses)} bytes`);
+});
+
+/** Copies the checked-in changesets and keeps only the first `count`, as an older release would have them. */
+function olderRelease(directory: string, count: number) {
+  const target = join(directory, "release", "drizzle", "sqlite");
+
+  cpSync("drizzle/sqlite", target, {
+    recursive: true
+  });
+
+  const journalFile = join(target, "meta", "_journal.json");
+  const journal = JSON.parse(readFileSync(journalFile, "utf8")) as {
+    entries: {
+      tag: string
+    }[]
+  };
+  const kept = new Set(journal.entries.slice(0, count).map(entry => entry.tag));
+
+  journal.entries = journal.entries.slice(0, count);
+  writeFileSync(journalFile, JSON.stringify(journal));
+
+  for (const file of readdirSync(target).filter(name => name.endsWith(".sql"))) {
+    if (!kept.has(file.replace(/\.sql$/, ""))) {
+      rmSync(join(target, file));
+    }
+  }
+
+  return target;
+}
+
+test("a backup of an older release verifies against that release's changesets and tables, not the current schema", async context => {
+  const directory = mkdtempSync(join(tmpdir(), "ufer-older-release-"));
+  const release = olderRelease(directory, 10);
+  const source = join(directory, "source.sqlite");
+  const destination = join(directory, "export.sqlite");
+  const client = createClient({
+    url: `file:${source}`,
+    intMode: "bigint"
+  });
+
+  context.after(() => {
+    client.close();
+    rmSync(directory, {
+      recursive: true,
+      force: true
+    });
+  });
+
+  await initializeDatabase(client, release);
+  await exportDatabase(client, destination);
+
+  const tables = await releaseTables(release);
+  const report = verifyLocalBackup(destination, {
+    migrationDirectory: release,
+    expectedTables: tables
+  });
+
+  assert.equal(report.appliedMigrations, 10);
+  assert.deepEqual(Object.keys(report.counts).sort(), tables);
+  // The current schema has tables this release does not create yet, which is what the pre-migration backup must tolerate.
+  assert.throws(() => verifyLocalBackup(destination, {
+    migrationDirectory: release
+  }), /no such table/);
 });

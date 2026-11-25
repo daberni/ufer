@@ -87,24 +87,21 @@ jobs:
           fi
           echo "::warning::$message"
 
-      # Export, encryption and upload come from this workflow's commit; verification uses the full checkout of the release matching the database.
+      # All tooling comes from this workflow's commit; only the changesets come from the release matching the database.
       - uses: actions/checkout@v7
         if: steps.config.outputs.configured == 'true'
         with:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Check out the database's release for verification
+      - name: Extract the changesets of the database's release
         if: steps.config.outputs.configured == 'true'
         run: |
           commit=$(git rev-parse --verify --end-of-options "${SOURCE_REF}^{commit}")
+          mkdir -p "$RUNNER_TEMP/release"
+          git archive "$commit" drizzle/sqlite | tar -x -C "$RUNNER_TEMP/release"
           echo "SOURCE_COMMIT=$commit" >> "$GITHUB_ENV"
-          if [ "$commit" = "$(git rev-parse HEAD)" ]; then
-            echo "VERIFY_DIR=$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
-          else
-            git worktree add --detach "$RUNNER_TEMP/source" "$commit"
-            echo "VERIFY_DIR=$RUNNER_TEMP/source" >> "$GITHUB_ENV"
-          fi
+          echo "RELEASE_CHANGESETS=$RUNNER_TEMP/release/drizzle/sqlite" >> "$GITHUB_ENV"
 
       - uses: actions/setup-node@v7
         if: steps.config.outputs.configured == 'true'
@@ -116,9 +113,6 @@ jobs:
         if: steps.config.outputs.configured == 'true'
         run: |
           npm ci --no-audit --no-fund
-          if [ "$VERIFY_DIR" != "$GITHUB_WORKSPACE" ]; then
-            npm ci --no-audit --no-fund --prefix "$VERIFY_DIR"
-          fi
           sudo apt-get install -y --no-install-recommends age > /dev/null
 
       - name: Export the database
@@ -130,11 +124,11 @@ jobs:
           mkdir -m 700 "$BACKUP_DIR"
           npm run --silent db:export -- --file="$BACKUP_DIR/ufer.sqlite"
 
-      # The release's own schema and changesets define the expected tables. The report lists row counts; it stays on the runner and is uploaded only in encrypted form.
+      # The release's changesets define the expected history and tables. The report lists row counts; it stays on the runner and is uploaded only in encrypted form.
       - name: Verify the export
         if: steps.config.outputs.configured == 'true'
         run: |
-          if ! npm run --silent --prefix "$VERIFY_DIR" db:verify-backup -- --file="$BACKUP_DIR/ufer.sqlite" > "$BACKUP_DIR/report.json"; then
+          if ! npm run --silent db:verify-backup -- --file="$BACKUP_DIR/ufer.sqlite" --migrations="$RELEASE_CHANGESETS" > "$BACKUP_DIR/report.json"; then
             echo "::error::The export failed verification against the migrations of $SOURCE_REF."
             exit 1
           fi
