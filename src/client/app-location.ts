@@ -2,6 +2,8 @@ import { isTransactionType, type TransactionType } from "@/lib/transaction-types
 import { allMonthsPeriod, currentMonth, currentMonthPeriod, parsePeriod, serializePeriod, type Period } from "@/lib/period";
 import { parsePage } from "@/lib/pagination";
 import { parseCurrencyCode } from "@/lib/money";
+import { rangeContaining, serializeRange } from "@/lib/period-range";
+import { today } from "@/lib/time";
 
 export type View = "overview" | "insights" | "transactions" | "import" | "accounts" | "account" | "brokerage" | "rules";
 
@@ -183,11 +185,14 @@ export type CategoryHistory = {
   type: "income" | "expense";
 };
 
-/** A category's history in the insights: its income or expenses over the intervals up to the breakdown's month, in the breakdown's currency. Without a month the insights start at the current one. */
+/** A category's history in the insights: its income or expenses over the intervals up to the breakdown's month, in the breakdown's currency. */
 export function categoryHistoryHref(filter: CategoryHistory) {
   const params = new URLSearchParams();
 
-  if (filter.period.kind === "month" && !isCurrentMonth(filter.period)) {
+  // All months open the yearly history up to this year, so the history still covers the totals' span.
+  if (filter.period.kind === "all") {
+    params.set("range", serializeRange(rangeContaining("year", today())));
+  } else if (!isCurrentMonth(filter.period)) {
     params.set("range", filter.period.month.toString());
   }
 

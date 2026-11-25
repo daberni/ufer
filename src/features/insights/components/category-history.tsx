@@ -29,7 +29,7 @@ import { areaProps, valueMask } from "@/components/ui/result-presentation";
 import { pendingTogether, useAreaResult, type Area } from "@/components/ui/use-area-result";
 import { money } from "@/lib/money";
 import { cssPercent } from "@/lib/percent";
-import { transactionPageSize } from "@/lib/pagination";
+import { lastPage, transactionPageSize } from "@/lib/pagination";
 import { useLocale } from "@/client/locale-provider";
 import { useCurrency } from "@/client/use-app-url";
 import type { PeriodRange } from "@/lib/period-range";
@@ -300,9 +300,22 @@ function HistoryTransactions({
     page: 1
   });
   // Another range starts at its first page.
-  const page = paging.range === range ? paging.page : 1;
+  const requested = paging.range === range ? paging.page : 1;
   const currency = useCurrency();
-  const list = useAreaResult(useCategoryTransactions(range, currency, category, flow, page));
+  const query = useCategoryTransactions(range, currency, category, flow, requested);
+  const list = useAreaResult(query);
+  // Edits can shrink the matches below the shown page; the last page that still has matches takes its place.
+  const loaded = query.isPlaceholderData ? undefined : query.data;
+  const page = loaded ? Math.min(requested, lastPage(loaded.transactionCount)) : requested;
+
+  // Adjusting state while rendering requests that page before the empty one is shown.
+  if (page < requested) {
+    setPaging({
+      range,
+      page
+    });
+  }
+
   const pending = pendingTogether(list, categories);
 
   return (

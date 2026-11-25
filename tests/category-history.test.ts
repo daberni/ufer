@@ -12,6 +12,9 @@ import { averageAmount, categoryHistory } from "../src/features/insights/categor
 import { readTransactionPage } from "../src/features/transactions/server/transaction-list-query";
 import { transactionListRequest } from "../src/features/transactions/server/transaction-list-request";
 import { parseRange } from "../src/lib/period-range";
+import { allMonthsPeriod, monthPeriod } from "../src/lib/period";
+import { today } from "../src/lib/time";
+import { categoryHistoryHref } from "../src/client/app-location";
 
 const now = Temporal.Instant.from("2026-11-25T11:00:00Z");
 
@@ -158,4 +161,21 @@ test("the history's transactions are the category's bookings in the selected ran
     range: "2026-Q5",
     page: 1
   }));
+});
+
+test("a breakdown over all months opens the yearly history up to this year instead of the current month", () => {
+  const year = today().year;
+
+  assert.equal(categoryHistoryHref({
+    period: allMonthsPeriod,
+    currency: "USD",
+    category: "synthetic-food",
+    type: "expense"
+  }), `/insights?range=${year}&currency=USD&category=synthetic-food&type=expense`);
+  assert.equal(categoryHistoryHref({
+    period: monthPeriod(Temporal.PlainYearMonth.from("2026-07")),
+    currency: "EUR",
+    category: "uncategorized",
+    type: "income"
+  }), "/insights?range=2026-07&category=uncategorized&type=income");
 });
