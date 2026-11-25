@@ -50,7 +50,7 @@ jobs:
           # Runs in the concurrency group may start in any order; only the highest version may release, so an older tag
           # never promotes over a newer one. Roll back with Vercel's instant rollback instead (docs/releasing.md#recovery).
           git fetch --force --tags origin > /dev/null
-          highest=$(git tag --list '[0-9]*.[0-9]*.[0-9]*' | sort -V | tail -n 1)
+          highest=$(git tag --list | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1)
           if [ "$TAG" != "$highest" ]; then
             echo "::error::Tag $TAG is not the highest version ($highest); an older tag cannot be released."
             exit 1

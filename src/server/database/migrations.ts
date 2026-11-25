@@ -141,19 +141,25 @@ export async function migrateDatabase(client: Client, directory = migrationDirec
 type LeaseWait = {
   waitMinutes?: number;
   pollMilliseconds?: number;
+  renewalMilliseconds?: number;
 };
 
-// Longer than the application's lease, because a migration must not lose the lease halfway.
-const migrationLeaseMinutes = 30;
+// Renewed while the changesets run, so a long migration never loses the lease; a crashed one frees it within this time.
+const migrationLeaseMinutes = 12;
+const leaseRenewalMilliseconds = 4 * 60_000;
+
+function leaseExpiry() {
+  return timestamp(Temporal.Now.instant().add({
+    minutes: migrationLeaseMinutes
+  }));
+}
 
 /** Takes the named job lease on the maintenance connection; the application's lease helpers need a fully migrated database. */
 async function acquireMaintenanceLease(client: Client, name: string, owner: string) {
   const now = Temporal.Now.instant();
   const result = await client.execute({
     sql: "INSERT INTO leases (name, owner, expires_at) VALUES (?, ?, ?) ON CONFLICT(name) DO UPDATE SET owner = excluded.owner, expires_at = excluded.expires_at WHERE leases.expires_at < ? RETURNING owner",
-    args: [name, owner, timestamp(now.add({
-      minutes: migrationLeaseMinutes
-    })), timestamp(now)]
+    args: [name, owner, leaseExpiry(), timestamp(now)]
   });
 
   return result.rows.length === 1;
@@ -183,9 +189,17 @@ export async function migrateDatabaseUnderLease(client: Client, leaseName: strin
     await sleep(wait.pollMilliseconds ?? 15_000);
   }
 
+  const renewal = setInterval(() => {
+    void client.execute({
+      sql: "UPDATE leases SET expires_at = ? WHERE name = ? AND owner = ?",
+      args: [leaseExpiry(), leaseName, owner]
+    }).catch(() => undefined);
+  }, wait.renewalMilliseconds ?? leaseRenewalMilliseconds);
+
   try {
     return await migrateDatabase(client, directory);
   } finally {
+    clearInterval(renewal);
     await client.execute({
       sql: "DELETE FROM leases WHERE name = ? AND owner = ?",
       args: [leaseName, owner]
