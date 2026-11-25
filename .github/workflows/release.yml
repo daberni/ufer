@@ -286,22 +286,7 @@ jobs:
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           DEPLOYMENT_URL: ${{ needs.deploy.outputs.url }}
-        # The REST API, because the CLI's promote command first looks up the token's user, which a team-scoped token cannot read.
-        # Promotion is asynchronous; wait until the production domain serves the new deployment before the smoke test.
-        run: |
-          api="https://api.vercel.com"
-          auth="Authorization: Bearer $VERCEL_TOKEN"
-          deployment=$(curl -sS --fail-with-body -H "$auth" "$api/v13/deployments/${DEPLOYMENT_URL#https://}?teamId=$VERCEL_ORG_ID" | jq -r '.id')
-          curl -sS --fail-with-body -o /dev/null -X POST -H "$auth" -H "Content-Type: application/json" --data '{}' "$api/v10/projects/$VERCEL_PROJECT_ID/promote/$deployment?teamId=$VERCEL_ORG_ID"
-          for _ in $(seq 1 60); do
-            current=$(curl -sS -H "$auth" "$api/v4/aliases/${PRODUCTION_URL#https://}?teamId=$VERCEL_ORG_ID" | jq -r '.deploymentId // empty')
-            if [ "$current" = "$deployment" ]; then
-              exit 0
-            fi
-            sleep 5
-          done
-          echo "::error::The production domain does not point at the promoted deployment after 5 minutes."
-          exit 1
+        run: npx --yes vercel@65.16.0 promote "$DEPLOYMENT_URL" --yes --token "$VERCEL_TOKEN" --scope "$VERCEL_ORG_ID"
 
       - name: Smoke test
         run: |
