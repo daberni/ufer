@@ -1,6 +1,6 @@
 name: Database backup
 
-# Exports the production database, verifies the copy, encrypts it to the owner's age public key and uploads it to R2.
+# Nightly: exports the production database, verifies the copy, encrypts it to the owner's age public key and uploads it to R2 (.github/actions/database-backup, also used before release migrations).
 # The repository is public: nothing derived from the data (rows, counts, connection strings) may reach a log, the job summary or an artifact.
 
 on:
@@ -12,20 +12,6 @@ on:
         description: "Commit or tag whose migrations match the production database (default: the selected branch)"
         required: false
         type: string
-  workflow_call:
-    inputs:
-      reason:
-        description: Short label stored in the object name, for example pre-migration-0.4.0
-        required: true
-        type: string
-      ref:
-        description: Commit or tag whose migrations match the production database before the migration
-        required: true
-        type: string
-    outputs:
-      object:
-        description: Object key of the uploaded encrypted backup
-        value: ${{ jobs.backup.outputs.object }}
 
 permissions:
   contents: read
@@ -39,20 +25,9 @@ jobs:
     runs-on: ubuntu-latest
     environment: backup
     timeout-minutes: 20
-    outputs:
-      object: ${{ steps.upload.outputs.object }}
     env:
-      REASON: ${{ inputs.reason || (github.event_name == 'schedule' && 'nightly') || 'manual' }}
-      # Only a called run has a reason; it backs up before a migration and must never be skipped silently.
-      REQUIRED: ${{ inputs.reason != '' }}
+      REASON: ${{ github.event_name == 'schedule' && 'nightly' || 'manual' }}
       SOURCE_REF: ${{ inputs.ref || github.sha }}
-      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-      AWS_DEFAULT_REGION: auto
-      AWS_ENDPOINT_URL: ${{ secrets.R2_ENDPOINT }}
-      AWS_REQUEST_CHECKSUM_CALCULATION: when_required
-      AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
-      R2_BUCKET: ${{ vars.BACKUP_BUCKET }}
     steps:
       - name: Check configuration
         id: config
@@ -73,7 +48,6 @@ jobs:
             fi
           done
           if [ -z "$missing" ]; then
-            echo "BACKUP_DIR=$RUNNER_TEMP/backup" >> "$GITHUB_ENV"
             echo "configured=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -81,10 +55,6 @@ jobs:
           echo "configured=false" >> "$GITHUB_OUTPUT"
           echo "## Database backup skipped" >> "$GITHUB_STEP_SUMMARY"
           echo "$message" >> "$GITHUB_STEP_SUMMARY"
-          if [ "$REQUIRED" = "true" ]; then
-            echo "::error::$message"
-            exit 1
-          fi
           echo "::warning::$message"
 
       # All tooling comes from this workflow's commit; only the changesets come from the release matching the database.
@@ -94,15 +64,6 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Extract the changesets of the database's release
-        if: steps.config.outputs.configured == 'true'
-        run: |
-          commit=$(git rev-parse --verify --end-of-options "${SOURCE_REF}^{commit}")
-          mkdir -p "$RUNNER_TEMP/release"
-          git archive "$commit" drizzle/sqlite | tar -x -C "$RUNNER_TEMP/release"
-          echo "SOURCE_COMMIT=$commit" >> "$GITHUB_ENV"
-          echo "RELEASE_CHANGESETS=$RUNNER_TEMP/release/drizzle/sqlite" >> "$GITHUB_ENV"
-
       - uses: actions/setup-node@v7
         if: steps.config.outputs.configured == 'true'
         with:
@@ -111,54 +72,26 @@ jobs:
 
       - name: Install dependencies
         if: steps.config.outputs.configured == 'true'
-        run: |
-          npm ci --no-audit --no-fund
-          sudo apt-get install -y --no-install-recommends age > /dev/null
+        run: npm ci --no-audit --no-fund
 
-      - name: Export the database
-        if: steps.config.outputs.configured == 'true'
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          DATABASE_AUTH_TOKEN: ${{ secrets.DATABASE_AUTH_TOKEN }}
-        run: |
-          mkdir -m 700 "$BACKUP_DIR"
-          npm run --silent db:export -- --file="$BACKUP_DIR/ufer.sqlite"
-
-      # The release's changesets up to the database's applied count define the expected history and tables, so a release with newer, not yet applied changesets still verifies the backup.
-      - name: Select the changesets the database has applied
-        if: steps.config.outputs.configured == 'true'
-        run: |
-          applied=$(node -e 'const { DatabaseSync } = require("node:sqlite"); const db = new DatabaseSync(process.argv[1], { readOnly: true }); console.log(db.prepare("SELECT COUNT(*) AS count FROM __drizzle_migrations").get().count);' "$BACKUP_DIR/ufer.sqlite")
-          .github/scripts/trim-changesets.sh "$RELEASE_CHANGESETS" "$applied"
-          echo "Applied changesets: $applied" >> "$GITHUB_STEP_SUMMARY"
-
-      # The report lists row counts; it stays on the runner and is uploaded only in encrypted form.
-      - name: Verify the export
-        if: steps.config.outputs.configured == 'true'
-        run: |
-          if ! npm run --silent db:verify-backup -- --file="$BACKUP_DIR/ufer.sqlite" --migrations="$RELEASE_CHANGESETS" > "$BACKUP_DIR/report.json"; then
-            echo "::error::The export failed verification against the migrations of $SOURCE_REF."
-            exit 1
-          fi
-
-      - name: Encrypt
-        if: steps.config.outputs.configured == 'true'
-        env:
-          BACKUP_AGE_RECIPIENTS: ${{ vars.BACKUP_AGE_RECIPIENTS }}
-        run: .github/scripts/backup-encrypt.sh "$BACKUP_DIR"
-
-      - name: Upload
+      - name: Back up
         id: upload
         if: steps.config.outputs.configured == 'true'
-        run: .github/scripts/backup-upload.sh "$BACKUP_DIR"
-
-      - name: Remove plaintext
-        if: always() && env.BACKUP_DIR != ''
-        run: rm -rf "$BACKUP_DIR"
+        uses: ./.github/actions/database-backup
+        with:
+          database-url: ${{ secrets.DATABASE_URL }}
+          database-auth-token: ${{ secrets.DATABASE_AUTH_TOKEN }}
+          ref: ${{ env.SOURCE_REF }}
+          reason: ${{ env.REASON }}
+          bucket: ${{ vars.BACKUP_BUCKET }}
+          endpoint: ${{ secrets.R2_ENDPOINT }}
+          access-key-id: ${{ secrets.R2_ACCESS_KEY_ID }}
+          secret-access-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          age-recipients: ${{ vars.BACKUP_AGE_RECIPIENTS }}
 
   alert:
     needs: backup
-    if: failure() && inputs.reason == ''
+    if: failure()
     runs-on: ubuntu-latest
     permissions:
       contents: read

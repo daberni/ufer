@@ -54,7 +54,7 @@ A regression fixture also demonstrates a committed account present in WAL but mi
 
 ## Nightly encrypted backups
 
-`.github/workflows/backup.yml` runs nightly at 03:17 UTC, before the 05:00 sync, and on manual dispatch. The release pipeline will call the same workflow before a migration with a `reason` (for example `pre-migration-0.4.0`) and the ref of the release currently in production; such a call fails instead of skipping when the setup is incomplete.
+`.github/workflows/backup.yml` runs nightly at 03:17 UTC, before the 05:00 sync, and on manual dispatch. The backup steps live in the composite action `.github/actions/database-backup`; the release workflow's gated migration job runs the same action before migrating, with reason `pre-migration-<tag>`, and fails when its setup is incomplete.
 
 1. `npm run db:export -- --file=<new file>` copies the database named by `DATABASE_URL` into a new self-contained SQLite file. All reads run in one read transaction, so the copy is consistent while the application writes; tables are read in pages planned from measured row sizes (about 2 MB each, a single larger row on its own) to stay well below the remote server's 10 MB response limit, and integers are copied exactly. It never overwrites an existing file and never loads `.env` files.
 2. `npm run db:verify-backup -- --migrations=<dir>` checks the copy against the changesets of the selected ref (the workflow's commit by default, or the `ref` input); the expected tables come from applying those changesets to an empty in-memory database. Only the first changesets up to the backup's applied count are used, so a ref with newer changesets that production has not applied yet (such as `main` after merges or a new release tag before its migration) still verifies the backup. The verifier itself always comes from the workflow's commit, so a pre-migration call can name an older release still in production. Bank-secret decryption is not checked in CI because `DATA_ENCRYPTION_KEY` stays out of GitHub; the [restore drill](#rehearse-application-recovery) checks it locally.
@@ -78,7 +78,7 @@ These steps need the owner's accounts and are tracked in [#84](https://github.co
 4. **Lifecycle rules.** Delete objects with prefix `daily/` after 30 days and with prefix `monthly/` after 365 days.
 5. **Bucket lock rules.** Lock prefix `daily/` for 30 days and `monthly/` for 365 days, so a leaked workflow token cannot delete or overwrite existing backups.
 6. **API token.** Create an R2 API token with **Object Read & Write** limited to this bucket. R2 offers no write-only permission; read access only exposes ciphertext, the freshness check needs to list objects, and the bucket locks prevent deletion.
-7. **GitHub environment `backup`** (Settings → Environments). Deployment branches and tags: `main` and the version tag pattern (for pre-migration backups from release runs). Environment secrets:
+7. **GitHub environment `backup`** (Settings → Environments). Deployment branch: `main` (pre-migration backups run in the release's `production-migration` environment, not here; the existing tag rule is harmless). Environment secrets:
    - `DATABASE_URL`, `DATABASE_AUTH_TOKEN`: the production libSQL URL and a database token (preferably a dedicated read-only token, so it can be revoked separately)
    - `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`: the API token's S3 credentials
    - `R2_ENDPOINT`: the EU S3 endpoint from step 3

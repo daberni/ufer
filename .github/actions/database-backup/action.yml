@@ -1,0 +1,106 @@
+name: Database backup
+description: Exports the libSQL database, verifies the copy against a release's changesets, encrypts it with age and uploads it to R2. Expects a full checkout (fetch-depth 0) with installed dependencies.
+# The repository is public: nothing derived from the data (rows, counts, connection strings) may reach a log, the job summary or an artifact.
+
+inputs:
+  database-url:
+    description: libSQL URL of the database to back up
+    required: true
+  database-auth-token:
+    description: Database token (read access is enough)
+    required: true
+  ref:
+    description: Commit or tag whose changesets, up to the database's applied count, define the expected history
+    required: true
+  reason:
+    description: Short label stored in the object name, for example nightly or pre-migration-0.4.0
+    required: true
+  bucket:
+    description: R2 bucket name
+    required: true
+  endpoint:
+    description: R2 S3 endpoint
+    required: true
+  access-key-id:
+    description: R2 access key ID
+    required: true
+  secret-access-key:
+    description: R2 secret access key
+    required: true
+  age-recipients:
+    description: age public keys, one per line
+    required: true
+
+outputs:
+  object:
+    description: Object key of the uploaded encrypted backup
+    value: ${{ steps.upload.outputs.object }}
+
+runs:
+  using: composite
+  steps:
+    - name: Prepare
+      shell: bash
+      env:
+        SOURCE_REF: ${{ inputs.ref }}
+      run: |
+        sudo apt-get install -y --no-install-recommends age > /dev/null
+        commit=$(git rev-parse --verify --end-of-options "${SOURCE_REF}^{commit}")
+        backup_dir="$RUNNER_TEMP/backup"
+        release_dir="$RUNNER_TEMP/backup-release"
+        mkdir -m 700 "$backup_dir"
+        mkdir -p "$release_dir"
+        git archive "$commit" drizzle/sqlite | tar -x -C "$release_dir"
+        {
+          echo "SOURCE_COMMIT=$commit"
+          echo "BACKUP_DIR=$backup_dir"
+          echo "RELEASE_CHANGESETS=$release_dir/drizzle/sqlite"
+        } >> "$GITHUB_ENV"
+
+    - name: Export the database
+      shell: bash
+      env:
+        DATABASE_URL: ${{ inputs.database-url }}
+        DATABASE_AUTH_TOKEN: ${{ inputs.database-auth-token }}
+      run: npm run --silent db:export -- --file="$BACKUP_DIR/ufer.sqlite"
+
+    # The release's changesets up to the database's applied count define the expected history and tables, so a release with newer, not yet applied changesets still verifies the backup.
+    # The report lists row counts; it stays on the runner and is uploaded only in encrypted form.
+    - name: Verify the export
+      shell: bash
+      env:
+        SOURCE_REF: ${{ inputs.ref }}
+      run: |
+        applied=$(node -e 'const { DatabaseSync } = require("node:sqlite"); const db = new DatabaseSync(process.argv[1], { readOnly: true }); console.log(db.prepare("SELECT COUNT(*) AS count FROM __drizzle_migrations").get().count);' "$BACKUP_DIR/ufer.sqlite")
+        .github/scripts/trim-changesets.sh "$RELEASE_CHANGESETS" "$applied"
+        echo "Applied changesets: $applied" >> "$GITHUB_STEP_SUMMARY"
+        if ! npm run --silent db:verify-backup -- --file="$BACKUP_DIR/ufer.sqlite" --migrations="$RELEASE_CHANGESETS" > "$BACKUP_DIR/report.json"; then
+          echo "::error::The export failed verification against the migrations of $SOURCE_REF."
+          exit 1
+        fi
+
+    - name: Encrypt
+      shell: bash
+      env:
+        BACKUP_AGE_RECIPIENTS: ${{ inputs.age-recipients }}
+        REASON: ${{ inputs.reason }}
+      run: .github/scripts/backup-encrypt.sh "$BACKUP_DIR"
+
+    - name: Upload
+      id: upload
+      shell: bash
+      env:
+        REASON: ${{ inputs.reason }}
+        R2_BUCKET: ${{ inputs.bucket }}
+        AWS_ACCESS_KEY_ID: ${{ inputs.access-key-id }}
+        AWS_SECRET_ACCESS_KEY: ${{ inputs.secret-access-key }}
+        AWS_ENDPOINT_URL: ${{ inputs.endpoint }}
+        AWS_DEFAULT_REGION: auto
+        AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+        AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+      run: .github/scripts/backup-upload.sh "$BACKUP_DIR"
+
+    - name: Remove plaintext
+      if: always()
+      shell: bash
+      run: rm -rf "$RUNNER_TEMP/backup" "$RUNNER_TEMP/backup-release"

@@ -69,7 +69,7 @@ GitHub environments limit which workflows and branches can read a secret (deploy
 
 ## 2. Deployment pipeline (#90)
 
-Implemented in `release.yml` and `staging.yml`; [releasing](releasing.md) is the operating procedure. Differences from the sketches below: one `release` environment holds the production secrets (the existing `Production` environment belongs to Vercel's deployment statuses), the rehearsal runs on a local SQLite copy instead of a Turso copy, the pre-migration backup runs only when changesets are pending, and the nightly and pre-migration backups verify against the release's changesets up to the database's applied count.
+Implemented in `release.yml` and `staging.yml`; [releasing](releasing.md) is the operating procedure. Differences from the sketches below: least privilege — the `release` environment holds only a read-only production token, `VERCEL_TOKEN` and `PRODUCTION_URL`, while the production write token lives only in the gated `production-migration` environment, whose single migration job (backup, re-check, rehearsal, migrate) replaces the separate empty gate job and is skipped when nothing is pending (the existing `Production` environment belongs to Vercel's deployment statuses), the rehearsal runs on a local SQLite copy instead of a Turso copy, the pre-migration backup runs inside the migration job, and the nightly and pre-migration backups verify against the release's changesets up to the database's applied count.
 
 ### Triggers and environments
 
