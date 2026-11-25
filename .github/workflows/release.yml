@@ -292,7 +292,7 @@ jobs:
           api="https://api.vercel.com"
           auth="Authorization: Bearer $VERCEL_TOKEN"
           deployment=$(curl -sS --fail-with-body -H "$auth" "$api/v13/deployments/${DEPLOYMENT_URL#https://}?teamId=$VERCEL_ORG_ID" | jq -r '.id')
-          curl -sS --fail-with-body -o /dev/null -X POST -H "$auth" "$api/v10/projects/$VERCEL_PROJECT_ID/promote/$deployment?teamId=$VERCEL_ORG_ID"
+          curl -sS --fail-with-body -o /dev/null -X POST -H "$auth" -H "Content-Type: application/json" --data '{}' "$api/v10/projects/$VERCEL_PROJECT_ID/promote/$deployment?teamId=$VERCEL_ORG_ID"
           for _ in $(seq 1 60); do
             current=$(curl -sS -H "$auth" "$api/v4/aliases/${PRODUCTION_URL#https://}?teamId=$VERCEL_ORG_ID" | jq -r '.deploymentId // empty')
             if [ "$current" = "$deployment" ]; then
