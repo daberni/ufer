@@ -340,6 +340,24 @@ const skeletonMonthStyles = skeletonMonthBreakpoints().map(({
 // Relative income and expense heights of the skeleton for each month of the trend.
 const skeletonFlows = [[0.55, 0.4], [0.7, 0.5], [0.45, 0.6], [0.8, 0.55], [0.6, 0.35], [0.75, 0.65]];
 
+/** A loading month's income and expense bars, each filling its share of the room on its side of the zero line. */
+function SkeletonBars({
+  index,
+  scale
+}: {
+  index: number;
+  scale: CashFlowScale;
+}) {
+  const [income, expenses] = skeletonFlows[index % skeletonFlows.length];
+
+  return (
+    <span className={styles["bars"]}>
+      <span className={clsx(styles["bar"], ui["skeleton"])} style={barPosition("income", income * scale.zero * scale.extent, scale)} />
+      <span className={clsx(styles["bar"], ui["skeleton"])} style={barPosition("expenses", expenses * (1 - scale.zero) * scale.extent, scale)} />
+    </span>
+  );
+}
+
 function ChartSkeleton({
   area,
   months
@@ -361,14 +379,9 @@ function ChartSkeleton({
         <style>{skeletonMonthStyles}</style>
         <ZeroLine scale={scale} />
         {months.map((month, index) => {
-          const [income, expenses] = skeletonFlows[index % skeletonFlows.length];
-
           return (
             <div className={styles["month"]} key={month.toString()} data-current={month.equals(currentMonth()) ? "" : undefined}>
-              <span className={styles["bars"]}>
-                <span className={clsx(styles["bar"], ui["skeleton"])} style={barPosition("income", income, scale)} />
-                <span className={clsx(styles["bar"], ui["skeleton"])} style={barPosition("expenses", expenses, scale)} />
-              </span>
+              <SkeletonBars index={index} scale={scale} />
               <span className={styles["month-label"]}>{describeMonth(month, locale).label}</span>
             </div>
           );
@@ -391,19 +404,12 @@ function EarlierPlaceholders({
       <ZeroLine scale={scale} />
       {Array.from({
         length: count
-      }, (_, index) => {
-        const [income, expenses] = skeletonFlows[index % skeletonFlows.length];
-
-        return (
-          <div className={styles["month"]} key={index}>
-            <span className={styles["bars"]}>
-              <span className={clsx(styles["bar"], ui["skeleton"])} style={barPosition("income", income * scale.zero * scale.extent, scale)} />
-              <span className={clsx(styles["bar"], ui["skeleton"])} style={barPosition("expenses", expenses * (1 - scale.zero) * scale.extent, scale)} />
-            </span>
-            <span className={styles["month-label"]} />
-          </div>
-        );
-      })}
+      }, (_, index) => (
+        <div className={styles["month"]} key={index}>
+          <SkeletonBars index={index} scale={scale} />
+          <span className={styles["month-label"]} />
+        </div>
+      ))}
     </div>
   );
 }

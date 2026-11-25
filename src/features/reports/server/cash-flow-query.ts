@@ -4,7 +4,7 @@ import { database, type Database } from "@/server/database/connection";
 import { currentMonth, monthPeriod, periodToJson, trendMonths, type Period } from "@/lib/period";
 import { HttpError } from "@/lib/errors";
 import type { AccountCashFlow, CashFlowHistory, CategoryAmount } from "@/features/reports/types";
-import { dateBeforeCondition, dateRangeCondition, periodCondition } from "@/features/transactions/server/period-condition";
+import { beforeMonthCondition, monthsCondition, periodCondition } from "@/features/transactions/server/period-condition";
 
 type Row = Record<string, unknown>;
 
@@ -107,23 +107,15 @@ function categoryAmount(row: Row): CategoryAmount {
   };
 }
 
-const firstDay = {
-  day: 1
-};
-
 /** Each of the given consecutive months' totals and category breakdowns, with the totals of the month before them, which only continue the chart's net area to its left edge. */
 async function readMonthFlows(db: Database, currency: string, months: Temporal.PlainYearMonth[]) {
   const window = months.map(month => month.toString());
   const leadMonth = months[0].subtract({
     months: 1
   });
-  const start = months[0].toPlainDate(firstDay).toString();
-  const leadStart = leadMonth.toPlainDate(firstDay).toString();
-  const end = months[months.length - 1].add({
-    months: 1
-  }).toPlainDate(firstDay).toString();
-  const inMonths = countedTransactions(currency, dateRangeCondition(start, end));
-  const totalsByMonth = countedTransactions(currency, dateRangeCondition(leadStart, end));
+  const lastMonth = months[months.length - 1];
+  const inMonths = countedTransactions(currency, monthsCondition(months[0], lastMonth));
+  const totalsByMonth = countedTransactions(currency, monthsCondition(leadMonth, lastMonth));
   const totalsQuery = db.all<Row>(sql`SELECT ${bookingMonth} AS month,${flowTotal("income")} AS income,${flowTotal("expenses")} AS expenses ${totalsByMonth} GROUP BY ${bookingMonth}`);
   const incomeQuery = db.all<Row>(flowByCategory(inMonths, "income", true));
   const expensesQuery = db.all<Row>(flowByCategory(inMonths, "expenses", true));
@@ -163,9 +155,9 @@ export async function readCashFlow(period: Period, currency: string) {
   };
 }
 
-/** Whether any counted transaction in the currency lies before the given first day of a month. */
-async function hasCountedBefore(db: Database, currency: string, end: string) {
-  const rows = await db.all<Row>(sql`SELECT 1 AS found ${countedTransactions(currency, dateBeforeCondition(end))} LIMIT 1`);
+/** Whether any counted transaction in the currency lies before the given month. */
+async function hasCountedBefore(db: Database, currency: string, month: Temporal.PlainYearMonth) {
+  const rows = await db.all<Row>(sql`SELECT 1 AS found ${countedTransactions(currency, beforeMonthCondition(month))} LIMIT 1`);
 
   return rows.length > 0;
 }
@@ -175,23 +167,21 @@ async function hasCountedBefore(db: Database, currency: string, end: string) {
  */
 export async function readCashFlowHistory(currency: string, before: Temporal.PlainYearMonth): Promise<CashFlowHistory> {
   const db = await database();
-  const empty = {
-    currency,
-    leadIn: monthTotals([], before.subtract({
-      months: 1
-    }).toString()),
-    trend: [],
-    hasEarlier: false
-  };
+  const lastMonth = before.subtract({
+    months: 1
+  });
 
-  if (!await hasCountedBefore(db, currency, before.toPlainDate(firstDay).toString())) {
-    return empty;
+  if (!await hasCountedBefore(db, currency, before)) {
+    return {
+      currency,
+      leadIn: monthTotals([], lastMonth.toString()),
+      trend: [],
+      hasEarlier: false
+    };
   }
 
-  const months = trendMonths(monthPeriod(before.subtract({
-    months: 1
-  })), currentMonth());
-  const [flows, hasEarlier] = await Promise.all([readMonthFlows(db, currency, months), hasCountedBefore(db, currency, months[0].toPlainDate(firstDay).toString())]);
+  const months = trendMonths(monthPeriod(lastMonth), currentMonth());
+  const [flows, hasEarlier] = await Promise.all([readMonthFlows(db, currency, months), hasCountedBefore(db, currency, months[0])]);
 
   return {
     currency,
