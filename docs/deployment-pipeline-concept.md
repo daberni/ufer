@@ -216,7 +216,7 @@ Different for Ufer: instead of failing, the pipeline pauses at an approval and t
 | Database | Used by | Data | Migrated by |
 | --- | --- | --- | --- |
 | `production` | Production deployments | Real | Tag pipeline after approval |
-| `preview` (existing) | Staging alias from `main` (decided: shared, no separate staging database; label-based PR previews retired) | Synthetic demo data, sandbox bank | Staging pipeline, automatically |
+| `preview` (existing) | Staging alias from `main` and labeled PR previews (decided: shared, no separate staging database; previews must contain all of main's changesets and add none) | Synthetic demo data, sandbox bank | Staging pipeline, automatically |
 | Rehearsal copy | Release pipeline, temporary | Copy of production | Local SQLite on the runner, deleted per run |
 
 Staging migrates automatically because it holds synthetic data only; it runs every merged changeset before any production tag, which is an additional rehearsal on a long-lived database. The preview database keeps its current manual process: automatically applying unmerged changesets from a PR would make it incompatible with other PRs.

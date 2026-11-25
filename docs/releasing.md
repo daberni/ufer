@@ -12,7 +12,7 @@ Production deploys only from version tags; every push to `main` deploys to stagi
 
 Staging runs one at a time and is never cancelled mid-migration. GitHub may start queued runs in any order, so a run first checks that its commit is still the head of `main` and otherwise skips; the newest commit's run therefore always finishes last.
 
-Pull requests get no hosted previews; the former label-based preview workflow was removed. Verify changes locally before merge and on staging after merge.
+Labeled pull-request previews (see [Vercel deployment](vercel-deployment.md#preview-demo-data)) use the same database. Because staging moves it to `main`'s schema, a preview starts only when its branch contains all of `main`'s changesets and adds none.
 
 Until the `staging` environment is configured, the workflow finishes with a warning.
 

@@ -1,0 +1,79 @@
+name: Preview deployment
+
+on:
+  pull_request:
+    types: [labeled, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    # Only maintainers can set labels. Fork pull requests and Dependabot pushes never receive the token; relabel to deploy a Dependabot update.
+    if: >-
+      contains(github.event.pull_request.labels.*.name, 'preview')
+      && github.event.pull_request.head.repo.full_name == github.repository
+      && github.actor != 'dependabot[bot]'
+      && (github.event.action != 'labeled' || github.event.label.name == 'preview')
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+      - name: Report the build
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PULL_REQUEST: ${{ github.event.pull_request.number }}
+        run: .github/scripts/preview-comment.sh building
+      - name: Deploy to Vercel
+        id: deploy
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          PULL_REQUEST: ${{ github.event.pull_request.number }}
+        run: |
+          output="$RUNNER_TEMP/vercel-deploy.log"
+          status=0
+          npx --yes vercel@65.16.0 deploy --yes --token "$VERCEL_TOKEN" --meta "githubPullRequest=$PULL_REQUEST" --meta "previewHeadSha=$HEAD_SHA" > "$RUNNER_TEMP/vercel-url.txt" 2> "$output" || status=$?
+          cat "$output" >&2
+          echo "url=$(cat "$RUNNER_TEMP/vercel-url.txt")" >> "$GITHUB_OUTPUT"
+          echo "inspector=$(grep -o 'https://vercel.com/[^ ]*' "$output" | head -n 1 || true)" >> "$GITHUB_OUTPUT"
+          if [ "$status" -ne 0 ]; then
+            echo "error=$(grep -m 1 -E '^(✗|Error)' "$output" || grep -v '^[[:space:]]*$' "$output" | tail -n 1 || echo "vercel deploy exited with $status")" >> "$GITHUB_OUTPUT"
+          fi
+      # A cancelled run is superseded by a newer one, which reports its own state.
+      - name: Report the result
+        if: success() || failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PULL_REQUEST: ${{ github.event.pull_request.number }}
+          OUTCOME: ${{ steps.deploy.outcome }}
+          ERROR: ${{ steps.deploy.outputs.error }}
+          URL: ${{ steps.deploy.outputs.url }}
+          INSPECTOR: ${{ steps.deploy.outputs.inspector }}
+        run: |
+          if [ "$OUTCOME" = "success" ] && [ -z "$ERROR" ]; then
+            .github/scripts/preview-comment.sh ready "$URL" "$INSPECTOR"
+          else
+            .github/scripts/preview-comment.sh error "" "$INSPECTOR"
+          fi
+      # A failing JavaScript action reports only its own message, not the generic exit-code annotation of a failed shell step.
+      - name: Fail with the Vercel error
+        if: ${{ !cancelled() && steps.deploy.outputs.error != '' }}
+        uses: actions/github-script@v9
+        env:
+          ERROR: ${{ steps.deploy.outputs.error }}
+        with:
+          script: core.setFailed(process.env.ERROR)
