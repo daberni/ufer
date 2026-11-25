@@ -13,5 +13,7 @@ export async function GET(request: Request) {
     const filters = insightsFilters(new URL(request.url).searchParams);
 
     return readInsights(filters.range, filters.currency);
+  }, {
+    access: "session"
   });
 }

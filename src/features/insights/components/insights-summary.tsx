@@ -9,6 +9,7 @@ import { money, signedMoney } from "@/lib/money";
 import { formatSignedPercent } from "@/lib/locale";
 import { formatSavingsRate, netFlow } from "@/features/reports/cash-flow-selection";
 import { shownStatus, valueMask } from "@/components/ui/result-presentation";
+import { AreaPlaceholder } from "@/components/ui/area-placeholder";
 import { useCurrency } from "@/client/use-app-url";
 import { useLocale } from "@/client/locale-provider";
 import type { Area } from "@/components/ui/use-area-result";
@@ -73,6 +74,8 @@ export function InsightsSummary({
         detail={current && previous ? change(current.income, previous.income) : t("noComparison")}
         detailTone={current && previous ? tone(current.income - previous.income, "higher-is-better") : undefined}
         mask={flowsMask}
+        area={insights}
+        failureTitle={t("failure")}
       />
       <Figure
         label={t("expenses")}
@@ -80,6 +83,8 @@ export function InsightsSummary({
         detail={current && previous ? change(current.expenses, previous.expenses) : t("noComparison")}
         detailTone={current && previous ? tone(current.expenses - previous.expenses, "lower-is-better") : undefined}
         mask={flowsMask}
+        area={insights}
+        failureTitle={t("failure")}
       />
       <Figure
         label={t("saved")}
@@ -91,6 +96,8 @@ export function InsightsSummary({
         }) : t("noComparison")}
         detailTone={saved && savedBefore ? tone(saved.net - savedBefore.net, "higher-is-better") : undefined}
         mask={flowsMask}
+        area={insights}
+        failureTitle={t("failure")}
       />
       <Figure
         label={t("netWorthChange")}
@@ -100,6 +107,8 @@ export function InsightsSummary({
         }) : t("noComparison")}
         detailTone={netWorth && netWorth.current !== null && netWorth.previous !== null ? tone(netWorth.current - netWorth.previous, "higher-is-better") : undefined}
         mask={netWorthMask}
+        area={netWorthChange}
+        failureTitle={t("netWorthFailure")}
       />
     </section>
   );
@@ -111,7 +120,9 @@ function Figure({
   rate,
   detail,
   detailTone,
-  mask
+  mask,
+  area,
+  failureTitle
 }: {
   label: string;
   value: string;
@@ -119,7 +130,19 @@ function Figure({
   detail: string;
   detailTone?: string;
   mask: string;
+  /** The request behind the figure; a failed first load shows its reason and a retry instead of the values. */
+  area: Area<unknown>;
+  failureTitle: string;
 }) {
+  if (area.status === "pending" && area.failure) {
+    return (
+      <div className={clsx(ui["panel"], styles["figure"])}>
+        <span className={styles["label"]}>{label}</span>
+        <AreaPlaceholder area={area} failureTitle={failureTitle}>{null}</AreaPlaceholder>
+      </div>
+    );
+  }
+
   return (
     <div className={clsx(ui["panel"], styles["figure"])}>
       <span className={styles["label"]}>{label}</span>
