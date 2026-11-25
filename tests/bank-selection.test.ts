@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { changeBankSelection, chosenBankName, defaultBankCountry, directoryBanks, type BankSelection } from "../src/features/banking/bank-selection";
+import { changeBankSelection, chosenBankName, defaultBankCountry, directoryBanks, namedCountries, type BankSelection } from "../src/features/banking/bank-selection";
 
 const directory = [{
   name: "Alpine Savings Bank",
@@ -77,7 +77,8 @@ test("the directory is offered alphabetically, with each bank name once", () => 
   assert.equal(offered[0].beta, undefined);
 });
 
-test("the country defaults to existing connections, then the browser region, then Austria", () => {
+test("the country defaults to existing connections, then the browser region, then the first offered country", () => {
+  const offered = ["AT", "DE", "FI", "PT", "SE"];
   const connections = [{
     bank_country: "DE"
   }, {
@@ -86,8 +87,21 @@ test("the country defaults to existing connections, then the browser region, the
     bank_country: "DE"
   }];
 
-  assert.equal(defaultBankCountry(connections, ["en-GB"]), "DE");
-  assert.equal(defaultBankCountry([], ["en-US", "fi-FI"]), "FI");
-  assert.equal(defaultBankCountry([], ["sv-Latn-SE"]), "SE");
-  assert.equal(defaultBankCountry([], ["en-US", "de"]), "AT");
+  assert.equal(defaultBankCountry(connections, ["en-GB"], offered), "DE");
+  assert.equal(defaultBankCountry([], ["en-US", "fi-FI"], offered), "FI");
+  assert.equal(defaultBankCountry([], ["pt-PT"], offered), "PT");
+  assert.equal(defaultBankCountry([], ["sv-Latn-SE"], offered), "SE");
+  assert.equal(defaultBankCountry([], ["en-US", "de"], offered), "AT");
+});
+
+test("a country the provider no longer offers is not a default, and nothing offered leaves no country", () => {
+  assert.equal(defaultBankCountry([{
+    bank_country: "GB"
+  }], ["en-GB"], ["NL", "PT"]), "NL");
+  assert.equal(defaultBankCountry([], ["de-AT"], []), null);
+});
+
+test("offered countries are named and sorted in the interface language", () => {
+  assert.deepEqual(namedCountries(["SE", "DE", "AT"], "de").map(country => country.name), ["Deutschland", "Österreich", "Schweden"]);
+  assert.deepEqual(namedCountries(["SE", "DE", "AT"], "en").map(country => country.name), ["Austria", "Germany", "Sweden"]);
 });

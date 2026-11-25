@@ -73,6 +73,7 @@ export const queryKeys = {
   },
   banking: {
     banks: (country: string) => ["banking", "banks", country] as const,
+    countries: () => ["banking", "bank-countries"] as const,
     connections: () => ["banking", "connections"] as const,
     syncRuns: () => ["banking", "sync-runs"] as const
   }

@@ -6,6 +6,7 @@
     "beta": "Beta",
     "loadingBanks": "Loading banks …",
     "directoryFailed": "The bank list could not be loaded.",
+    "directoryFailedRetry": "Enable Banking did not provide its countries and banks. Try again in a moment.",
     "directoryUnavailable": "Bank list unavailable",
     "noBankNotice": "No personal bank is available for this country.",
     "noBankPlaceholder": "No bank available",
