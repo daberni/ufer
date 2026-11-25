@@ -28,7 +28,7 @@ Until the `staging` environment is configured, the workflow finishes with a warn
    - **promote** (`release`): promotes the deployment to the production domain and runs a smoke test (the home page answers and `/api/me` returns 401).
 4. Sign in on production and check a representative view; the workflow's smoke test is unauthenticated.
 
-Between the migration and the promotion, cold starts of the previous deployment refuse the newer migration history; the workflow keeps that window to a single step. Split changesets that the previous build cannot work with into expand/contract releases.
+Between the migration and the promotion, cold starts of the previous deployment refuse the newer migration history; the workflow keeps that window to a single step. User writes that are not covered by a job lease, such as creating a manual account, are not blocked during the migration: a request of the previous deployment that runs against a changed schema fails, and its database transaction rolls back, so no partial write remains. A maintenance mode that drains the previous deployment is deliberately not part of this pipeline; split changesets the previous build cannot work with into expand/contract releases. Split changesets that the previous build cannot work with into expand/contract releases.
 
 ## Recovery
 
