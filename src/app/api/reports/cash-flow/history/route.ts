@@ -21,5 +21,7 @@ export async function GET(request: Request) {
     }
 
     return readCashFlowHistory(filters.currency, before.month);
+  }, {
+    access: "session"
   });
 }

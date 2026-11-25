@@ -25,15 +25,15 @@ export function useEarlierMonths(cashFlow: Area<CashFlow>, currency: string): {
   // Pages run backwards in time: each one ends before the previous one starts.
   const olderFirst = [...pages].reverse();
   const oldest = olderFirst.find(page => page.trend.length > 0);
-  const hasEarlier = !requested || history.data === undefined || history.hasNextPage;
+  // A batch that failed after its retries ends the placeholders instead of leaving them loading forever; the months already loaded stay.
+  const failed = history.isError && !history.isFetching;
+  const hasEarlier = !failed && (!requested || history.data === undefined || history.hasNextPage);
 
   function load() {
     if (!requested) {
       setRequested(true);
     } else if (history.isFetching) {
       return;
-    } else if (history.data === undefined) {
-      void history.refetch();
     } else if (history.hasNextPage) {
       void history.fetchNextPage();
     }
