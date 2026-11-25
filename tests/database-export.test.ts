@@ -41,7 +41,12 @@ function snapshot(file: string) {
 
   try {
     const objects = db.prepare("SELECT type, name, sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY type, name").all();
-    const rows = Object.fromEntries(objects.filter(object => object.type === "table").map(object => [object.name, db.prepare(`SELECT * FROM "${String(object.name)}" ORDER BY rowid`).all()]));
+    // Sorted in JavaScript because tables without rowid have no common order column.
+    const sortKey = (row: unknown) => JSON.stringify(row, (_, value) => typeof value === "bigint" ? value.toString() : value);
+    const rows = Object.fromEntries(objects.filter(object => object.type === "table").map(object => [object.name, db.prepare(`SELECT * FROM "${String(object.name)}"`).all().map(row => ({
+      key: sortKey(row),
+      row
+    })).sort((left, right) => left.key.localeCompare(right.key)).map(entry => entry.row)]));
 
     return {
       objects,
@@ -103,4 +108,31 @@ test("an export never overwrites an existing file", async context => {
   writeFileSync(destination, "keep");
 
   await assert.rejects(exportDatabase(client, destination), /already exists/);
+});
+
+test("an export reads large tables in bounded pages, including tables without rowid, and still copies every row", async context => {
+  const {
+    directory,
+    file,
+    client
+  } = await sourceFixture(context);
+  const destination = join(directory, "paged.sqlite");
+
+  await client.execute("CREATE TABLE paged_rows (id INTEGER PRIMARY KEY, label TEXT NOT NULL)");
+  await client.execute("CREATE TABLE paged_keys (scope TEXT NOT NULL, position INTEGER NOT NULL, PRIMARY KEY (scope, position)) WITHOUT ROWID");
+
+  for (let index = 1; index <= 7; index += 1) {
+    await client.execute({
+      sql: "INSERT INTO paged_rows (id, label) VALUES (?, ?)",
+      args: [index * 10, `row ${index}`]
+    });
+    await client.execute({
+      sql: "INSERT INTO paged_keys (scope, position) VALUES (?, ?)",
+      args: [index % 2 ? "odd" : "even", index]
+    });
+  }
+
+  await exportDatabase(client, destination, 2);
+
+  assert.deepEqual(snapshot(destination), snapshot(file));
 });

@@ -7,7 +7,7 @@ Status: **accepted concept**, implemented step by step; see the [rollout checkli
 - Vercel's Git integration deploys every push to `main` to production (`vercel.json` enables Git deployments for `main` only). Pull-request previews run through `.github/workflows/preview.yml` on the `preview` label against one shared preview Turso database.
 - The application verifies the applied migration history at startup and refuses to start with pending changesets (only an empty database is initialized automatically). This is the right safety property and stays.
 - Production migrations are applied by the operator: backup → rehearsal on a copy → `npm run db:migrate` against Turso → merge. A merge before the migration produces a production build that refuses to start; a migration long before the merge runs the old build against a newer schema.
-- `npm run db:verify-backup` verifies an offline SQLite artifact (integrity, foreign keys, migration identities, table counts, optional bank-secret decryption). No automated export exists and no restore of hosted data has been exercised.
+- `npm run db:verify-backup` verifies an offline SQLite artifact (integrity, foreign keys, migration identities, table counts, optional bank-secret decryption). The nightly backup workflow below is implemented and its first run on 2026-11-25 was decrypted and verified locally, including bank-session decryption; a point-in-time restore has not been exercised yet.
 
 ## Goals and non-goals
 
@@ -34,7 +34,7 @@ Decided: no upgrade for now. The free plan's 1-day PITR is an accepted limit; re
 
 PITR does not protect against losing the Turso account, a provider incident or a deleted database. Add a daily export to storage that Turso does not control.
 
-- **Job (decided):** a scheduled GitHub Actions workflow (`backup.yml`, nightly at about 03:00 UTC, before the 05:00 sync cron, plus `workflow_dispatch`), also called as the pipeline's backup step before every migration. GitHub Actions is preferred over a Vercel cron because a function has short time limits, no durable disk and would need storage credentials in the app's runtime. The export uses the Turso CLI (`turso db export`, which produces a consistent SQLite file of the primary) or, if that is unavailable for the plan, a libSQL `.dump` imported into a fresh SQLite file; either way the result is a self-contained SQLite file with no WAL sibling, which is what the verifier expects.
+- **Job (decided, implemented):** a scheduled GitHub Actions workflow (`backup.yml`, nightly at 03:17 UTC, before the 05:00 sync cron, plus `workflow_dispatch`), also called as the pipeline's backup step before every migration. GitHub Actions is preferred over a Vercel cron because a function has short time limits, no durable disk and would need storage credentials in the app's runtime. The export uses `npm run db:export`, which reads every table page by page inside one libSQL read transaction (a consistent snapshot below the server's response-size cap) and writes a new self-contained SQLite file without a WAL sibling, which is what the verifier expects. The Turso CLI is not used: its export can leave uncheckpointed frames in a separate `-wal` file.
 - **Verify before upload:** run `npm run db:verify-backup -- --file=…` (without `--check-bank-secrets`; the job never holds `DATA_ENCRYPTION_KEY`) from the commit currently deployed in production (its migration history must match). A failed verification fails the job and nothing is uploaded under the "good" prefix.
 - **Encryption:** encrypt client-side with [age](https://age-encryption.org) to a public key stored as a repository variable; the private key lives only in the owner's password manager (and a printed offline copy). The pipeline can write backups but never read them, so a leaked GitHub secret cannot decrypt history. The storage provider only sees ciphertext.
 - **Storage (decided):** a Cloudflare R2 bucket with EU jurisdiction (no egress fees). The job gets a bucket-scoped write-only token, and versioning or bucket locks keep that token from destroying existing backups. Expected cost at this size (a few MB per export): free tier.
@@ -103,20 +103,21 @@ Without pending changesets the run is verify → plan → build → promote → 
 
 ### Ordering and compatibility
 
-The app refuses to start when the database has pending changesets, but an **old** build does start against a **newer** schema if the changeset only adds things. The window between migrate (7) and promote (8) is short (seconds to a minute), so:
+Startup verification rejects any migration history the build does not know: an **old** build refuses to start once the database contains a changeset row it does not have, even if the SQL was purely additive. Instances that are already warm keep serving because verification runs when an instance initializes its database connection, but any cold start of the old deployment between migrate (7) and promote (8) fails. Therefore:
 
-- **Additive changesets** (new tables, nullable columns, indexes, data backfills): migrate → promote is safe; the old build runs briefly against the new schema.
-- **Breaking changesets** (drop/rename columns, tighter constraints the old build violates): use expand/contract across two releases, or mark the changeset breaking (a `-- ufer:breaking` header the plan step detects) so the pipeline puts the app in maintenance during the window. A maintenance mode does not exist yet; until it does, breaking changesets must be split. This is a review rule in `docs/database-migrations.md`.
-- Startup history verification stays as the last line of defense: a build never runs against a database missing its changesets.
+- Keep the migrate → promote window as short as possible: promote immediately after a successful migrate, with no other steps in between, and stay clear of the 05:00 cron slot. Requests that hit a cold start in that window fail with the existing "database is newer" error; for a single-household app this brief window is accepted.
+- **Breaking changesets** (drop/rename columns, tighter constraints the new build relies on but the old data violates): split them into expand/contract releases. A maintenance mode does not exist; if a future changeset cannot be split, add one before shipping it. This is a review rule in `docs/database-migrations.md`.
+- Startup history verification stays as the last line of defense: a build never runs against a database missing its changesets or carrying changesets it does not know.
+
+Making old builds tolerate newer additive history (for example by marking changesets backward compatible) would remove the window and allow code rollback after a migration, but it weakens the history check and is not part of this plan.
 
 ### Rollback and recovery
 
 - **Code only (no changeset in the release):** Vercel instant rollback to the previous production deployment, or re-run the pipeline for the previous tag. No database action.
-- **Release with an additive changeset:** roll back the code; the old build still works with the newer schema. Fix forward with a new changeset.
-- **Bad data migration:** restore. PITR to the timestamp recorded before migrate into a new database, verify, switch Vercel's database env vars, redeploy the previous tag. Data written after the migration is lost or must be replayed; that is the accepted cost, decided per incident by the owner. Never edit applied changesets or the migration table.
+- **Release with a changeset:** a code rollback is not possible after the migration, because the previous build refuses the newer history. Fix forward with a new release, or restore (next point) and redeploy the previous tag.
+- **Bad data migration:** restore. PITR to the timestamp recorded before migrate (within the plan's window) or the pre-migration backup into a new database, verify, switch Vercel's database env vars, redeploy the previous tag. Data written after the migration is lost or must be replayed; that is the accepted cost, decided per incident by the owner. Never edit applied changesets or the migration table.
 - **Pipeline failure before migrate:** nothing changed; production still serves the old deployment.
-- **Failure during migrate:** SQLite changesets run in a transaction per file in Drizzle's migrator; a failing file rolls back, earlier files stay applied. The old build may refuse to start only after a restart if it was relying on the old schema, so the failing run must be followed by either fix-forward or restore. The summary prints which files were applied.
-
+- **Failure during migrate:** SQLite changesets run in a transaction per file in Drizzle's migrator; a failing file rolls back, earlier files stay applied. If any file was applied, the old build can no longer cold-start, so the failing run must be followed promptly by fix-forward or restore. The summary prints which files were applied.
 ## 3. Conditional approval
 
 ### Can GitHub require approval only when migrations are pending?
