@@ -6,6 +6,7 @@
     "beta": "Beta",
     "loadingBanks": "Banken werden geladen …",
     "directoryFailed": "Die Bankliste konnte nicht geladen werden.",
+    "directoryFailedRetry": "Enable Banking hat seine Länder und Banken nicht geliefert. Versuche es gleich noch einmal.",
     "directoryUnavailable": "Bankliste nicht verfügbar",
     "noBankNotice": "Für dieses Land ist keine Privatkundenbank verfügbar.",
     "noBankPlaceholder": "Keine Bank verfügbar",

@@ -26,16 +26,28 @@ function offeredBanks(response: {
   return directoryBanks(response.banks);
 }
 
-/** The provider's bank directory for a country as offered for choice; requested by the connection dialog while it is open. */
-export function useBanks(country: string) {
+/** The countries the provider offers personal banks in; requested by the connection dialog while it is open. */
+export function useBankCountries() {
   return useQuery({
-    queryKey: queryKeys.banking.banks(country),
+    queryKey: queryKeys.banking.countries(),
+    queryFn: async ({ signal }) => (await apiGet<{
+      countries: string[];
+    }>("banks/countries", undefined, signal)).countries,
+    staleTime: 30 * 60_000
+  });
+}
+
+/** The provider's bank directory for a country as offered for choice; requested by the connection dialog once a country is known. */
+export function useBanks(country: string | null) {
+  return useQuery({
+    queryKey: queryKeys.banking.banks(country ?? ""),
     queryFn: ({ signal }) => apiGet<{
       banks: Bank[];
     }>("banks", {
-      country
+      country: country ?? ""
     }, signal),
     select: offeredBanks,
+    enabled: country !== null,
     staleTime: 5 * 60_000
   });
 }

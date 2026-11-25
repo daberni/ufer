@@ -20,7 +20,7 @@ import { requireOrigin } from "../src/server/http/origin";
 import { seedActor } from "./fixtures/auth";
 import { completeAuthorization } from "../src/features/banking/server/authorization-service";
 import { syncAccounts } from "../src/features/banking/server/sync-service";
-import { applicationToken, availableBanks, listBanks, fetchTransactions, type BankTransaction } from "../src/features/banking/server/enable-banking-client";
+import { applicationToken, availableBanks, clearBankDirectory, listBanks, fetchTransactions, type BankTransaction } from "../src/features/banking/server/enable-banking-client";
 import { connectBank } from "../src/features/banking/server/connect-bank";
 import { decodeJwt, decodeProtectedHeader, jwtVerify } from "jose";
 import { generateKeyPairSync } from "node:crypto";
@@ -231,6 +231,7 @@ test("listing banks and starting a bank connection check the provider applicatio
   });
   const actor = await seedActor(db);
 
+  clearBankDirectory();
   assert.deepEqual((await availableBanks("AT")).map(bank => bank.name), ["Example Bank"]);
   assert.deepEqual(requests, ["/aspsps"]);
   requests.length = 0;
@@ -238,10 +239,11 @@ test("listing banks and starting a bank connection check the provider applicatio
     bank: "Example Bank",
     country: "AT"
   }, actor)).url, "https://bank.example/authorize");
-  assert.deepEqual(requests.toSorted(), ["/application", "/aspsps", "/auth"]);
+  // The directory loaded above is reused.
+  assert.deepEqual(requests.toSorted(), ["/application", "/auth"]);
   requests.length = 0;
   assert.deepEqual((await listBanks("AT")).map(bank => bank.name), ["Example Bank"]);
-  assert.deepEqual(requests.toSorted(), ["/application", "/aspsps"]);
+  assert.deepEqual(requests.toSorted(), ["/application"]);
   providerResponses["/application"] = {
     environment: "PRODUCTION",
     redirect_urls: [callback]

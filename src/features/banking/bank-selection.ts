@@ -2,31 +2,13 @@
 
 import type { Bank, Connection } from "@/features/banking/types";
 
-/** Countries with personal banks to connect; the dialog names them in the interface language with Intl.DisplayNames. */
-export const bankCountries = [{
-  code: "AT"
-}, {
-  code: "DE"
-}, {
-  code: "FI"
-}, {
-  code: "GB"
-}, {
-  code: "SE"
-}] as const;
-
-const fallbackCountry = "AT";
-
-function isBankCountry(code: string) {
-  return bankCountries.some(country => country.code === code);
-}
-
-/** The country most existing connections use, otherwise the region of the first browser language that has one, otherwise Austria. */
-export function defaultBankCountry(connections: readonly Pick<Connection, "bank_country">[], languages: readonly string[]) {
+/** The country most existing connections use, otherwise the region of the first browser language that has one, otherwise the first country the provider offers. Null while no country is offered. */
+export function defaultBankCountry(connections: readonly Pick<Connection, "bank_country">[], languages: readonly string[], countries: readonly string[]) {
+  const offered = new Set(countries);
   const counts = new Map<string, number>();
 
   for (const connection of connections) {
-    if (isBankCountry(connection.bank_country)) {
+    if (offered.has(connection.bank_country)) {
       counts.set(connection.bank_country, (counts.get(connection.bank_country) ?? 0) + 1);
     }
   }
@@ -40,12 +22,24 @@ export function defaultBankCountry(connections: readonly Pick<Connection, "bank_
   for (const language of languages) {
     const region = language.split("-").slice(1).find(part => /^[A-Za-z]{2}$/.test(part))?.toUpperCase();
 
-    if (region && isBankCountry(region)) {
+    if (region && offered.has(region)) {
       return region;
     }
   }
 
-  return fallbackCountry;
+  return countries[0] ?? null;
+}
+
+/** The offered countries named in the interface language and sorted by that name. */
+export function namedCountries(countries: readonly string[], locale: string) {
+  const names = new Intl.DisplayNames([locale], {
+    type: "region"
+  });
+
+  return countries.map(code => ({
+    code,
+    name: names.of(code) ?? code
+  })).sort((left, right) => left.name.localeCompare(right.name, locale));
 }
 
 export type BankSelection = {

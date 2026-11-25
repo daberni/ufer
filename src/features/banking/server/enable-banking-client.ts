@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { SignJWT } from "jose";
 import { Temporal } from "temporal-polyfill";
 import { z } from "zod";
+import { cachedLoad, directoryCountries } from "./bank-directory";
 import { timestamp, validDate } from "@/lib/time";
 import { environment } from "@/server/environment";
 
@@ -342,10 +343,27 @@ export async function fetchBalances(uid: string) {
   return result.balances;
 }
 
-export async function availableBanks(country: string) {
-  const result = await bankingRequest(`/aspsps?country=${encodeURIComponent(country)}`, bankDirectoryResponse);
+// Without a country Enable Banking lists every institution of the application's environment, so one request serves all countries.
+const personalBanks = cachedLoad(async () => {
+  const result = await bankingRequest("/aspsps", bankDirectoryResponse);
 
   return result.aspsps.filter(bank => !bank.psu_types || bank.psu_types.includes("personal"));
+}, 60 * 60_000);
+
+/** Forgets the cached directory, for tests that change the provider's answer. */
+export function clearBankDirectory() {
+  personalBanks.clear();
+}
+
+export async function availableBanks(country: string) {
+  const banks = await personalBanks.get();
+
+  return banks.filter(bank => bank.country === country);
+}
+
+/** The countries with personal banks for the connect dialog. */
+export async function bankCountries() {
+  return directoryCountries(await personalBanks.get());
 }
 
 /** The bank directory for the connect dialog; it also confirms that the provider application belongs to the configured environment. */
