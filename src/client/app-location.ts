@@ -2,7 +2,7 @@ import { isTransactionType, type TransactionType } from "@/lib/transaction-types
 import { allMonthsPeriod, currentMonth, currentMonthPeriod, parsePeriod, serializePeriod, type Period } from "@/lib/period";
 import { parsePage } from "@/lib/pagination";
 import { parseCurrencyCode } from "@/lib/money";
-import { rangeContaining, serializeRange } from "@/lib/period-range";
+import { rangeContaining, serializeRange, type PeriodRange } from "@/lib/period-range";
 import { today } from "@/lib/time";
 import type { BreakdownGrouping } from "@/features/reports/types";
 
@@ -198,19 +198,27 @@ export function breakdownTransactionsHref(filter: BreakdownTransactions) {
 
 /** The insights narrowed to one category (an ID or "uncategorized"), ending at the breakdown's month in its currency; a breakdown over all months opens the years up to this one. */
 export function categoryInsightsHref(filter: Pick<BreakdownTransactions, "period" | "currency" | "key">) {
+  const range = filter.period.kind === "all" ? rangeContaining("year", today()) : rangeContaining("month", filter.period.month.toPlainDate({
+    day: 1
+  }));
+
+  return categoryRangeHref(range, filter.currency, filter.key);
+}
+
+/** The insights narrowed to one category over a range of any interval, in a currency; the current month stays implicit. */
+export function categoryRangeHref(range: PeriodRange, currency: string, category: string) {
   const params = new URLSearchParams();
+  const value = serializeRange(range);
 
-  if (filter.period.kind === "all") {
-    params.set("range", serializeRange(rangeContaining("year", today())));
-  } else if (!isCurrentMonth(filter.period)) {
-    params.set("range", filter.period.month.toString());
+  if (value !== serializeRange(rangeContaining("month", today()))) {
+    params.set("range", value);
   }
 
-  if (filter.currency !== defaultCurrency) {
-    params.set("currency", filter.currency);
+  if (currency !== defaultCurrency) {
+    params.set("currency", currency);
   }
 
-  params.set("category", filter.key);
+  params.set("category", category);
 
   return `${viewPaths.insights}?${params.toString()}`;
 }

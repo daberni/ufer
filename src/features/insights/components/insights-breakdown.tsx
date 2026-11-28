@@ -17,6 +17,7 @@ import { compareCategories } from "@/features/insights/category-comparison";
 import { breakdownOf, insightsColumns, previousFlows, reservedComparisonRows, type InsightsColumn } from "@/features/insights/insights-columns";
 import { daySpanLabel, rangeTitle } from "@/features/insights/range-format";
 import { clearCategory } from "@/features/insights/insights-location";
+import { categoryRangeHref } from "@/client/app-location";
 import { AreaPlaceholder } from "@/components/ui/area-placeholder";
 import { areaProps, valueMask } from "@/components/ui/result-presentation";
 import { monthPeriod } from "@/lib/period";
@@ -106,9 +107,18 @@ export function InsightsBreakdown({
   const context = rangeTitle(column.range, locale);
   const net = netFlow(column.income, column.expenses);
   const reserved = reservedComparisonRows(data, columns, grouping);
-  // The transaction list filters by month, so only month columns link to their transactions.
+  // The transaction list filters by month, so only month columns link to their transactions; category rows narrow the insights over any interval.
   const month = column.range.interval === "month" ? column.range.start.toPlainYearMonth() : null;
-  const rowLink = (type: "income" | "expense", label: (name: string) => string) => month ? breakdownRowLink(grouping, monthPeriod(month), currency, type, label) : undefined;
+  const rowLink = (type: "income" | "expense", label: (name: string) => string) => {
+    if (grouping === "category") {
+      return (group: CategoryGroup): CategoryRowLink | null => group.key === "remainder" ? null : {
+        href: categoryRangeHref(column.range, currency, group.key),
+        label: label(group.name)
+      };
+    }
+
+    return month ? breakdownRowLink(grouping, monthPeriod(month), currency, type, label) : undefined;
+  };
 
   return (
     <section className={clsx(ui["panel"], styles["panel"])} id={id}>

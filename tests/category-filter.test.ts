@@ -14,7 +14,7 @@ import { transactionListRequest } from "../src/features/transactions/server/tran
 import { parseRange } from "../src/lib/period-range";
 import { allMonthsPeriod, monthPeriod } from "../src/lib/period";
 import { today } from "../src/lib/time";
-import { categoryInsightsHref } from "../src/client/app-location";
+import { categoryInsightsHref, categoryRangeHref } from "../src/client/app-location";
 
 const now = Temporal.Instant.from("2026-11-25T11:00:00Z");
 
@@ -178,4 +178,5 @@ test("a category row opens the insights narrowed to it, over the years up to thi
     currency: "EUR",
     key: "uncategorized"
   }), "/insights?range=2026-07&category=uncategorized");
+  assert.equal(categoryRangeHref(range("2026-Q2"), "EUR", "synthetic-food"), "/insights?range=2026-Q2&category=synthetic-food");
 });
