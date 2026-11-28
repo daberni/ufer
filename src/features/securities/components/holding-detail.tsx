@@ -80,6 +80,7 @@ export function HoldingDetail({ account }: {
         <HoldingsTable
           label={t("position")}
           holdings={[holding]}
+          trades={trades}
           securities={securities.data?.securities ?? []}
           currency={currency}
           priceDigits={digits}

@@ -225,6 +225,7 @@ function AccountHoldings({ account }: {
             name: account.name
           })}
           holdings={held}
+          trades={trades.data.trades}
           securities={securities.data?.securities ?? []}
           currency={account.currency}
           accountId={account.id}

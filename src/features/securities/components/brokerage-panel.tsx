@@ -18,7 +18,7 @@ import { money, signedMoney } from "@/lib/money";
 import type { Account } from "@/features/accounts/types";
 import { holdingPath } from "@/client/app-location";
 import { useBrokerageTrades, useSecurities } from "../queries";
-import type { Holding, Security } from "../types";
+import type { Holding, Security, Trade } from "../types";
 import { averageCostMicros } from "../holdings";
 import { formatPrice, formatQuantity, priceDigits } from "./holding-format";
 
@@ -68,6 +68,7 @@ export function BrokeragePanel({ account }: {
           <HoldingsTable
             label={t("title")}
             holdings={open}
+            trades={trades.data.trades}
             securities={securities.data?.securities ?? []}
             currency={account.currency}
             accountId={account.id}
@@ -80,6 +81,7 @@ export function BrokeragePanel({ account }: {
           <HoldingsTable
             label={t("closed")}
             holdings={closed}
+            trades={trades.data.trades}
             securities={securities.data?.securities ?? []}
             currency={account.currency}
             accountId={account.id}
@@ -94,6 +96,7 @@ export function BrokeragePanel({ account }: {
 export function HoldingsTable({
   label,
   holdings,
+  trades,
   securities,
   currency,
   accountId,
@@ -101,6 +104,8 @@ export function HoldingsTable({
 }: {
   label: string;
   holdings: Holding[];
+  /** The account's trades; their prices set the decimals of each holding's per-share figures. */
+  trades: Trade[];
   securities: Security[];
   currency: string;
   accountId?: string;
@@ -126,6 +131,7 @@ export function HoldingsTable({
         <HoldingRow
           key={holding.security_id}
           holding={holding}
+          trades={trades.filter(trade => trade.security_id === holding.security_id)}
           security={byId.get(holding.security_id)}
           currency={currency}
           locale={locale}
@@ -190,6 +196,7 @@ function percent(value: number, locale: string) {
 
 function HoldingRow({
   holding,
+  trades,
   security,
   currency,
   locale,
@@ -197,6 +204,7 @@ function HoldingRow({
   digits: digitsOverride
 }: {
   holding: Holding;
+  trades: Trade[];
   security: Security | undefined;
   currency: string;
   locale: string;
@@ -208,7 +216,8 @@ function HoldingRow({
   const gain = held ? holding.value_minor - holding.cost_minor : holding.realized_minor;
   const showGain = !held || holding.status !== "missing";
   const gainPercent = held && holding.cost_minor > 0 && showGain ? gain / holding.cost_minor : null;
-  const digits = digitsOverride ?? priceDigits(holding.price ? [holding.price.close_micros] : [], currency);
+  // Per-share figures of one holding share their decimals; the average cost is rounded to them.
+  const digits = digitsOverride ?? priceDigits([...trades.filter(trade => !trade.transfer).map(trade => trade.price_micros), ...holding.price ? [holding.price.close_micros] : []], currency);
   const averageCost = held ? averageCostMicros(holding.cost_minor, holding.quantity_micros, currency) : null;
   const name = (
     <span>
