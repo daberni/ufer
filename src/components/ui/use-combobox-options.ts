@@ -12,9 +12,12 @@ type Options = {
   listboxRef: RefObject<HTMLElement | null>;
   /** The field's text is the value, so Enter without a highlighted option closes the list and still submits the form. */
   freeText?: boolean;
+  /** Whether the field holds a search that Escape clears before closing the list. */
+  searching?: boolean;
   onOpen: () => void;
   onSelect: (index: number) => void;
   onClose: () => void;
+  onClear?: () => void;
 };
 
 /**
@@ -27,9 +30,11 @@ export function useComboboxOptions({
   selectedIndex = -1,
   listboxRef,
   freeText = false,
+  searching = false,
   onOpen,
   onSelect,
-  onClose
+  onClose,
+  onClear
 }: Options) {
   const listboxId = useId();
   const [activeIndex, setActiveIndex] = useState(-1);
@@ -39,7 +44,8 @@ export function useComboboxOptions({
     open,
     activeIndex: active,
     selectedIndex,
-    optionCount
+    optionCount,
+    searching: searching && onClear !== undefined
   };
 
   useEffect(() => {
@@ -75,6 +81,9 @@ export function useComboboxOptions({
         break;
       case "close":
         onClose();
+        break;
+      case "clear":
+        onClear?.();
         break;
     }
   }

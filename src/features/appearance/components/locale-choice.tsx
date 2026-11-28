@@ -102,7 +102,7 @@ export function LocaleChoice() {
   const [preference] = useState(storedPreference);
   const options = useMemo(() => localeOptions(preference, requestLanguages, browserDefaultLabel), [preference, requestLanguages, browserDefaultLabel]);
   const selected = options.find(option => option.value === preference);
-  const [query, setQuery] = useState(selected?.label ?? browserDefaultLabel);
+  const [query, setQuery] = useState("");
 
   return (
     <div className={clsx(ui["form"], styles["locale-choice"])}>

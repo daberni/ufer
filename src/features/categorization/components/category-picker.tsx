@@ -157,12 +157,11 @@ export function CategoryPicker({
   const tNeutral = useTranslations("categorization.neutral");
   const generatedId = useId();
   const assignmentHintId = useId();
-  // A typed search; null while the field shows the selected category.
-  const [search, setSearch] = useState<string | null>(null);
+  // A typed search; empty while the field shows the selected category.
+  const [search, setSearch] = useState("");
   // The name of a category being created from a search; its dialog is open while set.
   const [newCategoryName, setNewCategoryName] = useState<string | null>(null);
   const options = pickerOptions(categories, includeAll, includeUncategorized, includeAutomatic, automaticOption?.label, tNeutral);
-  const selected = options.find(option => Object.is(option.value, value));
   const assignmentSource = assignment?.source;
   const assigningRule = assignmentSource === "rule" ? assignment?.assigningRule : undefined;
   const assignmentHint = assignmentSource ? t(`hints.${assigningRule ? "recordedRule" : assignmentSource}`) : undefined;
@@ -172,7 +171,7 @@ export function CategoryPicker({
   const describedBy = clsx(uncategorized && uncategorizedId, ariaDescribedBy, assignmentHint && assignmentHintId) || undefined;
 
   function choose(next: PickerValue) {
-    setSearch(null);
+    setSearch("");
 
     if (next === automaticCategory && automaticOption && !includeAutomatic) {
       automaticOption.choose();
@@ -193,26 +192,18 @@ export function CategoryPicker({
       return;
     }
 
-    setSearch(null);
+    setSearch("");
     onCreate(name);
   }
 
   return (
-    <div
-      className={clsx(styles["picker"], className)}
-      onBlur={event => {
-        // An unfinished search is dropped when focus leaves, so the field shows the category that is actually set.
-        if (!event.currentTarget.contains(event.relatedTarget)) {
-          setSearch(null);
-        }
-      }}
-    >
+    <div className={clsx(styles["picker"], className)}>
       <SearchableSelect
         id={id ?? generatedId}
         options={options}
         value={value}
         onChange={choose}
-        query={search ?? (uncategorized ? "" : selected?.label) ?? ""}
+        query={search}
         onQueryChange={setSearch}
         noun="category"
         placeholder={uncategorized ? tNeutral("uncategorized") : t("search")}

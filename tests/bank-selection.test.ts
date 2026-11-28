@@ -23,7 +23,7 @@ const empty: BankSelection = {
   bankName: ""
 };
 
-test("a search that no longer shows the chosen bank clears it, so it cannot be authorized", () => {
+test("a search keeps the chosen bank until another one is picked from the list", () => {
   const chosen = changeBankSelection(empty, {
     type: "choose",
     bankName: "Testbank Nord"
@@ -36,7 +36,11 @@ test("a search that no longer shows the chosen bank clears it, so it cannot be a
     query: "Alpine"
   });
 
-  assert.equal(chosenBankName(searched, directory), "");
+  assert.equal(chosenBankName(searched, directory), "Testbank Nord");
+  assert.equal(chosenBankName(changeBankSelection(searched, {
+    type: "choose",
+    bankName: "Alpine Savings Bank"
+  }), directory), "Alpine Savings Bank");
 });
 
 test("changing the country clears the search and the chosen bank", () => {
@@ -58,7 +62,7 @@ test("changing the country clears the search and the chosen bank", () => {
 test("a chosen bank missing from the loaded directory is not authorized", () => {
   const reauthorized: BankSelection = {
     country: "AT",
-    query: "Retired Bank",
+    query: "",
     bankName: "Retired Bank"
   };
 

@@ -107,6 +107,17 @@ test("an open list moves within its options, picks with Enter and closes with Es
   });
 });
 
+test("Escape clears a search before it closes the list, open or closed", () => {
+  for (const state of [open, closed]) {
+    assert.deepEqual(searchableSelectKeyAction(key("Escape"), {
+      ...state,
+      searching: true
+    }), {
+      type: "clear"
+    });
+  }
+});
+
 test("an open list without a highlighted option starts at its first option moving down and at its last moving up", () => {
   const unhighlighted = {
     ...open,

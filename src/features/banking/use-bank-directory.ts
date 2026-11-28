@@ -13,7 +13,7 @@ export function useBankDirectory(reauthorized: Connection | null) {
     if (reauthorized) {
       return {
         country: reauthorized.bank_country,
-        query: reauthorized.bank_name,
+        query: "",
         bankName: reauthorized.bank_name
       };
     }
