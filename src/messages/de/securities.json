@@ -57,7 +57,8 @@
       "realized": "Realisiert",
       "proceeds": "Erlös",
       "realizedGain": "Realisierter Gewinn",
-      "costPerShare": "Einstand pro Stück"
+      "costPerShare": "Einstand pro Stück",
+      "trade": "Trade"
     },
     "sold": "Verkauft",
     "side": "{side, select, buy {Kauf} other {Verkauf}}",
@@ -71,12 +72,32 @@
     "valuedAtCost": "zum Einstandswert",
     "closingPrice": "Schlusskurs am {date}",
     "notUpdatedRecently": "länger nicht aktualisiert",
-    "transferAction": "In ein anderes Depot übertragen",
     "transferSide": "{direction, select, in {Übertrag ein} other {Übertrag aus}}",
     "transferCounterpart": "{direction, select, in {von {account}} other {nach {account}}}",
     "anotherAccount": "einem anderen Depot",
     "openTransfer": "{direction, select, in {Übertrag ein} other {Übertrag aus}} von {quantity} am {date} {counterpart} öffnen",
     "transferCost": "{direction, select, in {übernommen} other {übertragen}}"
+  },
+  "holding": {
+    "position": "Position",
+    "trades": "Käufe und Verkäufe",
+    "transferAction": "In ein anderes Depot übertragen",
+    "prices": "Kurse"
+  },
+  "priceHistory": {
+    "none": "Noch keine Kurse. Sie erscheinen, sobald die Kursaktualisierung Schlusskurse für dieses Wertpapier geladen hat.",
+    "tooFew": "Keine Schlusskurse in diesem Zeitraum.",
+    "closeOn": "Schlusskurs am {date} · {range}",
+    "since": "seit {start}",
+    "valueText": "{date}: Schlusskurs {price}, {change} seit {start}",
+    "description": "Gespeicherte tägliche Schlusskurse des Wertpapiers. Mit den Pfeiltasten links und rechts wählst du ein Datum, mit Pos1 und Ende das erste und letzte Datum, mit Escape hebst du die Auswahl auf.",
+    "rangeContext": {
+      "1W": "letzte Woche",
+      "1M": "letzter Monat",
+      "YTD": "dieses Jahr",
+      "1Y": "letztes Jahr",
+      "All": "alle gespeicherten Kurse"
+    }
   },
   "overview": {
     "noAccountsTitle": "Noch keine Depots",

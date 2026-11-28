@@ -6,10 +6,10 @@ import { rangeContaining, serializeRange, type PeriodRange } from "@/lib/period-
 import { today } from "@/lib/time";
 import type { BreakdownGrouping } from "@/features/reports/types";
 
-export type View = "overview" | "insights" | "transactions" | "import" | "accounts" | "account" | "brokerage" | "rules";
+export type View = "overview" | "insights" | "transactions" | "import" | "accounts" | "account" | "holding" | "brokerage" | "rules";
 
-/** A view in the navigation; an account's details belong to accounts and the import page to transactions. */
-export type Section = Exclude<View, "account" | "import">;
+/** A view in the navigation; an account's details and its holdings belong to accounts and the import page to transactions. */
+export type Section = Exclude<View, "account" | "holding" | "import">;
 
 /** The lists an account's details are opened from and return to. */
 export type AccountList = "overview" | "accounts" | "brokerage";
@@ -66,24 +66,53 @@ export function accountPath(id: string) {
   return `${accountPathPrefix}${encodeURIComponent(id)}`;
 }
 
-/** The account a details path shows; empty on every other path. */
-export function accountIdFromPathname(pathname: string) {
-  const segment = pathname.startsWith(accountPathPrefix) ? pathname.slice(accountPathPrefix.length) : "";
+/** A brokerage account's holding of one security. */
+export function holdingPath(accountId: string, securityId: string) {
+  return `${accountPath(accountId)}/holdings/${encodeURIComponent(securityId)}`;
+}
 
-  if (!segment || segment.includes("/")) {
-    return "";
+function decodedSegments(pathname: string) {
+  const rest = pathname.startsWith(accountPathPrefix) ? pathname.slice(accountPathPrefix.length) : "";
+
+  if (!rest) {
+    return null;
   }
 
   try {
-    return decodeURIComponent(segment);
+    return rest.split("/").map(segment => decodeURIComponent(segment));
   } catch {
-    return "";
+    return null;
   }
+}
+
+/** The account a details path shows; empty on every other path. */
+export function accountIdFromPathname(pathname: string) {
+  const segments = decodedSegments(pathname);
+
+  return segments?.length === 1 && segments[0] ? segments[0] : "";
+}
+
+/** The account and security a holding path shows; null on every other path. */
+export function holdingFromPathname(pathname: string) {
+  const segments = decodedSegments(pathname);
+
+  if (segments?.length !== 3 || segments[1] !== "holdings" || !segments[0] || !segments[2]) {
+    return null;
+  }
+
+  return {
+    accountId: segments[0],
+    securityId: segments[2]
+  };
 }
 
 export function viewFromPathname(pathname: string): View {
   if (accountIdFromPathname(pathname)) {
     return "account";
+  }
+
+  if (holdingFromPathname(pathname)) {
+    return "holding";
   }
 
   if (pathname === importPath) {
@@ -96,7 +125,7 @@ export function viewFromPathname(pathname: string): View {
 }
 
 export function sectionOf(view: View): Section {
-  if (view === "account") {
+  if (view === "account" || view === "holding") {
     return "accounts";
   }
 
@@ -105,7 +134,7 @@ export function sectionOf(view: View): Section {
 
 /** Views that carry the shared period scope; the insights use only its currency and keep their own range, but pass the period on to the views they link to. */
 export function isPeriodAware(view: View) {
-  return view === "overview" || view === "insights" || view === "transactions" || view === "account";
+  return view === "overview" || view === "insights" || view === "transactions" || view === "account" || view === "holding";
 }
 
 export function isAccountList(view: View): view is AccountList {
@@ -144,12 +173,21 @@ export function viewQuery(pathname: string, scope: string, params: SearchParams)
     period: view === "overview" ? currentMonthPeriod() : parsePeriod(scoped.get("period") || "") || currentMonthPeriod(),
     currency: currencyOrDefault(scoped.get("currency")),
     search: listParams.get("search") || "",
-    account: view === "account" ? accountIdFromPathname(pathname) : listParams.get("account") || "",
+    account: viewAccount(view, pathname) ?? (listParams.get("account") || ""),
     category: listParams.get("category") || "",
     type: isTransactionType(type) ? type : "",
     syncRun: listParams.get("syncRun") || "",
     page: parsePage(pageParams.get("page"))
   };
+}
+
+// The account an account's details or one of its holdings shows; null on views without one.
+function viewAccount(view: View, pathname: string) {
+  if (view === "account") {
+    return accountIdFromPathname(pathname);
+  }
+
+  return view === "holding" ? holdingFromPathname(pathname)!.accountId : null;
 }
 
 /** The overview's recent transactions: the latest bookings of every month in the selected currency. */
@@ -171,6 +209,13 @@ export function allTransactionsHref(scope: string) {
 
 export function viewHref(view: Section, scope: string) {
   return isPeriodAware(view) && scope ? `${viewPaths[view]}?${scope}` : viewPaths[view];
+}
+
+/** A holding carries the period selected last, so its way back to the account keeps it. */
+export function holdingHref(accountId: string, securityId: string, scope: string) {
+  const path = holdingPath(accountId, securityId);
+
+  return scope ? `${path}?${scope}` : path;
 }
 
 /** An account's details carry the period selected last. */

@@ -66,7 +66,7 @@ export function AccountDetails({
   );
 }
 
-function BackNavigation({ back }: {
+export function BackNavigation({ back }: {
   back: BackLink
 }) {
   const t = useTranslations("accounts.details");

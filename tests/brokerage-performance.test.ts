@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import type { Database } from "../src/server/database/connection";
 import * as schema from "../src/server/database/schema";
 import { readBrokeragePerformance, readCombinedBrokeragePerformance } from "../src/features/securities/server/security-service";
-import { performanceInRange } from "../src/features/securities/performance-range";
+import { performanceInRange, pricesInRange } from "../src/features/securities/performance-range";
 import { depot, isolatedDatabase, now, security, settlementAccount, trade } from "./fixtures/brokerage";
 
 async function price(db: Database, securityId: string, date: string, close: number) {
@@ -221,4 +221,16 @@ test("the combined performance adds up active accounts of one currency, keeps ot
   assert.equal(euro.total_return?.since, "2026-09-10");
   assert.deepEqual(dollar.account_ids, [dollars]);
   assert.equal(dollar.points.at(-1)!.value_minor, 100_00);
+});
+
+test("a price range opens with the close valid on its start date and keeps every later close", () => {
+  const prices = ["2026-09-25", "2026-10-02", "2026-10-09", "2026-10-16"].map((date, index) => ({
+    date,
+    close_micros: (100 + index) * 1_000_000
+  }));
+
+  // One week before 2026-10-14 is 2026-10-07; the close valid then is the one from 2026-10-02.
+  assert.deepEqual(pricesInRange(prices, "1W", "2026-10-14").map(price => price.date), ["2026-10-02", "2026-10-09", "2026-10-16"]);
+  assert.deepEqual(pricesInRange(prices, "1W", "2026-10-02").map(price => price.date), ["2026-09-25", "2026-10-02", "2026-10-09", "2026-10-16"]);
+  assert.equal(pricesInRange(prices, "All", "2026-10-14"), prices);
 });

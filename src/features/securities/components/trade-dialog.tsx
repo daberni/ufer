@@ -42,6 +42,8 @@ export type TradeFormProps = {
   /** Active manual accounts that can carry the cash side when no booking is given. */
   settlementAccounts: Account[];
   booking?: TradeBooking;
+  /** The security the form starts with when no booking names one. */
+  isin?: string;
   close: () => void;
 };
 
@@ -65,6 +67,7 @@ export function TradeForm({
   accountId,
   settlementAccounts,
   booking,
+  isin: initialIsin,
   close
 }: TradeFormProps) {
   const locale = useLocale();
@@ -85,7 +88,7 @@ export function TradeForm({
   } = useDialogSubmit(useRecordTrade(), close);
   const cash = cashPreview(side, quantity, price, fee, tax, currency);
   const difference = booking && cash !== null ? booking.amount_minor - cash : null;
-  const isin = booking ? findIsin(booking.text) ?? "" : "";
+  const isin = booking ? findIsin(booking.text) ?? "" : initialIsin ?? "";
   let cashHint = t("enterSharesAndPrice");
 
   if (cash !== null && difference !== null && difference !== 0) {

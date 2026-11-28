@@ -18,9 +18,12 @@ import { TradeDialog } from "@/features/securities/components/trade-dialog";
  */
 export function AccountDetailActions({
   account,
+  isin,
   manualAccounts
 }: {
   account: Account;
+  /** On a holding's page, the trade form starts with its security. */
+  isin?: string;
   manualAccounts: Account[];
 }) {
   const t = useTranslations("accounts.actions");
@@ -44,6 +47,7 @@ export function AccountDetailActions({
         <TradeDialog
           brokerageAccounts={[account]}
           accountId={account.id}
+          isin={isin}
           settlementAccounts={manualAccounts}
           close={close}
         />

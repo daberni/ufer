@@ -6,6 +6,7 @@
     "import": "Buchungen importieren",
     "accounts": "Konten",
     "account": "Konto",
+    "holding": "Position",
     "brokerage": "Depots",
     "rules": "Kategorisierung",
     "description": "Dein persönliches Dashboard für Konten, Buchungen und Vermögen."
@@ -49,6 +50,8 @@
     }
   },
   "views": {
+    "holdingDetails": "Position",
+    "holding": "Kurse, Käufe und Verkäufe.",
     "accountDetails": "Kontodetails",
     "brokerageAccount": "Bestände und Trades.",
     "account": "Saldo, Buchungen und Verlauf.",

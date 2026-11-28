@@ -7,7 +7,7 @@ import { today } from "@/lib/time";
 import { syncLease, withLease } from "@/server/jobs/lease";
 import { refuse } from "@/server/database/transaction";
 import { archivedAccountMessage } from "@/features/transactions/server/booking-accounts";
-import { amountMinor, averageCostMicros, positionOn, saleGains, type PositionTrade } from "../holdings";
+import { amountMinor, averageCostMicros, closesAfterSplits, positionOn, saleGains, type PositionTrade } from "../holdings";
 import { checkSecurityChange } from "./security-history";
 import { readAccountTransfers } from "./transfer-repository";
 import { parseMicros } from "../quantities";
@@ -15,6 +15,7 @@ import { priceSourceStatus } from "./price-update-service";
 import { changeSummary, valueHoldings } from "../valuation";
 import { performanceSeries, totalReturn } from "../performance";
 import { readHoldingInputs } from "./valuation-repository";
+import { readPriceHistory, readSplits } from "./price-repository";
 import { settlementRefusal, settlementWindowDays, tradeCashAmount, type SettlementRefusal } from "../trade-decisions";
 import { brokerageAccountInput, securityInput, settlementCandidatesQuery, tradeCorrectionInput, tradeInput } from "./security-schema";
 import { deleteTrade, findBrokerageAccount, findSecurity, findSettlementAccount, findSettlementBooking, findTrade, insertBrokerageAccount, insertSecurity, insertSettlementEntry, insertTrade, listAllBrokerageAccounts, listSecurities, markSettlementBooking, nextTradeSequence, readAccountTrades, readSettlementCandidates, isEarliestTrade, markSplitsUnchecked, saveSettlementEntry, saveTradeCorrection, withSecurityTransaction, findOrInsertSecurity } from "./security-repository";
@@ -452,6 +453,26 @@ export async function readBrokerageTrades(accountId: string, now = Temporal.Now.
     trades: rows,
     valuation: valueHoldings(holdings, date),
     summary: changeSummary(holdings, date)
+  };
+}
+
+/** One holding of a brokerage account, open or closed: its figures today, its trades and transfers newest first, and every stored close of its security newest first in today's share units, so a split is no price change. */
+export async function readBrokerageHolding(accountId: string, securityId: string, now = Temporal.Now.instant()) {
+  const brokerage = await readBrokerageTrades(accountId, now);
+  const holding = brokerage.valuation.holdings.find(item => item.security_id === securityId);
+  const security = (await listSecurities()).find(item => item.id === securityId);
+
+  if (!holding || !security) {
+    throw new HttpError(404, "Holding not found.");
+  }
+
+  return {
+    account_id: brokerage.account_id,
+    currency: brokerage.currency,
+    security,
+    holding,
+    trades: brokerage.trades.filter(trade => trade.security_id === securityId).toReversed(),
+    prices: closesAfterSplits(await readPriceHistory(securityId), await readSplits(securityId))
   };
 }
 

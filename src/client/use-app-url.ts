@@ -3,7 +3,7 @@
 import { useCallback, useMemo } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useAppStore, useAppStoreApi } from "./app-store";
-import { accountHref, allTransactionsHref, archivedAccountsOpen, viewQuery, isPeriodAware, periodScope, viewFromPathname, viewHref, viewPaths, withQueryChanges, type Section, type ViewQuery, type ViewQueryChanges, type View } from "./app-location";
+import { accountHref, allTransactionsHref, holdingFromPathname, holdingHref, archivedAccountsOpen, viewQuery, isPeriodAware, periodScope, viewFromPathname, viewHref, viewPaths, withQueryChanges, type Section, type ViewQuery, type ViewQueryChanges, type View } from "./app-location";
 import { monthPeriod, type Period } from "@/lib/period";
 import { Temporal } from "temporal-polyfill";
 
@@ -13,6 +13,11 @@ import { Temporal } from "temporal-polyfill";
 
 export function useView(): View {
   return viewFromPathname(usePathname());
+}
+
+/** The security of the holding the current path shows; empty on every other path. */
+export function useHoldingSecurity() {
+  return holdingFromPathname(usePathname())?.securityId ?? "";
 }
 
 /** The period and currency parameters: the URL's on views that have them, otherwise the last ones selected. */
@@ -82,6 +87,13 @@ export function useAccountHref() {
   const scope = usePeriodScope();
 
   return useCallback((id: string) => accountHref(id, scope), [scope]);
+}
+
+/** A brokerage holding's page with the current period, like an account's details. */
+export function useHoldingHref() {
+  const scope = usePeriodScope();
+
+  return useCallback((accountId: string, securityId: string) => holdingHref(accountId, securityId, scope), [scope]);
 }
 
 /** The transactions view filtered to one account, in the account's currency, for search and category filters. */

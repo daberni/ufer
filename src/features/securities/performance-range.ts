@@ -1,5 +1,6 @@
 import { Temporal } from "temporal-polyfill";
 import type { PerformancePoint } from "./performance";
+import type { PricePoint } from "./types";
 
 export const performanceRanges = ["1W", "1M", "YTD", "1Y", "All"] as const;
 
@@ -61,4 +62,19 @@ export function performanceInRange(points: PerformancePoint[], range: Performanc
     return_ratio: point.growth / base.growth - 1,
     gain_minor: point.value_minor - point.invested_minor - baseGain
   }));
+}
+
+/**
+ * A security's closes, oldest first, within a range ending on `asOf`: from the last close on or before the range's start, so the range opens with the price valid then, through the newest close.
+ */
+export function pricesInRange(prices: PricePoint[], range: PerformanceRange, asOf: string): PricePoint[] {
+  const start = rangeStart(range, asOf);
+
+  if (start === null) {
+    return prices;
+  }
+
+  const startIndex = Math.max(0, prices.findLastIndex(price => price.date <= start));
+
+  return prices.slice(startIndex);
 }

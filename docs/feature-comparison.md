@@ -163,6 +163,7 @@ An item is checked only when its acceptance criterion is met and evidence is rec
   - [x] One value card layout for a brokerage account and the Brokerage overview: today's change, total gain with its return, invested money, unrealized and realized gain ([#382](https://github.com/daberni/ufer/issues/382))
   - [x] Brokerage section with the combined value and performance of all brokerage accounts and their holdings grouped by account
   - [x] Transfers of holdings between brokerage accounts at their original cost basis ([#362](https://github.com/daberni/ufer/issues/362))
+  - [x] A page per holding with a chart of its stored prices and its buys, sells and transfers, where trades are opened, changed and deleted ([#428](https://github.com/daberni/ufer/issues/428))
 - [ ] **K-04 · Planning:** budgets, recurring entries and forecasts; planning model to be agreed first
 - [ ] **K-05 · Historical wealth**
   - [x] Per-account balance history

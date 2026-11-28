@@ -1,4 +1,4 @@
-import { and, asc, eq, isNotNull, isNull, ne, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, isNotNull, isNull, ne, or, sql } from "drizzle-orm";
 import { database, type DatabaseTransaction } from "@/server/database/connection";
 import { securities, securityPrices, securitySplits } from "@/server/database/schema";
 import type { SecurityLeg } from "../transfers";
@@ -162,4 +162,25 @@ export async function assignListing(securityId: string, listing: {
 
     return true;
   });
+}
+
+/** Every stored close of a security, newest first. */
+export async function readPriceHistory(securityId: string) {
+  const db = await database();
+
+  return db.select({
+    date: securityPrices.date,
+    close_micros: securityPrices.close_micros
+  }).from(securityPrices).where(eq(securityPrices.security_id, securityId)).orderBy(desc(securityPrices.date));
+}
+
+/** A security's stored splits. */
+export async function readSplits(securityId: string) {
+  const db = await database();
+
+  return db.select({
+    date: securitySplits.date,
+    numerator: securitySplits.numerator,
+    denominator: securitySplits.denominator
+  }).from(securitySplits).where(eq(securitySplits.security_id, securityId));
 }

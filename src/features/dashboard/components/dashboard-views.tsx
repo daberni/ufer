@@ -1,5 +1,7 @@
 "use client";
 
+import ui from "../../../components/ui/primitives.module.css";
+
 import { useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { bankConnectionsSectionId } from "@/features/banking/connections-location";
@@ -10,13 +12,16 @@ import { SyncRunEmpty, SyncRunScope } from "@/features/transactions/components/s
 import { AccountsView } from "@/features/accounts/components/accounts-view";
 import { RulesView } from "@/features/categorization/components/rules-view";
 import { ConnectionsSection } from "@/features/banking/components/connections-view";
-import { AccountDetails, AccountNotFound, type BackLink } from "@/features/accounts/components/account-details";
+import { AccountDetails, AccountNotFound, BackNavigation, type BackLink } from "@/features/accounts/components/account-details";
 import { FileImportPage } from "@/features/imports/components/file-import-page";
 import { AccountCashFlowSummary } from "@/features/reports/components/account-cash-flow";
 import { BrokeragePanel } from "@/features/securities/components/brokerage-panel";
 import { BrokerageOverview } from "@/features/securities/components/brokerage-overview";
+import { HoldingDetail } from "@/features/securities/components/holding-detail";
+import { HoldingsTableSkeleton } from "@/features/securities/components/brokerage-panel";
+import { AreaPlaceholder } from "@/components/ui/area-placeholder";
 import { withArchivedAccountsOpen } from "@/client/app-location";
-import { replacePage, setSyncRun, useAccountTransactionsHref, useViewHref, useViewQuery } from "@/client/use-app-url";
+import { replacePage, setSyncRun, useAccountHref, useAccountTransactionsHref, useViewHref, useViewQuery } from "@/client/use-app-url";
 import { useAppStore } from "@/client/app-store";
 import { mapArea, useAreaResult, type Area } from "@/components/ui/use-area-result";
 import { Empty } from "@/components/ui/empty-state";
@@ -192,6 +197,50 @@ export function AccountPage() {
         categories={categories}
         query={query}
       />
+    </>
+  );
+}
+
+/** A brokerage holding below its account, which it returns to. */
+export function HoldingPage() {
+  const query = useViewQuery();
+  const accountHref = useAccountHref();
+  const viewHref = useViewHref();
+  const t = useTranslations("shell.navigation");
+  const details = useTranslations("accounts.details");
+  const accounts = useAreaResult(useAccounts());
+  const account = selectedAccount(accounts, query.account);
+
+  if (!account || account.status !== "pending" && account.data.kind !== "brokerage") {
+    return (
+      <AccountNotFound
+        back={{
+          href: viewHref("brokerage"),
+          label: t("brokerage.label")
+        }}
+      />
+    );
+  }
+
+  if (account.status === "pending") {
+    return (
+      <AreaPlaceholder area={account} failureTitle={details("failure")}>
+        <section className={ui["panel"]}>
+          <HoldingsTableSkeleton rows={1} />
+        </section>
+      </AreaPlaceholder>
+    );
+  }
+
+  return (
+    <>
+      <BackNavigation
+        back={{
+          href: accountHref(account.data.id),
+          label: account.data.name
+        }}
+      />
+      <HoldingDetail account={account.data} />
     </>
   );
 }
