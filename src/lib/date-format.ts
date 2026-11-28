@@ -140,5 +140,16 @@ export function monthRangeLabel(months: Temporal.PlainYearMonth[], locale: strin
     return "";
   }
 
-  return monthFormat(locale).formatRange(monthStart(months[0]), monthStart(months[months.length - 1]));
+  const parts = monthFormat(locale).formatRangeToParts(monthStart(months[0]), monthStart(months[months.length - 1]));
+
+  return parts.map((part, index) => {
+    const separatesEndpoints = parts[index - 1]?.source === "startRange" && parts[index + 1]?.source === "endRange";
+
+    return separatesEndpoints ? withPlainDashSpacing(part.value) : part.value;
+  }).join("");
+}
+
+// ICU versions disagree on the spaces around the range dash (Node uses thin spaces, Chrome plain ones), so server and browser renders would not hydrate identically. Spaces inside each endpoint stay as the locale defines them.
+function withPlainDashSpacing(separator: string) {
+  return separator.replace(/[\u00A0\u2009\u202F](?=[\u2013\u2014-])|(?<=[\u2013\u2014-])[\u00A0\u2009\u202F]/g, " ");
 }
