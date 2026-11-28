@@ -88,7 +88,8 @@ export function TransactionsPanel(props: Props) {
   const [importOpen, setImportOpen] = useState(false);
   const allTransactionsHref = useAllTransactionsHref();
   const manualAccounts = bookableManualAccounts(activeAccounts(useAccounts().data ?? []));
-  const drop = useFileDropTarget(props.view === "account" ? props.importAccountId : null);
+  // An account that accepts no import (brokerage, archived) offers no drop target on its transaction table.
+  const drop = useFileDropTarget(props.view === "account" ? props.importAccountId : null, props.view === "account" && props.importAccountId === null);
 
   return (
     <>

@@ -422,7 +422,7 @@ test("remembered choices apply once accounts and categories load, and never over
   });
 });
 
-test("a file dropped on an account targets it unless the file holds several accounts, the account is unavailable or the person chose otherwise", () => {
+test("a file dropped on an account targets it unless the file names its own account, the account is unavailable or the person chose otherwise", () => {
   const accounts = [{
     id: "giro",
     name: "Everyday account",
@@ -444,7 +444,7 @@ test("a file dropped on an account targets it unless the file holds several acco
   assert.deepEqual(resolveTargets([""], new Map(), "archived", new Map(), accounts).get(""), {
     kind: "unset"
   });
-  assert.deepEqual(resolveTargets(["Everyday account", "Travel card"], new Map(), "giro", new Map(), accounts).get("Travel card"), {
+  assert.deepEqual(resolveTargets(["Travel card"], new Map(), "giro", new Map(), accounts).get("Travel card"), {
     kind: "existing",
     accountId: "card"
   });

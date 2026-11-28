@@ -25,14 +25,14 @@ export function FileDropArea({
   );
 }
 
-/** The class and handlers that make an existing element a drop target for the file import. */
-export function useFileDropTarget(accountId: string | null = null) {
+/** The class and handlers that make an existing element a drop target for the file import; a disabled target ignores dropped files. */
+export function useFileDropTarget(accountId: string | null = null, disabled = false) {
   const startImport = useStartFileImport();
   const {
     dragging,
     handlers
   } = useFileDrag({
-    disabled: false,
+    disabled,
     onFile: file => startImport(file, accountId)
   });
 
