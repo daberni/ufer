@@ -4,6 +4,7 @@ import styles from "./overview-view.module.css";
 import { WealthSummary } from "@/features/reports/components/wealth-summary";
 import { OverviewAccounts } from "@/features/accounts/components/overview-accounts";
 import { CashFlowInsights } from "@/features/reports/components/cash-flow-insights";
+import { FileDropArea } from "@/features/imports/components/file-drop-area";
 import type { Area } from "@/components/ui/use-area-result";
 import type { Account, NetWorth } from "@/features/accounts/types";
 import type { CashFlow } from "@/features/reports/types";
@@ -29,7 +30,7 @@ export function OverviewView({
   cashFlow
 }: Props) {
   return (
-    <>
+    <FileDropArea>
       <div className={styles["wealth-overview"]}>
         <WealthSummary
           currencies={currencies.data ?? []}
@@ -40,6 +41,6 @@ export function OverviewView({
         <OverviewAccounts currencyAccounts={currencyAccounts} />
       </div>
       <CashFlowInsights cashFlow={cashFlow} />
-    </>
+    </FileDropArea>
   );
 }

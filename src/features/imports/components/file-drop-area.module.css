@@ -1,0 +1,14 @@
+/* A drop area keeps its content's layout; the highlight is drawn over it without shifting anything. */
+.area {
+  position: relative;
+}
+.dragging::after {
+  content: "";
+  position: absolute;
+  inset: calc(var(--space-2) * -1);
+  z-index: 5;
+  border: 2px solid var(--green);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--green) 16%, transparent);
+  pointer-events: none;
+}

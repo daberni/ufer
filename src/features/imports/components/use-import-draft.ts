@@ -49,6 +49,8 @@ export function useImportDraft() {
   const [templateDismissed, setTemplateDismissed] = useState(false);
   const [mapping, setMapping] = useState<CsvMapping | null>(null);
   const [targetChoices, setTargetChoices] = useState<Map<string, TargetChoice>>(new Map());
+  // The account a file was dropped on; it becomes the target of a single-account file.
+  const [preferredAccount, setPreferredAccount] = useState<string | null>(null);
   const [categoryChoices, setCategoryChoices] = useState<Map<string, CategorySelection>>(new Map());
   // Type choices by lowercase type value over the template's or default type values; null keeps the type that follows the amount.
   const [typeChoices, setTypeChoices] = useState<Map<string, ImportType | null>>(new Map());
@@ -88,7 +90,7 @@ export function useImportDraft() {
   const sources = useMemo(() => sourceAccounts(mapped?.rows ?? []), [mapped]);
   // Remembered choices follow the option lists, so a template applied before accounts or categories loaded still restores them.
   const remembered = useMemo(() => template ? templateChoices(template, accountOptions, categories.data ?? []) : null, [template, accountOptions, categories.data]);
-  const resolvedTargets = useMemo(() => resolveTargets(sources.map(({ source }) => source), targetChoices, remembered?.targets ?? new Map(), accountOptions), [sources, targetChoices, remembered, accountOptions]);
+  const resolvedTargets = useMemo(() => resolveTargets(sources.map(({ source }) => source), targetChoices, preferredAccount, remembered?.targets ?? new Map(), accountOptions), [sources, targetChoices, preferredAccount, remembered, accountOptions]);
   // Skipped accounts' rows neither count toward category values nor need a category choice.
   const keptRows = useMemo(() => mapped?.rows.filter(row => resolvedTargets.get(row.source)?.kind !== "skip") ?? [], [mapped, resolvedTargets]);
   const values = useMemo(() => categoryValues(keptRows, categories.data ?? []), [keptRows, categories.data]);
@@ -124,7 +126,7 @@ export function useImportDraft() {
     mutation.reset();
   }
 
-  async function load(selected: File | undefined) {
+  async function load(selected: File | undefined, accountId: string | null = null) {
     const selection = ++latestSelection.current;
 
     setChecked(null);
@@ -132,6 +134,7 @@ export function useImportDraft() {
     // The previous file never stays visible next to a new selection, so a check cannot run on it.
     setFile(null);
     reset();
+    setPreferredAccount(accountId);
 
     if (!selected) {
       return;

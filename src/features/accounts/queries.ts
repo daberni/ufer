@@ -5,6 +5,7 @@ import { Temporal } from "temporal-polyfill";
 import { apiGet } from "@/client/api";
 import { queryKeys } from "@/client/query-keys";
 import type { Account, BalanceHistory, NetWorth } from "@/features/accounts/types";
+import { accountKinds } from "@/features/accounts/account-kinds";
 
 const expiryWarning = Temporal.Duration.from({
   hours: 7 * 24
@@ -37,6 +38,11 @@ export function useNetWorth(currency: string) {
 /** Manual accounts that take bookings: entries, transfers, imports and closings. A brokerage account holds securities instead (ADR 012). */
 export function bookableManualAccounts(accounts: Account[]) {
   return accounts.filter(account => account.provider === "manual" && account.kind !== "brokerage");
+}
+
+/** Whether a file import can target the account: an active account whose balance is the sum of its transactions, so never a brokerage account (ADR 012). */
+export function acceptsFileImport(account: Account) {
+  return account.archived_at === null && (accountKinds as readonly string[]).includes(account.kind);
 }
 
 /** Accounts that are not archived, as offered in lists and pickers. */

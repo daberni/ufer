@@ -21,7 +21,7 @@ import { useAppStore } from "@/client/app-store";
 import { mapArea, useAreaResult, type Area } from "@/components/ui/use-area-result";
 import { Empty } from "@/components/ui/empty-state";
 import { useAccountCashFlow, useCashFlow, useNetWorthHistory } from "@/features/reports/queries";
-import { accountGroups, activeAccounts, useAccounts, useBalanceHistory, useNetWorth } from "@/features/accounts/queries";
+import { acceptsFileImport, accountGroups, activeAccounts, useAccounts, useBalanceHistory, useNetWorth } from "@/features/accounts/queries";
 import { useCategories, useRules } from "@/features/categorization/queries";
 import { useBankingConfiguration } from "@/features/banking/banking-configuration";
 import { useConnections, useSyncRuns } from "@/features/banking/queries";
@@ -278,6 +278,7 @@ function AccountActivity({
         categories={categories}
         emptyState={<Empty title={t("emptyTitle")} illustration={null}>{t("emptyBody")}</Empty>}
         filterHref={account ? accountTransactionsHref(account) : "/transactions"}
+        importAccountId={account && acceptsFileImport(account) ? account.id : null}
         list={list}
         page={page}
         view="account"
