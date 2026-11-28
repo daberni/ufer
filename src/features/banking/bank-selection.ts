@@ -1,4 +1,4 @@
-// The connection dialog's country and bank choice. A bank counts as chosen only after it was picked from the list, never because a search matches it.
+// The connection dialog's country and bank choice. A bank counts as chosen only after it was picked from the list, never because a search matches it; a search keeps the chosen bank until another is picked.
 
 import type { Bank, Connection } from "@/features/banking/types";
 
@@ -45,7 +45,7 @@ export function namedCountries(countries: readonly string[], locale: string) {
 export type BankSelection = {
   /** Null until a country is picked, so the default can follow the connections once they load. */
   country: string | null;
-  /** The text in the bank field: a search, or the chosen bank's name. */
+  /** The typed search; empty while the field shows the chosen bank. */
   query: string;
   /** Empty until a bank is chosen from the list. */
   bankName: string;
@@ -73,13 +73,12 @@ export function changeBankSelection(selection: BankSelection, change: BankSelect
     case "search":
       return {
         ...selection,
-        query: change.query,
-        bankName: ""
+        query: change.query
       };
     case "choose":
       return {
         ...selection,
-        query: change.bankName,
+        query: "",
         bankName: change.bankName
       };
   }
@@ -98,9 +97,7 @@ export function directoryBanks(banks: readonly Bank[]) {
   return [...unique.values()].sort((left, right) => left.name.localeCompare(right.name));
 }
 
-/** The bank to authorize: only a chosen bank that the field still shows and the loaded directory still offers. */
+/** The bank to authorize: only a chosen bank that the loaded directory still offers. */
 export function chosenBankName(selection: BankSelection, banks: readonly Bank[]) {
-  const shown = selection.bankName !== "" && selection.query === selection.bankName;
-
-  return shown && banks.some(bank => bank.name === selection.bankName) ? selection.bankName : "";
+  return selection.bankName !== "" && banks.some(bank => bank.name === selection.bankName) ? selection.bankName : "";
 }

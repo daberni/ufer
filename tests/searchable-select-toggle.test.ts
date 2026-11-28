@@ -24,18 +24,17 @@ async function renderSelect(context: TestContext) {
 
   function Field() {
     const [value, setValue] = useState("Banana");
-    const [search, setSearch] = useState<string | null>(null);
+    const [search, setSearch] = useState("");
 
     return createElement(SearchableSelect<string>, {
       id: "fruit",
       "aria-label": "Fruit",
       options: fruits,
       value,
-      query: search ?? value,
+      query: search,
       onQueryChange: setSearch,
       onChange: next => {
         chosen.push(next);
-        setSearch(null);
         setValue(next);
       },
       noun: "category",
@@ -186,4 +185,90 @@ test("typing on the toggle moves focus to the search field and searches for the 
     name: "Cherry",
     hidden: true
   }).id);
+});
+
+test("focusing the field empties it and shows the selection as its placeholder, and leaving it shows the selection again", async context => {
+  const {
+    field
+  } = await renderSelect(context);
+
+  assert.equal(field.value, "Banana");
+
+  act(() => {
+    field.focus();
+    fireEvent.click(field);
+  });
+  assert.equal(field.value, "");
+  assert.equal(field.placeholder, "Banana");
+
+  act(() => {
+    fireEvent.change(field, {
+      target: {
+        value: "ch"
+      }
+    });
+  });
+  act(() => {
+    field.blur();
+  });
+
+  assert.equal(field.value, "Banana");
+  assert.equal(field.getAttribute("aria-expanded"), "false");
+});
+
+test("the first Escape drops the search and returns to the selected option, the second closes the list", async context => {
+  const {
+    chosen,
+    screen,
+    field
+  } = await renderSelect(context);
+
+  act(() => {
+    field.focus();
+    fireEvent.click(field);
+  });
+  act(() => {
+    fireEvent.change(field, {
+      target: {
+        value: "ch"
+      }
+    });
+  });
+  assert.equal(activeOption(screen), "Cherry");
+
+  press(field, "Escape");
+  assert.equal(field.value, "");
+  assert.equal(field.getAttribute("aria-expanded"), "true");
+  assert.equal(activeOption(screen), "Banana");
+
+  press(field, "Escape");
+  assert.equal(field.getAttribute("aria-expanded"), "false");
+  assert.equal(document.activeElement, field);
+  assert.deepEqual(chosen, []);
+});
+
+test("a tap outside that leaves the field focused, as on touch browsers, drops the search and shows the selection as the placeholder", async context => {
+  const {
+    field
+  } = await renderSelect(context);
+
+  act(() => {
+    field.focus();
+    fireEvent.click(field);
+  });
+  act(() => {
+    fireEvent.change(field, {
+      target: {
+        value: "ch"
+      }
+    });
+  });
+  act(() => {
+    fireEvent.pointerDown(document.body);
+  });
+
+  assert.equal(document.activeElement, field);
+  assert.equal(field.getAttribute("aria-expanded"), "false");
+  assert.equal(field.value, "");
+  assert.equal(field.placeholder, "Banana");
 });

@@ -35,7 +35,7 @@ type Props<Value> = {
   /** A value no option has, such as undefined, while nothing is selected. */
   value: Value | undefined;
   onChange: (value: Value) => void;
-  /** The text in the field: a search, or the selected option's label. */
+  /** The typed search; empty while none is typed. The field shows the selected option itself, and Escape or leaving the field clears the search. */
   query: string;
   onQueryChange: (query: string) => void;
   /** Filters and orders the options for the typed text. */
@@ -65,7 +65,10 @@ type Props<Value> = {
   "aria-describedby"?: string;
 };
 
-/** An editable combobox: typing filters the options, and only an option picked from the list changes the value. The list is a popover anchored to the field. */
+/**
+ * An editable combobox: typing filters the options, and only an option picked from the list changes the value. While focused, the field starts empty and
+ * shows the selection as its placeholder. The list is a popover anchored to the field.
+ */
 export function SearchableSelect<Value>({
   id,
   options,
@@ -90,6 +93,8 @@ export function SearchableSelect<Value>({
   "aria-describedby": ariaDescribedBy
 }: Props<Value>) {
   const [open, setOpen] = useState(false);
+  // While the search field has focus it holds only the typed search, so the selected label is never edited as text.
+  const [editing, setEditing] = useState(false);
   // While the toggle button has focus, the field's active descendant is not read, so the highlighted option is announced instead.
   const [toggleFocused, setToggleFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -101,8 +106,7 @@ export function SearchableSelect<Value>({
   const listboxRef = useRef<HTMLUListElement>(null);
   const t = useTranslations("common.select");
   const selected = options.find(option => Object.is(option.value, value));
-  // The selected option's label lists every option again, so another one can be picked without clearing the field first.
-  const matches = notice ? [] : match(options, query === selected?.label ? "" : query);
+  const matches = notice ? [] : match(options, query);
   const shown = matches.slice(0, shownOptionLimit);
   const selectedIndex = shown.findIndex(option => option === selected);
   const createName = onCreate && !notice ? creatableName(options, query) : "";
@@ -125,8 +129,10 @@ export function SearchableSelect<Value>({
     selectedIndex: openAtFirst ? -1 : selectedIndex,
     listboxRef,
     onOpen: () => setOpen(true),
+    searching: query !== "",
     onSelect: choose,
-    onClose: () => setOpen(false)
+    onClose: () => setOpen(false),
+    onClear: clearSearch
   });
   const createLabel = t(`nouns.${noun}.create`, {
     name: createName
@@ -136,8 +142,12 @@ export function SearchableSelect<Value>({
   });
   const truncated = matches.length > shown.length;
   const listLabel = t(`nouns.${noun}.list`);
-  // A selection shown as the placeholder hint (an empty field reading "Uncategorized") keeps its icon like one shown as text.
-  const showsSelected = selected !== undefined && (query === selected.label || (query === "" && placeholder === selected.label));
+  // A placeholder that already names the selection, such as "Uncategorized", stays a hint instead of becoming text.
+  const selectedText = selected && placeholder !== selected.label ? selected.label : "";
+  const fieldText = editing || query ? query : selectedText;
+  const fieldPlaceholder = editing && selected ? selected.label : placeholder;
+  // The selection keeps its icon and color whether it is shown as text or as the placeholder.
+  const showsSelected = selected !== undefined && query === "";
 
   const noMatchText = t(`nouns.${noun}.noMatch`, {
     query: query.trim()
@@ -188,7 +198,10 @@ export function SearchableSelect<Value>({
   useDismiss({
     active: open,
     inside: [controlRef, popupRef],
-    onDismiss: () => setOpen(false)
+    onDismiss: () => {
+      setOpen(false);
+      onQueryChange("");
+    }
   });
 
   function openAt(index: number) {
@@ -208,8 +221,16 @@ export function SearchableSelect<Value>({
     }
 
     if (option) {
+      onQueryChange("");
       onChange(option.value);
     }
+  }
+
+  function clearSearch() {
+    const fullIndex = match(options, "").slice(0, shownOptionLimit).findIndex(option => option === selected);
+
+    onQueryChange("");
+    setActiveIndex(openAtFirst ? 0 : Math.max(fullIndex, 0));
   }
 
   function search(text: string) {
@@ -247,7 +268,15 @@ export function SearchableSelect<Value>({
   }
 
   return (
-    <div className={styles["searchable-select"]}>
+    <div
+      className={styles["searchable-select"]}
+      onBlur={event => {
+        // Leaving without picking an option keeps the selection and drops the unfinished search.
+        if (query && !event.currentTarget.contains(event.relatedTarget)) {
+          onQueryChange("");
+        }
+      }}
+    >
       <div
         ref={controlRef}
         className={clsx(styles["control"], appearance === "inline" && styles["inline"], className)}
@@ -266,8 +295,10 @@ export function SearchableSelect<Value>({
           autoCapitalize="none"
           autoCorrect="off"
           spellCheck={false}
-          placeholder={placeholder}
-          value={query}
+          // Phone keyboards otherwise offer "Next", which moves on without a keydown; Enter picks the highlighted match.
+          enterKeyHint="done"
+          placeholder={fieldPlaceholder}
+          value={fieldText}
           aria-autocomplete="list"
           aria-expanded={open}
           aria-controls={listboxId}
@@ -277,18 +308,16 @@ export function SearchableSelect<Value>({
           aria-invalid={ariaInvalid}
           aria-describedby={ariaDescribedBy}
           onChange={event => search(event.target.value)}
-          onFocus={event => {
-            // Typing then replaces the selected option's label instead of extending it.
-            if (selected && query === selected.label) {
-              event.currentTarget.select();
-            }
-          }}
+          onFocus={() => setEditing(true)}
           onClick={() => {
             if (!open) {
               openAt(openingIndex);
             }
           }}
-          onBlur={() => setOpen(false)}
+          onBlur={() => {
+            setEditing(false);
+            setOpen(false);
+          }}
           onKeyDown={handleKeyDown}
         />
         {adornment}

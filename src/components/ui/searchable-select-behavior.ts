@@ -71,6 +71,8 @@ export type SearchableSelectState = {
   activeIndex: number;
   selectedIndex: number;
   optionCount: number;
+  /** Whether the field holds a search that Escape clears before it closes the list; free-text fields never search. */
+  searching?: boolean;
 };
 
 export type SearchableSelectAction = {
@@ -83,6 +85,9 @@ export type SearchableSelectAction = {
   type: "select";
 } | {
   type: "close";
+} | {
+  /** Drops the search and returns to the selected option, keeping the list as it is. */
+  type: "clear";
 } | {
   type: "none";
 };
@@ -167,6 +172,13 @@ function openAction(input: SearchableSelectKey, state: SearchableSelectState): S
 
 /** Home, End, the arrow keys left and right and typing keep editing the search text; typing is handled by the input's change. */
 export function searchableSelectKeyAction(input: SearchableSelectKey, state: SearchableSelectState): SearchableSelectAction {
+  // The first Escape drops a search and the next one closes the list, like other searchable selects.
+  if (input.key === "Escape" && state.searching) {
+    return {
+      type: "clear"
+    };
+  }
+
   return state.open ? openAction(input, state) : closedAction(input, state);
 }
 
