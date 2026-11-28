@@ -126,3 +126,21 @@ test("a security the account never traded is not one of its holdings", async con
   await assert.rejects(readBrokerageHolding("other", "etf", now), (error: unknown) => error instanceof HttpError && error.status === 404);
   assert.deepEqual((await readBrokerageHolding("other", "bond", now)).trades.map(trade => trade.id), ["bond-elsewhere"]);
 });
+
+test("closes before a split are shown in the units held after it, so the split is no price change", async context => {
+  await isolatedDatabase(context);
+  const db = await (globalThis as unknown as {
+    budgetDb: Promise<Database>
+  }).budgetDb;
+
+  await db.insert(schema.securitySplits).values({
+    security_id: "etf",
+    date: "2026-10-12",
+    numerator: 2,
+    denominator: 1
+  });
+
+  const detail = await readBrokerageHolding("depot", "etf", now);
+
+  assert.deepEqual(detail.prices.map(price => price.close_micros), [112_000_000, 111_000_000, 54_000_000]);
+});

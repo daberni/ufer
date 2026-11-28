@@ -87,7 +87,7 @@ export type BrokerageTrades = {
   summary: ChangeSummary;
 };
 
-/** One holding with its trades and transfers newest first and its security's stored closes newest first. */
+/** One holding with its trades and transfers newest first and its security's stored closes newest first, adjusted to today's share units. */
 export type BrokerageHolding = {
   account_id: string;
   currency: string;

@@ -1,5 +1,7 @@
 "use client";
 
+import ui from "../../../components/ui/primitives.module.css";
+
 import { useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { bankConnectionsSectionId } from "@/features/banking/connections-location";
@@ -16,6 +18,8 @@ import { AccountCashFlowSummary } from "@/features/reports/components/account-ca
 import { BrokeragePanel } from "@/features/securities/components/brokerage-panel";
 import { BrokerageOverview } from "@/features/securities/components/brokerage-overview";
 import { HoldingDetail } from "@/features/securities/components/holding-detail";
+import { HoldingsTableSkeleton } from "@/features/securities/components/brokerage-panel";
+import { AreaPlaceholder } from "@/components/ui/area-placeholder";
 import { withArchivedAccountsOpen } from "@/client/app-location";
 import { replacePage, setSyncRun, useAccountHref, useAccountTransactionsHref, useViewHref, useViewQuery } from "@/client/use-app-url";
 import { useAppStore } from "@/client/app-store";
@@ -203,6 +207,7 @@ export function HoldingPage() {
   const accountHref = useAccountHref();
   const viewHref = useViewHref();
   const t = useTranslations("shell.navigation");
+  const details = useTranslations("accounts.details");
   const accounts = useAreaResult(useAccounts());
   const account = selectedAccount(accounts, query.account);
 
@@ -218,7 +223,13 @@ export function HoldingPage() {
   }
 
   if (account.status === "pending") {
-    return null;
+    return (
+      <AreaPlaceholder area={account} failureTitle={details("failure")}>
+        <section className={ui["panel"]}>
+          <HoldingsTableSkeleton rows={1} />
+        </section>
+      </AreaPlaceholder>
+    );
   }
 
   return (

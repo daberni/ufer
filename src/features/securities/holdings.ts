@@ -201,6 +201,14 @@ export function priceOn(prices: PricePoint[], date: string) {
   return latest;
 }
 
+/** Closes in the units held after every given split: a close dated before a split is divided by its ratio, so a split shows no price change. */
+export function closesAfterSplits<Price extends PricePoint>(prices: Price[], splits: PositionSplit[]): Price[] {
+  return prices.map(price => ({
+    ...price,
+    close_micros: splits.filter(split => split.date > price.date).reduce((close, split) => Math.round(close * split.denominator / split.numerator), price.close_micros)
+  }));
+}
+
 /** Values a quantity on `date` with the price valid then; without one the value is unknown rather than zero. */
 /** The quantity in the units of an earlier close: splits after `after` through `through` apply in reverse, since a split is no price change. */
 export function quantityBeforeSplits(quantityMicros: number, splits: PositionSplit[], after: string, through: string) {

@@ -173,3 +173,14 @@ export async function readPriceHistory(securityId: string) {
     close_micros: securityPrices.close_micros
   }).from(securityPrices).where(eq(securityPrices.security_id, securityId)).orderBy(desc(securityPrices.date));
 }
+
+/** A security's stored splits. */
+export async function readSplits(securityId: string) {
+  const db = await database();
+
+  return db.select({
+    date: securitySplits.date,
+    numerator: securitySplits.numerator,
+    denominator: securitySplits.denominator
+  }).from(securitySplits).where(eq(securitySplits.security_id, securityId));
+}
