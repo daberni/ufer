@@ -69,8 +69,8 @@ export function HoldingDetail({ account }: {
   } = detailQuery.data;
   const held = holding.quantity_micros > 0;
   const brokerageAccounts = (accounts.data ?? []).filter(item => item.kind === "brokerage");
-  // Per-share figures of one holding share their decimals; the average cost and a transfer's carried cost per share are rounded to them.
-  const digits = priceDigits([...trades.filter(trade => !trade.transfer).map(trade => trade.price_micros), ...prices.slice(0, initialPrices).map(price => price.close_micros)], currency);
+  // Per-share figures of one holding share their decimals, including every stored close, so no close is rounded; the average cost and a transfer's carried cost per share are rounded to them.
+  const digits = priceDigits([...trades.filter(trade => !trade.transfer).map(trade => trade.price_micros), ...prices.map(price => price.close_micros)], currency);
   const tradesId = `${securityId}-trades`;
   const pricesId = `${securityId}-prices`;
 
