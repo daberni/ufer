@@ -4,13 +4,13 @@ import ui from "../../../components/ui/primitives.module.css";
 
 import { useId } from "react";
 import { clsx } from "clsx";
-import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useTranslations } from "next-intl";
 import styles from "./period-bar.module.css";
 import { selectRange } from "@/features/insights/insights-location";
 import { daySpanLabel, rangeTitle } from "@/features/insights/range-format";
 import { CurrencyChoice } from "@/features/accounts/components/currency-choice";
-import { changeInterval, comparisonSpans, customRange, intervals, maximumCustomDays, rangeDays, shiftRange, spanToJson, type PeriodRange } from "@/lib/period-range";
+import { PeriodStepper } from "@/components/ui/period-stepper";
+import { changeInterval, comparisonSpans, customRange, intervals, maximumCustomDays, rangeContaining, rangeDays, shiftRange, spanToJson, type PeriodRange } from "@/lib/period-range";
 import { today, validDate } from "@/lib/time";
 import { Temporal } from "temporal-polyfill";
 import { useLocale } from "@/client/locale-provider";
@@ -56,23 +56,19 @@ export function PeriodBar({
         ))}
       </fieldset>
       <div className={styles["stepper"]}>
-        <button
-          type="button"
-          className={ui["icon-button"]}
-          aria-label={t("previous")}
-          onClick={() => selectRange(shiftRange(range, -1))}
-        >
-          <ChevronLeft size={17} />
-        </button>
-        <strong className={styles["range"]} aria-live="polite">{rangeTitle(range, locale)}</strong>
-        <button
-          type="button"
-          className={ui["icon-button"]}
-          aria-label={t("next")}
-          onClick={() => selectRange(shiftRange(range, 1))}
-        >
-          <ChevronRight size={17} />
-        </button>
+        <PeriodStepper
+          label={rangeTitle(range, locale)}
+          previousLabel={t("previous")}
+          nextLabel={t("next")}
+          unit={range.interval === "custom" ? null : range.interval}
+          selected={range.start}
+          onSelect={start => {
+            if (range.interval !== "custom") {
+              selectRange(rangeContaining(range.interval, start));
+            }
+          }}
+          onStep={steps => selectRange(shiftRange(range, steps))}
+        />
       </div>
       {range.interval === "custom" && <CustomRange key={`${range.start}:${range.end}`} range={range} />}
       <span className={clsx(ui["subtle"], styles["comparison"])}>{t("versus", {

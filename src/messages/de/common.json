@@ -32,5 +32,11 @@
     "selectedPosition": "{label}, ausgewählt, {position, number} von {total, number}"
   },
   "traceId": "Trace-ID",
-  "closeDialog": "Dialog schließen"
+  "closeDialog": "Dialog schließen",
+  "periodPicker": {
+    "trigger": "Zeitraum auswählen, {label}",
+    "dialog": "{unit, select, month {Monat wählen} quarter {Quartal wählen} other {Jahr wählen}}",
+    "previousPage": "{unit, select, year {Frühere Jahre} other {Vorheriges Jahr}}",
+    "nextPage": "{unit, select, year {Spätere Jahre} other {Nächstes Jahr}}"
+  }
 }

@@ -4,13 +4,13 @@ import ui from "../../../components/ui/primitives.module.css";
 
 import { clsx } from "clsx";
 import styles from "./period-controls.module.css";
-import { CalendarRange, Check, ChevronLeft, ChevronRight } from "lucide-react";
+import { CalendarRange, Check } from "lucide-react";
 import { periodLabel } from "@/lib/date-format";
 import { allMonthsPeriod, currentMonthPeriod, monthPeriod } from "@/lib/period";
 import { selectPeriod, usePeriod } from "@/client/use-app-url";
 import { showsCurrencySelect } from "@/features/accounts/queries";
 import { CurrencyChoice } from "@/features/accounts/components/currency-choice";
-import { MonthPicker } from "@/features/dashboard/components/month-picker";
+import { PeriodStepper } from "@/components/ui/period-stepper";
 import { shownStatus, valueMask } from "@/components/ui/result-presentation";
 import type { Area } from "@/components/ui/use-area-result";
 import { useLocale } from "@/client/locale-provider";
@@ -60,37 +60,26 @@ function PeriodSelect() {
   const period = usePeriod();
   const allMonths = period.kind === "all";
 
-  function moveMonth(months: number) {
-    if (period.kind === "month") {
-      selectPeriod(monthPeriod(period.month.add({
-        months
-      })));
-    }
-  }
-
   return (
     <>
-      <button
-        className={ui["icon-button"]}
-        aria-label={t("previousMonth")}
-        disabled={allMonths}
-        onClick={() => moveMonth(-1)}
-      >
-        <ChevronLeft size={17} />
-      </button>
-      <MonthPicker
+      <PeriodStepper
         label={periodLabel(period, locale, t("allMonths"))}
-        selected={period.kind === "month" ? period.month : null}
-        onSelect={month => selectPeriod(monthPeriod(month))}
+        previousLabel={t("previousMonth")}
+        nextLabel={t("nextMonth")}
+        unit="month"
+        selected={period.kind === "month" ? period.month.toPlainDate({
+          day: 1
+        }) : null}
+        onSelect={start => selectPeriod(monthPeriod(start.toPlainYearMonth()))}
+        onStep={months => {
+          if (period.kind === "month") {
+            selectPeriod(monthPeriod(period.month.add({
+              months
+            })));
+          }
+        }}
+        stepDisabled={allMonths}
       />
-      <button
-        className={ui["icon-button"]}
-        aria-label={t("nextMonth")}
-        disabled={allMonths}
-        onClick={() => moveMonth(1)}
-      >
-        <ChevronRight size={17} />
-      </button>
       <button
         type="button"
         className={styles["all-months"]}

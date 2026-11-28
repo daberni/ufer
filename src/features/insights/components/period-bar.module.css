@@ -55,13 +55,6 @@
   align-items: center;
   gap: var(--space-1);
 }
-/* The label keeps a minimum width, so stepping between months of different name lengths moves no button under the pointer. */
-.range {
-  min-width: 9.5rem;
-  font-weight: 600;
-  text-align: center;
-  font-variant-numeric: tabular-nums;
-}
 .custom {
   display: inline-flex;
   flex-wrap: wrap;
@@ -104,8 +97,10 @@
     padding: 0;
   }
   .stepper {
-    flex: 1 1 auto;
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr) 44px;
+    width: 100%;
+    text-align: center;
   }
   .custom input {
     min-height: 44px;
