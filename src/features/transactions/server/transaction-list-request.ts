@@ -1,7 +1,7 @@
 import { ValidationError } from "@/lib/errors";
 import { dashboardFilters, type DashboardFilters } from "@/server/http/dashboard-filters";
 
-const filterFields = ["period", "currency", "search", "account", "category", "type", "syncRun"] as const;
+const filterFields = ["period", "range", "currency", "search", "account", "category", "type", "syncRun"] as const;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);

@@ -14,7 +14,7 @@ import { money } from "@/lib/money";
 import { categoryRowLimit, type CategoryGroup } from "@/features/reports/category-groups";
 import { formatSavingsRate, isNegativeRate, periodCashFlow, reservedCategoryRows, type CashFlowSelection, type CashFlowSummary } from "@/features/reports/cash-flow-selection";
 import { CategoryRows, CategoryRowsSkeleton, type CategoryRowLink } from "@/features/reports/components/category-rows";
-import { breakdownTransactionsHref } from "@/client/app-location";
+import { breakdownTransactionsHref, categoryInsightsHref } from "@/client/app-location";
 import { AreaPlaceholder } from "@/components/ui/area-placeholder";
 import { areaProps, valueMask } from "@/components/ui/result-presentation";
 import { useCurrency, useMonthTransactionsHref, usePeriod, useViewHref } from "@/client/use-app-url";
@@ -106,7 +106,7 @@ export function CategoryBreakdown({
             groups={summary.incomeGroups}
             reservedRows={reserved.income}
             currency={currency}
-            rowLink={breakdownRowLink("category", shownPeriod, currency, "income", category => t("viewIncomeIn", {
+            rowLink={breakdownRowLink("category", shownPeriod, currency, "income", category => t("showIncomeIn", {
               category,
               context
             }))}
@@ -118,7 +118,7 @@ export function CategoryBreakdown({
             groups={summary.expenseGroups}
             reservedRows={reserved.expenses}
             currency={currency}
-            rowLink={breakdownRowLink("category", shownPeriod, currency, "expense", category => t("viewExpensesIn", {
+            rowLink={breakdownRowLink("category", shownPeriod, currency, "expense", category => t("showExpensesIn", {
               category,
               context
             }))}
@@ -131,7 +131,7 @@ export function CategoryBreakdown({
 }
 
 /**
- * Each category or account row opens its income or expense transactions in the shown month or period and currency. The combined "+N more" row stays plain: the list filters one category at a time, and the period's whole list is already linked from the panel.
+ * Each category row narrows the insights to that category up to the shown month; each account row opens its income or expense transactions in the shown month or period. Both keep the shown currency. The combined "+N more" row stays plain: the list filters one category at a time, and the period's whole list is already linked from the panel.
  */
 export function breakdownRowLink(grouping: BreakdownGrouping, period: Period, currency: string, type: "income" | "expense", label: (name: string) => string) {
   return (group: CategoryGroup): CategoryRowLink | null => {
@@ -139,14 +139,16 @@ export function breakdownRowLink(grouping: BreakdownGrouping, period: Period, cu
       return null;
     }
 
+    const filter = {
+      period,
+      currency,
+      grouping,
+      key: group.key,
+      type
+    };
+
     return {
-      href: breakdownTransactionsHref({
-        period,
-        currency,
-        grouping,
-        key: group.key,
-        type
-      }),
+      href: grouping === "category" ? categoryInsightsHref(filter) : breakdownTransactionsHref(filter),
       label: label(group.name)
     };
   };

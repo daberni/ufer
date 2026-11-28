@@ -42,6 +42,7 @@ const transaction: Transaction = {
 
 const listKey = queryKeys.transactions.list({
   period: "2000-01",
+  range: "",
   currency: "EUR",
   search: "",
   account: "",

@@ -2,6 +2,8 @@ import { isTransactionType, type TransactionType } from "@/lib/transaction-types
 import { allMonthsPeriod, currentMonth, currentMonthPeriod, parsePeriod, serializePeriod, type Period } from "@/lib/period";
 import { parsePage } from "@/lib/pagination";
 import { parseCurrencyCode } from "@/lib/money";
+import { rangeContaining, serializeRange, type PeriodRange } from "@/lib/period-range";
+import { today } from "@/lib/time";
 import type { BreakdownGrouping } from "@/features/reports/types";
 
 export type View = "overview" | "insights" | "transactions" | "import" | "accounts" | "account" | "brokerage" | "rules";
@@ -192,6 +194,42 @@ export function breakdownTransactionsHref(filter: BreakdownTransactions) {
     [filter.grouping]: filter.key,
     type: filter.type
   });
+}
+
+/** Every transaction in one category (an ID or "uncategorized") over all months, in a currency. */
+export function categoryTransactionsHref(currency: string, category: string) {
+  return withQueryChanges(viewPaths.transactions, "", {
+    period: allMonthsPeriod,
+    currency,
+    category
+  });
+}
+
+/** The insights narrowed to one category (an ID or "uncategorized"), ending at the breakdown's month in its currency; a breakdown over all months opens the years up to this one. */
+export function categoryInsightsHref(filter: Pick<BreakdownTransactions, "period" | "currency" | "key">) {
+  const range = filter.period.kind === "all" ? rangeContaining("year", today()) : rangeContaining("month", filter.period.month.toPlainDate({
+    day: 1
+  }));
+
+  return categoryRangeHref(range, filter.currency, filter.key);
+}
+
+/** The insights narrowed to one category over a range of any interval, in a currency; the current month stays implicit. */
+export function categoryRangeHref(range: PeriodRange, currency: string, category: string) {
+  const params = new URLSearchParams();
+  const value = serializeRange(range);
+
+  if (value !== serializeRange(rangeContaining("month", today()))) {
+    params.set("range", value);
+  }
+
+  if (currency !== defaultCurrency) {
+    params.set("currency", currency);
+  }
+
+  params.set("category", category);
+
+  return `${viewPaths.insights}?${params.toString()}`;
 }
 
 /** Applies query changes to a URL; default values are omitted so plain view URLs stay plain. */

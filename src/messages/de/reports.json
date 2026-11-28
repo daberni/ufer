@@ -28,7 +28,9 @@
     "noIncomeMonth": "Keine Einnahmen in diesem Monat.",
     "noIncomePeriod": "Keine Einnahmen in diesem Zeitraum.",
     "noExpensesMonth": "Keine Ausgaben in diesem Monat.",
-    "noExpensesPeriod": "Keine Ausgaben in diesem Zeitraum."
+    "noExpensesPeriod": "Keine Ausgaben in diesem Zeitraum.",
+    "showIncomeIn": "Einnahmen in {category} in den Auswertungen zeigen, bis {context}",
+    "showExpensesIn": "Ausgaben in {category} in den Auswertungen zeigen, bis {context}"
   },
   "chart": {
     "title": "Einnahmen & Ausgaben",

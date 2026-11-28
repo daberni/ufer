@@ -10,6 +10,7 @@ import type { PayeeSuggestions, TransactionPage, TransferOptions } from "@/featu
 export function transactionListFilters(query: ViewQuery): TransactionListFilters {
   return {
     period: serializePeriod(query.period),
+    range: "",
     currency: query.currency,
     search: query.search,
     account: query.account,

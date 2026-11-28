@@ -6,6 +6,7 @@ import { parseRange, rangeContaining, serializeRange, type PeriodRange } from "@
 import { today } from "@/lib/time";
 
 const rangeKey = "range";
+const categoryKey = "category";
 
 /** The insights' range from the URL; the current month when absent or invalid. */
 export function insightsRange(value: string | null, current = today()) {
@@ -35,4 +36,20 @@ export function selectRange(range: PeriodRange) {
   if (next !== `${window.location.pathname}${window.location.search}`) {
     window.history.pushState(null, "", next);
   }
+}
+
+/** The category the insights are narrowed to: an ID or "uncategorized"; null for all categories. */
+export function useInsightsCategory() {
+  return useSearchParams().get(categoryKey) || null;
+}
+
+/** Shows all categories again, keeping the range. */
+export function clearCategory() {
+  const params = new URLSearchParams(window.location.search);
+
+  params.delete(categoryKey);
+
+  const query = params.toString();
+
+  window.history.pushState(null, "", query ? `${window.location.pathname}?${query}` : window.location.pathname);
 }

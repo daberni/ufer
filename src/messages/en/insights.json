@@ -33,7 +33,8 @@
       "quarter": "quarter",
       "year": "year",
       "custom": "period"
-    }
+    },
+    "average": "Average"
   },
   "breakdown": {
     "noIncome": "No income in this period.",
@@ -42,6 +43,14 @@
     "grouping": "Group by",
     "category": "Category",
     "account": "Account",
-    "byAccount": "By account"
+    "byAccount": "By account",
+    "allCategories": "All categories"
+  },
+  "transactions": {
+    "title": "Transactions, {period}",
+    "failure": "The transactions could not be loaded",
+    "emptyTitle": "No transactions",
+    "empty": "Nothing in this category in the selected period.",
+    "viewAll": "All transactions"
   }
 }

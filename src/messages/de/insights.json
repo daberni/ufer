@@ -33,7 +33,8 @@
       "quarter": "Quartal",
       "year": "Jahr",
       "custom": "Zeitraum"
-    }
+    },
+    "average": "Durchschnitt"
   },
   "breakdown": {
     "noIncome": "Keine Einnahmen in diesem Zeitraum.",
@@ -42,6 +43,14 @@
     "grouping": "Gruppieren nach",
     "category": "Kategorie",
     "account": "Konto",
-    "byAccount": "Konten"
+    "byAccount": "Konten",
+    "allCategories": "Alle Kategorien"
+  },
+  "transactions": {
+    "title": "Buchungen, {period}",
+    "failure": "Die Buchungen konnten nicht geladen werden",
+    "emptyTitle": "Keine Buchungen",
+    "empty": "Nichts in dieser Kategorie im gewählten Zeitraum.",
+    "viewAll": "Alle Buchungen"
   }
 }

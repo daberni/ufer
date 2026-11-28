@@ -28,7 +28,9 @@
     "noIncomeMonth": "No income this month.",
     "noIncomePeriod": "No income in this period.",
     "noExpensesMonth": "No expenses this month.",
-    "noExpensesPeriod": "No expenses in this period."
+    "noExpensesPeriod": "No expenses in this period.",
+    "showIncomeIn": "Show income in {category} in insights, up to {context}",
+    "showExpensesIn": "Show expenses in {category} in insights, up to {context}"
   },
   "chart": {
     "title": "Income & expenses",

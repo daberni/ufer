@@ -4,7 +4,7 @@ import ui from "../../../components/ui/primitives.module.css";
 
 import Link from "next/link";
 import { useId, useState } from "react";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, X } from "lucide-react";
 import { clsx } from "clsx";
 import { useTranslations } from "next-intl";
 import styles from "../../reports/components/category-breakdown.module.css";
@@ -16,6 +16,8 @@ import { formatSavingsRate, isNegativeRate, netFlow } from "@/features/reports/c
 import { compareCategories } from "@/features/insights/category-comparison";
 import { breakdownOf, insightsColumns, previousFlows, reservedComparisonRows, type InsightsColumn } from "@/features/insights/insights-columns";
 import { daySpanLabel, rangeTitle } from "@/features/insights/range-format";
+import { clearCategory } from "@/features/insights/insights-location";
+import { categoryRangeHref } from "@/client/app-location";
 import { AreaPlaceholder } from "@/components/ui/area-placeholder";
 import { areaProps, valueMask } from "@/components/ui/result-presentation";
 import { monthPeriod } from "@/lib/period";
@@ -23,35 +25,43 @@ import { money, signedMoney } from "@/lib/money";
 import { useCurrency, useMonthTransactionsHref } from "@/client/use-app-url";
 import { useLocale } from "@/client/locale-provider";
 import type { Area } from "@/components/ui/use-area-result";
-import { shiftRange, type PeriodRange } from "@/lib/period-range";
+import { shiftRange } from "@/lib/period-range";
 import type { BreakdownGrouping, CategoryAmount } from "@/features/reports/types";
 import type { Insights } from "@/features/insights/types";
 
 type Props = {
-  range: PeriodRange;
   insights: Area<Insights>;
   /** The hovered, focused or tapped column; without one, the selected range. */
   activeKey: string | null;
   id: string;
+  /** The category the insights are narrowed to; the breakdown then lists only it and offers to show all categories again. */
+  category: string | null;
 };
 
 const groupings: BreakdownGrouping[] = ["category", "account"];
 
 /** Every income and expense category or account of the active column, each with its change against the span that column is compared with. */
 export function InsightsBreakdown({
-  range,
   insights,
   activeKey,
-  id
+  id,
+  category
 }: Props) {
   const t = useTranslations("reports.breakdown");
   const tInsights = useTranslations("insights.breakdown");
   const locale = useLocale();
   const selectedCurrency = useCurrency();
   const monthTransactionsHref = useMonthTransactionsHref();
-  const [grouping, setGrouping] = useState<BreakdownGrouping>("category");
+  const [chosenGrouping, setGrouping] = useState<BreakdownGrouping>("category");
+  // Account rows cannot be narrowed to a category, so a category filter always lists categories.
+  const grouping = category ? "category" : chosenGrouping;
   const title = grouping === "account" ? tInsights("byAccount") : t("title");
-  const choice = <GroupingChoice grouping={grouping} onChange={setGrouping} />;
+  const choice = category ? (
+    <button type="button" className={ui["text-button"]} onClick={clearCategory}>
+      <X size={15} aria-hidden="true" />
+      {tInsights("allCategories")}
+    </button>
+  ) : <GroupingChoice grouping={grouping} onChange={setGrouping} />;
 
   if (insights.status === "pending") {
     return (
@@ -59,7 +69,6 @@ export function InsightsBreakdown({
         <div className={clsx(ui["card-heading"], styles["heading"], choiceStyles["heading"])}>
           <div className={styles["title"]}>
             <h2>{title}</h2>
-            <span className={ui["subtle"]}>{rangeTitle(range, locale)}</span>
           </div>
           {choice}
         </div>
@@ -95,19 +104,28 @@ export function InsightsBreakdown({
   const context = rangeTitle(column.range, locale);
   const net = netFlow(column.income, column.expenses);
   const reserved = reservedComparisonRows(data, columns, grouping);
-  // The transaction list filters by month, so only month columns link to their transactions.
+  // The transaction list filters by month, so only month columns link to their transactions; category rows narrow the insights over any interval.
   const month = column.range.interval === "month" ? column.range.start.toPlainYearMonth() : null;
-  const rowLink = (type: "income" | "expense", label: (name: string) => string) => month ? breakdownRowLink(grouping, monthPeriod(month), currency, type, label) : undefined;
+  const rowLink = (type: "income" | "expense", label: (name: string) => string) => {
+    if (grouping === "category") {
+      return (group: CategoryGroup): CategoryRowLink | null => group.key === "remainder" ? null : {
+        href: categoryRangeHref(column.range, currency, group.key),
+        label: label(group.name)
+      };
+    }
+
+    return month ? breakdownRowLink(grouping, monthPeriod(month), currency, type, label) : undefined;
+  };
 
   return (
     <section className={clsx(ui["panel"], styles["panel"])} id={id}>
       <div className={clsx(ui["card-heading"], styles["heading"], choiceStyles["heading"])}>
         <div className={styles["title"]}>
           <h2>{title}</h2>
-          <span className={clsx(ui["subtle"], mask)}>{context}</span>
         </div>
         {choice}
-        {month && (
+        {/* A category filter lists its transactions below the panels. */}
+        {month && !category && (
           <Link
             className={ui["text-button"]}
             href={monthTransactionsHref(month.toString())}
@@ -138,8 +156,8 @@ export function InsightsBreakdown({
           comparedWith={comparedWith}
           reservedRows={reserved.income}
           currency={currency}
-          rowLink={rowLink("income", category => t("viewIncomeIn", {
-            category,
+          rowLink={rowLink("income", name => t(grouping === "category" ? "showIncomeIn" : "viewIncomeIn", {
+            category: name,
             context
           }))}
           empty={tInsights("noIncome")}
@@ -153,8 +171,8 @@ export function InsightsBreakdown({
           comparedWith={comparedWith}
           reservedRows={reserved.expenses}
           currency={currency}
-          rowLink={rowLink("expense", category => t("viewExpensesIn", {
-            category,
+          rowLink={rowLink("expense", name => t(grouping === "category" ? "showExpensesIn" : "viewExpensesIn", {
+            category: name,
             context
           }))}
           empty={tInsights("noExpenses")}

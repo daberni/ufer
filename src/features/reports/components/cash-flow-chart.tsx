@@ -3,7 +3,7 @@
 import ui from "../../../components/ui/primitives.module.css";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type RefObject } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode, type RefObject } from "react";
 import { clsx } from "clsx";
 import { Temporal } from "temporal-polyfill";
 import styles from "./cash-flow-chart.module.css";
@@ -135,12 +135,15 @@ export function ChartHeading({
   rangeMask,
   rate,
   rateMask,
+  netDetail,
   href
 }: {
   range: string;
   rangeMask: string;
   rate: number | null;
   rateMask: string;
+  /** A figure beside the net entry, such as the shown columns' average net. */
+  netDetail?: ReactNode;
   /** Where the title leads; the overview's chart opens the insights. */
   href?: string;
 }) {
@@ -167,6 +170,7 @@ export function ChartHeading({
         <span>
           <i className={styles["legend-area"]} />
           {t("net")}
+          {netDetail}
         </span>
         <span className={styles["savings-rate"]}>
           {t("savingsRate")} <strong className={clsx(isNegativeRate(rate, locale) && styles["negative"], rateMask)}>{formatSavingsRate(rate, locale)}</strong>

@@ -4,7 +4,7 @@ import { accounts, transactions } from "@/server/database/schema";
 import { syncRunTransactions } from "@/features/transactions/server/sync-run-transactions";
 import { periodToJson } from "@/lib/period";
 import { transactionPageSize } from "@/lib/pagination";
-import { periodCondition } from "@/features/transactions/server/period-condition";
+import { dateRangeCondition, periodCondition } from "@/features/transactions/server/period-condition";
 import { searchCondition } from "@/features/transactions/server/search-condition";
 import type { DashboardFilters } from "@/server/http/dashboard-filters";
 import type { TransactionType } from "@/lib/transaction-types";
@@ -76,7 +76,7 @@ type ListedSyncRun = {
 };
 
 /**
- * The transactions a list shows before search and filters: those a sync run inserted, in any month and currency, or otherwise the selected period in the display currency.
+ * The transactions a list shows before search and filters: those a sync run inserted, in any month and currency, or otherwise the selected range or period in the display currency.
  */
 function listScope(db: Database, filters: DashboardFilters, syncRun: ListedSyncRun | null): SQL[] {
   if (syncRun) {
@@ -87,7 +87,11 @@ function listScope(db: Database, filters: DashboardFilters, syncRun: ListedSyncR
     return [sql`t.id IN (${inserted})`];
   }
 
-  return [sql`t.currency=${filters.currency}`, periodCondition(filters.period)];
+  const dates = filters.range ? dateRangeCondition(filters.range.start.toString(), filters.range.end.add({
+    days: 1
+  }).toString()) : periodCondition(filters.period);
+
+  return [sql`t.currency=${filters.currency}`, dates];
 }
 
 /**

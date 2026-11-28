@@ -413,11 +413,11 @@ function rowLink(panel: HTMLElement, name: RegExp) {
   });
 }
 
-test("category rows open their income or expense transactions in the shown period", async context => {
+test("category rows open the insights narrowed to them up to the shown month", async context => {
   const screen = await showReports(context);
 
-  assert.equal(rowLink(screen.panel(), /^View expenses in Food, July 2026$/).getAttribute("href"), "/transactions?period=2026-07&category=food&type=expense");
-  assert.equal(rowLink(screen.panel(), /^View income in Salary, July 2026$/).getAttribute("href"), "/transactions?period=2026-07&category=salary&type=income");
+  assert.equal(rowLink(screen.panel(), /^Show expenses in Food in insights, up to July 2026$/).getAttribute("href"), "/insights?range=2026-07&category=food");
+  assert.equal(rowLink(screen.panel(), /^Show income in Salary in insights, up to July 2026$/).getAttribute("href"), "/insights?range=2026-07&category=salary");
 });
 
 test("a row of a selected month links to that month and pressing it keeps the selection", async context => {
@@ -428,9 +428,9 @@ test("a row of a selected month links to that month and pressing it keeps the se
 
   tap(june);
 
-  const rent = rowLink(screen.panel(), /^View expenses in Rent, June 2026$/);
+  const rent = rowLink(screen.panel(), /^Show expenses in Rent in insights, up to June 2026$/);
 
-  assert.equal(rent.getAttribute("href"), "/transactions?period=2026-06&category=rent&type=expense");
+  assert.equal(rent.getAttribute("href"), "/insights?range=2026-06&category=rent");
   fireEvent.pointerDown(rent);
   assert.ok(within(screen.panel()).getByText("Rent"));
   assert.deepEqual(screen.pushed, []);
@@ -451,7 +451,7 @@ test("both panel titles open the insights in the overview's currency at their de
   }
 });
 
-test("the uncategorized row links to the uncategorized filter in the shown currency, while the combined row stays plain", async context => {
+test("the uncategorized row opens the insights narrowed to uncategorized in the shown currency, while the combined row stays plain", async context => {
   const expenses = [
     category("Rent", 60000),
     category("Food", 20000),
@@ -476,7 +476,7 @@ test("the uncategorized row links to the uncategorized filter in the shown curre
     }]
   });
 
-  assert.equal(rowLink(screen.panel(), /^View expenses in Uncategorized, July 2026$/).getAttribute("href"), "/transactions?period=2026-07&currency=USD&category=uncategorized&type=expense");
+  assert.equal(rowLink(screen.panel(), /^Show expenses in Uncategorized in insights, up to July 2026$/).getAttribute("href"), "/insights?range=2026-07&currency=USD&category=uncategorized");
   assert.ok(within(screen.panel()).getByText("+2 more"));
   assert.equal(within(screen.panel()).queryByRole("link", {
     name: /more/
