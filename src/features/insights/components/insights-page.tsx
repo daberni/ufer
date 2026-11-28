@@ -38,7 +38,8 @@ export function InsightsPage() {
         insights={category ? mapArea(insights, data => filterInsights(data, category)) : insights}
         category={category}
       />
-      {category && <CategoryTransactions key={category} range={range} category={category} />}
+      {/* Another category or currency starts at the first page of its transactions. */}
+      {category && <CategoryTransactions key={`${category}:${currency}`} range={range} category={category} />}
     </>
   );
 }
