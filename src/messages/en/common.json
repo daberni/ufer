@@ -32,5 +32,11 @@
     "selectedPosition": "{label}, selected, {position, number} of {total, number}"
   },
   "traceId": "Trace ID",
-  "closeDialog": "Close dialog"
+  "closeDialog": "Close dialog",
+  "periodPicker": {
+    "trigger": "Select period, {label}",
+    "dialog": "{unit, select, month {Choose a month} quarter {Choose a quarter} other {Choose a year}}",
+    "previousPage": "{unit, select, year {Earlier years} other {Previous year}}",
+    "nextPage": "{unit, select, year {Later years} other {Next year}}"
+  }
 }

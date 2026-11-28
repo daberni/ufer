@@ -5,12 +5,6 @@
     "allMonths": "All months",
     "transactionCount": "{count, plural, one {# transaction} other {# transactions}}"
   },
-  "monthPicker": {
-    "trigger": "Select month, {label}",
-    "dialog": "Choose a month",
-    "previousYear": "Previous year",
-    "nextYear": "Next year"
-  },
   "account": {
     "emptyTitle": "No transactions in this period",
     "emptyBody": "Choose another month or all months to see earlier transactions of this account."
