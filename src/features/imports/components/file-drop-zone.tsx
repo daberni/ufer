@@ -2,7 +2,8 @@
 
 import { importFileTypes } from "@/features/imports/pending-import-file";
 import { clsx } from "clsx";
-import { useId, useRef, useState } from "react";
+import { useId, useRef } from "react";
+import { useFileDrag } from "./use-file-drag";
 import { FileUp } from "lucide-react";
 import styles from "./file-drop-zone.module.css";
 import { useTranslations } from "next-intl";
@@ -16,26 +17,20 @@ export function FileDropZone({
   onFile: (file: File | undefined) => void;
 }) {
   const input = useRef<HTMLInputElement>(null);
-  const [dragging, setDragging] = useState(false);
+  const {
+    dragging,
+    handlers
+  } = useFileDrag({
+    disabled,
+    onFile
+  });
   const hintId = useId();
   const t = useTranslations("imports.dropZone");
 
   return (
     <div
       className={clsx(styles["zone"], dragging && styles["dragging"])}
-      onDragOver={event => {
-        event.preventDefault();
-        setDragging(!disabled);
-      }}
-      onDragLeave={() => setDragging(false)}
-      onDrop={event => {
-        event.preventDefault();
-        setDragging(false);
-
-        if (!disabled) {
-          onFile(event.dataTransfer.files[0]);
-        }
-      }}
+      {...handlers}
     >
       <FileUp size={28} aria-hidden="true" />
       <p className={styles["title"]}>

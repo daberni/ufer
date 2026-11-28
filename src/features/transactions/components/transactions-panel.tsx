@@ -13,6 +13,7 @@ import { TransactionList, TransactionListSkeleton } from "@/features/transaction
 import { ManualTransactionDialog } from "@/features/transactions/components/manual-transaction-dialog";
 import { activeAccounts, bookableManualAccounts, useAccounts } from "@/features/accounts/queries";
 import { ImportFileDialog } from "@/features/imports/components/import-file-dialog";
+import { useFileDropTarget } from "@/features/imports/components/file-drop-area";
 import { setAccountFilter, setCategoryFilter, setTypeFilter, setPage, setSearch, useAccountFilter, useCategoryFilter, useTypeFilter, useAllTransactionsHref, useSearchFilter } from "@/client/use-app-url";
 import { Select } from "@/components/ui/select";
 import { anyCategory, CategoryPicker, type CategoryPickerValue } from "@/features/categorization/components/category-picker";
@@ -50,6 +51,8 @@ type Props = {
   view: "account";
   /** The transactions view filtered to this account, which offers search and category filters. */
   filterHref: string;
+  /** The account a dropped file is imported into; null when the account accepts no import. */
+  importAccountId: string | null;
 });
 
 const recentTransactions = 10;
@@ -85,6 +88,7 @@ export function TransactionsPanel(props: Props) {
   const [importOpen, setImportOpen] = useState(false);
   const allTransactionsHref = useAllTransactionsHref();
   const manualAccounts = bookableManualAccounts(activeAccounts(useAccounts().data ?? []));
+  const drop = useFileDropTarget(props.view === "account" ? props.importAccountId : null);
 
   return (
     <>
@@ -118,7 +122,7 @@ export function TransactionsPanel(props: Props) {
         </SectionHeading>
       )}
       {props.view === "transactions" && props.scope}
-      <section className={clsx(ui["panel"], styles["transaction-panel"], props.view === "transactions" && styles["below-heading"])} aria-label={props.view === "transactions" ? t("title") : undefined}>
+      <section className={clsx(ui["panel"], styles["transaction-panel"], props.view === "transactions" && styles["below-heading"], drop.className)} {...drop.handlers} aria-label={props.view === "transactions" ? t("title") : undefined}>
         {props.view !== "transactions" && (
           <div className={styles["card-heading"]}>
             <h2 ref={headingRef} tabIndex={-1}>{props.view === "overview" ? t("recent") : t("title")}</h2>

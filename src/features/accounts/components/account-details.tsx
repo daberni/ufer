@@ -13,6 +13,8 @@ import { AreaPlaceholder } from "@/components/ui/area-placeholder";
 import { BalanceHistoryPanel } from "./balance-history";
 import { PerformancePanel } from "@/features/securities/components/performance-panel";
 import { AccountSummary, AccountSummarySkeleton } from "./account-summary";
+import { FileDropArea } from "@/features/imports/components/file-drop-area";
+import { acceptsFileImport } from "@/features/accounts/queries";
 import type { Area } from "@/components/ui/use-area-result";
 import type { Account, BalanceHistory } from "@/features/accounts/types";
 import type { Connection } from "@/features/banking/types";
@@ -39,19 +41,27 @@ export function AccountDetails({
   history
 }: Props) {
   const t = useTranslations("accounts.details");
+  const tiles = (
+    <>
+      {account.status === "pending" ? (
+        <AreaPlaceholder area={account} failureTitle={t("failure")}>
+          <AccountSummarySkeleton />
+        </AreaPlaceholder>
+      ) : <AccountSummary account={account.data} connections={connections.data ?? []} />}
+      {/* A brokerage account's value says little about how it performed, so it shows its return instead. */}
+      {account.status !== "pending" && account.data.kind === "brokerage" ? <PerformancePanel accountId={account.data.id} /> : <BalanceHistoryPanel history={history} />}
+    </>
+  );
+  const importTarget = account.status !== "pending" && acceptsFileImport(account.data) ? account.data.id : null;
 
   return (
     <>
       <BackNavigation back={back} />
-      <div className={styles["details-grid"]}>
-        {account.status === "pending" ? (
-          <AreaPlaceholder area={account} failureTitle={t("failure")}>
-            <AccountSummarySkeleton />
-          </AreaPlaceholder>
-        ) : <AccountSummary account={account.data} connections={connections.data ?? []} />}
-        {/* A brokerage account's value says little about how it performed, so it shows its return instead. */}
-        {account.status !== "pending" && account.data.kind === "brokerage" ? <PerformancePanel accountId={account.data.id} /> : <BalanceHistoryPanel history={history} />}
-      </div>
+      {importTarget ? (
+        <FileDropArea accountId={importTarget} className={styles["details-grid"]}>{tiles}</FileDropArea>
+      ) : (
+        <div className={styles["details-grid"]}>{tiles}</div>
+      )}
     </>
   );
 }

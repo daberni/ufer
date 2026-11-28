@@ -393,9 +393,16 @@ export function rememberedChoices(targets: ReadonlyMap<string, TargetChoice>, se
   };
 }
 
-/** Each source's target: the person's choice, else the template's remembered account once the accounts are loaded, else the default. Remembered choices are resolved on every render, so they apply whenever the option lists arrive. */
-export function resolveTargets(sources: string[], chosen: ReadonlyMap<string, TargetChoice>, remembered: ReadonlyMap<string, TargetChoice>, accounts: AccountOption[]) {
-  return new Map(sources.map(source => [source, chosen.get(source) ?? remembered.get(source) ?? defaultTargetChoice(source, accounts)]));
+/** Each source's target: the person's choice, else the account the file was dropped on, else the template's remembered account once the accounts are loaded, else the default. Remembered choices are resolved on every render, so they apply whenever the option lists arrive. */
+export function resolveTargets(sources: string[], chosen: ReadonlyMap<string, TargetChoice>, preferredAccountId: string | null, remembered: ReadonlyMap<string, TargetChoice>, accounts: AccountOption[]) {
+  // A file dropped on an account goes there, unless the file holds several accounts or the account cannot take it.
+  const preferredAccount = sources.length === 1 ? accounts.find(account => account.id === preferredAccountId) : undefined;
+  const preferred: TargetChoice | null = preferredAccount ? {
+    kind: "existing",
+    accountId: preferredAccount.id
+  } : null;
+
+  return new Map(sources.map(source => [source, chosen.get(source) ?? preferred ?? remembered.get(source) ?? defaultTargetChoice(source, accounts)]));
 }
 
 /** Each category value's selection: the person's choice, else the template's remembered category, else the default. */
