@@ -175,7 +175,7 @@ An item is checked only when its acceptance criterion is met and evidence is rec
 - [ ] **UX-02 · Useful report defaults**
   - [x] Monthly cash flow, category breakdowns, net and savings rate
   - [x] Net worth with composition
-  - [x] Insights page: month, quarter, year or custom range compared with the previous period (same number of days while it runs), income and expenses per interval and every category , chosen with the same period picker as the transactions view ([#408](https://github.com/daberni/ufer/issues/408), [#422](https://github.com/daberni/ufer/issues/422))
+  - [x] Insights page: month, quarter, year or custom range compared with the previous period (same number of days while it runs), income and expenses per interval and every category, chosen with the same period picker as the transactions view ([#408](https://github.com/daberni/ufer/issues/408), [#422](https://github.com/daberni/ufer/issues/422))
   - [ ] Long-term category trends and wealth or investment summaries ([#249](https://github.com/daberni/ufer/issues/249))
 - [ ] **UX-03 · Optional widget editing**
 - [x] **UX-04 · Responsive loading:** server-resolved session, immediate app frame, per-area loading
