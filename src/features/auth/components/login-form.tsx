@@ -38,11 +38,10 @@ export function LoginForm() {
   return (
     <main className={styles["login-page"]}>
       <ShorelineBackdrop className={styles["shoreline"]} />
-      {/* A real POST form with a submit button lets password managers fill and submit it; the handler below keeps the sign-in in the app, and the action is only reached without JavaScript. */}
+      {/* A POST form with a submit button lets password managers fill and submit it through the handler below. Without an action, a native submit reloads this page instead of reaching Better Auth, which rejects form-encoded sign-ins; POST keeps the password out of the URL. */}
       <form
         className={clsx(styles["login-card"], ui["form"])}
         method="post"
-        action="/api/auth/sign-in/username"
         onSubmit={event => {
           event.preventDefault();
           const fields = new FormData(event.currentTarget);
