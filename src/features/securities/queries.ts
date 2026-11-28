@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { apiGet } from "@/client/api";
 import { queryKeys } from "@/client/query-keys";
-import type { BrokeragePerformance, BrokerageTrades, CombinedBrokeragePerformance, SecurityList } from "./types";
+import type { BrokerageHolding, BrokeragePerformance, BrokerageTrades, CombinedBrokeragePerformance, SecurityList } from "./types";
 
 export function useBrokerageTrades(accountId: string) {
   return useQuery({
@@ -26,10 +26,18 @@ export function useCombinedBrokeragePerformance() {
   });
 }
 
-export function useSecurities() {
+export function useSecurities(enabled = true) {
   return useQuery({
+    enabled,
     queryKey: queryKeys.securities.all(),
     queryFn: ({ signal }) => apiGet<SecurityList>("securities", undefined, signal)
   });
 }
 
+
+export function useBrokerageHolding(accountId: string, securityId: string) {
+  return useQuery({
+    queryKey: queryKeys.securities.holding(accountId, securityId),
+    queryFn: ({ signal }) => apiGet<BrokerageHolding>(`brokerage-accounts/${encodeURIComponent(accountId)}/holdings/${encodeURIComponent(securityId)}`, undefined, signal)
+  });
+}

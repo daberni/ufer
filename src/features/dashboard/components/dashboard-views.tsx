@@ -10,13 +10,14 @@ import { SyncRunEmpty, SyncRunScope } from "@/features/transactions/components/s
 import { AccountsView } from "@/features/accounts/components/accounts-view";
 import { RulesView } from "@/features/categorization/components/rules-view";
 import { ConnectionsSection } from "@/features/banking/components/connections-view";
-import { AccountDetails, AccountNotFound, type BackLink } from "@/features/accounts/components/account-details";
+import { AccountDetails, AccountNotFound, BackNavigation, type BackLink } from "@/features/accounts/components/account-details";
 import { FileImportPage } from "@/features/imports/components/file-import-page";
 import { AccountCashFlowSummary } from "@/features/reports/components/account-cash-flow";
 import { BrokeragePanel } from "@/features/securities/components/brokerage-panel";
 import { BrokerageOverview } from "@/features/securities/components/brokerage-overview";
+import { HoldingDetail } from "@/features/securities/components/holding-detail";
 import { withArchivedAccountsOpen } from "@/client/app-location";
-import { replacePage, setSyncRun, useAccountTransactionsHref, useViewHref, useViewQuery } from "@/client/use-app-url";
+import { replacePage, setSyncRun, useAccountHref, useAccountTransactionsHref, useViewHref, useViewQuery } from "@/client/use-app-url";
 import { useAppStore } from "@/client/app-store";
 import { mapArea, useAreaResult, type Area } from "@/components/ui/use-area-result";
 import { Empty } from "@/components/ui/empty-state";
@@ -192,6 +193,43 @@ export function AccountPage() {
         categories={categories}
         query={query}
       />
+    </>
+  );
+}
+
+/** A brokerage holding below its account, which it returns to. */
+export function HoldingPage() {
+  const query = useViewQuery();
+  const accountHref = useAccountHref();
+  const viewHref = useViewHref();
+  const t = useTranslations("shell.navigation");
+  const accounts = useAreaResult(useAccounts());
+  const account = selectedAccount(accounts, query.account);
+
+  if (!account || account.status !== "pending" && account.data.kind !== "brokerage") {
+    return (
+      <AccountNotFound
+        back={{
+          href: viewHref("brokerage"),
+          label: t("brokerage.label")
+        }}
+      />
+    );
+  }
+
+  if (account.status === "pending") {
+    return null;
+  }
+
+  return (
+    <>
+      <BackNavigation
+        back={{
+          href: accountHref(account.data.id),
+          label: account.data.name
+        }}
+      />
+      <HoldingDetail account={account.data} />
     </>
   );
 }

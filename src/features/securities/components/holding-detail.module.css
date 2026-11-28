@@ -1,0 +1,78 @@
+.detail {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.panel-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-3);
+  margin-bottom: var(--space-3);
+}
+.panel-heading h2 {
+  margin: 0;
+}
+
+/* A trade row sits in the holdings table's columns; its opening button covers the row, like transaction rows. */
+.trade {
+  position: relative;
+  isolation: isolate;
+}
+.trade:has(.open-trade):hover::before {
+  content: "";
+  position: absolute;
+  inset: 0 calc(var(--space-3) * -1);
+  border-radius: var(--radius-md);
+  background: var(--surface-muted);
+  z-index: -1;
+}
+.trade > :first-child {
+  display: grid;
+}
+
+.open-trade {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.open-trade::after {
+  content: "";
+  position: absolute;
+  inset: 0 calc(var(--space-3) * -1);
+  border-radius: var(--radius-md);
+}
+.open-trade:focus-visible {
+  outline: none;
+}
+.open-trade:focus-visible::after {
+  outline: var(--focus-ring);
+  outline-offset: -3px;
+}
+
+.settlement {
+  overflow-wrap: anywhere;
+}
+
+.prices {
+  display: grid;
+  max-width: 28rem;
+}
+
+.price-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--border);
+  font-variant-numeric: tabular-nums;
+}
+
+.more {
+  margin-top: var(--space-3);
+}

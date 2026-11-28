@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test, type TestContext } from "node:test";
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { JSDOM } from "jsdom";
-import { allTransactionsHref, recentTransactionsQuery, viewQuery, periodScope, viewHref, withQueryChanges } from "../src/client/app-location";
+import { allTransactionsHref, holdingFromPathname, holdingPath, recentTransactionsQuery, viewFromPathname, viewQuery, periodScope, viewHref, withQueryChanges } from "../src/client/app-location";
 import { allMonthsPeriod, currentMonth, monthPeriod, serializePeriod } from "../src/lib/period";
 import { dashboardFilters } from "../src/server/http/dashboard-filters";
 import { commitDelay, useSearchDraft } from "../src/features/transactions/use-search-draft";
@@ -237,4 +237,19 @@ test("transaction type links keep their scope and clear pagination when changed"
     page: 1
   }), "/transactions");
   assert.equal(viewQuery("/transactions", scope, new URLSearchParams("type=unknown")).type, "");
+});
+
+test("a holding path names its account and security and belongs to the accounts section, not to the account's details", () => {
+  const path = holdingPath("depot 1", "sec/2");
+
+  assert.equal(path, "/accounts/depot%201/holdings/sec%2F2");
+  assert.equal(viewFromPathname(path), "holding");
+  assert.deepEqual(holdingFromPathname(path), {
+    accountId: "depot 1",
+    securityId: "sec/2"
+  });
+  assert.equal(viewQuery(path, "", new URLSearchParams()).account, "depot 1");
+  assert.equal(viewFromPathname("/accounts/depot%201"), "account");
+  assert.equal(holdingFromPathname("/accounts/depot/holdings"), null);
+  assert.equal(viewFromPathname("/accounts/depot/other/sec"), "overview");
 });

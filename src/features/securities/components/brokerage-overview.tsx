@@ -5,7 +5,6 @@ import styles from "./brokerage-overview.module.css";
 import summaryStyles from "../../accounts/components/account-summary.module.css";
 import accountStyles from "../../accounts/components/account-presentation.module.css";
 
-import { useState } from "react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { clsx } from "clsx";
@@ -23,18 +22,16 @@ import { useBrokerageTrades, useCombinedBrokeragePerformance, useSecurities } fr
 import type { CombinedBrokeragePerformance } from "../types";
 import { HoldingsTable, HoldingsTableSkeleton } from "./brokerage-panel";
 import { PerformanceView } from "./performance-panel";
-import { BookingDialog } from "./booking-dialog";
 import { ChangeFigures, ChangeFiguresSkeleton } from "./change-figures";
 
 /**
  * All active brokerage accounts together: the combined value and time-weighted performance per currency, then each account with its value, gain and holdings.
- * Holdings are grouped by account, so each group links to the account where trades are added.
+ * Holdings are grouped by account, so each group links to the account where trades are added; each holding opens its page with its prices and trades.
  */
 export function BrokerageOverview() {
   const t = useTranslations("securities");
   const accounts = useAccounts();
   const performance = useCombinedBrokeragePerformance();
-  const [booking, setBooking] = useState<string | null>(null);
 
   if (accounts.isError) {
     return <FormError failure={toFailure(accounts.error)} />;
@@ -91,8 +88,7 @@ export function BrokerageOverview() {
       ))}
       <h2 className={styles["section-title"]}>{t("overview.accounts")}</h2>
       {accounts.isPending && <AccountHoldingsSkeleton />}
-      {brokerage.map(account => <AccountHoldings key={account.id} account={account} openBooking={setBooking} />)}
-      {booking && <BookingDialog transactionId={booking} close={() => setBooking(null)} />}
+      {brokerage.map(account => <AccountHoldings key={account.id} account={account} />)}
     </div>
   );
 }
@@ -194,12 +190,8 @@ function AccountFiguresSkeleton() {
 }
 
 /** One brokerage account: a heading row linking to its page with value and gain, then its holdings in the account's table. */
-function AccountHoldings({
-  account,
-  openBooking
-}: {
-  account: Account;
-  openBooking: (transactionId: string) => void;
+function AccountHoldings({ account }: {
+  account: Account
 }) {
   const t = useTranslations("securities.overview");
   const locale = useLocale();
@@ -233,10 +225,9 @@ function AccountHoldings({
             name: account.name
           })}
           holdings={held}
-          trades={trades.data.trades}
           securities={securities.data?.securities ?? []}
           currency={account.currency}
-          openBooking={openBooking}
+          accountId={account.id}
         />
       ) : <p className={styles["note"]}>{trades.data.trades.length > 0 ? t("noOpenPositions") : t("noHoldings")}</p>)}
     </section>

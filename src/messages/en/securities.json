@@ -57,7 +57,8 @@
       "realized": "Realized",
       "proceeds": "Proceeds",
       "realizedGain": "Realized gain",
-      "costPerShare": "Cost per share"
+      "costPerShare": "Cost per share",
+      "trade": "Trade"
     },
     "sold": "Sold",
     "side": "{side, select, buy {Buy} other {Sell}}",
@@ -71,12 +72,22 @@
     "valuedAtCost": "valued at cost",
     "closingPrice": "Closing price on {date}",
     "notUpdatedRecently": "not updated recently",
-    "transferAction": "Transfer to another account",
     "transferSide": "{direction, select, in {Transfer in} other {Transfer out}}",
     "transferCounterpart": "{direction, select, in {from {account}} other {to {account}}}",
     "anotherAccount": "another account",
     "openTransfer": "Open {direction, select, in {transfer in} other {transfer out}} of {quantity} on {date} {counterpart}",
     "transferCost": "{direction, select, in {carried over} other {moved out}}"
+  },
+  "holding": {
+    "position": "Position",
+    "trades": "Buys and sells",
+    "transferAction": "Transfer to another account",
+    "prices": "Prices",
+    "date": "Date",
+    "close": "Close",
+    "showAllPrices": "Show all {count} prices",
+    "noPricesTitle": "No prices yet",
+    "noPricesBody": "Prices appear once the price update has fetched closes for this security."
   },
   "overview": {
     "noAccountsTitle": "No brokerage accounts yet",

@@ -15,6 +15,7 @@ import { priceSourceStatus } from "./price-update-service";
 import { changeSummary, valueHoldings } from "../valuation";
 import { performanceSeries, totalReturn } from "../performance";
 import { readHoldingInputs } from "./valuation-repository";
+import { readPriceHistory } from "./price-repository";
 import { settlementRefusal, settlementWindowDays, tradeCashAmount, type SettlementRefusal } from "../trade-decisions";
 import { brokerageAccountInput, securityInput, settlementCandidatesQuery, tradeCorrectionInput, tradeInput } from "./security-schema";
 import { deleteTrade, findBrokerageAccount, findSecurity, findSettlementAccount, findSettlementBooking, findTrade, insertBrokerageAccount, insertSecurity, insertSettlementEntry, insertTrade, listAllBrokerageAccounts, listSecurities, markSettlementBooking, nextTradeSequence, readAccountTrades, readSettlementCandidates, isEarliestTrade, markSplitsUnchecked, saveSettlementEntry, saveTradeCorrection, withSecurityTransaction, findOrInsertSecurity } from "./security-repository";
@@ -452,6 +453,24 @@ export async function readBrokerageTrades(accountId: string, now = Temporal.Now.
     trades: rows,
     valuation: valueHoldings(holdings, date),
     summary: changeSummary(holdings, date)
+  };
+}
+
+/** One holding of a brokerage account, open or closed: its figures today, its trades and transfers newest first, and every stored close of its security newest first. */
+export async function readBrokerageHolding(accountId: string, securityId: string, now = Temporal.Now.instant()) {
+  const brokerage = await readBrokerageTrades(accountId, now);
+  const holding = brokerage.valuation.holdings.find(item => item.security_id === securityId);
+
+  if (!holding) {
+    throw new HttpError(404, "Holding not found.");
+  }
+
+  return {
+    account_id: brokerage.account_id,
+    currency: brokerage.currency,
+    holding,
+    trades: brokerage.trades.filter(trade => trade.security_id === securityId).toReversed(),
+    prices: await readPriceHistory(securityId)
   };
 }
 

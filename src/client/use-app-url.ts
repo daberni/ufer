@@ -3,7 +3,7 @@
 import { useCallback, useMemo } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useAppStore, useAppStoreApi } from "./app-store";
-import { accountHref, allTransactionsHref, archivedAccountsOpen, viewQuery, isPeriodAware, periodScope, viewFromPathname, viewHref, viewPaths, withQueryChanges, type Section, type ViewQuery, type ViewQueryChanges, type View } from "./app-location";
+import { accountHref, allTransactionsHref, holdingFromPathname, archivedAccountsOpen, viewQuery, isPeriodAware, periodScope, viewFromPathname, viewHref, viewPaths, withQueryChanges, type Section, type ViewQuery, type ViewQueryChanges, type View } from "./app-location";
 import { monthPeriod, type Period } from "@/lib/period";
 import { Temporal } from "temporal-polyfill";
 
@@ -13,6 +13,11 @@ import { Temporal } from "temporal-polyfill";
 
 export function useView(): View {
   return viewFromPathname(usePathname());
+}
+
+/** The security of the holding the current path shows; empty on every other path. */
+export function useHoldingSecurity() {
+  return holdingFromPathname(usePathname())?.securityId ?? "";
 }
 
 /** The period and currency parameters: the URL's on views that have them, otherwise the last ones selected. */

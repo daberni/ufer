@@ -27,7 +27,8 @@ import { navigation } from "./navigation";
 import { onView, useAppStore } from "@/client/app-store";
 import { useSessionLock } from "@/client/use-session-lock";
 import { useDashboardNavigation } from "./use-dashboard-navigation";
-import { useAccountFilter, useCurrency, useView, useViewHref } from "@/client/use-app-url";
+import { useAccountFilter, useCurrency, useHoldingSecurity, useView, useViewHref } from "@/client/use-app-url";
+import { useSecurities } from "@/features/securities/queries";
 import { sectionOf } from "@/client/app-location";
 import { useLoadError } from "./use-load-error";
 import { TraceId } from "@/components/ui/trace-id";
@@ -70,7 +71,10 @@ function DashboardShell({ children }: {
   const loadError = useLoadError();
   const section = sectionOf(view);
   const nav = navigation.find(item => item.id === section)!;
-  const selectedAccount = view === "account" ? accounts.data?.find(account => account.id === accountId) : undefined;
+  const holdingSecurity = useHoldingSecurity();
+  const securities = useSecurities(view === "holding");
+  const selectedAccount = view === "account" || view === "holding" ? accounts.data?.find(account => account.id === accountId) : undefined;
+  const selectedSecurity = securities.data?.securities.find(security => security.id === holdingSecurity);
   let heading = view === "account" ? selectedAccount?.name ?? t("views.accountDetails") : t(`navigation.${nav.id}.heading`);
 
   if (view === "import") {
@@ -79,7 +83,10 @@ function DashboardShell({ children }: {
 
   let description = t(`navigation.${nav.id}.description`);
 
-  if (view === "account") {
+  if (view === "holding") {
+    heading = selectedSecurity?.name ?? t("views.holdingDetails");
+    description = selectedAccount?.name ?? t("views.holding");
+  } else if (view === "account") {
     description = selectedAccount?.kind === "brokerage" ? t("views.brokerageAccount") : t("views.account");
   } else if (view === "import") {
     description = t("views.import");
@@ -114,12 +121,13 @@ function DashboardShell({ children }: {
       <div className={styles["main-shell"]}>
         <AppHeader environment={environment} title={t(`navigation.${nav.id}.label`)} />
         <main className={styles["content"]}>
-          <PageHeading heading={selectedAccount ? selectedAccount.name : heading} description={description}>
+          <PageHeading heading={selectedAccount && view === "account" ? selectedAccount.name : heading} description={description}>
             {selectedAccount ? (
               <div className={styles["account-actions"]}>
                 <AccountDetailActions
                   key={selectedAccount.id}
                   account={selectedAccount}
+                  isin={selectedSecurity?.isin ?? undefined}
                   manualAccounts={bookableManualAccounts(activeAccounts(accounts.data ?? []))}
                 />
                 {showSync && <SyncButton bankAccounts={bankAccounts} showConnections={() => router.push(bankConnectionsHref)} />}

@@ -57,7 +57,8 @@
       "realized": "Realisiert",
       "proceeds": "Erlös",
       "realizedGain": "Realisierter Gewinn",
-      "costPerShare": "Einstand pro Stück"
+      "costPerShare": "Einstand pro Stück",
+      "trade": "Trade"
     },
     "sold": "Verkauft",
     "side": "{side, select, buy {Kauf} other {Verkauf}}",
@@ -71,12 +72,22 @@
     "valuedAtCost": "zum Einstandswert",
     "closingPrice": "Schlusskurs am {date}",
     "notUpdatedRecently": "länger nicht aktualisiert",
-    "transferAction": "In ein anderes Depot übertragen",
     "transferSide": "{direction, select, in {Übertrag ein} other {Übertrag aus}}",
     "transferCounterpart": "{direction, select, in {von {account}} other {nach {account}}}",
     "anotherAccount": "einem anderen Depot",
     "openTransfer": "{direction, select, in {Übertrag ein} other {Übertrag aus}} von {quantity} am {date} {counterpart} öffnen",
     "transferCost": "{direction, select, in {übernommen} other {übertragen}}"
+  },
+  "holding": {
+    "position": "Position",
+    "trades": "Käufe und Verkäufe",
+    "transferAction": "In ein anderes Depot übertragen",
+    "prices": "Kurse",
+    "date": "Datum",
+    "close": "Schlusskurs",
+    "showAllPrices": "Alle {count} Kurse anzeigen",
+    "noPricesTitle": "Noch keine Kurse",
+    "noPricesBody": "Kurse erscheinen, sobald die Kursaktualisierung Schlusskurse für dieses Wertpapier geladen hat."
   },
   "overview": {
     "noAccountsTitle": "Noch keine Depots",

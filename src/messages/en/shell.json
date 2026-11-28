@@ -6,6 +6,7 @@
     "import": "Import transactions",
     "accounts": "Accounts",
     "account": "Account",
+    "holding": "Holding",
     "brokerage": "Brokerage",
     "rules": "Categorization",
     "description": "Your personal dashboard for accounts, transactions, and net worth."
@@ -49,6 +50,8 @@
     }
   },
   "views": {
+    "holdingDetails": "Holding",
+    "holding": "Prices, buys and sells.",
     "accountDetails": "Account details",
     "brokerageAccount": "Holdings and trades.",
     "account": "Balance, transactions and history.",
