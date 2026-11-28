@@ -134,7 +134,7 @@ export function sectionOf(view: View): Section {
 
 /** Views that carry the shared period scope; the insights use only its currency and keep their own range, but pass the period on to the views they link to. */
 export function isPeriodAware(view: View) {
-  return view === "overview" || view === "insights" || view === "transactions" || view === "account";
+  return view === "overview" || view === "insights" || view === "transactions" || view === "account" || view === "holding";
 }
 
 export function isAccountList(view: View): view is AccountList {
@@ -209,6 +209,13 @@ export function allTransactionsHref(scope: string) {
 
 export function viewHref(view: Section, scope: string) {
   return isPeriodAware(view) && scope ? `${viewPaths[view]}?${scope}` : viewPaths[view];
+}
+
+/** A holding carries the period selected last, so its way back to the account keeps it. */
+export function holdingHref(accountId: string, securityId: string, scope: string) {
+  const path = holdingPath(accountId, securityId);
+
+  return scope ? `${path}?${scope}` : path;
 }
 
 /** An account's details carry the period selected last. */

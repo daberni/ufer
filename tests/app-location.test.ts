@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test, type TestContext } from "node:test";
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { JSDOM } from "jsdom";
-import { allTransactionsHref, holdingFromPathname, holdingPath, recentTransactionsQuery, viewFromPathname, viewQuery, periodScope, viewHref, withQueryChanges } from "../src/client/app-location";
+import { allTransactionsHref, holdingFromPathname, holdingHref, holdingPath, isPeriodAware, recentTransactionsQuery, viewFromPathname, viewQuery, periodScope, viewHref, withQueryChanges } from "../src/client/app-location";
 import { allMonthsPeriod, currentMonth, monthPeriod, serializePeriod } from "../src/lib/period";
 import { dashboardFilters } from "../src/server/http/dashboard-filters";
 import { commitDelay, useSearchDraft } from "../src/features/transactions/use-search-draft";
@@ -252,4 +252,11 @@ test("a holding path names its account and security and belongs to the accounts 
   assert.equal(viewFromPathname("/accounts/depot%201"), "account");
   assert.equal(holdingFromPathname("/accounts/depot/holdings"), null);
   assert.equal(viewFromPathname("/accounts/depot/other/sec"), "overview");
+});
+
+test("a holding link carries the period scope, so its page and the way back to the account keep it", () => {
+  assert.equal(holdingHref("depot", "etf", "period=2026-09&currency=USD"), "/accounts/depot/holdings/etf?period=2026-09&currency=USD");
+  assert.equal(holdingHref("depot", "etf", ""), "/accounts/depot/holdings/etf");
+  assert.equal(isPeriodAware(viewFromPathname("/accounts/depot/holdings/etf")), true);
+  assert.equal(viewQuery("/accounts/depot/holdings/etf", "period=2026-09&currency=USD", new URLSearchParams()).currency, "USD");
 });

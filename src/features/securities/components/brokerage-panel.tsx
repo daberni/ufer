@@ -16,7 +16,7 @@ import { useLocale } from "@/client/locale-provider";
 import { dateWithYear } from "@/lib/date-format";
 import { money, signedMoney } from "@/lib/money";
 import type { Account } from "@/features/accounts/types";
-import { holdingPath } from "@/client/app-location";
+import { useHoldingHref } from "@/client/use-app-url";
 import { useBrokerageTrades, useSecurities } from "../queries";
 import type { Holding, Security, Trade } from "../types";
 import { averageCostMicros } from "../holdings";
@@ -114,6 +114,7 @@ export function HoldingsTable({
 }) {
   const t = useTranslations("securities.holdings.columns");
   const locale = useLocale();
+  const holdingHref = useHoldingHref();
   const byId = new Map(securities.map(security => [security.id, security]));
 
   return (
@@ -135,7 +136,7 @@ export function HoldingsTable({
           security={byId.get(holding.security_id)}
           currency={currency}
           locale={locale}
-          href={accountId ? holdingPath(accountId, holding.security_id) : undefined}
+          href={accountId ? holdingHref(accountId, holding.security_id) : undefined}
           digits={digitsOverride}
         />
       ))}

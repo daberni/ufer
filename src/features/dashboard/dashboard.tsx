@@ -122,7 +122,8 @@ function DashboardShell({ children }: {
         <AppHeader environment={environment} title={t(`navigation.${nav.id}.label`)} />
         <main className={styles["content"]}>
           <PageHeading heading={selectedAccount && view === "account" ? selectedAccount.name : heading} description={description}>
-            {selectedAccount ? (
+            {/* A holding's Add trade starts with its security, so it waits until the security is known. */}
+            {selectedAccount && (view === "account" || selectedSecurity) ? (
               <div className={styles["account-actions"]}>
                 <AccountDetailActions
                   key={selectedAccount.id}
