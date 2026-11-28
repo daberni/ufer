@@ -9,7 +9,6 @@ import { useTranslations } from "next-intl";
 import { clsx } from "clsx";
 import { Temporal } from "temporal-polyfill";
 import { ArrowRightLeft } from "lucide-react";
-import { Empty } from "@/components/ui/empty-state";
 import { FormError } from "@/components/ui/form-error";
 import { toFailure } from "@/client/api";
 import { useLocale } from "@/client/locale-provider";
@@ -19,17 +18,15 @@ import { money, signedMoney } from "@/lib/money";
 import type { Account } from "@/features/accounts/types";
 import { useAccounts } from "@/features/accounts/queries";
 import { useBrokerageHolding, useSecurities } from "../queries";
-import type { Holding, PricePoint, Trade } from "../types";
+import type { Holding, Trade } from "../types";
 import { formatPrice, formatQuantity, priceDigits } from "./holding-format";
 import { HoldingsTable, HoldingsTableSkeleton } from "./brokerage-panel";
+import { PriceHistoryPanel } from "./price-history-chart";
 import { BookingDialog } from "./booking-dialog";
 import { TransferDialog, TransferEditDialog } from "./transfer-dialog";
 
-/** Closes shown before the whole history is asked for; a daily history holds hundreds a year. */
-const initialPrices = 20;
-
 /**
- * One holding of a brokerage account: its figures today, its buys, sells and transfers newest first, and the closes Ufer stores for its security.
+ * One holding of a brokerage account: its figures today, its buys, sells and transfers newest first, and a chart of the closes Ufer stores for its security.
  * A trade row opens its booking, where the trade is changed or deleted (ADR 012), and a transfer row opens the transfer; shares move to another brokerage account from here.
  */
 export function HoldingDetail({ account }: {
@@ -72,7 +69,6 @@ export function HoldingDetail({ account }: {
   // Per-share figures of one holding share their decimals, including every stored close, so no close is rounded; the average cost and a transfer's carried cost per share are rounded to them.
   const digits = priceDigits([...trades.filter(trade => !trade.transfer).map(trade => trade.price_micros), ...prices.map(price => price.close_micros)], currency);
   const tradesId = `${securityId}-trades`;
-  const pricesId = `${securityId}-prices`;
 
   return (
     <div className={detail["detail"]}>
@@ -104,16 +100,12 @@ export function HoldingDetail({ account }: {
           openTransfer={setEditing}
         />
       </section>
-      <section className={clsx(ui["panel"], styles["panel"])} aria-labelledby={pricesId}>
-        <h2 id={pricesId}>{t("prices")}</h2>
-        <PriceHistory
-          label={t("prices")}
-          prices={prices}
-          currency={currency}
-          locale={locale}
-          digits={digits}
-        />
-      </section>
+      <PriceHistoryPanel
+        title={t("prices")}
+        prices={prices}
+        currency={currency}
+        digits={digits}
+      />
       {booking && <BookingDialog transactionId={booking} depotId={account.id} close={() => setBooking(null)} />}
       {transferring && (
         <TransferDialog
@@ -175,53 +167,6 @@ function TradesTable({
         />
       ))}
     </div>
-  );
-}
-
-/** The security's stored closes, newest first; the first few until the whole history is asked for. */
-function PriceHistory({
-  label,
-  prices,
-  currency,
-  locale,
-  digits
-}: {
-  label: string;
-  prices: PricePoint[];
-  currency: string;
-  locale: string;
-  digits: number;
-}) {
-  const t = useTranslations("securities.holding");
-  const [all, setAll] = useState(false);
-  const shown = all ? prices : prices.slice(0, initialPrices);
-
-  if (!prices.length) {
-    return <Empty title={t("noPricesTitle")} illustration={null}>{t("noPricesBody")}</Empty>;
-  }
-
-  return (
-    <>
-      <div className={detail["prices"]} role="table" aria-label={label}>
-        <div className={clsx(detail["price-row"], styles["head"])} role="row">
-          <span role="columnheader">{t("date")}</span>
-          <span role="columnheader" className={styles["number"]}>{t("close")}</span>
-        </div>
-        {shown.map(price => (
-          <div key={price.date} className={detail["price-row"]} role="row">
-            <span role="cell">{dateWithYear(Temporal.PlainDate.from(price.date), locale)}</span>
-            <span role="cell" className={styles["number"]}>{formatPrice(price.close_micros, currency, locale, digits)}</span>
-          </div>
-        ))}
-      </div>
-      {prices.length > shown.length && (
-        <button type="button" className={clsx(ui["button"], ui["small"], detail["more"])} onClick={() => setAll(true)}>
-          {t("showAllPrices", {
-            count: prices.length
-          })}
-        </button>
-      )}
-    </>
   );
 }
 

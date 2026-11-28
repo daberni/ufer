@@ -82,12 +82,22 @@
     "position": "Position",
     "trades": "Käufe und Verkäufe",
     "transferAction": "In ein anderes Depot übertragen",
-    "prices": "Kurse",
-    "date": "Datum",
-    "close": "Schlusskurs",
-    "showAllPrices": "Alle {count} Kurse anzeigen",
-    "noPricesTitle": "Noch keine Kurse",
-    "noPricesBody": "Kurse erscheinen, sobald die Kursaktualisierung Schlusskurse für dieses Wertpapier geladen hat."
+    "prices": "Kurse"
+  },
+  "priceHistory": {
+    "none": "Noch keine Kurse. Sie erscheinen, sobald die Kursaktualisierung Schlusskurse für dieses Wertpapier geladen hat.",
+    "tooFew": "Keine Schlusskurse in diesem Zeitraum.",
+    "closeOn": "Schlusskurs am {date} · {range}",
+    "since": "seit {start}",
+    "valueText": "{date}: Schlusskurs {price}, {change} seit {start}",
+    "description": "Gespeicherte tägliche Schlusskurse des Wertpapiers. Mit den Pfeiltasten links und rechts wählst du ein Datum, mit Pos1 und Ende das erste und letzte Datum, mit Escape hebst du die Auswahl auf.",
+    "rangeContext": {
+      "1W": "letzte Woche",
+      "1M": "letzter Monat",
+      "YTD": "dieses Jahr",
+      "1Y": "letztes Jahr",
+      "All": "alle gespeicherten Kurse"
+    }
   },
   "overview": {
     "noAccountsTitle": "Noch keine Depots",

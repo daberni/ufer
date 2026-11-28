@@ -82,12 +82,22 @@
     "position": "Position",
     "trades": "Buys and sells",
     "transferAction": "Transfer to another account",
-    "prices": "Prices",
-    "date": "Date",
-    "close": "Close",
-    "showAllPrices": "Show all {count} prices",
-    "noPricesTitle": "No prices yet",
-    "noPricesBody": "Prices appear once the price update has fetched closes for this security."
+    "prices": "Prices"
+  },
+  "priceHistory": {
+    "none": "No prices yet. They appear once the price update has fetched closes for this security.",
+    "tooFew": "No closes in this range.",
+    "closeOn": "Close on {date} · {range}",
+    "since": "since {start}",
+    "valueText": "{date}: close {price}, {change} since {start}",
+    "description": "Stored daily closes of the security. Use the left and right arrow keys to explore dates, Home and End for the first and last date, and Escape to dismiss the selection.",
+    "rangeContext": {
+      "1W": "past week",
+      "1M": "past month",
+      "YTD": "this year",
+      "1Y": "past year",
+      "All": "all stored prices"
+    }
   },
   "overview": {
     "noAccountsTitle": "No brokerage accounts yet",

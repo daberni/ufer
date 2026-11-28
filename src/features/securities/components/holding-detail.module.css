@@ -58,21 +58,3 @@
 .settlement {
   overflow-wrap: anywhere;
 }
-
-.prices {
-  display: grid;
-  max-width: 28rem;
-}
-
-.price-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: var(--space-3);
-  padding: var(--space-2) 0;
-  border-top: 1px solid var(--border);
-  font-variant-numeric: tabular-nums;
-}
-
-.more {
-  margin-top: var(--space-3);
-}
