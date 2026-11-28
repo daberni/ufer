@@ -173,7 +173,7 @@
     "add": "{kind, select, checking {Girokonto} savings {Sparkonto} investment {Anlagekonto} property {Immobilie} credit_card {Kreditkarte} loan {Kredit} other {Konto}} hinzufügen"
   },
   "list": {
-    "title": "Konten & Vermögen",
+    "title": "Konten",
     "addAccount": "Konto hinzufügen",
     "connectBank": "Bank verbinden",
     "actions": "Kontoaktionen",

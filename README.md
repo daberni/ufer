@@ -22,8 +22,8 @@ Designed for everyday use on desktop and smartphone, Ufer aims to make managing 
 
 | | |
 |---|---|
-| **Transactions across all accounts** — search, filter, categories, transfers and splits.<br>![Transaction list](docs/screenshots/transactions-desktop.webp) | **Accounts and assets** — bank accounts, cash, investments, property and loans with their balances.<br>![Accounts and assets](docs/screenshots/accounts-desktop.webp) |
-| **Account details** — balance history and the account's monthly cash flow.<br>![Account details](docs/screenshots/account-details-desktop.webp) | **Categories and rules** — ordered rules categorize new transactions automatically.<br>![Categories and rules](docs/screenshots/rules-desktop.webp) |
+| **Transactions across all accounts** — search, filter, categories, transfers and splits.<br>![Transaction list](docs/screenshots/transactions-desktop.webp) | **Accounts** — bank accounts, cash, investments, property and loans with their balances.<br>![Accounts](docs/screenshots/accounts-desktop.webp) |
+| **Account details** — balance history and the account's monthly cash flow.<br>![Account details](docs/screenshots/account-details-desktop.webp) | **Categorization** — ordered rules categorize new transactions automatically.<br>![Categorization](docs/screenshots/rules-desktop.webp) |
 | **Bank connections** — authorization status and recent sync runs.<br>![Bank connections](docs/screenshots/connections-desktop.webp) | **Dark mode** — follows the system or a manual choice.<br>![Overview in dark mode](docs/screenshots/overview-desktop-dark.webp) |
 
 On a phone, the same views adapt to a single column with bottom navigation:
@@ -32,7 +32,7 @@ On a phone, the same views adapt to a single column with bottom navigation:
   <img src="docs/screenshots/overview-phone.webp" alt="Overview on a phone" width="24%">
   <img src="docs/screenshots/transactions-phone.webp" alt="Transactions on a phone" width="24%">
   <img src="docs/screenshots/accounts-phone.webp" alt="Accounts on a phone" width="24%">
-  <img src="docs/screenshots/rules-phone.webp" alt="Rules on a phone" width="24%">
+  <img src="docs/screenshots/rules-phone.webp" alt="Categorization on a phone" width="24%">
 </p>
 
 Regenerate the screenshots with `npm run screenshots`; see [setup](docs/setup.md#screenshots).
