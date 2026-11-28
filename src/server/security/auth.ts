@@ -58,10 +58,10 @@ export function createAuth(db: Database | DatabaseTransaction, options: AuthOpti
       revokeSessionsOnPasswordReset: true,
       sendResetPassword: options.onPasswordReset ? async ({ token }) => options.onPasswordReset?.(token) : undefined
     },
-    // A session ends after 24 hours without use; see docs/security.md.
+    // A session ends after seven days without use; see docs/security.md.
     session: {
-      expiresIn: 24 * 3_600,
-      updateAge: 3_600,
+      expiresIn: 7 * 24 * 3_600,
+      updateAge: 24 * 3_600,
       cookieCache: {
         enabled: false
       }

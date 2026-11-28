@@ -38,8 +38,11 @@ export function LoginForm() {
   return (
     <main className={styles["login-page"]}>
       <ShorelineBackdrop className={styles["shoreline"]} />
+      {/* A real POST form with a submit button lets password managers fill and submit it; the handler below keeps the sign-in in the app, and the action is only reached without JavaScript. */}
       <form
         className={clsx(styles["login-card"], ui["form"])}
+        method="post"
+        action="/api/auth/sign-in/username"
         onSubmit={event => {
           event.preventDefault();
           const fields = new FormData(event.currentTarget);
@@ -77,7 +80,7 @@ export function LoginForm() {
           />
         </label>
         <FormError failure={signIn.error ? toFailure(signIn.error) : null} />
-        <button className={clsx(styles["button"], ui["primary"])} disabled={signIn.isPending}>
+        <button type="submit" className={clsx(styles["button"], ui["primary"])} disabled={signIn.isPending}>
           {t("submit")} <ArrowRight size={16} />
         </button>
         <div className={styles["legal"]}>
