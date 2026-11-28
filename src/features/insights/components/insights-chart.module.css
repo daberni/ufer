@@ -2,3 +2,14 @@
 .chart {
   align-self: start;
 }
+/* The shown columns' average net follows the net entry, separated like a legend entry. */
+.average {
+  margin-left: var(--space-2);
+}
+.average strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+.average .negative {
+  color: var(--danger-text);
+}

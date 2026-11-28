@@ -33,28 +33,23 @@
       "quarter": "quarter",
       "year": "year",
       "custom": "period"
-    }
+    },
+    "average": "Average"
   },
   "breakdown": {
     "noIncome": "No income in this period.",
     "noExpenses": "No expenses in this period.",
-    "changeLabel": "{amount} vs {period}"
+    "changeLabel": "{amount} vs {period}",
+    "grouping": "Group by",
+    "category": "Category",
+    "account": "Account",
+    "byAccount": "By account",
+    "allCategories": "All categories"
   },
-  "history": {
-    "incomeTitle": "Income history",
-    "expensesTitle": "Spending history",
-    "clear": "All categories",
-    "loadingCategory": "Category",
-    "average": "Average",
-    "plotLabel": "Amount per {interval}, {range}",
-    "columnLabel": "{period}: {amount}",
-    "selectedColumnLabel": "{period} (selected): {amount}",
-    "detail": "{period}: {amount}",
-    "hint": "Select a column to show that period.",
-    "empty": "Nothing in these periods.",
-    "transactions": "Transactions, {period}",
-    "transactionsFailure": "The transactions could not be loaded",
-    "noTransactionsTitle": "No transactions",
-    "noTransactions": "Nothing in this category in the selected period."
+  "transactions": {
+    "title": "Transactions, {period}",
+    "failure": "The transactions could not be loaded",
+    "emptyTitle": "No transactions",
+    "empty": "Nothing in this category in the selected period."
   }
 }

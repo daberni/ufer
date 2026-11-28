@@ -22,12 +22,14 @@
     "failure": "Income and spending by category could not be loaded",
     "income": "Income",
     "expenses": "Expenses",
-    "viewIncomeIn": "Income history of {category} up to {context}",
-    "viewExpensesIn": "Spending history of {category} up to {context}",
+    "viewIncomeIn": "View income in {category}, {context}",
+    "viewExpensesIn": "View expenses in {category}, {context}",
     "noIncomeMonth": "No income this month.",
     "noIncomePeriod": "No income in this period.",
     "noExpensesMonth": "No expenses this month.",
-    "noExpensesPeriod": "No expenses in this period."
+    "noExpensesPeriod": "No expenses in this period.",
+    "showIncomeIn": "Show income in {category} in insights, up to {context}",
+    "showExpensesIn": "Show expenses in {category} in insights, up to {context}"
   },
   "chart": {
     "title": "Income & expenses",

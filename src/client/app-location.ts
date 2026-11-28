@@ -4,6 +4,7 @@ import { parsePage } from "@/lib/pagination";
 import { parseCurrencyCode } from "@/lib/money";
 import { rangeContaining, serializeRange } from "@/lib/period-range";
 import { today } from "@/lib/time";
+import type { BreakdownGrouping } from "@/features/reports/types";
 
 export type View = "overview" | "insights" | "transactions" | "import" | "accounts" | "account" | "brokerage" | "rules";
 
@@ -177,19 +178,28 @@ export function accountHref(id: string, scope: string) {
   return scope ? `${accountPath(id)}?${scope}` : accountPath(id);
 }
 
-/** One row of a breakdown by category: a category ID or "uncategorized", income or expenses, in the breakdown's period and currency. */
-export type CategoryHistory = {
+/** The transactions behind one row of a breakdown: a category ID or "uncategorized", or an account ID, with income or expenses, in the breakdown's period and currency. */
+export type BreakdownTransactions = {
   period: Period;
   currency: string;
-  category: string;
+  grouping: BreakdownGrouping;
+  key: string;
   type: "income" | "expense";
 };
 
-/** A category's history in the insights: its income or expenses over the intervals up to the breakdown's month, in the breakdown's currency. */
-export function categoryHistoryHref(filter: CategoryHistory) {
+export function breakdownTransactionsHref(filter: BreakdownTransactions) {
+  return withQueryChanges(viewPaths.transactions, "", {
+    period: filter.period,
+    currency: filter.currency,
+    [filter.grouping]: filter.key,
+    type: filter.type
+  });
+}
+
+/** The insights narrowed to one category (an ID or "uncategorized"), ending at the breakdown's month in its currency; a breakdown over all months opens the years up to this one. */
+export function categoryInsightsHref(filter: Pick<BreakdownTransactions, "period" | "currency" | "key">) {
   const params = new URLSearchParams();
 
-  // All months open the yearly history up to this year, so the history still covers the totals' span.
   if (filter.period.kind === "all") {
     params.set("range", serializeRange(rangeContaining("year", today())));
   } else if (!isCurrentMonth(filter.period)) {
@@ -200,8 +210,7 @@ export function categoryHistoryHref(filter: CategoryHistory) {
     params.set("currency", filter.currency);
   }
 
-  params.set("category", filter.category);
-  params.set("type", filter.type);
+  params.set("category", filter.key);
 
   return `${viewPaths.insights}?${params.toString()}`;
 }

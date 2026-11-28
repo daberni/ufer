@@ -4,11 +4,9 @@ import { useSearchParams } from "next/navigation";
 import { useMemo } from "react";
 import { parseRange, rangeContaining, serializeRange, type PeriodRange } from "@/lib/period-range";
 import { today } from "@/lib/time";
-import type { HistoryFlow } from "@/features/insights/category-history";
 
 const rangeKey = "range";
 const categoryKey = "category";
-const flowKey = "type";
 
 /** The insights' range from the URL; the current month when absent or invalid. */
 export function insightsRange(value: string | null, current = today()) {
@@ -40,24 +38,16 @@ export function selectRange(range: PeriodRange) {
   }
 }
 
-/** The category whose history the insights show, with its flow (expenses unless the URL names income); null without a category. */
+/** The category the insights are narrowed to: an ID or "uncategorized"; null for all categories. */
 export function useInsightsCategory() {
-  const params = useSearchParams();
-  const category = params.get(categoryKey);
-  const flow: HistoryFlow = params.get(flowKey) === "income" ? "income" : "expense";
-
-  return useMemo(() => category ? {
-    category,
-    flow
-  } : null, [category, flow]);
+  return useSearchParams().get(categoryKey) || null;
 }
 
-/** Returns from a category's history to the whole insights, keeping the range. */
+/** Shows all categories again, keeping the range. */
 export function clearCategory() {
   const params = new URLSearchParams(window.location.search);
 
   params.delete(categoryKey);
-  params.delete(flowKey);
 
   const query = params.toString();
 

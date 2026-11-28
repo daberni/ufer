@@ -33,28 +33,23 @@
       "quarter": "Quartal",
       "year": "Jahr",
       "custom": "Zeitraum"
-    }
+    },
+    "average": "Durchschnitt"
   },
   "breakdown": {
     "noIncome": "Keine Einnahmen in diesem Zeitraum.",
     "noExpenses": "Keine Ausgaben in diesem Zeitraum.",
-    "changeLabel": "{amount} ggü. {period}"
+    "changeLabel": "{amount} ggü. {period}",
+    "grouping": "Gruppieren nach",
+    "category": "Kategorie",
+    "account": "Konto",
+    "byAccount": "Konten",
+    "allCategories": "Alle Kategorien"
   },
-  "history": {
-    "incomeTitle": "Verlauf der Einnahmen",
-    "expensesTitle": "Verlauf der Ausgaben",
-    "clear": "Alle Kategorien",
-    "loadingCategory": "Kategorie",
-    "average": "Durchschnitt",
-    "plotLabel": "Betrag pro {interval}, {range}",
-    "columnLabel": "{period}: {amount}",
-    "selectedColumnLabel": "{period} (ausgewählt): {amount}",
-    "detail": "{period}: {amount}",
-    "hint": "Spalte auswählen, um den Zeitraum anzuzeigen.",
-    "empty": "Nichts in diesen Zeiträumen.",
-    "transactions": "Buchungen, {period}",
-    "transactionsFailure": "Die Buchungen konnten nicht geladen werden",
-    "noTransactionsTitle": "Keine Buchungen",
-    "noTransactions": "Nichts in dieser Kategorie im gewählten Zeitraum."
+  "transactions": {
+    "title": "Buchungen, {period}",
+    "failure": "Die Buchungen konnten nicht geladen werden",
+    "emptyTitle": "Keine Buchungen",
+    "empty": "Nichts in dieser Kategorie im gewählten Zeitraum."
   }
 }

@@ -8,13 +8,13 @@ import * as schema from "../src/server/database/schema";
 import type { Database } from "../src/server/database/connection";
 import { readInsights } from "../src/features/insights/server/insights-query";
 import { insightsColumns } from "../src/features/insights/insights-columns";
-import { averageAmount, categoryHistory } from "../src/features/insights/category-history";
+import { averageNet, filterInsights } from "../src/features/insights/category-filter";
 import { readTransactionPage } from "../src/features/transactions/server/transaction-list-query";
 import { transactionListRequest } from "../src/features/transactions/server/transaction-list-request";
 import { parseRange } from "../src/lib/period-range";
 import { allMonthsPeriod, monthPeriod } from "../src/lib/period";
 import { today } from "../src/lib/time";
-import { categoryHistoryHref } from "../src/client/app-location";
+import { categoryInsightsHref } from "../src/client/app-location";
 
 const now = Temporal.Instant.from("2026-11-25T11:00:00Z");
 
@@ -108,31 +108,33 @@ async function seed(context: TestContext) {
   }]);
 }
 
-test("a category's history follows the selected interval with the counted amount of each period", async context => {
+test("narrowing the insights to a category keeps the interval columns with only its counted amounts", async context => {
   await seed(context);
 
-  const columns = insightsColumns(await readInsights(range("2026-Q4"), "EUR", now));
-  const history = categoryHistory(columns, "synthetic-food", "expense");
+  const insights = filterInsights(await readInsights(range("2026-Q4"), "EUR", now), "synthetic-food");
+  const columns = insightsColumns(insights);
 
-  assert.equal(history.length, 12);
-  assert.deepEqual(history.slice(-3).map(column => [column.key, column.amount]), [
-    ["2026-04-01", 30000],
-    ["2026-07-01", 40000],
-    ["2026-10-01", 25000]
+  assert.equal(columns.length, 12);
+  // Q3: the refund reduces spending; the categorized transfer and the hidden booking never count. Q4: only the split's food part.
+  assert.deepEqual(columns.slice(-3).map(column => [column.key, column.income, column.expenses]), [
+    ["2026-04-01", 0, 30000],
+    ["2026-07-01", 0, 40000],
+    ["2026-10-01", 0, 25000]
   ]);
-  assert.ok(history.slice(0, -3).every(column => column.amount === 0));
-  // The shown columns average to whole minor units: (30000 + 40000 + 25000) / 3.
-  assert.equal(averageAmount(history.slice(-3)), 31667);
-  assert.equal(averageAmount(history.slice(-2)), 32500);
-  assert.equal(averageAmount([]), 0);
+  assert.ok(columns.slice(0, -3).every(column => column.expenses === 0 && column.income === 0));
+  assert.deepEqual(insights.comparison.current.expenseBreakdown.map(row => [row.categoryId, row.amount]), [["synthetic-food", 25000]]);
+  assert.deepEqual(insights.comparison.current.expensesByAccount, []);
+  // The shown columns' net averages to whole minor units: -(30000 + 40000 + 25000) / 3.
+  assert.equal(averageNet(columns.slice(-3)), -31667);
+  assert.equal(averageNet(columns.slice(-2)), -32500);
+  assert.equal(averageNet([]), 0);
 
-  const uncategorized = categoryHistory(columns, "uncategorized", "expense");
+  const uncategorized = insightsColumns(filterInsights(await readInsights(range("2026-Q4"), "EUR", now), "uncategorized"));
 
-  assert.equal(uncategorized.at(-1)?.amount, 12000);
-  assert.ok(categoryHistory(columns, "synthetic-food", "income").every(column => column.amount === 0));
+  assert.equal(uncategorized.at(-1)?.expenses, 12000);
 });
 
-test("the history's transactions are the category's bookings in the selected range", async context => {
+test("the narrowed insights list the category's bookings in the selected range", async context => {
   await seed(context);
 
   const filters = transactionListRequest({
@@ -163,19 +165,17 @@ test("the history's transactions are the category's bookings in the selected ran
   }));
 });
 
-test("a breakdown over all months opens the yearly history up to this year instead of the current month", () => {
+test("a category row opens the insights narrowed to it, over the years up to this one for all months", () => {
   const year = today().year;
 
-  assert.equal(categoryHistoryHref({
+  assert.equal(categoryInsightsHref({
     period: allMonthsPeriod,
     currency: "USD",
-    category: "synthetic-food",
-    type: "expense"
-  }), `/insights?range=${year}&currency=USD&category=synthetic-food&type=expense`);
-  assert.equal(categoryHistoryHref({
+    key: "synthetic-food"
+  }), `/insights?range=${year}&currency=USD&category=synthetic-food`);
+  assert.equal(categoryInsightsHref({
     period: monthPeriod(Temporal.PlainYearMonth.from("2026-07")),
     currency: "EUR",
-    category: "uncategorized",
-    type: "income"
-  }), "/insights?range=2026-07&category=uncategorized&type=income");
+    key: "uncategorized"
+  }), "/insights?range=2026-07&category=uncategorized");
 });

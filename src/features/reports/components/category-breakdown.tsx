@@ -14,12 +14,12 @@ import { money } from "@/lib/money";
 import { categoryRowLimit, type CategoryGroup } from "@/features/reports/category-groups";
 import { formatSavingsRate, isNegativeRate, periodCashFlow, reservedCategoryRows, type CashFlowSelection, type CashFlowSummary } from "@/features/reports/cash-flow-selection";
 import { CategoryRows, CategoryRowsSkeleton, type CategoryRowLink } from "@/features/reports/components/category-rows";
-import { categoryHistoryHref } from "@/client/app-location";
+import { breakdownTransactionsHref, categoryInsightsHref } from "@/client/app-location";
 import { AreaPlaceholder } from "@/components/ui/area-placeholder";
 import { areaProps, valueMask } from "@/components/ui/result-presentation";
 import { useCurrency, useMonthTransactionsHref, usePeriod, useViewHref } from "@/client/use-app-url";
 import type { Area } from "@/components/ui/use-area-result";
-import type { CashFlow } from "@/features/reports/types";
+import type { BreakdownGrouping, CashFlow } from "@/features/reports/types";
 import { useLocale } from "@/client/locale-provider";
 import { useTranslations } from "next-intl";
 
@@ -105,7 +105,7 @@ export function CategoryBreakdown({
             groups={summary.incomeGroups}
             reservedRows={reserved.income}
             currency={currency}
-            rowLink={categoryRowLink(shownPeriod, currency, "income", category => t("viewIncomeIn", {
+            rowLink={breakdownRowLink("category", shownPeriod, currency, "income", category => t("showIncomeIn", {
               category,
               context
             }))}
@@ -117,7 +117,7 @@ export function CategoryBreakdown({
             groups={summary.expenseGroups}
             reservedRows={reserved.expenses}
             currency={currency}
-            rowLink={categoryRowLink(shownPeriod, currency, "expense", category => t("viewExpensesIn", {
+            rowLink={breakdownRowLink("category", shownPeriod, currency, "expense", category => t("showExpensesIn", {
               category,
               context
             }))}
@@ -130,21 +130,24 @@ export function CategoryBreakdown({
 }
 
 /**
- * Each category row opens the history of its income or expenses in the insights, ending at the shown month, in the shown currency. The combined "+N more" row stays plain: the list filters one category at a time, and the period's whole list is already linked from the panel.
+ * Each category row narrows the insights to that category up to the shown month; each account row opens its income or expense transactions in the shown month or period. Both keep the shown currency. The combined "+N more" row stays plain: the list filters one category at a time, and the period's whole list is already linked from the panel.
  */
-export function categoryRowLink(period: Period, currency: string, type: "income" | "expense", label: (category: string) => string) {
+export function breakdownRowLink(grouping: BreakdownGrouping, period: Period, currency: string, type: "income" | "expense", label: (name: string) => string) {
   return (group: CategoryGroup): CategoryRowLink | null => {
     if (group.key === "remainder") {
       return null;
     }
 
+    const filter = {
+      period,
+      currency,
+      grouping,
+      key: group.key,
+      type
+    };
+
     return {
-      href: categoryHistoryHref({
-        period,
-        currency,
-        category: group.key,
-        type
-      }),
+      href: grouping === "category" ? categoryInsightsHref(filter) : breakdownTransactionsHref(filter),
       label: label(group.name)
     };
   };

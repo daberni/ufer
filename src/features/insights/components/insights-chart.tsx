@@ -16,6 +16,7 @@ import type { useChartDetails } from "@/features/reports/use-chart-details";
 import { columnRanges, insightsColumns, type InsightsColumn } from "@/features/insights/insights-columns";
 import { columnsLabel, rangeLabel, rangeTitle } from "@/features/insights/range-format";
 import { selectRange } from "@/features/insights/insights-location";
+import { averageNet } from "@/features/insights/category-filter";
 import { areaProps, valueMask } from "@/components/ui/result-presentation";
 import { money } from "@/lib/money";
 import { cssPercent } from "@/lib/percent";
@@ -45,6 +46,7 @@ export function InsightsChart({
   detailsId,
   onSelectionHidden
 }: Props) {
+  const t = useTranslations("insights.chart");
   const locale = useLocale();
   const plotRef = useRef<HTMLDivElement>(null);
   const { count } = usePlotColumns(plotRef);
@@ -52,6 +54,7 @@ export function InsightsChart({
   const visible = insights.status === "pending" ? [] : insightsColumns(insights.data).slice(-count);
   const rangeMask = insights.status === "pending" ? "" : valueMask(insights.status);
   const rateMask = insights.status === "pending" ? ui["skeleton"] : rangeMask;
+  const visibleAverage = averageNet(visible);
   const visibleRate = netFlow(visible.reduce((sum, column) => sum + column.income, 0), visible.reduce((sum, column) => sum + column.expenses, 0)).savingsRate;
 
   return (
@@ -61,6 +64,11 @@ export function InsightsChart({
         rangeMask={rangeMask}
         rate={insights.status === "pending" ? null : visibleRate}
         rateMask={rateMask}
+        netDetail={(
+          <span className={own["average"]}>
+            {t("average")} <strong className={clsx(visibleAverage < 0 && own["negative"], rateMask)}>{insights.status === "pending" ? "€0,000.00" : money(visibleAverage, insights.data.currency, locale)}</strong>
+          </span>
+        )}
       />
       <div className={styles["plot"]} ref={plotRef}>
         {insights.status === "pending" ? (

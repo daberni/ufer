@@ -22,12 +22,14 @@
     "failure": "Einnahmen und Ausgaben nach Kategorie konnten nicht geladen werden",
     "income": "Einnahmen",
     "expenses": "Ausgaben",
-    "viewIncomeIn": "Verlauf der Einnahmen in {category} bis {context}",
-    "viewExpensesIn": "Verlauf der Ausgaben in {category} bis {context}",
+    "viewIncomeIn": "Einnahmen in {category} ansehen, {context}",
+    "viewExpensesIn": "Ausgaben in {category} ansehen, {context}",
     "noIncomeMonth": "Keine Einnahmen in diesem Monat.",
     "noIncomePeriod": "Keine Einnahmen in diesem Zeitraum.",
     "noExpensesMonth": "Keine Ausgaben in diesem Monat.",
-    "noExpensesPeriod": "Keine Ausgaben in diesem Zeitraum."
+    "noExpensesPeriod": "Keine Ausgaben in diesem Zeitraum.",
+    "showIncomeIn": "Einnahmen in {category} in den Auswertungen zeigen, bis {context}",
+    "showExpensesIn": "Ausgaben in {category} in den Auswertungen zeigen, bis {context}"
   },
   "chart": {
     "title": "Einnahmen & Ausgaben",

@@ -5,7 +5,6 @@ import { apiGet, apiQuery } from "@/client/api";
 import { queryKeys } from "@/client/query-keys";
 import { serializeRange, type PeriodRange } from "@/lib/period-range";
 import type { Insights, NetWorthChangeComparison } from "./types";
-import type { HistoryFlow } from "./category-history";
 import type { TransactionPage } from "@/features/transactions/types";
 
 export function useInsights(range: PeriodRange, currency: string) {
@@ -34,8 +33,8 @@ export function useNetWorthChange(range: PeriodRange, currency: string) {
   });
 }
 
-/** One page of the transactions behind a category's history: the category's income or expense bookings in the range and currency. */
-export function useCategoryTransactions(range: PeriodRange, currency: string, category: string, flow: HistoryFlow, page: number) {
+/** One page of a category's bookings in the range and currency, listed below the insights narrowed to that category. */
+export function useCategoryTransactions(range: PeriodRange, currency: string, category: string, page: number) {
   const filters = {
     period: "",
     range: serializeRange(range),
@@ -43,7 +42,7 @@ export function useCategoryTransactions(range: PeriodRange, currency: string, ca
     search: "",
     account: "",
     category,
-    type: flow,
+    type: "",
     syncRun: "",
     page
   };
