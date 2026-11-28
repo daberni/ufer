@@ -4,10 +4,10 @@
     "insights": "Auswertungen",
     "transactions": "Buchungen",
     "import": "Buchungen importieren",
-    "accounts": "Konten & Vermögen",
+    "accounts": "Konten",
     "account": "Konto",
     "brokerage": "Depots",
-    "rules": "Kategorien & Regeln",
+    "rules": "Kategorisierung",
     "description": "Dein persönliches Dashboard für Konten, Buchungen und Vermögen."
   },
   "navigation": {
@@ -30,9 +30,9 @@
       "description": "Jede Buchung, über alle deine Konten."
     },
     "accounts": {
-      "label": "Konten & Vermögen",
+      "label": "Konten",
       "mobileLabel": "Konten",
-      "heading": "Konten & Vermögen",
+      "heading": "Konten",
       "description": "Deine Konten und Vermögenswerte an einem Ort."
     },
     "brokerage": {
@@ -42,9 +42,9 @@
       "description": "Deine Depots, Bestände und Wertentwicklung zusammen."
     },
     "rules": {
-      "label": "Kategorien & Regeln",
-      "mobileLabel": "Regeln",
-      "heading": "Kategorien & Regeln",
+      "label": "Kategorisierung",
+      "mobileLabel": "Kategorien",
+      "heading": "Kategorisierung",
       "description": "Weniger sortieren. Mehr Klarheit."
     }
   },

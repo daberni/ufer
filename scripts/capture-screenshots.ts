@@ -70,7 +70,7 @@ const shots: Shot[] = [{
 }, {
   name: "accounts",
   path: "/accounts",
-  ready: page => heading(page, "Accounts & assets")
+  ready: page => heading(page, "Accounts")
 }, {
   name: "account-details",
   path: "/accounts/demo-checking",
@@ -78,7 +78,7 @@ const shots: Shot[] = [{
 }, {
   name: "rules",
   path: "/rules",
-  ready: page => heading(page, "Categories & rules")
+  ready: page => heading(page, "Categorization")
 }, {
   name: "connections",
   path: "/accounts",

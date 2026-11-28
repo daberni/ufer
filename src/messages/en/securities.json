@@ -80,7 +80,7 @@
   },
   "overview": {
     "noAccountsTitle": "No brokerage accounts yet",
-    "noAccountsBody": "Add a brokerage account under Accounts & assets to track holdings, trades and performance.",
+    "noAccountsBody": "Add a brokerage account under Accounts to track holdings, trades and performance.",
     "accounts": "Accounts",
     "combinedValueIn": "Combined value in {currency}",
     "totalGain": "{amount} total",
