@@ -1,12 +1,15 @@
 import type { DateSpan } from "@/lib/period-range";
 import type { CategoryAmount } from "@/features/reports/types";
 
-/** Income and expenses with their categories over a span, from the counted lines; each breakdown sums to its total. */
+/** Income and expenses with their categories and accounts over a span, from the counted lines; each breakdown sums to its total. */
 export type SpanFlows = DateSpan & {
   income: number;
   expenses: number;
   incomeBreakdown: CategoryAmount[];
   expenseBreakdown: CategoryAmount[];
+  /** Income per account; each row's `categoryId` holds the account ID, so account rows share the category rows and their comparison. */
+  incomeByAccount: CategoryAmount[];
+  expensesByAccount: CategoryAmount[];
 };
 
 export type Insights = {

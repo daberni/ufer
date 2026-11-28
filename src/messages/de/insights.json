@@ -38,6 +38,10 @@
   "breakdown": {
     "noIncome": "Keine Einnahmen in diesem Zeitraum.",
     "noExpenses": "Keine Ausgaben in diesem Zeitraum.",
-    "changeLabel": "{amount} ggü. {period}"
+    "changeLabel": "{amount} ggü. {period}",
+    "grouping": "Gruppieren nach",
+    "category": "Kategorie",
+    "account": "Konto",
+    "byAccount": "Konten"
   }
 }

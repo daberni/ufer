@@ -1,0 +1,19 @@
+/* The grouping choice shares the heading row with the title and wraps below it in narrow panels. */
+.heading {
+  flex-wrap: wrap;
+}
+.groupings {
+  composes: intervals from "./period-bar.module.css";
+}
+/* On phones the period bar's segments fill the width; the two groupings split it evenly. */
+@media (--mobile) {
+  .groupings {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.grouping {
+  composes: interval from "./period-bar.module.css";
+}
+.grouping-input {
+  composes: interval-input from "./period-bar.module.css";
+}

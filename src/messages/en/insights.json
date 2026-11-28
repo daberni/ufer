@@ -38,6 +38,10 @@
   "breakdown": {
     "noIncome": "No income in this period.",
     "noExpenses": "No expenses in this period.",
-    "changeLabel": "{amount} vs {period}"
+    "changeLabel": "{amount} vs {period}",
+    "grouping": "Group by",
+    "category": "Category",
+    "account": "Account",
+    "byAccount": "By account"
   }
 }

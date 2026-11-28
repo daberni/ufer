@@ -3,16 +3,18 @@
 import ui from "../../../components/ui/primitives.module.css";
 
 import Link from "next/link";
+import { useId, useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { clsx } from "clsx";
 import { useTranslations } from "next-intl";
 import styles from "../../reports/components/category-breakdown.module.css";
-import { categoryRowLink, FlowColumn, FlowColumnSkeleton } from "@/features/reports/components/category-breakdown";
+import choiceStyles from "./insights-breakdown.module.css";
+import { breakdownRowLink, FlowColumn, FlowColumnSkeleton } from "@/features/reports/components/category-breakdown";
 import type { CategoryRowLink } from "@/features/reports/components/category-rows";
 import type { CategoryGroup } from "@/features/reports/category-groups";
 import { formatSavingsRate, isNegativeRate, netFlow } from "@/features/reports/cash-flow-selection";
 import { compareCategories } from "@/features/insights/category-comparison";
-import { insightsColumns, previousFlows, reservedComparisonRows, type InsightsColumn } from "@/features/insights/insights-columns";
+import { breakdownOf, insightsColumns, previousFlows, reservedComparisonRows, type InsightsColumn } from "@/features/insights/insights-columns";
 import { daySpanLabel, rangeTitle } from "@/features/insights/range-format";
 import { AreaPlaceholder } from "@/components/ui/area-placeholder";
 import { areaProps, valueMask } from "@/components/ui/result-presentation";
@@ -22,7 +24,7 @@ import { useCurrency, useMonthTransactionsHref } from "@/client/use-app-url";
 import { useLocale } from "@/client/locale-provider";
 import type { Area } from "@/components/ui/use-area-result";
 import { shiftRange, type PeriodRange } from "@/lib/period-range";
-import type { CategoryAmount } from "@/features/reports/types";
+import type { BreakdownGrouping, CategoryAmount } from "@/features/reports/types";
 import type { Insights } from "@/features/insights/types";
 
 type Props = {
@@ -33,7 +35,9 @@ type Props = {
   id: string;
 };
 
-/** Every income and expense category of the active column, each with its change against the span that column is compared with. */
+const groupings: BreakdownGrouping[] = ["category", "account"];
+
+/** Every income and expense category or account of the active column, each with its change against the span that column is compared with. */
 export function InsightsBreakdown({
   range,
   insights,
@@ -45,15 +49,19 @@ export function InsightsBreakdown({
   const locale = useLocale();
   const selectedCurrency = useCurrency();
   const monthTransactionsHref = useMonthTransactionsHref();
+  const [grouping, setGrouping] = useState<BreakdownGrouping>("category");
+  const title = grouping === "account" ? tInsights("byAccount") : t("title");
+  const choice = <GroupingChoice grouping={grouping} onChange={setGrouping} />;
 
   if (insights.status === "pending") {
     return (
       <section className={clsx(ui["panel"], styles["panel"])} id={id}>
-        <div className={clsx(ui["card-heading"], styles["heading"])}>
+        <div className={clsx(ui["card-heading"], styles["heading"], choiceStyles["heading"])}>
           <div className={styles["title"]}>
-            <h2>{t("title")}</h2>
+            <h2>{title}</h2>
             <span className={ui["subtle"]}>{rangeTitle(range, locale)}</span>
           </div>
+          {choice}
         </div>
         <div className={styles["summary"]}>
           <span>
@@ -80,22 +88,25 @@ export function InsightsBreakdown({
   const found = columns.findIndex(column => column.key === activeKey);
   const index = found === -1 ? columns.length - 1 : found;
   const column = columns[index];
-  const previous = previousFlows(data, columns, index);
+  const current = breakdownOf(column, grouping);
+  const previousFlow = previousFlows(data, columns, index);
+  const previous = previousFlow ? breakdownOf(previousFlow, grouping) : null;
   const comparedWith = comparisonName(data, columns, index, locale);
   const context = rangeTitle(column.range, locale);
   const net = netFlow(column.income, column.expenses);
-  const reserved = reservedComparisonRows(data, columns);
+  const reserved = reservedComparisonRows(data, columns, grouping);
   // The transaction list filters by month, so only month columns link to their transactions.
   const month = column.range.interval === "month" ? column.range.start.toPlainYearMonth() : null;
-  const rowLink = (type: "income" | "expense", label: (category: string) => string) => month ? categoryRowLink(monthPeriod(month), currency, type, label) : undefined;
+  const rowLink = (type: "income" | "expense", label: (name: string) => string) => month ? breakdownRowLink(grouping, monthPeriod(month), currency, type, label) : undefined;
 
   return (
     <section className={clsx(ui["panel"], styles["panel"])} id={id}>
-      <div className={clsx(ui["card-heading"], styles["heading"])}>
+      <div className={clsx(ui["card-heading"], styles["heading"], choiceStyles["heading"])}>
         <div className={styles["title"]}>
-          <h2>{t("title")}</h2>
+          <h2>{title}</h2>
           <span className={clsx(ui["subtle"], mask)}>{context}</span>
         </div>
+        {choice}
         {month && (
           <Link
             className={ui["text-button"]}
@@ -121,8 +132,8 @@ export function InsightsBreakdown({
         <ComparisonColumn
           label={t("income")}
           total={column.income}
-          current={column.incomeBreakdown}
-          previous={previous?.incomeBreakdown ?? null}
+          current={current.income}
+          previous={previous?.income ?? null}
           rising="better"
           comparedWith={comparedWith}
           reservedRows={reserved.income}
@@ -136,8 +147,8 @@ export function InsightsBreakdown({
         <ComparisonColumn
           label={t("expenses")}
           total={column.expenses}
-          current={column.expenseBreakdown}
-          previous={previous?.expenseBreakdown ?? null}
+          current={current.expenses}
+          previous={previous?.expenses ?? null}
           rising="worse"
           comparedWith={comparedWith}
           reservedRows={reserved.expenses}
@@ -150,6 +161,37 @@ export function InsightsBreakdown({
         />
       </div>
     </section>
+  );
+}
+
+/** Switches the breakdown between categories and accounts, in the period bar's segmented style. */
+function GroupingChoice({
+  grouping,
+  onChange
+}: {
+  grouping: BreakdownGrouping;
+  onChange: (grouping: BreakdownGrouping) => void;
+}) {
+  const t = useTranslations("insights.breakdown");
+  const name = useId();
+
+  return (
+    <fieldset className={choiceStyles["groupings"]}>
+      <legend className={ui["visually-hidden"]}>{t("grouping")}</legend>
+      {groupings.map(option => (
+        <label className={choiceStyles["grouping"]} key={option}>
+          <input
+            className={choiceStyles["grouping-input"]}
+            type="radio"
+            name={name}
+            value={option}
+            checked={grouping === option}
+            onChange={() => onChange(option)}
+          />
+          {t(option)}
+        </label>
+      ))}
+    </fieldset>
   );
 }
 
