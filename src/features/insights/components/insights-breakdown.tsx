@@ -25,12 +25,11 @@ import { money, signedMoney } from "@/lib/money";
 import { useCurrency, useMonthTransactionsHref } from "@/client/use-app-url";
 import { useLocale } from "@/client/locale-provider";
 import type { Area } from "@/components/ui/use-area-result";
-import { shiftRange, type PeriodRange } from "@/lib/period-range";
+import { shiftRange } from "@/lib/period-range";
 import type { BreakdownGrouping, CategoryAmount } from "@/features/reports/types";
 import type { Insights } from "@/features/insights/types";
 
 type Props = {
-  range: PeriodRange;
   insights: Area<Insights>;
   /** The hovered, focused or tapped column; without one, the selected range. */
   activeKey: string | null;
@@ -43,7 +42,6 @@ const groupings: BreakdownGrouping[] = ["category", "account"];
 
 /** Every income and expense category or account of the active column, each with its change against the span that column is compared with. */
 export function InsightsBreakdown({
-  range,
   insights,
   activeKey,
   id,
@@ -71,7 +69,6 @@ export function InsightsBreakdown({
         <div className={clsx(ui["card-heading"], styles["heading"], choiceStyles["heading"])}>
           <div className={styles["title"]}>
             <h2>{title}</h2>
-            <span className={ui["subtle"]}>{rangeTitle(range, locale)}</span>
           </div>
           {choice}
         </div>
@@ -125,7 +122,6 @@ export function InsightsBreakdown({
       <div className={clsx(ui["card-heading"], styles["heading"], choiceStyles["heading"])}>
         <div className={styles["title"]}>
           <h2>{title}</h2>
-          <span className={clsx(ui["subtle"], mask)}>{context}</span>
         </div>
         {choice}
         {/* A category filter lists its transactions below the panels. */}

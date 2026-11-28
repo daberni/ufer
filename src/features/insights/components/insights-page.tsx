@@ -72,7 +72,6 @@ function InsightsPanels({
         onSelectionHidden={clear}
       />
       <InsightsBreakdown
-        range={range}
         insights={insights}
         activeKey={activeKey}
         id={detailsId}

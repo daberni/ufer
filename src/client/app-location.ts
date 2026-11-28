@@ -196,6 +196,15 @@ export function breakdownTransactionsHref(filter: BreakdownTransactions) {
   });
 }
 
+/** Every transaction in one category (an ID or "uncategorized") over all months, in a currency. */
+export function categoryTransactionsHref(currency: string, category: string) {
+  return withQueryChanges(viewPaths.transactions, "", {
+    period: allMonthsPeriod,
+    currency,
+    category
+  });
+}
+
 /** The insights narrowed to one category (an ID or "uncategorized"), ending at the breakdown's month in its currency; a breakdown over all months opens the years up to this one. */
 export function categoryInsightsHref(filter: Pick<BreakdownTransactions, "period" | "currency" | "key">) {
   const range = filter.period.kind === "all" ? rangeContaining("year", today()) : rangeContaining("month", filter.period.month.toPlainDate({

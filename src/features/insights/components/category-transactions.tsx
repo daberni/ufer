@@ -3,6 +3,8 @@
 import ui from "../../../components/ui/primitives.module.css";
 
 import { useRef, useState } from "react";
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 import { clsx } from "clsx";
 import { useTranslations } from "next-intl";
 import panel from "../../transactions/components/transactions-panel.module.css";
@@ -19,6 +21,7 @@ import { pendingTogether, useAreaResult } from "@/components/ui/use-area-result"
 import { lastPage, transactionPageSize } from "@/lib/pagination";
 import { useLocale } from "@/client/locale-provider";
 import { useCurrency } from "@/client/use-app-url";
+import { categoryTransactionsHref } from "@/client/app-location";
 import type { PeriodRange } from "@/lib/period-range";
 
 /** The bookings of the category the insights are narrowed to, in the selected range, page by page. */
@@ -60,6 +63,9 @@ export function CategoryTransactions({
         <h2 ref={headingRef} tabIndex={-1}>{t("title", {
           period: rangeTitle(range, locale)
         })}</h2>
+        <Link className={ui["text-button"]} href={categoryTransactionsHref(currency, category)}>
+          {t("viewAll")} <ArrowRight size={15} aria-hidden="true" />
+        </Link>
       </div>
       <TransactionRuleProvider fallbackFocus={headingRef}>
         {list.status === "pending" || categories.status === "pending" ? (

@@ -18,7 +18,7 @@ import { columnsLabel, rangeLabel, rangeTitle } from "@/features/insights/range-
 import { selectRange } from "@/features/insights/insights-location";
 import { averageNet } from "@/features/insights/category-filter";
 import { areaProps, valueMask } from "@/components/ui/result-presentation";
-import { money } from "@/lib/money";
+import { money, signedMoney } from "@/lib/money";
 import { cssPercent } from "@/lib/percent";
 import { useLocale } from "@/client/locale-provider";
 import type { Area, AreaResult } from "@/components/ui/use-area-result";
@@ -66,7 +66,7 @@ export function InsightsChart({
         rateMask={rateMask}
         netDetail={(
           <span className={own["average"]}>
-            {t("average")} <strong className={clsx(visibleAverage < 0 && own["negative"], rateMask)}>{insights.status === "pending" ? "€0,000.00" : money(visibleAverage, insights.data.currency, locale)}</strong>
+            {t("average")} <strong className={clsx(visibleAverage < 0 && own["negative"], rateMask)}>{insights.status === "pending" ? "€0,000.00" : signedMoney(visibleAverage, insights.data.currency, locale)}</strong>
           </span>
         )}
       />

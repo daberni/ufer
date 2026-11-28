@@ -50,6 +50,7 @@
     "title": "Buchungen, {period}",
     "failure": "Die Buchungen konnten nicht geladen werden",
     "emptyTitle": "Keine Buchungen",
-    "empty": "Nichts in dieser Kategorie im gewählten Zeitraum."
+    "empty": "Nichts in dieser Kategorie im gewählten Zeitraum.",
+    "viewAll": "Alle Buchungen"
   }
 }
