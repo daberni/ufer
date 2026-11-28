@@ -217,6 +217,38 @@ test("financial access rejects anonymous, tampered, expired and revoked sessions
   });
 });
 
+test("a session lasts seven days without use and activity renews it at most once a day", async context => {
+  const db = await isolatedAuth(context);
+  const day = 24 * 3_600_000;
+
+  await provisionUser(owner);
+  const signedIn = await signIn();
+  const sessionCookie = (response: Response) => response.headers.getSetCookie().find(value => value.startsWith("__Secure-better-auth.session_token="));
+  const storedExpiry = async () => (await db.select().from(schema.authSessions).get())?.expiresAt.getTime() ?? 0;
+
+  // The default rememberMe keeps the cookie across browser restarts for the full window.
+  assert.match(sessionCookie(signedIn.response) ?? "", /Max-Age=604800/);
+  assert.ok(Math.abs(await storedExpiry() - (Date.now() + 7 * day)) < 60_000);
+
+  // Activity within a day of the last renewal keeps the stored expiry and sends no new cookie.
+  const unchanged = await storedExpiry();
+  const fresh = await handleAuthentication(request("/get-session", undefined, signedIn.cookie));
+
+  assert.equal(fresh.status, 200);
+  assert.equal(sessionCookie(fresh), undefined);
+  assert.equal(await storedExpiry(), unchanged);
+
+  // Two days without use: the next request extends both the stored session and the cookie to seven days from now.
+  await db.update(schema.authSessions).set({
+    expiresAt: new Date(Date.now() + 5 * day)
+  });
+  const renewed = await handleAuthentication(request("/get-session", undefined, signedIn.cookie));
+
+  assert.equal(renewed.status, 200);
+  assert.match(sessionCookie(renewed) ?? "", /Max-Age=604800/);
+  assert.ok(Math.abs(await storedExpiry() - (Date.now() + 7 * day)) < 60_000);
+});
+
 test("valid identities without active membership cannot access financial data", async context => {
   const db = await isolatedAuth(context);
 

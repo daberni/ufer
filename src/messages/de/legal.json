@@ -66,7 +66,7 @@
       "cookies": {
         "heading": "Cookies",
         "intro": "Ufer verwendet nur Cookies, die für die Bereitstellung des Dienstes notwendig sind:",
-        "session": "<code>better-auth.session_token</code> (unter HTTPS <code>__Secure-better-auth.session_token</code>) hält dich angemeldet. Es läuft nach 24 Stunden ohne Nutzung ab und endet früher, wenn du dich abmeldest oder dein Passwort in einer anderen Sitzung geändert wird.",
+        "session": "<code>better-auth.session_token</code> (unter HTTPS <code>__Secure-better-auth.session_token</code>) hält dich angemeldet. Es läuft nach sieben Tagen ohne Nutzung ab und endet früher, wenn du dich abmeldest oder dein Passwort in einer anderen Sitzung geändert wird.",
         "bankFlow": "<code>budget_bank_flow</code> verknüpft eine Bankfreigabe mit dem Browser, der sie gestartet hat. Es wird nur an den Bank-Callback gesendet, läuft nach 15 Minuten ab und wird gelöscht, wenn die Freigabe abgeschlossen ist.",
         "noTracking": "Es gibt keine Analyse, keine Werbung und kein Tracking. Die Seiten laden keine Skripte oder Schriften von Dritten."
       }
