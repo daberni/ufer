@@ -295,6 +295,8 @@ export function SearchableSelect<Value>({
           autoCapitalize="none"
           autoCorrect="off"
           spellCheck={false}
+          // Phone keyboards otherwise offer "Next", which moves on without a keydown; Enter picks the highlighted match.
+          enterKeyHint="done"
           placeholder={fieldPlaceholder}
           value={fieldText}
           aria-autocomplete="list"
