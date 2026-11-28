@@ -17,7 +17,7 @@ import { serializeRange, type PeriodRange } from "@/lib/period-range";
 import { filterInsights } from "@/features/insights/category-filter";
 import type { Insights } from "@/features/insights/types";
 
-/** The insights view: one period bar drives the summary, the interval columns and the breakdown that follows the active column. A category narrows the columns and breakdown to it and lists its transactions. */
+/** The insights view: one period bar drives the summary, the interval columns and the breakdown that follows the active column. A category narrows the summary, columns and breakdown to it and lists its transactions. */
 export function InsightsPage() {
   const range = useInsightsRange();
   const category = useInsightsCategory();
@@ -26,16 +26,18 @@ export function InsightsPage() {
   const currencies = mapArea(accounts, data => accountGroups(data, currency).currencies);
   const insights = useAreaResult(useInsights(range, currency));
   const netWorthChange = useAreaResult(useNetWorthChange(range, currency));
+  // The net-worth change covers every account, so a category narrows only the flows.
+  const flows = category ? mapArea(insights, data => filterInsights(data, category)) : insights;
 
   return (
     <>
       <PeriodBar range={range} currencies={currencies} />
-      <InsightsSummary insights={insights} netWorthChange={netWorthChange} />
+      <InsightsSummary insights={flows} netWorthChange={netWorthChange} />
       {/* The range, currency and category own the column selection's lifetime; changing any starts from the selected range again. */}
       <InsightsPanels
         key={`${serializeRange(range)}:${currency}:${category ?? ""}`}
         range={range}
-        insights={category ? mapArea(insights, data => filterInsights(data, category)) : insights}
+        insights={flows}
         category={category}
       />
       {/* Another category or currency starts at the first page of its transactions. */}
