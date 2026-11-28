@@ -198,7 +198,10 @@ export function SearchableSelect<Value>({
   useDismiss({
     active: open,
     inside: [controlRef, popupRef],
-    onDismiss: () => setOpen(false)
+    onDismiss: () => {
+      setOpen(false);
+      onQueryChange("");
+    }
   });
 
   function openAt(index: number) {

@@ -246,3 +246,29 @@ test("the first Escape drops the search and returns to the selected option, the 
   assert.equal(document.activeElement, field);
   assert.deepEqual(chosen, []);
 });
+
+test("a tap outside that leaves the field focused, as on touch browsers, drops the search and shows the selection as the placeholder", async context => {
+  const {
+    field
+  } = await renderSelect(context);
+
+  act(() => {
+    field.focus();
+    fireEvent.click(field);
+  });
+  act(() => {
+    fireEvent.change(field, {
+      target: {
+        value: "ch"
+      }
+    });
+  });
+  act(() => {
+    fireEvent.pointerDown(document.body);
+  });
+
+  assert.equal(document.activeElement, field);
+  assert.equal(field.getAttribute("aria-expanded"), "false");
+  assert.equal(field.value, "");
+  assert.equal(field.placeholder, "Banana");
+});
