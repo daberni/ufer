@@ -66,7 +66,7 @@
       "cookies": {
         "heading": "Cookies",
         "intro": "Ufer uses only cookies that are necessary to provide the service:",
-        "session": "<code>better-auth.session_token</code> (named <code>__Secure-better-auth.session_token</code> on HTTPS) keeps you signed in. It expires after 24 hours without use and ends earlier when you sign out or when your password is changed in another session.",
+        "session": "<code>better-auth.session_token</code> (named <code>__Secure-better-auth.session_token</code> on HTTPS) keeps you signed in. It expires after seven days without use and ends earlier when you sign out or when your password is changed in another session.",
         "bankFlow": "<code>budget_bank_flow</code> links a bank authorization to the browser that started it. It is sent only to the bank callback, expires after 15 minutes and is deleted when the authorization completes.",
         "noTracking": "There is no analytics, advertising or tracking. The pages do not load third-party scripts or fonts."
       }

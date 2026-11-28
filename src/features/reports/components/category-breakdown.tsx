@@ -22,6 +22,7 @@ import type { Area } from "@/components/ui/use-area-result";
 import type { BreakdownGrouping, CashFlow } from "@/features/reports/types";
 import { useLocale } from "@/client/locale-provider";
 import { useTranslations } from "next-intl";
+import { InsightsLink } from "@/features/reports/components/cash-flow-chart";
 
 type Props = {
   cashFlow: Area<CashFlow>;
@@ -68,7 +69,7 @@ export function CategoryBreakdown({
     <section className={clsx(ui["panel"], styles["panel"])} id={id}>
       <div className={clsx(ui["card-heading"], styles["heading"])}>
         <div className={styles["title"]}>
-          <h2>{t("title")}</h2>
+          <h2><InsightsLink href={viewHref("insights")} title={t("title")} /></h2>
           <span className={clsx(ui["subtle"], pending ? "" : mask)}>{context}</span>
         </div>
         <Link

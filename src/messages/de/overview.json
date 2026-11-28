@@ -5,12 +5,6 @@
     "allMonths": "Alle Monate",
     "transactionCount": "{count, plural, one {# Buchung} other {# Buchungen}}"
   },
-  "monthPicker": {
-    "trigger": "Monat auswählen, {label}",
-    "dialog": "Monat wählen",
-    "previousYear": "Vorheriges Jahr",
-    "nextYear": "Nächstes Jahr"
-  },
   "account": {
     "emptyTitle": "Keine Buchungen in diesem Zeitraum",
     "emptyBody": "Wähle einen anderen Monat oder alle Monate, um frühere Buchungen dieses Kontos zu sehen."

@@ -30,12 +30,12 @@ export function FileImportPage() {
   const [reviewing, setReviewing] = useState(false);
   const load = draft.load;
 
-  // A file chosen in the transactions view's dialog opens here already loaded; opened directly, the page shows its own drop zone.
+  // A file chosen in the dialog or dropped elsewhere opens here already loaded; opened directly, the page shows its own drop zone.
   useEffect(() => {
-    const file = takeImportFile();
+    const pending = takeImportFile();
 
-    if (file) {
-      void load(file);
+    if (pending) {
+      void load(pending.file, pending.accountId);
     }
   }, [load]);
   const loaded = draft.file && (draft.settings || draft.statement);

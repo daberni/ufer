@@ -173,7 +173,7 @@
     "add": "Add {kind, select, checking {current account} savings {savings account} investment {investment account} property {property} credit_card {credit card} loan {loan} other {account}}"
   },
   "list": {
-    "title": "Accounts & assets",
+    "title": "Accounts",
     "addAccount": "Add account",
     "connectBank": "Connect bank",
     "actions": "Account actions",

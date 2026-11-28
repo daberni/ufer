@@ -15,8 +15,9 @@ import { money } from "@/lib/money";
 import { Empty } from "@/components/ui/empty-state";
 import { ActionMenu, MenuItem } from "@/components/ui/action-menu";
 import type { Account } from "@/features/accounts/types";
-import { activeAccounts } from "@/features/accounts/queries";
-import { useState } from "react";
+import { acceptsFileImport, activeAccounts } from "@/features/accounts/queries";
+import { useState, type ReactNode } from "react";
+import { useFileDropTarget } from "@/features/imports/components/file-drop-area";
 import { BankConnectionDialog } from "@/features/banking/components/bank-connection-form";
 import { AccountSourceStatus } from "./account-source-status";
 import { CreateAccountDialog } from "./create-account-form";
@@ -171,7 +172,7 @@ function AccountCard({ account }: {
   const Icon = accountIcon(account.kind);
 
   return (
-    <section className={clsx(ui["panel"], styles["account-detail"])}>
+    <AccountCardFrame account={account}>
       <div className={styles["card-header"]}>
         <span className={clsx(accountStyles["account-logo"], accountStyles[account.kind])}>
           <Icon size={23} />
@@ -199,6 +200,37 @@ function AccountCard({ account }: {
           })}
         </p>
       )}
-    </section>
+    </AccountCardFrame>
   );
+}
+
+// An account that accepts imports is its own drop target and preselects itself; brokerage and archived accounts are not.
+function AccountCardFrame({
+  account,
+  children
+}: {
+  account: Account;
+  children: ReactNode;
+}) {
+  const className = clsx(ui["panel"], styles["account-detail"]);
+
+  if (!acceptsFileImport(account)) {
+    return <section className={className}>{children}</section>;
+  }
+
+  return <ImportableAccountCard accountId={account.id} className={className}>{children}</ImportableAccountCard>;
+}
+
+function ImportableAccountCard({
+  accountId,
+  className,
+  children
+}: {
+  accountId: string;
+  className: string;
+  children: ReactNode;
+}) {
+  const drop = useFileDropTarget(accountId);
+
+  return <section className={clsx(className, drop.className)} {...drop.handlers}>{children}</section>;
 }

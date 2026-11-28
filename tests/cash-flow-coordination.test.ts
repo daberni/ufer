@@ -436,6 +436,21 @@ test("a row of a selected month links to that month and pressing it keeps the se
   assert.deepEqual(screen.pushed, []);
 });
 
+test("both panel titles open the insights in the overview's currency at their default current month, also while another month is selected", async context => {
+  const screen = await showReports(context);
+
+  screen.changeScope("/?period=2026-06&currency=USD");
+  tap(screen.getByRole("button", {
+    name: /June 2026:/
+  }));
+
+  for (const name of ["Income & expenses", "By category"]) {
+    assert.equal(screen.getByRole("link", {
+      name
+    }).getAttribute("href"), "/insights?period=2026-06&currency=USD");
+  }
+});
+
 test("the uncategorized row opens the insights narrowed to uncategorized in the shown currency, while the combined row stays plain", async context => {
   const expenses = [
     category("Rent", 60000),

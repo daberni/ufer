@@ -28,6 +28,27 @@
   gap: 0 var(--space-3);
   min-width: 0;
 }
+/* The title reads as a heading and shows it is a link on hover and focus; it sits away from the columns and rows, which keep their own targets. */
+.title-link {
+  color: inherit;
+  text-decoration: none;
+  text-underline-offset: 0.2em;
+  white-space: nowrap;
+}
+.title-link:hover,
+.title-link:focus-visible {
+  text-decoration: underline;
+}
+.title-icon {
+  display: inline;
+  margin-left: 2px;
+  color: var(--muted);
+  vertical-align: -0.15em;
+}
+.title-link:hover .title-icon,
+.title-link:focus-visible .title-icon {
+  color: var(--green-text);
+}
 .title > span {
   flex-shrink: 0;
   white-space: nowrap;

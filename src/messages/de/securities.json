@@ -80,7 +80,7 @@
   },
   "overview": {
     "noAccountsTitle": "Noch keine Depots",
-    "noAccountsBody": "Lege unter Konten & Vermögen ein Depot an, um Bestand, Trades und Performance zu verfolgen.",
+    "noAccountsBody": "Lege unter Konten ein Depot an, um Bestand, Trades und Performance zu verfolgen.",
     "accounts": "Konten",
     "combinedValueIn": "Gesamtwert in {currency}",
     "totalGain": "{amount} gesamt",

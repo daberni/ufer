@@ -17,7 +17,7 @@ import { areaProps, valueMask } from "@/components/ui/result-presentation";
 import { AreaPlaceholder } from "@/components/ui/area-placeholder";
 import { currentMonth, trendLength, trendMonths } from "@/lib/period";
 import { chartMonthCount, minimumChartMonths, skeletonMonthBreakpoints } from "@/features/reports/chart-months";
-import { useMonthTransactionsHref, usePeriod } from "@/client/use-app-url";
+import { useMonthTransactionsHref, usePeriod, useViewHref } from "@/client/use-app-url";
 import type { Area, AreaResult, PendingArea } from "@/components/ui/use-area-result";
 import type { CashFlow } from "@/features/reports/types";
 import type { EarlierMonths } from "@/features/reports/use-earlier-months";
@@ -26,6 +26,8 @@ import { edgeNet, hasCashFlowToDraw, formatSavingsRate, isNegativeRate, netFlow,
 import { useLocale } from "@/client/locale-provider";
 import { useTranslations } from "next-intl";
 import { cssPercent } from "@/lib/percent";
+import Link from "next/link";
+import { ChevronRight } from "lucide-react";
 
 type Props = {
   cashFlow: Area<CashFlow>;
@@ -62,6 +64,7 @@ export function CashFlowChart({
 }: Props) {
   const locale = useLocale();
   const period = usePeriod();
+  const viewHref = useViewHref();
   const plotRef = useRef<HTMLDivElement>(null);
   const plot = usePlotColumns(plotRef);
   // Whole months scrolled out of view to the right; the chart opens at the trend's latest month.
@@ -84,6 +87,7 @@ export function CashFlowChart({
         rangeMask={rangeMask}
         rate={visibleRate}
         rateMask={rateMask}
+        href={viewHref("insights")}
       />
       <div className={styles["plot"]} ref={plotRef}>
         {cashFlow.status === "pending" ? <ChartSkeleton area={cashFlow} columns={trend.map(month => skeletonColumn(month, locale))} /> : (
@@ -103,13 +107,36 @@ export function CashFlowChart({
   );
 }
 
+/** A panel title that opens the panel's fuller view in the insights; the chevron marks it as a link for touch, the heading keeps the title as its name and the tooltip describes the link. */
+export function InsightsLink({
+  href,
+  title
+}: {
+  href: string;
+  title: string;
+}) {
+  const t = useTranslations("reports");
+
+  return (
+    <Link
+      className={styles["title-link"]}
+      href={href}
+      title={t("openInsights")}
+    >
+      {title}
+      <ChevronRight className={styles["title-icon"]} size={18} aria-hidden />
+    </Link>
+  );
+}
+
 /** The panel's title with the shown range, and the legend with the savings rate of the shown columns. */
 export function ChartHeading({
   range,
   rangeMask,
   rate,
   rateMask,
-  netDetail
+  netDetail,
+  href
 }: {
   range: string;
   rangeMask: string;
@@ -117,6 +144,8 @@ export function ChartHeading({
   rateMask: string;
   /** A figure beside the net entry, such as the shown columns' average net. */
   netDetail?: ReactNode;
+  /** Where the title leads; the overview's chart opens the insights. */
+  href?: string;
 }) {
   const t = useTranslations("reports.chart");
   const locale = useLocale();
@@ -125,7 +154,7 @@ export function ChartHeading({
     <>
       <div className={clsx(ui["card-heading"], styles["heading"])}>
         <div className={styles["title"]}>
-          <h2>{t("title")}</h2>
+          <h2>{href ? <InsightsLink href={href} title={t("title")} /> : t("title")}</h2>
           <span className={clsx(ui["subtle"], rangeMask)}>{range}</span>
         </div>
       </div>

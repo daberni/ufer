@@ -28,13 +28,13 @@
   overflow-y: auto;
   overscroll-behavior: contain;
 }
-.year-bar {
+.page-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-bottom: var(--space-2);
 }
-.year {
+.page {
   font-size: var(--text-sm);
   font-weight: 600;
 }
@@ -43,22 +43,26 @@
   grid-template-columns: repeat(3, 1fr);
   gap: var(--space-1);
 }
-.month {
+/* Quarters fill a two-by-two grid. */
+.grid.two-columns {
+  grid-template-columns: repeat(2, 1fr);
+}
+.cell {
   min-height: 40px;
   border-radius: var(--radius-md);
   font-size: var(--text-sm);
 }
-.month:hover {
+.cell:hover {
   background: var(--soft);
 }
-.month.current {
+.cell.current {
   border: 1px solid var(--green);
 }
-.month.selected {
+.cell.selected {
   background: var(--green);
   color: var(--on-green);
 }
-.month.selected:hover {
+.cell.selected:hover {
   background: var(--green-strong);
 }
 @media (--mobile) {
@@ -67,7 +71,7 @@
     min-height: 44px;
     font-size: var(--text-md);
   }
-  .month {
+  .cell {
     min-height: 44px;
     font-size: var(--text-md);
   }

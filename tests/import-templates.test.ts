@@ -389,7 +389,7 @@ test("remembered choices apply once accounts and categories load, and never over
   };
   const notLoaded = templateChoices(template, [], []);
 
-  assert.deepEqual(resolveTargets(["Example Card"], new Map(), notLoaded.targets, []).get("Example Card"), {
+  assert.deepEqual(resolveTargets(["Example Card"], new Map(), null, notLoaded.targets, []).get("Example Card"), {
     kind: "unset"
   });
   assert.deepEqual(resolveCategories([value], new Map(), notLoaded.selections).get(value.value), {
@@ -404,7 +404,7 @@ test("remembered choices apply once accounts and categories load, and never over
     id: "dining"
   }]);
 
-  assert.deepEqual(resolveTargets(["Example Card"], new Map(), loaded.targets, []).get("Example Card"), {
+  assert.deepEqual(resolveTargets(["Example Card"], new Map(), null, loaded.targets, []).get("Example Card"), {
     kind: "existing",
     accountId: "card"
   });
@@ -417,7 +417,40 @@ test("remembered choices apply once accounts and categories load, and never over
     kind: "skip"
   }]]);
 
-  assert.deepEqual(resolveTargets(["Example Card"], chosen, loaded.targets, []).get("Example Card"), {
+  assert.deepEqual(resolveTargets(["Example Card"], chosen, null, loaded.targets, []).get("Example Card"), {
+    kind: "skip"
+  });
+});
+
+test("a file dropped on an account targets it unless the file names its own account, the account is unavailable or the person chose otherwise", () => {
+  const accounts = [{
+    id: "giro",
+    name: "Everyday account",
+    currency: "EUR"
+  }, {
+    id: "card",
+    name: "Travel card",
+    currency: "EUR"
+  }];
+  const remembered = new Map<string, TargetChoice>([["", {
+    kind: "existing",
+    accountId: "card"
+  }]]);
+
+  assert.deepEqual(resolveTargets([""], new Map(), "giro", remembered, accounts).get(""), {
+    kind: "existing",
+    accountId: "giro"
+  });
+  assert.deepEqual(resolveTargets([""], new Map(), "archived", new Map(), accounts).get(""), {
+    kind: "unset"
+  });
+  assert.deepEqual(resolveTargets(["Travel card"], new Map(), "giro", new Map(), accounts).get("Travel card"), {
+    kind: "existing",
+    accountId: "card"
+  });
+  assert.deepEqual(resolveTargets([""], new Map<string, TargetChoice>([["", {
+    kind: "skip"
+  }]]), "giro", new Map(), accounts).get(""), {
     kind: "skip"
   });
 });

@@ -2,10 +2,8 @@
 
 import ui from "../../../components/ui/primitives.module.css";
 
-import { useRouter } from "next/navigation";
-import { importPath } from "@/client/app-location";
 import { Dialog } from "@/components/ui/dialog";
-import { handOverImportFile } from "@/features/imports/pending-import-file";
+import { useStartFileImport } from "./use-start-file-import";
 import { FileDropZone } from "./file-drop-zone";
 import { useTranslations } from "next-intl";
 
@@ -15,7 +13,7 @@ export function ImportFileDialog({
 }: {
   close: () => void;
 }) {
-  const router = useRouter();
+  const startImport = useStartFileImport();
   const t = useTranslations("imports");
 
   return (
@@ -26,8 +24,7 @@ export function ImportFileDialog({
           disabled={false}
           onFile={file => {
             if (file) {
-              handOverImportFile(file);
-              router.push(importPath);
+              startImport(file);
             }
           }}
         />

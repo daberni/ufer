@@ -4,10 +4,10 @@
     "insights": "Insights",
     "transactions": "Transactions",
     "import": "Import transactions",
-    "accounts": "Accounts & assets",
+    "accounts": "Accounts",
     "account": "Account",
     "brokerage": "Brokerage",
-    "rules": "Categories & rules",
+    "rules": "Categorization",
     "description": "Your personal dashboard for accounts, transactions, and net worth."
   },
   "navigation": {
@@ -30,9 +30,9 @@
       "description": "Every transaction, across all your accounts."
     },
     "accounts": {
-      "label": "Accounts & assets",
+      "label": "Accounts",
       "mobileLabel": "Accounts",
-      "heading": "Accounts & assets",
+      "heading": "Accounts",
       "description": "Your accounts and assets, together in one place."
     },
     "brokerage": {
@@ -42,9 +42,9 @@
       "description": "Your depots, holdings and performance together."
     },
     "rules": {
-      "label": "Categories & rules",
-      "mobileLabel": "Rules",
-      "heading": "Categories & rules",
+      "label": "Categorization",
+      "mobileLabel": "Categories",
+      "heading": "Categorization",
       "description": "Less sorting. More clarity."
     }
   },

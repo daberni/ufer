@@ -38,8 +38,10 @@ export function LoginForm() {
   return (
     <main className={styles["login-page"]}>
       <ShorelineBackdrop className={styles["shoreline"]} />
+      {/* A POST form with a submit button lets password managers fill and submit it through the handler below. Without an action, a native submit reloads this page instead of reaching Better Auth, which rejects form-encoded sign-ins; POST keeps the password out of the URL. */}
       <form
         className={clsx(styles["login-card"], ui["form"])}
+        method="post"
         onSubmit={event => {
           event.preventDefault();
           const fields = new FormData(event.currentTarget);
@@ -77,7 +79,7 @@ export function LoginForm() {
           />
         </label>
         <FormError failure={signIn.error ? toFailure(signIn.error) : null} />
-        <button className={clsx(styles["button"], ui["primary"])} disabled={signIn.isPending}>
+        <button type="submit" className={clsx(styles["button"], ui["primary"])} disabled={signIn.isPending}>
           {t("submit")} <ArrowRight size={16} />
         </button>
         <div className={styles["legal"]}>
