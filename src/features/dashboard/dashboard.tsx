@@ -28,7 +28,7 @@ import { onView, useAppStore } from "@/client/app-store";
 import { useSessionLock } from "@/client/use-session-lock";
 import { useDashboardNavigation } from "./use-dashboard-navigation";
 import { useAccountFilter, useCurrency, useHoldingSecurity, useView, useViewHref } from "@/client/use-app-url";
-import { useSecurities } from "@/features/securities/queries";
+import { useBrokerageHolding } from "@/features/securities/queries";
 import { sectionOf } from "@/client/app-location";
 import { useLoadError } from "./use-load-error";
 import { TraceId } from "@/components/ui/trace-id";
@@ -72,9 +72,10 @@ function DashboardShell({ children }: {
   const section = sectionOf(view);
   const nav = navigation.find(item => item.id === section)!;
   const holdingSecurity = useHoldingSecurity();
-  const securities = useSecurities(view === "holding");
+  // The holding's own query, shared with its page: its actions appear only once the account holds the security, and its failure shows on the page.
+  const holding = useBrokerageHolding(accountId, holdingSecurity, view === "holding");
   const selectedAccount = view === "account" || view === "holding" ? accounts.data?.find(account => account.id === accountId) : undefined;
-  const selectedSecurity = securities.data?.securities.find(security => security.id === holdingSecurity);
+  const selectedSecurity = view === "holding" ? holding.data?.security : undefined;
   let heading = view === "account" ? selectedAccount?.name ?? t("views.accountDetails") : t(`navigation.${nav.id}.heading`);
 
   if (view === "import") {
@@ -122,7 +123,7 @@ function DashboardShell({ children }: {
         <AppHeader environment={environment} title={t(`navigation.${nav.id}.label`)} />
         <main className={styles["content"]}>
           <PageHeading heading={selectedAccount && view === "account" ? selectedAccount.name : heading} description={description}>
-            {/* A holding's Add trade starts with its security, so it waits until the security is known. */}
+            {/* A holding's Add trade starts with its security, so it waits until the holding has loaded. */}
             {selectedAccount && (view === "account" || selectedSecurity) ? (
               <div className={styles["account-actions"]}>
                 <AccountDetailActions

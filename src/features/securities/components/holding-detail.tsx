@@ -17,7 +17,7 @@ import { dateWithYear } from "@/lib/date-format";
 import { money, signedMoney } from "@/lib/money";
 import type { Account } from "@/features/accounts/types";
 import { useAccounts } from "@/features/accounts/queries";
-import { useBrokerageHolding, useSecurities } from "../queries";
+import { useBrokerageHolding } from "../queries";
 import type { Holding, Trade } from "../types";
 import { formatPrice, formatQuantity, priceDigits } from "./holding-format";
 import { HoldingsTable, HoldingsTableSkeleton } from "./brokerage-panel";
@@ -35,7 +35,6 @@ export function HoldingDetail({ account }: {
   const t = useTranslations("securities.holding");
   const securityId = useHoldingSecurity();
   const detailQuery = useBrokerageHolding(account.id, securityId);
-  const securities = useSecurities();
   const accounts = useAccounts();
   const locale = useLocale();
   const [booking, setBooking] = useState<string | null>(null);
@@ -59,6 +58,7 @@ export function HoldingDetail({ account }: {
   }
 
   const {
+    security,
     holding,
     trades,
     prices,
@@ -77,7 +77,7 @@ export function HoldingDetail({ account }: {
           label={t("position")}
           holdings={[holding]}
           trades={trades}
-          securities={securities.data?.securities ?? []}
+          securities={[security]}
           currency={currency}
           priceDigits={digits}
         />

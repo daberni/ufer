@@ -26,17 +26,17 @@ export function useCombinedBrokeragePerformance() {
   });
 }
 
-export function useSecurities(enabled = true) {
+export function useSecurities() {
   return useQuery({
-    enabled,
     queryKey: queryKeys.securities.all(),
     queryFn: ({ signal }) => apiGet<SecurityList>("securities", undefined, signal)
   });
 }
 
 
-export function useBrokerageHolding(accountId: string, securityId: string) {
+export function useBrokerageHolding(accountId: string, securityId: string, enabled = true) {
   return useQuery({
+    enabled,
     queryKey: queryKeys.securities.holding(accountId, securityId),
     queryFn: ({ signal }) => apiGet<BrokerageHolding>(`brokerage-accounts/${encodeURIComponent(accountId)}/holdings/${encodeURIComponent(securityId)}`, undefined, signal)
   });

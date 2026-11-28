@@ -91,6 +91,7 @@ export type BrokerageTrades = {
 export type BrokerageHolding = {
   account_id: string;
   currency: string;
+  security: Security;
   holding: Holding;
   trades: Trade[];
   prices: PricePoint[];

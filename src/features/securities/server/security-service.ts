@@ -460,14 +460,16 @@ export async function readBrokerageTrades(accountId: string, now = Temporal.Now.
 export async function readBrokerageHolding(accountId: string, securityId: string, now = Temporal.Now.instant()) {
   const brokerage = await readBrokerageTrades(accountId, now);
   const holding = brokerage.valuation.holdings.find(item => item.security_id === securityId);
+  const security = (await listSecurities()).find(item => item.id === securityId);
 
-  if (!holding) {
+  if (!holding || !security) {
     throw new HttpError(404, "Holding not found.");
   }
 
   return {
     account_id: brokerage.account_id,
     currency: brokerage.currency,
+    security,
     holding,
     trades: brokerage.trades.filter(trade => trade.security_id === securityId).toReversed(),
     prices: closesAfterSplits(await readPriceHistory(securityId), await readSplits(securityId))

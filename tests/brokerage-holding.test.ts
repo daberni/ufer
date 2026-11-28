@@ -115,6 +115,7 @@ test("a holding lists only its own trades and its security's closes, newest firs
     date: "2026-09-30",
     close_micros: 108_000_000
   }]);
+  assert.equal(detail.security.name, "Synthetic World ETF");
   assert.equal(detail.holding.quantity_micros, 6_000_000);
   assert.equal(detail.holding.value_minor, 672_00);
   assert.equal(detail.trades[0]!.realized_minor, 440_00 - 400_00);
